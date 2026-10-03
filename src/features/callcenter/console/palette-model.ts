@@ -1,45 +1,49 @@
 /**
- * The command palette's rows (ticket 192) — a `SessionState` in, the acts the
- * order can do out.
+ * The console's commands — a `SessionState` in, the acts the order can do out, as
+ * the "This screen" rows of the app-wide palette (ticket 192, moved onto the core
+ * palette by 395; spec 380 K19, ruling 364 §5).
  *
- * It is a module rather than component state for the reason [153](.issues/153-console-keyboard-grammar.md)
- * gave the whole keyboard grammar: every rule here is about a key that can reach
- * a **terminal act**, and a rule living inside a `useState` reducer is a rule no
- * test can reach. Three of them in particular:
+ * The console no longer runs a palette of its own. `ConsoleShell` hands this
+ * module's output to `useCommands`, and `@/core/commands` lists, filters, aims and
+ * runs it — with Go to, Jump to number and Recent under it. What stays here is
+ * what only the console knows: which acts exist, in what order, and in whose words
+ * a refused one is explained. It is a module rather than component state for the
+ * reason [153](.issues/153-console-keyboard-grammar.md) gave the whole keyboard
+ * grammar: every rule here is about a key that can reach a **terminal act**, and a
+ * rule living inside a component is a rule no test can reach.
  *
- * 🚩 **The two terminal acts sort last and are never the auto-highlighted row.**
- * *Place order* and *Abandon call* are palette rows and nothing else — that is
- * the whole of the keyboard's access to them — so a mistyped `Enter` must not be
- * able to land on one. When a query matches *only* a terminal, `autoHighlight`
- * is `null` and the agent has to press `↓`. That is one deliberate key between
- * the keyboard and the end of a call.
+ * 🚩 **The two terminal acts are `terminal` commands.** *Place order* and *Abandon
+ * call* are palette rows and nothing else — that is the whole of the keyboard's
+ * access to them. The core sorts a terminal row last and never auto-aims at it, so
+ * a query matching only *Abandon call* aims at nothing and reaching it costs a
+ * deliberate `↓` (192's ruling 3, now a property any screen can use). The core's
+ * registry also refuses `keys` on a terminal command: 153 stands whole, and there
+ * is no place-order chord (365 §7). Nothing here carries `keys` at all.
  *
  * 🚩 **A refused verb is a disabled row carrying its reason** — the console's one
  * deliberate exception to the standing law that a control the door would refuse
  * is worse than no control (165/167/175). The law is about a control the agent's
  * hand *lands on*; the palette is a question the agent **asked**, and an empty
- * answer to a deliberate question teaches nothing. Disabled rows stay
- * highlightable and running one does nothing, because skipping them would hide
- * the very reason the exception exists.
+ * answer to a deliberate question teaches nothing.
  *
- * 🚩 **Enablement is never a predicate of this module's own.** A row is enabled
- * exactly when the caller handed it a `run` — which is the same handler the chip,
+ * 🚩 **Enablement is never a predicate of this module's own.** A command is
+ * enabled exactly when the caller handed it a `run` — the same handler the chip,
  * the button or the rail already reads, derived once by the page off
- * `capabilities`. `highlight.ts` calls this *one gate, never a second predicate*;
- * here it is what stops the palette offering an act the chip row has withdrawn.
- * The **reason** is a separate `capabilityReasons` lookup (plus the one
- * precondition the contract states outright — see `NEEDS_CALLER`), so the
+ * `capabilities`. The **reason** is a separate `capabilityReasons` lookup (plus
+ * the one precondition the contract states outright — see `NEEDS_CALLER`), so the
  * failure mode of a reason this console has no words for is a vague sentence and
  * never a wrong refusal.
  *
- * Like `guidance-view` and `discount-definition`, nothing user-visible is
- * authored here: every phrase is a **key**, resolved by the render tier with
- * `t()`.
+ * Nothing user-visible is authored here: every phrase is a `callcenter:` **key**,
+ * resolved by the palette with `t()`.
  */
 import type { SessionCapabilities } from '@/core/models/callcenter'
+import type { Command } from '@/core/commands/palette-model'
 import type { GuidanceView } from './guidance-view'
-import { highlightedIndex, type HighlightState } from './highlight'
 import { submitBlockers } from './submit-blockers'
+
+/** The console's namespace: the core palette resolves a key with its namespace. */
+const NS = 'callcenter:'
 
 /**
  * An i18n key and, where the key is one the server named, **the key to fall back
@@ -51,7 +55,7 @@ import { submitBlockers } from './submit-blockers'
  * changes ship server-first) must reach the agent as the general sentence, never
  * as a raw key on screen.
  */
-export interface PalettePhrase {
+interface PalettePhrase {
   key: string
   fallbackKey?: string
 }
@@ -78,29 +82,8 @@ export type PaletteVerb =
   | 'removeCaller'
   | 'refresh'
 
-/** The two acts that end a call. Sorted last, always, and never auto-aimed. */
+/** The two acts that end a call: `terminal` commands, so sorted last and never auto-aimed. */
 export type PaletteTerminal = 'place' | 'abandon'
-
-export type PaletteRowKind = 'offer' | 'verb' | 'terminal'
-
-export interface PaletteRow {
-  /** Stable across a re-render: the React key, and the drive's handle. */
-  id: string
-  kind: PaletteRowKind
-  /** The console's own word for the row. */
-  label: PalettePhrase
-  /**
-   * Server-supplied text beside the label — an offer's description, passed
-   * through as data (§7). `null` on every row the console words itself.
-   */
-  detail: string | null
-  /** 🚩 `run !== null`. Never a predicate of this module's own. */
-  enabled: boolean
-  /** Why not, when it is not. `null` on an enabled row. */
-  reason: PalettePhrase | null
-  /** The act itself — the very handler the row's other surface already calls. */
-  run: (() => void) | null
-}
 
 /**
  * Everything the palette can run, exactly as the page already derived it for the
@@ -153,10 +136,10 @@ const REASON_FAMILY: Partial<Record<PaletteVerb, { capability: string; family: s
 }
 
 /** The store chip's own sentence, borrowed for the palette's row (see below). */
-export const STORE_FOLLOWS_ADDRESS = 'store.followsAddress'
+export const STORE_FOLLOWS_ADDRESS = `${NS}store.followsAddress`
 
 /** The phrase any refusal this console has no words for falls back to. */
-export const VAGUE_REASON = 'palette.reason.unknown'
+export const VAGUE_REASON = `${NS}palette.reason.unknown`
 
 /**
  * The one refusal the CONTRACT itself states, quoted rather than guessed.
@@ -172,7 +155,7 @@ export const VAGUE_REASON = 'palette.reason.unknown'
  * with no caller on the order this sentence is true whatever else is also true.
  * No other verb gets one: `capabilityReasons` is where the rest belong.
  */
-const NEEDS_CALLER = 'palette.reason.NO_CUSTOMER_ATTACHED'
+const NEEDS_CALLER = `${NS}palette.reason.NO_CUSTOMER_ATTACHED`
 
 /** The order the verbs are listed in. `attachCaller`/`removeCaller` is one slot
  *  holding whichever of the two the order's state makes true. */
@@ -196,8 +179,7 @@ export interface PaletteInput {
    * 🚩 The strip's own view model, **passed in rather than re-derived**. It is
    * read once in `ConsoleShell` — where the top-bar count is also read from it —
    * so the palette, the strip and the count cannot disagree about what is
-   * actionable. A `paletteRows` that took `nearMisses` and called `guidanceView`
-   * itself would be the second read this shape exists to prevent.
+   * actionable.
    */
   guidance: GuidanceView
   /** Read ONLY for `capabilityReasons`. Never for enablement — see `PaletteActions`. */
@@ -213,58 +195,58 @@ export interface PaletteInput {
    */
   pickup: boolean
   actions: PaletteActions
+  /**
+   * Whether a (namespaced) key has words in the bundle — `i18n.exists`. Read only
+   * to fall a server-named reason back to its family's general sentence.
+   */
+  known: (key: string) => boolean
 }
 
 /**
- * Every row, in the one order the palette ever shows them: **actionable offers,
+ * Every command, in the one order the console lists them: **actionable offers,
  * then the order verbs, then the two terminal acts**.
  *
  * The order is load-bearing rather than cosmetic. Offers lead because they are
  * the live, perishable half of the screen and the strip had no keyboard path at
- * all (153's headline finding). The terminals trail because sorting them last is
- * half of what stops a mistyped `Enter` reaching them — `autoHighlight` is the
- * other half.
+ * all (153's headline finding). The terminals trail — and the core lists every
+ * terminal row last anyway, after Go to and Jump.
  */
-export function paletteRows({
+export function paletteCommands({
   guidance,
   capabilities,
   hasCaller,
   pickup,
   actions,
-}: PaletteInput): PaletteRow[] {
-  const rows: PaletteRow[] = []
+  known,
+}: PaletteInput): Command[] {
+  const said = (phrase: PalettePhrase) => wordedKey(phrase, known)
+  const commands: Command[] = []
 
   // 1. The offers within reach — the same cards the strip draws and the same
   //    count the top bar mirrors.
   for (const card of guidance.actionable) {
     const run = actions.onOffer ? () => actions.onOffer?.(card.offerId, card.description) : null
-    rows.push({
+    commands.push({
       id: `offer:${card.cardId}`,
-      kind: 'offer',
-      label: { key: 'palette.offer' },
+      label: `${NS}palette.offer`,
       // Server text, passed through as data — never re-worded (§7).
       detail: card.description,
-      enabled: run !== null,
-      reason: run !== null ? null : { key: VAGUE_REASON },
       run,
+      reason: VAGUE_REASON,
     })
   }
 
-  // 2. The order verbs, one row each.
+  // 2. The order verbs, one command each.
   for (const verb of VERB_ORDER) {
     // The caller slot holds exactly one row: *Attach* while the order has no
     // caller, *Remove* once it has one — the same two states the rail draws.
     if (verb === 'attachCaller' && hasCaller) continue
     if (verb === 'removeCaller' && !hasCaller) continue
-    const run = actions.verbs[verb] ?? null
-    rows.push({
+    commands.push({
       id: `verb:${verb}`,
-      kind: 'verb',
-      label: { key: `palette.verb.${verb}` },
-      detail: null,
-      enabled: run !== null,
-      reason: run !== null ? null : refusalOf(verb, capabilities, hasCaller, pickup),
-      run,
+      label: `${NS}palette.verb.${verb}`,
+      run: actions.verbs[verb] ?? null,
+      reason: said(refusalOf(verb, capabilities, hasCaller, pickup)),
     })
   }
 
@@ -272,31 +254,32 @@ export function paletteRows({
   //    reason: `submitBlockers` is the server's list, already worded, and a
   //    palette that said something else about a dead submit would be a second
   //    answer to US54's question.
-  rows.push(
+  commands.push(
     terminal('place', actions.place ?? null, firstBlocker(capabilities)),
     terminal('abandon', actions.abandon ?? null, null),
   )
-  return rows
+  return commands
 }
 
-function terminal(
-  name: PaletteTerminal,
-  run: (() => void) | null,
-  reason: PalettePhrase | null,
-): PaletteRow {
+/** A terminal act: `terminal`, and never `keys` (the core registry would refuse them). */
+function terminal(name: PaletteTerminal, run: (() => void) | null, reason: string | null): Command {
   return {
     id: `terminal:${name}`,
-    kind: 'terminal',
-    label: { key: `palette.terminal.${name}` },
-    detail: null,
-    enabled: run !== null,
-    reason: run !== null ? null : (reason ?? { key: VAGUE_REASON }),
+    label: `${NS}palette.terminal.${name}`,
     run,
+    reason: reason ?? VAGUE_REASON,
+    terminal: true,
   }
 }
 
+/** The key whose words are said: the server-named one, or its family's general sentence. */
+function wordedKey({ key, fallbackKey }: PalettePhrase, known: (key: string) => boolean): string {
+  return fallbackKey && !known(key) ? fallbackKey : key
+}
+
 /**
- * Why a verb is refused, in the agent's words.
+ * Why a verb is refused, in the agent's words. Computed for every verb; the core
+ * reads it only when the row is refused (no handler).
  *
  * 🚩 The code is the SERVER's (`capabilityReasons`, keyed by the capability that
  * is false) and is never interpolated into the sentence — a wire code on screen
@@ -313,7 +296,7 @@ function refusalOf(
 ): PalettePhrase {
   const gate = REASON_FAMILY[verb]
   const code = gate ? capabilities.capabilityReasons?.[gate.capability] : undefined
-  if (gate && code) return { key: `${gate.family}.${code}`, fallbackKey: `${gate.family}.unknown` }
+  if (gate && code) return { key: `${NS}${gate.family}.${code}`, fallbackKey: `${NS}${gate.family}.unknown` }
   // The server said nothing. One precondition the contract states outright, and
   // otherwise the honest vague sentence.
   if (verb === 'addressBook' && !hasCaller) return { key: NEEDS_CALLER }
@@ -333,97 +316,7 @@ function refusalOf(
  * deliberately). The receipt still names every one of them — this is a pointer
  * at the same list, not a replacement for it.
  */
-function firstBlocker(capabilities: SessionCapabilities): PalettePhrase | null {
+function firstBlocker(capabilities: SessionCapabilities): string | null {
   const blocker = submitBlockers(capabilities.submitBlockers)[0]
-  return blocker ? { key: blocker.key } : null
-}
-
-/**
- * The rows a typed query leaves, in the same order.
- *
- * 🚩 The matching is done over the **rendered** text, which is why the caller
- * hands in a `textOf`: the labels here are i18n keys (zero-literal), and a
- * module that matched against `palette.verb.changeStore` would have the agent
- * typing key names. Order is never touched — a filter that re-ranked by score
- * could float a terminal act above a verb, which is exactly what sorting them
- * last exists to prevent.
- */
-export function filterRows(
-  rows: PaletteRow[],
-  query: string,
-  textOf: (row: PaletteRow) => string,
-): PaletteRow[] {
-  const needle = query.trim().toLowerCase()
-  if (needle === '') return rows
-  return rows.filter((row) => textOf(row).toLowerCase().includes(needle))
-}
-
-/**
- * The row the palette aims at **before the agent has pressed anything**.
- *
- * 🚩 The first row that is not a terminal act, or `null` when there is none.
- * That single rule is the whole of ruling 3's second guard: a query matching only
- * *Abandon call* aims at nothing, `Enter` does nothing, and reaching it costs a
- * deliberate `↓`.
- *
- * A **disabled** row is aimed at like any other — it is the answer to a question
- * the agent asked, and skipping it would hide the reason the disabled row exists
- * to carry.
- */
-export function autoHighlight(rows: PaletteRow[]): number | null {
-  const index = rows.findIndex((row) => row.kind !== 'terminal')
-  return index === -1 ? null : index
-}
-
-/**
- * **The question an aim answers** — the typed query AND the rows it produced.
- *
- * 🚩 191's rule is that a highlight belongs to a *term*, not to a list, so a new
- * question drops it by construction. On the palette the list can change without
- * the query changing at all: the rows are rebuilt from `SessionState`, so an add
- * landing, a capability flipping or an offer arriving mid-call reshuffles them
- * under an open palette. An index carried across that names a **different row**,
- * and the row it slides onto is drawn from a list whose last two entries end the
- * call. Folding the row ids into the term makes any such change a new question,
- * which falls the aim back to `autoHighlight` — and `autoHighlight` never aims
- * at a terminal act.
- */
-export function paletteQuestion(rows: PaletteRow[], query: string): string {
-  return `${query}
-${rows.map((row) => row.id).join(',')}`
-}
-
-/**
- * Where the highlight actually is — 191's `highlight.ts` for the arrows, with
- * the palette's auto-aim underneath it.
- *
- * The two lists differ in exactly one way and it is deliberate. Over search
- * results **nothing** is highlighted until `↓`, because the top row is a
- * relevance guess and `Enter` there puts a line on a live order. In the palette
- * `Enter` runs a row the agent has NAMED by typing, so the top match is aimed
- * from the start — and the acts where that would be dangerous are the two that
- * `autoHighlight` refuses to aim at.
- *
- * `armed` is always true here: unlike the search list there is no door to be
- * shut, because a disabled row is drawn rather than withheld and running one
- * does nothing.
- *
- * 🚩 `question` is `paletteQuestion`'s, never the bare query — see there for the
- * failure that distinction closes.
- */
-export function paletteAim(state: HighlightState, rows: PaletteRow[], question: string): number | null {
-  const carried = highlightedIndex(state, { count: rows.length, term: question, armed: true })
-  return carried ?? autoHighlight(rows)
-}
-
-/**
- * What `Enter` runs — and the one place that answers *nothing*.
- *
- * A disabled row returns `null` rather than being skipped over: the agent asked,
- * the answer is the reason on the row, and the key does nothing at all.
- */
-export function paletteRun(rows: PaletteRow[], aim: number | null): PaletteRow | null {
-  if (aim === null) return null
-  const row = rows[aim]
-  return row?.enabled && row.run ? row : null
+  return blocker ? `${NS}${blocker.key}` : null
 }

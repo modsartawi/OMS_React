@@ -52,7 +52,7 @@ import {
   moveHighlight,
   type HighlightList,
   type HighlightState,
-} from './highlight'
+} from '@/core/commands/highlight'
 
 const FIELD =
   'w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring disabled:opacity-60'

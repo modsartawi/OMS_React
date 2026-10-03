@@ -1,11 +1,11 @@
 /**
- * The keyboard highlight over a list the agent is typing above (ticket 191) —
- * the search results today, the palette's rows next ([192](.issues/192-ctrl-k-reaches-every-order-act.md)).
+ * The keyboard highlight over a list the agent is typing above (ticket 191) — the
+ * call center's search results and address lookup, and the app-wide palette's rows
+ * ([192](.issues/192-ctrl-k-reaches-every-order-act.md), 392).
  *
  * 🚩 **Graduated to `@/core/commands` with the app-wide palette (ticket 392, spec 380
- * K1).** The console's own copy (`features/callcenter/console/highlight.ts`) stays
- * in place until 395 moves the console onto this palette and deletes it; until then
- * the two are the same module, and an edit to one is an edit to both.
+ * K1).** It is the one copy (395 deleted the console's): the palette and the call
+ * center's item search and address lookup all read it.
  *
  * It is a **module rather than component state** for two reasons, and both are
  * about the same defect. First, 192 reuses this grammar verbatim over a

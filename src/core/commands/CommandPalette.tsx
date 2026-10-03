@@ -1,6 +1,6 @@
 /**
- * The app-wide command palette (ticket 392, spec 380 K7–K13), graduated from the call
- * center's (ticket 192). The console keeps its own copy until 395.
+ * The app-wide command palette (ticket 392, spec 380 K7–K14), graduated from the call
+ * center's (ticket 192). Since 395 it is the console's too: one palette, everywhere.
  *
  * It is a native `<dialog>` — so the top layer, the focus trap, the inert page behind
  * and `Esc` are the platform's — drawn on the overlay card recipe at 10px (F15) and
@@ -85,8 +85,9 @@ export default function CommandPalette({
     if (open && dialog && !dialog.open) dialog.showModal()
   }, [open])
 
+  // The server's own text rides along: a call-center offer is found by its own name.
   const textOf = (row: PaletteRow) =>
-    [t(row.label), row.context ? t(row.context) : '', row.value ?? ''].join(' ')
+    [t(row.label), row.detail ?? '', row.context ? t(row.context) : '', row.value ?? ''].join(' ')
   const groups = open ? compose(query, textOf) : []
   const rows = groups.flatMap((g) => g.rows)
   // The query AND the rows it produced: a This screen row is rebuilt from page state, so
@@ -179,24 +180,33 @@ export default function CommandPalette({
           </p>
         )}
         <div id={LIST_ID} role="listbox" aria-label={t('palette.title')}>
-          {groups.map((group) => (
-            <div
-              key={group.id}
-              role="group"
-              aria-labelledby={`core-palette-group-${group.id}`}
-              data-palette-group={group.id}
-            >
+          {groups.map((group) => {
+            const heading = PALETTE_GROUP_LABEL[group.id]
+            return (
               <div
-                id={`core-palette-group-${group.id}`}
-                className="px-2 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                key={group.id}
+                role="group"
+                aria-labelledby={heading ? `core-palette-group-${group.id}` : undefined}
+                // Heading-less, the terminal rows are still This screen's acts — and say so.
+                aria-label={heading ? undefined : t('common:palette.group.screen')}
+                data-palette-group={group.id}
+                // The terminal rows (K14) are set apart by a rule, not a second heading.
+                className={heading ? undefined : 'mt-1.5 border-t border-border pt-1.5'}
               >
-                {t(PALETTE_GROUP_LABEL[group.id])}
+                {heading && (
+                  <div
+                    id={`core-palette-group-${group.id}`}
+                    className="px-2 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                  >
+                    {t(heading)}
+                  </div>
+                )}
+                {group.rows.map((row) => (
+                  <Row key={row.id} row={row} aimed={aimId === optionId(row)} onRun={() => choose(row)} />
+                ))}
               </div>
-              {group.rows.map((row) => (
-                <Row key={row.id} row={row} aimed={aimId === optionId(row)} onRun={() => choose(row)} />
-              ))}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
       <div
@@ -244,6 +254,7 @@ function Row({ row, aimed, onRun }: { row: PaletteRow; aimed: boolean; onRun: ()
       data-palette-row={row.id}
       {...(aimed ? { 'data-palette-aimed': row.id } : {})}
       {...(row.enabled ? {} : { 'data-palette-disabled': row.id })}
+      {...(row.terminal ? { 'data-palette-terminal': row.id } : {})}
       onClick={onRun}
       className={
         'relative flex min-h-8 items-center gap-2.5 rounded-md px-2 py-1 text-[13px] ' +
@@ -257,6 +268,12 @@ function Row({ row, aimed, onRun }: { row: PaletteRow; aimed: boolean; onRun: ()
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span className="truncate">{t(row.label)}</span>
+          {/* The server's own words (an offer's description), passed through as data. */}
+          {row.detail && (
+            <bdi className="min-w-0 truncate font-medium" data-palette-detail>
+              {row.detail}
+            </bdi>
+          )}
           {row.value !== null && (
             <span className="shrink-0 font-mono font-semibold" data-palette-value>
               <Ltr>{row.value}</Ltr>

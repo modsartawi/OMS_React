@@ -15,7 +15,8 @@
  * two mounted commands on one key; any Alt chord; any Ctrl chord but a screen's
  * Ctrl+Enter (Ctrl+K is the core's); and AG Grid's own keys, so arrows, Tab, Space,
  * Enter, PageUp/PageDown, Home/End, Ctrl+A and Ctrl+C stay the grid's and native copy is
- * untouched.
+ * untouched. And **a `terminal` command carries no key at all** (395, ruling 365 §7): an
+ * act that ends something is a palette row reached by a deliberate `↓`, never a chord.
  */
 import type { Command } from './palette-model'
 
@@ -116,9 +117,19 @@ const GRID_KEYS: readonly string[] = [
  * - `unsupported` — anything else that is not a letter, `/`, Esc or Ctrl+Enter;
  * - `single-key-screen` — a letter or `/` on a screen that has no single keys (365 §2:
  *   the Deliveries list and Delivery details only);
+ * - `terminal` — the command is a terminal act, which never carries a key (395);
  * - `collision` — another mounted command claimed it first.
  */
-export type KeyRefusal = 'malformed' | 'alt' | 'grid' | 'core' | 'ctrl' | 'unsupported' | 'single-key-screen' | 'collision'
+export type KeyRefusal =
+  | 'malformed'
+  | 'alt'
+  | 'grid'
+  | 'core'
+  | 'ctrl'
+  | 'unsupported'
+  | 'single-key-screen'
+  | 'terminal'
+  | 'collision'
 
 /** Why this key may not be a screen command's, or `null` when it may (the collision aside). */
 export function keyRefusal(keys: string, at: { singleKeyScreen: boolean }): KeyRefusal | null {
@@ -155,7 +166,7 @@ export function bindKeys(commands: readonly Command[], at: { singleKeyScreen: bo
   const refused: RefusedKey[] = []
   for (const command of commands) {
     if (!command.keys) continue
-    const refusal = keyRefusal(command.keys, at)
+    const refusal = command.terminal ? 'terminal' : keyRefusal(command.keys, at)
     const p = parseKeys(command.keys)
     const canonical = p ? canonicalKeys(p) : command.keys
     if (refusal) refused.push({ command, keys: command.keys, refusal })

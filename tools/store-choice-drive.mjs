@@ -252,11 +252,12 @@ async function run() {
     //    row's on purpose (192): a question the agent ASKED gets an answer, so
     //    the row stays and is dead, carrying the same sentence as the chip row.
     await page.keyboard.press('Control+k')
-    await page.locator('[data-cc-palette]').waitFor({ timeout: 5_000 })
-    const store = page.locator('[data-cc-palette-row="verb:changeStore"]')
+    // The core palette since 395: a console command's row id is `screen:` + its own.
+    await page.locator('[data-palette]').waitFor({ timeout: 5_000 })
+    const store = page.locator('[data-palette-row="screen:verb:changeStore"]')
     check('the palette cannot run *Change store* on a delivery order either',
       (await store.getAttribute('aria-disabled')) === 'true' ||
-        (await store.getAttribute('data-cc-palette-disabled')) !== null ||
+        (await store.getAttribute('data-palette-disabled')) !== null ||
         (await store.isDisabled().catch(() => false)),
       await store.innerText())
     check('...and it gives the SAME sentence the chip row does',

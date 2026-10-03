@@ -75,6 +75,19 @@ describe('registryRefusesReservedAndCollidingKeys', () => {
     expect(boundKeysOf(second, { bound, refused })).toBeNull()
   })
 
+  // 395, ruling 365 §7: a terminal act is never one key away — not even Ctrl+Enter.
+  it('registryRefusesKeysOnTerminalCommand', () => {
+    const place = cmd('place', 'Ctrl+Enter', { terminal: true })
+    const { bound, refused } = bindKeys([place], LIST)
+    expect(bound.size).toBe(0)
+    expect(refused).toEqual([{ command: place, keys: 'Ctrl+Enter', refusal: 'terminal' }])
+    expect(boundKeysOf(place, { bound, refused })).toBeNull()
+    // Refused on any key, and before a collision is even considered.
+    const first = cmd('note', 'Escape')
+    const abandon = cmd('abandon', 'Escape', { terminal: true })
+    expect(bindKeys([first, abandon], LIST).refused.map((r) => r.refusal)).toEqual(['terminal'])
+  })
+
   it('every refusal is reported and binds nothing; a command with no key is simply unbound', () => {
     const { bound, refused } = bindKeys(
       [cmd('alt', 'Alt+KeyR'), cmd('save', 'Ctrl+KeyS'), cmd('down', 'ArrowDown'), cmd('space', 'Space'), cmd('plain')],

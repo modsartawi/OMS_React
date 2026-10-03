@@ -187,6 +187,12 @@
 //        and `Esc` with text still clears the box and keeps the caret;
 //    43. the shut gate is shut to the keyboard too — no *Add* is drawn, `↓`
 //        highlights nothing, and `Enter` reaches no verb.
+//
+// Asserts ticket 395's Proof (spec 380 K14, K19), in light, dark and RTL:
+//    44. Ctrl+K on /callcenter opens the CORE palette — the console's own is gone —
+//        with the console's verbs, Go to, and the two terminal acts last; typing
+//        "place" does not auto-highlight *Place order*; Esc hands the caret back;
+//        an Arabic-layout Ctrl+K (key "ن" on KeyK) opens it.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -3958,6 +3964,67 @@ async function run() {
     check('and Enter adds nothing', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
     check('the basket is untouched', await page.locator('[data-cc-basket-empty]').isVisible())
     check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 44. the console's palette is the core one (395, spec 380 K14, K19) ----
+  //
+  // One palette serves the console: its verbs and terminal acts are This screen rows of
+  // the app-wide palette, under which Go to sits, in light, dark and RTL. The terminal
+  // pair is never auto-aimed, and an Arabic-layout Ctrl+K (key "ن" on KeyK) opens it.
+  for (const mode of [
+    { theme: 'light', dir: 'ltr' },
+    { theme: 'dark', dir: 'ltr' },
+    { theme: 'light', dir: 'rtl' },
+  ]) {
+    const tag = `${mode.theme}/${mode.dir}`
+    const { context, page, errors } = await open(browser, {})
+    await page.addInitScript(
+      ([t, d]) => {
+        localStorage.setItem('oms.darkMode', String(t === 'dark'))
+        localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+      },
+      [mode.theme, mode.dir],
+    )
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check(`${tag}: the document is ${mode.dir}`, (await page.evaluate(() => document.dir || 'ltr')) === mode.dir)
+
+    await page.locator('#cc-phone').click()
+    await page.keyboard.press('Control+k')
+    await page.locator('[data-palette]').waitFor({ timeout: 5_000 })
+    const rows = await page.$$eval('[data-palette-row]', (els) => els.map((e) => e.dataset.paletteRow))
+    check(
+      `${tag}: Ctrl+K opens the CORE palette — one dialog, and the console's own is gone`,
+      (await page.locator('dialog[open]').count()) === 1 && (await page.locator('[data-cc-palette]').count()) === 0,
+    )
+    check(
+      `${tag}: it lists the console's verbs, then Go to, then the two terminal acts last`,
+      rows.includes('screen:verb:attachCaller') &&
+        rows.some((r) => r.startsWith('goto:')) &&
+        JSON.stringify(rows.slice(-2)) === '["screen:terminal:place","screen:terminal:abandon"]',
+      rows.join(' '),
+    )
+    await page.locator('[data-palette-input]').fill('place')
+    await page.waitForTimeout(100)
+    check(
+      `${tag}: 🚩 typing "place" does not auto-highlight *Place order*`,
+      (await page.locator('[data-palette-aimed="screen:terminal:place"]').count()) === 0 &&
+        (await page.locator('[data-palette-row="screen:terminal:place"]').count()) === 1,
+    )
+    await page.keyboard.press('Escape')
+    await page.locator('[data-palette]').waitFor({ state: 'detached' })
+    check(`${tag}: Esc hands the caret back to the phone field`, (await page.evaluate(() => document.activeElement?.id)) === 'cc-phone')
+
+    await page.evaluate(() =>
+      (document.activeElement ?? document.body).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ن', code: 'KeyK', ctrlKey: true, bubbles: true, cancelable: true }),
+      ),
+    )
+    await page.locator('[data-palette]').waitFor({ timeout: 2_000 }).catch(() => {})
+    check(`${tag}: 🚩 Ctrl+K fires with an Arabic key on KeyK`, (await page.locator('[data-palette]').count()) === 1)
+    await page.keyboard.press('Escape')
+    check(`${tag}: no console errors`, errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

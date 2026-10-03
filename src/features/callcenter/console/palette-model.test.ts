@@ -1,11 +1,13 @@
 /**
- * `ctrlKReachesEveryOrderActWithoutEndingTheCall` (ticket 192) — the palette
- * asserted at its edge: a session and a set of handlers in, rows out.
+ * `ctrlKReachesEveryOrderActWithoutEndingTheCall` (ticket 192, moved onto the core
+ * palette by 395) — the console's commands asserted at their edge: a session and a
+ * set of handlers in, a `useCommands` registration out, and the rows the CORE
+ * palette makes of it.
  *
  * 🚩 Every case here is about a key that can reach a **terminal act**, so the
  * negatives are the point: the two terminals sort last, nothing auto-aims at
- * them, a disabled row is still reachable and still inert, and the offer rows
- * are the same ones the top bar counts.
+ * them, no terminal carries a key, a disabled row is still reachable and still
+ * inert, and the offer rows are the same ones the top bar counts.
  *
  * The locale file is imported and asserted against rather than the keys being
  * eyeballed — a `t()` call with no backing key renders the raw key to the agent,
@@ -14,31 +16,39 @@
 import { describe, expect, it } from 'vitest'
 import callcenter from '@/locales/en/callcenter.json'
 import type { SessionCapabilities } from '@/core/models/callcenter'
-import { ATTACHED_SESSION, EMPTY_SESSION, NEAR_MISS_CLASSES } from './__fixtures__/payloads'
-import { guidanceView } from './guidance-view'
-import { NO_HIGHLIGHT, moveHighlight } from './highlight'
+import { NO_HIGHLIGHT, moveHighlight } from '@/core/commands/highlight'
+import { bindKeys } from '@/core/commands/keys'
 import {
-  autoHighlight,
-  filterRows,
+  composePalette,
   paletteAim,
   paletteQuestion,
-  paletteRows,
   paletteRun,
+  screenRows,
+  type Command,
+  type PaletteRow,
+} from '@/core/commands/palette-model'
+import { ATTACHED_SESSION, EMPTY_SESSION, NEAR_MISS_CLASSES } from './__fixtures__/payloads'
+import { guidanceView } from './guidance-view'
+import {
+  paletteCommands,
   STORE_FOLLOWS_ADDRESS,
   VAGUE_REASON,
   type PaletteActions,
   type PaletteInput,
-  type PaletteRow,
 } from './palette-model'
 
-/** `palette.verb.slot` → the phrase, or undefined where the key does not exist. */
+/** `callcenter:palette.verb.slot` → the phrase, or undefined where the key does not exist. */
 const phrase = (key: string): unknown =>
   key
+    .replace(/^callcenter:/, '')
     .split('.')
     .reduce<unknown>(
       (node, part) => (node as Record<string, unknown> | undefined)?.[part],
       callcenter as unknown,
     )
+
+/** `i18n.exists`, against the one locale there is. */
+const known = (key: string) => typeof phrase(key) === 'string'
 
 const noop = () => {}
 
@@ -63,8 +73,8 @@ const ALL_LIVE: PaletteActions = {
   onOffer: () => {},
 }
 
-const build = (over: Partial<PaletteInput> = {}): PaletteRow[] =>
-  paletteRows({
+const build = (over: Partial<PaletteInput> = {}): Command[] =>
+  paletteCommands({
     guidance: guidanceView(null),
     capabilities: EMPTY_SESSION.capabilities,
     hasCaller: false,
@@ -72,13 +82,34 @@ const build = (over: Partial<PaletteInput> = {}): PaletteRow[] =>
     // default that hid the store row's sentence would make it the exception.
     pickup: true,
     actions: ALL_LIVE,
+    known,
     ...over,
   })
 
-/** The rendered text a real palette would match against. Enough of `t()` for a
+/** What a command's id says it is. */
+const kindOf = (id: string) => id.replace(/^screen:/, '').split(':')[0]
+
+/** The rendered text the core palette matches against. Enough of `t()` for a
  *  filter test: the key's own last segment stands in for its words. */
-const textOf = (row: PaletteRow): string =>
-  `${row.label.key.split('.').pop()} ${row.detail ?? ''}`
+const textOf = (row: PaletteRow): string => `${row.label.split('.').pop()} ${row.detail ?? ''}`
+
+/**
+ * The console's commands as the core palette lists them on `/callcenter` — its
+ * This screen rows only (Go to, Recent and the sheet row are the core's own, and
+ * asserted where they are composed).
+ */
+const listed = (commands: Command[], query = ''): PaletteRow[] =>
+  composePalette({
+    screen: screenRows(commands, bindKeys(commands, { singleKeyScreen: false })),
+    recent: [],
+    goto: [],
+    jump: [],
+    query,
+    textOf,
+  }).flatMap((group) => group.rows)
+
+/** Where the aim rests before anything is pressed. */
+const restingAim = (rows: PaletteRow[], query = '') => paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, query))
 
 const capabilities = (over: Partial<SessionCapabilities>): SessionCapabilities => ({
   ...EMPTY_SESSION.capabilities,
@@ -87,8 +118,7 @@ const capabilities = (over: Partial<SessionCapabilities>): SessionCapabilities =
 
 describe('theRowsComeInOneOrder', () => {
   it('lists offers first, then the order verbs, then the terminals', () => {
-    const rows = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
-    const kinds = rows.map((row) => row.kind)
+    const kinds = listed(build({ guidance: guidanceView(NEAR_MISS_CLASSES) })).map((row) => kindOf(row.id))
     // Asserted as a shape rather than as an index: what matters is that no verb
     // ever appears above an offer and no terminal ever above a verb.
     expect(kinds.indexOf('verb')).toBeGreaterThan(kinds.lastIndexOf('offer'))
@@ -96,13 +126,16 @@ describe('theRowsComeInOneOrder', () => {
   })
 
   it('🚩 sorts the two terminal acts LAST, and they are the only two', () => {
-    const rows = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
-    expect(rows.slice(-2).map((row) => row.id)).toEqual(['terminal:place', 'terminal:abandon'])
-    expect(rows.filter((row) => row.kind === 'terminal')).toHaveLength(2)
+    const rows = listed(build({ guidance: guidanceView(NEAR_MISS_CLASSES) }))
+    expect(rows.slice(-2).map((row) => row.id)).toEqual(['screen:terminal:place', 'screen:terminal:abandon'])
+    expect(rows.filter((row) => row.terminal).map((row) => row.id)).toEqual([
+      'screen:terminal:place',
+      'screen:terminal:abandon',
+    ])
   })
 
   it('lists the order verbs in the spec order, line verbs absent', () => {
-    expect(build().filter((row) => row.kind === 'verb').map((row) => row.id)).toEqual([
+    expect(build().filter((c) => kindOf(c.id) === 'verb').map((c) => c.id)).toEqual([
       'verb:searchItems',
       'verb:addressBook',
       'verb:changeStore',
@@ -121,20 +154,38 @@ describe('theRowsComeInOneOrder', () => {
   // verb would need a second step, and *void* stays aimed at a line the agent
   // is looking at.
   it('🚩 holds no line verb — no quantity, no unit of measure, no void', () => {
-    const ids = build().map((row) => row.id).join(' ')
+    const ids = build().map((c) => c.id).join(' ')
     expect(ids).not.toMatch(/qty|uom|void/i)
   })
 
   it('holds ONE caller row, and which one follows the order', () => {
-    const attached = build({ hasCaller: true }).map((row) => row.id)
+    const attached = build({ hasCaller: true }).map((c) => c.id)
     expect(attached).toContain('verb:removeCaller')
     expect(attached).not.toContain('verb:attachCaller')
   })
 
-  it('gives every row an i18n key that exists', () => {
-    for (const row of build({ guidance: guidanceView(NEAR_MISS_CLASSES) })) {
-      expect(phrase(row.label.key), `${row.id} has no label`).toBeTruthy()
+  it('gives every row a namespaced i18n key that exists', () => {
+    for (const command of build({ guidance: guidanceView(NEAR_MISS_CLASSES) })) {
+      expect(command.label.startsWith('callcenter:'), `${command.id} is not namespaced`).toBe(true)
+      expect(phrase(command.label), `${command.id} has no label`).toBeTruthy()
     }
+  })
+})
+
+describe('153StandsWhole', () => {
+  // 365 §7: no single keys, no slash commands, no place-order chord.
+  it('🚩 no console command carries a key, and only the two terminal acts are terminal', () => {
+    const commands = build({ guidance: guidanceView(NEAR_MISS_CLASSES), hasCaller: true })
+    expect(commands.filter((c) => c.keys !== undefined)).toEqual([])
+    expect(commands.filter((c) => c.terminal).map((c) => c.id)).toEqual(['terminal:place', 'terminal:abandon'])
+    expect(commands.filter((c) => c.hidden)).toEqual([])
+  })
+
+  it('🚩 a place-order chord, were one ever added, is refused by the registry', () => {
+    const place = build().find((c) => c.id === 'terminal:place')!
+    const { bound, refused } = bindKeys([{ ...place, keys: 'Ctrl+Enter' }], { singleKeyScreen: false })
+    expect(bound.size).toBe(0)
+    expect(refused.map((r) => r.refusal)).toEqual(['terminal'])
   })
 })
 
@@ -146,9 +197,9 @@ describe('theOffersAreTheStripsOwn', () => {
    */
   it('has exactly one offer row per actionable card the top bar counts', () => {
     const guidance = guidanceView(NEAR_MISS_CLASSES)
-    const rows = build({ guidance }).filter((row) => row.kind === 'offer')
-    expect(rows).toHaveLength(guidance.actionableCount)
-    expect(rows.map((row) => row.detail)).toEqual(guidance.actionable.map((card) => card.description))
+    const offers = build({ guidance }).filter((c) => kindOf(c.id) === 'offer')
+    expect(offers).toHaveLength(guidance.actionableCount)
+    expect(offers.map((c) => c.detail)).toEqual(guidance.actionable.map((card) => card.description))
   })
 
   // 🚩 859 — every `offerId` on the wire can be the empty string, so two
@@ -159,58 +210,62 @@ describe('theOffersAreTheStripsOwn', () => {
     const actionable = guidanceView(NEAR_MISS_CLASSES).actionable[0]
     const blanked = NEAR_MISS_CLASSES.filter((miss) => miss.description === actionable.description)
       .flatMap((miss) => [{ ...miss, offerId: '' }, { ...miss, offerId: '' }])
-    const rows = build({ guidance: guidanceView(blanked) }).filter((row) => row.kind === 'offer')
-    expect(rows).toHaveLength(2)
-    expect(new Set(rows.map((row) => row.id)).size).toBe(2)
+    const offers = listed(build({ guidance: guidanceView(blanked) })).filter((row) => kindOf(row.id) === 'offer')
+    expect(offers).toHaveLength(2)
+    expect(new Set(offers.map((row) => row.id)).size).toBe(2)
   })
 
   it('counts nothing when the basket is within reach of nothing', () => {
-    expect(build().filter((row) => row.kind === 'offer')).toHaveLength(0)
+    expect(build().filter((c) => kindOf(c.id) === 'offer')).toHaveLength(0)
   })
 
   it('hands the offer back by its own offerId, never by the positional card id', () => {
     const guidance = guidanceView(NEAR_MISS_CLASSES)
     const asked: string[] = []
-    const rows = paletteRows({
+    const commands = paletteCommands({
       guidance,
       capabilities: ATTACHED_SESSION.capabilities,
       hasCaller: true,
       pickup: true,
       actions: { ...ALL_LIVE, onOffer: (offerId) => asked.push(offerId) },
+      known,
     })
-    rows.find((row) => row.kind === 'offer')?.run?.()
+    commands.find((c) => kindOf(c.id) === 'offer')?.run?.()
     expect(asked).toEqual([guidance.actionable[0].offerId])
   })
 })
 
 describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
+  /** The row the core draws for one command id. */
+  const rowOf = (commands: Command[], id: string) => listed(commands).find((row) => row.id === `screen:${id}`)!
+
   it('🚩 disables exactly the verbs the page withheld a handler for', () => {
-    const rows = build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } } })
-    const store = rows.find((row) => row.id === 'verb:changeStore')!
+    const commands = build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } } })
+    const store = rowOf(commands, 'verb:changeStore')
     expect(store.enabled).toBe(false)
     expect(store.run).toBeNull()
     // Everything else is untouched: enablement is one handler, one row.
-    expect(rows.find((row) => row.id === 'verb:slot')!.enabled).toBe(true)
+    expect(rowOf(commands, 'verb:slot').enabled).toBe(true)
+    expect(rowOf(commands, 'verb:slot').reason).toBeNull()
   })
 
   it('words the refusal from the SERVER’s reason, and never from a code on screen', () => {
-    const rows = build({
+    const commands = build({
       capabilities: capabilities({
         canChangeFulfilment: false,
         capabilityReasons: { canChangeFulfilment: 'DELIVERY_ONLY_SOURCE' },
       }),
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, fulfilment: null } },
     })
-    const reason = rows.find((row) => row.id === 'verb:fulfilment')!.reason!
+    const reason = rowOf(commands, 'verb:fulfilment').reason!
     // 🚩 The chip row's OWN sentence — one refusal, one wording, whichever
     // surface asked.
-    expect(reason.key).toBe('fulfilment.locked.DELIVERY_ONLY_SOURCE')
-    expect(phrase(reason.key)).toBeTruthy()
-    expect(reason.fallbackKey).toBe('fulfilment.locked.unknown')
+    expect(reason).toBe('callcenter:fulfilment.locked.DELIVERY_ONLY_SOURCE')
+    expect(phrase(reason)).toBeTruthy()
   })
 
   it('🚩 degrades a reason it has no words for to the general sentence, never to a raw key', () => {
-    const rows = build({
+    const commands = build({
       capabilities: capabilities({
         canChangePaymentType: false,
         // A code minted by a later server — §9 ships additive changes first.
@@ -218,22 +273,22 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
       }),
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, payment: null } },
     })
-    const reason = rows.find((row) => row.id === 'verb:payment')!.reason!
-    expect(reason.fallbackKey).toBe('payment.locked.unknown')
-    expect(phrase(reason.fallbackKey!)).toBeTruthy()
+    const reason = rowOf(commands, 'verb:payment').reason!
+    expect(reason).toBe('callcenter:payment.locked.unknown')
+    expect(phrase(reason)).toBeTruthy()
   })
 
   // 🚩 153's *quote the contract's own precondition*, and the one place it can
   // be done without risking a WRONG refusal: with no caller on the order, *their
   // address book opens with them* is true whatever else is also true (§6.3).
   it('quotes the contract’s own attach-before-address ordering for the address book', () => {
-    const rows = build({
+    const commands = build({
       hasCaller: false,
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, addressBook: null } },
     })
-    const reason = rows.find((row) => row.id === 'verb:addressBook')!.reason!
-    expect(reason.key).toBe('palette.reason.NO_CUSTOMER_ATTACHED')
-    expect(phrase(reason.key)).toBeTruthy()
+    const reason = rowOf(commands, 'verb:addressBook').reason!
+    expect(reason).toBe('callcenter:palette.reason.NO_CUSTOMER_ATTACHED')
+    expect(phrase(reason)).toBeTruthy()
   })
 
   it('and never says it about any OTHER verb, or about an order that has a caller', () => {
@@ -241,10 +296,8 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
       hasCaller: true,
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, addressBook: null, slot: null } },
     })
-    expect(withCaller.find((row) => row.id === 'verb:addressBook')!.reason).toEqual({
-      key: VAGUE_REASON,
-    })
-    expect(withCaller.find((row) => row.id === 'verb:slot')!.reason).toEqual({ key: VAGUE_REASON })
+    expect(rowOf(withCaller, 'verb:addressBook').reason).toBe(VAGUE_REASON)
+    expect(rowOf(withCaller, 'verb:slot').reason).toBe(VAGUE_REASON)
   })
 
   // 🚩 A delivery order's store is DERIVED, not refused — no capability carries
@@ -252,57 +305,54 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
   // is deliberately not there. It borrows the chip row's own words, so the two
   // surfaces cannot come to say different things about one rule.
   it('says the store follows the address on a delivery order', () => {
-    const rows = build({
+    const commands = build({
       pickup: false,
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } },
     })
-    const reason = rows.find((row) => row.id === 'verb:changeStore')!.reason!
-    expect(reason.key).toBe(STORE_FOLLOWS_ADDRESS)
-    expect(phrase(reason.key)).toBeTruthy()
+    const reason = rowOf(commands, 'verb:changeStore').reason!
+    expect(reason).toBe(STORE_FOLLOWS_ADDRESS)
+    expect(phrase(reason)).toBeTruthy()
   })
 
   it('...and never on a collection order, where the store IS the agent’s choice', () => {
-    const rows = build({
+    const commands = build({
       pickup: true,
       actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } },
     })
     // Whatever it says there, it is not the delivery sentence: on a collection
     // order a shut store row is a real refusal, and `capabilityReasons` (or the
     // vague phrase) is what may speak for it.
-    expect(rows.find((row) => row.id === 'verb:changeStore')!.reason!.key).not.toBe(
-      STORE_FOLLOWS_ADDRESS,
-    )
+    expect(rowOf(commands, 'verb:changeStore').reason).not.toBe(STORE_FOLLOWS_ADDRESS)
   })
 
   it('gives a verb with no reason available a vague sentence rather than none', () => {
-    const rows = build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, note: null } } })
-    const note = rows.find((row) => row.id === 'verb:note')!
-    expect(note.reason).toEqual({ key: VAGUE_REASON })
+    const commands = build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, note: null } } })
+    expect(rowOf(commands, 'verb:note').reason).toBe(VAGUE_REASON)
     expect(phrase(VAGUE_REASON)).toBeTruthy()
   })
 
   it('🚩 a dead *Place order* borrows the receipt’s own blocker, not a second sentence', () => {
-    const rows = build({
+    const commands = build({
       capabilities: capabilities({ canSubmit: false, submitBlockers: ['NO_LINES'] }),
       actions: { ...ALL_LIVE, place: null },
     })
-    const place = rows.find((row) => row.id === 'terminal:place')!
+    const place = rowOf(commands, 'terminal:place')
     expect(place.enabled).toBe(false)
-    expect(place.reason).toEqual({ key: 'blockers.NO_LINES' })
-    expect(phrase(place.reason!.key)).toBeTruthy()
+    expect(place.reason).toBe('callcenter:blockers.NO_LINES')
+    expect(phrase(place.reason!)).toBeTruthy()
   })
 
   it('still says something when submit is dead and the server named nothing', () => {
-    const rows = build({
+    const commands = build({
       capabilities: capabilities({ canSubmit: false, submitBlockers: [] }),
       actions: { ...ALL_LIVE, place: null },
     })
-    expect(rows.find((row) => row.id === 'terminal:place')!.reason).toEqual({ key: VAGUE_REASON })
+    expect(rowOf(commands, 'terminal:place').reason).toBe(VAGUE_REASON)
   })
 
   it('🚩 running a disabled row does NOTHING — it is never skipped past', () => {
-    const rows = build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, slot: null } } })
-    const aim = rows.findIndex((row) => row.id === 'verb:slot')
+    const rows = listed(build({ actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, slot: null } } }))
+    const aim = rows.findIndex((row) => row.id === 'screen:verb:slot')
     // Highlightable…
     expect(paletteAim({ index: aim, term: paletteQuestion(rows, '') }, rows, paletteQuestion(rows, ''))).toBe(aim)
     // …and inert.
@@ -312,37 +362,36 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
 
 describe('nothingOnTheKeyboardCanEndACall', () => {
   it('🚩 never auto-aims at a terminal act', () => {
-    const rows = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
-    expect(rows[autoHighlight(rows)!].kind).not.toBe('terminal')
+    const rows = listed(build({ guidance: guidanceView(NEAR_MISS_CLASSES) }))
+    expect(rows[restingAim(rows)!].terminal).toBe(false)
   })
 
   // Ruling 3's sharpest case: the query matches ONLY the act that ends the call.
   it('🚩 aims at NOTHING when the query matches only *Abandon call*', () => {
-    const rows = filterRows(build(), 'abandon', textOf)
-    expect(rows.map((row) => row.id)).toEqual(['terminal:abandon'])
-    expect(autoHighlight(rows)).toBeNull()
-    expect(paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, 'abandon'))).toBeNull()
+    const rows = listed(build(), 'abandon')
+    expect(rows.map((row) => row.id)).toEqual(['screen:terminal:abandon'])
+    expect(restingAim(rows, 'abandon')).toBeNull()
     // `Enter` on it, unpressed, reaches nothing at all.
-    expect(paletteRun(rows, paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, 'abandon')))).toBeNull()
+    expect(paletteRun(rows, restingAim(rows, 'abandon'))).toBeNull()
   })
 
   it('reaches *Abandon call* only after a deliberate ↓', () => {
-    const rows = filterRows(build(), 'abandon', textOf)
+    const rows = listed(build(), 'abandon')
     const question = paletteQuestion(rows, 'abandon')
     const moved = moveHighlight(NO_HIGHLIGHT, { count: rows.length, term: question, armed: true }, 'down')
-    expect(paletteRun(rows, paletteAim(moved, rows, question))?.id).toBe('terminal:abandon')
+    expect(paletteRun(rows, paletteAim(moved, rows, question))?.id).toBe('screen:terminal:abandon')
   })
 
   it('🚩 the same for *Place order* — a matching query still aims one row short', () => {
     // A query the verb row and the terminal both answer: the verb takes the aim.
-    const rows = filterRows(build(), 'e', textOf)
-    expect(rows.some((row) => row.id === 'terminal:place')).toBe(true)
-    expect(rows[autoHighlight(rows)!].kind).not.toBe('terminal')
+    const rows = listed(build(), 'e')
+    expect(rows.some((row) => row.id === 'screen:terminal:place')).toBe(true)
+    expect(rows[restingAim(rows, 'e')!].terminal).toBe(false)
   })
 })
 
 describe('theAimFollowsTheQuestion', () => {
-  /** The aim as the component holds it: an index against a whole question. */
+  /** The aim as the palette holds it: an index against a whole question. */
   const aimAt = (rows: PaletteRow[], query: string, presses = 1) => {
     const question = paletteQuestion(rows, query)
     let state = NO_HIGHLIGHT
@@ -352,20 +401,20 @@ describe('theAimFollowsTheQuestion', () => {
   }
 
   it('aims at the first non-terminal row before anything is pressed', () => {
-    const rows = build()
-    expect(paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, ''))).toBe(0)
-    expect(rows[0].id).toBe('verb:searchItems')
+    const rows = listed(build())
+    expect(restingAim(rows)).toBe(0)
+    expect(rows[0].id).toBe('screen:verb:searchItems')
   })
 
   it('🚩 a new query drops a carried aim — a stale one runs the wrong act', () => {
-    const rows = build()
-    const aimed = aimAt(rows, 'note')
+    const all = listed(build())
+    const aimed = aimAt(all, 'note')
     // Same question: the agent's own aim stands.
-    expect(paletteAim(aimed, rows, paletteQuestion(rows, 'note'))).toBe(0)
+    expect(paletteAim(aimed, all, paletteQuestion(all, 'note'))).toBe(0)
     // A different one: back to the first row of the NEW answer.
-    const narrowed = filterRows(rows, 'coupon', textOf)
+    const narrowed = listed(build(), 'coupon')
     expect(paletteAim(aimed, narrowed, paletteQuestion(narrowed, 'coupon'))).toBe(0)
-    expect(narrowed[0].id).toBe('verb:coupon')
+    expect(narrowed[0].id).toBe('screen:verb:coupon')
   })
 
   /**
@@ -377,40 +426,38 @@ describe('theAimFollowsTheQuestion', () => {
    * row, which in this list is *Abandon call*.
    */
   it('🚩 drops the aim when the ROWS change under it, rather than sliding it onto a terminal', () => {
-    const withOffer = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
+    const withOffer = listed(build({ guidance: guidanceView(NEAR_MISS_CLASSES) }))
     // The agent walks down to the last row there is: *Abandon call*.
     const deep = aimAt(withOffer, '', withOffer.length)
     expect(withOffer[paletteAim(deep, withOffer, paletteQuestion(withOffer, ''))!].id).toBe(
-      'terminal:abandon',
+      'screen:terminal:abandon',
     )
     // The offer is taken by the basket moving: one row shorter, same query.
-    const shorter = build()
+    const shorter = listed(build())
     const aim = paletteAim(deep, shorter, paletteQuestion(shorter, ''))
-    expect(shorter[aim!].kind).not.toBe('terminal')
-    expect(aim).toBe(autoHighlight(shorter))
+    expect(shorter[aim!].terminal).toBe(false)
+    expect(aim).toBe(restingAim(shorter))
   })
 
   it('keeps the aim across a re-render that changes nothing', () => {
-    const rows = build()
+    const rows = listed(build())
     const aimed = aimAt(rows, '', 3)
-    const again = build()
+    const again = listed(build())
     expect(paletteAim(aimed, again, paletteQuestion(again, ''))).toBe(2)
   })
 })
 
-describe('filterRows', () => {
+describe('theTypedWordsNarrowTheRows', () => {
   it('matches the rendered words, not the i18n key, and keeps the order', () => {
-    const rows = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
-    const found = filterRows(rows, 'CALLER', textOf)
-    expect(found.map((row) => row.id)).toEqual(['verb:attachCaller'])
+    const commands = build({ guidance: guidanceView(NEAR_MISS_CLASSES) })
+    expect(listed(commands, 'CALLER').map((row) => row.id)).toEqual(['screen:verb:attachCaller'])
     // The unfiltered list is the whole list, untouched.
-    expect(filterRows(rows, '  ', textOf)).toEqual(rows)
+    expect(listed(commands, '  ')).toEqual(listed(commands))
   })
 
   it('finds an offer by the words the SERVER used for it', () => {
     const guidance = guidanceView(NEAR_MISS_CLASSES)
     const word = guidance.actionable[0].description.split(' ')[0]
-    const found = filterRows(build({ guidance }), word, textOf)
-    expect(found.some((row) => row.kind === 'offer')).toBe(true)
+    expect(listed(build({ guidance }), word).some((row) => kindOf(row.id) === 'offer')).toBe(true)
   })
 })

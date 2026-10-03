@@ -618,9 +618,6 @@
     "failed": "The note could not be saved. Nothing has changed on this order — try again."
   },
   "palette": {
-    "title": "What do you want to do?",
-    "placeholder": "Type an act — offer, chip, caller, or order",
-    "empty": "Nothing matches that.",
     "offer": "Offer",
     "verb": {
       "searchItems": "Search items",
@@ -645,12 +642,6 @@
       "STORE_NOT_CHOSEN": "Choose the store first — this act is about the store the order ships from.",
       "SESSION_CLOSED": "This order is no longer open.",
       "unknown": "This can't be done on this order right now."
-    },
-    "foot": {
-      "open": "Ctrl+K opens this",
-      "move": "↑↓ move",
-      "run": "↵ run",
-      "close": "esc close"
     }
   },
   "request": {

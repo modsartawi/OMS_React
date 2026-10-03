@@ -3,8 +3,9 @@
  * what a registered command becomes, the order the groups come in, what a typed number
  * yields, and what the aim and `Enter` reach.
  *
- * It graduates the call center's palette model (ticket 192) to `@/core`, minus the
- * console's own rows: those join as that screen's registered commands with 395.
+ * It graduates the call center's palette model (ticket 192) to `@/core`. The console's
+ * own rows are that screen's registered commands (395), and 192's safety rule is the
+ * generic `terminal` flag below.
  *
  * 🚩 **A refused act is a disabled row carrying its reason** (K13, ruling 192 made
  * app-wide). The palette answers a question the user asked, and an absent row teaches
@@ -14,6 +15,11 @@
  * module's own: the row runs the very handler the page's button already calls, so a
  * withdrawn handler withdraws the act from both surfaces by construction.
  *
+ * 🚩 **A terminal row sorts last and is never auto-highlighted** (K14, ruling 364 §5). An
+ * act that ends something (the call center's *Place order* and *Abandon call*) is never
+ * one mistyped `Enter` away: it trails every group, and a query matching only terminals
+ * aims at nothing, so reaching one costs a deliberate `↓`. `keys.ts` refuses it a key.
+ *
  * This module knows no route and no grant. The app-wide groups (Go to, Jump to number)
  * are composed in `layout/` — the composition root — and handed in as rows.
  */
@@ -21,23 +27,29 @@ import { Keyboard, type LucideIcon } from 'lucide-react'
 import { highlightedIndex, type HighlightState } from './highlight'
 import { boundKeysOf, SHEET_KEYS, type KeyBindings } from './keys'
 
-/** The groups, in the one order they are listed (K8): This screen → Recent → Go to, then Jump. */
-export type PaletteGroupId = 'screen' | 'recent' | 'goto' | 'jump'
-export const PALETTE_GROUP_ORDER: readonly PaletteGroupId[] = ['screen', 'recent', 'goto', 'jump']
+/**
+ * The groups, in the one order they are listed (K8): This screen → Recent → Go to, then
+ * Jump — and, after everything, the terminal rows (K14), whatever group they came from.
+ */
+export type PaletteGroupId = 'screen' | 'recent' | 'goto' | 'jump' | 'terminal'
+export const PALETTE_GROUP_ORDER: readonly PaletteGroupId[] = ['screen', 'recent', 'goto', 'jump', 'terminal']
 
-/** Each group's heading. */
-export const PALETTE_GROUP_LABEL: Readonly<Record<PaletteGroupId, string>> = {
+/**
+ * Each group's heading. The terminal rows have none: they are This screen's own acts,
+ * set apart by a rule rather than named a second time (and named, for a screen reader,
+ * by This screen's heading).
+ */
+export const PALETTE_GROUP_LABEL: Readonly<Record<PaletteGroupId, string | null>> = {
   screen: 'common:palette.group.screen',
   recent: 'common:palette.group.recent',
   goto: 'common:palette.group.goto',
   jump: 'common:palette.group.jump',
+  terminal: null,
 }
 
 /**
  * A command a page registers through `useCommands` while it is mounted (K1–K2) — the
  * whole of the "This screen" group.
- *
- * `terminal` (395) is not here yet.
  */
 export interface Command {
   /** Stable across renders and unique on the page. */
@@ -48,6 +60,11 @@ export interface Command {
   run?: (() => void) | null
   /** Why not — an i18n key, the same words as its button's tooltip. Read only when refused. */
   reason?: string | null
+  /**
+   * Free text from the server beside the label (a call-center offer's description),
+   * passed through as data: rendered in a `<bdi>` and matched by the typed words.
+   */
+  detail?: string | null
   icon?: LucideIcon
   /**
    * The key that runs it while the page is mounted (393, `keys.ts`): `KeyR`, `Slash`,
@@ -60,6 +77,11 @@ export interface Command {
    * previous row (397). A hidden command repeats while its key is held; an act never does.
    */
   hidden?: boolean
+  /**
+   * An act that ends something (395, K14): its row sorts last and is never
+   * auto-highlighted, and it can never carry `keys` (the registry refuses them).
+   */
+  terminal?: boolean
 }
 
 export interface PaletteRow {
@@ -72,6 +94,8 @@ export interface PaletteRow {
   context: string | null
   /** A machine value beside the label (a Jump row's number), rendered isolated. */
   value: string | null
+  /** Free text from the server beside the label, rendered in a `<bdi>` (`Command.detail`). */
+  detail?: string | null
   icon: LucideIcon | null
   /** 🚩 `run !== null`. Never a predicate of this module's own. */
   enabled: boolean
@@ -80,6 +104,8 @@ export interface PaletteRow {
   run: (() => void) | null
   /** The key that runs it, in `keys.ts`' canonical spelling, drawn as a right-aligned `kbd`. */
   keys?: string | null
+  /** Sorts last and is never auto-highlighted (K14). */
+  terminal?: boolean
 }
 
 /**
@@ -94,11 +120,13 @@ export function commandRow(command: Command, keys: string | null = null): Palett
     label: command.label,
     context: null,
     value: null,
+    detail: command.detail ?? null,
     icon: command.icon ?? null,
     enabled: run !== null,
     reason: run === null ? (command.reason ?? null) : null,
     run,
     keys,
+    terminal: command.terminal === true,
   }
 }
 
@@ -148,6 +176,10 @@ export function filterRows(rows: readonly PaletteRow[], query: string, textOf: (
  * are narrowed by the typed words (a Recent row's number among them); the Jump rows are
  * not — they ARE the typed number, so filtering them by it would be circular.
  *
+ * 🚩 The terminal rows — registered commands, so This screen's — are lifted out of it and
+ * listed LAST, after every group, in the order they were registered (K14). Order is never re-ranked by match quality:
+ * a ranking filter could float a terminal act above the row the user meant.
+ *
  * Each group arrives already gated by its composer (K12), so nothing here decides who
  * may see what.
  */
@@ -159,11 +191,13 @@ export function composePalette(input: {
   query: string
   textOf: (row: PaletteRow) => string
 }): PaletteGroup[] {
+  const screen = filterRows(input.screen, input.query, input.textOf)
   const rows: Record<PaletteGroupId, PaletteRow[]> = {
-    screen: filterRows(input.screen, input.query, input.textOf),
+    screen: screen.filter((row) => !row.terminal),
     recent: filterRows(input.recent, input.query, input.textOf),
     goto: filterRows(input.goto, input.query, input.textOf),
     jump: [...input.jump],
+    terminal: screen.filter((row) => row.terminal),
   }
   return PALETTE_GROUP_ORDER.map((id) => ({ id, rows: rows[id] })).filter((g) => g.rows.length > 0)
 }
@@ -196,11 +230,15 @@ export function paletteQuestion(rows: readonly PaletteRow[], query: string): str
  * Where the highlight actually is: the arrows' own (`highlight.ts`), over the first row
  * aimed from the start — `Enter` runs a row the user named by typing. A disabled row is
  * aimed like any other: skipping it would hide the reason it exists to carry.
+ *
+ * 🚩 The first row that is NOT terminal (K14), or nothing at all: a query matching only
+ * a terminal act aims at nothing, `Enter` does nothing, and reaching it costs a `↓`.
  */
 export function paletteAim(state: HighlightState, rows: readonly PaletteRow[], question: string): number | null {
   const carried = highlightedIndex(state, { count: rows.length, term: question, armed: true })
   if (carried !== null) return carried
-  return rows.length > 0 ? 0 : null
+  const first = rows.findIndex((row) => !row.terminal)
+  return first === -1 ? null : first
 }
 
 /** What `Enter` runs — the aimed row, and only if it is one that runs. */
@@ -214,11 +252,8 @@ export function paletteRun(rows: readonly PaletteRow[], aim: number | null): Pal
  * The flags a route's `handle` may carry for the palette (375 R4).
  *
  * - `print` — a print route: its body IS the document, and it never hosts the palette.
- * - `ownPalette` — the call center, which keeps its own Ctrl+K until 395 moves it onto
- *   this one, so a screen never has two handlers.
- *
- * 🚩 An explicit flag, never `chromeless`: the console is chromeless too, and joins the
- * palette at 395.
+ *   🚩 An explicit flag, never `chromeless`: the call center is chromeless too, and has
+ *   the palette (395).
  *
  * - `singleKeys` (393) — a screen with single keys (letters, `/`, `?`): the Deliveries
  *   list and Delivery details only (365 §2). Everywhere else has Ctrl+K, Esc and its own
@@ -226,7 +261,6 @@ export function paletteRun(rows: readonly PaletteRow[], aim: number | null): Pal
  */
 export interface PaletteRouteHandle {
   print?: boolean
-  ownPalette?: boolean
   singleKeys?: boolean
 }
 
@@ -239,9 +273,7 @@ export function singleKeyScreenOf(handles: readonly unknown[]): boolean {
 
 /** True when any matched route opts out. Reads `handle`s of any shape, defensively. */
 export function paletteOptedOut(handles: readonly unknown[]): boolean {
-  return handles.some((handle) => {
-    if (typeof handle !== 'object' || handle === null) return false
-    const flags = handle as PaletteRouteHandle
-    return flags.print === true || flags.ownPalette === true
-  })
+  return handles.some(
+    (handle) => typeof handle === 'object' && handle !== null && (handle as PaletteRouteHandle).print === true,
+  )
 }

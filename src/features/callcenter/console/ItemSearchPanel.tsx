@@ -42,7 +42,7 @@ import { callCenterApi, itemSearchKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
 import ItemPanel from './ItemPanel'
-import { NO_HIGHLIGHT, highlightMoveOf, highlightedIndex, moveHighlight } from './highlight'
+import { NO_HIGHLIGHT, highlightMoveOf, highlightedIndex, moveHighlight } from '@/core/commands/highlight'
 import {
   MIN_QUERY_LENGTH,
   isSearchable,

@@ -7,7 +7,7 @@
  * where the app-wide groups are composed from the menu and the probes.
  */
 import { describe, expect, it } from 'vitest'
-import { NO_HIGHLIGHT } from './highlight'
+import { NO_HIGHLIGHT, moveHighlight } from './highlight'
 import {
   commandRow,
   composePalette,
@@ -19,6 +19,7 @@ import {
   screenRows,
   shortcutsRow,
   singleKeyScreenOf,
+  type Command,
   type PaletteRow,
 } from './palette-model'
 import { bindKeys } from './keys'
@@ -158,14 +159,81 @@ describe('composePalette', () => {
   })
 })
 
+describe('terminalRowsSortLastAndNeverAutoHighlight', () => {
+  const run = () => {}
+  const place = { id: 'place', label: 'place order', run, terminal: true }
+  const abandon = { id: 'abandon', label: 'abandon call', run, terminal: true }
+  const screen = (commands: Command[]) => screenRows(commands, bindKeys(commands, { singleKeyScreen: false }))
+  const flat = (groups: { rows: PaletteRow[] }[]) => groups.flatMap((g) => g.rows)
+
+  // K14, ruling 192 made generic: the terminal rows sort LAST — after every group.
+  it('renders the terminal rows last, after Go to and Jump, in their registered order', () => {
+    const groups = composePalette({
+      screen: screen([place, { id: 'note', label: 'order note', run }, abandon]),
+      recent: [],
+      goto: [gotoRow('deliveries')],
+      jump: [{ ...gotoRow('x'), id: 'jump:delivery', group: 'jump' }],
+      query: '',
+      textOf,
+    })
+    expect(groups.map((g) => g.id)).toEqual(['screen', 'goto', 'jump', 'terminal'])
+    expect(flat(groups).map((r) => r.id)).toEqual([
+      'screen:note',
+      'goto:deliveries',
+      'jump:delivery',
+      'screen:place',
+      'screen:abandon',
+    ])
+    expect(groups.at(-1)?.rows.every((r) => r.terminal)).toBe(true)
+  })
+
+  // 🚩 A terminal row matching best still never takes the aim.
+  it('with a terminal row matching best, the aim is the first non-terminal row', () => {
+    const rows = flat(
+      composePalette({
+        screen: screen([place, { id: 'placeholder', label: 'order place note', run }]),
+        recent: [],
+        goto: [],
+        jump: [],
+        query: 'place',
+        textOf,
+      }),
+    )
+    expect(rows.map((r) => r.id)).toEqual(['screen:placeholder', 'screen:place'])
+    const aim = paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, 'place'))
+    expect(rows[aim!].id).toBe('screen:placeholder')
+  })
+
+  it('a query matching only terminal rows aims at NOTHING, and Enter reaches nothing', () => {
+    const rows = flat(composePalette({ screen: screen([place, abandon]), recent: [], goto: [], jump: [], query: 'abandon', textOf }))
+    expect(rows.map((r) => r.id)).toEqual(['screen:abandon'])
+    const question = paletteQuestion(rows, 'abandon')
+    expect(paletteAim(NO_HIGHLIGHT, rows, question)).toBeNull()
+    expect(paletteRun(rows, paletteAim(NO_HIGHLIGHT, rows, question))).toBeNull()
+  })
+
+  it('reaches a terminal row only by a deliberate ↓', () => {
+    const rows = flat(composePalette({ screen: screen([abandon]), recent: [], goto: [], jump: [], query: '', textOf }))
+    const question = paletteQuestion(rows, '')
+    const moved = moveHighlight(NO_HIGHLIGHT, { count: rows.length, term: question, armed: true }, 'down')
+    expect(paletteRun(rows, paletteAim(moved, rows, question))?.id).toBe('screen:abandon')
+  })
+
+  it('a non-terminal row carries no terminal flag', () => {
+    expect(commandRow({ id: 'x', label: 'k', run }).terminal).toBe(false)
+    expect(commandRow(place).terminal).toBe(true)
+  })
+})
+
 describe('paletteOptedOut', () => {
   // 375 R4: an explicit flag on the route, never `chromeless`.
   it('a print route opts out through its route flag', () => {
     expect(paletteOptedOut([undefined, { print: true }])).toBe(true)
   })
 
-  it('the console opts out through the same mechanism until 395', () => {
-    expect(paletteOptedOut([{ ownPalette: true }, undefined])).toBe(true)
+  // 395: the console joined the one palette, and its opt-out went with it.
+  it('the console no longer opts out — a stale ownPalette flag is ignored', () => {
+    expect(paletteOptedOut([{ ownPalette: true }, undefined])).toBe(false)
   })
 
   it('every other route hosts it, whatever else its handle carries', () => {

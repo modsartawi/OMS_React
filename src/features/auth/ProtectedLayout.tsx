@@ -21,7 +21,7 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
   const setSession = useSession((s) => s.setSession)
   // The app-wide palette is hosted HERE (spec 380 K7), so chromeless screens have it too.
   // A route opts out through an explicit `handle` flag (375 R4), never through
-  // `chromeless`: the print routes, and the call center until 395.
+  // `chromeless`: the print routes. The call center is chromeless and has it (395).
   const hostPalette = !paletteOptedOut(useMatches().map((m) => m.handle))
 
   const me = useQuery({

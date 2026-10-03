@@ -30,15 +30,21 @@
 //   7. 🚩 *Abandon call* reaches only its `Keep`-defaulted modal — never the void
 //   8. `Esc` closes the palette and the caret lands back where it was
 //   9. `Ctrl+K` is advertised in the search box's placeholder
-//  10. the foot carries the four keys, and there is no second cheat sheet
+//  10. the foot carries ↑↓, Enter and Esc; the console's rows carry no key at all
 //  11. nothing throws
+//
+// Since ticket 395 (K14, K19) all of that runs on the CORE palette, in light, dark and
+// RTL: the console registers its offers, verbs and two `terminal` acts through
+// `useCommands`, its own palette and Ctrl+K listener are gone, Go to sits under its rows,
+// the terminal pair trails every group, typing "place" never aims *Place order*, an
+// Arabic-layout Ctrl+K (key "ن" on KeyK) opens it, and `?` types into the search box.
 //
 // …and, since ticket 392, the APP-WIDE palette every other signed-in screen hosts (spec 380
 // K7–K13), in light, dark and RTL: Ctrl+K from a text box and from a grid cell, from an
 // Arabic layout, and from the top bar's field; focus home on Esc; Go to and Jump to number,
 // *Open delivery 8000000174* landing on Details; inert under a dialog; Jump hidden while the
 // detail grant is denied, errored or still pending; absent on a print route; and on
-// `/callcenter` only the console's own palette. Screenshots → tools/.palette-core-shots/.
+// `/callcenter` the core palette, never a second one. Screenshots → tools/.palette-core-shots/.
 //
 // …and, since ticket 393 (K3–K6, K15–K17): `?` opens the shortcuts sheet generated from the
 // registry, on the list and Details only; a palette row and the user menu reach it too;
@@ -58,9 +64,6 @@ const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
-const OUT = '.issues/assets/192-command-palette'
-
-mkdirSync(OUT, { recursive: true })
 
 const capture = (name) =>
   JSON.parse(
@@ -139,7 +142,14 @@ const SCENARIOS = {
   },
 }
 
-async function open(scenario) {
+/** The three looks every suite runs in (spec 380: light, dark AND RTL). */
+const MODES = [
+  { theme: 'light', dir: 'ltr' },
+  { theme: 'dark', dir: 'ltr' },
+  { theme: 'light', dir: 'rtl' },
+]
+
+async function open(scenario, mode = MODES[0]) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const pageErrors = []
@@ -153,6 +163,13 @@ async function open(scenario) {
       m.type() === 'error' &&
       !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
       pageErrors.push(m.text()),
+  )
+  await page.addInitScript(
+    ([t, d]) => {
+      localStorage.setItem('oms.darkMode', String(t === 'dark'))
+      localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    },
+    [mode.theme, mode.dir],
   )
 
   await page.route('**/api/**', async (route) => {
@@ -194,6 +211,7 @@ async function open(scenario) {
           state: { ...served, status: 'submitted' },
         }),
       )
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
@@ -204,368 +222,431 @@ async function open(scenario) {
   return { context, page, pageErrors, wire }
 }
 
-const shoot = async (page, name) => {
+const CONSOLE_SHOTS = 'tools/.palette-core-shots'
+mkdirSync(CONSOLE_SHOTS, { recursive: true })
+
+const shoot = async (page, name, mode) => {
   await page.addStyleTag({ content: '.fixed{display:none !important}' })
-  await page.screenshot({ path: `${OUT}/${name}.png` })
+  await page.screenshot({ path: `${CONSOLE_SHOTS}/console-${name}-${mode.theme}-${mode.dir}.png` })
 }
 
 /** The key itself, pressed wherever the caret happens to be. */
 const ctrlK = (page) => page.keyboard.press('Control+k')
-const paletteOpen = (page) => page.locator('[data-cc-palette]').count().then((n) => n > 0)
+/** The ONE palette — the core's, hosted at `ProtectedLayout` (395). */
+const paletteOpen = (page) => page.locator('[data-palette]').count().then((n) => n > 0)
+const PALETTE = '[data-palette]'
+const PALETTE_INPUT = '[data-palette-input]'
+/** A console command's row: the core prefixes a registered command's id with `screen:`. */
+const row = (id) => `[data-palette-row="screen:${id}"]`
+/** What a row's id says it is: `offer`, `verb`, `terminal`, or the core's own (`goto`, `core`…). */
+const listedRows = (page) => page.$$eval('[data-palette-row]', (els) => els.map((e) => e.dataset.paletteRow))
+const kindOf = (id) => (id.startsWith('screen:') ? id.split(':')[1] : id.split(':')[0])
 
 const allErrors = []
 
-/* ------------------------------------- 1. it opens from inside a text box -- */
+async function consoleSuite(mode) {
+  const tag = `${mode.theme}/${mode.dir}`
 
-console.log('\nCtrl+K from inside the boxes the agent lives in')
-{
-  const { context, page, pageErrors } = await open('live')
+  /* ----------------------------------- 1. it opens from inside a text box -- */
 
-  // The search box — where the agent lives after the caller is attached.
-  await page.click('#cc-item-search')
-  await page.type('#cc-item-search', 'pan')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  ok(await paletteOpen(page), 'Ctrl+K opens the palette from inside the SEARCH box')
-  // 🚩 Chrome's omnibox key, taken. If the default were not prevented the agent
-  // would be typing into the browser's address bar mid-call.
-  ok(
-    (await page.locator('[data-cc-palette-input]:focus').count()) === 1,
-    'and the caret is in the palette, not the browser',
-  )
-  await shoot(page, 'open-from-search')
+  console.log(`\nthe console — Ctrl+K from inside the boxes the agent lives in — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('live', mode)
+    ok((await page.evaluate(() => document.dir || 'ltr')) === mode.dir, `${tag}: the document is ${mode.dir}`)
 
-  await page.keyboard.press('Escape')
-  await page.waitForSelector('[data-cc-palette]', { state: 'detached' })
-  ok(!(await paletteOpen(page)), 'Esc closes it')
-  // 8. The whole "way home" story: the native <dialog> restores focus.
-  ok(
-    (await page.locator('#cc-item-search:focus').count()) === 1,
-    '🚩 and the caret lands back in the box the agent was typing in',
-  )
-  ok(
-    (await page.locator('#cc-item-search').inputValue()) === 'pan',
-    'with what they had typed still there',
-  )
+    // The search box — where the agent lives after the caller is attached.
+    await page.click('#cc-item-search')
+    await page.type('#cc-item-search', 'pan')
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    ok(await paletteOpen(page), `${tag}: Ctrl+K opens the CORE palette from inside the SEARCH box`)
+    ok(
+      (await page.locator('dialog[open]').count()) === 1 && (await page.locator('[data-cc-palette]').count()) === 0,
+      `${tag}: 🚩 one palette — the console's own is gone`,
+    )
+    // 🚩 Chrome's omnibox key, taken. If the default were not prevented the agent
+    // would be typing into the browser's address bar mid-call.
+    ok(
+      (await page.locator(`${PALETTE_INPUT}:focus`).count()) === 1,
+      `${tag}: and the caret is in the palette, not the browser`,
+    )
+    ok((await page.locator(PALETTE_INPUT).inputValue()) === '', `${tag}: which opens empty`)
+    const ids = await listedRows(page)
+    ok(ids.includes('screen:verb:searchItems') && ids.includes('screen:terminal:place'), `${tag}: it lists the console's verbs and terminal acts`)
+    ok(ids.some((id) => id.startsWith('goto:')), `${tag}: 🚩 and Go to — the console gets the core palette whole`)
+    ok(ids.includes('core:shortcuts'), `${tag}: and the shortcuts sheet's row (K16)`)
+    await shoot(page, 'open-from-search', mode)
 
-  allErrors.push(...pageErrors)
-  await context.close()
-}
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(PALETTE, { state: 'detached' })
+    ok(!(await paletteOpen(page)), `${tag}: Esc closes it`)
+    // 8. The whole "way home" story.
+    ok(
+      (await page.locator('#cc-item-search:focus').count()) === 1,
+      `${tag}: 🚩 and the caret lands back in the box the agent was typing in`,
+    )
+    ok(
+      (await page.locator('#cc-item-search').inputValue()) === 'pan',
+      `${tag}: with what they had typed still there`,
+    )
 
-console.log('\nCtrl+K from the phone field — the console’s OTHER resting focus')
-{
-  const { context, page, pageErrors } = await open('noCaller')
-  await page.click('#cc-phone')
-  await page.type('#cc-phone', '0555')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  ok(await paletteOpen(page), 'Ctrl+K opens the palette from inside the PHONE field')
-  const rows = await page.$$eval('[data-cc-palette-row]', (els) =>
-    els.map((e) => e.dataset.ccPaletteRow),
-  )
-  ok(rows.includes('verb:attachCaller'), 'an order with no caller offers *Attach caller*')
-  ok(!rows.includes('verb:removeCaller'), 'and never both caller rows at once')
-  await shoot(page, 'open-from-phone')
-  allErrors.push(...pageErrors)
-  await context.close()
-}
+    // 🚩 The `event.code` fix the core brings (K19): on an Arabic layout `key` is "ن".
+    await page.evaluate(() =>
+      (document.activeElement ?? document.body).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ن', code: 'KeyK', ctrlKey: true, bubbles: true, cancelable: true }),
+      ),
+    )
+    await page.waitForSelector(PALETTE, { timeout: 2000 }).catch(() => {})
+    ok(await paletteOpen(page), `${tag}: 🚩 an Arabic-layout Ctrl+K (key "ن", code KeyK) opens it on the console`)
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(PALETTE, { state: 'detached' })
 
-/* ------------------------------ 2. inert over a confirmation sheet --------- */
+    // 153 stands whole: `?` is not bound on the console — it types into the box.
+    await page.locator('#cc-item-search').fill('')
+    await page.keyboard.press('Shift+Slash')
+    await page.waitForTimeout(150)
+    ok(
+      (await page.locator('[data-shortcuts-sheet]').count()) === 0 &&
+        (await page.locator('#cc-item-search').inputValue()) === '?',
+      `${tag}: 🚩 \`?\` is no key on the console — it types into the search box`,
+    )
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
 
-console.log('\nCtrl+K over an open sheet — the negative that matters most')
-{
-  const { context, page, pageErrors } = await open('live')
-  // Any of the console's sheets will do; the abandon confirmation is the one
-  // the agent is most likely to be looking at when their hand reaches for K.
-  await page.click('[data-cc-abandon]')
-  await page.waitForSelector('dialog[open]')
-  await ctrlK(page)
-  await page.waitForTimeout(150)
-  ok(!(await paletteOpen(page)), '🚩 Ctrl+K over an open confirmation sheet does NOTHING')
-  ok(
-    (await page.locator('dialog[open]').count()) === 1,
-    'and the decision the agent was asked to make is still the only thing on screen',
-  )
-  await shoot(page, 'inert-over-sheet')
+  console.log(`\nthe console — Ctrl+K from the phone field — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('noCaller', mode)
+    await page.click('#cc-phone')
+    await page.type('#cc-phone', '0555')
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    ok(await paletteOpen(page), `${tag}: Ctrl+K opens the palette from inside the PHONE field`)
+    const ids = await listedRows(page)
+    ok(ids.includes('screen:verb:attachCaller'), `${tag}: an order with no caller offers *Attach caller*`)
+    ok(!ids.includes('screen:verb:removeCaller'), `${tag}: and never both caller rows at once`)
+    await shoot(page, 'open-from-phone', mode)
+    await page.keyboard.press('Escape')
+    await page.waitForSelector(PALETTE, { state: 'detached' })
+    ok(
+      (await page.locator('#cc-phone:focus').count()) === 1 && (await page.locator('#cc-phone').inputValue()) === '0555',
+      `${tag}: Esc puts the caret back in the phone field, its digits intact`,
+    )
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
 
-  await page.keyboard.press('Escape')
-  await page.waitForSelector('dialog[open]', { state: 'detached' })
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  ok(await paletteOpen(page), 'and it opens again the moment the sheet is gone')
+  /* -------------------------------- 2. inert over a confirmation sheet ----- */
 
-  // The palette itself is a <dialog>, so the key cannot re-enter over its own
-  // query — which is what stops Ctrl+K becoming a toggle that discards typing.
-  await page.type('[data-cc-palette-input]', 'note')
-  await ctrlK(page)
-  await page.waitForTimeout(100)
-  ok(
-    (await page.locator('[data-cc-palette-input]').inputValue()) === 'note',
-    'Ctrl+K over the palette itself leaves the agent’s own query alone',
-  )
-  allErrors.push(...pageErrors)
-  await context.close()
-}
+  console.log(`\nthe console — Ctrl+K over an open sheet — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('live', mode)
+    // Any of the console's sheets will do; the abandon confirmation is the one
+    // the agent is most likely to be looking at when their hand reaches for K.
+    await page.click('[data-cc-abandon]')
+    await page.waitForSelector('dialog[open]')
+    await ctrlK(page)
+    await page.waitForTimeout(150)
+    ok(!(await paletteOpen(page)), `${tag}: 🚩 Ctrl+K over an open confirmation sheet does NOTHING`)
+    ok(
+      (await page.locator('dialog[open]').count()) === 1,
+      `${tag}: and the decision the agent was asked to make is still the only thing on screen`,
+    )
+    await shoot(page, 'inert-over-sheet', mode)
 
-/* ---------------------------------- 3+4. the rows, in the one order -------- */
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('dialog[open]', { state: 'detached' })
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    ok(await paletteOpen(page), `${tag}: and it opens again the moment the sheet is gone`)
 
-console.log('\nthe rows: offers, verbs, terminals last')
-{
-  const { context, page, pageErrors } = await open('live')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
+    // The palette itself is a <dialog>, so the key cannot re-enter over its own
+    // query — which is what stops Ctrl+K becoming a toggle that discards typing.
+    await page.type(PALETTE_INPUT, 'note')
+    await ctrlK(page)
+    await page.waitForTimeout(100)
+    ok(
+      (await page.locator(PALETTE_INPUT).inputValue()) === 'note',
+      `${tag}: Ctrl+K over the palette itself leaves the agent’s own query alone`,
+    )
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
 
-  const m = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('[data-cc-palette-row]')]
-    const badge = document.querySelector('[data-cc-guidance-count]')
-    return {
-      ids: rows.map((r) => r.dataset.ccPaletteRow),
-      kinds: rows.map((r) => r.dataset.ccPaletteKind),
-      offerText: rows
-        .filter((r) => r.dataset.ccPaletteKind === 'offer')
-        .map((r) => r.innerText),
-      topCount: badge ? Number(badge.dataset.ccGuidanceCount) : 0,
-      aimed: document.querySelector('[data-cc-palette-aimed]')?.dataset.ccPaletteAimed ?? null,
-      foot: document.querySelector('[data-cc-palette-foot]')?.innerText ?? '',
+  /* ------------------------------------ 3+4. the rows, in the one order ---- */
+
+  console.log(`\nthe console — offers, verbs, and the terminals LAST — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('live', mode)
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+
+    const m = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-palette-row]')]
+      const badge = document.querySelector('[data-cc-guidance-count]')
+      const terminal = document.querySelector('[data-palette-group="terminal"]')
+      return {
+        ids: rows.map((r) => r.dataset.paletteRow),
+        groups: [...document.querySelectorAll('[data-palette-group]')].map((g) => g.dataset.paletteGroup),
+        terminalRows: terminal ? [...terminal.querySelectorAll('[data-palette-row]')].map((r) => r.dataset.paletteRow) : [],
+        terminalHeading: terminal ? terminal.hasAttribute('aria-labelledby') : null,
+        offerText: rows.filter((r) => r.dataset.paletteRow.startsWith('screen:offer:')).map((r) => r.innerText),
+        offerDetail: [...document.querySelectorAll('[data-palette-detail]')].map((e) => e.tagName),
+        consoleKbds: rows
+          .filter((r) => r.dataset.paletteRow.startsWith('screen:'))
+          .reduce((n, r) => n + r.querySelectorAll('kbd').length, 0),
+        topCount: badge ? Number(badge.dataset.ccGuidanceCount) : 0,
+        aimed: document.querySelector('[data-palette-aimed]')?.dataset.paletteAimed ?? null,
+        foot: document.querySelector('[data-palette-foot]')?.innerText ?? '',
+      }
+    })
+    const kinds = m.ids.map(kindOf)
+
+    ok(kinds.indexOf('verb') > kinds.lastIndexOf('offer'), `${tag}: every offer row is above every verb row`)
+    // 🚩 K14: the terminal rows trail EVERYTHING — the console's verbs, Go to and the sheet row.
+    ok(
+      JSON.stringify(m.ids.slice(-2)) === JSON.stringify(['screen:terminal:place', 'screen:terminal:abandon']),
+      `${tag}: 🚩 the last two rows of the whole palette are *Place order* and *Abandon call*`,
+    )
+    ok(
+      m.groups.at(-1) === 'terminal' &&
+        JSON.stringify(m.terminalRows) === JSON.stringify(['screen:terminal:place', 'screen:terminal:abandon']) &&
+        m.terminalHeading === false,
+      `${tag}: set apart after Go to, by a rule and no second heading (${m.groups.join(',')})`,
+    )
+    // 4. The strip's own view model, read once — the palette and the badge count
+    //    the same offers or this fails.
+    ok(
+      kinds.filter((k) => k === 'offer').length === m.topCount && m.topCount > 0,
+      `${tag}: the palette lists exactly the offers the top bar counts (${m.topCount})`,
+    )
+    ok(
+      m.offerDetail.length === m.topCount && m.offerDetail.every((t) => t === 'BDI'),
+      `${tag}: each offer's server text sits beside its label, isolated in a <bdi>`,
+    )
+    // 6a. Nothing auto-aims at a terminal act.
+    ok(m.aimed !== null && !m.aimed.startsWith('screen:terminal:'), `${tag}: 🚩 the auto-aim is never a terminal act`)
+    // 3. Line verbs stay out: the palette is one level deep and its object is the
+    //    order, which keeps *void* aimed at a line the agent is looking at.
+    ok(
+      !m.ids.some((id) => /qty|uom|void/i.test(id)),
+      `${tag}: no line verb has a row — quantity, unit of measure and void stay in the basket`,
+    )
+    // 153 stands whole: no console command carries a key, so no row hints one.
+    ok(m.consoleKbds === 0, `${tag}: 🚩 no console row carries a key — no single keys, no place-order chord`)
+    ok(/move/i.test(m.foot) && /run/i.test(m.foot) && /close/i.test(m.foot), `${tag}: the foot carries ↑↓, Enter and Esc`)
+    await shoot(page, 'rows', mode)
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
+
+  /* ------------------------------------ 5. a refused verb is a disabled row */
+
+  console.log(`\nthe console — a refused verb is a disabled row — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('refused', mode)
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+
+    const m = await page.evaluate(() => {
+      const verb = document.querySelector('[data-palette-row="screen:verb:fulfilment"]')
+      const place = document.querySelector('[data-palette-row="screen:terminal:place"]')
+      return {
+        disabled: verb?.getAttribute('aria-disabled'),
+        reason: document.querySelector('[data-palette-reason="screen:verb:fulfilment"]')?.innerText ?? '',
+        placeDisabled: place?.getAttribute('aria-disabled'),
+        placeReason: document.querySelector('[data-palette-reason="screen:terminal:place"]')?.innerText ?? '',
+      }
+    })
+    ok(m.disabled === 'true', `${tag}: a verb the door would refuse is drawn DISABLED rather than withheld`)
+    ok(m.reason.length > 0, `${tag}: and it carries its reason`)
+    // 🚩 The reason is the chip row's own sentence, and never a wire code or a raw key.
+    ok(!/DELIVERY_ONLY_SOURCE|_|callcenter:/.test(m.reason), `${tag}: the reason is words, never the server’s code`)
+    ok(/collect/i.test(m.reason), `${tag}: and it is the SAME sentence the chip row prints`)
+    // *Place order*'s reason is the receipt's own blocker list, not a second one.
+    ok(m.placeDisabled === 'true', `${tag}: a dead *Place order* is a disabled row`)
+    ok(/address/i.test(m.placeReason), `${tag}: carrying the server’s own submit blocker, worded`)
+    await shoot(page, 'refused-rows', mode)
+
+    // 5b. Still aimable, and inert.
+    await page.fill(PALETTE_INPUT, 'fulfilment')
+    await page.waitForSelector(row('verb:fulfilment'))
+    const aimed = await page.$eval('[data-palette-aimed]', (e) => e.dataset.paletteAimed)
+    ok(aimed === 'screen:verb:fulfilment', `${tag}: 🚩 a disabled row is still aimed at — it is not skipped past`)
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(150)
+    ok(await paletteOpen(page), `${tag}: Enter on it does NOTHING — the palette stays open`)
+    ok(
+      (await page.locator('[data-cc-fulfilment-picker]').count()) === 0,
+      `${tag}: and the picker the door would refuse never opens`,
+    )
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
+
+  /* --------------------------------- 6. no key sequence places an order ---- */
+
+  console.log(`\nthe console — what no sequence of keys can reach — ${tag}`)
+  {
+    const { context, page, pageErrors, wire } = await open('live', mode)
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+
+    // A query that matches ONLY the act that ends the call. Ruling 3's sharpest
+    // case: the palette aims at nothing and Enter reaches nothing.
+    await page.fill(PALETTE_INPUT, 'abandon call')
+    await page.waitForTimeout(100)
+    const only = await listedRows(page)
+    ok(
+      only.length === 1 && only[0] === 'screen:terminal:abandon',
+      `${tag}: a query can narrow to *Abandon call* alone (${only.join(',')})`,
+    )
+    ok(
+      (await page.locator('[data-palette-aimed]').count()) === 0,
+      `${tag}: 🚩 and then NOTHING is aimed at — the agent must press ↓`,
+    )
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(150)
+    ok(await paletteOpen(page), `${tag}: Enter on a query matching only a terminal does nothing at all`)
+    await shoot(page, 'abandon-aims-at-nothing', mode)
+
+    // The same for *Place order*: typing "place" never auto-aims it.
+    await page.fill(PALETTE_INPUT, 'place')
+    await page.waitForTimeout(100)
+    ok(
+      (await page.locator('[data-palette-aimed="screen:terminal:place"]').count()) === 0 &&
+        (await page.locator(row('terminal:place')).count()) === 1,
+      `${tag}: 🚩 typing "place" lists *Place order* but never aims it`,
+    )
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(200)
+    ok(
+      wire.filter((w) => w.path === 'CallCenterWeb/Submit').length === 0,
+      `${tag}: 🚩 no MISTYPED key sequence has placed the order`,
+    )
+
+    // 🚩 The aim is kept in view. The terminals live at the bottom of a list that
+    // scrolls, and an `Enter` on a row below the fold is a row the agent cannot
+    // read — which on these two rows is the whole risk.
+    if (await paletteOpen(page)) {
+      await page.fill(PALETTE_INPUT, '')
+    } else {
+      await ctrlK(page)
+      await page.waitForSelector(PALETTE)
     }
-  })
+    await page.waitForTimeout(100)
+    for (let n = 0; n < 60; n++) await page.keyboard.press('ArrowDown')
+    const visible = await page.evaluate(() => {
+      const el = document.querySelector('[data-palette-aimed]')
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      const list = document.getElementById('core-palette-list').parentElement.getBoundingClientRect()
+      return { inView: box.top >= list.top - 1 && box.bottom <= list.bottom + 1, id: el.dataset.paletteAimed }
+    })
+    ok(visible?.inView === true, `${tag}: 🚩 the aimed row is scrolled into view, never left below the fold`)
+    ok(visible?.id === 'screen:terminal:abandon', `${tag}: and walking to the end reaches the LAST row, *Abandon call*`)
+    await shoot(page, 'aim-in-view', mode)
 
-  ok(
-    m.kinds.indexOf('verb') > m.kinds.lastIndexOf('offer'),
-    'every offer row is above every verb row',
-  )
-  ok(
-    m.kinds.indexOf('terminal') > m.kinds.lastIndexOf('verb'),
-    '🚩 and the two terminal acts are LAST',
-  )
-  ok(
-    JSON.stringify(m.ids.slice(-2)) === JSON.stringify(['terminal:place', 'terminal:abandon']),
-    'the last two rows are *Place order* and *Abandon call*, in that order',
-  )
-  // 4. The strip's own view model, read once — the palette and the badge count
-  //    the same offers or this fails.
-  ok(
-    m.kinds.filter((k) => k === 'offer').length === m.topCount,
-    `the palette lists exactly the offers the top bar counts (${m.topCount})`,
-  )
-  // 6a. Nothing auto-aims at a terminal act.
-  ok(m.aimed !== null && !m.aimed.startsWith('terminal:'), '🚩 the auto-aim is never a terminal act')
-  // 3. Line verbs stay out: the palette is one level deep and its object is the
-  //    order, which keeps *void* aimed at a line the agent is looking at.
-  ok(
-    !m.ids.some((id) => /qty|uom|void/i.test(id)),
-    'no line verb has a row — quantity, unit of measure and void stay in the basket',
-  )
-  // 10. The whole cheat sheet, and there is no other.
-  ok(
-    /ctrl\+k/i.test(m.foot) && /move/i.test(m.foot) && /run/i.test(m.foot) && /esc/i.test(m.foot),
-    'the foot carries the four keys',
-  )
-  await shoot(page, 'rows')
-  allErrors.push(...pageErrors)
-  await context.close()
+    // 7. Abandon, reached deliberately, still meets its Keep-defaulted modal.
+    await page.fill(PALETTE_INPUT, 'abandon')
+    await page.waitForTimeout(100)
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await page.waitForSelector('[data-cc-abandon-confirm], dialog[open]')
+    await page.waitForTimeout(100)
+    ok(!(await paletteOpen(page)), `${tag}: a deliberate ↓ then Enter closes the palette…`)
+    ok((await page.locator('dialog[open]').count()) === 1, `${tag}: …and opens the abandon confirmation`)
+    ok(
+      wire.filter((w) => w.path === 'CallCenterWeb/Abandon').length === 0,
+      `${tag}: 🚩 and NOTHING has been voided — the keyboard has no shortcut past the modal`,
+    )
+    const buttons = await page.$$eval('dialog[open] button', (els) => els.map((e) => e.innerText))
+    ok(buttons.some((b) => /keep/i.test(b)), `${tag}: the modal still offers *Keep it* beside the void`)
+    await shoot(page, 'abandon-modal', mode)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+
+    // ⚠ **The deliberate path to *Place order*, asserted for what it IS.** 153
+    // ruling 3 gives submit no modal anywhere on this console — the palette row
+    // presses the button the receipt already gates on `canSubmit`, and the two
+    // guards between a mistyped `Enter` and it are *sorted last* and *never
+    // auto-aimed*, both proved above. So a deliberate ↓ then Enter DOES place the
+    // order, exactly as the receipt's own button does, and this asserts that it
+    // takes ONE submit and not two.
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    await page.fill(PALETTE_INPUT, 'place order')
+    await page.waitForTimeout(100)
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    const submits = wire.filter((w) => w.path === 'CallCenterWeb/Submit')
+    ok(submits.length === 1, `${tag}: a deliberate ↓ then Enter places the order, ONCE (${submits.length})`)
+    ok(
+      typeof submits[0]?.body?.requestId === 'string' && submits[0].body.requestId.length > 0,
+      `${tag}: carrying one requestId, like every other verb (law 3)`,
+    )
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
+
+  /* ------------------------------ the verbs that DO run, and the placeholder */
+
+  console.log(`\nthe console — the rows that run — ${tag}`)
+  {
+    const { context, page, pageErrors } = await open('live', mode)
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    await page.fill(PALETTE_INPUT, 'order note')
+    await page.waitForTimeout(100)
+    await page.keyboard.press('Enter')
+    // 🚩 The header sections are SECTIONS in the flow now, not dialogs (175 §9's
+    // variant 4, landed): the row a palette verb runs opens under the chip row,
+    // over an order the agent can still see.
+    await page.waitForSelector('[data-cc-section="note"]')
+    ok(
+      (await page.locator('[data-cc-section="note"]').count()) === 1 &&
+        (await page.locator('dialog[open]').count()) === 0,
+      `${tag}: Enter on an aimed verb opens its section — in the flow, not over the order`,
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+
+    // 🚩 *Search items* is the way home for focus stranded on a chip. The SOURCE
+    // chip, because this order is a delivery and its store chip is a readout —
+    // the plant follows the address there (owner ruling 2026-07-31).
+    await page.click('[data-cc-chip-open="source"]')
+    await page.waitForSelector('[data-cc-section="source"]')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+    await ctrlK(page)
+    await page.waitForSelector(PALETTE)
+    await page.fill(PALETTE_INPUT, 'search items')
+    await page.waitForTimeout(100)
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(200)
+    ok(
+      (await page.locator('#cc-item-search:focus').count()) === 1,
+      `${tag}: 🚩 *Search items* is the way home — the caret lands in the search box`,
+    )
+
+    // 9. The one key the agent has to memorise, written where the caret already is.
+    const placeholder = await page.getAttribute('#cc-item-search', 'placeholder')
+    ok(/ctrl\+k/i.test(placeholder ?? ''), `${tag}: Ctrl+K is advertised in the search box’s placeholder`)
+    await shoot(page, 'way-home', mode)
+    allErrors.push(...pageErrors)
+    await context.close()
+  }
 }
 
-/* ---------------------------------- 5. a refused verb is a disabled row ---- */
-
-console.log('\na refused verb — the console’s ONE deliberate exception')
-{
-  const { context, page, pageErrors } = await open('refused')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-
-  const m = await page.evaluate(() => {
-    const row = document.querySelector('[data-cc-palette-row="verb:fulfilment"]')
-    const place = document.querySelector('[data-cc-palette-row="terminal:place"]')
-    return {
-      disabled: row?.getAttribute('aria-disabled'),
-      reason: document.querySelector('[data-cc-palette-reason="verb:fulfilment"]')?.innerText ?? '',
-      placeDisabled: place?.getAttribute('aria-disabled'),
-      placeReason:
-        document.querySelector('[data-cc-palette-reason="terminal:place"]')?.innerText ?? '',
-    }
-  })
-  ok(m.disabled === 'true', 'a verb the door would refuse is drawn DISABLED rather than withheld')
-  ok(m.reason.length > 0, 'and it carries its reason')
-  // 🚩 The reason is the chip row's own sentence, and never a wire code.
-  ok(!/DELIVERY_ONLY_SOURCE|_/.test(m.reason), 'the reason is words, never the server’s code')
-  ok(/collect/i.test(m.reason), 'and it is the SAME sentence the chip row prints')
-  // *Place order*'s reason is the receipt's own blocker list, not a second one.
-  ok(m.placeDisabled === 'true', 'a dead *Place order* is a disabled row')
-  ok(/address/i.test(m.placeReason), 'carrying the server’s own submit blocker, worded')
-  await shoot(page, 'refused-rows')
-
-  // 5b. Still aimable, and inert. `↓` walks onto it; `Enter` does nothing.
-  await page.fill('[data-cc-palette-input]', 'fulfilment')
-  await page.waitForSelector('[data-cc-palette-row="verb:fulfilment"]')
-  const aimed = await page.$eval(
-    '[data-cc-palette-aimed]',
-    (e) => e.dataset.ccPaletteAimed,
-  )
-  ok(aimed === 'verb:fulfilment', '🚩 a disabled row is still aimed at — it is not skipped past')
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(150)
-  ok(await paletteOpen(page), 'Enter on it does NOTHING — the palette stays open')
-  ok(
-    (await page.locator('[data-cc-fulfilment-picker]').count()) === 0,
-    'and the picker the door would refuse never opens',
-  )
-  allErrors.push(...pageErrors)
-  await context.close()
-}
-
-/* ------------------------- 6. no key sequence places an order -------------- */
-
-console.log('\nthe terminal acts — what no sequence of keys can reach')
-{
-  const { context, page, pageErrors, wire } = await open('live')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-
-  // A query that matches ONLY the act that ends the call. Ruling 3's sharpest
-  // case: the palette aims at nothing and Enter reaches nothing.
-  await page.fill('[data-cc-palette-input]', 'abandon call')
-  await page.waitForTimeout(100)
-  const only = await page.$$eval('[data-cc-palette-row]', (els) =>
-    els.map((e) => e.dataset.ccPaletteRow),
-  )
-  ok(
-    only.length === 1 && only[0] === 'terminal:abandon',
-    'a query can narrow to *Abandon call* alone',
-  )
-  ok(
-    (await page.locator('[data-cc-palette-aimed]').count()) === 0,
-    '🚩 and then NOTHING is aimed at — the agent must press ↓',
-  )
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(150)
-  ok(await paletteOpen(page), 'Enter on a query matching only a terminal does nothing at all')
-  await shoot(page, 'abandon-aims-at-nothing')
-
-  // The same for *Place order*: it never takes the auto-aim.
-  await page.fill('[data-cc-palette-input]', 'place order')
-  await page.waitForTimeout(100)
-  ok(
-    (await page.locator('[data-cc-palette-aimed]').count()) === 0,
-    '🚩 *Place order* is never the auto-aimed row either',
-  )
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(200)
-  ok(
-    wire.filter((w) => w.path === 'CallCenterWeb/Submit').length === 0,
-    '🚩 no MISTYPED key sequence has placed the order',
-  )
-
-  // 🚩 The aim is kept in view. The terminals live at the bottom of a list that
-  // scrolls, and an `Enter` on a row below the fold is a row the agent cannot
-  // read — which on these two rows is the whole risk.
-  await page.fill('[data-cc-palette-input]', '')
-  await page.waitForTimeout(100)
-  for (let n = 0; n < 20; n++) await page.keyboard.press('ArrowDown')
-  const visible = await page.evaluate(() => {
-    const el = document.querySelector('[data-cc-palette-aimed]')
-    if (!el) return null
-    const box = el.getBoundingClientRect()
-    const list = el.parentElement.getBoundingClientRect()
-    return box.top >= list.top - 1 && box.bottom <= list.bottom + 1
-  })
-  ok(visible === true, '🚩 the aimed row is scrolled into view, never left below the fold')
-  await shoot(page, 'aim-in-view')
-
-  // 7. Abandon, reached deliberately, still meets its Keep-defaulted modal.
-  await page.fill('[data-cc-palette-input]', 'abandon')
-  await page.waitForTimeout(100)
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
-  await page.waitForSelector('[data-cc-abandon-confirm], dialog[open]')
-  ok(!(await paletteOpen(page)), 'a deliberate ↓ then Enter closes the palette…')
-  ok((await page.locator('dialog[open]').count()) === 1, '…and opens the abandon confirmation')
-  ok(
-    wire.filter((w) => w.path === 'CallCenterWeb/Abandon').length === 0,
-    '🚩 and NOTHING has been voided — the keyboard has no shortcut past the modal',
-  )
-  const buttons = await page.$$eval('dialog[open] button', (els) => els.map((e) => e.innerText))
-  ok(buttons.some((b) => /keep/i.test(b)), 'the modal still offers *Keep it* beside the void')
-  await shoot(page, 'abandon-modal')
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(150)
-
-  // ⚠ **The deliberate path to *Place order*, asserted for what it IS.** 153
-  // ruling 3 gives submit no modal anywhere on this console — the palette row
-  // presses the button the receipt already gates on `canSubmit`, and the two
-  // guards between a mistyped `Enter` and it are *sorted last* and *never
-  // auto-aimed*, both proved above. So a deliberate ↓ then Enter DOES place the
-  // order, exactly as the receipt's own button does, and this asserts that it
-  // takes ONE submit and not two.
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  await page.fill('[data-cc-palette-input]', 'place order')
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(300)
-  const submits = wire.filter((w) => w.path === 'CallCenterWeb/Submit')
-  ok(submits.length === 1, `a deliberate ↓ then Enter places the order, ONCE (${submits.length})`)
-  ok(
-    typeof submits[0]?.body?.requestId === 'string' && submits[0].body.requestId.length > 0,
-    'carrying one requestId, like every other verb (law 3)',
-  )
-  allErrors.push(...pageErrors)
-  await context.close()
-}
-
-/* --------------------------- the verbs that DO run, and the placeholder ---- */
-
-console.log('\nthe rows that run')
-{
-  const { context, page, pageErrors } = await open('live')
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  await page.fill('[data-cc-palette-input]', 'order note')
-  await page.keyboard.press('Enter')
-  // 🚩 The header sections are SECTIONS in the flow now, not dialogs (175 §9's
-  // variant 4, landed): the row a palette verb runs opens under the chip row,
-  // over an order the agent can still see.
-  await page.waitForSelector('[data-cc-section="note"]')
-  ok(
-    (await page.locator('[data-cc-section="note"]').count()) === 1 &&
-      (await page.locator('dialog[open]').count()) === 0,
-    'Enter on an aimed verb opens its section — in the flow, not over the order',
-  )
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(150)
-
-  // 🚩 *Search items* is the way home for focus stranded on a chip. The SOURCE
-  // chip, because this order is a delivery and its store chip is a readout —
-  // the plant follows the address there (owner ruling 2026-07-31).
-  await page.click('[data-cc-chip-open="source"]')
-  await page.waitForSelector('[data-cc-section="source"]')
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(150)
-  await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
-  await page.fill('[data-cc-palette-input]', 'search items')
-  await page.keyboard.press('Enter')
-  await page.waitForTimeout(200)
-  ok(
-    (await page.locator('#cc-item-search:focus').count()) === 1,
-    '🚩 *Search items* is the way home — the caret lands in the search box',
-  )
-
-  // 9. The one key the agent has to memorise, written where the caret already is.
-  const placeholder = await page.getAttribute('#cc-item-search', 'placeholder')
-  ok(/ctrl\+k/i.test(placeholder ?? ''), 'Ctrl+K is advertised in the search box’s placeholder')
-  await shoot(page, 'way-home')
-  allErrors.push(...pageErrors)
-  await context.close()
-}
+for (const mode of MODES) await consoleSuite(mode)
 
 /* ===================================================================== */
 /* ---------- the APP-WIDE palette (ticket 392, spec 380 K7–K13) -------- */
 /* ===================================================================== */
 //
-// The console above keeps its own palette until 395. Everything below drives the core
-// palette that `ProtectedLayout` hosts on every other signed-in screen, in light, dark
-// and RTL. Every `/api/**` call is stubbed; there is no Arabic locale, so RTL renders
+// The console above is driven on the core palette since 395. Everything below drives it
+// on every other signed-in screen, in light, dark and RTL. Every `/api/**` call is stubbed; there is no Arabic locale, so RTL renders
 // the English strings under `dir="rtl"`, with Arabic stub rows.
 
 const CORE_SHOTS = 'tools/.palette-core-shots'
@@ -1220,15 +1301,17 @@ console.log('\nthe routes that opt out')
   await context.close()
 }
 {
-  // The console's own harness (above), whose stubs the console was built against.
+  // 395: the console's route opt-out is gone — the console hosts the core palette.
   const { context, page, pageErrors } = await open('live')
   await page.click('#cc-item-search')
   await ctrlK(page)
-  await page.waitForSelector('[data-cc-palette]')
+  await page.waitForSelector('[data-palette]')
   await page.waitForTimeout(150)
   ok(
-    !(await coreOpen(page)) && (await page.locator('dialog[open]').count()) === 1,
-    'on /callcenter only the console’s own palette opens — one dialog, never two',
+    (await coreOpen(page)) &&
+      (await page.locator('dialog[open]').count()) === 1 &&
+      (await page.locator('[data-cc-palette]').count()) === 0,
+    'on /callcenter the CORE palette opens — one dialog, never two',
   )
   allErrors.push(...pageErrors)
   await context.close()

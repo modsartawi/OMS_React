@@ -3,10 +3,9 @@ import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
 
-// The palette's two opt-outs (spec 380 K7, 375 R4), as explicit route flags.
+// The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The call
+// center is chromeless but has the palette (395).
 const PRINT_ROUTE: PaletteRouteHandle = { print: true }
-// The console keeps its own Ctrl+K and palette until 395 moves it onto the core one.
-const OWN_PALETTE: PaletteRouteHandle = { ownPalette: true }
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 
@@ -73,7 +72,6 @@ export const router = createBrowserRouter([
   {
     path: '/callcenter',
     element: <ProtectedLayout chromeless />,
-    handle: OWN_PALETTE,
     children: [
       {
         index: true,

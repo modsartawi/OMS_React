@@ -48,8 +48,8 @@ export function returnPaletteFocus(): void {
  * Marks a palette host as mounted, for as long as it is. Ctrl+K itself is the key
  * layer's (`key-layer.ts`), the one listener every key goes through.
  *
- * 🚩 One host, one listener: a route that opts out of the palette (a print route, the
- * call center until 395) mounts no host, so a screen never has two Ctrl+K handlers.
+ * 🚩 One host, one listener: a route that opts out of the palette (a print route) mounts
+ * no host, and no screen keeps a Ctrl+K of its own (the call center's went with 395).
  */
 export function usePaletteHost(): void {
   useEffect(() => {

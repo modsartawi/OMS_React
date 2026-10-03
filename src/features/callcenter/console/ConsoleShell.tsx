@@ -21,17 +21,17 @@
  * search, the basket's own verbs, the guidance strip — arrive with tickets
  * 166–172, in the centre column that is the only region that grows.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
+import { useCommands } from '@/core/commands/registry'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView, type DeliveryFeeView } from './basket-view'
-import CommandPalette from './CommandPalette'
-import { paletteRows } from './palette-model'
+import { paletteCommands } from './palette-model'
 import { capabilityGate, feeLine, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, {
@@ -263,7 +263,65 @@ export default function ConsoleShell({
   // and the palette lists it (192), and two reads would be two chances for them
   // to disagree about what is actionable.
   const guidance = guidanceView(state.nearMisses)
-  const palette = usePalette()
+  const { i18n } = useTranslation()
+  // 🚩 One key reaches everything the order can do (192), through the app-wide palette
+  // (395, spec 380 K19): these are the console's This screen rows, and every one runs a
+  // handler this shell was ALREADY given. Nothing here is a new route to a verb: an act
+  // the page withheld (a shut capability, a closed order) arrives as a missing handler
+  // and the palette draws it disabled with its reason, which is the one place on this
+  // console a refused control is drawn rather than withheld. No command carries a key —
+  // 153 stands whole — and the two that end a call are `terminal`.
+  useCommands(
+    paletteCommands({
+      guidance,
+      capabilities: state.capabilities,
+      hasCaller: state.header.customer != null,
+      // Read for one sentence: *Change store* is refused on a delivery order
+      // for a reason no capability carries, and the row borrows the chip
+      // row's own words for it rather than falling through to the vague one.
+      pickup: isPickup(state.header),
+      known: (key) => i18n.exists(key),
+      actions: {
+        verbs: {
+          // The way home for focus stranded on a chip — and the box the
+          // agent lives in. Both targets are addressed by their stable id
+          // rather than by a ref threaded through two sibling components:
+          // the palette does not own either box, and one row is not worth
+          // two more props on two more components.
+          searchItems: () => focusBox('cc-item-search'),
+          addressBook: onPickAddress,
+          changeStore: onChangeStore,
+          slot: onChangeSlot,
+          source: onChangeSource,
+          note: onChangeNote,
+          // 🚩 The SAME gate the chip row applies, from the same function on
+          // the same state — so a chip that stopped being a control cannot
+          // be a live palette row.
+          fulfilment: capabilityGate(state.capabilities, 'canChangeFulfilment').open
+            ? onChangeFulfilment
+            : undefined,
+          payment: capabilityGate(state.capabilities, 'canChangePaymentType').open
+            ? onChangePayment
+            : undefined,
+          coupon: onChangeCoupon,
+          attachCaller: () => focusBox('cc-phone'),
+          // The rail's own gate, mirrored: a removal in flight withdraws
+          // the control there, and a palette row that ignored it would be a
+          // second `removeCustomer` on one caller.
+          removeCaller: customerActions.busy ? null : customerActions.onRemove,
+          refresh: onRefresh,
+        },
+        // 🚩 Dead while it is running, exactly as the receipt's own button
+        // is: one press is one action, on the verb that mints a real order.
+        place: submit.placing ? null : submit.onPlace,
+        abandon: onAbandon,
+        // The offer strip's keyboard path: narrow the item search to the
+        // offer and land the caret in the box — 172's own hand-off, never a
+        // second add route.
+        onOffer: guidanceActions.onSearchRest,
+      },
+    }),
+  )
   return (
     <div
       className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
@@ -340,65 +398,6 @@ export default function ConsoleShell({
         </main>
         <Receipt state={state} submit={submit} />
       </div>
-      {/* 🚩 One key reaches everything the order can do (192) — and every row it
-          runs is a handler this shell was ALREADY given. Nothing here is a new
-          route to a verb: an act the page withheld (a shut capability, a closed
-          order) arrives as a missing handler and the palette draws it disabled
-          with its reason, which is the one place on this console a refused
-          control is drawn rather than withheld. */}
-      <CommandPalette
-        open={palette.open}
-        onClose={palette.close}
-        returnFocus={palette.returnFocus}
-        rows={paletteRows({
-          guidance,
-          capabilities: state.capabilities,
-          hasCaller: state.header.customer != null,
-          // Read for one sentence: *Change store* is refused on a delivery order
-          // for a reason no capability carries, and the row borrows the chip
-          // row's own words for it rather than falling through to the vague one.
-          pickup: isPickup(state.header),
-          actions: {
-            verbs: {
-              // The way home for focus stranded on a chip — and the box the
-              // agent lives in. Both targets are addressed by their stable id
-              // rather than by a ref threaded through two sibling components:
-              // the palette does not own either box, and one row is not worth
-              // two more props on two more components.
-              searchItems: () => focusBox('cc-item-search'),
-              addressBook: onPickAddress,
-              changeStore: onChangeStore,
-              slot: onChangeSlot,
-              source: onChangeSource,
-              note: onChangeNote,
-              // 🚩 The SAME gate the chip row applies, from the same function on
-              // the same state — so a chip that stopped being a control cannot
-              // be a live palette row.
-              fulfilment: capabilityGate(state.capabilities, 'canChangeFulfilment').open
-                ? onChangeFulfilment
-                : undefined,
-              payment: capabilityGate(state.capabilities, 'canChangePaymentType').open
-                ? onChangePayment
-                : undefined,
-              coupon: onChangeCoupon,
-              attachCaller: () => focusBox('cc-phone'),
-                // The rail's own gate, mirrored: a removal in flight withdraws
-              // the control there, and a palette row that ignored it would be a
-              // second `removeCustomer` on one caller.
-              removeCaller: customerActions.busy ? null : customerActions.onRemove,
-              refresh: onRefresh,
-            },
-            // 🚩 Dead while it is running, exactly as the receipt's own button
-            // is: one press is one action, on the verb that mints a real order.
-            place: submit.placing ? null : submit.onPlace,
-            abandon: onAbandon,
-            // The offer strip's keyboard path: narrow the item search to the
-            // offer and land the caret in the box — 172's own hand-off, never a
-            // second add route.
-            onOffer: guidanceActions.onSearchRest,
-          },
-        })}
-      />
     </div>
   )
 }
@@ -406,61 +405,6 @@ export default function ConsoleShell({
 /** The two boxes a palette row hands focus back to. */
 function focusBox(id: string) {
   document.getElementById(id)?.focus()
-}
-
-/**
- * `Ctrl+K` / `Cmd+K`, and the two rules that make it safe.
- *
- * 🚩 **It must `preventDefault()`** — it is Chrome's omnibox-search key and *is*
- * interceptable (Linear, Slack and GitHub all take it), so without this the
- * agent's hands leave the console mid-call.
- *
- * 🚩 **It is inert while any `<dialog>` is open** — a palette over a
- * confirmation sheet is two truths on one screen, and the sheet is a decision the
- * agent has been asked to make. A native modal makes the content behind it inert
- * but a document `keydown` still fires, so the guard is explicit. It also makes
- * the key a no-op over the palette itself, which is what stops `Ctrl+K` becoming
- * a toggle that re-opens a fresh query over the agent's own.
- *
- * The listener is document-level and mounted with the console, because the key
- * must work **from inside any text box** — this console's resting focus is a
- * text box twice over (the phone field at open, the search box after that), so a
- * grammar gated on *not typing* would almost never be armed (153).
- */
-function usePalette() {
-  const [open, setOpen] = useState(false)
-  /**
-   * 🚩 Where the caret was **at the moment of the press** — the way home, and
-   * the only moment the answer exists. By the time the palette has rendered, its
-   * own box has the caret, so nothing downstream can work this out.
-   */
-  const cameFrom = useRef<HTMLElement | null>(null)
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'k' && event.key !== 'K') return
-      if (!event.ctrlKey && !event.metaKey) return
-      // 🚩 Prevented BEFORE the inert check, never after. *Inert* means this
-      // console does nothing — it must not mean Chrome does something: left to
-      // its default the key puts the caret in the omnibox, so an agent whose
-      // hand reaches for it over an open confirmation sheet would leave the
-      // application entirely, which is worse than the palette they asked for.
-      event.preventDefault()
-      if (document.querySelector('dialog[open]')) return
-      cameFrom.current = document.activeElement as HTMLElement | null
-      setOpen(true)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
-  // Stable, because it is a dependency of the palette's own open/close effect —
-  // a fresh closure per render would re-run it on every keystroke.
-  const returnFocus = useCallback(() => cameFrom.current?.focus?.(), [])
-  // 🚩 A placed order keeps its palette, and nothing here closes it on status.
-  // Every act such an order can no longer do is already a disabled row carrying
-  // the server's own reason — including *Place order*, whose reason is
-  // `ALREADY_SUBMITTED` — and *Refresh* still works. A rule here would be this
-  // hook saying worse what the rows already say.
-  return { open, close: () => setOpen(false), returnFocus }
 }
 
 function TopBar({

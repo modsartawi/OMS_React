@@ -31,6 +31,9 @@ tools/.grid-shots/
 # Foundation drive screenshots (tools/foundation-drive.mjs) — same deal
 tools/.foundation-shots/
 
+# The app-wide palette's drive screenshots (tools/command-palette-drive.mjs, ticket 392)
+tools/.palette-core-shots/
+
 # StatusBadge drive screenshots (tools/status-badge-drive.mjs) — same deal
 tools/.badge-shots/
 

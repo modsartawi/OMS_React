@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useMatches } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, MapPin } from 'lucide-react'
+import { ChevronDown, MapPin, Search } from 'lucide-react'
+import { PALETTE_KEY_CODE, keyLegend } from '@/core/commands/chord'
+import { openPalette, usePalette } from '@/core/commands/palette-store'
 import { useSession } from '@/core/session'
 import { lookupQueries } from '@/core/services/lookups'
+import Kbd from '@/core/ui/Kbd'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
@@ -14,10 +17,9 @@ import { MENU } from './menu-model'
 import { RailDrawer } from './Rail'
 
 // The top bar (spec 380 F11, ticket 386; 363 "Top bar"): 44px on `--card`, holding the
-// crumb, then — at the inline end — the store chip and the bell. Nothing else: the
-// account lives at the rail foot (`UserMenu.tsx`), Broadcast stays an Administration
-// leaf, and the palette field joins with the keyboard step (392). Paper never carries it
-// (F20).
+// crumb, the centred palette field (392), then — at the inline end — the store chip and
+// the bell. Nothing else: the account lives at the rail foot (`UserMenu.tsx`), and
+// Broadcast stays an Administration leaf. Paper never carries it (F20).
 
 /**
  * The crumb's separator. The owner kept the slash under RTL too (378 §5) — punctuation
@@ -185,6 +187,37 @@ function StoreChip() {
   )
 }
 
+/**
+ * The centred palette field (F11, held back from S1 to the keyboard step): a button that
+ * opens the app-wide palette, advertising Ctrl+K. It renders only while a palette host is
+ * mounted, so it can never be a field that opens nothing.
+ *
+ * The chord hint is isolated as ONE unit (378 §5): per cap, RTL would lay it out `K Ctrl`.
+ */
+function PaletteField() {
+  const { t } = useTranslation()
+  const hosted = usePalette((s) => s.hosts > 0)
+  if (!hosted) return null
+  return (
+    <button
+      type="button"
+      onClick={(event) => openPalette(event.currentTarget)}
+      aria-haspopup="dialog"
+      aria-keyshortcuts="Control+K"
+      data-palette-field
+      className="flex h-7 w-full max-w-[540px] min-w-0 cursor-text items-center gap-2 rounded-md border border-border-strong bg-card-2 px-2.5 text-start text-[12.5px] text-muted-foreground hover:border-ink-3"
+    >
+      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{t('palette.field')}</span>
+      <span className="hidden shrink-0 sm:inline" data-palette-field-keys>
+        <Ltr>
+          <Kbd>{t('keys.ctrl')}</Kbd> <Kbd gold>{keyLegend(PALETTE_KEY_CODE)}</Kbd>
+        </Ltr>
+      </span>
+    </button>
+  )
+}
+
 /** `withDrawer`: below 640px there is no rail, and the bar leads with the hamburger (387). */
 export default function TopBar({ withDrawer }: { withDrawer: boolean }) {
   return (
@@ -194,7 +227,9 @@ export default function TopBar({ withDrawer }: { withDrawer: boolean }) {
     >
       {withDrawer && <RailDrawer />}
       <Crumb />
-      <div className="flex-1" />
+      <div className="flex min-w-0 flex-1 justify-center">
+        <PaletteField />
+      </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <StoreChip />
         {/* Hides itself when the Notification Center is off (404 poll). Its panel is 389's. */}

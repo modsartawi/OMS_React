@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Navigate, Outlet, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation, useMatches } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/core/session'
+import { paletteOptedOut } from '@/core/commands/palette-model'
 import { authApi } from './api'
 import AppShell from '@/layout/AppShell'
+import CommandPaletteHost from '@/layout/CommandPaletteHost'
 
 /**
  * Single guard on the layout parent (all children inherit it).
@@ -17,6 +19,10 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
   const location = useLocation()
   const hydrated = useSession((s) => s.loaded)
   const setSession = useSession((s) => s.setSession)
+  // The app-wide palette is hosted HERE (spec 380 K7), so chromeless screens have it too.
+  // A route opts out through an explicit `handle` flag (375 R4), never through
+  // `chromeless`: the print routes, and the call center until 395.
+  const hostPalette = !paletteOptedOut(useMatches().map((m) => m.handle))
 
   const me = useQuery({
     queryKey: ['auth', 'me'],
@@ -36,7 +42,13 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
   // one place that decides "authenticated" is still this file, and only the
   // chrome differs. The consequence 134 §8 draws out: a refusal under
   // `chromeless` has no nav to leave by and must carry its own way home.
-  if (hydrated) return chromeless ? <Outlet /> : <AppShell />
+  if (hydrated)
+    return (
+      <>
+        {chromeless ? <Outlet /> : <AppShell />}
+        {hostPalette && <CommandPaletteHost />}
+      </>
+    )
 
   if (me.isPending || authenticated) {
     return (

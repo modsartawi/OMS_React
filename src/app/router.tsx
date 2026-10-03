@@ -1,6 +1,12 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
+import type { PaletteRouteHandle } from '@/core/commands/palette-model'
+
+// The palette's two opt-outs (spec 380 K7, 375 R4), as explicit route flags.
+const PRINT_ROUTE: PaletteRouteHandle = { print: true }
+// The console keeps its own Ctrl+K and palette until 395 moves it onto the core one.
+const OWN_PALETTE: PaletteRouteHandle = { ownPalette: true }
 
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
@@ -65,6 +71,7 @@ export const router = createBrowserRouter([
   {
     path: '/callcenter',
     element: <ProtectedLayout chromeless />,
+    handle: OWN_PALETTE,
     children: [
       {
         index: true,
@@ -82,6 +89,7 @@ export const router = createBrowserRouter([
   {
     path: '/collection/receipt/:collectionReceiptId',
     element: <ProtectedLayout chromeless />,
+    handle: PRINT_ROUTE,
     children: [
       {
         index: true,
@@ -94,6 +102,7 @@ export const router = createBrowserRouter([
   {
     path: '/collection/acr/:acrId',
     element: <ProtectedLayout chromeless />,
+    handle: PRINT_ROUTE,
     children: [
       {
         index: true,

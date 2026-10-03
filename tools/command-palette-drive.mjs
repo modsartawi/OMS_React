@@ -32,6 +32,15 @@
 //   9. `Ctrl+K` is advertised in the search box's placeholder
 //  10. the foot carries the four keys, and there is no second cheat sheet
 //  11. nothing throws
+//
+// …and, since ticket 392, the APP-WIDE palette every other signed-in screen hosts (spec 380
+// K7–K13), in light, dark and RTL: Ctrl+K from a text box and from a grid cell, from an
+// Arabic layout, and from the top bar's field; focus home on Esc; Go to and Jump to number,
+// *Open delivery 8000000174* landing on Details; inert under a dialog; Jump hidden while the
+// detail grant is denied, errored or still pending; absent on a print route; and on
+// `/callcenter` only the console's own palette. Screenshots → tools/.palette-core-shots/.
+//
+//   DRIVE_PORT=5280 node tools/command-palette-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -535,6 +544,338 @@ console.log('\nthe rows that run')
   const placeholder = await page.getAttribute('#cc-item-search', 'placeholder')
   ok(/ctrl\+k/i.test(placeholder ?? ''), 'Ctrl+K is advertised in the search box’s placeholder')
   await shoot(page, 'way-home')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+/* ===================================================================== */
+/* ---------- the APP-WIDE palette (ticket 392, spec 380 K7–K13) -------- */
+/* ===================================================================== */
+//
+// The console above keeps its own palette until 395. Everything below drives the core
+// palette that `ProtectedLayout` hosts on every other signed-in screen, in light, dark
+// and RTL. Every `/api/**` call is stubbed; there is no Arabic locale, so RTL renders
+// the English strings under `dir="rtl"`, with Arabic stub rows.
+
+const CORE_SHOTS = 'tools/.palette-core-shots'
+mkdirSync(CORE_SHOTS, { recursive: true })
+
+const JUMP_NO = '8000000174'
+const ARABIC_NAME = 'عميل تجريبي'
+
+const DELIVERY_ROW = (over) => ({
+  deliveryNo: '80001238',
+  documentNo: '1000000393',
+  deliveryDocumentType: 'LF',
+  orderNo: '900001',
+  storeCode: '1001',
+  documentDate: '2026-07-01T00:00:00',
+  deliveryType: 'P',
+  documentType: 'CLCN',
+  documentSource: 'W',
+  entryTime: '2026-07-01T09:12:00',
+  isActiveInStore: true,
+  timeSlotDescription: '10:00 - 12:00',
+  customerName: ARABIC_NAME,
+  customerPhone: '0500000000',
+  netTotal: 120.5,
+  paidAmount: 120.5,
+  deliveryFees: 10,
+  amountDue: 0,
+  failedJobsCount: 0,
+  ...over,
+})
+
+const DOCUMENT_OF = (no) => ({
+  documentNo: '1000000393',
+  deliveryNo: no,
+  storeCode: '1001',
+  documentType: 'CLCN',
+  documentTypeDescription: 'Call Center',
+  documentCategory: 'O',
+  deliveryType: 'P',
+  customerName: ARABIC_NAME,
+  lines: [{ itemNumber: '000010', materialCode: 'M1', materialDescription: 'Panadol 500mg', quantity: 2, netValue: 30 }],
+  conditions: [],
+  status: { overallStatus: 'A', lastAction: 'X', lastActionDescription: 'Created' },
+})
+
+/**
+ * A signed-in app with every screen granted. `oms` decides the OMS probe's answer:
+ * `granted` (list + detail), `noDetail`, `errored` (a 500) or `held` (unanswered until
+ * the returned `release()` is called — a probe still pending).
+ */
+async function openCore({ theme = 'light', dir = 'ltr', oms = 'granted', path = '/oms/deliveries' } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  const pageErrors = []
+  page.on('pageerror', (e) => pageErrors.push(String(e)))
+  page.on(
+    'console',
+    (m) =>
+      m.type() === 'error' &&
+      !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
+      pageErrors.push(m.text()),
+  )
+  await page.addInitScript(
+    ([t, d]) => {
+      localStorage.setItem('oms.darkMode', String(t === 'dark'))
+      localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    },
+    [theme, dir],
+  )
+  let release = () => {}
+  const held = new Promise((resolve) => (release = resolve))
+
+  await page.route('**/api/**', async (route) => {
+    const p = route.request().url().split('/api/')[1].split('?')[0]
+    if (p === 'Auth/Me')
+      return route.fulfill(
+        envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
+      )
+    if (p === 'SdDocumentWeb/Access') {
+      if (oms === 'errored') return route.fulfill(envelope(null, { status: 500, success: false, message: 'boom' }))
+      if (oms === 'held') await held
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: oms !== 'noDetail' }))
+    }
+    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'CallCenterWeb/Open')
+      return route.fulfill(envelope({ outcome: 'opened', state: SCENARIOS.live, existing: null }))
+    if (p === 'CallCenterWeb/State') return route.fulfill(envelope(SCENARIOS.live))
+    if (p === 'SdDocumentWeb/DeliveryDocumentList')
+      return route.fulfill(
+        envelope([DELIVERY_ROW({}), DELIVERY_ROW({ deliveryNo: '80001237', documentNo: '1000000394' })]),
+      )
+    const doc = /^SdDocumentWeb\/(?:Document|Delivery)\/([^/]+)$/.exec(p)
+    if (doc) return route.fulfill(envelope(DOCUMENT_OF(doc[1])))
+    // The print route's own read answers "not found": the page's state is not the subject.
+    if (p.startsWith('CollectionWeb/Receipt/'))
+      return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not found' }))
+    if (/Access$/.test(p))
+      return route.fulfill(
+        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenNphies: true, canOpenConsole: true }),
+      )
+    if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(p) || /\/(Outbox|Logs)$/.test(p))
+      return route.fulfill(envelope([]))
+    return route.fulfill(envelope({}))
+  })
+
+  await page.goto(`${BASE}${path}`)
+  return { context, page, pageErrors, release }
+}
+
+const coreOpen = (page) => page.locator('[data-palette]').count().then((n) => n > 0)
+const groupsShown = (page) => page.$$eval('[data-palette-group]', (els) => els.map((e) => e.dataset.paletteGroup))
+const rowsShown = (page) => page.$$eval('[data-palette-row]', (els) => els.map((e) => e.dataset.paletteRow))
+const aimedRow = (page) =>
+  page.$eval('[data-palette-aimed]', (e) => e.dataset.paletteAimed).catch(() => null)
+const escape = async (page) => {
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-palette]', { state: 'detached' })
+}
+
+for (const mode of [
+  { theme: 'light', dir: 'ltr' },
+  { theme: 'dark', dir: 'ltr' },
+  { theme: 'light', dir: 'rtl' },
+]) {
+  const tag = `${mode.theme}/${mode.dir}`
+  console.log(`\nthe app-wide palette — ${tag}`)
+  const { context, page, pageErrors } = await openCore(mode)
+
+  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.waitForSelector('.ag-row')
+  ok((await page.evaluate(() => document.dir || 'ltr')) === mode.dir, `${tag}: the document is ${mode.dir}`)
+
+  // F11: the top bar's centred field, its chord isolated as one unit.
+  const field = page.locator('[data-palette-field]')
+  ok((await field.count()) === 1, `${tag}: the top bar carries the palette field`)
+  const caps = await page.$$eval('[data-palette-field-keys] kbd', (els) =>
+    els.map((e) => ({ text: e.innerText, x: e.getBoundingClientRect().x })),
+  )
+  ok(
+    caps.length === 2 && caps[0].text === 'Ctrl' && caps[1].text === 'K' && caps[0].x < caps[1].x,
+    `${tag}: its hint reads "Ctrl K" left to right — never "K Ctrl"`,
+  )
+
+  // K7: from a text box.
+  const box = page.locator('main input:not([type=date]):not([type=checkbox]):not([type=radio]):visible').first()
+  await box.click()
+  await box.fill('12')
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(await coreOpen(page), `${tag}: Ctrl+K opens the core palette from a TEXT BOX`)
+  ok((await page.locator('[data-palette-input]:focus').count()) === 1, `${tag}: and the caret is in its box`)
+  ok((await page.locator('[data-palette-input]').inputValue()) === '', `${tag}: which opens empty`)
+  const emptyGroups = await groupsShown(page)
+  // No page registers a command yet (393 onward), so This screen is absent and Go to leads.
+  ok(JSON.stringify(emptyGroups) === '["goto"]', `${tag}: an empty box lists Go to (${emptyGroups.join(',')})`)
+  ok((await rowsShown(page)).includes('goto:/oms/deliveries'), `${tag}: Go to holds the rail's Deliveries leaf`)
+  await page.screenshot({ path: `${CORE_SHOTS}/goto-${mode.theme}-${mode.dir}.png` })
+  await escape(page)
+  ok(
+    (await box.evaluate((el) => el === document.activeElement)) && (await box.inputValue()) === '12',
+    `${tag}: Esc closes it, and the caret is back in the box with its text`,
+  )
+
+  // K7: from a grid cell.
+  await page.locator('.ag-row .ag-cell').first().click()
+  const inCell = await page.evaluate(() => !!document.activeElement?.closest('.ag-cell'))
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]', { timeout: 3000 }).catch(() => {})
+  ok(inCell && (await coreOpen(page)), `${tag}: Ctrl+K opens it from a GRID CELL`)
+  if (await coreOpen(page)) await escape(page)
+  ok(await page.evaluate(() => !!document.activeElement?.closest('.ag-cell')), `${tag}: and focus returns to the cell`)
+
+  // F11: the field opens it on click.
+  await field.click()
+  await page.waitForSelector('[data-palette]')
+  ok(await coreOpen(page), `${tag}: clicking the top bar's field opens it`)
+  await escape(page)
+  ok(await field.evaluate((el) => el === document.activeElement), `${tag}: and focus returns to the field`)
+
+  // A hand-drawn modal (the saved-view dialog marks itself `aria-modal`) counts as open too.
+  await page.getByRole('button', { name: 'Save view' }).click()
+  await page.waitForSelector('[role="dialog"][aria-modal="true"]')
+  await ctrlK(page)
+  await page.waitForTimeout(150)
+  ok(!(await coreOpen(page)), `${tag}: 🚩 Ctrl+K over the hand-drawn Save view dialog does NOTHING`)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[role="dialog"][aria-modal="true"]', { state: 'detached' })
+
+  // 365's flag: on an Arabic layout `key` is the Arabic letter on that cap.
+  await page.evaluate(() =>
+    (document.activeElement ?? document.body).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ن', code: 'KeyK', ctrlKey: true, bubbles: true, cancelable: true }),
+    ),
+  )
+  await page.waitForSelector('[data-palette]', { timeout: 2000 }).catch(() => {})
+  ok(await coreOpen(page), `${tag}: an Arabic-layout Ctrl+K (key "ن", code KeyK) opens it`)
+
+  // K11: a typed number adds the Jump rows, after Go to.
+  await page.locator('[data-palette-input]').fill(JUMP_NO)
+  await page.waitForSelector('[data-palette-group="jump"]')
+  const jumpGroups = await groupsShown(page)
+  ok(jumpGroups[jumpGroups.length - 1] === 'jump', `${tag}: a number adds Jump to number, last (${jumpGroups.join(',')})`)
+  ok(
+    JSON.stringify(await rowsShown(page)) === '["jump:delivery","jump:document"]',
+    `${tag}: Open delivery N, then Open document N`,
+  )
+  const value = await page.$eval('[data-palette-row="jump:delivery"] [data-palette-value]', (el) => ({
+    text: el.innerText,
+    isolated: !!el.querySelector('bdi[dir="ltr"]'),
+  }))
+  ok(value.text === JUMP_NO && value.isolated, `${tag}: the number is shown whole and isolated LTR`)
+  ok((await aimedRow(page)) === 'jump:delivery', `${tag}: Open delivery is aimed`)
+  await page.screenshot({ path: `${CORE_SHOTS}/jump-${mode.theme}-${mode.dir}.png` })
+  await page.keyboard.press('Enter')
+  await page.waitForURL(`**/oms/delivery/${JUMP_NO}`)
+  await page.waitForSelector('[data-crumb-record]')
+  ok(
+    (await page.locator('[data-crumb-record]').innerText()).trim() === JUMP_NO,
+    `${tag}: *Open delivery ${JUMP_NO}* lands on Delivery details`,
+  )
+  ok(!(await coreOpen(page)), `${tag}: and the palette closed before it navigated`)
+
+  // K7: inert while any dialog is open.
+  await page.getByRole('button', { name: 'Add Note…' }).click()
+  await page.waitForSelector('dialog[open]')
+  await ctrlK(page)
+  await page.waitForTimeout(150)
+  ok(
+    !(await coreOpen(page)) && (await page.locator('dialog[open]').count()) === 1,
+    `${tag}: 🚩 Ctrl+K over an open dialog does NOTHING`,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('dialog[open]', { state: 'detached' })
+
+  // K10: Go to navigates.
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  const target = 'goto:/oms/deliveries'
+  const words = (await page.locator(`[data-palette-row="${target}"]`).innerText()).split('\n')[0]
+  await page.locator('[data-palette-input]').fill(words)
+  for (let n = 0; n < 10 && (await aimedRow(page)) !== target; n++) await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await page.waitForURL('**/oms/deliveries')
+  ok(page.url().endsWith('/oms/deliveries'), `${tag}: Go to "${words}" navigates there`)
+
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+/* ---------------------------- K12: gated, and failing CLOSED ------------- */
+
+console.log('\nthe palette fails closed')
+{
+  const { context, page, pageErrors } = await openCore({ oms: 'noDetail', path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await page.waitForTimeout(300)
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  await page.locator('[data-palette-input]').fill(JUMP_NO)
+  await page.waitForTimeout(150)
+  ok(!(await groupsShown(page)).includes('jump'), 'without canOpenDetail a number yields NO Jump rows')
+  ok((await page.locator('[data-palette-empty]').count()) === 1, 'and the palette says nothing matches')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+{
+  const { context, page, pageErrors } = await openCore({ oms: 'errored', path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await page.waitForTimeout(300)
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(!(await rowsShown(page)).includes('goto:/oms/deliveries'), '🚩 an ERRORED probe hides its Go to leaf')
+  await page.locator('[data-palette-input]').fill(JUMP_NO)
+  await page.waitForTimeout(150)
+  ok(!(await groupsShown(page)).includes('jump'), '🚩 and hides Jump to number')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+{
+  const { context, page, pageErrors, release } = await openCore({ oms: 'held', path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  await page.locator('[data-palette-input]').fill(JUMP_NO)
+  await page.waitForTimeout(150)
+  ok(!(await groupsShown(page)).includes('jump'), '🚩 a PENDING probe hides Jump to number…')
+  release()
+  await page.waitForSelector('[data-palette-group="jump"]', { timeout: 5000 }).catch(() => {})
+  ok((await groupsShown(page)).includes('jump'), '…until it confirms, and then it appears')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+/* --------------------- K7 / 375 R4: the routes that opt out --------------- */
+
+console.log('\nthe routes that opt out')
+{
+  const { context, page, pageErrors } = await openCore({ path: '/collection/receipt/1' })
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(300)
+  await ctrlK(page)
+  await page.waitForTimeout(200)
+  ok(
+    !(await coreOpen(page)) && (await page.locator('dialog[open]').count()) === 0,
+    'Ctrl+K is absent on /collection/receipt/:id (a print route)',
+  )
+  ok((await page.locator('[data-palette-field]').count()) === 0, 'and no palette field is drawn there')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+{
+  // The console's own harness (above), whose stubs the console was built against.
+  const { context, page, pageErrors } = await open('live')
+  await page.click('#cc-item-search')
+  await ctrlK(page)
+  await page.waitForSelector('[data-cc-palette]')
+  await page.waitForTimeout(150)
+  ok(
+    !(await coreOpen(page)) && (await page.locator('dialog[open]').count()) === 1,
+    'on /callcenter only the console’s own palette opens — one dialog, never two',
+  )
   allErrors.push(...pageErrors)
   await context.close()
 }

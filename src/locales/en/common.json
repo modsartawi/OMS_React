@@ -36,6 +36,31 @@
       "label": "Menu"
     }
   },
+  "palette": {
+    "title": "Command palette",
+    "field": "Go to a screen, or open a delivery or document number",
+    "placeholder": "Type a screen, a command or a number",
+    "empty": "Nothing matches.",
+    "group": {
+      "screen": "This screen",
+      "goto": "Go to",
+      "jump": "Jump to number"
+    },
+    "jump": {
+      "delivery": "Open delivery",
+      "document": "Open document"
+    },
+    "foot": {
+      "move": "move",
+      "run": "run",
+      "close": "close"
+    }
+  },
+  "keys": {
+    "ctrl": "Ctrl",
+    "enter": "Enter",
+    "esc": "Esc"
+  },
   "rail": {
     "toggleSection": "Expand or collapse {{label}}",
     "expand": "Expand menu",

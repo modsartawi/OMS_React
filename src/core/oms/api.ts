@@ -39,3 +39,18 @@ export const omsAccessApi = {
     return api.get<OmsAccessResult>('SdDocumentWeb/Access')
   },
 }
+
+/**
+ * The probe's query options, for a new reader of the shared entry (ticket 392's palette
+ * host). They MATCH the menu leaf's and both OMS pages' on purpose: `staleTime: Infinity`
+ * keeps an observer from marking the entry stale and refetching, and `retry: false`
+ * lands a fail-closed grant at once.
+ */
+export function omsAccessQuery() {
+  return {
+    queryKey: OMS_ACCESS_KEY,
+    queryFn: () => omsAccessApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}

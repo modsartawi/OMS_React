@@ -8,8 +8,9 @@ import type {
   SdDocumentHeaderModel,
   SdDocumentHeaderStatusModel,
 } from '@/core/models/sd-document'
-import { formatPair, formatRange } from '@/core/util/bidi'
-import { formatLongDate, formatTimeOfDay, isBlankDate } from '@/core/util/date-format'
+import { deliveryWindow } from '@/core/oms/delivery-window'
+import { formatPair } from '@/core/util/bidi'
+import { formatLongDate, formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 
 /**
@@ -230,17 +231,6 @@ export interface RailCard {
 const DELIVERY_TYPES: Record<string, string> = { D: 'delivery', P: 'pickInStore' }
 
 /**
- * A schedule timestamp, or `null` when it is the .NET `DateTime.MinValue`
- * sentinel the API sends for every unset date. `isBlankDate` is imported rather
- * than re-spelled — two spellings of "unset" are how they start to disagree.
- */
-function scheduledAt(value: string | null | undefined): Date | null {
-  if (!text(value)) return null
-  const date = new Date(value as string)
-  return isBlankDate(date) ? null : date
-}
-
-/**
  * The Customer card's address line: `shortAddress` → `street1`/`street2` →
  * `districtName`. Every step is the only thing present on some captured document,
  * and the whole chain optional-chains a `shippingAddress` that is typed `| null`
@@ -257,33 +247,6 @@ export function addressFallback(address: SdDocumentAddressModel | null | undefin
   const street = [text(address?.street1), text(address?.street2)].filter(Boolean).join(', ')
   if (street) return street
   return text(address?.districtName)
-}
-
-/**
- * The Fulfilment card's **one** "Delivery window" row (D-7). Rendering the slot
- * and the schedule adjacently showed a contradiction on `8000000174` (slot text
- * `"8am - 12 am"` against a schedule of 20:00–22:00) and a zero-length window on
- * `8000000121` (From == To == a capture timestamp), so one row wins:
- *
- * 1. the schedule when both ends are non-sentinel **and From `<` To** — strict,
- *    which is what makes the equal-timestamp case fall through rather than
- *    render a window of no length;
- * 2. otherwise the time slot (`timeSlotDay` + `timeSlotDescription`);
- * 3. otherwise blank, and a blank text row is omitted.
- *
- * The malformed slot text and its disagreement with its own schedule are data
- * findings, not UI findings — this order means the rail never shows the
- * disagreement, and it does not adjudicate which source is right.
- */
-export function deliveryWindow(doc: SdDocumentHeaderModel): string {
-  const from = scheduledAt(doc.deliveryScheduleFromTime)
-  const to = scheduledAt(doc.deliveryScheduleToTime)
-  if (from && to && from.getTime() < to.getTime()) {
-    // ONE string, isolated once by the rail (spec 380 F27): an isolate per end
-    // would lay the two ends out right-to-left.
-    return formatRange(formatTimeOfDay(doc.deliveryScheduleFromTime), formatTimeOfDay(doc.deliveryScheduleToTime))
-  }
-  return [text(doc.timeSlotDay), text(doc.timeSlotDescription)].filter(Boolean).join(', ')
 }
 
 /**

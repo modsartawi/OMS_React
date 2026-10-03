@@ -8,7 +8,7 @@ import { bindKeys } from '@/core/commands/keys'
 import { closePalette, paletteOrigin, returnPaletteFocus, usePalette, usePaletteHost } from '@/core/commands/palette-store'
 import { singleKeyScreenOf, type PaletteRow } from '@/core/commands/palette-model'
 import { loadRecent } from '@/core/commands/recent'
-import { useRegisteredCommands } from '@/core/commands/registry'
+import { registeredNow, useRegisteredCommands } from '@/core/commands/registry'
 import { openShortcuts } from '@/core/commands/shortcuts-sheet'
 import { omsAccessQuery } from '@/core/oms/api'
 import { useSession } from '@/core/session'
@@ -45,8 +45,14 @@ export default function CommandPaletteHost() {
   const userId = useSession((s) => s.userId)
   const recent = useMemo(() => (open ? loadRecent(userId) : []), [open, userId])
 
-  // K3: a refused key is a dev-time error, raised once per refusal.
-  useEffect(() => reportRefusals(bindKeys(commands, { singleKeyScreen }).refused), [commands, singleKeyScreen])
+  // K3: a refused key is a dev-time error, raised once per refusal. The registry is read as
+  // it stands when the effect runs, not as this render saw it: leaving a single-key screen, the
+  // page has unregistered by now (unmount cleanups run first), and its letters must not be
+  // reported as refused on the route it is leaving for (397).
+  useEffect(
+    () => reportRefusals(bindKeys(registeredNow(), { singleKeyScreen }).refused),
+    [commands, singleKeyScreen],
+  )
 
   const compose = (query: string, textOf: (row: PaletteRow) => string) =>
     paletteGroups({

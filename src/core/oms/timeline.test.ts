@@ -53,6 +53,7 @@ const input = (over: Partial<TimelineInput> = {}): TimelineInput => ({
   closeStatus: '',
   times: {},
   rewind: null,
+  slotWindow: '',
   ...over,
 })
 
@@ -303,5 +304,51 @@ describe('rowVariantTimesAndDueTag', () => {
     expect(dueTag(-5)).toEqual({ paid: true })
     expect(dueTag(null)).toEqual({ paid: true })
     expect(dueTag(undefined)).toEqual({ paid: true })
+  })
+})
+
+describe('nextStepExpectation', () => {
+  const scheduled = {
+    deliveryScheduleFromTime: '2026-10-02T10:00:00',
+    deliveryScheduleToTime: '2026-10-02T12:00:00',
+    timeSlotDay: 'Thursday',
+    timeSlotDescription: '10am - 12 pm',
+  }
+
+  it('the next step, and only it, carries the window as an expectation', () => {
+    const steps = timeline(timelineInputFromRow(row({ readyStatus: 'R', ...scheduled })))
+    expect(steps.map((s) => [s.key, s.state, s.expectedWindow])).toEqual([
+      ['created', 'done', null],
+      ['ready', 'current', null],
+      ['out', 'next', '10:00–12:00'],
+      ['delivered', 'later', null],
+    ])
+  })
+
+  it('reads deliveryWindow(), never the raw schedule: From == To falls back to the slot', () => {
+    const capture = row({
+      deliveryScheduleFromTime: '2025-03-05T23:56:36.389',
+      deliveryScheduleToTime: '2025-03-05T23:56:36.389',
+      timeSlotDay: 'Monday',
+      timeSlotDescription: '8pm - 10 pm',
+    })
+    const next = timeline(timelineInputFromRow(capture)).find((s) => s.state === 'next')
+    expect(next?.expectedWindow).toBe('Monday, 8pm - 10 pm')
+  })
+
+  it('no window, no expectation', () => {
+    const steps = timeline(timelineInputFromRow(row({ deliveryScheduleFromTime: '0001-01-01T00:00:00' })))
+    expect(steps.every((s) => s.expectedWindow === null)).toBe(true)
+  })
+
+  it('a delivered or cancelled timeline has no next step, so no expectation', () => {
+    for (const over of [{ deliveryStatus: 'D' }, { closeStatus: 'R' }, { closeStatus: 'C' }]) {
+      const steps = timeline(timelineInputFromRow(row({ ...scheduled, ...over })))
+      expect(steps.every((s) => s.expectedWindow === null)).toBe(true)
+    }
+  })
+
+  it('the header variant reads the same window', () => {
+    expect(timelineInputFromHeader(header({}, scheduled)).slotWindow).toBe('10:00–12:00')
   })
 })

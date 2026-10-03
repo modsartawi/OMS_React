@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ExternalLink, FileSpreadsheet, Pin, Table2 } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2 } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { takesEscape } from '@/core/commands/key-layer'
+import { useKeyHint } from '@/core/commands/key-hint'
 import { pinStart } from '@/core/theme/direction'
 import { POPOVER } from '@/core/ui/overlay'
+import { INSPECTOR_ID } from './DeliveryInspector'
 import { exportDeliveriesToExcel } from './export'
+import { INSPECTOR_KEYS } from './inspector-pane'
 import ViewManager from './ViewManager'
 
 /** One row of the column chooser — a column's current visibility and pin state. */
@@ -201,5 +204,31 @@ export default function GridToolbar({
 
       <ViewManager gridApi={gridApi} />
     </div>
+  )
+}
+
+/**
+ * The grid bar's Inspector toggle (spec 380 L9, L15): folds and unfolds the Delivery inspector,
+ * as its chevron and `I` do. Its tooltip reads "Inspector (I)" (368 §4). Shown before any
+ * search too, so a folded pane can always come back.
+ */
+export function InspectorToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { t } = useTranslation('deliveries')
+  const hint = useKeyHint(INSPECTOR_KEYS)
+  return (
+    <button
+      type="button"
+      className={BTN}
+      aria-pressed={open}
+      aria-controls={open ? INSPECTOR_ID : undefined}
+      aria-keyshortcuts={hint.ariaKeyShortcuts}
+      title={hint.title(t('inspector.toggle'))}
+      data-inspector-toggle=""
+      onClick={onToggle}
+    >
+      {/* The pane sits at the inline end: the icon's panel follows it under RTL. */}
+      <PanelRight className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
+      {t('inspector.toggle')}
+    </button>
   )
 }

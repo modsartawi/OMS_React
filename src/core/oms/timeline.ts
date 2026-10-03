@@ -1,5 +1,6 @@
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import { deliveryWindow } from '@/core/oms/delivery-window'
 import { formatMoney } from '@/core/util/number-format'
 
 // The Delivery timeline (spec 380 D1, ticket 396; rulings 369 §1–§4, amended by 368 §3).
@@ -46,6 +47,8 @@ export interface TimelineInput {
   times: Partial<Record<TimelineStepKey, string>>
   /** The latest rewind, if the source can say. Shown only with a time. */
   rewind: TimelineMarker | null
+  /** The delivery's window (`deliveryWindow()`), or `''` when neither source has one. */
+  slotWindow: string
 }
 
 export interface TimelineStep {
@@ -55,6 +58,11 @@ export interface TimelineStep {
   time: string | null
   /** The rewind marker, on the step the delivery fell back to (Created). */
   marker: TimelineMarker | null
+  /**
+   * The window the next step is expected in (367 §2), on the `next` step only. An
+   * expectation, never a time: the surface styles it apart from a milestone.
+   */
+  expectedWindow: string | null
 }
 
 const normCode = (value: string | null | undefined) => (value ?? '').trim().toUpperCase()
@@ -109,6 +117,7 @@ export function timeline(input: TimelineInput): TimelineStep[] {
     state: i === furthest && !cancel && furthest !== last ? 'current' : 'done',
     time: realTime(input.times[key]),
     marker: null,
+    expectedWindow: null,
   }))
   // Every rewind clears or invalidates the ready and delivery statuses (DRSC and DCHC clear
   // them, DRBK writes ready S and delivery B), so each one falls back to Created — the step that
@@ -117,11 +126,14 @@ export function timeline(input: TimelineInput): TimelineStep[] {
   if (input.rewind && realTime(input.rewind.time)) steps[0].marker = input.rewind
 
   if (cancel) {
-    steps.push({ key: cancel, state: cancel, time: realTime(input.times[cancel]), marker: null })
+    steps.push({ key: cancel, state: cancel, time: realTime(input.times[cancel]), marker: null, expectedWindow: null })
     return steps
   }
+  // The window is read through `deliveryWindow()`, never the raw schedule fields: a live
+  // capture carries From == To, which is no window.
+  const expected = input.slotWindow.trim() || null
   keys.slice(furthest + 1).forEach((key, i) => {
-    steps.push({ key, state: i === 0 ? 'next' : 'later', time: null, marker: null })
+    steps.push({ key, state: i === 0 ? 'next' : 'later', time: null, marker: null, expectedWindow: i === 0 ? expected : null })
   })
   return steps
 }
@@ -153,7 +165,8 @@ export function rowTimelineNow(row: DeliveryDocumentModel): TimelineStepKey {
 /**
  * The list row's input (the inspector variant). Times come from the row's own fields only:
  * Created ← `entryTime`, Out ← `outForDeliveryTime`, Delivered ← `actualDeliveryTime`. The
- * rewind marker comes from `rescheduled` / `rescheduledTime`.
+ * rewind marker comes from `rescheduled` / `rescheduledTime`. The next step's expectation is
+ * the row's `deliveryWindow()`.
  */
 export function timelineInputFromRow(row: DeliveryDocumentModel): TimelineInput {
   return {
@@ -167,6 +180,7 @@ export function timelineInputFromRow(row: DeliveryDocumentModel): TimelineInput 
       delivered: row.actualDeliveryTime,
     },
     rewind: row.rescheduled === true ? { kind: 'rescheduled', time: realTime(row.rescheduledTime) } : null,
+    slotWindow: deliveryWindow(row),
   }
 }
 
@@ -191,6 +205,7 @@ export function timelineInputFromHeader(doc: SdDocumentHeaderModel): TimelineInp
     closeStatus: status?.closeStatus ?? '',
     times: {},
     rewind: rewind ? { kind: rewind, time: null } : null,
+    slotWindow: deliveryWindow(doc),
   }
 }
 

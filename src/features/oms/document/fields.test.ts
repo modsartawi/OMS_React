@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import { deliveryWindow } from '@/core/oms/delivery-window'
 import {
   addressFallback,
   bandCustomer,
   bandSubIds,
-  deliveryWindow,
   documentProvenanceRows,
   overallStatusCode,
   paymentInstrument,

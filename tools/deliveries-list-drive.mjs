@@ -13,6 +13,22 @@
 //     reading order, and a two-word state reads in order under RTL;
 //   - the value IS the word: the floating filter narrows on it.
 //
+// Ticket 397: the Delivery inspector (L6, L13, L15, L16's J/K/Enter/I, L18).
+//   - before a search the pane is open at 360 px with its empty prompt;
+//   - J/K and ↓/↑ move ONE current row (selection follows focus), J from outside the grid, J
+//     held (repeat) and J on an Arabic layout (event.key Arabic, event.code KeyJ) — and the
+//     inspector follows with NO network request (asserted on the request log);
+//   - the sections come from the row: header, the timeline with the window as the next step's
+//     expectation, the rewind marker, Dawaa Now gold on navy, the due tag, the failed-jobs
+//     banner only when > 0, never the handover OTP; Cancellation requested indigo;
+//   - the slot and the courier line are each ONE ltr isolate and read in order under RTL;
+//   - Enter on a cell and a double-click open Delivery details; Back restores the current row;
+//     Enter on a button stays the button's;
+//   - `I`, the chevron and the grid bar toggle fold and unfold it; folded, the grid takes the
+//     width back;
+//   - the separator sits on the inline-start edge: arrows step 16, Home/End, double-click resets,
+//     a drag resizes, and width + open/closed survive a reload; a malformed store reads 360, open.
+//
 // SIS.Api's delivery list needs a store grant a dev session does not have, so every `/api/**`
 // call is stubbed here, as in tools/grid-theme-drive.mjs. The RTL passes store
 // `oms.locale = ar` before boot (383); the chrome stays English and the DATA carries Arabic
@@ -76,14 +92,20 @@ const ROW = (over) => ({
   actualDeliveryTime: '',
   lastAction: '',
   failedJobsCount: 0,
+  courierCode: 'JAH',
+  courierDriverName: 'Khalid N.',
+  customerOtp: OTP,
   ...over,
 })
+
+// The handover secret every stub row carries: the inspector must never show it.
+const OTP = '482913'
 
 // One row per state, keyed by delivery no. `dot` is the dot's token, `ink` the word's.
 const CASES = [
   { no: '80001201', word: 'Created', key: 'created', dot: '--ink-3', ink: '--muted-foreground', over: {} },
-  { no: '80001202', word: 'Ready', key: 'ready', dot: '--ink-3', ink: '--muted-foreground', over: { readyStatus: 'R', rescheduled: true, rescheduledTime: '2026-10-02T15:30:00' } },
-  { no: '80001203', word: 'Out for delivery', key: 'out', dot: '--primary', ink: '--primary', over: { readyStatus: 'R', deliveryStatus: 'O', outForDeliveryTime: '2026-10-02T17:12:00' } },
+  { no: '80001202', word: 'Ready', key: 'ready', dot: '--ink-3', ink: '--muted-foreground', over: { readyStatus: 'R', rescheduled: true, rescheduledTime: '2026-10-02T15:30:00', rescheduledReason: 'Customer asked', rescheduledUser: 'msartawi', isExpressDelivery: true, amountDue: 72.5, isActiveInStore: false, note: 'Gate 3, call on arrival' } },
+  { no: '80001203', word: 'Out for delivery', key: 'out', dot: '--primary', ink: '--primary', over: { readyStatus: 'R', deliveryStatus: 'O', outForDeliveryTime: '2026-10-02T17:12:00', failedJobsCount: 2 } },
   { no: '80001204', word: 'Delivered', key: 'delivered', dot: '--success', ink: '--success-800', over: { readyStatus: 'C', deliveryStatus: 'D', actualDeliveryTime: '2026-10-02T18:05:00' } },
   { no: '80001205', word: 'Cancellation requested', key: 'requested', dot: '--fam-cancel-request', ink: '--fam-cancel-request', over: { readyStatus: 'R', closeStatus: 'R' } },
   { no: '80001206', word: 'Cancelled', key: 'cancelled', dot: '--danger', ink: '--danger-800', over: { readyStatus: 'C', deliveryStatus: 'D', closeStatus: 'X' } },
@@ -94,6 +116,7 @@ const CASES = [
 ]
 
 const ARABIC_NAME = 'نورة الحربي'
+const ARABIC_DRIVER = 'خالد ن.'
 
 const rows = (dir) =>
   CASES.map((c, i) =>
@@ -101,7 +124,7 @@ const rows = (dir) =>
       deliveryNo: c.no,
       documentNo: String(1000000401 + i),
       orderNo: String(900101 + i),
-      ...(dir === 'rtl' && i % 2 === 0 ? { customerName: ARABIC_NAME } : {}),
+      ...(dir === 'rtl' && i % 2 === 0 ? { customerName: ARABIC_NAME, courierDriverName: ARABIC_DRIVER } : {}),
       ...c.over,
     }),
   )
@@ -116,6 +139,10 @@ const routeApi = (dir) => async (route) => {
   if (path === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope(rows(dir)))
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path))
     return route.fulfill(envelope([]))
+  // Delivery details after Enter / a double-click: a business "not found" is enough — the
+  // drive checks where Enter went, not the record page (402–405 drive that).
+  if (/^SdDocumentWeb\/(Delivery|Document)\//.test(path))
+    return route.fulfill(envelope(null, { success: false, message: 'Not found in this drive' }))
   if (/Access$/.test(path))
     return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }))
   return route.fulfill(envelope({}))
@@ -138,9 +165,22 @@ async function drive({ theme, dir }) {
     [theme, dir],
   )
   await page.route('**/api/**', routeApi(dir))
+  // Every /api/ request, in order: J/K must add none (397).
+  const requests = []
+  page.on('request', (r) => r.url().includes('/api/') && requests.push(r.url().split('/api/')[1]))
 
   await page.goto(BASE + '/oms/deliveries')
-  await page.waitForSelector('.ag-root', { timeout: 20000 }).catch(() => {})
+  // 397: before any search, the inspector is open at its default width with its empty prompt.
+  await page.waitForSelector('[data-inspector-empty]', { timeout: 20000 }).catch(() => {})
+  const before = await page.evaluate(() => ({
+    width: document.getElementById('delivery-inspector')?.getBoundingClientRect().width ?? 0,
+    empty: document.querySelector('[data-inspector-empty]')?.textContent ?? '',
+  }))
+  check(
+    `${label}: before a search the inspector is open at 360 px with its empty prompt`,
+    before.width === 360 && before.empty.includes('Select a delivery to inspect it.') && /J\s*K/.test(before.empty),
+    `width ${before.width} · "${before.empty}"`,
+  )
   await page.getByRole('button', { name: /load/i }).first().click().catch(() => {})
   await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 20000 }).catch(() => {})
   await page.evaluate(() => document.fonts.ready)
@@ -275,9 +315,392 @@ async function drive({ theme, dir }) {
     filterFound ? shown.join(' | ') : 'no floating filter under the Status header',
   )
   if (filterFound) await statusFilter.fill('')
+  await page.waitForTimeout(800)
+
+  await inspectorChecks({ page, label, theme, dir, requests })
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
+}
+
+// ----- 397: the Delivery inspector -----------------------------------------------------------
+
+/** Click a row's Delivery no. cell (pinned at the reading start), which selects and focuses it. */
+async function clickRow(page, no) {
+  await page.locator('.ag-row .ag-cell[col-id="deliveryNo"]', { hasText: new RegExp(`^${no}$`) }).first().click()
+  await page.waitForTimeout(150)
+}
+
+/** Where the one current row is: the inspector's row, the selected and the focused grid rows. */
+const where = (page) =>
+  page.evaluate(() => {
+    const noAt = (i) =>
+      document.querySelector(`.ag-row[row-index="${i}"] .ag-cell[col-id="deliveryNo"]`)?.textContent?.trim() ?? null
+    const selected = [...new Set([...document.querySelectorAll('.ag-row-selected')].map((r) => r.getAttribute('row-index')))]
+    return {
+      inspector: document.querySelector('[data-inspector-row]')?.getAttribute('data-inspector-row') ?? null,
+      selected: selected.join(','),
+      selectedNo: selected.length === 1 ? noAt(selected[0]) : null,
+      focused: document.querySelector('.ag-cell-focus')?.closest('.ag-row')?.getAttribute('row-index') ?? null,
+    }
+  })
+
+const paneWidth = (page) =>
+  page.evaluate(() => document.getElementById('delivery-inspector')?.getBoundingClientRect().width ?? 0)
+
+async function inspectorChecks({ page, label, theme, dir, requests }) {
+  const rtl = dir === 'rtl'
+
+  // 6. One current row: J/K, ↓/↑, J from outside the grid, held, on an Arabic layout.
+  await clickRow(page, '80001208')
+  requests.length = 0
+  const trail = []
+  const expectAt = async (step, index) => {
+    await page.waitForTimeout(120)
+    const w = await where(page)
+    const no = await page.evaluate(
+      (i) => document.querySelector(`.ag-row[row-index="${i}"] .ag-cell[col-id="deliveryNo"]`)?.textContent?.trim(),
+      index,
+    )
+    const ok = w.selected === String(index) && w.inspector === no && w.selectedNo === no
+    trail.push(`${step}→${index}${ok ? '' : ` (selected ${w.selected}, inspector ${w.inspector})`}`)
+    return ok
+  }
+  let moves = await expectAt('click', 0)
+  await page.keyboard.press('j')
+  moves = (await expectAt('J', 1)) && moves
+  await page.keyboard.press('ArrowDown')
+  moves = (await expectAt('↓', 2)) && moves
+  await page.keyboard.press('k')
+  moves = (await expectAt('K', 1)) && moves
+  await page.keyboard.press('ArrowUp')
+  moves = (await expectAt('↑', 0)) && moves
+  // Out of the grid: focus on the page itself.
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  await page.keyboard.press('j')
+  moves = (await expectAt('J outside', 1)) && moves
+  // An Arabic layout: event.key is Arabic, event.code is the physical KeyJ.
+  await page.evaluate(() =>
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ت', code: 'KeyJ', bubbles: true, cancelable: true })),
+  )
+  moves = (await expectAt('J (Arabic)', 2)) && moves
+  // Held: a hidden navigation command repeats.
+  await page.evaluate(() =>
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ', repeat: true, bubbles: true, cancelable: true }),
+    ),
+  )
+  moves = (await expectAt('J held', 3)) && moves
+  check(`${label}: J/K and ↓/↑ move one current row and the inspector follows it`, moves, trail.join(' · '))
+  check(
+    `${label}: stepping made no network request`,
+    requests.length === 0,
+    requests.length ? requests.join(', ') : 'request log empty',
+  )
+
+  // 7. The sections, from the row: 80001202 is Ready, rescheduled, Dawaa Now, 72.50 due.
+  await clickRow(page, '80001202')
+  const read = await page.evaluate(
+    ({ otp, rtl }) => {
+      const resolve = (expr, prop = 'color') => {
+        const probe = document.createElement('div')
+        probe.style[prop] = expr
+        document.body.appendChild(probe)
+        const v = getComputedStyle(probe)[prop]
+        probe.remove()
+        return v
+      }
+      const aside = document.getElementById('delivery-inspector')
+      const step = (k) => aside.querySelector(`[data-step="${k}"]`)
+      const ltrIn = (f) => aside.querySelector(`[data-field="${f}"] dd bdi[dir="ltr"]`)
+      /** Does substring `a` sit to the LEFT of substring `b` inside one isolate, on screen? */
+      const leftOf = (bdi, a, b) => {
+        const node = bdi?.firstChild
+        if (!node) return null
+        const at = (s) => {
+          const i = node.textContent.indexOf(s)
+          const r = document.createRange()
+          r.setStart(node, i)
+          r.setEnd(node, i + s.length)
+          return r.getBoundingClientRect().left
+        }
+        return at(a) < at(b)
+      }
+      const no = aside.querySelector('[data-inspector-no]')
+      const gold = aside.querySelector('[data-tag="dawaaNow"]')
+      const slot = ltrIn('slot')
+      const courier = ltrIn('courier')
+      return {
+        no: no?.textContent,
+        noMono: no ? /Plex Mono/.test(getComputedStyle(no).fontFamily) && getComputedStyle(no).fontSize === '18px' : false,
+        status: aside.querySelector('[data-status]')?.textContent,
+        steps: [...aside.querySelectorAll('[data-step]')].map((s) => `${s.dataset.step}:${s.dataset.state}`).join(' '),
+        expect: step('out')?.querySelector('[data-expect]')?.textContent,
+        expectIsolated: step('out')?.querySelector('[data-expect] bdi[dir="ltr"]')?.textContent,
+        marker: step('created')?.querySelector('[data-marker]')?.textContent,
+        gold:
+          !!gold &&
+          getComputedStyle(gold).backgroundColor === resolve('var(--gold)', 'backgroundColor') &&
+          getComputedStyle(gold).color === resolve('var(--gold-foreground)'),
+        due: aside.querySelector('[data-tag="due"]')?.textContent,
+        banner: !!aside.querySelector('[data-failed-banner]'),
+        otp: aside.textContent.includes(otp),
+        notActive: aside.querySelector('[data-field="store"]')?.textContent,
+        slot: slot?.textContent,
+        slotInOrder: leftOf(slot, '02 Oct', '10:00'),
+        courier: courier?.textContent,
+        courierInOrder: leftOf(courier, 'JAH', 'Khalid'),
+        amountDue: aside.querySelector('[data-field="amountDue"]')?.textContent,
+        money: ['net', 'paid', 'fees'].map((f) => aside.querySelector(`[data-field="${f}"] dd`)?.textContent).join(' '),
+        note: aside.querySelector('[data-field="note"]')?.textContent,
+        rescheduled: aside.querySelector('[data-field="rescheduled"] dd')?.textContent,
+        invisible: /[⁦-⁩]/.test(aside.textContent),
+        // Each line of the reschedule value starts at the value's inline start in either direction.
+        startAligned: (() => {
+          const dd = aside.querySelector('[data-field="rescheduled"] dd')
+          const lines = [...(dd?.querySelectorAll('bdi') ?? [])]
+          if (!dd || lines.length !== 2) return false
+          const box = dd.getBoundingClientRect()
+          return lines.every((l) =>
+            rtl ? Math.abs(l.getBoundingClientRect().right - box.right) <= 1 : Math.abs(l.getBoundingClientRect().left - box.left) <= 1,
+          )
+        })(),
+      }
+    },
+    { otp: OTP, rtl },
+  )
+  check(
+    `${label}: the header — delivery no. in mono 18px, status, Dawaa Now gold on navy, Due 72.50`,
+    read.no === '80001202' && read.noMono && read.status === 'Ready' && read.gold && read.due === 'Due 72.50',
+    `no ${read.no} mono18 ${read.noMono} · status ${read.status} · gold ${read.gold} · due "${read.due}"`,
+  )
+  check(
+    `${label}: the timeline — next step expects the window, the rewind marker on Created`,
+    read.steps === 'created:done ready:current out:next delivered:later' &&
+      read.expect === 'expected 10:00–12:00' &&
+      read.expectIsolated === '10:00–12:00' &&
+      /^Rescheduled/.test(read.marker ?? ''),
+    `${read.steps} · "${read.expect}" (isolated "${read.expectIsolated}") · marker "${read.marker}"`,
+  )
+  check(
+    `${label}: fulfilment, money and note from the row; no banner at 0 failed jobs; never the OTP`,
+    /Not active in store/.test(read.notActive ?? '') &&
+      read.rescheduled === 'Customer asked2026-10-02 15:30 · msartawi' &&
+      read.money === '475.22 475.22 25.00' &&
+      read.amountDue === 'Amount due72.50' &&
+      read.note === 'Gate 3, call on arrival' &&
+      !read.banner &&
+      !read.otp &&
+      !read.invisible &&
+      read.startAligned,
+    `reschedule lines at the inline start ${read.startAligned} · store "${read.notActive}" · rescheduled "${read.rescheduled}" · money ${read.money} · "${read.amountDue}" · note "${read.note}" · banner ${read.banner} · otp shown ${read.otp} · isolate chars ${read.invisible}`,
+  )
+  check(
+    `${label}: the slot and the courier are each one ltr isolate, read in order`,
+    read.slot === '02 Oct 2026 · 10:00–12:00' &&
+      read.slotInOrder === true &&
+      read.courier === 'JAH · Khalid N.' &&
+      read.courierInOrder === true,
+    `slot "${read.slot}" in order ${read.slotInOrder} · courier "${read.courier}" in order ${read.courierInOrder}`,
+  )
+  await page.screenshot({ path: `${SHOTS}/inspector-${theme}-${dir}.png` })
+
+  if (rtl) {
+    // An Arabic driver name: the code still leads, the pair still one isolate.
+    await clickRow(page, '80001201')
+    const arabic = await page.evaluate((driver) => {
+      const bdi = document.querySelector('#delivery-inspector [data-field="courier"] dd bdi[dir="ltr"]')
+      const node = bdi?.firstChild
+      if (!node) return { text: null }
+      const left = (s) => {
+        const i = node.textContent.indexOf(s)
+        const r = document.createRange()
+        r.setStart(node, i)
+        r.setEnd(node, i + s.length)
+        return r.getBoundingClientRect().left
+      }
+      return { text: bdi.textContent, codeFirst: left('JAH') < left(driver) }
+    }, ARABIC_DRIVER)
+    check(
+      `${label}: an Arabic driver name keeps the courier code at the start of its one isolate`,
+      arabic.text === `JAH · ${ARABIC_DRIVER}` && arabic.codeFirst === true,
+      `"${arabic.text}" · code first ${arabic.codeFirst}`,
+    )
+  }
+
+  // 8. The banner only when jobs failed; Cancellation requested is indigo on the spine too.
+  await clickRow(page, '80001203')
+  const banner = await page.evaluate(() => document.querySelector('#delivery-inspector [data-failed-banner]')?.textContent ?? null)
+  await clickRow(page, '80001205')
+  const indigo = await page.evaluate(() => {
+    const li = document.querySelector('#delivery-inspector [data-step="requested"]')
+    const dot = li?.querySelector(':scope > span[aria-hidden]')
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = 'var(--fam-cancel-request)'
+    document.body.appendChild(probe)
+    const want = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return { state: li?.dataset.state, ok: !!dot && getComputedStyle(dot).backgroundColor === want }
+  })
+  check(
+    `${label}: "2 jobs failed" on the row that has them; Cancellation requested is an indigo step`,
+    banner === '2 jobs failedOpen the full record to see the jobs.' && indigo.state === 'requested' && indigo.ok,
+    `banner "${banner}" · requested ${indigo.state} indigo ${indigo.ok}`,
+  )
+
+  // 9. Enter on a cell opens Details; Back restores the current row. A double-click opens too.
+  await clickRow(page, '80001204')
+  await page.keyboard.press('Enter')
+  await page.waitForURL(/\/oms\/delivery\/80001204$/, { timeout: 5000 }).catch(() => {})
+  const enterUrl = new URL(page.url()).pathname
+  await page.goBack()
+  await page.waitForSelector('[data-inspector-row]', { timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(300)
+  const restored = await where(page)
+  check(
+    `${label}: Enter on a cell opens Delivery details; Back restores the current row in the inspector`,
+    enterUrl === '/oms/delivery/80001204' && restored.inspector === '80001204' && restored.selectedNo === '80001204',
+    `Enter → ${enterUrl} · back: inspector ${restored.inspector}, selected ${restored.selectedNo}`,
+  )
+  // A column on screen (the far ones are virtualised away).
+  await page
+    .locator('.ag-row[row-index="2"] .ag-cell[col-id="documentNo"]')
+    .first()
+    .dblclick({ timeout: 5000 })
+    .catch(() => {})
+  await page.waitForURL(/\/oms\/delivery\/\d+$/, { timeout: 5000 }).catch(() => {})
+  const dblUrl = new URL(page.url()).pathname
+  if (dblUrl !== '/oms/deliveries') await page.goBack()
+  await page.waitForSelector('[data-inspector-row]', { timeout: 10000 }).catch(() => {})
+  check(`${label}: a double-click opens Delivery details`, /^\/oms\/delivery\/8000120\d$/.test(dblUrl), dblUrl)
+
+  // Enter on a button stays the button's: the toggle folds the pane, the page stays.
+  await page.locator('[data-inspector-toggle]').focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(150)
+  const onButton = await page.evaluate(() => ({
+    path: location.pathname,
+    pane: !!document.getElementById('delivery-inspector'),
+    pressed: document.querySelector('[data-inspector-toggle]')?.getAttribute('aria-pressed'),
+  }))
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(150)
+  const back = await page.evaluate(() => !!document.getElementById('delivery-inspector'))
+  check(
+    `${label}: Enter on a button is the button's — the toggle folds and unfolds, no navigation`,
+    onButton.path === '/oms/deliveries' && !onButton.pane && onButton.pressed === 'false' && back,
+    `${onButton.path} · pane ${onButton.pane} · pressed ${onButton.pressed} · unfolded again ${back}`,
+  )
+
+  // 10. `I` folds and unfolds; folded, the grid takes the width back. The chevron folds too.
+  const gridWidth = () => page.evaluate(() => document.querySelector('.ag-root-wrapper')?.getBoundingClientRect().width ?? 0)
+  await clickRow(page, '80001204')
+  const open = await gridWidth()
+  const toggleTitle = await page.locator('[data-inspector-toggle]').getAttribute('title')
+  const toggleKeys = await page.locator('[data-inspector-toggle]').getAttribute('aria-keyshortcuts')
+  await page.keyboard.press('i')
+  await page.waitForTimeout(300)
+  const folded = { pane: await paneWidth(page), grid: await gridWidth() }
+  await page.keyboard.press('i')
+  await page.waitForTimeout(300)
+  const unfolded = { pane: await paneWidth(page), grid: await gridWidth() }
+  await page.locator('[data-inspector-collapse]').click()
+  await page.waitForTimeout(200)
+  const chevron = await paneWidth(page)
+  await page.locator('[data-inspector-toggle]').click()
+  await page.waitForTimeout(200)
+  check(
+    `${label}: I folds and unfolds the inspector; the grid takes its width back; the chevron folds it`,
+    folded.pane === 0 &&
+      folded.grid >= open + 360 &&
+      unfolded.pane === 360 &&
+      Math.abs(unfolded.grid - open) < 2 &&
+      chevron === 0 &&
+      (await paneWidth(page)) === 360 &&
+      /Inspector \(⁨?I⁩?\)/.test(toggleTitle ?? '') &&
+      toggleKeys === 'I',
+    `grid ${open} → ${folded.grid} folded → ${unfolded.grid} · chevron ${chevron} · title "${toggleTitle}" · keys ${toggleKeys}`,
+  )
+
+  // 11. The separator, on the inline-start edge: keys, double-click, drag, then a reload.
+  const sep = page.locator('[data-inspector-separator]')
+  const edge = await page.evaluate(() => {
+    const aside = document.getElementById('delivery-inspector').getBoundingClientRect()
+    const s = document.querySelector('[data-inspector-separator]').getBoundingClientRect()
+    const grid = document.querySelector('.ag-root-wrapper').getBoundingClientRect()
+    return { sep: s.left + s.width / 2, start: aside.left, end: aside.right, paneLeftOfGrid: aside.right <= grid.left }
+  })
+  const onStartEdge = rtl
+    ? Math.abs(edge.sep - edge.end) <= 1 && edge.paneLeftOfGrid
+    : Math.abs(edge.sep - edge.start) <= 1 && !edge.paneLeftOfGrid
+  const grow = rtl ? 'ArrowRight' : 'ArrowLeft'
+  const shrink = rtl ? 'ArrowLeft' : 'ArrowRight'
+  const steps = []
+  const press = async (key) => {
+    await page.keyboard.press(key)
+    await page.waitForTimeout(80)
+    const now = await paneWidth(page)
+    const aria = await sep.getAttribute('aria-valuenow')
+    steps.push(`${key}=${now}${String(now) === aria ? '' : ` (aria ${aria})`}`)
+    return now
+  }
+  await sep.focus()
+  const sepOk =
+    (await press(grow)) === 376 &&
+    (await press(shrink)) === 360 &&
+    (await press('Home')) === 320 &&
+    (await press('End')) === 560 &&
+    (await press(shrink)) === 544 &&
+    steps.every((s) => !s.includes('aria')) &&
+    (await sep.getAttribute('aria-valuemin')) === '320' &&
+    (await sep.getAttribute('aria-valuemax')) === '560'
+  await sep.dblclick()
+  await page.waitForTimeout(100)
+  const reset = await paneWidth(page)
+  check(
+    `${label}: the separator sits on the inline-start edge; arrows step 16, Home/End, a double-click resets 360`,
+    onStartEdge && sepOk && reset === 360,
+    `on start edge ${onStartEdge} · ${steps.join(' ')} · double-click ${reset}`,
+  )
+
+  const box = await sep.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + 200)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + (rtl ? 100 : -100), box.y + 200, { steps: 6 })
+  await page.mouse.up()
+  await page.waitForTimeout(150)
+  const dragged = await paneWidth(page)
+  await page.reload()
+  await page.waitForSelector('[data-inspector-empty]', { timeout: 15000 }).catch(() => {})
+  const reloaded = await paneWidth(page)
+  // J before any search: refused with its reason, never a dead key.
+  await page.keyboard.press('j')
+  const refusal = await page
+    .locator('[data-sonner-toast]')
+    .first()
+    .textContent({ timeout: 3000 })
+    .catch(() => null)
+  await page.keyboard.press('i')
+  await page.waitForTimeout(150)
+  await page.reload()
+  await page.waitForSelector('[data-inspector-toggle]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const stayedFolded = (await paneWidth(page)) === 0
+  const pressed = await page.locator('[data-inspector-toggle]').getAttribute('aria-pressed')
+  await page.evaluate(() => localStorage.setItem('oms.deliveries.inspector.v1', '{"width":"wide",'))
+  await page.reload()
+  await page.waitForSelector('[data-inspector-empty]', { timeout: 15000 }).catch(() => {})
+  const malformed = await paneWidth(page)
+  check(
+    `${label}: a drag resizes, and width and open/closed survive a reload; a malformed store reads 360, open`,
+    dragged === 460 && reloaded === 460 && stayedFolded && pressed === 'false' && malformed === 360,
+    `drag ${dragged} · reload ${reloaded} · folded after reload ${stayedFolded} (pressed ${pressed}) · malformed → ${malformed}`,
+  )
+  check(
+    `${label}: J before a search toasts its reason`,
+    (refusal ?? '').includes('There are no rows to step through yet'),
+    `"${refusal}"`,
+  )
 }
 
 for (const theme of ['light', 'dark']) {

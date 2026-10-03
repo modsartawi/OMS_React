@@ -802,10 +802,17 @@ async function keysAndSheet(page, tag, mode) {
   ok((await page.locator('dialog[open] [data-shortcuts-sheet]').count()) === 1, `${tag}: a native dialog`)
   const lines = await sheetLines(page)
   ok(
-    JSON.stringify(lines) === '["app:palette","app:sheet","app:esc"]',
+    JSON.stringify(lines.filter((l) => l.startsWith('app:'))) === '["app:palette","app:sheet","app:esc"]',
     `${tag}: it lists the app-wide keys — Ctrl+K, ?, Esc (${lines.join(',')})`,
   )
-  ok((await page.locator('[data-shortcuts-none]').count()) === 1, `${tag}: and says this screen has no keys of its own yet`)
+  // 397: the list's own keys — J/K (hidden from the palette, listed here) and I.
+  ok(
+    JSON.stringify(lines.filter((l) => l.startsWith('screen:'))) ===
+      '["screen:row.next","screen:row.previous","screen:inspector.toggle"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="screen:row.next"]')) === '["J"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="screen:inspector.toggle"]')) === '["I"]',
+    `${tag}: and this screen's keys — J, K, I (${lines.filter((l) => l.startsWith('screen:')).join(',')})`,
+  )
   const chord = await capsOf(page, '[data-shortcut="app:palette"]')
   ok(JSON.stringify(chord) === '["Ctrl","K"]', `${tag}: the chord reads "Ctrl K" left to right (${chord.join(' ')})`)
   ok(

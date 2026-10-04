@@ -22,7 +22,6 @@ import {
   feeLine,
   isPickup,
   paymentWordKey,
-  railBlock,
   showsDeliveryRegion,
 } from './fulfilment-view'
 
@@ -45,11 +44,6 @@ describe('theModeIsOneFieldAndFiveThingsOnScreen', () => {
     expect(isPickup(header())).toBe(false)
     expect(isPickup(header({ deliveryType: 'Delivery' }))).toBe(false)
     expect(isPickup(header({ deliveryType: 'PickInStore' }))).toBe(true)
-  })
-
-  it('gives the two modes the same place in the rail, never one place and a hole', () => {
-    expect(railBlock(header({ deliveryType: 'Delivery' }))).toBe('address')
-    expect(railBlock(header({ deliveryType: 'PickInStore' }))).toBe('collection')
   })
 
   it('🚩 draws NO delivery region under collection — absent, not zero', () => {

@@ -118,7 +118,7 @@ export function mobilePreview(countryCode: string, typed: string): string | null
  *
  * `otp` is the one that shapes the drawing: the caller is reading the code back
  * down the phone, so the wait is SPOKEN. That is why the signup is drawn inline
- * in the rail rather than as a modal — a modal over the console during a wait
+ * under the caller bar rather than as a modal — a modal over the console during a wait
  * the agent is talking through takes the basket away for no reason.
  */
 export type SignupStep = 'closed' | 'details' | 'otp' | 'created'

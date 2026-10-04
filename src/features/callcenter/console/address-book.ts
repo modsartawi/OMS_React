@@ -15,7 +15,7 @@
  * read out in the desktop client.
  *
  * ⚠️ It composes **book rows only**. The address that is ON the order arrives
- * already composed as `header.address.line` and the rail renders that, verbatim —
+ * already composed as `header.address.line` and the console renders it as given —
  * this module never re-composes it. Two sources, two shapes: the book read is
  * `CustomerAddressBookModel` (nested `BusinessAddress` fields, no line) and the
  * order's is the session projection (a line, no fields). A composed line reaching

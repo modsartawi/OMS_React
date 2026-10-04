@@ -1,12 +1,13 @@
 /**
  * The console's spatial contract, rendered from the server's own projection.
  *
- * 135's ruling (variant A, "three fixed columns"): the customer rail at the
- * start edge and the live receipt at the end edge **never move**, and the centre
- * column is the only region that grows — header sentence → item search → basket →
- * offer strip, in that vertical order. The furniture is at the same pixels at
- * hour nine as at hour one, which is the one property a twelve-hour shift
- * rewards.
+ * 135's ruling, as 379 amended it (spec 380 C2): **two columns plus a bar.** The
+ * live receipt at the end edge never moves, and the centre column is the only
+ * region that grows — caller bar → header sentence → item search → basket → offer
+ * strip, in that vertical order. 135's 260px customer rail is gone: it collapsed
+ * into the caller bar at the top of the centre, which grows from 644 to 904px at
+ * 1280. The furniture is at the same pixels at hour nine as at hour one, which is
+ * the one property a twelve-hour shift rewards.
  *
  * Slice 0 renders what an empty order actually has, and nothing it does not:
  * every value below comes off `SessionState`. There is no client-computed total
@@ -16,10 +17,8 @@
  * handler, as it does for every other capability-gated control), and the reason
  * under a dead one is `submitBlockers`, the server's own list.
  *
- * Ticket 165 fills the first of those columns: the rail is now the call's
- * opening move rather than furniture (see `CustomerRail.tsx`). The rest — item
- * search, the basket's own verbs, the guidance strip — arrive with tickets
- * 166–172, in the centre column that is the only region that grows.
+ * The caller bar is the call's opening move rather than furniture (165, 409 — see
+ * `CallerBar.tsx`).
  */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -34,11 +33,7 @@ import { receiptView, type DeliveryFeeView } from './basket-view'
 import { paletteCommands } from './palette-model'
 import { capabilityGate, feeLine, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
-import CustomerRail, {
-  type CustomerActions,
-  type RailRequests,
-  type RailSignup,
-} from './CustomerRail'
+import CallerBar, { type CallerRequests, type CallerSignup, type CustomerActions } from './CallerBar'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import HeaderSentence from './HeaderSentence'
 import { guidanceView } from './guidance-view'
@@ -76,7 +71,7 @@ export interface SubmitActions {
    * agent unlinks.
    */
   requestGone?: RequestGone | null
-  /** Opens the unlink CONFIRMATION — the same one the rail's card opens, because
+  /** Opens the unlink CONFIRMATION — the same one the caller bar's detail opens, because
    *  it is the same act with the same cost. Absent ⇒ no escape is drawn and the
    *  server's own sentence stands alone. */
   onUnlink?: () => void
@@ -152,7 +147,7 @@ export default function ConsoleShell({
   refreshing?: boolean
   /** A claim collision being ridden out, or the spent schedule (164). */
   busy?: BusyPhase | null
-  /** The two customer verbs and their outcome (165), passed through to the rail.
+  /** The two customer verbs and their outcome (165), passed through to the bar.
    *  They are the page's because they return the whole `SessionState`, and the
    *  cache is the store of record. */
   customerActions: CustomerActions
@@ -205,12 +200,12 @@ export default function ConsoleShell({
    *  Absent once the order is no longer open: a submitted order has no header
    *  left to capture, and a control the door would refuse is worse than none. */
   onChangeNote?: () => void
-  /** The loyalty signup (159), passed through to the rail. Absent ⇒ the rail
+  /** The loyalty signup (159), passed through to the caller bar. Absent ⇒ the bar
    *  offers no enrolment at all. */
-  signup?: RailSignup
-  /** The caller's open sales requests (194), passed through to the rail. Absent
-   *  ⇒ the rail says nothing about requests at all. */
-  requests?: RailRequests
+  signup?: CallerSignup
+  /** The caller's open sales requests (194), passed through to the caller bar.
+   *  Absent ⇒ the bar says nothing about requests at all. */
+  requests?: CallerRequests
   /**
    * What the copy did NOT put on the order (194) — the interesting half of a link.
    *
@@ -305,7 +300,7 @@ export default function ConsoleShell({
             : undefined,
           coupon: onChangeCoupon,
           attachCaller: () => focusBox('cc-phone'),
-          // The rail's own gate, mirrored: a removal in flight withdraws
+          // The caller bar's own gate, mirrored: a removal in flight withdraws
           // the control there, and a palette row that ignored it would be a
           // second `removeCustomer` on one caller.
           removeCaller: customerActions.busy ? null : customerActions.onRemove,
@@ -357,11 +352,14 @@ export default function ConsoleShell({
       <RequestReportBanner actions={requestReport} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
-        <CustomerRail state={state} customerActions={customerActions}
-            signup={signup} requests={requests} onPickAddress={onPickAddress} />
+      {/* 🚩 Two columns plus a bar (379, spec 380 C2): the centre (`minmax(0,1fr)`)
+          and the receipt (320px), beside the shell's rail. */}
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px]">
         {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
-        <div className="flex min-h-0 min-w-0 flex-col border-x border-border">
+        <div className="flex min-h-0 min-w-0 flex-col border-e border-border" data-cc-centre>
+          {/* 🚩 The caller bar (379, C7): at the top of the centre, the same pixels
+              before and after the attach, so nothing under it moves on a call. */}
+          <CallerBar state={state} customerActions={customerActions} signup={signup} requests={requests} />
           {/* 🚩 The order header as a sentence over a ledger (408, spec 380 C3).
               Each word opens the section it names; the model decides which words
               can be controls at all, and a missing handler here means the page
@@ -370,8 +368,8 @@ export default function ConsoleShell({
             state={state}
             openers={{
               fulfilment: onChangeFulfilment,
-              // 166/379: the address word is the address book's door once a
-              // caller is attached.
+              // 166/379: the address word is the address book's ONLY door, once
+              // a caller is attached.
               address: onPickAddress,
               store: onChangeStore,
               slot: onChangeSlot,

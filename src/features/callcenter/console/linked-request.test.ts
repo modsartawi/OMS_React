@@ -254,7 +254,7 @@ describe('unlinkCost', () => {
   it('states the three facts the undo costs', () => {
     // The lines go, the chosen store re-opens, and 🚩 the caller STAYS. The third
     // is a field rather than a sentence a surface has to remember: the two acts
-    // sit next to each other in the rail, and an agent must not fear losing the
+    // sit next to each other in the caller bar, and an agent must not fear losing the
     // caller they have just attached.
     const linkedOrder: SessionState = {
       ...converting(),

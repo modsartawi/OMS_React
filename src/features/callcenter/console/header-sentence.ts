@@ -96,8 +96,8 @@ export function wordTag(id: HeaderSlotId): string {
 /**
  * The address as the agent reads it back: the caller's label, then where it is —
  * `Home · Al Malqa · Riyadh`. One string of free text, isolated once. The district and the
- * city are the two fields the projection sends for exactly this (`rail-view`'s
- * `addressPlace`); the street line is not read out.
+ * city are the two fields the projection sends for exactly this; the street line is not
+ * read out.
  */
 function addressWord(address: SessionAddress | null): string | null {
   if (!address) return null
@@ -140,7 +140,7 @@ export function headerSentence(state: SessionState): HeaderSentence {
     const state: ChipState = blocked.has(id) ? 'needsAttention' : value ? 'settled' : 'unset'
     return {
       id,
-      // The caller's name is a readout (the rail owns attach and remove), but a blocked
+      // The caller's name is a readout (the caller bar owns attach and remove), but a blocked
       // caller still LOOKS blocked: the attention rule is the server's list.
       look: lookOf(state, id === 'caller'),
       state,
@@ -161,7 +161,7 @@ export function headerSentence(state: SessionState): HeaderSentence {
     valueKeyFamily: 'sentence.mode',
   })
   // 🚩 An attached caller is never "no caller yet": a blank name reads by the mobile,
-  // the rail's own fallback (`railFields`) — a machine value, so isolated left-to-right.
+  // the caller bar's own fallback (`railFields`) — a machine value, so isolated left-to-right.
   const callerName = header.customer?.name?.trim() || null
   const callerMobile = callerName ? null : header.customer?.mobile?.trim() || null
   const caller: HeaderWord = {

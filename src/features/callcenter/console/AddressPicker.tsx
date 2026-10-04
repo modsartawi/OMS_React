@@ -72,7 +72,7 @@ import { NOTE } from './console-notes'
 /**
  * `setAddress` and everything it is currently saying, as one prop — they are one
  * act's state and always travel together, the shape `CustomerActions` set for the
- * rail's two verbs (165). The call itself is the page's: it returns the whole
+ * caller bar's two verbs (165). The call itself is the page's: it returns the whole
  * `SessionState` and the cache is the store of record.
  */
 export interface AddressApply {
@@ -497,7 +497,7 @@ export default function AddressPicker({
 
           {/* ⚠️ §6.5's named consequence, drawn as the two facts it is: the book
               kept the correction, the order did not take it. Shown only beside
-              the refusal — on its own it would announce a state the rail already
+              the refusal — on its own it would announce a state the sentence already
               shows. */}
           {savedNotMoved !== null && applyRefused && (
             <p className={NOTE.attention} data-cc-address-saved-not-moved>

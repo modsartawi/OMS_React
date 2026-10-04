@@ -688,7 +688,7 @@ function ConsoleSession() {
    * on the next attach, which is exactly what the rule exists to prevent.
    */
   const customer = useMutation({
-    // No `again`: the rail draws this call's own failure, and a strip offering
+    // No `again`: the caller bar draws this call's own failure, and a strip offering
     // a second retry beside it is one retry too many (164's ruling).
     mutationFn: (action: { customerId: string | null }) => {
       // 🚩 Minted ONCE, outside the thunk. `runGuarded` re-runs the thunk on
@@ -730,7 +730,7 @@ function ConsoleSession() {
       // member was FOR, so a panel still holding them afterwards would offer a
       // second attach of somebody already on the order; and the caller being
       // swapped out makes an enrolment about the last one stale in the same way
-      // the rail's own search is.
+      // the caller bar's own search is.
       closeSignup()
     },
     retry: false,
@@ -744,7 +744,7 @@ function ConsoleSession() {
   const customerFailure = customer.isError
     ? apiErrorMessage(
         customer.error,
-        t(customer.variables?.customerId === null ? 'rail.removeFailed' : 'rail.attachFailed'),
+        t(customer.variables?.customerId === null ? 'callerBar.removeFailed' : 'callerBar.attachFailed'),
       )
     : null
 
@@ -753,9 +753,9 @@ function ConsoleSession() {
    * created member, the failure of the ATTACH it offers.
    *
    * 🚩 The second half is not decoration. The panel draws its own *Attach*
-   * button, and the rail's attach failure is drawn beside the LOOKUP's card —
-   * which is not on screen on this path. Without this, an attach that failed
-   * under the signup's own button would re-enable it and say nothing.
+   * button, and the caller bar leaves this attach's failure to it rather than
+   * saying it twice. Without this, an attach that failed under the signup's own
+   * button would re-enable it and say nothing.
    */
   const signupError =
     signupLegFailure ?? (signup.step === 'created' ? customerFailure : null)
@@ -813,7 +813,7 @@ function ConsoleSession() {
    * `SessionState` and every consequence rides in it: the server clears
    * `address`, drops `MISSING_SLOT`, zeroes `deliveryFee` and sets
    * `retainedAddressLabel` in the same response (capture 09). What the console
-   * decides is only what the agent SEES of that — the rail's face, the absent
+   * decides is only what the agent SEES of that — the sentence's shape, the absent
    * slot chip, the absent delivery region — and `fulfilment-view.ts` decides it
    * once, for all four surfaces.
    *
@@ -1008,7 +1008,7 @@ function ConsoleSession() {
 
   /**
    * The caller's still-open sales requests (194, v1.11) — the read that makes the
-   * rail volunteer one.
+   * caller bar volunteer one.
    *
    * 🚩 **Fired off the attached caller, and keyed by them.** The door scopes the
    * list to whoever is on the session row (880 §3) — the console sends the
@@ -2319,7 +2319,7 @@ function ConsoleSession() {
           error: customerFailure,
         }}
         // 🚩 The caller the lookup could not find, enrolled without leaving the
-        // console (190) — INLINE in the rail, because the wait between *Send
+        // console (190) — INLINE under the caller bar, because the wait between *Send
         // code* and the code arriving is SPOKEN and a modal would take the basket
         // away for the length of a conversation the agent is having anyway. It
         // hangs off the not-found lookup as the ordinary next thing: a miss is
@@ -2430,8 +2430,8 @@ function ConsoleSession() {
             : undefined
         }
         // 🚩 Passed only while the door says the book will answer — the one
-        // place `canOpenAddressBook` is read on the way in, so the rail draws
-        // the offer without re-testing the rule (§6.3, and 165's ruling that a
+        // place `canOpenAddressBook` is read on the way in, so the address word
+        // opens the book without re-testing the rule (§6.3, and 165's ruling that a
         // control the door refuses is worse than no control).
         onPickAddress={
           session.data.capabilities.canOpenAddressBook ? () => setPickingAddress(true) : undefined
@@ -2480,7 +2480,7 @@ function ConsoleSession() {
         }
         onChangePayment={session.data.status === 'open' ? () => openSection('payment') : undefined}
         // 🚩 194 — the count block and the linked card, derived ONCE here off the
-        // same state the picker reads, so the rail, the card and the modal cannot
+        // same state the picker reads, so the bar's chip and the modal cannot
         // disagree about whether this order converts a request. The read itself is
         // scoped by the door; the console never sends a customer id.
         requests={{

@@ -3,9 +3,9 @@
  * once, in one place.
  *
  * The mode is one wire field (`header.deliveryType`, §2.2) and **five** things on
- * screen: the chip that sets it, whether the slot chip exists at all, what the
- * rail's second block is, whether the receipt has a delivery region, and how the
- * payment chip is worded. Every one of those is a *rendering* of the same fact,
+ * screen: the word that sets it, whether the slot word exists at all, which shape
+ * the sentence takes, whether the receipt has a delivery region, and how the
+ * payment word is worded. Every one of those is a *rendering* of the same fact,
  * so they are derived together — a console that asked `deliveryType` in five
  * components is a console where four of them eventually get it right.
  *
@@ -51,24 +51,6 @@ export function currentMode(header: SessionHeader): DeliveryType {
  */
 export function currentPaymentType(header: SessionHeader): PaymentType {
   return header.paymentType ?? 'CashOnDelivery'
-}
-
-/**
- * What the rail's second block is. The two modes ask two different questions
- * about the same order, so they are two blocks rather than one block with a
- * conditional label.
- *
- * 🚩 `retainedAddress` is the ticket's own question, answered *yes*: under
- * pickup the caller's address leaves the projection entirely
- * (capture 09 — `address: null`), and an agent who cannot see that it is kept has
- * no way to know a flip back will move the store. The trace is drawn from the
- * client's own memory of the last address the ORDER held, never from a re-read:
- * the sidecar holds the truth and the console is only saying *there was one*.
- */
-export type RailBlock = 'address' | 'collection'
-
-export function railBlock(header: SessionHeader): RailBlock {
-  return isPickup(header) ? 'collection' : 'address'
 }
 
 /**

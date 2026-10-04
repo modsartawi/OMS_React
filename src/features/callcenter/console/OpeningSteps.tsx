@@ -13,8 +13,8 @@
  *    v1's permanent ladder.
  * 2. 🚩 **It states no rule of its own.** Every tick is the door's
  *    `submitBlockers`; every row's words are the same act the surface it points
- *    at performs. It has no controls: the rail is where a caller is attached and
- *    the chip above is where a store is chosen, and a third door into either
+ *    at performs. It has no controls: the caller bar is where a caller is attached and
+ *    the sentence's store word is where a store is chosen, and a third door into either
  *    would be a second place for the same act to be got wrong.
  */
 import { useTranslation } from 'react-i18next'

@@ -33,7 +33,7 @@ import Money from './Money'
 
 /**
  * The three corrections and what they are currently saying, as one prop — the
- * shape the rail's two verbs (165) and the search panel's add (168) already use.
+ * shape the caller bar's two verbs (165) and the search panel's add (168) already use.
  * The calls themselves are the page's: they return the whole `SessionState` and
  * the cache is the store of record.
  */

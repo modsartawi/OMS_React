@@ -27,8 +27,8 @@
  * answer to a deliberate question teaches nothing.
  *
  * 🚩 **Enablement is never a predicate of this module's own.** A command is
- * enabled exactly when the caller handed it a `run` — the same handler the chip,
- * the button or the rail already reads, derived once by the page off
+ * enabled exactly when the caller handed it a `run` — the same handler the word,
+ * the button or the caller bar already reads, derived once by the page off
  * `capabilities`. The **reason** is a separate `capabilityReasons` lookup (plus
  * the one precondition the contract states outright — see `NEEDS_CALLER`), so the
  * failure mode of a reason this console has no words for is a vague sentence and
@@ -87,7 +87,7 @@ export type PaletteTerminal = 'place' | 'abandon'
 
 /**
  * Everything the palette can run, exactly as the page already derived it for the
- * chip row, the rail and the receipt.
+ * sentence, the caller bar and the receipt.
  *
  * 🚩 Handlers rather than booleans on purpose. A palette that took
  * `capabilities` and re-decided which verbs are live would be a second reading
@@ -240,7 +240,7 @@ export function paletteCommands({
   // 2. The order verbs, one command each.
   for (const verb of VERB_ORDER) {
     // The caller slot holds exactly one row: *Attach* while the order has no
-    // caller, *Remove* once it has one — the same two states the rail draws.
+    // caller, *Remove* once it has one — the same two states the caller bar draws.
     if (verb === 'attachCaller' && hasCaller) continue
     if (verb === 'removeCaller' && !hasCaller) continue
     commands.push({

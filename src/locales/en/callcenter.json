@@ -73,7 +73,7 @@
     "store": "Store {{store}}",
     "refresh": "Refresh this order"
   },
-  "rail": {
+  "callerBar": {
     "caller": "Caller",
     "mobile": "Mobile number",
     "mobilePlaceholder": "05…",
@@ -86,6 +86,7 @@
     "attachFailed": "The caller could not be attached to this order. Nothing has changed — try again.",
     "removeFailed": "The caller could not be removed from this order. Nothing has changed — try again.",
     "remove": "Remove this caller",
+    "signUp": "Sign this caller up",
     "field": {
       "name": "Name",
       "mobile": "Mobile",
@@ -93,16 +94,7 @@
       "tier": "Tier",
       "points": "Points",
       "email": "Email"
-    },
-    "address": "Address",
-    "noAddress": "No address yet",
-    "pickAddress": "Pick an address",
-    "addressNeedsCaller": "Attach the caller first — their address book opens with them.",
-    "addressUnavailable": "This order takes no address.",
-    "changeAddress": "Change",
-    "collectingFrom": "Collecting from",
-    "storeNotChosen": "No store chosen yet",
-    "addressRetained": "Their {{label}} address is kept — switch back to delivery and it is used again."
+    }
   },
   "address": {
     "title": "Pick the delivery address",
@@ -245,7 +237,8 @@
       "slot": "choose a slot"
     },
     "unworded": "—",
-    "storeFollows": "This store follows the delivery address. Change the address to move it."
+    "storeFollows": "This store follows the delivery address. Change the address to move it.",
+    "addressRetained": "Their <label>{{label}}</label> address is kept — switch back to delivery and it is used again."
   },
   "ledger": {
     "source": "Source",
@@ -266,7 +259,7 @@
     "title": "This order is ready for its caller.",
     "caller": {
       "label": "Take the caller's mobile number",
-      "hint": "— in the panel on the left"
+      "hint": "— in the caller bar above"
     },
     "address": {
       "label": "Pick their delivery address",
@@ -594,7 +587,6 @@
     }
   },
   "signup": {
-    "open": "Sign this caller up",
     "title": "New loyalty member",
     "country": "Country",
     "countryName": {
@@ -666,10 +658,6 @@
   "request": {
     "title": "The caller's open requests",
     "close": "Close",
-    "cardTitle": "Converting request",
-    "openCount_one": "This caller has 1 open request.",
-    "openCount_other": "This caller has {{count}} open requests.",
-    "view": "View the requests",
     "none": "This caller has no open request.",
     "link": "Link this request",
     "linkFailed": "That request could not be linked. Nothing has changed on this order — try again.",
@@ -706,6 +694,20 @@
         "ITEM_NOT_FOUND": "That item number is not in the catalogue.",
         "unknown": "The store refused that item — add it by hand to see why."
       }
+    }
+  },
+  "requests": {
+    "openShort_one": "<n>{{count}}</n> open request · View",
+    "openShort_other": "<n>{{count}}</n> open requests · View"
+  },
+  "linkedRequest": {
+    "chip": "Converting request",
+    "show": "Show the request this order converts",
+    "detail": {
+      "title": "Converting request {{documentNo}}",
+      "reason": "Reason",
+      "raisedAt": "Raised at store",
+      "note": "Pharmacist's note"
     }
   }
 }

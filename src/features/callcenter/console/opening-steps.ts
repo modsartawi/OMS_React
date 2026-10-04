@@ -63,7 +63,7 @@ export function openingSteps(
   const pickup = isPickup(header)
 
   return [
-    // The rail's, at the start edge — where the call actually opens (165).
+    // The caller bar's, at the top of the centre — where the call actually opens (165, 409).
     { id: 'caller', done: !blocked.has('NO_CUSTOMER'), key: 'caller' },
     // 🚩 Under delivery the ADDRESS is what chooses the store (166), so the step
     // names the address and is done only when both facts the door lists are

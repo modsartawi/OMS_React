@@ -90,6 +90,10 @@ const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5211}`
+// 409 retired the customer rail's address block: the sentence's address word is the
+// address book's only door, and an address on the order is that word holding a value.
+const ADDRESS_DOOR = '[data-cc-chip-open="address"]'
+const ADDRESS_SET = '[data-cc-chip="address"] [data-cc-chip-value] bdi'
 
 // The contract's own fixture, verbatim — the session half of every scenario.
 const raw = (name) =>
@@ -402,7 +406,7 @@ async function run() {
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
-    await page.locator('[data-cc-pick-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
     check('an empty book says so', await page.locator('[data-cc-address-empty]').isVisible())
 
@@ -436,7 +440,7 @@ async function run() {
     // the `""`-never-null rule on the create path.
     await page.locator('[data-cc-address-save]').click()
 
-    await page.locator('[data-cc-address="set"]').waitFor({ timeout: 10_000 })
+    await page.locator(ADDRESS_SET).waitFor({ timeout: 10_000 })
 
     const posts = wire.filter((w) => w.method === 'POST' && w.path === 'CallCenterWeb/CustomerAddresses')
     check('one create is sent', posts.length === 1, `${posts.length} POST(s)`)
@@ -467,7 +471,7 @@ async function run() {
     )
     check(
       'the order shows the address the agent just keyed',
-      /Al Malqa|King Abdulaziz/.test(await page.locator('[data-cc-address="set"]').innerText()),
+      /Al Malqa|King Abdulaziz/.test(await page.locator(ADDRESS_SET).innerText()),
     )
     check('the book closes behind it', (await page.locator('dialog[open]').count()) === 0)
     check('nothing threw', errors.length === 0, errors[0] ?? '')
@@ -483,7 +487,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
 
     // 7 / 18. 🚩 **This assertion FLIPPED with 188.** 187 withheld the control
@@ -523,7 +527,7 @@ async function run() {
       (await page.locator('[data-cc-district-current="R-114"]').count()) === 1,
     )
 
-    const before = await page.locator('[data-cc-address="set"]').innerText()
+    const before = await page.locator(ADDRESS_SET).innerText()
     // The agent clears a line the caller says is wrong.
     await page.locator('[data-cc-address-field="street2"]').fill('')
     await page.locator('[data-cc-address-field="street1"]').fill('King Fahd Rd')
@@ -551,7 +555,7 @@ async function run() {
       'NO SetAddress follows a correction to a row the order is not using',
       calls.filter((c) => c === 'POST CallCenterWeb/SetAddress').length === 0,
     )
-    check('the order’s address is untouched', (await page.locator('[data-cc-address="set"]').innerText()) === before)
+    check('the order’s address is untouched', (await page.locator(ADDRESS_SET).innerText()) === before)
     check('the agent lands back on the book', await page.locator('[data-cc-address-picker]').isVisible())
     check('nothing threw', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -566,7 +570,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-pick-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-add]').click()
     await page.locator('[data-cc-address-form]').waitFor()
 
@@ -617,7 +621,7 @@ async function run() {
     await page.locator('[data-cc-address-field="shortAddress"]').fill('rima6904')
     check('a well-formed one unblocks it', !(await page.locator('[data-cc-address-save]').isDisabled()))
     await page.locator('[data-cc-address-save]').click()
-    await page.locator('[data-cc-address="set"]').waitFor({ timeout: 10_000 })
+    await page.locator(ADDRESS_SET).waitFor({ timeout: 10_000 })
     check(
       'the national address is upper-cased on the wire, CC2’s own normalisation',
       wire.find((w) => w.method === 'POST' && w.path === 'CallCenterWeb/CustomerAddresses')?.body.address
@@ -637,7 +641,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-pick-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-add]').click()
     await page.locator('[data-cc-address-form]').waitFor()
     await page.locator('[data-cc-district-search]').fill('malqa')
@@ -663,7 +667,7 @@ async function run() {
       calls.filter((c) => c === 'GET CallCenterWeb/CustomerAddresses').length === 1,
       calls.filter((c) => c.includes('CustomerAddresses')).join(' → '),
     )
-    check('the order still has no address', (await page.locator('[data-cc-address="pick"]').count()) === 1)
+    check('the order still has no address', (await page.locator(ADDRESS_SET).count()) === 0)
     check('nothing threw', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
@@ -680,7 +684,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
 
     await page.locator('[data-cc-address-edit="77120"]').click()
@@ -731,10 +735,10 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
 
-    const before = await page.locator('[data-cc-address="set"]').innerText()
+    const before = await page.locator(ADDRESS_SET).innerText()
     await page.locator('[data-cc-address-edit="77120"]').click()
     await page.locator('[data-cc-address-form]').waitFor()
     // ⚠ Picked from the districts the client believes are served — the client
@@ -777,7 +781,7 @@ async function run() {
       (await page.locator('[data-cc-address-saved-not-moved]').count()) === 0,
     )
     // 23. Nothing is rolled back — not the book row, and not the order.
-    check('the order’s address is untouched', (await page.locator('[data-cc-address="set"]').innerText()) === before)
+    check('the order’s address is untouched', (await page.locator(ADDRESS_SET).innerText()) === before)
     check('nothing threw', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
@@ -791,7 +795,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
 
     // 25. The second press is IN PLACE — a dialog here would be the
@@ -834,7 +838,7 @@ async function run() {
     })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor()
     await page.locator('[data-cc-address-delete="88220"]').click()
     await page.locator('[data-cc-address-delete-yes]').click()

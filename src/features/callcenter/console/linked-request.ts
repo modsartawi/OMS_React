@@ -68,7 +68,7 @@ export function reasonWords(
 export const requestHref = (documentNo: string) => `/oms/document/${documentNo}`
 
 /**
- * The rail's count block — *"2 open requests · view"* — or `null` for silence.
+ * The caller bar's count chip — *"2 open requests · View"* — or `null` for silence.
  *
  * **The count is drawn, the modal is not.** An unnoticed request is the failure
  * this whole slice exists to prevent, so the console volunteers it; nothing opens
@@ -220,7 +220,7 @@ export function linkedCard(state: SessionState): LinkedCard | null {
  *
  * Which is why there is a confirmation at all, and why it states three facts.
  * The third one is a **field** rather than a sentence the sheet is trusted to
- * remember: *unlink* and *remove the caller* sit next to each other in the rail,
+ * remember: *unlink* and *remove the caller* sit next to each other in the caller bar,
  * and an agent who fears losing the caller they have just attached will not
  * press the one control that fixes a mis-picked request.
  */

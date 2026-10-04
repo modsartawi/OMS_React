@@ -256,7 +256,7 @@ export const callCenterApi = {
    * throws `DomainException(CustomerNotExists)`, so the envelope comes back
    * `success:false` and the console read it as a **failure**.
    *
-   * ⚠️ The cost was not the red text. The rail hangs the enrolment offer off the
+   * ⚠️ The cost was not the red text. The caller bar hangs the enrolment offer off the
    * MISS branch (`isSuccess && !data`), so a caller who was not a member landed on
    * the error branch instead and the *Sign this caller up* button — built by 190,
    * wired, tested — was **unreachable in the running app**. The one path the whole
@@ -309,7 +309,7 @@ export const callCenterApi = {
 
   /**
    * `POST CallCenterWeb/ConfirmSignUpByBranch` → the new `LoyaltyMember` — the
-   * same shape the lookup answers, which is what lets the rail draw an enrolled
+   * same shape the lookup answers, which is what lets the caller bar draw an enrolled
    * caller with the card it already has.
    *
    * 🚩 **It ends at a member, it does not attach one.** Putting the caller on

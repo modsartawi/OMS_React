@@ -11,16 +11,17 @@
  * *not asking* was itself an answer, written onto the member permanently and used
  * for every message they are ever sent. See `signup-view.ts`.
  *
- * 🚩 **Inline in the rail, not a modal**, and that is this ticket's one
+ * 🚩 **Inline, not a modal** — in the rail, and since 409 in the flow under the
+ * caller bar — and that is this ticket's one
  * arrangement decision rather than a preference. The wait between *Send code* and
  * the code arriving is SPOKEN: the caller is holding the line reading digits back.
  * A modal would take the basket away for the length of a conversation the agent
  * is having anyway — and unlike the coupon, whose owner ruling made it a chip
  * off the header row, nothing about a signup is a fact of the ORDER. It belongs
- * to the caller, and the caller has a column.
+ * to the caller, and the caller has a place.
  *
  * 🚩 **A miss is not a failure and this must not make it look like one.** The
- * rail already says the caller was not found and stops there (165). The signup is
+ * caller bar already says the caller was not found and stops there (165). The signup is
  * offered as the ordinary next thing, in the same block, with no alarm ground.
  *
  * 🚩 **It ends at `attach`, it does not perform it.** The confirm returns the new
@@ -46,7 +47,7 @@ export interface SignupActions {
   onSendCode: () => void
   onConfirm: () => void
   onCancel: () => void
-  /** The member the confirm returned, handed to the rail's own attach. */
+  /** The member the confirm returned, handed to the caller bar's own attach. */
   onAttach: (member: LoyaltyMember) => void
   sending: boolean
   confirming: boolean
@@ -59,7 +60,7 @@ export interface SignupActions {
 export default function SignupPanel({
   state,
   actions,
-  /** True while the rail's attach is in flight. */
+  /** True while the caller bar's attach is in flight. */
   attaching,
 }: {
   state: SignupState
@@ -100,7 +101,7 @@ export default function SignupPanel({
               aria-label={t('signup.country')}
               data-cc-signup-country
               // `w-full` + `min-w-0`: a select's intrinsic width is its longest
-              // option, and without both it grows past the rail rather than
+              // option, and without both it grows past its column rather than
               // truncating inside it.
               className="w-full min-w-0 rounded-md border border-input bg-card px-2 py-2 text-sm outline-none focus:border-ring"
             >
@@ -152,7 +153,7 @@ export default function SignupPanel({
               >
                 <input
                   type="radio"
-                  // The rail can hold only one signup at a time, so a fixed group
+                  // The console holds only one signup at a time, so a fixed group
                   // name is safe and keeps the pair arrow-key navigable for free.
                   name="cc-signup-language"
                   checked={state.language === code}
@@ -262,7 +263,7 @@ export default function SignupPanel({
             data-cc-signup-attach
             className="mt-2 w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {attaching ? t('rail.attaching') : t('rail.attach')}
+            {attaching ? t('callerBar.attaching') : t('callerBar.attach')}
           </button>
         </div>
       )}

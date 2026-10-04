@@ -195,8 +195,9 @@ async function run() {
     await page.locator('[data-cc-section="store"]').waitFor({ state: 'detached', timeout: 10_000 })
     check('🚩 the store the agent chose is on the chip at once, with no reload',
       (await chipText(page)).includes(CHOSEN), await chipText(page))
-    check('and the rail is collecting from it',
-      (await page.locator('[data-cc-collection="chosen"]').innerText()).includes(CHOSEN))
+    // 409 retired the rail's "Collecting from" block: the sentence's store word says it.
+    check('and the sentence collects from it',
+      (await page.locator('[data-cc-sentence-shape="collection"] [data-cc-chip="store"]').innerText()).includes(CHOSEN))
     await context.close()
   }
 
@@ -225,7 +226,7 @@ async function run() {
   {
     const { context, page } = await open(browser, { state: WITH_CALLER })
     await land(page)
-    await page.locator('[data-cc-pick-address]').first().click()
+    await page.locator('[data-cc-chip-open="address"]').first().click()
     await page.locator(`[data-cc-address-option="${ADDRESS.addressNumber}"]`).click()
     await page
       .waitForFunction(

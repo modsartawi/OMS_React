@@ -45,7 +45,7 @@ const BLOCKERS: Record<string, { phrase: string; chip: HeaderSlotId | null }> = 
   NO_LINES: { phrase: 'NO_LINES', chip: null },
   // 🚩 The sentence's own two words (408). The address word is the address book's
   // door (166, 379), so it owns its blocker. The caller's name is a readout — the
-  // rail's phone box is where a caller is attached — but the word that says *no
+  // caller bar's phone box is where a caller is attached — but the word that says *no
   // caller yet* must LOOK blocked while the server is waiting on one.
   NO_CUSTOMER: { phrase: 'NO_CUSTOMER', chip: 'caller' },
   NO_ADDRESS: { phrase: 'NO_ADDRESS', chip: 'address' },

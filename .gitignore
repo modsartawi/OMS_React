@@ -76,3 +76,5 @@ tools/.sim-process-shots/
 tools/.callcenter-shell-shots/
 # Call center sentence drive screenshots (tools/callcenter-sentence-drive.mjs, ticket 408)
 tools/.callcenter-sentence-shots/
+# Call center caller bar drive screenshots (tools/callcenter-callerbar-drive.mjs, ticket 409)
+tools/.callcenter-callerbar-shots/

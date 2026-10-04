@@ -8,7 +8,8 @@
  *   named slot tags, rendered by `<Trans components>`: the translation owns the word
  *   order, and DOM order — so Tab order — follows it.
  * - **Line 2** is the agent's bookkeeping, as labelled fields.
- * - **Under them**, said once: a shut gate's reason and a lapsed window.
+ * - **Under them**, said once: a shut gate's reason, a lapsed window, and the address a
+ *   collection order keeps (176, moved here from the retired customer rail by 409).
  *
  * 🚩 **Every word opens today's in-flow section** (175 §9), never a popover. Words are
  * native buttons: Tab moves between them, Enter or Space opens the section, and the
@@ -21,7 +22,7 @@ import type { ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
-import { capabilityGate } from './fulfilment-view'
+import { capabilityGate, isPickup } from './fulfilment-view'
 import type { HeaderSlotId } from './header-chips'
 import { headerSentence, SENTENCE_KEY, wordTag, type HeaderWord, type WordLook } from './header-sentence'
 
@@ -205,13 +206,36 @@ function NoteText({ text }: { text: string }) {
   return <bdi className="inline-block max-w-[16rem] truncate align-bottom">{text}</bdi>
 }
 
-/** What the chip row said under itself, said once under the sentence. */
+/** What the chip row and the rail said under themselves, said once under the sentence. */
 function HeaderNotes({ state, lapsed }: { state: SessionState; lapsed: boolean }) {
   const { t } = useTranslation('callcenter')
   const gate = capabilityGate(state.capabilities, 'canChangeFulfilment')
   const payGate = capabilityGate(state.capabilities, 'canChangePaymentType')
+  /**
+   * 🚩 **The retained address is the SERVER'S to say** (176, contract v1.8). Under
+   * `PickInStore` the address leaves the projection, but the sidecar keeps it and a
+   * flip back re-derives the store from it — so without this line, *switch back and
+   * the store may move* arrives as a surprise. A client memory of the last address
+   * was built and rejected (owner, 2026-07-29): it is absent after a refresh, in a
+   * second tab and on a resumed order. The label alone, never the address: the agent
+   * cannot act on it and must not read it out.
+   */
+  const retained = isPickup(state.header) ? (state.header.retainedAddressLabel ?? null) : null
   return (
     <>
+      {/* Drawn only where there IS one — a sentence promising a kept address that does
+          not exist is worse than silence. The label is free text, isolated whole. */}
+      {retained && (
+        <p className="text-[11px] text-muted-foreground" data-cc-address-retained>
+          <Trans
+            t={t}
+            ns="callcenter"
+            i18nKey="sentence.addressRetained"
+            values={{ label: retained }}
+            components={{ label: <bdi /> }}
+          />
+        </p>
+      )}
       {/* 🚩 The soft gate, said out loud (US19): the window has lapsed, and the order can
           still be placed. A warning in the flow — never a blocker. */}
       {lapsed && (

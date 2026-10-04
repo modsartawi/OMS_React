@@ -53,7 +53,7 @@ import {
 
 /**
  * `addItem` and everything it is currently saying, as one prop — the shape the
- * rail's two verbs (165) and the address book (166) already use. The call
+ * caller bar's two verbs (165) and the address book (166) already use. The call
  * itself is the page's: it returns the whole `SessionState` and the cache is the
  * store of record.
  */
@@ -235,7 +235,7 @@ export default function ItemSearchPanel({
    *
    * It works **from inside the box the agent is already in**, because 153 found
    * the Gmail-style "armed when you are not typing" gate cannot exist here: the
-   * resting focus is a text box twice over (the rail autofocuses the phone
+   * resting focus is a text box twice over (the caller bar autofocuses the phone
    * field, and this box re-focuses itself after every landed add, above).
    *
    * Every rule about which row is aimed at is `highlight.ts`'s. What this

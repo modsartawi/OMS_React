@@ -13,7 +13,7 @@
  * than asking "are you sure?".
  *
  * The three facts are `unlinkCost`'s, and the third one is why they are three:
- * *unlink* and *remove the caller* sit next to each other in the rail, so the
+ * *unlink* and *remove the caller* sit next to each other in the caller bar, so the
  * sheet says out loud that **the caller stays**. An agent who fears losing the
  * caller they have just attached will not press the one control that fixes a
  * mis-picked request.

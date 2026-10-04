@@ -620,7 +620,7 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
   })
 
   await consolePage.goto(`${BASE}/callcenter`)
-  await consolePage.waitForSelector('[data-cc-rail]')
+  await consolePage.waitForSelector('[data-cc-caller-bar]')
 
   // ---- the miss, on ordinary ground --------------------------------------
   await consolePage.fill('#cc-phone', '0501234567')
@@ -646,9 +646,15 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
 
   const opened = await consolePage.evaluate(() => {
     const panel = document.querySelector('[data-cc-signup]')
-    const rail = document.querySelector('[data-cc-rail]')
+    // 409: the caller bar replaced the rail, and the signup opens in the flow UNDER
+    // its one-line row — inside the bar's block, after the row, never in it.
+    const bar = document.querySelector('[data-cc-caller-bar]')
+    const row = document.querySelector('[data-cc-caller-lookup]')
     return {
-      insideRail: !!(panel && rail && rail.contains(panel)),
+      underBar: !!(
+        panel && bar && row && bar.contains(panel) && !row.contains(panel) &&
+        row.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING
+      ),
       isModal: !!document.querySelector('[role="dialog"] [data-cc-signup]'),
       mobile: document.querySelector('[data-cc-signup-mobile]')?.value ?? null,
       preview: document.querySelector('[data-cc-signup-preview]')?.innerText ?? '',
@@ -660,7 +666,7 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
   // 🚩 INLINE. The wait between *Send code* and the code arriving is SPOKEN, and
   // a modal would take the basket away for the length of a conversation the
   // agent is having anyway.
-  ok(opened.insideRail, 'the signup runs INLINE in the caller rail')
+  ok(opened.underBar, 'the signup runs INLINE, in the flow under the caller bar (409)')
   ok(!opened.isModal, 'and never as a modal over the console')
   ok(opened.receipt && opened.basketRows > 0, 'the basket is still on screen and still readable')
   ok(opened.mobile === '0501234567', 'the number already typed carries into the signup')

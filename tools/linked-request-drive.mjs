@@ -513,6 +513,14 @@ async function attach(page) {
   await page.waitForSelector('[data-cc-caller]')
 }
 
+/** Open the linked request's in-flow detail under the caller bar (409) — where its
+ *  reason, store, note and Unlink live now that the rail's card is a chip. */
+async function openDetail(page) {
+  if (await page.$('[data-cc-section="linked-request"]')) return
+  await page.click('[data-cc-request-chip]')
+  await page.waitForSelector('[data-cc-section="linked-request"]')
+}
+
 const measure = (page) =>
   page.evaluate(() => {
     const main = document.querySelector('main')
@@ -522,7 +530,9 @@ const measure = (page) =>
       view: !!document.querySelector('[data-cc-request-view]'),
       picker: !!document.querySelector('[data-cc-request-picker]'),
       card: document.querySelector('[data-cc-request-card]')?.innerText ?? null,
-      rail: document.querySelector('[data-cc-rail]').innerText,
+      // 409: the card's reason, store and note live in the chip's in-flow detail.
+      detail: document.querySelector('[data-cc-section="linked-request"]')?.innerText ?? null,
+      rail: document.querySelector('[data-cc-caller-bar]').innerText,
       chipText: document.querySelector('[data-cc-chips]').innerText,
       chips: [...document.querySelectorAll('[data-cc-chip]')].map((c) => c.dataset.ccChip),
       basket: document.querySelector('[data-cc-basket]')?.innerText ?? '',
@@ -644,13 +654,17 @@ await shot(page, 'picker-two-requests')
 console.log('\nlinking the TMRA request')
 await page.click('[data-cc-request-link="SREQ-0001234"]')
 await page.waitForSelector('[data-cc-request-card]')
+ok((await measure(page)).detail === null, 'the chip does not open its detail by itself (409)')
+await openDetail(page)
 const after = await measure(page)
+after.card = `${after.card}
+${after.detail}`
 
 ok(!after.picker, 'the picker has answered its question and closed')
 ok(after.offer === null, 'the count is gone — the card replaces it')
 ok(/SREQ-0001234/.test(after.card ?? ''), 'the linked card names the request')
 ok(/Tamara payment/.test(after.card ?? ''), 'in words, again never the code')
-ok(/Raised at store 1234/.test(after.card ?? ''), 'and names the store it came from')
+ok(/Raised at store\s+1234/.test(after.card ?? ''), 'and names the store it came from')
 // 🚩 No money on the card. Narrow form: the pharmacist's NOTE is server text the
 // console may not sub-edit, so what is asserted is that no figure formatted as
 // money is drawn — the request is unpriced and the basket holds the order's money.
@@ -791,6 +805,7 @@ console.log('\nunlinking is a full undo, and it asks first')
   ok(await searchOffersAdd(page), 'and the store gate is OPEN while the request holds the store')
 
   // 🚩 The press opens the CONFIRMATION, and nothing else happens.
+  await openDetail(page)
   await page.click('[data-cc-request-unlink]')
   await page.waitForSelector('[data-cc-confirm-sheet="unlink"]')
   const sheet = await page.evaluate(() => ({
@@ -819,6 +834,7 @@ console.log('\nunlinking is a full undo, and it asks first')
   ok(kept.lines === 2 && kept.card !== null, 'declining leaves the link and the lines exactly as they were')
 
   // And now the undo itself.
+  await openDetail(page)
   await page.click('[data-cc-request-unlink]')
   await page.waitForSelector('[data-cc-confirm-sheet="unlink"]')
   await page.click('[data-cc-confirm-accept]')

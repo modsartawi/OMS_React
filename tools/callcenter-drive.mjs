@@ -201,6 +201,11 @@ const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5210}`
+// 409 retired the customer rail's address block: the sentence's address word is the
+// address book's only door, and an address on the order is that word holding a value
+// (its isolate — the empty wording "choose an address" is the template's, unisolated).
+const ADDRESS_DOOR = '[data-cc-chip-open="address"]'
+const ADDRESS_SET = '[data-cc-chip="address"] [data-cc-chip-value] bdi'
 
 // The contract's own fixture, verbatim — the same file `__fixtures__/payloads.ts`
 // imports. A drive that hand-wrote this payload would be testing the drive.
@@ -1858,16 +1863,18 @@ async function run() {
     )
 
     // 🚩 Customer-first as intent, not enforcement: with no caller there is no
-    // control to poke — the console states the next step instead.
+    // control to poke — the console states the next step instead. Since 409 the
+    // sentence's address word is the book's only door, and the opening steps say
+    // where the caller is taken.
     check(
-      'no caller ⇒ the address block offers nothing to reach',
-      (await page.locator('[data-cc-pick-address]').count()) === 0 &&
-        (await page.locator('[data-cc-address="noCaller"]').isVisible()),
+      'no caller ⇒ the address word offers nothing to reach',
+      (await page.locator(ADDRESS_DOOR).count()) === 0 &&
+        (await page.locator('[data-cc-chip="address"]').isVisible()),
     )
     check(
-      'and it says what the next step is',
-      (await text(page, '[data-cc-address="noCaller"]')).length > 10,
-      (await text(page, '[data-cc-address="noCaller"]')).replace(/\s+/g, ' '),
+      'and the steps say the next step is the caller bar',
+      /caller bar/.test(await text(page, '[data-cc-step="caller"]')),
+      (await text(page, '[data-cc-step="caller"]')).replace(/\s+/g, ' '),
     )
 
     // Typing straight in, without clicking: the caret is already there.
@@ -1883,7 +1890,7 @@ async function run() {
     check('the caller is still not on the order', (await page.locator('[data-cc-caller]').count()) === 0)
     check(
       'and the address book is still shut',
-      (await page.locator('[data-cc-pick-address]').count()) === 0,
+      (await page.locator(ADDRESS_DOOR).count()) === 0,
     )
 
     await page.locator('[data-cc-attach]').click()
@@ -1904,8 +1911,8 @@ async function run() {
     )
     check('the rail card is capped at six fields', fields.length <= 6, `${fields.length}: ${fields.join(', ')}`)
     check(
-      'in a fixed order, identity first',
-      fields.join(',') === 'name,mobile,member,tier,points,email',
+      'in the bar’s fixed order (409): name, standing, then the numbers',
+      fields.join(',') === 'name,tier,points,mobile,member,email',
       fields.join(','),
     )
     check(
@@ -1914,14 +1921,16 @@ async function run() {
         ATTACHED_CUSTOMER.name !== MEMBER.fullName,
       await text(page, '[data-cc-rail-field="name"]'),
     )
-    check('the rail is still pinned at the start edge', await page.locator('[data-cc-rail]').isVisible())
+    check(
+      'the caller sits in the bar at the top of the centre (409)',
+      await page.evaluate(() => !!document.querySelector('[data-cc-centre] > [data-cc-caller-bar] [data-cc-caller]')),
+    )
 
     // 🚩 The heart of it: the control appears because `capabilities` opened it.
-    check('attaching opens the address book', await page.locator('[data-cc-pick-address]').isVisible())
+    check('attaching opens the address book — the address word becomes its door', await page.locator(ADDRESS_DOOR).isVisible())
     check(
-      'as an empty dashed slot, with its own action',
-      (await page.locator('[data-cc-address="pick"]').isVisible()) &&
-        (await page.locator('[data-cc-address="noCaller"]').count()) === 0,
+      'still empty, and asking for an address',
+      (await page.locator(ADDRESS_DOOR).getAttribute('data-cc-chip-state')) !== 'settled',
     )
 
     // 🚩 And the next call starts clean. A found card left standing would offer
@@ -1950,11 +1959,11 @@ async function run() {
     const { context, page } = await open(browser, { openState: attachedShut })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    check('a caller alone does not open the book', (await page.locator('[data-cc-pick-address]').count()) === 0)
+    check('a caller alone does not open the book', (await page.locator(ADDRESS_DOOR).count()) === 0)
     check(
       'and the closed state is not a disabled control to poke',
-      (await page.locator('[data-cc-address="unavailable"]').isVisible()) &&
-        (await page.locator('[data-cc-address="unavailable"] button').count()) === 0,
+      (await page.locator('[data-cc-chip="address"]').isVisible()) &&
+        (await page.locator('button[data-cc-chip="address"]').count()) === 0,
     )
     await context.close()
   }
@@ -1984,15 +1993,15 @@ async function run() {
     const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-caller]').waitFor({ timeout: 10_000 })
-    check('the address is on the order to begin with', await page.locator('[data-cc-address="set"]').isVisible())
+    check('the address is on the order to begin with', await page.locator(ADDRESS_SET).isVisible())
     const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
 
     await page.locator('[data-cc-remove-caller]').click()
     await page.locator('[data-cc-caller]').waitFor({ state: 'detached', timeout: 10_000 })
 
-    check('the caller is gone from the rail', (await page.locator('[data-cc-caller]').count()) === 0)
-    check('the address goes with them', (await page.locator('[data-cc-address="set"]').count()) === 0)
-    check('and the book is shut again', (await page.locator('[data-cc-pick-address]').count()) === 0)
+    check('the caller is gone from the bar', (await page.locator('[data-cc-caller]').count()) === 0)
+    check('the address goes with them', (await page.locator(ADDRESS_SET).count()) === 0)
+    check('and the book is shut again', (await page.locator(ADDRESS_DOOR).count()) === 0)
 
     // 🚩 The property the whole slice turns on: a re-attach must not silently
     // re-price the basket, so the derived store is still standing.
@@ -2022,7 +2031,7 @@ async function run() {
     await page.keyboard.type(MEMBER.mobile)
     await page.keyboard.press('Enter')
     await page.locator('[data-cc-attach]').click()
-    await page.locator('[data-cc-pick-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor({ timeout: 10_000 })
   }
 
@@ -2042,7 +2051,7 @@ async function run() {
     await page.locator(`[data-cc-address-option="${GATED_ADDRESS}"]`).click()
     await page.locator('[data-cc-address-picker]').waitFor({ state: 'detached', timeout: 10_000 })
     // The address on the rail is the state that carries the open gate with it.
-    await page.locator('[data-cc-address="set"]').waitFor({ timeout: 10_000 })
+    await page.locator(ADDRESS_SET).waitFor({ timeout: 10_000 })
   }
 
   // ---- 22. an address on an EMPTY basket applies inline, and says it derived ----
@@ -2117,8 +2126,8 @@ async function run() {
       'the chip reads settled — a derived store is not a problem to fix',
       (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'settled',
     )
-    check('the address is on the rail', await page.locator('[data-cc-address="set"]').isVisible())
-    check('and can be re-opened in place', await page.locator('[data-cc-change-address]').isVisible())
+    check('the address is in the sentence', await page.locator(ADDRESS_SET).isVisible())
+    check('and the word re-opens the book', await page.locator(ADDRESS_DOOR).isVisible())
     check('the basket is still empty — an address adds nothing to it', await page.locator('[data-cc-basket-empty]').isVisible())
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -2189,7 +2198,7 @@ async function run() {
       check(
         `the order is untouched by the refusal (${kind})`,
         (await text(page, '[data-cc-chip="store"]')) === storeBefore &&
-          (await page.locator('[data-cc-address="set"]').count()) === 0,
+          (await page.locator(ADDRESS_SET).count()) === 0,
       )
       check(`the book stays open so the agent can act (${kind})`, await page.locator('[data-cc-address-picker]').isVisible())
       check(`no console errors (${kind})`, errors.length === 0, errors[0] ?? '')
@@ -2208,7 +2217,7 @@ async function run() {
     await page.keyboard.type(MEMBER.mobile)
     await page.keyboard.press('Enter')
     await page.locator('[data-cc-attach]').click()
-    await page.locator('[data-cc-pick-address]').waitFor({ timeout: 10_000 })
+    await page.locator(ADDRESS_DOOR).waitFor({ timeout: 10_000 })
 
     // Attaching a caller opens the book's DOOR; it does not read it. An agent
     // who never changes the address should cost the door nothing.
@@ -2217,7 +2226,7 @@ async function run() {
       count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 0,
     )
 
-    await page.locator('[data-cc-pick-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
     // 🚩 A failed read is not a dead end — the read is pure, so it may be tried
     // again, and the agent is holding the only address the caller has.
@@ -2235,7 +2244,7 @@ async function run() {
     await page.keyboard.type(MEMBER.mobile)
     await page.keyboard.press('Enter')
     await page.locator('[data-cc-attach]').click()
-    await page.locator('[data-cc-pick-address]').waitFor({ timeout: 10_000 })
+    await page.locator(ADDRESS_DOOR).waitFor({ timeout: 10_000 })
     check(
       'the next caller’s book does not open by itself',
       (await page.locator('[data-cc-address-picker]').count()) === 0,
@@ -2251,7 +2260,7 @@ async function run() {
    *  there is money on screen to move. */
   const openTheBookOnALiveOrder = async (page) => {
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
-    await page.locator('[data-cc-change-address]').click()
+    await page.locator(ADDRESS_DOOR).click()
     await page.locator('[data-cc-address-picker]').waitFor({ timeout: 10_000 })
   }
   const MOVED_TO = DERIVED_PLANT['77121']

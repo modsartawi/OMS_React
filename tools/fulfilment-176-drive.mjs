@@ -26,9 +26,11 @@
 //   2. the delivery region is ABSENT under collection — 156's ruling, against
 //      the capture that would otherwise draw `Delivery SAR 0.00` + a
 //      free-delivery promise on an order nobody delivers
-//   3. the rail's two blocks occupy the SAME place, so the flip moves no
-//      furniture — 135's one winning property, measured rather than eyeballed
-//   4. the retained address leaves a trace after the flip
+//   3. the flip moves no furniture — 135's one winning property, measured rather
+//      than eyeballed. Since 409 the rail's two blocks are retired: the caller bar
+//      and the sentence keep their pixels and the centre its width, and the
+//      sentence's shape is what changes
+//   4. the retained address leaves a trace after the flip, under the sentence (409)
 //   5. a shut `canChangeFulfilment` stops being a control AND says why
 //   6. the payment chip's WORD follows the mode while the wire value does not —
 //      now provable from the REQUESTS: the flip sends one `SetFulfilment` and no
@@ -263,7 +265,9 @@ const shot = async (page, name) => {
 const measure = (page) =>
   page.evaluate(() => {
     const main = document.querySelector('main')
-    const rail = document.querySelector('[data-cc-rail]')
+    const centre = document.querySelector('[data-cc-centre]')
+    const bar = document.querySelector('[data-cc-caller-bar] > :first-child')
+    const header = document.querySelector('[data-cc-chips]')
     return {
       chips: [...document.querySelectorAll('[data-cc-chip]')].map((c) => c.dataset.ccChip),
       chipText: document.querySelector('[data-cc-chips]').innerText,
@@ -275,32 +279,22 @@ const measure = (page) =>
       threshold: !!document.querySelector('[data-cc-delivery-threshold]'),
       receipt: document.querySelector('[data-cc-receipt]').innerText,
       blockers: document.querySelector('[data-cc-blockers]')?.innerText ?? null,
-      collection: document.querySelector('[data-cc-collection]')?.dataset.ccCollection ?? null,
-      address: document.querySelector('[data-cc-address]')?.dataset.ccAddress ?? null,
+      // 409: the rail's address / collection blocks are retired — the sentence's
+      // shape says which mode the order is in, and its address word is the book's door.
+      shape: header?.dataset.ccSentenceShape ?? null,
+      addressWord: !!document.querySelector('[data-cc-chip="address"]'),
       payable: document.querySelector('[data-cc-payable]')?.innerText ?? null,
       retained: document.querySelector('[data-cc-address-retained]')?.innerText ?? null,
-      // The rail's SECOND block, measured two ways — the numbers that prove the
-      // flip moves no furniture. `blockTop` is taken from the rail's own top so
-      // a scroll position cannot flatter it; `blockHeight` is the one the spec
-      // names (226 px in both modes) and the one that can actually fail, since
-      // the block is the last thing in the rail and its top could not move even
-      // if its contents doubled.
-      ...(() => {
-        const block = document.querySelector('[data-cc-collection], [data-cc-address]')
-        if (!block || !rail) return { blockTop: null, blockHeight: null, blockIsLast: null }
-        const box = block.getBoundingClientRect()
-        // 🚩 What is UNDER the block, which is the half a top-offset measurement
-        // cannot see: the two faces are not the same height (an address is more
-        // lines than a store name), and the reason that is harmless is that
-        // nothing follows them. The day something does, this goes false and the
-        // drive demands the height invariant be proven rather than assumed.
-        const section = block.closest('[data-cc-rail] > *') ?? block
-        return {
-          blockTop: Math.round(box.top - rail.getBoundingClientRect().top),
-          blockHeight: Math.round(box.height),
-          blockIsLast: section === rail.lastElementChild,
-        }
-      })(),
+      retainedUnderSentence: !!document.querySelector('[data-cc-chips] [data-cc-address-retained]'),
+      storeNotChosenSaid: (document.body.innerText.match(/No store chosen yet/g) ?? []).length,
+      // The furniture the flip must not move, measured from the centre's own top so a
+      // scroll position cannot flatter it: the caller bar's row, where the sentence
+      // starts, and the centre's width.
+      barTop: bar && centre ? Math.round(bar.getBoundingClientRect().top - centre.getBoundingClientRect().top) : null,
+      barHeight: bar ? Math.round(bar.getBoundingClientRect().height) : null,
+      sentenceTop:
+        header && centre ? Math.round(header.getBoundingClientRect().top - centre.getBoundingClientRect().top) : null,
+      centreWidth: centre ? Math.round(centre.getBoundingClientRect().width) : null,
       fulfilmentLocked: document.querySelector('[data-cc-fulfilment-locked]')?.innerText ?? null,
       paymentLocked: document.querySelector('[data-cc-payment-locked]')?.innerText ?? null,
       fulfilmentIsButton: document.querySelector('[data-cc-chip="fulfilment"]')?.tagName === 'BUTTON',
@@ -337,11 +331,12 @@ for (const st of Object.keys(SCENARIOS)) {
     ok(!/Delivery/.test(m.receipt), 'the word "Delivery" is not in the receipt at all')
   }
 
-  // 4. The rail's two blocks are the same block.
+  // 4. The sentence's shape is the mode (408/409): the rail's blocks are retired.
   ok(
-    collecting ? m.collection !== null && m.address === null : m.address !== null && m.collection === null,
-    `the rail draws the ${collecting ? 'COLLECTION' : 'ADDRESS'} block and only that one`,
+    collecting ? m.shape === 'collection' && !m.addressWord : m.shape === 'delivery' && m.addressWord,
+    `the sentence reads the ${collecting ? 'COLLECTION' : 'DELIVERY'} shape, ${collecting ? 'with no' : 'with its'} address word`,
   )
+  ok(!m.storeNotChosenSaid, 'the retired "No store chosen yet" block is nowhere — the store word says it once')
 
   ok(!m.overflowX, 'the centre never scrolls sideways')
 
@@ -393,7 +388,7 @@ for (const st of Object.keys(SCENARIOS)) {
   if (st === 'pickup') ok(/pay on collection/i.test(m.chipText), 'the payment word reads "pay on collection" under collection')
   if (st === 'delivery') ok(/cash on delivery/i.test(m.chipText), 'and "cash on delivery" under delivery')
 
-  console.log(`  · rail block: ${m.blockHeight}px tall, ${m.blockTop}px from the rail's top`)
+  console.log(`  · caller bar: ${m.barHeight}px tall at ${m.barTop}px; sentence at ${m.sentenceTop}px; centre ${m.centreWidth}px`)
   await shot(page, st)
   allErrors.push(...errors)
   await context.close()
@@ -422,27 +417,24 @@ ok(/No address, no slot/.test(consequence), 'each option states its own conseque
 await shot(page, 'flip-open')
 
 await page.click('[data-cc-fulfilment-option="PickInStore"]')
-await page.waitForSelector('[data-cc-collection]')
+await page.waitForSelector('[data-cc-sentence-shape="collection"]')
 
 const after = await measure(page)
 
-// 🚩 THE measurement this ticket exists for: one block with two faces at the
-// SAME pixels. Height as well as position, because the block is the rail's last
-// child — its top cannot move, so a height-blind assertion would pass over a
-// block that had grown by an inch and pushed nothing because there is nothing
-// below it to push.
+// 🚩 THE measurement this ticket exists for, as 409 re-drew the console: the flip
+// rewrites the sentence and moves no furniture. The caller bar keeps its row, the
+// sentence starts at the same pixel, and the centre keeps its width.
 ok(
-  before.blockTop === after.blockTop && after.blockTop === 226,
-  `the rail's second block starts at the same pixel across the flip (${before.blockTop}px, both modes)`,
+  before.barTop === after.barTop && before.barHeight === after.barHeight && after.barHeight !== null,
+  `the caller bar keeps its pixels across the flip (${before.barHeight}px at ${before.barTop}px)`,
 )
-// 🚩 And the half that measurement cannot see. The two faces are NOT the same
-// height (an address is more lines than a store name), so *nothing moves* rests
-// entirely on there being nothing beneath them — asserted, not assumed, because
-// the day a section is added under this block the invariant silently stops
-// holding while every top-offset assertion still passes.
 ok(
-  before.blockIsLast && after.blockIsLast,
-  `nothing is drawn below the block, so its height cannot move anything (${before.blockHeight}px → ${after.blockHeight}px)`,
+  before.sentenceTop === after.sentenceTop && after.sentenceTop !== null,
+  `the sentence starts at the same pixel across the flip (${before.sentenceTop}px, both modes)`,
+)
+ok(
+  before.centreWidth === after.centreWidth && after.centreWidth !== null,
+  `the centre keeps its width across the flip (${before.centreWidth}px)`,
 )
 // 408: the sentence's collection shape has no address and no window — both leave.
 ok(
@@ -455,6 +447,7 @@ ok(before.payable !== after.payable, 'the total re-quotes with the fee gone')
 // 🚩 The ticket's own question: an agent who cannot see the kept address has no
 // way to know a flip back will move the store.
 ok(!!after.retained, 'the address the order kept leaves a trace')
+ok(after.retainedUnderSentence, 'as a note under the sentence, beside the other header notes (409)')
 ok(/switch back to delivery/i.test(after.retained ?? ''), 'and the trace says what a flip back will do')
 await shot(page, 'flip-collection')
 
@@ -500,13 +493,14 @@ ok(
 await shot(page, 'flip-back-warning')
 
 await page.click('[data-cc-fulfilment-option="Delivery"]')
-await page.waitForSelector('[data-cc-address]')
+await page.waitForSelector('[data-cc-sentence-shape="delivery"]')
 const restored = await measure(page)
 ok(restored.chips.includes('slot'), 'the slot chip returns on the way back')
 ok(restored.fee, 'and the delivery region re-quotes instantly')
 ok(
-  restored.blockTop === before.blockTop && restored.blockHeight === before.blockHeight,
-  'and the rail block is back to the size and place it started at',
+  restored.barTop === before.barTop && restored.barHeight === before.barHeight &&
+    restored.sentenceTop === before.sentenceTop && restored.centreWidth === before.centreWidth,
+  'and the bar, the sentence and the centre are back where they started',
 )
 // The payment value survives the round trip untouched: two axes, independently.
 ok(/paid online/i.test(restored.chipText), 'the payment type survives the flip back — an independent axis')

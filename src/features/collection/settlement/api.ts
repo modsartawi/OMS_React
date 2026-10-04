@@ -32,6 +32,7 @@ import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
   SettlementCancelResult,
+  SettlementChangeQueueRow,
   SettlementChangeRequestActResult,
   SettlementChangeRequestApproveBody,
   SettlementChangeRequestHistory,
@@ -57,6 +58,7 @@ import {
   ACCOUNT_LIMIT,
   BRANCH_LIMIT,
   CASH_LANE_LIMIT,
+  CHANGE_QUEUE_LIMIT,
   FLEET_LIMIT,
   LEDGER_LIMIT,
   OPEN_LANE_LIMIT,
@@ -697,5 +699,18 @@ export const settlementApi = {
    */
   rejectChangeRequest(body: SettlementChangeRequestRejectBody): Promise<SettlementChangeRequestActResult> {
     return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Reject', body)
+  },
+
+  /**
+   * `GET Settlement/ChangeRequest/Open?limit=` → every waiting change or delete request in
+   * the estate, oldest first (BackOffice 2285, ticket 353): History's request row plus the
+   * entry and its branch as they stand now. Behind settlement supervision — a bare **403**
+   * otherwise, so the tab is neither drawn nor read for a session without it.
+   *
+   * ⚠️ `limit` is named (`CHANGE_QUEUE_LIMIT`, the door's own 500) and measured against the
+   * answer. A 404 means SIS.Api has not shipped 2285 — the tab says *"not available yet"*.
+   */
+  changeRequestQueue(): Promise<SettlementChangeQueueRow[]> {
+    return api.get<SettlementChangeQueueRow[]>('Settlement/ChangeRequest/Open', { limit: CHANGE_QUEUE_LIMIT })
   },
 }

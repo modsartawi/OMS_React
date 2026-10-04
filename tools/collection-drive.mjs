@@ -851,7 +851,7 @@ async function run() {
   check(
     '335 — the grid opens with finance’s nine in finance’s order, then the profit center',
     sheetHead ===
-      'Open | Collection Date | Business Date | Store Code | Type | Description | Amount (SAR) | Surplus (SAR) | Net Collected (SAR) | Collector | Profit Center (Store)',
+      'Open | Collection Date | Business Date | Store Code | Type | Description | Amount (SAR) | Surplus (SAR) | Net Collected (SAR) | Collector | Profit Center',
     sheetHead,
   )
   check(
@@ -2002,7 +2002,7 @@ async function run() {
   const open = await exportWorkbook()
   check(
     '336 — with More columns ON the folded columns are in the file',
-    ['Retained Float (SAR)', 'Currency', 'Z Reports', 'Sales Date', 'Collector Name', 'Receipt No#', 'Variance (SAR)', 'Profit Center'].every((h) => open.head.includes(h)),
+    ['Retained Float (SAR)', 'Currency', 'Z Reports', 'Sales Date', 'Collector Name', 'Receipt No#', 'Variance (SAR)', 'Profit Center (Store)'].every((h) => open.head.includes(h)),
     open.head.join('|'),
   )
   check(

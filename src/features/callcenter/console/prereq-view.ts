@@ -24,12 +24,13 @@
  * here ranks, filters or re-prices: all three are the server's, at the order's
  * plant.
  */
-import type { ItemSearchRow, PrereqResolution } from '@/core/models/callcenter'
+import type { ItemSearchRow, PrereqItem, PrereqResolution, RewardResolution } from '@/core/models/callcenter'
 import type { GuidancePhrase } from './guidance-view'
 import { searchRowView, type SearchRowView } from './item-search'
 
-/** The offer's items, in the server's own ranking, whole. */
-export function prereqRows(resolution: PrereqResolution | null | undefined): SearchRowView[] {
+/** The offer's items, in the server's own ranking, whole. A reward arm's
+ *  resolution carries the same rows (§3.7), so it maps through here too. */
+export function prereqRows(resolution: { items?: PrereqItem[] | null } | null | undefined): SearchRowView[] {
   return (resolution?.items ?? []).map((item) =>
     searchRowView({
       materialNumber: item.itemNumber,
@@ -72,4 +73,36 @@ export function restOfSet(
   return rest > 0
     ? { key: 'callcenter:guidance.searchRest', params: { count: rest } }
     : { key: 'callcenter:guidance.searchRestUnknown', params: {} }
+}
+
+/** One reward arm's products, as the shortfall card draws them (ticket 415). */
+export interface RewardResolutionView {
+  /** The qualifying-row mapping, unchanged — in the server's ranking, whole. */
+  rows: SearchRowView[]
+  /** *Not available at this store* — the answer came back and the stock filter
+   *  left nothing. `null` until there is an answer: not yet asked is not empty. */
+  empty: GuidancePhrase | null
+  /** *The top 3 at this store — there are more.* `null` on an untruncated answer. */
+  truncated: GuidancePhrase | null
+}
+
+/**
+ * What `ResolveReward` answered for one arm (spec 412 W5), in the card's words.
+ *
+ * 🚩 **A truncated list is a STATEMENT here, not `restOfSet`'s hand-off.** The
+ * prerequisite list routes the rest to the item search narrowed to the offer,
+ * but that narrowing is the offer's buy side: it would list the products the
+ * order already qualified with, not the reward the card is about. So the reward
+ * list says it was capped and offers no route the console does not have.
+ */
+export function rewardResolutionView(resolution: RewardResolution | null | undefined): RewardResolutionView {
+  const rows = prereqRows(resolution)
+  return {
+    rows,
+    empty: resolution && rows.length === 0 ? { key: 'callcenter:guidance.shortfall.armNoStock', params: {} } : null,
+    truncated:
+      resolution?.truncated === true && rows.length > 0
+        ? { key: 'callcenter:guidance.shortfall.armTruncated', params: { count: rows.length } }
+        : null,
+  }
 }

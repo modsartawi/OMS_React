@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -9,7 +9,7 @@ import type { ColDef } from 'ag-grid-community'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { collectionAccessQuery } from '@/core/collection/api'
+import { COLLECTION_ACCESS_KEY, collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -23,10 +23,12 @@ import type {
 } from '@/core/models/settlement'
 import { branchSearch } from './addresses'
 import { canSuperviseSettlement, settlementApi } from './api'
-import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
+import { AccountCapBanner, AccountShimmer, Nothing, ToggleChip } from './AccountStates'
 import ApprovalDialog, { type ApprovalRequest } from './ApprovalDialog'
-import { supersedeWarning } from './change-request'
-import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, PENDING_LANE_LIMIT } from './cap'
+import { buildChangeQueue } from './change-queue'
+import ChangeQueue from './ChangeQueue'
+import { changeRequestFailure, supersedeWarning } from './change-request'
+import { CASH_LANE_LIMIT, CHANGE_QUEUE_LIMIT, OPEN_LANE_LIMIT, PENDING_LANE_LIMIT } from './cap'
 import ChaseDialog from './ChaseDialog'
 import {
   buildCashColumns,
@@ -44,11 +46,12 @@ import {
   buildPendingLane,
   buildTheftLane,
   CASH_LANE_KEY,
+  CHANGE_QUEUE_KEY,
   DEFAULT_OPEN_TAB,
   isEntryTab,
   OPEN_LANE_KEY,
   PENDING_LANE_KEY,
-  OPEN_LANE_TABS,
+  openTabs,
   openTabSearch,
   readOpenTab,
   type ChaseTarget,
@@ -112,13 +115,22 @@ import {
  * neither a shortage nor a surplus: it moves no cash and nobody is rung about it. The
  * answer is split three ways by NAME (`open-lane.ts`), so a theft is in neither of the
  * other two tabs, in neither of their counts, and not on the front page's signpost.
+ *
+ * 🔑 **The sixth tab is the supervisor's queue of waiting change requests** (ticket 353,
+ * BackOffice 2285): *Change requests*, every change or delete request in the estate, off
+ * its own door with its own count and failure — drawn and read only for a session holding
+ * settlement supervision (the door 403s anyone else). Decided inline; `ChangeQueue.tsx`.
  */
 export default function OpenSettlements() {
   const { t } = useTranslation('settlement')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const tab = readOpenTab(searchParams)
+  /** The area's one probe, from the cache the gate filled — draws the queue's buttons and
+   *  353's Change requests tab. */
+  const access = useQuery(collectionAccessQuery())
+  const canSupervise = canSuperviseSettlement(access.data)
+  const tab = readOpenTab(searchParams, { supervise: canSupervise })
   /**
    * 🚩 **Component state, not an address.** Spec 282 story 39 asks for the *scope* and
    * the *tab* to survive a walk through a branch account and names nothing else; the
@@ -174,14 +186,31 @@ export default function OpenSettlements() {
     queryFn: () => settlementApi.pendingLane(),
     staleTime: 60_000,
   })
-  /** The area's one probe, from the cache the gate filled — draws the queue's buttons. */
-  const access = useQuery(collectionAccessQuery())
-  const canSupervise = canSuperviseSettlement(access.data)
+  /**
+   * 353's queue — **a fourth door**, `Settlement/ChangeRequest/Open`: every waiting change
+   * or delete request in the estate. Fetched whichever tab is showing (the strip carries
+   * its count), but **only for supervision** — the door answers anyone else a bare 403,
+   * and the tab is not drawn for them. A 404 (no 2285) is not retried.
+   */
+  const changes = useQuery({
+    queryKey: CHANGE_QUEUE_KEY,
+    queryFn: () => settlementApi.changeRequestQueue(),
+    enabled: canSupervise,
+    staleTime: 60_000,
+    retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
+  })
+  // W1: a bare 403 means the grant went between the probe and the read — the probe is
+  // re-read, which takes the tab away. Never decided from the probe alone.
+  const changesForbidden = changes.isError && changeRequestFailure(changes.error) === 'forbidden'
+  useEffect(() => {
+    if (changesForbidden) void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
+  }, [changesForbidden, queryClient])
 
   // ⚠️ Named, not `!isEntryTab(tab)`: with five tabs, *not an entry tab* is three tabs.
   const onCash = tab === 'cash'
   const onPending = tab === 'pending'
   const onTheft = tab === 'theft'
+  const onChanges = tab === 'changes'
 
   const built = useMemo(
     () =>
@@ -202,6 +231,10 @@ export default function OpenSettlements() {
   const pendingBuilt = useMemo(
     () => buildPendingLane({ rows: pending.data, failed: pending.isError, mineOnly }),
     [pending.data, pending.isError, mineOnly],
+  )
+  const changesBuilt = useMemo(
+    () => buildChangeQueue({ rows: changes.data, failed: changes.isError }),
+    [changes.data, changes.isError],
   )
   /** 339: the third reading of the lane's ONE answer — the approved thefts in it. */
   const theftBuilt = useMemo(
@@ -234,10 +267,13 @@ export default function OpenSettlements() {
    *  waits on separately. */
   // ⚠️ Never on the theft tab: nobody is rung about a theft, so there is no chase to
   // filter on (339).
-  const chaseKnown = onPending || onTheft ? false : onCash ? cashBuilt.chased : built.chased
+  const chaseKnown = onPending || onTheft || onChanges ? false : onCash ? cashBuilt.chased : built.chased
   /** Can *mine only* be offered on the tab being drawn? Only where the wire ranked the
    *  rows — and never over a shimmer or a failure. */
-  const mineKnown = onPending
+  // 353: the change-request queue is one list, unranked — 2285 has no ServedBy / `isMine`.
+  const mineKnown = onChanges
+    ? false
+    : onPending
     ? !pending.isError && !pending.isPending && pendingBuilt.ranked
     : onCash
       ? !cash.isError && !cash.isPending
@@ -305,7 +341,9 @@ export default function OpenSettlements() {
             refuses. */}
         <p className="text-xs text-muted-foreground">
           {t(
-            onTheft
+            onChanges
+              ? 'open.subtitleChanges'
+              : onTheft
               ? // 339: a record rather than a list to work down — it claims no order.
                 'open.subtitleTheft'
               : onPending
@@ -338,7 +376,11 @@ export default function OpenSettlements() {
           theft: lane.isPending ? null : theftBuilt.count,
           cash: cash.isPending ? null : cashBuilt.count,
           pending: pending.isPending ? null : pendingBuilt.count,
+          // 353: unknown while in flight, on its own failure (a 404 included), and for a
+          // session it is not drawn for.
+          changes: !canSupervise || changes.isPending ? null : changesBuilt.count,
         }}
+        tabs={openTabs({ supervise: canSupervise })}
         onTab={(next) => navigate(openTabSearch(searchParams, next))}
       />
 
@@ -404,7 +446,21 @@ export default function OpenSettlements() {
         />
       )}
 
-      {onPending ? (
+      {/* 353: the queue's own cap — 500, the door's default, at which nobody is deciding. */}
+      {onChanges && changesBuilt.capReached && (
+        <AccountCapBanner
+          message={t('open.capReachedChanges', { limit: CHANGE_QUEUE_LIMIT.toLocaleString('en-US') })}
+        />
+      )}
+
+      {onChanges ? (
+        <ChangeQueue
+          queue={changes}
+          built={changesBuilt}
+          // Opens the entry's branch account on the entry; a missing entry lands on the branch.
+          onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber ?? undefined))}
+        />
+      ) : onPending ? (
         pending.isPending ? (
           <AccountShimmer label={t('open.loadingPending')} />
         ) : (
@@ -507,17 +563,20 @@ const UNKNOWN_COUNTS: OpenLane['counts'] = { owing: null, owed: null }
 function Tabs({
   tab,
   counts,
+  tabs,
   onTab,
 }: {
   tab: OpenLaneTab
   counts: OpenLaneTabCounts
+  /** The tabs this session is drawn — `openTabs` (353: Change requests for supervision). */
+  tabs: readonly OpenLaneTab[]
   onTab: (next: OpenLaneTab) => void
 }) {
   const { t } = useTranslation('settlement')
 
   return (
     <div role="tablist" aria-label={t('open.title')} className="flex gap-1 border-b border-border">
-      {OPEN_LANE_TABS.map((key) => {
+      {tabs.map((key) => {
         const selected = key === tab
         return (
           <button
@@ -779,30 +838,5 @@ function Signpost({ section }: { section: OpenLaneSection<OpenLaneRowFacts> }) {
           })
         : t('open.signpost.oldest', { oldest: ageWords(t, signpost.oldestAgeDays) })}
     </span>
-  )
-}
-
-/** A worded answer rather than an empty grid — the three good outcomes and the one
- *  the reader caused are each a sentence a person wrote. */
-function Nothing({
-  title,
-  hint,
-  testId,
-  action,
-}: {
-  title: string
-  hint: string
-  testId: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div
-      className="flex flex-col items-center gap-1 rounded-lg border border-border/60 bg-card/40 px-6 py-12 text-center"
-      data-testid={testId}
-    >
-      <strong className="text-base font-semibold">{title}</strong>
-      <p className="text-sm text-muted-foreground">{hint}</p>
-      {action}
-    </div>
   )
 }

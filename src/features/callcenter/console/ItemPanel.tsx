@@ -346,8 +346,8 @@ function Offer({ offer }: { offer: GuidanceCard }) {
 /**
  * What the offer's state IS, said in words.
  *
- * 🚩 Branched on the **class**, never on `shortfall === 0`. `guidance-view` sets
- * a shortfall of nought on every class that is not `actionable` AND on an
+ * 🚩 Branched on the **class**, never on `stillNeeded === 0`. `guidance-view` sets
+ * `stillNeeded` to nought on every class that is not `actionable` AND on an
  * actionable offer whose `progress` the wire did not state — so a not-ready offer
  * with no meter would have been announced as already applying, which is the exact
  * inverse of the fact. Where there is nothing honest to say, this says nothing:
@@ -361,5 +361,5 @@ function OfferState({ offer }: { offer: GuidanceCard }) {
   // `counted` IS `isReady`: on a one-unit run that means the offer applies to
   // this item as it stands.
   if (offer.klass === 'counted') return <>{t('panel.offerApplies')}</>
-  return offer.shortfall > 0 ? <>{t('panel.offerNeeds', { count: offer.shortfall })}</> : null
+  return offer.stillNeeded > 0 ? <>{t('panel.offerNeeds', { count: offer.stillNeeded })}</> : null
 }

@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CHANGE_REQUEST_HISTORY_KEY } from './api'
-import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
+import { CHANGE_QUEUE_KEY, OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
 
 /**
@@ -151,5 +151,8 @@ export function invalidateSettlement(
   // 309: a post can mint a pending surplus, and an approve or a reject removes one —
   // a queue that kept listing a decided entry would invite a second decision.
   void queryClient.invalidateQueries({ queryKey: PENDING_LANE_KEY })
+  // 353: a raise adds a waiting request, and a decision, a withdrawal or a direct act that
+  // supersedes one removes it — the supervisor's queue must not offer a decided request.
+  void queryClient.invalidateQueries({ queryKey: CHANGE_QUEUE_KEY })
   return Promise.all(rereads).then(() => undefined)
 }

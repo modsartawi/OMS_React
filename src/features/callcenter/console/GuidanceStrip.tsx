@@ -15,9 +15,10 @@
  *      2-up grid squeezes its rows beside ~500px of nothing);
  *   2. the **body is clamped (18rem)** and the head — heading, count, and the
  *      outcome banner 172 hangs here — is **pinned outside** it (finding 2);
- *   3. the default-open card is the **top-ranked actionable offer by
- *      construction** (finding 4), which is `guidanceView`'s `openByDefault` and
- *      never a hardcoded id.
+ *   3. the default-open card is the **top-ranked offer within reach by
+ *      construction** (finding 4) — the top get-side shortfall where there is
+ *      one (spec 412 W8), else the top actionable offer — which is
+ *      `guidanceView`'s `openByDefault` and never a hardcoded id.
  *
  * 🚩 A clamped region turns new content into scroll rather than height, so the
  * drive asserts what is **visible** and not how tall this is — 138's own finding,
@@ -27,7 +28,7 @@
  * classes, the order, the definition wording (161's, from `@/core/`), and the
  * skip-reason words. This file arranges them and owns no vocabulary of its own.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ExternalLink, Loader2, X } from 'lucide-react'
@@ -35,12 +36,12 @@ import { apiErrorMessage } from '@/core/api'
 import { bbyDetailHref } from '@/core/bonus-buy/deep-link'
 import Ltr from '@/core/ui/Ltr'
 import type { AddOutcome, GuidanceAdd } from './add-outcome'
-import { callCenterApi, prereqKey } from './api'
+import { callCenterApi, prereqKey, rewardKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
-import type { GuidanceCard, GuidanceView } from './guidance-view'
+import type { GuidanceCard, GuidanceView, RewardArm } from './guidance-view'
 import type { SearchRowView } from './item-search'
-import { prereqRows, restOfSet } from './prereq-view'
+import { prereqRows, restOfSet, rewardResolutionView } from './prereq-view'
 
 /**
  * The half of the guidance surface that DOES something (ticket 172) — the add,
@@ -71,12 +72,16 @@ export interface GuidanceActions {
 export default function GuidanceStrip({
   view,
   transactionId,
+  plant,
   actions,
 }: {
   view: GuidanceView
   /** Which order the qualifying items are resolved for — the set is ranked and
    *  ATP-filtered at THIS order's plant, server-side. */
   transactionId: string
+  /** The order's plant. A reward arm's products are keyed by it (spec 412 W12),
+   *  so a store change re-resolves rather than showing the old store's stock. */
+  plant: string
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
@@ -90,7 +95,8 @@ export default function GuidanceStrip({
   // React de-duplicated them and opening one opened both.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const open =
-    chosen !== undefined && (chosen === null || view.actionable.some((card) => card.cardId === chosen))
+    chosen !== undefined &&
+    (chosen === null || view.withinReach.some((card) => card.cardId === chosen))
       ? chosen
       : view.openByDefault
   const [showUnavailable, setShowUnavailable] = useState(false)
@@ -103,8 +109,8 @@ export default function GuidanceStrip({
       <div className="px-4 py-1.5" data-cc-guidance-head>
         <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
           <span>{t('guidance.heading')}</span>
-          {view.actionableCount > 0 && (
-            <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.actionableCount })}</span>
+          {view.withinReachCount > 0 && (
+            <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.withinReachCount })}</span>
           )}
         </div>
         {/* 787-C has not landed: buy-one-get-one near-misses are ABSENT, not
@@ -129,18 +135,33 @@ export default function GuidanceStrip({
       ) : (
         // The clamp. It is the scroller, so everything above stays put.
         <div className="max-h-[18rem] overflow-auto px-4 pb-2" data-cc-guidance-scroll>
-          {view.actionable.length > 0 && (
+          {view.withinReachCount > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              {view.actionable.map((card) => (
-                <Card
-                  key={card.cardId}
-                  card={card}
-                  open={open === card.cardId}
-                  onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
-                  transactionId={transactionId}
-                  actions={actions}
-                />
-              ))}
+              {/* 🚩 Spec 412 W8 — `withinReach` is already in rank order: a
+                  get-side shortfall ABOVE every actionable card (it qualified,
+                  and is the closest to paying out), server order within each. */}
+              {view.withinReach.map((card) =>
+                card.klass === 'shortfall' ? (
+                  <ShortfallCard
+                    key={card.cardId}
+                    card={card}
+                    open={open === card.cardId}
+                    onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    transactionId={transactionId}
+                    plant={plant}
+                    actions={actions}
+                  />
+                ) : (
+                  <Card
+                    key={card.cardId}
+                    card={card}
+                    open={open === card.cardId}
+                    onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    transactionId={transactionId}
+                    actions={actions}
+                  />
+                ),
+              )}
             </div>
           )}
 
@@ -242,27 +263,184 @@ export default function GuidanceStrip({
   )
 }
 
-/** The only class with an action, and the only one drawn as a card. */
-function Card({
+/**
+ * A **get-side shortfall** (spec 412) — the offer QUALIFIED and its reward has
+ * nothing to land on. Drawn as a card, because it is fixable by adding a reward
+ * product, and ranked above the actionable ones.
+ *
+ * 🚩 What it may say is narrow, and the narrowness is the ticket: it never says
+ * *ready*, *already counted* or *needs a coupon* — those were the two false
+ * sentences this state used to be drawn as (staging bonus buy 803, coupon
+ * `SS222` redeemed and the strip still asking for a coupon). No meter and no
+ * *add N more*: the buy side is complete, and a delta would read as more of the
+ * prerequisite.
+ *
+ * What it says instead (414) is what the reward is waiting for: the coupon the
+ * order has already spent on it, the get-side link, and one row per reward arm
+ * with that arm's OWN discount — so under OR the agent can steer the caller to
+ * the arm that gives more. The rows are statements, shown open or closed like
+ * the actionable card's set statement. With no arms on the wire it is W11's
+ * degraded card: the qualified statement alone.
+ *
+ * On the OPEN card (415), an arm still waiting can be expanded: its products
+ * are resolved then and not before, and each carries the prerequisite card's
+ * one-click add. 🚩 Nothing is optimistic — the card does not hide itself after
+ * an add. The next `SessionState` decides: the engine fired the offer and the
+ * near-miss is gone, or (under AND) an arm turned met and the agent is led to
+ * the one still missing.
+ */
+function ShortfallCard({
   card,
   open,
   onToggle,
   transactionId,
+  plant,
   actions,
 }: {
   card: GuidanceCard
   open: boolean
   onToggle: () => void
   transactionId: string
+  plant: string
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
+  // One arm open at a time: the clamp is 18rem, and two product lists in one
+  // card push every other offer out of it.
+  const [openArm, setOpenArm] = useState<string | null>(null)
+  // 🚩 An offer the wire named with a blank id CANNOT be resolved (859, the
+  // reason `Qualifying` refuses to ask): its arms stay statements.
+  const resolvable = (arm: RewardArm) => open && arm.addQty !== null && card.offerId !== ''
+  return (
+    <CardShell
+      card={card}
+      open={open}
+      onToggle={onToggle}
+      border="border-attention-border"
+      mark={
+        // The WAITING tone, never success: a tick here would read as *applied*,
+        // and nothing has been given yet (spec 412: never *ready*).
+        <span className="shrink-0 text-[11px] font-medium text-attention-800" data-cc-card-mark>
+          <span aria-hidden>◔ </span>
+          {t('guidance.shortfall.mark')}
+        </span>
+      }
+    >
+      {card.qualified && (
+        <p className="mt-1.5 text-xs text-foreground" data-cc-shortfall-statement>
+          {t(card.qualified.key, card.qualified.params)}
+        </p>
+      )}
+
+      {/* 🚩 W7 — a STATEMENT, with no control. The code is spent at the coupon
+          service the moment it was applied; removing it stays at the coupon
+          chip, where the coupon's own rules are. */}
+      {card.spentCoupons && (
+        <p className={`mt-1.5 ${NOTE.attention}`} data-cc-coupon-spent>
+          {t(card.spentCoupons.key, card.spentCoupons.params)}
+        </p>
+      )}
+
+      {card.arms.length > 0 && (
+        <div className="mt-2 border-t border-divider pt-1.5" data-cc-reward-arms>
+          {card.rewardLink && (
+            <p className="text-[11px] font-medium text-foreground" data-cc-reward-link>
+              {t(card.rewardLink.key, card.rewardLink.params)}
+            </p>
+          )}
+          <ul className="divide-y divide-divider">
+            {card.arms.map((arm) => {
+              const expanded = resolvable(arm) && openArm === arm.armId
+              return (
+                <li
+                  key={arm.armId}
+                  data-cc-reward-arm={arm.armId}
+                  data-cc-reward-arm-state={arm.met ? 'met' : 'waiting'}
+                  className="py-1 text-xs"
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className="min-w-0 flex-1 truncate" data-cc-reward-subject>
+                      {t(arm.subject.key, arm.subject.params)}
+                    </span>
+                    {/* This arm's own definition — never a figure in money's shape. */}
+                    {arm.discount && (
+                      <span className="shrink-0 font-semibold text-primary-800" data-cc-reward-gives>
+                        <Ltr>{t(arm.discount.key, arm.discount.params)}</Ltr>
+                      </span>
+                    )}
+                    {arm.met && (
+                      <span className="shrink-0 text-[11px] font-medium text-success-800" data-cc-reward-met>
+                        <span aria-hidden>✓ </span>
+                        {t('guidance.shortfall.armMet')}
+                      </span>
+                    )}
+                    {/* 🚩 A met arm offers nothing to open — its product is in
+                        the basket, and a second unit would be a mistake (US21). */}
+                    {resolvable(arm) && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenArm(expanded ? null : arm.armId)}
+                        aria-expanded={expanded}
+                        data-cc-reward-arm-toggle={arm.armId}
+                        className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-primary hover:underline"
+                      >
+                        {t(expanded ? 'guidance.shortfall.armClose' : 'guidance.shortfall.armOpen')}
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                          aria-hidden
+                        />
+                      </button>
+                    )}
+                  </div>
+                  {expanded && arm.addQty !== null && (
+                    <RewardProducts
+                      offerId={card.offerId}
+                      armId={arm.armId}
+                      qty={arm.addQty}
+                      transactionId={transactionId}
+                      plant={plant}
+                      actions={actions}
+                    />
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {open && <BbyDetailsLink offerId={card.offerId} />}
+    </CardShell>
+  )
+}
+
+/**
+ * What every card in the within-reach grid shares: the frame, and the head that
+ * toggles it — the definition at headline size over the server's own words, and
+ * the class's mark. The body is the class's.
+ */
+function CardShell({
+  card,
+  open,
+  onToggle,
+  border,
+  mark,
+  children,
+}: {
+  card: GuidanceCard
+  open: boolean
+  onToggle: () => void
+  /** The class's border token — the frame is told apart by tone AND words. */
+  border: string
+  mark: ReactNode
+  children: ReactNode
+}) {
   return (
     <div
       data-cc-card={card.offerId}
       data-cc-card-class={card.klass}
       data-cc-card-open={open ? 'open' : 'closed'}
-      className={`rounded-md border border-primary-border bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
+      className={`rounded-md border ${border} bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
     >
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
         <span className="min-w-0 flex-1">
@@ -283,17 +461,46 @@ function Card({
             <Ltr>{card.description}</Ltr>
           </span>
         </span>
+        {mark}
+      </button>
+      {children}
+    </div>
+  )
+}
+
+/** The class whose action is an add of the prerequisite. */
+function Card({
+  card,
+  open,
+  onToggle,
+  transactionId,
+  actions,
+}: {
+  card: GuidanceCard
+  open: boolean
+  onToggle: () => void
+  transactionId: string
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <CardShell
+      card={card}
+      open={open}
+      onToggle={onToggle}
+      border="border-primary-border"
+      mark={
         <span className="shrink-0 text-[11px] font-medium text-primary-800" data-cc-card-mark>
           <span aria-hidden>○ </span>
           {t('guidance.withinReach')}
         </span>
-      </button>
-
+      }
+    >
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         {card.progress && <Meter have={card.progress.have} need={card.progress.need} />}
-        {card.shortfall > 0 && (
+        {card.stillNeeded > 0 && (
           <span className="text-xs text-foreground" data-cc-delta>
-            {t('guidance.add', { count: card.shortfall })}
+            {t('guidance.add', { count: card.stillNeeded })}
           </span>
         )}
       </div>
@@ -315,7 +522,7 @@ function Card({
           (§3.3), which is the whole reason this endpoint is a second call. */}
       {open && <Qualifying card={card} transactionId={transactionId} actions={actions} />}
       {open && <BbyDetailsLink offerId={card.offerId} />}
-    </div>
+    </CardShell>
   )
 }
 
@@ -468,6 +675,73 @@ function Qualifying({
 }
 
 /**
+ * One reward arm's products (415, spec 412 W5) — `ResolveReward`, asked when the
+ * agent opens the arm and never before.
+ *
+ * 🚩 Keyed by transaction, offer, arm **and plant** (W12): a store change
+ * re-resolves at the new store rather than offering the old one's stock. Like
+ * the prerequisite list it is never re-fetched while on screen, so the row an
+ * add was launched from does not move under the agent's cursor.
+ */
+function RewardProducts({
+  offerId,
+  armId,
+  qty,
+  transactionId,
+  plant,
+  actions,
+}: {
+  offerId: string
+  armId: string
+  /** What the arm still needs — the add's quantity (W9). */
+  qty: number
+  transactionId: string
+  plant: string
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  const resolved = useQuery({
+    queryKey: rewardKey(transactionId, offerId, armId, plant),
+    queryFn: () => callCenterApi.resolveReward(transactionId, offerId, armId),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const view = rewardResolutionView(resolved.data)
+  return (
+    <div className="mt-1 border-s-2 border-divider ps-2" data-cc-reward-products={armId}>
+      {resolved.isPending && (
+        <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground" data-cc-reward-loading>
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {t('guidance.resolving')}
+        </p>
+      )}
+      {resolved.isError && (
+        <p className={`py-1 ${NOTE.danger}`} data-cc-reward-error>
+          {apiErrorMessage(resolved.error, t('guidance.resolveFailed'))}
+        </p>
+      )}
+      {view.empty && (
+        <p className="py-1 text-[11px] text-muted-foreground" data-cc-reward-empty>
+          {t(view.empty.key, view.empty.params)}
+        </p>
+      )}
+      {view.rows.length > 0 && (
+        <div className="divide-y divide-divider">
+          {view.rows.map((row) => (
+            <QualifyingRow key={row.itemNumber} offerId={offerId} row={row} qty={qty} actions={actions} />
+          ))}
+        </div>
+      )}
+      {view.truncated && (
+        <p className="pt-1 text-[11px] text-muted-foreground" data-cc-reward-truncated>
+          {t(view.truncated.key, view.truncated.params)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * One qualifying item — **the search row's own shape**, so the estimate sits on
  * the meta line beside the item number and the Arabic name and never in a money
  * column (`item-search.ts`, 135 amendment 1).
@@ -478,10 +752,13 @@ function Qualifying({
 function QualifyingRow({
   offerId,
   row,
+  qty,
   actions,
 }: {
   offerId: string
   row: SearchRowView
+  /** A reward arm's remaining need (415). Absent ⇒ the add's own default, 1. */
+  qty?: number
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
@@ -516,7 +793,9 @@ function QualifyingRow({
       {actions.onAdd && (
         <button
           type="button"
-          onClick={() => actions.onAdd?.({ offerId, itemNumber: row.itemNumber, itemName: row.title })}
+          onClick={() =>
+            actions.onAdd?.({ offerId, itemNumber: row.itemNumber, itemName: row.title, qty })
+          }
           // Held while any add is in flight, for the reason the search panel
           // holds its rows: the engine's claim is a mutual exclusion, so a
           // second add collides and is ridden out — and two rows saying

@@ -11,9 +11,9 @@
 // served beside them VERBATIM.
 //
 // Verifies ticket 314's screen Proof:
-//   1. Collections: a Profit Center (Store) column on the DEFAULT grid, right after the store
-//      code, drawing the server's `storeText` as sent — `PH-019 (P019)`, or `P020` alone; the raw
-//      `profitCenter` in the More-columns tail; the floating filter answers to either half;
+//   1. Collections: a Profit Center column on the DEFAULT grid, after finance's nine, drawing
+//      the raw `profitCenter` as sent — `PH-019`, or blank (2026-10-03: the store code is already
+//      on the grid); the composed `storeText` in the More-columns tail;
 //   2. the ACRs' per-row data — the Collections door under `?acr=` — carries the same column;
 //   3. Attempts: the same column beside Store Code, the raw value in the tail;
 //   4. the CSV of both writes the pair, wrapped so a bare code keeps its zeros;
@@ -188,6 +188,10 @@ const SCREENS = {
     codeHeader: 'Store Code',
     // Ticket 335: finance's nine lead, and the profit center follows the last of them.
     before: 'Collector',
+    // 2026-10-03: the landing grid shows the RAW profit center — the store code is
+    // already third — and the composed `PH-019 (P019)` waits in the tail.
+    landing: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
+    tail: { colId: 'storeText', header: COLUMN, withPc: 'PH-019 (P019)', none: 'P020' },
     loading: "Loading today's collections…",
     emptyTitle: 'No collections in this period',
     csvName: 'collection-collections',
@@ -198,6 +202,8 @@ const SCREENS = {
     rows: ATTEMPT_ROWS,
     codeColumn: 'storeCode',
     codeHeader: 'Store Code',
+    landing: { colId: 'storeText', header: COLUMN, withPc: 'PH-019 (P019)', none: 'P020' },
+    tail: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
     loading: "Loading today's attempts…",
     emptyTitle: 'No attempts in this period',
     csvName: 'collection-attempts',
@@ -323,26 +329,29 @@ async function run() {
     await load(screen.route)
     await page.locator('.ag-row').first().waitFor()
     await shot(`${key}-grid`)
+    const { landing: front, tail } = screen
     const landing = await headers()
-    check(`${key} — ${COLUMN} is on the DEFAULT grid`, landing.includes(COLUMN), landing.join(' | '))
+    check(`${key} — ${front.header} is on the DEFAULT grid`, landing.includes(front.header), landing.join(' | '))
     check(
       `${key} — …right after ${screen.before ?? screen.codeHeader}`,
-      landing.indexOf(COLUMN) === landing.indexOf(screen.before ?? screen.codeHeader) + 1,
+      landing.indexOf(front.header) === landing.indexOf(screen.before ?? screen.codeHeader) + 1,
       landing.join(' | '),
     )
-    check(`${key} — the raw ${RAW} waits in the tail`, !landing.includes(RAW))
+    check(`${key} — ${tail.header} waits in the tail`, !landing.includes(tail.header))
 
-    check(`${key} — a store with a profit center reads PH-019 (P019), as sent`, (await cellText(0, 'storeText')) === 'PH-019 (P019)', await cellText(0, 'storeText'))
-    check(`${key} — a store with none reads its code alone, never "()"`, (await cellText(1, 'storeText')) === 'P020', await cellText(1, 'storeText'))
+    check(`${key} — a store with a profit center reads ${front.withPc}, as sent`, (await cellText(0, front.colId)) === front.withPc, await cellText(0, front.colId))
+    check(`${key} — a store with none reads ${JSON.stringify(front.none)}, never "()"`, (await cellText(1, front.colId)) === front.none, await cellText(1, front.colId))
     check(`${key} — the store code column is unchanged beside it`, (await cellText(0, screen.codeColumn)) === 'P019')
 
-    const filter = page.locator('.ag-floating-filter[col-id="storeText"] input')
+    const filter = page.locator(`.ag-floating-filter[col-id="${front.colId}"] input`)
     await filter.fill('PH-019')
     await page.waitForTimeout(700)
-    check(`${key} — the floating filter finds the store by its profit center`, (await rowCount()) === 1 && (await cellText(0, 'storeText')) === 'PH-019 (P019)', `${await rowCount()} rows`)
-    await filter.fill('P020')
-    await page.waitForTimeout(700)
-    check(`${key} — …and by its code`, (await rowCount()) === 1 && (await cellText(0, 'storeText')) === 'P020', `${await rowCount()} rows`)
+    check(`${key} — the floating filter finds the store by its profit center`, (await rowCount()) === 1 && (await cellText(0, front.colId)) === front.withPc, `${await rowCount()} rows`)
+    if (front.none) {
+      await filter.fill(front.none)
+      await page.waitForTimeout(700)
+      check(`${key} — …and by its code`, (await rowCount()) === 1 && (await cellText(0, front.colId)) === front.none, `${await rowCount()} rows`)
+    }
     await filter.fill('')
     await page.waitForTimeout(700)
 
@@ -356,8 +365,8 @@ async function run() {
       await page.waitForTimeout(250)
       for (const text of await headers()) allHeaders.add(text)
     }
-    check(`${key} — More columns reveals the raw ${RAW}`, allHeaders.has(RAW), [...allHeaders].join(' | '))
-    check(`${key} — …PH-019 on the first row, blank on the store with none`, (await cellText(0, 'profitCenter')) === 'PH-019' && (await cellText(1, 'profitCenter')) === '')
+    check(`${key} — More columns reveals ${tail.header}`, allHeaders.has(tail.header), [...allHeaders].join(' | '))
+    check(`${key} — …${tail.withPc} on the first row, ${JSON.stringify(tail.none)} on the store with none`, (await cellText(0, tail.colId)) === tail.withPc && (await cellText(1, tail.colId)) === tail.none)
     await page.getByRole('button', { name: 'More columns' }).click()
     await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el) => {
       el.scrollLeft = 0
@@ -389,7 +398,7 @@ async function run() {
     hold = null
     await page.waitForLoadState('networkidle')
     await page.locator('.ag-row').first().waitFor()
-    check(`${key} — …and then draws the column`, (await cellText(0, 'storeText')) === 'PH-019 (P019)')
+    check(`${key} — …and then draws the column`, (await cellText(0, screen.landing.colId)) === screen.landing.withPc)
 
     scenario = { list: 'empty' }
     await load(screen.route)
@@ -422,7 +431,7 @@ async function run() {
   await page.locator('.ag-row').first().waitFor()
   check('acr drill-down — asks the Collections door by AcrId', new URLSearchParams(lastQuery).get('AcrId') === '01K5YQ2M8N3P4R5S6T7V8W9X0Y', lastQuery)
   const acrHeaders = await headers()
-  check('acr drill-down — the ACR’s collections carry the profit center column', acrHeaders.includes(COLUMN) && (await cellText(0, 'storeText')) === 'PH-019 (P019)', acrHeaders.join(' | '))
+  check('acr drill-down — the ACR’s collections carry the profit center column', acrHeaders.includes(RAW) && (await cellText(0, 'profitCenter')) === 'PH-019', acrHeaders.join(' | '))
   await shot('acr-drill-down')
 
   // ---- 6a. the ACR form ----

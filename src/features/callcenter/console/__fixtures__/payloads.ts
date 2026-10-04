@@ -41,6 +41,7 @@ import type {
   PendingConfirmation,
   PrereqResolution,
   PriceCheckResult,
+  RewardResolution,
   SessionLine,
   SessionState,
   SubmitResult,
@@ -275,6 +276,18 @@ export const NEAR_MISS_CLASSES: NearMiss[] =
   unreachable.nearMissClasses.nearMisses as unknown as NearMiss[]
 
 /**
+ * **Blocked by BO-1 (unfiled, spec 412).** A get-side shortfall, from the staging
+ * evidence: bonus buy `000100000803`, coupon `SS222` redeemed (its voucher
+ * `COUP01` is the met buy side), two reward arms joined by OR — `500061` at 20%,
+ * `500062` at 10 off — and neither in the basket. `isReady: false` and no
+ * `skipReason`, as v1.12 W3 requires.
+ *
+ * 🚩 Provisional, the way 01–08 started: no server emits these fields yet. It
+ * becomes a capture when BO-1 ships.
+ */
+export const GET_SHORTFALL: NearMiss = unreachable.getShortfall.nearMiss as unknown as NearMiss
+
+/**
  * **Blocked by [859].** What `ResolvePrereq` would answer for `BBY-5510` — the
  * ranked, ATP-filtered top of a 42-strong grouping, `truncated` with the
  * server's own `topN` beside it.
@@ -291,6 +304,17 @@ export const NEAR_MISS_CLASSES: NearMiss[] =
  */
 export const PREREQ_RESOLUTION: PrereqResolution =
   unreachable.prereqResolution.data as unknown as PrereqResolution
+
+/**
+ * **Blocked by BO-2 (unfiled, spec 412 W5).** What `ResolveReward` would answer
+ * for arm `2` of `GET_SHORTFALL` — the `10 off 500062` arm. A Material arm is one
+ * product, so the stock-filtered list is that one row, `truncated: false`.
+ *
+ * 🚩 Provisional, like `GET_SHORTFALL`: no server answers the route yet, and the
+ * row's name and figures are illustrative. It becomes a capture when BO-2 ships.
+ */
+export const REWARD_RESOLUTION: RewardResolution =
+  unreachable.rewardResolution.data as unknown as RewardResolution
 
 /**
  * **Blocked by [860].** §8.3's second success — the replay that carries the same

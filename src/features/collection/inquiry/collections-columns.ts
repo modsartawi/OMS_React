@@ -37,9 +37,10 @@ import { withSlipColumn, type SlipDay } from './slips'
  * sheet carries and what BackOffice 2151's contract maps the column to. The name
  * sits in the tail as *Collector Name*.
  *
- * 🚩 **Profit Center (Store)** (ticket 314, BackOffice 1990): `storeText` —
- * `PH-019 (P019)`, or the code alone — is the SERVER's one formatter, rendered
- * exactly as sent.
+ * 🚩 **Profit Center** is the raw `profitCenter` (`PH-019`), not `storeText`: the
+ * store code is already the third column, so the composed `PH-019 (P019)` said it
+ * twice (owner's call, 2026-10-03). A store with none recorded reads blank — its
+ * code is still beside it. `storeText` folds into the tail as sent.
  *
  * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): they are the
  * two ranges the toolbar filters on, and a day collected late is only visible when
@@ -61,7 +62,7 @@ export const DEFAULT_FIELDS = [
   'surplus',
   'netCollected',
   'collectorOperatorId',
-  'storeText',
+  'profitCenter',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
@@ -70,7 +71,7 @@ export const DEFAULT_FIELDS = [
  * variance, card total, reason), in the order they had there. Then the WPF's
  * remaining nine, in ticket 254's order, and the wire fields the WPF grid never
  * showed at all (`retainedFloat`, the closer pair, `salesDate`, `currencyKey`,
- * `profitCenter`) — "nothing is dropped" is a statement about the **row**, not about
+ * `storeText`) — "nothing is dropped" is a statement about the **row**, not about
  * the WPF's column picker.
  */
 export const MORE_FIELDS = [
@@ -94,8 +95,9 @@ export const MORE_FIELDS = [
   'closerName',
   'salesDate',
   'currencyKey',
-  // Ticket 314: the raw part `storeText` is made of — sort and export by it.
-  'profitCenter',
+  // Ticket 314's composed `PH-019 (P019)`, folded here once the landing grid took
+  // the raw profit center — the store code already sits on it.
+  'storeText',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
@@ -333,6 +335,7 @@ function column(
         filter: 'agNumberColumnFilter',
         cellClass: 'text-end tabular-nums',
       }
+    case 'profitCenter':
     case 'storeText':
       // As the server sent it — no valueFormatter, by ruling (BackOffice 1990).
       // Ready's width, so the one column reads alike on the three grids.

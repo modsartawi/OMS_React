@@ -466,7 +466,23 @@
       "unknown": "this offer isn't available on this order"
     },
     "needsCoupon": "This offer needs a coupon — add one from Coupon, under the sentence above.",
-    "needsCoupon_other": "These offers need a coupon — add one from Coupon, under the sentence above."
+    "needsCoupon_other": "These offers need a coupon — add one from Coupon, under the sentence above.",
+    "shortfall": {
+      "mark": "qualified",
+      "waiting": "Qualified — waiting for a reward product. Nothing is given until one is in the basket.",
+      "linkAny": "Add any one",
+      "linkEach": "Add one of each",
+      "armItem_one": "Item {{number}}",
+      "armItem_other": "{{count}} of item {{number}}",
+      "armUnknown": "A reward product",
+      "armMet": "in the basket",
+      "armOpen": "Show products",
+      "armClose": "Hide products",
+      "armNoStock": "Not available at this store.",
+      "armTruncated": "The top {{count}} at this store — there are more.",
+      "couponSpent_one": "Coupon {{codes}} is already spent on this order. It gives nothing until a reward product is added.",
+      "couponSpent_other": "Coupons {{codes}} are already spent on this order. They give nothing until a reward product is added."
+    }
   },
   "receipt": {
     "heading": "The caller pays",

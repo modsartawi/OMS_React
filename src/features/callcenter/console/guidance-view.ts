@@ -27,7 +27,7 @@
  * resolves them with `t()`. Keys are namespace-qualified so a caller in any
  * namespace can resolve one.
  */
-import type { NearMiss } from '@/core/models/callcenter'
+import type { NearMiss, NearMissDiscount, NearMissReward } from '@/core/models/callcenter'
 import {
   discountDefinition,
   discountKindFromCode,
@@ -43,8 +43,14 @@ import {
  *   is nothing to do, which is a fact the agent needs and not a failure.
  * - `unavailable` — an origin or accumulation refusal **no basket change can
  *   fix** (128 makes this class permanent and common once Origin becomes C000).
+ * - `needsCoupon` (159) — the prerequisite is a coupon still to be redeemed.
+ * - `shortfall` (spec 412) — a **get-side shortfall**: the offer QUALIFIED and
+ *   its reward has nothing to land on. It is the offer closest to paying out, so
+ *   it ranks above every other card — and it is neither *counted* (nothing
+ *   out-ranked it) nor *needs a coupon* (a coupon-gated one has already spent
+ *   its coupon). Those were the two false sentences it used to be drawn as.
  */
-export type GuidanceClass = 'actionable' | 'counted' | 'unavailable' | 'needsCoupon'
+export type GuidanceClass = 'actionable' | 'counted' | 'unavailable' | 'needsCoupon' | 'shortfall'
 
 /** An i18n key plus what `t()` needs to resolve it. Nothing user-visible. */
 export interface GuidancePhrase {
@@ -89,8 +95,10 @@ export interface GuidanceCard {
   /** The meter's two figures, or `null` where the wire stated no requirement a
    *  meter could draw. `have` is clamped to `need` so a meter never overfills. */
   progress: { have: number; need: number } | null
-  /** How many more the offer still needs. `0` on a class with nothing to add. */
-  shortfall: number
+  /** How many more of the PREREQUISITE the offer still needs. `0` on a class
+   *  with nothing to add. Named apart from the `shortfall` class on purpose: a
+   *  get-side shortfall has met its prerequisite, and this is nought on it. */
+  stillNeeded: number
   /** The honest set statement — *any 1 from this selection · 42 qualify*. A
    *  grouping prerequisite is a **set, not an item**, and a card that named one
    *  item would imply the caller must buy that one. `null` when there is nothing
@@ -105,6 +113,45 @@ export interface GuidanceCard {
    *  every class but `unavailable`. 🚩 The wire code never reaches the screen —
    *  an unknown category still reads as words. */
   reason: GuidancePhrase | null
+  /** The *qualified, waiting for a reward product* statement (spec 412 W6/W11).
+   *  `null` on every class but `shortfall`. 🚩 Never *ready*, *counted* or *needs
+   *  a coupon* — the card exists because those words were false here. */
+  qualified: GuidancePhrase | null
+  /** One row per **reward arm**, in `armId` order (spec 412 W6). Empty on every
+   *  class but `shortfall`, and on a shortfall whose wire sent no `rewards` (W11
+   *  — the card is then its `qualified` statement alone). */
+  arms: RewardArm[]
+  /** The get-side link — *Add any one* (OR) or *Add one of each* (AND). `null`
+   *  where the wire omits it, sends one this client does not know, or there are
+   *  no rows for it to head: a link between arms the card cannot show says
+   *  nothing. */
+  rewardLink: GuidancePhrase | null
+  /** W7 — the coupon(s) this order has already spent on the offer, stated with
+   *  no control (removing one stays at the coupon chip). `null` without
+   *  `couponsSpent`, and on every class but `shortfall`. */
+  spentCoupons: GuidancePhrase | null
+}
+
+/** One reward arm of a get-side shortfall, as the card draws it. */
+export interface RewardArm {
+  /** The get-side condition's identity — what `ResolveReward` takes. */
+  armId: string
+  /** What the arm rewards: `Item 500061`, a grouping as *any 1 from this
+   *  selection · 42 qualify*, or — for a kind this client does not know, or a
+   *  material arm with no material — a phrase that names nothing it cannot say. */
+  subject: GuidancePhrase
+  /** This arm's OWN discount, through 161's rule. Arms of one offer may differ
+   *  (staging's 803: 20% on one, 10 off the other), which is how the agent steers
+   *  the caller to the better arm (US4). `null` where the rule has no words. */
+  discount: DiscountDefinition | null
+  /** `have ≥ need` — the arm's reward product is already in the basket. 🚩 A met
+   *  arm never offers an add (415): a second unit would be a mistake (US21). */
+  met: boolean
+  /** The quantity the one-click add asks for (W9): what the arm still needs,
+   *  `need − have`, at least 1 — never a price (law 1). `null` where the arm
+   *  offers no add and resolves no products: a met arm, or a kind this client
+   *  does not know (W11). */
+  addQty: number | null
 }
 
 export interface GuidanceView {
@@ -118,9 +165,19 @@ export interface GuidanceView {
   /** v1.10 (159) — offers whose prerequisite is a coupon. Stated, never offered
    *  as an add; the coupon chip is where they are answered. */
   needsCoupon: GuidanceCard[]
-  /** Mirrored in the top bar (US51), so an offer that arrives while the agent is
-   *  reading search results still announces itself. */
-  actionableCount: number
+  /** v1.12 (spec 412) — offers that qualified and wait for a reward product, in
+   *  the server's order among themselves. The strip draws them ABOVE `actionable`
+   *  (W8): of everything here, they are the closest to paying out. */
+  shortfall: GuidanceCard[]
+  /** *Offers within reach*, **in rank order**: every `shortfall` card, then every
+   *  `actionable` one (W8). The one statement of that rule — the strip draws it,
+   *  and the count and the default-open card are read off it. */
+  withinReach: GuidanceCard[]
+  /** `withinReach.length`. Mirrored in the top bar (US51), so an offer that
+   *  arrives while the agent is reading search results still announces itself,
+   *  and the strip and the top bar read this one figure so they cannot disagree
+   *  (US24). */
+  withinReachCount: number
   /**
    * Whether "buy X get Y" offers are being checked at all. Until BackOffice
    * 787-C lands they are **absent, not empty** — BBY lookup keys on the
@@ -133,10 +190,11 @@ export interface GuidanceView {
    * server starts sending them, with no other change (138 scenario 9).
    */
   getSideCovered: boolean
-  /** 🚩 The card that opens **by construction** — the top-ranked actionable
-   *  offer, never a hardcoded id (138 finding 4: drawn with one, the big-set
-   *  scenario rendered collapsed, and a card whose items are one click away is a
-   *  card nobody reads mid-call). `null` when there is nothing to act on. */
+  /** 🚩 The card that opens **by construction** — the top shortfall card where
+   *  there is one (W8), else the top-ranked actionable offer; never a hardcoded
+   *  id (138 finding 4: drawn with one, the big-set scenario rendered collapsed,
+   *  and a card whose items are one click away is a card nobody reads mid-call).
+   *  `null` when there is nothing to act on. */
   openByDefault: string | null
 }
 
@@ -154,6 +212,8 @@ const SKIP_CATEGORIES = [
 export function guidanceView(nearMisses: NearMiss[] | null | undefined): GuidanceView {
   const cards = (nearMisses ?? []).map(toCard)
   const actionable = cards.filter((card) => card.klass === 'actionable')
+  const shortfall = cards.filter((card) => card.klass === 'shortfall')
+  const withinReach = [...shortfall, ...actionable]
   return {
     cards,
     actionable,
@@ -163,32 +223,115 @@ export function guidanceView(nearMisses: NearMiss[] | null | undefined): Guidanc
     // expandable cards and the top bar's count — an offer nothing in the basket
     // can reach must not be counted as one within reach.
     needsCoupon: cards.filter((card) => card.klass === 'needsCoupon'),
-    actionableCount: actionable.length,
+    shortfall,
+    withinReach,
+    withinReachCount: withinReach.length,
     getSideCovered: (nearMisses ?? []).some((miss) => miss.prereq?.kind === 'condition'),
-    openByDefault: actionable[0]?.cardId ?? null,
+    openByDefault: withinReach[0]?.cardId ?? null,
   }
 }
 
 function toCard(miss: NearMiss, index: number): GuidanceCard {
   const klass = classOf(miss)
   const progress = progressOf(miss)
-  const shortfall = klass === 'actionable' && progress ? progress.need - progress.have : 0
+  const stillNeeded = klass === 'actionable' && progress ? progress.need - progress.have : 0
+  const arms = klass === 'shortfall' ? armsOf(miss.rewards) : []
   return {
     offerId: miss.offerId,
     // Position where the wire named no offer (859) — see `cardId`.
     cardId: miss.offerId === '' || miss.offerId == null ? `#${index}` : miss.offerId,
     klass,
-    definition: definitionOf(miss),
+    definition: discountOf(miss.discount),
     description: miss.description ?? '',
     progress,
-    shortfall,
-    set: klass === 'actionable' ? setStatement(miss, shortfall) : null,
+    stillNeeded,
+    set: klass === 'actionable' ? setStatement(miss, stillNeeded) : null,
     eligible: klass === 'actionable' ? numberOrNull(miss.prereq?.eligibleCount) : null,
     reason: klass === 'unavailable' ? reasonOf(miss.skipReason) : null,
+    // Said on every shortfall card, arms or none — with none it IS W11's
+    // degraded card, and it claims nothing the wire did not say.
+    qualified: klass === 'shortfall' ? { key: 'callcenter:guidance.shortfall.waiting', params: {} } : null,
+    arms,
+    rewardLink: arms.length > 0 ? linkOf(miss.rewardLink) : null,
+    // 🚩 Independent of the arms: a coupon spent on an offer whose arms the wire
+    // did not send is still spent, and still the caller's loss (W7, US11).
+    spentCoupons: klass === 'shortfall' ? spentCouponsOf(miss.couponsSpent) : null,
   }
 }
 
 /**
+ * The reward arms, one row each, **in `armId` order** (W6) — numerically where
+ * both ids are numerals (`2` before `10`), as text otherwise.
+ */
+function armsOf(rewards: NearMissReward[] | null | undefined): RewardArm[] {
+  return [...(rewards ?? [])]
+    .sort((a, b) => compareArmIds(a.armId, b.armId))
+    .map((reward) => {
+      const need = numberOrNull(reward.need)
+      const have = numberOrNull(reward.have) ?? 0
+      const met = need !== null && need > 0 && have >= need
+      return {
+        armId: reward.armId,
+        subject: armSubject(reward, need),
+        discount: discountOf(reward.discount),
+        met,
+        addQty: met || !ADDABLE_ARM_KINDS.includes(reward.kind) ? null : Math.max(1, (need ?? 1) - have),
+      }
+    })
+}
+
+/** The arm kinds `ResolveReward` resolves (W2). Anything else names nothing it
+ *  cannot say, and offers nothing it cannot add (W11). A material arm the wire
+ *  named no material for still offers its add: the read is addressed by
+ *  `armId`, so the server can list what the subject line cannot name. */
+const ADDABLE_ARM_KINDS: string[] = ['material', 'grouping']
+
+function compareArmIds(a: string, b: string): number {
+  const numeral = /^\d+$/
+  if (numeral.test(a) && numeral.test(b)) return Number(a) - Number(b)
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+/**
+ * What an arm rewards. A **grouping** is a set and says so with the existing set
+ * phrase (*any 1 from this selection · 42 qualify*) — the population printed
+ * only where the wire states it. A **material** is one product, named by its
+ * number. 🚩 Anything else — an unknown kind, or a material arm with no material
+ * — names nothing it cannot say (W11): no code, no guessed product.
+ */
+function armSubject(reward: NearMissReward, need: number | null): GuidancePhrase {
+  const count = need !== null && need > 0 ? need : 1
+  if (reward.kind === 'material' && typeof reward.materialNumber === 'string' && reward.materialNumber !== '')
+    return { key: 'callcenter:guidance.shortfall.armItem', params: { number: reward.materialNumber, count } }
+  if (reward.kind === 'grouping') return setPhrase(count, reward.eligibleCount)
+  return { key: 'callcenter:guidance.shortfall.armUnknown', params: {} }
+}
+
+/** W2's link category: `any` (OR) or `each` (AND). Anything else draws no
+ *  header — a guessed link would tell the agent the wrong number of products. */
+function linkOf(link: string | null | undefined): GuidancePhrase | null {
+  if (link === 'any') return { key: 'callcenter:guidance.shortfall.linkAny', params: {} }
+  if (link === 'each') return { key: 'callcenter:guidance.shortfall.linkEach', params: {} }
+  return null
+}
+
+/**
+ * W7 — *Coupon SS222 is already spent on this order…* The codes are the typed
+ * codes the server matched off the session's coupon ledger (the client cannot
+ * tell which bonus buy a coupon gates); blank entries are dropped, and none left
+ * means no line. Plural-aware through `count`.
+ */
+function spentCouponsOf(codes: string[] | null | undefined): GuidancePhrase | null {
+  const named = (codes ?? [])
+    .filter((code) => typeof code === 'string' && code.trim() !== '')
+    .map((code) => code.trim())
+  if (named.length === 0) return null
+  return { key: 'callcenter:guidance.shortfall.couponSpent', params: { codes: named.join(', '), count: named.length } }
+}
+
+/**
+ * Spec 412 W4's precedence — skip → shortfall → unmet coupon → ready → actionable.
+ *
  * 🚩 The skip reason is asked FIRST. An offer the engine never evaluated is out
  * of reach whatever its progress says, and `isReady` on an offer that was
  * origin-filtered would otherwise draw a card promising nothing to do about an
@@ -196,6 +339,13 @@ function toCard(miss: NearMiss, index: number): GuidanceCard {
  */
 function classOf(miss: NearMiss): GuidanceClass {
   if (typeof miss.skipReason === 'string' && miss.skipReason !== '') return 'unavailable'
+  // 🚩 Spec 412. Asked BEFORE the coupon and the ready flag, because both of
+  // those used to answer for it, falsely: staging's bonus buy 803 had its coupon
+  // redeemed and was drawn *needs a coupon*; a non-coupon one is drawn *already
+  // counted — a better offer applied* when nothing out-ranked it. Read strictly
+  // (`=== true`): a v1.11 server sends no flag, and the console never infers a
+  // shortfall the server did not report (US27).
+  if (miss.getShortfall === true) return 'shortfall'
   // 🚩 159. A coupon-gated offer is reachable — but not by anything the agent
   // can put in the basket, so it must never become an *add N more* card. It is
   // neither `actionable` (no basket change reaches it) nor `unavailable` (it is
@@ -203,8 +353,27 @@ function classOf(miss: NearMiss): GuidanceClass {
   // coupon chip. Drawn as a material prerequisite it would offer a one-click add
   // of the campaign SKU, which qualifies the same bonus buy while burning
   // nothing — see `NearMissPrereq.kind`.
-  if (miss.prereq?.kind === 'coupon') return 'needsCoupon'
+  //
+  // W4: only a coupon still UNMET. The driving prerequisite is the first unmet
+  // one whenever any is unmet, so a coupon prerequisite on a complete offer is a
+  // coupon already on the order — and "needs a coupon" about it is the lie.
+  if (miss.prereq?.kind === 'coupon' && !progressComplete(miss)) return 'needsCoupon'
+  // 🚩 …and a MET coupon is never actionable, whatever `isReady` says. The
+  // actionable card's add is an add of the PREREQUISITE, which here is the
+  // campaign voucher — 159's hazard, qualifying the bonus buy while burning
+  // nothing. Met + unflagged + not ready is a server contradicting itself (W3
+  // without BO-1's flag), so it takes the no-add class the ready flag would.
+  if (miss.prereq?.kind === 'coupon') return 'counted'
   return miss.isReady === true ? 'counted' : 'actionable'
+}
+
+/** Whether the wire's own figures say every prerequisite is met. Read off the
+ *  RAW progress, not the meter's clamped one; a requirement of nought states
+ *  nothing, so it is not taken as met — that keeps the pre-412 answer. */
+function progressComplete(miss: NearMiss): boolean {
+  const need = numberOrNull(miss.progress?.need)
+  const have = numberOrNull(miss.progress?.have)
+  return need !== null && need > 0 && have !== null && have >= need
 }
 
 /** The meter's figures, kept honest: a requirement of nought is not a
@@ -227,8 +396,8 @@ function progressOf(miss: NearMiss): { have: number; need: number } | null {
  * degrades to the server's description as its headline, which is the pattern
  * `AppliedBonusBuy.applications?` already uses in this repo.
  */
-function definitionOf(miss: NearMiss): DiscountDefinition | null {
-  const discount = miss.discount
+/** One discount block through 161's rule — an offer's, or one reward arm's. */
+function discountOf(discount: NearMissDiscount | null | undefined): DiscountDefinition | null {
   if (!discount) return null
   return discountDefinition({
     kind: discountKindFromCode(discount.discountType),
@@ -246,16 +415,22 @@ function definitionOf(miss: NearMiss): DiscountDefinition | null {
  * so. A prerequisite kind this client does not know is not guessed at: the line
  * is dropped rather than invented, and the meter still says what is missing.
  */
-function setStatement(miss: NearMiss, shortfall: number): GuidancePhrase | null {
-  if (shortfall <= 0) return null
+function setStatement(miss: NearMiss, stillNeeded: number): GuidancePhrase | null {
+  if (stillNeeded <= 0) return null
   const prereq = miss.prereq
   if (!prereq) return null
-  if (prereq.kind === 'material') return { key: 'callcenter:guidance.setItem', params: { count: shortfall } }
+  if (prereq.kind === 'material') return { key: 'callcenter:guidance.setItem', params: { count: stillNeeded } }
   if (prereq.kind !== 'grouping' && prereq.kind !== 'condition') return null
-  const eligible = numberOrNull(prereq.eligibleCount)
+  return setPhrase(stillNeeded, prereq.eligibleCount)
+}
+
+/** *any N from this selection*, with *· 42 qualify* only where the wire stated
+ *  the population — a prerequisite set's and a grouping reward arm's alike. */
+function setPhrase(count: number, eligibleCount: number | null | undefined): GuidancePhrase {
+  const eligible = numberOrNull(eligibleCount)
   return eligible !== null && eligible > 0
-    ? { key: 'callcenter:guidance.setCounted', params: { count: shortfall, eligible } }
-    : { key: 'callcenter:guidance.set', params: { count: shortfall } }
+    ? { key: 'callcenter:guidance.setCounted', params: { count, eligible } }
+    : { key: 'callcenter:guidance.set', params: { count } }
 }
 
 /**

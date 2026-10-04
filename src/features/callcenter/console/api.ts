@@ -40,6 +40,7 @@ import type {
   PaymentType,
   PrereqResolution,
   PriceCheckResult,
+  RewardResolution,
   SessionState,
   StockElsewhereResult,
   SubmitResult,
@@ -152,6 +153,18 @@ export const stockElsewhereKey = (transactionId: string, itemNumber: string) =>
  */
 export const prereqKey = (transactionId: string, offerId: string) =>
   ['callcenter', 'prereq', transactionId, offerId] as const
+
+/**
+ * One reward arm's products (§3.7, spec 412 W12), keyed by the order, the offer,
+ * the arm **and the plant**. The list is stock-filtered at the order's plant, and
+ * a store change re-projects the shortfall at the new one — so a key without the
+ * plant would keep showing the OLD store's stock under the new store's name.
+ *
+ * Not keyed by `version`, for `prereqKey`'s reason: the rows must not move while
+ * an add launched from one of them is running.
+ */
+export const rewardKey = (transactionId: string, offerId: string, armId: string, plant: string) =>
+  ['callcenter', 'reward', transactionId, offerId, armId, plant] as const
 
 /**
  * The agent's own document sources (§ ticket 173). Keyed by nothing but the
@@ -601,6 +614,21 @@ export const callCenterApi = {
    */
   resolvePrereq(transactionId: string, offerId: string): Promise<PrereqResolution> {
     return api.get<PrereqResolution>('CallCenterWeb/ResolvePrereq', { transactionId, offerId })
+  },
+
+  /**
+   * `GET CallCenterWeb/ResolveReward` — the products that would satisfy one
+   * reward arm of a get-side shortfall (§3.7, v1.12 proposed, spec 412 W5). A
+   * **pure read**, so it carries no `requestId`.
+   *
+   * 🚩 `resolvePrereq`'s rules on the offer's other side: on demand when the
+   * agent opens an arm, never prefetched; stock filter, ranking and cap are the
+   * SERVER's; the same refusal codes, and no new one. ⚠ The server half is
+   * BackOffice ask BO-2 (unfiled) — until it ships this answers what the door
+   * answers an unknown route.
+   */
+  resolveReward(transactionId: string, offerId: string, armId: string): Promise<RewardResolution> {
+    return api.get<RewardResolution>('CallCenterWeb/ResolveReward', { transactionId, offerId, armId })
   },
 
   /**

@@ -49,6 +49,26 @@
 //   9. the empty state leaves no hole, and the get-side acknowledgement
 //      disappears ON ITS OWN when a get-side prerequisite arrives, with no
 //      other change.
+//
+// And ticket 413's (spec 412, the get-side shortfall), over the provisional
+// staging fragment `getShortfall` in the same unreachable file (BO-1 unfiled):
+//  15. a shortfall the server lists AFTER an actionable offer is drawn FIRST,
+//      opened by default, and counted in the top bar;
+//  16. it says it QUALIFIED and is waiting for a reward product, and nowhere in
+//      the region does it say *needs a coupon* or *already counted*.
+// And ticket 414's, over the same fragment:
+//  17. one row per reward arm, in armId order, each with its OWN discount
+//      (`20% off` on 500061, `10 off` on 500062 — never `10.00`);
+//  18. the link header says *Add any one*, and the card states that SS222 is
+//      already spent on this order, with no control beside it.
+// And ticket 415's, with `ResolveReward` stubbed to spec 412 W5 (BO-2 unfiled):
+//  19. no reward product is asked for until an arm is opened; opening the 500062
+//      arm asks once, for that arm, keyed by offer and arm;
+//  20. one click sends 500062 at qty 1 (need − have) and never a price;
+//  21. the next state carries 803 fired: the shortfall card is gone, the strip says
+//      the offer applied, and the 500062 line carries the engine's 10.00 off;
+//  22. a refused add shows the envelope's own words and the card stays;
+//  plus AND (a met arm offers no add) and an arm the stock filter emptied.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -88,6 +108,11 @@ const [ACTIONABLE, COUNTED, SKIPPED] = UNREACHABLE.nearMissClasses.nearMisses
 // What the capture really holds, driven as its own scenario below — the state the
 // console will actually meet the day it is pointed at the live server.
 const CAPTURED_NEAR_MISSES = raw('03-near-miss-buy-side').stateFragment.nearMisses
+
+// 🚩 Ticket 413 — staging's bonus buy 803: coupon `SS222` redeemed, two reward
+// arms joined by OR, neither in the basket. PROVISIONAL (BO-1 unfiled), held in
+// the same file the tests read so the two cannot drift.
+const SHORTFALL = UNREACHABLE.getShortfall.nearMiss
 
 /** A near-miss shaped like the fixture's, varied only where a scenario is about
  *  the variation. Ids are made distinct so "which card" is provable. */
@@ -149,6 +174,9 @@ const SCENARIOS = {
   // with a blank `offerId` (859). Every scenario above is the provisional; this
   // is the one the console will meet on the day it is pointed at the server.
   captured: CAPTURED_NEAR_MISSES,
+  // The server lists the shortfall AFTER the actionable offer — so "on top" is
+  // the strip's rank, not the wire's order.
+  shortfall: [ACTIONABLE, COUNTED, SHORTFALL, SKIPPED],
 }
 
 const results = []
@@ -173,6 +201,11 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 // surface, and there is no other input for it.
 const RESOLUTION = UNREACHABLE.prereqResolution.data
 
+// 🚩 Ticket 415 — what `ResolveReward` would answer for arm 2 of bonus buy 803
+// (`10 off 500062`). PROVISIONAL: BO-2 is unfiled, so this is spec 412 W5's
+// shape from the same file the vitest cases read.
+const REWARD_RESOLUTION = UNREACHABLE.rewardResolution.data
+
 /**
  * A console whose order carries `nearMisses`, and nothing else changed.
  *
@@ -182,8 +215,11 @@ const RESOLUTION = UNREACHABLE.prereqResolution.data
  * measured, which is the only way to prove it does not move.
  */
 async function open(browser, nearMisses, opts = {}) {
-  const state = { ...PRICED, nearMisses }
+  const state = { ...PRICED, ...opts.stateOver, nearMisses }
   const requests = []
+  // What each `AddItem` SENT — so "an item number and a quantity, never a price"
+  // is read off the wire rather than assumed.
+  const addBodies = []
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -205,8 +241,20 @@ async function open(browser, nearMisses, opts = {}) {
     // measurement rather than a comment.
     if (p === 'CallCenterWeb/ResolvePrereq')
       return route.fulfill(envelope(opts.resolution ?? RESOLUTION))
+    // 415 — BO-2 (unfiled), stubbed to spec 412 W5's shape.
+    if (p === 'CallCenterWeb/ResolveReward') return route.fulfill(envelope(opts.reward ?? REWARD_RESOLUTION))
     if (p === 'CallCenterWeb/AddItem') {
+      addBodies.push(JSON.parse(route.request().postData() ?? '{}'))
       if (opts.addDelayMs) await new Promise((r) => setTimeout(r, opts.addDelayMs))
+      if (opts.addRefusal)
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: opts.addRefusal.message,
+            errors: [{ errorCode: opts.addRefusal.code, internalErrorCode: '', errorMessage: opts.addRefusal.message }],
+          }),
+        )
       return route.fulfill(envelope(opts.afterAdd ?? { ...state, version: state.version + 1 }))
     }
     if (p === 'Auth/Me')
@@ -226,7 +274,7 @@ async function open(browser, nearMisses, opts = {}) {
   await page.goto(`${BASE}/callcenter`)
   await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
   await page.locator('[data-cc-guidance]').waitFor({ timeout: 10_000 })
-  return { context, page, errors, requests }
+  return { context, page, errors, requests, addBodies }
 }
 
 const text = async (page, selector) => (await page.locator(selector).first().innerText()).trim()
@@ -542,6 +590,314 @@ async function run() {
       '🚩 a skip category this client has never seen still reads as WORDS',
       unknown.length > 0 && !unknown.includes('ACCUMULATION') && !/[A-Z]{3,}_/.test(unknown),
       unknown,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 15, 16. ticket 413: the get-side shortfall, on top and truthful ----
+  {
+    const { context, page, errors, requests } = await open(browser, SCENARIOS.shortfall)
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    check(
+      'the shortfall is drawn as its own card class',
+      (await page.locator(`${card}[data-cc-card-class="shortfall"]`).count()) === 1,
+    )
+    const first = await page.locator('[data-cc-card]').first().getAttribute('data-cc-card')
+    check('🚩 it is drawn ABOVE the actionable card the server listed first', first === SHORTFALL.offerId, first ?? '')
+    check(
+      'it is the card open by default',
+      (await page.locator(card).getAttribute('data-cc-card-open')) === 'open' &&
+        (await page.locator(`[data-cc-card="${ACTIONABLE.offerId}"]`).getAttribute('data-cc-card-open')) === 'closed',
+    )
+    const said = await text(page, `${card} [data-cc-shortfall-statement]`)
+    check(
+      'it says the offer QUALIFIED and waits for a reward product',
+      /qualified/i.test(said) && /waiting for a reward product/i.test(said),
+      said,
+    )
+    const region = await text(page, '[data-cc-guidance]')
+    check('🚩 nothing in the region says it needs a coupon', !/needs? a coupon/i.test(region))
+    check(
+      'and it is not filed as already counted',
+      (await page.locator(`[data-cc-counted-item="${SHORTFALL.offerId}"]`).count()) === 0 &&
+        (await page.locator('[data-cc-guidance-needs-coupon]').count()) === 0,
+    )
+    // ---- 17, 18. ticket 414: the arms, the link, the spent coupon ----
+    const arms = await page.locator(`${card} [data-cc-reward-arm]`).evaluateAll((rows) =>
+      rows.map((row) => ({
+        armId: row.getAttribute('data-cc-reward-arm'),
+        subject: row.querySelector('[data-cc-reward-subject]')?.textContent ?? '',
+        gives: row.querySelector('[data-cc-reward-gives]')?.textContent ?? '',
+        state: row.getAttribute('data-cc-reward-arm-state'),
+      })),
+    )
+    check(
+      'each reward arm is its own row, in armId order',
+      arms.map((a) => a.armId).join(',') === '1,2' &&
+        /500061/.test(arms[0]?.subject) &&
+        /500062/.test(arms[1]?.subject),
+      JSON.stringify(arms),
+    )
+    check(
+      'each arm carries its OWN discount — 20% on one, 10 off the other',
+      arms[0]?.gives === '20% off' && arms[1]?.gives === '10 off',
+      arms.map((a) => a.gives).join(' | '),
+    )
+    check('neither arm is met — the basket holds neither', arms.every((a) => a.state === 'waiting'))
+    const link = await text(page, `${card} [data-cc-reward-link]`)
+    check('the link header says "Add any one" (OR)', link === 'Add any one', link)
+    const spent = await text(page, `${card} [data-cc-coupon-spent]`)
+    check(
+      '🚩 it says SS222 is already spent on this order and gives nothing until a reward is added',
+      /SS222/.test(spent) && /already spent on this order/i.test(spent) && /nothing until a reward product/i.test(spent),
+      spent,
+    )
+    check(
+      'the spent line is a statement — no control rides on it',
+      (await page.locator(`${card} [data-cc-coupon-spent] button, ${card} [data-cc-coupon-spent] a`).count()) === 0,
+    )
+    if (process.env.DRIVE_SHOTS) await page.locator('[data-cc-guidance]').screenshot({ path: `${process.env.DRIVE_SHOTS}/414-shortfall-card.png` })
+    check(
+      'no reward product is listed, or asked for, until an arm is opened — never prefetched',
+      (await page.locator(`${card} [data-cc-qualifying-add]`).count()) === 0 &&
+        !requests.some((u) => u.includes('ResolveReward')),
+    )
+    check(
+      'no meter and no "add N more" — its buy side is complete',
+      (await page.locator(`${card} [data-cc-meter]`).count()) === 0 &&
+        (await page.locator(`${card} [data-cc-delta]`).count()) === 0,
+    )
+    check(
+      'the top bar counts it with the actionable offer',
+      (await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count')) === '2',
+      await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count'),
+    )
+    check(
+      'opening it resolves no prerequisite — it has none left to resolve',
+      !requests.some((u) => u.includes('ResolvePrereq') && u.includes(`offerId=${SHORTFALL.offerId}`)),
+    )
+    check('no figure formatted as money', moneyShaped(await consoleText(page)).length === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 19-21. ticket 415: open the 500062 arm, one click, the card gives way ----
+  // The order as it stands once SS222 is applied (the coupon chip is 159's leg):
+  // the coupon is on the header at amount 0 — it has bought nothing yet (US15).
+  const COUPON_SPENT = { header: { ...PRICED.header, coupons: [{ code: 'SS222', description: 'Coupon', amount: 0 }] } }
+  const REWARD_ITEM = REWARD_RESOLUTION.items[0]
+  // What the engine answers the add with: a 500062 line carrying bonus buy 803's
+  // 10.00 off, 803 in the fired list, and the near-miss gone. The engine's money,
+  // not anything the card computed.
+  const FIRED_803 = {
+    ...PRICED,
+    ...COUPON_SPENT,
+    version: PRICED.version + 1,
+    nearMisses: [ACTIONABLE, COUNTED, SKIPPED],
+    lines: [
+      ...PRICED.lines,
+      {
+        ...PRICED.lines[0],
+        lineId: 'L40',
+        itemNumber: REWARD_ITEM.itemNumber,
+        description: REWARD_ITEM.description,
+        description2: REWARD_ITEM.description2,
+        qty: 1,
+        conditions: [],
+        promotions: [{ offerId: SHORTFALL.offerId, description: SHORTFALL.description, amount: -10 }],
+      },
+    ],
+    firedPromotions: [
+      ...PRICED.firedPromotions,
+      { offerId: SHORTFALL.offerId, description: SHORTFALL.description, amount: -10, lineIds: ['L40'] },
+    ],
+  }
+  const openArm = async (page, armId) => {
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    await page.locator(`${card} [data-cc-reward-arm-toggle="${armId}"]`).click()
+    await page
+      .locator(`${card} [data-cc-reward-products="${armId}"] [data-cc-qualifying-row],${card} [data-cc-reward-products="${armId}"] [data-cc-reward-empty]`)
+      .first()
+      .waitFor({ timeout: 10_000 })
+  }
+
+  {
+    const { context, page, errors, requests, addBodies } = await open(browser, SCENARIOS.shortfall, {
+      stateOver: COUPON_SPENT,
+      afterAdd: FIRED_803,
+    })
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    check('the shortfall card is on top, with the spent-coupon line', (await page.locator('[data-cc-card]').first().getAttribute('data-cc-card')) === SHORTFALL.offerId && (await page.locator(`${card} [data-cc-coupon-spent]`).count()) === 1)
+    check(
+      'each waiting arm of the open card offers to show its products',
+      (await page.locator(`${card} [data-cc-reward-arm-toggle]`).count()) === 2,
+    )
+
+    await openArm(page, '2')
+    const asked = requests.filter((u) => u.includes('CallCenterWeb/ResolveReward'))
+    check(
+      '🚩 opening the 500062 arm asks ResolveReward once, for that arm only',
+      asked.length === 1 &&
+        asked[0].includes(`offerId=${SHORTFALL.offerId}`) &&
+        asked[0].includes('armId=2') &&
+        asked[0].includes(`transactionId=${PRICED.transactionId}`),
+      asked.join(' | '),
+    )
+    check('and never on Bby/*', !requests.some((u) => /\/api\/Bby\//.test(u)))
+    check(
+      'the arm lists 500062 in the qualifying row’s own shape',
+      (await page.locator(`${card} [data-cc-reward-products="2"] [data-cc-qualifying-row="500062"]`).count()) === 1 &&
+        (await page
+          .locator(`${card} [data-cc-reward-products="2"] [data-cc-qualifying-row="500062"] [data-cc-qualifying-part]`)
+          .evaluateAll((els) => els.map((el) => el.getAttribute('data-cc-qualifying-part')).join('>'))) ===
+          'itemNumber>description2>estimate',
+    )
+    check(
+      'the other arm stays closed — nothing resolved for it',
+      (await page.locator(`${card} [data-cc-reward-products="1"]`).count()) === 0,
+    )
+    check('no figure formatted as money with the products open', moneyShaped(await consoleText(page)).length === 0, moneyShaped(await consoleText(page)).join(' · '))
+    if (process.env.DRIVE_SHOTS) await page.locator('[data-cc-guidance]').screenshot({ path: `${process.env.DRIVE_SHOTS}/415-arm-open.png` })
+
+    await page.locator(`${card} [data-cc-reward-products="2"] [data-cc-qualifying-add="500062"]`).click()
+    await page.locator('[data-cc-outcome]').waitFor({ timeout: 10_000 })
+    const sent = addBodies[0] ?? {}
+    check(
+      '🚩 the add sends 500062 at qty 1 (need 1 − have 0) — an item number and a quantity, never a price',
+      addBodies.length === 1 &&
+        sent.itemNumber === '500062' &&
+        sent.qty === 1 &&
+        !Object.keys(sent).some((k) => /price|amount|discount/i.test(k)),
+      JSON.stringify(sent),
+    )
+    check(
+      'the engine fired 803, and the strip says this offer applied',
+      (await page.locator('[data-cc-outcome]').getAttribute('data-cc-outcome')) === 'fired',
+      await text(page, '[data-cc-outcome]'),
+    )
+    check(
+      '🚩 the shortfall card is gone — the next SessionState decided, not the click',
+      (await page.locator(card).count()) === 0 && (await page.locator('[data-cc-card-class="shortfall"]').count()) === 0,
+    )
+    const promo = `[data-cc-line-promo="${SHORTFALL.offerId}"]`
+    check(
+      'and the fired promotion carries the engine’s money on the 500062 line',
+      (await page.locator(promo).count()) === 1 && /10\.00/.test(await text(page, promo)),
+      (await page.locator(promo).count()) ? await text(page, promo) : 'no promo row',
+    )
+    check(
+      'the top bar counts what is left within reach',
+      (await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count')) === '1',
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 22. a refused reward add says why, in the server's own words ----
+  {
+    const refusal = { code: 'ITEM_NOT_SELLABLE', message: 'Item 500062 is blocked for sale at store 1001.' }
+    const { context, page, errors, addBodies } = await open(browser, SCENARIOS.shortfall, {
+      stateOver: COUPON_SPENT,
+      addRefusal: refusal,
+    })
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    await openArm(page, '2')
+    await page.locator(`${card} [data-cc-reward-products="2"] [data-cc-qualifying-add="500062"]`).click()
+    await page.locator('[data-cc-search-add-error]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 a refused add shows the envelope’s own message on the console’s refusal path',
+      (await text(page, '[data-cc-search-add-error]')) === refusal.message,
+      await text(page, '[data-cc-search-add-error]'),
+    )
+    check('it was one send', addBodies.length === 1)
+    check(
+      'nothing is optimistic — the shortfall card stays, and no outcome claims an add',
+      (await page.locator(card).count()) === 1 && (await page.locator('[data-cc-outcome]').count()) === 0,
+    )
+    check(
+      'the row it was launched from is ready to try again',
+      await page.locator(`${card} [data-cc-qualifying-add="500062"]`).isEnabled(),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- AND arms: a met arm offers nothing, the missing one leads ----
+  {
+    const and = {
+      ...SHORTFALL,
+      rewardLink: 'each',
+      rewards: [{ ...SHORTFALL.rewards[0], have: 1, need: 1 }, SHORTFALL.rewards[1]],
+    }
+    const { context, page, errors } = await open(browser, [ACTIONABLE, and])
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    check('under AND the header says "Add one of each"', (await text(page, `${card} [data-cc-reward-link]`)) === 'Add one of each')
+    check(
+      'the met arm is marked met and offers no products to add',
+      (await page.locator(`${card} [data-cc-reward-arm="1"]`).getAttribute('data-cc-reward-arm-state')) === 'met' &&
+        (await page.locator(`${card} [data-cc-reward-arm-toggle="1"]`).count()) === 0,
+    )
+    check(
+      'the missing arm is the one that opens',
+      (await page.locator(`${card} [data-cc-reward-arm-toggle="2"]`).count()) === 1,
+    )
+    await openArm(page, '2')
+    check('and lists its product', (await page.locator(`${card} [data-cc-qualifying-row="500062"]`).count()) === 1)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- AND, driven: an add that satisfies one arm leaves the card standing ----
+  {
+    const both = { ...SHORTFALL, rewardLink: 'each' }
+    // The engine's answer: 500062 is in, arm 2 is met, arm 1 still waits — so
+    // 803 has NOT fired and is still a shortfall.
+    const armTwoMet = {
+      ...PRICED,
+      version: PRICED.version + 1,
+      nearMisses: [ACTIONABLE, { ...both, rewards: [SHORTFALL.rewards[0], { ...SHORTFALL.rewards[1], have: 1 }] }],
+    }
+    const { context, page, errors } = await open(browser, [ACTIONABLE, both], { afterAdd: armTwoMet })
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    await openArm(page, '2')
+    await page.locator(`${card} [data-cc-reward-products="2"] [data-cc-qualifying-add="500062"]`).click()
+    await page.locator('[data-cc-outcome]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 under AND the card stays until the engine fires the offer',
+      (await page.locator(`${card}[data-cc-card-class="shortfall"]`).count()) === 1,
+    )
+    check(
+      'the arm the add satisfied now reads met, and its products are put away',
+      (await page.locator(`${card} [data-cc-reward-arm="2"]`).getAttribute('data-cc-reward-arm-state')) === 'met' &&
+        (await page.locator(`${card} [data-cc-reward-arm-toggle="2"]`).count()) === 0 &&
+        (await page.locator(`${card} [data-cc-reward-products="2"]`).count()) === 0,
+    )
+    check(
+      'the agent is led to the arm still missing',
+      (await page.locator(`${card} [data-cc-reward-arm-toggle="1"]`).count()) === 1,
+    )
+    check(
+      'and the strip says the offer has not fired — it never claims the discount',
+      (await page.locator('[data-cc-outcome]').getAttribute('data-cc-outcome')) === 'didNotFire' &&
+        /has not fired/i.test(await text(page, '[data-cc-outcome-said]')),
+      await text(page, '[data-cc-outcome-said]'),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- an arm the stock filter emptied says so ----
+  {
+    const { context, page, errors } = await open(browser, SCENARIOS.shortfall, {
+      reward: { ...REWARD_RESOLUTION, items: [] },
+    })
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    await openArm(page, '2')
+    check(
+      'an emptied arm says it is not available at this store, rather than drawing an empty list',
+      /not available at this store/i.test(await text(page, `${card} [data-cc-reward-empty]`)) &&
+        (await page.locator(`${card} [data-cc-qualifying-add]`).count()) === 0,
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()

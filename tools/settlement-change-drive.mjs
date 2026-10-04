@@ -111,6 +111,20 @@
 //  39. Bulk Cancel: "any change request waiting on an entry this withdraws…", unconditionally (nothing
 //      enumerates a batch) — and never for an accountant, who has no act to confirm.
 //
+// Ticket 353 — the supervisor's "Change requests" tab (W9, BackOffice 2285's ChangeRequest/Open):
+//  40. a supervisor sees the tab beside Awaiting approval, its count from the read; an accountant
+//      is not drawn it, ?tab=changes lands them on Shortage, and the door is never asked;
+//  41. one row per waiting request in the read's order (oldest first): the recorded BHD row draws
+//      only its amount 12.345 → 10.500 at three decimals, a DELETE draws "Delete the entry", the
+//      entry's figures NOW and the Reason beside them; a row opens the entry's branch account;
+//  42. inline Approve sends only { changeRequestId } and removes the row (the count with it), then
+//      the queue is re-read;
+//  43. a stubbed BELOW_SPENT keeps the row, its refusal and the "reject it" step said on the row,
+//      and the row's entry figures redrawn from the answer (W8);
+//  44. Reject asks for a Reason (held while blank), sends { changeRequestId, reason }, a 400 on the
+//      Reason lands on the box, and the rejected row leaves;
+//  45. a 404 from the queue door says "not available yet", the count an em-dash.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -153,6 +167,9 @@ let scenario = {}
 let FX = null
 /** Every read of the Collections probe — a bare 403 must re-read it (W1). */
 let accessCalls = 0
+
+/** 353's queue door: what `Settlement/ChangeRequest/Open` answers, and every `limit` asked. */
+let queue353 = { rows: [], missing: false, calls: [] }
 
 /** 343's door state: what History and Raise answer, and what was asked of them. */
 let cr = { histories: {}, historyCalls: [], raiseCalls: [], accountCalls: 0 }
@@ -233,6 +250,12 @@ async function run() {
         )
       }
       return route.fulfill(envelope(cr[door](body)))
+    }
+    if (path === 'Settlement/ChangeRequest/Open') {
+      queue353.calls.push(q('limit'))
+      // A BARE 404 — an SIS.Api without 2285.
+      if (queue353.missing) return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
+      return route.fulfill(envelope(queue353.rows))
     }
     if (path === 'Settlement/Account') {
       cr.accountCalls++
@@ -2171,6 +2194,210 @@ async function run() {
   await go(`${ROUTE}/upload?batch=B-352`)
   await appears('[data-testid="batch-supervisor-only"]')
   check('…an accountant has no act to confirm, so no sentence', (await tid('supersede-warning').count()) === 0)
+
+  // ======== Ticket 353 — the supervisor's "Change requests" tab ========
+  const Q = await page.evaluate(async () => {
+    const f = await import('/src/features/collection/settlement/change-queue-fixture.ts')
+    return { all: f.CHANGE_QUEUE, recorded: f.RECORDED_ROW, contract: f.CONTRACT_ROW, del: f.DELETE_ROW }
+  })
+  const queueRows = () =>
+    page.$$eval('[data-region="change-queue"] .ag-row', (rows) =>
+      rows
+        .map((r) => ({ id: r.getAttribute('row-id'), index: Number(r.getAttribute('row-index')) }))
+        .sort((x, y) => x.index - y.index)
+        .map((r) => r.id),
+    )
+  const queueRow = (id) => page.locator(`[data-region="change-queue"] .ag-row[row-id="${id}"]`).first()
+  const countOf = (tab) => page.locator(`[data-testid="open-count-${tab}"]`).innerText()
+  const gone = (id) =>
+    page
+      .waitForFunction((x) => !document.querySelector(`[data-region="change-queue"] .ag-row[row-id="${x}"]`), id, { timeout: 8000 })
+      .catch(() => {})
+  const actAnswer = (row, o = {}) => ({
+    accepted: true,
+    refusalReason: '',
+    changeRequestId: row.changeRequestId,
+    requestStatus: 'APPLIED',
+    settlementEntryId: row.settlementEntryId,
+    entryNumber: row.entryNumber,
+    amount: row.newAmount,
+    remainingAmount: row.newAmount,
+    spentAmount: 0,
+    description: row.newDescription,
+    entryStatus: 'OPEN',
+    businessDay: row.newBusinessDay,
+    ...o,
+  })
+  const onChangesTab = async () => {
+    await go(`${OPEN_ROUTE}?tab=changes`)
+    await appears('[role="tab"][data-tab="changes"][aria-selected="true"]')
+    await appears('[data-region="change-queue"] .ag-row')
+    await settle()
+  }
+
+  // ---- 40. the tab: a supervisor's, never an accountant's ----
+  resetCr()
+  queue353 = { rows: structuredClone(Q.all), missing: false, calls: [] }
+  scenario = {}
+  await go(`${OPEN_ROUTE}?tab=changes`)
+  await appears('[role="tab"][aria-selected="true"]')
+  check('🔑 an accountant is not drawn the Change requests tab', (await page.locator('[role="tab"][data-tab="changes"]').count()) === 0)
+  check('…?tab=changes lands them on Shortage', (await page.locator('[role="tab"][data-tab="owing"][aria-selected="true"]').count()) === 1)
+  check('…and the queue door is never asked for them', queue353.calls.length === 0, String(queue353.calls.length))
+
+  scenario = { access: SUPERVISOR }
+  await go(OPEN_ROUTE)
+  await appears('[role="tab"][data-tab="changes"]')
+  await settle()
+  const tabOrder = await page.$$eval('[role="tab"]', (els) => els.map((e) => e.getAttribute('data-tab')))
+  check('🔑 a supervisor sees Change requests, beside Awaiting approval', tabOrder.join(',') === 'owing,owed,theft,cash,pending,changes', tabOrder.join(','))
+  check('…its count from the read, on whichever tab is showing', (await countOf('changes')) === String(Q.all.length), await countOf('changes'))
+  check('…the door asked with the named limit (500)', queue353.calls[0] === '500', queue353.calls.join(','))
+  await page.locator('[role="tab"][data-tab="changes"]').click()
+  await appears('[data-region="change-queue"] .ag-row')
+  check('the tab is an address: ?tab=changes', page.url().includes('tab=changes'))
+
+  // ---- 41. the rows ----
+  await onChangesTab()
+  const order = await queueRows()
+  check("🔑 one row per waiting request, in the read's order (oldest first)", order.join(',') === Q.all.map((r) => r.changeRequestId).join(','), order.join(','))
+  const recorded = queueRow(Q.recorded.changeRequestId)
+  const askedRec = await recorded.locator('[data-testid="change-queue-asked"]').innerText()
+  check(
+    '🔑 the recorded BHD row draws only its amount, at three decimals: 12.345 → 10.500',
+    /12\.345\s*→\s*10\.500/.test(askedRec) && (await recorded.locator('[data-testid="change-queue-asked"] [data-field]').count()) === 1,
+    askedRec.replace(/\s+/g, ' '),
+  )
+  check(
+    '…the entry NOW beside it (stands at 12.345, spent 0.000)',
+    /12\.345/.test(await recorded.locator('[data-testid="change-queue-today"]').innerText()) &&
+      /0\.000/.test(await recorded.locator('[data-testid="change-queue-spent"]').innerText()),
+  )
+  check(
+    '…the Reason, server text on its own direction',
+    (await recorded.locator('[data-testid="change-queue-reason"]').getAttribute('dir')) === 'auto' &&
+      (await recorded.locator('[data-testid="change-queue-reason"]').innerText()).includes('رقم خاطئ'),
+  )
+  const branchText = await recorded.locator('[col-id="branch"]').innerText()
+  check("…the branch's name and code", /Manama/.test(branchText) && /Z42F/.test(branchText), branchText)
+  const byText = await recorded.locator('[col-id="askedBy"]').innerText()
+  check('…the requester and the time (fractional seconds read)', /Accountant 2162/.test(byText) && /2026-10-03 14:12/.test(byText), byText)
+  const delRow = queueRow(Q.del.changeRequestId)
+  check(
+    'a DELETE row says "Delete the entry", no old → new',
+    /Delete the entry/.test(await delRow.locator('[data-testid="change-queue-asked"]').innerText()) && (await delRow.locator('[data-field]').count()) === 0,
+  )
+  await shot('353-queue')
+  await noRawKeys('the change-request queue')
+  await crKeys('the change-request queue')
+  await queueRow(Q.contract.changeRequestId).locator('[col-id="reason"]').click()
+  await page.waitForURL(/store=P019/, { timeout: 8000 }).catch(() => {})
+  check("🔑 opening a row opens the entry's branch account, on the entry", /store=P019/.test(page.url()) && /entry=1187/.test(page.url()), page.url())
+
+  // ---- 42. inline Approve removes the row ----
+  await onChangesTab()
+  const callsBefore = queue353.calls.length
+  cr.approve = (body) => {
+    queue353.rows = queue353.rows.filter((r) => r.changeRequestId !== body.changeRequestId)
+    return actAnswer(Q.recorded)
+  }
+  await queueRow(Q.recorded.changeRequestId).locator('[data-testid="change-queue-approve"]').click()
+  await gone(Q.recorded.changeRequestId)
+  await settle()
+  check(
+    '🔑 Approve sends only { changeRequestId }',
+    cr.decideCalls.length === 1 && cr.decideCalls[0].door === 'approve' && JSON.stringify(cr.decideCalls[0].body) === JSON.stringify({ changeRequestId: Q.recorded.changeRequestId }),
+    JSON.stringify(cr.decideCalls),
+  )
+  check('🔑 …and the approved row leaves the queue', (await queueRows()).every((id) => id !== Q.recorded.changeRequestId) && page.url().includes('tab=changes'))
+  check('…the count with it', (await countOf('changes')) === String(Q.all.length - 1), await countOf('changes'))
+  check('…and the queue was re-read (W8)', queue353.calls.length > callsBefore, `${callsBefore} → ${queue353.calls.length}`)
+
+  // ---- 43. a refused approve stays, its refusal on the row ----
+  resetCr()
+  cr.approve = () =>
+    actAnswer(Q.contract, {
+      accepted: false,
+      refusalReason: 'BELOW_SPENT',
+      requestStatus: 'OPEN',
+      amount: 350,
+      remainingAmount: 30,
+      spentAmount: 320,
+      description: Q.contract.oldDescription,
+    })
+  await queueRow(Q.contract.changeRequestId).locator('[data-testid="change-queue-approve"]').click()
+  await appears('[data-testid="change-queue-refusal"]')
+  await settle()
+  const refusal = queueRow(Q.contract.changeRequestId).locator('[data-testid="change-queue-refusal"]')
+  const refusalText = (await refusal.count()) ? await refusal.innerText() : ''
+  check('🔑 a stubbed BELOW_SPENT keeps the row in the queue', (await queueRows()).includes(Q.contract.changeRequestId) && (await countOf('changes')) === String(Q.all.length - 1))
+  check(
+    "🔑 …its refusal said ON the row, by its code, with today's spent figure",
+    (await refusal.getAttribute('data-code')) === 'BELOW_SPENT' && /spent 320\.00 from entry 1187/.test(refusalText),
+    refusalText,
+  )
+  check('…and the "reject it" step beside it', (await refusal.getAttribute('data-step')) === 'reject' && /Reject it with a Reason/.test(refusalText))
+  const rowSpent = await queueRow(Q.contract.changeRequestId).locator('[data-testid="change-queue-spent"]').innerText()
+  check("🔑 …the row's entry figures redrawn from the ANSWER (W8): spent 320.00, not the read's 0.00", /320\.00/.test(rowSpent), rowSpent)
+  await shot('353-refused')
+  await crKeys('a refused approve on the queue')
+
+  // ---- 44. Reject asks for a Reason ----
+  resetCr()
+  await queueRow(Q.del.changeRequestId).locator('[data-testid="change-queue-reject"]').click()
+  await appears('[data-region="change-queue-reject"]')
+  const submit = tid('change-queue-reject-submit')
+  check(
+    '🔑 Reject opens a Reason box, marked required, on the request pressed',
+    (await page.locator('[data-region="change-queue-reject"]').getAttribute('data-request')) === Q.del.changeRequestId &&
+      (await tid('change-queue-reject-reason-required').count()) === 1,
+  )
+  check('…Submit held while the Reason is blank', (await submit.getAttribute('aria-disabled')) === 'true')
+  await tid('change-queue-reject-reason').fill('   ')
+  // `force`: Playwright will not press an aria-disabled button — the press is the point.
+  await submit.click({ force: true })
+  check('…a Reason of spaces is still blank — nothing sent', cr.decideCalls.length === 0 && (await submit.getAttribute('aria-disabled')) === 'true')
+  cr.decideInvalid = { code: 'SettlementRejectReasonRequired', message: 'A reason is required.' }
+  await tid('change-queue-reject-reason').fill('x')
+  await submit.click()
+  await appears('[data-testid="change-queue-reject-reason-error"]')
+  check(
+    'a 400 on the Reason lands on its box, the dialog kept',
+    (await tid('change-queue-reject-reason-error').count()) === 1 && (await page.locator('[data-region="change-queue-reject"]').count()) === 1,
+  )
+  await tid('change-queue-reject-reason').fill('x ')
+  check('…and clears on the next keystroke', (await tid('change-queue-reject-reason-error').count()) === 0)
+  cr.decideInvalid = null
+  cr.decideCalls = []
+  cr.reject = (body) => {
+    queue353.rows = queue353.rows.filter((r) => r.changeRequestId !== body.changeRequestId)
+    return actAnswer(Q.del, { requestStatus: 'REJECTED', amount: Q.del.amount, remainingAmount: Q.del.remainingAmount })
+  }
+  await tid('change-queue-reject-reason').fill('  posted once only — checked the Z report  ')
+  await submit.click()
+  await gone(Q.del.changeRequestId)
+  await settle()
+  check(
+    '🔑 Reject sends { changeRequestId, reason } — the Reason trimmed',
+    JSON.stringify(cr.decideCalls.map((c) => [c.door, c.body])) ===
+      JSON.stringify([['reject', { changeRequestId: Q.del.changeRequestId, reason: 'posted once only — checked the Z report' }]]),
+    JSON.stringify(cr.decideCalls),
+  )
+  check(
+    '…and the rejected row leaves the queue, the dialog closed',
+    !(await queueRows()).includes(Q.del.changeRequestId) && (await page.locator('[data-region="change-queue-reject"]').count()) === 0,
+  )
+
+  // ---- 45. a server without 2285 ----
+  queue353 = { rows: [], missing: true, calls: [] }
+  await go(`${OPEN_ROUTE}?tab=changes`)
+  await appears('[data-testid="change-queue-unavailable"]')
+  check('🔑 a 404 from the queue door says "not available yet"', (await tid('change-queue-unavailable').count()) === 1)
+  check('…the count an em-dash, never 0', (await countOf('changes')) === '—', await countOf('changes'))
+  check('…and a 404 is not retried', queue353.calls.length === 1, String(queue353.calls.length))
+  await crKeys('the unshipped queue')
+  queue353 = { rows: [], missing: false, calls: [] }
+  scenario = {}
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

@@ -1,4 +1,4 @@
-# The web call-center session API — frozen contract v1.10
+# The web call-center session API — frozen contract v1.12 (proposed)
 
 > Asset of [136](../../136-session-api-contract.md), map [126](../../126-web-call-center.md).
 > Frozen 2026-07-27 at v1.0; **v1.1** adds the fulfilment-mode axis
@@ -14,7 +14,12 @@
 > **v1.7** adds stock at other stores, read-only
 > ([158](../../158-stock-in-other-stores.md), additive);
 > **v1.9** names the two address-book writes that are order acts
-> ([179](../../179-the-address-editor-and-its-capture-contract.md), additive).
+> ([179](../../179-the-address-editor-and-its-capture-contract.md), additive);
+> **v1.12** (proposed, server half unbuilt) makes a near-miss say when it qualified but its reward has
+> no product to land on — the **get-side shortfall**
+> ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md), additive — see
+> [§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)), and adds the on-demand
+> read of one reward arm's products ([§3.7](#37-resolvereward--one-reward-arms-products-v112)).
 > **This document is the single source of truth for both tracks.**
 > Client track: `oms-react` `features/callcenter/`. Server track: SIS.Api + `SIS.Pricing`
 > (BackOffice [785](C:\Work\DMSCO\BackOffice\.issues\785-web-cc-engine-session.md),
@@ -92,6 +97,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | setOrderNote | `POST CallCenterWeb/SetOrderNote` | `{ transactionId, requestId, note \| null }` | `SessionState` |
 | getState | `GET CallCenterWeb/State` | `?transactionId=` | `SessionState` |
 | resolvePrereq | `GET CallCenterWeb/ResolvePrereq` | `?transactionId=&offerId=` | `PrereqResolution` |
+| resolveReward | `GET CallCenterWeb/ResolveReward` | `?transactionId=&offerId=&armId=` | `RewardResolution` (v1.12 proposed, [§3.7](#37-resolvereward--one-reward-arms-products-v112)) |
 | itemSearch | `GET CallCenterWeb/ItemSearch` | `?transactionId=&query=` | `ItemSearchResult` ([799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md)) |
 | priceCheck | `GET CallCenterWeb/PriceCheck` | `?transactionId=&itemNumber=` | `PriceCheckResult` (v1.6, [§3.4](#34-pricecheck--what-an-item-costs-without-adding-it)) |
 | stockElsewhere | `GET CallCenterWeb/StockElsewhere` | `?transactionId=&itemNumber=` | `StockElsewhereResult` (v1.7, [§3.5](#35-stockelsewhere--who-else-has-it-read-only)) |
@@ -233,6 +239,8 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
       "prereq": { "kind": "grouping", "groupingId": "G-8812", "eligibleCount": 42 },
                                   // v1.10 adds a FOURTH kind, "coupon" — §2.7's second half
       "skipReason": null          // §3.2 typed category when the offer was not evaluated
+                                  // v1.12 — getShortfall?, rewardLink?, rewards?, couponsSpent?
+                                  // on a qualified offer whose reward has no target (§3.6)
     }
   ],
 
@@ -759,6 +767,8 @@ GET CallCenterWeb/ResolvePrereq?transactionId=…&offerId=BBY-5510
   lives on the call-center door and reuses `Bby/GroupingMembers`' logic server-side.
 - **Never inline.** Resolving every near-miss on every add would pay a grouping expansion plus a
   stock read per keystroke to populate cards the agent mostly never opens.
+- Its get-side twin is [§3.7](#37-resolvereward--one-reward-arms-products-v112) `resolveReward`,
+  under the same rules.
 
 ### 3.4 `priceCheck` — what an item costs, without adding it
 
@@ -909,6 +919,100 @@ error.
 
 **Not here:** the SMS referral. The till can text the customer a map link to the chosen pharmacy;
 that is a new outbound-messaging power with its own consent design and is out of phase 1.
+
+### 3.6 `getShortfall` — qualified, and waiting for a reward product (v1.12)
+
+> **Proposed** ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md)
+> W2/W3). The server half is BackOffice ask **BO-1, not yet filed**; the console builds against a
+> stub of exactly this shape and never a field beyond it.
+
+A bonus buy can meet its whole buy side and still give nothing, because its get side finds no
+reward product in the basket (`ConditionShort`, analysis code 063). Only **Material** (`M`) and
+**Grouping** (`G`) condition targets can fall short — an All-Prerequisites or Document reward lands on
+lines already present. Staging session `06GFECB9F1MGCPEWTB1SGBNWC2` is the evidence: coupon `SS222`
+redeemed, its voucher `COUP01` met the buy side of bonus buy `000100000803`, and the two reward arms
+(20% off `500061` OR 10.00 off `500062`) had nothing to land on in a basket holding only `208730`.
+
+Four **optional** fields on each near-miss:
+
+```ts
+getShortfall?: boolean                  // absent ⇒ not a shortfall; v1.11 behaviour
+rewardLink?: 'any' | 'each'             // get-side link category: O ⇒ any, A ⇒ each
+rewards?: Array<{
+  armId: string                         // the get-side condition's identity
+  kind: 'material' | 'grouping'
+  materialNumber?: string               // kind material
+  groupingId?: string                   // kind grouping
+  eligibleCount?: number                // grouping population, same rule as a prerequisite's
+  have: number                          // reward units of this arm already in the basket
+  need: number                          // units the arm needs to form (≥ 1)
+  discount?: NearMissDiscount | null    // this arm's own definition, through the 161 rule
+}>
+couponsSpent?: string[]                 // typed codes of this order's coupons whose voucher met the buy side
+```
+
+- `rewards` is present **only** when `getShortfall` is true. `couponsSpent` is resolved server-side
+  from the session's coupon ledger — the client cannot tell which bonus buy a coupon gates.
+- 🚩 **`isReady` is `false` for a shortfall.** The engine-side *ready* predicate excludes a get-side
+  shortfall, so *ready* means only *qualified but out-ranked by a better offer*. v1.11 projected the
+  shortfall as `isReady: true`, which the console drew as *already counted* — or, when the driving
+  prerequisite was a coupon, as *needs a coupon* about a coupon just applied. This also corrects the
+  WPF Check-Offer READY chip, which reads the same predicate.
+- **The console's precedence:** `skipReason` ⇒ unavailable → `getShortfall` ⇒ shortfall → an
+  **unmet** coupon prerequisite ⇒ needs a coupon → `isReady` ⇒ counted → otherwise actionable. A
+  shortfall ranks above every other card and counts toward *offers within reach*.
+- **Degradation (§9):** absent `getShortfall` ⇒ today's classification, with **one deliberate
+  exception**: a coupon prerequisite that is already **met** is never *needs a coupon* and never
+  actionable (whose add would be the campaign voucher, §2.7). It reads as *already counted*. Against a
+  v1.11 server that is staging's 803 itself (`isReady: true`, coupon 1/1, no flag), so an old server
+  still gets a false sentence; it is the one the server fix (BO-1) removes. Absent `rewards` on a
+  shortfall ⇒ the card says *qualified, waiting for a reward product* with no arm rows and no add.
+  Absent `rewardLink` ⇒ no link header. An unknown arm `kind` ⇒ the row names nothing it cannot say and
+  offers no add.
+
+The on-demand resolution of an arm's products is a separate read, §3.7.
+
+### 3.7 `resolveReward` — one reward arm's products (v1.12)
+
+> **Proposed** ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) W5,
+> drawn by [415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md)).
+> The server half is BackOffice ask **BO-2, not yet filed**; the console builds against a stub of
+> exactly this shape.
+
+```
+GET CallCenterWeb/ResolveReward?transactionId=…&offerId=000100000803&armId=2
+→ {
+    "offerId": "000100000803",
+    "armId": "2",
+    "reward": { "armId": "2", "kind": "material", "materialNumber": "500062",
+                "have": 0, "need": 1, "discount": { "discountType": "R", "value": 10 } },
+    "items": [
+      { "itemNumber": "500062", "description": "…", "description2": "…",
+        "estimatePriceExVat": 26.09, "atp": 14 }
+    ],
+    "truncated": false,
+    "topN": 3
+  }
+```
+
+- **`resolvePrereq`'s shape and rules, on the get side.** `armId` and a `reward` descriptor (the
+  near-miss's own `rewards[]` entry) take the place of `prereq`; `items` are the **same rows** as
+  §3.3's. On demand only, never inline. **Stock-filtered at the order's plant**, ranked, capped at the
+  server's `topN`; `atp: null` on a degraded stock read, never a non-200. A grouping arm resolves its
+  full set, as §3.3 requires of a grouping prerequisite.
+- **Not on `Bby/*`** — the call-center door only, like §3.3. It reuses the prerequisite resolver's core
+  (grouping expansion, plant stock filter, rank, cap) over a get-side condition's materials.
+- **Refusals:** exactly the codes `resolvePrereq` answers, including when the offer is no longer a
+  get-side shortfall on this order (it fired, or the basket moved). **No new error code.**
+- **A separate route, not a `side=` flag on `resolvePrereq`**, so each door's name stays true.
+- **Empty `items`** means the stock filter left nothing for this arm at this plant. The console says
+  *not available at this store*; it does not read it as "the arm has no products".
+- **The client's add** is the existing `addItem`: the row's `itemNumber` and the arm's remaining need
+  (`need − have`, at least 1), never a price. Nothing is optimistic: the next `SessionState` either
+  fires the offer (the near-miss is gone and `firedPromotions` carries the engine's money) or, under
+  `each`, shows the arm met.
+- **Keyed client-side by transaction, offer, arm and plant**, so a store change re-resolves at the new
+  plant rather than reusing the old one's stock.
 
 ---
 
@@ -1308,6 +1412,21 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.9 | 2026-07-29 | **The two address-book writes that are order acts** ([§6.5](#65-the-two-address-book-writes-that-are-order-acts-v19)). One new code, `ADDRESS_IN_USE_BY_ORDER`. **No new verb, no new field, no new capability** — an edit of the order's current address re-pins the store by re-issuing the `setAddress` this contract already has, which is why the map's *"pinned at the moment the operator picks **or edits** an address"* ruling needed a rule here rather than a mechanism. 🚩 The one server obligation is a **negative** one: a same-`addressNumber` `setAddress` must not be short-circuited as a no-op, because it is the single call on this contract that looks idempotent and is not. The capture payload itself is [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md)'s, on 801's door, not this document's. | **minor — additive** | [179](../../179-the-address-editor-and-its-capture-contract.md) |
 
 | 1.10 | 2026-07-29 | **The redeemed coupon gets a projection, a way off, and stops being offered as an add** ([2.7](#27-the-redeemed-coupon-v110)). New `header.coupons[]`; new `removeCoupon` verb; new `capabilities.canApplyCoupon` (= `canAddItem`'s predicate) and `canRemoveCoupon`; new code `COUPON_REVERSAL_REFUSED`; a fourth `nearMisses[].prereq.kind`, **`coupon`**. Two of the five are not drawings but holes: `applyCoupon` was the one verb on this contract with **no field to show its result**, and capture 02 shows the guidance strip already offering a **coupon SKU** as *add 1 more*, which qualifies the bonus buy while burning nothing. Neither the reversal ordering nor the redemption's plant stamping is new design - both are read off shipped code (issue 211, `Verbs.cs:287`). | **minor - additive** | [159](../../159-coupon-and-loyalty-signup-drawn.md) |
+
+| 1.12 | 2026-10-03 | **Proposed. A qualified offer whose reward has no target says so** ([§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)). Four new optional near-miss fields — `getShortfall`, `rewardLink`, `rewards[]` (one per get-side condition, with per-arm `have`/`need` and discount definition), `couponsSpent[]` — and one rule: **`isReady` is false for a get-side shortfall**, so *ready* goes back to meaning only *qualified but out-ranked*. No new code and no new capability. **One new read** ([415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md), [§3.7](#37-resolvereward--one-reward-arms-products-v112)): `GET CallCenterWeb/ResolveReward?transactionId=&offerId=&armId=` → `{ offerId, armId, reward, items, truncated, topN }`, `resolvePrereq`'s rules over a get-side condition and its refusals; a client that never calls it is unchanged. Server half: BackOffice ask BO-2, **unfiled**. (v1.11, the linked sales request of [194](../../194-the-callers-open-request-becomes-the-order.md) / BackOffice 880, is carried in the models but has no row here.) Server half: BackOffice ask BO-1, **unfiled**; the console builds against a stub of exactly this shape. | **minor — additive** | [412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) |
+
+**Why 1.12 and not 2.0.** Four new fields, all optional, and one changed *answer*: `isReady` is now
+`false` on a get-side shortfall. That reads like a changed meaning, and it is the opposite — v1.11's
+`true` was the field **failing** its own meaning (*qualified but out-ranked*), since nothing out-ranks
+an offer whose reward has nothing to land on. The answer moves; the definition does not, the same
+argument that made 1.3 a minor. The one place a v1.11 console behaves differently against a v1.12
+server is that it no longer sees `isReady: true`, so it draws the shortfall as an ordinary actionable
+card instead of *already counted* — and that is the **safe** direction: an actionable card states a
+fact about the basket, where *already counted — a better offer applied* told the agent a discount had
+landed when none had. (A coupon-gated shortfall a v1.11 console still draws as *needs a coupon*, which
+is what it draws today; the major buys nothing it does not already have.) No money is mis-rendered, so
+the hard stop would buy nothing and cost a re-baseline of every capture. Ships server-first, as §9
+requires.
 
 **Why 1.10 and not 2.0.** Four new fields, one new verb, one new code - nothing frozen moves. The
 one place a v1.9 client is genuinely wrong is the fourth `prereq.kind`: it does not know `coupon`,

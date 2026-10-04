@@ -332,7 +332,7 @@ export default function ConsoleShell({
     >
       <TopBar
         state={state}
-        actionableOffers={guidance.actionableCount}
+        actionableOffers={guidance.withinReachCount}
         onAbandon={onAbandon}
         onRefresh={onRefresh}
         refreshing={refreshing}
@@ -405,7 +405,12 @@ export default function ConsoleShell({
           {/* Last in the fixed vertical order (135), UNDER the basket it is
               about — the offers the basket nearly qualifies for (171), and the
               one-click add that closes their gap (172). */}
-          <GuidanceStrip view={guidance} transactionId={state.transactionId} actions={guidanceActions} />
+          <GuidanceStrip
+            view={guidance}
+            transactionId={state.transactionId}
+            plant={state.header.plant}
+            actions={guidanceActions}
+          />
         </div>
         <Receipt state={state} submit={submit} />
       </div>

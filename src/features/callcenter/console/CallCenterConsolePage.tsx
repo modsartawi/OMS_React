@@ -2378,8 +2378,15 @@ function ConsoleSession() {
                 // only legible as a difference, and by the time the answer
                 // arrives the cache holds the after.
                 setAddedFrom({ ...from, before: session.data })
+                // 1 from a prerequisite row; what the arm still needs from a
+                // reward row (415) — a count, never a price.
                 addItem.mutate(
-                  beginAdd({ itemNumber: from.itemNumber, qty: 1, description: from.itemName, offerId: from.offerId }),
+                  beginAdd({
+                    itemNumber: from.itemNumber,
+                    qty: from.qty ?? 1,
+                    description: from.itemName,
+                    offerId: from.offerId,
+                  }),
                 )
               }
             : null,

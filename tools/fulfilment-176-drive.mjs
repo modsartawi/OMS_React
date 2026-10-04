@@ -267,6 +267,8 @@ const measure = (page) =>
     return {
       chips: [...document.querySelectorAll('[data-cc-chip]')].map((c) => c.dataset.ccChip),
       chipText: document.querySelector('[data-cc-chips]').innerText,
+      // 408: the delivery store is a readout titled with why, not a parenthetical.
+      storeFollows: document.querySelector('[data-cc-store-derived]') !== null,
       fee: !!document.querySelector('[data-cc-delivery-fee]'),
       waived: !!document.querySelector('[data-cc-delivery-waived]'),
       waivedReason: document.querySelector('[data-cc-delivery-waived-reason]')?.innerText ?? null,
@@ -350,9 +352,9 @@ for (const st of Object.keys(SCENARIOS)) {
   if (st === 'pickup') {
     ok(SCENARIOS.pickup.header.plantSource === 'derivedFromAddress', 'the capture still says derivedFromAddress…')
     ok(SCENARIOS.pickup.header.address === null, '…on a response that carries no address…')
-    ok(!/derived/i.test(m.chipText), '…and the store chip drops the (derived) parenthetical anyway')
+    ok(!m.storeFollows, '…and the store word does not say it follows the address anyway')
   }
-  if (st === 'delivery') ok(/derived/i.test(m.chipText), 'the parenthetical is present under delivery — the mode suppresses it, nothing else')
+  if (st === 'delivery') ok(m.storeFollows, 'the follows-the-address readout is present under delivery — the mode suppresses it, nothing else')
 
   if (st === 'lockedSource') {
     ok(!m.fulfilmentIsButton, 'a delivery-only source makes the chip stop being a control')
@@ -388,8 +390,8 @@ for (const st of Object.keys(SCENARIOS)) {
     ok(m.waived && m.waivedReason === null, 'an unknown category degrades to the bare word — v1.4 behaviour, never a guess')
 
   // 6. The payment chip's word follows the mode; the wire value does not.
-  if (st === 'pickup') ok(/Pay on collection/.test(m.chipText), 'the payment chip reads "Pay on collection" under collection')
-  if (st === 'delivery') ok(/Cash on delivery/.test(m.chipText), 'and "Cash on delivery" under delivery')
+  if (st === 'pickup') ok(/pay on collection/i.test(m.chipText), 'the payment word reads "pay on collection" under collection')
+  if (st === 'delivery') ok(/cash on delivery/i.test(m.chipText), 'and "cash on delivery" under delivery')
 
   console.log(`  · rail block: ${m.blockHeight}px tall, ${m.blockTop}px from the rail's top`)
   await shot(page, st)
@@ -442,7 +444,12 @@ ok(
   before.blockIsLast && after.blockIsLast,
   `nothing is drawn below the block, so its height cannot move anything (${before.blockHeight}px → ${after.blockHeight}px)`,
 )
-ok(before.chips.length - after.chips.length === 1, 'exactly one chip leaves the row — the slot')
+// 408: the sentence's collection shape has no address and no window — both leave.
+ok(
+  JSON.stringify(before.chips.filter((id) => !after.chips.includes(id))) === JSON.stringify(['address', 'slot']) &&
+    after.chips.every((id) => before.chips.includes(id)),
+  'exactly the address and the window leave the sentence',
+)
 ok(before.payable !== after.payable, 'the total re-quotes with the fee gone')
 
 // 🚩 The ticket's own question: an agent who cannot see the kept address has no
@@ -459,8 +466,8 @@ ok(typeof flips[0]?.body?.requestId === 'string' && flips[0].body.requestId.leng
 
 // 🚩 US21, provable only from the requests: the chip's WORD changed and the
 // wire value did not — no payment verb was sent at all.
-ok(/Pay on collection/.test(after.chipText), 'the payment chip now reads "Pay on collection"')
-ok(!/Cash on delivery/.test(after.chipText), 'and no longer reads "Cash on delivery"')
+ok(/pay on collection/i.test(after.chipText), 'the payment word now reads "pay on collection"')
+ok(!/cash on delivery/i.test(after.chipText), 'and no longer reads "cash on delivery"')
 ok(
   wire.filter((w) => w.path === 'CallCenterWeb/SetPaymentType').length === 0,
   'and NOTHING was sent to change the payment type — the word moved, the value did not',
@@ -480,7 +487,7 @@ await page.waitForSelector('[data-cc-payment-picker]', { state: 'hidden' })
 const paid = wire.filter((w) => w.path === 'CallCenterWeb/SetPaymentType')
 ok(paid.length === 1 && paid[0].body?.paymentType === 'Online', 'choosing online sends SetPaymentType once, with the value')
 const online = await measure(page)
-ok(/Paid online/.test(online.chipText), 'and the chip re-renders from the projection, not from what was clicked')
+ok(/paid online/i.test(online.chipText), 'and the word re-renders from the projection, not from what was clicked')
 ok(online.chips.includes('slot') === false, 'the payment change moved nothing else — still a collection order')
 
 await page.click('[data-cc-chip-open="fulfilment"]')
@@ -502,7 +509,7 @@ ok(
   'and the rail block is back to the size and place it started at',
 )
 // The payment value survives the round trip untouched: two axes, independently.
-ok(/Paid online/.test(restored.chipText), 'the payment type survives the flip back — an independent axis')
+ok(/paid online/i.test(restored.chipText), 'the payment type survives the flip back — an independent axis')
 
 allErrors.push(...errors)
 await context.close()

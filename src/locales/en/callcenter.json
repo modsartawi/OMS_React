@@ -176,8 +176,7 @@
     "noMatch": "No store matches that. Try the store code, or the city.",
     "onThisOrder": "on this order",
     "truncated": "Showing the first {{shown}} of {{total}} matches — keep typing to narrow it.",
-    "applyFailed": "That store could not be applied. Nothing has changed on this order — try again.",
-    "followsAddress": "The store follows the delivery address on this order — change the address to move it."
+    "applyFailed": "That store could not be applied. Nothing has changed on this order — try again."
   },
   "confirm": {
     "reissuedStale": "The basket changed while you were reading the last preview, so this is a fresh one. Nothing has been applied.",
@@ -214,8 +213,6 @@
     "slot": "Slot",
     "source": "Source",
     "reference": "Ref",
-    "notSet": "not set",
-    "derived": "derived",
     "lapsed": "lapsed",
     "change": {
       "store": "Change the fulfilment store",
@@ -225,19 +222,41 @@
       "fulfilment": "Change how this order is fulfilled",
       "payment": "Change how the caller pays",
       "note": "Add or change the order note",
-      "coupon": "Add or remove a coupon"
+      "coupon": "Add or remove a coupon",
+      "address": "Pick the delivery address from the caller's address book"
+    }
+  },
+  "sentence": {
+    "delivery": "<mode/> to <address/> for <caller/> from <store/> at <window/>, <payment/>.",
+    "collection": "<mode/> from <store/> for <caller/>, <payment/>.",
+    "mode": {
+      "delivery": "Deliver",
+      "pickInStore": "Collect"
     },
-    "fulfilment": "Fulfilment",
-    "payment": "Payment",
-    "value": {
-      "delivery": "Delivery",
-      "pickInStore": "Collection",
-      "cashOnDelivery": "Cash on delivery",
-      "payOnCollection": "Pay on collection",
-      "paidOnline": "Paid online"
+    "payment": {
+      "cashOnDelivery": "cash on delivery",
+      "payOnCollection": "pay on collection",
+      "paidOnline": "paid online"
     },
+    "empty": {
+      "address": "choose an address",
+      "caller": "no caller yet",
+      "store": "choose a store",
+      "slot": "choose a slot"
+    },
+    "unworded": "—",
+    "storeFollows": "This store follows the delivery address. Change the address to move it."
+  },
+  "ledger": {
+    "source": "Source",
+    "reference": "Ref",
     "coupon": "Coupon",
-    "note": "Note"
+    "note": "Note",
+    "chooseSource": "choose a source",
+    "addReference": "add a reference",
+    "addCoupon": "+ coupon",
+    "addNote": "+ note",
+    "quoted": "“<note/>”"
   },
   "section": {
     "close": "Close this section",
@@ -255,7 +274,7 @@
     },
     "store": {
       "label": "Choose the collection store",
-      "hint": "— the Store chip above, or type /store"
+      "hint": "— the store word in the sentence above"
     },
     "items": {
       "label": "Then add the items",
@@ -453,8 +472,8 @@
       "NOT_DISCOVERED": "can't be checked from this basket",
       "unknown": "this offer isn't available on this order"
     },
-    "needsCoupon": "This offer needs a coupon — apply one on the Coupon chip above.",
-    "needsCoupon_other": "These offers need a coupon — apply one on the Coupon chip above."
+    "needsCoupon": "This offer needs a coupon — add one from Coupon, under the sentence above.",
+    "needsCoupon_other": "These offers need a coupon — add one from Coupon, under the sentence above."
   },
   "receipt": {
     "heading": "The caller pays",

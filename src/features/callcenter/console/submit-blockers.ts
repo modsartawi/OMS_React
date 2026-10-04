@@ -29,23 +29,26 @@
  *    of them. Nothing recognised is ever collapsed away, and the moment such a
  *    code earns a phrase of its own it stops sharing one.
  */
-import type { HeaderChip } from './header-chips'
+import type { HeaderSlotId } from './header-chips'
 
 /**
  * Every blocker code the contract names — the phrase that answers it and the
- * chip that owns it. The chip is `null` where the fix is somewhere other than
- * the chip row (the basket, the rail, or nowhere at all).
+ * header slot that owns it. The slot is `null` where it is nowhere on the header
+ * (the basket, or nowhere at all).
  *
  * 🚩 `phrase` is an i18n key suffix: `blockers.<phrase>` must exist for each
  * entry, which the pure test asserts against the locale file rather than by eye.
  * Two codes may share one — one fact, one sentence.
  */
-const BLOCKERS: Record<string, { phrase: string; chip: HeaderChip['id'] | null }> = {
+const BLOCKERS: Record<string, { phrase: string; chip: HeaderSlotId | null }> = {
   // The basket's, not a chip's.
   NO_LINES: { phrase: 'NO_LINES', chip: null },
-  // The rail's — the caller and their address are captured there (165, 166).
-  NO_CUSTOMER: { phrase: 'NO_CUSTOMER', chip: null },
-  NO_ADDRESS: { phrase: 'NO_ADDRESS', chip: null },
+  // 🚩 The sentence's own two words (408). The address word is the address book's
+  // door (166, 379), so it owns its blocker. The caller's name is a readout — the
+  // rail's phone box is where a caller is attached — but the word that says *no
+  // caller yet* must LOOK blocked while the server is waiting on one.
+  NO_CUSTOMER: { phrase: 'NO_CUSTOMER', chip: 'caller' },
+  NO_ADDRESS: { phrase: 'NO_ADDRESS', chip: 'address' },
   // v1.3 (§2.3) — the plant is the one the agent was SEEDED with and nobody has
   // chosen it. The chip says so through this table like every other, never
   // through a client-side read of `plantSource`.
@@ -71,8 +74,8 @@ export interface SubmitBlocker {
   code: string
   /** The i18n key, always resolvable: no call site needs a `defaultValue`. */
   key: string
-  /** The chip whose section fixes it, or `null` where that is somewhere else. */
-  chip: HeaderChip['id'] | null
+  /** The header slot it marks, or `null` where that is somewhere else. */
+  chip: HeaderSlotId | null
 }
 
 /**
@@ -101,8 +104,8 @@ export function submitBlockers(codes: readonly string[] | null | undefined): Sub
  * receipt read the SAME table through this: a chip that looks settled while the
  * receipt names its section is the disagreement US22 exists to prevent.
  */
-export function blockedChips(codes: readonly string[] | null | undefined): Set<HeaderChip['id']> {
-  const blocked = new Set<HeaderChip['id']>()
+export function blockedChips(codes: readonly string[] | null | undefined): Set<HeaderSlotId> {
+  const blocked = new Set<HeaderSlotId>()
   for (const blocker of submitBlockers(codes)) if (blocker.chip) blocked.add(blocker.chip)
   return blocked
 }

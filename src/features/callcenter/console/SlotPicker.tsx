@@ -41,6 +41,7 @@ import type { SessionSlot } from '@/core/models/callcenter'
 import type { TimeSlotTimeModel } from '@/core/models/slots'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
+import Ltr from '@/core/ui/Ltr'
 import ChipSection from './ChipSection'
 import type { PickedSlot } from './api'
 import { NOTE } from './console-notes'
@@ -286,18 +287,25 @@ function SlotChip({
   return (
     <button
       type="button"
-      onClick={onPick}
-      disabled={busy || current || full}
+      // 🚩 A full window is REFUSED, not disabled (spec 380 C5, measured in 373): it
+      // stays focusable with `aria-disabled`, so the keyboard can reach it and hear why.
+      // A `disabled` option drops out of the Tab order and strands focus outside the list.
+      onClick={full ? undefined : onPick}
+      disabled={busy || current}
+      aria-disabled={full || undefined}
       data-cc-slot-option={slot.slotId}
-      className={`flex min-w-0 flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-start leading-tight disabled:cursor-not-allowed disabled:hover:bg-card ${
+      className={`flex min-w-0 flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-start leading-tight disabled:cursor-not-allowed disabled:hover:bg-card aria-disabled:cursor-not-allowed aria-disabled:hover:bg-card ${
         current
           ? 'border-success-800/40 bg-success-800/5'
-          : 'border-border bg-card hover:bg-accent disabled:opacity-60'
+          : 'border-border bg-card hover:bg-accent disabled:opacity-60 aria-disabled:opacity-60'
       }`}
     >
       <span className="flex items-center gap-1.5">
-        {/* Server-supplied, passed through as data. */}
-        <span className="text-[0.8125rem] font-medium">{slot.time}</span>
+        {/* Server-supplied, passed through as data — a window, so isolated whole
+            left-to-right (spec 380 C6: every window). */}
+        <span className="text-[0.8125rem] font-medium">
+          <Ltr>{slot.time}</Ltr>
+        </span>
         {pending && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />}
       </span>
       {full && (

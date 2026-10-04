@@ -902,7 +902,11 @@ async function driveRanges({ theme, dir }) {
     JSON.stringify(store),
   )
   // Control: strip the chip's isolate and the same window reverses under RTL (373's `21:00–18:00`).
+  // 408: the header is a sentence that takes its OWN direction (`dir="auto"`), so these English
+  // strings read left-to-right even on an RTL page; the control sets it to the page's direction
+  // first, standing in for an Arabic template, where the isolate is what keeps the window whole.
   await slotValue.evaluate((el) => {
+    el.closest('[data-cc-sentence]')?.setAttribute('dir', document.documentElement.dir || 'ltr')
     const bdi = el.querySelector('bdi')
     bdi?.replaceWith(document.createTextNode(bdi.textContent))
   })

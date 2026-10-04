@@ -34,11 +34,12 @@ export interface HeaderChip {
    * reads out to a caller.
    */
   value: string | null
-  /** An i18n key under `chips.value.*`, for the two enumerated chips. Set
-   *  instead of `value`, never beside it. */
+  /** The word's key suffix for the two enumerated chips (`header-sentence.ts`
+   *  words them under `sentence.mode.*` / `sentence.payment.*`). Set instead of
+   *  `value`, never beside it. */
   valueKey?: string
-  /** True only when the plant came from the address — the parenthetical that
-   *  makes a store the agent did not choose read as explained (135). */
+  /** True only when the plant came from the address (135). The sentence (408)
+   *  says this on every delivery order instead, as the store readout's title. */
   derived?: boolean
   /**
    * 🚩 The slot the order holds is no longer active — `slot.isActive: false`.
@@ -55,10 +56,17 @@ export interface HeaderChip {
    * The value is a **machine value** — a code, a `code · name` pair, a window —
    * and is isolated left-to-right; any other value is free text and isolated in
    * its own direction (spec 380 F24, `.claude/rules/bidi.md`). Set on the store,
-   * slot, reference and coupon chips, whatever their state.
+   * slot, source, reference and coupon chips, whatever their state.
    */
   ltr?: boolean
 }
+
+/**
+ * Every place on the order header the server's `submitBlockers` can point at: the chips,
+ * plus the two facts the sentence says that no chip carried (408) — the caller and their
+ * address. `submit-blockers.ts` owns which code marks which.
+ */
+export type HeaderSlotId = HeaderChip['id'] | 'caller' | 'address'
 
 export function headerChips(header: SessionHeader, capabilities: SessionCapabilities): HeaderChip[] {
   // 🚩 The SAME table the receipt words its blockers from (`submit-blockers.ts`,
@@ -108,7 +116,9 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // The window is ONE string, isolated once at the chip: an isolate per end lays
     // the two ends out right-to-left, and `18:00–21:00` reads `21:00–18:00` (373, 378).
     chip('slot', slot ? formatRange(slot.from, slot.to) : null, { lapsed: slot ? !slot.isActive : false, ltr: true }),
-    chip('source', header.documentSource),
+    // A document source is a CODE (`CLCN`), so it reads left-to-right like the
+    // reference beside it (spec 380 C6).
+    chip('source', header.documentSource, { ltr: true }),
     chip('reference', header.sourceReference, { ltr: true }),
     // 155 — settled and collapsed. It has a real default and no `submitBlocker`,
     // so it is a fact the agent confirms in one spoken question, not an

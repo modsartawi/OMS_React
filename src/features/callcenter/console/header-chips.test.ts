@@ -58,8 +58,9 @@ describe('headerChips', () => {
     expect(chips.store.ltr).toBe(true)
     expect(chips.reference.ltr).toBe(true)
     expect(chips.coupon.ltr).toBe(true)
+    // A document source is a code (spec 380 C6).
+    expect(chips.source.ltr).toBe(true)
     // Free text reads in its own direction.
-    expect(chips.source.ltr).toBeUndefined()
     expect(chips.note.ltr).toBeUndefined()
   })
 

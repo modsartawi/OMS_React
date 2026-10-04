@@ -74,3 +74,5 @@ tools/.document-composer-shots/
 tools/.sim-process-shots/
 # Call center in the shell drive screenshots (tools/callcenter-shell-drive.mjs, ticket 407)
 tools/.callcenter-shell-shots/
+# Call center sentence drive screenshots (tools/callcenter-sentence-drive.mjs, ticket 408)
+tools/.callcenter-sentence-shots/

@@ -2105,11 +2105,12 @@ async function run() {
       storeAfter.includes(DERIVED_PLANT['77120'].plant) && !storeAfter.includes(STATE.header.plant),
       storeAfter.replace(/\s+/g, ' '),
     )
-    // The whole reason the chip carries a parenthetical: "why that branch?" is
-    // answerable without opening anything.
+    // "Why that branch?" is answerable without opening anything: on a delivery
+    // order the store word is a readout titled with the reason (408, replacing
+    // the chip's *(derived)* parenthetical).
     check(
-      'and says it was DERIVED, not chosen',
-      /derived/i.test(storeAfter),
+      'and says it follows the address, not chosen',
+      /follows the delivery address/.test((await page.locator('[data-cc-chip="store"]').getAttribute('title')) ?? ''),
       storeAfter.replace(/\s+/g, ' '),
     )
     check(
@@ -2152,16 +2153,15 @@ async function run() {
       !/MISSING_PAYMENT_TYPE/.test(await text(page, '[data-cc-chips]')),
       (await text(page, '[data-cc-chips]')).replace(/\s+/g, ' '),
     )
-    // The row grew three times since this box was written — 176 put the mode
-    // first and the payment word after the reference, 159 put the coupon last and
-    // 183 the note after it — so the claim is the ORDER of what the header
-    // captures rather than a count.
+    // 408: the chip row became a sentence over a ledger — the sentence in the
+    // order the agent says it (mode, address, caller, store, window, payment),
+    // then the bookkeeping. The claim is the ORDER of what the header captures.
     const chipRow = await page
       .locator('[data-cc-chip]')
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-cc-chip')))
     check(
-      'the chip row is what the header captures, in the order it captures it',
-      chipRow.join(',') === 'fulfilment,store,slot,source,reference,payment,coupon,note',
+      'the header is what the order captures, in the order it is said',
+      chipRow.join(',') === 'fulfilment,address,caller,store,slot,payment,source,reference,coupon,note',
       chipRow.join(','),
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
@@ -2405,7 +2405,11 @@ async function run() {
       storeAfter.includes(MOVED_TO.plant) && !storeAfter.includes(PRIOR_STATE.header.plant),
       storeAfter,
     )
-    check('and it still reads as derived — the address decided it', /derived/i.test(storeAfter), storeAfter)
+    check(
+      'and it still reads as following the address — the address decided it',
+      /follows the delivery address/.test((await page.locator('[data-cc-chip="store"]').getAttribute('title')) ?? ''),
+      storeAfter,
+    )
     check('the basket survived the move', (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
     check('no refusal banner', (await page.locator('[data-cc-rebind-refused]').count()) === 0)
     check('and the address book did not spring back open', (await page.locator('[data-cc-address-picker]').count()) === 0)
@@ -3278,10 +3282,24 @@ async function run() {
     // (so the agent can say so to the caller) and cannot be picked.
     // The day is two rows of PRESSES now, not a dropdown (e9e3695).
     await page.locator('[data-cc-slot-day="1"]').click()
+    // 408 (spec 380 C5): a refused option stays FOCUSABLE with `aria-disabled` — a
+    // `disabled` one drops out of the Tab order. Pressing it sends nothing: the one
+    // SetSlot counted below is the chosen window's.
+    const fullOption = page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`)
     check(
-      'a window the server marks full is drawn, not hidden, and cannot be picked',
-      (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).count()) === 1 &&
-        (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).isDisabled()),
+      'a window the server marks full is drawn, not hidden, focusable, and refused',
+      (await fullOption.count()) === 1 &&
+        (await fullOption.getAttribute('aria-disabled')) === 'true' &&
+        // The NATIVE property: Playwright's isDisabled() also counts aria-disabled.
+        (await fullOption.evaluate((el) => !el.disabled && el.tabIndex >= 0)),
+    )
+    await fullOption.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(150)
+    check(
+      'and pressing it picks nothing — the section stays open',
+      (await page.locator('[data-cc-slot-picker]').count()) === 1 &&
+        !wire.some((w) => w.path === 'CallCenterWeb/SetSlot'),
     )
     await page.locator('[data-cc-slot-day="0"]').click()
     await page.locator(`[data-cc-slot-option="${SLOT_CHOSEN.slotId}"]`).click()

@@ -45,7 +45,7 @@ describe('submitBlockers', () => {
     }
   })
 
-  it('names the chip that owns each header blocker, and only those', () => {
+  it('names the header slot that owns each header blocker, and only those', () => {
     // Asked one code at a time: ownership is a property of the CODE, and asking
     // the whole list at once would only prove it of the ones that survive the
     // dedupe below.
@@ -64,10 +64,12 @@ describe('submitBlockers', () => {
     expect(owner.MISSING_SOURCE).toBe('source')
     expect(owner.MISSING_SOURCE_REFERENCE).toBe('reference')
     expect(owner.SOURCE_REFERENCE_REQUIRED).toBe('reference')
-    // The basket's and the rail's are fixed elsewhere — a chip must not claim them.
+    // 408: the sentence says the caller and the address, so those two words take
+    // their blockers — the address word is the book's door, the caller word a readout.
+    expect(owner.NO_CUSTOMER).toBe('caller')
+    expect(owner.NO_ADDRESS).toBe('address')
+    // The basket's is fixed elsewhere — nothing on the header may claim it.
     expect(owner.NO_LINES).toBeNull()
-    expect(owner.NO_CUSTOMER).toBeNull()
-    expect(owner.NO_ADDRESS).toBeNull()
     expect(owner.ALREADY_SUBMITTED).toBeNull()
   })
 

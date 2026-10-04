@@ -3,7 +3,7 @@
  *
  * 135's ruling (variant A, "three fixed columns"): the customer rail at the
  * start edge and the live receipt at the end edge **never move**, and the centre
- * column is the only region that grows — chip row → item search → basket →
+ * column is the only region that grows — header sentence → item search → basket →
  * offer strip, in that vertical order. The furniture is at the same pixels at
  * hour nine as at hour one, which is the one property a twelve-hour shift
  * rewards.
@@ -40,8 +40,8 @@ import CustomerRail, {
   type RailSignup,
 } from './CustomerRail'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
+import HeaderSentence from './HeaderSentence'
 import { guidanceView } from './guidance-view'
-import { headerChips, type HeaderChip } from './header-chips'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
@@ -194,7 +194,7 @@ export default function ConsoleShell({
   onChangeSource?: () => void
   /** Opens the fulfilment choice (176) — *delivering, or collecting?*. Absent
    *  once the order is no longer open; the SHUT-GATE case is handled inside the
-   *  chip row off `capabilities`, because a delivery-only source is a different
+   *  header sentence off `capabilities`, because a delivery-only source is a different
    *  fact from a closed order and says a different sentence. */
   onChangeFulfilment?: () => void
   /** Opens the coupon modal (159) — the last chip in the row. Absent once the
@@ -277,13 +277,13 @@ export default function ConsoleShell({
       capabilities: state.capabilities,
       hasCaller: state.header.customer != null,
       // Read for one sentence: *Change store* is refused on a delivery order
-      // for a reason no capability carries, and the row borrows the chip
-      // row's own words for it rather than falling through to the vague one.
+      // for a reason no capability carries, and the row borrows the store
+      // readout's own words for it rather than falling through to the vague one.
       pickup: isPickup(state.header),
       known: (key) => i18n.exists(key),
       actions: {
         verbs: {
-          // The way home for focus stranded on a chip — and the box the
+          // The way home for focus stranded on a word — and the box the
           // agent lives in. Both targets are addressed by their stable id
           // rather than by a ref threaded through two sibling components:
           // the palette does not own either box, and one row is not worth
@@ -294,8 +294,8 @@ export default function ConsoleShell({
           slot: onChangeSlot,
           source: onChangeSource,
           note: onChangeNote,
-          // 🚩 The SAME gate the chip row applies, from the same function on
-          // the same state — so a chip that stopped being a control cannot
+          // 🚩 The SAME gate the sentence applies, from the same function on
+          // the same state — so a word that stopped being a control cannot
           // be a live palette row.
           fulfilment: capabilityGate(state.capabilities, 'canChangeFulfilment').open
             ? onChangeFulfilment
@@ -362,20 +362,29 @@ export default function ConsoleShell({
             signup={signup} requests={requests} onPickAddress={onPickAddress} />
         {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
         <div className="flex min-h-0 min-w-0 flex-col border-x border-border">
-          <ChipRow
+          {/* 🚩 The order header as a sentence over a ledger (408, spec 380 C3).
+              Each word opens the section it names; the model decides which words
+              can be controls at all, and a missing handler here means the page
+              will not let that one open now. */}
+          <HeaderSentence
             state={state}
-            onChangeStore={onChangeStore}
-            onChangeSlot={onChangeSlot}
-            onChangeSource={onChangeSource}
-            onChangeFulfilment={onChangeFulfilment}
-            onChangePayment={onChangePayment}
-            onChangeCoupon={onChangeCoupon}
-            onChangeNote={onChangeNote}
+            openers={{
+              fulfilment: onChangeFulfilment,
+              // 166/379: the address word is the address book's door once a
+              // caller is attached.
+              address: onPickAddress,
+              store: onChangeStore,
+              slot: onChangeSlot,
+              payment: onChangePayment,
+              source: onChangeSource,
+              coupon: onChangeCoupon,
+              note: onChangeNote,
+            }}
           />
-          {/* 🚩 175 §9, the half that was owed: **the section a chip opens, in
-              the flow, immediately under the chip that opened it.** The row
-              stays visible above it — a chip is a place, and a place that
-              vanishes when you go to it is not one. */}
+          {/* 🚩 175 §9, the half that was owed: **the section a word opens, in
+              the flow, immediately under the sentence that opened it.** The
+              sentence stays visible above it — a word is a place, and a place
+              that vanishes when you go to it is not one. */}
           {headerSection}
           {/* 🚩 The sequence, while the door will take nothing (175). It sits
               exactly where the section would, because it is answering the same
@@ -385,7 +394,7 @@ export default function ConsoleShell({
           {!headerSectionOpen && (
             <OpeningSteps steps={openingSteps(state.header, state.capabilities, state.status)} />
           )}
-          {/* 135's fixed vertical order — chip row → item search → basket. The
+          {/* 135's fixed vertical order — header sentence → item search → basket. The
               search is above the basket because that is the direction the work
               runs in: what the agent finds lands underneath it. */}
           <ItemSearchPanel
@@ -496,184 +505,6 @@ function TopBar({
         )}
       </div>
     </header>
-  )
-}
-
-function ChipRow({
-  state,
-  onChangeStore,
-  onChangeSlot,
-  onChangeSource,
-  onChangeFulfilment,
-  onChangePayment,
-  onChangeCoupon,
-  onChangeNote,
-}: {
-  state: SessionState
-  onChangeStore?: () => void
-  onChangeSlot?: () => void
-  onChangeSource?: () => void
-  onChangeFulfilment?: () => void
-  onChangePayment?: () => void
-  onChangeCoupon?: () => void
-  onChangeNote?: () => void
-}) {
-  const { t } = useTranslation('callcenter')
-  const chips = headerChips(state.header, state.capabilities)
-  const gate = capabilityGate(state.capabilities, 'canChangeFulfilment')
-  const payGate = capabilityGate(state.capabilities, 'canChangePaymentType')
-  // 🚩 135's progressive collapse, complete at 173: every chip now re-opens the
-  // section it collapsed. Source and reference share one — they are two fields
-  // of one act, and a reference belongs to the source it references.
-  const opener: Record<HeaderChip['id'], (() => void) | undefined> = {
-    // 🚩 A shut gate passes NO handler: a delivery-only source means the door
-    // will refuse `setFulfilment`, and the console's standing rule is that a
-    // control the door would refuse is worse than no control. The chip stays —
-    // the order still HAS a mode — and its reason is drawn beside the row.
-    fulfilment: gate.open ? onChangeFulfilment : undefined,
-    store: onChangeStore,
-    slot: onChangeSlot,
-    source: onChangeSource,
-    reference: onChangeSource,
-    payment: payGate.open ? onChangePayment : undefined,
-    // 🚩 The coupon chip opens WHATEVER `canApplyCoupon` says, unlike its two
-    // neighbours. A shut apply-gate is not a shut chip: the order may already
-    // hold a coupon the agent needs to read out, and the modal is where the
-    // reason for the shut gate is stated. There is nothing to say beside the
-    // row, so nothing is said there.
-    coupon: onChangeCoupon,
-    // 🚩 The note has no capability of its own either (§2 lists none) and no
-    // blocker can mark it: it opens whenever the order is still open, which is
-    // the page's rule, and shuts with it.
-    note: onChangeNote,
-  }
-  const lapsed = chips.some((chip) => chip.lapsed)
-  return (
-    <div className="border-b border-divider bg-card px-4 py-2" data-cc-chips>
-      <div className="flex flex-wrap items-center gap-2">
-        {chips.map((chip) => (
-          <Chip key={chip.id} chip={chip} onOpen={opener[chip.id]} />
-        ))}
-      </div>
-      {/* 🚩 The soft gate, said out loud (US19): the window the order holds has
-          lapsed, and the order can still be placed. It is a warning in the flow
-          — never a blocker, and never a modal that stops the call. */}
-      {lapsed && (
-        <p className="mt-1.5 text-[11px] text-attention-800" data-cc-slot-lapsed>
-          {t('slot.lapsedWarning')}
-        </p>
-      )}
-      {/* 🚩 A chip that stopped being a control says why, once, beside the row —
-          the same posture 153 took for a refused palette row: an unexplained
-          dead control teaches the agent nothing, and *this order's source is
-          delivery-only* is a sentence they can repeat to a caller. The reason
-          is the SERVER'S typed code (`capabilityReasons`), worded here; an
-          unknown code falls back to the general phrase rather than to silence. */}
-      {!gate.open && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-fulfilment-locked={gate.reason ?? ''}>
-          {t(gate.reason ? `fulfilment.locked.${gate.reason}` : 'fulfilment.locked.unknown', {
-            defaultValue: t('fulfilment.locked.unknown'),
-          })}
-        </p>
-      )}
-      {/* 🚩 The store chip is a READOUT on a delivery order, and says so — the
-          same posture as the two locks below it. The plant is derived from the
-          caller's address server-side (166), so the way to move it is to change
-          the address, and an agent who found the chip inert without a sentence
-          beside it would go looking for a picker that is deliberately not there.
-          Drawn only while the order is OPEN: on a placed order nothing in this
-          row is a control, and singling the store out there would read as a rule
-          about delivery rather than as the state of this order. */}
-      {!isPickup(state.header) && state.status === 'open' && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-store-derived>
-          {t('store.followsAddress')}
-        </p>
-      )}
-      {/* ⚠ Unreachable in phase 1 and implemented anyway (§2.4): a capability
-          the client ignores is exactly the failure §2's advisory-but-
-          authoritative rule exists to prevent. */}
-      {!payGate.open && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-payment-locked={payGate.reason ?? ''}>
-          {t(payGate.reason ? `payment.locked.${payGate.reason}` : 'payment.locked.unknown', {
-            defaultValue: t('payment.locked.unknown'),
-          })}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
-  const { t } = useTranslation('callcenter')
-  const tone =
-    chip.state === 'needsAttention'
-      ? 'border-attention-border bg-attention-050 text-attention-800'
-      : chip.state === 'settled'
-        ? 'border-border bg-muted text-foreground'
-        : 'border-dashed border-input bg-card text-muted-foreground'
-  const body = (
-    <>
-      <span className="text-[10px] uppercase tracking-wide opacity-70">{t(`chips.${chip.id}`)}</span>
-      {/* A key for the two enumerated chips (fulfilment, payment) — the wire's
-          `PickInStore` and `CashOnDelivery` are values, not sentences — and
-          server-supplied text passed through as data for every other. */}
-      {/* 🚩 Clamped for EVERY chip, because one of them is now free text (183):
-          the note's column is `NVARCHAR(MAX)` and a note of any length must not
-          push the chips that matter off the row. One rule rather than a note-only
-          exception — a store name long enough to do the same damage would
-          otherwise be a second bug waiting for a long branch name. The text is
-          intact in the DOM: this is a rendering limit, never a truncation of what
-          the order holds. */}
-      {/* The value from data is isolated whole, by kind (spec 380 F24): a code,
-          pair or window left-to-right, free text in its own direction. The
-          words around it are copy and need none. */}
-      <span className="max-w-[16rem] truncate font-medium" data-cc-chip-value>
-        {chip.valueKey ? (
-          t(`chips.value.${chip.valueKey}`)
-        ) : chip.value == null ? (
-          t('chips.notSet')
-        ) : chip.ltr ? (
-          <Ltr>{chip.value}</Ltr>
-        ) : (
-          <bdi>{chip.value}</bdi>
-        )}
-      </span>
-      {chip.derived && <span className="text-[10px] opacity-60">({t('chips.derived')})</span>}
-      {/* 🚩 The chip stays *settled* — the order holds this window — and only
-          says that it has lapsed. Attention ground is the server's to grant, off
-          `submitBlockers`, and a soft gate never earns it. */}
-      {chip.lapsed && (
-        <span className="text-[10px] font-medium text-attention-800" data-cc-chip-lapsed>
-          ({t('chips.lapsed')})
-        </span>
-      )}
-    </>
-  )
-  const shape = `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${tone}`
-
-  // A chip with nowhere to go is not a control. `capabilities` decides that —
-  // the page passes the handler only while the door will accept the change —
-  // so a disabled button the agent can reach for never appears here.
-  if (!onOpen)
-    return (
-      <span className={shape} data-cc-chip={chip.id} data-cc-chip-state={chip.state}>
-        {body}
-      </span>
-    )
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`${shape} hover:bg-accent`}
-      data-cc-chip={chip.id}
-      data-cc-chip-state={chip.state}
-      data-cc-chip-open={chip.id}
-      aria-label={t(`chips.change.${chip.id}`)}
-      title={t(`chips.change.${chip.id}`)}
-    >
-      {body}
-    </button>
   )
 }
 

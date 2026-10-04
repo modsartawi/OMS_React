@@ -659,7 +659,7 @@ ok(!/SAR|\d+\.\d{2}/.test(after.card ?? ''), 'the linked card holds no figure fo
 // The four consequences of the one press, read off the projection.
 ok(/1234/.test(after.chipText), 'the STORE was copied off the request')
 ok(!after.chips.includes('slot'), 'TMRA forced PickInStore — the slot chip is gone (176)')
-ok(/Paid online/.test(after.chipText), 'and paid online, which is how Tamara settles')
+ok(/paid online/i.test(after.chipText), 'and paid online, which is how Tamara settles')
 ok(after.lines === 2, `the request's items are in the basket (${after.lines})`)
 ok(/SREQ-0001234/.test(after.chipText), 'the mandatory source reference filled itself (§4.4)')
 

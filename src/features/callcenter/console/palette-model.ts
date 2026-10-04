@@ -135,8 +135,9 @@ const REASON_FAMILY: Partial<Record<PaletteVerb, { capability: string; family: s
   // stated. A reason here would name a refusal the row does not carry.
 }
 
-/** The store chip's own sentence, borrowed for the palette's row (see below). */
-export const STORE_FOLLOWS_ADDRESS = `${NS}store.followsAddress`
+/** The delivery store readout's own sentence (its title, 408), borrowed for the
+ *  palette's row (see below) — one sentence for one fact in both places. */
+export const STORE_FOLLOWS_ADDRESS = `${NS}sentence.storeFollows`
 
 /** The phrase any refusal this console has no words for falls back to. */
 export const VAGUE_REASON = `${NS}palette.reason.unknown`

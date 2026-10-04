@@ -3205,8 +3205,6 @@ const SCREEN_ACTIONS = {
   '/admin/sessions': (page) => page.locator('main').getByRole('button', { name: /^All\b/ }).click(),
   '/collection/settlement/ledger': (page) => page.getByRole('button', { name: 'Everything still open' }).click(),
 }
-// Chromeless until 407 joins the console to the shell: no rail to mark.
-const CHROMELESS = new Set(['/callcenter'])
 
 async function driveScreens({ theme, dir }) {
   const label = `${theme}/${dir} screens`
@@ -3248,7 +3246,7 @@ async function driveScreens({ theme, dir }) {
     const at = `${label} ${path}`
     errors.length = 0
     await page.goto(BASE + path)
-    await page.locator(CHROMELESS.has(path) ? 'body' : 'main').first().waitFor({ timeout: 20000 })
+    await page.locator('main').first().waitFor({ timeout: 20000 })
     await page.waitForLoadState('networkidle')
     if (SCREEN_ACTIONS[path]) {
       await SCREEN_ACTIONS[path](page)
@@ -3292,9 +3290,8 @@ async function driveScreens({ theme, dir }) {
         check(`${at}: a textarea is a 6px control`, radius === '6px', radius)
 
     // The rail marks exactly this leaf: one link that is `aria-current` OR paints a marker.
-    if (CHROMELESS.has(path))
-      check(`${at}: chromeless until 407, so no rail`, (await page.locator('#layout-rail').count()) === 0)
-    else {
+    // The call center too, since 407 joined it to the shell.
+    {
       const marked = (
         await nav.locator('a[href]').evaluateAll((as) =>
           as.map((a) => ({

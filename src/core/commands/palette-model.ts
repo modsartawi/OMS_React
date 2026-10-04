@@ -252,8 +252,8 @@ export function paletteRun(rows: readonly PaletteRow[], aim: number | null): Pal
  * The flags a route's `handle` may carry for the palette (375 R4).
  *
  * - `print` — a print route: its body IS the document, and it never hosts the palette.
- *   🚩 An explicit flag, never `chromeless`: the call center is chromeless too, and has
- *   the palette (395).
+ *   🚩 An explicit flag, never `chromeless`: a layout is not a palette decision (the call
+ *   center was chromeless with the palette, 395, until it joined the shell, 407).
  *
  * - `singleKeys` (393) — a screen with single keys (letters, `/`, `?`): the Deliveries
  *   list and Delivery details only (365 §2). Everywhere else has Ctrl+K, Esc and its own

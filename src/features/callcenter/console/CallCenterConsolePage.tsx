@@ -16,8 +16,9 @@
  *    leaf (134 §6, ticket 125's pattern). Unresolved or errored ⇒ the refusal,
  *    never the console — and the refusal fires **no** `Open`, which is why the
  *    session lives in a child component that a denied agent never mounts.
- * 2. 🚩 **Every non-console state carries its own way home.** The route is
- *    chrome-less by ruling (map 126 note 13): there is no nav to leave by. That
+ * 2. 🚩 **Every non-console state carries its own way home.** The route was
+ *    chrome-less by ruling (map 126 note 13), with no nav to leave by; since 407
+ *    it sits in the shell, and the card keeps its two exits anyway. That
  *    is `ConsoleCard`'s, not a prop and not a per-state decision — a state the
  *    agent can only escape by closing the tab is the failure 162 existed to
  *    prevent, and the one a hand-rolled second card reintroduces.
@@ -2641,8 +2642,8 @@ function ConsoleSession() {
   )
 }
 
-/** A full-viewport waiting state. Chrome-less like everything else here, and
- *  deliberately without an exit: it resolves on its own — within one request,
+/** A waiting state that fills the console's area under the shell (407), and
+ *  deliberately without an exit of its own: it resolves on its own — within one request,
  *  or within the bounded busy schedule if that request met the claim (164). */
 /**
  * How much of one item the basket holds, across every line carrying it.
@@ -2662,7 +2663,7 @@ function qtyOf(state: SessionState | null | undefined, itemNumber: string): numb
 function ConsoleStatus({ message, spinner }: { message: string; spinner?: boolean }) {
   return (
     <div
-      className="flex h-screen items-center justify-center gap-2 bg-background text-sm text-muted-foreground"
+      className="flex h-full flex-1 items-center justify-center gap-2 bg-background text-sm text-muted-foreground"
       role="status"
       data-cc-status
     >
@@ -2673,7 +2674,7 @@ function ConsoleStatus({ message, spinner }: { message: string; spinner?: boolea
 }
 
 /**
- * Every dead end on a chrome-less screen. The two ways out are `ConsoleCard`'s
+ * Every dead end on the console's route. The two ways out are `ConsoleCard`'s
  * and are not optional (134 §8); all this adds is what happened and, where
  * retrying is honest, a way to.
  */

@@ -1,12 +1,12 @@
 /**
  * The one card every non-console state on this route is drawn in.
  *
- * The route is chrome-less by ruling (map 126 note 13), and that has a
- * consequence the whole screen has to keep paying: **there is no nav to leave
- * by**, so every state that is not the console itself owes the agent its own way
- * out (134 §8). A state the agent can only escape by closing the tab is the
- * failure 162 existed to prevent, and it is exactly the one a second card,
- * hand-rolled later, quietly reintroduces.
+ * The route was chrome-less by ruling (map 126 note 13), so every state that
+ * is not the console itself owed the agent its own way out (134 §8). A state the
+ * agent can only escape by closing the tab is the failure 162 existed to
+ * prevent. Since 407 the console sits inside the shell and the rail is a way out
+ * too; the card keeps its own two anyway, because a dead end still names its
+ * exits where the agent is already looking.
  *
  * So the ways home are not a prop and not a choice — they are part of the card.
  * The denial, the open failure, the state-read failure and 163's already-open
@@ -47,9 +47,11 @@ export default function ConsoleCard({
     : 'rounded-md border border-input bg-card px-4 py-2 text-sm font-medium hover:bg-accent'
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background p-8">
+    // The shell's content area, filled (407): centred by the card's own auto
+    // margins, so a card taller than the area scrolls instead of clipping its top.
+    <div className="flex h-full min-h-0 flex-1 overflow-y-auto bg-background p-8">
       <div
-        className={`w-full ${width} rounded-lg border ${edge} bg-card p-6 shadow-sm`}
+        className={`m-auto w-full ${width} rounded-lg border ${edge} bg-card p-6 shadow-sm`}
         role="alert"
         data-cc-notice={marker}
       >

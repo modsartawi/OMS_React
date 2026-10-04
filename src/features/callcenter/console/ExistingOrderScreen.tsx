@@ -4,10 +4,10 @@
  *
  * `OpenResult.outcome = 'refusedExisting'` arrives on the success path (§8.1):
  * one active order per agent (law 9), and which one survives is the agent's
- * call. So this screen is full-viewport and carries exactly what the choice
- * needs — the previous caller's name, the line count, when it was opened, and
- * the fulfilment store — with two explicit actions, and the ways home the
- * chrome-less route owes every non-console state (134 §8, `ConsoleCard`).
+ * call. So this screen fills the console's area and carries exactly what the
+ * choice needs — the previous caller's name, the line count, when it was opened,
+ * and the fulfilment store — with two explicit actions, and the ways home every
+ * non-console state carries (134 §8, `ConsoleCard`).
  *
  * 🚩 **No basket is rendered behind it.** An agent who has just picked up a new
  * caller must not inherit the previous caller's basket (127), and the surest way

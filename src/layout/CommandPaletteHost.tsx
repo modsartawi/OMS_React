@@ -21,7 +21,7 @@ const openShortcutsFromPalette = () => openShortcuts(paletteOrigin())
 
 /**
  * The app-wide palette's host (ticket 392, spec 380 K7): mounted once by `ProtectedLayout`
- * on every signed-in route that does not opt out, so it reaches chromeless screens too.
+ * on every signed-in route that does not opt out (only the chromeless print routes do).
  * It binds the key layer for as long as it is mounted (393: Ctrl+K, `?` and every mounted
  * command's `keys`), composes the groups — the mounted page's commands, the user's Recent,
  * the rail's own menu, the detail grant — into the core palette, and hosts the shortcuts sheet.

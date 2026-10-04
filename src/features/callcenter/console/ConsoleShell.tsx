@@ -324,7 +324,10 @@ export default function ConsoleShell({
   )
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
+      // The shell's content area, filled (ticket 407): the route flags `fill`, so the
+      // area below the top bar is the console's whole height and the page never
+      // scrolls — the basket and the receipt scroll in their own columns.
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground"
       data-cc-console
       // WHICH order is on screen, for the drives. Not rendered text — a
       // 26-character ULID is nothing an agent reads — but "the order you landed
@@ -357,7 +360,8 @@ export default function ConsoleShell({
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
         <CustomerRail state={state} customerActions={customerActions}
             signup={signup} requests={requests} onPickAddress={onPickAddress} />
-        <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
+        {/* Not a `<main>`: the console sits inside the shell's (407), and a page has one. */}
+        <div className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow
             state={state}
             onChangeStore={onChangeStore}
@@ -395,7 +399,7 @@ export default function ConsoleShell({
               about — the offers the basket nearly qualifies for (171), and the
               one-click add that closes their gap (172). */}
           <GuidanceStrip view={guidance} transactionId={state.transactionId} actions={guidanceActions} />
-        </main>
+        </div>
         <Receipt state={state} submit={submit} />
       </div>
     </div>

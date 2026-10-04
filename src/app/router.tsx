@@ -2,12 +2,15 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
+import type { ShellRouteHandle } from '@/layout/shell-route'
 
-// The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The call
-// center is chromeless but has the palette (395).
+// The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The print
+// routes are chromeless and have no palette.
 const PRINT_ROUTE: PaletteRouteHandle = { print: true }
 // The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
 const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
+// The call center console fills the shell's content area (ticket 407).
+const FILL_CONTENT: ShellRouteHandle = { fill: true }
 
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
@@ -63,23 +66,6 @@ export const router = createBrowserRouter([
     lazy: async () => ({
       Component: (await import('@/features/callcenter/console/__prototype__/CouponSignupPrototypePage')).default,
     }),
-  },
-  // The call-center console (ticket 162). Under the SAME auth guard as every
-  // other screen — session, theme and the 401 path are unchanged — but OUTSIDE
-  // AppShell: the console renders its own full-viewport three-column layout
-  // (map 126 note 13), and hosting it inside the nav chrome would leave it
-  // ~1100px of a 1440px desktop and two competing top bars.
-  {
-    path: '/callcenter',
-    element: <ProtectedLayout chromeless />,
-    children: [
-      {
-        index: true,
-        lazy: async () => ({
-          Component: (await import('@/features/callcenter/console/CallCenterConsolePage')).default,
-        }),
-      },
-    ],
   },
   // The two collection documents' print routes (spec 249, tickets 251 and 252).
   // Top-level and OUTSIDE the AppShell subtree below on purpose: a print page's
@@ -408,6 +394,18 @@ export const router = createBrowserRouter([
         path: 'reports/idoc-inspector',
         lazy: async () => ({
           Component: (await import('@/features/reports/idoc-inspector/IDocInspectorPage')).default,
+        }),
+      },
+      // The call-center console (ticket 162) joins the shell (spec 380 C1, ticket 407):
+      // the rail and the top bar like every screen, the rail as the user's own
+      // preference left it (collapsed unless they pinned it open). It lays itself
+      // out to the content height, its basket and receipt scrolling in their own
+      // columns, so it fills the content area rather than scrolling the page.
+      {
+        path: 'callcenter',
+        handle: FILL_CONTENT,
+        lazy: async () => ({
+          Component: (await import('@/features/callcenter/console/CallCenterConsolePage')).default,
         }),
       },
       {

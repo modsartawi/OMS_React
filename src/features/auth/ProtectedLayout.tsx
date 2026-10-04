@@ -19,9 +19,9 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
   const location = useLocation()
   const hydrated = useSession((s) => s.loaded)
   const setSession = useSession((s) => s.setSession)
-  // The app-wide palette is hosted HERE (spec 380 K7), so chromeless screens have it too.
+  // The app-wide palette is hosted HERE (spec 380 K7), above the shell rather than in it.
   // A route opts out through an explicit `handle` flag (375 R4), never through
-  // `chromeless`: the print routes. The call center is chromeless and has it (395).
+  // `chromeless`: the print routes.
   const hostPalette = !paletteOptedOut(useMatches().map((m) => m.handle))
 
   const me = useQuery({
@@ -37,11 +37,10 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
     if (!hydrated && authenticated) setSession(me.data!)
   }, [hydrated, authenticated, me.data, setSession])
 
-  // The call-center console renders its OWN full-viewport layout inside this
-  // guard's session/auth/theme, not AppShell's nav (map 126 note 13) — so the
+  // A print route renders its OWN page inside this guard's session/auth/theme,
+  // not AppShell's chrome (241: the page's whole body is the document) — so the
   // one place that decides "authenticated" is still this file, and only the
-  // chrome differs. The consequence 134 §8 draws out: a refusal under
-  // `chromeless` has no nav to leave by and must carry its own way home.
+  // chrome differs. The call center joined the shell in ticket 407.
   if (hydrated)
     return (
       <>

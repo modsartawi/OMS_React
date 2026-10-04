@@ -15,7 +15,8 @@
 //   theConsoleOpensAndRendersTheReturnedState
 //     1. a granted agent lands on /callcenter, exactly ONE Open call is made, and the
 //        shell renders the returned header, the empty basket and the engine's totals;
-//     2. no app nav chrome is around it — no sidebar, no shell top bar;
+//     2. it sits inside the rail shell (407): the rail and the top bar are there, and the
+//        console fills the content area below the bar with no page scroll;
 //     3. the receipt's payable is the fixture's `totals.payable`, and *Place order* is
 //        disabled with `submitBlockers` named under it (nothing client-computed);
 //     4. the nav leaf appears for a granted agent, on ONE shared Access call.
@@ -28,6 +29,7 @@
 //     8. the door refusing Open with CONSOLE_NOT_GRANTED (the probe is show/hide
 //        hygiene, never the enforcement) → the denial, with no dead "try again";
 //     9. the leaf is absent from the nav in both refused cases.
+//   (The rail is collapsed by default since 385, so a group reads by its aria-label.)
 //
 // Asserts ticket 163's Proof:
 //   anExistingOrderIsOfferedNotInherited
@@ -1406,9 +1408,18 @@ async function run() {
       blockers.replace(/\s+/g, ' '),
     )
 
-    // Chrome-less: no app nav around it (map 126 note 13).
-    check('no app nav chrome', (await page.locator('nav').count()) === 0)
-    check('the console fills the viewport', (await page.locator('[data-cc-console]').boundingBox()).height >= 880)
+    // In the shell (407, superseding map 126 note 13's chrome-less ruling): the rail and the
+    // top bar are around it, and it fills the content area below the bar — no page scroll.
+    check('the rail is there', await page.locator('#layout-rail').isVisible())
+    check('the top bar is there', await page.locator('#layout-topbar').isVisible())
+    {
+      const bar = await page.locator('#layout-topbar').boundingBox()
+      const box = await page.locator('[data-cc-console]').boundingBox()
+      const fills = Math.abs(box.y - (bar.y + bar.height)) <= 1 && Math.abs(box.y + box.height - 900) <= 1
+      check('the console fills the content area below the top bar', fills, JSON.stringify({ bar, box }))
+      const pageScroll = await page.evaluate(() => document.scrollingElement.scrollHeight - window.innerHeight)
+      check('the page does not scroll', pageScroll <= 0, `${pageScroll}px`)
+    }
 
     // 165 — the rail is live from the first frame, and the caret is already in it.
     check('the empty rail is drawn and live', await page.locator('#cc-phone').isEnabled())
@@ -1426,8 +1437,8 @@ async function run() {
       .locator('nav')
       .first()
       .locator('button, a')
-      .evaluateAll((els) => els.map((e) => e.innerText.trim()))
-    check('the granted agent sees the Call center leaf', labels.some((l) => /call center/i.test(l)), labels.join(' | '))
+      .evaluateAll((els) => els.map((e) => e.innerText.trim() || e.getAttribute('aria-label') || ''))
+    check('the granted agent sees the Call center group (its one leaf, Console, is under it)', labels.some((l) => /call center/i.test(l)), labels.join(' | '))
     check('the leaf costs one Access call', count(calls, /^CallCenterWeb\/Access$/) === 1)
     check('the nav opens no order', count(calls, /^CallCenterWeb\/Open$/) === 0)
     await context.close()
@@ -1442,10 +1453,10 @@ async function run() {
     check('a refused agent gets the denial', (await page.locator('[data-cc-notice]').getAttribute('data-cc-notice')) === 'denied')
     check('a refused console opens NO order', count(calls, /^CallCenterWeb\/Open$/) === 0)
     check('the console itself never renders', (await page.locator('[data-cc-console]').count()) === 0)
-    // 🚩 The whole point of this box: a chrome-less refusal has no nav to leave by.
+    // 🚩 The card's own two ways home (134 §8) — kept since 407 put the rail beside them.
     check('the denial offers Back to the portal', await page.locator('[data-cc-home]').isVisible())
     check('the denial offers Sign out', await page.locator('[data-cc-signout]').isVisible())
-    check('no nav to leave by — which is why the two above matter', (await page.locator('nav').count()) === 0)
+    check('and the rail is a way out too (407)', await page.locator('#layout-rail').isVisible())
 
     // And the way home actually goes home.
     await page.locator('[data-cc-home]').click()
@@ -1509,7 +1520,7 @@ async function run() {
       .locator('nav')
       .first()
       .locator('button, a')
-      .evaluateAll((els) => els.map((e) => e.innerText.trim()))
+      .evaluateAll((els) => els.map((e) => e.innerText.trim() || e.getAttribute('aria-label') || ''))
     check(
       `the leaf is hidden (${scenario.probe === 'unreachable' ? 'probe errored' : 'not granted'})`,
       !labels.some((l) => /call center/i.test(l)),
@@ -1546,8 +1557,8 @@ async function run() {
 
     check('both choices are offered', (await page.locator('[data-cc-resume]').isVisible()) && (await page.locator('[data-cc-start-fresh]').isVisible()))
     check('and no confirmation is up yet', (await page.locator('[data-cc-abandon-dialog]').count()) === 0)
-    // 🚩 A chrome-less screen has no nav to leave by (134 §8) — the choice is a
-    // non-console state like any other and owes the agent both exits.
+    // 🚩 The choice is a non-console state like any other and carries both of
+    // the card's exits (134 §8).
     check(
       'the choice still carries both ways home',
       (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()),
@@ -1776,7 +1787,7 @@ async function run() {
       (await text(page, '[data-cc-notice="sessionClosed"]')).includes(CLOSED_MESSAGE),
     )
     check('it is not retried into the ground', count(calls, /^CallCenterWeb\/State$/) === 1)
-    check('a chrome-less dead end still carries both ways home', (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()))
+    check('a dead end still carries both ways home', (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()))
 
     // Return to the start: a genuinely new open action, which either opens or
     // lands on 163's choice naming the agent's real current order.

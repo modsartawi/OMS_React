@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { apiErrorMessage } from '@/core/api'
 import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 import DetailModal from '@/core/bonus-buy/DetailModal'
+import { useCommands } from '@/core/commands/registry'
 import { confirmAction } from '@/core/services/confirm'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
 import { simulationApi } from './api'
@@ -24,6 +25,7 @@ import SimPromotionsRail from './SimPromotionsRail'
 import SimResultsGrid, { type PromoHot } from './SimResultsGrid'
 import SimRunStrip from './SimRunStrip'
 import { SimStaleResultsNote } from './SimStatusSlot'
+import { processCommand, processRefusal } from './process-command'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
 import { isStaleRun } from './staleness'
@@ -180,7 +182,9 @@ export default function SimulationPage() {
   const [hot, setHot] = useState<PromoHot | null>(null)
 
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
-  const canProcess = validItems.length > 0 && !process.isPending
+  // Why Process cannot run right now — the button's tooltip, the palette row's reason and
+  // the refused chord's toast are these same words (ticket 406).
+  const processReason = processRefusal({ itemCount: validItems.length, pending: process.isPending })
 
   // The request the inputs on screen currently describe. Built once and read
   // twice: Process posts it, and the run strip's chip set reads its determination
@@ -244,25 +248,15 @@ export default function SimulationPage() {
 
   // Ctrl+Enter processes from ANYWHERE — including inside the items grid and the
   // expanded form (102 §6), which is what makes the tweak-one-field-and-re-run loop
-  // mouse-free. Signposted on the button itself (`▶ Process ⌃⏎`). A window listener
-  // rather than a container handler so "anywhere" means anywhere on the screen.
-  const runProcessRef = useRef(runProcess)
-  runProcessRef.current = runProcess
-  const canProcessRef = useRef(canProcess)
-  canProcessRef.current = canProcess
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return
-      // Only swallow the keystroke when it actually starts a run — a shortcut
-      // that eats Ctrl+Enter while the basket is empty or a run is already out
-      // would be a dead key rather than a quiet no-op.
-      if (!canProcessRef.current) return
-      e.preventDefault()
-      runProcessRef.current()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  // mouse-free. It is the registered Process command (ticket 406, spec 380 M2): the
+  // core key layer binds the chord, keeps it inert under a dialog and toasts the reason
+  // a refused press does nothing. The same command is the palette's Process row.
+  // A denied session registers nothing.
+  useCommands(
+    access.data?.canOpen === true
+      ? [processCommand({ reason: processReason, run: runProcess })]
+      : [],
+  )
 
   function clearAll() {
     setHeader(defaultHeader())
@@ -357,7 +351,7 @@ export default function SimulationPage() {
         }
         pending={process.isPending}
         stale={stale}
-        canProcess={canProcess}
+        processReason={processReason}
         onProcess={runProcess}
         onClear={clearAll}
         canClearCache={canClearCache}

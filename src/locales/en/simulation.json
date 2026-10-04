@@ -54,6 +54,12 @@
     "processing": "Processing…",
     "clear": "Clear"
   },
+  "process": {
+    "refused": {
+      "noItems": "Add an item first",
+      "running": "A run is already in progress"
+    }
+  },
   "clearCache": {
     "button": "Clear cache",
     "confirmTitle": "Clear the whole pricing cache?",

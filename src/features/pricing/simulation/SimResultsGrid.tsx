@@ -305,8 +305,12 @@ export default function SimResultsGrid({
   )
 }
 
-/** Enter / Space selects, mirroring a native button. */
+/**
+ * Enter / Space selects, mirroring a native button. A modified press is left alone: Ctrl+Enter
+ * is the screen's Process from anywhere (406), and the key layer skips a press a control took.
+ */
 function onRowKey(e: KeyboardEvent, select: () => void) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     select()

@@ -111,7 +111,7 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
           type="button"
           onClick={addRow}
           disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-full border border-input px-3 py-1 text-xs font-medium hover:bg-accent disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent disabled:opacity-60"
         >
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('manual.addRow')}

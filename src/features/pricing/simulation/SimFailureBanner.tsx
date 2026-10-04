@@ -44,7 +44,7 @@ export default function SimFailureBanner({ error, onOpenSettings }: Props) {
             type="button"
             data-fault-route="settings"
             onClick={onOpenSettings}
-            className="mt-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-medium hover:bg-danger-border/40"
+            className="mt-1.5 rounded-md border border-danger-border px-3 py-1 text-xs font-medium hover:bg-danger-border/40"
           >
             {t('banner.routeSettings')}
           </button>

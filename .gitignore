@@ -70,3 +70,5 @@ tools/.document-spine-shots/
 tools/.document-facts-shots/
 # Note composer + Delivery details keys drive screenshots (tools/document-composer-drive.mjs, ticket 405)
 tools/.document-composer-shots/
+# Simulation Process command drive screenshots (tools/sim-process-drive.mjs, ticket 406)
+tools/.sim-process-shots/

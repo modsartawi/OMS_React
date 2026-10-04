@@ -354,7 +354,8 @@ async function run() {
   // Switch promotions OFF and re-run the same basket.
   await page.locator('[data-chip-set]').click()
   await page.waitForTimeout(150)
-  await page.getByLabel('Promotion').uncheck()
+  // Exact: the navy rail's "Pricing & Promotions" group button (385) matches a loose label.
+  await page.getByLabel('Promotion', { exact: true }).uncheck()
   await page.waitForTimeout(100)
   await process()
   view = await readRail()
@@ -385,7 +386,7 @@ async function run() {
   serving = 'both-kinds'
   await page.locator('[data-chip-set]').click()
   await page.waitForTimeout(150)
-  await page.getByLabel('Promotion').check()
+  await page.getByLabel('Promotion', { exact: true }).check()
   await page.waitForTimeout(100)
   await process()
   view = await readRail()

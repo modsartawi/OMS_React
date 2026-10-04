@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DatabaseZap, Loader2, Play } from 'lucide-react'
 
+import { useKeyHint } from '@/core/commands/key-hint'
 import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import SimHeaderForm, { type SimHeaderState } from './SimHeaderForm'
 import SimStatusSlot, { useSpinnerVisible } from './SimStatusSlot'
+import { PROCESS_KEYS } from './process-command'
 import type { RunChip } from './run-chips'
 
 /**
@@ -78,7 +80,11 @@ interface Props {
   pending: boolean
   /** The inputs no longer describe the on-screen result (`staleness.ts`, 114). */
   stale: boolean
-  canProcess: boolean
+  /**
+   * Why Process cannot run right now, as an i18n key (`process-command.ts`), or `null`
+   * when it can. The button's tooltip, the palette row and the refused chord say it alike.
+   */
+  processReason: string | null
   onProcess: () => void
   onClear: () => void
   canClearCache: boolean
@@ -99,7 +105,7 @@ export default function SimRunStrip({
   money,
   pending,
   stale,
-  canProcess,
+  processReason,
   onProcess,
   onClear,
   canClearCache,
@@ -111,6 +117,10 @@ export default function SimRunStrip({
   // One waiting, one timer: the status slot's spinner and the Process button's
   // both wait 150 ms (ticket 114), so an ordinary 184–268 ms run shows neither.
   const spinner = useSpinnerVisible(pending)
+
+  // "Process (Ctrl+Enter)" and `aria-keyshortcuts` (365 §9) — a chord's hint, so it never
+  // hides with the single-key switch. A refused Process explains itself instead.
+  const processHint = useKeyHint(PROCESS_KEYS)
 
   // `Esc` collapses and returns focus HERE, never to the document (102 §6) — so
   // the chip set has to be reachable from inside the expansion.
@@ -159,8 +169,10 @@ export default function SimRunStrip({
       <button
         type="button"
         onClick={onProcess}
-        disabled={!canProcess}
-        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 @[900px]/work:px-4"
+        disabled={processReason !== null}
+        aria-keyshortcuts={processHint.ariaKeyShortcuts}
+        title={processReason !== null ? t(processReason) : processHint.title(t('actions.process'))}
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 @[900px]/work:px-4"
       >
         {/* The icon swaps on the SHARED 150 ms flag, not on `pending` — a spinner
             that flashed here while the slot held still would be two answers to
@@ -188,7 +200,7 @@ export default function SimRunStrip({
         type="button"
         onClick={onClear}
         disabled={pending}
-        className="inline-flex h-8 items-center rounded-full border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
+        className="inline-flex h-8 items-center rounded-md border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
       >
         {t('actions.clear')}
       </button>
@@ -197,7 +209,7 @@ export default function SimRunStrip({
           type="button"
           onClick={onClearCache}
           disabled={pending || clearCachePending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
         >
           {clearCachePending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

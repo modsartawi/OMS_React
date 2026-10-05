@@ -71,6 +71,16 @@
 //  36. a re-upload reaching a locked serial is refused: its row, serial, code and the server's
 //      text naming number and status (EN + AR), row 0 the whole file, nothing written, no refetch.
 //
+// Ticket 420 — the six Engine Rules lists and the coupon template's origin filter are multi-line
+// paste boxes (BackOffice spec 2396 stories 34-39; 2400 and 2403 open). No new door: the client
+// normalises each list as the server stores it, so the save bodies are what is asserted. The
+// coupon template's SHIPPED CouponsAdminWeb Access + Templates (create) are stubbed for step 41.
+//  37. six textareas, none with a maxlength (a browser cap would cut a pasted column).
+//  38. a pasted 500-row CRLF column of store codes keeps every row: "500 codes".
+//  39. the cap reads the normalised length and stays 50 until 2403: past it the box says so.
+//  40. Save sends each list as the server's comma list; loyalty groups and tiers upper-cased.
+//  41. a coupon template's origin filter: the same box, count and cap; create sends the comma list.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -270,6 +280,16 @@ async function run() {
       return route.fulfill(envelope(PROMO))
     }
     if (path === `BbyMaintainWeb/Promotion/${EMPTY.promoNumber}`) return route.fulfill(envelope(EMPTY))
+    // Ticket 420: the coupon template door, in its SHIPPED shape (517).
+    if (path === 'CouponsAdminWeb/Access') return route.fulfill(envelope({ canAdmin: true, canSupport: true }))
+    if (path === 'CouponsAdminWeb/Templates' && req.method() === 'POST') {
+      const body = JSON.parse(req.postData() || '{}')
+      posts.push(['CouponsAdminWeb/Templates', body])
+      return route.fulfill(envelope({
+        ...body, totalRedemptionCount: 0, isDisabled: false,
+        createdAt: '2026-10-05T12:00:00', createdBy: 'msartawi', updatedAt: null, updatedBy: '',
+      }))
+    }
     return route.fulfill(envelope({}))
   })
 
@@ -868,6 +888,104 @@ async function run() {
     check('36. no raw i18n keys', k421 === null, (k421 || [''])[0])
     await page.screenshot({ path: 'tools/.bby-maintenance-shots/upload-locked.png' }).catch(() => {})
     await udlg.locator('button', { hasText: /^Close$/ }).click()
+  }
+
+  // ════════ Ticket 420 — paste boxes (spec 2396) ════════
+  {
+    const EDIT = `${ROOT}/${PROMO.promoNumber}/bonus-buy`
+    const strip = (s) => s.replace(/[⁦-⁩]/g, '')
+    // A real clipboard paste, as an Excel column arrives: CRLF rows and a trailing CRLF.
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
+    const paste = async (box, value) => {
+      await box.click()
+      await box.press('ControlOrMeta+a')
+      await box.press('Delete')
+      await page.evaluate((v) => navigator.clipboard.writeText(v), value)
+      await box.press('ControlOrMeta+v')
+    }
+    const meter = async (testid) => strip(await page.locator(`[data-testid="${testid}"]`).innerText())
+    const STORES = Array.from({ length: 500 }, (_, i) => `C${String(i + 1).padStart(3, '0')}`)
+
+    await page.goto(`${EDIT}/OMS000000124`)
+    await page.waitForSelector('h1:has-text("Change Bonus Buy")')
+    await page.getByRole('tab', { name: 'Engine Rules' }).click()
+
+    // ── 37. six textareas, no maxlength ──
+    let shape = 0
+    for (const k of ['includes', 'excludes', 'originFilter', 'stackingExcludes', 'loyGroups', 'loyTiers']) {
+      const box = page.locator(`[data-testid="bby-engine-${k}"]`)
+      if ((await box.evaluate((el) => el.tagName)) === 'TEXTAREA' && (await box.getAttribute('maxlength')) === null) shape++
+    }
+    check('37. the six Engine Rules lists are textareas with no maxlength', shape === 6, `${shape}/6`)
+
+    // ── 38. a 500-row column lands whole ──
+    const origin = page.locator('[data-testid="bby-engine-originFilter"]')
+    await paste(origin, STORES.join('\r\n') + '\r\n')
+    const rows = (await origin.inputValue()).split('\n').filter((r) => r.trim() !== '').length
+    check('38. the pasted column keeps its newlines in the box', rows === 500, String(rows))
+    const m500 = await meter('bby-engine-meter-originFilter')
+    check('38. the box says it holds 500 codes', m500.includes('500 codes'), m500)
+
+    // ── 39. the cap reads the normalised length, 50 until 2403 ──
+    check('39. 500 codes are 2499 characters stored, past the 50 cap, and the box says so',
+      m500.includes('2499 / 50 characters') && m500.includes('Over the 50-character limit') &&
+        (await page.locator('[data-testid="bby-engine-meter-originFilter"]').getAttribute('data-over')) === 'true', m500)
+    // 10 codes of 4: 60 characters as pasted (CRLF), 49 stored. Under the cap although the paste is longer.
+    await paste(origin, STORES.slice(0, 10).join('\r\n') + '\r\n')
+    const m10 = await meter('bby-engine-meter-originFilter')
+    check('39. a 10-row column is 49 characters stored, under the cap',
+      m10.includes('10 codes') && m10.includes('49 / 50 characters') && !m10.includes('Over'), m10)
+
+    // ── 40. Save sends the server's comma lists ──
+    await paste(page.locator('[data-testid="bby-engine-includes"]'), '200033\t200044\r\n200055')
+    await paste(page.locator('[data-testid="bby-engine-stackingExcludes"]'), ' OMS000000001\r\n')
+    await paste(page.locator('[data-testid="bby-engine-loyTiers"]'), 'gold\r\nsilver\r\n')
+    const one = await meter('bby-engine-meter-stackingExcludes')
+    check('40. the count reads 1 code, 2 codes, 0 codes',
+      one.includes('1 code') && !one.includes('1 codes') && (await meter('bby-engine-meter-loyTiers')).includes('2 codes') &&
+        (await meter('bby-engine-meter-excludes')).includes('0 codes'), one)
+    const saveBefore = saveAnswer
+    saveAnswer = 'saved'
+    posts.length = 0
+    await page.locator('button', { hasText: /^Save$/ }).click()
+    await page.waitForFunction(() => document.body.innerText.includes('Saved.'), null, { timeout: 5000 }).catch(() => {})
+    const er = posts.find(([op]) => op === 'BonusBuy/Save')?.[1]?.engineRules
+    check('40. the origin filter goes up as a comma list',
+      er?.originFilter === STORES.slice(0, 10).join(','), JSON.stringify(er?.originFilter))
+    check('40. a tab and a newline are both separators, and pieces are trimmed',
+      er?.includes === '200033,200044,200055' && er?.stackingExcludes === 'OMS000000001', JSON.stringify(er))
+    check('40. loyalty tiers are upper-cased, an empty list is null',
+      er?.loyTiers === 'GOLD,SILVER' && er?.excludes === null, JSON.stringify(er))
+    saveAnswer = saveBefore
+    const k420 = await rawKey()
+    check('40. no raw i18n keys', k420 === null, (k420 || [''])[0])
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/engine-paste.png', fullPage: true }).catch(() => {})
+
+    // ── 41. the coupon template's origin filter ──
+    await page.goto(BASE + '/pricing/coupons')
+    const cbox = page.locator('[data-testid="coupon-template-origin-filter"]')
+    await cbox.waitFor()
+    check('41. the template origin filter is a textarea with no maxlength',
+      (await cbox.evaluate((el) => el.tagName)) === 'TEXTAREA' && (await cbox.getAttribute('maxlength')) === null)
+    await paste(cbox, STORES.join('\r\n') + '\r\n')
+    const c500 = await meter('coupon-template-origin-meter')
+    check('41. a 500-row column: 500 codes, past the 50 cap',
+      c500.includes('500 codes') && c500.includes('2499 / 50 characters') && c500.includes('Over the 50-character limit'), c500)
+    await paste(cbox, 'c001\r\nc002\tc003\r\n')
+    const c3 = await meter('coupon-template-origin-meter')
+    check('41. three codes, 14 characters stored', c3.includes('3 codes') && c3.includes('14 / 50 characters'), c3)
+    const tplPanel = page.locator('[role="tabpanel"]:not([hidden])')
+    await tplPanel.getByLabel('Template ID', { exact: true }).fill('TPL-420')
+    await tplPanel.getByLabel('Material number').fill('COUP420')
+    posts.length = 0
+    await page.locator('button', { hasText: /^Create$/ }).click()
+    await page.waitForFunction(() => document.body.innerText.includes('Editing'), null, { timeout: 5000 }).catch(() => {})
+    const tpl = posts.find(([op]) => op === 'CouponsAdminWeb/Templates')?.[1]
+    check('41. create sends the origin filter as the comma list the server stores, case kept',
+      tpl?.originFilter === 'c001,c002,c003', JSON.stringify(tpl?.originFilter))
+    const tk = (await text()).match(/(?:coupons:)?templates\.[a-zA-Z.]+/)
+    check('41. no raw i18n keys on the template form', tk === null, (tk || [''])[0])
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/coupon-template-paste.png', fullPage: true }).catch(() => {})
   }
 
   // ── 11. hygiene ──

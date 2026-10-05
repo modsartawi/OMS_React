@@ -12,10 +12,13 @@ import type {
   BbyMaintainOutcome,
 } from '@/core/models/bonus-buy-maintenance'
 import {
+  ENGINE_LIST_MAX,
+  ORIGIN_FILTER_MAX,
   buyPanelLayout,
   currPe,
   editorAccess,
   emptyBuyLine,
+  engineListMeter,
   formChanged,
   fromDocument,
   getPanelLayout,
@@ -223,6 +226,51 @@ describe('editor state maps to the BonusBuy/Save request and back', () => {
       includes: null, excludes: null, originFilter: null, stackingExcludes: null, loyGroups: null, loyTiers: null,
       isStackable: false, maxValue: 0, score: 0, validFromTime: null, validToTime: null,
     })
+  })
+
+  // Ticket 420 (spec 2396 stories 35–37): a pasted Excel column goes up as the comma list the
+  // server stores, so the client never relies on the server's separator set being 2400's yet.
+  it('a pasted column goes up as the comma list the server stores; loyalty groups and tiers upper-cased', () => {
+    const s = newEditor(PROMO)
+    const r = toRequest({
+      ...s,
+      engine: {
+        ...s.engine,
+        includes: '200033\r\n200044\r\n',
+        excludes: '200055\t200066',
+        originFilter: '1186\n1188\n1186',
+        stackingExcludes: ' OMS000000001 ',
+        loyGroups: 'gold\r\nsilver',
+        loyTiers: 't1\tt2',
+      },
+    }).engineRules
+    expect(r).toMatchObject({
+      includes: '200033,200044',
+      excludes: '200055,200066',
+      originFilter: '1186,1188,1186',
+      stackingExcludes: 'OMS000000001',
+      loyGroups: 'GOLD,SILVER',
+      loyTiers: 'T1,T2',
+    })
+    // A box holding only separators is no restriction, as a blank one is.
+    expect(toRequest({ ...s, engine: { ...s.engine, originFilter: '\r\r\n\t' } }).engineRules.originFilter).toBeNull()
+  })
+
+  it('origin filter cap follows the shipped width', () => {
+    // ⚠ 50 until BackOffice 2403 ships the 3000-character column everywhere: then ORIGIN_FILTER_MAX flips.
+    expect(ORIGIN_FILTER_MAX).toBe(50)
+    expect(ENGINE_LIST_MAX.originFilter).toBe(ORIGIN_FILTER_MAX)
+    // The cap is checked against the normalised list, which is what the server checks.
+    const ten = Array.from({ length: 10 }, (_, i) => String(1180 + i)).join('\r\n') + '\r\n' // 49 stored
+    expect(engineListMeter('originFilter', ten)).toMatchObject({ count: 10, length: 49, max: 50, over: false })
+    expect(engineListMeter('originFilter', ten + '11')).toMatchObject({ count: 11, length: 52, over: true })
+    // The other five keep their caps.
+    expect(ENGINE_LIST_MAX).toMatchObject({ includes: 500, excludes: 500, stackingExcludes: 500, loyGroups: 500, loyTiers: 500 })
+  })
+
+  it('the code count matches the normalised list, upper-cased where the server upper-cases', () => {
+    expect(engineListMeter('loyTiers', 'gold\r\nsilver\r\n')).toMatchObject({ normalised: 'GOLD,SILVER', count: 2 })
+    expect(engineListMeter('includes', 'a\tb')).toMatchObject({ normalised: 'a,b', count: 2 })
   })
 
   it('time of day is HHmmss on the wire and HH:mm:ss in the time box', () => {

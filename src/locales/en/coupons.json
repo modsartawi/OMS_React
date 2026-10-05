@@ -115,6 +115,11 @@
     "createHint": "Template ID, redemption limits and code prefix are fixed once created.",
     "saveHint": "Redemption limits and code prefix cannot be changed after create.",
     "redeemedSoFar": "Redeemed so far: {{count}}",
+    "originFilterHint": "Paste a column or row from Excel, or separate codes with commas, spaces or new lines.",
+    "originFilterCount_one": "{{n}} code",
+    "originFilterCount_other": "{{n}} codes",
+    "originFilterLength": "{{used}} characters",
+    "originFilterOverCap": "Over the {{max}}-character limit.",
     "fields": {
       "templateId": "Template ID",
       "materialNumber": "Material number",

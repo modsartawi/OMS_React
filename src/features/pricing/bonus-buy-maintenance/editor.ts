@@ -10,6 +10,7 @@
  * `toRequest`. A blank amount is 0, which the server's validator refuses where 0 is wrong
  * (`BBY-QUANTITY`, `BBY-VALUE-RANGE`): the client never decides that a value is acceptable.
  */
+import { type CodeListMeter, codeListMeter, normaliseCodeList } from '@/core/util/code-list'
 import { formatDay } from '@/core/util/date-format'
 import type {
   BbyBonusBuyDocument,
@@ -92,6 +93,39 @@ export interface EngineRules {
   validFromTime: string
   validToTime: string
 }
+
+/** The six Engine Rules lists: codes pasted or typed into a multi-line box (ticket 420). */
+export type EngineListKey = 'includes' | 'excludes' | 'originFilter' | 'stackingExcludes' | 'loyGroups' | 'loyTiers'
+export const ENGINE_LISTS: readonly EngineListKey[] = ['includes', 'excludes', 'originFilter', 'stackingExcludes', 'loyGroups', 'loyTiers']
+
+/**
+ * The origin filter's width (spec 2374: `BbyMaintainWidths.OriginFilter` 50). ⚠ Flip to 3000 only
+ * with or after BackOffice 2403 (spec 2396 story 34): until every store's column is widened, the
+ * server keeps refusing past 50.
+ */
+export const ORIGIN_FILTER_MAX = 50
+/** The width each list's box shows its stored length against (the other five kept from 2374). */
+export const ENGINE_LIST_MAX: Record<EngineListKey, number> = {
+  includes: 500,
+  excludes: 500,
+  originFilter: ORIGIN_FILTER_MAX,
+  stackingExcludes: 500,
+  loyGroups: 500,
+  loyTiers: 500,
+}
+/** The server upper-cases these two lists, and no other (`BbyMaintainValidator`). */
+const UPPER_LISTS: ReadonlySet<EngineListKey> = new Set<EngineListKey>(['loyGroups', 'loyTiers'])
+
+const normaliseEngineList = (key: EngineListKey, value: string): string =>
+  normaliseCodeList(value, { upper: UPPER_LISTS.has(key) })
+
+/**
+ * What a list box shows beside it: how many codes it holds, and the stored length against its cap.
+ * Both read the list as the server will store it, never the raw paste. Over the cap is shown, not
+ * blocked: the server's width refusal is the one that decides.
+ */
+export const engineListMeter = (key: EngineListKey, value: string): CodeListMeter =>
+  codeListMeter(value, ENGINE_LIST_MAX[key], { upper: UPPER_LISTS.has(key) })
 
 export interface EditorState {
   bbyNumber: string | null
@@ -291,12 +325,14 @@ export function toRequest(s: EditorState): BbyBonusBuyWire {
     linkCategoryBuy: s.linkBuy,
     linkCategoryGet: s.linkGet,
     engineRules: {
-      includes: orNull(s.engine.includes),
-      excludes: orNull(s.engine.excludes),
-      originFilter: orNull(s.engine.originFilter),
-      stackingExcludes: orNull(s.engine.stackingExcludes),
-      loyGroups: orNull(s.engine.loyGroups),
-      loyTiers: orNull(s.engine.loyTiers),
+      // Each list goes up as the comma list the server stores (ticket 420), so a pasted column is
+      // whole even on a server that does not yet split on newline and tab (BackOffice 2400).
+      includes: orNull(normaliseEngineList('includes', s.engine.includes)),
+      excludes: orNull(normaliseEngineList('excludes', s.engine.excludes)),
+      originFilter: orNull(normaliseEngineList('originFilter', s.engine.originFilter)),
+      stackingExcludes: orNull(normaliseEngineList('stackingExcludes', s.engine.stackingExcludes)),
+      loyGroups: orNull(normaliseEngineList('loyGroups', s.engine.loyGroups)),
+      loyTiers: orNull(normaliseEngineList('loyTiers', s.engine.loyTiers)),
       isStackable: s.engine.isStackable,
       maxValue: num(s.engine.maxValue),
       score: num(s.engine.score),

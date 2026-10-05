@@ -3,6 +3,8 @@
 // browser preview matches what the server will accept — but the server remains the
 // authority: on submit (519) it re-dedupes and re-enforces the 100k cap as the backstop.
 
+import { type CodeListMeter, codeListMeter } from '@/core/util/code-list'
+
 export const MAX_LINE_LENGTH = 256
 export const MAX_CODES = 100_000
 
@@ -72,3 +74,12 @@ export function formatStamp(iso: string | null): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
+
+/**
+ * The template's origin filter (ticket 420, spec 2396 story 39): the same paste box, normaliser and
+ * cap as the bonus buy's. ⚠ Flip to 3000 only with or after BackOffice 2403.
+ */
+export const TEMPLATE_ORIGIN_FILTER_MAX = 50
+
+/** How many codes the origin filter holds, and its stored length against the cap. Never upper-cased. */
+export const templateOriginFilterMeter = (value: string): CodeListMeter => codeListMeter(value, TEMPLATE_ORIGIN_FILTER_MAX)

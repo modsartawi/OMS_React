@@ -101,30 +101,35 @@ export interface PromotionFlipView {
 /**
  * Promotion activation is all-or-nothing (BackOffice 2380): one refusal activates none,
  * and the answer lists every refused bonus buy. So a refused outcome is `changed: false`
- * and **every** refusal is kept, grouped by the bonus buy it names — none dropped, none
- * collapsed to "the first". A refusal naming no bonus buy groups under the promotion.
+ * and **every** refusal is kept, per bonus buy — none dropped, none collapsed to "the
+ * first". The shipped result names them in `bonusBuys[]` (`BbyMaintainItemResult`); its flat
+ * `refusals[]` names no bonus buy. A refusal outside every item (a promotion-level one) is
+ * listed under the promotion, so it is never lost either.
  */
 export function readPromotionFlip(promoNumber: string, outcome: BbyMaintainOutcome): PromotionFlipView {
   if (outcome.status === 'notFound') return { changed: false, notFound: true, refused: [] }
   if (outcome.status !== 'refused') return { changed: true, notFound: false, refused: [] }
-  const groups = new Map<string, BbyRefusal[]>()
-  for (const r of outcome.refusals ?? []) {
-    const key = r.number || promoNumber
-    const list = groups.get(key)
-    if (list) list.push(r)
-    else groups.set(key, [r])
-  }
-  return {
-    changed: false,
-    notFound: false,
-    refused: [...groups].map(([number, refusals]) => ({ number, refusals })),
-  }
+  const refused = (outcome.bonusBuys ?? [])
+    .filter((b) => (b.refusals ?? []).length > 0)
+    .map((b) => ({ number: b.number, refusals: b.refusals }))
+  const loose: BbyRefusal[] = (outcome.refusals ?? []).filter(
+    (r) => !refused.some((g) => g.refusals.some((x) => sameRefusal(x, r))),
+  )
+  if (loose.length > 0) refused.push({ number: promoNumber, refusals: loose })
+  return { changed: false, notFound: false, refused }
 }
+
+const sameRefusal = (a: BbyRefusal, b: BbyRefusal) =>
+  a.code === b.code && a.english === b.english && a.arabic === b.arabic
 
 /** Delete promotion is offered only while it holds no bonus buys (spec 2374, SAP's rule). */
 export function canDeletePromotion(promo: Pick<BbyPromotion, 'bonusBuys'> | null | undefined): boolean {
-  return !!promo && promo.bonusBuys.length === 0
+  return !!promo && (promo.bonusBuys ?? []).length === 0
 }
+
+/** GET Promotion/{number} answers a gone promotion in-band (`status: 'notFound'`), not as a 404. */
+export const isPromotionNotFound = (promo: Pick<BbyPromotion, 'status'> | null | undefined): boolean =>
+  promo?.status === 'notFound'
 
 /** The editor page (ticket 417) for a mode. `new` is Create; Display rides a query flag. */
 export type EditorMode = 'create' | 'change' | 'display'

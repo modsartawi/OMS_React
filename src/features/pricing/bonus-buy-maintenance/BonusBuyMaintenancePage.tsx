@@ -8,7 +8,7 @@ import { Plus } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import type { BbyPromotionListItem, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
+import type { BbyPromotion, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
@@ -47,7 +47,7 @@ function PromotionList() {
   const [creating, setCreating] = useState(false)
   const list = useQuery({ queryKey: promotionListKey, queryFn: () => bbyMaintainApi.promotions() })
 
-  const columns = useMemo<ColDef<BbyPromotionListItem>[]>(
+  const columns = useMemo<ColDef<BbyPromotion>[]>(
     () => [
       { field: 'promoNumber', headerName: t('list.col.promoNumber'), width: 140 },
       { field: 'name', headerName: t('list.col.name'), flex: 1, minWidth: 220 },
@@ -58,11 +58,17 @@ function PromotionList() {
         valueGetter: (p) =>
           p.data ? formatRange(formatDay(p.data.salesFrom), formatDay(p.data.salesTo)) : '',
       },
-      { field: 'bonusBuyCount', headerName: t('list.col.count'), width: 130, type: 'rightAligned' },
+      {
+        colId: 'count',
+        headerName: t('list.col.count'),
+        width: 130,
+        type: 'rightAligned',
+        valueGetter: (p) => p.data?.bonusBuys?.length ?? 0,
+      },
     ],
     [t],
   )
-  const defaultColDef = useMemo<ColDef<BbyPromotionListItem>>(
+  const defaultColDef = useMemo<ColDef<BbyPromotion>>(
     () => ({ ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true }),
     [],
   )
@@ -82,7 +88,7 @@ function PromotionList() {
         <p className="text-sm text-muted-foreground">{t('list.empty')}</p>
       ) : (
         <div className="h-[28rem]">
-          <AgGridReact<BbyPromotionListItem>
+          <AgGridReact<BbyPromotion>
             theme={omsGridTheme}
             rowData={list.data ?? null}
             columnDefs={columns}

@@ -112,15 +112,175 @@
     "run": "Copy",
     "cancel": "Cancel"
   },
-  "refusals": {
-    "field": "Field: {{field}}"
-  },
   "editor": {
     "createTitle": "Create Bonus Buy",
     "changeTitle": "Change Bonus Buy",
     "displayTitle": "Display Bonus Buy",
     "subtitle": "Promotion {{promo}}",
-    "pending": "The bonus-buy editor arrives with the next build.",
-    "back": "Back to the promotion"
+    "back": "Back to the promotion",
+    "loadFailed": "The bonus buy could not be loaded.",
+    "notFound": "Bonus buy {{number}} does not exist. It may have been deleted by someone else.",
+    "actFailed": "The action could not be completed.",
+    "check": "Check",
+    "save": "Save",
+    "grouping": "Local Material Grouping",
+    "copy": "Copy",
+    "copyRefused": "The bonus buy was not copied:",
+    "copied": "Copied. This is the new Planned bonus buy.",
+    "reload": "Reload",
+    "warnings": "Warnings",
+    "readOnly": {
+      "display": "Display only. Use Change to edit this bonus buy, or Copy to start a new one from it.",
+      "sap": "This is a SAP bonus buy. It can be displayed and copied, never changed here."
+    },
+    "outcome": {
+      "check": {
+        "valid": "Check passed. Nothing was saved.",
+        "saved": "Check passed. Nothing was saved.",
+        "refused": "Check found problems. Nothing was saved.",
+        "stale": "This bonus buy was changed after you opened it. Reload it, then make your change again.",
+        "notFound": "This bonus buy no longer exists."
+      },
+      "save": {
+        "valid": "Saved.",
+        "saved": "Saved.",
+        "refused": "Not saved. Fix these first:",
+        "stale": "Not saved. This bonus buy was changed after you opened it. Reload it, then make your change again.",
+        "notFound": "Not saved. This bonus buy no longer exists."
+      }
+    },
+    "tab": {
+      "header": "Header Data",
+      "engine": "Engine Rules",
+      "promotion": "Promotion Data",
+      "history": "History of Changes"
+    },
+    "header": {
+      "number": "Bonus Buy",
+      "minted": "Given when you save",
+      "text": "Bonus buy text",
+      "status": "Status",
+      "profile": "Bonus Buy Profile",
+      "profileName": "DWA-BB Profile chain",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "currency": "Bonus Buy Currency",
+      "limit": "Limit Number"
+    },
+    "org": {
+      "title": "Organizational Data",
+      "type": "Organizational Type",
+      "type01": "01 Organization",
+      "salesOrg": "Sales Organization",
+      "salesOrgName": "Sales Organization Name",
+      "channel": "Distr. Channel",
+      "channelName": "Distribution Channel Name",
+      "salesOrg1000": "Al-Dawaa Domestic",
+      "channel20": "Retail"
+    },
+    "details": "Bonus Buy Details",
+    "buy": {
+      "title": "Buy",
+      "minValue": "Total Minimum Value",
+      "minAmount": "Minimum value amount"
+    },
+    "get": {
+      "title": "Get",
+      "totalDiscount": "Total Discount"
+    },
+    "link": {
+      "label": "Link Category",
+      "A": "A AND Link",
+      "O": "O OR Link"
+    },
+    "col": {
+      "type": "Line Item Type",
+      "identifier": "Line Item Identifier",
+      "description": "Line Item Description",
+      "prereqQuantity": "Prereq. Quantity",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "scaleType": "Scale Type",
+      "discountType": "Discount Type",
+      "value": "Value",
+      "currPe": "Curr/Pe"
+    },
+    "line": {
+      "type": {
+        "material": "Material",
+        "grouping": "Material grouping"
+      },
+      "pickGrouping": "Pick a grouping",
+      "noDescription": "–",
+      "descriptionPending": "Material descriptions are not shown yet. Check and Save still refuse a material that is not in the item master.",
+      "groupingMissing": "Not in this bonus buy's groupings",
+      "members_one": "{{n}} material",
+      "members_other": "{{n}} materials",
+      "add": "Add line",
+      "remove": "Remove line {{n}}"
+    },
+    "scale": {
+      "A": "From",
+      "B": "Up To",
+      "C": "Equal"
+    },
+    "discount": {
+      "P": "Discount Price",
+      "R": "Discount Amount",
+      "percent": "Discount Percent"
+    },
+    "exVat": "ex VAT",
+    "total": {
+      "title": "Total Discount",
+      "discountType": "Discount Type",
+      "value": "Discount Value",
+      "hint": "A Price is a bundle price: the Get lines together cost this much. With an empty Get grid it is the basket's price."
+    },
+    "promotionData": {
+      "number": "Promotion",
+      "name": "Name",
+      "window": "Sales window"
+    },
+    "history": {
+      "at": "Changed at",
+      "by": "Changed by",
+      "act": "Change",
+      "lastWritten": "Last saved",
+      "none": "A new bonus buy has no history yet.",
+      "pending": "Only the last save is shown. The full list of changes needs a server read that does not exist yet."
+    }
+  },
+  "engine": {
+    "hint": "These are the settings the engine reads that SAP's screen lacks. Leave a field empty for no restriction.",
+    "includes": "Includes",
+    "excludes": "Excludes",
+    "originFilter": "Origin filter",
+    "stackingExcludes": "Stacking excludes",
+    "loyGroups": "Loyalty groups",
+    "loyTiers": "Loyalty tiers",
+    "isStackable": "Stackable",
+    "score": "Score",
+    "maxValue": "Max value",
+    "maxValueUnavailable": "Unavailable until the engine update.",
+    "timeFrom": "Time of day from",
+    "timeTo": "Time of day to",
+    "timeHint": "Set both or neither. A window past midnight is allowed."
+  },
+  "grouping": {
+    "title": "Local Material Grouping",
+    "existing": "Grouping",
+    "new": "New grouping",
+    "id": "Material Grouping",
+    "status": "Status",
+    "createdManually": "Created Manually",
+    "assignment": "Assignment – Materials",
+    "col": {
+      "material": "Material",
+      "description": "Material Description",
+      "unit": "Sales unit"
+    },
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close"
   }
 }

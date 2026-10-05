@@ -5,15 +5,16 @@
  * a refusal, a delete of an activated bonus buy, a stale version — are in-band 200s carrying
  * a `BbyMaintainOutcome`; HTTP errors are infrastructure only (403 without the grant).
  *
- * ⚠️ BackOffice 2376 and 2380 had not shipped when this was built: every route here is the
- * spec's contract table, and the drive stubs them all.
+ * The routes match the shipped `BbyMaintainWebEndpoints` (BackOffice 2376–2382, reconciled at
+ * ticket 417). The drive still stubs them: no dev SIS.Api is known to carry the doors yet.
  */
 import { api } from '@/core/api'
 import type {
+  BbyBonusBuyDocument,
+  BbyBonusBuyWire,
   BbyMaintainAccessResult,
   BbyMaintainOutcome,
   BbyPromotion,
-  BbyPromotionListItem,
   BbyPromotionSave,
 } from '@/core/models/bonus-buy-maintenance'
 
@@ -43,14 +44,15 @@ export const canOpenBbyMaintain = (r: BbyMaintainAccessResult | null | undefined
 export const promotionListKey = ['bonus-buy-maintenance', 'promotions'] as const
 export const promotionKey = (promoNumber: string) =>
   ['bonus-buy-maintenance', 'promotion', promoNumber] as const
+export const bonusBuyKey = (bbyNumber: string) => ['bonus-buy-maintenance', 'bonus-buy', bbyNumber] as const
 
 export const bbyMaintainApi = {
   access(): Promise<BbyMaintainAccessResult> {
     return api.get<BbyMaintainAccessResult>(`${BASE}/Access`)
   },
 
-  promotions(): Promise<BbyPromotionListItem[]> {
-    return api.get<BbyPromotionListItem[]>(`${BASE}/Promotion/List`)
+  promotions(): Promise<BbyPromotion[]> {
+    return api.get<BbyPromotion[]>(`${BASE}/Promotion/List`)
   },
 
   promotion(promoNumber: string): Promise<BbyPromotion> {
@@ -84,6 +86,22 @@ export const bbyMaintainApi = {
 
   delete(bbyNumber: string): Promise<BbyMaintainOutcome> {
     return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/Delete`, { bbyNumber })
+  },
+
+  /** The whole bonus buy, SAP (read-only) or OMS, plus the `version` a change sends back (2379).
+   *  A number naming nothing is an in-band `status: 'notFound'`. */
+  bonusBuy(bbyNumber: string): Promise<BbyBonusBuyDocument> {
+    return api.get<BbyBonusBuyDocument>(`${BASE}/BonusBuy/${encodeURIComponent(bbyNumber)}`)
+  },
+
+  /** Check: the dry run of Save — every refusal and warning, writing nothing (`valid` | `refused`). */
+  validate(body: BbyBonusBuyWire): Promise<BbyMaintainOutcome> {
+    return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/Validate`, body)
+  },
+
+  /** Create (no number: the server mints `OMS…`, Planned) or change, at the version it read. */
+  save(body: BbyBonusBuyWire): Promise<BbyMaintainOutcome> {
+    return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/Save`, body)
   },
 
   /** Any bonus buy, SAP or OMS → a new Planned `OMS…` under `promoNumber`. */

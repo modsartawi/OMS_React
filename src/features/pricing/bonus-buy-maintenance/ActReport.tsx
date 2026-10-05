@@ -1,6 +1,4 @@
-import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
-import { fsi } from '@/core/util/bidi'
 import type { BbyRefusal } from '@/core/models/bonus-buy-maintenance'
 
 /**
@@ -20,10 +18,11 @@ export interface Report {
   title: string
   tone: 'ok' | 'bad'
   rows: ReportRow[]
+  /** The editor's stale-version refusal: the page offers a reload beside the report. */
+  stale?: boolean
 }
 
 export function RefusalList({ refusals }: { refusals: BbyRefusal[] }) {
-  const { t } = useTranslation('bonus-buy-maintenance')
   if (refusals.length === 0) return null
   return (
     <ul className="mt-1 flex flex-col gap-1 ps-4">
@@ -32,15 +31,10 @@ export function RefusalList({ refusals }: { refusals: BbyRefusal[] }) {
           <span className="font-mono text-muted-foreground">
             <Ltr>{r.code}</Ltr>
           </span>{' '}
-          <bdi>{r.en}</bdi>
-          {r.ar && (
-            <div className="text-muted-foreground">
-              <bdi dir="rtl">{r.ar}</bdi>
-            </div>
-          )}
-          {r.field && (
-            <div className="text-muted-foreground">
-              {t('refusals.field', { field: fsi(r.field) })}
+          <bdi>{r.english}</bdi>
+          {r.arabic && (
+            <div className="text-muted-foreground" lang="ar">
+              <bdi dir="rtl">{r.arabic}</bdi>
             </div>
           )}
         </li>

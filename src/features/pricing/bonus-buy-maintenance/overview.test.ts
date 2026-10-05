@@ -14,11 +14,10 @@ import {
 } from './overview'
 
 const ok = (number: string): BbyMaintainOutcome => ({ status: 'saved', number, refusals: [], warnings: [] })
-const refusal = (code: string, number?: string): BbyRefusal => ({
+const refusal = (code: string): BbyRefusal => ({
   code,
-  en: `${code} in English`,
-  ar: `${code} بالعربية`,
-  number,
+  english: `${code} in English`,
+  arabic: `${code} بالعربية`,
 })
 const refused = (...refusals: BbyRefusal[]): BbyMaintainOutcome => ({
   status: 'refused',
@@ -89,24 +88,33 @@ describe('multi-select activate reports each number outcome and keeps going', ()
 })
 
 describe('promotion activate shows every refused bonus buy and changes nothing', () => {
+  // The shipped `BbyMaintainResult`: each refused bonus buy in `bonusBuys[]` with its own
+  // refusals, and the same refusals flattened (naming no bonus buy) in `refusals[]`.
+  const item = (number: string, ...refusals: BbyRefusal[]) => ({ number, status: 'refused', refusals, warnings: [] })
+  const flip = (...items: ReturnType<typeof item>[]): BbyMaintainOutcome => ({
+    ...refused(...items.flatMap((i) => i.refusals)),
+    bonusBuys: items,
+  })
+
   it('a refused flip is changed:false and lists every refused bonus buy with all its refusals', () => {
     const view = readPromotionFlip(
       'P000000001',
-      refused(
-        refusal('BBY-051', 'OMS000000001'),
-        refusal('BBY-030', 'OMS000000003'),
-        refusal('BBY-020', 'OMS000000001'),
-        refusal('BBY-040', 'OMS000000007'),
+      flip(
+        item('OMS000000001', refusal('BBY-051'), refusal('BBY-020')),
+        item('OMS000000003', refusal('BBY-030')),
+        item('OMS000000007', refusal('BBY-040')),
       ),
     )
     expect(view.changed).toBe(false)
     expect(view.refused.map((g) => g.number)).toEqual(['OMS000000001', 'OMS000000003', 'OMS000000007'])
     expect(view.refused[0].refusals.map((r) => r.code)).toEqual(['BBY-051', 'BBY-020'])
     // Both languages travel with each refusal.
-    expect(view.refused[0].refusals[0].ar).toBe('BBY-051 بالعربية')
+    expect(view.refused[0].refusals[0].arabic).toBe('BBY-051 بالعربية')
+    // …and the flattened copies are not listed a second time under the promotion.
+    expect(view.refused).toHaveLength(3)
   })
 
-  it('a refusal naming no bonus buy groups under the promotion', () => {
+  it('a refusal outside every bonus buy groups under the promotion', () => {
     const view = readPromotionFlip('P000000001', refused(refusal('BBY-090')))
     expect(view.refused).toEqual([{ number: 'P000000001', refusals: [refusal('BBY-090')] }])
   })
@@ -127,7 +135,7 @@ describe('promotion activate shows every refused bonus buy and changes nothing',
 })
 
 describe('delete promotion is disabled while it holds bonus buys', () => {
-  const row = { bbyNumber: 'OMS000000001', text: '1 + 1', validFrom: '', validTo: '', status: '1' }
+  const row = { bbyNumber: 'OMS000000001', description: '1 + 1', validFrom: '', validTo: '', bbyStatus: '1' }
   it('offered only when empty', () => {
     expect(canDeletePromotion({ bonusBuys: [] })).toBe(true)
     expect(canDeletePromotion({ bonusBuys: [row] })).toBe(false)

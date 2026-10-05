@@ -1,6 +1,6 @@
 /** The screen's two input shapes — a labelled text box and a labelled date — styled as the
  *  rest of the app's forms. */
-const INPUT =
+export const INPUT =
   'h-8 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground ' +
   'focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
 

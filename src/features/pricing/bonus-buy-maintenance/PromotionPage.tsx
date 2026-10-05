@@ -38,6 +38,7 @@ import {
   canDeletePromotion,
   editorPath,
   type EachOutcome,
+  isPromotionNotFound,
   overviewSeverity,
   overviewStatus,
   PROMOTION_NAME_MAX,
@@ -91,6 +92,8 @@ function PromotionLoader({ promoNumber }: { promoNumber: string }) {
           message={apiErrorMessage(promo.error, t('promotion.loadFailed'))}
           className="px-3 py-2"
         />
+      ) : isPromotionNotFound(promo.data) ? (
+        <ErrorBanner message={t('promotion.notFound', { number: fsi(promoNumber) })} className="px-3 py-2" />
       ) : (
         // Keyed so the header form starts from the promotion it shows.
         <PromotionBody key={promo.data.promoNumber} promo={promo.data} />
@@ -108,7 +111,7 @@ const OVERVIEW_SELECTION: RowSelectionOptions<BbyOverviewRow> = {
 
 type EachAct = 'activate' | 'deactivate' | 'delete'
 
-function StatusCell({ value }: ICellRendererParams<BbyOverviewRow, string>) {
+function StatusCell({ value }: ICellRendererParams<BbyOverviewRow, string | null>) {
   const { t } = useTranslation('bonus-buy-maintenance')
   const status = overviewStatus(value)
   // An unknown code is shown beside its label, isolated by the renderer itself — never
@@ -329,7 +332,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const columns = useMemo<ColDef<BbyOverviewRow>[]>(
     () => [
       { field: 'bbyNumber', headerName: t('overview.col.bbyNumber'), width: 160 },
-      { field: 'text', headerName: t('overview.col.text'), flex: 1, minWidth: 220 },
+      { field: 'description', headerName: t('overview.col.text'), flex: 1, minWidth: 220 },
       {
         field: 'validFrom',
         headerName: t('overview.col.validFrom'),
@@ -342,7 +345,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
         width: 120,
         valueFormatter: (p) => formatDay(p.value),
       },
-      { field: 'status', headerName: t('overview.col.status'), width: 140, cellRenderer: StatusCell },
+      { field: 'bbyStatus', headerName: t('overview.col.status'), width: 140, cellRenderer: StatusCell },
     ],
     [t],
   )

@@ -9,6 +9,7 @@ import type {
   BbyUploadBonusBuy,
   BbyUploadRefusal,
   BbyUploadResult,
+  BbyUploadStatus,
 } from '@/core/models/bonus-buy-upload'
 
 /** SIS.Api's per-route cap on the door (`BbyUploadRequest.MaxFileBytes`). */
@@ -48,6 +49,13 @@ export function uploadFileProblem(file: Pick<File, 'size'>): UploadFileProblem |
  */
 export type UploadOutcome = 'loaded' | 'checked' | 'refused' | 'unknown'
 
+/** The door's status → the dialog's outcome (`saved` wrote, `valid` was a passing check). */
+const OUTCOME_OF: Record<BbyUploadStatus, UploadOutcome> = {
+  saved: 'loaded',
+  valid: 'checked',
+  refused: 'refused',
+}
+
 export interface UploadView {
   outcome: UploadOutcome
   promoNumber: string
@@ -70,14 +78,7 @@ export interface UploadView {
  * refreshes the overview, whatever came back.
  */
 export function readUpload(result: BbyUploadResult, options: UploadOptions): UploadView {
-  const outcome: UploadOutcome =
-    result.status === 'saved'
-      ? 'loaded'
-      : result.status === 'valid'
-        ? 'checked'
-        : result.status === 'refused'
-          ? 'refused'
-          : 'unknown'
+  const outcome: UploadOutcome = Object.hasOwn(OUTCOME_OF, result.status) ? OUTCOME_OF[result.status] : 'unknown'
   const refused = outcome === 'refused'
   return {
     outcome,

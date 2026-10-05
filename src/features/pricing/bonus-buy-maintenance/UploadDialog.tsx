@@ -15,6 +15,7 @@ import { overviewSeverity, overviewStatus, promotionPath } from './overview'
 import {
   readUpload,
   UPLOAD_ACCEPT,
+  UPLOAD_MAX_BYTES,
   uploadFileProblem,
   type UploadOptions,
   type UploadView,
@@ -139,7 +140,7 @@ export default function UploadDialog({
                 className="rounded-md border border-border bg-card p-2 text-sm text-foreground file:me-3 file:rounded-full file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
               />
             </label>
-            {problem && <ErrorBanner message={t(`upload.problem.${problem}`)} className="px-3 py-2" />}
+            {problem && <ErrorBanner message={t(`upload.problem.${problem}`, { max: fsi(String(UPLOAD_MAX_BYTES / 1024 / 1024)) })} className="px-3 py-2" />}
 
             <label className="flex items-start gap-2">
               <input

@@ -6,6 +6,7 @@
  * from `bonus-buy-maintenance.ts` because its refusal is a different shape: an upload refusal names
  * a file ROW and serial, and carries its texts as `english`/`arabic`.
  */
+import type { BbyStatusCode } from './bonus-buy-maintenance'
 
 /** `saved` (written), `valid` (a check-only run that passed, nothing written) or `refused`
  *  (nothing written). */
@@ -23,7 +24,7 @@ export interface BbyUploadBonusBuy {
   bbyNumber: string | null
   /** SAP's status it landed in: `1` Planned, blank when the upload activated it. An updated one
    *  keeps its own. */
-  bbyStatus: string
+  bbyStatus: BbyStatusCode
 }
 
 /** One refusal or warning: its 1-based file row (0 = the whole file), the row's serial, and the

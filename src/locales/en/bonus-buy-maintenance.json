@@ -128,7 +128,7 @@
     "failed": "The file could not be uploaded.",
     "problem": {
       "empty": "The file is empty.",
-      "tooLarge": "The file is larger than 10 MB."
+      "tooLarge": "The file is larger than {{max}} MB."
     },
     "result": {
       "loaded": "{{file}} loaded into promotion {{number}}.",

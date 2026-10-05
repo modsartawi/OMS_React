@@ -15,6 +15,7 @@ import { formatDay } from '@/core/util/date-format'
 import type {
   BbyBonusBuyDocument,
   BbyBonusBuyWire,
+  BbyCouponMaterialResult,
   BbyGroupingWire,
   BbyMaintainOutcome,
   BbyRefusal,
@@ -499,3 +500,45 @@ export function editorAccess(
     backToPlannedAsks: existing && status === 'activated',
   }
 }
+
+// ── a new coupon material (ticket 422) ────────────────────────────────────────────────
+
+/**
+ * New coupon material is offered on a Buy line whose Line Item Type is Material, while the bonus
+ * buy may be typed into: a Planned OMS one, or a new one before its first Save (spec 2396 stories
+ * 44, 49). Never on a grouping line, never read-only (Display, SAP, or any status but Planned).
+ */
+export const couponMaterialOffered = (access: Pick<EditorAccess, 'readOnly'>, line: Pick<BuyLine, 'type'>): boolean =>
+  !access.readOnly && line.type === 'material'
+
+/** The prompt's description starts as the bonus buy's text; the user may change it. */
+export const couponMaterialDefault = (s: Pick<EditorState, 'description'>): string => s.description.trim()
+
+export type GenerateOutcome = { kind: 'saved'; material: string } | { kind: 'refused'; refusals: BbyRefusal[] }
+
+/**
+ * Generate's answer, read for the page. Only a `saved` that names a material fills the line: an
+ * answer without one is never turned into a number. Any refusals the server sends are kept as they
+ * came (EN + AR); the spec names none, so a bare `refused` carries an empty list.
+ */
+export function readGenerateOutcome(r: BbyCouponMaterialResult): GenerateOutcome {
+  const material = r.material?.trim() ?? ''
+  if (r.status === 'saved' && material !== '') return { kind: 'saved', material }
+  return { kind: 'refused', refusals: r.refusals ?? [] }
+}
+
+/**
+ * The generated number fills the line it was asked for, as a typed material would. A line removed,
+ * or turned into a grouping, while the call was out is left alone: the material still exists on the
+ * server, unused, and nothing else on the form moves.
+ */
+export function fillCouponMaterial(s: EditorState, key: string, material: string): EditorState {
+  return { ...s, buy: s.buy.map((l) => (isCouponTarget(l, key) ? { ...l, identifier: material } : l)) }
+}
+
+/** The line a generated number goes on: the one it was asked for, still a Material. */
+const isCouponTarget = (l: BuyLine, key: string): boolean => l.key === key && l.type === 'material'
+
+/** Whether `fillCouponMaterial` would place the number: the line is still there, still a Material. */
+export const couponMaterialLands = (s: Pick<EditorState, 'buy'>, key: string): boolean =>
+  s.buy.some((l) => isCouponTarget(l, key))

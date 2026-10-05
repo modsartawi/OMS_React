@@ -15,16 +15,21 @@ import {
   ENGINE_LIST_MAX,
   ORIGIN_FILTER_MAX,
   buyPanelLayout,
+  couponMaterialDefault,
+  couponMaterialLands,
+  couponMaterialOffered,
   currPe,
   editorAccess,
   emptyBuyLine,
   engineListMeter,
+  fillCouponMaterial,
   formChanged,
   fromDocument,
   getPanelLayout,
   newEditor,
   normalizeGroupingId,
   readEditorOutcome,
+  readGenerateOutcome,
   timeFromWire,
   timeToWire,
   toRequest,
@@ -490,5 +495,84 @@ describe('back to planned on an activated bonus buy asks first', () => {
   it('nothing asks where nothing is offered', () => {
     expect(editorAccess('change', doc({ bbyStatus: '1' })).backToPlannedAsks).toBe(false)
     expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).backToPlannedAsks).toBe(false)
+  })
+})
+
+// ── ticket 422: a new coupon material on a Buy line ──────────────────────────────────
+
+describe('generate fills the buy line with the returned COUP number', () => {
+  it('saved → the material fills that line only, and goes up on Save as a material', () => {
+    const s = newEditor(PROMO)
+    const other = emptyBuyLine()
+    const two = { ...s, buy: [...s.buy, { ...other, identifier: '200033' }] }
+    const got = readGenerateOutcome({ status: 'saved', material: 'COUP1035' })
+    expect(got).toEqual({ kind: 'saved', material: 'COUP1035' })
+    if (got.kind !== 'saved') throw new Error('unreachable')
+    const next = fillCouponMaterial(two, two.buy[0].key, got.material)
+    expect(next.buy.map((l) => l.identifier)).toEqual(['COUP1035', '200033'])
+    expect(toRequest(next).buy[0]).toMatchObject({ material: 'COUP1035', grouping: null })
+  })
+
+  it('each press is a new material: a second generate replaces the first, never reuses it', () => {
+    const s = newEditor(PROMO)
+    const key = s.buy[0].key
+    const once = fillCouponMaterial(s, key, 'COUP1035')
+    expect(fillCouponMaterial(once, key, 'COUP1036').buy[0].identifier).toBe('COUP1036')
+  })
+
+  it('refused → the server’s refusals, kept as they came; the line is untouched', () => {
+    const r = msg('BBY-COUPON-REFUSED')
+    expect(readGenerateOutcome({ status: 'refused', material: null, refusals: [r] })).toEqual({ kind: 'refused', refusals: [r] })
+    expect(readGenerateOutcome({ status: 'refused', material: null })).toEqual({ kind: 'refused', refusals: [] })
+  })
+
+  it('🚩 a "saved" with no material is not a fill: nothing is invented', () => {
+    expect(readGenerateOutcome({ status: 'saved', material: '  ' }).kind).toBe('refused')
+    expect(readGenerateOutcome({ status: 'saved', material: null }).kind).toBe('refused')
+  })
+
+  it('a line removed, or turned into a grouping, while the call was out is left alone', () => {
+    const s = newEditor(PROMO)
+    const key = s.buy[0].key
+    expect(fillCouponMaterial({ ...s, buy: [] }, key, 'COUP1035').buy).toEqual([])
+    const grouped = { ...s, buy: [{ ...s.buy[0], type: 'grouping' as const, identifier: 'GROUP1' }] }
+    expect(fillCouponMaterial(grouped, key, 'COUP1035').buy[0].identifier).toBe('GROUP1')
+    // …and the page is told so, so it never claims the number is on the line.
+    expect(couponMaterialLands(s, key)).toBe(true)
+    expect(couponMaterialLands({ ...s, buy: [] }, key)).toBe(false)
+    expect(couponMaterialLands(grouped, key)).toBe(false)
+  })
+
+  it('the prompt’s description defaults to the bonus buy’s text', () => {
+    expect(couponMaterialDefault({ ...newEditor(PROMO), description: ' Vichy 2nd p @ 20 SR ' })).toBe('Vichy 2nd p @ 20 SR')
+    expect(couponMaterialDefault(newEditor(PROMO))).toBe('')
+  })
+})
+
+describe('the action is absent on a non-Planned bonus buy and on a grouping line', () => {
+  const material = { type: 'material' as const }
+  const grouping = { type: 'grouping' as const }
+
+  it('a Planned OMS bonus buy offers it on a Material line', () => {
+    expect(couponMaterialOffered(editorAccess('change', doc({ bbyStatus: '1' })), material)).toBe(true)
+  })
+
+  it('a new, unsaved bonus buy offers it too (before the first Save)', () => {
+    expect(couponMaterialOffered(editorAccess('create', null), material)).toBe(true)
+  })
+
+  it('never on a grouping line', () => {
+    expect(couponMaterialOffered(editorAccess('change', doc({ bbyStatus: '1' })), grouping)).toBe(false)
+    expect(couponMaterialOffered(editorAccess('create', null), grouping)).toBe(false)
+  })
+
+  it('never on Tested, Activated, Deactivated or an unreadable status', () => {
+    for (const bbyStatus of ['3', '', '2', null, 'X'])
+      expect(couponMaterialOffered(editorAccess('change', doc({ bbyStatus })), material), String(bbyStatus)).toBe(false)
+  })
+
+  it('never read-only: not in Display, not on a SAP bonus buy', () => {
+    expect(couponMaterialOffered(editorAccess('display', doc({ bbyStatus: '1' })), material)).toBe(false)
+    expect(couponMaterialOffered(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' })), material)).toBe(false)
   })
 })

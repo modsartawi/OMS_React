@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -29,21 +29,26 @@ import {
   promotionListKey,
 } from './api'
 import ActReport, { type Report } from './ActReport'
-import { BuyPanel, GetPanel } from './BuyGetPanels'
+import { BuyPanel, type CouponMaterialAction, GetPanel } from './BuyGetPanels'
 import EngineRulesTab from './EngineRulesTab'
 import { DateInput, INPUT, TextInput } from './fields'
 import GroupingDialog from './GroupingDialog'
 import {
   BBY_ORG,
   BBY_TEXT_MAX,
+  couponMaterialDefault,
+  couponMaterialLands,
+  couponMaterialOffered,
   editorAccess,
   type EditorAccess,
   type EditorState,
+  fillCouponMaterial,
   formChanged,
   fromDocument,
   newEditor,
   orgCurrency,
   readEditorOutcome,
+  readGenerateOutcome,
   TEST_NOTE_MAX,
   toRequest,
 } from './editor'
@@ -189,10 +194,15 @@ function EditorBody({
   // What the form opened with: Mark Tested attests the saved bonus buy, so it waits on any edit.
   const [opened] = useState<EditorState>(() => (doc ? fromDocument(doc) : newEditor(promo)))
   const [state, setState] = useState<EditorState>(opened)
+  // The form as last rendered, for an act that must read it after an await (New coupon material).
+  const latestState = useRef(state)
+  latestState.current = state
   const [tab, setTab] = useState<Tab>('header')
   const [busy, setBusy] = useState(false)
   const [groupingOpen, setGroupingOpen] = useState(false)
   const [markOpen, setMarkOpen] = useState(false)
+  // The Buy line New coupon material was pressed on, while its prompt is open.
+  const [couponLineKey, setCouponLineKey] = useState<string | null>(null)
   // The ONE access answer the screen gate already read (same key): the tester grant rides on it.
   const accessAnswer = useQuery(bbyMaintainAccessQuery())
   const access: EditorAccess = editorAccess(mode, doc, canMarkTested(accessAnswer.data))
@@ -329,6 +339,42 @@ function EditorBody({
     await statusAct('backToPlanned', (n) => bbyMaintainApi.backToPlanned({ number: n }))
   }
 
+  /**
+   * New coupon material (spec 2396 stories 44-52): every press mints a NEW `COUP…` item on the
+   * server, so nothing is cached or reused. On `saved` the number fills the line it was asked for,
+   * like a typed material, and goes up with the next Save; on `refused` the reason is shown.
+   */
+  const generateCouponMaterial = (key: string, description: string) => {
+    setCouponLineKey(null)
+    void guarded(async () => {
+      setReport(null)
+      const got = readGenerateOutcome(await bbyMaintainApi.generateCouponMaterial({ description: description.trim() }))
+      if (got.kind === 'refused') {
+        setReport({
+          title: t('couponMaterial.refused'),
+          tone: 'bad',
+          rows: got.refusals.length ? [{ refusals: got.refusals }] : [],
+        })
+        return
+      }
+      // The line may have been removed, or made a grouping, while the call was out: then say the
+      // material exists but was not placed, rather than claim it is on the line.
+      const lands = couponMaterialLands(latestState.current, key)
+      setState((s) => fillCouponMaterial(s, key, got.material))
+      setReport({
+        title: t(lands ? 'couponMaterial.done' : 'couponMaterial.notPlaced', { material: fsi(got.material) }),
+        tone: lands ? 'ok' : 'bad',
+        rows: [],
+      })
+    })
+  }
+
+  const couponMaterial: CouponMaterialAction = {
+    offered: (line) => couponMaterialOffered(access, line),
+    onPress: setCouponLineKey,
+    busy,
+  }
+
   const stale = report?.stale === true
   const unsaved = formChanged(opened, state)
   const status = doc ? overviewStatus(doc.bbyStatus) : 'planned'
@@ -429,6 +475,7 @@ function EditorBody({
               mark={doc}
               currency={currency}
               readOnly={access.readOnly}
+              couponMaterial={couponMaterial}
             />
           )}
           {tab === 'engine' && <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} />}
@@ -449,7 +496,66 @@ function EditorBody({
       />
 
       <MarkTestedDialog open={markOpen} onClose={() => setMarkOpen(false)} onRun={markTested} />
+
+      {/* Mounted per press, so its description starts again from the bonus buy's text. */}
+      {couponLineKey && (
+        <CouponMaterialDialog
+          initial={couponMaterialDefault(state)}
+          onClose={() => setCouponLineKey(null)}
+          onRun={(description) => generateCouponMaterial(couponLineKey, description)}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * New coupon material's prompt: the new item's description, defaulting to the bonus buy's text.
+ * No `maxLength`: the server clamps the description to the item master's width (BackOffice 2404).
+ */
+function CouponMaterialDialog({
+  initial,
+  onClose,
+  onRun,
+}: {
+  initial: string
+  onClose: () => void
+  onRun: (description: string) => void
+}) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  const [description, setDescription] = useState(initial)
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('couponMaterial.title')}
+      width="28rem"
+      footer={
+        <>
+          <Button variant="text" onClick={onClose}>
+            {t('couponMaterial.cancel')}
+          </Button>
+          <Button variant="primary" onClick={() => onRun(description)}>
+            {t('couponMaterial.run')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">{t('couponMaterial.hint')}</p>
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          {t('couponMaterial.description')}
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={`${INPUT} w-full`}
+            data-testid="bby-coupon-material-description"
+            autoFocus
+          />
+        </label>
+      </div>
+    </Modal>
   )
 }
 
@@ -559,6 +665,7 @@ function HeaderTab({
   mark,
   currency,
   readOnly,
+  couponMaterial,
 }: {
   state: EditorState
   update: (p: Partial<EditorState>) => void
@@ -567,6 +674,7 @@ function HeaderTab({
   mark: BbyTestMark | null
   currency: string
   readOnly: boolean
+  couponMaterial: CouponMaterialAction
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   return (
@@ -660,7 +768,13 @@ function HeaderTab({
         {/* ⚠️ No item-lookup door on BbyMaintainWeb yet: said on screen, not only in code. */}
         <p className="text-xs text-muted-foreground">{t('editor.line.descriptionPending')}</p>
         <div className="flex flex-col gap-3">
-          <BuyPanel state={state} setState={setState} readOnly={readOnly} currency={currency} />
+          <BuyPanel
+            state={state}
+            setState={setState}
+            readOnly={readOnly}
+            currency={currency}
+            couponMaterial={couponMaterial}
+          />
           <GetPanel state={state} setState={setState} readOnly={readOnly} currency={currency} />
         </div>
       </section>

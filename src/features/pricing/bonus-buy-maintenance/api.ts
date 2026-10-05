@@ -13,6 +13,8 @@ import type {
   BbyBonusBuyDocument,
   BbyBackToPlannedRequest,
   BbyBonusBuyWire,
+  BbyCouponMaterialRequest,
+  BbyCouponMaterialResult,
   BbyMaintainAccessResult,
   BbyMarkTestedRequest,
   BbyMaintainOutcome,
@@ -131,6 +133,14 @@ export const bbyMaintainApi = {
    */
   backToPlanned(body: BbyBackToPlannedRequest): Promise<BbyMaintainOutcome> {
     return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/BackToPlanned`, body)
+  },
+
+  /**
+   * A new coupon material for a Buy line (spec 2396 story 44): every call mints a NEW `COUP…`
+   * number, never a cached one. Spec 2396 reading, reconcile when BackOffice 2404 ships.
+   */
+  generateCouponMaterial(body: BbyCouponMaterialRequest): Promise<BbyCouponMaterialResult> {
+    return api.post<BbyCouponMaterialResult>(`${BASE}/CouponMaterial/Generate`, body)
   },
 
   /**

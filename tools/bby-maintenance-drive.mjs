@@ -81,6 +81,16 @@
 //  40. Save sends each list as the server's comma list; loyalty groups and tiers upper-cased.
 //  41. a coupon template's origin filter: the same box, count and cap; create sends the comma list.
 //
+// Ticket 422 — New coupon material on a Buy line (BackOffice spec 2396 stories 44-52). ⚠️ The door
+// is NOT built (BackOffice 2404 open): CouponMaterial/Generate { description } → { status, material }
+// is stubbed in the SPEC'S READING. The coupon template's pick list has no door and is not built.
+//  42. a new bonus buy offers it on a Material line, not a grouping line; the prompt defaults to the
+//      bonus buy's text, posts exactly { description }, and the COUP number fills the line; a second
+//      press is a second call and a new number; Save sends it as the line's material.
+//  43. a refusal is shown as the server worded it (EN + AR), and the line keeps its material.
+//  44. a Planned OMS bonus buy offers it on its Material line only; Tested, Activated, Deactivated,
+//      Display and SAP never.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -166,6 +176,9 @@ const posts = [] // [path, body]
 let promotionGets = 0
 const uploads = [] // multipart bodies, as sent
 let uploadAnswer = null
+// Ticket 422: the COUP counter as the stub's server holds it, and what Generate answers.
+let coupCounter = 1034
+let generateAnswer = 'saved'
 
 async function run() {
   const browser = await chromium.launch()
@@ -268,6 +281,15 @@ async function run() {
         markOf[body.number] = { testedBy: 'ayed', testedAt: '2026-10-05T12:00:00', testNote: body.note }
         return route.fulfill(envelope(saved(body.number)))
       }
+      // Ticket 422 — spec 2396's reading: { description } in, { status, material } out, a new number each call.
+      if (op === 'CouponMaterial/Generate') {
+        if (generateAnswer === 'refused')
+          return route.fulfill(envelope({
+            status: 'refused', material: null,
+            refusals: [refusal('BBY-COUPON-COUNTER', 'The coupon counter is not set up on this server.', 'عداد القسائم غير مُعدّ على هذا الخادم.')],
+          }))
+        return route.fulfill(envelope({ status: 'saved', material: `COUP${++coupCounter}` }))
+      }
       if (op === 'BonusBuy/BackToPlanned') {
         statusOf[body.number] = '1'
         delete markOf[body.number]
@@ -294,7 +316,7 @@ async function run() {
   })
 
   const text = () => page.locator('body').innerText()
-  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload|status|test|backToPlanned)\.[a-zA-Z.]+/)
+  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload|status|test|backToPlanned|couponMaterial)\.[a-zA-Z.]+/)
 
   // ── 1. the nav leaf ──
   // The rail starts collapsed (its leaves live in a flyout), so expand it to read them.
@@ -716,6 +738,8 @@ async function run() {
     await rowCheck419('OMS000000004').check()
     check('28. a multi-select holding a Planned row: still not offered', await activate.isDisabled())
     await rowCheck419('OMS000000001').uncheck()
+    // The grid's selection event re-renders the toolbar a tick later: wait for it, then read.
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Activate' && !b.disabled), null, { timeout: 3000 }).catch(() => {})
     check('28. Tested alone: Activate is offered', await activate.isEnabled())
     check('28. the promotion-level Activate stays offered', await button('Activate promotion').isEnabled())
 
@@ -986,6 +1010,93 @@ async function run() {
     const tk = (await text()).match(/(?:coupons:)?templates\.[a-zA-Z.]+/)
     check('41. no raw i18n keys on the template form', tk === null, (tk || [''])[0])
     await page.screenshot({ path: 'tools/.bby-maintenance-shots/coupon-template-paste.png', fullPage: true }).catch(() => {})
+  }
+
+  // ════════ Ticket 422 — New coupon material on a Buy line (spec 2396) ════════
+  {
+    const EDIT = `${ROOT}/${PROMO.promoNumber}/bonus-buy`
+    const buyRow = (i) => page.locator('table[data-grid="buy"] tbody tr').nth(i)
+    const coupBtn = (i) => buyRow(i).locator('[data-testid="bby-coupon-material"]')
+    const cdlg = page.locator('dialog')
+    const gens = () => posts.filter(([op]) => op === 'CouponMaterial/Generate')
+    const firstId = (v) =>
+      page.waitForFunction((want) => document.querySelector('table[data-grid="buy"] tbody tr input[aria-label="Line Item Identifier"]')?.value === want, v, { timeout: 5000 }).catch(() => {})
+
+    // ── 42. a new bonus buy, before its first Save ──
+    await page.goto(`${EDIT}/new`)
+    await page.waitForSelector('h1:has-text("Create Bonus Buy")')
+    check('42. a new bonus buy offers New coupon material on its Material line', (await coupBtn(0).count()) === 1)
+    check('42. …named for what it does', (await coupBtn(0).getAttribute('aria-label')) === 'New coupon material')
+    await buyRow(0).getByLabel('Line Item Type').selectOption('grouping')
+    check('42. a grouping line is not offered it', (await coupBtn(0).count()) === 0)
+    await buyRow(0).getByLabel('Line Item Type').selectOption('material')
+    await page.locator('input[maxlength="60"]').fill('Vichy 2nd p @ 20 SR')
+    posts.length = 0
+    await coupBtn(0).click()
+    const desc = cdlg.locator('[data-testid="bby-coupon-material-description"]')
+    await desc.waitFor()
+    check("42. the prompt defaults to the bonus buy's text", (await desc.inputValue()) === 'Vichy 2nd p @ 20 SR', await desc.inputValue())
+    check('42. …with no maxlength (the server clamps it)', (await desc.getAttribute('maxlength')) === null)
+    await desc.fill('  Vichy coupon 20 SR  ')
+    await cdlg.locator('button', { hasText: /^Create$/ }).click()
+    await firstId('COUP1035')
+    const g1 = gens()[0]?.[1]
+    check('42. Generate posts exactly { description }, trimmed (spec 2396 reading)',
+      g1 && JSON.stringify(Object.keys(g1)) === '["description"]' && g1.description === 'Vichy coupon 20 SR', JSON.stringify(g1))
+    const id0 = buyRow(0).getByLabel('Line Item Identifier')
+    check('42. the returned COUP number fills the line', (await id0.inputValue()) === 'COUP1035', await id0.inputValue())
+    const said = await text()
+    check('42. …and the page says so', said.includes('COUP1035') && said.includes('created and put on the line'))
+    await coupBtn(0).click()
+    await desc.waitFor()
+    check("42. a second press starts again from the bonus buy's text", (await desc.inputValue()) === 'Vichy 2nd p @ 20 SR')
+    await cdlg.locator('button', { hasText: /^Create$/ }).click()
+    await firstId('COUP1036')
+    check('42. each press is a new call and a new material', gens().length === 2 && (await id0.inputValue()) === 'COUP1036', `${gens().length} ${await id0.inputValue()}`)
+    await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Line Item Identifier').fill('200033')
+    await page.locator('table[data-grid="get"] tbody tr').first().getByLabel('Value').fill('20')
+    posts.length = 0
+    await page.locator('button', { hasText: /^Save$/ }).click()
+    await page.waitForURL('**/bonus-buy/OMS000000125')
+    const sv = posts.find(([op]) => op === 'BonusBuy/Save')?.[1]
+    check("42. Save sends the generated number as the line's material", sv?.buy?.[0]?.material === 'COUP1036' && sv.buy[0].grouping === null, JSON.stringify(sv?.buy))
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/coupon-material.png', fullPage: true }).catch(() => {})
+
+    // ── 43. a refusal ──
+    await page.goto(`${EDIT}/new`)
+    await page.waitForSelector('h1:has-text("Create Bonus Buy")')
+    await buyRow(0).getByLabel('Line Item Identifier').fill('COUP77')
+    generateAnswer = 'refused'
+    await coupBtn(0).click()
+    await cdlg.locator('button', { hasText: /^Create$/ }).click()
+    await page.waitForSelector('text=No coupon material was created:')
+    const rf = await text()
+    check('43. the refusal is shown as the server worded it, EN + AR',
+      rf.includes('BBY-COUPON-COUNTER') && rf.includes('not set up on this server') && rf.includes('عداد القسائم'))
+    check('43. …and the line keeps its material', (await buyRow(0).getByLabel('Line Item Identifier').inputValue()) === 'COUP77')
+    generateAnswer = 'saved'
+
+    // ── 44. only where the bonus buy can change ──
+    const none = async () => (await page.locator('[data-testid="bby-coupon-material"]').count()) === 0
+    statusOf.OMS000000001 = '1'
+    await page.goto(`${EDIT}/OMS000000001`)
+    await page.waitForSelector('table[data-grid="buy"]')
+    check('44. a Planned OMS bonus buy: its Material line offers it, its grouping line does not',
+      (await coupBtn(0).count()) === 1 && (await coupBtn(1).count()) === 0)
+    await page.goto(`${EDIT}/OMS000000001?mode=display`)
+    await page.waitForSelector('table[data-grid="buy"]')
+    check('44. Display never offers it', await none())
+    for (const [n, st, code] of [['OMS000000004', 'a Tested', '3'], ['OMS000000002', 'an Activated', ''], ['OMS000000003', 'a Deactivated', '2']]) {
+      statusOf[n] = code
+      await page.goto(`${EDIT}/${n}`)
+      await page.waitForSelector('table[data-grid="buy"]')
+      check(`44. ${st} bonus buy never offers it`, await none())
+    }
+    await page.goto(`${EDIT}/000100001124`)
+    await page.waitForSelector('table[data-grid="buy"]')
+    check('44. a SAP bonus buy never offers it', await none())
+    const k422 = await rawKey()
+    check('44. no raw i18n keys', k422 === null, (k422 || [''])[0])
   }
 
   // ── 11. hygiene ──

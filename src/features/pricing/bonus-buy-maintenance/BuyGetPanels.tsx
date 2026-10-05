@@ -1,6 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, TicketPlus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -164,6 +164,34 @@ function RemoveCell({ onClick, label }: { onClick: () => void; label: string }) 
   )
 }
 
+/**
+ * New coupon material beside a Buy line's identifier (ticket 422). The page decides where it is
+ * offered (`couponMaterialOffered`) and runs the prompt; this only draws the button.
+ */
+function CouponMaterialButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  return (
+    <button
+      type="button"
+      aria-label={t('couponMaterial.action')}
+      title={t('couponMaterial.action')}
+      data-testid="bby-coupon-material"
+      disabled={disabled}
+      onClick={onClick}
+      className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary disabled:opacity-50"
+    >
+      <TicketPlus className="h-3.5 w-3.5" aria-hidden />
+    </button>
+  )
+}
+
+/** What the Buy panel needs to offer New coupon material: where, the press, and a busy page. */
+export interface CouponMaterialAction {
+  offered: (line: BuyLine) => boolean
+  onPress: (key: string) => void
+  busy: boolean
+}
+
 const TH = 'px-1 pb-1 text-start text-xs font-medium text-muted-foreground'
 const TD = 'px-1 py-0.5 align-middle'
 
@@ -172,11 +200,13 @@ export function BuyPanel({
   setState,
   readOnly,
   currency,
+  couponMaterial,
 }: {
   state: EditorState
   setState: SetState
   readOnly: boolean
   currency: string
+  couponMaterial: CouponMaterialAction
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   const { minAmountEnabled } = buyPanelLayout(state, readOnly)
@@ -239,14 +269,19 @@ export function BuyPanel({
                     onChange={(type) => setLine(l.key, { type, identifier: '' })}
                   />
                 </td>
-                <td className={`${TD} w-36`}>
-                  <IdentifierCell
-                    label={t('editor.col.identifier')}
-                    type={l.type}
-                    value={l.identifier}
-                    groupings={state.groupings}
-                    onChange={(identifier) => setLine(l.key, { identifier })}
-                  />
+                <td className={`${TD} w-44`}>
+                  <div className="flex items-center gap-1">
+                    <IdentifierCell
+                      label={t('editor.col.identifier')}
+                      type={l.type}
+                      value={l.identifier}
+                      groupings={state.groupings}
+                      onChange={(identifier) => setLine(l.key, { identifier })}
+                    />
+                    {couponMaterial.offered(l) && (
+                      <CouponMaterialButton disabled={couponMaterial.busy} onClick={() => couponMaterial.onPress(l.key)} />
+                    )}
+                  </div>
                 </td>
                 <td className={TD}>
                   <DescriptionCell type={l.type} identifier={l.identifier} groupings={state.groupings} />

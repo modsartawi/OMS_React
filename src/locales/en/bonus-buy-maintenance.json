@@ -366,5 +366,16 @@
     "done": "Back to Planned. It can be changed now, and must be tested again before it goes live.",
     "refused": "Not taken back to Planned:",
     "notFound": "This bonus buy no longer exists."
+  },
+  "couponMaterial": {
+    "action": "New coupon material",
+    "title": "New coupon material",
+    "hint": "Creates a new redeem-only coupon item with the next COUP number and puts it on this line. Each press makes a new one. Save the bonus buy to keep it on the line.",
+    "description": "Item description",
+    "run": "Create",
+    "cancel": "Cancel",
+    "done": "Coupon material {{material}} created and put on the line. Save to keep it.",
+    "refused": "No coupon material was created:",
+    "notPlaced": "Coupon material {{material}} was created, but its line was removed or changed meanwhile. Type it on a Buy line to use it."
   }
 }

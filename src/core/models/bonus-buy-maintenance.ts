@@ -215,3 +215,26 @@ export interface BbyMarkTestedRequest {
 export interface BbyBackToPlannedRequest {
   number: string
 }
+
+// ── coupon material (ticket 422) ──────────────────────────────────────────────────────
+
+/**
+ * POST CouponMaterial/Generate (spec 2396, BackOffice 2404, grant `03`): a new redeem-only `COUP…`
+ * item from a counter that never repeats. Not tied to a bonus-buy number, so it works before the
+ * first Save. Spec 2396 reading, reconcile when BackOffice 2404 ships. A blank description is the
+ * server's to fill ("Coupon"), and the server clamps it to the item master's width.
+ */
+export interface BbyCouponMaterialRequest {
+  description: string
+}
+
+/**
+ * Generate's answer. Spec 2396 reading, reconcile when BackOffice 2404 ships: the spec names only
+ * `status` and `material`; `refusals` is typed optional and shown when a refusal carries them.
+ */
+export interface BbyCouponMaterialResult {
+  status: 'saved' | 'refused' | string
+  /** `COUP` + the counter value, unpadded (`COUP1035`). */
+  material: string | null
+  refusals?: BbyRefusal[]
+}

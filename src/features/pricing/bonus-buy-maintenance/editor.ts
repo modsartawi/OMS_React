@@ -18,10 +18,12 @@ import type {
   BbyMaintainOutcome,
   BbyRefusal,
 } from '@/core/models/bonus-buy-maintenance'
-import type { EditorMode } from './overview'
+import { type EditorMode, type OverviewStatus, overviewStatus } from './overview'
 
 /** SAP's `KONBBYT`: the bonus-buy text, at most 60. */
 export const BBY_TEXT_MAX = 60
+/** `BbyTestMark.Note` is `NVARCHAR(200)` (spec 2396): Mark Tested's optional note, at most 200. */
+export const TEST_NOTE_MAX = 200
 /** SAP's `GRPNR`: a local material grouping id, at most 12. */
 export const GROUPING_ID_MAX = 12
 
@@ -324,6 +326,15 @@ export function toRequest(s: EditorState): BbyBonusBuyWire {
   }
 }
 
+/**
+ * Has the form moved off what it opened with? Compared as the request each would send, so a row
+ * key or an untouched empty line is not a change. Mark Tested attests the SAVED bonus buy, so it
+ * waits while this is true: the tester must never mark one version while looking at another.
+ */
+export function formChanged(opened: EditorState, now: EditorState): boolean {
+  return JSON.stringify(toRequest(opened)) !== JSON.stringify(toRequest(now))
+}
+
 // ── layout ────────────────────────────────────────────────────────────────────────────
 
 export type GetColumn =
@@ -400,20 +411,55 @@ export function readEditorOutcome(o: BbyMaintainOutcome): EditorOutcome {
 
 export interface EditorAccess {
   readOnly: boolean
-  /** Why it is read-only: Display was asked for, or the bonus buy is SAP's. */
-  reason: 'display' | 'sap' | null
+  /**
+   * Why it is read-only: Display was asked for, the bonus buy is SAP's, or its status is not
+   * Planned (spec 2396: only Planned can change). `sap` stays its own reason so the hint says
+   * "SAP's", never "take it back to Planned" — a SAP bonus buy has no way back.
+   */
+  reason: 'display' | 'sap' | 'locked' | null
   canSave: boolean
   canCheck: boolean
   canCopy: boolean
+  /** Planned → Tested: the tester grant, a Planned OMS bonus buy. */
+  canMarkTested: boolean
+  /** Tested / Activated / Deactivated → Planned, on an OMS bonus buy. */
+  canBackToPlanned: boolean
+  /** Back to Planned on an Activated bonus buy pulls the offer off the tills: ask first. */
+  backToPlannedAsks: boolean
 }
 
+/** The statuses Back to Planned leaves from (ADR 0063). */
+const BACK_TO_PLANNED_FROM: readonly OverviewStatus[] = ['tested', 'activated', 'deactivated']
+
 /**
- * Display opens any bonus buy read-only (story 42). A SAP bonus buy is read-only whatever
- * the mode, since only Copy may change it (story 56). The page wraps the whole form in one
- * disabled `<fieldset>` when `readOnly`, so no input can escape it.
+ * Display opens any bonus buy read-only (story 42). A SAP bonus buy is read-only whatever the
+ * mode, since only Copy may change it (story 56), and it is never tested here. An OMS bonus buy
+ * is editable only while Planned (spec 2396, ADR 0063 — reversing 2374's live change of an
+ * activated one); an unreadable status is locked too, never guessed editable. The page wraps the
+ * whole form in one disabled `<fieldset>` when `readOnly`, so no input can escape it.
+ *
+ * Mark Tested and Back to Planned are status acts, not edits: Display offers them as Change does.
+ * `canTest` is the access answer's tester grant (`canMarkTested`), read by the caller. The
+ * four-eyes rule (the tester is not the last writer) is the server's, never pre-judged here.
  */
-export function editorAccess(mode: EditorMode, doc: Pick<BbyBonusBuyDocument, 'readOnly'> | null): EditorAccess {
-  const reason = mode === 'display' ? 'display' : doc?.readOnly ? 'sap' : null
+export function editorAccess(
+  mode: EditorMode,
+  doc: Pick<BbyBonusBuyDocument, 'readOnly' | 'bbyStatus'> | null,
+  canTest = false,
+): EditorAccess {
+  const sap = doc?.readOnly === true
+  const status: OverviewStatus = doc ? overviewStatus(doc.bbyStatus) : 'planned'
+  const reason = mode === 'display' ? 'display' : sap ? 'sap' : status !== 'planned' ? 'locked' : null
   const readOnly = reason !== null
-  return { readOnly, reason, canSave: !readOnly, canCheck: !readOnly, canCopy: mode !== 'create' }
+  const existing = mode !== 'create' && doc !== null && !sap
+  return {
+    readOnly,
+    reason,
+    canSave: !readOnly,
+    canCheck: !readOnly,
+    canCopy: mode !== 'create',
+    canMarkTested: existing && status === 'planned' && canTest,
+    canBackToPlanned: existing && BACK_TO_PLANNED_FROM.includes(status),
+    backToPlannedAsks: existing && status === 'activated',
+  }
 }

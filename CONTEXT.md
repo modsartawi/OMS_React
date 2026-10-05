@@ -259,10 +259,14 @@ _Avoid_: promo type (the *promotion* is the bonus buy; the discount type is the 
 
 **BBY status**:
 The `BbyStatus` code on a `BbyHeader`, SAP's `KONBBYH.STATUS`: **blank** = Activated, **`1`** = Planned,
-**`2`** = Deactivated (BackOffice spec 2374). Since BackOffice 2339 it is the **activation gate**:
-only a blank (Activated) bonus buy prices at a till; a Planned or Deactivated one prices only in the
-simulator, by an explicit option. Transitions: Planned → Activated ↔ Deactivated, never back to
-Planned. ⚠️ The older reading — **A** = Activated, **I** = Inactive, **D** = Draft, **X** = Deleted
+**`2`** = Deactivated (BackOffice spec 2374), **`3`** = Tested (BackOffice spec 2396, ADR 0063, OMS
+bonus buys only). Since BackOffice 2339 it is the **activation gate**: only a blank (Activated) bonus
+buy prices at a till; a Planned, Tested or Deactivated one prices only in the simulator, by an
+explicit option. Transitions (ADR 0063, reversing 2374's "never back"): Planned → Tested (**Mark
+Tested**, by someone other than the last writer, holding the tester grant) → Activated ↔ Deactivated,
+and Tested / Activated / Deactivated → Planned (**Back to Planned**, which clears the test mark and,
+from Activated, pulls the offer off the tills). Planned → Activated is refused. **Only a Planned bonus
+buy can change.** ⚠️ The older reading — **A** = Activated, **I** = Inactive, **D** = Draft, **X** = Deleted
 (`BonusBuyDetailController.MapStatus`), display-only — is what the BBY Inquiry still badges until
 BackOffice 2384 moves it to blank/`1`/`2`; Bonus Buy Maintenance reads only the new codes and shows
 any other code as *unknown*.

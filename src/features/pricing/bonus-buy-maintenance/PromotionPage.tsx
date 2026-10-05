@@ -23,7 +23,7 @@ import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatCount, fsi } from '@/core/util/bidi'
-import { formatDay } from '@/core/util/date-format'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
   bbyMaintainAccessQuery,
   bbyMaintainApi,
@@ -36,6 +36,7 @@ import { DateInput, TextInput } from './fields'
 import UploadDialog from './UploadDialog'
 import {
   BBY_MAINTAIN_ROOT,
+  canActivateSelection,
   canDeletePromotion,
   editorPath,
   type EachOutcome,
@@ -160,6 +161,10 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const dirty =
     name.trim() !== promo.name || from !== formatDay(promo.salesFrom) || to !== formatDay(promo.salesTo)
   const one = selected.length === 1 ? selected[0] : null
+  // Only a Tested bonus buy goes live (spec 2396): Activate is not offered on a Planned one.
+  const activatable = canActivateSelection(
+    promo.bonusBuys.filter((b) => selected.includes(b.bbyNumber)).map((b) => overviewStatus(b.bbyStatus)),
+  )
 
   const refresh = () =>
     Promise.all([
@@ -348,6 +353,15 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
         valueFormatter: (p) => formatDay(p.value),
       },
       { field: 'bbyStatus', headerName: t('overview.col.status'), width: 140, cellRenderer: StatusCell },
+      // The test mark (spec 2396 story 7); blank while untested. The base column def isolates each cell.
+      { field: 'testedBy', headerName: t('overview.col.testedBy'), width: 130 },
+      {
+        field: 'testedAt',
+        headerName: t('overview.col.testedAt'),
+        width: 160,
+        valueFormatter: (p) => formatDateTime(p.value),
+      },
+      { field: 'testNote', headerName: t('overview.col.testNote'), flex: 1, minWidth: 160 },
     ],
     [t],
   )
@@ -490,8 +504,10 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             </Button>
             <Button
               variant="secondary"
-              disabled={busy || selected.length === 0}
-              title={selected.length ? undefined : t('overview.needSome')}
+              disabled={busy || !activatable}
+              title={
+                selected.length === 0 ? t('overview.needSome') : activatable ? undefined : t('status.activateNeedsTest')
+              }
               onClick={() => runSelected('activate')}
             >
               {t('overview.activate')}

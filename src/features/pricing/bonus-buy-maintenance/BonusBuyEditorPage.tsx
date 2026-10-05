@@ -4,10 +4,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { BbyBonusBuyDocument, BbyPromotion } from '@/core/models/bonus-buy-maintenance'
+import { confirmAction } from '@/core/services/confirm'
+import type {
+  BbyBonusBuyDocument,
+  BbyMaintainOutcome,
+  BbyPromotion,
+  BbyTestMark,
+} from '@/core/models/bonus-buy-maintenance'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatRange, fsi } from '@/core/util/bidi'
@@ -16,6 +23,7 @@ import {
   bbyMaintainAccessQuery,
   bbyMaintainApi,
   bonusBuyKey,
+  canMarkTested,
   canOpenBbyMaintain,
   promotionKey,
   promotionListKey,
@@ -31,13 +39,16 @@ import {
   editorAccess,
   type EditorAccess,
   type EditorState,
+  formChanged,
   fromDocument,
   newEditor,
   orgCurrency,
   readEditorOutcome,
+  TEST_NOTE_MAX,
   toRequest,
 } from './editor'
 import {
+  classifyOutcome,
   type EditorMode,
   editorPath,
   isPromotionNotFound,
@@ -175,11 +186,16 @@ function EditorBody({
   const { t } = useTranslation('bonus-buy-maintenance')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [state, setState] = useState<EditorState>(() => (doc ? fromDocument(doc) : newEditor(promo)))
+  // What the form opened with: Mark Tested attests the saved bonus buy, so it waits on any edit.
+  const [opened] = useState<EditorState>(() => (doc ? fromDocument(doc) : newEditor(promo)))
+  const [state, setState] = useState<EditorState>(opened)
   const [tab, setTab] = useState<Tab>('header')
   const [busy, setBusy] = useState(false)
   const [groupingOpen, setGroupingOpen] = useState(false)
-  const access: EditorAccess = editorAccess(mode, doc)
+  const [markOpen, setMarkOpen] = useState(false)
+  // The ONE access answer the screen gate already read (same key): the tester grant rides on it.
+  const accessAnswer = useQuery(bbyMaintainAccessQuery())
+  const access: EditorAccess = editorAccess(mode, doc, canMarkTested(accessAnswer.data))
   const currency = orgCurrency(BBY_ORG.salesOrg)
 
   const update = (patch: Partial<EditorState>) => setState((s) => ({ ...s, ...patch }))
@@ -269,7 +285,52 @@ function EditorBody({
       })
     })
 
+  /**
+   * Mark Tested and Back to Planned (spec 2396): status acts on the SAVED bonus buy, answered
+   * in-band like every write. A refusal (the last writer, a validator refusal, a status that
+   * moved) is shown as the server worded it, in both languages; on success the bonus buy and
+   * the overview are read again, so the lock, the badge and the test mark follow the server.
+   */
+  async function statusAct(act: 'test' | 'backToPlanned', call: (number: string) => Promise<BbyMaintainOutcome>) {
+    const number = state.bbyNumber
+    if (!number) return
+    await guarded(async () => {
+      setReport(null)
+      const outcome = classifyOutcome(number, await call(number))
+      if (outcome.kind !== 'done') {
+        setReport({
+          title: t(outcome.kind === 'notFound' ? `${act}.notFound` : `${act}.refused`),
+          tone: 'bad',
+          rows: outcome.refusals.length ? [{ refusals: outcome.refusals }] : [],
+        })
+        return
+      }
+      setReport({ title: t(`${act}.done`), tone: 'ok', rows: [] })
+      await queryClient.invalidateQueries({ queryKey: bonusBuyKey(number) })
+      await queryClient.invalidateQueries({ queryKey: promotionKey(promo.promoNumber) })
+      await queryClient.invalidateQueries({ queryKey: promotionListKey })
+    })
+  }
+
+  const markTested = (note: string) => {
+    setMarkOpen(false)
+    void statusAct('test', (number) => bbyMaintainApi.markTested({ number, note: note.trim() || null }))
+  }
+
+  const backToPlanned = async () => {
+    const number = state.bbyNumber
+    if (!number) return
+    // An Activated bonus buy is live at every till: going back pulls it off them, so ask first.
+    if (
+      access.backToPlannedAsks &&
+      !(await confirmAction(t('backToPlanned.confirmBody', { number: fsi(number) }), t('backToPlanned.confirmTitle')))
+    )
+      return
+    await statusAct('backToPlanned', (n) => bbyMaintainApi.backToPlanned({ number: n }))
+  }
+
   const stale = report?.stale === true
+  const unsaved = formChanged(opened, state)
   const status = doc ? overviewStatus(doc.bbyStatus) : 'planned'
 
   return (
@@ -292,6 +353,21 @@ function EditorBody({
         {access.canCopy && (
           <Button variant="secondary" disabled={busy} onClick={copy}>
             {t('editor.copy')}
+          </Button>
+        )}
+        {access.canMarkTested && (
+          <Button
+            variant="secondary"
+            disabled={busy || unsaved}
+            title={unsaved ? t('test.saveFirst') : undefined}
+            onClick={() => setMarkOpen(true)}
+          >
+            {t('test.mark')}
+          </Button>
+        )}
+        {access.canBackToPlanned && (
+          <Button variant="secondary" disabled={busy} onClick={() => void backToPlanned()}>
+            {t('backToPlanned.run')}
           </Button>
         )}
         {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />}
@@ -345,7 +421,15 @@ function EditorBody({
           className="flex min-w-0 flex-col gap-3 rounded-e-lg rounded-b-lg border border-border/60 bg-card p-3"
         >
           {tab === 'header' && (
-            <HeaderTab state={state} update={update} setState={setState} status={status} currency={currency} readOnly={access.readOnly} />
+            <HeaderTab
+              state={state}
+              update={update}
+              setState={setState}
+              status={status}
+              mark={doc}
+              currency={currency}
+              readOnly={access.readOnly}
+            />
           )}
           {tab === 'engine' && <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} />}
           {tab === 'promotion' && <PromotionTab promo={promo} />}
@@ -363,7 +447,98 @@ function EditorBody({
         }}
         state={state}
       />
+
+      <MarkTestedDialog open={markOpen} onClose={() => setMarkOpen(false)} onRun={markTested} />
     </>
+  )
+}
+
+/** Mark Tested's prompt: an optional note, kept by the server with who and when (spec 2396 story 3). */
+function MarkTestedDialog({
+  open,
+  onClose,
+  onRun,
+}: {
+  open: boolean
+  onClose: () => void
+  onRun: (note: string) => void
+}) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  const [note, setNote] = useState('')
+  const close = () => {
+    setNote('')
+    onClose()
+  }
+  return (
+    <Modal
+      open={open}
+      onClose={close}
+      title={t('test.title')}
+      width="28rem"
+      footer={
+        <>
+          <Button variant="text" onClick={close}>
+            {t('test.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const typed = note
+              setNote('')
+              onRun(typed)
+            }}
+          >
+            {t('test.run')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">{t('test.hint')}</p>
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          {t('test.note')}
+          <textarea
+            value={note}
+            maxLength={TEST_NOTE_MAX}
+            rows={3}
+            placeholder={t('test.notePlaceholder')}
+            onChange={(e) => setNote(e.target.value)}
+            className="rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            data-testid="bby-test-note"
+            autoFocus
+          />
+        </label>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Who marked it Tested, when, and their note (spec 2396 story 7). Data, isolated by kind: the
+ * time is a machine value (`Ltr`), the name and the note are free text (`<bdi>`).
+ */
+function TestMark({ mark }: { mark: BbyTestMark | null }) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  if (!mark?.testedBy && !mark?.testedAt) return null
+  return (
+    <dl className="grid w-fit grid-cols-[auto_auto] gap-x-6 gap-y-1 text-sm" data-testid="bby-test-mark">
+      <dt className="text-xs font-medium text-muted-foreground">{t('test.by')}</dt>
+      <dd>
+        <bdi>{mark.testedBy ?? ''}</bdi>
+      </dd>
+      <dt className="text-xs font-medium text-muted-foreground">{t('test.at')}</dt>
+      <dd>
+        <Ltr>{formatDateTime(mark.testedAt)}</Ltr>
+      </dd>
+      {mark.testNote && (
+        <>
+          <dt className="text-xs font-medium text-muted-foreground">{t('test.noteLabel')}</dt>
+          <dd className="max-w-xl whitespace-pre-wrap">
+            <bdi>{mark.testNote}</bdi>
+          </dd>
+        </>
+      )}
+    </dl>
   )
 }
 
@@ -381,6 +556,7 @@ function HeaderTab({
   update,
   setState,
   status,
+  mark,
   currency,
   readOnly,
 }: {
@@ -388,6 +564,7 @@ function HeaderTab({
   update: (p: Partial<EditorState>) => void
   setState: React.Dispatch<React.SetStateAction<EditorState>>
   status: ReturnType<typeof overviewStatus>
+  mark: BbyTestMark | null
   currency: string
   readOnly: boolean
 }) {
@@ -422,6 +599,7 @@ function HeaderTab({
           {t('editor.header.profileName')}
         </Field>
       </div>
+      <TestMark mark={mark} />
       <div className="flex flex-wrap items-end gap-3">
         <DateInput label={t('editor.header.validFrom')} value={state.validFrom} onChange={(validFrom) => update({ validFrom })} />
         <DateInput label={t('editor.header.validTo')} value={state.validTo} onChange={(validTo) => update({ validTo })} />

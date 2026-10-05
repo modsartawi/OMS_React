@@ -45,6 +45,23 @@
 //  25. a load → created numbers, the overview refetched; a second run → updated numbers.
 //  26. a file whose AKTNR names another promotion offers a link to it; an empty file never goes up.
 //
+// Ticket 419 — Tested and Back to Planned (BackOffice spec 2396, ADR 0063). ⚠️ The doors are NOT
+// built (BackOffice 2397/2398 open): MarkTested, BackToPlanned, Access.canTest and the test mark
+// are stubbed in the SPEC'S READING, not a shipped DTO. Spec 2396 REVERSES 2374 here, so three
+// earlier steps changed: 4 reads four statuses (Tested added), 6 activates a selection holding
+// no Planned row (a Planned one is no longer offered Activate), 7's refusal names an untested
+// bonus buy, and 8 re-selects the Planned row it copies.
+//  27. the overview reads `3` as Tested and shows tested by / at / note.
+//  28. a selection holding a Planned bonus buy is not offered Activate; the hint says test it first.
+//  29. canTest + Planned → Mark Tested (held back while an edit is unsaved); the note prompt posts
+//      { number, note } and the bonus buy is read again.
+//  30. the four-eyes refusal is the server's, shown as is in EN + AR (never pre-blocked).
+//  31. without canTest, Mark Tested is not offered.
+//  32. Tested opens read-only (the lock hint, no Check/Save/line actions), shows its test mark,
+//      and goes Back to Planned without a warning.
+//  33. Activated asks before Back to Planned (the offer leaves the tills); No posts nothing.
+//  34. Deactivated is locked too; a SAP bonus buy keeps its SAP hint and is offered neither act.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -79,6 +96,8 @@ const PROMO = {
     { bbyNumber: 'OMS000000001', description: '1 + 1', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '1' },
     { bbyNumber: 'OMS000000002', description: '10% - Coupon', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '' },
     { bbyNumber: 'OMS000000003', description: 'OR rewards', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '2' },
+    { bbyNumber: 'OMS000000004', description: 'Vichy 2nd p', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '3',
+      testedBy: 'ayed', testedAt: '2026-10-05T11:20:00', testNote: 'Two Vichy items and a coupon: 20 SR.' },
   ],
 }
 const EMPTY = { status: 'found', promoNumber: 'P000000002', name: 'Empty flyer', salesFrom: '2026-11-01', salesTo: '2026-11-30', bonusBuys: [] }
@@ -115,6 +134,13 @@ const bbyDoc = (number, over = {}) => ({
 })
 let saveAnswer = 'stale'
 let bonusBuyGets = 0
+// Ticket 419: each OMS bonus buy's status as the stub's server holds it (default Planned), and the
+// test mark the read carries. MarkTested / BackToPlanned move it, so a re-read shows the move.
+const statusOf = { OMS000000002: '', OMS000000003: '2', OMS000000004: '3' }
+const MARK = { testedBy: 'ayed', testedAt: '2026-10-05T11:20:00', testNote: 'Two Vichy items and a coupon: 20 SR.' }
+const markOf = { OMS000000002: MARK, OMS000000004: MARK }
+let canTest = true
+let markAnswer = 'saved'
 
 let allowed = true
 const posts = [] // [path, body]
@@ -134,14 +160,17 @@ async function run() {
     const path = req.url().split('/api/')[1].split('?')[0]
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'BbyMaintainWeb/Access') return route.fulfill(envelope({ screenAllowed: allowed }))
+    if (path === 'BbyMaintainWeb/Access') return route.fulfill(envelope({ screenAllowed: allowed, canTest }))
     if (path === 'BbyMaintainWeb/Promotion/List') return route.fulfill(envelope([PROMO, EMPTY]))
     if (path.startsWith('BbyMaintainWeb/BonusBuy/') && req.method() === 'GET') {
       const n = decodeURIComponent(path.slice('BbyMaintainWeb/BonusBuy/'.length))
       bonusBuyGets++
       if (n === '000100001124') return route.fulfill(envelope(bbyDoc(n, { readOnly: true, bbyStatus: '' })))
-      if (/^OMS0000001(24|25)$|^OMS00000000[129]$/.test(n))
-        return route.fulfill(envelope(bbyDoc(n, { version: `v${bonusBuyGets}` })))
+      if (/^OMS0000001(24|25)$|^OMS00000000[1-49]$/.test(n))
+        return route.fulfill(envelope(bbyDoc(n, {
+          version: `v${bonusBuyGets}`, bbyStatus: statusOf[n] ?? '1',
+          testedBy: null, testedAt: null, testNote: null, ...(markOf[n] ?? {}),
+        })))
       return route.fulfill(envelope({ status: 'notFound', number: n, bonusBuy: null, bbyStatus: null, readOnly: false, version: null, changedBy: null, changedAt: null }))
     }
     // Multipart, not JSON: answered before the JSON POST branch parses its body.
@@ -158,6 +187,7 @@ async function run() {
         // The shipped shape: each refused bonus buy in bonusBuys[], the same refusals flattened.
         const items = [
           { number: 'OMS000000001', status: 'refused', warnings: [], refusals: [
+            refusal('BBY-NOT-TESTED', 'Bonus buy OMS000000001 is Planned. Test it before activating.', 'عرض الشراء OMS000000001 مخطط. اختبره قبل التفعيل.'),
             refusal('BBY-051', 'Valid to is in the past.', 'تاريخ النهاية في الماضي.'),
             refusal('BBY-020', 'A Price must be above zero.', 'يجب أن يكون السعر أكبر من صفر.'),
           ] },
@@ -208,6 +238,22 @@ async function run() {
         return route.fulfill(envelope(saved(body.bbyNumber)))
       }
       if (op === 'BonusBuy/Copy') return route.fulfill(envelope(saved('OMS000000009')))
+      // Ticket 419 — spec 2396's reading: { number, note } / { number } in, BbyMaintainOutcome out.
+      if (op === 'BonusBuy/MarkTested') {
+        if (markAnswer === 'fourEyes')
+          return route.fulfill(envelope({
+            status: 'refused', number: body.number, warnings: [],
+            refusals: [refusal('BBY-TEST-OWN-WRITE', `msartawi last wrote bonus buy '${body.number}'. Someone else must test it.`, `آخر من عدّل عرض الشراء '${body.number}' هو msartawi. يجب أن يختبره شخص آخر.`)],
+          }))
+        statusOf[body.number] = '3'
+        markOf[body.number] = { testedBy: 'ayed', testedAt: '2026-10-05T12:00:00', testNote: body.note }
+        return route.fulfill(envelope(saved(body.number)))
+      }
+      if (op === 'BonusBuy/BackToPlanned') {
+        statusOf[body.number] = '1'
+        delete markOf[body.number]
+        return route.fulfill(envelope(saved(body.number)))
+      }
       return route.fulfill(envelope(saved(body.bbyNumber ?? null)))
     }
     if (path === `BbyMaintainWeb/Promotion/${PROMO.promoNumber}`) {
@@ -219,7 +265,7 @@ async function run() {
   })
 
   const text = () => page.locator('body').innerText()
-  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload)\.[a-zA-Z.]+/)
+  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload|status|test|backToPlanned)\.[a-zA-Z.]+/)
 
   // ── 1. the nav leaf ──
   // The rail starts collapsed (its leaves live in a flyout), so expand it to read them.
@@ -269,13 +315,16 @@ async function run() {
   const dates = page.locator('input[type="date"]')
   check('3. six period dates, four disabled', (await dates.count()) === 6 && (await page.locator('input[type="date"]:disabled').count()) === 4)
   check('3. Purchase from equals On sale from', (await dates.nth(2).inputValue()) === '2026-10-05')
-  check('4. the three statuses read Planned / Activated / Deactivated',
-    ['Planned', 'Activated', 'Deactivated'].every((s) => body.includes(s)))
+  // 2396 reversal: four statuses now, Tested added.
+  check('4. the four statuses read Planned / Tested / Activated / Deactivated',
+    ['Planned', 'Tested', 'Activated', 'Deactivated'].every((s) => body.includes(s)))
   check('5. Delete promotion is disabled while it holds bonus buys', await page.locator('button:has-text("Delete promotion")').isDisabled())
 
   // ── 6. multi-select activate ──
   const rowCheck = (n) => page.locator(`.ag-row[row-id="${n}"] .ag-selection-checkbox input`).first()
-  await rowCheck('OMS000000001').check()
+  // 2396 reversal: a Planned row is no longer offered Activate (28), so the run is over Tested,
+  // Activated and Deactivated rows.
+  await rowCheck('OMS000000004').check()
   await rowCheck('OMS000000003').check()
   await rowCheck('OMS000000002').check()
   check('Change is disabled on a multi-select', await page.locator('button:has-text("Change")').first().isDisabled())
@@ -285,7 +334,7 @@ async function run() {
   const acts = posts.filter(([op]) => op === 'BonusBuy/Activate').map(([, b]) => b.bbyNumber)
   check('6. one call per number, past the refusal', acts.length === 3 && new Set(acts).size === 3, acts.join(','))
   const report = await page.locator('[role="status"]').last().innerText()
-  check('6. each number’s outcome is shown', ['OMS000000001', 'OMS000000002', 'OMS000000003'].every((n) => report.includes(n)) && report.includes('Done') && report.includes('BBY-030'))
+  check('6. each number’s outcome is shown', ['OMS000000004', 'OMS000000002', 'OMS000000003'].every((n) => report.includes(n)) && report.includes('Done') && report.includes('BBY-030'))
 
   // ── 7. promotion activate refused ──
   const before = promotionGets
@@ -295,12 +344,17 @@ async function run() {
   const flip = await page.locator('[role="status"]').last().innerText()
   check('7. every refused bonus buy is listed', flip.includes('OMS000000001') && flip.includes('OMS000000003'))
   check('7. every refusal, in both languages', ['BBY-051', 'BBY-020', 'BBY-030'].every((c) => flip.includes(c)) && flip.includes('تاريخ النهاية في الماضي.'))
+  // 2396: the promotion-level Activate stays offered; its refusal names each untested bonus buy.
+  check('7. the untested bonus buy is listed with its refusal, through the same report',
+    flip.includes('BBY-NOT-TESTED') && flip.includes('Test it before activating.') && flip.includes('اختبره قبل التفعيل.'))
   await page.waitForTimeout(500)
   check('7. nothing changed, so the promotion was NOT refetched', promotionGets === before, `${before}→${promotionGets}`)
 
   // ── 8. copy ──
   await rowCheck('OMS000000002').uncheck()
   await rowCheck('OMS000000003').uncheck()
+  await rowCheck('OMS000000004').uncheck()
+  await rowCheck('OMS000000001').check()
   posts.length = 0
   await page.locator('button', { hasText: /^Copy$/ }).click()
   await page.waitForURL('**/bonus-buy/OMS000000009')
@@ -598,6 +652,164 @@ async function run() {
     await import('node:fs').then((fs) => fs.mkdirSync('tools/.bby-maintenance-shots', { recursive: true }))
     await page.screenshot({ path: 'tools/.bby-maintenance-shots/upload.png' }).catch(() => {})
     await udlg.locator('button', { hasText: /^Close$/ }).click()
+  }
+
+  // ════════ Ticket 419 — Tested and Back to Planned (spec 2396, STUBBED in the spec's reading) ════════
+  {
+    const EDIT = `${ROOT}/${PROMO.promoNumber}/bonus-buy`
+    const acts419 = () => posts.filter(([op]) => op === 'BonusBuy/MarkTested' || op === 'BonusBuy/BackToPlanned')
+    const button = (name) => page.locator('button', { hasText: new RegExp(`^${name}$`) })
+    const last = () => page.locator('[role="status"]').last().innerText()
+    const strip = (s) => s.replace(/[\u2066-\u2069]/g, '')
+
+    // ── 27. the overview reads Tested and its test mark ──
+    await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+    await page.waitForSelector('.ag-row[row-id="OMS000000004"]')
+    const tested = strip(await page.locator('.ag-row[row-id="OMS000000004"]').innerText())
+    check('27. status 3 reads Tested in the overview', tested.includes('Tested'), JSON.stringify(tested))
+    const headers = await page.locator('.ag-header-cell-text').allInnerTexts()
+    check('27. the overview has Tested by / Tested at / Test note columns',
+      ['Tested by', 'Tested at', 'Test note'].every((h) => headers.includes(h)), headers.join(','))
+    const byCell = strip(await page.locator('.ag-row[row-id="OMS000000004"] [col-id="testedBy"]').innerText())
+    const atCell = strip(await page.locator('.ag-row[row-id="OMS000000004"] [col-id="testedAt"]').innerText())
+    const noteCell = strip(await page.locator('.ag-row[row-id="OMS000000004"] [col-id="testNote"]').innerText())
+    check('27. …with the tester, the time and the note',
+      byCell.trim() === 'ayed' && atCell.trim() === '2026-10-05 11:20' && noteCell.includes('20 SR'), `${byCell}|${atCell}|${noteCell}`)
+    const untested = strip(await page.locator('.ag-row[row-id="OMS000000001"] [col-id="testedBy"]').innerText())
+    check('27. an untested row is blank there', untested.trim() === '', JSON.stringify(untested))
+
+    // ── 28. Activate is not offered on a Planned bonus buy ──
+    const rowCheck419 = (n) => page.locator(`.ag-row[row-id="${n}"] .ag-selection-checkbox input`).first()
+    await rowCheck419('OMS000000001').check()
+    const activate = button('Activate')
+    check('28. one Planned row: Activate is not offered', await activate.isDisabled())
+    check('28. …and its hint says it must be tested first',
+      (await activate.getAttribute('title')) === 'A Planned bonus buy must be tested before it can be activated.')
+    await rowCheck419('OMS000000004').check()
+    check('28. a multi-select holding a Planned row: still not offered', await activate.isDisabled())
+    await rowCheck419('OMS000000001').uncheck()
+    check('28. Tested alone: Activate is offered', await activate.isEnabled())
+    check('28. the promotion-level Activate stays offered', await button('Activate promotion').isEnabled())
+
+    // ── 29. Mark Tested on a Planned bonus buy, with the grant ──
+    canTest = true
+    markAnswer = 'saved'
+    await page.goto(`${EDIT}/OMS000000001`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('29. Planned + canTest → Mark Tested is offered', (await button('Mark Tested').count()) === 1)
+    check('29. Planned → no Back to Planned', (await button('Back to Planned').count()) === 0)
+    check('29. Planned is editable', (await page.locator('fieldset[data-readonly="true"]').count()) === 0 && (await button('Save').count()) === 1)
+    // An unsaved edit holds Mark Tested back: it would attest the saved version, not this one.
+    const text419 = page.locator('input[maxlength="60"]')
+    await text419.fill('edited, not saved')
+    check('29. an unsaved edit holds Mark Tested back, saying why',
+      (await button('Mark Tested').isDisabled()) && (await button('Mark Tested').getAttribute('title')) === 'Save your changes first: Mark Tested marks the saved bonus buy.')
+    await text419.fill('OR when apply discount')
+    check('29. …and putting it back releases it', await button('Mark Tested').isEnabled())
+    posts.length = 0
+    await button('Mark Tested').click()
+    const tdlg = page.locator('dialog')
+    await tdlg.locator('[data-testid="bby-test-note"]').fill('  Basket of two, 20 SR.  ')
+    check('29. the note is held to 200', (await tdlg.locator('[data-testid="bby-test-note"]').getAttribute('maxlength')) === '200')
+    const gets419 = bonusBuyGets
+    await tdlg.locator('button', { hasText: /^Mark Tested$/ }).click()
+    await page.waitForSelector('text=Marked Tested. It can now be activated.')
+    const mt = acts419().find(([op]) => op === 'BonusBuy/MarkTested')?.[1]
+    check('29. MarkTested posts exactly { number, note } (spec 2396 reading)',
+      mt && JSON.stringify(Object.keys(mt).sort()) === '["note","number"]' && mt.number === 'OMS000000001' && mt.note === 'Basket of two, 20 SR.',
+      JSON.stringify(mt))
+    await page.waitForSelector('fieldset[data-readonly="true"]', { timeout: 5000 }).catch(() => {})
+    check('29. the bonus buy is read again', bonusBuyGets > gets419, `${gets419}→${bonusBuyGets}`)
+    const after = strip(await text())
+    check('29. …and now reads Tested, locked, with its test mark',
+      after.includes('Tested') && (await page.locator('fieldset[data-readonly="true"]').count()) === 1 &&
+        after.includes('Basket of two, 20 SR.') && (await button('Mark Tested').count()) === 0)
+
+    // ── 30. the four-eyes refusal is the server's ──
+    statusOf.OMS000000001 = '1'
+    delete markOf.OMS000000001
+    markAnswer = 'fourEyes'
+    await page.goto(`${EDIT}/OMS000000001`)
+    await page.waitForSelector('table[data-grid="get"]')
+    // The session user (msartawi) is the last writer: the client still offers the act.
+    check('30. the last writer is NOT pre-blocked on the client', (await button('Mark Tested').count()) === 1)
+    await button('Mark Tested').click()
+    await tdlg.locator('button', { hasText: /^Mark Tested$/ }).click()
+    await page.waitForSelector('text=Not marked Tested:')
+    const fe = await last()
+    check('30. the refusal is shown as the server worded it, EN + AR',
+      fe.includes('BBY-TEST-OWN-WRITE') && fe.includes('Someone else must test it.') && fe.includes('يجب أن يختبره شخص آخر.'))
+    const blankNote = acts419().filter(([op]) => op === 'BonusBuy/MarkTested').at(-1)?.[1]
+    check('30. a blank note goes as null', blankNote && blankNote.note === null, JSON.stringify(blankNote))
+    check('30. a refusal leaves it Planned and editable', (await page.locator('fieldset[data-readonly="true"]').count()) === 0)
+
+    // ── 31. without the grant ──
+    canTest = false
+    await page.goto(`${EDIT}/OMS000000001`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('31. no canTest → no Mark Tested', (await button('Mark Tested').count()) === 0)
+    canTest = true
+
+    // ── 32. Tested: locked, its mark, Back to Planned without a warning ──
+    await page.goto(`${EDIT}/OMS000000004`)
+    await page.waitForSelector('table[data-grid="get"]')
+    const tb = strip(await text())
+    check('32. status 3 reads Tested in the editor header', tb.includes('Tested'))
+    check('32. Tested opens read-only, with the lock hint',
+      (await page.locator('fieldset[data-readonly="true"]').count()) === 1 && tb.includes('Only a Planned bonus buy can change.'))
+    check('32. no Check, no Save, no Add line, no Mark Tested',
+      (await page.locator('button', { hasText: /^(Check|Save|Mark Tested)$/ }).count()) === 0 && (await page.locator('button:has-text("Add line")').count()) === 0)
+    check('32. the test mark: by, at and the note',
+      (await page.locator('[data-testid="bby-test-mark"]').count()) === 1 && tb.includes('ayed') && tb.includes('2026-10-05 11:20') && tb.includes('Two Vichy items'))
+    check('32. Copy is still offered', (await button('Copy').count()) === 1)
+    posts.length = 0
+    await button('Back to Planned').click()
+    await page.waitForSelector('text=Back to Planned. It can be changed now')
+    check('32. Tested goes back with no confirmation', (await page.locator('dialog[open]').count()) === 0)
+    const bp = acts419().find(([op]) => op === 'BonusBuy/BackToPlanned')?.[1]
+    check('32. BackToPlanned posts exactly { number } (spec 2396 reading)',
+      bp && JSON.stringify(Object.keys(bp)) === '["number"]' && bp.number === 'OMS000000004', JSON.stringify(bp))
+    await page.waitForFunction(() => !document.querySelector('fieldset[data-readonly="true"]'), null, { timeout: 5000 }).catch(() => {})
+    check('32. …and the re-read opens it for change, its mark gone',
+      (await page.locator('fieldset[data-readonly="true"]').count()) === 0 && (await page.locator('[data-testid="bby-test-mark"]').count()) === 0)
+
+    // ── 33. Activated asks first ──
+    await page.goto(`${EDIT}/OMS000000002`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('33. Activated is locked too', (await page.locator('fieldset[data-readonly="true"]').count()) === 1 && (await button('Save').count()) === 0)
+    posts.length = 0
+    await button('Back to Planned').click()
+    const ask = page.locator('dialog[open]')
+    await ask.waitFor()
+    const askText = await ask.innerText()
+    check('33. the confirmation warns the offer leaves the tills', askText.includes('pulls the offer off every till') && askText.includes('OMS000000002'))
+    await ask.locator('button:has-text("No")').click()
+    await page.waitForTimeout(300)
+    check('33. No posts nothing', acts419().length === 0)
+    await button('Back to Planned').click()
+    await page.locator('dialog[open] button:has-text("Yes")').click()
+    await page.waitForSelector('text=Back to Planned. It can be changed now')
+    check('33. Yes takes it back', acts419().some(([op, b]) => op === 'BonusBuy/BackToPlanned' && b.number === 'OMS000000002'))
+
+    // ── 34. Deactivated locked; SAP keeps its own hint and gets neither act ──
+    await page.goto(`${EDIT}/OMS000000003`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('34. Deactivated is locked and offered Back to Planned',
+      (await page.locator('fieldset[data-readonly="true"]').count()) === 1 && (await button('Back to Planned').count()) === 1)
+    await page.goto(`${EDIT}/000100001124`)
+    await page.waitForSelector('table[data-grid="get"]')
+    const sapText = await text()
+    check('34. a SAP bonus buy keeps the SAP hint, not the lock hint',
+      sapText.includes('This is a SAP bonus buy.') && !sapText.includes('Only a Planned bonus buy can change.'))
+    check('34. …and is offered neither Mark Tested nor Back to Planned',
+      (await page.locator('button', { hasText: /^(Mark Tested|Back to Planned)$/ }).count()) === 0)
+    const k419 = await rawKey()
+    check('34. no raw i18n keys', k419 === null, (k419 || [''])[0])
+    statusOf.OMS000000004 = '3'
+    markOf.OMS000000004 = MARK
+    await page.goto(`${EDIT}/OMS000000004`)
+    await page.waitForSelector('table[data-grid="get"]')
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor-tested.png', fullPage: true }).catch(() => {})
   }
 
   // ── 11. hygiene ──

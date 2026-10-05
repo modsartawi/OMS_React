@@ -15,6 +15,8 @@ import {
   buyPanelLayout,
   currPe,
   editorAccess,
+  emptyBuyLine,
+  formChanged,
   fromDocument,
   getPanelLayout,
   newEditor,
@@ -292,8 +294,18 @@ describe('stale version shows the reload prompt', () => {
 })
 
 describe('display mode disables every input', () => {
+  /** The three status acts ticket 419 added; none of them applies to these four cases. */
+  const NO_ACTS = { canMarkTested: false, canBackToPlanned: false, backToPlannedAsks: false }
+
   it('Display is read-only: nothing to save or check, Copy still offered', () => {
-    expect(editorAccess('display', doc())).toEqual({ readOnly: true, reason: 'display', canSave: false, canCheck: false, canCopy: true })
+    expect(editorAccess('display', doc())).toEqual({
+      readOnly: true,
+      reason: 'display',
+      canSave: false,
+      canCheck: false,
+      canCopy: true,
+      ...NO_ACTS,
+    })
   })
 
   it('a SAP bonus buy opened for Change is read-only too — only Copy changes it', () => {
@@ -303,16 +315,132 @@ describe('display mode disables every input', () => {
       canSave: false,
       canCheck: false,
       canCopy: true,
+      ...NO_ACTS,
     })
   })
 
-  it('Change of an OMS bonus buy and Create are editable; Create has nothing to copy yet', () => {
-    expect(editorAccess('change', doc())).toEqual({ readOnly: false, reason: null, canSave: true, canCheck: true, canCopy: true })
-    expect(editorAccess('create', null)).toEqual({ readOnly: false, reason: null, canSave: true, canCheck: true, canCopy: false })
+  it('Change of a Planned OMS bonus buy and Create are editable; Create has nothing to copy yet', () => {
+    expect(editorAccess('change', doc())).toEqual({
+      readOnly: false,
+      reason: null,
+      canSave: true,
+      canCheck: true,
+      canCopy: true,
+      ...NO_ACTS,
+    })
+    expect(editorAccess('create', null)).toEqual({
+      readOnly: false,
+      reason: null,
+      canSave: true,
+      canCheck: true,
+      canCopy: false,
+      ...NO_ACTS,
+    })
   })
 
   it('display keeps the minimum-value amount disabled even when ticked', () => {
     const s = fromDocument(doc())
     expect(buyPanelLayout(s, editorAccess('display', doc()).readOnly).minAmountEnabled).toBe(false)
+  })
+})
+
+/**
+ * Ticket 419 (spec 2396, ADR 0063). These REPLACE spec 2374's reading that an activated bonus
+ * buy can be changed live: only Planned can change now, and the way back is Back to Planned.
+ */
+describe('each status opens read-only except Planned', () => {
+  it('Planned opens for Change; Tested, Activated and Deactivated open locked', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '1' })).readOnly).toBe(false)
+    for (const bbyStatus of ['3', '', ' ', '2'])
+      expect(editorAccess('change', doc({ bbyStatus })), `status [${bbyStatus}]`).toMatchObject({
+        readOnly: true,
+        reason: 'locked',
+        canSave: false,
+        canCheck: false,
+        canCopy: true,
+      })
+  })
+
+  it('🚩 an unreadable status is locked, never guessed editable', () => {
+    for (const bbyStatus of [null, 'X', '4'])
+      expect(editorAccess('change', doc({ bbyStatus })).reason, String(bbyStatus)).toBe('locked')
+  })
+
+  it('a SAP bonus buy keeps its own reason whatever its status: its hint is not "back to Planned"', () => {
+    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).reason).toBe('sap')
+    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' })).reason).toBe('sap')
+  })
+
+  it('Back to Planned is offered on Tested, Activated and Deactivated, never on Planned or SAP', () => {
+    for (const bbyStatus of ['3', '', '2'])
+      expect(editorAccess('change', doc({ bbyStatus })).canBackToPlanned, `status [${bbyStatus}]`).toBe(true)
+    expect(editorAccess('change', doc({ bbyStatus: '1' })).canBackToPlanned).toBe(false)
+    expect(editorAccess('change', doc({ bbyStatus: null })).canBackToPlanned).toBe(false)
+    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).canBackToPlanned).toBe(false)
+    expect(editorAccess('create', null).canBackToPlanned).toBe(false)
+  })
+
+  it('Display offers the status acts as Change does: they are not edits', () => {
+    expect(editorAccess('display', doc({ bbyStatus: '3' })).canBackToPlanned).toBe(true)
+    expect(editorAccess('display', doc({ bbyStatus: '1' }), true).canMarkTested).toBe(true)
+  })
+})
+
+describe('mark tested is offered only with canTest on a Planned bonus buy', () => {
+  it('Planned + canTest → offered', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '1' }), true).canMarkTested).toBe(true)
+  })
+
+  it('without the tester grant → not offered; the default is no grant (fail closed)', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '1' }), false).canMarkTested).toBe(false)
+    expect(editorAccess('change', doc({ bbyStatus: '1' })).canMarkTested).toBe(false)
+  })
+
+  it('any status but Planned → not offered, even with the grant', () => {
+    for (const bbyStatus of ['3', '', '2', null])
+      expect(editorAccess('change', doc({ bbyStatus }), true).canMarkTested, String(bbyStatus)).toBe(false)
+  })
+
+  it('a SAP bonus buy is never tested here; a new one has nothing saved to test', () => {
+    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' }), true).canMarkTested).toBe(false)
+    expect(editorAccess('create', null, true).canMarkTested).toBe(false)
+  })
+
+  it('🚩 four eyes is the server’s: the last writer is NOT pre-blocked on the client', () => {
+    // The drive's session user is `msartawi`, the document's last writer too: still offered.
+    expect(editorAccess('change', doc({ bbyStatus: '1', changedBy: 'msartawi' }), true).canMarkTested).toBe(true)
+  })
+})
+
+describe('mark tested waits for unsaved edits', () => {
+  it('a form as it opened has not changed; a typed edit has', () => {
+    const opened = fromDocument(doc())
+    expect(formChanged(opened, opened)).toBe(false)
+    expect(formChanged(opened, { ...opened, description: 'changed' })).toBe(true)
+    expect(formChanged(opened, { ...opened, engine: { ...opened.engine, score: '9' } })).toBe(true)
+  })
+
+  it('an added empty line is not a change: it is never sent', () => {
+    const opened = fromDocument(doc())
+    expect(formChanged(opened, { ...opened, buy: [...opened.buy, emptyBuyLine()] })).toBe(false)
+  })
+})
+
+describe('back to planned on an activated bonus buy asks first', () => {
+  it('Activated asks: the offer leaves the tills', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '' }))).toMatchObject({ canBackToPlanned: true, backToPlannedAsks: true })
+  })
+
+  it('Tested and Deactivated go back without the warning', () => {
+    for (const bbyStatus of ['3', '2'])
+      expect(editorAccess('change', doc({ bbyStatus })), `status [${bbyStatus}]`).toMatchObject({
+        canBackToPlanned: true,
+        backToPlannedAsks: false,
+      })
+  })
+
+  it('nothing asks where nothing is offered', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '1' })).backToPlannedAsks).toBe(false)
+    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).backToPlannedAsks).toBe(false)
   })
 })

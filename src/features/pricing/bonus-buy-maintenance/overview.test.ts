@@ -3,8 +3,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
+import en from '@/locales/en/bonus-buy-maintenance.json'
 import type { BbyMaintainOutcome, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
 import {
+  canActivateSelection,
   canDeletePromotion,
   editorPath,
   overviewSeverity,
@@ -42,8 +44,9 @@ describe('promotion overview maps blank/1/2 to Activated/Planned/Deactivated', (
     expect(overviewStatus(undefined)).toBe('unknown')
   })
 
-  it('the legacy A/I/D/X letters are NOT guessed into the three — unknown', () => {
-    for (const code of ['A', 'I', 'D', 'X', '3']) expect(overviewStatus(code)).toBe('unknown')
+  // Ticket 419 took '3' out of this list: spec 2396 made it Tested (the block at the end).
+  it('the legacy A/I/D/X letters are NOT guessed into the four — unknown', () => {
+    for (const code of ['A', 'I', 'D', 'X', '4']) expect(overviewStatus(code)).toBe('unknown')
   })
 
   it('only Activated is the in-force colour; Planned waits for a human', () => {
@@ -152,5 +155,38 @@ describe('the editor page each overview button opens', () => {
     expect(editorPath('P000000001', 'display', 'OMS000000002')).toBe(
       '/pricing/bonus-buy-maintenance/P000000001/bonus-buy/OMS000000002?mode=display',
     )
+  })
+})
+
+/** Ticket 419 (spec 2396, ADR 0063): the fourth status, and Activate only after a test. */
+describe('status 3 reads Tested in the overview and the editor', () => {
+  it('`3` is Tested, space-padded as SAP pads too', () => {
+    expect(overviewStatus('3')).toBe('tested')
+    expect(overviewStatus(' 3 ')).toBe('tested')
+  })
+
+  it('the label both screens render is "Tested" — overview rows and the editor header read one key', () => {
+    // Both `StatusCell` and the editor's header render `overview.status.<overviewStatus(code)>`.
+    expect(en.overview.status[overviewStatus('3') as keyof typeof en.overview.status]).toBe('Tested')
+  })
+
+  it('Tested is ready to go (`go`): neither live nor waiting on its author', () => {
+    expect(overviewSeverity('tested')).toBe('go')
+  })
+})
+
+describe('activate on a Planned bonus buy is not offered', () => {
+  it('a selection holding a Planned bonus buy cannot be activated, one row or many', () => {
+    expect(canActivateSelection(['planned'])).toBe(false)
+    expect(canActivateSelection(['tested', 'planned', 'deactivated'])).toBe(false)
+  })
+
+  it('Tested, and Deactivated (reactivation needs no re-test), are offered', () => {
+    expect(canActivateSelection(['tested'])).toBe(true)
+    expect(canActivateSelection(['tested', 'deactivated'])).toBe(true)
+  })
+
+  it('an empty selection offers nothing', () => {
+    expect(canActivateSelection([])).toBe(false)
   })
 })

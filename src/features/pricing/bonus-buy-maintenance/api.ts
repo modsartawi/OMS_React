@@ -11,8 +11,10 @@
 import { api } from '@/core/api'
 import type {
   BbyBonusBuyDocument,
+  BbyBackToPlannedRequest,
   BbyBonusBuyWire,
   BbyMaintainAccessResult,
+  BbyMarkTestedRequest,
   BbyMaintainOutcome,
   BbyPromotion,
   BbyPromotionSave,
@@ -42,6 +44,9 @@ export function bbyMaintainAccessQuery() {
  */
 export const canOpenBbyMaintain = (r: BbyMaintainAccessResult | null | undefined): boolean =>
   r?.screenAllowed === true
+
+/** The tester grant, read off the SAME access answer — no second probe. Fail closed, as above. */
+export const canMarkTested = (r: BbyMaintainAccessResult | null | undefined): boolean => r?.canTest === true
 
 export const promotionListKey = ['bonus-buy-maintenance', 'promotions'] as const
 export const promotionKey = (promoNumber: string) =>
@@ -109,6 +114,23 @@ export const bbyMaintainApi = {
   /** Any bonus buy, SAP or OMS → a new Planned `OMS…` under `promoNumber`. */
   copy(sourceNumber: string, promoNumber: string): Promise<BbyMaintainOutcome> {
     return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/Copy`, { sourceNumber, promoNumber })
+  },
+
+  /**
+   * Planned → Tested (spec 2396). The server re-runs the validator and refuses the bonus buy's
+   * last writer (four eyes); every refusal comes back in-band. Spec 2396 reading, reconcile when
+   * BackOffice 2397 ships — the body is the spec's `{ number, note }`.
+   */
+  markTested(body: BbyMarkTestedRequest): Promise<BbyMaintainOutcome> {
+    return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/MarkTested`, body)
+  },
+
+  /**
+   * Tested / Activated / Deactivated → Planned (spec 2396): clears the test mark, and pulls an
+   * Activated offer off the tills. Spec 2396 reading, reconcile when BackOffice 2398 ships.
+   */
+  backToPlanned(body: BbyBackToPlannedRequest): Promise<BbyMaintainOutcome> {
+    return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/BackToPlanned`, body)
   },
 
   /**

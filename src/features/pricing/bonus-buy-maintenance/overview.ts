@@ -15,10 +15,11 @@ import type {
 /** `BbyPromotion.Name` is `NVARCHAR(40)` (spec 2374 §Schema). */
 export const PROMOTION_NAME_MAX = 40
 
-export type OverviewStatus = 'activated' | 'planned' | 'deactivated' | 'unknown'
+export type OverviewStatus = 'activated' | 'planned' | 'tested' | 'deactivated' | 'unknown'
 
 /**
- * SAP's status column: **blank** = Activated, `1` = Planned, `2` = Deactivated. Blank means a
+ * SAP's status column: **blank** = Activated, `1` = Planned, `2` = Deactivated, and OMS's own
+ * `3` = Tested (spec 2396, ADR 0063: inert at a till like Planned). Blank means a
  * PRESENT empty (or space-padded, as SAP pads) string. A missing field is `unknown`, never
  * Activated: while the wire shape is unconfirmed, a renamed field must not paint every bonus
  * buy as live at the tills. Any other code is `unknown` too, never guessed into one of three.
@@ -29,15 +30,26 @@ export function overviewStatus(code: BbyStatusCode | null | undefined): Overview
   if (c === '') return 'activated'
   if (c === '1') return 'planned'
   if (c === '2') return 'deactivated'
+  if (c === '3') return 'tested'
   return 'unknown'
 }
 
-/** Activated prices at the tills (`ok`); Planned waits for a human (`warn`); paused and
- *  unknown are neutral. The label always renders beside the colour. */
+/** Activated prices at the tills (`ok`); Planned waits for a human (`warn`); Tested is ready
+ *  to go live (`go`); paused and unknown are neutral. The label always renders beside the colour. */
 export function overviewSeverity(status: OverviewStatus): Severity {
   if (status === 'activated') return 'ok'
   if (status === 'planned') return 'warn'
+  if (status === 'tested') return 'go'
   return 'mute'
+}
+
+/**
+ * The overview's Activate (one or many rows): not offered while the selection holds a Planned
+ * bonus buy, since only a Tested one can go live (spec 2396, ADR 0063). The server refuses it
+ * too; the screen just never offers the act. Any other status is the server's to judge.
+ */
+export function canActivateSelection(statuses: readonly OverviewStatus[]): boolean {
+  return statuses.length > 0 && !statuses.includes('planned')
 }
 
 /** One number's outcome in a multi-select act. */

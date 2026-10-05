@@ -54,9 +54,9 @@
     "confirmDeleteTitle": "Delete promotion",
     "confirmDeleteBody": "Delete promotion {{number}}? Its number is never given out again.",
     "confirmFlipTitle": "Change the whole promotion",
-    "confirmActivateBody": "Activate every Planned bonus buy in promotion {{number}}? Nothing goes live if any one of them is refused.",
+    "confirmActivateBody": "Activate every Tested bonus buy in promotion {{number}}? Nothing goes live while any bonus buy in it is still Planned, or if any one of them is refused.",
     "confirmDeactivateBody": "Deactivate every activated bonus buy in promotion {{number}}? They stop pricing at every till.",
-    "activated": "Promotion activated: every Planned bonus buy is live.",
+    "activated": "Promotion activated: every Tested bonus buy is live.",
     "deactivated": "Promotion deactivated.",
     "flipRefused": "Nothing changed. These bonus buys were refused:",
     "deleteRefused": "The promotion was not deleted:",
@@ -71,11 +71,15 @@
       "text": "Bonus buy text",
       "validFrom": "Valid from",
       "validTo": "Valid to",
-      "status": "Status"
+      "status": "Status",
+      "testedBy": "Tested by",
+      "testedAt": "Tested at",
+      "testNote": "Test note"
     },
     "status": {
       "activated": "Activated",
       "planned": "Planned",
+      "tested": "Tested",
       "deactivated": "Deactivated",
       "unknown": "Unknown"
     },
@@ -92,7 +96,7 @@
     "needSome": "Select one or more bonus buys.",
     "selected": "{{count}} selected",
     "confirmDeleteTitle": "Delete bonus buys",
-    "confirmDeleteBody": "Delete {{count}} bonus buy(s)? An activated bonus buy is refused: deactivate it first.",
+    "confirmDeleteBody": "Delete {{count}} bonus buy(s)? Only a Planned or Deactivated bonus buy can be deleted; any other is refused.",
     "report": {
       "activate": "Activate",
       "deactivate": "Deactivate",
@@ -178,7 +182,8 @@
     "warnings": "Warnings",
     "readOnly": {
       "display": "Display only. Use Change to edit this bonus buy, or Copy to start a new one from it.",
-      "sap": "This is a SAP bonus buy. It can be displayed and copied, never changed here."
+      "sap": "This is a SAP bonus buy. It can be displayed and copied, never changed here.",
+      "locked": "Only a Planned bonus buy can change. Take it back to Planned to change it; it must then be tested again before it goes live."
     },
     "outcome": {
       "check": {
@@ -329,5 +334,32 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "close": "Close"
+  },
+  "status": {
+    "activateNeedsTest": "A Planned bonus buy must be tested before it can be activated."
+  },
+  "test": {
+    "mark": "Mark Tested",
+    "title": "Mark Tested",
+    "hint": "Mark this bonus buy Tested once you have priced it in the simulator. Someone other than its last author must mark it. The server checks it again first.",
+    "note": "Note (optional)",
+    "notePlaceholder": "For example, the basket you tried",
+    "run": "Mark Tested",
+    "cancel": "Cancel",
+    "done": "Marked Tested. It can now be activated.",
+    "refused": "Not marked Tested:",
+    "notFound": "This bonus buy no longer exists.",
+    "by": "Tested by",
+    "at": "Tested at",
+    "noteLabel": "Test note",
+    "saveFirst": "Save your changes first: Mark Tested marks the saved bonus buy."
+  },
+  "backToPlanned": {
+    "run": "Back to Planned",
+    "confirmTitle": "Take a live bonus buy back to Planned",
+    "confirmBody": "Bonus buy {{number}} is live. Taking it back to Planned pulls the offer off every till until it is tested and activated again.",
+    "done": "Back to Planned. It can be changed now, and must be tested again before it goes live.",
+    "refused": "Not taken back to Planned:",
+    "notFound": "This bonus buy no longer exists."
   }
 }

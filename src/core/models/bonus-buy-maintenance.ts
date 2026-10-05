@@ -10,17 +10,34 @@
 /** GET BbyMaintainWeb/Access — the screen grant `BackOfficeScreen[BbyMaintain,03]`. */
 export interface BbyMaintainAccessResult {
   screenAllowed: boolean
+  /**
+   * The tester grant `BackOfficeScreen[BbyMaintain,04]` (spec 2396): Mark Tested is offered only
+   * when this is `true`. Spec 2396 reading, reconcile when BackOffice 2397 ships — optional because
+   * a server without it must read as "no grant" (fail closed).
+   */
+  canTest?: boolean
 }
 
 /**
  * SAP's `KONBBYH.STATUS` as `BbyHeader.BbyStatus`: blank = Activated, `1` = Planned,
- * `2` = Deactivated. Typed `string` because it is the server's code, read through
- * `overviewStatus` rather than trusted to be one of the three.
+ * `2` = Deactivated, `3` = Tested (spec 2396, ADR 0063 — OMS only). Typed `string` because it is
+ * the server's code, read through `overviewStatus` rather than trusted to be one of the four.
  */
 export type BbyStatusCode = string
 
-/** One row of a promotion's Bonus Buys – Overview grid (`BbyPromotionBonusBuy`). */
-export interface BbyOverviewRow {
+/**
+ * The test mark (`BbyTestMark`, spec 2396): who marked a bonus buy Tested, when, and their optional
+ * note. Null when untested; Back to Planned clears it. Spec 2396 reading, reconcile when BackOffice
+ * 2397 ships: the spec names the fields on GET BonusBuy/{n} and the overview rows, not where they sit.
+ */
+export interface BbyTestMark {
+  testedBy?: string | null
+  testedAt?: string | null
+  testNote?: string | null
+}
+
+/** One row of a promotion's Bonus Buys – Overview grid (`BbyPromotionBonusBuy`), with its test mark. */
+export interface BbyOverviewRow extends BbyTestMark {
   bbyNumber: string
   description: string | null
   validFrom: string | null
@@ -169,8 +186,8 @@ export interface BbyBonusBuyWire {
   groupings: BbyGroupingWire[]
 }
 
-/** GET BonusBuy/{number} (`BbyBonusBuyDocument`): the whole bonus buy, SAP read-only. */
-export interface BbyBonusBuyDocument {
+/** GET BonusBuy/{number} (`BbyBonusBuyDocument`): the whole bonus buy, SAP read-only, with its test mark. */
+export interface BbyBonusBuyDocument extends BbyTestMark {
   status: 'found' | 'notFound' | string
   number: string
   bonusBuy: BbyBonusBuyWire | null
@@ -181,4 +198,20 @@ export interface BbyBonusBuyDocument {
   version: string | null
   changedBy: string | null
   changedAt: string | null
+}
+
+/**
+ * POST BonusBuy/MarkTested (spec 2396, grant `04`). Spec 2396 reading, reconcile when BackOffice
+ * 2397 ships. ⚠️ `number`, not the `bbyNumber` the shipped Activate/Deactivate/Delete take: the
+ * spec writes it so, and the client sends what the spec says.
+ */
+export interface BbyMarkTestedRequest {
+  number: string
+  /** Optional; null when the tester left it blank. `BbyTestMark.Note` is `NVARCHAR(200)`. */
+  note: string | null
+}
+
+/** POST BonusBuy/BackToPlanned (spec 2396). Spec 2396 reading, reconcile when BackOffice 2398 ships. */
+export interface BbyBackToPlannedRequest {
+  number: string
 }

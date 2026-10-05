@@ -51,7 +51,6 @@
     "delete": "Delete promotion",
     "deleteOnlyEmpty": "A promotion can be deleted only when it holds no bonus buys.",
     "upload": "Upload file",
-    "uploadPending": "The upload dialog arrives with the next build.",
     "confirmDeleteTitle": "Delete promotion",
     "confirmDeleteBody": "Delete promotion {{number}}? Its number is never given out again.",
     "confirmFlipTitle": "Change the whole promotion",
@@ -111,6 +110,54 @@
     "hint": "The bonus buy is copied into a new Planned OMS bonus buy in this promotion. The source is not changed.",
     "run": "Copy",
     "cancel": "Cancel"
+  },
+  "upload": {
+    "title": "Upload bonus buys",
+    "hint": "SAP's 22-column bonus-buy upload file, tab-separated, unchanged except that its promotion (AKTNR) must be an OMS P number. Uploading the same file again updates the bonus buys it created; it never duplicates them.",
+    "file": "File",
+    "checkOnly": "Check only",
+    "checkOnlyHint": "Every row is checked and nothing is written.",
+    "activate": "Activate new bonus buys",
+    "activateHint": "New bonus buys go live at once instead of landing Planned. Updated ones keep their status.",
+    "run": "Upload",
+    "runCheck": "Check file",
+    "running": "Reading the file…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "again": "Upload another file",
+    "failed": "The file could not be uploaded.",
+    "problem": {
+      "empty": "The file is empty.",
+      "tooLarge": "The file is larger than 10 MB."
+    },
+    "result": {
+      "loaded": "{{file}} loaded into promotion {{number}}.",
+      "checked": "{{file}} passed the check for promotion {{number}}.",
+      "refused": "{{file}} was refused. Fix these rows and upload it again.",
+      "unknown": "The answer to the upload could not be read. Check the overview before uploading again.",
+      "nothingWritten": "Nothing was written.",
+      "promotionCreated": "Promotion {{number}} was created from the file, Planned.",
+      "promotionWouldBeCreated": "Promotion {{number}} would be created from the file.",
+      "openPromotion": "Open promotion {{number}}"
+    },
+    "refusedRows": "Refused rows",
+    "created": "Created",
+    "updated": "Updated",
+    "wouldCreate": "Would be created",
+    "wouldUpdate": "Would be updated",
+    "warnings": "Warnings",
+    "col": {
+      "bbyNumber": "Bonus Buy",
+      "row": "Row",
+      "serial": "Serial",
+      "code": "Code",
+      "reason": "Reason",
+      "buyGroup": "Buy group",
+      "getGroup": "Get group",
+      "status": "Status",
+      "new": "new",
+      "wholeFile": "Whole file"
+    }
   },
   "refusals": {
     "field": "Field: {{field}}"

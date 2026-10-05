@@ -23,6 +23,14 @@
 //  10. Create / Display open the editor route.
 //  11. no raw i18n keys; no page errors.
 //
+// Ticket 418 — the upload dialog (BbyMaintainWeb/Upload, BackOffice 2381/2382; the stub answers
+// in the SHIPPED BbyUploadResult shape):
+//  12. the multipart parts: file (its name), validateOnly, activate.
+//  13. check only → "passed", nothing written, would-be rows, and the overview NOT refetched.
+//  14. a refused file → every refused row (row, serial, code, EN + AR), nothing written, no refetch.
+//  15. a load → created numbers, the overview refetched; a second run → updated numbers.
+//  16. a file whose AKTNR names another promotion offers a link to it; an empty file never goes up.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
 import { createRequire } from 'node:module'
@@ -63,6 +71,8 @@ const EMPTY = { promoNumber: 'P000000002', name: 'Empty flyer', salesFrom: '2026
 let allowed = true
 const posts = [] // [path, body]
 let promotionGets = 0
+const uploads = [] // multipart bodies, as sent
+let uploadAnswer = null
 
 async function run() {
   const browser = await chromium.launch()
@@ -84,6 +94,11 @@ async function run() {
           { promoNumber: EMPTY.promoNumber, name: EMPTY.name, salesFrom: EMPTY.salesFrom, salesTo: EMPTY.salesTo, bonusBuyCount: 0 },
         ]),
       )
+    // Multipart, not JSON: answered before the JSON POST branch parses its body.
+    if (path === 'BbyMaintainWeb/Upload') {
+      uploads.push(req.postData() || '')
+      return route.fulfill(envelope(uploadAnswer))
+    }
     if (path.startsWith('BbyMaintainWeb/') && req.method() === 'POST') {
       const body = JSON.parse(req.postData() || '{}')
       const op = path.slice('BbyMaintainWeb/'.length)
@@ -126,7 +141,7 @@ async function run() {
   })
 
   const text = () => page.locator('body').innerText()
-  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access)\.[a-zA-Z.]+/)
+  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|upload)\.[a-zA-Z.]+/)
 
   // ── 1. the nav leaf ──
   // The rail starts collapsed (its leaves live in a flyout), so expand it to read them.
@@ -238,6 +253,126 @@ async function run() {
   await page.locator('button', { hasText: /^Display$/ }).click()
   await page.waitForURL('**/OMS000000002?mode=display')
   check('10. Display opens the editor read-only route', !!(await page.waitForSelector('h1:has-text("Display Bonus Buy")', { timeout: 5000 }).catch(() => null)))
+
+  // ── 12–16. the upload dialog ──
+  const ub = (row, serial, bbyNumber, bbyStatus = '1') => ({ row, serial, buyGroup: 'VICHY', getGroup: 'VICHY', bbyNumber, bbyStatus })
+  const ur = (row, serial, code, english, arabic) => ({ row, serial, code, english, arabic })
+  const answer = (over) => ({
+    status: 'saved', promoNumber: PROMO.promoNumber, promotionCreated: false,
+    created: [], updated: [], refusals: [], warnings: [], ...over,
+  })
+  const FILE = { name: 'Vichy 2nd p - 20 SR.txt', mimeType: 'text/plain', buffer: Buffer.from('1\tP000000001\tBBCH\tVichy 2 p @ 20 SR\n') }
+  /** One scalar part's value out of a multipart body. */
+  const part = (body, name) => {
+    const at = body.indexOf(`name="${name}"`)
+    if (at < 0) return undefined
+    const start = body.indexOf('\r\n\r\n', at) + 4
+    return body.slice(start, body.indexOf('\r\n', start))
+  }
+  const udlg = page.locator('dialog')
+  const pick = (file = FILE) => udlg.locator('[data-testid="bby-upload-file"]').setInputFiles(file)
+  const runUpload = async (label = /^Upload$/) => {
+    await udlg.locator('button', { hasText: label }).click()
+    await udlg.locator('[data-outcome]').waitFor()
+  }
+  const again = () => udlg.locator('button:has-text("Upload another file")').click()
+
+  await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+  await page.waitForSelector('.ag-row')
+  check('the Upload file button is live', await page.locator('button:has-text("Upload file")').isEnabled())
+  await page.click('button:has-text("Upload file")')
+  await udlg.locator('[data-testid="bby-upload-file"]').waitFor()
+
+  // 16. an empty file never goes up
+  uploads.length = 0
+  await pick({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) })
+  check('16. an empty file is refused before the round trip',
+    (await udlg.innerText()).includes('The file is empty.') && (await udlg.locator('button', { hasText: /^Upload$/ }).isDisabled()) && uploads.length === 0)
+
+  // 13. check only
+  uploadAnswer = answer({
+    status: 'valid',
+    created: [ub(1, '1', null), ub(6, '2', null)],
+    warnings: [ur(1, '1', 'BBY-060', 'Valid from is before the promotion.', 'تاريخ البداية قبل العرض.')],
+  })
+  let gets = promotionGets
+  await pick()
+  await udlg.locator('[data-testid="bby-upload-check-only"]').check()
+  await runUpload(/^Check file$/)
+  check('12. the file part carries its name', !!uploads[0]?.includes('filename="Vichy 2nd p - 20 SR.txt"'))
+  check('12. validateOnly=true, activate=false',
+    part(uploads[0], 'validateOnly') === 'true' && part(uploads[0], 'activate') === 'false',
+    `${part(uploads[0], 'validateOnly')}/${part(uploads[0], 'activate')}`)
+  let out = await udlg.innerText()
+  check('13. check only says it passed and that nothing was written', out.includes('passed the check') && out.includes('Nothing was written.'))
+  check('13. …and lists what would be created, numberless',
+    out.includes('Would be created') && (await udlg.locator('[data-testid="bby-upload-created"] tbody tr').count()) === 2 && out.includes('new'))
+  check('13. …and its warnings in both languages', out.includes('BBY-060') && out.includes('تاريخ البداية قبل العرض.'))
+  await page.waitForTimeout(500)
+  check('13. a check-only run never refreshes the overview', promotionGets === gets, `${gets}→${promotionGets}`)
+
+  // 14. refused
+  uploadAnswer = answer({
+    status: 'refused',
+    refusals: [
+      ur(0, '', 'BBY-UPLOAD-PROMOTION', 'The promotion must be P and 9 digits.', 'يجب أن يكون رقم العرض P و9 أرقام.'),
+      ur(3, '1', 'BBY-030', 'Unknown material 999.', 'مادة غير معروفة 999.'),
+      ur(9, '2', 'BBY-UPLOAD-PAIRS-CHANGED', 'Serial 2 changed its groups.', 'تغيرت مجموعات التسلسل 2.'),
+    ],
+  })
+  await again()
+  check('the options survive "Upload another file"', await udlg.locator('[data-testid="bby-upload-check-only"]').isChecked())
+  await udlg.locator('[data-testid="bby-upload-check-only"]').uncheck()
+  gets = promotionGets
+  await pick()
+  await runUpload()
+  out = await udlg.innerText()
+  const refusedRows = await udlg.locator('[data-testid="bby-upload-refused"] tbody tr').allInnerTexts()
+  check('14. every refused row is listed', refusedRows.length === 3, String(refusedRows.length))
+  check('14. row 0 reads as the whole file', !!refusedRows[0]?.includes('Whole file'))
+  check('14. a row carries its number, serial, code and both texts',
+    /3\s+1\s+BBY-030/.test(refusedRows[1] ?? '') && refusedRows[1].includes('مادة غير معروفة 999.'), JSON.stringify(refusedRows[1]))
+  check('14. a refused file says nothing was written', out.includes('was refused') && out.includes('Nothing was written.'))
+  await page.waitForTimeout(500)
+  check('14. …and the overview is NOT refetched', promotionGets === gets, `${gets}→${promotionGets}`)
+
+  // 15. a load creates, a second run updates
+  uploadAnswer = answer({ created: [ub(1, '1', 'OMS000000101', ''), ub(6, '2', 'OMS000000102', '')] })
+  await again()
+  gets = promotionGets
+  uploads.length = 0
+  await pick()
+  await udlg.locator('[data-testid="bby-upload-activate"]').check()
+  await runUpload()
+  check('12. activate=true when ticked', part(uploads[0], 'activate') === 'true' && part(uploads[0], 'validateOnly') === 'false')
+  out = await udlg.innerText()
+  check('15. a load lists the created numbers',
+    out.includes('loaded into promotion') && out.includes('OMS000000101') && out.includes('OMS000000102') && !out.includes('Nothing was written.'))
+  check('15. …activated ones read Activated', (await udlg.locator('[data-testid="bby-upload-created"]').innerText()).includes('Activated'))
+  await page.waitForTimeout(500)
+  check('15. a load refreshes the overview', promotionGets > gets, `${gets}→${promotionGets}`)
+  uploadAnswer = answer({ updated: [ub(1, '1', 'OMS000000101', ''), ub(6, '2', 'OMS000000102', '')] })
+  await again()
+  await udlg.locator('[data-testid="bby-upload-activate"]').uncheck()
+  await pick()
+  await runUpload()
+  check('15. a second run lists the same numbers as updated, none created',
+    (await udlg.locator('[data-testid="bby-upload-updated"] tbody tr').count()) === 2 &&
+      (await udlg.locator('[data-testid="bby-upload-created"]').count()) === 0)
+
+  // 16. the file names another promotion
+  uploadAnswer = answer({ promoNumber: 'P000000047', promotionCreated: true, created: [ub(1, '1', 'OMS000000201')] })
+  await again()
+  await pick()
+  await runUpload()
+  out = await udlg.innerText()
+  check('16. a promotion the file created is said', out.includes('was created from the file'))
+  check('16. …with a link to it', (await udlg.locator('a[href$="/P000000047"]').count()) === 1)
+  const ku = await rawKey()
+  check('16. no raw i18n keys in the dialog', ku === null, (ku || [''])[0])
+  await import('node:fs').then((fs) => fs.mkdirSync('tools/.bby-maintenance-shots', { recursive: true }))
+  await page.screenshot({ path: 'tools/.bby-maintenance-shots/upload.png' }).catch(() => {})
+  await udlg.locator('button', { hasText: /^Close$/ }).click()
 
   // ── 11. hygiene ──
   await page.goto(`${ROOT}/${PROMO.promoNumber}`)

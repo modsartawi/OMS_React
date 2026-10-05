@@ -2,8 +2,9 @@
  * The upload dialog's pure half (ticket 418): the multipart form the door reads, the size
  * check before the bytes go up, and the one reading of the door's answer. No React, no i18n.
  *
- * The file is never parsed here. SAP's 22-column file goes up as bytes and every row the
- * dialog shows is the server's own reading of it (BackOffice 2381).
+ * The file is never parsed here. SAP's 22-column file (or 23–24 with the OMS-only SCORE and
+ * LOY_TIERS, spec 2396) goes up as bytes and every row the dialog shows is the server's own
+ * reading of it (BackOffice 2381, 2399).
  */
 import type {
   BbyUploadBonusBuy,
@@ -21,16 +22,17 @@ export const UPLOAD_ACCEPT = '.txt,.tsv'
 export interface UploadOptions {
   /** Check only: every refusal and warning, nothing written. */
   validateOnly: boolean
-  /** Activate the NEW bonus buys in the same run instead of leaving them Planned. */
-  activate: boolean
 }
 
-/** The door's three parts, named as `BbyMaintainWebEndpoints.Upload` binds them. */
+/**
+ * The door's two parts, named as `BbyMaintainWebEndpoints.Upload` binds them. There is no
+ * `activate` part (spec 2396, BackOffice 2398): an upload always lands Planned, and the door
+ * answers 400 to a body still carrying it.
+ */
 export function uploadForm(file: File, options: UploadOptions): FormData {
   const form = new FormData()
   form.append('file', file, file.name)
   form.append('validateOnly', String(options.validateOnly))
-  form.append('activate', String(options.activate))
   return form
 }
 

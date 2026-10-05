@@ -34,8 +34,8 @@ const result = (over: Partial<BbyUploadResult>): BbyUploadResult => ({
   warnings: [],
   ...over,
 })
-const LOAD = { validateOnly: false, activate: false }
-const CHECK = { validateOnly: true, activate: false }
+const LOAD = { validateOnly: false }
+const CHECK = { validateOnly: true }
 
 describe('upload result lists created, updated and refused rows', () => {
   it('a load lists the created and the updated numbers, in the server’s order', () => {
@@ -148,12 +148,59 @@ describe('a check-only run never refreshes the overview', () => {
 describe('the multipart form', () => {
   it('names the parts as the door reads them', async () => {
     const file = new File(['1\tP000000047\n'], 'Vichy 2nd p - 20 SR.txt', { type: 'text/plain' })
-    const form = uploadForm(file, { validateOnly: true, activate: false })
+    const form = uploadForm(file, { validateOnly: true })
     const sent = form.get('file') as File
     expect(sent.name).toBe('Vichy 2nd p - 20 SR.txt')
     expect(await sent.text()).toBe('1\tP000000047\n')
     expect(form.get('validateOnly')).toBe('true')
-    expect(form.get('activate')).toBe('false')
+  })
+
+  // Ticket 421 (spec 2396 story 15) retired 418's `activate` part: the door answers 400 to it,
+  // and an upload always lands Planned.
+  it('the upload form never sends activate', () => {
+    const file = new File(['1\tP000000047\n'], 'a.txt', { type: 'text/plain' })
+    for (const validateOnly of [true, false]) {
+      const form = uploadForm(file, { validateOnly })
+      expect(form.has('activate')).toBe(false)
+      expect([...form.keys()].sort()).toEqual(['file', 'validateOnly'])
+    }
+  })
+})
+
+describe('a re-upload reaching a locked serial (ticket 421, spec 2396 story 24)', () => {
+  // The refusal shape is unchanged: the server names the bonus buy's number and status in its
+  // own text. The code below is illustrative; the client never branches on it.
+  const locked = {
+    row: 14,
+    serial: '3',
+    code: 'BBY-UPLOAD-LOCKED',
+    english: 'Serial 3 is bonus buy OMS000000090, which is Tested. Only a Planned bonus buy can change.',
+    arabic: 'التسلسل 3 هو العرض OMS000000090 وحالته مختبر. لا يتغير إلا العرض المخطط.',
+  }
+
+  it('a locked-serial refusal renders with its status', () => {
+    const view = readUpload(
+      result({ status: 'refused', refusals: [locked, refusal(0, '', 'BBY-UPLOAD-LOCKED-FILE')] }),
+      LOAD,
+    )
+    expect(view.outcome).toBe('refused')
+    // Shown like any other refused row: its row, serial and the server's text, which carries
+    // the number and the status, untouched.
+    expect(view.refused[0]).toEqual(locked)
+    expect(view.refused[0].english).toContain('OMS000000090')
+    expect(view.refused[0].english).toContain('Tested')
+    // Row 0 still means the whole file.
+    expect(view.refused[1].row).toBe(0)
+    expect(view.nothingWritten).toBe(true)
+    expect(view.created).toEqual([])
+    expect(view.updated).toEqual([])
+    expect(view.refreshOverview).toBe(false)
+  })
+
+  it('a check-only run reports the same refusal', () => {
+    const view = readUpload(result({ status: 'refused', refusals: [locked] }), CHECK)
+    expect(view.refused).toEqual([locked])
+    expect(view.nothingWritten).toBe(true)
   })
 })
 

@@ -22,8 +22,8 @@ export interface BbyUploadBonusBuy {
   getGroup: string
   /** The `OMS…` number; null on a check-only run's NEW bonus buys (none is minted). */
   bbyNumber: string | null
-  /** SAP's status it landed in: `1` Planned, blank when the upload activated it. An updated one
-   *  keeps its own. */
+  /** SAP's status it landed in. A new one is always `1` Planned (spec 2396: no upload
+   *  activates), and a re-upload only reaches a Planned one, so an updated one reads `1` too. */
   bbyStatus: BbyStatusCode
 }
 

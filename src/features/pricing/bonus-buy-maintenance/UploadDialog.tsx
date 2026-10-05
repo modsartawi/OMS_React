@@ -25,9 +25,12 @@ import {
  * SAP's bonus-buy upload, from the promotion screen (ticket 418, BackOffice 2381/2382).
  *
  * The file goes up as bytes: SAP's 22-column tab-separated file, unchanged except that its
- * `AKTNR` is a `P…` number. The door is all or nothing, so the answer is either the created
- * and updated `OMS…` numbers, or every refused row with nothing written. Only a load that
- * wrote refreshes the overview (`onLoaded`); a check-only run never does.
+ * `AKTNR` is a `P…` number, optionally with the OMS-only columns 23 `SCORE` and 24 `LOY_TIERS`
+ * (spec 2396). The door is all or nothing, so the answer is either the created and updated
+ * `OMS…` numbers, or every refused row with nothing written. An upload always lands Planned
+ * (ticket 421 removed 418's activate option), and a re-upload reaching a serial that is not
+ * Planned is refused like any other row, its number and status in the server's text. Only a
+ * load that wrote refreshes the overview (`onLoaded`); a check-only run never does.
  */
 export default function UploadDialog({
   open,
@@ -45,7 +48,6 @@ export default function UploadDialog({
   const { t } = useTranslation('bonus-buy-maintenance')
   const [file, setFile] = useState<File | null>(null)
   const [validateOnly, setValidateOnly] = useState(false)
-  const [activate, setActivate] = useState(false)
   const [view, setView] = useState<UploadView | null>(null)
   const [fileName, setFileName] = useState('')
 
@@ -54,7 +56,6 @@ export default function UploadDialog({
     if (!open) return
     setFile(null)
     setValidateOnly(false)
-    setActivate(false)
     setView(null)
     setFileName('')
   }, [open])
@@ -112,7 +113,7 @@ export default function UploadDialog({
             <Button
               variant="primary"
               disabled={!canRun}
-              onClick={() => file && run.mutate({ file, options: { validateOnly, activate } })}
+              onClick={() => file && run.mutate({ file, options: { validateOnly } })}
             >
               {validateOnly ? t('upload.runCheck') : t('upload.run')}
             </Button>
@@ -126,6 +127,10 @@ export default function UploadDialog({
         ) : (
           <>
             <p className="text-xs text-muted-foreground">{t('upload.hint')}</p>
+            <p className="text-xs text-muted-foreground" data-testid="bby-upload-oms-columns">
+              {t('upload.omsColumns')}
+            </p>
+            <p className="text-xs text-muted-foreground">{t('upload.landsPlanned')}</p>
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               {t('upload.file')}
               <input
@@ -154,20 +159,6 @@ export default function UploadDialog({
               <span>
                 <span className="font-medium">{t('upload.checkOnly')}</span>
                 <span className="block text-xs text-muted-foreground">{t('upload.checkOnlyHint')}</span>
-              </span>
-            </label>
-            <label className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={activate}
-                disabled={run.isPending}
-                data-testid="bby-upload-activate"
-                onChange={(e) => setActivate(e.target.checked)}
-              />
-              <span>
-                <span className="font-medium">{t('upload.activate')}</span>
-                <span className="block text-xs text-muted-foreground">{t('upload.activateHint')}</span>
               </span>
             </label>
 

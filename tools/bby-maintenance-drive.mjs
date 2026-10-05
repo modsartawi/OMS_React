@@ -39,10 +39,10 @@
 //
 // Ticket 418 — the upload dialog (BbyMaintainWeb/Upload, BackOffice 2381/2382; the stub answers
 // in the SHIPPED BbyUploadResult shape):
-//  22. the multipart parts: file (its name), validateOnly, activate.
+//  22. the multipart parts: file (its name), validateOnly (418's activate part retired by 421).
 //  23. check only → "passed", nothing written, would-be rows, and the overview NOT refetched.
 //  24. a refused file → every refused row (row, serial, code, EN + AR), nothing written, no refetch.
-//  25. a load → created numbers, the overview refetched; a second run → updated numbers.
+//  25. a load → created numbers (Planned), the overview refetched; a second run → updated numbers.
 //  26. a file whose AKTNR names another promotion offers a link to it; an empty file never goes up.
 //
 // Ticket 419 — Tested and Back to Planned (BackOffice spec 2396, ADR 0063). ⚠️ The doors are NOT
@@ -61,6 +61,15 @@
 //      and goes Back to Planned without a warning.
 //  33. Activated asks before Back to Planned (the offer leaves the tills); No posts nothing.
 //  34. Deactivated is locked too; a SAP bonus buy keeps its SAP hint and is offered neither act.
+//
+// Ticket 421 — the upload drops "activate" (BackOffice spec 2396; 2398/2399 open, so the stub
+// keeps 418's SHIPPED BbyUploadResult shape, which 2396 does not change). Spec 2396 REVERSES
+// 2374's upload-and-activate, so 418's steps 22 and 25 changed: 22 asserts NO activate part on
+// any run (it asserted activate=false/true), and 25's load lands Planned (it ticked activate and
+// read Activated).
+//  35. no activate option; the help names 23 SCORE and 24 LOY_TIERS as OMS-only, SAP-refused.
+//  36. a re-upload reaching a locked serial is refused: its row, serial, code and the server's
+//      text naming number and status (EN + AR), row 0 the whole file, nothing written, no refetch.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
@@ -579,8 +588,8 @@ async function run() {
     await udlg.locator('[data-testid="bby-upload-check-only"]').check()
     await runUpload(/^Check file$/)
     check('22. the file part carries its name', !!uploads[0]?.includes('filename="Vichy 2nd p - 20 SR.txt"'))
-    check('22. validateOnly=true, activate=false',
-      part(uploads[0], 'validateOnly') === 'true' && part(uploads[0], 'activate') === 'false',
+    check('22. validateOnly=true, and no activate part (2396)',
+      part(uploads[0], 'validateOnly') === 'true' && part(uploads[0], 'activate') === undefined,
       `${part(uploads[0], 'validateOnly')}/${part(uploads[0], 'activate')}`)
     let out = await udlg.innerText()
     check('23. check only says it passed and that nothing was written', out.includes('passed the check') && out.includes('Nothing was written.'))
@@ -616,23 +625,22 @@ async function run() {
     check('24. …and the overview is NOT refetched', promotionGets === gets, `${gets}→${promotionGets}`)
 
     // 25. a load creates, a second run updates
-    uploadAnswer = answer({ created: [ub(1, '1', 'OMS000000101', ''), ub(6, '2', 'OMS000000102', '')] })
+    uploadAnswer = answer({ created: [ub(1, '1', 'OMS000000101'), ub(6, '2', 'OMS000000102')] })
     await again()
     gets = promotionGets
     uploads.length = 0
     await pick()
-    await udlg.locator('[data-testid="bby-upload-activate"]').check()
     await runUpload()
-    check('22. activate=true when ticked', part(uploads[0], 'activate') === 'true' && part(uploads[0], 'validateOnly') === 'false')
+    check('22. a load sends validateOnly=false and still no activate part',
+      part(uploads[0], 'activate') === undefined && part(uploads[0], 'validateOnly') === 'false')
     out = await udlg.innerText()
     check('25. a load lists the created numbers',
       out.includes('loaded into promotion') && out.includes('OMS000000101') && out.includes('OMS000000102') && !out.includes('Nothing was written.'))
-    check('25. …activated ones read Activated', (await udlg.locator('[data-testid="bby-upload-created"]').innerText()).includes('Activated'))
+    check('25. …and they land Planned', (await udlg.locator('[data-testid="bby-upload-created"]').innerText()).includes('Planned'))
     await page.waitForTimeout(500)
     check('25. a load refreshes the overview', promotionGets > gets, `${gets}→${promotionGets}`)
-    uploadAnswer = answer({ updated: [ub(1, '1', 'OMS000000101', ''), ub(6, '2', 'OMS000000102', '')] })
+    uploadAnswer = answer({ updated: [ub(1, '1', 'OMS000000101'), ub(6, '2', 'OMS000000102')] })
     await again()
-    await udlg.locator('[data-testid="bby-upload-activate"]').uncheck()
     await pick()
     await runUpload()
     check('25. a second run lists the same numbers as updated, none created',
@@ -810,6 +818,56 @@ async function run() {
     await page.goto(`${EDIT}/OMS000000004`)
     await page.waitForSelector('table[data-grid="get"]')
     await page.screenshot({ path: 'tools/.bby-maintenance-shots/editor-tested.png', fullPage: true }).catch(() => {})
+  }
+
+  // ════════ Ticket 421 — the upload drops activate (spec 2396) ════════
+  {
+    const ur = (row, serial, code, english, arabic) => ({ row, serial, code, english, arabic })
+    const FILE = { name: 'Vichy 24 cols.txt', mimeType: 'text/plain', buffer: Buffer.from('1\tP000000001\tBBCH\tVichy 2 p @ 20 SR\n') }
+    const udlg = page.locator('dialog')
+    await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+    await page.waitForSelector('.ag-row')
+    await page.click('button:has-text("Upload file")')
+    await udlg.locator('[data-testid="bby-upload-file"]').waitFor()
+
+    // ── 35. no activate option; columns 23–24 explained ──
+    const form = await udlg.innerText()
+    check('35. the dialog offers no activate option',
+      (await udlg.locator('[data-testid="bby-upload-activate"]').count()) === 0 && !form.includes('Activate new bonus buys'), JSON.stringify(form))
+    check('35. …but still offers Check only', (await udlg.locator('[data-testid="bby-upload-check-only"]').count()) === 1)
+    const cols = await udlg.locator('[data-testid="bby-upload-oms-columns"]').innerText()
+    check('35. the help names 23 SCORE and 24 LOY_TIERS as OMS-only, and SAP refusing them',
+      /23 SCORE/.test(cols) && /24 LOY_TIERS/.test(cols) && cols.includes('OMS-only') && cols.includes('SAP will not load'), cols)
+    check('35. …and says uploads land Planned', form.includes('always land Planned'))
+
+    // ── 36. a locked serial ──
+    uploadAnswer = {
+      status: 'refused', promoNumber: PROMO.promoNumber, promotionCreated: false, created: [], updated: [], warnings: [],
+      refusals: [
+        ur(0, '', 'BBY-UPLOAD-LOCKED', 'The file reaches a bonus buy that is not Planned. Nothing was written.', 'يصل الملف إلى عرض غير مخطط. لم يُكتب شيء.'),
+        ur(14, '3', 'BBY-UPLOAD-LOCKED', 'Serial 3 is OMS000000090, which is Tested.', 'التسلسل 3 هو OMS000000090 وحالته مختبر.'),
+      ],
+    }
+    uploads.length = 0
+    const gets = promotionGets
+    await udlg.locator('[data-testid="bby-upload-file"]').setInputFiles(FILE)
+    await udlg.locator('button', { hasText: /^Upload$/ }).click()
+    await udlg.locator('[data-outcome]').waitFor()
+    check('36. the load went up once, without activate', uploads.length === 1 && !uploads[0].includes('name="activate"'))
+    const rows = await udlg.locator('[data-testid="bby-upload-refused"] tbody tr').allInnerTexts()
+    check('36. both refusals are listed', rows.length === 2, String(rows.length))
+    check('36. row 0 still reads as the whole file', !!rows[0]?.includes('Whole file'))
+    check('36. the locked serial shows its row, serial, code, number and status in both languages',
+      /14\s+3\s+BBY-UPLOAD-LOCKED/.test(rows[1] ?? '') && rows[1].includes('OMS000000090, which is Tested') && rows[1].includes('وحالته مختبر'),
+      JSON.stringify(rows[1]))
+    const out = await udlg.innerText()
+    check('36. the file was refused and nothing was written', out.includes('was refused') && out.includes('Nothing was written.'))
+    await page.waitForTimeout(500)
+    check('36. …and the overview is NOT refetched', promotionGets === gets, `${gets}→${promotionGets}`)
+    const k421 = await rawKey()
+    check('36. no raw i18n keys', k421 === null, (k421 || [''])[0])
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/upload-locked.png' }).catch(() => {})
+    await udlg.locator('button', { hasText: /^Close$/ }).click()
   }
 
   // ── 11. hygiene ──

@@ -33,6 +33,7 @@ import {
 } from './api'
 import ActReport, { type Report, type ReportRow } from './ActReport'
 import { DateInput, TextInput } from './fields'
+import UploadDialog from './UploadDialog'
 import {
   BBY_MAINTAIN_ROOT,
   canDeletePromotion,
@@ -141,6 +142,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [report, setReport] = useState<Report | null>(null)
   const [copySapOpen, setCopySapOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   // A refresh can drop selected rows (a multi-delete, an act elsewhere). When every row goes,
   // the grid unmounts and never reports the change, so prune the selection from the data.
@@ -414,7 +416,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
           >
             {t('promotion.delete')}
           </Button>
-          <Button variant="secondary" disabled title={t('promotion.uploadPending')}>
+          <Button variant="secondary" disabled={busy} onClick={() => setUploadOpen(true)}>
             {t('promotion.upload')}
           </Button>
         </div>
@@ -536,6 +538,18 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
         onCopy={(n) => {
           setCopySapOpen(false)
           void copy(n)
+        }}
+      />
+
+      <UploadDialog
+        open={uploadOpen}
+        promoNumber={promo.promoNumber}
+        onClose={() => setUploadOpen(false)}
+        onLoaded={(loaded) => {
+          void refresh()
+          // The file's AKTNR may name another promotion: its overview is stale too.
+          if (loaded !== promo.promoNumber)
+            void queryClient.invalidateQueries({ queryKey: promotionKey(loaded) })
         }}
       />
     </>

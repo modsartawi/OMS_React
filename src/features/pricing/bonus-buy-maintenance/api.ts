@@ -17,6 +17,8 @@ import type {
   BbyPromotion,
   BbyPromotionSave,
 } from '@/core/models/bonus-buy-maintenance'
+import type { BbyUploadResult } from '@/core/models/bonus-buy-upload'
+import { uploadForm, type UploadOptions } from './upload'
 
 const BASE = 'BbyMaintainWeb'
 
@@ -107,5 +109,13 @@ export const bbyMaintainApi = {
   /** Any bonus buy, SAP or OMS → a new Planned `OMS…` under `promoNumber`. */
   copy(sourceNumber: string, promoNumber: string): Promise<BbyMaintainOutcome> {
     return api.post<BbyMaintainOutcome>(`${BASE}/BonusBuy/Copy`, { sourceNumber, promoNumber })
+  },
+
+  /**
+   * SAP's 22-column upload file into its `P…` promotion (BackOffice 2381/2382), all or nothing.
+   * A refusal is an in-band `refused` with every bad row; HTTP errors are infrastructure only.
+   */
+  upload(file: File, options: UploadOptions): Promise<BbyUploadResult> {
+    return api.upload<BbyUploadResult>(`${BASE}/Upload`, uploadForm(file, options))
   },
 }

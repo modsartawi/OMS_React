@@ -1,0 +1,126 @@
+{
+  "menu": {
+    "bonusBuyMaintenance": "Bonus Buy Maintenance"
+  },
+  "title": "Bonus Buy Maintenance",
+  "subtitle": "OMS promotions and their bonus buys. Open a promotion to work on its bonus buys, as in SAP.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Bonus Buy Maintenance",
+    "deniedHint": "Your account does not hold the Bonus Buy Maintenance grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "list": {
+    "create": "Create promotion",
+    "loadFailed": "The promotions could not be loaded.",
+    "empty": "No OMS promotions yet. Create one to start adding bonus buys.",
+    "col": {
+      "promoNumber": "Promotion",
+      "name": "Name",
+      "window": "Sales window",
+      "count": "Bonus buys"
+    }
+  },
+  "create": {
+    "title": "Create promotion",
+    "hint": "The promotion number is given when you save.",
+    "save": "Create",
+    "cancel": "Cancel",
+    "failed": "The promotion could not be created."
+  },
+  "promotion": {
+    "title": "Change promotion: Bonus Buy Overview",
+    "subtitle": "The promotion's header and every bonus buy in it.",
+    "back": "All promotions",
+    "loadFailed": "The promotion could not be loaded.",
+    "number": "Promotion",
+    "name": "Name",
+    "type": "Promotion Type",
+    "typeName": "SA-Promo Chain",
+    "periods": "Total promotion periods",
+    "onSaleFrom": "On sale from",
+    "purchaseFrom": "Purchase from",
+    "listedFrom": "Listed from",
+    "to": "to",
+    "save": "Save",
+    "saved": "Promotion saved.",
+    "saveFailed": "The promotion could not be saved.",
+    "activate": "Activate promotion",
+    "deactivate": "Deactivate promotion",
+    "delete": "Delete promotion",
+    "deleteOnlyEmpty": "A promotion can be deleted only when it holds no bonus buys.",
+    "upload": "Upload file",
+    "uploadPending": "The upload dialog arrives with the next build.",
+    "confirmDeleteTitle": "Delete promotion",
+    "confirmDeleteBody": "Delete promotion {{number}}? Its number is never given out again.",
+    "confirmFlipTitle": "Change the whole promotion",
+    "confirmActivateBody": "Activate every Planned bonus buy in promotion {{number}}? Nothing goes live if any one of them is refused.",
+    "confirmDeactivateBody": "Deactivate every activated bonus buy in promotion {{number}}? They stop pricing at every till.",
+    "activated": "Promotion activated: every Planned bonus buy is live.",
+    "deactivated": "Promotion deactivated.",
+    "flipRefused": "Nothing changed. These bonus buys were refused:",
+    "deleteRefused": "The promotion was not deleted:",
+    "actFailed": "The action could not be completed.",
+    "tab": "Bonus Buy",
+    "notFound": "Promotion {{number}} no longer exists. It may have been deleted by someone else."
+  },
+  "overview": {
+    "title": "Bonus Buys – Overview",
+    "col": {
+      "bbyNumber": "Bonus Buy",
+      "text": "Bonus buy text",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "status": "Status"
+    },
+    "status": {
+      "activated": "Activated",
+      "planned": "Planned",
+      "deactivated": "Deactivated",
+      "unknown": "Unknown"
+    },
+    "empty": "No bonus buys in this promotion yet.",
+    "create": "Create",
+    "change": "Change",
+    "display": "Display",
+    "copy": "Copy",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "delete": "Delete",
+    "copyFromSap": "Copy from SAP…",
+    "needOne": "Select exactly one bonus buy.",
+    "needSome": "Select one or more bonus buys.",
+    "selected": "{{count}} selected",
+    "confirmDeleteTitle": "Delete bonus buys",
+    "confirmDeleteBody": "Delete {{count}} bonus buy(s)? An activated bonus buy is refused: deactivate it first.",
+    "report": {
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "delete": "Delete",
+      "copy": "Copy",
+      "done": "Done",
+      "refused": "Refused",
+      "notFound": "Not found",
+      "failed": "Failed"
+    }
+  },
+  "copySap": {
+    "title": "Copy from SAP",
+    "label": "Bonus buy number",
+    "hint": "The bonus buy is copied into a new Planned OMS bonus buy in this promotion. The source is not changed.",
+    "run": "Copy",
+    "cancel": "Cancel"
+  },
+  "refusals": {
+    "field": "Field: {{field}}"
+  },
+  "editor": {
+    "createTitle": "Create Bonus Buy",
+    "changeTitle": "Change Bonus Buy",
+    "displayTitle": "Display Bonus Buy",
+    "subtitle": "Promotion {{promo}}",
+    "pending": "The bonus-buy editor arrives with the next build.",
+    "back": "Back to the promotion"
+  }
+}

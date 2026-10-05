@@ -1,0 +1,257 @@
+// Bonus Buy Maintenance drive (BackOffice spec 2374) — drives the REAL app in Chromium
+// against STUBBED `BbyMaintainWeb/*` envelopes.
+//
+// ⚠️ Stubbed because the doors are NOT BUILT: BackOffice 2376 and 2380 were open when
+// ticket 416 landed. What a stub proves is the client's decisions; that the server answers
+// these shapes is 2376/2380's to prove, and the owner's walk on a dev SIS.Api.
+//
+// 🚩 ONE drive file for the wave — 417 and 418 EXTEND this file.
+//
+// Ticket 416 — the promotion screen:
+//   1. screenAllowed:true → a Bonus Buy Maintenance leaf under Pricing; false → none.
+//   2. the list draws the promotions; Create promotion posts with NO number and opens
+//      the promotion the server minted.
+//   3. the overview header copies SAP's: number, name (max 40), SACH, the window with
+//      Purchase/Listed equal and disabled.
+//   4. the overview maps blank/1/2 to Activated/Planned/Deactivated.
+//   5. Delete promotion is disabled while it holds bonus buys.
+//   6. multi-select Activate calls once per number and shows each outcome, past a refusal.
+//   7. Activate promotion refused → every refused bonus buy listed in both languages, and
+//      the promotion is NOT refetched (nothing changed).
+//   8. Copy → BonusBuy/Copy {sourceNumber, promoNumber} → the editor opens on the copy.
+//   9. Copy from SAP… → a number prompt → the same copy.
+//  10. Create / Display open the editor route.
+//  11. no raw i18n keys; no page errors.
+//
+//   1. run the app:  npx vite --port 5199
+//   2. node tools/bby-maintenance-drive.mjs
+import { createRequire } from 'node:module'
+const require = createRequire('C:/Playground/frontend/package.json')
+const { chromium } = require('playwright')
+
+const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
+const ROOT = BASE + '/pricing/bonus-buy-maintenance'
+
+const results = []
+const check = (name, pass, detail = '') => {
+  results.push({ name, pass })
+  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
+}
+
+const envelope = (data, { status = 200, success = true, message = '' } = {}) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({ statusCode: status, success, message, errors: [], data }),
+})
+
+const saved = (number) => ({ status: 'saved', number, refusals: [], warnings: [] })
+const refusal = (code, en, ar, number) => ({ code, en, ar, number })
+
+const PROMO = {
+  promoNumber: 'P000000001',
+  name: 'Test By Sartawi',
+  salesFrom: '2026-10-05T00:00:00',
+  salesTo: '2026-10-31T00:00:00',
+  bonusBuys: [
+    { bbyNumber: 'OMS000000001', text: '1 + 1', validFrom: '2026-10-05', validTo: '2026-10-31', status: '1' },
+    { bbyNumber: 'OMS000000002', text: '10% - Coupon', validFrom: '2026-10-05', validTo: '2026-10-31', status: '' },
+    { bbyNumber: 'OMS000000003', text: 'OR rewards', validFrom: '2026-10-05', validTo: '2026-10-31', status: '2' },
+  ],
+}
+const EMPTY = { promoNumber: 'P000000002', name: 'Empty flyer', salesFrom: '2026-11-01', salesTo: '2026-11-30', bonusBuys: [] }
+
+let allowed = true
+const posts = [] // [path, body]
+let promotionGets = 0
+
+async function run() {
+  const browser = await chromium.launch()
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+
+  await page.route('**/api/**', async (route) => {
+    const req = route.request()
+    const path = req.url().split('/api/')[1].split('?')[0]
+    if (path === 'Auth/Me')
+      return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
+    if (path === 'BbyMaintainWeb/Access') return route.fulfill(envelope({ screenAllowed: allowed }))
+    if (path === 'BbyMaintainWeb/Promotion/List')
+      return route.fulfill(
+        envelope([
+          { promoNumber: PROMO.promoNumber, name: PROMO.name, salesFrom: PROMO.salesFrom, salesTo: PROMO.salesTo, bonusBuyCount: 3 },
+          { promoNumber: EMPTY.promoNumber, name: EMPTY.name, salesFrom: EMPTY.salesFrom, salesTo: EMPTY.salesTo, bonusBuyCount: 0 },
+        ]),
+      )
+    if (path.startsWith('BbyMaintainWeb/') && req.method() === 'POST') {
+      const body = JSON.parse(req.postData() || '{}')
+      const op = path.slice('BbyMaintainWeb/'.length)
+      posts.push([op, body])
+      if (op === 'Promotion/Save') return route.fulfill(envelope(saved(body.promoNumber ?? 'P000000002')))
+      if (op === 'Promotion/Activate')
+        return route.fulfill(
+          envelope({
+            status: 'refused',
+            number: null,
+            warnings: [],
+            refusals: [
+              refusal('BBY-051', 'Valid to is in the past.', 'تاريخ النهاية في الماضي.', 'OMS000000001'),
+              refusal('BBY-020', 'A Price must be above zero.', 'يجب أن يكون السعر أكبر من صفر.', 'OMS000000001'),
+              refusal('BBY-030', 'Unknown material 999.', 'مادة غير معروفة 999.', 'OMS000000003'),
+            ],
+          }),
+        )
+      if (op === 'BonusBuy/Activate') {
+        if (body.bbyNumber === 'OMS000000003')
+          return route.fulfill(
+            envelope({
+              status: 'refused',
+              number: body.bbyNumber,
+              warnings: [],
+              refusals: [refusal('BBY-030', 'Unknown material 999.', 'مادة غير معروفة 999.')],
+            }),
+          )
+        return route.fulfill(envelope(saved(body.bbyNumber)))
+      }
+      if (op === 'BonusBuy/Copy') return route.fulfill(envelope(saved('OMS000000009')))
+      return route.fulfill(envelope(saved(body.bbyNumber ?? null)))
+    }
+    if (path === `BbyMaintainWeb/Promotion/${PROMO.promoNumber}`) {
+      promotionGets++
+      return route.fulfill(envelope(PROMO))
+    }
+    if (path === `BbyMaintainWeb/Promotion/${EMPTY.promoNumber}`) return route.fulfill(envelope(EMPTY))
+    return route.fulfill(envelope({}))
+  })
+
+  const text = () => page.locator('body').innerText()
+  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access)\.[a-zA-Z.]+/)
+
+  // ── 1. the nav leaf ──
+  // The rail starts collapsed (its leaves live in a flyout), so expand it to read them.
+  const expandRail = async () => {
+    const btn = page.getByRole('button', { name: 'Expand menu' })
+    if (await btn.count()) await btn.first().click()
+    await page.waitForTimeout(300)
+  }
+  const leafHere = () => page.locator('a[href="/pricing/bonus-buy-maintenance"]').count()
+  allowed = false
+  await page.goto(BASE + '/pricing/bonus-buy-download')
+  await page.waitForLoadState('networkidle')
+  await expandRail()
+  check('denied → no Bonus Buy Maintenance leaf', (await leafHere()) === 0)
+  allowed = true
+  await page.goto(ROOT)
+  await page.waitForSelector('text=Create promotion')
+  await expandRail()
+  check('granted → the leaf is in the nav', (await leafHere()) > 0)
+
+  // ── 2. the list + create ──
+  await page.waitForSelector('.ag-row[row-id="P000000002"]')
+  const listRows = await page.locator('.ag-row[row-id]').count()
+  check('the list draws both promotions', listRows === 2, String(listRows))
+  const range = await page.locator('.ag-row[row-id="P000000001"] [col-id="window"]').innerText()
+  check('the window renders as one range', range.trim() === '2026-10-05 – 2026-10-31', JSON.stringify(range))
+  await page.click('text=Create promotion')
+  const dlg = page.locator('dialog')
+  await dlg.locator('input[type="text"]').fill('Flyer')
+  check('the name is capped at 40', (await dlg.locator('input[type="text"]').getAttribute('maxlength')) === '40')
+  await dlg.locator('input[type="date"]').nth(0).fill('2026-11-01')
+  await dlg.locator('input[type="date"]').nth(1).fill('2026-11-30')
+  await dlg.locator('button:has-text("Create")').click()
+  await page.waitForURL('**/bonus-buy-maintenance/P000000002')
+  const create = posts.find(([op]) => op === 'Promotion/Save')
+  check('Create posts with NO number', create && create[1].promoNumber === null && create[1].name === 'Flyer', JSON.stringify(create?.[1]))
+  check('…and opens the promotion the server minted', page.url().endsWith('/P000000002'))
+  await page.waitForSelector('text=No bonus buys in this promotion yet.')
+  check('5. an empty promotion offers Delete promotion', await page.locator('button:has-text("Delete promotion")').isEnabled())
+
+  // ── 3–5. the overview ──
+  await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+  await page.waitForSelector('text=Change promotion: Bonus Buy Overview')
+  await page.waitForSelector('.ag-row')
+  const body = await text()
+  check('3. the type is SACH SA-Promo Chain', body.includes('SACH') && body.includes('SA-Promo Chain'))
+  const dates = page.locator('input[type="date"]')
+  check('3. six period dates, four disabled', (await dates.count()) === 6 && (await page.locator('input[type="date"]:disabled').count()) === 4)
+  check('3. Purchase from equals On sale from', (await dates.nth(2).inputValue()) === '2026-10-05')
+  check('4. the three statuses read Planned / Activated / Deactivated',
+    ['Planned', 'Activated', 'Deactivated'].every((s) => body.includes(s)))
+  check('5. Delete promotion is disabled while it holds bonus buys', await page.locator('button:has-text("Delete promotion")').isDisabled())
+
+  // ── 6. multi-select activate ──
+  const rowCheck = (n) => page.locator(`.ag-row[row-id="${n}"] .ag-selection-checkbox input`).first()
+  await rowCheck('OMS000000001').check()
+  await rowCheck('OMS000000003').check()
+  await rowCheck('OMS000000002').check()
+  check('Change is disabled on a multi-select', await page.locator('button:has-text("Change")').first().isDisabled())
+  posts.length = 0
+  await page.locator('button', { hasText: /^Activate$/ }).click()
+  await page.waitForSelector('[role="status"]:has-text("Refused")')
+  const acts = posts.filter(([op]) => op === 'BonusBuy/Activate').map(([, b]) => b.bbyNumber)
+  check('6. one call per number, past the refusal', acts.length === 3 && new Set(acts).size === 3, acts.join(','))
+  const report = await page.locator('[role="status"]').last().innerText()
+  check('6. each number’s outcome is shown', ['OMS000000001', 'OMS000000002', 'OMS000000003'].every((n) => report.includes(n)) && report.includes('Done') && report.includes('BBY-030'))
+
+  // ── 7. promotion activate refused ──
+  const before = promotionGets
+  await page.click('button:has-text("Activate promotion")')
+  await page.locator('dialog button:has-text("Yes")').click()
+  await page.waitForSelector('text=Nothing changed. These bonus buys were refused:')
+  const flip = await page.locator('[role="status"]').last().innerText()
+  check('7. every refused bonus buy is listed', flip.includes('OMS000000001') && flip.includes('OMS000000003'))
+  check('7. every refusal, in both languages', ['BBY-051', 'BBY-020', 'BBY-030'].every((c) => flip.includes(c)) && flip.includes('تاريخ النهاية في الماضي.'))
+  await page.waitForTimeout(500)
+  check('7. nothing changed, so the promotion was NOT refetched', promotionGets === before, `${before}→${promotionGets}`)
+
+  // ── 8. copy ──
+  await rowCheck('OMS000000002').uncheck()
+  await rowCheck('OMS000000003').uncheck()
+  posts.length = 0
+  await page.locator('button', { hasText: /^Copy$/ }).click()
+  await page.waitForURL('**/bonus-buy/OMS000000009')
+  const copy = posts.find(([op]) => op === 'BonusBuy/Copy')
+  check('8. Copy posts the source and this promotion', copy && copy[1].sourceNumber === 'OMS000000001' && copy[1].promoNumber === PROMO.promoNumber, JSON.stringify(copy?.[1]))
+  check('8. …and opens the editor on the copy', !!(await page.waitForSelector('h1:has-text("Change Bonus Buy")', { timeout: 5000 }).catch(() => null)))
+
+  // ── 9. copy from SAP ──
+  await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+  await page.waitForSelector('.ag-row')
+  posts.length = 0
+  await page.click('text=Copy from SAP…')
+  await page.locator('dialog input[type="text"]').fill(' 1000000048 ')
+  await page.locator('dialog button', { hasText: /^Copy$/ }).click()
+  await page.waitForURL('**/bonus-buy/OMS000000009')
+  const sap = posts.find(([op]) => op === 'BonusBuy/Copy')
+  check('9. Copy from SAP sends the trimmed number', sap && sap[1].sourceNumber === '1000000048', JSON.stringify(sap?.[1]))
+
+  // ── 10. create / display ──
+  await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+  await page.waitForSelector('.ag-row')
+  await page.locator('button', { hasText: /^Create$/ }).click()
+  await page.waitForURL('**/bonus-buy/new')
+  check('10. Create opens the editor route', !!(await page.waitForSelector('h1:has-text("Create Bonus Buy")', { timeout: 5000 }).catch(() => null)))
+  await page.goBack()
+  await page.waitForSelector('.ag-row')
+  await rowCheck('OMS000000002').check()
+  await page.locator('button', { hasText: /^Display$/ }).click()
+  await page.waitForURL('**/OMS000000002?mode=display')
+  check('10. Display opens the editor read-only route', !!(await page.waitForSelector('h1:has-text("Display Bonus Buy")', { timeout: 5000 }).catch(() => null)))
+
+  // ── 11. hygiene ──
+  await page.goto(`${ROOT}/${PROMO.promoNumber}`)
+  await page.waitForSelector('.ag-row')
+  const k = await rawKey()
+  check('11. no raw i18n keys', k === null, (k || [''])[0])
+  await import('node:fs').then((fs) => fs.mkdirSync('tools/.bby-maintenance-shots', { recursive: true }))
+  await page.screenshot({ path: 'tools/.bby-maintenance-shots/overview.png', fullPage: true }).catch(() => {})
+  check('11. no uncaught page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+
+  await browser.close()
+  const failed = results.filter((r) => !r.pass).length
+  console.log(`\n${results.length - failed}/${results.length} passed`)
+  process.exit(failed ? 1 : 0)
+}
+
+run()

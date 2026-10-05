@@ -258,12 +258,24 @@ condition-type codes (`ZB01/02/03/12/13`, `VKA0`) are the engine's expression of
 _Avoid_: promo type (the *promotion* is the bonus buy; the discount type is the reward's kind).
 
 **BBY status**:
-The `BbyStatus` code on a `BbyHeader`: **A** = Activated, **I** = Inactive, **D** = Draft,
-**X** = Deleted (`BonusBuyDetailController.MapStatus`). It is a **display label only** — no engine
-logic filters on it; the pricing engine gates live promos on a separate `SyncApprovalStatus` (plus
-dates, times, loyalty). The BBY Inquiry screen shows it as a badge and uses `A` as one half of its
-**active** definition.
-_Avoid_: state, approval status (`SyncApprovalStatus` is a different, engine-only column).
+The `BbyStatus` code on a `BbyHeader`, SAP's `KONBBYH.STATUS`: **blank** = Activated, **`1`** = Planned,
+**`2`** = Deactivated (BackOffice spec 2374). Since BackOffice 2339 it is the **activation gate**:
+only a blank (Activated) bonus buy prices at a till; a Planned or Deactivated one prices only in the
+simulator, by an explicit option. Transitions: Planned → Activated ↔ Deactivated, never back to
+Planned. ⚠️ The older reading — **A** = Activated, **I** = Inactive, **D** = Draft, **X** = Deleted
+(`BonusBuyDetailController.MapStatus`), display-only — is what the BBY Inquiry still badges until
+BackOffice 2384 moves it to blank/`1`/`2`; Bonus Buy Maintenance reads only the new codes and shows
+any other code as *unknown*.
+_Avoid_: state, approval status (`SyncApprovalStatus` is a different column nothing new reads),
+draft (SAP's word is *Planned*).
+
+**Promotion** (OMS, on Bonus Buy Maintenance):
+SAP's `WAK1` container: a numbered (`P` + 9 digits, minted by the server), named (≤ 40) **sales
+window** that holds bonus buys. Marketing creates it first and works from its **Bonus Buy Overview**;
+activating or deactivating it flips all its bonus buys at once, all-or-nothing. It is the bonus
+buy's `promoNumber`. Elsewhere in prose "a promotion" still loosely means a bonus buy (see
+*Discount type*); on this screen it always means the container.
+_Avoid_: campaign, flyer (fine in prose; the record is the promotion).
 
 **Validity window** (of a BBY):
 The header's own live-dates: `ValidFrom` / `ValidTo` as `yyyyMMdd` **strings**, and optional

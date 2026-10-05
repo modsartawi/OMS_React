@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -8,6 +8,11 @@ import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/cons
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
+import {
+  BBY_MAINTAIN_ACCESS_KEY,
+  bbyMaintainApi,
+  canOpenBbyMaintain,
+} from '@/features/pricing/bonus-buy-maintenance/api'
 // The bonus-buy grant probe lives in `@/core/` (ticket 118): the Simulation screen is a
 // second consumer, and a feature may not import another feature's api.
 import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
@@ -591,6 +596,21 @@ export const MENU: ShellMenuItem[] = [
           key: BBY_ACCESS_KEY,
           run: () => bonusBuyAccessApi.access(),
           visible: (r) => r.screenAllowed === true,
+        }),
+      },
+      {
+        labelKey: 'bonus-buy-maintenance:menu.bonusBuyMaintenance',
+        icon: FilePen,
+        routerLink: '/pricing/bonus-buy-maintenance',
+        activePrefix: '/pricing/bonus-buy-maintenance',
+        // Same key + call as the screen's own gate → one shared probe. Gated by its OWN
+        // grant, BackOfficeScreen[BbyMaintain,03] (spec 2374), and it FAILS CLOSED: this
+        // screen writes every till's offers, so the `Bby/Access` unknown ⇒ shown
+        // precedent does not transfer.
+        access: accessProbe({
+          key: BBY_MAINTAIN_ACCESS_KEY,
+          run: () => bbyMaintainApi.access(),
+          visible: canOpenBbyMaintain,
         }),
       },
       {

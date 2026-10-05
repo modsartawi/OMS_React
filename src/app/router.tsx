@@ -426,6 +426,32 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/bonus-buy-inquiry/BonusBuyInquiryPage')).default,
         }),
       },
+      // Bonus Buy Maintenance (BackOffice spec 2374, ticket 416): the promotion list, a
+      // promotion's Bonus Buy Overview, and the editor page under it (ticket 417).
+      {
+        path: 'pricing/bonus-buy-maintenance',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-maintenance/BonusBuyMaintenancePage')).default,
+        }),
+      },
+      {
+        path: 'pricing/bonus-buy-maintenance/:promoNumber',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-maintenance/PromotionPage')).default,
+        }),
+      },
+      {
+        path: 'pricing/bonus-buy-maintenance/:promoNumber/bonus-buy/new',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-maintenance/BonusBuyEditorPage')).default,
+        }),
+      },
+      {
+        path: 'pricing/bonus-buy-maintenance/:promoNumber/bonus-buy/:bbyNumber',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-maintenance/BonusBuyEditorPage')).default,
+        }),
+      },
       {
         path: 'pricing/coupons',
         lazy: async () => ({

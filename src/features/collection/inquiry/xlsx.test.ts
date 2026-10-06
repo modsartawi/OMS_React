@@ -246,9 +246,11 @@ describe('cash collections export writes the visible columns in grid order', () 
   })
 
   it('writes the slip count where the grid shows it, and not where it does not', () => {
-    // The card total is behind More columns since ticket 335; the count follows it there.
+    // Saud's Card Slips is behind More columns (spec 2423); the count follows it there.
     const shown = collectionSheet(collectionsGrid([collection()], true, true), 'collections', 'Cash Collections')
-    expect(headers(shown).indexOf(t('slips.column'))).toBe(headers(shown).indexOf(moneyLabel('cardTotal')) + 1)
+    expect(headers(shown).indexOf(t('slips.column'))).toBe(
+      headers(shown).indexOf(label('collections', 'cardTransactionCount')) + 1,
+    )
     expect(cellUnder(shown, t('slips.column'))).toEqual({ type: Number, value: 2 })
 
     const hidden = collectionSheet(collectionsGrid([collection()], false, false), 'collections', 'Cash Collections')

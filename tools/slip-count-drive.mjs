@@ -242,6 +242,11 @@ async function run() {
   const load = async (path) => {
     await page.goto(BASE + path)
     await page.waitForLoadState('networkidle')
+    // Ticket 423: Cash Collections opens blank and loads nothing until Search.
+    if (path === COLLECTIONS) {
+      await page.getByRole('button', { name: 'Search', exact: true }).click()
+      await page.waitForLoadState('networkidle')
+    }
   }
   const readyCell = (row, colId) => page.locator(`.ag-row[row-id="${readyId(row)}"] [col-id="${colId}"]`).first()
   const indexCell = (index, colId) => page.locator(`.ag-row[row-index="${index}"] [col-id="${colId}"]`).first()
@@ -388,16 +393,16 @@ async function run() {
   await shot('collections-holder')
   hs = await headers()
   check('collections — the Slips column is shown for a CASH_CLOSE holder', hs.includes('Slips'), hs.join(' | '))
-  // Ticket 335: the grid opens as finance's sheet and Card Total is behind More columns, so
-  // on arrival the count is the last column, after finance's ten.
-  check('collections — after finance’s ten while Card Total is folded', hs.indexOf('Slips') === hs.indexOf('Profit Center (Store)') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
+  // Ticket 423: the grid opens on Saud's thirteen and Card Slips is behind More columns, so
+  // on arrival the count is the last column, after Business Date.
+  check('collections — after Saud’s thirteen while Card Slips is folded', hs.indexOf('Slips') === hs.indexOf('Business Date') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
   check('collections — the probe is asked once for the page', probeCalls === 1, `${probeCalls} calls`)
   // The tail is wider than any viewport: open it on a wide one so its headers are all drawn.
   await page.setViewportSize({ width: 5200, height: 900 })
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.waitForTimeout(400)
   hs = await headers()
-  check('collections — right after the existing Card Total once the tail is open', hs.indexOf('Slips') === hs.indexOf('Card Total (SAR)') + 1, hs.join(' | '))
+  check('collections — right after Saud’s Card Slips once the tail is open (ticket 423)', hs.indexOf('Slips') === hs.indexOf('Card Slips') + 1 && hs.indexOf('Card Slips') === hs.indexOf('Counted (Net) (SAR)') + 1, hs.join(' | '))
   check('collections — the existing card total is untouched', (await seen(indexCell(0, 'cardTotal'))) === '1,310.25')
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.setViewportSize({ width: 2600, height: 900 })
@@ -417,7 +422,12 @@ async function run() {
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(300)
-  check('collections — Reset turns the filter off and every row returns', (await noSlipButton().getAttribute('aria-pressed')) === 'false' && (await displayedRows()) === COLLECTION_ROWS.length, `${await displayedRows()} rows`)
+  // Ticket 423: Reset returns to the un-searched landing, so the rows return on the next Search.
+  check('collections — Reset turns the filter off', (await noSlipButton().getAttribute('aria-pressed')) === 'false')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor()
+  check('collections — …and the next Search brings every row back', (await displayedRows()) === COLLECTION_ROWS.length, `${await displayedRows()} rows`)
 
   scenario = { unavailable: true }
   await load(COLLECTIONS)
@@ -456,6 +466,7 @@ async function run() {
   scenario = {}
   probeHold = new Promise((r) => (release = r))
   await page.goto(BASE + COLLECTIONS)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.locator('.ag-row').first().waitFor()
   check('collections — hidden while the probe is pending', !(await headers()).includes('Slips') && (await noSlipButton().count()) === 0)
   release()
@@ -465,24 +476,25 @@ async function run() {
 
   hold = new Promise((r) => (releaseList = r))
   await page.goto(BASE + COLLECTIONS)
-  await page.getByRole('status', { name: "Loading today's collections…" }).first().waitFor({ timeout: 8000 }).catch(() => {})
-  check('collections — loading still shows the shimmer', (await page.getByRole('status', { name: "Loading today's collections…" }).count()) > 0)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.getByRole('status', { name: 'Loading collections…' }).first().waitFor({ timeout: 8000 }).catch(() => {})
+  check('collections — loading still shows the shimmer', (await page.getByRole('status', { name: 'Loading collections…' }).count()) > 0)
   releaseList()
   hold = null
   await page.waitForLoadState('networkidle')
 
   scenario = { list: 'empty' }
   await load(COLLECTIONS)
-  await page.getByText('No collections in this period').first().waitFor({ timeout: 8000 }).catch(() => {})
-  check('collections — empty still shows the empty state', (await mainText()).includes('No collections in this period'))
+  await page.getByText('No collections match this search').first().waitFor({ timeout: 8000 }).catch(() => {})
+  check('collections — empty still shows the empty state', (await mainText()).includes('No collections match this search'))
   scenario = { list: 'error' }
   await load(COLLECTIONS)
   await page.waitForTimeout(500)
-  check('collections — a 500 still shows the error banner and no grid', (await page.locator('.ag-root').count()) === 0 && !(await mainText()).includes('No collections in this period'))
+  check('collections — a 500 still shows the error banner and no grid', (await page.locator('.ag-root').count()) === 0 && !(await mainText()).includes('No collections match this search'))
   scenario = { list: 'forbidden' }
   await load(COLLECTIONS)
   await page.waitForTimeout(500)
-  check('collections — the door’s bare 403 still reads as a failure, not an empty period', (await page.locator('.ag-root').count()) === 0 && !(await mainText()).includes('No collections in this period'))
+  check('collections — the door’s bare 403 still reads as a failure, not an empty period', (await page.locator('.ag-root').count()) === 0 && !(await mainText()).includes('No collections match this search'))
   await noRawKeys('collections — states')
   scenario = {}
 

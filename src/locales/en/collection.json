@@ -54,8 +54,8 @@
   "collections": {
     "title": "Cash Collections",
     "subtitle": "Cash collected per store and shift, chain-wide.",
-    "loading": "Loading today's collections…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store, who collected or who serves the branch to be sure you are seeing all of them.",
+    "loading": "Loading collections…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store, who collected, who serves the branch, the type, the amount or the profit center to be sure you are seeing all of them.",
     "capReachedScoped": "This ACR reached the {{limit}}-row system cap, so some of its collections may be missing.",
     "moneyHeader": "{{label}} ({{currency}})",
     "search": {
@@ -67,32 +67,46 @@
       "storePlaceholder": "Store code",
       "collectedBy": "Collected by",
       "collectedByPlaceholder": "Operator id",
+      "type": "Type",
+      "typeRegular": "Regular",
+      "typeShort": "Short",
+      "typeOutsideSystem": "Outside system",
+      "hasSurplus": "has Surplus",
+      "hasStolen": "has Stolen",
+      "amountFrom": "Amount from",
+      "amountTo": "Amount to",
+      "profitCenter": "Profit center",
+      "profitCenterPlaceholder": "e.g. 019",
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
-      "clearFilter": "Clear the filter and go back to today"
+      "clearFilter": "Clear the filters and start over"
     },
     "toolbar": {
       "filterRow": "Filter row",
       "moreColumns": "More columns",
       "export": "Export"
     },
+    "landing": {
+      "title": "Press Search to see collections",
+      "hint": "Nothing is loaded until you search. Fill in any box to narrow it, or press Search with every box empty to see them all, up to the system cap."
+    },
     "empty": {
-      "title": "No collections in this period",
-      "hint": "Nothing matches these dates yet. Widen the business or collection dates, or clear the store, \"Collected by\" and \"Served by\" — they all narrow together.",
+      "title": "No collections match this search",
+      "hint": "Nothing matches this search yet. Widen the business or collection dates, or clear the store, \"Collected by\", \"Served by\", Type, Amount or Profit center — they all narrow together.",
       "scopedTitle": "No collections under this ACR",
-      "scopedHint": "Nothing has been accumulated into this ACR yet. Clear the ACR to go back to today's collections."
+      "scopedHint": "Nothing has been accumulated into this ACR yet. Clear the ACR to start a search of your own."
     },
     "acrScope": {
       "label": "ACR",
-      "clear": "Clear the ACR and go back to today"
+      "clear": "Clear the ACR and start over"
     },
     "actions": {
       "header": "Open",
       "receipt": "Receipt"
     },
     "errors": {
-      "loadFailed": "Today's collections could not be loaded."
+      "loadFailed": "Collections could not be loaded."
     },
     "columns": {
       "collectionReceiptNo": "Receipt No#",

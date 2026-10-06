@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { collectionsParamsFor } from './acr-scope'
 import {
   COLLECTIONS_LIMIT,
+  COLLECTION_TYPE_FILTERS,
   buildCollectionsParams,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type CollectionsCriteria,
 } from './collections-criteria'
 import type { AssignmentOptions } from './served-by'
@@ -12,33 +15,74 @@ import type { AssignmentOptions } from './served-by'
 // can observe — the params object, and which draft counts as the landing state —
 // never how the builder reached it.
 //
-// Fixed "today" throughout: the module takes `now` as an argument precisely so
-// this suite does not have to run at a particular time of day.
-const TODAY = new Date(2026, 7, 8) // 2026-08-08, local parts (no UTC round-trip)
+// Spec 2423 (ticket 423, BackOffice 2424) moved the landing: no date is
+// pre-filled, Served by keeps its "mine" default, and nothing is requested until
+// Search.
+
+/** The empty landing draft, written out — every box blank, no scope. */
+const EMPTY: CollectionsCriteria = {
+  businessDateFrom: '',
+  businessDateTo: '',
+  collectionDateFrom: '',
+  collectionDateTo: '',
+  storeId: '',
+  collectorOperatorId: '',
+  servedBy: { kind: '', id: '' },
+  collectionTypes: [],
+  hasSurplus: false,
+  hasStolen: false,
+  amountFrom: '',
+  amountTo: '',
+  profitCenter: '',
+}
+
+/** A caller on the roster: the door hands back their own scope as the landing. */
+const MINE: Partial<AssignmentOptions> = {
+  accountants: [{ staffId: '4466', displayName: 'ضحى' }],
+  collectors: [],
+  supervisors: [],
+  defaultScope: { kind: 'MINE', staffId: '4466', displayName: 'ضحى' },
+}
 
 describe('landingCriteria', () => {
-  it('defaults the COLLECTION range to today on both ends, and leaves the business range open', () => {
-    expect(landingCriteria(TODAY)).toEqual({
-      businessDateFrom: '',
-      businessDateTo: '',
-      collectionDateFrom: '2026-08-08',
-      collectionDateTo: '2026-08-08',
-      storeId: '',
-      collectorOperatorId: '',
-      servedBy: { kind: '', id: '' },
+  it('landingCriteria has no dates and keeps servedBy', () => {
+    // Every box empty — the 254..2423 today..today collection range is gone.
+    expect(landingCriteria()).toEqual(EMPTY)
+    // …and the owner's ruling: the date goes, the scope stays.
+    expect(landingCriteria(MINE)).toEqual({ ...EMPTY, servedBy: { kind: 'MINE', id: '4466' } })
+  })
+
+  it('is the same draft whenever it is built — no clock is read', () => {
+    expect(landingCriteria(MINE)).toEqual(landingCriteria(MINE))
+  })
+})
+
+describe('no request is issued on landing', () => {
+  // 🚩 The seam (no RTL in this repo): the Page's applied criteria start as `null`
+  // and its `useQuery` is enabled on `collectionsParamsFor(...) !== null`. So the
+  // landing's whole network cost is this function's answer for `null`.
+  it('no request is issued on landing — nothing applied and no ?acr= is no query', () => {
+    expect(collectionsParamsFor('', null)).toBeNull()
+    expect(collectionsParamsFor(undefined, null)).toBeNull()
+  })
+
+  it('Search with every box empty is a real query — the newest rows under the cap', () => {
+    expect(collectionsParamsFor('', landingCriteria())).toEqual({ Limit: COLLECTIONS_LIMIT })
+    expect(collectionsParamsFor('', landingCriteria(MINE))).toEqual({
+      Limit: COLLECTIONS_LIMIT,
+      ServedByKind: 'MINE',
+      ServedById: '4466',
     })
   })
 
-  it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
-    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).collectionDateFrom).toBe('2026-01-01')
+  it('the ?acr= drill-down still loads at once — following the link IS the search', () => {
+    expect(collectionsParamsFor('01J0ACR', null)).toEqual({ Limit: COLLECTIONS_LIMIT, AcrId: '01J0ACR' })
   })
 })
 
 describe('buildCollectionsParams', () => {
-  it('sends the landing state as today’s collection range plus the system cap', () => {
-    expect(buildCollectionsParams(landingCriteria(TODAY))).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
+  it('sends the landing state as the system cap alone', () => {
+    expect(buildCollectionsParams(landingCriteria())).toEqual({
       Limit: COLLECTIONS_LIMIT,
     })
   })
@@ -74,6 +118,7 @@ describe('buildCollectionsParams', () => {
 
   it('is a pure function of the draft — the same draft builds the same query', () => {
     const draft: CollectionsCriteria = {
+      ...EMPTY,
       businessDateFrom: '2026-07-28',
       businessDateTo: '2026-08-07',
       collectionDateFrom: '2026-08-01',
@@ -120,7 +165,7 @@ describe('the business and collection date ranges', () => {
   it('never sends the legacy FromDate/ToDate — the contract retires them for the web', () => {
     // 🚩 The door still honours them and ANDs them with CollectionDate*; sending both
     // would be one period spelt twice, and a stale one would silently intersect.
-    const params = buildCollectionsParams(landingCriteria(TODAY))
+    const params = buildCollectionsParams(landingCriteria())
     expect(params).not.toHaveProperty('FromDate')
     expect(params).not.toHaveProperty('ToDate')
   })
@@ -143,7 +188,7 @@ describe('the business and collection date ranges', () => {
 
   it('may leave the collection range off entirely, to ask about sales days alone', () => {
     const params = buildCollectionsParams({
-      ...landingCriteria(TODAY),
+      ...landingCriteria(),
       businessDateFrom: '2026-09-01',
       businessDateTo: '2026-09-10',
       collectionDateFrom: '',
@@ -181,20 +226,16 @@ describe('a draft that has not been promoted', () => {
   // currently holds. This suite stands in for that at the seam — the Page holds
   // the applied params in their own state, and the drive proves the wiring.
   it('a half-typed store leaves the applied query untouched', () => {
-    const applied = buildCollectionsParams(landingCriteria(TODAY))
-    const halfTyped: CollectionsCriteria = { ...landingCriteria(TODAY), storeId: '10' }
+    const applied = buildCollectionsParams(landingCriteria())
+    const halfTyped: CollectionsCriteria = { ...landingCriteria(), storeId: '10' }
     expect(applied).not.toEqual(buildCollectionsParams(halfTyped))
     expect(applied).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
       Limit: COLLECTIONS_LIMIT,
     })
   })
 
   it('Search promoting that draft is what changes the query', () => {
-    expect(buildCollectionsParams({ ...landingCriteria(TODAY), storeId: '1001' })).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
+    expect(buildCollectionsParams({ ...landingCriteria(), storeId: '1001' })).toEqual({
       StoreId: '1001',
       Limit: COLLECTIONS_LIMIT,
     })
@@ -202,48 +243,57 @@ describe('a draft that has not been promoted', () => {
 })
 
 describe('Reset', () => {
-  it('returns the landing state — today, everything else cleared', () => {
-    expect(landingCriteria(TODAY)).toEqual({
-      businessDateFrom: '',
-      businessDateTo: '',
-      collectionDateFrom: '2026-08-08',
-      collectionDateTo: '2026-08-08',
-      storeId: '',
-      collectorOperatorId: '',
-      servedBy: { kind: '', id: '' },
-    })
-    expect(isLandingQuery(buildCollectionsParams(landingCriteria(TODAY)), TODAY)).toBe(true)
+  it('returns the landing draft — every box cleared, the default scope put back', () => {
+    expect(landingCriteria()).toEqual(EMPTY)
+    expect(landingCriteria(MINE).servedBy).toEqual({ kind: 'MINE', id: '4466' })
+    // The Page also drops the applied criteria back to `null`, so Reset returns to
+    // the un-searched landing and issues nothing (see "no request on landing").
+    expect(collectionsParamsFor('', null)).toBeNull()
   })
 })
 
 describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   const applied = (criteria: Partial<CollectionsCriteria>) =>
-    isLandingQuery(buildCollectionsParams(criteria), TODAY)
+    isLandingQuery(buildCollectionsParams(criteria))
 
   it('a widened period is not the landing query', () => {
-    expect(applied({ ...landingCriteria(TODAY), collectionDateFrom: '2026-08-07' })).toBe(false)
+    expect(applied({ ...landingCriteria(), collectionDateFrom: '2026-08-07' })).toBe(false)
   })
 
   it('a business range is not the landing query — it is a filter like any other', () => {
-    expect(applied({ ...landingCriteria(TODAY), businessDateFrom: '2026-08-01' })).toBe(false)
+    expect(applied({ ...landingCriteria(), businessDateFrom: '2026-08-01' })).toBe(false)
   })
 
-  it('a collection range cleared to nothing is not it either', () => {
+  it('a collection range of one day is not it — the landing has none', () => {
     expect(
-      applied({ ...landingCriteria(TODAY), collectionDateFrom: '', collectionDateTo: '' }),
+      applied({ ...landingCriteria(), collectionDateFrom: '2026-08-08', collectionDateTo: '2026-08-08' }),
     ).toBe(false)
   })
 
   it('a searched store is not the landing query', () => {
-    expect(applied({ ...landingCriteria(TODAY), storeId: '1001' })).toBe(false)
+    expect(applied({ ...landingCriteria(), storeId: '1001' })).toBe(false)
   })
 
   it('a whitespace-only store never made it onto the wire, so it is', () => {
-    expect(applied({ ...landingCriteria(TODAY), storeId: '  ' })).toBe(true)
+    expect(applied({ ...landingCriteria(), storeId: '  ' })).toBe(true)
   })
 
-  it('a query missing the collection range entirely is not it either', () => {
-    expect(applied({})).toBe(false)
+  it('isLandingQuery recognises the new landing — the empty draft, Searched as it stands', () => {
+    expect(applied(landingCriteria())).toBe(true)
+    expect(applied({})).toBe(true)
+    // The 254..2423 today landing is now a filter like any other.
+    expect(applied({ collectionDateFrom: '2026-08-08', collectionDateTo: '2026-08-08' })).toBe(false)
+  })
+
+  it('each of 2424’s filters is not the landing query', () => {
+    expect(applied({ ...landingCriteria(), collectionTypes: ['Short'] })).toBe(false)
+    expect(applied({ ...landingCriteria(), hasSurplus: true })).toBe(false)
+    expect(applied({ ...landingCriteria(), hasStolen: true })).toBe(false)
+    expect(applied({ ...landingCriteria(), amountFrom: '1000' })).toBe(false)
+    expect(applied({ ...landingCriteria(), amountTo: '500' })).toBe(false)
+    expect(applied({ ...landingCriteria(), profitCenter: '019' })).toBe(false)
+    // …and a blank one never reached the wire.
+    expect(applied({ ...landingCriteria(), profitCenter: '  ', amountFrom: ' ' })).toBe(true)
   })
 })
 
@@ -265,14 +315,12 @@ describe('the landing chip accounts for the default scope', () => {
   }
 
   it('opens on the caller’s own scope, and sends it as an ordinary pick', () => {
-    expect(landingCriteria(TODAY, SCOPED).servedBy).toEqual({ kind: 'MINE', id: '4466' })
+    expect(landingCriteria(SCOPED).servedBy).toEqual({ kind: 'MINE', id: '4466' })
 
     // 🚩 The scope reaches the door as the SAME pair any hand-made pick uses —
     // there is no hidden landing parameter, which is what keeps the toolbar's
     // displayed scope and the query's scope one thing.
-    expect(buildCollectionsParams(landingCriteria(TODAY, SCOPED))).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
+    expect(buildCollectionsParams(landingCriteria(SCOPED))).toEqual({
       Limit: COLLECTIONS_LIMIT,
       ServedByKind: 'MINE',
       ServedById: '4466',
@@ -280,27 +328,27 @@ describe('the landing chip accounts for the default scope', () => {
   })
 
   it('reads a scoped landing query as UNFILTERED — the chip stays dark on mount', () => {
-    const landing = buildCollectionsParams(landingCriteria(TODAY, SCOPED))
-    expect(isLandingQuery(landing, TODAY, SCOPED)).toBe(true)
+    const landing = buildCollectionsParams(landingCriteria(SCOPED))
+    expect(isLandingQuery(landing, SCOPED)).toBe(true)
 
     // …and the same query IS filtered for a caller who has no default scope, which
     // is what proves the comparison moved with the caller rather than being widened
     // to ignore the pair.
-    expect(isLandingQuery(landing, TODAY)).toBe(false)
+    expect(isLandingQuery(landing)).toBe(false)
   })
 
   it('counts WIDENING as filtered — including widening all the way to everyone', () => {
     const widened = buildCollectionsParams({
-      ...landingCriteria(TODAY, SCOPED),
+      ...landingCriteria(SCOPED),
       servedBy: { kind: 'ACCOUNTANT', id: '6420' },
     })
-    expect(isLandingQuery(widened, TODAY, SCOPED)).toBe(false)
+    expect(isLandingQuery(widened, SCOPED)).toBe(false)
 
     const everyone = buildCollectionsParams({
-      ...landingCriteria(TODAY, SCOPED),
+      ...landingCriteria(SCOPED),
       servedBy: { kind: '', id: '' },
     })
-    expect(isLandingQuery(everyone, TODAY, SCOPED)).toBe(false)
+    expect(isLandingQuery(everyone, SCOPED)).toBe(false)
   })
 
   // The ~7,600 case: no roster row, no default scope, and the screen behaves
@@ -312,10 +360,8 @@ describe('the landing chip accounts for the default scope', () => {
       supervisors: [],
       defaultScope: null,
     }
-    expect(landingCriteria(TODAY, noRosterRow).servedBy).toEqual({ kind: '', id: '' })
-    expect(buildCollectionsParams(landingCriteria(TODAY, noRosterRow))).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
+    expect(landingCriteria(noRosterRow).servedBy).toEqual({ kind: '', id: '' })
+    expect(buildCollectionsParams(landingCriteria(noRosterRow))).toEqual({
       Limit: COLLECTIONS_LIMIT,
     })
   })
@@ -333,7 +379,7 @@ describe('no filter clears another', () => {
   // The landing dates, so a change to TODAY stays one edit — plus the toolbar's
   // other two filters, filled in.
   const base: CollectionsCriteria = {
-    ...landingCriteria(TODAY),
+    ...landingCriteria(),
     storeId: '1103',
     collectorOperatorId: '7787',
   }
@@ -342,8 +388,6 @@ describe('no filter clears another', () => {
     expect(
       buildCollectionsParams({ ...base, servedBy: { kind: 'ACCOUNTANT', id: '4466' } }),
     ).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
       StoreId: '1103',
       CollectorOperatorId: '7787',
       ServedByKind: 'ACCOUNTANT',
@@ -381,8 +425,6 @@ describe('no filter clears another', () => {
       servedBy: { kind: 'ACCOUNTANT', id: '4466' },
     })
     expect(contradiction).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
       StoreId: '9999',
       ServedByKind: 'ACCOUNTANT',
       ServedById: '4466',
@@ -392,7 +434,7 @@ describe('no filter clears another', () => {
     // …and the grid above it is not the landing one, so the Filtered chip is lit
     // over the empty result rather than the screen looking like an ordinary quiet
     // day. Both filters applied, and the screen saying so.
-    expect(isLandingQuery(contradiction, TODAY)).toBe(false)
+    expect(isLandingQuery(contradiction)).toBe(false)
   })
 
   it('"Collected by" and *Served by* are two independent keys on one query', () => {
@@ -414,9 +456,9 @@ describe('no filter clears another', () => {
 // other. The new control joins that split rather than being an exception to it.
 describe('a half-chosen Served by does not fire', () => {
   it('picking a scope in the toolbar leaves the applied query untouched', () => {
-    const applied = buildCollectionsParams(landingCriteria(TODAY))
+    const applied = buildCollectionsParams(landingCriteria())
     const halfChosen: CollectionsCriteria = {
-      ...landingCriteria(TODAY),
+      ...landingCriteria(),
       servedBy: { kind: 'ACCOUNTANT', id: '4466' },
     }
 
@@ -424,13 +466,9 @@ describe('a half-chosen Served by does not fire', () => {
     // applied query has not, and only Search closes the gap.
     expect(applied).not.toEqual(buildCollectionsParams(halfChosen))
     expect(applied).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
       Limit: COLLECTIONS_LIMIT,
     })
     expect(buildCollectionsParams(halfChosen)).toEqual({
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
       ServedByKind: 'ACCOUNTANT',
       ServedById: '4466',
       Limit: COLLECTIONS_LIMIT,
@@ -444,7 +482,7 @@ describe('a half-chosen Served by does not fire', () => {
     // travels, because a mid-selection scope must not take the other filters down
     // with it.
     const params = buildCollectionsParams({
-      ...landingCriteria(TODAY),
+      ...landingCriteria(),
       storeId: '1103',
       collectorOperatorId: '',
       servedBy: { kind: 'ACCOUNTANT', id: '' },
@@ -452,5 +490,94 @@ describe('a half-chosen Served by does not fire', () => {
     expect(params).not.toHaveProperty('ServedByKind')
     expect(params).not.toHaveProperty('ServedById')
     expect(params.StoreId).toBe('1103')
+  })
+})
+
+// Ticket 423 — BackOffice 2424's wire contract: `CollectionTypes` (repeated),
+// `HasSurplus`, `HasStolen`, `AmountFrom`, `AmountTo`, `ProfitCenter`. PascalCase,
+// bound onto `CollectionInquiryOptions`; an empty value is never sent.
+describe('BackOffice 2424’s filters', () => {
+  it('new filters map to PascalCase params and empties are dropped', () => {
+    expect(
+      buildCollectionsParams({
+        ...landingCriteria(),
+        collectionTypes: ['Regular', 'OutsideSystem'],
+        hasSurplus: true,
+        hasStolen: true,
+        amountFrom: ' 1000 ',
+        amountTo: '2500.50',
+        profitCenter: ' 019 ',
+      }),
+    ).toEqual({
+      Limit: COLLECTIONS_LIMIT,
+      CollectionTypes: ['Regular', 'OutsideSystem'],
+      HasSurplus: true,
+      HasStolen: true,
+      AmountFrom: '1000',
+      AmountTo: '2500.50',
+      ProfitCenter: '019',
+    })
+
+    // Every one of them empty: not one key on the wire — no `CollectionTypes=[]`,
+    // no `HasSurplus=false`, no `AmountFrom=`.
+    const empty = buildCollectionsParams({
+      ...landingCriteria(),
+      collectionTypes: [],
+      hasSurplus: false,
+      hasStolen: false,
+      amountFrom: '  ',
+      amountTo: '',
+      profitCenter: ' ',
+    })
+    expect(empty).toEqual({ Limit: COLLECTIONS_LIMIT })
+  })
+
+  it('sends the base types in the toolbar’s order, whatever order they were ticked in', () => {
+    expect(
+      buildCollectionsParams({ collectionTypes: ['OutsideSystem', 'Short', 'Regular'] }).CollectionTypes,
+    ).toEqual([...COLLECTION_TYPE_FILTERS])
+  })
+
+  it('a tick alone is a whole filter — "has Surplus" needs no base type', () => {
+    expect(buildCollectionsParams({ hasSurplus: true })).toEqual({ Limit: COLLECTIONS_LIMIT, HasSurplus: true })
+  })
+
+  it('either amount end travels alone, and a From above its To goes to the door to refuse', () => {
+    expect(buildCollectionsParams({ amountFrom: '1000' })).toEqual({ Limit: COLLECTIONS_LIMIT, AmountFrom: '1000' })
+    expect(buildCollectionsParams({ amountTo: '500' })).toEqual({ Limit: COLLECTIONS_LIMIT, AmountTo: '500' })
+    expect(buildCollectionsParams({ amountFrom: '900', amountTo: '100' })).toEqual({
+      Limit: COLLECTIONS_LIMIT,
+      AmountFrom: '900',
+      AmountTo: '100',
+    })
+  })
+
+  it('ANDs with the rest of the toolbar — no new filter clears another', () => {
+    expect(
+      buildCollectionsParams({
+        ...landingCriteria(MINE),
+        storeId: '1103',
+        collectionTypes: ['Short'],
+        profitCenter: 'PH-019',
+      }),
+    ).toEqual({
+      Limit: COLLECTIONS_LIMIT,
+      StoreId: '1103',
+      CollectionTypes: ['Short'],
+      ProfitCenter: 'PH-019',
+      ServedByKind: 'MINE',
+      ServedById: '4466',
+    })
+  })
+})
+
+describe('sameQuery — a repeated Search is told from a new one', () => {
+  it('compares an array value element by element, not by reference', () => {
+    const draft = { ...landingCriteria(), collectionTypes: ['Short' as const] }
+    expect(sameQuery(buildCollectionsParams(draft), buildCollectionsParams({ ...draft }))).toBe(true)
+    expect(
+      sameQuery(buildCollectionsParams(draft), buildCollectionsParams({ ...draft, collectionTypes: ['Regular'] })),
+    ).toBe(false)
+    expect(sameQuery(buildCollectionsParams(draft), buildCollectionsParams({ ...draft, storeId: '1001' }))).toBe(false)
   })
 })

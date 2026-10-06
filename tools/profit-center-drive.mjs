@@ -186,14 +186,13 @@ const SCREENS = {
     rows: COLLECTION_ROWS,
     codeColumn: 'storeId',
     codeHeader: 'Store Code',
-    // Ticket 335: finance's nine lead, and the profit center follows the last of them.
-    before: 'Collector',
-    // 2026-10-03: the landing grid shows the RAW profit center — the store code is
-    // already third — and the composed `PH-019 (P019)` waits in the tail.
+    // Ticket 423: Saud's order — the profit center is third, right after the store code.
+    // 2026-10-03: the landing grid shows the RAW profit center, and the composed
+    // `PH-019 (P019)` waits in the tail (Saud's last column, Profit Center (Store)).
     landing: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
     tail: { colId: 'storeText', header: COLUMN, withPc: 'PH-019 (P019)', none: 'P020' },
-    loading: "Loading today's collections…",
-    emptyTitle: 'No collections in this period',
+    loading: 'Loading collections…',
+    emptyTitle: 'No collections match this search',
     csvName: 'collection-collections',
   },
   attempts: {
@@ -303,6 +302,11 @@ async function run() {
   const load = async (path) => {
     await page.goto(BASE + path)
     await page.waitForLoadState('networkidle')
+    // Ticket 423: Cash Collections opens blank and loads nothing until Search.
+    if (path === '/collection/collections') {
+      await page.getByRole('button', { name: 'Search', exact: true }).click()
+      await page.waitForLoadState('networkidle')
+    }
   }
 
   /** Split one CSV line into cells, respecting the RFC-4180 quoting. */
@@ -391,6 +395,8 @@ async function run() {
     let release
     hold = new Promise((r) => (release = r))
     await page.goto(BASE + screen.route)
+    // Ticket 423: Cash Collections loads nothing until Search.
+    if (key === 'collections') await page.getByRole('button', { name: 'Search', exact: true }).click()
     const loading = page.getByRole('status', { name: screen.loading })
     await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
     check(`${key} — loading: the list says it is loading`, (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)

@@ -6,16 +6,15 @@
  * promote one to the other. Splitting them is what makes a half-typed store code
  * unable to fire a request.
  *
- * Pure — no React, no i18n, no network, and **no `new Date()`**: every function
- * that needs today takes it as an argument, so the landing state is testable
- * rather than only observable (the `core/nphies/list-window.ts` precedent).
+ * Pure — no React, no i18n, no network, and **no `new Date()`**. Since spec 2423
+ * the landing holds no date at all, so nothing here needs today; the landing state
+ * stays testable rather than only observable.
  *
  * ⚠️ **Copied, not extracted.** BBY Inquiry's `list-params.ts` is the shape this
  * follows; it is not imported, and nothing here graduates to `core/` — a feature
  * may not import a feature, and the shared inquiry shell would be an abstraction
  * designed before the four screens exist to prove it (spec 249, 244 §1).
  */
-import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
 import {
   buildServedByParams,
@@ -65,7 +64,34 @@ export interface CollectionsCriteria {
    * the control existed.
    */
   servedBy: ServedBySelection
+  /**
+   * Type — the base kinds, OR'd (BackOffice 2424). Empty is "any type", and sends
+   * nothing. The values are the wire's own spellings, never translated.
+   */
+  collectionTypes: CollectionTypeFilter[]
+  /** "has Surplus": ANDs the settlement-deduction flag onto the result (2424). */
+  hasSurplus: boolean
+  /** "has Stolen": ANDs the approved-theft flag onto the result (2424). */
+  hasStolen: boolean
+  /**
+   * Amount From/To on the row's `amount`, inclusive, either one optional. Strings
+   * as typed: a From above its To goes to the door, which refuses it with the
+   * inquiry's usual criterion refusal — the client does not re-implement that rule.
+   */
+  amountFrom: string
+  amountTo: string
+  /** A contains match on the branch's profit center, case-insensitive, server-side. */
+  profitCenter: string
 }
+
+/**
+ * The base types the Type filter offers, in the toolbar's order — the wire values
+ * of 2424's `CollectionTypes`. `Regular+Surplus` is not one of them: a surplus or
+ * a theft is a tick ANDed onto a base type, which is how a `Regular+Surplus` row is
+ * found by both "Regular" and "has Surplus" (spec 2423 story 12).
+ */
+export const COLLECTION_TYPE_FILTERS = ['Regular', 'Short', 'OutsideSystem'] as const
+export type CollectionTypeFilter = (typeof COLLECTION_TYPE_FILTERS)[number]
 
 /**
  * The system cap, and the whole of what became of the WPF's `Limit` box.
@@ -85,29 +111,25 @@ export interface CollectionsCriteria {
 export const COLLECTIONS_LIMIT = GRID_LIMIT
 
 /**
- * The state the screen opens on: **collected today, on both ends, nothing else
- * set** — the business range open.
+ * The draft the screen opens on: **every box empty**, Served by on the caller's
+ * own scope.
  *
- * The collection range is applied to `PosCollectionReceipt.CollectedAt`, and
- * today..today is what makes "what has come in today" answerable before anyone
- * touches a control (244 §4). Ticket 315 renamed the pair on the wire; it did not
- * move the landing state.
+ * 🚩 **No dates** (spec 2423, BackOffice 2424). Until then the collection range
+ * defaulted to today..today; finance hunting for last week's collection first had
+ * to clear a filter they never asked for. The date goes, the scope stays (the
+ * owner's ruling) — so this is the WPF's own landing now, empty and unloaded.
  *
- * 🚩 The WPF loads nothing until `Load` and defaults no dates. This follows its
- * own `CloseActionInquiry`/`DocumentPayment` instead, which do default to today.
- * Known cost, accepted: at 9am today is nearly empty, and yesterday's closures are
- * one date edit away.
+ * ⚠️ This is the DRAFT only. The screen issues **no request** on landing: the
+ * applied criteria start as `null` (`collectionsParamsFor` answers `null` for
+ * them, and the Page's query is enabled on that), and only Search promotes this
+ * draft to a query.
  */
-export function landingCriteria(
-  today: Date,
-  options?: Partial<AssignmentOptions>,
-): CollectionsCriteria {
-  const day = toIsoDate(today)
+export function landingCriteria(options?: Partial<AssignmentOptions>): CollectionsCriteria {
   return {
     businessDateFrom: '',
     businessDateTo: '',
-    collectionDateFrom: day,
-    collectionDateTo: day,
+    collectionDateFrom: '',
+    collectionDateTo: '',
     storeId: '',
     collectorOperatorId: '',
     // 🚩 **Default-to-mine** (BackOffice 1165). The screen opens already scoped to
@@ -117,34 +139,58 @@ export function landingCriteria(
     // unreachable, or the caller is on no roster row) lands on the estate, which is
     // exactly how this screen behaved before the control existed.
     servedBy: defaultSelection('collections', options),
+    collectionTypes: [],
+    hasSurplus: false,
+    hasStolen: false,
+    amountFrom: '',
+    amountTo: '',
+    profitCenter: '',
   }
 }
 
 /**
- * Is the query that has actually been **issued** still the landing one?
+ * Is the query that has actually been **issued** still the landing one — the
+ * empty draft, Searched as it stands?
  *
  * 🚩 It takes the applied params, **not the draft**. The chip's sentence is about
  * what the grid is showing, and the grid is showing the result of the last
  * *Search* — so a chip measured against the draft would light the moment someone
- * typed a store code into a grid still showing all of today, and go dark when they
- * cleared the box over a grid still filtered to one store. Both are the chip
- * saying the opposite of the truth. (BBY Inquiry compares the applied query to its
- * own default for the same reason.)
+ * typed a store code into a grid still showing the unfiltered result, and go dark
+ * when they cleared the box over a grid still filtered to one store. Both are the
+ * chip saying the opposite of the truth. (BBY Inquiry compares the applied query
+ * to its own default for the same reason.)
+ *
+ * Before the first Search there is no issued query at all, and the Page shows no
+ * chip; this is only ever asked about a query that went out.
  */
 export function isLandingQuery(
   params: Record<string, unknown>,
-  today: Date,
   options?: Partial<AssignmentOptions>,
 ): boolean {
-  // 🚩 The landing query now CARRIES A SCOPE for most finance users (1165), so the
+  // 🚩 The landing query CARRIES A SCOPE for most finance users (1165), so the
   // comparison has to be made against the same default the screen actually opened
   // on — the caller's, not "no scope". Measured against an unscoped landing, the
-  // chip would light on mount for every scoped user and its ✕ (Reset) would put
-  // the scope straight back, which is the chip saying the opposite of the truth.
-  const landing = buildCollectionsParams(landingCriteria(today, options))
-  const keys = Object.keys(landing)
-  if (Object.keys(params).length !== keys.length) return false
-  return keys.every((key) => params[key] === landing[key])
+  // chip would light on the first Search for every scoped user and its ✕ (Reset)
+  // would put the scope straight back, which is the chip saying the opposite of
+  // the truth.
+  return sameQuery(params, buildCollectionsParams(landingCriteria(options)))
+}
+
+/**
+ * Are two built queries the same request? Key by key, and an array value (2424's
+ * `CollectionTypes`) element by element — `buildCollectionsParams` makes a fresh
+ * array each time, so a reference comparison would call two identical queries
+ * different. The Page uses it to tell a repeated Search from a new one.
+ */
+export function sameQuery(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  const keys = Object.keys(b)
+  if (Object.keys(a).length !== keys.length) return false
+  return keys.every((key) => {
+    const x = a[key]
+    const y = b[key]
+    if (Array.isArray(x) && Array.isArray(y)) return x.length === y.length && x.every((v, i) => v === y[i])
+    return x === y
+  })
 }
 
 /**
@@ -190,6 +236,17 @@ export function buildCollectionsParams(
   put('CollectionDateTo', criteria.collectionDateTo)
   put('StoreId', criteria.storeId)
   put('CollectorOperatorId', criteria.collectorOperatorId)
+  // BackOffice 2424's criteria. ⚠️ `CollectionTypes` is an ARRAY and travels as a
+  // repeated key (`CollectionTypes=Regular&CollectionTypes=Short`) — `core/api.ts`'s
+  // `buildQuery` repeats a key per element; nothing here joins them into one value.
+  const types = COLLECTION_TYPE_FILTERS.filter((type) => criteria.collectionTypes?.includes(type))
+  if (types.length > 0) params.CollectionTypes = types
+  // A tick is sent only when ticked: an unticked box is "don't care", not `false`.
+  if (criteria.hasSurplus) params.HasSurplus = true
+  if (criteria.hasStolen) params.HasStolen = true
+  put('AmountFrom', criteria.amountFrom)
+  put('AmountTo', criteria.amountTo)
+  put('ProfitCenter', criteria.profitCenter)
   // 🚩 The scope ANDs with the store filter, EVEN TO NOTHING, and both chips stay
   // lit. A store outside the selected person's branches must return an honest empty
   // grid — a filter that silently un-sets another is how a grid ends up showing rows

@@ -378,3 +378,36 @@ describe('api.getEnvelope', () => {
     expect((err as ApiError).kind).toBe('network')
   })
 })
+
+/**
+ * A collection parameter on the query string (spec 2423 — `CollectionTypes`,
+ * `Kinds`). ASP.NET binds a collection from a REPEATED key; a joined `A,B` would
+ * reach it as the one value `"A,B"` and match nothing.
+ */
+describe('an array query parameter', () => {
+  const okEmpty = () =>
+    vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({ statusCode: 200, success: true, message: '', errors: null, data: [] }),
+    } as unknown as Response)
+
+  const urlOf = async (params: Record<string, unknown>) => {
+    const fetchStub = okEmpty()
+    vi.stubGlobal('fetch', fetchStub)
+    await api.get('CollectionWeb/Collections', params)
+    return (fetchStub.mock.calls[0] as [string])[0]
+  }
+
+  it('travels as a repeated key, in the array’s order', async () => {
+    const url = await urlOf({ Limit: 2000, CollectionTypes: ['Regular', 'OutsideSystem'] })
+    expect(url.endsWith('CollectionWeb/Collections?Limit=2000&CollectionTypes=Regular&CollectionTypes=OutsideSystem')).toBe(
+      true,
+    )
+  })
+
+  it('sends nothing for an empty array, and drops its empty elements', async () => {
+    expect((await urlOf({ Limit: 2000, CollectionTypes: [] })).endsWith('?Limit=2000')).toBe(true)
+    expect((await urlOf({ Limit: 2000, Kinds: ['', null, 'DAY'] })).endsWith('?Limit=2000&Kinds=DAY')).toBe(true)
+  })
+})

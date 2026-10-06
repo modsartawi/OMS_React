@@ -21,13 +21,9 @@ import {
 //   2. with `?acr=` set, the criteria sent carry `AcrId` and OMIT store, collector
 //      and period entirely — because the server treats `AcrId` as an exclusive
 //      filter and would discard them;
-//   3. clearing the scope restores the ordinary today-defaulted query, and the
+//   3. clearing the scope restores the ordinary criteria-built query, and the
 //      whole thing round-trips through the URL.
-//
-// No `new Date()` anywhere: today is passed in, so the landing state is testable
-// rather than only observable.
 
-const TODAY = new Date('2026-08-08T13:00:00Z')
 const ACR = '01J0ACR00000000000000000001'
 
 describe('the three addresses', () => {
@@ -92,7 +88,7 @@ describe('the scope round-trips through the URL', () => {
 })
 
 describe('the criteria the chip overrides and disables — all of them', () => {
-  it('is both date ranges, Store, Collector and Served by — the toolbar’s whole set', () => {
+  it('is both date ranges, Store, Collector, Served by and 2424’s filters — the toolbar’s whole set', () => {
     expect([...SCOPE_DISABLED_FIELDS]).toEqual([
       'businessDateFrom',
       'businessDateTo',
@@ -101,11 +97,17 @@ describe('the criteria the chip overrides and disables — all of them', () => {
       'storeId',
       'collectorOperatorId',
       'servedBy',
+      'collectionTypes',
+      'hasSurplus',
+      'hasStolen',
+      'amountFrom',
+      'amountTo',
+      'profitCenter',
     ])
   })
 
   it('names only fields the criteria really has', () => {
-    const criteria = landingCriteria(TODAY)
+    const criteria = landingCriteria()
     for (const field of SCOPE_DISABLED_FIELDS) expect(criteria).toHaveProperty(field)
   })
 
@@ -113,7 +115,7 @@ describe('the criteria the chip overrides and disables — all of them', () => {
     // ⚠️ The honesty claim, stated as a set equality rather than a list: a fifth
     // filter added to the toolbar without being disabled here would be a live
     // input the server silently ignores, and this is the assertion that catches it.
-    const criteria = landingCriteria(TODAY)
+    const criteria = landingCriteria()
     expect([...SCOPE_DISABLED_FIELDS].sort()).toEqual(Object.keys(criteria).sort())
   })
 })
@@ -127,6 +129,12 @@ describe('the query the scoped screen issues', () => {
     storeId: '1003',
     collectorOperatorId: '4472',
     servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+    collectionTypes: ['Short'],
+    hasSurplus: true,
+    hasStolen: false,
+    amountFrom: '1000',
+    amountTo: '',
+    profitCenter: '019',
   }
 
   it('carries the ACR and the system cap, and NOTHING else', () => {
@@ -154,6 +162,13 @@ describe('the query the scoped screen issues', () => {
       // the door ignores it under an AcrId exactly as it ignores the others.
       'ServedByKind',
       'ServedById',
+      // …and 2424's, for the same reason.
+      'CollectionTypes',
+      'HasSurplus',
+      'HasStolen',
+      'AmountFrom',
+      'AmountTo',
+      'ProfitCenter',
     ])
       expect(params).not.toHaveProperty(key)
   })
@@ -173,21 +188,24 @@ describe('the query the scoped screen issues', () => {
       CollectorOperatorId: '4472',
       ServedByKind: 'ACCOUNTANT',
       ServedById: '4466',
+      CollectionTypes: ['Short'],
+      HasSurplus: true,
+      AmountFrom: '1000',
+      ProfitCenter: '019',
     })
   })
 
-  it('restores the today-defaulted landing query when the chip is cleared', () => {
+  it('restores the criteria underneath when the chip is cleared — un-searched stays un-searched', () => {
     // The criteria are never mutated by the scope, so dropping the param restores
     // them intact — which is why "clearing returns the ordinary screen" is a
     // branch rather than an effect the Page has to remember to run.
-    const landing = landingCriteria(TODAY)
+    const landing = landingCriteria()
     const scoped = collectionsParamsFor(ACR, landing)
     const cleared = collectionsParamsFor(readAcrScope(withoutAcrScope(`acr=${ACR}`)), landing)
     expect(scoped).toEqual({ Limit: 2000, AcrId: ACR })
-    expect(cleared).toEqual({
-      Limit: 2000,
-      CollectionDateFrom: '2026-08-08',
-      CollectionDateTo: '2026-08-08',
-    })
+    // The landing draft carries no date since spec 2423: Searched, it is the cap alone.
+    expect(cleared).toEqual({ Limit: 2000 })
+    // …and a screen that was never Searched issues nothing once the scope is gone.
+    expect(collectionsParamsFor(readAcrScope(withoutAcrScope(`acr=${ACR}`)), null)).toBeNull()
   })
 })

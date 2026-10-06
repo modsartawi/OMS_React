@@ -8,9 +8,15 @@
 // SPECIFIC rows — a day collected late, a settlement receipt with no business day, a pre-049 day —
 // which a live door will not produce on demand.
 //
-// Verifies ticket 315's screen Proof:
-//   1. the landing query is today..today by COLLECTION date, under the new names, with no
-//      business range and no legacy FromDate/ToDate;
+// Ticket 423 (spec 2423, BackOffice 2424) moved the landing and added three filters, so this
+// drive now also proves: the screen opens BLANK and issues NO request until Search (§1), Reset
+// returns to that un-searched landing, Type / Amount / Profit center reach the wire as 2424's
+// PascalCase params with empties dropped and `CollectionTypes` as a repeated key (§3b), and the
+// grid reads in Saud's order (§2).
+//
+// Verifies ticket 315's screen Proof (as moved by 423):
+//   1. the landing issues no query; every date box is empty; Search with the boxes empty sends
+//      the cap alone — no business range, no collection range, no legacy FromDate/ToDate;
 //   2. Business Date and Collection Date are default columns, side by side; a null business day
 //      is blank (never 0001-01-01), and the floating filter matches the shown day;
 //   3. the toolbar sends a business range, both ranges together, an end alone, and the
@@ -34,7 +40,8 @@ const ROUTE = '/collection/collections'
 const SHOTS = process.env.SHOTS || ''
 
 const DENIED = 'No access to this screen'
-const EMPTY_TITLE = 'No collections in this period'
+const EMPTY_TITLE = 'No collections match this search'
+const LANDING_TITLE = 'Press Search to see collections'
 
 const pad = (n) => String(n).padStart(2, '0')
 const d = new Date()
@@ -218,44 +225,72 @@ async function run() {
     await page.waitForLoadState('networkidle')
   }
 
-  // ---- 1. the landing query ----
+  // ---- 1. the landing: blank, and no request until Search (ticket 423) ----
   scenario = {}
   calls = 0
+  lastQuery = ''
   await load()
-  await page.locator('.ag-row').first().waitFor()
+  await page.getByText(LANDING_TITLE).first().waitFor({ timeout: 8000 }).catch(() => {})
   await shot('landing')
-  check('the screen queries on mount', calls === 1, `${calls} calls`)
+  check('the screen issues NO query on landing', calls === 0, `${calls} calls`)
   check(
-    'it lands on TODAY by collection date, under the new names',
-    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY,
-    lastQuery,
+    'the empty grid says to press Search — no grid, no shimmer, not the empty-result state',
+    (await mainText()).includes(LANDING_TITLE) &&
+      (await page.locator('.ag-root').count()) === 0 &&
+      !(await mainText()).includes(EMPTY_TITLE),
   )
-  check('…with the legacy FromDate/ToDate retired', !q().has('FromDate') && !q().has('ToDate'), lastQuery)
-  check('…and no business range — it is open on landing', !q().has('BusinessDateFrom') && !q().has('BusinessDateTo'), lastQuery)
-  check('…exactly the collection pair and the cap', keys() === 'CollectionDateFrom,CollectionDateTo,Limit', keys())
   check(
-    'the toolbar shows the landing state: business ends empty, collection ends today',
+    'the toolbar shows the landing state: every date end empty — no today default',
     (await field('Business date from').inputValue()) === '' &&
       (await field('Business date to').inputValue()) === '' &&
-      (await field('Collection date from').inputValue()) === TODAY &&
-      (await field('Collection date to').inputValue()) === TODAY,
+      (await field('Collection date from').inputValue()) === '' &&
+      (await field('Collection date to').inputValue()) === '',
   )
+  await page.waitForTimeout(500)
+  check('…and still no query after the page settles', calls === 0, `${calls} calls`)
+  await search()
+  await page.locator('.ag-row').first().waitFor()
+  check('Search with every box empty issues ONE query', calls === 1, `${calls} calls`)
+  check('…that is the cap alone — the newest rows under the cap', keys() === 'Limit', lastQuery)
+  check('…with the legacy FromDate/ToDate retired', !q().has('FromDate') && !q().has('ToDate'), lastQuery)
+  await search()
+  check('Search again on the unchanged draft RE-ASKS the door — new receipts are one click away', calls === 2, `${calls} calls`)
+  calls = 1
   check(
     'no date end is `required` any more — every one is optional on the contract',
     await page.locator('form input[type="date"]').evaluateAll((els) => els.length === 4 && els.every((el) => !el.required)),
   )
-  check('the Filtered chip is dark on landing', (await page.getByText('Filtered').count()) === 0)
+  check('the Filtered chip is dark on the empty Search', (await page.getByText('Filtered').count()) === 0)
 
   // ---- 2. the two date columns ----
   const defaultHeaders = await headers()
   check('Business Date is a DEFAULT column', defaultHeaders.includes('Business Date'), defaultHeaders.join(' | '))
   check('Collection Date is a DEFAULT column', defaultHeaders.includes('Collection Date'), defaultHeaders.join(' | '))
   check(
-    '…side by side, the collection date first (finance order, ticket 335)',
+    '…side by side, the collection date first (Saud’s order, ticket 423)',
     defaultHeaders.indexOf('Business Date') === defaultHeaders.indexOf('Collection Date') + 1,
     defaultHeaders.join(' | '),
   )
-  check('Sales Date stays in the tail — it is not the business column', !defaultHeaders.includes('Sales Date'))
+  const SAUD_13 = [
+    'Receipt No#',
+    'Store Code',
+    'Profit Center',
+    'Sales Date',
+    'Amount (SAR)',
+    'Surplus (SAR)',
+    'Net Collected (SAR)',
+    'Collector',
+    'Collector Name',
+    'Type',
+    'Description',
+    'Collection Date',
+    'Business Date',
+  ]
+  check(
+    'the default grid is Saud’s first 13, in order, after the Open column',
+    defaultHeaders.filter((h) => h !== 'Open').join(' | ') === SAUD_13.join(' | '),
+    defaultHeaders.join(' | '),
+  )
   check('the sample’s business day is the date part only', (await cellText(0, 'businessDay')) === '2026-09-02', await cellText(0, 'businessDay'))
   check('the sample’s collection date is a date-time', (await cellText(0, 'collectedAt')) === '2026-09-12 10:15', await cellText(0, 'collectedAt'))
   check('a settlement receipt’s null business day is BLANK, not 0001-01-01', (await cellText(1, 'businessDay')) === '')
@@ -316,29 +351,81 @@ async function run() {
     lastQuery,
   )
 
+  const beforeReset = calls
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
   check(
-    'Reset returns to the landing query — today by collection date, nothing else',
-    keys() === 'CollectionDateFrom,CollectionDateTo,Limit' && q().get('CollectionDateFrom') === TODAY,
-    lastQuery,
+    'Reset returns to the UN-SEARCHED landing — press Search, no grid, no new query',
+    (await mainText()).includes(LANDING_TITLE) && (await page.locator('.ag-root').count()) === 0 && calls === beforeReset,
+    `${calls} vs ${beforeReset}`,
   )
   check(
     '…and the toolbar with it',
     (await field('Business date from').inputValue()) === '' &&
-      (await field('Collection date from').inputValue()) === TODAY &&
+      (await field('Collection date from').inputValue()) === '' &&
       (await page.getByPlaceholder('Operator id').inputValue()) === '',
   )
   check('…and the chip goes dark', (await page.getByText('Filtered').count()) === 0)
 
-  // The served-by pair: a caller with a landing scope sends it WITH the dates.
-  scenario = { scoped: true }
-  await load()
+  // ---- 3b. ticket 423's filters: Type, Amount, Profit center (BackOffice 2424) ----
+  await field('Amount from').fill('12,5')
+  await search()
+  check('an amount the browser cannot parse is SENT as typed, never silently dropped', q().get('AmountFrom') === '12,5', lastQuery)
+  await field('Amount from').fill('')
+  const beforeTicks = calls
+  await page.getByLabel('Short', { exact: true }).check()
+  await page.getByLabel('Regular', { exact: true }).check()
+  await page.getByLabel('has Surplus', { exact: true }).check()
+  await field('Amount from').fill('1000')
+  await field('Amount to').fill('2500.5')
+  await field('Profit center').fill(' 019 ')
+  await page.waitForTimeout(300)
+  check('ticking and typing 2424’s filters fires NO query', calls === beforeTicks, `${calls} vs ${beforeTicks}`)
+  await search()
   check(
-    'a default Served-by scope rides with the collection range on landing',
-    q().get('ServedByKind') === 'MINE' && q().get('ServedById') === '4466' && q().get('CollectionDateFrom') === TODAY,
+    'Type travels as a REPEATED CollectionTypes key, in the toolbar’s order',
+    q().getAll('CollectionTypes').join(',') === 'Regular,Short' && lastQuery.includes('CollectionTypes=Regular&CollectionTypes=Short'),
     lastQuery,
   )
+  check('has Surplus is HasSurplus=true; the unticked has Stolen sends nothing', q().get('HasSurplus') === 'true' && !q().has('HasStolen'), lastQuery)
+  check('Amount from/to are AmountFrom/AmountTo as typed', q().get('AmountFrom') === '1000' && q().get('AmountTo') === '2500.5', lastQuery)
+  check('Profit center is ProfitCenter, trimmed', q().get('ProfitCenter') === '019', lastQuery)
+  check(
+    '…and nothing else — no date, no empty key',
+    keys() === 'AmountFrom,AmountTo,CollectionTypes,CollectionTypes,HasSurplus,Limit,ProfitCenter' && !/=(&|$)/.test(lastQuery),
+    keys(),
+  )
+  check('…and the Filtered chip lights', (await page.getByText('Filtered').count()) > 0)
+  await shot('423-filters')
+
+  // Clearing them drops every key — an empty value is never sent.
+  await page.getByLabel('Short', { exact: true }).uncheck()
+  await page.getByLabel('Regular', { exact: true }).uncheck()
+  await page.getByLabel('has Surplus', { exact: true }).uncheck()
+  await page.getByLabel('has Stolen', { exact: true }).check()
+  await field('Amount from').fill('')
+  await field('Amount to').fill('')
+  await field('Profit center').fill('   ')
+  await search()
+  check('a tick alone is a whole filter, and the cleared boxes send nothing', keys() === 'HasStolen,Limit' && q().get('HasStolen') === 'true', lastQuery)
+  await page.getByRole('button', { name: 'Reset' }).click()
+  check(
+    'Reset clears 2424’s filters too',
+    !(await page.getByLabel('has Stolen', { exact: true }).isChecked()) && (await field('Amount from').inputValue()) === '',
+  )
+
+  // The served-by pair: a caller with a landing scope keeps it — the date goes, the scope stays.
+  scenario = { scoped: true }
+  calls = 0
+  await load()
+  check('a scoped caller’s landing issues no query either', calls === 0, `${calls} calls`)
+  await search()
+  check(
+    'the default Served-by scope rides on the first Search, with no date beside it',
+    q().get('ServedByKind') === 'MINE' && q().get('ServedById') === '4466' && keys() === 'Limit,ServedById,ServedByKind',
+    lastQuery,
+  )
+  check('…and that Search is the landing one — the chip stays dark', (await page.getByText('Filtered').count()) === 0)
   await field('Business date from').fill('2026-09-01')
   await search()
   check(
@@ -356,9 +443,16 @@ async function run() {
     await dateInputs.evaluateAll((els) => els.length === 4 && els.every((el) => el.disabled && el.value === '')),
   )
   check(
-    '…and the scoped query sends NO date parameter at all',
+    '…and the scoped query sends NO date parameter at all — and loads at once, no Search needed',
     keys() === 'AcrId,Limit',
     lastQuery,
+  )
+  check(
+    '…and 2424’s filters are disabled with them',
+    (await page.getByLabel('Regular', { exact: true }).isDisabled()) &&
+      (await page.getByLabel('has Stolen', { exact: true }).isDisabled()) &&
+      (await field('Amount from').isDisabled()) &&
+      (await field('Profit center').isDisabled()),
   )
 
   // ---- 5. the list's other states ----
@@ -366,7 +460,8 @@ async function run() {
   hold = new Promise((r) => (release = r))
   scenario = {}
   await page.goto(BASE + ROUTE)
-  const loading = page.getByRole('status', { name: "Loading today's collections…" })
+  await page.getByRole('button', { name: 'Search' }).click()
+  const loading = page.getByRole('status', { name: 'Loading collections…' })
   await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
   check('loading — the list says it is loading', (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)
   release()
@@ -392,6 +487,7 @@ async function run() {
   const SERVER_FAULT = 'The OMS API encountered an unexpected error. Please try again.'
   scenario = { list: 'error' }
   await load()
+  await search()
   await page.getByText(SERVER_FAULT).first().waitFor({ timeout: 8000 }).catch(() => {})
   const errorText = await mainText()
   check('error — a 500 reads as a server fault, no grid', errorText.includes(SERVER_FAULT) && (await page.locator('.ag-root').count()) === 0, errorText.replace(/\n/g, ' ').slice(-160))
@@ -400,6 +496,7 @@ async function run() {
   const REJECTED = 'The request was rejected by the server.'
   scenario = { list: 'refusal' }
   await load()
+  await search()
   await page.getByText(REJECTED).first().waitFor({ timeout: 8000 }).catch(() => {})
   const refusalText = await mainText()
   check(
@@ -410,6 +507,7 @@ async function run() {
 
   scenario = { list: 'forbidden' }
   await load()
+  await search()
   await page.getByText('Unexpected API error (HTTP 403).').first().waitFor({ timeout: 8000 }).catch(() => {})
   const forbiddenText = await mainText()
   check(

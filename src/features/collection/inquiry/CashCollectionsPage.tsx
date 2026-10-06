@@ -31,6 +31,7 @@ import {
   buildCollectionsParams,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type CollectionsCriteria,
 } from './collections-criteria'
 import type { AssignmentOptions } from './served-by'
@@ -56,10 +57,12 @@ import { AttentionBanner, CapBanner, EmptyState, ExportButton, ListShimmer, Togg
  *
  * Three things it does that BBY does not, each argued rather than inherited:
  *
- * 1. **It lands loaded.** The collection dates default to today (the business
- *    range is left open, ticket 315) and the query fires on mount,
- *    so "what has come in today" is answered before anyone touches a control
- *    (244 §4).
+ * 1. **It lands blank** (spec 2423, ticket 423). No date is pre-filled, Served by
+ *    keeps its "mine" default, and **nothing is requested until Search** — the
+ *    applied criteria start as `null` and the query is enabled on them. (Until
+ *    2423 it landed loaded on today's collection date, 244 §4; finance had to
+ *    clear a filter they never asked for.) The `?acr=` drill-down still loads at
+ *    once: following an ACR's link is the search.
  * 2. **It pages in the browser at 50** over the whole matched result, so sort,
  *    per-column filter and 258's export all see every row (244 §3).
  * 3. **Its floating filter row is ON by default**, deliberately inverting BBY's
@@ -112,29 +115,18 @@ function CollectionsScope() {
 function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
 
-  // Today, read at mount and again on Reset — never on render. A screen left open
-  // across midnight must not silently re-scope itself under a supervisor
-  // mid-reconciliation, so Reset is the deliberate act that re-reads the clock.
-  //
-  // 🚩 It is STATE rather than a frozen ref because the "Filtered" chip is
-  // measured against it: a `today` that stayed on yesterday would leave the chip
-  // permanently lit after midnight, and its ✕ — which is Reset — unable to clear
-  // it. The two have to move together.
-  const [today, setToday] = useState(() => new Date())
-
-  // `criteria` is the live toolbar draft; `appliedParams` is the query that has
-  // actually been issued. Only Search/Reset promote one to the other — which is
-  // what makes a half-typed store code unable to fire a request.
-  const [criteria, setCriteria] = useState<CollectionsCriteria>(() =>
-    landingCriteria(today, options),
-  )
+  // `criteria` is the live toolbar draft; `appliedCriteria` is what has actually
+  // been searched. Only Search promotes one to the other — which is what makes a
+  // half-typed store code unable to fire a request.
+  const [criteria, setCriteria] = useState<CollectionsCriteria>(() => landingCriteria(options))
   // 🚩 The APPLIED criteria, not the applied params: ticket 257 needs both branches
   // of the query built from one place (`collectionsParamsFor`), and a scope that
   // arrives has to leave the criteria it overrides untouched so that clearing it
   // restores them intact rather than re-deriving them.
-  const [appliedCriteria, setAppliedCriteria] = useState<CollectionsCriteria>(() =>
-    landingCriteria(today, options),
-  )
+  //
+  // 🚩 **`null` until the first Search** (spec 2423): the open-blank landing. No
+  // criteria applied is no query, and `collectionsParamsFor` answers `null` for it.
+  const [appliedCriteria, setAppliedCriteria] = useState<CollectionsCriteria | null>(null)
 
   // ---- the `?acr=` drill-down (ticket 257) ----
   // 🚩 The URL is the scope's ONLY home — there is no `scopedAcr` state beside it.
@@ -153,10 +145,12 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
     [scopedAcrId, appliedCriteria],
   )
 
-  // The landing query IS the mount query — no `enabled`, no "click Load".
+  // Enabled on a query existing: the landing issues no request until Search.
   const list = useQuery({
     queryKey: [...COLLECTIONS_GRID_KEY, queryParams],
-    queryFn: () => collectionApi.collections(queryParams),
+    // Non-null by construction: `enabled` below is the same condition.
+    queryFn: () => collectionApi.collections(queryParams!),
+    enabled: queryParams !== null,
   })
 
   // ---- the slips (ticket 320, BackOffice 2034) ----
@@ -169,24 +163,35 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
     (patch: Partial<CollectionsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedCriteria(criteria), [criteria])
+  // 🚩 Search on an UNCHANGED draft re-asks the door. The open-blank landing made
+  // Search the only way to load, so pressing it again to see what has come in since
+  // must not be swallowed by an identical query key (the retail invoice precedent).
+  const { refetch } = list
+  const onSearch = useCallback(() => {
+    if (
+      appliedCriteria !== null &&
+      !scoped &&
+      sameQuery(buildCollectionsParams(criteria), buildCollectionsParams(appliedCriteria))
+    ) {
+      void refetch()
+      return
+    }
+    setAppliedCriteria(criteria)
+  }, [criteria, appliedCriteria, scoped, refetch])
   const onReset = useCallback(() => {
-    // Reset re-reads the clock: a screen left open overnight resets to the day
-    // the supervisor is actually looking at, not the day they opened it.
-    const now = new Date()
-    // ⚠️ Reset restores the LANDING scope, not "no scope": the ✕ on the Filtered
-    // chip must put the screen back exactly where it opened, and for a finance user
-    // that is their own branches. Widening to everyone stays available — it is one
-    // pick in the control, which is never locked.
-    const landing = landingCriteria(now, options)
-    setToday(now)
-    setCriteria(landing)
-    setAppliedCriteria(landing)
+    // ⚠️ Reset returns to the UN-SEARCHED landing (spec 2423): the empty draft with
+    // the LANDING scope, not "no scope", and nothing applied — so the grid goes back
+    // to "press Search" and no request is issued. The ✕ on the Filtered chip must
+    // put the screen back exactly where it opened, and for a finance user that is
+    // their own branches. Widening to everyone stays available — it is one pick in
+    // the control, which is never locked.
+    setCriteria(landingCriteria(options))
+    setAppliedCriteria(null)
     // …and the client "No slip" filter with it.
     clearNoSlip()
     // ⚠️ Reset drops the ACR scope too, and `replace` keeps it out of the Back
     // stack. A Reset that left `?acr=` standing would restore criteria the door
-    // still ignores — the toolbar saying today over a grid still showing one ACR.
+    // still ignores — the toolbar saying one thing over a grid still showing one ACR.
     //
     // 🚩 Only when there is one to drop: an unscoped screen's Reset is a state
     // change, and issuing a navigation for it would put a history entry (and a
@@ -214,13 +219,15 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
-  // that the grid is no longer showing today, and the grid shows the result of the
-  // last Search. Reset is its ✕.
+  // that the grid is showing more than the empty landing's Search, and the grid
+  // shows the result of the last Search. Before the first Search nothing was
+  // issued, so there is no chip. Reset is its ✕.
   // 🚩 …and the landing query it is measured against CARRIES THE DEFAULT SCOPE
   // (1165). Compared with an unscoped landing, the chip would be lit on mount for
   // every finance user, over a grid showing exactly what the screen chose to show
   // them — the chip saying the opposite of the truth.
-  const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today, options)
+  const isFiltered =
+    appliedCriteria !== null && !isLandingQuery(buildCollectionsParams(appliedCriteria), options)
   const capReached = isCapReached(rows.length, COLLECTIONS_LIMIT)
 
   // ---- the export (ticket 258; a workbook since 336) ----
@@ -237,8 +244,8 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
         onReset={onReset}
         isFiltered={isFiltered}
         scopedAcrId={scopedAcrId}
-        // The chip's ✕ is Reset: it drops the param AND restores today, so there
-        // is one way back to the ordinary screen rather than two that differ.
+        // The chip's ✕ is Reset: it drops the param AND returns to the landing, so
+        // there is one way back to the ordinary screen rather than two that differ.
         onClearScope={onReset}
         noSlip={slips.noSlip}
       />
@@ -284,7 +291,11 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
         />
       )}
 
-      {list.isPending ? (
+      {queryParams === null ? (
+        // Not an empty result: nothing has been asked yet. A disabled query is still
+        // `isPending`, so this state is tested first or the shimmer would never end.
+        <EmptyState title={t('collections.landing.title')} hint={t('collections.landing.hint')} />
+      ) : list.isPending ? (
         <ListShimmer label={t('collections.loading')} />
       ) : rows.length === 0 && !list.isError ? (
         // ⚠️ A scoped view that comes back empty is an ACR with no collections

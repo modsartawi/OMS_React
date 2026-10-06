@@ -1,7 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { isAcrScoped } from './acr-scope'
-import type { CollectionsCriteria } from './collections-criteria'
+import {
+  COLLECTION_TYPE_FILTERS,
+  type CollectionTypeFilter,
+  type CollectionsCriteria,
+} from './collections-criteria'
 import DateField from './DateField'
 import NoSlipChip from './NoSlipChip'
 import ServedByPicker from './ServedByPicker'
@@ -11,7 +15,9 @@ import type { NoSlipToggle } from './slips'
 /**
  * Cash Collections' filter strip (ticket 254) — Business date from/to · Collection
  * date from/to · Store · Collected by · Served by, and the template 255 and 256
- * copy (and, for the four dates, 316: ticket 315 set the shape).
+ * copy (and, for the four dates, 316: ticket 315 set the shape). Ticket 423
+ * (BackOffice 2424) adds Type with its two ticks, Amount from/to and Profit center —
+ * all applied by the server before the cap, never in the browser.
  *
  * 🚩 **Every filter ANDs** (BackOffice 1166, and 1992 for the two date ranges). *Served by* resolves to
  * a set of branches, Store names one, "Collected by" names a person off the
@@ -43,14 +49,75 @@ export interface CollectionsToolbarProps {
   onChange: (patch: Partial<CollectionsCriteria>) => void
   onSearch: () => void
   onReset: () => void
-  /** True when the applied query is anything other than the today-landing one. */
+  /** True when a Search was issued and it is anything other than the empty landing's. */
   isFiltered: boolean
   /** The ACR this view is scoped to, or `''` for the ordinary screen (257). */
   scopedAcrId: string
-  /** Drop the `?acr=` param and return to the ordinary today-filtered screen. */
+  /** Drop the `?acr=` param and return to the ordinary, un-searched screen. */
   onClearScope: () => void
   /** The "No slip" toggle (ticket 320) — absent when the session may not see slips. */
   noSlip?: NoSlipToggle
+}
+
+/** The Type filter's base types, by their wire value → their label key. */
+const TYPE_LABEL: Record<CollectionTypeFilter, string> = {
+  Regular: 'collections.search.typeRegular',
+  Short: 'collections.search.typeShort',
+  OutsideSystem: 'collections.search.typeOutsideSystem',
+}
+
+/** One tick of the Type filter: a checkbox with its label, in one hit target. */
+function Tick({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5 text-sm text-foreground has-[:disabled]:opacity-50">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 accent-primary disabled:cursor-not-allowed"
+      />
+      {label}
+    </label>
+  )
+}
+
+/** One end of the Amount range: a decimal typed as text and sent as typed. */
+function AmountField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        type="text"
+        dir="ltr"
+        inputMode="decimal"
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${TEXT_INPUT_CLASS} w-32 text-end tabular-nums ${DISABLED_CLASS}`}
+      />
+    </label>
+  )
 }
 
 /** What an overridden control looks like: visibly out of play, and unfocusable —
@@ -68,6 +135,9 @@ const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
  * clearing the chip put them straight back.
  */
 const overridden = (scoped: boolean, value: string) => (scoped ? '' : value)
+
+const TEXT_INPUT_CLASS =
+  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 export default function CollectionsToolbar({
   criteria,
@@ -133,7 +203,7 @@ export default function CollectionsToolbar({
           value={overridden(scoped, criteria.storeId)}
           onChange={(e) => onChange({ storeId: e.target.value })}
           placeholder={t('collections.search.storePlaceholder')}
-          className={`h-9 w-36 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
+          className={`${TEXT_INPUT_CLASS} w-36 ${DISABLED_CLASS}`}
         />
       </label>
       {/* 🚩 **"Collected by", not "Collector"** (BackOffice 1166). Same box, same
@@ -152,7 +222,7 @@ export default function CollectionsToolbar({
           value={overridden(scoped, criteria.collectorOperatorId)}
           onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
           placeholder={t('collections.search.collectedByPlaceholder')}
-          className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
+          className={`${TEXT_INPUT_CLASS} w-40 ${DISABLED_CLASS}`}
         />
       </label>
 
@@ -171,6 +241,80 @@ export default function CollectionsToolbar({
         onChange={(servedBy) => onChange({ servedBy })}
         disabled={scoped}
       />
+
+      {/* Type (BackOffice 2424): the base types OR together; each tick ANDs its own
+          flag onto the result, so a `Regular+Surplus` row is found by both
+          "Regular" and "has Surplus" — the filter agrees with the Type column.
+          Nothing ticked is any type, and sends nothing. */}
+      <fieldset className="flex flex-col gap-1" data-region="collection-type">
+        <legend className="mb-1 text-xs font-medium text-muted-foreground">{t('collections.search.type')}</legend>
+        <div className="flex h-9 flex-wrap items-center gap-x-3 gap-y-1">
+          {COLLECTION_TYPE_FILTERS.map((type) => (
+            <Tick
+              key={type}
+              label={t(TYPE_LABEL[type])}
+              checked={!scoped && criteria.collectionTypes.includes(type)}
+              disabled={scoped}
+              onChange={(on) =>
+                onChange({
+                  collectionTypes: on
+                    ? [...criteria.collectionTypes, type]
+                    : criteria.collectionTypes.filter((picked) => picked !== type),
+                })
+              }
+            />
+          ))}
+          <span className="h-4 border-s border-border/60" aria-hidden />
+          <Tick
+            label={t('collections.search.hasSurplus')}
+            checked={!scoped && criteria.hasSurplus}
+            disabled={scoped}
+            onChange={(hasSurplus) => onChange({ hasSurplus })}
+          />
+          <Tick
+            label={t('collections.search.hasStolen')}
+            checked={!scoped && criteria.hasStolen}
+            disabled={scoped}
+            onChange={(hasStolen) => onChange({ hasStolen })}
+          />
+        </div>
+      </fieldset>
+
+      {/* Amount (BackOffice 2424): the Amount column's value, both ends inclusive and
+          either optional. A From above its To goes to the door, which refuses it
+          with its usual criterion refusal — shown in the error banner, not
+          re-implemented here.
+          🚩 Text, not `type="number"`: a number input hands back `''` for what it
+          cannot parse (`12,5`), so the filter would be dropped silently while the
+          box still showed it. Sent as typed, a malformed amount is the door's
+          refusal, said out loud. */}
+      <AmountField
+        label={t('collections.search.amountFrom')}
+        value={overridden(scoped, criteria.amountFrom)}
+        disabled={scoped}
+        onChange={(amountFrom) => onChange({ amountFrom })}
+      />
+      <AmountField
+        label={t('collections.search.amountTo')}
+        value={overridden(scoped, criteria.amountTo)}
+        disabled={scoped}
+        onChange={(amountTo) => onChange({ amountTo })}
+      />
+
+      {/* Profit center (BackOffice 2424): a contains match on the server, so `019`
+          finds `PH-019` without the prefix. */}
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        {t('collections.search.profitCenter')}
+        <input
+          type="text"
+          dir="ltr"
+          disabled={scoped}
+          value={overridden(scoped, criteria.profitCenter)}
+          onChange={(e) => onChange({ profitCenter: e.target.value })}
+          placeholder={t('collections.search.profitCenterPlaceholder')}
+          className={`${TEXT_INPUT_CLASS} w-36 ${DISABLED_CLASS}`}
+        />
+      </label>
 
       {/* "No slip" (ticket 320) — drawn only when the slip probe admits. It stays live under the
           `?acr=` scope: it narrows the rows already here and sends nothing. */}
@@ -218,7 +362,7 @@ export default function CollectionsToolbar({
         </span>
       )}
 
-      {/* The chip says the screen is no longer showing today. Dismissing it is
+      {/* The chip says the last Search narrowed the landing. Dismissing it is
           Reset — one way back to the landing state, not two. */}
       {!scoped && isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">

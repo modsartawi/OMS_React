@@ -58,23 +58,25 @@ export function isNoSlipRow(row: { slipCount?: number | null } | null | undefine
   return row?.slipCount === 0
 }
 
-/** The slip column's field on both rows, and the money column it follows. */
+/** The slip column's field on both rows, and the money column it follows by default. */
 const SLIP_FIELD = 'slipCount'
 const SLIP_ANCHOR = 'cardTotal'
 
 /**
- * The column lists with the slip column placed — right after `cardTotal`, the
- * figure a missing or wrong slip is checked against — or the lists untouched when
- * the session may not see slips.
+ * The column lists with the slip column placed — right after `anchor` (by default
+ * `cardTotal`, the figure a missing or wrong slip is checked against) — or the
+ * lists untouched when the session may not see slips. An anchor folded away puts
+ * the column last.
  *
  * Returns a new array; the input is the screen's frozen field list.
  */
 export function withSlipColumn<Field extends string>(
   fields: readonly Field[],
   showSlips: boolean,
+  anchor: Field = SLIP_ANCHOR as Field,
 ): (Field | typeof SLIP_FIELD)[] {
   if (!showSlips) return [...fields]
-  const at = fields.indexOf(SLIP_ANCHOR as Field)
+  const at = fields.indexOf(anchor)
   return at < 0 ? [...fields, SLIP_FIELD] : [...fields.slice(0, at + 1), SLIP_FIELD, ...fields.slice(at + 1)]
 }
 

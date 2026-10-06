@@ -358,8 +358,17 @@ async function requestBlob(path: string): Promise<FileResponse> {
 function buildQuery(params?: Record<string, unknown>): string {
   if (!params) return ''
   const qs = new URLSearchParams()
+  const isEmpty = (value: unknown) => value === null || value === undefined || value === ''
   for (const [key, value] of Object.entries(params)) {
-    if (value === null || value === undefined || value === '') continue
+    // An array travels as a REPEATED key (`Kinds=A&Kinds=B`), which is how ASP.NET
+    // binds a collection parameter — never a joined `A,B`, which it would read as
+    // one value. Its empty elements are dropped like any empty value, so an empty
+    // array sends nothing at all.
+    if (Array.isArray(value)) {
+      for (const item of value) if (!isEmpty(item)) qs.append(key, String(item))
+      continue
+    }
+    if (isEmpty(value)) continue
     qs.set(key, String(value))
   }
   const s = qs.toString()

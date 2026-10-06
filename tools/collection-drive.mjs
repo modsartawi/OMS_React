@@ -578,23 +578,41 @@ async function run() {
     unreachable.replace(/\n/g, ' ').slice(0, 90),
   )
 
-  // ================= ticket 254 — Cash Collections opens on today =================
+  // ================= ticket 254 — Cash Collections (opens BLANK since 423) =================
   scenario = { accessBody: ALL, access403: false, access500: false }
   const TODAY = todayIso()
+  const LANDING_TITLE = 'Press Search to see collections'
 
-  // ---- it lands ALREADY POPULATED, with no click ----
+  // Spec 2423 (ticket 423): the screen opens blank and issues NO request until Search.
+  // Every later visit below goes through this: open the screen, then press Search.
+  const openCollections = async (path = ROUTES.collections) => {
+    await page.goto(BASE + path)
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: 'Search' }).click()
+    await page.waitForLoadState('networkidle')
+  }
+
+  // ---- it lands BLANK: no query until Search (ticket 423) ----
   collectionsRows = makeRows(347)
   collectionsCalls = 0
   lastCollectionsQuery = ''
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
-  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  await page.getByText(LANDING_TITLE).first().waitFor({ timeout: 5000 }).catch(() => {})
 
   const q = () => new URLSearchParams(lastCollectionsQuery)
-  check('254 — the screen queries on MOUNT (no Load button to press)', collectionsCalls === 1, `${collectionsCalls} calls`)
+  check('423 — the screen issues NO query on landing', collectionsCalls === 0, `${collectionsCalls} calls`)
   check(
-    '254 — and it queries TODAY by collection date (315: CollectionDateFrom/To)',
-    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY,
+    '423 — …and the empty grid says to press Search',
+    (await mainText()).includes(LANDING_TITLE) && (await page.locator('.ag-root').count()) === 0,
+  )
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  check('423 — Search with every box empty issues ONE query', collectionsCalls === 1, `${collectionsCalls} calls`)
+  check(
+    '423 — …with no date on it — the today default is gone',
+    !q().has('CollectionDateFrom') && !q().has('CollectionDateTo') && !q().has('BusinessDateFrom'),
     lastCollectionsQuery,
   )
   check('254 — the WPF Limit box is gone; 2,000 rides as a system cap', q().get('Limit') === '2000')
@@ -603,7 +621,7 @@ async function run() {
     !lastCollectionsQuery.includes('StoreId') && !lastCollectionsQuery.includes('CollectorOperatorId'),
     lastCollectionsQuery,
   )
-  check('254 — rows are on screen without a click', (await page.locator('.ag-row').count()) > 0)
+  check('254 — rows are on screen after the one Search', (await page.locator('.ag-row').count()) > 0)
 
   // ---- the floating per-column filter row is VISIBLE ON ARRIVAL ----
   check(
@@ -625,6 +643,14 @@ async function run() {
     page.locator(`.ag-header-row .ag-floating-filter[col-id="${colId}"] input`)
   // AG Grid debounces a floating filter's keystrokes (500ms) before applying it.
   const filterBy = async (colId, text) => {
+    // Since 423 the dates sit at the far end of Saud's thirteen, past the viewport, and AG
+    // Grid virtualizes a header away until it is scrolled to: walk right until it is drawn.
+    for (let left = 0; left <= 4000 && (await floatingFilter(colId).count()) === 0; left += 400) {
+      await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el, x) => {
+        el.scrollLeft = x
+      }, left)
+      await page.waitForTimeout(150)
+    }
     await floatingFilter(colId).fill(text)
     await page.waitForTimeout(900)
     const summary = await page.locator('.ag-paging-row-summary-panel').innerText()
@@ -714,46 +740,45 @@ async function run() {
   await page.getByPlaceholder('Store code').fill('1003')
   await page.waitForTimeout(300)
   check('254 — typing a store code fires NO query (a draft is not a search)', collectionsCalls === callsBeforeTyping, `${collectionsCalls} vs ${callsBeforeTyping}`)
-  check('254 — …and NO chip either: the grid is still showing today', (await page.getByText('Filtered').count()) === 0)
+  check('254 — …and NO chip either: the grid is still showing the empty Search', (await page.getByText('Filtered').count()) === 0)
 
   await page.getByRole('button', { name: 'Search' }).click()
   await page.waitForLoadState('networkidle')
   check('254 — Search promotes the draft', collectionsCalls === callsBeforeTyping + 1 && q().get('StoreId') === '1003', lastCollectionsQuery)
   check('254 — …and NOW the chip lights: the grid really is filtered', (await page.getByText('Filtered').count()) > 0)
 
-  // ---- Reset returns the landing state ----
+  // ---- Reset returns the landing state: un-searched (ticket 423) ----
+  const callsBeforeReset = collectionsCalls
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
   check(
-    '254 — Reset returns to today with everything else cleared',
-    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY && !lastCollectionsQuery.includes('StoreId'),
-    lastCollectionsQuery,
+    '423 — Reset returns to the UN-SEARCHED landing: no query, press Search, the store cleared',
+    collectionsCalls === callsBeforeReset &&
+      (await mainText()).includes(LANDING_TITLE) &&
+      (await page.getByPlaceholder('Store code').inputValue()) === '',
+    `${collectionsCalls} vs ${callsBeforeReset}`,
   )
   check('254 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
 
   // ---- the cap banner: reached, not merely large ----
   const CAP_TEXT = /reached the 2,000-row system cap/
   collectionsRows = makeRows(1999)
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   check('254 — 1,999 rows is merely large: NO banner', !CAP_TEXT.test(await mainText()))
 
   collectionsRows = makeRows(2000)
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   check('254 — 2,000 rows REACHED the cap: the amber banner fires', CAP_TEXT.test(await mainText()))
 
   // ---- an empty day says so, rather than looking broken ----
   collectionsRows = []
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   const emptyText = await mainText()
-  check('254 — an empty period reads as empty, not as an error', emptyText.includes('No collections in this period') && !CAP_TEXT.test(emptyText))
+  check('254 — an empty search reads as empty, not as an error', emptyText.includes('No collections match this search') && !CAP_TEXT.test(emptyText))
 
   // ---- a mixed-currency result states the currency per row instead ----
   collectionsRows = [...makeRows(3), ...makeRows(2, { currency: 'BHD' })]
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
   // Scrolled, not read off the first screen: since 315's Business Date column the promoted
   // Currency column sits past the 1600px viewport, and AG Grid virtualizes it away.
@@ -823,8 +848,7 @@ async function run() {
   await page.setViewportSize({ width: 3200, height: 900 })
   const openSheet = async (rows) => {
     collectionsRows = rows
-    await page.goto(BASE + ROUTES.collections)
-    await page.waitForLoadState('networkidle')
+    await openCollections()
     await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
   }
   /** The header row in display order, the action column included. */
@@ -849,9 +873,9 @@ async function run() {
   await openSheet(SHEET)
   const sheetHead = (await sheetHeaders()).join(' | ')
   check(
-    '335 — the grid opens with finance’s nine in finance’s order, then the profit center',
+    '423 — the grid opens on Saud’s first 13, in Saud’s order',
     sheetHead ===
-      'Open | Collection Date | Business Date | Store Code | Type | Description | Amount (SAR) | Surplus (SAR) | Net Collected (SAR) | Collector | Profit Center',
+      'Open | Receipt No# | Store Code | Profit Center | Sales Date | Amount (SAR) | Surplus (SAR) | Net Collected (SAR) | Collector | Collector Name | Type | Description | Collection Date | Business Date',
     sheetHead,
   )
   check(
@@ -1598,8 +1622,7 @@ async function run() {
   acrRows = makeAcrRows(213)
   acrRows[0].acrId = 'three-pages'
 
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const receiptLink = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
@@ -1770,24 +1793,20 @@ async function run() {
     `${lastCollectionsQuery} · ${page.url()}`,
   )
 
-  // ---- clearing the chip: the param goes, and today comes back ----
-  await page.getByRole('button', { name: 'Clear the ACR and go back to today' }).click()
+  // ---- clearing the chip: the param goes, and the un-searched landing comes back ----
+  const callsBeforeClear = collectionsCalls
+  await page.getByRole('button', { name: 'Clear the ACR and start over' }).click()
   await page.waitForLoadState('networkidle')
-  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
-  // The re-query rides a re-render rather than a page load, so wait on the REQUEST
-  // rather than on the URL — otherwise this asserts against the scoped query that
-  // has not been replaced yet.
-  for (let i = 0; i < 30 && lastCollectionsQuery.includes('AcrId'); i++)
-    await page.waitForTimeout(100)
+  await page.getByText(LANDING_TITLE).first().waitFor({ timeout: 5000 }).catch(() => {})
   check(
     '257 — clearing the chip DROPS the param from the URL',
     !page.url().includes('acr='),
     page.url(),
   )
   check(
-    '257 — …and restores the ordinary today-filtered query',
-    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY && !lastCollectionsQuery.includes('AcrId'),
-    lastCollectionsQuery,
+    '423 — …and returns to the un-searched landing: press Search, no new query',
+    (await mainText()).includes(LANDING_TITLE) && collectionsCalls === callsBeforeClear,
+    `${collectionsCalls} vs ${callsBeforeClear}`,
   )
   check('257 — …with the chip gone', (await page.getByText('three-pages').count()) === 0)
   check(
@@ -1827,8 +1846,7 @@ async function run() {
   // past the viewport away, and the file's columns are compared with the screen's own.
   await page.setViewportSize({ width: 3200, height: 900 })
 
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const exportButton = page.getByRole('button', { name: 'Export' })
@@ -1898,12 +1916,12 @@ async function run() {
   const onScreen = await shownHeaders()
   check(
     '336 — the file’s columns are the grid’s visible columns, in the grid’s order',
-    onScreen.length === 10 && closed.head.join('|') === onScreen.join('|'),
+    onScreen.length === 13 && closed.head.join('|') === onScreen.join('|'),
     `file: ${closed.head.join('|')} · screen: ${onScreen.join('|')}`,
   )
   check(
     '336 — the folded columns are NOT in the file while More columns is off',
-    ['Retained Float (SAR)', 'Retained Float', 'Currency', 'Z Reports', 'Sales Date', 'Collector Name', 'Receipt No#', 'Variance (SAR)'].every(
+    ['Retained Float (SAR)', 'Retained Float', 'Currency', 'Z Reports', 'Store Name', 'Card Slips', 'Variance (SAR)'].every(
       (h) => !closed.head.includes(h),
     ),
     closed.head.join('|'),
@@ -2006,8 +2024,8 @@ async function run() {
     open.head.join('|'),
   )
   check(
-    '336 — …after the default ones, which keep their order (the twenty-one folded fields)',
-    open.head.length === closed.head.length + 21 && open.head.slice(0, closed.head.length).join('|') === closed.head.join('|'),
+    '336 — …after the default ones, which keep their order (Saud’s eighteen folded columns)',
+    open.head.length === closed.head.length + 18 && open.head.slice(0, closed.head.length).join('|') === closed.head.join('|'),
     `${open.head.length} headers`,
   )
   check('336 — …still only the filtered rows', open.body.length === 50, `${open.body.length} rows`)
@@ -2049,8 +2067,7 @@ async function run() {
   // The description is the accountant's free text on the default grid since ticket 335; the
   // collector's NAME is behind More columns, so the toggle goes on for this export.
   collectionsRows = makeRows(20).map((r) => ({ ...r, collectorName: ARABIC_NAME, description: SURPLUS_DESCRIPTION }))
-  await page.goto(BASE + ROUTES.collections)
-  await page.waitForLoadState('networkidle')
+  await openCollections()
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.waitForTimeout(500)

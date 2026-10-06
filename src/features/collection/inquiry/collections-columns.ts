@@ -27,57 +27,55 @@ import { withSlipColumn, type SlipDay } from './slips'
  */
 
 /**
- * The ten columns the accountant lands on (ticket 335, BackOffice 2149 D1–D3):
- * **finance's nine, in finance's order** — collection date, business date, store
- * code, type, description, amount, surplus, net collected, collector — then the
- * profit center. The order is the sheet's
- * (`Credit_format_Cash Collection for DAR-ME.xlsx`), not a reading order of ours.
+ * **Saud's order** (spec 2423, ticket 423): the 31 headers of finance's
+ * `collection-collections- Sortable.xlsx`, verbatim and in order. The first 13,
+ * Receipt No# through Business Date, are the columns the accountant lands on; the
+ * other 18 follow behind **More columns** in the same sheet order (`MORE_FIELDS`).
+ * Each header is an existing field and its existing `collections.columns.*` label —
+ * no field is added. The order is the sheet's, not a reading order of ours.
  *
- * 🚩 **Collector is the collector's id** (`collectorOperatorId`), which is what the
- * sheet carries and what BackOffice 2151's contract maps the column to. The name
- * sits in the tail as *Collector Name*.
+ * 🚩 **Collector is the collector's id** (`collectorOperatorId`) and Collector
+ * Name its own column right after it (both default since 2423).
  *
  * 🚩 **Profit Center** is the raw `profitCenter` (`PH-019`), not `storeText`: the
- * store code is already the third column, so the composed `PH-019 (P019)` said it
- * twice (owner's call, 2026-10-03). A store with none recorded reads blank — its
- * code is still beside it. `storeText` folds into the tail as sent.
+ * composed `PH-019 (P019)` is the sheet's last column, *Profit Center (Store)*.
  *
- * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): they are the
- * two ranges the toolbar filters on, and a day collected late is only visible when
- * both are on screen. `salesDate` stays in the tail — the contract rules it out as
- * the business column (it is the receipt's voucher denormal, year-1 on a
- * settlement row).
+ * 🚩 **Sales Date** (`salesDate`) is the sheet's fourth column — the receipt's
+ * voucher denormal, blank (year 1) on a settlement row. *Business Date* is still
+ * `businessDay`, the day the toolbar's business range filters on.
  *
  * 🚩 **No column here carries a sort.** The server sends the rows in finance's
  * order (collection date, store, business date) and the grid shows them as
  * received; a header click is the user's own sort.
  */
 export const DEFAULT_FIELDS = [
-  'collectedAt',
-  'businessDay',
+  'collectionReceiptNo',
   'storeId',
-  'collectionType',
-  'description',
+  'profitCenter',
+  'salesDate',
   'amount',
   'surplus',
   'netCollected',
   'collectorOperatorId',
-  'profitCenter',
+  'collectorName',
+  'collectionType',
+  'description',
+  'collectedAt',
+  'businessDay',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
- * The tail behind **More columns**. It leads with the six columns that were on the
- * landing grid until ticket 335 (receipt number, store name, collector name,
- * variance, card total, reason), in the order they had there. Then the WPF's
- * remaining nine, in ticket 254's order, and the wire fields the WPF grid never
- * showed at all (`retainedFloat`, the closer pair, `salesDate`, `currencyKey`,
- * `storeText`) — "nothing is dropped" is a statement about the **row**, not about
- * the WPF's column picker.
+ * The tail behind **More columns**: Saud's columns 14–31, in the sheet's order.
+ * "Nothing is dropped" is a statement about the **row**, not about the sheet — the
+ * wire fields no column shows are argued one by one in `NON_COLUMN_FIELDS`.
+ *
+ * 🚩 Saud's **Card Slips** (24th) is `cardTransactionCount`, the count of card
+ * slips the till recorded — the field whose label that header already was. The
+ * slip-probe count (`SLIP_FIELDS`, the attached slip images) is a different
+ * figure, drawn only for a session that may see slips, and placed right after it.
  */
 export const MORE_FIELDS = [
-  'collectionReceiptNo',
   'storeName',
-  'collectorName',
   'variance',
   'cardTotal',
   'varianceReasonCode',
@@ -93,17 +91,16 @@ export const MORE_FIELDS = [
   'retainedFloat',
   'closerOperatorId',
   'closerName',
-  'salesDate',
   'currencyKey',
-  // Ticket 314's composed `PH-019 (P019)`, folded here once the landing grid took
-  // the raw profit center — the store code already sits on it.
   'storeText',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
- * The column the slip probe gates (ticket 320, BackOffice 2034): drawn right after
- * `cardTotal` only when `AttachmentWeb/Access` holds `CASH_CLOSE`. Since ticket 335
- * `cardTotal` is in the tail, so with the tail folded the count is the last column.
+ * The column the slip probe gates (ticket 320, BackOffice 2034): drawn only when
+ * `AttachmentWeb/Access` holds `CASH_CLOSE`, right after Saud's *Card Slips*
+ * (`cardTransactionCount`, `COLLECTIONS_SLIP_ANCHOR`) since spec 2423. That column is in the
+ * tail, so with the tail folded the count is the last column. Drawn or not, the
+ * 31 sheet columns keep their order around it.
  *
  * 🚩 Its own group rather than a member of the two above: a count the session may
  * not see is not drawn, and so — the export being the grid as shown (ticket 336) —
@@ -112,6 +109,9 @@ export const MORE_FIELDS = [
  * multi-shift receipt are drawn as sent, never merged or summed.
  */
 export const SLIP_FIELDS = ['slipCount'] as const satisfies readonly (keyof CollectionInquiryRow)[]
+
+/** The column the slip count follows on this grid: Saud's *Card Slips*. */
+export const COLLECTIONS_SLIP_ANCHOR = 'cardTransactionCount' satisfies keyof CollectionInquiryRow
 
 /**
  * The wire fields that are deliberately **not** columns, each with its reason. They
@@ -223,8 +223,8 @@ export function buildCollectionsDefaultColDef(showFilters: boolean): ColDef<Coll
 /**
  * Build the visible columns.
  *
- * `showMore` reveals the forensic tail; `showSlips` (the slip probe's answer,
- * fail-closed) places the Slips column after `cardTotal`, and `onOpenSlips` makes a
+ * `showMore` reveals the tail; `showSlips` (the slip probe's answer,
+ * fail-closed) places the Slips column after `COLLECTIONS_SLIP_ANCHOR`, and `onOpenSlips` makes a
  * known count open that row's own store day in the drawer (ticket 321). The currency
  * handling is the one piece of
  * conditional logic:
@@ -252,7 +252,7 @@ export function buildCollectionsColumns(
       ? [...DEFAULT_FIELDS, 'currencyKey']
       : [...DEFAULT_FIELDS]
 
-  return withSlipColumn(fields, showSlips).map((field) =>
+  return withSlipColumn(fields, showSlips, COLLECTIONS_SLIP_ANCHOR).map((field) =>
     field === 'slipCount' ? slipCountColumn<CollectionInquiryRow>(t, onOpenSlips) : column(t, field, headerCurrency),
   )
 }

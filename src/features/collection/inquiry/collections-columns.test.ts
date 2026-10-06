@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CollectionInquiryRow } from '@/core/models/collection'
+import en from '@/locales/en/collection.json'
 import {
   DEFAULT_FIELDS,
   MONEY_FIELDS,
@@ -100,25 +101,6 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('the tail leads with the six that left the landing grid, then the WPF’s remaining nine', () => {
-    expect([...MORE_FIELDS].slice(0, 15)).toEqual([
-      'collectionReceiptNo',
-      'storeName',
-      'collectorName',
-      'variance',
-      'cardTotal',
-      'varianceReasonCode',
-      'openedAt',
-      'closedAt',
-      'systemCash',
-      'countedCash',
-      'openingFloat',
-      'countedCashNet',
-      'cardTransactionCount',
-      'varianceReasonText',
-      'zReportIds',
-    ])
-  })
 
   it('withholds the document’s ULID, the label’s parts and the figures 335 only declared', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual([
@@ -154,7 +136,7 @@ describe('the two groups account for the whole wire row', () => {
 })
 
 describe('buildCollectionsColumns', () => {
-  it('shows the default ten with the toggle off', () => {
+  it('shows the default thirteen with the toggle off', () => {
     const columns = buildCollectionsColumns(t, [ROW], false)
     expect(columns.map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
@@ -247,35 +229,21 @@ describe('finance’s sheet', () => {
       : value
   }
 
-  it('default columns are finance’s nine in order, then profit center', () => {
-    expect([...DEFAULT_FIELDS]).toEqual([
-      'collectedAt',
-      'businessDay',
-      'storeId',
-      'collectionType',
-      'description',
-      'amount',
-      'surplus',
-      'netCollected',
-      'collectorOperatorId',
-      // The raw profit center, after the sheet's nine — the store code is already third.
-      'profitCenter',
-    ])
-    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
-  })
-
-  it('heads each of the ten with its own key', () => {
+  it('heads each of the thirteen with its own key', () => {
     expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.headerName)).toEqual([
-      'collections.columns.collectedAt',
-      'collections.columns.businessDay',
+      'collections.columns.collectionReceiptNo',
       'collections.columns.storeId',
-      'collections.columns.collectionType',
-      'collections.columns.description',
+      'collections.columns.profitCenter',
+      'collections.columns.salesDate',
       'collections.moneyHeader|{"label":"collections.columns.amount","currency":"SAR"}',
       'collections.moneyHeader|{"label":"collections.columns.surplus","currency":"SAR"}',
       'collections.moneyHeader|{"label":"collections.columns.netCollected","currency":"SAR"}',
       'collections.columns.collectorOperatorId',
-      'collections.columns.profitCenter',
+      'collections.columns.collectorName',
+      'collections.columns.collectionType',
+      'collections.columns.description',
+      'collections.columns.collectedAt',
+      'collections.columns.businessDay',
     ])
   })
 
@@ -366,9 +334,11 @@ describe('finance’s sheet', () => {
     ).toEqual(['Regular+Stolen', 'سرقة من الخزنة - بلاغ 5521', '3,500.00', '-3,000.00', '500.00'])
   })
 
-  it('shows the collector’s id under Collector, and folds the name into the tail', () => {
+  it('shows the collector’s id under Collector, and the name right after it', () => {
     expect(shown('collectorOperatorId', ROW)).toBe('4472')
-    expect(MORE_FIELDS).toContain('collectorName')
+    expect(shown('collectorName', ROW)).toBe('Faisal Al Otaibi')
+    const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
+    expect(ids.indexOf('collectorName')).toBe(ids.indexOf('collectorOperatorId') + 1)
   })
 
   it('more columns still offers every previous field', () => {
@@ -407,7 +377,7 @@ describe('finance’s sheet', () => {
     // …each exactly once, and the slip count with them for a session that may see it.
     expect(new Set(open).size).toBe(open.length)
     expect(buildCollectionsColumns(t, [ROW], true, true).map((c) => c.colId)).toContain('slipCount')
-    // The tail follows finance's ten; it never reorders them.
+    // The tail follows Saud's thirteen; it never reorders them.
     expect(open.slice(0, DEFAULT_FIELDS.length)).toEqual([...DEFAULT_FIELDS])
   })
 
@@ -440,7 +410,7 @@ describe('the Business date column', () => {
     const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
     expect(ids).toContain('businessDay')
     expect(ids).toContain('collectedAt')
-    // Finance's order (ticket 335): the collection date leads, the business date follows.
+    // Saud's order (spec 2423): Collection Date then Business Date close the default thirteen.
     expect(ids.indexOf('businessDay')).toBe(ids.indexOf('collectedAt') + 1)
   })
 
@@ -464,17 +434,17 @@ describe('the Business date column', () => {
   })
 })
 
-// The landing grid's Profit Center is the raw `profitCenter` (`PH-019`), as sent:
-// the store code is already the third column, so ticket 314's composed `storeText`
-// (`PH-019 (P019)`) folds into the tail (owner's call, 2026-10-03).
+// The landing grid's Profit Center is the raw `profitCenter` (`PH-019`), as sent;
+// ticket 314's composed `storeText` (`PH-019 (P019)`) is Saud's last column,
+// *Profit Center (Store)*, in the tail.
 describe('the profit center column', () => {
   const find = (colId: string, showMore = false) =>
     buildCollectionsColumns(t, [ROW], showMore).find((c) => c.colId === colId)
 
-  it('is on the DEFAULT grid, right after finance’s nine', () => {
+  it('is on the DEFAULT grid, third — right after the store code', () => {
     const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
-    expect(ids.indexOf('profitCenter')).toBe(9)
-    expect(ids).toHaveLength(10)
+    expect(ids.indexOf('profitCenter')).toBe(2)
+    expect(ids).toHaveLength(13)
   })
 
   it('reads the raw profitCenter with a t() header, and no formatter of its own', () => {
@@ -549,15 +519,22 @@ describe('the Slips column', () => {
     expect(buildCollectionsColumns(t, [ROW], true, false).map((c) => c.colId)).not.toContain('slipCount')
   })
 
-  it('lands right after the card total when admitted', () => {
+  it('lands right after Saud’s Card Slips when admitted, and shifts none of the 31', () => {
     const ids = buildCollectionsColumns(t, [ROW], true, true).map((c) => c.colId)
-    expect(ids.indexOf('slipCount')).toBe(ids.indexOf('cardTotal') + 1)
+    expect(ids.indexOf('slipCount')).toBe(ids.indexOf('cardTransactionCount') + 1)
+    // Saud's Card Slips is 24th, between Counted (Net) and Reason Detail, either way.
+    expect(ids.indexOf('countedCashNet')).toBe(22)
+    expect(ids.indexOf('cardTransactionCount')).toBe(23)
     expect(ids.filter((id) => id !== 'slipCount')).toEqual([...DEFAULT_FIELDS, ...MORE_FIELDS])
+    expect(buildCollectionsColumns(t, [ROW], true, false).map((c) => c.colId)).toEqual([
+      ...DEFAULT_FIELDS,
+      ...MORE_FIELDS,
+    ])
   })
 
-  it('is the last column while the card total is folded away', () => {
-    // Since ticket 335 the card total is behind More columns. The count is still
-    // drawn for a session the probe admits: after finance's ten, never among them.
+  it('is the last column while Card Slips is folded away', () => {
+    // Card Slips is behind More columns. The count is still drawn for a session the
+    // probe admits: after Saud's thirteen, never among them.
     const ids = buildCollectionsColumns(t, [ROW], false, true).map((c) => c.colId)
     expect(ids).toEqual([...DEFAULT_FIELDS, 'slipCount'])
   })
@@ -578,5 +555,62 @@ describe('the Slips column', () => {
   it('leaves the existing card total alone — still the receipt’s money column', () => {
     expect(MONEY_FIELDS).toContain('cardTotal')
     expect(MORE_FIELDS).toContain('cardTotal')
+  })
+})
+
+/**
+ * Ticket 423 — **Saud's order** (spec 2423). The sheet's 31 headers, verbatim and
+ * in order, read through the REAL en bundle: a header is the label finance sees, so
+ * the order is asserted on what the grid shows, not on our field names.
+ */
+describe('Saud’s order', () => {
+  const SAUD = [
+    'Receipt No#',
+    'Store Code',
+    'Profit Center',
+    'Sales Date',
+    'Amount',
+    'Surplus',
+    'Net Collected',
+    'Collector',
+    'Collector Name',
+    'Type',
+    'Description',
+    'Collection Date',
+    'Business Date',
+    'Store Name',
+    'Variance',
+    'Card Total',
+    'Reason',
+    'Opened',
+    'Closed',
+    'System Cash',
+    'Counted Cash',
+    'Float',
+    'Counted (Net)',
+    'Card Slips',
+    'Reason Detail',
+    'Z Reports',
+    'Retained Float',
+    'Closer Id',
+    'Closer',
+    'Currency',
+    'Profit Center (Store)',
+  ]
+  const label = (field: string) => (en.collections.columns as Record<string, string>)[field]
+
+  it('columns follow Saud’s 31 in order, first 13 visible', () => {
+    expect([...DEFAULT_FIELDS, ...MORE_FIELDS].map(label)).toEqual(SAUD)
+    expect(DEFAULT_FIELDS).toHaveLength(13)
+    expect(MORE_FIELDS).toHaveLength(18)
+    // The grid itself: thirteen with the toggle off, all 31 in order with it on.
+    expect(buildCollectionsColumns(t, [ROW], false).map((c) => label(String(c.colId)))).toEqual(SAUD.slice(0, 13))
+    expect(buildCollectionsColumns(t, [ROW], true).map((c) => label(String(c.colId)))).toEqual(SAUD)
+  })
+
+  it('maps every header onto an existing field — Profit Center (Store) is storeText', () => {
+    expect(MORE_FIELDS.at(-1)).toBe('storeText')
+    expect(MORE_FIELDS).toContain('cardTransactionCount')
+    for (const field of [...DEFAULT_FIELDS, ...MORE_FIELDS]) expect(WIRE_FIELDS).toContain(field)
   })
 })

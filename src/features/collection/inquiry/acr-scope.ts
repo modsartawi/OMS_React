@@ -124,6 +124,13 @@ export const SCOPE_DISABLED_FIELDS = [
   'storeId',
   'collectorOperatorId',
   'servedBy',
+  // BackOffice 2424's filters, discarded under an `AcrId` like every other one.
+  'collectionTypes',
+  'hasSurplus',
+  'hasStolen',
+  'amountFrom',
+  'amountTo',
+  'profitCenter',
 ] as const satisfies readonly (keyof CollectionsCriteria)[]
 
 /**
@@ -147,10 +154,17 @@ export function buildAcrScopedParams(acrId: string): Record<string, unknown> {
  * *branch this module owns* rather than an effect the Page has to remember to
  * run — the criteria are never mutated by the scope, so dropping the param
  * restores them intact.
+ *
+ * 🚩 **`null` is "issue nothing"** (spec 2423's open-blank landing). The applied
+ * criteria are `null` until the first Search, and an unscoped screen with nothing
+ * applied has no query to send — the Page's `useQuery` is enabled on a non-null
+ * answer, so the landing costs no request. The `?acr=` drill-down is the exception
+ * and still loads at once: following an ACR's link IS the search.
  */
 export function collectionsParamsFor(
   acrId: string | null | undefined,
-  criteria: CollectionsCriteria,
-): Record<string, unknown> {
-  return isAcrScoped(acrId) ? buildAcrScopedParams(acrId as string) : buildCollectionsParams(criteria)
+  applied: CollectionsCriteria | null,
+): Record<string, unknown> | null {
+  if (isAcrScoped(acrId)) return buildAcrScopedParams(acrId as string)
+  return applied === null ? null : buildCollectionsParams(applied)
 }

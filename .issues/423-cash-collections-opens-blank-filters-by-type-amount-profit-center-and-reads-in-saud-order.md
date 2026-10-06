@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:/Work/DMSCO/BackOffice/.issues/2423-e-collection-feedback-filters-saud-order-monthly-acr-number-and-tighter-grants-spec.md
 blocked-by: —
 ---
@@ -84,11 +84,11 @@ UI: criteria, toolbar, columns, export · API client: query params.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `landingCriteria has no dates and keeps servedBy` · Vitest (`collections-criteria.test.ts`)
-- [ ] `new filters map to PascalCase params and empties are dropped` · Vitest
-- [ ] `isLandingQuery recognises the new landing` · Vitest
-- [ ] `columns follow Saud's 31 in order, first 13 visible` · Vitest (`collections-columns.test.ts`)
-- [ ] `no request is issued on landing` · Vitest (page or hook test)
+- [x] `landingCriteria has no dates and keeps servedBy` · Vitest (`collections-criteria.test.ts`)
+- [x] `new filters map to PascalCase params and empties are dropped` · Vitest
+- [x] `isLandingQuery recognises the new landing` · Vitest
+- [x] `columns follow Saud's 31 in order, first 13 visible` · Vitest (`collections-columns.test.ts`)
+- [x] `no request is issued on landing` · Vitest (page or hook test)
 - [ ] Manual walk against a local SIS.Api once BackOffice 2424 is merged (owner).
 
 ## Boundaries
@@ -104,3 +104,41 @@ outstanding.
 ## Blocked by
 
 None in this repo. Live: BackOffice 2424.
+
+## As built (2026-10-06, AFK)
+
+- **Open blank:** `landingCriteria(options)` has no dates and keeps Served by's "mine" default. The
+  Page's applied criteria are `null` until the first Search, `collectionsParamsFor(acrId, null)` answers
+  `null`, and `useQuery` is enabled on a non-null query. That is the "no request on landing" seam
+  (`collections-criteria.test.ts`). The empty grid says "Press Search to see collections". Reset
+  returns to that un-searched landing. A Search on an unchanged draft re-asks the door (`sameQuery` +
+  `refetch`). `?acr=` still loads at once.
+- **Filters:** Type (Regular / Short / Outside system checkboxes, plus has Surplus / has Stolen),
+  Amount from/to (text, sent as typed), and Profit center. All are PascalCase, empties are never sent,
+  and they are disabled under `?acr=`. `core/api.ts` `buildQuery` now sends an array as a **repeated
+  key** (`CollectionTypes=Regular&CollectionTypes=Short`), tested in `api.test.ts`. 424's `Kinds` can
+  reuse it.
+- **Saud's order:** `DEFAULT_FIELDS` holds the 13 and `MORE_FIELDS` the 18. The test reads the 31
+  headers through the real en bundle; no label needed renaming. ⚠ **Card Slips (24) is
+  `cardTransactionCount`**, the field whose en label it already is. The probe-gated slip count follows
+  it. This departs from the ticket's "Card Slips is the slip-count column" wording; see
+  `.afk/HITL-423.md`, which needs owner sign-off. The xlsx export follows the grid.
+- **Proof:** vitest is 203 files / 3728 tests green, and typecheck, lint (4 gates) and build are green.
+  Drives were run with the network stubbed to 2424's contract:
+  - `collections-filters-drive` 59/59, which now proves no request on landing, Reset to the
+    un-searched landing, the 2424 params and Saud's 13
+  - `collection-drive` 260/262
+  - `slip-count` 66/66, `slip-drawer` 63/63, `slip-add` 52/52, `slip-withdraw` 68/68
+  - `settlement-drive` 291/291
+  - `collection-print-drive` 154/156
+  
+  The 2 failures in `collection-drive` (ACR landing, ticket 425's) and the 2 in
+  `collection-print-drive` are **identical at base 02ad20d**. `profit-center-drive` crashes in its stale
+  CSV-export reader at base too; everything it checks before that point passes.
+
+### Outstanding
+- Manual walk against a local SIS.Api once BackOffice 2424 is merged (owner). 2424 is committed on
+  `afk/spec2423` (81db48517) with the same wire shape.
+- Owner rulings in `.afk/HITL-423.md`: the Card Slips mapping, and the cap (the spec says 500, the
+  screen's shipped cap is 2,000).
+

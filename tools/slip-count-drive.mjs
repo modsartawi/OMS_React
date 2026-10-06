@@ -242,8 +242,8 @@ async function run() {
   const load = async (path) => {
     await page.goto(BASE + path)
     await page.waitForLoadState('networkidle')
-    // Ticket 423: Cash Collections opens blank and loads nothing until Search.
-    if (path === COLLECTIONS) {
+    // Tickets 423/424: Cash Collections and Ready open blank and load nothing until Search.
+    if (path === COLLECTIONS || path === READY) {
       await page.getByRole('button', { name: 'Search', exact: true }).click()
       await page.waitForLoadState('networkidle')
     }
@@ -271,7 +271,8 @@ async function run() {
   await shot('ready-holder')
   let hs = await headers()
   check('ready — the Slips column is shown for a CASH_CLOSE holder', hs.includes('Slips'), hs.join(' | '))
-  check('ready — the Slips column sits right after Card Total', hs.indexOf('Slips') === hs.indexOf('Card Total (SAR)') + 1, hs.join(' | '))
+  // Ticket 424: the owner-approved mapping puts Card slips fourteenth — last, after Days Waiting.
+  check('ready — the Slips column is last, right after Days Waiting (ticket 424)', hs.indexOf('Slips') === hs.indexOf('Days Waiting') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
   check('ready — Card Total wears the currency header like its neighbours', hs.includes('Card Total (SAR)') && hs.includes('Cash to Hand Over (SAR)'))
   check('ready — the probe is asked once for the page', probeCalls === 1, `${probeCalls} calls`)
   check('ready — the "No slip" filter is offered', (await noSlipButton().count()) === 1)
@@ -300,8 +301,12 @@ async function run() {
   await shot('ready-no-slip')
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
+  // Ticket 424: Reset returns to the un-searched landing, so the rows return on the next Search.
+  check('ready — Reset turns the filter off', (await noSlipButton().getAttribute('aria-pressed')) === 'false')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   await page.locator(`.ag-row[row-id="${readyId(RECEIPT)}"]`).first().waitFor()
-  check('ready — Reset turns the filter off and every row returns', (await noSlipButton().getAttribute('aria-pressed')) === 'false' && (await displayedRows()) === READY_ROWS.length, `${await displayedRows()} rows`)
+  check('ready — …and the next Search brings every row back', (await displayedRows()) === READY_ROWS.length, `${await displayedRows()} rows`)
 
   // ---- 3. the banner ----
   scenario = { unavailable: true }
@@ -350,6 +355,7 @@ async function run() {
   probe = 'holder'
   probeHold = new Promise((r) => (release = r))
   await page.goto(BASE + READY)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.locator('.ag-row').first().waitFor()
   check('ready — hidden while the probe is pending', !(await headers()).includes('Slips') && (await noSlipButton().count()) === 0)
   release()
@@ -361,6 +367,7 @@ async function run() {
   let releaseList
   hold = new Promise((r) => (releaseList = r))
   await page.goto(BASE + READY)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByRole('status', { name: 'Loading what is ready for collection…' }).first().waitFor({ timeout: 8000 }).catch(() => {})
   check('ready — loading still shows the shimmer', (await page.getByRole('status', { name: 'Loading what is ready for collection…' }).count()) > 0)
   releaseList()

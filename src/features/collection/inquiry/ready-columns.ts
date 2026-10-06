@@ -25,48 +25,56 @@ import { withSlipColumn, type SlipDay } from './slips'
  */
 
 /**
- * The landing grid: **what** waits (a closed day or a prepared receipt), **where**,
- * **which day** and its handle, **how much** the collector takes, and **how long**
- * it has waited — the ticket's columns in reading order.
+ * The landing grid: **the owner-approved mapping of Saud's order** (spec 2423,
+ * ticket 424). Ready follows Cash Collections' sheet wherever it has a matching
+ * column — Entry No (a receipt's handle, standing for Receipt No#), Store Code,
+ * Profit Center, Cash to hand over (Amount), Surplus deducted (Surplus), Type,
+ * Business Day, Store Name, Card Total, Currency — then its own columns: Z No,
+ * Ready since, Days waiting. Sheet columns Ready does not have are skipped. The
+ * order is the mapping's, not a reading order of ours.
  *
- * 🚩 The store column is `storeText` — `PH-019 (P019)`, or the code alone — the
- * SERVER's shared formatter, rendered exactly as sent (the contract: "render this
- * in the store / profit-center column"). Nothing here prefixes or re-derives it.
+ * 🚩 **Store Code and Profit Center are the raw fields** (`storeId`,
+ * `profitCenter`), as on Cash Collections since 423. The server's composed
+ * `storeText` (`PH-019 (P019)`) moves to the tail, as it did there.
  *
- * `entryNumber` sits beside `zNumber` because it is a receipt's handle as the Z is
- * a day's: without it a receipt row would carry no identity but its store.
+ * 🚩 **Currency is always a column** now: the mapping places it tenth, so the
+ * mixed-currency promotion this grid used to do has nothing left to promote.
  *
- * `cardTotal` (ticket 320, BackOffice 2034 F9) closes the set: the day's card
- * figure, the one a missing or wrong ECR slip is checked against, so the Slips
- * column lands right after it when the session may see slips.
+ * The mapping's fourteenth column, **Card slips**, is the slip-probe count
+ * (`SLIP_FIELDS`), drawn right after Days waiting and only when the session may
+ * see slips — hidden, it shifts none of the thirteen.
  */
 export const DEFAULT_FIELDS = [
-  'kind',
-  'storeText',
-  'storeName',
-  'businessDay',
-  'zNumber',
   'entryNumber',
+  'storeId',
+  'profitCenter',
   'cashToHandOver',
   'surplusDeducted',
+  'kind',
+  'businessDay',
+  'storeName',
+  'cardTotal',
+  'currencyKey',
+  'zNumber',
   'readySince',
   'daysWaiting',
-  'cardTotal',
 ] as const satisfies readonly (keyof CollectionReadyRow)[]
 
 /**
- * The column the slip probe gates (ticket 320): drawn after `cardTotal` only when
- * `AttachmentWeb/Access` holds `CASH_CLOSE`. Its own group, so the completeness
- * proof still accounts for it without either list carrying a column the session
- * may not see.
+ * The column the slip probe gates (ticket 320): drawn only when
+ * `AttachmentWeb/Access` holds `CASH_CLOSE`, right after `READY_SLIP_ANCHOR` — the
+ * mapping's last column (spec 2423). Its own group, so the completeness proof
+ * still accounts for it without either list carrying a column the session may not
+ * see.
  */
 export const SLIP_FIELDS = ['slipCount'] as const satisfies readonly (keyof CollectionReadyRow)[]
 
-/** The forensic tail: the raw parts `storeText` is made of, the currency, and the two row keys. */
+/** The column the slip count follows on this grid: the mapping's *Days waiting*. */
+export const READY_SLIP_ANCHOR = 'daysWaiting' satisfies keyof CollectionReadyRow
+
+/** The forensic tail: the server's composed store text and the two row keys. */
 export const MORE_FIELDS = [
-  'storeId',
-  'profitCenter',
-  'currencyKey',
+  'storeText',
   'shiftId',
   'settlementDocumentId',
 ] as const satisfies readonly (keyof CollectionReadyRow)[]
@@ -100,13 +108,12 @@ export function buildReadyDefaultColDef(showFilters: boolean): ColDef<Collection
 
 /**
  * Build the visible columns; `showMore` reveals the tail, and `showSlips` (the
- * slip probe's answer, fail-closed) places the Slips column after `cardTotal`;
+ * slip probe's answer, fail-closed) places the Slips column after Days waiting;
  * `onOpenSlips` makes a known count open that store day's drawer (ticket 321).
  *
- * The currency handling is Cash Collections': one currency in the result puts the
- * code in each money column's **header**; a mixed result leaves the headers bare
- * and promotes the Currency column into the landing set, because figures in two
- * currencies with the currency folded away are unreadable.
+ * One currency in the result puts the code in each money column's **header**; a
+ * mixed result leaves the headers bare, and the Currency column (on the landing
+ * grid since spec 2423) says which is which.
  */
 export function buildReadyColumns(
   t: TFunction,
@@ -117,15 +124,12 @@ export function buildReadyColumns(
 ): ColDef<CollectionReadyRow>[] {
   const currencies = distinctCurrencies(rows, (row) => row.currencyKey)
   const headerCurrency = currencies.length === 1 ? currencies[0] : ''
-  const mixed = currencies.length > 1
 
   const fields: (keyof CollectionReadyRow)[] = showMore
     ? [...DEFAULT_FIELDS, ...MORE_FIELDS]
-    : mixed
-      ? [...DEFAULT_FIELDS, 'currencyKey']
-      : [...DEFAULT_FIELDS]
+    : [...DEFAULT_FIELDS]
 
-  return withSlipColumn(fields, showSlips).map((field) =>
+  return withSlipColumn(fields, showSlips, READY_SLIP_ANCHOR).map((field) =>
     field === 'slipCount' ? slipCountColumn<CollectionReadyRow>(t, onOpenSlips) : column(t, field, headerCurrency),
   )
 }

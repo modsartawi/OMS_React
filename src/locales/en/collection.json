@@ -351,26 +351,37 @@
     "title": "Ready for Collection",
     "subtitle": "Closed days and prepared settlement receipts still waiting for a collector, oldest first.",
     "loading": "Loading what is ready for collection…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some days or receipts may be missing. Narrow the business dates, the collector or \"Served by\" to be sure you are seeing all of them.",
+    "capReached": "This result reached the {{limit}}-row system cap, so some days or receipts may be missing. Narrow the business dates, the collector, \"Served by\", the type, the amount or the profit center to be sure you are seeing all of them.",
     "moneyHeader": "{{label}} ({{currency}})",
     "search": {
       "businessDateFrom": "Business date from",
       "businessDateTo": "Business date to",
       "collector": "Collector",
       "collectorPlaceholder": "Staff id",
+      "kind": "Type",
+      "kindDay": "Day",
+      "kindSettlement": "Settlement receipt",
+      "amountFrom": "Amount from",
+      "amountTo": "Amount to",
+      "profitCenter": "Profit center",
+      "profitCenterPlaceholder": "e.g. 019",
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
-      "clearFilter": "Clear the filter and go back to the whole list",
+      "clearFilter": "Clear the filters and start over",
       "receiptsHidden": "Prepared settlement receipts have no business date, so they are not listed while a business date is set."
     },
     "toolbar": {
       "filterRow": "Filter row",
       "moreColumns": "More columns"
     },
+    "landing": {
+      "title": "Press Search to see what is waiting",
+      "hint": "Nothing is loaded until you search. Fill in any box to narrow it, or press Search as it stands to see everything still waiting for the branches \"Served by\" names, up to the system cap. Set \"Served by\" to Everyone to look across the estate."
+    },
     "empty": {
       "title": "Nothing is waiting for a collector",
-      "hint": "Every closed day and prepared receipt here has been collected. Clear the business dates, the collector and \"Served by\" to look wider."
+      "hint": "No closed day or prepared receipt matches this search. Clear the business dates, the collector, \"Served by\", Type, Amount or Profit center to look wider — they all narrow together."
     },
     "errors": {
       "loadFailed": "The ready-for-collection list could not be loaded.",

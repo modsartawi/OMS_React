@@ -3208,6 +3208,8 @@ const SCREEN_ACTIONS = {
   '/admin/ua-users': (page) => page.locator('[data-card="all"]').click(),
   '/admin/sessions': (page) => page.locator('main').getByRole('button', { name: /^All\b/ }).click(),
   '/collection/settlement/ledger': (page) => page.getByRole('button', { name: 'Everything still open' }).click(),
+  // Ticket 424: Ready for collection opens blank and loads nothing until Search.
+  '/collection/ready': (page) => page.getByRole('button', { name: /^search$/i }).click(),
 }
 
 async function driveScreens({ theme, dir }) {

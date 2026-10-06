@@ -11,11 +11,15 @@
 //   1. the menu: the leaf appears on its own grant, and a collector supervisor (1995's sample
 //      answer) sees the five read screens and no act; a session without the grant is refused by
 //      the in-page gate on a hand-typed URL;
-//   2. the landing query: once, no dates, scoped to the caller's own branches (default-to-mine);
-//   3. the columns: the contract sample's cells, the server's storeText as sent, a dash for
-//      every null, 3 decimals for BHD, no row action;
-//   4. the toolbar: business date (and the receipts-hidden note), collector, Served by — each only
-//      on Search; Reset returns to the landing;
+//   2. the landing (spec 2423, ticket 424): opens BLANK — no request until Search, the Served-by
+//      "mine" default kept; the first Search sends no dates, scoped to the caller's own branches;
+//   3. the columns: the owner-approved mapping of Saud's order (ticket 424), the contract
+//      sample's cells, the server's storeText as sent (in the tail), a dash for every null,
+//      3 decimals for BHD, no row action;
+//   4. the toolbar: business date (and the receipts-hidden note), collector, Served by, and
+//      BackOffice 2425's Type (Kinds, a repeated key), Amount from/to and Profit center — each
+//      only on Search, empties never sent; a repeated Search re-asks; Reset returns to the
+//      un-searched landing;
 //   5. loading, empty, error (500), refusal (bare 403 from the door, the Served-by resolver's 400
 //      envelope, and the 400 binding failure);
 //   6. no raw t() key and no page error anywhere.
@@ -214,9 +218,15 @@ async function run() {
   }
   const field = (label) => page.getByLabel(label, { exact: true })
   const search = async () => {
-    await page.getByRole('button', { name: 'Search' }).click()
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.waitForLoadState('networkidle')
   }
+  /** Ticket 424: the screen opens blank, so a load that needs rows presses Search. */
+  const loadSearched = async (path) => {
+    await load(path)
+    await search()
+  }
+  const LANDING_TITLE = 'Press Search to see what is waiting'
   const q = () => new URLSearchParams(lastQuery)
   const keys = () => [...q().keys()].sort().join(',')
   const readLeaf = () => page.getByRole('link', { name: 'Ready for Collection' })
@@ -227,13 +237,13 @@ async function run() {
 
   // ---- 1. the menu and the gate ----
   access = READY_ONLY
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.locator('.ag-row').first().waitFor()
   check('menu — the Ready grant alone lights the one leaf', (await readLeaf().count()) === 1 && (await readLinks()) === 1, `${await readLinks()} read links`)
 
   access = COLLECTOR_SUPERVISOR
   defaultScope = null
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.locator('.ag-row').first().waitFor()
   check('menu — a collector supervisor sees the five read screens', (await readLinks()) === 5, `${await readLinks()} links`)
   check('menu — …and no act: no Assignment, no Settlement', (await actLinks()) === 0, `${await actLinks()} act links`)
@@ -252,29 +262,40 @@ async function run() {
   defaultScope = { kind: 'MINE', staffId: '4466', role: 'ACCOUNTANT', displayName: 'ضحى' }
   calls = 0
   await load(ROUTE)
-  await page.locator('.ag-row').first().waitFor()
+  await page.waitForTimeout(400)
   await shot('landing')
-  check('landing — queries once on mount', calls === 1, `${calls} calls`)
+  check('landing — opens blank: NO request until Search (ticket 424)', calls === 0, `${calls} calls`)
+  check('landing — says to press Search, no grid, never the empty state', (await mainText()).includes(LANDING_TITLE) && (await page.locator('.ag-root').count()) === 0 && !(await mainText()).includes('Nothing is waiting'))
+  check('landing — Served by keeps its "mine" default', (await page.locator('form select').inputValue()) === 'MINE:4466', await page.locator('form select').inputValue())
+  check('landing — every new box is empty, no Type ticked', (await field('Amount from').inputValue()) === '' && (await field('Amount to').inputValue()) === '' && (await field('Profit center').inputValue()) === '' && (await page.locator('[data-region="ready-kind"] input:checked').count()) === 0)
+  check('landing — the Filtered chip is not lit', !(await page.locator('form').innerText()).includes('Filtered'))
+  await search()
+  await page.locator('.ag-row').first().waitFor()
+  check('first Search — queries once', calls === 1, `${calls} calls`)
   check(
-    'landing — scoped to the accountant’s own branches, no date, the cap',
+    'first Search — scoped to the accountant’s own branches, no date, no new filter, the cap',
     keys() === 'Limit,ServedById,ServedByKind' && q().get('ServedByKind') === 'MINE' && q().get('ServedById') === '4466',
     lastQuery,
   )
-  check('landing — no receipts-hidden note', !(await mainText()).includes('Prepared settlement receipts have no business date'))
-  check('landing — the Filtered chip is not lit', !(await page.locator('form').innerText()).includes('Filtered'))
+  check('first Search — no receipts-hidden note', !(await mainText()).includes('Prepared settlement receipts have no business date'))
+  check('first Search — the empty Search is the landing query: the Filtered chip is not lit', !(await page.locator('form').innerText()).includes('Filtered'))
+  await search()
+  check('a repeated Search on the same draft re-asks the door', calls === 2, `${calls} calls`)
 
   // ---- 3. the columns ----
   const hs = await headers()
-  const expected = ['Waiting', 'Profit Center (Store)', 'Store Name', 'Business Date', 'Z No#', 'Shortage Entry', 'Cash to Hand Over', 'Surplus Deducted', 'Ready Since', 'Days Waiting']
-  check('columns — the landing grid, in reading order', expected.every((h, i) => (hs[i] ?? '').startsWith(h)), hs.join(' | '))
-  check('columns — a mixed SAR/BHD list promotes Currency and keeps the money headers bare', hs.includes('Currency') && hs.includes('Cash to Hand Over'), hs.join(' | '))
+  // Ticket 424: the owner-approved mapping of Saud's order — Ready's matches, then its own.
+  const expected = ['Shortage Entry', 'Store Code', 'Profit Center', 'Cash to Hand Over', 'Surplus Deducted', 'Waiting', 'Business Date', 'Store Name', 'Card Total', 'Currency', 'Z No#', 'Ready Since', 'Days Waiting']
+  check('columns — ready columns follow the approved mapping, exactly', hs.length === expected.length && expected.every((h, i) => hs[i] === h), hs.join(' | '))
+  check('columns — a mixed SAR/BHD list keeps the money headers bare; Currency is a column of its own', hs.filter((h) => h === 'Currency').length === 1 && hs.includes('Cash to Hand Over'), hs.join(' | '))
+  check('columns — the composed store text is not on the landing grid', !hs.includes('Profit Center (Store)'))
 
   const dayId = `DAY:${DAY.shiftId}`
   const receiptId = `SETTLEMENT:${RECEIPT.settlementDocumentId}`
   const noZId = `DAY:${DAY_NO_Z.shiftId}`
   const bhdId = `DAY:${DAY_BHD.shiftId}`
   check('day — the kind reads as a closed day', (await cell(dayId, 'kind')) === 'Closed day')
-  check('day — storeText as the server sent it', (await cell(dayId, 'storeText')) === 'PH-019 (P019)')
+  check('day — Store Code and Profit Center, the raw fields as sent', (await cell(dayId, 'storeId')) === 'P019' && (await cell(dayId, 'profitCenter')) === 'PH-019')
   check('day — business day, Z, figures, readySince, days waiting',
     (await cell(dayId, 'businessDay')) === '2026-09-20' &&
       (await cell(dayId, 'zNumber')) === '412' &&
@@ -299,10 +320,10 @@ async function run() {
       (await cell(noZId, 'cashToHandOver')) === '—' &&
       (await cell(noZId, 'surplusDeducted')) === '—',
   )
-  check('BHD day — three decimals, a real zero stays a zero, the store code alone',
+  check('BHD day — three decimals, a real zero stays a zero, its own currency',
     (await cell(bhdId, 'cashToHandOver')) === '95.255' &&
       (await cell(bhdId, 'surplusDeducted')) === '0.000' &&
-      (await cell(bhdId, 'storeText')) === 'B004',
+      (await cell(bhdId, 'currencyKey')) === 'BHD',
   )
   check('the server’s order is kept (oldest first as sent)',
     (await page.locator(".ag-row").evaluateAll((rows) =>
@@ -313,8 +334,8 @@ async function run() {
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.waitForTimeout(300)
   const more = await headers()
-  check('more columns — the raw parts and both row keys join the tail', ['Store Code', 'Profit Center', 'Currency', 'Shift Id', 'Settlement Document Id'].every((h) => more.includes(h)), more.join(' | '))
-  check('more columns — the raw profit center as sent', (await cell(dayId, 'profitCenter')) === 'PH-019')
+  check('more columns — the tail is the composed store text and both row keys, after the mapping', more.slice(expected.length).join('|') === 'Profit Center (Store)|Shift Id|Settlement Document Id', more.join(' | '))
+  check('more columns — storeText as the server sent it, the code alone with no profit center', (await cell(dayId, 'storeText')) === 'PH-019 (P019)' && (await cell(bhdId, 'storeText')) === 'B004')
   await page.getByRole('button', { name: 'More columns' }).click()
   await noRawKeys('grid')
 
@@ -345,8 +366,44 @@ async function run() {
 
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
-  check('toolbar — Reset returns to the landing query', keys() === 'Limit,ServedById,ServedByKind' && q().get('ServedByKind') === 'MINE', lastQuery)
   check('toolbar — …clearing the boxes and the note', (await field('Business date from').inputValue()) === '' && !(await mainText()).includes('Prepared settlement receipts have no business date'))
+
+  // ---- 4b. BackOffice 2425's filters (ticket 424) ----
+  const kindTick = (label) => page.locator('[data-region="ready-kind"]').getByLabel(label, { exact: true })
+  check('2425 — the Type ticks are Day and Settlement receipt', (await kindTick('Day').count()) === 1 && (await kindTick('Settlement receipt').count()) === 1)
+  calls = 0
+  await kindTick('Settlement receipt').check()
+  await field('Amount from').fill(' 100 ')
+  await field('Amount to').fill('2500.5')
+  await field('Profit center').fill('019')
+  check('2425 — a draft does not query', calls === 0)
+  await search()
+  check(
+    '2425 — Kinds, AmountFrom/To (trimmed, as typed) and ProfitCenter, beside the Served-by scope',
+    q().getAll('Kinds').join(',') === 'SETTLEMENT' && q().get('AmountFrom') === '100' && q().get('AmountTo') === '2500.5' && q().get('ProfitCenter') === '019' && q().get('ServedByKind') === 'MINE',
+    lastQuery,
+  )
+  check('2425 — the Filtered chip lights', (await page.locator('form').innerText()).includes('Filtered'))
+  await shot('filters-2425')
+  await kindTick('Day').check()
+  await field('Amount from').fill('')
+  await field('Amount to').fill('   ')
+  await field('Profit center').fill('')
+  await search()
+  check('2425 — both kinds travel as a REPEATED key, in the toolbar’s order, never joined', q().getAll('Kinds').join(',') === 'DAY,SETTLEMENT' && !lastQuery.includes('%2C'), lastQuery)
+  check('2425 — an emptied box is never sent', !q().has('AmountFrom') && !q().has('AmountTo') && !q().has('ProfitCenter'), lastQuery)
+  await kindTick('Day').uncheck()
+  await kindTick('Settlement receipt').uncheck()
+  await search()
+  check('2425 — no kind ticked sends no Kinds key: the landing query again, chip dark', !q().has('Kinds') && keys() === 'Limit,ServedById,ServedByKind' && !(await page.locator('form').innerText()).includes('Filtered'), lastQuery)
+
+  await field('Profit center').fill('019')
+  await search()
+  calls = 0
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForTimeout(400)
+  check('toolbar — Reset returns to the UN-SEARCHED landing: no request, "press Search" again', calls === 0 && (await mainText()).includes(LANDING_TITLE) && (await page.locator('.ag-root').count()) === 0, `${calls} calls`)
+  check('toolbar — …the boxes emptied, Served by back on "mine", the chip dark', (await field('Profit center').inputValue()) === '' && (await page.locator('form select').inputValue()) === 'MINE:4466' && !(await page.locator('form').innerText()).includes('Filtered'))
   await noRawKeys('toolbar')
 
   // ---- 5. the list's other states ----
@@ -354,6 +411,7 @@ async function run() {
   hold = new Promise((r) => (release = r))
   scenario = {}
   await page.goto(BASE + ROUTE)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   const loading = page.getByRole('status', { name: 'Loading what is ready for collection…' })
   await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
   check('loading — the list says it is loading, no grid yet', (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)
@@ -363,33 +421,33 @@ async function run() {
   await page.locator('.ag-row').first().waitFor()
 
   scenario = { list: 'empty' }
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   const emptyText = await mainText()
   check('empty — nothing waiting is the honest empty state, not an error', emptyText.includes('Nothing is waiting for a collector') && (await page.locator('.ag-root').count()) === 0)
   await shot('empty')
 
   const SERVER_FAULT = 'The OMS API encountered an unexpected error. Please try again.'
   scenario = { list: 'error' }
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.getByText(SERVER_FAULT).first().waitFor({ timeout: 8000 }).catch(() => {})
   const errorText = await mainText()
   check('error — a 500 reads as a server fault, no grid, never the empty state', errorText.includes(SERVER_FAULT) && !errorText.includes('Nothing is waiting') && (await page.locator('.ag-root').count()) === 0, errorText.replace(/\n/g, ' ').slice(-160))
 
   scenario = { list: 'forbidden' }
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.getByText('not allowed to read').first().waitFor({ timeout: 8000 }).catch(() => {})
   const forbiddenText = await mainText()
   check('refusal — the door’s bare 403 reads as a refusal, not "unexpected (HTTP 403)"', forbiddenText.includes('Your account is not allowed to read the ready-for-collection list') && !forbiddenText.includes('HTTP 403') && (await page.locator('.ag-root').count()) === 0, forbiddenText.replace(/\n/g, ' ').slice(-160))
   await shot('refused')
 
   scenario = { list: 'servedByRefusal' }
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.getByText('A Served-by id needs a Kind.').first().waitFor({ timeout: 8000 }).catch(() => {})
   const sbText = await mainText()
   check('refusal — the Served-by resolver’s 400 envelope shows the server’s own message', sbText.includes('A Served-by id needs a Kind.') && !sbText.includes('Nothing is waiting'), sbText.replace(/\n/g, ' ').slice(-160))
 
   scenario = { list: 'binding' }
-  await load(ROUTE)
+  await loadSearched(ROUTE)
   await page.getByText('The request was rejected by the server.').first().waitFor({ timeout: 8000 }).catch(() => {})
   const bindText = await mainText()
   check('refusal — the 400 binding failure reads as a rejection, not an empty list', bindText.includes('The request was rejected by the server.') && !bindText.includes('Nothing is waiting'), bindText.replace(/\n/g, ' ').slice(-160))

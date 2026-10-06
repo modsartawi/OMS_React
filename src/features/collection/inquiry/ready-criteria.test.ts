@@ -5,6 +5,8 @@ import {
   hidesReceipts,
   isLandingQuery,
   landingCriteria,
+  readyParamsFor,
+  sameQuery,
   type ReadyCriteria,
 } from './ready-criteria'
 import type { AssignmentOptions } from './served-by'
@@ -31,6 +33,10 @@ describe('landingCriteria', () => {
       businessDateTo: '',
       collectorId: '',
       servedBy: { kind: 'MINE', id: '4466' },
+      kinds: [],
+      amountFrom: '',
+      amountTo: '',
+      profitCenter: '',
     })
   })
 
@@ -46,6 +52,103 @@ describe('landingCriteria', () => {
     const landing = buildReadyParams(landingCriteria(ACCOUNTANT_ON_ROSTER))
     expect(landing).not.toHaveProperty('BusinessDateFrom')
     expect(landing).not.toHaveProperty('BusinessDateTo')
+  })
+})
+
+// Spec 2423 (ticket 424): the screen opens BLANK. The Page holds the applied
+// criteria as `null` until the first Search, and its `useQuery` is enabled on
+// `readyParamsFor(applied) !== null` — so the landing's whole network cost is this
+// function's answer for `null` (423's seam, copied).
+describe('ready landing issues no request and keeps servedBy', () => {
+  it('nothing applied is no query — the landing issues no request', () => {
+    expect(readyParamsFor(null)).toBeNull()
+  })
+
+  it('the landing draft keeps the caller’s Served-by default and fills no new box', () => {
+    const draft = landingCriteria(ACCOUNTANT_ON_ROSTER)
+    expect(draft.servedBy).toEqual({ kind: 'MINE', id: '4466' })
+    expect(draft.kinds).toEqual([])
+    expect([draft.amountFrom, draft.amountTo, draft.profitCenter]).toEqual(['', '', ''])
+  })
+
+  it('a Search on the untouched draft sends the scope and the cap, nothing else', () => {
+    expect(readyParamsFor(landingCriteria(ACCOUNTANT_ON_ROSTER))).toEqual({
+      ServedByKind: 'MINE',
+      ServedById: '4466',
+      Limit: GRID_LIMIT,
+    })
+    expect(readyParamsFor(landingCriteria(undefined))).toEqual({ Limit: GRID_LIMIT })
+  })
+})
+
+describe('ready filters map to params; empties dropped', () => {
+  it('sends BackOffice 2425’s three filters under their PascalCase names', () => {
+    expect(
+      buildReadyParams({ kinds: ['SETTLEMENT'], amountFrom: '100', amountTo: '2500.5', profitCenter: 'PH-019' }),
+    ).toEqual({
+      Kinds: ['SETTLEMENT'],
+      AmountFrom: '100',
+      AmountTo: '2500.5',
+      ProfitCenter: 'PH-019',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('Kinds is an ARRAY (a repeated key on the wire), in the toolbar’s order whatever the tick order', () => {
+    expect(buildReadyParams({ kinds: ['SETTLEMENT', 'DAY'] }).Kinds).toEqual(['DAY', 'SETTLEMENT'])
+  })
+
+  it('🚩 no kind ticked sends no Kinds key at all — "any kind", never an empty list', () => {
+    expect(buildReadyParams({ kinds: [] })).not.toHaveProperty('Kinds')
+  })
+
+  it('an unknown kind in the draft never reaches the wire', () => {
+    expect(buildReadyParams({ kinds: ['HOLD' as never] })).not.toHaveProperty('Kinds')
+  })
+
+  it('each amount end travels alone, trimmed, as typed — the server rules on From > To', () => {
+    expect(buildReadyParams({ amountFrom: ' 500 ' })).toEqual({ AmountFrom: '500', Limit: GRID_LIMIT })
+    expect(buildReadyParams({ amountTo: '10' })).toEqual({ AmountTo: '10', Limit: GRID_LIMIT })
+    expect(buildReadyParams({ amountFrom: '900', amountTo: '10' })).toEqual({
+      AmountFrom: '900',
+      AmountTo: '10',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('🚩 drops every empty new filter rather than sending it as an empty string', () => {
+    const params = buildReadyParams({ kinds: [], amountFrom: ' ', amountTo: '', profitCenter: '   ' })
+    expect(params).toEqual({ Limit: GRID_LIMIT })
+    expect(Object.values(params)).not.toContain('')
+  })
+
+  it('the new filters AND with the old ones — all sent together', () => {
+    expect(
+      buildReadyParams({
+        collectorId: 'COLL-9',
+        servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+        kinds: ['DAY'],
+        profitCenter: '019',
+      }),
+    ).toEqual({
+      CollectorId: 'COLL-9',
+      Kinds: ['DAY'],
+      ProfitCenter: '019',
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
+      Limit: GRID_LIMIT,
+    })
+  })
+})
+
+describe('sameQuery — a repeated Search re-asks the door', () => {
+  it('compares an array value element by element, not by reference', () => {
+    const a = buildReadyParams({ kinds: ['DAY'] })
+    const b = buildReadyParams({ kinds: ['DAY'] })
+    expect(a.Kinds).not.toBe(b.Kinds)
+    expect(sameQuery(a, b)).toBe(true)
+    expect(sameQuery(a, buildReadyParams({ kinds: ['DAY', 'SETTLEMENT'] }))).toBe(false)
+    expect(sameQuery(a, buildReadyParams({}))).toBe(false)
   })
 })
 
@@ -150,6 +253,12 @@ describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   it('a collector or a business bound is not the landing', () => {
     expect(applied({ ...landingCriteria(undefined), collectorId: 'COLL-9' })).toBe(false)
     expect(applied({ ...landingCriteria(undefined), businessDateTo: '2026-09-20' })).toBe(false)
+  })
+
+  it('a kind, an amount or a profit center is not the landing', () => {
+    expect(applied({ ...landingCriteria(undefined), kinds: ['DAY'] })).toBe(false)
+    expect(applied({ ...landingCriteria(undefined), amountFrom: '1' })).toBe(false)
+    expect(applied({ ...landingCriteria(undefined), profitCenter: '019' })).toBe(false)
   })
 
   it('a whitespace-only collector never made it onto the wire, so it is', () => {

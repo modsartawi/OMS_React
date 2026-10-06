@@ -39,21 +39,36 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('the landing grid is the ticket’s columns in reading order — what, where, which day, how much, how long', () => {
+  it('ready columns follow the approved mapping — Saud’s order where Ready has the column, its own at the end', () => {
+    // Spec 2423, ticket 424: the owner-approved mapping from Saud's sheet.
     expect([...DEFAULT_FIELDS]).toEqual([
-      'kind',
-      'storeText',
-      'storeName',
-      'businessDay',
+      'entryNumber', // Entry No (a receipt's handle, for Receipt No#)
+      'storeId', // Store Code
+      'profitCenter', // Profit Center
+      'cashToHandOver', // Cash to hand over (Amount)
+      'surplusDeducted', // Surplus deducted (Surplus)
+      'kind', // Type
+      'businessDay', // Business Day
+      'storeName', // Store Name
+      'cardTotal', // Card Total
+      'currencyKey', // Currency
+      // …then Ready's own columns.
       'zNumber',
-      'entryNumber',
-      'cashToHandOver',
-      'surplusDeducted',
       'readySince',
       'daysWaiting',
-      // Ticket 320: the day's card figure closes the set — the Slips column follows it.
-      'cardTotal',
     ])
+  })
+
+  it('the tail keeps the composed store text and the two row keys, nothing else', () => {
+    expect([...MORE_FIELDS]).toEqual(['storeText', 'shiftId', 'settlementDocumentId'])
+  })
+
+  it('the fourteenth column is Card slips — last, and only when slips are visible', () => {
+    expect(buildReadyColumns(t, [READY_DAY], false, true).map((c) => c.colId)).toEqual([
+      ...DEFAULT_FIELDS,
+      'slipCount',
+    ])
+    expect(buildReadyColumns(t, [READY_DAY], false, false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
 
   it('nothing is withheld — every wire field is on the grid or in its tail', () => {
@@ -78,10 +93,11 @@ describe('the Slips column (ticket 320)', () => {
     expect(buildReadyColumns(t, [READY_DAY], true, false).map((c) => c.colId)).not.toContain('slipCount')
   })
 
-  it('lands right after the card total, on the landing grid and with the tail open', () => {
+  it('lands last on the landing grid, right after Days waiting — and stays there with the tail open', () => {
+    // Spec 2423, ticket 424: Card slips is the mapping's fourteenth column.
     expect(slips().map((c) => c.colId)).toEqual([...DEFAULT_FIELDS, 'slipCount'])
     const withTail = slips([READY_DAY], true).map((c) => c.colId)
-    expect(withTail.indexOf('slipCount')).toBe(withTail.indexOf('cardTotal') + 1)
+    expect(withTail).toEqual([...DEFAULT_FIELDS, 'slipCount', ...MORE_FIELDS])
   })
 
   it('draws a count as sent, a real 0 as 0, and null as the dash', () => {
@@ -111,8 +127,8 @@ describe('buildReadyColumns', () => {
       expect(String(column.headerName)).toContain('ready.columns.')
   })
 
-  it('🚩 the store column is the SERVER’s storeText, as sent — never re-derived here', () => {
-    const column = buildReadyColumns(t, [READY_DAY], false).find((c) => c.colId === 'storeText')
+  it('🚩 the composed store column (in the tail) is the SERVER’s storeText, as sent — never re-derived here', () => {
+    const column = buildReadyColumns(t, [READY_DAY], true).find((c) => c.colId === 'storeText')
     expect(column?.field).toBe('storeText')
     expect(column?.valueFormatter).toBeUndefined()
     expect(format('storeText', READY_DAY)).toBe('PH-019 (P019)')
@@ -120,8 +136,10 @@ describe('buildReadyColumns', () => {
     expect(format('storeText', READY_DAY_BHD)).toBe('B004')
   })
 
-  it('the raw profit center is in the tail, as sent', () => {
-    expect(MORE_FIELDS).toContain('profitCenter')
+  it('Store Code and Profit Center are the raw fields, on the landing grid, as sent', () => {
+    expect(DEFAULT_FIELDS).toContain('storeId')
+    expect(DEFAULT_FIELDS).toContain('profitCenter')
+    expect(format('storeId', READY_DAY)).toBe('P019')
     expect(format('profitCenter', READY_DAY)).toBe('PH-019')
   })
 
@@ -157,16 +175,17 @@ describe('buildReadyColumns', () => {
     expect(format('cashToHandOver', READY_DAY_BHD, [READY_DAY, READY_DAY_BHD])).toBe('95.255')
   })
 
-  it('one currency → the code in the money headers; mixed → bare headers and the Currency column promoted', () => {
+  it('one currency → the code in the money headers; mixed → bare headers. Currency is always a column now', () => {
     const single = buildReadyColumns(t, [READY_DAY, READY_RECEIPT], false)
     expect(single.find((c) => c.colId === 'cashToHandOver')?.headerName).toBe(
       'ready.moneyHeader|{"label":"ready.columns.cashToHandOver","currency":"SAR"}',
     )
-    expect(single.map((c) => c.colId)).not.toContain('currencyKey')
+    expect(single.map((c) => c.colId)).toContain('currencyKey')
 
     const mixed = buildReadyColumns(t, [READY_DAY, READY_DAY_BHD], false)
     expect(mixed.find((c) => c.colId === 'cashToHandOver')?.headerName).toBe('ready.columns.cashToHandOver')
-    expect(mixed.map((c) => c.colId)).toContain('currencyKey')
+    // Exactly once — never a second, promoted Currency column.
+    expect(mixed.filter((c) => c.colId === 'currencyKey')).toHaveLength(1)
   })
 
   it('the numeric columns filter as numbers and right-align', () => {

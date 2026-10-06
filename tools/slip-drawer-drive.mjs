@@ -330,8 +330,8 @@ async function run() {
   const load = async (path) => {
     await page.goto(BASE + path)
     await page.waitForLoadState('networkidle')
-    // Ticket 423: Cash Collections opens blank and loads nothing until Search.
-    if (path === COLLECTIONS) {
+    // Tickets 423/424: Cash Collections and Ready open blank and load nothing until Search.
+    if (path === COLLECTIONS || path === READY) {
       await page.getByRole('button', { name: 'Search', exact: true }).click()
       await page.waitForLoadState('networkidle')
     }

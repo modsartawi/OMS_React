@@ -29,7 +29,7 @@
  */
 import type { ReactNode } from 'react'
 import Ltr from '@/core/ui/Ltr'
-import { ACR_HEADER_ROWS } from './acr-header'
+import { ACR_HEADER_ROWS, headerCellValue } from './acr-header'
 import PrintSheet from './PrintSheet'
 import type { AcrForm, AcrPage, AcrRow } from '@/core/models/collection'
 import { paperStoreText } from './store-text'
@@ -105,9 +105,10 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
             <Meta
               key={cell.field}
               label={cell.label}
-              value={form[cell.field]}
+              value={headerCellValue(form, cell)}
               strong={cell.strong}
               keepSpaces={cell.keepSpaces}
+              ltr={cell.ltr}
             />
           ))}
         </div>
@@ -299,17 +300,22 @@ function Meta({
   value,
   strong,
   keepSpaces,
+  ltr,
 }: {
   label: string
   value: string
   strong?: boolean
   keepSpaces?: boolean
+  /** A machine value (the ACR number) — isolated whole, so its dashes keep their order. */
+  ltr?: boolean
 }) {
   const classes = [strong && 'acr-meta-value--strong', keepSpaces && 'acr-meta-value--pre'].filter(Boolean)
   return (
     <div className="acr-meta-cell">
       <span className="acr-meta-label">{label}</span>
-      <span className={classes.length > 0 ? classes.join(' ') : undefined}>{value}</span>
+      <span className={classes.length > 0 ? classes.join(' ') : undefined}>
+        {ltr ? <Ltr>{value}</Ltr> : value}
+      </span>
     </div>
   )
 }

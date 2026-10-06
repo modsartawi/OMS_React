@@ -21,6 +21,7 @@
  * options bind via `[AsParameters]`; an empty selection is **dropped**, never sent
  * as `''`. Both match `collections-criteria.ts` beside it.
  */
+import { stripIsolates } from '@/core/util/bidi'
 
 /**
  * The wire vocabulary, spelled once. It is a **pair** — a Kind and an id — rather
@@ -148,11 +149,17 @@ export type ServedByScreen = 'collections' | 'acrs' | 'deposits' | 'settlement' 
 /**
  * The per-screen contract — spec 1162 D8, as one readable table.
  *
- * ⚠️ **`accountants` is FALSE on the two collected-by screens, and that is not
- * tidiness.** Those screens read the document's own collector column, and an
- * accountant never collects — there is no column to compare, so the server refuses
- * the combination outright. Offering the group would be offering a filter the
- * document cannot answer.
+ * ⚠️ **`accountants` is FALSE on Deposits, and that is not tidiness.** That screen
+ * reads the document's own collector column, and an accountant never collects —
+ * there is no column to compare, so the server refuses the combination outright.
+ * Offering the group would be offering a filter the document cannot answer.
+ *
+ * 🚩 **ACRs are the one exception** (spec 2423, BackOffice 2426, reversing 1993's
+ * refusal on this screen only): an ACR matches an accountant when ANY of its linked
+ * collections is from a branch currently assigned to them — the same "any linked
+ * collection" rule its collection-date filter uses. The reading stays `collector`
+ * for every other Kind; `accountants: true` is what adds ACCOUNTANT to the Kinds
+ * this screen resolves (see `resolvedKinds`).
  *
  * ⚠️ **`freeText` is TRUE on exactly those two screens**, for the mirror-image
  * reason: the roster holds 8 collectors while a document carries *whoever
@@ -170,7 +177,9 @@ export interface ServedByScreenContract {
 
 export const SERVED_BY_SCREENS: Record<ServedByScreen, ServedByScreenContract> = {
   collections: { reading: 'assignment', accountants: true, freeText: false },
-  acrs: { reading: 'collector', accountants: false, freeText: true },
+  // 🚩 Spec 2423 (ticket 425): ACCOUNTANT is answered on ACRs, and on no other
+  // collected-by screen. Deposits keep the refusal.
+  acrs: { reading: 'collector', accountants: true, freeText: true },
   deposits: { reading: 'collector', accountants: false, freeText: true },
   settlement: { reading: 'assignment', accountants: true, freeText: false },
   // 🚩 Ticket 316 (BackOffice 1993): an attempt carries a store, so *Served by* here
@@ -226,9 +235,12 @@ export const RESOLVED_KINDS_BY_READING: Record<ServedByReading, ServedByKind[]> 
     // screens rather than landing them on a pick the server still 500s.
     SERVED_BY_KINDS.mine,
   ],
-  // ⚠️ ACCOUNTANT is absent here permanently, not pending: a document records who
-  // COLLECTED and an accountant never collects, so the server refuses it by design
-  // (spec D10) — offering it would be offering a filter that errors when used.
+  // ⚠️ ACCOUNTANT is absent from the READING: a document records who COLLECTED and
+  // an accountant never collects, so the server refuses it by design (spec D10) —
+  // offering it would be offering a filter that errors when used. That still holds
+  // on Deposits. 🚩 **The ACR exception** (spec 2423, BackOffice 2426, reversing 1993
+  // for ACRs only) is a per-SCREEN addition, not an edit to this list: the ACRs
+  // contract says `accountants: true` and `resolvedKinds` adds the Kind for it.
   //
   // The other four arrived with BackOffice 1167, which built them against the ACR's
   // own `CollectorOperatorId` and joined nothing at all. 1168 mounts the very same
@@ -241,9 +253,21 @@ export const RESOLVED_KINDS_BY_READING: Record<ServedByReading, ServedByKind[]> 
   ],
 }
 
-/** The Kinds a given screen may offer — its reading's list, spelled once. */
+/**
+ * The Kinds a given screen may offer — its reading's list, plus ACCOUNTANT where the
+ * screen's contract offers Accountants and its reading does not already answer them.
+ *
+ * 🚩 That second clause is the ACR exception (spec 2423): the collected-by reading
+ * leaves ACCOUNTANT out, ACRs answer it anyway, and Deposits — the same reading —
+ * still do not. Keying it on the contract's `accountants` keeps "the group is shown"
+ * and "the Kind resolves" one fact, so the picker can never offer a group whose pick
+ * the server refuses.
+ */
 export function resolvedKinds(screen: ServedByScreen): ServedByKind[] {
-  return RESOLVED_KINDS_BY_READING[SERVED_BY_SCREENS[screen].reading]
+  const contract = SERVED_BY_SCREENS[screen]
+  const kinds = RESOLVED_KINDS_BY_READING[contract.reading]
+  if (!contract.accountants || kinds.includes(SERVED_BY_KINDS.accountant)) return kinds
+  return [SERVED_BY_KINDS.accountant, ...kinds]
 }
 
 export function servedByGroups(
@@ -313,8 +337,13 @@ export function defaultSelection(
  *
  * ⚠️ Read as *"is not an accountant"* rather than as *"is a collector"*, so a role
  * this client has never heard of lands rather than silently opening on the estate.
- * The only role with a provably empty answer here is the one the server also
- * refuses outright.
+ * The only role with a provably empty answer here is the accountant's: their own
+ * collections are none.
+ *
+ * 🚩 Spec 2423 does not change this. ACRs now ANSWER an `ACCOUNTANT` pick (any
+ * linked collection from that accountant's branches), but the landing is `MINE`, and
+ * an accountant's `MINE` over who-collected is still empty — so an accountant still
+ * lands on the estate there, and picks themselves if they want their branches.
  *
  * ⚠️ It compares against `COLLECTION_ROLES`, never `SERVED_BY_KINDS`: the two
  * strings coincide today, but a Role and a Kind are different things and the server
@@ -417,8 +446,10 @@ export function parseServedByText(
 
   // A label first — that is what clicking a datalist suggestion puts in the box, and
   // the label is the only thing that says WHICH question was asked of a person who
-  // appears twice.
-  const clicked = entries.find((entry) => entry.label === raw)
+  // appears twice. Compared without bidi isolates: a label may carry one around a
+  // name (`fsi`), and a hand-typed copy of it never does.
+  const typed = stripIsolates(raw)
+  const clicked = entries.find((entry) => stripIsolates(entry.label) === typed)
   if (clicked) return { kind: clicked.kind, id: clicked.id }
 
   // 🚩 **A BARE ID IS ALWAYS `COLLECTOR` HERE — even a roster member's, even the

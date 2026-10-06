@@ -5,6 +5,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { ACR_SYSTEM_CLOSER, type AcrInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { acrNoText } from './acr-number'
 import { daySpan, daySpanText } from './day-span'
 
 /**
@@ -37,6 +38,9 @@ import { daySpan, daySpanText } from './day-span'
  * figures (`cashSalesTotal`, `settlementTotal`, `bankedTotal`) replace the
  * `netCollectedTotal` the server stopped sending, and the card-slip count leaves the
  * tail. Twenty-one fields now, and twenty-two columns with the tail open.
+ *
+ * Ticket 425 (ADR 0066) puts the number as printed, `acrNo`, where the bare
+ * `acrNumber` was; the bare count becomes an argued non-column. Still twenty-one.
  */
 
 /**
@@ -64,8 +68,12 @@ import { daySpan, daySpanText } from './day-span'
 // `closedByName` sits beside Status and leads rather than folding into the tail:
 // a SYSTEM close is finance's "forgotten ACR" marker (BackOffice 1987), a thing a
 // supervisor scans the default grid for, not a forensic detail.
+//
+// 🚩 The first column is `acrNo` (ADR 0066, ticket 425) — the number as printed,
+// `6498-2610-0001` or a legacy plain number, falling back to the bare `acrNumber`
+// against a SIS.Api that does not send it yet (see `acr-number.ts`).
 export const DEFAULT_FIELDS = [
-  'acrNumber',
+  'acrNo',
   'label',
   'collectorName',
   'acrDate',
@@ -100,14 +108,18 @@ export const MORE_FIELDS = [
 /**
  * The wire fields that are deliberately **not** columns, each with its reason.
  *
- * Exactly one: `acrId` is the ACR's ULID — the form URL's key
- * ([257](../../../../.issues/257-a-row-opens-its-document.md) opens
- * `/collection/acr/:acrId` with it), opaque, and meaningless to read. Listed
- * rather than silently skipped so the completeness test can still prove the row
- * is fully accounted for, and so a reviewer sees an argued exclusion instead of
+ * - `acrId` is the ACR's ULID — the form URL's key
+ *   ([257](../../../../.issues/257-a-row-opens-its-document.md) opens
+ *   `/collection/acr/:acrId` with it), opaque, and meaningless to read.
+ * - `acrNumber` (ticket 425) is the bare count, which since ADR 0066 restarts per
+ *   collector per month and so names no single ACR on its own. The `acrNo` column
+ *   shows it where it is still the whole truth — a SIS.Api that sends no `acrNo`.
+ *
+ * Listed rather than silently skipped so the completeness test can still prove the
+ * row is fully accounted for, and so a reviewer sees an argued exclusion instead of
  * an oversight. (Exactly 254's posture on `collectionReceiptId`.)
  */
-export const NON_COLUMN_FIELDS = ['acrId'] as const satisfies readonly (keyof AcrInquiryRow)[]
+export const NON_COLUMN_FIELDS = ['acrId', 'acrNumber'] as const satisfies readonly (keyof AcrInquiryRow)[]
 
 /**
  * Which columns are money, and therefore render through `@/core/money.ts`.
@@ -252,15 +264,21 @@ function column(t: TFunction, field: keyof AcrInquiryRow): ColDef<AcrInquiryRow>
   }
 
   switch (field) {
-    case 'acrNumber':
+    case 'acrNo':
       return {
-        // The serial a supervisor holds in their hand. Monospaced so a column of
-        // them scans, and left as the number it is.
+        // The number a supervisor holds in their hand, as the server printed it
+        // (ADR 0066). Monospaced so a column of them scans.
         headerName: label,
-        field,
         colId: field,
-        width: 110,
-        filter: 'agNumberColumnFilter',
+        width: 150,
+        // A VALUE getter, not a `field`: an older SIS.Api sends no `acrNo`, and the
+        // cell, the floating filter (text — the number carries dashes now; it reads
+        // this getter) and the export must all read the bare `acrNumber` then.
+        valueGetter: (p) => acrNoText(p.data),
+        // ⚠️ NOT sortable. The server sends the rows month newest first, then
+        // number, legacy last; a header click would compare `6498-2610-0001` with
+        // `1834` as text and scramble that. There is no client comparator to give it.
+        sortable: false,
         cellClass: 'font-mono text-[12px]',
       }
     case 'acrDate':

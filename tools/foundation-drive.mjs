@@ -3210,6 +3210,8 @@ const SCREEN_ACTIONS = {
   '/collection/settlement/ledger': (page) => page.getByRole('button', { name: 'Everything still open' }).click(),
   // Ticket 424: Ready for collection opens blank and loads nothing until Search.
   '/collection/ready': (page) => page.getByRole('button', { name: /^search$/i }).click(),
+  // Ticket 425: so do the ACRs.
+  '/collection/acrs': (page) => page.getByRole('button', { name: /^search$/i }).click(),
 }
 
 async function driveScreens({ theme, dir }) {

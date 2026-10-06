@@ -394,7 +394,11 @@ describe('acr, attempts and deposits export through the same writer', () => {
 
   it('ACRs: the ACR number is text, and an unbanked ACR has a blank deposit number, not a 0', () => {
     const sheet = collectionSheet(acrsGrid([acr()], true), 'acrs', 'ACRs')
-    expect(cellUnder(sheet, label('acrs', 'acrNumber'))).toEqual({ type: String, value: '40' })
+    // The bare count above is the older SIS.Api's fallback; a server-formatted
+    // number (ADR 0066, ticket 425) exports exactly as the grid shows it.
+    expect(cellUnder(sheet, label('acrs', 'acrNo'))).toEqual({ type: String, value: '40' })
+    const formatted = collectionSheet(acrsGrid([acr({ acrNo: '30417-2608-0040' })], false), 'acrs', 'ACRs')
+    expect(cellUnder(formatted, label('acrs', 'acrNo'))).toEqual({ type: String, value: '30417-2608-0040' })
     expect(cellUnder(sheet, label('acrs', 'depositNumber'))).toEqual({ type: String, value: '' })
     // Still open: the year-1 sentinel reads blank, as on screen.
     expect(cellUnder(sheet, label('acrs', 'closedAt'))).toEqual({ type: String, value: '' })

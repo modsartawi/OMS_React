@@ -6,7 +6,8 @@ import ServedByPicker from './ServedByPicker'
 
 /**
  * ACRs' filter strip (ticket 255) — Business date from/to · Collection date
- * from/to (ticket 316) · ACR No# · Collector · Status.
+ * from/to (ticket 316) · ACR No# · Collector text · Served by · Status · Amount
+ * from/to · Profit center (ticket 425, BackOffice 2426).
  *
  * 254's `CollectionsToolbar` is the shape this follows; ⚠️ **copied, not
  * extracted** (244 §1). It renders a **draft** and nothing else: every edit
@@ -25,8 +26,39 @@ export interface AcrsToolbarProps {
   onChange: (patch: Partial<AcrsCriteria>) => void
   onSearch: () => void
   onReset: () => void
-  /** True when the applied query is anything other than the today-landing one. */
+  /** True when a Search was issued and it is anything other than the empty landing's. */
   isFiltered: boolean
+}
+
+const TEXT_INPUT_CLASS =
+  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
+
+/** One end of the Amount range: a decimal typed as text and sent as typed. */
+function AmountField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string
+  hint: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        type="text"
+        dir="ltr"
+        inputMode="decimal"
+        title={hint}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${TEXT_INPUT_CLASS} w-32 text-end tabular-nums`}
+      />
+    </label>
+  )
 }
 
 export default function AcrsToolbar({
@@ -72,20 +104,33 @@ export default function AcrsToolbar({
       />
 
       {/* The number a supervisor holds in their hand — see `acr-criteria.ts` for
-          why it travels as `AcrNumber` and never as `AcrId`. ⚠️ `pattern` is
-          digits only: the door binds an `int`, so anything else is a 400 before
-          the handler, and the form refuses it at Search instead. */}
+          why it travels as `AcrNumber` and never as `AcrId`. 🚩 A TEXT box since
+          spec 2423 (ADR 0066): `6498-2610-0001`, `2610-0001` or `0001`, sent as
+          typed. No `pattern`, no parsing here — the server reads every form and
+          refuses a malformed one, shown in the error banner. */}
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('acrs.search.acrNumber')}
         <input
           type="text"
-          inputMode="numeric"
-          pattern="\s*[0-9]+\s*"
+          dir="ltr"
           title={t('acrs.search.acrNumberHint')}
           value={criteria.acrNumber}
           onChange={(e) => onChange({ acrNumber: e.target.value })}
           placeholder={t('acrs.search.acrNumberPlaceholder')}
-          className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className={`${TEXT_INPUT_CLASS} w-40 font-mono`}
+        />
+      </label>
+      {/* Collector (BackOffice 2426): a contains match on the collector's id OR
+          name. It ANDs with Served by — the picker asks whose scope, this box asks
+          whose name — and it narrows a bare `0001` to one collector's month. */}
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        {t('acrs.search.collectorText')}
+        <input
+          type="text"
+          value={criteria.collectorText}
+          onChange={(e) => onChange({ collectorText: e.target.value })}
+          placeholder={t('acrs.search.collectorTextPlaceholder')}
+          className={`${TEXT_INPUT_CLASS} w-40`}
         />
       </label>
       {/* 🚩 **The collector box, as the shared control** (BackOffice 1167). It is a
@@ -95,6 +140,11 @@ export default function AcrsToolbar({
           question. It stays a **combobox** for the same reason it exists: a shipped
           ACR carries whoever collected, and an id off the roster must remain
           typeable.
+
+          🚩 Spec 2423 put a Collector TEXT box back beside it (BackOffice 2426), and
+          it is not the box 1167 removed: that one asked the exact id, which the
+          picker's typed id still does; this one is a CONTAINS match on the id or the
+          name, for finance who know part of a name. The two AND.
 
           ⚠️ Contrast Cash Collections, where the shipped box SURVIVES and is
           relabelled "Collected by" (1166) — there the two controls genuinely ask
@@ -127,6 +177,40 @@ export default function AcrsToolbar({
         </div>
       </div>
 
+      {/* Amount (BackOffice 2426): the banked total — Σ net collected, the grid's
+          Net Collected — both ends inclusive and either optional. A From above its
+          To goes to the door, which refuses it.
+          🚩 Text, not `type="number"` (423's finding): a number input hands back `''`
+          for what it cannot parse, so the filter would be dropped silently while the
+          box still showed it. */}
+      <AmountField
+        label={t('acrs.search.amountFrom')}
+        hint={t('acrs.search.amountHint')}
+        value={criteria.amountFrom}
+        onChange={(amountFrom) => onChange({ amountFrom })}
+      />
+      <AmountField
+        label={t('acrs.search.amountTo')}
+        hint={t('acrs.search.amountHint')}
+        value={criteria.amountTo}
+        onChange={(amountTo) => onChange({ amountTo })}
+      />
+
+      {/* Profit center (BackOffice 2426): a contains match, so `019` finds `PH-019`.
+          An ACR carries no store: it matches when ANY linked collection's branch
+          does. */}
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        {t('acrs.search.profitCenter')}
+        <input
+          type="text"
+          dir="ltr"
+          value={criteria.profitCenter}
+          onChange={(e) => onChange({ profitCenter: e.target.value })}
+          placeholder={t('acrs.search.profitCenterPlaceholder')}
+          className={`${TEXT_INPUT_CLASS} w-36`}
+        />
+      </label>
+
       <div className="flex items-center gap-2">
         <button
           type="submit"
@@ -145,8 +229,8 @@ export default function AcrsToolbar({
         </button>
       </div>
 
-      {/* The chip says the screen is no longer showing today. Dismissing it is
-          Reset — one way back to the landing state, not two. */}
+      {/* The chip says the last Search asked more than the empty landing does.
+          Dismissing it is Reset — one way back to the landing state, not two. */}
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('acrs.search.filtered')}

@@ -25,6 +25,7 @@
     "mineNoName": "My branches",
     "mineHint": "The branches you serve, and your team's",
     "supervisorEntry": "{{name}}'s team",
+    "accountantEntry": "{{name}} (accountant)",
     "collected": {
       "typeId": "Type a collector id…",
       "idPlaceholder": "Collector id or name",
@@ -145,8 +146,12 @@
   "acrs": {
     "title": "ACRs",
     "subtitle": "Accumulated collection receipts and the collections behind them.",
-    "loading": "Loading today's ACRs…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, who collected or the status to be sure you are seeing all of them.",
+    "loading": "Loading ACRs…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, the amount, the profit center, who collected or the status to be sure you are seeing all of them.",
+    "landing": {
+      "title": "Press Search to see ACRs",
+      "hint": "Nothing is loaded until you search. Fill in any box to narrow it, or press Search as it stands to see the newest ACRs that \"Served by\" covers, up to the system cap. Set \"Served by\" to Everyone to look across the estate."
+    },
     "actions": {
       "header": "Open",
       "form": "Form",
@@ -159,7 +164,14 @@
       "collectionDateTo": "Collection date to",
       "acrNumber": "ACR No#",
       "acrNumberPlaceholder": "Number",
-      "acrNumberHint": "Digits only — the number on the ACR",
+      "acrNumberHint": "The number on the ACR, as printed. Part of it — the month and number, or the number alone — also works, best with a collector.",
+      "amountFrom": "Amount from",
+      "amountTo": "Amount to",
+      "amountHint": "Net collected — what the ACR banks",
+      "profitCenter": "Profit center",
+      "profitCenterPlaceholder": "e.g. 019",
+      "collectorText": "Collector",
+      "collectorTextPlaceholder": "Id or name",
       "status": "Status",
       "statuses": {
         "ALL": "All",
@@ -169,7 +181,7 @@
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
-      "clearFilter": "Clear the filter and go back to today"
+      "clearFilter": "Clear the filters and start over"
     },
     "toolbar": {
       "filterRow": "Filter row",
@@ -177,17 +189,17 @@
       "export": "Export"
     },
     "empty": {
-      "title": "No ACRs in this period",
-      "hint": "No collection run matches these dates. Widen the business or collection dates, or clear the ACR No#, \"Served by\" and the status."
+      "title": "No ACRs match this search",
+      "hint": "No collection run matches these filters. Widen the dates or the amount, or clear the ACR No#, the profit center, the collector, \"Served by\" and the status."
     },
     "errors": {
-      "loadFailed": "Today's ACRs could not be loaded."
+      "loadFailed": "ACRs could not be loaded."
     },
     "closedBy": {
       "system": "Closed automatically at end of day"
     },
     "columns": {
-      "acrNumber": "ACR No#",
+      "acrNo": "ACR No#",
       "label": "Label",
       "collectorName": "Collector",
       "acrDate": "Business Date",

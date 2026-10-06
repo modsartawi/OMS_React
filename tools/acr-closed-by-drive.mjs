@@ -177,9 +177,16 @@ async function run() {
   const cellText = async (rowIndex, colId) => (await cell(rowIndex, colId).innerText()).trim()
   const headers = async () =>
     (await page.locator('.ag-header-cell-text').allInnerTexts()).map((s) => s.trim())
-  const load = async () => {
+  // Spec 2423 (ticket 425): the list opens blank and asks nothing until Search, so
+  // every load presses it. The access-probe denial has no toolbar to press.
+  const search = async () => {
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await page.waitForLoadState('networkidle')
+  }
+  const load = async ({ press = true } = {}) => {
     await page.goto(BASE + ROUTE)
     await page.waitForLoadState('networkidle')
+    if (press) await search()
   }
 
   // ---- 1. the grid reads each closer ----
@@ -222,7 +229,9 @@ async function run() {
   const filtered = await page.locator('.ag-row').count()
   check(
     'the floating filter finds the swept ACR by what the cell SAYS',
-    filtered === 1 && (await cellText(0, 'acrNumber')) === '1207',
+    // `acrNo` since ticket 425; these rows are an older SIS.Api's (no acrNo), so the
+    // cell falls back to the bare number.
+    filtered === 1 && (await cellText(0, 'acrNo')) === '1207',
     `${filtered} rows`,
   )
   await filter.fill('SYSTEM')
@@ -277,8 +286,10 @@ async function run() {
   hold = new Promise((r) => (release = r))
   scenario = {}
   await page.goto(BASE + ROUTE)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   // The shimmer names itself to assistive tech (role=status, aria-label), not in visible text.
-  const loading = page.getByRole('status', { name: "Loading today's ACRs…" })
+  const loading = page.getByRole('status', { name: 'Loading ACRs…' })
   await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
   check('loading — the list says it is loading', (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)
   release()
@@ -289,7 +300,7 @@ async function run() {
 
   scenario = { acrs: 'empty' }
   await load()
-  check('empty — the empty state, no grid', (await mainText()).includes('No ACRs in this period') && (await page.locator('.ag-root').count()) === 0)
+  check('empty — the empty state, no grid', (await mainText()).includes('No ACRs match this search') && (await page.locator('.ag-root').count()) === 0)
   await shot('empty')
 
   // An uncoded 500 is a server fault: the app's own sentence (core/api), after react-query's
@@ -300,7 +311,7 @@ async function run() {
   await page.getByText(SERVER_FAULT).first().waitFor({ timeout: 8000 }).catch(() => {})
   const errorText = await mainText()
   check('error — a 500 reads as a server fault, no grid', errorText.includes(SERVER_FAULT) && (await page.locator('.ag-root').count()) === 0, errorText.replace(/\n/g, ' ').slice(-160))
-  check('…and never the empty state', !errorText.includes('No ACRs in this period'))
+  check('…and never the empty state', !errorText.includes('No ACRs match this search'))
 
   scenario = { acrs: 'refusal' }
   await load()
@@ -315,13 +326,13 @@ async function run() {
   const forbiddenText = await mainText()
   check(
     'a bare 403 on the list is an error banner naming the status, never an empty list',
-    (await page.locator('.ag-root').count()) === 0 && !forbiddenText.includes('No ACRs in this period') && forbiddenText.includes('Unexpected API error (HTTP 403).'),
+    (await page.locator('.ag-root').count()) === 0 && !forbiddenText.includes('No ACRs match this search') && forbiddenText.includes('Unexpected API error (HTTP 403).'),
     forbiddenText.replace(/\n/g, ' ').slice(-160),
   )
   await noRawKeys('states')
 
   scenario = { access403: true }
-  await load()
+  await load({ press: false })
   check('the probe refusing → the denied backstop', (await mainText()).includes(DENIED))
 
   // ---- 4. the ACR form's header ----

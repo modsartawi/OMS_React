@@ -10,14 +10,16 @@
 // weeks apart — which a live door will not produce on demand.
 //
 // Verifies ticket 316's screen Proof, on each of the three screens:
-//   1. the landing query is today..today on the window the screen always had — the ACR date
-//      (business) on ACRs, deposited-at / attempt time (collection) on the other two — under the
-//      new names, with no legacy FromDate/ToDate, and four optional date ends in the toolbar;
+//   1. the landing query is today..today by deposited-at / attempt time (collection) on Deposits
+//      and Attempts — under the new names, with no legacy FromDate/ToDate, and four optional date
+//      ends in the toolbar. ACRs land BLANK since spec 2423 (ticket 425): no request until
+//      Search, every date end empty, and Reset returns there;
 //   2. Business Date and Collection Date are default columns, side by side; the multi-valued one
 //      draws as a span of days (one date when they share a day, blank when there is none);
-//   3. the toolbar sends both ranges, an end alone, the number box (digits only — a non-digit box
-//      does not search), and on Attempts the Served-by pair beside the collector — each only on
-//      Search; Reset returns to the landing query;
+//   3. the toolbar sends both ranges, an end alone, the number box (digits only on Deposits — a
+//      non-digit box does not search; TEXT sent as typed on ACRs since ticket 425), and on
+//      Attempts the Served-by pair beside the collector — each only on Search; Reset returns to
+//      the landing query;
 //   4. loading, empty (a From later than its To), error (500), refusal (the 400 binding failure,
 //      and on Attempts the Served-by resolver's 400 envelope);
 //   5. no raw t() key and no page error anywhere.
@@ -195,10 +197,14 @@ const SCREENS = {
     door: 'CollectionWeb/Acrs',
     rows: () => ACR_ROWS,
     empty: () => [],
-    loading: "Loading today's ACRs…",
-    emptyTitle: 'No ACRs in this period',
-    landingKeys: 'BusinessDateFrom,BusinessDateTo,Limit',
-    landingBusiness: true,
+    loading: 'Loading ACRs…',
+    emptyTitle: 'No ACRs match this search',
+    emptyHint: 'Widen the dates or the amount',
+    // 🚩 Spec 2423 (ticket 425): the ACR list opens BLANK and asks nothing until Search;
+    // the empty landing's Search sends the cap alone. (The 2026-09-27 collection-date
+    // landing, and 316's business-date one before it, are both gone.)
+    landsBlank: true,
+    landingKeys: 'Limit',
   },
   deposits: {
     route: '/collection/deposits',
@@ -207,6 +213,7 @@ const SCREENS = {
     empty: () => ({ rows: [], balances: [] }),
     loading: "Loading today's deposits…",
     emptyTitle: 'No deposits in this period',
+    emptyHint: 'Widen the business or collection dates',
     landingKeys: 'CollectionDateFrom,CollectionDateTo,Limit',
     landingBusiness: false,
   },
@@ -217,6 +224,7 @@ const SCREENS = {
     empty: () => [],
     loading: "Loading today's attempts…",
     emptyTitle: 'No attempts in this period',
+    emptyHint: 'Widen the business or collection dates',
     landingKeys: 'CollectionDateFrom,CollectionDateTo,Limit',
     landingBusiness: false,
   },
@@ -308,8 +316,13 @@ async function run() {
   }
   const field = (label) => page.getByLabel(label, { exact: true })
   const search = async () => {
-    await page.getByRole('button', { name: 'Search' }).click()
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
     await page.waitForLoadState('networkidle')
+  }
+  // A screen that lands blank (ACRs, spec 2423) shows rows only after Search.
+  const open = async (screen) => {
+    await load(screen.route)
+    if (screen.landsBlank) await search()
   }
 
   for (const [key, screen] of Object.entries(SCREENS)) {
@@ -320,8 +333,22 @@ async function run() {
     scenario = {}
     calls[key] = 0
     await load(screen.route)
-    await page.locator('.ag-row').first().waitFor()
-    await shot(`${key}-landing`)
+    if (screen.landsBlank) {
+      // Ticket 425: no request on landing, every date end empty, the "press Search" state.
+      await shot(`${key}-landing`)
+      check(`${key} — lands blank: NO request on mount`, calls[key] === 0, `${calls[key]} calls`)
+      check(
+        `${key} — …four optional date ends, all empty`,
+        await page.locator('form input[type="date"]').evaluateAll((els) => els.length === 4 && els.every((el) => !el.required && el.value === '')),
+      )
+      check(`${key} — …and the grid says to press Search`, (await mainText()).includes('Press Search to see ACRs') && (await page.locator('.ag-root').count()) === 0)
+      check(`${key} — the Filtered chip is dark on landing`, (await page.getByText('Filtered').count()) === 0)
+      await search()
+      await page.locator('.ag-row').first().waitFor()
+      check(`${key} — Search as it stands asks once, for the cap alone — no date`, calls[key] === 1 && keys() === screen.landingKeys, lastQuery[key])
+      check(`${key} — …with the legacy FromDate/ToDate retired`, !q().has('FromDate') && !q().has('ToDate'))
+      check(`${key} — …and the chip stays dark: that IS the landing query`, (await page.getByText('Filtered').count()) === 0)
+    } else {
     check(`${key} — queries once on mount`, calls[key] === 1, `${calls[key]} calls`)
     check(
       `${key} — lands on today by ${screen.landingBusiness ? 'BUSINESS' : 'COLLECTION'} date, under the new names, and nothing else`,
@@ -337,6 +364,7 @@ async function run() {
         (await field(screen.landingBusiness ? 'Collection date from' : 'Business date from').inputValue()) === '',
     )
     check(`${key} — the Filtered chip is dark on landing`, (await page.getByText('Filtered').count()) === 0)
+    }
 
     // ---- 2. the two date columns ----
     const hs = await headers()
@@ -378,9 +406,19 @@ async function run() {
       lastQuery[key],
     )
 
+    const beforeReset = calls[key]
     await page.getByRole('button', { name: 'Reset' }).click()
     await page.waitForLoadState('networkidle')
-    check(`${key} — Reset returns to the landing query`, keys() === screen.landingKeys, lastQuery[key])
+    if (screen.landsBlank) {
+      // Ticket 425 (423's ruling, copied): Reset returns to the UN-SEARCHED landing.
+      check(
+        `${key} — Reset returns to the un-searched landing: no request, the "press Search" state`,
+        calls[key] === beforeReset && (await mainText()).includes('Press Search to see ACRs'),
+        `${calls[key]} vs ${beforeReset}`,
+      )
+    } else {
+      check(`${key} — Reset returns to the landing query`, keys() === screen.landingKeys, lastQuery[key])
+    }
     check(`${key} — …and the chip goes dark`, (await page.getByText('Filtered').count()) === 0)
   }
 
@@ -388,7 +426,7 @@ async function run() {
   {
     const q = () => new URLSearchParams(lastQuery.acrs)
     scenario = {}
-    await load(SCREENS.acrs.route)
+    await open(SCREENS.acrs)
     await page.locator('.ag-row').first().waitFor()
     check('acrs — Business Date is the ACR date, the date part only', (await cellText(0, 'acrDate')) === '2026-09-02', await cellText(0, 'acrDate'))
     check(
@@ -403,12 +441,15 @@ async function run() {
     await search()
     check('acrs — the ACR No# box reaches AcrNumber (and never AcrId)', q().get('AcrNumber') === '1207' && !q().has('AcrId'), lastQuery.acrs)
 
-    const before = calls.acrs
+    // 🚩 Ticket 425 (ADR 0066, BackOffice 2428): ACR No# is TEXT, sent as typed — the
+    // server parses each form and refuses a malformed one. No digit gate any more.
+    await page.getByPlaceholder('Number').fill(' 6498-2610-0001 ')
+    await search()
+    check('acrs — a full ACR number is sent as typed, trimmed', q().get('AcrNumber') === '6498-2610-0001', lastQuery.acrs)
     await page.getByPlaceholder('Number').fill('12a')
-    await page.getByRole('button', { name: 'Search' }).click()
-    await page.waitForTimeout(400)
-    check('acrs — a non-digit ACR No# does not search (the door would 400 its int binding)', calls.acrs === before, `${calls.acrs} vs ${before}`)
-    await shot('acrs-bad-number')
+    await search()
+    check('acrs — a non-digit ACR No# is sent too: refusing it is the server’s job', q().get('AcrNumber') === '12a', lastQuery.acrs)
+    await shot('acrs-text-number')
     await page.getByRole('button', { name: 'Reset' }).click()
     await page.waitForLoadState('networkidle')
   }
@@ -510,6 +551,10 @@ async function run() {
     hold = new Promise((r) => (release = r))
     scenario = {}
     await page.goto(BASE + screen.route)
+    if (screen.landsBlank) {
+      await page.waitForLoadState('networkidle')
+      await page.getByRole('button', { name: 'Search', exact: true }).click()
+    }
     const loading = page.getByRole('status', { name: screen.loading })
     await loading.first().waitFor({ timeout: 5000 }).catch(() => {})
     check(`${key} — loading: the list says it is loading, no grid yet`, (await loading.count()) > 0 && (await page.locator('.ag-root').count()) === 0)
@@ -528,11 +573,11 @@ async function run() {
       q().get('BusinessDateFrom') === '2026-09-10' && emptyText.includes(screen.emptyTitle) && (await page.locator('.ag-root').count()) === 0,
       lastQuery[key],
     )
-    check(`${key} — …whose hint names both date ranges`, emptyText.includes('Widen the business or collection dates'))
+    check(`${key} — …whose hint names the date ranges`, emptyText.includes(screen.emptyHint))
     await shot(`${key}-empty`)
 
     scenario = { list: 'error' }
-    await load(screen.route)
+    await open(screen)
     await page.getByText(SERVER_FAULT).first().waitFor({ timeout: 8000 }).catch(() => {})
     const errorText = await mainText()
     check(
@@ -542,7 +587,7 @@ async function run() {
     )
 
     scenario = { list: 'refusal' }
-    await load(screen.route)
+    await open(screen)
     await page.getByText(REJECTED).first().waitFor({ timeout: 8000 }).catch(() => {})
     const refusalText = await mainText()
     check(

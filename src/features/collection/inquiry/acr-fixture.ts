@@ -121,7 +121,10 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        acrNumberText: '4482',
+        acrNumberText: '3',
+        // ADR 0066 (ticket 425): a new ACR — the collector, the business-day month
+        // (June 2026), and its count in that month. Formatted by the server.
+        acrNo: '40219-2606-0003',
         cities: 'الخبر',
         collectionDateText: '07/06/2026',
         // Closed by its collector: name, TWO spaces, id in brackets — the المحصل format
@@ -156,7 +159,8 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        acrNumberText: '4482',
+        acrNumberText: '3',
+        acrNo: '40219-2606-0003',
         cities: 'الخبر',
         collectionDateText: '07/06/2026',
         // Forgotten, and closed by the 23:59 head-office sweep (BackOffice 1987).
@@ -189,7 +193,8 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        acrNumberText: '4482',
+        acrNumberText: '3',
+        acrNo: '40219-2606-0003',
         cities: 'الخبر',
         collectionDateText: '07/06/2026',
         // Still OPEN: nobody closed it, and '' renders BLANK like تاريخ التحصيل beside it.
@@ -223,6 +228,8 @@ export const ACR_SCENARIOS: AcrScenario[] = [
       form: {
         acrDateText: '06/06/2026',
         acrNumberText: '4482',
+        // A LEGACY ACR, minted before ADR 0066: its acrNo is its plain number.
+        acrNo: '4482',
         cities: 'الخبر',
         collectionDateText: '07/06/2026',
         // Closed before POS_Server migration 090 recorded a closer: '' — blank, not "unknown".

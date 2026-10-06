@@ -452,9 +452,8 @@ export const collectionApi = {
    * place that could decide what goes on the wire is a second place the decision
    * can drift.
    *
-   * ⚠️ One of those params, `AcrNumber`, is a filter `AcrInquiryOptions` does not
-   * have yet — logged as a BackOffice 1090 dependency in `.afk/HITL-255.md`
-   * rather than worked around client-side.
+   * `AcrNumber` is TEXT since spec 2423 (BackOffice 2428, ADR 0066): sent as
+   * typed, parsed by the server, never by this client.
    */
   acrs(params: Record<string, unknown>): Promise<AcrInquiryRow[]> {
     return api.get<AcrInquiryRow[]>('CollectionWeb/Acrs', params)

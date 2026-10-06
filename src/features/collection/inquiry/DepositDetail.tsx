@@ -3,6 +3,8 @@ import { ExternalLink, TriangleAlert } from 'lucide-react'
 
 import type { DepositInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
+import Ltr from '@/core/ui/Ltr'
+import { acrNoText } from './acr-number'
 import { lineHasDrift } from './deposit-drift'
 
 /**
@@ -102,7 +104,10 @@ export default function DepositDetail({ deposit }: { deposit: DepositInquiryRow 
                     }`}
                   >
                     <th scope="row" className="py-1.5 text-start font-mono text-[12px] font-normal">
-                      {line.acrNumber}
+                      {/* The number this line was deposited under, as the server
+                          printed it (ADR 0066, BackOffice 2428) — the bare count only
+                          from an older SIS.Api. A machine value: isolated whole. */}
+                      <Ltr>{acrNoText(line)}</Ltr>
                     </th>
                     <td className="py-1.5 text-end tabular-nums">
                       {formatMoneyIn(line.netCollectedAtDeposit, undefined)}

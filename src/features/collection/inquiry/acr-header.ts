@@ -13,17 +13,42 @@ import type { AcrForm } from '@/core/models/collection'
  * The labels carry a TRAILING SPACE (`'عن يوم: '`), as the XAML's do; the stylesheet
  * keeps it (`white-space: pre`). */
 
-/** The form's string fields — the only ones a header cell may print. */
-type AcrFormText = { [K in keyof AcrForm]: AcrForm[K] extends string ? K : never }[keyof AcrForm]
+/** The form's string fields — the only ones a header cell may print. An optional
+ *  one (`acrNo`, absent from an older SIS.Api) counts too; it prints blank or its
+ *  cell's `fallback`. */
+type AcrFormText = {
+  [K in keyof AcrForm]-?: NonNullable<AcrForm[K]> extends string ? K : never
+}[keyof AcrForm]
 
 /** One labelled cell of the header. `field` is the server's pre-formatted string. */
 export type AcrHeaderCell = {
   label: string
   field: AcrFormText
+  /**
+   * What prints when `field` is absent or blank — the old `acrNumberText` under a
+   * SIS.Api that does not send `acrNo` yet (ticket 425). Never a client-built value.
+   */
+  fallback?: AcrFormText
   /** The ACR's own serial prints bold. */
   strong?: boolean
   /** Keep the value's own runs of spaces — أُغلق بواسطة's `name  (id)` carries two. */
   keepSpaces?: boolean
+  /**
+   * A machine value, isolated left-to-right on the RTL sheet (the bidi rule).
+   * `6498-2610-0001` read inside an Arabic line would otherwise come out
+   * `0001-2610-6498`.
+   */
+  ltr?: boolean
+}
+
+/**
+ * What a header cell prints: its field as sent; for a cell with a `fallback`, that
+ * fallback when the field is absent or blank; else blank.
+ */
+export function headerCellValue(form: AcrForm, cell: AcrHeaderCell): string {
+  const value = form[cell.field] ?? ''
+  if (!cell.fallback || value.trim() !== '') return value
+  return form[cell.fallback] ?? ''
 }
 
 export const ACR_HEADER_ROWS: readonly (readonly AcrHeaderCell[])[] = [
@@ -33,7 +58,10 @@ export const ACR_HEADER_ROWS: readonly (readonly AcrHeaderCell[])[] = [
     // 247's amendment 2 — `نموذج رقم ( )` becomes `رقم التجميعي`: the field is the
     // ACR's own serial, not a form-stock number. The pad's parentheses went with it;
     // they bracket a blank a collector wrote into, and this is printed.
-    { label: 'رقم التجميعي: ', field: 'acrNumberText', strong: true },
+    // Ticket 425 (ADR 0066) — the number as printed, `6498-2610-0001` or a legacy
+    // plain number, formatted by the server. `acrNumberText` only under a SIS.Api
+    // that does not send `acrNo` yet.
+    { label: 'رقم التجميعي: ', field: 'acrNo', fallback: 'acrNumberText', strong: true, ltr: true },
     // BackOffice 2145 — المنطقة (Store.Area) became المدينة (Store.City).
     { label: 'المدينة: ', field: 'cities' },
   ],

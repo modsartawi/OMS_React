@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { fsi } from '@/core/util/bidi'
 import { assignmentOptionsQuery } from './api'
 import {
   NO_SERVED_BY,
@@ -296,6 +297,12 @@ function labelFor(
   }
   if (entry.kind === SERVED_BY_KINDS.supervisor) {
     return t('servedBy.supervisorEntry', { name: entry.name || entry.id })
+  }
+  // Spec 2423: ACRs offer accountants too. Named as such, so a person who both
+  // collects and accounts is two distinguishable lines, as a supervisor is. The
+  // name is isolated whole (`fsi`): a datalist option is a string-only sink.
+  if (entry.kind === SERVED_BY_KINDS.accountant) {
+    return t('servedBy.accountantEntry', { name: fsi(entry.name || entry.id) })
   }
   return entry.name || entry.id
 }

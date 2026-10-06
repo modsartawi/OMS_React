@@ -15,9 +15,11 @@ import {
 } from '@/core/theme/ag-grid-theme'
 import { buildAcrsColumns, buildAcrsDefaultColDef } from './acr-columns'
 import {
+  acrsParamsFor,
   buildAcrsParams,
   isLandingQuery,
   landingCriteria,
+  sameQuery,
   type AcrsCriteria,
 } from './acr-criteria'
 import AcrsToolbar from './AcrsToolbar'
@@ -35,9 +37,14 @@ import { buildAcrActionsColumn } from './RowActions'
  * 255).
  *
  * A **variation on the template 254 settled**: the same access gate, the same
- * criteria draft that only Search/Reset promote, the same today-defaulted
- * landing, the same client paging at 50, the same cap banner, the same
- * More-columns toggle and the same floating filter row on by default.
+ * criteria draft that only Search/Reset promote, the same client paging at 50,
+ * the same cap banner, the same More-columns toggle and the same floating filter
+ * row on by default.
+ *
+ * 🚩 **It lands blank** (spec 2423, ticket 425 — Cash Collections' 423 seam,
+ * copied). The 2026-09-27 today collection-date landing is gone, Served by keeps
+ * its default, and **nothing is requested until Search**: the applied criteria
+ * start as `null` and the query is enabled on them.
  *
  * ⚠️ **Copied, not extracted.** There is no shared inquiry shell in `core/` and
  * this Page does not import `CashCollectionsPage` — the abstraction would be
@@ -80,10 +87,10 @@ export default function AcrsPage() {
  * there is nothing here their own scope could hold.
  *
  * 🚩 **The body is not mounted until the roster answer has settled**, for 1165's
- * reason: the landing scope is the *initial state* of both the draft and the applied
- * query, and mounting first would fire the estate-wide query and then a second one,
- * flashing every collector's ACRs at a user whose screen is supposed to open on
- * their own.
+ * reason: the landing scope is the *initial state* of the draft. Since spec 2423 no
+ * query fires on landing, but mounting first would still open the Served-by box on
+ * "Everyone" and leave it there, so the first Search would ask for every collector's
+ * ACRs on a screen that is supposed to open on the user's own.
  *
  * A failed or empty answer lands **unscoped** — the scope is a finding aid, never a
  * permission, and an unreachable roster must not lock anybody out of a screen they
@@ -103,23 +110,20 @@ function AcrsScope() {
 function AcrsBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
 
-  // Today, read at mount and again on Reset — never on render, so a screen left
-  // open across midnight does not silently re-scope itself mid-reconciliation.
-  // It is STATE rather than a frozen ref because the "Filtered" chip is measured
-  // against it, and the two have to move together.
-  const [today, setToday] = useState(() => new Date())
+  // `criteria` is the live toolbar draft; `appliedCriteria` is what has actually
+  // been searched. Only Search promotes one to the other.
+  const [criteria, setCriteria] = useState<AcrsCriteria>(() => landingCriteria(options))
+  // 🚩 **`null` until the first Search** (spec 2423): the open-blank landing. No
+  // criteria applied is no query, and `acrsParamsFor` answers `null` for it.
+  const [appliedCriteria, setAppliedCriteria] = useState<AcrsCriteria | null>(null)
+  const appliedParams = useMemo(() => acrsParamsFor(appliedCriteria), [appliedCriteria])
 
-  // `criteria` is the live toolbar draft; `appliedParams` is the query that has
-  // actually been issued. Only Search/Reset promote one to the other.
-  const [criteria, setCriteria] = useState<AcrsCriteria>(() => landingCriteria(today, options))
-  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildAcrsParams(landingCriteria(today, options)),
-  )
-
-  // The landing query IS the mount query — no `enabled`, no "click Load".
+  // Enabled on a query existing: the landing issues no request until Search.
   const list = useQuery({
     queryKey: ['collection', 'acrs', appliedParams],
-    queryFn: () => collectionApi.acrs(appliedParams),
+    // Non-null by construction: `enabled` below is the same condition.
+    queryFn: () => collectionApi.acrs(appliedParams!),
+    enabled: appliedParams !== null,
   })
 
   // The SAME probe `ScreenGate` above already resolved — one key, ONE set of
@@ -132,17 +136,23 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
     (patch: Partial<AcrsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedParams(buildAcrsParams(criteria)), [criteria])
+  // 🚩 Search on an UNCHANGED draft re-asks the door. The open-blank landing made
+  // Search the only way to load, so pressing it again to see what has come in since
+  // must not be swallowed by an identical query key (Cash Collections' 423 rule).
+  const { refetch } = list
+  const onSearch = useCallback(() => {
+    if (appliedParams !== null && sameQuery(buildAcrsParams(criteria), appliedParams)) {
+      void refetch()
+      return
+    }
+    setAppliedCriteria(criteria)
+  }, [criteria, appliedParams, refetch])
   const onReset = useCallback(() => {
-    // Reset re-reads the clock: a screen left open overnight resets to the day
-    // the supervisor is actually looking at, not the day they opened it.
-    const now = new Date()
-    // Reset restores the landing SCOPE too, not "no scope" — it is the state the
-    // screen opened on, and the chip's ✕ is this button.
-    const landing = landingCriteria(now, options)
-    setToday(now)
-    setCriteria(landing)
-    setAppliedParams(buildAcrsParams(landing))
+    // ⚠️ Reset returns to the UN-SEARCHED landing (spec 2423): the empty draft with
+    // the LANDING scope, not "no scope", and nothing applied — so the grid goes back
+    // to "press Search" and no request is issued. The chip's ✕ is this button.
+    setCriteria(landingCriteria(options))
+    setAppliedCriteria(null)
   }, [options])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
@@ -165,9 +175,10 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
-  // that the grid is no longer showing today, and the grid shows the result of the
-  // last Search. Reset is its ✕.
-  const isFiltered = !isLandingQuery(appliedParams, today, options)
+  // that the grid is showing more than the empty landing's Search, and the grid
+  // shows the result of the last Search. Before the first Search nothing was
+  // issued, so there is no chip. Reset is its ✕.
+  const isFiltered = appliedParams !== null && !isLandingQuery(appliedParams, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
   // ---- the export (ticket 258; a workbook since 336) ----
@@ -214,7 +225,11 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
         />
       )}
 
-      {list.isPending ? (
+      {appliedParams === null ? (
+        // Not an empty result: nothing has been asked yet. A disabled query is still
+        // `isPending`, so this state is tested first or the shimmer would never end.
+        <EmptyState title={t('acrs.landing.title')} hint={t('acrs.landing.hint')} />
+      ) : list.isPending ? (
         <ListShimmer label={t('acrs.loading')} />
       ) : rows.length === 0 && !list.isError ? (
         <EmptyState title={t('acrs.empty.title')} hint={t('acrs.empty.hint')} />

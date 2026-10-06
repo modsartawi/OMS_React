@@ -70,10 +70,12 @@ describe('servedByGroups', () => {
     ])
   })
 
-  // ⚠️ Not tidiness: those screens read the document's own collector column, and an
-  // accountant never collects. The server refuses the combination outright.
-  it('hides Accountants on the two collected-by screens', () => {
-    expect(servedByGroups('acrs', OPTIONS).map((g) => g.kind)).toEqual(['COLLECTOR'])
+  // ⚠️ Not tidiness: Deposits reads the document's own collector column, and an
+  // accountant never collects. The server refuses the combination outright there.
+  // 🚩 ACRs are the exception since spec 2423 (BackOffice 2426): an ACR matches an
+  // accountant through ANY linked collection from their branches.
+  it('offers Accountants on ACRs, and hides them on Deposits', () => {
+    expect(servedByGroups('acrs', OPTIONS).map((g) => g.kind)).toEqual(['ACCOUNTANT', 'COLLECTOR'])
     expect(servedByGroups('deposits', OPTIONS).map((g) => g.kind)).toEqual(['COLLECTOR'])
   })
 
@@ -131,14 +133,35 @@ describe('resolvedKinds', () => {
   })
 
   // ⚠️ FOUR on the collected-by reading since BackOffice 1167 built its arms against
-  // the document's own collector column. ACCOUNTANT is the one that is absent
-  // PERMANENTLY rather than pending: a document records who COLLECTED and an
-  // accountant never collects, so the server refuses that combination outright and
-  // offering it would be offering a filter that errors when used.
-  it('offers the collected-by Kinds — and never ACCOUNTANT — on ACRs and Deposits', () => {
-    expect(resolvedKinds('acrs')).toEqual(['COLLECTOR', 'SUPERVISOR', 'UNASSIGNED', 'MINE'])
-    expect(resolvedKinds('deposits')).toEqual(resolvedKinds('acrs'))
-    expect(resolvedKinds('acrs')).not.toContain('ACCOUNTANT')
+  // the document's own collector column. ACCOUNTANT is absent from the READING: a
+  // document records who COLLECTED and an accountant never collects, so Deposits'
+  // server refuses that combination outright.
+  // 🚩 Spec 2423 (BackOffice 2426) answers it on ACRs alone, so ACRs resolve five and
+  // Deposits keep four. Attempts are on the ASSIGNMENT reading (ticket 316) and
+  // already offered ACCOUNTANT — unchanged, pinned against the full list.
+  it('ACCOUNTANT offered on ACRs, not on Deposits or Attempts', () => {
+    expect(resolvedKinds('acrs')).toEqual(['ACCOUNTANT', 'COLLECTOR', 'SUPERVISOR', 'UNASSIGNED', 'MINE'])
+    expect(resolvedKinds('deposits')).toEqual(['COLLECTOR', 'SUPERVISOR', 'UNASSIGNED', 'MINE'])
+    expect(resolvedKinds('deposits')).not.toContain('ACCOUNTANT')
+
+    // Attempts: exactly as shipped since 316 — the assignment reading's five, its
+    // contract untouched. (Whether Attempts should lose ACCOUNTANT is the owner's
+    // open ruling, logged in .afk/HITL-425.md; this slice does not decide it.)
+    expect(SERVED_BY_SCREENS.attempts).toEqual({ reading: 'assignment', accountants: true, freeText: false })
+    expect(resolvedKinds('attempts')).toEqual(resolvedKinds('collections'))
+
+    // The ACR exception is the screen's, not the reading's: the shared reading still
+    // leaves ACCOUNTANT out, so no other collected-by screen inherits it.
+    expect(SERVED_BY_SCREENS.acrs.reading).toBe('collector')
+    expect(SERVED_BY_SCREENS.deposits.reading).toBe('collector')
+  })
+
+  // An ACCOUNTANT pick on ACRs travels as the ordinary pair — no ACR-only shape.
+  it('sends an accountant picked on ACRs as the ordinary ACCOUNTANT pair', () => {
+    expect(buildServedByParams({ kind: 'ACCOUNTANT', id: '4466' })).toEqual({
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
+    })
   })
 })
 
@@ -251,7 +274,9 @@ describe('the combobox on the collected-by screens', () => {
         ? `${entry.name}'s team`
         : entry.kind === 'MINE'
           ? 'My collections'
-          : entry.name
+          : entry.kind === 'ACCOUNTANT'
+            ? `${entry.name} (accountant)`
+            : entry.name
 
   const entries = () => servedByEntries('acrs', ROSTER, label)
 
@@ -341,22 +366,39 @@ describe('the combobox on the collected-by screens', () => {
     expect(servedByText(NO_SERVED_BY, entries())).toBe('')
   })
 
-  // ⚠️ THE ACCOUNTANTS GROUP IS NOT RENDERED HERE — not greyed, not empty-headed,
-  // absent. The document records who COLLECTED and an accountant never collects, so
-  // the server refuses the combination outright (spec D10); offering it would be
-  // offering a filter that errors when used, and the receipt→store→assignment join
-  // that could fake an answer is rejected because it would make one control mean two
-  // different things on one screen.
-  it('never offers the Accountants group on the collected-by screens', () => {
-    const kinds = entries().map((entry) => entry.kind)
-    expect(kinds).not.toContain('ACCOUNTANT')
-    expect(entries().map((entry) => entry.id)).not.toContain('4466')
+  // ⚠️ THE ACCOUNTANTS GROUP IS NOT RENDERED ON DEPOSITS — not greyed, not
+  // empty-headed, absent. The document records who COLLECTED and an accountant never
+  // collects, so the server refuses the combination outright (spec D10); offering it
+  // would be offering a filter that errors when used.
+  // 🚩 ACRs offer it since spec 2423 (BackOffice 2426): the server answers it there
+  // through ANY linked collection from the accountant's branches.
+  it('offers accountants on the ACRs combobox and never on the Deposits one', () => {
+    const deposits = servedByEntries('deposits', ROSTER, label)
+    expect(deposits.map((entry) => entry.kind)).not.toContain('ACCOUNTANT')
+    expect(deposits.map((entry) => entry.id)).not.toContain('4466')
 
-    // The same payload on Cash Collections DOES offer them, so this is the screen
-    // ruling rather than an empty roster.
-    expect(
-      servedByEntries('collections', ROSTER, label).map((entry) => entry.kind),
-    ).toContain('ACCOUNTANT')
+    expect(entries()).toContainEqual({
+      kind: 'ACCOUNTANT',
+      id: '4466',
+      name: 'ضحى',
+      label: 'ضحى (accountant)',
+    })
+    // …and clicking that line asks the accountant's question, not a collector's —
+    // also when the real label isolates the name (FSI…PDI), as the picker's does.
+    expect(parseServedByText('acrs', 'ضحى (accountant)', [
+      ...entries().filter((e) => e.kind !== 'ACCOUNTANT'),
+      { kind: 'ACCOUNTANT', id: '4466', name: 'ضحى', label: '⁨ضحى⁩ (accountant)' },
+    ])).toEqual({ kind: 'ACCOUNTANT', id: '4466' })
+    expect(parseServedByText('acrs', 'ضحى (accountant)', entries())).toEqual({
+      kind: 'ACCOUNTANT',
+      id: '4466',
+    })
+  })
+
+  // A bare id is still COLLECTOR on ACRs, even an accountant's: the typed-id promise
+  // ("byte-identical to the box it replaced") is unchanged by the new group.
+  it('still reads a typed accountant id as COLLECTOR — only the clicked line is ACCOUNTANT', () => {
+    expect(parseServedByText('acrs', '4466', entries())).toEqual({ kind: 'COLLECTOR', id: '4466' })
   })
 
   // *Unassigned* keeps its place, last and carrying no id — here it means "collected
@@ -387,13 +429,20 @@ describe('the combobox on the collected-by screens', () => {
   // 🚩 A `toEqual` over both tables, not a spot-check of one field: a later slice
   // adding a third key to the contract would otherwise pass this test while quietly
   // splitting the two screens on that key.
-  it('renders the same groups, kinds and entries as the ACRs list', () => {
-    expect(SERVED_BY_SCREENS.deposits).toEqual(SERVED_BY_SCREENS.acrs)
+  //
+  // ⚠️ Spec 2423 split them on exactly ONE key, deliberately: ACRs answer an
+  // accountant (BackOffice 2426), Deposits do not. Everything else — the reading, the
+  // free text, every non-accountant line — stays identical, and is measured here.
+  it('renders the same groups, kinds and entries as the ACRs list, accountants aside', () => {
+    expect({ ...SERVED_BY_SCREENS.deposits, accountants: true }).toEqual(SERVED_BY_SCREENS.acrs)
+    expect(SERVED_BY_SCREENS.deposits.accountants).toBe(false)
     expect(SERVED_BY_SCREENS.deposits.reading).toBe('collector')
 
-    expect(resolvedKinds('deposits')).toEqual(resolvedKinds('acrs'))
-    expect(servedByGroups('deposits', ROSTER)).toEqual(servedByGroups('acrs', ROSTER))
-    expect(servedByEntries('deposits', ROSTER, label)).toEqual(entries())
+    const notAccountant = <T extends { kind: string }>(items: T[]) =>
+      items.filter((item) => item.kind !== 'ACCOUNTANT')
+    expect(resolvedKinds('deposits')).toEqual(resolvedKinds('acrs').filter((kind) => kind !== 'ACCOUNTANT'))
+    expect(servedByGroups('deposits', ROSTER)).toEqual(notAccountant(servedByGroups('acrs', ROSTER)))
+    expect(servedByEntries('deposits', ROSTER, label)).toEqual(notAccountant(entries()))
 
     // …down to what a typed id and a clicked suggestion each become — the two
     // routes into a selection, both answering the same way on either screen.

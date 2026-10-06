@@ -22,6 +22,8 @@ import {
 const ROW: AcrInquiryRow = {
   acrId: '01J0ACR00000000000000000001',
   acrNumber: 41,
+  // Ticket 425 (ADR 0066): the number as printed, server-formatted.
+  acrNo: '4472-2608-0041',
   label: 'Riyadh North — Thursday run',
   collectorOperatorId: '4472',
   collectorName: 'Faisal Al Otaibi',
@@ -74,15 +76,16 @@ describe('the two groups account for the whole wire row', () => {
     expect([...MORE_FIELDS]).toContain('depositId')
   })
 
-  it('only the document’s ULID is withheld from the grid', () => {
+  it('withholds only the document’s ULID and the bare count from the grid', () => {
     // acrId is 257's key for /collection/acr/:acrId — opaque, and meaningless to
-    // read. Named rather than silently skipped.
-    expect([...NON_COLUMN_FIELDS]).toEqual(['acrId'])
+    // read. acrNumber (ticket 425) is the per-collector monthly count, drawn through
+    // the acrNo column's fallback only. Both named rather than silently skipped.
+    expect([...NON_COLUMN_FIELDS]).toEqual(['acrId', 'acrNumber'])
   })
 
   it('the default twelve lead with identity, then the date, then the state and who closed it, then what it holds', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
-      'acrNumber',
+      'acrNo',
       'label',
       'collectorName',
       // Ticket 316's derived Collection date column follows this one (see below).
@@ -407,6 +410,50 @@ describe('what each ACR holds (ticket 341)', () => {
 
   it('every column on the grid has a header in the English bundle', () => {
     for (const col of buildAcrsColumns(english, true)) expect(typeof col.headerName).toBe('string')
+  })
+})
+
+// 🔑 Ticket 425 (ADR 0066, BackOffice 2427): the number as printed. The server
+// formats it; the grid shows it as sent, and the bare count only when it is absent.
+describe('acr columns and header show acrNo; legacy shows the plain number', () => {
+  const acrNoColumn = () => buildAcrsColumns(t, false).find((c) => c.colId === 'acrNo')
+  const shown = (data: Partial<AcrInquiryRow>) =>
+    (acrNoColumn()?.valueGetter as (p: unknown) => string)({ data: { ...ROW, ...data } })
+
+  it('leads the grid, headed through t()', () => {
+    expect(buildAcrsColumns(t, false)[0].colId).toBe('acrNo')
+    expect(acrNoColumn()?.headerName).toBe('acrs.columns.acrNo')
+    expect(en.acrs.columns.acrNo).toBe('ACR No#')
+  })
+
+  it('shows a new ACR’s full number, as sent', () => {
+    expect(shown({ acrNo: '6498-2610-0001', acrNumber: 1 })).toBe('6498-2610-0001')
+  })
+
+  it('shows a legacy ACR’s plain number — its acrNo IS the plain number', () => {
+    expect(shown({ acrNo: '1834', acrNumber: 1834 })).toBe('1834')
+  })
+
+  it('falls back to acrNumber against a SIS.Api that sends no acrNo — and never crashes', () => {
+    const { acrNo: _dropped, ...older } = ROW
+    void _dropped
+    expect((acrNoColumn()?.valueGetter as (p: unknown) => string)({ data: older })).toBe('41')
+    expect(shown({ acrNo: '' })).toBe('41')
+    expect((acrNoColumn()?.valueGetter as (p: unknown) => string)({ data: undefined })).toBe('')
+  })
+
+  it('filters on the number it shows, dashes and all', () => {
+    // No filterValueGetter of its own: the filter reads the value getter above.
+    expect(acrNoColumn()?.filterValueGetter).toBeUndefined()
+    expect(shown({})).toBe('4472-2608-0041')
+    expect(acrNoColumn()?.filter).toBeUndefined() // the default text filter, not a number one
+  })
+
+  // ⚠️ The server sends month newest first, legacy last. A header click would sort
+  // `6498-2610-0001` against `1834` as text — so the column offers no sort at all.
+  it('offers no client sort that would scramble the server’s order', () => {
+    expect(acrNoColumn()?.sortable).toBe(false)
+    expect(acrNoColumn()?.comparator).toBeUndefined()
   })
 })
 

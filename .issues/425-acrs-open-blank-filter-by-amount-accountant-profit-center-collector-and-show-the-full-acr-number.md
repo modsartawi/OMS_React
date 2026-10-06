@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:/Work/DMSCO/BackOffice/.issues/2423-e-collection-feedback-filters-saud-order-monthly-acr-number-and-tighter-grants-spec.md
 blocked-by: —
 ---
@@ -64,10 +64,10 @@ UI: criteria, toolbar, served-by, columns, header, deposit detail · API client.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `acr landing has no dates and issues no request` · Vitest (`acr-criteria.test.ts`)
-- [ ] `ACCOUNTANT offered on ACRs, not on Deposits or Attempts` · Vitest (`served-by.test.ts`)
-- [ ] `acr filters map to params; ACR No# is sent as text` · Vitest
-- [ ] `acr columns and header show acrNo; legacy shows the plain number` · Vitest (`acr-columns.test.ts`, `acr-header.test.ts`)
+- [x] `acr landing has no dates and issues no request` · Vitest (`acr-criteria.test.ts`)
+- [x] `ACCOUNTANT offered on ACRs, not on Deposits or Attempts` · Vitest (`served-by.test.ts`)
+- [x] `acr filters map to params; ACR No# is sent as text` · Vitest
+- [x] `acr columns and header show acrNo; legacy shows the plain number` · Vitest (`acr-columns.test.ts`, `acr-header.test.ts`)
 - [ ] Manual walk against a local SIS.Api once BackOffice 2426–2428 are merged (owner).
 
 ## Boundaries
@@ -82,3 +82,27 @@ The proofs are green and typecheck and lint pass.
 ## Blocked by
 
 None in this repo. Live: BackOffice 2426, 2427, 2428.
+
+## Comments
+
+**2026-10-06 — built AFK (/implement).** Decisions are in `.afk/HITL-425.md` (not committed).
+
+- **Proofs, all vitest:**
+  - `acr-criteria.test.ts` covers the landing, the params and the ACR No# as text.
+  - `served-by.test.ts` covers *ACCOUNTANT offered on ACRs, not on Deposits or Attempts*.
+    - The ticket's "Deposits and Attempts share the collector reading" is wrong for Attempts, which have been on the assignment reading with Accountants since ticket 316.
+    - Per the runner's ruling, Attempts are left exactly as shipped, and the test pins them unchanged.
+    - Whether Attempts should lose ACCOUNTANT is an **open owner ruling**.
+  - `acr-columns.test.ts` and `acr-header.test.ts` cover acrNo, legacy numbers and the fallback.
+  - The new `acr-number.test.ts` covers deposit lines.
+  - `xlsx.test.ts` covers the exported number.
+- **Seam:** 423's, copied. Applied criteria are `null` until Search, and `acrsParamsFor(null)` is `null`, so the query is enabled on that. Reset returns to the un-searched landing, and a repeated Search re-asks the door.
+- **Served by:** the ACRs contract now has `accountants: true`, and `resolvedKinds` adds ACCOUNTANT for that screen only. An accountant still lands on the estate.
+- **ACR number:** the client shows the server's `acrNo` as sent and falls back to `acrNumber` (or to `acrNumberText` on the form). It never builds, parses or sorts the number, and the ACR No# column is not sortable. The header and deposit lines wrap the number in `Ltr`.
+- **Drives, all stubbed:**
+  - New: `tools/acr-filters-drive.mjs` 37/37.
+  - Updated: `acr-closed-by-drive` 41/41, `four-filters-drive` 83/83, `collection-drive` 264/264, `foundation-drive` (its 8 failures are pre-existing and unrelated), `collection-print-drive` (its 2 failures are pre-existing and unrelated).
+- **Gates:** typecheck, vitest (3766), lint (4 gates) and build are green.
+- **Outstanding:**
+  - The owner's manual walk against a local SIS.Api once BackOffice 2426–2428 are merged.
+  - Owner sign-off on the unsortable ACR No# column and on the Attempts-ACCOUNTANT question.

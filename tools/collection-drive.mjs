@@ -961,18 +961,24 @@ async function run() {
   // that are these screens' own: the segmented Status control, and the deliberate
   // ABSENCE of a row action on Collection Attempts.
 
-  // ---- ACRs: it lands ALREADY POPULATED, with no click ----
+  // ---- ACRs: it lands BLANK and asks nothing until Search (spec 2423, ticket 425) ----
+  // (255 landed it already populated; 2026-09-27 moved that landing to today's collection
+  // date; 2423 removed the date and the mount query both.)
   acrsCalls = 0
   lastAcrsQuery = ''
   await page.goto(BASE + ROUTES.acrs)
   await page.waitForLoadState('networkidle')
-  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const qa = () => new URLSearchParams(lastAcrsQuery)
-  check('255 — ACRs queries on MOUNT (no Load button to press)', acrsCalls === 1, `${acrsCalls} calls`)
+  check('425 — ACRs issue NO request on landing', acrsCalls === 0, `${acrsCalls} calls`)
+  check('425 — …and say to press Search, with no grid', (await mainText()).includes('Press Search to see ACRs') && (await page.locator('.ag-root').count()) === 0)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  check('425 — Search asks once', acrsCalls === 1, `${acrsCalls} calls`)
   check(
-    '255 — …and it queries a business date of TODAY (the name 316 gave it), at the system cap',
-    qa().get('BusinessDateFrom') === TODAY && qa().get('BusinessDateTo') === TODAY && qa().get('Limit') === '2000',
+    '425 — …with no date at all, at the system cap',
+    !lastAcrsQuery.includes('Date') && qa().get('Limit') === '2000',
     lastAcrsQuery,
   )
   check(
@@ -986,7 +992,7 @@ async function run() {
     !lastAcrsQuery.includes('Status'),
     lastAcrsQuery,
   )
-  check('255 — ACR rows are on screen without a click', (await page.locator('.ag-row').count()) > 0)
+  check('255 — ACR rows are on screen after the one Search', (await page.locator('.ag-row').count()) > 0)
   check(
     '255 — the floating filter row is visible on arrival (inverting BBY’s default)',
     (await page.locator('.ag-floating-filter').count()) > 0,
@@ -1161,27 +1167,37 @@ async function run() {
   )
   await page.getByRole('button', { name: 'Reset' }).click()
   await page.waitForLoadState('networkidle')
+  // 425 (423's ruling, copied): Reset returns to the UN-SEARCHED landing — nothing asked.
   check(
-    '255 — Reset returns to today with the status and the number cleared',
-    qa().get('BusinessDateFrom') === TODAY && !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('Status'),
-    lastAcrsQuery,
+    '425 — Reset returns to the un-searched landing, the number and status cleared',
+    (await mainText()).includes('Press Search to see ACRs') &&
+      (await page.getByPlaceholder('Number').inputValue()) === '' &&
+      (await page.locator('[role="radio"][data-status="ALL"]').getAttribute('aria-checked')) === 'true',
   )
   check('255 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
 
   // ---- the ACR cap banner: reached, not merely large ----
+  // ⚠️ Waits on the Acrs RESPONSE, not on networkidle: the page is already idle when
+  // Search is clicked, so a load-state wait would return before the request even left.
+  const searchAcrs = async () => {
+    await page.goto(BASE + ROUTES.acrs)
+    await page.waitForLoadState('networkidle')
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/CollectionWeb/Acrs')),
+      page.getByRole('button', { name: 'Search', exact: true }).click(),
+    ])
+    await page.waitForTimeout(300)
+  }
   acrRows = makeAcrRows(1999)
-  await page.goto(BASE + ROUTES.acrs)
-  await page.waitForLoadState('networkidle')
+  await searchAcrs()
   check('255 — 1,999 ACRs is merely large: NO banner', !/reached the 2,000-row system cap/.test(await mainText()))
   acrRows = makeAcrRows(2000)
-  await page.goto(BASE + ROUTES.acrs)
-  await page.waitForLoadState('networkidle')
+  await searchAcrs()
   check('255 — 2,000 ACRs REACHED the cap: the amber banner fires', /reached the 2,000-row system cap/.test(await mainText()))
 
   acrRows = []
-  await page.goto(BASE + ROUTES.acrs)
-  await page.waitForLoadState('networkidle')
-  check('255 — an empty period reads as empty, not as an error', (await mainText()).includes('No ACRs in this period'))
+  await searchAcrs()
+  check('255 — an empty result reads as empty, not as an error', (await mainText()).includes('No ACRs match this search'))
   acrRows = makeAcrRows(213)
 
   // ---- Collection Attempts: the same template, minus the row action ----
@@ -1659,6 +1675,9 @@ async function run() {
   // ---- the ACRs grid's two actions ----
   await page.goto(BASE + ROUTES.acrs)
   await page.waitForLoadState('networkidle')
+  // ACRs land blank since spec 2423 (ticket 425): the rows come with the first Search.
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
 
   const acrActions = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
@@ -1688,6 +1707,9 @@ async function run() {
   scenario = { accessBody: { ...NONE, canOpenAcrs: true }, access403: false, access500: false }
   await page.goto(BASE + ROUTES.acrs)
   await page.waitForLoadState('networkidle')
+  // ACRs land blank since spec 2423 (ticket 425): the rows come with the first Search.
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
   const raggedActions = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
   check(
@@ -1708,6 +1730,9 @@ async function run() {
 
   // ---- Collections ▸ : the drill-down, clicked for real ----
   await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  // ACRs land blank since spec 2423 (ticket 425): the rows come with the first Search.
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
   collectionsCalls = 0
@@ -2108,6 +2133,8 @@ async function run() {
       folded: ['Created', 'Closed', 'Closed By Id', 'First Collected', 'Last Collected', 'Collector Id', 'Deposit No#', 'Deposit Status', 'Deposit Id'],
       money: ['Cash Sales', 'Settlement', 'Net Collected', 'Card Total'],
       identity: 'ACR No#',
+      // Lands blank since spec 2423 (ticket 425): nothing to export until Search.
+      landsBlank: true,
     },
     {
       key: 'deposits',
@@ -2130,6 +2157,10 @@ async function run() {
   for (const screen of OTHERS) {
     await page.goto(BASE + screen.route)
     await page.waitForLoadState('networkidle')
+    if (screen.landsBlank) {
+      await page.getByRole('button', { name: 'Search', exact: true }).click()
+      await page.waitForLoadState('networkidle')
+    }
     await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
     const book = await exportWorkbook()
     check(`336 — ${screen.key} exports its own workbook`, book.name === `collection-${screen.key}-${TODAY}.xlsx`, book.name)

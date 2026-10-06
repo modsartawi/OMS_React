@@ -319,8 +319,20 @@ export const ACR_SYSTEM_CLOSER = 'SYSTEM'
 export interface AcrInquiryRow {
   /** ULID, the ACR's PK and the form URL's key (spec 249 §"The ACR form"). */
   acrId: string
-  /** The serial a supervisor actually holds — `AcrNumber`, minted per collector. */
+  /**
+   * The bare count. Since ADR 0066 (BackOffice 2427) it is counted per collector per
+   * business-day month, so on its own it no longer names one ACR — read
+   * {@link acrNo}, and this only when `acrNo` is absent.
+   */
   acrNumber: number
+  /**
+   * The ACR number as printed (ADR 0066, BackOffice 2427) — `<collector id>-YYMM-NNNN`
+   * (`6498-2610-0001`) on a new ACR, the plain number on a legacy one. **Formatted
+   * by the server**: the client shows it as sent and never builds, parses or
+   * re-sorts it. Optional because a SIS.Api from before 2427 does not send it; the
+   * screen then falls back to {@link acrNumber}.
+   */
+  acrNo?: string
   label: string
   collectorOperatorId: string
   collectorName: string
@@ -406,6 +418,13 @@ export interface DepositInquiryLine {
   /** ULID of the claimed ACR. */
   acrId: string
   acrNumber: number
+  /**
+   * The ACR number this line was deposited under, as printed — a snapshot stamped
+   * when the line was created (BackOffice 2428), so the deposit slip stays truthful.
+   * Server-formatted, shown as sent; absent from a SIS.Api before 2428, when the
+   * screen falls back to {@link acrNumber}.
+   */
+  acrNo?: string
   /**
    * The ACR's business date (BackOffice 1993, ticket 316) — what the Deposits
    * screen's `BusinessDateFrom`/`To` read, per line: a deposit banks several ACRs,
@@ -886,6 +905,12 @@ export interface AcrForm {
   acrDateText: string
   /** Rendered under رقم التجميعي (247's amendment 2), not نموذج رقم ( ). */
   acrNumberText: string
+  /**
+   * The ACR number as printed (ADR 0066; BackOffice 2427/2429) — `6498-2610-0001`, or
+   * a legacy ACR's plain number. What رقم التجميعي prints; {@link acrNumberText} only
+   * when a SIS.Api from before 2429 does not send it.
+   */
+  acrNo?: string
   /**
    * المدينة (BackOffice 2145) — the distinct cities of the visited branches, `'A / B'`
    * when a round crossed cities, `''` when none resolved. Replaced `areas`.

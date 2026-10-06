@@ -24,7 +24,7 @@ import { queryOptions } from '@tanstack/react-query'
 
 import { api } from '@/core/api'
 import { newRequestId } from '@/core/engine-session/request-id'
-import type { CollectionAccessResult } from '@/core/models/collection'
+import type { AssignmentRoster, CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
   SettlementBranch,
@@ -66,6 +66,7 @@ import {
   WORKLIST_LIMIT,
 } from './cap'
 import { changeRequestFailure } from './change-request'
+import { ledgerQuery } from './ledger'
 import type { PostRequest } from './posting'
 
 /**
@@ -128,7 +129,40 @@ export const changeRequestHistoryQuery = (settlementEntryId: string) =>
     retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
   })
 
+/**
+ * **The Ledger's *Posted by* picker** (ticket 426, spec 2423) — the finance roster's
+ * accountants, read off `CollectionWeb/AssignmentOptions`.
+ *
+ * 🔑 **This screen's own call to that door, never the inquiry feature's query**: a
+ * feature may not import another feature (`.claude/rules/feature-structure.md`), so
+ * only the payload's TYPE graduated to `@/core/models/collection` (`AssignmentRoster`).
+ * Its own key, so the two caches never have to agree on a shape this screen does not
+ * read (`defaultScope`).
+ *
+ * ⚠️ **The door is gated on ANY of the six collection-screen grants, and the
+ * settlement grant is not one of them** (BackOffice 1196's disjunction). A session
+ * holding only the settlement grant gets a 403 here — the picker is then empty and the
+ * other criteria still work. `retry: false` and `staleTime: Infinity` for the inquiry
+ * screens' reasons: a roster does not change inside a page life, and a 403 will not
+ * change on a retry. Logged in `.afk/HITL-426.md`.
+ */
+export const SETTLEMENT_ROSTER_KEY = ['settlement', 'assignment-options'] as const
+
+export const settlementRosterQuery = () =>
+  queryOptions({
+    queryKey: SETTLEMENT_ROSTER_KEY,
+    queryFn: () => settlementApi.roster(),
+    staleTime: Infinity,
+    retry: false,
+  })
+
 export const settlementApi = {
+  /** `GET CollectionWeb/AssignmentOptions` → the finance roster (see
+   *  `settlementRosterQuery`). Only `accountants` is read here. */
+  roster(): Promise<AssignmentRoster> {
+    return api.get<AssignmentRoster>('CollectionWeb/AssignmentOptions')
+  },
+
   /**
    * `GET Settlement/Account?storeId=…` → one branch's whole position: every entry,
    * open and closed, and the flat array of consumptions behind them (spec 267 D8).
@@ -268,7 +302,8 @@ export const settlementApi = {
    */
   ledger(criteria: SettlementLedgerCriteria): Promise<SettlementLedgerRow[]> {
     return api.get<SettlementLedgerRow[]>('Settlement/Ledger', {
-      ...criteria,
+      // Spec 2423: the door's names, spelled once in `ledger.ts` and pinned there.
+      ...ledgerQuery(criteria),
       limit: LEDGER_LIMIT,
     })
   },

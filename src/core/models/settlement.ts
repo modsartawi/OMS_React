@@ -135,6 +135,13 @@ export type SettlementEntry = {
    */
   approvedByStaffId: string
   approvedAt: string
+  /**
+   * The approver's name as stamped at the decision (BackOffice 2430, spec 2423) —
+   * denormalised like `postedByName`, so a later rename does not rewrite who approved.
+   * ⚠️ **Blank on an entry approved before 2430** (no back-fill), and **absent from an
+   * older SIS.Api**: the screen then shows `approvedByStaffId` (`approvedByCell`).
+   */
+  approvedByName?: string
   /** Who refused a pending surplus, when, and why (ticket 1978) — the reason is what
    *  the accountant reads before posting a corrected entry. Server text, passed
    *  through unlocalised. Blank / year-1 unless `status` is `REJECTED`. */
@@ -700,6 +707,18 @@ export type SettlementLedgerCriteria = {
    *  next midnight, exclusively, so a reader who types today does not get an empty
    *  answer because the entries were posted at 14:00. */
   postedTo?: string
+  /**
+   * Bounds on the entry's `amount`, both **inclusive**, either optional (BackOffice
+   * 2430). From above To is the server's refusal (`InquiryAmountRange`), not this
+   * client's. `0` is a real bound — every reader tests `!== undefined`.
+   */
+  amountFrom?: number
+  amountTo?: number
+  /** **Contains**, on the branch's profit center (BackOffice 2430). */
+  profitCenter?: string
+  /** The spec's *Accountant* filter: the staff id that POSTED the entry, **exact**
+   *  (BackOffice 2430). */
+  postedByStaffId?: string
 }
 
 /**

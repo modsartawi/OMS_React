@@ -1,7 +1,8 @@
+import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
 import type { SettlementEntry } from '@/core/models/settlement'
-import { formatDay } from '@/core/util/date-format'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { remainingIsAClaim } from './account-projection'
 import { isStamped, type DayVariance } from './approval'
 import { settlementMoney } from './money-display'
@@ -110,4 +111,66 @@ export function dayVarianceWords(
     counted: settlementMoney(day.countedCash, currencyKey),
     system: settlementMoney(day.systemCash, currencyKey),
   })
+}
+
+/**
+ * **Approved by** (spec 2423, ticket 426) — who let the entry go live: the name the
+ * server stamped at the decision, falling back to the **staff id** when the name is
+ * blank (an entry approved before BackOffice 2430, which back-fills nothing) or absent
+ * (an older SIS.Api).
+ *
+ * ⚠️ **Blank, not a dash, on an entry nobody approved** — most entries never waited,
+ * and a column of dashes would read as *something is missing*. A supervisor's own
+ * large surplus names its poster, as the server stamped it.
+ */
+export function approvedByCell(
+  entry: Pick<SettlementEntry, 'approvedByStaffId' | 'approvedByName' | 'approvedAt'> | null | undefined,
+): string {
+  // ⚠️ Gated on the STAMP, as Approved at and the audit pane's fact are — the three
+  // must never disagree about whether an entry was approved.
+  if (!entry || !isStamped(entry.approvedAt)) return ''
+  return approverName(entry) || (entry.approvedByStaffId ?? '').trim()
+}
+
+/** The approver's stamped name, trimmed — `''` when none was stamped. The ONE reading
+ *  of it: the grids (`approvedByCell`) and the audit pane both take it from here. */
+export const approverName = (entry: Pick<SettlementEntry, 'approvedByName'>): string =>
+  (entry.approvedByName ?? '').trim()
+
+/**
+ * **Approved at** — the decision's local wall clock, formatted like *Posted at*. Blank
+ * when the server did not stamp it: an unapproved entry carries `0001-01-01T00:00:00`
+ * (a `NOT NULL` column's default), which would otherwise draw as a date in year 1.
+ */
+export function approvedAtCell(
+  entry: Pick<SettlementEntry, 'approvedAt'> | null | undefined,
+): string {
+  return entry && isStamped(entry.approvedAt) ? formatDateTime(entry.approvedAt) : ''
+}
+
+/**
+ * **Approved by → Approved at** (spec 2423, ticket 426) — the two columns both grids
+ * draw after Posted at, defined once so their width, id, filter and cells cannot drift
+ * between the Ledger and the Account.
+ */
+export function approverColumns<T extends SettlementEntry>(t: TFunction): ColDef<T>[] {
+  return [
+    {
+      // The name the server stamped, else the staff id; blank when nobody had to.
+      headerName: t('account.columns.approvedBy'),
+      colId: 'approvedBy',
+      width: 180,
+      valueGetter: (p) => approvedByCell(p.data),
+    },
+    {
+      headerName: t('account.columns.approvedAt'),
+      field: 'approvedAt' as ColDef<T>['field'],
+      colId: 'approvedAt',
+      width: 160,
+      // ⚠️ Blank on an unstamped `0001-01-01` — see `approvedAtCell`. Sorting still uses
+      // the raw value, which puts the unapproved together at one end.
+      valueFormatter: (p: ValueFormatterParams<T, string>) => approvedAtCell(p.data),
+      filterValueGetter: (p) => approvedAtCell(p.data),
+    },
+  ]
 }

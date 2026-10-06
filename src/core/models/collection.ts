@@ -1031,3 +1031,25 @@ export type WithdrawnSlip = WithdrawnAttachment
 
 /** ByOwner's `withdrawn` sibling — `AttachmentOwnerSiblings`. */
 export type SlipOwnerSiblings = AttachmentOwnerSiblings
+
+/** A pickable person, as `CollectionWeb/AssignmentOptions` returns them. */
+export interface AssignmentPerson {
+  staffId: string
+  displayName: string
+}
+
+/**
+ * The three groups of `CollectionWeb/AssignmentOptions` — the finance roster, as the
+ * picker reads it.
+ *
+ * 🔑 **Graduated here by ticket 426** (spec 2423): the settlement Ledger's *Posted by*
+ * picker is built from the roster's accountants, and a feature may not import another
+ * feature's types (`.claude/rules/feature-structure.md`). Only the shared part moved:
+ * the inquiry screens' `AssignmentOptions` extends this with the caller's own landing
+ * scope, which is a *Served by* concept the settlement screens do not read.
+ */
+export interface AssignmentRoster {
+  accountants: AssignmentPerson[]
+  collectors: AssignmentPerson[]
+  supervisors: AssignmentPerson[]
+}

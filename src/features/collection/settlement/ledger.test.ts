@@ -5,8 +5,10 @@ import {
   hasCriterion,
   LEDGER_STATUSES,
   ledgerKey,
+  ledgerQuery,
   ledgerSearch,
   readCriteria,
+  readLedgerAmount,
 } from './ledger'
 
 /**
@@ -188,5 +190,115 @@ describe('ledgerKey', () => {
 describe('the vocabulary', () => {
   it('offers OPEN first — it is the status an accountant asks for by itself', () => {
     expect(LEDGER_STATUSES[0]).toBe('OPEN')
+  })
+})
+
+/**
+ * Spec 2423 (ticket 426): Amount From/To, Profit center and Posted by. The proof the
+ * ticket names — *the new filters map to URL params and satisfy the criterion rule* —
+ * on both halves of "URL": the screen's own address and the door's query.
+ */
+describe('ledger new filters map to URL params and satisfy the criterion rule', () => {
+  it('each new criterion alone satisfies the rule — "amount ≥ 1,000" is a valid search', () => {
+    expect(hasCriterion({ amountFrom: 1000 })).toBe(true)
+    expect(hasCriterion({ amountTo: 50 })).toBe(true)
+    expect(hasCriterion({ profitCenter: 'P1' })).toBe(true)
+    expect(hasCriterion({ postedByStaffId: 'ACC7' })).toBe(true)
+  })
+
+  it('counts a 0 bound — it is a bound, not the absence of one', () => {
+    expect(hasCriterion({ amountFrom: 0 })).toBe(true)
+    expect(hasCriterion({ amountTo: 0 })).toBe(true)
+  })
+
+  it('does not count an empty profit center or poster', () => {
+    expect(hasCriterion({ profitCenter: '', postedByStaffId: '' })).toBe(false)
+  })
+
+  it('reads the four from the address', () => {
+    const c = readCriteria(params('amountFrom=1000&amountTo=2500.5&profitCenter=%20P12%20&postedBy=ACC7'))
+    expect(c).toMatchObject({
+      amountFrom: 1000,
+      amountTo: 2500.5,
+      profitCenter: 'P12',
+      postedByStaffId: 'ACC7',
+    })
+    expect(hasCriterion(c)).toBe(true)
+  })
+
+  it('drops an unreadable amount rather than guessing at it', () => {
+    // 🚩 `1,000` read as 1 or as 1000 would each answer a different question silently.
+    for (const raw of ['1,000', '-5', 'abc', '1e3', '']) {
+      expect(readCriteria(params(`amountFrom=${encodeURIComponent(raw)}`)).amountFrom).toBeUndefined()
+    }
+    expect(readCriteria(params('amountTo=.5')).amountTo).toBe(0.5)
+    expect(readCriteria(params('amountTo=0')).amountTo).toBe(0)
+  })
+
+  it('🚩 holds an amount to money’s scale, so every bound it writes reads back as itself', () => {
+    // Past three decimals or twelve whole digits `String(n)` can turn exponential
+    // (`1e-7`), which the reader would then drop while the address still showed it.
+    expect(readLedgerAmount('0.0000001')).toBeUndefined()
+    expect(readLedgerAmount('1234567890123')).toBeUndefined()
+    expect(readLedgerAmount('45.750')).toBe(45.75)
+    for (const typed of ['999999999999.999', '0.001', '.5', '45.750', '1000.']) {
+      const amount = readLedgerAmount(typed)!
+      const href = ledgerSearch(params(''), { amountFrom: amount })
+      expect(readCriteria(new URLSearchParams(href.slice(href.indexOf('?')))).amountFrom).toBe(amount)
+    }
+  })
+
+  it('writes them into the screen address and round-trips', () => {
+    const asked = { amountFrom: 0, amountTo: 2500.5, profitCenter: 'P12', postedByStaffId: 'ACC7' }
+    const href = ledgerSearch(params(''), asked)
+    const search = new URLSearchParams(href.slice(href.indexOf('?')))
+
+    expect(search.get('amountFrom')).toBe('0')
+    expect(search.get('amountTo')).toBe('2500.5')
+    expect(search.get('profitCenter')).toBe('P12')
+    expect(search.get('postedBy')).toBe('ACC7')
+    expect(readCriteria(search)).toMatchObject(asked)
+  })
+
+  it('sends them to the door under its own camelCase names', () => {
+    const query = ledgerQuery({ amountFrom: 1000, amountTo: 2000, profitCenter: 'P12', postedByStaffId: 'ACC7' })
+
+    expect(query).toMatchObject({
+      amountFrom: 1000,
+      amountTo: 2000,
+      profitCenter: 'P12',
+      postedByStaffId: 'ACC7',
+    })
+  })
+
+  it('never sends an unset criterion — only what was asked has a value', () => {
+    const query = ledgerQuery(readCriteria(params('amountFrom=1000')))
+    const sent = Object.entries(query).filter(([, v]) => v !== undefined && v !== '')
+
+    expect(sent).toEqual([['amountFrom', 1000]])
+  })
+
+  it('still sends every older criterion under its old name', () => {
+    const query = ledgerQuery(
+      readCriteria(params('entry=143&store=0142&kind=SHORTAGE&status=OPEN&batch=01J8&from=2026-08-01&to=2026-08-14')),
+    )
+
+    expect(query).toMatchObject({
+      entryNumber: 143,
+      storeId: '0142',
+      entryKind: 'SHORTAGE',
+      status: 'OPEN',
+      batchId: '01J8',
+      postedFrom: '2026-08-01',
+      postedTo: '2026-08-14',
+    })
+  })
+
+  it('forks the cache key on each new criterion', () => {
+    const base = ledgerKey({ status: 'OPEN' })
+    expect(ledgerKey({ status: 'OPEN', amountFrom: 1000 })).not.toBe(base)
+    expect(ledgerKey({ status: 'OPEN', amountTo: 1000 })).not.toBe(ledgerKey({ status: 'OPEN', amountFrom: 1000 }))
+    expect(ledgerKey({ status: 'OPEN', profitCenter: 'P1' })).not.toBe(base)
+    expect(ledgerKey({ status: 'OPEN', postedByStaffId: 'ACC7' })).not.toBe(base)
   })
 })

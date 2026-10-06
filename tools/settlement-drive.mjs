@@ -217,7 +217,9 @@ function findEntry(settlementEntryId) {
 
 async function run() {
   const browser = await chromium.launch()
-  const page = await browser.newPage({ viewport: { width: 1600, height: 900 } })
+  // 426: wide enough that the account grid's Journal column — now after Approved by / at — is
+  // inside AG Grid's column virtualisation; at 1600 it is drawn only once scrolled to.
+  const page = await browser.newPage({ viewport: { width: 2000, height: 900 } })
   // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
   // stored preference opens it (the toggle's own key, as a user who pinned it open).
   await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
@@ -317,7 +319,9 @@ async function run() {
     if (path === 'Settlement/Ledger') {
       const q = (k) => (url.searchParams.get(k) || '').trim()
       const entryNumber = q('entryNumber')
-      const asked = ['entryNumber', 'storeId', 'entryKind', 'status', 'batchId', 'postedFrom', 'postedTo']
+      // 426 (BackOffice 2430): amount, profit center and posted-by each count alone.
+      const asked = ['entryNumber', 'storeId', 'entryKind', 'status', 'batchId', 'postedFrom', 'postedTo',
+        'amountFrom', 'amountTo', 'profitCenter', 'postedByStaffId']
         .some((k) => q(k) !== '')
       ledgerCalls.push(Object.fromEntries([...url.searchParams].filter(([k]) => k !== 'limit')))
       // ---- ticket 285: the OPEN SETTLEMENTS LANE, over this same door ----
@@ -1627,7 +1631,10 @@ async function run() {
   const auditFacts = async () => page.locator('[data-region="entry-audit"] li').all()
   const auditKinds = async () =>
     Promise.all((await auditFacts()).map((li) => li.getAttribute('data-fact')))
-  const auditText = async () => page.locator('[data-region="entry-audit"]').innerText()
+  // 426: the pane isolates each name and staff id whole (FSI…PDI, bidi.md) inside its
+  // sentence; the checks read the words without the invisible marks.
+  const auditText = async () =>
+    (await page.locator('[data-region="entry-audit"]').innerText()).replace(/[⁦-⁩]/g, '')
 
   // ---- an untouched entry offers ONLY Cancel ----
   await openAccount('0688')

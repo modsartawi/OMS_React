@@ -1927,7 +1927,8 @@ async function run() {
   })
   const facts = () =>
     page.$$eval('[data-region="entry-audit"] li[data-fact]', (lis) =>
-      lis.map((li) => ({ kind: li.getAttribute('data-fact'), text: li.innerText })),
+      // 426: names are isolated whole (FSI…PDI) inside the sentence — read without the marks.
+      lis.map((li) => ({ kind: li.getAttribute('data-fact'), text: li.innerText.replace(/[⁦-⁩]/g, '') })),
     )
 
   resetCr()

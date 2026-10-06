@@ -9,6 +9,7 @@ import { AgGridReact } from 'ag-grid-react'
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { distinctCurrencies } from '@/core/money'
+import type { AssignmentPerson } from '@/core/models/collection'
 import type {
   SettlementEntryKind,
   SettlementEntryStatus,
@@ -17,6 +18,7 @@ import type {
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import { fsi } from '@/core/util/bidi'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
@@ -24,7 +26,7 @@ import {
 } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { branchSearch } from './addresses'
-import { settlementApi } from './api'
+import { settlementApi, settlementRosterQuery } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import { GRID_PAGE_SIZE, isCapReached, LEDGER_LIMIT } from './cap'
 import { entryKindLabel, entryStatusLabel } from './entry-cells'
@@ -35,6 +37,7 @@ import {
   ledgerKey,
   ledgerSearch,
   readCriteria,
+  readLedgerAmount,
 } from './ledger'
 import { buildLedgerColumns, ledgerRowClass, ledgerRowId } from './ledger-columns'
 
@@ -91,6 +94,13 @@ export default function LedgerView() {
     staleTime: 60_000,
   })
 
+  // Spec 2423 (ticket 426): the Posted-by picker's people. ⚠️ A 403 (a session holding
+  // only the settlement grant — see `settlementRosterQuery`) leaves the picker empty and
+  // every other criterion working; it is never an error banner over the ledger.
+  const roster = useQuery(settlementRosterQuery())
+  const accountants = roster.data?.accountants ?? []
+  const rosterUnavailable = roster.isError
+
   const rows = useMemo(() => ledger.data ?? [], [ledger.data])
   // 244 §7's rule: the code is a column only when the ANSWER actually mixes.
   const mixedCurrency = useMemo(() => distinctCurrencies(rows, (r) => r.currencyKey).length > 1, [rows])
@@ -129,7 +139,13 @@ export default function LedgerView() {
         <p className="text-xs text-muted-foreground">{t('ledger.subtitle')}</p>
       </header>
 
-      <Criteria criteria={criteria} onAmend={amend} onClear={() => navigate(ledgerSearch(searchParams, {}))} />
+      <Criteria
+        criteria={criteria}
+        accountants={accountants}
+        rosterUnavailable={rosterUnavailable}
+        onAmend={amend}
+        onClear={() => navigate(ledgerSearch(searchParams, {}))}
+      />
 
       {!asked ? (
         // ⚠️ A prompt, not an empty grid and not an error. Nothing was asked, so
@@ -225,10 +241,14 @@ export default function LedgerView() {
  */
 function Criteria({
   criteria,
+  accountants,
+  rosterUnavailable,
   onAmend,
   onClear,
 }: {
   criteria: SettlementLedgerCriteria
+  accountants: readonly AssignmentPerson[]
+  rosterUnavailable: boolean
   onAmend: (patch: Partial<SettlementLedgerCriteria>) => void
   onClear: () => void
 }) {
@@ -314,6 +334,43 @@ function Criteria({
         <Button type="button" variant="text" className="ms-auto" onClick={onClear}>
           {t('ledger.filters.clear')}
         </Button>
+      </div>
+
+      {/* Spec 2423 (ticket 426): Amount, Profit center and Posted by — each one alone
+          is a question the door answers (`hasCriterion`). */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-region="ledger-more-criteria">
+        <CommitBox
+          label={t('ledger.filters.amountFrom')}
+          hint={t('ledger.filters.amountHint')}
+          value={criteria.amountFrom === undefined ? '' : String(criteria.amountFrom)}
+          read={amountText}
+          onCommit={(v) => onAmend({ amountFrom: v ? Number(v) : undefined })}
+          amount
+          testId="ledger-amount-from"
+        />
+        <CommitBox
+          label={t('ledger.filters.amountTo')}
+          hint={t('ledger.filters.amountHint')}
+          value={criteria.amountTo === undefined ? '' : String(criteria.amountTo)}
+          read={amountText}
+          onCommit={(v) => onAmend({ amountTo: v ? Number(v) : undefined })}
+          amount
+          testId="ledger-amount-to"
+        />
+        <CommitBox
+          label={t('ledger.filters.profitCenter')}
+          hint={t('ledger.filters.profitCenterHint')}
+          value={criteria.profitCenter ?? ''}
+          read={(v) => v.trim()}
+          onCommit={(v) => onAmend({ profitCenter: v || undefined })}
+          testId="ledger-profit-center"
+        />
+        <PostedByPicker
+          accountants={accountants}
+          unavailable={rosterUnavailable}
+          value={criteria.postedByStaffId ?? ''}
+          onPick={(v) => onAmend({ postedByStaffId: v || undefined })}
+        />
       </div>
 
       {/* The two criteria that arrive by LINK rather than by control — a batch from
@@ -417,6 +474,132 @@ function DateBox({
         data-testid={testId}
         className="h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60"
       />
+    </label>
+  )
+}
+
+/**
+ * An amount box's reading of what was typed: `''` for an empty box (no bound), the
+ * amount in the address's own spelling (`.5` → `0.5`, `1000.0` → `1000`), or
+ * `undefined` when it is not a plain decimal (`1,000`) — the ledger's drop rule
+ * (`readLedgerAmount`), applied to a box rather than to a pasted address.
+ */
+const amountText = (typed: string): string | undefined => {
+  if (typed.trim() === '') return ''
+  const amount = readLedgerAmount(typed)
+  return amount === undefined ? undefined : String(amount)
+}
+
+/**
+ * A typed criterion (ticket 426) that **commits on Enter or on leaving the box**, never
+ * per keystroke — every commit is a navigation, and the entry-number form's rule holds
+ * here too: a lookup must not move the screen out from under someone still typing.
+ *
+ * Keyed on its URL value by the caller's `value`, so Back, *Clear all* or a link that
+ * changes the criterion redraws the box with what is actually being asked.
+ *
+ * `read` turns the typed text into the address's own spelling of it. ⚠️ Typed text
+ * it refuses (`undefined`) commits NOTHING — the criterion already asked stands, and
+ * the box shows it again — and a spelling of the same value (`.5` over `0.5`) is no
+ * change, so it adds no history entry.
+ */
+type CommitBoxProps = {
+  label: string
+  hint: string
+  value: string
+  read: (typed: string) => string | undefined
+  onCommit: (value: string) => void
+  amount?: boolean
+  testId: string
+}
+
+function CommitBox(props: CommitBoxProps) {
+  return <CommitInput key={props.value} {...props} />
+}
+
+function CommitInput({ label, hint, value, read, onCommit, amount = false, testId }: CommitBoxProps) {
+  const [typed, setTyped] = useState(value)
+  const commit = () => {
+    const next = read(typed)
+    // Refused or unchanged: the address stays as it is, and the box says what it asks.
+    if (next === undefined || next === value) {
+      setTyped(value)
+      return
+    }
+    onCommit(next)
+  }
+
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      {label}
+      <input
+        type="text"
+        // Amounts are machine values — LTR, whichever way the page runs.
+        dir={amount ? 'ltr' : undefined}
+        inputMode={amount ? 'decimal' : undefined}
+        title={hint}
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          }
+        }}
+        data-testid={testId}
+        className={
+          'h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60 ' +
+          (amount ? 'w-28 text-end tabular-nums' : 'w-36')
+        }
+      />
+    </label>
+  )
+}
+
+/**
+ * **Posted by** — the spec's *Accountant* filter (2423 story 48): who POSTED the entry,
+ * picked from the finance roster's accountants and sent as an exact staff id.
+ *
+ * 🚩 A native `<option>` is a string-only sink, so each name is isolated whole with
+ * `fsi` (`.claude/rules/bidi.md`). A staff id from the address that the roster does not
+ * name (a leaver, or a roster this session may not read) is still offered, as itself,
+ * so the control always shows what the query actually carries.
+ */
+function PostedByPicker({
+  accountants,
+  unavailable,
+  value,
+  onPick,
+}: {
+  accountants: readonly AssignmentPerson[]
+  /** The roster could not be read (a 403 for a settlement-only session, or an
+   *  outage): said on the control, so an empty list is not read as *no accountants*. */
+  unavailable: boolean
+  value: string
+  onPick: (staffId: string) => void
+}) {
+  const { t } = useTranslation('settlement')
+  const known = accountants.some((a) => a.staffId === value)
+
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      {t('ledger.filters.postedBy')}
+      <select
+        value={value}
+        onChange={(e) => onPick(e.target.value)}
+        title={unavailable ? t('ledger.filters.postedByUnavailable') : t('ledger.filters.postedByHint')}
+        data-testid="ledger-posted-by"
+        className="h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60"
+      >
+        <option value="">{t('ledger.filters.postedByAny')}</option>
+        {accountants.map((a) => (
+          <option key={a.staffId} value={a.staffId}>
+            {fsi(a.displayName || a.staffId)}
+          </option>
+        ))}
+        {value && !known && <option value={value}>{fsi(value)}</option>}
+      </select>
     </label>
   )
 }

@@ -5,17 +5,23 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import { isDimmed, type AccountEntryRow } from './account-projection'
-import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
+import {
+  approverColumns,
+  entryKindLabel,
+  entryStatusLabel,
+  remainingCell,
+} from './entry-cells'
 
 /**
  * The branch account's entries grid (ticket 269) — 254's column shape applied to a
  * settlement entry.
  *
  * The eight columns are the ticket's own list, in its own order: *number, kind,
- * amount, remaining, reason, status, posted by / at*. The ninth — the journal count
- * — is the **affordance for the drilldown**: an entry with four consumptions behind
- * it and an entry with none look identical until the row is opened, and a reader
- * cannot be expected to click every row to find out which is which.
+ * amount, remaining, reason, status, posted by / at* — and since spec 2423 (ticket 426)
+ * *approved by / at* after them. The last — the journal count — is the **affordance
+ * for the drilldown**: an entry with four consumptions behind it and an entry with
+ * none look identical until the row is opened, and a reader cannot be expected to
+ * click every row to find out which is which.
  *
  * ⚠️ **Nothing here computes a variance** (spec D3, the ticket's rule 3). Both money
  * columns render a figure the server sent; neither subtracts the other, and the
@@ -128,6 +134,9 @@ export function buildAccountColumns(
       // otherwise find nothing. Sorting still uses the raw value.
       filterValueGetter: (p) => formatDateTime(p.data?.postedAt),
     },
+    // Spec 2423 (ticket 426): who approved, after Posted at — the ledger's own two
+    // columns, so the two grids cannot disagree about an approver.
+    ...approverColumns<AccountEntryRow>(t),
     {
       // The drilldown's affordance. A count, not a chevron: it says both *there is
       // something here* and *how much of it*, which is the difference between a

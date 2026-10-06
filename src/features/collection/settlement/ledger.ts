@@ -4,11 +4,15 @@ import type {
   SettlementLedgerCriteria,
 } from '@/core/models/settlement'
 import {
+  AMOUNT_FROM_PARAM,
+  AMOUNT_TO_PARAM,
   BATCH_PARAM,
   ENTRY_PARAM,
   FROM_PARAM,
   KIND_PARAM,
   LEDGER_PATH,
+  POSTED_BY_PARAM,
+  PROFIT_CENTER_PARAM,
   STATUS_PARAM,
   STORE_PARAM,
   TO_PARAM,
@@ -72,6 +76,10 @@ export const LEDGER_PARAMS = [
   BATCH_PARAM,
   FROM_PARAM,
   TO_PARAM,
+  AMOUNT_FROM_PARAM,
+  AMOUNT_TO_PARAM,
+  PROFIT_CENTER_PARAM,
+  POSTED_BY_PARAM,
 ]
 
 /**
@@ -101,7 +109,14 @@ export function hasCriterion(criteria: SettlementLedgerCriteria): boolean {
     !!criteria.status ||
     !!criteria.batchId ||
     !!criteria.postedFrom ||
-    !!criteria.postedTo
+    !!criteria.postedTo ||
+    // Spec 2423 (ticket 426): each new criterion counts ALONE — *"amount ≥ 1,000"* is
+    // a valid ledger search (BackOffice 2430). A bound is tested on `!== undefined`,
+    // because `0` is a bound and not the absence of one.
+    criteria.amountFrom !== undefined ||
+    criteria.amountTo !== undefined ||
+    !!criteria.profitCenter ||
+    !!criteria.postedByStaffId
   )
 }
 
@@ -129,6 +144,10 @@ export function readCriteria(params: URLSearchParams): SettlementLedgerCriteria 
     batchId: text(params.get(BATCH_PARAM)),
     postedFrom: readDate(params.get(FROM_PARAM)),
     postedTo: readDate(params.get(TO_PARAM)),
+    amountFrom: readLedgerAmount(params.get(AMOUNT_FROM_PARAM)),
+    amountTo: readLedgerAmount(params.get(AMOUNT_TO_PARAM)),
+    profitCenter: text(params.get(PROFIT_CENTER_PARAM)),
+    postedByStaffId: text(params.get(POSTED_BY_PARAM)),
   }
 }
 
@@ -164,6 +183,10 @@ export function ledgerSearch(
   if (criteria.batchId) next.set(BATCH_PARAM, criteria.batchId)
   if (criteria.postedFrom) next.set(FROM_PARAM, criteria.postedFrom)
   if (criteria.postedTo) next.set(TO_PARAM, criteria.postedTo)
+  if (criteria.amountFrom !== undefined) next.set(AMOUNT_FROM_PARAM, String(criteria.amountFrom))
+  if (criteria.amountTo !== undefined) next.set(AMOUNT_TO_PARAM, String(criteria.amountTo))
+  if (criteria.profitCenter) next.set(PROFIT_CENTER_PARAM, criteria.profitCenter)
+  if (criteria.postedByStaffId) next.set(POSTED_BY_PARAM, criteria.postedByStaffId)
 
   // ⚠️ Rendered by `addresses.ts`'s own helper rather than re-spelled here — that
   // module's claim is that this screen's URL grammar is spelled ONCE, and a second
@@ -197,7 +220,37 @@ export function ledgerKey(criteria: SettlementLedgerCriteria): string {
     criteria.batchId ?? '',
     criteria.postedFrom ?? '',
     criteria.postedTo ?? '',
+    criteria.amountFrom ?? '',
+    criteria.amountTo ?? '',
+    criteria.profitCenter ?? '',
+    criteria.postedByStaffId ?? '',
   ].join('|')
+}
+
+/**
+ * What `Settlement/Ledger` is sent — the criteria under the **door's** names.
+ *
+ * 🔑 Spelled out key by key rather than spreading the criteria object, so the wire
+ * names are a fact this module states and a test pins (spec 2423's contract:
+ * `amountFrom`, `amountTo`, `profitCenter`, `postedByStaffId`, camelCase like the
+ * door's existing keys) — not a coincidence of a model's field names that a rename
+ * would silently break. `undefined` is dropped by `buildQuery`, so an unset criterion
+ * is never sent; an empty one cannot arrive, because `readCriteria` reads `''` as unset.
+ */
+export function ledgerQuery(criteria: SettlementLedgerCriteria): Record<string, string | number | undefined> {
+  return {
+    entryNumber: criteria.entryNumber,
+    storeId: criteria.storeId,
+    entryKind: criteria.entryKind,
+    status: criteria.status,
+    batchId: criteria.batchId,
+    postedFrom: criteria.postedFrom,
+    postedTo: criteria.postedTo,
+    amountFrom: criteria.amountFrom,
+    amountTo: criteria.amountTo,
+    profitCenter: criteria.profitCenter,
+    postedByStaffId: criteria.postedByStaffId,
+  }
 }
 
 // ── readers ─────────────────────────────────────────────────────────────────────
@@ -233,6 +286,22 @@ const readDate = (raw: string | null): string | undefined => {
   const parsed = new Date(`${value}T00:00:00Z`)
   if (Number.isNaN(parsed.getTime())) return undefined
   return parsed.toISOString().slice(0, 10) === value ? value : undefined
+}
+
+/**
+ * A non-negative amount, as typed — `1000`, `1000.5`, `.5`. ⚠️ No thousands separator
+ * and no sign: `1,000` is DROPPED (the drop rule above), never guessed at, because
+ * reading it as `1` or as `1000` would each silently answer a different question.
+ *
+ * 🚩 **At most twelve whole digits and three decimals** — money's own scale (a
+ * Bahraini fils is the third). That bound is what keeps `String(amount)` out of
+ * exponent notation (`1e-7`, `1e+21`), so a bound written into the address by
+ * `ledgerSearch` always reads back as itself. Exported for the Ledger's amount boxes,
+ * which apply the same rule to what is typed.
+ */
+export const readLedgerAmount = (raw: string | null): number | undefined => {
+  const value = (raw ?? '').trim()
+  return /^(\d{1,12}(\.\d{0,3})?|\.\d{1,3})$/.test(value) ? Number(value) : undefined
 }
 
 const oneOf = <T extends string>(raw: string | null, allowed: T[]): T | undefined => {

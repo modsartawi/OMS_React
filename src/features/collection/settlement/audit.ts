@@ -7,6 +7,7 @@ import type {
 import { describeDocument, type AccountEntryRow, type JournalDocument } from './account-projection'
 import { isStamped } from './approval'
 import { cardFor, newestFirstBy, requestsOf, type CardChange } from './change-request'
+import { approverName } from './entry-cells'
 
 /**
  * **The audit pane's read model** — one entry and its consumptions projected into
@@ -61,7 +62,8 @@ export type AuditWhere =
  * What kind of fact a row is.
  *
  * `approved` / `rejected` are an accountant supervisor's decision on a pending
- * surplus (ticket 309) — the supervisor named by staff id, as a closer is.
+ * surplus (ticket 309). A rejecter is named by staff id, as a closer is; an approver by
+ * name since spec 2423 (ticket 426), the staff id only where no name was stamped.
  *
  * `restored` covers both a **void** and a **repair**: 🚩 on D8's contract they are
  * the same row — a `REVERSE` consumption — and this screen has no field that tells
@@ -169,7 +171,12 @@ function entryFacts(entry: AccountEntryRow, posted: PostedFigures | null): Audit
       kind: 'approved',
       amount: null,
       remainingAfter: null,
-      where: { kind: 'staff', staffId: entry.approvedByStaffId },
+      // Spec 2423 (ticket 426): the approver is NAMED — the name stamped at the decision
+      // (BackOffice 2430), falling back to the staff id on an entry approved before the
+      // name was stamped, as a change request's decider is (`requestFacts`).
+      where: approverName(entry)
+        ? { kind: 'person', name: approverName(entry) }
+        : { kind: 'staff', staffId: entry.approvedByStaffId },
       note: '',
       document: null,
       request: null,

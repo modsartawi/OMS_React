@@ -21,6 +21,7 @@
  * options bind via `[AsParameters]`; an empty selection is **dropped**, never sent
  * as `''`. Both match `collections-criteria.ts` beside it.
  */
+import type { AssignmentPerson, AssignmentRoster } from '@/core/models/collection'
 import { stripIsolates } from '@/core/util/bidi'
 
 /**
@@ -70,11 +71,9 @@ export const COLLECTION_ROLES = {
   collector: 'COLLECTOR',
 } as const
 
-/** A pickable person, as `CollectionWeb/AssignmentOptions` returns them. */
-export interface AssignmentPerson {
-  staffId: string
-  displayName: string
-}
+/** A pickable person, as `CollectionWeb/AssignmentOptions` returns them — graduated to
+ *  `@/core/models/collection` by ticket 426, re-exported so this screen's importers stay. */
+export type { AssignmentPerson } from '@/core/models/collection'
 
 /**
  * The caller's own landing scope, as the endpoint resolves it from the finance
@@ -109,12 +108,10 @@ export interface ServedByDefaultScope {
   displayName: string
 }
 
-/** The endpoint's whole payload: three groups, always all three, plus the caller's
- *  own landing scope (`null` when they are on no roster row). */
-export interface AssignmentOptions {
-  accountants: AssignmentPerson[]
-  collectors: AssignmentPerson[]
-  supervisors: AssignmentPerson[]
+/** The endpoint's whole payload: three groups, always all three (`AssignmentRoster`,
+ *  shared with the settlement Ledger's picker since ticket 426), plus the caller's own
+ *  landing scope (`null` when they are on no roster row). */
+export interface AssignmentOptions extends AssignmentRoster {
   defaultScope?: ServedByDefaultScope | null
 }
 

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:/Work/DMSCO/BackOffice/.issues/2423-e-collection-feedback-filters-saud-order-monthly-acr-number-and-tighter-grants-spec.md
 blocked-by: —
 ---
@@ -43,10 +43,24 @@ UI: ledger filters, columns, audit pane · API client.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `ledger new filters map to URL params and satisfy the criterion rule` · Vitest (`ledger.test.ts`)
-- [ ] `ledger and account columns include Approved by/at after Posted at` · Vitest
-- [ ] `approved by falls back to staff id when the name is blank` · Vitest
-- [ ] Manual walk against a local SIS.Api once BackOffice 2430 is merged (owner).
+- [x] `ledger new filters map to URL params and satisfy the criterion rule` · Vitest (`ledger.test.ts`)
+- [x] `ledger and account columns include Approved by/at after Posted at` · Vitest (`approver-columns.test.ts`)
+- [x] `approved by falls back to staff id when the name is blank` · Vitest (`approver-columns.test.ts`, which also covers the audit pane naming the approver)
+- [ ] Manual walk against a local SIS.Api once BackOffice 2430 is merged (owner). **Outstanding.**
+
+**What was driven (2026-10-07, all stubbed against this ticket's wire contract):** the new
+`tools/settlement-ledger-filters-drive.mjs` passes 37/37. It covers each new filter alone as a question,
+the camelCase wire names, an empty value never sent, an unreadable amount refused, the Posted-by
+picker (including a roster 403), the server's From > To refusal, the column order and cells on both
+grids, an absent `approvedByName`, and the audit pane. Also green: `settlement-drive` 291/291 (its
+stub counts the new criteria, its viewport is 2000px, and its audit reader strips isolates),
+`settlement-change-drive` 374/374 (its audit reader strips isolates), `settlement-approval` 42/42,
+`settlement-theft` 62/62, `settlement-supervision` 41/41 and `settlement-description` 41/41.
+Typecheck, `npm test` (3,788), all four lint gates and the build are green.
+
+Decisions are logged in `.afk/HITL-426.md`: the roster type graduated to core; a settlement-only
+session gets a 403 from the roster door (a BackOffice ask); the Account grid is now wider than 1600px.
+"Zero literals EN and AR" means EN plus the bidi rule, because no Arabic locale exists.
 
 ## Boundaries
 

@@ -4,7 +4,13 @@ import type { TFunction } from 'i18next'
 import type { SettlementLedgerRow } from '@/core/models/settlement'
 import { formatDateTime } from '@/core/util/date-format'
 import { isDimmed } from './account-projection'
-import { businessDayCell, entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
+import {
+  approverColumns,
+  businessDayCell,
+  entryKindLabel,
+  entryStatusLabel,
+  remainingCell,
+} from './entry-cells'
 import { EntryNumberCell } from './EntryNumberCell'
 import { settlementMoney } from './money-display'
 
@@ -165,6 +171,8 @@ export function buildLedgerColumns(
       // The floating filter matches what is ON SCREEN, not the raw ISO value.
       filterValueGetter: (p) => formatDateTime(p.data?.postedAt),
     },
+    // Spec 2423 (ticket 426): who approved, after Posted at — one definition, both grids.
+    ...approverColumns<SettlementLedgerRow>(t),
   ]
 }
 

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
@@ -171,11 +172,13 @@ function Where({ where }: { where: AuditWhere }) {
     case 'store':
       return <span className="font-mono text-[12px]">{t('audit.where.store', { store: where.storeId })}</span>
     case 'person':
-      return <span>{t('audit.where.person', { name: where.name })}</span>
+      // A name interpolated into a sentence is isolated whole (`.claude/rules/bidi.md`) —
+      // since 426 that includes the approver's, in either script.
+      return <span>{t('audit.where.person', { name: fsi(where.name) })}</span>
     case 'staff':
       // 🚩 The wire carries `closedByStaffId` and no name (D8 denormalises a name
       // for the POSTER only). Inventing one here would be a field this screen
       // assumes rather than reads — logged for 274 in `.afk/HITL-272.md`.
-      return <span className="font-mono text-[12px]">{t('audit.where.staff', { id: where.staffId })}</span>
+      return <span className="font-mono text-[12px]">{t('audit.where.staff', { id: fsi(where.staffId) })}</span>
   }
 }

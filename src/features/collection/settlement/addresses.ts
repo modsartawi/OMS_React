@@ -114,6 +114,14 @@ export const FROM_PARAM = 'from'
 /** `YYYY-MM-DD`. ⚠️ The whole of that day — the server compares against the next
  *  midnight, exclusively. */
 export const TO_PARAM = 'to'
+/** Spec 2423 (ticket 426): the entry's amount bounds, a plain decimal, inclusive. */
+export const AMOUNT_FROM_PARAM = 'amountFrom'
+export const AMOUNT_TO_PARAM = 'amountTo'
+/** Spec 2423 (ticket 426): text the branch's profit center contains. */
+export const PROFIT_CENTER_PARAM = 'profitCenter'
+/** Spec 2423 (ticket 426): the staff id that posted the entry — the *Accountant*
+ *  filter. ⚠️ Not `staff=` or `accountant=`: it names what the server matches. */
+export const POSTED_BY_PARAM = 'postedBy'
 
 /**
  * The reader's own state — carried by every link.

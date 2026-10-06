@@ -26,7 +26,7 @@ import type { SimulateRequest } from '@/core/models/simulation'
  */
 
 /** The uppercase key tokens, each resolving to a `strip.key.*` value. */
-export type RunChipKey = 'plant' | 'org' | 'chan' | 'proc' | 'loy' | 'tier' | 'elem'
+export type RunChipKey = 'plant' | 'org' | 'chan' | 'proc' | 'loy' | 'tier' | 'elem' | 'unact'
 
 export type RunChip =
   /** A bounded code behind a tiny uppercase key — `PLANT P001`. */
@@ -36,7 +36,7 @@ export type RunChip =
   /** The promotion flag, one authored phrase per state (the state is not a code). */
   | { kind: 'promo'; on: boolean }
   /** A flag whose presence IS its state — chipped only when on, so no value slot. */
-  | { kind: 'flag'; key: 'elem' }
+  | { kind: 'flag'; key: 'elem' | 'unact' }
 
 /** A lever's value, or null when every spelling of "unset" says it is not set. */
 function lever(value: string | null | undefined): string | null {
@@ -67,6 +67,7 @@ export function runChips(request: SimulateRequest): RunChip[] {
   const tier = lever(header.loyTier)
   if (tier) chips.push({ kind: 'keyed', key: 'tier', value: tier })
 
+  if (header.skipBonusBuyActivationCheck) chips.push({ kind: 'flag', key: 'unact' })
   if (request.includePricingElements) chips.push({ kind: 'flag', key: 'elem' })
 
   return chips

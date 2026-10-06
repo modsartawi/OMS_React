@@ -45,16 +45,16 @@
 //  25. a load → created numbers (Planned), the overview refetched; a second run → updated numbers.
 //  26. a file whose AKTNR names another promotion offers a link to it; an empty file never goes up.
 //
-// Ticket 419 — Tested and Back to Planned (BackOffice spec 2396, ADR 0063). ⚠️ The doors are NOT
-// built (BackOffice 2397/2398 open): MarkTested, BackToPlanned, Access.canTest and the test mark
-// are stubbed in the SPEC'S READING, not a shipped DTO. Spec 2396 REVERSES 2374 here, so three
+// Ticket 419 — Tested and Back to Planned (BackOffice spec 2396, ADR 0063). MarkTested and
+// BackToPlanned are stubbed to the SHIPPED BackOffice 2397/2398 bodies (`bbyNumber`, not the spec's
+// `number` — the spec reading reached the server as a null number). Spec 2396 REVERSES 2374 here, so three
 // earlier steps changed: 4 reads four statuses (Tested added), 6 activates a selection holding
 // no Planned row (a Planned one is no longer offered Activate), 7's refusal names an untested
 // bonus buy, and 8 re-selects the Planned row it copies.
 //  27. the overview reads `3` as Tested and shows tested by / at / note.
 //  28. a selection holding a Planned bonus buy is not offered Activate; the hint says test it first.
 //  29. canTest + Planned → Mark Tested (held back while an edit is unsaved); the note prompt posts
-//      { number, note } and the bonus buy is read again.
+//      { bbyNumber, note } and the bonus buy is read again.
 //  30. the four-eyes refusal is the server's, shown as is in EN + AR (never pre-blocked).
 //  31. without canTest, Mark Tested is not offered.
 //  32. Tested opens read-only (the lock hint, no Check/Save/line actions), shows its test mark,
@@ -270,16 +270,16 @@ async function run() {
         return route.fulfill(envelope(saved(body.bbyNumber)))
       }
       if (op === 'BonusBuy/Copy') return route.fulfill(envelope(saved('OMS000000009')))
-      // Ticket 419 — spec 2396's reading: { number, note } / { number } in, BbyMaintainOutcome out.
+      // Ticket 419 — as shipped (BackOffice 2397/2398): { bbyNumber, note } / { bbyNumber } in, BbyMaintainOutcome out.
       if (op === 'BonusBuy/MarkTested') {
         if (markAnswer === 'fourEyes')
           return route.fulfill(envelope({
-            status: 'refused', number: body.number, warnings: [],
-            refusals: [refusal('BBY-TEST-OWN-WRITE', `msartawi last wrote bonus buy '${body.number}'. Someone else must test it.`, `آخر من عدّل عرض الشراء '${body.number}' هو msartawi. يجب أن يختبره شخص آخر.`)],
+            status: 'refused', number: body.bbyNumber, warnings: [],
+            refusals: [refusal('BBY-TEST-OWN-WRITE', `msartawi last wrote bonus buy '${body.bbyNumber}'. Someone else must test it.`, `آخر من عدّل عرض الشراء '${body.bbyNumber}' هو msartawi. يجب أن يختبره شخص آخر.`)],
           }))
-        statusOf[body.number] = '3'
-        markOf[body.number] = { testedBy: 'ayed', testedAt: '2026-10-05T12:00:00', testNote: body.note }
-        return route.fulfill(envelope(saved(body.number)))
+        statusOf[body.bbyNumber] = '3'
+        markOf[body.bbyNumber] = { testedBy: 'ayed', testedAt: '2026-10-05T12:00:00', testNote: body.note }
+        return route.fulfill(envelope(saved(body.bbyNumber)))
       }
       // Ticket 422 — spec 2396's reading: { description } in, { status, material } out, a new number each call.
       if (op === 'CouponMaterial/Generate') {
@@ -291,9 +291,9 @@ async function run() {
         return route.fulfill(envelope({ status: 'saved', material: `COUP${++coupCounter}` }))
       }
       if (op === 'BonusBuy/BackToPlanned') {
-        statusOf[body.number] = '1'
-        delete markOf[body.number]
-        return route.fulfill(envelope(saved(body.number)))
+        statusOf[body.bbyNumber] = '1'
+        delete markOf[body.bbyNumber]
+        return route.fulfill(envelope(saved(body.bbyNumber)))
       }
       return route.fulfill(envelope(saved(body.bbyNumber ?? null)))
     }
@@ -767,8 +767,8 @@ async function run() {
     await tdlg.locator('button', { hasText: /^Mark Tested$/ }).click()
     await page.waitForSelector('text=Marked Tested. It can now be activated.')
     const mt = acts419().find(([op]) => op === 'BonusBuy/MarkTested')?.[1]
-    check('29. MarkTested posts exactly { number, note } (spec 2396 reading)',
-      mt && JSON.stringify(Object.keys(mt).sort()) === '["note","number"]' && mt.number === 'OMS000000001' && mt.note === 'Basket of two, 20 SR.',
+    check('29. MarkTested posts exactly { bbyNumber, note } (BackOffice 2397 as shipped)',
+      mt && JSON.stringify(Object.keys(mt).sort()) === '["bbyNumber","note"]' && mt.bbyNumber === 'OMS000000001' && mt.note === 'Basket of two, 20 SR.',
       JSON.stringify(mt))
     await page.waitForSelector('fieldset[data-readonly="true"]', { timeout: 5000 }).catch(() => {})
     check('29. the bonus buy is read again', bonusBuyGets > gets419, `${gets419}→${bonusBuyGets}`)
@@ -819,8 +819,8 @@ async function run() {
     await page.waitForSelector('text=Back to Planned. It can be changed now')
     check('32. Tested goes back with no confirmation', (await page.locator('dialog[open]').count()) === 0)
     const bp = acts419().find(([op]) => op === 'BonusBuy/BackToPlanned')?.[1]
-    check('32. BackToPlanned posts exactly { number } (spec 2396 reading)',
-      bp && JSON.stringify(Object.keys(bp)) === '["number"]' && bp.number === 'OMS000000004', JSON.stringify(bp))
+    check('32. BackToPlanned posts exactly { bbyNumber } (BackOffice 2398 as shipped)',
+      bp && JSON.stringify(Object.keys(bp)) === '["bbyNumber"]' && bp.bbyNumber === 'OMS000000004', JSON.stringify(bp))
     await page.waitForFunction(() => !document.querySelector('fieldset[data-readonly="true"]'), null, { timeout: 5000 }).catch(() => {})
     check('32. …and the re-read opens it for change, its mark gone',
       (await page.locator('fieldset[data-readonly="true"]').count()) === 0 && (await page.locator('[data-testid="bby-test-mark"]').count()) === 0)
@@ -841,7 +841,7 @@ async function run() {
     await button('Back to Planned').click()
     await page.locator('dialog[open] button:has-text("Yes")').click()
     await page.waitForSelector('text=Back to Planned. It can be changed now')
-    check('33. Yes takes it back', acts419().some(([op, b]) => op === 'BonusBuy/BackToPlanned' && b.number === 'OMS000000002'))
+    check('33. Yes takes it back', acts419().some(([op, b]) => op === 'BonusBuy/BackToPlanned' && b.bbyNumber === 'OMS000000002'))
 
     // ── 34. Deactivated locked; SAP keeps its own hint and gets neither act ──
     await page.goto(`${EDIT}/OMS000000003`)

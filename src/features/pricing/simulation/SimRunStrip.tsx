@@ -73,6 +73,9 @@ interface Props {
   promotion: boolean
   pricingElements: boolean
   onPromotionChange: (next: boolean) => void
+  /** Also price Planned/Tested bonus buys (`skipBonusBuyActivationCheck`). */
+  unactivated: boolean
+  onUnactivatedChange: (next: boolean) => void
   onPricingElementsChange: (next: boolean) => void
   expanded: boolean
   onExpandedChange: (next: boolean) => void
@@ -99,6 +102,8 @@ export default function SimRunStrip({
   promotion,
   pricingElements,
   onPromotionChange,
+  unactivated,
+  onUnactivatedChange,
   onPricingElementsChange,
   expanded,
   onExpandedChange,
@@ -269,6 +274,8 @@ export default function SimRunStrip({
           promotion={promotion}
           pricingElements={pricingElements}
           onPromotionChange={onPromotionChange}
+          unactivated={unactivated}
+          onUnactivatedChange={onUnactivatedChange}
           onPricingElementsChange={onPricingElementsChange}
           disabled={pending}
           autoFocusFirstField

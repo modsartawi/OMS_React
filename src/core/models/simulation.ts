@@ -41,6 +41,12 @@ export interface SimulateHeaderInput {
   loyGroups: string | null
   loyTier: string | null
   isPromotionApplicable: boolean
+  /**
+   * Also price Planned (`1`) and Tested (`3`) bonus buys, not only Activated ones — the simulator's
+   * one escape from the till's activation gate (BackOffice spec 2374 / 2396, `SimulateHeaderDto.
+   * SkipBonusBuyActivationCheck`). Deactivated stays inert either way.
+   */
+  skipBonusBuyActivationCheck: boolean
 }
 
 /** One basket line. `itemNumber` is assigned SERVER-side by array order

@@ -24,6 +24,7 @@ function request(patch: Partial<SimulateRequest['header']> = {}): SimulateReques
       loyGroups: null,
       loyTier: null,
       isPromotionApplicable: true,
+      skipBonusBuyActivationCheck: false,
       ...patch,
     },
     items: [{ materialNumber: '107255', quantity: 2, qtyUnit: 'EA', itemConditionControl: null }],
@@ -87,6 +88,14 @@ describe('runChips reads the determination a run actually used', () => {
       )
       expect(chips).toHaveLength(5)
     }
+  })
+
+  it('chips the Planned & Tested flag only when it is set', () => {
+    expect(runChips(request()).some((c) => c.kind === 'flag' && c.key === 'unact')).toBe(false)
+    expect(runChips(request({ skipBonusBuyActivationCheck: true }))).toContainEqual({
+      kind: 'flag',
+      key: 'unact',
+    })
   })
 
   it('chips the promotion flag in both states', () => {

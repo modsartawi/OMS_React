@@ -201,19 +201,19 @@ export interface BbyBonusBuyDocument extends BbyTestMark {
 }
 
 /**
- * POST BonusBuy/MarkTested (spec 2396, grant `04`). Spec 2396 reading, reconcile when BackOffice
- * 2397 ships. ⚠️ `number`, not the `bbyNumber` the shipped Activate/Deactivate/Delete take: the
- * spec writes it so, and the client sends what the spec says.
+ * POST BonusBuy/MarkTested (spec 2396, grant `04`). Reconciled with BackOffice 2397 as shipped
+ * (`BbyMaintainWebEndpoints.MarkTestedRequest`): the number binds as `bbyNumber`, like
+ * Activate/Deactivate/Delete. Sending `number` reached the server as null ("bbyNumber is required").
  */
 export interface BbyMarkTestedRequest {
-  number: string
+  bbyNumber: string
   /** Optional; null when the tester left it blank. `BbyTestMark.Note` is `NVARCHAR(200)`. */
   note: string | null
 }
 
-/** POST BonusBuy/BackToPlanned (spec 2396). Spec 2396 reading, reconcile when BackOffice 2398 ships. */
+/** POST BonusBuy/BackToPlanned (spec 2396), reconciled with BackOffice 2398: `BonusBuyNumberRequest`. */
 export interface BbyBackToPlannedRequest {
-  number: string
+  bbyNumber: string
 }
 
 // ── coupon material (ticket 422) ──────────────────────────────────────────────────────

@@ -53,6 +53,8 @@ interface Props {
   promotion: boolean
   pricingElements: boolean
   onPromotionChange: (next: boolean) => void
+  unactivated: boolean
+  onUnactivatedChange: (next: boolean) => void
   onPricingElementsChange: (next: boolean) => void
   disabled?: boolean
   /** Expanding the run strip focuses the first field — Plant (ticket 113, 102 §6). */
@@ -65,6 +67,8 @@ export default function SimHeaderForm({
   promotion,
   pricingElements,
   onPromotionChange,
+  unactivated,
+  onUnactivatedChange,
   onPricingElementsChange,
   disabled,
   autoFocusFirstField,
@@ -144,6 +148,15 @@ export default function SimHeaderForm({
             onChange={(e) => onPromotionChange(e.target.checked)}
           />
           {t('header.promotion')}
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={unactivated}
+            disabled={disabled}
+            onChange={(e) => onUnactivatedChange(e.target.checked)}
+          />
+          {t('header.unactivated')}
         </label>
         <label className="flex items-center gap-1.5">
           <input

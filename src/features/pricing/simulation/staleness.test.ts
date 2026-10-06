@@ -40,6 +40,7 @@ function request(patch: RequestPatch = {}): SimulateRequest {
       loyGroups: null,
       loyTier: null,
       isPromotionApplicable: true,
+      skipBonusBuyActivationCheck: false,
       ...patch.header,
     },
     items: patch.items ?? [
@@ -75,6 +76,10 @@ describe('isStaleRun marks the results as describing an older basket', () => {
     promoOff.header.isPromotionApplicable = false
     expect(isStaleRun(promoOff, request())).toBe(true)
     expect(isStaleRun(request({ includePricingElements: true }), request())).toBe(true)
+  })
+
+  it('is stale on the Planned & Tested checkbox — it changes which bonus buys can price', () => {
+    expect(isStaleRun(request({ header: { skipBonusBuyActivationCheck: true } }), request())).toBe(true)
   })
 
   it('is stale on an item-row edit — a changed quantity, a changed unit, a new row', () => {
@@ -178,6 +183,7 @@ describe('isStaleRun marks the results as describing an older basket', () => {
           { qtyUnit: 'EA', itemConditionControl: null, quantity: 2, materialNumber: '107255' },
         ],
         header: {
+          skipBonusBuyActivationCheck: false,
           isPromotionApplicable: true,
           loyTier: null,
           loyGroups: null,

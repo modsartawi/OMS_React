@@ -104,6 +104,8 @@ export default function SimulationPage() {
 
   const [header, setHeader] = useState<SimHeaderState>(defaultHeader)
   const [promotion, setPromotion] = useState(true)
+  // Off by default, so a plain run prices what a till would (only Activated bonus buys).
+  const [unactivated, setUnactivated] = useState(false)
   const [pricingElements, setPricingElements] = useState(false)
   const [items, setItems] = useState<SimItemRow[]>(() => [emptyItemRow()])
   const [manualConditions, setManualConditions] = useState<SimManualConditionRow[]>([])
@@ -201,6 +203,7 @@ export default function SimulationPage() {
         loyGroups: header.loyGroups.trim() || null,
         loyTier: header.loyTier.trim() || null,
         isPromotionApplicable: promotion,
+        skipBonusBuyActivationCheck: unactivated,
       },
       items: validItems.map((r) => ({
         materialNumber: r.materialNumber.trim(),
@@ -226,7 +229,7 @@ export default function SimulationPage() {
     // `validItems` is derived from `items` on every render, so the item rows are
     // the dependency, not the filtered array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [header, promotion, pricingElements, items, manualConditions])
+  }, [header, promotion, unactivated, pricingElements, items, manualConditions])
 
   const chips = useMemo(() => runChips(request), [request])
 
@@ -261,6 +264,7 @@ export default function SimulationPage() {
   function clearAll() {
     setHeader(defaultHeader())
     setPromotion(true)
+    setUnactivated(false)
     setPricingElements(false)
     setItems([emptyItemRow()])
     setManualConditions([])
@@ -333,6 +337,8 @@ export default function SimulationPage() {
         promotion={promotion}
         pricingElements={pricingElements}
         onPromotionChange={setPromotion}
+        unactivated={unactivated}
+        onUnactivatedChange={setUnactivated}
         onPricingElementsChange={setPricingElements}
         expanded={stripOpen}
         onExpandedChange={setStripOpen}

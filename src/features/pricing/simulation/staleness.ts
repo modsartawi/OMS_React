@@ -43,6 +43,7 @@ function canonical(request: SimulateRequest): string {
       text(header.loyGroups),
       text(header.loyTier),
       header.isPromotionApplicable === true,
+      header.skipBonusBuyActivationCheck === true,
     ],
     // In array order — position is the item number, so a reorder is a change.
     items: request.items.map((item) => [

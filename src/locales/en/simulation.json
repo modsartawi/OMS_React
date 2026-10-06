@@ -25,6 +25,7 @@
       "P": "Platinum (P)"
     },
     "promotion": "Promotion",
+    "unactivated": "Include Planned & Tested bonus buys",
     "pricingElements": "Pricing Elements"
   },
   "items": {
@@ -146,7 +147,8 @@
       "proc": "PROC",
       "loy": "LOY",
       "tier": "TIER",
-      "elem": "ELEM"
+      "elem": "ELEM",
+      "unact": "+PLANNED"
     }
   },
   "missed": {

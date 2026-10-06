@@ -324,7 +324,7 @@ function EditorBody({
 
   const markTested = (note: string) => {
     setMarkOpen(false)
-    void statusAct('test', (number) => bbyMaintainApi.markTested({ number, note: note.trim() || null }))
+    void statusAct('test', (number) => bbyMaintainApi.markTested({ bbyNumber: number, note: note.trim() || null }))
   }
 
   const backToPlanned = async () => {
@@ -336,7 +336,7 @@ function EditorBody({
       !(await confirmAction(t('backToPlanned.confirmBody', { number: fsi(number) }), t('backToPlanned.confirmTitle')))
     )
       return
-    await statusAct('backToPlanned', (n) => bbyMaintainApi.backToPlanned({ number: n }))
+    await statusAct('backToPlanned', (n) => bbyMaintainApi.backToPlanned({ bbyNumber: n }))
   }
 
   /**

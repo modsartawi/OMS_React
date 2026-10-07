@@ -824,3 +824,7 @@ one **ready spec**.
 ## Donor requests on the Delivery timeline (grilled in BackOffice 2026-10-07, no spec)
 
 - [429](429-donor-requests-appear-on-the-delivery-timeline.md) — A delivery's donor requests appear on its Delivery timeline · *(ticket · grilled, no spec)* · **done 2026-10-07** · blocked by: — (live: BackOffice 2458) · pure `donor-moments.ts` + a `donor` spine kind, fourth `Deferred` on deliveries only; tie order Log → donor → job; elapsed in a dir-auto `<bdi>` · drive 18/18 **stubbed**; live walk waits on 2458
+
+## Coupons: delete a mistaken import (BackOffice spec 2463, moved from BackOffice 2467)
+
+- [439](439-an-admin-deletes-a-mistaken-coupon-upload-from-the-import-screen.md) — An admin deletes a mistaken coupon upload from the Import screen, and the detail pane shows the earlier upload · *(ticket · BackOffice spec 2463)* · **open** · blocked by: BackOffice 2465, 2466 (live endpoints only)

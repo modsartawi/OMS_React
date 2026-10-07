@@ -8,6 +8,7 @@ import {
   ReceiptText,
   Reply,
   Store,
+  Truck,
   Undo2,
   XCircle,
 } from 'lucide-react'
@@ -19,7 +20,6 @@ import {
   commandBar,
   type ClusterId,
   type CommandContext,
-  type CommandState,
   type TerminalKind,
 } from './commands'
 
@@ -39,7 +39,11 @@ import {
  * - **The promoted-commit slot is permanently empty.** The terminal pair is the
  *   same `h-7` as every cluster button and is never enlarged — no command on
  *   this screen is a positive outcome, and enlarging Cancel Order would put a
- *   destructive mutation in the Save/Submit position.
+ *   destructive mutation in the Save/Submit position. **The one named
+ *   exception** is *Mark delivered* (BackOffice ADR 0065, ticket 2422): a
+ *   grant-gated correction for a delivery the field never reported. It is still
+ *   not promoted — its own cluster, the same height, no check mark — so the
+ *   slot stays empty even for it.
  * - **The escape slot stays empty too.** Back is the header's chevron; a
  *   page is not a modal. Back top-start, Cancel Order bottom-end, as far apart
  *   as the page allows.
@@ -48,7 +52,10 @@ import {
  *   the end.
  */
 
-/** The icon per command. No check mark anywhere: nothing here is a happy ending. */
+/**
+ * The icon per command. No check mark anywhere: nothing here is a happy ending. Mark
+ * delivered, the one positive outcome (ADR 0065), keeps that rule too — a neutral truck.
+ */
 const ICONS: Record<CommandKind, typeof Plus> = {
   reschedule: CalendarClock,
   'change-store': Store,
@@ -89,24 +96,26 @@ const TERMINAL_VARIANT: Record<TerminalKind, ButtonVariant> = {
  */
 function CommandButton({
   command,
+  icon: Icon,
   variant,
   label,
-  onCommand,
+  onTake,
   refused,
   onRefusedLeft,
   keys,
 }: {
-  command: CommandState
+  /** A bar command, or Mark delivered, which sits outside the `commands.ts` grammar. */
+  command: { kind: string; disabled: boolean; reason: string | null }
+  icon: typeof Plus
   variant: ButtonVariant
   label: string
-  onCommand: (kind: CommandKind) => void
+  onTake: () => void
   /** The list's open intent was refused on this command (D9): ring it and keep its reason up. */
   refused: boolean
   onRefusedLeft: () => void
   /** The key bound to this command on this screen (R / C / N, ticket 405), if any. */
   keys: string | null
 }) {
-  const Icon = ICONS[command.kind]
   // "Reschedule (R)" and `aria-keyshortcuts` (365 §9); letters hide while the switch is off.
   // A command explaining itself keeps its reason as its only tooltip.
   const hint = useKeyHint(keys)
@@ -125,7 +134,7 @@ function CommandButton({
       disabled={command.disabled && !explained}
       aria-disabled={explained || undefined}
       aria-describedby={explained ? reasonId : undefined}
-      onClick={explained ? undefined : () => onCommand(command.kind)}
+      onClick={explained ? undefined : onTake}
       data-command={command.kind}
       data-refused={ringed || undefined}
       aria-keyshortcuts={hint.ariaKeyShortcuts}
@@ -170,6 +179,7 @@ export default function CommandPanel({
   context,
   onCommand,
   onCentralInvoice,
+  markDelivered = null,
   refused = null,
   onRefusedLeft = () => {},
   keysOf = {},
@@ -186,6 +196,14 @@ export default function CommandPanel({
    * `commands.ts` grammar, drawn only when handed in.
    */
   onCentralInvoice: (() => void) | null
+  /**
+   * *Mark delivered…* (BackOffice spec 2417, ticket 2422), or `null` when it is not drawn —
+   * no `canMarkDelivered` grant, or not a category-`D` delivery (`mark-delivered.ts`). Like
+   * Central Invoice it is hidden for a missing GRANT and sits in its own cluster outside the
+   * `commands.ts` grammar; unlike it, once drawn it is disabled WITH a reason for the
+   * delivery's state (not out for delivery, a cancellation pending), as every bar command is.
+   */
+  markDelivered?: { disabled: boolean; reason: string | null; onTake: () => void } | null
   /**
    * The command the list's open intent was refused on (ticket 401, D9), or `null`. Its button
    * takes focus, wears the attention ring and shows its reason until focus leaves it, then
@@ -231,9 +249,10 @@ export default function CommandPanel({
                   <CommandButton
                     key={command.kind}
                     command={command}
+                    icon={ICONS[command.kind]}
                     variant={CLUSTER_VARIANT[cluster.id]}
                     label={t(`actions.${command.kind}`)}
-                    onCommand={onCommand}
+                    onTake={() => onCommand(command.kind)}
                     refused={refused === command.kind}
                     onRefusedLeft={onRefusedLeft}
                     keys={keysOf[command.kind] ?? null}
@@ -256,6 +275,25 @@ export default function CommandPanel({
               </div>
             </div>
           )}
+          {markDelivered && (
+            <div className="flex flex-col gap-1">
+              <span className="ps-0.5 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-ink-3">
+                {t('command.clusters.delivery')}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <CommandButton
+                  command={{ kind: 'mark-delivered', disabled: markDelivered.disabled, reason: markDelivered.reason }}
+                  icon={Truck}
+                  variant="secondary"
+                  label={t('actions.mark-delivered')}
+                  onTake={markDelivered.onTake}
+                  refused={false}
+                  onRefusedLeft={onRefusedLeft}
+                  keys={null}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/*
@@ -267,9 +305,10 @@ export default function CommandPanel({
             <CommandButton
               key={command.kind}
               command={command}
+              icon={ICONS[command.kind]}
               variant={TERMINAL_VARIANT[command.kind]}
               label={t(`actions.${command.kind}`)}
-              onCommand={onCommand}
+              onTake={() => onCommand(command.kind)}
               refused={refused === command.kind}
               onRefusedLeft={onRefusedLeft}
               keys={keysOf[command.kind] ?? null}

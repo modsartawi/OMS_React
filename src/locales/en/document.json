@@ -118,7 +118,8 @@
       "fulfilment": "Fulfilment",
       "cancel-request": "Cancellation request",
       "notes": "Notes & docs",
-      "billing": "Billing"
+      "billing": "Billing",
+      "delivery": "Delivery"
     },
     "disabled": {
       "requestOpen": "A cancellation request is already open for this document.",
@@ -136,7 +137,8 @@
     "close": "Cancel Order",
     "force-close": "Force Cancel",
     "return-document": "Return Document",
-    "central-invoice": "Central Invoice…"
+    "central-invoice": "Central Invoice…",
+    "mark-delivered": "Mark Delivered…"
   },
   "note": {
     "labelOptional": "Note (optional)",
@@ -395,5 +397,59 @@
     "deniedHint": "This screen needs the Document Details permission. Ask an administrator to grant it.",
     "unavailableTitle": "Access check unavailable",
     "unavailableHint": "The permission check for Document Details could not be completed, so the screen stays closed. This is a server problem, not a missing permission — try again shortly."
+  },
+  "markDelivered": {
+    "title": "Mark delivered — {{deliveryNo}}",
+    "intro": "Use this only when the delivery reached the customer and the field never reported it. It runs the field's own delivered: the order's channel is told, the delivered SMS is sent and billing goes ahead.",
+    "reason": {
+      "label": "Reason",
+      "placeholder": "Choose a reason…",
+      "loading": "Loading reasons…",
+      "loadFailed": "The reasons could not be loaded."
+    },
+    "note": {
+      "label": "Note (optional)",
+      "labelRequired": "Note (required for Other)",
+      "placeholder": "What happened…",
+      "required": "Other needs a note saying what happened.",
+      "tooLong": "Keep the note to {{max}} characters."
+    },
+    "amountDue": "{{amount}} is still due on this delivery. Marking it delivered collects no cash: the amount stays on the driver's clearance.",
+    "commit": "Mark delivered",
+    "committing": "Marking…",
+    "cancel": "Cancel",
+    "done": {
+      "title": "Marked delivered",
+      "detail": "Delivery {{deliveryNo}} is now delivered."
+    },
+    "failed": {
+      "title": "The delivery was not marked delivered",
+      "detail": "The request could not be sent."
+    },
+    "grantRefused": {
+      "title": "Mark delivered is not open to you",
+      "detail": "The server refused the request and nothing changed. The Mark delivered action has been removed."
+    },
+    "disabled": {
+      "notOutForDelivery": "Only a delivery that is out for delivery can be marked delivered.",
+      "cancellationPending": "A cancellation is pending on this delivery."
+    },
+    "refused": {
+      "notFound": "This delivery could not be found.",
+      "notADelivery": "Only a delivery can be marked delivered, not a return.",
+      "notOutForDelivery": "The delivery is no longer out for delivery. Refresh to see its status.",
+      "cancellationPending": "A cancellation is pending on this delivery, so it cannot be marked delivered.",
+      "sghOrder": "An SGH delivery cannot be marked delivered here.",
+      "labBooking": "A lab booking cannot be marked delivered here.",
+      "unknownReason": "That reason is not accepted. Choose one from the list.",
+      "noteRequired": "Other needs a note saying what happened.",
+      "noteTooLong": "The note is longer than 100 characters."
+    },
+    "reasons": {
+      "CARR": "Carrier did not update the status",
+      "DAPP": "Driver app failed to record delivery",
+      "CUST": "Customer confirmed receipt",
+      "OTHR": "Other (note required)"
+    }
   }
 }

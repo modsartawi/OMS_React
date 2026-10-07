@@ -2,6 +2,8 @@ import { api } from '@/core/api'
 import type {
   CreatedReturnModel,
   CreateReturnRequest,
+  MarkDeliveredReasonModel,
+  MarkDeliveredRequest,
   SdDocumentHeaderModel,
   SdDocumentLogModel,
   SdDocumentOutboxModel,
@@ -53,6 +55,24 @@ export const documentApi = {
   },
   updateDelivery(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDelivery`, body)
+  },
+  /**
+   * The active `DLVM` reasons, ordered by code (BackOffice 2421). Behind both grants: a
+   * session missing either gets a bare 403.
+   */
+  markDeliveredReasons(): Promise<MarkDeliveredReasonModel[]> {
+    return api.get<MarkDeliveredReasonModel[]>(`${BASE}/MarkDeliveredReasons`)
+  },
+  /**
+   * Mark an out-for-delivery delivery delivered (BackOffice 2418, ADR 0065). The server runs
+   * the field's own `DDLR` with all its effects. A refusal is a 400 on the envelope with a
+   * machine code (2420); a session missing either grant gets a bare 403.
+   */
+  markDelivered(request: MarkDeliveredRequest): Promise<boolean> {
+    // Named field by field, so a wider object handed in cannot put an extra field on the wire.
+    const body: MarkDeliveredRequest = { deliveryNo: request.deliveryNo, reasonCode: request.reasonCode }
+    if (request.note) body.note = request.note
+    return api.post<boolean>(`${BASE}/MarkDelivered`, body)
   },
   rescheduleDocument(body: RescheduleDocumentModel): Promise<boolean> {
     return api.post<boolean>(`${BASE}/RescheduleDocument`, body)

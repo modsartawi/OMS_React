@@ -420,3 +420,21 @@ export interface CreatedReturnModel {
   /** `true` when this `requestId` had already created a return: the SAME one. */
   replayed: boolean
 }
+
+/**
+ * The body of `POST SdDocumentWeb/MarkDelivered` (BackOffice 2418). There is no actor
+ * field: the server stamps the session's user on the `DDLR` log row.
+ */
+export interface MarkDeliveredRequest {
+  deliveryNo: string
+  /** A `DLVM` reason code (`CARR`, `DAPP`, `CUST`, `OTHR`). */
+  reasonCode: string
+  /** Required on `OTHR`; at most 100 characters once trimmed. */
+  note?: string
+}
+
+/** One active `DLVM` reason (`GET SdDocumentWeb/MarkDeliveredReasons`, 2421). English only. */
+export interface MarkDeliveredReasonModel {
+  code: string
+  description: string
+}

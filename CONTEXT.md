@@ -108,7 +108,12 @@ close request** (`DCCR`/`OCCR`, "Withdraw Request"), is retired: the owner ruled
 2026-09-25 (BackOffice 2022), and the server refuses it (`CloseRequestIsFinal`). A request is
 normally followed by the `AutoClose` worker's **close**. Nothing a back-office
 operator does on Document Details is a positive outcome — orders complete in the field, never from
-this screen. User-facing labels therefore say *cancel* ("Cancel Order", "Request Cancellation");
+this screen — with **one named exception**: **Mark delivered** (BackOffice ADR 0065, ticket 2422).
+An operator holding the `OmsMarkDelivered` grant may mark a category-`D` delivery that is out for
+delivery (`O`), with no cancellation pending, delivered — with a reason from the server's `DLVM`
+list. It runs the field's own `DDLR`, it is hidden without the grant, it never takes the promoted
+commit slot and it carries no check mark. Nothing else on the screen becomes a positive outcome.
+User-facing labels therefore say *cancel* ("Cancel Order", "Request Cancellation");
 the `CommandKind` identifiers and `actionType` codes keep the `close` spelling.
 _Avoid_: complete, fulfil, finish — and never pair `close` with a success/check affordance.
 

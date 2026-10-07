@@ -15,7 +15,7 @@
  * else static. The server remains the authority on legality and says so in its
  * `400`.
  *
- * **Nothing is ever hidden** — the bar's contents never shift between visits
+ * **Nothing is ever hidden** for STATE — the bar's contents never shift between visits
  * or documents; a command that vanishes is a command an operator cannot
  * discover. The one command RETIRED from the bar altogether is Withdraw Request
  * (`DCCR`/`OCCR`): a cancellation request is irreversible (owner ruling
@@ -66,7 +66,10 @@ export interface CommandCluster {
  * it read as a fourth family rather than as the edge of the bar — and is a
  * *tier, not a commit*: same button height as every cluster button, never
  * enlarged. No command on this screen is a positive outcome, so the promoted
- * commit slot is permanently empty.
+ * commit slot is permanently empty. The one named exception, *Mark delivered*
+ * (BackOffice ADR 0065, ticket 2422), is grant-gated and lives OUTSIDE this
+ * grammar (`mark-delivered.ts`, its own cluster in `CommandPanel`) — it does
+ * not take the commit slot either, so the slot stays empty.
  */
 export interface CommandBar {
   clusters: CommandCluster[]

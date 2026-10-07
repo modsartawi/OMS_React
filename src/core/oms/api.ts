@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 
@@ -26,7 +27,7 @@ export const OMS_ACCESS_KEY = ['oms', 'access'] as const
 
 export const omsAccessApi = {
   /**
-   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail }`.
+   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail, canMarkDelivered }`.
    *
    * ⚠️ **Fails closed, deliberately** — no 404/network-tolerant catch, unlike the
    * `Notifications/Access` and `Bby/Access` probes which degrade to allowed because
@@ -53,4 +54,16 @@ export function omsAccessQuery() {
     staleTime: Infinity,
     retry: false,
   } as const
+}
+
+/**
+ * Drop Mark delivered for the rest of the page life after a 403 from its door (BackOffice
+ * 2422): the server's answer outranks the probe's earlier one. Only that one flag is
+ * cleared on the shared entry — the list and Document Details grants are other answers,
+ * and the screen the operator is on stays open.
+ */
+export function revokeMarkDelivered(queryClient: QueryClient): void {
+  queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) =>
+    prev ? { ...prev, canMarkDelivered: false } : prev,
+  )
 }

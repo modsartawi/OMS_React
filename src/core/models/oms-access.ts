@@ -15,8 +15,14 @@
  *
  * Two grants, not one: the list is a read and the detail screen writes, so a session
  * may hold the first without the second (ticket 125, OQ2).
+ *
+ * - `canMarkDelivered` ← `BackOfficeScreen[OmsMarkDelivered,06]` — Mark delivered on
+ *   Document Details (BackOffice spec 2417, ticket 2421). Reported on its own: the
+ *   command is drawn only when it is `true` AND the session can open Document Details.
+ *   Optional because an older SIS.Api does not send it, and absent must read as denied.
  */
 export interface OmsAccessResult {
   canOpenList: boolean
   canOpenDetail: boolean
+  canMarkDelivered?: boolean
 }

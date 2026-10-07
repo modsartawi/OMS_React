@@ -46,3 +46,7 @@ export const canOpenFailedTransfers = (r: OmsAccessResult | null | undefined): b
 /** Cities & districts (ticket 436): the leaf's and the page gate's one predicate. */
 export const canOpenGeography = (r: OmsAccessResult | null | undefined): boolean =>
   omsGrants(r).canOpenGeography
+
+/** Document source users (ticket 438): the leaf's and the page gate's one predicate. */
+export const canOpenDocumentSourceUsers = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canOpenDocumentSourceUsers

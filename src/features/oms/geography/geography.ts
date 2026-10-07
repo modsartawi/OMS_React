@@ -1,5 +1,5 @@
 import type { SdCityModel } from '@/core/models/lookups'
-import type { ImportLine } from '@/core/import/parse-import'
+import type { ImportOkLine } from '@/core/import/parse-import'
 import { isBlankDate } from '@/core/util/date-format'
 import { geographyApi } from './api'
 
@@ -89,14 +89,9 @@ export type GeographyImportLine<K extends string> = Record<K, string> & { isDele
 
 /**
  * The body of `POST SdDocumentWeb/Cities/Import` or `Districts/Import`: `{ lines }`, every line in
- * file order with `isDelete`. `null` while any line is in error: an import with one is not sent,
- * and the server's 1-based `line` must stay the preview's.
+ * file order with `isDelete`. The lines are the core dialog's `sendableLines` — all of them, none in
+ * error — so the server's 1-based `line` stays the preview's.
  */
-export function geographyImportBody<K extends string>(lines: readonly ImportLine<K>[]): { lines: GeographyImportLine<K>[] } | null {
-  const body: GeographyImportLine<K>[] = []
-  for (const l of lines) {
-    if (l.error) return null
-    body.push({ ...l.fields, isDelete: l.action === 'delete' })
-  }
-  return { lines: body }
+export function geographyImportBody<K extends string>(lines: readonly ImportOkLine<K>[]): { lines: GeographyImportLine<K>[] } {
+  return { lines: lines.map((l) => ({ ...l.fields, isDelete: l.action === 'delete' })) }
 }

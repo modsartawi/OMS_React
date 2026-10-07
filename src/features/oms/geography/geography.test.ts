@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SdCityModel } from '@/core/models/lookups'
-import { parseImport } from '@/core/import/parse-import'
+import { parseImport, sendableLines } from '@/core/import/parse-import'
 import {
   CITY_IMPORT_COLUMNS,
   DISTRICT_IMPORT_COLUMNS,
@@ -75,21 +75,21 @@ describe('lastChange — who changed a row last, and when', () => {
 
 describe('geographyImportBody — what the imports send (ticket 437, spec 430 D6)', () => {
   it('sends a city line with its English name before its Arabic one, and isDelete', () => {
-    const body = geographyImportBody(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah\tجدة\tX', CITY_IMPORT_COLUMNS))
+    const body = geographyImportBody(sendableLines(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah\tجدة\tX', CITY_IMPORT_COLUMNS))!)
     expect(body).toEqual({
       lines: [
         { cityCode: 'RUH', cityNameEn: 'Riyadh', cityNameAr: 'الرياض', isDelete: false },
         { cityCode: 'JED', cityNameEn: 'Jeddah', cityNameAr: 'جدة', isDelete: true },
       ],
     })
-    expect(Object.keys(body!.lines[0])).not.toContain('isDeleted')
+    expect(Object.keys(body.lines[0])).not.toContain('isDeleted')
   })
 
   it("sends a district line in WPF's field names", () => {
     const body = geographyImportBody(
-      parseImport('RUH-01\tRUH\tAl Olaya\tالعليا\tRiyadh\tالرياض\tP001\tP050\tP002\tx', DISTRICT_IMPORT_COLUMNS),
+      sendableLines(parseImport('RUH-01\tRUH\tAl Olaya\tالعليا\tRiyadh\tالرياض\tP001\tP050\tP002\tx', DISTRICT_IMPORT_COLUMNS))!,
     )
-    expect(body?.lines).toEqual([
+    expect(body.lines).toEqual([
       {
         districtCode: 'RUH-01',
         cityCode: 'RUH',
@@ -103,10 +103,6 @@ describe('geographyImportBody — what the imports send (ticket 437, spec 430 D6
         isDelete: true,
       },
     ])
-  })
-
-  it('sends nothing while a line is in error', () => {
-    expect(geographyImportBody(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah', CITY_IMPORT_COLUMNS))).toBeNull()
   })
 
   it('reloads both lists under one key', () => {

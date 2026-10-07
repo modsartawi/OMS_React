@@ -13,17 +13,30 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { apiErrorKind, apiErrorMessage } from '@/core/api'
-import { canSendImport, decodeImportFile, importTally, parseImport, type ImportLine } from '@/core/import/parse-import'
-import { importResult, type ImportResultView } from '@/core/import/import-result'
-import { geographyApi } from './api'
-import { IMPORT_COLUMNS, geographyImportBody, type ImportKind } from './geography'
-import { importPreviewColumns } from './columns'
+import type { ImportResultModel } from '@/core/models/import-result'
+import { decodeImportFile, importTally, parseImport, sendableLines, type ImportLine, type ImportOkLine } from './parse-import'
+import { importResult, type ImportResultView } from './import-result'
+import { importPreviewColumns } from './preview-columns'
 
-interface Props {
-  /** Which list is imported; the dialog is open while it is set. */
-  kind: ImportKind | null
+interface Props<K extends string> {
+  /**
+   * The importing feature's i18n namespace. It carries the dialog's `import.*` block (file, paste,
+   * summary, send, result, reasons…), so the copy — and its Arabic — stays the feature's.
+   */
+  ns: string
+  /** Which import this is: the dialog's `data-import-dialog` hook. */
+  kind: string
+  title: string
+  /** The file's format, worded by the feature: its columns in order and the trailing X. */
+  format: string
+  /** The feature's column spec: the field keys, in file order. */
+  columns: readonly K[]
+  /** Each column's preview header, worded by the feature. */
+  header: (key: K) => string
+  /** Posts the lines — every line of the file, in order, none in error — to the feature's door. */
+  send: (lines: readonly ImportOkLine<K>[]) => Promise<ImportResultModel>
   onClose: () => void
-  /** The import reached the server (or may have): the page reloads both lists. */
+  /** The import reached the server (or may have): the page reloads its lists. */
   onImported: () => void
 }
 
@@ -37,34 +50,52 @@ const CELL = 'border-b border-border px-2 py-1 text-start align-top'
 const figure = (n: number) => n.toLocaleString('en-US')
 
 /**
- * The city or district import (ticket 437, spec 430 D6/D8/D14): WPF's tab-separated file, picked or
- * pasted, read by the core parser into a preview before anything is sent. A line with the wrong
- * number of columns is flagged and keeps Send off until the text is fixed; a header is an ordinary
- * line, so it is seen. Send posts every line with `isDelete`; the result says what was applied,
- * what was unchanged, and every line the server skipped and why.
+ * The WPF tab-separated import (spec 430 D8/D14) — built for Cities & districts at ticket 437 and
+ * graduated here at ticket 438, when Document source users became its second feature (features may
+ * not import each other). The file, picked or pasted, is read by the core parser against the
+ * feature's column spec into a preview before anything is sent. A line with the wrong number of
+ * columns is flagged and keeps Send off until the text is fixed; a header is an ordinary line, so
+ * it is seen. Send hands the feature every line (it maps them to its own body: `isDelete` or
+ * `isDeleted`); the result says what was applied, what was unchanged, and every line the server
+ * skipped and why.
+ *
+ * What core owns is the SHAPE; the copy is the feature's (`ns`), as `ScreenGate` does it.
  *
  * The text box is the one source: a picked file fills it, and an edit re-reads the preview.
+ *
+ * It is open while it is mounted: a caller mounts it per import (`{kind && <ImportDialog … />}`), so
+ * nothing of one import is drawn in the next.
  */
-export default function ImportDialog({ kind, onClose, onImported }: Props) {
-  const { t } = useTranslation('geography')
+export default function ImportDialog<K extends string>({
+  ns,
+  kind,
+  title,
+  format,
+  columns,
+  header,
+  send,
+  onClose,
+  onImported,
+}: Props<K>) {
+  const { t } = useTranslation(ns)
   const [text, setText] = useState('')
   const [fileName, setFileName] = useState('')
   const [readError, setReadError] = useState(false)
   const [result, setResult] = useState<ImportResultView | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const columns: readonly string[] = kind ? IMPORT_COLUMNS[kind] : IMPORT_COLUMNS.cities
   const lines = useMemo(() => parseImport(text, columns), [text, columns])
+  // What Send posts, and whether it is offered: one reading of the rule.
+  const ok = useMemo(() => sendableLines(lines), [lines])
   const tally = importTally(lines)
-  const previewCols = useMemo(() => importPreviewColumns(t, columns), [t, columns])
+  const previewCols = useMemo(() => importPreviewColumns(t, columns, header), [t, columns, header])
   const defaultColDef = useMemo<ColDef<ImportLine<string>>>(
     () => ({ ...OMS_GRID_BASE_COL_DEF, sortable: false, resizable: true, suppressHeaderMenuButton: true }),
     [],
   )
 
-  const send = useMutation({
-    mutationFn: ({ kind: k, body }: { kind: ImportKind; body: NonNullable<ReturnType<typeof geographyImportBody>> }) =>
-      geographyApi.importLines(k, body),
+  const sending = useMutation({
+    mutationFn: send,
     onSuccess: (answer) => setResult(importResult(answer)),
     // Even a failed or unanswered send may have committed: the lists are read again either way.
     onSettled: () => onImported(),
@@ -75,19 +106,19 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
     setFileName('')
     setReadError(false)
     setResult(null)
-    send.reset()
+    sending.reset()
     if (fileInput.current) fileInput.current.value = ''
   }
 
   // A send in flight is not abandoned by Escape or a backdrop click: its answer is the user's.
   function close() {
-    if (send.isPending) return
+    if (sending.isPending) return
     onClose()
   }
 
   async function onFile(file: File | null) {
     setReadError(false)
-    send.reset()
+    sending.reset()
     if (!file) return
     try {
       setText(decodeImportFile(new Uint8Array(await file.arrayBuffer())))
@@ -101,12 +132,11 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
   }
 
   function submit() {
-    const body = geographyImportBody(lines)
-    if (!kind || !body || send.isPending) return
-    send.mutate({ kind, body })
+    if (!ok || sending.isPending) return
+    sending.mutate(ok)
   }
 
-  const sendable = canSendImport(lines) && !send.isPending
+  const sendable = ok !== null && !sending.isPending
 
   const footer = result ? (
     <>
@@ -119,32 +149,25 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
     </>
   ) : (
     <>
-      <Button variant="text" onClick={close} disabled={send.isPending}>
+      <Button variant="text" onClick={close} disabled={sending.isPending}>
         {t('import.cancel')}
       </Button>
       <Button variant="primary" onClick={submit} disabled={!sendable} data-import-send="">
-        {send.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-        {send.isPending ? t('import.sending') : t('import.send', { count: tally.lines })}
+        {sending.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+        {sending.isPending ? t('import.sending') : t('import.send', { count: tally.lines })}
       </Button>
     </>
   )
 
   return (
-    <Modal
-      open={kind !== null}
-      onClose={close}
-      onShow={reset}
-      title={kind ? t(`${kind}.import.title`) : ''}
-      width="72rem"
-      footer={footer}
-    >
-      <div className="flex flex-col gap-3 text-sm" data-import-dialog={kind ?? ''}>
+    <Modal open onClose={close} onShow={reset} title={title} width="72rem" footer={footer}>
+      <div className="flex flex-col gap-3 text-sm" data-import-dialog={kind}>
         {result ? (
-          <ResultPanel result={result} />
+          <ResultPanel ns={ns} result={result} />
         ) : (
           <>
             <p className="text-xs text-muted-foreground" data-import-format="">
-              {kind && t(`${kind}.import.format`)}
+              {format}
             </p>
             <div className="flex flex-wrap items-start gap-3">
               <label className="flex flex-col gap-1">
@@ -153,7 +176,7 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
                   ref={fileInput}
                   type="file"
                   accept=".txt,.tsv,.tab,text/plain,text/tab-separated-values"
-                  disabled={send.isPending}
+                  disabled={sending.isPending}
                   onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
                   className="rounded-md border border-border bg-card p-2 text-sm file:me-3 file:rounded-full file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
                   data-import-file=""
@@ -170,9 +193,9 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value)
-                    send.reset()
+                    sending.reset()
                   }}
-                  disabled={send.isPending}
+                  disabled={sending.isPending}
                   rows={4}
                   spellCheck={false}
                   // The rows are tab-separated machine text: they read left to right in either UI.
@@ -226,12 +249,12 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
               </>
             )}
 
-            {send.isError && (
+            {sending.isError && (
               <ErrorBanner
                 className="p-2.5"
                 // A refusal is the server's decision: nothing was applied. Anything else may have been.
-                title={apiErrorKind(send.error) === 'business' ? t('import.refusedTitle') : t('import.failedTitle')}
-                message={apiErrorMessage(send.error, t('import.failed'))}
+                title={apiErrorKind(sending.error) === 'business' ? t('import.refusedTitle') : t('import.failedTitle')}
+                message={apiErrorMessage(sending.error, t('import.failed'))}
               />
             )}
           </>
@@ -242,8 +265,8 @@ export default function ImportDialog({ kind, onClose, onImported }: Props) {
 }
 
 /** What the server answered: the three counts, then every skipped line with its key and reason. */
-function ResultPanel({ result }: { result: ImportResultView }) {
-  const { t } = useTranslation('geography')
+function ResultPanel({ ns, result }: { ns: string; result: ImportResultView }) {
+  const { t } = useTranslation(ns)
   const counts = [
     ['applied', result.applied],
     ['unchanged', result.unchanged],

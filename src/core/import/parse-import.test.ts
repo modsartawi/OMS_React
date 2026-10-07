@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canSendImport, decodeImportFile, importTally, parseImport } from './parse-import'
+import { decodeImportFile, importTally, parseImport, sendableLines } from './parse-import'
 
 const CITY = ['cityCode', 'cityNameEn', 'cityNameAr'] as const
 const DISTRICT = [
@@ -88,11 +88,21 @@ describe('parseImport', () => {
   })
 })
 
-describe('canSendImport', () => {
-  it('needs at least one line and none in error', () => {
-    expect(canSendImport([])).toBe(false)
-    expect(canSendImport(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah\tجدة\tX', CITY))).toBe(true)
-    expect(canSendImport(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah', CITY))).toBe(false)
+describe('sendableLines', () => {
+  it('is every line in file order when none is in error', () => {
+    const lines = parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah\tجدة\tX', CITY)
+    expect(sendableLines(lines)?.map((l) => [l.line, l.action])).toEqual([
+      [1, 'upsert'],
+      [2, 'delete'],
+    ])
+  })
+
+  it('is nothing while any line is in error, never the lines that read', () => {
+    expect(sendableLines(parseImport('RUH\tRiyadh\tالرياض\nJED\tJeddah', CITY))).toBeNull()
+  })
+
+  it('is nothing for no line', () => {
+    expect(sendableLines(parseImport('', CITY))).toBeNull()
   })
 })
 

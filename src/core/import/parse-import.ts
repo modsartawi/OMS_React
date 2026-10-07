@@ -1,6 +1,7 @@
 // The WPF tab-separated import, read on this side first (spec 430 D14, ticket 437). Pure: text in,
 // a preview out; no `t`, no DOM, no api. Generic over a column spec, so every import screen
 // (Cities, Districts, Document source users) supplies its columns and reads the file the same way.
+// The dialog that draws it is `./ImportDialog` (graduated at ticket 438, its second feature).
 //
 // The format is WPF's own, so existing files and habits still work:
 // - a row per line, `\r\n` or `\n`, empty lines dropped;
@@ -61,9 +62,17 @@ export function parseImport<K extends string>(text: string, columns: readonly K[
   })
 }
 
-/** Send is offered only for at least one line, and none in error. */
-export function canSendImport(lines: readonly ImportLine<string>[]): boolean {
-  return lines.length > 0 && lines.every((l) => !l.error)
+/**
+ * The lines to send, in file order — or `null` while Send is not offered (it needs at least one
+ * line, and none in error). Never a filtered subset: the server's 1-based `line` must stay the preview's.
+ */
+export function sendableLines<K extends string>(lines: readonly ImportLine<K>[]): ImportOkLine<K>[] | null {
+  const ok: ImportOkLine<K>[] = []
+  for (const l of lines) {
+    if (l.error) return null
+    ok.push(l)
+  }
+  return ok.length > 0 ? ok : null
 }
 
 /** What the preview says it holds. */

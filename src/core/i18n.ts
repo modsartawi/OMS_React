@@ -65,6 +65,9 @@ import failedDonorTransfersAr from '@/locales/ar/failed-donor-transfers.json'
 // Cities & districts (spec 430, ticket 436). Namespace == feature name, English and Arabic together.
 import geography from '@/locales/en/geography.json'
 import geographyAr from '@/locales/ar/geography.json'
+// Document source users (spec 430, ticket 438). Namespace == feature name, English and Arabic together.
+import documentSourceUsers from '@/locales/en/document-source-users.json'
+import documentSourceUsersAr from '@/locales/ar/document-source-users.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -72,7 +75,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users'],
   resources: {
     en: {
       common,
@@ -103,6 +106,7 @@ i18n.use(initReactI18next).init({
       'document-payments': documentPayments,
       'failed-donor-transfers': failedDonorTransfers,
       geography,
+      'document-source-users': documentSourceUsers,
     },
     ar: {
       document: documentAr,
@@ -110,6 +114,7 @@ i18n.use(initReactI18next).init({
       'document-payments': documentPaymentsAr,
       'failed-donor-transfers': failedDonorTransfersAr,
       geography: geographyAr,
+      'document-source-users': documentSourceUsersAr,
     },
   },
   interpolation: { escapeValue: false },

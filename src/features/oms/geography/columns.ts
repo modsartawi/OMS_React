@@ -2,7 +2,6 @@ import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import type { SdCityModel, SdDistrictModel } from '@/core/models/lookups'
 import { formatDateTime } from '@/core/util/date-format'
-import type { ImportLine } from '@/core/import/parse-import'
 import { lastChange, type IMPORT_COLUMNS, type ImportKind } from './geography'
 
 // The two Cities & districts grids (ticket 436, spec 430 D13/D15): WPF's columns, English before
@@ -86,41 +85,7 @@ const IMPORT_HEADER: Record<(typeof IMPORT_COLUMNS)[ImportKind][number], string>
   tempStoreCode: 'tempStore',
 }
 
-/**
- * The preview grid: each line's number and action, then its cells under the spec's columns, then
- * what is wrong with it. An error line shows its cells by position, so a shifted column is seen.
- */
-export function importPreviewColumns(t: TFunction, keys: readonly string[]): ColDef<ImportLine<string>>[] {
-  return [
-    { colId: 'line', headerName: t('import.preview.line'), width: 80, type: 'numericColumn', valueGetter: ({ data }) => data?.line },
-    {
-      colId: 'action',
-      headerName: t('import.preview.action'),
-      width: 150,
-      valueGetter: ({ data }) => (!data ? '' : data.error ? t('import.action.error') : t(`import.action.${data.action}`)),
-      cellClassRules: {
-        'font-medium text-danger-800': ({ data }) => !!data?.error,
-        'text-attention-800': ({ data }) => data?.action === 'delete',
-      },
-    },
-    ...keys.map(
-      (key, i): ColDef<ImportLine<string>> => ({
-        colId: key,
-        headerName: t(`columns.${IMPORT_HEADER[key as keyof typeof IMPORT_HEADER]}`),
-        width: 150,
-        valueGetter: ({ data }) => data?.cells[i] ?? '',
-      }),
-    ),
-    {
-      colId: 'problem',
-      headerName: t('import.preview.problem'),
-      minWidth: 280,
-      flex: 1,
-      valueGetter: ({ data }) =>
-        data?.error
-          ? t('import.problem.columnCount', { count: data.error.found, expected: data.error.expected, withDelete: data.error.expected + 1 })
-          : '',
-      cellClass: 'text-danger-800',
-    },
-  ]
+/** An import column's preview header (the preview grid itself is the core `importPreviewColumns`). */
+export function importHeader(t: TFunction, key: keyof typeof IMPORT_HEADER): string {
+  return t(`columns.${IMPORT_HEADER[key]}`)
 }

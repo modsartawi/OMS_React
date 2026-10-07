@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -19,9 +19,19 @@ import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenGeography, omsGrants } from '@/core/oms/access'
 import type { SdCityModel, SdDistrictModel } from '@/core/models/lookups'
-import { GEOGRAPHY_LISTS_KEY, citiesQuery, districtsQuery, selectedCityCode, type ImportKind } from './geography'
-import { EXPORT_AS_TEXT, cityColumns, districtColumns } from './columns'
-import ImportDialog from './ImportDialog'
+import ImportDialog from '@/core/import/ImportDialog'
+import type { ImportOkLine } from '@/core/import/parse-import'
+import { geographyApi } from './api'
+import {
+  GEOGRAPHY_LISTS_KEY,
+  IMPORT_COLUMNS,
+  citiesQuery,
+  districtsQuery,
+  geographyImportBody,
+  selectedCityCode,
+  type ImportKind,
+} from './geography'
+import { EXPORT_AS_TEXT, cityColumns, districtColumns, importHeader } from './columns'
 
 /**
  * Cities & districts (ticket 436, spec 430 D6/D13): the WPF City and District inquiries on one
@@ -75,6 +85,7 @@ function Geography() {
 
   const cityCols = useMemo(() => cityColumns(t), [t])
   const districtCols = useMemo(() => districtColumns(t), [t])
+  const header = useCallback((key: Parameters<typeof importHeader>[1]) => importHeader(t, key), [t])
 
   // The city's name in the screen's language, the other when that one is blank.
   const arabic = i18n.language.startsWith('ar')
@@ -115,12 +126,21 @@ function Geography() {
         // The district file names each line's city, so the import does not wait on a selection.
         onImport={grants.canImportDistricts ? () => setImporting('districts') : undefined}
       />
-      <ImportDialog
-        kind={importing}
-        onClose={() => setImporting(null)}
-        // Both lists: a city import renames the districts' title, a district import may touch any city.
-        onImported={() => void queryClient.invalidateQueries({ queryKey: GEOGRAPHY_LISTS_KEY })}
-      />
+      {/* Mounted per import, so nothing of one list's import is drawn in the other's. */}
+      {importing && (
+        <ImportDialog
+          ns="geography"
+          kind={importing}
+          title={t(`${importing}.import.title`)}
+          format={t(`${importing}.import.format`)}
+          columns={IMPORT_COLUMNS[importing]}
+          header={header}
+          send={(lines: readonly ImportOkLine<string>[]) => geographyApi.importLines(importing, geographyImportBody(lines))}
+          onClose={() => setImporting(null)}
+          // Both lists: a city import renames the districts' title, a district import may touch any city.
+          onImported={() => void queryClient.invalidateQueries({ queryKey: GEOGRAPHY_LISTS_KEY })}
+        />
+      )}
     </div>
   )
 }

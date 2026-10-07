@@ -175,6 +175,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/geography/GeographyPage')).default,
         }),
       },
+      // Document source users (ticket 438, spec 430) — the WPF Document source users inquiry and
+      // import, behind their own flags on the shared OMS probe.
+      {
+        path: 'oms/document-source-users',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/document-source-users/DocumentSourceUsersPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

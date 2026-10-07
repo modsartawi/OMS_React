@@ -1,7 +1,8 @@
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
+  ArrowLeftRight,
   Check,
   Flag,
   History,
@@ -12,15 +13,22 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import type { SdDocumentHeaderModel, SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
+import type {
+  DonorRequestModel,
+  SdDocumentHeaderModel,
+  SdDocumentLogModel,
+  SdDocumentOutboxModel,
+} from '@/core/models/sd-document'
 import { hasScheduledWindow } from '@/core/oms/delivery-window'
+import { donorOutcome, elapsedSince, type DonorOutcome } from '@/core/oms/donor-moments'
 import { timeline, timelineInputFromHeader, type TimelineStep, type TimelineStepState } from '@/core/oms/timeline'
 import { spine, type JobState, type SpineEntry } from '@/core/oms/timeline-feed'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import { formatCount } from '@/core/util/bidi'
 import { formatDateTime, formatTimeOfDay } from '@/core/util/date-format'
 
-/** One deferred collection (Log / Jobs): `rows: null` until it resolves. */
+/** One deferred collection (Log / Jobs / donor requests): `rows: null` until it resolves. */
 export interface Deferred<T> {
   rows: T[] | null
   loading: boolean
@@ -40,6 +48,18 @@ const MILESTONE: Partial<Record<TimelineStepState, { dot: string; ink: string; I
   current: { dot: 'border-primary bg-card ring-[3px] ring-primary-050', ink: 'text-foreground', Icon: null },
   requested: { dot: 'border-fam-cancel-request bg-fam-cancel-request text-primary-foreground', ink: 'text-fam-cancel-request', Icon: Flag },
   cancelled: { dot: 'border-danger bg-danger text-primary-foreground', ink: 'text-danger-800', Icon: XCircle },
+}
+
+/**
+ * A donor moment's ink (ticket 429): the primary tone, one icon for every donor row. An Ended row
+ * takes its outcome's tone: refused and expired need attention (amber), cancelled is history.
+ */
+const DONOR_INK = 'text-primary'
+const ENDED_INK: Record<DonorOutcome | 'none', string> = {
+  refused: 'text-attention-800',
+  expired: 'text-attention-800',
+  cancelled: 'text-muted-foreground',
+  none: 'text-muted-foreground',
 }
 
 const JOB_ICON: Record<JobState, { Icon: LucideIcon; ink: string }> = {
@@ -66,19 +86,22 @@ export default function ActivitySpine({
   document,
   logs,
   jobs,
+  donors,
   composer,
 }: {
   document: SdDocumentHeaderModel
   logs: Deferred<SdDocumentLogModel>
   jobs: Deferred<SdDocumentOutboxModel>
+  /** A delivery's donor requests (ticket 429); a failure leaves the rest of the spine drawn. */
+  donors?: Deferred<DonorRequestModel>
   /** The note composer, set on the Now line (D8, ticket 405). The page owns its post. */
   composer?: ReactNode
 }) {
   const { t } = useTranslation('document')
   const view = useMemo(() => {
     const steps = timeline(timelineInputFromHeader(document, logs.rows))
-    return spine(steps, logs.rows, jobs.rows)
-  }, [document, logs.rows, jobs.rows])
+    return spine(steps, logs.rows, jobs.rows, donors?.rows)
+  }, [document, logs.rows, jobs.rows, donors?.rows])
   // D12: the schedule's range is a machine value; the slot's own day and text are free text.
   const windowIsMachine = hasScheduledWindow(document)
 
@@ -103,6 +126,9 @@ export default function ActivitySpine({
           ))}
         </ol>
       )}
+      {view.waiting.map((request, i) => (
+        <WaitingOnDonorLine key={`${request.requestNo}-${i}`} request={request} />
+      ))}
 
       {/* The Now line, carrying the note composer (D4, D8): new notes join the past just below. */}
       <div
@@ -116,7 +142,12 @@ export default function ActivitySpine({
       </div>
 
       {logs.error && <ErrorBanner message={logs.error} className="px-3 py-1.5" />}
-      {(logs.loading || jobs.loading) && (
+      {donors?.error && (
+        <div data-donor-error="">
+          <ErrorBanner message={donors.error} className="px-3 py-1.5" />
+        </div>
+      )}
+      {(logs.loading || jobs.loading || donors?.loading) && (
         <p role="status" className="text-xs text-muted-foreground">
           {t('spine.loading')}
         </p>
@@ -133,6 +164,7 @@ export default function ActivitySpine({
 /** A row's key: its id where it has one, and its position, so a row the server sent without an id never collides. */
 function entryKey(entry: SpineEntry, i: number): string {
   if (entry.kind === 'job') return `job-${entry.job.outboxId}-${i}`
+  if (entry.kind === 'donor') return `donor-${entry.request.requestNo}-${entry.moment}-${i}`
   if (entry.kind === 'milestone' && !entry.log) return `step-${entry.step.key}`
   return `log-${entry.log?.logNo}-${i}`
 }
@@ -218,6 +250,98 @@ function RetryingText({ job }: { job: SdDocumentOutboxModel }) {
 }
 
 const handlerOf = (job: SdDocumentOutboxModel) => job.actionTypeDescription || job.actionType
+
+/** The current time, ticking each minute, so an elapsed wait counts up while the page is open. */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
+}
+
+/**
+ * "Waiting on donor D012 · 1h 20m" (ticket 429): one line per OPEN request nobody has picked yet,
+ * below the future steps and above Now. The elapsed time is one machine value, isolated whole.
+ */
+function WaitingOnDonorLine({ request }: { request: DonorRequestModel }) {
+  const { t } = useTranslation('document')
+  const now = useMinuteClock()
+  const since = elapsedSince(request.raisedAt, now)
+  const elapsed = !since
+    ? ''
+    : since.days
+      ? t('donor.elapsed.days', { d: since.days, h: since.hours })
+      : since.hours
+        ? t('donor.elapsed.hours', { h: since.hours, m: since.minutes })
+        : t('donor.elapsed.minutes', { m: since.minutes })
+  return (
+    <div
+      data-donor-waiting=""
+      data-request-no={request.requestNo}
+      className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-dashed border-border-strong bg-card px-3 py-1.5 text-[0.8125rem] text-muted-foreground"
+    >
+      <ArrowLeftRight className={`mt-0.5 size-4 ${DONOR_INK}`} aria-hidden />
+      <span>
+        <Trans
+          t={t}
+          i18nKey={elapsed ? 'donor.waiting' : 'donor.waitingNoTime'}
+          values={{ store: request.donorStore, elapsed }}
+          // The elapsed time carries words (`1h 20m`, `1 س 20 د`): dir auto keeps each locale in its own order.
+          components={{ store: <Ltr />, elapsed: <bdi /> }}
+        />
+      </span>
+    </div>
+  )
+}
+
+type DonorEntry = Extract<SpineEntry, { kind: 'donor' }>
+
+/** A donor moment's line: what happened, at which donor, and the moment's own figures. */
+function DonorText({ entry }: { entry: DonorEntry }) {
+  const { t } = useTranslation('document')
+  const r = entry.request
+  const store = r.donorStore
+  const isolate = { store: <Ltr />, n: <Ltr />, sto: <Ltr /> }
+  switch (entry.moment) {
+    case 'raised':
+      return <Trans t={t} i18nKey="donor.raised" count={r.required} values={{ store, count: r.required }} components={isolate} />
+    case 'picked':
+      return (
+        <Trans
+          t={t}
+          i18nKey="donor.picked"
+          count={r.required}
+          values={{ store, units: formatCount(r.picked, r.required) }}
+          components={isolate}
+        />
+      )
+    case 'transferred':
+      return <Trans t={t} i18nKey="donor.transferred" values={{ store, sto: r.transferStoNo }} components={isolate} />
+    case 'ended':
+      return <Trans t={t} i18nKey={`donor.ended.${donorOutcome(r) ?? 'none'}`} values={{ store }} components={isolate} />
+    default:
+      return <Trans t={t} i18nKey={`donor.${entry.moment}`} values={{ store }} components={isolate} />
+  }
+}
+
+/** Who acted on a donor moment, from the request's own record. */
+function donorWho(entry: DonorEntry): string | undefined {
+  const r = entry.request
+  switch (entry.moment) {
+    case 'raised':
+      return r.raisedBy
+    case 'edited':
+      return r.changedBy
+    case 'stamped':
+      return r.lockedBy
+    case 'ended':
+      return r.outcomeBy
+    default:
+      return undefined
+  }
+}
 
 /** One spine row: a dot on the line, and its content. */
 function Row({ dot, children, data }: { dot: ReactNode; children: ReactNode; data: Record<string, string> }) {
@@ -376,17 +500,57 @@ function PastEntry({ entry }: { entry: SpineEntry }) {
         </Row>
       )
     }
+    case 'donor': {
+      const outcome = entry.moment === 'ended' ? (donorOutcome(entry.request) ?? 'none') : null
+      const ink = outcome ? ENDED_INK[outcome] : DONOR_INK
+      return (
+        <Row
+          data={{
+            'data-entry': 'donor',
+            'data-moment': entry.moment,
+            'data-request-no': entry.request.requestNo,
+            ...(outcome ? { 'data-outcome': outcome } : {}),
+          }}
+          dot={<ArrowLeftRight className={`size-3.5 ${ink}`} aria-hidden />}
+        >
+          <div className="flex flex-wrap items-baseline gap-x-2 text-[0.8125rem]">
+            <span className={outcome ? ink : ''} data-label="">
+              <DonorText entry={entry} />
+            </span>
+            <Meta who={donorWho(entry)} at={entry.at} />
+          </div>
+          {entry.moment === 'ended' && entry.request.outcomeReason && (
+            <div className="text-xs text-muted-foreground" data-detail="">
+              <bdi>{entry.request.outcomeReason}</bdi>
+            </div>
+          )}
+        </Row>
+      )
+    }
     case 'job': {
       const { Icon, ink } = JOB_ICON[entry.state]
       const failed = entry.state === 'failed'
       return (
         <Row
-          data={{ 'data-entry': 'job', 'data-job-state': entry.state, 'data-outbox-id': entry.job.outboxId }}
+          data={{
+            'data-entry': 'job',
+            'data-job-state': entry.state,
+            'data-outbox-id': entry.job.outboxId,
+            ...(entry.donor ? { 'data-donor-store': entry.donor.donorStore } : {}),
+          }}
           dot={<Icon className={`size-3.5 ${ink}`} aria-hidden />}
         >
           <div className="flex flex-wrap items-baseline gap-x-2 text-[0.8125rem]">
             <span className={failed ? 'font-semibold text-danger-800' : ''} data-label="">
-              <bdi>{handlerOf(entry.job)}</bdi>
+              {entry.donor ? (
+                // The DRTR transfer names its donor (ticket 429) in the donor tint; its state is unchanged.
+                <span className="inline-flex items-baseline gap-1">
+                  <ArrowLeftRight className={`size-3 self-center ${DONOR_INK}`} aria-hidden />
+                  <Trans t={t} i18nKey="donor.job" values={{ store: entry.donor.donorStore }} components={{ store: <Ltr /> }} />
+                </span>
+              ) : (
+                <bdi>{handlerOf(entry.job)}</bdi>
+              )}
             </span>
             <Meta at={entry.at} />
           </div>

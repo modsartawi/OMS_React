@@ -117,6 +117,7 @@ async function run() {
       return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
+    if (/\/DonorRequests$/.test(p)) return route.fulfill(envelope([]))
     if (/\/Logs$/.test(p)) return route.fulfill(envelope(LOGS))
     if (/\/Outbox$/.test(p)) return route.fulfill(envelope(JOBS))
     return route.fulfill(envelope({}))

@@ -438,3 +438,42 @@ export interface MarkDeliveredReasonModel {
   code: string
   description: string
 }
+
+// ---------------------------------------------------------------------------
+// A delivery's donor requests — `GET SdDocumentWeb/Delivery/{no}/DonorRequests` (BackOffice 2458,
+// ticket 429). Read-only: the Delivery timeline draws each one's own times as donor moments.
+// ---------------------------------------------------------------------------
+
+export type DonorRequestState = 'OPEN' | 'FULFILLED' | 'TRANSFERRED' | 'CANCELLED'
+export type DonorRequestOutcome = '' | 'CANCELLED' | 'REFUSED' | 'EXPIRED'
+
+/**
+ * One donor request: the order store's named ask to one donor store for units it cannot fill.
+ * Every time is the LATEST one only (a repick or a second edit replaced the earlier time on the
+ * server); an unset time is the `0001-…` default.
+ */
+export interface DonorRequestModel {
+  requestNo: string
+  deliveryNo: string
+  orderStore: string
+  donorStore: string
+  state: DonorRequestState
+  outcome: DonorRequestOutcome
+  outcomeReason: string
+  outcomeBy: string
+  outcomeAt: string
+  raisedBy: string
+  raisedAt: string
+  changedBy: string
+  changedAt: string
+  fulfilledAt: string
+  lockedBy: string
+  lockedAt: string
+  transferStoNo: string
+  transferSapDocumentNo: string
+  transferredAt: string
+  /** Units given. */
+  picked: number
+  /** Units asked. */
+  required: number
+}

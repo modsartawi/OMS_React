@@ -273,7 +273,7 @@ async function run() {
       return route.fulfill(envelope({ ...CREATED, replayed: createMode === 'replay' }))
     }
     if (p === 'SdDocument/Districts') return route.fulfill(envelope(DISTRICTS))
-    if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
   })
 

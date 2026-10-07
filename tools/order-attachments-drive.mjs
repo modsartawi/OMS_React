@@ -265,7 +265,7 @@ async function run() {
       documentCalls += 1
       return route.fulfill(envelope({ ...CAPTURED[doc[1]], ...(fields[doc[1]] ?? {}) }))
     }
-    if (/\/(Logs|Outbox)$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     if (p === 'AttachmentWeb/Access') {
       accessCalls += 1
       if (probe === 'notSetUp') return route.fulfill(refusal(503, 'NOT_SET_UP', NOT_SET_UP))

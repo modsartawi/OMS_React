@@ -7,6 +7,33 @@
   "actions": {
     "mark-delivered": "تأكيد التسليم…"
   },
+  "donor": {
+    "loadFailed": "تعذّر تحميل طلبات المتجر المانح.",
+    "raised_zero": "طُلب من المتجر المانح <store>{{store}}</store> <n>{{count}}</n> وحدة",
+    "raised_one": "طُلبت من المتجر المانح <store>{{store}}</store> وحدة واحدة",
+    "raised_two": "طُلبت من المتجر المانح <store>{{store}}</store> وحدتان",
+    "raised_few": "طُلبت من المتجر المانح <store>{{store}}</store> <n>{{count}}</n> وحدات",
+    "raised_many": "طُلبت من المتجر المانح <store>{{store}}</store> <n>{{count}}</n> وحدة",
+    "raised_other": "طُلبت من المتجر المانح <store>{{store}}</store> <n>{{count}}</n> وحدة",
+    "edited": "عُدِّل الطلب إلى المتجر المانح <store>{{store}}</store>",
+    "picked": "جهّز المتجر المانح <store>{{store}}</store> <n>{{units}}</n> من الوحدات",
+    "stamped": "ختم المتجر المانح <store>{{store}}</store> التجهيز",
+    "transferred": "نُقلت الوحدات من المتجر المانح <store>{{store}}</store> · أمر النقل <sto>{{sto}}</sto>",
+    "ended": {
+      "cancelled": "أُلغي الطلب إلى المتجر المانح <store>{{store}}</store>",
+      "refused": "رفض المتجر المانح <store>{{store}}</store> الطلب",
+      "expired": "انتهت مهلة الطلب إلى المتجر المانح <store>{{store}}</store>",
+      "none": "انتهى الطلب إلى المتجر المانح <store>{{store}}</store>"
+    },
+    "waiting": "بانتظار المتجر المانح <store>{{store}}</store> · <elapsed>{{elapsed}}</elapsed>",
+    "waitingNoTime": "بانتظار المتجر المانح <store>{{store}}</store>",
+    "elapsed": {
+      "minutes": "{{m}} د",
+      "hours": "{{h}} س {{m}} د",
+      "days": "{{d}} ي {{h}} س"
+    },
+    "job": "نقل من المتجر المانح إلى DRS · <store>{{store}}</store>"
+  },
   "markDelivered": {
     "title": "تأكيد التسليم — {{deliveryNo}}",
     "intro": "استخدم هذا فقط إذا وصل التوصيل إلى العميل ولم يُسجَّل التسليم من الميدان. يُنفِّذ إجراء التسليم الميداني نفسه: تُبلَّغ قناة الطلب، وتُرسل رسالة التسليم، ويستمر إصدار الفاتورة.",

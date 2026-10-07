@@ -233,7 +233,7 @@ async function run() {
       return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
-    if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Outbox|Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))
     if (p === 'Slots/RescheduleReasons') return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))

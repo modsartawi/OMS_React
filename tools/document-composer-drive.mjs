@@ -152,7 +152,7 @@ function wire() {
     }
     const logsOf = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Logs$/)
     if (logsOf) return route.fulfill(envelope(logs[logsOf[1]] ?? []))
-    if (/\/Outbox$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))

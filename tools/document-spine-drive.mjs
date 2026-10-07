@@ -227,6 +227,7 @@ async function drive({ theme, dir }) {
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (/\/DonorRequests$/.test(p)) return route.fulfill(envelope([]))
     const read = p.match(/^SdDocumentWeb\/Document\/(\d+)\/(Logs|Outbox)$/)
     if (read) {
       const c = CASES[read[1]]

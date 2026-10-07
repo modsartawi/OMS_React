@@ -93,7 +93,7 @@ async function run() {
       return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     }
     if (/\/Outbox$/.test(p)) return route.fulfill(envelope(OUTBOX[currentDoc] ?? []))
-    if (/\/Logs$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Logs|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
   })
 

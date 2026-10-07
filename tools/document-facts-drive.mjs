@@ -215,7 +215,7 @@ async function drive({ theme, dir, width }) {
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
-    if (/\/(Logs|Outbox)$/.test(p)) return route.fulfill(envelope([]))
+    if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     if (p === 'AttachmentWeb/Access') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: [] }))
     if (p === 'AttachmentWeb/ByOwner') {
       byOwnerCalls += 1

@@ -43,6 +43,18 @@ guess. `statusHistory` carries **no** time (its row time is `DateTime.MaxValue`)
 `SdDocumentHeaderAction` holds the real milestone times, but they are not on the wire yet.
 _Avoid_: timestamp of the status, changed on (`changedOn` moves on every action).
 
+**Donor request**:
+The order store's named ask to **one** donor store for units it cannot fill. The full meaning (its
+states, who may act on it, the DRTR transfer that moves the units) lives in BackOffice
+`CONTEXT.md`; this app only reads it, on the Delivery timeline (ticket 429).
+_Avoid_: transfer request, borrow (the transfer is one moment of a request, not the request).
+
+**Donor moment**:
+A point on the Delivery timeline taken from a donor request's **own** record, not from the
+delivery's Log: raised, edited, picked, stamped, transferred, ended. Each is the request's latest
+time for that moment (a repick replaces the earlier one), and an unset time is no moment.
+_Avoid_: donor log, donor event (neither is a Log row).
+
 **Delivery inspector**:
 The resizable panel beside the Deliveries grid that shows the **selected row**. It is drawn from
 the list row alone and never fetches, so stepping through rows is free. It is **read-only**: its

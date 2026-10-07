@@ -295,6 +295,30 @@
       "queued": "Queued"
     }
   },
+  "donor": {
+    "loadFailed": "Could not load the donor requests.",
+    "raised_one": "Asked donor <store>{{store}}</store> for <n>{{count}}</n> unit",
+    "raised_other": "Asked donor <store>{{store}}</store> for <n>{{count}}</n> units",
+    "edited": "Donor request to <store>{{store}}</store> edited",
+    "picked_one": "Donor <store>{{store}}</store> picked <n>{{units}}</n> unit",
+    "picked_other": "Donor <store>{{store}}</store> picked <n>{{units}}</n> units",
+    "stamped": "Donor <store>{{store}}</store> stamped the pick",
+    "transferred": "Transferred from donor <store>{{store}}</store> · STO <sto>{{sto}}</sto>",
+    "ended": {
+      "cancelled": "Donor request to <store>{{store}}</store> cancelled",
+      "refused": "Donor <store>{{store}}</store> refused the request",
+      "expired": "Donor request to <store>{{store}}</store> expired",
+      "none": "Donor request to <store>{{store}}</store> ended"
+    },
+    "waiting": "Waiting on donor <store>{{store}}</store> · <elapsed>{{elapsed}}</elapsed>",
+    "waitingNoTime": "Waiting on donor <store>{{store}}</store>",
+    "elapsed": {
+      "minutes": "{{m}}m",
+      "hours": "{{h}}h {{m}}m",
+      "days": "{{d}}d {{h}}h"
+    },
+    "job": "Donor transfer to DRS · <store>{{store}}</store>"
+  },
   "attachments": {
     "heading_one": "Attachments · <n>{{count}}</n>",
     "heading_other": "Attachments · <n>{{count}}</n>",

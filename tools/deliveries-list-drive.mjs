@@ -222,7 +222,7 @@ const routeApi = (dir) => async (route) => {
   // Delivery details after Enter / a double-click: a business "not found" is enough — the
   // drive checks where Enter went, not the record page (402–405 drive that).
   // 401: a captured record opens for real, with an empty Log and Jobs and no slots to pick.
-  if (/\/(Logs|Outbox)$/.test(path)) return route.fulfill(envelope([]))
+  if (/\/(Logs|Outbox|DonorRequests)$/.test(path)) return route.fulfill(envelope([]))
   const captured = path.match(/^SdDocumentWeb\/(?:Delivery|Document)\/(\d+)$/)
   if (captured && DOCUMENTS[captured[1]]) return route.fulfill(envelope(DOCUMENTS[captured[1]]))
   if (path.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))

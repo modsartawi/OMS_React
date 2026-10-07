@@ -25,6 +25,7 @@ import type {
   SdDocumentHeaderModel,
   SdDocumentLogModel,
   SdDocumentOutboxModel,
+  DonorRequestModel,
   UpdateSdDocumentHeader,
 } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
@@ -64,6 +65,8 @@ function numericAsc(a: string, b: string): number {
 }
 
 const PENDING = { rows: null, loading: true, error: null } as const
+/** A read that has nothing to ask: a document that is not a delivery has no donor requests. */
+const NONE = { rows: [], loading: false, error: null }
 
 /**
  * An Update action's body and endpoint for one document: the payload's category picks both the
@@ -143,6 +146,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
   const [logs, setLogs] = useState<Deferred<SdDocumentLogModel>>(PENDING)
   const [jobs, setJobs] = useState<Deferred<SdDocumentOutboxModel>>(PENDING)
+  const [donors, setDonors] = useState<Deferred<DonorRequestModel>>(PENDING)
 
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
@@ -237,6 +241,28 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     [t],
   )
 
+  /**
+   * A delivery's donor requests (ticket 429), the spine's fourth deferred read. A document that
+   * is not a delivery has none and asks for none. A failure stays inside the spine as one inline
+   * line; the rest of the spine draws without the donor rows.
+   */
+  const loadDonors = useCallback(
+    async (doc: SdDocumentHeaderModel) => {
+      if (!isDeliveryCategory(doc.documentCategory)) {
+        setDonors(NONE)
+        return
+      }
+      setDonors(PENDING)
+      try {
+        const rows = await documentApi.getDonorRequests(doc.documentNo)
+        setDonors({ rows: [...rows], loading: false, error: null })
+      } catch (err) {
+        setDonors({ rows: null, loading: false, error: apiErrorMessage(err, t('donor.loadFailed')) })
+      }
+    },
+    [t],
+  )
+
   // Initial load. Keyed on the route id, so navigating between documents without
   // unmounting still reloads. Gated on the access probe: until it says yes, nothing is
   // requested — the denied card below must not be preceded by a document fetch.
@@ -257,6 +283,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         // Logs and Jobs load AFTER the document renders — never block the page.
         void loadLogs(doc.documentNo)
         void loadJobs(doc.documentNo)
+        void loadDonors(doc)
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -266,7 +293,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     return () => {
       cancelled = true
     }
-  }, [routeId, openedAs, canOpenDetail, loadLogs, loadJobs, t])
+  }, [routeId, openedAs, canOpenDetail, loadLogs, loadJobs, loadDonors, t])
 
   /**
    * Reload the document plus Log and Jobs, in place. A failed reload is
@@ -288,13 +315,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         setDocument(fresh)
         void loadLogs(fresh.documentNo)
         void loadJobs(fresh.documentNo)
+        void loadDonors(fresh)
       } catch (err) {
         notify.warn(t('refresh.failed'), apiErrorMessage(err, t('refresh.failedDetail')))
       } finally {
         setRefreshing(false)
       }
     },
-    [document, refreshing, openedAs, loadLogs, loadJobs, t],
+    [document, refreshing, openedAs, loadLogs, loadJobs, loadDonors, t],
   )
 
   /**
@@ -628,6 +656,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 document={document}
                 logs={logs}
                 jobs={jobs}
+                donors={donors}
                 composer={
                   <NoteComposer
                     value={noteText}

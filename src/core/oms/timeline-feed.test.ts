@@ -47,7 +47,8 @@ const header = (status: Record<string, string>, over: Partial<SdDocumentHeaderMo
     ...over,
   }) as SdDocumentHeaderModel
 
-const ids = (items: ReturnType<typeof feed>) => items.map((i) => (i.source === 'log' ? `L${i.log.logNo}` : `J${i.job.outboxId}`))
+const ids = (items: ReturnType<typeof feed>) =>
+  items.map((i) => (i.source === 'log' ? `L${i.log.logNo}` : i.source === 'job' ? `J${i.job.outboxId}` : `D${i.moment.request.requestNo}:${i.moment.kind}`))
 
 /** One spine entry as a short string, so a whole past reads as one array. */
 const shape = (e: SpineEntry): string => {
@@ -64,6 +65,8 @@ const shape = (e: SpineEntry): string => {
       return `event:${e.log.actionType}`
     case 'job':
       return `job:${e.job.outboxId}:${e.state}`
+    case 'donor':
+      return `donor:${e.request.requestNo}:${e.moment}`
   }
 }
 

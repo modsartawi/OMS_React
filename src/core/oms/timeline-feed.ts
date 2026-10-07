@@ -1,4 +1,12 @@
-import type { SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
+import type { DonorRequestModel, SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
+import {
+  compareDonorMoments,
+  donorMoments,
+  donorOfJob,
+  waitingOnDonor,
+  type DonorMoment,
+  type DonorMomentKind,
+} from '@/core/oms/donor-moments'
 import {
   compareLogRows,
   entryTimeValue,
@@ -36,38 +44,52 @@ export function jobState(job: SdDocumentOutboxModel): JobState {
   return status === 'P' && (job.errorMessage ?? '').trim() ? 'retrying' : 'queued'
 }
 
-/** One merged row: a Log row or an outbox job, at its `entryTime` (null when it has none). */
+/**
+ * One merged row: a Log row or an outbox job, at its `entryTime` (null when it has none), or a
+ * donor moment at its own time (ticket 429).
+ */
 export type FeedItem =
   | { source: 'log'; at: string | null; log: SdDocumentLogModel }
   | { source: 'job'; at: string | null; job: SdDocumentOutboxModel }
+  | { source: 'donor'; at: string; moment: DonorMoment }
+
+/** On a tie: the Log row first (D6), then a donor moment, then a job. */
+const SOURCE_ORDER: Record<FeedItem['source'], number> = { log: 0, donor: 1, job: 2 }
 
 const idValue = (id: string | null | undefined) => {
   const value = Number(id)
   return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY
 }
 
-/** Newest first: by time; on a tie the Log row comes first (D6); then the higher number. */
+/**
+ * Newest first: by time; on a tie the Log row comes first (D6), so a Stamped moment sits directly
+ * under the Ready milestone of the same instant; then the higher number, or for two donor moments
+ * the later moment.
+ */
 function newestFirst(a: FeedItem, b: FeedItem): number {
   const byTime = entryTimeValue(b.at) - entryTimeValue(a.at)
   if (byTime) return byTime
-  if (a.source !== b.source) return a.source === 'log' ? -1 : 1
+  if (a.source !== b.source) return SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]
   if (a.source === 'log' && b.source === 'log') return compareLogRows(b.log, a.log)
   if (a.source === 'job' && b.source === 'job') return idValue(b.job.outboxId) - idValue(a.job.outboxId)
+  if (a.source === 'donor' && b.source === 'donor') return compareDonorMoments(a.moment, b.moment)
   return 0
 }
 
 /**
- * The Log and the outbox jobs merged on one key, their `entryTime`, newest first (D6). On a
- * tie the Log row comes first. No server change: both reads already carry the time. A row with
- * no real time sinks to the oldest end.
+ * The Log, the outbox jobs and the donor moments merged on one key, their time, newest first
+ * (D6). On a tie the Log row comes first. No server change: every read already carries the time.
+ * A row with no real time sinks to the oldest end.
  */
 export function feed(
   logs: readonly SdDocumentLogModel[] | null | undefined,
   jobs: readonly SdDocumentOutboxModel[] | null | undefined,
+  donors?: readonly DonorRequestModel[] | null,
 ): FeedItem[] {
   const items: FeedItem[] = [
     ...(logs ?? []).map((log): FeedItem => ({ source: 'log', at: realTime(log.entryTime), log })),
     ...(jobs ?? []).map((job): FeedItem => ({ source: 'job', at: realTime(job.entryTime), job })),
+    ...donorMoments(donors).map((moment): FeedItem => ({ source: 'donor', at: moment.at, moment })),
   ]
   return items.sort(newestFirst)
 }
@@ -83,7 +105,10 @@ export type SpineEntry =
   | { kind: 'note'; at: string | null; log: SdDocumentLogModel }
   /** Any other Log row. */
   | { kind: 'event'; at: string | null; log: SdDocumentLogModel }
-  | { kind: 'job'; at: string | null; job: SdDocumentOutboxModel; state: JobState }
+  /** An outbox job; `donor` is the request it moves units for (the DRTR transfer), when it is one. */
+  | { kind: 'job'; at: string | null; job: SdDocumentOutboxModel; state: JobState; donor: DonorRequestModel | null }
+  /** A donor moment (ticket 429): a point from a donor request's own record. */
+  | { kind: 'donor'; at: string; moment: DonorMomentKind; request: DonorRequestModel }
 
 /** The four steps a rewind can send a delivery back past (371 §3). The cancellation steps are final. */
 const LIFECYCLE: readonly TimelineStepKey[] = ['created', 'ready', 'out', 'delivered']
@@ -100,6 +125,8 @@ export interface Spine {
   retrying: SdDocumentOutboxModel[]
   /** The unreached steps above the Now line, furthest first; the next one carries its window. */
   future: TimelineStep[]
+  /** One "Waiting on donor" line per OPEN, unpicked request, between the future and Now (429). */
+  waiting: DonorRequestModel[]
   /** Below the Now line, newest first. */
   past: SpineEntry[]
 }
@@ -133,7 +160,8 @@ function logEntry(
 
 /**
  * The spine for one delivery: `steps` from `timeline()` over the header and the Log, plus the
- * Log and the jobs (`null` until each has loaded).
+ * Log, the jobs and the delivery's donor requests (`null` until each has loaded, or when the
+ * donor read failed: the rest of the spine is drawn without it).
  *
  * A reached step's milestone is its latest matching Log row, the same row that gives the step
  * its time. A reached step with no row is still drawn, with no time: it goes just above the
@@ -144,6 +172,7 @@ export function spine(
   steps: readonly TimelineStep[],
   logs: readonly SdDocumentLogModel[] | null | undefined,
   jobs: readonly SdDocumentOutboxModel[] | null | undefined,
+  donors?: readonly DonorRequestModel[] | null,
 ): Spine {
   const reached = steps.filter(isReached)
   const milestones = new Map<SdDocumentLogModel, TimelineStep>()
@@ -152,12 +181,14 @@ export function spine(
     if (row) milestones.set(row, step)
   }
 
-  const items = feed(logs, jobs)
-  const past: SpineEntry[] = items.map((item) =>
-    item.source === 'job'
-      ? { kind: 'job', at: item.at, job: item.job, state: jobState(item.job) }
-      : logEntry(item.log, item.at, milestones, logs ?? []),
-  )
+  const items = feed(logs, jobs, donors)
+  const past: SpineEntry[] = items.map((item): SpineEntry => {
+    if (item.source === 'job')
+      return { kind: 'job', at: item.at, job: item.job, state: jobState(item.job), donor: donorOfJob(item.job, donors) }
+    if (item.source === 'donor')
+      return { kind: 'donor', at: item.at, moment: item.moment.kind, request: item.moment.request }
+    return logEntry(item.log, item.at, milestones, logs ?? [])
+  })
 
   // The reached steps no Log row dated, in the order they are reached.
   const drawn = new Set([...milestones.values()].map((step) => step.key))
@@ -176,6 +207,7 @@ export function spine(
     failed: jobsNewestFirst.filter((job) => jobState(job) === 'failed'),
     retrying: jobsNewestFirst.filter((job) => jobState(job) === 'retrying'),
     future: steps.filter((step) => !isReached(step)).reverse(),
+    waiting: waitingOnDonor(donors),
     past,
   }
 }

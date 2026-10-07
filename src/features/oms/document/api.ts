@@ -2,6 +2,7 @@ import { api } from '@/core/api'
 import type {
   CreatedReturnModel,
   CreateReturnRequest,
+  DonorRequestModel,
   MarkDeliveredReasonModel,
   MarkDeliveredRequest,
   SdDocumentHeaderModel,
@@ -49,6 +50,13 @@ export const documentApi = {
   },
   getOutbox(documentNo: string): Promise<SdDocumentOutboxModel[]> {
     return api.get<SdDocumentOutboxModel[]>(`${BASE}/Document/${encode(documentNo)}/Outbox`)
+  },
+  /**
+   * A delivery's donor requests (BackOffice 2458, ticket 429): live ones oldest first, the
+   * cancelled ones last. Behind the Delivery details grant; read-only.
+   */
+  getDonorRequests(deliveryNo: string): Promise<DonorRequestModel[]> {
+    return api.get<DonorRequestModel[]>(`${BASE}/Delivery/${encode(deliveryNo)}/DonorRequests`)
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

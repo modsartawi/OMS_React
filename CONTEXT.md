@@ -487,7 +487,9 @@ base price) is a different and smaller mark that rides beside it. The screen's c
 A customer's identity in the loyalty programme — the person a `loyId` names, carrying their profile,
 points balance, tier and history. ⚠️ Findable by **exactly two keys**: the loyalty id and the mobile
 number. Email, national ID and name are fields *on* a member, never ways *to* one — which is why
-clearing the mobile makes a member unreachable and clearing the email does not.
+clearing the mobile makes a member unreachable and clearing the email does not. A loyalty id is
+**digits only**; nothing about its digits says whether a typed number is a loyalty id or a mobile, so
+a lookup tries the mobile first and the loyalty id second rather than guessing.
 _Avoid_: customer (the person, who exists whether or not they are enrolled), account, card holder.
 
 **Member command**:

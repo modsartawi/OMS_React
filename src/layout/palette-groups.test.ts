@@ -51,6 +51,7 @@ const compose = (o: {
   commands?: Parameters<typeof commandRow>[0][]
   singleKeyScreen?: boolean
   recent?: RecentRecord[]
+  member?: ProbeState
 }) =>
   paletteGroups({
     commands: o.commands ?? [],
@@ -59,6 +60,7 @@ const compose = (o: {
     recent: o.recent ?? [],
     menu: resolveMenu(MENU, o.probes ?? ALL).items,
     detail: o.detail ?? granted({ canOpenList: true, canOpenDetail: true }),
+    member: o.member ?? errored,
     query: o.query ?? '',
     textOf,
     navigate,
@@ -80,6 +82,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       openShortcuts,
       recent: [],
       detail: granted({ canOpenDetail: true }),
+      member: errored,
       query: '8000000174',
       textOf,
       navigate,
@@ -101,6 +104,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       openShortcuts,
       recent: [],
       detail: granted({ canOpenDetail: true }),
+      member: errored,
       query: '8000000174',
       textOf,
       navigate: (to) => went.push(to),
@@ -168,6 +172,7 @@ describe('This screen and its keys (ticket 393)', () => {
       recent: [],
       menu: [],
       detail: errored,
+      member: errored,
       query: '',
       textOf,
       navigate,
@@ -255,6 +260,7 @@ describe('recentRefiltersByCurrentGrants', () => {
       recent: RECENT,
       menu: [],
       detail: granted({ canOpenDetail: true }),
+      member: errored,
       query: '',
       textOf,
       navigate: (to) => went.push(to),
@@ -288,6 +294,7 @@ describe('recentRefiltersByCurrentGrants', () => {
       recent: RECENT,
       menu: [],
       detail: granted({ canOpenDetail: true }),
+      member: errored,
       query: 'jump.document',
       textOf: textOfLabel,
       navigate,
@@ -307,5 +314,80 @@ describe('recentRefiltersByCurrentGrants', () => {
 
   it('an empty store shows no Recent group', () => {
     expect(ids(compose({ recent: [] }))).toEqual(['screen', 'goto'])
+  })
+})
+
+describe('memberJumpFollowsTheLoyProbe (ticket 427)', () => {
+  const loyGranted = granted({ canOpenLoyMember: true })
+  const noDetail = granted({ canOpenDetail: false })
+  const groupsOf = (o: {
+    query: string
+    detail?: ProbeState
+    member?: ProbeState
+    navigate?: (to: string, state?: unknown) => void
+  }) =>
+    paletteGroups({
+      commands: [],
+      menu: [],
+      singleKeyScreen: false,
+      openShortcuts,
+      recent: [],
+      detail: o.detail ?? granted({ canOpenDetail: true }),
+      member: o.member ?? loyGranted,
+      query: o.query,
+      textOf,
+      navigate: o.navigate ?? navigate,
+    })
+  const jumpRowsOf = (o: Parameters<typeof groupsOf>[0]) => groupsOf(o).find((g) => g.id === 'jump')?.rows ?? []
+
+  it('a bare number yields delivery, document, then the member — the member LAST', () => {
+    expect(jumpRowsOf({ query: '80001237' }).map((r) => [r.id, r.label, r.value])).toEqual([
+      ['jump:delivery', 'common:palette.jump.delivery', '80001237'],
+      ['jump:document', 'common:palette.jump.document', '80001237'],
+      ['jump:member', 'common:palette.jump.member', '80001237'],
+    ])
+  })
+
+  it('a pasted mobile yields only the member row, which is therefore the aimed one', () => {
+    const groups = groupsOf({ query: '+966 55 500 0111' })
+    expect(ids(groups)).toEqual(['jump'])
+    expect(groups[0].rows.map((r) => [r.id, r.value])).toEqual([['jump:member', '+966 55 500 0111']])
+  })
+
+  it('a Loy-only session sees the member row alone', () => {
+    expect(jumpRowsOf({ query: '80001237', detail: noDetail }).map((r) => r.id)).toEqual(['jump:member'])
+  })
+
+  it('an Arabic layout’s number shows the member row with ASCII digits', () => {
+    expect(jumpRowsOf({ query: '٠٥٥٥٠٠٠١١١', detail: noDetail }).map((r) => r.value)).toEqual(['0555000111'])
+  })
+
+  it('words never become a member row', () => {
+    expect(jumpRowsOf({ query: 'members' })).toEqual([])
+  })
+
+  it.each([
+    ['denied', granted({ canOpenLoyMember: false })],
+    ['pending', pending],
+    ['errored', errored],
+    ['malformed', granted({ canOpenLoyMember: 'true' })],
+  ])('🚩 a %s Loy probe hides the member row and leaves delivery/document alone', (_, member) => {
+    expect(jumpRowsOf({ query: '80001237', member }).map((r) => r.id)).toEqual(['jump:delivery', 'jump:document'])
+  })
+
+  it('🚩 the member row navigates to the lookup with the key in router STATE, never the URL', () => {
+    const went: [string, unknown][] = []
+    const row = jumpRowsOf({
+      query: ' +966 55 500 0111 ',
+      detail: noDetail,
+      navigate: (to, state) => went.push([to, state]),
+    })[0]
+    row.run?.()
+    expect(went).toEqual([['/loy/members', { lookup: '+966 55 500 0111' }]])
+  })
+
+  it('🚩 Recent never holds a member: only delivery and document records are drawn', () => {
+    const groups = compose({ recent: [{ kind: 'delivery', no: '80001237' }], query: '80001237' })
+    expect(groups.find((g) => g.id === 'recent')!.rows.map((r) => r.id)).toEqual(['recent:delivery:80001237'])
   })
 })

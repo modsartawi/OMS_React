@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -6,14 +6,8 @@ import { Loader2, Search, ShieldAlert } from 'lucide-react'
 
 import { ApiError, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import {
-  canOpenLoyMember,
-  LOY_ACCESS_KEY,
-  loyAccessApi,
-  loyApi,
-  memberAuthority,
-  memberKey,
-} from './api'
+import { canOpenLoyMember, loyAccessQuery, loyApi, memberAuthority, memberKey } from './api'
+import { memberLookupOf, withoutMemberLookup } from './lookup-intent'
 import MemberHeader from './MemberHeader'
 import MemberTabs from './MemberTabs'
 import RecentSearches from './RecentSearches'
@@ -62,16 +56,11 @@ export default function MemberLookupPage() {
   // The area's ONE probe, on the key the nav leaf shares → one network call for
   // the whole area. Fails closed: pending, denied and errored all draw something
   // other than the lookup field.
-  const access = useQuery({
-    queryKey: LOY_ACCESS_KEY,
-    queryFn: () => loyAccessApi.access(),
-    // The same two options the shell gives every nav probe, so the leaf and this
-    // guard are ONE call and not two: without `staleTime` the screen's mount
-    // would refetch the key the menu had just filled, and without `retry: false`
-    // a denial-by-outage would take three round trips to say so.
-    staleTime: Infinity,
-    retry: false,
-  })
+  // `loyAccessQuery` carries the same two options the shell gives every nav probe,
+  // so the leaf and this guard are ONE call and not two: without `staleTime` the
+  // screen's mount would refetch the key the menu had just filled, and without
+  // `retry: false` a denial-by-outage would take three round trips to say so.
+  const access = useQuery(loyAccessQuery())
   const allowed = access.isSuccess && canOpenLoyMember(access.data)
   // The other two tiers off the SAME answer (ticket 302, ADR 0001). Derived here
   // and handed down rather than read again inside the tab: a second reader would
@@ -113,10 +102,17 @@ export default function MemberLookupPage() {
     enabled: !!loyId && allowed,
   })
 
+  // The key of the LATEST lookup asked for. A palette jump (427) can start one while
+  // another is in flight, and `reset()` does not stop the earlier one's `onSuccess`:
+  // without this, whichever answer came back last would decide the member. `jumped`
+  // marks a lookup the palette asked for: its hit REPLACES the bare `/loy/members`
+  // entry the jump left, so Back from the member returns to where the jump began.
+  const lookupFor = useRef<{ text: string; jumped: boolean } | null>(null)
   const lookup = useMutation({
     mutationFn: (text: string) => resolveMember(text, loyApi),
     onSuccess: (resolution, text) => {
-      if (resolution.kind !== 'member') return
+      const asked = lookupFor.current
+      if (resolution.kind !== 'member' || text !== asked?.text) return
       // Seed the cache the route's own read uses, so the member is on screen the
       // instant the navigation lands rather than after a loading flash of a
       // member we are already holding. The route still re-reads in the
@@ -137,9 +133,48 @@ export default function MemberLookupPage() {
       setEditing(false)
       navigate(`/loy/members/${encodeURIComponent(resolution.member.loyId)}`, {
         state: { typed: text },
+        replace: asked.jumped,
       })
     },
   })
+
+  /**
+   * The palette's *Open loyalty member N* (ticket 427): a key handed over in router
+   * state, run through the SAME mutation a typed submit uses — the box fills, and the
+   * cascade, the miss sentence and every refusal are the field's own.
+   *
+   * 🚩 **Once per history entry**, not once per mount: React Router keeps this
+   * element when the palette is used on a member's profile, and a jump from there
+   * must still run. The entry is replaced with the lookup taken out, so a reload or a
+   * Back never re-runs it; the ref keeps StrictMode's second effect pass from running
+   * it twice before that replace lands. A pending probe waits; a denied one only
+   * clears the state — the backstop below is the answer, and no read fires.
+   */
+  const handledLookup = useRef<string | null>(null)
+  /** Every way in — the field, a chip, a palette jump — asks through here. */
+  function runLookup(text: string, jumped = false) {
+    lookupFor.current = { text, jumped }
+    lookup.mutate(text)
+  }
+  useEffect(() => {
+    const key = memberLookupOf(location.state)
+    if (key === null || access.isPending || handledLookup.current === location.key) return
+    handledLookup.current = location.key
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: withoutMemberLookup(location.state) },
+    )
+    if (!allowed) return
+    lookup.reset()
+    setEditing(false)
+    setTyped(key)
+    // 🚩 Not held back by a pending lookup, unlike the field: the agent asked for THIS
+    // key last, so it supersedes whatever is in flight (`lookupFor`).
+    runLookup(key, true)
+    // Keyed on the entry and the probe's answer only: `lookup` is a fresh object every
+    // render, and re-running on it would be exactly the double search the ref prevents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key, access.isPending, allowed])
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -147,7 +182,7 @@ export default function MemberLookupPage() {
     // which would flash the empty state accusingly while the agent is still
     // typing (225 ruling 7). A blank submit reaches `resolveMember` and is a
     // no-op there: silence is the answer, not a message.
-    if (!lookup.isPending) lookup.mutate(typed)
+    if (!lookup.isPending) runLookup(typed)
   }
 
   // A chip is the field, pressed. It fills the box and submits through the SAME
@@ -158,7 +193,7 @@ export default function MemberLookupPage() {
   // member matches" (239 decision 3).
   const pickRecent = (key: string) => {
     setTyped(key)
-    if (!lookup.isPending) lookup.mutate(key)
+    if (!lookup.isPending) runLookup(key)
   }
 
   const newLookup = () => {

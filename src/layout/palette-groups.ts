@@ -10,6 +10,13 @@
  * - **Jump to number** yields *Open delivery N* and *Open document N*, which navigate
  *   straight to the existing routes with no read (K11); the destination page answers
  *   not-found or denied. It lands on Delivery details, so it follows **`canOpenDetail`**.
+ * - **Open loyalty member N** (ticket 427) is the third Jump row, LAST, so an OMS user's
+ *   *number + Enter opens the delivery* is unchanged. It lands on the Loy lookup, so it
+ *   follows **`canOpenLoyMember`** — each Jump row follows its own landing page's gate, and
+ *   a Loy-only session sees it alone. It is the one row that cannot navigate to a record:
+ *   a typed number may be a mobile, so it hands the key over as router state and the Loy
+ *   page resolves it. It accepts what the Loy field accepts (`+966 55 …`), and it never
+ *   enters Recent — a loyalty key is a customer's mobile (239).
  * - **Recent** (394, K9) is the last five numbers opened through Delivery details, read
  *   from `@/core/commands/recent`. Every row lands on Delivery details too, so the group
  *   follows **`canOpenDetail`**, re-read on every open: a revoked grant hides the history.
@@ -17,7 +24,7 @@
  * 🚩 **Pending or errored probes fail closed** (K12): the group is hidden until the probe
  * confirms. The palette only hides; the server's grant filters stay the boundary.
  */
-import { FileText, Truck, type LucideIcon } from 'lucide-react'
+import { FileText, Truck, UserSearch, type LucideIcon } from 'lucide-react'
 import { bindKeys } from '@/core/commands/keys'
 import type { RecentKind, RecentRecord } from '@/core/commands/recent'
 import {
@@ -30,6 +37,10 @@ import {
   type PaletteRow,
 } from '@/core/commands/palette-model'
 import type { OmsAccessResult } from '@/core/models/oms-access'
+import type { LoyAccessResult } from '@/core/models/loy'
+// `layout` is the composition root and may reach into a feature (feature-structure).
+import { canOpenLoyMember } from '@/features/loy/member/api'
+import { memberLookupKeyOf, memberLookupState } from '@/features/loy/member/lookup-intent'
 import type { ShellMenuItem } from './menu-model'
 import type { ProbeState } from './useVisibleMenu'
 
@@ -67,6 +78,14 @@ export function detailGranted(probe: ProbeState): boolean {
   return data?.canOpenDetail === true
 }
 
+/** `canOpenLoyMember`, read off the Loy probe — `true` only once it has answered yes. */
+export function memberGranted(probe: ProbeState): boolean {
+  return probe.isSuccess && canOpenLoyMember(probe.data as LoyAccessResult | null | undefined)
+}
+
+/** The palette's navigation: a route, and optionally the router state to land with. */
+export type PaletteNavigate = (to: string, state?: unknown) => void
+
 /** Each record kind's icon — the same on its Jump row and its Recent row. */
 const KIND_ICON: Readonly<Record<RecentKind, LucideIcon>> = { delivery: Truck, document: FileText }
 
@@ -99,6 +118,26 @@ export function jumpRows(query: string, navigate: (to: string) => void): Palette
   const no = jumpNumberOf(query)
   if (no === null) return []
   return (['delivery', 'document'] as const).map((kind) => openRecordRow(`jump:${kind}`, 'jump', { kind, no }, navigate))
+}
+
+/**
+ * *Open loyalty member N* for a typed key, or none. 🚩 The key goes in router STATE: a
+ * mobile is personal data and must never reach the URL, the history or a log.
+ */
+export function memberJumpRow(query: string, navigate: PaletteNavigate): PaletteRow | null {
+  const typed = memberLookupKeyOf(query)
+  if (typed === null) return null
+  return {
+    id: 'jump:member',
+    group: 'jump',
+    label: 'common:palette.jump.member',
+    context: null,
+    value: typed,
+    icon: UserSearch,
+    enabled: true,
+    reason: null,
+    run: () => navigate('/loy/members', memberLookupState(typed)),
+  }
 }
 
 /** The Recent rows, newest first: each reopens its own route, where the page applies its own gate. */
@@ -134,12 +173,16 @@ export function paletteGroups(input: {
   menu: readonly ShellMenuItem[]
   /** The OMS access probe (`OMS_ACCESS_KEY`), as react-query reports it. */
   detail: ProbeState
+  /** The Loy access probe (`LOY_ACCESS_KEY`), as react-query reports it (427). */
+  member: ProbeState
   query: string
   textOf: (row: PaletteRow) => string
-  navigate: (to: string) => void
+  navigate: PaletteNavigate
 }): PaletteGroup[] {
-  // Recent and Jump both land on Delivery details; a pending or errored probe hides both.
+  // Recent and the record Jump rows land on Delivery details; a pending or errored probe
+  // hides them. The member row lands on the Loy lookup, behind its own probe.
   const detail = detailGranted(input.detail)
+  const member = memberGranted(input.member) ? memberJumpRow(input.query, input.navigate) : null
   return composePalette({
     screen: [
       ...screenRows(input.commands, bindKeys(input.commands, { singleKeyScreen: input.singleKeyScreen })),
@@ -147,7 +190,7 @@ export function paletteGroups(input: {
     ],
     recent: detail ? recentRows(recentNarrowedByNumber(input.recent, input.query), input.navigate) : [],
     goto: gotoRows(input.menu, input.navigate),
-    jump: detail ? jumpRows(input.query, input.navigate) : [],
+    jump: [...(detail ? jumpRows(input.query, input.navigate) : []), ...(member ? [member] : [])],
     query: input.query,
     textOf: input.textOf,
   })

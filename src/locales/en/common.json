@@ -38,7 +38,7 @@
   },
   "palette": {
     "title": "Command palette",
-    "field": "Go to a screen, or open a delivery or document number",
+    "field": "Go to a screen, or open a delivery, document or loyalty member by number",
     "placeholder": "Type a screen, a command or a number",
     "empty": "Nothing matches.",
     "group": {
@@ -49,7 +49,8 @@
     },
     "jump": {
       "delivery": "Open delivery",
-      "document": "Open document"
+      "document": "Open document",
+      "member": "Open loyalty member"
     },
     "foot": {
       "move": "move",

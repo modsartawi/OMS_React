@@ -12,6 +12,7 @@ import { registeredNow, useRegisteredCommands } from '@/core/commands/registry'
 import { openShortcuts } from '@/core/commands/shortcuts-sheet'
 import { omsAccessQuery } from '@/core/oms/api'
 import { useSession } from '@/core/session'
+import { loyAccessQuery } from '@/features/loy/member/api'
 import { MENU } from './menu-model'
 import { paletteGroups } from './palette-groups'
 import { useVisibleMenu } from './useVisibleMenu'
@@ -24,12 +25,13 @@ const openShortcutsFromPalette = () => openShortcuts(paletteOrigin())
  * on every signed-in route that does not opt out (only the chromeless print routes do).
  * It binds the key layer for as long as it is mounted (393: Ctrl+K, `?` and every mounted
  * command's `keys`), composes the groups — the mounted page's commands, the user's Recent,
- * the rail's own menu, the detail grant — into the core palette, and hosts the shortcuts sheet.
+ * the rail's own menu, the detail grant, the Loy grant — into the core palette, and hosts the shortcuts sheet.
  *
  * Both reads are the ones the rail already makes, on the same keys and options, so the
  * palette costs no request of its own: `useVisibleMenu` is the rail's call, and the OMS
  * probe matches the Deliveries leaf's (and both OMS pages') `staleTime: Infinity`,
  * `retry: false` — a second answer that failed would empty the nav under an open screen.
+ * The Loy probe (427) is the Loyalty leaf's, through the options that leaf's screen uses.
  */
 export default function CommandPaletteHost() {
   usePaletteHost()
@@ -41,6 +43,7 @@ export default function CommandPaletteHost() {
   const commands = useRegisteredCommands()
   const menu = useVisibleMenu(MENU)
   const detail = useQuery(omsAccessQuery())
+  const member = useQuery(loyAccessQuery())
   // K9: the signed-in user's Recent, re-read on every open — Details records while it is shut.
   const userId = useSession((s) => s.userId)
   const recent = useMemo(() => (open ? loadRecent(userId) : []), [open, userId])
@@ -62,9 +65,10 @@ export default function CommandPaletteHost() {
       recent,
       menu: menu.items,
       detail,
+      member,
       query,
       textOf,
-      navigate: (to) => void navigate(to),
+      navigate: (to, state) => void navigate(to, state === undefined ? undefined : { state }),
     })
   return (
     <>

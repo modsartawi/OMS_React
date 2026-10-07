@@ -203,7 +203,7 @@ export function composePalette(input: {
 }
 
 /** Arabic-Indic (U+0660…) and Persian (U+06F0…) digits, folded to ASCII. */
-const foldDigits = (s: string) =>
+export const foldDigits = (s: string) =>
   s.replace(/[٠-٩۰-۹]/g, (d) => String(d.charCodeAt(0) & 0xf))
 
 /**

@@ -120,6 +120,20 @@ export const loyAccessApi = {
 }
 
 /**
+ * The probe's query options — the SAME two options the shell gives every nav probe
+ * (`staleTime: Infinity`, `retry: false`), so the leaf, this screen's guard and the
+ * palette's member row (427) are ONE call and not three.
+ */
+export function loyAccessQuery() {
+  return {
+    queryKey: LOY_ACCESS_KEY,
+    queryFn: () => loyAccessApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
  * The one field the wire and the domain disagree about. `blockedReason` is the
  * reason **code** here and the joined **description** on an action row; the
  * rename is what stops a later screen reading one as the other (spec 231 §6).

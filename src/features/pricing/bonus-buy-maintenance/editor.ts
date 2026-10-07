@@ -476,8 +476,8 @@ const BACK_TO_PLANNED_FROM: readonly OverviewStatus[] = ['tested', 'activated', 
  * whole form in one disabled `<fieldset>` when `readOnly`, so no input can escape it.
  *
  * Mark Tested and Back to Planned are status acts, not edits: Display offers them as Change does.
- * `canTest` is the access answer's tester grant (`canMarkTested`), read by the caller. The
- * four-eyes rule (the tester is not the last writer) is the server's, never pre-judged here.
+ * `canTest` is the access answer's tester grant (`canMarkTested`), read by the caller. There is no
+ * four-eyes rule (owner ruling 2026-10-07): the last writer may mark it Tested.
  */
 export function editorAccess(
   mode: EditorMode,

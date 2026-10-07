@@ -346,7 +346,7 @@
   "test": {
     "mark": "Mark Tested",
     "title": "Mark Tested",
-    "hint": "Mark this bonus buy Tested once you have priced it in the simulator. Someone other than its last author must mark it. The server checks it again first.",
+    "hint": "Mark this bonus buy Tested once you have priced it in the simulator. The server checks it again first.",
     "note": "Note (optional)",
     "notePlaceholder": "For example, the basket you tried",
     "run": "Mark Tested",

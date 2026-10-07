@@ -55,7 +55,7 @@
 //  28. a selection holding a Planned bonus buy is not offered Activate; the hint says test it first.
 //  29. canTest + Planned → Mark Tested (held back while an edit is unsaved); the note prompt posts
 //      { bbyNumber, note } and the bonus buy is read again.
-//  30. the four-eyes refusal is the server's, shown as is in EN + AR (never pre-blocked).
+//  30. the last writer is offered Mark Tested (no four eyes); a server refusal is shown as is in EN + AR.
 //  31. without canTest, Mark Tested is not offered.
 //  32. Tested opens read-only (the lock hint, no Check/Save/line actions), shows its test mark,
 //      and goes Back to Planned without a warning.
@@ -272,10 +272,10 @@ async function run() {
       if (op === 'BonusBuy/Copy') return route.fulfill(envelope(saved('OMS000000009')))
       // Ticket 419 — as shipped (BackOffice 2397/2398): { bbyNumber, note } / { bbyNumber } in, BbyMaintainOutcome out.
       if (op === 'BonusBuy/MarkTested') {
-        if (markAnswer === 'fourEyes')
+        if (markAnswer === 'refused')
           return route.fulfill(envelope({
             status: 'refused', number: body.bbyNumber, warnings: [],
-            refusals: [refusal('BBY-TEST-OWN-WRITE', `msartawi last wrote bonus buy '${body.bbyNumber}'. Someone else must test it.`, `آخر من عدّل عرض الشراء '${body.bbyNumber}' هو msartawi. يجب أن يختبره شخص آخر.`)],
+            refusals: [refusal('BBY-030', 'Unknown material 999.', 'مادة غير معروفة 999.')],
           }))
         statusOf[body.bbyNumber] = '3'
         markOf[body.bbyNumber] = { testedBy: 'ayed', testedAt: '2026-10-05T12:00:00', testNote: body.note }
@@ -777,20 +777,20 @@ async function run() {
       after.includes('Tested') && (await page.locator('fieldset[data-readonly="true"]').count()) === 1 &&
         after.includes('Basket of two, 20 SR.') && (await button('Mark Tested').count()) === 0)
 
-    // ── 30. the four-eyes refusal is the server's ──
+    // ── 30. no four eyes; a refusal is the server's ──
     statusOf.OMS000000001 = '1'
     delete markOf.OMS000000001
-    markAnswer = 'fourEyes'
+    markAnswer = 'refused'
     await page.goto(`${EDIT}/OMS000000001`)
     await page.waitForSelector('table[data-grid="get"]')
-    // The session user (msartawi) is the last writer: the client still offers the act.
-    check('30. the last writer is NOT pre-blocked on the client', (await button('Mark Tested').count()) === 1)
+    // The session user (msartawi) is the last writer: still offered the act.
+    check('30. the last writer is offered Mark Tested', (await button('Mark Tested').count()) === 1)
     await button('Mark Tested').click()
     await tdlg.locator('button', { hasText: /^Mark Tested$/ }).click()
     await page.waitForSelector('text=Not marked Tested:')
     const fe = await last()
     check('30. the refusal is shown as the server worded it, EN + AR',
-      fe.includes('BBY-TEST-OWN-WRITE') && fe.includes('Someone else must test it.') && fe.includes('يجب أن يختبره شخص آخر.'))
+      fe.includes('BBY-030') && fe.includes('Unknown material 999.') && fe.includes('مادة غير معروفة 999.'))
     const blankNote = acts419().filter(([op]) => op === 'BonusBuy/MarkTested').at(-1)?.[1]
     check('30. a blank note goes as null', blankNote && blankNote.note === null, JSON.stringify(blankNote))
     check('30. a refusal leaves it Planned and editable', (await page.locator('fieldset[data-readonly="true"]').count()) === 0)

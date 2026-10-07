@@ -459,7 +459,7 @@ describe('mark tested is offered only with canTest on a Planned bonus buy', () =
     expect(editorAccess('create', null, true).canMarkTested).toBe(false)
   })
 
-  it('🚩 four eyes is the server’s: the last writer is NOT pre-blocked on the client', () => {
+  it('no four eyes: the last writer is offered Mark Tested', () => {
     // The drive's session user is `msartawi`, the document's last writer too: still offered.
     expect(editorAccess('change', doc({ bbyStatus: '1', changedBy: 'msartawi' }), true).canMarkTested).toBe(true)
   })

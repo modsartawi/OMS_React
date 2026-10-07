@@ -119,8 +119,8 @@ export const bbyMaintainApi = {
   },
 
   /**
-   * Planned → Tested (spec 2396). The server re-runs the validator and refuses the bonus buy's
-   * last writer (four eyes); every refusal comes back in-band. Spec 2396 reading, reconcile when
+   * Planned → Tested (spec 2396). The server re-runs the validator; every refusal comes back
+   * in-band. No four-eyes check (owner ruling 2026-10-07): the last writer may test it. Spec 2396 reading, reconcile when
    * BackOffice 2397 ships — the body is the spec's `{ number, note }`.
    */
   markTested(body: BbyMarkTestedRequest): Promise<BbyMaintainOutcome> {

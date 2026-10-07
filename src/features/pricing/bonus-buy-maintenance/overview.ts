@@ -52,6 +52,18 @@ export function canActivateSelection(statuses: readonly OverviewStatus[]): boole
   return statuses.length > 0 && !statuses.includes('planned')
 }
 
+/**
+ * The overview's Mark Tested (one or many rows): only the selection's Planned bonus buys are
+ * sent, since only Planned → Tested exists (ADR 0063). A select-all over a big promotion then
+ * marks just the Planned ones instead of drowning the report in refusals for the rest. The
+ * tester vouches for every one sent; the server still re-checks each (validator, four-eyes).
+ */
+export function testableNumbers(
+  rows: readonly { number: string; status: OverviewStatus }[],
+): string[] {
+  return rows.filter((r) => r.status === 'planned').map((r) => r.number)
+}
+
 /** One number's outcome in a multi-select act. */
 export interface EachOutcome {
   number: string

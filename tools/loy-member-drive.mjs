@@ -945,7 +945,7 @@ async function run() {
   )
   // Four since ticket 302 put Profile at the front of the strip — the three
   // report peers plus the member itself.
-  check('the strip offers all three report peers, behind Profile', (await page.getByRole('tab').count()) === 4)
+  check('the strip offers all four report peers (Invoices since 428), behind Profile', (await page.getByRole('tab').count()) === 5)
   check(
     'Activities is the selected tab with no ?tab= at all',
     (await tab(/^Activities$/).getAttribute('aria-selected')) === 'true',
@@ -1107,7 +1107,7 @@ async function run() {
   )
   check(
     'the other tabs are untouched and still reachable',
-    (await page.getByRole('tab').count()) === 4,
+    (await page.getByRole('tab').count()) === 5,
   )
   check(
     'the failure names WHICH tab could not be read, and carries the server sentence too',
@@ -1336,7 +1336,7 @@ async function run() {
   )
   check(
     'the other tabs are untouched and still reachable',
-    (await page.getByRole('tab').count()) === 4,
+    (await page.getByRole('tab').count()) === 5,
   )
 
   // The Retry refetches THAT TAB and nothing else — the whole reason it is here.
@@ -1631,7 +1631,7 @@ async function run() {
     '🚩 no toast — the state is already fully visible in the tab being looked at',
     (await page.locator('[data-sonner-toast]').count()) === 0,
   )
-  check('the other tabs are untouched and still reachable', (await page.getByRole('tab').count()) === 4)
+  check('the other tabs are untouched and still reachable', (await page.getByRole('tab').count()) === 5)
 
   scenario.actions = { total: 312 }
   actionCalls = []

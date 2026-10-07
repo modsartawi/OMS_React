@@ -23,6 +23,8 @@ import { api } from '@/core/api'
 import type {
   LoyAccessResult,
   LoyActivityRow,
+  LoyInvoiceRequeueResult,
+  LoyInvoiceRow,
   LoyBlockedReasonPayload,
   LoyMember,
   LoyMemberActionsPage,
@@ -157,7 +159,8 @@ export const memberKey = (loyId: string) => ['loy', 'member', loyId] as const
  * padding would have the command invalidate an entry nobody is reading, and the
  * header would silently not move — the one failure the whole refresh rule exists
  * to prevent. The prefix cannot miss, and the cost is nil: the screen holds one
- * member at a time, so exactly one entry is active and refetched. The rest are
+ * member at a time, so exactly one entry is active and refetched. The Invoices tab's
+ * read sits under it too (`invoicesKey`), because its verdicts follow the profile. The rest are
  * only marked stale, which after a write is true of them anyway.
  */
 export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
@@ -182,7 +185,7 @@ export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
  */
 export const memberCommandKey = (
   loyId: string,
-  command: 'status' | 'profile' | 'mobile' | 'remove-email' | 'remove-mobile',
+  command: 'status' | 'profile' | 'mobile' | 'remove-email' | 'remove-mobile' | 'requeue-invoice',
 ) => ['loy', 'member-command', loyId, command] as const
 
 export const loyApi: MemberReads = {
@@ -431,6 +434,33 @@ export const loyCommandApi = {
   async unblock(loyId: string): Promise<void> {
     await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Unblock`, {})
   },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/Invoices/{storeCode}/{trxNumber}/Requeue` — put one
+   * receipt's invoice email back on the rail's queue (ticket 428, BackOffice 2445).
+   * **Edit tier**, and the body is empty: the route names the member and the receipt,
+   * and the server resolves the rest from `RetailTrx`.
+   *
+   * 🚩 **No case reference** (owner ruling, spec 2443 story 24), and **no address is
+   * sent**: the invoice goes to whatever the recipient rule answers at send time, and
+   * the trail row records store + receipt only.
+   *
+   * Idempotent server-side: a receipt already waiting answers `AlreadyQueued` with no
+   * reset and no trail row. Refusals (not this member's receipt, never queued, too
+   * old, a recipient the rail would skip) arrive in the door's refusal envelope with
+   * the server's own sentence — their codes are not known to this client yet, so
+   * `commandRefusalText` says them in the server's words.
+   */
+  async requeueInvoice(
+    loyId: string,
+    storeCode: string,
+    trxNumber: string,
+  ): Promise<LoyInvoiceRequeueResult> {
+    return api.post<LoyInvoiceRequeueResult>(
+      `LoyWeb/Member/${encodeURIComponent(loyId)}/Invoices/${encodeURIComponent(storeCode)}/${encodeURIComponent(trxNumber)}/Requeue`,
+      {},
+    )
+  },
 }
 
 /** The Activities tab's cache key — per member, so a tab fetched once is not
@@ -439,6 +469,19 @@ export const activitiesKey = (loyId: string) => ['loy', 'activities', loyId] as 
 
 /** The Sales tab's cache key — per member, same rule (ticket 237). */
 export const salesKey = (loyId: string) => ['loy', 'sales', loyId] as const
+
+/**
+ * The Invoices tab's cache key — per member (ticket 428). What a requeue invalidates,
+ * beside the Actions trail.
+ *
+ * 🚩 **It lives UNDER `MEMBER_SCOPE_KEY`, unlike the other tabs' keys, on purpose.**
+ * Every row's *will go to* and `resendable` are the recipient rule applied to the
+ * member's CURRENT profile, so a profile command that changes the email must re-read
+ * them — and every member command already invalidates the member scope. Without
+ * this, the flow the tab exists for (fix the email on Profile, come back, Resend)
+ * would show the old verdict and the old address from the cache.
+ */
+export const invoicesKey = (loyId: string) => [...MEMBER_SCOPE_KEY, loyId, 'invoices'] as const
 
 /**
  * The Actions tab's cache key — per member **and per page**, because this is the
@@ -536,6 +579,19 @@ export const loyReportsApi = {
   async sales(loyId: string): Promise<LoySalesRow[]> {
     const rows = await api.get<LoySalesRow[] | null>(
       `LoyWeb/Reports/LoyaltySales/${encodeURIComponent(loyId)}`,
+    )
+    return rows ?? []
+  },
+
+  /**
+   * `GET LoyWeb/Reports/Invoices/{loyId}` — the Invoices tab's read (ticket 428,
+   * BackOffice 2446). **Look tier.** One row per receipt inside the rail's 90-day
+   * window, newest first; a member with no receipts answers `200 []`, a fact and
+   * never a refusal. `?? []` guards a `success: true` with a null `data`.
+   */
+  async invoices(loyId: string): Promise<LoyInvoiceRow[]> {
+    const rows = await api.get<LoyInvoiceRow[] | null>(
+      `LoyWeb/Reports/Invoices/${encodeURIComponent(loyId)}`,
     )
     return rows ?? []
   },

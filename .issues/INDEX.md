@@ -821,6 +821,10 @@ one **ready spec**.
 
 - [427](427-palette-jumps-to-a-loyalty-member-by-loy-id-or-mobile.md) — The palette jumps to a loyalty member by Loy ID or mobile · *(ticket · grilled, no spec)* · **done 2026-10-07** · blocked by: — · one *Open loyalty member N* row (mobile→Loy ID cascade), gated on `canOpenLoyMember`, last in Jump, router state never URL, no palette Recent; latest-lookup-wins + a jump's hit replaces history · drive 27/27 **stubbed**
 
+## Loy invoices — a call-centre agent requeues a member's invoice email (BackOffice spec 2443, 2026-10-07)
+
+- [428](428-the-member-invoices-tab-shows-each-receipts-email-and-resends-it.md) — The member Invoices tab shows each receipt's invoice email and resends it · *(ticket · BackOffice spec 2443)* · **done 2026-10-07** · blocked by: — (live: BackOffice 2445, 2446) · Invoices tab between Sales and Actions; Resend for the edit grant on `resendable` rows, no case reference; toast names the server's recipient; QUEUED/NOT_QUEUED fenced client-side (owner sign-off) · drives **stubbed**; live walk outstanding (fold into BackOffice 2447)
+
 ## Donor requests on the Delivery timeline (grilled in BackOffice 2026-10-07, no spec)
 
 - [429](429-donor-requests-appear-on-the-delivery-timeline.md) — A delivery's donor requests appear on its Delivery timeline · *(ticket · grilled, no spec)* · **done 2026-10-07** · blocked by: — (live: BackOffice 2458) · pure `donor-moments.ts` + a `donor` spine kind, fourth `Deferred` on deliveries only; tie order Log → donor → job; elapsed in a dir-auto `<bdi>` · drive 18/18 **stubbed**; live walk waits on 2458

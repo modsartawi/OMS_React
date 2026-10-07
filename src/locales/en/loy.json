@@ -65,6 +65,7 @@
       "profile": "Profile",
       "activities": "Activities",
       "sales": "Sales",
+      "invoices": "Invoices",
       "actions": "Actions"
     },
     "retry": "Retry",
@@ -99,6 +100,56 @@
         "unitPrice": "Unit price",
         "amount": "Amount",
         "currency": "Currency"
+      }
+    },
+    "invoices": {
+      "caption": "Receipts from the last 90 days, newest first.",
+      "loading": "Loading receipts…",
+      "empty": "No receipts in the last 90 days.",
+      "failed": "The receipts could not be read.",
+      "noRecipient": "No address to send to",
+      "wouldSkip": "(would be skipped: {{reason}})",
+      "columns": {
+        "store": "Store code",
+        "receipt": "Receipt",
+        "date": "Date",
+        "status": "Invoice email",
+        "lastAttempt": "Last attempt",
+        "recipient": "Will go to",
+        "resend": "Resend"
+      },
+      "status": {
+        "Sent": "Sent",
+        "Skipped": "Skipped",
+        "skippedBecause": "Skipped: {{reason}}",
+        "Failed": "Failed to send",
+        "Queued": "Waiting in the queue",
+        "NotQueued": "Not emailed: insurance, credit and non-emailing stores' invoices are never emailed"
+      },
+      "skip": {
+        "NO_TRX": "the receipt could not be found",
+        "NO_LOY_MEMBER": "no loyalty member on the receipt",
+        "PLACEHOLDER_MEMBER": "a shared placeholder member, not a person",
+        "NO_ORDER": "the online order could not be found",
+        "NO_EMAIL": "no email on the profile",
+        "SUPPORT_EMAIL": "an internal support address",
+        "INVALID_EMAIL": "the email address is not valid"
+      },
+      "source": {
+        "order": "the online order's email"
+      },
+      "resend": {
+        "action": "Resend",
+        "dialogTitle": "Resend this invoice?",
+        "receipt": "Receipt",
+        "recipient": "Will go to",
+        "note": "The invoice goes back into the queue and is emailed to this address, normally within a few minutes. The customer receives the same tax invoice again.",
+        "confirm": "Resend",
+        "cancel": "Cancel",
+        "queued": "Invoice queued. It will be emailed within a few minutes.",
+        "queuedTo": "Invoice queued for {{recipient}}. It will be emailed within a few minutes.",
+        "alreadyQueued": "This invoice is already waiting in the queue, so nothing was added.",
+        "failed": "The invoice could not be requeued."
       }
     },
     "actions": {

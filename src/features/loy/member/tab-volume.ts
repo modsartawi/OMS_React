@@ -23,8 +23,11 @@
  * points"* is the question that brings an analyst here, and that is still true
  * for the many who only ever read (227 #7). Ordering is where the eye starts,
  * `DEFAULT_MEMBER_TAB` is where the work starts.
+ *
+ * Invoices sits beside Sales (ticket 428): both are about receipts, and Sales stays
+ * line-grain while Invoices is one row per receipt.
  */
-export const MEMBER_TABS = ['profile', 'activities', 'sales', 'actions'] as const
+export const MEMBER_TABS = ['profile', 'activities', 'sales', 'invoices', 'actions'] as const
 
 export type MemberTab = (typeof MEMBER_TABS)[number]
 

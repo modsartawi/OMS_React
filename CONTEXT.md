@@ -553,3 +553,22 @@ ordinary reasons a person picks from a list. The distinction exists so that a st
 serious claim cannot be applied by hand to a member the claim isn't true of.
 _Avoid_: internal reason, hidden reason (it is shown wherever a member's block is shown; it is
 unselectable, not invisible).
+
+**Skip (invoice email)**:
+An attempt to email a receipt's tax invoice that correctly sends nothing, because there is no
+deliverable recipient — no loyalty member, a blank or malformed address, an internal support
+address, a shared placeholder member, or a missing online order. Terminal and correct, never a
+failure; each carries a **skip reason** naming which condition fired, worded on screen as the thing
+to fix.
+_Avoid_: failed, ignored, not sent (a failure is the provider refusing a real send; a skip never
+tried).
+
+**Requeue (invoice email)**:
+A person putting **one** receipt's already-queued invoice email back in front of the send queue,
+typically after the customer corrected their email and called to ask for the invoice again. It
+sends the same tax invoice to the **current** recipient on file — it never names an address of its
+own — and grants it fresh attempts while the earlier ones stay on record. Only a receipt the queue
+already holds can be requeued: insurance, credit and non-emailing stores' receipts were never
+queued. The screen's action is labelled **Resend**, which is the customer's word for it.
+_Avoid_: resend to another address, retry (a retry is the queue's own next attempt), re-drive (the
+bulk return of a backlog).

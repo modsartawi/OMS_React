@@ -490,6 +490,14 @@ is a fraud signal and a flag nobody saw proves nothing). The link stands regardl
 lines landed.
 _Avoid_: failed line, dropped item (nothing failed — the guardrails held).
 
+**Skipped import line** (of a master-data import):
+A line of a WPF tab-separated import (cities, districts, document source users) that the server
+did not apply, answered per line as `{ line, key, reason }` (spec 430 D8) — `line` is the 1-based
+line as sent, empty lines not counted. A known reason (`UNKNOWN_CITY`, `UNKNOWN_STAFF`,
+`UNKNOWN_SOURCE`) is worded; any other is shown as its code, never dropped. Distinct from an
+**error line**, which the preview catches before sending (wrong column count) and which blocks Send.
+_Avoid_: skipped line unqualified (that is a link's), failed line.
+
 **IDoc**:
 The document the SAP rail generates for a till transaction and sends to SAP — one per **IDoc type**
 (an aggregated envelope, a sales-as-per-receipt envelope, an FI document, and others). Several exist

@@ -35,7 +35,12 @@
     "exported_two": "كُتبت مدينتان في المصنف.",
     "exported_few": "كُتبت {{n}} مدن في المصنف.",
     "exported_many": "كُتبت {{n}} مدينة في المصنف.",
-    "exported_other": "كُتبت {{n}} مدينة في المصنف."
+    "exported_other": "كُتبت {{n}} مدينة في المصنف.",
+    "import": {
+      "button": "استيراد المدن",
+      "title": "استيراد المدن",
+      "format": "مدينة في كل سطر، وأعمدتها مفصولة بعلامات جدولة كما يقرؤها WPF: رمز المدينة، الاسم بالإنجليزية، الاسم بالعربية. أضف عمودًا رابعًا فيه X لحذف تلك المدينة. لا يوجد سطر عناوين: سطر العناوين يُقرأ مدينةً."
+    }
   },
   "districts": {
     "title": "الأحياء",
@@ -63,7 +68,12 @@
     "exported_two": "كُتب حيّان في المصنف.",
     "exported_few": "كُتبت {{n}} أحياء في المصنف.",
     "exported_many": "كُتب {{n}} حيًّا في المصنف.",
-    "exported_other": "كُتب {{n}} حي في المصنف."
+    "exported_other": "كُتب {{n}} حي في المصنف.",
+    "import": {
+      "button": "استيراد الأحياء",
+      "title": "استيراد الأحياء",
+      "format": "حي في كل سطر، وأعمدته مفصولة بعلامات جدولة كما يقرؤها WPF: رمز الحي، رمز المدينة، الاسم بالإنجليزية، الاسم بالعربية، مدينة Magento (إنجليزي)، مدينة Magento (عربي)، المتجر، متجر التأمين، المتجر المؤقت. أضف عمودًا عاشرًا فيه X لحذف ذلك الحي. لا يوجد سطر عناوين: سطر العناوين يُقرأ حيًّا."
+    }
   },
   "columns": {
     "cityCode": "رمز المدينة",
@@ -93,5 +103,69 @@
     "done": "تم التصدير",
     "failed": "فشل التصدير",
     "failedDetail": "تعذّر كتابة المصنف. حاول مرة أخرى."
+  },
+  "import": {
+    "file": "اختر ملفًا",
+    "fileChosen": "قُرئ من <name>{{name}}</name>",
+    "paste": "أو الصق الأسطر (من Excel مباشرة)",
+    "readFailed": "تعذّرت قراءة الملف نصًّا. احفظه في Excel بصيغة \"Unicode Text\" واختره مرة أخرى، أو الصق أسطره.",
+    "summary_zero": "<n>{{n}}</n> سطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_one": "سطر واحد: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_two": "سطران: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_few": "<n>{{n}}</n> أسطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_many": "<n>{{n}}</n> سطرًا: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_other": "<n>{{n}}</n> سطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "blocked_zero": "عدد أعمدة <n>{{n}}</n> سطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_one": "عدد أعمدة سطر واحد غير صحيح. صحّحه لتتمكن من الإرسال.",
+    "blocked_two": "عدد أعمدة سطرين غير صحيح. صحّحهما لتتمكن من الإرسال.",
+    "blocked_few": "عدد أعمدة <n>{{n}}</n> أسطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_many": "عدد أعمدة <n>{{n}}</n> سطرًا غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_other": "عدد أعمدة <n>{{n}}</n> سطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "send_zero": "إرسال {{count}} سطر",
+    "send_one": "إرسال سطر واحد",
+    "send_two": "إرسال سطرين",
+    "send_few": "إرسال {{count}} أسطر",
+    "send_many": "إرسال {{count}} سطرًا",
+    "send_other": "إرسال {{count}} سطر",
+    "sending": "جارٍ الإرسال…",
+    "cancel": "إلغاء",
+    "again": "استيراد ملف آخر",
+    "close": "إغلاق",
+    "failedTitle": "ربما لم يُطبَّق الاستيراد — أُعيد تحميل القائمتين، فراجعهما قبل الإرسال مرة أخرى",
+    "refusedTitle": "رُفض الاستيراد — لم يُطبَّق شيء",
+    "failed": "تعذّر إرسال الاستيراد. حاول مرة أخرى بعد قليل.",
+    "preview": {
+      "line": "السطر",
+      "action": "الإجراء",
+      "problem": "المشكلة"
+    },
+    "action": {
+      "upsert": "إضافة أو تحديث",
+      "delete": "حذف",
+      "error": "تعذّرت قراءته"
+    },
+    "problem": {
+      "columnCount_zero": "في هذا السطر {{count}} عمود؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_one": "في هذا السطر عمود واحد؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_two": "في هذا السطر عمودان؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_few": "في هذا السطر {{count}} أعمدة؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_many": "في هذا السطر {{count}} عمودًا؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_other": "في هذا السطر {{count}} عمود؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X."
+    },
+    "result": {
+      "applied": "طُبّق",
+      "unchanged": "دون تغيير",
+      "skipped": "تُخطّي",
+      "clean": "لم يُتخطَّ أي سطر.",
+      "skippedTitle": "الأسطر التي تخطّاها الخادم",
+      "line": "السطر",
+      "key": "المفتاح",
+      "reason": "السبب"
+    },
+    "reason": {
+      "unknownCity": "مدينة غير معروفة",
+      "unknownStaff": "رقم موظف غير معروف",
+      "unknownSource": "مصدر مستند غير معروف"
+    }
   }
 }

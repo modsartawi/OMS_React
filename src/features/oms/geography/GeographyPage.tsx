@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, GetRowIdFunc, GridApi, RowSelectionOptions } from 'ag-grid-community'
-import { FileSpreadsheet, Search } from 'lucide-react'
+import { FileSpreadsheet, Search, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -17,10 +17,11 @@ import { notify } from '@/core/services/notify'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { omsAccessQuery } from '@/core/oms/api'
-import { canOpenGeography } from '@/core/oms/access'
+import { canOpenGeography, omsGrants } from '@/core/oms/access'
 import type { SdCityModel, SdDistrictModel } from '@/core/models/lookups'
-import { citiesQuery, districtsQuery, selectedCityCode } from './geography'
+import { GEOGRAPHY_LISTS_KEY, citiesQuery, districtsQuery, selectedCityCode, type ImportKind } from './geography'
 import { EXPORT_AS_TEXT, cityColumns, districtColumns } from './columns'
+import ImportDialog from './ImportDialog'
 
 /**
  * Cities & districts (ticket 436, spec 430 D6/D13): the WPF City and District inquiries on one
@@ -29,7 +30,8 @@ import { EXPORT_AS_TEXT, cityColumns, districtColumns } from './columns'
  *
  * Behind `canOpenGeography` on the ONE shared OMS probe, the same predicate the menu leaf reads.
  * 🚩 Its doors (`SdDocumentWeb/Cities` and `SdDocumentWeb/Districts`, BackOffice ask BO-5) are not
- * built yet. The imports are ticket 437's.
+ * built yet. Each list's Import (ticket 437) is offered only with its own grant, `canImportCities`
+ * or `canImportDistricts`; its doors (BO-5, BO-7) are not built either.
  */
 export default function GeographyPage() {
   const { t } = useTranslation('geography')
@@ -57,6 +59,10 @@ function Geography() {
   // The selected city's CODE, not its row: a reload (437's import) may rename it, and the title
   // reads the row as it stands now.
   const [selected, setSelected] = useState<string | null>(null)
+
+  const queryClient = useQueryClient()
+  const grants = omsGrants(useQuery(omsAccessQuery()).data)
+  const [importing, setImporting] = useState<ImportKind | null>(null)
 
   const cities = useQuery(citiesQuery())
   const city = useMemo(
@@ -86,6 +92,7 @@ function Geography() {
         getRowId={cityRowId}
         rowSelection={ROW_SELECTION}
         onSelect={(row) => setSelected(selectedCityCode(row))}
+        onImport={grants.canImportCities ? () => setImporting('cities') : undefined}
       />
       <GridPane<SdDistrictModel>
         kind="districts"
@@ -105,6 +112,14 @@ function Geography() {
         placeholder={cityCode === null ? t('districts.selectCity') : undefined}
         // Another city is another list: its text filter starts empty.
         resetKey={cityCode}
+        // The district file names each line's city, so the import does not wait on a selection.
+        onImport={grants.canImportDistricts ? () => setImporting('districts') : undefined}
+      />
+      <ImportDialog
+        kind={importing}
+        onClose={() => setImporting(null)}
+        // Both lists: a city import renames the districts' title, a district import may touch any city.
+        onImported={() => void queryClient.invalidateQueries({ queryKey: GEOGRAPHY_LISTS_KEY })}
       />
     </div>
   )
@@ -127,10 +142,12 @@ interface GridPaneProps<T> {
   placeholder?: string
   /** When it changes, the text filter is cleared. */
   resetKey?: string | null
+  /** Offers Import; absent without the list's import grant. */
+  onImport?: () => void
 }
 
 /** One list: its header (title, text filter, export), its banner, its grid and its count. */
-function GridPane<T>({ kind, title, rows, loading, error, columns, getRowId, rowSelection, onSelect, placeholder, resetKey }: GridPaneProps<T>) {
+function GridPane<T>({ kind, title, rows, loading, error, columns, getRowId, rowSelection, onSelect, placeholder, resetKey, onImport }: GridPaneProps<T>) {
   const { t } = useTranslation('geography')
   const gridApi = useRef<GridApi<T> | null>(null)
   const [quick, setQuick] = useState('')
@@ -189,6 +206,12 @@ function GridPane<T>({ kind, title, rows, loading, error, columns, getRowId, row
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
             {t('export.button')}
           </Button>
+          {onImport && (
+            <Button variant="outlined" onClick={onImport} data-geo-import="">
+              <Upload className="h-3.5 w-3.5" aria-hidden />
+              {t(`${kind}.import.button`)}
+            </Button>
+          )}
         </div>
       </div>
 

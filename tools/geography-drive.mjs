@@ -1,4 +1,4 @@
-// Cities & districts drive (ticket 436, spec 430 D2/D6/D13/D15/D16/D18).
+// Cities & districts drive (tickets 436 + 437, spec 430 D2/D6/D8/D13/D14/D15/D16/D18).
 //
 // Drives the REAL app in Chromium against a STUB of the spec 430 wire contract — the doors
 // (`GET SdDocumentWeb/Cities` and `GET SdDocumentWeb/Districts?cityCode=`, BackOffice ask BO-5) are
@@ -7,6 +7,9 @@
 //   GET SdDocumentWeb/Access              → { canOpenList, canOpenDetail, canOpenGeography? }
 //   GET SdDocumentWeb/Cities              → SdCityModel[]
 //   GET SdDocumentWeb/Districts?cityCode= → SdDistrictModel[]
+//   POST SdDocumentWeb/Cities/Import | Districts/Import  { lines: [..., isDelete] }
+//                                         → { applied, unchanged, skipped: [{ line, key, reason }] }
+//   (the import doors are BackOffice asks BO-5/BO-7, NOT built either)
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"), it asserts:
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
 //      denied card, with no cities call; an import flag alone does not show it;
@@ -23,7 +26,16 @@
 //   6. each grid exports xlsx as shown: its own file name, the filtered rows, codes as text,
 //      coordinates as numbers, no isolates;
 //   7. a refused cities load and a failed districts load are shown with their own message;
-//   8. no page errors.
+//   8. no page errors;
+//   9. (ticket 437) no Import without its grant, and one grant offers one list's Import only;
+//      a pasted city file with a header, a short line, an empty line and a lower-case x previews
+//      every line (the header as an ordinary line, the empty one dropped), flags the short line
+//      and keeps Send off; fixed, Send posts { lines } with isDelete, English before Arabic;
+//      the result counts applied/unchanged/skipped and lists the skipped line with an unknown
+//      reason as its code; the lists reload; a failed send says it may not have applied, keeps
+//      the preview and reloads; a refused send says nothing was applied; an ANSI file is refused;
+//      a UTF-16 district file reads, posts in WPF's field order, and
+//      its UNKNOWN_CITY skip is worded; both lists reload.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/geography-drive.mjs
@@ -108,12 +120,13 @@ const DISTRICTS = {
 
 const browser = await chromium.launch()
 
-async function open(dir, { grant, importOnly = false, cities = () => 'rows', districts = () => 'rows' }) {
+async function open(dir, { grant, importOnly = false, imports = {}, importAnswer = () => null, cities = () => 'rows', districts = () => 'rows' }) {
   const context = await browser.newContext({ viewport: { width: 1800, height: 1100 }, acceptDownloads: true })
   const page = await context.newPage()
   const errors = []
   const calls = []
   const districtAsks = []
+  const importBodies = []
   let cityCalls = 0
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on(
@@ -134,7 +147,20 @@ async function open(dir, { grant, importOnly = false, cities = () => 'rows', dis
       const flags = { canOpenList: true, canOpenDetail: true, canOpenDocumentPayments: true }
       if (grant) flags.canOpenGeography = true
       if (importOnly) Object.assign(flags, { canImportCities: true, canImportDistricts: true })
+      if (imports.cities) flags.canImportCities = true
+      if (imports.districts) flags.canImportDistricts = true
       return route.fulfill(envelope(flags))
+    }
+    const importDoor = /^SdDocumentWeb\/(Cities|Districts)\/Import$/.exec(p)
+    if (importDoor) {
+      const kind = importDoor[1].toLowerCase()
+      const body = route.request().postDataJSON()
+      importBodies.push({ kind, method: route.request().method(), body })
+      const answer = importAnswer(kind, body)
+      if (answer === 'down') return route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' })
+      if (answer === 'refused')
+        return route.fulfill(envelope(null, { status: 403, success: false, message: 'You do not hold SdCityImport (03).', errorCode: 'FORBIDDEN' }))
+      return route.fulfill(envelope(answer))
     }
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/Cities') {
@@ -153,7 +179,7 @@ async function open(dir, { grant, importOnly = false, cities = () => 'rows', dis
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, districtAsks, cityCount: () => cityCalls }
+  return { context, page, errors, calls, districtAsks, importBodies, cityCount: () => cityCalls }
 }
 
 const omsLinks = (page) =>
@@ -205,6 +231,41 @@ async function selectCity(page, code) {
   await pane(page, 'cities').locator('.ag-row', { has: page.locator('[col-id="cityCode"]', { hasText: new RegExp(`^${code}$`) }) }).locator('[col-id="cityNameEn"]').click()
 }
 
+const previewRows = (page, n) =>
+  page.waitForFunction((count) => document.querySelectorAll('[data-import-preview] .ag-row').length === count, n, { timeout: 10000 })
+
+/** The import preview's rows, by column id, in line order. */
+const previewLines = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-import-preview] .ag-row')]
+      .sort((a, b) => Number(a.getAttribute('row-index')) - Number(b.getAttribute('row-index')))
+      .map((r) => {
+        const out = {}
+        for (const cell of r.querySelectorAll('[col-id]')) out[cell.getAttribute('col-id')] = cell.textContent ?? ''
+        return out
+      }),
+  )
+
+/** The result's three counts, as `applied=n,unchanged=n,skipped=n`. */
+const resultCounts = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-import-count]')].map((e) => `${e.getAttribute('data-import-count')}=${e.querySelector('dd')?.textContent}`).join(','),
+  )
+
+/** The skipped lines as drawn, and whether the line and key are isolated LTR. */
+const skippedLines = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-import-skipped] tbody tr')].map((tr) => {
+      const [line, key, reason] = [...tr.querySelectorAll('td')]
+      return {
+        line: line.textContent,
+        key: key.textContent,
+        reason: reason.textContent,
+        isolated: !!line.querySelector('bdi[dir="ltr"]') && !!key.querySelector('bdi[dir="ltr"]'),
+      }
+    }),
+  )
+
 /** Click a pane's Export and read the workbook it downloads. */
 async function exportOf(page, kind) {
   const [dl] = await Promise.all([page.waitForEvent('download'), pane(page, kind).locator('[data-geo-export]').click()])
@@ -255,6 +316,7 @@ async function drive(dir) {
       String(calls.filter((c) => c === 'SdDocumentWeb/Access').length),
     )
     check(`${label}: dir is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
+    check(`${label}: without an import grant neither list offers Import`, (await page.locator('[data-geo-import]').count()) === 0)
     check(
       `${label}: no district is asked for before a city is selected; the lower pane says to select one`,
       districtAsks.length === 0 && (await pane(page, 'districts').locator('[data-geo-placeholder]').innerText()).includes('Select a city above'),
@@ -398,6 +460,207 @@ async function drive(dir) {
       `"${await districtFilter.inputValue()}" ${await statusOf(page, 'districts')}`,
     )
     check(`${label}: no page errors (granted)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 8: imports (ticket 437) ────────────────────────────────────────────────────────────────
+  {
+    // One grant, one list: the districts import is not offered with the cities grant alone.
+    const { context, page, errors } = await open(dir, { grant: true, imports: { cities: true } })
+    await page.goto(`${BASE}/oms/geography`)
+    await waitRows(page, 'cities', 3)
+    await page.waitForTimeout(300)
+    check(
+      `${label}: canImportCities alone offers Import on the cities only`,
+      (await pane(page, 'cities').locator('[data-geo-import]').count()) === 1 &&
+        (await pane(page, 'districts').locator('[data-geo-import]').count()) === 0,
+    )
+    check(`${label}: no page errors (cities grant only)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const CITY_ANSWER = { applied: 2, unchanged: 1, skipped: [{ line: 1, key: 'CITYCODE', reason: 'INVALID_CODE' }] }
+    const DISTRICT_ANSWER = { applied: 1, unchanged: 0, skipped: [{ line: 2, key: 'NOW-01', reason: 'UNKNOWN_CITY' }] }
+    let cityImportDown = false
+    let cityImportRefused = false
+    const { context, page, errors, importBodies, districtAsks, cityCount } = await open(dir, {
+      grant: true,
+      imports: { cities: true, districts: true },
+      importAnswer: (kind) => (kind === 'cities' ? (cityImportRefused ? 'refused' : cityImportDown ? 'down' : CITY_ANSWER) : DISTRICT_ANSWER),
+    })
+    await page.goto(`${BASE}/oms/geography`)
+    await waitRows(page, 'cities', 3)
+    await selectCity(page, 'RUH')
+    await waitRows(page, 'districts', 3)
+    check(
+      `${label}: with both grants each list offers its own Import`,
+      (await pane(page, 'cities').locator('[data-geo-import]').innerText()).includes('Import cities') &&
+        (await pane(page, 'districts').locator('[data-geo-import]').innerText()).includes('Import districts'),
+    )
+
+    // Cities: pasted, with a header, a short line, an empty line and a lower-case x.
+    await pane(page, 'cities').locator('[data-geo-import]').click()
+    const dialog = page.locator('[data-import-dialog="cities"]')
+    await dialog.waitFor({ timeout: 10000 })
+    check(
+      `${label}: the cities import names WPF's columns, English before Arabic, and the X`,
+      /city code, English name, Arabic name/.test(await dialog.locator('[data-import-format]').innerText()),
+    )
+    const send = page.locator('[data-import-send]')
+    check(`${label}: Send is off before any line`, await send.isDisabled())
+    const text = dialog.locator('[data-import-text]')
+    await text.fill('CityCode\tCityNameEn\tCityNameAr\r\nRUH\tRiyadh\tالرياض\r\nJED\tJeddah\r\n\r\nTIF\tTaif\tالطائف\tx\r\n')
+    await previewRows(page, 4)
+    const lines = await previewLines(page)
+    check(
+      `${label}: the preview shows every line, a header as an ordinary line, and drops the empty one`,
+      lines.map((l) => `${l.line}:${l.cityCode}:${l.action}`).join(',') ===
+        '1:CityCode:Add or update,2:RUH:Add or update,3:JED:Cannot be read,4:TIF:Delete',
+      lines.map((l) => `${l.line}:${l.cityCode}:${l.action}`).join(','),
+    )
+    check(
+      `${label}: the line with the wrong column count says why`,
+      lines[2]?.problem === 'This line has 2 columns; it needs 3, or 4 ending in X.' && lines[1]?.problem === '' && lines[1]?.cityNameAr === 'الرياض',
+      lines[2]?.problem,
+    )
+    check(
+      `${label}: an error line blocks Send and says so`,
+      (await send.isDisabled()) && (await dialog.locator('[data-import-blocked]').innerText()).includes('1 line has the wrong number of columns'),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-import-blocked.png` })
+    await text.fill('CityCode\tCityNameEn\tCityNameAr\nRUH\tRiyadh\tالرياض\nJED\tJeddah\tجدة\nTIF\tTaif\tالطائف\tx')
+    await page.waitForFunction(() => !document.querySelector('[data-import-blocked]'), null, { timeout: 5000 })
+    check(
+      `${label}: fixed, Send is offered for every line`,
+      !(await send.isDisabled()) && (await send.innerText()).trim() === 'Send 4 lines' &&
+        (await dialog.locator('[data-import-summary]').innerText()).includes('4 lines: 3 to add or update, 1 to delete'),
+      await send.innerText(),
+    )
+    const citiesBefore = cityCount()
+    await send.click()
+    await dialog.locator('[data-import-result]').waitFor({ timeout: 10000 })
+    const sent = importBodies.at(-1)
+    check(
+      `${label}: Send posts { lines } to Cities/Import with isDelete, English before Arabic, the header included`,
+      sent?.kind === 'cities' &&
+        sent.method === 'POST' &&
+        JSON.stringify(sent.body) ===
+          JSON.stringify({
+            lines: [
+              { cityCode: 'CityCode', cityNameEn: 'CityNameEn', cityNameAr: 'CityNameAr', isDelete: false },
+              { cityCode: 'RUH', cityNameEn: 'Riyadh', cityNameAr: 'الرياض', isDelete: false },
+              { cityCode: 'JED', cityNameEn: 'Jeddah', cityNameAr: 'جدة', isDelete: false },
+              { cityCode: 'TIF', cityNameEn: 'Taif', cityNameAr: 'الطائف', isDelete: true },
+            ],
+          }),
+      JSON.stringify(sent?.body),
+    )
+    const counts = await resultCounts(page)
+    check(`${label}: the result says applied, unchanged and skipped`, counts === 'applied=2,unchanged=1,skipped=1', counts)
+    const skipped = await skippedLines(page)
+    check(
+      `${label}: a skipped line shows its number, its key and an unknown reason as its own code, isolated`,
+      skipped.length === 1 && skipped[0].line === '1' && skipped[0].key === 'CITYCODE' && skipped[0].reason === 'INVALID_CODE' && skipped[0].isolated,
+      JSON.stringify(skipped),
+    )
+    await page.waitForTimeout(500)
+    check(`${label}: the cities reload after the import`, cityCount() === citiesBefore + 1, `${citiesBefore} → ${cityCount()}`)
+    await page.screenshot({ path: `${SHOTS}/${dir}-import-result.png` })
+
+    // A failed send: said, the preview kept, the lists read again.
+    await page.locator('[data-import-again]').click()
+    await text.fill('RUH\tRiyadh\tالرياض')
+    await previewRows(page, 1)
+    cityImportDown = true
+    const beforeDown = cityCount()
+    await send.click()
+    const banner = dialog.locator('[role="alert"]', { hasText: 'The import may not have been applied' })
+    await banner.waitFor({ timeout: 10000 })
+    await page.waitForTimeout(500)
+    check(
+      `${label}: a failed send says it may not have applied, keeps the preview and Send, and reloads`,
+      (await dialog.locator('[data-import-result]').count()) === 0 && !(await send.isDisabled()) && cityCount() === beforeDown + 1,
+      `${beforeDown} → ${cityCount()}`,
+    )
+    cityImportDown = false
+    cityImportRefused = true
+    await send.click()
+    const refusal = dialog.locator('[role="alert"]', { hasText: 'You do not hold SdCityImport (03).' })
+    await refusal.waitFor({ timeout: 10000 })
+    check(
+      `${label}: a refused send says it was refused and nothing was applied, with the server's own message`,
+      (await refusal.innerText()).includes('The import was refused') && !(await refusal.innerText()).includes('may not have been applied'),
+      await refusal.innerText(),
+    )
+    await page.locator('dialog').getByRole('button', { name: 'Cancel' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+
+    // Districts: a picked file in Excel's Unicode text (UTF-16 LE), without the selection mattering.
+    const districtFile = 'RUH-04\tRUH\tAl Yasmin\tالياسمين\tRiyadh\tالرياض\tP003\tP050\t\r\nNOW-01\tNOWHERE\tNowhere\tلا مكان\tX\tX\tP001\tP001\tP001\tX\r\n'
+    await pane(page, 'districts').locator('[data-geo-import]').click()
+    const dDialog = page.locator('[data-import-dialog="districts"]')
+    await dDialog.waitFor({ timeout: 10000 })
+    check(`${label}: the dialog opens empty again`, (await dDialog.locator('[data-import-text]').inputValue()) === '')
+    // An ANSI save (Windows-1256 Arabic) is refused, not read as replacement characters.
+    await dDialog.locator('[data-import-file]').setInputFiles({
+      name: 'ansi.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from([0x52, 0x55, 0x48, 0x09, 0xc7, 0xe1, 0xd1, 0xed, 0xc7, 0xd6]),
+    })
+    await dDialog.locator('[role="alert"]', { hasText: 'Unicode Text' }).waitFor({ timeout: 5000 })
+    check(
+      `${label}: a file that is not UTF-8 or UTF-16 is refused with how to save it, and nothing is previewed`,
+      (await dDialog.locator('[data-import-preview]').count()) === 0 && (await page.locator('[data-import-send]').isDisabled()),
+    )
+    await dDialog.locator('[data-import-file]').setInputFiles({
+      name: 'districts.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(districtFile, 'utf16le')]),
+    })
+    await previewRows(page, 2)
+    const dLines = await previewLines(page)
+    check(
+      `${label}: a UTF-16 file reads into the preview, a delete by its X`,
+      dLines.map((l) => `${l.districtCode}:${l.districtNameAr}:${l.action}`).join(',') === 'RUH-04:الياسمين:Add or update,NOW-01:لا مكان:Delete',
+      JSON.stringify(dLines),
+    )
+    const asksBefore = districtAsks.length
+    const citiesBeforeD = cityCount()
+    await page.locator('[data-import-send]').click()
+    await dDialog.locator('[data-import-result]').waitFor({ timeout: 10000 })
+    check(
+      `${label}: the districts post in WPF's field order with isDelete`,
+      JSON.stringify(importBodies.at(-1)?.body.lines[1]) ===
+        JSON.stringify({
+          districtCode: 'NOW-01',
+          cityCode: 'NOWHERE',
+          districtNameEn: 'Nowhere',
+          districtNameAr: 'لا مكان',
+          magentoCityEn: 'X',
+          magentoCityAr: 'X',
+          storeCode: 'P001',
+          insuranceStoreCode: 'P001',
+          tempStoreCode: 'P001',
+          isDelete: true,
+        }) && importBodies.at(-1)?.kind === 'districts',
+      JSON.stringify(importBodies.at(-1)?.body),
+    )
+    const dSkipped = await skippedLines(page)
+    check(
+      `${label}: an unknown city is worded, with its line and key`,
+      dSkipped.length === 1 && dSkipped[0].line === '2' && dSkipped[0].key === 'NOW-01' && dSkipped[0].reason === 'Unknown city',
+      JSON.stringify(dSkipped),
+    )
+    await page.waitForTimeout(500)
+    check(
+      `${label}: both lists reload after a district import`,
+      cityCount() === citiesBeforeD + 1 && districtAsks.length === asksBefore + 1 && districtAsks.at(-1) === 'RUH',
+      `${citiesBeforeD} → ${cityCount()}, ${districtAsks.join(',')}`,
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-import-districts.png` })
+    await page.locator('[data-import-close]').click()
+    await dDialog.waitFor({ state: 'detached', timeout: 5000 })
+    check(`${label}: no page errors (imports)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

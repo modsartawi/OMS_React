@@ -2,7 +2,8 @@ import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import type { SdCityModel, SdDistrictModel } from '@/core/models/lookups'
 import { formatDateTime } from '@/core/util/date-format'
-import { lastChange } from './geography'
+import type { ImportLine } from '@/core/import/parse-import'
+import { lastChange, type IMPORT_COLUMNS, type ImportKind } from './geography'
 
 // The two Cities & districts grids (ticket 436, spec 430 D13/D15): WPF's columns, English before
 // Arabic as WPF draws them, then the last change as one "by" and one "on".
@@ -67,3 +68,59 @@ export const EXPORT_AS_TEXT: ReadonlySet<string> = new Set([
   'insuranceStoreCode',
   'tempStoreCode',
 ])
+
+// ----- the import preview (ticket 437, spec 430 D14) ---------------------------------------------
+
+/** Each import field's header: the list's own column label, so the preview reads like the grid. */
+const IMPORT_HEADER: Record<(typeof IMPORT_COLUMNS)[ImportKind][number], string> = {
+  cityCode: 'cityCode',
+  cityNameEn: 'nameEn',
+  cityNameAr: 'nameAr',
+  districtCode: 'districtCode',
+  districtNameEn: 'nameEn',
+  districtNameAr: 'nameAr',
+  magentoCityEn: 'magentoCityEn',
+  magentoCityAr: 'magentoCityAr',
+  storeCode: 'store',
+  insuranceStoreCode: 'insuranceStore',
+  tempStoreCode: 'tempStore',
+}
+
+/**
+ * The preview grid: each line's number and action, then its cells under the spec's columns, then
+ * what is wrong with it. An error line shows its cells by position, so a shifted column is seen.
+ */
+export function importPreviewColumns(t: TFunction, keys: readonly string[]): ColDef<ImportLine<string>>[] {
+  return [
+    { colId: 'line', headerName: t('import.preview.line'), width: 80, type: 'numericColumn', valueGetter: ({ data }) => data?.line },
+    {
+      colId: 'action',
+      headerName: t('import.preview.action'),
+      width: 150,
+      valueGetter: ({ data }) => (!data ? '' : data.error ? t('import.action.error') : t(`import.action.${data.action}`)),
+      cellClassRules: {
+        'font-medium text-danger-800': ({ data }) => !!data?.error,
+        'text-attention-800': ({ data }) => data?.action === 'delete',
+      },
+    },
+    ...keys.map(
+      (key, i): ColDef<ImportLine<string>> => ({
+        colId: key,
+        headerName: t(`columns.${IMPORT_HEADER[key as keyof typeof IMPORT_HEADER]}`),
+        width: 150,
+        valueGetter: ({ data }) => data?.cells[i] ?? '',
+      }),
+    ),
+    {
+      colId: 'problem',
+      headerName: t('import.preview.problem'),
+      minWidth: 280,
+      flex: 1,
+      valueGetter: ({ data }) =>
+        data?.error
+          ? t('import.problem.columnCount', { count: data.error.found, expected: data.error.expected, withDelete: data.error.expected + 1 })
+          : '',
+      cellClass: 'text-danger-800',
+    },
+  ]
+}

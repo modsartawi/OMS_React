@@ -1,4 +1,5 @@
 import type { SdCityModel } from '@/core/models/lookups'
+import type { ImportLine } from '@/core/import/parse-import'
 import { isBlankDate } from '@/core/util/date-format'
 import { geographyApi } from './api'
 
@@ -8,6 +9,9 @@ import { geographyApi } from './api'
 
 /** The screen's root key: one invalidation reloads both lists (the import, ticket 437). */
 const GEOGRAPHY_KEY = 'geography'
+
+/** Both lists — every city and every district list read so far — for the import's reload. */
+export const GEOGRAPHY_LISTS_KEY = [GEOGRAPHY_KEY] as const
 
 /** Every city, on open. */
 export function citiesQuery() {
@@ -52,4 +56,47 @@ export function lastChange(row: Audited): { by: string; on: string | null } {
 
 function isSet(value: string | null | undefined): value is string {
   return !!value && !isBlankDate(new Date(value))
+}
+
+// ----- the imports (ticket 437, spec 430 D6/D14) ------------------------------------------------
+
+/** WPF's city file: code, then the ENGLISH name, then the Arabic name (`SdCityImportController`). */
+export const CITY_IMPORT_COLUMNS = ['cityCode', 'cityNameEn', 'cityNameAr'] as const
+
+/** WPF's district file, in `SdDistrictImportController`'s order. */
+export const DISTRICT_IMPORT_COLUMNS = [
+  'districtCode',
+  'cityCode',
+  'districtNameEn',
+  'districtNameAr',
+  'magentoCityEn',
+  'magentoCityAr',
+  'storeCode',
+  'insuranceStoreCode',
+  'tempStoreCode',
+] as const
+
+export type ImportKind = 'cities' | 'districts'
+
+/** Each list's import columns. The keys are the body's field names (WPF's update-request lines). */
+export const IMPORT_COLUMNS = {
+  cities: CITY_IMPORT_COLUMNS,
+  districts: DISTRICT_IMPORT_COLUMNS,
+} as const satisfies Record<ImportKind, readonly string[]>
+
+/** A line of the import body: the file's fields, plus WPF's `isDelete` (not `isDeleted`). */
+export type GeographyImportLine<K extends string> = Record<K, string> & { isDelete: boolean }
+
+/**
+ * The body of `POST SdDocumentWeb/Cities/Import` or `Districts/Import`: `{ lines }`, every line in
+ * file order with `isDelete`. `null` while any line is in error: an import with one is not sent,
+ * and the server's 1-based `line` must stay the preview's.
+ */
+export function geographyImportBody<K extends string>(lines: readonly ImportLine<K>[]): { lines: GeographyImportLine<K>[] } | null {
+  const body: GeographyImportLine<K>[] = []
+  for (const l of lines) {
+    if (l.error) return null
+    body.push({ ...l.fields, isDelete: l.action === 'delete' })
+  }
+  return { lines: body }
 }

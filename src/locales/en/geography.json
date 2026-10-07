@@ -23,7 +23,12 @@
     "sheet": "Cities",
     "fileName": "cities",
     "exported_one": "{{n}} city was written to the workbook.",
-    "exported_other": "{{n}} cities were written to the workbook."
+    "exported_other": "{{n}} cities were written to the workbook.",
+    "import": {
+      "button": "Import cities",
+      "title": "Import cities",
+      "format": "One city per line, its columns separated by tabs as WPF reads them: city code, English name, Arabic name. Add a fourth column holding X to delete that city. There is no header row: a header would be read as a city."
+    }
   },
   "districts": {
     "title": "Districts",
@@ -39,7 +44,12 @@
     "sheet": "Districts",
     "fileName": "districts",
     "exported_one": "{{n}} district was written to the workbook.",
-    "exported_other": "{{n}} districts were written to the workbook."
+    "exported_other": "{{n}} districts were written to the workbook.",
+    "import": {
+      "button": "Import districts",
+      "title": "Import districts",
+      "format": "One district per line, its columns separated by tabs as WPF reads them: district code, city code, English name, Arabic name, Magento city (EN), Magento city (AR), store, insurance store, temporary store. Add a tenth column holding X to delete that district. There is no header row: a header would be read as a district."
+    }
   },
   "columns": {
     "cityCode": "City code",
@@ -69,5 +79,53 @@
     "done": "Exported",
     "failed": "The export failed",
     "failedDetail": "The workbook could not be written. Try again."
+  },
+  "import": {
+    "file": "Pick a file",
+    "fileChosen": "Read from <name>{{name}}</name>",
+    "paste": "Or paste the rows (straight from Excel)",
+    "readFailed": "The file could not be read as text. In Excel, save it as \"Unicode Text\" and pick it again, or paste its rows.",
+    "summary_one": "<n>{{n}}</n> line: <upserts>{{upserts}}</upserts> to add or update, <deletes>{{deletes}}</deletes> to delete",
+    "summary_other": "<n>{{n}}</n> lines: <upserts>{{upserts}}</upserts> to add or update, <deletes>{{deletes}}</deletes> to delete",
+    "blocked_one": "<n>{{n}}</n> line has the wrong number of columns. Fix it to send.",
+    "blocked_other": "<n>{{n}}</n> lines have the wrong number of columns. Fix them to send.",
+    "send_one": "Send {{count}} line",
+    "send_other": "Send {{count}} lines",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "again": "Import another file",
+    "close": "Close",
+    "failedTitle": "The import may not have been applied — the lists were reloaded, check them before sending again",
+    "refusedTitle": "The import was refused — nothing was applied",
+    "failed": "The import could not be sent. Try again in a moment.",
+    "preview": {
+      "line": "Line",
+      "action": "Action",
+      "problem": "Problem"
+    },
+    "action": {
+      "upsert": "Add or update",
+      "delete": "Delete",
+      "error": "Cannot be read"
+    },
+    "problem": {
+      "columnCount_one": "This line has {{count}} column; it needs {{expected}}, or {{withDelete}} ending in X.",
+      "columnCount_other": "This line has {{count}} columns; it needs {{expected}}, or {{withDelete}} ending in X."
+    },
+    "result": {
+      "applied": "Applied",
+      "unchanged": "Unchanged",
+      "skipped": "Skipped",
+      "clean": "No line was skipped.",
+      "skippedTitle": "Lines the server skipped",
+      "line": "Line",
+      "key": "Key",
+      "reason": "Reason"
+    },
+    "reason": {
+      "unknownCity": "Unknown city",
+      "unknownStaff": "Unknown staff ID",
+      "unknownSource": "Unknown document source"
+    }
   }
 }

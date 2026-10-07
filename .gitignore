@@ -82,3 +82,5 @@ tools/.callcenter-callerbar-shots/
 tools/.bby-maintenance-shots/
 # Delivery details donor-moments drive screenshots (tools/document-donor-drive.mjs, ticket 429)
 tools/.document-donor-shots/
+# Donor requests drive screenshots (tools/donor-requests-drive.mjs, ticket 431)
+tools/.donor-requests-shots/

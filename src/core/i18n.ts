@@ -52,6 +52,10 @@ import centralInvoice from '@/locales/en/central-invoice.json'
 // dialog, so they ship with the feature rather than in a later sweep. A PARTIAL namespace —
 // `lng` stays `en`, and once Arabic is switched on every key not in it falls back to English.
 import documentAr from '@/locales/ar/document.json'
+// Donor requests (spec 430, ticket 431) — the first of the wave's five OMS screens. Namespace ==
+// feature name; it ships its Arabic strings beside its English ones.
+import donorRequests from '@/locales/en/donor-requests.json'
+import donorRequestsAr from '@/locales/ar/donor-requests.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -59,7 +63,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests'],
   resources: {
     en: {
       common,
@@ -86,9 +90,11 @@ i18n.use(initReactI18next).init({
       reports,
       attachments,
       'central-invoice': centralInvoice,
+      'donor-requests': donorRequests,
     },
     ar: {
       document: documentAr,
+      'donor-requests': donorRequestsAr,
     },
   },
   interpolation: { escapeValue: false },

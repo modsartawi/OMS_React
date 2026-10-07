@@ -143,6 +143,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/central-invoice/CentralInvoicesPage')).default,
         }),
       },
+      // Donor requests (ticket 431, spec 430) — every store's donor asks, behind its own flag on
+      // the shared OMS probe. `?request=<no>` seeds a one-request search (434's link).
+      {
+        path: 'oms/donor-requests',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/donor-requests/DonorRequestsPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

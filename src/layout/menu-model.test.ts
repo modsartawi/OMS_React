@@ -190,6 +190,20 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.list')!
     expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
   })
+
+  // Spec 430 D18 / ticket 431: the wave's leaves follow the two central-invoicing ones.
+  it('Donor requests follows Central invoicing, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('donor-requests:menu.donorRequests')).toBe(keys.indexOf('central-invoice:menu.list') + 1)
+    expect(lit('/oms/donor-requests')).toEqual(['donor-requests:menu.donorRequests'])
+  })
+
+  it('🚩 Donor requests reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'donor-requests:menu.donorRequests')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
+  })
 })
 
 describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ticket 391)', () => {

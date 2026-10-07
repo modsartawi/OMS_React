@@ -48,6 +48,10 @@ import attachments from '@/locales/en/attachments.json'
 // name (`features/oms/central-invoice`), and `core/central-invoice` — the delivery page's dialog
 // and the verdict pill both features draw — speaks in it too, so a verdict reads the same in both.
 import centralInvoice from '@/locales/en/central-invoice.json'
+// 🚩 The first Arabic strings (BackOffice 2422): Mark delivered's reasons, refusals and
+// dialog, so they ship with the feature rather than in a later sweep. A PARTIAL namespace —
+// `lng` stays `en`, and once Arabic is switched on every key not in it falls back to English.
+import documentAr from '@/locales/ar/document.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -82,6 +86,9 @@ i18n.use(initReactI18next).init({
       reports,
       attachments,
       'central-invoice': centralInvoice,
+    },
+    ar: {
+      document: documentAr,
     },
   },
   interpolation: { escapeValue: false },

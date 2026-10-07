@@ -51,6 +51,8 @@ import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
+import MarkDeliveredDialog from './MarkDeliveredDialog'
+import { markDeliveredGate } from './mark-delivered'
 import { useOrderAttachments } from './use-order-attachments'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
@@ -147,6 +149,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
   const [centralInvoiceOpen, setCentralInvoiceOpen] = useState(false)
+  const [markDeliveredOpen, setMarkDeliveredOpen] = useState(false)
 
   /**
    * The note-carrying command awaiting its dialog, or `null`: Cancel order, Force cancel and
@@ -183,6 +186,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     requestCloseOpen ||
     returnOpen ||
     centralInvoiceOpen ||
+    markDeliveredOpen ||
     noteCommand !== null
 
   // Another record drops what the last one was asked to open. Declared before the capture, so
@@ -421,6 +425,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       }
     : null
 
+  /**
+   * Mark delivered (ticket 2422): `null` hides it — no grant, or not a category-`D` delivery;
+   * otherwise its state, disabled with a reason off the delivery's own status. A 403 from the
+   * dialog revokes the grant on the shared probe entry, which hides it here again.
+   */
+  const markDeliveredState = document
+    ? markDeliveredGate({
+        canMarkDelivered: access.data?.canMarkDelivered,
+        documentCategory: document.documentCategory,
+        deliveryStatus: document.status?.deliveryStatus,
+        closeStatus: document.status?.closeStatus,
+        busy: commandBusy,
+      })
+    : null
+
   // D9: the intent is consumed once, after the header loads, through the bar's own gate. An
   // allowed one opens its real dialog, or, for add-note, focuses the composer. A refused one
   // opens nothing: the bar rings and focuses its button, which shows its reason, and a warn
@@ -586,6 +605,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                     ? () => setCentralInvoiceOpen(true)
                     : null
                 }
+                markDelivered={
+                  markDeliveredState && {
+                    disabled: markDeliveredState.disabled,
+                    reason: markDeliveredState.reasonKey === null ? null : t(markDeliveredState.reasonKey),
+                    onTake: () => setMarkDeliveredOpen(true),
+                  }
+                }
               />
             )}
 
@@ -656,6 +682,20 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               open={centralInvoiceOpen}
               onClose={() => setCentralInvoiceOpen(false)}
               deliveryNo={document.documentNo}
+            />
+            {/*
+              The field's own delivered (ADR 0065): on success the delivery reloads, so its new
+              status and the DDLR log row with the reason are what the operator sees.
+            */}
+            <MarkDeliveredDialog
+              open={markDeliveredOpen}
+              onClose={() => setMarkDeliveredOpen(false)}
+              onMarked={() => {
+                setMarkDeliveredOpen(false)
+                void reload()
+              }}
+              deliveryNo={document.documentNo}
+              amountDue={document.amountDue}
             />
             <NoteDialog
               kind={noteCommand}

@@ -452,8 +452,9 @@ export const collectionApi = {
    * place that could decide what goes on the wire is a second place the decision
    * can drift.
    *
-   * `AcrNumber` is TEXT since spec 2423 (BackOffice 2428, ADR 0066): sent as
-   * typed, parsed by the server, never by this client.
+   * The ACR No# box travels as `AcrNo` (TEXT, BackOffice 2428, ADR 0066): sent as
+   * typed, parsed by the server, never by this client. `AcrNumber` is still the
+   * server's `int?` and is never sent from here.
    */
   acrs(params: Record<string, unknown>): Promise<AcrInquiryRow[]> {
     return api.get<AcrInquiryRow[]>('CollectionWeb/Acrs', params)

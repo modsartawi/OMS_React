@@ -1,7 +1,7 @@
 // ACR filters + ACR number drive (spec 2423, ticket 425) — drives the REAL app in Chromium against
 // STUBBED envelopes shaped exactly as oms ticket 425's `## Wire contract` records them:
 // `GET CollectionWeb/Acrs` gains AmountFrom/AmountTo, ProfitCenter and CollectorText (PascalCase),
-// accepts ServedByKind=ACCOUNTANT on ACRs only, takes AcrNumber as TEXT, and its rows (and deposit
+// accepts ServedByKind=ACCOUNTANT on ACRs only, takes the ACR No# as TEXT under AcrNo (BackOffice 2428; AcrNumber stays the server's int), and its rows (and deposit
 // lines, and the ACR form) gain the server-formatted `acrNo`.
 //
 // ⚠️ Stubbed, never live: BackOffice 2426–2428 were not merged when this was written, and the
@@ -151,7 +151,7 @@ async function run() {
             status: 400,
             success: false,
             message: 'The ACR number is not in a form the inquiry reads.',
-            errors: [{ errorCode: 'AcrNumberMalformed', internalErrorCode: '', errorMessage: 'The ACR number is not in a form the inquiry reads.' }],
+            errors: [{ errorCode: 'AcrNoMalformed', internalErrorCode: '', errorMessage: 'The ACR number is not in a form the inquiry reads.' }],
           }),
         )
       return route.fulfill(envelope(ROWS))
@@ -259,7 +259,7 @@ async function run() {
       q().get('CollectorText') === 'فهد',
     lastQuery,
   )
-  check('…the ACR No# as typed, trimmed — never parsed, never AcrId', q().get('AcrNumber') === '6498-2610-0001' && !q().has('AcrId'), lastQuery)
+  check('…the ACR No# as typed, trimmed — never parsed, never AcrId', q().get('AcrNo') === '6498-2610-0001' && !q().has('AcrNumber') && !q().has('AcrId'), lastQuery)
   check('…and the accountant as the ordinary ACCOUNTANT pair', q().get('ServedByKind') === 'ACCOUNTANT' && q().get('ServedById') === '4466', lastQuery)
   check('…with no date', !lastQuery.includes('Date'), lastQuery)
   check('…and the Filtered chip lights', (await page.getByText('Filtered', { exact: true }).count()) > 0)
@@ -275,7 +275,7 @@ async function run() {
   await page.getByPlaceholder('Number').fill('6498/2610')
   await search()
   await page.getByText('The ACR number is not in a form the inquiry reads.').first().waitFor({ timeout: 8000 }).catch(() => {})
-  check('a malformed number is SENT (the client does not parse it)', q().get('AcrNumber') === '6498/2610', lastQuery)
+  check('a malformed number is SENT (the client does not parse it)', q().get('AcrNo') === '6498/2610', lastQuery)
   check(
     '…and the server’s refusal shows as its own message, not an empty list',
     (await mainText()).includes('The ACR number is not in a form the inquiry reads.') && !(await mainText()).includes('No ACRs match this search'),

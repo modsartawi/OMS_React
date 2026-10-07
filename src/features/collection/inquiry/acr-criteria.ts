@@ -202,8 +202,9 @@ export function sameQuery(a: Record<string, unknown>, b: Record<string, unknown>
  * the grid would go silently empty while the control said the opposite. This is
  * the assertion the Proof pins.
  *
- * 🚩 **`AcrNumber` is the number on the paper, as typed** (BackOffice 1993 gave it
- * a server parameter; spec 2423 / BackOffice 2428 made it text). The WPF has no ACR
+ * 🚩 **`AcrNo` is the number on the paper, as typed** (BackOffice 2428 added it
+ * beside 1993's `AcrNumber`, which stays an `int?` on the server: text sent there
+ * fails binding with a bare 400, so the box must never travel under that name). The WPF has no ACR
  * No# box; the web has one because the number is what a supervisor holds in their
  * hand and the ULID is not. It is trimmed and sent: the server parses
  * `6498-2610-0001`, `2610-0001` and a bare `0001` (ADR 0066) and refuses anything
@@ -228,7 +229,7 @@ export function buildAcrsParams(criteria: Partial<AcrsCriteria> = {}): Record<st
   put('BusinessDateTo', criteria.businessDateTo)
   put('CollectionDateFrom', criteria.collectionDateFrom)
   put('CollectionDateTo', criteria.collectionDateTo)
-  put('AcrNumber', criteria.acrNumber)
+  put('AcrNo', criteria.acrNumber)
   // 🚩 **`CollectorOperatorId` is no longer sent from this toolbar** (BackOffice
   // 1167): *Served by* asks the same question of the same column, through the one
   // shared resolver all four screens share, and two toolbar boxes meaning the same

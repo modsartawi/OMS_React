@@ -439,16 +439,16 @@ async function run() {
 
     await page.getByPlaceholder('Number').fill('1207')
     await search()
-    check('acrs — the ACR No# box reaches AcrNumber (and never AcrId)', q().get('AcrNumber') === '1207' && !q().has('AcrId'), lastQuery.acrs)
+    check('acrs — the ACR No# box reaches AcrNo (and never AcrId)', q().get('AcrNo') === '1207' && !q().has('AcrId'), lastQuery.acrs)
 
     // 🚩 Ticket 425 (ADR 0066, BackOffice 2428): ACR No# is TEXT, sent as typed — the
     // server parses each form and refuses a malformed one. No digit gate any more.
     await page.getByPlaceholder('Number').fill(' 6498-2610-0001 ')
     await search()
-    check('acrs — a full ACR number is sent as typed, trimmed', q().get('AcrNumber') === '6498-2610-0001', lastQuery.acrs)
+    check('acrs — a full ACR number is sent as typed, trimmed', q().get('AcrNo') === '6498-2610-0001', lastQuery.acrs)
     await page.getByPlaceholder('Number').fill('12a')
     await search()
-    check('acrs — a non-digit ACR No# is sent too: refusing it is the server’s job', q().get('AcrNumber') === '12a', lastQuery.acrs)
+    check('acrs — a non-digit ACR No# is sent too: refusing it is the server’s job', q().get('AcrNo') === '12a', lastQuery.acrs)
     await shot('acrs-text-number')
     await page.getByRole('button', { name: 'Reset' }).click()
     await page.waitForLoadState('networkidle')

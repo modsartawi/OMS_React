@@ -104,7 +104,7 @@ export default function AcrsToolbar({
       />
 
       {/* The number a supervisor holds in their hand — see `acr-criteria.ts` for
-          why it travels as `AcrNumber` and never as `AcrId`. 🚩 A TEXT box since
+          why it travels as `AcrNo` and never as `AcrId`. 🚩 A TEXT box since
           spec 2423 (ADR 0066): `6498-2610-0001`, `2610-0001` or `0001`, sent as
           typed. No `pattern`, no parsing here — the server reads every form and
           refuses a malformed one, shown in the error banner. */}

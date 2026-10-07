@@ -111,13 +111,14 @@ describe('buildAcrsParams', () => {
   })
 
   it('drops the ACR No# when the box is empty — or only whitespace', () => {
-    expect(buildAcrsParams({ acrNumber: '' })).not.toHaveProperty('AcrNumber')
-    expect(buildAcrsParams({ acrNumber: '   ' })).not.toHaveProperty('AcrNumber')
+    expect(buildAcrsParams({ acrNumber: '' })).not.toHaveProperty('AcrNo')
+    expect(buildAcrsParams({ acrNumber: '   ' })).not.toHaveProperty('AcrNo')
   })
 
-  it('carries a typed ACR No# under AcrNumber — never under AcrId, which is the ULID', () => {
+  it('carries a typed ACR No# under AcrNo — never under AcrNumber (an int on the server) nor AcrId, which is the ULID', () => {
     const params = buildAcrsParams({ acrNumber: ' 41 ' })
-    expect(params.AcrNumber).toBe('41')
+    expect(params.AcrNo).toBe('41')
+    expect(params).not.toHaveProperty('AcrNumber')
     // AcrId is 257's exact-row drill-down key. Comparing a ULID column against
     // "41" would return nothing, silently — worse than not filtering at all.
     expect(params).not.toHaveProperty('AcrId')
@@ -213,12 +214,12 @@ describe('acr filters map to params; ACR No# is sent as text', () => {
   // form the server reads — full, month-and-number, bare, legacy — travels as typed.
   it('sends every form of the ACR number as typed, trimmed and nothing more', () => {
     for (const typed of ['6498-2610-0001', '2610-0001', '0001', '1834']) {
-      expect(buildAcrsParams({ acrNumber: ` ${typed} ` }).AcrNumber).toBe(typed)
+      expect(buildAcrsParams({ acrNumber: ` ${typed} ` }).AcrNo).toBe(typed)
     }
   })
 
   it('sends a malformed number too — refusing it is the server’s job', () => {
-    expect(buildAcrsParams({ acrNumber: '6498/2610' }).AcrNumber).toBe('6498/2610')
+    expect(buildAcrsParams({ acrNumber: '6498/2610' }).AcrNo).toBe('6498/2610')
   })
 
   // The bare forms are narrowed by Collector or Served by on the server; this pins
@@ -231,7 +232,7 @@ describe('acr filters map to params; ACR No# is sent as text', () => {
         servedBy: { kind: 'ACCOUNTANT', id: '4466' },
       }),
     ).toEqual({
-      AcrNumber: '0001',
+      AcrNo: '0001',
       CollectorText: '6498',
       ServedByKind: 'ACCOUNTANT',
       ServedById: '4466',
@@ -321,7 +322,7 @@ describe('the business and collection date ranges', () => {
     ).toEqual({
       BusinessDateFrom: '2026-09-01',
       CollectionDateTo: '2026-09-12',
-      AcrNumber: '1207',
+      AcrNo: '1207',
       ServedByKind: 'COLLECTOR',
       ServedById: 'COLL-9',
       Status: 'CLOSED',
@@ -339,7 +340,7 @@ describe('a draft that has not been promoted', () => {
 
   it('Search promoting that draft is what changes the query', () => {
     expect(buildAcrsParams({ ...landingCriteria(), acrNumber: '6498-2610-0001' })).toEqual({
-      AcrNumber: '6498-2610-0001',
+      AcrNo: '6498-2610-0001',
       Limit: GRID_LIMIT,
     })
   })

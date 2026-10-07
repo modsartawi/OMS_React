@@ -983,7 +983,7 @@ async function run() {
   )
   check(
     '255 — an unset ACR No#/collector is DROPPED, not sent as an empty string',
-    !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('CollectorOperatorId'),
+    !lastAcrsQuery.includes('AcrNo') && !lastAcrsQuery.includes('CollectorOperatorId'),
     lastAcrsQuery,
   )
   // The headline: All is the CLIENT's word for "no filter" and never travels.
@@ -1161,8 +1161,8 @@ async function run() {
   await page.getByRole('button', { name: 'Search' }).click()
   await page.waitForLoadState('networkidle')
   check(
-    '255 — the ACR No# travels as AcrNumber, never as AcrId (which is the ULID)',
-    qa().get('AcrNumber') === '41' && !lastAcrsQuery.includes('AcrId'),
+    '255 — the ACR No# travels as AcrNo (2428), never as AcrId (which is the ULID)',
+    qa().get('AcrNo') === '41' && !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('AcrId'),
     lastAcrsQuery,
   )
   await page.getByRole('button', { name: 'Reset' }).click()

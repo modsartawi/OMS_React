@@ -11,6 +11,12 @@ export interface LineLinks {
   openDelivery: (deliveryNo: string) => void
 }
 
+/** The re-run (ticket 435), for a holder of the grant; absent, the grid draws no Re-run column. */
+export interface LineReRun {
+  /** Asks to re-run the line — the screen confirms first. */
+  ask: (line: FailedLine) => void
+}
+
 /** The job's label in words. */
 export function jobText(t: TFunction, job: JobLabel): string {
   return job.kind === 'raw' ? job.status : t(`job.${job.kind}`)
@@ -37,7 +43,7 @@ const LINK = 'font-mono text-[12px] text-primary underline-offset-2 hover:underl
  * isolated by the core grid base; a column with its own renderer isolates its own whole value —
  * the request and delivery links and the STO with `Ltr`, DRS's free-text error with `<bdi>`.
  */
-export function lineColumns(t: TFunction, links: LineLinks): ColDef<FailedLine>[] {
+export function lineColumns(t: TFunction, links: LineLinks, reRun?: LineReRun): ColDef<FailedLine>[] {
   const code = 'font-mono text-[12px]'
   const when = ({ value }: ValueFormatterParams<FailedLine, string | null>) => formatDateTime(value)
   /** A number that opens something: the whole value isolated, the click handed on. */
@@ -51,7 +57,34 @@ export function lineColumns(t: TFunction, links: LineLinks): ColDef<FailedLine>[
       ) : null
     }
 
+  // WPF's first column: a Re-run only on a line whose `canReRun` holds (D12). Without the grant
+  // there is no column at all, rather than an empty one.
+  const reRunColumn: ColDef<FailedLine>[] = reRun
+    ? [
+        {
+          colId: 'reRun',
+          headerName: t('columns.reRun'),
+          width: 120,
+          sortable: false,
+          filter: false,
+          valueGetter: () => '',
+          cellRenderer: ({ data }: ICellRendererParams<FailedLine>) =>
+            data?.canReRun ? (
+              <button
+                type="button"
+                className="inline-flex h-6 items-center rounded-md border border-border bg-card px-2 text-[11.5px] font-medium text-foreground hover:bg-card-2"
+                data-line-rerun=""
+                onClick={() => reRun.ask(data)}
+              >
+                {t('reRun.action')}
+              </button>
+            ) : null,
+        },
+      ]
+    : []
+
   return [
+    ...reRunColumn,
     {
       colId: 'action',
       headerName: t('columns.action'),

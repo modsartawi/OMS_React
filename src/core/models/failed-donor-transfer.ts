@@ -32,3 +32,13 @@ export interface FailedDonorTransferRow {
   /** A CANCELLED request whose transfer posted: HQ reverses the STO in DRS by hand. */
   reverseByHand: boolean
 }
+
+/**
+ * The answer of `POST SdDocumentWeb/FailedDonorTransfers/{outboxId}/Run` (spec 430 D5, ticket 435)
+ * — the outbox's manual-run result, WPF `SdOutboxManualRunResult`, camelCase. BO-4, NOT built.
+ */
+export interface OutboxRunResult {
+  success: boolean
+  /** Why the run did not finish (DRS's message or the fault). Free text. */
+  error: string | null
+}

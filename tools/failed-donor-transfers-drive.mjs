@@ -1,11 +1,13 @@
-// Failed donor transfers drive (ticket 434, spec 430 D2/D5/D12/D18).
+// Failed donor transfers drive (tickets 434 + 435, spec 430 D2/D5/D12/D17/D18).
 //
 // Drives the REAL app in Chromium against a STUB of the spec 430 wire contract — the door
-// (`GET SdDocumentWeb/FailedDonorTransfers`, BackOffice ask BO-4) is NOT built, so there is no live
-// SIS.Api to point at. 🚩 Never point this at a live SIS.Api: 435's re-run posts stock in DRS.
+// (`GET SdDocumentWeb/FailedDonorTransfers` and its `…/{outboxId}/Run`, BackOffice ask BO-4) is NOT
+// built, so there is no live SIS.Api to point at. 🚩 Never point this at a live SIS.Api: the
+// re-run (435) posts stock in DRS.
 // Stubbed, exactly as D2/D5 propose:
 //   GET SdDocumentWeb/Access               → { canOpenList, canOpenDetail, canOpenFailedTransfers?, canReRunFailedTransfer? }
 //   GET SdDocumentWeb/FailedDonorTransfers → FailedDonorTransferRow[]
+//   POST SdDocumentWeb/FailedDonorTransfers/{outboxId}/Run → { success, error }; refusal NOT_RERUNNABLE
 //   GET SdDocumentWeb/DonorRequests        → { rows, limited } (only to see the `?request=` seed arrive)
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"), it asserts:
 //   1. without the flag (an older server that omits it) the leaf is hidden and the URL shows the
@@ -14,13 +16,19 @@
 //      probe call, and the queue loads on open;
 //   3. each line says what it asks — re-run, retrying on its own, reverse STO … in DRS — with the
 //      job label, a raw unknown status, blank unset times, and the STO and DRS's error isolated;
-//   4. no Re-run is drawn yet (435), even for a grant holder;
+//   4. a grant holder sees Re-run on the failed line only — not on a retrying, reverse-by-hand or
+//      unknown-status one;
 //   5. the filters narrow the loaded lines: stores trimmed and case-insensitive, the last-attempt
 //      range, a line with no attempt never hidden by it; the status bar says how many are shown;
 //   6. Reload reads the queue again, and a failed reload keeps the last good list under a banner;
 //   7. the request opens Donor requests seeded on it (`?request=<no>` → `requestNo`), the delivery
 //      opens Document Details;
-//   8. a refused first load shows its own message and no "the queue is clear"; no page errors.
+//   8. a refused first load shows its own message and no "the queue is clear"; no page errors;
+//   9. without the re-run grant there is no Re-run at all (435);
+//  10. the re-run (435): it confirms in the app's modal naming the request (never a browser
+//      dialog), Cancel posts nothing; then posted / did not finish / no answer (a dropped call and
+//      a 504) → "may still be running", never "failed" / NOT_RERUNNABLE with its message — each
+//      toasted and each followed by a reload; a failed reload keeps the list and the run's toast.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/failed-donor-transfers-drive.mjs
@@ -105,16 +113,27 @@ function rows(rtl) {
 
 const browser = await chromium.launch()
 
-async function open(dir, { grant, reRun = false, queue = () => 'rows' }) {
+async function open(dir, { grant, reRun = false, queue = () => 'rows', run = () => 'posted' }) {
   const rtl = dir === 'rtl'
   const context = await browser.newContext({ viewport: { width: 1800, height: 1000 } })
   const page = await context.newPage()
   const errors = []
   const calls = []
   const donorQueries = []
+  const runCalls = []
+  const browserDialogs = []
   let queueCalls = 0
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
+  // A re-run confirms in the app's modal; a browser dialog would be a regression (D12).
+  page.on('dialog', (d) => {
+    browserDialogs.push(d.message())
+    void d.dismiss()
+  })
+  page.on(
+    'console',
+    // A stubbed 4xx/5xx and a dropped call (`route.abort`) are the drive's own doing.
+    (m) => m.type() === 'error' && !/status of [45]\d\d|net::ERR_FAILED/.test(m.text()) && errors.push(m.text()),
+  )
   await page.addInitScript((d) => {
     localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
     localStorage.setItem('oms.railExpanded', 'true')
@@ -142,6 +161,19 @@ async function open(dir, { grant, reRun = false, queue = () => 'rows' }) {
       if (mode === 'down') return route.fulfill({ status: 500, contentType: 'text/plain', body: 'boom' })
       return route.fulfill(envelope(rows(rtl)))
     }
+    const runAt = /^SdDocumentWeb\/FailedDonorTransfers\/([^/]+)\/Run$/.exec(p)
+    if (runAt) {
+      runCalls.push({ method: route.request().method(), outboxId: decodeURIComponent(runAt[1]) })
+      const mode = run(runCalls.length)
+      if (mode === 'abort') return route.abort('failed')
+      if (mode === 'timeout') return route.fulfill({ status: 504, contentType: 'text/html', body: '<h1>504 Gateway Time-out</h1>' })
+      if (mode === 'refused')
+        return route.fulfill(
+          envelope(null, { status: 409, success: false, message: 'The job is not FAILED any more.', errorCode: 'NOT_RERUNNABLE' }),
+        )
+      if (mode === 'unfinished') return route.fulfill(envelope({ success: false, error: 'DRS: material 100234 is blocked for posting' }))
+      return route.fulfill(envelope({ success: true, error: null }))
+    }
     if (p === 'SdDocumentWeb/DonorRequests') {
       donorQueries.push(url.searchParams)
       return route.fulfill(envelope({ rows: [], limited: false }))
@@ -152,7 +184,7 @@ async function open(dir, { grant, reRun = false, queue = () => 'rows' }) {
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, donorQueries, queueCount: () => queueCalls }
+  return { context, page, errors, calls, donorQueries, runCalls, browserDialogs, queueCount: () => queueCalls }
 }
 
 const omsLinks = (page) =>
@@ -277,9 +309,9 @@ async function drive(dir) {
       b?.error,
     )
     check(
-      `${label}: no Re-run is drawn yet (435), even for a grant holder`,
-      (await page.locator('[data-line-list] button', { hasText: /^Re-run$/ }).count()) === 0 &&
-        (await page.locator('[data-line-rerun]').count()) === 0,
+      `${label}: a grant holder sees Re-run on the failed line only (D12)`,
+      JSON.stringify(await reRunLines(page)) === JSON.stringify(['DR-1001']),
+      JSON.stringify(await reRunLines(page)),
     )
     check(`${label}: the status bar counts the lines`, /^4 lines$/.test((await statusText(page)).trim()), await statusText(page))
     await page.screenshot({ path: `${SHOTS}/${dir}-queue.png` })
@@ -376,6 +408,157 @@ async function drive(dir) {
     check(`${label}: no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
+
+  // ── 9: the screen's grant but not the re-run's → no Re-run at all ─────────────────────────────
+  {
+    const { context, page, errors } = await open(dir, { grant: true, reRun: false })
+    await page.goto(`${BASE}/oms/failed-donor-transfers`)
+    await waitRows(page, 4)
+    const header = await page.locator('[data-line-list] .ag-header-cell[col-id="reRun"]').count()
+    check(
+      `${label}: without the re-run grant there is no Re-run, not even an empty column`,
+      (await page.locator('[data-line-rerun]').count()) === 0 && header === 0,
+      `buttons ${await page.locator('[data-line-rerun]').count()}, column ${header}`,
+    )
+    check(`${label}: no page errors (no re-run grant)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 10: the re-run, every outcome ────────────────────────────────────────────────────────────
+  {
+    // Runs 1–6: posted, did not finish, dropped, 504, NOT_RERUNNABLE, posted. Queue reads: the open
+    // (1), then one reload after each run (2–7); the last reload (7) fails.
+    const RUNS = ['posted', 'unfinished', 'abort', 'timeout', 'refused', 'posted']
+    const { context, page, errors, runCalls, browserDialogs, queueCount } = await open(dir, {
+      grant: true,
+      reRun: true,
+      run: (n) => RUNS[n - 1] ?? 'posted',
+      queue: (n) => (n === 7 ? 'down' : 'rows'),
+    })
+    await page.goto(`${BASE}/oms/failed-donor-transfers`)
+    await waitRows(page, 4)
+    const dialog = page.locator('dialog[open] [data-rerun-dialog]')
+    const failedRow = page.locator('[data-line-list] .ag-row', { has: page.locator('[col-id="requestNo"]', { hasText: /^DR-1001$/ }) })
+
+    // Cancel: the app's modal, naming the request isolated, and no call.
+    await failedRow.locator('[data-line-rerun]').click()
+    await dialog.waitFor({ timeout: 5000 })
+    const asked = (await dialog.innerText()).trim()
+    check(
+      `${label}: Re-run asks in the app's modal, naming the request isolated`,
+      /Re-run the donor transfer of request DR-1001\?/.test(asked) &&
+        (await dialog.locator('bdi[dir="ltr"]', { hasText: 'DR-1001' }).count()) === 1 &&
+        browserDialogs.length === 0,
+      asked,
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-rerun-confirm.png` })
+    await page.locator('[data-rerun-cancel]').click()
+    await dialog.waitFor({ state: 'detached', timeout: 5000 })
+    await page.waitForTimeout(300)
+    check(`${label}: Cancel posts nothing and reloads nothing`, runCalls.length === 0 && queueCount() === 1, `${runCalls.length} / ${queueCount()}`)
+
+    /** Re-runs DR-1001 through the modal and waits for the reload that follows; the toast it left. */
+    const reRunOnce = async (n, want) => {
+      await failedRow.locator('[data-line-rerun]').click()
+      await dialog.waitFor({ timeout: 5000 })
+      await page.locator('[data-rerun-confirm]').click()
+      const toast = await toastWith(page, want)
+      await page.waitForFunction(() => !document.querySelector('dialog[open] [data-rerun-dialog]'), null, { timeout: 10000 })
+      await page.waitForFunction(() => !document.querySelector('[data-line-reload]')?.hasAttribute('disabled'), null, { timeout: 10000 })
+      await page.waitForTimeout(200)
+      check(`${label}: run ${n} reloads the list afterwards`, queueCount() === n + 1, `${queueCount()} queue reads`)
+      return toast
+    }
+
+    // 1: posted
+    const posted = await reRunOnce(1, 'The donor transfer of request DR-1001 posted.')
+    check(
+      `${label}: run 1 POSTs the line's outbox ID and says it posted`,
+      runCalls[0]?.method === 'POST' && runCalls[0]?.outboxId === 'OB-001' && posted?.type === 'success',
+      JSON.stringify({ call: runCalls[0], posted }),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-rerun-posted.png` })
+
+    // 2: answered, did not finish
+    const unfinished = await reRunOnce(2, 'did not finish')
+    check(
+      `${label}: run 2 did not finish, with DRS's error`,
+      unfinished?.text === 'The donor transfer of request DR-1001 did not finish: DRS: material 100234 is blocked for posting' &&
+        unfinished.type === 'error',
+      JSON.stringify(unfinished),
+    )
+
+    // 3 and 4: no answer — a dropped call, then a gateway timeout
+    for (const n of [3, 4]) {
+      const lost = await reRunOnce(n, 'may still be running')
+      check(
+        `${label}: run ${n} (${RUNS[n - 1]}) may still be running, and never says "failed"`,
+        lost?.text === 'The re-run of request DR-1001 did not answer. It may still be running; reload in a minute.' &&
+          !/fail/i.test(lost.text) &&
+          lost.type === 'warning',
+        JSON.stringify(lost),
+      )
+      // Let the toast go, so the next run's "may still be running" is its own.
+      await page.waitForFunction(() => ![...document.querySelectorAll('[data-sonner-toast]')].some((t) => /may still be running/.test(t.textContent)), null, { timeout: 15000 })
+    }
+
+    // 5: NOT_RERUNNABLE, with its message
+    const refused = await reRunOnce(5, 'was not re-run')
+    check(
+      `${label}: run 5 NOT_RERUNNABLE is shown with its message`,
+      /The donor transfer of request DR-1001 was not re-run/.test(refused?.text ?? '') &&
+        /The job is not FAILED any more\./.test(refused?.text ?? '') &&
+        refused.type === 'error',
+      JSON.stringify(refused),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-rerun-refused.png` })
+    await page.waitForFunction(() => ![...document.querySelectorAll('[data-sonner-toast]')].some((t) => /posted\./.test(t.textContent)), null, { timeout: 15000 })
+
+    // 6: posted, then the reload fails — the list stays and the run's toast stays its own
+    await reRunOnce(6, 'The donor transfer of request DR-1001 posted.')
+    const banner = page.locator('[role="alert"]', { hasText: 'could not be reloaded' })
+    await banner.waitFor({ timeout: 10000 })
+    await waitRows(page, 4)
+    const after = await toasts(page)
+    check(
+      `${label}: a failed reload keeps the last good list and never replaces the run's toast`,
+      (await banner.count()) === 1 &&
+        after.some((t) => t.text === 'The donor transfer of request DR-1001 posted.') &&
+        !after.some((t) => /could not be/.test(t.text)),
+      JSON.stringify(after),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-rerun-reload-failed.png` })
+    check(`${label}: six runs, six POSTs, no browser dialog`, runCalls.length === 6 && browserDialogs.length === 0, `${runCalls.length} / ${browserDialogs.join(',')}`)
+    check(`${label}: no page errors (re-run)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+/** The request numbers of the lines that carry a Re-run. */
+const reRunLines = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-line-list] .ag-row')]
+      .filter((r) => r.querySelector('[data-line-rerun]'))
+      .map((r) => r.querySelector('[col-id="requestNo"]')?.textContent ?? ''),
+  )
+
+/** Every toast's text, the isolates stripped (a toast is a string sink, so values carry FSI…PDI). */
+const toasts = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-sonner-toast]')].map((t) => ({
+      type: t.getAttribute('data-type') ?? '',
+      text: t.textContent.replace(/[\u2066-\u2069]/g, '').trim(),
+    })),
+  )
+
+/** Waits for a toast holding `text`, and hands it back. */
+async function toastWith(page, text) {
+  await page.waitForFunction(
+    (want) => [...document.querySelectorAll('[data-sonner-toast]')].some((t) => t.textContent.replace(/[\u2066-\u2069]/g, '').includes(want)),
+    text,
+    { timeout: 15000 },
+  )
+  return (await toasts(page)).find((t) => t.text.includes(text))
 }
 
 /** Under RTL the retrying line's error is Arabic text; under LTR English. Either way it reached the cell whole. */

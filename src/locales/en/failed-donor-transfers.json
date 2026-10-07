@@ -23,6 +23,7 @@
   },
   "reload": "Reload",
   "columns": {
+    "reRun": "Re-run",
     "action": "Action",
     "requestNo": "Request",
     "deliveryNo": "Delivery",
@@ -74,5 +75,20 @@
     "lines_other": "<n>{{n}}</n> lines",
     "filtered_one": "<n>{{n}}</n> line shown",
     "filtered_other": "<n>{{n}}</n> lines shown"
+  },
+  "reRun": {
+    "action": "Re-run",
+    "title": "Re-run donor transfer",
+    "question": "Re-run the donor transfer of request <no>{{no}}</no>?",
+    "stock": "This posts the transfer's stock in DRS.",
+    "cancel": "Cancel",
+    "confirm": "Re-run",
+    "running": "Running…",
+    "posted": "The donor transfer of request {{no}} posted.",
+    "notFinished": "The donor transfer of request {{no}} did not finish: {{error}}",
+    "notFinishedBare": "The donor transfer of request {{no}} did not finish.",
+    "noAnswer": "The re-run of request {{no}} did not answer. It may still be running; reload in a minute.",
+    "refused": "The donor transfer of request {{no}} was not re-run",
+    "noReason": "The server gave no reason."
   }
 }

@@ -1,0 +1,73 @@
+{
+  "menu": {
+    "geography": "Cities & districts"
+  },
+  "title": "Cities & districts",
+  "subtitle": "The cities and their districts as stores are served from: select a city to see its districts, the store that serves each one and its location.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to cities and districts",
+    "deniedHint": "Your account does not hold the grant for cities and districts. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "cities": {
+    "title": "Cities",
+    "filter": "Filter cities",
+    "empty": "There are no cities.",
+    "failedTitle": "The cities could not be loaded",
+    "count_one": "<n>{{n}}</n> city",
+    "count_other": "<n>{{n}}</n> cities",
+    "filtered_one": "<n>{{n}}</n> city shown",
+    "filtered_other": "<n>{{n}}</n> cities shown",
+    "sheet": "Cities",
+    "fileName": "cities",
+    "exported_one": "{{n}} city was written to the workbook.",
+    "exported_other": "{{n}} cities were written to the workbook."
+  },
+  "districts": {
+    "title": "Districts",
+    "titleOf": "Districts of <city>{{city}}</city>",
+    "selectCity": "Select a city above to see its districts.",
+    "filter": "Filter districts",
+    "empty": "This city has no districts.",
+    "failedTitle": "The districts could not be loaded",
+    "count_one": "<n>{{n}}</n> district",
+    "count_other": "<n>{{n}}</n> districts",
+    "filtered_one": "<n>{{n}}</n> district shown",
+    "filtered_other": "<n>{{n}}</n> districts shown",
+    "sheet": "Districts",
+    "fileName": "districts",
+    "exported_one": "{{n}} district was written to the workbook.",
+    "exported_other": "{{n}} districts were written to the workbook."
+  },
+  "columns": {
+    "cityCode": "City code",
+    "districtCode": "District code",
+    "nameEn": "English name",
+    "nameAr": "Arabic name",
+    "magentoCityEn": "Magento city (EN)",
+    "magentoCityAr": "Magento city (AR)",
+    "store": "Store",
+    "insuranceStore": "Insurance store",
+    "tempStore": "Temporary store",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "changedBy": "Last changed by",
+    "changedOn": "Last changed on"
+  },
+  "list": {
+    "noneMatch": "Nothing matches this filter.",
+    "reloadFailedTitle": "The list could not be reloaded — showing the last one loaded",
+    "failed": "The list could not be loaded. Try again in a moment."
+  },
+  "statusBar": {
+    "loading": "Loading…"
+  },
+  "export": {
+    "button": "Export to Excel",
+    "done": "Exported",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

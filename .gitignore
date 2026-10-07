@@ -88,3 +88,5 @@ tools/.donor-requests-shots/
 tools/.document-payments-shots/
 # Failed donor transfers drive screenshots (tools/failed-donor-transfers-drive.mjs, ticket 434)
 tools/.failed-donor-transfers-shots/
+# Cities & districts drive screenshots (tools/geography-drive.mjs, ticket 436)
+tools/.geography-shots/

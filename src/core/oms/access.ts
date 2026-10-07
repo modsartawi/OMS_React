@@ -42,3 +42,7 @@ export const canOpenDocumentPayments = (r: OmsAccessResult | null | undefined): 
 /** Failed donor transfers (ticket 434): the leaf's and the page gate's one predicate. */
 export const canOpenFailedTransfers = (r: OmsAccessResult | null | undefined): boolean =>
   omsGrants(r).canOpenFailedTransfers
+
+/** Cities & districts (ticket 436): the leaf's and the page gate's one predicate. */
+export const canOpenGeography = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canOpenGeography

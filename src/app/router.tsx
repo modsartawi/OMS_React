@@ -167,6 +167,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/document-payments/DocumentPaymentsPage')).default,
         }),
       },
+      // Cities & districts (ticket 436, spec 430) — the WPF City and District inquiries, behind
+      // their own flag on the shared OMS probe.
+      {
+        path: 'oms/geography',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/geography/GeographyPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

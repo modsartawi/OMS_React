@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -63,5 +63,11 @@ describe('omsGrants', () => {
     expect(canOpenFailedTransfers({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
     expect(canOpenFailedTransfers({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
     expect(canOpenFailedTransfers(undefined)).toBe(false)
+  })
+
+  it('canOpenGeography reads only its own flag, not the import ones (ticket 436)', () => {
+    expect(canOpenGeography({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
+    expect(canOpenGeography({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
+    expect(canOpenGeography(undefined)).toBe(false)
   })
 })

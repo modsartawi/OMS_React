@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 430
 blocked-by: 431
 ---
@@ -28,8 +28,8 @@ model/api · logic (selection → districts query) · component/route/menu · i1
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `districtsQuery` — no query until a city is selected, keyed by city code · pure
-- [ ] `tools/geography-drive.mjs` — cities on open, select → districts, quick filter, export, the leaf hidden without the flag, RTL · flow
+- [x] `districtsQuery` — no query until a city is selected, keyed by city code · pure
+- [x] `tools/geography-drive.mjs` — cities on open, select → districts, quick filter, export, the leaf hidden without the flag, RTL · flow
 
 ## Boundaries
 
@@ -45,3 +45,36 @@ The drive is green on the stub, and the gates are green.
 ## Blocked by
 
 [431](431-an-hq-lead-lists-todays-donor-requests-across-stores-and-filters-them.md) (for the probe flags)
+
+## Comments
+
+**Done 2026-10-08 (AFK).** This was built on a STUB of spec 430 D2/D6. The gated reads
+`GET SdDocumentWeb/Cities` and `GET SdDocumentWeb/Districts?cityCode=` (BO-5, not filed) are NOT
+built, so nothing was driven against a live SIS.Api.
+
+- **Proof:**
+  - vitest `geography/geography.test.ts` (8 tests):
+    - `districtsQuery` asks nothing until a city is selected (`enabled: false`)
+    - it is keyed by the city code (`['geography','districts',code]`), under the same root as `citiesQuery`
+    - `selectedCityCode` trims, and a blank code selects no city
+    - `lastChange` takes the update, falls back to the creation when the update is unset, and blank when neither is set
+  - `access.test.ts` and `menu-model.test.ts` gained `canOpenGeography`: it reads only its own flag (the import flags alone do not show it), and the leaf follows Document payments (D18).
+  - Full suite: 219 files, 4032 tests green.
+  - Drive `tools/geography-drive.mjs`: 76/76 in LTR and RTL (stubbed). It checks:
+    - the leaf is hidden without the flag, the URL shows the denied card, and no cities call is made
+    - the leaf position (D18), and ONE probe call for the group and the gate
+    - cities load on open, once, and no district is read before a selection
+    - the column sets, isolation and the last-change fallback
+    - select → that city's districts, titled with `code · name` isolated whole; another city, and an empty city
+    - each quick filter by code, English name, Arabic name or store; the filtered count; "nothing matches"; another city clears the districts filter
+    - both xlsx exports, as shown (filtered rows, coordinates numeric, no isolates)
+    - a refused cities load and a failed districts load, each with its own message
+    - no page errors
+  - `npm run typecheck`, `npm run lint` (all four gates) and `npm run build` are green.
+- **Outstanding (not AFK's):**
+  - a live walk on a real SIS.Api once BO-5 ships
+  - the owner's eye on the Arabic rendering
+- **Decisions** are logged in `.afk/HITL-436.md`:
+  - `SdCityModel` sits beside the existing `SdDistrictModel` in `@/core/models/lookups.ts`
+  - "last change" = the update, else the creation
+  - grid cells are isolated by the core grid base, not `Ltr`

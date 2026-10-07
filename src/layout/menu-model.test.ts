@@ -234,6 +234,19 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
     expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
   })
+
+  it('Cities & districts follows Document payments (D18), lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('geography:menu.geography')).toBe(keys.indexOf('document-payments:menu.documentPayments') + 1)
+    expect(lit('/oms/geography')).toEqual(['geography:menu.geography'])
+  })
+
+  it('🚩 Cities & districts reads its OWN flag off the ONE OMS probe entry; an import flag alone does not show it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'geography:menu.geography')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
+  })
 })
 
 describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ticket 391)', () => {

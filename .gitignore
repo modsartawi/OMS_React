@@ -80,3 +80,5 @@ tools/.callcenter-sentence-shots/
 tools/.callcenter-callerbar-shots/
 # Bonus Buy Maintenance drive screenshots (tools/bby-maintenance-drive.mjs, ticket 416)
 tools/.bby-maintenance-shots/
+# Delivery details donor-moments drive screenshots (tools/document-donor-drive.mjs, ticket 429)
+tools/.document-donor-shots/

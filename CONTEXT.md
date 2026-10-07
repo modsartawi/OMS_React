@@ -55,6 +55,34 @@ delivery's Log: raised, edited, picked, stamped, transferred, ended. Each is the
 time for that moment (a repick replaces the earlier one), and an unset time is no moment.
 _Avoid_: donor log, donor event (neither is a Log row).
 
+**Failed donor transfer**:
+A donor request whose transfer HQ must deal with: either its DRTR job failed or is still
+retrying, or the request was cancelled but its transfer posted anyway (**reverse by hand**). The
+list of them is a work queue, not a history; a line leaves it once it is dealt with.
+_Avoid_: failed donor request (the request did not fail, its transfer did).
+
+**Reverse by hand**:
+A failed donor transfer whose stock already moved in SAP although the request was cancelled. It is
+never re-run; what HQ owes is the reversal of its STO in DRS.
+
+**Re-run**:
+HQ asking the outbox to run a **failed** donor transfer's job once more, after fixing its cause. A
+job still retrying belongs to the outbox and is not re-run. Re-running posts stock, so it is its
+own permission apart from reading the list.
+
+**Document payment**:
+One payment line of a document (order or delivery): its type, method, card, amount and reference,
+read beside the document's delivery and invoice. Read-only here.
+
+**District**:
+A delivery area inside a **city**, assigned to the store that serves it (with an insurance store
+and a temporary store beside it). Cities and districts are shared geography: an order's address
+resolves to a district, and the district names its store.
+
+**Document source user**:
+A staff user pinned to one **document source**, the "how did this order arrive" a document records
+(not the seat it was typed at). One source per user.
+
 **Delivery inspector**:
 The resizable panel beside the Deliveries grid that shows the **selected row**. It is drawn from
 the list row alone and never fetches, so stepping through rows is free. It is **read-only**: its

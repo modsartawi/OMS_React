@@ -204,6 +204,22 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
     expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
   })
+
+  // Ticket 433: D18 puts Failed donor transfers (434) between the two; until it lands, Document
+  // payments follows Donor requests directly.
+  it('Document payments comes after Donor requests, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('document-payments:menu.documentPayments')).toBeGreaterThan(keys.indexOf('donor-requests:menu.donorRequests'))
+    expect(keys.indexOf('donor-requests:menu.donorRequests')).toBeGreaterThanOrEqual(0)
+    expect(lit('/oms/document-payments')).toEqual(['document-payments:menu.documentPayments'])
+  })
+
+  it('🚩 Document payments reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'document-payments:menu.documentPayments')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
+  })
 })
 
 describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ticket 391)', () => {

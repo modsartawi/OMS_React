@@ -84,3 +84,5 @@ tools/.bby-maintenance-shots/
 tools/.document-donor-shots/
 # Donor requests drive screenshots (tools/donor-requests-drive.mjs, ticket 431)
 tools/.donor-requests-shots/
+# Document payments drive screenshots (tools/document-payments-drive.mjs, ticket 433)
+tools/.document-payments-shots/

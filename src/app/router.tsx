@@ -151,6 +151,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/donor-requests/DonorRequestsPage')).default,
         }),
       },
+      // Document payments (ticket 433, spec 430) — the WPF Document Payment Inquiry, behind its own
+      // flag on the shared OMS probe.
+      {
+        path: 'oms/document-payments',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/document-payments/DocumentPaymentsPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

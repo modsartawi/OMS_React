@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canOpenDonorRequests, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canOpenDocumentPayments, canOpenDonorRequests, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -51,5 +51,11 @@ describe('omsGrants', () => {
     expect(canOpenDonorRequests({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
     expect(canOpenDonorRequests({ canOpenList: true, canOpenDetail: true })).toBe(false)
     expect(canOpenDonorRequests(undefined)).toBe(false)
+  })
+
+  it('canOpenDocumentPayments reads only its own flag (ticket 433)', () => {
+    expect(canOpenDocumentPayments({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
+    expect(canOpenDocumentPayments({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+    expect(canOpenDocumentPayments(null)).toBe(false)
   })
 })

@@ -34,3 +34,7 @@ export function omsGrants(r: Partial<OmsAccessResult> | null | undefined): OmsGr
 /** Donor requests (ticket 431): the leaf's and the page gate's one predicate. */
 export const canOpenDonorRequests = (r: OmsAccessResult | null | undefined): boolean =>
   omsGrants(r).canOpenDonorRequests
+
+/** Document payments (ticket 433): the leaf's and the page gate's one predicate. */
+export const canOpenDocumentPayments = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canOpenDocumentPayments

@@ -1,0 +1,84 @@
+{
+  "menu": {
+    "documentPayments": "Document payments"
+  },
+  "title": "Document payments",
+  "subtitle": "How a document was paid: find its payment lines by day, store, type, phone or a pasted list of numbers, then open the document or its delivery.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to document payments",
+    "deniedHint": "Your account does not hold the grant for document payments. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "store": "Store",
+    "storePlaceholder": "Any store",
+    "documentType": "Document type",
+    "anyType": "Any type",
+    "customerPhone": "Customer phone",
+    "documentNos": "Document no(s)",
+    "orderNos": "Order no(s)",
+    "numbersPlaceholder": "One or more",
+    "numbersHint": "One or more numbers. Paste a column from Excel, or separate them with a comma, semicolon or space.",
+    "limit": "Limit",
+    "search": "Search",
+    "reset": "Reset",
+    "problem": {
+      "badDate": "Enter both days.",
+      "reversed": "The range ends before it starts.",
+      "badLimit": "The limit must be a whole number above zero.",
+      "tooMany": "Too many document and order numbers: <n>{{count}}</n>. Search at most <max>{{max}}</max> at once."
+    }
+  },
+  "columns": {
+    "documentNo": "Document no",
+    "orderNo": "Order no",
+    "documentType": "Doc. type",
+    "payment": "Payment",
+    "paymentType": "Payment type",
+    "paymentMethod": "Method",
+    "cardType": "Card type",
+    "amount": "Amount",
+    "currency": "Currency",
+    "reference": "Reference",
+    "store": "Store",
+    "entryTime": "Entry time",
+    "mobile": "Mobile",
+    "deliveryType": "Delivery type",
+    "deliveryNo": "Delivery no",
+    "deliveryNote": "Delivery note",
+    "deliveryStatus": "Delivery status",
+    "actions": "Open"
+  },
+  "actions": {
+    "openDocument": "Open document",
+    "openDelivery": "Open delivery"
+  },
+  "list": {
+    "notSearched": "Set the criteria and press Search.",
+    "empty": "No payment matches these criteria.",
+    "failedTitle": "The payments could not be loaded",
+    "tooManyTitle": "Too many numbers",
+    "failed": "The list could not be loaded. Try again in a moment."
+  },
+  "statusBar": {
+    "loading": "Loading…",
+    "rows_one": "<n>{{n}}</n> payment line",
+    "rows_other": "<n>{{n}}</n> payment lines",
+    "limited_one": "Showing the first <n>{{n}}</n> payment line — raise the limit or narrow the criteria to see the rest",
+    "limited_other": "Showing the first <n>{{n}}</n> payment lines — raise the limit or narrow the criteria to see the rest"
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "document-payments",
+    "sheet": "Document payments",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} payment line was written to the workbook.",
+    "doneDetail_other": "{{n}} payment lines were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

@@ -56,6 +56,9 @@ import documentAr from '@/locales/ar/document.json'
 // feature name; it ships its Arabic strings beside its English ones.
 import donorRequests from '@/locales/en/donor-requests.json'
 import donorRequestsAr from '@/locales/ar/donor-requests.json'
+// Document payments (spec 430, ticket 433). Namespace == feature name, English and Arabic together.
+import documentPayments from '@/locales/en/document-payments.json'
+import documentPaymentsAr from '@/locales/ar/document-payments.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -63,7 +66,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments'],
   resources: {
     en: {
       common,
@@ -91,10 +94,12 @@ i18n.use(initReactI18next).init({
       attachments,
       'central-invoice': centralInvoice,
       'donor-requests': donorRequests,
+      'document-payments': documentPayments,
     },
     ar: {
       document: documentAr,
       'donor-requests': donorRequestsAr,
+      'document-payments': documentPaymentsAr,
     },
   },
   interpolation: { escapeValue: false },

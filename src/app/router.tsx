@@ -151,6 +151,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/donor-requests/DonorRequestsPage')).default,
         }),
       },
+      // Failed donor transfers (ticket 434, spec 430) — HQ inventory's work queue, behind its own
+      // flag on the shared OMS probe.
+      {
+        path: 'oms/failed-donor-transfers',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/failed-donor-transfers/FailedDonorTransfersPage')).default,
+        }),
+      },
       // Document payments (ticket 433, spec 430) — the WPF Document Payment Inquiry, behind its own
       // flag on the shared OMS probe.
       {

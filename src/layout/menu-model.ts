@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -20,7 +20,7 @@ import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 // and a feature may not import another feature's api.
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 // Spec 430's five OMS screens each read their own flag off that one probe (ticket 431).
-import { canOpenDocumentPayments, canOpenDonorRequests } from '@/core/oms/access'
+import { canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers } from '@/core/oms/access'
 // The Nphies probe, same reason and one step further (ticket 211): contract 209 §1
 // gives the whole area ONE grant, so the leaf and every screen in both
 // `features/nphies/*` features share this single probe.
@@ -223,6 +223,19 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: canOpenDonorRequests,
+        }),
+      },
+      {
+        // Failed donor transfers (ticket 434) — `FailedDonorTransfers,03`, second in D18's order.
+        // The re-run's own flag (06) is the screen's to read, not the leaf's.
+        labelKey: 'failed-donor-transfers:menu.failedDonorTransfers',
+        icon: PackageX,
+        routerLink: '/oms/failed-donor-transfers',
+        activePrefix: '/oms/failed-donor-transfers',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenFailedTransfers,
         }),
       },
       {

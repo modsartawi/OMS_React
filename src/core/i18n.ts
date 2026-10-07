@@ -59,6 +59,9 @@ import donorRequestsAr from '@/locales/ar/donor-requests.json'
 // Document payments (spec 430, ticket 433). Namespace == feature name, English and Arabic together.
 import documentPayments from '@/locales/en/document-payments.json'
 import documentPaymentsAr from '@/locales/ar/document-payments.json'
+// Failed donor transfers (spec 430, ticket 434). Namespace == feature name, English and Arabic together.
+import failedDonorTransfers from '@/locales/en/failed-donor-transfers.json'
+import failedDonorTransfersAr from '@/locales/ar/failed-donor-transfers.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -66,7 +69,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers'],
   resources: {
     en: {
       common,
@@ -95,11 +98,13 @@ i18n.use(initReactI18next).init({
       'central-invoice': centralInvoice,
       'donor-requests': donorRequests,
       'document-payments': documentPayments,
+      'failed-donor-transfers': failedDonorTransfers,
     },
     ar: {
       document: documentAr,
       'donor-requests': donorRequestsAr,
       'document-payments': documentPaymentsAr,
+      'failed-donor-transfers': failedDonorTransfersAr,
     },
   },
   interpolation: { escapeValue: false },

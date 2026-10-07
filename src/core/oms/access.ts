@@ -38,3 +38,7 @@ export const canOpenDonorRequests = (r: OmsAccessResult | null | undefined): boo
 /** Document payments (ticket 433): the leaf's and the page gate's one predicate. */
 export const canOpenDocumentPayments = (r: OmsAccessResult | null | undefined): boolean =>
   omsGrants(r).canOpenDocumentPayments
+
+/** Failed donor transfers (ticket 434): the leaf's and the page gate's one predicate. */
+export const canOpenFailedTransfers = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canOpenFailedTransfers

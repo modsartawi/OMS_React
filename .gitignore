@@ -86,3 +86,5 @@ tools/.document-donor-shots/
 tools/.donor-requests-shots/
 # Document payments drive screenshots (tools/document-payments-drive.mjs, ticket 433)
 tools/.document-payments-shots/
+# Failed donor transfers drive screenshots (tools/failed-donor-transfers-drive.mjs, ticket 434)
+tools/.failed-donor-transfers-shots/

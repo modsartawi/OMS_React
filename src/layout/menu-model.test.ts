@@ -205,13 +205,27 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
   })
 
-  // Ticket 433: D18 puts Failed donor transfers (434) between the two; until it lands, Document
-  // payments follows Donor requests directly.
+  // D18: Donor requests, Failed donor transfers (434), Document payments (433).
   it('Document payments comes after Donor requests, lit alone on its own screen', () => {
     const keys = (oms.items ?? []).map((i) => i.labelKey)
     expect(keys.indexOf('document-payments:menu.documentPayments')).toBeGreaterThan(keys.indexOf('donor-requests:menu.donorRequests'))
     expect(keys.indexOf('donor-requests:menu.donorRequests')).toBeGreaterThanOrEqual(0)
     expect(lit('/oms/document-payments')).toEqual(['document-payments:menu.documentPayments'])
+  })
+
+  it('Failed donor transfers sits between Donor requests and Document payments, lit alone', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    const at = keys.indexOf('failed-donor-transfers:menu.failedDonorTransfers')
+    expect(at).toBe(keys.indexOf('donor-requests:menu.donorRequests') + 1)
+    expect(keys.indexOf('document-payments:menu.documentPayments')).toBe(at + 1)
+    expect(lit('/oms/failed-donor-transfers')).toEqual(['failed-donor-transfers:menu.failedDonorTransfers'])
+  })
+
+  it('🚩 Failed donor transfers reads its OWN flag off the ONE OMS probe entry; the re-run flag alone does not show it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'failed-donor-transfers:menu.failedDonorTransfers')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
   })
 
   it('🚩 Document payments reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {

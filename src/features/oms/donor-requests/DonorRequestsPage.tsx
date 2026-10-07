@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef } from 'ag-grid-community'
-import { RotateCcw, Search, X } from 'lucide-react'
+import type {
+  CellFocusedEvent,
+  CellKeyDownEvent,
+  ColDef,
+  FullWidthCellKeyDownEvent,
+  GridApi,
+  RowSelectionOptions,
+} from 'ag-grid-community'
+import { FileSpreadsheet, RotateCcw, Search, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -14,6 +21,11 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { apiErrorMessage } from '@/core/api'
+import { notify } from '@/core/services/notify'
+import { INSPECTOR_WIDTH } from '@/core/ui/inspector-pane'
+import { fsi } from '@/core/util/bidi'
+import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
+import { fromListState } from '@/core/oms/open-intent'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDonorRequests } from '@/core/oms/access'
 import type { DonorRequestState } from '@/core/models/sd-document'
@@ -28,11 +40,13 @@ import {
 } from './criteria'
 import { donorColumns, type DonorRequestRow } from './columns'
 import { donorRow } from './donor-row'
+import DonorInspector from './DonorInspector'
+import { deliveryPath } from './inspector'
 
 /**
  * Donor requests (ticket 431, spec 430 D9): every store's donor asks, opening on today's. The
- * Deliveries layout cut down — a filter bar, the grid and a status bar; no query-token bar, saved
- * views, lenses or view rail.
+ * Deliveries layout cut down — a filter bar, the grid, a read-only inspector beside it (ticket
+ * 432) and a status bar; no query-token bar, saved views, lenses or view rail.
  *
  * Behind `canOpenDonorRequests` on the ONE shared OMS probe, the same predicate the menu leaf
  * reads, so the nav and the screen cannot disagree. 🚩 Its door (`SdDocumentWeb/DonorRequests`,
@@ -59,6 +73,16 @@ const DEFAULT_COL_DEF: ColDef<DonorRequestRow> = {
   suppressHeaderMenuButton: true,
 }
 
+/** One current row: a click, or the arrow keys (selection follows focus), selects it. */
+const ROW_SELECTION: RowSelectionOptions<DonorRequestRow> = {
+  mode: 'singleRow',
+  checkboxes: false,
+  enableClickSelection: true,
+}
+
+/** Identities the export writes as text, so Excel never totals or reshapes a number or a code. */
+const EXPORT_AS_TEXT: ReadonlySet<string> = new Set(['requestNo', 'deliveryNo', 'donorStore', 'orderStore'])
+
 const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
 const INPUT =
   'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
@@ -76,6 +100,14 @@ function useMinuteClock(): number {
 function DonorRequestList({ requestParam }: { requestParam: string | null }) {
   const { t } = useTranslation('donor-requests')
   const [, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const gridApi = useRef<GridApi<DonorRequestRow> | null>(null)
+  // The current row by its number, so a reload shows its fresh copy (or none, once it is gone).
+  const [selectedNo, setSelectedNo] = useState<string | null>(null)
+  // The pane's width; it opens at 360 each visit.
+  const [paneWidth, setPaneWidth] = useState<number>(INSPECTOR_WIDTH.default)
+  // What the grid shows once its column filters have narrowed it: the export's rows.
+  const [shown, setShown] = useState(0)
   // The param seeds a request-only search with no date bound; later edits are the user's own.
   const [draft, setDraft] = useState<DonorRequestCriteria>(() => initialCriteria(requestParam))
   const [applied, setApplied] = useState<DonorRequestCriteria>(draft)
@@ -97,6 +129,54 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
     // `now` is read through `tick`, so a minute with nothing waiting changes nothing.
     [list.data, list.isError, tick],
   )
+
+  const selectedRow = useMemo(
+    () => (selectedNo === null ? null : (rows.find((r) => r.requestNo === selectedNo) ?? null)),
+    [rows, selectedNo],
+  )
+
+  /** Document Details' delivery route (D10), marked as come from a list so its Esc goes back here. */
+  const openDelivery = useCallback(
+    (to: string | null) => {
+      if (to) void navigate(to, { state: fromListState() })
+    },
+    [navigate],
+  )
+
+  /** Selection follows focus: the arrow keys step the inspector through the rows, with no call. */
+  const onCellFocused = useCallback((event: CellFocusedEvent<DonorRequestRow>) => {
+    if (event.rowIndex == null || event.rowPinned) return
+    const node = event.api.getDisplayedRowAtIndex(event.rowIndex)
+    if (node && !node.isSelected()) node.setSelected(true, true)
+  }, [])
+
+  /**
+   * Enter opens the delivery. It is the grid's own event, because AG Grid prevents Enter on a
+   * cell, so a window key listener never sees it.
+   */
+  const onCellKeyDown = useCallback(
+    (event: CellKeyDownEvent<DonorRequestRow> | FullWidthCellKeyDownEvent<DonorRequestRow>) => {
+      const key = event.event
+      if (!(key instanceof KeyboardEvent) || key.key !== 'Enter' || key.isComposing) return
+      if (key.ctrlKey || key.altKey || key.metaKey || key.shiftKey) return
+      if (key.target instanceof Element && key.target.closest('button, a')) return
+      openDelivery(deliveryPath(event.data?.deliveryNo))
+    },
+    [openDelivery],
+  )
+
+  /** The list as shown — its columns, its column filters, its sort — through the core writer. */
+  async function exportXlsx() {
+    const api = gridApi.current
+    if (!api) return
+    try {
+      const sheet = gridSheet(api, t('export.sheet'), { asText: (colId) => EXPORT_AS_TEXT.has(colId) })
+      await writeWorkbook([sheet], xlsxFileName(t('export.fileName')))
+      notify.success(t('export.done'), t('export.doneDetail', { count: sheet.count, n: fsi(String(sheet.count)) }))
+    } catch {
+      notify.error(t('export.failed'), t('export.failedDetail'))
+    }
+  }
 
   const patch = (p: Partial<DonorRequestCriteria>) => setDraft((d) => ({ ...d, ...p }))
   // Kept in the offered order, so one question is one cache entry whatever the click order.
@@ -227,29 +307,48 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
         <ErrorBanner className="p-2.5" title={t('list.failedTitle')} message={apiErrorMessage(list.error, t('list.failed'))} />
       )}
 
-      <div className="flex flex-col gap-1">
-        <div className="relative h-[calc(100vh-19rem)] min-h-96" data-donor-list="">
-          <AgGridReact<DonorRequestRow>
-            theme={omsGridTheme}
-            rowData={rows}
-            columnDefs={columns}
-            defaultColDef={DEFAULT_COL_DEF}
-            getRowId={({ data }) => data.requestNo}
-            getRowClass={({ data }) => (data?.view.tone === 'muted' ? 'text-muted-foreground' : undefined)}
-            rowHeight={OMS_GRID_ROW_HEIGHT}
-            headerHeight={OMS_GRID_HEADER_HEIGHT}
-            tooltipShowDelay={500}
-            animateRows={false}
-            // Fourteen columns: render every one, so a cell off to the side is in the DOM for
-            // find-in-page and for the drive.
-            suppressColumnVirtualisation
-            loading={list.isPending}
-            noRowsOverlayComponent={NoRows}
-            // A failed load is the banner's to say; "nothing matches" beside it would contradict it.
-            suppressNoRowsOverlay={list.isError}
-          />
+      <div className="flex items-stretch gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex justify-end">
+            <Button variant="outlined" disabled={list.isError || shown === 0} onClick={() => void exportXlsx()} data-donor-export="">
+              <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
+              {t('export.button')}
+            </Button>
+          </div>
+          <div className="relative h-[calc(100vh-21.5rem)] min-h-96" data-donor-list="">
+            <AgGridReact<DonorRequestRow>
+              theme={omsGridTheme}
+              rowData={rows}
+              columnDefs={columns}
+              defaultColDef={DEFAULT_COL_DEF}
+              getRowId={({ data }) => data.requestNo}
+              getRowClass={({ data }) => (data?.view.tone === 'muted' ? 'text-muted-foreground' : undefined)}
+              rowSelection={ROW_SELECTION}
+              onGridReady={({ api }) => {
+                gridApi.current = api
+              }}
+              onSelectionChanged={({ api }) => setSelectedNo(api.getSelectedRows()[0]?.requestNo ?? null)}
+              onCellFocused={onCellFocused}
+              onCellKeyDown={onCellKeyDown}
+              onRowDoubleClicked={({ data }) => openDelivery(deliveryPath(data?.deliveryNo))}
+              onModelUpdated={({ api }) => setShown(api.getDisplayedRowCount())}
+              rowHeight={OMS_GRID_ROW_HEIGHT}
+              headerHeight={OMS_GRID_HEADER_HEIGHT}
+              tooltipShowDelay={500}
+              animateRows={false}
+              // Fourteen columns: render every one, so a cell off to the side is in the DOM for
+              // find-in-page and for the drive.
+              suppressColumnVirtualisation
+              loading={list.isPending}
+              noRowsOverlayComponent={NoRows}
+              // A failed load is the banner's to say; "nothing matches" beside it would contradict it.
+              suppressNoRowsOverlay={list.isError}
+            />
+          </div>
+          {!list.isError && <StatusBar count={rows.length} limited={list.data?.limited === true} loading={list.isFetching} />}
         </div>
-        {!list.isError && <StatusBar count={rows.length} limited={list.data?.limited === true} loading={list.isFetching} />}
+
+        <DonorInspector row={selectedRow} now={now} width={paneWidth} onWidth={setPaneWidth} onOpen={openDelivery} />
       </div>
     </div>
   )

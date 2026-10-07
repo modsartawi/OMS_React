@@ -75,5 +75,44 @@
     "rows_other": "<n>{{n}}</n> donor requests",
     "limited_one": "Showing the first <n>{{n}}</n> donor request — narrow the filters to see the rest",
     "limited_other": "Showing the first <n>{{n}}</n> donor requests — narrow the filters to see the rest"
+  },
+  "inspector": {
+    "region": "Donor request",
+    "resize": "Resize the donor request pane",
+    "empty": "Select a donor request to see its moments.",
+    "request": "Donor request",
+    "facts": "Request",
+    "delivery": "Delivery",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "asked": "Units asked",
+    "given": "Units given",
+    "transfer": "Transfer",
+    "sto": "STO",
+    "sapDocument": "SAP document",
+    "notYet": "Not in yet",
+    "moments": "Moments",
+    "noMoments": "No moment is recorded on this request.",
+    "moment": {
+      "raised": "Raised",
+      "edited": "Edited",
+      "picked": "Picked",
+      "stamped": "Stamped",
+      "transferred": "Transferred",
+      "ended": "Ended"
+    },
+    "by": "by <who>{{by}}</who>",
+    "open": "Open delivery",
+    "noDelivery": "This request names no delivery."
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "donor-requests",
+    "sheet": "Donor requests",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} donor request was written to the workbook.",
+    "doneDetail_other": "{{n}} donor requests were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
   }
 }

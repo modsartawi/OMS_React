@@ -17,6 +17,19 @@ export function elapsedText(t: TFunction, e: Elapsed): string {
   return t('elapsed.minutes', { m: e.minutes })
 }
 
+/**
+ * The pick time in words: how long an open, unpicked request has waited on its donor, or how
+ * long the donor took to pick; `''` for neither. The grid's column and the inspector say it alike.
+ */
+export function pickTimeText(t: TFunction, view: DonorRowView): string {
+  if (view.waiting) return t('pick.waiting', { elapsed: elapsedText(t, view.waiting) })
+  if (view.minutesToPick === null) return ''
+  const m = view.minutesToPick
+  return t('pick.took', {
+    elapsed: elapsedText(t, { days: Math.floor(m / 1440), hours: Math.floor((m % 1440) / 60), minutes: m % 60 }),
+  })
+}
+
 const KNOWN_STATES: ReadonlySet<string> = new Set(DONOR_REQUEST_STATES)
 
 /**
@@ -52,15 +65,7 @@ export function donorColumns(t: TFunction): ColDef<DonorRequestRow>[] {
     if (tone === 'muted') return t('outcome.cancelled')
     return row.outcome ?? ''
   }
-  const pickTime = (row: DonorRequestRow | undefined) => {
-    if (!row) return ''
-    if (row.view.waiting) return t('pick.waiting', { elapsed: elapsedText(t, row.view.waiting) })
-    if (row.view.minutesToPick === null) return ''
-    const m = row.view.minutesToPick
-    return t('pick.took', {
-      elapsed: elapsedText(t, { days: Math.floor(m / 1440), hours: Math.floor((m % 1440) / 60), minutes: m % 60 }),
-    })
-  }
+  const pickTime = (row: DonorRequestRow | undefined) => (row ? pickTimeText(t, row.view) : '')
 
   return [
     { field: 'requestNo', headerName: t('columns.requestNo'), width: 130, cellClass: code },

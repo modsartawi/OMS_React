@@ -1,4 +1,4 @@
-// Donor requests drive (ticket 431, spec 430 D2/D3/D9/D18).
+// Donor requests drive (tickets 431 + 432, spec 430 D2/D3/D9/D10/D18).
 //
 // Drives the REAL app in Chromium against a STUB of the spec 430 wire contract — the door
 // (`GET SdDocumentWeb/DonorRequests`, BackOffice ask BO-2) is NOT built, so there is no live
@@ -17,11 +17,19 @@
 //   7. `?request=<no>` seeds a request-only search with no date bound;
 //   8. a business refusal from the door is shown with its own message;
 //   9. store codes are isolated; no page errors.
+// Ticket 432 (the inspector, D9/D10):
+//  10. before a selection the pane says to pick a row; a click shows the row's header facts,
+//      its transfer facts (only once transferred) and its donor moments newest first;
+//  11. the arrow keys step the inspector through the rows with NO extra call;
+//  12. the pane resizes from its separator (the arrow toward the inline start grows it);
+//  13. "Open delivery", a double-click and Enter each land on Document Details' delivery route;
+//  14. Export downloads the visible list as xlsx, labels as shown, no isolate characters.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/donor-requests-drive.mjs
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { inflateRawSync } from 'node:zlib'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -79,6 +87,7 @@ function todaysRows(rtl) {
     // Raised 80 minutes and a few seconds ago, nobody has picked it: "Waiting 1h 20m".
     request('DR1', { raisedAt: ago(80) }),
     request('DR2', {
+      deliveryNo: '8000000502',
       donorStore: 'D044',
       state: 'CANCELLED',
       outcome: 'REFUSED',
@@ -96,11 +105,13 @@ function todaysRows(rtl) {
     }),
     // Raised 300 minutes ago, picked 25 minutes later.
     request('DR5', {
+      deliveryNo: '8000000505',
       donorStore: 'D077',
       state: 'TRANSFERRED',
       fulfilledAt: ago(275),
       picked: 3,
       transferStoNo: '4500001234',
+      transferSapDocumentNo: '4900000077',
       transferredAt: ago(200),
     }),
   ]
@@ -143,6 +154,8 @@ async function open(dir, { grant, list = 'today' }) {
         return route.fulfill(envelope({ rows: [...todaysRows(rtl), request('DR77', { raisedAt: '2026-09-01T09:00:00' })], limited: false }))
       return route.fulfill(envelope({ rows: todaysRows(rtl), limited: false }))
     }
+    // Document Details' own reads: not this drive's to draw — only that it was asked for.
+    if (/^SdDocumentWeb\/(?:Delivery|Document)\/\d+/.test(p)) return route.fulfill(envelope(null))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
@@ -183,6 +196,78 @@ const rowOf = (page, requestNo) =>
   }, requestNo)
 
 const statusText = (page) => page.locator('[data-status-count]').innerText()
+
+/** The inspector as drawn: its row, state, outcome, fields, transfer and moments. */
+const inspectorOf = (page) =>
+  page.evaluate(() => {
+    const pane = document.querySelector('[data-donor-inspector]')
+    const body = pane?.querySelector('[data-inspector-row]')
+    if (!body) return { row: null, empty: !!pane?.querySelector('[data-inspector-empty]') }
+    const field = (name) => body.querySelector(`[data-field="${name}"] dd`)
+    return {
+      row: body.getAttribute('data-inspector-row'),
+      state: body.querySelector('[data-inspector-state]')?.textContent ?? '',
+      outcome: body.querySelector('[data-inspector-outcome]')?.textContent ?? '',
+      tone: body.querySelector('[data-donor-tone]')?.getAttribute('data-donor-tone') ?? null,
+      reason: body.querySelector('[data-field="reason"]')?.textContent ?? '',
+      delivery: field('deliveryNo')?.textContent ?? '',
+      donorStore: field('donorStore')?.textContent ?? '',
+      asked: field('asked')?.textContent ?? '',
+      given: field('given')?.textContent ?? '',
+      pickTime: field('pickTime')?.textContent ?? '',
+      transfer: !!body.querySelector('[data-section="transfer"]'),
+      sto: field('transferStoNo')?.textContent ?? '',
+      sap: field('transferSapDocumentNo')?.textContent ?? '',
+      moments: [...body.querySelectorAll('[data-donor-moment]')].map((m) => m.getAttribute('data-donor-moment')),
+      momentTimesIsolated: [...body.querySelectorAll('[data-moment-time]')].every((t) => t.querySelector('bdi[dir="ltr"]')),
+      codesIsolated: ['deliveryNo', 'donorStore', 'orderStore', 'asked', 'given'].every((n) => field(n)?.querySelector('bdi[dir="ltr"]')),
+    }
+  })
+
+/** The entries of a zip, name → text (stored or deflated). Enough of a reader for the writer's own output. */
+function unzipText(buf) {
+  let eocd = buf.length - 22
+  while (eocd >= 0 && buf.readUInt32LE(eocd) !== 0x06054b50) eocd--
+  const entries = buf.readUInt16LE(eocd + 10)
+  let at = buf.readUInt32LE(eocd + 16)
+  const out = {}
+  for (let i = 0; i < entries; i++) {
+    const method = buf.readUInt16LE(at + 10)
+    const size = buf.readUInt32LE(at + 20)
+    const nameLen = buf.readUInt16LE(at + 28)
+    const extraLen = buf.readUInt16LE(at + 30)
+    const commentLen = buf.readUInt16LE(at + 32)
+    const local = buf.readUInt32LE(at + 42)
+    const name = buf.toString('utf8', at + 46, at + 46 + nameLen)
+    const dataAt = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28)
+    const raw = buf.subarray(dataAt, dataAt + size)
+    out[name] = (method === 8 ? inflateRawSync(raw) : raw).toString('utf8')
+    at += 46 + nameLen + extraLen + commentLen
+  }
+  return out
+}
+
+/** Sheet 1's text with shared strings resolved, cells joined by | and rows by newline; numbers marked `n:`. */
+function sheetText(files) {
+  const shared = [...(files['xl/sharedStrings.xml'] ?? '').matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) =>
+    m[1].replace(/<[^>]+>/g, ''),
+  )
+  const xml = files['xl/worksheets/sheet1.xml'] ?? ''
+  return [...xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)]
+    .map((r) =>
+      [...r[1].matchAll(/<c([^>]*)>([\s\S]*?)<\/c>/g)]
+        .map(([, attrs, body]) => {
+          const v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? body.replace(/<[^>]+>/g, '')
+          if (/t="s"/.test(attrs)) return shared[Number(v)]
+          return (/t="n"|^(?![\s\S]*t=)/.test(attrs) && v !== '' ? 'n:' : '') + v
+        })
+        .join('|'),
+    )
+    .join('\n')
+}
+
+const cellOf = (page, requestNo) =>
+  page.locator('[data-donor-list] .ag-cell[col-id="requestNo"]', { hasText: new RegExp(`^${requestNo}$`) })
 
 async function drive(dir) {
   const label = dir
@@ -323,6 +408,110 @@ async function drive(dir) {
       `${page.url()} ${back?.toString()}`,
     )
     check(`${label}: no page errors (seeded)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 10–14: the inspector, opening the delivery, export ─────────────────────────────────────
+  {
+    const { context, page, errors, calls, listQueries } = await open(dir, { grant: true })
+    await page.goto(`${BASE}/oms/donor-requests`)
+    await waitRows(page, 5)
+    check(`${label}: before a selection the inspector asks for a row`, (await inspectorOf(page)).empty === true)
+
+    await cellOf(page, 'DR5').click()
+    await page.locator('[data-inspector-row="DR5"]').waitFor({ timeout: 10000 })
+    const dr5 = await inspectorOf(page)
+    check(
+      `${label}: a click shows the row's header facts`,
+      dr5.row === 'DR5' && dr5.state === 'Transferred' && dr5.delivery === '8000000505' && dr5.donorStore === 'D077' && dr5.asked === '3' && dr5.given === '3',
+      JSON.stringify(dr5),
+    )
+    check(
+      `${label}: a transferred request shows its STO and SAP document`,
+      dr5.transfer && dr5.sto === '4500001234' && dr5.sap === '4900000077',
+      JSON.stringify(dr5),
+    )
+    check(`${label}: its donor moments, newest first`, dr5.moments.join(',') === 'transferred,picked,raised', dr5.moments.join(','))
+    check(`${label}: codes, units and moment times are isolated`, dr5.codesIsolated && dr5.momentTimesIsolated)
+    await page.screenshot({ path: `${SHOTS}/${dir}-inspector.png` })
+
+    // 11: step with the arrow keys — no call of any kind
+    const before = calls.length
+    await page.keyboard.press('ArrowUp')
+    await page.locator('[data-inspector-row="DR4"]').waitFor({ timeout: 10000 })
+    const dr4 = await inspectorOf(page)
+    check(
+      `${label}: ↑ steps to the row above — a cancel after pick, muted, no transfer facts`,
+      dr4.outcome === 'Cancelled after pick' && dr4.tone === 'muted' && !dr4.transfer && dr4.moments.join(',') === 'ended,picked,raised',
+      JSON.stringify(dr4),
+    )
+    await page.keyboard.press('ArrowUp')
+    await page.locator('[data-inspector-row="DR3"]').waitFor({ timeout: 10000 })
+    await page.keyboard.press('ArrowUp')
+    await page.locator('[data-inspector-row="DR2"]').waitFor({ timeout: 10000 })
+    const dr2 = await inspectorOf(page)
+    check(
+      `${label}: a refused request reads amber, with its reason`,
+      dr2.outcome === 'Refused' && dr2.tone === 'attention' && dr2.reason === (dir === 'rtl' ? 'لا يوجد مخزون' : 'No stock on the shelf') &&
+        dr2.moments.join(',') === 'ended,raised',
+      JSON.stringify(dr2),
+    )
+    await page.keyboard.press('ArrowUp')
+    await page.locator('[data-inspector-row="DR1"]').waitFor({ timeout: 10000 })
+    const dr1 = await inspectorOf(page)
+    check(`${label}: an open, unpicked request shows its wait in the pane`, /^Waiting 1h 2\dm$/.test(dr1.pickTime) && !dr1.transfer, JSON.stringify(dr1))
+    check(`${label}: a picked request shows its pick time in the pane`, dr5.pickTime === 'Picked in 25m', dr5.pickTime)
+    check(`${label}: stepping through rows makes no call`, calls.length === before, calls.slice(before).join(','))
+
+    // 12: resize from the separator
+    const sep = page.locator('[data-donor-inspector] [data-inspector-separator]')
+    const w0 = Number(await sep.getAttribute('aria-valuenow'))
+    await sep.focus()
+    await page.keyboard.press(dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft')
+    const w1 = Number(await sep.getAttribute('aria-valuenow'))
+    const paneW = await page.locator('[data-donor-inspector]').evaluate((el) => Math.round(el.getBoundingClientRect().width))
+    check(`${label}: the pane resizes from its separator`, w0 === 360 && w1 === 376 && paneW === 376, `${w0} → ${w1}, ${paneW}px`)
+
+    // 14: export the visible list
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('[data-donor-export]').click()])
+    const name = dl.suggestedFilename()
+    const sheet = sheetText(unzipText(readFileSync(await dl.path())))
+    const lines = sheet.split('\n')
+    check(`${label}: Export downloads an xlsx`, /^donor-requests-\d{8}-\d{4}\.xlsx$/.test(name), name)
+    check(
+      `${label}: the workbook is the list — a header and its five rows, labels as shown`,
+      lines.length === 6 && lines[0].startsWith('Request|Delivery|Donor store|Order store|State|Outcome') &&
+        lines.some((l) => l.startsWith('DR2|8000000502|D044|P019|Cancelled|Refused|')) &&
+        lines.some((l) => /^DR1\|.*\|Waiting 1h 2\dm$/.test(l)),
+      lines.slice(0, 3).join(' ¶ '),
+    )
+    check(`${label}: identities are text, units are numbers, no isolate characters`, /\|n:3\|/.test(sheet) && !/\|n:8000000/.test(sheet) && !/[⁦-⁩]/.test(sheet))
+
+    // 13: Open delivery, double-click and Enter
+    const detailsReads = () => calls.filter((c) => /^SdDocumentWeb\/(Delivery|Document)\/\d+/.test(c))
+    await cellOf(page, 'DR2').click()
+    await page.locator('[data-inspector-row="DR2"]').waitFor({ timeout: 10000 })
+    await page.locator('[data-donor-open]').click()
+    await page.waitForURL('**/oms/delivery/8000000502', { timeout: 10000 })
+    await page.waitForTimeout(400)
+    check(`${label}: "Open delivery" lands on the request's delivery in Document Details`, detailsReads().some((c) => c.includes('8000000502')), detailsReads().join(','))
+
+    await page.goBack()
+    await waitRows(page, 5)
+    await cellOf(page, 'DR5').dblclick()
+    await page.waitForURL('**/oms/delivery/8000000505', { timeout: 10000 })
+    check(`${label}: a double-click opens the row's delivery`, new URL(page.url()).pathname === '/oms/delivery/8000000505')
+
+    await page.goBack()
+    await waitRows(page, 5)
+    await cellOf(page, 'DR1').click()
+    await page.locator('[data-inspector-row="DR1"]').waitFor({ timeout: 10000 })
+    await page.keyboard.press('Enter')
+    await page.waitForURL('**/oms/delivery/8000000500', { timeout: 10000 })
+    check(`${label}: Enter opens the current row's delivery`, new URL(page.url()).pathname === '/oms/delivery/8000000500')
+    // Back may answer from the query cache, so three arrivals cost at most three list calls.
+    check(`${label}: the list is asked for at most once per arrival`, listQueries.length >= 1 && listQueries.length <= 3, String(listQueries.length))
+    check(`${label}: no page errors (inspector)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

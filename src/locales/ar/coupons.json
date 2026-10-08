@@ -45,6 +45,42 @@
       "done_many": "حُذف التحميل: حُذفت {{n}} قسيمة.",
       "done_other": "حُذف التحميل: حُذفت {{n}} قسيمة.",
       "failed": "تعذّر حذف التحميل"
+    },
+    "result": {
+      "download": "تنزيل النتيجة",
+      "failed": "تعذّر تنزيل النتيجة",
+      "reconstructed": "هذا التحميل أقدم من تسجيل نتيجة كل رمز، لذا أُعيد بناء نتيجته من قسائم اليوم.",
+      "reconstructedDeleted": "هذا التحميل أقدم من تسجيل نتيجة كل رمز وقد حُذف، لذا أُعيد بناء نتيجته بعد الحذف: تظهر الرموز التي أضافها بحالة «غير معروف».",
+      "saved_zero": "نُزّلت النتيجة: لا رموز.",
+      "saved_one": "نُزّلت النتيجة: رمز واحد.",
+      "saved_two": "نُزّلت النتيجة: رمزان.",
+      "saved_few": "نُزّلت النتيجة: {{n}} رموز.",
+      "saved_many": "نُزّلت النتيجة: {{n}} رمزًا.",
+      "saved_other": "نُزّلت النتيجة: {{n}} رمز.",
+      "summary": {
+        "added": "أُضيف: {{n}}",
+        "alreadyInTemplate": "موجود في هذا القالب: {{n}}",
+        "inOtherTemplate_zero": "في قوالب أخرى: {{n}}",
+        "inOtherTemplate_one": "في قالب آخر: {{n}} (يحملها قالب واحد)",
+        "inOtherTemplate_two": "في قوالب أخرى: {{n}} (يحملها قالبان)",
+        "inOtherTemplate_few": "في قوالب أخرى: {{n}} (يحملها {{templates}} قوالب)",
+        "inOtherTemplate_many": "في قوالب أخرى: {{n}} (يحملها {{templates}} قالبًا)",
+        "inOtherTemplate_other": "في قوالب أخرى: {{n}} (يحملها {{templates}} قالب)",
+        "notProcessed": "لم يُعالَج: {{n}}",
+        "unknown": "غير معروف: {{n}}"
+      },
+      "csv": {
+        "code": "الرمز",
+        "outcome": "النتيجة",
+        "template": "القالب الحامل"
+      },
+      "outcome": {
+        "Added": "أُضيف",
+        "AlreadyInTemplate": "موجود في هذا القالب",
+        "InOtherTemplate": "في قالب آخر",
+        "NotProcessed": "لم يُعالَج",
+        "Unknown": "غير معروف"
+      }
     }
   },
   "inquiry": {

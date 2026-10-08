@@ -1,17 +1,30 @@
 /**
- * Ticket 420 (origin filter) and ticket 439 (spec 2463: deleting a mistaken upload).
+ * Ticket 420 (origin filter), ticket 439 (spec 2463: deleting a mistaken upload) and ticket 440
+ * (spec 2463 amendment: what an upload did with each code).
  *
  * Ticket 420 — the coupon template's origin filter takes the same paste box, normaliser and cap
  * as the bonus buy's (BackOffice spec 2396 story 39).
  */
 import { describe, expect, it } from 'vitest'
 import i18n from '@/core/i18n'
-import { isTerminalJob, type CouponDetails, type CouponTransaction, type EarlierUpload, type ImportJobDeletePreview } from '@/core/models/coupons'
+import {
+  isTerminalJob,
+  type CouponDetails,
+  type CouponTransaction,
+  type EarlierUpload,
+  type ImportJobDeletePreview,
+  type ImportJobResult,
+  type ImportJobResultLine,
+} from '@/core/models/coupons'
 import { stripIsolates } from '@/core/util/bidi'
 import {
   couponHistorySections,
   describeDeletePreview,
+  describeImportSummary,
+  importResultCsv,
+  importResultFileName,
   jobActions,
+  summarizeImportResult,
   TEMPLATE_ORIGIN_FILTER_MAX,
   templateOriginFilterMeter,
 } from './helpers'
@@ -170,5 +183,119 @@ describe('the Arabic coupons strings (ticket 439)', () => {
   it('falls back to English for the older coupons keys the partial namespace does not carry', () => {
     expect(ar('import.jobs.title')).toBe('Import jobs')
     expect(ar('import.status.Deleted')).toBe('محذوفة')
+  })
+})
+
+// ── Ticket 440 (spec 2463 amendment): what an upload did with each code ─────────────────────
+describe('jobActions: Download result', () => {
+  it('is offered on Completed, Failed and Deleted rows', () => {
+    for (const status of ['Completed', 'Failed', 'Deleted'] as const) expect(jobActions(status).download).toBe(true)
+  })
+
+  it('is not offered while a job is Pending or Processing', () => {
+    for (const status of ['Pending', 'Processing'] as const) expect(jobActions(status).download).toBe(false)
+  })
+})
+
+const line = (couponCode: string, outcome: ImportJobResultLine['outcome'], heldByTemplateId: string | null = null): ImportJobResultLine => ({
+  couponCode,
+  outcome,
+  heldByTemplateId,
+})
+const result = (lines: ImportJobResultLine[], over: Partial<ImportJobResult> = {}): ImportJobResult => ({
+  jobId: '06GHFEGGVDNRTFR8Q6VBGMGNA7',
+  templateId: 'OMS000000619',
+  status: 'Completed',
+  reconstructed: false,
+  lines,
+  ...over,
+})
+
+describe('importResultCsv', () => {
+  const t = i18n.getFixedT('en', 'coupons')
+
+  it('writes one row per line with the outcome word, and the holder only on the two skip kinds', () => {
+    const csv = importResultCsv(
+      result([
+        line('A1', 'Added'),
+        line('A2', 'AlreadyInTemplate', 'OMS000000619'),
+        line('A3', 'InOtherTemplate', 'OMS000000618'),
+        line('A4', 'NotProcessed'),
+        line('A5', 'Unknown', 'OMS000000999'),
+      ]),
+      t,
+    )
+    expect(csv).toBe(
+      '\uFEFF' +
+        [
+          'Code,Outcome,Held by template',
+          'A1,Added,',
+          'A2,Already in this template,OMS000000619',
+          'A3,In another template,OMS000000618',
+          'A4,Not processed,',
+          'A5,Unknown,',
+        ].join('\r\n') +
+        '\r\n',
+    )
+  })
+
+  it('quotes a code holding a comma or a quote, and never writes an isolate', () => {
+    const csv = importResultCsv(result([line('X,1', 'Added'), line('Y"2', 'Added')]), t)
+    expect(csv).toContain('\r\n"X,1",Added,\r\n')
+    expect(csv).toContain('\r\n"Y""2",Added,\r\n')
+    expect(csv).not.toMatch(/[\u2066-\u2069]/)
+  })
+
+  it('names the file from the template and the job', () => {
+    expect(importResultFileName(result([]))).toBe('OMS000000619-06GHFEGGVDNRTFR8Q6VBGMGNA7-result.csv')
+  })
+})
+
+describe('summarizeImportResult', () => {
+  it('counts each outcome and the distinct templates holding the other-template codes', () => {
+    expect(
+      summarizeImportResult(
+        result([
+          line('A1', 'Added'),
+          line('A2', 'Added'),
+          line('B1', 'AlreadyInTemplate', 'OMS000000619'),
+          line('C1', 'InOtherTemplate', 'OMS000000618'),
+          line('C2', 'InOtherTemplate', 'OMS000000618'),
+          line('C3', 'InOtherTemplate', 'OMS000000700'),
+          line('D1', 'NotProcessed'),
+          line('E1', 'Unknown'),
+        ]),
+      ),
+    ).toEqual({ added: 2, alreadyInTemplate: 1, inOtherTemplate: 3, otherTemplates: 2, notProcessed: 1, unknown: 1 })
+  })
+
+  it('is all zeros for an empty result', () => {
+    expect(summarizeImportResult(result([]))).toEqual({
+      added: 0,
+      alreadyInTemplate: 0,
+      inOtherTemplate: 0,
+      otherTemplates: 0,
+      notProcessed: 0,
+      unknown: 0,
+    })
+  })
+})
+
+describe('describeImportSummary', () => {
+  const t = i18n.getFixedT('en', 'coupons')
+  const zero = { added: 0, alreadyInTemplate: 0, inOtherTemplate: 0, otherTemplates: 0, notProcessed: 0, unknown: 0 }
+
+  it('always says Added, and the other outcomes only when they happened', () => {
+    expect(describeImportSummary({ ...zero, added: 2904, inOtherTemplate: 12096, otherTemplates: 1 }, t).map(stripIsolates)).toEqual([
+      'Added: 2,904',
+      'In another template: 12,096 (held by one template)',
+    ])
+    expect(describeImportSummary({ ...zero, alreadyInTemplate: 3, inOtherTemplate: 5, otherTemplates: 2, notProcessed: 1, unknown: 4 }, t).map(stripIsolates)).toEqual([
+      'Added: 0',
+      'Already in this template: 3',
+      'In other templates: 5 (held by 2 templates)',
+      'Not processed: 1',
+      'Unknown: 4',
+    ])
   })
 })

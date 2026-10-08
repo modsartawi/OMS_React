@@ -205,3 +205,30 @@ export interface ImportJobDeleteResult {
   redeemed: number
   redemptionCount: number
 }
+
+// ── What an upload did with each code (spec 2463 amendment; BackOffice 2476/2477, ticket 440) ──
+
+/** What the import did with one staged code. `NotProcessed` = a recorded job never reached it;
+ *  `Unknown` = a rebuilt result found no coupon holding it now. */
+export type ImportOutcome = 'Added' | 'AlreadyInTemplate' | 'InOtherTemplate' | 'NotProcessed' | 'Unknown'
+
+export interface ImportJobResultLine {
+  couponCode: string
+  outcome: ImportOutcome
+  /** Set on `AlreadyInTemplate` and `InOtherTemplate`. */
+  heldByTemplateId: string | null
+}
+
+/**
+ * GET CouponsAdminWeb/Jobs/{jobId}/Result (BackOffice 2477; 404 unknown job, 409 still running).
+ * `reconstructed` = the job predates SIS.Coupons.Core 1.0.8, so the result was rebuilt from today's
+ * coupons rather than recorded at import time.
+ */
+export interface ImportJobResult {
+  jobId: string
+  templateId: string
+  status: 'Completed' | 'Failed' | 'Deleted'
+  reconstructed: boolean
+  /** Every staged code, ordered by couponCode. */
+  lines: ImportJobResultLine[]
+}

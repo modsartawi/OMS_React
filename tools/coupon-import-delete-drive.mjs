@@ -15,6 +15,14 @@
 //   6. a re-uploaded code shows its current coupon first, then the earlier upload with its ledger;
 //   7. the same holds right-to-left, and no state throws.
 //
+// And ticket 440 (spec 2463 amendment), against stubs of BackOffice 2477's contract:
+//   8. Download result sits on every finished row (Completed, Failed, Deleted), never on a running one;
+//   9. it saves `<template>-<job>-result.csv` with the BOM, the localised outcome words, the holder
+//      template on the two skip kinds only, no isolate, and a summary toast with one line per outcome;
+//  10. a rebuilt (pre-1.0.8) result on a Deleted job warns that its added codes show as Unknown, and
+//      is still saved;
+//  11. a second click while it loads makes no second call; a 409 toasts the server's message.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/coupon-import-delete-drive.mjs
 import { createRequire } from 'node:module'
@@ -112,14 +120,37 @@ const DETAILS = {
   },
 }
 
+const RESULTS = {
+  JOBDONE: {
+    reconstructed: false,
+    status: 'Completed',
+    lines: [
+      { couponCode: 'AU-0001', outcome: 'Added', heldByTemplateId: null },
+      { couponCode: 'AU-0002', outcome: 'AlreadyInTemplate', heldByTemplateId: TEMPLATE },
+      { couponCode: 'AU-0003', outcome: 'InOtherTemplate', heldByTemplateId: 'OMS000000618' },
+      { couponCode: 'AU-0004', outcome: 'InOtherTemplate', heldByTemplateId: 'OMS000000700' },
+      { couponCode: 'AU,"5"', outcome: 'NotProcessed', heldByTemplateId: null },
+    ],
+  },
+  JOBGONE: {
+    reconstructed: true,
+    status: 'Deleted',
+    lines: [
+      { couponCode: 'AU-0101', outcome: 'Unknown', heldByTemplateId: null },
+      { couponCode: 'AU-0102', outcome: 'InOtherTemplate', heldByTemplateId: 'OMS000000618' },
+    ],
+  },
+}
+
 const browser = await chromium.launch()
 
 async function open(dir) {
-  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true })
   const page = await context.newPage()
   const errors = []
   const deletes = []
   let jobsCalls = 0
+  let resultCalls = 0
   const jobs = [
     job('JOBDONE', 'Completed'),
     job('JOBFAIL', 'Failed', { errorMessage: 'worker stopped' }),
@@ -143,7 +174,15 @@ async function open(dir) {
       jobsCalls++
       return route.fulfill(envelope(jobs))
     }
-    let m = /^CouponsAdminWeb\/Jobs\/([^/]+)\/DeletePreview$/.exec(p)
+    let m = /^CouponsAdminWeb\/Jobs\/([^/]+)\/Result$/.exec(p)
+    if (m) {
+      resultCalls++
+      await new Promise((done) => setTimeout(done, 400))
+      if (m[1] === 'JOBFAIL')
+        return route.fulfill(envelope(null, { status: 409, success: false, message: 'This upload is still running.', errorCode: 'CUP-09063' }))
+      return route.fulfill(envelope({ jobId: m[1], templateId: TEMPLATE, ...RESULTS[m[1]] }))
+    }
+    m = /^CouponsAdminWeb\/Jobs\/([^/]+)\/DeletePreview$/.exec(p)
     if (m) return route.fulfill(envelope({ jobId: m[1], ...PREVIEWS[m[1]] }))
     m = /^CouponsAdminWeb\/Jobs\/([^/]+)\/Delete$/.exec(p)
     if (m) {
@@ -160,7 +199,7 @@ async function open(dir) {
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, deletes, jobsCount: () => jobsCalls }
+  return { context, page, errors, deletes, jobsCount: () => jobsCalls, resultCount: () => resultCalls }
 }
 
 const rowOf = (page, jobId) => page.locator('tr', { has: page.locator('td', { hasText: jobId }) })
@@ -182,9 +221,9 @@ async function drive(dir) {
     const buttons = async (id) => (await rowOf(page, id).locator('button').allInnerTexts()).map((s) => s.trim())
 
     if (dir === 'ltr') {
-      check(`${L}: Completed offers Delete only`, JSON.stringify(await buttons('JOBDONE')) === '["Delete"]', JSON.stringify(await buttons('JOBDONE')))
-      check(`${L}: Failed offers Retry and Delete`, JSON.stringify(await buttons('JOBFAIL')) === '["Retry","Delete"]', JSON.stringify(await buttons('JOBFAIL')))
-      check(`${L}: Deleted offers nothing`, (await buttons('JOBGONE')).length === 0)
+      check(`${L}: Completed offers Download result and Delete`, JSON.stringify(await buttons('JOBDONE')) === '["Download result","Delete"]', JSON.stringify(await buttons('JOBDONE')))
+      check(`${L}: Failed offers Download result, Retry and Delete`, JSON.stringify(await buttons('JOBFAIL')) === '["Download result","Retry","Delete"]', JSON.stringify(await buttons('JOBFAIL')))
+      check(`${L}: Deleted offers Download result only`, JSON.stringify(await buttons('JOBGONE')) === '["Download result"]', JSON.stringify(await buttons('JOBGONE')))
       check(`${L}: Processing offers nothing`, (await buttons('JOBRUN')).length === 0)
       const gone = await rowOf(page, 'JOBGONE').innerText()
       check(`${L}: a Deleted row reads Deleted with who and when`, /Deleted/.test(gone) && /by\s+\u2068?r\.admin/.test(gone), gone.replace(/\s+/g, ' '))
@@ -221,7 +260,7 @@ async function drive(dir) {
     check(`${L}: the delete posts the reason`, JSON.stringify(deletes[0]) === '{"jobId":"JOBDONE","body":{"reason":"wrong file"}}', JSON.stringify(deletes[0]))
     if (dir === 'ltr') check(`${L}: a success toast counts the removed coupons`, /Upload deleted: \u2068?2,904\u2069? coupons removed/.test(await toastText(page)), await toastText(page))
     check(`${L}: the dialog closes`, (await page.locator('dialog[open]').count()) === 0)
-    check(`${L}: the grid re-reads and the row now reads Deleted`, jobsCount() > before && (await buttons('JOBDONE')).length === 0)
+    check(`${L}: the grid re-reads and the row now reads Deleted`, jobsCount() > before && JSON.stringify(await buttons('JOBDONE')) === '["Download result"]')
     await page.screenshot({ path: `${SHOTS}/${dir}-grid-after-delete.png` })
 
     // 3: a preview that refuses
@@ -253,6 +292,61 @@ async function drive(dir) {
     await page.screenshot({ path: `${SHOTS}/${dir}-delete-failed-inline.png` })
 
     check(`${L}: no page errors (import)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 8–11: Download result (ticket 440) ────────────────────────────────────────────────────
+  {
+    const { context, page, errors, resultCount } = await open(dir)
+    await importTab(page)
+    const download = (id) => rowOf(page, id).getByRole('button').first()
+
+    // 9: a recorded result
+    const [file] = await Promise.all([page.waitForEvent('download'), download('JOBDONE').click()])
+    const name = file.suggestedFilename()
+    const bytes = await (await import('node:fs/promises')).readFile(await file.path())
+    const text = bytes.toString('utf8')
+    check(`${L}: the file is named from the template and the job`, name === `${TEMPLATE}-JOBDONE-result.csv`, name)
+    check(`${L}: …starts with a UTF-8 BOM`, bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
+    check(`${L}: …carries no isolate`, !/[\u2066-\u2069]/.test(text))
+    check(
+      `${L}: …one row per code, the outcome in words, the holder only on the skip kinds, quoted where needed`,
+      text.replace(/^\uFEFF/, '') ===
+        [
+          'Code,Outcome,Held by template',
+          'AU-0001,Added,',
+          `AU-0002,Already in this template,${TEMPLATE}`,
+          'AU-0003,In another template,OMS000000618',
+          'AU-0004,In another template,OMS000000700',
+          ['"AU,', '""5""', '",Not processed,'].join(''),
+          '',
+        ].join('\r\n'),
+      JSON.stringify(text),
+    )
+    await page.locator('[data-sonner-toast]', { hasText: 'Result downloaded' }).waitFor()
+    const summary = (await page.locator('[data-sonner-toast]', { hasText: 'Result downloaded' }).innerText()).replace(/[\u2068\u2069]/g, '')
+    check(
+      `${L}: a summary toast states each outcome on its own line`,
+      /Result downloaded: 5 codes\./.test(summary) &&
+        /Added: 1\nAlready in this template: 1\nIn other templates: 2 \(held by 2 templates\)\nNot processed: 1/.test(summary),
+      JSON.stringify(summary),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-result-toast.png` })
+
+    // 10: a rebuilt result on a Deleted job
+    const [rebuilt] = await Promise.all([page.waitForEvent('download'), download('JOBGONE').click()])
+    check(`${L}: a rebuilt result is still saved`, rebuilt.suggestedFilename() === `${TEMPLATE}-JOBGONE-result.csv`)
+    check(`${L}: …after a warning that its added codes show as Unknown`, /rebuilt after the delete/.test(await toastText(page)), await toastText(page))
+
+    // 11: one call per click while loading, and a 409
+    const before = resultCount()
+    await download('JOBFAIL').click()
+    await download('JOBFAIL').click({ force: true }).catch(() => {})
+    await page.locator('[data-sonner-toast]', { hasText: 'still running' }).waitFor()
+    check(`${L}: a second click while it loads makes no second call`, resultCount() - before === 1, String(resultCount() - before))
+    check(`${L}: a 409 toasts the server's message`, /Could not download the result/.test(await toastText(page)))
+
+    check(`${L}: no page errors (download)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

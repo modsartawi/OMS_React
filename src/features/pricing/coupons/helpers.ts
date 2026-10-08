@@ -4,7 +4,14 @@
 // authority: on submit (519) it re-dedupes and re-enforces the 100k cap as the backstop.
 
 import type { TFunction } from 'i18next'
-import type { CouponDetails, CouponTransaction, EarlierUpload, ImportJobDeletePreview, ImportJobStatus } from '@/core/models/coupons'
+import type {
+  CouponDetails,
+  CouponTransaction,
+  EarlierUpload,
+  ImportJobDeletePreview,
+  ImportJobResult,
+  ImportJobStatus,
+} from '@/core/models/coupons'
 import { fsi } from '@/core/util/bidi'
 import { type CodeListMeter, codeListMeter } from '@/core/util/code-list'
 
@@ -93,13 +100,18 @@ export const templateOriginFilterMeter = (value: string): CodeListMeter => codeL
 export interface JobActions {
   retry: boolean
   delete: boolean
+  /** Download what the upload did with each code (ticket 440). */
+  download: boolean
 }
 
-/** Only a Failed job retries; a finished one (Completed or Failed) deletes; a Deleted one is done. */
+/** Only a Failed job retries; a finished one (Completed or Failed) deletes; a Deleted one is done.
+ *  Every job that is no longer running has a result to download, a Deleted one included. */
 export function jobActions(status: ImportJobStatus): JobActions {
+  const finished = status === 'Completed' || status === 'Failed'
   return {
     retry: status === 'Failed',
-    delete: status === 'Completed' || status === 'Failed',
+    delete: finished,
+    download: finished || status === 'Deleted',
   }
 }
 
@@ -139,4 +151,92 @@ export type HistorySection =
 export function couponHistorySections(details: CouponDetails): HistorySection[] {
   const earlier = details.earlierUploads.map((upload): HistorySection => ({ kind: 'earlier', upload }))
   return details.isDeleted ? earlier : [{ kind: 'current', transactions: details.transactions }, ...earlier]
+}
+
+// ── What an upload did with each code (spec 2463 amendment, ticket 440) ─────────────────────
+
+/**
+ * The result file: one row per staged code — code, the outcome in words, and the template holding
+ * it on the two skip kinds. Codes and template ids are written as they are, with no isolate (an
+ * export never takes `fsi`, [bidi]) and no formula guard, so the code column stays a valid import
+ * file. The BOM makes Arabic outcome words render in Excel; CRLF for Windows readers. No `sep=,`
+ * line: it would read as a code if the file were uploaded again.
+ */
+export function importResultCsv(result: ImportJobResult, t: TFunction): string {
+  const header = [t('import.result.csv.code'), t('import.result.csv.outcome'), t('import.result.csv.template')]
+  const rows = result.lines.map((line) => [
+    line.couponCode,
+    t(`import.result.outcome.${line.outcome}`),
+    line.outcome === 'AlreadyInTemplate' || line.outcome === 'InOtherTemplate' ? (line.heldByTemplateId ?? '') : '',
+  ])
+  return '\uFEFF' + [header, ...rows].map((cells) => cells.map(csvCell).join(',')).join('\r\n') + '\r\n'
+}
+
+/** Minimal RFC-4180 quoting. */
+function csvCell(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
+
+/** `<templateId>-<jobId>-result.csv` — both ids are plain alphanumerics. */
+export function importResultFileName(result: ImportJobResult): string {
+  return `${result.templateId}-${result.jobId}-result.csv`
+}
+
+export interface ImportResultSummary {
+  added: number
+  alreadyInTemplate: number
+  inOtherTemplate: number
+  /** How many distinct templates hold the `inOtherTemplate` codes. */
+  otherTemplates: number
+  notProcessed: number
+  unknown: number
+}
+
+/** The counts the after-save toast states. */
+export function summarizeImportResult(result: ImportJobResult): ImportResultSummary {
+  const summary: ImportResultSummary = { added: 0, alreadyInTemplate: 0, inOtherTemplate: 0, otherTemplates: 0, notProcessed: 0, unknown: 0 }
+  const holders = new Set<string>()
+  for (const line of result.lines) {
+    switch (line.outcome) {
+      case 'Added':
+        summary.added++
+        break
+      case 'AlreadyInTemplate':
+        summary.alreadyInTemplate++
+        break
+      case 'InOtherTemplate':
+        summary.inOtherTemplate++
+        if (line.heldByTemplateId) holders.add(line.heldByTemplateId)
+        break
+      case 'NotProcessed':
+        summary.notProcessed++
+        break
+      case 'Unknown':
+        summary.unknown++
+        break
+    }
+  }
+  summary.otherTemplates = holders.size
+  return summary
+}
+
+/**
+ * The after-save toast's lines: Added always, every other outcome only when it happened. Each
+ * count is isolated whole; a toast lays out each line by its own first strong letter ([bidi]).
+ */
+export function describeImportSummary(summary: ImportResultSummary, t: TFunction): string[] {
+  const lines = [t('import.result.summary.added', { n: isolatedCount(summary.added) })]
+  if (summary.alreadyInTemplate > 0)
+    lines.push(t('import.result.summary.alreadyInTemplate', { n: isolatedCount(summary.alreadyInTemplate) }))
+  if (summary.inOtherTemplate > 0)
+    lines.push(
+      t('import.result.summary.inOtherTemplate', {
+        count: summary.otherTemplates,
+        n: isolatedCount(summary.inOtherTemplate),
+        templates: isolatedCount(summary.otherTemplates),
+      }),
+    )
+  if (summary.notProcessed > 0) lines.push(t('import.result.summary.notProcessed', { n: isolatedCount(summary.notProcessed) }))
+  if (summary.unknown > 0) lines.push(t('import.result.summary.unknown', { n: isolatedCount(summary.unknown) }))
+  return lines
 }

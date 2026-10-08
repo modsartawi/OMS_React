@@ -214,6 +214,34 @@
       "done_one": "Upload deleted: {{n}} coupon removed.",
       "done_other": "Upload deleted: {{n}} coupons removed.",
       "failed": "Could not delete the upload"
+    },
+    "result": {
+      "download": "Download result",
+      "failed": "Could not download the result",
+      "reconstructed": "This upload is older than per-code results, so its result was rebuilt from today's coupons.",
+      "reconstructedDeleted": "This upload is older than per-code results and was deleted, so its result was rebuilt after the delete: the codes it added show as Unknown.",
+      "saved_one": "Result downloaded: {{n}} code.",
+      "saved_other": "Result downloaded: {{n}} codes.",
+      "summary": {
+        "added": "Added: {{n}}",
+        "alreadyInTemplate": "Already in this template: {{n}}",
+        "inOtherTemplate_one": "In another template: {{n}} (held by one template)",
+        "inOtherTemplate_other": "In other templates: {{n}} (held by {{templates}} templates)",
+        "notProcessed": "Not processed: {{n}}",
+        "unknown": "Unknown: {{n}}"
+      },
+      "csv": {
+        "code": "Code",
+        "outcome": "Outcome",
+        "template": "Held by template"
+      },
+      "outcome": {
+        "Added": "Added",
+        "AlreadyInTemplate": "Already in this template",
+        "InOtherTemplate": "In another template",
+        "NotProcessed": "Not processed",
+        "Unknown": "Unknown"
+      }
     }
   }
 }

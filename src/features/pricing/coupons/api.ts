@@ -8,6 +8,7 @@ import type {
   ImportJob,
   ImportJobDeletePreview,
   ImportJobDeleteResult,
+  ImportJobResult,
   UpdateTemplateRequest,
 } from '@/core/models/coupons'
 
@@ -91,5 +92,11 @@ export const couponsApi = {
   // finished / already deleted / another upload active; 400 CUP-09099 blank or >512-char reason.
   deleteJob(jobId: string, reason: string): Promise<ImportJobDeleteResult> {
     return api.post<ImportJobDeleteResult>(`${BASE}/Jobs/${encode(jobId)}/Delete`, { reason })
+  },
+
+  // ── What an upload did with each code (spec 2463 amendment; BackOffice 2477) ──
+  // One line per staged code. 404 unknown job; 409 still Pending/Processing. A read (no audit).
+  jobResult(jobId: string): Promise<ImportJobResult> {
+    return api.get<ImportJobResult>(`${BASE}/Jobs/${encode(jobId)}/Result`)
   },
 }

@@ -90,3 +90,5 @@ tools/.document-payments-shots/
 tools/.failed-donor-transfers-shots/
 # Cities & districts drive screenshots (tools/geography-drive.mjs, ticket 436)
 tools/.geography-shots/
+# Document source users drive screenshots (tools/document-source-users-drive.mjs, ticket 438)
+tools/.document-source-users-shots/

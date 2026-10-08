@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef, ICellRendererParams, RowSelectionOptions } from 'ag-grid-community'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import type { ColDef, FilterChangedEvent, GridApi, ICellRendererParams, IRowNode, RowSelectionOptions } from 'ag-grid-community'
+import { ArrowLeft, Filter, Loader2, Search } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
@@ -43,6 +43,11 @@ import {
   editorPath,
   type EachOutcome,
   isPromotionNotFound,
+  matchesOverview,
+  type OverviewChip,
+  overviewChips,
+  overviewDayComparator,
+  overviewStatusCounts,
   overviewSeverity,
   overviewStatus,
   PROMOTION_NAME_MAX,
@@ -112,6 +117,28 @@ const OVERVIEW_SELECTION: RowSelectionOptions<BbyOverviewRow> = {
   checkboxes: true,
   headerCheckbox: true,
   enableClickSelection: true,
+  // A filtered select-all selects only the rows shown: a bulk act never reaches a hidden row.
+  selectAll: 'filtered',
+}
+
+/** A command bar: the strip of buttons on top of the promotion card and of the bonus buy list. */
+const BAR = 'flex flex-wrap items-center gap-2 border-b border-border-strong bg-card-2 px-3 py-2'
+const SEP = 'h-5 w-px bg-border-strong'
+/** A status chip and the column-filter toggle: pressed reads as a state, not an action. */
+const CHIP = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium'
+const CHIP_ON = 'border-primary/40 bg-primary/10 text-primary'
+const CHIP_IDLE = 'border-border bg-card text-foreground hover:bg-accent'
+
+/** What the grid shows when the filter leaves no row (an empty promotion never mounts the grid). */
+function NoMatch() {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  return <span className="text-sm text-muted-foreground">{t('overview.filter.none')}</span>
+}
+
+/** The day and datetime columns filter by calendar day. */
+const DAY_FILTER: ColDef<BbyOverviewRow> = {
+  filter: 'agDateColumnFilter',
+  filterParams: { comparator: overviewDayComparator },
 }
 
 type EachAct = 'activate' | 'deactivate' | 'delete' | 'test'
@@ -151,12 +178,50 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   // The tester grant, off the access answer the screen gate already holds (no second probe).
   const canTest = canMarkTested(useQuery(bbyMaintainAccessQuery()).data)
 
-  // A refresh can drop selected rows (a multi-delete, an act elsewhere). When every row goes,
-  // the grid unmounts and never reports the change, so prune the selection from the data.
+  // The overview's filter: search + status chip narrow the rows handed to the grid; the grid's
+  // own column filters (the toggled filter row) narrow them further.
+  const [query, setQuery] = useState('')
+  const [chip, setChip] = useState<OverviewChip>('all')
+  const [showFilters, setShowFilters] = useState(false)
+  const [columnFiltered, setColumnFiltered] = useState(false)
+  const [shown, setShown] = useState(promo.bonusBuys.length)
+  const gridApi = useRef<GridApi<BbyOverviewRow> | null>(null)
+  const counts = useMemo(() => overviewStatusCounts(promo.bonusBuys), [promo.bonusBuys])
+  const rowData = useMemo(
+    () => promo.bonusBuys.filter((b) => matchesOverview(b, query, chip)),
+    [promo.bonusBuys, query, chip],
+  )
+  const filtered = query.trim() !== '' || chip !== 'all' || columnFiltered
+
+  // A refresh can drop selected rows (a multi-delete, an act elsewhere), and so can the search
+  // or a chip: a row the filter hides is unselected, so no act ever reaches a row not shown.
+  // When every row goes, the grid unmounts and never reports the change, so prune from the data.
   useEffect(() => {
-    const present = new Set(promo.bonusBuys.map((b) => b.bbyNumber))
+    const present = new Set(rowData.map((b) => b.bbyNumber))
     setSelected((s) => (s.every((n) => present.has(n)) ? s : s.filter((n) => present.has(n))))
-  }, [promo.bonusBuys])
+  }, [rowData])
+
+  /** A column filter hides rows the grid still holds: unselect every selected one it hid. */
+  const onFilterChanged = ({ api }: FilterChangedEvent<BbyOverviewRow>) => {
+    setColumnFiltered(api.isColumnFilterPresent())
+    const kept = new Set<string>()
+    api.forEachNodeAfterFilter((n) => n.data && kept.add(n.data.bbyNumber))
+    const hidden: IRowNode<BbyOverviewRow>[] = []
+    api.forEachNode((n) => n.isSelected() && n.data && !kept.has(n.data.bbyNumber) && hidden.push(n))
+    if (hidden.length) api.setNodesSelected({ nodes: hidden, newValue: false })
+  }
+
+  const clearFilters = () => {
+    setQuery('')
+    setChip('all')
+    gridApi.current?.setFilterModel(null)
+  }
+
+  const toggleColumnFilters = () => {
+    // Hiding the filter row also drops what it held: a filter nobody can see must not apply.
+    if (showFilters) gridApi.current?.setFilterModel(null)
+    setShowFilters((v) => !v)
+  }
 
   const notFoundReport = (): Report => ({
     title: t('promotion.notFound', { number: fsi(promo.promoNumber) }),
@@ -355,16 +420,19 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
       {
         field: 'validFrom',
         headerName: t('overview.col.validFrom'),
-        width: 120,
+        width: 150,
         valueFormatter: (p) => formatDay(p.value),
+        ...DAY_FILTER,
       },
       {
         field: 'validTo',
         headerName: t('overview.col.validTo'),
-        width: 120,
+        width: 150,
         valueFormatter: (p) => formatDay(p.value),
+        ...DAY_FILTER,
       },
-      { field: 'bbyStatus', headerName: t('overview.col.status'), width: 140, cellRenderer: StatusCell },
+      // Status is filtered by the chips above the grid, not by a column filter.
+      { field: 'bbyStatus', headerName: t('overview.col.status'), width: 140, cellRenderer: StatusCell, filter: false },
       // The test mark (spec 2396 story 7); blank while untested. The base column def isolates each cell.
       { field: 'testedBy', headerName: t('overview.col.testedBy'), width: 130 },
       {
@@ -372,22 +440,60 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
         headerName: t('overview.col.testedAt'),
         width: 160,
         valueFormatter: (p) => formatDateTime(p.value),
+        ...DAY_FILTER,
       },
       { field: 'testNote', headerName: t('overview.col.testNote'), flex: 1, minWidth: 160 },
     ],
     [t],
   )
   const defaultColDef = useMemo<ColDef<BbyOverviewRow>>(
-    () => ({ ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true }),
-    [],
+    () => ({
+      ...OMS_GRID_BASE_COL_DEF,
+      sortable: true,
+      resizable: true,
+      filter: 'agTextColumnFilter',
+      floatingFilter: showFilters,
+      cellDataType: false,
+    }),
+    [showFilters],
   )
 
   const deletable = canDeletePromotion(promo)
 
   return (
     <>
-      {/* ── the promotion header ── */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3">
+      {/* ── the promotion header: its command bar on top, then its fields ── */}
+      <div className="flex flex-col rounded-lg border border-border/60 bg-card">
+        <div className={BAR}>
+          <Button
+            variant="primary"
+            disabled={busy || !dirty || name.trim() === '' || !from || !to}
+            onClick={saveHeader}
+          >
+            {t('promotion.save')}
+          </Button>
+          <span className={SEP} aria-hidden />
+          <Button variant="secondary" disabled={busy} onClick={() => flipPromotion('activate')}>
+            {t('promotion.activate')}
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={() => flipPromotion('deactivate')}>
+            {t('promotion.deactivate')}
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setUploadOpen(true)}>
+            {t('promotion.upload')}
+          </Button>
+          <Button
+            variant="danger-outlined"
+            className="ms-auto"
+            disabled={busy || !deletable}
+            title={deletable ? undefined : t('promotion.deleteOnlyEmpty')}
+            onClick={deletePromotion}
+          >
+            {t('promotion.delete')}
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-3 p-3">
         <div className="flex flex-wrap items-end gap-3">
           <TextInput label={t('promotion.number')} value={promo.promoNumber} disabled className="w-32" />
           <TextInput label={t('promotion.name')} value={name} maxLength={PROMOTION_NAME_MAX} onChange={setName} />
@@ -419,32 +525,6 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             <DateInput label={t('promotion.to')} value={to} disabled />
           </div>
         </fieldset>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="primary"
-            disabled={busy || !dirty || name.trim() === '' || !from || !to}
-            onClick={saveHeader}
-          >
-            {t('promotion.save')}
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => flipPromotion('activate')}>
-            {t('promotion.activate')}
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => flipPromotion('deactivate')}>
-            {t('promotion.deactivate')}
-          </Button>
-          <Button
-            variant="danger-outlined"
-            disabled={busy || !deletable}
-            title={deletable ? undefined : t('promotion.deleteOnlyEmpty')}
-            onClick={deletePromotion}
-          >
-            {t('promotion.delete')}
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => setUploadOpen(true)}>
-            {t('promotion.upload')}
-          </Button>
         </div>
       </div>
 
@@ -455,34 +535,9 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             {t('promotion.tab')}
           </span>
         </div>
-        <div className="flex flex-col gap-2 rounded-e-lg rounded-b-lg border border-border/60 bg-card p-3">
-          <div className="text-sm font-semibold">{t('overview.title')}</div>
-          {promo.bonusBuys.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('overview.empty')}</p>
-          ) : (
-            <div className="h-80">
-              <AgGridReact<BbyOverviewRow>
-                theme={omsGridTheme}
-                rowData={promo.bonusBuys}
-                columnDefs={columns}
-                defaultColDef={defaultColDef}
-                rowHeight={OMS_GRID_ROW_HEIGHT}
-                headerHeight={OMS_GRID_HEADER_HEIGHT}
-                animateRows={false}
-                rowSelection={OVERVIEW_SELECTION}
-                getRowId={(p) => p.data.bbyNumber}
-                onSelectionChanged={(e) =>
-                  setSelected(e.api.getSelectedRows().map((r) => r.bbyNumber))
-                }
-                onRowDoubleClicked={(e) =>
-                  e.data && navigate(editorPath(promo.promoNumber, 'change', e.data.bbyNumber))
-                }
-              />
-            </div>
-          )}
-
-          {/* SAP's buttons, in SAP's order, plus Copy and Copy from SAP… */}
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col rounded-e-lg rounded-b-lg border border-border/60 bg-card">
+          {/* SAP's buttons, in SAP's order, plus Copy and Copy from SAP… — above the list */}
+          <div className={BAR}>
             <Button
               variant="secondary"
               disabled={busy}
@@ -514,6 +569,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             >
               {t('overview.copy')}
             </Button>
+            <span className={SEP} aria-hidden />
             <Button
               variant="secondary"
               disabled={busy || !activatable}
@@ -557,23 +613,121 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             >
               {t('overview.delete')}
             </Button>
+            <span className={SEP} aria-hidden />
             <Button variant="secondary" disabled={busy} onClick={() => setCopySapOpen(true)}>
               {t('overview.copyFromSap')}
             </Button>
-            {selected.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {t('overview.selected', { count: selected.length })}
-              </span>
-            )}
-            {progress && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                <Ltr>{formatCount(progress.done, progress.total)}</Ltr>
-              </span>
-            )}
+            <span className="ms-auto flex items-center gap-3">
+              {selected.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {t('overview.selected', { count: selected.length })}
+                </span>
+              )}
+              {progress && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <Ltr>{formatCount(progress.done, progress.total)}</Ltr>
+                </span>
+              )}
+            </span>
           </div>
 
-          {report && <ActReport report={report} />}
+          <div className="flex flex-col gap-2 p-3">
+            <div className="text-sm font-semibold">{t('overview.title')}</div>
+            {promo.bonusBuys.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('overview.empty')}</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2" data-testid="bby-overview-filters">
+                  <label className="relative w-72 max-w-full">
+                    <span className="sr-only">{t('overview.filter.searchLabel')}</span>
+                    <Search
+                      className="pointer-events-none absolute start-2.5 top-2 h-4 w-4 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={t('overview.filter.search')}
+                      className="h-8 w-full rounded-full border border-border bg-background ps-8 pe-3 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+                      data-testid="bby-overview-search"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('overview.filter.statusGroup')}>
+                    {overviewChips(counts).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-pressed={chip === c}
+                        onClick={() => setChip(c)}
+                        className={`${CHIP} ${chip === c ? CHIP_ON : CHIP_IDLE}`}
+                        data-testid={`bby-overview-chip-${c}`}
+                      >
+                        {t(c === 'all' ? 'overview.filter.all' : `overview.status.${c}`)}
+                        <span className="font-mono text-[11px] opacity-75">
+                          <Ltr>{c === 'all' ? promo.bonusBuys.length : counts[c]}</Ltr>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    aria-pressed={showFilters}
+                    onClick={toggleColumnFilters}
+                    className={`${CHIP} ${showFilters ? CHIP_ON : CHIP_IDLE}`}
+                    data-testid="bby-overview-column-filters"
+                  >
+                    <Filter className="h-3.5 w-3.5" aria-hidden />
+                    {t('overview.filter.columns')}
+                  </button>
+                  {filtered && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="px-1 text-xs text-primary hover:underline"
+                      data-testid="bby-overview-clear"
+                    >
+                      {t('overview.filter.clear')}
+                    </button>
+                  )}
+                </div>
+
+                <div className="h-[28rem]">
+                  <AgGridReact<BbyOverviewRow>
+                    theme={omsGridTheme}
+                    rowData={rowData}
+                    columnDefs={columns}
+                    defaultColDef={defaultColDef}
+                    rowHeight={OMS_GRID_ROW_HEIGHT}
+                    headerHeight={OMS_GRID_HEADER_HEIGHT}
+                    animateRows={false}
+                    rowSelection={OVERVIEW_SELECTION}
+                    getRowId={(p) => p.data.bbyNumber}
+                    noRowsOverlayComponent={NoMatch}
+                    onGridReady={(e) => (gridApi.current = e.api)}
+                    onGridPreDestroyed={() => (gridApi.current = null)}
+                    onFilterChanged={onFilterChanged}
+                    onModelUpdated={({ api }) => setShown(api.getDisplayedRowCount())}
+                    onSelectionChanged={(e) =>
+                      setSelected(e.api.getSelectedRows().map((r) => r.bbyNumber))
+                    }
+                    onRowDoubleClicked={(e) =>
+                      e.data && navigate(editorPath(promo.promoNumber, 'change', e.data.bbyNumber))
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="bby-overview-shown">
+                  {t('overview.filter.shown')}
+                  <span className="font-mono text-foreground">
+                    <Ltr>{formatCount(shown, promo.bonusBuys.length)}</Ltr>
+                  </span>
+                </div>
+              </>
+            )}
+
+            {report && <ActReport report={report} />}
+          </div>
         </div>
       </div>
 

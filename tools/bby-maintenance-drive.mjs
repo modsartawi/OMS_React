@@ -371,8 +371,60 @@ async function run() {
     ['Planned', 'Tested', 'Activated', 'Deactivated'].every((s) => body.includes(s)))
   check('5. Delete promotion is disabled while it holds bonus buys', await page.locator('button:has-text("Delete promotion")').isDisabled())
 
-  // ── 6. multi-select activate ──
+  // ── 5b. the layout: each command bar sits ON TOP of what it acts on ──
+  const yOf = async (loc) => (await loc.boundingBox())?.y ?? -1
+  check('5b. the promotion bar is above the promotion fields',
+    (await yOf(page.locator('button:has-text("Save")').first())) < (await yOf(page.locator('input[type="date"]').first())))
+  check('5b. the bonus buy commands are above the list',
+    (await yOf(page.locator('button', { hasText: /^Create$/ }))) < (await yOf(page.locator('.ag-root-wrapper'))))
+
+  // ── 5c. the overview filter (a promotion of 500+ bonus buys needs one) ──
   const rowCheck = (n) => page.locator(`.ag-row[row-id="${n}"] .ag-selection-checkbox input`).first()
+  const rowIds = async () => [...new Set(await page.locator('.ag-row[row-id]').evaluateAll((rs) => rs.map((r) => r.getAttribute('row-id'))))].sort()
+  const shownLine = async () => (await page.locator('[data-testid="bby-overview-shown"]').innerText()).replace(/[⁦-⁩]/g, '')
+  const selectedText = async () => (await text()).match(/(\d+) selected/)?.[1] ?? '0'
+  const chipBtn = (c) => page.locator(`[data-testid="bby-overview-chip-${c}"]`)
+  check('5c. the chips count the whole promotion', (await chipBtn('planned').innerText()).includes('1') && (await chipBtn('all').innerText()).includes('4'))
+  await chipBtn('planned').click()
+  await page.waitForTimeout(200)
+  check('5c. a chip keeps only its status', JSON.stringify(await rowIds()) === '["OMS000000001"]', JSON.stringify(await rowIds()))
+  check('5c. the shown line reads 1 / 4', (await shownLine()).includes('1 / 4'), await shownLine())
+  await page.locator('.ag-header-select-all input').first().check()
+  await page.waitForTimeout(200)
+  check('5c. a filtered select-all selects only the rows shown', (await selectedText()) === '1', await selectedText())
+  await chipBtn('tested').click()
+  await page.waitForTimeout(200)
+  check('5c. a row the filter hides is unselected', (await selectedText()) === '0', await selectedText())
+  await chipBtn('all').click()
+  await page.fill('[data-testid="bby-overview-search"]', 'VICHY')
+  await page.waitForTimeout(200)
+  check('5c. the search matches text/note, ignoring case', JSON.stringify(await rowIds()) === '["OMS000000004"]', JSON.stringify(await rowIds()))
+  await page.fill('[data-testid="bby-overview-search"]', 'ayed')
+  await page.waitForTimeout(200)
+  check('5c. …and the tester', JSON.stringify(await rowIds()) === '["OMS000000004"]', JSON.stringify(await rowIds()))
+  await page.fill('[data-testid="bby-overview-search"]', 'no such thing')
+  await page.waitForTimeout(200)
+  check('5c. no match says so', (await text()).includes('No bonus buy matches these filters.'))
+  await page.click('[data-testid="bby-overview-clear"]')
+  await page.waitForTimeout(200)
+  check('5c. Clear filters brings every row back', (await rowIds()).length === 4 && (await page.locator('[data-testid="bby-overview-search"]').inputValue()) === '')
+  // The column filter row: hidden until toggled; a row it hides is unselected; hiding it drops it.
+  check('5c. the column filter row starts hidden', (await page.locator('.ag-floating-filter').count()) === 0)
+  await page.click('[data-testid="bby-overview-column-filters"]')
+  await page.waitForSelector('.ag-floating-filter input')
+  const numFilter = page.locator('.ag-floating-filter[aria-colindex="2"] input').first()
+  await numFilter.fill('0003')
+  await page.waitForTimeout(600)
+  check('5c. a column filter narrows the rows', JSON.stringify(await rowIds()) === '["OMS000000003"]', JSON.stringify(await rowIds()))
+  await rowCheck('OMS000000003').check()
+  await numFilter.fill('0002')
+  await page.waitForTimeout(600)
+  check('5c. a row a column filter hides is unselected', (await selectedText()) === '0', await selectedText())
+  await page.click('[data-testid="bby-overview-column-filters"]')
+  await page.waitForTimeout(600)
+  check('5c. hiding the filter row drops its filter', (await rowIds()).length === 4 && (await page.locator('.ag-floating-filter').count()) === 0)
+
+  // ── 6. multi-select activate ──
   // 2396 reversal: a Planned row is no longer offered Activate (28), so the run is over Tested,
   // Activated and Deactivated rows.
   await rowCheck('OMS000000004').check()

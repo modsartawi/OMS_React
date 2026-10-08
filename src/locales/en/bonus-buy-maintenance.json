@@ -101,6 +101,16 @@
     "needOne": "Select exactly one bonus buy.",
     "needSome": "Select one or more bonus buys.",
     "selected": "{{count}} selected",
+    "filter": {
+      "search": "Find by number, text, tester or note",
+      "searchLabel": "Find bonus buy",
+      "statusGroup": "Status",
+      "all": "All",
+      "columns": "Column filters",
+      "clear": "Clear filters",
+      "none": "No bonus buy matches these filters.",
+      "shown": "Bonus buys shown:"
+    },
     "confirmDeleteTitle": "Delete bonus buys",
     "confirmDeleteBody": "Delete {{count}} bonus buy(s)? Only a Planned or Deactivated bonus buy can be deleted; any other is refused.",
     "report": {

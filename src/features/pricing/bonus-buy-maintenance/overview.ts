@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import type { Severity } from '@/core/ui/severity'
 import type {
   BbyMaintainOutcome,
+  BbyOverviewRow,
   BbyPromotion,
   BbyRefusal,
   BbyStatusCode,
@@ -154,6 +155,49 @@ export function canDeletePromotion(promo: Pick<BbyPromotion, 'bonusBuys'> | null
 /** GET Promotion/{number} answers a gone promotion in-band (`status: 'notFound'`), not as a 404. */
 export const isPromotionNotFound = (promo: Pick<BbyPromotion, 'status'> | null | undefined): boolean =>
   promo?.status === 'notFound'
+
+/**
+ * The overview's status chips: `all`, or one status. A promotion of 500+ bonus buys needs a
+ * filter; the chips narrow by status, the search box by number, text, tester and note, and the
+ * grid's own column filters do the rest.
+ */
+export type OverviewChip = 'all' | OverviewStatus
+
+/** The chips in their order. `unknown` is offered only while a row actually reads unknown. */
+export function overviewChips(counts: Readonly<Record<OverviewStatus, number>>): OverviewChip[] {
+  const known: OverviewChip[] = ['all', 'planned', 'tested', 'activated', 'deactivated']
+  return counts.unknown > 0 ? [...known, 'unknown'] : known
+}
+
+/** Each status's count over the WHOLE promotion, so a chip's count never moves while typing. */
+export function overviewStatusCounts(
+  rows: readonly Pick<BbyOverviewRow, 'bbyStatus'>[],
+): Record<OverviewStatus, number> {
+  const counts: Record<OverviewStatus, number> = { activated: 0, planned: 0, tested: 0, deactivated: 0, unknown: 0 }
+  for (const r of rows) counts[overviewStatus(r.bbyStatus)]++
+  return counts
+}
+
+/** The search box (case-insensitive "contains" on number, text, tester and note) AND the chip. */
+export function matchesOverview(row: BbyOverviewRow, query: string, chip: OverviewChip): boolean {
+  if (chip !== 'all' && overviewStatus(row.bbyStatus) !== chip) return false
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return [row.bbyNumber, row.description, row.testedBy, row.testNote].some((v) => !!v && v.toLowerCase().includes(q))
+}
+
+/**
+ * `agDateColumnFilter` comparator for the overview's day and datetime columns: the cell is
+ * compared by its local calendar day. A blank or unreadable cell sorts before any filter date,
+ * so it falls out of every range.
+ */
+export function overviewDayComparator(filterDate: Date, cellValue: unknown): number {
+  if (typeof cellValue !== 'string' || cellValue === '') return -1
+  const parsed = new Date(cellValue)
+  if (Number.isNaN(parsed.getTime())) return -1
+  const diff = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime() - filterDate.getTime()
+  return diff < 0 ? -1 : diff > 0 ? 1 : 0
+}
 
 /** The editor page (ticket 417) for a mode. `new` is Create; Display rides a query flag. */
 export type EditorMode = 'create' | 'change' | 'display'

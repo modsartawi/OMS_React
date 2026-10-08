@@ -4,11 +4,15 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import en from '@/locales/en/bonus-buy-maintenance.json'
-import type { BbyMaintainOutcome, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
+import type { BbyMaintainOutcome, BbyOverviewRow, BbyRefusal } from '@/core/models/bonus-buy-maintenance'
 import {
   canActivateSelection,
   canDeletePromotion,
   editorPath,
+  matchesOverview,
+  overviewChips,
+  overviewDayComparator,
+  overviewStatusCounts,
   overviewSeverity,
   overviewStatus,
   readPromotionFlip,
@@ -209,5 +213,58 @@ describe('Mark Tested on a selection sends only its Planned bonus buys', () => {
   it('a selection with no Planned bonus buy has nothing to mark', () => {
     expect(testableNumbers([{ number: '2', status: 'tested' }])).toEqual([])
     expect(testableNumbers([])).toEqual([])
+  })
+})
+
+describe('the overview filter (500+ bonus buys)', () => {
+  const row = (bbyNumber: string, bbyStatus: string | null, extra: Partial<BbyOverviewRow> = {}): BbyOverviewRow => ({
+    bbyNumber,
+    description: null,
+    validFrom: '2026-10-05',
+    validTo: '2026-10-31',
+    bbyStatus,
+    ...extra,
+  })
+  const rows = [
+    row('OMS000000001', '1', { description: 'Panadol 1 + 1' }),
+    row('OMS000000002', ''),
+    row('OMS000000003', '3', { testedBy: 'ayed', testNote: 'Two Vichy items' }),
+    row('OMS000000004', '1'),
+  ]
+
+  it('counts each status over the whole promotion', () => {
+    expect(overviewStatusCounts(rows)).toEqual({ planned: 2, activated: 1, tested: 1, deactivated: 0, unknown: 0 })
+  })
+
+  it('offers the Unknown chip only while a row reads unknown', () => {
+    expect(overviewChips(overviewStatusCounts(rows))).toEqual(['all', 'planned', 'tested', 'activated', 'deactivated'])
+    expect(overviewChips(overviewStatusCounts([row('X', '9')]))).toContain('unknown')
+  })
+
+  it('a chip keeps only its status; All keeps every row', () => {
+    expect(rows.filter((r) => matchesOverview(r, '', 'planned')).map((r) => r.bbyNumber)).toEqual(['OMS000000001', 'OMS000000004'])
+    expect(rows.filter((r) => matchesOverview(r, '', 'all'))).toHaveLength(4)
+  })
+
+  it('the search matches number, text, tester and note, ignoring case and spaces around it', () => {
+    const hits = (q: string) => rows.filter((r) => matchesOverview(r, q, 'all')).map((r) => r.bbyNumber)
+    expect(hits(' 0004 ')).toEqual(['OMS000000004'])
+    expect(hits('PANADOL')).toEqual(['OMS000000001'])
+    expect(hits('ayed')).toEqual(['OMS000000003'])
+    expect(hits('vichy')).toEqual(['OMS000000003'])
+    expect(hits('nothing like it')).toEqual([])
+  })
+
+  it('the search and the chip both apply', () => {
+    expect(rows.filter((r) => matchesOverview(r, 'ayed', 'planned'))).toEqual([])
+  })
+
+  it('the date filter compares by calendar day; a blank cell falls out of every range', () => {
+    const day = new Date(2026, 9, 5)
+    expect(overviewDayComparator(day, '2026-10-05T11:20:00')).toBe(0)
+    expect(overviewDayComparator(day, '2026-10-06T00:00:00')).toBe(1)
+    expect(overviewDayComparator(day, '2026-10-04T23:59:00')).toBe(-1)
+    expect(overviewDayComparator(day, null)).toBe(-1)
+    expect(overviewDayComparator(day, 'not a date')).toBe(-1)
   })
 })

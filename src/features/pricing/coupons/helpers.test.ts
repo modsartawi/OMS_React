@@ -298,4 +298,11 @@ describe('describeImportSummary', () => {
       'Unknown: 4',
     ])
   })
+
+  it('never says "held by 0 templates" when no holder id came with them', () => {
+    expect(describeImportSummary({ ...zero, inOtherTemplate: 5 }, t).map(stripIsolates)).toEqual([
+      'Added: 0',
+      'In other templates: 5',
+    ])
+  })
 })

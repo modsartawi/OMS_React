@@ -227,7 +227,7 @@ export interface ImportJobResultLine {
 export interface ImportJobResult {
   jobId: string
   templateId: string
-  status: 'Completed' | 'Failed' | 'Deleted'
+  status: Exclude<ImportJobStatus, 'Pending' | 'Processing'>
   reconstructed: boolean
   /** Every staged code, ordered by couponCode. */
   lines: ImportJobResultLine[]

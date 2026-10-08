@@ -158,9 +158,11 @@ export function couponHistorySections(details: CouponDetails): HistorySection[] 
 /**
  * The result file: one row per staged code — code, the outcome in words, and the template holding
  * it on the two skip kinds. Codes and template ids are written as they are, with no isolate (an
- * export never takes `fsi`, [bidi]) and no formula guard, so the code column stays a valid import
- * file. The BOM makes Arabic outcome words render in Excel; CRLF for Windows readers. No `sep=,`
- * line: it would read as a code if the file were uploaded again.
+ * export never takes `fsi`, [bidi]) and no formula guard, so a code is copied out exactly as it was
+ * staged. The BOM makes Arabic outcome words render in Excel; CRLF for Windows readers. No `sep=,`
+ * line. ⚠ The header row is a line like any other to the import parser: a file trimmed down and
+ * uploaded again needs its header row deleted first (ticket 440 leaves a header-skipping parser to
+ * the owner).
  */
 export function importResultCsv(result: ImportJobResult, t: TFunction): string {
   const header = [t('import.result.csv.code'), t('import.result.csv.outcome'), t('import.result.csv.template')]
@@ -230,11 +232,14 @@ export function describeImportSummary(summary: ImportResultSummary, t: TFunction
     lines.push(t('import.result.summary.alreadyInTemplate', { n: isolatedCount(summary.alreadyInTemplate) }))
   if (summary.inOtherTemplate > 0)
     lines.push(
-      t('import.result.summary.inOtherTemplate', {
-        count: summary.otherTemplates,
-        n: isolatedCount(summary.inOtherTemplate),
-        templates: isolatedCount(summary.otherTemplates),
-      }),
+      summary.otherTemplates > 0
+        ? t('import.result.summary.inOtherTemplate', {
+            count: summary.otherTemplates,
+            n: isolatedCount(summary.inOtherTemplate),
+            templates: isolatedCount(summary.otherTemplates),
+          })
+        : // Off-contract (no holder id came with them): say the count, never "held by 0 templates".
+          t('import.result.summary.inOtherTemplateUnheld', { n: isolatedCount(summary.inOtherTemplate) }),
     )
   if (summary.notProcessed > 0) lines.push(t('import.result.summary.notProcessed', { n: isolatedCount(summary.notProcessed) }))
   if (summary.unknown > 0) lines.push(t('import.result.summary.unknown', { n: isolatedCount(summary.unknown) }))

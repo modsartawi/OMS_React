@@ -228,7 +228,8 @@
         "inOtherTemplate_one": "In another template: {{n}} (held by one template)",
         "inOtherTemplate_other": "In other templates: {{n}} (held by {{templates}} templates)",
         "notProcessed": "Not processed: {{n}}",
-        "unknown": "Unknown: {{n}}"
+        "unknown": "Unknown: {{n}}",
+        "inOtherTemplateUnheld": "In other templates: {{n}}"
       },
       "csv": {
         "code": "Code",

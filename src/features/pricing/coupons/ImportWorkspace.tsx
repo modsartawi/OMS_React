@@ -34,8 +34,8 @@ import {
 // as the backstop. The jobs query polls at ~2s ONLY while a job is non-terminal.
 //
 // Spec 2463 (ticket 439): a finished row also offers Delete (DeleteJobDialog); a Deleted row stays
-// in the grid, greyed, with who deleted it and when, and offers nothing. Which row offers what is
-// `jobActions`.
+// in the grid, greyed, with who deleted it and when, and offers no Retry or Delete (only 440's
+// Download result). Which row offers what is `jobActions`.
 //
 // Ticket 440 (spec 2463 amendment): every row that is no longer running also offers Download
 // result, a CSV of what the upload did with each code (BackOffice 2477). A result rebuilt from

@@ -66,8 +66,11 @@ export default function Modal({
       // `cancel` is Escape. Prevent the default close so React state stays the
       // single source of truth for `open` — otherwise the element closes itself
       // and props say it is still open, and it can never be reopened.
+      // React bubbles `cancel` through the component tree, so a modal opened from inside another
+      // (the grouping dialog's paste box) would close its parent too; Escape belongs to the top one.
       onCancel={(e) => {
         e.preventDefault()
+        e.stopPropagation()
         onClose()
       }}
       // The backdrop is not a child element, so a backdrop click reports the

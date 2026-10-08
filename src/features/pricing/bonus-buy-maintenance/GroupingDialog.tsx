@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Plus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { INPUT } from './fields'
-import { DEFAULT_UOM, type EditorState, GROUPING_ID_MAX, normalizeGroupingId, upsertGrouping } from './editor'
+import PasteMaterialsDialog from './PasteMaterialsDialog'
+import {
+  DEFAULT_UOM,
+  type EditorState,
+  GROUPING_ID_MAX,
+  normalizeGroupingId,
+  pasteGroupingMaterials,
+  upsertGrouping,
+} from './editor'
 
 /**
  * SAP's Local Material Grouping popup (2330 §5, screenshots 3 and 5): a grouping id of at most 12,
@@ -50,6 +58,7 @@ function GroupingForm({
   const first = state.groupings[0]
   const [id, setId] = useState(first?.id ?? '')
   const [materials, setMaterials] = useState<string[]>(first ? [...first.materials, ''] : [''])
+  const [pasting, setPasting] = useState(false)
 
   const pick = (next: string) => {
     setId(next)
@@ -151,13 +160,30 @@ function GroupingForm({
             </tbody>
           </table>
           {!readOnly && (
-            <Button variant="text" className="w-fit" onClick={() => setMaterials((ms) => [...ms, ''])}>
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              {t('editor.line.add')}
-            </Button>
+            <div className="flex flex-wrap gap-1">
+              <Button variant="text" className="w-fit" onClick={() => setMaterials((ms) => [...ms, ''])}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('editor.line.add')}
+              </Button>
+              <Button variant="text" className="w-fit" data-testid="bby-paste-grouping" onClick={() => setPasting(true)}>
+                <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+                {t('paste.action')}
+              </Button>
+            </div>
           )}
         </div>
       </fieldset>
+
+      <PasteMaterialsDialog
+        open={pasting}
+        title={t('paste.title.grouping')}
+        existing={materials}
+        onClose={() => setPasting(false)}
+        onConfirm={(text) => {
+          setMaterials((ms) => pasteGroupingMaterials(ms, text))
+          setPasting(false)
+        }}
+      />
 
       <div className="flex justify-end gap-2">
         <Button variant="text" onClick={onClose}>

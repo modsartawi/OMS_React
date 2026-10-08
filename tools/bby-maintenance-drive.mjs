@@ -562,6 +562,43 @@ async function run() {
   check('19. typing an existing id opens it — never a silent overwrite', loaded.includes('200011') && loaded.includes('200013'), loaded.join(','))
   await gd.locator('button:has-text("Cancel")').click()
 
+  // ── 19b. Buy and Get tints; pasting a list of materials ──
+  {
+    const tones = await page.locator('[data-tone]').evaluateAll((els) => els.map((e) => [e.dataset.tone, getComputedStyle(e).backgroundColor]))
+    check('19b. Buy and Get carry different tints', tones.length === 2 && tones[0][1] !== tones[1][1], JSON.stringify(tones))
+    const buyRows = page.locator('table[data-grid="buy"] tbody tr')
+    const before = await buyRows.count()
+    await page.getByTestId('bby-paste-buy').click()
+    const pd = page.locator('dialog[open]').last()
+    await pd.getByTestId('bby-paste-box').fill('300001\r\n300002\r\n300001\r\n\r\n')
+    const meter = (await pd.getByTestId('bby-paste-meter').innerText()).replace(/[⁦-⁩]/g, '')
+    check('19b. the paste box counts what it adds and skips', /2 materials to add/.test(meter) && /1 skipped/.test(meter), meter)
+    await pd.locator('button', { hasText: /^OK$/ }).click()
+    const ids = await page.locator('table[data-grid="buy"] tbody tr').getByLabel('Line Item Identifier').evaluateAll((els) => els.map((e) => e.value))
+    check('19b. OK appends one Material line per new code', (await buyRows.count()) === before + 2 && ids.slice(-2).join() === '300001,300002', ids.join(','))
+    await page.getByTestId('bby-paste-get').click()
+    await page.locator('dialog[open]').last().getByTestId('bby-paste-box').fill('400001 400002')
+    await page.locator('dialog[open]').last().locator('button', { hasText: /^OK$/ }).click()
+    const gids = await page.locator('table[data-grid="get"] tbody tr').getByLabel('Line Item Identifier').evaluateAll((els) => els.map((e) => e.value))
+    check('19b. the Get panel takes a paste too', gids.slice(-2).join() === '400001,400002', gids.join(','))
+
+    await page.locator('button', { hasText: /^Local Material Grouping$/ }).click()
+    await gd.locator('select').first().selectOption('')
+    await gd.getByLabel('Material Grouping').fill('grp8')
+    await page.getByTestId('bby-paste-grouping').click()
+    await page.locator('dialog[open]').last().getByTestId('bby-paste-box').fill('500001')
+    await page.keyboard.press('Escape')
+    check('19b. Escape closes only the paste box, not the grouping', (await page.locator('dialog[open]').count()) === 1)
+    await page.getByTestId('bby-paste-grouping').click()
+    await page.locator('dialog[open]').last().getByTestId('bby-paste-box').fill('500001\n500002')
+    await page.locator('dialog[open]').last().locator('button', { hasText: /^OK$/ }).click()
+    const gm = await gd.getByLabel('Material', { exact: true }).evaluateAll((els) => els.map((e) => e.value))
+    check('19b. a grouping paste fills its materials, one blank row after', gm.join() === '500001,500002,', gm.join(','))
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/paste-grouping.png' }).catch(() => {})
+    await gd.locator('button:has-text("Confirm")').click()
+    await page.screenshot({ path: 'tools/.bby-maintenance-shots/buy-get-tints.png', fullPage: true }).catch(() => {})
+  }
+
   // ── 20. the other tabs ──
   await page.getByRole('tab', { name: 'Engine Rules' }).click()
   check('20. Engine Rules: Max value unavailable', (await page.getByLabel('Max value').isDisabled()) && (await text()).includes('Unavailable until the engine update.'))

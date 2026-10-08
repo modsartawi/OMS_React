@@ -542,3 +542,52 @@ const isCouponTarget = (l: BuyLine, key: string): boolean => l.key === key && l.
 /** Whether `fillCouponMaterial` would place the number: the line is still there, still a Material. */
 export const couponMaterialLands = (s: Pick<EditorState, 'buy'>, key: string): boolean =>
   s.buy.some((l) => isCouponTarget(l, key))
+
+/**
+ * Materials pasted into a paste box (the Buy and Get panels' and the grouping dialog's). The text
+ * splits like the Engine Rules lists (`normaliseCodeList`: an Excel column or row, commas, spaces).
+ * Each code is kept once, and a code the target already holds is skipped, so pasting the same
+ * column twice adds nothing.
+ */
+export function pastedMaterials(text: string, existing: readonly string[] = []): string[] {
+  const list = normaliseCodeList(text)
+  if (list === '') return []
+  const seen = new Set(existing.map((c) => c.trim()).filter((c) => c !== ''))
+  const out: string[] = []
+  for (const code of list.split(',')) {
+    if (seen.has(code)) continue
+    seen.add(code)
+    out.push(code)
+  }
+  return out
+}
+
+/** Whether a line is the blank row a new panel starts with: a Material with no identifier. */
+const isBlankLine = (l: BuyLine | GetLine): boolean => l.type === 'material' && l.identifier.trim() === ''
+
+/**
+ * Pasted materials become Material lines at the end of the Buy or Get panel, each with the panel's
+ * defaults (quantity 1; a Get line's discount still to fill). Blank Material rows are dropped, so
+ * a new bonus buy's empty first row does not sit above the pasted ones.
+ */
+export function pasteLines(s: EditorState, side: 'buy' | 'get', text: string): EditorState {
+  if (side === 'buy') {
+    const codes = pastedMaterials(text, s.buy.filter((l) => l.type === 'material').map((l) => l.identifier))
+    if (codes.length === 0) return s
+    const kept = s.buy.filter((l) => !isBlankLine(l))
+    return { ...s, buy: [...kept, ...codes.map((identifier) => ({ ...emptyBuyLine(), identifier }))] }
+  }
+  const codes = pastedMaterials(text, s.get.filter((l) => l.type === 'material').map((l) => l.identifier))
+  if (codes.length === 0) return s
+  const kept = s.get.filter((l) => !isBlankLine(l))
+  return { ...s, get: [...kept, ...codes.map((identifier) => ({ ...emptyGetLine(), identifier }))] }
+}
+
+/**
+ * Pasted materials joined to a grouping's material rows: the typed ones kept, the pasted ones
+ * after them, and one blank row at the end to keep typing in.
+ */
+export function pasteGroupingMaterials(materials: readonly string[], text: string): string[] {
+  const kept = materials.map((m) => m.trim()).filter((m) => m !== '')
+  return [...kept, ...pastedMaterials(text, kept), '']
+}

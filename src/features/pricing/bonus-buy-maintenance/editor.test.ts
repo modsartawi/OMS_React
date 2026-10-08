@@ -28,6 +28,9 @@ import {
   getPanelLayout,
   newEditor,
   normalizeGroupingId,
+  pasteGroupingMaterials,
+  pasteLines,
+  pastedMaterials,
   readEditorOutcome,
   readGenerateOutcome,
   timeFromWire,
@@ -574,5 +577,40 @@ describe('the action is absent on a non-Planned bonus buy and on a grouping line
   it('never read-only: not in Display, not on a SAP bonus buy', () => {
     expect(couponMaterialOffered(editorAccess('display', doc({ bbyStatus: '1' })), material)).toBe(false)
     expect(couponMaterialOffered(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' })), material)).toBe(false)
+  })
+})
+
+describe('pasting materials', () => {
+  it('splits an Excel column, commas and spaces, keeping each code once and skipping held ones', () => {
+    expect(pastedMaterials('100\r\n200\r\n\r\n300, 200 400\t500', ['400'])).toEqual(['100', '200', '300', '500'])
+    expect(pastedMaterials('  \n ')).toEqual([])
+  })
+
+  it('turns a Buy paste into Material lines and drops the blank starter row', () => {
+    const s = newEditor(PROMO)
+    const next = pasteLines(s, 'buy', '100\n200')
+    expect(next.buy.map((l) => [l.type, l.identifier, l.quantity])).toEqual([
+      ['material', '100', '1'],
+      ['material', '200', '1'],
+    ])
+    expect(new Set(next.buy.map((l) => l.key)).size).toBe(2)
+    expect(next.get).toBe(s.get)
+  })
+
+  it('keeps existing Get lines and groupings, adds only the new materials, and leaves an empty paste alone', () => {
+    const s = pasteLines(newEditor(PROMO), 'get', '100')
+    const grouped = { ...s, get: [...s.get, { ...s.get[0], key: 'g', type: 'grouping' as const, identifier: '100' }] }
+    const next = pasteLines(grouped, 'get', '100\n300')
+    expect(next.get.map((l) => [l.type, l.identifier])).toEqual([
+      ['material', '100'],
+      ['grouping', '100'],
+      ['material', '300'],
+    ])
+    expect(next.get[2].discountType).toBe('%')
+    expect(pasteLines(next, 'get', '100')).toBe(next)
+  })
+
+  it('joins a grouping paste after the typed materials with one blank row to keep typing', () => {
+    expect(pasteGroupingMaterials(['100', '', ' '], '100\n200')).toEqual(['100', '200', ''])
   })
 })

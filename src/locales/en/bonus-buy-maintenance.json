@@ -330,6 +330,21 @@
     "timeTo": "Time of day to",
     "timeHint": "Set both or neither. A window past midnight is allowed."
   },
+  "paste": {
+    "action": "Paste materials",
+    "title": {
+      "buy": "Paste materials into Buy",
+      "get": "Paste materials into Get",
+      "grouping": "Paste materials into the grouping"
+    },
+    "hint": "Paste a column or row from Excel, or separate materials with commas, spaces or new lines.",
+    "added_one": "{{n}} material to add",
+    "added_other": "{{n}} materials to add",
+    "skipped_one": "{{n}} skipped: already listed or repeated",
+    "skipped_other": "{{n}} skipped: already listed or repeated",
+    "ok": "OK",
+    "cancel": "Cancel"
+  },
   "grouping": {
     "title": "Local Material Grouping",
     "existing": "Grouping",

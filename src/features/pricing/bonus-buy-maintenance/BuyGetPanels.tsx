@@ -1,11 +1,12 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import { type Dispatch, type ReactNode, type SetStateAction, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, TicketPlus, Trash2 } from 'lucide-react'
+import { ClipboardPaste, Plus, TicketPlus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import type { BbyGroupingWire } from '@/core/models/bonus-buy-maintenance'
 import { INPUT } from './fields'
+import PasteMaterialsDialog from './PasteMaterialsDialog'
 import {
   type BuyLine,
   buyPanelLayout,
@@ -22,6 +23,7 @@ import {
   LINK_CATEGORIES,
   type LineItemType,
   type LinkCategory,
+  pasteLines,
   SCALE_TYPES,
   type ScaleType,
 } from './editor'
@@ -36,9 +38,19 @@ type SetState = Dispatch<SetStateAction<EditorState>>
 
 const CELL = `${INPUT} h-7 w-full min-w-0`
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * Buy and Get each carry their own tint so the two panels never read as one grid: Buy (what the
+ * customer buys) on the primary tint, Get (the reward) on the success tint the Simulation's get
+ * blocks already use. Inputs keep the plain background, so they stand out on either.
+ */
+const PANEL_TONE = {
+  buy: 'border-primary-border bg-primary-050',
+  get: 'border-success-border bg-success-050',
+} as const
+
+function Panel({ title, tone, children }: { title: string; tone: keyof typeof PANEL_TONE; children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-md border border-border/60 p-3">
+    <div className={`flex min-w-0 flex-col gap-2 rounded-md border p-3 ${PANEL_TONE[tone]}`} data-tone={tone}>
       <h3 className="text-sm font-semibold">{title}</h3>
       {children}
     </div>
@@ -214,7 +226,7 @@ export function BuyPanel({
     setState((s) => ({ ...s, buy: s.buy.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
 
   return (
-    <Panel title={t('editor.buy.title')}>
+    <Panel title={t('editor.buy.title')} tone="buy">
       <div className="flex flex-wrap items-end gap-4">
         <LinkSelect
           label={t('editor.link.label')}
@@ -314,14 +326,17 @@ export function BuyPanel({
         </table>
       </div>
       {!readOnly && (
-        <Button
-          variant="text"
-          className="w-fit"
-          onClick={() => setState((s) => ({ ...s, buy: [...s.buy, emptyBuyLine()] }))}
-        >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          {t('editor.line.add')}
-        </Button>
+        <div className="flex flex-wrap gap-1">
+          <Button
+            variant="text"
+            className="w-fit"
+            onClick={() => setState((s) => ({ ...s, buy: [...s.buy, emptyBuyLine()] }))}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            {t('editor.line.add')}
+          </Button>
+          <PasteLines side="buy" state={state} setState={setState} />
+        </div>
       )}
     </Panel>
   )
@@ -425,7 +440,7 @@ export function GetPanel({
   }
 
   return (
-    <Panel title={t('editor.get.title')}>
+    <Panel title={t('editor.get.title')} tone="get">
       <div className="flex flex-wrap items-end gap-4">
         <LinkSelect
           label={t('editor.link.label')}
@@ -476,7 +491,12 @@ export function GetPanel({
               ))}
             </tbody>
           </table>
-          {!readOnly && <AddGetLine setState={setState} />}
+          {!readOnly && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              <AddGetLine setState={setState} />
+              <PasteLines side="get" state={state} setState={setState} />
+            </div>
+          )}
         </div>
 
         {sidePanel && (
@@ -518,12 +538,37 @@ function AddGetLine({ setState }: { setState: SetState }) {
   return (
     <Button
       variant="text"
-      className="mt-1 w-fit"
+      className="w-fit"
       onClick={() => setState((s) => ({ ...s, get: [...s.get, emptyGetLine()] }))}
     >
       <Plus className="h-3.5 w-3.5" aria-hidden />
       {t('editor.line.add')}
     </Button>
+  )
+}
+
+/** Paste materials: a list pasted into a box becomes one Material line each on OK (`pasteLines`). */
+function PasteLines({ side, state, setState }: { side: 'buy' | 'get'; state: EditorState; setState: SetState }) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  const [open, setOpen] = useState(false)
+  const existing = state[side].filter((l) => l.type === 'material').map((l) => l.identifier)
+  return (
+    <>
+      <Button variant="text" className="w-fit" data-testid={`bby-paste-${side}`} onClick={() => setOpen(true)}>
+        <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+        {t('paste.action')}
+      </Button>
+      <PasteMaterialsDialog
+        open={open}
+        title={t(`paste.title.${side}`)}
+        existing={existing}
+        onClose={() => setOpen(false)}
+        onConfirm={(text) => {
+          setState((s) => pasteLines(s, side, text))
+          setOpen(false)
+        }}
+      />
+    </>
   )
 }
 

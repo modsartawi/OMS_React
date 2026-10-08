@@ -89,6 +89,19 @@ interface EarlierUpload {
 }
 ```
 
+**Two facts settled while BackOffice built it (2465/2466, 2026-10-07).**
+
+- **The delete reason is capped at 512 characters.** The server refuses a longer reason with 400
+  `CUP-09099`, the same envelope as a blank reason. It never truncates. Give the dialog's reason
+  field `maxLength={512}` so the refusal never reaches a user.
+- **Use the server's grouping exactly as returned. Do not re-split transactions by date on the
+  client.**
+  - A refund booked after a delete sits under the redemption it reverses, matched on
+    `RefTransactionId`, even though its time is after the deletion.
+  - A client-side split by `redemptionTime` would move that refund under the re-uploaded coupon.
+  - `couponHistorySections` only orders and labels what the server sent: `transactions` is the
+    current section, and each `earlierUploads` entry is its own section.
+
 ## Spine reach
 
 UI → app (the BackOffice 2465/2466 endpoints)

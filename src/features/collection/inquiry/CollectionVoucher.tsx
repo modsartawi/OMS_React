@@ -126,7 +126,7 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
         <div className="cv-band-side cv-band-side--store">
           <div className="cv-stamp">
             <span>Store.&nbsp;</span>
-            {/* The server's `storeText` as sent — `PH-019 (P019)`, or the code alone
+            {/* The server's `storeText` as sent — `PH-019`, or the code alone, never both
                 (BackOffice 1990). Never composed here (`store-text.ts`). */}
             <span>{paperStoreText(page)}</span>
           </div>

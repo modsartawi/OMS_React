@@ -4,8 +4,8 @@ import { paperStoreText } from './store-text'
 
 // Ticket 314 (BackOffice 1990): the papers print the server's storeText as sent.
 describe('paperStoreText', () => {
-  it('prints the server’s storeText as sent — PH-019 (P019)', () => {
-    expect(paperStoreText({ storeCode: 'P019', storeText: 'PH-019 (P019)' })).toBe('PH-019 (P019)')
+  it('prints the server’s storeText as sent — PH-019', () => {
+    expect(paperStoreText({ storeCode: 'P019', storeText: 'PH-019' })).toBe('PH-019')
   })
 
   it('prints the code alone when that is what the server sent — never "()"', () => {

@@ -148,8 +148,8 @@ export interface CollectionInquiryRow {
    */
   profitCenter: string
   /**
-   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
-   * alone — composed by the SERVER's one formatter (BackOffice 1990). The
+   * The store as every paper and grid prints it — the profit center `"PH-019"`, else the code
+   * alone, never both (owner ruling 2026-10-08) — composed by the SERVER's one formatter (BackOffice 1990). The
    * *Profit Center (Store)* column renders it as sent; nothing here re-derives it.
    */
   storeText: string
@@ -579,8 +579,8 @@ export interface CollectionAttemptRow {
    */
   profitCenter: string
   /**
-   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
-   * alone — composed by the SERVER's one formatter (BackOffice 1990). The
+   * The store as every paper and grid prints it — the profit center `"PH-019"`, else the code
+   * alone, never both (owner ruling 2026-10-08) — composed by the SERVER's one formatter (BackOffice 1990). The
    * *Profit Center (Store)* column renders it as sent; nothing here re-derives it.
    */
   storeText: string
@@ -629,7 +629,7 @@ export interface CollectionReadyRow {
   /** `Plants.ProfitCenter`, trimmed; `""` when none is recorded (BackOffice 1990). */
   profitCenter: string
   /**
-   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
+   * The store as every paper and grid prints it — the profit center `"PH-019"`, else the code
    * alone — formatted by the SERVER's shared formatter. Rendered as sent, never
    * re-derived here.
    */
@@ -705,8 +705,8 @@ export interface VoucherPage {
   noText: string
   storeCode: string
   /**
-   * The **Store.** line as the voucher prints it — `"PH-019 (P019)"`, or the code
-   * alone (BackOffice 1990). Composed server-side, rendered as sent.
+   * The **Store.** line as the voucher prints it — the profit center `"PH-019"`, or
+   * the code alone, never both (BackOffice 1990, owner ruling 2026-10-08). Composed server-side, rendered as sent.
    */
   storeText: string
   /** `yyyy-MM-dd HH:mm`. §7.6 */
@@ -762,7 +762,7 @@ export interface VoucherPage {
    */
   surplusAmountText: string
   /**
-   * `رقم القيد / Entry No. 143` — the handle the branch and finance settle by on
+   * `Entry No. 143` (English only since the owner ruling of 2026-10-08) — the handle the branch and finance settle by on
    * the phone. Since BackOffice ADR 0045 the accountant's description prints UNDER it as its
    * own line ({@link deductionDescriptionText}); the number stays its own field.
    *
@@ -829,8 +829,8 @@ export interface AcrRow {
   /** The row's key. The رقم الصيدلية cell prints {@link storeText}, not this. */
   storeCode: string
   /**
-   * رقم الصيدلية — `"PH-019 (P019)"`, or the code alone (BackOffice 1990). Composed
-   * server-side, rendered as sent.
+   * رقم الصيدلية — the profit center `"PH-019"`, or the code alone, never both (BackOffice 1990,
+   * owner ruling 2026-10-08). Composed server-side, rendered as sent.
    */
   storeText: string
   /** `dd/MM/yyyy`, PER ROW — a catch-up ACR carries more than one sales day (§7.7). */

@@ -38,7 +38,7 @@ import { withSlipColumn, type SlipDay } from './slips'
  * Name its own column right after it (both default since 2423).
  *
  * 🚩 **Profit Center** is the raw `profitCenter` (`PH-019`), not `storeText`: the
- * composed `PH-019 (P019)` is the sheet's last column, *Profit Center (Store)*.
+ * composed `PH-019` is the sheet's last column, *Profit Center (Store)*.
  *
  * 🚩 **Sales Date** (`salesDate`) is the sheet's fourth column — the receipt's
  * voucher denormal, blank (year 1) on a settlement row. *Business Date* is still

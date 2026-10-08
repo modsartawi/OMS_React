@@ -116,7 +116,7 @@ const COLLECTION_SAMPLE = {
   salesDate: '2026-09-02T00:00:00',
   currencyKey: 'SAR',
   profitCenter: 'PH-019',
-  storeText: 'PH-019 (P019)',
+  storeText: 'PH-019',
 }
 
 /** Row order = row-index. The second is the contract's "none recorded" store. */
@@ -142,7 +142,7 @@ const ATTEMPT_ROWS = [
     storeCode: 'P019',
     storeName: 'Al-Dawaa P019',
     profitCenter: 'PH-019',
-    storeText: 'PH-019 (P019)',
+    storeText: 'PH-019',
     shiftId: '',
     businessDay: '2026-09-02T00:00:00',
     attemptTime: '2026-09-05T10:15:00',
@@ -167,7 +167,7 @@ const ATTEMPT_ROWS = [
 
 /** 1990's ACR-form row sample, VERBATIM. */
 const ACR_ROW_SAMPLE = {
-  seqText: '1', storeCode: 'P019', storeText: 'PH-019 (P019)', salesDateText: '02/09/2026',
+  seqText: '1', storeCode: 'P019', storeText: 'PH-019', salesDateText: '02/09/2026',
   cashText: '5420.50', cardText: '1310.25', totalText: '6730.75', settlementText: '—',
   netCollectedText: '5420.50', isSettlement: false, receiptNoText: '91234',
   pharmacistName: 'Pharmacist One', pharmacistId: 'MGR-01', notes: '', isShortfall: false,
@@ -175,7 +175,7 @@ const ACR_ROW_SAMPLE = {
 
 /** 1990's receipt-page sample (abridged in the contract to the store fields and neighbours). */
 const RECEIPT_PAGE_SAMPLE = {
-  noText: '0000091234', storeCode: 'P019', storeText: 'PH-019 (P019)',
+  noText: '0000091234', storeCode: 'P019', storeText: 'PH-019',
   collectedAtText: '2026-09-12 10:15', collectorName: 'فهد القحطاني', collectorId: 'COLL-9',
 }
 
@@ -188,9 +188,9 @@ const SCREENS = {
     codeHeader: 'Store Code',
     // Ticket 423: Saud's order — the profit center is third, right after the store code.
     // 2026-10-03: the landing grid shows the RAW profit center, and the composed
-    // `PH-019 (P019)` waits in the tail (Saud's last column, Profit Center (Store)).
+    // `PH-019` waits in the tail (Saud's last column, Profit Center (Store)).
     landing: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
-    tail: { colId: 'storeText', header: COLUMN, withPc: 'PH-019 (P019)', none: 'P020' },
+    tail: { colId: 'storeText', header: COLUMN, withPc: 'PH-019', none: 'P020' },
     loading: 'Loading collections…',
     emptyTitle: 'No collections match this search',
     csvName: 'collection-collections',
@@ -201,7 +201,7 @@ const SCREENS = {
     rows: ATTEMPT_ROWS,
     codeColumn: 'storeCode',
     codeHeader: 'Store Code',
-    landing: { colId: 'storeText', header: COLUMN, withPc: 'PH-019 (P019)', none: 'P020' },
+    landing: { colId: 'storeText', header: COLUMN, withPc: 'PH-019', none: 'P020' },
     tail: { colId: 'profitCenter', header: RAW, withPc: 'PH-019', none: '' },
     loading: "Loading today's attempts…",
     emptyTitle: 'No attempts in this period',
@@ -381,13 +381,16 @@ async function run() {
       page.getByRole('button', { name: 'Export' }).click(),
     ])
     check(`${key} — export: the file is the screen’s`, download.suggestedFilename().startsWith(screen.csvName), download.suggestedFilename())
+    // Since ticket 336 the export is an .xlsx, which this CSV reader cannot parse; its cells are
+    // proven by xlsx.test.ts instead.
+    if (download.suggestedFilename().endsWith('.xlsx')) continue
     const csv = readFileSync(await download.path(), 'utf8')
     const lines = csv.replace(/^﻿/, '').split('\r\n').filter((l) => l !== '')
     const header = splitRow(lines[1])
     const body = lines.slice(2).map(splitRow)
     const at = (row, name) => unquote(row[header.indexOf(name)] ?? '')
     check(`${key} — export: both columns are in the file with the toggle OFF`, header.includes(COLUMN) && header.includes(RAW), header.join('|'))
-    check(`${key} — export: the pair is written as sent, wrapped`, at(body[0], COLUMN) === '="PH-019 (P019)"' && at(body[0], RAW) === '="PH-019"', `${at(body[0], COLUMN)} ${at(body[0], RAW)}`)
+    check(`${key} — export: the pair is written as sent, wrapped`, at(body[0], COLUMN) === '="PH-019"' && at(body[0], RAW) === '="PH-019"', `${at(body[0], COLUMN)} ${at(body[0], RAW)}`)
     check(`${key} — export: none recorded → the code alone, and an EMPTY raw cell`, at(body[1], COLUMN) === '="P020"' && at(body[1], RAW) === '', `${at(body[1], COLUMN)} ${JSON.stringify(at(body[1], RAW))}`)
     await noRawKeys(`${key} grid`)
 
@@ -451,31 +454,16 @@ async function run() {
     await settle()
   }
   const storeCells = (sheet) => sheet.locator('.acr-c1:not(.acr-th) bdi')
-  /** Where `(` and `)` land on screen: in reading order the `)` is to the RIGHT of the `(`. */
-  const bracketOrder = (el) => {
-    const text = el.textContent
-    const node = el.firstChild
-    const rectOf = (i) => {
-      const r = document.createRange()
-      r.setStart(node, i)
-      r.setEnd(node, i + 1)
-      return r.getBoundingClientRect()
-    }
-    const open = rectOf(text.indexOf('('))
-    const close = rectOf(text.indexOf(')'))
-    return { sameLine: Math.abs(open.top - close.top) < 2, ordered: close.left > open.left }
-  }
 
   await gotoAcr('three-pages')
   const acrSheets = page.locator('.print-sheet')
   await shot('acr-form')
   check('acr — still THREE A4 sheets for 47 rows', (await acrSheets.count()) === 3, `${await acrSheets.count()}`)
   const first = storeCells(acrSheets.first())
-  check('acr — رقم الصيدلية prints the server’s storeText', (await first.first().evaluate((el) => el.textContent)) === 'PH-1204 (1204)')
-  check('acr — …on every row of the page', (await first.count()) === 22 && (await first.allTextContents()).every((t) => /^PH-\d{4} \(\d{4}\)$/.test(t)))
+  check('acr — رقم الصيدلية prints the server’s storeText', (await first.first().evaluate((el) => el.textContent)) === 'PH-1204')
+  check('acr — …on every row of the page', (await first.count()) === 22 && (await first.allTextContents()).every((t) => /^PH-\d{4}$/.test(t)))
   check('acr — …as a left-to-right island inside the RTL row', (await first.first().evaluate((el) => getComputedStyle(el).direction)) === 'ltr')
-  const order = await first.first().evaluate(bracketOrder)
-  check('acr — …so the brackets read ( then ), never mirrored to the front', order.sameLine && order.ordered, JSON.stringify(order))
+  check('acr — …the profit center alone, never beside the code (owner ruling 2026-10-08)', (await first.allTextContents()).every((t) => !t.includes('(')))
   const overflow = await acrSheets.first().locator('.acr-c1:not(.acr-th)').evaluateAll((els) =>
     els.filter((el) => el.scrollWidth > el.clientWidth + 1).length,
   )
@@ -497,14 +485,14 @@ async function run() {
   check('acr — a store with no profit center prints its code alone', (await openPage2.first().evaluate((el) => el.textContent)) === '1398')
 
   await gotoAcr('contract')
-  check('acr — the contract’s own row prints PH-019 (P019)', (await storeCells(page.locator('.print-sheet').first()).first().evaluate((el) => el.textContent)) === 'PH-019 (P019)')
+  check('acr — the contract’s own row prints PH-019', (await storeCells(page.locator('.print-sheet').first()).first().evaluate((el) => el.textContent)) === 'PH-019')
 
   await gotoAcr('pre-1990')
   check('acr — a server without 1990 (no storeText) still prints the code, never a blank cell', (await storeCells(page.locator('.print-sheet').first()).first().evaluate((el) => el.textContent)) === 'P019')
 
   await page.emulateMedia({ media: 'print' })
   await gotoAcr('contract')
-  check('acr — under print media it still prints', (await storeCells(page.locator('.print-sheet').first()).first().evaluate((el) => el.textContent)) === 'PH-019 (P019)')
+  check('acr — under print media it still prints', (await storeCells(page.locator('.print-sheet').first()).first().evaluate((el) => el.textContent)) === 'PH-019')
   await page.emulateMedia({ media: 'screen' })
 
   let release
@@ -534,7 +522,7 @@ async function run() {
 
   await gotoReceipt('posted')
   await shot('voucher')
-  check('voucher — the Store. line prints the server’s storeText', (await storeLine().textContent()) === 'PH-1042 (1042)', await storeLine().textContent())
+  check('voucher — the Store. line prints the server’s storeText', (await storeLine().textContent()) === 'PH-1042', await storeLine().textContent())
   check('voucher — …on ONE line', (await storeLine().evaluate((el) => el.getClientRects().length)) === 1)
   const stamp = await page.locator('.cv-band-side--store .cv-stamp').boundingBox()
   const title = await page.locator('.cv-title-col').first().boundingBox()
@@ -543,22 +531,21 @@ async function run() {
     stamp.x >= title.x + title.width || stamp.x + stamp.width <= title.x,
     `stamp ${stamp.x.toFixed(0)}–${(stamp.x + stamp.width).toFixed(0)}, title ${title.x.toFixed(0)}–${(title.x + title.width).toFixed(0)}`,
   )
-  const vOrder = await storeLine().evaluate(bracketOrder)
-  check('voucher — …in reading order', vOrder.sameLine && vOrder.ordered, JSON.stringify(vOrder))
+  check('voucher — …the profit center alone, never beside the code (owner ruling 2026-10-08)', !(await storeLine().textContent()).includes('('))
   check('voucher — still ONE A4 sheet, and one PDF page', (await page.locator('.print-sheet').count()) === 1 && pdfPageCount(await page.pdf({ preferCSSPageSize: true, printBackground: true })) === 1)
 
   await gotoReceipt('multishift')
   const multi = await page.locator('.cv-band-side--store .cv-stamp span:nth-child(2)').allTextContents()
-  check('voucher — every page of a multi-shift receipt carries it', multi.length === 2 && multi.every((t) => t === 'PH-1042 (1042)'), JSON.stringify(multi))
+  check('voucher — every page of a multi-shift receipt carries it', multi.length === 2 && multi.every((t) => t === 'PH-1042'), JSON.stringify(multi))
 
   await gotoReceipt('bhd')
   check('voucher — a store with no profit center prints its code alone', (await storeLine().textContent()) === '7301')
 
   await gotoReceipt('settlement')
-  check('voucher — a settlement page carries it too', (await storeLine().textContent()) === 'PH-1042 (1042)')
+  check('voucher — a settlement page carries it too', (await storeLine().textContent()) === 'PH-1042')
 
   await gotoReceipt('contract')
-  check('voucher — the contract’s own page prints PH-019 (P019)', (await storeLine().textContent()) === 'PH-019 (P019)')
+  check('voucher — the contract’s own page prints PH-019', (await storeLine().textContent()) === 'PH-019')
 
   await gotoReceipt('pre-1990')
   check('voucher — a server without 1990 (no storeText) still prints the code, never a blank line', (await storeLine().textContent()) === 'P019')

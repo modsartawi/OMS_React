@@ -64,7 +64,7 @@ const DAY = {
   storeId: 'P019',
   storeName: 'Al-Dawaa P019',
   profitCenter: 'PH-019',
-  storeText: 'PH-019 (P019)',
+  storeText: 'PH-019',
   currencyKey: 'SAR',
   businessDay: '2026-09-20T00:00:00',
   shiftId: '01K5ZB7M2N3P4R5S6T7V8W9X0Y',
@@ -133,7 +133,7 @@ const SHIFT = {
   collectorName: 'فهد القحطاني',
   storeName: 'Al-Dawaa P019',
   profitCenter: 'PH-019',
-  storeText: 'PH-019 (P019)',
+  storeText: 'PH-019',
   closerOperatorId: 'MGR-01',
   closerName: 'Pharmacist One',
   salesDate: '2026-09-01T00:00:00',
@@ -381,7 +381,7 @@ async function run() {
   await shot('ready-drawer')
   check('ready — the drawer opens over the grid, same page', (await drawer().isVisible()) && page.url().endsWith(READY))
   const title = await drawer().locator('h2').innerText()
-  check('ready — the drawer names its day (store, business date)', title.includes('PH-019 (P019)') && title.includes('2026-09-20'), title)
+  check('ready — the drawer names its day (store, business date)', title.includes('PH-019') && title.includes('2026-09-20'), title)
   check(
     'ready — ByOwner asked for STORE_DAY and the row’s own key',
     byOwnerCalls.length === 1 && byOwnerCalls[0].ownerKind === 'STORE_DAY' && byOwnerCalls[0].ownerKey === 'P019/2026-09-20',
@@ -542,7 +542,7 @@ async function run() {
   await drawer().getByTestId('slip-empty').waitFor()
   check('collections — a multi-shift receipt’s second row opens ITS day, P019/2026-09-02', byOwnerCalls.at(-1)?.ownerKey === 'P019/2026-09-02', JSON.stringify(byOwnerCalls))
   const cTitle = await drawer().locator('h2').innerText()
-  check('collections — the drawer names that day', cTitle.includes('PH-019 (P019)') && cTitle.includes('2026-09-02'), cTitle)
+  check('collections — the drawer names that day', cTitle.includes('PH-019') && cTitle.includes('2026-09-02'), cTitle)
   await shot('collections-drawer')
   await closeDrawer()
   await indexCell(0).getByRole('button').click()

@@ -804,31 +804,31 @@ async function run() {
   // `سعود` is the collector of 2151's sample response, copied — never retyped.
   const SHEET = [
     sheetRow(0, {
-      storeId: 'P001', storeText: 'PH-001 (P001)', collectorOperatorId: '4040', collectorName: 'سعود',
+      storeId: 'P001', storeText: 'PH-001', collectorOperatorId: '4040', collectorName: 'سعود',
       collectedAt: `${day(-1)}T10:15:00`, businessDay: `${day(-2)}T00:00:00`,
       collectionType: 'Regular', amount: 5000, surplus: 0, netCollected: 5000, description: '',
     }),
     sheetRow(1, {
-      storeId: 'P001', storeText: 'PH-001 (P001)', collectorOperatorId: '4040', collectorName: 'سعود',
+      storeId: 'P001', storeText: 'PH-001', collectorOperatorId: '4040', collectorName: 'سعود',
       collectedAt: `${day(-1)}T10:20:00`, businessDay: null,
       collectionType: 'Short', receiptKind: 'SETTLEMENT', isSettlement: true, cashSales: 0, settlement: 300,
       amount: 300, surplus: 0, netCollected: 300, description: SHORTAGE_DESCRIPTION,
     }),
     sheetRow(2, {
-      storeId: 'P003', storeText: 'PH-003 (P003)', collectorOperatorId: '4040', collectorName: 'سعود',
+      storeId: 'P003', storeText: 'PH-003', collectorOperatorId: '4040', collectorName: 'سعود',
       collectedAt: `${day(-1)}T11:05:00`, businessDay: `${day(-5)}T00:00:00`,
       collectionType: 'Regular+Surplus', hasSurplus: true, cashSales: 2000, settlement: -1000,
       amount: 2000, surplus: -1000, netCollected: 1000, description: SURPLUS_DESCRIPTION,
     }),
     // Finance's fourth sample (BackOffice 2152): cash sales 3500, stolen 3000, banked 500.
     sheetRow(3, {
-      storeId: 'P019', storeText: 'PH-019 (P019)', collectorOperatorId: '4041', collectorName: 'Collector 4041',
+      storeId: 'P019', storeText: 'PH-019', collectorOperatorId: '4041', collectorName: 'Collector 4041',
       collectedAt: `${day(0)}T09:00:00`, businessDay: `${day(-3)}T00:00:00`,
       collectionType: 'Regular+Stolen', hasTheft: true, theftAmount: 3000, cashSales: 500, settlement: 0,
       amount: 3500, surplus: -3000, netCollected: 500, description: THEFT_DESCRIPTION,
     }),
     sheetRow(4, {
-      storeId: 'P019', storeText: 'PH-019 (P019)', collectorOperatorId: '4041', collectorName: 'Collector 4041',
+      storeId: 'P019', storeText: 'PH-019', collectorOperatorId: '4041', collectorName: 'Collector 4041',
       collectedAt: `${day(0)}T09:00:00`, businessDay: `${day(-1)}T00:00:00`,
       collectionType: 'Regular+Surplus+Stolen', hasSurplus: true, hasTheft: true, theftAmount: 200, cashSales: 1700, settlement: -400, settlementAdjustmentTotal: 400,
       // 2152: the surplus's description, then the theft's, joined by the server.

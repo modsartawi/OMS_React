@@ -234,11 +234,11 @@ function Row({ row }: { row: AcrRow }) {
       {/* Read, never counted: the server numbers the rows 1..n over the whole
           form, which is what keeps `م` unbroken across a page break. */}
       <Cell col={0}>{row.seqText}</Cell>
-      {/* رقم الصيدلية: the server's `storeText` as sent — `PH-019 (P019)`, or the code
-          alone (BackOffice 1990). Never composed here (`store-text.ts`). Isolated LTR:
-          a Latin code with a space in an RTL row reads left to right as an island of
-          its own, rather than leaning on the bidi bracket-pair rule to keep `(P019)`
-          in order. In the 52px column it wraps at the space, as the WPF cell does. */}
+      {/* رقم الصيدلية: the server's `storeText` as sent — `PH-019`, or the code alone, never both
+          (BackOffice 1990, owner ruling 2026-10-08). Never composed here (`store-text.ts`). Isolated LTR:
+          a Latin code in an RTL row reads left to right as an island of
+          its own.
+          In the 52px column it wraps as the WPF cell does. */}
       <Cell col={1}>
         <Ltr>{paperStoreText(row)}</Ltr>
       </Cell>

@@ -19,7 +19,7 @@ const ROW: CollectionAttemptRow = {
   storeName: 'Al Dawaa — Olaya',
   // BackOffice 1990's pair: the raw profit center, and the server's one spelling of it.
   profitCenter: 'PH-1001',
-  storeText: 'PH-1001 (1001)',
+  storeText: 'PH-1001',
   shiftId: '01J0SHIFT0000000000000000001',
   businessDay: '2026-08-08T00:00:00',
   attemptTime: '2026-08-08T09:12:00',

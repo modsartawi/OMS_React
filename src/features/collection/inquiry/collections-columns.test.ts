@@ -27,7 +27,7 @@ const ROW: CollectionInquiryRow = {
   storeName: 'Al Dawaa — Olaya',
   // BackOffice 1990's pair: the raw profit center, and the server's one spelling of it.
   profitCenter: 'PH-1001',
-  storeText: 'PH-1001 (1001)',
+  storeText: 'PH-1001',
   collectorOperatorId: '4472',
   collectorName: 'Faisal Al Otaibi',
   closerOperatorId: '7781',
@@ -435,7 +435,7 @@ describe('the Business date column', () => {
 })
 
 // The landing grid's Profit Center is the raw `profitCenter` (`PH-019`), as sent;
-// ticket 314's composed `storeText` (`PH-019 (P019)`) is Saud's last column,
+// ticket 314's composed `storeText` (`PH-019`) is Saud's last column,
 // *Profit Center (Store)*, in the tail.
 describe('the profit center column', () => {
   const find = (colId: string, showMore = false) =>

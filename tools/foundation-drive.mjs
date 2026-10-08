@@ -3072,8 +3072,8 @@ const SCREEN_DATA = {
   },
   // ready-drive.mjs DAY / RECEIPT
   'CollectionWeb/Ready': [
-    { kind: 'DAY', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019 (P019)', currencyKey: 'SAR', businessDay: '2026-09-20T00:00:00', shiftId: '01K5ZB7M2N3P4R5S6T7V8W9X0Y', zNumber: 412, settlementDocumentId: '', entryNumber: 0, cashToHandOver: 1000.5, surplusDeducted: 250, readySince: '2026-09-20T23:05:12', daysWaiting: 5 },
-    { kind: 'SETTLEMENT', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019 (P019)', currencyKey: 'SAR', businessDay: null, shiftId: '', zNumber: null, settlementDocumentId: '01K5ZC1A2B3C4D5E6F7G8H9J0K', entryNumber: 143, cashToHandOver: 120.5, surplusDeducted: null, readySince: '2026-09-23T10:41:00', daysWaiting: 2 },
+    { kind: 'DAY', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019', currencyKey: 'SAR', businessDay: '2026-09-20T00:00:00', shiftId: '01K5ZB7M2N3P4R5S6T7V8W9X0Y', zNumber: 412, settlementDocumentId: '', entryNumber: 0, cashToHandOver: 1000.5, surplusDeducted: 250, readySince: '2026-09-20T23:05:12', daysWaiting: 5 },
+    { kind: 'SETTLEMENT', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019', currencyKey: 'SAR', businessDay: null, shiftId: '', zNumber: null, settlementDocumentId: '01K5ZC1A2B3C4D5E6F7G8H9J0K', entryNumber: 143, cashToHandOver: 120.5, surplusDeducted: null, readySince: '2026-09-23T10:41:00', daysWaiting: 2 },
   ],
   // four-filters-drive.mjs / assignment-upload-drive.mjs
   'CollectionWeb/AssignmentOptions': {

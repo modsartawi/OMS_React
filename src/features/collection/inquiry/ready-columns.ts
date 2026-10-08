@@ -35,7 +35,7 @@ import { withSlipColumn, type SlipDay } from './slips'
  *
  * 🚩 **Store Code and Profit Center are the raw fields** (`storeId`,
  * `profitCenter`), as on Cash Collections since 423. The server's composed
- * `storeText` (`PH-019 (P019)`) moves to the tail, as it did there.
+ * `storeText` (`PH-019`) moves to the tail, as it did there.
  *
  * 🚩 **Currency is always a column** now: the mapping places it tenth, so the
  * mixed-currency promotion this grid used to do has nothing left to promote.

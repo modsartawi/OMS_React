@@ -77,7 +77,7 @@ const collection = (over: Partial<CollectionInquiryRow> = {}): CollectionInquiry
   // Copied from `acr-fixture.ts` — never retyped.
   storeName: 'محمد عبدالله الشهري',
   profitCenter: 'PH-0104',
-  storeText: 'PH-0104 (0104)',
+  storeText: 'PH-0104',
   collectorOperatorId: '030417',
   // Copied from `voucher-fixture.ts` — never retyped.
   collectorName: 'عبدالله بن ناصر القحطاني',
@@ -354,7 +354,7 @@ describe('money is numeric and store codes are text in the sheet', () => {
 
   it('writes the store code and the ids as text, so a leading zero survives', () => {
     expect(cellUnder(sheet, label('collections', 'storeId'))).toEqual({ type: String, value: '0104' })
-    expect(cellUnder(sheet, label('collections', 'storeText'))).toEqual({ type: String, value: 'PH-0104 (0104)' })
+    expect(cellUnder(sheet, label('collections', 'storeText'))).toEqual({ type: String, value: 'PH-0104' })
     expect(cellUnder(sheet, label('collections', 'collectorOperatorId'))).toEqual({ type: String, value: '030417' })
   })
 

@@ -231,7 +231,7 @@ describe('slipDayOf — which counts open the drawer', () => {
   it('a known count opens its row’s own day, named as the grid names the store', () => {
     expect(slipDayOf(READY_DAY)).toEqual({
       ownerKey: 'P019/2026-09-20',
-      store: 'PH-019 (P019)',
+      store: 'PH-019',
       businessDate: '2026-09-20',
     })
   })

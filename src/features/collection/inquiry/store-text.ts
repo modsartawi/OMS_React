@@ -2,8 +2,9 @@
  * The store as a PAPER prints it — the ACR form's رقم الصيدلية cell and the
  * voucher's **Store.** line (ticket 314, BackOffice 1990).
  *
- * 🔑 The server's `storeText` VERBATIM: `"PH-019 (P019)"`, or the code alone. The
- * profit center is composed by one C# formatter (`ProfitCenterFormat.StoreText`)
+ * 🔑 The server's `storeText` VERBATIM: the profit center `"PH-019"`, or the code
+ * alone — never both (owner ruling 2026-10-08). The
+ * text is composed by one C# formatter (`ProfitCenterFormat.PaperText`)
  * and never here — no prefixing, no brackets, no lookup.
  *
  * ⚠️ The one tolerance is a MISSING field, which is what a SIS.Api without 1990

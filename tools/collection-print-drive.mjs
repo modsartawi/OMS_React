@@ -582,7 +582,7 @@ async function run() {
         shiftDayText: '—',
         deductionLabelText: 'تسوية عجز : ',
         surplusAmountText: '',
-        deductionEntryText: 'رقم القيد / Entry No. 144',
+        deductionEntryText: 'Entry No. 144',
         deductionDescriptionText: 'عجز نقدية يوم 3 أغسطس / Cash short on 3 Aug',
       },
     ],
@@ -596,7 +596,7 @@ async function run() {
     'the contract sample → caption, entry, description — three lines, in that order',
     sampleBox.length === 3 &&
       sampleBox[0] === 'تسوية عجز :' &&
-      sampleBox[1] === 'رقم القيد / Entry No. 144' &&
+      sampleBox[1] === 'Entry No. 144' &&
       sampleBox[2] === 'عجز نقدية يوم 3 أغسطس / Cash short on 3 Aug',
     JSON.stringify(sampleBox),
   )

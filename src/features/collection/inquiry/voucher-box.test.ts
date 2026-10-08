@@ -42,7 +42,7 @@ describe('voucherBox', () => {
     expect(voucherBox(page('surplus-described'))).toEqual({
       label: 'خصم فائض : ',
       amount: '200.00',
-      entry: 'رقم القيد / Entry No. 143',
+      entry: 'Entry No. 143',
       description: SURPLUS_DESCRIPTION,
     })
   })
@@ -51,7 +51,7 @@ describe('voucherBox', () => {
     expect(voucherBox(page('settlement-described'))).toEqual({
       label: 'تسوية عجز : ',
       amount: null,
-      entry: 'رقم القيد / Entry No. 144',
+      entry: 'Entry No. 144',
       description: SETTLEMENT_DESCRIPTION,
     })
   })
@@ -60,7 +60,7 @@ describe('voucherBox', () => {
     'a %s page without a description prints the entry number alone — no blank third line',
     (key) => {
       const box = voucherBox(page(key))
-      expect(box.entry).toBe('رقم القيد / Entry No. 143')
+      expect(box.entry).toBe('Entry No. 143')
       expect(box.description).toBeNull()
     },
   )

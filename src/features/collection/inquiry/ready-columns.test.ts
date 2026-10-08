@@ -131,7 +131,7 @@ describe('buildReadyColumns', () => {
     const column = buildReadyColumns(t, [READY_DAY], true).find((c) => c.colId === 'storeText')
     expect(column?.field).toBe('storeText')
     expect(column?.valueFormatter).toBeUndefined()
-    expect(format('storeText', READY_DAY)).toBe('PH-019 (P019)')
+    expect(format('storeText', READY_DAY)).toBe('PH-019')
     // No profit center recorded: the code alone, because that is what the server sent.
     expect(format('storeText', READY_DAY_BHD)).toBe('B004')
   })

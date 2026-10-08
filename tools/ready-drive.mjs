@@ -77,7 +77,7 @@ const DAY = {
   storeId: 'P019',
   storeName: 'Al-Dawaa P019',
   profitCenter: 'PH-019',
-  storeText: 'PH-019 (P019)',
+  storeText: 'PH-019',
   currencyKey: 'SAR',
   businessDay: '2026-09-20T00:00:00',
   shiftId: '01K5ZB7M2N3P4R5S6T7V8W9X0Y',
@@ -94,7 +94,7 @@ const RECEIPT = {
   storeId: 'P019',
   storeName: 'Al-Dawaa P019',
   profitCenter: 'PH-019',
-  storeText: 'PH-019 (P019)',
+  storeText: 'PH-019',
   currencyKey: 'SAR',
   businessDay: null,
   shiftId: '',
@@ -335,7 +335,7 @@ async function run() {
   await page.waitForTimeout(300)
   const more = await headers()
   check('more columns — the tail is the composed store text and both row keys, after the mapping', more.slice(expected.length).join('|') === 'Profit Center (Store)|Shift Id|Settlement Document Id', more.join(' | '))
-  check('more columns — storeText as the server sent it, the code alone with no profit center', (await cell(dayId, 'storeText')) === 'PH-019 (P019)' && (await cell(bhdId, 'storeText')) === 'B004')
+  check('more columns — storeText as the server sent it, the code alone with no profit center', (await cell(dayId, 'storeText')) === 'PH-019' && (await cell(bhdId, 'storeText')) === 'B004')
   await page.getByRole('button', { name: 'More columns' }).click()
   await noRawKeys('grid')
 

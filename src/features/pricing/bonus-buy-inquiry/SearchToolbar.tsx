@@ -1,15 +1,15 @@
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
-import type { BbyListCriteria } from './list-params'
+import { BBY_STATUS_WORDS, searchOverrides, type BbyListCriteria, type BbyStatusWord } from './list-params'
 
-// The BBY search toolbar (spec 061, ticket 064) — the reach beyond the active default
-// to ALL BBYs. Exact BBY-number field · "active during" from/to date pickers · an
-// "Active only" toggle (default on) · a dismissable "filtered" chip · Reset · Search.
-// Fields AND together server-side; the pure `buildListParams` (list-params.ts) owns the
-// one UX rule the client keeps: any number-or-date search forces `activeOnly:false` so a
-// keyed/period lookup reaches inactive/deleted BBYs. This component only renders the
-// controlled criteria and reflects that rule (the Active-only toggle goes disabled/off the
-// moment a search field is filled — "searching auto-clears Active only").
+// The BBY search toolbar (spec 061, ticket 064; reshaped by spec 441, ticket 443): exact
+// BBY-number field · Status chips (Activated · Planned · Tested · Deactivated; none = every
+// status) · "valid during" from/to date pickers · a "Valid today" checkbox · a dismissable
+// "filtered" chip · Reset · Search. Fields AND together server-side; the pure
+// `buildListParams` (list-params.ts) owns the override rules: a number reaches any status
+// and window, and a date range replaces valid today. This component only renders the
+// controlled criteria and shows those rules honestly (the overridden controls disable).
 //
 // Dates: the raw criteria are `yyyyMMdd` (the wire shape); the native date inputs speak
 // `yyyy-MM-dd`, so we convert at the input edge only.
@@ -28,7 +28,7 @@ export interface SearchToolbarProps {
   onChange: (patch: Partial<BbyListCriteria>) => void
   onSearch: () => void
   onReset: () => void
-  /** True when the applied query is anything other than the active-only default. */
+  /** True when the applied search is anything other than Activated + valid today. */
   isFiltered: boolean
 }
 
@@ -41,13 +41,19 @@ export default function SearchToolbar({
 }: SearchToolbarProps) {
   const { t } = useTranslation('bonus-buy-inquiry')
 
-  // A number or either date is a "search" — it forces Active-only off (buildListParams
-  // does this for the query; here we mirror it so the toggle reads honestly).
-  const hasCriteria =
-    criteria.bbyNumber.trim() !== '' ||
-    criteria.validFrom.trim() !== '' ||
-    criteria.validTo.trim() !== ''
-  const activeOnlyChecked = hasCriteria ? false : criteria.activeOnly
+  // The controls a search ignores read as overridden: the same `searchOverrides` the builder
+  // applies, so the toolbar and the query cannot disagree.
+  const statusLabelId = useId()
+  const overrides = searchOverrides(criteria)
+  const hasNumber = overrides.status
+  const validTodayOverridden = overrides.validToday
+  const validTodayChecked = validTodayOverridden ? false : criteria.validToday
+  const toggleStatus = (word: BbyStatusWord) =>
+    onChange({
+      statuses: criteria.statuses.includes(word)
+        ? criteria.statuses.filter((w) => w !== word)
+        : [...criteria.statuses, word],
+    })
 
   return (
     <form
@@ -70,9 +76,43 @@ export default function SearchToolbar({
         />
       </label>
 
-      {/* "Active during" range */}
+      {/* Status chips — none pressed means every status. Overridden by a number search. */}
+      <div
+        role="group"
+        aria-labelledby={statusLabelId}
+        className={`flex flex-col gap-1 text-xs font-medium ${hasNumber ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}
+        title={hasNumber ? t('search.overriddenByNumber') : undefined}
+      >
+        <span id={statusLabelId}>{t('search.status')}</span>
+        <div className="flex h-9 items-center gap-1.5">
+          {BBY_STATUS_WORDS.map((word) => {
+            // Overridden chips read as off, like the overridden Valid-today checkbox: a number
+            // search sends no status, so none is "on".
+            const pressed = !hasNumber && criteria.statuses.includes(word)
+            return (
+              <button
+                key={word}
+                type="button"
+                aria-pressed={pressed}
+                disabled={hasNumber}
+                title={hasNumber ? t('search.overriddenByNumber') : undefined}
+                onClick={() => toggleStatus(word)}
+                className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  pressed
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border/60 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {t(`status.${word}`)}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* "Valid during" range */}
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('search.activeFrom')}
+        {t('search.validFrom')}
         <input
           type="date"
           value={ymdToInput(criteria.validFrom)}
@@ -81,7 +121,7 @@ export default function SearchToolbar({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('search.activeTo')}
+        {t('search.validTo')}
         <input
           type="date"
           value={ymdToInput(criteria.validTo)}
@@ -90,25 +130,31 @@ export default function SearchToolbar({
         />
       </label>
 
-      {/* Active-only toggle + sublabel. Overridden (disabled, forced off) once a search
-          field is present — the number/date lookup reaches inactive BBYs. */}
+      {/* Valid-today checkbox + sublabel. Overridden (disabled, shown off) by a number,
+          which reaches any window, or by a date range, which replaces "today". */}
       <label
         className={`flex select-none flex-col gap-1 text-xs font-medium ${
-          hasCriteria ? 'text-muted-foreground/50' : 'text-muted-foreground'
+          validTodayOverridden ? 'text-muted-foreground/50' : 'text-muted-foreground'
         }`}
-        title={hasCriteria ? t('search.activeOnlyOverridden') : undefined}
+        title={
+          hasNumber
+            ? t('search.overriddenByNumber')
+            : validTodayOverridden
+              ? t('search.validTodayOverriddenByDates')
+              : undefined
+        }
       >
         <span className="flex items-center gap-1.5">
           <input
             type="checkbox"
-            checked={activeOnlyChecked}
-            disabled={hasCriteria}
-            onChange={(e) => onChange({ activeOnly: e.target.checked })}
+            checked={validTodayChecked}
+            disabled={validTodayOverridden}
+            onChange={(e) => onChange({ validToday: e.target.checked })}
             className="h-4 w-4 rounded border-border/60 accent-primary"
           />
-          {t('search.activeOnly')}
+          {t('search.validToday')}
         </span>
-        <span className="ps-6 text-[0.6875rem] font-normal">{t('search.activeOnlyHint')}</span>
+        <span className="ps-6 text-[0.6875rem] font-normal">{t('search.validTodayHint')}</span>
       </label>
 
       <div className="flex items-center gap-2">
@@ -130,7 +176,7 @@ export default function SearchToolbar({
       </div>
 
       {/* Dismissable "filtered" chip — present whenever the applied query is not the
-          active-only default. Dismissing it restores that default (= Reset). */}
+          default (Activated + valid today). Dismissing it restores that default (= Reset). */}
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('search.filtered')}

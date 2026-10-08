@@ -339,8 +339,8 @@ An inquiry-screen concept the WPF never had: a BBY is **active** iff its **BBY s
 (blank) **and** it is **valid today** (its validity window overlaps today, `ValidFrom ≤ today ≤ ValidTo`)
 — computable from `BbyHeader` alone. On the inquiry these are two separate criteria: a **status
 filter** (any of Activated · Planned · Tested · Deactivated; none chosen = every status) and **valid
-today** (spec 441; the search half is still being built). The default view is Activated + valid today, i.e. the active BBYs. A number search reaches any
-status and any window; a date-range search replaces *valid today* with *valid during that range* and
+today**. The default view is Activated + valid today, i.e. the active BBYs. A number search reaches any
+status and, unless a date range is also given, any window; a date-range search replaces *valid today* with *valid during that range* and
 keeps the status filter.
 _Avoid_: live/enabled — and don't conflate with the engine's heavier "will it fire now" (cond-level
 dates + `SyncApprovalStatus` + time window + loyalty), which the inquiry deliberately does not

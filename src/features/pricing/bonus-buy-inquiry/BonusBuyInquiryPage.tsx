@@ -20,7 +20,7 @@ import DetailModal from '@/core/bonus-buy/DetailModal'
 import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 import { BBY_DETAIL_PARAM } from '@/core/bonus-buy/deep-link'
 import { bonusBuyInquiryApi } from './api'
-import { buildListParams, type BbyListCriteria } from './list-params'
+import { DEFAULT_CRITERIA, buildListParams, isDefaultCriteria, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
 import SearchToolbar from './SearchToolbar'
 import { exportBbyToCsv } from './export'
@@ -29,23 +29,13 @@ import { exportBbyToCsv } from './export'
 // shared ['bonus-buy-inquiry','access'] key with the menu probe; FAIL-OPEN while the
 // endpoint 404s — a read-only inquiry), then opens on the currently-active BBYs.
 //
-// Search (064) reaches beyond that default: the toolbar produces criteria, the pure
-// `buildListParams` maps them to the Bby/List query (any number-or-date search clears
-// Active-only), and re-querying shows the "filtered" chip. Reset restores the default.
+// Search (064; reshaped by 443) reaches beyond that default: the toolbar produces criteria
+// (number, status filter, valid today, validity dates), the pure `buildListParams` maps them
+// to the Bby/List query, and anything but Activated + valid today shows the "filtered" chip.
+// Reset restores the default.
 // The cap-reached amber banner warns when the 1,000-row cap truncated the result, and
 // date errors surface the server's message+code via `apiErrorMessage` (never "unexpected").
 // Export CSV (065) writes the current filtered/sorted set — all 28 raw fields.
-const EMPTY_CRITERIA: BbyListCriteria = {
-  bbyNumber: '',
-  validFrom: '',
-  validTo: '',
-  activeOnly: true,
-}
-
-// The active-only default query — the builder owns its exact shape, so "filtered" is
-// simply "the applied query is not this" (rather than re-hardcoding `{activeOnly:true}`).
-const DEFAULT_PARAMS = buildListParams({})
-
 // The two malformed/reversed-date business codes Bby/List returns (contract 057); their
 // server message is passed through, and the code drives a distinct "check the dates" title.
 const DATE_ERROR_CODES = new Set(['INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE'])
@@ -65,19 +55,18 @@ export default function BonusBuyInquiryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const linkedNumber = searchParams.get(BBY_DETAIL_PARAM)?.trim() || null
 
-  // `criteria` is the live toolbar draft; `appliedParams` is the query that has actually
-  // been issued (only Search/Reset promote the draft). Splitting them means typing in the
-  // toolbar doesn't refetch on every keystroke — the operator commits with Search.
+  // `criteria` is the live toolbar draft; `applied` is what has actually been searched
+  // (only Search/Reset promote the draft). Splitting them means typing in the toolbar
+  // doesn't refetch on every keystroke — the operator commits with Search.
+  //
+  // 🚩 A link names ONE record: seeding the number means `buildListParams` sends neither
+  // the status filter nor valid today, so an expired or Planned bonus buy the agent was
+  // sent to look at is never filtered out of the grid it lands on.
   const [criteria, setCriteria] = useState<BbyListCriteria>(() =>
-    linkedNumber ? { ...EMPTY_CRITERIA, bbyNumber: linkedNumber, activeOnly: false } : EMPTY_CRITERIA,
+    linkedNumber ? { ...DEFAULT_CRITERIA, bbyNumber: linkedNumber } : DEFAULT_CRITERIA,
   )
-  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    // 🚩 Not active-only when a number was named: a link is about ONE record, and
-    // an expired bonus buy the agent was sent to look at must not be filtered out
-    // of the grid it lands on. `buildListParams` already drops active-only for any
-    // number search; it is spelled here too so the toolbar agrees with the query.
-    buildListParams(linkedNumber ? { bbyNumber: linkedNumber, activeOnly: false } : {}),
-  )
+  const [applied, setApplied] = useState<BbyListCriteria>(criteria)
+  const appliedParams = useMemo(() => buildListParams(applied), [applied])
 
   const list = useQuery({
     queryKey: ['bonus-buy-inquiry', 'list', appliedParams],
@@ -89,14 +78,14 @@ export default function BonusBuyInquiryPage() {
     (patch: Partial<BbyListCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedParams(buildListParams(criteria)), [criteria])
+  const onSearch = useCallback(() => setApplied(criteria), [criteria])
   const onReset = useCallback(() => {
-    setCriteria(EMPTY_CRITERIA)
-    setAppliedParams(buildListParams({}))
+    setCriteria(DEFAULT_CRITERIA)
+    setApplied(DEFAULT_CRITERIA)
   }, [])
 
-  // "Filtered" = the applied query is anything other than the active-only default.
-  const isFiltered = JSON.stringify(appliedParams) !== JSON.stringify(DEFAULT_PARAMS)
+  // "Filtered" = the applied search is anything other than Activated + valid today.
+  const isFiltered = !isDefaultCriteria(applied)
 
   // The per-column filter row (WPF `ShowAutoFilterRow`) is off by default and toggled
   // from the toolbar — rebuilding defaultColDef flips `floatingFilter` across columns.

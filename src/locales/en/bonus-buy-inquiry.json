@@ -3,7 +3,7 @@
     "bbyInquiry": "BBY Inquiry"
   },
   "title": "Bonus Buy Inquiry",
-  "subtitle": "Look up Bonus Buy promotions. Opens on the ones active right now; search the full set by number or validity date.",
+  "subtitle": "Look up Bonus Buy promotions. Opens on the ones active right now; search the full set by number, status or validity date.",
   "access": {
     "checking": "Checking access…",
     "deniedTitle": "No access",
@@ -15,11 +15,13 @@
   "search": {
     "bbyNumber": "BBY number",
     "bbyNumberPlaceholder": "e.g. 100234",
-    "activeFrom": "Active during — from",
-    "activeTo": "Active during — to",
-    "activeOnly": "Active only",
-    "activeOnlyHint": "status A & valid today",
-    "activeOnlyOverridden": "A number or date search reaches inactive and deleted BBYs, so Active only is cleared.",
+    "status": "Status",
+    "validFrom": "Valid during — from",
+    "validTo": "Valid during — to",
+    "validToday": "Valid today",
+    "validTodayHint": "validity window includes today",
+    "overriddenByNumber": "A number search finds the bonus buy whatever its status and dates.",
+    "validTodayOverriddenByDates": "A date range replaces Valid today.",
     "search": "Search",
     "reset": "Reset",
     "filtered": "Filtered",
@@ -112,7 +114,7 @@
   "loading": "Loading Bonus Buys…",
   "empty": {
     "title": "No Bonus Buys",
-    "hint": "There are no currently-active Bonus Buys to show."
+    "hint": "No Bonus Buys match this search."
   },
   "errors": {
     "loadFailed": "Couldn't load Bonus Buys. Please try again.",

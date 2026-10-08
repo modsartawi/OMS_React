@@ -149,6 +149,16 @@ async function run() {
     }
     if (path === 'Bby/List') {
       lastListQuery = url.includes('?') ? url.split('?')[1] : ''
+      if (scenario.listError === 'status')
+        return route.fulfill(
+          envelope(null, {
+            ok: false,
+            status: 400,
+            success: false,
+            message: 'Unknown status: planed.',
+            errors: [{ errorCode: 'INVALID_STATUS', message: 'Unknown status: planed.' }],
+          }),
+        )
       if (scenario.listError)
         return route.fulfill(
           envelope(null, {
@@ -300,29 +310,98 @@ async function run() {
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
   check('search toolbar renders (BBY number field)', (await page.getByLabel(/BBY number/i).count()) >= 1)
 
-  // Search by number → Bby/List queried with activeOnly cleared + the number, filtered chip shows.
-  scenario.capReached = true
-  await page.getByLabel(/BBY number/i).fill('100234')
+  // ---- ticket 443: Status chips + Valid today replace "Active only" ----
+  const q = () => new URLSearchParams(lastListQuery)
+  const statusChip = (name) => page.getByRole('group', { name: /^Status$/ }).getByRole('button', { name, exact: true })
+  const validToday = () => page.getByRole('checkbox', { name: /Valid today/i })
+  check('443: opens on Activated + valid today (status=activated, validToday=true, activeOnly=false)',
+    q().getAll('status').join(',') === 'activated' && q().get('validToday') === 'true' && q().get('activeOnly') === 'false', lastListQuery)
+  check('443: the Activated chip starts pressed, the others not',
+    (await statusChip('Activated').getAttribute('aria-pressed')) === 'true' &&
+      (await statusChip('Planned').getAttribute('aria-pressed')) === 'false', '')
+  check('443: no Filtered chip on the default view', (await page.getByText(/^Filtered$/).count()) === 0)
+
+  // Planned + Tested, valid today → both statuses as repeated keys, in chip order.
+  await statusChip('Activated').click()
+  await statusChip('Tested').click()
+  await statusChip('Planned').click()
   await page.getByRole('button', { name: /^Search$/i }).click()
   await page.waitForTimeout(400)
-  check('Search sends activeOnly=false + bbyNumber (number clears Active only)', /activeOnly=false/.test(lastListQuery) && /bbyNumber=100234/.test(lastListQuery), lastListQuery)
+  check('443: Planned + Tested sends status=planned&status=tested + validToday=true',
+    q().getAll('status').join(',') === 'planned,tested' && q().get('validToday') === 'true', lastListQuery)
+  check('443: a status search shows the Filtered chip', (await page.getByText(/^Filtered$/).count()) >= 1)
+
+  // Dismissing the Filtered chip restores the default, like Reset.
+  await page.getByRole('button', { name: /Clear filter/i }).click()
+  await page.waitForTimeout(400)
+  check('443: dismissing the Filtered chip restores Activated + valid today',
+    q().getAll('status').join(',') === 'activated' && q().get('validToday') === 'true' &&
+      (await page.getByText(/^Filtered$/).count()) === 0, lastListQuery)
+
+  // No status at all, valid today off → every status, any window.
+  await statusChip('Activated').click()
+  await validToday().uncheck()
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  check('443: no chip pressed sends no status; valid today off sends validToday=false',
+    !q().has('status') && q().get('validToday') === 'false', lastListQuery)
+
+  // A date range replaces valid today and keeps the status filter.
+  await statusChip('Deactivated').click()
+  await page.getByLabel(/Valid during — from/i).fill('2026-09-01')
+  await page.getByLabel(/Valid during — to/i).fill('2026-09-30')
+  check('443: a date disables Valid today', await validToday().isDisabled())
+  check('443: ...but leaves the Status chips usable', !(await statusChip('Planned').isDisabled()))
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  check('443: dates + Deactivated send the range and status, never validToday',
+    q().getAll('status').join(',') === 'deactivated' && q().get('validFrom') === '20260901' &&
+      q().get('validTo') === '20260930' && !q().has('validToday'), lastListQuery)
+  await page.getByRole('button', { name: /^Reset$/i }).click()
+  await page.waitForTimeout(400)
+  check('443: Reset restores Activated + valid today',
+    q().getAll('status').join(',') === 'activated' && q().get('validToday') === 'true' &&
+      (await statusChip('Activated').getAttribute('aria-pressed')) === 'true' && (await validToday().isChecked()), lastListQuery)
+
+  // A stubbed 400 INVALID_STATUS surfaces its server message (a client bug, no special branch).
+  scenario.listError = 'status'
+  await statusChip('Planned').click()
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  const statusErr = await page.locator('[role="alert"]').innerText().catch(() => '')
+  check('443: INVALID_STATUS shows the server message', /Unknown status/i.test(statusErr), statusErr.slice(0, 80))
+  scenario.listError = false
+  await page.getByRole('button', { name: /^Reset$/i }).click()
+  await page.waitForTimeout(400)
+
+  // Search by number → only the number is sent; Status + Valid today read as overridden.
+  scenario.capReached = true
+  await page.getByLabel(/BBY number/i).fill('100234')
+  check('443: a number disables the Status chips and Valid today',
+    (await statusChip('Activated').isDisabled()) && (await validToday().isDisabled()))
+  check('443: ...and both read as off (no chip pressed, Valid today unchecked)',
+    (await statusChip('Activated').getAttribute('aria-pressed')) === 'false' && !(await validToday().isChecked()))
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  check('Search by number sends only bbyNumber (+ activeOnly=false): any status, any window',
+    q().get('bbyNumber') === '100234' && q().get('activeOnly') === 'false' && !q().has('status') && !q().has('validToday'), lastListQuery)
   const chipCount = await page.getByText(/^Filtered$/).count()
   check('filtered chip shows after a search', chipCount >= 1)
   check('cap-reached amber banner shows when capReached', (await page.getByText(/first 1,000/i).count()) >= 1)
 
-  // Reset → back to the active-only default: chip gone, query reverts to activeOnly=true only.
+  // Reset → back to the default (Activated + valid today): chip gone, no number.
   scenario.capReached = false
   await page.getByRole('button', { name: /^Reset$/i }).click()
   await page.waitForTimeout(400)
-  check('Reset restores active-only default (activeOnly=true, no bbyNumber)', /activeOnly=true/.test(lastListQuery) && !/bbyNumber=/.test(lastListQuery), lastListQuery)
+  check('Reset restores the default (status=activated, validToday=true, no bbyNumber)', q().getAll('status').join(',') === 'activated' && q().get('validToday') === 'true' && !q().has('bbyNumber'), lastListQuery)
   check('filtered chip gone after Reset', (await page.getByText(/^Filtered$/).count()) === 0)
   check('cap banner gone after Reset', (await page.getByText(/first 1,000/i).count()) === 0)
 
   // Reversed dates → business error 400 INVALID_DATE_RANGE → server message surfaced (not "unexpected").
   scenario.capReached = false
   scenario.listError = true
-  await page.getByLabel(/Active during — from/i).fill('2026-12-31')
-  await page.getByLabel(/Active during — to/i).fill('2026-01-01')
+  await page.getByLabel(/Valid during — from/i).fill('2026-12-31')
+  await page.getByLabel(/Valid during — to/i).fill('2026-01-01')
   await page.getByRole('button', { name: /^Search$/i }).click()
   await page.waitForTimeout(400)
   const errText = await page.locator('[role="alert"]').innerText().catch(() => '')

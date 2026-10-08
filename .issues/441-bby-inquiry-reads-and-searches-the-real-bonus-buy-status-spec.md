@@ -107,16 +107,18 @@ type BbyStatusWord = 'activated' | 'planned' | 'tested' | 'deactivated'
 
 The pure params builder keeps owning the override rules:
 
-- **number present** → send only `bbyNumber` (plus `activeOnly=false`). Status and valid-today are not sent.
+- **number present** → send `bbyNumber` (plus `activeOnly=false`, and any dates given, which still AND as before). Status and valid-today are not sent (amended 2026-10-08 by ticket 443: the grilling's decision 3 dropped only status and valid today).
 - **either date present** → send `validFrom`/`validTo` and `status`. Valid-today is not sent.
 - **otherwise** → send `status` (when non-empty) and `validToday`.
 - `activeOnly` is always sent as `false` by the new screen. The server keeps the param for older callers.
-- `status` is a **comma-separated list of words** (`status=planned,tested`), not codes: a blank
-  code cannot be sent, because the query builder drops empty strings.
+- `status` is a list of **words**, not codes: a blank code cannot be sent, because the query
+  builder drops empty strings. It travels as a **repeated key** (`status=planned&status=tested`), the
+  way `@/core/api`'s query builder sends every array, which ASP.NET binds as a collection
+  (amended 2026-10-08 by ticket 443; the grilling had said a comma list).
 
 **Server contract (BackOffice ask, BO-1, not yet filed).** `GET Bby/List` gains:
 
-- `status` — a comma list of `activated|planned|tested|deactivated` (any case). The server maps the
+- `status` — repeated, each one of `activated|planned|tested|deactivated` (any case; bind as `string[]`). The server maps the
   words to codes (`activated` → blank, matching blank-or-whitespace as SAP pads). Blank/absent means
   all statuses. An unknown word returns 400 with the envelope code `INVALID_STATUS`, like 2384's
   `INVALID_SOURCE`.

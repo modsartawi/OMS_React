@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router'
 import type { LoyMember } from '@/core/models/loy'
 import ActionsTab from './ActionsTab'
 import ActivitiesTab from './ActivitiesTab'
+import InvoicesTab from './InvoicesTab'
 import ProfileTab from './ProfileTab'
 import SalesTab from './SalesTab'
 import type { MemberAuthority } from './api'
@@ -97,6 +98,9 @@ export default function MemberTabs({
           <ActivitiesTab loyId={loyId} />
         ) : open === 'sales' ? (
           <SalesTab loyId={loyId} />
+        ) : open === 'invoices' ? (
+          // The edit tier decides only whether Resend exists; the tab is look-tier (428).
+          <InvoicesTab loyId={loyId} mayEdit={authority.mayEdit} />
         ) : (
           <ActionsTab loyId={loyId} />
         )}

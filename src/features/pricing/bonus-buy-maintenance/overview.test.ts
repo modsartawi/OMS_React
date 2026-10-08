@@ -13,6 +13,7 @@ import {
   overviewStatus,
   readPromotionFlip,
   runEach,
+  testableNumbers,
 } from './overview'
 
 const ok = (number: string): BbyMaintainOutcome => ({ status: 'saved', number, refusals: [], warnings: [] })
@@ -188,5 +189,25 @@ describe('activate on a Planned bonus buy is not offered', () => {
 
   it('an empty selection offers nothing', () => {
     expect(canActivateSelection([])).toBe(false)
+  })
+})
+
+describe('Mark Tested on a selection sends only its Planned bonus buys', () => {
+  it('a select-all keeps the Planned ones, in grid order, and drops every other status', () => {
+    expect(
+      testableNumbers([
+        { number: '1', status: 'planned' },
+        { number: '2', status: 'tested' },
+        { number: '3', status: 'activated' },
+        { number: '4', status: 'planned' },
+        { number: '5', status: 'deactivated' },
+        { number: '6', status: 'unknown' },
+      ]),
+    ).toEqual(['1', '4'])
+  })
+
+  it('a selection with no Planned bonus buy has nothing to mark', () => {
+    expect(testableNumbers([{ number: '2', status: 'tested' }])).toEqual([])
+    expect(testableNumbers([])).toEqual([])
   })
 })

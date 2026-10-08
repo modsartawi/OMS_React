@@ -217,6 +217,47 @@ export interface LoySalesRow {
   currency: string | null
 }
 
+/** What happened to a receipt's invoice email, as the server words it (BackOffice 2446). */
+export const LOY_INVOICE_EMAIL_STATUSES = ['Sent', 'Skipped', 'Failed', 'Queued', 'NotQueued'] as const
+export type LoyInvoiceEmailStatus = (typeof LOY_INVOICE_EMAIL_STATUSES)[number]
+
+/**
+ * One row of `GET LoyWeb/Reports/Invoices/{loyId}` (ticket 428, BackOffice 2446) —
+ * one **receipt**, not one sales line, inside the rail's 90-day window, newest first.
+ *
+ * 🚩 **Every field is the server's verdict, not an input to one.** `status` comes from
+ * the queue row and its latest attempt; `recipient`, `recipientSource` and
+ * `resendable` come from the SAME recipient rule the invoice rail runs (BackOffice
+ * 2444), so the screen cannot say "will be sent" for something the rail then skips.
+ * The client words these and derives nothing from them.
+ */
+export interface LoyInvoiceRow {
+  storeCode: string
+  trxNumber: string
+  /** Date-only in practice, as on the Sales tab. */
+  trxDate: string
+  /** The raw document type number. Carried, drawn in no column. */
+  documentType: number
+  status: LoyInvoiceEmailStatus
+  /** The latest attempt's skip reason code (`NO_EMAIL`, …), or null. */
+  skipReason: string | null
+  /** The latest attempt's completion time, local wall-clock. */
+  lastAttemptAt: string | null
+  /** Where the invoice would go if it were requeued NOW, or null when it could not. */
+  recipient: string | null
+  recipientSource: 'Profile' | 'Order' | null
+  resendable: boolean
+  /** `NOT_QUEUED`, `QUEUED` or a skip reason code. */
+  notResendableReason: string | null
+}
+
+/** The answer of `POST LoyWeb/Member/{loyId}/Invoices/{storeCode}/{trxNumber}/Requeue` (BackOffice 2445). */
+export interface LoyInvoiceRequeueResult {
+  result: 'Queued' | 'AlreadyQueued'
+  recipient: string
+  recipientSource: 'Profile' | 'Order'
+}
+
 /**
  * One row of `GET LoyWeb/Reports/LoyMemberActions` — `LoyMemberActionModel`,
  * narrowed to the seven fields the Actions tab draws plus the key it is sorted

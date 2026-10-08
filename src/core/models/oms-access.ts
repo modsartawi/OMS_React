@@ -25,4 +25,25 @@ export interface OmsAccessResult {
   canOpenList: boolean
   canOpenDetail: boolean
   canMarkDelivered?: boolean
+  // ── The OMS screens of spec 430 (D2, ticket 431) — BackOffice ask BO-1, not built yet ──
+  // All optional: a server that has not learned a flag omits it, and an absent flag reads
+  // as denied through `omsGrants` (`@/core/oms/access`), so the leaves stay hidden until then.
+  /** `BackOfficeScreen[DonorRequestInquiry,03]` — new grant. */
+  canOpenDonorRequests?: boolean
+  /** `DocumentPaymentInquiry,03`. */
+  canOpenDocumentPayments?: boolean
+  /** `FailedDonorTransfers,03`. */
+  canOpenFailedTransfers?: boolean
+  /** `FailedDonorTransfers,06` — the re-run. */
+  canReRunFailedTransfer?: boolean
+  /** `SdCityInquiry,03` OR `SdDistrictInquiry,03`. */
+  canOpenGeography?: boolean
+  /** `SdCityImport,03`. */
+  canImportCities?: boolean
+  /** `SdDistrictImport,03`. */
+  canImportDistricts?: boolean
+  /** `DocumentSourceUsersInquiry,03`. */
+  canOpenDocumentSourceUsers?: boolean
+  /** `DocumentSourceUsersImport,03`. */
+  canImportDocumentSourceUsers?: boolean
 }

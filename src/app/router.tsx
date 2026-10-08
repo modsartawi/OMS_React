@@ -143,6 +143,46 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/central-invoice/CentralInvoicesPage')).default,
         }),
       },
+      // Donor requests (ticket 431, spec 430) — every store's donor asks, behind its own flag on
+      // the shared OMS probe. `?request=<no>` seeds a one-request search (434's link).
+      {
+        path: 'oms/donor-requests',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/donor-requests/DonorRequestsPage')).default,
+        }),
+      },
+      // Failed donor transfers (ticket 434, spec 430) — HQ inventory's work queue, behind its own
+      // flag on the shared OMS probe.
+      {
+        path: 'oms/failed-donor-transfers',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/failed-donor-transfers/FailedDonorTransfersPage')).default,
+        }),
+      },
+      // Document payments (ticket 433, spec 430) — the WPF Document Payment Inquiry, behind its own
+      // flag on the shared OMS probe.
+      {
+        path: 'oms/document-payments',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/document-payments/DocumentPaymentsPage')).default,
+        }),
+      },
+      // Cities & districts (ticket 436, spec 430) — the WPF City and District inquiries, behind
+      // their own flag on the shared OMS probe.
+      {
+        path: 'oms/geography',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/geography/GeographyPage')).default,
+        }),
+      },
+      // Document source users (ticket 438, spec 430) — the WPF Document source users inquiry and
+      // import, behind their own flags on the shared OMS probe.
+      {
+        path: 'oms/document-source-users',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/document-source-users/DocumentSourceUsersPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

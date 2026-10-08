@@ -1,0 +1,124 @@
+{
+  "menu": {
+    "documentSourceUsers": "مستخدمو مصادر المستندات"
+  },
+  "title": "مستخدمو مصادر المستندات",
+  "subtitle": "أي موظف مرتبط بأي مصدر مستند، ومن غيّر كل ربط آخر مرة.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية مستخدمي مصادر المستندات",
+    "deniedHint": "حسابك لا يملك صلاحية مستخدمي مصادر المستندات. اطلبها من المسؤول إن كنت تحتاجها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "filter": "تصفية حسب المستخدم أو المصدر",
+  "importButton": "استيراد",
+  "columns": {
+    "userId": "رقم المستخدم",
+    "documentSource": "مصدر المستند",
+    "updatedBy": "عُدّل بواسطة",
+    "updatedAt": "عُدّل في"
+  },
+  "list": {
+    "empty": "لا يوجد مستخدم مرتبط بمصدر مستند.",
+    "noneMatch": "لا شيء يطابق هذا المرشح.",
+    "failedTitle": "تعذّر تحميل مستخدمي مصادر المستندات",
+    "reloadFailedTitle": "تعذّرت إعادة تحميل القائمة — المعروض آخر ما حُمّل",
+    "failed": "تعذّر تحميل القائمة. حاول مرة أخرى بعد قليل."
+  },
+  "statusBar": {
+    "loading": "جارٍ التحميل…",
+    "count_zero": "<n>{{n}}</n> مستخدم",
+    "count_one": "مستخدم واحد",
+    "count_two": "مستخدمان",
+    "count_few": "<n>{{n}}</n> مستخدمين",
+    "count_many": "<n>{{n}}</n> مستخدمًا",
+    "count_other": "<n>{{n}}</n> مستخدم",
+    "filtered_zero": "يُعرض <n>{{n}}</n> مستخدم",
+    "filtered_one": "يُعرض <n>{{n}}</n> مستخدم",
+    "filtered_two": "يُعرض <n>{{n}}</n> مستخدم",
+    "filtered_few": "يُعرض <n>{{n}}</n> مستخدمين",
+    "filtered_many": "يُعرض <n>{{n}}</n> مستخدمًا",
+    "filtered_other": "يُعرض <n>{{n}}</n> مستخدم"
+  },
+  "export": {
+    "button": "تصدير إلى Excel",
+    "sheet": "مستخدمو مصادر المستندات",
+    "fileName": "document-source-users",
+    "done": "تم التصدير",
+    "written_zero": "كُتب {{n}} مستخدم في المصنف.",
+    "written_one": "كُتب مستخدم واحد في المصنف.",
+    "written_two": "كُتب مستخدمان في المصنف.",
+    "written_few": "كُتب {{n}} مستخدمين في المصنف.",
+    "written_many": "كُتب {{n}} مستخدمًا في المصنف.",
+    "written_other": "كُتب {{n}} مستخدم في المصنف.",
+    "failed": "فشل التصدير",
+    "failedDetail": "تعذّر كتابة المصنف. حاول مرة أخرى."
+  },
+  "import": {
+    "title": "استيراد مستخدمي مصادر المستندات",
+    "format": "مستخدم في كل سطر، وأعمدته مفصولة بعلامات جدولة كما يقرؤها WPF: رقم المستخدم، مصدر المستند. أضف عمودًا ثالثًا فيه X لحذف ربط ذلك المستخدم. لا يوجد سطر عناوين: سطر العناوين يُقرأ مستخدمًا.",
+    "file": "اختر ملفًا",
+    "fileChosen": "قُرئ من <name>{{name}}</name>",
+    "paste": "أو الصق الأسطر (من Excel مباشرة)",
+    "readFailed": "تعذّرت قراءة الملف نصًّا. احفظه في Excel بصيغة \"Unicode Text\" واختره مرة أخرى، أو الصق أسطره.",
+    "summary_zero": "<n>{{n}}</n> سطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_one": "سطر واحد: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_two": "سطران: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_few": "<n>{{n}}</n> أسطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_many": "<n>{{n}}</n> سطرًا: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "summary_other": "<n>{{n}}</n> سطر: للإضافة أو التحديث <upserts>{{upserts}}</upserts>، وللحذف <deletes>{{deletes}}</deletes>",
+    "blocked_zero": "عدد أعمدة <n>{{n}}</n> سطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_one": "عدد أعمدة سطر واحد غير صحيح. صحّحه لتتمكن من الإرسال.",
+    "blocked_two": "عدد أعمدة سطرين غير صحيح. صحّحهما لتتمكن من الإرسال.",
+    "blocked_few": "عدد أعمدة <n>{{n}}</n> أسطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_many": "عدد أعمدة <n>{{n}}</n> سطرًا غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "blocked_other": "عدد أعمدة <n>{{n}}</n> سطر غير صحيح. صحّحها لتتمكن من الإرسال.",
+    "send_zero": "إرسال {{count}} سطر",
+    "send_one": "إرسال سطر واحد",
+    "send_two": "إرسال سطرين",
+    "send_few": "إرسال {{count}} أسطر",
+    "send_many": "إرسال {{count}} سطرًا",
+    "send_other": "إرسال {{count}} سطر",
+    "sending": "جارٍ الإرسال…",
+    "cancel": "إلغاء",
+    "again": "استيراد ملف آخر",
+    "close": "إغلاق",
+    "failedTitle": "ربما لم يُطبَّق الاستيراد — أُعيد تحميل القائمة، فراجعها قبل الإرسال مرة أخرى",
+    "refusedTitle": "رُفض الاستيراد — لم يُطبَّق شيء",
+    "failed": "تعذّر إرسال الاستيراد. حاول مرة أخرى بعد قليل.",
+    "preview": {
+      "line": "السطر",
+      "action": "الإجراء",
+      "problem": "المشكلة"
+    },
+    "action": {
+      "upsert": "إضافة أو تحديث",
+      "delete": "حذف",
+      "error": "تعذّرت قراءته"
+    },
+    "problem": {
+      "columnCount_zero": "في هذا السطر {{count}} عمود؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_one": "في هذا السطر عمود واحد؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_two": "في هذا السطر عمودان؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_few": "في هذا السطر {{count}} أعمدة؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_many": "في هذا السطر {{count}} عمودًا؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X.",
+      "columnCount_other": "في هذا السطر {{count}} عمود؛ يحتاج إلى {{expected}}، أو {{withDelete}} آخرها X."
+    },
+    "result": {
+      "applied": "طُبّق",
+      "unchanged": "دون تغيير",
+      "skipped": "تُخطّي",
+      "clean": "لم يُتخطَّ أي سطر.",
+      "skippedTitle": "الأسطر التي تخطّاها الخادم",
+      "line": "السطر",
+      "key": "المفتاح",
+      "reason": "السبب"
+    },
+    "reason": {
+      "unknownCity": "مدينة غير معروفة",
+      "unknownStaff": "رقم موظف غير معروف",
+      "unknownSource": "مصدر مستند غير معروف"
+    }
+  }
+}

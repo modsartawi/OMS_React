@@ -1,0 +1,118 @@
+{
+  "menu": {
+    "donorRequests": "Donor requests"
+  },
+  "title": "Donor requests",
+  "subtitle": "Every store's asks to a donor store, opening on today's. Filter by state, store or the day they were raised.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to donor requests",
+    "deniedHint": "Your account does not hold the grant for donor requests. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "state": "State",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "storePlaceholder": "Any store",
+    "from": "Raised from",
+    "to": "Raised to",
+    "search": "Search",
+    "reset": "Today",
+    "requestOnly": "Showing request <no>{{requestNo}}</no> only, raised on any day.",
+    "requestClear": "Back to today",
+    "problem": {
+      "badDate": "Enter the dates as days.",
+      "reversed": "The range ends before it starts."
+    }
+  },
+  "state": {
+    "OPEN": "Open",
+    "FULFILLED": "Fulfilled",
+    "TRANSFERRED": "Transferred",
+    "CANCELLED": "Cancelled"
+  },
+  "outcome": {
+    "cancelled": "Cancelled",
+    "refused": "Refused",
+    "expired": "Expired",
+    "cancelledAfterPicked": "Cancelled after pick"
+  },
+  "columns": {
+    "requestNo": "Request",
+    "deliveryNo": "Delivery",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "state": "State",
+    "outcome": "Outcome",
+    "outcomeReason": "Reason",
+    "asked": "Asked",
+    "given": "Given",
+    "raisedAt": "Raised",
+    "pickedAt": "Picked",
+    "endedAt": "Ended",
+    "pickTime": "Pick time",
+    "pickTimeHint": "How long an open request has waited on its donor, or how long the donor took to pick."
+  },
+  "pick": {
+    "waiting": "Waiting {{elapsed}}",
+    "took": "Picked in {{elapsed}}"
+  },
+  "elapsed": {
+    "minutes": "{{m}}m",
+    "hours": "{{h}}h {{m}}m",
+    "days": "{{d}}d {{h}}h"
+  },
+  "list": {
+    "empty": "No donor request matches these filters.",
+    "failedTitle": "The donor requests could not be loaded",
+    "failed": "The list could not be loaded. Try again in a moment."
+  },
+  "statusBar": {
+    "loading": "Loading…",
+    "rows_one": "<n>{{n}}</n> donor request",
+    "rows_other": "<n>{{n}}</n> donor requests",
+    "limited_one": "Showing the first <n>{{n}}</n> donor request — narrow the filters to see the rest",
+    "limited_other": "Showing the first <n>{{n}}</n> donor requests — narrow the filters to see the rest"
+  },
+  "inspector": {
+    "region": "Donor request",
+    "resize": "Resize the donor request pane",
+    "empty": "Select a donor request to see its moments.",
+    "request": "Donor request",
+    "facts": "Request",
+    "delivery": "Delivery",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "asked": "Units asked",
+    "given": "Units given",
+    "transfer": "Transfer",
+    "sto": "STO",
+    "sapDocument": "SAP document",
+    "notYet": "Not in yet",
+    "moments": "Moments",
+    "noMoments": "No moment is recorded on this request.",
+    "moment": {
+      "raised": "Raised",
+      "edited": "Edited",
+      "picked": "Picked",
+      "stamped": "Stamped",
+      "transferred": "Transferred",
+      "ended": "Ended"
+    },
+    "by": "by <who>{{by}}</who>",
+    "open": "Open delivery",
+    "noDelivery": "This request names no delivery."
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "donor-requests",
+    "sheet": "Donor requests",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} donor request was written to the workbook.",
+    "doneDetail_other": "{{n}} donor requests were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

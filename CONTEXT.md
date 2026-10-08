@@ -55,6 +55,34 @@ delivery's Log: raised, edited, picked, stamped, transferred, ended. Each is the
 time for that moment (a repick replaces the earlier one), and an unset time is no moment.
 _Avoid_: donor log, donor event (neither is a Log row).
 
+**Failed donor transfer**:
+A donor request whose transfer HQ must deal with: either its DRTR job failed or is still
+retrying, or the request was cancelled but its transfer posted anyway (**reverse by hand**). The
+list of them is a work queue, not a history; a line leaves it once it is dealt with.
+_Avoid_: failed donor request (the request did not fail, its transfer did).
+
+**Reverse by hand**:
+A failed donor transfer whose stock already moved in SAP although the request was cancelled. It is
+never re-run; what HQ owes is the reversal of its STO in DRS.
+
+**Re-run**:
+HQ asking the outbox to run a **failed** donor transfer's job once more, after fixing its cause. A
+job still retrying belongs to the outbox and is not re-run. Re-running posts stock, so it is its
+own permission apart from reading the list.
+
+**Document payment**:
+One payment line of a document (order or delivery): its type, method, card, amount and reference,
+read beside the document's delivery and invoice. Read-only here.
+
+**District**:
+A delivery area inside a **city**, assigned to the store that serves it (with an insurance store
+and a temporary store beside it). Cities and districts are shared geography: an order's address
+resolves to a district, and the district names its store.
+
+**Document source user**:
+A staff user pinned to one **document source**, the "how did this order arrive" a document records
+(not the seat it was typed at). One source per user.
+
 **Delivery inspector**:
 The resizable panel beside the Deliveries grid that shows the **selected row**. It is drawn from
 the list row alone and never fetches, so stepping through rows is free. It is **read-only**: its
@@ -280,7 +308,10 @@ The `BbyStatus` code on a `BbyHeader`, SAP's `KONBBYH.STATUS`: **blank** = Activ
 bonus buys only). Since BackOffice 2339 it is the **activation gate**: only a blank (Activated) bonus
 buy prices at a till; a Planned, Tested or Deactivated one prices only in the simulator, by an
 explicit option. Transitions (ADR 0063, reversing 2374's "never back"): Planned → Tested (**Mark
-Tested**, by someone other than the last writer, holding the tester grant) → Activated ↔ Deactivated,
+Tested**, by someone other than the last writer, holding the tester grant; offered on one bonus buy
+in its editor and on a selection in the promotion overview, where only the selection's Planned ones
+are sent, one call each, under one shared note: the tester vouches for every one, having priced the
+cases they chose) → Activated ↔ Deactivated,
 and Tested / Activated / Deactivated → Planned (**Back to Planned**, which clears the test mark and,
 from Activated, pulls the offer off the tills). Planned → Activated is refused. **Only a Planned bonus
 buy can change.** ⚠️ The older reading — **A** = Activated, **I** = Inactive, **D** = Draft, **X** = Deleted
@@ -462,6 +493,14 @@ is a fraud signal and a flag nobody saw proves nothing). The link stands regardl
 lines landed.
 _Avoid_: failed line, dropped item (nothing failed — the guardrails held).
 
+**Skipped import line** (of a master-data import):
+A line of a WPF tab-separated import (cities, districts, document source users) that the server
+did not apply, answered per line as `{ line, key, reason }` (spec 430 D8) — `line` is the 1-based
+line as sent, empty lines not counted. A known reason (`UNKNOWN_CITY`, `UNKNOWN_STAFF`,
+`UNKNOWN_SOURCE`) is worded; any other is shown as its code, never dropped. Distinct from an
+**error line**, which the preview catches before sending (wrong column count) and which blocks Send.
+_Avoid_: skipped line unqualified (that is a link's), failed line.
+
 **IDoc**:
 The document the SAP rail generates for a till transaction and sends to SAP — one per **IDoc type**
 (an aggregated envelope, a sales-as-per-receipt envelope, an FI document, and others). Several exist
@@ -550,3 +589,22 @@ ordinary reasons a person picks from a list. The distinction exists so that a st
 serious claim cannot be applied by hand to a member the claim isn't true of.
 _Avoid_: internal reason, hidden reason (it is shown wherever a member's block is shown; it is
 unselectable, not invisible).
+
+**Skip (invoice email)**:
+An attempt to email a receipt's tax invoice that correctly sends nothing, because there is no
+deliverable recipient — no loyalty member, a blank or malformed address, an internal support
+address, a shared placeholder member, or a missing online order. Terminal and correct, never a
+failure; each carries a **skip reason** naming which condition fired, worded on screen as the thing
+to fix.
+_Avoid_: failed, ignored, not sent (a failure is the provider refusing a real send; a skip never
+tried).
+
+**Requeue (invoice email)**:
+A person putting **one** receipt's already-queued invoice email back in front of the send queue,
+typically after the customer corrected their email and called to ask for the invoice again. It
+sends the same tax invoice to the **current** recipient on file — it never names an address of its
+own — and grants it fresh attempts while the earlier ones stay on record. Only a receipt the queue
+already holds can be requeued: insurance, credit and non-emailing stores' receipts were never
+queued. The screen's action is labelled **Resend**, which is the customer's word for it.
+_Avoid_: resend to another address, retry (a retry is the queue's own next attempt), re-drive (the
+bulk return of a backlog).

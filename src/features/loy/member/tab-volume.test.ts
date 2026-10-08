@@ -38,7 +38,7 @@ describe('resolveTab', () => {
   })
 
   it('draws the peers in the order the strip needs them', () => {
-    expect([...MEMBER_TABS]).toEqual(['profile', 'activities', 'sales', 'actions'])
+    expect([...MEMBER_TABS]).toEqual(['profile', 'activities', 'sales', 'invoices', 'actions'])
   })
 })
 

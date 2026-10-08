@@ -190,6 +190,63 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.list')!
     expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
   })
+
+  // Spec 430 D18 / ticket 431: the wave's leaves follow the two central-invoicing ones.
+  it('Donor requests follows Central invoicing, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('donor-requests:menu.donorRequests')).toBe(keys.indexOf('central-invoice:menu.list') + 1)
+    expect(lit('/oms/donor-requests')).toEqual(['donor-requests:menu.donorRequests'])
+  })
+
+  it('🚩 Donor requests reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'donor-requests:menu.donorRequests')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
+  })
+
+  // D18: Donor requests, Failed donor transfers (434), Document payments (433).
+  it('Document payments comes after Donor requests, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('document-payments:menu.documentPayments')).toBeGreaterThan(keys.indexOf('donor-requests:menu.donorRequests'))
+    expect(keys.indexOf('donor-requests:menu.donorRequests')).toBeGreaterThanOrEqual(0)
+    expect(lit('/oms/document-payments')).toEqual(['document-payments:menu.documentPayments'])
+  })
+
+  it('Failed donor transfers sits between Donor requests and Document payments, lit alone', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    const at = keys.indexOf('failed-donor-transfers:menu.failedDonorTransfers')
+    expect(at).toBe(keys.indexOf('donor-requests:menu.donorRequests') + 1)
+    expect(keys.indexOf('document-payments:menu.documentPayments')).toBe(at + 1)
+    expect(lit('/oms/failed-donor-transfers')).toEqual(['failed-donor-transfers:menu.failedDonorTransfers'])
+  })
+
+  it('🚩 Failed donor transfers reads its OWN flag off the ONE OMS probe entry; the re-run flag alone does not show it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'failed-donor-transfers:menu.failedDonorTransfers')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
+  })
+
+  it('🚩 Document payments reads its OWN flag off the ONE OMS probe entry, and an absent flag hides it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'document-payments:menu.documentPayments')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
+  })
+
+  it('Cities & districts follows Document payments (D18), lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('geography:menu.geography')).toBe(keys.indexOf('document-payments:menu.documentPayments') + 1)
+    expect(lit('/oms/geography')).toEqual(['geography:menu.geography'])
+  })
+
+  it('🚩 Cities & districts reads its OWN flag off the ONE OMS probe entry; an import flag alone does not show it', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'geography:menu.geography')!
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
+  })
 })
 
 describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ticket 391)', () => {

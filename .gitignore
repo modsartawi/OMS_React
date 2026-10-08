@@ -82,3 +82,13 @@ tools/.callcenter-callerbar-shots/
 tools/.bby-maintenance-shots/
 # Delivery details donor-moments drive screenshots (tools/document-donor-drive.mjs, ticket 429)
 tools/.document-donor-shots/
+# Donor requests drive screenshots (tools/donor-requests-drive.mjs, ticket 431)
+tools/.donor-requests-shots/
+# Document payments drive screenshots (tools/document-payments-drive.mjs, ticket 433)
+tools/.document-payments-shots/
+# Failed donor transfers drive screenshots (tools/failed-donor-transfers-drive.mjs, ticket 434)
+tools/.failed-donor-transfers-shots/
+# Cities & districts drive screenshots (tools/geography-drive.mjs, ticket 436)
+tools/.geography-shots/
+# Document source users drive screenshots (tools/document-source-users-drive.mjs, ticket 438)
+tools/.document-source-users-shots/

@@ -475,9 +475,9 @@ async function run() {
   // ---- Scenario 1: Profile leads the strip, Activities still lands ---------
   await open('lookOnly', { tab: '' })
   check(
-    'Profile LEADS the strip, before the three reports',
+    'Profile LEADS the strip, before the four reports',
     (await page.getByRole('tab').allInnerTexts()).map((s) => s.trim()).join('|') ===
-      'Profile|Activities|Sales|Actions',
+      'Profile|Activities|Sales|Invoices|Actions',
     (await page.getByRole('tab').allInnerTexts()).join('|'),
   )
   check(
@@ -791,7 +791,7 @@ async function run() {
     status: 400,
     success: false,
     message: 'Blocked reason IA is not configured for this store.',
-    errors: [{ errorCode: 'LOY-00105', errorMessage: '', internalErrorCode: '' }],
+    errors: [{ errorCode: 'LOY-00453', errorMessage: '', internalErrorCode: '' }],
   })
   await confirmButton.click()
   await dialog.getByRole('alert').waitFor({ timeout: 10000 })
@@ -1046,7 +1046,7 @@ async function run() {
   )
 
   // ---- Scenario 14: a refused save keeps every edit ------------------------
-  profileRefusal = refusalEnvelope('LOY-00107', 'City 0021 is not a known city.')
+  profileRefusal = refusalEnvelope('LOY-00005', 'City 0021 is not a known city.')
   await field('cityCode').fill('0021')
   await field('gender').fill('')
   await saveButton.click()
@@ -1076,7 +1076,7 @@ async function run() {
   )
 
   // ---- Scenario 15: the stale-write guard ---------------------------------
-  profileRefusal = refusalEnvelope('LOY-00108', 'The member has changed since you loaded it.')
+  profileRefusal = refusalEnvelope('LOY-00103', 'The member has changed since you loaded it.')
   await field('cityCode').fill('JED')
   await saveButton.click()
   await panel.getByText(/changed while you had the form open/i).waitFor({ timeout: 10000 })
@@ -1219,7 +1219,7 @@ async function run() {
 
   // ---- Scenario 19: a reload whose read failed keeps the edits -------------
   await open('editor')
-  profileRefusal = refusalEnvelope('LOY-00108', 'The member has changed since you loaded it.')
+  profileRefusal = refusalEnvelope('LOY-00103', 'The member has changed since you loaded it.')
   await field('fullName').fill('Nouf Al-Harbee')
   await saveButton.click()
   await panel.getByText(/changed while you had the form open/i).waitFor({ timeout: 10000 })
@@ -1350,7 +1350,7 @@ async function run() {
     window.__driveMark = 'alive'
   })
   mobileRefusal = mobileRefusalEnvelope(
-    'LOY-00109',
+    'LOY-00002',
     'Mobile 966555000222 belongs to member 100004411.',
   )
   await mobileInput.fill('+966 55 500-0222')
@@ -1401,7 +1401,7 @@ async function run() {
   // 🚩 The same-number refusal is reachable even though the screen checks for it:
   // the stored number is normalised server-side and the typed one is not, so
   // `0555000111` may BE this member's number and only the door can tell.
-  mobileRefusal = mobileRefusalEnvelope('LOY-00110', 'The member already uses that number.')
+  mobileRefusal = mobileRefusalEnvelope('LOY-00429', 'The member already uses that number.')
   await mobileInput.fill('0555000111')
   await mobileButton.click()
   await mobileConfirm.click()
@@ -1412,7 +1412,7 @@ async function run() {
       !/another member/i.test(await dialog.innerText()),
     (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
   )
-  mobileRefusal = mobileRefusalEnvelope('LOY-00111', 'Mobile 4915112345678 is not a KSA number.')
+  mobileRefusal = mobileRefusalEnvelope('LOY-00004', 'Mobile 4915112345678 is not a KSA number.')
   await mobileConfirm.click()
   await page.waitForTimeout(500)
   check(
@@ -2069,7 +2069,8 @@ async function run() {
   if (failed.length) process.exitCode = 1
 }
 
+// A throw leaves the browser open and the process alive; exit hard so a run never hangs.
 run().catch((e) => {
   console.error(e)
-  process.exitCode = 1
+  process.exit(1)
 })

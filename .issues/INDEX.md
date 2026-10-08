@@ -821,9 +821,25 @@ one **ready spec**.
 
 - [427](427-palette-jumps-to-a-loyalty-member-by-loy-id-or-mobile.md) — The palette jumps to a loyalty member by Loy ID or mobile · *(ticket · grilled, no spec)* · **done 2026-10-07** · blocked by: — · one *Open loyalty member N* row (mobile→Loy ID cascade), gated on `canOpenLoyMember`, last in Jump, router state never URL, no palette Recent; latest-lookup-wins + a jump's hit replaces history · drive 27/27 **stubbed**
 
+## Loy invoices — a call-centre agent requeues a member's invoice email (BackOffice spec 2443, 2026-10-07)
+
+- [428](428-the-member-invoices-tab-shows-each-receipts-email-and-resends-it.md) — The member Invoices tab shows each receipt's invoice email and resends it · *(ticket · BackOffice spec 2443)* · **done 2026-10-07** · blocked by: — (live: BackOffice 2445, 2446) · Invoices tab between Sales and Actions; Resend for the edit grant on `resendable` rows, no case reference; toast names the server's recipient; QUEUED/NOT_QUEUED fenced client-side (owner sign-off) · drives **stubbed**; live walk outstanding (fold into BackOffice 2447)
+
 ## Donor requests on the Delivery timeline (grilled in BackOffice 2026-10-07, no spec)
 
 - [429](429-donor-requests-appear-on-the-delivery-timeline.md) — A delivery's donor requests appear on its Delivery timeline · *(ticket · grilled, no spec)* · **done 2026-10-07** · blocked by: — (live: BackOffice 2458) · pure `donor-moments.ts` + a `donor` spine kind, fourth `Deferred` on deliveries only; tie order Log → donor → job; elapsed in a dir-auto `<bdi>` · drive 18/18 **stubbed**; live walk waits on 2458
+
+## OMS donor list, payments, failed donor transfers, Sd master data (grilled 2026-10-07)
+
+- [430](430-oms-donor-requests-payments-failed-transfers-and-sd-master-data-spec.md) — OMS gains Donor requests, Document payments, Failed donor transfers, Cities & districts and Document source users · *(spec · web half of an unwritten BackOffice spec)* · **ready** · blocked by: — · five `/oms/*` leaves on the one extended `SdDocumentWeb/Access` probe; donor list reuses the 2458 row shape; shared core import parser; BO-1…BO-7 NOT filed
+- [431](431-an-hq-lead-lists-todays-donor-requests-across-stores-and-filters-them.md) — An HQ lead lists today's donor requests across stores and filters them · *(ticket · spec 430, Slice 0)* · **done** · blocked by: — (live: BO-2 unfiled) · adds ALL nine D2 probe flags; `?request=` seed needs a `requestNo` door param (OQ)
+- [432](432-a-selected-donor-request-shows-its-moments-in-an-inspector-and-opens-its-delivery.md) — A selected donor request shows its moments in an inspector and opens its delivery · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-2 unfiled) · pane width + separator graduated to `@/core/ui`
+- [433](433-a-payments-user-finds-a-documents-payments-and-opens-its-document-or-delivery.md) — A payments user finds a document's payments and opens its document or delivery · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-3 unfiled) · guard counts like `MultiValueFilter`; column mapping needs owner sign-off
+- [434](434-hq-inventory-sees-the-failed-donor-transfers-queue-with-what-each-line-asks-of-them.md) — HQ inventory sees the failed donor transfers queue with what each line asks of them · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-4 unfiled) · reads both `F/P/C` and the D12 words; sentence grant-free, `canReRun` ready for 435
+- [435](435-hq-inventory-re-runs-a-failed-donor-transfer-and-sees-whether-it-posted.md) — HQ inventory re-runs a failed donor transfer and sees whether it posted · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-4 unfiled) · confirm in the app modal; any non-business failure → "may still be running"; reload after every run
+- [436](436-a-store-config-user-reads-cities-and-each-citys-districts.md) — A store-config user reads cities and each city's districts · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-5 unfiled) · cities on open, districts per selected city (query keyed by code); quick filter + xlsx per grid
+- [437](437-a-store-config-user-imports-cities-and-districts-with-a-preview-and-sees-every-skipped-line.md) — A store-config user imports cities and districts with a preview and sees every skipped line · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-5/BO-7 unfiled) · core import parser + result model in `@/core/import`; preview blocks error lines; skipped lines listed; both lists reload
+- [438](438-an-oms-admin-lists-and-imports-document-source-users.md) — An OMS admin lists and imports document source users · *(ticket · spec 430)* · **done** · blocked by: — (live: BO-6/BO-7 unfiled) · import dialog graduated to `@/core/import`; list + filter + export; import posts `isDeleted`; leaf last in D18
 
 ## Coupons: delete a mistaken import (BackOffice spec 2463, moved from BackOffice 2467)
 

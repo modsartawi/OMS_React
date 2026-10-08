@@ -62,8 +62,24 @@ export interface SdAddressLabelModel {
 }
 
 /**
+ * A city as WPF `SdCityModel` has it (`Sartawi.Retail.Data/Modules/Sd/SdAddress/Services/Models`),
+ * in camelCase — a row of `GET SdDocumentWeb/Cities` (spec 430 D6, ticket 436; BackOffice ask
+ * BO-5, NOT built yet). An update never made leaves `updatedOn` the .NET unset `0001-01-01`.
+ */
+export interface SdCityModel {
+  cityCode: string
+  cityNameAr: string
+  cityNameEn: string
+  createdOn: string
+  createdBy: string
+  updatedOn: string
+  updatedBy: string
+}
+
+/**
  * A row of `GET SdDocument/Districts` — the Screen 2 Change Store picker in
- * delivery mode.
+ * delivery mode — and, the same WPF `SdDistrictModel`, of the gated
+ * `GET SdDocumentWeb/Districts?cityCode=` behind Cities & districts (spec 430 D6, ticket 436).
  *
  * The fulfilling store is *derived* from the chosen district (`tempStoreCode`
  * when non-empty, else `storeCode`). Each row carries district and city names in

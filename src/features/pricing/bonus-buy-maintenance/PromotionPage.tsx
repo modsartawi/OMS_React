@@ -27,11 +27,13 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
   bbyMaintainAccessQuery,
   bbyMaintainApi,
+  canMarkTested,
   canOpenBbyMaintain,
   promotionKey,
   promotionListKey,
 } from './api'
 import ActReport, { type Report, type ReportRow } from './ActReport'
+import { TEST_NOTE_MAX } from './editor'
 import { DateInput, TextInput } from './fields'
 import UploadDialog from './UploadDialog'
 import {
@@ -46,6 +48,7 @@ import {
   PROMOTION_NAME_MAX,
   readPromotionFlip,
   runEach,
+  testableNumbers,
 } from './overview'
 
 /**
@@ -111,7 +114,7 @@ const OVERVIEW_SELECTION: RowSelectionOptions<BbyOverviewRow> = {
   enableClickSelection: true,
 }
 
-type EachAct = 'activate' | 'deactivate' | 'delete'
+type EachAct = 'activate' | 'deactivate' | 'delete' | 'test'
 
 function StatusCell({ value }: ICellRendererParams<BbyOverviewRow, string | null>) {
   const { t } = useTranslation('bonus-buy-maintenance')
@@ -144,6 +147,9 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   const [report, setReport] = useState<Report | null>(null)
   const [copySapOpen, setCopySapOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [testOpen, setTestOpen] = useState(false)
+  // The tester grant, off the access answer the screen gate already holds (no second probe).
+  const canTest = canMarkTested(useQuery(bbyMaintainAccessQuery()).data)
 
   // A refresh can drop selected rows (a multi-delete, an act elsewhere). When every row goes,
   // the grid unmounts and never reports the change, so prune the selection from the data.
@@ -162,9 +168,12 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
     name.trim() !== promo.name || from !== formatDay(promo.salesFrom) || to !== formatDay(promo.salesTo)
   const one = selected.length === 1 ? selected[0] : null
   // Only a Tested bonus buy goes live (spec 2396): Activate is not offered on a Planned one.
-  const activatable = canActivateSelection(
-    promo.bonusBuys.filter((b) => selected.includes(b.bbyNumber)).map((b) => overviewStatus(b.bbyStatus)),
-  )
+  const selectedRows = promo.bonusBuys
+    .filter((b) => selected.includes(b.bbyNumber))
+    .map((b) => ({ number: b.bbyNumber, status: overviewStatus(b.bbyStatus) }))
+  const activatable = canActivateSelection(selectedRows.map((r) => r.status))
+  // Mark Tested on a selection (select-all over hundreds of rows): only its Planned ones are sent.
+  const testable = testableNumbers(selectedRows)
 
   const refresh = () =>
     Promise.all([
@@ -275,8 +284,8 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
   }
 
   /** The multi-select loop: one number per call, every outcome shown, never stopping. */
-  async function runSelected(act: EachAct) {
-    const numbers = [...selected]
+  async function runSelected(act: EachAct, note = '') {
+    const numbers = act === 'test' ? testable : [...selected]
     if (numbers.length === 0) return
     if (
       act === 'delete' &&
@@ -286,10 +295,13 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
       ))
     )
       return
+    // Mark Tested: one shared note for every bonus buy sent, as the tester typed it once.
+    const markTested = (bbyNumber: string) => bbyMaintainApi.markTested({ bbyNumber, note: note.trim() || null })
     const call = {
       activate: bbyMaintainApi.activate,
       deactivate: bbyMaintainApi.deactivate,
       delete: bbyMaintainApi.delete,
+      test: markTested,
     }[act]
     setBusy(true)
     setReport(null)
@@ -512,6 +524,23 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             >
               {t('overview.activate')}
             </Button>
+            {canTest && (
+              <Button
+                variant="secondary"
+                disabled={busy || testable.length === 0}
+                title={
+                  selected.length === 0
+                    ? t('overview.needSome')
+                    : testable.length
+                      ? undefined
+                      : t('overview.testNeedsPlanned')
+                }
+                onClick={() => setTestOpen(true)}
+                data-testid="bby-overview-test"
+              >
+                {t('overview.test')}
+              </Button>
+            )}
             <Button
               variant="secondary"
               disabled={busy || selected.length === 0}
@@ -557,6 +586,17 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
         }}
       />
 
+      <MarkSelectedTestedDialog
+        open={testOpen}
+        count={testable.length}
+        skipped={selected.length - testable.length}
+        onClose={() => setTestOpen(false)}
+        onRun={(note) => {
+          setTestOpen(false)
+          void runSelected('test', note)
+        }}
+      />
+
       <UploadDialog
         open={uploadOpen}
         promoNumber={promo.promoNumber}
@@ -575,6 +615,71 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
 /** A saved outcome's warnings (dates outside the window, SAP allows it) as one report row. */
 function warningRows(outcome: BbyMaintainOutcome): ReportRow[] {
   return outcome.warnings?.length ? [{ refusals: outcome.warnings }] : []
+}
+
+/** Mark Tested on the overview's selection: one optional note for every Planned bonus buy sent. */
+function MarkSelectedTestedDialog({
+  open,
+  count,
+  skipped,
+  onClose,
+  onRun,
+}: {
+  open: boolean
+  count: number
+  skipped: number
+  onClose: () => void
+  onRun: (note: string) => void
+}) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  const [note, setNote] = useState('')
+  const close = () => {
+    setNote('')
+    onClose()
+  }
+  return (
+    <Modal
+      open={open}
+      onClose={close}
+      title={t('test.title')}
+      width="28rem"
+      footer={
+        <>
+          <Button variant="text" onClick={close}>
+            {t('test.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const typed = note
+              setNote('')
+              onRun(typed)
+            }}
+          >
+            {t('test.run')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">{t('overview.testBody', { count })}</p>
+        {skipped > 0 && <p className="text-xs text-muted-foreground">{t('overview.testSkipped', { count: skipped })}</p>}
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          {t('test.note')}
+          <textarea
+            value={note}
+            maxLength={TEST_NOTE_MAX}
+            rows={3}
+            placeholder={t('test.notePlaceholder')}
+            onChange={(e) => setNote(e.target.value)}
+            className="rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            data-testid="bby-overview-test-note"
+            autoFocus
+          />
+        </label>
+      </div>
+    </Modal>
+  )
 }
 
 function CopyFromSapDialog({

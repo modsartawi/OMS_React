@@ -1,0 +1,94 @@
+{
+  "menu": {
+    "failedDonorTransfers": "Failed donor transfers"
+  },
+  "title": "Failed donor transfers",
+  "subtitle": "The donor transfers that failed or are still retrying, and the cancelled requests whose transfer posted anyway. Each line says what it asks of you.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to failed donor transfers",
+    "deniedHint": "Your account does not hold the grant for failed donor transfers. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "anyStore": "Any store",
+    "from": "Last attempt from",
+    "to": "Last attempt to",
+    "clear": "Clear filters",
+    "hint": "The filters narrow the loaded queue. A line with no attempt yet is never hidden by the dates.",
+    "reversed": "The range ends before it starts, so it hides every line with an attempt."
+  },
+  "reload": "Reload",
+  "columns": {
+    "reRun": "Re-run",
+    "action": "Action",
+    "requestNo": "Request",
+    "deliveryNo": "Delivery",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "requestState": "Request state",
+    "job": "Job",
+    "attempts": "Attempts",
+    "lastAttempt": "Last attempt",
+    "deadline": "Deadline",
+    "sto": "STO",
+    "reverseByHand": "Reverse by hand",
+    "lastError": "DRS's last error"
+  },
+  "action": {
+    "reverse": "Reverse STO {{sto}} in DRS",
+    "reverseRich": "Reverse STO <sto>{{sto}}</sto> in DRS",
+    "reverseNoSto": "Reverse the transfer in DRS",
+    "reRun": "Re-run once the cause is fixed",
+    "retrying": "Retrying on its own"
+  },
+  "job": {
+    "failed": "Failed",
+    "retrying": "Retrying",
+    "completed": "Completed"
+  },
+  "state": {
+    "FULFILLED": "Fulfilled",
+    "TRANSFERRED": "Transferred",
+    "CANCELLED": "Cancelled"
+  },
+  "reverseByHand": {
+    "yes": "Yes"
+  },
+  "links": {
+    "openRequest": "Open the donor request",
+    "openDelivery": "Open the delivery"
+  },
+  "list": {
+    "empty": "No failed donor transfers. The queue is clear.",
+    "noneMatch": "No line matches these filters.",
+    "failedTitle": "The queue could not be loaded",
+    "reloadFailedTitle": "The queue could not be reloaded — showing the last list loaded",
+    "failed": "The queue could not be loaded. Try again in a moment."
+  },
+  "statusBar": {
+    "loading": "Loading…",
+    "lines_one": "<n>{{n}}</n> line",
+    "lines_other": "<n>{{n}}</n> lines",
+    "filtered_one": "<n>{{n}}</n> line shown",
+    "filtered_other": "<n>{{n}}</n> lines shown"
+  },
+  "reRun": {
+    "action": "Re-run",
+    "title": "Re-run donor transfer",
+    "question": "Re-run the donor transfer of request <no>{{no}}</no>?",
+    "stock": "This posts the transfer's stock in DRS.",
+    "cancel": "Cancel",
+    "confirm": "Re-run",
+    "running": "Running…",
+    "posted": "The donor transfer of request {{no}} posted.",
+    "notFinished": "The donor transfer of request {{no}} did not finish: {{error}}",
+    "notFinishedBare": "The donor transfer of request {{no}} did not finish.",
+    "noAnswer": "The re-run of request {{no}} did not answer. It may still be running; reload in a minute.",
+    "refused": "The donor transfer of request {{no}} was not re-run",
+    "noReason": "The server gave no reason."
+  }
+}

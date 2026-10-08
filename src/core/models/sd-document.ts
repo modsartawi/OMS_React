@@ -477,3 +477,13 @@ export interface DonorRequestModel {
   /** Units asked. */
   required: number
 }
+
+/**
+ * The cross-store donor request list — `GET SdDocumentWeb/DonorRequests` (spec 430 D3, BackOffice
+ * ask BO-2, not built yet; ticket 431 builds on a stub of exactly this shape). The rows are the
+ * per-delivery door's own shape; `limited` says the server's limit cut the list.
+ */
+export interface DonorRequestListResponse {
+  rows: DonorRequestModel[]
+  limited: boolean
+}

@@ -1,0 +1,73 @@
+/**
+ * The OMS probe's screen flags (spec 430 D2, ticket 431): nine optional flags on the one
+ * `SdDocumentWeb/Access` answer, read through one pure reader. An older SIS.Api sends none of
+ * them, so an absent flag must read as denied — the leaves stay hidden until the server learns
+ * the grant.
+ */
+import { describe, expect, it } from 'vitest'
+import type { OmsAccessResult } from '@/core/models/oms-access'
+import { OMS_SCREEN_FLAGS, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+
+const NINE = [
+  'canOpenDonorRequests',
+  'canOpenDocumentPayments',
+  'canOpenFailedTransfers',
+  'canReRunFailedTransfer',
+  'canOpenGeography',
+  'canImportCities',
+  'canImportDistricts',
+  'canOpenDocumentSourceUsers',
+  'canImportDocumentSourceUsers',
+] as const
+
+describe('omsGrants', () => {
+  it('names exactly the nine D2 flags', () => {
+    expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...NINE].sort())
+  })
+
+  it('🚩 an absent flag is false for every D2 flag (an older server)', () => {
+    const grants = omsGrants({ canOpenList: true, canOpenDetail: true })
+    for (const flag of NINE) expect([flag, grants[flag]]).toEqual([flag, false])
+  })
+
+  it.each([null, undefined])('a %s answer grants nothing', (r) => {
+    const grants = omsGrants(r)
+    for (const flag of NINE) expect(grants[flag]).toBe(false)
+  })
+
+  it('each flag reads only its own field, and only an explicit true grants', () => {
+    for (const flag of NINE) {
+      const grants = omsGrants({ canOpenList: false, canOpenDetail: false, [flag]: true })
+      for (const other of NINE) expect([other, grants[other]]).toEqual([other, other === flag])
+    }
+  })
+
+  it('a malformed value is a denial, not a grant', () => {
+    const malformed = { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: 'yes' } as unknown as OmsAccessResult
+    expect(omsGrants(malformed).canOpenDonorRequests).toBe(false)
+  })
+
+  it('canOpenDonorRequests is the reader, for the leaf and the page gate alike', () => {
+    expect(canOpenDonorRequests({ canOpenList: false, canOpenDetail: false, canOpenDonorRequests: true })).toBe(true)
+    expect(canOpenDonorRequests({ canOpenList: true, canOpenDetail: true })).toBe(false)
+    expect(canOpenDonorRequests(undefined)).toBe(false)
+  })
+
+  it('canOpenDocumentPayments reads only its own flag (ticket 433)', () => {
+    expect(canOpenDocumentPayments({ canOpenList: false, canOpenDetail: false, canOpenDocumentPayments: true })).toBe(true)
+    expect(canOpenDocumentPayments({ canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+    expect(canOpenDocumentPayments(null)).toBe(false)
+  })
+
+  it('canOpenFailedTransfers reads only its own flag, not the re-run one (ticket 434)', () => {
+    expect(canOpenFailedTransfers({ canOpenList: false, canOpenDetail: false, canOpenFailedTransfers: true })).toBe(true)
+    expect(canOpenFailedTransfers({ canOpenList: true, canOpenDetail: true, canReRunFailedTransfer: true })).toBe(false)
+    expect(canOpenFailedTransfers(undefined)).toBe(false)
+  })
+
+  it('canOpenGeography reads only its own flag, not the import ones (ticket 436)', () => {
+    expect(canOpenGeography({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
+    expect(canOpenGeography({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
+    expect(canOpenGeography(undefined)).toBe(false)
+  })
+})

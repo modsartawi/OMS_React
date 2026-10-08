@@ -9,7 +9,7 @@ import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import type { CouponDetails, CouponInstance, CouponTemplate, CouponTransaction, EarlierUpload } from '@/core/models/coupons'
 import { couponsApi } from './api'
-import { couponHistorySections, formatStamp } from './helpers'
+import { couponHistorySections, formatStamp, groupCount } from './helpers'
 
 // Shared coupon detail view (ticket 521) — an Instance summary, a read-only Template
 // pane, and the redemption ledger ("where redeemed": Time / Store / Type / Reference /
@@ -427,9 +427,9 @@ function LedgerTable({ transactions, select }: { transactions: CouponTransaction
                 <td className="px-3 py-2 font-mono text-xs">{x.transactionReference || '—'}</td>
                 <td className="px-3 py-2 text-center">
                   {x.isSuccessful ? (
-                    <Check className="mx-auto h-4 w-4 text-success" aria-label="ok" />
+                    <Check className="mx-auto h-4 w-4 text-success" aria-label={t('inquiry.ledger.okLabel')} />
                   ) : (
-                    <X className="mx-auto h-4 w-4 text-danger" aria-label="failed" />
+                    <X className="mx-auto h-4 w-4 text-danger" aria-label={t('inquiry.ledger.failedLabel')} />
                   )}
                 </td>
               </tr>
@@ -463,7 +463,7 @@ function EarlierUploadSection({ upload }: { upload: EarlierUpload }) {
             t={t}
             i18nKey="inquiry.earlier.redemptions"
             count={upload.redeemCount}
-            values={{ n: upload.redeemCount.toLocaleString('en-US') }}
+            values={{ n: groupCount(upload.redeemCount) }}
             components={{ n: <Ltr /> }}
           />
         </span>

@@ -62,23 +62,24 @@ export default function DeleteJobDialog({ job, onClose, onSettled }: Props) {
     if (!job || !ready) return
     setBusy(true)
     setError(null)
-    let settled = true
+    // The toast is raised only after the dialog has closed: under an open `showModal()` it would
+    // paint beneath the backdrop (spec 380 F18).
+    let toast: () => void
     try {
       const result = await couponsApi.deleteJob(job.jobId, reason.trim())
-      notify.success(t('import.delete.done', { count: result.deleted, n: isolatedCount(result.deleted) }))
+      toast = () => notify.success(t('import.delete.done', { count: result.deleted, n: isolatedCount(result.deleted) }))
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 409) {
-        notify.apiError(t('import.delete.failed'), err)
-      } else {
-        settled = false
+      if (!(err instanceof ApiError && err.statusCode === 409)) {
         setError(err)
+        return
       }
+      toast = () => notify.apiError(t('import.delete.failed'), err)
     } finally {
       setBusy(false)
     }
-    if (!settled) return
     setReason('')
     onClose()
+    toast()
     await onSettled()
   }
 

@@ -843,5 +843,5 @@ one **ready spec**.
 
 ## Coupons: delete a mistaken import (BackOffice spec 2463, moved from BackOffice 2467)
 
-- [439](439-an-admin-deletes-a-mistaken-coupon-upload-from-the-import-screen.md) — An admin deletes a mistaken coupon upload from the Import screen, and the detail pane shows the earlier upload · *(ticket · BackOffice spec 2463)* · **open** · blocked by: BackOffice 2465, 2466 (live endpoints only)
+- [439](439-an-admin-deletes-a-mistaken-coupon-upload-from-the-import-screen.md) — An admin deletes a mistaken coupon upload from the Import screen, and the detail pane shows the earlier upload · *(ticket · BackOffice spec 2463)* · **done 2026-10-08** · blocked by: — (live: BackOffice 2465, 2466) · drive 45/45 **stubbed**; owner walk on staging open; refused preview hides the counts, 409 closes + toasts
 - [440](440-an-admin-downloads-what-a-coupon-upload-did-with-each-code.md) — An admin downloads what a coupon upload did with each code (added, or skipped and why) · *(ticket · BackOffice spec 2463, amendment 2026-10-08)* · **open** · blocked by: BackOffice 2477 (live endpoint only)

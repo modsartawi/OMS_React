@@ -58,6 +58,10 @@
       "redemptions_few": "<n>{{n}}</n> استخدامات",
       "redemptions_many": "<n>{{n}}</n> استخدامًا",
       "redemptions_other": "<n>{{n}}</n> استخدام"
+    },
+    "ledger": {
+      "okLabel": "نجحت",
+      "failedLabel": "فشلت"
     }
   }
 }

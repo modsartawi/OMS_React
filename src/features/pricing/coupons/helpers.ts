@@ -103,8 +103,11 @@ export function jobActions(status: ImportJobStatus): JobActions {
   }
 }
 
-/** A count for a `t()` sentence: grouped (`2,904`) and isolated whole (`fsi`, [bidi]). Not for exports. */
-export const isolatedCount = (value: number): string => fsi(value.toLocaleString('en-US'))
+/** A count grouped for reading (`2,904`). */
+export const groupCount = (value: number): string => value.toLocaleString('en-US')
+
+/** A count for a `t()` sentence: grouped and isolated whole (`fsi`, [bidi]). Not for exports. */
+export const isolatedCount = (value: number): string => fsi(groupCount(value))
 
 /**
  * The delete dialog's sentence, from the server's preview. Each count is isolated whole (`fsi`):
@@ -112,14 +115,13 @@ export const isolatedCount = (value: number): string => fsi(value.toLocaleString
  * sentence drop out when their count is zero.
  */
 export function describeDeletePreview(preview: ImportJobDeletePreview, t: TFunction): string {
-  const n = isolatedCount
   const deletes = t(preview.redeemed > 0 ? 'import.delete.deletesRedeemed' : 'import.delete.deletes', {
     count: preview.toDelete,
-    n: n(preview.toDelete),
-    redeemed: n(preview.redeemed),
+    n: isolatedCount(preview.toDelete),
+    redeemed: isolatedCount(preview.redeemed),
   })
   if (preview.inOtherTemplates === 0) return deletes
-  const others = t('import.delete.otherTemplates', { count: preview.inOtherTemplates, n: n(preview.inOtherTemplates) })
+  const others = t('import.delete.otherTemplates', { count: preview.inOtherTemplates, n: isolatedCount(preview.inOtherTemplates) })
   return `${deletes} ${others}`
 }
 

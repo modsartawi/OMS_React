@@ -65,7 +65,9 @@
         "type": "Type",
         "reference": "Reference",
         "ok": "OK"
-      }
+      },
+      "okLabel": "Succeeded",
+      "failedLabel": "Failed"
     },
     "status": {
       "Redeem": "Redeem",

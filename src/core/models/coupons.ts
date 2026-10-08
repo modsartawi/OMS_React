@@ -106,10 +106,32 @@ export interface CouponTransaction {
   errorMessage: string
 }
 
-/** GET CouponsAdminWeb/Coupons/{code} — instance + its template + redemption ledger. */
+/**
+ * GET CouponsAdminWeb/Coupons/{code} — instance + its template + redemption ledger.
+ *
+ * Spec 2463 (BackOffice 2466, ticket 439): a code whose coupon an upload delete removed still
+ * answers. `isDeleted` then says no coupon holds the code now, `instance`/`template` are null, and
+ * the history lives in `earlierUploads`. A code re-uploaded after a delete has both: the current
+ * coupon's `transactions` and the deleted uploads' sections. The server does the grouping (a refund
+ * booked after a delete sits under the redemption it reverses), so the client never re-splits it.
+ */
 export interface CouponDetails {
-  instance: CouponInstance
-  template: CouponTemplate
+  instance: CouponInstance | null
+  template: CouponTemplate | null
+  /** The CURRENT coupon's ledger only. */
+  transactions: CouponTransaction[]
+  isDeleted: boolean
+  /** Always present, oldest first, may be empty. */
+  earlierUploads: EarlierUpload[]
+}
+
+/** One deleted upload's coupon of this code, with the ledger it carried (ADR 0070). */
+export interface EarlierUpload {
+  deletedAt: string
+  deletedBy: string
+  reason: string
+  templateId: string
+  redeemCount: number
   transactions: CouponTransaction[]
 }
 
@@ -126,12 +148,13 @@ export interface CreateImportJobRequest {
   customerId?: string | null
 }
 
-/** ImportJob.Status — the lifecycle the background worker drives. */
-export type ImportJobStatus = 'Pending' | 'Processing' | 'Completed' | 'Failed'
+/** ImportJob.Status — the lifecycle the background worker drives; `Deleted` is an admin's delete
+ *  of a finished upload (spec 2463, ticket 439). */
+export type ImportJobStatus = 'Pending' | 'Processing' | 'Completed' | 'Failed' | 'Deleted'
 
-/** `Pending`/`Processing` = still in flight (poll); `Completed`/`Failed` = terminal. */
+/** `Pending`/`Processing` = still in flight (poll); `Completed`/`Failed`/`Deleted` = terminal. */
 export function isTerminalJob(status: ImportJobStatus): boolean {
-  return status === 'Completed' || status === 'Failed'
+  return status === 'Completed' || status === 'Failed' || status === 'Deleted'
 }
 
 /**
@@ -152,4 +175,60 @@ export interface ImportJob {
   startedAt: string | null
   completedAt: string | null
   errorMessage: string | null
+  /** Set once the job is `Deleted` (spec 2463). */
+  deletedAt: string | null
+  deletedBy: string | null
+}
+
+/**
+ * GET CouponsAdminWeb/Jobs/{jobId}/DeletePreview (BackOffice 2466) — what a delete would do, read
+ * before the admin confirms. `toDelete` are the coupons the upload added to its own template;
+ * `inOtherTemplates` are the file's codes other templates hold, which a delete never touches.
+ */
+export interface ImportJobDeletePreview {
+  jobId: string
+  toDelete: number
+  /** Of `toDelete`, how many were already redeemed (their redemption history is kept). */
+  redeemed: number
+  /** The sum of their redeem counts — taken off the template's total. */
+  redemptionCount: number
+  inOtherTemplates: number
+  canDelete: boolean
+  refusalCode: string | null
+  refusalMessage: string | null
+}
+
+/** POST CouponsAdminWeb/Jobs/{jobId}/Delete → 200 (BackOffice 2465). */
+export interface ImportJobDeleteResult {
+  jobId: string
+  deleted: number
+  redeemed: number
+  redemptionCount: number
+}
+
+// ── What an upload did with each code (spec 2463 amendment; BackOffice 2476/2477, ticket 440) ──
+
+/** What the import did with one staged code. `NotProcessed` = a recorded job never reached it;
+ *  `Unknown` = a rebuilt result found no coupon holding it now. */
+export type ImportOutcome = 'Added' | 'AlreadyInTemplate' | 'InOtherTemplate' | 'NotProcessed' | 'Unknown'
+
+export interface ImportJobResultLine {
+  couponCode: string
+  outcome: ImportOutcome
+  /** Set on `AlreadyInTemplate` and `InOtherTemplate`. */
+  heldByTemplateId: string | null
+}
+
+/**
+ * GET CouponsAdminWeb/Jobs/{jobId}/Result (BackOffice 2477; 404 unknown job, 409 still running).
+ * `reconstructed` = the job predates SIS.Coupons.Core 1.0.8, so the result was rebuilt from today's
+ * coupons rather than recorded at import time.
+ */
+export interface ImportJobResult {
+  jobId: string
+  templateId: string
+  status: Exclude<ImportJobStatus, 'Pending' | 'Processing'>
+  reconstructed: boolean
+  /** Every staged code, ordered by couponCode. */
+  lines: ImportJobResultLine[]
 }

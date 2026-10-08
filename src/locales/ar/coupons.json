@@ -1,0 +1,104 @@
+{
+  "import": {
+    "status": {
+      "Deleted": "محذوفة"
+    },
+    "jobs": {
+      "col": {
+        "actions": "الإجراءات"
+      },
+      "delete": "حذف",
+      "deletedBy": "حُذفت {{at}} بواسطة {{by}}"
+    },
+    "delete": {
+      "title": "حذف هذا التحميل",
+      "intro": "المهمة {{jobId}} على القالب {{templateId}}.",
+      "loading": "جارٍ التحقق مما سيحذفه الإجراء…",
+      "previewFailed": "تعذّر التحقق مما سيحذفه الإجراء",
+      "deletes_zero": "يحذف {{n}} قسيمة.",
+      "deletes_one": "يحذف قسيمة واحدة.",
+      "deletes_two": "يحذف قسيمتين.",
+      "deletes_few": "يحذف {{n}} قسائم.",
+      "deletes_many": "يحذف {{n}} قسيمة.",
+      "deletes_other": "يحذف {{n}} قسيمة.",
+      "deletesRedeemed_zero": "يحذف {{n}} قسيمة ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "deletesRedeemed_one": "يحذف قسيمة واحدة ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "deletesRedeemed_two": "يحذف قسيمتين ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "deletesRedeemed_few": "يحذف {{n}} قسائم ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "deletesRedeemed_many": "يحذف {{n}} قسيمة ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "deletesRedeemed_other": "يحذف {{n}} قسيمة ({{redeemed}} منها مستخدمة؛ ويُحتفظ بسجل استخدامها).",
+      "otherTemplates_zero": "{{n}} رمز في هذا الملف يتبع قوالب أخرى ولن يُمس.",
+      "otherTemplates_one": "رمز واحد في هذا الملف يتبع قالبًا آخر ولن يُمس.",
+      "otherTemplates_two": "رمزان في هذا الملف يتبعان قوالب أخرى ولن يُمسّا.",
+      "otherTemplates_few": "{{n}} رموز في هذا الملف تتبع قوالب أخرى ولن تُمس.",
+      "otherTemplates_many": "{{n}} رمزًا في هذا الملف تتبع قوالب أخرى ولن تُمس.",
+      "otherTemplates_other": "{{n}} رمز في هذا الملف تتبع قوالب أخرى ولن تُمس.",
+      "cannotUndo": "لا يمكن التراجع عن ذلك. تبقى المهمة في القائمة بحالة «محذوفة».",
+      "refused": "لا يمكن حذف هذا التحميل",
+      "reason": "السبب (مطلوب)",
+      "cancel": "إلغاء",
+      "confirm": "حذف التحميل",
+      "done_zero": "حُذف التحميل: لم تُحذف أي قسيمة.",
+      "done_one": "حُذف التحميل: حُذفت قسيمة واحدة.",
+      "done_two": "حُذف التحميل: حُذفت قسيمتان.",
+      "done_few": "حُذف التحميل: حُذفت {{n}} قسائم.",
+      "done_many": "حُذف التحميل: حُذفت {{n}} قسيمة.",
+      "done_other": "حُذف التحميل: حُذفت {{n}} قسيمة.",
+      "failed": "تعذّر حذف التحميل"
+    },
+    "result": {
+      "download": "تنزيل النتيجة",
+      "failed": "تعذّر تنزيل النتيجة",
+      "reconstructed": "هذا التحميل أقدم من تسجيل نتيجة كل رمز، لذا أُعيد بناء نتيجته من قسائم اليوم.",
+      "reconstructedDeleted": "هذا التحميل أقدم من تسجيل نتيجة كل رمز وقد حُذف، لذا أُعيد بناء نتيجته بعد الحذف: تظهر الرموز التي أضافها بحالة «غير معروف».",
+      "saved_zero": "نُزّلت النتيجة: لا رموز.",
+      "saved_one": "نُزّلت النتيجة: رمز واحد.",
+      "saved_two": "نُزّلت النتيجة: رمزان.",
+      "saved_few": "نُزّلت النتيجة: {{n}} رموز.",
+      "saved_many": "نُزّلت النتيجة: {{n}} رمزًا.",
+      "saved_other": "نُزّلت النتيجة: {{n}} رمز.",
+      "summary": {
+        "added": "أُضيف: {{n}}",
+        "alreadyInTemplate": "موجود في هذا القالب: {{n}}",
+        "inOtherTemplate_zero": "في قوالب أخرى: {{n}}",
+        "inOtherTemplate_one": "في قالب آخر: {{n}} (يحملها قالب واحد)",
+        "inOtherTemplate_two": "في قوالب أخرى: {{n}} (يحملها قالبان)",
+        "inOtherTemplate_few": "في قوالب أخرى: {{n}} (يحملها {{templates}} قوالب)",
+        "inOtherTemplate_many": "في قوالب أخرى: {{n}} (يحملها {{templates}} قالبًا)",
+        "inOtherTemplate_other": "في قوالب أخرى: {{n}} (يحملها {{templates}} قالب)",
+        "notProcessed": "لم يُعالَج: {{n}}",
+        "unknown": "غير معروف: {{n}}",
+        "inOtherTemplateUnheld": "في قوالب أخرى: {{n}}"
+      },
+      "csv": {
+        "code": "الرمز",
+        "outcome": "النتيجة",
+        "template": "القالب الحامل"
+      },
+      "outcome": {
+        "Added": "أُضيف",
+        "AlreadyInTemplate": "موجود في هذا القالب",
+        "InOtherTemplate": "في قالب آخر",
+        "NotProcessed": "لم يُعالَج",
+        "Unknown": "غير معروف"
+      }
+    }
+  },
+  "inquiry": {
+    "deletedNotice": "لا توجد قسيمة تحمل هذا الرمز الآن. حُذف تحميلٌ أضافه، وسجله محفوظ أدناه.",
+    "earlier": {
+      "title": "تحميل سابق، حُذف <at>{{at}}</at> بواسطة <by>{{by}}</by>: <reason>{{reason}}</reason>",
+      "template": "القالب <id>{{templateId}}</id>",
+      "redemptions_zero": "<n>{{n}}</n> استخدام",
+      "redemptions_one": "استخدام واحد",
+      "redemptions_two": "استخدامان",
+      "redemptions_few": "<n>{{n}}</n> استخدامات",
+      "redemptions_many": "<n>{{n}}</n> استخدامًا",
+      "redemptions_other": "<n>{{n}}</n> استخدام"
+    },
+    "ledger": {
+      "okLabel": "نجحت",
+      "failedLabel": "فشلت"
+    }
+  }
+}

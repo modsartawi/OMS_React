@@ -608,6 +608,11 @@ html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-rich-colo
 html [data-sonner-toaster] [data-sonner-toast] :is([data-title], [data-description]) {
   unicode-bidi: plaintext;
 }
+/* A line break in a description starts a new line (and so a new bidi paragraph): the coupon result
+   toast lists one outcome per line (ticket 440). */
+html [data-sonner-toaster] [data-sonner-toast] [data-description] {
+  white-space: pre-line;
+}
 /* 6px controls: the action is primary, the cancel muted. */
 html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true'] [data-button] {
   border-radius: var(--radius-md);

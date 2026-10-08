@@ -92,3 +92,6 @@ tools/.failed-donor-transfers-shots/
 tools/.geography-shots/
 # Document source users drive screenshots (tools/document-source-users-drive.mjs, ticket 438)
 tools/.document-source-users-shots/
+
+# Coupon import delete/result drive screenshots (tools/coupon-import-delete-drive.mjs, tickets 439/440)
+tools/.coupon-import-delete-shots/

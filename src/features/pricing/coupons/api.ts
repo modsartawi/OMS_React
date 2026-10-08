@@ -6,6 +6,9 @@ import type {
   CreateImportJobRequest,
   CreateTemplateRequest,
   ImportJob,
+  ImportJobDeletePreview,
+  ImportJobDeleteResult,
+  ImportJobResult,
   UpdateTemplateRequest,
 } from '@/core/models/coupons'
 
@@ -78,5 +81,22 @@ export const couponsApi = {
   // the actor is the cookie session server-side.
   retryJob(jobId: string): Promise<unknown> {
     return api.post(`${BASE}/Jobs/${encode(jobId)}/Retry`, {})
+  },
+
+  // ── Delete a mistaken upload (spec 2463; BackOffice 2465/2466) ──────────
+  // What a delete would do — read before the confirm. Unknown job → 404.
+  jobDeletePreview(jobId: string): Promise<ImportJobDeletePreview> {
+    return api.get<ImportJobDeletePreview>(`${BASE}/Jobs/${encode(jobId)}/DeletePreview`)
+  },
+  // Hard-delete the coupons the upload added to its own template (audited server-side). 409 not
+  // finished / already deleted / another upload active; 400 CUP-09099 blank or >512-char reason.
+  deleteJob(jobId: string, reason: string): Promise<ImportJobDeleteResult> {
+    return api.post<ImportJobDeleteResult>(`${BASE}/Jobs/${encode(jobId)}/Delete`, { reason })
+  },
+
+  // ── What an upload did with each code (spec 2463 amendment; BackOffice 2477) ──
+  // One line per staged code. 404 unknown job; 409 still Pending/Processing. A read (no audit).
+  jobResult(jobId: string): Promise<ImportJobResult> {
+    return api.get<ImportJobResult>(`${BASE}/Jobs/${encode(jobId)}/Result`)
   },
 }

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -19,6 +19,14 @@ import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 // The OMS probe likewise lives in `@/core/` (ticket 125): both OMS pages guard on it,
 // and a feature may not import another feature's api.
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+// Spec 430's five OMS screens each read their own flag off that one probe (ticket 431).
+import {
+  canOpenDocumentPayments,
+  canOpenDocumentSourceUsers,
+  canOpenDonorRequests,
+  canOpenFailedTransfers,
+  canOpenGeography,
+} from '@/core/oms/access'
 // The Nphies probe, same reason and one step further (ticket 211): contract 209 §1
 // gives the whole area ONE grant, so the leaf and every screen in both
 // `features/nphies/*` features share this single probe.
@@ -205,6 +213,74 @@ export const MENU: ShellMenuItem[] = [
           key: CENTRAL_INVOICE_ACCESS_KEY,
           run: () => centralInvoiceApi.access(),
           visible: canOpenCentralInvoice,
+        }),
+      },
+      // ── Spec 430's five OMS screens, in its D18 order: Donor requests, Failed donor
+      // transfers, Document payments, Cities & districts, Document source users. Each reads
+      // ITS OWN flag off the ONE `OMS_ACCESS_KEY` entry, so the group still costs one call;
+      // an absent flag (a server that has not learned it) hides the leaf. 🚩 FAILS CLOSED.
+      {
+        // Donor requests (ticket 431) — `DonorRequestInquiry,03`.
+        labelKey: 'donor-requests:menu.donorRequests',
+        icon: ArrowLeftRight,
+        routerLink: '/oms/donor-requests',
+        activePrefix: '/oms/donor-requests',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenDonorRequests,
+        }),
+      },
+      {
+        // Failed donor transfers (ticket 434) — `FailedDonorTransfers,03`, second in D18's order.
+        // The re-run's own flag (06) is the screen's to read, not the leaf's.
+        labelKey: 'failed-donor-transfers:menu.failedDonorTransfers',
+        icon: PackageX,
+        routerLink: '/oms/failed-donor-transfers',
+        activePrefix: '/oms/failed-donor-transfers',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenFailedTransfers,
+        }),
+      },
+      {
+        // Document payments (ticket 433) — `DocumentPaymentInquiry,03`. 🚩 Its rows carry customer
+        // phones and names, so an absent flag hides it like any other.
+        labelKey: 'document-payments:menu.documentPayments',
+        icon: CreditCard,
+        routerLink: '/oms/document-payments',
+        activePrefix: '/oms/document-payments',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenDocumentPayments,
+        }),
+      },
+      {
+        // Cities & districts (ticket 436) — `SdCityInquiry,03` OR `SdDistrictInquiry,03`, fourth in
+        // D18's order. The import flags (437) are the screen's to read, not the leaf's.
+        labelKey: 'geography:menu.geography',
+        icon: MapPinned,
+        routerLink: '/oms/geography',
+        activePrefix: '/oms/geography',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenGeography,
+        }),
+      },
+      {
+        // Document source users (ticket 438) — `DocumentSourceUsersInquiry,03`, last in D18's order.
+        // The import flag is the screen's to read, not the leaf's.
+        labelKey: 'document-source-users:menu.documentSourceUsers',
+        icon: UserCheck,
+        routerLink: '/oms/document-source-users',
+        activePrefix: '/oms/document-source-users',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenDocumentSourceUsers,
         }),
       },
     ],

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, ChevronsRight, ExternalLink, Zap } from 'lucide-react'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
@@ -7,92 +7,18 @@ import type { TimelineStep, TimelineStepState } from '@/core/oms/timeline'
 import { useKeyHint } from '@/core/commands/key-hint'
 import { legendText } from '@/core/commands/keys'
 import { useSingleKeys } from '@/core/commands/single-key-switch'
-import { documentDirection } from '@/core/theme/direction'
 import Kbd from '@/core/ui/Kbd'
+import PaneSeparator, { useViewportWidth } from '@/core/ui/PaneSeparator'
+import { clampInspectorWidth } from '@/core/ui/inspector-pane'
 import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
 import { DELIVERY_ACTS, type DeliveryAct } from './acts'
 import { inspectorView, type InspectorView, type IsolatedValue } from './inspector-model'
-import {
-  clampInspectorWidth,
-  INSPECTOR_WIDTH,
-  maxInspectorWidth,
-  NEXT_ROW_KEYS,
-  PREVIOUS_ROW_KEYS,
-  separatorKeyWidth,
-} from './inspector-pane'
+import { NEXT_ROW_KEYS, PREVIOUS_ROW_KEYS } from './inspector-pane'
 import { STATUS_TONE } from './status-tone'
 
 /** The pane's id, for the separator's and the grid bar toggle's `aria-controls`. */
 export const INSPECTOR_ID = 'delivery-inspector'
-
-/** The viewport's width, kept current: the pane is never more than 40% of it. */
-function useViewportWidth(): number {
-  const [width, setWidth] = useState(() => window.innerWidth)
-  useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  return width
-}
-
-/**
- * The resize handle on the pane's inline-start edge (367 §4), so it mirrors under RTL: drag it,
- * or focus it and step 16 px with the arrows, Home/End for min/max; a double-click resets 360.
- */
-function Separator({
-  width,
-  viewport,
-  onWidth,
-}: {
-  width: number
-  viewport: number
-  onWidth: (width: number) => void
-}) {
-  const { t } = useTranslation('deliveries')
-  const drag = useRef<{ x: number; width: number } | null>(null)
-  // Direction is a boot fact (383): a language switch reloads the page.
-  const rtl = documentDirection() === 'rtl'
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-controls={INSPECTOR_ID}
-      aria-label={t('inspector.resize')}
-      aria-valuenow={width}
-      aria-valuemin={INSPECTOR_WIDTH.min}
-      aria-valuemax={maxInspectorWidth(viewport)}
-      tabIndex={0}
-      data-inspector-separator=""
-      onPointerDown={(e) => {
-        if (e.button !== 0) return
-        drag.current = { x: e.clientX, width }
-        e.currentTarget.setPointerCapture(e.pointerId)
-        // No text selection across the grid while dragging.
-        e.preventDefault()
-      }}
-      onPointerMove={(e) => {
-        if (!drag.current) return
-        const dx = e.clientX - drag.current.x
-        // Dragging toward the inline start grows the pane.
-        onWidth(drag.current.width + (rtl ? dx : -dx))
-      }}
-      onPointerUp={() => (drag.current = null)}
-      onPointerCancel={() => (drag.current = null)}
-      onDoubleClick={() => onWidth(INSPECTOR_WIDTH.default)}
-      onKeyDown={(e) => {
-        const next = separatorKeyWidth(e.key, width, { viewport, rtl })
-        if (next === null) return
-        e.preventDefault()
-        onWidth(next)
-      }}
-      className="group absolute inset-y-0 -start-[3px] z-10 w-[6px] cursor-col-resize touch-none focus-visible:outline-none"
-    >
-      <div className="mx-auto h-full w-px group-hover:bg-primary group-focus-visible:w-[2px] group-focus-visible:bg-ring" />
-    </div>
-  )
-}
 
 /** A value isolated once, by its kind (bidi rule): `Ltr` for a machine value, `<bdi>` for free text. */
 function Isolated({ value }: { value: IsolatedValue }) {
@@ -501,7 +427,13 @@ export default function DeliveryInspector({
       style={{ width: shown }}
       className={`relative flex shrink-0 flex-col border-s border-border bg-card ${className}`}
     >
-      <Separator width={shown} viewport={viewport} onWidth={(next) => onWidth(clampInspectorWidth(next, viewport))} />
+      <PaneSeparator
+        controls={INSPECTOR_ID}
+        label={t('inspector.resize')}
+        width={shown}
+        viewport={viewport}
+        onWidth={(next) => onWidth(clampInspectorWidth(next, viewport))}
+      />
       <div className="flex h-8 shrink-0 items-center justify-end border-b border-divider px-2">
         <button
           type="button"

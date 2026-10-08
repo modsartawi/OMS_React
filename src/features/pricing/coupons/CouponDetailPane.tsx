@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Ban, Check, Loader2, Power, RotateCcw, Undo2, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
-import type { CouponDetails, CouponTransaction } from '@/core/models/coupons'
+import type { CouponDetails, CouponInstance, CouponTemplate, CouponTransaction, EarlierUpload } from '@/core/models/coupons'
 import { couponsApi } from './api'
-import { formatStamp } from './helpers'
+import { couponHistorySections, formatStamp } from './helpers'
 
 // Shared coupon detail view (ticket 521) — an Instance summary, a read-only Template
 // pane, and the redemption ledger ("where redeemed": Time / Store / Type / Reference /
@@ -18,6 +19,11 @@ import { formatStamp } from './helpers'
 // reuses it. Every mutation re-reads via `onChanged`. A failed mutation is said inside
 // its modal, which stays open (spec 380 F18: a toast under an open `showModal()` paints
 // beneath its backdrop).
+//
+// Spec 2463 (ticket 439): under the current coupon, one read-only section per earlier upload that
+// an admin deleted, with the ledger it carried. A deleted code (`isDeleted`) has no current coupon,
+// so it shows only those sections: no instance or template card, and no actions. The sections come
+// from `couponHistorySections`, exactly as the server grouped them.
 type Mode = 'admin' | 'support'
 
 type ActiveModal = 'instance' | 'refund' | 'reset' | null
@@ -31,7 +37,48 @@ interface Props {
 
 export default function CouponDetailPane({ details, mode, onChanged }: Props) {
   const { t } = useTranslation('coupons')
-  const { instance, template, transactions } = details
+  const sections = couponHistorySections(details)
+  return (
+    <div className="flex flex-col gap-4">
+      {details.isDeleted && (
+        <p className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+          {t('inquiry.deletedNotice')}
+        </p>
+      )}
+      {sections.map((section, i) =>
+        section.kind === 'current' ? (
+          details.instance && details.template ? (
+            <CurrentCoupon
+              key="current"
+              instance={details.instance}
+              template={details.template}
+              transactions={section.transactions}
+              mode={mode}
+              onChanged={onChanged}
+            />
+          ) : (
+            // Off-contract (the server nulls these only when `isDeleted`): keep the ledger rather than drop it.
+            <LedgerTable key="current" transactions={section.transactions} />
+          )
+        ) : (
+          <EarlierUploadSection key={`earlier-${i}`} upload={section.upload} />
+        ),
+      )}
+    </div>
+  )
+}
+
+interface CurrentProps {
+  instance: CouponInstance
+  template: CouponTemplate
+  transactions: CouponTransaction[]
+  mode: Mode
+  onChanged: () => void | Promise<void>
+}
+
+/** The current coupon: instance + template cards, its actions, and its own ledger. */
+function CurrentCoupon({ instance, template, transactions, mode, onChanged }: CurrentProps) {
+  const { t } = useTranslation('coupons')
   const isAdmin = mode === 'admin'
 
   const [selectedTxnId, setSelectedTxnId] = useState<string | null>(null)
@@ -192,53 +239,14 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
             {t('inquiry.ledger.empty')}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border/60">
-            <table className="w-full min-w-[44rem] text-sm">
-              <thead>
-                <tr className="border-b border-border/60 bg-muted/40 text-start text-xs uppercase tracking-wide text-muted-foreground">
-                  {isAdmin && <th className="w-8 px-3 py-2" />}
-                  <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.time')}</th>
-                  <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.store')}</th>
-                  <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.type')}</th>
-                  <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.reference')}</th>
-                  <th className="px-3 py-2 text-center font-medium">{t('inquiry.ledger.col.ok')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((x) => {
-                  const refundable = isRefundable(x)
-                  return (
-                    <tr key={x.transactionId} className="border-b border-border/40 last:border-0">
-                      {isAdmin && (
-                        <td className="px-3 py-2">
-                          <input
-                            type="radio"
-                            name="txn"
-                            className="h-4 w-4 accent-primary disabled:opacity-40"
-                            checked={selectedTxnId === x.transactionId}
-                            disabled={!refundable}
-                            title={refundable ? undefined : t('inquiry.ledger.notRefundable')}
-                            onChange={() => setSelectedTxnId(x.transactionId)}
-                          />
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatStamp(x.redemptionTime)}</td>
-                      <td className="px-3 py-2">{x.storeCode || '—'}</td>
-                      <td className="px-3 py-2">{t(`inquiry.status.${x.redemptionType}`, { defaultValue: x.redemptionType })}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{x.transactionReference || '—'}</td>
-                      <td className="px-3 py-2 text-center">
-                        {x.isSuccessful ? (
-                          <Check className="mx-auto h-4 w-4 text-success" aria-label="ok" />
-                        ) : (
-                          <X className="mx-auto h-4 w-4 text-danger" aria-label="failed" />
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <LedgerTable
+            transactions={transactions}
+            select={
+              isAdmin
+                ? { selectedId: selectedTxnId, onSelect: setSelectedTxnId, isSelectable: isRefundable }
+                : undefined
+            }
+          />
         )}
       </div>
 
@@ -370,5 +378,101 @@ function ReasonField({
       {required ? t('inquiry.modal.reasonRequired') : t('inquiry.modal.reason')}
       <input type="text" className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
+  )
+}
+
+interface LedgerSelect {
+  selectedId: string | null
+  onSelect: (transactionId: string) => void
+  isSelectable: (x: CouponTransaction) => boolean
+}
+
+/** The redemption ledger ("where redeemed"). With `select`, a refundable row can be picked. */
+function LedgerTable({ transactions, select }: { transactions: CouponTransaction[]; select?: LedgerSelect }) {
+  const { t } = useTranslation('coupons')
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border/60">
+      <table className="w-full min-w-[44rem] text-sm">
+        <thead>
+          <tr className="border-b border-border/60 bg-muted/40 text-start text-xs uppercase tracking-wide text-muted-foreground">
+            {select && <th className="w-8 px-3 py-2" />}
+            <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.time')}</th>
+            <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.store')}</th>
+            <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.type')}</th>
+            <th className="px-3 py-2 font-medium">{t('inquiry.ledger.col.reference')}</th>
+            <th className="px-3 py-2 text-center font-medium">{t('inquiry.ledger.col.ok')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.map((x) => {
+            const selectable = select?.isSelectable(x) ?? false
+            return (
+              <tr key={x.transactionId} className="border-b border-border/40 last:border-0">
+                {select && (
+                  <td className="px-3 py-2">
+                    <input
+                      type="radio"
+                      name="txn"
+                      className="h-4 w-4 accent-primary disabled:opacity-40"
+                      checked={select.selectedId === x.transactionId}
+                      disabled={!selectable}
+                      title={selectable ? undefined : t('inquiry.ledger.notRefundable')}
+                      onChange={() => select.onSelect(x.transactionId)}
+                    />
+                  </td>
+                )}
+                <td className="px-3 py-2 text-xs text-muted-foreground">{formatStamp(x.redemptionTime)}</td>
+                <td className="px-3 py-2">{x.storeCode || '—'}</td>
+                <td className="px-3 py-2">{t(`inquiry.status.${x.redemptionType}`, { defaultValue: x.redemptionType })}</td>
+                <td className="px-3 py-2 font-mono text-xs">{x.transactionReference || '—'}</td>
+                <td className="px-3 py-2 text-center">
+                  {x.isSuccessful ? (
+                    <Check className="mx-auto h-4 w-4 text-success" aria-label="ok" />
+                  ) : (
+                    <X className="mx-auto h-4 w-4 text-danger" aria-label="failed" />
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** One deleted upload's coupon of this code: who deleted it, when and why, and its ledger. Read-only. */
+function EarlierUploadSection({ upload }: { upload: EarlierUpload }) {
+  const { t } = useTranslation('coupons')
+  return (
+    <section data-testid="earlier-upload" className="rounded-lg border border-border/60 bg-muted/10 p-4">
+      <h2 className="text-sm font-semibold tracking-tight">
+        <Trans
+          t={t}
+          i18nKey="inquiry.earlier.title"
+          values={{ at: formatStamp(upload.deletedAt), by: upload.deletedBy, reason: upload.reason.trim() || '—' }}
+          components={{ at: <Ltr />, by: <Ltr />, reason: <bdi /> }}
+        />
+      </h2>
+      <div className="mt-1 mb-3 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
+        <span>
+          <Trans t={t} i18nKey="inquiry.earlier.template" values={{ templateId: upload.templateId }} components={{ id: <Ltr /> }} />
+        </span>
+        <span>
+          <Trans
+            t={t}
+            i18nKey="inquiry.earlier.redemptions"
+            count={upload.redeemCount}
+            values={{ n: upload.redeemCount.toLocaleString('en-US') }}
+            components={{ n: <Ltr /> }}
+          />
+        </span>
+      </div>
+      {upload.transactions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('inquiry.ledger.empty')}</p>
+      ) : (
+        <LedgerTable transactions={upload.transactions} />
+      )}
+    </section>
   )
 }

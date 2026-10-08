@@ -68,6 +68,9 @@ import geographyAr from '@/locales/ar/geography.json'
 // Document source users (spec 430, ticket 438). Namespace == feature name, English and Arabic together.
 import documentSourceUsers from '@/locales/en/document-source-users.json'
 import documentSourceUsersAr from '@/locales/ar/document-source-users.json'
+// Coupons (spec 2463, tickets 439/440): a PARTIAL Arabic namespace — the delete and result-download
+// strings only; every older coupons key falls back to English.
+import couponsAr from '@/locales/ar/coupons.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -115,6 +118,7 @@ i18n.use(initReactI18next).init({
       'failed-donor-transfers': failedDonorTransfersAr,
       geography: geographyAr,
       'document-source-users': documentSourceUsersAr,
+      coupons: couponsAr,
     },
   },
   interpolation: { escapeValue: false },

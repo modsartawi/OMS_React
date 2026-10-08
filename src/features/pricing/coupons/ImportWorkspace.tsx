@@ -1,15 +1,17 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, RotateCw, Upload } from 'lucide-react'
+import { Loader2, RotateCw, Trash2, Upload } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import { type ImportJob, type ImportJobStatus, isTerminalJob } from '@/core/models/coupons'
+import { fsi } from '@/core/util/bidi'
 import { couponsApi } from './api'
-import { formatStamp, ImportParseError, MAX_CODES, MAX_LINE_LENGTH, parseImportText } from './helpers'
+import DeleteJobDialog from './DeleteJobDialog'
+import { formatStamp, ImportParseError, jobActions, MAX_CODES, MAX_LINE_LENGTH, parseImportText } from './helpers'
 
 // Import workspace (ticket 522): client-parse preview + JSON submit (519) + a jobs grid
 // that self-updates via polling. The browser parses the .txt/.csv EXACTLY like the server
@@ -17,6 +19,10 @@ import { formatStamp, ImportParseError, MAX_CODES, MAX_LINE_LENGTH, parseImportT
 // duplicates skipped") before commit — refusing a >100k file client-side with split
 // guidance. On confirm it POSTs { codes[], customerId? }; the server re-dedupes + re-caps
 // as the backstop. The jobs query polls at ~2s ONLY while a job is non-terminal.
+//
+// Spec 2463 (ticket 439): a finished row also offers Delete (DeleteJobDialog); a Deleted row stays
+// in the grid, greyed, with who deleted it and when, and offers nothing. Which row offers what is
+// `jobActions`.
 
 interface Preview {
   fileName: string
@@ -37,6 +43,7 @@ export default function ImportWorkspace() {
    *  stays open (spec 380 F18: a toast under an open `showModal()` cannot be reached). */
   const [submitError, setSubmitError] = useState<unknown>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<ImportJob | null>(null)
 
   const templateKey = templateId.trim()
   const jobsKey = ['coupons', 'jobs', templateKey] as const
@@ -193,49 +200,81 @@ export default function ImportWorkspace() {
                     <Th className="text-end">{t('import.jobs.col.added')}</Th>
                     <Th className="text-end">{t('import.jobs.col.skipped')}</Th>
                     <Th>{t('import.jobs.col.when')}</Th>
-                    <Th className="text-end">{t('import.jobs.col.retry')}</Th>
+                    <Th className="text-end">{t('import.jobs.col.actions')}</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((job) => (
-                    <tr key={job.jobId} className="border-b border-border/40 last:border-0">
-                      <td className="px-3 py-2 font-mono text-xs">{job.jobId}</td>
-                      <td className="px-3 py-2">
-                        <StatusPill status={job.status} label={t(`import.status.${job.status}`)} />
-                        {job.status === 'Failed' && job.errorMessage ? (
-                          <div className="mt-0.5 text-xs text-danger-800">{job.errorMessage}</div>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2 text-end tabular-nums">{job.totalCodes}</td>
-                      <td className="px-3 py-2 text-end tabular-nums">{job.totalAdded}</td>
-                      <td className="px-3 py-2 text-end tabular-nums">{job.totalSkipped}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatStamp(job.createdAt)}</td>
-                      <td className="px-3 py-2 text-end">
-                        {job.status === 'Failed' ? (
-                          <Button
-                            variant="outlined"
-                            onClick={() => void retry(job.jobId)}
-                            disabled={retryingId !== null}
-                          >
-                            {retryingId === job.jobId ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RotateCw className="h-3.5 w-3.5" />
+                  {rows.map((job) => {
+                    const actions = jobActions(job.status)
+                    const deleted = job.status === 'Deleted'
+                    return (
+                      <tr
+                        key={job.jobId}
+                        className={`border-b border-border/40 last:border-0 ${deleted ? 'text-muted-foreground opacity-70' : ''}`}
+                      >
+                        <td className="px-3 py-2 font-mono text-xs">{job.jobId}</td>
+                        <td className="px-3 py-2">
+                          <StatusPill status={job.status} label={t(`import.status.${job.status}`)} />
+                          {job.status === 'Failed' && job.errorMessage ? (
+                            <div className="mt-0.5 text-xs text-danger-800">{job.errorMessage}</div>
+                          ) : null}
+                          {deleted ? (
+                            <div className="mt-0.5 text-xs">
+                              {t('import.jobs.deletedBy', {
+                                at: fsi(formatStamp(job.deletedAt)),
+                                by: fsi(job.deletedBy ?? '—'),
+                              })}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-2 text-end tabular-nums">{job.totalCodes}</td>
+                        <td className="px-3 py-2 text-end tabular-nums">{job.totalAdded}</td>
+                        <td className="px-3 py-2 text-end tabular-nums">{job.totalSkipped}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{formatStamp(job.createdAt)}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-2">
+                            {actions.retry && (
+                              <Button
+                                variant="outlined"
+                                onClick={() => void retry(job.jobId)}
+                                disabled={retryingId !== null || deleting !== null}
+                              >
+                                {retryingId === job.jobId ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCw className="h-3.5 w-3.5" />
+                                )}
+                                {t('import.jobs.retry')}
+                              </Button>
                             )}
-                            {t('import.jobs.retry')}
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                            {actions.delete && (
+                              <Button
+                                variant="outlined"
+                                onClick={() => setDeleting(job)}
+                                disabled={deleting !== null || retryingId === job.jobId}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {t('import.jobs.delete')}
+                              </Button>
+                            )}
+                            {!actions.retry && !actions.delete && <span className="text-muted-foreground">—</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </>
       )}
+
+      <DeleteJobDialog
+        job={deleting}
+        onClose={() => setDeleting(null)}
+        onSettled={() => queryClient.invalidateQueries({ queryKey: jobsKey })}
+      />
 
       {/* Preview + commit modal */}
       <Modal
@@ -300,6 +339,7 @@ const PILL: Record<ImportJobStatus, string> = {
   Processing: 'bg-primary-050 text-primary-800',
   Completed: 'bg-success-050 text-success-800',
   Failed: 'bg-danger-050 text-danger-800',
+  Deleted: 'bg-muted text-muted-foreground line-through',
 }
 
 function StatusPill({ status, label }: { status: ImportJobStatus; label: string }) {

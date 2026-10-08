@@ -3,6 +3,9 @@
 // browser preview matches what the server will accept — but the server remains the
 // authority: on submit (519) it re-dedupes and re-enforces the 100k cap as the backstop.
 
+import type { TFunction } from 'i18next'
+import type { CouponDetails, CouponTransaction, EarlierUpload, ImportJobDeletePreview, ImportJobStatus } from '@/core/models/coupons'
+import { fsi } from '@/core/util/bidi'
 import { type CodeListMeter, codeListMeter } from '@/core/util/code-list'
 
 export const MAX_LINE_LENGTH = 256
@@ -83,3 +86,55 @@ export const TEMPLATE_ORIGIN_FILTER_MAX = 50
 
 /** How many codes the origin filter holds, and its stored length against the cap. Never upper-cased. */
 export const templateOriginFilterMeter = (value: string): CodeListMeter => codeListMeter(value, TEMPLATE_ORIGIN_FILTER_MAX)
+
+// ── Deleting a mistaken upload (spec 2463, ticket 439) ──────────────────────────────────────
+
+/** What a jobs-grid row offers. The server re-checks each one (a race answers 409). */
+export interface JobActions {
+  retry: boolean
+  delete: boolean
+}
+
+/** Only a Failed job retries; a finished one (Completed or Failed) deletes; a Deleted one is done. */
+export function jobActions(status: ImportJobStatus): JobActions {
+  return {
+    retry: status === 'Failed',
+    delete: status === 'Completed' || status === 'Failed',
+  }
+}
+
+/** A count for a `t()` sentence: grouped (`2,904`) and isolated whole (`fsi`, [bidi]). Not for exports. */
+export const isolatedCount = (value: number): string => fsi(value.toLocaleString('en-US'))
+
+/**
+ * The delete dialog's sentence, from the server's preview. Each count is isolated whole (`fsi`):
+ * the sentence is plain text under RTL ([bidi]). The redeemed clause and the other-templates
+ * sentence drop out when their count is zero.
+ */
+export function describeDeletePreview(preview: ImportJobDeletePreview, t: TFunction): string {
+  const n = isolatedCount
+  const deletes = t(preview.redeemed > 0 ? 'import.delete.deletesRedeemed' : 'import.delete.deletes', {
+    count: preview.toDelete,
+    n: n(preview.toDelete),
+    redeemed: n(preview.redeemed),
+  })
+  if (preview.inOtherTemplates === 0) return deletes
+  const others = t('import.delete.otherTemplates', { count: preview.inOtherTemplates, n: n(preview.inOtherTemplates) })
+  return `${deletes} ${others}`
+}
+
+/** One block of a coupon's history in the detail pane. */
+export type HistorySection =
+  | { kind: 'current'; transactions: CouponTransaction[] }
+  | { kind: 'earlier'; upload: EarlierUpload }
+
+/**
+ * The detail pane's history, exactly as the server grouped it: the current coupon's ledger first
+ * (absent when the code is deleted), then one section per earlier upload in the order sent (oldest
+ * first). Never re-split by date — a refund booked after a delete sits under the redemption it
+ * reverses, which a split on `redemptionTime` would move (BackOffice 2466).
+ */
+export function couponHistorySections(details: CouponDetails): HistorySection[] {
+  const earlier = details.earlierUploads.map((upload): HistorySection => ({ kind: 'earlier', upload }))
+  return details.isDeleted ? earlier : [{ kind: 'current', transactions: details.transactions }, ...earlier]
+}

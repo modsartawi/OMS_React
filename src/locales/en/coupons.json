@@ -93,6 +93,13 @@
       "title": "Reset coupon",
       "body": "This erases ALL {{count}} redemptions of this coupon and cannot be undone. Retype the code and give a reason to confirm.",
       "retype": "Retype the code ({{code}}) to confirm"
+    },
+    "deletedNotice": "No coupon holds this code now. An upload that added it was deleted; its history is kept below.",
+    "earlier": {
+      "title": "Earlier upload, deleted <at>{{at}}</at> by <by>{{by}}</by>: <reason>{{reason}}</reason>",
+      "template": "Template <id>{{templateId}}</id>",
+      "redemptions_one": "<n>{{n}}</n> redemption",
+      "redemptions_other": "<n>{{n}}</n> redemptions"
     }
   },
   "templates": {
@@ -164,7 +171,8 @@
       "Pending": "Pending",
       "Processing": "Processing",
       "Completed": "Completed",
-      "Failed": "Failed"
+      "Failed": "Failed",
+      "Deleted": "Deleted"
     },
     "jobs": {
       "title": "Import jobs",
@@ -179,8 +187,31 @@
         "added": "Added",
         "skipped": "Skipped",
         "when": "When",
-        "retry": "Retry"
-      }
+        "retry": "Retry",
+        "actions": "Actions"
+      },
+      "delete": "Delete",
+      "deletedBy": "Deleted {{at}} by {{by}}"
+    },
+    "delete": {
+      "title": "Delete this upload",
+      "intro": "Job {{jobId}} on template {{templateId}}.",
+      "loading": "Checking what the delete would remove…",
+      "previewFailed": "Could not check what the delete would remove",
+      "deletes_one": "Deletes {{n}} coupon.",
+      "deletes_other": "Deletes {{n}} coupons.",
+      "deletesRedeemed_one": "Deletes {{n}} coupon ({{redeemed}} already redeemed; their redemption history is kept).",
+      "deletesRedeemed_other": "Deletes {{n}} coupons ({{redeemed}} already redeemed; their redemption history is kept).",
+      "otherTemplates_one": "{{n}} code in this file belongs to another template and is not touched.",
+      "otherTemplates_other": "{{n}} codes in this file belong to other templates and are not touched.",
+      "cannotUndo": "This cannot be undone. The job stays in the list, marked Deleted.",
+      "refused": "This upload cannot be deleted",
+      "reason": "Reason (required)",
+      "cancel": "Cancel",
+      "confirm": "Delete upload",
+      "done_one": "Upload deleted: {{n}} coupon removed.",
+      "done_other": "Upload deleted: {{n}} coupons removed.",
+      "failed": "Could not delete the upload"
     }
   }
 }

@@ -314,10 +314,8 @@ are sent, one call each, under one shared note: the tester vouches for every one
 cases they chose) → Activated ↔ Deactivated,
 and Tested / Activated / Deactivated → Planned (**Back to Planned**, which clears the test mark and,
 from Activated, pulls the offer off the tills). Planned → Activated is refused. **Only a Planned bonus
-buy can change.** ⚠️ The older reading — **A** = Activated, **I** = Inactive, **D** = Draft, **X** = Deleted
-(`BonusBuyDetailController.MapStatus`), display-only — is what the BBY Inquiry still badges until
-BackOffice 2384 moves it to blank/`1`/`2`; Bonus Buy Maintenance reads only the new codes and shows
-any other code as *unknown*.
+buy can change.** Every screen reads only these codes and shows any other code as *unknown*; the
+older **A** / **I** / **D** / **X** reading is retired.
 _Avoid_: state, approval status (`SyncApprovalStatus` is a different column nothing new reads),
 draft (SAP's word is *Planned*).
 
@@ -337,10 +335,13 @@ the inquiry means *validity-window overlap* ("active during this period"), never
 _Avoid_: effective dates, created date (`CreatedAt` is when the row was minted, not when it is live).
 
 **Active / current** (of a BBY, on the inquiry):
-An inquiry-screen concept the WPF never had: a BBY is **active** iff `BbyStatus == "A"` **and** its
-validity window overlaps today (`ValidFrom ≤ today ≤ ValidTo`) — computable from `BbyHeader` alone.
-The default grid shows only active BBYs; number- and date-range search surface any status (including
-`X` = Deleted) and any window (past/future), with status shown as a badge.
+An inquiry-screen concept the WPF never had: a BBY is **active** iff its **BBY status** is Activated
+(blank) **and** it is **valid today** (its validity window overlaps today, `ValidFrom ≤ today ≤ ValidTo`)
+— computable from `BbyHeader` alone. On the inquiry these are two separate criteria: a **status
+filter** (any of Activated · Planned · Tested · Deactivated; none chosen = every status) and **valid
+today** (spec 441; the search half is still being built). The default view is Activated + valid today, i.e. the active BBYs. A number search reaches any
+status and any window; a date-range search replaces *valid today* with *valid during that range* and
+keeps the status filter.
 _Avoid_: live/enabled — and don't conflate with the engine's heavier "will it fire now" (cond-level
 dates + `SyncApprovalStatus` + time window + loyalty), which the inquiry deliberately does not
 reproduce.

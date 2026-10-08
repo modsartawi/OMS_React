@@ -10,8 +10,6 @@
 /** The code sets the grid + modal render as readable labels. Every member has a
  *  backing `<set>.<code>` key in `src/locales/en/bonus-buy-inquiry.json`. */
 export const CODE_SETS = {
-  /** BBY header status. */
-  status: ['A', 'I', 'D', 'X'],
   /** Buy/Get link category — how the side's lines combine. */
   link: ['A', 'O'],
   /** Condition target — the scope the promotion discounts. */
@@ -27,9 +25,9 @@ export const CODE_SETS = {
 export type CodeSet = keyof typeof CODE_SETS
 
 /**
- * The i18n key for a code within its set, e.g. `codeLabelKey('status', 'A')` →
- * `'status.A'` (which the JSON maps to "Activated"). An **unknown** code is passed
- * through unchanged (`codeLabelKey('status', 'Z')` → `'Z'`) — never thrown — so a new
+ * The i18n key for a code within its set, e.g. `codeLabelKey('link', 'A')` →
+ * `'link.A'` (which the JSON maps to "And"). An **unknown** code is passed
+ * through unchanged (`codeLabelKey('link', 'Z')` → `'Z'`) — never thrown — so a new
  * SAP code degrades to its raw value instead of crashing the grid. Paired with
  * `t(key, { defaultValue: code })` the pass-through renders the raw code verbatim.
  */

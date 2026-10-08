@@ -1,15 +1,31 @@
+import { Trans, useTranslation } from 'react-i18next'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { statusSeverity } from './status-severity'
+import Ltr from '@/core/ui/Ltr'
+import { bbyStatusSeverity, readBbyStatus } from './status'
 
-/** The BBY header status badge — code → `Severity`, then the core badge. One
- *  wrapper for all three sites (the Status column, the pinned identity cell and
- *  the Details modal): two copies of this three-line hop is the same drift, one
- *  level down, that ticket 086 deleted from the class-string maps.
+/** The BBY header status badge — code → reading → severity, then the core badge. One
+ *  wrapper for all three sites (the Status column, the pinned identity cell and the
+ *  Details modal, which Simulation opens too), so they never disagree about one bonus buy.
  *
- *  Colour is redundant to the text — the label always renders beside it through
- *  `codeLabels` + `t()` — so it never carries meaning alone (WCAG). An empty code
- *  renders nothing rather than an empty pill. */
-export default function BbyStatusBadge({ code, label }: { code: string; label: string }) {
-  if (!code) return null
-  return <StatusBadge sev={statusSeverity(code)}>{label}</StatusBadge>
+ *  It always renders: SAP's blank is Activated, not "no status" (ticket 442). An unknown
+ *  code shows its raw value beside the label, isolated as the machine value it is.
+ *  Colour is redundant to the text, so it never carries meaning alone (WCAG). */
+export default function BbyStatusBadge({ code }: { code: string | null | undefined }) {
+  const { t } = useTranslation('bonus-buy-inquiry')
+  const status = readBbyStatus(code)
+  const raw = code?.trim() ?? ''
+  return (
+    <StatusBadge sev={bbyStatusSeverity(status)}>
+      {status === 'unknown' && raw !== '' ? (
+        // One inline run: the badge is `inline-flex`, so a bare label + isolate would be two
+        // flex items and the space between them would collapse ("UnknownZ"). The locale owns
+        // the word order; the code rides in an `Ltr` slot.
+        <span>
+          <Trans t={t} i18nKey="status.unknownCode" values={{ code: raw }} components={{ code: <Ltr /> }} />
+        </span>
+      ) : (
+        t(`status.${status}`)
+      )}
+    </StatusBadge>
+  )
 }

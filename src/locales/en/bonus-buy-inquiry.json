@@ -72,10 +72,12 @@
     "createdBy": "Created by"
   },
   "status": {
-    "A": "Activated",
-    "I": "Inactive",
-    "D": "Draft",
-    "X": "Deleted"
+    "activated": "Activated",
+    "planned": "Planned",
+    "tested": "Tested",
+    "deactivated": "Deactivated",
+    "unknown": "Unknown",
+    "unknownCode": "Unknown <code>{{code}}</code>"
   },
   "link": {
     "A": "And",

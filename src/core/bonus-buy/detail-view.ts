@@ -17,6 +17,7 @@ import type {
   BbyGetRow,
   BbyTotalDiscount,
 } from '@/core/models/bonus-buy-inquiry'
+import { readBbyStatus } from './status'
 
 /** Which layout the Get side renders: the per-condition table, or the single
  *  Document total-discount card (`condTargetType === 'R'`). */
@@ -82,7 +83,7 @@ function discountKind(discountType: string): DiscountKind {
 }
 
 /** Validity marker per the glossary rule — window first (ended / not-yet-started
- *  read regardless of status), then Activated → live. Ordinal string compare on the
+ *  read regardless of status), then Activated (SAP's blank) → live. Ordinal string compare on the
  *  raw `yyyyMMdd` values; empty bounds are treated as open. */
 function validityState(
   header: { bbyStatus: string; validFrom: string; validTo: string },
@@ -90,7 +91,7 @@ function validityState(
 ): ValidityState {
   if (header.validTo && header.validTo < today) return 'ended'
   if (header.validFrom && header.validFrom > today) return 'notStarted'
-  if (header.bbyStatus === 'A') return 'live'
+  if (readBbyStatus(header.bbyStatus) === 'activated') return 'live'
   return null
 }
 

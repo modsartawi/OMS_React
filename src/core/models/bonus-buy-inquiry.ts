@@ -22,7 +22,7 @@ export interface BbyInquiryRow {
   promoNumber: string
   linkCategoryBuy: string // A=And / O=Or
   linkCategoryGet: string // A=And / O=Or
-  bbyStatus: string // A=Activated / I=Inactive / D=Draft / X=Deleted
+  bbyStatus: string // SAP's: blank=Activated / 1=Planned / 2=Deactivated / 3=Tested (OMS)
   offerId: string
   limitNumber: number
   minValue: number
@@ -40,7 +40,7 @@ export interface BbyInquiryRow {
   loyTiers: string
   createdAt: string // ISO-8601; client formats
   createdBy: string
-  /** Derived server-side: `bbyStatus === 'A' AND validFrom ≤ @today ≤ validTo`. */
+  /** Derived server-side: `bbyStatus` blank (Activated) AND `validFrom ≤ @today ≤ validTo` (BackOffice 2384). */
   isActive: boolean
 }
 
@@ -75,7 +75,7 @@ export interface BbyDetailDto {
     offerId: string
     linkCategoryBuy: string // A=And / O=Or
     linkCategoryGet: string // A=And / O=Or
-    bbyStatus: string // A/I/D/X
+    bbyStatus: string // blank/1/2/3, read through `readBbyStatus`
     condTargetType: string // R=Document -> total-discount layout
     minValue: number // doubles as the Document total-discount basket requirement
     maxValue: number

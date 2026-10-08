@@ -21,7 +21,7 @@ export interface BbyMaintainAccessResult {
 /**
  * SAP's `KONBBYH.STATUS` as `BbyHeader.BbyStatus`: blank = Activated, `1` = Planned,
  * `2` = Deactivated, `3` = Tested (spec 2396, ADR 0063 — OMS only). Typed `string` because it is
- * the server's code, read through `overviewStatus` rather than trusted to be one of the four.
+ * the server's code, read through `readBbyStatus` (`@/core/bonus-buy/status`) rather than trusted to be one of the four.
  */
 export type BbyStatusCode = string
 

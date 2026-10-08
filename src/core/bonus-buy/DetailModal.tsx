@@ -155,7 +155,7 @@ function DetailBody({
           <Def k={t('detail.rules.offer')} v={header.offerId} mono />
           <Def k={t('detail.rules.profile')} v={header.bbyProfile} />
           <Def k={t('detail.rules.status')}>
-            <BbyStatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
+            <BbyStatusBadge code={header.bbyStatus} />
           </Def>
 
           <Def
@@ -232,7 +232,7 @@ function TitleRecap({ t, view }: { t: TFunction; view: DetailView }) {
         <span className="font-mono text-lg font-bold tabular-nums tracking-tight">
           {header.bbyNumber}
         </span>
-        <BbyStatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
+        <BbyStatusBadge code={header.bbyStatus} />
         {validity && (
           <StatusBadge sev={validitySeverity(validity)}>
             {t(`detail.validity.${validity}`)}

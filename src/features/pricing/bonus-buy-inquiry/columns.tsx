@@ -11,6 +11,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { pinStart } from '@/core/theme/direction'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import BbyStatusBadge from '@/core/bonus-buy/BbyStatusBadge'
+import { compareBbyStatus, readBbyStatus } from '@/core/bonus-buy/status'
 import { codeLabelKey, type CodeSet } from '@/core/bonus-buy/codeLabels'
 import {
   formatBbyDate,
@@ -53,9 +54,6 @@ function codeText(t: TFunction, set: CodeSet, raw: string): string {
   return raw === '' ? '' : t(`bonus-buy-inquiry:${codeLabelKey(set, raw)}`, { defaultValue: raw })
 }
 
-/** Status label — the one code set rendered as a colour-coded badge (not a plain chip). */
-const statusLabel = (t: TFunction, code: string) => codeText(t, 'status', code)
-
 /** A neutral code→label pill (story 22: raw codes render as readable chips). Used for
  *  the And/Or link and the condition-target codes; a cellRenderer (not a valueFormatter)
  *  so CSV export (065) still sees the raw code, not the label. */
@@ -73,8 +71,8 @@ const codeChip =
     <CodeChip label={codeText(t, set, p.value ?? '')} />
   )
 
-/* Status A/I/D/X renders through the shared `BbyStatusBadge` both here and in the
-   pinned identity cell: this Status column is the sortable/filterable/exportable
+/* Status (SAP's blank/1/2/3, ticket 442) renders through the shared `BbyStatusBadge` both
+   here and in the pinned identity cell: this Status column is the sortable/filterable/exportable
    handle, the identity badge is the at-a-glance marker. */
 
 /** The pinned-start identity cell: status badge + "valid today" marker + BBY number +
@@ -90,7 +88,7 @@ function IdentityCell(
   if (!row) return null
   return (
     <span className="flex items-center gap-2">
-      <BbyStatusBadge code={row.bbyStatus} label={statusLabel(t, row.bbyStatus)} />
+      <BbyStatusBadge code={row.bbyStatus} />
       {row.isActive && (
         <span
           className="inline-block h-2 w-2 shrink-0 rounded-full bg-success"
@@ -177,8 +175,12 @@ export function buildInquiryColumns(
           headerName: t('columns.bbyStatus'),
           field: 'bbyStatus',
           width: 130,
+          // The column filter matches the readable label ("Planned"), not the raw code.
+          // …and sorts by reading (Activated, Tested, Planned, Deactivated, Unknown), not by code.
+          comparator: (a: string | null, b: string | null) => compareBbyStatus(a, b),
+          filterValueGetter: (p) => t(`bonus-buy-inquiry:status.${readBbyStatus(p.data?.bbyStatus)}`),
           cellRenderer: (p: ICellRendererParams<BbyInquiryRow, string>) => (
-            <BbyStatusBadge code={p.value ?? ''} label={statusLabel(t, p.value ?? '')} />
+            <BbyStatusBadge code={p.value} />
           ),
         },
         textCol('description', 260),

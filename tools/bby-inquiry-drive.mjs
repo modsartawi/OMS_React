@@ -41,7 +41,7 @@ const ROW = (over) => ({
   promoNumber: 'PR-9',
   linkCategoryBuy: 'A',
   linkCategoryGet: 'A',
-  bbyStatus: 'A',
+  bbyStatus: '',
   offerId: 'OF-1',
   limitNumber: 0,
   minValue: 0,
@@ -70,7 +70,7 @@ const DETAIL_ROWS = {
     bbyNumber: '100234', description: 'Buy 2 Panadol, get 1 free', bbyProfile: 'HEALTH_PROMO',
     validFrom: '20260101', validTo: '20261231', validFromTime: '000000', validToTime: '235959',
     promoNumber: 'PR-24817', offerId: 'OFR-6621', linkCategoryBuy: 'A', linkCategoryGet: 'O',
-    bbyStatus: 'A', condTargetType: 'M', minValue: 0, maxValue: 0, limitNumber: 1, score: 100,
+    bbyStatus: '', condTargetType: 'M', minValue: 0, maxValue: 0, limitNumber: 1, score: 100,
     isStackable: false, allowNestedStacking: false, loyGroups: 'NAHDI_PLUS', loyTiers: 'GOLD',
     includes: '', excludes: 'TOBACCO',
   },
@@ -116,7 +116,7 @@ let lastMembersQuery = ''
 const DETAIL_DOC = {
   header: {
     ...DETAIL_ROWS.header, bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket',
-    condTargetType: 'R', minValue: 100, bbyStatus: 'A',
+    condTargetType: 'R', minValue: 100, bbyStatus: '',
   },
   org: { ...DETAIL_ROWS.org },
   buy: [],
@@ -125,7 +125,7 @@ const DETAIL_DOC = {
 }
 
 // scenario state, mutated between reloads
-let scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: 'I' })] }
+let scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
 // last Bby/List query string seen (assert Search sends the built params), and the
 // list response controls for the 064 flow (cap banner + a business date error).
 let lastListQuery = ''
@@ -174,7 +174,11 @@ async function run() {
             errors: [{ errorCode: 'BBY_NOT_FOUND', message: 'This Bonus Buy has no detail record.' }],
           }),
         )
-      return route.fulfill(envelope(mode === 'document' ? DETAIL_DOC : DETAIL_ROWS))
+      const detail = mode === 'document' ? DETAIL_DOC : DETAIL_ROWS
+      // ticket 442 — `detailStatus` overrides the header status to badge each reading in the modal.
+      if (scenario.detailStatus !== undefined)
+        return route.fulfill(envelope({ ...detail, header: { ...detail.header, bbyStatus: scenario.detailStatus } }))
+      return route.fulfill(envelope(detail))
     }
     if (path === 'Bby/GroupingMembers') {
       lastMembersQuery = url.includes('?') ? url.split('?')[1] : ''
@@ -190,7 +194,7 @@ async function run() {
   })
 
   // ---- Scenario 1: allowed + rows ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: 'I' })] }
+  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: '2' })] }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
   const rowCount = await page.locator('.ag-row').count()
@@ -200,7 +204,8 @@ async function run() {
   const activeDot = await page.locator('.ag-row[row-index="0"] span[title]').count()
   check('active row shows the "valid today" marker', activeDot >= 1)
   const bodyText = await page.locator('main').innerText()
-  check('status code A renders as its label (Activated)', bodyText.includes('Activated'), '')
+  check('SAP blank renders as Activated (ticket 442)', bodyText.includes('Activated'), '')
+  check('code 2 renders as Deactivated', bodyText.includes('Deactivated'), '')
   check('valid-from formatted yyyy-MM-dd', bodyText.includes('2026-01-01'))
 
   // ---- ticket 063: the full 28-field grouped grid ----
@@ -290,7 +295,7 @@ async function run() {
   check('screenAllowed:false → menu leaf hidden', leafDenied === 0, `${leafDenied} leaves`)
 
   // ---- ticket 064: search toolbar (filtered chip + cap banner + date error) ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: 'I' })], capReached: false, listError: false }
+  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: '2' })], capReached: false, listError: false }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
   check('search toolbar renders (BBY number field)', (await page.getByLabel(/BBY number/i).count()) >= 1)
@@ -339,11 +344,15 @@ async function run() {
   const headerCols = headerLine.split(',').length
   check('CSV header carries all 28 columns', headerCols === 28, `${headerCols} cols`)
   check('CSV header includes BBY # + Valid from + Status', /BBY #/.test(headerLine) && /Valid from/.test(headerLine) && /Status/.test(headerLine), headerLine.slice(0, 80))
-  // Raw values, not display chips: yyyyMMdd date + single-letter status code, NOT "2026-01-01"/"Activated".
-  check('CSV cells are RAW (20260101 date, "A" status), not formatted', /20260101/.test(csv) && /(^|,)"?A"?(,|$)/m.test(csv) && !/Activated/.test(csv) && !/2026-01-01/.test(csv), '')
+  // Raw values, not display chips: yyyyMMdd date + the status code as stored (SAP's blank for
+  // Activated, `2` for Deactivated), NOT "2026-01-01"/"Activated".
+  const csvLines = csv.split(/\r?\n/).filter(Boolean)
+  const statusAt = headerLine.split(',').findIndex((h) => /^"?Status"?$/.test(h))
+  const csvStatuses = csvLines.slice(1).map((l) => (l.split(',')[statusAt] ?? '').replace(/"/g, ''))
+  check('CSV cells are RAW (20260101 date; status blank + "2"), not formatted', /20260101/.test(csv) && csvStatuses.includes('') && csvStatuses.includes('2') && !/Activated/.test(csv) && !/2026-01-01/.test(csv), csvStatuses.join('|'))
 
   // ---- ticket 066: the Details modal (rows branch, document branch, not-found) ----
-  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: 'I' })], detailMode: 'rows' }
+  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: '2' })], detailMode: 'rows' }
   await page.goto(URL)
   await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
 
@@ -399,7 +408,7 @@ async function run() {
   const nested = () => page.locator('dialog[open]').filter({ hasText: 'Grouping members' })
   // 384: the footer's range and total are interpolated values, each isolated WHOLE with FSI…PDI
   // (`Showing ⁨1–20⁩ of ⁨42⁩`). The isolates are invisible, so the copy is read without them.
-  const bare = (text) => text.replace(/[⁦-⁩]/g, '')
+  const bare = (text) => text.replace(/[\u2066-\u2069]/g, '')
   const nestedText = async () => bare(await nested().innerText().catch(() => ''))
   const footer = (range, total) => new RegExp(`Showing ⁨?${range}⁩? of ⁨?${total}⁩?`)
 
@@ -518,7 +527,7 @@ async function run() {
     scenario = {
       accessBody: { screenAllowed: true },
       access404: false,
-      rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: 'I' })],
+      rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: '2' })],
       detailMode: 'rows',
     }
     await page.goto(URL)
@@ -532,20 +541,20 @@ async function run() {
       mute: [await tokenValue('--muted', 'backgroundColor'), await tokenValue('--muted-foreground', 'color')],
     }
 
-    // Pinned identity cell (always visible) — row 0 is Activated, row 1 Inactive.
+    // Pinned identity cell (always visible) — row 0 is Activated, row 1 Deactivated.
     const pinned = (await badgesUnder('.ag-cell[col-id="bbyNumber"]')).filter((b) =>
-      /Activated|Inactive/.test(b.label),
+      /^(Activated|Deactivated)$/.test(b.label),
     )
-    check(`${theme}: identity cell badges render (Activated + Inactive)`, pinned.length === 2, pinned.map((b) => b.label).join(', '))
+    check(`${theme}: identity cell badges render (Activated + Deactivated)`, pinned.length === 2, pinned.map((b) => b.label).join(', '))
     const activated = pinned.find((b) => b.label === 'Activated')
-    const inactive = pinned.find((b) => b.label === 'Inactive')
+    const inactive = pinned.find((b) => b.label === 'Deactivated')
     check(
       `${theme}: "Activated" paints ok (--success-050 + --success-800)`,
       activated?.bg === want.ok[0] && activated?.ink === want.ok[1],
       `${activated?.bg} / ${activated?.ink}`,
     )
     check(
-      `${theme}: "Inactive" paints mute (--muted + --muted-foreground)`,
+      `${theme}: "Deactivated" paints mute (--muted + --muted-foreground)`,
       inactive?.bg === want.mute[0] && inactive?.ink === want.mute[1],
       `${inactive?.bg} / ${inactive?.ink}`,
     )
@@ -593,6 +602,57 @@ async function run() {
     await page.waitForTimeout(150)
   }
   await setTheme('light')
+
+  // ---- ticket 442: every BBY status reads as the server's code ----
+  // SAP's blank / 1 / 2 / 3, plus a code the screen does not know (shown raw beside Unknown).
+  const READINGS = [
+    ['', 'Activated'],
+    ['1', 'Planned'],
+    ['2', 'Deactivated'],
+    ['3', 'Tested'],
+    ['Z', 'Unknown Z'],
+  ]
+  scenario = {
+    accessBody: { screenAllowed: true },
+    access404: false,
+    rows: READINGS.map(([code], i) => ROW({ bbyNumber: String(200001 + i), bbyStatus: code, isActive: code === '' })),
+    detailMode: 'rows',
+  }
+  await page.goto(URL)
+  await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
+  // Pinned identity cells (the existing badge checks' selector): each row's badge, in row order.
+  const strip = (x) => x.replace(/[\u2066-\u2069]/g, '').trim()
+  for (const [i, [code, label]] of READINGS.entries()) {
+    const pinnedBadge = await page
+      .locator(`.ag-row[row-index="${i}"] .ag-cell[col-id="bbyNumber"] span.rounded-full`)
+      .first()
+      .innerText()
+      .catch(() => '')
+    check(`442: code "${code}" badges "${label}" in the pinned cell`, strip(pinnedBadge) === label, pinnedBadge)
+  }
+  await page.evaluate(() => {
+    const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+    if (vp) vp.scrollLeft = 0
+  })
+  await page.waitForTimeout(120)
+  const columnLabels = await page.locator('.ag-cell[col-id="bbyStatus"] span.rounded-full').allInnerTexts()
+  check('442: the Status column badges all five readings', READINGS.every(([, l]) => columnLabels.map(strip).includes(l)), columnLabels.join(', '))
+  for (const [code, label] of READINGS) {
+    scenario.detailStatus = code
+    await page.getByRole('button', { name: /Details/i }).first().click()
+    const dialog = page.locator('dialog[open]')
+    await dialog.getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
+    const modalLabels = (await dialog.locator('span.rounded-full').allInnerTexts()).map(strip)
+    check(`442: the Details modal badges code "${code}" as "${label}"`, modalLabels.includes(label), modalLabels.join(', '))
+    check(
+      `442: the modal's "Active now" marker shows only for Activated (code "${code}")`,
+      modalLabels.includes('Active now') === (code === ''),
+      modalLabels.join(', '),
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+  }
+  delete scenario.detailStatus
 
   // The fail-open scenario (3a) intentionally 404s Bby/Access, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.

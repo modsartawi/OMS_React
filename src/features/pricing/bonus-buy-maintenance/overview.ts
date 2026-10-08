@@ -4,45 +4,22 @@
  * every key through `t()`.
  */
 import { apiErrorMessage } from '@/core/api'
-import type { Severity } from '@/core/ui/severity'
+import { bbyStatusSeverity, readBbyStatus, type BbyStatusReading } from '@/core/bonus-buy/status'
 import type {
   BbyMaintainOutcome,
   BbyOverviewRow,
   BbyPromotion,
   BbyRefusal,
-  BbyStatusCode,
 } from '@/core/models/bonus-buy-maintenance'
 
 /** `BbyPromotion.Name` is `NVARCHAR(40)` (spec 2374 §Schema). */
 export const PROMOTION_NAME_MAX = 40
 
-export type OverviewStatus = 'activated' | 'planned' | 'tested' | 'deactivated' | 'unknown'
-
-/**
- * SAP's status column: **blank** = Activated, `1` = Planned, `2` = Deactivated, and OMS's own
- * `3` = Tested (spec 2396, ADR 0063: inert at a till like Planned). Blank means a
- * PRESENT empty (or space-padded, as SAP pads) string. A missing field is `unknown`, never
- * Activated: while the wire shape is unconfirmed, a renamed field must not paint every bonus
- * buy as live at the tills. Any other code is `unknown` too, never guessed into one of three.
- */
-export function overviewStatus(code: BbyStatusCode | null | undefined): OverviewStatus {
-  if (code == null) return 'unknown'
-  const c = code.trim()
-  if (c === '') return 'activated'
-  if (c === '1') return 'planned'
-  if (c === '2') return 'deactivated'
-  if (c === '3') return 'tested'
-  return 'unknown'
-}
-
-/** Activated prices at the tills (`ok`); Planned waits for a human (`warn`); Tested is ready
- *  to go live (`go`); paused and unknown are neutral. The label always renders beside the colour. */
-export function overviewSeverity(status: OverviewStatus): Severity {
-  if (status === 'activated') return 'ok'
-  if (status === 'planned') return 'warn'
-  if (status === 'tested') return 'go'
-  return 'mute'
-}
+/** The status reading lives in core now (ticket 442: the BBY Inquiry reads it too); the
+ *  overview keeps its own names for it. */
+export type OverviewStatus = BbyStatusReading
+export const overviewStatus = readBbyStatus
+export const overviewSeverity = bbyStatusSeverity
 
 /**
  * The overview's Activate (one or many rows): not offered while the selection holds a Planned

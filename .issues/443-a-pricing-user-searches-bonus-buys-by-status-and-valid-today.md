@@ -61,7 +61,7 @@ Plus `npm run typecheck`, `npm run lint`, `npm test`.
 
 ## Boundaries
 
-- **Server dependency: BO-1, not filed** in BackOffice. `GET Bby/List` gains
+- **Server dependency: BO-1, filed as BackOffice 2506** (2026-10-09). `GET Bby/List` gains
   `status=<word>` repeated, each `activated|planned|tested|deactivated` (any case; none = all;
   `activated` matches blank-or-whitespace) and `validToday` (bool, default false, same `@today` as
   `isActive`). An unknown word returns 400 `INVALID_STATUS`. `activeOnly` keeps its meaning and its
@@ -82,7 +82,7 @@ Activated + valid today. The proofs are green against stubs.
 ## Blocked by
 
 [442](442-the-bby-inquiry-badges-every-bonus-buy-status-as-the-server-reads-it.md) (the status words
-and labels). Live: BO-1 (unfiled).
+and labels). Live: BO-1 = [BackOffice 2506](C:/Work/DMSCO/BackOffice/.issues/2506-the-inquiry-filters-bonus-buys-by-status-and-valid-today.md) (open).
 
 ## Comments
 
@@ -116,7 +116,7 @@ and labels). Live: BO-1 (unfiled).
   - `bby-inquiry-drive` 103/105, all 14 new 443 checks green. The 2 failures (menu leaf) fail
     identically on HEAD before 442.
   - `bby-link-drive` 11/11.
-  - Everything is **stubbed**: BO-1 is unbuilt and unfiled.
+  - Everything is **stubbed**: BO-1 (BackOffice 2506) is unbuilt.
 - **ar:** no ar `bonus-buy-inquiry` namespace exists, so there are no ar keys and no ar mirroring
   check. This is the same as 442; it needs a follow-up if the Arabic rollout reaches this screen.
 - **Reviews:**

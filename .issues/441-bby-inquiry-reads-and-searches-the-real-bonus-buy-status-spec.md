@@ -116,7 +116,7 @@ The pure params builder keeps owning the override rules:
   way `@/core/api`'s query builder sends every array, which ASP.NET binds as a collection
   (amended 2026-10-08 by ticket 443; the grilling had said a comma list).
 
-**Server contract (BackOffice ask, BO-1, not yet filed).** `GET Bby/List` gains:
+**Server contract (BackOffice ask, BO-1, filed 2026-10-09 as BackOffice 2506).** `GET Bby/List` gains:
 
 - `status` — repeated, each one of `activated|planned|tested|deactivated` (any case; bind as `string[]`). The server maps the
   words to codes (`activated` → blank, matching blank-or-whitespace as SAP pads). Blank/absent means
@@ -190,5 +190,4 @@ keys are removed. `en` and `ar` both get them (`ar` per the existing locale).
   stubs meanwhile.
 - When ticket (1) lands, remove the ⚠️ note under **BBY status** in `CONTEXT.md` that says the inquiry
   still badges the old codes.
-- BO-1 is **not filed** in BackOffice; file it there (its own ticket under a short spec, or as an
-  amendment to 2384's spec 2374) before ticket (2) can be walked live.
+- BO-1 is filed as **BackOffice 2506** (2026-10-09), a ticket following 2384; the live walk of ticket (2) waits on it.

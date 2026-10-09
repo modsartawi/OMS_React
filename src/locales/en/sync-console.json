@@ -100,6 +100,158 @@
   },
   "store": {
     "back": "Back to the fleet",
-    "placeholder": "This store's page is coming next: its health, its 24-hour strip, its counters and its passes."
+    "loading": "Loading the store…",
+    "failed": "The store could not be loaded.",
+    "noStoreTitle": "No such store",
+    "noStoreHint": "No store with this code has a sync location. Check the code, or go back to the fleet.",
+    "host": "Host",
+    "pending": "Control pending: the worker has not applied it yet",
+    "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown.",
+    "healthAsOf": "Health as of <at>{{at}}</at>",
+    "noHealth": "The worker has not reported health for this store yet."
+  },
+  "health": {
+    "label": "Sync health",
+    "reachable": "Reachable",
+    "lastConnectOk": "Last connect",
+    "lastConnectFail": "Last connect failure",
+    "backoffUntil": "Next try after (backoff)",
+    "push": "Push",
+    "pendingActions_one": "<n>{{n}}</n> action pending",
+    "pendingActions_other": "<n>{{n}}</n> actions pending",
+    "oldestPending": "Oldest pending action",
+    "pull": "Pull",
+    "lastTrxPulled": "Last transaction pulled",
+    "lastErrors": "Last error per loop",
+    "lastPass": "Last pass",
+    "noError": "No error",
+    "never": "Never"
+  },
+  "strip": {
+    "title": "Last 24 hours",
+    "loading": "Loading the last 24 hours…",
+    "failed": "The hourly strip could not be loaded.",
+    "empty": "No hours were returned for this store.",
+    "legend": "Legend",
+    "cells": {
+      "work": "Passes ran, work moved",
+      "idle": "Checked, idle",
+      "passErrors": "Pass errors",
+      "connectFailOnly": "Connect failures only",
+      "noData": "No data"
+    }
+  },
+  "tabs": {
+    "label": "Store sync details",
+    "counters": "Counters",
+    "passes": "Passes",
+    "commands": "Commands",
+    "scripts": "Scripts",
+    "audit": "Audit",
+    "location": "Location"
+  },
+  "counters": {
+    "loading": "Loading counters…",
+    "failed": "The counters could not be loaded.",
+    "empty": "This store has no counters.",
+    "columns": {
+      "lineNumber": "Line",
+      "objectId": "Object",
+      "bound": "Direction",
+      "counter": "Counter",
+      "logHead": "Action-log head",
+      "lag": "Lag",
+      "oldestPendingAt": "Oldest pending"
+    },
+    "bounds": {
+      "Out": "Push",
+      "In": "Pull"
+    }
+  },
+  "passes": {
+    "from": "From",
+    "fromHint": "Passes are kept for 30 days.",
+    "failed": "The passes could not be loaded.",
+    "empty": "No pass since this date.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "loading": "Loading passes…",
+    "open": "Open the pass detail",
+    "columns": {
+      "startOn": "Started",
+      "loop": "Loop",
+      "status": "Outcome",
+      "actionsCount": "Actions",
+      "finishOn": "Finished",
+      "errorMessage": "Error"
+    }
+  },
+  "outcomes": {
+    "Ok": "Done",
+    "Partial": "Partial",
+    "Failed": "Failed",
+    "Skipped": "Skipped",
+    "None": "Never"
+  },
+  "passDetail": {
+    "title": "Pass {{id}}",
+    "close": "Close",
+    "loading": "Loading the pass…",
+    "failed": "The pass detail could not be loaded.",
+    "empty": "This pass wrote no rows.",
+    "columns": {
+      "lineNumber": "Line",
+      "objectId": "Object",
+      "identifiers": "Identifiers",
+      "actionType": "Action",
+      "counter": "Counter",
+      "lineStatus": "Status",
+      "startOn": "Started",
+      "finishOn": "Finished",
+      "errorMessage": "Error"
+    },
+    "lineStatus": {
+      "Ok": "Ok",
+      "Error": "Error"
+    }
+  },
+  "scripts": {
+    "loading": "Loading scripts…",
+    "loadFailed": "The scripts could not be loaded.",
+    "empty": "This store has no scripts.",
+    "note": "Scripts are read only here: they are written outside the console, and their SQL is never shown.",
+    "executed": "Executed",
+    "failed": "Failed",
+    "notExecuted": "Not run yet",
+    "columns": {
+      "scriptId": "Script",
+      "createdAt": "Created",
+      "isExecuted": "State",
+      "lastAttempt": "Last attempt",
+      "errorMessage": "Error"
+    }
+  },
+  "location": {
+    "loading": "Loading the sync location…",
+    "failed": "The sync location could not be loaded.",
+    "code": "Code",
+    "description": "Description",
+    "ip": "IP address",
+    "instance": "Instance",
+    "dbName": "Database",
+    "groupId": "Group",
+    "father": "Father",
+    "isPosSyncEnabled": "POS sync sweep",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "credentials": "Credentials",
+    "credentialsNote": "Never shown in the browser."
+  },
+  "placeholder": {
+    "commands": "This store's commands will be listed here.",
+    "audit": "This store's audit trail will be listed here."
+  },
+  "loops": {
+    "push": "Push",
+    "pull": "Pull"
   }
 }

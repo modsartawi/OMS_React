@@ -36,7 +36,19 @@ const STATE_SEVERITY: Record<StoreState, Severity> = {
   controlPending: 'go',
 }
 
-const isStoreState = (s: string): s is StoreState => Object.hasOwn(STATE_SEVERITY, s)
+/** A machine code's badge: its label key, or `null` for a code this bundle does not know. */
+export type CodeBadge = { labelKey: string | null; sev: Severity }
+
+/**
+ * The one "code -> label + severity" lookup every badge of the console reads (states,
+ * pass outcomes, detail lines). A code missing from the map (a door newer than this
+ * bundle, or a key inherited from `Object.prototype`) is **neutral with no key**, so
+ * the caller shows the raw code rather than inventing a word for it.
+ */
+export function codeBadge<K extends string>(map: Record<K, Severity>, keyPrefix: string, code: string): CodeBadge {
+  if (!Object.hasOwn(map, code)) return { labelKey: null, sev: 'mute' }
+  return { labelKey: `${keyPrefix}.${code}`, sev: map[code as K] }
+}
 
 /**
  * A state's badge: its `sync-console` label key and its severity.
@@ -44,9 +56,8 @@ const isStoreState = (s: string): s is StoreState => Object.hasOwn(STATE_SEVERIT
  * An unknown state (a door newer than this bundle) is **neutral** and has no key —
  * the caller shows the raw code rather than inventing a word for it.
  */
-export function stateBadge(state: string): { labelKey: string | null; sev: Severity } {
-  if (!isStoreState(state)) return { labelKey: null, sev: 'mute' }
-  return { labelKey: `states.${state}`, sev: STATE_SEVERITY[state] }
+export function stateBadge(state: string): CodeBadge {
+  return codeBadge(STATE_SEVERITY, 'states', state)
 }
 
 // ── The fleet query ─────────────────────────────────────────────────────────────

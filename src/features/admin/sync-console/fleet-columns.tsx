@@ -2,13 +2,13 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import type { TFunction } from 'i18next'
 import { Link } from 'react-router'
 
-import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { StoreRow } from '@/core/models/sync-console'
 import { formatDateTime } from '@/core/util/date-format'
 import { figure, lastLoopError, stateBadge } from './helpers'
 import StateBadges from './StateBadges'
+import { CONSOLE_DEFAULT_COL_DEF, MONO, formatTime } from './console-columns'
 
 /**
  * The fleet store table's columns (ticket 445). Sorting and paging are the door's,
@@ -18,18 +18,7 @@ import StateBadges from './StateBadges'
  * A WPF store has no health row, so its health cells are blank rather than a `0` that
  * would read as "caught up".
  */
-export const FLEET_DEFAULT_COL_DEF: ColDef<StoreRow> = {
-  ...OMS_GRID_BASE_COL_DEF,
-  sortable: false,
-  filter: false,
-  resizable: true,
-  cellDataType: false,
-}
-
-const CODE = 'font-mono text-[12px]'
-
-/** A server time as drawn — local wall-clock, formatted, never shifted. */
-const formatTime = (p: ValueFormatterParams<StoreRow, string | null>) => formatDateTime(p.value)
+export const FLEET_DEFAULT_COL_DEF: ColDef<StoreRow> = CONSOLE_DEFAULT_COL_DEF
 
 /** A health figure, blank on a store that has no health row. */
 const formatHealth = (p: ValueFormatterParams<StoreRow, number>) =>
@@ -43,7 +32,7 @@ export function buildFleetColumns(t: TFunction): ColDef<StoreRow>[] {
       headerName: t('table.columns.code'),
       field: 'code',
       width: 100,
-      cellClass: CODE,
+      cellClass: MONO,
       cellRenderer: (p: ICellRendererParams<StoreRow>) =>
         p.data ? (
           <Link

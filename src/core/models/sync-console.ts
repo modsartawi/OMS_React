@@ -12,8 +12,8 @@
  * them through `@/core/util/date-format`, never append a `Z` or `toISOString()` one.
  *
  * Ticket 445 lands the shared enums, the shared shapes and the read doors the Fleet
- * page calls. The store page, command, audit and onboarding shapes join with the
- * slice that first reads them.
+ * page calls; ticket 446 adds the store page's reads. The command, audit and
+ * onboarding shapes join with the slice that first reads them.
  */
 
 // ── Shared enums ────────────────────────────────────────────────────────────────
@@ -164,4 +164,110 @@ export interface HourTotals {
 export interface FleetLastHour {
   current: HourTotals
   previous: HourTotals
+}
+
+// ── The store page's reads (ticket 446) ─────────────────────────────────────────
+
+/** Every `HourCell`, in the strip legend's order. */
+export const HOUR_CELLS: readonly HourCell[] = ['work', 'idle', 'passErrors', 'connectFailOnly', 'noData']
+
+/**
+ * `GET ActionSync/Store?code=` — the store header: a fleet row plus its control
+ * versions. An unknown code is a 404 with code `NO_STORE`.
+ */
+export interface StoreDetail extends StoreRow {
+  controlVersion: number
+  appliedVersion: number
+  appliedAt: string | null
+}
+
+/** One hour of `GET ActionSync/Store/Hours?code=&hours=` — a row-less hour is `noData` with zeros. */
+export interface StoreHour {
+  hour: string
+  cell: HourCell
+  pushPasses: number
+  pullPasses: number
+  connectFailures: number
+  actionsPushed: number
+  trxPulled: number
+  errors: number
+}
+
+/** `GET ActionSync/Store/Hours` → `{ items }`, oldest first. */
+export interface StoreHours {
+  items: StoreHour[]
+}
+
+/** A counter's direction: `Out` is pushed to the store, `In` is pulled from it. */
+export type CounterBound = 'Out' | 'In'
+
+/** The contract's `Counter`, one of `GET ActionSync/Store/Counters?code=`. */
+export interface StoreCounter {
+  objectId: string
+  bound: CounterBound
+  lineNumber: number
+  counter: number
+  /** `MAX(ActionNo)` in the 41-day window — push only. */
+  logHead: number | null
+  lag: number | null
+  oldestPendingAt: string | null
+}
+
+export interface StoreCounters {
+  items: StoreCounter[]
+}
+
+/** The contract's `Pass`, one of `GET ActionSync/Store/Passes?code=&from=&page=&pageSize=`, newest first. */
+export interface StorePass {
+  processId: string
+  loop: SyncLoop
+  startOn: string
+  finishOn: string | null
+  status: PassOutcome
+  actionsCount: number
+  errorMessage: string | null
+}
+
+export type PassLineStatus = 'Ok' | 'Error'
+
+/** One row of `GET ActionSync/Store/PassDetail?processId=`. */
+export interface PassDetailLine {
+  lineNumber: number
+  objectId: string
+  identifiers: string
+  actionType: string
+  counter: number
+  lineStatus: PassLineStatus
+  startOn: string
+  finishOn: string
+  errorMessage: string | null
+}
+
+export interface PassDetail {
+  items: PassDetailLine[]
+}
+
+/** One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire. */
+export interface StoreScript {
+  scriptId: string
+  createdAt: string
+  isExecuted: boolean
+  lastAttempt: string | null
+  errorMessage: string | null
+}
+
+export interface StoreScripts {
+  items: StoreScript[]
+}
+
+/** `GET ActionSync/Store/Location?code=`. 🚩 Never `userId` or `password` — none is added here. */
+export interface StoreLocation {
+  code: string
+  description: string
+  ip: string
+  instance: string
+  dbName: string
+  groupId: string
+  father: string
+  isPosSyncEnabled: boolean
 }

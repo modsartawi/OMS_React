@@ -95,6 +95,29 @@ local SIS.Api answers on `:5111`; the host in this machine's `SIS_API_BASEURL`
 staging API). No `SIS_USER`/`SIS_COOKIE` is set. The inputs file still holds 10 TODO values
 (only `searchText` is real).
 
+**2026-10-09 live drive against the LOCAL SIS.Api (`:5111`, `.\SQLEXPRESS` `POS_Server`, dev stub
+login as 14419 — ADMIN-like, all three grants):**
+
+- `tools/materials-live-inputs.json` filled from that database: Arabic `بانادول`, barcode
+  `5010006100692`, SFDA `1-288-98`, levels A008 → B041 → C119, serialised material 100025 (61
+  batches), stock basket 101683–101687 × Abha, GS1 scans of 100025 lot 556165: serial …0430
+  (sold then returned → SELLABLE) for the search, serial …9494 (net sold at P001, invoice
+  00114618701261 → SOLD, 3 history rows) for the GS1 check.
+- **`materials-live-drive.mjs` 84/84, 0 skipped, exit 0**, all four sections. Stock rode the real
+  Stock Visibility (`StockV2:BaseUrl` of the dev appsettings).
+- First run was 82/84: the drive read the Levels B/C answer that went out before the choice above
+  reached the URL (an unfiltered ask, re-asked filtered a beat later). A drive race, not a client
+  drift — the levels query key already carries the levels above. Fixed in the drive: it waits for
+  the answer asked under the choice above.
+- No-grant user (stub id 99999, no `UaUserRole`): `Access` answers all three `false`; Search,
+  StoreSets and Gs1/History answer 403. The per-grant UI split (search yes, stock/GS1 no) still
+  needs an account holding only `ItemInquiryCustome`.
+- Gotcha for a hand probe: a cookie request without the `X-Web-Client` header is a 401 (the CSRF
+  check), not a grant problem — the app's `api.ts` sends it.
+
+Still open: staging itself, the owner walk (incl. the Arabic read), the partial-grant UI check,
+and the two sign-offs above.
+
 ## Done when
 
 The drives are green on staging and the owner has signed off the walk.

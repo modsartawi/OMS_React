@@ -224,7 +224,15 @@ if (ONLY.includes('search')) {
         const since = answers.length
         const root = page.locator(`[data-material-filter="level${level}"]`)
         await root.locator('[data-picker-trigger]').click()
-        const a = await waitAnswer('MaterialWeb/Levels', since)
+        // The choice above reaches the URL a beat after its click, so a picker opened at once may
+        // first ask unfiltered and then again under the choice: wait for the answer under it.
+        const above = i > 0 ? [`${'abc'[i - 1]}Level`, path[i - 1]] : null
+        let a = null
+        for (let n = 0; n < 100 && !a; n++) {
+          a = answers.slice(since).filter((x) => x.path === 'MaterialWeb/Levels' && x.query.get('level') === level && (!above || x.query.getAll(above[0]).includes(above[1]))).at(-1) ?? null
+          if (!a) await page.waitForTimeout(100)
+        }
+        a ??= answerOf('MaterialWeb/Levels', since) ?? null
         check(`search: Levels ${level} answers`, ok(a), why(a))
         const values = a?.body?.data ?? []
         if (values[0]) shapeCheck(`search: a level ${level} value carries exactly { code, description }`, values[0], KEYS.level)

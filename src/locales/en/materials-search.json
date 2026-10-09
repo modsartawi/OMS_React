@@ -109,10 +109,5 @@
     "stockUnavailableTitle": "Stock Visibility unavailable — try again",
     "stockUnavailableBody": "Live stock could not be read from Stock Visibility, so no figures are shown. This is an outage, not zero stock.",
     "stockUnavailableRetry": "Try again"
-  },
-  "placeholder": {
-    "title": "Coming soon",
-    "body": "This Materials screen is being built.",
-    "back": "Back to material search"
   }
 }

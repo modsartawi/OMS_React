@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2544-material-master-on-the-web-spec.md
 blocked-by: 451 (live: BackOffice 2547, 2548)
 ---
@@ -46,18 +46,18 @@ UI → app (BackOffice read doors, stubbed until 455)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `masterGroups`: every contract field lands in exactly one group; `hasInfo: false` collapses
+- [x] `masterGroups`: every contract field lands in exactly one group; `hasInfo: false` collapses
   the info groups (vitest)
-- [ ] `stockTabVisible`: hidden without `canCheckStock`, and no request is made (vitest)
-- [ ] `simulationMaterialParam`: `?material=101234` pre-adds the material once; without the param
+- [x] `stockTabVisible`: hidden without `canCheckStock`, and no request is made (vitest)
+- [x] `simulationMaterialParam`: `?material=101234` pre-adds the material once; without the param
   the simulator is unchanged (vitest)
-- [ ] `tools/materials-detail-drive.mjs`, run against stubs:
+- [x] `tools/materials-detail-drive.mjs`, run against stubs:
   - each tab renders;
   - the zero toggle works;
   - `MAT-00004` shows the unavailable state;
   - `MAT-00001` shows not found;
   - the simulator link lands prefilled.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` green
+- [x] `npm run typecheck`, `npm run lint` and `npm test` green
 
 ## Boundaries
 
@@ -71,3 +71,34 @@ The named helpers and the drive are green.
 ## Blocked by
 
 [451](451-an-hq-user-searches-materials-with-the-smart-box-and-the-level-filters.md)
+
+## Comments
+
+**Done 2026-10-09 (AFK, stubbed).** Built at `src/features/materials/detail/` (`MaterialDetailPage`,
+`api`, `columns`, `master-groups`, `detail-view`), namespace `materials-detail` EN + AR. Route `/materials/:no`
+now points at the detail, and the 451 placeholder is deleted (file and `placeholder.*` keys). The simulator
+change is `features/pricing/simulation/material-param.ts`, read once at its initial state.
+
+Proof:
+- `masterGroups` → `master-groups.test.ts`. The pure function is named `masterSections`, beside the
+  `MASTER_GROUP_ROWS` / `MASTER_SOURCE` tables. `MASTER_SOURCE` is typed with `satisfies Record<keyof MaterialMaster, …>`,
+  so a new contract field fails the typecheck until it is placed.
+- `stockTabVisible` → `detail-view.test.ts`. The "no request" half runs the tab's own query through a real
+  TanStack `QueryObserver` with the stock door spied: zero calls without `canCheckStock` (or with no probe answer),
+  and exactly one call with the contract body when both grants are held.
+- `simulationMaterialParam` → `material-param.test.ts`.
+- `tools/materials-detail-drive.mjs` → 67/67 against stubs on :5244:
+  - every tab renders;
+  - the zero toggle re-asks with `includeZero: true`;
+  - MAT-00004 shows the unavailable panel and no grid;
+  - MAT-00001 shows the not-found page, and its link goes back to search;
+  - the simulator link lands with one row 101234 / 1 / EA and nothing processed, and the plain simulator still opens with one empty row;
+  - the static `/materials/stock` and `/materials/gs1` still beat `:no`.
+- Regression drives on :5244: search 74/74 (its check 8 now waits for the detail), stock 47/47, GS1 59/59,
+  sim-process 51/51. `node tools/check-sim-keys.mjs` 8/8: no simulation key was added.
+- Gates: `npm run typecheck` clean. `npm run lint` 4 gates clean. `npm test` 247 files / 4357 tests. `npm run build` clean.
+
+Decisions, the contract-envelope drift, and the review findings are in `.afk/HITL-452.md`. Two of them want the
+owner's eye: the tab hides ATP-0 stores by default, and fields are split into Item and ItemInfo by reading
+`ItemInfo.cs`. Outstanding, and not this ticket's: the live doors (BackOffice 2547, 2548), the owner walk and the
+Arabic read-through, all ticket 455.

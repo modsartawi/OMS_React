@@ -11,7 +11,7 @@ import { MATERIAL_LEVELS } from './search-query'
 
 type Row = MaterialSearchRow
 
-/** A material's own page — the detail (ticket 452; a placeholder until then). */
+/** A material's own page — the detail (ticket 452). */
 export const materialPath = (materialNumber: string) => `/materials/${encodeURIComponent(materialNumber)}`
 
 /** Identities the export writes as text, so Excel never totals one or strips its leading zeros. */

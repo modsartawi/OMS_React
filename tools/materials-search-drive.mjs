@@ -595,8 +595,9 @@ function sheetText(files) {
   await waitRows(page, 3)
   await page.locator('[data-material-link]', { hasText: '0100777' }).click()
   await page.waitForURL(/\/materials\/0100777$/, { timeout: 10000 })
-  await page.locator('[data-material-placeholder="material"]').waitFor({ timeout: 10000 })
-  check('8: a row opens /materials/:no (the placeholder until 452)', true)
+  // Since ticket 452 the dynamic route renders the material's own detail page.
+  await page.locator('[data-material-detail="0100777"]').waitFor({ timeout: 10000 })
+  check('8: a row opens /materials/:no — the material detail', true)
   await page.goBack()
   await waitRows(page, 3)
   check('8: Back returns to the same search', urlSearch(page) === 'q=panadol', urlSearch(page))

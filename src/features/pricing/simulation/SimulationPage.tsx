@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -29,6 +30,7 @@ import { processCommand, processRefusal } from './process-command'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
 import { isStaleRun } from './staleness'
+import { simulationMaterialParam } from './material-param'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -107,7 +109,10 @@ export default function SimulationPage() {
   // Off by default, so a plain run prices what a till would (only Activated bonus buys).
   const [unactivated, setUnactivated] = useState(false)
   const [pricingElements, setPricingElements] = useState(false)
-  const [items, setItems] = useState<SimItemRow[]>(() => [emptyItemRow()])
+  // `?material=` (a material's detail links here, ticket 452) pre-adds that material as the one
+  // initial row; it never processes by itself. Without it, the one empty row as always.
+  const [searchParams] = useSearchParams()
+  const [items, setItems] = useState<SimItemRow[]>(() => simulationMaterialParam(searchParams, emptyItemRow))
   const [manualConditions, setManualConditions] = useState<SimManualConditionRow[]>([])
   // Which result lines have their expansion OPEN (ticket 116). A set, not a selection:
   // the detail panel it replaced could show one line at a time, and comparing two lines'

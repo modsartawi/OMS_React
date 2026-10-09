@@ -225,6 +225,8 @@ export default function MemberLookupPage() {
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder={t('search.placeholder')}
+          // The screen starts with typing: focused on landing.
+          autoFocus
           aria-label={t('search.label')}
           autoComplete="off"
           className="h-9 w-72 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"

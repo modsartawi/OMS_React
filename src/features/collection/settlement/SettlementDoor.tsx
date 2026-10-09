@@ -167,6 +167,8 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label={t('search.label')}
+            // The screen starts with typing: focused on landing.
+            autoFocus
             placeholder={t('search.placeholder')}
             data-testid="settlement-search"
             className="h-9 w-full rounded-full border border-border bg-card ps-9 pe-3 text-sm outline-none focus:border-primary/60"

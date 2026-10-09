@@ -125,6 +125,8 @@ function BulkRaise() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             disabled={busy}
+            // The screen starts with typing: focused on landing.
+            autoFocus
             rows={8}
             spellCheck={false}
             aria-describedby="central-invoice-list-hint central-invoice-list-count"

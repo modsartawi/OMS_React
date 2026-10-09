@@ -277,6 +277,8 @@ function MaterialSearch() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={t('box.placeholder')}
+              // The screen starts with typing or a scan: focused on landing.
+              autoFocus
               aria-invalid={tooShort || undefined}
               aria-describedby={tooShort ? 'material-search-too-short' : undefined}
               className={INPUT}

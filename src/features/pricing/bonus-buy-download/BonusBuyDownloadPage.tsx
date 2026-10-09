@@ -222,6 +222,8 @@ export default function BonusBuyDownloadPage() {
           value={numbersText}
           onChange={(e) => setNumbersText(e.target.value)}
           disabled={running}
+          // The screen starts with typing: focused on landing.
+          autoFocus
           spellCheck={false}
         />
         <div className="flex items-center justify-between text-xs text-muted-foreground">

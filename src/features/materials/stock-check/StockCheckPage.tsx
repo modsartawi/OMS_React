@@ -170,6 +170,8 @@ function StockCheck() {
                 if (materialsRefused) setAsked(null)
               }}
               placeholder={t('materials.placeholder')}
+              // The screen starts with the materials list: focused on landing.
+              autoFocus
               rows={8}
               spellCheck={false}
               aria-invalid={list.refused.length > 0 || materialsRefused || undefined}

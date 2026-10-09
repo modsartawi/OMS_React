@@ -79,6 +79,8 @@ export default function CouponSupportPage() {
             placeholder={t('inquiry.searchPlaceholder')}
             onChange={(e) => setCodeInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && search()}
+            // The screen starts with typing: focused on landing.
+            autoFocus
           />
         </label>
         <Button variant="primary" onClick={search} disabled={!codeInput.trim() || details.isFetching}>

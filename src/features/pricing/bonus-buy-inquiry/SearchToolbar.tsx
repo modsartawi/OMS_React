@@ -72,6 +72,8 @@ export default function SearchToolbar({
           value={criteria.bbyNumber}
           onChange={(e) => onChange({ bbyNumber: e.target.value })}
           placeholder={t('search.bbyNumberPlaceholder')}
+          // The screen starts with typing: focused on landing.
+          autoFocus
           className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
         />
       </label>

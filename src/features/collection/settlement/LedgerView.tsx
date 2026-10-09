@@ -278,6 +278,8 @@ function Criteria({
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             aria-label={t('ledger.entry.label')}
+            // The screen starts with typing: focused on landing.
+            autoFocus
             placeholder={t('ledger.entry.placeholder')}
             data-testid="ledger-entry"
             className="h-9 w-full rounded-full border border-border bg-card ps-9 pe-3 text-sm outline-none focus:border-primary/60"

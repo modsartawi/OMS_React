@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2544-material-master-on-the-web-spec.md
 blocked-by: — (live: BackOffice 2545, 2546)
 ---
@@ -54,18 +54,18 @@ UI → app (BackOffice read doors, stubbed until 455)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `searchQuery`: the box, levels, side filters and take build the exact query string, with
+- [x] `searchQuery`: the box, levels, side filters and take build the exact query string, with
   repeated params, and parse back from the URL unchanged — a round trip (vitest)
-- [ ] `levelCascade`: changing A drops any B/C/D/E choice no longer offered; picking a level never
+- [x] `levelCascade`: changing A drops any B/C/D/E choice no longer offered; picking a level never
   touches the levels above it (vitest)
-- [ ] `resolvedChip`: each `resolvedAs` maps to a label key; `text` / `null` → no chip (vitest)
-- [ ] `tools/materials-search-drive.mjs`, run against stubs:
+- [x] `resolvedChip`: each `resolvedAs` maps to a label key; `text` / `null` → no chip (vitest)
+- [x] `tools/materials-search-drive.mjs`, run against stubs:
   - each query kind renders rows;
   - the cascade narrows;
   - the limited banner shows;
   - "check stock for selected" carries the ticked materials;
   - the menu entry is hidden when `canSearchMaterials` is false.
-- [ ] `npm run typecheck`, `npm run lint` (boundaries) and `npm test` green
+- [x] `npm run typecheck`, `npm run lint` (boundaries) and `npm test` green
 
 ## Boundaries
 
@@ -80,3 +80,45 @@ The named helpers and the drive are green, and the search page renders from stub
 ## Blocked by
 
 None — can start immediately
+
+## Comments
+
+**2026-10-09 — built (AFK).** Done-when holds; everything is proven against STUBS of the door
+contract, since no `MaterialWeb/*` door is deployed (the live walk is 455's).
+
+- **Registration:**
+  - area `src/features/materials/search/`;
+  - namespace `materials-search` in EN and AR (six Arabic plural forms), registered in `core/i18n.ts`;
+  - routes `/materials`, `/materials/stock`, `/materials/gs1` and `/materials/:no` (the last three
+    render ONE placeholder, `MaterialPlaceholderPage`, which 452 deletes);
+  - a **Materials** menu group after Pricing & Promotions, holding all three leaf labels under
+    `materials-search:menu.*`.
+- **Shared, in core:**
+  - `core/models/materials.ts`: types for EVERY contract door, field for field;
+  - `core/materials/api.ts`: one key and one call, failing closed;
+  - `core/materials/access.ts`: a predicate per flag, plus `canSeeMaterialStock` for 452;
+  - `core/materials/stock-cap.ts`: `STOCK_MATERIAL_CAP = 50`, the one refusal key, and `stockCheckHref`;
+  - `formatMoney3` beside `formatMoney`, which is left at 2 decimals.
+- **Proof:**
+  - vitest: `search-query.test.ts`, `level-cascade.test.ts`, `resolved-chip.test.ts`,
+    `i18n-keys.test.ts`, plus `core/materials/{access,stock-cap}.test.ts` and
+    `number-format.test.ts` (235 files / 4237 tests green);
+  - drive `tools/materials-search-drive.mjs`: **74/74** on vite :5199, LTR and RTL;
+  - typecheck, lint (all four gates) and build are green.
+- **Reviews:**
+  - `/code-review` found three real bugs, now fixed:
+    - Enter in a picker's Find box submitted the search;
+    - the level pickers shared one Find text;
+    - a range tick crossing the cap unticked the rows that still fit.
+  - The same pass also turned up a URL-write race, fixed with updater writes and an echo-tracking
+    ref; the drive covers it.
+  - `/standards-review` found no hard violations.
+- **Decisions and contract gaps** are in `.afk/HITL-451.md`. The main ones:
+  - the stub uses the real envelope `errors[]` shape;
+  - `material` gets no chip;
+  - "Material type" is a free-number entry;
+  - the cap key lives in `materials-search`;
+  - the stock-cell field names in the spec and the contract disagree.
+- **Outstanding (not this ticket's):** the live walk against the real doors, the owner walk and
+  the Arabic read-through belong to 455.
+

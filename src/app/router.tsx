@@ -504,6 +504,35 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/coupons/CouponSupportPage')).default,
         }),
       },
+      // The Materials area (BackOffice spec 2544, ticket 451). 🚩 `stock` and `gs1` are STATIC
+      // segments, so React Router ranks them above the dynamic `:no` whatever their order here — a
+      // material numbered "stock" is not a thing. Until 452–454 land, the three routes below the
+      // search render the ONE placeholder, so neither a menu leaf nor a grid row lands on a 404:
+      // 453 and 454 point theirs at their own page, and 452 points `:no` at its page and deletes it.
+      {
+        path: 'materials',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/search/MaterialSearchPage')).default,
+        }),
+      },
+      {
+        path: 'materials/stock',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/search/MaterialPlaceholderPage')).default,
+        }),
+      },
+      {
+        path: 'materials/gs1',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/search/MaterialPlaceholderPage')).default,
+        }),
+      },
+      {
+        path: 'materials/:no',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/search/MaterialPlaceholderPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

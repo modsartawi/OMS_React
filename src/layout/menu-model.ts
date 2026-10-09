@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -72,7 +72,14 @@ import {
   canOpenCentralInvoice,
   centralInvoiceApi,
 } from '@/core/central-invoice/api'
+// The Materials probe lives in `@/core/` (ticket 451) for the OMS/Nphies reason: four features
+// (search, detail, stock check, GS1 check) read it, and none may import another. Each leaf reads
+// its OWN flag through its predicate off the ONE key, so the group costs one call.
+import { MATERIAL_ACCESS_KEY, materialAccessApi } from '@/core/materials/api'
+import { canCheckGs1, canCheckStock, canSearchMaterials } from '@/core/materials/access'
+import { STOCK_CHECK_PATH } from '@/core/materials/stock-cap'
 import type { CollectionAccessResult } from '@/core/models/collection'
+import type { MaterialAccessResult } from '@/core/models/materials'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -161,6 +168,15 @@ export function accessProbe<T>(p: {
  */
 const collectionProbe = (visible: (r: CollectionAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: COLLECTION_ACCESS_KEY, run: () => collectionAccessApi.access(), visible })
+
+/**
+ * The Materials area's leaves share ONE probe on ONE key (ticket 451), the Collections shape: each
+ * leaf passes its own flag's predicate, so a session granted only the stock check gets a one-leaf
+ * group. 🚩 FAILS CLOSED — see `@/core/materials/api`: the door is deployed nowhere yet, and a
+ * pending, errored or malformed probe hides every leaf.
+ */
+const materialProbe = (visible: (r: MaterialAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: MATERIAL_ACCESS_KEY, run: () => materialAccessApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -717,6 +733,41 @@ export const MENU: ShellMenuItem[] = [
           run: () => couponsApi.access(),
           visible: (r) => r.canSupport === true,
         }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, after Pricing (BackOffice spec 2544, ticket 451): `/materials/*` is
+    // a new URL prefix and a new nav group, which is exactly when a new area folder appears. All
+    // three leaf labels live in `materials-search` (the area's first namespace); 453 and 454
+    // re-point their leaf's page, never these keys.
+    labelKey: 'materials-search:menu.materials',
+    icon: Pill,
+    items: [
+      {
+        labelKey: 'materials-search:menu.search',
+        icon: PackageSearch,
+        routerLink: '/materials',
+        // The whole subtree, so a material's own page (`/materials/:no`, ticket 452) keeps this
+        // leaf lit. The stock and GS1 leaves claim their own longer prefixes, and the rail marks
+        // the most specific leaf (`markedLeaf`), so they win on their own pages.
+        activePrefix: '/materials',
+        access: materialProbe(canSearchMaterials),
+      },
+      {
+        labelKey: 'materials-search:menu.stockCheck',
+        icon: Warehouse,
+        // The same constant "check stock for selected" links to.
+        routerLink: STOCK_CHECK_PATH,
+        activePrefix: STOCK_CHECK_PATH,
+        access: materialProbe(canCheckStock),
+      },
+      {
+        labelKey: 'materials-search:menu.gs1Check',
+        icon: ScanBarcode,
+        routerLink: '/materials/gs1',
+        activePrefix: '/materials/gs1',
+        access: materialProbe(canCheckGs1),
       },
     ],
   },

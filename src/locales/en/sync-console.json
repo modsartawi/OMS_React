@@ -247,8 +247,104 @@
     "credentialsNote": "Never shown in the browser."
   },
   "placeholder": {
-    "commands": "This store's commands will be listed here.",
-    "audit": "This store's audit trail will be listed here."
+    "commands": "This store's commands will be listed here."
+  },
+  "nav": {
+    "label": "Store sync pages",
+    "fleet": "Fleet",
+    "audit": "Audit"
+  },
+  "controls": {
+    "label": "Controls",
+    "Move": "Move to worker",
+    "HandBack": "Hand back to WPF",
+    "Pause": "Pause",
+    "Resume": "Resume",
+    "notes": {
+      "Move": "The worker takes the store on its next poll. If WPF is mid-pass, the worker waits for it.",
+      "HandBack": "The worker finishes its current chunk, then lets go. WPF takes the store on its next job firing.",
+      "Pause": "Both loops stop at the next chunk boundary. The store stays on the worker."
+    }
+  },
+  "dialog": {
+    "titleOne": "{{action}}: store {{code}}",
+    "titleMany_one": "{{action}}: {{n}} store",
+    "titleMany_other": "{{action}}: {{n}} stores",
+    "stores": "Stores",
+    "reason": "Reason (required, kept in the audit log)",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The control could not be sent.",
+    "failedHint": "Try again in a moment."
+  },
+  "selection": {
+    "count_one": "<n>{{n}}</n> store selected",
+    "count_other": "<n>{{n}}</n> stores selected",
+    "capped": "At most {{cap}} stores can be selected at once. Act on these first, then select the next ones.",
+    "clear": "Clear selection",
+    "hint": "Select stores in the table to act on up to {{cap}} at once."
+  },
+  "list": {
+    "separator": ", "
+  },
+  "results": {
+    "allOk_one": "{{action}} sent for {{total}} store. It shows as pending until the worker applies it.",
+    "allOk_other": "{{action}} sent for {{total}} stores. They show as pending until the worker applies them.",
+    "someFailed": "{{action}} sent for {{ok}} of {{total}} stores; {{failed}} refused.",
+    "allFailed_one": "{{action}} was refused for the store.",
+    "allFailed_other": "{{action}} was refused for all {{total}} stores.",
+    "empty": "{{action}}: no store came back in the answer.",
+    "refusedTitle": "{{action}}: refused for these stores",
+    "dismiss": "Dismiss"
+  },
+  "failures": {
+    "NOT_ON_WORKER": "Not on the worker",
+    "NO_STORE": "No such store",
+    "NO_STORES": "No store was sent",
+    "TOO_MANY_STORES": "Too many stores in one request",
+    "REASON_REQUIRED": "A reason is required"
+  },
+  "auditActions": {
+    "Move": "Move to worker",
+    "HandBack": "Hand back to WPF",
+    "Pause": "Pause",
+    "Resume": "Resume",
+    "RePush": "Re-push",
+    "RetryNow": "Retry now",
+    "ConnectionTest": "Connection test",
+    "CancelCommand": "Cancel command",
+    "CreateLocation": "Create location",
+    "EditLocation": "Edit location",
+    "DismissPending": "Dismiss pending",
+    "OnboardStore": "Onboard store",
+    "EditStore": "Edit store"
+  },
+  "audit": {
+    "title": "Store sync audit",
+    "subtitle": "Every control, edit and onboarding step on store sync, with who did it and why.",
+    "filters": "Filter the audit trail",
+    "from": "From",
+    "to": "To",
+    "who": "Who",
+    "code": "Store code",
+    "apply": "Search",
+    "clear": "Clear",
+    "badRange": "The end date is before the start date.",
+    "loading": "Loading the audit trail…",
+    "failed": "The audit trail could not be loaded.",
+    "empty": "Nothing is recorded for these filters.",
+    "emptyStore": "Nothing is recorded for this store.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "batch": "Batch",
+    "columns": {
+      "at": "When",
+      "who": "Who",
+      "action": "Action",
+      "codes": "Stores",
+      "change": "Before → after",
+      "reason": "Reason"
+    }
   },
   "loops": {
     "push": "Push",

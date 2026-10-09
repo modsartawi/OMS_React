@@ -14,7 +14,8 @@
 //   4. Passes opens on 7 days ago, its picker is bounded to 30 days (an older date is pulled back to the
 //      bound before any call), it pages at 50, and a pass opens its detail from Store/PassDetail;
 //   5. Scripts shows the script id and its state, never SQL; Location shows no credentials;
-//   6. Commands and Audit are placeholders; ?tab= opens a tab and survives a reload;
+//   6. Commands is a placeholder (Audit is 447's, read here only as an empty feed); ?tab= opens a tab
+//      and survives a reload;
 //   7. a WPF store shows only Counters and Passes, with the WPF note, no health and no strip;
 //   8. a 404 NO_STORE shows "No such store", asked once, not a crash.
 //
@@ -182,6 +183,8 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
     if (p === 'ActionSync/Store/PassDetail') return route.fulfill(envelope(PASS_DETAIL))
     if (p === 'ActionSync/Store/Scripts') return route.fulfill(envelope(SCRIPTS))
     if (p === 'ActionSync/Store/Location') return route.fulfill(envelope(LOCATION))
+    // The store's audit feed is 447's; here it is only an empty page of the contract's shape.
+    if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
@@ -305,8 +308,9 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   await page.locator('[data-tab-placeholder="commands"]').waitFor({ timeout: 5000 }).catch(() => {})
   check('6. Commands is a placeholder', (await page.locator('[data-tab-placeholder="commands"]').count()) === 1)
   await page.locator('[data-tab="audit"]').click()
-  await page.locator('[data-tab-placeholder="audit"]').waitFor({ timeout: 5000 }).catch(() => {})
-  check('6. Audit is a placeholder', (await page.locator('[data-tab-placeholder="audit"]').count()) === 1)
+  // 447 filled the Audit tab: it reads the store's feed (its own drive is sync-console-controls-drive).
+  await page.locator('[data-tab-empty="audit"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check("6. Audit reads the store's feed", calls.includes('ActionSync/Audit?code=P001&page=1&pageSize=50') && (await page.locator('[data-tab-empty="audit"]').count()) === 1)
   await page.locator('[data-tab="scripts"]').click()
   check('6. the open tab is ?tab=', new URL(page.url()).searchParams.get('tab') === 'scripts', page.url())
   await page.reload()

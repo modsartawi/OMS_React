@@ -21,10 +21,14 @@ import type {
   StoreLocation,
   StorePass,
   StoreRow,
+  StoreControlRequest,
+  StoreControlResponse,
   StoreScripts,
+  SyncAudit,
   SyncConsoleAccess,
   SyncWorkers,
 } from '@/core/models/sync-console'
+import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
 import { PASSES_PAGE_SIZE } from './store-helpers'
 
@@ -128,6 +132,22 @@ export const syncConsoleApi = {
   storeLocation(code: string): Promise<StoreLocation> {
     return api.get<StoreLocation>('ActionSync/Store/Location', { code })
   },
+
+  // ── Controls and the audit feed (ticket 447) ──
+
+  /**
+   * `POST ActionSync/Stores/Control` → one audit row and a result per store. A whole
+   * refusal (`TOO_MANY_STORES`, `NO_STORES`, `REASON_REQUIRED`) throws; a per-row one
+   * (`NOT_ON_WORKER`, `NO_STORE`) comes back in `results[].error`.
+   */
+  control(body: StoreControlRequest): Promise<StoreControlResponse> {
+    return api.post<StoreControlResponse>('ActionSync/Stores/Control', body)
+  },
+
+  /** `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=` → one page, newest first. */
+  audit(filter: AuditFilter, page: number): Promise<Paged<SyncAudit>> {
+    return api.get<Paged<SyncAudit>>('ActionSync/Audit', auditQuery(filter, page))
+  },
 }
 
 /** The strip's width: the last 24 hours (the door allows 1–168). */
@@ -220,4 +240,15 @@ export const storeScriptsQuery = (code: string) => ({
 export const storeLocationQuery = (code: string) => ({
   queryKey: [...storeKey(code), 'location'] as const,
   queryFn: () => syncConsoleApi.storeLocation(code),
+})
+
+// ── The audit feed (ticket 447) ──
+
+/** Every audit read — the fleet-wide page and each store's tab — shares this prefix. */
+export const AUDIT_KEY = ['sync-console', 'audit'] as const
+
+/** Read when opened and after a control; the feed is history, so it does not poll. */
+export const auditQueryOptions = (filter: AuditFilter, page: number) => ({
+  queryKey: [...AUDIT_KEY, auditQuery(filter, page)] as const,
+  queryFn: () => syncConsoleApi.audit(filter, page),
 })

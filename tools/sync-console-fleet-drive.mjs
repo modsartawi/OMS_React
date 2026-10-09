@@ -181,7 +181,7 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   await page.goto(`${BASE}/admin/sync`)
   await page.locator('[data-store-link="P001"]').waitFor({ timeout: 20000 })
 
-  const adminLeaves = await page.locator('nav a[href^="/admin/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
+  const adminLeaves = await page.locator('nav:not([data-console-nav]) a[href^="/admin/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('1. the Store sync leaf is in the Admin group, last', adminLeaves.length > 1 && adminLeaves[adminLeaves.length - 1] === '/admin/sync', JSON.stringify(adminLeaves))
   check('1. the first read asks for page 1 of 50, most behind', lastFleet(fleetCalls) === '?sort=mostBehind&page=1&pageSize=50', lastFleet(fleetCalls))
   check('1. a fresh worker shows no banner', (await page.locator('[data-worker-banner]').count()) === 0)

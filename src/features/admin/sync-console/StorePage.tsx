@@ -8,6 +8,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { canOpenSyncConsole, storeQuery, syncConsoleAccessQuery } from './api'
 import { isWpfStore } from './store-helpers'
 import HourStrip from './HourStrip'
+import StoreControls from './StoreControls'
 import StoreHeader from './StoreHeader'
 import StoreHealth from './StoreHealth'
 import StoreTabs from './StoreTabs'
@@ -18,7 +19,8 @@ import Loading from './Loading'
  *
  * Top to bottom as the owner-accepted prototype lays it out: the header (host,
  * states, pending), the health summary, the 24 h strip, then the tabs. Read-only in
- * this slice; the controls the store's host allows join with 447 and 448.
+ * 446; 447 adds the controls the store's host allows (`StoreControls`, under the
+ * health), and 448 its commands.
  *
  * 🚩 **A WPF store** has no health row, so it shows only its Counters and Passes,
  * with a note that WPF still syncs it — no health summary, no strip (whose hours
@@ -89,6 +91,8 @@ function Store() {
           ) : (
             <StoreHealth row={row} />
           )}
+          {/* Keyed on the store, so one store's refused list never shows under another's controls. */}
+          <StoreControls key={row.code} row={row} />
         </section>
       )}
       {known && (

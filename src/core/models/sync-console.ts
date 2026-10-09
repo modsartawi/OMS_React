@@ -271,3 +271,41 @@ export interface StoreLocation {
   father: string
   isPosSyncEnabled: boolean
 }
+
+// ── The control door and the audit feed (ticket 447) ─────────────────────────────
+
+/** Every `ControlAction`, in the contract's order. */
+export const CONTROL_ACTIONS: readonly ControlAction[] = ['Move', 'HandBack', 'Pause', 'Resume']
+
+/** `POST ActionSync/Stores/Control` — 1–50 codes and a reason that is not blank. */
+export interface StoreControlRequest {
+  action: ControlAction
+  codes: string[]
+  reason: string
+}
+
+/** One store's answer. `error` is a plain code (`NOT_ON_WORKER`, `NO_STORE`), `null` on success. */
+export interface StoreControlResult {
+  code: string
+  ok: boolean
+  error: string | null
+  controlVersion: number
+}
+
+export interface StoreControlResponse {
+  auditId: string
+  results: StoreControlResult[]
+}
+
+/** One entry of `GET ActionSync/Audit?from=&to=&who=&code=&page=&pageSize=`, newest first. */
+export interface SyncAudit {
+  id: string
+  at: string
+  who: string
+  action: AuditAction
+  codes: string[]
+  batchId: string | null
+  before: string | null
+  after: string | null
+  reason: string
+}

@@ -1,20 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
+import type {
+  GridApi,
+  IRowNode,
+  RowSelectionOptions,
+  SelectionChangedEvent,
+  SelectionEventSourceType,
+} from 'ag-grid-community'
 import { Loader2, Search } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import GridPager from '@/core/ui/GridPager'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
-import type { StoreRow } from '@/core/models/sync-console'
+import { notify } from '@/core/services/notify'
+import { CONTROL_ACTIONS, type StoreRow } from '@/core/models/sync-console'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import {
   canOpenSyncConsole,
@@ -36,6 +46,10 @@ import {
   type FleetTile,
 } from './helpers'
 import { FLEET_DEFAULT_COL_DEF, buildFleetColumns } from './fleet-columns'
+import { SELECTION_CAP, selectionCap } from './control-helpers'
+import ConsoleNav from './ConsoleNav'
+import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlRequest } from './ControlDialog'
+import ControlResults from './ControlResults'
 import LastHourPanel from './LastHourPanel'
 import WorkerCard from './WorkerCard'
 
@@ -47,8 +61,10 @@ import WorkerCard from './WorkerCard'
  * every 30 s, and the "as of" stamp is `Fleet/Summary.asOf` — the server's clock,
  * not this browser's.
  *
- * Read-only in this slice: the controls (and the selection they act on) join with
- * 447/448, behind `canOperate`.
+ * With `canOperate` (447), the table grows a selection of up to 50 stores
+ * (`selectionCap`), kept across pages and filters, and a bulk bar that sends Move,
+ * Hand back, Pause or Resume for the whole selection in one call. Without the grant
+ * neither the checkboxes nor the bar render.
  */
 export default function FleetPage() {
   const { t } = useTranslation('sync-console')
@@ -77,6 +93,39 @@ const TILE_ACCENT: Record<Severity, string> = {
 /** The search box waits this long after the last keystroke before it asks the door. */
 const SEARCH_DEBOUNCE_MS = 300
 
+/** Checkboxes only: a click on a row is not a selection, so the code link stays a plain link. */
+const FLEET_SELECTION: RowSelectionOptions<StoreRow> = {
+  mode: 'multiRow',
+  checkboxes: true,
+  headerCheckbox: true,
+  enableClickSelection: false,
+}
+
+/** The selection changes a person makes; the grid's own (a data refresh, our re-sync) are ignored. */
+const USER_SELECTION: ReadonlySet<SelectionEventSourceType> = new Set<SelectionEventSourceType>([
+  'checkboxSelected',
+  'rowClicked',
+  'spaceKey',
+  'keyboardSelectAll',
+  'uiSelectAll',
+  'uiSelectAllFiltered',
+  'uiSelectAllCurrentPage',
+])
+
+/** Makes the checkboxes show the kept selection — on a new page, after a refresh, after a refusal. */
+function showSelection(api: GridApi<StoreRow>, selected: readonly string[]) {
+  const want = new Set(selected)
+  const on: IRowNode<StoreRow>[] = []
+  const off: IRowNode<StoreRow>[] = []
+  api.forEachNode((n) => {
+    if (!n.data) return
+    const should = want.has(n.data.code)
+    if (should !== !!n.isSelected()) (should ? on : off).push(n)
+  })
+  if (on.length) api.setNodesSelected({ nodes: on, newValue: true, source: 'api' })
+  if (off.length) api.setNodesSelected({ nodes: off, newValue: false, source: 'api' })
+}
+
 function Fleet() {
   const { t } = useTranslation('sync-console')
   const [filter, setFilter] = useState<FleetFilter>(DEFAULT_FLEET_FILTER)
@@ -93,6 +142,8 @@ function Fleet() {
   }, [search])
 
   const summary = useQuery(fleetSummaryQuery())
+  const access = useQuery(syncConsoleAccessQuery())
+  const canOperate = access.data?.canOperate === true
   const stores = useQuery({ ...fleetStoresQuery(filter), placeholderData: keepPreviousData })
   const columns = useMemo(() => buildFleetColumns(t), [t])
 
@@ -118,8 +169,41 @@ function Fleet() {
   }, [settled])
   const asOf = summary.data?.asOf
 
+  // ── The selection (447): codes, not rows, so it outlives a page, a filter and a refresh.
+  const [selected, setSelected] = useState<string[]>([])
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  const gridApi = useRef<GridApi<StoreRow> | null>(null)
+  const [request, setRequest] = useState<ControlRequest | null>(null)
+  const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
+
+  // A change of selection (a clear, an answered control) reaches the checkboxes here;
+  // a new page or a refresh reaches them through `onRowDataUpdated`.
+  useEffect(() => {
+    if (gridApi.current) showSelection(gridApi.current, selected)
+  }, [selected])
+
+  const onSelectionChanged = useCallback(
+    (e: SelectionChangedEvent<StoreRow>) => {
+      if (!USER_SELECTION.has(e.source)) return
+      const onPage = new Set<string>()
+      e.api.forEachNode((n) => n.data && onPage.add(n.data.code))
+      const pagePicked = e.api.getSelectedRows().map((r) => r.code)
+      // Off this page the selection stands; on it, the checkboxes say what is wanted.
+      const wanted = [...selectedRef.current.filter((c) => !onPage.has(c)), ...pagePicked]
+      const next = selectionCap(selectedRef.current, wanted)
+      if (next.messageKey) notify.warn(t(next.messageKey, { cap: fsi(figure(SELECTION_CAP)) }))
+      selectedRef.current = next.codes
+      setSelected(next.codes)
+      // A refused tick is un-ticked at once, even when the kept selection did not change.
+      if (next.refused > 0) showSelection(e.api, next.codes)
+    },
+    [t],
+  )
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <ConsoleNav />
       <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground" data-as-of="">
         {(summary.isFetching || stores.isFetching) && (
           <span className="inline-flex items-center gap-1" role="status">
@@ -226,6 +310,14 @@ function Fleet() {
                     headerHeight={OMS_GRID_HEADER_HEIGHT}
                     animateRows={false}
                     suppressColumnVirtualisation
+                    rowSelection={canOperate ? FLEET_SELECTION : undefined}
+                    onGridReady={(e) => {
+                      gridApi.current = e.api
+                      showSelection(e.api, selectedRef.current)
+                    }}
+                    onGridPreDestroyed={() => (gridApi.current = null)}
+                    onRowDataUpdated={(e) => showSelection(e.api, selectedRef.current)}
+                    onSelectionChanged={onSelectionChanged}
                   />
                 </div>
               )}
@@ -243,7 +335,53 @@ function Fleet() {
             </div>
           )
         )}
+
+        {canOperate && (
+          <div className="flex flex-col gap-2" data-bulk-bar="">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('controls.label')}>
+              <span className="text-xs text-muted-foreground" data-selection-count={selected.length}>
+                {selected.length === 0 ? (
+                  t('selection.hint', { cap: fsi(figure(SELECTION_CAP)) })
+                ) : (
+                  <Trans
+                    t={t}
+                    i18nKey="selection.count"
+                    count={selected.length}
+                    values={{ n: figure(selected.length) }}
+                    components={{ n: <Ltr /> }}
+                  />
+                )}
+              </span>
+              {CONTROL_ACTIONS.map((action) => (
+                <Button
+                  key={action}
+                  variant={CONTROL_VARIANT[action]}
+                  disabled={selected.length === 0}
+                  onClick={() => setRequest({ action, codes: selected })}
+                  data-bulk={action}
+                >
+                  {t(`controls.${action}`)}
+                </Button>
+              ))}
+              {selected.length > 0 && (
+                <Button variant="text" onClick={() => setSelected([])} data-selection-clear="">
+                  {t('selection.clear')}
+                </Button>
+              )}
+            </div>
+            <ControlResults outcome={outcome} onDismiss={() => setOutcome(null)} />
+          </div>
+        )}
       </section>
+      <ControlDialog
+        request={request}
+        onClose={() => setRequest(null)}
+        onResult={(o) => {
+          setOutcome(o)
+          // The answered selection is spent; its refusals stay listed with their codes.
+          setSelected([])
+        }}
+      />
     </div>
   )
 }

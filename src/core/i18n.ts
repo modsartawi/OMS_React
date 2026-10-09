@@ -79,6 +79,9 @@ import materialsSearchAr from '@/locales/ar/materials-search.json'
 // Stock check (BackOffice spec 2544, ticket 453) — English and Arabic together.
 import materialsStockCheck from '@/locales/en/materials-stock-check.json'
 import materialsStockCheckAr from '@/locales/ar/materials-stock-check.json'
+// GS1 check (BackOffice spec 2544, ticket 454) — English and Arabic together.
+import materialsGs1Check from '@/locales/en/materials-gs1-check.json'
+import materialsGs1CheckAr from '@/locales/ar/materials-gs1-check.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -86,7 +89,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check'],
   resources: {
     en: {
       common,
@@ -120,6 +123,7 @@ i18n.use(initReactI18next).init({
       'document-source-users': documentSourceUsers,
       'materials-search': materialsSearch,
       'materials-stock-check': materialsStockCheck,
+      'materials-gs1-check': materialsGs1Check,
     },
     ar: {
       document: documentAr,
@@ -131,6 +135,7 @@ i18n.use(initReactI18next).init({
       coupons: couponsAr,
       'materials-search': materialsSearchAr,
       'materials-stock-check': materialsStockCheckAr,
+      'materials-gs1-check': materialsGs1CheckAr,
     },
   },
   interpolation: { escapeValue: false },

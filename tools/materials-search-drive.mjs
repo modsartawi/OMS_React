@@ -546,9 +546,10 @@ function sheetText(files) {
   check('8: /materials/stock matches its STATIC route, not /materials/:no', (await page.locator('[data-material-placeholder]').count()) === 0 && (await page.locator('[data-stock-materials]').inputValue()) === '101234\n0100777')
   const marked = await page.locator('nav a[aria-current="page"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('8: on the stock page the rail marks the Stock check leaf alone', JSON.stringify(marked) === JSON.stringify(['/materials/stock']), marked.join())
+  // Since ticket 454 the static route renders the GS1 check's own page.
   await page.goto(`${BASE}/materials/gs1`)
-  await page.locator('[data-material-placeholder]').waitFor({ timeout: 10000 })
-  check('8: /materials/gs1 matches its STATIC route', (await page.locator('[data-material-placeholder="static"]').count()) === 1)
+  await page.locator('[data-gs1-scan]').waitFor({ timeout: 10000 })
+  check('8: /materials/gs1 matches its STATIC route, not /materials/:no', (await page.locator('[data-material-placeholder]').count()) === 0)
 
   // 7: the 51st tick is refused
   await page.goto(`${BASE}/materials?q=many`)

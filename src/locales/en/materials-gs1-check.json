@@ -1,0 +1,130 @@
+{
+  "title": "GS1 check",
+  "subtitle": "Scan a GS1 DataMatrix to see whether it is well-formed, which material and batch it is, whether the unit is sellable, sold or held, and its sale and return history.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the GS1 check",
+    "deniedHint": "Your account does not hold the grant for the GS1 check. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "scan": {
+    "label": "Scan or paste a GS1 code",
+    "placeholder": "Scan a DataMatrix, or paste codes with # separators — one per line",
+    "hint": "Enter adds the scan. Pasting several lines adds them all.",
+    "count_one": "<n>{{n}}</n> scan of at most <max>{{max}}</max>",
+    "count_other": "<n>{{n}}</n> scans of at most <max>{{max}}</max>",
+    "refused_one": "The list holds at most <max>{{max}}</max> scans: <n>{{n}}</n> scan was not added.",
+    "refused_other": "The list holds at most <max>{{max}}</max> scans: <n>{{n}}</n> scans were not added.",
+    "checking": "Checking…",
+    "failedTitle": "Some scans could not be checked",
+    "failed": "The GS1 check failed. Try again in a moment.",
+    "retry": "Check again",
+    "clear": "Clear list"
+  },
+  "card": {
+    "title": "Latest scan",
+    "empty": "Scan a code to see its verdict here.",
+    "pending": "Checking this scan…",
+    "failed": "This scan has not been checked.",
+    "wellFormed": "Well-formed",
+    "issues": "Issues",
+    "gtin": "GTIN",
+    "expiry": "Expiry",
+    "lot": "Lot",
+    "serial": "Serial",
+    "material": "Material",
+    "batch": "Batch",
+    "status": "Status",
+    "blank": "—",
+    "soldRef": "Sold at store <store>{{store}}</store>, till <till>{{till}}</till>, invoice <invoice>{{invoice}}</invoice>",
+    "heldBy": "Held by document <doc>{{doc}}</doc> at store <store>{{store}}</store>",
+    "syncNote": "History only covers invoices already synced to HQ",
+    "historyCount_one": "<n>{{n}}</n> sale or return in the history",
+    "historyCount_other": "<n>{{n}}</n> sales and returns in the history",
+    "showHistory": "Show history"
+  },
+  "wellFormed": {
+    "yes": "Well-formed",
+    "no": "Not well-formed"
+  },
+  "issueCategory": {
+    "Structure": "Structure",
+    "GtinIntegrity": "GTIN check digit",
+    "Charset": "Characters",
+    "Expiry": "Expiry"
+  },
+  "materialReason": {
+    "NOT_PARSED": "Not parsed — no GTIN to look up",
+    "GTIN_UNKNOWN": "GTIN not in the barcode master"
+  },
+  "batch": {
+    "known": "Known batch",
+    "unknown": "Unknown batch",
+    "notApplicable": "Not applicable"
+  },
+  "status": {
+    "SELLABLE": "Sellable",
+    "SOLD": "Sold",
+    "HELD": "Held",
+    "none": "No status"
+  },
+  "trxType": {
+    "SALE": "Sale",
+    "RETURN": "Return"
+  },
+  "badges": {
+    "duplicate": "Duplicate"
+  },
+  "columns": {
+    "expand": "History",
+    "code": "Code",
+    "duplicate": "Duplicate",
+    "materialNumber": "Material",
+    "description": "Description",
+    "description2": "Arabic description",
+    "lot": "Lot",
+    "serial": "Serial",
+    "expiry": "Expiry",
+    "wellFormed": "Well-formed",
+    "issues": "Issues",
+    "batch": "Batch",
+    "status": "Status",
+    "historyCount": "History count"
+  },
+  "grid": {
+    "empty": "No scans yet.",
+    "pending": "Checking…",
+    "notChecked": "Not checked",
+    "expand": "Show history",
+    "collapse": "Hide history",
+    "noHistory": "No history to show: this scan has no material or serial"
+  },
+  "history": {
+    "title": "History of serial <serial>{{serial}}</serial>, material <material>{{material}}</material>",
+    "close": "Close history",
+    "loading": "Loading history…",
+    "failedTitle": "The history could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No sale or return of this unit has been synced to HQ.",
+    "lotMismatch": "Lot differs from the scan",
+    "columns": {
+      "when": "Date and time",
+      "trxType": "Type",
+      "store": "Store",
+      "till": "Till",
+      "invoice": "Invoice",
+      "lot": "Lot"
+    }
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "gs1-check",
+    "sheet": "GS1 check",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

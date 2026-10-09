@@ -507,9 +507,9 @@ export const router = createBrowserRouter([
       // The Materials area (BackOffice spec 2544, ticket 451). 🚩 `stock` and `gs1` are STATIC
       // segments, so React Router ranks them above the dynamic `:no` whatever their order here — a
       // material numbered "stock" is not a thing. `stock` is the stock check's own page (ticket
-      // 453); until 452 and 454 land, `gs1` and `:no` render the ONE placeholder, so neither a menu
-      // leaf nor a grid row lands on a 404: 454 points `gs1` at its own page, and 452 points `:no`
-      // at its page and deletes the placeholder.
+      // 453) and `gs1` the GS1 check's (ticket 454); until 452 lands, `:no` renders the ONE
+      // placeholder, so a grid row never lands on a 404: 452 points `:no` at its page and deletes
+      // the placeholder.
       {
         path: 'materials',
         lazy: async () => ({
@@ -525,7 +525,7 @@ export const router = createBrowserRouter([
       {
         path: 'materials/gs1',
         lazy: async () => ({
-          Component: (await import('@/features/materials/search/MaterialPlaceholderPage')).default,
+          Component: (await import('@/features/materials/gs1-check/Gs1CheckPage')).default,
         }),
       },
       {

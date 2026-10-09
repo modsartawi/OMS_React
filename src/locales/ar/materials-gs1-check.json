@@ -1,0 +1,146 @@
+{
+  "title": "فحص GS1",
+  "subtitle": "امسح رمز GS1 DataMatrix لمعرفة ما إذا كان سليم البنية، وأي مادة ودفعة هو، وهل الوحدة قابلة للبيع أو مباعة أو محجوزة، وسجل بيعها وإرجاعها.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية فحص GS1",
+    "deniedHint": "حسابك لا يملك صلاحية فحص GS1. اطلبها من المسؤول إن كنت تحتاجها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "scan": {
+    "label": "امسح رمز GS1 أو الصقه",
+    "placeholder": "امسح رمز DataMatrix، أو الصق رموزًا مفصولة بالعلامة # — رمزًا في كل سطر",
+    "hint": "يضيف مفتاح Enter المسح. لصق عدة أسطر يضيفها كلها.",
+    "count_zero": "<n>{{n}}</n> مسح من <max>{{max}}</max> كحد أقصى",
+    "count_one": "مسح واحد (<n>{{n}}</n>) من <max>{{max}}</max> كحد أقصى",
+    "count_two": "مسحان (<n>{{n}}</n>) من <max>{{max}}</max> كحد أقصى",
+    "count_few": "<n>{{n}}</n> عمليات مسح من <max>{{max}}</max> كحد أقصى",
+    "count_many": "<n>{{n}}</n> عملية مسح من <max>{{max}}</max> كحد أقصى",
+    "count_other": "<n>{{n}}</n> عملية مسح من <max>{{max}}</max> كحد أقصى",
+    "refused_zero": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم يُستبعد أي مسح (<n>{{n}}</n>).",
+    "refused_one": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم يُضف مسح واحد (<n>{{n}}</n>).",
+    "refused_two": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم يُضف مسحان (<n>{{n}}</n>).",
+    "refused_few": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم تُضف <n>{{n}}</n> عمليات مسح.",
+    "refused_many": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم تُضف <n>{{n}}</n> عملية مسح.",
+    "refused_other": "تتسع القائمة لـ <max>{{max}}</max> مسح كحد أقصى: لم تُضف <n>{{n}}</n> عملية مسح.",
+    "checking": "جارٍ الفحص…",
+    "failedTitle": "تعذّر فحص بعض عمليات المسح",
+    "failed": "فشل فحص GS1. حاول مرة أخرى بعد قليل.",
+    "retry": "افحص مرة أخرى",
+    "clear": "امسح القائمة"
+  },
+  "card": {
+    "title": "آخر مسح",
+    "empty": "امسح رمزًا لترى نتيجته هنا.",
+    "pending": "جارٍ فحص هذا المسح…",
+    "failed": "لم يُفحص هذا المسح.",
+    "wellFormed": "سلامة البنية",
+    "issues": "المشكلات",
+    "gtin": "GTIN",
+    "expiry": "تاريخ الانتهاء",
+    "lot": "التشغيلة",
+    "serial": "الرقم التسلسلي",
+    "material": "المادة",
+    "batch": "الدفعة",
+    "status": "الحالة",
+    "blank": "—",
+    "soldRef": "بيعت في الفرع <store>{{store}}</store>، نقطة البيع <till>{{till}}</till>، الفاتورة <invoice>{{invoice}}</invoice>",
+    "heldBy": "محجوزة بالمستند <doc>{{doc}}</doc> في الفرع <store>{{store}}</store>",
+    "syncNote": "يشمل السجل الفواتير التي زُامنت مع المركز الرئيسي فقط",
+    "historyCount_zero": "لا بيع ولا إرجاع في السجل (<n>{{n}}</n>)",
+    "historyCount_one": "عملية بيع أو إرجاع واحدة (<n>{{n}}</n>) في السجل",
+    "historyCount_two": "عمليتا بيع أو إرجاع (<n>{{n}}</n>) في السجل",
+    "historyCount_few": "<n>{{n}}</n> عمليات بيع وإرجاع في السجل",
+    "historyCount_many": "<n>{{n}}</n> عملية بيع وإرجاع في السجل",
+    "historyCount_other": "<n>{{n}}</n> عملية بيع وإرجاع في السجل",
+    "showHistory": "اعرض السجل"
+  },
+  "wellFormed": {
+    "yes": "سليم البنية",
+    "no": "غير سليم البنية"
+  },
+  "issueCategory": {
+    "Structure": "البنية",
+    "GtinIntegrity": "رقم التحقق في GTIN",
+    "Charset": "الأحرف",
+    "Expiry": "تاريخ الانتهاء"
+  },
+  "materialReason": {
+    "NOT_PARSED": "لم يُقرأ الرمز — لا يوجد GTIN للبحث عنه",
+    "GTIN_UNKNOWN": "رمز GTIN غير موجود في سجل الباركود"
+  },
+  "batch": {
+    "known": "دفعة معروفة",
+    "unknown": "دفعة غير معروفة",
+    "notApplicable": "لا ينطبق"
+  },
+  "status": {
+    "SELLABLE": "قابلة للبيع",
+    "SOLD": "مباعة",
+    "HELD": "محجوزة",
+    "none": "لا حالة"
+  },
+  "trxType": {
+    "SALE": "بيع",
+    "RETURN": "إرجاع"
+  },
+  "badges": {
+    "duplicate": "مكرر"
+  },
+  "columns": {
+    "expand": "السجل",
+    "code": "الرمز",
+    "duplicate": "مكرر",
+    "materialNumber": "المادة",
+    "description": "الوصف",
+    "description2": "الوصف العربي",
+    "lot": "التشغيلة",
+    "serial": "الرقم التسلسلي",
+    "expiry": "تاريخ الانتهاء",
+    "wellFormed": "سلامة البنية",
+    "issues": "المشكلات",
+    "batch": "الدفعة",
+    "status": "الحالة",
+    "historyCount": "عدد السجل"
+  },
+  "grid": {
+    "empty": "لا توجد عمليات مسح بعد.",
+    "pending": "جارٍ الفحص…",
+    "notChecked": "لم يُفحص",
+    "expand": "اعرض السجل",
+    "collapse": "أخفِ السجل",
+    "noHistory": "لا سجل لعرضه: هذا المسح بلا مادة أو رقم تسلسلي"
+  },
+  "history": {
+    "title": "سجل الرقم التسلسلي <serial>{{serial}}</serial>، المادة <material>{{material}}</material>",
+    "close": "أغلق السجل",
+    "loading": "جارٍ تحميل السجل…",
+    "failedTitle": "تعذّر تحميل السجل",
+    "failed": "حاول مرة أخرى بعد قليل.",
+    "empty": "لم تُزامن أي عملية بيع أو إرجاع لهذه الوحدة مع المركز الرئيسي.",
+    "lotMismatch": "التشغيلة تختلف عن المسح",
+    "columns": {
+      "when": "التاريخ والوقت",
+      "trxType": "النوع",
+      "store": "الفرع",
+      "till": "نقطة البيع",
+      "invoice": "الفاتورة",
+      "lot": "التشغيلة"
+    }
+  },
+  "export": {
+    "button": "صدّر إلى Excel",
+    "fileName": "gs1-check",
+    "sheet": "فحص GS1",
+    "done": "تم التصدير",
+    "doneDetail_zero": "لم يُكتب أي صف في المصنف ({{n}}).",
+    "doneDetail_one": "كُتب صف واحد ({{n}}) في المصنف.",
+    "doneDetail_two": "كُتب صفان ({{n}}) في المصنف.",
+    "doneDetail_few": "كُتبت {{n}} صفوف في المصنف.",
+    "doneDetail_many": "كُتب {{n}} صفًا في المصنف.",
+    "doneDetail_other": "كُتب {{n}} صف في المصنف.",
+    "failed": "فشل التصدير",
+    "failedDetail": "تعذّر كتابة المصنف. حاول مرة أخرى."
+  }
+}

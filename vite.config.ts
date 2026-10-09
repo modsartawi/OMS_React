@@ -70,8 +70,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5111',
+        // SIS_API points the proxy at another SIS.Api (staging, for a live drive — ticket 455).
+        target: process.env.SIS_API || 'http://localhost:5111',
         changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: '',
         rewrite: (p) => p.replace(/^\/api/, ''),
       },
     },

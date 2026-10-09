@@ -40,6 +40,39 @@ Needs BackOffice 2545–2549 deployed to staging, the `Gs1SerialInquiry` seed ru
 OMS-HQ DB, and `StockV2:*` set in staging's appsettings. **Human in the loop (HITL)**: the walk is
 the owner's, so an AFK runner should stop here and hand it back.
 
+## Progress — 2026-10-09 (client half; staging walk still open)
+
+BackOffice 2545–2549 are merged on `pricing2` (e8ad648df). Done without a live server:
+
+- **Drift check, server against contract against client.** Every door's route, verb, query
+  parameter and wire model in `MaterialWebEndpoints.cs` / `Modules/Materials/Web/*Models.cs` matches
+  `src/core/models/materials.ts` field for field. The two contract amendments the BackOffice build
+  made (e447bafed) needed no client change: the error envelope `errors[].errorCode` is what
+  `apiErrorCode` already reads, and the drives already stub it; a Levels code with only blank
+  descriptions arrives as `""`, and the client already drops blank codes only. GS1 `status`
+  (`SELLABLE`/`SOLD`/`HELD`, from `SerialGuardVerdicts`) and issue `category` (the `Gs1IssueCategory`
+  enum names) match.
+- **One drift, in the client only:** `MaterialResolvedAs` carried a `'material'` value the contract
+  and the server never send (rule 4: an exact material number is still `"text"`). Removed, with
+  its test case.
+- **The stubs stay, as the screens' regression.** The four stubbed drives pin exact fixture values
+  no real database holds, so they are not pointed at staging; no vitest helper uses a stub.
+  Their sibling `tools/materials-live-drive.mjs` stubs nothing. It signs in for real and checks
+  that each door answers on the envelope with exactly the contract's keys, and that each screen
+  draws what came back. It runs in four sections named after the four drives (`--only
+  search,detail,stock,gs1`), and its inputs are the owner's real values in
+  `tools/materials-live-inputs.json` (a TODO input SKIPs its checks, and a SKIP exits non-zero).
+- `vite.config.ts`: `SIS_API` points the dev proxy at another SIS.Api, such as staging (default
+  `:5111`), with `secure: false` and a cookie-domain rewrite so a staging session cookie lands on
+  `localhost`.
+- Gates: typecheck clean, the 186 Materials vitest tests and all four lint gates pass, the stubbed
+  `materials-search` drive is still 74/74 on port 5244, and the live drive fails cleanly (exit 2)
+  when there is no server to sign in to.
+
+**Outstanding (HITL):** staging URL and login, the `Gs1SerialInquiry` seed and `StockV2:*` on
+staging, the inputs file filled in, the live drive green, the owner walk, and the two
+no-grant checks (they need a second account without those grants).
+
 ## Done when
 
 The drives are green on staging and the owner has signed off the walk.

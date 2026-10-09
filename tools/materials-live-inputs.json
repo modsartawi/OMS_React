@@ -1,0 +1,13 @@
+{
+  "_comment": "Real values for tools/materials-live-drive.mjs (ticket 455). Write {GS} where a GS1 scan carries the group separator. A TODO value SKIPs its checks.",
+  "searchText": "panadol",
+  "searchArabic": "TODO an Arabic word from a real description2",
+  "barcode": "TODO a real barcode",
+  "gs1Scan": "TODO a real GS1 element string, e.g. 01<gtin>17<yymmdd>10<lot>{GS}21<serial>",
+  "sfdaCode": "TODO a real SFDA or Wasfaty code",
+  "levelPath": ["TODO A code", "TODO B code under it", "TODO C code under that"],
+  "serialisedMaterial": "TODO a serialised material number",
+  "stockMaterials": ["TODO", "TODO", "TODO", "TODO", "TODO"],
+  "stockCity": "TODO a city value as StoreSets?kind=city returns it",
+  "gs1SoldScan": "TODO a GS1 scan of a unit known to be SOLD"
+}

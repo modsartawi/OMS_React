@@ -55,7 +55,7 @@ describe('resolvedChip', () => {
     expect(resolvedChip(result({ resolvedAs: 'barcode' }), '628')?.from).toBe('628')
   })
 
-  it.each(['text', 'material', null] as const)('%s → no chip', (resolvedAs) => {
+  it.each(['text', null] as const)('%s → no chip', (resolvedAs) => {
     expect(resolvedChip(result({ resolvedAs }), 'panadol')).toBeNull()
   })
 

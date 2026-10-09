@@ -2,10 +2,9 @@
  * The GS1 check's server calls (ticket 454, BackOffice spec 2544): check a batch of raw scans, and
  * read one unit's sale/return history.
  *
- * Through `@/core/api` (`api-envelope`). 🚩 Neither door is built yet (BackOffice 2549); both are
- * written against the door contract,
- * `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`, and the drive stubs
- * them; ticket 455 meets the real ones.
+ * Through `@/core/api` (`api-envelope`). Both doors are BackOffice 2549; their
+ * contract is `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`. The
+ * stubbed drive pins the screen; `tools/materials-live-drive.mjs` meets the real doors (ticket 455).
  */
 import { api } from '@/core/api'
 import type { Gs1CheckAnswer, Gs1HistoryRow } from '@/core/models/materials'

@@ -6,9 +6,9 @@
  * refusal arrives as an `ApiError` — branch on it with `apiErrorCode` (`MAT-00006`), show it with
  * `apiErrorMessage`.
  *
- * 🚩 None of these doors is built yet (BackOffice 2545/2546). They are written against the door
- * contract, `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`, and the
- * drive stubs every one; ticket 455 meets the real ones.
+ * The doors are BackOffice 2545/2546; their contract is
+ * `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`. The stubbed drive
+ * pins the screen; `tools/materials-live-drive.mjs` meets the real doors (ticket 455).
  */
 import { api } from '@/core/api'
 import type {

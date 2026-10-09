@@ -4,10 +4,9 @@
  * `@/core/materials/stock`; the store list is the ungated, session-cached
  * `lookupQueries.storeDetails()` in `@/core/services/lookups`.
  *
- * Through `@/core/api` (`api-envelope`). 🚩 Neither door is built yet (BackOffice 2548); both are
- * written against the door contract,
- * `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`, and the drive stubs
- * them; ticket 455 meets the real ones.
+ * Through `@/core/api` (`api-envelope`). Both doors are BackOffice 2548; their
+ * contract is `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`. The
+ * stubbed drive pins the screen; `tools/materials-live-drive.mjs` meets the real doors (ticket 455).
  */
 import { api } from '@/core/api'
 import type { MaterialStoreSet, MaterialStoreSetKind, MaterialStoreSetStore } from '@/core/models/materials'

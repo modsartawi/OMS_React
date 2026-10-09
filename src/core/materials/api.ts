@@ -19,8 +19,8 @@ export const materialAccessApi = {
    * GET MaterialWeb/Access → `{ canSearchMaterials, canCheckStock, canCheckGs1 }`.
    *
    * ⚠️ **Fails closed, deliberately** — no 404/network-tolerant catch (the IDoc Inspector
-   * precedent): the door is deployed nowhere yet, and a probe that degraded to *shown* while its
-   * endpoint was missing would advertise screens nobody can hold the grant for. A rejected promise
+   * precedent): an SIS.Api without the door (BackOffice 2545) answers 404, and a probe that degraded
+   * to *shown* while its endpoint was missing would advertise screens nobody can hold the grant for. A rejected promise
    * leaves every Materials leaf hidden (the shell treats pending OR error as hidden) and each page
    * on its denied card.
    */

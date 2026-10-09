@@ -4,10 +4,9 @@
  * `@/core/materials/stock`; the access probe is the area's one, in `@/core/materials/api`.
  *
  * Through `@/core/api` (`api-envelope`). An unknown material is `MAT-00001` (404) — an `ApiError`
- * the page branches on with `apiErrorCode`. 🚩 The door is not built yet (BackOffice 2547); it is
- * written against the door contract,
- * `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`, and the drive stubs
- * it; ticket 455 meets the real one.
+ * the page branches on with `apiErrorCode`. The door is BackOffice 2547; its
+ * contract is `C:\Work\DMSCO\BackOffice\.issues\assets\2544-material-web-door-contract.md`. The
+ * stubbed drive pins the screen; `tools/materials-live-drive.mjs` meets the real door (ticket 455).
  */
 import { api } from '@/core/api'
 import type { MaterialDetail } from '@/core/models/materials'

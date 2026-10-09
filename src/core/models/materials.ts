@@ -47,7 +47,7 @@ export interface MaterialAccessResult {
 // ── GET MaterialWeb/Search ───────────────────────────────────────────────────────────────────────
 
 /** How the server read `q`. `null` when `q` was absent and only filters were sent. */
-export type MaterialResolvedAs = 'text' | 'material' | 'barcode' | 'gs1' | 'code'
+export type MaterialResolvedAs = 'text' | 'barcode' | 'gs1' | 'code'
 
 /** What `q` resolved through — present only when `resolvedAs` is `gs1` or `barcode`. */
 export interface MaterialResolvedFrom {

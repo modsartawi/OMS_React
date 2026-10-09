@@ -81,18 +81,24 @@ function Store() {
         <ErrorBanner className="p-3" message={apiErrorMessage(store.error, t('store.failed'))} />
       )}
 
-      {row && (
+      {known && (
         <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-store-header="">
-          <StoreHeader row={row} />
-          {isWpfStore(row) ? (
-            <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground" data-wpf-note="">
-              {t('store.wpfNote')}
-            </p>
-          ) : (
-            <StoreHealth row={row} />
+          {row && (
+            <>
+              <StoreHeader row={row} />
+              {isWpfStore(row) ? (
+                <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground" data-wpf-note="">
+                  {t('store.wpfNote')}
+                </p>
+              ) : (
+                <StoreHealth row={row} />
+              )}
+            </>
           )}
-          {/* Keyed on the store, so one store's refused list never shows under another's controls. */}
-          <StoreControls key={row.code} row={row} />
+          {/* Keyed on the store, so one store's refused list never shows under another's controls.
+              On the last known row (448), so a failed 30 s refresh neither drops an open dialog nor
+              stops a command being followed; every door re-checks the store itself. */}
+          <StoreControls key={known.code} row={known} />
         </section>
       )}
       {known && (

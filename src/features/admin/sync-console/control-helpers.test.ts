@@ -120,7 +120,7 @@ describe('controlResultSummary', () => {
 
   it('reads every row done as one sentence and no failures', () => {
     const s = controlResultSummary([row('P001', true), row('P002', true), row('P003', true)])
-    expect(s).toEqual({ outcome: 'allOk', sentenceKey: 'results.allOk', ok: 3, failed: 0, total: 3, failures: [] })
+    expect(s).toEqual({ outcome: 'allOk', ok: 3, failed: 0, total: 3, failures: [] })
   })
 
   it('lists the failed rows with their code, in the door order', () => {
@@ -131,7 +131,6 @@ describe('controlResultSummary', () => {
       row('P404', false, 'NO_STORE'),
     ])
     expect(s.outcome).toBe('someFailed')
-    expect(s.sentenceKey).toBe('results.someFailed')
     expect([s.ok, s.failed, s.total]).toEqual([2, 2, 4])
     expect(s.failures).toEqual([
       { id: 'P002', code: 'NOT_ON_WORKER', labelKey: 'failures.NOT_ON_WORKER' },

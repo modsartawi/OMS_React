@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import type { ButtonVariant } from '@/core/ui/Button'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
-import type { ControlAction } from '@/core/models/sync-console'
+import type { CommandKind, ControlAction } from '@/core/models/sync-console'
 import { AUDIT_KEY, FLEET_KEY, storeKey, syncConsoleApi } from './api'
 import { controlResultSummary, type ResultSummary } from './control-helpers'
 import { figure } from './helpers'
@@ -16,9 +16,12 @@ export interface ControlRequest {
   codes: string[]
 }
 
-/** A control's answer, kept by the page so its failures stay listed after the toast has gone. */
+/** What a per-row answer was for: a control (447), a command or a cancel (448). */
+export type OutcomeAction = ControlAction | CommandKind | 'CancelCommand'
+
+/** A per-row answer, kept by the page so its failures stay listed after the toast has gone. */
 export interface ControlOutcome {
-  action: ControlAction
+  action: OutcomeAction
   summary: ResultSummary
 }
 
@@ -37,15 +40,33 @@ const NOTED: ReadonlySet<ControlAction> = new Set(['Move', 'HandBack', 'Pause'])
 /**
  * The one-sentence summary of a per-row answer, for the toast. The counts are data
  * interpolated into a sentence, so each takes `fsi`; the action is the bundle's own word.
+ * `group` picks the sentences: a control's (`results`, "pending until the worker
+ * applies it"), a command's (`commandResults`, "queued") or a cancel's (`cancelResults`).
  */
-export function resultSentence(t: TFunction, actionLabel: string, s: ResultSummary): string {
-  return t(s.sentenceKey, {
+export function resultSentence(
+  t: TFunction,
+  actionLabel: string,
+  s: ResultSummary,
+  group: 'results' | 'commandResults' | 'cancelResults' = 'results',
+): string {
+  return t(`${group}.${s.outcome}`, {
     action: actionLabel,
     count: s.total,
     total: fsi(figure(s.total)),
     ok: fsi(figure(s.ok)),
     failed: fsi(figure(s.failed)),
   })
+}
+
+/**
+ * The toast for a per-row answer: success when every row went through, error when
+ * none did, a warning in between. `detail` (a batch id, say) is not shown on an
+ * all-refused answer, where nothing was queued.
+ */
+export function notifyOutcome(s: ResultSummary, sentence: string, detail?: string): void {
+  if (s.outcome === 'allOk') notify.success(sentence, detail)
+  else if (s.outcome === 'allFailed') notify.error(sentence)
+  else notify.warn(sentence, detail)
 }
 
 /**
@@ -75,9 +96,7 @@ export default function ControlDialog({
     onSuccess: (data, { action, codes }) => {
       const summary = controlResultSummary(data.results)
       const sentence = resultSentence(t, t(`controls.${action}`), summary)
-      if (summary.outcome === 'allOk') notify.success(sentence)
-      else if (summary.outcome === 'allFailed') notify.error(sentence)
-      else notify.warn(sentence)
+      notifyOutcome(summary, sentence)
       onResult({ action, summary })
       void qc.invalidateQueries({ queryKey: FLEET_KEY })
       for (const code of codes) void qc.invalidateQueries({ queryKey: storeKey(code) })

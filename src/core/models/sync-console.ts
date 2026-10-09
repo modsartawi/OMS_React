@@ -309,3 +309,93 @@ export interface SyncAudit {
   after: string | null
   reason: string
 }
+
+// ── The command doors (ticket 448) ───────────────────────────────────────────────
+
+/** Every `CommandStatus`, in the contract's order. */
+export const COMMAND_STATUSES: readonly CommandStatus[] = ['Pending', 'Running', 'Done', 'Failed', 'Cancelled', 'Expired']
+
+/** Every `CommandKind`, in the contract's order. */
+export const COMMAND_KINDS: readonly CommandKind[] = ['RetryNow', 'RePush', 'ConnectionTest']
+
+/** One of `GET ActionSync/Commands?status=&batch=&code=&kind=&page=&pageSize=`, newest first. */
+export interface SyncCommand {
+  id: string
+  batchId: string
+  code: string
+  kind: CommandKind
+  objectId: string | null
+  fromDate: string | null
+  status: CommandStatus
+  /** The worker's clamped result message — free text, `null` until it has one. */
+  result: string | null
+  requestedBy: string
+  requestedAt: string
+  finishedAt: string | null
+}
+
+/** `POST ActionSync/Commands` — the two one-shot commands that carry no inputs of their own. */
+export interface SyncCommandRequest {
+  kind: 'RetryNow' | 'ConnectionTest'
+  codes: string[]
+  reason: string
+}
+
+/** One store's answer. `error` is a plain code (`NOT_ON_WORKER`, `DUPLICATE_PENDING`), `null` on success. */
+export interface SyncCommandResult {
+  code: string
+  ok: boolean
+  commandId: string | null
+  error: string | null
+}
+
+export interface SyncCommandResponse {
+  batchId: string
+  auditId: string
+  results: SyncCommandResult[]
+}
+
+/** `POST ActionSync/Commands/RePush`. `objectIds: null` = every push object. */
+export interface RePushRequest {
+  codes: string[]
+  objectIds: string[] | null
+  fromDate: string
+  reason: string
+  preview: boolean
+}
+
+export interface RePushStoreResult {
+  code: string
+  actions: number
+  ok: boolean
+  error: string | null
+  commandId: string | null
+}
+
+/** The re-push answer. A preview writes nothing: its `batchId` and `auditId` are `null`. */
+export interface RePushResponse {
+  preview: boolean
+  /** The date the door will replay from, after clamping to the 41-day window. */
+  effectiveFromDate: string
+  totalActions: number
+  perStore: RePushStoreResult[]
+  batchId: string | null
+  auditId: string | null
+}
+
+/** `POST ActionSync/Commands/Cancel`. */
+export interface CancelCommandsRequest {
+  commandIds: string[]
+  reason: string
+}
+
+/** One command's answer; `error` is a plain code (`NOT_PENDING`). */
+export interface CancelCommandResult {
+  commandId: string
+  ok: boolean
+  error: string | null
+}
+
+export interface CancelCommandsResponse {
+  results: CancelCommandResult[]
+}

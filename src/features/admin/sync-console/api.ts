@@ -11,10 +11,14 @@
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {
+  CancelCommandsRequest,
+  CancelCommandsResponse,
   FleetLastHour,
   FleetSummary,
   Paged,
   PassDetail,
+  RePushRequest,
+  RePushResponse,
   StoreCounters,
   StoreDetail,
   StoreHours,
@@ -25,9 +29,13 @@ import type {
   StoreControlResponse,
   StoreScripts,
   SyncAudit,
+  SyncCommand,
+  SyncCommandRequest,
+  SyncCommandResponse,
   SyncConsoleAccess,
   SyncWorkers,
 } from '@/core/models/sync-console'
+import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
 import { PASSES_PAGE_SIZE } from './store-helpers'
@@ -148,6 +156,36 @@ export const syncConsoleApi = {
   audit(filter: AuditFilter, page: number): Promise<Paged<SyncAudit>> {
     return api.get<Paged<SyncAudit>>('ActionSync/Audit', auditQuery(filter, page))
   },
+
+  // ── The one-shot commands (ticket 448) ──
+
+  /** `GET ActionSync/Commands?status=&batch=&code=&kind=&page=&pageSize=` → one page, newest first. */
+  commands(filter: CommandsFilter, page: number): Promise<Paged<SyncCommand>> {
+    return api.get<Paged<SyncCommand>>('ActionSync/Commands', commandsQuery(filter, page))
+  },
+
+  /** `GET ActionSync/Commands?batch=` → every command of one batch (a batch holds at most 50). */
+  batch(batchId: string): Promise<Paged<SyncCommand>> {
+    return api.get<Paged<SyncCommand>>('ActionSync/Commands', { batch: batchId, page: 1, pageSize: COMMANDS_PAGE_SIZE })
+  },
+
+  /**
+   * `POST ActionSync/Commands` → a batch id and a result per store. Per-row refusals
+   * (`NOT_ON_WORKER`, `DUPLICATE_PENDING`) come back in `results[].error`.
+   */
+  sendCommand(body: SyncCommandRequest): Promise<SyncCommandResponse> {
+    return api.post<SyncCommandResponse>('ActionSync/Commands', body)
+  },
+
+  /** `POST ActionSync/Commands/RePush` — `preview: true` writes nothing and only counts. */
+  rePush(body: RePushRequest): Promise<RePushResponse> {
+    return api.post<RePushResponse>('ActionSync/Commands/RePush', body)
+  },
+
+  /** `POST ActionSync/Commands/Cancel` → a result per command; `NOT_PENDING` per row. */
+  cancelCommands(body: CancelCommandsRequest): Promise<CancelCommandsResponse> {
+    return api.post<CancelCommandsResponse>('ActionSync/Commands/Cancel', body)
+  },
 }
 
 /** The strip's width: the last 24 hours (the door allows 1–168). */
@@ -251,4 +289,19 @@ export const AUDIT_KEY = ['sync-console', 'audit'] as const
 export const auditQueryOptions = (filter: AuditFilter, page: number) => ({
   queryKey: [...AUDIT_KEY, auditQuery(filter, page)] as const,
   queryFn: () => syncConsoleApi.audit(filter, page),
+})
+
+// ── The Commands feed (ticket 448) ──
+
+/** Every commands read — the fleet-wide page and each store's tab — shares this prefix. */
+export const COMMANDS_KEY = ['sync-console', 'commands'] as const
+
+/**
+ * Commands move on their own (Pending → Running → Done), so the feed rides the
+ * console's 30 s refresh, and is refetched at once after a command or a cancel.
+ */
+export const commandsQueryOptions = (filter: CommandsFilter, page: number) => ({
+  queryKey: [...COMMANDS_KEY, commandsQuery(filter, page)] as const,
+  queryFn: () => syncConsoleApi.commands(filter, page),
+  ...refresh,
 })

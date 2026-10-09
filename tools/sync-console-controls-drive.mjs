@@ -199,7 +199,8 @@ const ticked = (page, code) => page.locator(`.ag-row[row-id="${code}"] .ag-selec
   const { context, page, errors, calls, posts, settle } = await open()
   await page.goto(`${BASE}/admin/sync/store/P001`)
   await page.locator('[data-store-controls]').waitFor({ timeout: 20000 })
-  check('1. a worker store offers Pause and Hand back', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'Pause HandBack')
+  // 448 added Retry now, Re-push and Test connection between them.
+  check('1. a worker store offers Pause and Hand back', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'RetryNow Pause RePush ConnectionTest HandBack')
   check('1. …and no Move to worker', (await page.locator('[data-control="Move"]').count()) === 0)
   check('1. no pending badge before the control', (await page.locator('[data-control-pending]').count()) === 0)
 
@@ -244,11 +245,12 @@ const ticked = (page, code) => page.locator(`.ag-row[row-id="${code}"] .ag-selec
   const { context, page, errors, posts } = await open()
   await page.goto(`${BASE}/admin/sync/store/P003`)
   await page.locator('[data-store-controls]').waitFor({ timeout: 20000 })
-  check('2. a paused worker store offers Resume and Hand back', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'Resume HandBack')
+  check('2. a paused worker store offers Resume and Hand back', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'RetryNow Resume RePush ConnectionTest HandBack')
   await page.goto(`${BASE}/admin/sync/store/P002`)
   await page.locator('[data-wpf-note]').waitFor({ timeout: 20000 })
   await page.locator('[data-store-controls]').waitFor()
-  check('2. a WPF store offers only Move to worker', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'Move')
+  // 448 added Test connection, the one command a WPF store takes.
+  check('2. a WPF store offers only Move to worker', (await page.locator('[data-store-controls]').getAttribute('data-store-controls')) === 'Move ConnectionTest')
   check('2. …and no Pause, Resume or Hand back', (await page.locator('[data-control="Pause"], [data-control="Resume"], [data-control="HandBack"]').count()) === 0)
 
   await page.goto(`${BASE}/admin/sync/store/P001`)

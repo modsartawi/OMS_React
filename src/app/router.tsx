@@ -208,7 +208,7 @@ export const router = createBrowserRouter([
         }),
       },
       // The store sync console (spec 444, ticket 445): the Fleet page, and one store's page
-      // (446), and the fleet-wide audit (447). 448–449 add `commands`, `new-store` and `pending`
+      // (446), the fleet-wide audit (447) and commands (448). 449 adds `new-store` and `pending`
       // under the same `/admin/sync` prefix.
       {
         path: 'admin/sync',
@@ -220,6 +220,12 @@ export const router = createBrowserRouter([
         path: 'admin/sync/store/:code',
         lazy: async () => ({
           Component: (await import('@/features/admin/sync-console/StorePage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/commands',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/CommandsPage')).default,
         }),
       },
       {

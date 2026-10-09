@@ -4,6 +4,7 @@ import type { StoreDetail } from '@/core/models/sync-console'
 import { resolveStoreTab, storeTabs, type StoreTab } from './store-helpers'
 import CountersTab from './CountersTab'
 import AuditTab from './AuditTab'
+import CommandsTab from './CommandsTab'
 import LocationTab from './LocationTab'
 import PassesTab from './PassesTab'
 import ScriptsTab from './ScriptsTab'
@@ -16,7 +17,7 @@ import ScriptsTab from './ScriptsTab'
  * withheld one falls back to the first), switching REPLACES the history entry, and
  * only the open tab's panel is mounted, so a tab reads its door only when opened.
  *
- * Commands is a placeholder until 448 fills it; Audit is 447's.
+ * Audit is 447's; Commands is 448's.
  */
 export default function StoreTabs({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
@@ -66,10 +67,7 @@ export default function StoreTabs({ row }: { row: StoreDetail }) {
         ) : open === 'audit' ? (
           <AuditTab code={row.code} />
         ) : (
-          // Commands (448) lands in its own slice.
-          <p className="py-6 text-center text-sm text-muted-foreground" data-tab-placeholder={open}>
-            {t(`placeholder.${open}`)}
-          </p>
+          <CommandsTab code={row.code} />
         )}
       </div>
     </div>

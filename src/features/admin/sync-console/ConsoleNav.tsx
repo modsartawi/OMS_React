@@ -2,12 +2,13 @@ import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 
 /**
- * The console's own page links (ticket 447), the prototype's top bar: the Fleet and
- * the fleet-wide Audit. 448 and 449 add Commands, New store and Sync pending here.
+ * The console's own page links (ticket 447), the prototype's top bar: the Fleet, the
+ * fleet-wide Commands (448) and Audit. 449 adds New store and Sync pending here.
  * The menu keeps its one leaf; these are the way between the console's pages.
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
+  { to: '/admin/sync/commands', key: 'commands', end: false },
   { to: '/admin/sync/audit', key: 'audit', end: false },
 ] as const
 

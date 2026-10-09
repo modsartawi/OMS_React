@@ -14,7 +14,7 @@
 //   4. Passes opens on 7 days ago, its picker is bounded to 30 days (an older date is pulled back to the
 //      bound before any call), it pages at 50, and a pass opens its detail from Store/PassDetail;
 //   5. Scripts shows the script id and its state, never SQL; Location shows no credentials;
-//   6. Commands is a placeholder (Audit is 447's, read here only as an empty feed); ?tab= opens a tab
+//   6. Commands (448's) and Audit (447's) read here only as empty feeds; ?tab= opens a tab
 //      and survives a reload;
 //   7. a WPF store shows only Counters and Passes, with the WPF note, no health and no strip;
 //   8. a 404 NO_STORE shows "No such store", asked once, not a crash.
@@ -186,6 +186,7 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
     // The store's audit feed is 447's; here it is only an empty page of the contract's shape.
     if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
+    if (p === 'ActionSync/Commands') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls }
@@ -303,10 +304,11 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('5. Location shows the location fields', /IP address 10\.20\.1\.11/.test(loc) && /Instance SQLEXPRESS/.test(loc) && /Database POS/.test(loc) && /Group G01/.test(loc) && /Father BackOffice/.test(loc) && /POS sync sweep Enabled/.test(loc), loc)
   check('5. …and no credentials, only a note that they stay on the server', (await page.locator('[data-location] input').count()) === 0 && /Credentials Never shown in the browser/.test(loc) && !/User ?ID|Password/i.test(loc), loc)
 
-  // 6: placeholders, ?tab= and reload.
+  // 6: the tabs 447 and 448 filled, ?tab= and reload.
   await page.locator('[data-tab="commands"]').click()
-  await page.locator('[data-tab-placeholder="commands"]').waitFor({ timeout: 5000 }).catch(() => {})
-  check('6. Commands is a placeholder', (await page.locator('[data-tab-placeholder="commands"]').count()) === 1)
+  // 448 filled the Commands tab: it reads the store's commands (its own drive is sync-console-commands-drive).
+  await page.locator('[data-tab-empty="commands"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check("6. Commands reads the store's commands", calls.includes('ActionSync/Commands?code=P001&page=1&pageSize=50') && (await page.locator('[data-tab-empty="commands"]').count()) === 1)
   await page.locator('[data-tab="audit"]').click()
   // 447 filled the Audit tab: it reads the store's feed (its own drive is sync-console-controls-drive).
   await page.locator('[data-tab-empty="audit"]').waitFor({ timeout: 5000 }).catch(() => {})

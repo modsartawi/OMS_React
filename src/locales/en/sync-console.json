@@ -246,13 +246,11 @@
     "credentials": "Credentials",
     "credentialsNote": "Never shown in the browser."
   },
-  "placeholder": {
-    "commands": "This store's commands will be listed here."
-  },
   "nav": {
     "label": "Store sync pages",
     "fleet": "Fleet",
-    "audit": "Audit"
+    "audit": "Audit",
+    "commands": "Commands"
   },
   "controls": {
     "label": "Controls",
@@ -263,8 +261,13 @@
     "notes": {
       "Move": "The worker takes the store on its next poll. If WPF is mid-pass, the worker waits for it.",
       "HandBack": "The worker finishes its current chunk, then lets go. WPF takes the store on its next job firing.",
-      "Pause": "Both loops stop at the next chunk boundary. The store stays on the worker."
-    }
+      "Pause": "Both loops stop at the next chunk boundary. The store stays on the worker.",
+      "RetryNow": "Clears the connect backoff, puts the store first in both loops and runs housekeeping (DDL and failed scripts).",
+      "ConnectionTest": "Runs from the worker's own network. The result shows here and on the Commands page."
+    },
+    "RetryNow": "Retry now",
+    "RePush": "Re-push…",
+    "ConnectionTest": "Test connection"
   },
   "dialog": {
     "titleOne": "{{action}}: store {{code}}",
@@ -296,14 +299,17 @@
     "allFailed_other": "{{action}} was refused for all {{total}} stores.",
     "empty": "{{action}}: no store came back in the answer.",
     "refusedTitle": "{{action}}: refused for these stores",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "refusedCommandsTitle": "{{action}}: refused for these commands"
   },
   "failures": {
     "NOT_ON_WORKER": "Not on the worker",
     "NO_STORE": "No such store",
     "NO_STORES": "No store was sent",
     "TOO_MANY_STORES": "Too many stores in one request",
-    "REASON_REQUIRED": "A reason is required"
+    "REASON_REQUIRED": "A reason is required",
+    "DUPLICATE_PENDING": "The same command is already pending",
+    "NOT_PENDING": "No longer pending"
   },
   "auditActions": {
     "Move": "Move to worker",
@@ -349,5 +355,114 @@
   "loops": {
     "push": "Push",
     "pull": "Pull"
+  },
+  "commandStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Done": "Done",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "Expired": "Expired"
+  },
+  "commandKinds": {
+    "RetryNow": "Retry now",
+    "RePush": "Re-push",
+    "ConnectionTest": "Connection test"
+  },
+  "run": {
+    "label": "Last command",
+    "RetryNow": {
+      "running": "Retrying…",
+      "ok": "Retry done",
+      "failed": "Retry failed",
+      "stillRunning": "Retry still running. Follow it on the Commands page."
+    },
+    "ConnectionTest": {
+      "running": "Testing…",
+      "ok": "Connection OK",
+      "failed": "Connection test failed",
+      "stillRunning": "Connection test still running. Follow it on the Commands page."
+    },
+    "dismiss": "Dismiss",
+    "untracked": "{{action}} was queued, but the answer named no command to follow. Look for it on the Commands page."
+  },
+  "rePush": {
+    "titleOne": "Re-push to store {{code}}",
+    "titleMany_one": "Re-push to {{n}} store",
+    "titleMany_other": "Re-push to {{n}} stores",
+    "scope": "What",
+    "allObjects": "All push objects",
+    "chosenObjects": "Chosen objects",
+    "objectsOf": "Push objects of store <code>{{code}}</code>",
+    "objectsLoading": "Loading the push objects…",
+    "objectsFailed": "The push objects could not be loaded. All push objects can still be re-pushed.",
+    "objectsEmpty": "This store has no push objects listed.",
+    "pickObject": "Choose at least one object.",
+    "from": "Replay actions from",
+    "windowNote": "The earliest date is the start of the 41-day action log (<min>{{min}}</min>). Older changes cannot be replayed from here; that needs a store re-seed.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the re-push to see how many actions it replays before you confirm.",
+    "previewStale": "The inputs changed since the preview. Preview again before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "confirm": "Queue re-push",
+    "preview": {
+      "one_one": "Replays {{total}} action to store {{code}}, from {{from}}.",
+      "one_other": "Replays {{total}} actions to store {{code}}, from {{from}}.",
+      "many_one": "Replays {{total}} action in total to {{stores}} stores, from {{from}}: {{perStore}}.",
+      "many_other": "Replays {{total}} actions in total to {{stores}} stores, from {{from}}: {{perStore}}.",
+      "none": "No store would replay anything from {{from}}."
+    },
+    "queued": "Queued as batch {{batch}}."
+  },
+  "commands": {
+    "title": "Store sync commands",
+    "subtitle": "One-shot commands waiting for, or done by, the worker. A re-push to several stores is one batch with one row per store.",
+    "filters": "Filter the commands",
+    "status": "Status",
+    "statusAny": "Any status",
+    "kind": "Command",
+    "kindAny": "Any command",
+    "batch": "Batch",
+    "code": "Store code",
+    "apply": "Search",
+    "clear": "Clear",
+    "loading": "Loading commands…",
+    "failed": "The commands could not be loaded.",
+    "empty": "No command matches these filters.",
+    "emptyStore": "No command for this store.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "expiryNote": "A pending command expires after 24 h. A paused store keeps its commands pending until it resumes.",
+    "cancel": "Cancel",
+    "cancelTitle": "Cancel {{kind}}: store {{code}}",
+    "cancelConfirm": "Cancel command",
+    "columns": {
+      "requestedAt": "Requested",
+      "requestedBy": "By",
+      "code": "Store",
+      "kind": "Command",
+      "batchId": "Batch",
+      "status": "Status",
+      "result": "Result",
+      "finishedAt": "Finished",
+      "objectId": "Object",
+      "fromDate": "From"
+    }
+  },
+  "commandResults": {
+    "allOk_one": "{{action}} queued for {{total}} store.",
+    "allOk_other": "{{action}} queued for {{total}} stores.",
+    "someFailed": "{{action}} queued for {{ok}} of {{total}} stores; {{failed}} refused.",
+    "allFailed_one": "{{action}} was refused for the store.",
+    "allFailed_other": "{{action}} was refused for all {{total}} stores.",
+    "empty": "{{action}}: no store came back in the answer."
+  },
+  "cancelResults": {
+    "allOk_one": "{{total}} command cancelled.",
+    "allOk_other": "{{total}} commands cancelled.",
+    "someFailed": "{{ok}} of {{total}} commands cancelled; {{failed}} refused.",
+    "allFailed_one": "The command could not be cancelled.",
+    "allFailed_other": "None of the {{total}} commands could be cancelled.",
+    "empty": "No command came back in the answer."
   }
 }

@@ -91,6 +91,9 @@ const FAILURE_CODES = new Set([
   'NO_STORES',
   'TOO_MANY_STORES',
   'REASON_REQUIRED',
+  // 448's command doors.
+  'DUPLICATE_PENDING',
+  'NOT_PENDING',
 ])
 
 /** A failure code's `sync-console` label key, or `null` — the caller then shows the raw code. */
@@ -109,9 +112,8 @@ export interface RowFailure {
 export type ResultOutcome = 'allOk' | 'someFailed' | 'allFailed' | 'empty'
 
 export interface ResultSummary {
+  /** Picks the one toast sentence: `<group>.<outcome>` (`resultSentence`), interpolating `ok`, `failed` and `total`. */
   outcome: ResultOutcome
-  /** The `sync-console` key of the one toast sentence; interpolate `ok`, `failed` and `total`. */
-  sentenceKey: string
   ok: number
   failed: number
   total: number
@@ -138,7 +140,7 @@ export function controlResultSummary<R extends { ok: boolean; error: string | nu
   const failed = failures.length
   const ok = total - failed
   const outcome: ResultOutcome = total === 0 ? 'empty' : failed === 0 ? 'allOk' : ok === 0 ? 'allFailed' : 'someFailed'
-  return { outcome, sentenceKey: `results.${outcome}`, ok, failed, total, failures }
+  return { outcome, ok, failed, total, failures }
 }
 
 // ── The audit feed ──────────────────────────────────────────────────────────────

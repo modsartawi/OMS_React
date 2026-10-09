@@ -158,6 +158,12 @@ async function open({ access = { screenAllowed: true, canOperate: false, canOnbo
       const size = Number(url.searchParams.get('pageSize'))
       return route.fulfill(envelope({ items: STORES.slice((pg - 1) * size, pg * size), total: STORES.length, page: pg, pageSize: size }))
     }
+    // The store page the code link opens (446+): its header and strip, in the contract's shapes.
+    if (p === 'ActionSync/Store') {
+      const row = STORES.find((x) => x.code === url.searchParams.get('code'))
+      return route.fulfill(envelope({ ...row, controlVersion: 1, appliedVersion: 1, appliedAt: null }))
+    }
+    if (p === 'ActionSync/Store/Hours' || p === 'ActionSync/Store/Counters') return route.fulfill(envelope({ items: [] }))
     // Every other probe: shut, or (to see where the leaf sits among its siblings) open.
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))

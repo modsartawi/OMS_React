@@ -27,6 +27,8 @@ export default function ReasonDialog({
   busy,
   error,
   confirmLabel,
+  confirmDisabled = false,
+  extraAction,
   onConfirm,
   onClose,
   children,
@@ -41,6 +43,13 @@ export default function ReasonDialog({
   /** The last failed send, if any. */
   error: unknown
   confirmLabel?: string
+  /** A caller's own gate on Confirm, on top of the reason (448's re-push: a fresh preview). */
+  confirmDisabled?: boolean
+  /**
+   * A second footer button before Confirm, handed the trimmed reason and whether it is
+   * ready (448's re-push Preview, which sends the same reason).
+   */
+  extraAction?: (reason: string, reasonReady: boolean) => ReactNode
   /** The reason, already trimmed. */
   onConfirm: (reason: string) => void
   onClose: () => void
@@ -48,7 +57,8 @@ export default function ReasonDialog({
 }) {
   const { t } = useTranslation('sync-console')
   const [reason, setReason] = useState('')
-  const ready = reasonReady(reason) && !busy
+  const reasonOk = reasonReady(reason) && !busy
+  const ready = reasonOk && !confirmDisabled
   const code = error ? apiErrorCode(error) : null
 
   return (
@@ -65,6 +75,7 @@ export default function ReasonDialog({
           <Button variant="text" onClick={onClose} disabled={busy} data-reason-cancel="">
             {t('dialog.cancel')}
           </Button>
+          {extraAction?.(cleanReason(reason), reasonOk)}
           <Button
             variant="primary"
             disabled={!ready}

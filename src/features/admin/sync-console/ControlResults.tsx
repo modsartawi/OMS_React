@@ -4,11 +4,18 @@ import Ltr from '@/core/ui/Ltr'
 import type { ControlOutcome } from './ControlDialog'
 
 /**
- * The failures of the last control (ticket 447), listed with their codes until
+ * The failures of the last control (ticket 447) or command (448), listed with their codes until
  * dismissed — the toast says how many, this says which and why. A code the bundle
  * has words for shows them beside the code; any other shows the raw code alone.
  */
-export default function ControlResults({ outcome, onDismiss }: { outcome: ControlOutcome | null; onDismiss: () => void }) {
+export default function ControlResults({
+  outcome,
+  onDismiss,
+}: {
+  outcome: ControlOutcome | null
+  /** Omitted where the list lives and dies with its owner (448's re-push preview): no dismiss button. */
+  onDismiss?: () => void
+}) {
   const { t } = useTranslation('sync-console')
   if (!outcome || outcome.summary.failures.length === 0) return null
   return (
@@ -18,7 +25,13 @@ export default function ControlResults({ outcome, onDismiss }: { outcome: Contro
       data-control-failures={outcome.action}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold">{t('results.refusedTitle', { action: t(`controls.${outcome.action}`) })}</span>
+        <span className="font-semibold">
+          {/* The audit's names for the actions: the same words as the buttons, without a button's ellipsis. */}
+          {t(outcome.action === 'CancelCommand' ? 'results.refusedCommandsTitle' : 'results.refusedTitle', {
+            action: t(`auditActions.${outcome.action}`),
+          })}
+        </span>
+        {onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
@@ -29,6 +42,7 @@ export default function ControlResults({ outcome, onDismiss }: { outcome: Contro
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
+        )}
       </div>
       <ul className="flex flex-col gap-0.5">
         {outcome.summary.failures.map((f, i) => (

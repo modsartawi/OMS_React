@@ -51,6 +51,7 @@ import ConsoleNav from './ConsoleNav'
 import ControlDialog, { CONTROL_VARIANT, type ControlOutcome, type ControlRequest } from './ControlDialog'
 import ControlResults from './ControlResults'
 import LastHourPanel from './LastHourPanel'
+import RePushDialog from './RePushDialog'
 import WorkerCard from './WorkerCard'
 
 /**
@@ -63,7 +64,8 @@ import WorkerCard from './WorkerCard'
  *
  * With `canOperate` (447), the table grows a selection of up to 50 stores
  * (`selectionCap`), kept across pages and filters, and a bulk bar that sends Move,
- * Hand back, Pause or Resume for the whole selection in one call. Without the grant
+ * Hand back, Pause or Resume (or, 448, a previewed Re-push) for the whole selection
+ * in one call. Without the grant
  * neither the checkboxes nor the bar render.
  */
 export default function FleetPage() {
@@ -175,6 +177,7 @@ function Fleet() {
   selectedRef.current = selected
   const gridApi = useRef<GridApi<StoreRow> | null>(null)
   const [request, setRequest] = useState<ControlRequest | null>(null)
+  const [rePush, setRePush] = useState<string[] | null>(null)
   const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
 
   // A change of selection (a clear, an answered control) reaches the checkboxes here;
@@ -363,6 +366,15 @@ function Fleet() {
                   {t(`controls.${action}`)}
                 </Button>
               ))}
+              {/* 448: the selection's re-push, through its own dialog (preview, then confirm). */}
+              <Button
+                variant="secondary"
+                disabled={selected.length === 0}
+                onClick={() => setRePush(selected)}
+                data-bulk="RePush"
+              >
+                {t('controls.RePush')}
+              </Button>
               {selected.length > 0 && (
                 <Button variant="text" onClick={() => setSelected([])} data-selection-clear="">
                   {t('selection.clear')}
@@ -379,6 +391,14 @@ function Fleet() {
         onResult={(o) => {
           setOutcome(o)
           // The answered selection is spent; its refusals stay listed with their codes.
+          setSelected([])
+        }}
+      />
+      <RePushDialog
+        codes={rePush}
+        onClose={() => setRePush(null)}
+        onResult={(o) => {
+          setOutcome(o)
           setSelected([])
         }}
       />

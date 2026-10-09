@@ -1,22 +1,33 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
+import { syncConsoleAccessQuery } from './api'
+import { wizardStart } from './onboard-helpers'
 
 /**
  * The console's own page links (ticket 447), the prototype's top bar: the Fleet, the
- * fleet-wide Commands (448) and Audit. 449 adds New store and Sync pending here.
+ * fleet-wide Commands (448) and Audit, then New store and Sync pending (449).
  * The menu keeps its one leaf; these are the way between the console's pages.
+ *
+ * New store is the wizard, which is nothing but controls: a holder who may onboard
+ * nothing (`wizardStart` is `null`) is not shown the link. Sync pending is a read.
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
   { to: '/admin/sync/commands', key: 'commands', end: false },
   { to: '/admin/sync/audit', key: 'audit', end: false },
+  { to: '/admin/sync/new-store', key: 'newStore', end: false },
+  { to: '/admin/sync/pending', key: 'pending', end: false },
 ] as const
 
 export default function ConsoleNav() {
   const { t } = useTranslation('sync-console')
+  const access = useQuery(syncConsoleAccessQuery())
+  const canOnboardAny = wizardStart(access.data, null) !== null
+  const pages = PAGES.filter((p) => p.key !== 'newStore' || canOnboardAny)
   return (
     <nav aria-label={t('nav.label')} className="flex gap-1 border-b border-border/60" data-console-nav="">
-      {PAGES.map((p) => (
+      {pages.map((p) => (
         <NavLink
           key={p.key}
           to={p.to}

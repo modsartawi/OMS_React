@@ -12,8 +12,8 @@
  * them through `@/core/util/date-format`, never append a `Z` or `toISOString()` one.
  *
  * Ticket 445 lands the shared enums, the shared shapes and the read doors the Fleet
- * page calls; ticket 446 adds the store page's reads. The command, audit and
- * onboarding shapes join with the slice that first reads them.
+ * page calls; ticket 446 adds the store page's reads, 447 and 448 the controls and commands,
+ * and 449 the onboarding doors.
  */
 
 // ── Shared enums ────────────────────────────────────────────────────────────────
@@ -398,4 +398,119 @@ export interface CancelCommandResult {
 
 export interface CancelCommandsResponse {
   results: CancelCommandResult[]
+}
+
+// ── Onboarding: the pending list, the location doors and the store master (ticket 449) ──
+
+/** One of `GET ActionSync/PendingStores?page=&pageSize=` — a store master with no sync location yet. */
+export interface PendingStore {
+  code: string
+  description: string
+  city: string
+  createdAt: string | null
+}
+
+/** One row of `POST ActionSync/Locations`. 🚩 No credentials: the server copies them from the template. */
+export interface LocationRowInput {
+  code: string
+  description: string
+  ip: string
+}
+
+/** `POST ActionSync/Locations` — 1–200 rows (the console sends at most 50, ruled). */
+export interface CreateLocationsRequest {
+  templateCode: string
+  rows: LocationRowInput[]
+  reason: string
+  preview: boolean
+}
+
+/**
+ * One row's answer. `error` is a plain code (`BAD_CODE`, `NO_STORE`, `LOCATION_EXISTS`,
+ * `NO_TEMPLATE`, `DUPLICATE_IN_BATCH`), `null` on success.
+ */
+export interface CreateLocationResult {
+  code: string
+  ok: boolean
+  error: string | null
+  host: SyncHost | null
+  /** The connection test queued for a created row (non-preview only); its failure is only a warning. */
+  connectionTestCommandId: string | null
+}
+
+export interface CreateLocationsResponse {
+  results: CreateLocationResult[]
+}
+
+/** `POST ActionSync/Locations/Edit`. 🚩 Never a credential. */
+export interface EditLocationRequest {
+  code: string
+  description: string
+  ip: string
+  instance: string
+  dbName: string
+  reason: string
+}
+
+/** The answer of the audited single-write doors (Edit location, Dismiss, Edit store). */
+export interface AuditedWriteResponse {
+  auditId: string
+}
+
+/** `POST ActionSync/PendingStores/Dismiss` — 1–50 codes. */
+export interface DismissPendingRequest {
+  codes: string[]
+  reason: string
+}
+
+/** One store master row of `Store/Onboard`. `ip` is required when the location is created too. */
+export interface StoreInput {
+  code: string
+  description: string
+  city: string
+  area: string
+  address: string
+  phone: string
+  cr: string
+  ip: string | null
+}
+
+/** `POST Store/Onboard/Preview` and `POST Store/Onboard`. */
+export interface OnboardRequest {
+  templateStore: string
+  rows: StoreInput[]
+  reason: string
+  alsoCreateLocation: boolean
+  locationTemplateCode: string | null
+}
+
+/**
+ * One row's answer. A store that already exists is **skipped** (`storeSkipped`) and
+ * continues to step 2. `error` is a plain code (`BAD_CODE`, `STORE_EXISTS`,
+ * `NO_TEMPLATE`, or a location refusal); `warning` is shown as a warning only.
+ */
+export interface OnboardResult {
+  code: string
+  storeCreated: boolean
+  storeSkipped: boolean
+  locationCreated: boolean
+  ok: boolean
+  error: string | null
+  warning: string | null
+}
+
+export interface OnboardResponse {
+  results: OnboardResult[]
+}
+
+/** `POST Store/Edit` — the store master's address fields. */
+export interface EditStoreRequest {
+  code: string
+  description: string
+  city: string
+  area: string
+  address: string
+  phone: string
+  cr: string
+  reason: string
 }

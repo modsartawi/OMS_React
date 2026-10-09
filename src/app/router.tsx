@@ -208,8 +208,8 @@ export const router = createBrowserRouter([
         }),
       },
       // The store sync console (spec 444, ticket 445): the Fleet page, and one store's page
-      // (446), the fleet-wide audit (447) and commands (448). 449 adds `new-store` and `pending`
-      // under the same `/admin/sync` prefix.
+      // (446), the fleet-wide audit (447) and commands (448), the New store wizard and Sync
+      // pending (449), all under the same `/admin/sync` prefix.
       {
         path: 'admin/sync',
         lazy: async () => ({
@@ -232,6 +232,18 @@ export const router = createBrowserRouter([
         path: 'admin/sync/audit',
         lazy: async () => ({
           Component: (await import('@/features/admin/sync-console/AuditPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/new-store',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/NewStorePage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/pending',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/PendingPage')).default,
         }),
       },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes

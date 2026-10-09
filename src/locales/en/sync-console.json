@@ -250,7 +250,9 @@
     "label": "Store sync pages",
     "fleet": "Fleet",
     "audit": "Audit",
-    "commands": "Commands"
+    "commands": "Commands",
+    "newStore": "New store",
+    "pending": "Sync pending"
   },
   "controls": {
     "label": "Controls",
@@ -309,7 +311,12 @@
     "TOO_MANY_STORES": "Too many stores in one request",
     "REASON_REQUIRED": "A reason is required",
     "DUPLICATE_PENDING": "The same command is already pending",
-    "NOT_PENDING": "No longer pending"
+    "NOT_PENDING": "No longer pending",
+    "BAD_CODE": "The code is not four capitals or digits",
+    "LOCATION_EXISTS": "Already has a sync location",
+    "NO_TEMPLATE": "No such template",
+    "DUPLICATE_IN_BATCH": "The same code twice in this request",
+    "STORE_EXISTS": "The store already exists"
   },
   "auditActions": {
     "Move": "Move to worker",
@@ -464,5 +471,150 @@
     "allFailed_one": "The command could not be cancelled.",
     "allFailed_other": "None of the {{total}} commands could be cancelled.",
     "empty": "No command came back in the answer."
+  },
+  "pending": {
+    "title": "Sync pending",
+    "subtitle": "Stores that have a master but no sync location yet, so an unfinished onboarding is never forgotten.",
+    "note": "Only codes in the four-character store format are listed. Finish adds the sync location; dismiss a row that is not a real store.",
+    "loading": "Loading the pending stores…",
+    "failed": "The pending stores could not be loaded.",
+    "empty": "No store is waiting for a sync location.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "finish": "Finish onboarding",
+    "dismiss": "Dismiss",
+    "dismissNote": "Dismissed stores leave this list. The dismissal is kept in the audit log with your reason.",
+    "dismissed_one": "{{n}} store dismissed from the pending list.",
+    "dismissed_other": "{{n}} stores dismissed from the pending list.",
+    "columns": {
+      "code": "Code",
+      "description": "Store",
+      "city": "City",
+      "createdAt": "Created"
+    }
+  },
+  "onboard": {
+    "title": "New store",
+    "subtitle": "Step 1 creates the store master. Step 2 adds it to sync. A store that already exists can start at step 2.",
+    "viewOnly": "Your account can view store sync but cannot onboard stores or add sync locations.",
+    "steps": {
+      "label": "Onboarding steps",
+      "master": "1. Store master",
+      "location": "2. Sync location",
+      "result": "Result"
+    },
+    "input": {
+      "label": "How many stores",
+      "one": "One store",
+      "paste": "Paste many"
+    },
+    "skipToLocation": "The store already exists: go to step 2",
+    "backToMaster": "Create the store master first",
+    "fields": {
+      "code": "Code",
+      "description": "Description",
+      "city": "City",
+      "area": "Area",
+      "address": "Address",
+      "phone": "Phone",
+      "cr": "CR number",
+      "ip": "Store IP address",
+      "templateStore": "Template store",
+      "templateLocation": "Template location"
+    },
+    "templateStoreHint": "Payment types and machines are copied from this store.",
+    "templateLocationHint": "Settings and counters are copied from this location. A code that is not a template is refused.",
+    "templateChoices": "Template locations",
+    "templates": {
+      "P001": "Store",
+      "C011": "Call centre"
+    },
+    "code": {
+      "empty": "Four characters, A to Z or 0 to 9.",
+      "ok": "Format OK.",
+      "lowercase": "Lowercase is refused. Type the code in capitals.",
+      "format": "Exactly four characters, A to Z or 0 to 9."
+    },
+    "paste": {
+      "label": "Paste rows, tab or comma separated, in this order: {{columns}}. A header row is skipped.",
+      "line": "Line",
+      "check": "Check",
+      "ok": "Ready",
+      "tally_one": "{{n}} row read, {{marked}} marked.",
+      "tally_other": "{{n}} rows read, {{marked}} marked.",
+      "headerSkipped": "The header row was skipped.",
+      "tooMany": "At most {{cap}} stores can be onboarded at once. Paste the rest in a second round.",
+      "ipFromRows_one": "The IP address comes from the pasted row ({{n}} row).",
+      "ipFromRows_other": "The IP addresses come from the pasted rows ({{n}} rows)."
+    },
+    "problems": {
+      "COLUMN_COUNT": "Wrong number of columns",
+      "CODE_EMPTY": "No code",
+      "CODE_LOWERCASE": "Lowercase code refused",
+      "CODE_FORMAT": "Code is not four capitals or digits",
+      "DUPLICATE": "Code already on an earlier row",
+      "IP_MISSING": "No IP address"
+    },
+    "notes": {
+      "credentials": "Group, father, database, instance and the login are copied from the template on the server. Nobody types or sees the password.",
+      "test": "The store starts on the worker, and a connection test runs right after. If it fails you get a warning, and the store is still created.",
+      "counters": "Counters start at 0, so the store replays the last 41 days of the action log. That is right only when the store database was restored from a recent seed."
+    },
+    "next": "Continue to the sync location",
+    "back": "Back",
+    "preview": "Preview",
+    "createMaster": "Create stores and sync locations",
+    "createLocation": "Add to sync",
+    "previewFirst": "Preview first to see what each row will do before you create anything.",
+    "previewStale": "The rows or templates changed since the preview. Preview again before you create.",
+    "failed": "The request was refused.",
+    "again": "Onboard more",
+    "sentence": {
+      "preview": "Preview. Stores to create: {{created}}. Already existing, step 1 skipped: {{skipped}}. Refused: {{failed}}. Warnings: {{warnings}}.",
+      "done": "Stores created: {{created}}. Already existing, step 1 skipped: {{skipped}}. Refused: {{failed}}. Warnings: {{warnings}}."
+    },
+    "locationSentence": {
+      "preview": "Preview. Sync locations to add: {{ok}}. Refused: {{failed}}.",
+      "done": "Sync locations added: {{ok}}. Refused: {{failed}}. A connection test runs for each new location."
+    },
+    "result": {
+      "code": "Code",
+      "store": "Store master",
+      "location": "Sync location",
+      "refusal": "Refused",
+      "test": "Connection test",
+      "refused": "Refused",
+      "empty": "No row came back in the answer.",
+      "preview": {
+        "created": "Will create",
+        "skipped": "Exists, skips to step 2",
+        "location": "Will add, on worker"
+      },
+      "done": {
+        "created": "Created",
+        "skipped": "Existed",
+        "location": "Added, on worker"
+      },
+      "noStore": "No store master: create the store first"
+    },
+    "test": {
+      "testing": "Testing…",
+      "ok": "Connection OK",
+      "warning": "Could not connect yet",
+      "stillRunning": "Still testing. Follow it on the Commands page."
+    }
+  },
+  "editLocation": {
+    "open": "Edit location",
+    "title": "Edit location: store {{code}}",
+    "note": "Only the description, IP address, instance and database can be changed here. The code, the template and the credentials cannot.",
+    "save": "Save location",
+    "saved": "The sync location of store {{code}} was saved."
+  },
+  "editStore": {
+    "open": "Edit store",
+    "title": "Edit store: {{code}}",
+    "note": "The current address cannot be read back here, so type every field. What you save replaces what is stored.",
+    "save": "Save store",
+    "saved": "The store master of {{code}} was saved."
   }
 }

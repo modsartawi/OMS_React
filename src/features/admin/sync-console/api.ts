@@ -11,11 +11,20 @@
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {
+  AuditedWriteResponse,
   CancelCommandsRequest,
   CancelCommandsResponse,
+  CreateLocationsRequest,
+  CreateLocationsResponse,
+  DismissPendingRequest,
+  EditLocationRequest,
+  EditStoreRequest,
   FleetLastHour,
   FleetSummary,
+  OnboardRequest,
+  OnboardResponse,
   Paged,
+  PendingStore,
   PassDetail,
   RePushRequest,
   RePushResponse,
@@ -186,7 +195,60 @@ export const syncConsoleApi = {
   cancelCommands(body: CancelCommandsRequest): Promise<CancelCommandsResponse> {
     return api.post<CancelCommandsResponse>('ActionSync/Commands/Cancel', body)
   },
+
+  // ── Onboarding (ticket 449) ──
+
+  /**
+   * `GET ActionSync/Commands?kind=ConnectionTest` → the newest connection tests, at the
+   * door's largest page. The location door names each new row's test by command id but
+   * not its batch, and the commands door has no id filter, so the wizard reads the
+   * newest tests and picks its own out (at most 50 of them).
+   */
+  connectionTests(): Promise<Paged<SyncCommand>> {
+    return api.get<Paged<SyncCommand>>('ActionSync/Commands', { kind: 'ConnectionTest', page: 1, pageSize: CONNECTION_TESTS_PAGE_SIZE })
+  },
+
+  /** `GET ActionSync/PendingStores?page=&pageSize=` → store masters with no sync location, one page. */
+  pendingStores(page: number): Promise<Paged<PendingStore>> {
+    return api.get<Paged<PendingStore>>('ActionSync/PendingStores', { page, pageSize: PENDING_PAGE_SIZE })
+  },
+
+  /** `POST ActionSync/PendingStores/Dismiss` → one audit row for 1–50 codes. */
+  dismissPending(body: DismissPendingRequest): Promise<AuditedWriteResponse> {
+    return api.post<AuditedWriteResponse>('ActionSync/PendingStores/Dismiss', body)
+  },
+
+  /**
+   * `POST ActionSync/Locations` — step 2 alone. `preview: true` writes nothing; a real
+   * call queues a connection test per created row. Per-row refusals (`BAD_CODE`,
+   * `NO_STORE`, `LOCATION_EXISTS`, `NO_TEMPLATE`, `DUPLICATE_IN_BATCH`) come back in
+   * `results[].error`.
+   */
+  createLocations(body: CreateLocationsRequest): Promise<CreateLocationsResponse> {
+    return api.post<CreateLocationsResponse>('ActionSync/Locations', body)
+  },
+
+  /** `POST ActionSync/Locations/Edit` — description, IP, instance and database only. */
+  editLocation(body: EditLocationRequest): Promise<AuditedWriteResponse> {
+    return api.post<AuditedWriteResponse>('ActionSync/Locations/Edit', body)
+  },
+
+  /** `POST Store/Onboard/Preview` (writes nothing) or `POST Store/Onboard` — step 1, then step 2. */
+  onboard(body: OnboardRequest, preview: boolean): Promise<OnboardResponse> {
+    return api.post<OnboardResponse>(preview ? 'Store/Onboard/Preview' : 'Store/Onboard', body)
+  },
+
+  /** `POST Store/Edit` — the store master's address fields. */
+  editStore(body: EditStoreRequest): Promise<AuditedWriteResponse> {
+    return api.post<AuditedWriteResponse>('Store/Edit', body)
+  },
 }
+
+/** The door's largest page (200): the connection-test read must reach the wizard's own tests. */
+const CONNECTION_TESTS_PAGE_SIZE = 200
+
+/** The pending list pages at 50, as every console table does. */
+export const PENDING_PAGE_SIZE = 50
 
 /** The strip's width: the last 24 hours (the door allows 1–168). */
 export const STRIP_HOURS = 24
@@ -304,4 +366,15 @@ export const commandsQueryOptions = (filter: CommandsFilter, page: number) => ({
   queryKey: [...COMMANDS_KEY, commandsQuery(filter, page)] as const,
   queryFn: () => syncConsoleApi.commands(filter, page),
   ...refresh,
+})
+
+// ── Sync pending (ticket 449) ──
+
+/** The pending list's reads share this prefix, so a dismiss or a new location refreshes it. */
+export const PENDING_KEY = ['sync-console', 'pending'] as const
+
+/** Read when opened and after a write; the list changes only by someone's hand, so it does not poll. */
+export const pendingStoresQuery = (page: number) => ({
+  queryKey: [...PENDING_KEY, page] as const,
+  queryFn: () => syncConsoleApi.pendingStores(page),
 })

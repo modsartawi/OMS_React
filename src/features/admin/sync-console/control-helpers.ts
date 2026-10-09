@@ -94,6 +94,12 @@ const FAILURE_CODES = new Set([
   // 448's command doors.
   'DUPLICATE_PENDING',
   'NOT_PENDING',
+  // 449's onboarding doors.
+  'BAD_CODE',
+  'LOCATION_EXISTS',
+  'NO_TEMPLATE',
+  'DUPLICATE_IN_BATCH',
+  'STORE_EXISTS',
 ])
 
 /** A failure code's `sync-console` label key, or `null` — the caller then shows the raw code. */

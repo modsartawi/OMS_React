@@ -8,6 +8,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { canOpenSyncConsole, storeQuery, syncConsoleAccessQuery } from './api'
 import { isWpfStore } from './store-helpers'
 import HourStrip from './HourStrip'
+import EditStore from './EditStore'
 import StoreControls from './StoreControls'
 import StoreHeader from './StoreHeader'
 import StoreHealth from './StoreHealth'
@@ -20,7 +21,7 @@ import Loading from './Loading'
  * Top to bottom as the owner-accepted prototype lays it out: the header (host,
  * states, pending), the health summary, the 24 h strip, then the tabs. Read-only in
  * 446; 447 adds the controls the store's host allows (`StoreControls`, under the
- * health), and 448 its commands.
+ * health), 448 its commands, and 449 Edit store beside them.
  *
  * 🚩 **A WPF store** has no health row, so it shows only its Counters and Passes,
  * with a note that WPF still syncs it — no health summary, no strip (whose hours
@@ -99,6 +100,8 @@ function Store() {
               On the last known row (448), so a failed 30 s refresh neither drops an open dialog nor
               stops a command being followed; every door re-checks the store itself. */}
           <StoreControls key={known.code} row={known} />
+          {/* 449: the store master's address, with `canOnboard` only. */}
+          <EditStore key={`edit-${known.code}`} row={known} />
         </section>
       )}
       {known && (

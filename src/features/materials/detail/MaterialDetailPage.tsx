@@ -43,8 +43,8 @@ import { masterSections, type MasterRow } from './master-groups'
  * live stock at every store, each on a tab, with a link to the pricing simulator prefilled with it.
  *
  * Behind `canSearchMaterials` on the ONE Materials probe, the same predicate the search reads. The
- * Stock tab needs `canCheckStock` too, and without it asks nothing. 🚩 Its doors
- * (`MaterialWeb/Material/{no}`, `MaterialWeb/Stock`) are not built yet — every drive stubs them.
+ * Stock tab needs `canCheckStock` too, and without it asks nothing. Its doors
+ * (`MaterialWeb/Material/{no}`, `MaterialWeb/Stock`) are BackOffice 2547/2548.
  */
 export default function MaterialDetailPage() {
   const { t } = useTranslation('materials-detail')

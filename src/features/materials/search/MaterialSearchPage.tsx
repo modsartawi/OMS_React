@@ -51,8 +51,7 @@ import {
  * side filters, a grid that opens a material, an xlsx export, and "check stock for selected".
  *
  * Behind `canSearchMaterials` on the ONE Materials probe, the same predicate the menu leaf reads.
- * 🚩 Its doors (`MaterialWeb/Search`, `Levels`, `Facets`) are not built yet — every drive stubs them
- * from the door contract.
+ * Its doors (`MaterialWeb/Search`, `Levels`, `Facets`) are BackOffice 2545/2546.
  */
 export default function MaterialSearchPage() {
   const { t } = useTranslation('materials-search')

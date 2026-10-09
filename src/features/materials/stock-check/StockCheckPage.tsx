@@ -52,8 +52,7 @@ import {
  * ATP from Stock Visibility, broken down into SAP unrestricted, POS and OMS.
  *
  * Behind `canCheckStock` on the ONE Materials probe, the same predicate the menu leaf reads.
- * 🚩 Its doors (`MaterialWeb/Stock`, `StoreSets`) are not built yet — every drive stubs them from the
- * door contract.
+ * Its doors (`MaterialWeb/Stock`, `StoreSets`) are BackOffice 2548.
  */
 export default function StockCheckPage() {
   const { t } = useTranslation('materials-stock-check')

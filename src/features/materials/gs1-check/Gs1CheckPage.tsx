@@ -44,7 +44,7 @@ import {
  *
  * Behind `canCheckGs1` on the ONE Materials probe, the same predicate the menu leaf reads.
  * 🚩 The page never judges a code itself — every verdict is the server's, shown as given. Its
- * doors (`MaterialWeb/Gs1/Check`, `Gs1/History`) are not built yet; every drive stubs them.
+ * doors (`MaterialWeb/Gs1/Check`, `Gs1/History`) are BackOffice 2549.
  */
 export default function Gs1CheckPage() {
   const { t } = useTranslation('materials-gs1-check')

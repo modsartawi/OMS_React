@@ -66,12 +66,27 @@ BackOffice 2545–2549 are merged on `pricing2` (e8ad648df). Done without a live
   `:5111`), with `secure: false` and a cookie-domain rewrite so a staging session cookie lands on
   `localhost`.
 - Gates: typecheck clean, the 186 Materials vitest tests and all four lint gates pass, the stubbed
-  `materials-search` drive is still 74/74 on port 5244, and the live drive fails cleanly (exit 2)
-  when there is no server to sign in to.
+  `materials-search` drive is still 74/74 on port 5244, and the live drive exits 2 with a message
+  when no dev server answers or the sign-in sets no cookie.
 
-**Outstanding (HITL):** staging URL and login, the `Gs1SerialInquiry` seed and `StockV2:*` on
-staging, the inputs file filled in, the live drive green, the owner walk, and the two
-no-grant checks (they need a second account without those grants).
+**Needs owner sign-off (two departures from this ticket's wording):**
+
+1. *"Remove or retire the stubs, keeping only those the vitest helpers use"*: the four stubbed
+   drives are **kept**, even though no vitest helper uses them. They are the only regression for
+   the screens' behaviour, such as the refusals, the 50 cap, the duplicates and RTL, and no real
+   database can produce those. Retiring them would leave the screens unguarded.
+2. *"Each of `materials-search`, `materials-detail`, `materials-stock` and `materials-gs1` drives
+   green against staging"* is met by **one live drive with four sections of those names**, not by
+   the four stubbed drives pointed at staging.
+
+**Outstanding (HITL):**
+
+- the staging URL and a login;
+- the `Gs1SerialInquiry` seed and the `StockV2:*` settings on staging;
+- the inputs file filled in;
+- the live drive green;
+- the owner walk, including the Arabic read (the live drive runs in English only);
+- the two no-grant checks, which need a second account without those grants.
 
 ## Done when
 

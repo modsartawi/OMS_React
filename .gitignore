@@ -95,3 +95,9 @@ tools/.document-source-users-shots/
 
 # Coupon import delete/result drive screenshots (tools/coupon-import-delete-drive.mjs, tickets 439/440)
 tools/.coupon-import-delete-shots/
+# Materials drive screenshots (tools/materials-*-drive.mjs, tickets 451-455); the live one holds real staging data
+tools/.materials-search-shots/
+tools/.materials-detail-shots/
+tools/.materials-stock-shots/
+tools/.materials-gs1-shots/
+tools/.materials-live-shots/

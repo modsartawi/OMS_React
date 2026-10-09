@@ -31,6 +31,8 @@ const onlyAt = argv.indexOf('--only')
 const ONLY = onlyAt === -1 ? ['search', 'detail', 'stock', 'gs1'] : (argv[onlyAt + 1] ?? '').split(',').filter(Boolean)
 
 const INPUTS = JSON.parse(readFileSync('tools/materials-live-inputs.json', 'utf8'))
+/** An input's `{GS}` marks as the real group-separator byte a scanner sends. */
+const withGs = (s) => s.replace(/\{GS\}/g, '\u001d')
 const todo = (v) => v === undefined || v === null || v === '' || (typeof v === 'string' && /^TODO/.test(v)) || (Array.isArray(v) && (v.length === 0 || v.some(todo)))
 
 const results = []
@@ -45,6 +47,8 @@ const skip = (name, why) => {
 }
 
 // ── The contract's keys, door by door ─────────────────────────────────────────────────────────────
+// Restated by hand from src/core/models/materials.ts (a plain-node drive cannot import TypeScript):
+// a contract change edits both.
 
 const ROW_KEYS = [
   'materialNumber', 'description', 'description2', 'aCode', 'aDesc', 'bCode', 'bDesc', 'cCode', 'cDesc',
@@ -54,6 +58,7 @@ const ROW_KEYS = [
 const KEYS = {
   access: ['canSearchMaterials', 'canCheckStock', 'canCheckGs1'],
   search: ['resolvedAs', 'resolvedFrom', 'limited', 'rows'],
+  resolvedFrom: ['gtin', 'barcode'],
   row: ROW_KEYS,
   level: ['code', 'description'],
   facet: ['value', 'label'],
@@ -68,8 +73,13 @@ const KEYS = {
   stock: ['cells', 'storesAsked', 'materialsAsked'],
   cell: ['materialNumber', 'storeCode', 'storeName', 'atp', 'sapUnrestricted', 'pos', 'oms', 'updatedAt'],
   storeSet: ['value', 'label', 'storeCount'],
+  store: ['storeCode', 'storeName', 'city', 'closed'],
   gs1: ['code', 'duplicate', 'parse', 'material', 'materialReason', 'batch', 'status', 'soldRef', 'heldBy', 'historyCount'],
   parse: ['valid', 'gtin', 'expiry', 'lot', 'serial', 'issues'],
+  issue: ['category', 'message'],
+  gs1Material: ['materialNumber', 'description', 'description2'],
+  soldRef: ['storeCode', 'machine', 'trxNumber'],
+  heldBy: ['documentNo', 'storeCode'],
   history: ['date', 'time', 'trxType', 'storeCode', 'storeName', 'machine', 'trxNumber', 'lot', 'lotMismatch'],
 }
 
@@ -94,10 +104,15 @@ const context = await browser.newContext({ viewport: { width: 1700, height: 1000
 if (process.env.SIS_COOKIE) {
   await context.addCookies([{ name: 'sis_session', value: process.env.SIS_COOKIE, url: BASE }])
 } else if (process.env.SIS_USER) {
-  const res = await context.request.post(`${BASE}/api/Auth/Login`, {
-    headers: { 'Content-Type': 'application/json', 'X-Web-Client': '1' },
-    data: { userId: process.env.SIS_USER, password: process.env.SIS_PASS ?? '' },
-  })
+  const res = await context.request
+    .post(`${BASE}/api/Auth/Login`, {
+      headers: { 'Content-Type': 'application/json', 'X-Web-Client': '1' },
+      data: { userId: process.env.SIS_USER, password: process.env.SIS_PASS ?? '' },
+    })
+    .catch((e) => {
+      console.error(`No dev server answers on ${BASE} (${e.message.split('\n')[0]}). Start vite with SIS_API first.`)
+      process.exit(2)
+    })
   const body = await res.json().catch(() => null)
   const cookies = await context.cookies(BASE)
   if (!cookies.some((c) => c.name === 'sis_session')) {
@@ -176,17 +191,20 @@ if (ONLY.includes('search')) {
       ['a GS1 scan', INPUTS.gs1Scan, 'gs1', 'gs1'],
       ['an SFDA/Wasfaty code', INPUTS.sfdaCode, 'code', 'code'],
     ]
-    let shaped = false
+    let answerShaped = false
+    let rowShaped = false
     for (const [label, q, resolvedAs, chip] of cases) {
       if (todo(q)) { skip(`search: ${label}`, 'no input'); continue }
-      const a = await searchFor(q.replace(/\{GS\}/g, '\u001d'))
+      const a = await searchFor(withGs(q))
       check(`search: ${label} answers`, ok(a), why(a))
       if (!ok(a)) continue
-      if (!shaped) { shapeCheck('search: the answer carries exactly the contract keys', a.body.data, KEYS.search) }
+      if (!answerShaped) { shapeCheck('search: the answer carries exactly the contract keys', a.body.data, KEYS.search); answerShaped = true }
       const rows = a.body.data?.rows ?? []
       check(`search: ${label} resolves as "${resolvedAs}"`, a.body.data?.resolvedAs === resolvedAs, String(a.body.data?.resolvedAs))
       check(`search: ${label} finds rows`, rows.length > 0, String(rows.length))
-      if (rows[0] && !shaped) { shapeCheck('search: a row carries exactly the contract keys', rows[0], KEYS.row); shaped = true }
+      if (rows[0] && !rowShaped) { shapeCheck('search: a row carries exactly the contract keys', rows[0], KEYS.row); rowShaped = true }
+      if (chip === 'barcode' || chip === 'gs1') shapeCheck(`search: ${label} — resolvedFrom carries exactly { gtin, barcode }`, a.body.data?.resolvedFrom, KEYS.resolvedFrom)
+      else check(`search: ${label} — resolvedFrom is null`, a.body.data?.resolvedFrom === null)
       const drawn = await gridRows('[data-material-grid]')
       check(`search: ${label} — the grid draws the rows`, drawn > 0, `${drawn} drawn / ${rows.length} answered`)
       const chipKind = (await page.locator('[data-resolved-chip]').count()) ? await page.locator('[data-resolved-chip]').getAttribute('data-resolved-chip') : null
@@ -303,6 +321,7 @@ if (ONLY.includes('stock')) {
       await page.locator('[data-stock-set-add]').click()
       const stores = await waitAnswer('MaterialWeb/StoreSets', s2)
       check('stock: the city\'s stores answer', ok(stores) && (stores.body.data?.length ?? 0) > 0, why(stores))
+      if (stores?.body?.data?.[0]) shapeCheck('stock: a store of the set carries exactly the contract keys', stores.body.data[0], KEYS.store)
       await page.waitForTimeout(500)
       const s3 = answers.length
       await page.locator('[data-stock-check]').click()
@@ -311,7 +330,7 @@ if (ONLY.includes('stock')) {
       if (ok(st)) {
         shapeCheck('stock: the answer carries exactly { cells, storesAsked, materialsAsked }', st.body.data, KEYS.stock)
         if (st.body.data.cells[0]) shapeCheck('stock: a cell carries exactly the contract keys', st.body.data.cells[0], KEYS.cell)
-        check(`stock: ${INPUTS.stockMaterials.length} materials were asked`, st.body.data.materialsAsked === INPUTS.stockMaterials.length, String(st.body.data.materialsAsked))
+        check('stock: 5 materials were asked (the owner walk\'s basket)', INPUTS.stockMaterials.length === 5 && st.body.data.materialsAsked === 5, String(st.body.data.materialsAsked))
         await page.locator('[data-stock-summary]').waitFor({ timeout: 20000 })
         check('stock: the summary is drawn, not the unavailable panel', (await page.locator('[data-stock-unavailable]').count()) === 0)
       }
@@ -331,7 +350,7 @@ if (ONLY.includes('gs1')) {
     const since = answers.length
     await page.goto(`${BASE}/materials/gs1`)
     await page.locator('[data-gs1-scan]').waitFor({ timeout: 20000 })
-    await page.locator('[data-gs1-scan]').fill(INPUTS.gs1SoldScan.replace(/\{GS\}/g, '\u001d'))
+    await page.locator('[data-gs1-scan]').fill(withGs(INPUTS.gs1SoldScan))
     await page.locator('[data-gs1-scan]').press('Enter')
     const a = await waitAnswer('MaterialWeb/Gs1/Check', since)
     check('gs1: Gs1/Check answers', ok(a), why(a))
@@ -339,6 +358,10 @@ if (ONLY.includes('gs1')) {
       const ans = a.body.data?.[0]
       shapeCheck('gs1: an answer carries exactly the contract keys', ans, KEYS.gs1)
       shapeCheck('gs1: its parse carries exactly the contract keys', ans?.parse, KEYS.parse)
+      if (ans?.parse?.issues?.[0]) shapeCheck('gs1: a parse issue carries exactly { category, message }', ans.parse.issues[0], KEYS.issue)
+      shapeCheck('gs1: its material carries exactly the contract keys', ans?.material, KEYS.gs1Material)
+      shapeCheck('gs1: a SOLD unit\'s soldRef carries exactly the contract keys', ans?.soldRef, KEYS.soldRef)
+      if (ans?.heldBy) shapeCheck('gs1: heldBy carries exactly the contract keys', ans.heldBy, KEYS.heldBy)
       check('gs1: the known sold unit reads SOLD', ans?.status === 'SOLD', `${ans?.status} (${ans?.materialReason ?? ans?.material?.materialNumber})`)
       check('gs1: …and has a history', (ans?.historyCount ?? 0) > 0, String(ans?.historyCount))
       await page.locator('[data-gs1-card="answered"]').waitFor({ timeout: 20000 })

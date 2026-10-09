@@ -1,0 +1,113 @@
+{
+  "menu": {
+    "materials": "Materials",
+    "search": "Material search",
+    "stockCheck": "Stock check",
+    "gs1Check": "GS1 check"
+  },
+  "title": "Material search",
+  "subtitle": "Find a material by its number, description, barcode, GS1 scan or SFDA/Wasfaty code, and narrow the list by level, vendor, brand and status.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to material search",
+    "deniedHint": "Your account does not hold the grant for material search. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "box": {
+    "label": "Search materials",
+    "placeholder": "Material number, description words, barcode, GS1 scan or SFDA/Wasfaty code",
+    "search": "Search",
+    "clear": "Clear all",
+    "tooShort": "Type at least 3 characters, or choose a filter."
+  },
+  "filters": {
+    "levelA": "Level A",
+    "levelB": "Level B",
+    "levelC": "Level C",
+    "levelD": "Level D",
+    "levelE": "Level E",
+    "vendor": "Vendor",
+    "brand": "Brand",
+    "manufacturer": "Manufacturer",
+    "status": "Status",
+    "itemType": "Material type",
+    "itemTypeHint": "Type a number and press Enter",
+    "blocked": "Blocked",
+    "serialised": "GS1-serialised",
+    "take": "Show up to"
+  },
+  "tri": {
+    "any": "Any",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "picker": {
+    "find": "Find…",
+    "loading": "Loading…",
+    "failed": "The list could not be loaded.",
+    "empty": "Nothing to choose.",
+    "clear": "Clear"
+  },
+  "resolved": {
+    "barcode": "Barcode <from>{{from}}</from> is material <material>{{material}}</material>",
+    "barcodeMany_one": "Barcode <from>{{from}}</from> matched <n>{{n}}</n> material",
+    "barcodeMany_other": "Barcode <from>{{from}}</from> matched <n>{{n}}</n> materials",
+    "gs1": "GS1 scan of GTIN <from>{{from}}</from> is material <material>{{material}}</material>",
+    "gs1Many_one": "GS1 scan of GTIN <from>{{from}}</from> matched <n>{{n}}</n> material",
+    "gs1Many_other": "GS1 scan of GTIN <from>{{from}}</from> matched <n>{{n}}</n> materials",
+    "code": "SFDA or Wasfaty code <from>{{from}}</from> is material <material>{{material}}</material>",
+    "codeMany_one": "SFDA or Wasfaty code <from>{{from}}</from> matched <n>{{n}}</n> material",
+    "codeMany_other": "SFDA or Wasfaty code <from>{{from}}</from> matched <n>{{n}}</n> materials"
+  },
+  "columns": {
+    "materialNumber": "Material",
+    "description": "Description (EN)",
+    "description2": "Description (AR)",
+    "levelA": "A",
+    "levelB": "B",
+    "levelC": "C",
+    "levelD": "D",
+    "levelE": "E",
+    "vendor": "Vendor",
+    "brand": "Brand",
+    "status": "Status",
+    "itemType": "Type",
+    "blocked": "Blocked",
+    "serialised": "Serialised",
+    "price": "Price ex VAT"
+  },
+  "badges": {
+    "blocked": "Blocked",
+    "serialised": "Serialised"
+  },
+  "results": {
+    "notSearched": "Type in the box or choose a filter to search.",
+    "empty": "No material matches this search.",
+    "loading": "Searching…",
+    "failedTitle": "The search failed",
+    "failed": "The materials could not be loaded. Try again in a moment.",
+    "limited": "Limited — more materials matched than are shown. Narrow your search.",
+    "count_one": "<n>{{n}}</n> material",
+    "count_other": "<n>{{n}}</n> materials"
+  },
+  "stock": {
+    "button": "Check stock for selected"
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "materials",
+    "sheet": "Materials",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} material was written to the workbook.",
+    "doneDetail_other": "{{n}} materials were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "shared": {
+    "stockCapRefused": "A stock check takes at most <n>{{max}}</n> materials at once.",
+    "stockUnavailableTitle": "Stock Visibility unavailable — try again",
+    "stockUnavailableBody": "Live stock could not be read from Stock Visibility, so no figures are shown. This is an outage, not zero stock.",
+    "stockUnavailableRetry": "Try again"
+  }
+}

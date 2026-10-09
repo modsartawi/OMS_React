@@ -504,6 +504,34 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/coupons/CouponSupportPage')).default,
         }),
       },
+      // The Materials area (BackOffice spec 2544, ticket 451). 🚩 `stock` and `gs1` are STATIC
+      // segments, so React Router ranks them above the dynamic `:no` whatever their order here — a
+      // material numbered "stock" is not a thing. `stock` is the stock check's own page (ticket
+      // 453), `gs1` the GS1 check's (ticket 454) and `:no` a material's detail (ticket 452).
+      {
+        path: 'materials',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/search/MaterialSearchPage')).default,
+        }),
+      },
+      {
+        path: 'materials/stock',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/stock-check/StockCheckPage')).default,
+        }),
+      },
+      {
+        path: 'materials/gs1',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/gs1-check/Gs1CheckPage')).default,
+        }),
+      },
+      {
+        path: 'materials/:no',
+        lazy: async () => ({
+          Component: (await import('@/features/materials/detail/MaterialDetailPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

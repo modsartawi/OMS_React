@@ -70,8 +70,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5111',
+        // SIS_API points the proxy at another SIS.Api (staging, for a live drive — ticket 455).
+        // Only that run loosens TLS and rewrites the session cookie onto localhost.
+        target: process.env.SIS_API || 'http://localhost:5111',
         changeOrigin: true,
+        ...(process.env.SIS_API ? { secure: false, cookieDomainRewrite: '' } : {}),
         rewrite: (p) => p.replace(/^\/api/, ''),
       },
     },

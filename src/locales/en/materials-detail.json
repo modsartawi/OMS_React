@@ -1,0 +1,136 @@
+{
+  "title": "Material",
+  "subtitle": "One material's master record, barcodes, batches and live stock.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to material details",
+    "deniedHint": "Your account does not hold the grant for material search. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "back": "Back to material search",
+  "loading": "Loading the material…",
+  "failedTitle": "The material could not be loaded",
+  "failed": "The material could not be loaded. Try again in a moment.",
+  "notFound": {
+    "title": "Material not found",
+    "body": "There is no material <n>{{no}}</n>.",
+    "back": "Back to material search"
+  },
+  "badges": {
+    "status": "Status <v>{{status}}</v>",
+    "blocked": "Blocked",
+    "serialised": "Serialised",
+    "notInInfo": "Not in material info"
+  },
+  "simulator": "Check promotions in the simulator",
+  "tabs": {
+    "ariaLabel": "Material details",
+    "label": {
+      "master": "Master",
+      "barcodes": "Barcodes",
+      "batches": "Batches",
+      "stock": "Stock"
+    }
+  },
+  "master": {
+    "groups": {
+      "identity": "Identity",
+      "hierarchy": "Hierarchy",
+      "commercial": "Commercial",
+      "logistics": "Logistics"
+    },
+    "fields": {
+      "materialType": "Material type",
+      "materialGroup": "Material group",
+      "materialClass": "Material class",
+      "sfdaCode": "SFDA code",
+      "wasfatyCode": "Wasfaty code",
+      "otcList": "OTC list",
+      "createdDate": "Created",
+      "levelA": "Level A",
+      "levelB": "Level B",
+      "levelC": "Level C",
+      "levelD": "Level D",
+      "levelE": "Level E",
+      "vendor": "Vendor",
+      "vendorName2": "Vendor (AR)",
+      "brand": "Brand",
+      "manufacturer": "Manufacturer",
+      "manufactureCode": "Manufacturer code",
+      "houseBrand": "House brand",
+      "price": "Price ex VAT",
+      "abc": "ABC class",
+      "materialGrade": "Grade",
+      "categoryManager": "Category manager",
+      "purchaseGroup": "Purchase group",
+      "uomBase": "Base UoM",
+      "salesUom": "Sales UoM",
+      "purchaseUom": "Purchase UoM",
+      "trackingType": "Tracking type",
+      "temperature": "Temperature"
+    },
+    "none": "—",
+    "notInInfo": {
+      "title": "Not in material info",
+      "body": "This material has no material info row, so its levels, vendor, brand, codes and buying classes are not known. The fields shown come from the material itself."
+    }
+  },
+  "barcodes": {
+    "columns": {
+      "barcode": "Barcode",
+      "uom": "UoM",
+      "quantity": "Quantity",
+      "isMain": "Main"
+    },
+    "main": "Main",
+    "empty": "This material has no barcodes."
+  },
+  "batches": {
+    "columns": {
+      "batch": "SAP batch",
+      "vendorBatch": "Vendor batch",
+      "expiry": "Expiry"
+    },
+    "empty": "No batch of this material is in the batch master."
+  },
+  "stock": {
+    "deniedTitle": "Not permitted",
+    "deniedBody": "Your account does not hold the grant for the stock check, so live stock is not shown here.",
+    "includeZero": "Show zero stores",
+    "columns": {
+      "storeCode": "Store",
+      "storeName": "Store name",
+      "atp": "ATP",
+      "sapUnrestricted": "SAP unrestricted",
+      "pos": "POS",
+      "oms": "OMS",
+      "updatedAt": "Last updated"
+    },
+    "loading": "Reading live stock…",
+    "empty": "No store has this material available (ATP is zero everywhere).",
+    "emptyWithZero": "No store holds a stock figure for this material.",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "failedTitle": "Stock could not be read",
+    "failed": "Live stock could not be loaded. Try again in a moment."
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": {
+      "barcodes": "material-{{no}}-barcodes",
+      "batches": "material-{{no}}-batches",
+      "stock": "material-{{no}}-stock"
+    },
+    "sheet": {
+      "barcodes": "Barcodes",
+      "batches": "Batches",
+      "stock": "Stock"
+    },
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

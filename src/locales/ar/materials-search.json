@@ -1,0 +1,133 @@
+{
+  "menu": {
+    "materials": "المواد",
+    "search": "البحث عن مادة",
+    "stockCheck": "فحص المخزون",
+    "gs1Check": "فحص GS1"
+  },
+  "title": "البحث عن مادة",
+  "subtitle": "ابحث عن مادة برقمها أو وصفها أو باركودها أو مسح GS1 أو رمز SFDA/وصفتي، وضيّق القائمة حسب المستوى والمورّد والعلامة التجارية والحالة.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية البحث عن المواد",
+    "deniedHint": "حسابك لا يملك صلاحية البحث عن المواد. اطلبها من المسؤول إن كنت تحتاجها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "box": {
+    "label": "ابحث في المواد",
+    "placeholder": "رقم المادة أو كلمات الوصف أو الباركود أو مسح GS1 أو رمز SFDA/وصفتي",
+    "search": "بحث",
+    "clear": "مسح الكل",
+    "tooShort": "اكتب 3 أحرف على الأقل، أو اختر عامل تصفية."
+  },
+  "filters": {
+    "levelA": "المستوى A",
+    "levelB": "المستوى B",
+    "levelC": "المستوى C",
+    "levelD": "المستوى D",
+    "levelE": "المستوى E",
+    "vendor": "المورّد",
+    "brand": "العلامة التجارية",
+    "manufacturer": "الشركة المصنّعة",
+    "status": "الحالة",
+    "itemType": "نوع المادة",
+    "itemTypeHint": "اكتب رقمًا ثم اضغط Enter",
+    "blocked": "محظورة",
+    "serialised": "مسلسلة بـ GS1",
+    "take": "اعرض حتى"
+  },
+  "tri": {
+    "any": "الكل",
+    "yes": "نعم",
+    "no": "لا"
+  },
+  "picker": {
+    "find": "ابحث…",
+    "loading": "جارٍ التحميل…",
+    "failed": "تعذّر تحميل القائمة.",
+    "empty": "لا شيء للاختيار.",
+    "clear": "مسح"
+  },
+  "resolved": {
+    "barcode": "الباركود <from>{{from}}</from> هو المادة <material>{{material}}</material>",
+    "barcodeMany_zero": "الباركود <from>{{from}}</from> لم يطابق أي مادة",
+    "barcodeMany_one": "الباركود <from>{{from}}</from> طابق مادة واحدة",
+    "barcodeMany_two": "الباركود <from>{{from}}</from> طابق مادتين",
+    "barcodeMany_few": "الباركود <from>{{from}}</from> طابق <n>{{n}}</n> مواد",
+    "barcodeMany_many": "الباركود <from>{{from}}</from> طابق <n>{{n}}</n> مادة",
+    "barcodeMany_other": "الباركود <from>{{from}}</from> طابق <n>{{n}}</n> مادة",
+    "gs1": "مسح GS1 للرمز GTIN <from>{{from}}</from> هو المادة <material>{{material}}</material>",
+    "gs1Many_zero": "مسح GS1 للرمز GTIN <from>{{from}}</from> لم يطابق أي مادة",
+    "gs1Many_one": "مسح GS1 للرمز GTIN <from>{{from}}</from> طابق مادة واحدة",
+    "gs1Many_two": "مسح GS1 للرمز GTIN <from>{{from}}</from> طابق مادتين",
+    "gs1Many_few": "مسح GS1 للرمز GTIN <from>{{from}}</from> طابق <n>{{n}}</n> مواد",
+    "gs1Many_many": "مسح GS1 للرمز GTIN <from>{{from}}</from> طابق <n>{{n}}</n> مادة",
+    "gs1Many_other": "مسح GS1 للرمز GTIN <from>{{from}}</from> طابق <n>{{n}}</n> مادة",
+    "code": "رمز SFDA أو وصفتي <from>{{from}}</from> هو المادة <material>{{material}}</material>",
+    "codeMany_zero": "رمز SFDA أو وصفتي <from>{{from}}</from> لم يطابق أي مادة",
+    "codeMany_one": "رمز SFDA أو وصفتي <from>{{from}}</from> طابق مادة واحدة",
+    "codeMany_two": "رمز SFDA أو وصفتي <from>{{from}}</from> طابق مادتين",
+    "codeMany_few": "رمز SFDA أو وصفتي <from>{{from}}</from> طابق <n>{{n}}</n> مواد",
+    "codeMany_many": "رمز SFDA أو وصفتي <from>{{from}}</from> طابق <n>{{n}}</n> مادة",
+    "codeMany_other": "رمز SFDA أو وصفتي <from>{{from}}</from> طابق <n>{{n}}</n> مادة"
+  },
+  "columns": {
+    "materialNumber": "المادة",
+    "description": "الوصف (إنجليزي)",
+    "description2": "الوصف (عربي)",
+    "levelA": "A",
+    "levelB": "B",
+    "levelC": "C",
+    "levelD": "D",
+    "levelE": "E",
+    "vendor": "المورّد",
+    "brand": "العلامة التجارية",
+    "status": "الحالة",
+    "itemType": "النوع",
+    "blocked": "محظورة",
+    "serialised": "مسلسلة",
+    "price": "السعر دون ضريبة القيمة المضافة"
+  },
+  "badges": {
+    "blocked": "محظورة",
+    "serialised": "مسلسلة"
+  },
+  "results": {
+    "notSearched": "اكتب في مربع البحث أو اختر عامل تصفية للبحث.",
+    "empty": "لا توجد مادة تطابق هذا البحث.",
+    "loading": "جارٍ البحث…",
+    "failedTitle": "فشل البحث",
+    "failed": "تعذّر تحميل المواد. حاول مرة أخرى بعد قليل.",
+    "limited": "النتائج محدودة — طابقت مواد أكثر مما يُعرض. ضيّق البحث.",
+    "count_zero": "<n>{{n}}</n> مادة",
+    "count_one": "مادة واحدة",
+    "count_two": "مادتان",
+    "count_few": "<n>{{n}}</n> مواد",
+    "count_many": "<n>{{n}}</n> مادة",
+    "count_other": "<n>{{n}}</n> مادة"
+  },
+  "stock": {
+    "button": "فحص مخزون المحدد"
+  },
+  "export": {
+    "button": "تصدير إلى Excel",
+    "fileName": "materials",
+    "sheet": "المواد",
+    "done": "تم التصدير",
+    "doneDetail_zero": "لم تُكتب أي مادة في المصنّف.",
+    "doneDetail_one": "كُتبت مادة واحدة في المصنّف.",
+    "doneDetail_two": "كُتبت مادتان في المصنّف.",
+    "doneDetail_few": "كُتبت {{n}} مواد في المصنّف.",
+    "doneDetail_many": "كُتبت {{n}} مادة في المصنّف.",
+    "doneDetail_other": "كُتبت {{n}} مادة في المصنّف.",
+    "failed": "فشل التصدير",
+    "failedDetail": "تعذّرت كتابة المصنّف. حاول مرة أخرى."
+  },
+  "shared": {
+    "stockCapRefused": "يقبل فحص المخزون <n>{{max}}</n> مادة على الأكثر في المرة الواحدة.",
+    "stockUnavailableTitle": "خدمة رؤية المخزون غير متاحة — حاول مرة أخرى",
+    "stockUnavailableBody": "تعذّرت قراءة المخزون الحي من خدمة رؤية المخزون، لذا لا تُعرض أي أرقام. هذا انقطاع في الخدمة وليس مخزونًا صفريًا.",
+    "stockUnavailableRetry": "حاول مرة أخرى"
+  }
+}

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2544-material-master-on-the-web-spec.md
 blocked-by: 452, 453, 454 (live: BackOffice 2545–2549 deployed to staging + Gs1SerialInquiry seed run)
 ---
@@ -23,16 +23,20 @@ UI → live BackOffice doors → HQ DB / Stock Visibility
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Each of `materials-search`, `materials-detail`, `materials-stock` and `materials-gs1`
-  drives green against staging
-- [ ] **Owner walk**, against real data:
+- [x] Each of `materials-search`, `materials-detail`, `materials-stock` and `materials-gs1`
+  drives green ~~against staging~~ **against the local SIS.Api** (`:5111` on `POS_Server`): the live
+  drive's four sections, 86/86 as 14419 (owner ruling 2026-10-09: local stands in for staging;
+  staging is a deploy check, not this ticket's gate)
+- [x] **Owner walk**, against real data (owner, 2026-10-09, on the local SIS.Api: "looks good"):
   - search by a real barcode, a real GS1 scan, an AR word and an A→C level path;
   - open a serialised material's Batches and Stock tabs;
   - stock-check 5 materials × one city;
   - GS1-check a known sold unit and see its history;
   - read the Arabic labels.
-- [ ] A user without `Gs1SerialInquiry` does not see GS1 check; a user without
-  `MaterialStockInquiry` sees no Stock tab and no Stock check.
+- [x] A user without `Gs1SerialInquiry` does not see GS1 check; a user without
+  `MaterialStockInquiry` sees ~~no Stock tab~~ **a Stock tab that says "not permitted" and never
+  calls the door** (spec 2544's grants section — the ticket's wording drifted from it) and no Stock
+  check. Live, as search-only stub 99998: 65/65, menu hides both, Stock tab denied, no Stock call.
 
 ## Boundaries
 
@@ -69,7 +73,7 @@ BackOffice 2545–2549 are merged on `pricing2` (e8ad648df). Done without a live
   `materials-search` drive is still 74/74 on port 5244, and the live drive exits 2 with a message
   when no dev server answers or the sign-in sets no cookie.
 
-**Needs owner sign-off (two departures from this ticket's wording):**
+**Signed off by the owner 2026-10-09 (two departures from this ticket's wording):**
 
 1. *"Remove or retire the stubs, keeping only those the vitest helpers use"*: the four stubbed
    drives are **kept**, even though no vitest helper uses them. They are the only regression for
@@ -115,8 +119,13 @@ login as 14419 — ADMIN-like, all three grants):**
 - Gotcha for a hand probe: a cookie request without the `X-Web-Client` header is a 401 (the CSRF
   check), not a grant problem — the app's `api.ts` sends it.
 
-Still open: staging itself, the owner walk (incl. the Arabic read), the partial-grant UI check,
-and the two sign-offs above.
+**2026-10-09 close-out.** Owner walked the four screens ("looks good"), ruled the local run stands
+in for staging, and signed off both departures. Partial-grant check seeded on the LOCAL `POS_Server`
+only: grant `Test455MaterialSearchView` (ItemInquiryCustome/03) → role
+`TEST455_MATERIAL_SEARCH_ONLY` → `UaUser`/`UaUserRole` 99998. The run found the drive (not the
+client) asserting the ticket's "no Stock tab" against a spec that says the tab shows "not
+permitted"; the drive now checks the spec's behaviour, plus that the menu hides Stock check / GS1
+check for a session without their grants.
 
 ## Done when
 

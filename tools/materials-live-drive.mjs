@@ -167,6 +167,14 @@ check('access: MaterialWeb/Access answers', ok(probe), why(probe))
 const grants = probe?.body?.data ?? {}
 shapeCheck('access: exactly the three flags', grants, KEYS.access)
 console.log(`      this session: ${JSON.stringify(grants)}`)
+// The menu offers only what the session may open.
+if (grants.canSearchMaterials === true) {
+  await page.locator('a[href="/materials"]').first().waitFor({ timeout: 20000 }).catch(() => {})
+  const menuHas = async (href) => (await page.locator(`a[href="${href}"]`).count()) > 0
+  for (const [href, flag] of [['/materials/stock', 'canCheckStock'], ['/materials/gs1', 'canCheckGs1']]) {
+    check(`access: the menu ${grants[flag] ? 'offers' : 'hides'} ${href}`, (await menuHas(href)) === (grants[flag] === true))
+  }
+}
 
 // ── materials-search ──────────────────────────────────────────────────────────────────────────────
 
@@ -286,7 +294,9 @@ if (ONLY.includes('detail')) {
       await page.locator('[data-material-master]').waitFor({ timeout: 20000 })
       const tabs = await page.locator('[data-material-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-material-tab')))
       const wantStock = grants.canCheckStock === true
-      check(`detail: the tabs are master, barcodes, batches${wantStock ? ', stock' : ' (no stock: no grant)'}`, JSON.stringify(tabs) === JSON.stringify(['master', 'barcodes', 'batches', ...(wantStock ? ['stock'] : [])]), tabs.join())
+      // Spec 2544 (grants): the Stock tab is always there; without the stock grant it says "not
+      // permitted" and never calls the stock door.
+      check('detail: the tabs are master, barcodes, batches, stock', JSON.stringify(tabs) === JSON.stringify(['master', 'barcodes', 'batches', 'stock']), tabs.join())
       await page.locator('[data-material-tab="batches"]').click()
       await page.waitForTimeout(500)
       const batchRows = await gridRows('[data-material-grid="batches"]')
@@ -299,6 +309,12 @@ if (ONLY.includes('detail')) {
         await page.waitForTimeout(800)
         const unavailable = await page.locator('[data-stock-unavailable]').count()
         check('detail: the Stock tab draws a summary, not the unavailable panel', unavailable === 0 && (await page.locator('[data-material-stock-summary]').count()) === 1)
+      } else {
+        const s = answers.length
+        await page.locator('[data-material-tab="stock"]').click()
+        await page.waitForTimeout(1500)
+        check('detail: without the stock grant the Stock tab says not permitted', (await page.locator('[data-material-stock-denied]').count()) === 1)
+        check('detail: …and never asks MaterialWeb/Stock', !answerOf('MaterialWeb/Stock', s))
       }
       await page.screenshot({ path: `${SHOTS}/detail.png` })
     }

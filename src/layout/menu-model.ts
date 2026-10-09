@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -72,6 +72,13 @@ import {
   canOpenCentralInvoice,
   centralInvoiceApi,
 } from '@/core/central-invoice/api'
+// The store sync console's probe stays with its feature (ticket 445): `features/admin/sync-console`
+// is its only consumer — the leaf below and the console's own gate. `layout` may import a feature.
+import {
+  SYNC_CONSOLE_ACCESS_KEY,
+  canOpenSyncConsole,
+  syncConsoleApi,
+} from '@/features/admin/sync-console/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -342,6 +349,25 @@ export const MENU: ShellMenuItem[] = [
           key: ['broadcast', 'access'],
           run: () => broadcastApi.access(),
           visible: (r) => r.allowed === true,
+        }),
+      },
+      {
+        // The store sync console (spec 444, ticket 445) — LAST in the Admin group, on its own
+        // grant (`ActionSync.Health.View`) read off `GET ActionSync/Access`. The SAME key, call
+        // and predicate as the console's own gate, so the two can never disagree.
+        //
+        // 🚩 FAILS CLOSED — see `features/admin/sync-console/api`. The screen controls the
+        // whole fleet's sync and its door (BackOffice 2539) is not deployed anywhere yet, so a
+        // pending, errored or malformed probe hides the leaf; the `Bby/Access` unknown ⇒ shown
+        // precedent does not transfer.
+        labelKey: 'sync-console:menu.syncConsole',
+        icon: ArrowUpDown,
+        routerLink: '/admin/sync',
+        activePrefix: '/admin/sync',
+        access: accessProbe({
+          key: SYNC_CONSOLE_ACCESS_KEY,
+          run: () => syncConsoleApi.access(),
+          visible: canOpenSyncConsole,
         }),
       },
     ],

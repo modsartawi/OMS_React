@@ -1,0 +1,105 @@
+{
+  "menu": {
+    "syncConsole": "Store sync"
+  },
+  "title": "Store sync",
+  "subtitle": "Every store with a sync location: who runs its sync, whether it is reachable, and how far behind it is.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to store sync",
+    "deniedHint": "Your account does not hold the grant to view store sync. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "refreshing": "Refreshing…",
+  "states": {
+    "onWorker": "On worker",
+    "onWpf": "On WPF",
+    "paused": "Paused",
+    "offline": "Offline",
+    "behind": "Behind",
+    "erroring": "Erroring",
+    "controlPending": "Control pending"
+  },
+  "hosts": {
+    "Worker": "Worker",
+    "Wpf": "WPF"
+  },
+  "tiles": {
+    "label": "Filter the stores by state",
+    "all": "All stores",
+    "failed": "The store counts could not be loaded."
+  },
+  "worker": {
+    "title": "Worker",
+    "version": "Version",
+    "gate": "Gate",
+    "gateOn": "On",
+    "gateOff": "Off",
+    "push": "Push in flight",
+    "pull": "Pull in flight",
+    "lastFlush": "Last heartbeat",
+    "never": "Never",
+    "settings": "Settings",
+    "failed": "The worker could not be read."
+  },
+  "banner": {
+    "staleTitle": "The worker's heartbeat is stale",
+    "staleDetail": "No health flush has arrived in over two intervals. The numbers below may be old, and the stores may not be syncing.",
+    "noneTitle": "No worker has reported",
+    "noneDetail": "No sync worker has sent a heartbeat. The numbers below cannot show whether any store is syncing."
+  },
+  "lastHour": {
+    "title": "Last hour, whole fleet",
+    "metric": "Measure",
+    "current": "This hour",
+    "previous": "Previous hour",
+    "failed": "The last-hour totals could not be loaded.",
+    "metrics": {
+      "pushPasses": "Push passes",
+      "actionsPushed": "Actions pushed",
+      "chunksPushed": "Chunks pushed",
+      "pullPasses": "Pull passes",
+      "trxPulled": "Transactions pulled",
+      "connectFailures": "Connect failures",
+      "errors": "Pass errors"
+    }
+  },
+  "table": {
+    "search": "Search by store code or name",
+    "host": "Host",
+    "hostAny": "Any host",
+    "sort": "Sort",
+    "sorts": {
+      "mostBehind": "Most behind",
+      "longestOffline": "Longest offline",
+      "newestError": "Newest error",
+      "code": "Code"
+    },
+    "columns": {
+      "code": "Code",
+      "description": "Store",
+      "host": "Host",
+      "states": "State",
+      "lastConnectOk": "Last connect",
+      "lastConnectFail": "Last connect failure",
+      "pendingActions": "Push lag",
+      "oldestPending": "Oldest pending",
+      "lastTrxPulled": "Last pull",
+      "lastError": "Last error",
+      "control": "Control"
+    },
+    "pending": "Pending",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "empty": "No store matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "failed": "The stores could not be loaded.",
+    "loading": "Loading stores…"
+  },
+  "store": {
+    "back": "Back to the fleet",
+    "placeholder": "This store's page is coming next: its health, its 24-hour strip, its counters and its passes."
+  }
+}

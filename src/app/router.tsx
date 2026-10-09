@@ -207,6 +207,21 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
         }),
       },
+      // The store sync console (spec 444, ticket 445): the Fleet page, and one store's page
+      // (a placeholder until 446). 447–449 add `commands`, `audit`, `new-store` and `pending`
+      // under the same `/admin/sync` prefix.
+      {
+        path: 'admin/sync',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/FleetPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/store/:code',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/StorePage')).default,
+        }),
+      },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
       // join these under the same `/nphies/*` prefix as the wave lands; the check
       // form is slice 0 because its endpoint is the one that already ships.

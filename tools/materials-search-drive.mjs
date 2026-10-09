@@ -541,8 +541,9 @@ function sheetText(files) {
   await page.locator('[data-material-check-stock]').click()
   await page.waitForURL(/\/materials\/stock/, { timeout: 10000 })
   check('7: it carries the ticked materials, leading zeros kept', urlSearch(page) === 'material=101234&material=0100777', urlSearch(page))
-  await page.locator('[data-material-placeholder="static"]').waitFor({ timeout: 10000 })
-  check('8: /materials/stock matches its STATIC route, not /materials/:no', (await page.locator('[data-material-placeholder="static"]').count()) === 1)
+  // Since ticket 453 the static route renders the stock check's own page (its box prefilled).
+  await page.locator('[data-stock-materials]').waitFor({ timeout: 10000 })
+  check('8: /materials/stock matches its STATIC route, not /materials/:no', (await page.locator('[data-material-placeholder]').count()) === 0 && (await page.locator('[data-stock-materials]').inputValue()) === '101234\n0100777')
   const marked = await page.locator('nav a[aria-current="page"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('8: on the stock page the rail marks the Stock check leaf alone', JSON.stringify(marked) === JSON.stringify(['/materials/stock']), marked.join())
   await page.goto(`${BASE}/materials/gs1`)

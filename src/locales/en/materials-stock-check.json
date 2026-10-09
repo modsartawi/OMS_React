@@ -1,0 +1,94 @@
+{
+  "title": "Stock check",
+  "subtitle": "Live ATP from Stock Visibility for up to 50 materials across the stores you choose, broken down into SAP unrestricted, POS and OMS.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the stock check",
+    "deniedHint": "Your account does not hold the grant for the stock check. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "materials": {
+    "label": "Materials",
+    "placeholder": "Paste or type material numbers, one per line or separated by commas or spaces",
+    "count_one": "<n>{{n}}</n> material of at most <max>{{max}}</max>",
+    "count_other": "<n>{{n}}</n> materials of at most <max>{{max}}</max>",
+    "duplicates_one": "(<n>{{n}}</n> repeat left out)",
+    "duplicates_other": "(<n>{{n}}</n> repeats left out)",
+    "refused": "The stock check refused this list of materials."
+  },
+  "stores": {
+    "label": "Stores",
+    "all": "All stores",
+    "allChosen": "Every store is checked.",
+    "find": "Add a store by code or name",
+    "findPlaceholder": "Store code, name or city",
+    "loading": "Loading stores…",
+    "loadFailed": "The stores could not be loaded.",
+    "noMatch": "No store matches.",
+    "more_one": "<n>{{n}}</n> more store — type more to narrow the list.",
+    "more_other": "<n>{{n}}</n> more stores — type more to narrow the list.",
+    "count_one": "<n>{{n}}</n> store chosen",
+    "count_other": "<n>{{n}}</n> stores chosen",
+    "clear": "Clear stores",
+    "remove": "Remove store {{store}}"
+  },
+  "sets": {
+    "kind": "Add a whole set",
+    "chooseKind": "Choose a kind…",
+    "kinds": {
+      "area": "Area",
+      "city": "City",
+      "district": "District",
+      "supervisor": "Supervisor"
+    },
+    "value": "Set",
+    "chooseValue": "Choose a set…",
+    "loading": "Loading…",
+    "option_one": "{{label}} ({{n}} store)",
+    "option_other": "{{label}} ({{n}} stores)",
+    "add": "Add set",
+    "failed": "The store set could not be loaded."
+  },
+  "options": {
+    "includeClosed": "Include closed stores",
+    "includeZero": "Include zero"
+  },
+  "check": {
+    "button": "Check stock",
+    "needMaterials": "Type at least one material.",
+    "needStores": "Choose stores, add a set, or tick All stores."
+  },
+  "columns": {
+    "materialNumber": "Material",
+    "storeCode": "Store",
+    "storeName": "Store name",
+    "atp": "ATP",
+    "sapUnrestricted": "SAP unrestricted",
+    "pos": "POS",
+    "oms": "OMS",
+    "updatedAt": "Last updated"
+  },
+  "results": {
+    "notChecked": "Choose materials and stores, then Check stock.",
+    "loading": "Checking stock…",
+    "empty": "No stock to show for these materials and stores.",
+    "failedTitle": "The stock check failed",
+    "failed": "The stock could not be loaded. Try again in a moment."
+  },
+  "summary": {
+    "materials": "Materials asked: <n>{{n}}</n>",
+    "stores": "Stores asked: <n>{{n}}</n>",
+    "cells": "Cells shown: <n>{{n}}</n>"
+  },
+  "export": {
+    "button": "Export to Excel",
+    "fileName": "material-stock",
+    "sheet": "Stock",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  }
+}

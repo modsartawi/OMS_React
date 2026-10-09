@@ -88,6 +88,13 @@ BackOffice 2545–2549 are merged on `pricing2` (e8ad648df). Done without a live
 - the owner walk, including the Arabic read (the live drive runs in English only);
 - the two no-grant checks, which need a second account without those grants.
 
+**2026-10-09 re-check (AFK `/implement 455`):** nothing more is buildable without the owner. No
+local SIS.Api answers on `:5111`; the host in this machine's `SIS_API_BASEURL`
+(`172.23.27.111:8099`) answers `GET MaterialWeb/Access` with the SPA's `index.html` (200,
+`text/html`), not an envelope, so the MaterialWeb doors are not served there (or it is not the
+staging API). No `SIS_USER`/`SIS_COOKIE` is set. The inputs file still holds 10 TODO values
+(only `searchText` is real).
+
 ## Done when
 
 The drives are green on staging and the owner has signed off the walk.

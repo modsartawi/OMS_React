@@ -1,12 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, Download, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, ArrowLeftRight, Banknote, Box, Calculator, ClipboardCheck, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageX, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
 import { broadcastApi } from '@/features/admin/broadcast/api'
 import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/console/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
-import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
 import {
   BBY_MAINTAIN_ACCESS_KEY,
@@ -645,19 +644,8 @@ export const MENU: ShellMenuItem[] = [
           visible: (r) => r.canOpen === true,
         }),
       },
-      {
-        labelKey: 'bonus-buy-download:menu.bonusBuyDownload',
-        icon: Download,
-        routerLink: '/pricing/bonus-buy-download',
-        activePrefix: '/pricing/bonus-buy-download',
-        // Same key + call as BonusBuyDownloadPage's own guard → one shared probe.
-        // Gated by its OWN screen grant (BackOfficeScreen[BbyDownload,03]), BackOffice 515.
-        access: accessProbe({
-          key: ['bonus-buy-download', 'access'],
-          run: () => bonusBuyDownloadApi.access(),
-          visible: (r) => r.screenAllowed === true,
-        }),
-      },
+      // Bonus Buy Download is hidden from the menu for now (owner, 2026-10-09): not being worked on.
+      // The route and page stay; restore the entry (gated by BackOfficeScreen[BbyDownload,03]) to bring it back.
       {
         labelKey: 'bonus-buy-inquiry:menu.bbyInquiry',
         icon: Search,

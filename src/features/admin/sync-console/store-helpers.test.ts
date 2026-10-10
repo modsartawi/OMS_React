@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { DEAD_LETTER_REASONS, DEAD_LETTER_STAGES, HOUR_CELLS, type PassOutcome } from '@/core/models/sync-console'
 import {
+  DEAD_LETTER_REASONS,
+  DEAD_LETTER_STAGES,
+  HOUR_CELLS,
+  type AgreementDay,
+  type AgreementGapKind,
+  type PassOutcome,
+} from '@/core/models/sync-console'
+import {
+  AGREEMENT_PAGE_SIZE,
   HOUR_LEGEND,
   STORE_TABS,
   DEFAULT_MIRROR_FILTER,
   MIRROR_PAGE_SIZE,
+  agreementQuery,
+  applyRecheck,
   clampPassesFrom,
+  dayVerdict,
   deadLetterReasonLabel,
   deadLetterStageLabel,
+  gapKindLabel,
   hostBadge,
   hourCellLegend,
   isOnMirror,
@@ -16,6 +28,7 @@ import {
   passLineBadge,
   passOutcomeBadge,
   passesFromBound,
+  recheckRefusalLabel,
   resolveStoreTab,
   scriptBadge,
   storeTabs,
@@ -84,20 +97,24 @@ describe('passesFromBound', () => {
 })
 
 describe('storeTabs', () => {
-  // 🚩 Changed on purpose by ticket 457: the Mirror tab is appended to both lists (six → seven, two → three).
-  it('gives a worker store all seven tabs, in the prototype order, Mirror last', () => {
-    expect(storeTabs({ host: 'Worker' })).toEqual(['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror'])
+  // 🚩 Changed on purpose by ticket 457 (Mirror appended: six → seven, two → three) and again by
+  // 459 (Agreement appended after it: seven → eight, three → four).
+  it('gives a worker store all eight tabs, in the prototype order, Mirror then Agreement last', () => {
+    expect(storeTabs({ host: 'Worker' })).toEqual(['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror', 'agreement'])
     expect(storeTabs({ host: 'Worker' })).toEqual(STORE_TABS)
   })
 
-  it('gives a WPF store Counters and Passes, and its own mirror lane', () => {
-    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror'])
+  it('gives a WPF store Counters and Passes, and its own mirror lane and rail agreement', () => {
+    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror', 'agreement'])
     expect(isWpfStore({ host: 'Wpf' })).toBe(true)
     expect(isWpfStore({ host: 'Worker' })).toBe(false)
   })
 
-  it('offers Mirror to every store, on mirror or not', () => {
-    for (const host of ['Worker', 'Wpf'] as const) expect(storeTabs({ host })).toContain('mirror')
+  it('offers Mirror and Agreement to every store, on mirror or not', () => {
+    for (const host of ['Worker', 'Wpf'] as const) {
+      expect(storeTabs({ host })).toContain('mirror')
+      expect(storeTabs({ host })).toContain('agreement')
+    }
   })
 
   it('reads Store/Mirror only for a store on mirror; onMirror false shows not-on-mirror', () => {
@@ -215,5 +232,141 @@ describe('scriptBadge', () => {
     expect(scriptBadge({ isExecuted: false, errorMessage: 'Invalid column' })).toEqual({ labelKey: 'scripts.failed', sev: 'bad' })
     expect(scriptBadge({ isExecuted: false, errorMessage: null })).toEqual({ labelKey: 'scripts.notExecuted', sev: 'mute' })
     for (const key of ['scripts.executed', 'scripts.failed', 'scripts.notExecuted']) expect(label(key)).toEqual(expect.any(String))
+  })
+})
+
+// ── Spec 2563, ticket 459: the Agreement tab ────────────────────────────────────
+
+describe('gapKindLabel', () => {
+  it('labels every AgreementGapKind, with its token: a missing receipt bad, a total mismatch a warning', () => {
+    const kinds: AgreementGapKind[] = ['missingAtCounter', 'missingAtMirror', 'totalMismatch']
+    for (const k of kinds) {
+      expect(gapKindLabel(k).labelKey).toBe(`agreementTab.gapKinds.${k}`)
+      expect(label(gapKindLabel(k).labelKey as string)).toEqual(expect.any(String))
+    }
+    expect(gapKindLabel('missingAtCounter').sev).toBe('bad')
+    expect(gapKindLabel('missingAtMirror').sev).toBe('bad')
+    expect(gapKindLabel('totalMismatch').sev).toBe('warn')
+  })
+
+  it('leaves a kind this bundle does not know neutral and unlabelled', () => {
+    expect(gapKindLabel('missingEverywhere')).toEqual({ labelKey: null, sev: 'mute' })
+    expect(gapKindLabel('constructor')).toEqual({ labelKey: null, sev: 'mute' })
+  })
+})
+
+describe('recheckRefusalLabel', () => {
+  it("words each of the recheck door's refusals, BAD_DATE included", () => {
+    for (const code of ['BAD_DATE', 'BAD_REQUEST']) {
+      expect(recheckRefusalLabel(code)).toBe(`agreementTab.recheck.refusals.${code}`)
+      expect(label(recheckRefusalLabel(code) as string)).toEqual(expect.any(String))
+    }
+  })
+
+  it("reuses the console's shared words for REASON_REQUIRED and NO_STORE", () => {
+    for (const code of ['REASON_REQUIRED', 'NO_STORE']) {
+      expect(recheckRefusalLabel(code)).toBe(`failures.${code}`)
+      expect(label(recheckRefusalLabel(code) as string)).toEqual(expect.any(String))
+    }
+  })
+
+  it('leaves any other code raw', () => {
+    expect(recheckRefusalLabel('BOOM')).toBeNull()
+    expect(recheckRefusalLabel('')).toBeNull()
+  })
+})
+
+describe('dayVerdict', () => {
+  it('reads a judged day as agree or disagree, never not judged', () => {
+    expect(dayVerdict({ agrees: true })).toBe('agree')
+    expect(dayVerdict({ agrees: false })).toBe('disagree')
+    // Only a real `true` agrees.
+    expect(dayVerdict({ agrees: 'true' as never })).toBe('disagree')
+  })
+})
+
+describe('agreementQuery', () => {
+  it('asks every gap at page 1 of 50, the day dropped when none is picked', () => {
+    expect(agreementQuery('P001', null, 1)).toEqual({ code: 'P001', day: null, page: 1, pageSize: AGREEMENT_PAGE_SIZE })
+    expect(AGREEMENT_PAGE_SIZE).toBe(50)
+  })
+
+  it('narrows to a picked day, as the door spells it, and never asks below page 1', () => {
+    expect(agreementQuery('P001', '2026-10-08', 2)).toEqual({ code: 'P001', day: '2026-10-08', page: 2, pageSize: 50 })
+    expect(agreementQuery('P001', null, 0).page).toBe(1)
+    expect(agreementQuery('P001', null, 2.7).page).toBe(2)
+  })
+})
+
+describe('applyRecheck', () => {
+  const day = (businessDay: string, agrees: boolean, over: Partial<AgreementDay> = {}): AgreementDay => ({
+    businessDay,
+    judgedAt: `${businessDay}T03:00:00`,
+    agrees,
+    mirrorCount: 100,
+    counterCount: agrees ? 100 : 99,
+    mirrorTotal: 1234.5,
+    counterTotal: agrees ? 1234.5 : 1200.25,
+    missingAtCounter: agrees ? 0 : 1,
+    missingAtMirror: 0,
+    totalMismatches: 0,
+    ...over,
+  })
+  // The door's order: newest first; 2026-10-05 had no NewPos receipt, so it is absent.
+  const DAYS = [day('2026-10-08', false), day('2026-10-07', true), day('2026-10-06', false), day('2026-10-04', true)]
+  const order = (days: AgreementDay[]) => days.map((d) => d.businessDay)
+
+  it("replaces the rechecked day with the door's answer, in place", () => {
+    const healed = day('2026-10-06', true, { judgedAt: '2026-10-10T09:12:00' })
+    const next = applyRecheck(DAYS, '2026-10-06', healed)
+    expect(order(next)).toEqual(['2026-10-08', '2026-10-07', '2026-10-06', '2026-10-04'])
+    expect(next[2]).toBe(healed)
+    // The others are the very same rows.
+    expect(next[0]).toBe(DAYS[0])
+    expect(next[3]).toBe(DAYS[3])
+  })
+
+  it('replaces the newest and the oldest day in place too', () => {
+    expect(order(applyRecheck(DAYS, '2026-10-08', day('2026-10-08', true)))).toEqual(order(DAYS))
+    expect(order(applyRecheck(DAYS, '2026-10-04', day('2026-10-04', false)))).toEqual(order(DAYS))
+  })
+
+  it('removes the day when the answer is null (no NewPos receipt that day)', () => {
+    expect(order(applyRecheck(DAYS, '2026-10-07', null))).toEqual(['2026-10-08', '2026-10-06', '2026-10-04'])
+    expect(applyRecheck([day('2026-10-08', false)], '2026-10-08', null)).toEqual([])
+  })
+
+  it('never mutates the list it was given', () => {
+    const copy = [...DAYS]
+    applyRecheck(DAYS, '2026-10-06', null)
+    applyRecheck(DAYS, '2026-10-06', day('2026-10-06', true))
+    expect(DAYS).toEqual(copy)
+  })
+
+  it('keeps the door order rather than re-sorting it', () => {
+    // A list the door sent out of date order stays as sent around the replaced day.
+    const odd = [day('2026-10-06', false), day('2026-10-08', false), day('2026-10-07', true)]
+    expect(order(applyRecheck(odd, '2026-10-08', day('2026-10-08', true)))).toEqual(['2026-10-06', '2026-10-08', '2026-10-07'])
+  })
+
+  it('places an answer for a day the list did not hold by date, newest first', () => {
+    expect(order(applyRecheck(DAYS, '2026-10-05', day('2026-10-05', true)))).toEqual([
+      '2026-10-08',
+      '2026-10-07',
+      '2026-10-06',
+      '2026-10-05',
+      '2026-10-04',
+    ])
+    expect(order(applyRecheck(DAYS, '2026-10-03', day('2026-10-03', true))).slice(-1)).toEqual(['2026-10-03'])
+    // …and a null answer for an unlisted day changes nothing.
+    expect(order(applyRecheck(DAYS, '2026-10-05', null))).toEqual(order(DAYS))
+  })
+
+  it('never drops the rechecked day for an answer that names another day', () => {
+    const other = day('2026-10-07', false)
+    const next = applyRecheck(DAYS, '2026-10-06', other)
+    expect(order(next)).toEqual(order(DAYS))
+    expect(next[1]).toBe(other)
+    expect(next[2]).toBe(DAYS[2])
   })
 })

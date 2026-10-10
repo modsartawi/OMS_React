@@ -23,8 +23,14 @@
 //      driving `state`, the two mirror sorts; the worker card narrowed on `rail` with a stale Mirror
 //      apply carrying its own banner and backpressure as a warning; the last-hour mirror totals.
 //
+//  11. (ticket 459, spec 2563) rail agreement: the "Rails disagree" tile drives `state=railsDisagree`
+//      (the door has NO agreement parameter, and none is ever sent), in the danger token; the Agreement
+//      column reads the door's agree / disagree / notJudged, and an old door's row reads not judged.
+//
 //  🚩 Two assertions above were changed on purpose by 456, because the ticket grows them: "eight
 //  tiles" is now twelve (the four mirror tiles; railsDisagree is 459's) and "the four sorts" six.
+//  459 changed two more, again because its ticket grows them: the tile count (twelve → thirteen, in
+//  section 1) and section 10's "no rails-disagree tile yet", which now finds that tile closing the row.
 //  Every other assertion is as 445 left it, and the default stubs stay in the PRE-2563 shape (no
 //  `mirror`, `agreement`, `rail` or mirror totals), so the boundary fill is driven too.
 //
@@ -146,6 +152,8 @@ const STORES = Array.from({ length: 120 }, (_, i) => {
       agreement: 'agree',
     }
   if (i === 6) return workerStore(code, { mirror: offMirror(), agreement: 'notJudged' })
+  // 459: a store whose rails disagree — healthy on mirror, so the lane stays go while agreement is bad.
+  if (i === 7) return workerStore(code, { states: ['onWorker', 'railsDisagree'], mirror: lane(), agreement: 'disagree' })
   return workerStore(code)
 })
 
@@ -154,7 +162,7 @@ const SUMMARY = {
   total: 120,
   counts: { all: 120, onWorker: 119, onWpf: 1, paused: 0, offline: 1, behind: 7, erroring: 2, controlPending: 1 },
 }
-// The same summary from a 2563 door: the mirror tile counts, and railsDisagree, which has no tile until 459.
+// The same summary from a 2563 door: the mirror tile counts, and railsDisagree's (its tile is 459's).
 const SUMMARY_2563 = {
   ...SUMMARY,
   counts: { ...SUMMARY.counts, mirrorOffline: 1, mirrorBehind: 2, deadLetters: 1, deferredTooLong: 0, railsDisagree: 4 },
@@ -263,7 +271,8 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   check('1. the worker card shows instance, version, in-flight and settings', /SISAPI-SYNC-01/.test(card) && /1\.4\.2/.test(card) && /41 \/ 64/.test(card) && /17 \/ 64/.test(card) && /ChunkSize 500/.test(card), card)
   const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ')))
   // 456: twelve, not eight — the four mirror tiles join (an old summary has no count for them yet).
-  check('1. twelve tiles, each with its count', tiles.length === 12 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
+  // 459: thirteen — the rails-disagree tile closes the row.
+  check('1. thirteen tiles, each with its count', tiles.length === 13 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
   const hour = strip(await page.locator('[data-last-hour]').innerText())
   check('1. the last-hour totals show this hour and the previous one', /Push passes 11,820 23,640/.test(hour) && /Connect failures 312 624/.test(hour), hour)
   check("1. an old door's last hour reads its mirror totals as zeros", /Mirror rail Mirror sweeps 0 0/.test(hour), hour)
@@ -425,13 +434,13 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   // The four tiles.
   const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ')))
   check(
-    '10. the four mirror tiles with their counts, and no rails-disagree tile yet',
-    tiles.length === 12 &&
+    '10. the four mirror tiles with their counts, then the rails-disagree tile (459) last',
+    tiles.length === 13 &&
+      tiles[12] === 'railsDisagree:4 Rails disagree' &&
       tiles.includes('mirrorOffline:1 Mirror offline') &&
       tiles.includes('mirrorBehind:2 Mirror behind') &&
       tiles.includes('deadLetters:1 Dead letters') &&
-      tiles.includes('deferredTooLong:0 Deferred too long') &&
-      !tiles.some((x) => x.startsWith('railsDisagree')),
+      tiles.includes('deferredTooLong:0 Deferred too long'),
     JSON.stringify(tiles),
   )
   for (const state of ['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong']) {
@@ -493,6 +502,46 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   await page.locator('[data-store-page="P003"]').waitFor()
   check('10. a 2563 row still opens its store page', page.url().endsWith('/admin/sync/store/P003'))
   check('no page errors (mirror)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 11: rail agreement (ticket 459, spec 2563) ─────────────────────────────────────────────────
+{
+  const { context, page, errors, fleetCalls } = await open({ summary: SUMMARY_2563 })
+  await page.goto(`${BASE}/admin/sync`)
+  await page.locator('[data-store-link="P001"]').waitFor({ timeout: 20000 })
+  const cellText = async (code, col) => strip(await page.locator(`[row-id="${code}"] [col-id="${col}"]`).innerText())
+  const agreementOf = (code) => page.locator(`[row-id="${code}"] [col-id="agreement"] [data-agreement]`).getAttribute('data-agreement')
+
+  // The tile.
+  const tile = page.locator('[data-tile="railsDisagree"]')
+  check('11. a Rails disagree tile with its count', strip(await tile.innerText()) === '4 Rails disagree', strip(await tile.innerText()))
+  check('11. …in the danger token (railsDisagree is bad)', /border-t-danger/.test((await tile.getAttribute('class')) ?? ''))
+  await tile.click()
+  check('11. the tile filters the fleet through state=railsDisagree', await waitForFleet(page, fleetCalls, '?state=railsDisagree&sort=mostBehind&page=1&pageSize=50'), lastFleet(fleetCalls))
+  check('11. …and reads as pressed', (await tile.getAttribute('aria-pressed')) === 'true')
+  await page.locator('[data-tile="mirrorBehind"]').click()
+  check('11. …ANDing with a mirror tile, in the contract order', await waitForFleet(page, fleetCalls, '?state=mirrorBehind&state=railsDisagree&sort=mostBehind&page=1&pageSize=50'), lastFleet(fleetCalls))
+  await page.locator('[data-tile="all"]').click()
+  await page.waitForTimeout(300)
+  check('11. All clears it', lastFleet(fleetCalls) === '?sort=mostBehind&page=1&pageSize=50', lastFleet(fleetCalls))
+  check('11. no read ever sends an agreement parameter', !fleetCalls.some((c) => /agreement/i.test(c)), fleetCalls.join(' '))
+
+  // The column.
+  await page.locator('[data-store-link="P001"]').waitFor()
+  const header = strip(await page.locator('.ag-header-cell[col-id="agreement"]').innerText())
+  check('11. an Agreement column', header === 'Rail agreement', header)
+  check('11. …agree reads "Rails agree"', (await agreementOf('P005')) === 'agree' && (await cellText('P005', 'agreement')) === 'Rails agree')
+  check('11. …disagree reads "Rails disagree"', (await agreementOf('P008')) === 'disagree' && (await cellText('P008', 'agreement')) === 'Rails disagree')
+  check('11. …notJudged reads "Not judged"', (await agreementOf('P003')) === 'notJudged' && (await cellText('P003', 'agreement')) === 'Not judged')
+  check("11. an old door's row (no agreement) reads not judged, never agree", (await agreementOf('P004')) === 'notJudged' && (await cellText('P004', 'agreement')) === 'Not judged')
+  const disagreeClass = await page.locator('[row-id="P008"] [col-id="agreement"] [data-agreement] > span').first().getAttribute('class')
+  const agreeClass = await page.locator('[row-id="P005"] [col-id="agreement"] [data-agreement] > span').first().getAttribute('class')
+  check('11. disagree in the danger tokens, agree in the success tokens', /bg-danger-050/.test(disagreeClass ?? '') && /bg-success-050/.test(agreeClass ?? ''), `${disagreeClass} | ${agreeClass}`)
+  check("11. the row's state badges name Rails disagree", /Rails disagree/.test(await cellText('P008', 'states')))
+  check("11. …while its mirror lane stays healthy: railsDisagree is agreement's, not the lane's", (await page.locator('[row-id="P008"] [col-id="mirror"] [data-mirror-lane]').getAttribute('data-mirror-sev')) === 'go')
+  await page.screenshot({ path: `${SHOTS}/agreement.png`, fullPage: true })
+  check('no page errors (agreement)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

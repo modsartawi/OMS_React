@@ -29,6 +29,7 @@ export default function ReasonDialog({
   confirmLabel,
   confirmDisabled = false,
   extraAction,
+  codeLabel,
   onConfirm,
   onClose,
   children,
@@ -50,6 +51,11 @@ export default function ReasonDialog({
    * ready (448's re-push Preview, which sends the same reason).
    */
   extraAction?: (reason: string, reasonReady: boolean) => ReactNode
+  /**
+   * The words for a refusal's code, as a `sync-console` key (459's recheck refusals), shown
+   * beside the code; omitted, or `null` for a code, the code shows alone.
+   */
+  codeLabel?: (code: string) => string | null
   /** The reason, already trimmed. */
   onConfirm: (reason: string) => void
   onClose: () => void
@@ -60,6 +66,7 @@ export default function ReasonDialog({
   const reasonOk = reasonReady(reason) && !busy
   const ready = reasonOk && !confirmDisabled
   const code = error ? apiErrorCode(error) : null
+  const codeKey = code ? (codeLabel?.(code) ?? null) : null
 
   return (
     <Modal
@@ -115,6 +122,11 @@ export default function ReasonDialog({
         </label>
         {error != null && (
           <ErrorBanner className="p-2" title={t('dialog.failed')} message={apiErrorMessage(error, t('dialog.failedHint'))}>
+            {codeKey && (
+              <span className="me-2 text-xs" data-reason-error-label="">
+                {t(codeKey)}
+              </span>
+            )}
             {code && (
               <span className="font-mono text-xs" data-reason-error={code}>
                 <Ltr>{code}</Ltr>

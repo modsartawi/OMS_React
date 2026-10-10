@@ -95,6 +95,13 @@
       "notMeasured": "not measured"
     }
   },
+  "agreement": {
+    "values": {
+      "agree": "Rails agree",
+      "disagree": "Rails disagree",
+      "notJudged": "Not judged"
+    }
+  },
   "rails": {
     "mirrorPull": "Mirror pull",
     "mirrorApply": "Mirror apply"
@@ -134,7 +141,8 @@
       "tillBacklogOldest": "Oldest on the till",
       "mirrorLastPull": "Last mirror pull",
       "lastError": "Last error",
-      "control": "Control"
+      "control": "Control",
+      "agreement": "Rail agreement"
     },
     "pending": "Pending",
     "count_one": "<n>{{n}}</n> store",
@@ -201,7 +209,8 @@
     "audit": "Audit",
     "location": "Location",
     "refresh": "Refresh",
-    "mirror": "Mirror"
+    "mirror": "Mirror",
+    "agreement": "Agreement"
   },
   "counters": {
     "loading": "Loading counters…",
@@ -781,6 +790,62 @@
       "acknowledgedAt": "Acknowledged",
       "acknowledgedBy": "Acknowledged by",
       "acknowledgeReason": "Why"
+    }
+  },
+  "agreementTab": {
+    "notOnMirror": "This store is not on the mirror rail, so its two rails are never compared and no day is judged.",
+    "overall": "Rail agreement over the last seven finished business days",
+    "loading": "Loading the rail agreement…",
+    "failed": "The rail agreement could not be loaded.",
+    "noDays": "No NewPos receipt in the last seven finished business days, so no day was judged.",
+    "days": {
+      "title": "Judged days",
+      "label": "Judged business days, newest first",
+      "pick": "Show this day's gaps",
+      "columns": {
+        "businessDay": "Business day",
+        "verdict": "Verdict",
+        "mirrorCount": "Mirror receipts",
+        "counterCount": "Counter receipts",
+        "mirrorTotal": "Mirror total",
+        "counterTotal": "Counter total",
+        "missingAtCounter": "Missing at the counter",
+        "missingAtMirror": "Missing at the mirror",
+        "totalMismatches": "Totals differ",
+        "judgedAt": "Judged",
+        "recheck": "Recheck"
+      }
+    },
+    "gaps": {
+      "title": "Gaps on every judged day",
+      "titleDay": "Gaps on <d>{{day}}</d>",
+      "allDays": "Show every day's gaps",
+      "empty": "No gap: both rails carried the same receipts with the same totals.",
+      "emptyPage": "This page is empty. Go back a page.",
+      "columns": {
+        "businessDay": "Business day",
+        "receiptNumber": "Receipt",
+        "kind": "Gap",
+        "mirrorTotal": "Mirror total",
+        "counterTotal": "Counter total"
+      }
+    },
+    "gapKinds": {
+      "missingAtCounter": "Missing at the counter rail",
+      "missingAtMirror": "Missing at the mirror rail",
+      "totalMismatch": "Totals differ"
+    },
+    "recheck": {
+      "action": "Recheck",
+      "title": "Recheck rail agreement for {{day}} of store {{code}}",
+      "note": "The day is judged again now, from both rails, and its gaps are replaced by what the check finds. A day with no NewPos receipt is removed.",
+      "agrees": "Rechecked {{day}}: the rails agree.",
+      "disagrees": "Rechecked {{day}}: the rails still disagree.",
+      "removed": "Rechecked {{day}}: no NewPos receipt that day, so its verdict was removed.",
+      "refusals": {
+        "BAD_DATE": "The day is outside the last seven finished business days",
+        "BAD_REQUEST": "The recheck could not be read by the door"
+      }
     }
   }
 }

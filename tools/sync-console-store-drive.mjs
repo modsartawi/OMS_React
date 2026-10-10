@@ -36,6 +36,19 @@
 // 🚩 Changed on purpose by 457, and only these two: the worker store's tab list (six → seven, Mirror last)
 // and the WPF store's (Counters, Passes → Counters, Passes, Mirror). Every other assertion is unchanged.
 //
+// Ticket 459 (spec 2563, BackOffice 2571/2572 — unbuilt, stubbed in the same section's "Rail agreement"):
+//  13. the Agreement tab, read only: the store's agreement, the judged days in the door's order (newest
+//      first, a day with no NewPos receipt absent) with each side's counts, totals to 3 decimals and the gap
+//      counts; the gaps paged at 50 (receipt, kind, both totals, a missing side blank); picking a day asks
+//      the door with day= and narrows the gaps, and a way back to every day; no Recheck without canOperate;
+//  14. with canOperate: Recheck a day through the reason dialog (Confirm waits for a reason; the POST carries
+//      code, day and the trimmed reason); a healed day's row is replaced and its gap clears, a day with no
+//      NewPos receipt is removed; the gaps and the store header are read again; a refusal shows its code
+//      with its words;
+//  15. a store on mirror with no judged day says so; a store not on mirror shows the note and asks nothing.
+// 🚩 Changed on purpose by 459, and only the same four tab-list assertions (sections 3, 7, 11, 12b): Agreement
+// is appended after Mirror, on worker and WPF stores alike.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -157,7 +170,40 @@ const UNMEASURED_STORE = {
 }
 // A WPF store on mirror: its lane is its own (ADR 0073).
 const WPF_MIRROR_STORE = { ...WPF_STORE, code: 'P005', description: 'Rawdah', mirror: MIRROR_LANE, agreement: 'notJudged' }
-const STORES = { P001: WORKER_STORE, P002: WPF_STORE, P003: MIRROR_STORE, P004: UNMEASURED_STORE, P005: WPF_MIRROR_STORE }
+// ── Ticket 459: a store whose rails disagree ──
+const DISAGREE_STORE = {
+  ...WORKER_STORE,
+  code: 'P006',
+  description: 'Hamra',
+  controlPending: false,
+  states: ['onWorker', 'railsDisagree'],
+  mirror: { ...MIRROR_LANE, lastConnectFailAt: null, lastConnectError: null, openDeadLetters: 0 },
+  agreement: 'disagree',
+}
+const STORES = { P001: WORKER_STORE, P002: WPF_STORE, P003: MIRROR_STORE, P004: UNMEASURED_STORE, P005: WPF_MIRROR_STORE, P006: DISAGREE_STORE }
+
+// Store/Agreement: D-1..D-7 newest first; 2026-10-05 had no NewPos receipt, so it is absent.
+const AGREEMENT_DAYS = [
+  { businessDay: '2026-10-08', judgedAt: '2026-10-09T03:00:12', agrees: false, mirrorCount: 412, counterCount: 357, mirrorTotal: 48210.125, counterTotal: 43002.5, missingAtCounter: 55, missingAtMirror: 0, totalMismatches: 1 },
+  { businessDay: '2026-10-07', judgedAt: '2026-10-09T03:00:10', agrees: true, mirrorCount: 398, counterCount: 398, mirrorTotal: 45120.75, counterTotal: 45120.75, missingAtCounter: 0, missingAtMirror: 0, totalMismatches: 0 },
+  { businessDay: '2026-10-06', judgedAt: '2026-10-09T03:00:08', agrees: false, mirrorCount: 401, counterCount: 402, mirrorTotal: 46000, counterTotal: 46012.345, missingAtCounter: 0, missingAtMirror: 1, totalMismatches: 0 },
+  { businessDay: '2026-10-04', judgedAt: '2026-10-09T03:00:05', agrees: true, mirrorCount: 120, counterCount: 120, mirrorTotal: 9000.5, counterTotal: 9000.5, missingAtCounter: 0, missingAtMirror: 0, totalMismatches: 0 },
+]
+// 57 gaps: two pages at 50 — 55 receipts missing at the counter and one total mismatch on 10-08, one missing at
+// the mirror on 10-06.
+const AGREEMENT_GAPS = [
+  ...Array.from({ length: 55 }, (_, i) => ({
+    businessDay: '2026-10-08',
+    receiptNumber: `0042-0008-${String(118800 + i)}`,
+    kind: 'missingAtCounter',
+    mirrorTotal: 93.5 + i,
+    counterTotal: null,
+  })),
+  { businessDay: '2026-10-08', receiptNumber: '0042-0008-118900', kind: 'totalMismatch', mirrorTotal: 120.5, counterTotal: 120.125 },
+  { businessDay: '2026-10-06', receiptNumber: '0042-0006-117001', kind: 'missingAtMirror', mirrorTotal: null, counterTotal: 12.345 },
+]
+// What a recheck finds: 10-06 healed (the late receipt arrived), 10-04 had no NewPos receipt after all.
+const HEALED_1006 = { ...AGREEMENT_DAYS[2], judgedAt: '2026-10-09T12:04:00', agrees: true, mirrorCount: 402, mirrorTotal: 46012.345, missingAtMirror: 0 }
 
 // 24 hours, oldest first: 08:00 yesterday … 07:00 … the cells cycle the five, with one cell a door newer
 // than this bundle might send.
@@ -271,13 +317,15 @@ const LOCATION = { code: 'P001', description: 'Olaya Main', ip: '10.20.1.11', in
 
 const browser = await chromium.launch()
 
-async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {}) {
+async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canOperate = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1200 } })
   const page = await context.newPage()
   // A fixed local "today", so the 30-day bound is checkable: 2026-10-09.
   await page.clock.install({ time: new Date('2026-10-09T12:04:00') })
   const errors = []
   const calls = []
+  // 459: this context's own agreement, so a recheck changes what the next read returns.
+  const agreement = { days: structuredClone(AGREEMENT_DAYS), gaps: structuredClone(AGREEMENT_GAPS), rechecks: [] }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript(() => {
@@ -290,7 +338,7 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
     calls.push(p + url.search)
     const code = url.searchParams.get('code')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: false, canOnboard: false }))
+    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate, canOnboard: false }))
     if (p === 'ActionSync/Store') {
       if (calls.filter((c) => c.startsWith('ActionSync/Store?')).length > failStoreAfter)
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'The store read failed.', errorCode: 'BOOM' }))
@@ -320,6 +368,34 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
         }),
       )
     }
+    if (p === 'ActionSync/Store/Agreement') {
+      if (!STORES[code]?.mirror)
+        return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
+      // Only P006 has judged days; every other store on mirror had no NewPos receipt in the window.
+      const days = code === 'P006' ? agreement.days : []
+      const gaps = code === 'P006' ? agreement.gaps : []
+      const day = url.searchParams.get('day')
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      const rows = gaps.filter((g) => !day || g.businessDay === day)
+      return route.fulfill(envelope({ days, gaps: { items: rows.slice((pg - 1) * size, pg * size), total: rows.length, page: pg, pageSize: size } }))
+    }
+    if (p === 'ActionSync/Agreement/Recheck') {
+      const body = route.request().postDataJSON()
+      agreement.rechecks.push(body)
+      if (body.reason === 'refuse me')
+        return route.fulfill(envelope(null, { status: 400, success: false, message: 'The day is outside the window.', errorCode: 'BAD_DATE' }))
+      if (body.day === '2026-10-06') {
+        agreement.days = agreement.days.map((d) => (d.businessDay === '2026-10-06' ? HEALED_1006 : d))
+        agreement.gaps = agreement.gaps.filter((g) => g.businessDay !== '2026-10-06')
+        return route.fulfill(envelope({ auditId: 'AU-459-1', day: HEALED_1006 }))
+      }
+      if (body.day === '2026-10-04') {
+        agreement.days = agreement.days.filter((d) => d.businessDay !== '2026-10-04')
+        return route.fulfill(envelope({ auditId: 'AU-459-2', day: null }))
+      }
+      return route.fulfill(envelope({ auditId: 'AU-459-3', day: agreement.days.find((d) => d.businessDay === body.day) ?? null }))
+    }
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope(COUNTERS))
     if (p === 'ActionSync/Store/Passes') {
       const pg = Number(url.searchParams.get('page'))
@@ -335,7 +411,7 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
     if (p === 'ActionSync/Commands') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls }
+  return { context, page, errors, calls, agreement }
 }
 
 const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -394,8 +470,9 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('2. the legend lists the five cells', JSON.stringify(legend) === '["Passes ran, work moved","Checked, idle","Pass errors","Connect failures only","No data"]', JSON.stringify(legend))
 
   // 3: the tabs, Counters first.
-  // 🚩 Changed on purpose by ticket 457: Mirror is appended at the end (six tabs → seven).
-  check('3. seven tabs in the prototype order, Mirror last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror"]', JSON.stringify(await tabList(page)))
+  // 🚩 Changed on purpose by ticket 457: Mirror is appended at the end (six tabs → seven), and by 459:
+  // Agreement after it (seven → eight).
+  check('3. eight tabs in the prototype order, Mirror then Agreement last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement"]', JSON.stringify(await tabList(page)))
   await page.locator('[data-tab-grid="counters"] .ag-row').first().waitFor()
   check('3. Counters opens first', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('3. …reading Store/Counters', calls.includes('ActionSync/Store/Counters?code=P001'))
@@ -505,8 +582,9 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('7. the WPF note is shown', /still synced by WPF/.test(strip(await page.locator('[data-wpf-note]').innerText())))
   check('7. no health summary and no strip', (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-hour-strip]').count()) === 0)
   check('7. …and no hours read', !calls.some((c) => c.includes('Store/Hours')))
-  // 🚩 Changed on purpose by ticket 457: a WPF store keeps its mirror lane (ADR 0073), so Mirror is appended.
-  check('7. only Counters, Passes and Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror"]', JSON.stringify(await tabList(page)))
+  // 🚩 Changed on purpose by ticket 457: a WPF store keeps its mirror lane (ADR 0073), so Mirror is appended,
+  // and by 459: its rail agreement too, so Agreement after it.
+  check('7. only Counters, Passes, Mirror and Agreement', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement"]', JSON.stringify(await tabList(page)))
   check('7. a withheld ?tab= falls back to Counters', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('7. …and Location is never read', !calls.some((c) => c.includes('Store/Location')))
   check('7. the host reads WPF', /Host WPF/.test(strip(await page.locator('[data-store-header]').innerText())))
@@ -589,7 +667,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   await page.screenshot({ path: `${SHOTS}/mirror-store.png`, fullPage: true })
 
   // 11: the Mirror tab.
-  check('11. the tab list ends with Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror"]')
+  // 🚩 Changed on purpose by 459: Agreement follows Mirror.
+  check('11. the tab list ends with Mirror, then Agreement', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement"]')
   check('11. Store/Mirror is not read before the tab is opened', !calls.some((c) => c.startsWith('ActionSync/Store/Mirror')))
   await page.locator('[data-tab="mirror"]').click()
   const first = 'ActionSync/Store/Mirror?code=P003&includeAcknowledged=false&page=1&pageSize=50'
@@ -695,7 +774,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('12b. a WPF store on mirror keeps the WPF note, no worker health, and its mirror block', (await page.locator('[data-wpf-note]').count()) === 1 && (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-mirror-health="onMirror"]').count()) === 1)
   await page.locator('[data-mirror-hour-cell]').first().waitFor({ timeout: 10000 })
   check('12b. …its strip draws the Mirror line alone', (await page.locator('[data-mirror-hour-cell]').count()) === 24 && (await page.locator('[data-hour-cell]').count()) === 0 && !/Master and counter/.test(await page.locator('[data-hour-strip]').innerText()))
-  check('12b. its tabs are Counters, Passes and Mirror, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
+  // 🚩 Changed on purpose by 459: Agreement follows Mirror on a WPF store too.
+  check('12b. its tabs are Counters, Passes, Mirror and Agreement, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
   check('12b. …which reads Store/Mirror', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P005&includeAcknowledged=false&page=1&pageSize=50'))
   await page.screenshot({ path: `${SHOTS}/wpf-mirror.png`, fullPage: true })
   check('no page errors (WPF store on mirror)', errors.length === 0, errors.join(' | '))
@@ -718,8 +798,154 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('12. the Mirror tab stays visible and reads not on mirror', /not on the mirror rail/.test(await page.locator('[data-mirror-tab]').innerText()))
   const asked = calls.filter((c) => c.startsWith('ActionSync/Store/Mirror')).length
   check('12. …and Store/Mirror is never asked, Refresh included', asked === 0, String(asked))
+  // 459: the Agreement tab, the same way.
+  await page.locator('[data-tab="agreement"]').click()
+  await page.locator('[data-agreement-tab="notOnMirror"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-tab-refresh="agreement"]').click()
+  await page.waitForTimeout(800)
+  check('15. the Agreement tab stays visible on a store not on mirror and says so', /not on the mirror rail/.test(await page.locator('[data-agreement-tab]').innerText()))
+  const askedAgreement = calls.filter((c) => c.startsWith('ActionSync/Store/Agreement')).length
+  check('15. …and Store/Agreement is never asked, Refresh included', askedAgreement === 0, String(askedAgreement))
   await page.screenshot({ path: `${SHOTS}/not-on-mirror.png`, fullPage: true })
   check('no page errors (not on mirror)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 13: the Agreement tab, read only (ticket 459) ──────────────────────────────────────────────
+const toastText = async (page, re) => {
+  const t = page.locator('[data-sonner-toast]').filter({ hasText: re })
+  await t.first().waitFor({ timeout: 5000 }).catch(() => {})
+  return (await t.count()) > 0 ? strip(await t.first().innerText()) : ''
+}
+const dayOrder = (page) => page.locator('[data-agreement-day]').evaluateAll((els) => els.map((e) => e.getAttribute('data-agreement-day')))
+const allGaps = 'ActionSync/Store/Agreement?code=P006&page=1&pageSize=50'
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P006`)
+  await page.locator('[data-store-header]').waitFor({ timeout: 20000 })
+  check('13. the header names the rails disagreeing', /Rails disagree/.test(strip(await page.locator('[data-store-header]').innerText())))
+  check('13. Store/Agreement is not read before the tab is opened', !calls.some((c) => c.startsWith('ActionSync/Store/Agreement')))
+  await page.locator('[data-tab="agreement"]').click()
+  check('13. the tab reads Store/Agreement: every gap, page 1 of 50', await waitForCall(page, calls, allGaps), calls.filter((c) => c.includes('Agreement')).join(','))
+  await page.locator('[data-agreement-days]').waitFor({ timeout: 5000 })
+  check("13. the store's agreement is shown", (await page.locator('[data-agreement-overall="disagree"]').count()) === 1 && /Rails disagree/.test(await page.locator('[data-agreement-overall]').innerText()))
+  check("13. the judged days in the door's order, newest first, the day with no NewPos receipt absent", JSON.stringify(await dayOrder(page)) === '["2026-10-08","2026-10-07","2026-10-06","2026-10-04"]', JSON.stringify(await dayOrder(page)))
+  const d08 = strip(await page.locator('[data-agreement-day="2026-10-08"]').innerText())
+  check('13. a day: its verdict, both counts, both totals to 3 decimals, the gap counts and when it was judged', d08 === '2026-10-08 Rails disagree 412 357 48210.125 43002.500 55 0 1 2026-10-09 03:00', d08)
+  check('13. …a day that agrees says so', /Rails agree/.test(await page.locator('[data-agreement-day="2026-10-07"]').innerText()))
+  const isolated = await page.locator('[data-agreement-day="2026-10-08"] bdi[dir="ltr"]').count()
+  check('13. …each figure, total, day and time isolated once', isolated === 9, String(isolated))
+  const gapHead = strip(await page.locator('[data-agreement-days] thead').innerText())
+  check('13. read only: no Recheck column', !/Recheck/.test(gapHead) && (await page.locator('[data-agreement-recheck]').count()) === 0, gapHead)
+  // The gaps.
+  check('13. the gaps title reads every judged day', /Gaps on every judged day/i.test(await page.locator('[data-agreement-gaps]').innerText()))
+  check('13. a page draws 50 gaps', (await rowCount(page, '[data-tab-grid="agreement-gaps"] .ag-row', 50)) === 50)
+  const gHeaders = strip(await page.locator('[data-tab-grid="agreement-gaps"] .ag-header').innerText())
+  check('13. columns: business day, receipt, gap, both totals', ['Business day', 'Receipt', 'Gap', 'Mirror total', 'Counter total'].every((h) => gHeaders.includes(h)), gHeaders)
+  const g1 = strip(await page.locator('.ag-row[row-id="2026-10-08-0042-0008-118800-missingAtCounter"]').first().innerText())
+  check('13. a receipt missing at the counter: its mirror total to 3 decimals, the counter total blank', g1 === '2026-10-08 0042-0008-118800 Missing at the counter rail 93.500', g1)
+  const kindClass = await page.locator('.ag-row[row-id="2026-10-08-0042-0008-118800-missingAtCounter"] [data-gap-kind] > span').first().getAttribute('class')
+  check('13. …the kind in its token', /bg-danger-050/.test(kindClass ?? ''), kindClass)
+  await page.getByRole('button', { name: 'Next' }).click()
+  check('13. Next asks for page 2', await waitForCall(page, calls, 'ActionSync/Store/Agreement?code=P006&page=2&pageSize=50'))
+  await page.locator('.ag-row[row-id="2026-10-08-0042-0008-118900-totalMismatch"]').first().waitFor({ timeout: 5000 })
+  check('13. page 2 draws the last 7', (await rowCount(page, '[data-tab-grid="agreement-gaps"] .ag-row', 7)) === 7)
+  const mm = strip(await page.locator('.ag-row[row-id="2026-10-08-0042-0008-118900-totalMismatch"]').first().innerText())
+  check('13. a total mismatch: both totals to 3 decimals', mm === '2026-10-08 0042-0008-118900 Totals differ 120.500 120.125', mm)
+  // A day narrows the gaps.
+  await page.locator('[data-agreement-pick="2026-10-06"]').click()
+  const day06 = 'ActionSync/Store/Agreement?code=P006&day=2026-10-06&page=1&pageSize=50'
+  check('13. picking a day asks the door with day=, from page 1', await waitForCall(page, calls, day06), calls.filter((c) => c.includes('Agreement')).slice(-2).join(','))
+  await page.locator('[data-agreement-gaps="2026-10-06"]').waitFor({ timeout: 5000 })
+  check('13. …and narrows the gaps to it', (await rowCount(page, '[data-tab-grid="agreement-gaps"] .ag-row', 1)) === 1)
+  const g06 = strip(await page.locator('.ag-row[row-id="2026-10-06-0042-0006-117001-missingAtMirror"]').first().innerText())
+  check('13. …a receipt missing at the mirror: the mirror total blank', g06 === '2026-10-06 0042-0006-117001 Missing at the mirror rail 12.345', g06)
+  check('13. …titled with the day, isolated once', strip(await page.locator('[data-agreement-gaps] h3').innerText()).toLowerCase() === 'gaps on 2026-10-06' && (await page.locator('[data-agreement-gaps] h3 bdi').count()) === 1)
+  check('13. …the picked day reads as pressed', (await page.locator('[data-agreement-pick="2026-10-06"]').getAttribute('aria-pressed')) === 'true')
+  check('13. …and the days are still all listed', (await page.locator('[data-agreement-day]').count()) === 4)
+  // Refresh re-reads the tab at its day.
+  const before = calls.filter((c) => c === day06).length
+  await page.locator('[data-tab-refresh="agreement"]').click()
+  const deadline = Date.now() + 5000
+  while (calls.filter((c) => c === day06).length === before && Date.now() < deadline) await page.waitForTimeout(100)
+  check('13. Refresh re-reads the Agreement tab at its day', calls.filter((c) => c === day06).length === before + 1)
+  await page.screenshot({ path: `${SHOTS}/agreement-day.png`, fullPage: true })
+  // The way back.
+  const allBefore = calls.filter((c) => c === allGaps).length
+  await page.locator('[data-agreement-all-days]').click()
+  await page.locator('[data-agreement-gaps=""]').waitFor({ timeout: 5000 })
+  check("13. \"Show every day's gaps\" goes back to every gap", (await rowCount(page, '[data-tab-grid="agreement-gaps"] .ag-row', 50)) === 50 && /Gaps on every judged day/i.test(await page.locator('[data-agreement-gaps]').innerText()))
+  check('13. …and nothing is ever asked with an agreement filter the door does not have', !calls.some((c) => /agreement=/i.test(c)) && calls.filter((c) => c === allGaps).length >= allBefore)
+  check('no page errors (agreement, read only)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 14: Recheck (ticket 459) ──────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, calls, agreement } = await open({ canOperate: true })
+  await page.goto(`${BASE}/admin/sync/store/P006?tab=agreement`)
+  await page.locator('[data-agreement-days]').waitFor({ timeout: 20000 })
+  check('14. with canOperate every listed day offers Recheck, and no other day does', JSON.stringify(await page.locator('[data-agreement-recheck]').evaluateAll((els) => els.map((e) => e.getAttribute('data-agreement-recheck')))) === JSON.stringify(await dayOrder(page)))
+  await page.locator('[data-agreement-pick="2026-10-06"]').click()
+  await page.locator('.ag-row[row-id="2026-10-06-0042-0006-117001-missingAtMirror"]').first().waitFor({ timeout: 5000 })
+
+  // A refusal: its code with its words, and the dialog stays open.
+  await page.locator('[data-agreement-recheck="2026-10-06"]').click()
+  await page.locator('[data-reason-dialog]').waitFor({ timeout: 5000 })
+  check('14. the reason dialog names the day and the store', strip(await page.locator('dialog #modal-title').innerText()) === 'Recheck rail agreement for 2026-10-06 of store P006')
+  check('14. Confirm waits for a reason', await page.locator('[data-reason-confirm]').isDisabled())
+  await page.locator('[data-reason-input]').fill('refuse me')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('[data-reason-error="BAD_DATE"]').waitFor({ timeout: 5000 })
+  check('14. a refusal shows its code with its words, and the dialog stays open', /outside the last seven finished business days/.test(await page.locator('[data-reason-error-label]').innerText()) && (await page.locator('dialog[open]').count()) === 1)
+
+  // A recheck that clears the gap.
+  const headerReads = calls.filter((c) => c.startsWith('ActionSync/Store?')).length
+  await page.locator('[data-reason-input]').fill('  Late receipt arrived after the repair  ')
+  await page.locator('[data-reason-confirm]').click()
+  await page.locator('dialog[open]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  const sent = agreement.rechecks[agreement.rechecks.length - 1]
+  check('14. the POST carries the code, the day and the trimmed reason', JSON.stringify(sent) === JSON.stringify({ code: 'P006', day: '2026-10-06', reason: 'Late receipt arrived after the repair' }), JSON.stringify(sent))
+  check('14. one toast: the rails agree', /Rechecked 2026-10-06: the rails agree\./.test(await toastText(page, /the rails agree/)))
+  await page.locator('[data-agreement-day="2026-10-06"][data-agrees="true"]').waitFor({ timeout: 5000 })
+  const healed = strip(await page.locator('[data-agreement-day="2026-10-06"]').innerText())
+  check("14. the day's row is replaced by the door's answer, in place", JSON.stringify(await dayOrder(page)) === '["2026-10-08","2026-10-07","2026-10-06","2026-10-04"]' && /Rails agree 402 402 46012.345 46012.345 0 0 0 2026-10-09 12:04/.test(healed), healed)
+  check('14. the gaps are read again', await waitForCall(page, calls, 'ActionSync/Store/Agreement?code=P006&day=2026-10-06&page=1&pageSize=50') && calls.filter((c) => c === 'ActionSync/Store/Agreement?code=P006&day=2026-10-06&page=1&pageSize=50').length >= 2)
+  await page.locator('[data-tab-empty="agreement-gaps"]').waitFor({ timeout: 5000 })
+  check("14. …and the day's gap has cleared", /No gap/.test(await page.locator('[data-tab-empty="agreement-gaps"]').innerText()))
+  let headerAgain = false
+  for (let i = 0; i < 30 && !headerAgain; i++) {
+    headerAgain = calls.filter((c) => c.startsWith('ActionSync/Store?')).length > headerReads
+    if (!headerAgain) await page.waitForTimeout(100)
+  }
+  check('14. the store header is read again', headerAgain)
+  await page.screenshot({ path: `${SHOTS}/agreement-recheck.png`, fullPage: true })
+
+  // A recheck that removes the day (no NewPos receipt that day).
+  await page.locator('[data-agreement-pick="2026-10-04"]').click()
+  await page.locator('[data-agreement-gaps="2026-10-04"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-agreement-recheck="2026-10-04"]').click()
+  await page.locator('[data-reason-input]').fill('Store reported no NewPos sale that day')
+  await page.locator('[data-reason-confirm]').click()
+  check('14. a null answer: one toast, the verdict removed', /no NewPos receipt that day, so its verdict was removed/.test(await toastText(page, /verdict was removed/)))
+  await page.locator('[data-agreement-day="2026-10-04"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check('14. …and the day is removed from the list', JSON.stringify(await dayOrder(page)) === '["2026-10-08","2026-10-07","2026-10-06"]', JSON.stringify(await dayOrder(page)))
+  check('14. …and the gaps go back to every day', (await page.locator('[data-agreement-gaps=""]').count()) === 1 && (await page.locator('[data-agreement-all-days]').count()) === 0)
+  check('14. three rechecks sent: the refused one, then one per day', agreement.rechecks.length === 3, String(agreement.rechecks.length))
+  check('no page errors (recheck)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 15: on mirror, no judged day ──────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P004?tab=agreement`)
+  await page.locator('[data-agreement-no-days]').waitFor({ timeout: 20000 })
+  check('15. a store on mirror with no NewPos receipt in the window says so', /No NewPos receipt in the last seven finished business days/.test(await page.locator('[data-agreement-no-days]').innerText()))
+  check('15. …and draws no day table and no gap list', (await page.locator('[data-agreement-days]').count()) === 0 && (await page.locator('[data-agreement-gaps]').count()) === 0)
+  check('15. …after one read', calls.filter((c) => c.startsWith('ActionSync/Store/Agreement')).length === 1)
+  check("15. …and its agreement reads not judged", /Not judged/.test(await page.locator('[data-agreement-overall]').innerText()))
+  check('no page errors (no judged day)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

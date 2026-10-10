@@ -9,6 +9,9 @@
 import type { Severity } from '@/core/ui/severity'
 import {
   HOUR_CELLS,
+  type Agreement,
+  type AgreementDay,
+  type AgreementGapKind,
   type DeadLetterReason,
   type DeadLetterStage,
   type HourCell,
@@ -18,6 +21,7 @@ import {
   type StoreScript,
 } from '@/core/models/sync-console'
 import { fromIsoDate, toIsoDate } from '@/core/util/date-format'
+import { failureLabelKey } from './control-helpers'
 import { codeBadge, type CodeBadge } from './helpers'
 
 // ── The 24 h strip's legend ─────────────────────────────────────────────────────
@@ -104,20 +108,20 @@ export function clampPassesFrom(value: string, today: Date): string {
 
 // ── The tabs ────────────────────────────────────────────────────────────────────
 
-export type StoreTab = 'counters' | 'passes' | 'commands' | 'scripts' | 'audit' | 'location' | 'mirror'
+export type StoreTab = 'counters' | 'passes' | 'commands' | 'scripts' | 'audit' | 'location' | 'mirror' | 'agreement'
 
 /**
- * Every tab, in the prototype's order. The mirror rail's tab (spec 2563, ticket 457) is
- * appended at the end, as ruled for the wave.
+ * Every tab, in the prototype's order. The mirror rail's tab (spec 2563, ticket 457), then
+ * rail agreement's (459), are appended at the end, as ruled for the wave.
  */
-export const STORE_TABS: readonly StoreTab[] = ['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror']
+export const STORE_TABS: readonly StoreTab[] = ['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror', 'agreement']
 
 /**
  * The tabs a WPF store keeps: WPF writes counters and passes, and nothing else of the
  * master and counter rails the console reads. Its mirror lane is its own, though: the
- * rails are independent (ADR 0073), so Mirror is appended here too.
+ * rails are independent (ADR 0073), so Mirror and Agreement are appended here too.
  */
-const WPF_TABS: readonly StoreTab[] = ['counters', 'passes', 'mirror']
+const WPF_TABS: readonly StoreTab[] = ['counters', 'passes', 'mirror', 'agreement']
 
 const HOST_SEVERITY: Record<StoreRow['host'], Severity> = { Worker: 'go', Wpf: 'mute' }
 
@@ -129,16 +133,16 @@ export function hostBadge(host: string): CodeBadge {
 /** A store still synced by WPF — the door's `host`, never a guess from blank health fields. */
 export const isWpfStore = (row: Pick<StoreRow, 'host'>): boolean => row.host === 'Wpf'
 
-/** The tabs a store's page offers: all seven, or Counters, Passes and Mirror on a WPF store. */
+/** The tabs a store's page offers: all eight, or Counters, Passes, Mirror and Agreement on a WPF store. */
 export function storeTabs(row: Pick<StoreRow, 'host'>): readonly StoreTab[] {
   return isWpfStore(row) ? WPF_TABS : STORE_TABS
 }
 
 /**
  * A store the mirror rail sweeps — the lane's `onMirror`, `=== true` and nothing looser,
- * as on the fleet's lane chip. The mirror block, the strip's Mirror line and the Mirror
- * tab all read it: the tab is offered to every store, but reads `Store/Mirror` only
- * for one on mirror.
+ * as on the fleet's lane chip. The mirror block, the strip's Mirror line, the Mirror tab
+ * and the Agreement tab (459) all read it: the tabs are offered to every store, but read
+ * `Store/Mirror` and `Store/Agreement` only for one on mirror.
  */
 export const isOnMirror = (row: Pick<StoreRow, 'mirror'>): boolean => row.mirror?.onMirror === true
 
@@ -235,4 +239,67 @@ export function mirrorQuery(code: string, filter: MirrorFilter, page: number): R
     page: Math.max(1, Math.floor(page)),
     pageSize: MIRROR_PAGE_SIZE,
   }
+}
+
+// ── The Agreement tab (spec 2563, ticket 459) ───────────────────────────────────
+
+/**
+ * Each gap kind's word and token. A missing receipt is a whole sale absent from one
+ * copy of HQ (from `RetailTrx`, and so from SAP, when it is missing at the counter);
+ * a total mismatch is a sale both rails carried with different money — still a gap,
+ * but the receipt is there.
+ */
+const GAP_KIND_SEVERITY: Record<AgreementGapKind, Severity> = {
+  missingAtCounter: 'bad',
+  missingAtMirror: 'bad',
+  totalMismatch: 'warn',
+}
+
+/** A gap kind's label; an unknown kind has no key, so its raw code shows. */
+export function gapKindLabel(kind: string): CodeBadge {
+  return codeBadge(GAP_KIND_SEVERITY, 'agreementTab.gapKinds', kind)
+}
+
+/**
+ * The recheck door's own refusals (2572) — each a whole-request refusal shown in the
+ * reason dialog beside its code. `BAD_DATE` cannot be reached from the tab (only listed
+ * days offer a recheck) but is still worded. `REASON_REQUIRED` and `NO_STORE` are the
+ * console's shared failures, worded once (`failureLabelKey`); any other code shows raw.
+ */
+const RECHECK_REFUSALS = new Set(['BAD_DATE', 'BAD_REQUEST'])
+
+/** A recheck refusal's `sync-console` label key, or `null` — the caller then shows the raw code. */
+export function recheckRefusalLabel(code: string): string | null {
+  return RECHECK_REFUSALS.has(code) ? `agreementTab.recheck.refusals.${code}` : failureLabelKey(code)
+}
+
+/** A judged day's verdict, as an `Agreement` value for `agreementBadge`: a judged day is never `notJudged`. */
+export const dayVerdict = (day: Pick<AgreementDay, 'agrees'>): Agreement => (day.agrees === true ? 'agree' : 'disagree')
+
+/** The gap list pages at 50, as every console table does. */
+export const AGREEMENT_PAGE_SIZE = 50
+
+/**
+ * The `GET ActionSync/Store/Agreement` parameters. `day` (`yyyy-MM-dd`) narrows the gaps
+ * to one judged day; `null` is every gap, and is dropped by `@/core/api`'s query builder.
+ * The page never goes below 1.
+ */
+export function agreementQuery(code: string, day: string | null, page: number): Record<string, unknown> {
+  return { code, day, page: Math.max(1, Math.floor(page)), pageSize: AGREEMENT_PAGE_SIZE }
+}
+
+/**
+ * The judged days after a recheck of `day`: the row of the day the door answered for is
+ * replaced by its answer, in place, or `day` is removed when the answer is `null` (no
+ * NewPos receipt that day, so the door removed its verdict). Every other day keeps the
+ * door's order — newest first — and is never re-sorted. A recheck only ever names a
+ * listed day; should its answer come back for a day the list did not hold, it is placed
+ * by date among the others, and no listed day is dropped for it.
+ */
+export function applyRecheck(days: readonly AgreementDay[], day: string, result: AgreementDay | null): AgreementDay[] {
+  if (result === null) return days.filter((d) => d.businessDay !== day)
+  const at = days.findIndex((d) => d.businessDay === result.businessDay)
+  if (at >= 0) return days.map((d, i) => (i === at ? result : d))
+  const before = days.findIndex((d) => d.businessDay < result.businessDay)
+  return before < 0 ? [...days, result] : [...days.slice(0, before), result, ...days.slice(before)]
 }

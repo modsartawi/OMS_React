@@ -9,6 +9,7 @@
 import type { Severity } from '@/core/ui/severity'
 import {
   MIRROR_STATES,
+  type Agreement,
   STORE_STATES,
   type FleetSort,
   type MirrorState,
@@ -107,10 +108,11 @@ export const DEFAULT_FLEET_FILTER: FleetFilter = {
 export type FleetTile = 'all' | StoreState
 
 /**
- * `all` and a tile per state, in the contract's order. 🚩 `railsDisagree` is held out of
- * the row: its tile belongs to rail agreement (ticket 459), not to the mirror lane.
+ * `all` and a tile per state, in the contract's order: the mirror lane's four (456), then
+ * rail agreement's `railsDisagree` (459), last. That tile is also how the fleet filters on
+ * agreement — the door has no `agreement` parameter, only the `railsDisagree` state.
  */
-export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES.filter((s) => s !== 'railsDisagree')]
+export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES]
 
 /**
  * What clicking a tile does to the filter. `all` clears every state; a state tile
@@ -275,4 +277,22 @@ export function workerCardItems(items: readonly WorkerItem[]): WorkerCardItems {
       .map((worker) => ({ worker, outcome: tickOutcomeBadge(worker.lastTickOutcome), stale: worker.isStale === true })),
   )
   return { store, mirror }
+}
+
+// ── Rail agreement (spec 2563, ticket 459) ──────────────────────────────────────
+
+const AGREEMENT_SEVERITY: Record<Agreement, Severity> = {
+  agree: 'ok',
+  // Severity as ruled for the wave: the rails disagreeing is `railsDisagree`'s `bad`.
+  disagree: 'bad',
+  notJudged: 'mute',
+}
+
+/**
+ * A store's (or a judged day's) rail agreement as a badge — the fleet's Agreement column,
+ * the Agreement tab's verdicts. The value is the door's; a value this bundle does not
+ * know is neutral and shows its raw code.
+ */
+export function agreementBadge(agreement: string): CodeBadge {
+  return codeBadge(AGREEMENT_SEVERITY, 'agreement.values', agreement)
 }

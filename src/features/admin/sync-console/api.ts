@@ -16,6 +16,8 @@
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {
+  AgreementRecheckRequest,
+  AgreementRecheckResponse,
   AuditedWriteResponse,
   CancelCommandsRequest,
   CancelCommandsResponse,
@@ -35,6 +37,7 @@ import type {
   PassDetail,
   RePushRequest,
   RePushResponse,
+  StoreAgreement,
   StoreCounters,
   StoreDetail,
   StoreHours,
@@ -55,7 +58,7 @@ import type {
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
-import { PASSES_PAGE_SIZE, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
+import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
 import {
   normaliseFleet,
   normaliseLastHour,
@@ -191,6 +194,24 @@ export const syncConsoleApi = {
    */
   deadLetters(action: 'Retry' | 'Acknowledge', body: DeadLetterActionRequest): Promise<DeadLetterActionResponse> {
     return api.post<DeadLetterActionResponse>(`ActionSync/Mirror/DeadLetters/${action}`, body)
+  },
+
+  /**
+   * `GET ActionSync/Store/Agreement?code=&day=&page=&pageSize=` (spec 2563, ticket 459) →
+   * the judged days (D-1..D-7, newest first; a day with no NewPos receipt is absent) and
+   * one page of gaps, narrowed to `day` when one is picked.
+   */
+  storeAgreement(code: string, day: string | null, page: number): Promise<StoreAgreement> {
+    return api.get<StoreAgreement>('ActionSync/Store/Agreement', agreementQuery(code, day, page))
+  },
+
+  /**
+   * `POST ActionSync/Agreement/Recheck` (ticket 459) — one store, one listed day, one
+   * audit row. `day: null` in the answer = no NewPos receipt that day, its verdict removed.
+   * A refusal (`BAD_REQUEST`, `REASON_REQUIRED`, `BAD_DATE`, `NO_STORE`) throws.
+   */
+  recheckAgreement(body: AgreementRecheckRequest): Promise<AgreementRecheckResponse> {
+    return api.post<AgreementRecheckResponse>('ActionSync/Agreement/Recheck', body)
   },
 
   // ── Controls and the audit feed (ticket 447) ──
@@ -392,6 +413,15 @@ export const storeLocationQuery = (code: string) => ({
 export const storeMirrorQuery = (code: string, filter: MirrorFilter, page: number) => ({
   queryKey: [...storeKey(code), 'mirror', mirrorQuery(code, filter, page)] as const,
   queryFn: () => syncConsoleApi.storeMirror(code, filter, page),
+})
+
+/**
+ * The Agreement tab's read (ticket 459), under the tab's own prefix (`storeTabKey`), so
+ * the tab's Refresh and a store-wide invalidation both re-read it. Read when opened.
+ */
+export const storeAgreementQuery = (code: string, day: string | null, page: number) => ({
+  queryKey: [...storeKey(code), 'agreement', agreementQuery(code, day, page)] as const,
+  queryFn: () => syncConsoleApi.storeAgreement(code, day, page),
 })
 
 // ── The audit feed (ticket 447) ──

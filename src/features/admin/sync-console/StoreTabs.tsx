@@ -6,6 +6,7 @@ import type { StoreDetail } from '@/core/models/sync-console'
 import { resolveStoreTab, storeTabs, type StoreTab } from './store-helpers'
 import { storeTabKey } from './api'
 import CountersTab from './CountersTab'
+import AgreementTab from './AgreementTab'
 import AuditTab from './AuditTab'
 import CommandsTab from './CommandsTab'
 import LocationTab from './LocationTab'
@@ -15,8 +16,8 @@ import ScriptsTab from './ScriptsTab'
 
 /**
  * The store page's tabs (ticket 446): Counters, Passes, Commands, Scripts, Audit and
- * Location, then Mirror (spec 2563, ticket 457) — or Counters, Passes and Mirror on a
- * WPF store (`storeTabs`).
+ * Location, then Mirror (spec 2563, ticket 457) and Agreement (459) — or Counters,
+ * Passes, Mirror and Agreement on a WPF store (`storeTabs`).
  *
  * The Loy member's tab shell is the precedent: `?tab=` is the open tab (an unknown or
  * withheld one falls back to the first), switching REPLACES the history entry, and
@@ -91,6 +92,8 @@ export default function StoreTabs({ row }: { row: StoreDetail }) {
           <AuditTab code={row.code} />
         ) : open === 'mirror' ? (
           <MirrorTab row={row} />
+        ) : open === 'agreement' ? (
+          <AgreementTab row={row} />
         ) : (
           <CommandsTab code={row.code} />
         )}

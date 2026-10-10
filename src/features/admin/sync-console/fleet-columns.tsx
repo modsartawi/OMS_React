@@ -6,7 +6,8 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { StoreRow } from '@/core/models/sync-console'
 import { formatDateTime } from '@/core/util/date-format'
-import { figure, lastLoopError, stateBadge } from './helpers'
+import { agreementBadge, figure, lastLoopError, stateBadge } from './helpers'
+import CodeBadgeView from './CodeBadgeView'
 import StateBadges from './StateBadges'
 import MirrorLaneChipView from './MirrorLaneChipView'
 import TillClockTime from './TillClockTime'
@@ -94,6 +95,20 @@ export function buildFleetColumns(t: TFunction): ColDef<StoreRow>[] {
         p.data ? <TillClockTime value={p.data.mirror.tillBacklogOldestAt} /> : null,
     },
     { headerName: t('table.columns.mirrorLastPull'), field: 'mirror.lastPullAt', width: 150, valueFormatter: formatTime },
+    {
+      // Rail agreement over the judged window (2571), as the door sent it. The fleet filters
+      // on it through the "Rails disagree" tile (the `railsDisagree` state): the door has no
+      // agreement parameter, and a server-paged table is never filtered on the client.
+      headerName: t('table.columns.agreement'),
+      field: 'agreement',
+      width: 140,
+      cellRenderer: (p: ICellRendererParams<StoreRow>) =>
+        p.data ? (
+          <span data-agreement={p.data.agreement}>
+            <CodeBadgeView badge={agreementBadge(p.data.agreement)} code={p.data.agreement} />
+          </span>
+        ) : null,
+    },
     {
       // The newer of the two loops' errors. The message is the server's free text,
       // so it is isolated on its own (`<bdi>`, dir auto) and its time as a machine value.

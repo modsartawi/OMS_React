@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   MIRROR_STATES,
   STORE_STATES,
+  type Agreement,
   type LoopHealth,
   type MirrorLane,
   type MirrorWorker,
@@ -15,6 +16,7 @@ import {
   DEFAULT_FLEET_FILTER,
   FLEET_SORTS,
   FLEET_TILES,
+  agreementBadge,
   fleetQuery,
   lastLoopError,
   mirrorLaneChip,
@@ -114,12 +116,19 @@ describe('fleetQuery', () => {
 })
 
 describe('the tiles', () => {
-  // Changed deliberately by 456: the mirror states joined STORE_STATES, and the
-  // railsDisagree tile is rail agreement's (459), so it is held out of the row.
-  it('offer All and every state but railsDisagree, the four mirror tiles last', () => {
-    expect(FLEET_TILES).toEqual(['all', ...STORE_STATES.filter((s) => s !== 'railsDisagree')])
-    expect(FLEET_TILES.slice(-4)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong'])
-    expect(FLEET_TILES).not.toContain('railsDisagree')
+  // Changed deliberately by 456 (the four mirror tiles joined) and again by 459: the
+  // railsDisagree tile, held out of the row until rail agreement, now closes it.
+  it('offer All and every state, the four mirror tiles then rails disagree last', () => {
+    expect(FLEET_TILES).toEqual(['all', ...STORE_STATES])
+    expect(FLEET_TILES.slice(-5)).toEqual(['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree'])
+  })
+
+  it('filter on agreement through the railsDisagree state — the door has no agreement parameter', () => {
+    const f = toggleTile(DEFAULT_FLEET_FILTER, 'railsDisagree')
+    expect(f.states).toEqual(['railsDisagree'])
+    const q = fleetQuery(f)
+    expect(q.state).toEqual(['railsDisagree'])
+    expect(q).not.toHaveProperty('agreement')
   })
 
   it('toggle a state in and out, kept in the contract order, back to page 1', () => {
@@ -378,5 +387,26 @@ describe('workerCardItems', () => {
     const items = workerCardItems([odd, store('SYNC-01')])
     expect(items.mirror).toEqual([])
     expect(items.store).toHaveLength(1)
+  })
+})
+
+// ── Spec 2563, ticket 459: rail agreement ───────────────────────────────────────
+
+describe('agreementBadge', () => {
+  it('labels every Agreement value, with its token: agree ok, disagree bad, not judged muted', () => {
+    const values: Agreement[] = ['agree', 'disagree', 'notJudged']
+    for (const v of values) expect((en.agreement.values as Record<string, string>)[v]).toBeTruthy()
+    expect(agreementBadge('agree')).toEqual({ labelKey: 'agreement.values.agree', sev: 'ok' })
+    expect(agreementBadge('disagree')).toEqual({ labelKey: 'agreement.values.disagree', sev: 'bad' })
+    expect(agreementBadge('notJudged')).toEqual({ labelKey: 'agreement.values.notJudged', sev: 'mute' })
+  })
+
+  it('disagree reads as the railsDisagree state does', () => {
+    expect(agreementBadge('disagree').sev).toBe(stateBadge('railsDisagree').sev)
+  })
+
+  it('leaves a value this bundle does not know neutral and unlabelled', () => {
+    expect(agreementBadge('halfAgree')).toEqual({ labelKey: null, sev: 'mute' })
+    expect(agreementBadge('toString')).toEqual({ labelKey: null, sev: 'mute' })
   })
 })

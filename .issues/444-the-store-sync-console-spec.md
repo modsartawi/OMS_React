@@ -132,3 +132,19 @@ from `GET ActionSync/Access`, and the server re-checks every door.
 - **The SAP twin location** (`<code>_SAP`), which stays in WPF.
 - **Showing or editing location credentials.**
 - **Fleet-wide re-push of more than 50 stores in one request** (page through deliberately).
+
+## Comments
+
+- 2026-10-10: **Amended by BackOffice spec 2563**
+  (`C:\Work\DMSCO\BackOffice\.issues\2563-mirror-rail-lane-and-rail-agreement-on-the-sync-console-spec.md`,
+  ADR 0073). The console gains a third lane per store, the **mirror rail**, which carries a NewPos
+  store's transactions, shifts and collections into HQ's `Pos*` copy:
+  - the till backlog, inbox pending and mirror dead letters;
+  - Mirror pull and Mirror apply on the worker card;
+  - a Mirror line on the 24 h strip;
+  - a Mirror tab with retry and acknowledge (reason required, payload never shown);
+  - **rail agreement**: a nightly check that the counter and mirror rails carried the same NewPos
+    sales, shown as a fleet tile, an Agreement tab and a Recheck.
+
+  The doors are in the shared contract's new section "Mirror lane and rail agreement". Tickets
+  456–460 here; BackOffice 2564–2572.

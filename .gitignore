@@ -95,3 +95,9 @@ tools/.document-source-users-shots/
 
 # Coupon import delete/result drive screenshots (tools/coupon-import-delete-drive.mjs, tickets 439/440)
 tools/.coupon-import-delete-shots/
+# Sync console drive screenshots (tools/sync-console-*-drive.mjs, tickets 445-449)
+tools/.sync-console-fleet-shots/
+tools/.sync-console-store-shots/
+tools/.sync-console-controls-shots/
+tools/.sync-console-commands-shots/
+tools/.sync-console-onboard-shots/

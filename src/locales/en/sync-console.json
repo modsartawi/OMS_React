@@ -20,7 +20,12 @@
     "offline": "Offline",
     "behind": "Behind",
     "erroring": "Erroring",
-    "controlPending": "Control pending"
+    "controlPending": "Control pending",
+    "mirrorOffline": "Mirror offline",
+    "mirrorBehind": "Mirror behind",
+    "deadLetters": "Dead letters",
+    "deferredTooLong": "Deferred too long",
+    "railsDisagree": "Rails disagree"
   },
   "hosts": {
     "Worker": "Worker",
@@ -42,13 +47,19 @@
     "lastFlush": "Last heartbeat",
     "never": "Never",
     "settings": "Settings",
-    "failed": "The worker could not be read."
+    "failed": "The worker could not be read.",
+    "lastTick": "Last tick",
+    "outcome": "Last outcome",
+    "inboxPending": "Inbox pending / backpressure threshold",
+    "startedAt": "Started"
   },
   "banner": {
     "staleTitle": "The worker's heartbeat is stale",
     "staleDetail": "No health flush has arrived in over two intervals. The numbers below may be old, and the stores may not be syncing.",
     "noneTitle": "No worker has reported",
-    "noneDetail": "No sync worker has sent a heartbeat. The numbers below cannot show whether any store is syncing."
+    "noneDetail": "No sync worker has sent a heartbeat. The numbers below cannot show whether any store is syncing.",
+    "mirrorStaleTitle": "{{role}}: the heartbeat is stale",
+    "mirrorStaleDetail": "This mirror role has not ticked within its stale limit. Its numbers may be old, and the mirror rail may have stopped."
   },
   "lastHour": {
     "title": "Last hour, whole fleet",
@@ -63,8 +74,38 @@
       "pullPasses": "Pull passes",
       "trxPulled": "Transactions pulled",
       "connectFailures": "Connect failures",
-      "errors": "Pass errors"
+      "errors": "Pass errors",
+      "mirrorSweeps": "Mirror sweeps",
+      "mirrorPulled": "Events pulled",
+      "mirrorApplied": "Events applied",
+      "mirrorDeferred": "Events deferred",
+      "mirrorConnectFailures": "Mirror connect failures",
+      "mirrorDeadLettered": "Events dead-lettered"
+    },
+    "mirror": "Mirror rail"
+  },
+  "mirror": {
+    "notOnMirror": "Not on mirror",
+    "healthy": "On mirror, no mirror state",
+    "tillClock": "till clock",
+    "chip": {
+      "tillBacklog": "Till backlog",
+      "inboxPending": "Inbox pending",
+      "deadLetters": "Dead letters",
+      "notMeasured": "not measured"
     }
+  },
+  "rails": {
+    "mirrorPull": "Mirror pull",
+    "mirrorApply": "Mirror apply"
+  },
+  "tickOutcomes": {
+    "Swept": "Swept",
+    "Applied": "Applied",
+    "SkippedLockHeld": "Skipped: another instance holds the lock",
+    "SkippedBackpressure": "Skipped: inbox backpressure",
+    "Faulted": "Faulted",
+    "None": "Never ticked"
   },
   "table": {
     "search": "Search by store code or name",
@@ -75,7 +116,9 @@
       "mostBehind": "Most behind",
       "longestOffline": "Longest offline",
       "newestError": "Newest error",
-      "code": "Code"
+      "code": "Code",
+      "largestBacklog": "Largest till backlog",
+      "mostDeadLetters": "Most dead letters"
     },
     "columns": {
       "code": "Code",
@@ -87,6 +130,9 @@
       "pendingActions": "Push lag",
       "oldestPending": "Oldest pending",
       "lastTrxPulled": "Last pull",
+      "mirror": "Mirror lane",
+      "tillBacklogOldest": "Oldest on the till",
+      "mirrorLastPull": "Last mirror pull",
       "lastError": "Last error",
       "control": "Control"
     },

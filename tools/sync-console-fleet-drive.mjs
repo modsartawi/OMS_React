@@ -16,7 +16,17 @@
 //   6. a stale worker shows the red banner, and no worker at all shows one too;
 //   7. the page refetches every 30 s;
 //   8. with `screenAllowed: false` the leaf is hidden and the page guards itself;
-//   9. a failed read under a new tile draws no rows from the previous filter.
+//   9. a failed read under a new tile draws no rows from the previous filter;
+//  10. (ticket 456, spec 2563) the mirror lane: a chip per row coloured by the worst mirror state,
+//      "not on mirror" for a store off the rail AND for an old door's row with no lane, a WPF store
+//      keeping its lane, a never-measured till backlog, the till-clock hint; the four mirror tiles
+//      driving `state`, the two mirror sorts; the worker card narrowed on `rail` with a stale Mirror
+//      apply carrying its own banner and backpressure as a warning; the last-hour mirror totals.
+//
+//  🚩 Two assertions above were changed on purpose by 456, because the ticket grows them: "eight
+//  tiles" is now twelve (the four mirror tiles; railsDisagree is 459's) and "the four sorts" six.
+//  Every other assertion is as 445 left it, and the default stubs stay in the PRE-2563 shape (no
+//  `mirror`, `agreement`, `rail` or mirror totals), so the boundary fill is driven too.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-fleet-drive.mjs
@@ -89,7 +99,27 @@ const wpfStore = (code) => ({
   healthUpdatedAt: null,
 })
 
-// 120 stores: three pages at 50. P001 is offline + pending, P002 is on WPF.
+// The mirror lane (spec 2563), in the contract's shape.
+const lane = (over = {}) => ({
+  onMirror: true,
+  lastPullAt: '2026-10-09T12:03:40',
+  lastPullOkAt: '2026-10-09T12:03:40',
+  lastConnectOkAt: '2026-10-09T12:03:40',
+  lastConnectFailAt: null,
+  lastConnectError: null,
+  tillBacklogCount: 0,
+  tillBacklogOldestAt: null,
+  inboxPending: 0,
+  inboxDeferred: 0,
+  oldestDeferredAt: null,
+  openDeadLetters: 0,
+  ...over,
+})
+const offMirror = () => lane({ onMirror: false, lastPullAt: null, lastPullOkAt: null, lastConnectOkAt: null, tillBacklogCount: null })
+
+// 120 stores: three pages at 50. P001 is offline + pending, P002 is on WPF. P003–P007 carry 2563's lane
+// (P003 bad, P005 healthy but never measured, P006 a WPF store on the mirror, P007 off the rail); P004 and
+// every other row come from an old door, with no lane at all.
 const STORES = Array.from({ length: 120 }, (_, i) => {
   const code = `P${String(i + 1).padStart(3, '0')}`
   if (i === 0)
@@ -101,6 +131,21 @@ const STORES = Array.from({ length: 120 }, (_, i) => {
       pull: loop({ lastErrorAt: '2026-10-09T12:01:00', lastError: 'A network-related error occurred' }),
     })
   if (i === 1) return wpfStore(code)
+  if (i === 2)
+    return workerStore(code, {
+      states: ['onWorker', 'mirrorBehind', 'mirrorOffline', 'deadLetters'],
+      mirror: lane({ lastConnectFailAt: '2026-10-09T12:03:00', tillBacklogCount: 1234, tillBacklogOldestAt: '2026-10-09T11:20:00', inboxPending: 56, openDeadLetters: 7 }),
+      agreement: 'notJudged',
+    })
+  if (i === 4) return workerStore(code, { mirror: lane({ tillBacklogCount: null, inboxPending: 3 }), agreement: 'agree' })
+  if (i === 5)
+    return {
+      ...wpfStore(code),
+      states: ['onWpf', 'mirrorBehind'],
+      mirror: lane({ tillBacklogCount: 80, tillBacklogOldestAt: '2026-10-09T11:40:00', inboxPending: 2 }),
+      agreement: 'agree',
+    }
+  if (i === 6) return workerStore(code, { mirror: offMirror(), agreement: 'notJudged' })
   return workerStore(code)
 })
 
@@ -109,8 +154,15 @@ const SUMMARY = {
   total: 120,
   counts: { all: 120, onWorker: 119, onWpf: 1, paused: 0, offline: 1, behind: 7, erroring: 2, controlPending: 1 },
 }
+// The same summary from a 2563 door: the mirror tile counts, and railsDisagree, which has no tile until 459.
+const SUMMARY_2563 = {
+  ...SUMMARY,
+  counts: { ...SUMMARY.counts, mirrorOffline: 1, mirrorBehind: 2, deadLetters: 1, deferredTooLong: 0, railsDisagree: 4 },
+}
 const HOUR = (hour, n) => ({ hour, pushPasses: 11820 * n, pullPasses: 23400 * n, connectFailures: 312 * n, chunksPushed: 40 * n, actionsPushed: 4912 * n, trxPulled: 18230 * n, errors: 9 * n })
 const LAST_HOUR = { current: HOUR('2026-10-09T12:00:00', 1), previous: HOUR('2026-10-09T11:00:00', 2) }
+const MIRROR_HOUR = (n) => ({ mirrorSweeps: 120 * n, mirrorConnectFailures: 3 * n, mirrorPulled: 800 * n, mirrorApplied: 790 * n, mirrorDeferred: 4 * n, mirrorDeadLettered: 2 * n })
+const LAST_HOUR_2563 = { current: { ...LAST_HOUR.current, ...MIRROR_HOUR(1) }, previous: { ...LAST_HOUR.previous, ...MIRROR_HOUR(2) } }
 const worker = (instance, isStale) => ({
   instance,
   version: '1.4.2',
@@ -124,9 +176,25 @@ const worker = (instance, isStale) => ({
   settings: { ChunkSize: '500', BudgetSeconds: '60' },
 })
 
+// A mirror role's heartbeat (2566).
+const mirrorWorker = (rail, over = {}) => ({
+  rail,
+  instance: 'SISAPI-POS-01',
+  version: '3.1.0',
+  startedAt: '2026-10-09T06:00:00',
+  lastTickAt: '2026-10-09T12:04:10',
+  lastTickOutcome: rail === 'mirrorPull' ? 'Swept' : 'Applied',
+  lastTickMessage: null,
+  inboxPending: rail === 'mirrorPull' ? 1200 : null,
+  backpressureThreshold: rail === 'mirrorPull' ? 50000 : null,
+  isStale: false,
+  settings: { TickSeconds: rail === 'mirrorPull' ? '30' : '15' },
+  ...over,
+})
+
 const browser = await chromium.launch()
 
-async function open({ access = { screenAllowed: true, canOperate: false, canOnboard: false }, workers = [worker('SISAPI-SYNC-01', false)], clock = false, othersOpen = false, failState = null } = {}) {
+async function open({ access = { screenAllowed: true, canOperate: false, canOnboard: false }, workers = [worker('SISAPI-SYNC-01', false)], clock = false, othersOpen = false, failState = null, summary = SUMMARY, lastHour = LAST_HOUR } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } })
   const page = await context.newPage()
   if (clock) await page.clock.install({ time: new Date('2026-10-09T12:04:00') })
@@ -147,9 +215,9 @@ async function open({ access = { screenAllowed: true, canOperate: false, canOnbo
     if (p === 'ActionSync/Workers') return route.fulfill(envelope({ items: workers }))
     if (p === 'ActionSync/Fleet/Summary') {
       counts.summary++
-      return route.fulfill(envelope(SUMMARY))
+      return route.fulfill(envelope(summary))
     }
-    if (p === 'ActionSync/Fleet/LastHour') return route.fulfill(envelope(LAST_HOUR))
+    if (p === 'ActionSync/Fleet/LastHour') return route.fulfill(envelope(lastHour))
     if (p === 'ActionSync/Fleet') {
       fleetCalls.push(url.search)
       if (failState && url.searchParams.getAll('state').includes(failState))
@@ -194,9 +262,12 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   const card = strip(await page.locator('[data-worker-card]').innerText())
   check('1. the worker card shows instance, version, in-flight and settings', /SISAPI-SYNC-01/.test(card) && /1\.4\.2/.test(card) && /41 \/ 64/.test(card) && /17 \/ 64/.test(card) && /ChunkSize 500/.test(card), card)
   const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ')))
-  check('1. eight tiles, each with its count', tiles.length === 8 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
+  // 456: twelve, not eight — the four mirror tiles join (an old summary has no count for them yet).
+  check('1. twelve tiles, each with its count', tiles.length === 12 && tiles[0] === 'all:120 All stores' && tiles.includes('offline:1 Offline') && tiles.includes('behind:7 Behind'), JSON.stringify(tiles))
   const hour = strip(await page.locator('[data-last-hour]').innerText())
   check('1. the last-hour totals show this hour and the previous one', /Push passes 11,820 23,640/.test(hour) && /Connect failures 312 624/.test(hour), hour)
+  check("1. an old door's last hour reads its mirror totals as zeros", /Mirror rail Mirror sweeps 0 0/.test(hour), hour)
+  check("1. an old door's worker (no rail) is the store worker, and no mirror role is drawn", (await page.locator('[data-worker="SISAPI-SYNC-01"]').count()) === 1 && (await page.locator('[data-mirror-worker]').count()) === 0)
   const asOf = strip(await page.locator('[data-as-of]').innerText())
   check('1. the "as of" stamp is Fleet/Summary.asOf, unshifted', /As of 2026-10-09 12:04/.test(asOf), asOf)
   check('1. the table counts the stores', strip(await page.locator('[data-fleet-count]').innerText()) === '120 stores')
@@ -234,7 +305,8 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   await page.locator('[data-fleet-sort]').selectOption('longestOffline')
   check('4. the sort reaches sort', await waitForFleet(page, fleetCalls, '?host=Wpf&q=Riy&sort=longestOffline&page=1&pageSize=50'), lastFleet(fleetCalls))
   const sorts = await page.locator('[data-fleet-sort] option').allInnerTexts()
-  check('4. the four sorts are offered', JSON.stringify(sorts) === '["Most behind","Longest offline","Newest error","Code"]', JSON.stringify(sorts))
+  // 456: six, not four — the two mirror sorts are appended.
+  check('4. the six sorts are offered', JSON.stringify(sorts) === '["Most behind","Longest offline","Newest error","Code","Largest till backlog","Most dead letters"]', JSON.stringify(sorts))
 
   await page.locator('[data-store-link="P003"]').click()
   await page.locator('[data-store-page="P003"]').waitFor()
@@ -302,6 +374,125 @@ const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim(
   check('9. a failed filtered read shows its error', true)
   check('9. …and none of the previous filter rows or count', (await page.locator('[data-store-link]').count()) === 0 && (await page.locator('[data-fleet-count]').count()) === 0)
   check('no page errors (failed read)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10: the mirror lane (ticket 456, spec 2563) ───────────────────────────────────────────────
+{
+  const workers = [
+    { ...worker('SISAPI-SYNC-01', false), rail: 'store' },
+    mirrorWorker('mirrorPull', {
+      lastTickOutcome: 'SkippedBackpressure',
+      inboxPending: 49800,
+      backpressureThreshold: 50000,
+      lastTickMessage: 'Inbox at the backpressure threshold; pull skipped.',
+    }),
+    mirrorWorker('mirrorApply', { isStale: true, lastTickAt: '2026-10-09T11:51:00', lastTickOutcome: 'Faulted', lastTickMessage: 'Timeout expired.' }),
+  ]
+  const { context, page, errors, fleetCalls } = await open({ workers, summary: SUMMARY_2563, lastHour: LAST_HOUR_2563 })
+  await page.goto(`${BASE}/admin/sync`)
+  await page.locator('[data-store-link="P001"]').waitFor({ timeout: 20000 })
+  const laneOf = (code) => page.locator(`[row-id="${code}"] [col-id="mirror"] [data-mirror-lane]`)
+  const cellText = async (code, col) => strip(await page.locator(`[row-id="${code}"] [col-id="${col}"]`).innerText())
+
+  // The lane chip.
+  const p3 = laneOf('P003')
+  const p3Text = await cellText('P003', 'mirror')
+  check('10. a lane chip shows till backlog, inbox pending and open dead letters', p3Text === 'Till backlog 1,234 Inbox pending 56 Dead letters 7', p3Text)
+  check(
+    '10. …coloured by the worst mirror state (offline and dead letters beat behind; offline first on the tie)',
+    (await p3.getAttribute('data-mirror-lane')) === 'onMirror' &&
+      (await p3.getAttribute('data-mirror-sev')) === 'bad' &&
+      (await p3.getAttribute('data-mirror-worst')) === 'mirrorOffline' &&
+      (await p3.getAttribute('title')) === 'Mirror offline',
+  )
+  const p3Class = await page.locator('[row-id="P003"] [col-id="mirror"] [data-mirror-lane] > span').first().getAttribute('class')
+  check('10. …in the danger tokens', /bg-danger-050/.test(p3Class ?? ''), p3Class)
+  const p3States = await cellText('P003', 'states')
+  check("10. …and the row's state badges still name each mirror state", /Mirror behind/.test(p3States) && /Mirror offline/.test(p3States) && /Dead letters/.test(p3States), p3States)
+  check('10. a store off the rail reads "Not on mirror", muted, with no state', (await laneOf('P007').getAttribute('data-mirror-lane')) === 'notOnMirror' && (await cellText('P007', 'mirror')) === 'Not on mirror')
+  check("10. an old door's row with no lane reads \"Not on mirror\" too, never healthy", (await laneOf('P004').getAttribute('data-mirror-lane')) === 'notOnMirror' && (await cellText('P004', 'mirror')) === 'Not on mirror')
+  const p5Text = await cellText('P005', 'mirror')
+  check('10. on mirror with no mirror state is healthy (go); a never-measured backlog says so, not 0', (await laneOf('P005').getAttribute('data-mirror-sev')) === 'go' && p5Text === 'Till backlog not measured Inbox pending 3 Dead letters 0', p5Text)
+  check('10. a WPF store keeps its lane', (await laneOf('P006').getAttribute('data-mirror-lane')) === 'onMirror' && (await laneOf('P006').getAttribute('data-mirror-sev')) === 'warn' && (await cellText('P006', 'host')) === 'WPF')
+  const till = await cellText('P003', 'tillBacklogOldestAt')
+  check('10. the oldest till-backlog event carries the "till clock" hint, its time unshifted', /^2026-10-09 11:20.*till clock$/.test(till) && (await page.locator('[row-id="P003"] [data-till-clock]').count()) === 1, till)
+  check('10. …and a store with no till time draws nothing there', (await cellText('P007', 'tillBacklogOldestAt')) === '')
+  const lastPull = await cellText('P003', 'mirror.lastPullAt')
+  check('10. the last mirror pull is drawn', /2026-10-09 12:03/.test(lastPull), lastPull)
+  check('10. the chip isolates each count once', (await page.locator('[row-id="P003"] [col-id="mirror"] bdi').count()) === 3)
+
+  // The four tiles.
+  const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + ':' + e.innerText.replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ')))
+  check(
+    '10. the four mirror tiles with their counts, and no rails-disagree tile yet',
+    tiles.length === 12 &&
+      tiles.includes('mirrorOffline:1 Mirror offline') &&
+      tiles.includes('mirrorBehind:2 Mirror behind') &&
+      tiles.includes('deadLetters:1 Dead letters') &&
+      tiles.includes('deferredTooLong:0 Deferred too long') &&
+      !tiles.some((x) => x.startsWith('railsDisagree')),
+    JSON.stringify(tiles),
+  )
+  for (const state of ['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong']) {
+    await page.locator(`[data-tile="${state}"]`).click()
+    check(`10. the ${state} tile sets the state filter`, await waitForFleet(page, fleetCalls, `?state=${state}&sort=mostBehind&page=1&pageSize=50`), lastFleet(fleetCalls))
+    await page.locator(`[data-tile="${state}"]`).click()
+  }
+  await page.locator('[data-tile="deadLetters"]').click()
+  await page.locator('[data-tile="offline"]').click()
+  check('10. a mirror tile ANDs with a store tile, in the contract order', await waitForFleet(page, fleetCalls, '?state=offline&state=deadLetters&sort=mostBehind&page=1&pageSize=50'), lastFleet(fleetCalls))
+  await page.locator('[data-tile="all"]').click()
+  const deadTile = await page.locator('[data-tile="deadLetters"]').getAttribute('class')
+  const behindTile = await page.locator('[data-tile="mirrorBehind"]').getAttribute('class')
+  check("10. the tiles take their state's severity token", /border-t-danger/.test(deadTile ?? '') && /border-t-attention/.test(behindTile ?? ''))
+
+  // The two sorts.
+  await page.locator('[data-fleet-sort]').selectOption('largestBacklog')
+  check('10. the largest-backlog sort reaches sort', await waitForFleet(page, fleetCalls, '?sort=largestBacklog&page=1&pageSize=50'), lastFleet(fleetCalls))
+  await page.locator('[data-fleet-sort]').selectOption('mostDeadLetters')
+  check('10. the most-dead-letters sort reaches sort', await waitForFleet(page, fleetCalls, '?sort=mostDeadLetters&page=1&pageSize=50'), lastFleet(fleetCalls))
+
+  // The worker card, narrowed on rail.
+  const roles = await page.locator('[data-mirror-worker]').evaluateAll((els) => els.map((e) => e.getAttribute('data-mirror-worker') + ':' + e.getAttribute('data-stale')))
+  check('10. the worker card lists the store worker, then Mirror pull, then Mirror apply', (await page.locator('[data-worker="SISAPI-SYNC-01"]').count()) === 1 && JSON.stringify(roles) === '["mirrorPull:false","mirrorApply:true"]', JSON.stringify(roles))
+  check(
+    '10. a stale Mirror apply carries its own red banner; the store worker and Mirror pull none',
+    (await page.locator('[data-mirror-worker="mirrorApply"] [data-worker-banner="mirrorStale"] [role="alert"]').count()) === 1 &&
+      (await page.locator('[data-worker-banner="stale"], [data-worker-banner="none"]').count()) === 0 &&
+      (await page.locator('[data-mirror-worker="mirrorPull"] [data-worker-banner]').count()) === 0,
+  )
+  const applyText = strip(await page.locator('[data-mirror-worker="mirrorApply"]').innerText())
+  check(
+    '10. …naming the role and its instance, with its last tick, Faulted and its message',
+    /Mirror apply: the heartbeat is stale/.test(applyText) && /SISAPI-POS-01/.test(applyText) && /Last tick 2026-10-09 11:51/.test(applyText) && /Faulted/.test(applyText) && /Timeout expired\./.test(applyText),
+    applyText,
+  )
+  const faulted = await page.locator('[data-mirror-worker="mirrorApply"] [data-tick-outcome="Faulted"] span').first().getAttribute('class')
+  check('10. Faulted reads bad', /bg-danger-050/.test(faulted ?? ''), faulted)
+  const pullText = strip(await page.locator('[data-mirror-worker="mirrorPull"]').innerText())
+  const pullBadge = await page.locator('[data-mirror-worker="mirrorPull"] [data-tick-outcome="SkippedBackpressure"] span').first().getAttribute('class')
+  check('10. Mirror pull skipped for backpressure reads as a WARNING, never idle', /Skipped: inbox backpressure/.test(pullText) && /bg-attention-050/.test(pullBadge ?? ''), pullText)
+  check('10. …with inbox pending / threshold as ONE isolated value', /Inbox pending \/ backpressure threshold 49,800 \/ 50,000/.test(pullText) && (await page.locator('[data-mirror-worker="mirrorPull"] [data-inbox-pending] bdi').count()) === 1, pullText)
+  check('10. Mirror apply has no inbox figure', (await page.locator('[data-mirror-worker="mirrorApply"] [data-inbox-pending]').count()) === 0)
+
+  // The last-hour mirror totals.
+  const hour = strip(await page.locator('[data-last-hour]').innerText())
+  check(
+    '10. the last hour adds the mirror totals, this hour and the previous',
+    /Mirror rail Mirror sweeps 120 240 Events pulled 800 1,600 Events applied 790 1,580 Events deferred 4 8 Mirror connect failures 3 6 Events dead-lettered 2 4/.test(hour),
+    hour,
+  )
+  const deadCell = await page.locator('[data-metric="mirrorDeadLettered"] td').nth(1).getAttribute('class')
+  check('10. a mirror failure takes the danger ink when not zero', /text-danger-800/.test(deadCell ?? ''), deadCell)
+  await page.screenshot({ path: `${SHOTS}/mirror.png`, fullPage: true })
+
+  await page.locator('[data-fleet-sort]').selectOption('mostBehind')
+  await page.locator('[data-store-link="P003"]').waitFor()
+  await page.locator('[data-store-link="P003"]').click()
+  await page.locator('[data-store-page="P003"]').waitFor()
+  check('10. a 2563 row still opens its store page', page.url().endsWith('/admin/sync/store/P003'))
+  check('no page errors (mirror)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

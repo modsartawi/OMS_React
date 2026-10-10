@@ -187,8 +187,16 @@ export function auditQuery(filter: AuditFilter, page: number): Record<string, un
   }
 }
 
+/**
+ * The mirror rail's audit actions (2563). The model carries them since 456; ticket 458
+ * labels them here and in the bundle, and until then they show their raw code.
+ * ⚠️ 458 must DELETE this type, not just add the keys: while it exists the `Record`
+ * below cannot catch these three.
+ */
+type UnlabelledAuditAction = 'MirrorRetry' | 'MirrorAcknowledge' | 'AgreementRecheck'
+
 /** Every `AuditAction` the bundle labels — a `Record`, so a new action in the model fails to compile here. */
-const AUDIT_ACTIONS: Record<AuditAction, true> = {
+const AUDIT_ACTIONS: Record<Exclude<AuditAction, UnlabelledAuditAction>, true> = {
   Move: true,
   HandBack: true,
   Pause: true,

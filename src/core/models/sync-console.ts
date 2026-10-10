@@ -33,6 +33,13 @@ export type StoreState =
   | 'behind'
   | 'erroring'
   | 'controlPending'
+  // The mirror rail's (spec 2563, ticket 456) — the lane's four…
+  | 'mirrorOffline'
+  | 'mirrorBehind'
+  | 'deadLetters'
+  | 'deferredTooLong'
+  // …and rail agreement's, which belongs to the `agreement`, not to the lane (2571).
+  | 'railsDisagree'
 
 /** Every `StoreState`, in the contract's order — the order the tiles and the query use. */
 export const STORE_STATES: readonly StoreState[] = [
@@ -43,7 +50,33 @@ export const STORE_STATES: readonly StoreState[] = [
   'behind',
   'erroring',
   'controlPending',
+  'mirrorOffline',
+  'mirrorBehind',
+  'deadLetters',
+  'deferredTooLong',
+  'railsDisagree',
 ]
+
+/** The mirror lane's states, in the contract's order. `railsDisagree` is NOT one: it is agreement's. */
+export const MIRROR_STATES = ['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong'] as const satisfies readonly StoreState[]
+
+export type MirrorState = (typeof MIRROR_STATES)[number]
+
+/** Which worker a `Workers` item is (2563): the store sync worker, or one of the two mirror roles. */
+export type Rail = 'store' | 'mirrorPull' | 'mirrorApply'
+
+/** A mirror role's last tick. `None` = it never ticked. */
+export type MirrorTickOutcome = 'Swept' | 'Applied' | 'SkippedLockHeld' | 'SkippedBackpressure' | 'Faulted' | 'None'
+
+export type DeadLetterStage = 'pull' | 'apply'
+
+/** `orphaned` = deferred past the cutoff; `poison` is the pull stage's. */
+export type DeadLetterReason = 'errorCap' | 'orphaned' | 'unmapped' | 'poison'
+
+/** A store's rail agreement over the judged window (2571). */
+export type Agreement = 'agree' | 'disagree' | 'notJudged'
+
+export type AgreementGapKind = 'missingAtCounter' | 'missingAtMirror' | 'totalMismatch'
 
 export type PassOutcome = 'Ok' | 'Partial' | 'Failed' | 'Skipped' | 'None'
 export type SyncLoop = 'push' | 'pull'
@@ -61,10 +94,17 @@ export type AuditAction =
   | 'DismissPending'
   | 'OnboardStore'
   | 'EditStore'
+  // The mirror rail and rail agreement (2563).
+  | 'MirrorRetry'
+  | 'MirrorAcknowledge'
+  | 'AgreementRecheck'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
-/** `ActionSync/Fleet`'s `sort` — `mostBehind` is the door's default. */
-export type FleetSort = 'mostBehind' | 'longestOffline' | 'newestError' | 'code'
+/**
+ * `ActionSync/Fleet`'s `sort` — `mostBehind` is the door's default. 2563 adds
+ * `largestBacklog` (till backlog) and `mostDeadLetters`.
+ */
+export type FleetSort = 'mostBehind' | 'longestOffline' | 'newestError' | 'code' | 'largestBacklog' | 'mostDeadLetters'
 
 // ── Shared shapes ───────────────────────────────────────────────────────────────
 
@@ -107,6 +147,39 @@ export interface StoreRow {
   lastTrxPulledAt: string | null
   /** `null` = no health row (a WPF store). */
   healthUpdatedAt: string | null
+  /**
+   * The store's mirror lane (2563). 🚩 NESTED — never flattened onto the row. A WPF
+   * store still has one: the rails are independent (ADR 0073).
+   */
+  mirror: MirrorLane
+  /** Rail agreement over the judged window (2571). */
+  agreement: Agreement
+}
+
+/**
+ * A store's mirror rail (2564, 2565). `onMirror: false` (no swept location) ⇒ every
+ * field below is `null`/`0` and the row carries no mirror state.
+ *
+ * ⚠️ `tillBacklogOldestAt` and `oldestDeferredAt` carry the **till's** clock, shown as is.
+ */
+export interface MirrorLane {
+  onMirror: boolean
+  lastPullAt: string | null
+  lastPullOkAt: string | null
+  lastConnectOkAt: string | null
+  lastConnectFailAt: string | null
+  lastConnectError: string | null
+  /** `null` = never measured (no good connect yet) — not the same as `0`. */
+  tillBacklogCount: number | null
+  /** Till clock. */
+  tillBacklogOldestAt: string | null
+  /** Not yet applied, deferred excluded. */
+  inboxPending: number
+  inboxDeferred: number
+  /** Till clock (`CreatedAt`). */
+  oldestDeferredAt: string | null
+  /** Both stages, unacknowledged. */
+  openDeadLetters: number
 }
 
 // ── Access probe — `GET ActionSync/Access` ───────────────────────────────────────
@@ -122,8 +195,9 @@ export interface SyncConsoleAccess {
 
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
 
-/** `GET ActionSync/Workers` → `{ items }`, not paged. */
+/** `GET ActionSync/Workers` → `{ items }`, not paged. The store sync worker's item (`rail: 'store'`). */
 export interface SyncWorker {
+  rail: 'store'
   instance: string
   version: string
   gateOn: boolean
@@ -138,8 +212,30 @@ export interface SyncWorker {
   settings: Record<string, string>
 }
 
+/** A mirror role's heartbeat (2566), one per (instance, role). */
+export interface MirrorWorker {
+  rail: 'mirrorPull' | 'mirrorApply'
+  instance: string
+  version: string
+  startedAt: string | null
+  lastTickAt: string | null
+  lastTickOutcome: MirrorTickOutcome
+  /** Clamped free text. */
+  lastTickMessage: string | null
+  /** `mirrorPull`: the inbox's pending rows as read at the backpressure gate. */
+  inboxPending: number | null
+  /** `mirrorPull`. */
+  backpressureThreshold: number | null
+  /** `lastTickAt` older than `MirrorWorkerStaleMinutes` — the door decides, not the console. */
+  isStale: boolean
+  settings: Record<string, string>
+}
+
+/** One `Workers` item: narrow on `rail`. */
+export type WorkerItem = SyncWorker | MirrorWorker
+
 export interface SyncWorkers {
-  items: SyncWorker[]
+  items: WorkerItem[]
 }
 
 /** `GET ActionSync/Fleet/Summary`. */
@@ -158,7 +254,26 @@ export interface HourTotals {
   actionsPushed: number
   trxPulled: number
   errors: number
+  // The mirror rail's totals, from `PosSyncStoreHour` (2567).
+  mirrorSweeps: number
+  mirrorConnectFailures: number
+  mirrorPulled: number
+  mirrorApplied: number
+  mirrorDeferred: number
+  mirrorDeadLettered: number
 }
+
+/** The mirror rail's `HourTotals` (2567), in the order the last-hour panel reads them. */
+export const MIRROR_HOUR_TOTALS = [
+  'mirrorSweeps',
+  'mirrorPulled',
+  'mirrorApplied',
+  'mirrorDeferred',
+  'mirrorConnectFailures',
+  'mirrorDeadLettered',
+] as const satisfies readonly (keyof HourTotals)[]
+
+export type MirrorHourTotal = (typeof MIRROR_HOUR_TOTALS)[number]
 
 /** `GET ActionSync/Fleet/LastHour`. */
 export interface FleetLastHour {
@@ -191,6 +306,20 @@ export interface StoreHour {
   actionsPushed: number
   trxPulled: number
   errors: number
+  /** The hour's Mirror line (2567) — a row-less hour is `noData` with zeros. */
+  mirror: MirrorHour
+}
+
+/** The mirror rail's share of one hour of the strip. */
+export interface MirrorHour {
+  cell: HourCell
+  sweeps: number
+  connectFailures: number
+  rowsPulled: number
+  applied: number
+  deferred: number
+  errored: number
+  deadLettered: number
 }
 
 /** `GET ActionSync/Store/Hours` → `{ items }`, oldest first. */
@@ -516,4 +645,126 @@ export interface EditStoreRequest {
   phone: string
   cr: string
   reason: string
+}
+
+// ── The mirror rail's store reads and writes (spec 2563; tickets 457, 458) ─────────
+
+/** Every `DeadLetterStage`, in the contract's order. */
+export const DEAD_LETTER_STAGES: readonly DeadLetterStage[] = ['pull', 'apply']
+
+/** Every `DeadLetterReason`, in the contract's order. */
+export const DEAD_LETTER_REASONS: readonly DeadLetterReason[] = ['errorCap', 'orphaned', 'unmapped', 'poison']
+
+/** One entity type's inbox counts on `GET ActionSync/Store/Mirror`. */
+export interface MirrorEntityCounts {
+  entityType: string
+  pending: number
+  deferred: number
+  deadLetters: number
+}
+
+/**
+ * A mirror dead letter (2568), newest `lastSeenAt` first. 🚩 There is NO payload: no
+ * door ever returns the event's payload, and none is added here.
+ */
+export interface DeadLetter {
+  /** The inbox id (apply stage) or the outbox row id (pull stage). */
+  id: string
+  stage: DeadLetterStage
+  reason: DeadLetterReason
+  entityType: string
+  entityId: string
+  /** `null` on the pull stage. */
+  action: string | null
+  attempts: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  /** Clamped free text. */
+  error: string | null
+  /** Apply stage and unacknowledged — the door decides, not the console. */
+  canRetry: boolean
+  acknowledgedAt: string | null
+  acknowledgedBy: string | null
+  acknowledgeReason: string | null
+}
+
+/** `GET ActionSync/Store/Mirror?code=&stage=&reason=&includeAcknowledged=&page=&pageSize=`. */
+export interface StoreMirror {
+  lane: MirrorLane
+  byEntityType: MirrorEntityCounts[]
+  deadLetters: Paged<DeadLetter>
+}
+
+/** One row a retry or an acknowledgement names. */
+export interface DeadLetterRef {
+  stage: DeadLetterStage
+  id: string
+}
+
+/** `POST ActionSync/Mirror/DeadLetters/Retry` and `…/Acknowledge` — one store, 1–50 items. */
+export interface DeadLetterActionRequest {
+  code: string
+  items: DeadLetterRef[]
+  reason: string
+}
+
+/** One row's answer. `error` is a plain code (`PULL_STAGE`, `ACKNOWLEDGED`, `NOT_DEAD_LETTER`, `NOT_FOUND`). */
+export interface DeadLetterActionResult {
+  stage: DeadLetterStage
+  id: string
+  ok: boolean
+  error: string | null
+}
+
+export interface DeadLetterActionResponse {
+  auditId: string
+  results: DeadLetterActionResult[]
+}
+
+// ── Rail agreement (spec 2563; ticket 459) ───────────────────────────────────────
+
+/** One judged business day of `GET ActionSync/Store/Agreement`. Money is a number with 3 decimals. */
+export interface AgreementDay {
+  /** `yyyy-MM-dd`. */
+  businessDay: string
+  judgedAt: string
+  agrees: boolean
+  mirrorCount: number
+  counterCount: number
+  mirrorTotal: number
+  counterTotal: number
+  missingAtCounter: number
+  missingAtMirror: number
+  totalMismatches: number
+}
+
+/** One receipt the rails disagree on. */
+export interface AgreementGap {
+  businessDay: string
+  receiptNumber: string
+  kind: AgreementGapKind
+  mirrorTotal: number | null
+  counterTotal: number | null
+}
+
+/**
+ * `GET ActionSync/Store/Agreement?code=&day=&page=&pageSize=`. `days` is D-1..D-7, newest
+ * first, and a day with no NewPos receipt is absent; `gaps` is filtered to `day` when given.
+ */
+export interface StoreAgreement {
+  days: AgreementDay[]
+  gaps: Paged<AgreementGap>
+}
+
+/** `POST ActionSync/Agreement/Recheck` — one store, one day within D-1..D-7. */
+export interface AgreementRecheckRequest {
+  code: string
+  day: string
+  reason: string
+}
+
+/** `day: null` = no NewPos receipt that day; any previous verdict for it is removed. */
+export interface AgreementRecheckResponse {
+  auditId: string
+  day: AgreementDay | null
 }

@@ -9,6 +9,10 @@
  * The doors are built (BackOffice 2539–2542) and every call here was checked against
  * them door by door (ticket 450). The stubbed drives (`tools/sync-console-*-drive.mjs`)
  * stay the screens' regression; `tools/sync-console-live-drive.mjs` is their live twin.
+ *
+ * Spec 2563 (ticket 456) added the mirror lane to five of these reads. Until its doors
+ * ship, each of those reads fills a member an older door leaves out (`./wire`), so the
+ * console keeps working against the doors it meets today.
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {
@@ -49,6 +53,18 @@ import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './comman
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
 import { PASSES_PAGE_SIZE, type StoreTab } from './store-helpers'
+import {
+  normaliseFleet,
+  normaliseLastHour,
+  normaliseStoreHours,
+  normaliseWorkers,
+  withMirrorLane,
+  type WireLastHour,
+  type WireStoreDetail,
+  type WireStoreHours,
+  type WireStoreRow,
+  type WireWorkers,
+} from './wire'
 
 /**
  * The ONE cache key the Admin menu leaf and the console's own in-page gate share, so
@@ -94,9 +110,9 @@ export const syncConsoleApi = {
     return api.get<SyncConsoleAccess>('ActionSync/Access')
   },
 
-  /** `GET ActionSync/Workers` → the worker heartbeat rows, not paged. */
+  /** `GET ActionSync/Workers` → the store worker's and the mirror roles' heartbeats, not paged. */
   workers(): Promise<SyncWorkers> {
-    return api.get<SyncWorkers>('ActionSync/Workers')
+    return api.get<WireWorkers>('ActionSync/Workers').then(normaliseWorkers)
   },
 
   /** `GET ActionSync/Fleet/Summary` → the tile counts and the "as of" stamp. */
@@ -106,24 +122,28 @@ export const syncConsoleApi = {
 
   /** `GET ActionSync/Fleet/LastHour` → the current and previous hour's totals. */
   fleetLastHour(): Promise<FleetLastHour> {
-    return api.get<FleetLastHour>('ActionSync/Fleet/LastHour')
+    return api.get<WireLastHour>('ActionSync/Fleet/LastHour').then(normaliseLastHour)
   },
 
   /** `GET ActionSync/Fleet?state=&host=&q=&sort=&page=&pageSize=` → one page of stores. */
   fleet(filter: FleetFilter): Promise<Paged<StoreRow>> {
-    return api.get<Paged<StoreRow>>('ActionSync/Fleet', fleetQuery(filter))
+    return api.get<Paged<WireStoreRow>>('ActionSync/Fleet', fleetQuery(filter)).then(normaliseFleet)
   },
 
   // ── The store page (ticket 446) ──
 
   /** `GET ActionSync/Store?code=` → the header. An unknown code is a 404 `NO_STORE`. */
   store(code: string): Promise<StoreDetail> {
-    return api.get<StoreDetail>('ActionSync/Store', { code })
+    return api
+      .get<WireStoreDetail>('ActionSync/Store', { code })
+      .then(withMirrorLane)
   },
 
   /** `GET ActionSync/Store/Hours?code=&hours=24` → the strip, oldest hour first. */
   storeHours(code: string): Promise<StoreHours> {
-    return api.get<StoreHours>('ActionSync/Store/Hours', { code, hours: STRIP_HOURS })
+    return api
+      .get<WireStoreHours>('ActionSync/Store/Hours', { code, hours: STRIP_HOURS })
+      .then(normaliseStoreHours)
   },
 
   /** `GET ActionSync/Store/Counters?code=` → every counter of the store. */

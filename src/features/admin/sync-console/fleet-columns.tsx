@@ -8,6 +8,8 @@ import type { StoreRow } from '@/core/models/sync-console'
 import { formatDateTime } from '@/core/util/date-format'
 import { figure, lastLoopError, stateBadge } from './helpers'
 import StateBadges from './StateBadges'
+import MirrorLaneChipView from './MirrorLaneChipView'
+import TillClockTime from './TillClockTime'
 import { CONSOLE_DEFAULT_COL_DEF, MONO, formatTime } from './console-columns'
 
 /**
@@ -73,6 +75,25 @@ export function buildFleetColumns(t: TFunction): ColDef<StoreRow>[] {
     },
     { headerName: t('table.columns.oldestPending'), field: 'oldestPendingActionAt', width: 150, valueFormatter: formatTime },
     { headerName: t('table.columns.lastTrxPulled'), field: 'lastTrxPulledAt', width: 150, valueFormatter: formatTime },
+    {
+      // The mirror lane (2563, ticket 456), beside the master and counter rails' cells: one
+      // chip, coloured by the worst mirror state. A WPF store keeps its lane (ADR 0073).
+      headerName: t('table.columns.mirror'),
+      colId: 'mirror',
+      width: 330,
+      cellRenderer: (p: ICellRendererParams<StoreRow>) => (p.data ? <MirrorLaneChipView row={p.data} /> : null),
+    },
+    {
+      // The till's own clock, as is, so the cell says whose clock it is.
+      // The field gives the cell its value (copy), the renderer its hint.
+      headerName: t('table.columns.tillBacklogOldest'),
+      colId: 'tillBacklogOldestAt',
+      field: 'mirror.tillBacklogOldestAt',
+      width: 200,
+      cellRenderer: (p: ICellRendererParams<StoreRow>) =>
+        p.data ? <TillClockTime value={p.data.mirror.tillBacklogOldestAt} /> : null,
+    },
+    { headerName: t('table.columns.mirrorLastPull'), field: 'mirror.lastPullAt', width: 150, valueFormatter: formatTime },
     {
       // The newer of the two loops' errors. The message is the server's free text,
       // so it is isolated on its own (`<bdi>`, dir auto) and its time as a machine value.

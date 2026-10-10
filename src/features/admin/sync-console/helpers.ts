@@ -8,11 +8,16 @@
  */
 import type { Severity } from '@/core/ui/severity'
 import {
+  MIRROR_STATES,
   STORE_STATES,
   type FleetSort,
+  type MirrorState,
+  type MirrorTickOutcome,
+  type MirrorWorker,
   type StoreRow,
   type StoreState,
   type SyncWorker,
+  type WorkerItem,
 } from '@/core/models/sync-console'
 
 /** The door pages; the console asks for 50 a page (spec 444). */
@@ -34,6 +39,12 @@ const STATE_SEVERITY: Record<StoreState, Severity> = {
   behind: 'warn',
   erroring: 'bad',
   controlPending: 'go',
+  // The mirror rail and rail agreement (2563) — severities as ruled for the wave.
+  mirrorOffline: 'bad',
+  mirrorBehind: 'warn',
+  deadLetters: 'bad',
+  deferredTooLong: 'warn',
+  railsDisagree: 'bad',
 }
 
 /** A machine code's badge: its label key, or `null` for a code this bundle does not know. */
@@ -74,7 +85,15 @@ export interface FleetFilter {
   page: number
 }
 
-export const FLEET_SORTS: readonly FleetSort[] = ['mostBehind', 'longestOffline', 'newestError', 'code']
+/** The door's sorts; the mirror rail's two (2563) are appended after the store worker's four. */
+export const FLEET_SORTS: readonly FleetSort[] = [
+  'mostBehind',
+  'longestOffline',
+  'newestError',
+  'code',
+  'largestBacklog',
+  'mostDeadLetters',
+]
 
 export const DEFAULT_FLEET_FILTER: FleetFilter = {
   states: [],
@@ -87,7 +106,11 @@ export const DEFAULT_FLEET_FILTER: FleetFilter = {
 /** A tile: `all`, or one state. */
 export type FleetTile = 'all' | StoreState
 
-export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES]
+/**
+ * `all` and a tile per state, in the contract's order. 🚩 `railsDisagree` is held out of
+ * the row: its tile belongs to rail agreement (ticket 459), not to the mirror lane.
+ */
+export const FLEET_TILES: readonly FleetTile[] = ['all', ...STORE_STATES.filter((s) => s !== 'railsDisagree')]
 
 /**
  * What clicking a tile does to the filter. `all` clears every state; a state tile
@@ -134,6 +157,8 @@ export function fleetQuery(filter: FleetFilter): Record<string, unknown> {
  */
 export type WorkerBanner = { kind: 'stale'; instances: string[] } | { kind: 'none' }
 
+// Since 2563 the card passes the store sync worker's items only (`workerCardItems`):
+// each mirror role carries its own banner, and "none has reported" keys on the store worker.
 export function workerBanner(workers: readonly SyncWorker[]): WorkerBanner | null {
   if (workers.length === 0) return { kind: 'none' }
   const stale = workers.filter((w) => w.isStale).map((w) => w.instance)
@@ -153,4 +178,101 @@ export function lastLoopError(row: Pick<StoreRow, 'push' | 'pull'>): { at: strin
     .map((l) => ({ at: l.lastErrorAt as string, error: l.lastError as string }))
   if (found.length === 0) return null
   return found.reduce((a, b) => (b.at > a.at ? b : a))
+}
+
+// ── The mirror lane chip (spec 2563, ticket 456) ────────────────────────────────
+
+/** Worse first: the chip takes the state that ranks highest here. */
+const SEVERITY_RANK: Record<Severity, number> = { bad: 4, warn: 3, go: 2, ok: 1, mute: 0 }
+
+/**
+ * A row's mirror lane as the one compact chip draws it.
+ *
+ * - `notOnMirror`: no swept location. Muted, and it carries **no** state, even if one
+ *   arrived on the row.
+ * - `onMirror`: coloured by the worst mirror-set state on the row (`states[]`, the
+ *   door's — never derived here); with none of them it is healthy (`go`). A tie keeps
+ *   the contract's order. `railsDisagree` is not a lane state, and any other state is
+ *   not the lane's either.
+ *
+ * `tillBacklogCount` stays `null` when it was never measured, so the chip can say so
+ * rather than draw a `0` that reads as "nothing waiting".
+ */
+export type MirrorLaneChip =
+  | { kind: 'notOnMirror'; sev: 'mute' }
+  | {
+      kind: 'onMirror'
+      sev: Severity
+      /** The worst mirror state, `null` when the lane is healthy. */
+      worst: MirrorState | null
+      tillBacklogCount: number | null
+      inboxPending: number
+      openDeadLetters: number
+    }
+
+export function mirrorLaneChip(row: Pick<StoreRow, 'mirror' | 'states'>): MirrorLaneChip {
+  // `=== true` and nothing looser: a lane the door did not send is not one to colour.
+  if (row.mirror?.onMirror !== true) return { kind: 'notOnMirror', sev: 'mute' }
+  let worst: MirrorState | null = null
+  for (const s of MIRROR_STATES.filter((m) => row.states.includes(m))) {
+    if (worst === null || SEVERITY_RANK[stateBadge(s).sev] > SEVERITY_RANK[stateBadge(worst).sev]) worst = s
+  }
+  return {
+    kind: 'onMirror',
+    sev: worst === null ? 'go' : stateBadge(worst).sev,
+    worst,
+    tillBacklogCount: row.mirror.tillBacklogCount,
+    inboxPending: row.mirror.inboxPending,
+    openDeadLetters: row.mirror.openDeadLetters,
+  }
+}
+
+// ── The worker card's items (spec 2563, ticket 456) ─────────────────────────────
+
+const TICK_SEVERITY: Record<MirrorTickOutcome, Severity> = {
+  Swept: 'ok',
+  Applied: 'ok',
+  // Another instance holds the lock: that one is working, so this is quiet, not idle.
+  SkippedLockHeld: 'mute',
+  // 🚩 The inbox is full and the pull stopped — a warning, never idle.
+  SkippedBackpressure: 'warn',
+  Faulted: 'bad',
+  None: 'mute',
+}
+
+/** A mirror tick outcome's badge; an outcome this bundle does not know shows its raw code. */
+export function tickOutcomeBadge(outcome: string): CodeBadge {
+  return codeBadge(TICK_SEVERITY, 'tickOutcomes', outcome)
+}
+
+/** A mirror role on the worker card: the worker, its outcome badge and its own stale flag. */
+export interface MirrorCardItem {
+  worker: MirrorWorker
+  outcome: CodeBadge
+  /** The door's `isStale` and nothing else: the item's own red banner. */
+  stale: boolean
+}
+
+export interface WorkerCardItems {
+  /** The store sync worker's items, as the card drew them before 2563. */
+  store: SyncWorker[]
+  /** The mirror roles: every Mirror pull, then every Mirror apply, each in the door's order. */
+  mirror: MirrorCardItem[]
+}
+
+const MIRROR_RAILS = ['mirrorPull', 'mirrorApply'] as const
+
+/**
+ * `Workers` items narrowed on `rail`. A mirror role absent from the items draws
+ * nothing (a missing mirror table reads as no data), and an item whose `rail` this
+ * bundle does not know is left out, since its shape cannot be told.
+ */
+export function workerCardItems(items: readonly WorkerItem[]): WorkerCardItems {
+  const store = items.filter((w): w is SyncWorker => w.rail === 'store')
+  const mirror = MIRROR_RAILS.flatMap((rail) =>
+    items
+      .filter((w): w is MirrorWorker => w.rail === rail)
+      .map((worker) => ({ worker, outcome: tickOutcomeBadge(worker.lastTickOutcome), stale: worker.isStale === true })),
+  )
+  return { store, mirror }
 }

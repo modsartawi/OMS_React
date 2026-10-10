@@ -207,6 +207,45 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
         }),
       },
+      // The store sync console (spec 444, ticket 445): the Fleet page, and one store's page
+      // (446), the fleet-wide audit (447) and commands (448), the New store wizard and Sync
+      // pending (449), all under the same `/admin/sync` prefix.
+      {
+        path: 'admin/sync',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/FleetPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/store/:code',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/StorePage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/commands',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/CommandsPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/audit',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/AuditPage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/new-store',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/NewStorePage')).default,
+        }),
+      },
+      {
+        path: 'admin/sync/pending',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/PendingPage')).default,
+        }),
+      },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
       // join these under the same `/nphies/*` prefix as the wave lands; the check
       // form is slice 0 because its endpoint is the one that already ships.

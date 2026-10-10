@@ -101,3 +101,9 @@ tools/.materials-detail-shots/
 tools/.materials-stock-shots/
 tools/.materials-gs1-shots/
 tools/.materials-live-shots/
+# Sync console drive screenshots (tools/sync-console-*-drive.mjs, tickets 445-449)
+tools/.sync-console-fleet-shots/
+tools/.sync-console-store-shots/
+tools/.sync-console-controls-shots/
+tools/.sync-console-commands-shots/
+tools/.sync-console-onboard-shots/

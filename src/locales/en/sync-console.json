@@ -1,0 +1,620 @@
+{
+  "menu": {
+    "syncConsole": "Store sync"
+  },
+  "title": "Store sync",
+  "subtitle": "Every store with a sync location: who runs its sync, whether it is reachable, and how far behind it is.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to store sync",
+    "deniedHint": "Your account does not hold the grant to view store sync. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "refreshing": "Refreshing…",
+  "states": {
+    "onWorker": "On worker",
+    "onWpf": "On WPF",
+    "paused": "Paused",
+    "offline": "Offline",
+    "behind": "Behind",
+    "erroring": "Erroring",
+    "controlPending": "Control pending"
+  },
+  "hosts": {
+    "Worker": "Worker",
+    "Wpf": "WPF"
+  },
+  "tiles": {
+    "label": "Filter the stores by state",
+    "all": "All stores",
+    "failed": "The store counts could not be loaded."
+  },
+  "worker": {
+    "title": "Worker",
+    "version": "Version",
+    "gate": "Gate",
+    "gateOn": "On",
+    "gateOff": "Off",
+    "push": "Push in flight",
+    "pull": "Pull in flight",
+    "lastFlush": "Last heartbeat",
+    "never": "Never",
+    "settings": "Settings",
+    "failed": "The worker could not be read."
+  },
+  "banner": {
+    "staleTitle": "The worker's heartbeat is stale",
+    "staleDetail": "No health flush has arrived in over two intervals. The numbers below may be old, and the stores may not be syncing.",
+    "noneTitle": "No worker has reported",
+    "noneDetail": "No sync worker has sent a heartbeat. The numbers below cannot show whether any store is syncing."
+  },
+  "lastHour": {
+    "title": "Last hour, whole fleet",
+    "metric": "Measure",
+    "current": "This hour",
+    "previous": "Previous hour",
+    "failed": "The last-hour totals could not be loaded.",
+    "metrics": {
+      "pushPasses": "Push passes",
+      "actionsPushed": "Actions pushed",
+      "chunksPushed": "Chunks pushed",
+      "pullPasses": "Pull passes",
+      "trxPulled": "Transactions pulled",
+      "connectFailures": "Connect failures",
+      "errors": "Pass errors"
+    }
+  },
+  "table": {
+    "search": "Search by store code or name",
+    "host": "Host",
+    "hostAny": "Any host",
+    "sort": "Sort",
+    "sorts": {
+      "mostBehind": "Most behind",
+      "longestOffline": "Longest offline",
+      "newestError": "Newest error",
+      "code": "Code"
+    },
+    "columns": {
+      "code": "Code",
+      "description": "Store",
+      "host": "Host",
+      "states": "State",
+      "lastConnectOk": "Last connect",
+      "lastConnectFail": "Last connect failure",
+      "pendingActions": "Push lag",
+      "oldestPending": "Oldest pending",
+      "lastTrxPulled": "Last pull",
+      "lastError": "Last error",
+      "control": "Control"
+    },
+    "pending": "Pending",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "empty": "No store matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "failed": "The stores could not be loaded.",
+    "loading": "Loading stores…"
+  },
+  "store": {
+    "back": "Back to the fleet",
+    "loading": "Loading the store…",
+    "failed": "The store could not be loaded.",
+    "noStoreTitle": "No such store",
+    "noStoreHint": "No store with this code has a sync location. Check the code, or go back to the fleet.",
+    "host": "Host",
+    "pending": "Control pending: the worker has not applied it yet",
+    "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown.",
+    "healthAsOf": "Health as of <at>{{at}}</at>",
+    "noHealth": "The worker has not reported health for this store yet."
+  },
+  "health": {
+    "label": "Sync health",
+    "reachable": "Reachable",
+    "lastConnectOk": "Last connect",
+    "lastConnectFail": "Last connect failure",
+    "backoffUntil": "Next try after (backoff)",
+    "push": "Push",
+    "pendingActions_one": "<n>{{n}}</n> action pending",
+    "pendingActions_other": "<n>{{n}}</n> actions pending",
+    "oldestPending": "Oldest pending action",
+    "pull": "Pull",
+    "lastTrxPulled": "Last transaction pulled",
+    "lastErrors": "Last error per loop",
+    "lastPass": "Last pass",
+    "noError": "No error",
+    "never": "Never"
+  },
+  "strip": {
+    "title": "Last 24 hours",
+    "loading": "Loading the last 24 hours…",
+    "failed": "The hourly strip could not be loaded.",
+    "empty": "No hours were returned for this store.",
+    "legend": "Legend",
+    "cells": {
+      "work": "Passes ran, work moved",
+      "idle": "Checked, idle",
+      "passErrors": "Pass errors",
+      "connectFailOnly": "Connect failures only",
+      "noData": "No data"
+    }
+  },
+  "tabs": {
+    "label": "Store sync details",
+    "counters": "Counters",
+    "passes": "Passes",
+    "commands": "Commands",
+    "scripts": "Scripts",
+    "audit": "Audit",
+    "location": "Location"
+  },
+  "counters": {
+    "loading": "Loading counters…",
+    "failed": "The counters could not be loaded.",
+    "empty": "This store has no counters.",
+    "columns": {
+      "lineNumber": "Line",
+      "objectId": "Object",
+      "bound": "Direction",
+      "counter": "Counter",
+      "logHead": "Action-log head",
+      "lag": "Lag",
+      "oldestPendingAt": "Oldest pending"
+    },
+    "bounds": {
+      "Out": "Push",
+      "In": "Pull"
+    }
+  },
+  "passes": {
+    "from": "From",
+    "fromHint": "Passes are kept for 30 days.",
+    "failed": "The passes could not be loaded.",
+    "empty": "No pass since this date.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "loading": "Loading passes…",
+    "open": "Open the pass detail",
+    "columns": {
+      "startOn": "Started",
+      "loop": "Loop",
+      "status": "Outcome",
+      "actionsCount": "Actions",
+      "finishOn": "Finished",
+      "errorMessage": "Error"
+    }
+  },
+  "outcomes": {
+    "Ok": "Done",
+    "Partial": "Partial",
+    "Failed": "Failed",
+    "Skipped": "Skipped",
+    "None": "Never"
+  },
+  "passDetail": {
+    "title": "Pass {{id}}",
+    "close": "Close",
+    "loading": "Loading the pass…",
+    "failed": "The pass detail could not be loaded.",
+    "empty": "This pass wrote no rows.",
+    "columns": {
+      "lineNumber": "Line",
+      "objectId": "Object",
+      "identifiers": "Identifiers",
+      "actionType": "Action",
+      "counter": "Counter",
+      "lineStatus": "Status",
+      "startOn": "Started",
+      "finishOn": "Finished",
+      "errorMessage": "Error"
+    },
+    "lineStatus": {
+      "Ok": "Ok",
+      "Error": "Error"
+    }
+  },
+  "scripts": {
+    "loading": "Loading scripts…",
+    "loadFailed": "The scripts could not be loaded.",
+    "empty": "This store has no scripts.",
+    "note": "Scripts are read only here: they are written outside the console, and their SQL is never shown.",
+    "executed": "Executed",
+    "failed": "Failed",
+    "notExecuted": "Not run yet",
+    "columns": {
+      "scriptId": "Script",
+      "createdAt": "Created",
+      "isExecuted": "State",
+      "lastAttempt": "Last attempt",
+      "errorMessage": "Error"
+    }
+  },
+  "location": {
+    "loading": "Loading the sync location…",
+    "failed": "The sync location could not be loaded.",
+    "code": "Code",
+    "description": "Description",
+    "ip": "IP address",
+    "instance": "Instance",
+    "dbName": "Database",
+    "groupId": "Group",
+    "father": "Father",
+    "isPosSyncEnabled": "POS sync sweep",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "credentials": "Credentials",
+    "credentialsNote": "Never shown in the browser."
+  },
+  "nav": {
+    "label": "Store sync pages",
+    "fleet": "Fleet",
+    "audit": "Audit",
+    "commands": "Commands",
+    "newStore": "New store",
+    "pending": "Sync pending"
+  },
+  "controls": {
+    "label": "Controls",
+    "Move": "Move to worker",
+    "HandBack": "Hand back to WPF",
+    "Pause": "Pause",
+    "Resume": "Resume",
+    "notes": {
+      "Move": "The worker takes the store on its next poll. If WPF is mid-pass, the worker waits for it.",
+      "HandBack": "The worker finishes its current chunk, then lets go. WPF takes the store on its next job firing.",
+      "Pause": "Both loops stop at the next chunk boundary. The store stays on the worker.",
+      "RetryNow": "Clears the connect backoff, puts the store first in both loops and runs housekeeping (DDL and failed scripts).",
+      "ConnectionTest": "Runs from the worker's own network. The result shows here and on the Commands page."
+    },
+    "RetryNow": "Retry now",
+    "RePush": "Re-push…",
+    "ConnectionTest": "Test connection"
+  },
+  "dialog": {
+    "titleOne": "{{action}}: store {{code}}",
+    "titleMany_one": "{{action}}: {{n}} store",
+    "titleMany_other": "{{action}}: {{n}} stores",
+    "stores": "Stores",
+    "reason": "Reason (required, kept in the audit log)",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The control could not be sent.",
+    "failedHint": "Try again in a moment."
+  },
+  "selection": {
+    "count_one": "<n>{{n}}</n> store selected",
+    "count_other": "<n>{{n}}</n> stores selected",
+    "capped": "At most {{cap}} stores can be selected at once. Act on these first, then select the next ones.",
+    "clear": "Clear selection",
+    "hint": "Select stores in the table to act on up to {{cap}} at once."
+  },
+  "list": {
+    "separator": ", "
+  },
+  "results": {
+    "allOk_one": "{{action}} sent for {{total}} store. It shows as pending until the worker applies it.",
+    "allOk_other": "{{action}} sent for {{total}} stores. They show as pending until the worker applies them.",
+    "someFailed": "{{action}} sent for {{ok}} of {{total}} stores; {{failed}} refused.",
+    "allFailed_one": "{{action}} was refused for the store.",
+    "allFailed_other": "{{action}} was refused for all {{total}} stores.",
+    "empty": "{{action}}: no store came back in the answer.",
+    "refusedTitle": "{{action}}: refused for these stores",
+    "dismiss": "Dismiss",
+    "refusedCommandsTitle": "{{action}}: refused for these commands"
+  },
+  "failures": {
+    "NOT_ON_WORKER": "Not on the worker",
+    "NO_STORE": "No such store",
+    "NO_STORES": "No store was sent",
+    "TOO_MANY_STORES": "Too many stores in one request",
+    "REASON_REQUIRED": "A reason is required",
+    "DUPLICATE_PENDING": "The same command is already pending",
+    "NOT_PENDING": "No longer pending",
+    "BAD_CODE": "The code is not four capitals or digits",
+    "LOCATION_EXISTS": "Already has a sync location",
+    "NO_TEMPLATE": "No such template",
+    "DUPLICATE_IN_BATCH": "The same code twice in this request",
+    "STORE_EXISTS": "The store already exists"
+  },
+  "auditActions": {
+    "Move": "Move to worker",
+    "HandBack": "Hand back to WPF",
+    "Pause": "Pause",
+    "Resume": "Resume",
+    "RePush": "Re-push",
+    "RetryNow": "Retry now",
+    "ConnectionTest": "Connection test",
+    "CancelCommand": "Cancel command",
+    "CreateLocation": "Create location",
+    "EditLocation": "Edit location",
+    "DismissPending": "Dismiss pending",
+    "OnboardStore": "Onboard store",
+    "EditStore": "Edit store"
+  },
+  "audit": {
+    "title": "Store sync audit",
+    "subtitle": "Every control, edit and onboarding step on store sync, with who did it and why.",
+    "filters": "Filter the audit trail",
+    "from": "From",
+    "to": "To",
+    "who": "Who",
+    "code": "Store code",
+    "apply": "Search",
+    "clear": "Clear",
+    "badRange": "The end date is before the start date.",
+    "loading": "Loading the audit trail…",
+    "failed": "The audit trail could not be loaded.",
+    "empty": "Nothing is recorded for these filters.",
+    "emptyStore": "Nothing is recorded for this store.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "batch": "Batch",
+    "columns": {
+      "at": "When",
+      "who": "Who",
+      "action": "Action",
+      "codes": "Stores",
+      "change": "Before → after",
+      "reason": "Reason"
+    }
+  },
+  "loops": {
+    "push": "Push",
+    "pull": "Pull"
+  },
+  "commandStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Done": "Done",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled",
+    "Expired": "Expired"
+  },
+  "commandKinds": {
+    "RetryNow": "Retry now",
+    "RePush": "Re-push",
+    "ConnectionTest": "Connection test"
+  },
+  "run": {
+    "label": "Last command",
+    "RetryNow": {
+      "running": "Retrying…",
+      "ok": "Retry done",
+      "failed": "Retry failed",
+      "stillRunning": "Retry still running. Follow it on the Commands page."
+    },
+    "ConnectionTest": {
+      "running": "Testing…",
+      "ok": "Connection OK",
+      "failed": "Connection test failed",
+      "stillRunning": "Connection test still running. Follow it on the Commands page."
+    },
+    "dismiss": "Dismiss",
+    "untracked": "{{action}} was queued, but the answer named no command to follow. Look for it on the Commands page."
+  },
+  "rePush": {
+    "titleOne": "Re-push to store {{code}}",
+    "titleMany_one": "Re-push to {{n}} store",
+    "titleMany_other": "Re-push to {{n}} stores",
+    "scope": "What",
+    "allObjects": "All push objects",
+    "chosenObjects": "Chosen objects",
+    "objectsOf": "Push objects of store <code>{{code}}</code>",
+    "objectsLoading": "Loading the push objects…",
+    "objectsFailed": "The push objects could not be loaded. All push objects can still be re-pushed.",
+    "objectsEmpty": "This store has no push objects listed.",
+    "pickObject": "Choose at least one object.",
+    "from": "Replay actions from",
+    "windowNote": "The earliest date is the start of the 41-day action log (<min>{{min}}</min>). Older changes cannot be replayed from here; that needs a store re-seed.",
+    "previewButton": "Preview",
+    "previewing": "Previewing…",
+    "previewFirst": "Preview the re-push to see how many actions it replays before you confirm.",
+    "previewStale": "The inputs changed since the preview. Preview again before you confirm.",
+    "previewFailed": "The preview could not be read.",
+    "confirm": "Queue re-push",
+    "preview": {
+      "one_one": "Replays {{total}} action to store {{code}}, from {{from}}.",
+      "one_other": "Replays {{total}} actions to store {{code}}, from {{from}}.",
+      "many_one": "Replays {{total}} action in total to {{stores}} stores, from {{from}}: {{perStore}}.",
+      "many_other": "Replays {{total}} actions in total to {{stores}} stores, from {{from}}: {{perStore}}.",
+      "none": "No store would replay anything from {{from}}."
+    },
+    "queued": "Queued as batch {{batch}}."
+  },
+  "commands": {
+    "title": "Store sync commands",
+    "subtitle": "One-shot commands waiting for, or done by, the worker. A re-push to several stores is one batch with one row per store.",
+    "filters": "Filter the commands",
+    "status": "Status",
+    "statusAny": "Any status",
+    "kind": "Command",
+    "kindAny": "Any command",
+    "batch": "Batch",
+    "code": "Store code",
+    "apply": "Search",
+    "clear": "Clear",
+    "loading": "Loading commands…",
+    "failed": "The commands could not be loaded.",
+    "empty": "No command matches these filters.",
+    "emptyStore": "No command for this store.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "expiryNote": "A pending command expires after 24 h. A paused store keeps its commands pending until it resumes.",
+    "cancel": "Cancel",
+    "cancelTitle": "Cancel {{kind}}: store {{code}}",
+    "cancelConfirm": "Cancel command",
+    "columns": {
+      "requestedAt": "Requested",
+      "requestedBy": "By",
+      "code": "Store",
+      "kind": "Command",
+      "batchId": "Batch",
+      "status": "Status",
+      "result": "Result",
+      "finishedAt": "Finished",
+      "objectId": "Object",
+      "fromDate": "From"
+    }
+  },
+  "commandResults": {
+    "allOk_one": "{{action}} queued for {{total}} store.",
+    "allOk_other": "{{action}} queued for {{total}} stores.",
+    "someFailed": "{{action}} queued for {{ok}} of {{total}} stores; {{failed}} refused.",
+    "allFailed_one": "{{action}} was refused for the store.",
+    "allFailed_other": "{{action}} was refused for all {{total}} stores.",
+    "empty": "{{action}}: no store came back in the answer."
+  },
+  "cancelResults": {
+    "allOk_one": "{{total}} command cancelled.",
+    "allOk_other": "{{total}} commands cancelled.",
+    "someFailed": "{{ok}} of {{total}} commands cancelled; {{failed}} refused.",
+    "allFailed_one": "The command could not be cancelled.",
+    "allFailed_other": "None of the {{total}} commands could be cancelled.",
+    "empty": "No command came back in the answer."
+  },
+  "pending": {
+    "title": "Sync pending",
+    "subtitle": "Stores that have a master but no sync location yet, so an unfinished onboarding is never forgotten.",
+    "note": "Only codes in the four-character store format are listed. Finish adds the sync location; dismiss a row that is not a real store.",
+    "loading": "Loading the pending stores…",
+    "failed": "The pending stores could not be loaded.",
+    "empty": "No store is waiting for a sync location.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "finish": "Finish onboarding",
+    "dismiss": "Dismiss",
+    "dismissNote": "Dismissed stores leave this list. The dismissal is kept in the audit log with your reason.",
+    "dismissed_one": "{{n}} store dismissed from the pending list.",
+    "dismissed_other": "{{n}} stores dismissed from the pending list.",
+    "columns": {
+      "code": "Code",
+      "description": "Store",
+      "city": "City",
+      "createdAt": "Created"
+    }
+  },
+  "onboard": {
+    "title": "New store",
+    "subtitle": "Step 1 creates the store master. Step 2 adds it to sync. A store that already exists can start at step 2.",
+    "viewOnly": "Your account can view store sync but cannot onboard stores or add sync locations.",
+    "steps": {
+      "label": "Onboarding steps",
+      "master": "1. Store master",
+      "location": "2. Sync location",
+      "result": "Result"
+    },
+    "input": {
+      "label": "How many stores",
+      "one": "One store",
+      "paste": "Paste many"
+    },
+    "skipToLocation": "The store already exists: go to step 2",
+    "backToMaster": "Create the store master first",
+    "fields": {
+      "code": "Code",
+      "description": "Description",
+      "city": "City",
+      "area": "Area",
+      "address": "Address",
+      "phone": "Phone",
+      "cr": "CR number",
+      "ip": "Store IP address",
+      "templateStore": "Template store",
+      "templateLocation": "Template location"
+    },
+    "templateStoreHint": "Payment types and machines are copied from this store.",
+    "templateLocationHint": "Settings and counters are copied from this location. A code that is not a template is refused.",
+    "templateChoices": "Template locations",
+    "templates": {
+      "P001": "Store",
+      "C011": "Call centre"
+    },
+    "code": {
+      "empty": "Four characters, A to Z or 0 to 9.",
+      "ok": "Format OK.",
+      "lowercase": "Lowercase is refused. Type the code in capitals.",
+      "format": "Exactly four characters, A to Z or 0 to 9."
+    },
+    "paste": {
+      "label": "Paste rows, tab or comma separated, in this order: {{columns}}. A header row is skipped.",
+      "line": "Line",
+      "check": "Check",
+      "ok": "Ready",
+      "tally_one": "{{n}} row read, {{marked}} marked.",
+      "tally_other": "{{n}} rows read, {{marked}} marked.",
+      "headerSkipped": "The header row was skipped.",
+      "tooMany": "At most {{cap}} stores can be onboarded at once. Paste the rest in a second round.",
+      "ipFromRows_one": "The IP address comes from the pasted row ({{n}} row).",
+      "ipFromRows_other": "The IP addresses come from the pasted rows ({{n}} rows)."
+    },
+    "problems": {
+      "COLUMN_COUNT": "Wrong number of columns",
+      "CODE_EMPTY": "No code",
+      "CODE_LOWERCASE": "Lowercase code refused",
+      "CODE_FORMAT": "Code is not four capitals or digits",
+      "DUPLICATE": "Code already on an earlier row",
+      "IP_MISSING": "No IP address"
+    },
+    "notes": {
+      "credentials": "Group, father, database, instance and the login are copied from the template on the server. Nobody types or sees the password.",
+      "test": "The store starts on the worker, and a connection test runs right after. If it fails you get a warning, and the store is still created.",
+      "counters": "Counters start at 0, so the store replays the last 41 days of the action log. That is right only when the store database was restored from a recent seed."
+    },
+    "next": "Continue to the sync location",
+    "back": "Back",
+    "preview": "Preview",
+    "createMaster": "Create stores and sync locations",
+    "createLocation": "Add to sync",
+    "previewFirst": "Preview first to see what each row will do before you create anything.",
+    "previewStale": "The rows or templates changed since the preview. Preview again before you create.",
+    "failed": "The request was refused.",
+    "again": "Onboard more",
+    "sentence": {
+      "preview": "Preview. Stores to create: {{created}}. Already existing, step 1 skipped: {{skipped}}. Refused: {{failed}}. Warnings: {{warnings}}.",
+      "done": "Stores created: {{created}}. Already existing, step 1 skipped: {{skipped}}. Refused: {{failed}}. Warnings: {{warnings}}."
+    },
+    "locationSentence": {
+      "preview": "Preview. Sync locations to add: {{ok}}. Refused: {{failed}}.",
+      "done": "Sync locations added: {{ok}}. Refused: {{failed}}. A connection test runs for each new location."
+    },
+    "result": {
+      "code": "Code",
+      "store": "Store master",
+      "location": "Sync location",
+      "refusal": "Refused",
+      "test": "Connection test",
+      "refused": "Refused",
+      "empty": "No row came back in the answer.",
+      "preview": {
+        "created": "Will create",
+        "skipped": "Exists, skips to step 2",
+        "location": "Will add, on worker"
+      },
+      "done": {
+        "created": "Created",
+        "skipped": "Existed",
+        "location": "Added, on worker"
+      },
+      "noStore": "No store master: create the store first"
+    },
+    "test": {
+      "testing": "Testing…",
+      "ok": "Connection OK",
+      "warning": "Could not connect yet",
+      "stillRunning": "Still testing. Follow it on the Commands page."
+    }
+  },
+  "editLocation": {
+    "open": "Edit location",
+    "title": "Edit location: store {{code}}",
+    "note": "Only the description, IP address, instance and database can be changed here. The code, the template and the credentials cannot.",
+    "save": "Save location",
+    "saved": "The sync location of store {{code}} was saved."
+  },
+  "editStore": {
+    "open": "Edit store",
+    "title": "Edit store: {{code}}",
+    "note": "The current address cannot be read back here, so type every field. What you save replaces what is stored.",
+    "save": "Save store",
+    "saved": "The store master of {{code}} was saved."
+  }
+}

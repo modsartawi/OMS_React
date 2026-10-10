@@ -85,6 +85,10 @@ import materialsGs1CheckAr from '@/locales/ar/materials-gs1-check.json'
 // Material detail (BackOffice spec 2544, ticket 452) — English and Arabic together.
 import materialsDetail from '@/locales/en/materials-detail.json'
 import materialsDetailAr from '@/locales/ar/materials-detail.json'
+// The store sync console (spec 444, ticket 445). Namespace == feature name, and ENGLISH ONLY by
+// ruling (BackOffice 2522 §3): there is no `ar` bundle, so Arabic falls back to these strings.
+// 446–449 add their keys here rather than minting a second namespace.
+import syncConsole from '@/locales/en/sync-console.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -92,7 +96,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console'],
   resources: {
     en: {
       common,
@@ -128,6 +132,7 @@ i18n.use(initReactI18next).init({
       'materials-stock-check': materialsStockCheck,
       'materials-gs1-check': materialsGs1Check,
       'materials-detail': materialsDetail,
+      'sync-console': syncConsole,
     },
     ar: {
       document: documentAr,

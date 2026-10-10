@@ -68,7 +68,8 @@ export default function StoreHealth({ row }: { row: StoreDetail }) {
   )
 }
 
-function Block({ title, data, children }: { title: string; data: string; children: ReactNode }) {
+/** A titled block of the health summary — shared with the mirror block (`MirrorHealth`). */
+export function Block({ title, data, children }: { title: string; data: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-health-block={data}>
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
@@ -77,7 +78,8 @@ function Block({ title, data, children }: { title: string; data: string; childre
   )
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+/** One labelled value. */
+export function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 text-sm">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -87,7 +89,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** A server time, or "Never" when the door sent `null`. */
-function Time({ value }: { value: string | null }) {
+export function Time({ value }: { value: string | null }) {
   const { t } = useTranslation('sync-console')
   return value ? <Ltr>{formatDateTime(value)}</Ltr> : <span className="text-muted-foreground">{t('health.never')}</span>
 }

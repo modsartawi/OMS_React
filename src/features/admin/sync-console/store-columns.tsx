@@ -18,7 +18,7 @@ import CodeBadgeView from './CodeBadgeView'
 export const STORE_DEFAULT_COL_DEF: ColDef = CONSOLE_DEFAULT_COL_DEF
 
 /** A count, grouped; `null` (not tracked, e.g. a pull counter's log head) is blank, not `0`. */
-const formatFigure = (p: ValueFormatterParams) => (p.value == null ? '' : figure(p.value as number))
+export const formatFigure = (p: ValueFormatterParams) => (p.value == null ? '' : figure(p.value as number))
 
 export function buildCounterColumns(t: TFunction): ColDef<StoreCounter>[] {
   return [

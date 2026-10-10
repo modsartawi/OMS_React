@@ -152,7 +152,7 @@
     "noStoreHint": "No store with this code has a sync location. Check the code, or go back to the fleet.",
     "host": "Host",
     "pending": "Control pending: the worker has not applied it yet",
-    "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown.",
+    "wpfNote": "This store is still synced by WPF. WPF writes no health, so only its counters and its passes are shown for the master and counter rails.",
     "healthAsOf": "Health as of <at>{{at}}</at>",
     "noHealth": "The worker has not reported health for this store yet."
   },
@@ -185,7 +185,12 @@
       "passErrors": "Pass errors",
       "connectFailOnly": "Connect failures only",
       "noData": "No data"
-    }
+    },
+    "lines": {
+      "store": "Master and counter",
+      "mirror": "Mirror"
+    },
+    "mirrorTitle": "{{reading}}: rows pulled {{pulled}}, applied {{applied}}, deferred {{deferred}}, errored {{errored}}, dead-lettered {{deadLettered}}; sweeps {{sweeps}}; connect failures {{connectFailures}}"
   },
   "tabs": {
     "label": "Store sync details",
@@ -195,7 +200,8 @@
     "scripts": "Scripts",
     "audit": "Audit",
     "location": "Location",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "mirror": "Mirror"
   },
   "counters": {
     "loading": "Loading counters…",
@@ -665,5 +671,78 @@
     "note": "The current address cannot be read back here, so type every field. What you save replaces what is stored.",
     "save": "Save store",
     "saved": "The store master of {{code}} was saved."
+  },
+  "mirrorHealth": {
+    "label": "Mirror rail",
+    "title": "Mirror",
+    "notOnMirror": "This store is not on the mirror rail: it has no swept location.",
+    "reachable": "Reachable",
+    "lastConnectOk": "Last connect",
+    "lastConnectFail": "Last connect failure",
+    "pull": "Pull",
+    "lastPull": "Last pull",
+    "lastPullOk": "Last good pull",
+    "tillBacklog": "Till backlog",
+    "tillBacklogCount_one": "<n>{{n}}</n> event waiting on the till",
+    "tillBacklogCount_other": "<n>{{n}}</n> events waiting on the till",
+    "notMeasured": "Never measured: no good connect yet",
+    "oldest": "Oldest",
+    "inbox": "Inbox",
+    "inboxPending": "Pending",
+    "inboxDeferred": "Deferred",
+    "oldestDeferred": "Oldest deferred",
+    "deadLetters": "Dead letters",
+    "openDeadLetters": "Open"
+  },
+  "mirrorTab": {
+    "notOnMirror": "This store is not on the mirror rail, so it has no mirror inbox and no dead letters.",
+    "noPayload": "An event's payload is never shown.",
+    "byEntityType": {
+      "title": "Inbox by entity type",
+      "empty": "The mirror inbox holds nothing for this store.",
+      "columns": {
+        "entityType": "Entity type",
+        "pending": "Pending",
+        "deferred": "Deferred",
+        "deadLetters": "Dead letters"
+      }
+    },
+    "deadLetters": "Dead letters",
+    "stage": "Stage",
+    "reason": "Reason",
+    "allStages": "All stages",
+    "allReasons": "All reasons",
+    "includeAcknowledged": "Include acknowledged",
+    "loading": "Loading dead letters…",
+    "failed": "The dead letters could not be loaded.",
+    "empty": "No dead letter matches.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "showError": "Show the whole error",
+    "errorTitle": "Dead letter {{id}}",
+    "close": "Close",
+    "stages": {
+      "pull": "Pull",
+      "apply": "Apply"
+    },
+    "reasons": {
+      "errorCap": "Error cap",
+      "orphaned": "Orphaned (deferred past the cutoff)",
+      "unmapped": "Unmapped",
+      "poison": "Poison"
+    },
+    "columns": {
+      "stage": "Stage",
+      "reason": "Reason",
+      "entityType": "Entity type",
+      "entityId": "Entity id",
+      "action": "Action",
+      "attempts": "Attempts",
+      "firstSeenAt": "First seen",
+      "lastSeenAt": "Last seen",
+      "error": "Error",
+      "acknowledgedAt": "Acknowledged",
+      "acknowledgedBy": "Acknowledged by",
+      "acknowledgeReason": "Why"
+    }
   }
 }

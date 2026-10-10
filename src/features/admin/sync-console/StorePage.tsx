@@ -6,12 +6,13 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { canOpenSyncConsole, storeQuery, syncConsoleAccessQuery } from './api'
-import { isWpfStore } from './store-helpers'
+import { isOnMirror, isWpfStore } from './store-helpers'
 import HourStrip from './HourStrip'
 import EditStore from './EditStore'
 import StoreControls from './StoreControls'
 import StoreHeader from './StoreHeader'
 import StoreHealth from './StoreHealth'
+import MirrorHealth from './MirrorHealth'
 import StoreTabs from './StoreTabs'
 import Loading from './Loading'
 
@@ -26,6 +27,9 @@ import Loading from './Loading'
  * 🚩 **A WPF store** has no health row, so it shows only its Counters and Passes,
  * with a note that WPF still syncs it — no health summary, no strip (whose hours
  * would all be "no data") and no tab the worker alone writes.
+ *
+ * Spec 2563 (ticket 457) adds the mirror lane under the health (`MirrorHealth`), for
+ * every store, a WPF one included; the strip's Mirror line; and the Mirror tab.
  */
 export default function StorePage() {
   const { t } = useTranslation('sync-console')
@@ -94,6 +98,8 @@ function Store() {
               ) : (
                 <StoreHealth row={row} />
               )}
+              {/* 457: the mirror lane, for every store — a WPF one keeps its own (ADR 0073). */}
+              <MirrorHealth row={row} />
             </>
           )}
           {/* Keyed on the store, so one store's refused list never shows under another's controls.
@@ -106,7 +112,10 @@ function Store() {
       )}
       {known && (
         <>
-          {!isWpfStore(known) && <HourStrip code={known.code} />}
+          {/* A WPF store's strip carries its Mirror line alone, and only when it is on mirror (ADR 0073). */}
+          {(!isWpfStore(known) || isOnMirror(known)) && (
+            <HourStrip code={known.code} storeLine={!isWpfStore(known)} onMirror={isOnMirror(known)} />
+          )}
           {/* Keyed on the store, so a link to another store resets every tab's own page state. */}
           <StoreTabs key={known.code} row={known} />
         </>

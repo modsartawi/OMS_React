@@ -9,6 +9,8 @@
 import type { Severity } from '@/core/ui/severity'
 import {
   HOUR_CELLS,
+  type DeadLetterReason,
+  type DeadLetterStage,
   type HourCell,
   type PassLineStatus,
   type PassOutcome,
@@ -102,13 +104,20 @@ export function clampPassesFrom(value: string, today: Date): string {
 
 // ── The tabs ────────────────────────────────────────────────────────────────────
 
-export type StoreTab = 'counters' | 'passes' | 'commands' | 'scripts' | 'audit' | 'location'
+export type StoreTab = 'counters' | 'passes' | 'commands' | 'scripts' | 'audit' | 'location' | 'mirror'
 
-/** Every tab, in the prototype's order. */
-export const STORE_TABS: readonly StoreTab[] = ['counters', 'passes', 'commands', 'scripts', 'audit', 'location']
+/**
+ * Every tab, in the prototype's order. The mirror rail's tab (spec 2563, ticket 457) is
+ * appended at the end, as ruled for the wave.
+ */
+export const STORE_TABS: readonly StoreTab[] = ['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror']
 
-/** The two a WPF store keeps: WPF writes counters and passes, and nothing else the console reads. */
-const WPF_TABS: readonly StoreTab[] = ['counters', 'passes']
+/**
+ * The tabs a WPF store keeps: WPF writes counters and passes, and nothing else of the
+ * master and counter rails the console reads. Its mirror lane is its own, though: the
+ * rails are independent (ADR 0073), so Mirror is appended here too.
+ */
+const WPF_TABS: readonly StoreTab[] = ['counters', 'passes', 'mirror']
 
 const HOST_SEVERITY: Record<StoreRow['host'], Severity> = { Worker: 'go', Wpf: 'mute' }
 
@@ -120,10 +129,19 @@ export function hostBadge(host: string): CodeBadge {
 /** A store still synced by WPF — the door's `host`, never a guess from blank health fields. */
 export const isWpfStore = (row: Pick<StoreRow, 'host'>): boolean => row.host === 'Wpf'
 
-/** The tabs a store's page offers: all six, or Counters and Passes alone on a WPF store. */
+/** The tabs a store's page offers: all seven, or Counters, Passes and Mirror on a WPF store. */
 export function storeTabs(row: Pick<StoreRow, 'host'>): readonly StoreTab[] {
   return isWpfStore(row) ? WPF_TABS : STORE_TABS
 }
+
+/**
+ * A store the mirror rail sweeps — the lane's `onMirror`, `=== true` and nothing looser,
+ * as on the fleet's lane chip. The mirror block, the strip's Mirror line and the Mirror
+ * tab all read it: the tab is offered to every store, but reads `Store/Mirror` only
+ * for one on mirror.
+ */
+export const isOnMirror = (row: Pick<StoreRow, 'mirror'>): boolean => row.mirror?.onMirror === true
+
 
 /** The open tab from `?tab=`: one the store offers, else its first. */
 export function resolveStoreTab(param: string | null, tabs: readonly StoreTab[]): StoreTab {
@@ -161,4 +179,60 @@ export function scriptBadge(script: Pick<StoreScript, 'isExecuted' | 'errorMessa
   if (script.isExecuted) return { labelKey: 'scripts.executed', sev: 'ok' }
   if (script.errorMessage) return { labelKey: 'scripts.failed', sev: 'bad' }
   return { labelKey: 'scripts.notExecuted', sev: 'mute' }
+}
+
+// ── The Mirror tab (spec 2563, ticket 457) ──────────────────────────────────────
+
+/**
+ * A dead letter's stage and reason are words, not alarms: every row of the list is a
+ * dead letter already. Both read through `codeBadge`, so a value this bundle does not
+ * know shows its raw code.
+ */
+const STAGE_SEVERITY: Record<DeadLetterStage, Severity> = { pull: 'mute', apply: 'mute' }
+
+const REASON_SEVERITY: Record<DeadLetterReason, Severity> = {
+  errorCap: 'mute',
+  orphaned: 'mute',
+  unmapped: 'mute',
+  poison: 'mute',
+}
+
+/** A dead letter's stage label; an unknown stage has no key, so its raw code shows. */
+export function deadLetterStageLabel(stage: string): CodeBadge {
+  return codeBadge(STAGE_SEVERITY, 'mirrorTab.stages', stage)
+}
+
+/** A dead letter's reason label; an unknown reason has no key, so its raw code shows. */
+export function deadLetterReasonLabel(reason: string): CodeBadge {
+  return codeBadge(REASON_SEVERITY, 'mirrorTab.reasons', reason)
+}
+
+/** The dead-letter list pages at 50, as every console table does. */
+export const MIRROR_PAGE_SIZE = 50
+
+/** The Mirror tab's filters — the door's `stage`, `reason` and `includeAcknowledged`. */
+export interface MirrorFilter {
+  /** `null` = both stages. */
+  stage: DeadLetterStage | null
+  /** `null` = every reason. */
+  reason: DeadLetterReason | null
+  includeAcknowledged: boolean
+}
+
+export const DEFAULT_MIRROR_FILTER: MirrorFilter = { stage: null, reason: null, includeAcknowledged: false }
+
+/**
+ * The `GET ActionSync/Store/Mirror` parameters. An empty stage or reason is dropped by
+ * `@/core/api`'s query builder; `includeAcknowledged` is always sent, so the door is
+ * never left to guess. The page never goes below 1.
+ */
+export function mirrorQuery(code: string, filter: MirrorFilter, page: number): Record<string, unknown> {
+  return {
+    code,
+    stage: filter.stage,
+    reason: filter.reason,
+    includeAcknowledged: filter.includeAcknowledged,
+    page: Math.max(1, Math.floor(page)),
+    pageSize: MIRROR_PAGE_SIZE,
+  }
 }

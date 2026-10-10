@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { ColDef, GetRowIdParams } from 'ag-grid-community'
+import type { ColDef, GetRowIdParams, RowClassRules } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -25,6 +25,7 @@ export default function TabGrid<T>({
   empty,
   loading,
   data,
+  rowClassRules,
 }: {
   rows: T[] | undefined
   columns: ColDef<T>[]
@@ -42,6 +43,12 @@ export default function TabGrid<T>({
   loading: string
   /** The `data-*` hook a drive finds the list by. */
   data: string
+  /**
+   * Classes a row takes while a rule holds (the Mirror tab mutes an acknowledged dead
+   * letter). Rules, not `getRowClass`: AG Grid re-applies them both ways when a kept
+   * row's data changes, where a `getRowClass` class is only ever added. Module-level.
+   */
+  rowClassRules?: RowClassRules<T>
 }) {
   const getRowId = useMemo(() => (rowId ? ({ data: row }: GetRowIdParams<T>) => rowId(row) : undefined), [rowId])
   if (pending) return <Loading label={loading} />
@@ -60,6 +67,7 @@ export default function TabGrid<T>({
         columnDefs={columns}
         defaultColDef={STORE_DEFAULT_COL_DEF}
         getRowId={getRowId}
+        rowClassRules={rowClassRules}
         rowHeight={OMS_GRID_ROW_HEIGHT}
         headerHeight={OMS_GRID_HEADER_HEIGHT}
         domLayout="autoHeight"

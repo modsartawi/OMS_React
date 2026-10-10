@@ -20,6 +20,22 @@
 //   7. a WPF store shows only Counters and Passes, with the WPF note, no health and no strip;
 //   8. a 404 NO_STORE shows "No such store", asked once, not a crash.
 //
+// Ticket 457 (spec 2563, BackOffice 2564/2565/2567/2568 — unbuilt, so every mirror shape is a stub in the
+// contract's section "Mirror lane and rail agreement"). The stores above stay in the shape the doors had
+// BEFORE 2563, so the console's boundary fill runs on every old check. It adds:
+//   9. a store on mirror: the mirror block (reachability, last pull / last good pull, till backlog with its
+//      "till clock" oldest, inbox pending / deferred, open dead letters, the mirror state badges); a never
+//      measured till backlog reads differently from 0;
+//  10. the strip's Mirror line from each hour's mirror.cell, on the same legend, its hover giving the counts;
+//  11. the Mirror tab: the inbox by entity type, dead letters paged at 50, the stage and reason filters,
+//      include-acknowledged (muted rows with who / when / why), the error truncated and expandable, no
+//      payload anywhere, and the tab's Refresh;
+//  12. a store not on mirror (an old door's): the block, the strip line and the tab read "not on mirror",
+//      and Store/Mirror is never asked (a request counter); a WPF store on mirror draws its strip with the
+//      Mirror line alone.
+// 🚩 Changed on purpose by 457, and only these two: the worker store's tab list (six → seven, Mirror last)
+// and the WPF store's (Counters, Passes → Counters, Passes, Mirror). Every other assertion is unchanged.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -95,7 +111,53 @@ const WPF_STORE = {
   appliedVersion: 0,
   appliedAt: null,
 }
-const STORES = { P001: WORKER_STORE, P002: WPF_STORE }
+// ── Ticket 457: stores on the mirror rail, in the contract's 2563 shape ──
+const MIRROR_LANE = {
+  onMirror: true,
+  lastPullAt: '2026-10-09T12:03:30',
+  lastPullOkAt: '2026-10-09T11:58:00',
+  lastConnectOkAt: '2026-10-09T11:58:00',
+  lastConnectFailAt: '2026-10-09T12:03:30',
+  lastConnectError: 'Login failed for user (mirror connect)',
+  tillBacklogCount: 4210,
+  tillBacklogOldestAt: '2026-10-09T10:41:00',
+  inboxPending: 1830,
+  inboxDeferred: 12,
+  oldestDeferredAt: '2026-10-09T09:20:00',
+  openDeadLetters: 65,
+}
+const MIRROR_STORE = {
+  ...WORKER_STORE,
+  code: 'P003',
+  description: 'Malaz',
+  controlPending: false,
+  states: ['onWorker', 'mirrorOffline', 'mirrorBehind', 'deadLetters'],
+  mirror: MIRROR_LANE,
+  agreement: 'notJudged',
+}
+// On mirror, never measured (no good connect yet), and no mirror state.
+const UNMEASURED_STORE = {
+  ...WORKER_STORE,
+  code: 'P004',
+  description: 'Sulay',
+  controlPending: false,
+  states: ['onWorker'],
+  mirror: {
+    ...MIRROR_LANE,
+    lastConnectFailAt: null,
+    lastConnectError: null,
+    tillBacklogCount: null,
+    tillBacklogOldestAt: null,
+    inboxPending: 0,
+    inboxDeferred: 0,
+    oldestDeferredAt: null,
+    openDeadLetters: 0,
+  },
+  agreement: 'notJudged',
+}
+// A WPF store on mirror: its lane is its own (ADR 0073).
+const WPF_MIRROR_STORE = { ...WPF_STORE, code: 'P005', description: 'Rawdah', mirror: MIRROR_LANE, agreement: 'notJudged' }
+const STORES = { P001: WORKER_STORE, P002: WPF_STORE, P003: MIRROR_STORE, P004: UNMEASURED_STORE, P005: WPF_MIRROR_STORE }
 
 // 24 hours, oldest first: 08:00 yesterday … 07:00 … the cells cycle the five, with one cell a door newer
 // than this bundle might send.
@@ -107,6 +169,71 @@ const HOURS = Array.from({ length: 24 }, (_, i) => {
   const cell = i === 23 ? 'melting' : CYCLE[i % CYCLE.length]
   return { hour, cell, pushPasses: 60, pullPasses: 120, connectFailures: 0, actionsPushed: 400, trxPulled: 90, errors: 0 }
 })
+
+// The same hours with the 2563 mirror member; one mirror cell a door newer than this bundle might send.
+const MIRROR_CYCLE = ['idle', 'work', 'connectFailOnly', 'passErrors', 'noData', 'idle']
+const MIRROR_HOURS = HOURS.map((h, i) => ({
+  ...h,
+  mirror: {
+    cell: i === 22 ? 'thawing' : MIRROR_CYCLE[i % MIRROR_CYCLE.length],
+    sweeps: 120,
+    connectFailures: i === 2 ? 3 : 0,
+    rowsPulled: 1200 + i,
+    applied: 1180,
+    deferred: 4,
+    errored: i === 3 ? 2 : 0,
+    deadLettered: i === 3 ? 1 : 0,
+  },
+}))
+
+// Store/Mirror: 60 open dead letters of both stages (two pages at 50) and 5 acknowledged ones.
+const LONG_ERROR =
+  'Violation of FOREIGN KEY constraint "FK_PosTransactionLine_Header". The conflict occurred in database "POS", ' +
+  'table "dbo.PosTransactionHeader", column Id. The statement has been terminated while applying the snapshot ' +
+  'of transaction 0042-0007-118812 on till 3.'
+const APPLY_REASONS = ['errorCap', 'orphaned', 'unmapped']
+const DEAD_LETTERS = [
+  ...Array.from({ length: 60 }, (_, i) => {
+    const pull = i % 4 === 3
+    return {
+      id: String(88000 - i),
+      stage: pull ? 'pull' : 'apply',
+      // One reason a door newer than this bundle might send.
+      reason: i === 1 ? 'melted' : pull ? 'poison' : APPLY_REASONS[i % 3],
+      entityType: pull ? 'TRX/COMPLETED' : 'SHIFT/CLOSED',
+      entityId: `E-${1000 + i}`,
+      action: pull ? null : 'Upsert',
+      attempts: pull ? 3 : 10,
+      firstSeenAt: '2026-10-08T22:10:00',
+      lastSeenAt: `2026-10-09T${String(11 - Math.floor(i / 10)).padStart(2, '0')}:${String(59 - (i % 10)).padStart(2, '0')}:00`,
+      error: i === 0 ? LONG_ERROR : `Apply failed (${i})`,
+      canRetry: !pull,
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+      acknowledgeReason: null,
+    }
+  }),
+  ...Array.from({ length: 5 }, (_, i) => ({
+    id: String(77000 - i),
+    stage: 'apply',
+    reason: 'errorCap',
+    entityType: 'DRAWER/MOVED',
+    entityId: `D-${200 + i}`,
+    action: 'Upsert',
+    attempts: 10,
+    firstSeenAt: '2026-10-01T09:00:00',
+    lastSeenAt: '2026-10-01T10:00:00',
+    error: 'Cannot insert duplicate key',
+    canRetry: false,
+    acknowledgedAt: '2026-10-02T08:15:00',
+    acknowledgedBy: 'msartawi',
+    acknowledgeReason: 'Superseded by the shift re-send',
+  })),
+]
+const BY_ENTITY_TYPE = [
+  { entityType: 'SHIFT/CLOSED', pending: 1200, deferred: 12, deadLetters: 45 },
+  { entityType: 'TRX/COMPLETED', pending: 630, deferred: 0, deadLetters: 15 },
+]
 
 const COUNTERS = {
   items: [
@@ -173,7 +300,25 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity } = {
     if (p === 'ActionSync/Store/Hours') {
       if (calls.filter((c) => c.startsWith('ActionSync/Store/Hours?')).length > failHoursAfter)
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'The hours read failed.', errorCode: 'BOOM' }))
-      return route.fulfill(envelope({ items: HOURS }))
+      // A store on mirror gets the 2563 hours; the others keep the old door's shape.
+      return route.fulfill(envelope({ items: STORES[code]?.mirror ? MIRROR_HOURS : HOURS }))
+    }
+    if (p === 'ActionSync/Store/Mirror') {
+      if (!STORES[code]?.mirror)
+        return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
+      const stage = url.searchParams.get('stage')
+      const reason = url.searchParams.get('reason')
+      const withAck = url.searchParams.get('includeAcknowledged') === 'true'
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      const rows = DEAD_LETTERS.filter((d) => (!stage || d.stage === stage) && (!reason || d.reason === reason) && (withAck || !d.acknowledgedAt))
+      return route.fulfill(
+        envelope({
+          lane: STORES[code].mirror,
+          byEntityType: BY_ENTITY_TYPE,
+          deadLetters: { items: rows.slice((pg - 1) * size, pg * size), total: rows.length, page: pg, pageSize: size },
+        }),
+      )
     }
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope(COUNTERS))
     if (p === 'ActionSync/Store/Passes') {
@@ -249,7 +394,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('2. the legend lists the five cells', JSON.stringify(legend) === '["Passes ran, work moved","Checked, idle","Pass errors","Connect failures only","No data"]', JSON.stringify(legend))
 
   // 3: the tabs, Counters first.
-  check('3. six tabs in the prototype order', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location"]', JSON.stringify(await tabList(page)))
+  // 🚩 Changed on purpose by ticket 457: Mirror is appended at the end (six tabs → seven).
+  check('3. seven tabs in the prototype order, Mirror last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror"]', JSON.stringify(await tabList(page)))
   await page.locator('[data-tab-grid="counters"] .ag-row').first().waitFor()
   check('3. Counters opens first', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('3. …reading Store/Counters', calls.includes('ActionSync/Store/Counters?code=P001'))
@@ -359,7 +505,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('7. the WPF note is shown', /still synced by WPF/.test(strip(await page.locator('[data-wpf-note]').innerText())))
   check('7. no health summary and no strip', (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-hour-strip]').count()) === 0)
   check('7. …and no hours read', !calls.some((c) => c.includes('Store/Hours')))
-  check('7. only Counters and Passes', JSON.stringify(await tabList(page)) === '["counters","passes"]', JSON.stringify(await tabList(page)))
+  // 🚩 Changed on purpose by ticket 457: a WPF store keeps its mirror lane (ADR 0073), so Mirror is appended.
+  check('7. only Counters, Passes and Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror"]', JSON.stringify(await tabList(page)))
   check('7. a withheld ?tab= falls back to Counters', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('7. …and Location is never read', !calls.some((c) => c.includes('Store/Location')))
   check('7. the host reads WPF', /Host WPF/.test(strip(await page.locator('[data-store-header]').innerText())))
@@ -367,6 +514,13 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   await page.locator('[data-tab-grid="passes"] .ag-row').first().waitFor()
   check('7. a WPF store\'s passes are listed', calls.some((c) => c.startsWith('ActionSync/Store/Passes?code=P002')))
   await page.screenshot({ path: `${SHOTS}/wpf.png`, fullPage: true })
+  // 457: an old door's WPF store is not on mirror — its block and its Mirror tab say so, and nothing is asked.
+  check('7. a WPF store not on mirror shows its mirror block as not on mirror', (await page.locator('[data-mirror-health="notOnMirror"]').count()) === 1)
+  await page.locator('[data-tab="mirror"]').click()
+  await page.locator('[data-mirror-tab="notOnMirror"]').waitFor({ timeout: 5000 })
+  await page.waitForTimeout(500)
+  const wpfMirrorCalls = calls.filter((c) => c.startsWith('ActionSync/Store/Mirror')).length
+  check('7. …its Mirror tab reads not on mirror and asks nothing', /not on the mirror rail/.test(await page.locator('[data-mirror-tab]').innerText()) && wpfMirrorCalls === 0, String(wpfMirrorCalls))
   check('no page errors (WPF store)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -387,6 +541,185 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('8. …and nothing else of the store is read', !calls.some((c) => /Store\/(Hours|Counters)/.test(c)))
   await page.screenshot({ path: `${SHOTS}/no-store.png`, fullPage: true })
   check('no page errors (NO_STORE)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 9–11: a store on the mirror rail (ticket 457) ─────────────────────────────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P003`)
+  await page.locator('[data-mirror-health]').waitFor({ timeout: 20000 })
+
+  // 9: the mirror block.
+  check('9. a store on mirror shows its mirror block', (await page.locator('[data-mirror-health="onMirror"]').count()) === 1)
+  check("9. …with the door's mirror state badges, and no other state", (await page.locator('[data-mirror-health] [data-states]').getAttribute('data-states')) === 'mirrorOffline mirrorBehind deadLetters')
+  const mh = strip(await page.locator('[data-mirror-health]').innerText())
+  check('9. …the mirror states named', /Mirror offline/.test(mh) && /Mirror behind/.test(mh) && /Dead letters/.test(mh), mh)
+  const reach = strip(await page.locator('[data-health-block="mirror-reachable"]').innerText())
+  check('9. reachability: last connect, last failure and the error', /Last connect 2026-10-09 11:58/.test(reach) && /Last connect failure 2026-10-09 12:03/.test(reach) && /Login failed for user \(mirror connect\)/.test(reach), reach)
+  check('9. …the error isolated as free text', (await page.locator('bdi[data-mirror-connect-error]').count()) === 1)
+  const pulls = strip(await page.locator('[data-health-block="mirror-pull"]').innerText())
+  check('9. last pull and last good pull', /Last pull 2026-10-09 12:03/.test(pulls) && /Last good pull 2026-10-09 11:58/.test(pulls), pulls)
+  const till = strip(await page.locator('[data-health-block="mirror-till-backlog"]').innerText())
+  check('9. till backlog: the count and its oldest, on the till clock', /4,210 events waiting on the till/.test(till) && /Oldest 2026-10-09 10:41 till clock/.test(till), till)
+  const inbox = strip(await page.locator('[data-health-block="mirror-inbox"]').innerText())
+  check('9. inbox pending and deferred, the oldest deferred on the till clock', /Pending 1,830/.test(inbox) && /Deferred 12/.test(inbox) && /Oldest deferred 2026-10-09 09:20 till clock/.test(inbox), inbox)
+  check('9. …both till times carry the hint', (await page.locator('[data-mirror-health] [data-till-clock]').count()) === 2)
+  const dl = strip(await page.locator('[data-health-block="mirror-dead-letters"]').innerText())
+  check('9. open dead letters', /Open 65/.test(dl), dl)
+
+  // 10: the strip's Mirror line.
+  await page.locator('[data-mirror-hour-cell]').first().waitFor()
+  check('10. both lines come from the one Store/Hours read', calls.filter((c) => c.includes('Store/Hours')).every((c) => c === 'ActionSync/Store/Hours?code=P003&hours=24'))
+  const mcells = await page.locator('[data-mirror-hour-cell]').evaluateAll((els) => els.map((e) => e.getAttribute('data-mirror-hour-cell')))
+  check('10. a Mirror line of one cell per hour', mcells.length === 24, String(mcells.length))
+  check("10. …beside the store worker's line, unchanged", (await page.locator('[data-hour-cell]').count()) === 24)
+  check("10. each mirror cell is the door's mirror.cell", mcells.slice(0, 6).join(',') === 'idle,work,connectFailOnly,passErrors,noData,idle', mcells.join(','))
+  check('10. an unknown mirror cell is drawn as noData', mcells[22] === 'noData')
+  const mSwatch = await page.locator('[data-mirror-hour-cell]').nth(1).evaluate((e) => getComputedStyle(e).backgroundColor)
+  const wSwatch = await page.locator('[data-hour-cell]').nth(0).evaluate((e) => getComputedStyle(e).backgroundColor)
+  check('10. …on the same legend as the store line (work is work)', mSwatch === wSwatch, `${mSwatch} vs ${wSwatch}`)
+  const rawTitle = (await page.locator('[data-mirror-hour-cell]').nth(3).getAttribute('title')) || ''
+  const mTitle = strip(rawTitle)
+  check('10. hovering a mirror cell names its hour and reading, then the mirror counts', mTitle === '2026-10-08 16:00 · Pass errors: rows pulled 1,203, applied 1,180, deferred 4, errored 2, dead-lettered 1; sweeps 120; connect failures 0', mTitle)
+  check('10. …the hour pair isolated once', rawTitle.startsWith('⁨' + '2026-10-08 16:00 · Pass errors' + '⁩'), JSON.stringify(rawTitle.slice(0, 40)))
+  const lines = await page.locator('[data-hour-strip]').innerText()
+  check('10. the two lines are named', /Master and counter/.test(lines) && /Mirror/.test(lines), lines.slice(0, 80))
+  check('10. the legend still lists the five cells, once', (await page.locator('[data-legend]').count()) === 5)
+  await page.screenshot({ path: `${SHOTS}/mirror-store.png`, fullPage: true })
+
+  // 11: the Mirror tab.
+  check('11. the tab list ends with Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror"]')
+  check('11. Store/Mirror is not read before the tab is opened', !calls.some((c) => c.startsWith('ActionSync/Store/Mirror')))
+  await page.locator('[data-tab="mirror"]').click()
+  const first = 'ActionSync/Store/Mirror?code=P003&includeAcknowledged=false&page=1&pageSize=50'
+  check('11. the tab reads Store/Mirror: open dead letters, page 1 of 50', await waitForCall(page, calls, first), calls.filter((c) => c.includes('Mirror')).join(','))
+  await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-row').first().waitFor()
+  const ent = strip(await page.locator('[data-tab-grid="mirror-entities"]').innerText())
+  check('11. the inbox by entity type: pending, deferred, dead letters', /SHIFT\/CLOSED/.test(ent) && /1,200/.test(ent) && /45/.test(ent) && /TRX\/COMPLETED/.test(ent) && /630/.test(ent), ent)
+  check('11. a page draws 50 dead letters', (await rowCount(page, '[data-tab-grid="mirror-dead-letters"] .ag-row', 50)) === 50)
+  const headers = strip(await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-header').innerText())
+  check('11. columns: stage, reason, entity type and id, action, attempts, first and last seen, error', ['Stage', 'Reason', 'Entity type', 'Entity id', 'Action', 'Attempts', 'First seen', 'Last seen', 'Error'].every((h) => headers.includes(h)), headers)
+  check('11. …and no payload column, nor any payload asked for', !/payload/i.test(headers) && !calls.some((c) => /payload/i.test(c)), headers)
+  const applyRow = strip(await page.locator('.ag-row[row-id="apply-88000"]').first().innerText())
+  check('11. an apply dead letter: stage, reason, entity, action, attempts, times', /Apply/.test(applyRow) && /Error cap/.test(applyRow) && /SHIFT\/CLOSED/.test(applyRow) && /E-1000/.test(applyRow) && /Upsert/.test(applyRow) && /\b10\b/.test(applyRow) && /2026-10-08 22:10/.test(applyRow) && /2026-10-09 11:59/.test(applyRow), applyRow)
+  const pullRow = strip(await page.locator('.ag-row[row-id="pull-87997"]').first().innerText())
+  check('11. a pull dead letter: poison, no action', /Pull/.test(pullRow) && /Poison/.test(pullRow) && /TRX\/COMPLETED/.test(pullRow) && !/Upsert/.test(pullRow), pullRow)
+  const unknownReason = strip(await page.locator('.ag-row[row-id="apply-87999"] [col-id="reason"]').first().innerText())
+  check('11. an unknown reason shows its raw code', unknownReason === 'melted', unknownReason)
+  // The error: truncated in its row, whole behind its button, free text.
+  const errCell = page.locator('.ag-row[row-id="apply-88000"] [data-dead-letter-error]').first()
+  const truncated = await errCell.evaluate((e) => e.scrollWidth > e.clientWidth && getComputedStyle(e).textOverflow === 'ellipsis')
+  check('11. a long error is truncated in its row', truncated)
+  check('11. …isolated as free text', (await errCell.evaluate((e) => e.tagName)) === 'BDI')
+  await page.locator('[data-dead-letter-expand="apply-88000"]').first().click()
+  await page.locator('[data-dead-letter-error-full="apply-88000"]').waitFor({ timeout: 5000 })
+  const full = await page.locator('[data-dead-letter-error-full="apply-88000"]').innerText()
+  check('11. …and expands to the whole error', full.includes('applying the snapshot of transaction 0042-0007-118812 on till 3.'), full.slice(-60))
+  check('11. …titled with the dead letter id', strip(await page.locator('dialog #modal-title').innerText()) === 'Dead letter 88000')
+  await page.screenshot({ path: `${SHOTS}/mirror-error.png`, fullPage: true })
+  await page.locator('[data-dead-letter-error-close]').click()
+  check('11. Close shuts it', (await page.locator('dialog[open]').count()) === 0)
+
+  // Paging.
+  await page.getByRole('button', { name: 'Next' }).click()
+  const p2 = 'ActionSync/Store/Mirror?code=P003&includeAcknowledged=false&page=2&pageSize=50'
+  check('11. Next asks for page 2', await waitForCall(page, calls, p2))
+  await page.locator('.ag-row[row-id="apply-87950"]').first().waitFor()
+  check('11. page 2 draws the last 10', (await rowCount(page, '[data-tab-grid="mirror-dead-letters"] .ag-row', 10)) === 10)
+  // The tab's Refresh re-reads it, at its page.
+  const before = calls.filter((c) => c === p2).length
+  await page.locator('[data-tab-refresh="mirror"]').click()
+  const deadline = Date.now() + 5000
+  while (calls.filter((c) => c === p2).length === before && Date.now() < deadline) await page.waitForTimeout(100)
+  check('11. Refresh re-reads the Mirror tab at its page', calls.filter((c) => c === p2).length === before + 1)
+
+  // Filters: each asks the door, from page 1.
+  await page.locator('[data-mirror-stage]').selectOption('apply')
+  check('11. the stage filter asks the door, from page 1', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P003&stage=apply&includeAcknowledged=false&page=1&pageSize=50'), calls.filter((c) => c.includes('Mirror')).slice(-2).join(','))
+  await page.waitForTimeout(300)
+  const stages = await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-cell[col-id="stage"]').evaluateAll((els) => [...new Set(els.map((e) => e.innerText.trim()))])
+  check('11. …and draws apply rows only', JSON.stringify(stages) === '["Apply"]', JSON.stringify(stages))
+  const reasons = await page.locator('[data-mirror-reason] option').evaluateAll((els) => els.map((e) => e.textContent))
+  check('11. the reason filter offers every reason', JSON.stringify(reasons) === '["All reasons","Error cap","Orphaned (deferred past the cutoff)","Unmapped","Poison"]', JSON.stringify(reasons))
+  await page.locator('[data-mirror-reason]').selectOption('orphaned')
+  check('11. the reason filter asks the door', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P003&stage=apply&reason=orphaned&includeAcknowledged=false&page=1&pageSize=50'))
+  const orphanCount = DEAD_LETTERS.filter((d) => d.stage === 'apply' && d.reason === 'orphaned' && !d.acknowledgedAt).length
+  check('11. …and draws its rows', (await rowCount(page, '[data-tab-grid="mirror-dead-letters"] .ag-row', orphanCount)) === orphanCount, String(orphanCount))
+  await page.locator('[data-mirror-reason]').selectOption('errorCap')
+  await page.locator('.ag-row[row-id="apply-88000"]').first().waitFor({ timeout: 5000 })
+  check('11. no acknowledged row is drawn by default', (await page.locator('.ag-row[row-id="apply-77000"]').count()) === 0)
+
+  // Include acknowledged: muted rows with who / when / why.
+  await page.locator('[data-mirror-include-acknowledged]').check()
+  check('11. include-acknowledged asks the door', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P003&stage=apply&reason=errorCap&includeAcknowledged=true&page=1&pageSize=50'))
+  await page.locator('.ag-row[row-id="apply-77000"]').first().waitFor({ timeout: 5000 })
+  // Muted as the settlement grids mute a closed row: the row drawn at reduced opacity.
+  const rowOpacity = (id) => page.locator(`.ag-row[row-id="${id}"]`).first().evaluate((e) => getComputedStyle(e).opacity)
+  const [mutedOpacity, openOpacity] = [await rowOpacity('apply-77000'), await rowOpacity('apply-88000')]
+  check('11. an acknowledged row is drawn muted', Number(mutedOpacity) < 1, mutedOpacity)
+  check('11. …an open one is not', openOpacity === '1', openOpacity)
+  const ackText = strip(
+    (
+      await page
+        .locator('.ag-row[row-id="apply-77000"] [col-id="acknowledgedAt"], .ag-row[row-id="apply-77000"] [col-id="acknowledgedBy"], .ag-row[row-id="apply-77000"] [col-id="acknowledgeReason"]')
+        .evaluateAll((els) => els.map((e) => e.innerText))
+    ).join(' '),
+  )
+  check('11. …showing who, when and why', /2026-10-02 08:15/.test(ackText) && /msartawi/.test(ackText) && /Superseded by the shift re-send/.test(ackText), ackText)
+  await page.screenshot({ path: `${SHOTS}/mirror-tab.png`, fullPage: true })
+  check('11. the tab says no payload is ever shown', /payload is never shown/.test(await page.locator('[data-mirror-tab]').innerText()))
+  check('no page errors (store on mirror)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 9b: on mirror, never measured, no mirror state ────────────────────────────────────────────
+{
+  const { context, page, errors } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P004`)
+  await page.locator('[data-mirror-health]').waitFor({ timeout: 20000 })
+  const till = strip(await page.locator('[data-health-block="mirror-till-backlog"]').innerText())
+  check('9b. a never-measured till backlog says so, not 0', /Never measured/.test(till) && !/\b0\b/.test(till) && (await page.locator('[data-till-not-measured]').count()) === 1, till)
+  check('9b. …and draws no oldest, so no till-clock hint', (await page.locator('[data-mirror-health] [data-till-clock]').count()) === 0)
+  check('9b. on mirror with no mirror state reads so, with no badge', (await page.locator('[data-mirror-no-state]').count()) === 1 && (await page.locator('[data-mirror-health] [data-states]').count()) === 0)
+  check('9b. a zero inbox is 0', /Pending 0/.test(strip(await page.locator('[data-health-block="mirror-inbox"]').innerText())))
+  check('no page errors (never measured)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 12b: a WPF store on mirror ─────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P005?tab=mirror`)
+  await page.locator('[data-mirror-health]').waitFor({ timeout: 20000 })
+  check('12b. a WPF store on mirror keeps the WPF note, no worker health, and its mirror block', (await page.locator('[data-wpf-note]').count()) === 1 && (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-mirror-health="onMirror"]').count()) === 1)
+  await page.locator('[data-mirror-hour-cell]').first().waitFor({ timeout: 10000 })
+  check('12b. …its strip draws the Mirror line alone', (await page.locator('[data-mirror-hour-cell]').count()) === 24 && (await page.locator('[data-hour-cell]').count()) === 0 && !/Master and counter/.test(await page.locator('[data-hour-strip]').innerText()))
+  check('12b. its tabs are Counters, Passes and Mirror, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
+  check('12b. …which reads Store/Mirror', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P005&includeAcknowledged=false&page=1&pageSize=50'))
+  await page.screenshot({ path: `${SHOTS}/wpf-mirror.png`, fullPage: true })
+  check('no page errors (WPF store on mirror)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 12: a store not on mirror (the old door's shape) ──────────────────────────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P001`)
+  await page.locator('[data-mirror-health]').waitFor({ timeout: 20000 })
+  check("12. an old door's store reads not on mirror in its block", (await page.locator('[data-mirror-health="notOnMirror"]').count()) === 1 && /not on the mirror rail/.test(await page.locator('[data-mirror-health]').innerText()))
+  check('12. …with no mirror state and no figure', (await page.locator('[data-mirror-health] [data-states]').count()) === 0 && (await page.locator('[data-health-block^="mirror-"]').count()) === 0)
+  await page.locator('[data-hour-cell]').first().waitFor()
+  check("12. the strip's Mirror line reads not on mirror, with no cells", (await page.locator('[data-mirror-line="notOnMirror"]').count()) === 1 && (await page.locator('[data-mirror-hour-cell]').count()) === 0)
+  await page.locator('[data-tab="mirror"]').click()
+  await page.locator('[data-mirror-tab="notOnMirror"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-tab-refresh="mirror"]').click()
+  await page.waitForTimeout(800)
+  check('12. the Mirror tab stays visible and reads not on mirror', /not on the mirror rail/.test(await page.locator('[data-mirror-tab]').innerText()))
+  const asked = calls.filter((c) => c.startsWith('ActionSync/Store/Mirror')).length
+  check('12. …and Store/Mirror is never asked, Refresh included', asked === 0, String(asked))
+  await page.screenshot({ path: `${SHOTS}/not-on-mirror.png`, fullPage: true })
+  check('no page errors (not on mirror)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

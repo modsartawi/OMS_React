@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { HOUR_CELLS, type PassOutcome } from '@/core/models/sync-console'
+import { DEAD_LETTER_REASONS, DEAD_LETTER_STAGES, HOUR_CELLS, type PassOutcome } from '@/core/models/sync-console'
 import {
   HOUR_LEGEND,
   STORE_TABS,
+  DEFAULT_MIRROR_FILTER,
+  MIRROR_PAGE_SIZE,
   clampPassesFrom,
+  deadLetterReasonLabel,
+  deadLetterStageLabel,
   hostBadge,
   hourCellLegend,
+  isOnMirror,
   isWpfStore,
+  mirrorQuery,
   passLineBadge,
   passOutcomeBadge,
   passesFromBound,
@@ -78,19 +84,82 @@ describe('passesFromBound', () => {
 })
 
 describe('storeTabs', () => {
-  it('gives a worker store all six tabs, in the prototype order', () => {
-    expect(storeTabs({ host: 'Worker' })).toEqual(['counters', 'passes', 'commands', 'scripts', 'audit', 'location'])
+  // 🚩 Changed on purpose by ticket 457: the Mirror tab is appended to both lists (six → seven, two → three).
+  it('gives a worker store all seven tabs, in the prototype order, Mirror last', () => {
+    expect(storeTabs({ host: 'Worker' })).toEqual(['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror'])
     expect(storeTabs({ host: 'Worker' })).toEqual(STORE_TABS)
   })
 
-  it('gives a WPF store only Counters and Passes', () => {
-    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes'])
+  it('gives a WPF store Counters and Passes, and its own mirror lane', () => {
+    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror'])
     expect(isWpfStore({ host: 'Wpf' })).toBe(true)
     expect(isWpfStore({ host: 'Worker' })).toBe(false)
   })
 
+  it('offers Mirror to every store, on mirror or not', () => {
+    for (const host of ['Worker', 'Wpf'] as const) expect(storeTabs({ host })).toContain('mirror')
+  })
+
+  it('reads Store/Mirror only for a store on mirror; onMirror false shows not-on-mirror', () => {
+    expect(isOnMirror({ mirror: { onMirror: true } as never })).toBe(true)
+    expect(isOnMirror({ mirror: { onMirror: false } as never })).toBe(false)
+    // A lane the door did not send is not one to read.
+    expect(isOnMirror({ mirror: undefined as never })).toBe(false)
+    // Only a real `true` is on mirror: a malformed lane is not.
+    expect(isOnMirror({ mirror: { onMirror: 'true' } as never })).toBe(false)
+    expect(label('mirrorTab.notOnMirror')).toEqual(expect.any(String))
+  })
+
   it('labels every tab', () => {
     for (const tab of STORE_TABS) expect(label(`tabs.${tab}`)).toEqual(expect.any(String))
+  })
+})
+
+describe('dead-letter labels', () => {
+  it('labels every stage', () => {
+    for (const stage of DEAD_LETTER_STAGES) {
+      const badge = deadLetterStageLabel(stage)
+      expect(badge.labelKey).toBe(`mirrorTab.stages.${stage}`)
+      expect(label(badge.labelKey as string)).toEqual(expect.any(String))
+    }
+  })
+
+  it('labels every reason', () => {
+    for (const reason of DEAD_LETTER_REASONS) {
+      const badge = deadLetterReasonLabel(reason)
+      expect(badge.labelKey).toBe(`mirrorTab.reasons.${reason}`)
+      expect(label(badge.labelKey as string)).toEqual(expect.any(String))
+    }
+  })
+
+  it('leaves an unknown stage or reason neutral and unlabelled, so its raw code shows', () => {
+    expect(deadLetterStageLabel('store')).toEqual({ labelKey: null, sev: 'mute' })
+    expect(deadLetterReasonLabel('melted')).toEqual({ labelKey: null, sev: 'mute' })
+    expect(deadLetterReasonLabel('toString')).toEqual({ labelKey: null, sev: 'mute' })
+  })
+})
+
+describe('mirrorQuery', () => {
+  it('asks for both stages, every reason, open dead letters only, at 50 a page by default', () => {
+    expect(mirrorQuery('P001', DEFAULT_MIRROR_FILTER, 1)).toEqual({
+      code: 'P001',
+      stage: null,
+      reason: null,
+      includeAcknowledged: false,
+      page: 1,
+      pageSize: 50,
+    })
+    expect(MIRROR_PAGE_SIZE).toBe(50)
+  })
+
+  it('carries the filters and the page, never below 1', () => {
+    expect(mirrorQuery('P001', { stage: 'apply', reason: 'orphaned', includeAcknowledged: true }, 2)).toMatchObject({
+      stage: 'apply',
+      reason: 'orphaned',
+      includeAcknowledged: true,
+      page: 2,
+    })
+    expect(mirrorQuery('P001', DEFAULT_MIRROR_FILTER, 0).page).toBe(1)
   })
 })
 

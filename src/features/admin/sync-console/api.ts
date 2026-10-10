@@ -37,6 +37,7 @@ import type {
   StoreDetail,
   StoreHours,
   StoreLocation,
+  StoreMirror,
   StorePass,
   StoreRow,
   StoreControlRequest,
@@ -52,7 +53,7 @@ import type {
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
-import { PASSES_PAGE_SIZE, type StoreTab } from './store-helpers'
+import { PASSES_PAGE_SIZE, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
 import {
   normaliseFleet,
   normaliseLastHour,
@@ -169,6 +170,15 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Store/Location?code=` → the sync location, never its credentials. */
   storeLocation(code: string): Promise<StoreLocation> {
     return api.get<StoreLocation>('ActionSync/Store/Location', { code })
+  },
+
+  /**
+   * `GET ActionSync/Store/Mirror?code=&stage=&reason=&includeAcknowledged=&page=&pageSize=`
+   * (spec 2563, ticket 457) → the lane, the inbox by entity type and one page of dead
+   * letters, newest last seen first. 🚩 No payload: the door never returns one.
+   */
+  storeMirror(code: string, filter: MirrorFilter, page: number): Promise<StoreMirror> {
+    return api.get<StoreMirror>('ActionSync/Store/Mirror', mirrorQuery(code, filter, page))
   },
 
   // ── Controls and the audit feed (ticket 447) ──
@@ -361,6 +371,15 @@ export const storeScriptsQuery = (code: string) => ({
 export const storeLocationQuery = (code: string) => ({
   queryKey: [...storeKey(code), 'location'] as const,
   queryFn: () => syncConsoleApi.storeLocation(code),
+})
+
+/**
+ * The Mirror tab's read (ticket 457), under the tab's own prefix (`storeTabKey`), so
+ * the tab's Refresh and a store-wide invalidation both re-read it. Read when opened.
+ */
+export const storeMirrorQuery = (code: string, filter: MirrorFilter, page: number) => ({
+  queryKey: [...storeKey(code), 'mirror', mirrorQuery(code, filter, page)] as const,
+  queryFn: () => syncConsoleApi.storeMirror(code, filter, page),
 })
 
 // ── The audit feed (ticket 447) ──

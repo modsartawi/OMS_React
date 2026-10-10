@@ -318,7 +318,7 @@
     "DUPLICATE_IN_BATCH": "The same code twice in this request",
     "STORE_EXISTS": "The store already exists",
     "BAD_FIELD": "A field is blank or too long",
-    "FAILED": "Not written, safe to retry"
+    "FAILED": "This write failed. Retrying it is safe"
   },
   "auditActions": {
     "Move": "Move to worker",

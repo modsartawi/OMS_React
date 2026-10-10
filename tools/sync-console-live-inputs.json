@@ -1,10 +1,10 @@
 {
-  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. Picked 2026-10-10 from the LOCAL POS_Server (.\\SQLEXPRESS) behind SIS.Api :5111, where all five stores are on WPF; staging needs its own.",
+  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. The read codes P001/P002 were picked 2026-10-10 from the LOCAL POS_Server; the write and re-push stores stay TODO in the repo on purpose, so a run pointed at staging never writes to a store nobody chose for it (locally P134 was used).",
   "storeCode": "P001",
   "wpfStoreCode": "P002",
-  "testStoreOnWpf": "P134",
-  "testStoreForTest": "P134",
-  "rePushStoreCode": "P134",
+  "testStoreOnWpf": "TODO: a TEST store on WPF that may be moved to the worker and handed back (--write)",
+  "testStoreForTest": "TODO: a TEST store whose connection may be tested (--write)",
+  "rePushStoreCode": "TODO: a worker store to PREVIEW a re-push on. Preview only: the drive never confirms a re-push",
   "onboard": {
     "code": "TODO: a new TEST store code, ^[A-Z0-9]{4}$, no Store master yet",
     "description": "TODO",

@@ -50,7 +50,7 @@ import { TextField } from './TextField'
  * The New store wizard (spec 444, ticket 449) — `/admin/sync/new-store`. Onboarding
  * is one job in one place (BackOffice 2520):
  *
- * - **Step 1, the store master** (only with `canOnboard`): code, description, city,
+ * - **Step 1, the store master** (only with `canOnboard` and `canOperate`): code, description, city,
  *   area, address, phone, CR and the template store.
  * - **Step 2, the sync location**: the IP and the template location (`P001`, or the
  *   call centre `C011` in one click).
@@ -97,7 +97,6 @@ function NewStore() {
         <Wizard
           key={finishCode ?? ''}
           start={start}
-          canOperate={access.data?.canOperate === true}
           canOnboard={access.data?.canOnboard === true}
           finish={start === 'location' && finishCode ? { code: finishCode, description: finishDescription } : null}
         />
@@ -138,12 +137,10 @@ const INPUT =
 
 function Wizard({
   start,
-  canOperate,
   canOnboard,
   finish,
 }: {
   start: WizardMode
-  canOperate: boolean
   canOnboard: boolean
   /** Finish from Sync pending: step 2 alone, for this one store, its code fixed. */
   finish: { code: string; description: string } | null
@@ -331,7 +328,8 @@ function Wizard({
               ))}
             </fieldset>
           )}
-          {master && step === 1 && canOperate && (
+          {/* `wizardStart` mounts a wizard only with canOperate, so step 2 alone is always open. */}
+          {master && step === 1 && (
             <Button variant="text" onClick={() => switchMode('location')} data-wizard-skip="">
               {t('onboard.skipToLocation')}
             </Button>

@@ -16,8 +16,8 @@ export interface ControlRequest {
   codes: string[]
 }
 
-/** What a per-row answer was for: a control (447), a command or a cancel (448). */
-export type OutcomeAction = ControlAction | CommandKind | 'CancelCommand'
+/** What a per-row answer was for: a control (447), a command or a cancel (448), a dead-letter retry or acknowledgement (458). */
+export type OutcomeAction = ControlAction | CommandKind | 'CancelCommand' | 'MirrorRetry' | 'MirrorAcknowledge'
 
 /** A per-row answer, kept by the page so its failures stay listed after the toast has gone. */
 export interface ControlOutcome {
@@ -41,13 +41,14 @@ const NOTED: ReadonlySet<ControlAction> = new Set(['Move', 'HandBack', 'Pause'])
  * The one-sentence summary of a per-row answer, for the toast. The counts are data
  * interpolated into a sentence, so each takes `fsi`; the action is the bundle's own word.
  * `group` picks the sentences: a control's (`results`, "pending until the worker
- * applies it"), a command's (`commandResults`, "queued") or a cancel's (`cancelResults`).
+ * applies it"), a command's (`commandResults`, "queued"), a cancel's (`cancelResults`)
+ * or a dead-letter action's (`deadLetterResults`, 458).
  */
 export function resultSentence(
   t: TFunction,
   actionLabel: string,
   s: ResultSummary,
-  group: 'results' | 'commandResults' | 'cancelResults' = 'results',
+  group: 'results' | 'commandResults' | 'cancelResults' | 'deadLetterResults' = 'results',
 ): string {
   return t(`${group}.${s.outcome}`, {
     action: actionLabel,

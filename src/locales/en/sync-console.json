@@ -355,7 +355,16 @@
     "empty": "{{action}}: no store came back in the answer.",
     "refusedTitle": "{{action}}: refused for these stores",
     "dismiss": "Dismiss",
-    "refusedCommandsTitle": "{{action}}: refused for these commands"
+    "refusedCommandsTitle": "{{action}}: refused for these commands",
+    "refusedDeadLettersTitle": "{{action}}: refused for these dead letters"
+  },
+  "deadLetterResults": {
+    "allOk_one": "{{action}}: done for {{total}} dead letter.",
+    "allOk_other": "{{action}}: done for {{total}} dead letters.",
+    "someFailed": "{{action}}: done for {{ok}} of {{total}} dead letters; {{failed}} refused.",
+    "allFailed_one": "{{action}} was refused for the dead letter.",
+    "allFailed_other": "{{action}} was refused for all {{total}} dead letters.",
+    "empty": "{{action}}: no dead letter came back in the answer."
   },
   "failures": {
     "NOT_ON_WORKER": "Not on the worker",
@@ -386,7 +395,16 @@
     "EditLocation": "Edit location",
     "DismissPending": "Dismiss pending",
     "OnboardStore": "Onboard store",
-    "EditStore": "Edit store"
+    "EditStore": "Edit store",
+    "MirrorRetry": "Retry mirror dead letters",
+    "MirrorAcknowledge": "Acknowledge mirror dead letters as lost",
+    "AgreementRecheck": "Recheck rail agreement"
+  },
+  "mirrorRefusals": {
+    "PULL_STAGE": "A pull-stage dead letter cannot be retried",
+    "ACKNOWLEDGED": "Already acknowledged",
+    "NOT_DEAD_LETTER": "No longer a dead letter; nothing was done to it",
+    "NOT_FOUND": "No such dead letter"
   },
   "audit": {
     "title": "Store sync audit",
@@ -718,6 +736,26 @@
     "empty": "No dead letter matches.",
     "emptyPage": "This page is empty. Go back a page.",
     "showError": "Show the whole error",
+    "actions": {
+      "label": "Act on the selected dead letters",
+      "retry": "Retry",
+      "acknowledge": "Acknowledge as lost",
+      "noRetry": "Retry is offered only when the door marks every selected dead letter as retryable."
+    },
+    "selection": {
+      "count_one": "<n>{{n}}</n> dead letter selected",
+      "count_other": "<n>{{n}}</n> dead letters selected",
+      "capped": "At most {{cap}} dead letters can be selected at once. Act on these first, then select the next ones.",
+      "hint": "Select up to {{cap}} dead letters to retry or acknowledge them at once."
+    },
+    "dialog": {
+      "title_one": "{{action}}: {{n}} dead letter of store {{code}}",
+      "title_other": "{{action}}: {{n}} dead letters of store {{code}}",
+      "notes": {
+        "retry": "Each dead letter goes back to the mirror inbox and is applied again on the next tick. One that still fails becomes a dead letter again.",
+        "acknowledge": "Each dead letter is recorded as lost. It stops counting as open, is never applied, and stays listed under Include acknowledged."
+      }
+    },
     "errorTitle": "Dead letter {{id}}",
     "close": "Close",
     "stages": {

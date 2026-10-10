@@ -1,7 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
-import type { ControlOutcome } from './ControlDialog'
+import type { ControlOutcome, OutcomeAction } from './ControlDialog'
+
+/** The list's title says what its rows are: stores, commands (448) or dead letters (458). */
+const refusedTitleKey = (action: OutcomeAction): string =>
+  action === 'CancelCommand'
+    ? 'results.refusedCommandsTitle'
+    : action === 'MirrorRetry' || action === 'MirrorAcknowledge'
+      ? 'results.refusedDeadLettersTitle'
+      : 'results.refusedTitle'
 
 /**
  * The failures of the last control (ticket 447) or command (448), listed with their codes until
@@ -27,9 +35,7 @@ export default function ControlResults({
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold">
           {/* The audit's names for the actions: the same words as the buttons, without a button's ellipsis. */}
-          {t(outcome.action === 'CancelCommand' ? 'results.refusedCommandsTitle' : 'results.refusedTitle', {
-            action: t(`auditActions.${outcome.action}`),
-          })}
+          {t(refusedTitleKey(outcome.action), { action: t(`auditActions.${outcome.action}`) })}
         </span>
         {onDismiss && (
         <button

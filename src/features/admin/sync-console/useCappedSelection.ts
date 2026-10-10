@@ -48,12 +48,14 @@ function showSelection<T>(api: GridApi<T>, selected: readonly string[], idOf: (r
 /**
  * A grid's selection of up to 50 rows, kept as ids (not rows) so it outlives a page,
  * a filter and a refresh — the Fleet table's (ticket 447), shared with the Sync
- * pending list's Dismiss (449). The 51st tick and on are refused through 447's ONE
- * cap (`selectionCap`), with its message, and taken back at once.
+ * pending list's Dismiss (449) and the Mirror tab's dead letters (458). The 51st tick
+ * and on are refused through 447's ONE cap (`selectionCap`), with its message, and
+ * taken back at once. `cappedKey` words that message for a list of something other
+ * than stores.
  *
  * `idOf` must be stable (a module-level function). Spread `gridProps` on the grid.
  */
-export function useCappedSelection<T>(idOf: (row: T) => string) {
+export function useCappedSelection<T>(idOf: (row: T) => string, cappedKey?: string) {
   const { t } = useTranslation('sync-console')
   const [selected, setSelected] = useState<string[]>([])
   const selectedRef = useRef(selected)
@@ -75,13 +77,13 @@ export function useCappedSelection<T>(idOf: (row: T) => string) {
       // Off this page the selection stands; on it, the checkboxes say what is wanted.
       const wanted = [...selectedRef.current.filter((c) => !onPage.has(c)), ...pagePicked]
       const next = selectionCap(selectedRef.current, wanted)
-      if (next.messageKey) notify.warn(t(next.messageKey, { cap: fsi(figure(SELECTION_CAP)) }))
+      if (next.messageKey) notify.warn(t(cappedKey ?? next.messageKey, { cap: fsi(figure(SELECTION_CAP)) }))
       selectedRef.current = next.codes
       setSelected(next.codes)
       // A refused tick is un-ticked at once, even when the kept selection did not change.
       if (next.refused > 0) showSelection(e.api, next.codes, idOf)
     },
-    [t, idOf],
+    [t, idOf, cappedKey],
   )
 
   const gridProps = {

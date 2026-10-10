@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { RowClassRules } from 'ag-grid-community'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MultiRowSelectionOptions, RowClassRules } from 'ag-grid-community'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
+import Button from '@/core/ui/Button'
 import GridPager from '@/core/ui/GridPager'
+import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import {
@@ -15,8 +17,20 @@ import {
   type MirrorEntityCounts,
   type StoreDetail,
 } from '@/core/models/sync-console'
-import { fsi } from '@/core/util/bidi'
-import { storeMirrorQuery } from './api'
+import { formatPair, fsi } from '@/core/util/bidi'
+import { AUDIT_KEY, FLEET_KEY, storeKey, storeMirrorQuery, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import {
+  SELECTION_CAP,
+  controlResultSummary,
+  deadLetterActions,
+  mirrorRefusalLabel,
+  type DeadLetterAction,
+} from './control-helpers'
+import { notifyOutcome, resultSentence, type ControlOutcome } from './ControlDialog'
+import ControlResults from './ControlResults'
+import { figure } from './helpers'
+import ReasonDialog from './ReasonDialog'
+import { CHECKBOX_SELECTION, useCappedSelection } from './useCappedSelection'
 import {
   DEFAULT_MIRROR_FILTER,
   MIRROR_PAGE_SIZE,
@@ -36,6 +50,24 @@ const DEAD_LETTER_ROW_CLASS: RowClassRules<DeadLetter> = { 'opacity-60': (p) => 
 
 const entityTypeId = (c: MirrorEntityCounts) => c.entityType
 
+/**
+ * The dead letters' checkboxes (ticket 458), drawn only with `canOperate`. An
+ * acknowledged row takes none: nothing more can be done to it.
+ */
+const DEAD_LETTER_SELECTION: MultiRowSelectionOptions<DeadLetter> = {
+  ...(CHECKBOX_SELECTION as MultiRowSelectionOptions<DeadLetter>),
+  isRowSelectable: (n) => n.data?.acknowledgedAt == null,
+  hideDisabledCheckboxes: true,
+}
+
+/** Each action's door, its audit name (the per-row list's title) and its button. */
+const DEAD_LETTER_ACTION = {
+  retry: { door: 'Retry', audit: 'MirrorRetry', variant: 'primary' },
+  acknowledge: { door: 'Acknowledge', audit: 'MirrorAcknowledge', variant: 'danger-outlined' },
+} as const
+
+const DEAD_LETTER_ACTIONS: readonly DeadLetterAction[] = ['retry', 'acknowledge']
+
 const SELECT =
   'h-7 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60'
 
@@ -46,6 +78,13 @@ const SELECT =
  *
  * Offered to every store; one the mirror rail does not sweep (`onMirror: false`) shows
  * "not on mirror" and asks nothing (`isOnMirror`).
+ *
+ * With `canOperate` (ticket 458) the dead letters take a selection of up to 50 (447's
+ * one cap, `useCappedSelection`) and a bar that sends **Retry** or **Acknowledge as
+ * lost** for it, with a reason, on the shared dialog — each offered only when every
+ * selected row can take it (`deadLetterActions`). The per-row refusals stay listed in
+ * the controls' style; then the tab, the store header, the fleet and the audit feed are
+ * read again. Without the grant the tab is read only: no checkbox, no bar.
  *
  * 🚩 No payload, ever: the door returns none and the tab asks for none.
  */
@@ -62,6 +101,9 @@ export default function MirrorTab({ row }: { row: StoreDetail }) {
 
 function MirrorLists({ code }: { code: string }) {
   const { t } = useTranslation('sync-console')
+  const qc = useQueryClient()
+  const access = useQuery(syncConsoleAccessQuery())
+  const canOperate = access.data?.canOperate === true
   const [filter, setFilter] = useState<MirrorFilter>(DEFAULT_MIRROR_FILTER)
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState<DeadLetter | null>(null)
@@ -72,6 +114,56 @@ function MirrorLists({ code }: { code: string }) {
   // As on Passes: a failed read draws none of the previous filter's rows.
   const shown = mirror.isError ? undefined : mirror.data
   const total = shown?.deadLetters.total ?? 0
+
+  // ── The selection (458): ids, so it outlives a page and a filter, as the Fleet's does.
+  // The row behind an off-page pick is the last one read (kept for the picks alone), so
+  // it still knows its stage and `canRetry`; the door judges each row again on the send.
+  const { selected, setSelected, gridProps } = useCappedSelection(deadLetterId, 'mirrorTab.selection.capped')
+  const known = useRef(new Map<string, DeadLetter>())
+  useEffect(() => {
+    const keep = new Set(selected)
+    for (const id of known.current.keys()) if (!keep.has(id)) known.current.delete(id)
+    for (const d of shown?.deadLetters.items ?? []) if (keep.has(deadLetterId(d))) known.current.set(deadLetterId(d), d)
+  }, [shown, selected])
+  const onPage = new Map((shown?.deadLetters.items ?? []).map((d) => [deadLetterId(d), d]))
+  const selectedRows = selected.flatMap((id) => {
+    const row = onPage.get(id) ?? known.current.get(id)
+    return row ? [row] : []
+  })
+  const offered = deadLetterActions(selectedRows, canOperate)
+  const [acting, setActing] = useState<{ action: DeadLetterAction; rows: DeadLetter[] } | null>(null)
+  const [outcome, setOutcome] = useState<ControlOutcome | null>(null)
+  const stageWord = (stage: string) => {
+    const { labelKey } = deadLetterStageLabel(stage)
+    return labelKey ? t(labelKey) : stage
+  }
+
+  const send = useMutation({
+    mutationFn: ({ action, rows, reason }: { action: DeadLetterAction; rows: DeadLetter[]; reason: string }) =>
+      syncConsoleApi.deadLetters(DEAD_LETTER_ACTION[action].door, {
+        code,
+        items: rows.map(({ stage, id }) => ({ stage, id })),
+        reason,
+      }),
+    onSuccess: (data, { action }) => {
+      // A row is named by its id and its stage: an inbox id and an outbox id may collide.
+      const summary = controlResultSummary(data.results, (r) => formatPair(r.id, stageWord(r.stage)), mirrorRefusalLabel)
+      notifyOutcome(summary, resultSentence(t, t(`mirrorTab.actions.${action}`), summary, 'deadLetterResults'))
+      setOutcome({ action: DEAD_LETTER_ACTION[action].audit, summary })
+      // The answered selection is spent; its refusals stay listed with their codes.
+      setSelected([])
+      // The store's reads (this tab and the header's lane among them), the fleet and the audit feed.
+      void qc.invalidateQueries({ queryKey: storeKey(code) })
+      void qc.invalidateQueries({ queryKey: FLEET_KEY })
+      void qc.invalidateQueries({ queryKey: AUDIT_KEY })
+      close()
+    },
+  })
+
+  const close = () => {
+    send.reset()
+    setActing(null)
+  }
 
   // As on Passes: an emptied inner page (rows acknowledged meanwhile) falls back to the new last page.
   const settled = shown && !mirror.isPlaceholderData ? shown.deadLetters : undefined
@@ -163,11 +255,54 @@ function MirrorLists({ code }: { code: string }) {
             </span>
           )}
         </div>
+        <ControlResults outcome={outcome} onDismiss={() => setOutcome(null)} />
+        {canOperate && (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('mirrorTab.actions.label')} data-dead-letter-bar="">
+            <span className="text-xs text-muted-foreground" data-selection-count={selected.length}>
+              {selected.length === 0 ? (
+                t('mirrorTab.selection.hint', { cap: fsi(figure(SELECTION_CAP)) })
+              ) : (
+                <Trans
+                  t={t}
+                  i18nKey="mirrorTab.selection.count"
+                  count={selected.length}
+                  values={{ n: figure(selected.length) }}
+                  components={{ n: <Ltr /> }}
+                />
+              )}
+            </span>
+            {DEAD_LETTER_ACTIONS.map((action) => (
+              <Button
+                key={action}
+                variant={DEAD_LETTER_ACTION[action].variant}
+                disabled={!offered.includes(action)}
+                onClick={() => setActing({ action, rows: selectedRows })}
+                data-dead-letter-action={action}
+              >
+                {t(`mirrorTab.actions.${action}`)}
+              </Button>
+            ))}
+            {selected.length > 0 && (
+              <Button variant="text" onClick={() => setSelected([])} data-selection-clear="">
+                {t('selection.clear')}
+              </Button>
+            )}
+            {/* Why Retry is not offered: the door's canRetry, never a guess from the stage. */}
+            {selected.length > 0 && !offered.includes('retry') && (
+              <span className="text-xs text-muted-foreground" data-dead-letter-no-retry="">
+                {t('mirrorTab.actions.noRetry')}
+              </span>
+            )}
+          </div>
+        )}
         <TabGrid
           rows={shown?.deadLetters.items}
           columns={columns}
           rowId={deadLetterId}
           rowClassRules={DEAD_LETTER_ROW_CLASS}
+          rowSelection={canOperate ? DEAD_LETTER_SELECTION : undefined}
+          // Always wired, so a grant that answers after the grid mounted still finds its api.
+          selectionProps={gridProps}
           pending={mirror.isPending}
           error={mirror.error}
           failed={t('mirrorTab.failed')}
@@ -184,6 +319,24 @@ function MirrorLists({ code }: { code: string }) {
         <p className="text-xs text-muted-foreground">{t('mirrorTab.noPayload')}</p>
       </section>
       <DeadLetterErrorModal row={opened} onClose={() => setOpened(null)} />
+      {acting && (
+        <ReasonDialog
+          open
+          title={t('mirrorTab.dialog.title', {
+            action: t(`mirrorTab.actions.${acting.action}`),
+            count: acting.rows.length,
+            n: fsi(figure(acting.rows.length)),
+            code: fsi(code),
+          })}
+          codes={[code]}
+          note={t(`mirrorTab.dialog.notes.${acting.action}`)}
+          busy={send.isPending}
+          error={send.error}
+          confirmLabel={t(`mirrorTab.actions.${acting.action}`)}
+          onConfirm={(reason) => send.mutate({ action: acting.action, rows: acting.rows, reason })}
+          onClose={close}
+        />
+      )}
     </div>
   )
 }

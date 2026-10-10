@@ -10,6 +10,7 @@
 import type {
   AuditAction,
   ControlAction,
+  DeadLetter,
   StoreRow,
   SyncConsoleAccess,
 } from '@/core/models/sync-console'
@@ -131,25 +132,61 @@ export interface ResultSummary {
 }
 
 /**
- * A per-row answer (Control, Commands, RePush, Cancel, Locations, Onboard) as one
- * toast sentence plus the list of failures. `idOf` names the row (a store code by
- * default; Cancel passes the command id).
+ * A per-row answer (Control, Commands, RePush, Cancel, Locations, Onboard, the mirror
+ * dead letters) as one toast sentence plus the list of failures. `idOf` names the row
+ * (a store code by default; Cancel passes the command id), and `labelOf` words its
+ * code (the store doors' `failureLabelKey` by default; 458 passes `mirrorRefusalLabel`).
  */
 export function controlResultSummary<R extends { ok: boolean; error: string | null }>(
   results: readonly R[],
   idOf: (row: R) => string = (row) => (row as unknown as { code: string }).code,
+  labelOf: (code: string) => string | null = failureLabelKey,
 ): ResultSummary {
   const failures: RowFailure[] = results
     .filter((r) => !r.ok)
     .map((r) => {
       const code = r.error ?? ''
-      return { id: idOf(r), code, labelKey: code ? failureLabelKey(code) : null }
+      return { id: idOf(r), code, labelKey: code ? labelOf(code) : null }
     })
   const total = results.length
   const failed = failures.length
   const ok = total - failed
   const outcome: ResultOutcome = total === 0 ? 'empty' : failed === 0 ? 'allOk' : ok === 0 ? 'allFailed' : 'someFailed'
   return { outcome, ok, failed, total, failures }
+}
+
+// ── The mirror dead letters (spec 2563, ticket 458) ─────────────────────────────
+
+/** What the Mirror tab can do to a selection of dead letters, in the order the buttons are drawn. */
+export type DeadLetterAction = 'retry' | 'acknowledge'
+
+/**
+ * The actions a selection of dead letters may be sent, each offered only when every
+ * selected row can take it — so a request never carries a row the console already
+ * knows the door will refuse.
+ *
+ * - Without `canOperate`: none (the tab is read only, the bar absent).
+ * - Retry: every row has the door's `canRetry` (apply stage, unacknowledged). It is
+ *   read as sent and never recomputed from the stage.
+ * - Acknowledge as lost: every row is unacknowledged, of either stage.
+ */
+export function deadLetterActions(
+  rows: readonly Pick<DeadLetter, 'canRetry' | 'acknowledgedAt'>[],
+  canOperate: boolean,
+): DeadLetterAction[] {
+  if (!canOperate || rows.length === 0) return []
+  const actions: DeadLetterAction[] = []
+  if (rows.every((r) => r.canRetry === true)) actions.push('retry')
+  if (rows.every((r) => r.acknowledgedAt == null)) actions.push('acknowledge')
+  return actions
+}
+
+/** The dead-letter doors' per-row refusals (2569) this bundle has words for. */
+const MIRROR_REFUSALS = new Set(['PULL_STAGE', 'ACKNOWLEDGED', 'NOT_DEAD_LETTER', 'NOT_FOUND'])
+
+/** A dead-letter refusal's `sync-console` label key, or `null` — the caller then shows the raw code. */
+export function mirrorRefusalLabel(code: string): string | null {
+  return MIRROR_REFUSALS.has(code) ? `mirrorRefusals.${code}` : null
 }
 
 // ── The audit feed ──────────────────────────────────────────────────────────────
@@ -187,16 +224,8 @@ export function auditQuery(filter: AuditFilter, page: number): Record<string, un
   }
 }
 
-/**
- * The mirror rail's audit actions (2563). The model carries them since 456; ticket 458
- * labels them here and in the bundle, and until then they show their raw code.
- * ⚠️ 458 must DELETE this type, not just add the keys: while it exists the `Record`
- * below cannot catch these three.
- */
-type UnlabelledAuditAction = 'MirrorRetry' | 'MirrorAcknowledge' | 'AgreementRecheck'
-
 /** Every `AuditAction` the bundle labels — a `Record`, so a new action in the model fails to compile here. */
-const AUDIT_ACTIONS: Record<Exclude<AuditAction, UnlabelledAuditAction>, true> = {
+const AUDIT_ACTIONS: Record<AuditAction, true> = {
   Move: true,
   HandBack: true,
   Pause: true,
@@ -210,6 +239,10 @@ const AUDIT_ACTIONS: Record<Exclude<AuditAction, UnlabelledAuditAction>, true> =
   DismissPending: true,
   OnboardStore: true,
   EditStore: true,
+  // The mirror rail and rail agreement (spec 2563, ticket 458).
+  MirrorRetry: true,
+  MirrorAcknowledge: true,
+  AgreementRecheck: true,
 }
 
 /** An audit action's label key, or `null` for one this bundle does not know (show the raw code). */

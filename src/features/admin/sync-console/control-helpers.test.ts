@@ -10,7 +10,9 @@ import {
   auditRangeValid,
   cleanReason,
   controlResultSummary,
+  deadLetterActions,
   failureLabelKey,
+  mirrorRefusalLabel,
   reasonReady,
   selectionCap,
 } from './control-helpers'
@@ -201,11 +203,76 @@ describe('auditQuery', () => {
 
 describe('auditActionKey', () => {
   it('labels every audit action, and leaves an unknown one raw', () => {
-    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore']) {
+    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck']) {
       const key = auditActionKey(a)
       expect(key).toBe(`auditActions.${a}`)
       expect(lookup(key as string)).toBeTruthy()
     }
     expect(auditActionKey('Explode')).toBeNull()
+  })
+})
+
+describe('deadLetterActions', () => {
+  const dl = (canRetry: boolean, acknowledgedAt: string | null = null) => ({ canRetry, acknowledgedAt })
+  const retryable = dl(true)
+  const pullOpen = dl(false)
+  const acknowledged = dl(false, '2026-10-09T10:00:00')
+
+  it('offers Retry and Acknowledge when every selected row can be retried', () => {
+    expect(deadLetterActions([retryable, retryable], true)).toEqual(['retry', 'acknowledge'])
+  })
+
+  it('withholds Retry as soon as one selected row cannot be retried (the door says so, never the stage)', () => {
+    expect(deadLetterActions([retryable, pullOpen], true)).toEqual(['acknowledge'])
+    expect(deadLetterActions([pullOpen], true)).toEqual(['acknowledge'])
+    // The door's canRetry is read as sent: an apply-stage row it marks false is not retried.
+    const applyRefused = { stage: 'apply' as const, canRetry: false, acknowledgedAt: null }
+    expect(deadLetterActions([applyRefused], true)).toEqual(['acknowledge'])
+  })
+
+  it('acknowledges only unacknowledged rows', () => {
+    expect(deadLetterActions([acknowledged], true)).toEqual([])
+    expect(deadLetterActions([retryable, acknowledged], true)).toEqual([])
+  })
+
+  it('offers nothing for an empty selection', () => {
+    expect(deadLetterActions([], true)).toEqual([])
+  })
+
+  it('offers nothing without the grant', () => {
+    expect(deadLetterActions([retryable], false)).toEqual([])
+    expect(deadLetterActions([pullOpen], false)).toEqual([])
+  })
+})
+
+describe('mirrorRefusalLabel', () => {
+  it('labels every per-row refusal of the dead-letter doors', () => {
+    for (const code of ['PULL_STAGE', 'ACKNOWLEDGED', 'NOT_DEAD_LETTER', 'NOT_FOUND']) {
+      const key = mirrorRefusalLabel(code)
+      expect(key).toBe(`mirrorRefusals.${code}`)
+      expect(lookup(key as string)).toBeTruthy()
+    }
+  })
+
+  it('leaves an unknown code raw', () => {
+    expect(mirrorRefusalLabel('MELTED')).toBeNull()
+    expect(mirrorRefusalLabel('toString')).toBeNull()
+  })
+
+  it('labels a dead letter answer in the summary, named by stage and id', () => {
+    const s = controlResultSummary(
+      [
+        { stage: 'apply' as const, id: '41', ok: true, error: null },
+        { stage: 'pull' as const, id: '7', ok: false, error: 'PULL_STAGE' },
+        { stage: 'apply' as const, id: '42', ok: false, error: 'MELTED' },
+      ],
+      (r) => `${r.stage}:${r.id}`,
+      mirrorRefusalLabel,
+    )
+    expect(s.outcome).toBe('someFailed')
+    expect(s.failures).toEqual([
+      { id: 'pull:7', code: 'PULL_STAGE', labelKey: 'mirrorRefusals.PULL_STAGE' },
+      { id: 'apply:42', code: 'MELTED', labelKey: null },
+    ])
   })
 })

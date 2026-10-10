@@ -17,6 +17,15 @@
 //   6. the 50-store cap: a page-wide select takes 50, the 51st on page 2 is refused with a message;
 //   7. the fleet-wide Audit page: its entries (who, when, action, stores/batch, before → after, reason)
 //      and the from / to / who / code filters, with a bad range refused before any call.
+//   8. (458) the Mirror tab's dead letters: Retry offered only when every selected row has the door's
+//      canRetry, Acknowledge for unacknowledged rows of both stages; each through the reason dialog, ONE
+//      POST per store with the rows by stage and id; mixed per-row results (NOT_DEAD_LETTER, ACKNOWLEDGED)
+//      listed in the controls' style; the tab and the header re-read; a request-level refusal in the
+//      dialog; the store's Audit tab labels the new entries;
+//   9. (458) without canOperate the Mirror tab is read only: no checkbox, no bar;
+//  10. (458) the audit feed labels MirrorRetry, MirrorAcknowledge and AgreementRecheck.
+// Sections 1–7 run on their stubs unchanged; only sections 8–10 put P001 on the mirror rail (BackOffice
+// 2569 is unbuilt — every dead-letter door here is stubbed in the contract's shape).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-controls-drive.mjs
@@ -110,7 +119,55 @@ const WORKERS = { items: [{ instance: 'SISAPI-SYNC-01', version: '1.4.2', gateOn
 
 const browser = await chromium.launch()
 
-async function open({ canOperate = true } = {}) {
+// ── Ticket 458: P001 on the mirror rail, its dead letters, and the two dead-letter doors (2569) ──
+// Only the new sections (8–10) ask for these; sections 1–7 run on the stubs above, unchanged.
+const MIRROR_LANE = (openDeadLetters) => ({
+  onMirror: true,
+  lastPullAt: '2026-10-09T12:03:30',
+  lastPullOkAt: '2026-10-09T12:03:30',
+  lastConnectOkAt: '2026-10-09T12:03:30',
+  lastConnectFailAt: null,
+  lastConnectError: null,
+  tillBacklogCount: 0,
+  tillBacklogOldestAt: null,
+  inboxPending: 3,
+  inboxDeferred: 0,
+  oldestDeferredAt: null,
+  openDeadLetters,
+})
+const deadLetter = (stage, id, over = {}) => ({
+  id,
+  stage,
+  reason: stage === 'pull' ? 'poison' : 'errorCap',
+  entityType: stage === 'pull' ? 'TRX/COMPLETED' : 'SHIFT/CLOSED',
+  entityId: `E-${id}`,
+  action: stage === 'pull' ? null : 'Upsert',
+  attempts: 10,
+  firstSeenAt: '2026-10-09T08:00:00',
+  lastSeenAt: '2026-10-09T11:00:00',
+  error: `Apply failed (${id})`,
+  // The door's own flag: apply stage and unacknowledged.
+  canRetry: stage === 'apply',
+  acknowledgedAt: null,
+  acknowledgedBy: null,
+  acknowledgeReason: null,
+  ...over,
+})
+const makeDeadLetters = () => [
+  deadLetter('apply', '41'),
+  deadLetter('apply', '42'),
+  deadLetter('pull', '7'),
+  deadLetter('apply', '44'),
+  deadLetter('apply', '43', { canRetry: false, acknowledgedAt: '2026-10-08T09:00:00', acknowledgedBy: 'n.alharbi', acknowledgeReason: 'Test receipt, never real' }),
+]
+// The mirror rail's audit actions, as the fleet-wide feed carries them.
+const MIRROR_AUDIT = [
+  { id: 'A-6', at: '2026-10-09T11:40:00', who: 'n.alharbi', action: 'AgreementRecheck', codes: ['P010'], batchId: null, before: 'disagree', after: 'agree', reason: 'Counter rail caught up' },
+  { id: 'A-5', at: '2026-10-09T11:30:00', who: 'n.alharbi', action: 'MirrorAcknowledge', codes: ['P010'], batchId: null, before: 'pull 9', after: 'acknowledged', reason: 'Till wiped' },
+  { id: 'A-4', at: '2026-10-09T11:20:00', who: 'm.qahtani', action: 'MirrorRetry', codes: ['P010'], batchId: null, before: 'apply 12', after: 'pending', reason: 'Handler shipped' },
+]
+
+async function open({ canOperate = true, mirror = false, extraAudit = [] } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1200 } })
   const page = await context.newPage()
   await page.clock.install({ time: new Date('2026-10-09T12:04:00') })
@@ -118,7 +175,17 @@ async function open({ canOperate = true } = {}) {
   const calls = []
   const posts = []
   const stores = makeStores()
-  const audit = AUDIT.map((a) => ({ ...a }))
+  const audit = [...extraAudit, ...AUDIT].map((a) => ({ ...a }))
+  const deadLetters = makeDeadLetters()
+  const dlPosts = []
+  // P001's lane follows its open dead letters, so the header's re-read shows the change.
+  const openCount = () => deadLetters.filter((d) => d.acknowledgedAt == null).length
+  const syncLane = () => {
+    if (!mirror) return
+    stores[0].mirror = MIRROR_LANE(openCount())
+    stores[0].states = ['onWorker', ...(openCount() > 0 ? ['deadLetters'] : [])]
+  }
+  syncLane()
   const byCode = (c) => stores.find((s) => s.code === c)
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
@@ -170,12 +237,41 @@ async function open({ canOperate = true } = {}) {
       audit.unshift({ id: `A-${audit.length + 1}`, at: '2026-10-09T12:05:00', who: 'msartawi', action: body.action, codes: body.codes, batchId: null, before: 'paused: no', after: 'paused: yes', reason: body.reason })
       return route.fulfill(envelope({ auditId: `A-${audit.length}`, results: res }))
     }
+    if (p === 'ActionSync/Store/Mirror') {
+      const withAck = q.get('includeAcknowledged') === 'true'
+      const items = deadLetters.filter((d) => (withAck || d.acknowledgedAt == null) && (!q.get('stage') || d.stage === q.get('stage')))
+      const byEntityType = [{ entityType: 'SHIFT/CLOSED', pending: 3, deferred: 0, deadLetters: openCount() }]
+      return route.fulfill(envelope({ lane: MIRROR_LANE(openCount()), byEntityType, deadLetters: { items, total: items.length, page: Number(q.get('page')), pageSize: Number(q.get('pageSize')) } }))
+    }
+    const dlDoor = /^ActionSync\/Mirror\/DeadLetters\/(Retry|Acknowledge)$/.exec(p)
+    if (dlDoor) {
+      const body = route.request().postDataJSON()
+      dlPosts.push({ door: dlDoor[1], body })
+      if (body.reason === 'trip the door')
+        return route.fulfill(envelope(null, { status: 400, success: false, message: 'A reason is required.', errorCode: 'REASON_REQUIRED' }))
+      const results = body.items.map(({ stage, id }) => {
+        const d = deadLetters.find((x) => x.stage === stage && x.id === id)
+        // 42 was re-armed by someone else meanwhile; 44 was acknowledged meanwhile.
+        if (!d) return { stage, id, ok: false, error: 'NOT_FOUND' }
+        if (id === '42') return { stage, id, ok: false, error: 'NOT_DEAD_LETTER' }
+        if (id === '44' && dlDoor[1] === 'Acknowledge') return { stage, id, ok: false, error: 'ACKNOWLEDGED' }
+        if (dlDoor[1] === 'Retry') {
+          if (stage === 'pull') return { stage, id, ok: false, error: 'PULL_STAGE' }
+          deadLetters.splice(deadLetters.indexOf(d), 1)
+        } else Object.assign(d, { canRetry: false, acknowledgedAt: '2026-10-09T12:05:00', acknowledgedBy: 'msartawi', acknowledgeReason: body.reason })
+        return { stage, id, ok: true, error: null }
+      })
+      syncLane()
+      const action = dlDoor[1] === 'Retry' ? 'MirrorRetry' : 'MirrorAcknowledge'
+      audit.unshift({ id: `A-${audit.length + 1}`, at: '2026-10-09T12:05:00', who: 'msartawi', action, codes: [body.code], batchId: null, before: 'dead letter', after: action === 'MirrorRetry' ? 'pending' : 'acknowledged', reason: body.reason })
+      return route.fulfill(envelope({ auditId: `A-${audit.length}`, results }))
+    }
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
   // The worker applies every pending control.
   const settle = () => stores.forEach((s) => ((s.controlPending = false), (s.appliedVersion = s.controlVersion), (s.states = s.states.filter((x) => x !== 'controlPending'))))
-  return { context, page, errors, calls, posts, settle }
+  return { context, page, errors, calls, posts, settle, dlPosts }
 }
 
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -393,6 +489,137 @@ const ticked = (page, code) => page.locator(`.ag-row[row-id="${code}"] .ag-selec
   await page.locator('[data-audit-clear]').click()
   check('7. Clear brings the whole feed back', await waitFor(page, async () => (await page.locator('[data-tab-grid="audit"] .ag-row').count()) === 3) && (await page.locator('[data-audit-who]').inputValue()) === '')
   check('no page errors (audit page)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 8 (458): retry and acknowledge mirror dead letters with a reason ─────────────────────────
+{
+  const { context, page, errors, calls, dlPosts } = await open({ mirror: true })
+  await page.goto(`${BASE}/admin/sync/store/P001?tab=mirror`)
+  await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-row[row-id="apply-41"]').waitFor({ timeout: 20000 })
+  const retry = page.locator('[data-dead-letter-action="retry"]')
+  const ack = page.locator('[data-dead-letter-action="acknowledge"]')
+  const offered = async () => `${await retry.isEnabled()},${await ack.isEnabled()}`
+  const count = async () => page.locator('[data-dead-letter-bar] [data-selection-count]').getAttribute('data-selection-count')
+  const openInHeader = async () => strip(await page.locator('[data-health-block="mirror-dead-letters"]').innerText())
+  check('8. the bar starts empty, both actions drawn and disabled', /Select up to 50 dead letters/.test(strip(await page.locator('[data-dead-letter-bar]').innerText())) && (await offered()) === 'false,false')
+  check('8. the header counts four open dead letters', /\b4\b/.test(await openInHeader()), await openInHeader())
+
+  await tick(page, 'apply-41')
+  await tick(page, 'apply-42')
+  check('8. two retryable rows: Retry and Acknowledge are offered', await waitFor(page, async () => (await offered()) === 'true,true'))
+  check('8. …and the bar counts them', (await count()) === '2' && /^2 dead letters selected/.test(strip(await page.locator('[data-dead-letter-bar]').innerText())))
+  await tick(page, 'pull-7')
+  check('8. a pull-stage row in the selection withdraws Retry and keeps Acknowledge', await waitFor(page, async () => (await offered()) === 'false,true'))
+  check('8. …saying why', (await page.locator('[data-dead-letter-no-retry]').count()) === 1)
+  await tick(page, 'pull-7')
+  check('8. taking it out offers Retry again', await waitFor(page, async () => (await offered()) === 'true,true'))
+
+  await retry.click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  const title = strip(await dialog.locator('#modal-title').innerText())
+  check('8. Retry opens the reason dialog with the count and the store', title === 'Retry: 2 dead letters of store P001', title)
+  check('8. …saying what a retry does', /applied again on the next tick/.test(await dialog.innerText()))
+  check('8. Confirm is disabled with no reason', await dialog.locator('[data-reason-confirm]').isDisabled())
+  await dialog.locator('[data-reason-input]').fill('  Handler shipped in 4.2  ')
+  const mirrorReads = () => calls.filter((c) => c.startsWith('ActionSync/Store/Mirror?')).length
+  const headerReads = () => calls.filter((c) => c === 'ActionSync/Store?code=P001').length
+  const [mirrorBefore, headerBefore] = [mirrorReads(), headerReads()]
+  await dialog.locator('[data-reason-confirm]').click()
+  await waitFor(page, async () => dlPosts.length === 1)
+  check(
+    '8. ONE Retry POST: the store, the two rows by stage and id, the trimmed reason',
+    dlPosts.length === 1 && dlPosts[0].door === 'Retry' && JSON.stringify(dlPosts[0].body) === JSON.stringify({ code: 'P001', items: [{ stage: 'apply', id: '41' }, { stage: 'apply', id: '42' }], reason: 'Handler shipped in 4.2' }),
+    JSON.stringify(dlPosts[0]),
+  )
+  const sentence = await toastText(page, /^Retry:/)
+  check('8. one toast sentence counts the done and the refused', sentence === 'Retry: done for 1 of 2 dead letters; 1 refused.', sentence)
+  await page.locator('[data-control-failures]').waitFor({ timeout: 5000 })
+  const list = page.locator('[data-control-failures]')
+  check('8. the per-row results are listed in the controls\' style, titled by the audit name', (await list.getAttribute('data-control-failures')) === 'MirrorRetry' && /^Retry mirror dead letters: refused for these dead letters/.test(strip(await list.innerText())))
+  const refused = strip(await page.locator('[data-failure-code="NOT_DEAD_LETTER"]').innerText())
+  check('8. …the refused row by id and stage, with its words and its code', refused === '42 · Apply No longer a dead letter; nothing was done to it NOT_DEAD_LETTER', refused)
+  check('8. …and only it', (await page.locator('[data-failure]').count()) === 1)
+  check('8. the dialog closes and the selection is spent', (await page.locator('dialog[open]').count()) === 0 && (await count()) === '0')
+  check('8. the Mirror tab is read again', await waitFor(page, async () => mirrorReads() > mirrorBefore))
+  check('8. …and the store header', await waitFor(page, async () => headerReads() > headerBefore))
+  check('8. the retried row has left the list', await waitFor(page, async () => (await page.locator('.ag-row[row-id="apply-41"]').count()) === 0))
+  check('8. the header reads three open dead letters', await waitFor(page, async () => /\b3\b/.test(await openInHeader())), await openInHeader())
+  await page.screenshot({ path: `${SHOTS}/dead-letter-retry.png`, fullPage: true })
+
+  // Acknowledge: a pull row and an apply row, one acknowledged meanwhile.
+  await tick(page, 'pull-7')
+  await tick(page, 'apply-44')
+  check('8. a mixed-stage selection offers only Acknowledge', await waitFor(page, async () => (await offered()) === 'false,true'))
+  await ack.click()
+  await dialog.waitFor()
+  check('8. Acknowledge opens the reason dialog', strip(await dialog.locator('#modal-title').innerText()) === 'Acknowledge as lost: 2 dead letters of store P001' && /recorded as lost/.test(await dialog.innerText()))
+  await dialog.locator('[data-reason-input]').fill('Till wiped')
+  await dialog.locator('[data-reason-confirm]').click()
+  await waitFor(page, async () => dlPosts.length === 2)
+  check(
+    '8. ONE Acknowledge POST with both stages',
+    dlPosts[1]?.door === 'Acknowledge' && JSON.stringify(dlPosts[1].body) === JSON.stringify({ code: 'P001', items: [{ stage: 'pull', id: '7' }, { stage: 'apply', id: '44' }], reason: 'Till wiped' }),
+    JSON.stringify(dlPosts[1]),
+  )
+  const ackSentence = await toastText(page, /^Acknowledge as lost:/)
+  check('8. its toast sentence', ackSentence === 'Acknowledge as lost: done for 1 of 2 dead letters; 1 refused.', ackSentence)
+  check('8. the new answer replaces the last list', await waitFor(page, async () => (await list.getAttribute('data-control-failures')) === 'MirrorAcknowledge' && (await page.locator('[data-failure-code="NOT_DEAD_LETTER"]').count()) === 0))
+  const ackRefused = strip(await page.locator('[data-failure-code="ACKNOWLEDGED"]').innerText())
+  check('8. …listing the row acknowledged meanwhile', ackRefused === '44 · Apply Already acknowledged ACKNOWLEDGED', ackRefused)
+  check('8. the acknowledged row leaves the open list', await waitFor(page, async () => (await page.locator('.ag-row[row-id="pull-7"]').count()) === 0))
+  check('8. the header reads two open dead letters', await waitFor(page, async () => /\b2\b/.test(await openInHeader())), await openInHeader())
+  await page.locator('[data-mirror-include-acknowledged]').check()
+  await page.locator('.ag-row[row-id="pull-7"]').first().waitFor({ timeout: 5000 })
+  const ackRow = strip(await page.locator('.ag-row[row-id="pull-7"]').last().innerText())
+  check('8. with Include acknowledged it is listed, with who and why', /msartawi/.test(ackRow) && /Till wiped/.test(ackRow), ackRow)
+  check('8. …and takes no checkbox', !(await page.locator('.ag-row[row-id="pull-7"] .ag-selection-checkbox input').first().isVisible().catch(() => false)))
+  await page.locator('[data-control-failures-dismiss]').click()
+  check('8. the list can be dismissed', (await page.locator('[data-control-failures]').count()) === 0)
+
+  // A whole refusal stays in the dialog.
+  await tick(page, 'apply-44')
+  await waitFor(page, async () => (await offered()) === 'true,true')
+  await retry.click()
+  await dialog.locator('[data-reason-input]').fill('trip the door')
+  await dialog.locator('[data-reason-confirm]').click()
+  await dialog.locator('[data-reason-error]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('8. a request-level refusal keeps the dialog open with the message and its code', (await page.locator('dialog[open]').count()) === 1 && /A reason is required\./.test(await dialog.innerText()) && (await dialog.locator('[data-reason-error="REASON_REQUIRED"]').count()) === 1)
+  await dialog.locator('[data-reason-cancel]').click()
+  check('8. …and lists nothing per row', (await page.locator('[data-control-failures]').count()) === 0)
+
+  await page.locator('[data-tab="audit"]').click()
+  await page.locator('[data-tab-grid="audit"] .ag-row').first().waitFor({ timeout: 10000 })
+  const auditText = strip(await page.locator('[data-tab-grid="audit"]').innerText())
+  check('8. the store\'s Audit tab labels both new entries', /Retry mirror dead letters/.test(auditText) && /Acknowledge mirror dead letters as lost/.test(auditText) && /Till wiped/.test(auditText), auditText)
+  check('no page errors (dead letters)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 9 (458): the Mirror tab is read only without the grant ─────────────────────────────────────
+{
+  const { context, page, errors, dlPosts } = await open({ mirror: true, canOperate: false })
+  await page.goto(`${BASE}/admin/sync/store/P001?tab=mirror`)
+  await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-row[row-id="apply-41"]').waitFor({ timeout: 20000 })
+  check('9. view only: the dead letters are listed', (await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-row').count()) === 4)
+  check('9. …with no checkbox, no bar and no action — absent, not disabled', (await page.locator('.ag-selection-checkbox, .ag-header-select-all, [data-dead-letter-bar], [data-dead-letter-action]').count()) === 0)
+  check('9. …and nothing is written', dlPosts.length === 0)
+  check('no page errors (dead letters, view only)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 10 (458): the audit feed labels the mirror rail's actions ──────────────────────────────────
+{
+  const { context, page, errors } = await open({ canOperate: false, extraAudit: MIRROR_AUDIT })
+  await page.goto(`${BASE}/admin/sync/audit`)
+  await page.locator('.ag-row[row-id="A-4"]').waitFor({ timeout: 20000 })
+  const action = async (id) => strip(await page.locator(`.ag-row[row-id="${id}"] [col-id="action"]`).innerText())
+  check('10. MirrorRetry reads "Retry mirror dead letters"', (await action('A-4')) === 'Retry mirror dead letters', await action('A-4'))
+  check('10. MirrorAcknowledge reads "Acknowledge mirror dead letters as lost"', (await action('A-5')) === 'Acknowledge mirror dead letters as lost', await action('A-5'))
+  check('10. AgreementRecheck reads "Recheck rail agreement"', (await action('A-6')) === 'Recheck rail agreement', await action('A-6'))
+  await page.screenshot({ path: `${SHOTS}/audit-mirror.png`, fullPage: true })
+  check('no page errors (mirror audit labels)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

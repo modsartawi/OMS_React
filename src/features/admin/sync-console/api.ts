@@ -21,6 +21,8 @@ import type {
   CancelCommandsResponse,
   CreateLocationsRequest,
   CreateLocationsResponse,
+  DeadLetterActionRequest,
+  DeadLetterActionResponse,
   DismissPendingRequest,
   EditLocationRequest,
   EditStoreRequest,
@@ -179,6 +181,16 @@ export const syncConsoleApi = {
    */
   storeMirror(code: string, filter: MirrorFilter, page: number): Promise<StoreMirror> {
     return api.get<StoreMirror>('ActionSync/Store/Mirror', mirrorQuery(code, filter, page))
+  },
+
+  /**
+   * `POST ActionSync/Mirror/DeadLetters/Retry` or `…/Acknowledge` (ticket 458) — one
+   * store, 1–50 dead letters, one audit row. A whole refusal (`BAD_REQUEST`,
+   * `REASON_REQUIRED`, `TOO_MANY`, `NO_STORE`) throws; a per-row one (`PULL_STAGE`,
+   * `ACKNOWLEDGED`, `NOT_DEAD_LETTER`, `NOT_FOUND`) comes back in `results[].error`.
+   */
+  deadLetters(action: 'Retry' | 'Acknowledge', body: DeadLetterActionRequest): Promise<DeadLetterActionResponse> {
+    return api.post<DeadLetterActionResponse>(`ActionSync/Mirror/DeadLetters/${action}`, body)
   },
 
   // ── Controls and the audit feed (ticket 447) ──

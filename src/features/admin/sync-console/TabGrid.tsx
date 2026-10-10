@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import type { ColDef, GetRowIdParams, RowClassRules } from 'ag-grid-community'
-import { AgGridReact } from 'ag-grid-react'
+import type { ColDef, GetRowIdParams, RowClassRules, RowSelectionOptions } from 'ag-grid-community'
+import { AgGridReact, type AgGridReactProps } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -26,6 +26,8 @@ export default function TabGrid<T>({
   loading,
   data,
   rowClassRules,
+  rowSelection,
+  selectionProps,
 }: {
   rows: T[] | undefined
   columns: ColDef<T>[]
@@ -49,6 +51,10 @@ export default function TabGrid<T>({
    * row's data changes, where a `getRowClass` class is only ever added. Module-level.
    */
   rowClassRules?: RowClassRules<T>
+  /** A selectable list's checkboxes (the Mirror tab's dead letters, 458); omitted, no checkbox column. Module-level. */
+  rowSelection?: RowSelectionOptions<T>
+  /** `useCappedSelection`'s `gridProps`, spread on the grid beside `rowSelection`. */
+  selectionProps?: Pick<AgGridReactProps<T>, 'onGridReady' | 'onGridPreDestroyed' | 'onRowDataUpdated' | 'onSelectionChanged'>
 }) {
   const getRowId = useMemo(() => (rowId ? ({ data: row }: GetRowIdParams<T>) => rowId(row) : undefined), [rowId])
   if (pending) return <Loading label={loading} />
@@ -68,6 +74,8 @@ export default function TabGrid<T>({
         defaultColDef={STORE_DEFAULT_COL_DEF}
         getRowId={getRowId}
         rowClassRules={rowClassRules}
+        rowSelection={rowSelection}
+        {...selectionProps}
         rowHeight={OMS_GRID_ROW_HEIGHT}
         headerHeight={OMS_GRID_HEADER_HEIGHT}
         domLayout="autoHeight"

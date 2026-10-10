@@ -12,7 +12,8 @@
 //      as noData), and the five-entry legend;
 //   3. the six tabs in order; Counters opens first, a pull counter's log head and lag are blank;
 //   4. Passes opens on 7 days ago, its picker is bounded to 30 days (an older date is pulled back to the
-//      bound before any call), it pages at 50, and a pass opens its detail from Store/PassDetail;
+//      bound before any call), it pages at 50, the strip's Refresh re-reads the open tab alone at its
+//      date and page, and a pass opens its detail from Store/PassDetail;
 //   5. Scripts shows the script id and its state, never SQL; Location shows no credentials;
 //   6. Commands (448's) and Audit (447's) read here only as empty feeds; ?tab= opens a tab
 //      and survives a reload;
@@ -279,6 +280,15 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('4. Next asks for page 2', await waitForCall(page, calls, 'ActionSync/Store/Passes?code=P001&from=2026-09-09&page=2&pageSize=50'))
   await page.locator('.ag-row[row-id="PR-950"]').waitFor()
   check('4. page 2 draws the last 25', (await rowCount(page, '[data-tab-grid="passes"] .ag-row', 25)) === 25)
+  const page2 = 'ActionSync/Store/Passes?code=P001&from=2026-09-09&page=2&pageSize=50'
+  const asked = (want) => calls.filter((c) => c === want).length
+  const [p2Before, countersBefore, headerBefore] = [asked(page2), asked('ActionSync/Store/Counters?code=P001'), asked('ActionSync/Store?code=P001')]
+  await page.locator('[data-tab-refresh="passes"]').click()
+  const deadline = Date.now() + 5000
+  while (asked(page2) === p2Before && Date.now() < deadline) await page.waitForTimeout(100)
+  check('4. Refresh re-reads the open tab at its date and page', asked(page2) === p2Before + 1, String(asked(page2) - p2Before))
+  check('4. …and only that tab', asked('ActionSync/Store/Counters?code=P001') === countersBefore && asked('ActionSync/Store?code=P001') === headerBefore)
+  check('4. …keeping page 2 drawn', (await rowCount(page, '[data-tab-grid="passes"] .ag-row', 25)) === 25)
   await page.getByRole('button', { name: 'Previous' }).click()
   await page.locator('[data-pass="PR-997"]').click()
   await page.locator('[data-pass-detail="PR-997"] .ag-row').first().waitFor({ timeout: 10000 })

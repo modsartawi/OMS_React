@@ -148,7 +148,8 @@
     "commands": "Commands",
     "scripts": "Scripts",
     "audit": "Audit",
-    "location": "Location"
+    "location": "Location",
+    "refresh": "Refresh"
   },
   "counters": {
     "loading": "Loading counters…",

@@ -48,7 +48,7 @@ import type {
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
-import { PASSES_PAGE_SIZE } from './store-helpers'
+import { PASSES_PAGE_SIZE, type StoreTab } from './store-helpers'
 
 /**
  * The ONE cache key the Admin menu leaf and the console's own in-page gate share, so
@@ -368,6 +368,19 @@ export const commandsQueryOptions = (filter: CommandsFilter, page: number) => ({
   queryFn: () => syncConsoleApi.commands(filter, page),
   ...refresh,
 })
+
+// ── A store tab's Refresh ──
+
+/**
+ * The reads one store tab draws, as a prefix: its Refresh refetches them without
+ * touching the others. Audit and Commands are the fleet-wide feeds narrowed to the
+ * store, so their whole prefix is asked; only the mounted (this store's) page refetches.
+ */
+export function storeTabKey(code: string, tab: StoreTab): readonly string[] {
+  if (tab === 'audit') return AUDIT_KEY
+  if (tab === 'commands') return COMMANDS_KEY
+  return [...storeKey(code), tab]
+}
 
 // ── Sync pending (ticket 449) ──
 

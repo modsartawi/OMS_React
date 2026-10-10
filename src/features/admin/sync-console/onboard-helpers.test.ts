@@ -51,18 +51,18 @@ describe('codeProblem', () => {
 
 describe('wizardStart', () => {
   const both = { canOperate: true, canOnboard: true }
-  it('starts at step 1 with canOnboard', () => {
+  it('starts at step 1 with canOnboard and canOperate', () => {
     expect(wizardStart(both, null)).toBe('master')
-    expect(wizardStart({ canOperate: false, canOnboard: true }, null)).toBe('master')
+  })
+  it('offers no wizard to a canOnboard-only holder: step 1 always sends alsoCreateLocation, a bare 403 without Operate (450)', () => {
+    expect(wizardStart({ canOperate: false, canOnboard: true }, null)).toBeNull()
+    expect(wizardStart({ canOperate: false, canOnboard: true }, 'P990')).toBeNull()
   })
   it('starts at step 2 without canOnboard', () => {
     expect(wizardStart({ canOperate: true, canOnboard: false }, null)).toBe('location')
   })
   it('starts at step 2 for a Finish, which names an existing store', () => {
     expect(wizardStart(both, 'P990')).toBe('location')
-  })
-  it('a Finish without canOperate falls back to the master wizard, never the location door', () => {
-    expect(wizardStart({ canOperate: false, canOnboard: true }, 'P990')).toBe('master')
   })
   it('offers nothing to a view-only holder or before the probe answers', () => {
     expect(wizardStart({ canOperate: false, canOnboard: false }, null)).toBeNull()
@@ -227,8 +227,14 @@ describe('locationEditReady', () => {
     const padded = { ...current, instance: 'SQLEXPRESS   ' }
     expect(locationEditReady(padded, { ...padded })).toBe(false)
   })
-  it('refuses a blank field', () => {
+  it('refuses a blank IP, database or description', () => {
     expect(locationEditReady(current, { ...current, ip: '10.20.58.12', dbName: '  ' })).toBe(false)
+    expect(locationEditReady(current, { ...current, ip: '  ' })).toBe(false)
+    expect(locationEditReady(current, { ...current, description: '' })).toBe(false)
+  })
+  it('takes a blank instance: the default instance (contract, 2541)', () => {
+    expect(locationEditReady(current, { ...current, instance: '' })).toBe(true)
+    expect(locationEditReady({ ...current, instance: '' }, { ...current, instance: '', ip: '10.20.58.12' })).toBe(true)
   })
 })
 

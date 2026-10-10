@@ -393,7 +393,10 @@ async function sendCommand(page, kind, reason) {
   await dialog.locator('[data-repush-object="ItemPrice"]').waitFor({ timeout: 5000 })
   check('4. chosen objects lists the store\'s push objects only', (await dialog.locator('[data-repush-object]').count()) === 2 && (await dialog.locator('[data-repush-object="RetailTrx"]').count()) === 0)
   check('4. …and Preview waits for one to be chosen', await previewBtn.isDisabled())
+  // A re-push names at most one object: two is a 400 BAD_REQUEST on the built door (450).
+  await dialog.locator('[data-repush-object="Item"]').check()
   await dialog.locator('[data-repush-object="ItemPrice"]').check()
+  check('4. …one object only: choosing a second drops the first', !(await dialog.locator('[data-repush-object="Item"]').isChecked()))
   await page.screenshot({ path: `${SHOTS}/repush-inputs.png` })
   await previewBtn.click()
   await waitFor(page, async () => posts.length === 2)

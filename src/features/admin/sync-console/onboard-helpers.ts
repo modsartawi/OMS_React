@@ -63,8 +63,13 @@ export type WizardMode = 'master' | 'location'
  *
  * - **Finish** from Sync pending names a code: that store exists, so step 2 alone
  *   (`ActionSync/Locations`, which needs `canOperate`).
- * - With `canOnboard`: step 1 then step 2 (`Store/Onboard`, `alsoCreateLocation`).
+ * - With `canOnboard` **and** `canOperate`: step 1 then step 2 (`Store/Onboard`,
+ *   `alsoCreateLocation`).
  * - With `canOperate` only: step 2 alone, for existing stores.
+ *
+ * 🚩 `canOnboard` alone is no wizard (ticket 450): step 1 always sends
+ * `alsoCreateLocation`, and the door answers that with a bare 403 for a caller
+ * without `ActionSync.Operate` (contract, 2542).
  */
 export function wizardStart(
   access: Pick<SyncConsoleAccess, 'canOperate' | 'canOnboard'> | null | undefined,
@@ -72,10 +77,9 @@ export function wizardStart(
 ): WizardMode | null {
   const canOperate = access?.canOperate === true
   const canOnboard = access?.canOnboard === true
-  if (finishCode && canOperate) return 'location'
-  if (canOnboard) return 'master'
-  if (canOperate) return 'location'
-  return null
+  if (!canOperate) return null
+  if (finishCode) return 'location'
+  return canOnboard ? 'master' : 'location'
 }
 
 // ── Paste many ──────────────────────────────────────────────────────────────────
@@ -316,14 +320,15 @@ export const cleanLocationEdit = (e: LocationEdit): LocationEdit => ({
 })
 
 /**
- * Whether Edit location may be saved: every field filled (a blank IP, instance or
- * database would cut the store off), and at least one changed from what the door
- * returned — an unchanged save would only write an empty audit row.
+ * Whether Edit location may be saved: the description, IP and database filled (a
+ * blank IP or database would cut the store off), and at least one field changed from
+ * what the door returned — an unchanged save would only write an empty audit row. A
+ * blank instance is the default instance (contract, 2541), so it may stay blank.
  */
 export function locationEditReady(current: LocationEdit, edit: LocationEdit): boolean {
   const e = cleanLocationEdit(edit)
   const was = cleanLocationEdit(current)
-  const filled = Object.values(e).every((v) => v !== '')
+  const filled = e.description !== '' && e.ip !== '' && e.dbName !== ''
   // Compared trimmed on both sides: a stored value padded with spaces is not a change.
   const changed = (Object.keys(e) as (keyof LocationEdit)[]).some((k) => e[k] !== was[k])
   return filled && changed

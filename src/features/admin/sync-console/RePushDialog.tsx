@@ -34,8 +34,9 @@ interface Preview {
  * The re-push dialog (ticket 448), opened from one store's page or a fleet selection
  * of up to 50, on the shared reason dialog.
  *
- * - **What:** all push objects, or chosen ones. No door lists the push objects, so
- *   the choice is the first store's own push counters (`bound: 'Out'`).
+ * - **What:** all push objects, or one. A re-push names at most one object: two or
+ *   more is a 400 `BAD_REQUEST` (contract, 2540; met in ticket 450). No door lists the
+ *   push objects, so the choice is the first store's own push counters (`bound: 'Out'`).
  * - **From:** limited to the 41-day window from today's LOCAL date, opening on its
  *   start (`rePushDateBounds`).
  * - **Preview** sends the inputs with `preview: true` and shows the replay count per
@@ -128,8 +129,7 @@ function RePush({
     setFrom(next)
   }
 
-  const toggle = (objectId: string) =>
-    setChosen((list) => (list.includes(objectId) ? list.filter((o) => o !== objectId) : [...list, objectId]))
+  const choose = (objectId: string) => setChosen([objectId])
 
   const title =
     codes.length === 1
@@ -217,9 +217,10 @@ function RePush({
               {objects.map((o) => (
                 <label key={o} className="flex items-center gap-1.5 font-mono">
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name="repush-object"
                     checked={chosen.includes(o)}
-                    onChange={() => toggle(o)}
+                    onChange={() => choose(o)}
                     disabled={send.isPending}
                     data-repush-object={o}
                   />

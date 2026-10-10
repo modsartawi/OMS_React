@@ -6,8 +6,9 @@
  * the error taxonomy and 401 are that module's. The shapes are the door contract's
  * (`@/core/models/sync-console`).
  *
- * ⚠️ **No door here has been met.** BackOffice 2539–2542 are open and unbuilt, so
- * every call is proven against stubs of the contract (`tools/sync-console-*-drive.mjs`).
+ * The doors are built (BackOffice 2539–2542) and every call here was checked against
+ * them door by door (ticket 450). The stubbed drives (`tools/sync-console-*-drive.mjs`)
+ * stay the screens' regression; `tools/sync-console-live-drive.mjs` is their live twin.
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {

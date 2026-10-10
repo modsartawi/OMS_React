@@ -221,8 +221,10 @@ export interface StoreCounters {
 export interface StorePass {
   processId: string
   loop: SyncLoop
-  startOn: string
+  /** `null` only when the process row holds no usable start time (contract, met in 450). */
+  startOn: string | null
   finishOn: string | null
+  /** `Ok`, `Failed` or `None` in practice: `Partial` and `Skipped` are loop outcomes only. */
   status: PassOutcome
   actionsCount: number
   errorMessage: string | null
@@ -238,8 +240,8 @@ export interface PassDetailLine {
   actionType: string
   counter: number
   lineStatus: PassLineStatus
-  startOn: string
-  finishOn: string
+  startOn: string | null
+  finishOn: string | null
   errorMessage: string | null
 }
 
@@ -250,7 +252,8 @@ export interface PassDetail {
 /** One of `GET ActionSync/Store/Scripts?code=`. 🚩 The SQL text is never on the wire. */
 export interface StoreScript {
   scriptId: string
-  createdAt: string
+  /** Always `null` for now: HQ records no creation time for a script (2539). */
+  createdAt: string | null
   isExecuted: boolean
   lastAttempt: string | null
   errorMessage: string | null

@@ -316,7 +316,9 @@
     "LOCATION_EXISTS": "Already has a sync location",
     "NO_TEMPLATE": "No such template",
     "DUPLICATE_IN_BATCH": "The same code twice in this request",
-    "STORE_EXISTS": "The store already exists"
+    "STORE_EXISTS": "The store already exists",
+    "BAD_FIELD": "A field is blank or too long",
+    "FAILED": "Not written, safe to retry"
   },
   "auditActions": {
     "Move": "Move to worker",
@@ -399,12 +401,12 @@
     "titleMany_other": "Re-push to {{n}} stores",
     "scope": "What",
     "allObjects": "All push objects",
-    "chosenObjects": "Chosen objects",
+    "chosenObjects": "One object",
     "objectsOf": "Push objects of store <code>{{code}}</code>",
     "objectsLoading": "Loading the push objects…",
     "objectsFailed": "The push objects could not be loaded. All push objects can still be re-pushed.",
     "objectsEmpty": "This store has no push objects listed.",
-    "pickObject": "Choose at least one object.",
+    "pickObject": "Choose an object.",
     "from": "Replay actions from",
     "windowNote": "The earliest date is the start of the 41-day action log (<min>{{min}}</min>). Older changes cannot be replayed from here; that needs a store re-seed.",
     "previewButton": "Preview",

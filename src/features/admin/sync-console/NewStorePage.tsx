@@ -60,9 +60,10 @@ import { TextField } from './TextField'
  * only while they still match the preview. The answer is a row each, and a new
  * location's connection test is followed to its end — its failure is a warning.
  *
- * With `canOnboard` the wizard posts `Store/Onboard` (`alsoCreateLocation`); without
- * it, or for **Finish** from Sync pending (`?code=`), it starts at step 2 and posts
- * `ActionSync/Locations`. A holder who may do neither sees no form at all.
+ * Every wizard needs `canOperate`. With `canOnboard` too it posts `Store/Onboard`
+ * (`alsoCreateLocation`); without it, or for **Finish** from Sync pending (`?code=`),
+ * it starts at step 2 and posts `ActionSync/Locations`. A holder without `canOperate`
+ * sees no form at all: step 1 alone would be a bare 403 (`wizardStart`, ticket 450).
  */
 export default function NewStorePage() {
   const { t } = useTranslation('sync-console')
@@ -99,7 +100,6 @@ function NewStore() {
           canOperate={access.data?.canOperate === true}
           canOnboard={access.data?.canOnboard === true}
           finish={start === 'location' && finishCode ? { code: finishCode, description: finishDescription } : null}
-          initialCode={finishCode ?? ''}
         />
       ) : (
         <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground" data-onboard-none="">
@@ -141,22 +141,19 @@ function Wizard({
   canOperate,
   canOnboard,
   finish,
-  initialCode,
 }: {
   start: WizardMode
   canOperate: boolean
   canOnboard: boolean
   /** Finish from Sync pending: step 2 alone, for this one store, its code fixed. */
   finish: { code: string; description: string } | null
-  /** A `?code=` a master wizard could not finish (no `canOperate`): typed in for it, not fixed. */
-  initialCode: string
 }) {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
   const [mode, setMode] = useState<WizardMode>(start)
   const [step, setStep] = useState<1 | 2>(start === 'master' ? 1 : 2)
   const [input, setInput] = useState<InputMode>('one')
-  const blankForm = (): OneStore => ({ ...EMPTY_ONE, code: finish?.code ?? initialCode, description: finish?.description ?? '' })
+  const blankForm = (): OneStore => ({ ...EMPTY_ONE, code: finish?.code ?? '', description: finish?.description ?? '' })
   const [one, setOne] = useState<OneStore>(blankForm)
   const [paste, setPaste] = useState('')
   const [templateStore, setTemplateStore] = useState(DEFAULT_TEMPLATE_STORE)

@@ -100,6 +100,9 @@ const FAILURE_CODES = new Set([
   'NO_TEMPLATE',
   'DUPLICATE_IN_BATCH',
   'STORE_EXISTS',
+  // Met on the built doors (450): a field over its width, and a row whose own write faulted.
+  'BAD_FIELD',
+  'FAILED',
 ])
 
 /** A failure code's `sync-console` label key, or `null` — the caller then shows the raw code. */

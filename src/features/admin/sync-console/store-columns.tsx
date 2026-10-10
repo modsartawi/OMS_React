@@ -55,7 +55,8 @@ export function buildPassColumns(t: TFunction, onOpen: (pass: StorePass) => void
             title={t('passes.open')}
             data-pass={p.data.processId}
           >
-            <Ltr>{formatDateTime(p.data.startOn)}</Ltr>
+            {/* A pass with no start time is still opened, by its process id. */}
+            <Ltr>{formatDateTime(p.data.startOn) || p.data.processId}</Ltr>
           </button>
         ) : null,
     },

@@ -21,7 +21,8 @@ const FIELDS: readonly { key: keyof LocationEdit; ltr: boolean }[] = [
  * the instance and the database — and nothing else. 🚩 The code, the template and the
  * credentials cannot be changed here, and no credential field exists.
  *
- * Save is offered once a field has changed and none is blank (`locationEditReady`);
+ * Save is offered once a field has changed and none but the instance is blank (a blank
+ * instance is the default one — `locationEditReady`);
  * values are sent trimmed. Mounted only while open, so it always opens on the
  * location as the door last returned it.
  */

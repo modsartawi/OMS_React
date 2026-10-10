@@ -163,7 +163,7 @@ describe('controlResultSummary', () => {
       const node = lookup(`results.${outcome}`) ?? lookup(`results.${outcome}_other`)
       expect(node).toBeTruthy()
     }
-    for (const code of ['NOT_ON_WORKER', 'NO_STORE', 'NO_STORES', 'TOO_MANY_STORES', 'REASON_REQUIRED']) {
+    for (const code of ['NOT_ON_WORKER', 'NO_STORE', 'NO_STORES', 'TOO_MANY_STORES', 'REASON_REQUIRED', 'BAD_FIELD', 'FAILED']) {
       const key = failureLabelKey(code)
       expect(key).toBe(`failures.${code}`)
       expect(lookup(key as string)).toBeTruthy()

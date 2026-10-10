@@ -1,0 +1,21 @@
+{
+  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. Picked 2026-10-10 from the LOCAL POS_Server (.\\SQLEXPRESS) behind SIS.Api :5111, where all five stores are on WPF; staging needs its own.",
+  "storeCode": "P001",
+  "wpfStoreCode": "P002",
+  "testStoreOnWpf": "P134",
+  "testStoreForTest": "P134",
+  "rePushStoreCode": "P134",
+  "onboard": {
+    "code": "TODO: a new TEST store code, ^[A-Z0-9]{4}$, no Store master yet",
+    "description": "TODO",
+    "city": "TODO",
+    "area": "TODO",
+    "address": "TODO",
+    "phone": "TODO",
+    "cr": "TODO",
+    "ip": "TODO: the test store's IP",
+    "templateStore": "TODO: the store master whose payment types are copied (P001 on the stubs)",
+    "templateLocation": "TODO: the sync location copied for step 2 (P001 or C011)"
+  },
+  "reason": "Ticket 450 live drive"
+}

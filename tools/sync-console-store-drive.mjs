@@ -49,6 +49,21 @@
 // 🚩 Changed on purpose by 459, and only the same four tab-list assertions (sections 3, 7, 11, 12b): Agreement
 // is appended after Mirror, on worker and WPF stores alike.
 //
+// Ticket 467 (spec 444 amended by BackOffice spec 2586, doors 2587/2588 — unbuilt, so Store/Transactions is a stub
+// in the contract's section "Today's transactions"):
+//  16. the Transactions tab, read only: not read before it is opened; the day picker offers today and the 7 days
+//      before it (today first, as the default); the door's summary of the day it served (sales, returns, the signed
+//      total, last completed, not yet on the counter rail, and mismatches only when > 0, in the danger token); the
+//      list paged at 50 with each receipt's counter badge (arrived / not yet / totals differ, an unknown flag raw)
+//      and the counter total in its tooltip; each filter (status, kind, counter flag) and the exact receipt search
+//      asked from page 1, the search on submit only; a past day; a day with no receipt is an empty list; Refresh;
+//  17. polling (Playwright's clock, the real 60 s interval): today re-reads after 60 s, a past day never does, and
+//      a closed tab never reads;
+//  18. a store whose mirror the door cannot read (available: false) says so with no list; a WPF store reads
+//      "No NewPos receipts" and Store/Transactions is never asked.
+// 🚩 Changed on purpose by 467, and only the same four tab-list assertions (sections 3, 7, 11, 12b): Transactions is
+// appended after Agreement, on worker and WPF stores alike (spec 2586 decision 5).
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -180,7 +195,19 @@ const DISAGREE_STORE = {
   mirror: { ...MIRROR_LANE, lastConnectFailAt: null, lastConnectError: null, openDeadLetters: 0 },
   agreement: 'disagree',
 }
-const STORES = { P001: WORKER_STORE, P002: WPF_STORE, P003: MIRROR_STORE, P004: UNMEASURED_STORE, P005: WPF_MIRROR_STORE, P006: DISAGREE_STORE }
+// ── Ticket 467: a NewPos store selling today, and one whose mirror the door cannot read ──
+const NEWPOS_STORE = { ...DISAGREE_STORE, code: 'P007', description: 'Nakheel', states: ['onWorker'], agreement: 'agree' }
+const UNREADABLE_STORE = { ...WORKER_STORE, code: 'P008', description: 'Suwaidi', controlPending: false, states: ['onWorker'] }
+const STORES = {
+  P001: WORKER_STORE,
+  P002: WPF_STORE,
+  P003: MIRROR_STORE,
+  P004: UNMEASURED_STORE,
+  P005: WPF_MIRROR_STORE,
+  P006: DISAGREE_STORE,
+  P007: NEWPOS_STORE,
+  P008: UNREADABLE_STORE,
+}
 
 // Store/Agreement: D-1..D-7 newest first; 2026-10-05 had no NewPos receipt, so it is absent.
 const AGREEMENT_DAYS = [
@@ -204,6 +231,55 @@ const AGREEMENT_GAPS = [
 ]
 // What a recheck finds: 10-06 healed (the late receipt arrived), 10-04 had no NewPos receipt after all.
 const HEALED_1006 = { ...AGREEMENT_DAYS[2], judgedAt: '2026-10-09T12:04:00', agrees: true, mirrorCount: 402, mirrorTotal: 46012.345, missingAtMirror: 0 }
+
+// Store/Transactions (467): P007's NewPos receipts. Today (the clock's 2026-10-09) has 63: 60 COMPLETED (two pages at
+// 50) and 3 VOIDED, sales and returns (a return's total already negative, as the door signs it), every counter flag
+// and one a door newer than this bundle might send. 2026-10-08 has three, all arrived; every other day has none.
+const pad2 = (n) => String(n).padStart(2, '0')
+const localStamp = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00`
+const TODAY_TX = Array.from({ length: 63 }, (_, i) => {
+  const isReturn = i % 9 === 4
+  const total = isReturn ? -(10 + i * 0.125) : 25.5 + i
+  const counter = i === 1 ? 'melted' : i % 10 === 3 ? 'notYet' : i % 17 === 5 ? 'mismatch' : 'arrived'
+  return {
+    transactionId: `TX-${9000 + i}`,
+    receiptNumber: `0042-0009-${119000 - i}`,
+    registerId: `R0${1 + (i % 2)}`,
+    operatorId: `OP-${100 + (i % 3)}`,
+    status: i % 20 === 7 ? 'VOIDED' : 'COMPLETED',
+    isReturn,
+    total,
+    openedAt: localStamp(new Date(2026, 9, 9, 11, 57 - i)),
+    completedAt: localStamp(new Date(2026, 9, 9, 11, 59 - i)),
+    counter,
+    counterTotal: counter === 'notYet' ? null : counter === 'mismatch' ? total + 0.5 : total,
+  }
+})
+const YESTERDAY_TX = Array.from({ length: 3 }, (_, i) => ({
+  transactionId: `TX-${8000 + i}`,
+  receiptNumber: `0042-0008-${118000 - i}`,
+  registerId: 'R01',
+  operatorId: 'OP-100',
+  status: 'COMPLETED',
+  isReturn: false,
+  total: 40 + i,
+  openedAt: `2026-10-08T20:0${i}:00`,
+  completedAt: `2026-10-08T20:1${i}:00`,
+  counter: 'arrived',
+  counterTotal: 40 + i,
+}))
+const TX_BY_DAY = { '2026-10-09': TODAY_TX, '2026-10-08': YESTERDAY_TX }
+// The door's summary: the whole day under the status and kind filters — never paged, never the counter filter.
+const txSummary = (rows) => ({
+  sales: rows.filter((r) => !r.isReturn).length,
+  returns: rows.filter((r) => r.isReturn).length,
+  total: Math.round(rows.reduce((a, r) => a + r.total, 0) * 1000) / 1000,
+  lastCompletedAt: rows.length ? rows.map((r) => r.completedAt).sort().at(-1) : null,
+  notYet: rows.filter((r) => r.counter === 'notYet').length,
+  mismatches: rows.filter((r) => r.counter === 'mismatch').length,
+})
+const txOfDay = (day, status = 'COMPLETED', kind = 'all') =>
+  (TX_BY_DAY[day] ?? []).filter((r) => (status === 'all' || r.status === status) && (kind === 'all' || r.isReturn === (kind === 'return')))
 
 // 24 hours, oldest first: 08:00 yesterday … 07:00 … the cells cycle the five, with one cell a door newer
 // than this bundle might send.
@@ -396,6 +472,23 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
       }
       return route.fulfill(envelope({ auditId: 'AU-459-3', day: agreement.days.find((d) => d.businessDay === body.day) ?? null }))
     }
+    if (p === 'ActionSync/Store/Transactions') {
+      if (!STORES[code]) return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
+      const day = url.searchParams.get('day') ?? '2026-10-09'
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      if (code === 'P008') {
+        const none = { sales: 0, returns: 0, total: 0, lastCompletedAt: null, notYet: 0, mismatches: 0 }
+        return route.fulfill(envelope({ available: false, day, summary: none, items: { items: [], total: 0, page: pg, pageSize: size } }))
+      }
+      const counter = url.searchParams.get('counter')
+      const receipt = url.searchParams.get('receipt')
+      const whole = code === 'P007' ? txOfDay(day, url.searchParams.get('status') ?? 'COMPLETED', url.searchParams.get('kind') ?? 'all') : []
+      const rows = whole.filter((r) => (!counter || r.counter === counter) && (!receipt || r.receiptNumber === receipt))
+      return route.fulfill(
+        envelope({ available: true, day, summary: txSummary(whole), items: { items: rows.slice((pg - 1) * size, pg * size), total: rows.length, page: pg, pageSize: size } }),
+      )
+    }
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope(COUNTERS))
     if (p === 'ActionSync/Store/Passes') {
       const pg = Number(url.searchParams.get('page'))
@@ -471,8 +564,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
 
   // 3: the tabs, Counters first.
   // 🚩 Changed on purpose by ticket 457: Mirror is appended at the end (six tabs → seven), and by 459:
-  // Agreement after it (seven → eight).
-  check('3. eight tabs in the prototype order, Mirror then Agreement last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement"]', JSON.stringify(await tabList(page)))
+  // Agreement after it (seven → eight), and by 467: Transactions after Agreement (eight → nine).
+  check('3. nine tabs in the prototype order, Mirror, Agreement then Transactions last', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions"]', JSON.stringify(await tabList(page)))
   await page.locator('[data-tab-grid="counters"] .ag-row').first().waitFor()
   check('3. Counters opens first', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('3. …reading Store/Counters', calls.includes('ActionSync/Store/Counters?code=P001'))
@@ -583,8 +676,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('7. no health summary and no strip', (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-hour-strip]').count()) === 0)
   check('7. …and no hours read', !calls.some((c) => c.includes('Store/Hours')))
   // 🚩 Changed on purpose by ticket 457: a WPF store keeps its mirror lane (ADR 0073), so Mirror is appended,
-  // and by 459: its rail agreement too, so Agreement after it.
-  check('7. only Counters, Passes, Mirror and Agreement', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement"]', JSON.stringify(await tabList(page)))
+  // and by 459: its rail agreement too, so Agreement after it, and by 467: Transactions after that (decision 5).
+  check('7. only Counters, Passes, Mirror, Agreement and Transactions', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions"]', JSON.stringify(await tabList(page)))
   check('7. a withheld ?tab= falls back to Counters', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'counters')
   check('7. …and Location is never read', !calls.some((c) => c.includes('Store/Location')))
   check('7. the host reads WPF', /Host WPF/.test(strip(await page.locator('[data-store-header]').innerText())))
@@ -667,8 +760,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   await page.screenshot({ path: `${SHOTS}/mirror-store.png`, fullPage: true })
 
   // 11: the Mirror tab.
-  // 🚩 Changed on purpose by 459: Agreement follows Mirror.
-  check('11. the tab list ends with Mirror, then Agreement', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement"]')
+  // 🚩 Changed on purpose by 459: Agreement follows Mirror, and by 467: Transactions follows Agreement.
+  check('11. the tab list ends with Mirror, then Agreement, then Transactions', JSON.stringify(await tabList(page)) === '["counters","passes","commands","scripts","audit","location","mirror","agreement","transactions"]')
   check('11. Store/Mirror is not read before the tab is opened', !calls.some((c) => c.startsWith('ActionSync/Store/Mirror')))
   await page.locator('[data-tab="mirror"]').click()
   const first = 'ActionSync/Store/Mirror?code=P003&includeAcknowledged=false&page=1&pageSize=50'
@@ -774,8 +867,8 @@ const tabList = (page) => page.locator('[role="tab"]').evaluateAll((els) => els.
   check('12b. a WPF store on mirror keeps the WPF note, no worker health, and its mirror block', (await page.locator('[data-wpf-note]').count()) === 1 && (await page.locator('[data-store-health]').count()) === 0 && (await page.locator('[data-mirror-health="onMirror"]').count()) === 1)
   await page.locator('[data-mirror-hour-cell]').first().waitFor({ timeout: 10000 })
   check('12b. …its strip draws the Mirror line alone', (await page.locator('[data-mirror-hour-cell]').count()) === 24 && (await page.locator('[data-hour-cell]').count()) === 0 && !/Master and counter/.test(await page.locator('[data-hour-strip]').innerText()))
-  // 🚩 Changed on purpose by 459: Agreement follows Mirror on a WPF store too.
-  check('12b. its tabs are Counters, Passes, Mirror and Agreement, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
+  // 🚩 Changed on purpose by 459: Agreement follows Mirror on a WPF store too, and by 467: Transactions after it.
+  check('12b. its tabs are Counters, Passes, Mirror, Agreement and Transactions, and ?tab=mirror opens Mirror', JSON.stringify(await tabList(page)) === '["counters","passes","mirror","agreement","transactions"]' && (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'mirror')
   check('12b. …which reads Store/Mirror', await waitForCall(page, calls, 'ActionSync/Store/Mirror?code=P005&includeAcknowledged=false&page=1&pageSize=50'))
   await page.screenshot({ path: `${SHOTS}/wpf-mirror.png`, fullPage: true })
   check('no page errors (WPF store on mirror)', errors.length === 0, errors.join(' | '))
@@ -946,6 +1039,207 @@ const allGaps = 'ActionSync/Store/Agreement?code=P006&page=1&pageSize=50'
   check('15. …after one read', calls.filter((c) => c.startsWith('ActionSync/Store/Agreement')).length === 1)
   check("15. …and its agreement reads not judged", /Not judged/.test(await page.locator('[data-agreement-overall]').innerText()))
   check('no page errors (no judged day)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 16: the Transactions tab, read only (ticket 467) ──────────────────────────────────────────
+const txUrl = (q) => `ActionSync/Store/Transactions?${q}`
+const txCalls = (calls) => calls.filter((c) => c.startsWith('ActionSync/Store/Transactions'))
+const waitForCount = async (page, count, want) => {
+  for (let i = 0; i < 50; i++) {
+    if (count() >= want) return true
+    await page.waitForTimeout(100)
+  }
+  return false
+}
+const summaryFigure = async (page, key) => {
+  const el = page.locator(`[data-summary-figure="${key}"]`)
+  return (await el.count()) ? strip(await el.innerText()) : null
+}
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P007`)
+  await page.locator('[data-store-header]').waitFor({ timeout: 20000 })
+  check('16. Store/Transactions is not read before the tab is opened', txCalls(calls).length === 0)
+  await page.locator('[data-tab="transactions"]').click()
+  const first = txUrl('code=P007&day=2026-10-09&page=1&pageSize=50')
+  check("16. the tab reads today's receipts: the day always sent, every default omitted, page 1 of 50", await waitForCall(page, calls, first), txCalls(calls).join(','))
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 5000 })
+
+  // The day picker.
+  const dayOptions = await page.locator('[data-transactions-day] option').evaluateAll((els) => els.map((e) => [e.value, e.textContent]))
+  check('16. the day picker offers today and the 7 days before it, newest first', JSON.stringify(dayOptions.map(([v]) => v)) === JSON.stringify(['2026-10-09', '2026-10-08', '2026-10-07', '2026-10-06', '2026-10-05', '2026-10-04', '2026-10-03', '2026-10-02']), JSON.stringify(dayOptions))
+  check('16. …today first, named, and picked', strip(dayOptions[0][1]) === 'Today (2026-10-09)' && (await page.locator('[data-transactions-day]').inputValue()) === '2026-10-09', dayOptions[0][1])
+  check('16. …each day isolated once in its option', dayOptions.every(([, text]) => (text.match(/⁨/g) || []).length === 1))
+  check('16. today says it is re-read every minute', (await page.locator('[data-transactions-polling]').count()) === 1)
+
+  // The summary: the door's, of the day it served.
+  const today = txSummary(txOfDay('2026-10-09'))
+  check('16. the summary is titled with the day the door served, isolated once', strip(await page.locator('[data-transactions-summary] h3').innerText()).toLowerCase() === 'receipts on 2026-10-09' && (await page.locator('[data-transactions-summary="2026-10-09"] h3 bdi').count()) === 1)
+  check("16. …sales and returns", (await summaryFigure(page, 'sales')) === `Sales ${today.sales}` && (await summaryFigure(page, 'returns')) === `Returns ${today.returns}`, `${await summaryFigure(page, 'sales')} | ${await summaryFigure(page, 'returns')}`)
+  check('16. …the signed total to 3 decimals', (await summaryFigure(page, 'total')) === `Signed total ${today.total.toFixed(3)}`, await summaryFigure(page, 'total'))
+  check('16. …last completed, unshifted', (await summaryFigure(page, 'lastCompletedAt')) === 'Last completed 2026-10-09 11:59', await summaryFigure(page, 'lastCompletedAt'))
+  check('16. …not yet on the counter rail', (await summaryFigure(page, 'notYet')) === `Not yet on the counter rail ${today.notYet}`, await summaryFigure(page, 'notYet'))
+  check('16. …and mismatches, since there are some, in the danger token', (await summaryFigure(page, 'mismatches')) === `Totals differ from the counter rail ${today.mismatches}` && (await page.locator('[data-summary-figure="mismatches"] .text-danger-800').count()) === 1, await summaryFigure(page, 'mismatches'))
+
+  // The list.
+  check('16. a page draws 50 receipts', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 50)) === 50)
+  const txHeaders = strip(await page.locator('[data-tab-grid="transactions"] .ag-header').innerText())
+  check('16. columns: receipt, register, operator, status, sale or return, signed total, opened, completed, counter rail', ['Receipt', 'Register', 'Operator', 'Status', 'Sale or return', 'Signed total', 'Opened', 'Completed', 'Counter rail'].every((h) => txHeaders.includes(h)), txHeaders)
+  check('16. …and no line, tender, customer or transaction id column', !/line|tender|customer|loyalty|transaction id/i.test(txHeaders), txHeaders)
+  const sale = strip(await page.locator('.ag-row[row-id="TX-9000"]').first().innerText())
+  check('16. a sale: receipt, register, operator, status, kind, total, opened, completed, its flag', sale === '0042-0009-119000 R01 OP-100 Completed Sale 25.500 2026-10-09 11:57 2026-10-09 11:59 Arrived', sale)
+  const ret = strip(await page.locator('.ag-row[row-id="TX-9004"]').first().innerText())
+  check("16. a return: the door's signed total, negative, never re-signed", /Return -10\.500/.test(ret), ret)
+  const badgeClass = async (id) => page.locator(`.ag-row[row-id="${id}"] [data-counter] > span`).first().getAttribute('class')
+  check('16. arrived is drawn in the go token', /bg-primary-050/.test((await badgeClass('TX-9000')) ?? ''))
+  check('16. not yet in the warn token', /bg-attention-050/.test((await badgeClass('TX-9003')) ?? '') && /Not yet/.test(await page.locator('.ag-row[row-id="TX-9003"] [data-counter]').first().innerText()))
+  check('16. totals differ in the bad token', /bg-danger-050/.test((await badgeClass('TX-9005')) ?? '') && /Totals differ/.test(await page.locator('.ag-row[row-id="TX-9005"] [data-counter]').first().innerText()))
+  const unknownFlag = strip(await page.locator('.ag-row[row-id="TX-9001"] [data-counter]').first().innerText())
+  check('16. an unknown flag is neutral with its raw code', unknownFlag === 'melted' && /bg-muted/.test((await badgeClass('TX-9001')) ?? ''), unknownFlag)
+  const tipRaw = (await page.locator('.ag-row[row-id="TX-9005"] [data-counter]').first().getAttribute('title')) ?? ''
+  check('16. the tooltip names the counter total to 3 decimals, isolated once', tipRaw === 'Counter rail total ⁨' + (25.5 + 5 + 0.5).toFixed(3) + '⁩', JSON.stringify(tipRaw))
+  const tipNotYet = (await page.locator('.ag-row[row-id="TX-9003"] [data-counter]').first().getAttribute('title')) ?? ''
+  check('16. …and a receipt not yet on the counter rail has its own words, never 0.000', /Not on the counter rail yet/.test(tipNotYet) && !/0\.000/.test(tipNotYet), tipNotYet)
+  await page.screenshot({ path: `${SHOTS}/transactions.png`, fullPage: true })
+
+  // Paging, and Refresh at the page.
+  await page.getByRole('button', { name: 'Next' }).click()
+  const p2 = txUrl('code=P007&day=2026-10-09&page=2&pageSize=50')
+  check('16. Next asks for page 2', await waitForCall(page, calls, p2))
+  await page.locator('.ag-row[row-id="TX-9062"]').first().waitFor({ timeout: 5000 })
+  check('16. page 2 draws the last 10', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 10)) === 10)
+  const p2Before = calls.filter((c) => c === p2).length
+  await page.locator('[data-tab-refresh="transactions"]').click()
+  check('16. Refresh re-reads the tab at its day and page', await waitForCount(page, () => calls.filter((c) => c === p2).length, p2Before + 1))
+
+  // Each filter asks the door, from page 1.
+  await page.locator('[data-transactions-status]').selectOption('VOIDED')
+  check('16. status Voided asks the door, from page 1', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&status=VOIDED&page=1&pageSize=50')), txCalls(calls).slice(-2).join(','))
+  check('16. …and draws the voided receipts', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 3)) === 3)
+  await page.locator('[data-transactions-status]').selectOption('all')
+  check('16. status All is sent, since the door defaults to Completed', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&status=all&page=1&pageSize=50')))
+  const allToday = txSummary(txOfDay('2026-10-09', 'all'))
+  await page.locator(`[data-summary-figure="sales"]:has-text("Sales ${allToday.sales}")`).waitFor({ timeout: 5000 }).catch(() => {})
+  check("16. …the summary is the door's for the new filter", (await summaryFigure(page, 'sales')) === `Sales ${allToday.sales}`, await summaryFigure(page, 'sales'))
+  await page.locator('[data-transactions-status]').selectOption('COMPLETED')
+  await page.locator('[data-transactions-kind]').selectOption('return')
+  check('16. kind Returns asks the door (status Completed omitted again)', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&kind=return&page=1&pageSize=50')), txCalls(calls).slice(-2).join(','))
+  const returns = txSummary(txOfDay('2026-10-09', 'COMPLETED', 'return'))
+  await page.locator(`[data-summary-figure="total"]:has-text("${returns.total.toFixed(3)}")`).waitFor({ timeout: 5000 }).catch(() => {})
+  check('16. …and the signed total of returns reads negative', (await summaryFigure(page, 'total')) === `Signed total ${returns.total.toFixed(3)}` && returns.total < 0, await summaryFigure(page, 'total'))
+  check("16. …the mismatches are the door's for the filter too", (await summaryFigure(page, 'mismatches')) === `Totals differ from the counter rail ${returns.mismatches}`, await summaryFigure(page, 'mismatches'))
+  await page.locator('[data-transactions-kind]').selectOption('all')
+  const flags = await page.locator('[data-transactions-counter] option').evaluateAll((els) => els.map((e) => e.textContent))
+  check('16. the counter filter offers every flag', JSON.stringify(flags) === '["Every flag","Arrived","Not yet","Totals differ"]', JSON.stringify(flags))
+  await page.locator('[data-transactions-counter]').selectOption('notYet')
+  check('16. the counter filter asks the door', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&counter=notYet&page=1&pageSize=50')))
+  const notYetRows = txOfDay('2026-10-09').filter((r) => r.counter === 'notYet').length
+  check('16. …and draws its rows', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', notYetRows)) === notYetRows, String(notYetRows))
+  await page.locator('[data-transactions-counter]').selectOption('')
+
+  // The receipt search: exact, asked on submit only.
+  // The tab's own 60 s poll may re-read the current list meanwhile (this section runs on the real clock): what
+  // must not happen is a request carrying what is being typed.
+  await page.locator('[data-transactions-receipt]').fill('  0042-0009-118990 ')
+  await page.waitForTimeout(500)
+  check('16. typing a receipt asks nothing', !txCalls(calls).some((c) => c.includes('receipt=')))
+  await page.locator('[data-transactions-receipt]').press('Enter')
+  check('16. Enter asks for the trimmed receipt, from page 1', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&receipt=0042-0009-118990&page=1&pageSize=50')), txCalls(calls).slice(-2).join(','))
+  check('16. …and draws that one receipt', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 1)) === 1 && (await page.locator('.ag-row[row-id="TX-9010"]').count()) >= 1)
+  await page.locator('[data-transactions-clear]').click()
+  check('16. Clear goes back to the whole day', await waitForCount(page, () => calls.filter((c) => c === first).length, 2) && (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 50)) === 50)
+  await page.locator('[data-transactions-receipt]').fill('0042-0009-000000')
+  await page.locator('[data-transactions-search]').click()
+  check('16. the Search button asks too', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-09&receipt=0042-0009-000000&page=1&pageSize=50')))
+  await page.locator('[data-tab-empty="transactions"]').waitFor({ timeout: 5000 })
+  check('16. …a receipt not on the mirror is an empty list', /No receipt on this day matches/.test(await page.locator('[data-tab-empty="transactions"]').innerText()))
+  await page.locator('[data-transactions-clear]').click()
+
+  // A past day.
+  await page.locator('[data-transactions-day]').selectOption('2026-10-08')
+  check('16. a past day is asked with its day, from page 1', await waitForCall(page, calls, txUrl('code=P007&day=2026-10-08&page=1&pageSize=50')), txCalls(calls).slice(-2).join(','))
+  await page.locator('[data-transactions-summary="2026-10-08"]').waitFor({ timeout: 5000 })
+  check('16. …its summary is titled with it', strip(await page.locator('[data-transactions-summary] h3').innerText()).toLowerCase() === 'receipts on 2026-10-08')
+  check('16. …its receipts drawn', (await rowCount(page, '[data-tab-grid="transactions"] .ag-row', 3)) === 3)
+  check('16. …and it is not said to be re-read', (await page.locator('[data-transactions-polling]').count()) === 0)
+  check('16. …with no mismatch that day, the mismatch figure is not drawn', txSummary(txOfDay('2026-10-08')).mismatches === 0 && (await page.locator('[data-summary-figure="mismatches"]').count()) === 0)
+  await page.locator('[data-transactions-day]').selectOption('2026-10-05')
+  await page.locator('[data-tab-empty="transactions"]').waitFor({ timeout: 5000 })
+  check('16. a day with no receipt on a worker store is an empty list, not the WPF words', /No receipt on this day matches/.test(await page.locator('[data-tab-empty="transactions"]').innerText()) && (await page.locator('[data-transactions-tab="wpf"]').count()) === 0)
+  check('16. …with a summary of none yet', (await summaryFigure(page, 'lastCompletedAt')) === 'Last completed None yet' && (await summaryFigure(page, 'sales')) === 'Sales 0', await summaryFigure(page, 'lastCompletedAt'))
+  check('16. nothing ever asks the snapshot door from the list', !calls.some((c) => c.includes('Transactions/Snapshot')))
+  check('no page errors (transactions)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 17: polling on today only, and only while the tab is open (ticket 467) ─────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  const todayUrl = txUrl('code=P007&day=2026-10-09&page=1&pageSize=50')
+  const asked = (u) => calls.filter((c) => c === u).length
+  check('17. the tab reads today once on opening', asked(todayUrl) === 1, String(asked(todayUrl)))
+  await page.clock.runFor(30_000)
+  await page.waitForTimeout(500)
+  check('17. …and not again before a minute', asked(todayUrl) === 1, String(asked(todayUrl)))
+  await page.clock.runFor(31_000)
+  check('17. today is re-read after 60 s', await waitForCount(page, () => asked(todayUrl), 2), String(asked(todayUrl)))
+  await page.clock.runFor(61_000)
+  check('17. …and again a minute later', await waitForCount(page, () => asked(todayUrl), 3), String(asked(todayUrl)))
+
+  // A past day never polls.
+  await page.locator('[data-transactions-day]').selectOption('2026-10-08')
+  const pastUrl = txUrl('code=P007&day=2026-10-08&page=1&pageSize=50')
+  await waitForCall(page, calls, pastUrl)
+  await page.locator('[data-transactions-summary="2026-10-08"]').waitFor({ timeout: 5000 })
+  const [pastBefore, todayBefore] = [asked(pastUrl), asked(todayUrl)]
+  await page.clock.runFor(61_000)
+  await page.waitForTimeout(400)
+  await page.clock.runFor(61_000)
+  await page.waitForTimeout(800)
+  check('17. a past day is never re-read, past two minutes', asked(pastUrl) === pastBefore && asked(todayUrl) === todayBefore, `${asked(pastUrl) - pastBefore} / ${asked(todayUrl) - todayBefore}`)
+
+  // A closed tab never reads.
+  await page.locator('[data-transactions-day]').selectOption('2026-10-09')
+  await page.locator('[data-transactions-summary="2026-10-09"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-tab="counters"]').click()
+  await page.locator('[data-tab-grid="counters"] .ag-row').first().waitFor({ timeout: 5000 })
+  const closedBefore = txCalls(calls).length
+  await page.clock.runFor(61_000)
+  await page.waitForTimeout(400)
+  await page.clock.runFor(61_000)
+  await page.waitForTimeout(800)
+  check('17. a closed tab is never read, past two minutes', txCalls(calls).length === closedBefore, String(txCalls(calls).length - closedBefore))
+  check('no page errors (polling)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 18: a mirror the door cannot read, and a WPF store (ticket 467) ───────────────────────────
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P008?tab=transactions`)
+  await page.locator('[data-transactions-unavailable]').waitFor({ timeout: 20000 })
+  check('18. available: false says the mirror is not reachable or not set up', /The mirror is not reachable or not set up/.test(await page.locator('[data-transactions-unavailable]').innerText()))
+  check('18. …with no list and no summary', (await page.locator('[data-tab-grid="transactions"]').count()) === 0 && (await page.locator('[data-tab-empty="transactions"]').count()) === 0 && (await page.locator('[data-transactions-summary]').count()) === 0)
+  check('18. …after asking the door for today', calls.includes(txUrl('code=P008&day=2026-10-09&page=1&pageSize=50')))
+  await page.screenshot({ path: `${SHOTS}/transactions-unavailable.png`, fullPage: true })
+  check('no page errors (unavailable)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P002?tab=transactions`)
+  await page.locator('[data-transactions-tab="wpf"]').waitFor({ timeout: 20000 })
+  check('18. a WPF store keeps the tab, open on ?tab=transactions', (await page.locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'transactions')
+  check('18. …which reads "No NewPos receipts"', /^No NewPos receipts/.test(await page.locator('[data-transactions-tab="wpf"]').innerText()))
+  await page.locator('[data-tab-refresh="transactions"]').click()
+  await page.clock.runFor(61_000)
+  await page.waitForTimeout(800)
+  check('18. …and Store/Transactions is never asked, Refresh and a minute included', txCalls(calls).length === 0, String(txCalls(calls).length))
+  await page.screenshot({ path: `${SHOTS}/transactions-wpf.png`, fullPage: true })
+  check('no page errors (WPF transactions)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

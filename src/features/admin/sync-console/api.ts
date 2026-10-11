@@ -49,6 +49,7 @@ import type {
   StoreControlRequest,
   StoreControlResponse,
   StoreScripts,
+  StoreTransactions,
   SyncAudit,
   SyncCommand,
   SyncCommandRequest,
@@ -60,6 +61,7 @@ import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './comman
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
 import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
+import { transactionsPollInterval, transactionsQuery, type TransactionsFilter } from './transactions-helpers'
 import {
   normaliseFleet,
   normaliseLastHour,
@@ -214,6 +216,17 @@ export const syncConsoleApi = {
    */
   recheckAgreement(body: AgreementRecheckRequest): Promise<AgreementRecheckResponse> {
     return api.post<AgreementRecheckResponse>('ActionSync/Agreement/Recheck', body)
+  },
+
+  /**
+   * `GET ActionSync/Store/Transactions?code=&day=&status=&kind=&counter=&receipt=&page=&pageSize=`
+   * (spec 2586, ticket 467) → the day the door served, its summary over the whole day,
+   * and one page of NewPos receipts with their counter-rail flag. `available: false` is
+   * a sink the door cannot read, not a refusal. A refusal (`BAD_REQUEST`, `BAD_DATE`,
+   * `NO_STORE`) throws.
+   */
+  storeTransactions(code: string, day: string, filter: TransactionsFilter, page: number): Promise<StoreTransactions> {
+    return api.get<StoreTransactions>('ActionSync/Store/Transactions', transactionsQuery(code, day, filter, page))
   },
 
   // ── Controls and the audit feed (ticket 447) ──
@@ -424,6 +437,19 @@ export const storeMirrorQuery = (code: string, filter: MirrorFilter, page: numbe
 export const storeAgreementQuery = (code: string, day: string | null, page: number) => ({
   queryKey: [...storeKey(code), 'agreement', agreementQuery(code, day, page)] as const,
   queryFn: () => syncConsoleApi.storeAgreement(code, day, page),
+})
+
+/**
+ * The Transactions tab's read (ticket 467), under the tab's own prefix (`storeTabKey`),
+ * with the day, the filters and the page in the key, so the tab's Refresh re-reads it.
+ * Read when opened (only the open tab is mounted), then every 60 s while its day is
+ * today — judged at each tick, so a past day, or today once midnight has passed, never
+ * polls.
+ */
+export const storeTransactionsQuery = (code: string, day: string, filter: TransactionsFilter, page: number) => ({
+  queryKey: [...storeKey(code), 'transactions', transactionsQuery(code, day, filter, page)] as const,
+  queryFn: () => syncConsoleApi.storeTransactions(code, day, filter, page),
+  refetchInterval: () => transactionsPollInterval(day, new Date()),
 })
 
 // ── The audit feed (ticket 447) ──

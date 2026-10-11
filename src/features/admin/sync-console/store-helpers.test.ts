@@ -98,22 +98,35 @@ describe('passesFromBound', () => {
 
 describe('storeTabs', () => {
   // 🚩 Changed on purpose by ticket 457 (Mirror appended: six → seven, two → three) and again by
-  // 459 (Agreement appended after it: seven → eight, three → four).
-  it('gives a worker store all eight tabs, in the prototype order, Mirror then Agreement last', () => {
-    expect(storeTabs({ host: 'Worker' })).toEqual(['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror', 'agreement'])
+  // 459 (Agreement appended after it: seven → eight, three → four), and by 467 (Transactions appended
+  // after Agreement: eight → nine, four → five).
+  it('gives a worker store all nine tabs, in the prototype order, Mirror, Agreement then Transactions last', () => {
+    expect(storeTabs({ host: 'Worker' })).toEqual([
+      'counters',
+      'passes',
+      'commands',
+      'scripts',
+      'audit',
+      'location',
+      'mirror',
+      'agreement',
+      'transactions',
+    ])
     expect(storeTabs({ host: 'Worker' })).toEqual(STORE_TABS)
   })
 
-  it('gives a WPF store Counters and Passes, and its own mirror lane and rail agreement', () => {
-    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror', 'agreement'])
+  it('gives a WPF store Counters and Passes, and its own mirror lane, rail agreement and Transactions', () => {
+    expect(storeTabs({ host: 'Wpf' })).toEqual(['counters', 'passes', 'mirror', 'agreement', 'transactions'])
     expect(isWpfStore({ host: 'Wpf' })).toBe(true)
     expect(isWpfStore({ host: 'Worker' })).toBe(false)
   })
 
-  it('offers Mirror and Agreement to every store, on mirror or not', () => {
+  it('offers Mirror, Agreement and Transactions to every store, on mirror or not', () => {
     for (const host of ['Worker', 'Wpf'] as const) {
       expect(storeTabs({ host })).toContain('mirror')
       expect(storeTabs({ host })).toContain('agreement')
+      // 467: spec 2586 decision 5 — a WPF store keeps the tab, which says it has no NewPos receipt.
+      expect(storeTabs({ host })).toContain('transactions')
     }
   })
 

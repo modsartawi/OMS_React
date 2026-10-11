@@ -108,20 +108,41 @@ export function clampPassesFrom(value: string, today: Date): string {
 
 // ── The tabs ────────────────────────────────────────────────────────────────────
 
-export type StoreTab = 'counters' | 'passes' | 'commands' | 'scripts' | 'audit' | 'location' | 'mirror' | 'agreement'
+export type StoreTab =
+  | 'counters'
+  | 'passes'
+  | 'commands'
+  | 'scripts'
+  | 'audit'
+  | 'location'
+  | 'mirror'
+  | 'agreement'
+  | 'transactions'
 
 /**
  * Every tab, in the prototype's order. The mirror rail's tab (spec 2563, ticket 457), then
- * rail agreement's (459), are appended at the end, as ruled for the wave.
+ * rail agreement's (459), are appended at the end, as ruled for the wave; then the day's
+ * NewPos receipts (spec 2586, ticket 467), after Agreement.
  */
-export const STORE_TABS: readonly StoreTab[] = ['counters', 'passes', 'commands', 'scripts', 'audit', 'location', 'mirror', 'agreement']
+export const STORE_TABS: readonly StoreTab[] = [
+  'counters',
+  'passes',
+  'commands',
+  'scripts',
+  'audit',
+  'location',
+  'mirror',
+  'agreement',
+  'transactions',
+]
 
 /**
  * The tabs a WPF store keeps: WPF writes counters and passes, and nothing else of the
  * master and counter rails the console reads. Its mirror lane is its own, though: the
- * rails are independent (ADR 0073), so Mirror and Agreement are appended here too.
+ * rails are independent (ADR 0073), so Mirror and Agreement are appended here too, and
+ * Transactions (467, spec 2586 decision 5), which reads "No NewPos receipts" there.
  */
-const WPF_TABS: readonly StoreTab[] = ['counters', 'passes', 'mirror', 'agreement']
+const WPF_TABS: readonly StoreTab[] = ['counters', 'passes', 'mirror', 'agreement', 'transactions']
 
 const HOST_SEVERITY: Record<StoreRow['host'], Severity> = { Worker: 'go', Wpf: 'mute' }
 
@@ -133,7 +154,7 @@ export function hostBadge(host: string): CodeBadge {
 /** A store still synced by WPF — the door's `host`, never a guess from blank health fields. */
 export const isWpfStore = (row: Pick<StoreRow, 'host'>): boolean => row.host === 'Wpf'
 
-/** The tabs a store's page offers: all eight, or Counters, Passes, Mirror and Agreement on a WPF store. */
+/** The tabs a store's page offers: all nine, or Counters, Passes, Mirror, Agreement and Transactions on a WPF store. */
 export function storeTabs(row: Pick<StoreRow, 'host'>): readonly StoreTab[] {
   return isWpfStore(row) ? WPF_TABS : STORE_TABS
 }

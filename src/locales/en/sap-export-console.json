@@ -166,16 +166,73 @@
   },
   "store": {
     "back": "SAP export",
-    "heading": "Store <v>{{code}}</v>",
-    "soonTitle": "The store page is on its way",
-    "soonHint": "Until it lands, open one of this store's business days directly.",
-    "day": "Business day",
-    "open": "Open the day"
+    "heading": "Store <v>{{pair}}</v>",
+    "loading": "Reading the store…",
+    "failed": "This store could not be read.",
+    "neverComputed": "The rollup has not computed this store's numbers yet.",
+    "total_one": "<n>{{n}}</n> transaction in the window",
+    "total_other": "<n>{{n}}</n> transactions in the window",
+    "labelsLabel": "Transactions by label over the window",
+    "notFound": "There is no store <v>{{code}}</v>",
+    "notFoundHint": "No store has this code. Go back to the fleet and choose one from the list.",
+    "facts": {
+      "title": "Export facts",
+      "underSap": "Under SAP",
+      "counterRow": "Export counter row",
+      "watermark": "Legacy watermark",
+      "openDate": "Open date",
+      "closed": "Closed",
+      "inventoryDate": "Last inventory date",
+      "values": {
+        "sapLocations_one": "Yes, <n>{{n}}</n> SAP location",
+        "sapLocations_other": "Yes, <n>{{n}}</n> SAP locations",
+        "notUnderSap": "No SAP location",
+        "counterPresent": "Present",
+        "counterMissing": "Missing",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "causes": {
+        "L6": "The store is not in the export list (no location under SAP), so none of its legacy transactions can be exported. They are stuck from the first moment until master data adds it.",
+        "L7": "The store has no export counter row, so the legacy uploader fails on it every cycle. Its legacy transactions are stuck from the first moment until the counters are copied."
+      }
+    },
+    "strip": {
+      "title_one": "The last <n>{{n}}</n> day",
+      "title_other": "The last <n>{{n}}</n> days",
+      "titleLoading": "The window",
+      "label": "One cell per business day, oldest first",
+      "loading": "Reading the days…",
+      "failed": "The window's days could not be read.",
+      "empty": "The rollup has no days for this store.",
+      "hint": "Each day takes the colour of its worst label. Hover for its counts; click to open the day.",
+      "noData": "Not computed yet: the rollup has no numbers for this day.",
+      "noVerdict": "No verdict",
+      "total_one": "<n>{{n}}</n> transaction",
+      "total_other": "<n>{{n}}</n> transactions",
+      "breaks": "Export accounting breaks on this day."
+    }
   },
   "doubleSends": {
     "back": "SAP export",
     "heading": "Double sends",
     "soonTitle": "The double-send list is on its way",
     "soonHint": "It will list every transaction sent on both rails, the ones that can still be stopped first."
+  },
+  "recompute": {
+    "window": "Recompute this store's numbers",
+    "day": "Recompute this day's numbers",
+    "busy": "Recomputing…",
+    "windowHint": "Re-judges every day of this store's window in the console's own rollup now. It refreshes the console's numbers and never touches export data.",
+    "dayHint": "Re-judges this day in the console's own rollup now, so the store's strip and the fleet catch up. It refreshes the console's numbers and never touches export data.",
+    "done_one": "Recomputed <n>{{n}}</n> day. Numbers as of <at>{{at}}</at>.",
+    "done_other": "Recomputed <n>{{n}}</n> days. Numbers as of <at>{{at}}</at>.",
+    "failed": "The numbers could not be recomputed.",
+    "errors": {
+      "BAD_REQUEST": "The request named no store.",
+      "NO_STORE": "There is no store with this code.",
+      "BAD_DAY": "This is not a valid business day.",
+      "DAY_OUT_OF_WINDOW": "This day is outside the console's window."
+    }
   }
 }

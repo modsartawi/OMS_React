@@ -56,8 +56,11 @@ export function toggleState(filter: StoreDayFilter, state: string): StoreDayFilt
   return { ...filter, states, page: 1 }
 }
 
-/** The store page (464; a placeholder until it lands). */
+/** The store page (464). */
 export const storeHref = (code: string): string => `/reports/sap-export/store/${encodeURIComponent(code)}`
+
+/** One store-day's page (the strip's cells, 464). */
+export const storeDayHref = (code: string, day: string): string => `${storeHref(code)}/day/${encodeURIComponent(day)}`
 
 /**
  * A transaction's way into the IDoc inspector. A URL only — a feature never imports another

@@ -102,6 +102,24 @@ const STORES = [
     .map((i) => store(i)),
 ]
 
+// The store page's two reads (464), in the contract's shapes — only enough to walk store → day.
+const STUB_LABELS = { exported: 10, byDesign: 0, waiting: 0, heldForInventory: 0, behind: 0, stuck: 0 }
+const STORE_STUB = (code) => ({
+  code,
+  description: 'Riyadh Olaya',
+  total: 10,
+  labels: STUB_LABELS,
+  states: { N5: 10 },
+  flags: { X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 },
+  railMix: { legacy: 0, new: 10 },
+  oldestBehindHours: null,
+  breakDays: 0,
+  legacyStalled: false,
+  legacyInventoryGated: false,
+  computedAt: '2026-10-11T08:00:00',
+  facts: { underSap: true, sapLocations: 1, hasCounterRow: true, watermark: null, openDate: null, closed: false, inventoryDate: null },
+})
+
 const browser = await chromium.launch()
 
 async function open({ access = { screenAllowed: true }, computedAt = localStamp(5 * 60_000), refuse = null, clock = false } = {}) {
@@ -145,6 +163,9 @@ async function open({ access = { screenAllowed: true }, computedAt = localStamp(
       if (url.searchParams.get('sort') === 'code') matching = [...matching].sort((a, b) => a.code.localeCompare(b.code))
       return route.fulfill(envelope({ items: matching.slice((pg - 1) * size, pg * size), total: matching.length, page: pg, pageSize: size }))
     }
+    // The store page (464), which a row opens: a store and an empty strip.
+    if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
+    if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [] }))
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
@@ -291,7 +312,8 @@ const urlParams = (page) => new URL(page.url()).searchParams
   await page.waitForURL(/\/reports\/sap-export\/store\//, { timeout: 10000 })
   check('7. a row opens /reports/sap-export/store/:code', /\/reports\/sap-export\/store\/P\d{3}$/.test(new URL(page.url()).pathname), page.url())
   await page.locator('[data-store-page]').waitFor({ timeout: 10000 })
-  check('7. …which draws (its placeholder until 464)', (await page.locator('[data-open-day-form]').count()) === 1)
+  await page.locator('[data-store-header]').waitFor({ timeout: 10000 })
+  check('7. …which draws the store page (464)', (await page.locator('[data-strip-section]').count()) === 1)
   await page.goBack()
   await page.locator('[data-tile="doubleSendPending"]').waitFor({ timeout: 10000 })
   check('7. Back returns to the fleet with its filters', urlParams(page).get('rail') === 'new' && urlParams(page).get('sort') === 'oldestBehind', page.url())

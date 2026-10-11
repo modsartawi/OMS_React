@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { StoreDay, StoreDayRow } from '@/core/models/sap-export'
-import { normaliseFleet, normaliseFleetSummary, normaliseStoreDay, type WireFleetStoreRow, type WireStoreDay } from './wire'
+import {
+  normaliseFleet,
+  normaliseFleetSummary,
+  normaliseStore,
+  normaliseStoreDay,
+  normaliseStoreDays,
+  type WireFleetStoreRow,
+  type WireStoreDay,
+} from './wire'
 
 const fullRow = (over: Partial<StoreDayRow> = {}): StoreDayRow => ({
   trxNumber: '000123',
@@ -112,5 +120,48 @@ describe('normaliseFleet', () => {
     const sent = normaliseFleet({ items: [{ ...row, states: { N1: 2 }, breakDays: 3, legacyStalled: true }], total: 61, page: 2, pageSize: 50 })
     expect(sent).toMatchObject({ total: 61, page: 2, pageSize: 50 })
     expect(sent.items[0]).toMatchObject({ states: { N1: 2 }, breakDays: 3, legacyStalled: true })
+  })
+})
+
+describe('normaliseStore', () => {
+  const facts = { underSap: true, sapLocations: 1, hasCounterRow: true, watermark: 4567, openDate: '2019-03-01', closed: false, inventoryDate: null }
+  const row: WireFleetStoreRow = {
+    code: 'P014',
+    description: 'Riyadh Olaya',
+    total: 840,
+    labels: { stuck: 3 },
+    railMix: { legacy: 40, new: 800 },
+    oldestBehindHours: null,
+    computedAt: '2026-10-11T08:00:00',
+  }
+
+  it('fills the store row like a fleet row and passes the facts as sent', () => {
+    const store = normaliseStore({ ...row, facts })
+    expect(store.labels).toEqual({ exported: 0, byDesign: 0, waiting: 0, heldForInventory: 0, behind: 0, stuck: 3 })
+    expect(store).toMatchObject({ breakDays: 0, legacyStalled: false, states: {}, facts })
+  })
+})
+
+describe('normaliseStoreDays', () => {
+  it("fills each day's counts an older door leaves out, keeping a null verdict and the door's order", () => {
+    const days = normaliseStoreDays({
+      items: [
+        { day: '2026-10-09', noData: true, total: 0, worst: null, labels: {}, accounting: null, oldestBehindHours: null, computedAt: null },
+        { day: '2026-10-10', noData: false, total: 3, worst: 'stuck', labels: { stuck: 3 }, states: { N9: 3 }, accounting: 'breaks', oldestBehindHours: 20, computedAt: '2026-10-11T08:00:00' },
+      ],
+    })
+    expect(days.items.map((d) => d.day)).toEqual(['2026-10-09', '2026-10-10'])
+    expect(days.items[0]).toMatchObject({ labels: { exported: 0, stuck: 0 }, states: {}, flags: ZERO_FLAGS, accounting: null })
+    expect(days.items[1]).toMatchObject({ labels: { stuck: 3, exported: 0 }, states: { N9: 3 }, accounting: 'breaks' })
+  })
+
+  it('reads a computed day with no verdict as agrees (as the store-day read does), and a never-computed one as null', () => {
+    const days = normaliseStoreDays({
+      items: [
+        { day: '2026-10-09', noData: true, total: 0, worst: null, labels: {}, oldestBehindHours: null, computedAt: null },
+        { day: '2026-10-10', noData: false, total: 3, worst: 'stuck', labels: { stuck: 3 }, oldestBehindHours: null, computedAt: '2026-10-11T08:00:00' },
+      ],
+    })
+    expect(days.items.map((d) => d.accounting)).toEqual([null, 'agrees'])
   })
 })

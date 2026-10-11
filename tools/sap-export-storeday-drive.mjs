@@ -6,8 +6,8 @@
 //
 // It verifies:
 //   1. with `screenAllowed: true` the Reports group carries a SAP export leaf, AFTER the IDoc
-//      inspector, pointing at /reports/sap-export; the store page (a placeholder until 464) opens a
-//      store-day (it was 461's entry page; 463 made that the fleet);
+//      inspector, pointing at /reports/sap-export; a day on the store page's strip (464) opens a
+//      store-day;
 //   2. the header: store, day, "as of", the total, a chip per label with its count in the label's
 //      token, and the export-accounting verdict — `breaks` in the danger token;
 //   3. the first read asks for page 1 of 50 with no label or state; label chips reach the request as a
@@ -103,6 +103,25 @@ const storeDay = (rows, over = {}) => ({
   ...over,
 })
 
+// The store page's two reads (464), in the contract's shapes — only enough to walk store → day.
+const STUB_LABELS = { exported: 10, byDesign: 0, waiting: 0, heldForInventory: 0, behind: 0, stuck: 0 }
+const STORE_STUB = (code) => ({
+  code,
+  description: 'Riyadh Olaya',
+  total: 10,
+  labels: STUB_LABELS,
+  states: { N5: 10 },
+  flags: { X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 },
+  railMix: { legacy: 0, new: 10 },
+  oldestBehindHours: null,
+  breakDays: 0,
+  legacyStalled: false,
+  legacyInventoryGated: false,
+  computedAt: '2026-10-11T08:00:00',
+  facts: { underSap: true, sapLocations: 1, hasCounterRow: true, watermark: null, openDate: null, closed: false, inventoryDate: null },
+})
+const STORE_DAY_STUB = { day: DAY, noData: false, total: 10, worst: 'exported', labels: STUB_LABELS, states: { N5: 10 }, flags: { X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 }, accounting: 'agrees', oldestBehindHours: null, computedAt: '2026-10-11T08:00:00' }
+
 const browser = await chromium.launch()
 
 async function open({ access = { screenAllowed: true }, accessStatus = 200, othersOpen = false, refuse = null, old = false, newer = false } = {}) {
@@ -145,6 +164,9 @@ async function open({ access = { screenAllowed: true }, accessStatus = 200, othe
       const extra = newer ? { labels: { exported: 700, byDesign: 20, waiting: 0, heldForInventory: 1, behind: 116, stuck: 3, parked: 12 } } : {}
       return route.fulfill(envelope(storeDay({ items, total: matching.length, page: pg, pageSize: size }, extra)))
     }
+    // The store page (464): a store and a one-day strip, enough to walk from the store to a day.
+    if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
+    if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [STORE_DAY_STUB] }))
     // Every other probe: shut, or (to see where the leaf sits among its siblings) open.
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
@@ -169,7 +191,7 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
 {
   const { context, page, errors } = await open({ othersOpen: true })
   await page.goto(`${BASE}/reports/sap-export/store/${CODE}`)
-  await page.locator('[data-open-day-form]').waitFor({ timeout: 20000 })
+  await page.locator(`[data-strip-day="${DAY}"]`).waitFor({ timeout: 20000 })
   const reports = page.getByRole('button', { name: /^Reports$/i })
   if ((await page.locator('nav a[href="/reports/sap-export"]').count()) === 0 && (await reports.count())) await reports.first().click()
   const leaf = page.locator('nav a[href="/reports/sap-export"]')
@@ -180,10 +202,9 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
   check('1. …in the Reports group, right after the IDoc inspector', at > 0 && reportLeaves[at - 1] === '/reports/idoc-inspector', JSON.stringify(reportLeaves))
   const adminLeaves = await page.locator('nav a[href^="/admin/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('1. …and NOT in Admin, whose last leaf stays Store sync', !adminLeaves.includes('/reports/sap-export') && (adminLeaves.length === 0 || adminLeaves[adminLeaves.length - 1] === '/admin/sync'), JSON.stringify(adminLeaves))
-  await page.locator('[data-open-day-day]').fill(DAY)
-  await page.locator('[data-open-day-submit]').click()
+  await page.locator(`[data-strip-day="${DAY}"]`).click()
   await page.locator(`[data-store-day-page="${CODE}/${DAY}"]`).waitFor({ timeout: 10000 })
-  check('1. the store placeholder opens the store-day page', page.url().endsWith(`/reports/sap-export/store/${CODE}/day/${DAY}`), page.url())
+  check("1. the store page's strip opens the store-day page", page.url().endsWith(`/reports/sap-export/store/${CODE}/day/${DAY}`), page.url())
   check('no page errors (leaf)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

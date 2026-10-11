@@ -32,6 +32,7 @@ import {
   toggleState,
   type StoreDayFilter,
 } from './storeday-helpers'
+import RecomputeControl from './RecomputeControl'
 import TokenBadgeView from './TokenBadgeView'
 
 /**
@@ -43,7 +44,8 @@ import TokenBadgeView from './TokenBadgeView'
  * repeated `state` filter, then that day's transactions — worst label first, in the door's
  * order, paged at 50 — each linking to the IDoc inspector.
  *
- * 🚩 **Read-only.** Nothing on this page acts on SAP data; resets are out of scope (spec 2579).
+ * 🚩 **Read-only.** Nothing on this page acts on SAP data; resets are out of scope (spec 2579). Its
+ * one button, Recompute (464), re-judges this day in the console's own rollup.
  */
 export default function StoreDayPage() {
   const { t } = useTranslation('sap-export-console')
@@ -303,6 +305,11 @@ function Header({
           {t('storeDay.clear')}
         </button>
       )}
+
+      {/* This day's rollup row, re-judged now (464): the store's strip and the fleet catch up. */}
+      <div className="border-t border-border/60 pt-3">
+        <RecomputeControl code={data.code} day={data.day} />
+      </div>
     </section>
   )
 }

@@ -26,6 +26,10 @@ import {
   type Paged,
   type StoreDay,
   type StoreDayRow,
+  type StoreDays,
+  type StoreDaySummary,
+  type StoreDetail,
+  type StoreExportFacts,
 } from '@/core/models/sap-export'
 import { FLEET_TILE_KEYS } from './fleet-helpers'
 
@@ -95,4 +99,41 @@ function normaliseFleetRow(row: WireFleetStoreRow): FleetStoreRow {
 /** `GET SapExport/Fleet`. */
 export function normaliseFleet(data: WireFleet): Paged<FleetStoreRow> {
   return { ...data, items: data.items.map(normaliseFleetRow) }
+}
+
+// ── Store (2584) ────────────────────────────────────────────────────────────────
+
+/** A store as a door may send it: its row filled like a fleet row; the facts are 2584's own, as sent. */
+export type WireStoreDetail = WireFleetStoreRow & { facts: StoreExportFacts }
+
+/** `GET SapExport/Store`. */
+export function normaliseStore(data: WireStoreDetail): StoreDetail {
+  return { ...normaliseFleetRow(data), facts: data.facts }
+}
+
+/**
+ * A strip day as a door may send it: counts and the verdict that come with 2583's checks may be
+ * missing. `accounting: null` is the contract's own "never computed", so only an ABSENT verdict is filled.
+ */
+export type WireStoreDaySummary = Omit<Partially<StoreDaySummary, 'states' | 'flags'>, 'labels' | 'accounting'> & {
+  labels: Partial<LabelCounts>
+  accounting?: StoreDaySummary['accounting']
+}
+
+export type WireStoreDays = { items: WireStoreDaySummary[] }
+
+/**
+ * `GET SapExport/Store/Days`: each day's counts filled. A computed day with no verdict reads `agrees`,
+ * as the store-day read does until 2583; a sent verdict, `null` included, and `worst` pass as sent.
+ */
+export function normaliseStoreDays(data: WireStoreDays): StoreDays {
+  return {
+    items: data.items.map((d) => ({
+      ...d,
+      labels: countsOf<Label>(LABELS, d.labels),
+      states: d.states ?? {},
+      flags: countsOf<Flag>(FLAGS, d.flags),
+      accounting: d.accounting !== undefined ? d.accounting : d.noData ? null : 'agrees',
+    })),
+  }
 }

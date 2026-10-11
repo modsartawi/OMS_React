@@ -1,5 +1,5 @@
 {
-  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. The read codes P001/P002 were picked 2026-10-10 from the LOCAL POS_Server; the write and re-push stores stay TODO in the repo on purpose, so a run pointed at staging never writes to a store nobody chose for it (locally P134 was used). Ticket 460 added the mirror and agreement inputs (the read code P624 picked 2026-10-11 from the LOCAL POS_Server: a NewPos store on the mirror with judged days); the --write ones (two seeded dead letters, a repaired store-day) stay TODO for the same reason.",
+  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. The read codes P001/P002 were picked 2026-10-10 from the LOCAL POS_Server; the write and re-push stores stay TODO in the repo on purpose, so a run pointed at staging never writes to a store nobody chose for it (locally P134 was used). Ticket 460 added the mirror and agreement inputs (the read code P624 picked 2026-10-11 from the LOCAL POS_Server: a NewPos store on the mirror with judged days); the --write ones (two seeded dead letters, a repaired store-day) stay TODO for the same reason. Ticket 469 added transactionsStoreCode: P237, the STAGING pilot store the ticket names (NewPos, 43 COMPLETED receipts by 11:23 on 2026-10-11); against the LOCAL POS_Server use P624. Its --write section (snapshot) only VIEWS a receipt, but each view writes an audit row.",
   "storeCode": "P001",
   "wpfStoreCode": "P002",
   "testStoreOnWpf": "TODO: a TEST store on WPF that may be moved to the worker and handed back (--write)",
@@ -23,5 +23,6 @@
   "acknowledgeDeadLetter": "TODO: --write: another SEEDED dead letter of mirrorStoreCode, as 'apply-<id>' or 'pull-<id>', to acknowledge as lost",
   "recheckStoreCode": "TODO: --write: the store whose repaired day is rechecked (locally P624 was used)",
   "recheckDay": "TODO: --write: that day, yyyy-MM-dd, within D-1..D-7 and listed on its Agreement tab",
+  "transactionsStoreCode": "P237",
   "reason": "Ticket 450 live drive"
 }

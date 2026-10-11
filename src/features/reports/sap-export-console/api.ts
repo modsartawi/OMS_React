@@ -1,6 +1,6 @@
 /**
  * The SAP export console's server calls (BackOffice spec 2579; ticket 461 lands the store-day
- * read, 463–465 add theirs here). The access probe is `./access`, apart, so the menu that
+ * read, 463 the fleet's two, 464–465 add theirs here). The access probe is `./access`, apart, so the menu that
  * imports it does not pull this module (and the wire and helpers behind it) into the main bundle.
  *
  * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`): the envelope, the
@@ -12,9 +12,17 @@
  */
 import { keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { StoreDay } from '@/core/models/sap-export'
+import type { FleetStoreRow, FleetSummary, Paged, StoreDay } from '@/core/models/sap-export'
+import { fleetDoorParams, type FleetQuery } from './fleet-query'
 import { storeDayParams, type StoreDayFilter } from './storeday-helpers'
-import { normaliseStoreDay, type WireStoreDay } from './wire'
+import {
+  normaliseFleet,
+  normaliseFleetSummary,
+  normaliseStoreDay,
+  type WireFleet,
+  type WireFleetSummary,
+  type WireStoreDay,
+} from './wire'
 
 export const sapExportApi = {
   /**
@@ -25,6 +33,46 @@ export const sapExportApi = {
   storeDay(code: string, day: string, filter: StoreDayFilter): Promise<StoreDay> {
     return api.get<WireStoreDay>('SapExport/StoreDay', storeDayParams(code, day, filter)).then(normaliseStoreDay)
   },
+
+  /** `GET SapExport/Fleet/Summary` → the tiles and the fleet's oldest rollup stamp (2584). */
+  fleetSummary(): Promise<FleetSummary> {
+    return api.get<WireFleetSummary>('SapExport/Fleet/Summary').then(normaliseFleetSummary)
+  },
+
+  /**
+   * `GET SapExport/Fleet?label=&rail=&state=&q=&sort=&page=&pageSize=` → one page of stores, from
+   * the rollup (2584). Refusals: 400 `BAD_FILTER` / `BAD_PAGING`.
+   */
+  fleet(query: FleetQuery): Promise<Paged<FleetStoreRow>> {
+    return api.get<WireFleet>('SapExport/Fleet', fleetDoorParams(query)).then(normaliseFleet)
+  },
+}
+
+/** The fleet page refetches its tiles and its list every minute (ticket 463). */
+export const FLEET_REFETCH_MS = 60_000
+
+/** The fleet tiles' query, refetched every minute. */
+export function fleetSummaryQuery() {
+  return {
+    queryKey: ['reports', 'sap-export', 'fleet', 'summary'] as const,
+    queryFn: () => sapExportApi.fleetSummary(),
+    refetchInterval: FLEET_REFETCH_MS,
+  }
+}
+
+/**
+ * The fleet list's query, refetched every minute. The previous query's page stays drawn while the
+ * next one loads; a failed read draws none of it (the page's call). A refusal (`BAD_FILTER`) is an
+ * answer, not an outage, so it is not retried.
+ */
+export function fleetStoresQuery(query: FleetQuery) {
+  return {
+    queryKey: ['reports', 'sap-export', 'fleet', 'stores', query] as const,
+    queryFn: () => sapExportApi.fleet(query),
+    placeholderData: keepPreviousData,
+    refetchInterval: FLEET_REFETCH_MS,
+    retry: false,
+  }
 }
 
 /**

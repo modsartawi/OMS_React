@@ -477,13 +477,26 @@ export const router = createBrowserRouter([
       },
       // The SAP export console (BackOffice spec 2579, ticket 461) — the Reports area's third
       // screen, beside the IDoc inspector and NOT under Admin (the sync console's drives hold
-      // Store sync as the last Admin leaf). The entry is a placeholder until 463 draws the
-      // fleet; the store-day is the console's deepest view. Its own grant and probe key; each
-      // Page guards itself on that key, and the doors' grant filter is the real boundary.
+      // Store sync as the last Admin leaf). The entry is the fleet (463); the store page (464)
+      // and the double-send list (465) are placeholders until they land; the store-day is the
+      // console's deepest view. Its own grant and probe key; each Page guards itself on that
+      // key, and the doors' grant filter is the real boundary.
       {
         path: 'reports/sap-export',
         lazy: async () => ({
           Component: (await import('@/features/reports/sap-export-console/SapExportPage')).default,
+        }),
+      },
+      {
+        path: 'reports/sap-export/store/:code',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/sap-export-console/StorePage')).default,
+        }),
+      },
+      {
+        path: 'reports/sap-export/double-sends',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/sap-export-console/DoubleSendsPage')).default,
         }),
       },
       {

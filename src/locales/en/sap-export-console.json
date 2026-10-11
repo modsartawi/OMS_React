@@ -63,14 +63,62 @@
     "breaks": "Breaks"
   },
   "fleet": {
-    "soonTitle": "The fleet view is on its way",
-    "soonHint": "Until it lands, open one store's business day directly.",
-    "store": "Store code",
-    "day": "Business day",
-    "open": "Open the day"
+    "asOf": "Numbers as of <at>{{at}}</at>",
+    "neverComputed": "The rollup has not computed any numbers yet.",
+    "stale": "Numbers may be stale: the rollup has not refreshed for over {{minutes}} minutes.",
+    "refreshing": "Refreshing…",
+    "tiles": {
+      "label": "Fleet at a glance",
+      "failed": "The fleet tiles could not be read.",
+      "storesBehind": "Stores behind",
+      "storesStuck": "Stores stuck",
+      "storesHeldForInventory": "Stores held for inventory",
+      "doubleSent": "Double sent",
+      "doubleSendPending": "Double send pending",
+      "accountingBreaks": "Accounting breaks",
+      "legacyStalled": "Legacy stalled"
+    },
+    "search": "Search store code or name",
+    "labelsLabel": "Stores with transactions labelled",
+    "rail": "Rail",
+    "railAny": "Any rail",
+    "states": "States",
+    "statesLabel": "Stores with transactions in state",
+    "sort": "Sort",
+    "sorts": {
+      "worst": "Worst first",
+      "oldestBehind": "Oldest behind",
+      "mostStuck": "Most stuck",
+      "code": "Store code"
+    },
+    "clear": "Clear filters",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "loading": "Reading the fleet…",
+    "failed": "The fleet could not be read.",
+    "empty": "No store has numbers in the rollup yet.",
+    "emptyFiltered": "No store matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "errors": {
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "code": "Store",
+      "description": "Name",
+      "labels": "Transactions by label",
+      "railMix": "Rail mix",
+      "oldestBehind": "Oldest behind (h)",
+      "breakDays": "Break days",
+      "markers": "Markers"
+    },
+    "markers": {
+      "legacyStalled": "Legacy stalled",
+      "legacyInventoryGated": "Held for inventory"
+    }
   },
   "storeDay": {
-    "back": "SAP export",
+    "back": "Store <v>{{code}}</v>",
     "heading": "Store <v>{{pair}}</v>",
     "asOf": "Classified live at <at>{{at}}</at>",
     "total": "<n>{{n}}</n> transactions that day",
@@ -115,5 +163,19 @@
     "held": "held <n>{{held}}</n> of <m>{{of}}</m>",
     "missingRows": "Missing rows",
     "questionablePosting": "Questionable posting"
+  },
+  "store": {
+    "back": "SAP export",
+    "heading": "Store <v>{{code}}</v>",
+    "soonTitle": "The store page is on its way",
+    "soonHint": "Until it lands, open one of this store's business days directly.",
+    "day": "Business day",
+    "open": "Open the day"
+  },
+  "doubleSends": {
+    "back": "SAP export",
+    "heading": "Double sends",
+    "soonTitle": "The double-send list is on its way",
+    "soonHint": "It will list every transaction sent on both rails, the ones that can still be stopped first."
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StoreDay, StoreDayRow } from '@/core/models/sap-export'
-import { normaliseStoreDay, type WireStoreDay } from './wire'
+import { normaliseFleet, normaliseFleetSummary, normaliseStoreDay, type WireFleetStoreRow, type WireStoreDay } from './wire'
 
 const fullRow = (over: Partial<StoreDayRow> = {}): StoreDayRow => ({
   trxNumber: '000123',
@@ -76,5 +76,41 @@ describe('normaliseStoreDay', () => {
     const filled = normaliseStoreDay(old)
     expect(filled.labels).toEqual({ exported: 0, byDesign: 0, waiting: 0, heldForInventory: 0, behind: 0, stuck: 1 })
     expect(filled.states).toEqual({})
+  })
+})
+
+describe('normaliseFleetSummary', () => {
+  it('passes a full summary through and reads a tile an older door does not count as 0', () => {
+    const tiles = { storesBehind: 4, storesStuck: 2, storesHeldForInventory: 1, doubleSent: 7, doubleSendPending: 3, accountingBreaks: 5, legacyStalled: 1 }
+    const full = { windowDays: 30, computedAt: '2026-10-11T08:00:00', stores: 212, tiles }
+    expect(normaliseFleetSummary(full)).toEqual(full)
+    const { doubleSent: _a, doubleSendPending: _b, accountingBreaks: _c, ...older } = tiles
+    expect(normaliseFleetSummary({ ...full, tiles: older }).tiles).toEqual({ ...tiles, doubleSent: 0, doubleSendPending: 0, accountingBreaks: 0 })
+  })
+})
+
+describe('normaliseFleet', () => {
+  const row: WireFleetStoreRow = {
+    code: 'P014',
+    description: 'Riyadh Olaya',
+    total: 840,
+    labels: { stuck: 3, behind: 116 },
+    railMix: { legacy: 40, new: 800 },
+    oldestBehindHours: 31.5,
+    computedAt: '2026-10-11T08:00:00',
+  }
+
+  it('fills what a door that shipped before 2583 leaves out', () => {
+    const [filled] = normaliseFleet({ items: [row], total: 1, page: 1, pageSize: 50 }).items
+    expect(filled.labels).toEqual({ exported: 0, byDesign: 0, waiting: 0, heldForInventory: 0, behind: 116, stuck: 3 })
+    expect(filled.states).toEqual({})
+    expect(filled.flags).toEqual({ X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 })
+    expect(filled).toMatchObject({ breakDays: 0, legacyStalled: false, legacyInventoryGated: false, railMix: { legacy: 40, new: 800 } })
+  })
+
+  it('passes what the door sent as it is, and keeps the paging', () => {
+    const sent = normaliseFleet({ items: [{ ...row, states: { N1: 2 }, breakDays: 3, legacyStalled: true }], total: 61, page: 2, pageSize: 50 })
+    expect(sent).toMatchObject({ total: 61, page: 2, pageSize: 50 })
+    expect(sent.items[0]).toMatchObject({ states: { N1: 2 }, breakDays: 3, legacyStalled: true })
   })
 })

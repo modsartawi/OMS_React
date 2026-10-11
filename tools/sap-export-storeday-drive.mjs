@@ -6,7 +6,8 @@
 //
 // It verifies:
 //   1. with `screenAllowed: true` the Reports group carries a SAP export leaf, AFTER the IDoc
-//      inspector, pointing at /reports/sap-export; the placeholder opens a store-day;
+//      inspector, pointing at /reports/sap-export; the store page (a placeholder until 464) opens a
+//      store-day (it was 461's entry page; 463 made that the fleet);
 //   2. the header: store, day, "as of", the total, a chip per label with its count in the label's
 //      token, and the export-accounting verdict — `breaks` in the danger token;
 //   3. the first read asks for page 1 of 50 with no label or state; label chips reach the request as a
@@ -167,7 +168,7 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
 // ── 1: the leaf and the placeholder ───────────────────────────────────────────────────────────
 {
   const { context, page, errors } = await open({ othersOpen: true })
-  await page.goto(`${BASE}/reports/sap-export`)
+  await page.goto(`${BASE}/reports/sap-export/store/${CODE}`)
   await page.locator('[data-open-day-form]').waitFor({ timeout: 20000 })
   const reports = page.getByRole('button', { name: /^Reports$/i })
   if ((await page.locator('nav a[href="/reports/sap-export"]').count()) === 0 && (await reports.count())) await reports.first().click()
@@ -179,11 +180,10 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
   check('1. …in the Reports group, right after the IDoc inspector', at > 0 && reportLeaves[at - 1] === '/reports/idoc-inspector', JSON.stringify(reportLeaves))
   const adminLeaves = await page.locator('nav a[href^="/admin/"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check('1. …and NOT in Admin, whose last leaf stays Store sync', !adminLeaves.includes('/reports/sap-export') && (adminLeaves.length === 0 || adminLeaves[adminLeaves.length - 1] === '/admin/sync'), JSON.stringify(adminLeaves))
-  await page.locator('[data-open-day-store]').fill(` ${CODE} `)
   await page.locator('[data-open-day-day]').fill(DAY)
   await page.locator('[data-open-day-submit]').click()
   await page.locator(`[data-store-day-page="${CODE}/${DAY}"]`).waitFor({ timeout: 10000 })
-  check('1. the placeholder opens the store-day page', page.url().endsWith(`/reports/sap-export/store/${CODE}/day/${DAY}`), page.url())
+  check('1. the store placeholder opens the store-day page', page.url().endsWith(`/reports/sap-export/store/${CODE}/day/${DAY}`), page.url())
   check('no page errors (leaf)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -272,6 +272,9 @@ const STORE_DAY_URL = `${BASE}/reports/sap-export/store/${CODE}/day/${DAY}`
   await page.locator('[data-clear-filters]').click()
   check('3. Clear drops every label and state', await waitForCall(page, calls, (c) => c.getAll('label').length === 0 && c.getAll('state').length === 0 && c.get('page') === '1'), callText(lastCall(calls)))
   check('3. …and nothing reads as pressed', (await page.locator('[aria-pressed="true"]').count()) === 0)
+
+  const back = page.locator('[data-store-day-back]')
+  check('7. the back link goes up to the store page', (await back.getAttribute('href')) === `/reports/sap-export/store/${CODE}` && strip(await back.innerText()) === `Store ${CODE}`, await back.getAttribute('href'))
 
   // 7. the link opens the inspector (462 makes it open on the transaction).
   await page.locator('[data-inspector-link="T000001"]').click()

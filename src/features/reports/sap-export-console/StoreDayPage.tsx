@@ -27,6 +27,7 @@ import {
   STORE_DAY_PAGE_SIZE,
   figure,
   storeDayErrorKey,
+  storeHref,
   toggleLabel,
   toggleState,
   type StoreDayFilter,
@@ -96,12 +97,14 @@ function StoreDayView({ code, day }: { code: string; day: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-store-day-page={`${code}/${day}`}>
+      {/* Up to the day's store (463 drew the fleet → store → day path). */}
       <Link
-        to="/reports/sap-export"
+        to={storeHref(code)}
         className="inline-flex w-fit items-center gap-1 text-sm text-primary underline-offset-2 hover:underline"
+        data-store-day-back=""
       >
         <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
-        {t('storeDay.back')}
+        <Trans t={t} i18nKey="storeDay.back" values={{ code }} components={{ v: <Ltr /> }} />
       </Link>
 
       {query.isPending && (

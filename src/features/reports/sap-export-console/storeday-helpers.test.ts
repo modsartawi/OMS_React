@@ -4,6 +4,7 @@ import {
   STORE_DAY_PAGE_SIZE,
   formatHours,
   inspectorHref,
+  storeHref,
   storeDayErrorKey,
   storeDayParams,
   toggleLabel,
@@ -51,6 +52,13 @@ describe('toggleLabel / toggleState', () => {
   it('ignores an unknown value rather than provoking BAD_FILTER', () => {
     expect(toggleLabel(filter(), 'quarantined').labels).toEqual([])
     expect(toggleState(filter(), 'Z9').states).toEqual([])
+  })
+})
+
+describe('storeHref', () => {
+  it('is the store page, its code encoded', () => {
+    expect(storeHref('P014')).toBe('/reports/sap-export/store/P014')
+    expect(storeHref('P 1/2')).toBe('/reports/sap-export/store/P%201%2F2')
   })
 })
 

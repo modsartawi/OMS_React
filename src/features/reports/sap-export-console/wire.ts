@@ -15,7 +15,19 @@
  * Only a MISSING (or null) member is filled. A member the door did send is passed through as
  * it is, and nothing is derived here: labels, states and verdicts stay the door's.
  */
-import { FLAGS, LABELS, type Flag, type Label, type LabelCounts, type Paged, type StoreDay, type StoreDayRow } from '@/core/models/sap-export'
+import {
+  FLAGS,
+  LABELS,
+  type FleetStoreRow,
+  type FleetSummary,
+  type Flag,
+  type Label,
+  type LabelCounts,
+  type Paged,
+  type StoreDay,
+  type StoreDayRow,
+} from '@/core/models/sap-export'
+import { FLEET_TILE_KEYS } from './fleet-helpers'
 
 /** Members an older door leaves out (or sends as null). */
 type Partially<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null }
@@ -47,4 +59,40 @@ export function normaliseStoreDay(data: WireStoreDay): StoreDay {
     accounting: data.accounting ?? 'agrees',
     rows: { ...data.rows, items: data.rows.items.map(normaliseRow) },
   }
+}
+
+// ── Fleet (2584) ────────────────────────────────────────────────────────────────
+
+/**
+ * A fleet row as a door may send it: 2584 reads the rollup, whose flag counts and break days
+ * come with 2583's checks, so those may be missing on a door that shipped first.
+ */
+export type WireFleetStoreRow = Omit<Partially<FleetStoreRow, 'states' | 'flags' | 'breakDays' | 'legacyStalled' | 'legacyInventoryGated'>, 'labels'> & {
+  labels: Partial<LabelCounts>
+}
+
+export type WireFleet = Omit<Paged<FleetStoreRow>, 'items'> & { items: WireFleetStoreRow[] }
+
+export type WireFleetSummary = Omit<FleetSummary, 'tiles'> & { tiles: Partial<FleetSummary['tiles']> }
+
+/** `GET SapExport/Fleet/Summary`: a tile a door does not count yet reads 0. */
+export function normaliseFleetSummary(data: WireFleetSummary): FleetSummary {
+  return { ...data, tiles: countsOf(FLEET_TILE_KEYS, data.tiles) }
+}
+
+function normaliseFleetRow(row: WireFleetStoreRow): FleetStoreRow {
+  return {
+    ...row,
+    labels: countsOf<Label>(LABELS, row.labels),
+    states: row.states ?? {},
+    flags: countsOf<Flag>(FLAGS, row.flags),
+    breakDays: row.breakDays ?? 0,
+    legacyStalled: row.legacyStalled ?? false,
+    legacyInventoryGated: row.legacyInventoryGated ?? false,
+  }
+}
+
+/** `GET SapExport/Fleet`. */
+export function normaliseFleet(data: WireFleet): Paged<FleetStoreRow> {
+  return { ...data, items: data.items.map(normaliseFleetRow) }
 }

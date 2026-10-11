@@ -64,6 +64,17 @@
 // 🚩 Changed on purpose by 467, and only the same four tab-list assertions (sections 3, 7, 11, 12b): Transactions is
 // appended after Agreement, on worker and WPF stores alike (spec 2586 decision 5).
 //
+// Ticket 468 (spec 2586 decision 6, door 2589 — unbuilt, so Store/Transactions/Snapshot is a stub in the same section;
+// its snapshot is OBVIOUSLY FAKE data, since the real one carries customer, loyalty and tender data):
+//  19. View JSON: absent read only; with canOperate one per row, and a hover asks nothing; a click opens the side
+//      sheet titled with the receipt number, reads the snapshot once, shows "Loaded at" with the applied-copy note
+//      and the JSON as one LTR island, split into its top-level keys in order on collapsible <details>; Copy JSON
+//      copies the whole pretty-printed snapshot (a stubbed navigator.clipboard) and says so; closing keeps nothing
+//      (no URL change, nothing in storage, nothing logged); a second opening is a second request, and the tab's
+//      Refresh never re-asks it; NOT_FOUND has its own words, NO_STORE the shared words beside its code, and a 500
+//      (a failed audit write) its message, asked once.
+// 🚩 468 changes no existing assertion.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -281,6 +292,16 @@ const txSummary = (rows) => ({
 const txOfDay = (day, status = 'COMPLETED', kind = 'all') =>
   (TX_BY_DAY[day] ?? []).filter((r) => (status === 'all' || r.status === status) && (kind === 'all' || r.isReturn === (kind === 'return')))
 
+// Store/Transactions/Snapshot (468): an OBVIOUSLY FAKE snapshot — the real one carries customer, loyalty and tender data.
+// Its keys are out of alphabetical order on purpose: the drawer keeps the door's order.
+const FAKE_SNAPSHOT = {
+  header: { receiptNumber: '0042-0009-119000', storeId: 'P007', registerId: 'R01', total: 25.5 },
+  lines: [{ sku: 'FAKE-SKU-0001', description: 'Test item (fake)', qty: 1, price: 25.5 }],
+  tenders: [{ kind: 'CASH', amount: 25.5 }],
+  customer: { name: 'Test Customer (fake)', mobile: '0500000000' },
+  loyalty: { card: 'FAKE-CARD-0000', points: 0 },
+}
+
 // 24 hours, oldest first: 08:00 yesterday … 07:00 … the cells cycle the five, with one cell a door newer
 // than this bundle might send.
 const CYCLE = ['work', 'idle', 'passErrors', 'connectFailOnly', 'noData', 'work']
@@ -488,6 +509,13 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
       return route.fulfill(
         envelope({ available: true, day, summary: txSummary(whole), items: { items: rows.slice((pg - 1) * size, pg * size), total: rows.length, page: pg, pageSize: size } }),
       )
+    }
+    if (p === 'ActionSync/Store/Transactions/Snapshot') {
+      const id = url.searchParams.get('transactionId')
+      if (id === 'TX-9001') return route.fulfill(envelope(null, { status: 404, success: false, message: 'No such receipt on the mirror.', errorCode: 'NOT_FOUND' }))
+      if (id === 'TX-9002') return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
+      if (id === 'TX-9003') return route.fulfill(envelope(null, { status: 500, success: false, message: 'The view could not be audited.' }))
+      return route.fulfill(envelope({ auditId: 'AU-468-1', receiptNumber: '0042-0009-119000', loadedAt: '2026-10-09T12:03:30', snapshot: FAKE_SNAPSHOT }))
     }
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope(COUNTERS))
     if (p === 'ActionSync/Store/Passes') {
@@ -1240,6 +1268,108 @@ const summaryFigure = async (page, key) => {
   check('18. …and Store/Transactions is never asked, Refresh and a minute included', txCalls(calls).length === 0, String(txCalls(calls).length))
   await page.screenshot({ path: `${SHOTS}/transactions-wpf.png`, fullPage: true })
   check('no page errors (WPF transactions)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 19: View JSON (ticket 468) ─────────────────────────────────────────────────────────────────
+const snapCalls = (calls) => calls.filter((c) => c.startsWith('ActionSync/Store/Transactions/Snapshot'))
+const snapUrl = (id) => `ActionSync/Store/Transactions/Snapshot?code=P007&transactionId=${id}`
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(500)
+  check('19. read only: no View JSON on any row', (await page.locator('[data-transaction-view]').count()) === 0)
+  check('19. …and no JSON column', !strip(await page.locator('[data-tab-grid="transactions"] .ag-header').innerText()).includes('JSON'))
+  check('no page errors (View JSON read only)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors, calls } = await open({ canOperate: true })
+  const logged = []
+  page.on('console', (m) => logged.push(m.text()))
+  // A stubbed clipboard: what Copy JSON writes is kept for the check.
+  await page.addInitScript(() => {
+    window.__copied = []
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => void window.__copied.push(text) } })
+  })
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  check('19. with Operate, every row offers View JSON', (await rowCount(page, '[data-transaction-view]', 50)) === 50)
+  check('19. …in its own last column', strip(await page.locator('[data-tab-grid="transactions"] .ag-header').innerText()).endsWith('JSON'))
+  const view = page.locator('[data-transaction-view="TX-9000"]').first()
+  await view.hover()
+  await view.focus()
+  await page.waitForTimeout(600)
+  check('19. hovering and focusing the action asks nothing', snapCalls(calls).length === 0)
+  const urlBefore = page.url()
+  await view.click()
+  const drawer = page.locator('dialog[data-snapshot-drawer="TX-9000"]')
+  await drawer.locator('[data-snapshot-json]').waitFor({ timeout: 5000 })
+  check('19. opening reads the snapshot once, with the code and the transaction id', JSON.stringify(snapCalls(calls)) === JSON.stringify([snapUrl('TX-9000')]), snapCalls(calls).join(','))
+  check('19. the drawer is a modal side sheet', await drawer.evaluate((d) => d.open && d.matches(':modal')))
+  const box = await drawer.boundingBox()
+  check('19. …docked to the inline end (the right under LTR), full height', !!box && Math.abs(box.x + box.width - 1600) <= 1 && box.y <= 1 && box.height >= 1190, JSON.stringify(box))
+  check('19. titled with the receipt number, isolated', strip(await drawer.locator('[data-snapshot-title]').innerText()) === '0042-0009-119000' && (await drawer.locator('[data-snapshot-title] bdi[dir="ltr"]').count()) === 1)
+  check("19. \"Loaded at\" the door's loadedAt, unshifted", strip(await drawer.locator('[data-snapshot-loaded-at] p').first().innerText()) === 'Loaded at 2026-10-09 12:03')
+  check("19. …with the note that it is HQ's applied copy, not the till's raw message", /HQ's applied copy .* not the till's raw message/.test(await drawer.locator('[data-snapshot-note]').innerText()))
+  const json = drawer.locator('[data-snapshot-json]')
+  check('19. the JSON is one LTR island, monospace', (await json.getAttribute('dir')) === 'ltr' && /font-mono/.test((await json.getAttribute('class')) ?? ''))
+  const keys = await json.locator('details[data-snapshot-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-snapshot-section')))
+  check("19. …split into its top-level keys, in the door's order", JSON.stringify(keys) === '["header","lines","tenders","customer","loyalty"]', JSON.stringify(keys))
+  const headerPre = await json.locator('details[data-snapshot-section="header"] pre').innerText()
+  check('19. …each pretty-printed at 2 spaces', headerPre === JSON.stringify(FAKE_SNAPSHOT.header, null, 2), JSON.stringify(headerPre))
+  check('19. …headed by the key itself', strip(await json.locator('details[data-snapshot-section="lines"] summary').innerText()) === 'lines')
+  await json.locator('details[data-snapshot-section="lines"] summary').click()
+  check('19. a section collapses', (await json.locator('details[data-snapshot-section="lines"]').evaluate((d) => d.open)) === false && (await json.locator('details[data-snapshot-section="header"]').evaluate((d) => d.open)) === true)
+  await page.screenshot({ path: `${SHOTS}/transactions-json.png` })
+
+  await drawer.locator('[data-snapshot-copy]').click()
+  const toast = page.locator('[data-sonner-toast]', { hasText: "The receipt's JSON was copied." })
+  await toast.waitFor({ timeout: 5000 }).catch(() => {})
+  const copied = await page.evaluate(() => window.__copied)
+  check('19. Copy JSON copies the WHOLE snapshot, pretty-printed', copied.length === 1 && copied[0] === JSON.stringify(FAKE_SNAPSHOT, null, 2), JSON.stringify(copied).slice(0, 120))
+  check('19. …and says so', (await toast.count()) === 1)
+
+  await drawer.locator('[data-snapshot-close]').click()
+  await drawer.waitFor({ state: 'detached', timeout: 5000 })
+  check('19. Close removes the drawer', (await page.locator('dialog[data-snapshot-drawer]').count()) === 0)
+  check('19. no drawer state or transaction id in the URL', page.url() === urlBefore && !page.url().includes('TX-9000'), page.url())
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))
+  check('19. nothing of the snapshot in localStorage or sessionStorage', !/FAKE-CARD|Test Customer|FAKE-SKU|TX-9000/.test(stored))
+  check('19. nothing of the snapshot logged to the console', !logged.some((l) => /FAKE-CARD|Test Customer|FAKE-SKU/.test(l)))
+
+  await page.locator('[data-tab-refresh="transactions"]').click()
+  await page.waitForTimeout(800)
+  check("19. the tab's Refresh does not re-ask a closed view", snapCalls(calls).length === 1, String(snapCalls(calls).length))
+  await view.click()
+  await drawer.locator('[data-snapshot-json]').waitFor({ timeout: 5000 })
+  check('19. a second opening is a second request (each opening is an audited view)', snapCalls(calls).filter((c) => c === snapUrl('TX-9000')).length === 2, snapCalls(calls).join(','))
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: 5000 })
+  check('19. Escape closes it too', (await page.locator('dialog[data-snapshot-drawer]').count()) === 0)
+
+  // Refusals.
+  await page.locator('[data-transaction-view="TX-9001"]').first().click()
+  const gone = page.locator('dialog[data-snapshot-drawer="TX-9001"] [data-snapshot-error]')
+  await gone.waitFor({ timeout: 5000 })
+  check('19. NOT_FOUND: "This receipt is no longer on the mirror for this store"', /This receipt is no longer on the mirror for this store/.test(await gone.innerText()), strip(await gone.innerText()))
+  check('19. …no JSON, no code repeated, and Copy is not offered', (await page.locator('[data-snapshot-json]').count()) === 0 && (await gone.locator('[data-snapshot-error-code]').count()) === 0 && (await page.locator('[data-snapshot-copy]').isDisabled()))
+  await page.locator('[data-snapshot-close]').click()
+  await page.locator('[data-transaction-view="TX-9002"]').first().click()
+  const noStore = page.locator('dialog[data-snapshot-drawer="TX-9002"] [data-snapshot-error="NO_STORE"]')
+  await noStore.waitFor({ timeout: 5000 })
+  check('19. NO_STORE: the shared words, beside the code', /No such store/.test(await noStore.innerText()) && strip(await noStore.locator('[data-snapshot-error-code]').innerText()) === 'NO_STORE', strip(await noStore.innerText()))
+  await page.locator('[data-snapshot-close]').click()
+  await page.locator('[data-transaction-view="TX-9003"]').first().click()
+  const boom = page.locator('dialog[data-snapshot-drawer="TX-9003"] [data-snapshot-error]')
+  await boom.waitFor({ timeout: 5000 })
+  // `api.ts` reads a 500 as a server failure and shows the house sentence, not the body's message.
+  check("19. a 500 (the audit write failed): the failure in core's server sentence, no JSON, no code", /could not be loaded/.test(await boom.innerText()) && /unexpected error/i.test(await boom.innerText()) && (await boom.locator('[data-snapshot-error-code]').count()) === 0 && (await page.locator('[data-snapshot-json]').count()) === 0, strip(await boom.innerText()))
+  await page.waitForTimeout(1500)
+  check('19. …asked once, never retried (a retry would be another audited view)', snapCalls(calls).filter((c) => c === snapUrl('TX-9003')).length === 1)
+  await page.locator('[data-snapshot-close]').click()
+  check('no page errors (View JSON)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

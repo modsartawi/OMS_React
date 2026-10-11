@@ -903,7 +903,8 @@
       "total": "Signed total",
       "openedAt": "Opened",
       "completedAt": "Completed",
-      "counter": "Counter rail"
+      "counter": "Counter rail",
+      "view": "JSON"
     },
     "statuses": {
       "COMPLETED": "Completed",
@@ -921,6 +922,21 @@
       },
       "tip": "Counter rail total {{total}}",
       "tipNotYet": "Not on the counter rail yet, so it has no counter total"
+    },
+    "snapshot": {
+      "view": "View JSON",
+      "viewLabel": "View the JSON of receipt {{receipt}}",
+      "eyebrow": "Receipt JSON",
+      "close": "Close",
+      "loading": "Loading the receipt's JSON…",
+      "failed": "The receipt's JSON could not be loaded.",
+      "notFound": "This receipt is no longer on the mirror for this store",
+      "loadedAt": "Loaded at <t>{{at}}</t>",
+      "note": "This is HQ's applied copy of the receipt on the mirror rail, not the till's raw message.",
+      "copy": "Copy JSON",
+      "copied": "The receipt's JSON was copied.",
+      "copyFailed": "The JSON could not be copied to the clipboard.",
+      "sections": "The receipt's JSON, by top-level key"
     }
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
@@ -22,7 +22,7 @@ import {
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
-import { storeTransactionsQuery } from './api'
+import { storeTransactionsQuery, syncConsoleAccessQuery } from './api'
 import { figure } from './helpers'
 import { isWpfStore } from './store-helpers'
 import {
@@ -35,6 +35,7 @@ import {
 } from './transactions-helpers'
 import { buildTransactionColumns } from './transactions-columns'
 import Loading from './Loading'
+import SnapshotDrawer from './SnapshotDrawer'
 import TabGrid from './TabGrid'
 
 /** A receipt's row id: the door's transaction id, unique within the store. */
@@ -59,7 +60,12 @@ const SELECT =
  * Offered to every store (decision 5). A WPF store has no NewPos receipt: it says so
  * and asks nothing. A sink the door cannot read (`available: false`) says so, with no list.
  *
- * 🚩 Read only, and the list never carries lines, tenders or customer data.
+ * With `canOperate` (ticket 468) each row offers **View JSON**, which opens the receipt's
+ * snapshot in a side sheet (`SnapshotDrawer`) — each opening one audited read. Without the
+ * grant the action is absent.
+ *
+ * 🚩 The list never carries lines, tenders or customer data; only the drawer does, and
+ * keeps nothing once closed.
  */
 export default function TransactionsTab({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
@@ -69,7 +75,8 @@ export default function TransactionsTab({ row }: { row: StoreDetail }) {
         {t('transactionsTab.wpf')}
       </p>
     )
-  return <TransactionsList code={row.code} />
+  // Keyed by the store: another store's page starts on its own today, filters and closed drawer.
+  return <TransactionsList key={row.code} code={row.code} />
 }
 
 function TransactionsList({ code }: { code: string }) {
@@ -85,8 +92,21 @@ function TransactionsList({ code }: { code: string }) {
   const [draft, setDraft] = useState('')
   const [page, setPage] = useState(1)
 
+  const access = useQuery(syncConsoleAccessQuery())
+  const canOperate = access.data?.canOperate === true
+  // The open drawer's receipt and which opening it is: each opening is its own audited read.
+  const [viewing, setViewing] = useState<{ row: StoreTransaction; opening: number } | null>(null)
+  const openings = useRef(0)
+  // A grant withdrawn while the drawer is open closes it for good: it must not reopen, and re-read, on its own.
+  useEffect(() => {
+    if (!canOperate) setViewing(null)
+  }, [canOperate])
+
   const read = useQuery({ ...storeTransactionsQuery(code, day, filter, page), placeholderData: keepPreviousData })
-  const columns = useMemo(() => buildTransactionColumns(t), [t])
+  const columns = useMemo(
+    () => buildTransactionColumns(t, canOperate ? (row) => setViewing({ row, opening: ++openings.current }) : undefined),
+    [t, canOperate],
+  )
   // As on Mirror: a failed read draws none of the previous day's rows.
   const shown = read.isError ? undefined : read.data
   const total = shown?.items.total ?? 0
@@ -269,6 +289,15 @@ function TransactionsList({ code }: { code: string }) {
         </div>
       )}
       <p className="text-xs text-muted-foreground">{t('transactionsTab.note')}</p>
+      {viewing && canOperate && (
+        <SnapshotDrawer
+          key={viewing.opening}
+          code={code}
+          row={viewing.row}
+          opening={viewing.opening}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   )
 }

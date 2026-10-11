@@ -10,6 +10,9 @@ import {
   counterTip,
   localToday,
   pollsToday,
+  prettyJson,
+  snapshotRefusal,
+  snapshotSections,
   transactionDays,
   transactionsPollInterval,
   transactionsQuery,
@@ -181,5 +184,61 @@ describe('txKindLabel', () => {
     expect(txKindLabel(true)).toBe('transactionsTab.kinds.return')
     expect(label(txKindLabel(false))).toEqual(expect.any(String))
     expect(label(txKindLabel(true))).toEqual(expect.any(String))
+  })
+})
+
+describe('snapshotSections', () => {
+  it('splits the top-level keys in their insertion order, each pretty-printed at 2 spaces', () => {
+    const json = { header: { receiptNumber: 'TEST-0001', total: 12.5 }, lines: [{ sku: 'FAKE-1' }], tenders: [], customer: null }
+    const sections = snapshotSections(json)
+    expect(sections.map((s) => s.key)).toEqual(['header', 'lines', 'tenders', 'customer'])
+    expect(sections[0].json).toBe('{\n  "receiptNumber": "TEST-0001",\n  "total": 12.5\n}')
+    expect(sections[1].json).toBe(JSON.stringify([{ sku: 'FAKE-1' }], null, 2))
+    expect(sections[2].json).toBe('[]')
+    expect(sections[3].json).toBe('null')
+  })
+
+  it("follows the parsed object's own key order, not an alphabetical one", () => {
+    // What the door sent is what JSON.parse built; the sections follow that object's own order.
+    const parsed = JSON.parse('{"z":1,"a":2}') as unknown
+    expect(snapshotSections(parsed).map((s) => s.key)).toEqual(['z', 'a'])
+  })
+
+  it('gives a non-object back as one unnamed section', () => {
+    expect(snapshotSections([1, 2])).toEqual([{ key: null, json: '[\n  1,\n  2\n]' }])
+    expect(snapshotSections(null)).toEqual([{ key: null, json: 'null' }])
+    expect(snapshotSections('text')).toEqual([{ key: null, json: '"text"' }])
+    expect(snapshotSections(42)).toEqual([{ key: null, json: '42' }])
+    expect(snapshotSections(true)).toEqual([{ key: null, json: 'true' }])
+  })
+
+  it('gives an empty object, or a missing snapshot, back as one unnamed section rather than nothing', () => {
+    expect(snapshotSections({})).toEqual([{ key: null, json: '{}' }])
+    expect(snapshotSections(undefined)).toEqual([{ key: null, json: 'null' }])
+  })
+})
+
+describe('prettyJson', () => {
+  it('is the whole snapshot at a 2-space indent, as Copy JSON copies it', () => {
+    expect(prettyJson({ a: { b: 1 } })).toBe('{\n  "a": {\n    "b": 1\n  }\n}')
+    expect(prettyJson(undefined)).toBe('null')
+  })
+})
+
+describe('snapshotRefusal', () => {
+  it("gives NOT_FOUND its own words, and the code is not repeated", () => {
+    expect(snapshotRefusal('NOT_FOUND')).toEqual({ labelKey: 'transactionsTab.snapshot.notFound', showCode: false })
+    expect(label('transactionsTab.snapshot.notFound')).toBe('This receipt is no longer on the mirror for this store')
+  })
+
+  it("reads the store doors' shared failure words for any other code, beside the code", () => {
+    expect(snapshotRefusal('NO_STORE')).toEqual({ labelKey: 'failures.NO_STORE', showCode: true })
+    expect(label('failures.NO_STORE')).toEqual(expect.any(String))
+  })
+
+  it('leaves a code with no shared words (BAD_REQUEST, an unknown one) to show raw, and no code at all (a bare 500) to the message', () => {
+    expect(snapshotRefusal('BAD_REQUEST')).toEqual({ labelKey: null, showCode: true })
+    expect(snapshotRefusal('MELTED')).toEqual({ labelKey: null, showCode: true })
+    expect(snapshotRefusal(null)).toEqual({ labelKey: null, showCode: false })
   })
 })

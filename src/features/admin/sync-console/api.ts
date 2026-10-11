@@ -50,6 +50,7 @@ import type {
   StoreControlResponse,
   StoreScripts,
   StoreTransactions,
+  StoreTransactionSnapshot,
   SyncAudit,
   SyncCommand,
   SyncCommandRequest,
@@ -227,6 +228,18 @@ export const syncConsoleApi = {
    */
   storeTransactions(code: string, day: string, filter: TransactionsFilter, page: number): Promise<StoreTransactions> {
     return api.get<StoreTransactions>('ActionSync/Store/Transactions', transactionsQuery(code, day, filter, page))
+  },
+
+  /**
+   * `GET ActionSync/Store/Transactions/Snapshot?code=&transactionId=` (spec 2586, ticket
+   * 468, `ActionSync.Operate`) → one receipt's snapshot as HQ's mirror holds it. Every
+   * served view is audited by the door first. A refusal (`BAD_REQUEST`, `NO_STORE`,
+   * `NOT_FOUND`, a 500 when the audit write fails) throws.
+   *
+   * 🚩 The answer carries customer, loyalty and tender data: never logged, never stored.
+   */
+  storeTransactionSnapshot(code: string, transactionId: string): Promise<StoreTransactionSnapshot> {
+    return api.get<StoreTransactionSnapshot>('ActionSync/Store/Transactions/Snapshot', { code, transactionId })
   },
 
   // ── Controls and the audit feed (ticket 447) ──
@@ -450,6 +463,30 @@ export const storeTransactionsQuery = (code: string, day: string, filter: Transa
   queryKey: [...storeKey(code), 'transactions', transactionsQuery(code, day, filter, page)] as const,
   queryFn: () => syncConsoleApi.storeTransactions(code, day, filter, page),
   refetchInterval: () => transactionsPollInterval(day, new Date()),
+})
+
+/**
+ * One opening of a receipt's JSON drawer (ticket 468). Each opening is one audited view,
+ * so each is its own read: `opening` (counted by the tab) is in the key, nothing is kept
+ * once the drawer closes (`gcTime: 0`), and nothing re-reads it while open — no retry,
+ * no refetch, never stale. The key sits OUTSIDE `storeKey`, so the tab strip's Refresh
+ * and a control's store-wide invalidation never re-ask an audited view.
+ *
+ * `onServed` runs when the door answers, from the read itself and not from the drawer: a
+ * drawer closed while the read is in flight still had its view audited.
+ */
+export const storeTransactionSnapshotQuery = (code: string, transactionId: string, opening: number, onServed: () => void) => ({
+  queryKey: ['sync-console', 'snapshot', code, transactionId, opening] as const,
+  queryFn: () =>
+    syncConsoleApi.storeTransactionSnapshot(code, transactionId).then((snapshot) => {
+      onServed()
+      return snapshot
+    }),
+  gcTime: 0,
+  staleTime: Infinity,
+  retry: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
 })
 
 // ── The audit feed (ticket 447) ──

@@ -11,6 +11,7 @@ import type { CounterFlag, StoreTransaction, TxKindFilter, TxStatusFilter } from
 import { fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
+import { failureLabelKey } from './control-helpers'
 import { codeBadge, type CodeBadge } from './helpers'
 
 // ── The day ─────────────────────────────────────────────────────────────────────
@@ -124,3 +125,44 @@ export function txStatusLabel(status: string): CodeBadge {
 
 /** Sale or return, from the door's `isReturn`. */
 export const txKindLabel = (isReturn: boolean): string => `transactionsTab.kinds.${isReturn ? 'return' : 'sale'}`
+
+// ── A receipt's JSON (ticket 468) ───────────────────────────────────────────────
+
+/**
+ * A snapshot pretty-printed as Copy JSON copies it: the whole value at a 2-space indent.
+ * A door that dropped the member reads as `null`, never an empty block.
+ */
+export const prettyJson = (value: unknown): string => JSON.stringify(value ?? null, null, 2)
+
+/** One collapsible block of the JSON drawer: a top-level key (`null` for the whole value) and its pretty value. */
+export interface SnapshotSection {
+  key: string | null
+  json: string
+}
+
+/**
+ * The snapshot's top-level keys (header, lines, tenders, …) in the order the parsed object
+ * holds them, each pretty-printed on its own. Anything that is not a non-empty plain object
+ * — an array, `null`, a primitive, `{}` — comes back as one unnamed section, so the drawer
+ * always draws the whole value.
+ */
+export function snapshotSections(json: unknown): SnapshotSection[] {
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) return [{ key: null, json: prettyJson(json) }]
+  const entries = Object.entries(json)
+  if (entries.length === 0) return [{ key: null, json: prettyJson(json) }]
+  return entries.map(([key, value]) => ({ key, json: prettyJson(value) }))
+}
+
+/**
+ * The words for a refused snapshot read, from the door's code (`apiErrorCode`).
+ * `NOT_FOUND` (no header, another store's, a training sale) has its own sentence and the
+ * code is not repeated. Any other code takes the store doors' shared words
+ * (`failureLabelKey` — `NO_STORE` has some) and is shown beside them; a code without
+ * words (`BAD_REQUEST`, one this bundle does not know) shows raw with the server's
+ * message, and no code at all (the 500 of a failed audit write) shows core's server sentence alone.
+ */
+export function snapshotRefusal(code: string | null): { labelKey: string | null; showCode: boolean } {
+  if (code === 'NOT_FOUND') return { labelKey: 'transactionsTab.snapshot.notFound', showCode: false }
+  if (code === null) return { labelKey: null, showCode: false }
+  return { labelKey: failureLabelKey(code), showCode: true }
+}

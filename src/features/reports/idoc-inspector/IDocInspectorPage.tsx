@@ -6,6 +6,7 @@ import { FileSearch } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
+import { useUrlQuery } from '@/core/ui/use-url-query'
 import { canOpenIDocInspector, idocInspectorAccessQuery, idocInspectorApi } from './api'
 import AttentionBanner from './AttentionBanner'
 import DocumentPane from './DocumentPane'
@@ -18,9 +19,14 @@ import { banners, readVerdict } from './verdict'
 import { VerdictEmptyState, VerdictStrip } from './VerdictStrip'
 import {
   buildLookupKey,
+  criteriaForKey,
+  keyFromSearchParams,
   landingCriteria,
   missingParts,
+  reseedDraft,
+  sameKeyOrNone,
   sameLookup,
+  searchParamsForKey,
   type LookupCriteria,
   type LookupKey,
   type MissingParts,
@@ -54,15 +60,37 @@ import {
  * The download (299) sits on the verdict strip. **The code legend (300)** is here
  * too: `LegendProvider` fetches `Metadata` once per session inside the gate, and
  * every code below draws its label from it while still rendering itself raw.
+ *
+ * 🔑 **The issued key lives in the URL** (ticket 462): `?store=<code>&trx=<number>`
+ * opens the screen straight on that transaction — the link the SAP export
+ * console's store-day rows carry — and every Look up writes its key back, so a
+ * lookup is a shareable link. The URL is only another way to PROMOTE a key: it
+ * goes through the same builder, so a link missing either half is the ordinary
+ * landing screen.
  */
 export default function IDocInspectorPage() {
   const { t } = useTranslation('reports')
 
-  // The live draft, and the key that has actually been ISSUED. Only Look up
-  // promotes one to the other, so a half-typed transaction number never fires a
-  // request. `null` is "nothing has been asked yet" — the landing state.
-  const [criteria, setCriteria] = useState<LookupCriteria>(landingCriteria)
-  const [appliedKey, setAppliedKey] = useState<LookupKey | null>(null)
+  // The live draft, and the key that has actually been ISSUED. Only Look up — or
+  // a link carrying both halves — promotes one to the other, so a half-typed
+  // transaction number never fires a request. `null` is "nothing has been asked
+  // yet" — the landing state.
+  //
+  // 🔑 The issued key is READ from the URL and every Look up WRITES it there, so
+  // the address and the screen cannot disagree. A link opens with the draft
+  // filled from it, and the lookup runs once.
+  const { query: appliedKey, update } = useUrlQuery(keyFromSearchParams, searchParamsForKey)
+  // The key this page last wrote to the URL itself, until the URL next changes —
+  // how its echo is told apart from Back, the menu leaf or a pasted link.
+  const [written, setWritten] = useState<{ key: LookupKey | null } | null>(null)
+  const issue = useCallback(
+    (key: LookupKey | null) => {
+      setWritten({ key })
+      update(() => key)
+    },
+    [update],
+  )
+  const [criteria, setCriteria] = useState<LookupCriteria>(() => criteriaForKey(appliedKey))
   const [invalid, setInvalid] = useState<MissingParts | null>(null)
 
   // Which document the rail has selected, and which lines are open. Both are
@@ -71,15 +99,43 @@ export default function IDocInspectorPage() {
   const [openItemNumbers, setOpenItemNumbers] = useState<ReadonlySet<number>>(new Set())
   const [filterTag, setFilterTag] = useState<string | null>(null)
 
+  // 🚩 The URL's key changed — a Look up's own write landing, or Back, the menu
+  // leaf, a pasted link. Every answer below belongs to the old key, so the view
+  // resets; the draft follows only a change from OUTSIDE (`reseedDraft`), never
+  // the echo of the user's own Look up. Adjusted during render, React's pattern
+  // for state that follows a changing input, so no frame draws a stale pairing.
+  // Compared by VALUE: an identity check would hang on the router keeping one
+  // `URLSearchParams` per search string.
+  const [shownKey, setShownKey] = useState(appliedKey)
+  if (!sameKeyOrNone(shownKey, appliedKey)) {
+    setShownKey(appliedKey)
+    setWritten(null)
+    setWantedDocument(0)
+    setOpenItemNumbers(new Set())
+    setFilterTag(null)
+    const reseeded = reseedDraft(appliedKey, written)
+    if (reseeded !== null) {
+      setCriteria(reseeded)
+      setInvalid(null)
+    }
+  }
+
+  // The same probe — same key, same options — the gate below stands on, so this
+  // is one call, not two. 🚩 A link fires its lookup on mount, which is before the
+  // gate has its answer: without this a refused user opening a link would still
+  // ask the server for the transaction.
+  const access = useQuery(idocInspectorAccessQuery())
+
   const lookup = useQuery({
     queryKey: ['reports', 'idoc-inspector', 'transaction', appliedKey],
     // Non-null by construction: `enabled` below is the same condition, so the fn
     // cannot run with a null key.
     queryFn: () => idocInspectorApi.transaction(appliedKey!),
-    // 🚩 Nothing fires on mount and nothing fires until Look up: a transaction is
-    // not a question this screen can answer unasked, and an auto-fired lookup
-    // would be a guaranteed empty result pretending to be a verdict.
-    enabled: appliedKey !== null,
+    // 🚩 Nothing fires until a key is promoted — by Look up, or by a link that
+    // carries both halves: a transaction is not a question this screen can answer
+    // unasked, and an auto-fired lookup would be a guaranteed empty result
+    // pretending to be a verdict. And never before the grant is confirmed.
+    enabled: appliedKey !== null && canOpenIDocInspector(access.data),
     // A refusal is an answer and an exact keyed lookup is a user action they can
     // repeat, so no automatic second attempt.
     retry: false,
@@ -111,7 +167,7 @@ export default function IDocInspectorPage() {
     if (key === null) {
       // 🚩 The refusal clears the ISSUED key too, not just the field. Leaving it
       // would draw "enter a store" over the previous transaction's documents.
-      setAppliedKey(null)
+      issue(null)
       resetView()
       return
     }
@@ -126,15 +182,15 @@ export default function IDocInspectorPage() {
       void refetch()
       return
     }
-    setAppliedKey(key)
-  }, [appliedKey, criteria, refetch, resetView])
+    issue(key)
+  }, [appliedKey, criteria, issue, refetch, resetView])
 
   const onReset = useCallback(() => {
     setCriteria(landingCriteria())
-    setAppliedKey(null)
+    issue(null)
     setInvalid(null)
     resetView()
-  }, [resetView])
+  }, [issue, resetView])
 
   const onSelectDocument = useCallback((index: number) => {
     setWantedDocument(index)

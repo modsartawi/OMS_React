@@ -21,6 +21,16 @@
 //   8. a `400 BAD_FILTER` shows an inline error sentence, not a blank grid;
 //   9. the tiles and the list refetch every 60 s;
 //  10. with `screenAllowed: false` the page guards itself, with no fleet read.
+// Ticket 465 adds:
+//  11. the runner card from `SapExport/Runners`: one row per runner with its liveness token (down
+//      danger, up success, idle muted — never red), host, last cycle end, outcome, last moved, due
+//      backlog and down-after minutes; a faulted cycle shows its message; `fromHeartbeat: false` shows
+//      the inferred hint; a down legacy uploader raises the red banner ABOVE the tiles; with nothing
+//      down there is no banner;
+//  12. the double-send list (`SapExport/DoubleSends`): the tiles' flag reaches the door, X1p first and
+//      marked "can still be stopped", the flag select and the store filter reach the door as `flag`
+//      and `code` (back on page 1, in the URL), paging at 50, each row linking to the inspector, its
+//      store-day and its store; a 404 NO_STORE shows its own sentence.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sap-export-fleet-drive.mjs
@@ -120,15 +130,69 @@ const STORE_STUB = (code) => ({
   facts: { underSap: true, sapLocations: 1, hasCounterRow: true, watermark: null, openDate: null, closed: false, inventoryDate: null },
 })
 
+// The runners (465), in `RunnerKey` order: a DOWN legacy uploader whose last cycle faulted, an idle
+// batcher, and an export stage with no heartbeat row yet (inferred).
+const runner = (key, over = {}) => ({
+  key,
+  liveness: 'up',
+  fromHeartbeat: true,
+  host: 'HQ-API-01',
+  lastCycleStartedAt: '2026-10-11T08:20:00',
+  lastCycleEndedAt: '2026-10-11T08:20:05',
+  lastOutcome: 'moved',
+  lastMoved: 120,
+  lastMessage: null,
+  lastNonIdleAt: '2026-10-11T08:20:05',
+  dueBacklog: 40,
+  downAfterMinutes: 15,
+  ...over,
+})
+const RUNNERS = [
+  runner('legacyUploader', {
+    liveness: 'down',
+    host: 'UPLOAD-SRV',
+    lastCycleEndedAt: '2026-10-09T17:42:00',
+    lastOutcome: 'faulted',
+    lastMoved: null,
+    lastMessage: 'Timeout expired reading DistributionLocationCounter for P014.',
+    dueBacklog: 1834,
+  }),
+  runner('idocProcessing'),
+  runner('idocBatching', { liveness: 'idle', lastOutcome: 'idle', lastMoved: null, dueBacklog: 0 }),
+  runner('idocExport', { fromHeartbeat: false, host: null, lastCycleStartedAt: null, lastCycleEndedAt: null, lastOutcome: 'none', lastMoved: null }),
+  runner('censusRollup', { downAfterMinutes: 30, lastMoved: 212 }),
+]
+const RUNNERS_ALL_UP = RUNNERS.map((r) => (r.key === 'legacyUploader' ? runner('legacyUploader', { host: 'UPLOAD-SRV' }) : r))
+
+// The double sends (465): 3 X1p and 60 X1, in the door's order (X1p first, then store, day, trx).
+const doubleSend = (flag, code, i) => ({
+  flag,
+  code,
+  trxNumber: `${flag === 'X1p' ? 9 : 1}${String(i).padStart(5, '0')}`,
+  day: `2026-10-${String(1 + (i % 9)).padStart(2, '0')}`,
+  version: flag === 'X1p' ? 'L' : 'N',
+  state: flag === 'X1p' ? 'N4' : 'N5',
+  legacyFile: `${code}_202610${String(1 + (i % 9)).padStart(2, '0')}_1.txt`,
+  legacyUploadedAt: '2026-10-05T23:10:00',
+  documents: 2,
+  documentsExported: flag === 'X1p' ? 0 : 2,
+})
+const DOUBLE_SENDS = [
+  ...[1, 2, 3].map((i) => doubleSend('X1p', i === 3 ? 'P001' : 'P014', i)),
+  ...Array.from({ length: 60 }, (_, i) => doubleSend('X1', i < 40 ? 'P001' : 'P014', i + 1)),
+].sort((a, b) => (a.flag === b.flag ? 0 : a.flag === 'X1p' ? -1 : 1) || a.code.localeCompare(b.code) || a.day.localeCompare(b.day) || a.trxNumber.localeCompare(b.trxNumber))
+
 const browser = await chromium.launch()
 
-async function open({ access = { screenAllowed: true }, computedAt = localStamp(5 * 60_000), refuse = null, clock = false } = {}) {
+async function open({ access = { screenAllowed: true }, computedAt = localStamp(5 * 60_000), refuse = null, clock = false, runners = RUNNERS } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 } })
   const page = await context.newPage()
   if (clock) await page.clock.install()
   const errors = []
   const calls = []
   const summaries = []
+  const runnerReads = []
+  const doubleSends = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript(() => {
@@ -163,13 +227,28 @@ async function open({ access = { screenAllowed: true }, computedAt = localStamp(
       if (url.searchParams.get('sort') === 'code') matching = [...matching].sort((a, b) => a.code.localeCompare(b.code))
       return route.fulfill(envelope({ items: matching.slice((pg - 1) * size, pg * size), total: matching.length, page: pg, pageSize: size }))
     }
-    // The store page (464), which a row opens: a store and an empty strip.
+    if (p === 'SapExport/Runners') {
+      runnerReads.push(url.searchParams)
+      return route.fulfill(envelope({ items: runners }))
+    }
+    if (p === 'SapExport/DoubleSends') {
+      doubleSends.push(url.searchParams)
+      const code = url.searchParams.get('code')
+      if (code && !['P001', 'P014'].includes(code)) return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store.', errorCode: 'NO_STORE' }))
+      const flags = url.searchParams.getAll('flag')
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      const matching = DOUBLE_SENDS.filter((r) => (!code || r.code === code) && (flags.length === 0 || flags.includes(r.flag)))
+      return route.fulfill(envelope({ items: matching.slice((pg - 1) * size, pg * size), total: matching.length, page: pg, pageSize: size }))
+    }
+    // The store page (464), which a row opens: a store, an empty strip and no identity break.
     if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
     if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [] }))
+    if (p === 'SapExport/IdentityBreaks') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, summaries }
+  return { context, page, errors, calls, summaries, runnerReads, doubleSends }
 }
 
 const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -381,27 +460,169 @@ const urlParams = (page) => new URL(page.url()).searchParams
 
 // ── 9: refetch every 60 s ─────────────────────────────────────────────────────────────────────
 {
-  const { context, page, errors, calls, summaries } = await open({ clock: true })
+  const { context, page, errors, calls, summaries, runnerReads } = await open({ clock: true })
   await page.goto(FLEET_URL)
   await page.locator('[data-store-link="P014"]').waitFor({ timeout: 20000 })
-  const before = { fleet: calls.length, summary: summaries.length }
+  await page.locator('[data-runner="legacyUploader"]').waitFor({ timeout: 20000 })
+  const before = { fleet: calls.length, summary: summaries.length, runners: runnerReads.length }
   await page.clock.fastForward(30_000)
   await page.waitForTimeout(300)
   check('9. nothing refetches at 30 s', calls.length === before.fleet && summaries.length === before.summary, `${calls.length}/${summaries.length}`)
   await page.clock.fastForward(31_000)
   for (let i = 0; i < 30 && (calls.length === before.fleet || summaries.length === before.summary); i++) await page.waitForTimeout(100)
   check('9. the list and the tiles refetch at 60 s', calls.length > before.fleet && summaries.length > before.summary, `${before.fleet}→${calls.length}, ${before.summary}→${summaries.length}`)
+  for (let i = 0; i < 30 && runnerReads.length === before.runners; i++) await page.waitForTimeout(100)
+  check('9. …and so do the runners (465)', runnerReads.length > before.runners, `${before.runners}→${runnerReads.length}`)
   check('no page errors (refetch)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 11: the runner card (465) ─────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, runnerReads } = await open()
+  await page.goto(FLEET_URL)
+  await page.locator('[data-runner="legacyUploader"]').waitFor({ timeout: 20000 })
+  check('11. the runner card reads SapExport/Runners', runnerReads.length >= 1)
+  const rows = await page.locator('[data-runner]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-runner')}:${e.querySelector('[data-runner-liveness] [data-token]').getAttribute('data-token')}`))
+  check(
+    '11. one row per runner, in the door order, each liveness in its token',
+    sameList(rows, ['legacyUploader:danger', 'idocProcessing:success', 'idocBatching:muted', 'idocExport:success', 'censusRollup:success']),
+    JSON.stringify(rows),
+  )
+  const row = (key) => page.locator(`[data-runner="${key}"]`)
+  const cellText = async (key, sel) => strip(await row(key).locator(sel).first().innerText())
+  check('11. the runners read by name', (await cellText('legacyUploader', 'td')) === 'Legacy uploader' && (await cellText('censusRollup', 'td')) === 'Census rollup')
+  check('11. the down uploader reads Down', (await cellText('legacyUploader', '[data-runner-liveness]')) === 'Down')
+  check(
+    '11. …with its host, last cycle end, outcome, due backlog and down-after minutes',
+    (await cellText('legacyUploader', '[data-runner-host]')) === 'UPLOAD-SRV' &&
+      (await cellText('legacyUploader', '[data-runner-ended]')) === '2026-10-09 17:42' &&
+      (await cellText('legacyUploader', '[data-runner-outcome]')) === 'Faulted' &&
+      (await row('legacyUploader').locator('[data-runner-outcome] [data-token]').getAttribute('data-token')) === 'danger' &&
+      (await cellText('legacyUploader', '[data-runner-backlog]')) === '1,834' &&
+      (await cellText('legacyUploader', '[data-runner-down-after]')) === '15 min',
+  )
+  check('11. a moving runner shows its last moved count', (await cellText('idocProcessing', '[data-runner-moved]')) === '120' && (await cellText('idocProcessing', '[data-runner-outcome]')) === 'Moved')
+  check('11. a faulted cycle shows its message', /Timeout expired reading DistributionLocationCounter for P014\./.test(await page.locator('[data-runner-fault="legacyUploader"]').innerText()))
+  check('11. …and only the faulted one', (await page.locator('[data-runner-fault]').count()) === 1)
+  const idleClass = (await row('idocBatching').locator('[data-runner-liveness] [data-token]').getAttribute('class')) ?? ''
+  check('11. an idle runner reads Idle and is never red', (await cellText('idocBatching', '[data-runner-liveness]')) === 'Idle' && !/danger/.test(idleClass), idleClass)
+  check('11. fromHeartbeat: false shows the inferred hint', (await row('idocExport').locator('[data-runner-inferred]').count()) === 1 && /Inferred — no heartbeat yet/.test(await row('idocExport').innerText()))
+  check('11. …and only on that row', (await page.locator('[data-runner-inferred]').count()) === 1)
+  check('11. a runner that never ran says so', (await cellText('idocExport', '[data-runner-outcome]')) === 'Never ran' && (await cellText('idocExport', '[data-runner-ended]')) === 'Never')
+  const banner = page.locator('[data-runner-banner]')
+  check('11. a down runner raises the red banner', (await banner.count()) === 1 && /A runner is down/.test(await banner.innerText()) && (await banner.locator('[data-runner-down="legacyUploader"]').count()) === 1)
+  check('11. …which names the down runner', strip(await banner.locator('[data-runner-down]').innerText()) === 'Legacy uploader')
+  const above = await page.evaluate(() => {
+    const b = document.querySelector('[data-runner-banner]')
+    const tiles = document.querySelector('[data-tiles]')
+    return !!b && !!tiles && (b.compareDocumentPosition(tiles) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  })
+  check('11. …above the tiles', above)
+  check('11. the banner is drawn in the danger family', /danger/.test((await banner.locator('[role="alert"]').getAttribute('class')) ?? ''))
+  await page.locator('[data-runner-card]').screenshot({ path: `${SHOTS}/runners.png` })
+  check('no page errors (runners)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open({ runners: RUNNERS_ALL_UP })
+  await page.goto(FLEET_URL)
+  await page.locator('[data-runner="legacyUploader"]').waitFor({ timeout: 20000 })
+  check('11. with nothing down there is no banner', (await page.locator('[data-runner-banner]').count()) === 0 && (await page.locator('[data-runner][data-liveness="down"]').count()) === 0)
+  check('no page errors (runners up)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 12: the double-send list (465) ────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, doubleSends } = await open()
+  const DS_URL = `${BASE}/reports/sap-export/double-sends`
+  const gridRows = '[data-double-sends-grid] [role="row"][row-index]'
+  await page.goto(FLEET_URL)
+  await page.locator('[data-tile="doubleSendPending"]').click()
+  await page.locator('[data-double-sends-grid]').waitFor({ timeout: 20000 })
+  const first = doubleSends[0]
+  check('12. the pending tile reaches the door as flag=X1p, page 1 of 50', sameList(first.getAll('flag'), ['X1p']) && first.get('page') === '1' && first.get('pageSize') === '50' && !first.has('code'), callText(first))
+  check('12. …and the flag select shows it', (await page.locator('[data-double-sends-flag]').inputValue()) === 'X1p')
+  check('12. …three pending rows', strip(await page.locator('[data-double-sends-count]').innerText()) === '3 transactions' && (await page.locator('[data-flag="X1p"]').count()) === 3)
+
+  await page.goto(DS_URL)
+  await page.locator('[data-double-sends-count="63"]').waitFor({ timeout: 20000 })
+  await page.locator(`${gridRows} [data-flag]`).first().waitFor({ timeout: 20000 })
+  const bare = lastCall(doubleSends)
+  check('12. a bare URL asks for both flags (no flag), the whole fleet', bare.getAll('flag').length === 0 && !bare.has('code') && bare.get('page') === '1' && bare.get('pageSize') === '50', callText(bare))
+  check('12. it counts both flags', strip(await page.locator('[data-double-sends-count]').innerText()) === '63 transactions')
+  const flagsInOrder = await page.locator(gridRows).evaluateAll((els) =>
+    els
+      .sort((a, b) => Number(a.getAttribute('row-index')) - Number(b.getAttribute('row-index')))
+      .map((e) => e.querySelector('[data-flag]')?.getAttribute('data-flag')),
+  )
+  check('12. X1p first', sameList(flagsInOrder.slice(0, 4), ['X1p', 'X1p', 'X1p', 'X1']) && flagsInOrder.length === 50, `${flagsInOrder.length}: ${flagsInOrder.slice(0, 5).join(',')}`)
+  const r0 = page.locator(`${gridRows}[row-index="0"]`)
+  check('12. an X1p row is red and reads "can still be stopped"', (await r0.locator('[data-flag="X1p"] [data-token]').getAttribute('data-token')) === 'danger' && strip(await r0.locator('[data-stoppable]').innerText()) === 'Can still be stopped')
+  const r3 = page.locator(`${gridRows}[row-index="3"]`)
+  check('12. an X1 row is red with no "can still be stopped"', (await r3.locator('[data-flag="X1"] [data-token]').getAttribute('data-token')) === 'danger' && (await r3.locator('[data-stoppable]').count()) === 0)
+  const firstRow = DOUBLE_SENDS[0]
+  check('12. the documents read exported of made', strip(await r0.locator('[col-id="exportedOf"]').innerText()) === '0 / 2', await r0.locator('[col-id="exportedOf"]').innerText())
+  check('12. the state reads code and meaning', strip(await r0.locator('[col-id="state"]').innerText()) === 'N4 Sealed, not exported')
+  check('12. the legacy file and upload time', strip(await r0.locator('[col-id="legacyFile"]').innerText()) === firstRow.legacyFile && strip(await r0.locator('[col-id="legacyUploadedAt"]').innerText()) === '2026-10-05 23:10')
+  const inspector = await r0.locator('[data-inspector-link]').getAttribute('href')
+  check('12. the transaction links to the IDoc inspector', inspector === `/reports/idoc-inspector?store=${firstRow.code}&trx=${firstRow.trxNumber}`, inspector)
+  const dayHref = await r0.locator('[data-day-link]').getAttribute('href')
+  check('12. the day links to its store-day page', dayHref === `/reports/sap-export/store/${firstRow.code}/day/${firstRow.day}`, dayHref)
+  check('12. the store links to its store page', (await r0.locator('[data-store-link]').getAttribute('href')) === `/reports/sap-export/store/${firstRow.code}`)
+  await page.screenshot({ path: `${SHOTS}/double-sends.png`, fullPage: true })
+
+  // paging
+  await page.getByRole('button', { name: 'Next' }).click()
+  check('12. Next asks for page 2 of 50', await waitForCall(page, doubleSends, (c) => c.get('page') === '2' && c.get('pageSize') === '50'), callText(lastCall(doubleSends)))
+  check('12. …and puts page=2 in the URL', await waitForCall(page, doubleSends, () => urlParams(page).get('page') === '2'), page.url())
+  await page.waitForFunction((sel) => document.querySelectorAll(sel).length === 13, gridRows, { timeout: 10000 }).catch(() => {})
+  check('12. page 2 draws the last 13', (await page.locator(gridRows).count()) === 13)
+
+  // filters
+  await page.locator('[data-double-sends-flag]').selectOption('X1')
+  check('12. the flag select sets flag=X1, back on page 1', await waitForCall(page, doubleSends, (c) => sameList(c.getAll('flag'), ['X1']) && c.get('page') === '1'), callText(lastCall(doubleSends)))
+  check('12. …in the URL', urlParams(page).get('flag') === 'X1' && !urlParams(page).has('page'), page.url())
+  await page.locator('[data-double-sends-store]').fill('P014')
+  await page.waitForTimeout(400)
+  check('12. typing a store code asks nothing until it is applied', !lastCall(doubleSends).has('code'), callText(lastCall(doubleSends)))
+  await page.locator('[data-double-sends-apply]').click()
+  check('12. the store filter sets code=P014 with the flag', await waitForCall(page, doubleSends, (c) => c.get('code') === 'P014' && sameList(c.getAll('flag'), ['X1'])), callText(lastCall(doubleSends)))
+  await page.locator('[data-double-sends-count="20"]').waitFor({ timeout: 10000 })
+  check('12. …and lists only that store', (await page.locator('[data-double-sends-grid] [data-store-link="P001"]').count()) === 0 && urlParams(page).get('code') === 'P014')
+  await page.locator('[data-double-sends-flag]').selectOption('')
+  check('12. Both flags drops the flag', await waitForCall(page, doubleSends, (c) => c.getAll('flag').length === 0 && c.get('code') === 'P014'), callText(lastCall(doubleSends)))
+  await page.locator('[data-clear-filters]').click()
+  check('12. Clear drops every filter', await waitForCall(page, doubleSends, (c) => c.getAll('flag').length === 0 && !c.has('code')), callText(lastCall(doubleSends)))
+  check('12. …and empties the store box', (await page.locator('[data-double-sends-store]').inputValue()) === '' && new URL(page.url()).search === '', page.url())
+
+  // a link
+  await page.locator('[data-double-sends-count="63"]').waitFor({ timeout: 10000 })
+  await page.locator(`${gridRows}[row-index="0"] [data-day-link]`).click()
+  await page.waitForURL(/\/reports\/sap-export\/store\/.+\/day\//, { timeout: 10000 })
+  check('12. the day link opens the store-day page', new URL(page.url()).pathname === `/reports/sap-export/store/${firstRow.code}/day/${firstRow.day}`, page.url())
+
+  // NO_STORE
+  await page.goto(`${DS_URL}?code=Z999`)
+  await page.getByText('There is no store with this code.').waitFor({ timeout: 20000 })
+  check('12. an unknown store shows its own sentence, with no grid', (await page.locator('[data-double-sends-grid]').count()) === 0 && (await page.locator('[data-double-sends-store]').inputValue()) === 'Z999')
+  check('no page errors (double sends)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 // ── 10: no view grant ─────────────────────────────────────────────────────────────────────────
 {
-  const { context, page, errors, calls, summaries } = await open({ access: { screenAllowed: false } })
+  const { context, page, errors, calls, summaries, runnerReads, doubleSends } = await open({ access: { screenAllowed: false } })
   await page.goto(FLEET_URL)
   await page.getByText('No access to SAP export').first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
   check('10. without the grant the page guards itself, with no fleet read', (await page.locator('[data-fleet-page]').count()) === 0 && calls.length === 0 && summaries.length === 0)
+  check('10. …and no runner read (465)', runnerReads.length === 0)
+  await page.goto(`${BASE}/reports/sap-export/double-sends?flag=X1p`)
+  await page.getByText('No access to SAP export').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  check('10. the double-send list guards itself too, with no read (465)', (await page.locator('[data-double-sends-page]').count()) === 0 && doubleSends.length === 0)
   check('no page errors (denied)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

@@ -13,6 +13,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { canOpenSapExport, sapExportAccessQuery } from './access'
 import { storeDaysQuery, storeQuery } from './api'
 import { LABEL_TOKEN_CLASS, WORST_FIRST, labelToken, unknownLabelCounts } from './label-helpers'
+import IdentityBreaks from './IdentityBreaks'
 import RecomputeControl from './RecomputeControl'
 import { storeFacts, stripCells, type StoreFact } from './store-helpers'
 import { figure, formatHours } from './storeday-helpers'
@@ -23,7 +24,8 @@ import TokenBadgeView from './TokenBadgeView'
  * One store — `/reports/sap-export/store/:code` (BackOffice spec 2579, ticket 464), read from the
  * rollup. Top to bottom: the header (the store's counts over the window and its export facts, a
  * missing SAP location or counter row in danger with its cause), the recompute, then the 30-day
- * strip whose cells open each store-day. An unknown store (`404 NO_STORE`) is a not-found state.
+ * strip whose cells open each store-day, then the store's identity breaks (465). An unknown store
+ * (`404 NO_STORE`) is a not-found state.
  *
  * 🚩 **Read-only.** The recompute re-judges the console's own rollup and never touches export data.
  */
@@ -82,6 +84,8 @@ function StoreView({ code }: { code: string }) {
             {days.isError && <ErrorBanner className="p-3" message={apiErrorMessage(days.error, t('store.strip.failed'))} />}
             {days.data && <StoreStrip code={code} cells={cells} />}
           </section>
+
+          <IdentityBreaks code={code} />
         </>
       )}
     </div>

@@ -1,50 +1,216 @@
-import { useTranslation } from 'react-i18next'
-import { Link, useSearchParams } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
+import { AgGridReact } from 'ag-grid-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+
+// Side-effect import: registers the AG Grid Community modules in this lazy chunk.
+import '@/core/ag-grid-setup'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import ErrorBanner from '@/core/ui/ErrorBanner'
+import GridPager from '@/core/ui/GridPager'
+import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+import { useUrlQuery } from '@/core/ui/use-url-query'
 import { canOpenSapExport, sapExportAccessQuery } from './access'
-import { DOUBLE_SEND_FLAGS } from './fleet-helpers'
+import { doubleSendsQuery } from './api'
+import { DOUBLE_SEND_DEFAULT_COL_DEF, buildDoubleSendColumns } from './double-send-columns'
+import {
+  DEFAULT_DOUBLE_SEND_QUERY,
+  DOUBLE_SEND_FLAG_OPTIONS,
+  DOUBLE_SEND_PAGE_SIZE,
+  doubleSendErrorKey,
+  doubleSendQueryFromParams,
+  doubleSendQueryToParams,
+  doubleSendRows,
+  isFilteredDoubleSends,
+  withDoubleSendFilter,
+  type DoubleSendView,
+} from './double-send-helpers'
+import type { DoubleSendFlag } from './fleet-helpers'
+import { figure } from './storeday-helpers'
 
 /**
- * The double-send list — `/reports/sap-export/double-sends?flag=X1|X1p` (BackOffice spec 2579).
- * A **placeholder until 465** draws the list; the fleet's double-send tiles (463) already link
- * here with their flag. It asks the server nothing beyond the access probe.
+ * The double-send list — `/reports/sap-export/double-sends?code=&flag=X1|X1p&page=` (BackOffice spec
+ * 2579, ticket 465), from `GET SapExport/DoubleSends`. Every transaction sent on both rails, the
+ * ones that can still be stopped (X1p) first and in red; filtered by flag and store, paged at 50,
+ * each row linking to its store, its store-day and the IDoc inspector. The fleet's double-send
+ * tiles (463) open it with their flag.
+ *
+ * 🚩 **Read-only.** It shows double sends; asking SAP for a reversal or stopping a send is out of
+ * scope (spec 2579, resets).
  */
 export default function DoubleSendsPage() {
   const { t } = useTranslation('sap-export-console')
   return (
     <ScreenGate query={sapExportAccessQuery()} can={canOpenSapExport} ns="sap-export-console" title={t('title')} subtitle={t('subtitle')}>
-      <Soon />
+      <DoubleSends />
     </ScreenGate>
   )
 }
 
-function Soon() {
+function DoubleSends() {
   const { t } = useTranslation('sap-export-console')
-  const [params] = useSearchParams()
-  // Only the two double-send flags are named; any other value is not shown.
-  const asked = params.getAll('flag')
-  const flags = DOUBLE_SEND_FLAGS.filter((f) => asked.includes(f))
+  // 🔑 The filters and the page are the URL's (`./double-send-helpers`): a view is a link.
+  const { query, update, awaitingEcho } = useUrlQuery(doubleSendQueryFromParams, doubleSendQueryToParams)
+
+  // The store box is a draft applied on submit — a store code is an exact match, and asking on every
+  // keystroke would answer "no such store" to each half-typed code. A change from outside resets it.
+  const [draft, setDraft] = useState(query.code)
+  useEffect(() => {
+    if (!awaitingEcho()) setDraft(query.code)
+  }, [query.code, awaitingEcho])
+
+  const list = useQuery(doubleSendsQuery(query))
+  const columns = useMemo(() => buildDoubleSendColumns(t), [t])
+
+  // 🚩 A failed read draws no rows: the kept previous answer belongs to the query before it.
+  const shown = list.isError ? undefined : list.data
+  const rows = useMemo(() => (shown ? doubleSendRows(shown.items) : []), [shown])
+  const total = shown?.total ?? 0
+
+  // A later read can shrink the list under an inner page; an emptied page falls back to the last.
+  const settled = shown && !list.isPlaceholderData ? shown : undefined
+  useEffect(() => {
+    if (!settled) return
+    const last = clampToLastPageWhenCurrentPageEmpties({
+      page: settled.page,
+      rowCount: settled.items.length,
+      totalMatches: settled.total,
+      pageSize: DOUBLE_SEND_PAGE_SIZE,
+    })
+    if (last !== settled.page) update((q) => (q.page === settled.page ? { ...q, page: last } : q))
+  }, [settled, update])
+
+  const errorKey = list.isError ? doubleSendErrorKey(apiErrorCode(list.error)) : null
+  const filtered = isFilteredDoubleSends(query)
+
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-double-sends-page={flags.join(' ')}>
+    <div className="flex min-w-0 flex-col gap-4" data-double-sends-page={query.flag ?? ''}>
       <Link to="/reports/sap-export" className="inline-flex w-fit items-center gap-1 text-sm text-primary underline-offset-2 hover:underline">
         <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
         {t('doubleSends.back')}
       </Link>
-      <h2 className="text-lg font-semibold tracking-tight">{t('doubleSends.heading')}</h2>
-      {flags.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-          {flags.map((f) => (
-            <span key={f} className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground" data-double-sends-flag={f}>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold tracking-tight">{t('doubleSends.heading')}</h2>
+        <p className="max-w-3xl text-sm text-muted-foreground">{t('doubleSends.intro')}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2" data-double-sends-filters="">
+        <select
+          value={query.flag ?? ''}
+          // The store box goes with it, so the box never shows a store the list is not filtered on.
+          onChange={(e) => update((q) => withDoubleSendFilter(q, { flag: (e.target.value || null) as DoubleSendFlag | null, code: draft }))}
+          aria-label={t('doubleSends.flag')}
+          className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
+          data-double-sends-flag=""
+        >
+          <option value="">{t('doubleSends.flagBoth')}</option>
+          {DOUBLE_SEND_FLAG_OPTIONS.map((f) => (
+            <option key={f} value={f}>
               {t(`flags.${f}`)}
-            </span>
+            </option>
           ))}
+        </select>
+        <form
+          className="flex items-center gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            update((q) => withDoubleSendFilter(q, { code: draft }))
+          }}
+        >
+          <input
+            type="search"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t('doubleSends.storePlaceholder')}
+            aria-label={t('doubleSends.store')}
+            className="h-8 w-40 rounded-md border border-border/60 bg-background px-2.5 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            data-double-sends-store=""
+          />
+          <button
+            type="submit"
+            className="h-8 rounded-md border border-border/60 bg-background px-3 text-sm font-medium hover:bg-accent"
+            data-double-sends-apply=""
+          >
+            {t('doubleSends.apply')}
+          </button>
+        </form>
+        {filtered && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft('')
+              update(() => DEFAULT_DOUBLE_SEND_QUERY)
+            }}
+            className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+            data-clear-filters=""
+          >
+            {t('doubleSends.clear')}
+          </button>
+        )}
+        {shown && (
+          <span className="text-xs text-muted-foreground" data-double-sends-count={total}>
+            <Trans t={t} i18nKey="doubleSends.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
+        {list.isPlaceholderData && (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status" data-double-sends-refreshing="">
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            {t('doubleSends.refreshing')}
+          </span>
+        )}
+      </div>
+
+      {list.isError && <ErrorBanner className="p-3" message={errorKey ? t(errorKey) : apiErrorMessage(list.error, t('doubleSends.failed'))} />}
+
+      {list.isPending ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          {t('doubleSends.loading')}
+        </div>
+      ) : (
+        shown && (
+          <div className="overflow-hidden rounded-md border border-border/60">
+            {rows.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground" data-double-sends-empty="">
+                {t(query.page > 1 ? 'doubleSends.emptyPage' : filtered ? 'doubleSends.emptyFiltered' : 'doubleSends.empty')}
+              </p>
+            ) : (
+              <div data-double-sends-grid="">
+                <AgGridReact<DoubleSendView>
+                  theme={omsGridTheme}
+                  rowData={rows}
+                  columnDefs={columns}
+                  defaultColDef={DOUBLE_SEND_DEFAULT_COL_DEF}
+                  rowHeight={OMS_GRID_ROW_HEIGHT}
+                  headerHeight={OMS_GRID_HEADER_HEIGHT}
+                  domLayout="autoHeight"
+                  animateRows={false}
+                  suppressColumnVirtualisation
+                />
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {/* Drawn beside an empty or failed inner page too: it is the only way back from one. */}
+      {((shown && showsPager(total, DOUBLE_SEND_PAGE_SIZE)) || query.page > 1) && (
+        <div className="overflow-hidden rounded-md border border-border/60">
+          <GridPager
+            page={query.page}
+            pageSize={DOUBLE_SEND_PAGE_SIZE}
+            // A failed inner page has no total; read as the last page, Previous is the way back.
+            totalMatches={shown ? total : query.page * DOUBLE_SEND_PAGE_SIZE}
+            busy={list.isPlaceholderData}
+            onPage={(page) => update((q) => ({ ...q, page: Math.max(1, page) }))}
+          />
         </div>
       )}
-      <section className="flex max-w-xl flex-col gap-1 rounded-lg border border-border/60 bg-card p-4">
-        <div className="text-base font-semibold tracking-tight">{t('doubleSends.soonTitle')}</div>
-        <p className="text-sm text-muted-foreground">{t('doubleSends.soonHint')}</p>
-      </section>
     </div>
   )
 }

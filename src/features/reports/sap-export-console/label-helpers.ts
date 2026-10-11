@@ -30,7 +30,8 @@ export const LABEL_TOKEN_CLASS: Record<LabelToken, string> = {
 /** A code's token and its label key, or `null` for a value this bundle does not know. */
 export type TokenBadge = { token: LabelToken; labelKey: string | null }
 
-function lookup<K extends string>(map: Record<K, LabelToken>, keyPrefix: string, value: string): TokenBadge {
+/** A value's token and its `<keyPrefix>.<value>` key from `map`, or neutral with no key for a value `map` does not know. */
+export function tokenBadge<K extends string>(map: Record<K, LabelToken>, keyPrefix: string, value: string): TokenBadge {
   // `Object.hasOwn`, so a key inherited from `Object.prototype` (`toString`) is not a label.
   if (!Object.hasOwn(map, value)) return { token: 'neutral', labelKey: null }
   return { token: map[value as K], labelKey: `${keyPrefix}.${value}` }
@@ -50,7 +51,7 @@ const LABEL_TOKEN: Record<Label, LabelToken> = {
  * this bundle) is neutral with no key, so the caller shows the raw value — never a crash.
  */
 export function labelToken(label: string): TokenBadge {
-  return lookup(LABEL_TOKEN, 'labels', label)
+  return tokenBadge(LABEL_TOKEN, 'labels', label)
 }
 
 /** Worst first: stuck > behind > heldForInventory > waiting > exported > byDesign. Ranks every `Label` (pinned by the test). */
@@ -86,7 +87,7 @@ const FLAG_TOKEN: Record<Flag, LabelToken> = {
 }
 
 export function flagToken(flag: string): TokenBadge {
-  return lookup(FLAG_TOKEN, 'flags', flag)
+  return tokenBadge(FLAG_TOKEN, 'flags', flag)
 }
 
 const ACCOUNTING_TOKEN: Record<Accounting, LabelToken> = {
@@ -96,5 +97,5 @@ const ACCOUNTING_TOKEN: Record<Accounting, LabelToken> = {
 
 /** The export-accounting verdict's badge: `breaks` is the danger token. */
 export function accountingToken(verdict: string): TokenBadge {
-  return lookup(ACCOUNTING_TOKEN, 'accounting', verdict)
+  return tokenBadge(ACCOUNTING_TOKEN, 'accounting', verdict)
 }

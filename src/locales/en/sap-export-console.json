@@ -216,8 +216,128 @@
   "doubleSends": {
     "back": "SAP export",
     "heading": "Double sends",
-    "soonTitle": "The double-send list is on its way",
-    "soonHint": "It will list every transaction sent on both rails, the ones that can still be stopped first."
+    "intro": "Transactions sent on both rails. The ones whose new-rail documents are not exported yet are listed first: the second send can still be stopped. This list only shows them.",
+    "flag": "Flag",
+    "flagBoth": "Both flags",
+    "store": "Store code",
+    "storePlaceholder": "Any store",
+    "apply": "Show",
+    "clear": "Clear filters",
+    "stoppable": "Can still be stopped",
+    "count_one": "<n>{{n}}</n> transaction",
+    "count_other": "<n>{{n}}</n> transactions",
+    "loading": "Reading the double sends…",
+    "refreshing": "Reading…",
+    "failed": "The double sends could not be read.",
+    "empty": "No transaction in the window was sent on both rails.",
+    "emptyFiltered": "No double send matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "openDay": "Open this store-day",
+    "errors": {
+      "NO_STORE": "There is no store with this code.",
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "flag": "Flag",
+      "code": "Store",
+      "day": "Business day",
+      "trxNumber": "Transaction",
+      "version": "Version",
+      "state": "State",
+      "legacyFile": "Legacy file",
+      "legacyUploadedAt": "Legacy uploaded at",
+      "documents": "Documents exported"
+    }
+  },
+  "runners": {
+    "title": "Runners",
+    "hint": "Whether the legacy uploader, each new-rail stage and the console's census rollup ran its last cycle. Down means work is due and no cycle ran within its down-after window; idle means nothing is due.",
+    "failed": "The runners could not be read.",
+    "loading": "Reading the runners…",
+    "empty": "The server lists no runner.",
+    "inferred": "Inferred — no heartbeat yet",
+    "inferredHint": "This runner has not written a heartbeat yet, so its state is inferred from its activity.",
+    "never": "Never",
+    "startedAt": "Started <at>{{at}}</at>, not ended",
+    "fault": "Last fault",
+    "minutes": "<n>{{n}}</n> min",
+    "banner": {
+      "title_one": "A runner is down",
+      "title_other": "{{n}} runners are down",
+      "detail": "Work is due and no cycle ran within its down-after window. Nothing on that stage moves until it runs again."
+    },
+    "names": {
+      "legacyUploader": "Legacy uploader",
+      "idocProcessing": "IDoc processing",
+      "idocBatching": "IDoc batching",
+      "idocExport": "IDoc export",
+      "censusRollup": "Census rollup"
+    },
+    "liveness": {
+      "up": "Up",
+      "idle": "Idle",
+      "down": "Down"
+    },
+    "outcomes": {
+      "moved": "Moved",
+      "idle": "Idle",
+      "faulted": "Faulted",
+      "none": "Never ran"
+    },
+    "columns": {
+      "runner": "Runner",
+      "liveness": "Liveness",
+      "host": "Host",
+      "lastCycleEnd": "Last cycle end",
+      "outcome": "Outcome",
+      "lastMoved": "Last moved",
+      "dueBacklog": "Due backlog",
+      "downAfter": "Down after"
+    }
+  },
+  "identityBreaks": {
+    "title": "Identity breaks",
+    "hint": "Evidence that does not add up to exactly one transaction. Any of these makes export accounting break.",
+    "loading": "Reading the identity breaks…",
+    "refreshing": "Reading…",
+    "failed": "The identity breaks could not be read.",
+    "empty": "The books add up: every piece of export evidence has exactly one transaction.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "count_one": "<n>{{n}}</n> break",
+    "count_other": "<n>{{n}}</n> breaks",
+    "errors": {
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "kind": "Kind",
+      "trxNumber": "Transaction",
+      "machineCode": "Machine",
+      "day": "Day",
+      "meaning": "What it means"
+    },
+    "kinds": {
+      "duplicateKey": {
+        "name": "Duplicate key",
+        "meaning": "Two transactions share this store and number, so the evidence cannot be matched to exactly one of them."
+      },
+      "orphanUploadDetail": {
+        "name": "Orphan upload detail",
+        "meaning": "A legacy upload log line names a transaction that does not exist at HQ."
+      },
+      "orphanSkipRow": {
+        "name": "Orphan skip row",
+        "meaning": "A legacy skip row names a transaction that does not exist at HQ."
+      },
+      "orphanEntry": {
+        "name": "Orphan IDoc entry",
+        "meaning": "A new-rail IDoc entry names a transaction that does not exist at HQ."
+      },
+      "orphanDocument": {
+        "name": "Orphan IDoc document",
+        "meaning": "A new-rail IDoc document names a transaction that does not exist at HQ."
+      }
+    }
   },
   "recompute": {
     "window": "Recompute this store's numbers",

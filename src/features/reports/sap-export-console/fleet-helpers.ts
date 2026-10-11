@@ -36,10 +36,7 @@ export const STALE_AFTER_MINUTES = 30
 export type DoubleSendFlag = DoubleSendRow['flag']
 export const DOUBLE_SEND_FLAGS: readonly DoubleSendFlag[] = ['X1', 'X1p']
 
-/**
- * The double-send list (ticket 465) with one flag, the contract's `flag` parameter. A URL only;
- * until 465 lands the route is a placeholder.
- */
+/** The double-send list (ticket 465) with one flag, the contract's `flag` parameter. */
 export const doubleSendsHref = (flag: DoubleSendFlag): string => `/reports/sap-export/double-sends?flag=${flag}`
 
 /**

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { StoreDay, StoreDayRow } from '@/core/models/sap-export'
 import {
+  normaliseDoubleSends,
   normaliseFleet,
   normaliseFleetSummary,
+  normaliseIdentityBreaks,
+  normaliseRunners,
   normaliseStore,
   normaliseStoreDay,
   normaliseStoreDays,
@@ -163,5 +166,66 @@ describe('normaliseStoreDays', () => {
       ],
     })
     expect(days.items.map((d) => d.accounting)).toEqual([null, 'agrees'])
+  })
+})
+
+describe('normaliseDoubleSends', () => {
+  it('fills an absent version, legacy file or upload time with null, and keeps the rest as sent', () => {
+    const page = normaliseDoubleSends({
+      items: [{ flag: 'X1p', code: 'P014', trxNumber: '000123', day: '2026-10-05', state: 'N4', documents: 2, documentsExported: 0 }],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    })
+    expect(page.items[0]).toEqual({
+      flag: 'X1p',
+      code: 'P014',
+      trxNumber: '000123',
+      day: '2026-10-05',
+      state: 'N4',
+      documents: 2,
+      documentsExported: 0,
+      version: null,
+      legacyFile: null,
+      legacyUploadedAt: null,
+    })
+    expect(page.total).toBe(1)
+  })
+})
+
+describe('normaliseIdentityBreaks', () => {
+  it('fills an absent machine or day with null', () => {
+    const page = normaliseIdentityBreaks({ items: [{ kind: 'orphanEntry', code: 'P014', trxNumber: '000777' }], total: 1, page: 1, pageSize: 50 })
+    expect(page.items[0]).toEqual({ kind: 'orphanEntry', code: 'P014', trxNumber: '000777', machineCode: null, day: null })
+  })
+
+  it('passes a sent machine and day through', () => {
+    const page = normaliseIdentityBreaks({ items: [{ kind: 'duplicateKey', code: 'P014', trxNumber: '1', machineCode: 'M01', day: '2026-10-01' }], total: 1, page: 1, pageSize: 50 })
+    expect(page.items[0]).toMatchObject({ machineCode: 'M01', day: '2026-10-01' })
+  })
+})
+
+describe('normaliseRunners', () => {
+  it('fills absent times, host, counts and message with null, and an absent fromHeartbeat as inferred', () => {
+    const runners = normaliseRunners({ items: [{ key: 'legacyUploader', liveness: 'down', lastOutcome: 'none', dueBacklog: 12, downAfterMinutes: 15 }] })
+    expect(runners.items[0]).toEqual({
+      key: 'legacyUploader',
+      liveness: 'down',
+      lastOutcome: 'none',
+      dueBacklog: 12,
+      downAfterMinutes: 15,
+      fromHeartbeat: false,
+      host: null,
+      lastCycleStartedAt: null,
+      lastCycleEndedAt: null,
+      lastMoved: null,
+      lastMessage: null,
+      lastNonIdleAt: null,
+    })
+  })
+
+  it('keeps a sent heartbeat and liveness as the door judged them', () => {
+    const runners = normaliseRunners({ items: [{ key: 'idocExport', liveness: 'idle', fromHeartbeat: true, host: 'HQ-API-01', lastOutcome: 'idle', dueBacklog: 0, downAfterMinutes: 15 }] })
+    expect(runners.items[0]).toMatchObject({ liveness: 'idle', fromHeartbeat: true, host: 'HQ-API-01' })
   })
 })

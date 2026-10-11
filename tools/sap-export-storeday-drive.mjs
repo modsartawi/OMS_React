@@ -167,6 +167,7 @@ async function open({ access = { screenAllowed: true }, accessStatus = 200, othe
     // The store page (464): a store and a one-day strip, enough to walk from the store to a day.
     if (p === 'SapExport/Store') return route.fulfill(envelope(STORE_STUB(url.searchParams.get('code'))))
     if (p === 'SapExport/Store/Days') return route.fulfill(envelope({ items: [STORE_DAY_STUB] }))
+    if (p === 'SapExport/IdentityBreaks') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     // Every other probe: shut, or (to see where the leaf sits among its siblings) open.
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: othersOpen, screenAllowed: othersOpen, allowed: othersOpen, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))

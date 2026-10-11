@@ -18,12 +18,16 @@
 import {
   FLAGS,
   LABELS,
+  type DoubleSendRow,
   type FleetStoreRow,
   type FleetSummary,
   type Flag,
   type Label,
+  type IdentityBreakRow,
   type LabelCounts,
   type Paged,
+  type Runner,
+  type Runners,
   type StoreDay,
   type StoreDayRow,
   type StoreDays,
@@ -134,6 +138,55 @@ export function normaliseStoreDays(data: WireStoreDays): StoreDays {
       states: d.states ?? {},
       flags: countsOf<Flag>(FLAGS, d.flags),
       accounting: d.accounting !== undefined ? d.accounting : d.noData ? null : 'agrees',
+    })),
+  }
+}
+
+// ── Double sends and identity breaks (2583) ─────────────────────────────────────
+
+export type WireDoubleSendRow = Partially<DoubleSendRow, 'version' | 'legacyFile' | 'legacyUploadedAt'>
+export type WireDoubleSends = Omit<Paged<DoubleSendRow>, 'items'> & { items: WireDoubleSendRow[] }
+
+/** `GET SapExport/DoubleSends`: an absent version, legacy file or upload time reads `null`. */
+export function normaliseDoubleSends(data: WireDoubleSends): Paged<DoubleSendRow> {
+  return {
+    ...data,
+    items: data.items.map((r) => ({ ...r, version: r.version ?? null, legacyFile: r.legacyFile ?? null, legacyUploadedAt: r.legacyUploadedAt ?? null })),
+  }
+}
+
+export type WireIdentityBreakRow = Partially<IdentityBreakRow, 'machineCode' | 'day'>
+export type WireIdentityBreaks = Omit<Paged<IdentityBreakRow>, 'items'> & { items: WireIdentityBreakRow[] }
+
+/** `GET SapExport/IdentityBreaks`: an absent machine or day reads `null` (the contract sends them only where they exist). */
+export function normaliseIdentityBreaks(data: WireIdentityBreaks): Paged<IdentityBreakRow> {
+  return { ...data, items: data.items.map((r) => ({ ...r, machineCode: r.machineCode ?? null, day: r.day ?? null })) }
+}
+
+// ── Runners (2585) ──────────────────────────────────────────────────────────────
+
+export type WireRunner = Partially<
+  Runner,
+  'fromHeartbeat' | 'host' | 'lastCycleStartedAt' | 'lastCycleEndedAt' | 'lastMoved' | 'lastMessage' | 'lastNonIdleAt'
+>
+export type WireRunners = { items: WireRunner[] }
+
+/**
+ * `GET SapExport/Runners`: an absent time, host, count or message reads `null`. An absent
+ * `fromHeartbeat` reads `false` — the card then says the row is inferred, which claims less than a
+ * heartbeat the door never vouched for. Liveness stays the door's.
+ */
+export function normaliseRunners(data: WireRunners): Runners {
+  return {
+    items: data.items.map((r) => ({
+      ...r,
+      fromHeartbeat: r.fromHeartbeat ?? false,
+      host: r.host ?? null,
+      lastCycleStartedAt: r.lastCycleStartedAt ?? null,
+      lastCycleEndedAt: r.lastCycleEndedAt ?? null,
+      lastMoved: r.lastMoved ?? null,
+      lastMessage: r.lastMessage ?? null,
+      lastNonIdleAt: r.lastNonIdleAt ?? null,
     })),
   }
 }

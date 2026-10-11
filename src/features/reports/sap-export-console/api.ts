@@ -1,6 +1,7 @@
 /**
  * The SAP export console's server calls (BackOffice spec 2579; ticket 461 lands the store-day
- * read, 463 the fleet's two, 464 the store's two and the recompute, 465 adds its own). The access probe is `./access`, apart, so the menu that
+ * read, 463 the fleet's two, 464 the store's two and the recompute, 465 the runners, the double sends and
+ * the identity breaks). The access probe is `./access`, apart, so the menu that
  * imports it does not pull this module (and the wire and helpers behind it) into the main bundle.
  *
  * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`): the envelope, the
@@ -11,27 +12,38 @@
  * call at `page.route`, in the contract's shapes; 466 is the live walk.
  */
 import { keepPreviousData } from '@tanstack/react-query'
-import { api } from '@/core/api'
+import { ApiError, api } from '@/core/api'
 import type {
+  DoubleSendRow,
   FleetStoreRow,
   FleetSummary,
+  IdentityBreakRow,
   Paged,
   RecomputeRequest,
   RecomputeResponse,
+  Runners,
   StoreDay,
   StoreDays,
   StoreDetail,
 } from '@/core/models/sap-export'
+import { doubleSendDoorParams, type DoubleSendQuery } from './double-send-helpers'
 import { fleetDoorParams, type FleetQuery } from './fleet-query'
+import { identityBreakParams } from './identity-break-helpers'
 import { storeDayParams, type StoreDayFilter } from './storeday-helpers'
 import {
+  normaliseDoubleSends,
   normaliseFleet,
   normaliseFleetSummary,
+  normaliseIdentityBreaks,
+  normaliseRunners,
   normaliseStore,
   normaliseStoreDay,
   normaliseStoreDays,
+  type WireDoubleSends,
   type WireFleet,
   type WireFleetSummary,
+  type WireIdentityBreaks,
+  type WireRunners,
   type WireStoreDay,
   type WireStoreDays,
   type WireStoreDetail,
@@ -77,6 +89,24 @@ export const sapExportApi = {
    */
   recompute(body: RecomputeRequest): Promise<RecomputeResponse> {
     return api.post<RecomputeResponse>('SapExport/Recompute', body)
+  },
+
+  /** `GET SapExport/Runners` → every runner's liveness, in `RunnerKey` order, not paged (2585). */
+  runners(): Promise<Runners> {
+    return api.get<WireRunners>('SapExport/Runners').then(normaliseRunners)
+  },
+
+  /**
+   * `GET SapExport/DoubleSends?code=&flag=&page=&pageSize=` → one page, X1p first (2583). No `code` is
+   * the whole fleet; no `flag` is both. Refusals: 404 `NO_STORE`, 400 `BAD_FILTER` / `BAD_PAGING`.
+   */
+  doubleSends(query: DoubleSendQuery): Promise<Paged<DoubleSendRow>> {
+    return api.get<WireDoubleSends>('SapExport/DoubleSends', doubleSendDoorParams(query)).then(normaliseDoubleSends)
+  },
+
+  /** `GET SapExport/IdentityBreaks?code=&page=&pageSize=` → one page of the store's breaks (2583). */
+  identityBreaks(code: string, page: number): Promise<Paged<IdentityBreakRow>> {
+    return api.get<WireIdentityBreaks>('SapExport/IdentityBreaks', identityBreakParams(code, page)).then(normaliseIdentityBreaks)
   },
 }
 
@@ -147,5 +177,46 @@ export function storeDayQuery(code: string, day: string, filter: StoreDayFilter)
     placeholderData: keepPreviousData,
     // A refusal (an unknown store, a day out of the window) is an answer, not an outage.
     retry: false,
+  }
+}
+
+/**
+ * A refusal (`NO_STORE`, `BAD_FILTER`, `BAD_PAGING`) is an answer and is not retried; an outage is,
+ * twice, since these two lists have no refetch cadence to recover on.
+ */
+const retryOutage = (failures: number, error: unknown): boolean => !(error instanceof ApiError && error.kind === 'business') && failures < 2
+
+/**
+ * The runner card refetches with the fleet, every minute: a dead uploader shows within minutes
+ * (story 8). Keyed beside the fleet, not under it: a recompute moves the rollup, never a runner.
+ */
+export function runnersQuery() {
+  return {
+    queryKey: ['reports', 'sap-export', 'runners'] as const,
+    queryFn: () => sapExportApi.runners(),
+    refetchInterval: FLEET_REFETCH_MS,
+  }
+}
+
+/**
+ * The double-send list's query. The previous page stays drawn while the next loads; a failed read
+ * draws none of it (the page's call).
+ */
+export function doubleSendsQuery(query: DoubleSendQuery) {
+  return {
+    queryKey: ['reports', 'sap-export', 'double-sends', query] as const,
+    queryFn: () => sapExportApi.doubleSends(query),
+    placeholderData: keepPreviousData,
+    retry: retryOutage,
+  }
+}
+
+/** One page of a store's identity breaks; the previous page stays drawn while the next loads. */
+export function identityBreaksQuery(code: string, page: number) {
+  return {
+    queryKey: ['reports', 'sap-export', 'identity-breaks', code, page] as const,
+    queryFn: () => sapExportApi.identityBreaks(code, page),
+    placeholderData: keepPreviousData,
+    retry: retryOutage,
   }
 }

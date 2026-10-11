@@ -21,6 +21,10 @@
 //   7. a recompute refusal (`DAY_OUT_OF_WINDOW`) shows its own sentence inline;
 //   8. an unknown store (`404 NO_STORE`) shows a not-found state, with no strip;
 //   9. with `screenAllowed: false` the page guards itself, with no store read.
+// Ticket 465 adds:
+//  10. the identity breaks from `SapExport/IdentityBreaks`: each break by kind with its plain-English
+//      meaning (the machine only on a duplicate key), paged at 50 (`page` / `pageSize` reach the door);
+//      a store with none reads "the books add up"; a not-found store reads none.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sap-export-store-drive.mjs
@@ -130,13 +134,27 @@ const storeDay = (code, day) => ({
   rows: { items: [], total: 0, page: 1, pageSize: 50 },
 })
 
+// The identity breaks (465): P014 has 57, every kind, in the door's order; P001 has none.
+const KINDS = ['duplicateKey', 'orphanUploadDetail', 'orphanSkipRow', 'orphanEntry', 'orphanDocument']
+const BREAKS = Array.from({ length: 57 }, (_, i) => {
+  const kind = KINDS[i % KINDS.length]
+  return {
+    kind,
+    code: 'P014',
+    trxNumber: String(500000 + i),
+    machineCode: kind === 'duplicateKey' ? 'M02' : null,
+    day: kind === 'orphanEntry' ? null : DAYS[i % 30],
+  }
+})
+
 const browser = await chromium.launch()
 
 async function open({ access = { screenAllowed: true }, refuseRecompute = null, recomputeDelay = 0 } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } })
   const page = await context.newPage()
   const errors = []
-  const reads = { store: 0, days: 0, storeDay: 0 }
+  const reads = { store: 0, days: 0, storeDay: 0, breaks: 0 }
+  const breakCalls = []
   const posts = []
   let recomputed = false
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -164,6 +182,15 @@ async function open({ access = { screenAllowed: true }, refuseRecompute = null, 
       if (!STORES[code]) return noStore()
       return route.fulfill(envelope({ items: SHUFFLED }))
     }
+    if (p === 'SapExport/IdentityBreaks') {
+      reads.breaks++
+      breakCalls.push(url.searchParams)
+      if (!STORES[code]) return noStore()
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      const all = code === 'P014' ? BREAKS : []
+      return route.fulfill(envelope({ items: all.slice((pg - 1) * size, pg * size), total: all.length, page: pg, pageSize: size }))
+    }
     if (p === 'SapExport/StoreDay') {
       reads.storeDay++
       return route.fulfill(envelope(storeDay(code, url.searchParams.get('day'))))
@@ -179,7 +206,7 @@ async function open({ access = { screenAllowed: true }, refuseRecompute = null, 
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, reads, posts }
+  return { context, page, errors, reads, posts, breakCalls }
 }
 
 const strip = (s) => s.replace(/[\u2068\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -324,6 +351,45 @@ const text = async (page, sel) => strip(await page.locator(sel).first().innerTex
   await context.close()
 }
 
+// ── 10: identity breaks (465) ─────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, breakCalls } = await open()
+  await page.goto(storeUrl('P014'))
+  const section = page.locator('[data-identity-breaks]')
+  await section.locator('[data-identity-break]').first().waitFor({ timeout: 20000 })
+  const first = breakCalls[0]
+  check('10. the store page reads its identity breaks, page 1 of 50', first.get('code') === 'P014' && first.get('page') === '1' && first.get('pageSize') === '50', first.toString())
+  check('10. it counts them', strip(await section.locator('[data-identity-breaks-count]').innerText()) === '57 breaks')
+  check('10. fifty rows on the first page', (await section.locator('[data-identity-break]').count()) === 50)
+  const firstFive = await section.locator('[data-identity-break]').evaluateAll((els) => els.slice(0, 5).map((e) => e.getAttribute('data-identity-break')))
+  check('10. each break by kind', JSON.stringify(firstFive) === JSON.stringify(KINDS), JSON.stringify(firstFive))
+  const row = (i) => section.locator('[data-identity-break]').nth(i)
+  check('10. a duplicate key reads its name, transaction, machine and day', strip(await row(0).innerText()).startsWith(`Duplicate key ${BREAKS[0].trxNumber} M02 ${BREAKS[0].day}`), strip(await row(0).innerText()))
+  check('10. …with its plain-English meaning', /Two transactions share this store and number/.test(await row(0).locator('[data-identity-break-meaning]').innerText()))
+  const meanings = await section.locator('[data-identity-break-meaning]').evaluateAll((els) => els.slice(0, 5).map((e) => e.innerText.trim()))
+  check('10. every kind has its own meaning', new Set(meanings).size === 5 && meanings.every((m) => m.length > 20), JSON.stringify(meanings))
+  check('10. an orphan entry reads its name, and no machine', /^Orphan IDoc entry/.test(strip(await row(3).innerText())) && !/M02/.test(await row(3).innerText()))
+  await section.screenshot({ path: `${SHOTS}/identity-breaks.png` })
+  await section.getByRole('button', { name: 'Next' }).click()
+  await until(page, () => breakCalls.some((c) => c.get('page') === '2'))
+  check('10. Next asks for page 2 of 50', breakCalls.some((c) => c.get('page') === '2' && c.get('pageSize') === '50'))
+  await page.waitForFunction(() => document.querySelectorAll('[data-identity-break]').length === 7, null, { timeout: 10000 }).catch(() => {})
+  check('10. page 2 draws the last 7', (await section.locator('[data-identity-break]').count()) === 7)
+  check('10. no empty state while breaks exist', (await section.locator('[data-identity-breaks-empty]').count()) === 0)
+  check('no page errors (identity breaks)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open()
+  await page.goto(storeUrl('P001'))
+  const empty = page.locator('[data-identity-breaks-empty]')
+  await empty.waitFor({ timeout: 20000 })
+  check('10. a store with no break reads "the books add up"', /^The books add up/.test(strip(await empty.innerText())), await empty.innerText())
+  check('10. …with no rows and no pager', (await page.locator('[data-identity-break]').count()) === 0 && (await page.locator('[data-identity-breaks]').getByRole('button', { name: 'Next' }).count()) === 0)
+  check('no page errors (no identity break)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 8: NO_STORE ───────────────────────────────────────────────────────────────────────────────
 {
   const { context, page, errors } = await open()
@@ -331,6 +397,7 @@ const text = async (page, sel) => strip(await page.locator(sel).first().innerTex
   await page.locator('[data-store-not-found]').waitFor({ timeout: 20000 })
   check('8. an unknown store shows the not-found state', strip(await page.locator('[data-store-not-found] h2').innerText()) === 'There is no store Z999')
   check('8. …with no header, no strip and no recompute', (await page.locator('[data-store-header]').count()) === 0 && (await page.locator('[data-strip-section]').count()) === 0 && (await page.locator('[data-recompute]').count()) === 0)
+  check('8. …and no identity-break section (465)', (await page.locator('[data-identity-breaks]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/not-found.png` })
   check('no page errors (not found)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -343,6 +410,7 @@ const text = async (page, sel) => strip(await page.locator(sel).first().innerTex
   await page.getByText('No access to SAP export').first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
   check('9. without the grant the page guards itself, with no store read', (await page.locator('[data-store-page]').count()) === 0 && reads.store === 0 && reads.days === 0)
+  check('9. …and no identity-break read (465)', reads.breaks === 0)
   check('no page errors (denied)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

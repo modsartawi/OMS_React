@@ -35,15 +35,17 @@ import {
   type FleetQuery,
 } from './fleet-query'
 import { LABEL_TOKEN_CLASS, WORST_FIRST, labelToken, type LabelToken } from './label-helpers'
+import RunnerCard, { RunnerBanner } from './RunnerCard'
 import { figure, storeHref } from './storeday-helpers'
 
 /**
  * The SAP export console's fleet page — `/reports/sap-export` (BackOffice spec 2579, ticket 463).
  *
  * Top to bottom: the rollup's "as of" stamp (warning when it is older than 30 minutes), the
- * fleet tiles, then every store's export health — paged at 50 by the door, worst first by default.
- * The three store tiles drive the list's `label` filter; the double-send tiles open the
- * double-send list (465). The tiles and the list refetch every minute.
+ * runners' red banner when any is down (465), the fleet tiles, the runner card (465), then every
+ * store's export health — paged at 50 by the door, worst first by default. The three store tiles
+ * drive the list's `label` filter; the double-send tiles open the double-send list (465). The tiles,
+ * the runners and the list refetch every minute.
  *
  * 🚩 **Read-only.** Nothing on this page acts on SAP data; resets are out of scope (spec 2579).
  */
@@ -159,6 +161,9 @@ function Fleet() {
         </div>
       )}
 
+      {/* Any runner down is the loudest fact on the page (465): above the tiles. */}
+      <RunnerBanner />
+
       <section aria-label={t('fleet.tiles.label')} data-tiles="">
         {summary.isError && <ErrorBanner className="mb-2 p-3" message={apiErrorMessage(summary.error, t('fleet.tiles.failed'))} />}
         {head && (
@@ -169,6 +174,8 @@ function Fleet() {
           </div>
         )}
       </section>
+
+      <RunnerCard />
 
       <section className="flex min-w-0 flex-col gap-2" data-fleet-list="">
         <div className="flex flex-wrap items-center gap-2">

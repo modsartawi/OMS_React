@@ -148,3 +148,10 @@ from `GET ActionSync/Access`, and the server re-checks every door.
 
   The doors are in the shared contract's new section "Mirror lane and rail agreement". Tickets
   456–460 here; BackOffice 2564–2572.
+
+- 2026-10-11: **Amended by BackOffice spec 2586**
+  (`C:\Work\DMSCO\BackOffice\.issues\2586-the-sync-console-lists-a-newpos-store-s-transactions-as-they-arrive-spec.md`).
+  The store page gains a **Transactions** tab: a day's NewPos receipts as HQ's mirror holds them (today by
+  default), each with a live counter-rail flag (`arrived` / `notYet` / `mismatch`), a summary strip, filters and
+  a 60 s poll on today; plus an operator-only, audited **View JSON** of one receipt's snapshot. Doors: the shared
+  contract's section "Today's transactions". Tickets 467–469 here; BackOffice 2587–2590.

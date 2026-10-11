@@ -1,0 +1,119 @@
+{
+  "menu": {
+    "sapExport": "SAP export"
+  },
+  "title": "SAP export",
+  "subtitle": "Whether every store's sales are on their way to SAP, on which rail, and where any transaction stopped. Read-only.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to SAP export",
+    "deniedHint": "Your account does not hold the grant to view the SAP export console. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "labels": {
+    "exported": "Exported",
+    "byDesign": "By design",
+    "waiting": "Waiting",
+    "heldForInventory": "Held for inventory",
+    "behind": "Behind",
+    "stuck": "Stuck"
+  },
+  "rails": {
+    "legacy": "Legacy",
+    "new": "New rail"
+  },
+  "states": {
+    "L1": "Exported",
+    "L2a": "Logged, file missing",
+    "L2b": "Logged, in no part",
+    "L3": "Excluded by rule",
+    "L4": "Skipped, retrying",
+    "L5": "Skipped, parked",
+    "L6": "Store not under SAP",
+    "L7": "No counter row",
+    "L8": "Before the store's open date",
+    "L9": "Pending above the watermark",
+    "L10": "Passed over",
+    "N1": "Held",
+    "N2": "Ungrouped, can never seal",
+    "N3": "Ungrouped, waiting to seal",
+    "N4": "Sealed, not exported",
+    "N5": "Exported",
+    "N6": "Parked (no workflow)",
+    "N7": "Queued",
+    "N8": "Retrying",
+    "N9": "Gave up",
+    "N10": "Processed, no documents",
+    "N11": "Stamped, never enqueued",
+    "U": "Unclassified (a census fault)"
+  },
+  "flags": {
+    "X1": "Double-sent",
+    "X1p": "Double send pending",
+    "X2": "Processed, stamped legacy",
+    "X3": "Legacy-sent, stamped new",
+    "X4": "No version stamp",
+    "legacyResend": "Legacy re-send",
+    "failClosedNoDetail": "Skip closed, no detail"
+  },
+  "accounting": {
+    "label": "Export accounting",
+    "agrees": "Agrees",
+    "breaks": "Breaks"
+  },
+  "fleet": {
+    "soonTitle": "The fleet view is on its way",
+    "soonHint": "Until it lands, open one store's business day directly.",
+    "store": "Store code",
+    "day": "Business day",
+    "open": "Open the day"
+  },
+  "storeDay": {
+    "back": "SAP export",
+    "heading": "Store <v>{{pair}}</v>",
+    "asOf": "Classified live at <at>{{at}}</at>",
+    "total": "<n>{{n}}</n> transactions that day",
+    "loading": "Classifying the day…",
+    "refreshing": "Reading…",
+    "failed": "This store-day could not be read.",
+    "labelsLabel": "Transactions by label",
+    "labelsHint": "Choose labels to list. With none chosen, the list shows every transaction not exported and not by design.",
+    "legend": "States that day",
+    "legendHint": "Choose states to narrow the list.",
+    "clear": "Clear filters",
+    "listed_one": "<n>{{n}}</n> transaction listed",
+    "listed_other": "<n>{{n}}</n> transactions listed",
+    "empty": "Nothing unfinished on this day: every transaction is exported or out of scope by design.",
+    "emptyFiltered": "No transaction on this day matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "errors": {
+      "NO_STORE": "There is no store with this code.",
+      "BAD_DAY": "This is not a valid business day.",
+      "DAY_OUT_OF_WINDOW": "This day is outside the console's 30-day window.",
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    }
+  },
+  "grid": {
+    "columns": {
+      "trxNumber": "Transaction",
+      "machineCode": "Machine",
+      "rail": "Rail",
+      "state": "State",
+      "label": "Label",
+      "version": "Version",
+      "counter": "Counter",
+      "hoursPastDayEnd": "Hours past day end",
+      "reason": "Reason",
+      "held": "Held",
+      "flags": "Flags"
+    },
+    "openInspector": "Open in the IDoc inspector",
+    "noVersion": "None",
+    "watermark": "watermark <n>{{n}}</n>",
+    "held": "held <n>{{held}}</n> of <m>{{of}}</m>",
+    "missingRows": "Missing rows",
+    "questionablePosting": "Questionable posting"
+  }
+}

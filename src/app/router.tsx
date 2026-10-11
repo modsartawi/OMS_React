@@ -475,6 +475,23 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/reports/idoc-inspector/IDocInspectorPage')).default,
         }),
       },
+      // The SAP export console (BackOffice spec 2579, ticket 461) — the Reports area's third
+      // screen, beside the IDoc inspector and NOT under Admin (the sync console's drives hold
+      // Store sync as the last Admin leaf). The entry is a placeholder until 463 draws the
+      // fleet; the store-day is the console's deepest view. Its own grant and probe key; each
+      // Page guards itself on that key, and the doors' grant filter is the real boundary.
+      {
+        path: 'reports/sap-export',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/sap-export-console/SapExportPage')).default,
+        }),
+      },
+      {
+        path: 'reports/sap-export/store/:code/day/:day',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/sap-export-console/StoreDayPage')).default,
+        }),
+      },
       // The call-center console (ticket 162) joins the shell (spec 380 C1, ticket 407):
       // the rail and the top bar like every screen, the rail as the user's own
       // preference left it (collapsed unless they pinned it open). It lays itself

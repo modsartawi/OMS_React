@@ -43,6 +43,8 @@ export interface LookupCriteria {
  * question the screen can answer unasked, so an auto-fired lookup would be a
  * guaranteed empty result pretending to be a verdict — and on this screen a
  * verdict is the *answer*, which makes faking one worse here than anywhere else.
+ * (A link that NAMES one is a different thing — ticket 462, below: the question
+ * was asked by whoever built the link, and it still has to be a complete key.)
  */
 export function landingCriteria(): LookupCriteria {
   return { store: '', trxNumber: '' }
@@ -124,4 +126,64 @@ export function missingParts(criteria: Partial<LookupCriteria> = {}): MissingPar
  */
 export function sameLookup(a: LookupKey, b: LookupKey): boolean {
   return a.storeCode === b.storeCode && a.trxNumber === b.trxNumber
+}
+
+// ---- ticket 462: the key in the URL ----------------------------------------
+
+/**
+ * The URL's reading of the key — `?store=<code>&trx=<trxNumber>`, the link the
+ * SAP export console's store-day rows write (BackOffice spec 2579). ⚠️ Those two
+ * names are a URL shared with another feature by CONTRACT, never by import: the
+ * console builds the string, this reads it, and neither imports the other.
+ *
+ * 🔑 **The URL is just another way to promote a key.** It goes through the same
+ * `buildLookupKey`, so the rule that only a complete, trimmed key fires a request
+ * holds here exactly as it does for Look up: a link carrying only one half, or a
+ * blank one, reads as no key at all — the ordinary landing screen.
+ */
+export function keyFromSearchParams(params: URLSearchParams): LookupKey | null {
+  return buildLookupKey({ store: params.get('store') ?? '', trxNumber: params.get('trx') ?? '' })
+}
+
+/**
+ * The key written back to the URL after a Look up, so a lookup is a shareable
+ * link. `null` writes no parameters at all — the landing screen's own address.
+ * Round-trips through `keyFromSearchParams`.
+ */
+export function searchParamsForKey(key: LookupKey | null): URLSearchParams {
+  return key === null
+    ? new URLSearchParams()
+    : new URLSearchParams({ store: key.storeCode, trx: key.trxNumber })
+}
+
+/** The draft a key fills the toolbar with — the landing draft for no key. */
+export function criteriaForKey(key: LookupKey | null): LookupCriteria {
+  return key === null ? landingCriteria() : { store: key.storeCode, trxNumber: key.trxNumber }
+}
+
+/** The same question — or both no question at all. `sameLookup`, null-aware. */
+export function sameKeyOrNone(a: LookupKey | null, b: LookupKey | null): boolean {
+  return a === null || b === null ? a === b : sameLookup(a, b)
+}
+
+/**
+ * The URL's key changed: does the toolbar draft have to follow it?
+ *
+ * Returns the draft to show, or `null` to keep the one the user has. 🚩 A Look up
+ * (or Reset) writes the URL itself, and `written` is the key that write carried:
+ * the URL arriving there is the write's ECHO, and re-seeding then would trim what
+ * the user typed — or, after a refused half-typed Look up (which clears the key),
+ * wipe the half they have to finish. Any other change came from OUTSIDE — Back,
+ * the menu leaf, a pasted link — and the draft follows the URL, back to the
+ * landing draft when the key is gone.
+ *
+ * ⚠️ Decided on what was WRITTEN, never on what the draft builds: a half-typed
+ * draft builds no key whether the user's own refusal cleared the URL or the menu
+ * leaf did, and only the first may keep it.
+ */
+export function reseedDraft(
+  urlKey: LookupKey | null,
+  written: { key: LookupKey | null } | null,
+): LookupCriteria | null {
+  return written !== null && sameKeyOrNone(written.key, urlKey) ? null : criteriaForKey(urlKey)
 }

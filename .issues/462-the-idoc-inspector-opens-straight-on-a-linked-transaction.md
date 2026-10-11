@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2579-sap-export-console-spec.md
 blocked-by: — (live: - (no door change))
 ---
@@ -27,9 +27,9 @@ UI (inspector page, its lookup-key module)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `keyFromSearchParams(params)`: both present gives a key; either blank or missing gives none; values are trimmed (vitest, beside `lookup-key.test.ts`).
-- [ ] `tools/idoc-inspector-drive.mjs` extended (stubbed): opening `?store=X&trx=Y` issues exactly one lookup for X/Y with the toolbar filled; opening with only `store` issues none; a manual Look up updates the URL. The existing assertions stay green.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` green.
+- [x] `keyFromSearchParams(params)`: both present gives a key; either blank or missing gives none; values are trimmed (vitest, beside `lookup-key.test.ts`).
+- [x] `tools/idoc-inspector-drive.mjs` extended (stubbed): opening `?store=X&trx=Y` issues exactly one lookup for X/Y with the toolbar filled; opening with only `store` issues none; a manual Look up updates the URL. The existing assertions stay green.
+- [x] `npm run typecheck`, `npm run lint` and `npm test` green.
 
 ## Boundaries
 
@@ -42,3 +42,16 @@ The helper and the extended inspector drive are green.
 ## Blocked by
 
 None. It can start immediately (the contract is published).
+
+## Comments
+
+**Done 2026-10-11 (AFK).** The issued key now lives in the URL through the core `useUrlQuery` hook (replace, not push). `keyFromSearchParams` and `searchParamsForKey` read and write `?store=&trx=`, and both go through `buildLookupKey`. So a link is only another way to promote a key, and a link missing either half is the landing screen. The draft is filled from a link on open. A change from outside (Back, the menu leaf, a pasted link) moves the draft with it. The echo of the user's own write does not (`reseedDraft`, decided on the key the page wrote). Nothing is imported from `sap-export-console`.
+
+🚩 **One addition the ticket did not name.** The transaction query now also waits for the access grant, on the same probe key as the gate. A link fires on mount, before the gate draws, so a denied user opening one would otherwise still ask for the transaction. The drive asserts that it does not, and that check goes red with the gate removed.
+
+Proof:
+- vitest: `lookup-key.test.ts` 32/32 (16 new). Full suite 264 files, all passing.
+- `tools/idoc-inspector-drive.mjs` on 5199: **143/145**, stubbed. 18 new assertions, all green. The two failures are the pre-existing leaf assertions ("the IDoc inspector leaf appears under it" / "the leaf points at /reports/idoc-inspector"), as measured before this ticket. 462 neither adds a failure nor fixes them.
+- `npm run typecheck`, `npm run lint` (all four gates) and `npm run build`: green.
+
+Decisions and the out-of-slice `/code-review` findings (in 461/463-465 code) are logged in `.afk/HITL-462.md`.

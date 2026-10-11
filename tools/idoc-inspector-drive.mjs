@@ -80,6 +80,20 @@
 //  34. 🔑 a failed download surfaces its BUSINESS message, not a generic error —
 //      and a BARE 403 reads as a refusal rather than as a fault.
 //
+// Ticket 462 — the inspector opens straight on a linked transaction:
+//  35. 🔑 `?store=X&trx=Y` (the SAP export console's store-day link) fills the
+//      toolbar AND issues exactly ONE lookup for X/Y on open.
+//  36. 🚩 a link carrying only one half — or a blank one — is the ordinary
+//      landing screen, and issues NOTHING.
+//  37. a manual Look up writes its key back to the URL, so the lookup is a
+//      shareable link; reloading it asks the same question once.
+//  38. a refused (half-typed) Look up and Reset both clear the key from the URL,
+//      and the refusal keeps the half the user has to finish.
+//  39. 🚩 a key changed from OUTSIDE (Back, the menu leaf) moves the toolbar
+//      with it — even over a half-typed draft — where the user's own write does not.
+//  40. 🚩 a link opened on a DENIED session issues no lookup at all — the key
+//      waits for the grant, not just the gate's drawing.
+//
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs) —
 // it is NOT a dependency of this repo.
 //
@@ -1428,6 +1442,171 @@ async function run() {
     graphKeys === null,
     (graphKeys || [''])[0],
   )
+
+  // ---- Ticket 462: the inspector opens straight on a linked transaction ---
+  // 🔑 The link is a URL and nothing more — `inspectorHref` in the SAP export
+  // console writes exactly `?store=<code>&trx=<trxNumber>`, and the inspector
+  // imports nothing from it.
+  scenario = { accessBody: { screenAllowed: true }, accessStatus: 200 }
+  transactionBody = PROCESSED
+  const KEY_QS = 'store=S042&trx=00114600051234'
+  const urlQuery = () => new globalThis.URL(page.url()).searchParams
+  await visit(`${URL}?${KEY_QS}`)
+  await page.waitForTimeout(200)
+  check(
+    '🔑 a link carrying BOTH halves issues exactly ONE lookup on open',
+    transactionQueries.length === 1,
+    transactionQueries.join(' | ') || 'no call',
+  )
+  check(
+    '…for the store and transaction the link named',
+    /storeCode=S042/.test(transactionQueries[0] || '') &&
+      /trxNumber=00114600051234/.test(transactionQueries[0] || ''),
+    transactionQueries[0] || 'no call',
+  )
+  check(
+    '…with the toolbar filled from the link',
+    (await storeField().inputValue()) === 'S042' &&
+      (await trxField().inputValue()) === '00114600051234',
+    `${await storeField().inputValue()} / ${await trxField().inputValue()}`,
+  )
+  check(
+    '…and the answer drawn — the rail, not the landing state',
+    (await page.locator('[data-document-card]').count()) === 3 &&
+      !/Nothing to show yet/i.test(await paneText()),
+    `${await page.locator('[data-document-card]').count()} card(s)`,
+  )
+  check(
+    '…while the access probe is still called ONCE (the lookup waits on the same key)',
+    accessCalls === 1,
+    `${accessCalls} call(s)`,
+  )
+
+  for (const [label, qs] of [
+    ['only the store', 'store=S042'],
+    ['only the transaction', 'trx=00114600051234'],
+    ['a blank transaction', 'store=S042&trx=%20'],
+  ]) {
+    await visit(`${URL}?${qs}`)
+    await page.waitForTimeout(200)
+    check(
+      `🚩 a link with ${label} issues NO lookup and lands on the ordinary empty screen`,
+      transactionQueries.length === 0 &&
+        /Nothing to show yet/i.test(await paneText()) &&
+        (await storeField().inputValue()) === '' &&
+        (await trxField().inputValue()) === '',
+      `${transactionQueries.length} call(s)`,
+    )
+  }
+
+  await visit(`${URL}?store=%20S042%20&trx=00114600051234%20`)
+  await page.waitForTimeout(200)
+  check(
+    'a link is trimmed the way Look up trims',
+    transactionQueries.length === 1 &&
+      /storeCode=S042&/.test(transactionQueries[0] || '') &&
+      /trxNumber=00114600051234$/.test(transactionQueries[0] || ''),
+    transactionQueries.join(' | ') || 'no call',
+  )
+
+  await visit(URL)
+  await storeField().fill('S043')
+  await trxField().fill('00114600050001')
+  await lookUp()
+  check(
+    '🔑 a manual Look up writes its key back to the URL — a shareable link',
+    urlQuery().get('store') === 'S043' && urlQuery().get('trx') === '00114600050001',
+    page.url(),
+  )
+  check(
+    '…and asks the server ONCE, not again for its own URL write',
+    transactionQueries.length === 1,
+    transactionQueries.join(' | '),
+  )
+  check(
+    '…and leaves the draft as the user typed it',
+    (await storeField().inputValue()) === 'S043' &&
+      (await trxField().inputValue()) === '00114600050001',
+  )
+
+  transactionQueries = []
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  check(
+    'reloading that link asks the same question once',
+    transactionQueries.length === 1 &&
+      /storeCode=S043/.test(transactionQueries[0] || '') &&
+      (await storeField().inputValue()) === 'S043',
+    transactionQueries.join(' | ') || 'no call',
+  )
+
+  await trxField().fill('')
+  await lookUp()
+  check(
+    '🚩 a refused Look up clears the key from the URL, and keeps the half to finish',
+    !urlQuery().has('store') &&
+      !urlQuery().has('trx') &&
+      (await storeField().inputValue()) === 'S043' &&
+      /Enter a transaction number/i.test(await paneText()) &&
+      /Nothing to show yet/i.test(await paneText()),
+    page.url(),
+  )
+
+  await visit(`${URL}?${KEY_QS}`)
+  await page.getByRole('button', { name: /^Reset$/ }).click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  check(
+    'Reset clears the key from the URL and empties the toolbar',
+    !urlQuery().has('store') &&
+      !urlQuery().has('trx') &&
+      (await storeField().inputValue()) === '' &&
+      /Nothing to show yet/i.test(await paneText()),
+    page.url(),
+  )
+
+  // 🚩 A key cleared from OUTSIDE (Back, the menu leaf) lands on the landing
+  // draft even over a half-typed one — unlike the user's own refusal above. The
+  // router hears a popstate exactly as it hears Back.
+  await visit(`${URL}?${KEY_QS}`)
+  await trxField().fill('')
+  await page.evaluate((path) => {
+    window.history.pushState(null, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, '/reports/idoc-inspector')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  check(
+    '🚩 a key cleared from outside empties a half-typed toolbar too',
+    !urlQuery().has('store') &&
+      (await storeField().inputValue()) === '' &&
+      /Nothing to show yet/i.test(await paneText()),
+    `${await storeField().inputValue()} · ${page.url()}`,
+  )
+  await page.evaluate((path) => {
+    window.history.pushState(null, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, `/reports/idoc-inspector?${KEY_QS}`)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  check(
+    '…and a key arriving from outside fills it again',
+    (await storeField().inputValue()) === 'S042' &&
+      (await trxField().inputValue()) === '00114600051234' &&
+      (await page.locator('[data-document-card]').count()) === 3,
+    `${await storeField().inputValue()} / ${await trxField().inputValue()}`,
+  )
+
+  scenario = { accessBody: { screenAllowed: false }, accessStatus: 200 }
+  await visit(`${URL}?${KEY_QS}`)
+  await page.waitForTimeout(200)
+  check(
+    '🚩 a link opened on a DENIED session issues no lookup at all',
+    transactionQueries.length === 0,
+    transactionQueries.join(' | '),
+  )
+  scenario = { accessBody: { screenAllowed: true }, accessStatus: 200 }
 
   // The denied/refused scenarios answer non-2xx on purpose, which the browser
   // logs as a resource-load failure — expected, not an app fault.

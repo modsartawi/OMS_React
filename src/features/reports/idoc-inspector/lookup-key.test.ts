@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildLookupKey,
+  criteriaForKey,
+  keyFromSearchParams,
   landingCriteria,
   missingParts,
+  reseedDraft,
+  sameKeyOrNone,
   sameLookup,
+  searchParamsForKey,
   type LookupCriteria,
 } from './lookup-key'
 
@@ -138,5 +143,112 @@ describe('asking the same question twice', () => {
     const base = { storeCode: 'S042', trxNumber: '00114600051234' }
     expect(sameLookup(base, { ...base, storeCode: 'S043' })).toBe(false)
     expect(sameLookup(base, { ...base, trxNumber: '00114600051235' })).toBe(false)
+  })
+})
+
+// ---- ticket 462: the key in the URL ----------------------------------------
+describe('the key a link carries', () => {
+  const params = (qs: string) => new URLSearchParams(qs)
+
+  it('🔑 both halves present gives a key', () => {
+    expect(keyFromSearchParams(params('store=P001&trx=000123'))).toEqual({
+      storeCode: 'P001',
+      trxNumber: '000123',
+    })
+  })
+
+  it('reads the SAP export console link as that console encodes it', () => {
+    // `inspectorHref('P 1', 'a&b')` in the console writes exactly this string.
+    expect(keyFromSearchParams(params('?store=P+1&trx=a%26b'))).toEqual({
+      storeCode: 'P 1',
+      trxNumber: 'a&b',
+    })
+  })
+
+  it('🚩 either half missing gives NO key — an ordinary empty screen', () => {
+    expect(keyFromSearchParams(params('store=P001'))).toBeNull()
+    expect(keyFromSearchParams(params('trx=000123'))).toBeNull()
+    expect(keyFromSearchParams(params(''))).toBeNull()
+  })
+
+  it('either half blank gives no key', () => {
+    expect(keyFromSearchParams(params('store=&trx=000123'))).toBeNull()
+    expect(keyFromSearchParams(params('store=P001&trx=%20%20'))).toBeNull()
+  })
+
+  it('trims both halves, the way Look up does', () => {
+    expect(keyFromSearchParams(params('store=%20P001%20&trx=000123%20'))).toEqual({
+      storeCode: 'P001',
+      trxNumber: '000123',
+    })
+  })
+
+  it('ignores any other parameter — the key is the whole question', () => {
+    expect(keyFromSearchParams(params('store=P001&trx=1&day=2026-10-01'))).toEqual({
+      storeCode: 'P001',
+      trxNumber: '1',
+    })
+  })
+})
+
+describe('the key written back after a Look up', () => {
+  it('writes the two names the link uses', () => {
+    expect(searchParamsForKey({ storeCode: 'P001', trxNumber: '000123' }).toString()).toBe(
+      'store=P001&trx=000123',
+    )
+  })
+
+  it('writes nothing for no key — the landing address', () => {
+    expect(searchParamsForKey(null).toString()).toBe('')
+  })
+
+  it('round-trips through the reader', () => {
+    const key = { storeCode: 'P 1', trxNumber: 'a&b' }
+    expect(keyFromSearchParams(searchParamsForKey(key))).toEqual(key)
+  })
+
+  it('fills the toolbar draft from a key, and the landing draft from none', () => {
+    expect(criteriaForKey({ storeCode: 'P001', trxNumber: '000123' })).toEqual({
+      store: 'P001',
+      trxNumber: '000123',
+    })
+    expect(criteriaForKey(null)).toEqual(landingCriteria())
+  })
+})
+
+describe('the draft follows the URL only when something else changed it', () => {
+  const k1 = { storeCode: 'P001', trxNumber: '1' }
+
+  it('🚩 keeps the draft when the URL arrives at the key a Look up wrote — its echo', () => {
+    // Re-seeding would trim what the user typed.
+    expect(reseedDraft(k1, { key: { storeCode: 'P001', trxNumber: '1' } })).toBeNull()
+  })
+
+  it('🚩 keeps a half-typed draft when the user’s own refused Look up cleared the key', () => {
+    expect(reseedDraft(null, { key: null })).toBeNull()
+  })
+
+  it('follows a key from outside — Back, a pasted link', () => {
+    expect(reseedDraft(k1, null)).toEqual({ store: 'P001', trxNumber: '1' })
+    // A write still in flight for ANOTHER key does not make this one an echo.
+    expect(reseedDraft(k1, { key: null })).toEqual({ store: 'P001', trxNumber: '1' })
+  })
+
+  it('🚩 returns to the landing draft when the key is cleared from outside — even over a half-typed draft', () => {
+    // The menu leaf: nothing was written, so the stale half (and its refusal
+    // marks) must not survive into the landing screen.
+    expect(reseedDraft(null, null)).toEqual(landingCriteria())
+    expect(reseedDraft(null, { key: k1 })).toEqual(landingCriteria())
+  })
+})
+
+describe('the same key, or both none', () => {
+  const k1 = { storeCode: 'P001', trxNumber: '1' }
+  it('compares keys by value and treats two absences as the same', () => {
+    expect(sameKeyOrNone(k1, { ...k1 })).toBe(true)
+    expect(sameKeyOrNone(null, null)).toBe(true)
+    expect(sameKeyOrNone(k1, null)).toBe(false)
+    expect(sameKeyOrNone(null, k1)).toBe(false)
+    expect(sameKeyOrNone(k1, { ...k1, trxNumber: '2' })).toBe(false)
   })
 })

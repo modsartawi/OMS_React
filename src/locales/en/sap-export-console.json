@@ -1,0 +1,358 @@
+{
+  "menu": {
+    "sapExport": "SAP export"
+  },
+  "title": "SAP export",
+  "subtitle": "Whether every store's sales are on their way to SAP, on which rail, and where any transaction stopped. Read-only.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to SAP export",
+    "deniedHint": "Your account does not hold the grant to view the SAP export console. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "labels": {
+    "exported": "Exported",
+    "byDesign": "By design",
+    "waiting": "Waiting",
+    "heldForInventory": "Held for inventory",
+    "behind": "Behind",
+    "stuck": "Stuck"
+  },
+  "rails": {
+    "legacy": "Legacy",
+    "new": "New rail"
+  },
+  "states": {
+    "L1": "Exported",
+    "L2a": "Logged, file missing",
+    "L2b": "Logged, in no part",
+    "L3": "Excluded by rule",
+    "L4": "Skipped, retrying",
+    "L5": "Skipped, parked",
+    "L6": "Store not under SAP",
+    "L7": "No counter row",
+    "L8": "Before the store's open date",
+    "L9": "Pending above the watermark",
+    "L10": "Passed over",
+    "N1": "Held",
+    "N2": "Ungrouped, can never seal",
+    "N3": "Ungrouped, waiting to seal",
+    "N4": "Sealed, not exported",
+    "N5": "Exported",
+    "N6": "Parked (no workflow)",
+    "N7": "Queued",
+    "N8": "Retrying",
+    "N9": "Gave up",
+    "N10": "Processed, no documents",
+    "N11": "Stamped, never enqueued",
+    "U": "Unclassified (a census fault)"
+  },
+  "flags": {
+    "X1": "Double-sent",
+    "X1p": "Double send pending",
+    "X2": "Processed, stamped legacy",
+    "X3": "Legacy-sent, stamped new",
+    "X4": "No version stamp",
+    "legacyResend": "Legacy re-send",
+    "failClosedNoDetail": "Skip closed, no detail"
+  },
+  "accounting": {
+    "label": "Export accounting",
+    "agrees": "Agrees",
+    "breaks": "Breaks"
+  },
+  "fleet": {
+    "asOf": "Numbers as of <at>{{at}}</at>",
+    "neverComputed": "The rollup has not computed any numbers yet.",
+    "stale": "Numbers may be stale: the rollup has not refreshed for over {{minutes}} minutes.",
+    "refreshing": "Refreshing…",
+    "tiles": {
+      "label": "Fleet at a glance",
+      "failed": "The fleet tiles could not be read.",
+      "storesBehind": "Stores behind",
+      "storesStuck": "Stores stuck",
+      "storesHeldForInventory": "Stores held for inventory",
+      "doubleSent": "Double sent",
+      "doubleSendPending": "Double send pending",
+      "accountingBreaks": "Accounting breaks",
+      "legacyStalled": "Legacy stalled"
+    },
+    "search": "Search store code or name",
+    "labelsLabel": "Stores with transactions labelled",
+    "rail": "Rail",
+    "railAny": "Any rail",
+    "states": "States",
+    "statesLabel": "Stores with transactions in state",
+    "sort": "Sort",
+    "sorts": {
+      "worst": "Worst first",
+      "oldestBehind": "Oldest behind",
+      "mostStuck": "Most stuck",
+      "code": "Store code"
+    },
+    "clear": "Clear filters",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "loading": "Reading the fleet…",
+    "failed": "The fleet could not be read.",
+    "empty": "No store has numbers in the rollup yet.",
+    "emptyFiltered": "No store matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "errors": {
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "code": "Store",
+      "description": "Name",
+      "labels": "Transactions by label",
+      "railMix": "Rail mix",
+      "oldestBehind": "Oldest behind (h)",
+      "breakDays": "Break days",
+      "markers": "Markers"
+    },
+    "markers": {
+      "legacyStalled": "Legacy stalled",
+      "legacyInventoryGated": "Held for inventory"
+    }
+  },
+  "storeDay": {
+    "back": "Store <v>{{code}}</v>",
+    "heading": "Store <v>{{pair}}</v>",
+    "asOf": "Classified live at <at>{{at}}</at>",
+    "total": "<n>{{n}}</n> transactions that day",
+    "loading": "Classifying the day…",
+    "refreshing": "Reading…",
+    "failed": "This store-day could not be read.",
+    "labelsLabel": "Transactions by label",
+    "labelsHint": "Choose labels to list. With none chosen, the list shows every transaction not exported and not by design.",
+    "legend": "States that day",
+    "legendHint": "Choose states to narrow the list.",
+    "clear": "Clear filters",
+    "listed_one": "<n>{{n}}</n> transaction listed",
+    "listed_other": "<n>{{n}}</n> transactions listed",
+    "empty": "Nothing unfinished on this day: every transaction is exported or out of scope by design.",
+    "emptyFiltered": "No transaction on this day matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "errors": {
+      "NO_STORE": "There is no store with this code.",
+      "BAD_DAY": "This is not a valid business day.",
+      "DAY_OUT_OF_WINDOW": "This day is outside the console's 30-day window.",
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    }
+  },
+  "grid": {
+    "columns": {
+      "trxNumber": "Transaction",
+      "machineCode": "Machine",
+      "rail": "Rail",
+      "state": "State",
+      "label": "Label",
+      "version": "Version",
+      "counter": "Counter",
+      "hoursPastDayEnd": "Hours past day end",
+      "reason": "Reason",
+      "held": "Held",
+      "flags": "Flags"
+    },
+    "openInspector": "Open in the IDoc inspector",
+    "noVersion": "None",
+    "watermark": "watermark <n>{{n}}</n>",
+    "held": "held <n>{{held}}</n> of <m>{{of}}</m>",
+    "missingRows": "Missing rows",
+    "questionablePosting": "Questionable posting"
+  },
+  "store": {
+    "back": "SAP export",
+    "heading": "Store <v>{{pair}}</v>",
+    "loading": "Reading the store…",
+    "failed": "This store could not be read.",
+    "neverComputed": "The rollup has not computed this store's numbers yet.",
+    "total_one": "<n>{{n}}</n> transaction in the window",
+    "total_other": "<n>{{n}}</n> transactions in the window",
+    "labelsLabel": "Transactions by label over the window",
+    "notFound": "There is no store <v>{{code}}</v>",
+    "notFoundHint": "No store has this code. Go back to the fleet and choose one from the list.",
+    "facts": {
+      "title": "Export facts",
+      "underSap": "Under SAP",
+      "counterRow": "Export counter row",
+      "watermark": "Legacy watermark",
+      "openDate": "Open date",
+      "closed": "Closed",
+      "inventoryDate": "Last inventory date",
+      "values": {
+        "sapLocations_one": "Yes, <n>{{n}}</n> SAP location",
+        "sapLocations_other": "Yes, <n>{{n}}</n> SAP locations",
+        "notUnderSap": "No SAP location",
+        "counterPresent": "Present",
+        "counterMissing": "Missing",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "causes": {
+        "L6": "The store is not in the export list (no location under SAP), so none of its legacy transactions can be exported. They are stuck from the first moment until master data adds it.",
+        "L7": "The store has no export counter row, so the legacy uploader fails on it every cycle. Its legacy transactions are stuck from the first moment until the counters are copied."
+      }
+    },
+    "strip": {
+      "title_one": "The last <n>{{n}}</n> day",
+      "title_other": "The last <n>{{n}}</n> days",
+      "titleLoading": "The window",
+      "label": "One cell per business day, oldest first",
+      "loading": "Reading the days…",
+      "failed": "The window's days could not be read.",
+      "empty": "The rollup has no days for this store.",
+      "hint": "Each day takes the colour of its worst label. Hover for its counts; click to open the day.",
+      "noData": "Not computed yet: the rollup has no numbers for this day.",
+      "noVerdict": "No verdict",
+      "total_one": "<n>{{n}}</n> transaction",
+      "total_other": "<n>{{n}}</n> transactions",
+      "breaks": "Export accounting breaks on this day."
+    }
+  },
+  "doubleSends": {
+    "back": "SAP export",
+    "heading": "Double sends",
+    "intro": "Transactions sent on both rails. The ones whose new-rail documents are not exported yet are listed first: the second send can still be stopped. This list only shows them.",
+    "flag": "Flag",
+    "flagBoth": "Both flags",
+    "store": "Store code",
+    "storePlaceholder": "Any store",
+    "apply": "Show",
+    "clear": "Clear filters",
+    "stoppable": "Can still be stopped",
+    "count_one": "<n>{{n}}</n> transaction",
+    "count_other": "<n>{{n}}</n> transactions",
+    "loading": "Reading the double sends…",
+    "refreshing": "Reading…",
+    "failed": "The double sends could not be read.",
+    "empty": "No transaction in the window was sent on both rails.",
+    "emptyFiltered": "No double send matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "openDay": "Open this store-day",
+    "errors": {
+      "NO_STORE": "There is no store with this code.",
+      "BAD_FILTER": "A filter on this page is not one the server knows.",
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "flag": "Flag",
+      "code": "Store",
+      "day": "Business day",
+      "trxNumber": "Transaction",
+      "version": "Version",
+      "state": "State",
+      "legacyFile": "Legacy file",
+      "legacyUploadedAt": "Legacy uploaded at",
+      "documents": "Documents exported"
+    }
+  },
+  "runners": {
+    "title": "Runners",
+    "hint": "Whether the legacy uploader, each new-rail stage and the console's census rollup ran its last cycle. Down means work is due and no cycle ran within its down-after window; idle means nothing is due.",
+    "failed": "The runners could not be read.",
+    "loading": "Reading the runners…",
+    "empty": "The server lists no runner.",
+    "inferred": "Inferred — no heartbeat yet",
+    "inferredHint": "This runner has not written a heartbeat yet, so its state is inferred from its activity.",
+    "never": "Never",
+    "startedAt": "Started <at>{{at}}</at>, not ended",
+    "fault": "Last fault",
+    "minutes": "<n>{{n}}</n> min",
+    "banner": {
+      "title_one": "A runner is down",
+      "title_other": "{{n}} runners are down",
+      "detail": "Work is due and no cycle ran within its down-after window. Nothing on that stage moves until it runs again."
+    },
+    "names": {
+      "legacyUploader": "Legacy uploader",
+      "idocProcessing": "IDoc processing",
+      "idocBatching": "IDoc batching",
+      "idocExport": "IDoc export",
+      "censusRollup": "Census rollup"
+    },
+    "liveness": {
+      "up": "Up",
+      "idle": "Idle",
+      "down": "Down"
+    },
+    "outcomes": {
+      "moved": "Moved",
+      "idle": "Idle",
+      "faulted": "Faulted",
+      "none": "Never ran"
+    },
+    "columns": {
+      "runner": "Runner",
+      "liveness": "Liveness",
+      "host": "Host",
+      "lastCycleEnd": "Last cycle end",
+      "outcome": "Outcome",
+      "lastMoved": "Last moved",
+      "dueBacklog": "Due backlog",
+      "downAfter": "Down after"
+    }
+  },
+  "identityBreaks": {
+    "title": "Identity breaks",
+    "hint": "Evidence that does not add up to exactly one transaction. Any of these makes export accounting break.",
+    "loading": "Reading the identity breaks…",
+    "refreshing": "Reading…",
+    "failed": "The identity breaks could not be read.",
+    "empty": "The books add up: every piece of export evidence has exactly one transaction.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "count_one": "<n>{{n}}</n> break",
+    "count_other": "<n>{{n}}</n> breaks",
+    "errors": {
+      "BAD_PAGING": "This page number is not one the server accepts."
+    },
+    "columns": {
+      "kind": "Kind",
+      "trxNumber": "Transaction",
+      "machineCode": "Machine",
+      "day": "Day",
+      "meaning": "What it means"
+    },
+    "kinds": {
+      "duplicateKey": {
+        "name": "Duplicate key",
+        "meaning": "Two transactions share this store and number, so the evidence cannot be matched to exactly one of them."
+      },
+      "orphanUploadDetail": {
+        "name": "Orphan upload detail",
+        "meaning": "A legacy upload log line names a transaction that does not exist at HQ."
+      },
+      "orphanSkipRow": {
+        "name": "Orphan skip row",
+        "meaning": "A legacy skip row names a transaction that does not exist at HQ."
+      },
+      "orphanEntry": {
+        "name": "Orphan IDoc entry",
+        "meaning": "A new-rail IDoc entry names a transaction that does not exist at HQ."
+      },
+      "orphanDocument": {
+        "name": "Orphan IDoc document",
+        "meaning": "A new-rail IDoc document names a transaction that does not exist at HQ."
+      }
+    }
+  },
+  "recompute": {
+    "window": "Recompute this store's numbers",
+    "day": "Recompute this day's numbers",
+    "busy": "Recomputing…",
+    "windowHint": "Re-judges every day of this store's window in the console's own rollup now. It refreshes the console's numbers and never touches export data.",
+    "dayHint": "Re-judges this day in the console's own rollup now, so the store's strip and the fleet catch up. It refreshes the console's numbers and never touches export data.",
+    "done_one": "Recomputed <n>{{n}}</n> day. Numbers as of <at>{{at}}</at>.",
+    "done_other": "Recomputed <n>{{n}}</n> days. Numbers as of <at>{{at}}</at>.",
+    "failed": "The numbers could not be recomputed.",
+    "errors": {
+      "BAD_REQUEST": "The request named no store.",
+      "NO_STORE": "There is no store with this code.",
+      "BAD_DAY": "This is not a valid business day.",
+      "DAY_OUT_OF_WINDOW": "This day is outside the console's window."
+    }
+  }
+}

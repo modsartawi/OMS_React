@@ -108,3 +108,6 @@ tools/.sync-console-controls-shots/
 tools/.sync-console-commands-shots/
 tools/.sync-console-onboard-shots/
 tools/.sync-console-live-shots/
+tools/.sap-export-storeday-shots/
+tools/.sap-export-fleet-shots/
+tools/.sap-export-store-shots/

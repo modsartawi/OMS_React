@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ClipboardCheck, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -63,6 +63,9 @@ import {
   IDOC_INSPECTOR_ACCESS_KEY,
   idocInspectorApi,
 } from '@/features/reports/idoc-inspector/api'
+// …and the SAP export console's (BackOffice spec 2579, ticket 461) with ITS feature, a third
+// screen in the area on a third grant.
+import { SAP_EXPORT_ACCESS_KEY, canOpenSapExport, sapExportAccessApi } from '@/features/reports/sap-export-console/access'
 // Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
 // delivery page's action (`features/oms/document`) and the bulk screen
 // (`features/oms/central-invoice`) both read it, and neither may import the other.
@@ -665,6 +668,25 @@ export const MENU: ShellMenuItem[] = [
           key: IDOC_INSPECTOR_ACCESS_KEY,
           run: () => idocInspectorApi.access(),
           visible: canOpenIDocInspector,
+        }),
+      },
+      {
+        // The SAP export console (BackOffice spec 2579, ticket 461) — after the IDoc inspector,
+        // whose transactions it links into, on its OWN grant (`BackOfficeScreen[SapExportConsole,03]`)
+        // read off `GET SapExport/Access`. The SAME key, call and predicate as the console's own
+        // gate, so the two can never disagree.
+        //
+        // 🚩 FAILS CLOSED — see `features/reports/sap-export-console/access`. Its door (BackOffice
+        // 2580) is not deployed anywhere yet, so a pending, errored, 403 or malformed probe hides
+        // the leaf; the `Bby/Access` unknown ⇒ shown precedent does not transfer.
+        labelKey: 'sap-export-console:menu.sapExport',
+        icon: CloudUpload,
+        routerLink: '/reports/sap-export',
+        activePrefix: '/reports/sap-export',
+        access: accessProbe({
+          key: SAP_EXPORT_ACCESS_KEY,
+          run: () => sapExportAccessApi.access(),
+          visible: canOpenSapExport,
         }),
       },
     ],

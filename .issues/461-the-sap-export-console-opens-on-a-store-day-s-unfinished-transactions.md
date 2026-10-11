@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2579-sap-export-console-spec.md
 blocked-by: — (live: BackOffice 2580-2583)
 ---
@@ -52,11 +52,11 @@ UI -> app (BackOffice read doors 2580-2583, stubbed)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `labelToken(label)` and `worstLabel(labels)`: every `Label` maps to a token and a key; `heldForInventory` is never the danger token; an unknown value falls back safely; worst order is stuck > behind > heldForInventory > waiting > exported > byDesign (vitest).
-- [ ] `stateMeaningKey(code)`: every contract code (L1-L10, L2a, L2b, N1-N11, U) has a key; an unknown code falls back (vitest).
-- [ ] `wire.ts` normalisers: an older StoreDay without `flags`/`held`/`accounting` is filled; a full one passes through unchanged (vitest).
-- [ ] `tools/sap-export-storeday-drive.mjs` (new, stubbed at `page.route`): the Reports leaf shows only when `screenAllowed`; label chips and the legend reach the request as repeated `label` / `state`; paging at 50; a `breaks` day shows the danger badge; an N1 row shows "held 1 of 2"; a row links to the inspector with `store` and `trx`; `screenAllowed: false` hides the leaf and the page guards itself.
-- [ ] `npm run typecheck`, `npm run lint` and `npm test` green.
+- [x] `labelToken(label)` and `worstLabel(labels)`: every `Label` maps to a token and a key; `heldForInventory` is never the danger token; an unknown value falls back safely; worst order is stuck > behind > heldForInventory > waiting > exported > byDesign (vitest).
+- [x] `stateMeaningKey(code)`: every contract code (L1-L10, L2a, L2b, N1-N11, U) has a key; an unknown code falls back (vitest).
+- [x] `wire.ts` normalisers: an older StoreDay without `flags`/`held`/`accounting` is filled; a full one passes through unchanged (vitest).
+- [x] `tools/sap-export-storeday-drive.mjs` (new, stubbed at `page.route`): the Reports leaf shows only when `screenAllowed`; label chips and the legend reach the request as repeated `label` / `state`; paging at 50; a `breaks` day shows the danger badge; an N1 row shows "held 1 of 2"; a row links to the inspector with `store` and `trx`; `screenAllowed: false` hides the leaf and the page guards itself.
+- [x] `npm run typecheck`, `npm run lint` and `npm test` green.
 
 ## Boundaries
 
@@ -69,3 +69,27 @@ The helpers and the new drive are green against stubs.
 ## Blocked by
 
 None. It can start immediately (the contract is published).
+
+## Comments
+
+**Done 2026-10-11 (AFK).** Every proof here is **stubbed**. BackOffice 2580-2583 are unbuilt, and no call has met a live SIS.Api (466 is the live walk).
+
+- **Built:** `core/models/sap-export.ts` (the whole contract, field for field), `features/reports/sap-export-console/`, the `sap-export-console` namespace (EN only), two routes and the Reports leaf. The leaf sits after the IDoc inspector and fails closed on `SapExport/Access`.
+  - The feature holds `access.ts`, `api.ts`, `wire.ts`, `label-helpers.ts`, `state-helpers.ts`, `storeday-helpers.ts`, `storeday-columns.tsx`, `TokenBadgeView.tsx`, `StoreDayPage.tsx` and `SapExportPage.tsx`.
+  - The access probe lives apart in `access.ts`, so the eager menu import does not pull the reads into the main bundle.
+- **Proof:**
+  - vitest: 5 new files and 44 tests (label, state, store-day, wire, access). `menu-reports.test.ts` was grown on purpose for the third Reports leaf.
+  - Full suite: 258 files / 4590 tests green. typecheck, lint (4 gates) and build are green.
+  - `tools/sap-export-storeday-drive.mjs`: **54/54** on port 5199.
+  - `idoc-inspector-drive` is unchanged at 125/127; the two failures are the same pre-existing ones, and this change does not fix them. `sync-console-fleet-drive` is 88/88, so Store sync is still the last Admin leaf.
+- **Decisions are logged in `.afk/HITL-461.md`:**
+  - the console's own six label tokens, because core `Severity` has five words;
+  - flag colours;
+  - `missingRows: false` reads "Questionable posting";
+  - the placeholder's open-a-day form;
+  - the reason column moved last.
+- **Outstanding (not AFK-able):**
+  - a human's eye on the label colours;
+  - the live doors (466).
+  - A standards-review soft point stays open: `figure` is now the fourth copy of a grouped-count formatter. Moving it into `core/util/number-format` means touching three other features, so it is left for a sweep.
+

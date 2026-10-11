@@ -203,7 +203,7 @@ describe('auditQuery', () => {
 
 describe('auditActionKey', () => {
   it('labels every audit action, and leaves an unknown one raw', () => {
-    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck']) {
+    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView']) {
       const key = auditActionKey(a)
       expect(key).toBe(`auditActions.${a}`)
       expect(lookup(key as string)).toBeTruthy()

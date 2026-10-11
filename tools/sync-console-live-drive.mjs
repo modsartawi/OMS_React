@@ -5,6 +5,11 @@
 // tabs, and their refusals. With --write it also retries one dead letter, acknowledges another and
 // rechecks one store-day — each named by the inputs, never picked by the drive.
 //
+// Ticket 469 (BackOffice spec 2586) added the Transactions tab: Store/Transactions on today and
+// yesterday, its filters, its receipt search and its refusals (section `transactions`), and — with
+// --write, because every served view writes an audit row — one receipt's View JSON through
+// Store/Transactions/Snapshot and its TransactionSnapshotView row in the audit feed (section `snapshot`).
+//
 // The five stubbed drives (tools/sync-console-{fleet,store,controls,commands,onboard}-drive.mjs) stay
 // the regression for the screens' behaviour: they pin fixture values and timings no real fleet holds.
 // This drive is their live twin. It stubs NOTHING, signs in for real, and asserts what holds for any
@@ -21,7 +26,7 @@
 //   2. sign in one of two ways, the secret never in the repo:
 //        SIS_USER=<id> SIS_PASS=<pw>   — POST Auth/Login through the proxy
 //        SIS_COOKIE=<sis_session>      — a cookie copied from a browser session
-//   3. DRIVE_PORT=5250 node tools/sync-console-live-drive.mjs [--only fleet,store,mirror,agreement,feeds,refusals,repush] [--write]
+//   3. DRIVE_PORT=5250 node tools/sync-console-live-drive.mjs [--only fleet,store,mirror,agreement,transactions,feeds,refusals,repush] [--write]
 //
 // Without --write the drive writes NOTHING: reads, refusals that write nothing, and a re-push PREVIEW.
 // With --write it also runs the owner walk's writes, on the TEST stores the inputs name only:
@@ -39,8 +44,9 @@ mkdirSync(SHOTS, { recursive: true })
 
 const argv = process.argv.slice(2)
 const onlyAt = argv.indexOf('--only')
-const READS = ['fleet', 'store', 'mirror', 'agreement', 'feeds', 'refusals', 'repush']
-const WRITES = ['control', 'test', 'onboard', 'deadletters', 'recheck']
+const READS = ['fleet', 'store', 'mirror', 'agreement', 'transactions', 'feeds', 'refusals', 'repush']
+// `snapshot` changes nothing in the fleet, but each served view writes an audit row (469).
+const WRITES = ['control', 'test', 'onboard', 'deadletters', 'recheck', 'snapshot']
 const WRITE = argv.includes('--write')
 const ONLY = onlyAt === -1 ? [...READS, ...(WRITE ? WRITES : [])] : (argv[onlyAt + 1] ?? '').split(',').filter(Boolean)
 const blocked = ONLY.filter((s) => WRITES.includes(s) && !WRITE)
@@ -124,6 +130,14 @@ const KEYS = {
   agreementDay: AGREEMENT_DAY,
   agreementGap: ['businessDay', 'receiptNumber', 'kind', 'mirrorTotal', 'counterTotal'],
   recheck: ['auditId', 'day'],
+  // 469: the Transactions tab (BackOffice 2587–2589).
+  transactions: ['available', 'day', 'summary', 'items'],
+  txSummary: ['sales', 'returns', 'total', 'lastCompletedAt', 'notYet', 'mismatches'],
+  transaction: [
+    'transactionId', 'receiptNumber', 'registerId', 'operatorId', 'status', 'isReturn', 'total', 'openedAt', 'completedAt',
+    'counter', 'counterTotal',
+  ],
+  snapshot: ['auditId', 'receiptNumber', 'loadedAt', 'snapshot'],
   counter: ['objectId', 'bound', 'lineNumber', 'counter', 'logHead', 'lag', 'oldestPendingAt'],
   pass: ['processId', 'loop', 'startOn', 'finishOn', 'status', 'actionsCount', 'errorMessage'],
   passLine: ['lineNumber', 'objectId', 'identifiers', 'actionType', 'counter', 'lineStatus', 'startOn', 'finishOn', 'errorMessage'],
@@ -546,6 +560,190 @@ if (ONLY.includes('agreement')) {
   }
 }
 
+// ── The Transactions tab: a day's NewPos receipts and their counter flag (469) ───────────────────
+
+const COUNTER_FLAGS = ['arrived', 'notYet', 'mismatch']
+const TX_PAGE = 50
+const txCode = todo(INPUTS.transactionsStoreCode) ? agreementCode : INPUTS.transactionsStoreCode
+const txPath = (code, rest = '') => `ActionSync/Store/Transactions?code=${encodeURIComponent(code)}${rest}`
+const round3 = (n) => Math.round(n * 1000) / 1000
+/** Every row of a store-day under the query's filters, read page by page (at most 40 pages). */
+async function txAllRows(code, rest) {
+  const rows = []
+  let first = null
+  for (let p = 1; p <= 40; p++) {
+    const a = await direct(txPath(code, `${rest}&page=${p}&pageSize=${TX_PAGE}`))
+    if (!ok(a)) return { first: first ?? a, rows }
+    first ??= a
+    rows.push(...a.body.data.items.items)
+    if (rows.length >= a.body.data.items.total || a.body.data.items.items.length === 0) break
+  }
+  return { first, rows }
+}
+/** The summary the door should give for these rows (the stub drive's `txSummary`). */
+const txFigures = (rows) => ({
+  sales: rows.filter((r) => !r.isReturn).length,
+  returns: rows.filter((r) => r.isReturn).length,
+  total: round3(rows.reduce((n, r) => n + r.total, 0)),
+  lastCompletedAt: rows.length ? rows.map((r) => r.completedAt).sort().at(-1) : null,
+  notYet: rows.filter((r) => r.counter === 'notYet').length,
+  mismatches: rows.filter((r) => r.counter === 'mismatch').length,
+})
+/** The checks every page of rows must pass, whatever the store. */
+function txRowChecks(label, day, rows) {
+  check(`${label}: every receipt completed on ${day}`, rows.every((r) => String(r.completedAt).startsWith(day)))
+  check(`${label}: …its flag is the contract's`, rows.every((r) => COUNTER_FLAGS.includes(r.counter)), [...new Set(rows.map((r) => r.counter))].join())
+  check(`${label}: …counterTotal is null exactly when notYet`, rows.every((r) => (r.counterTotal === null) === (r.counter === 'notYet')))
+  check(`${label}: …a return's total is never positive, a sale's never negative`, rows.every((r) => (r.isReturn ? r.total <= 0 : r.total >= 0)))
+  check(`${label}: …its times are local wall-clock`, rows.every((r) => timesOk(r, ['openedAt', 'completedAt'])))
+  check(`${label}: …newest completed first, then receipt number`, rows.every((r, i) => i === 0 ||
+    rows[i - 1].completedAt > r.completedAt || (rows[i - 1].completedAt === r.completedAt && rows[i - 1].receiptNumber >= r.receiptNumber)))
+}
+const figure = async (key) => strip(await page.locator(`[data-summary-figure="${key}"]`).innerText().catch(() => ''))
+
+if (ONLY.includes('transactions')) {
+  if (todo(txCode)) {
+    skip('transactions', 'transactionsStoreCode, agreementStoreCode, mirrorStoreCode and storeCode are TODO')
+  } else {
+    const code = txCode
+    const today = dayAgo(0)
+    const yesterday = dayAgo(1)
+    let since = answers.length
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=transactions`)
+    const a = await waitAnswer('ActionSync/Store/Transactions', since)
+    check(`transactions ${code}: Store/Transactions answers`, ok(a), why(a))
+    check(`transactions ${code}: the tab asks today, page 1 of 50, every default omitted`,
+      a?.query.get('day') === today && a?.query.get('page') === '1' && a?.query.get('pageSize') === '50' &&
+      ['status', 'kind', 'counter', 'receipt'].every((k) => !a?.query.has(k)), a ? String(a.query) : '')
+    const d = a?.body?.data
+    shapeCheck(`transactions ${code}: it carries available, day, summary, items`, d, KEYS.transactions)
+    shapeCheck(`transactions ${code}: the summary carries the contract's keys`, d?.summary, KEYS.txSummary)
+    shapeCheck(`transactions ${code}: the items are paged`, d?.items, PAGED)
+    firstShape(`transactions ${code}: a receipt carries exactly the contract's keys — no lines, tenders or customer`, d?.items?.items, KEYS.transaction)
+    check(`transactions ${code}: the sink is available`, d?.available === true, String(d?.available))
+    check(`transactions ${code}: the day served is today`, d?.day === today, d?.day)
+    const rows = d?.items?.items ?? []
+    txRowChecks(`transactions ${code} today`, today, rows)
+    check(`transactions ${code}: today is COMPLETED only by default`, rows.every((r) => r.status === 'COMPLETED'))
+    check(`transactions ${code}: …and the summary's last completed is the newest row`, (d?.summary?.lastCompletedAt ?? null) === (rows[0]?.completedAt ?? null),
+      `${d?.summary?.lastCompletedAt} vs ${rows[0]?.completedAt}`)
+    check(`transactions ${code}: the summary counts the whole day, never the page`, d?.summary?.sales + d?.summary?.returns === d?.items?.total,
+      `${d?.summary?.sales} + ${d?.summary?.returns} vs ${d?.items?.total}`)
+    console.log(`      today: ${JSON.stringify(d?.summary)} · ${d?.items?.total} receipts`)
+    console.log('      the OWNER matches this against [POS].PosTransactionHeader (StoreId, IsTraining = 0, CompletedAt today, COMPLETED)')
+
+    // The page draws what came back.
+    check(`transactions ${code}: the summary is titled with the day served`, await waitFor(async () => (await page.locator(`[data-transactions-summary="${today}"]`).count()) === 1, 15000))
+    check(`transactions ${code}: …its sales and returns are the door's`, (await figure('sales')).endsWith(String(d?.summary?.sales)) && (await figure('returns')).endsWith(String(d?.summary?.returns)),
+      `${await figure('sales')} | ${await figure('returns')}`)
+    check(`transactions ${code}: today says it is re-read every minute`, (await page.locator('[data-transactions-polling]').count()) === 1)
+    if (rows.length) {
+      check(`transactions ${code}: the grid draws the page's receipts`,
+        await waitFor(async () => (await page.locator('[data-tab-grid="transactions"] .ag-row').count()) === Math.min(rows.length, TX_PAGE), 15000))
+      check(`transactions ${code}: …by transaction id, with the door's flag`,
+        (await page.locator(`.ag-row[row-id="${rows[0].transactionId}"] [data-counter="${rows[0].counter}"]`).count()) > 0, `${rows[0].transactionId} ${rows[0].counter}`)
+      // OWNER walk: "View JSON opens for an operator and is absent for a viewer".
+      check(`transactions ${code}: View JSON is ${grants.canOperate ? 'offered' : 'absent'} for this session`,
+        ((await page.locator('[data-transaction-view]').count()) > 0) === (grants.canOperate === true))
+    } else {
+      check(`transactions ${code}: no receipt yet today is an empty list`, await waitFor(async () => (await page.locator('[data-tab-empty="transactions"]').count()) === 1, 15000))
+    }
+    await page.screenshot({ path: `${SHOTS}/transactions-${code}-today.png`, fullPage: true })
+
+    // Yesterday: a closed day, so the whole of it must add up to its summary.
+    since = answers.length
+    await page.locator('[data-transactions-day]').selectOption(yesterday)
+    const y = await waitAnswer('ActionSync/Store/Transactions', since, (x) => x.query.get('day') === yesterday)
+    check(`transactions ${code}: picking yesterday asks it, from page 1`, ok(y) && y.query.get('page') === '1', why(y))
+    check(`transactions ${code}: …and stops saying it is re-read`, await waitFor(async () => (await page.locator('[data-transactions-polling]').count()) === 0))
+    const ys = y?.body?.data?.summary
+    const all = await txAllRows(code, `&day=${yesterday}`)
+    check(`transactions ${code}: yesterday reads whole, page by page`, ok(all.first) && all.rows.length === all.first.body.data.items.total,
+      `${all.rows.length} of ${all.first?.body?.data?.items?.total}`)
+    txRowChecks(`transactions ${code} yesterday`, yesterday, all.rows)
+    const want = txFigures(all.rows)
+    check(`transactions ${code}: yesterday's rows add up to its summary`,
+      ['sales', 'returns', 'notYet', 'mismatches', 'lastCompletedAt'].every((k) => ys?.[k] === want[k]) && round3(ys?.total ?? NaN) === want.total,
+      `door ${JSON.stringify(ys)} vs rows ${JSON.stringify(want)}`)
+    // OWNER walk: "yesterday's notYet rows equal the Agreement tab's missingAtCounter gaps for that day".
+    const ag = await direct(`ActionSync/Store/Agreement?code=${encodeURIComponent(code)}&day=${yesterday}`)
+    const judged = (ag?.body?.data?.days ?? []).find((x) => x.businessDay === yesterday)
+    if (!judged) {
+      skip(`transactions ${code}: yesterday's notYet = its missingAtCounter`, `${yesterday} is not judged (${why(ag)})`)
+    } else {
+      check(`transactions ${code}: yesterday's notYet = the Agreement tab's missingAtCounter`, ys?.notYet === judged.missingAtCounter,
+        `${ys?.notYet} vs ${judged.missingAtCounter} (judged at ${judged.judgedAt}; a recheck since can move it)`)
+      const gapsAt = (ag?.body?.data?.gaps?.items ?? []).filter((x) => x.kind === 'missingAtCounter').map((x) => x.receiptNumber).sort()
+      const notYetAt = all.rows.filter((r) => r.counter === 'notYet').map((r) => r.receiptNumber).sort()
+      if ((ag?.body?.data?.gaps?.total ?? 0) <= (ag?.body?.data?.gaps?.items?.length ?? 0)) {
+        check(`transactions ${code}: …the same receipts`, JSON.stringify(gapsAt) === JSON.stringify(notYetAt), `gaps [${gapsAt}] vs notYet [${notYetAt}]`)
+      }
+      console.log(`      ${yesterday}: notYet ${ys?.notYet} / missingAtCounter ${judged.missingAtCounter}; mismatches ${ys?.mismatches} / totalMismatches ${judged.totalMismatches}`)
+    }
+
+    // The filters, read straight off the door on yesterday (a closed day holds still).
+    const q = (rest) => direct(txPath(code, `&day=${yesterday}${rest}`))
+    for (const [flag, n] of [['notYet', ys?.notYet], ['mismatch', ys?.mismatches], ['arrived', (ys?.sales ?? 0) + (ys?.returns ?? 0) - (ys?.notYet ?? 0) - (ys?.mismatches ?? 0)]]) {
+      const f = await q(`&counter=${flag}`)
+      check(`transactions ${code}: counter=${flag} lists ${n}`, ok(f) && f.body.data.items.total === n && f.body.data.items.items.every((r) => r.counter === flag), why(f) + ` ${f?.body?.data?.items?.total}`)
+      check(`transactions ${code}: …and never narrows the summary`, JSON.stringify(f?.body?.data?.summary) === JSON.stringify(ys))
+    }
+    const sales = await q('&kind=sale')
+    check(`transactions ${code}: kind=sale lists sales only`, ok(sales) && sales.body.data.summary.returns === 0 && sales.body.data.items.items.every((r) => !r.isReturn), why(sales))
+    const returns = await q('&kind=RETURN')
+    check(`transactions ${code}: kind=RETURN (any case) lists returns only`, ok(returns) && returns.body.data.summary.sales === 0 && returns.body.data.items.items.every((r) => r.isReturn), why(returns))
+    const voided = await q('&status=voided')
+    check(`transactions ${code}: status=voided lists voided receipts only`, ok(voided) && voided.body.data.items.items.every((r) => r.status === 'VOIDED'), why(voided))
+    const every = await q('&status=all')
+    check(`transactions ${code}: status=all lists at least the completed ones`, ok(every) && every.body.data.items.total >= (y?.body?.data?.items?.total ?? 0), why(every))
+    check(`transactions ${code}: …and its notYet / mismatches still count COMPLETED only`,
+      every?.body?.data?.summary?.notYet === ys?.notYet && every?.body?.data?.summary?.mismatches === ys?.mismatches,
+      `${every?.body?.data?.summary?.notYet}/${every?.body?.data?.summary?.mismatches} vs ${ys?.notYet}/${ys?.mismatches}`)
+    console.log(`      ${yesterday}: ${y?.body?.data?.items?.total} completed, ${voided?.body?.data?.items?.total} voided`)
+
+    // The receipt search, through the page: exact, trimmed, the summary unnarrowed.
+    const pick = all.rows[0]
+    if (!pick) {
+      skip(`transactions ${code}: the receipt search`, `no receipt on ${yesterday}`)
+    } else {
+      await page.locator('[data-transactions-receipt]').fill(`  ${pick.receiptNumber} `)
+      since = answers.length
+      await page.locator('[data-transactions-receipt]').press('Enter')
+      const s = await waitAnswer('ActionSync/Store/Transactions', since, (x) => x.query.has('receipt'))
+      check(`transactions ${code}: a receipt search asks the trimmed number`, ok(s) && s.query.get('receipt') === pick.receiptNumber, why(s) + ` ${s?.query.get('receipt')}`)
+      check(`transactions ${code}: …and finds that receipt`, (s?.body?.data?.items?.items ?? []).some((r) => r.transactionId === pick.transactionId))
+      check(`transactions ${code}: …without narrowing the summary`, JSON.stringify(s?.body?.data?.summary) === JSON.stringify(ys))
+      check(`transactions ${code}: …and draws it`, await waitFor(async () => (await page.locator(`.ag-row[row-id="${pick.transactionId}"]`).count()) > 0, 15000))
+      await page.screenshot({ path: `${SHOTS}/transactions-${code}-search.png`, fullPage: true })
+      await page.locator('[data-transactions-clear]').click()
+    }
+
+    // Back on today, the tab re-reads itself within a minute (the OWNER watches a new sale arrive).
+    await page.locator('[data-transactions-day]').selectOption(today)
+    await waitAnswer('ActionSync/Store/Transactions', since, (x) => x.query.get('day') === today && !x.query.has('receipt'))
+    since = answers.length
+    let polled = null
+    for (let i = 0; i < 75 && !polled; i++) {
+      await page.waitForTimeout(1000)
+      polled = answerOf('ActionSync/Store/Transactions', since, (x) => x.query.get('day') === today)
+    }
+    check(`transactions ${code}: today is re-read within about a minute`, ok(polled), why(polled))
+    if (ok(polled)) console.log(`      re-read: ${polled.body.data.items.total} receipts (was ${d?.items?.total})`)
+  }
+
+  if (todo(INPUTS.wpfStoreCode)) {
+    skip('transactions (WPF)', 'wpfStoreCode is TODO')
+  } else {
+    const code = INPUTS.wpfStoreCode
+    const w = await direct(txPath(code))
+    check(`transactions ${code}: a WPF store answers available with no receipt`, ok(w) && w.body.data.available === true && w.body.data.items.total === 0, why(w))
+    const since = answers.length
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=transactions`)
+    check(`transactions ${code}: …and its tab says so, asking nothing`, await waitFor(async () => (await page.locator('[data-transactions-tab="wpf"]').count()) === 1, 20000) &&
+      !answerOf('ActionSync/Store/Transactions', since))
+  }
+}
+
 // ── The fleet-wide feeds: commands, audit, sync pending ──────────────────────────────────────────
 
 if (ONLY.includes('feeds')) {
@@ -587,6 +785,18 @@ if (ONLY.includes('refusals')) {
     ['today on the Agreement tab (outside D-1..D-7)', `ActionSync/Store/Agreement?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(0)}`, 400, 'BAD_DATE'],
     ['D-8 on the Agreement tab', `ActionSync/Store/Agreement?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(8)}`, 400, 'BAD_DATE'],
     ['an unknown store on the Agreement tab', 'ActionSync/Store/Agreement?code=ZZ%3F9', 404, 'NO_STORE'],
+    // 469: the Transactions door, and its refusal order BAD_PAGING → BAD_FILTER → BAD_DATE → NO_STORE.
+    ['a Transactions page size over 50', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&pageSize=51`, 400, 'BAD_PAGING'],
+    ['an unknown Transactions status', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&status=parked`, 400, 'BAD_FILTER'],
+    ['an unknown Transactions kind', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&kind=gift`, 400, 'BAD_FILTER'],
+    ['an unknown counter flag', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&counter=lost`, 400, 'BAD_FILTER'],
+    ['D-8 on the Transactions tab', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(8)}`, 400, 'BAD_DATE'],
+    ['tomorrow on the Transactions tab', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(-1)}`, 400, 'BAD_DATE'],
+    ['a malformed Transactions day', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&day=today`, 400, 'BAD_DATE'],
+    ['an unknown store on the Transactions tab', 'ActionSync/Store/Transactions?code=ZZ%3F9', 404, 'NO_STORE'],
+    ['…paging before the filter', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&pageSize=51&status=parked`, 400, 'BAD_PAGING'],
+    ['…the filter before the date', `ActionSync/Store/Transactions?code=${encodeURIComponent(INPUTS.storeCode)}&status=parked&day=${dayAgo(8)}`, 400, 'BAD_FILTER'],
+    ['…the date before the store', `ActionSync/Store/Transactions?code=ZZ%3F9&day=${dayAgo(8)}`, 400, 'BAD_DATE'],
   ]
   for (const [name, path, status, code] of cases) {
     if (/code=/.test(path) && todo(INPUTS.storeCode)) {
@@ -621,6 +831,23 @@ if (ONLY.includes('refusals')) {
     ]
     for (const [name, path, body, status, refusal] of posts) {
       const a = await directPost(path, body)
+      check(`refusals: ${name} is a ${status} ${refusal}`, refusedWith(a, status, refusal), why(a))
+    }
+  }
+  // 469: the snapshot door's refusals. A refusal serves nothing, so it writes no audit row.
+  if (!grants.canOperate) {
+    skip('refusals: the snapshot door', 'this session lacks canOperate')
+  } else if (todo(txCode)) {
+    skip('refusals: the snapshot door', 'transactionsStoreCode and the codes it falls back to are TODO')
+  } else {
+    // The Transactions store: NOT_FOUND needs a store the target knows.
+    const code = encodeURIComponent(txCode)
+    for (const [name, path, status, refusal] of [
+      ['a snapshot with a blank id', `ActionSync/Store/Transactions/Snapshot?code=${code}&transactionId=%20`, 400, 'BAD_REQUEST'],
+      ['a snapshot on an unknown store', 'ActionSync/Store/Transactions/Snapshot?code=ZZ%3F9&transactionId=00000000-0000-0000-0000-000000000000', 404, 'NO_STORE'],
+      ['a snapshot of no such receipt', `ActionSync/Store/Transactions/Snapshot?code=${code}&transactionId=00000000-0000-0000-0000-000000000000`, 404, 'NOT_FOUND'],
+    ]) {
+      const a = await direct(path)
       check(`refusals: ${name} is a ${status} ${refusal}`, refusedWith(a, status, refusal), why(a))
     }
   }
@@ -857,6 +1084,66 @@ if (ONLY.includes('recheck')) {
       }
       check(`recheck ${code}: …audited (an auditId, the sink is HQ)`, typeof a?.body?.data?.auditId === 'string', String(a?.body?.data?.auditId))
       await page.screenshot({ path: `${SHOTS}/agreement-recheck.png`, fullPage: true })
+    }
+  }
+}
+
+// ── --write: one receipt's View JSON, and its audit row (OWNER walk, 469) ────────────────────────
+// 🚩 The snapshot carries customer, loyalty and tender data: the drive checks its shape and prints
+// none of it.
+
+if (ONLY.includes('snapshot')) {
+  if (!grants.canOperate) {
+    skip('snapshot', 'this session lacks canOperate')
+  } else if (todo(txCode)) {
+    skip('snapshot', 'transactionsStoreCode, agreementStoreCode, mirrorStoreCode and storeCode are TODO')
+  } else {
+    const code = txCode
+    let since = answers.length
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=transactions`)
+    let list = await waitAnswer('ActionSync/Store/Transactions', since)
+    // No receipt yet today: yesterday's first.
+    if (ok(list) && list.body.data.items.items.length === 0) {
+      since = answers.length
+      await page.locator('[data-transactions-day]').selectOption(dayAgo(1))
+      list = await waitAnswer('ActionSync/Store/Transactions', since, (x) => x.query.get('day') === dayAgo(1))
+    }
+    const row = list?.body?.data?.items?.items?.[0]
+    if (!row) {
+      skip('snapshot', `${code} has no receipt today or yesterday`)
+    } else {
+      const view = page.locator(`[data-transaction-view="${row.transactionId}"]`).first()
+      await view.waitFor({ timeout: 15000 })
+      since = answers.length
+      await view.click()
+      const a = await waitAnswer('ActionSync/Store/Transactions/Snapshot', since)
+      check(`snapshot ${code}: View JSON reads the snapshot door`, ok(a), why(a))
+      check(`snapshot ${code}: …with the code and the transaction id`, a?.query.get('code') === code && a?.query.get('transactionId') === row.transactionId)
+      const s = a?.body?.data
+      shapeCheck(`snapshot ${code}: it carries the contract's keys`, s, KEYS.snapshot)
+      check(`snapshot ${code}: …for the receipt asked`, s?.receiptNumber === row.receiptNumber, `${s?.receiptNumber} vs ${row.receiptNumber}`)
+      check(`snapshot ${code}: …audited (an auditId)`, typeof s?.auditId === 'string' && s.auditId !== '', String(s?.auditId))
+      check(`snapshot ${code}: …loaded at local wall-clock`, TIME.test(s?.loadedAt ?? ''), s?.loadedAt)
+      check(`snapshot ${code}: …and the snapshot is an object`, !!s?.snapshot && typeof s.snapshot === 'object' && !Array.isArray(s.snapshot))
+      console.log(`      snapshot ${row.receiptNumber}: top-level keys [${Object.keys(s?.snapshot ?? {})}]`)
+      const drawer = page.locator(`dialog[data-snapshot-drawer="${row.transactionId}"]`)
+      check(`snapshot ${code}: the drawer opens, titled with the receipt`,
+        await waitFor(async () => strip(await drawer.locator('[data-snapshot-title]').innerText()) === row.receiptNumber, 15000))
+      check(`snapshot ${code}: …one section per top-level key`,
+        await waitFor(async () => (await drawer.locator('details[data-snapshot-section]').count()) === Object.keys(s?.snapshot ?? {}).length, 5000))
+      await page.screenshot({ path: `${SHOTS}/transactions-${code}-json.png` })
+      await drawer.locator('[data-snapshot-close]').click()
+      check(`snapshot ${code}: Close removes the drawer`, await waitFor(async () => (await page.locator('dialog[data-snapshot-drawer]').count()) === 0))
+
+      // OWNER walk: "the view appears in the audit feed".
+      since = answers.length
+      await page.goto(`${BASE}/admin/sync/audit`)
+      const feed = await waitAnswer('ActionSync/Audit', since)
+      const seen = (feed?.body?.data?.items ?? []).find((x) => x.id === s?.auditId) ??
+        (feed?.body?.data?.items ?? []).find((x) => x.action === 'TransactionSnapshotView' && JSON.stringify(x.codes ?? '').includes(code))
+      check(`snapshot ${code}: the view is in the audit feed as TransactionSnapshotView`, seen?.action === 'TransactionSnapshotView', JSON.stringify(seen ? { id: seen.id, action: seen.action, codes: seen.codes } : null))
+      check(`snapshot ${code}: …labelled in words, not the raw key`, await waitFor(async () => (await page.getByText('Viewed receipt JSON').count()) > 0, 15000))
+      await page.screenshot({ path: `${SHOTS}/audit-snapshot-view.png`, fullPage: true })
     }
   }
 }

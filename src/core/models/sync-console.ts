@@ -98,6 +98,8 @@ export type AuditAction =
   | 'MirrorRetry'
   | 'MirrorAcknowledge'
   | 'AgreementRecheck'
+  // Today's transactions (2586): one audited view of a receipt's snapshot (2589).
+  | 'TransactionSnapshotView'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -773,4 +775,80 @@ export interface AgreementRecheckResponse {
   /** `null` only on a sink split from HQ whose audit write failed after the verdict was written (2572). */
   auditId: string | null
   day: AgreementDay | null
+}
+
+// ── Today's transactions (spec 2586; tickets 467, 468) ───────────────────────────
+
+/** `Store/Transactions`' `status`: the door's default is `COMPLETED`, and `all` is a value it is sent, not its default. */
+export type TxStatusFilter = 'COMPLETED' | 'VOIDED' | 'all'
+
+/** `Store/Transactions`' `kind`; `all` is the door's default. */
+export type TxKindFilter = 'sale' | 'return' | 'all'
+
+/** A receipt on the counter rail, judged live with the rail-agreement judge's keys, signs and tolerance. */
+export type CounterFlag = 'arrived' | 'notYet' | 'mismatch'
+
+/** Every `TxStatusFilter`, in the contract's order. */
+export const TX_STATUS_FILTERS: readonly TxStatusFilter[] = ['COMPLETED', 'VOIDED', 'all']
+
+/** Every `TxKindFilter`, in the contract's order. */
+export const TX_KIND_FILTERS: readonly TxKindFilter[] = ['sale', 'return', 'all']
+
+/** Every `CounterFlag`, in the contract's order. */
+export const COUNTER_FLAGS: readonly CounterFlag[] = ['arrived', 'notYet', 'mismatch']
+
+/**
+ * One NewPos receipt as HQ's mirror holds it (2587). 🚩 The list never carries lines,
+ * tenders or customer data — that is the snapshot's (468), behind `ActionSync.Operate`.
+ */
+export interface StoreTransaction {
+  /** The key the snapshot door (468) is called with; not necessarily drawn. */
+  transactionId: string
+  receiptNumber: string
+  registerId: string
+  operatorId: string
+  /** The header's status as stored (`COMPLETED`, `VOIDED`). */
+  status: string
+  isReturn: boolean
+  /** Signed by the door (a return is negative, the judge's expression), 3 decimals. Never re-signed here. */
+  total: number
+  openedAt: string
+  completedAt: string
+  counter: CounterFlag
+  /** `null` when the receipt is `notYet` on the counter rail. */
+  counterTotal: number | null
+}
+
+/** The whole day's figures under the status and kind filters — never paged, never recomputed from a page. */
+export interface StoreTransactionsSummary {
+  sales: number
+  returns: number
+  /** Signed. */
+  total: number
+  lastCompletedAt: string | null
+  notYet: number
+  mismatches: number
+}
+
+/** `GET ActionSync/Store/Transactions?code=&day=&status=&kind=&counter=&receipt=&page=&pageSize=` (2587, 2588). */
+export interface StoreTransactions {
+  /** `false`: no `PosServer` connection, the sink unreachable, or a table missing. */
+  available: boolean
+  /** `yyyy-MM-dd`, the day the door served. */
+  day: string
+  summary: StoreTransactionsSummary
+  /** `CompletedAt` DESC, then `receiptNumber` DESC; `pageSize` ≤ 50. */
+  items: Paged<StoreTransaction>
+}
+
+/**
+ * `GET ActionSync/Store/Transactions/Snapshot?code=&transactionId=` (2589, `ActionSync.Operate`).
+ * Every served view is audited (`TransactionSnapshotView`). 🚩 Personal data: never logged, never stored.
+ */
+export interface StoreTransactionSnapshot {
+  auditId: string
+  receiptNumber: string
+  loadedAt: string
+  /** The engine's `PosTransactionSnapshot` as HQ's mirror holds it. */
+  snapshot: unknown
 }

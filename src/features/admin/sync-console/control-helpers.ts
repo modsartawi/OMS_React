@@ -243,6 +243,8 @@ const AUDIT_ACTIONS: Record<AuditAction, true> = {
   MirrorRetry: true,
   MirrorAcknowledge: true,
   AgreementRecheck: true,
+  // Today's transactions (spec 2586): a view of one receipt's snapshot is audited (2589).
+  TransactionSnapshotView: true,
 }
 
 /** An audit action's label key, or `null` for one this bundle does not know (show the raw code). */

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 444
 blocked-by: 467
 ---
@@ -28,12 +28,12 @@ UI → app (BackOffice door 2589, stubbed)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `snapshotSections(json)`: splits the top-level keys in order, and a non-object comes back as one section
+- [x] `snapshotSections(json)`: splits the top-level keys in order, and a non-object comes back as one section
   (vitest).
-- [ ] The audit label for `TransactionSnapshotView` (vitest, beside the existing audit-label tests).
-- [ ] Store drive: the action is hidden read-only. With Operate it opens the drawer, shows the JSON, Copy works,
+- [x] The audit label for `TransactionSnapshotView` (vitest, beside the existing audit-label tests).
+- [x] Store drive: the action is hidden read-only. With Operate it opens the drawer, shows the JSON, Copy works,
   and `NOT_FOUND` shows its words. Two opens make two requests.
-- [ ] Gates green.
+- [x] Gates green.
 
 ## Boundaries
 
@@ -48,3 +48,12 @@ The helpers and the drive sections are green.
 
 [467](467-the-store-page-s-transactions-tab-lists-a-day-s-newpos-receipts-with-their-counter-flag.md)
 (live: BackOffice 2589).
+
+## Comments
+
+**2026-10-11 — done (stubbed: BackOffice door 2589 unbuilt).**
+- Proof: vitest `snapshotSections` / `prettyJson` / `snapshotRefusal` in `transactions-helpers.test.ts`. The
+  `TransactionSnapshotView` label and its test came with 467 (`control-helpers.test.ts`). Store drive section 19:
+  283/283 on :5197. typecheck, lint, the full vitest run (4578) and build are green.
+- Rulings and review notes are in `.afk/HITL-468.md`. The open one: a codeless 500 cannot take `failureLabelKey`, so
+  it shows core's server sentence.

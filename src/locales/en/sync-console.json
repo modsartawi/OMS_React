@@ -210,7 +210,8 @@
     "location": "Location",
     "refresh": "Refresh",
     "mirror": "Mirror",
-    "agreement": "Agreement"
+    "agreement": "Agreement",
+    "transactions": "Transactions"
   },
   "counters": {
     "loading": "Loading counters…",
@@ -407,7 +408,8 @@
     "EditStore": "Edit store",
     "MirrorRetry": "Retry mirror dead letters",
     "MirrorAcknowledge": "Acknowledge mirror dead letters as lost",
-    "AgreementRecheck": "Recheck rail agreement"
+    "AgreementRecheck": "Recheck rail agreement",
+    "TransactionSnapshotView": "Viewed receipt JSON"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -846,6 +848,95 @@
         "BAD_DATE": "The day is outside the last seven finished business days",
         "BAD_REQUEST": "The recheck could not be read by the door"
       }
+    }
+  },
+  "transactionsTab": {
+    "wpf": "No NewPos receipts: this store is still synced by WPF, so the mirror rail holds no NewPos receipt for it.",
+    "unavailable": "The mirror is not reachable or not set up, so no receipt can be listed.",
+    "loading": "Loading the receipts…",
+    "failed": "The receipts could not be loaded.",
+    "empty": "No receipt on this day matches.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "note": "Receipts as HQ's mirror rail holds them, by the day they were completed. The counter flag is checked live against the counter rail.",
+    "day": {
+      "label": "Day",
+      "today": "Today ({{day}})",
+      "polling": "Re-read every minute while today is shown"
+    },
+    "summary": {
+      "title": "Receipts on <d>{{day}}</d>",
+      "label": "The day's receipts at a glance",
+      "sales": "Sales",
+      "returns": "Returns",
+      "total": "Signed total",
+      "lastCompletedAt": "Last completed",
+      "noneYet": "None yet",
+      "notYet": "Not yet on the counter rail",
+      "mismatches": "Totals differ from the counter rail"
+    },
+    "filters": {
+      "status": "Status",
+      "kind": "Kind",
+      "counter": "Counter rail",
+      "allFlags": "Every flag",
+      "statuses": {
+        "COMPLETED": "Completed",
+        "VOIDED": "Voided",
+        "all": "All"
+      },
+      "kinds": {
+        "sale": "Sales",
+        "return": "Returns",
+        "all": "Sales and returns"
+      },
+      "receipt": "Receipt number",
+      "receiptPlaceholder": "Exact receipt number",
+      "search": "Search",
+      "clear": "Clear search"
+    },
+    "columns": {
+      "receiptNumber": "Receipt",
+      "registerId": "Register",
+      "operatorId": "Operator",
+      "status": "Status",
+      "kind": "Sale or return",
+      "total": "Signed total",
+      "openedAt": "Opened",
+      "completedAt": "Completed",
+      "counter": "Counter rail",
+      "view": "JSON"
+    },
+    "statuses": {
+      "COMPLETED": "Completed",
+      "VOIDED": "Voided"
+    },
+    "kinds": {
+      "sale": "Sale",
+      "return": "Return"
+    },
+    "counter": {
+      "flags": {
+        "arrived": "Arrived",
+        "notYet": "Not yet",
+        "mismatch": "Totals differ"
+      },
+      "tip": "Counter rail total {{total}}",
+      "tipNotYet": "Not on the counter rail yet, so it has no counter total"
+    },
+    "snapshot": {
+      "view": "View JSON",
+      "viewLabel": "View the JSON of receipt {{receipt}}",
+      "eyebrow": "Receipt JSON",
+      "close": "Close",
+      "loading": "Loading the receipt's JSON…",
+      "failed": "The receipt's JSON could not be loaded.",
+      "notFound": "This receipt is no longer on the mirror for this store",
+      "loadedAt": "Loaded at <t>{{at}}</t>",
+      "note": "This is HQ's applied copy of the receipt on the mirror rail, not the till's raw message.",
+      "copy": "Copy JSON",
+      "copied": "The receipt's JSON was copied.",
+      "copyFailed": "The JSON could not be copied to the clipboard.",
+      "sections": "The receipt's JSON, by top-level key"
     }
   }
 }

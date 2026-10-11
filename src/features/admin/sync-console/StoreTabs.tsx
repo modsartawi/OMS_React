@@ -13,11 +13,13 @@ import LocationTab from './LocationTab'
 import MirrorTab from './MirrorTab'
 import PassesTab from './PassesTab'
 import ScriptsTab from './ScriptsTab'
+import TransactionsTab from './TransactionsTab'
 
 /**
  * The store page's tabs (ticket 446): Counters, Passes, Commands, Scripts, Audit and
- * Location, then Mirror (spec 2563, ticket 457) and Agreement (459) — or Counters,
- * Passes, Mirror and Agreement on a WPF store (`storeTabs`).
+ * Location, then Mirror (spec 2563, ticket 457), Agreement (459) and Transactions (spec
+ * 2586, ticket 467) — or Counters, Passes, Mirror, Agreement and Transactions on a WPF
+ * store (`storeTabs`).
  *
  * The Loy member's tab shell is the precedent: `?tab=` is the open tab (an unknown or
  * withheld one falls back to the first), switching REPLACES the history entry, and
@@ -94,6 +96,8 @@ export default function StoreTabs({ row }: { row: StoreDetail }) {
           <MirrorTab row={row} />
         ) : open === 'agreement' ? (
           <AgreementTab row={row} />
+        ) : open === 'transactions' ? (
+          <TransactionsTab row={row} />
         ) : (
           <CommandsTab code={row.code} />
         )}

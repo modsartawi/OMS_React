@@ -10,9 +10,10 @@
  * them door by door (ticket 450). The stubbed drives (`tools/sync-console-*-drive.mjs`)
  * stay the screens' regression; `tools/sync-console-live-drive.mjs` is their live twin.
  *
- * Spec 2563 (ticket 456) added the mirror lane to five of these reads. Until its doors
- * ship, each of those reads fills a member an older door leaves out (`./wire`), so the
- * console keeps working against the doors it meets today.
+ * Spec 2563 (ticket 456) added the mirror lane to five of these reads. Its doors are built
+ * (BackOffice 2564–2572) and were checked against the client in ticket 460; each of those
+ * reads still fills a member an older door leaves out (`./wire`), so the console keeps
+ * working on a host not yet redeployed.
  */
 import { api, apiErrorCode } from '@/core/api'
 import type {
@@ -207,7 +208,8 @@ export const syncConsoleApi = {
 
   /**
    * `POST ActionSync/Agreement/Recheck` (ticket 459) — one store, one listed day, one
-   * audit row. `day: null` in the answer = no NewPos receipt that day, its verdict removed.
+   * audit row. `day: null` in the answer = no NewPos receipt that day (its verdict removed),
+   * or a sink that cannot be judged (nothing removed).
    * A refusal (`BAD_REQUEST`, `REASON_REQUIRED`, `BAD_DATE`, `NO_STORE`) throws.
    */
   recheckAgreement(body: AgreementRecheckRequest): Promise<AgreementRecheckResponse> {

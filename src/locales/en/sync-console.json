@@ -841,7 +841,7 @@
       "note": "The day is judged again now, from both rails, and its gaps are replaced by what the check finds. A day with no NewPos receipt is removed.",
       "agrees": "Rechecked {{day}}: the rails agree.",
       "disagrees": "Rechecked {{day}}: the rails still disagree.",
-      "removed": "Rechecked {{day}}: no NewPos receipt that day, so its verdict was removed.",
+      "noVerdict": "Rechecked {{day}}: no verdict came back. Either the day had no NewPos receipt and its verdict was removed, or the rails could not be read.",
       "refusals": {
         "BAD_DATE": "The day is outside the last seven finished business days",
         "BAD_REQUEST": "The recheck could not be read by the door"

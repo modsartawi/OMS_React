@@ -927,7 +927,7 @@ const allGaps = 'ActionSync/Store/Agreement?code=P006&page=1&pageSize=50'
   await page.locator('[data-agreement-recheck="2026-10-04"]').click()
   await page.locator('[data-reason-input]').fill('Store reported no NewPos sale that day')
   await page.locator('[data-reason-confirm]').click()
-  check('14. a null answer: one toast, the verdict removed', /no NewPos receipt that day, so its verdict was removed/.test(await toastText(page, /verdict was removed/)))
+  check('14. a null answer: one toast naming both meanings of no verdict', /no verdict came back\. Either the day had no NewPos receipt and its verdict was removed, or the rails could not be read/.test(await toastText(page, /no verdict came back/)))
   await page.locator('[data-agreement-day="2026-10-04"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
   check('14. …and the day is removed from the list', JSON.stringify(await dayOrder(page)) === '["2026-10-08","2026-10-07","2026-10-06"]', JSON.stringify(await dayOrder(page)))
   check('14. …and the gaps go back to every day', (await page.locator('[data-agreement-gaps=""]').count()) === 1 && (await page.locator('[data-agreement-all-days]').count()) === 0)

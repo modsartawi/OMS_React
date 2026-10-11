@@ -1,5 +1,5 @@
 {
-  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. The read codes P001/P002 were picked 2026-10-10 from the LOCAL POS_Server; the write and re-push stores stay TODO in the repo on purpose, so a run pointed at staging never writes to a store nobody chose for it (locally P134 was used).",
+  "_comment": "Real values for tools/sync-console-live-drive.mjs (ticket 450). A TODO value SKIPs its checks, and a SKIP is not green. The write sections run only with --write, and only on the TEST stores named here: never a store that trades. The read codes P001/P002 were picked 2026-10-10 from the LOCAL POS_Server; the write and re-push stores stay TODO in the repo on purpose, so a run pointed at staging never writes to a store nobody chose for it (locally P134 was used). Ticket 460 added the mirror and agreement inputs (the read code P624 picked 2026-10-11 from the LOCAL POS_Server: a NewPos store on the mirror with judged days); the --write ones (two seeded dead letters, a repaired store-day) stay TODO for the same reason.",
   "storeCode": "P001",
   "wpfStoreCode": "P002",
   "testStoreOnWpf": "TODO: a TEST store on WPF that may be moved to the worker and handed back (--write)",
@@ -17,5 +17,11 @@
     "templateStore": "TODO: the store master whose payment types are copied (P001 on the stubs)",
     "templateLocation": "TODO: the sync location copied for step 2 (P001 or C011)"
   },
+  "mirrorStoreCode": "P624",
+  "agreementStoreCode": "P624",
+  "retryDeadLetter": "TODO: --write: a SEEDED apply-stage dead letter of mirrorStoreCode, as its row id 'apply-<id>', that will apply once retried",
+  "acknowledgeDeadLetter": "TODO: --write: another SEEDED dead letter of mirrorStoreCode, as 'apply-<id>' or 'pull-<id>', to acknowledge as lost",
+  "recheckStoreCode": "TODO: --write: the store whose repaired day is rechecked (locally P624 was used)",
+  "recheckDay": "TODO: --write: that day, yyyy-MM-dd, within D-1..D-7 and listed on its Agreement tab",
   "reason": "Ticket 450 live drive"
 }

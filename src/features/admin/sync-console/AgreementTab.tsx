@@ -92,7 +92,10 @@ function AgreementLists({ row }: { row: StoreDetail }) {
         old ? { ...old, days: applyRecheck(old.days, d, data.day) } : old,
       )
       const at = fsi(d)
-      if (data.day === null) notify.success(t('agreementTab.recheck.removed', { day: at }))
+      // `null` is two answers the wire does not tell apart (2572): no NewPos receipt that day (its
+      // verdict removed), or a sink that cannot be judged (nothing removed). Neutral words for both;
+      // the re-read below restores a day the cache dropped for the second.
+      if (data.day === null) notify.info(t('agreementTab.recheck.noVerdict', { day: at }))
       else if (data.day.agrees) notify.success(t('agreementTab.recheck.agrees', { day: at }))
       else notify.warn(t('agreementTab.recheck.disagrees', { day: at }))
       // The store's reads (the gaps and the header's agreement among them), the fleet and the audit feed.

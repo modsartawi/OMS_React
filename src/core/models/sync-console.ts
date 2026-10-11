@@ -717,7 +717,8 @@ export interface DeadLetterActionResult {
 }
 
 export interface DeadLetterActionResponse {
-  auditId: string
+  /** `null` only on a sink split from HQ whose audit write failed after the rows were written (2569). */
+  auditId: string | null
   results: DeadLetterActionResult[]
 }
 
@@ -763,8 +764,13 @@ export interface AgreementRecheckRequest {
   reason: string
 }
 
-/** `day: null` = no NewPos receipt that day; any previous verdict for it is removed. */
+/**
+ * `day: null` = no NewPos receipt that day (any previous verdict for it is removed), OR a sink
+ * that cannot be judged (no agreement or sales tables; nothing removed). The wire does not
+ * tell the two apart (2572).
+ */
 export interface AgreementRecheckResponse {
-  auditId: string
+  /** `null` only on a sink split from HQ whose audit write failed after the verdict was written (2572). */
+  auditId: string | null
   day: AgreementDay | null
 }

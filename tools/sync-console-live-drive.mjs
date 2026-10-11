@@ -1,4 +1,9 @@
-// Sync console LIVE drive (ticket 450, spec 444) — the console against the REAL ActionSync doors.
+// Sync console LIVE drive (tickets 450 and 460, spec 444) — the console against the REAL ActionSync doors.
+//
+// Ticket 460 (BackOffice spec 2563) added the mirror rail and rail agreement: the lane on every store
+// row, the mirror workers, the Mirror line of the strip and the last hour, the Mirror and Agreement
+// tabs, and their refusals. With --write it also retries one dead letter, acknowledges another and
+// rechecks one store-day — each named by the inputs, never picked by the drive.
 //
 // The five stubbed drives (tools/sync-console-{fleet,store,controls,commands,onboard}-drive.mjs) stay
 // the regression for the screens' behaviour: they pin fixture values and timings no real fleet holds.
@@ -16,12 +21,13 @@
 //   2. sign in one of two ways, the secret never in the repo:
 //        SIS_USER=<id> SIS_PASS=<pw>   — POST Auth/Login through the proxy
 //        SIS_COOKIE=<sis_session>      — a cookie copied from a browser session
-//   3. DRIVE_PORT=5250 node tools/sync-console-live-drive.mjs [--only fleet,store,feeds,refusals,repush] [--write]
+//   3. DRIVE_PORT=5250 node tools/sync-console-live-drive.mjs [--only fleet,store,mirror,agreement,feeds,refusals,repush] [--write]
 //
 // Without --write the drive writes NOTHING: reads, refusals that write nothing, and a re-push PREVIEW.
 // With --write it also runs the owner walk's writes, on the TEST stores the inputs name only:
 // Move to worker → pending → applied → Hand back, a connection test, and a store onboarded through
-// both steps. It never confirms a re-push.
+// both steps; and (460) a retry and an acknowledgement of the dead letters the inputs name, and a
+// recheck of the store-day they name. It never confirms a re-push.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -33,8 +39,8 @@ mkdirSync(SHOTS, { recursive: true })
 
 const argv = process.argv.slice(2)
 const onlyAt = argv.indexOf('--only')
-const READS = ['fleet', 'store', 'feeds', 'refusals', 'repush']
-const WRITES = ['control', 'test', 'onboard']
+const READS = ['fleet', 'store', 'mirror', 'agreement', 'feeds', 'refusals', 'repush']
+const WRITES = ['control', 'test', 'onboard', 'deadletters', 'recheck']
 const WRITE = argv.includes('--write')
 const ONLY = onlyAt === -1 ? [...READS, ...(WRITE ? WRITES : [])] : (argv[onlyAt + 1] ?? '').split(',').filter(Boolean)
 const blocked = ONLY.filter((s) => WRITES.includes(s) && !WRITE)
@@ -69,21 +75,55 @@ const LOOP = ['lastPassAt', 'lastPassOutcome', 'lastErrorAt', 'lastError']
 const STORE_ROW = [
   'code', 'description', 'host', 'isPaused', 'controlPending', 'states', 'lastConnectOkAt', 'lastConnectFailAt',
   'lastConnectError', 'backoffUntil', 'push', 'pull', 'pendingActions', 'oldestPendingActionAt', 'lastTrxPulledAt',
-  'healthUpdatedAt',
+  'healthUpdatedAt', 'mirror', 'agreement',
+]
+const MIRROR_LANE = [
+  'onMirror', 'lastPullAt', 'lastPullOkAt', 'lastConnectOkAt', 'lastConnectFailAt', 'lastConnectError', 'tillBacklogCount',
+  'tillBacklogOldestAt', 'inboxPending', 'inboxDeferred', 'oldestDeferredAt', 'openDeadLetters',
+]
+const AGREEMENT_DAY = [
+  'businessDay', 'judgedAt', 'agrees', 'mirrorCount', 'counterCount', 'mirrorTotal', 'counterTotal', 'missingAtCounter',
+  'missingAtMirror', 'totalMismatches',
 ]
 const PAGED = ['items', 'total', 'page', 'pageSize']
-const HOUR_TOTALS = ['hour', 'pushPasses', 'pullPasses', 'connectFailures', 'chunksPushed', 'actionsPushed', 'trxPulled', 'errors']
+const HOUR_TOTALS = [
+  'hour', 'pushPasses', 'pullPasses', 'connectFailures', 'chunksPushed', 'actionsPushed', 'trxPulled', 'errors',
+  'mirrorSweeps', 'mirrorConnectFailures', 'mirrorPulled', 'mirrorApplied', 'mirrorDeferred', 'mirrorDeadLettered',
+]
 const KEYS = {
-  access: ['screenAllowed', 'canOperate', 'canOnboard'],
-  worker: ['instance', 'version', 'gateOn', 'pushWidth', 'pullWidth', 'pushInFlight', 'pullInFlight', 'lastFlushAt', 'isStale', 'settings'],
+  // canEnrol is the enrolment doors' (BackOffice 2558); the console does not read it yet.
+  access: ['screenAllowed', 'canOperate', 'canOnboard', 'canEnrol'],
+  worker: ['rail', 'instance', 'version', 'gateOn', 'pushWidth', 'pullWidth', 'pushInFlight', 'pullInFlight', 'lastFlushAt', 'isStale', 'settings'],
+  mirrorWorker: [
+    'rail', 'instance', 'version', 'startedAt', 'lastTickAt', 'lastTickOutcome', 'lastTickMessage', 'inboxPending',
+    'backpressureThreshold', 'isStale', 'settings',
+  ],
   summary: ['asOf', 'total', 'counts'],
-  counts: ['all', 'onWorker', 'onWpf', 'paused', 'offline', 'behind', 'erroring', 'controlPending'],
+  counts: [
+    'all', 'onWorker', 'onWpf', 'paused', 'offline', 'behind', 'erroring', 'controlPending',
+    'mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong', 'railsDisagree',
+  ],
   lastHour: ['current', 'previous'],
   hourTotals: HOUR_TOTALS,
   storeRow: STORE_ROW,
   loop: LOOP,
+  mirrorLane: MIRROR_LANE,
   store: [...STORE_ROW, 'controlVersion', 'appliedVersion', 'appliedAt'],
-  hour: ['hour', 'cell', 'pushPasses', 'pullPasses', 'connectFailures', 'actionsPushed', 'trxPulled', 'errors'],
+  hour: ['hour', 'cell', 'pushPasses', 'pullPasses', 'connectFailures', 'actionsPushed', 'trxPulled', 'errors', 'mirror'],
+  mirrorHour: ['cell', 'sweeps', 'connectFailures', 'rowsPulled', 'applied', 'deferred', 'errored', 'deadLettered'],
+  storeMirror: ['lane', 'byEntityType', 'deadLetters'],
+  entityCounts: ['entityType', 'pending', 'deferred', 'deadLetters'],
+  // 🚩 No payload: a dead letter that carried one would be drift, and this list is what catches it.
+  deadLetter: [
+    'id', 'stage', 'reason', 'entityType', 'entityId', 'action', 'attempts', 'firstSeenAt', 'lastSeenAt', 'error', 'canRetry',
+    'acknowledgedAt', 'acknowledgedBy', 'acknowledgeReason',
+  ],
+  deadLetterAction: ['auditId', 'results'],
+  deadLetterResult: ['stage', 'id', 'ok', 'error'],
+  storeAgreement: ['days', 'gaps'],
+  agreementDay: AGREEMENT_DAY,
+  agreementGap: ['businessDay', 'receiptNumber', 'kind', 'mirrorTotal', 'counterTotal'],
+  recheck: ['auditId', 'day'],
   counter: ['objectId', 'bound', 'lineNumber', 'counter', 'logHead', 'lag', 'oldestPendingAt'],
   pass: ['processId', 'loop', 'startOn', 'finishOn', 'status', 'actionsCount', 'errorMessage'],
   passLine: ['lineNumber', 'objectId', 'identifiers', 'actionType', 'counter', 'lineStatus', 'startOn', 'finishOn', 'errorMessage'],
@@ -102,6 +142,16 @@ const KEYS = {
   onboardResult: ['code', 'storeCreated', 'storeSkipped', 'locationCreated', 'ok', 'error', 'warning'],
 }
 const STATES = KEYS.counts.slice(1)
+const MIRROR_STATES = ['mirrorOffline', 'mirrorBehind', 'deadLetters', 'deferredTooLong']
+const AGREEMENTS = ['agree', 'disagree', 'notJudged']
+const TICK_OUTCOMES = ['Swept', 'Applied', 'SkippedLockHeld', 'SkippedBackpressure', 'Faulted', 'None']
+const HOUR_CELLS = ['work', 'idle', 'passErrors', 'connectFailOnly', 'noData']
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+/** `yyyy-MM-dd` of today minus `n` days, local — the agreement window is D-1..D-7. */
+const dayAgo = (n) => {
+  const d = new Date(Date.now() - n * 86400_000)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
 
 /** The keys an object carries that the contract does not, and the contract's keys it lacks. */
@@ -195,6 +245,11 @@ async function direct(path) {
   const res = await context.request.get(`${BASE}/api/${path}`, { headers: { 'X-Web-Client': '1' } })
   return { status: res.status(), body: await res.json().catch(() => null) }
 }
+/** A write door posted straight off the proxy — only for refusals that write nothing. */
+async function directPost(path, data) {
+  const res = await context.request.post(`${BASE}/api/${path}`, { headers: { 'X-Web-Client': '1', 'Content-Type': 'application/json' }, data })
+  return { status: res.status(), body: await res.json().catch(() => null) }
+}
 const refusedWith = (a, status, code) => a.status === status && a.body?.success === false && a.body?.errors?.[0]?.errorCode === code
 
 /** Opens a control's reason dialog, gives the reason and confirms it. */
@@ -216,7 +271,7 @@ await page.goto(`${BASE}/admin/sync`)
 const probe = await waitAnswer('ActionSync/Access', 0)
 check('access: ActionSync/Access answers', ok(probe), why(probe))
 const grants = probe?.body?.data ?? {}
-shapeCheck('access: exactly the three flags', grants, KEYS.access)
+shapeCheck('access: exactly the four flags', grants, KEYS.access)
 console.log(`      this session: ${JSON.stringify(grants)}`)
 await page.locator('nav a[href="/admin/sync"]').first().waitFor({ timeout: 20000 }).catch(() => {})
 check(`access: the menu ${grants.screenAllowed ? 'offers' : 'hides'} the Store sync leaf`,
@@ -238,8 +293,19 @@ if (ONLY.includes('fleet')) {
     check(`fleet: ActionSync/${name} answers`, ok(a), why(a))
   }
   shapeCheck('fleet: Workers is { items }', workers?.body?.data, ['items'])
-  firstShape('fleet: a worker carries the contract\'s keys', workers?.body?.data?.items, KEYS.worker)
-  const w = workers?.body?.data?.items ?? []
+  const allWorkers = workers?.body?.data?.items ?? []
+  check('fleet: every worker names its rail', allWorkers.every((x) => ['store', 'mirrorPull', 'mirrorApply'].includes(x.rail)),
+    allWorkers.map((x) => x.rail).join())
+  const w = allWorkers.filter((x) => x.rail === 'store')
+  const mw = allWorkers.filter((x) => x.rail === 'mirrorPull' || x.rail === 'mirrorApply')
+  firstShape('fleet: a store worker carries the contract\'s keys', w, KEYS.worker)
+  // OWNER walk (460): the mirror workers show; none is a failure only where the host runs no mirror.
+  firstShape('fleet: a mirror worker carries the contract\'s keys', mw, KEYS.mirrorWorker)
+  check('fleet: a mirror worker\'s tick outcome is the contract\'s', mw.every((x) => TICK_OUTCOMES.includes(x.lastTickOutcome)))
+  check('fleet: …its times are local wall-clock', mw.every((x) => timesOk(x, ['startedAt', 'lastTickAt'])))
+  console.log(`      mirror workers: ${mw.map((x) => `${x.rail}@${x.instance} ${x.lastTickOutcome} at ${x.lastTickAt} stale=${x.isStale}`).join(' · ') || 'none'}`)
+  check('fleet: the card draws one block per mirror worker',
+    await waitFor(async () => (await page.locator('[data-mirror-worker]').count()) === mw.length), `${mw.length}`)
   console.log(`      workers: ${w.map((x) => `${x.instance} v${x.version} gate=${x.gateOn} stale=${x.isStale}`).join(' · ') || 'none'}`)
   check('fleet: the worker card draws, with a banner exactly when no worker is fresh',
     (await page.locator('[data-worker-card]').count()) === 1 &&
@@ -261,11 +327,28 @@ if (ONLY.includes('fleet')) {
   const lh = lastHour?.body?.data
   shapeCheck('fleet: Fleet/LastHour is { current, previous }', lh, KEYS.lastHour)
   shapeCheck('fleet: an hour\'s totals carry the contract\'s keys', lh?.current, KEYS.hourTotals)
+  console.log(`      mirror last hour: ${KEYS.hourTotals.filter((k) => k.startsWith('mirror')).map((k) => `${k}=${lh?.current?.[k]}`).join(' ')}`)
 
   const f = fleet?.body?.data
   shapeCheck('fleet: Fleet is paged', f, PAGED)
   firstShape('fleet: a store row carries the contract\'s keys', f?.items, KEYS.storeRow)
   firstShape('fleet: …and its push loop the LoopHealth keys', f?.items?.map((r) => r.push), KEYS.loop)
+  firstShape('fleet: …and its mirror lane the MirrorLane keys', f?.items?.map((r) => r.mirror), KEYS.mirrorLane)
+  const rows = f?.items ?? []
+  check('fleet: a row\'s agreement is the contract\'s', rows.every((r) => AGREEMENTS.includes(r.agreement)), [...new Set(rows.map((r) => r.agreement))].join())
+  check('fleet: railsDisagree is drawn exactly where the agreement is disagree',
+    rows.every((r) => r.states.includes('railsDisagree') === (r.agreement === 'disagree')))
+  check('fleet: a store off the mirror has an empty lane and no mirror state',
+    rows.filter((r) => !r.mirror.onMirror).every((r) =>
+      r.mirror.tillBacklogCount === null && r.mirror.inboxPending === 0 && r.mirror.openDeadLetters === 0 &&
+      !r.states.some((x) => MIRROR_STATES.includes(x))))
+  check('fleet: deadLetters is drawn exactly where the lane counts open dead letters',
+    rows.every((r) => r.states.includes('deadLetters') === (r.mirror.openDeadLetters > 0)))
+  check('fleet: a lane\'s times are local wall-clock (the till clock too)',
+    rows.every((r) => timesOk(r.mirror, ['lastPullAt', 'lastPullOkAt', 'lastConnectOkAt', 'lastConnectFailAt', 'tillBacklogOldestAt', 'oldestDeferredAt'])))
+  const onMirror = rows.filter((r) => r.mirror.onMirror)
+  console.log(`      on the mirror (this page): ${onMirror.length} of ${rows.length}; red lanes: ${
+    onMirror.filter((r) => r.states.some((x) => ['mirrorOffline', 'deadLetters'].includes(x))).map((r) => `${r.code} [${r.states.filter((x) => MIRROR_STATES.includes(x))}]`).join(', ') || 'none'}`)
   check('fleet: rows only carry known states', (f?.items ?? []).every((r) => r.states.every((x) => STATES.includes(x))))
   check('fleet: a WPF row has no health row', (f?.items ?? []).filter((r) => r.host === 'Wpf').every((r) => r.healthUpdatedAt === null && r.pendingActions === 0 && r.states.includes('onWpf')))
   const first = f?.items?.[0]
@@ -275,7 +358,7 @@ if (ONLY.includes('fleet')) {
   await page.screenshot({ path: `${SHOTS}/fleet.png`, fullPage: true })
 
   // Each tile filters to exactly its count (one tile; AND of several is the stub drive's).
-  for (const tile of ['onWorker', 'onWpf']) {
+  for (const tile of ['onWorker', 'onWpf', 'deadLetters', 'railsDisagree']) {
     const before = answers.length
     await page.locator(`[data-tile="${tile}"]`).click()
     const a = await waitAnswer('ActionSync/Fleet', before, (x) => x.query.getAll('state').join() === tile)
@@ -297,6 +380,7 @@ if (ONLY.includes('store')) {
     check(`store ${code}: ActionSync/Store answers`, ok(header), why(header))
     shapeCheck(`store ${code}: the header carries the row + control versions`, header?.body?.data, KEYS.store)
     const h = header?.body?.data
+    shapeCheck(`store ${code}: …and its mirror lane the MirrorLane keys`, h?.mirror, KEYS.mirrorLane)
     // A WPF store gets the reduced view (no strip, no Scripts or Location tab): its doors are read directly.
     const wpf = h?.host === 'Wpf'
     const q = `code=${encodeURIComponent(code)}`
@@ -308,8 +392,12 @@ if (ONLY.includes('store')) {
     firstShape(`store ${code}: an hour carries the contract's keys`, hours?.body?.data?.items, KEYS.hour)
     const hs = hours?.body?.data?.items ?? []
     check(`store ${code}: …oldest first`, hs.every((x, i) => i === 0 || hs[i - 1].hour < x.hour))
+    firstShape(`store ${code}: an hour's Mirror line carries the contract's keys`, hs.map((x) => x.mirror), KEYS.mirrorHour)
+    check(`store ${code}: …its cells are the contract's`, hs.every((x) => HOUR_CELLS.includes(x.mirror?.cell)))
+    if (!h?.mirror?.onMirror) check(`store ${code}: a store off the mirror has an empty Mirror line`, hs.every((x) => x.mirror?.cell === 'noData'))
     if (wpf) check(`store ${code}: a WPF store draws no strip`, (await page.locator('[data-hour-cell]').count()) === 0)
     else check(`store ${code}: the strip draws 24 cells`, await waitFor(async () => (await page.locator('[data-hour-cell]').count()) === 24))
+    if (h?.mirror?.onMirror) check(`store ${code}: …and a Mirror line of 24`, await waitFor(async () => (await page.locator('[data-mirror-hour-cell]').count()) === 24))
 
     const counters = await waitAnswer('ActionSync/Store/Counters', since)
     check(`store ${code}: Store/Counters answers`, ok(counters), why(counters))
@@ -362,6 +450,102 @@ if (ONLY.includes('store')) {
   }
 }
 
+// ── The Mirror tab: the lane, the inbox by entity type, the dead letters (460) ───────────────────
+
+const mirrorCode = todo(INPUTS.mirrorStoreCode) ? INPUTS.storeCode : INPUTS.mirrorStoreCode
+
+if (ONLY.includes('mirror')) {
+  if (todo(mirrorCode)) {
+    skip('mirror', 'mirrorStoreCode and storeCode are TODO')
+  } else {
+    const code = mirrorCode
+    const since = answers.length
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=mirror`)
+    const a = await waitAnswer('ActionSync/Store/Mirror', since)
+    check(`mirror ${code}: Store/Mirror answers`, ok(a), why(a))
+    const m = a?.body?.data
+    shapeCheck(`mirror ${code}: it carries lane, byEntityType, deadLetters`, m, KEYS.storeMirror)
+    shapeCheck(`mirror ${code}: the lane carries the MirrorLane keys`, m?.lane, KEYS.mirrorLane)
+    firstShape(`mirror ${code}: an entity type's counts carry the contract's keys`, m?.byEntityType, KEYS.entityCounts)
+    shapeCheck(`mirror ${code}: the dead letters are paged`, m?.deadLetters, PAGED)
+    const dl = m?.deadLetters?.items ?? []
+    firstShape(`mirror ${code}: a dead letter carries exactly the contract's keys — no payload`, dl, KEYS.deadLetter)
+    check(`mirror ${code}: open only by default (no acknowledged row)`, dl.every((x) => x.acknowledgedAt === null))
+    check(`mirror ${code}: canRetry = apply stage and unacknowledged`, dl.every((x) => x.canRetry === (x.stage === 'apply' && x.acknowledgedAt === null)))
+    check(`mirror ${code}: a pull-stage row has no action`, dl.filter((x) => x.stage === 'pull').every((x) => x.action === null))
+    check(`mirror ${code}: newest last seen first`, dl.every((x, i) => i === 0 || (dl[i - 1].lastSeenAt ?? '') >= (x.lastSeenAt ?? '')))
+    check(`mirror ${code}: its times are local wall-clock`, dl.every((x) => timesOk(x, ['firstSeenAt', 'lastSeenAt', 'acknowledgedAt'])))
+    check(`mirror ${code}: the lane counts every open dead letter the list holds`, (m?.lane?.openDeadLetters ?? -1) >= dl.length,
+      `${m?.lane?.openDeadLetters} vs ${dl.length}`)
+    console.log(`      lane: ${JSON.stringify(m?.lane)}`)
+    console.log(`      dead letters: ${m?.deadLetters?.total ?? 0} open; first: ${dl.slice(0, 5).map((x) => `${x.stage}-${x.id} ${x.reason} ${x.entityType}`).join(' · ') || 'none'}`)
+    if (m?.lane?.onMirror) {
+      check(`mirror ${code}: the tab draws the dead letters`, await waitFor(async () =>
+        (await page.locator('[data-tab-grid="mirror-dead-letters"] .ag-row').count()) === Math.min(dl.length, 50) ||
+        (dl.length === 0 && (await page.locator('[data-mirror-tab]').count()) === 1), 20000))
+      if (dl[0]) check(`mirror ${code}: …by stage and id`, (await page.locator(`.ag-row[row-id="${dl[0].stage}-${dl[0].id}"]`).count()) > 0)
+    } else {
+      check(`mirror ${code}: a store off the mirror says so`, await waitFor(async () => (await page.locator('[data-mirror-not-on], [data-mirror-tab]').count()) > 0))
+    }
+    const all = await direct(`ActionSync/Store/Mirror?code=${encodeURIComponent(code)}&includeAcknowledged=true`)
+    check(`mirror ${code}: includeAcknowledged=true answers`, ok(all), why(all))
+    check(`mirror ${code}: …and lists at least the open rows`, (all?.body?.data?.deadLetters?.total ?? -1) >= (m?.deadLetters?.total ?? 0))
+    await page.screenshot({ path: `${SHOTS}/mirror-${code}.png`, fullPage: true })
+  }
+}
+
+// ── The Agreement tab: the judged days and their gaps (460) ──────────────────────────────────────
+
+const agreementCode = todo(INPUTS.agreementStoreCode) ? mirrorCode : INPUTS.agreementStoreCode
+
+if (ONLY.includes('agreement')) {
+  if (todo(agreementCode)) {
+    skip('agreement', 'agreementStoreCode, mirrorStoreCode and storeCode are TODO')
+  } else {
+    const code = agreementCode
+    const since = answers.length
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=agreement`)
+    const header = await waitAnswer('ActionSync/Store', since)
+    const a = await waitAnswer('ActionSync/Store/Agreement', since)
+    check(`agreement ${code}: Store/Agreement answers`, ok(a), why(a))
+    const g = a?.body?.data
+    shapeCheck(`agreement ${code}: it carries days and gaps`, g, KEYS.storeAgreement)
+    const days = g?.days ?? []
+    firstShape(`agreement ${code}: a day carries the contract's keys`, days, KEYS.agreementDay)
+    const window = [1, 2, 3, 4, 5, 6, 7].map(dayAgo)
+    check(`agreement ${code}: every day is within D-1..D-7`, days.every((d) => window.includes(d.businessDay)), days.map((d) => d.businessDay).join())
+    check(`agreement ${code}: …newest first`, days.every((d, i) => i === 0 || days[i - 1].businessDay > d.businessDay))
+    check(`agreement ${code}: a day agrees exactly when it has no gap`,
+      days.every((d) => d.agrees === (d.missingAtCounter + d.missingAtMirror + d.totalMismatches === 0)))
+    check(`agreement ${code}: judgedAt is local wall-clock`, days.every((d) => TIME.test(d.judgedAt ?? '')))
+    shapeCheck(`agreement ${code}: the gaps are paged`, g?.gaps, PAGED)
+    const gaps = g?.gaps?.items ?? []
+    firstShape(`agreement ${code}: a gap carries the contract's keys`, gaps, KEYS.agreementGap)
+    check(`agreement ${code}: a gap's kind is the contract's`, gaps.every((x) => ['missingAtCounter', 'missingAtMirror', 'totalMismatch'].includes(x.kind)))
+    check(`agreement ${code}: a missing receipt has no total on the rail it is missing from`,
+      gaps.every((x) => (x.kind === 'missingAtCounter' ? x.counterTotal === null : x.kind === 'missingAtMirror' ? x.mirrorTotal === null : true)))
+    check(`agreement ${code}: the gaps add up to the days' counts`, (g?.gaps?.total ?? -1) ===
+      days.reduce((n, d) => n + d.missingAtCounter + d.missingAtMirror + d.totalMismatches, 0),
+      `${g?.gaps?.total} vs the days' sum`)
+    const h = header?.body?.data
+    if (h) {
+      // The header's verdict comes from the same verdicts, but a nightly run between the two reads can move it.
+      const want = days.length === 0 ? 'notJudged' : days.some((d) => !d.agrees) ? 'disagree' : 'agree'
+      check(`agreement ${code}: the header's agreement matches the days`, h.agreement === want, `${h.agreement} vs ${want}`)
+    }
+    console.log(`      days: ${days.map((d) => `${d.businessDay} ${d.agrees ? 'agree' : 'DISAGREE'} m${d.mirrorCount}/c${d.counterCount} ${d.mirrorTotal}/${d.counterTotal}`).join(' · ') || 'none judged'}`)
+    check(`agreement ${code}: the tab draws one row per judged day`,
+      await waitFor(async () => (await page.locator('[data-agreement-day]').count()) === days.length || (days.length === 0 && (await page.locator('[data-agreement-no-days], [data-agreement-tab]').count()) > 0), 20000))
+    if (days[0]) {
+      const at = answers.length
+      await page.locator(`[data-agreement-pick="${days[0].businessDay}"]`).click()
+      const picked = await waitAnswer('ActionSync/Store/Agreement', at, (x) => x.query.get('day') === days[0].businessDay)
+      check(`agreement ${code}: picking a day reads its gaps`, ok(picked) && (picked.body.data.gaps.items ?? []).every((x) => x.businessDay === days[0].businessDay), why(picked))
+    }
+    await page.screenshot({ path: `${SHOTS}/agreement-${code}.png`, fullPage: true })
+  }
+}
+
 // ── The fleet-wide feeds: commands, audit, sync pending ──────────────────────────────────────────
 
 if (ONLY.includes('feeds')) {
@@ -395,6 +579,14 @@ if (ONLY.includes('refusals')) {
     ['passes older than 30 days', `ActionSync/Store/Passes?code=${encodeURIComponent(INPUTS.storeCode)}&from=${day}`, 400, 'BAD_DATE'],
     ['an unknown command status', 'ActionSync/Commands?status=Sleeping', 400, 'BAD_FILTER'],
     ['a malformed audit date', 'ActionSync/Audit?from=yesterday', 400, 'BAD_DATE'],
+    // 460: the mirror and agreement reads.
+    ['an unknown dead-letter stage', `ActionSync/Store/Mirror?code=${encodeURIComponent(INPUTS.storeCode)}&stage=middle`, 400, 'BAD_FILTER'],
+    ['an unknown dead-letter reason', `ActionSync/Store/Mirror?code=${encodeURIComponent(INPUTS.storeCode)}&reason=gremlins`, 400, 'BAD_FILTER'],
+    ['includeAcknowledged that is not a boolean', `ActionSync/Store/Mirror?code=${encodeURIComponent(INPUTS.storeCode)}&includeAcknowledged=maybe`, 400, 'BAD_FILTER'],
+    ['an unknown store on the Mirror tab', 'ActionSync/Store/Mirror?code=ZZ%3F9', 404, 'NO_STORE'],
+    ['today on the Agreement tab (outside D-1..D-7)', `ActionSync/Store/Agreement?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(0)}`, 400, 'BAD_DATE'],
+    ['D-8 on the Agreement tab', `ActionSync/Store/Agreement?code=${encodeURIComponent(INPUTS.storeCode)}&day=${dayAgo(8)}`, 400, 'BAD_DATE'],
+    ['an unknown store on the Agreement tab', 'ActionSync/Store/Agreement?code=ZZ%3F9', 404, 'NO_STORE'],
   ]
   for (const [name, path, status, code] of cases) {
     if (/code=/.test(path) && todo(INPUTS.storeCode)) {
@@ -403,6 +595,34 @@ if (ONLY.includes('refusals')) {
     }
     const a = await direct(path)
     check(`refusals: ${name} is a ${status} ${code}`, refusedWith(a, status, code), why(a))
+  }
+  // 460: the added sorts and states are accepted.
+  for (const path of ['ActionSync/Fleet?sort=largestBacklog', 'ActionSync/Fleet?sort=mostDeadLetters', ...MIRROR_STATES.map((x) => `ActionSync/Fleet?state=${x}`), 'ActionSync/Fleet?state=railsDisagree']) {
+    const a = await direct(path)
+    check(`refusals: ${path.slice('ActionSync/'.length)} is accepted`, ok(a), why(a))
+  }
+  // 460: the write doors' whole-request refusals. Each is refused before anything is written.
+  if (!grants.canOperate) {
+    skip('refusals: the dead-letter and recheck doors', 'this session lacks canOperate')
+  } else if (todo(INPUTS.storeCode)) {
+    skip('refusals: the dead-letter and recheck doors', 'storeCode is TODO')
+  } else {
+    const code = INPUTS.storeCode
+    const one = [{ stage: 'apply', id: '0' }]
+    const posts = [
+      ['a retry with a blank reason', 'ActionSync/Mirror/DeadLetters/Retry', { code, items: one, reason: '  ' }, 400, 'REASON_REQUIRED'],
+      ['a retry of 51 dead letters', 'ActionSync/Mirror/DeadLetters/Retry',
+        { code, items: Array.from({ length: 51 }, (_, i) => ({ stage: 'apply', id: String(i + 1) })), reason: REASON }, 400, 'TOO_MANY'],
+      ['a retry of no dead letter', 'ActionSync/Mirror/DeadLetters/Retry', { code, items: [], reason: REASON }, 400, 'BAD_REQUEST'],
+      ['an acknowledgement on an unknown store', 'ActionSync/Mirror/DeadLetters/Acknowledge', { code: 'ZZ?9', items: one, reason: REASON }, 404, 'NO_STORE'],
+      ['a recheck of today', 'ActionSync/Agreement/Recheck', { code, day: dayAgo(0), reason: REASON }, 400, 'BAD_DATE'],
+      ['a recheck with a blank reason', 'ActionSync/Agreement/Recheck', { code, day: dayAgo(1), reason: '' }, 400, 'REASON_REQUIRED'],
+      ['a recheck on an unknown store', 'ActionSync/Agreement/Recheck', { code: 'ZZ?9', day: dayAgo(1), reason: REASON }, 404, 'NO_STORE'],
+    ]
+    for (const [name, path, body, status, refusal] of posts) {
+      const a = await directPost(path, body)
+      check(`refusals: ${name} is a ${status} ${refusal}`, refusedWith(a, status, refusal), why(a))
+    }
   }
 }
 
@@ -540,6 +760,107 @@ if (ONLY.includes('onboard')) {
   }
 }
 
+// ── --write: retry one dead letter and acknowledge another (OWNER walk, 460) ─────────────────────
+
+/** Ticks one dead letter's checkbox on the Mirror tab, by its row id (`stage-id`). */
+const tickDeadLetter = (rowId) => page.locator(`.ag-row[row-id="${rowId}"] .ag-selection-checkbox input`).first().click()
+const split = (rowId) => {
+  const at = String(rowId).indexOf('-')
+  return { stage: rowId.slice(0, at), id: rowId.slice(at + 1) }
+}
+
+if (ONLY.includes('deadletters')) {
+  const { retryDeadLetter, acknowledgeDeadLetter } = INPUTS
+  if (!grants.canOperate) {
+    skip('deadletters', 'this session lacks canOperate')
+  } else if (todo(INPUTS.mirrorStoreCode) || todo(retryDeadLetter) || todo(acknowledgeDeadLetter)) {
+    skip('deadletters', 'mirrorStoreCode, retryDeadLetter or acknowledgeDeadLetter is TODO')
+  } else {
+    const code = INPUTS.mirrorStoreCode
+    for (const [action, rowId] of [['retry', retryDeadLetter], ['acknowledge', acknowledgeDeadLetter]]) {
+      const door = action === 'retry' ? 'Retry' : 'Acknowledge'
+      await page.goto(`${BASE}/admin/sync/store/${code}?tab=mirror`)
+      const listed = await waitFor(async () => (await page.locator(`.ag-row[row-id="${rowId}"]`).count()) > 0, 20000)
+      check(`deadletters ${code}: ${rowId} is listed open`, listed)
+      if (!listed) continue
+      await tickDeadLetter(rowId)
+      await page.locator(`[data-dead-letter-action="${action}"]`).click()
+      const dialog = page.locator('dialog[open]')
+      await dialog.waitFor()
+      await dialog.locator('[data-reason-input]').fill(REASON)
+      const since = answers.length
+      await dialog.locator('[data-reason-confirm]').click()
+      const a = await waitAnswer(`ActionSync/Mirror/DeadLetters/${door}`, since)
+      check(`deadletters ${code}: ${door} answers`, ok(a), why(a))
+      shapeCheck(`deadletters ${code}: …with the contract's keys`, a?.body?.data, KEYS.deadLetterAction)
+      firstShape(`deadletters ${code}: …and its row`, a?.body?.data?.results, KEYS.deadLetterResult)
+      const r = a?.body?.data?.results?.[0]
+      check(`deadletters ${code}: ${door} done for ${rowId}`, r?.ok === true && `${r.stage}-${r.id}` === rowId, JSON.stringify(r))
+      check(`deadletters ${code}: …audited (an auditId, the sink is HQ)`, typeof a?.body?.data?.auditId === 'string', String(a?.body?.data?.auditId))
+      check(`deadletters ${code}: …and the row leaves the open list`,
+        await waitFor(async () => (await page.locator(`.ag-row[row-id="${rowId}"]`).count()) === 0, 15000))
+      await page.screenshot({ path: `${SHOTS}/dead-letter-${action}.png`, fullPage: true })
+    }
+    // The acknowledged row is kept, with who and why.
+    const all = await direct(`ActionSync/Store/Mirror?code=${encodeURIComponent(code)}&includeAcknowledged=true&pageSize=200`)
+    const ackd = (all?.body?.data?.deadLetters?.items ?? []).find((x) => `${x.stage}-${x.id}` === acknowledgeDeadLetter)
+    check(`deadletters ${code}: the acknowledged row is kept, with its reason`,
+      !!ackd && ackd.acknowledgedAt !== null && ackd.acknowledgeReason === REASON && ackd.canRetry === false, JSON.stringify(ackd))
+    // OWNER walk: "is retried and applies". The retried row goes back to the inbox; the apply worker takes
+    // it on its next tick. It must not come back as a dead letter (open or acknowledged) within 6 minutes.
+    const { stage, id } = split(retryDeadLetter)
+    let back = null
+    for (let t = 0; t < 6 * 60; t += 30) {
+      await page.waitForTimeout(30000)
+      const again = await direct(`ActionSync/Store/Mirror?code=${encodeURIComponent(code)}&includeAcknowledged=true&pageSize=200`)
+      back = (again?.body?.data?.deadLetters?.items ?? []).find((x) => x.stage === stage && x.id === id) ?? null
+      if (back) break
+    }
+    check(`deadletters ${code}: the retried row did not dead-letter again within 6 minutes`, back === null, JSON.stringify(back))
+    console.log('      the owner confirms it APPLIED (the entity is on the mirror), which no door shows')
+  }
+}
+
+// ── --write: recheck one store-day (OWNER walk, 460) ─────────────────────────────────────────────
+
+if (ONLY.includes('recheck')) {
+  const { recheckStoreCode: code, recheckDay: day } = INPUTS
+  if (!grants.canOperate) {
+    skip('recheck', 'this session lacks canOperate')
+  } else if (todo(code) || todo(day)) {
+    skip('recheck', 'recheckStoreCode or recheckDay is TODO')
+  } else {
+    await page.goto(`${BASE}/admin/sync/store/${code}?tab=agreement`)
+    const listed = await waitFor(async () => (await page.locator(`[data-agreement-recheck="${day}"]`).count()) === 1, 20000)
+    check(`recheck ${code}: ${day} is listed with a Recheck`, listed)
+    if (listed) {
+      await page.locator(`[data-agreement-recheck="${day}"]`).click()
+      const dialog = page.locator('dialog[open]')
+      await dialog.waitFor()
+      await dialog.locator('[data-reason-input]').fill(REASON)
+      const since = answers.length
+      await dialog.locator('[data-reason-confirm]').click()
+      const a = await waitAnswer('ActionSync/Agreement/Recheck', since)
+      check(`recheck ${code}: the recheck answers`, ok(a), why(a))
+      shapeCheck(`recheck ${code}: …with the contract's keys`, a?.body?.data, KEYS.recheck)
+      const d = a?.body?.data?.day
+      if (d === null) {
+        console.log('      the answer is no verdict: no NewPos receipt that day, or the sink cannot be judged (see the audit row)')
+        check(`recheck ${code}: …and the day leaves the list`,
+          await waitFor(async () => (await page.locator(`[data-agreement-day="${day}"]`).count()) === 0, 15000))
+      } else {
+        shapeCheck(`recheck ${code}: the fresh verdict carries the day's keys`, d, KEYS.agreementDay)
+        check(`recheck ${code}: …for the day asked`, d?.businessDay === day, d?.businessDay)
+        console.log(`      ${day}: ${d?.agrees ? 'the rails agree' : 'still disagree'} (m${d?.mirrorCount}/c${d?.counterCount}, gaps ${d?.missingAtCounter}/${d?.missingAtMirror}/${d?.totalMismatches})`)
+        check(`recheck ${code}: the tab draws the verdict`, await waitFor(async () =>
+          (await page.locator(`[data-agreement-day="${day}"][data-agrees="${d?.agrees}"]`).count()) === 1, 15000))
+      }
+      check(`recheck ${code}: …audited (an auditId, the sink is HQ)`, typeof a?.body?.data?.auditId === 'string', String(a?.body?.data?.auditId))
+      await page.screenshot({ path: `${SHOTS}/agreement-recheck.png`, fullPage: true })
+    }
+  }
+}
+
 // ── The audit feed shows every action with its reason (OWNER walk) ───────────────────────────────
 
 if (WRITE && ONLY.some((s) => WRITES.includes(s))) {
@@ -551,6 +872,9 @@ if (WRITE && ONLY.some((s) => WRITES.includes(s))) {
     ...(ONLY.includes('control') && !todo(INPUTS.testStoreOnWpf) ? ['Move', 'HandBack'] : []),
     ...(ONLY.includes('test') && !todo(INPUTS.testStoreForTest) ? ['ConnectionTest'] : []),
     ...(ONLY.includes('onboard') && !todo(INPUTS.onboard) ? ['OnboardStore', 'CreateLocation'] : []),
+    ...(ONLY.includes('deadletters') && grants.canOperate && ![INPUTS.mirrorStoreCode, INPUTS.retryDeadLetter, INPUTS.acknowledgeDeadLetter].some(todo)
+      ? ['MirrorRetry', 'MirrorAcknowledge'] : []),
+    ...(ONLY.includes('recheck') && grants.canOperate && !todo(INPUTS.recheckStoreCode) && !todo(INPUTS.recheckDay) ? ['AgreementRecheck'] : []),
   ]
   check('audit: every action of this run is in the feed with its reason', want.every((w) => mine.some((x) => x.action === w)),
     `want [${want}] got [${mine.map((x) => x.action)}]`)

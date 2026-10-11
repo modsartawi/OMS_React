@@ -1,8 +1,9 @@
 /**
  * The console's reads, filled where a door has not shipped spec 2563 yet (ticket 456).
  *
- * 🚩 The model matches the contract exactly, but the live console still meets the OLD
- * doors until BackOffice 2564–2567 are deployed (450's staging walk is on them). So
+ * 🚩 The model matches the contract exactly. BackOffice 2564–2567 are built (`pricing2`
+ * e11e17390, checked door by door in ticket 460), but a host not yet redeployed still
+ * answers with the OLD doors. So
  * each read fills a member the door did not send, at the boundary, and nothing past
  * `api.ts` ever sees a half shape:
  *

@@ -13,6 +13,7 @@
  */
 import { FLEET_SORTS, RAILS, STATE_CODES, type FleetSort, type Label, type Rail, type StateCode } from '@/core/models/sap-export'
 import { WORST_FIRST } from './label-helpers'
+import { toggleInOrder } from './toggle-and-refusal'
 
 /** The door pages; the console asks for 50 a page (the contract's default). */
 export const FLEET_PAGE_SIZE = 50
@@ -93,16 +94,14 @@ export function withFleetFilter(query: FleetQuery, change: Partial<Pick<FleetQue
 
 /** A label in or out (a chip or a store tile), worst first, back on page 1. An unknown value changes nothing. */
 export function toggleFleetLabel(query: FleetQuery, label: string): FleetQuery {
-  if (!(WORST_FIRST as readonly string[]).includes(label)) return query
-  const on = (query.labels as string[]).includes(label)
-  return { ...query, labels: WORST_FIRST.filter((l) => (l === label ? !on : query.labels.includes(l))), page: 1 }
+  const labels = toggleInOrder(WORST_FIRST, query.labels, label)
+  return labels ? { ...query, labels, page: 1 } : query
 }
 
 /** A state in or out (the picker), in the contract's order, back on page 1. An unknown value changes nothing. */
 export function toggleFleetState(query: FleetQuery, state: string): FleetQuery {
-  if (!(STATE_CODES as readonly string[]).includes(state)) return query
-  const on = (query.states as string[]).includes(state)
-  return { ...query, states: STATE_CODES.filter((s) => (s === state ? !on : query.states.includes(s))), page: 1 }
+  const states = toggleInOrder(STATE_CODES, query.states, state)
+  return states ? { ...query, states, page: 1 } : query
 }
 
 /** Whether any filter narrows the list (the sort and the page do not). */

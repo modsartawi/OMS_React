@@ -8,7 +8,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
 import { flagToken, labelToken } from './label-helpers'
 import { stateMeaningKey } from './state-helpers'
-import { formatHours, inspectorHref } from './storeday-helpers'
+import { figure, formatHours, inspectorHref } from './storeday-helpers'
 import TokenBadgeView from './TokenBadgeView'
 
 /**
@@ -131,7 +131,7 @@ export function buildStoreDayColumns(t: TFunction, code: string): ColDef<StoreDa
         return (
           <span className="inline-flex items-baseline gap-1.5" data-held={held.held} data-held-of={held.of}>
             <span>
-              <Trans t={t} i18nKey="grid.held" values={{ held: held.held, of: held.of }} components={{ n: <Ltr />, m: <Ltr /> }} />
+              <Trans t={t} i18nKey="grid.held" values={{ held: figure(held.held), of: figure(held.of) }} components={{ n: <Ltr />, m: <Ltr /> }} />
             </span>
             <span className="text-xs text-muted-foreground" data-hold={held.missingRows ? 'missingRows' : 'questionablePosting'}>
               {t(held.missingRows ? 'grid.missingRows' : 'grid.questionablePosting')}

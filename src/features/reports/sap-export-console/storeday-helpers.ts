@@ -6,6 +6,7 @@
  */
 import { STATE_CODES, type Label, type StateCode } from '@/core/models/sap-export'
 import { WORST_FIRST } from './label-helpers'
+import { refusalKey, toggleInOrder } from './toggle-and-refusal'
 
 /** The door pages; the console asks for 50 a page (the contract's default). */
 export const STORE_DAY_PAGE_SIZE = 50
@@ -42,18 +43,14 @@ export function storeDayParams(code: string, day: string, filter: StoreDayFilter
  * console never provokes the door's `BAD_FILTER`.
  */
 export function toggleLabel(filter: StoreDayFilter, label: string): StoreDayFilter {
-  if (!(WORST_FIRST as readonly string[]).includes(label)) return filter
-  const on = (filter.labels as string[]).includes(label)
-  const labels = WORST_FIRST.filter((l) => (l === label ? !on : filter.labels.includes(l)))
-  return { ...filter, labels, page: 1 }
+  const labels = toggleInOrder(WORST_FIRST, filter.labels, label)
+  return labels ? { ...filter, labels, page: 1 } : filter
 }
 
 /** A legend entry clicked: the state in or out, in the contract's order, back on page 1. */
 export function toggleState(filter: StoreDayFilter, state: string): StoreDayFilter {
-  if (!(STATE_CODES as readonly string[]).includes(state)) return filter
-  const on = (filter.states as string[]).includes(state)
-  const states = STATE_CODES.filter((s) => (s === state ? !on : filter.states.includes(s)))
-  return { ...filter, states, page: 1 }
+  const states = toggleInOrder(STATE_CODES, filter.states, state)
+  return states ? { ...filter, states, page: 1 } : filter
 }
 
 /** The store page (464). */
@@ -82,5 +79,5 @@ const REFUSALS = ['NO_STORE', 'BAD_DAY', 'DAY_OUT_OF_WINDOW', 'BAD_FILTER', 'BAD
 
 /** A store-day refusal's own sentence key, or `null` to show the envelope's message. */
 export function storeDayErrorKey(code: string | null | undefined): string | null {
-  return code && (REFUSALS as readonly string[]).includes(code) ? `storeDay.errors.${code}` : null
+  return refusalKey('storeDay', REFUSALS, code)
 }

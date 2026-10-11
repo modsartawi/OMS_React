@@ -6,6 +6,7 @@
  */
 import type { DoubleSendRow, FleetSummary, Label } from '@/core/models/sap-export'
 import { labelToken, type LabelToken } from './label-helpers'
+import { refusalKey } from './toggle-and-refusal'
 
 export type FleetTileKey = keyof FleetSummary['tiles']
 
@@ -93,5 +94,5 @@ const REFUSALS = ['BAD_FILTER', 'BAD_PAGING'] as const
 
 /** A fleet refusal's own sentence key, or `null` to show the envelope's message. */
 export function fleetErrorKey(code: string | null | undefined): string | null {
-  return code && (REFUSALS as readonly string[]).includes(code) ? `fleet.errors.${code}` : null
+  return refusalKey('fleet', REFUSALS, code)
 }

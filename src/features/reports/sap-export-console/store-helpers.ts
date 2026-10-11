@@ -9,6 +9,7 @@ import type { Accounting, Label, StoreDaySummary, StoreDetail } from '@/core/mod
 import { formatDay } from '@/core/util/date-format'
 import { WORST_FIRST, labelToken, unknownLabelCounts, type LabelToken } from './label-helpers'
 import { figure } from './storeday-helpers'
+import { refusalKey } from './toggle-and-refusal'
 
 export interface StripCell {
   day: string
@@ -89,5 +90,5 @@ const RECOMPUTE_REFUSALS = ['BAD_REQUEST', 'NO_STORE', 'BAD_DAY', 'DAY_OUT_OF_WI
 
 /** A recompute refusal's own sentence key, or `null` to show the envelope's message. */
 export function recomputeErrorKey(code: string | null | undefined): string | null {
-  return code && (RECOMPUTE_REFUSALS as readonly string[]).includes(code) ? `recompute.errors.${code}` : null
+  return refusalKey('recompute', RECOMPUTE_REFUSALS, code)
 }

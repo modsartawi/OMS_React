@@ -55,14 +55,14 @@ export default function DoubleSendsPage() {
 function DoubleSends() {
   const { t } = useTranslation('sap-export-console')
   // 🔑 The filters and the page are the URL's (`./double-send-helpers`): a view is a link.
-  const { query, update, awaitingEcho } = useUrlQuery(doubleSendQueryFromParams, doubleSendQueryToParams)
+  const { query, update, changedFromOutside } = useUrlQuery(doubleSendQueryFromParams, doubleSendQueryToParams)
 
   // The store box is a draft applied on submit — a store code is an exact match, and asking on every
   // keystroke would answer "no such store" to each half-typed code. A change from outside resets it.
   const [draft, setDraft] = useState(query.code)
   useEffect(() => {
-    if (!awaitingEcho()) setDraft(query.code)
-  }, [query.code, awaitingEcho])
+    if (changedFromOutside()) setDraft((d) => (d.trim() === query.code ? d : query.code))
+  }, [query.code, changedFromOutside])
 
   const list = useQuery(doubleSendsQuery(query))
   const columns = useMemo(() => buildDoubleSendColumns(t), [t])
@@ -102,8 +102,12 @@ function DoubleSends() {
       <div className="flex flex-wrap items-center gap-2" data-double-sends-filters="">
         <select
           value={query.flag ?? ''}
-          // The store box goes with it, so the box never shows a store the list is not filtered on.
-          onChange={(e) => update((q) => withDoubleSendFilter(q, { flag: (e.target.value || null) as DoubleSendFlag | null, code: draft }))}
+          // The flag alone changes: a half-typed store code is not a filter until it is submitted.
+          // The box drops it, so the box never shows a store the list is not filtered on.
+          onChange={(e) => {
+            update((q) => withDoubleSendFilter(q, { flag: (e.target.value || null) as DoubleSendFlag | null }))
+            setDraft(query.code)
+          }}
           aria-label={t('doubleSends.flag')}
           className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
           data-double-sends-flag=""

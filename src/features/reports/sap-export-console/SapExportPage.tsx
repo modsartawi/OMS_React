@@ -77,15 +77,15 @@ const STALE_TICK_MS = 60_000
 function Fleet() {
   const { t } = useTranslation('sap-export-console')
   // 🔑 The list's filters, sort and page are the URL's (`./fleet-query`): a fleet view is a link.
-  const { query, update, awaitingEcho } = useUrlQuery(fleetQueryFromParams, fleetQueryToParams)
+  const { query, update, changedFromOutside } = useUrlQuery(fleetQueryFromParams, fleetQueryToParams)
 
   // The box is a draft that reaches the URL once typing pauses (back on page 1). A change from
   // outside (Back, a link) resets it — never the echo of its own write, which would drop the
   // keys typed while that write was landing.
   const [draft, setDraft] = useState(query.q)
   useEffect(() => {
-    if (!awaitingEcho()) setDraft((d) => (d.trim() === query.q ? d : query.q))
-  }, [query.q, awaitingEcho])
+    if (changedFromOutside()) setDraft((d) => (d.trim() === query.q ? d : query.q))
+  }, [query.q, changedFromOutside])
   useEffect(() => {
     const id = setTimeout(() => update((q) => withFleetFilter(q, { q: draft })), SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(id)

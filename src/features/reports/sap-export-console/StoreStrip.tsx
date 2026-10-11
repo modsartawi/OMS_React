@@ -2,6 +2,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import Ltr from '@/core/ui/Ltr'
 import { formatRange } from '@/core/util/bidi'
+import { formatDay } from '@/core/util/date-format'
 import { LABEL_TOKEN_CLASS, accountingToken, labelToken } from './label-helpers'
 import type { StripCell } from './store-helpers'
 import { figure, storeDayHref } from './storeday-helpers'
@@ -45,7 +46,7 @@ export default function StoreStrip({ code, cells }: { code: string; cells: Strip
       </ol>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span data-strip-range="">
-          <Ltr>{formatRange(cells[0].day, cells[cells.length - 1].day)}</Ltr>
+          <Ltr>{formatRange(formatDay(cells[0].day), formatDay(cells[cells.length - 1].day))}</Ltr>
         </span>
         <span>{t('store.strip.hint')}</span>
       </div>
@@ -68,7 +69,7 @@ function DayCard({ cell, id, alignEnd }: { cell: StripCell; id: string; alignEnd
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold">
-          <Ltr>{cell.day}</Ltr>
+          <Ltr>{formatDay(cell.day)}</Ltr>
         </span>
         {cell.noData ? null : cell.accounting ? (
           <span data-day-card-accounting={cell.accounting}>

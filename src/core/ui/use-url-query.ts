@@ -15,13 +15,19 @@ import { useLocation, useSearchParams } from 'react-router'
  * a pasted link) resets it. The echoes are settled per LANDED navigation (the location's key), so
  * a burst whose last write returns to the URL already shown still clears them.
  *
+ * A page that keeps a draft beside the URL asks `changedFromOutside()` from its own effect on the
+ * query: the hook's effect is declared first, so it has already settled this render's change and
+ * recorded whether it was an echo of the page's own write (keep the draft — keys typed while it was
+ * landing are in it) or a change from outside (reset the draft). Asking "is an echo still awaited?"
+ * there would always answer no: the settle has just cleared it.
+ *
  * `fromParams` / `toParams` must be stable (module-level functions): they are the screen's pure,
  * tested reading of its URL. `toParams(fromParams(url))` is the canonical form compared.
  */
 export function useUrlQuery<Q>(
   fromParams: (params: URLSearchParams) => Q,
   toParams: (query: Q) => URLSearchParams,
-): { query: Q; update: (change: (prev: Q) => Q) => void; awaitingEcho: () => boolean } {
+): { query: Q; update: (change: (prev: Q) => Q) => void; changedFromOutside: () => boolean } {
   const [params, setParams] = useSearchParams()
   const { key } = useLocation()
   const query = useMemo(() => fromParams(params), [fromParams, params])
@@ -29,8 +35,10 @@ export function useUrlQuery<Q>(
 
   const latest = useRef(query)
   const echoes = useRef<string[]>([])
+  const outside = useRef(true)
   useEffect(() => {
     const mine = echoes.current.indexOf(queryString)
+    outside.current = mine < 0
     if (mine >= 0) echoes.current.splice(0, mine + 1)
     else {
       echoes.current = []
@@ -53,6 +61,6 @@ export function useUrlQuery<Q>(
     [setParams, toParams],
   )
 
-  const awaitingEcho = useCallback(() => echoes.current.length > 0, [])
-  return { query, update, awaitingEcho }
+  const changedFromOutside = useCallback(() => outside.current, [])
+  return { query, update, changedFromOutside }
 }

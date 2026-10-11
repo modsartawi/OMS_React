@@ -15,6 +15,7 @@ import type { DoubleSendRow } from '@/core/models/sap-export'
 import { formatCount } from '@/core/util/bidi'
 import { DOUBLE_SEND_FLAGS, type DoubleSendFlag } from './fleet-helpers'
 import { figure } from './storeday-helpers'
+import { refusalKey } from './toggle-and-refusal'
 
 /** The door pages; the console asks for 50 a page (the contract's default). */
 export const DOUBLE_SEND_PAGE_SIZE = 50
@@ -103,5 +104,5 @@ const REFUSALS = ['NO_STORE', 'BAD_FILTER', 'BAD_PAGING'] as const
 
 /** A double-send refusal's own sentence key, or `null` to show the envelope's message. */
 export function doubleSendErrorKey(code: string | null | undefined): string | null {
-  return code && (REFUSALS as readonly string[]).includes(code) ? `doubleSends.errors.${code}` : null
+  return refusalKey('doubleSends', REFUSALS, code)
 }

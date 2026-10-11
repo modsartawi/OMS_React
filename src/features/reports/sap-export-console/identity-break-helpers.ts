@@ -8,6 +8,7 @@
  * with its plain-English meaning; the door finds them, nothing here does.
  */
 import { IDENTITY_BREAK_KINDS, type IdentityBreakKind } from '@/core/models/sap-export'
+import { refusalKey } from './toggle-and-refusal'
 
 /** The door pages; the console asks for 50 a page (the contract's default). */
 export const IDENTITY_BREAK_PAGE_SIZE = 50
@@ -28,7 +29,7 @@ const REFUSALS = ['BAD_PAGING'] as const
 
 /** An identity-break refusal's own sentence key, or `null` to show the envelope's message. */
 export function identityBreakErrorKey(code: string | null | undefined): string | null {
-  return code && (REFUSALS as readonly string[]).includes(code) ? `identityBreaks.errors.${code}` : null
+  return refusalKey('identityBreaks', REFUSALS, code)
 }
 
 /** The `GET SapExport/IdentityBreaks` parameters: `code` is required. */

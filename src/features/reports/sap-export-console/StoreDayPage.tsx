@@ -123,7 +123,7 @@ function StoreDayView({ code, day }: { code: string; day: string }) {
         />
       )}
 
-      {header && <Header data={header} filter={filter} filtered={filtered} onFilter={setFilter} />}
+      {header && <Header routeCode={code} data={header} filter={filter} filtered={filtered} onFilter={setFilter} />}
 
       {shown && rows && (
         <section className="flex flex-col gap-2" data-store-day-list="">
@@ -177,11 +177,14 @@ function StoreDayView({ code, day }: { code: string; day: string }) {
 }
 
 function Header({
+  routeCode,
   data,
   filter,
   filtered,
   onFilter,
 }: {
+  /** The store as the ROUTE spells it: the store page's cache is keyed on it, not on the door's echo. */
+  routeCode: string
   data: StoreDay
   filter: StoreDayFilter
   /** Whether any label or state is chosen — the view's own reading, passed down. */
@@ -308,7 +311,7 @@ function Header({
 
       {/* This day's rollup row, re-judged now (464): the store's strip and the fleet catch up. */}
       <div className="border-t border-border/60 pt-3">
-        <RecomputeControl code={data.code} day={data.day} />
+        <RecomputeControl code={routeCode} day={data.day} />
       </div>
     </section>
   )

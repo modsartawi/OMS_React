@@ -1,0 +1,160 @@
+{
+  "title": "Deliverect catalog",
+  "subtitle": "The one whitelist of materials Deliverect lists on every delivery platform, and the platforms each material is excluded on.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the Deliverect catalog",
+    "deniedHint": "Your account does not hold the Deliverect catalog grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "q": "Material",
+    "qPlaceholder": "Material number or name",
+    "search": "Search",
+    "clear": "Clear",
+    "state": "State"
+  },
+  "states": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "deleted": "Deleted",
+    "any": "All"
+  },
+  "columns": {
+    "material": "Material",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "gtins": "GTINs",
+    "disabled": "Disabled",
+    "deleted": "Deleted",
+    "excluded": "Excluded on",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
+    "actions": "Actions"
+  },
+  "flags": {
+    "disabled": "Disabled",
+    "deleted": "Deleted"
+  },
+  "actions": {
+    "exclusions": "Exclusions",
+    "disable": "Disable",
+    "delete": "Delete",
+    "restore": "Restore"
+  },
+  "results": {
+    "loading": "Loading the whitelist…",
+    "failedTitle": "The whitelist could not be read",
+    "failed": "The whitelist could not be read. Try again in a moment.",
+    "empty": "No material matches.",
+    "count_one": "<n>{{n}}</n> material",
+    "count_other": "<n>{{n}}</n> materials",
+    "page_one": "Showing <range>{{range}}</range> of <total>{{total}}</total> material",
+    "page_other": "Showing <range>{{range}}</range> of <total>{{total}}</total> materials",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failedHint": "The server refused the change."
+  },
+  "import": {
+    "button": "Import materials",
+    "title": "Import materials into the whitelist",
+    "note": "Paste material numbers, one per line, or pick an .xlsx file with one column. A material already on the whitelist is re-activated.",
+    "list": "Material numbers",
+    "placeholder": "101234\n101235",
+    "confirm": "Import",
+    "count_one": "<n>{{n}}</n> material to send.",
+    "count_other": "<n>{{n}}</n> materials to send.",
+    "duplicates_one": "<n>{{n}}</n> repeat dropped.",
+    "duplicates_other": "<n>{{n}}</n> repeats dropped.",
+    "headerSkipped": "The first line, “<header>{{header}}</header>”, holds no material number and is skipped as a header.",
+    "overCap_one": "One import takes at most {{max}} materials. Remove {{overBy}} material to send.",
+    "overCap_other": "One import takes at most {{max}} materials. Remove {{overBy}} materials to send.",
+    "file": {
+      "pick": "Pick an .xlsx file",
+      "read_one": "{{n}} material read from {{fileName}}.",
+      "read_other": "{{n}} materials read from {{fileName}}.",
+      "empty": "{{fileName}} holds no material number.",
+      "unreadable": "{{fileName}} could not be read as an .xlsx workbook.",
+      "otherColumns": "{{fileName}} has more than one column. Keep only the material numbers in the first column.",
+      "overCap_one": "{{fileName}} holds {{n}} material — one import takes at most {{max}}. Split the file.",
+      "overCap_other": "{{fileName}} holds {{n}} materials — one import takes at most {{max}}. Split the file."
+    }
+  },
+  "result": {
+    "title": "Import done",
+    "added": "Added",
+    "reactivated": "Re-activated",
+    "unknown": "Unknown",
+    "unknownHint": "These material numbers are not known, so they were not imported.",
+    "noneUnknown": "Every material number was known.",
+    "copy": "Copy the unknown list",
+    "copied": "Copied",
+    "copiedDetail_one": "{{n}} unknown material number is on the clipboard.",
+    "copiedDetail_other": "{{n}} unknown material numbers are on the clipboard.",
+    "copyFailed": "Could not copy — this page has no clipboard access.",
+    "close": "Close"
+  },
+  "disable": {
+    "title": "Disable the material",
+    "note": "A disabled material is sent as out of stock on every delivery platform at the next sync. It stays on the whitelist and can be restored.",
+    "confirm": "Disable",
+    "done": "Material disabled",
+    "doneDetail": "Material {{material}} is disabled."
+  },
+  "delete": {
+    "title": "Delete the material",
+    "note": "A deleted material is sent as out of stock on every delivery platform at the next sync and leaves the active whitelist. It can be restored.",
+    "confirm": "Delete",
+    "done": "Material deleted",
+    "doneDetail": "Material {{material}} is deleted."
+  },
+  "restore": {
+    "title": "Restore the material",
+    "note": "The material is back on the whitelist, sold with its real stock on every delivery platform it is not excluded on, from the next sync.",
+    "confirm": "Restore",
+    "done": "Material restored",
+    "doneDetail": "Material {{material}} is restored."
+  },
+  "exclusions": {
+    "title": "Platform exclusions",
+    "note": "Untick a delivery platform to exclude the material there. Excluded means out of stock on that platform only — every other platform still sees its real stock. Saving replaces the material’s exclusions.",
+    "legend": "Sold on",
+    "excluded": "Excluded",
+    "inactive": "(inactive)",
+    "unlisted": "Also excluded on these platforms, which the platform list does not show. They stay excluded.",
+    "loading": "Loading the delivery platforms…",
+    "unavailable": "The platform list is unavailable",
+    "unavailableHint": "The delivery platforms could not be read, so the exclusions cannot be edited here. Nothing was changed.",
+    "noPlatforms": "No delivery platform is set up yet.",
+    "confirm": "Save exclusions",
+    "done": "Exclusions saved",
+    "doneDetail": "Material {{material}}’s platform exclusions are saved."
+  },
+  "push": {
+    "button": "Push catalog now",
+    "title": "Push the catalog now",
+    "note": "Sends the whole whitelist to one Deliverect account now, as the catalog its delivery platforms list.",
+    "account": "Deliverect account",
+    "choose": "Choose an account",
+    "loading": "Loading the accounts…",
+    "inactive": "{{key}} (inactive)",
+    "typePlaceholder": "Account key",
+    "fallbackHint": "No account can be chosen from the account list here — type the account key.",
+    "confirm": "Push",
+    "close": "Close",
+    "done": "Catalog pushed",
+    "doneDetail": "The catalog was sent to {{account}}.",
+    "resultAccount": "Account",
+    "fileId": "File id",
+    "status": "Status",
+    "rows": "Rows",
+    "deliverectAnswer": "Deliverect did not take the catalog. Its answer:",
+    "failed": "The push failed",
+    "failedHint": "The catalog could not be pushed."
+  }
+}

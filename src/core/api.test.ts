@@ -262,6 +262,15 @@ describe('api.upload', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
   })
 
+  it('a post may carry a query, built as a get builds it (ticket 479: Catalog/Push?account=)', async () => {
+    const fetchStub = ok({ fileId: 'f1', status: 'processing', rows: 3 })
+    vi.stubGlobal('fetch', fetchStub)
+    await api.post('DeliverectWeb/Catalog/Push', {}, { account: 'Ola Care', skip: null, q: '' })
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url.endsWith('DeliverectWeb/Catalog/Push?account=Ola+Care') || url.endsWith('DeliverectWeb/Catalog/Push?account=Ola%20Care')).toBe(true)
+    expect(init.body).toBe('{}')
+  })
+
   it('maps a refused upload through the same taxonomy as every other call', async () => {
     vi.stubGlobal('fetch', answer(409, envelope(409, 'HASH_MISMATCH', 'The sheet changed.')))
     const err = await api

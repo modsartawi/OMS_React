@@ -47,6 +47,9 @@
 //  11. under RTL (direction only — `lng` stays `en` app-wide) machine values are isolated, the raw
 //      body is one LTR island, and a retry works.
 //
+// 479 (note): the Catalog leaf follows Orders, so check 1 reads the first two leaves, and the
+// "only canViewOrders" session also drops canManageCatalog.
+//
 //   1. run the app:  npx vite --port 5196 --strictPort
 //   2. DRIVE_PORT=5196 node tools/deliverect-orders-drive.mjs
 import { createRequire } from 'node:module'
@@ -313,7 +316,7 @@ function sheetRows(files) {
   await header.first().click()
   await page.locator('nav a[href="/deliverect/orders"]').first().waitFor({ timeout: 5000 })
   const hrefs = await page.locator('nav a[href^="/deliverect"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
-  check('1: the Orders leaf joins the group after Stores', JSON.stringify(hrefs) === JSON.stringify(['/deliverect/stores', '/deliverect/orders']), hrefs.join())
+  check('1: the Orders leaf joins the group after Stores', JSON.stringify(hrefs.slice(0, 2)) === JSON.stringify(['/deliverect/stores', '/deliverect/orders']), hrefs.join())
   check('1: the leaf reads "Orders"', (await page.locator('nav a[href="/deliverect/orders"]').first().innerText()).trim() === 'Orders')
   await page.locator('nav a[href="/deliverect/orders"]').first().click()
   await waitRows(page, ORDERS.length)
@@ -336,7 +339,7 @@ function sheetRows(files) {
   await context.close()
 }
 {
-  const { context, page } = await open('ltr', { access: { ...ALL, canManageStores: false } })
+  const { context, page } = await open('ltr', { access: { ...ALL, canManageStores: false, canManageCatalog: false } })
   await page.goto(`${BASE}/`)
   const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ })
   await header.first().waitFor({ timeout: 20000 })

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2615-deliverect-delivery-platforms-spec.md
 blocked-by: 477 (live: BackOffice 2623)
 ---
@@ -34,10 +34,10 @@ UI → app (BackOffice doors, stubbed until 483)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `parseMaterialList`: pasted text or a sheet gives a trimmed, de-duplicated list, with the 5000 cap (vitest)
-- [ ] `exclusionSet`: the ticked platforms ⇄ the excluded set sent (vitest)
-- [ ] `tools/deliverect-catalog-drive.mjs`, against stubs: import with unknowns, disable/restore, edit exclusions, push, hidden without `canManageCatalog`
-- [ ] typecheck, lint, test green
+- [x] `parseMaterialList`: pasted text or a sheet gives a trimmed, de-duplicated list, with the 5000 cap (vitest)
+- [x] `exclusionSet`: the ticked platforms ⇄ the excluded set sent (vitest)
+- [x] `tools/deliverect-catalog-drive.mjs`, against stubs: import with unknowns, disable/restore, edit exclusions, push, hidden without `canManageCatalog`
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -52,3 +52,15 @@ The helpers and the drive are green.
 - [477](477-an-hq-user-onboards-a-store-on-a-deliverect-account-and-sees-its-link.md)
 
 (live: BackOffice 2623)
+
+## Comments
+
+**Done 2026-10-12 (AFK).** `features/deliverect/catalog` at `/deliverect/catalog`, namespace `deliverect-catalog` (en + ar), Catalog leaf on `canManageCatalog` after Orders.
+
+- vitest: `material-list.test.ts` (paste and sheet → trimmed, de-duplicated list; header skip; 5000 cap reported, never truncated; rows counted; multi-column flagged), `exclusion-set.test.ts` (ticked ⇄ excluded set, unlisted keys kept, round-trip), `whitelist-state.test.ts` (row state, writes offered, PUT bodies, URL query), `i18n-keys.test.ts`, `menu-deliverect.test.ts`, and a `core/api.test.ts` case for `api.post` params. Suite 4944 green.
+- xlsx reader graduated with `git mv` to `src/core/util/xlsx-read.ts` (test and fixture moved with it). Central-invoice behaviour is unchanged.
+- drive `tools/deliverect-catalog-drive.mjs` **90/90 against stubs** (LTR + RTL). It covers: menu and denied gate; grid columns, chips and isolation; state/text ⇄ URL ⇄ door; paging take=500 and skip=500; import by paste (header, repeats, exact body, result, Copy of the unknown list, DLV-00012 inline, >5000 refused with no call) and by .xlsx (one column read; two columns, >5000 rows and unreadable files refused); disable / restore / delete bodies; exclusions (REPLACE, unlisted key kept as a read-only chip, Save off until changed; Platforms 403 → unavailable, Save disabled, no PUT); push (account → `?account=`, file id / status / rows shown, DLV-00011 inline, Accounts 403 → typed key). Orders drive 91/91 and stores drive 167/167, each with its menu check updated for the new leaf.
+- typecheck, lint (4 gates) and build are green.
+- Rulings and contract gaps are in `.afk/HITL-479.md`.
+
+**Outstanding (not AFK's):** the live doors on staging (483 / BackOffice 2623, 2627). Owner sign-off is needed on the no-reason Push, restore-one-step, the header skip, the rows-based file cap, the multi-column refusal, and the Platforms/Accounts 403 fallbacks. The Arabic still needs the owner's eye.

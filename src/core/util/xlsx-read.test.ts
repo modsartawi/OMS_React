@@ -1,5 +1,7 @@
 /**
- * The XLSX reader behind the bulk screen's upload (ticket 332).
+ * The XLSX reader behind the bulk screen's upload (ticket 332), graduated to core by ticket 479
+ * (the Deliverect whitelist import reads a sheet too). The central-invoice case that feeds its
+ * delivery column moved to `features/oms/central-invoice/delivery-list.test.ts`.
  *
  * The fixture is a hand-built workbook shaped like the rollout sheet (`Store` |
  * `Order No`), with the traps a real Excel file carries: the FIRST sheet is not
@@ -10,8 +12,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { xlsxRows } from './xlsx'
-import { deliveryColumn } from './delivery-list'
+import { xlsxRows } from './xlsx-read'
 
 const fixture = () =>
   new Uint8Array(readFileSync(new URL('./__fixtures__/deliveries.xlsx', import.meta.url)))
@@ -27,16 +28,6 @@ describe('xlsxRows', () => {
       [],
       ['1163', '8006458443 &'],
       ['1210', '8006456937'],
-    ])
-  })
-
-  it('feeds the delivery-number column straight into the list', async () => {
-    expect(deliveryColumn(await xlsxRows(fixture()))).toEqual([
-      '8006456897',
-      '8006456512',
-      '8006457611',
-      '8006458443 &',
-      '8006456937',
     ])
   })
 

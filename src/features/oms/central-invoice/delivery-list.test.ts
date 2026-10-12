@@ -7,7 +7,9 @@
  * request will carry, how many duplicates were collapsed, and whether the list is
  * over the 200 the server takes.
  */
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { xlsxRows } from '@/core/util/xlsx-read'
 import { csvRows, deliveryColumn, fileKind, parseDeliveryList } from './delivery-list'
 
 describe('parseDeliveryList', () => {
@@ -196,5 +198,22 @@ describe('fileKind', () => {
 
   it('refuses a file holding NUL bytes that is not UTF-16 (a binary file)', () => {
     expect(fileKind(bytes(0x38, 0x00, 0x30, 0x00))).toBe('unsupported')
+  })
+})
+
+// Moved here from the xlsx reader's own test when ticket 479 graduated it to `@/core/util/xlsx-read`
+// (core may not import a feature); the case itself is unchanged.
+describe('xlsxRows → deliveryColumn', () => {
+  const fixture = () =>
+    new Uint8Array(readFileSync(new URL('../../../core/util/__fixtures__/deliveries.xlsx', import.meta.url)))
+
+  it('feeds the delivery-number column straight into the list', async () => {
+    expect(deliveryColumn(await xlsxRows(fixture()))).toEqual([
+      '8006456897',
+      '8006456512',
+      '8006457611',
+      '8006458443 &',
+      '8006456937',
+    ])
   })
 })

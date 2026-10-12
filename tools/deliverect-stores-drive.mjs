@@ -77,6 +77,7 @@
 //  20. under RTL the hours label (an overnight one in <bdi>, its range one ltr isolate), the history's machine values and the dialog note are isolated, and
 //      a busy works.
 //
+// ── 479 (note) ── the Catalog leaf joined too: check 1's list of built leaves gains /deliverect/catalog.
 // ── 478 (note) ── the Orders leaf joined the group: check 1's leaf list and its denied-group check were
 // relaxed to "Stores is the first leaf" and "the Stores leaf is hidden". 478's own drive
 // (tools/deliverect-orders-drive.mjs) asserts the Orders leaf.
@@ -365,7 +366,7 @@ const dialog = (page) => page.locator('dialog[open]')
   await page.locator('nav a[href="/deliverect/stores"]').first().waitFor({ timeout: 5000 })
   const hrefs = await page.locator('nav a[href^="/deliverect"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   // 478 appended the Orders leaf (its own drive owns it): Stores stays FIRST, and only built pages are leaves.
-  check('1: Stores is the FIRST leaf; 478/479/482 add theirs with their pages', hrefs[0] === '/deliverect/stores' && hrefs.every((h) => ['/deliverect/stores', '/deliverect/orders'].includes(h)), hrefs.join())
+  check('1: Stores is the FIRST leaf; 478/479/482 add theirs with their pages', hrefs[0] === '/deliverect/stores' && hrefs.every((h) => ['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog'].includes(h)), hrefs.join())
   const leafText = await page.locator('nav a[href="/deliverect/stores"]').first().innerText()
   check('1: the leaf reads "Stores"', leafText.trim() === 'Stores', leafText)
   await page.locator('nav a[href="/deliverect/stores"]').first().click()

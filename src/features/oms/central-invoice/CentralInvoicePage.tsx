@@ -14,8 +14,8 @@ import {
 } from '@/core/central-invoice/api'
 import { RaiseButton, ReasonField, useRaiseCentralInvoice } from '@/core/central-invoice/raise'
 import { retryList, verdictTally } from '@/core/central-invoice/verdicts'
+import { xlsxRows } from '@/core/util/xlsx-read'
 import { csvRows, deliveryColumn, fileKind, parseDeliveryList } from './delivery-list'
-import { xlsxRows } from './xlsx'
 import ResultGrid from './ResultGrid'
 
 /**

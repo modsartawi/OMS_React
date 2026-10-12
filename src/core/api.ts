@@ -409,8 +409,10 @@ export const api = {
   blob(path: string, params?: Record<string, unknown>): Promise<FileResponse> {
     return requestBlob(path + buildQuery(params))
   },
-  post<T>(path: string, body: unknown): Promise<T> {
-    return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
+  /** `params`, when a door takes a query beside its body (ticket 479's `Catalog/Push?account=`), is
+   *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. */
+  post<T>(path: string, body: unknown, params?: Record<string, unknown>): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'POST', body: JSON.stringify(body) })
   },
   /**
    * `post`, keeping the envelope — `getEnvelope`'s twin (ticket 477), for a write whose SUCCESS

@@ -1,6 +1,8 @@
 /**
  * The first sheet of an `.xlsx`, as rows of text (ticket 332) — just enough to lift a
- * column of delivery numbers out of the rollout sheet.
+ * column of delivery numbers out of the rollout sheet. Graduated from
+ * `features/oms/central-invoice/xlsx.ts` to core by ticket 479, unchanged, when the Deliverect
+ * whitelist import became its second reader (a feature may never import another).
  *
  * 🚩 **No dependency, on purpose.** The repo ships a workbook *writer* and no reader, and
  * a whole reader library for one column is out of proportion. An `.xlsx` is a zip of XML

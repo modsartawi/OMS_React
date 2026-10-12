@@ -1,0 +1,174 @@
+{
+  "title": "طلبات Deliverect",
+  "subtitle": "كل طلب أرسلته إلينا Deliverect: ما آل إليه، وآخر حالة أرسلناها، والإخفاقات التي يمكن إعادة محاولتها.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية طلبات Deliverect",
+    "deniedHint": "حسابك لا يملك صلاحية طلبات Deliverect. اطلبها من المسؤول إن كنت تحتاجها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "filters": {
+    "from": "مستلم من",
+    "to": "مستلم إلى",
+    "platform": "منصة التوصيل",
+    "platformNone": "لا توجد منصة توصيل لعرضها بعد — تمتلئ القائمة من الطلبات المعروضة.",
+    "outcome": "النتيجة",
+    "store": "الفرع",
+    "storePlaceholder": "رمز الفرع",
+    "q": "الطلب",
+    "qPlaceholder": "رقم طلب المنصة، أو رقم العرض، أو مستندنا، أو رقم طلب Deliverect",
+    "search": "بحث",
+    "clear": "مسح",
+    "today": "اليوم",
+    "windowInvalid": "أدخل تاريخ بداية ونهاية صحيحين.",
+    "windowReversed": "تاريخ النهاية قبل تاريخ البداية.",
+    "windowTooLong_zero": "الفترة لا تتجاوز {{max}} يوم. ضيّق التاريخين للبحث.",
+    "windowTooLong_one": "الفترة لا تتجاوز يومًا واحدًا. ضيّق التاريخين للبحث.",
+    "windowTooLong_two": "الفترة لا تتجاوز يومين. ضيّق التاريخين للبحث.",
+    "windowTooLong_few": "الفترة لا تتجاوز {{max}} أيام. ضيّق التاريخين للبحث.",
+    "windowTooLong_many": "الفترة لا تتجاوز {{max}} يومًا. ضيّق التاريخين للبحث.",
+    "windowTooLong_other": "الفترة لا تتجاوز {{max}} يوم. ضيّق التاريخين للبحث."
+  },
+  "columns": {
+    "receivedAt": "وقت الاستلام",
+    "platform": "منصة التوصيل",
+    "displayId": "رقم العرض",
+    "store": "الفرع",
+    "document": "مستندنا",
+    "outcome": "النتيجة",
+    "reason": "السبب",
+    "droppedLines": "البنود المُسقطة",
+    "lastStatus": "آخر حالة مُرسلة",
+    "lastStatusOk": "استدعاء الحالة",
+    "lastStatusAt": "وقت إرسال الحالة",
+    "total": "الإجمالي",
+    "currency": "العملة",
+    "actions": "الإجراءات"
+  },
+  "outcomes": {
+    "created": "أُنشئ",
+    "refused": "مرفوض",
+    "droppedLines": "بنود مُسقطة",
+    "cancelled": "ملغى",
+    "statusFailed": "فشل إرسال الحالة"
+  },
+  "statuses": {
+    "accepted": "مقبول",
+    "finalized": "مكتمل",
+    "cancelled": "ملغى",
+    "failed": "فشل",
+    "cancelFailed": "فشل الإلغاء"
+  },
+  "statusCall": {
+    "ok": "تم",
+    "failed": "فشل"
+  },
+  "alert": {
+    "badge": "يحتاج إلى متابعة شخص",
+    "title": "أُلغي بعد الفوترة — يحتاج إلى متابعة شخص",
+    "hint": "ألغت منصة التوصيل هذا الطلب بعد أن فوترته الصيدلية. أبلغنا Deliverect بأن الإلغاء فشل؛ على أحد أن يسوّيه مع المنصة والفرع."
+  },
+  "results": {
+    "loading": "جارٍ تحميل الطلبات…",
+    "failedTitle": "تعذّر تحميل الطلبات",
+    "failed": "حاول مرة أخرى بعد قليل.",
+    "empty": "لا يوجد طلب Deliverect مطابق.",
+    "count_zero": "<n>{{n}}</n> طلب",
+    "count_one": "طلب واحد",
+    "count_two": "طلبان",
+    "count_few": "<n>{{n}}</n> طلبات",
+    "count_many": "<n>{{n}}</n> طلبًا",
+    "count_other": "<n>{{n}}</n> طلب",
+    "page": "عرض <range>{{range}}</range> من <total>{{total}}</total>",
+    "previous": "السابق",
+    "next": "التالي"
+  },
+  "export": {
+    "button": "تصدير إلى Excel",
+    "sheet": "طلبات Deliverect",
+    "fileName": "deliverect-orders",
+    "done": "التصدير جاهز",
+    "doneDetail_zero": "لم يُكتب أي طلب.",
+    "doneDetail_one": "كُتب طلب واحد.",
+    "doneDetail_two": "كُتب طلبان.",
+    "doneDetail_few": "كُتبت {{n}} طلبات.",
+    "doneDetail_many": "كُتب {{n}} طلبًا.",
+    "doneDetail_other": "كُتب {{n}} طلب.",
+    "failed": "فشل التصدير",
+    "failedDetail": "تعذّرت كتابة الملف. حاول مرة أخرى."
+  },
+  "actions": {
+    "details": "التفاصيل",
+    "retry": "إعادة المحاولة",
+    "raw": "الطلب الخام"
+  },
+  "detail": {
+    "eyebrow": "طلب Deliverect",
+    "close": "إغلاق",
+    "loading": "جارٍ تحميل الطلب…",
+    "failed": "تعذّر تحميل الطلب",
+    "platform": "منصة التوصيل",
+    "channelOrderId": "رقم طلب المنصة",
+    "displayId": "رقم العرض",
+    "deliverectOrderId": "رقم طلب Deliverect",
+    "store": "الفرع",
+    "account": "حساب Deliverect",
+    "receivedAt": "وقت الاستلام",
+    "outcome": "النتيجة",
+    "reason": "السبب",
+    "total": "الإجمالي",
+    "document": "مستندنا",
+    "openDocument": "فتح المستند <doc>{{document}}</doc>",
+    "noDocument": "لا يوجد مستند — لم يتحوّل الطلب إلى مستند.",
+    "lines": "البنود",
+    "noLines": "لا يحمل الطلب أي بنود.",
+    "lineColumns": {
+      "plu": "PLU",
+      "name": "الاسم",
+      "quantity": "الكمية",
+      "unitPrice": "سعر الوحدة",
+      "fundedDiscount": "الخصم المموَّل",
+      "material": "المادة"
+    },
+    "dropped": "مُسقط",
+    "statuses": "الحالات المُرسلة",
+    "noStatuses": "لم تُرسل أي حالة إلى Deliverect لهذا الطلب بعد.",
+    "statusColumns": {
+      "status": "الحالة",
+      "sentAt": "وقت الإرسال",
+      "ok": "الاستدعاء",
+      "answer": "ردّ Deliverect",
+      "attempts": "المحاولات"
+    }
+  },
+  "raw": {
+    "eyebrow": "الطلب الخام كما أرسلته Deliverect",
+    "close": "إغلاق",
+    "loading": "جارٍ تحميل الطلب الخام…",
+    "failed": "تعذّر تحميل الطلب الخام",
+    "receivedAt": "استُلم <t>{{at}}</t>",
+    "readOnly": "للقراءة فقط. يُعرض كما استُلم؛ التنسيق أدناه يضيف أسطرًا ومسافات بادئة فقط.",
+    "notJson": "المحتوى ليس JSON صالحًا، لذا يُعرض كما استُلم تمامًا.",
+    "formatted": "منسّق",
+    "asReceived": "كما استُلم",
+    "copy": "نسخ",
+    "copied": "نُسخ الطلب الخام",
+    "copyFailed": "تعذّر نسخ الطلب الخام"
+  },
+  "retry": {
+    "title": "إعادة محاولة هذا الطلب",
+    "notes": {
+      "refused": "رُفض الطلب <order>{{order}}</order>. إعادة المحاولة تشغّله من جديد: إن زال السبب يصبح مستندًا وتُبلَّغ Deliverect بقبوله.",
+      "statusFailed": "فشل آخر استدعاء حالة للطلب <order>{{order}}</order>. إعادة المحاولة ترسله إلى Deliverect مرة أخرى."
+    },
+    "confirm": "إعادة المحاولة",
+    "sending": "جارٍ إعادة المحاولة…",
+    "cancel": "إلغاء",
+    "done": "أُرسلت إعادة المحاولة",
+    "doneDetail": "أُعيدت محاولة الطلب {{order}}. يُظهر سطره ما آل إليه.",
+    "notFailed": "هذا الطلب ليس في حالة فشل، فلا شيء لإعادة محاولته. ربما تغيّر سطره بالفعل.",
+    "failed": "رُفضت إعادة المحاولة",
+    "failedHint": "حاول مرة أخرى بعد قليل."
+  }
+}

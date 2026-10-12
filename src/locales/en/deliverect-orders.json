@@ -1,0 +1,162 @@
+{
+  "title": "Deliverect orders",
+  "subtitle": "Every order Deliverect sent us: what became of it, the last status we sent back, and the failures to retry.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Deliverect orders",
+    "deniedHint": "Your account does not hold the Deliverect orders grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "from": "Received from",
+    "to": "Received to",
+    "platform": "Delivery platform",
+    "platformNone": "No delivery platform to offer yet — the list fills from the orders found.",
+    "outcome": "Outcome",
+    "store": "Store",
+    "storePlaceholder": "Store code",
+    "q": "Order",
+    "qPlaceholder": "Platform order id, display id, our document or Deliverect order id",
+    "search": "Search",
+    "clear": "Clear",
+    "today": "Today",
+    "windowInvalid": "Enter a valid start and end date.",
+    "windowReversed": "The end date is before the start date.",
+    "windowTooLong_one": "The window is at most {{max}} day. Narrow the dates to search.",
+    "windowTooLong_other": "The window is at most {{max}} days. Narrow the dates to search."
+  },
+  "columns": {
+    "receivedAt": "Received at",
+    "platform": "Delivery platform",
+    "displayId": "Display id",
+    "store": "Store",
+    "document": "Our document",
+    "outcome": "Outcome",
+    "reason": "Reason",
+    "droppedLines": "Dropped lines",
+    "lastStatus": "Last status sent",
+    "lastStatusOk": "Status call",
+    "lastStatusAt": "Status sent at",
+    "total": "Total",
+    "currency": "Currency",
+    "actions": "Actions"
+  },
+  "outcomes": {
+    "created": "Created",
+    "refused": "Refused",
+    "droppedLines": "Dropped lines",
+    "cancelled": "Cancelled",
+    "statusFailed": "Status failed"
+  },
+  "statuses": {
+    "accepted": "Accepted",
+    "finalized": "Finalized",
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "cancelFailed": "Cancel failed"
+  },
+  "statusCall": {
+    "ok": "OK",
+    "failed": "Failed"
+  },
+  "alert": {
+    "badge": "Needs a person",
+    "title": "Cancelled after invoicing — needs a person",
+    "hint": "The delivery platform cancelled this order after the store had invoiced it. We told Deliverect the cancel failed; someone has to settle it with the platform and the store."
+  },
+  "results": {
+    "loading": "Loading orders…",
+    "failedTitle": "The orders could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No Deliverect order matches.",
+    "count_one": "<n>{{n}}</n> order",
+    "count_other": "<n>{{n}}</n> orders",
+    "page": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "export": {
+    "button": "Export to Excel",
+    "sheet": "Deliverect orders",
+    "fileName": "deliverect-orders",
+    "done": "Export ready",
+    "doneDetail_one": "{{n}} order written.",
+    "doneDetail_other": "{{n}} orders written.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "actions": {
+    "details": "Details",
+    "retry": "Retry",
+    "raw": "Raw order"
+  },
+  "detail": {
+    "eyebrow": "Deliverect order",
+    "close": "Close",
+    "loading": "Loading the order…",
+    "failed": "The order could not be loaded",
+    "platform": "Delivery platform",
+    "channelOrderId": "Platform order id",
+    "displayId": "Display id",
+    "deliverectOrderId": "Deliverect order id",
+    "store": "Store",
+    "account": "Deliverect account",
+    "receivedAt": "Received at",
+    "outcome": "Outcome",
+    "reason": "Reason",
+    "total": "Total",
+    "document": "Our document",
+    "openDocument": "Open document <doc>{{document}}</doc>",
+    "noDocument": "No document — the order did not become one.",
+    "lines": "Lines",
+    "noLines": "The order carries no lines.",
+    "lineColumns": {
+      "plu": "PLU",
+      "name": "Name",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "fundedDiscount": "Funded discount",
+      "material": "Material"
+    },
+    "dropped": "Dropped",
+    "statuses": "Statuses sent",
+    "noStatuses": "No status has been sent to Deliverect for this order yet.",
+    "statusColumns": {
+      "status": "Status",
+      "sentAt": "Sent at",
+      "ok": "Call",
+      "answer": "Deliverect's answer",
+      "attempts": "Attempts"
+    }
+  },
+  "raw": {
+    "eyebrow": "Raw order, as Deliverect sent it",
+    "close": "Close",
+    "loading": "Loading the raw order…",
+    "failed": "The raw order could not be loaded",
+    "receivedAt": "Received <t>{{at}}</t>",
+    "readOnly": "Read only. Shown as received; the layout below only adds line breaks and indents.",
+    "notJson": "The body is not valid JSON, so it is shown exactly as received.",
+    "formatted": "Formatted",
+    "asReceived": "As received",
+    "copy": "Copy",
+    "copied": "Raw order copied",
+    "copyFailed": "The raw order could not be copied"
+  },
+  "retry": {
+    "title": "Retry this order",
+    "notes": {
+      "refused": "Order <order>{{order}}</order> was refused. Retrying runs it again: if the reason has cleared, it becomes a document and Deliverect is told it is accepted.",
+      "statusFailed": "The last status call for order <order>{{order}}</order> failed. Retrying sends it to Deliverect again."
+    },
+    "confirm": "Retry",
+    "sending": "Retrying…",
+    "cancel": "Cancel",
+    "done": "Retry sent",
+    "doneDetail": "Order {{order}} was retried. Its row shows what became of it.",
+    "notFailed": "This order is not in a failed state, so there is nothing to retry. Its row may already have changed.",
+    "failed": "The retry was refused",
+    "failedHint": "Try again in a moment."
+  }
+}

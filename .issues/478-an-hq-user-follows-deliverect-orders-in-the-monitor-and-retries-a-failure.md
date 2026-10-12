@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2615-deliverect-delivery-platforms-spec.md
 blocked-by: 477 (live: BackOffice 2626)
 ---
@@ -37,15 +37,15 @@ UI → app (BackOffice doors, stubbed until 483)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `ordersQuery`: filters ⇄ URL round-trip; a window over 31 days is refused client-side (vitest)
-- [ ] `statusLabel`: every contract status code maps to a label key (vitest)
-- [ ] `tools/deliverect-orders-drive.mjs`, against stubs:
+- [x] `ordersQuery`: filters ⇄ URL round-trip; a window over 31 days is refused client-side (vitest)
+- [x] `statusLabel`: every contract status code maps to a label key (vitest)
+- [x] `tools/deliverect-orders-drive.mjs`, against stubs:
   - each outcome renders;
   - the drawer shows dropped lines and statuses;
   - raw opens;
   - retry is offered only where allowed;
   - the menu entry is hidden when `canViewOrders` is false.
-- [ ] typecheck, lint, test green
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -60,3 +60,14 @@ The helpers and the drive are green.
 - [477](477-an-hq-user-onboards-a-store-on-a-deliverect-account-and-sees-its-link.md)
 
 (live: BackOffice 2626)
+
+## Comments
+
+**Done 2026-10-12 (AFK).** `features/deliverect/orders` at `/deliverect/orders`, namespace `deliverect-orders` (en + ar), Orders leaf on `canViewOrders`.
+
+- vitest: `orders-query.test.ts` (URL round-trip incl. repeated `platform`/`outcome`, `from`/`to` always written, local today, inclusive 31-day cap refused, cleared date invalid), `order-status.test.ts` (every contract code 20/90/110/120/126 → key in en + ar, unknown raw, 126 needs a person, retry only refused/statusFailed, raw body never altered), `i18n-keys.test.ts`, `menu-deliverect.test.ts` updated. Suite 4893 green.
+- drive `tools/deliverect-orders-drive.mjs` **91/91 against stubs** (LTR + RTL, Asia/Riyadh clock): each outcome, the 126 alert row painted, filters ⇄ URL ⇄ door, >31 days refused with no call, Platforms 200 + 403, drawer lines (dropped + reason) and statuses, raw (formatted / verbatim / non-JSON), retry only where allowed + DLV-00006/00007 inline, xlsx export, paging, menu hidden without `canViewOrders`. `tools/deliverect-stores-drive.mjs` 167/167 (two menu checks relaxed for the new leaf).
+- typecheck, lint (4 gates), build green.
+- Raw door shape ruled `{ rawBody, receivedAt }` in `core/models/deliverect.ts`. Rulings and contract gaps in `.afk/HITL-478.md`.
+
+**Outstanding (not AFK's):** the live door on staging (483 / BackOffice 2626); owner sign-off on the inclusive 31-day window, the Raw field names, the no-reason Retry and the 200 page size; owner's eye on the Arabic.

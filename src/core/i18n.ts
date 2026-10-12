@@ -98,6 +98,9 @@ import sapExportConsole from '@/locales/en/sap-export-console.json'
 // (`menu.*`), and the reason dialog `@/core/deliverect/ReasonDialog` draws for every Deliverect write.
 import deliverectStores from '@/locales/en/deliverect-stores.json'
 import deliverectStoresAr from '@/locales/ar/deliverect-stores.json'
+// Deliverect orders monitor (ticket 478), English and Arabic together.
+import deliverectOrders from '@/locales/en/deliverect-orders.json'
+import deliverectOrdersAr from '@/locales/ar/deliverect-orders.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -105,7 +108,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders'],
   resources: {
     en: {
       common,
@@ -144,6 +147,7 @@ i18n.use(initReactI18next).init({
       'sync-console': syncConsole,
       'sap-export-console': sapExportConsole,
       'deliverect-stores': deliverectStores,
+      'deliverect-orders': deliverectOrders,
     },
     ar: {
       document: documentAr,
@@ -158,6 +162,7 @@ i18n.use(initReactI18next).init({
       'materials-gs1-check': materialsGs1CheckAr,
       'materials-detail': materialsDetailAr,
       'deliverect-stores': deliverectStoresAr,
+      'deliverect-orders': deliverectOrdersAr,
     },
   },
   interpolation: { escapeValue: false },

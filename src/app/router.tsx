@@ -609,6 +609,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/deliverect/stores/StoresPage')).default,
         }),
       },
+      {
+        path: 'deliverect/orders',
+        lazy: async () => ({
+          Component: (await import('@/features/deliverect/orders/OrdersPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

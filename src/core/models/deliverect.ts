@@ -340,9 +340,20 @@ export interface DeliverectOrderDetail extends DeliverectOrderRow {
   statuses: DeliverectOrderStatusSent[]
 }
 
-// `GET DeliverectWeb/Orders/{deliverectOrderId}/Raw` — the contract says "the raw body exactly as
-// Deliverect sent it (text/plain JSON), plus receivedAt" and names no data fields. Ticket 478 owns
-// that ruling (read BackOffice 2626 first) and models it here.
+/**
+ * `GET DeliverectWeb/Orders/{deliverectOrderId}/Raw` — "the raw body exactly as Deliverect sent it
+ * (`text/plain` JSON), plus `receivedAt`".
+ *
+ * 🚩 **Contract gap (ticket 478, HITL-478).** The contract names no data fields, and BackOffice 2626
+ * does not pin them either. Ruled: an ENVELOPED data object of two fields, named here and nowhere
+ * else — `rawBody` (spec 2615's inbox column "raw body"), a STRING holding the body verbatim, and
+ * `receivedAt`. The screen shows `rawBody` as received (pretty-printed only when it parses, never
+ * altered). If 2626 ships another shape, this is the one place to change.
+ */
+export interface DeliverectOrderRaw {
+  rawBody: string
+  receivedAt: LocalDateTime
+}
 
 // `POST DeliverectWeb/Orders/{deliverectOrderId}/Retry` — no body. Refusals: DLV-00006, DLV-00007.
 

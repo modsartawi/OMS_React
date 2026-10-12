@@ -92,9 +92,9 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 // The Deliverect probe lives in `@/core/` (ticket 477) for the Materials reason: four features (stores,
 // orders, catalog, terms) read it, and none may import another. ONE key; each leaf reads its own flag.
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
-import { canManageStores } from '@/core/deliverect/access'
+import { canManageStores, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { Store, Truck } from 'lucide-react'
+import { ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -835,6 +835,13 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/deliverect/stores',
         activePrefix: '/deliverect/stores',
         access: deliverectProbe(canManageStores),
+      },
+      {
+        labelKey: 'deliverect-stores:menu.orders',
+        icon: ShoppingBag,
+        routerLink: '/deliverect/orders',
+        activePrefix: '/deliverect/orders',
+        access: deliverectProbe(canViewOrders),
       },
     ],
   },

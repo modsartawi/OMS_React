@@ -28,7 +28,7 @@ UI → app → SIS.Api → `[POS]` (live)
 
 ## Proof
 
-- [ ] The live drive is green on staging.
+- [x] The live drive is green on staging. (2026-10-12: P237, 69/69. See `## Comments`.)
 - [ ] The owner walk is signed off under `## Comments`.
 
 ## Boundaries

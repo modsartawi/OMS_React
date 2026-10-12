@@ -173,7 +173,9 @@ function Replay() {
     const request = canPush && register ? replayRequest(text, store, register.registerId) : null
     if (!request || !register) return
     push.reset()
-    retireOutcome()
+    // Only the refusal goes: a new receipt number stays until a push replaces it, so a Push
+    // opened and cancelled does not lose one the tester has not copied yet.
+    setPushError(null)
     setConfirming({ request, register })
   }
   const closeConfirm = () => {

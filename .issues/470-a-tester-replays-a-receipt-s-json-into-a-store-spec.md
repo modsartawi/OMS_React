@@ -242,3 +242,7 @@ Copy JSON in the drawer works on staging's plain http, and says so inside the dr
 - A replay is visible only in the target store's own database and in the console's replays list and
   audit, never at HQ. That is intended (ADR 0076).
 - The Copy JSON fix needs no server change. It can be built first, separately from everything else.
+
+## Comments
+
+- 2026-10-12: the server half is now BackOffice spec **2630** (`C:\Work\DMSCO\BackOffice\.issues\2630-receipt-replay-server-half-spec.md`, draft, 4 owner questions open). Contract changes from it, for the oms page: new refusal `REPLAY_OFF` (409, push door off until the till release ships); new removed kind `orderLink`; HTTP codes per its refusal table. Both currently fall to generic words/the raw code.

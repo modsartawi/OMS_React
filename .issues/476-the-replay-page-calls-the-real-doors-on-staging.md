@@ -53,3 +53,7 @@ The live section is green and the owner walk is signed off.
 ## Open questions
 
 - Which store is the test store for the walk? It needs a NewPos register running the new till build.
+
+## Comments
+
+- 2026-10-12: the server half is now BackOffice spec **2630** (`C:\Work\DMSCO\BackOffice\.issues\2630-receipt-replay-server-half-spec.md`, draft, 4 owner questions open). Contract changes from it, for the oms page: new refusal `REPLAY_OFF` (409, push door off until the till release ships); new removed kind `orderLink`; HTTP codes per its refusal table. Both currently fall to generic words/the raw code.

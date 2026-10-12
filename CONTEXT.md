@@ -609,3 +609,17 @@ already holds can be requeued: insurance, credit and non-emailing stores' receip
 queued. The screen's action is labelled **Resend**, which is the customer's word for it.
 _Avoid_: resend to another address, retry (a retry is the queue's own next attempt), re-drive (the
 bulk return of a backlog).
+
+**Receipt snapshot**:
+One NewPos receipt as HQ holds it after applying it from the mirror — the same shape the till sent,
+opened with **View JSON** on a store's Transactions tab. It is HQ's applied copy, not the till's raw
+message.
+_Avoid_: raw payload, inbox message.
+
+**Receipt replay**:
+Re-creating one **receipt snapshot** as a sale at a chosen store, through the same legacy write a
+NewPos till makes, so the sale can be reproduced, inspected and returned for testing. A replayed
+sale has its own new receipt number at the target store, is marked as a replay of its source
+receipt, never reaches HQ's sales or SAP, and carries no link to a payment provider, loyalty member
+or insurer claim. A return of a replayed sale is a replay too.
+_Avoid_: re-send, re-pull, force a shadow (none of these create a new sale), import, clone.

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2615-deliverect-delivery-platforms-spec.md
 blocked-by: — (live: BackOffice 2616)
 ---
@@ -41,14 +41,14 @@ UI → app (BackOffice doors, stubbed until 483)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `storeState`: a `null` location reads as onboarded-not-linked, a location as linked (vitest)
-- [ ] `reasonField`: 1–200 characters, unicode kept; DLV-00009 is shown inline (vitest)
-- [ ] `tools/deliverect-stores-drive.mjs`, against stubs, LTR and RTL:
+- [x] `storeState`: a `null` location reads as onboarded-not-linked, a location as linked (vitest)
+- [x] `reasonField`: 1–200 characters, unicode kept; DLV-00009 is shown inline (vitest)
+- [x] `tools/deliverect-stores-drive.mjs`, against stubs, LTR and RTL:
   - onboard, move and remove;
   - the warning path;
   - the refusals;
   - the menu entry hidden when `canManageStores` is false.
-- [ ] `npm run typecheck`, `npm run lint` (boundaries), `npm test` green
+- [x] `npm run typecheck`, `npm run lint` (boundaries), `npm test` green
 
 ## Boundaries
 
@@ -61,3 +61,15 @@ The helpers and the drive are green, and the page renders from stubs.
 ## Blocked by
 
 None. It can start immediately (live: BackOffice 2616).
+
+## Comments
+
+**2026-10-12 — built AFK (done).** Proof, all green and all against STUBS of the contract (no door is deployed):
+
+- vitest: `features/deliverect/stores/store-state.test.ts` (`storeState`, optional columns, URL ⇄ query, account choices, onboard warning), `core/deliverect/reason.test.ts` (`reasonField` 1–200 trimmed, unicode kept, UTF-16 count; DLV-00009 / field refusals), `core/deliverect/access.test.ts` (four flags, fail closed), `layout/menu-deliverect.test.ts` (group last, one key), `features/deliverect/stores/i18n-keys.test.ts` (en ⇄ ar mirror, six Arabic plural forms), `core/api.test.ts` (`api.postEnvelope`). Full suite 271 files / 4787 tests.
+- `DRIVE_PORT=5196 node tools/deliverect-stores-drive.mjs` — **67/67**, LTR and RTL: menu (last, one leaf, one probe call, hidden without `canManageStores`, denied card), list + state labels, sync/status hidden on null and shown on populated fixtures, filters ⇄ URL ⇄ door, onboard / move / remove bodies, the warning path, DLV-00001/2/3/9 inline, the Accounts-403 fallback.
+- `npm run typecheck`, `npm run lint` (4 gates), `npm run build` green.
+
+Shared pieces in core for 478–482: `core/models/deliverect.ts` (every door), `core/deliverect/api.ts` (probe, Accounts, Platforms), `access.ts`, `reason.ts`, `ReasonDialog.tsx` (+ `InlineRefusal`); `api.postEnvelope` added to `core/api.ts`.
+
+**Outstanding (not AFK's):** the live doors on staging (483); an owner's eye on the Arabic rendering (the app's `lng` is still `en`, so the RTL pass proves direction and isolation only); owner sign-off on the rulings logged in `.afk/HITL-477.md` (menu labels-not-leaves — the ticket's "an entry for each probe flag" was ruled to mean labels; Arabic for the namespace; the Accounts-403 fallback; the persistent warning banner; the UTF-16 reason count). Contract gaps (Accounts behind `canManageTerms`; move/remove refusals and answer shapes) are logged there under `## Contract gap`.

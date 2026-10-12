@@ -1,0 +1,116 @@
+{
+  "menu": {
+    "deliverect": "Deliverect",
+    "stores": "Stores",
+    "orders": "Orders",
+    "catalog": "Catalog",
+    "terms": "Platforms & terms"
+  },
+  "title": "Deliverect stores",
+  "subtitle": "Stores onboarded on a Deliverect account, and whether Deliverect has linked them yet.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Deliverect stores",
+    "deniedHint": "Your account does not hold the Deliverect stores grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "account": "Deliverect account",
+    "anyAccount": "Any account",
+    "linked": "Linked",
+    "linkedAny": "Any",
+    "linkedYes": "Linked",
+    "linkedNo": "Onboarded, not linked",
+    "q": "Store",
+    "qPlaceholder": "Store code or name",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "columns": {
+    "store": "Store",
+    "name": "Name",
+    "account": "Deliverect account",
+    "state": "Link",
+    "location": "Deliverect location",
+    "onboardedAt": "Onboarded at",
+    "onboardedBy": "Onboarded by",
+    "linkedAt": "Linked at",
+    "directHungerStation": "Direct HungerStation",
+    "sync": "Stock sync",
+    "status": "Store status",
+    "actions": "Actions"
+  },
+  "state": {
+    "linked": "Linked",
+    "notLinked": "Onboarded, not linked"
+  },
+  "badges": {
+    "directHungerStation": "Direct HungerStation"
+  },
+  "sync": {
+    "active": "Active",
+    "paused": "Paused"
+  },
+  "status": {
+    "open": "Open",
+    "busy": "Busy",
+    "closed": "Closed"
+  },
+  "results": {
+    "loading": "Loading stores…",
+    "failedTitle": "The stores could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No Deliverect store matches.",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores"
+  },
+  "account": {
+    "choose": "Choose an account",
+    "loading": "Loading accounts…",
+    "inactive": "{{key}} (inactive)",
+    "fallbackHint": "The account list is not available to you. Type the account key; a wrong key is refused.",
+    "typePlaceholder": "Account key"
+  },
+  "onboard": {
+    "button": "Onboard store",
+    "title": "Onboard a store on Deliverect",
+    "note": "The store is onboarded now and reads Onboarded, not linked until Deliverect registers it.",
+    "store": "Store code",
+    "storePlaceholder": "e.g. 1234",
+    "confirm": "Onboard",
+    "done": "Store onboarded",
+    "doneDetail": "Store {{store}} is onboarded on {{account}}.",
+    "warningTitle": "Store <store>{{store}}</store> is onboarded — it is on the direct HungerStation rail",
+    "warningHint": "HungerStation orders stay on the direct rail for this store; every other delivery platform comes through Deliverect.",
+    "dismiss": "Dismiss"
+  },
+  "move": {
+    "button": "Move",
+    "title": "Move a store to another Deliverect account",
+    "note": "Store <store>{{store}}</store> moves from <from>{{from}}</from>. Its link to Deliverect is cleared: it reads Onboarded, not linked until Deliverect registers it again on the new account.",
+    "to": "New Deliverect account",
+    "confirm": "Move and clear the link",
+    "done": "Store moved",
+    "doneDetail": "Store {{store}} is on {{account}}, not linked yet."
+  },
+  "remove": {
+    "button": "Remove",
+    "title": "Remove a store's onboarding",
+    "note": "Store <store>{{store}}</store> leaves Deliverect: its stock sync stops and its link to Deliverect is cleared. Its history stays.",
+    "confirm": "Remove and clear the link",
+    "done": "Onboarding removed",
+    "doneDetail": "Store {{store}} is no longer on Deliverect."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. It is kept with the change.",
+    "tooLong": "At most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The change was refused",
+    "failedHint": "Try again in a moment."
+  }
+}

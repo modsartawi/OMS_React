@@ -411,3 +411,28 @@ describe('an array query parameter', () => {
     expect((await urlOf({ Limit: 2000, Kinds: ['', null, 'DAY'] })).endsWith('?Limit=2000&Kinds=DAY')).toBe(true)
   })
 })
+
+/**
+ * `api.postEnvelope` — `post`, keeping the envelope (ticket 477): the Deliverect onboard's success
+ * carries a warning in `message` beside the row, and a refusal throws what `post` throws.
+ */
+describe('api.postEnvelope', () => {
+  it('a success hands back data AND the envelope message, and sends the body as JSON', async () => {
+    const fetchStub = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({ statusCode: 200, success: true, message: 'On the direct HungerStation rail.', errors: [], data: { storeCode: '1234' } }),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetchStub)
+    const answer = await api.postEnvelope<{ storeCode: string }>('DeliverectWeb/Stores', { storeCode: '1234' })
+    expect([answer.data.storeCode, answer.message]).toEqual(['1234', 'On the direct HungerStation rail.'])
+    const [, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect([init.method, init.body]).toEqual(['POST', JSON.stringify({ storeCode: '1234' })])
+  })
+
+  it('a coded refusal throws the business ApiError with its code', async () => {
+    vi.stubGlobal('fetch', answer(409, envelope(409, 'DLV-00002', 'Already onboarded.')))
+    const err = await api.postEnvelope('DeliverectWeb/Stores', {}).catch((e: unknown) => e as ApiError)
+    expect([(err as ApiError).kind, apiErrorCode(err), (err as ApiError).message]).toEqual(['business', 'DLV-00002', 'Already onboarded.'])
+  })
+})

@@ -601,6 +601,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/materials/detail/MaterialDetailPage')).default,
         }),
       },
+      // The Deliverect area (BackOffice spec 2615, ticket 477). 478, 479 and 482 add their own
+      // routes under `/deliverect/*` with their pages — a leaf never routes to a page not built yet.
+      {
+        path: 'deliverect/stores',
+        lazy: async () => ({
+          Component: (await import('@/features/deliverect/stores/StoresPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

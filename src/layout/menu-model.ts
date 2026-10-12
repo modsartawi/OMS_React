@@ -89,6 +89,12 @@ import {
 } from '@/features/admin/sync-console/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
+// The Deliverect probe lives in `@/core/` (ticket 477) for the Materials reason: four features (stores,
+// orders, catalog, terms) read it, and none may import another. ONE key; each leaf reads its own flag.
+import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
+import { canManageStores } from '@/core/deliverect/access'
+import type { DeliverectAccessResult } from '@/core/models/deliverect'
+import { Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -186,6 +192,14 @@ const collectionProbe = (visible: (r: CollectionAccessResult) => boolean): Acces
  */
 const materialProbe = (visible: (r: MaterialAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: MATERIAL_ACCESS_KEY, run: () => materialAccessApi.access(), visible })
+
+/**
+ * The Deliverect area's leaves share ONE probe on ONE key (ticket 477), the Materials shape: each
+ * leaf passes its own flag's predicate, so a session granted only the orders monitor gets a
+ * one-leaf group. 🚩 FAILS CLOSED — see `@/core/deliverect/api`.
+ */
+const deliverectProbe = (visible: (r: DeliverectAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: DELIVERECT_ACCESS_KEY, run: () => deliverectApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -804,6 +818,23 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/materials/gs1',
         activePrefix: '/materials/gs1',
         access: materialProbe(canCheckGs1),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, LAST, after Materials (BackOffice spec 2615, ticket 477): `/deliverect/*`
+    // is a new URL prefix and a new nav group. All four leaf labels live in `deliverect-stores` (the
+    // area's first namespace); 478 (orders), 479 (catalog) and 482 (terms) each append their leaf,
+    // on `canViewOrders` / `canManageCatalog` / `canManageTerms`, with the page it opens.
+    labelKey: 'deliverect-stores:menu.deliverect',
+    icon: Truck,
+    items: [
+      {
+        labelKey: 'deliverect-stores:menu.stores',
+        icon: Store,
+        routerLink: '/deliverect/stores',
+        activePrefix: '/deliverect/stores',
+        access: deliverectProbe(canManageStores),
       },
     ],
   },

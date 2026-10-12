@@ -413,6 +413,15 @@ export const api = {
     return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
   },
   /**
+   * `post`, keeping the envelope — `getEnvelope`'s twin (ticket 477), for a write whose SUCCESS
+   * says something beside `data`: the Deliverect onboard answers a store on the direct
+   * HungerStation rail with its row AND a warning in the envelope `message`, which is not a
+   * refusal. A refusal throws exactly what `post` throws.
+   */
+  postEnvelope<T, S extends object = Record<never, never>>(path: string, body: unknown): Promise<ApiEnvelope<T, S>> {
+    return requestEnvelope<T>(path, { method: 'POST', body: JSON.stringify(body) }) as Promise<ApiEnvelope<T, S>>
+  },
+  /**
    * A **multipart** POST — bytes the user picked, plus whatever scalar fields ride
    * beside them (ticket 273, spec 267 D8's two bulk doors).
    *

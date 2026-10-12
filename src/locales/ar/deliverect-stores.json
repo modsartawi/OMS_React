@@ -1,0 +1,120 @@
+{
+  "menu": {
+    "deliverect": "Deliverect",
+    "stores": "الفروع",
+    "orders": "الطلبات",
+    "catalog": "الكتالوج",
+    "terms": "المنصات والشروط"
+  },
+  "title": "فروع Deliverect",
+  "subtitle": "الفروع المسجّلة على حساب Deliverect، وهل ربطتها Deliverect بعد.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية فروع Deliverect",
+    "deniedHint": "حسابك لا يملك صلاحية فروع Deliverect. اطلبها من المسؤول إن كنت تحتاجها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحياتك، لذا تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "filters": {
+    "account": "حساب Deliverect",
+    "anyAccount": "أي حساب",
+    "linked": "الربط",
+    "linkedAny": "الكل",
+    "linkedYes": "مربوط",
+    "linkedNo": "مسجّل، غير مربوط",
+    "q": "الفرع",
+    "qPlaceholder": "رمز الفرع أو اسمه",
+    "search": "بحث",
+    "clear": "مسح"
+  },
+  "columns": {
+    "store": "الفرع",
+    "name": "الاسم",
+    "account": "حساب Deliverect",
+    "state": "الربط",
+    "location": "موقع Deliverect",
+    "onboardedAt": "تاريخ التسجيل",
+    "onboardedBy": "سجّله",
+    "linkedAt": "تاريخ الربط",
+    "directHungerStation": "هنقرستيشن المباشر",
+    "sync": "مزامنة المخزون",
+    "status": "حالة الفرع",
+    "actions": "الإجراءات"
+  },
+  "state": {
+    "linked": "مربوط",
+    "notLinked": "مسجّل، غير مربوط"
+  },
+  "badges": {
+    "directHungerStation": "هنقرستيشن المباشر"
+  },
+  "sync": {
+    "active": "نشطة",
+    "paused": "متوقفة مؤقتًا"
+  },
+  "status": {
+    "open": "مفتوح",
+    "busy": "مشغول",
+    "closed": "مغلق"
+  },
+  "results": {
+    "loading": "جارٍ تحميل الفروع…",
+    "failedTitle": "تعذّر تحميل الفروع",
+    "failed": "حاول مرة أخرى بعد قليل.",
+    "empty": "لا يوجد فرع Deliverect مطابق.",
+    "count_zero": "لا فروع (<n>{{n}}</n>)",
+    "count_one": "فرع واحد (<n>{{n}}</n>)",
+    "count_two": "فرعان (<n>{{n}}</n>)",
+    "count_few": "<n>{{n}}</n> فروع",
+    "count_many": "<n>{{n}}</n> فرعًا",
+    "count_other": "<n>{{n}}</n> فرع"
+  },
+  "account": {
+    "choose": "اختر حسابًا",
+    "loading": "جارٍ تحميل الحسابات…",
+    "inactive": "{{key}} (غير نشط)",
+    "fallbackHint": "قائمة الحسابات غير متاحة لك. اكتب مفتاح الحساب؛ المفتاح الخاطئ يُرفض.",
+    "typePlaceholder": "مفتاح الحساب"
+  },
+  "onboard": {
+    "button": "تسجيل فرع",
+    "title": "تسجيل فرع على Deliverect",
+    "note": "يُسجَّل الفرع الآن ويبقى «مسجّل، غير مربوط» حتى تسجّله Deliverect من جهتها.",
+    "store": "رمز الفرع",
+    "storePlaceholder": "مثال: 1234",
+    "confirm": "تسجيل",
+    "done": "تم تسجيل الفرع",
+    "doneDetail": "الفرع {{store}} مسجّل على {{account}}.",
+    "warningTitle": "تم تسجيل الفرع <store>{{store}}</store> — وهو على مسار هنقرستيشن المباشر",
+    "warningHint": "تبقى طلبات هنقرستيشن لهذا الفرع على المسار المباشر؛ وتصل بقية منصات التوصيل عبر Deliverect.",
+    "dismiss": "إخفاء"
+  },
+  "move": {
+    "button": "نقل",
+    "title": "نقل فرع إلى حساب Deliverect آخر",
+    "note": "ينتقل الفرع <store>{{store}}</store> من <from>{{from}}</from>. يُلغى ربطه بـ Deliverect: ويبقى «مسجّل، غير مربوط» حتى تسجّله Deliverect من جديد على الحساب الجديد.",
+    "to": "حساب Deliverect الجديد",
+    "confirm": "نقل وإلغاء الربط",
+    "done": "تم نقل الفرع",
+    "doneDetail": "الفرع {{store}} على {{account}}، غير مربوط بعد."
+  },
+  "remove": {
+    "button": "إزالة",
+    "title": "إزالة تسجيل فرع",
+    "note": "يغادر الفرع <store>{{store}}</store> Deliverect: تتوقف مزامنة مخزونه ويُلغى ربطه بـ Deliverect. ويبقى سجلّه محفوظًا.",
+    "confirm": "إزالة وإلغاء الربط",
+    "done": "تمت إزالة التسجيل",
+    "doneDetail": "الفرع {{store}} لم يعد على Deliverect."
+  },
+  "reason": {
+    "label": "السبب",
+    "hint": "مطلوب، ويُحفظ مع التغيير.",
+    "tooLong": "{{max}} حرفًا على الأكثر."
+  },
+  "dialog": {
+    "cancel": "إلغاء",
+    "sending": "جارٍ الإرسال…",
+    "failed": "رُفض التغيير",
+    "failedHint": "حاول مرة أخرى بعد قليل."
+  }
+}

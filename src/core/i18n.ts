@@ -104,6 +104,9 @@ import deliverectOrdersAr from '@/locales/ar/deliverect-orders.json'
 // Deliverect catalog — the whitelist and platform exclusions (ticket 479), English and Arabic together.
 import deliverectCatalog from '@/locales/en/deliverect-catalog.json'
 import deliverectCatalogAr from '@/locales/ar/deliverect-catalog.json'
+// Deliverect delivery platforms and terms (ticket 482), English and Arabic together.
+import deliverectTerms from '@/locales/en/deliverect-terms.json'
+import deliverectTermsAr from '@/locales/ar/deliverect-terms.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -111,7 +114,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms'],
   resources: {
     en: {
       common,
@@ -152,6 +155,7 @@ i18n.use(initReactI18next).init({
       'deliverect-stores': deliverectStores,
       'deliverect-orders': deliverectOrders,
       'deliverect-catalog': deliverectCatalog,
+      'deliverect-terms': deliverectTerms,
     },
     ar: {
       document: documentAr,
@@ -168,6 +172,7 @@ i18n.use(initReactI18next).init({
       'deliverect-stores': deliverectStoresAr,
       'deliverect-orders': deliverectOrdersAr,
       'deliverect-catalog': deliverectCatalogAr,
+      'deliverect-terms': deliverectTermsAr,
     },
   },
   interpolation: { escapeValue: false },

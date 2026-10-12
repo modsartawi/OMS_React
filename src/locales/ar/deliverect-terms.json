@@ -1,0 +1,110 @@
+{
+  "title": "منصات التوصيل وشروطها",
+  "subtitle": "حسابات Deliverect، والعميل الآجل لكل منصة توصيل، وشروط العقد السارية في كل تاريخ.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحيتك…",
+    "deniedTitle": "لا صلاحية لمنصات التوصيل وشروطها",
+    "deniedHint": "لا يملك حسابك صلاحية شروط Deliverect. اطلبها من المسؤول إن احتجت إليها.",
+    "unreachableTitle": "هذه الشاشة غير متاحة",
+    "unreachableHint": "تعذّر التحقق من صلاحيتك، لذلك تبقى هذه الشاشة مغلقة. حاول مرة أخرى بعد قليل."
+  },
+  "failedHint": "حاول مرة أخرى بعد قليل.",
+  "yes": "نعم",
+  "no": "لا",
+  "accounts": {
+    "title": "حسابات Deliverect",
+    "hint": "للقراءة فقط. يُسجَّل الفرع على أحد هذه الحسابات.",
+    "loading": "جارٍ تحميل الحسابات…",
+    "failed": "تعذّر تحميل الحسابات",
+    "empty": "لا يوجد حساب Deliverect مُعَدّ.",
+    "columns": {
+      "accountKey": "الحساب",
+      "deliverectAccountId": "معرّف حساب Deliverect",
+      "active": "نشط"
+    }
+  },
+  "platforms": {
+    "title": "منصات التوصيل",
+    "loading": "جارٍ تحميل منصات التوصيل…",
+    "failed": "تعذّر تحميل منصات التوصيل",
+    "empty": "لا توجد منصة توصيل مُعَدّة.",
+    "columns": {
+      "platform": "منصة التوصيل",
+      "platformKey": "مفتاح المنصة",
+      "channelId": "معرّف قناة Deliverect",
+      "creditCustomer": "العميل الآجل",
+      "active": "نشطة",
+      "actions": "الإجراءات"
+    },
+    "noCreditCustomer": "لا يوجد",
+    "active": "نشطة",
+    "inactive": "غير نشطة",
+    "terms": "الشروط",
+    "edit": "تعديل"
+  },
+  "edit": {
+    "title": "تعديل منصة التوصيل",
+    "note": "العميل الآجل هو عميل SAP الذي تُفوتَر عليه طلبات هذه المنصة.",
+    "displayName": "الاسم المعروض",
+    "channelId": "معرّف قناة Deliverect",
+    "creditCustomer": "العميل الآجل",
+    "creditCustomerHint": "اتركه فارغًا إن لم يكن للمنصة عميل بعد.",
+    "active": "نشطة",
+    "activeBlocked": "لا يمكن أن تكون المنصة نشطة بلا عميل آجل: ستُرفض طلباتها.",
+    "confirm": "حفظ المنصة",
+    "done": "حُفظت منصة التوصيل",
+    "doneDetail": "حُدّثت {{platform}}.",
+    "problems": {
+      "required": "أدخل الاسم المعروض.",
+      "wholeNumber": "أدخل عددًا صحيحًا.",
+      "noCreditCustomer": "ألغِ تحديد «نشطة»، أو أدخل عميلًا آجلًا."
+    }
+  },
+  "timeline": {
+    "title": "الشروط",
+    "titleFor": "شروط <platform>{{platform}}</platform>",
+    "hint": "لا تُعدَّل الصفوف أبدًا: التصحيح صف جديد.",
+    "pick": "اختر منصة توصيل لعرض شروطها.",
+    "loading": "جارٍ تحميل الشروط…",
+    "failed": "تعذّر تحميل الشروط",
+    "empty": "لا توجد شروط بعد لمنصة التوصيل هذه.",
+    "add": "إضافة شروط",
+    "current": "الحالية",
+    "open": "مفتوحة",
+    "columns": {
+      "validFrom": "سارية من",
+      "validTo": "سارية حتى",
+      "customerDiscountPct": "خصم العميل %",
+      "commissionPct": "العمولة %",
+      "deliveryFee": "رسوم التوصيل",
+      "deliveryFeeThreshold": "حد رسوم التوصيل"
+    }
+  },
+  "add": {
+    "title": "إضافة شروط",
+    "neverEdited": "لا تُعدَّل الشروط أبدًا: التصحيح صف جديد.",
+    "closesOn": "الشروط الحالية، السارية من <from>{{from}}</from>، تُغلق في <closeOn>{{closeOn}}</closeOn>، اليوم السابق لبدء الصف الجديد.",
+    "closesDayBefore": "تُغلق الشروط الحالية في اليوم السابق لبدء الصف الجديد.",
+    "first": "هذه أول شروط للمنصة. تبقى مفتوحة حتى يُضاف الصف التالي.",
+    "validFrom": "سارية من",
+    "customerDiscountPct": "خصم العميل %",
+    "commissionPct": "العمولة %",
+    "deliveryFee": "رسوم التوصيل",
+    "deliveryFeeThreshold": "حد رسوم التوصيل",
+    "currency": "العملة",
+    "conflict": {
+      "inside": "يقع <date>{{date}}</date> ضمن الشروط السارية من <from>{{from}}</from>. سيرفض الخادم التداخل.",
+      "insideOpen": "<date>{{date}}</date> هو يوم بدء الشروط الحالية. يجب أن يبدأ الصف الجديد بعده.",
+      "before": "يسبق <date>{{date}}</date> الشروط السارية من <from>{{from}}</from>. يجب أن يبدأ الصف الجديد بعد آخر صف."
+    },
+    "problems": {
+      "required": "مطلوب.",
+      "date": "أدخل تاريخًا صحيحًا.",
+      "number": "أدخل رقمًا، بثلاث خانات عشرية على الأكثر.",
+      "percent": "100 على الأكثر."
+    },
+    "confirm": "إضافة الشروط",
+    "done": "أُضيفت الشروط",
+    "doneDetail": "{{platform}}: شروط جديدة من {{from}}."
+  }
+}

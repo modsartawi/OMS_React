@@ -40,6 +40,8 @@
 //      shown; DLV-00011 shows Deliverect's answer inline; Accounts 403 → a typed account key;
 //   8. under RTL (direction) machine values are isolated, and an exclusion save works.
 //
+// ── 482 (note) ── the Terms leaf joins after Catalog: check 1's full list gains /deliverect/terms.
+//
 //   1. run the app:  npx vite --port 5196 --strictPort
 //   2. DRIVE_PORT=5196 node tools/deliverect-catalog-drive.mjs
 import { createRequire } from 'node:module'
@@ -266,7 +268,7 @@ const ACTIVE = ROWS.filter((r) => stateOf(r) === 'active').length
   const hrefs = await page.locator('nav a[href^="/deliverect"]').evaluateAll((els) => els.map((e) => e.getAttribute('href')))
   check(
     '1: the Catalog leaf joins the group after Orders',
-    JSON.stringify(hrefs) === JSON.stringify(['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog']),
+    JSON.stringify(hrefs) === JSON.stringify(['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog', '/deliverect/terms']),
     hrefs.join(),
   )
   check('1: the leaf reads "Catalog"', (await page.locator('nav a[href="/deliverect/catalog"]').first().innerText()).trim() === 'Catalog')

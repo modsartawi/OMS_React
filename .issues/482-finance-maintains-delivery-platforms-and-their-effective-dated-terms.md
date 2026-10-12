@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2615-deliverect-delivery-platforms-spec.md
 blocked-by: 477 (live: BackOffice 2627)
 ---
@@ -30,9 +30,9 @@ UI → app (BackOffice doors, stubbed until 483)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `termsTimeline`: rows sort by `validFrom`, the open row is marked current, and a proposed `validFrom` inside an existing row is flagged (vitest)
-- [ ] `tools/deliverect-terms-drive.mjs`, against stubs: edit a platform, add terms, the overlap refusal, hidden without `canManageTerms`
-- [ ] typecheck, lint, test green
+- [x] `termsTimeline`: rows sort by `validFrom`, the open row is marked current, and a proposed `validFrom` inside an existing row is flagged (vitest)
+- [x] `tools/deliverect-terms-drive.mjs`, against stubs: edit a platform, add terms, the overlap refusal, hidden without `canManageTerms`
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -47,3 +47,10 @@ The helpers and the drive are green.
 - [477](477-an-hq-user-onboards-a-store-on-a-deliverect-account-and-sees-its-link.md)
 
 (live: BackOffice 2627)
+
+## Outcome (2026-10-12)
+
+- `features/deliverect/terms` at `/deliverect/terms` (`deliverect-terms`, en + ar), the Terms leaf LAST in the Deliverect group on `canManageTerms`.
+- Pure seams: `terms-timeline.ts` (`termsTimeline`, `termsConflict`, `dayBefore`, `parseTermsDraft`, `termsDraftFrom`, `termsCurrency`, `money`) and `platform-edit.ts`; vitest 45 cases in the feature + i18n mirror test; menu test gains the Terms leaf.
+- Proof: vitest 4990 green; `deliverect-terms-drive` **80/80 against stubs** (LTR + RTL); stores 167/167, orders 91/91, catalog 90/90 still green (menu checks gained the leaf); typecheck, lint (4 gates), build green.
+- Outstanding, not AFK's: live doors (483 / BackOffice 2627); owner sign-offs and contract gaps in `.afk/HITL-482.md`; owner's eye on the Arabic.

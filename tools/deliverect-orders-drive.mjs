@@ -50,6 +50,8 @@
 // 479 (note): the Catalog leaf follows Orders, so check 1 reads the first two leaves, and the
 // "only canViewOrders" session also drops canManageCatalog.
 //
+// 482 (note): the Terms leaf joined too, so the "only canViewOrders" session also drops canManageTerms.
+//
 //   1. run the app:  npx vite --port 5196 --strictPort
 //   2. DRIVE_PORT=5196 node tools/deliverect-orders-drive.mjs
 import { createRequire } from 'node:module'
@@ -339,7 +341,7 @@ function sheetRows(files) {
   await context.close()
 }
 {
-  const { context, page } = await open('ltr', { access: { ...ALL, canManageStores: false, canManageCatalog: false } })
+  const { context, page } = await open('ltr', { access: { ...ALL, canManageStores: false, canManageCatalog: false, canManageTerms: false } })
   await page.goto(`${BASE}/`)
   const header = page.locator('nav button[aria-expanded]', { hasText: /^Deliverect$/ })
   await header.first().waitFor({ timeout: 20000 })

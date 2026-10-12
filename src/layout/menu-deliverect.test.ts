@@ -31,47 +31,61 @@ describe('the Deliverect nav group', () => {
     expect(MENU.at(-2)?.labelKey).toBe('materials-search:menu.materials')
   })
 
-  it('every leaf rides the ONE shared key; 477 shipped Stores, 478 appends Orders, 479 Catalog', () => {
+  it('every leaf rides the ONE shared key; 477 shipped Stores, 478 appends Orders, 479 Catalog, 482 Terms', () => {
     const leaves = gatedLeaves([deliverect!])
-    expect(leaves.map((l) => l.routerLink)).toEqual(['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog'])
+    expect(leaves.map((l) => l.routerLink)).toEqual(['/deliverect/stores', '/deliverect/orders', '/deliverect/catalog', '/deliverect/terms'])
     for (const leaf of leaves) expect(leaf.access!.key).toBe(DELIVERECT_ACCESS_KEY)
   })
 
   it('appears for a session holding canManageStores', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canViewOrders: false, canManageCatalog: false }))).items)).toEqual([
+    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canViewOrders: false, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
     ])
   })
 
   it('478: the Orders leaf follows canViewOrders alone — a session granted only the monitor gets a one-leaf group', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageCatalog: false }))).items)).toEqual([
+    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
       'deliverect-stores:menu.orders',
     ])
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canManageCatalog: false }))).items)).toEqual([
+    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canManageCatalog: false, canManageTerms: false }))).items)).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.orders',
     ])
   })
 
   it('479: the Catalog leaf follows canManageCatalog alone, after Orders', () => {
-    expect(labels(resolveMenu([deliverect!], each(probed(ALL))).items)).toEqual([
+    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageTerms: false }))).items)).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.stores',
       'deliverect-stores:menu.orders',
       'deliverect-stores:menu.catalog',
     ])
-    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canViewOrders: false }))).items)).toEqual([
+    expect(labels(resolveMenu([deliverect!], each(probed({ ...ALL, canManageStores: false, canViewOrders: false, canManageTerms: false }))).items)).toEqual([
       'deliverect-stores:menu.deliverect',
       'deliverect-stores:menu.catalog',
     ])
   })
 
+  it('482: the Terms leaf follows canManageTerms alone, LAST', () => {
+    expect(labels(resolveMenu([deliverect!], each(probed(ALL))).items)).toEqual([
+      'deliverect-stores:menu.deliverect',
+      'deliverect-stores:menu.stores',
+      'deliverect-stores:menu.orders',
+      'deliverect-stores:menu.catalog',
+      'deliverect-stores:menu.terms',
+    ])
+    expect(labels(resolveMenu([deliverect!], each(probed({ canManageStores: false, canViewOrders: false, canManageCatalog: false, canManageTerms: true }))).items)).toEqual([
+      'deliverect-stores:menu.deliverect',
+      'deliverect-stores:menu.terms',
+    ])
+  })
+
   it('🚩 disappears — group and all — without its leaves’ flags, on an error, a malformed answer or while pending', () => {
-    const none = { ...ALL, canManageStores: false, canViewOrders: false, canManageCatalog: false }
-    for (const state of [probed(none), errored, probed({}), probed({ ...none, canManageStores: 'true', canViewOrders: 'true', canManageCatalog: 'true' }), pending])
+    const none = { canManageStores: false, canViewOrders: false, canManageCatalog: false, canManageTerms: false }
+    for (const state of [probed(none), errored, probed({}), probed({ ...none, canManageStores: 'true', canViewOrders: 'true', canManageCatalog: 'true', canManageTerms: 'true' }), pending])
       expect(resolveMenu([deliverect!], each(state)).items).toEqual([])
   })
 })

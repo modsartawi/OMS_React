@@ -1,0 +1,110 @@
+{
+  "title": "Delivery platforms and terms",
+  "subtitle": "The Deliverect accounts, each delivery platform's credit customer, and the contract terms in force on each date.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to delivery platforms and terms",
+    "deniedHint": "Your account does not hold the Deliverect terms grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "failedHint": "Try again in a moment.",
+  "yes": "Yes",
+  "no": "No",
+  "accounts": {
+    "title": "Deliverect accounts",
+    "hint": "Read only. A store is onboarded on one of these accounts.",
+    "loading": "Loading the accounts…",
+    "failed": "The accounts could not be loaded",
+    "empty": "No Deliverect account is configured.",
+    "columns": {
+      "accountKey": "Account",
+      "deliverectAccountId": "Deliverect account id",
+      "active": "Active"
+    }
+  },
+  "platforms": {
+    "title": "Delivery platforms",
+    "loading": "Loading the delivery platforms…",
+    "failed": "The delivery platforms could not be loaded",
+    "empty": "No delivery platform is configured.",
+    "columns": {
+      "platform": "Delivery platform",
+      "platformKey": "Platform key",
+      "channelId": "Deliverect channel id",
+      "creditCustomer": "Credit customer",
+      "active": "Active",
+      "actions": "Actions"
+    },
+    "noCreditCustomer": "None",
+    "active": "Active",
+    "inactive": "Inactive",
+    "terms": "Terms",
+    "edit": "Edit"
+  },
+  "edit": {
+    "title": "Edit the delivery platform",
+    "note": "The credit customer is the SAP customer this platform's orders are invoiced to.",
+    "displayName": "Display name",
+    "channelId": "Deliverect channel id",
+    "creditCustomer": "Credit customer",
+    "creditCustomerHint": "Leave empty if the platform has none yet.",
+    "active": "Active",
+    "activeBlocked": "A platform with no credit customer cannot be active: its orders would be refused.",
+    "confirm": "Save the platform",
+    "done": "Delivery platform saved",
+    "doneDetail": "{{platform}} is updated.",
+    "problems": {
+      "required": "Enter a display name.",
+      "wholeNumber": "Enter a whole number.",
+      "noCreditCustomer": "Untick Active, or enter a credit customer."
+    }
+  },
+  "timeline": {
+    "title": "Terms",
+    "titleFor": "Terms of <platform>{{platform}}</platform>",
+    "hint": "Rows are never edited: a correction is a new row.",
+    "pick": "Pick a delivery platform to see its terms.",
+    "loading": "Loading the terms…",
+    "failed": "The terms could not be loaded",
+    "empty": "No terms yet for this delivery platform.",
+    "add": "Add terms",
+    "current": "Current",
+    "open": "Open",
+    "columns": {
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "customerDiscountPct": "Customer discount %",
+      "commissionPct": "Commission %",
+      "deliveryFee": "Delivery fee",
+      "deliveryFeeThreshold": "Delivery fee threshold"
+    }
+  },
+  "add": {
+    "title": "Add terms",
+    "neverEdited": "Terms are never edited: a correction is a new row.",
+    "closesOn": "The current terms, valid from <from>{{from}}</from>, close on <closeOn>{{closeOn}}</closeOn>, the day before the new row starts.",
+    "closesDayBefore": "The current terms close the day before the new row starts.",
+    "first": "These are the platform's first terms. They stay open until the next row is added.",
+    "validFrom": "Valid from",
+    "customerDiscountPct": "Customer discount %",
+    "commissionPct": "Commission %",
+    "deliveryFee": "Delivery fee",
+    "deliveryFeeThreshold": "Delivery fee threshold",
+    "currency": "Currency",
+    "conflict": {
+      "inside": "<date>{{date}}</date> falls inside the terms valid from <from>{{from}}</from>. The server will refuse an overlap.",
+      "insideOpen": "<date>{{date}}</date> is the day the current terms start. A new row must start after it.",
+      "before": "<date>{{date}}</date> comes before the terms valid from <from>{{from}}</from>. A new row must start after the latest one."
+    },
+    "problems": {
+      "required": "Required.",
+      "date": "Enter a valid date.",
+      "number": "Enter a number, at most 3 decimals.",
+      "percent": "At most 100."
+    },
+    "confirm": "Add the terms",
+    "done": "Terms added",
+    "doneDetail": "{{platform}}: new terms from {{from}}."
+  }
+}

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { syncConsoleAccessQuery } from './api'
+import { canReplayReceipts, syncConsoleAccessQuery } from './api'
 import { wizardStart } from './onboard-helpers'
 
 /**
@@ -11,6 +11,9 @@ import { wizardStart } from './onboard-helpers'
  *
  * New store is the wizard, which is nothing but controls: a holder who may onboard
  * nothing (`wizardStart` is `null`) is not shown the link. Sync pending is a read.
+ *
+ * Replay (spec 470, ticket 472) is shown only with `canReplay`, which does not need
+ * `canOperate`; its page keeps its own in-page denial behind a hand-typed link.
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
@@ -18,13 +21,15 @@ const PAGES = [
   { to: '/admin/sync/audit', key: 'audit', end: false },
   { to: '/admin/sync/new-store', key: 'newStore', end: false },
   { to: '/admin/sync/pending', key: 'pending', end: false },
+  { to: '/admin/sync/replay', key: 'replay', end: false },
 ] as const
 
 export default function ConsoleNav() {
   const { t } = useTranslation('sync-console')
   const access = useQuery(syncConsoleAccessQuery())
   const canOnboardAny = wizardStart(access.data, null) !== null
-  const pages = PAGES.filter((p) => p.key !== 'newStore' || canOnboardAny)
+  const canReplay = canReplayReceipts(access.data)
+  const pages = PAGES.filter((p) => (p.key !== 'newStore' || canOnboardAny) && (p.key !== 'replay' || canReplay))
   return (
     <nav aria-label={t('nav.label')} className="flex gap-1 border-b border-border/60" data-console-nav="">
       {pages.map((p) => (

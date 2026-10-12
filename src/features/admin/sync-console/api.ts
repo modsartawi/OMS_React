@@ -37,6 +37,9 @@ import type {
   PendingStore,
   PassDetail,
   RePushRequest,
+  ReplayRegisters,
+  ReplayRequest,
+  ReplayResult,
   RePushResponse,
   StoreAgreement,
   StoreCounters,
@@ -104,12 +107,20 @@ export function syncConsoleAccessQuery() {
 export const canOpenSyncConsole = (r: SyncConsoleAccess | null | undefined): boolean =>
   r?.screenAllowed === true
 
+/**
+ * The Replay page's predicate (spec 470, ticket 472), read by BOTH the console nav's link
+ * and the page's gate. `ActionSync.Replay` is independent of `canOperate`. `=== true`, so a
+ * malformed answer (or a door not yet sending the flag) is a denial.
+ */
+export const canReplayReceipts = (r: SyncConsoleAccess | null | undefined): boolean =>
+  r?.canReplay === true
+
 /** The Fleet page's four reads share this prefix, so one invalidation refreshes them all. */
 export const FLEET_KEY = ['sync-console', 'fleet'] as const
 
 export const syncConsoleApi = {
   /**
-   * `GET ActionSync/Access` → `{ screenAllowed, canOperate, canOnboard }`.
+   * `GET ActionSync/Access` → `{ screenAllowed, canOperate, canOnboard, canReplay }`.
    *
    * 🚩 **Fails closed** — no 404-tolerant catch, on the IDoc Inspector precedent and
    * unlike `Bby/Access`: this screen controls the whole fleet's sync and its door is
@@ -334,6 +345,29 @@ export const syncConsoleApi = {
   editStore(body: EditStoreRequest): Promise<AuditedWriteResponse> {
     return api.post<AuditedWriteResponse>('Store/Edit', body)
   },
+
+  // ── Receipt replay (spec 470, ticket 472; `ActionSync.Replay`) ──
+  // 🚩 Spec 470's PROPOSED contract: the BackOffice spec that owns these doors is unwritten,
+  // so both are stubbed in `tools/sync-console-replay-drive.mjs` and never called live yet.
+
+  /**
+   * `GET ActionSync/Replay/Registers?code=` → the target store's registers. A refusal
+   * (`NO_STORE`, `NOT_NEWPOS_STORE`, `STORE_UNREACHABLE`) throws.
+   */
+  replayRegisters(code: string): Promise<ReplayRegisters> {
+    return api.get<ReplayRegisters>('ActionSync/Replay/Registers', { code })
+  },
+
+  /**
+   * `POST ActionSync/Replay` → the new sale at the target store. `snapshot` is the parsed
+   * object. A refusal (`NO_STORE`, `NOT_NEWPOS_STORE`, `STORE_UNREACHABLE`, `NO_REGISTER`,
+   * `BAD_SNAPSHOT`, `NOT_A_SALE`, `NOT_COMPLETED`, `TRAINING`, `UNBALANCED`) throws.
+   *
+   * 🚩 The body carries customer, loyalty and tender data: never logged, never stored.
+   */
+  replay(body: ReplayRequest): Promise<ReplayResult> {
+    return api.post<ReplayResult>('ActionSync/Replay', body)
+  },
 }
 
 /** The door's largest page (200): the connection-test read must reach the wizard's own tests. */
@@ -537,4 +571,19 @@ export const PENDING_KEY = ['sync-console', 'pending'] as const
 export const pendingStoresQuery = (page: number) => ({
   queryKey: [...PENDING_KEY, page] as const,
   queryFn: () => syncConsoleApi.pendingStores(page),
+})
+
+// ── Receipt replay (ticket 472) ──
+
+/**
+ * One store's registers for the Replay page's picker, read when a code is entered. A
+ * refusal is the answer (a WPF store, an unknown code), so it is not retried; a store's
+ * registers do not move under a tester, so nothing re-reads them behind the picker (the
+ * same code entered again asks a refused store once more).
+ */
+export const replayRegistersQuery = (code: string) => ({
+  queryKey: ['sync-console', 'replay', 'registers', code] as const,
+  queryFn: () => syncConsoleApi.replayRegisters(code),
+  retry: false,
+  staleTime: Infinity,
 })

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, GridApi, IRowNode, RowClassRules } from 'ag-grid-community'
 import { AlertTriangle, Plus, RotateCcw, Search, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
@@ -20,13 +20,16 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
-import { MoveDialog, OnboardDialog, RemoveDialog } from './StoreDialogs'
+import { MoveDialog, OnboardDialog, RemoveDialog, SyncActiveDialog } from './StoreDialogs'
 import { LINKED_FILTERS, accountChoices, onboardWarning, optionalColumns, storesFromParams, storesToParams } from './store-state'
+import { syncHealth, syncHighlight } from './sync-health'
+import SyncLogsDrawer from './SyncLogsDrawer'
 
 /**
  * Deliverect stores (ticket 477, BackOffice spec 2615): every store onboarded on a Deliverect
  * account, whether Deliverect has linked it yet, and the three writes — onboard, move, remove —
- * each with a reason.
+ * each with a reason. Ticket 480 adds each store's stock sync: its columns, a failing or overdue
+ * row highlighted, pause / resume with a reason, and the logs drawer.
  *
  * Behind `canManageStores` on the ONE Deliverect probe, the same predicate the menu leaf reads.
  * Its doors are BackOffice 2616 (sync fields 2624, status fields 2625).
@@ -59,7 +62,26 @@ const LINKED_KEY: Record<DeliverectLinkedFilter, string> = { any: 'filters.linke
 /** The number a sentence names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
 
-type Dialog = { kind: 'onboard' } | { kind: 'move'; row: Row } | { kind: 'remove'; row: Row } | null
+type Dialog =
+  | { kind: 'onboard' }
+  | { kind: 'move'; row: Row }
+  | { kind: 'remove'; row: Row }
+  | { kind: 'syncActive'; row: Row }
+  | { kind: 'logs'; row: Row }
+  | null
+
+/** A failed store's row is red and an overdue store's amber (ticket 480; HungerStation spec 1872). */
+const ROW_FAILED = '[--ag-data-background-color:var(--danger-050)]'
+const ROW_OVERDUE = '[--ag-data-background-color:var(--attention-050)]'
+
+/** A row's highlight at a moment — `null` when it has none (no sync block, ok, paused, not run). */
+function highlightAt(row: Row, at: Date) {
+  const reading = syncHealth(row, at)
+  return reading ? syncHighlight(reading.health) : null
+}
+
+/** How often the page re-reads the clock, so a store turns overdue while the screen is open. */
+const CLOCK_TICK_MS = 60_000
 
 function Stores() {
   const { t } = useTranslation('deliverect-stores')
@@ -103,13 +125,52 @@ function Stores() {
     setWarning((w) => (w?.storeCode === row.storeCode ? null : w))
   }
 
+  // The sync health is read against the clock (`syncHealth`): the cells and the row highlight read
+  // it through a ref, and each tick refreshes them, so an overdue store shows without a refetch.
+  const grid = useRef<GridApi<Row> | null>(null)
+  const now = useRef(new Date())
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const api = grid.current
+      const before = now.current
+      now.current = new Date()
+      if (!api) return
+      // The health cells re-read the clock. Row classes are only re-applied on a redraw, so the
+      // rows whose highlight changed with the clock — and only those — are redrawn.
+      const changed: IRowNode<Row>[] = []
+      api.forEachNode((node) => {
+        if (node.data && highlightAt(node.data, before) !== highlightAt(node.data, now.current)) changed.push(node)
+      })
+      api.refreshCells({ columns: ['syncHealth'], force: true })
+      if (changed.length) api.redrawRows({ rowNodes: changed })
+    }, CLOCK_TICK_MS)
+    return () => window.clearInterval(id)
+  }, [])
+  const rowClassRules = useMemo<RowClassRules<Row>>(() => {
+    const highlight = (data: Row | undefined) => (data ? highlightAt(data, now.current) : null)
+    // The row's ground is painted by its `::after` from `--ag-data-background-color` (global.css,
+    // the selected-row note), so a highlight sets that variable on the row — a plain `bg-*` on the
+    // row would sit under it, unseen.
+    return {
+      [ROW_FAILED]: ({ data }) => highlight(data) === 'bad',
+      [ROW_OVERDUE]: ({ data }) => highlight(data) === 'warn',
+    }
+  }, [])
+
   const shown = optionalColumns(rows)
   const columns = useMemo(
     () =>
-      storeColumns(t, shown, {
-        onMove: (row) => setDialog({ kind: 'move', row }),
-        onRemove: (row) => setDialog({ kind: 'remove', row }),
-      }),
+      storeColumns(
+        t,
+        shown,
+        {
+          onMove: (row) => setDialog({ kind: 'move', row }),
+          onRemove: (row) => setDialog({ kind: 'remove', row }),
+          onSyncActive: (row) => setDialog({ kind: 'syncActive', row }),
+          onLogs: (row) => setDialog({ kind: 'logs', row }),
+        },
+        () => now.current,
+      ),
     // `shown` is two booleans: listed one by one so the columns rebuild only when one flips.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, shown.sync, shown.status],
@@ -220,11 +281,13 @@ function Stores() {
       <div className="flex min-w-0 flex-col gap-1">
         <div className="relative h-[calc(100vh-22rem)] min-h-96" data-stores-grid="">
           <AgGridReact<Row>
+            onGridReady={({ api }) => (grid.current = api)}
             theme={omsGridTheme}
             rowData={stores.isError ? [] : rows}
             columnDefs={columns}
             defaultColDef={DEFAULT_COL_DEF}
             getRowId={({ data }) => data.storeCode}
+            rowClassRules={rowClassRules}
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             tooltipShowDelay={500}
@@ -269,6 +332,10 @@ function Stores() {
       {dialog?.kind === 'remove' && (
         <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => written(dialog.row)} />
       )}
+      {dialog?.kind === 'syncActive' && (
+        <SyncActiveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'logs' && <SyncLogsDrawer row={dialog.row} onClose={() => setDialog(null)} />}
     </div>
   )
 }

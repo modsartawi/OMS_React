@@ -8,7 +8,7 @@ import { DELIVERECT_ERRORS, type DeliverectStoreRow } from '@/core/models/delive
 import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { STORES_KEY, storesApi } from './api'
+import { STORES_KEY, storesApi, syncLogsKey } from './api'
 import { accountChoices } from './store-state'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium'
@@ -260,6 +260,46 @@ export function RemoveDialog({ row, onClose, onDone }: { row: DeliverectStoreRow
       error={send.error}
       confirmLabel={t('remove.confirm')}
       danger
+      onEdit={() => send.reset()}
+      onConfirm={(reason) => send.mutate(reason)}
+      onClose={onClose}
+    />
+  )
+}
+
+/**
+ * Pause or resume a store's stock sync, with a reason (ticket 480; glossary **Stock sync
+ * (paused)**). The dialog says in words that pausing stops the stock pushes ONLY: the store stays
+ * listed on the delivery platforms, keeps the stock it was last sent, and still receives orders.
+ */
+export function SyncActiveDialog({ row, onClose, onDone }: { row: DeliverectStoreRow; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('deliverect-stores')
+  const qc = useQueryClient()
+  // The row as it was when the dialog opened: pausing an active sync, resuming a paused one.
+  const [pausing] = useState(row.sync?.active !== false)
+  const verb = pausing ? 'pause' : 'resume'
+  const send = useMutation({
+    mutationFn: (reason: string) => storesApi.setSyncActive(row.storeCode, { active: !pausing, reason }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: STORES_KEY })
+      void qc.invalidateQueries({ queryKey: syncLogsKey(row.storeCode) })
+      notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
+      onDone()
+    },
+  })
+
+  return (
+    <ReasonDialog
+      open
+      title={t(`${verb}.title`)}
+      note={
+        <span data-sync-note={verb}>
+          <Trans t={t} i18nKey={`${verb}.note`} values={{ store: row.storeCode }} components={{ store: <Ltr /> }} />
+        </span>
+      }
+      busy={send.isPending}
+      error={send.error}
+      confirmLabel={t(`${verb}.confirm`)}
       onEdit={() => send.reset()}
       onConfirm={(reason) => send.mutate(reason)}
       onClose={onClose}

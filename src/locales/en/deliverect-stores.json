@@ -38,6 +38,11 @@
     "linkedAt": "Linked at",
     "directHungerStation": "Direct HungerStation",
     "sync": "Stock sync",
+    "syncHealth": "Sync health",
+    "lastFullRun": "Last full run",
+    "lastDeltaRun": "Last delta run",
+    "lastStatus": "Last status",
+    "lastError": "Last error",
     "status": "Store status",
     "actions": "Actions"
   },
@@ -101,6 +106,59 @@
     "confirm": "Remove and clear the link",
     "done": "Onboarding removed",
     "doneDetail": "Store {{store}} is no longer on Deliverect."
+  },
+  "syncHealth": {
+    "ok": "Up to date",
+    "failed": "Failed",
+    "overdue": "Overdue",
+    "paused": "Paused",
+    "notRun": "Not run yet",
+    "fullOverdue": "No full run since {{time}} today.",
+    "deltaOverdue_one": "No run in the last {{minutes}} minute.",
+    "deltaOverdue_other": "No run in the last {{minutes}} minutes."
+  },
+  "pause": {
+    "button": "Pause sync",
+    "title": "Pause the stock sync",
+    "note": "Store <store>{{store}}</store> stops sending its stock to Deliverect. Pausing stops the stock pushes only: the store stays listed on every delivery platform and it can still receive orders.",
+    "confirm": "Pause stock sync",
+    "done": "Stock sync paused",
+    "doneDetail": "Store {{store}} no longer pushes its stock. It still receives orders."
+  },
+  "resume": {
+    "button": "Resume sync",
+    "title": "Resume the stock sync",
+    "note": "Store <store>{{store}}</store> starts sending its stock to Deliverect again on the next run.",
+    "confirm": "Resume stock sync",
+    "done": "Stock sync resumed",
+    "doneDetail": "Store {{store}} pushes its stock again from the next run."
+  },
+  "logs": {
+    "button": "Logs",
+    "eyebrow": "Stock sync log",
+    "hint": "The most recent runs first, at most {{max}}.",
+    "close": "Close",
+    "loading": "Loading the sync log…",
+    "failed": "The sync log could not be loaded",
+    "empty": "No stock sync has run for this store yet.",
+    "running": "Running",
+    "success": "Success",
+    "failedRun": "Failed",
+    "noCallback": "Not yet",
+    "type": {
+      "full": "Full",
+      "delta": "Delta"
+    },
+    "columns": {
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "rows": "Rows",
+      "status": "Status",
+      "fileId": "File id",
+      "callback": "Deliverect callback",
+      "error": "Error"
+    }
   },
   "reason": {
     "label": "Reason",

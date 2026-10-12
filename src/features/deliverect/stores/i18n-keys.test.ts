@@ -66,6 +66,24 @@ describe('deliverect-stores — the keys the code builds exist', () => {
       expect([key, has(locale, key)]).toEqual([key, true])
   })
 
+  it.each([en, ar])('480: each sync health, run type, and the pause / resume dialog keys the code builds', (locale) => {
+    const keys = [
+      ...['ok', 'failed', 'overdue', 'paused', 'notRun'].map((h) => `syncHealth.${h}`),
+      'syncHealth.fullOverdue',
+      'syncHealth.deltaOverdue_other',
+      'logs.type.full',
+      'logs.type.delta',
+      ...['pause', 'resume'].flatMap((v) => ['title', 'note', 'confirm', 'done', 'doneDetail', 'button'].map((k) => `${v}.${k}`)),
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it('480: the pause note says in words that pausing stops the stock pushes only, and orders still come', () => {
+    expect(en.pause.note).toMatch(/stock pushes only/)
+    expect(en.pause.note).toMatch(/stays listed/)
+    expect(en.pause.note).toMatch(/still receive orders/)
+  })
+
   it.each([en, ar])('the five ScreenGate sentences', (locale) => {
     for (const key of ['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'])
       expect([key, has(locale, `access.${key}`)]).toEqual([key, true])

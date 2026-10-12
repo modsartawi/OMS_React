@@ -1,13 +1,16 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { Pause, Play, ScrollText } from 'lucide-react'
 import type { DeliverectStoreRow, DeliverectStoreState } from '@/core/models/deliverect'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { storeState } from './store-state'
+import { DELTA_OVERDUE_MINUTES, FULL_SYNC_HOUR, syncHealth, syncHighlight, type SyncHealth } from './sync-health'
 
 type Row = DeliverectStoreRow
 
@@ -29,6 +32,25 @@ function LtrCell({ value, valueFormatted }: ICellRendererParams) {
   return text === '' ? null : <Ltr>{text}</Ltr>
 }
 
+/** The hour the full run is due, as the overdue sentence names it. */
+const FULL_SYNC_DUE = `${String(FULL_SYNC_HOUR).padStart(2, '0')}:00`
+
+/** The badge's tone: the row's highlight (`syncHighlight`, one rule for both) — else ok, or neutral. */
+const healthSev = (health: SyncHealth): Severity => syncHighlight(health) ?? (health === 'ok' ? 'ok' : 'mute')
+
+/** The health's words, and — for an overdue store — which run is behind, in words (a `title`). */
+function healthLabel(t: TFunction, row: Row, now: Date): { health: SyncHealth; text: string; why: string } | null {
+  const reading = syncHealth(row, now)
+  if (!reading) return null
+  const why = [
+    reading.fullOverdue && t('syncHealth.fullOverdue', { time: fsi(FULL_SYNC_DUE) }),
+    reading.deltaOverdue && t('syncHealth.deltaOverdue', { count: DELTA_OVERDUE_MINUTES, minutes: fsi(String(DELTA_OVERDUE_MINUTES)) }),
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return { health: reading.health, text: t(`syncHealth.${reading.health}`), why }
+}
+
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)
 
 /**
@@ -37,13 +59,24 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * and store status columns ONLY when the data carries them (`optionalColumns`; 480/481 fill them),
  * and the row's Move / Remove.
  *
+ * The stock sync (ticket 480): active or paused, its health (`syncHealth` at `now()` — failed red,
+ * overdue amber, the row highlighted the same way by the page), the last full and delta runs, the
+ * last status and error; and the row's Pause / Resume and Logs, on a row that carries a sync block.
+ *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value.
  */
 export function storeColumns(
   t: TFunction,
   shown: { sync: boolean; status: boolean },
-  act: { onMove: (row: Row) => void; onRemove: (row: Row) => void },
+  act: {
+    onMove: (row: Row) => void
+    onRemove: (row: Row) => void
+    onSyncActive: (row: Row) => void
+    onLogs: (row: Row) => void
+  },
+  /** The page's clock — read on every render, so a store turns overdue without a refetch. */
+  now: () => Date,
 ): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
@@ -91,6 +124,51 @@ export function storeColumns(
                 <StatusBadge sev={data.sync.active ? 'go' : 'mute'}>{t(data.sync.active ? 'sync.active' : 'sync.paused')}</StatusBadge>
               ) : null,
           } satisfies ColDef<Row>,
+          {
+            colId: 'syncHealth',
+            headerName: t('columns.syncHealth'),
+            width: 130,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => (data ? (healthLabel(t, data, now())?.text ?? '') : ''),
+            cellRenderer: ({ data }: ICellRendererParams<Row>) => {
+              const label = data ? healthLabel(t, data, now()) : null
+              return label ? (
+                <span data-sync-health={label.health} title={label.why || undefined}>
+                  <StatusBadge sev={healthSev(label.health)}>{label.text}</StatusBadge>
+                </span>
+              ) : null
+            },
+          } satisfies ColDef<Row>,
+          {
+            colId: 'lastFullRun',
+            headerName: t('columns.lastFullRun'),
+            width: 150,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.sync?.lastFullRun ?? null,
+            valueFormatter: time,
+            cellRenderer: LtrCell,
+          } satisfies ColDef<Row>,
+          {
+            colId: 'lastDeltaRun',
+            headerName: t('columns.lastDeltaRun'),
+            width: 150,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.sync?.lastDeltaRun ?? null,
+            valueFormatter: time,
+            cellRenderer: LtrCell,
+          } satisfies ColDef<Row>,
+          {
+            colId: 'lastStatus',
+            headerName: t('columns.lastStatus'),
+            width: 110,
+            cellClass: code,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.sync?.lastStatus ?? null,
+            cellRenderer: LtrCell,
+          } satisfies ColDef<Row>,
+          {
+            colId: 'lastError',
+            headerName: t('columns.lastError'),
+            width: 240,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.sync?.lastError ?? null,
+            tooltipValueGetter: ({ data }) => data?.sync?.lastError ?? null,
+          } satisfies ColDef<Row>,
         ]
       : []),
     ...(shown.status
@@ -111,12 +189,24 @@ export function storeColumns(
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 180,
+      width: shown.sync ? 340 : 180,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
         data ? (
           <span className="flex h-full items-center gap-1.5">
+            {data.sync && (
+              <>
+                <Button variant="ghost" onClick={() => act.onSyncActive(data)} data-sync-toggle={data.storeCode}>
+                  {data.sync.active ? <Pause className="h-3.5 w-3.5" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+                  {t(data.sync.active ? 'pause.button' : 'resume.button')}
+                </Button>
+                <Button variant="ghost" onClick={() => act.onLogs(data)} data-sync-logs={data.storeCode}>
+                  <ScrollText className="h-3.5 w-3.5" aria-hidden />
+                  {t('logs.button')}
+                </Button>
+              </>
+            )}
             <Button variant="ghost" onClick={() => act.onMove(data)} data-store-move={data.storeCode}>
               {t('move.button')}
             </Button>

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 444
 blocked-by: 467, 468
 ---
@@ -29,7 +29,7 @@ UI → app → SIS.Api → `[POS]` (live)
 ## Proof
 
 - [x] The live drive is green on staging. (2026-10-12: P237, 69/69. See `## Comments`.)
-- [ ] The owner walk is signed off under `## Comments`.
+- [x] The owner walk is signed off under `## Comments`. (2026-10-12)
 
 ## Boundaries
 
@@ -77,3 +77,5 @@ Not covered here; they stay in the owner walk:
 - the hand `[POS]` count and the per-receipt `RetailTrx` check;
 - View JSON absent for a viewer;
 - a new till sale appearing within about a minute.
+
+**2026-10-12 — owner sign-off.** The owner signed off on the staging walk and asked for the ticket to be closed ("yes you can close the ticket").

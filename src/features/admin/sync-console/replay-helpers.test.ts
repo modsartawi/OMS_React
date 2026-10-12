@@ -5,6 +5,8 @@ import {
   pushReady,
   removedLabel,
   REPLAY_REFUSALS,
+  REPLAYS_PAGE_SIZE,
+  replaysQuery,
   replayPreflight,
   replayRefusal,
   replayRequest,
@@ -329,5 +331,25 @@ describe('the preflight words', () => {
   it('has a sentence for every reason and every kind', () => {
     for (const r of ['empty', 'json', 'notObject', 'noHeader', 'noTotal', 'tenders', 'tenderAmount']) expect(label(`replay.preflight.invalid.${r}`)).toEqual(expect.any(String))
     for (const k of ['sale', 'return', 'void']) expect(label(`replay.preflight.kinds.${k}`)).toEqual(expect.any(String))
+  })
+})
+
+describe('replaysQuery', () => {
+  it('asks the recent replays 50 a page, as every console table does', () => {
+    expect(REPLAYS_PAGE_SIZE).toBe(50)
+    expect(replaysQuery(1)).toEqual({ page: 1, pageSize: 50 })
+    expect(replaysQuery(3)).toEqual({ page: 3, pageSize: 50 })
+  })
+
+  it('never asks below page 1, nor a fraction of a page', () => {
+    expect(replaysQuery(0)).toEqual({ page: 1, pageSize: 50 })
+    expect(replaysQuery(2.7)).toEqual({ page: 2, pageSize: 50 })
+  })
+})
+
+describe('the recent replays words', () => {
+  it('has a header for every column, and its empty, loading and failure sentences', () => {
+    for (const c of ['at', 'who', 'sourceStore', 'sourceReceipt', 'store', 'register', 'receipt']) expect(label(`replay.recent.columns.${c}`)).toEqual(expect.any(String))
+    for (const k of ['title', 'empty', 'emptyPage', 'loading', 'failed']) expect(label(`replay.recent.${k}`)).toEqual(expect.any(String))
   })
 })

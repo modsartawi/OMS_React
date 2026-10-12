@@ -1,24 +1,36 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Copy, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { ReplayRegister, ReplayRequest, ReplayResult } from '@/core/models/sync-console'
+import type { ReplayRegister, ReplayRequest, ReplayResult, ReplayRow } from '@/core/models/sync-console'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import GridPager from '@/core/ui/GridPager'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { copyText, type CopyOutcome } from '@/core/util/copy-text'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
-import { AUDIT_KEY, canReplayReceipts, replayRegistersQuery, syncConsoleAccessQuery, syncConsoleApi } from './api'
+import {
+  AUDIT_KEY,
+  REPLAYS_KEY,
+  canReplayReceipts,
+  replayRegistersQuery,
+  replaysQueryOptions,
+  syncConsoleAccessQuery,
+  syncConsoleApi,
+} from './api'
 import { figure } from './helpers'
+import { buildReplayColumns } from './replay-columns'
 import {
   lineColumn,
   pushReady,
   removedLabel,
+  REPLAYS_PAGE_SIZE,
   replayPreflight,
   replayRefusal,
   replayRequest,
@@ -31,6 +43,7 @@ import {
 import { shownSource, useReplayDraft } from './replay-draft'
 import ConsoleNav from './ConsoleNav'
 import Loading from './Loading'
+import TabGrid from './TabGrid'
 import { TextField } from './TextField'
 
 /**
@@ -47,7 +60,8 @@ import { TextField } from './TextField'
  * Push needs a completed, non-training sale that balances: the preflight words each reason
  * it cannot be pushed (473). Each refusal of the doors reads in its own words: the
  * registers door's under the store field, the push's in the result area; anything else is
- * the console's usual failure (`replayRefusal`). The recent replays are 475's.
+ * the console's usual failure (`replayRefusal`). Below, the recent replays (475), paged by
+ * the door at 50 and re-read after each push.
  *
  * The JSON box is the console's in-memory replay **draft** (`useReplayDraft`, 474): the
  * receipt drawer's Replay… fills it and lands here, it survives moving between the
@@ -126,6 +140,9 @@ function Replay() {
   }
   const register = registers.data?.registers.find((r) => r.registerId === registerId)
 
+  // The recent replays' page: a push goes back to page 1, where its own replay is listed on top.
+  const [recentPage, setRecentPage] = useState(1)
+
   const [confirming, setConfirming] = useState<{ request: ReplayRequest; register: ReplayRegister } | null>(null)
   const push = useMutation({
     mutationFn: (body: ReplayRequest) => syncConsoleApi.replay(body),
@@ -135,8 +152,10 @@ function Replay() {
       setResult(answer)
       setConfirming(null)
       push.reset()
-      // The door writes one audit row per push.
+      // The door writes one audit row and one recent replay per push.
       void qc.invalidateQueries({ queryKey: AUDIT_KEY })
+      void qc.invalidateQueries({ queryKey: REPLAYS_KEY })
+      setRecentPage(1)
     },
     // The confirm has done its job: a refusal (or a 500) is read in the result area, beside what it is about.
     onError: (err, body) => {
@@ -249,6 +268,8 @@ function Replay() {
 
       {result && <Result result={result} />}
       {pushError !== null && <Refusal error={pushError} failedKey="replay.confirm.failed" data="push" />}
+
+      <RecentReplays page={recentPage} setPage={setRecentPage} />
 
       {confirming && (
         <Modal
@@ -480,6 +501,54 @@ function Result({ result: r }: { result: ReplayResult }) {
           </ul>
         )}
       </div>
+    </section>
+  )
+}
+
+const replayId = (row: ReplayRow) => row.transactionId
+
+/** The recent replays, newest first, 50 a page (ticket 475). A push re-reads them (`REPLAYS_KEY`). */
+function RecentReplays({ page, setPage }: { page: number; setPage: Dispatch<SetStateAction<number>> }) {
+  const { t } = useTranslation('sync-console')
+  const replays = useQuery({ ...replaysQueryOptions(page), placeholderData: keepPreviousData })
+  const columns = useMemo(() => buildReplayColumns(t), [t])
+  // As on the Fleet table: a failed read draws none of the previous page's rows.
+  const shown = replays.isError ? undefined : replays.data
+  const total = shown?.total ?? 0
+
+  // As on the audit feed: an inner page emptied under the reader falls back to the new last page.
+  const settled = shown && !replays.isPlaceholderData ? shown : undefined
+  useEffect(() => {
+    if (!settled) return
+    const last = clampToLastPageWhenCurrentPageEmpties({
+      page: settled.page,
+      rowCount: settled.items.length,
+      totalMatches: settled.total,
+      pageSize: REPLAYS_PAGE_SIZE,
+    })
+    if (last !== settled.page) setPage((p) => (p === settled.page ? last : p))
+  }, [settled, setPage])
+
+  return (
+    <section className="flex flex-col gap-2" aria-label={t('replay.recent.title')} data-replay-recent="">
+      <h2 className="text-sm font-semibold">{t('replay.recent.title')}</h2>
+      <TabGrid
+        rows={shown?.items}
+        columns={columns}
+        rowId={replayId}
+        pending={replays.isPending}
+        error={replays.error}
+        failed={t('replay.recent.failed')}
+        empty={t(page > 1 ? 'replay.recent.emptyPage' : 'replay.recent.empty')}
+        loading={t('replay.recent.loading')}
+        data="replay-recent"
+      />
+      {/* Drawn beside an empty or failed inner page too: it is the only way back from one. */}
+      {((shown && showsPager(total, REPLAYS_PAGE_SIZE)) || page > 1) && (
+        <div className="overflow-hidden rounded-md border border-border/60">
+          <GridPager page={page} pageSize={REPLAYS_PAGE_SIZE} totalMatches={total} busy={replays.isPlaceholderData} onPage={setPage} />
+        </div>
+      )}
     </section>
   )
 }

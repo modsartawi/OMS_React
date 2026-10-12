@@ -24,6 +24,8 @@
 //      dialog; the store's Audit tab labels the new entries;
 //   9. (458) without canOperate the Mirror tab is read only: no checkbox, no bar;
 //  10. (458) the audit feed labels MirrorRetry, MirrorAcknowledge and AgreementRecheck.
+//  11. (475, spec 470) a stubbed ReceiptReplay row reads "Replayed a receipt" in the fleet-wide feed and in the
+//      target store's Audit tab (the replay door is unbuilt; the row is stubbed in the audit door's shape).
 // Sections 1–7 run on their stubs unchanged; only sections 8–10 put P001 on the mirror rail (BackOffice
 // 2569 is unbuilt — every dead-letter door here is stubbed in the contract's shape).
 //
@@ -165,6 +167,11 @@ const MIRROR_AUDIT = [
   { id: 'A-6', at: '2026-10-09T11:40:00', who: 'n.alharbi', action: 'AgreementRecheck', codes: ['P010'], batchId: null, before: 'disagree', after: 'agree', reason: 'Counter rail caught up' },
   { id: 'A-5', at: '2026-10-09T11:30:00', who: 'n.alharbi', action: 'MirrorAcknowledge', codes: ['P010'], batchId: null, before: 'pull 9', after: 'acknowledged', reason: 'Till wiped' },
   { id: 'A-4', at: '2026-10-09T11:20:00', who: 'm.qahtani', action: 'MirrorRetry', codes: ['P010'], batchId: null, before: 'apply 12', after: 'pending', reason: 'Handler shipped' },
+]
+
+// A receipt replay's audit row (spec 470): one per push, naming the target store.
+const REPLAY_AUDIT = [
+  { id: 'A-7', at: '2026-10-09T11:50:00', who: 'm.qahtani', action: 'ReceiptReplay', codes: ['P020'], batchId: null, before: null, after: 'FAKE-0020-000777', reason: 'Replay of FAKE-0009-000123 for a return test' },
 ]
 
 async function open({ canOperate = true, mirror = false, extraAudit = [] } = {}) {
@@ -620,6 +627,22 @@ const ticked = (page, code) => page.locator(`.ag-row[row-id="${code}"] .ag-selec
   check('10. AgreementRecheck reads "Recheck rail agreement"', (await action('A-6')) === 'Recheck rail agreement', await action('A-6'))
   await page.screenshot({ path: `${SHOTS}/audit-mirror.png`, fullPage: true })
   check('no page errors (mirror audit labels)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// -- 11 (475): the audit feeds label a receipt replay --
+{
+  const { context, page, errors } = await open({ canOperate: false, extraAudit: REPLAY_AUDIT })
+  await page.goto(`${BASE}/admin/sync/audit`)
+  await page.locator('.ag-row[row-id="A-7"]').waitFor({ timeout: 20000 })
+  const action = async () => strip(await page.locator('.ag-row[row-id="A-7"] [col-id="action"]').innerText())
+  check('11. the fleet-wide feed reads ReceiptReplay as "Replayed a receipt"', (await action()) === 'Replayed a receipt', await action())
+  await page.goto(`${BASE}/admin/sync/store/P020?tab=audit`)
+  await page.locator('[data-tab-grid="audit"] .ag-row[row-id="A-7"]').waitFor({ timeout: 20000 })
+  const inTab = strip(await page.locator('[data-tab-grid="audit"] .ag-row[row-id="A-7"] [col-id="action"]').innerText())
+  check("11. …and so does the target store's Audit tab", inTab === 'Replayed a receipt', inTab)
+  await page.screenshot({ path: `${SHOTS}/audit-replay.png`, fullPage: true })
+  check('no page errors (replay audit label)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

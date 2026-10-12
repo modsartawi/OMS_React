@@ -40,6 +40,7 @@ import type {
   ReplayRegisters,
   ReplayRequest,
   ReplayResult,
+  ReplayRow,
   RePushResponse,
   StoreAgreement,
   StoreCounters,
@@ -64,6 +65,7 @@ import type {
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
+import { replaysQuery } from './replay-helpers'
 import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
 import { transactionsPollInterval, transactionsQuery, type TransactionsFilter } from './transactions-helpers'
 import {
@@ -368,6 +370,14 @@ export const syncConsoleApi = {
   replay(body: ReplayRequest): Promise<ReplayResult> {
     return api.post<ReplayResult>('ActionSync/Replay', body)
   },
+
+  /**
+   * `GET ActionSync/Replays?page=&pageSize=` (ticket 475) → one page of the recent replays,
+   * newest first, 50 a page. Stubbed in `tools/sync-console-replay-drive.mjs` like the two above.
+   */
+  replays(page: number): Promise<Paged<ReplayRow>> {
+    return api.get<Paged<ReplayRow>>('ActionSync/Replays', replaysQuery(page))
+  },
 }
 
 /** The door's largest page (200): the connection-test read must reach the wizard's own tests. */
@@ -586,4 +596,13 @@ export const replayRegistersQuery = (code: string) => ({
   queryFn: () => syncConsoleApi.replayRegisters(code),
   retry: false,
   staleTime: Infinity,
+})
+
+/** Every recent-replays read shares this prefix, so a push re-reads the list (ticket 475). */
+export const REPLAYS_KEY = ['sync-console', 'replay', 'recent'] as const
+
+/** Read when opened and after a push; the list is history, so it does not poll. */
+export const replaysQueryOptions = (page: number) => ({
+  queryKey: [...REPLAYS_KEY, replaysQuery(page)] as const,
+  queryFn: () => syncConsoleApi.replays(page),
 })

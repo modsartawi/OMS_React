@@ -24,6 +24,12 @@
 //      keeps Push disabled and shows its words; every registers refusal shows its words under the store
 //      field; every push refusal shows its words in the result area; an unknown code and a 500 fall back
 //      to the console's shared failure.
+//   9. (475) the recent replays: the list renders the door's rows (when, who, source store and receipt,
+//      target store, register, new receipt), 50 a page with a pager to page 2; an empty list says no receipt
+//      has been replayed yet; a push re-reads the list (two requests) and the new replay is listed on top, a
+//      push from page 2 going back to page 1.
+//      `ActionSync/Replays` is stubbed in the console's Paged<T> shape (spec 470 writes `{ rows, total }`:
+//      a contract gap, logged in HITL-475).
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-replay-drive.mjs
@@ -111,7 +117,7 @@ const RESULT = {
 
 const browser = await chromium.launch()
 
-async function open({ canReplay }) {
+async function open({ canReplay, replays = [] }) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1200 } })
   const page = await context.newPage()
   const errors = []
@@ -120,6 +126,8 @@ async function open({ canReplay }) {
   const logged = []
   // 473: the code the next push is refused with ('500' for a codeless 500), set by section 8; null keeps the rules below.
   const stub = { pushCode: null }
+  // 475: the recent replays, newest first; a successful push lists itself on top.
+  const recent = replays.map((row) => ({ ...row }))
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => {
     logged.push(m.text())
@@ -160,7 +168,13 @@ async function open({ canReplay }) {
       if (stub.pushCode) return route.fulfill(envelope(null, { status: 400, success: false, message: `Refused: ${stub.pushCode}.`, errorCode: stub.pushCode }))
       if (body.registerId === 'R03') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The tenders do not add up to the total.', errorCode: 'UNBALANCED' }))
       if (body.registerId === 'R01') return route.fulfill(envelope(null, { status: 500, success: false, message: '' }))
+      recent.unshift({ at: RESULT.replayedAt, who: 'msartawi', sourceStoreCode: RESULT.replayOf.storeCode, sourceReceiptNumber: RESULT.replayOf.receiptNumber, storeCode: RESULT.storeCode, registerId: RESULT.registerId, receiptNumber: RESULT.receiptNumber, transactionId: `${RESULT.transactionId}-${recent.length + 1}` })
       return route.fulfill(envelope(RESULT))
+    }
+    if (p === 'ActionSync/Replays') {
+      const pg = Number(url.searchParams.get('page'))
+      const size = Number(url.searchParams.get('pageSize'))
+      return route.fulfill(envelope({ items: recent.slice((pg - 1) * size, pg * size), total: recent.length, page: pg, pageSize: size }))
     }
     if (p === 'ActionSync/Audit') return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
@@ -444,6 +458,75 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
   check('7. nothing in the URL', page.url() === `${BASE}/admin/sync/replay`, page.url())
   check('7. history state carries no snapshot', !PRIVATE.test(JSON.stringify(await page.evaluate(() => history.state))))
   check('no page errors (with canReplay)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// -- 9 (475): the recent replays --
+// 51 earlier replays, newest first: two pages at 50.
+const EARLIER = Array.from({ length: 51 }, (_, i) => {
+  const n = String(51 - i).padStart(3, '0')
+  return { at: `2026-10-11T${String(8 + Math.floor(i / 6)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`, who: i % 2 ? 'n.alharbi' : 'm.qahtani', sourceStoreCode: 'P999', sourceReceiptNumber: `FAKE-0009-000${n}`, storeCode: 'P020', registerId: 'R01', receiptNumber: `FAKE-0020-000${n}`, transactionId: `FAKE-TX-OLD-${n}` }
+})
+const replaysReads = (calls, pg) => calls.filter((c) => c === `ActionSync/Replays?page=${pg}&pageSize=50`).length
+const cell = (page, row, col) => page.locator(`[data-tab-grid="replay-recent"] .ag-row[row-id="${row}"] [col-id="${col}"]`).innerText().then(strip)
+
+async function pushSale(page) {
+  await page.locator('[data-replay-json]').fill(SALE_TEXT)
+  await page.locator('[data-replay-preflight="summary"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-field="replay-store"]').fill('P020')
+  await page.locator('[data-field="replay-store"]').press('Enter')
+  await page.locator('[data-replay-register] option[value="R02"]').waitFor({ state: 'attached', timeout: 5000 })
+  await page.locator('[data-replay-register]').selectOption('R02')
+  await page.locator('[data-replay-push]').click()
+  await page.locator('[data-replay-confirm-push]').click()
+  await page.locator('[data-replay-result]').waitFor({ timeout: 5000 })
+}
+
+{
+  const { context, page, errors, calls } = await open({ canReplay: true })
+  await page.goto(`${BASE}/admin/sync/replay`)
+  await page.locator('[data-tab-empty="replay-recent"]').waitFor({ timeout: 20000 })
+  check('9. the page reads the recent replays, page 1 at 50', replaysReads(calls, 1) === 1, calls.filter((c) => c.startsWith('ActionSync/Replays')).join(','))
+  check('9. an empty list says no receipt has been replayed yet', strip(await page.locator('[data-tab-empty="replay-recent"]').innerText()) === 'No receipt has been replayed yet.')
+  check('9. …with no pager', (await page.locator('[data-replay-recent] nav').count()) === 0)
+  await pushSale(page)
+  await page.locator('[data-tab-grid="replay-recent"] .ag-row').first().waitFor({ timeout: 5000 }).catch(() => {})
+  check('9. a push re-reads the list (two requests)', replaysReads(calls, 1) === 2, calls.filter((c) => c.startsWith('ActionSync/Replays')).join(','))
+  check('9. …and lists the new replay', (await page.locator('[data-tab-grid="replay-recent"] .ag-row').count()) === 1 && (await cell(page, 'FAKE-TX-NEW-0042-1', 'receiptNumber')) === 'FAKE-0020-000777')
+  check('no page errors (recent replays, empty)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  const { context, page, errors, calls } = await open({ canReplay: true, replays: EARLIER })
+  await page.goto(`${BASE}/admin/sync/replay`)
+  const grid = page.locator('[data-tab-grid="replay-recent"]')
+  await grid.locator('.ag-row').first().waitFor({ timeout: 20000 })
+  check("9. the list renders the door's first 50 rows", (await grid.locator('.ag-row').count()) === 50)
+  const headers = await grid.locator('.ag-header-cell-text').evaluateAll((els) => els.map((e) => e.textContent.trim()))
+  check('9. its columns: when, who, source store and receipt, store, register, new receipt', JSON.stringify(headers) === JSON.stringify(['Replayed at', 'By', 'Source store', 'Source receipt', 'Store', 'Register', 'New receipt']), JSON.stringify(headers))
+  const top = {}
+  for (const [k, col] of [['at', 'at'], ['who', 'who'], ['sourceStore', 'sourceStoreCode'], ['sourceReceipt', 'sourceReceiptNumber'], ['store', 'storeCode'], ['register', 'registerId'], ['receipt', 'receiptNumber']])
+    top[k] = await cell(page, 'FAKE-TX-OLD-051', col)
+  check('9. the newest row reads its values', /08:00/.test(top.at) && top.who === 'm.qahtani' && top.sourceStore === 'P999' && top.sourceReceipt === 'FAKE-0009-000051' && top.store === 'P020' && top.register === 'R01' && top.receipt === 'FAKE-0020-000051', JSON.stringify(top))
+  check('9. …newest first', (await grid.locator('.ag-row[row-index="0"]').getAttribute('row-id')) === 'FAKE-TX-OLD-051')
+  const receiptCell = grid.locator('.ag-row[row-id="FAKE-TX-OLD-051"] [col-id="receiptNumber"]')
+  check('9. …each value isolated by the grid base, with no FSI in the cell text', (await receiptCell.locator('bdi').count()) === 1 && !/[\u2066-\u2069]/.test(await receiptCell.innerText()))
+  const pager = page.locator('[data-replay-recent] nav')
+  check('9. a pager reads page 1 of 2', /Page 1 of 2/.test(await pager.innerText()))
+  await pager.getByRole('button', { name: 'Next' }).click()
+  await grid.locator('.ag-row[row-id="FAKE-TX-OLD-001"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('9. Next asks page 2', replaysReads(calls, 2) === 1, calls.filter((c) => c.startsWith('ActionSync/Replays')).join(','))
+  check('9. …and shows its one row', (await grid.locator('.ag-row').count()) === 1 && /Page 2 of 2/.test(await pager.innerText()))
+  await page.screenshot({ path: `${SHOTS}/recent-page2.png`, fullPage: true })
+  // Pushed from page 2: the list goes back to page 1, where the new replay is.
+  const before = replaysReads(calls, 1)
+  await pushSale(page)
+  await grid.locator('.ag-row[row-id="FAKE-TX-NEW-0042-52"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('9. a push from page 2 reads page 1 afresh', replaysReads(calls, 1) > before, `${before} → ${replaysReads(calls, 1)}`)
+  check('9. …and the new replay is listed on top of page 1', (await grid.locator('.ag-row[row-index="0"]').getAttribute('row-id')) === 'FAKE-TX-NEW-0042-52' && /Page 1 of 2/.test(await pager.innerText()))
+  await page.screenshot({ path: `${SHOTS}/recent.png`, fullPage: true })
+  check('no page errors (recent replays)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

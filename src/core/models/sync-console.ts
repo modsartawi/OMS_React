@@ -100,6 +100,8 @@ export type AuditAction =
   | 'AgreementRecheck'
   // Today's transactions (2586): one audited view of a receipt's snapshot (2589).
   | 'TransactionSnapshotView'
+  // Receipt replay (spec 470): one row per push, naming the target store.
+  | 'ReceiptReplay'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -899,4 +901,22 @@ export interface ReplayResult {
   replayedAt: string
   replayOf: { storeCode: string; receiptNumber: string; transactionId: string }
   removed: ReplayRemoved[]
+}
+
+/**
+ * One row of `GET ActionSync/Replays?page=&pageSize=` (`ActionSync.Replay`, ticket 475), newest
+ * first: who replayed which source receipt into which store and register, and the new
+ * receipt number. 🚩 Spec 470 writes the page as `{ rows, total }`; the console reads it as
+ * its usual `Paged<T>` (`items`, `total`, `page`, `pageSize`) — a contract gap, logged for
+ * the BackOffice spec.
+ */
+export interface ReplayRow {
+  at: string
+  who: string
+  sourceStoreCode: string
+  sourceReceiptNumber: string
+  storeCode: string
+  registerId: string
+  receiptNumber: string
+  transactionId: string
 }

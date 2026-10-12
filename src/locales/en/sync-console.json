@@ -410,7 +410,8 @@
     "MirrorRetry": "Retry mirror dead letters",
     "MirrorAcknowledge": "Acknowledge mirror dead letters as lost",
     "AgreementRecheck": "Recheck rail agreement",
-    "TransactionSnapshotView": "Viewed receipt JSON"
+    "TransactionSnapshotView": "Viewed receipt JSON",
+    "ReceiptReplay": "Replayed a receipt"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -1044,6 +1045,22 @@
       "NOT_COMPLETED": "This sale is not completed. Only a completed sale can be replayed.",
       "TRAINING": "This is a training sale. A training sale cannot be replayed.",
       "UNBALANCED": "The tenders do not add up to the sale's total."
+    },
+    "recent": {
+      "title": "Recent replays",
+      "loading": "Reading the recent replays…",
+      "failed": "The recent replays could not be read.",
+      "empty": "No receipt has been replayed yet.",
+      "emptyPage": "This page is empty. Go back a page.",
+      "columns": {
+        "at": "Replayed at",
+        "who": "By",
+        "sourceStore": "Source store",
+        "sourceReceipt": "Source receipt",
+        "store": "Store",
+        "register": "Register",
+        "receipt": "New receipt"
+      }
     }
   }
 }

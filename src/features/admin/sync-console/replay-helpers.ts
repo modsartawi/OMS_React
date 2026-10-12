@@ -1,7 +1,8 @@
 /**
  * The Replay page's pure logic (spec 470, tickets 472–473): the preflight that reads a pasted
  * receipt snapshot before anything is sent (and warns of what cannot be replayed), the push
- * request built from it, the words of the result and of the doors' refusals. No React, no network — pinned by `replay-helpers.test.ts`.
+ * request built from it, the words of the result and of the doors' refusals, and the
+ * recent replays' query (475). No React, no network — pinned by `replay-helpers.test.ts`.
  *
  * The snapshot is the engine's `PosTransactionSnapshot` (`Header`, `Lines[]`, `Tenders[]`,
  * …). The door serializes it with Newtonsoft, and whether it arrives PascalCase or
@@ -240,3 +241,14 @@ const TARGET_REFUSALS: ReadonlySet<string> = new Set(REPLAY_REFUSALS.slice(0, RE
  * it no longer has leaves the picker (and Push waits for another).
  */
 export const rereadsRegisters = (code: string | null): boolean => code !== null && TARGET_REFUSALS.has(code)
+
+// ── The recent replays (ticket 475) ─────────────────────────────────────────────
+
+/** The recent replays page at 50, as every console table does. */
+export const REPLAYS_PAGE_SIZE = 50
+
+/** The `GET ActionSync/Replays` parameters: a whole page from 1, 50 a page. */
+export const replaysQuery = (page: number): { page: number; pageSize: number } => ({
+  page: Math.max(1, Math.floor(page)),
+  pageSize: REPLAYS_PAGE_SIZE,
+})

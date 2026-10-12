@@ -1,7 +1,7 @@
 # HITL — ticket 475 (spec 470, recent replays + ReceiptReplay audit label)
 
 ## Contract gap
-- **`GET ActionSync/Replays` paging shape.** Spec 470 writes the answer as `{ rows: [...], total }` and the query as `?page=` only. Per the runner's ruling the client follows the console's `Paged<T>` convention: it reads `{ items, total, page, pageSize }` and sends `page` + `pageSize=50`. The BackOffice spec must either answer in `Paged<T>` (and honour `pageSize`) or the client must change. Answered as `{ rows, total }`, the list would read as empty.
+- **`GET ActionSync/Replays` paging shape.** Spec 470 writes the answer as `{ rows: [...], total }` and the query as `?page=` only. Per the runner's ruling the client follows the console's `Paged<T>` convention: it reads `{ items, total, page, pageSize }` and sends `page` + `pageSize=50`. The BackOffice spec must either answer in `Paged<T>` (and honour `pageSize`) or the client must change. Answered as `{ rows, total }`, the list would read as empty. **Resolved 2026-10-12:** the owner kept `Paged<T>`; spec 470's contract line was amended to match.
 - **Row identity.** The row has no id of its own. The client keys rows by `transactionId`, on the assumption that each replay mints a fresh one, as spec 470's server notes say.
 
 ## Q: What happens to the list's page after a push?

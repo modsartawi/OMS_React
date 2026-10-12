@@ -906,9 +906,8 @@ export interface ReplayResult {
 /**
  * One row of `GET ActionSync/Replays?page=&pageSize=` (`ActionSync.Replay`, ticket 475), newest
  * first: who replayed which source receipt into which store and register, and the new
- * receipt number. 🚩 Spec 470 writes the page as `{ rows, total }`; the console reads it as
- * its usual `Paged<T>` (`items`, `total`, `page`, `pageSize`) — a contract gap, logged for
- * the BackOffice spec.
+ * receipt number. The page is the console's usual `Paged<T>` (`items`, `total`, `page`,
+ * `pageSize`); spec 470 was amended to say so after ticket 475.
  */
 export interface ReplayRow {
   at: string

@@ -111,3 +111,6 @@ tools/.sync-console-live-shots/
 tools/.sap-export-storeday-shots/
 tools/.sap-export-fleet-shots/
 tools/.sap-export-store-shots/
+
+# Receipt replay drive screenshots (spec 470)
+tools/.sync-console-replay-shots/

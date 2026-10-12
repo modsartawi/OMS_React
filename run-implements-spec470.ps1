@@ -414,13 +414,13 @@ Follow this protocol strictly:
      Read BackOffice ADR 0076 for the why:
      C:\Work\DMSCO\BackOffice\docs\adr\0076-a-replayed-sale-stays-out-of-sap-by-its-counter-and-its-returns-inherit-the-mark.md
    - SCOPE: everything lives in src\features\admin\sync-console (the Replay page is a PAGE OF THE
-     CONSOLE, not a new feature - REVERSAL: the grilling first said `admin/receipt-replay`; spec 470
+     CONSOLE, not a new feature - REVERSAL: the grilling first said 'admin/receipt-replay'; spec 470
      overrode it so the drawer can hand the JSON over in memory). Types go in
-     src\core\models\sync-console.ts. Keys go in src\locales\en\sync-console.json (`replay.*`,
-     `nav.replay`, `transactionsTab.snapshot.replay`). NO new feature folder, NO new namespace, NO
+     src\core\models\sync-console.ts. Keys go in src\locales\en\sync-console.json ('replay.*',
+     'nav.replay', 'transactionsTab.snapshot.replay'). NO new feature folder, NO new namespace, NO
      src\locales\ar file (the console is English-only by ruling; the bidi rule still applies).
      NO new menu leaf in src\layout\menu-model.ts. 472 adds exactly ONE route to src\app\router.tsx:
-     `admin/sync/replay`, beside the other `admin/sync/*` entries, same lazy shape. 471's copy helper
+     'admin/sync/replay', beside the other 'admin/sync/*' entries, same lazy shape. 471's copy helper
      is the ONLY new core file: src\core\util\copy-text.ts (+ .test.ts).
    - This wave adds NO npm dependency. A slice that seems to need one is a BLOCKER.
    - THE CONTRACT (spec 470 section "Contract (proposed; owned by the BackOffice spec)") is the ONLY
@@ -468,7 +468,7 @@ Follow this protocol strictly:
      disabled, otherwise.
    - CONFIRM: use core's Modal (src\core\ui\Modal.tsx). No new dialog primitive.
    - 474 DRAFT, RULED: a feature-local zustand store (pattern only from
-     src\features\oms\deliveries\search-store.ts - never import it), IN MEMORY: no `persist`
+     src\features\oms\deliveries\search-store.ts - never import it), IN MEMORY: no 'persist'
      middleware, no localStorage/sessionStorage, NO router state / location.state / URL param.
      Survives moving between console pages; a reload empties it; a successful push KEEPS it.
    - PRIVACY, not negotiable: a snapshot carries customer, loyalty and tender data. No console.* of
@@ -476,7 +476,7 @@ Follow this protocol strictly:
      shape above).
    - 471 COPY, RULED: copyText(text, { container? }) in src\core\util\copy-text.ts. Uses
      navigator.clipboard.writeText only when it exists AND window.isSecureContext; otherwise (or
-     after the API rejects) a hidden textarea appended to `container` (default document.body) +
+     after the API rejects) a hidden textarea appended to 'container' (default document.body) +
      document.execCommand('copy'), removed afterwards. Resolves 'copied' | 'failed', never throws.
      Pass the open <dialog> as container from inside a modal - a showModal() dialog makes outside
      nodes unselectable. Make the env injectable so vitest (node) can test path choice with no DOM.
@@ -529,7 +529,7 @@ Follow this protocol strictly:
 5. BATCH EXPLORATION - BUDGET THE ROUND TRIPS, NOT THE READING. Read as much of the repo as
    you need; under-reading is a worse failure than a slow session, and nothing here caps how
    much you look at. What is capped is the number of CALLS you spend looking.
-   - One Bash call may carry MANY reads. `cat a.tsx b.tsx; sed -n '1,80p' c.ts; grep -n X d.ts`
+   - One Bash call may carry MANY reads. 'cat a.tsx b.tsx; sed -n '1,80p' c.ts; grep -n X d.ts'
      is ONE call, and it puts MORE context in front of you in a single view than four calls do -
      usually the better read, not just the faster one. Batch by DEFAULT; a lone single-file read
      is the exception.
@@ -544,14 +544,14 @@ Follow this protocol strictly:
    - Measured on a comparable wave: ~93 one-line reads per session, ~15 of every ~40 minutes of
      wall-clock, nearly all batchable. Round trips - not builds, not tests - dominate a long slice.
 6. How to verify - a green typecheck is NOT proof a screen works:
-   - `npm run typecheck` is the fast inner loop; run it continuously.
-   - `npm test` is vitest (node environment, src/**/*.test.ts). React Testing Library is
+   - 'npm run typecheck' is the fast inner loop; run it continuously.
+   - 'npm test' is vitest (node environment, src/**/*.test.ts). React Testing Library is
      deliberately NOT installed: pure modules are where regression is silent, components are thin
      renderers. So do NOT add RTL or reach for a component-rendering test - that is a separate
      hardening ticket's call, not yours at 3am.
-   - `npm run lint` runs three gates: import boundaries, token contrast, colour literals. Run it
+   - 'npm run lint' runs three gates: import boundaries, token contrast, colour literals. Run it
      before you commit; it is what catches a stray literal or a raw hex colour.
-   - `npm run build` once at the end.
+   - 'npm run build' once at the end.
    - A UI slice is proven by DRIVING THE APP with a Playwright script under tools\*-drive.mjs.
      That needs a vite server: start one on port 5199 (NOT the default 5173, so you cannot collide
      with a dev server the human left running), run the drive against it, then KILL the server you
@@ -701,7 +701,7 @@ The fixed point is $baseSha - do not ask for one, do not widen the range.
 This session is READ-ONLY with exactly one exception (the report file):
 - Do NOT edit source, tests, .issues tickets or INDEX.md. Do NOT commit, stage, stash, revert or
   push ANYTHING. Do not run a drive that writes screenshots into the tree; reading the code and
-  the diff is the job. `npm run typecheck` and `npm run lint` are fine - they write nothing.
+  the diff is the job. 'npm run typecheck' and 'npm run lint' are fine - they write nothing.
 - Write your full two-axis report (Standards and Spec) to $reviewDoc, overwriting it if present.
   Head it with the ticket number, the fixed point, and a one-line VERDICT: CLEAN, MINOR, or
   SERIOUS.

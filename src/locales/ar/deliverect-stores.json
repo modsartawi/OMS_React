@@ -44,6 +44,8 @@
     "lastStatus": "آخر حالة",
     "lastError": "آخر خطأ",
     "status": "حالة الفرع",
+    "statusSince": "الحالة منذ",
+    "statusReason": "سبب الحالة",
     "actions": "الإجراءات"
   },
   "state": {
@@ -166,6 +168,81 @@
       "fileId": "معرّف الملف",
       "callback": "ردّ Deliverect",
       "error": "الخطأ"
+    }
+  },
+  "statusAction": {
+    "button": "تعيين الحالة",
+    "title": "تعيين حالة الفرع",
+    "choose": "الإجراء",
+    "actions": {
+      "busy": "مشغول",
+      "close": "إغلاق مؤقت",
+      "reopen": "إعادة الفتح"
+    },
+    "notes": {
+      "none": "اختر ما يُبلَّغ به Deliverect عن الفرع <store>{{store}}</store>.",
+      "busy": "يضع Deliverect الفرع <store>{{store}}</store> في وضع مشغول على كل منصات التوصيل، مع مهلة التحضير أدناه.",
+      "close": "يغلق Deliverect الفرع <store>{{store}}</store> على كل منصات التوصيل حتى يُعاد فتحه.",
+      "reopen": "يعيد Deliverect فتح الفرع <store>{{store}}</store> على كل منصات التوصيل."
+    },
+    "delay": "مهلة التحضير (بالدقائق)",
+    "delayPlaceholder": "مثال: 15",
+    "delayInvalid": "أدخل عددًا صحيحًا من الدقائق أكبر من 0.",
+    "confirm": {
+      "none": "إرسال",
+      "busy": "تعيين مشغول",
+      "close": "إغلاق الفرع",
+      "reopen": "إعادة فتح الفرع"
+    },
+    "done": "أُرسلت حالة الفرع",
+    "doneDetail": {
+      "busy": "الفرع {{store}} مشغول على Deliverect.",
+      "close": "الفرع {{store}} مغلق على Deliverect.",
+      "reopen": "أُعيد فتح الفرع {{store}} على Deliverect."
+    },
+    "notLinked": "لم يربط Deliverect هذا الفرع بعد، لذا لا يمكن إرسال شيء له.",
+    "deliverectFailed": "لم يقبل Deliverect ذلك. إجابته:"
+  },
+  "hours": {
+    "button": "دفع ساعات العمل",
+    "title": "دفع ساعات العمل الآن",
+    "note": "تُقرأ ساعات عمل الفرع <store>{{store}}</store> من جدول الدوام وتُرسل إلى Deliverect الآن.",
+    "confirm": "ادفع الساعات الآن",
+    "sent": "الأسبوع الذي أُرسل",
+    "empty": "لم تُرسل أي ساعات لهذا الفرع.",
+    "close": "إغلاق",
+    "done": "أُرسلت ساعات العمل",
+    "doneDetail": "وصلت ساعات عمل الفرع {{store}} إلى Deliverect.",
+    "columns": {
+      "day": "اليوم",
+      "hours": "الساعات"
+    },
+    "overnight": "{{range}} اليوم التالي",
+    "days": {
+      "sun": "الأحد",
+      "mon": "الاثنين",
+      "tue": "الثلاثاء",
+      "wed": "الأربعاء",
+      "thu": "الخميس",
+      "fri": "الجمعة",
+      "sat": "السبت"
+    }
+  },
+  "history": {
+    "button": "سجل الحالة",
+    "eyebrow": "سجل حالة الفرع",
+    "hint": "آخر {{max}} تغيير بحد أقصى.",
+    "close": "إغلاق",
+    "loading": "جارٍ تحميل سجل الحالة…",
+    "failed": "تعذّر تحميل سجل الحالة",
+    "empty": "لم يُرسل أي تغيير لحالة هذا الفرع بعد.",
+    "columns": {
+      "action": "الإجراء",
+      "delay": "المهلة (دقيقة)",
+      "reason": "السبب",
+      "by": "بواسطة",
+      "at": "الوقت",
+      "answer": "إجابة Deliverect"
     }
   },
   "reason": {

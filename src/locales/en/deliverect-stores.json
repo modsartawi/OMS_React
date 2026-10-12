@@ -44,6 +44,8 @@
     "lastStatus": "Last status",
     "lastError": "Last error",
     "status": "Store status",
+    "statusSince": "Status since",
+    "statusReason": "Status reason",
     "actions": "Actions"
   },
   "state": {
@@ -158,6 +160,81 @@
       "fileId": "File id",
       "callback": "Deliverect callback",
       "error": "Error"
+    }
+  },
+  "statusAction": {
+    "button": "Set status",
+    "title": "Set the store status",
+    "choose": "Action",
+    "actions": {
+      "busy": "Busy",
+      "close": "Close for now",
+      "reopen": "Reopen"
+    },
+    "notes": {
+      "none": "Choose what Deliverect is told about store <store>{{store}}</store>.",
+      "busy": "Deliverect marks store <store>{{store}}</store> busy on every delivery platform, with the preparation delay below.",
+      "close": "Deliverect closes store <store>{{store}}</store> on every delivery platform until it is reopened.",
+      "reopen": "Deliverect reopens store <store>{{store}}</store> on every delivery platform."
+    },
+    "delay": "Preparation delay (minutes)",
+    "delayPlaceholder": "e.g. 15",
+    "delayInvalid": "Enter a whole number of minutes, more than 0.",
+    "confirm": {
+      "none": "Send",
+      "busy": "Set busy",
+      "close": "Close store",
+      "reopen": "Reopen store"
+    },
+    "done": "Store status sent",
+    "doneDetail": {
+      "busy": "Store {{store}} is busy on Deliverect.",
+      "close": "Store {{store}} is closed on Deliverect.",
+      "reopen": "Store {{store}} is reopened on Deliverect."
+    },
+    "notLinked": "Deliverect has not linked this store yet, so nothing can be sent for it.",
+    "deliverectFailed": "Deliverect did not accept it. Its answer:"
+  },
+  "hours": {
+    "button": "Push hours",
+    "title": "Push the opening hours now",
+    "note": "The opening hours of store <store>{{store}}</store> are read from the duty roster and sent to Deliverect now.",
+    "confirm": "Push hours now",
+    "sent": "The week that was sent",
+    "empty": "No hours were sent for this store.",
+    "close": "Close",
+    "done": "Opening hours sent",
+    "doneDetail": "The opening hours of store {{store}} reached Deliverect.",
+    "columns": {
+      "day": "Day",
+      "hours": "Hours"
+    },
+    "overnight": "{{range}} next day",
+    "days": {
+      "sun": "Sunday",
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday"
+    }
+  },
+  "history": {
+    "button": "Status history",
+    "eyebrow": "Store status history",
+    "hint": "At most the {{max}} most recent changes.",
+    "close": "Close",
+    "loading": "Loading the status history…",
+    "failed": "The status history could not be loaded",
+    "empty": "No status change has been sent for this store yet.",
+    "columns": {
+      "action": "Action",
+      "delay": "Delay (min)",
+      "reason": "Reason",
+      "by": "By",
+      "at": "At",
+      "answer": "Deliverect's answer"
     }
   },
   "reason": {

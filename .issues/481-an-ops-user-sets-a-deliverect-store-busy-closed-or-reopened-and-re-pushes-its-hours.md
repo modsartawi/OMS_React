@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2615-deliverect-delivery-platforms-spec.md
 blocked-by: 477 (live: BackOffice 2625)
 ---
@@ -30,9 +30,9 @@ UI → app (BackOffice doors, stubbed until 483)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `hoursLabel`: an overnight row reads "next day" in EN and AR (vitest)
-- [ ] `tools/deliverect-stores-drive.mjs` status section, against stubs: busy, close, reopen, hours, history, refusals
-- [ ] typecheck, lint, test green
+- [x] `hoursLabel`: an overnight row reads "next day" in EN and AR (vitest — `store-status.test.ts`, 31 cases incl. `parseDelay`, `statusBody` busy-only delay, `actionOffered`)
+- [x] `tools/deliverect-stores-drive.mjs` status section, against stubs: busy, close, reopen, hours, history, refusals (sections 16–20, LTR + RTL; whole drive **167/167**, 477/480 sections unchanged)
+- [x] typecheck, lint, test green (vitest 4844; build green)
 
 ## Boundaries
 
@@ -47,3 +47,9 @@ The helpers and the drive are green.
 - [477](477-an-hq-user-onboards-a-store-on-a-deliverect-account-and-sees-its-link.md)
 
 (live: BackOffice 2625)
+
+## Comments
+
+**2026-10-12 — built (AFK).** Status column + since + reason; Set status dialog (busy with a positive whole-number delay, close for now, reopen; none preselected; closed store offered reopen only; DLV-00009 at the reason, DLV-00010/11 inline with our lead + the server's words); Push hours (POSTs `{}`, shows the week sent, overnight "next day"; DLV-00010/11 inline); Status history drawer (take=50: action, delay, reason, by, at, Deliverect's answer). en + ar keys. Rulings and contract gaps in `.afk/HITL-481.md` — notably the overnight label renders in `<bdi>` (range one `fsi` isolate) rather than the briefing's `Ltr`, per the bidi rule.
+
+Outstanding (not AFK's): owner sign-off on the HITL-481 rulings; owner's eye on the Arabic rendering; live doors on staging (483, BackOffice 2625).

@@ -1,6 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import { Pause, Play, ScrollText } from 'lucide-react'
+import { Clock, History, Pause, Play, ScrollText, Store } from 'lucide-react'
 import type { DeliverectStoreRow, DeliverectStoreState } from '@/core/models/deliverect'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -63,6 +63,9 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * overdue amber, the row highlighted the same way by the page), the last full and delta runs, the
  * last status and error; and the row's Pause / Resume and Logs, on a row that carries a sync block.
  *
+ * The store status (ticket 481): open / busy / closed, since when and why; and the row's Set status,
+ * Push hours and Status history, on a row that carries a status block.
+ *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value.
  */
@@ -74,6 +77,9 @@ export function storeColumns(
     onRemove: (row: Row) => void
     onSyncActive: (row: Row) => void
     onLogs: (row: Row) => void
+    onStatus: (row: Row) => void
+    onHours: (row: Row) => void
+    onHistory: (row: Row) => void
   },
   /** The page's clock — read on every render, so a store turns overdue without a refetch. */
   now: () => Date,
@@ -184,12 +190,27 @@ export function storeColumns(
               return <StatusBadge sev={sev}>{raw ? <Ltr>{text}</Ltr> : text}</StatusBadge>
             },
           } satisfies ColDef<Row>,
+          {
+            colId: 'statusSince',
+            headerName: t('columns.statusSince'),
+            width: 150,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.status?.since ?? null,
+            valueFormatter: time,
+            cellRenderer: LtrCell,
+          } satisfies ColDef<Row>,
+          {
+            colId: 'statusReason',
+            headerName: t('columns.statusReason'),
+            width: 200,
+            valueGetter: ({ data }: ValueGetterParams<Row>) => data?.status?.reason ?? null,
+            tooltipValueGetter: ({ data }) => data?.status?.reason ?? null,
+          } satisfies ColDef<Row>,
         ]
       : []),
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: shown.sync ? 340 : 180,
+      width: 180 + (shown.sync ? 160 : 0) + (shown.status ? 360 : 0),
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -204,6 +225,22 @@ export function storeColumns(
                 <Button variant="ghost" onClick={() => act.onLogs(data)} data-sync-logs={data.storeCode}>
                   <ScrollText className="h-3.5 w-3.5" aria-hidden />
                   {t('logs.button')}
+                </Button>
+              </>
+            )}
+            {data.status && (
+              <>
+                <Button variant="ghost" onClick={() => act.onStatus(data)} data-status-set={data.storeCode}>
+                  <Store className="h-3.5 w-3.5" aria-hidden />
+                  {t('statusAction.button')}
+                </Button>
+                <Button variant="ghost" onClick={() => act.onHours(data)} data-status-hours={data.storeCode}>
+                  <Clock className="h-3.5 w-3.5" aria-hidden />
+                  {t('hours.button')}
+                </Button>
+                <Button variant="ghost" onClick={() => act.onHistory(data)} data-status-history={data.storeCode}>
+                  <History className="h-3.5 w-3.5" aria-hidden />
+                  {t('history.button')}
                 </Button>
               </>
             )}

@@ -78,6 +78,24 @@ describe('deliverect-stores — the keys the code builds exist', () => {
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 
+  it.each([en, ar])('481: the status dialog, hours and history keys the code builds', (locale) => {
+    const keys = [
+      ...['none', 'busy', 'close', 'reopen'].flatMap((a) => [`statusAction.notes.${a}`, `statusAction.confirm.${a}`]),
+      ...['busy', 'close', 'reopen'].flatMap((a) => [`statusAction.actions.${a}`, `statusAction.doneDetail.${a}`]),
+      'statusAction.notLinked',
+      'statusAction.deliverectFailed',
+      'hours.overnight',
+      ...['action', 'delay', 'reason', 'by', 'at', 'answer'].map((c) => `history.columns.${c}`),
+      'columns.statusSince',
+      'columns.statusReason',
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it('481: the overnight template keeps the range as ONE interpolated value', () => {
+    for (const locale of [en, ar]) expect(locale.hours.overnight.match(/\{\{\w+\}\}/g)).toEqual(['{{range}}'])
+  })
+
   it('480: the pause note says in words that pausing stops the stock pushes only, and orders still come', () => {
     expect(en.pause.note).toMatch(/stock pushes only/)
     expect(en.pause.note).toMatch(/stays listed/)

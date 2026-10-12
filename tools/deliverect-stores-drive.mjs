@@ -15,6 +15,11 @@
 //   PUT    DeliverectWeb/Sync/{store}/Active  → pause / resume { active, reason }; DLV-00001/9   (480)
 //   GET    DeliverectWeb/Sync/{store}/Logs?take=  → [{ logId, syncType, startTime, endTime, status,
 //                                                     rows, fileId, callbackStatus, error }]   (480)
+//   POST   DeliverectWeb/StoreStatus/{store}        → { action, delayMinutes (busy only), reason };
+//                                                     DLV-00009/10/11                      (481)
+//   POST   DeliverectWeb/StoreStatus/{store}/Hours  → [{ day, open, close, overnight }]; DLV-00010/11 (481)
+//   GET    DeliverectWeb/StoreStatus/{store}/History?take= → [{ action, delayMinutes, reason, by, at,
+//                                                     deliverectAnswer }]                  (481)
 //
 // ── 477 (this slice) ── it asserts:
 //   1. the Deliverect group comes LAST (after Materials) with ONE leaf, Stores; the group, the leaf
@@ -54,6 +59,23 @@
 //      empty log says so; Escape closes it;
 //  15. under RTL the health, the dialog note and the drawer's machine values are isolated, and a
 //      pause works.
+//
+// ── 481 (appended; 1–15 above are 477's and 480's and stay unchanged) ── against populated status
+// blocks (what 2625 will send), it asserts:
+//  16. the status columns (status, since, reason) and the row's Set status / Push hours / Status
+//      history — on a row that carries a status block only;
+//  17. the status dialog preselects nothing; an open store is not offered reopen, a closed one is
+//      offered reopen only; busy asks for a delay (a positive whole number, refused inline otherwise) and POSTs
+//      exactly { action: 'busy', delayMinutes, reason }; close and reopen POST { action, reason } with
+//      NO delayMinutes; DLV-00009 inline at the reason, DLV-00010 and DLV-00011 inline in the dialog
+//      (our lead sentence + the server's own words), never a banner; the list is read again;
+//  18. push hours POSTs an empty body and shows the week that was sent, an overnight shift marked
+//      "next day" as ONE isolated string; an empty answer says so; DLV-00010 and DLV-00011 inline;
+//  19. the history drawer reads History?take=50 and shows action, delay, reason, by, at and
+//      Deliverect's answer; an action the contract does not name shows as sent; empty and refused
+//      reads say so; Escape closes it;
+//  20. under RTL the hours label (an overnight one in <bdi>, its range one ltr isolate), the history's machine values and the dialog note are isolated, and
+//      a busy works.
 //
 //   1. run the app:  npx vite --port 5196 --strictPort
 //   2. DRIVE_PORT=5196 node tools/deliverect-stores-drive.mjs
@@ -117,6 +139,8 @@ const REFUSALS = {
   'DLV-00002': [409, 'The store is already onboarded on a Deliverect account. / الفرع مسجّل مسبقًا على حساب Deliverect.'],
   'DLV-00003': [400, 'No such account, or the account is inactive. / لا يوجد حساب بهذا المفتاح، أو الحساب غير نشط.'],
   'DLV-00009': [400, 'A reason is required (1–200 characters). / السبب مطلوب (1–200 حرف).'],
+  'DLV-00010': [409, 'The store is not linked to a Deliverect location yet. / الفرع غير مربوط بموقع Deliverect بعد.'],
+  'DLV-00011': [502, 'Deliverect refused the call: busy mode is not enabled for this location. / رفض Deliverect الطلب: وضع الانشغال غير مفعّل لهذا الموقع.'],
 }
 const refuse = (code) => {
   const [status, message] = REFUSALS[code]
@@ -145,6 +169,25 @@ const SYNC_LOGS = {
   ],
 }
 
+// 481: the hours a push sends, and a status history, exactly as the contract has them.
+const HOURS = {
+  1234: [
+    { day: 'SUN', open: '08:00', close: '02:00', overnight: true },
+    { day: 'MON', open: '08:00', close: '23:00', overnight: false },
+    { day: 'FRI', open: '16:00', close: '03:30', overnight: true },
+  ],
+}
+const HISTORY = {
+  1234: [
+    { action: 'reopen', delayMinutes: null, reason: 'Rush over', by: 'OPSUSER', at: '2026-10-12T10:55:00', deliverectAnswer: 'OK' },
+    { action: 'busy', delayMinutes: 15, reason: 'ضغط طلبات', by: 'OPSUSER', at: '2026-10-12T10:40:00', deliverectAnswer: 'OK' },
+    // NOT a contract value: the contract shows busy / close / reopen only, while spec 2615's log also
+    // records the hours push under a name it does not give — this row proves an unnamed action shows as sent.
+    { action: 'hours', delayMinutes: null, reason: 'roster corrected', by: 'HSADMIN', at: '2026-10-12T07:00:00', deliverectAnswer: null },
+    { action: 'close', delayMinutes: null, reason: 'Power cut', by: 'OPSUSER', at: '2026-10-11T21:10:00', deliverectAnswer: 'location not found' },
+  ],
+}
+
 function storesAnswer(qs, list = STORES) {
   const account = qs.get('account')
   const linked = qs.get('linked')
@@ -169,8 +212,11 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
   const lists = []
   const writes = []
   const logReads = []
+  const statusWrites = []
+  const historyReads = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
+  // The browser logs every refused stub's status; DLV-00011 (481) is a stubbed 502.
+  page.on('console', (m) => m.type() === 'error' && !/status of (4\d\d|502)/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
     localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
     localStorage.setItem('oms.railExpanded', 'true')
@@ -232,13 +278,37 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
       if (code === '2001') return route.fulfill(refuse('DLV-00001'))
       return route.fulfill(envelope(SYNC_LOGS[code] ?? []))
     }
+    // 481: the store status doors (contract § Store status).
+    if (/^DeliverectWeb\/StoreStatus\/[^/]+\/Hours$/.test(p) && req.method() === 'POST') {
+      const code = decodeURIComponent(p.split('/')[2])
+      statusWrites.push({ path: p, body: req.postData() })
+      if (code === '0099') return route.fulfill(refuse('DLV-00010'))
+      if (code === '3001') return route.fulfill(refuse('DLV-00011'))
+      return route.fulfill(envelope(HOURS[code] ?? []))
+    }
+    if (/^DeliverectWeb\/StoreStatus\/[^/]+\/History$/.test(p) && req.method() === 'GET') {
+      const code = decodeURIComponent(p.split('/')[2])
+      historyReads.push({ code, search: url.search.slice(1) })
+      if (code === '0099') return route.fulfill(refuse('DLV-00001'))
+      return route.fulfill(envelope(HISTORY[code] ?? []))
+    }
+    if (/^DeliverectWeb\/StoreStatus\/[^/]+$/.test(p) && req.method() === 'POST') {
+      const code = decodeURIComponent(p.split('/')[2])
+      const body = req.postDataJSON()
+      statusWrites.push({ path: p, body })
+      if (body.reason === 'trigger 00009') return route.fulfill(refuse('DLV-00009'))
+      if (code === '0099') return route.fulfill(refuse('DLV-00010'))
+      if (body.reason === 'trigger 00011') return route.fulfill(refuse('DLV-00011'))
+      if (body.reason === 'trigger 00001') return route.fulfill(refuse('DLV-00001'))
+      return route.fulfill(envelope(null))
+    }
     // Materials' leaves are shown so the Deliverect group's place after them can be read.
     if (p === 'MaterialWeb/Access') return route.fulfill(envelope({ canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, lists, writes, logReads }
+  return { context, page, errors, calls, lists, writes, logReads, statusWrites, historyReads }
 }
 
 /** Wait until the grid holds `n` rows (a row is drawn once per pinned/centre section) and has settled. */
@@ -858,6 +928,406 @@ const painted = (page, code) =>
   await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
   check('15: pause works under RTL', writes.at(-1).path === 'DeliverectWeb/Sync/2001/Active' && writes.at(-1).body.active === false)
   check('15: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ═══ 481: the store status ═════════════════════════════════════════════════════════════════════
+
+/** A populated status block (what 2625 will send). */
+const statusBlock = (state, over = {}) => ({ state, since: '2026-10-12T10:40:00', reason: null, ...over })
+const STATUSED = [
+  store('1234', { status: statusBlock('open', { since: '2026-10-12T08:00:00' }) }),
+  store('0099', { storeName: 'Jeddah Tahlia', deliverectLocationId: null, linkedAt: null, status: statusBlock('open', { since: null }) }),
+  store('2001', {
+    storeName: 'صيدلية الدواء - العليا',
+    accountKey: 'AlDawaa',
+    status: statusBlock('closed', { since: '2026-10-11T21:10:00', reason: 'انقطاع الكهرباء' }),
+  }),
+  store('3001', { storeName: 'Dammam Corniche', status: statusBlock('busy', { reason: 'Rush hour' }) }),
+  store('5001', { storeName: 'Abha' }),
+]
+const radio = (page, a) => page.locator(`[data-status-action="${a}"]`)
+const unisolated = (s) => s.replace(/[⁦-⁩]/g, '')
+
+// ── 16: the status columns and actions ──────────────────────────────────────────────────────
+{
+  const { context, page, errors } = await open('ltr', { stores: STATUSED })
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 5)
+  const headers = await page.locator('[data-stores-grid] .ag-header-cell-text').allInnerTexts()
+  check(
+    '16: the status columns are drawn — status, since, reason',
+    ['Store status', 'Status since', 'Status reason'].every((h) => headers.includes(h)),
+    headers.join(' | '),
+  )
+  const read = {}
+  for (const c of ['1234', '2001', '3001', '5001'])
+    read[c] = [await cell(page, c, 'status'), await cell(page, c, 'statusSince'), await cell(page, c, 'statusReason')]
+  check(
+    '16: open / closed / busy with since-when and the reason; a null block leaves its cells empty',
+    JSON.stringify(read) ===
+      JSON.stringify({
+        1234: ['Open', '2026-10-12 08:00', ''],
+        2001: ['Closed', '2026-10-11 21:10', 'انقطاع الكهرباء'],
+        3001: ['Busy', '2026-10-12 10:40', 'Rush hour'],
+        5001: ['', '', ''],
+      }),
+    JSON.stringify(read),
+  )
+  check(
+    '16: Set status, Push hours and Status history on a row with a status block',
+    (await page.locator('[data-status-set="1234"], [data-status-hours="1234"], [data-status-history="1234"]').count()) === 3,
+  )
+  check(
+    '16: none on a row whose status block is null',
+    (await page.locator('[data-status-set="5001"], [data-status-hours="5001"], [data-status-history="5001"]').count()) === 0,
+  )
+  await page.screenshot({ path: `${SHOTS}/status-grid.png` })
+  check('16: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 17: busy, close, reopen — with a reason, and the refusals inline ──────────────────────────
+{
+  const { context, page, errors, statusWrites, lists } = await open('ltr', { stores: STATUSED })
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 5)
+  const confirm = page.locator('[data-reason-confirm]')
+
+  // An open store.
+  await page.locator('[data-status-set="1234"]').click()
+  await dialog(page).waitFor()
+  check(
+    '17: no action is preselected, and Confirm waits',
+    (await page.locator('[data-status-action]:checked').count()) === 0 && (await confirm.isDisabled()),
+  )
+  check(
+    '17: an open store is not offered reopen',
+    (await radio(page, 'reopen').isDisabled()) && !(await radio(page, 'busy').isDisabled()) && !(await radio(page, 'close').isDisabled()),
+  )
+  check('17: no delay field before busy is chosen', (await page.locator('[data-status-delay]').count()) === 0)
+  await radio(page, 'busy').check()
+  check('17: busy asks for the preparation delay', (await page.locator('[data-status-delay]').count()) === 1)
+  const busyNote = await page.locator('[data-status-note="busy"]').innerText()
+  check(
+    '17: the busy note says it reaches every delivery platform, with the delay',
+    /busy on every delivery platform/.test(busyNote) && /preparation delay/.test(busyNote),
+    busyNote,
+  )
+  check('17: the note isolates the store code', (await page.locator('[data-status-note] bdi[dir="ltr"]').innerText()) === '1234')
+  await page.locator('[data-reason-input]').fill('Rush')
+  check('17: busy waits for a delay', await confirm.isDisabled())
+  const refused = []
+  for (const bad of ['0', '1.5', '-5', 'ten']) {
+    await page.locator('[data-status-delay]').fill(bad)
+    if ((await page.locator('[data-status-delay-invalid]').count()) === 1 && (await confirm.isDisabled())) refused.push(bad)
+  }
+  check('17: 0, 1.5, -5 and words are refused inline, Confirm off', refused.length === 4, refused.join())
+  await page.locator('[data-status-delay]').fill(' 15 ')
+  check(
+    '17: a positive whole number enables Confirm',
+    !(await confirm.isDisabled()) && (await page.locator('[data-status-delay-invalid]').count()) === 0,
+  )
+  check('17: the confirm reads Set busy', (await confirm.innerText()) === 'Set busy')
+  await page.screenshot({ path: `${SHOTS}/status-busy.png` })
+  // DLV-00009 at the reason.
+  await page.locator('[data-reason-input]').fill('trigger 00009')
+  await confirm.click()
+  const r9 = dialog(page).locator('[data-inline-refusal="DLV-00009"]')
+  await r9.waitFor({ timeout: 5000 })
+  check('17: DLV-00009 shows inline at the reason', /A reason is required .* \/ السبب مطلوب/.test(await r9.innerText()))
+  // DLV-00011: Deliverect's answer, inline.
+  await page.locator('[data-reason-input]').fill('trigger 00011')
+  await confirm.click()
+  const r11 = page.locator('[data-status-refusal="DLV-00011"]')
+  await r11.waitFor({ timeout: 5000 })
+  check(
+    "17: DLV-00011 shows inline — our lead, then Deliverect's answer in the server's own words",
+    /Deliverect did not accept it/.test(await r11.innerText()) && (await r11.innerText()).includes(REFUSALS['DLV-00011'][1]),
+    await r11.innerText(),
+  )
+  check('17: …and never as a banner too', (await dialog(page).locator('[data-reason-error]').count()) === 0)
+  check('17: the dialog stays open with the reason kept', (await page.locator('[data-reason-input]').inputValue()) === 'trigger 00011')
+  await page.screenshot({ path: `${SHOTS}/status-dlv11.png` })
+  // Another refusal: the dialog's banner, with its code.
+  await page.locator('[data-reason-input]').fill('trigger 00001')
+  await confirm.click()
+  await page.locator('[data-reason-error="DLV-00001"]').waitFor({ timeout: 5000 })
+  check('17: another refusal shows in the dialog with its code', (await dialog(page).count()) === 1)
+  const before = lists.length
+  await page.locator('[data-reason-input]').fill('  ضغط — rush  ')
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    '17: busy POSTs exactly { action, delayMinutes, reason } — trimmed, unicode kept',
+    statusWrites.at(-1).path === 'DeliverectWeb/StoreStatus/1234' &&
+      JSON.stringify(statusWrites.at(-1).body) === JSON.stringify({ action: 'busy', delayMinutes: 15, reason: 'ضغط — rush' }),
+    JSON.stringify(statusWrites.at(-1)),
+  )
+  await page.waitForTimeout(400)
+  check('17: the list is read again after the write', lists.length > before)
+
+  // Close: a delay typed for busy first is NOT sent.
+  await page.locator('[data-status-set="3001"]').click()
+  await dialog(page).waitFor()
+  check(
+    '17: a busy store is offered all three',
+    !(await radio(page, 'busy').isDisabled()) && !(await radio(page, 'close').isDisabled()) && !(await radio(page, 'reopen').isDisabled()),
+  )
+  await radio(page, 'busy').check()
+  await page.locator('[data-status-delay]').fill('20')
+  await radio(page, 'close').check()
+  check('17: close hides the delay', (await page.locator('[data-status-delay]').count()) === 0)
+  check(
+    '17: close says it closes the store on every platform until reopened',
+    /until it is reopened/.test(await page.locator('[data-status-note="close"]').innerText()),
+  )
+  await page.locator('[data-reason-input]').fill('Power cut')
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    '17: 🚩 close POSTs { action, reason } with NO delayMinutes',
+    statusWrites.at(-1).path === 'DeliverectWeb/StoreStatus/3001' &&
+      JSON.stringify(statusWrites.at(-1).body) === JSON.stringify({ action: 'close', reason: 'Power cut' }),
+    JSON.stringify(statusWrites.at(-1).body),
+  )
+
+  // Reopen a closed store.
+  await page.locator('[data-status-set="2001"]').click()
+  await dialog(page).waitFor()
+  check(
+    '17: a closed store is offered reopen only',
+    (await radio(page, 'close').isDisabled()) && (await radio(page, 'busy').isDisabled()) && !(await radio(page, 'reopen').isDisabled()),
+  )
+  await radio(page, 'reopen').check()
+  await page.locator('[data-reason-input]').fill('back to normal')
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    '17: reopen POSTs { action, reason } with NO delayMinutes',
+    statusWrites.at(-1).path === 'DeliverectWeb/StoreStatus/2001' &&
+      JSON.stringify(statusWrites.at(-1).body) === JSON.stringify({ action: 'reopen', reason: 'back to normal' }),
+    JSON.stringify(statusWrites.at(-1).body),
+  )
+
+  // DLV-00010 — a store not linked yet.
+  await page.locator('[data-status-set="0099"]').click()
+  await dialog(page).waitFor()
+  await radio(page, 'close').check()
+  await page.locator('[data-reason-input]').fill('closing')
+  await confirm.click()
+  const r10 = page.locator('[data-status-refusal="DLV-00010"]')
+  await r10.waitFor({ timeout: 5000 })
+  check(
+    '17: DLV-00010 shows inline — not linked, in our words and the server’s',
+    /has not linked this store yet/.test(await r10.innerText()) && (await r10.innerText()).includes(REFUSALS['DLV-00010'][1]),
+  )
+  check('17: …and never as a banner too (DLV-00010)', (await dialog(page).locator('[data-reason-error]').count()) === 0)
+  await page.locator('[data-reason-cancel]').click()
+  await dialog(page).waitFor({ state: 'detached' })
+  check('17: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 18: push hours now ──────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, statusWrites } = await open('ltr', { stores: STATUSED })
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 5)
+  await page.locator('[data-status-hours="1234"]').click()
+  await dialog(page).waitFor()
+  check(
+    '18: the dialog says the hours come from the duty roster',
+    /read from the duty roster and sent to Deliverect now/.test(await page.locator('[data-hours-note]').innerText()),
+  )
+  check('18: nothing is pushed until asked', statusWrites.length === 0)
+  await page.locator('[data-hours-push]').click()
+  await page.locator('[data-hours-sent]').waitFor({ timeout: 5000 })
+  check(
+    '18: it POSTs Hours with an empty body (the contract names none — no reason, no fields)',
+    statusWrites.length === 1 && statusWrites[0].path === 'DeliverectWeb/StoreStatus/1234/Hours' && statusWrites[0].body === '{}',
+    JSON.stringify(statusWrites),
+  )
+  const rows = await page
+    .locator('[data-hours-row]')
+    .evaluateAll((els) => els.map((r) => [r.querySelector('[data-hours-day]').textContent, r.querySelector('[data-hours-label]').textContent]))
+  check(
+    '18: the week that was sent — an overnight shift reads "next day"',
+    JSON.stringify(rows.map(([d, l]) => [d, unisolated(l)])) ===
+      JSON.stringify([
+        ['Sunday', '08:00–02:00 next day'],
+        ['Monday', '08:00–23:00'],
+        ['Friday', '16:00–03:30 next day'],
+      ]),
+    JSON.stringify(rows),
+  )
+  check(
+    '18: 🚩 each label is ONE isolate, never one per end',
+    (await page.locator('[data-hours-row="SUN"] [data-hours-label] bdi').count()) === 1 &&
+      (await page.locator('[data-hours-row="MON"] [data-hours-label] bdi').count()) === 1,
+  )
+  check(
+    '18: the Push button is gone; Close remains',
+    (await page.locator('[data-hours-push]').count()) === 0 && (await page.locator('[data-hours-close]').innerText()) === 'Close',
+  )
+  await page.screenshot({ path: `${SHOTS}/status-hours.png` })
+  await page.locator('[data-hours-close]').click()
+  await dialog(page).waitFor({ state: 'detached' })
+  // An empty answer.
+  await page.locator('[data-status-hours="2001"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-hours-push]').click()
+  await page.locator('[data-hours-empty]').waitFor({ timeout: 5000 })
+  check('18: an empty answer says no hours were sent', (await page.locator('[data-hours-empty]').innerText()) === 'No hours were sent for this store.')
+  await page.keyboard.press('Escape')
+  await dialog(page).waitFor({ state: 'detached' })
+  // DLV-00010.
+  await page.locator('[data-status-hours="0099"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-hours-push]').click()
+  const r10 = page.locator('[data-hours-dialog] [data-status-refusal="DLV-00010"]')
+  await r10.waitFor({ timeout: 5000 })
+  check(
+    '18: DLV-00010 shows inline, no banner',
+    (await r10.innerText()).includes(REFUSALS['DLV-00010'][1]) && (await page.locator('[data-hours-error]').count()) === 0,
+  )
+  check('18: the Push button stays for another try', (await page.locator('[data-hours-push]').count()) === 1)
+  await page.keyboard.press('Escape')
+  await dialog(page).waitFor({ state: 'detached' })
+  // DLV-00011 — Deliverect's answer.
+  await page.locator('[data-status-hours="3001"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-hours-push]').click()
+  const r11 = page.locator('[data-hours-dialog] [data-status-refusal="DLV-00011"]')
+  await r11.waitFor({ timeout: 5000 })
+  check(
+    "18: DLV-00011 shows inline — our lead and Deliverect's answer, no banner",
+    /Deliverect did not accept it/.test(await r11.innerText()) &&
+      (await r11.innerText()).includes(REFUSALS['DLV-00011'][1]) &&
+      (await page.locator('[data-hours-error]').count()) === 0,
+  )
+  check('18: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 19: the status history drawer ───────────────────────────────────────────────────────────
+{
+  const { context, page, errors, historyReads } = await open('ltr', { stores: STATUSED })
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 5)
+  await page.locator('[data-status-history="1234"]').click()
+  const drawer = page.locator('dialog[open][data-status-history-drawer="1234"]')
+  await drawer.locator('[data-status-history-table]').waitFor({ timeout: 5000 })
+  check(
+    '19: it reads History?take=50 for the store',
+    JSON.stringify(historyReads) === JSON.stringify([{ code: '1234', search: 'take=50' }]),
+    JSON.stringify(historyReads),
+  )
+  const heads = await drawer.locator('thead th').allInnerTexts()
+  check(
+    "19: action, delay, reason, by, at, Deliverect's answer",
+    JSON.stringify(heads) === JSON.stringify(['Action', 'Delay (min)', 'Reason', 'By', 'At', "Deliverect's answer"]),
+    heads.join(' | '),
+  )
+  const rows = await drawer
+    .locator('[data-status-history-row]')
+    .evaluateAll((els) => els.map((r) => [...r.querySelectorAll('td')].map((td) => td.textContent)))
+  check(
+    '19: each change as sent — the busy delay, the reason, by, at and the answer; an unnamed action as sent',
+    JSON.stringify(rows) ===
+      JSON.stringify([
+        ['Reopen', '', 'Rush over', 'OPSUSER', '2026-10-12 10:55', 'OK'],
+        ['Busy', '15', 'ضغط طلبات', 'OPSUSER', '2026-10-12 10:40', 'OK'],
+        ['hours', '', 'roster corrected', 'HSADMIN', '2026-10-12 07:00', ''],
+        ['Close for now', '', 'Power cut', 'OPSUSER', '2026-10-11 21:10', 'location not found'],
+      ]),
+    JSON.stringify(rows),
+  )
+  check(
+    '19: the title is the store · name pair',
+    (await drawer.locator('[data-status-history-title]').innerText()) === '1234 · Riyadh Olaya',
+  )
+  await page.screenshot({ path: `${SHOTS}/status-history.png` })
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: 5000 })
+  check('19: Escape closes the drawer', (await page.locator('dialog[open]').count()) === 0)
+  await page.locator('[data-status-history="2001"]').click()
+  await page.locator('[data-status-history-empty]').waitFor({ timeout: 5000 })
+  check(
+    '19: an empty history says so',
+    (await page.locator('[data-status-history-empty]').innerText()) === 'No status change has been sent for this store yet.',
+  )
+  await page.locator('[data-status-history-close]').click()
+  await page.locator('dialog[open]').waitFor({ state: 'detached' })
+  await page.locator('[data-status-history="0099"]').click()
+  await page.locator('[data-status-history-error="DLV-00001"]').waitFor({ timeout: 5000 })
+  check("19: a refused read shows the server's sentence", /No such store\. \/ لا يوجد/.test(await page.locator('[data-status-history-error]').innerText()))
+  check('19: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 20: RTL ─────────────────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, statusWrites } = await open('rtl', { stores: STATUSED })
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 5)
+  check(
+    '20: dir is rtl and the status still reads',
+    (await page.evaluate(() => document.documentElement.dir)) === 'rtl' && (await cell(page, '2001', 'status')) === 'Closed',
+  )
+  check(
+    '20: the since time isolates left-to-right',
+    (await page.locator('[data-stores-grid] [col-id="statusSince"] bdi[dir="ltr"]').first().innerText()) === '2026-10-12 08:00',
+  )
+  await page.screenshot({ path: `${SHOTS}/rtl-status-grid.png` })
+  await page.locator('[data-status-hours="1234"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-hours-push]').click()
+  await page.locator('[data-hours-sent]').waitFor({ timeout: 5000 })
+  const label = page.locator('[data-hours-row="SUN"] [data-hours-label] bdi')
+  const labelText = await label.evaluate((b) => b.textContent)
+  check(
+    '20: the overnight label is ONE <bdi> (direction from its words), its range ONE isolate inside — never one per end',
+    (await label.count()) === 1 &&
+      (await label.getAttribute('dir')) === null &&
+      labelText === `${FSI}08:00–02:00${PDI} next day`,
+    JSON.stringify(labelText),
+  )
+  const plain = page.locator('[data-hours-row="MON"] [data-hours-label] bdi[dir="ltr"]')
+  check('20: a same-day range is a machine value, one ltr isolate', (await plain.count()) === 1 && (await plain.innerText()) === '08:00–23:00')
+  check('20: the hours note isolates the store code', (await page.locator('[data-hours-note] bdi[dir="ltr"]').innerText()) === '1234')
+  await page.screenshot({ path: `${SHOTS}/rtl-status-hours.png` })
+  await page.locator('[data-hours-close]').click()
+  await dialog(page).waitFor({ state: 'detached' })
+  await page.locator('[data-status-history="1234"]').click()
+  const drawer = page.locator('dialog[open][data-status-history-drawer="1234"]')
+  await drawer.locator('[data-status-history-table]').waitFor({ timeout: 5000 })
+  const iso = await drawer.locator('[data-status-history-row="busy"] bdi[dir="ltr"]').allInnerTexts()
+  check(
+    '20: the history isolates the delay, the user and the time',
+    ['15', 'OPSUSER', '2026-10-12 10:40'].every((v) => iso.includes(v)),
+    iso.join(' | '),
+  )
+  check(
+    '20: the reason is free text (bdi, direction auto)',
+    (await drawer.locator('[data-status-history-row="busy"] [data-history-reason] bdi:not([dir])').innerText()) === 'ضغط طلبات',
+  )
+  await page.screenshot({ path: `${SHOTS}/rtl-status-history.png` })
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached' })
+  await page.locator('[data-status-set="1234"]').click()
+  await dialog(page).waitFor()
+  await radio(page, 'busy').check()
+  await page.locator('[data-status-delay]').fill('10')
+  await page.locator('[data-reason-input]').fill('ضغط')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    '20: busy works under RTL',
+    JSON.stringify(statusWrites.at(-1).body) === JSON.stringify({ action: 'busy', delayMinutes: 10, reason: 'ضغط' }),
+    JSON.stringify(statusWrites.at(-1)),
+  )
+  check('20: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

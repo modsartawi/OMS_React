@@ -24,12 +24,16 @@ import { MoveDialog, OnboardDialog, RemoveDialog, SyncActiveDialog } from './Sto
 import { LINKED_FILTERS, accountChoices, onboardWarning, optionalColumns, storesFromParams, storesToParams } from './store-state'
 import { syncHealth, syncHighlight } from './sync-health'
 import SyncLogsDrawer from './SyncLogsDrawer'
+import { PushHoursDialog, StatusActionDialog } from './StatusDialogs'
+import StatusHistoryDrawer from './StatusHistoryDrawer'
 
 /**
  * Deliverect stores (ticket 477, BackOffice spec 2615): every store onboarded on a Deliverect
  * account, whether Deliverect has linked it yet, and the three writes — onboard, move, remove —
  * each with a reason. Ticket 480 adds each store's stock sync: its columns, a failing or overdue
- * row highlighted, pause / resume with a reason, and the logs drawer.
+ * row highlighted, pause / resume with a reason, and the logs drawer. Ticket 481 adds each store's
+ * status: open / busy / closed with since and reason, busy / close / reopen with a reason, push
+ * hours now (the week that was sent), and the status history drawer.
  *
  * Behind `canManageStores` on the ONE Deliverect probe, the same predicate the menu leaf reads.
  * Its doors are BackOffice 2616 (sync fields 2624, status fields 2625).
@@ -68,6 +72,9 @@ type Dialog =
   | { kind: 'remove'; row: Row }
   | { kind: 'syncActive'; row: Row }
   | { kind: 'logs'; row: Row }
+  | { kind: 'status'; row: Row }
+  | { kind: 'hours'; row: Row }
+  | { kind: 'history'; row: Row }
   | null
 
 /** A failed store's row is red and an overdue store's amber (ticket 480; HungerStation spec 1872). */
@@ -168,6 +175,9 @@ function Stores() {
           onRemove: (row) => setDialog({ kind: 'remove', row }),
           onSyncActive: (row) => setDialog({ kind: 'syncActive', row }),
           onLogs: (row) => setDialog({ kind: 'logs', row }),
+          onStatus: (row) => setDialog({ kind: 'status', row }),
+          onHours: (row) => setDialog({ kind: 'hours', row }),
+          onHistory: (row) => setDialog({ kind: 'history', row }),
         },
         () => now.current,
       ),
@@ -336,6 +346,11 @@ function Stores() {
         <SyncActiveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
       )}
       {dialog?.kind === 'logs' && <SyncLogsDrawer row={dialog.row} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'status' && (
+        <StatusActionDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'hours' && <PushHoursDialog row={dialog.row} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'history' && <StatusHistoryDrawer row={dialog.row} onClose={() => setDialog(null)} />}
     </div>
   )
 }

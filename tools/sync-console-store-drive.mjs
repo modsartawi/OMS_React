@@ -84,6 +84,17 @@
 // 🚩 Changed on purpose by 471, and only one: section 19's "…and says so" now reads the in-drawer status line
 // ("Copied") instead of the toast the drawer no longer raises.
 //
+// Ticket 474 (spec 470, no door; the Replay page's doors are stubs of spec 470's PROPOSED contract):
+//  21. Replay… in the drawer: Operate alone sees no Replay… (Copy JSON and its status line stay); Operate + Replay
+//      sees it, and pressing it closes the drawer and lands on /admin/sync/replay with the same pretty-printed JSON
+//      in the box, its summary and the receipt it came from; leaving for the Fleet page and coming back keeps the
+//      draft, an edit included; a push keeps it too; a paste of another receipt over the box replaces it and no
+//      longer names the source receipt; a reload empties it;
+//      the receipt number is never in localStorage, sessionStorage or the URL, and nothing is logged. Its
+//      snapshot is OBVIOUSLY FAKE data in the engine's real shape (PosTransactionSnapshot).
+// 🚩 474 changes no existing assertion: `open()` only gains options (canReplay, the snapshot), and an Access stub
+// without canReplay keeps the door's older shape, so the ConsoleNav seen by sections 1–20 is unchanged.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -311,6 +322,45 @@ const FAKE_SNAPSHOT = {
   loyalty: { card: 'FAKE-CARD-0000', points: 0 },
 }
 
+// 474: a receipt in the engine's REAL shape (PosTransactionSnapshot), so the Replay page's preflight can read it;
+// every value obviously fake.
+const REPLAY_SNAPSHOT = {
+  SchemaVersion: 3,
+  Header: {
+    TransactionId: 'TX-9000',
+    StoreId: 'P007',
+    RegisterId: 'R01',
+    ReceiptNumber: '0042-0009-119000',
+    Status: 'Completed',
+    IsReturn: false,
+    IsTraining: false,
+    GrandTotal: 25.5,
+    TotalTendered: 30,
+    TotalApplied: 25.5,
+    TotalChange: 4.5,
+    OpenedAt: '2026-10-09T11:57:00',
+    CompletedAt: '2026-10-09T11:59:00',
+    LoyaltyId: 'FAKE-LOYALTY-7',
+  },
+  Lines: [{ LineNumber: 1, Sku: 'FAKE-SKU-0001', Quantity: 1, Amount: 25.5 }],
+  Conditions: [],
+  Tenders: [{ TenderType: 'Cash', Amount: 30, ChangeAmount: 4.5, AppliedAmount: 25.5, IsRefund: false, ProviderTransactionId: 'FAKE-CARD-PROOF' }],
+  Coupons: [],
+  Loyalty: { MemberId: 'FAKE-LOYALTY-7', Name: 'Test Customer (fake)' },
+  DocumentType: 'Sale',
+  Insurance: null,
+  Order: null,
+}
+const REPLAY_RESULT = {
+  storeCode: 'P020',
+  registerId: 'R02',
+  transactionId: 'FAKE-TX-NEW-0474',
+  receiptNumber: 'FAKE-0020-000474',
+  replayedAt: '2026-10-09T12:05:00',
+  replayOf: { storeCode: 'P007', receiptNumber: '0042-0009-119000', transactionId: 'TX-9000' },
+  removed: ['tenderCapture', 'loyaltyMember'],
+}
+
 // 24 hours, oldest first: 08:00 yesterday … 07:00 … the cells cycle the five, with one cell a door newer
 // than this bundle might send.
 const CYCLE = ['work', 'idle', 'passErrors', 'connectFailOnly', 'noData', 'work']
@@ -423,7 +473,7 @@ const LOCATION = { code: 'P001', description: 'Olaya Main', ip: '10.20.1.11', in
 
 const browser = await chromium.launch()
 
-async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canOperate = false } = {}) {
+async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canOperate = false, canReplay = false, snapshot = FAKE_SNAPSHOT } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1200 } })
   const page = await context.newPage()
   // A fixed local "today", so the 30-day bound is checkable: 2026-10-09.
@@ -444,7 +494,8 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
     calls.push(p + url.search)
     const code = url.searchParams.get('code')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate, canOnboard: false }))
+    // 474: without the grant the door's older shape, no canReplay member at all (as sections 1–20 always had).
+    if (p === 'ActionSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate, canOnboard: false, ...(canReplay ? { canReplay } : {}) }))
     if (p === 'ActionSync/Store') {
       if (calls.filter((c) => c.startsWith('ActionSync/Store?')).length > failStoreAfter)
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'The store read failed.', errorCode: 'BOOM' }))
@@ -524,8 +575,14 @@ async function open({ failStoreAfter = Infinity, failHoursAfter = Infinity, canO
       if (id === 'TX-9001') return route.fulfill(envelope(null, { status: 404, success: false, message: 'No such receipt on the mirror.', errorCode: 'NOT_FOUND' }))
       if (id === 'TX-9002') return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
       if (id === 'TX-9003') return route.fulfill(envelope(null, { status: 500, success: false, message: 'The view could not be audited.' }))
-      return route.fulfill(envelope({ auditId: 'AU-468-1', receiptNumber: '0042-0009-119000', loadedAt: '2026-10-09T12:03:30', snapshot: FAKE_SNAPSHOT }))
+      return route.fulfill(envelope({ auditId: 'AU-468-1', receiptNumber: '0042-0009-119000', loadedAt: '2026-10-09T12:03:30', snapshot }))
     }
+    // 474: the Replay page's doors (spec 470's proposed contract), asked only by section 21.
+    if (p === 'ActionSync/Replay/Registers') {
+      if (code !== 'P020') return route.fulfill(envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
+      return route.fulfill(envelope({ storeCode: 'P020', registers: [{ registerId: 'R01', name: 'Register 1' }, { registerId: 'R02', name: 'Register 2' }] }))
+    }
+    if (p === 'ActionSync/Replay') return route.fulfill(envelope(REPLAY_RESULT))
     if (p === 'ActionSync/Store/Counters') return route.fulfill(envelope(COUNTERS))
     if (p === 'ActionSync/Store/Passes') {
       const pg = Number(url.searchParams.get('page'))
@@ -1433,6 +1490,126 @@ for (const outcome of ['copied', 'failed']) {
   check(`20. (${outcome}) nothing of the snapshot logged to the console`, !logged.some((l) => /FAKE-CARD|Test Customer|FAKE-SKU/.test(l)))
   await drawer.locator('[data-snapshot-close]').click()
   check(`no page errors (Copy JSON on plain http, ${outcome})`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 21: Replay… in the drawer (ticket 474) ─────────────────────────────────────────────────────
+const REPLAY_TEXT = JSON.stringify(REPLAY_SNAPSHOT, null, 2)
+const REPLAY_PRIVATE = /FAKE-CARD|Test Customer|FAKE-SKU|FAKE-LOYALTY/
+// The Fleet page the tester leaves for: its doors in the fleet drive's shapes, empty.
+const stubFleet = (page) =>
+  page.route(/\/api\/ActionSync\/(Fleet|Workers)/, (route) => {
+    const p = new URL(route.request().url()).pathname.replace(/^\/api\//, '')
+    const hour = (h) => ({ hour: h, pushPasses: 0, pullPasses: 0, connectFailures: 0, chunksPushed: 0, actionsPushed: 0, trxPulled: 0, errors: 0 })
+    if (p === 'ActionSync/Workers') return route.fulfill(envelope({ items: [] }))
+    if (p === 'ActionSync/Fleet/Summary')
+      return route.fulfill(envelope({ asOf: '2026-10-09T12:04:31', total: 0, counts: { all: 0, onWorker: 0, onWpf: 0, paused: 0, offline: 0, behind: 0, erroring: 0, controlPending: 0 } }))
+    if (p === 'ActionSync/Fleet/LastHour') return route.fulfill(envelope({ current: hour('2026-10-09T12:00:00'), previous: hour('2026-10-09T11:00:00') }))
+    return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
+  })
+const storageHas = (page, re) => page.evaluate((src) => new RegExp(src).test(JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage })), re.source)
+const awayAndBack = async (page) => {
+  await page.locator('[data-console-page="fleet"]').click()
+  await page.locator('[data-replay-json]').waitFor({ state: 'detached', timeout: 5000 })
+  await page.waitForTimeout(300)
+  await page.locator('[data-console-page="replay"]').click()
+  await page.locator('[data-replay-json]').waitFor({ timeout: 5000 })
+}
+{
+  // Operate alone: the drawer as 468/471 left it, with no Replay….
+  const { context, page, errors } = await open({ canOperate: true })
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.locator('[data-transaction-view="TX-9000"]').first().click()
+  const drawer = page.locator('dialog[data-snapshot-drawer="TX-9000"]')
+  await drawer.locator('[data-snapshot-json]').waitFor({ timeout: 5000 })
+  check('21. Operate alone: no Replay… in the drawer (absent, not disabled)', (await drawer.locator('[data-snapshot-replay]').count()) === 0)
+  check('21. …Copy JSON and its status line stay', (await drawer.locator('[data-snapshot-copy]').count()) === 1 && (await drawer.locator('[data-snapshot-copy-status]').count()) === 1)
+  check('21. …and no Replay link in the console nav', (await page.locator('[data-console-page="replay"]').count()) === 0)
+  check('no page errors (Replay… without the grant)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors, calls } = await open({ canOperate: true, canReplay: true, snapshot: REPLAY_SNAPSHOT })
+  await stubFleet(page)
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
+  const logged = []
+  page.on('console', (m) => logged.push(m.text()))
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  await page.locator('[data-transaction-view="TX-9000"]').first().click()
+  const drawer = page.locator('dialog[data-snapshot-drawer="TX-9000"]')
+  await drawer.locator('[data-snapshot-json]').waitFor({ timeout: 5000 })
+  const replayButton = drawer.locator('[data-snapshot-replay]')
+  check('21. Operate + Replay: the drawer offers Replay… beside Copy JSON', (await replayButton.count()) === 1 && strip(await replayButton.innerText()) === 'Replay…' && (await drawer.locator('[data-snapshot-copy]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/transactions-json-replay.png` })
+  const snapsBefore = snapCalls(calls).length
+  await replayButton.click()
+  const box = page.locator('[data-replay-json]')
+  await box.waitFor({ timeout: 10000 })
+  check('21. pressing it lands on the Replay page, nothing in the URL', new URL(page.url()).pathname === '/admin/sync/replay' && new URL(page.url()).search === '' && new URL(page.url()).hash === '', page.url())
+  check('21. …and closes the drawer', (await page.locator('dialog[data-snapshot-drawer]').count()) === 0)
+  check('21. …without reading the snapshot again', snapCalls(calls).length === snapsBefore)
+  check('21. the box holds the same JSON, pretty-printed', (await box.inputValue()) === REPLAY_TEXT)
+  const summary = page.locator('[data-replay-preflight="summary"]')
+  await summary.waitFor({ timeout: 5000 }).catch(() => {})
+  const fact = async (f) => strip(await page.locator(`[data-summary="${f}"]`).innerText())
+  check('21. …and its summary shows the source store, receipt and transaction', (await summary.count()) === 1 && (await fact('sourceStore')) === 'P007' && (await fact('sourceReceipt')) === '0042-0009-119000' && (await fact('sourceTransaction')) === 'TX-9000')
+  check('21. …a completed sale of one line that balances', (await fact('kind')) === 'Sale' && (await fact('completed')) === 'Yes' && (await fact('lines')) === '1' && (await fact('balanced')) === 'Yes', `${await fact('kind')} ${await fact('lines')} ${await fact('balanced')}`)
+  const source = page.locator('[data-replay-source]')
+  check('21. the page says which receipt it was brought from, each value isolated', (await source.count()) === 1 && strip(await source.innerText()) === 'Brought from receipt 0042-0009-119000 of store P007.' && (await source.locator('bdi[dir="ltr"]').count()) === 2, (await source.count()) ? strip(await source.innerText()) : '')
+  check('21. the receipt is not in localStorage or sessionStorage', !(await storageHas(page, /0042-0009-119000|TX-9000/)))
+  await page.screenshot({ path: `${SHOTS}/replay-from-drawer.png` })
+
+  // Leaving for the Fleet page and coming back keeps the draft.
+  await awayAndBack(page)
+  check('21. Fleet and back: the draft is kept', (await box.inputValue()) === REPLAY_TEXT && (await page.locator('[data-replay-source]').count()) === 1)
+
+  // Typing in the box updates the draft.
+  await box.click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.press('Enter')
+  await awayAndBack(page)
+  check('21. an edit is kept too (typing updates the draft), still from the same receipt', (await box.inputValue()) === REPLAY_TEXT + '\n' && (await page.locator('[data-replay-source]').count()) === 1)
+
+  // A push keeps it, to replay again.
+  const storeField = page.locator('[data-field="replay-store"]')
+  await storeField.fill('P020')
+  await storeField.press('Enter')
+  await page.locator('[data-replay-register] option[value="R02"]').waitFor({ state: 'attached', timeout: 5000 })
+  await page.locator('[data-replay-register]').selectOption('R02')
+  await page.locator('[data-replay-push]').click()
+  await page.locator('[data-replay-confirm-push]').click()
+  await page.locator('[data-replay-result]').waitFor({ timeout: 5000 })
+  check('21. a push lands (stubbed door)', strip(await page.locator('[data-replay-receipt]').innerText()) === 'FAKE-0020-000474')
+  check('21. …and keeps the draft', (await box.inputValue()) === REPLAY_TEXT + '\n' && (await page.locator('[data-replay-source]').count()) === 1)
+  check('21. after a replay, neither receipt number is in localStorage or sessionStorage', !(await storageHas(page, /0042-0009-119000|FAKE-0020-000474|TX-9000/)))
+  check('21. …nor anything of the snapshot', !(await storageHas(page, REPLAY_PRIVATE)))
+  check('21. …nor in the URL', !/0042|FAKE|TX-/.test(page.url()), page.url())
+  await awayAndBack(page)
+  check('21. …still there after the Fleet and back', (await box.inputValue()) === REPLAY_TEXT + '\n')
+
+  // A paste over the whole box replaces the draft: it is no longer the receipt it was brought from.
+  const pasted = JSON.stringify({ ...REPLAY_SNAPSHOT, Header: { ...REPLAY_SNAPSHOT.Header, ReceiptNumber: 'FAKE-PASTED-1' } }, null, 2)
+  await page.evaluate((text) => navigator.clipboard.writeText(text), pasted)
+  await box.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Control+V')
+  await page.waitForTimeout(500)
+  check('21. a paste over the box replaces the draft', (await box.inputValue()) === pasted, (await box.inputValue()).slice(0, 60))
+  check('21. …and drops the receipt it was brought from', (await page.locator('[data-replay-source]').count()) === 0)
+  check("21. …its summary is the paste's", (await fact('sourceReceipt')) === 'FAKE-PASTED-1')
+  await awayAndBack(page)
+  check('21. …and the pasted draft is the one kept', (await box.inputValue()) === pasted && (await page.locator('[data-replay-source]').count()) === 0)
+
+  // A reload empties it.
+  await page.reload()
+  await box.waitFor({ timeout: 10000 })
+  await page.waitForTimeout(500)
+  check('21. a reload empties the draft', (await box.inputValue()) === '' && (await page.locator('[data-replay-preflight="empty"]').count()) === 1 && (await page.locator('[data-replay-source]').count()) === 0)
+  check('21. …and nothing was kept to bring it back', !(await storageHas(page, /0042-0009-119000|FAKE-PASTED-1|FAKE-0020-000474/)))
+  check('21. nothing of the snapshot logged to the console', !logged.some((l) => REPLAY_PRIVATE.test(l) || /0042-0009-119000/.test(l)))
+  check('no page errors (Replay… from the drawer)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

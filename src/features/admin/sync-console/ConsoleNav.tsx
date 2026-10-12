@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 import { canReplayReceipts, syncConsoleAccessQuery } from './api'
 import { wizardStart } from './onboard-helpers'
+import { REPLAY_PATH } from './replay-draft'
 
 /**
  * The console's own page links (ticket 447), the prototype's top bar: the Fleet, the
@@ -21,7 +22,7 @@ const PAGES = [
   { to: '/admin/sync/audit', key: 'audit', end: false },
   { to: '/admin/sync/new-store', key: 'newStore', end: false },
   { to: '/admin/sync/pending', key: 'pending', end: false },
-  { to: '/admin/sync/replay', key: 'replay', end: false },
+  { to: REPLAY_PATH, key: 'replay', end: false },
 ] as const
 
 export default function ConsoleNav() {

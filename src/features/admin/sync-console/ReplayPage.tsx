@@ -28,6 +28,7 @@ import {
   type ReplaySummary,
   type ReplayWarning,
 } from './replay-helpers'
+import { shownSource, useReplayDraft } from './replay-draft'
 import ConsoleNav from './ConsoleNav'
 import Loading from './Loading'
 import { TextField } from './TextField'
@@ -46,8 +47,11 @@ import { TextField } from './TextField'
  * Push needs a completed, non-training sale that balances: the preflight words each reason
  * it cannot be pushed (473). Each refusal of the doors reads in its own words: the
  * registers door's under the store field, the push's in the result area; anything else is
- * the console's usual failure (`replayRefusal`). The drawer's hand-over is 474's, the
- * recent replays 475's.
+ * the console's usual failure (`replayRefusal`). The recent replays are 475's.
+ *
+ * The JSON box is the console's in-memory replay **draft** (`useReplayDraft`, 474): the
+ * receipt drawer's Replay… fills it and lands here, it survives moving between the
+ * console's pages, a reload empties it, and a push keeps it to replay again.
  */
 export default function ReplayPage() {
   const { t } = useTranslation('sync-console')
@@ -75,7 +79,8 @@ function Replay() {
   const { t } = useTranslation('sync-console')
   const qc = useQueryClient()
 
-  const [text, setText] = useState('')
+  const text = useReplayDraft((d) => d.text)
+  const editDraft = useReplayDraft((d) => d.edit)
   // A result is about the JSON and the target it was pushed with: changing either retires it.
   const [result, setResult] = useState<ReplayResult | null>(null)
   // A refused push shows where its result would have: about the same JSON and target, so retired with them.
@@ -85,13 +90,18 @@ function Replay() {
     setPushError(null)
   }
   const editText = (next: string) => {
-    setText(next)
+    editDraft(next)
     retireOutcome()
   }
   const settledText = useDebounced(text, PREFLIGHT_DEBOUNCE_MS)
   const preflight = useMemo(() => replayPreflight(settledText), [settledText])
   // Push reads the text as it is now, so it waits for the preflight to have read the same.
   const preflightCurrent = settledText === text
+  // The receipt the drawer brought, named only while the box still holds it.
+  const source = shownSource(
+    useReplayDraft((d) => d.source),
+    preflight.kind === 'summary' ? preflight.summary.sourceReceiptNumber : null,
+  )
 
   // The typed code, and the one committed (Enter or blur) whose registers are read.
   const [storeInput, setStoreInput] = useState('')
@@ -171,6 +181,16 @@ function Replay() {
             data-replay-json=""
           />
           <span className="font-normal text-muted-foreground">{t('replay.json.hint')}</span>
+          {source && (
+            <span className="font-normal text-muted-foreground" data-replay-source={source.receiptNumber}>
+              <Trans
+                t={t}
+                i18nKey="replay.json.from"
+                values={{ receipt: source.receiptNumber, store: source.storeCode }}
+                components={{ v: <Ltr /> }}
+              />
+            </span>
+          )}
         </label>
 
         <div className="flex flex-col gap-4">

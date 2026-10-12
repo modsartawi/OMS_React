@@ -22,7 +22,7 @@ import {
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
-import { storeTransactionsQuery, syncConsoleAccessQuery } from './api'
+import { canReplayReceipts, storeTransactionsQuery, syncConsoleAccessQuery } from './api'
 import { figure } from './helpers'
 import { isWpfStore } from './store-helpers'
 import {
@@ -62,10 +62,12 @@ const SELECT =
  *
  * With `canOperate` (ticket 468) each row offers **View JSON**, which opens the receipt's
  * snapshot in a side sheet (`SnapshotDrawer`) — each opening one audited read. Without the
- * grant the action is absent.
+ * grant the action is absent. With `canReplay` too (ticket 474) the drawer offers
+ * **Replay…**, which carries the receipt's JSON to the Replay page.
  *
  * 🚩 The list never carries lines, tenders or customer data; only the drawer does, and
- * keeps nothing once closed.
+ * keeps nothing once closed, unless the tester presses Replay…, which hands the JSON to
+ * the console's in-memory replay draft (never stored, emptied by a reload).
  */
 export default function TransactionsTab({ row }: { row: StoreDetail }) {
   const { t } = useTranslation('sync-console')
@@ -94,6 +96,7 @@ function TransactionsList({ code }: { code: string }) {
 
   const access = useQuery(syncConsoleAccessQuery())
   const canOperate = access.data?.canOperate === true
+  const canReplay = canReplayReceipts(access.data)
   // The open drawer's receipt and which opening it is: each opening is its own audited read.
   const [viewing, setViewing] = useState<{ row: StoreTransaction; opening: number } | null>(null)
   const openings = useRef(0)
@@ -295,6 +298,7 @@ function TransactionsList({ code }: { code: string }) {
           code={code}
           row={viewing.row}
           opening={viewing.opening}
+          canReplay={canReplay}
           onClose={() => setViewing(null)}
         />
       )}

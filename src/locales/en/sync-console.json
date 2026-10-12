@@ -937,6 +937,7 @@
       "copy": "Copy JSON",
       "copied": "Copied",
       "copyFailed": "Could not copy",
+      "replay": "Replay…",
       "sections": "The receipt's JSON, by top-level key"
     }
   },
@@ -952,7 +953,8 @@
     },
     "json": {
       "label": "Receipt JSON",
-      "hint": "Paste a receipt snapshot. You can edit it before you push. It is never saved or logged."
+      "hint": "Paste a receipt snapshot. You can edit it before you push. It is never saved or logged.",
+      "from": "Brought from receipt <v>{{receipt}}</v> of store <v>{{store}}</v>."
     },
     "preflight": {
       "title": "What you pasted",

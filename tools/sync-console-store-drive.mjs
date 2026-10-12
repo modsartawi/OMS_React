@@ -75,6 +75,15 @@
 //      (a failed audit write) its message, asked once.
 // 🚩 468 changes no existing assertion.
 //
+// Ticket 471 (spec 470, no door): Copy JSON copies on plain http and says so inside the drawer.
+//  20. on a forced plain-http page (no navigator.clipboard, isSecureContext false; http://localhost itself is
+//      secure), Copy JSON falls back to a textarea INSIDE the drawer + execCommand('copy') (stubbed to record the
+//      selection) holding the whole pretty-printed snapshot, removes it and gives focus back; the drawer's own
+//      status line reads "Copied" (or "Could not copy" on a forced failure), no toast, and clears after a few
+//      seconds; nothing logged.
+// 🚩 Changed on purpose by 471, and only one: section 19's "…and says so" now reads the in-drawer status line
+// ("Copied") instead of the toast the drawer no longer raises.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-store-drive.mjs
 import { createRequire } from 'node:module'
@@ -1325,11 +1334,13 @@ const snapUrl = (id) => `ActionSync/Store/Transactions/Snapshot?code=P007&transa
   await page.screenshot({ path: `${SHOTS}/transactions-json.png` })
 
   await drawer.locator('[data-snapshot-copy]').click()
-  const toast = page.locator('[data-sonner-toast]', { hasText: "The receipt's JSON was copied." })
-  await toast.waitFor({ timeout: 5000 }).catch(() => {})
+  // 🚩 Changed on purpose by 471: "says so" is now the status line INSIDE the drawer, not a toast
+  // (a toast renders beneath the modal's top layer).
+  const status = drawer.locator('[data-snapshot-copy-status="copied"]')
+  await status.waitFor({ timeout: 5000 }).catch(() => {})
   const copied = await page.evaluate(() => window.__copied)
   check('19. Copy JSON copies the WHOLE snapshot, pretty-printed', copied.length === 1 && copied[0] === JSON.stringify(FAKE_SNAPSHOT, null, 2), JSON.stringify(copied).slice(0, 120))
-  check('19. …and says so', (await toast.count()) === 1)
+  check('19. …and says so', (await status.count()) === 1 && (await status.innerText()).trim() === 'Copied')
 
   await drawer.locator('[data-snapshot-close]').click()
   await drawer.waitFor({ state: 'detached', timeout: 5000 })
@@ -1370,6 +1381,58 @@ const snapUrl = (id) => `ActionSync/Store/Transactions/Snapshot?code=P007&transa
   check('19. …asked once, never retried (a retry would be another audited view)', snapCalls(calls).filter((c) => c === snapUrl('TX-9003')).length === 1)
   await page.locator('[data-snapshot-close]').click()
   check('no page errors (View JSON)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 20: Copy JSON on a plain-http origin (ticket 471) ──────────────────────────────────────────
+// http://localhost IS a secure context, so the plain-http case is forced: no clipboard API and
+// isSecureContext false. document.execCommand is stubbed to record what was selected, in which
+// element and under which parent, and to answer what each run asks (copied, or a forced failure).
+for (const outcome of ['copied', 'failed']) {
+  const { context, page, errors } = await open({ canOperate: true })
+  const logged = []
+  page.on('console', (m) => logged.push(m.text()))
+  await page.addInitScript((answer) => {
+    delete Navigator.prototype.clipboard
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, get: () => false })
+    window.__exec = []
+    document.execCommand = (command) => {
+      const el = document.activeElement
+      window.__exec.push({
+        command,
+        tag: el?.tagName,
+        selected: el && 'value' in el ? el.value.slice(el.selectionStart, el.selectionEnd) : '',
+        inDrawer: !!el?.closest('dialog[data-snapshot-drawer]'),
+      })
+      return answer === 'copied'
+    }
+  }, outcome)
+  await page.goto(`${BASE}/admin/sync/store/P007?tab=transactions`)
+  await page.locator('[data-tab-grid="transactions"] .ag-row').first().waitFor({ timeout: 20000 })
+  check(`20. (${outcome}) the page really is forced to plain http: no clipboard API, not a secure context`, await page.evaluate(() => navigator.clipboard === undefined && window.isSecureContext === false))
+  await page.locator('[data-transaction-view="TX-9000"]').first().click()
+  const drawer = page.locator('dialog[data-snapshot-drawer="TX-9000"]')
+  await drawer.locator('[data-snapshot-json]').waitFor({ timeout: 5000 })
+  check(`20. (${outcome}) before a copy the status line is empty`, (await drawer.locator('[data-snapshot-copy-status]').innerText()).trim() === '')
+  await drawer.locator('[data-snapshot-copy]').click()
+  const status = drawer.locator(`[data-snapshot-copy-status="${outcome}"]`)
+  await status.waitFor({ timeout: 5000 }).catch(() => {})
+  const exec = await page.evaluate(() => window.__exec)
+  check(`20. (${outcome}) the fallback ran once: execCommand('copy') on a textarea inside the drawer`, exec.length === 1 && exec[0].command === 'copy' && exec[0].tag === 'TEXTAREA' && exec[0].inDrawer, JSON.stringify(exec.map(({ selected, ...e }) => e)))
+  check(`20. (${outcome}) …with the WHOLE pretty-printed snapshot selected`, exec.length === 1 && exec[0].selected === JSON.stringify(FAKE_SNAPSHOT, null, 2))
+  check(`20. (${outcome}) …and the textarea is gone afterwards`, (await page.locator('textarea').count()) === 0)
+  check(`20. (${outcome}) …focus is given back to Copy JSON`, await drawer.locator('[data-snapshot-copy]').evaluate((b) => document.activeElement === b))
+  const words = outcome === 'copied' ? 'Copied' : 'Could not copy'
+  check(`20. (${outcome}) the status line INSIDE the drawer reads "${words}"`, (await status.count()) === 1 && (await status.innerText()).trim() === words, await drawer.locator('[data-snapshot-copy-status]').innerText())
+  check(`20. (${outcome}) …announced (role=status), and no toast beneath the drawer`, (await status.getAttribute('role')) === 'status' && (await page.locator('[data-sonner-toast]').count()) === 0)
+  check(`20. (${outcome}) …in the ${outcome === 'copied' ? 'success' : 'danger'} token`, new RegExp(`text-${outcome === 'copied' ? 'success' : 'danger'}-`).test((await status.getAttribute('class')) ?? ''))
+  await page.screenshot({ path: `${SHOTS}/transactions-json-copy-${outcome}.png` })
+  await page.waitForTimeout(4500)
+  check(`20. (${outcome}) the status line clears after a few seconds`, (await drawer.locator('[data-snapshot-copy-status]').innerText()).trim() === '' && (await drawer.locator('[data-snapshot-copy-status=""]').count()) === 1)
+  check(`20. (${outcome}) nothing of the snapshot logged to the console`, !logged.some((l) => /FAKE-CARD|Test Customer|FAKE-SKU/.test(l)))
+  await drawer.locator('[data-snapshot-close]').click()
+  check(`no page errors (Copy JSON on plain http, ${outcome})`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

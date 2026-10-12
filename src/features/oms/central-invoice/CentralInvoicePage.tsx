@@ -6,6 +6,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
+import { copyText } from '@/core/util/copy-text'
 import {
   CENTRAL_INVOICE_MAX_DELIVERIES,
   canOpenCentralInvoice,
@@ -101,15 +102,11 @@ function BulkRaise() {
 
   function copyRetry() {
     const count = retry.length
-    // `?.` — a non-secure context (plain http on a test box) has no clipboard at all.
-    const write = navigator.clipboard?.writeText(retry.join('\n'))
-    if (!write) {
-      notify.error(t('results.copyFailed'), t('results.copyFailedDetail'))
-      return
-    }
-    write.then(
-      () => notify.success(t('results.copied', { count }), t('results.copiedDetail')),
-      () => notify.error(t('results.copyFailed'), t('results.copyFailedDetail')),
+    // `copyText` copies on plain http too (no clipboard API there); not inside a dialog, so a toast.
+    void copyText(retry.join('\n')).then((outcome) =>
+      outcome === 'copied'
+        ? notify.success(t('results.copied', { count }), t('results.copiedDetail'))
+        : notify.error(t('results.copyFailed'), t('results.copyFailedDetail')),
     )
   }
 

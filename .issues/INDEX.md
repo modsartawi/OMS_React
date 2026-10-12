@@ -894,7 +894,7 @@ Drawn against `C:\Work\DMSCO\BackOffice\.issues\assets\2579-sap-export-console-d
 Web half; server half is a BackOffice spec still to write. Contract proposed in 470.
 
 - [470](470-a-tester-replays-a-receipt-s-json-into-a-store-spec.md) — A tester replays a receipt's JSON into a store *(spec)* · **ready** · blocked by: —
-- [471](471-copy-json-copies-on-plain-http-and-says-so-inside-the-drawer.md) — Copy JSON copies on plain http and says so inside the drawer · *(ticket · spec 470)* · **open** · blocked by: —
+- [471](471-copy-json-copies-on-plain-http-and-says-so-inside-the-drawer.md) — Copy JSON copies on plain http and says so inside the drawer · *(ticket · spec 470)* · **done 2026-10-12** · drive 307/307 stubbed; staging eye on the status line open · blocked by: —
 - [472](472-a-tester-pastes-a-sale-pushes-it-into-a-store-and-sees-its-new-receipt-number.md) — A tester pastes a sale, pushes it into a store and sees its new receipt number · *(ticket · spec 470, Slice 0)* · **open** · blocked by: — (live: BackOffice replay spec, unwritten)
 - [473](473-every-replay-refusal-and-preflight-warning-reads-in-plain-words.md) — Every replay refusal and preflight warning reads in plain words · *(ticket · spec 470)* · **open** · blocked by: [472](472-a-tester-pastes-a-sale-pushes-it-into-a-store-and-sees-its-new-receipt-number.md)
 - [474](474-replay-in-the-receipt-drawer-opens-the-replay-page-with-the-json-filled-in.md) — Replay… in the receipt drawer opens the Replay page with the JSON filled in · *(ticket · spec 470)* · **open** · blocked by: [472](472-a-tester-pastes-a-sale-pushes-it-into-a-store-and-sees-its-new-receipt-number.md)

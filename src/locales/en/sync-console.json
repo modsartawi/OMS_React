@@ -934,8 +934,8 @@
       "loadedAt": "Loaded at <t>{{at}}</t>",
       "note": "This is HQ's applied copy of the receipt on the mirror rail, not the till's raw message.",
       "copy": "Copy JSON",
-      "copied": "The receipt's JSON was copied.",
-      "copyFailed": "The JSON could not be copied to the clipboard.",
+      "copied": "Copied",
+      "copyFailed": "Could not copy",
       "sections": "The receipt's JSON, by top-level key"
     }
   }

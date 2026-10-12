@@ -1,14 +1,14 @@
-import { useEffect, useId, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Copy, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { StoreTransaction } from '@/core/models/sync-console'
-import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { SHEET } from '@/core/ui/overlay'
+import { copyText, type CopyOutcome } from '@/core/util/copy-text'
 import { formatDateTime } from '@/core/util/date-format'
 import { AUDIT_KEY, storeTransactionSnapshotQuery } from './api'
 import { prettyJson, snapshotRefusal, snapshotSections } from './transactions-helpers'
@@ -64,17 +64,20 @@ export default function SnapshotDrawer({
 
   const sections = useMemo(() => (read.data ? snapshotSections(read.data.snapshot) : []), [read.data])
 
-  // The whole snapshot, pretty-printed only when asked for. Inside the promise, so a page
-  // with no clipboard (plain http) says it could not copy rather than throwing.
+  // The whole snapshot, pretty-printed only when asked for (ticket 471). The fallback textarea
+  // goes inside this dialog (a modal makes the rest of the page unselectable), and the outcome
+  // is said here, beside the button: a toast would render beneath the dialog's top layer.
+  const [copyOutcome, setCopyOutcome] = useState<CopyOutcome | null>(null)
+  useEffect(() => {
+    if (!copyOutcome) return
+    const timer = window.setTimeout(() => setCopyOutcome(null), COPY_STATUS_MS)
+    return () => window.clearTimeout(timer)
+  }, [copyOutcome])
   const copy = () => {
-    const snapshot = read.data?.snapshot
-    Promise.resolve()
-      .then(() => navigator.clipboard.writeText(prettyJson(snapshot)))
-      .then(
-        () => notify.success(t('transactionsTab.snapshot.copied')),
-        () => notify.error(t('transactionsTab.snapshot.copyFailed')),
-      )
+    setCopyOutcome(null)
+    void copyText(prettyJson(read.data?.snapshot), { container: ref.current }).then(setCopyOutcome)
   }
+  const copyStatus = copyOutcome ? COPY_STATUS[copyOutcome] : null
 
   return (
     <dialog
@@ -109,6 +112,13 @@ export default function SnapshotDrawer({
               <Copy className="h-3.5 w-3.5" aria-hidden />
               {t('transactionsTab.snapshot.copy')}
             </Button>
+            <span
+              role="status"
+              className={'min-w-[6rem] text-xs font-medium ' + (copyStatus?.tone ?? '')}
+              data-snapshot-copy-status={copyOutcome ?? ''}
+            >
+              {copyStatus && t(copyStatus.key)}
+            </span>
             <button
               type="button"
               onClick={onClose}
@@ -170,6 +180,15 @@ export default function SnapshotDrawer({
     </dialog>
   )
 }
+
+/** How long the copy's status line stays beside the button. */
+const COPY_STATUS_MS = 4000
+
+/** The status line's words and severity token for each outcome. */
+const COPY_STATUS = {
+  copied: { key: 'transactionsTab.snapshot.copied', tone: 'text-success-800' },
+  failed: { key: 'transactionsTab.snapshot.copyFailed', tone: 'text-danger-800' },
+} as const satisfies Record<CopyOutcome, { key: string; tone: string }>
 
 /**
  * A refused read: `NOT_FOUND` in its own words; any other code in the store doors'

@@ -246,6 +246,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/PendingPage')).default,
         }),
       },
+      // Receipt replay (spec 470, ticket 472): a page of the console, linked from its own nav, no menu leaf.
+      {
+        path: 'admin/sync/replay',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
+        }),
+      },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
       // join these under the same `/nphies/*` prefix as the wave lands; the check
       // form is slice 0 because its endpoint is the one that already ships.

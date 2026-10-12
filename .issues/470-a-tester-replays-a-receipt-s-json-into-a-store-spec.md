@@ -140,7 +140,7 @@ Copy JSON in the drawer works on staging's plain http, and says so inside the dr
     `BAD_SNAPSHOT` (does not bind as a receipt snapshot), `NOT_A_SALE` (a return or a void),
     `NOT_COMPLETED`, `TRAINING`, `UNBALANCED`.
   - A codeless 500 is the console's usual failure.
-- `GET ActionSync/Replays?page=` → paged `{ rows: [{ at, who, sourceStoreCode, sourceReceiptNumber, storeCode, registerId, receiptNumber, transactionId }], total }`.
+- `GET ActionSync/Replays?page=&pageSize=` → the console's usual `Paged<T>`: `{ items: [{ at, who, sourceStoreCode, sourceReceiptNumber, storeCode, registerId, receiptNumber, transactionId }], total, page, pageSize }`. The client sends `pageSize=50`. (Amended 2026-10-12 after ticket 475: the spec first wrote `{ rows, total }`, which no other console door answers.)
 - Grant: `ActionSync.Replay` on all three doors. Not store-scoped: any store is a valid target (ruling).
 - Audit: every push writes one `ActionSyncControlAudit` row with action **`ReceiptReplay`**. The console's
   `AuditAction` model and `AUDIT_ACTIONS` gain it, labelled "Replayed a receipt", in both audit feeds.

@@ -19,12 +19,14 @@ import {
   lineColumn,
   pushReady,
   removedLabel,
-  replayFailure,
   replayPreflight,
+  replayRefusal,
   replayRequest,
+  rereadsRegisters,
   targetStoreCode,
   type ReplayPreflight,
   type ReplaySummary,
+  type ReplayWarning,
 } from './replay-helpers'
 import ConsoleNav from './ConsoleNav'
 import Loading from './Loading'
@@ -41,9 +43,11 @@ import { TextField } from './TextField'
  * 🚩 Privacy: the JSON carries customer, loyalty and tender data. It lives in this page's
  * state only: never logged, never stored, never in the URL.
  *
- * Slice 0: Push needs a valid, completed sale, and every refusal reads as the console's
- * usual failure. The preflight's warnings and the refusals' own words are ticket 473's,
- * the drawer's hand-over 474's, the recent replays 475's.
+ * Push needs a completed, non-training sale that balances: the preflight words each reason
+ * it cannot be pushed (473). Each refusal of the doors reads in its own words: the
+ * registers door's under the store field, the push's in the result area; anything else is
+ * the console's usual failure (`replayRefusal`). The drawer's hand-over is 474's, the
+ * recent replays 475's.
  */
 export default function ReplayPage() {
   const { t } = useTranslation('sync-console')
@@ -74,9 +78,15 @@ function Replay() {
   const [text, setText] = useState('')
   // A result is about the JSON and the target it was pushed with: changing either retires it.
   const [result, setResult] = useState<ReplayResult | null>(null)
+  // A refused push shows where its result would have: about the same JSON and target, so retired with them.
+  const [pushError, setPushError] = useState<unknown>(null)
+  const retireOutcome = () => {
+    setResult(null)
+    setPushError(null)
+  }
   const editText = (next: string) => {
     setText(next)
-    setResult(null)
+    retireOutcome()
   }
   const settledText = useDebounced(text, PREFLIGHT_DEBOUNCE_MS)
   const preflight = useMemo(() => replayPreflight(settledText), [settledText])
@@ -97,12 +107,12 @@ function Replay() {
     }
     setStore(code)
     setRegisterId('')
-    setResult(null)
+    retireOutcome()
   }
   const registers = useQuery({ ...replayRegistersQuery(store), enabled: store !== '' })
   const pickRegister = (id: string) => {
     setRegisterId(id)
-    setResult(null)
+    retireOutcome()
   }
   const register = registers.data?.registers.find((r) => r.registerId === registerId)
 
@@ -118,6 +128,14 @@ function Replay() {
       // The door writes one audit row per push.
       void qc.invalidateQueries({ queryKey: AUDIT_KEY })
     },
+    // The confirm has done its job: a refusal (or a 500) is read in the result area, beside what it is about.
+    onError: (err, body) => {
+      setPushError(err)
+      setConfirming(null)
+      push.reset()
+      // A store or register the door refused: read the registers again, so the target agrees with it.
+      if (rereadsRegisters(apiErrorCode(err))) void qc.invalidateQueries({ queryKey: replayRegistersQuery(body.targetStoreCode).queryKey })
+    },
   })
 
   // The preflight has read the text as it is now (`preflightCurrent`), so the body is built from it only on Push.
@@ -126,6 +144,7 @@ function Replay() {
     const request = canPush && register ? replayRequest(text, store, register.registerId) : null
     if (!request || !register) return
     push.reset()
+    retireOutcome()
     setConfirming({ request, register })
   }
   const closeConfirm = () => {
@@ -209,6 +228,7 @@ function Replay() {
       </div>
 
       {result && <Result result={result} />}
+      {pushError !== null && <Refusal error={pushError} failedKey="replay.confirm.failed" data="push" />}
 
       {confirming && (
         <Modal
@@ -246,7 +266,6 @@ function Replay() {
               />
             </p>
             <p className="text-xs text-muted-foreground">{t('replay.confirm.note')}</p>
-            {push.isError && <Refusal error={push.error} failedKey="replay.confirm.failed" data="push" />}
           </div>
         </Modal>
       )}
@@ -280,10 +299,10 @@ function Preflight({ text, preflight }: { text: string; preflight: ReplayPreflig
       </div>
     )
   }
-  return <Summary summary={preflight.summary} ready={pushReady(preflight)} />
+  return <Summary summary={preflight.summary} />
 }
 
-function Summary({ summary: s, ready }: { summary: ReplaySummary; ready: boolean }) {
+function Summary({ summary: s }: { summary: ReplaySummary }) {
   const { t } = useTranslation('sync-console')
   const yesNo = (v: boolean) => t(v ? 'replay.preflight.yes' : 'replay.preflight.no')
   const code = (v: string | null) => (v === null ? t('replay.preflight.none') : <Ltr>{v}</Ltr>)
@@ -321,11 +340,33 @@ function Summary({ summary: s, ready }: { summary: ReplaySummary; ready: boolean
           {yesNo(s.balanced)}
         </Fact>
       </dl>
-      {!ready && (
-        <p className="text-xs text-muted-foreground" data-replay-not-ready="">
-          {t('replay.preflight.notReady')}
-        </p>
-      )}
+      {s.warnings.length > 0 && <Warnings summary={s} />}
+    </div>
+  )
+}
+
+/** Each reason this paste cannot be pushed, in words; the balance with both its figures. */
+function Warnings({ summary: s }: { summary: ReplaySummary }) {
+  const { t } = useTranslation('sync-console')
+  const words = (w: ReplayWarning) =>
+    w === 'unbalanced'
+      ? t('replay.warn.unbalanced', { tendered: fsi(formatMoney3(s.tenderTotal)), total: fsi(formatMoney3(s.total)) })
+      : t(`replay.warn.${w}`)
+  return (
+    // A status, not an alert: it re-reads as the tester types, and must not interrupt them each time.
+    <div
+      role="status"
+      className="flex flex-col gap-1 rounded-md border border-attention-border bg-attention-050 p-3 text-xs text-attention-800"
+      data-replay-warnings=""
+    >
+      <span className="font-semibold">{t('replay.warn.title')}</span>
+      <ul className="list-disc ps-5">
+        {s.warnings.map((w) => (
+          <li key={w} data-replay-warning={w}>
+            {words(w)}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -424,14 +465,14 @@ function Result({ result: r }: { result: ReplayResult }) {
 }
 
 /**
- * A refused registers read or push, as the console's usual failure (slice 0): the shared
- * words for a code that has them with the code beside, any other code with the server's
- * message and the code, and a codeless failure under the given sentence. 473 words the replay's own codes.
+ * A refused registers read or push: a replay code in its own words; any other code as the
+ * console's usual failure (its shared words or the server's message, with the code beside);
+ * a codeless failure (a 500) under the given sentence alone.
  */
 function Refusal({ error, failedKey, data }: { error: unknown; failedKey: string; data: string }) {
   const { t } = useTranslation('sync-console')
   const code = apiErrorCode(error)
-  const { labelKey, showCode } = replayFailure(code)
+  const { labelKey, showCode } = replayRefusal(code)
   const message = labelKey ? t(labelKey) : apiErrorMessage(error, '')
   return (
     <div data-replay-error={data} data-replay-error-code={code ?? ''}>

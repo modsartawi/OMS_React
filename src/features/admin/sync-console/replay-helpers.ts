@@ -1,7 +1,7 @@
 /**
- * The Replay page's pure logic (spec 470, ticket 472): the preflight that reads a pasted
- * receipt snapshot before anything is sent, the push request built from it, and the words
- * of the result. No React, no network — pinned by `replay-helpers.test.ts`.
+ * The Replay page's pure logic (spec 470, tickets 472–473): the preflight that reads a pasted
+ * receipt snapshot before anything is sent (and warns of what cannot be replayed), the push
+ * request built from it, the words of the result and of the doors' refusals. No React, no network — pinned by `replay-helpers.test.ts`.
  *
  * The snapshot is the engine's `PosTransactionSnapshot` (`Header`, `Lines[]`, `Tenders[]`,
  * …). The door serializes it with Newtonsoft, and whether it arrives PascalCase or
@@ -23,6 +23,13 @@ export type ReplayDocKind = 'sale' | 'return' | 'void'
 /** Why a paste gives no summary. A missing number is a reason, never a zero. */
 export type ReplayInvalidReason = 'empty' | 'json' | 'notObject' | 'noHeader' | 'noTotal' | 'tenders' | 'tenderAmount'
 
+/**
+ * Why a summarised paste cannot be pushed, in the order the page lists them. Each keeps
+ * Push disabled and has its words (`replay.warn.<warning>`). A void is never also
+ * `notCompleted`: its own warning already says so.
+ */
+export type ReplayWarning = 'return' | 'void' | 'training' | 'notCompleted' | 'unbalanced'
+
 export interface ReplaySummary {
   /** `Header.StoreId`, `Header.ReceiptNumber`, `Header.TransactionId` as text; `null` when absent. */
   sourceStoreCode: string | null
@@ -40,6 +47,8 @@ export interface ReplaySummary {
   tenderTotal: number
   /** The total and the tender total are equal to the cent. */
   balanced: boolean
+  /** Everything that keeps this paste from being pushed; empty for a balanced, completed sale. */
+  warnings: ReplayWarning[]
 }
 
 export type ReplayPreflight =
@@ -130,29 +139,41 @@ export function replayPreflight(text: string): ReplayPreflight {
 
   const status = field(header, 'Status')
   const lines = field(root, 'Lines')
+  const voided = sameWord(status, 'voided')
+  const docKind: ReplayDocKind = field(header, 'IsReturn') === true ? 'return' : voided ? 'void' : 'sale'
+  const completed = sameWord(status, 'completed')
+  const training = field(header, 'IsTraining') === true
+  const balanced = cents(total) === cents(tenderTotal)
+  const warnings: ReplayWarning[] = []
+  if (docKind === 'return') warnings.push('return')
+  if (voided) warnings.push('void')
+  if (training) warnings.push('training')
+  if (!completed && !voided) warnings.push('notCompleted')
+  if (!balanced) warnings.push('unbalanced')
   return {
     kind: 'summary',
     summary: {
       sourceStoreCode: textOf(field(header, 'StoreId')),
       sourceReceiptNumber: textOf(field(header, 'ReceiptNumber')),
       sourceTransactionId: textOf(field(header, 'TransactionId')),
-      docKind: field(header, 'IsReturn') === true ? 'return' : sameWord(status, 'voided') ? 'void' : 'sale',
-      completed: sameWord(status, 'completed'),
-      training: field(header, 'IsTraining') === true,
+      docKind,
+      completed,
+      training,
       lineCount: Array.isArray(lines) ? lines.length : 0,
       total,
       tenderTotal,
-      balanced: cents(total) === cents(tenderTotal),
+      balanced,
+      warnings,
     },
   }
 }
 
 /**
- * Whether Push may be offered for this paste. Slice 0 (472): a valid, completed sale.
- * The training and balance warnings, and the words for each, are ticket 473's.
+ * Whether Push may be offered for this paste: a completed, non-training sale that balances,
+ * i.e. a summary with no warning. The door checks the same again (`replayRefusal`).
  */
 export function pushReady(preflight: ReplayPreflight): boolean {
-  return preflight.kind === 'summary' && preflight.summary.docKind === 'sale' && preflight.summary.completed
+  return preflight.kind === 'summary' && preflight.summary.warnings.length === 0
 }
 
 // ── The target and the push ─────────────────────────────────────────────────────
@@ -179,13 +200,43 @@ export function removedLabel(removed: string): string | null {
   return (REPLAY_REMOVED as readonly string[]).includes(removed) ? `replay.result.removed.${removed}` : null
 }
 
+// ── The refusals ────────────────────────────────────────────────────────────────
+
 /**
- * A refused registers read or push, in slice 0 (472): the console's shared words for a code
- * that has them (`failureLabelKey` — `NO_STORE`), shown beside the code; any other code raw
- * with the server's message; no code (a 500) under the console's failure sentence alone.
- * The replay's own refusal words are ticket 473's.
+ * Every code the replay doors refuse with (spec 470's contract), each with its own words
+ * (`replay.refusal.<code>`). The registers door refuses with the first three, the push
+ * with any of them.
  */
-export function replayFailure(code: string | null): { labelKey: string | null; showCode: boolean } {
+export const REPLAY_REFUSALS = [
+  'NO_STORE',
+  'NOT_NEWPOS_STORE',
+  'STORE_UNREACHABLE',
+  'NO_REGISTER',
+  'BAD_SNAPSHOT',
+  'NOT_A_SALE',
+  'NOT_COMPLETED',
+  'TRAINING',
+  'UNBALANCED',
+] as const
+
+/**
+ * A refused registers read or push in words. A replay code reads in its own words alone.
+ * Any other code falls back to the console's shared failure, as the snapshot drawer's does
+ * (468): the shared words for a code that has them (`failureLabelKey`), else raw with the
+ * server's message, the code beside either. No code (a 500) reads as the failure sentence alone.
+ */
+export function replayRefusal(code: string | null): { labelKey: string | null; showCode: boolean } {
   if (code === null) return { labelKey: null, showCode: false }
+  if ((REPLAY_REFUSALS as readonly string[]).includes(code)) return { labelKey: `replay.refusal.${code}`, showCode: false }
   return { labelKey: failureLabelKey(code), showCode: true }
 }
+
+/** The push refusals about the target store or its register (the list's first four), after which its registers are read again. */
+const TARGET_REFUSALS: ReadonlySet<string> = new Set(REPLAY_REFUSALS.slice(0, REPLAY_REFUSALS.indexOf('NO_REGISTER') + 1))
+
+/**
+ * Whether a refused push re-reads the target's registers, so the target section agrees with
+ * the door: a store it refuses then shows its refusal under the store field, and a register
+ * it no longer has leaves the picker (and Push waits for another).
+ */
+export const rereadsRegisters = (code: string | null): boolean => code !== null && TARGET_REFUSALS.has(code)

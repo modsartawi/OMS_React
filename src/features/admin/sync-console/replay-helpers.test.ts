@@ -4,9 +4,11 @@ import {
   lineColumn,
   pushReady,
   removedLabel,
-  replayFailure,
+  REPLAY_REFUSALS,
   replayPreflight,
+  replayRefusal,
   replayRequest,
+  rereadsRegisters,
   targetStoreCode,
   type ReplaySummary,
 } from './replay-helpers'
@@ -65,6 +67,7 @@ describe('replayPreflight', () => {
         total: 115.5,
         tenderTotal: 115.5,
         balanced: true,
+        warnings: [],
       },
     })
   })
@@ -177,12 +180,61 @@ describe('replayPreflight', () => {
   })
 })
 
+describe('the preflight warnings', () => {
+  const warnings = (value: unknown) => summaryOf(value).warnings
+
+  it('gives none for a balanced, completed sale', () => {
+    expect(warnings(sale())).toEqual([])
+  })
+
+  it('warns of a return', () => {
+    expect(warnings(sale({ header: { IsReturn: true, GrandTotal: -115.5 }, tenders: [{ AppliedAmount: -115.5 }] }))).toEqual(['return'])
+  })
+
+  it('warns of a voided sale once (a void is never also "not completed")', () => {
+    expect(warnings(sale({ header: { Status: 'Voided' } }))).toEqual(['void'])
+  })
+
+  it('warns of a voided return as a return and a void, never "not completed"', () => {
+    expect(warnings(sale({ header: { IsReturn: true, Status: 'Voided', GrandTotal: -115.5 }, tenders: [{ AppliedAmount: -115.5 }] }))).toEqual(['return', 'void'])
+  })
+
+  it('warns of a training sale', () => {
+    expect(warnings(sale({ header: { IsTraining: true } }))).toEqual(['training'])
+  })
+
+  it('warns of a sale that is not completed, or has no status', () => {
+    expect(warnings(sale({ header: { Status: 'Open' } }))).toEqual(['notCompleted'])
+    const noStatus = sale()
+    delete (noStatus.Header as Record<string, unknown>).Status
+    expect(warnings(noStatus)).toEqual(['notCompleted'])
+  })
+
+  it('warns of tenders that do not add up, judged to the cent', () => {
+    expect(warnings(sale({ header: { GrandTotal: 115.5 }, tenders: [{ AppliedAmount: 115.49 }] }))).toEqual(['unbalanced'])
+    expect(warnings(sale({ header: { GrandTotal: 0.3 }, tenders: [{ AppliedAmount: 0.1 }, { AppliedAmount: 0.2 }] }))).toEqual([])
+    expect(warnings({ ...sale(), Tenders: [] })).toEqual(['unbalanced'])
+  })
+
+  it('gives every warning that applies, in one order', () => {
+    expect(warnings(sale({ header: { IsReturn: true, IsTraining: true, Status: 'Open', GrandTotal: 1 }, tenders: [] }))).toEqual(['return', 'training', 'notCompleted', 'unbalanced'])
+  })
+
+  it('has words for every warning', () => {
+    for (const w of ['return', 'void', 'training', 'notCompleted', 'unbalanced']) expect(label(`replay.warn.${w}`)).toEqual(expect.any(String))
+    expect(label('replay.warn.unbalanced')).toMatch(/\{\{total\}\}/)
+    expect(label('replay.warn.unbalanced')).toMatch(/\{\{tendered\}\}/)
+  })
+})
+
 describe('pushReady', () => {
-  it('lets only a valid completed sale through (473 adds training and the balance)', () => {
+  it('lets only a valid, completed, non-training sale that balances through', () => {
     expect(pushReady(replayPreflight(text(sale())))).toBe(true)
     expect(pushReady(replayPreflight(text(sale({ header: { IsReturn: true } }))))).toBe(false)
     expect(pushReady(replayPreflight(text(sale({ header: { Status: 'Voided' } }))))).toBe(false)
     expect(pushReady(replayPreflight(text(sale({ header: { Status: 'Open' } }))))).toBe(false)
+    expect(pushReady(replayPreflight(text(sale({ header: { IsTraining: true } }))))).toBe(false)
+    expect(pushReady(replayPreflight(text(sale({ tenders: [{ AppliedAmount: 115.49 }] }))))).toBe(false)
     expect(pushReady(replayPreflight('{'))).toBe(false)
     expect(pushReady(replayPreflight(''))).toBe(false)
   })
@@ -231,11 +283,45 @@ describe('removedLabel', () => {
   })
 })
 
-describe('replayFailure', () => {
-  it('takes the console shared words for a code that has them, and raw for one that does not (473 words the rest)', () => {
-    expect(replayFailure('NO_STORE')).toEqual({ labelKey: 'failures.NO_STORE', showCode: true })
-    expect(replayFailure('NOT_NEWPOS_STORE')).toEqual({ labelKey: null, showCode: true })
-    expect(replayFailure(null)).toEqual({ labelKey: null, showCode: false })
+describe('replayRefusal', () => {
+  it('words every refusal of the replay doors, from a key that exists, with no code beside', () => {
+    expect([...REPLAY_REFUSALS]).toEqual([
+      'NO_STORE',
+      'NOT_NEWPOS_STORE',
+      'STORE_UNREACHABLE',
+      'NO_REGISTER',
+      'BAD_SNAPSHOT',
+      'NOT_A_SALE',
+      'NOT_COMPLETED',
+      'TRAINING',
+      'UNBALANCED',
+    ])
+    for (const code of REPLAY_REFUSALS) {
+      const r = replayRefusal(code)
+      expect(r).toEqual({ labelKey: `replay.refusal.${code}`, showCode: false })
+      expect(label(r.labelKey as string)).toEqual(expect.any(String))
+    }
+  })
+
+  it('falls back to the console shared failure for any other code: its shared words, else raw, with the code', () => {
+    expect(replayRefusal('BAD_FIELD')).toEqual({ labelKey: 'failures.BAD_FIELD', showCode: true })
+    expect(replayRefusal('MELTED')).toEqual({ labelKey: null, showCode: true })
+    expect(replayRefusal('toString')).toEqual({ labelKey: null, showCode: true })
+  })
+
+  it('reads a codeless failure (a 500) as the console failure sentence alone', () => {
+    expect(replayRefusal(null)).toEqual({ labelKey: null, showCode: false })
+  })
+})
+
+describe('rereadsRegisters', () => {
+  it('re-reads the target registers after a push refused for the store or its register', () => {
+    for (const code of ['NO_STORE', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']) expect(rereadsRegisters(code)).toBe(true)
+  })
+
+  it('leaves them for a refusal about the JSON, any other code, or a 500', () => {
+    for (const code of ['BAD_SNAPSHOT', 'NOT_A_SALE', 'NOT_COMPLETED', 'TRAINING', 'UNBALANCED', 'MELTED']) expect(rereadsRegisters(code)).toBe(false)
+    expect(rereadsRegisters(null)).toBe(false)
   })
 })
 

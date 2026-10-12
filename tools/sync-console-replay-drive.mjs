@@ -17,8 +17,13 @@
 //      { targetStoreCode, registerId, snapshot } with snapshot the PARSED object exactly as pasted;
 //   5. the result: the new receipt number, transaction, store, register, replayed-at time, "replay of" the
 //      source receipt, the removed links in words; its Copy copies the receipt number and says so;
-//   6. a refused push (UNBALANCED) and a codeless 500 read as the console's failure inside the confirm;
-//   7. privacy: nothing of the snapshot logged, stored or put in the URL; no page errors.
+//   6. a refused push (UNBALANCED) reads in its own words and a codeless 500 as the console's failure, both
+//      in the result area with the confirm closed (473 moved them out of the confirm);
+//   7. privacy: nothing of the snapshot logged, stored or put in the URL; no page errors;
+//   8. (473) every preflight warning (return, void, training, not completed, unbalanced with both figures)
+//      keeps Push disabled and shows its words; every registers refusal shows its words under the store
+//      field; every push refusal shows its words in the result area; an unknown code and a 500 fall back
+//      to the console's shared failure.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sync-console-replay-drive.mjs
@@ -85,7 +90,10 @@ const FAKE_SALE = {
   Order: null,
 }
 const FAKE_RETURN = { ...FAKE_SALE, Header: { ...FAKE_SALE.Header, IsReturn: true } }
+const withHeader = (over) => ({ ...FAKE_SALE, Header: { ...FAKE_SALE.Header, ...over } })
 const SALE_TEXT = JSON.stringify(FAKE_SALE, null, 2)
+// A codeless 500 reads as the console's usual failure: the sentence over core's server words (as 468's drawer).
+const SERVER_FAILURE = 'The OMS API encountered an unexpected error. Please try again.'
 const PRIVATE = /FAKE-CARD-PROOF|Test Customer|FAKE-LOYALTY|FAKE-SKU/
 
 const REGISTERS = {
@@ -110,6 +118,8 @@ async function open({ canReplay }) {
   const calls = []
   const pushes = []
   const logged = []
+  // 473: the code the next push is refused with ('500' for a codeless 500), set by section 8; null keeps the rules below.
+  const stub = { pushCode: null }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => {
     logged.push(m.text())
@@ -138,12 +148,16 @@ async function open({ canReplay }) {
     }
     if (p === 'ActionSync/Replay/Registers') {
       if (code === 'P002') return route.fulfill(envelope(null, { status: 400, success: false, message: 'P002 is not a NewPos store.', errorCode: 'NOT_NEWPOS_STORE' }))
+      if (code === 'P503') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The store could not be reached.', errorCode: 'STORE_UNREACHABLE' }))
+      if (code === 'P777') return route.fulfill(envelope(null, { status: 400, success: false, message: 'Something melted at the store.', errorCode: 'MELTED' }))
       const r = REGISTERS[code]
       return route.fulfill(r ? envelope(r) : envelope(null, { status: 404, success: false, message: 'No store with this code.', errorCode: 'NO_STORE' }))
     }
     if (p === 'ActionSync/Replay') {
       const body = route.request().postDataJSON()
       pushes.push(body)
+      if (stub.pushCode === '500') return route.fulfill(envelope(null, { status: 500, success: false, message: '' }))
+      if (stub.pushCode) return route.fulfill(envelope(null, { status: 400, success: false, message: `Refused: ${stub.pushCode}.`, errorCode: stub.pushCode }))
       if (body.registerId === 'R03') return route.fulfill(envelope(null, { status: 400, success: false, message: 'The tenders do not add up to the total.', errorCode: 'UNBALANCED' }))
       if (body.registerId === 'R01') return route.fulfill(envelope(null, { status: 500, success: false, message: '' }))
       return route.fulfill(envelope(RESULT))
@@ -152,7 +166,7 @@ async function open({ canReplay }) {
     if (/\/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, pushes, logged }
+  return { context, page, errors, calls, pushes, logged, stub }
 }
 
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -179,7 +193,7 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
 
 // ── 2–7: with canReplay, without canOperate ─────────────────────────────────────────────────────
 {
-  const { context, page, errors, calls, pushes, logged } = await open({ canReplay: true })
+  const { context, page, errors, calls, pushes, logged, stub } = await open({ canReplay: true })
   await page.goto(`${BASE}/admin/sync/audit`)
   await page.locator('[data-console-page="replay"]').waitFor({ timeout: 20000 })
   const keys = await navKeys(page)
@@ -203,10 +217,11 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
 
   await json.fill(JSON.stringify(FAKE_RETURN, null, 2))
   await page.locator('[data-replay-preflight="summary"]').waitFor({ timeout: 5000 })
-  check('2. a pasted return reads as a Return and says only a completed sale can be pushed', (await summary(page, 'kind')) === 'Return' && (await page.locator('[data-replay-not-ready]').count()) === 1)
+  // 473 replaced 472's "Only a completed sale can be pushed." line with the return's own warning (section 8 covers each).
+  check('2. a pasted return reads as a Return and warns it cannot be pushed', (await summary(page, 'kind')) === 'Return' && (await page.locator('[data-replay-warning="return"]').count()) === 1)
 
   await json.fill(SALE_TEXT)
-  await page.locator('[data-replay-not-ready]').waitFor({ state: 'detached', timeout: 5000 })
+  await page.locator('[data-replay-warnings]').waitFor({ state: 'detached', timeout: 5000 })
   const facts = {
     sourceStore: await summary(page, 'sourceStore'),
     sourceReceipt: await summary(page, 'sourceReceipt'),
@@ -235,7 +250,8 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
   await storeField.blur()
   await page.locator('[data-replay-error="registers"]').waitFor({ timeout: 5000 })
   check('3. a WPF store is read on blur, upper-cased', calls.includes('ActionSync/Replay/Registers?code=P002'), calls.filter((c) => c.includes('Registers')).join(','))
-  check('3. …its NOT_NEWPOS_STORE refusal shows as the console failure with its code', (await page.locator('[data-replay-error-code="NOT_NEWPOS_STORE"]').count()) === 1 && /NOT_NEWPOS_STORE/.test(await page.locator('[data-replay-error="registers"]').innerText()) && /could not be read/.test(await page.locator('[data-replay-error="registers"]').innerText()))
+  // 473: the refusal now reads in its own words (no raw code) instead of 472's console failure + code.
+  check('3. …its NOT_NEWPOS_STORE refusal reads in its own words', (await page.locator('[data-replay-error-code="NOT_NEWPOS_STORE"]').count()) === 1 && /does not run NewPos/.test(await page.locator('[data-replay-error="registers"]').innerText()) && /could not be read/.test(await page.locator('[data-replay-error="registers"]').innerText()))
   check('3. …and the register picker stays empty and disabled', await page.locator('[data-replay-register]').isDisabled())
   await storeField.press('Enter')
   for (let i = 0; i < 30 && calls.filter((c) => c === 'ActionSync/Replay/Registers?code=P002').length < 2; i++) await page.waitForTimeout(100)
@@ -303,17 +319,123 @@ const summary = async (page, field) => strip(await page.locator(`[data-summary="
   await page.locator('[data-replay-confirm-push]').click()
   await page.locator('[data-replay-error="push"]').waitFor({ timeout: 5000 })
   const refused = await page.locator('[data-replay-error="push"]').innerText()
-  check('6. a refused push (UNBALANCED) shows in the confirm as the console failure, with its code', (await page.locator('[data-replay-error-code="UNBALANCED"]').count()) === 1 && /could not be replayed/.test(refused) && /UNBALANCED/.test(refused), refused)
-  check('6. …the confirm stays open (the earlier result went when the register changed)', (await page.locator('dialog[open] [data-replay-confirm]').count()) === 1 && (await page.locator('[data-replay-result]').count()) === 0)
-  await page.locator('[data-replay-confirm-cancel]').click()
+  // 473: the refusal moved from the confirm to the result area, and reads in its own words.
+  check('6. a refused push (UNBALANCED) reads in its own words under the failure sentence', (await page.locator('[data-replay-error-code="UNBALANCED"]').count()) === 1 && /could not be replayed/.test(refused) && /do not add up to the sale's total/.test(refused) && !/UNBALANCED/.test(refused), refused)
+  check('6. …in the result area, with the confirm closed (the earlier result went when the register changed)', (await page.locator('dialog[open]').count()) === 0 && (await page.locator('dialog [data-replay-error]').count()) === 0 && (await page.locator('[data-replay-result]').count()) === 0)
   await page.locator('[data-replay-register]').selectOption('R01')
+  check('6. picking another register retires the refusal', (await page.locator('[data-replay-error="push"]').count()) === 0)
   await page.locator('[data-replay-push]').click()
-  check('6. a fresh confirm carries no earlier refusal', (await page.locator('[data-replay-error="push"]').count()) === 0)
   await page.locator('[data-replay-confirm-push]').click()
   await page.locator('[data-replay-error="push"]').waitFor({ timeout: 5000 })
-  check('6. a codeless 500 shows a failure with no code', (await page.locator('[data-replay-error-code=""]').count()) === 1, await page.locator('[data-replay-error="push"]').innerText())
+  const crashed = strip(await page.locator('[data-replay-error="push"]').innerText())
+  check('6. a codeless 500 shows the console failure (core server sentence), with no code', (await page.locator('[data-replay-error-code=""]').count()) === 1 && crashed === `The receipt could not be replayed. ${SERVER_FAILURE}`, crashed)
   await page.screenshot({ path: `${SHOTS}/refused-500.png` })
-  await page.locator('[data-replay-confirm-cancel]').click()
+
+  // ── 8 (473): every warning and every refusal in its own words ──
+  await page.locator('[data-replay-register]').selectOption('R02')
+  const pushDisabled = () => page.locator('[data-replay-push]').isDisabled()
+  const warningsOf = () => page.locator('[data-replay-warning]').evaluateAll((els) => els.map((e) => e.getAttribute('data-replay-warning')))
+  const WARNINGS = [
+    ['return', FAKE_RETURN, 'This is a return. Only a sale can be replayed.'],
+    ['void', withHeader({ Status: 'Voided' }), 'This sale was voided. Only a completed sale can be replayed.'],
+    ['training', withHeader({ IsTraining: true }), 'This is a training sale. A training sale cannot be replayed.'],
+    ['notCompleted', withHeader({ Status: 'Open' }), 'This sale is not completed. Only a completed sale can be replayed.'],
+  ]
+  for (const [warning, snapshot, words] of WARNINGS) {
+    await json.fill(JSON.stringify(snapshot, null, 2))
+    await page.locator(`[data-replay-warning="${warning}"]`).waitFor({ timeout: 5000 }).catch(() => {})
+    const shown = await warningsOf()
+    const text = strip(await page.locator(`[data-replay-warning="${warning}"]`).innerText().catch(() => ''))
+    check(`8. a ${warning} warns in its own words`, JSON.stringify(shown) === JSON.stringify([warning]) && text === words, `${shown.join(',')} | ${text}`)
+    check(`8. …and keeps Push disabled with a store and register picked (${warning})`, await pushDisabled())
+  }
+  const unbalanced = { ...FAKE_SALE, Tenders: [FAKE_SALE.Tenders[0], { ...FAKE_SALE.Tenders[1], AppliedAmount: 19.99 }] }
+  await json.fill(JSON.stringify(unbalanced, null, 2))
+  await page.locator('[data-replay-warning="unbalanced"]').waitFor({ timeout: 5000 }).catch(() => {})
+  const unbalancedText = await page.locator('[data-replay-warning="unbalanced"]').innerText().catch(() => '')
+  check('8. tenders a cent short warn with both figures', strip(unbalancedText) === 'The tenders add up to 115.490, not to the total of 115.500.', unbalancedText)
+  check('8. …each figure isolated (FSI…PDI)', unbalancedText.includes('⁨115.490⁩') && unbalancedText.includes('⁨115.500⁩'))
+  check('8. …and Push stays disabled', await pushDisabled())
+  await json.fill(JSON.stringify(withHeader({ IsReturn: true, Status: 'Voided' }), null, 2))
+  await page.locator('[data-replay-warning="void"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('8. a voided return warns as a return and a void', JSON.stringify(await warningsOf()) === JSON.stringify(['return', 'void']))
+  await json.fill(JSON.stringify(withHeader({ IsTraining: true, Status: 'Open' }), null, 2))
+  await page.locator('[data-replay-warning="notCompleted"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('8. every warning that applies is listed', JSON.stringify(await warningsOf()) === JSON.stringify(['training', 'notCompleted']))
+  await page.screenshot({ path: `${SHOTS}/warnings.png` })
+  await json.fill(SALE_TEXT)
+  await page.locator('[data-replay-warnings]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check('8. a balanced, completed sale clears the warnings and enables Push', (await page.locator('[data-replay-warnings]').count()) === 0 && !(await pushDisabled()))
+
+  // The registers door's refusals, under the store field.
+  const REGISTER_REFUSALS = [
+    ['P404', 'NO_STORE', 'There is no store with this code.'],
+    ['P002', 'NOT_NEWPOS_STORE', 'This store does not run NewPos, so it cannot take a replay.'],
+    ['P503', 'STORE_UNREACHABLE', "The store's database could not be reached. Try again in a moment."],
+  ]
+  for (const [store, code, words] of REGISTER_REFUSALS) {
+    await storeField.fill(store)
+    await storeField.press('Enter')
+    const error = page.locator(`[data-replay-target] [data-replay-error="registers"][data-replay-error-code="${code}"]`)
+    await error.waitFor({ timeout: 5000 }).catch(() => {})
+    const text = strip(await error.innerText().catch(() => ''))
+    check(`8. the registers door's ${code} shows its words under the store field`, text === `The store's registers could not be read. ${words}`, text)
+    check(`8. …and Push is disabled (${code})`, await pushDisabled())
+  }
+  await storeField.fill('P777')
+  await storeField.press('Enter')
+  const melted = page.locator('[data-replay-target] [data-replay-error="registers"][data-replay-error-code="MELTED"]')
+  await melted.waitFor({ timeout: 5000 }).catch(() => {})
+  const meltedText = strip(await melted.innerText().catch(() => ''))
+  check("8. an unknown registers code falls back to the console failure: the server's message and the code", meltedText === "The store's registers could not be read. Something melted at the store. MELTED", meltedText)
+  await page.screenshot({ path: `${SHOTS}/registers-refused.png` })
+  await storeField.fill('P020')
+  await storeField.press('Enter')
+  await page.locator('[data-replay-register] option[value="R02"]').waitFor({ state: 'attached', timeout: 5000 })
+  await page.locator('[data-replay-register]').selectOption('R02')
+
+  // The push's refusals, in the result area.
+  const PUSH_REFUSALS = [
+    ['NO_STORE', 'There is no store with this code.'],
+    ['NOT_NEWPOS_STORE', 'This store does not run NewPos, so it cannot take a replay.'],
+    ['STORE_UNREACHABLE', "The store's database could not be reached. Try again in a moment."],
+    ['NO_REGISTER', 'This store has no such register. Pick another of its registers.'],
+    ['BAD_SNAPSHOT', 'The server could not read this JSON as a receipt.'],
+    ['NOT_A_SALE', 'This is a return or a voided sale. Only a sale can be replayed.'],
+    ['NOT_COMPLETED', 'This sale is not completed. Only a completed sale can be replayed.'],
+    ['TRAINING', 'This is a training sale. A training sale cannot be replayed.'],
+    ['UNBALANCED', "The tenders do not add up to the sale's total."],
+    // Any other code: the console's shared failure, its shared words with the code, or raw with the server's message.
+    ['BAD_FIELD', 'A field is blank or too long BAD_FIELD'],
+    ['MELTED', 'Refused: MELTED. MELTED'],
+    ['500', null],
+  ]
+  const registerReads = () => calls.filter((c) => c === 'ActionSync/Replay/Registers?code=P020').length
+  const TARGET_CODES = ['NO_STORE', 'NOT_NEWPOS_STORE', 'STORE_UNREACHABLE', 'NO_REGISTER']
+  for (const [code, words] of PUSH_REFUSALS) {
+    stub.pushCode = code
+    const readsBefore = registerReads()
+    await page.locator('[data-replay-push]').click()
+    await page.locator('[data-replay-confirm-push]').click()
+    const error = page.locator(`[data-replay-error="push"][data-replay-error-code="${code === '500' ? '' : code}"]`)
+    await error.waitFor({ timeout: 5000 }).catch(() => {})
+    const text = strip(await error.innerText().catch(() => ''))
+    const want = words === null ? `The receipt could not be replayed. ${SERVER_FAILURE}` : `The receipt could not be replayed. ${words}`
+    check(`8. a push refused with ${code === '500' ? 'a codeless 500' : code} shows ${words === null ? 'the console failure' : 'its words'} in the result area`, text === want, text)
+    check(`8. …with the confirm closed (${code})`, (await page.locator('dialog[open]').count()) === 0)
+    // The store's registers are read again after a refusal about the store or its register, and only then.
+    const rereads = TARGET_CODES.includes(code)
+    for (let i = 0; i < 20 && rereads && registerReads() === readsBefore; i++) await page.waitForTimeout(100)
+    if (!rereads) await page.waitForTimeout(200)
+    check(`8. …${rereads ? 'and the registers are read again' : 'and the registers are not read again'} (${code})`, (registerReads() > readsBefore) === rereads, `${readsBefore} → ${registerReads()}`)
+  }
+  stub.pushCode = null
+  await page.screenshot({ path: `${SHOTS}/push-refused.png` })
+  await page.locator('[data-replay-push]').click()
+  check('8. opening the confirm again retires the last refusal', (await page.locator('[data-replay-error="push"]').count()) === 0)
+  await page.locator('[data-replay-confirm-push]').click()
+  await page.locator('[data-replay-result]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('8. …and the same push, no longer refused, shows its result', (await page.locator('[data-replay-result]').count()) === 1 && (await page.locator('[data-replay-error="push"]').count()) === 0)
 
   // ── 7: privacy ──
   check('7. nothing of the snapshot logged to the console', !logged.some((l) => PRIVATE.test(l)))

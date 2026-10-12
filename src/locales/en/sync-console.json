@@ -983,8 +983,15 @@
       "balanced": "Balanced",
       "yes": "Yes",
       "no": "No",
-      "none": "Not given",
-      "notReady": "Only a completed sale can be pushed."
+      "none": "Not given"
+    },
+    "warn": {
+      "title": "This cannot be pushed",
+      "return": "This is a return. Only a sale can be replayed.",
+      "void": "This sale was voided. Only a completed sale can be replayed.",
+      "training": "This is a training sale. A training sale cannot be replayed.",
+      "notCompleted": "This sale is not completed. Only a completed sale can be replayed.",
+      "unbalanced": "The tenders add up to {{tendered}}, not to the total of {{total}}."
     },
     "target": {
       "title": "Target",
@@ -1024,6 +1031,17 @@
         "loyaltyMember": "The loyalty member",
         "insuranceClaim": "Insurance claim references"
       }
+    },
+    "refusal": {
+      "NO_STORE": "There is no store with this code.",
+      "NOT_NEWPOS_STORE": "This store does not run NewPos, so it cannot take a replay.",
+      "STORE_UNREACHABLE": "The store's database could not be reached. Try again in a moment.",
+      "NO_REGISTER": "This store has no such register. Pick another of its registers.",
+      "BAD_SNAPSHOT": "The server could not read this JSON as a receipt.",
+      "NOT_A_SALE": "This is a return or a voided sale. Only a sale can be replayed.",
+      "NOT_COMPLETED": "This sale is not completed. Only a completed sale can be replayed.",
+      "TRAINING": "This is a training sale. A training sale cannot be replayed.",
+      "UNBALANCED": "The tenders do not add up to the sale's total."
     }
   }
 }

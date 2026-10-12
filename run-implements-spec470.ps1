@@ -78,6 +78,8 @@ param(
     [int]$MaxHours = 5,
     [switch]$SkipReview,
     [switch]$DryRun,
+    # Keep the tracked edits a KILLED session left behind: the first ticket continues from them.
+    [switch]$ResumeDirty,
     # Drive ONE trivial session through the exact same harness (start, stream, parse, exit) and
     # report. Run this once before you go to bed: it proves the plumbing without touching a ticket.
     [switch]$SmokeTest
@@ -127,7 +129,10 @@ foreach ($b in $BlockingTickets) {
 # Tracked modifications only: an untracked scratch file must not stop a midnight run, but a
 # half-finished tracked edit would land inside the first ticket's commit and its review.
 $dirtyTracked = git status --porcelain --untracked-files=no
-if ($dirtyTracked) {
+if ($dirtyTracked -and $ResumeDirty) {
+    Say "ResumeDirty: tracked modifications kept - ticket $($Tickets[0]) continues from them:" "DarkYellow"
+    $dirtyTracked | Write-Host
+} elseif ($dirtyTracked) {
     Say "Working tree has TRACKED modifications - commit or stash them first, or ticket 1's diff and review will include them:" "Red"
     $dirtyTracked | Write-Host
     exit 1
@@ -550,7 +555,12 @@ Follow this protocol strictly:
    - A UI slice is proven by DRIVING THE APP with a Playwright script under tools\*-drive.mjs.
      That needs a vite server: start one on port 5199 (NOT the default 5173, so you cannot collide
      with a dev server the human left running), run the drive against it, then KILL the server you
-     started. Playwright is borrowed from C:/Playground/frontend/node_modules via a createRequire
+     started. Kill it ONLY by the PID that owns the port:
+       Stop-Process -Id (Get-NetTCPConnection -LocalPort 5199 -State Listen).OwningProcess -Force
+     NEVER select processes by CommandLine (no Win32_Process | Where CommandLine -match 'vite' /
+     '5199'): your own claude.exe's command line carries this prompt, which names vite and 5199, so
+     such a match kills YOU and the slice dies uncommitted. That is exactly how ticket 471's first
+     run ended. Playwright is borrowed from C:/Playground/frontend/node_modules via a createRequire
      shim in the drive files - it is not a dependency of this repo. Follow an existing drive file
      rather than inventing a new harness.
    - If a drive genuinely cannot run (it needs a live SIS.Api that is not up, or Playwright does
@@ -591,6 +601,21 @@ Follow this protocol strictly:
 12. Do not push and do not open a PR. Committing is allowed only if the /implement skill itself
     says to commit.
 "@
+
+    if ($ResumeDirty -and $t -eq $Tickets[0]) {
+        $afkProtocol += @"
+
+13. RESUME: a previous AFK session for ticket $t was KILLED at its very end (it matched its own
+    claude.exe while stopping vite by CommandLine - not a failure of the work). Its slice is still in
+    the working tree - tracked edits and new untracked files (see git status; a backup is in
+    .afk\partial-$t.patch). By its log it had finished building, all gates were green, the drives
+    matched baseline, /code-review and /standards-review found nothing hard, its smell fixes were
+    applied and the store drive re-run green. What it had NOT done: close the ticket (Proof boxes,
+    status, INDEX line) and commit. Continue FROM it: read the diff and new files, check them against
+    the ticket, re-run the gates (and the drives if you doubt them), then close and commit. Do not
+    start over and do not discard it unless it is clearly wrong.
+"@
+    }
 
     Write-Host ""
     Say "=== ROUND A: fresh session /implement $t   (base $($baseSha.Substring(0,8))) ===" "Cyan"

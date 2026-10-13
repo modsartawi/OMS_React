@@ -17,6 +17,7 @@ import { hasFigure, readAverage, readFigure } from './figures'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
 import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
+import StoreTable from './StoreTable'
 import { FIELD, INPUT } from './controls'
 
 /**
@@ -29,7 +30,7 @@ import { FIELD, INPUT } from './controls'
  *
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
  * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the flow band, the misses band with
- * Avg hand-over, the chart slot (486) and the store table slot (487).
+ * Avg hand-over, the chart slot (486) and the per-store table (487, `StoreTable`).
  *
  * Behind `canOpenDeliveryStatistics` on the ONE shared OMS probe — the predicate the menu leaf
  * reads. 🚩 Its door (`SdDocumentWeb/StoreStatistics`, BackOffice 2641) is not built yet.
@@ -166,7 +167,7 @@ function Statistics() {
           </section>
 
           {/* 486 mounts the Came in / Handed over chart here. */}
-          {/* 487 mounts the per-store table here. */}
+          <StoreTable stores={data.stores} />
         </>
       )}
     </div>

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2641-oms-react-delivery-statistics-brief.md
 blocked-by: 484
 ---
@@ -25,10 +25,18 @@ logic (row mapping) · component (grid) · i18n EN/AR (header names) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `storeRows`: maps `Stores[]` to rows; an absent figure becomes `null`; the comparator sorts `null` last in both directions (vitest)
-- [ ] The drive is extended. It checks the row count matches the stub, that sorting by Trips
-  reorders the rows, and that an absent `trips` renders "—" (LTR and RTL).
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `storeRows`: maps `Stores[]` to rows; an absent figure becomes `null`; the comparator sorts `null` last in both directions (vitest) — `store-rows.test.ts`, 14 tests (`compareFigures` checked through an AG-Grid-style sort that negates the answer when descending)
+- [x] The drive is extended. It checks the row count matches the stub, that sorting by Trips
+  reorders the rows, and that an absent `trips` renders "—" (LTR and RTL). — `tools/delivery-statistics-drive.mjs` §12
+  plus the older-server fixture, **134/134** on a stubbed door: columns and order, locale headers with no isolates,
+  one row per stubbed store, default Handed over ↓, Trips ↑/↓ reorders numerically, a null average reads
+  "—" and sorts last both ways, absent `trips` reads "—", one store chosen keeps one row, store column
+  pinned to the reading start, no page errors — in LTR and RTL.
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green (274 files / 4854 tests), `npm run build` green
+
+**Outstanding (not AFK):** the live door (ticket 488) and an owner's eye on the Arabic table.
+Decisions taken AFK (store column pinned to the reading start, no header tooltips, duplicate
+storeCode not guarded, the Trips / Avg hand-over (min) captions) are in `.afk/HITL-487.md`.
 
 ## Boundaries
 

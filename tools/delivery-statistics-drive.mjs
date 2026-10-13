@@ -27,6 +27,11 @@
 //      default; the order types off the stubbed `SdDocument/DocumentTypes` (order + Erx only).
 //      Picking a store sends `StoreCode`; unticking churned sends `LeaveOutChurned=false`; leaving
 //      out two types sends them comma-joined; a reload keeps all three, and every tab shares them.
+//  12. (ticket 487) the per-store table: one row per stubbed store, ranked by Handed over
+//      descending by default; sorting by Trips reorders the rows (numerically); a null average
+//      reads "—" and sorts LAST both ways; the older server's absent `trips` reads "—", never 0;
+//      with one store chosen the table stays, showing that one row; the store column is pinned to
+//      the reading start (left in LTR, right in RTL).
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
@@ -81,6 +86,13 @@ const olderServer = () => {
   const { trips: _dropped, ...noTrips } = flow({ handedOver: 0, delivered: 0, pickedUp: 0 })
   return statistics({ flow: noTrips, avgHandOverMinutes: null, stores: [{ ...store('P001'), flow: noTrips, avgHandOverMinutes: null }] })
 }
+
+/** Three stores whose figures rank differently, every field sent; one handed nothing over (a null average). */
+const rankedStores = () => [
+  store('P001', { flow: flow({ trips: 150, handedOver: 300 }), avgHandOverMinutes: 92.4 }),
+  store('P019', { flow: flow({ trips: 9, handedOver: 500 }), avgHandOverMinutes: 41.5 }),
+  store('P007', { flow: flow({ trips: 60, handedOver: 0, delivered: 0, pickedUp: 0 }), avgHandOverMinutes: null }),
+]
 
 const browser = await chromium.launch()
 
@@ -156,6 +168,28 @@ const figures = (page) =>
       ]),
     ),
   )
+
+/**
+ * The store table's rows in their shown order (by AG Grid's row-index, not DOM order), each cell's
+ * text by column. The pinned store column draws its half of a row in a separate container, so the
+ * halves are merged by row-index.
+ */
+const tableRows = (page) =>
+  page.evaluate(() => {
+    const byIndex = new Map()
+    for (const row of document.querySelectorAll('[data-statistics-stores] .ag-row[row-index]')) {
+      const i = Number(row.getAttribute('row-index'))
+      const cells = Object.fromEntries([...row.querySelectorAll('.ag-cell')].map((c) => [c.getAttribute('col-id'), c.textContent.trim()]))
+      byIndex.set(i, { ...byIndex.get(i), ...cells })
+    }
+    return [...byIndex.entries()].sort(([a], [b]) => a - b).map(([, r]) => r)
+  })
+/** Clicks a store-table header and waits for its sort to land. */
+const sortBy = async (page, colId, sort) => {
+  await page.locator(`[data-statistics-stores] .ag-header-cell[col-id="${colId}"] .ag-header-cell-label`).click()
+  await page.locator(`[data-statistics-stores] .ag-header-cell[col-id="${colId}"][aria-sort="${sort}"]`).waitFor({ timeout: 5000 })
+  await page.waitForTimeout(150)
+}
 
 const params = (q) => (q ? Object.fromEntries([...q.entries()]) : null)
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -340,6 +374,14 @@ async function drive(dir) {
     check(`${label}: a dropped trips reads "—", never 0`, f.trips?.bdi === '—' && f.trips.text === 'Trips —', JSON.stringify(f.trips))
     check(`${label}: a null average reads "—" with no unit, never 0`, f.avgHandOver?.bdi === '—' && f.avgHandOver.text === '—', JSON.stringify(f.avgHandOver))
     check(`${label}: a sent 0 still reads 0 beside them`, f.handedOver?.bdi === '0', JSON.stringify(f.handedOver))
+    // 487: the store row reads the same dashes.
+    await page.locator('[data-statistics-stores] .ag-row').first().waitFor({ timeout: 20000 })
+    const older = await tableRows(page)
+    check(
+      `${label}: in the store table an absent trips and a null average read "—", never 0`,
+      older.length === 1 && older[0].trips === '—' && older[0].avgHandOverMinutes === '—' && older[0].handedOver === '0',
+      JSON.stringify(older),
+    )
     await page.screenshot({ path: `${SHOTS}/${dir}-older-server.png`, fullPage: true })
     check(`${label}: no page errors (older server)`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -483,8 +525,113 @@ async function drive(dir) {
   }
 }
 
+async function driveTable(dir) {
+  const label = dir
+  // ── 12 (487): the per-store table ───────────────────────────────────────────────────────────
+  const { context, page, errors, statQueries } = await open(dir, {
+    // One store asked → the door answers that store alone; all stores → all three.
+    answer: (q) => statistics({ stores: q.get('StoreCode') ? rankedStores().filter((r) => r.storeCode === q.get('StoreCode')) : rankedStores() }),
+  })
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await waitFigures(page)
+  await page.locator('[data-statistics-stores] .ag-row').first().waitFor({ timeout: 20000 })
+  const order = async (col = 'storeCode') => (await tableRows(page)).map((r) => r[col])
+
+  const headers = await page
+    .locator('[data-statistics-stores] .ag-header-cell')
+    .evaluateAll((els) => els.map((e) => [e.getAttribute('col-id'), e.querySelector('.ag-header-cell-text')?.textContent ?? '']))
+  const headerOf = (id) => headers.find(([c]) => c === id)?.[1]
+  // The pinned store header sits in its own container (after the rest in the DOM under RTL), so
+  // the order is read with it first.
+  const headerIds = ['storeCode', ...headers.map(([id]) => id).filter((id) => id !== 'storeCode')]
+  check(
+    `${label}: the table's columns: store, the flow with Trips beside Out for delivery, the misses, Avg hand-over`,
+    headers.length === 14 &&
+    same(
+      headerIds,
+      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered', 'pickedUp', 'handedOver', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'],
+    ),
+    headers.map(([id]) => id).join(','),
+  )
+  check(
+    `${label}: header names come from the locale, with no isolate characters`,
+    headers.every(([, text]) => text && !text.includes(FSI) && !text.includes(PDI)) &&
+      headerOf('trips') === 'Trips' &&
+      headerOf('handedOver') === 'Handed over' &&
+      headerOf('avgHandOverMinutes') === 'Avg hand-over (min)',
+    headers.map(([, h]) => h).join(' | '),
+  )
+  const rows = await tableRows(page)
+  check(`${label}: one row per stubbed store`, rows.length === 3, String(rows.length))
+  check(
+    `${label}: the default ranking is Handed over, descending`,
+    same(await order(), ['P019', 'P001', 'P007']) &&
+      (await page.locator('[data-statistics-stores] .ag-header-cell[col-id="handedOver"][aria-sort="descending"]').count()) === 1,
+    (await order()).join(','),
+  )
+  const p001 = rows.find((r) => r.storeCode === 'P001')
+  check(
+    `${label}: a row reads the server's figures, grouped, a real 0 as 0`,
+    p001?.cameIn === '1,234' && p001.trips === '150' && p001.rejected === '0' && p001.avgHandOverMinutes === '92.4' &&
+      rows.find((r) => r.storeCode === 'P007')?.handedOver === '0',
+    JSON.stringify(p001),
+  )
+  const cells = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('[data-statistics-stores] .ag-row[row-index] .ag-cell')]
+    return { count: all.length, isolated: all.every((c) => c.querySelector('bdi')) }
+  })
+  check(`${label}: every cell is isolated by the grid base`, cells.count === 3 * 14 && cells.isolated, JSON.stringify(cells))
+  const pinned = await page
+    .locator('[data-statistics-stores] .ag-row[row-index] .ag-cell[col-id="storeCode"]')
+    .evaluateAll((els) =>
+      els.map((e) =>
+        e.classList.contains('ag-cell-last-left-pinned') ? 'left' : e.classList.contains('ag-cell-first-right-pinned') ? 'right' : 'unpinned',
+      ),
+    )
+  check(
+    `${label}: the store column is pinned to the reading start`,
+    pinned.length === 3 && pinned.every((side) => side === (dir === 'rtl' ? 'right' : 'left')),
+    pinned.join(','),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-stores.png`, fullPage: true })
+
+  // Sorting by Trips reorders the rows, as numbers (150 > 60 > 9, which text order would not give).
+  await sortBy(page, 'trips', 'ascending')
+  check(`${label}: sorting by Trips ascending reorders the rows numerically`, same(await order(), ['P019', 'P007', 'P001']), (await order()).join(','))
+  await sortBy(page, 'trips', 'descending')
+  check(`${label}: and descending`, same(await order(), ['P001', 'P007', 'P019']), (await order()).join(','))
+
+  // A null average reads "—" and sorts LAST both ways.
+  await sortBy(page, 'avgHandOverMinutes', 'ascending')
+  const avgAsc = await order('avgHandOverMinutes')
+  check(`${label}: Avg hand-over ascending puts the "—" last`, same(avgAsc, ['41.5', '92.4', '—']), avgAsc.join(','))
+  await sortBy(page, 'avgHandOverMinutes', 'descending')
+  const avgDesc = await order('avgHandOverMinutes')
+  check(`${label}: Avg hand-over descending STILL puts the "—" last`, same(avgDesc, ['92.4', '41.5', '—']), avgDesc.join(','))
+
+  // One store chosen: the table stays, showing that one row.
+  await page.locator('[data-statistics-store] option[value="P001"]').waitFor({ state: 'attached', timeout: 10000 })
+  await page.locator('[data-statistics-store]').selectOption('P001')
+  await page.waitForFunction(() => new URL(location.href).searchParams.get('store') === 'P001')
+  await page.waitForFunction(
+    () => new Set([...document.querySelectorAll('[data-statistics-stores] .ag-row[row-index]')].map((r) => r.getAttribute('row-index'))).size === 1,
+    null,
+    { timeout: 10000 },
+  )
+  check(
+    `${label}: with one store chosen the table stays, showing that one row`,
+    params(statQueries.at(-1))?.StoreCode === 'P001' && same(await order(), ['P001']),
+    (await order()).join(','),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-stores-one.png`, fullPage: true })
+  check(`${label}: no page errors (store table)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await drive('ltr')
 await drive('rtl')
+await driveTable('ltr')
+await driveTable('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

@@ -54,7 +54,8 @@
   },
   "band": {
     "flow": "Flow",
-    "misses": "Did not go to plan"
+    "misses": "Did not go to plan",
+    "stores": "By store"
   },
   "flow": {
     "cameIn": "Came in",
@@ -75,5 +76,11 @@
   "avgHandOver": {
     "caption": "Avg hand-over",
     "unit": "min"
+  },
+  "table": {
+    "store": "Store",
+    "trips": "Trips",
+    "avgHandOver": "Avg hand-over (min)",
+    "empty": "No store has figures for this period."
   }
 }

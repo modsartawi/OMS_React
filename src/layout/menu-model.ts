@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -20,6 +20,7 @@ import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 // Spec 430's five OMS screens each read their own flag off that one probe (ticket 431).
 import {
+  canOpenDeliveryStatistics,
   canOpenDocumentPayments,
   canOpenDocumentSourceUsers,
   canOpenDonorRequests,
@@ -320,6 +321,19 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: canOpenDocumentSourceUsers,
+        }),
+      },
+      {
+        // Delivery statistics (ticket 484, BackOffice brief 2641) — the door checks the OMS LIST
+        // grant, so the leaf reads it off the ONE `OMS_ACCESS_KEY` entry. Last, after D18's five.
+        labelKey: 'delivery-statistics:menu.deliveryStatistics',
+        icon: ChartColumn,
+        routerLink: '/oms/delivery-statistics',
+        activePrefix: '/oms/delivery-statistics',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenDeliveryStatistics,
         }),
       },
     ],

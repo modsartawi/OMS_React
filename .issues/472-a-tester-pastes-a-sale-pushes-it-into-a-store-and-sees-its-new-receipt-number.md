@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 470
 blocked-by: —
 ---
@@ -52,15 +52,15 @@ model/api (Access flag + 2 doors) · logic (`replayPreflight`, `replayRequest`) 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `replayPreflight`: invalid JSON gives its position. A completed sale gives its summary. A non-object is invalid. Totals and the balance are judged to the cent · pure (vitest)
-- [ ] `replayRequest`: sends the parsed object, the trimmed, upper-cased store code and the register · pure (vitest)
-- [ ] Replay drive section (new, `page.route` stubs of Access, Registers and Replay):
+- [x] `replayPreflight`: invalid JSON gives its position. A completed sale gives its summary. A non-object is invalid. Totals and the balance are judged to the cent · pure (vitest)
+- [x] `replayRequest`: sends the parsed object, the trimmed, upper-cased store code and the register · pure (vitest)
+- [x] Replay drive section (new, `page.route` stubs of Access, Registers and Replay):
   - Without `canReplay`, there's no nav link and a deep link shows the backstop.
   - With it: paste a sale → the summary → enter a store → pick a register → confirm → the request body is
     right → the result shows the new receipt number and the removed links, and its copy works.
   - · flow (Playwright)
-- [ ] The existing console drives' nav assertions are updated for the new link, and nothing else changes.
-- [ ] Gates green: typecheck, lint, vitest, build.
+- [x] The existing console drives' nav assertions are updated for the new link, and nothing else changes.
+- [x] Gates green: typecheck, lint, vitest, build.
 
 ## Boundaries
 
@@ -75,3 +75,21 @@ number. The helpers and the replay drive section are green.
 ## Blocked by
 
 None — can start immediately (live: the BackOffice receipt replay spec, unwritten).
+
+## Comments
+
+**Done 2026-10-12 (AFK, /implement).** Every proof is STUBBED: the BackOffice replay doors have no spec yet.
+
+- **vitest:** `replay-helpers.test.ts`, 25 cases. They cover `replayPreflight` (invalid JSON with its position, including a Firefox-style message; blank input; non-object; no header; no total; tenders not a list or with no applied amount; sale, return, void, training and not-completed; the balance judged to the cent; case-insensitive keys), `pushReady`, `targetStoreCode`, `replayRequest`, `removedLabel` and `replayFailure`. Full suite: 268 files, 4767 tests green.
+- **Drive:** new `tools/sync-console-replay-drive.mjs`, 51/51 on :5199. Covered:
+  - Denial without `canReplay`: no link, and a deep link shows the backstop.
+  - With `canReplay` and no `canOperate`: the preflight and summary, the registers read and a WPF refusal, the confirm and its Cancel, the POST body (the parsed object), the result panel and its copy, an UNBALANCED refusal and a codeless 500, and privacy.
+- **Existing console drives:** store 307/307, controls 110/110, onboard 83/83, commands 69/69, fleet 88/88. 🚩 **No assertion changed.** No drive lists the whole nav, and no existing Access stub sends `canReplay`, so the new link never appears there.
+- **Gates:** typecheck, lint (4/4 gates), vitest and build are all green.
+- **Judgement calls and contract gaps** are in `.afk/HITL-472.md`. The ones 473 must act on:
+  - `pushReady` lets a training or unbalanced sale through in slice 0.
+  - The "Only a completed sale can be pushed." line is 473's to replace with its warnings.
+- **Outstanding (not AFK):**
+  - A human look at the Replay page, which no prototype covers.
+  - The live doors (476).
+  - Whether `Header.StoreId` really carries the store code on a real snapshot. The runner ruled that it does; 476 should confirm it.

@@ -315,7 +315,8 @@
     "audit": "Audit",
     "commands": "Commands",
     "newStore": "New store",
-    "pending": "Sync pending"
+    "pending": "Sync pending",
+    "replay": "Replay"
   },
   "controls": {
     "label": "Controls",
@@ -409,7 +410,8 @@
     "MirrorRetry": "Retry mirror dead letters",
     "MirrorAcknowledge": "Acknowledge mirror dead letters as lost",
     "AgreementRecheck": "Recheck rail agreement",
-    "TransactionSnapshotView": "Viewed receipt JSON"
+    "TransactionSnapshotView": "Viewed receipt JSON",
+    "ReceiptReplay": "Replayed a receipt"
   },
   "mirrorRefusals": {
     "PULL_STAGE": "A pull-stage dead letter cannot be retried",
@@ -934,9 +936,131 @@
       "loadedAt": "Loaded at <t>{{at}}</t>",
       "note": "This is HQ's applied copy of the receipt on the mirror rail, not the till's raw message.",
       "copy": "Copy JSON",
-      "copied": "The receipt's JSON was copied.",
-      "copyFailed": "The JSON could not be copied to the clipboard.",
+      "copied": "Copied",
+      "copyFailed": "Could not copy",
+      "replay": "Replay…",
       "sections": "The receipt's JSON, by top-level key"
+    }
+  },
+  "replay": {
+    "title": "Receipt replay",
+    "subtitle": "Paste a NewPos receipt's JSON, pick a store and a register, and push it there as a new test sale. A replay never reaches HQ or SAP.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to receipt replay",
+      "deniedHint": "Your account does not hold the grant to replay receipts. Ask an administrator if you need it.",
+      "unreachableTitle": "This screen is unavailable",
+      "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+    },
+    "json": {
+      "label": "Receipt JSON",
+      "hint": "Paste a receipt snapshot. You can edit it before you push. It is never saved or logged.",
+      "from": "Brought from receipt <v>{{receipt}}</v> of store <v>{{store}}</v>."
+    },
+    "preflight": {
+      "title": "What you pasted",
+      "invalid": {
+        "empty": "Paste a receipt's JSON to begin.",
+        "json": "This is not valid JSON.",
+        "notObject": "This JSON is not a receipt: it is not an object.",
+        "noHeader": "This JSON has no receipt header.",
+        "noTotal": "The receipt header has no grand total.",
+        "tenders": "The receipt's tenders are not a list.",
+        "tenderAmount": "A tender has no applied amount."
+      },
+      "at": "It breaks at line {{line}}, column {{column}}.",
+      "sourceStore": "Source store",
+      "sourceReceipt": "Source receipt",
+      "sourceTransaction": "Source transaction",
+      "kind": "Kind",
+      "kinds": {
+        "sale": "Sale",
+        "return": "Return",
+        "void": "Voided sale"
+      },
+      "completed": "Completed",
+      "training": "Training",
+      "lines": "Lines",
+      "total": "Total",
+      "tenderTotal": "Tendered",
+      "balanced": "Balanced",
+      "yes": "Yes",
+      "no": "No",
+      "none": "Not given"
+    },
+    "warn": {
+      "title": "This cannot be pushed",
+      "return": "This is a return. Only a sale can be replayed.",
+      "void": "This sale was voided. Only a completed sale can be replayed.",
+      "training": "This is a training sale. A training sale cannot be replayed.",
+      "notCompleted": "This sale is not completed. Only a completed sale can be replayed.",
+      "unbalanced": "The tenders add up to {{tendered}}, not to the total of {{total}}."
+    },
+    "target": {
+      "title": "Target",
+      "store": "Store code",
+      "storeHint": "Press Enter or leave the field to read the store's registers.",
+      "register": "Register",
+      "pickRegister": "Pick a register",
+      "loading": "Reading the store's registers…",
+      "none": "This store has no registers.",
+      "failed": "The store's registers could not be read."
+    },
+    "push": "Push…",
+    "confirm": {
+      "title": "Push this receipt?",
+      "body": "It is written as a new sale at store <v>{{store}}</v>, register <v>{{register}}</v>.",
+      "note": "The sale gets a new receipt number there and is kept out of HQ and SAP.",
+      "push": "Push",
+      "pushing": "Pushing…",
+      "failed": "The receipt could not be replayed."
+    },
+    "result": {
+      "title": "Replayed",
+      "receipt": "New receipt number",
+      "copy": "Copy",
+      "copyLabel": "Copy the new receipt number",
+      "copied": "Copied",
+      "copyFailed": "Could not copy",
+      "transaction": "Transaction",
+      "store": "Store",
+      "register": "Register",
+      "at": "Replayed at",
+      "replayOf": "Replay of receipt {{receipt}} at store {{store}}",
+      "removedTitle": "Links removed",
+      "removedNone": "No links were removed.",
+      "removed": {
+        "tenderCapture": "Captured tender proof and payment provider ids",
+        "loyaltyMember": "The loyalty member",
+        "insuranceClaim": "Insurance claim references"
+      }
+    },
+    "refusal": {
+      "NO_STORE": "There is no store with this code.",
+      "NOT_NEWPOS_STORE": "This store does not run NewPos, so it cannot take a replay.",
+      "STORE_UNREACHABLE": "The store's database could not be reached. Try again in a moment.",
+      "NO_REGISTER": "This store has no such register. Pick another of its registers.",
+      "BAD_SNAPSHOT": "The server could not read this JSON as a receipt.",
+      "NOT_A_SALE": "This is a return or a voided sale. Only a sale can be replayed.",
+      "NOT_COMPLETED": "This sale is not completed. Only a completed sale can be replayed.",
+      "TRAINING": "This is a training sale. A training sale cannot be replayed.",
+      "UNBALANCED": "The tenders do not add up to the sale's total."
+    },
+    "recent": {
+      "title": "Recent replays",
+      "loading": "Reading the recent replays…",
+      "failed": "The recent replays could not be read.",
+      "empty": "No receipt has been replayed yet.",
+      "emptyPage": "This page is empty. Go back a page.",
+      "columns": {
+        "at": "Replayed at",
+        "who": "By",
+        "sourceStore": "Source store",
+        "sourceReceipt": "Source receipt",
+        "store": "Store",
+        "register": "Register",
+        "receipt": "New receipt"
+      }
     }
   }
 }

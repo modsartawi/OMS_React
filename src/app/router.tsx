@@ -143,6 +143,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/central-invoice/CentralInvoicesPage')).default,
         }),
       },
+      // Delivery statistics (ticket 484, BackOffice brief 2641) — the till's Statistics across every
+      // store, behind the OMS list grant on the shared OMS probe. Read-only.
+      {
+        path: 'oms/delivery-statistics',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
+        }),
+      },
       // Donor requests (ticket 431, spec 430) — every store's donor asks, behind its own flag on
       // the shared OMS probe. `?request=<no>` seeds a one-request search (434's link).
       {
@@ -244,6 +252,13 @@ export const router = createBrowserRouter([
         path: 'admin/sync/pending',
         lazy: async () => ({
           Component: (await import('@/features/admin/sync-console/PendingPage')).default,
+        }),
+      },
+      // Receipt replay (spec 470, ticket 472): a page of the console, linked from its own nav, no menu leaf.
+      {
+        path: 'admin/sync/replay',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
         }),
       },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes

@@ -1,0 +1,96 @@
+{
+  "menu": {
+    "deliveryStatistics": "Delivery statistics"
+  },
+  "title": "Delivery statistics",
+  "subtitle": "What the stores took in and handed over, across every store or one — the till's Statistics, read-only.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to delivery statistics",
+    "deniedHint": "Your account does not hold the delivery list grant the statistics need. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "scope": {
+    "store": "Store",
+    "allStores": "All stores",
+    "storesFailed": "The store list could not be loaded."
+  },
+  "leaveOut": {
+    "label": "Leave out",
+    "churned": "Wasfaty churned refills",
+    "types": "Order types",
+    "none": "none",
+    "typesLoading": "Loading the order types…",
+    "typesFailed": "The order types could not be loaded.",
+    "typesEmpty": "No order types to leave out.",
+    "clear": "Clear"
+  },
+  "loading": "Loading…",
+  "failedTitle": "The statistics could not be loaded",
+  "failed": "The statistics could not be loaded. Try again in a moment.",
+  "asOf": "As of <v>{{time}}</v> · at most 5 minutes behind",
+  "period": {
+    "label": "Period",
+    "tab": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "range": "Range"
+    },
+    "rangeCaption": "Range · up to <v>{{max}}</v> days",
+    "days_one": "<v>{{n}}</v> day",
+    "days_other": "<v>{{n}}</v> days",
+    "custom": "Custom",
+    "from": "From",
+    "to": "To",
+    "showing": "Showing <v>{{range}}</v>",
+    "problem": {
+      "incomplete": "Enter both days of the range.",
+      "reversed": "The range ends before it starts.",
+      "future": "The range cannot end after today.",
+      "tooLong": "A range can be at most <v>{{max}}</v> days, both ends included."
+    }
+  },
+  "band": {
+    "flow": "Flow",
+    "misses": "Did not go to plan",
+    "stores": "By store"
+  },
+  "flow": {
+    "cameIn": "Came in",
+    "madeReady": "Made ready",
+    "outForDelivery": "Out for delivery",
+    "trips": "Trips <v>{{n}}</v>",
+    "delivered": "Delivered",
+    "pickedUp": "Picked up",
+    "handedOver": "Handed over"
+  },
+  "misses": {
+    "returnedBack": "Returned back",
+    "rejected": "Rejected",
+    "rescheduled": "Rescheduled",
+    "closeRequested": "Close requested",
+    "closedOrCancelled": "Closed / cancelled"
+  },
+  "avgHandOver": {
+    "caption": "Avg hand-over",
+    "unit": "min"
+  },
+  "chart": {
+    "caption": {
+      "hour": "Came in and handed over · by the hour",
+      "day": "Came in and handed over · by the day"
+    },
+    "label": "Came in and handed over, per bucket",
+    "hint": "Point at a column, or focus the chart and use the arrow keys, to read its values.",
+    "empty": "The server sent no buckets for this period.",
+    "readout": "<v>{{bucket}}</v> · Came in <v>{{cameIn}}</v> · Handed over <v>{{handedOver}}</v>"
+  },
+  "table": {
+    "store": "Store",
+    "trips": "Trips",
+    "avgHandOver": "Avg hand-over (min)",
+    "empty": "No store has figures for this period."
+  }
+}

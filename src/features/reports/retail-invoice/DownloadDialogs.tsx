@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { Check, Copy } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
+import { copyText } from '@/core/util/copy-text'
 import type { InvoiceCandidate } from '@/core/models/retail-invoice'
 import { enumLabel } from './invoice-columns'
 import { canRetry, type DownloadOutcome } from './download-outcome'
@@ -174,19 +175,19 @@ function AttemptReference({
   t: TFunction
 }) {
   const [copied, setCopied] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
   const copy = () => {
-    // `?.` — a non-secure context (plain http on a test box) has no clipboard at
-    // all, and the id is still selectable text on the page, so a failure to copy
-    // is not a failure to communicate.
-    void navigator.clipboard?.writeText(attemptId).then(
-      () => setCopied(true),
-      () => setCopied(false),
+    // `copyText` copies on plain http too; its fallback textarea goes inside this
+    // dialog, since a modal makes the rest of the page unselectable. The id is still
+    // selectable text on the page, so a failure to copy is not a failure to communicate.
+    void copyText(attemptId, { container: ref.current?.closest('dialog') }).then((outcome) =>
+      setCopied(outcome === 'copied'),
     )
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/40 p-3">
+    <div ref={ref} className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/40 p-3">
       <div className="text-xs font-medium text-muted-foreground">
         {t('invoice.download.failure.attemptId')}
       </div>

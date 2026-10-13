@@ -107,6 +107,10 @@ import deliverectCatalogAr from '@/locales/ar/deliverect-catalog.json'
 // Deliverect delivery platforms and terms (ticket 482), English and Arabic together.
 import deliverectTerms from '@/locales/en/deliverect-terms.json'
 import deliverectTermsAr from '@/locales/ar/deliverect-terms.json'
+// Delivery statistics (BackOffice brief 2641, ticket 484). Namespace == feature name, English and
+// Arabic together. 485–487 add their keys here rather than minting a second namespace.
+import deliveryStatistics from '@/locales/en/delivery-statistics.json'
+import deliveryStatisticsAr from '@/locales/ar/delivery-statistics.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -114,7 +118,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics'],
   resources: {
     en: {
       common,
@@ -156,6 +160,7 @@ i18n.use(initReactI18next).init({
       'deliverect-orders': deliverectOrders,
       'deliverect-catalog': deliverectCatalog,
       'deliverect-terms': deliverectTerms,
+      'delivery-statistics': deliveryStatistics,
     },
     ar: {
       document: documentAr,
@@ -173,6 +178,7 @@ i18n.use(initReactI18next).init({
       'deliverect-orders': deliverectOrdersAr,
       'deliverect-catalog': deliverectCatalogAr,
       'deliverect-terms': deliverectTermsAr,
+      'delivery-statistics': deliveryStatisticsAr,
     },
   },
   interpolation: { escapeValue: false },

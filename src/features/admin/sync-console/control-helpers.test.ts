@@ -203,12 +203,16 @@ describe('auditQuery', () => {
 
 describe('auditActionKey', () => {
   it('labels every audit action, and leaves an unknown one raw', () => {
-    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView']) {
+    for (const a of ['Move', 'HandBack', 'Pause', 'Resume', 'RePush', 'RetryNow', 'ConnectionTest', 'CancelCommand', 'CreateLocation', 'EditLocation', 'DismissPending', 'OnboardStore', 'EditStore', 'MirrorRetry', 'MirrorAcknowledge', 'AgreementRecheck', 'TransactionSnapshotView', 'ReceiptReplay']) {
       const key = auditActionKey(a)
       expect(key).toBe(`auditActions.${a}`)
       expect(lookup(key as string)).toBeTruthy()
     }
     expect(auditActionKey('Explode')).toBeNull()
+  })
+
+  it('labels a receipt replay "Replayed a receipt" (spec 470)', () => {
+    expect(lookup(auditActionKey('ReceiptReplay') as string)).toBe('Replayed a receipt')
   })
 })
 

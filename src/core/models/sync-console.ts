@@ -100,6 +100,8 @@ export type AuditAction =
   | 'AgreementRecheck'
   // Today's transactions (2586): one audited view of a receipt's snapshot (2589).
   | 'TransactionSnapshotView'
+  // Receipt replay (spec 470): one row per push, naming the target store.
+  | 'ReceiptReplay'
 export type HourCell = 'work' | 'idle' | 'passErrors' | 'connectFailOnly' | 'noData'
 
 /**
@@ -193,6 +195,8 @@ export interface SyncConsoleAccess {
   canOperate: boolean
   /** `Store.Onboard` — the store-master step and Edit store. */
   canOnboard: boolean
+  /** `ActionSync.Replay` (spec 470) — the Replay page. Independent of `canOperate`. */
+  canReplay: boolean
 }
 
 // ── Read doors (`ActionSync.Health.View`) ──────────────────────────────────────
@@ -851,4 +855,67 @@ export interface StoreTransactionSnapshot {
   loadedAt: string
   /** The engine's `PosTransactionSnapshot` as HQ's mirror holds it. */
   snapshot: unknown
+}
+
+// ── Receipt replay (spec 470; ticket 472) ────────────────────────────────────────
+// 🚩 The contract is spec 470's PROPOSED one ("Contract (proposed; owned by the BackOffice
+// spec)"); the BackOffice spec that owns these doors is not written yet, so every call is stubbed.
+
+/** One register of the target store. */
+export interface ReplayRegister {
+  registerId: string
+  name: string
+}
+
+/**
+ * `GET ActionSync/Replay/Registers?code=` (`ActionSync.Replay`). Refusals: `NO_STORE`,
+ * `NOT_NEWPOS_STORE`, `STORE_UNREACHABLE`.
+ */
+export interface ReplayRegisters {
+  storeCode: string
+  registers: ReplayRegister[]
+}
+
+/** `POST ActionSync/Replay`'s body. 🚩 `snapshot` is the PARSED object, never a string; never logged, never stored. */
+export interface ReplayRequest {
+  targetStoreCode: string
+  registerId: string
+  snapshot: Record<string, unknown>
+}
+
+/** Every external link the server can strip from a replay, in the contract's order. */
+export const REPLAY_REMOVED = ['tenderCapture', 'loyaltyMember', 'insuranceClaim'] as const
+
+export type ReplayRemoved = (typeof REPLAY_REMOVED)[number]
+
+/**
+ * `POST ActionSync/Replay`'s answer: the new sale at the target store. Refusals
+ * (`success: false`): `NO_STORE`, `NOT_NEWPOS_STORE`, `STORE_UNREACHABLE`, `NO_REGISTER`,
+ * `BAD_SNAPSHOT`, `NOT_A_SALE`, `NOT_COMPLETED`, `TRAINING`, `UNBALANCED`.
+ */
+export interface ReplayResult {
+  storeCode: string
+  registerId: string
+  transactionId: string
+  receiptNumber: string
+  replayedAt: string
+  replayOf: { storeCode: string; receiptNumber: string; transactionId: string }
+  removed: ReplayRemoved[]
+}
+
+/**
+ * One row of `GET ActionSync/Replays?page=&pageSize=` (`ActionSync.Replay`, ticket 475), newest
+ * first: who replayed which source receipt into which store and register, and the new
+ * receipt number. The page is the console's usual `Paged<T>` (`items`, `total`, `page`,
+ * `pageSize`); spec 470 was amended to say so after ticket 475.
+ */
+export interface ReplayRow {
+  at: string
+  who: string
+  sourceStoreCode: string
+  sourceReceiptNumber: string
+  storeCode: string
+  registerId: string
+  receiptNumber: string
+  transactionId: string
 }

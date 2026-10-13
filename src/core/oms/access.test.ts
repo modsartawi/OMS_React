@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canOpenDeliveryStatistics, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -69,5 +69,14 @@ describe('omsGrants', () => {
     expect(canOpenGeography({ canOpenList: false, canOpenDetail: false, canOpenGeography: true })).toBe(true)
     expect(canOpenGeography({ canOpenList: true, canOpenDetail: true, canImportCities: true, canImportDistricts: true })).toBe(false)
     expect(canOpenGeography(undefined)).toBe(false)
+  })
+})
+
+describe('canOpenDeliveryStatistics', () => {
+  it('reads the OMS list grant the door checks, and fails closed on anything else', () => {
+    expect(canOpenDeliveryStatistics({ canOpenList: true, canOpenDetail: false })).toBe(true)
+    expect(canOpenDeliveryStatistics({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+    expect(canOpenDeliveryStatistics(null)).toBe(false)
+    expect(canOpenDeliveryStatistics(undefined)).toBe(false)
   })
 })

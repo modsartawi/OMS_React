@@ -116,3 +116,8 @@ tools/.deliverect-stores-shots/
 tools/.deliverect-orders-shots/
 tools/.deliverect-catalog-shots/
 tools/.deliverect-terms-shots/
+
+# Receipt replay drive screenshots (spec 470)
+tools/.sync-console-replay-shots/
+# Delivery statistics drive screenshots (tools/delivery-statistics-*-drive.mjs, tickets 484-487)
+tools/.delivery-statistics-shots/

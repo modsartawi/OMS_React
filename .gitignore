@@ -111,3 +111,8 @@ tools/.sync-console-live-shots/
 tools/.sap-export-storeday-shots/
 tools/.sap-export-fleet-shots/
 tools/.sap-export-store-shots/
+# Deliverect drive screenshots (tools/deliverect-*-drive.mjs, tickets 477-482)
+tools/.deliverect-stores-shots/
+tools/.deliverect-orders-shots/
+tools/.deliverect-catalog-shots/
+tools/.deliverect-terms-shots/

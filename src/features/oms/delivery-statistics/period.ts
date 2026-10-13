@@ -16,7 +16,7 @@
  * absent), and for a range its `pick` (`7` | `14` | `31` | `custom`) and a custom range's `from`
  * and `to`. A custom range keeps its dates as typed, so a refused range stays on screen to be fixed.
  */
-import type { StatisticsGranularity, StoreStatisticsQuery } from '@/core/models/delivery-statistics'
+import type { StatisticsGranularity } from '@/core/models/delivery-statistics'
 import { fromIsoDate, toIsoDate } from '@/core/util/date-format'
 
 export const PERIOD_TABS = ['today', 'yesterday', 'range'] as const
@@ -88,14 +88,6 @@ export function resolvePeriod(query: PeriodQuery, now: Date): ResolvedPeriod {
   return { ok: true, from: toIsoDate(from), to: toIsoDate(to), granularity: 'day' }
 }
 
-/**
- * The `GET SdDocumentWeb/StoreStatistics` parameters for a period that resolved. No `StoreCode`
- * (all stores) and no `LeaveOutTypes` (none left out); churned refills are left out, the default.
- */
-export function doorParams(period: Extract<ResolvedPeriod, { ok: true }>): StoreStatisticsQuery {
-  return { From: period.from, To: period.to, Granularity: period.granularity, LeaveOutChurned: true }
-}
-
 const isTab = (value: string | null): value is PeriodTab => (PERIOD_TABS as readonly string[]).includes(value ?? '')
 
 function pickOf(value: string | null): RangePick {
@@ -127,16 +119,17 @@ export function periodToParams(query: PeriodQuery): URLSearchParams {
 }
 
 /** Another tab. The range's pick and dates are kept, so coming back to Range within the visit finds them. */
-export function withTab(query: PeriodQuery, tab: PeriodTab): PeriodQuery {
+export function withTab<Q extends PeriodQuery>(query: Q, tab: PeriodTab): Q {
   return { ...query, tab }
 }
 
 /**
  * Another pick on the Range tab. Custom with no dates of its own starts from the range on screen,
- * so the reader edits a real range rather than two blank boxes.
+ * so the reader edits a real range rather than two blank boxes. Generic so the page's whole query
+ * (485's store and leave-outs beside the period) passes through untouched.
  */
-export function withPick(query: PeriodQuery, pick: RangePick, now: Date): PeriodQuery {
-  const next: PeriodQuery = { ...query, tab: 'range', pick }
+export function withPick<Q extends PeriodQuery>(query: Q, pick: RangePick, now: Date): Q {
+  const next: Q = { ...query, tab: 'range', pick }
   if (pick !== 'custom' || query.from || query.to) return next
   const seed = resolvePeriod({ ...query, tab: 'range', pick: query.pick === 'custom' ? DEFAULT_PERIOD.pick : query.pick }, now)
   return seed.ok ? { ...next, from: seed.from, to: seed.to } : next

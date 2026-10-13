@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PERIOD,
-  doorParams,
   periodFromParams,
   periodToParams,
   resolvePeriod,
@@ -72,17 +71,6 @@ describe('resolvePeriod', () => {
     expect(resolvePeriod(custom('', '2026-10-13'), NOW)).toEqual({ ok: false, problem: 'incomplete' })
     expect(resolvePeriod(custom('2026-10-01', ''), NOW)).toEqual({ ok: false, problem: 'incomplete' })
     expect(resolvePeriod(custom('2026-13-01', '2026-10-13'), NOW)).toEqual({ ok: false, problem: 'incomplete' })
-  })
-})
-
-describe('doorParams', () => {
-  it('names the door\'s params exactly: no StoreCode (all stores), churned refills left out, no LeaveOutTypes', () => {
-    expect(doorParams({ ok: true, from: '2026-10-13', to: '2026-10-13', granularity: 'hour' })).toEqual({
-      From: '2026-10-13',
-      To: '2026-10-13',
-      Granularity: 'hour',
-      LeaveOutChurned: true,
-    })
   })
 })
 

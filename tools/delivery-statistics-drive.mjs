@@ -21,7 +21,12 @@
 //   7. the 31-day guard: 32 days inclusive, or a reversed range, is refused and makes NO call;
 //   8. "—" (never 0) when the server drops `trips` and sends a null average;
 //   9. an SDD-02131 envelope is shown as the server's refusal;
-//  10. no page errors.
+//  10. no page errors;
+//  11. (ticket 485) the scope: the store picker off the stubbed `SdDocument/StoreDetails`, each
+//      option one isolated `code · city` pair, all stores by default; the churned switch ticked by
+//      default; the order types off the stubbed `SdDocument/DocumentTypes` (order + Erx only).
+//      Picking a store sends `StoreCode`; unticking churned sends `LeaveOutChurned=false`; leaving
+//      out two types sends them comma-joined; a reload keeps all three, and every tab shares them.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
@@ -114,12 +119,27 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
         )
       return route.fulfill(envelope(a))
     }
+    // 485: the two EXISTING lookups the scope reads (no new door).
+    if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
+    if (p === 'SdDocument/DocumentTypes') return route.fulfill(envelope(DOCUMENT_TYPES))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
   return { context, page, errors, calls, statQueries }
 }
+
+// The lookups' rows, as `SdDocument/StoreDetails` and `SdDocument/DocumentTypes` send them.
+const storeRow = (storeCode, city) => ({ storeCode, city, region: 'C', storeAddress: '', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false })
+const STORES = [storeRow('P019', 'Jeddah'), storeRow('P001', 'Riyadh')]
+const DOCUMENT_TYPES = [
+  { documentType: 'ZO', description: 'Online order', documentCategory: 'O' },
+  { documentType: 'ZD', description: 'Home delivery', documentCategory: 'D' },
+  { documentType: 'ZX', description: 'Erx prescription', documentCategory: 'X' },
+  { documentType: 'ZC', description: 'Call center order', documentCategory: 'O' },
+]
+const FSI = '⁨'
+const PDI = '⁩'
 
 const omsLinks = (page) =>
   page.locator('nav a[href^="/oms/"]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')))])
@@ -341,6 +361,124 @@ async function drive(dir) {
     await page.waitForTimeout(500)
     check(`${label}: Yesterday does not poll`, statQueries.length === afterYesterday, `${afterYesterday} → ${statQueries.length}`)
     check(`${label}: no page errors (polling)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 11 (485): the store picker and the leave-outs ───────────────────────────────────────────
+  {
+    const { context, page, errors, statQueries } = await open(dir)
+    /** Waits until the last statistics request asks exactly `want`. */
+    const asked = async (want, ms = 10000) => {
+      const end = Date.now() + ms
+      while (Date.now() < end) {
+        if (same(params(statQueries.at(-1)), want)) return true
+        await page.waitForTimeout(100)
+      }
+      return false
+    }
+    const search = () => new URL(page.url()).searchParams
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await waitFigures(page)
+    const select = page.locator('[data-statistics-store]')
+    const churned = page.locator('[data-leave-out-churned]')
+    const typesCount = page.locator('[data-leave-out-types-count]')
+
+    // The defaults: all stores, churned left out, no types.
+    await page.locator('[data-statistics-store] option[value="P001"]').waitFor({ state: 'attached', timeout: 10000 })
+    const storeOptions = await select.locator('option').evaluateAll((els) => els.map((e) => [e.value, e.textContent]))
+    check(
+      `${label}: the store picker opens on All stores, then each store as ONE isolated code · city pair in code order`,
+      (await select.inputValue()) === '' &&
+        same(storeOptions, [['', 'All stores'], ['P001', `${FSI}P001 · Riyadh${PDI}`], ['P019', `${FSI}P019 · Jeddah${PDI}`]]),
+      JSON.stringify(storeOptions),
+    )
+    check(
+      `${label}: Wasfaty churned refills is ticked (left out) by default, and no order type is left out`,
+      (await churned.isChecked()) && (await typesCount.innerText()) === 'none',
+    )
+
+    // A store sends StoreCode.
+    await select.selectOption('P019')
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('store') === 'P019')
+    check(
+      `${label}: picking a store sends StoreCode`,
+      await asked({ ...ask(TODAY, TODAY, 'hour'), StoreCode: 'P019' }),
+      JSON.stringify(params(statQueries.at(-1))),
+    )
+
+    // Unticking churned sends LeaveOutChurned=false.
+    await churned.click() // URL-controlled: its state lands with the navigation, so wait on the URL, not the click
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('leaveOutChurned') === 'false')
+    check(
+      `${label}: unticking churned sends LeaveOutChurned=false`,
+      await asked({ From: TODAY, To: TODAY, Granularity: 'hour', LeaveOutChurned: 'false', StoreCode: 'P019' }),
+      JSON.stringify(params(statQueries.at(-1))),
+    )
+
+    // Two order types left out, sent comma-joined.
+    await page.locator('[data-leave-out-types-trigger]').click()
+    await page.locator('[data-leave-out-types-panel]').waitFor()
+    const offered = await page.locator('[data-leave-out-type]').evaluateAll((els) => els.map((e) => e.getAttribute('data-leave-out-type')))
+    check(`${label}: the order types offered are the order and Erx types, in caption order`, same(offered, ['ZC', 'ZX', 'ZO']), offered.join(','))
+    await page.locator('[data-leave-out-type="ZO"] input').click()
+    await page.locator('[data-leave-out-type="ZC"] input').click()
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('leaveOutTypes') === 'ZC,ZO')
+    const afterTicks = await page.locator('[data-leave-out-type]').evaluateAll((els) => els.map((e) => e.getAttribute('data-leave-out-type')))
+    check(`${label}: ticking moves no row: the list keeps its caption order`, same(afterTicks, ['ZC', 'ZX', 'ZO']), afterTicks.join(','))
+    const scoped = { From: TODAY, To: TODAY, Granularity: 'hour', LeaveOutChurned: 'false', StoreCode: 'P019', LeaveOutTypes: 'ZC,ZO' }
+    check(`${label}: leaving out two types sends them comma-joined`, await asked(scoped), JSON.stringify(params(statQueries.at(-1))))
+    check(
+      `${label}: the picker's count is isolated`,
+      (await typesCount.innerText()) === '2' && (await page.locator('[data-leave-out-types-count] bdi[dir="ltr"]').count()) === 1,
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-scope.png`, fullPage: true })
+    await page.keyboard.press('Escape')
+    await page.locator('[data-leave-out-types-panel]').waitFor({ state: 'detached' })
+
+    // A reload keeps all three: the URL is the source of truth.
+    const beforeReload = statQueries.length
+    await page.reload()
+    await waitFigures(page)
+    await page.locator('[data-statistics-store] option[value="P019"]').waitFor({ state: 'attached', timeout: 10000 })
+    check(
+      `${label}: a reload keeps the store, the unticked churned switch and the two types`,
+      (await select.inputValue()) === 'P019' &&
+        !(await churned.isChecked()) &&
+        (await typesCount.innerText()) === '2' &&
+        search().get('leaveOutTypes') === 'ZC,ZO',
+    )
+    check(
+      `${label}: and its first request asks the same scope`,
+      statQueries.length > beforeReload && same(params(statQueries[beforeReload]), scoped),
+      JSON.stringify(params(statQueries[beforeReload])),
+    )
+
+    // Every tab shares the scope.
+    await page.locator('[data-period-tab="yesterday"]').click()
+    check(
+      `${label}: Yesterday keeps the store and the leave-outs`,
+      await asked({ ...scoped, From: YESTERDAY, To: YESTERDAY }),
+      JSON.stringify(params(statQueries.at(-1))),
+    )
+    await page.locator('[data-period-tab="range"]').click()
+    check(
+      `${label}: Range keeps the store and the leave-outs`,
+      await asked({ ...scoped, From: daysAgo(7), To: YESTERDAY, Granularity: 'day' }),
+      JSON.stringify(params(statQueries.at(-1))),
+    )
+
+    // Back to all stores and no types: the params drop off the wire and the URL.
+    await select.selectOption('')
+    await page.locator('[data-leave-out-types-trigger]').click()
+    await page.locator('[data-leave-out-types-clear]').click()
+    check(
+      `${label}: All stores and Clear drop StoreCode and LeaveOutTypes`,
+      await asked({ From: daysAgo(7), To: YESTERDAY, Granularity: 'day', LeaveOutChurned: 'false' }) &&
+        !search().has('store') &&
+        !search().has('leaveOutTypes'),
+      JSON.stringify(params(statQueries.at(-1))),
+    )
+    check(`${label}: no page errors (scope)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

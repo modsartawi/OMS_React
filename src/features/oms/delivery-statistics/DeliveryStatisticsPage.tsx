@@ -14,30 +14,21 @@ import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
 import { hasFigure, readAverage, readFigure } from './figures'
-import {
-  MAX_RANGE_DAYS,
-  PERIOD_TABS,
-  QUICK_PICKS,
-  doorParams,
-  periodFromParams,
-  periodToParams,
-  resolvePeriod,
-  withPick,
-  withTab,
-  type PeriodQuery,
-  type RangePick,
-} from './period'
+import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
+import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
+import ScopeControls from './ScopeControls'
+import { FIELD, INPUT } from './controls'
 
 /**
  * Delivery statistics (ticket 484, BackOffice brief 2641, ADR 0081): the till's POS Statistics view,
- * read across every store. Read-only — no figure drills into rows.
+ * read across every store or one (485). Read-only — no figure drills into rows.
  *
  * 🚩 **The page shows what the door sends and derives nothing.** The counting rules (each delivery
  * once, on its first event; deliveries only) are the server's; Handed over is the server's figure,
  * never Delivered + Picked up; a figure the server leaves out reads "—", never 0.
  *
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
- * (period tabs; 485 adds the store picker and the leave-outs), the flow band, the misses band with
+ * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the flow band, the misses band with
  * Avg hand-over, the chart slot (486) and the store table slot (487).
  *
  * Behind `canOpenDeliveryStatistics` on the ONE shared OMS probe — the predicate the menu leaf
@@ -80,17 +71,13 @@ const MISS_ACCENT: Record<keyof DeliveryStatisticsMisses, string> = {
   closedOrCancelled: 'border-t-border',
 }
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
 function Statistics() {
   const { t } = useTranslation('delivery-statistics')
-  const { query, update } = useUrlQuery(periodFromParams, periodToParams)
+  const { query, update } = useUrlQuery(statisticsFromParams, statisticsToParams)
   const now = useMinuteClock()
   const today = toIsoDate(now)
   const period = resolvePeriod(query, now)
-  const params = period.ok ? doorParams(period) : null
+  const params = period.ok ? buildStatisticsQuery(period, query) : null
 
   const stats = useQuery({
     queryKey: ['delivery-statistics', params],
@@ -106,7 +93,9 @@ function Statistics() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-statistics-page="">
-      <PeriodBar query={query} today={today} now={now} onChange={update} />
+      <PeriodBar query={query} today={today} now={now} onChange={update}>
+        <ScopeControls query={query} onChange={update} />
+      </PeriodBar>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {period.ok && (
@@ -184,17 +173,19 @@ function Statistics() {
   )
 }
 
-/** The period tabs and, on Range, its quick picks and custom From–To. */
+/** The period tabs and, on Range, its quick picks and custom From–To; then the scope (485) after them. */
 function PeriodBar({
   query,
   today,
   now,
   onChange,
+  children,
 }: {
-  query: PeriodQuery
+  query: StatisticsQuery
   today: string
   now: Date
-  onChange: (change: (prev: PeriodQuery) => PeriodQuery) => void
+  onChange: (change: (prev: StatisticsQuery) => StatisticsQuery) => void
+  children?: ReactNode
 }) {
   const { t } = useTranslation('delivery-statistics')
   const picks: RangePick[] = [...QUICK_PICKS, 'custom']
@@ -274,6 +265,8 @@ function PeriodBar({
           )}
         </>
       )}
+      {/* At the inline end, so a tab's own controls coming and going never move the scope. */}
+      {children && <div className="ms-auto flex flex-wrap items-end gap-3">{children}</div>}
     </div>
   )
 }

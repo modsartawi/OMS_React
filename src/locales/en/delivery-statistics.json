@@ -3,7 +3,7 @@
     "deliveryStatistics": "Delivery statistics"
   },
   "title": "Delivery statistics",
-  "subtitle": "What the stores took in and handed over, across every store — the till's Statistics, read-only.",
+  "subtitle": "What the stores took in and handed over, across every store or one — the till's Statistics, read-only.",
   "access": {
     "checking": "Checking your access…",
     "deniedTitle": "No access to delivery statistics",
@@ -12,6 +12,21 @@
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
   "dash": "—",
+  "scope": {
+    "store": "Store",
+    "allStores": "All stores",
+    "storesFailed": "The store list could not be loaded."
+  },
+  "leaveOut": {
+    "label": "Leave out",
+    "churned": "Wasfaty churned refills",
+    "types": "Order types",
+    "none": "none",
+    "typesLoading": "Loading the order types…",
+    "typesFailed": "The order types could not be loaded.",
+    "typesEmpty": "No order types to leave out.",
+    "clear": "Clear"
+  },
   "loading": "Loading…",
   "failedTitle": "The statistics could not be loaded",
   "failed": "The statistics could not be loaded. Try again in a moment.",

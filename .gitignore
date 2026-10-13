@@ -114,3 +114,5 @@ tools/.sap-export-store-shots/
 
 # Receipt replay drive screenshots (spec 470)
 tools/.sync-console-replay-shots/
+# Delivery statistics drive screenshots (tools/delivery-statistics-*-drive.mjs, tickets 484-487)
+tools/.delivery-statistics-shots/

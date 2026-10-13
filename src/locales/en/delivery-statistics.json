@@ -77,6 +77,16 @@
     "caption": "Avg hand-over",
     "unit": "min"
   },
+  "chart": {
+    "caption": {
+      "hour": "Came in and handed over · by the hour",
+      "day": "Came in and handed over · by the day"
+    },
+    "label": "Came in and handed over, per bucket",
+    "hint": "Point at a column, or focus the chart and use the arrow keys, to read its values.",
+    "empty": "The server sent no buckets for this period.",
+    "readout": "<v>{{bucket}}</v> · Came in <v>{{cameIn}}</v> · Handed over <v>{{handedOver}}</v>"
+  },
   "table": {
     "store": "Store",
     "trips": "Trips",

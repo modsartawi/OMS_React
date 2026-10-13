@@ -33,6 +33,12 @@
 //      with one store chosen the table stays, showing that one row; the store column is pinned to
 //      the reading start (left in LTR, right in RTL).
 //
+//  13. (ticket 486) the chart: Today draws 24 hourly buckets, every third hour labelled; a 31-day
+//      range draws 31 daily buckets labelled by day of the month; one axis whose top is the round
+//      step over the larger series; time runs in reading order (the first bucket at the left in LTR,
+//      at the right in RTL, its label under it); hovering a column, or the arrow keys on the focused
+//      plot, writes its bucket and two values in the readout, each isolated; a real 0 reads 0.
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
@@ -628,10 +634,151 @@ async function driveTable(dir) {
   await context.close()
 }
 
+// ── 13 (486): the chart ───────────────────────────────────────────────────────────────────────
+/** Every bucket from the asked From to To, by the asked granularity — as the door sends them, zeros included. */
+const seriesFor = (q) => {
+  const from = q.get('From')
+  const to = q.get('To')
+  if (q.get('Granularity') === 'hour')
+    return Array.from({ length: 24 }, (_, h) => ({
+      bucket: `${from}T${pad(h)}:00:00`,
+      cameIn: h === 9 ? 12 : (h * 7) % 23,
+      handedOver: h === 9 ? 7 : (h * 5) % 19,
+    }))
+  const out = []
+  const [y, m, d] = from.split('-').map(Number)
+  for (let i = 0; i < 62; i++) {
+    const b = day(new Date(y, m - 1, d + i))
+    out.push({ bucket: `${b}T00:00:00`, cameIn: 40 + i, handedOver: i % 4 === 0 ? 0 : 30 + i })
+    if (b === to) break
+  }
+  return out
+}
+
+/** Each column's and each label's centre x, in bucket order, and the axes' text. */
+const chartGeometry = (page) =>
+  page.evaluate(() => {
+    const centre = (el) => {
+      const r = el.getBoundingClientRect()
+      return r.left + r.width / 2
+    }
+    return {
+      columns: [...document.querySelectorAll('[data-chart-column]')].map((g) => centre(g.querySelector('rect'))),
+      labels: [...document.querySelectorAll('[data-chart-label]')].map(centre),
+      texts: [...document.querySelectorAll('[data-chart-label]')].map((e) => e.textContent.trim()),
+      isolatedLabels: [...document.querySelectorAll('[data-chart-label]')]
+        .filter((e) => e.textContent.trim())
+        .every((e) => e.querySelector('bdi[dir="ltr"]')),
+      axis: [...document.querySelectorAll('[data-chart-axis] bdi[dir="ltr"]')].map((e) => e.textContent),
+    }
+  })
+
+async function driveChart(dir) {
+  const label = dir
+  const { context, page, errors } = await open(dir, { answer: (q) => statistics({ series: seriesFor(q) }) })
+  await page.goto(`${BASE}/oms/delivery-statistics`)
+  await page.locator('[data-statistics-band="chart"] [data-chart-column]').first().waitFor({ timeout: 20000 })
+
+  // Today, by the hour.
+  const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
+  check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['flow', 'misses', 'chart', 'stores']), bands.join(','))
+  const today = await chartGeometry(page)
+  check(
+    `${label}: Today draws 24 hourly buckets`,
+    today.columns.length === 24 && (await page.locator('[data-chart-granularity="hour"]').count()) === 1,
+    String(today.columns.length),
+  )
+  check(
+    `${label}: every third hour is labelled "HH", isolated`,
+    same(today.texts.filter(Boolean), ['00', '03', '06', '09', '12', '15', '18', '21']) && today.isolatedLabels,
+    today.texts.join('|'),
+  )
+  check(`${label}: one axis, its top the round step over the larger series (22 → 30)`, same(today.axis, ['30', '20', '10', '0']), today.axis.join(','))
+  const forward = (xs) => xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
+  check(
+    `${label}: time runs in reading order (${dir === 'rtl' ? 'right to left' : 'left to right'})`,
+    forward(today.columns),
+    today.columns.map(Math.round).join(','),
+  )
+  check(
+    `${label}: each label sits under its own column`,
+    today.labels.length === 24 && today.labels.every((x, i) => Math.abs(x - today.columns[i]) < 3),
+    today.labels.map((x, i) => Math.round(x - today.columns[i])).join(','),
+  )
+  const bars = await page
+    .locator('[data-chart-column="9"] [data-chart-bar]')
+    .evaluateAll((els) => els.map((e) => [e.getAttribute('data-chart-bar'), e.getBoundingClientRect().left]))
+  check(
+    `${label}: Came in and Handed over side by side, Came in first in reading order`,
+    bars.length === 2 && bars[0][0] === 'cameIn' && (dir === 'rtl' ? bars[0][1] > bars[1][1] : bars[0][1] < bars[1][1]),
+    JSON.stringify(bars),
+  )
+  const empty = await page.locator('[data-chart-column="0"] [data-chart-bar]').count()
+  check(`${label}: a bucket of zeros draws no column`, empty === 0, String(empty))
+
+  // The readout on hover.
+  const readout = page.locator('[data-chart-readout]')
+  check(
+    `${label}: before any hover the readout says how to read the chart`,
+    (await readout.getAttribute('data-chart-readout')) === '' && /Point at a column/.test(await readout.innerText()),
+  )
+  await page.locator('[data-chart-column="9"] rect').first().hover()
+  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: hovering 09:00 reads its two values, each isolated`,
+    (await readout.innerText()) === '09:00 · Came in 12 · Handed over 7' &&
+      same(await readout.locator('bdi[dir="ltr"]').allTextContents(), ['09:00', '12', '7']),
+    await readout.innerText(),
+  )
+  await page.locator('[data-chart-column="0"] rect').first().hover()
+  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
+  check(`${label}: a real 0 reads 0`, (await readout.innerText()) === '00:00 · Came in 0 · Handed over 0', await readout.innerText())
+  await page.locator('[data-chart-column="9"] rect').first().hover()
+  await page.locator('[data-chart-readout="9"]').waitFor({ timeout: 5000 })
+  await page.screenshot({ path: `${SHOTS}/${dir}-chart-today.png`, fullPage: true })
+  await page.mouse.move(5, 5)
+  await page.locator('[data-chart-readout=""]').waitFor({ timeout: 5000 })
+  check(`${label}: leaving the chart clears the readout`, true)
+
+  // The keyboard: focus the plot, step forward with the arrow that points along the reading direction.
+  await page.locator('[data-chart-plot]').focus()
+  await page.locator('[data-chart-readout="0"]').waitFor({ timeout: 5000 })
+  await page.keyboard.press(dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight')
+  await page.locator('[data-chart-readout="1"]').waitFor({ timeout: 5000 })
+  await page.keyboard.press('End')
+  await page.locator('[data-chart-readout="23"]').waitFor({ timeout: 5000 })
+  check(`${label}: the arrow keys step through the buckets in reading order`, (await readout.innerText()).startsWith('23:00 · '), await readout.innerText())
+
+  // A 31-day range, by the day.
+  await page.goto(`${BASE}/oms/delivery-statistics?period=range&pick=custom&from=${daysAgo(30)}&to=${TODAY}`)
+  await page.locator('[data-chart-granularity="day"] [data-chart-column]').first().waitFor({ timeout: 20000 })
+  const range = await chartGeometry(page)
+  const dayOf = (n) => String(Number(daysAgo(n).slice(8)))
+  check(`${label}: a 31-day range draws 31 daily buckets`, range.columns.length === 31, String(range.columns.length))
+  check(
+    `${label}: days are labelled by day of the month, every fifth`,
+    same(range.texts.filter(Boolean), [30, 25, 20, 15, 10, 5, 0].map(dayOf)) && range.isolatedLabels,
+    range.texts.join('|'),
+  )
+  check(`${label}: the range runs in reading order too`, forward(range.columns), range.columns.map(Math.round).join(','))
+  await page.locator('[data-chart-column="30"] rect').first().hover()
+  await page.locator('[data-chart-readout="30"]').waitFor({ timeout: 5000 })
+  check(
+    `${label}: hovering the last day reads its date and values`,
+    (await readout.innerText()) === `${TODAY} · Came in 70 · Handed over 60`,
+    await readout.innerText(),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-chart-range31.png`, fullPage: true })
+  check(`${label}: no page errors (chart)`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await drive('ltr')
 await drive('rtl')
 await driveTable('ltr')
 await driveTable('rtl')
+await driveChart('ltr')
+await driveChart('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

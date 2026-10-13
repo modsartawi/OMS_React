@@ -143,6 +143,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/central-invoice/CentralInvoicesPage')).default,
         }),
       },
+      // Delivery statistics (ticket 484, BackOffice brief 2641) — the till's Statistics across every
+      // store, behind the OMS list grant on the shared OMS probe. Read-only.
+      {
+        path: 'oms/delivery-statistics',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
+        }),
+      },
       // Donor requests (ticket 431, spec 430) — every store's donor asks, behind its own flag on
       // the shared OMS probe. `?request=<no>` seeds a one-request search (434's link).
       {

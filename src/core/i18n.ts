@@ -93,6 +93,10 @@ import syncConsole from '@/locales/en/sync-console.json'
 // ONLY like the sync console (spec 2579 Out of Scope: no Arabic UI), so there is no `ar` bundle.
 // 462–465 add their keys here rather than minting a second namespace.
 import sapExportConsole from '@/locales/en/sap-export-console.json'
+// Delivery statistics (BackOffice brief 2641, ticket 484). Namespace == feature name, English and
+// Arabic together. 485–487 add their keys here rather than minting a second namespace.
+import deliveryStatistics from '@/locales/en/delivery-statistics.json'
+import deliveryStatisticsAr from '@/locales/ar/delivery-statistics.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -100,7 +104,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'delivery-statistics'],
   resources: {
     en: {
       common,
@@ -138,6 +142,7 @@ i18n.use(initReactI18next).init({
       'materials-detail': materialsDetail,
       'sync-console': syncConsole,
       'sap-export-console': sapExportConsole,
+      'delivery-statistics': deliveryStatistics,
     },
     ar: {
       document: documentAr,
@@ -151,6 +156,7 @@ i18n.use(initReactI18next).init({
       'materials-stock-check': materialsStockCheckAr,
       'materials-gs1-check': materialsGs1CheckAr,
       'materials-detail': materialsDetailAr,
+      'delivery-statistics': deliveryStatisticsAr,
     },
   },
   interpolation: { escapeValue: false },

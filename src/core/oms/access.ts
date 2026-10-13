@@ -50,3 +50,10 @@ export const canOpenGeography = (r: OmsAccessResult | null | undefined): boolean
 /** Document source users (ticket 438): the leaf's and the page gate's one predicate. */
 export const canOpenDocumentSourceUsers = (r: OmsAccessResult | null | undefined): boolean =>
   omsGrants(r).canOpenDocumentSourceUsers
+
+/**
+ * Delivery statistics (ticket 484, BackOffice 2641): the leaf's and the page gate's one predicate.
+ * Not a spec 430 flag — the door checks the OMS LIST grant (`BackOfficeScreen[DocumentList,03]`),
+ * so this reads `canOpenList`. If the owner swaps in a dedicated statistics grant, only this changes.
+ */
+export const canOpenDeliveryStatistics = (r: OmsAccessResult | null | undefined): boolean => r?.canOpenList === true

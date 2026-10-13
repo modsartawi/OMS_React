@@ -292,3 +292,22 @@ describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ti
       expect(isActive(markedLeaf(MENU, path)!, path)).toBe(true)
   })
 })
+
+describe('the Delivery statistics leaf (ticket 484)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'delivery-statistics:menu.deliveryStatistics')!
+
+  it('sits last in the OMS group, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.at(-1)).toBe('delivery-statistics:menu.deliveryStatistics')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/delivery-statistics')).map((i) => i.labelKey)).toEqual([
+      'delivery-statistics:menu.deliveryStatistics',
+    ])
+  })
+
+  it('🚩 reads the OMS LIST grant off the ONE OMS probe entry, and fails closed without it', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: false })).toBe(true)
+    expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
+  })
+})

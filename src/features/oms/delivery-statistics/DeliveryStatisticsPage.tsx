@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type { DeliveryStatisticsFlow, DeliveryStatisticsMisses } from '@/core/models/delivery-statistics'
 import { omsAccessQuery } from '@/core/oms/api'
@@ -14,6 +14,7 @@ import { formatRange } from '@/core/util/bidi'
 import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
 import { hasFigure, readAverage, readFigure } from './figures'
+import { readLanes, showsUnspecified, type Lane } from './lanes'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
 import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
@@ -30,8 +31,11 @@ import { FIELD, INPUT } from './controls'
  * never Delivered + Picked up; a figure the server leaves out reads "—", never 0.
  *
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
- * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the flow band, the misses band with
- * Avg hand-over, the Came in / Handed over chart (486, `SeriesChart`) and the per-store table (487, `StoreTable`).
+ * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the store-wide group (Came in,
+ * Handed over and its Delivered | Picked up pair, Avg hand-over, Unspecified), the Delivery and Pick-up
+ * lanes (489, `lanes.ts`), the misses band, the Came in / Handed over chart (486, `SeriesChart`) and the
+ * per-store table (487, `StoreTable`). The lanes are the server's `tracks`, never derived from the
+ * store-wide figures nor added into them.
  *
  * Behind `canOpenDeliveryStatistics` on the ONE shared OMS probe — the predicate the menu leaf
  * reads. 🚩 Its door (`SdDocumentWeb/StoreStatistics`, BackOffice 2641) is not built yet.
@@ -62,11 +66,12 @@ function useMinuteClock(): Date {
 }
 
 /**
- * The stages, as on the till's lane: they end at Handed over. Delivered (DeliveryType D, home delivery) and
- * Picked up (P, pick in store) are Handed over's two halves and sit apart from the stages (`SPLIT`), so a
- * pick-in-store hand-over never reads as one that went out for delivery.
+ * The store-wide group, as on the till's rail: Came in and Handed over. Delivered (DeliveryType D, home
+ * delivery) and Picked up (P, pick in store) are Handed over's two halves and sit apart from it (`SPLIT`).
+ * The store-wide Made ready and Out for delivery are not drawn (decision A, 2026-10-14): the lanes carry
+ * the stages, and those two stay on the wire for the table's All view.
  */
-const FLOW: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'madeReady', 'outForDelivery', 'handedOver']
+const STORE_WIDE: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'handedOver']
 const SPLIT: readonly (keyof DeliveryStatisticsFlow)[] = ['delivered', 'pickedUp']
 const MISSES: readonly (keyof DeliveryStatisticsMisses)[] = ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']
 
@@ -141,23 +146,18 @@ function Statistics() {
 
       {data && (
         <>
-          <section className="flex flex-col gap-2" data-statistics-band="flow">
-            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.flow')}</h2>
+          <section className="flex flex-col gap-2" data-statistics-band="storeWide">
+            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.storeWide')}</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
-              {FLOW.map((key) => (
+              {STORE_WIDE.map((key) => (
                 <Tile key={key} id={key} caption={t(`flow.${key}`)} value={readFigure(data.flow[key], dash)}>
-                  {key === 'outForDelivery' && (
-                    <span className="text-xs text-muted-foreground" data-figure="trips">
-                      <Trans t={t} i18nKey="flow.trips" values={{ n: readFigure(data.flow.trips, dash) }} components={{ v: <Ltr /> }} />
-                    </span>
-                  )}
                   {key === 'handedOver' && <span className="text-xs text-muted-foreground">{t('flow.handedOverNote')}</span>}
                 </Tile>
               ))}
               <div
                 role="group"
                 aria-labelledby="statistics-split-caption"
-                className="col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-dashed border-border/60 p-2 sm:col-span-4 xl:col-span-2"
+                className="col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-dashed border-border/60 p-2"
                 data-statistics-split=""
               >
                 <span id="statistics-split-caption" className="col-span-2 text-xs font-medium text-muted-foreground">
@@ -169,15 +169,7 @@ function Statistics() {
                   </Tile>
                 ))}
               </div>
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-2" data-statistics-band="misses">
-            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.misses')}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-              {MISSES.map((key) => (
-                <Tile key={key} id={key} caption={t(`misses.${key}`)} value={readFigure(data.misses[key], dash)} accent={MISS_ACCENT[key]} />
-              ))}
+              {/* Its own tile after the pair: the "Delivered + picked up" note is about the count, not this average. */}
               <Tile
                 id="avgHandOver"
                 caption={t('avgHandOver.caption')}
@@ -186,6 +178,24 @@ function Statistics() {
                 unit={hasFigure(data.avgHandOverMinutes) ? t('avgHandOver.unit') : undefined}
                 accent="border-t-primary"
               />
+              {showsUnspecified(data.unspecified) && (
+                <Tile id="unspecified" caption={t('unspecified.caption')} value={readFigure(data.unspecified, dash)} accent="border-t-attention">
+                  <span className="text-xs text-muted-foreground">{t('unspecified.note')}</span>
+                </Tile>
+              )}
+            </div>
+          </section>
+
+          {readLanes(data.tracks, dash).map((lane) => (
+            <LaneBand key={lane.track} lane={lane} />
+          ))}
+
+          <section className="flex flex-col gap-2" data-statistics-band="misses">
+            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.misses')}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              {MISSES.map((key) => (
+                <Tile key={key} id={key} caption={t(`misses.${key}`)} value={readFigure(data.misses[key], dash)} accent={MISS_ACCENT[key]} />
+              ))}
             </div>
           </section>
 
@@ -292,6 +302,53 @@ function PeriodBar({
       {/* At the inline end, so a tab's own controls coming and going never move the scope. */}
       {children && <div className="ms-auto flex flex-wrap items-end gap-3">{children}</div>}
     </div>
+  )
+}
+
+/**
+ * One track's lane (489): its stages in order with a chevron between each — logical, so it mirrors with
+ * the text direction (`rtl:rotate-180`) and the lane reads in reading order — then the lane's own
+ * average, set apart and with no chevron: it is not one more stage (as on the till).
+ */
+function LaneBand({ lane }: { lane: Lane }) {
+  const { t } = useTranslation('delivery-statistics')
+  const { track } = lane
+  return (
+    <section className="flex flex-col gap-2" data-statistics-band={track} aria-labelledby={`statistics-lane-${track}`}>
+      <h2 id={`statistics-lane-${track}`} className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {t(`lane.${track}`)}
+      </h2>
+      {/* The stages never wrap mid-lane (a wrapped row would open on a chevron from nothing): one row
+          from `sm` up, a plain stack below it with no chevrons; the average sits after them from `lg`. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+        <ol className="grid min-w-0 flex-1 gap-3 sm:flex sm:items-stretch sm:gap-1" data-statistics-stages="">
+          {lane.stages.map((stage, i) => (
+            <li key={stage.id} className="flex min-w-0 flex-1 items-center gap-1">
+              {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block rtl:rotate-180" aria-hidden />}
+              {/* A grid, so every tile in the lane stretches to the tallest (Out for delivery's Trips line). */}
+              <div className="grid min-w-0 flex-1 self-stretch">
+                <Tile id={`${track}.${stage.id}`} caption={t(`flow.${stage.id}`)} value={stage.value}>
+                  {stage.trips !== undefined && (
+                    <span className="text-xs text-muted-foreground" data-figure={`${track}.trips`}>
+                      <Trans t={t} i18nKey="flow.trips" values={{ n: stage.trips }} components={{ v: <Ltr /> }} />
+                    </span>
+                  )}
+                </Tile>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="lg:w-56 lg:shrink-0 lg:border-s lg:border-border/60 lg:ps-3" data-statistics-lane-average="">
+          <Tile
+            id={`${track}.avg`}
+            caption={t(`lane.avg.${track}`)}
+            value={lane.average.value}
+            unit={lane.average.hasUnit ? t('avgHandOver.unit') : undefined}
+            accent="border-t-primary"
+          />
+        </div>
+      </div>
+    </section>
   )
 }
 

@@ -25,6 +25,9 @@ export const deliveryStatisticsApi = {
       misses: data?.misses ?? {},
       avgHandOverMinutes: data?.avgHandOverMinutes ?? null,
       series: data?.series ?? [],
+      // Passed through as sent (brief 2660): an older server's absent split stays absent and reads "—".
+      tracks: data?.tracks ?? undefined,
+      unspecified: data?.unspecified ?? undefined,
       stores: data?.stores ?? [],
     }
   },

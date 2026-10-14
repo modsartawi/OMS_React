@@ -53,9 +53,21 @@
     }
   },
   "band": {
-    "flow": "Deliveries",
+    "storeWide": "All deliveries",
     "misses": "Did not go to plan",
     "stores": "By store"
+  },
+  "lane": {
+    "delivery": "Delivery",
+    "pickUp": "Pick-up",
+    "avg": {
+      "delivery": "Avg time to deliver",
+      "pickUp": "Avg time to ready"
+    }
+  },
+  "unspecified": {
+    "caption": "Unspecified",
+    "note": "Neither Delivery nor Pick-up"
   },
   "flow": {
     "cameIn": "Came in",

@@ -39,6 +39,23 @@
 //      at the right in RTL, its label under it); hovering a column, or the arrow keys on the focused
 //      plot, writes its bucket and two values in the readout, each isolated; a real 0 reads 0.
 //
+//  14. (ticket 489, brief 2660) the two lanes. The stub adds EXACTLY the brief's optional fields, on
+//      the totals and on every store row:
+//        tracks: { delivery: { flow: { cameIn, madeReady, outForDelivery, trips, handedOver },
+//                              misses: { …the five }, avgHandOverMinutes },
+//                  pickUp:   { flow: { cameIn, madeReady, handedOver }, misses: { …the five },
+//                              avgHandOverMinutes } },
+//        unspecified
+//      and the older-server fixture sends NO `tracks` and NO `unspecified` at all. It asserts the
+//      store-wide group (Came in, Handed over, the Delivered | Picked up pair, Avg hand-over, the
+//      Unspecified tile) with no store-wide Made ready / Out for delivery tile (decision A); the
+//      Delivery lane's four stages ending at Delivered with "Trips N" on Out for delivery; the
+//      Pick-up lane's three ending at Picked up with no Out stage; each lane's average after its
+//      stages with no chevron before it; the stages in READING order (left→right in LTR,
+//      right→left in RTL, the chevrons mirrored); the lane figures are the stub's tracks, not the
+//      totals; Unspecified hidden at 0 (on a 2658 answer: tracks without misses) and when absent;
+//      and the older server reads "—" across both lanes and both averages, never 0.
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
@@ -74,12 +91,35 @@ const YESTERDAY = daysAgo(1)
 // ── The brief's fields, exactly ────────────────────────────────────────────────────────────────
 const flow = (over = {}) => ({ cameIn: 1234, madeReady: 1100, outForDelivery: 380, trips: 412, delivered: 640, pickedUp: 455, handedOver: 1093, ...over })
 const misses = (over = {}) => ({ returnedBack: 21, rejected: 0, rescheduled: 9, closeRequested: 4, closedOrCancelled: 17, ...over })
-const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, ...over })
+// 489: the split by track (BackOffice 2658-2660). Its figures are NOT the totals' and do not add up to
+// them (a stray out-for-delivery on a pick-up, the Unspecified deliveries): the page must read each as sent.
+const tracks = () => ({
+  delivery: {
+    flow: { cameIn: 702, madeReady: 655, outForDelivery: 377, trips: 409, handedOver: 640 },
+    misses: misses({ returnedBack: 20, rescheduled: 8, closeRequested: 1, closedOrCancelled: 11 }),
+    avgHandOverMinutes: 96.25,
+  },
+  pickUp: {
+    flow: { cameIn: 529, madeReady: 444, handedOver: 455 },
+    misses: misses({ returnedBack: 0, rescheduled: 0, closeRequested: 3, closedOrCancelled: 6 }),
+    avgHandOverMinutes: 31.5,
+  },
+})
+/** A 2658 server: tracks without their misses. */
+const tracksWithoutMisses = () => {
+  const { delivery, pickUp } = tracks()
+  const { misses: _d, ...d } = delivery
+  const { misses: _p, ...p } = pickUp
+  return { delivery: d, pickUp: p }
+}
+const store = (storeCode, over = {}) => ({ storeCode, flow: flow(), misses: misses(), avgHandOverMinutes: 92.4, tracks: tracks(), unspecified: 3, ...over })
 const statistics = (over = {}) => ({
   asOf: `${TODAY}T09:35:00`,
   flow: flow(),
   misses: misses(),
   avgHandOverMinutes: 87.46,
+  tracks: tracks(),
+  unspecified: 3,
   series: [
     { bucket: `${TODAY}T08:00:00`, cameIn: 0, handedOver: 0 },
     { bucket: `${TODAY}T09:00:00`, cameIn: 12, handedOver: 7 },
@@ -87,10 +127,15 @@ const statistics = (over = {}) => ({
   stores: [store('P001'), store('P019')],
   ...over,
 })
-/** An older SIS.Api: no `trips` at all, and nothing handed over yet (a null average). */
+/**
+ * An older SIS.Api: no `trips` at all, nothing handed over yet (a null average), and — older than
+ * 2658 — no `tracks` and no `unspecified` anywhere, the keys absent rather than null.
+ */
 const olderServer = () => {
   const { trips: _dropped, ...noTrips } = flow({ handedOver: 0, delivered: 0, pickedUp: 0 })
-  return statistics({ flow: noTrips, avgHandOverMinutes: null, stores: [{ ...store('P001'), flow: noTrips, avgHandOverMinutes: null }] })
+  const { tracks: _t, unspecified: _u, ...older } = statistics({ flow: noTrips, avgHandOverMinutes: null })
+  const { tracks: _st, unspecified: _su, ...olderStore } = store('P001', { flow: noTrips, avgHandOverMinutes: null })
+  return { ...older, stores: [olderStore] }
 }
 
 /** Three stores whose figures rank differently, every field sent; one handed nothing over (a null average). */
@@ -162,7 +207,38 @@ const PDI = '⁩'
 const omsLinks = (page) =>
   page.locator('nav a[href^="/oms/"]').evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute('href')))])
 
-const waitFigures = (page) => page.locator('[data-statistics-band="flow"]').waitFor({ timeout: 20000 })
+const waitFigures = (page) => page.locator('[data-statistics-band="storeWide"]').waitFor({ timeout: 20000 })
+
+/** A band's tiles, in DOM order. */
+const tilesOf = (page, selector) => page.locator(`${selector} [data-figure-tile]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
+
+/**
+ * One lane as drawn: its stage tiles and their captions in DOM order, each stage's left edge, the
+ * chevrons between them (count and each one's `rotate`), and where the average sits.
+ */
+const laneOf = (page, track) =>
+  page.evaluate((track) => {
+    const band = document.querySelector(`[data-statistics-band="${track}"]`)
+    if (!band) return null
+    const stages = [...band.querySelectorAll('[data-statistics-stages] [data-figure-tile]')]
+    const avg = band.querySelector('[data-statistics-lane-average] [data-figure-tile]')
+    const chevrons = [...band.querySelectorAll('[data-statistics-stages] svg')]
+    return {
+      heading: band.querySelector('h2')?.textContent.trim(),
+      stages: stages.map((e) => e.getAttribute('data-figure-tile')),
+      captions: stages.map((e) => e.firstElementChild.textContent.trim()),
+      lefts: stages.map((e) => Math.round(e.getBoundingClientRect().left)),
+      chevrons: chevrons.length,
+      rotations: chevrons.map((c) => getComputedStyle(c).rotate),
+      avg: avg?.getAttribute('data-figure-tile') ?? null,
+      avgCaption: avg?.firstElementChild.textContent.trim() ?? null,
+      avgLeft: avg ? Math.round(avg.getBoundingClientRect().left) : null,
+      avgChevrons: band.querySelectorAll('[data-statistics-lane-average] svg').length,
+    }
+  }, track)
+
+/** Strictly increasing (LTR) or decreasing (RTL) — the stages in reading order. */
+const inReadingOrder = (xs, dir) => xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
 
 /** Every figure as drawn: its text, and whether the number sits in a <bdi dir="ltr">. */
 const figures = (page) =>
@@ -251,8 +327,94 @@ async function drive(dir) {
 
     // 4: the figures
     const f = await figures(page)
-    const order = await page.locator('[data-statistics-band="flow"] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
-    check(`${label}: the flow band in order, ending at Handed over, then its two halves`, same(order, ['cameIn', 'madeReady', 'outForDelivery', 'handedOver', 'delivered', 'pickedUp']), order.join(','))
+    const order = await tilesOf(page, '[data-statistics-band="storeWide"]')
+    check(
+      `${label}: the store-wide group: Came in, Handed over, its two halves, Avg hand-over, Unspecified — no store-wide Made ready / Out for delivery (decision A)`,
+      same(order, ['cameIn', 'handedOver', 'delivered', 'pickedUp', 'avgHandOver', 'unspecified']),
+      order.join(','),
+    )
+    const bandOrder = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
+    check(`${label}: the store-wide group, then the Delivery lane, then the Pick-up lane, then the misses`, same(bandOrder.slice(0, 4), ['storeWide', 'delivery', 'pickUp', 'misses']), bandOrder.join(','))
+
+    // 489: the two lanes
+    const dl = await laneOf(page, 'delivery')
+    const pl = await laneOf(page, 'pickUp')
+    check(
+      `${label}: the Delivery lane — Came in → Made ready → Out for delivery → Delivered`,
+      dl?.heading === 'Delivery' &&
+        same(dl.stages, ['delivery.cameIn', 'delivery.madeReady', 'delivery.outForDelivery', 'delivery.delivered']) &&
+        same(dl.captions, ['Came in', 'Made ready', 'Out for delivery', 'Delivered']),
+      JSON.stringify(dl),
+    )
+    check(
+      `${label}: the Pick-up lane — Came in → Made ready → Picked up, no Out for delivery`,
+      pl?.heading === 'Pick-up' &&
+        same(pl.stages, ['pickUp.cameIn', 'pickUp.madeReady', 'pickUp.pickedUp']) &&
+        same(pl.captions, ['Came in', 'Made ready', 'Picked up']) &&
+        (await page.locator('[data-statistics-band="pickUp"] [data-figure-tile*="outForDelivery"], [data-statistics-band="pickUp"] [data-figure*="trips"]').count()) === 0,
+      JSON.stringify(pl),
+    )
+    check(
+      `${label}: each lane's stages read in reading order, a chevron between each, mirrored under RTL`,
+      inReadingOrder(dl.lefts, dir) &&
+        inReadingOrder(pl.lefts, dir) &&
+        dl.chevrons === 3 &&
+        pl.chevrons === 2 &&
+        [...dl.rotations, ...pl.rotations].every((r) => (dir === 'rtl' ? r === '180deg' : r === 'none' || r === '0deg')),
+      `${dl.lefts} | ${pl.lefts} | ${dl.rotations} ${pl.rotations}`,
+    )
+    check(
+      `${label}: each lane's average comes after its stages, with no chevron: Avg time to deliver, Avg time to ready`,
+      dl.avg === 'delivery.avg' &&
+        dl.avgCaption === 'Avg time to deliver' &&
+        pl.avg === 'pickUp.avg' &&
+        pl.avgCaption === 'Avg time to ready' &&
+        dl.avgChevrons === 0 &&
+        pl.avgChevrons === 0 &&
+        inReadingOrder([...dl.lefts, dl.avgLeft], dir) &&
+        inReadingOrder([...pl.lefts, pl.avgLeft], dir),
+      `${dl.avg} ${dl.avgCaption} ${dl.avgLeft} · ${pl.avg} ${pl.avgCaption} ${pl.avgLeft}`,
+    )
+    check(
+      `${label}: the lanes read the stub's tracks as sent (not the totals, not derived)`,
+      f['delivery.cameIn']?.bdi === '702' &&
+        f['delivery.madeReady']?.bdi === '655' &&
+        f['delivery.outForDelivery']?.bdi === '377' &&
+        f['delivery.delivered']?.bdi === '640' &&
+        f['pickUp.cameIn']?.bdi === '529' &&
+        f['pickUp.madeReady']?.bdi === '444' &&
+        f['pickUp.pickedUp']?.bdi === '455',
+      JSON.stringify(Object.fromEntries(Object.entries(f).filter(([k]) => k.includes('.')).map(([k, v]) => [k, v.bdi]))),
+    )
+    check(
+      `${label}: Trips is the Delivery lane's Out for delivery sub-caption, from tracks.delivery.flow.trips`,
+      (await page.locator('[data-figure-tile="delivery.outForDelivery"] [data-figure="delivery.trips"]').count()) === 1 &&
+        f['delivery.trips']?.text === 'Trips 409' &&
+        f['delivery.trips'].bdi === '409' &&
+        (await page.locator('[data-figure="trips"]').count()) === 0,
+      JSON.stringify(f['delivery.trips']),
+    )
+    check(
+      `${label}: each lane's average reads its minutes with the unit`,
+      f['delivery.avg']?.bdi === '96.25' && f['delivery.avg'].text === '96.25min' && f['pickUp.avg']?.bdi === '31.5' && f['pickUp.avg'].text === '31.5min',
+      `${JSON.stringify(f['delivery.avg'])} ${JSON.stringify(f['pickUp.avg'])}`,
+    )
+    // A narrower window: the stages stay on one row (a wrapped row would open on a stray chevron).
+    await page.setViewportSize({ width: 1000, height: 1000 })
+    await page.waitForTimeout(200)
+    const rowTops = await page.evaluate(() =>
+      ['delivery', 'pickUp'].map((t) => [...document.querySelectorAll(`[data-statistics-band="${t}"] [data-statistics-stages] [data-figure-tile]`)].map((e) => Math.round(e.getBoundingClientRect().top))),
+    )
+    const narrowDl = await laneOf(page, 'delivery')
+    check(
+      `${label}: at 1000px each lane's stages still share one row, in reading order`,
+      rowTops.every((tops) => tops.length > 0 && tops.every((y) => y === tops[0])) && inReadingOrder(narrowDl.lefts, dir),
+      JSON.stringify(rowTops),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-today-narrow.png`, fullPage: true })
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await page.waitForTimeout(200)
+    check(`${label}: the Unspecified tile shows the server's count`, f.unspecified?.bdi === '3' && /Unspecified/.test(await page.locator('[data-figure-tile="unspecified"]').innerText()), JSON.stringify(f.unspecified))
     const split = await page.locator('[data-statistics-split] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
     const splitText = await page.locator('[data-statistics-split]').innerText()
     check(
@@ -263,16 +425,11 @@ async function drive(dir) {
     check(`${label}: Handed over says what it holds`, /Delivered \+ picked up/.test(await page.locator('[data-figure-tile="handedOver"]').innerText()))
     const missOrder = await page.locator('[data-statistics-band="misses"] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
     check(
-      `${label}: the misses band in order, then Avg hand-over`,
-      same(missOrder, ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOver']),
+      `${label}: the misses band in order; Avg hand-over has moved to the store-wide group`,
+      same(missOrder, ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']),
       missOrder.join(','),
     )
     check(`${label}: Came in reads the server's count, grouped`, f.cameIn?.bdi === '1,234', JSON.stringify(f.cameIn))
-    check(
-      `${label}: Trips is Out for delivery's sub-caption`,
-      (await page.locator('[data-figure-tile="outForDelivery"] [data-figure="trips"]').count()) === 1 && f.trips?.text === 'Trips 412' && f.trips.bdi === '412',
-      JSON.stringify(f.trips),
-    )
     check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, f.handedOver?.bdi === '1,093', JSON.stringify(f.handedOver))
     check(`${label}: a real 0 reads 0`, f.rejected?.bdi === '0', JSON.stringify(f.rejected))
     check(`${label}: Avg hand-over reads the minutes with its unit`, f.avgHandOver?.bdi === '87.46' && f.avgHandOver.text === '87.46min', JSON.stringify(f.avgHandOver))
@@ -385,9 +542,24 @@ async function drive(dir) {
     await page.goto(`${BASE}/oms/delivery-statistics`)
     await waitFigures(page)
     const f = await figures(page)
-    check(`${label}: a dropped trips reads "—", never 0`, f.trips?.bdi === '—' && f.trips.text === 'Trips —', JSON.stringify(f.trips))
     check(`${label}: a null average reads "—" with no unit, never 0`, f.avgHandOver?.bdi === '—' && f.avgHandOver.text === '—', JSON.stringify(f.avgHandOver))
     check(`${label}: a sent 0 still reads 0 beside them`, f.handedOver?.bdi === '0', JSON.stringify(f.handedOver))
+    // 489: no `tracks` at all — both lanes still drawn, stage for stage, every figure "—".
+    const dl = await laneOf(page, 'delivery')
+    const pl = await laneOf(page, 'pickUp')
+    const laneFigures = Object.entries(f).filter(([k]) => k.startsWith('delivery.') || k.startsWith('pickUp.'))
+    check(
+      `${label}: with no tracks both lanes are drawn, stage for stage`,
+      dl?.stages.length === 4 && pl?.stages.length === 3 && dl.avg === 'delivery.avg' && pl.avg === 'pickUp.avg',
+      `${dl?.stages} | ${pl?.stages}`,
+    )
+    check(
+      `${label}: with no tracks every lane figure reads "—", never 0`,
+      laneFigures.length === 10 && laneFigures.filter(([k]) => !k.endsWith('.trips')).every(([, v]) => v.bdi === '—' && v.text === '—'),
+      JSON.stringify(Object.fromEntries(laneFigures.map(([k, v]) => [k, v.text]))),
+    )
+    check(`${label}: with no tracks the Delivery lane's trips reads "—", never 0`, f['delivery.trips']?.bdi === '—' && f['delivery.trips'].text === 'Trips —', JSON.stringify(f['delivery.trips']))
+    check(`${label}: with no unspecified the Unspecified tile is hidden`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0)
     // 487: the store row reads the same dashes.
     await page.locator('[data-statistics-stores] .ag-row').first().waitFor({ timeout: 20000 })
     const older = await tableRows(page)
@@ -398,6 +570,21 @@ async function drive(dir) {
     )
     await page.screenshot({ path: `${SHOTS}/${dir}-older-server.png`, fullPage: true })
     check(`${label}: no page errors (older server)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 14 (489): a 2658 server — tracks without misses — on a day with no Unspecified delivery ────
+  {
+    const { context, page, errors } = await open(dir, { answer: () => statistics({ tracks: tracksWithoutMisses(), unspecified: 0 }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await waitFigures(page)
+    const f = await figures(page)
+    check(`${label}: Unspecified at 0 hides its tile`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0 && f.unspecified === undefined)
+    check(
+      `${label}: tracks without misses still draw both lanes and their averages`,
+      f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '96.25' && f['pickUp.avg']?.bdi === '31.5',
+    )
+    check(`${label}: no page errors (2658 server)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 
@@ -691,7 +878,7 @@ async function driveChart(dir) {
 
   // Today, by the hour.
   const bands = await page.locator('[data-statistics-band]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-band')))
-  check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['flow', 'misses', 'chart', 'stores']), bands.join(','))
+  check(`${label}: the chart sits between the misses band and the store table`, same(bands, ['storeWide', 'delivery', 'pickUp', 'misses', 'chart', 'stores']), bands.join(','))
   const today = await chartGeometry(page)
   check(
     `${label}: Today draws 24 hourly buckets`,

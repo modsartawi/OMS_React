@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2660-oms-react-statistics-by-track-brief.md
 blocked-by: —
 ---
@@ -61,10 +61,10 @@ model/api · store/logic (pure lane module) · component/route · i18n (en + ar)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `lanes read each track's stages from tracks` — Delivery has four stages ending at Delivered with trips on Out for delivery, Pick-up has three ending at Picked up and no Out stage; each lane carries its own average · pure (vitest)
-- [ ] `no tracks reads every lane figure as the dash, never 0` — absent `tracks`, absent `trips`, `null` average each read "—" · pure (vitest)
-- [ ] `the Unspecified tile shows only for a number above zero` — 3 → shown, 0 → hidden, absent → hidden · pure (vitest)
-- [ ] Drive: `tools/delivery-statistics-drive.mjs` stub emits `tracks` + `unspecified`; asserts the two lanes, their stage order, trips on Delivery, no Out tile on Pick-up, the lane averages, the Unspecified tile; and a second stub with no `tracks` reads "—" across both lanes · flow (Playwright drive) + typecheck
+- [x] `lanes read each track's stages from tracks` — Delivery has four stages ending at Delivered with trips on Out for delivery, Pick-up has three ending at Picked up and no Out stage; each lane carries its own average · pure (vitest)
+- [x] `no tracks reads every lane figure as the dash, never 0` — absent `tracks`, absent `trips`, `null` average each read "—" · pure (vitest)
+- [x] `the Unspecified tile shows only for a number above zero` — 3 → shown, 0 → hidden, absent → hidden · pure (vitest)
+- [x] Drive: `tools/delivery-statistics-drive.mjs` stub emits `tracks` + `unspecified`; asserts the two lanes, their stage order, trips on Delivery, no Out tile on Pick-up, the lane averages, the Unspecified tile; and a second stub with no `tracks` reads "—" across both lanes · flow (Playwright drive) + typecheck
 
 ## Boundaries
 
@@ -84,3 +84,19 @@ lanes (and the all-dash variant) against the stub.
 ## Blocked by
 
 None — can start immediately (after the 488 working-tree commit noted above).
+
+## Comments
+
+**2026-10-14 — built AFK (done).**
+
+- **Model/api:** `core/models/delivery-statistics.ts` gains the optional `tracks` (`DeliveryStatisticsTracks`: `delivery` with `DeliveryTrackFlow`, `pickUp` with `PickUpTrackFlow` — no `outForDelivery` key) and `unspecified`, on the totals and on `DeliveryStatisticsStore`. `api.ts` passes both through as sent (a `null` reads as absent).
+- **Pure lane module:** `lanes.ts` — `readLanes(tracks, dash)` (Delivery: Came in → Made ready → Out for delivery with trips → Delivered; Pick-up: Came in → Made ready → Picked up; each with its own average and a unit only beside a number) and `showsUnspecified`. Nothing derived.
+- **Page:** a store-wide group (Came in, Handed over + note, Delivered | Picked up pair, Avg hand-over moved here, Unspecified tile only when > 0), then the Delivery and Pick-up lanes (`LaneBand`: chevrons between stages, `rtl:rotate-180`; the average set apart after them with no chevron), then the misses band (5 tiles; 490 splits it), chart and table untouched. Store-wide Made ready / Out for delivery tiles gone (decision A).
+- **i18n:** `band.storeWide`, `lane.delivery|pickUp`, `lane.avg.delivery|pickUp`, `unspecified.caption|note` in en + ar (the brief's Arabic verbatim); `band.flow` removed.
+
+**Proof.**
+- vitest `lanes.test.ts` (6 cases incl. the three named) green; full suite 293 files / 5127 tests green.
+- Drive `tools/delivery-statistics-drive.mjs` **204/204** against the stub (LTR + RTL): store-wide group order, band order, both lanes' stages + captions, reading order and mirrored chevrons, lane averages after the stages, trips on Delivery from `tracks.delivery.flow.trips`, no Out stage on Pick-up, Unspecified 3 shown / 0 hidden / absent hidden, a 2658 answer (tracks without misses), and the no-`tracks` fixture reading "—" across both lanes; one row per lane at 1000 px.
+- `npm run typecheck`, `npm run lint` (4 gates), `npm run build` green.
+
+**Outstanding (not this ticket's):** the live door (492), web-vs-till parity, and an owner eyeball of the Arabic rendering (the drive's RTL pass sets direction only; i18n stays `en`). `tools/delivery-statistics-live-drive.mjs` still targets the old `flow` band and must be re-pointed by 492. Decisions logged in `.afk/HITL-489.md` (store-wide heading "All deliveries", the Unspecified note, "Trips N" wording, optional per-track `flow`).

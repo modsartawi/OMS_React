@@ -110,6 +110,26 @@ describe('statisticsFromParams / statisticsToParams', () => {
   })
 })
 
+describe("the table's track switch", () => {
+  it('the track switch round-trips through the URL', () => {
+    expect(from('').track).toBe('all')
+    expect(from('track=delivery').track).toBe('delivery')
+    expect(from('track=pickUp').track).toBe('pickUp')
+    for (const url of ['track=delivery', 'track=pickUp', 'period=yesterday&store=P019&leaveOutTypes=ZO&track=pickUp']) expect(to(from(url))).toBe(url)
+  })
+
+  it('an unknown or blank track reads as All, and All writes nothing', () => {
+    for (const url of ['track=all', 'track=Delivery', 'track=pickup', 'track=', 'track=unspecified']) {
+      expect(from(url).track).toBe('all')
+      expect(to(from(url))).toBe('')
+    }
+  })
+
+  it('the track is not asked of the door: switching it never makes a new call', () => {
+    expect(buildStatisticsQuery(TODAY, query({ track: 'pickUp' }))).toEqual(buildStatisticsQuery(TODAY, query()))
+  })
+})
+
 describe('withLeaveOutType', () => {
   it('ticks a type in, in code order, and ticks it out again', () => {
     const one = withLeaveOutType(query({ leaveOutTypes: ['ZO'] }), 'ZC', true)

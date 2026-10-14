@@ -111,6 +111,12 @@
     "delivered": "Delivered (home delivery)",
     "pickedUp": "Picked up (pick in store)",
     "avgHandOver": "Avg hand-over (min)",
+    "avgToDeliver": "Avg time to deliver (min)",
+    "avgToReady": "Avg time to ready (min)",
+    "track": {
+      "label": "Track",
+      "all": "All"
+    },
     "empty": "No store has figures for this period."
   }
 }

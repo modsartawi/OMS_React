@@ -23,7 +23,7 @@ export type MissId = keyof DeliveryStatisticsMisses
 export const MISSES: readonly MissId[] = ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']
 
 /** The misses a pick-up cannot have (it is never driven): shown on the Pick-up row only when not zero. */
-const NOT_ON_A_PICK_UP: ReadonlySet<MissId> = new Set<MissId>(['returnedBack', 'rejected', 'rescheduled'])
+export const NOT_ON_A_PICK_UP: ReadonlySet<MissId> = new Set<MissId>(['returnedBack', 'rejected', 'rescheduled'])
 
 export interface MissFigure {
   id: MissId

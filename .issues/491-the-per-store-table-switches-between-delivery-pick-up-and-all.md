@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2660-oms-react-statistics-by-track-brief.md
 blocked-by: 489
 ---
@@ -33,10 +33,19 @@ store/logic (`store-rows.ts`, `query.ts`) · component (`StoreTable`) · i18n (e
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `each view's columns are its track's figures in order` — All (with Unspecified), Delivery, Pick-up as the table above · pure (vitest, `store-rows.test.ts`)
-- [ ] `a store row without tracks reads null in every Delivery and Pick-up figure` — and a full row maps each `tracks` figure to its column · pure (vitest)
-- [ ] `the track switch round-trips through the URL` — absent/unknown → All, `delivery`, `pickUp` · pure (vitest, `query.test.ts`)
-- [ ] Drive: switch to each view, check headers, a ranked column, "—" on a stub row without `tracks`, and the URL param · flow (drive) + typecheck
+- [x] `each view's columns are its track's figures in order` — All (with Unspecified), Delivery, Pick-up as the table above · pure (vitest, `store-rows.test.ts`)
+- [x] `a store row without tracks reads null in every Delivery and Pick-up figure` — and a full row maps each `tracks` figure to its column · pure (vitest)
+- [x] `the track switch round-trips through the URL` — absent/unknown → All, `delivery`, `pickUp` · pure (vitest, `query.test.ts`)
+- [x] Drive: switch to each view, check headers, a ranked column, "—" on a stub row without `tracks`, and the URL param · flow (drive) + typecheck
+
+**Proof, as run (2026-10-14):** `store-rows.test.ts` + `query.test.ts` green (91 in the feature, 5142 in the suite);
+typecheck, lint (4 gates) and build clean. `tools/delivery-statistics-drive.mjs` §16 runs in LTR and RTL on the stub
+(two stores with `tracks` and a store row with no `tracks` and no `unspecified`): 284/284. It switches All, then Delivery,
+then Pick-up, then back to All. It checks the headers, each view's default ranking, ascending and descending sorts with
+"—" last, a dash in every Delivery and Pick-up cell of the store row without `tracks`, `track=delivery` and
+`track=pickUp` in the URL, no door call on a switch, a link that opens on Pick-up, and an unknown track reading as All.
+Outstanding, not AFK: the Arabic header and switch rendering by eye (the drive's RTL pass keeps `lng: 'en'`), and the
+live door (492). The rulings taken are in `.afk/HITL-491.md`.
 
 ## Boundaries
 

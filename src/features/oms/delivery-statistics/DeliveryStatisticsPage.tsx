@@ -21,7 +21,7 @@ import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type St
 import ScopeControls from './ScopeControls'
 import SeriesChart from './SeriesChart'
 import StoreTable from './StoreTable'
-import { FIELD, INPUT } from './controls'
+import { FIELD, INPUT, PILL, PILL_GROUP, PILL_OFF, PILL_ON } from './controls'
 
 /**
  * Delivery statistics (ticket 484, BackOffice brief 2641, ADR 0081): the till's POS Statistics view,
@@ -202,7 +202,7 @@ function Statistics() {
           </section>
 
           {params && <SeriesChart series={data.series} granularity={params.Granularity} />}
-          <StoreTable stores={data.stores} />
+          <StoreTable stores={data.stores} track={query.track} onTrack={(track) => update((q) => ({ ...q, track }))} />
         </>
       )}
     </div>
@@ -227,7 +227,7 @@ function PeriodBar({
   const picks: RangePick[] = [...QUICK_PICKS, 'custom']
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3" data-statistics-controls="">
-      <div role="group" aria-label={t('period.label')} className="inline-flex h-9 items-center gap-1 rounded-full border border-border/60 bg-background p-1">
+      <div role="group" aria-label={t('period.label')} className={PILL_GROUP}>
         {PERIOD_TABS.map((tab) => (
           <button
             key={tab}
@@ -248,7 +248,7 @@ function PeriodBar({
             <legend className="mb-1">
               <Trans t={t} i18nKey="period.rangeCaption" values={{ max: String(MAX_RANGE_DAYS) }} components={{ v: <Ltr /> }} />
             </legend>
-            <div className="inline-flex h-9 items-center gap-1 rounded-full border border-border/60 bg-background p-1">
+            <div className={PILL_GROUP}>
               {picks.map((pick) => (
                 <button
                   key={pick}
@@ -382,10 +382,6 @@ function MissesRowBand({ row }: { row: MissesRow }) {
     </div>
   )
 }
-
-const PILL = 'h-7 rounded-full px-3 text-sm font-medium transition-colors'
-const PILL_ON = 'bg-primary text-primary-foreground'
-const PILL_OFF = 'text-muted-foreground hover:bg-muted hover:text-foreground'
 
 /** One figure: its caption, its value isolated whole, and an optional line under it. */
 function Tile({

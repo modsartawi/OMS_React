@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { DeliveryStatisticsFlow, DeliveryStatisticsMisses } from '@/core/models/delivery-statistics'
+import type { DeliveryStatisticsFlow } from '@/core/models/delivery-statistics'
 import { omsAccessQuery } from '@/core/oms/api'
 import { canOpenDeliveryStatistics } from '@/core/oms/access'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -15,6 +15,7 @@ import { formatDateTime, toIsoDate } from '@/core/util/date-format'
 import { deliveryStatisticsApi } from './api'
 import { hasFigure, readAverage, readFigure } from './figures'
 import { readLanes, showsUnspecified, type Lane } from './lanes'
+import { readMissesRows, type MissId, type MissesRow } from './misses-rows'
 import { MAX_RANGE_DAYS, PERIOD_TABS, QUICK_PICKS, resolvePeriod, withPick, withTab, type RangePick } from './period'
 import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type StatisticsQuery } from './query'
 import ScopeControls from './ScopeControls'
@@ -33,9 +34,10 @@ import { FIELD, INPUT } from './controls'
  * Top to bottom, and later slices mount in their slot rather than reshaping it: the control bar
  * (period tabs, then 485's store picker and leave-outs, `ScopeControls`), the store-wide group (Came in,
  * Handed over and its Delivered | Picked up pair, Avg hand-over, Unspecified), the Delivery and Pick-up
- * lanes (489, `lanes.ts`), the misses band, the Came in / Handed over chart (486, `SeriesChart`) and the
- * per-store table (487, `StoreTable`). The lanes are the server's `tracks`, never derived from the
- * store-wide figures nor added into them.
+ * lanes (489, `lanes.ts`), the misses band's Delivery and Pick-up rows (490, `misses-rows.ts`), the
+ * Came in / Handed over chart (486, `SeriesChart`) and the per-store table (487, `StoreTable`). The
+ * lanes and the misses rows are the server's `tracks`, never derived from the store-wide figures nor
+ * added into them.
  *
  * Behind `canOpenDeliveryStatistics` on the ONE shared OMS probe — the predicate the menu leaf
  * reads. 🚩 Its door (`SdDocumentWeb/StoreStatistics`, BackOffice 2641) is not built yet.
@@ -73,10 +75,9 @@ function useMinuteClock(): Date {
  */
 const STORE_WIDE: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'handedOver']
 const SPLIT: readonly (keyof DeliveryStatisticsFlow)[] = ['delivered', 'pickedUp']
-const MISSES: readonly (keyof DeliveryStatisticsMisses)[] = ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']
 
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
-const MISS_ACCENT: Record<keyof DeliveryStatisticsMisses, string> = {
+const MISS_ACCENT: Record<MissId, string> = {
   returnedBack: 'border-t-danger',
   rejected: 'border-t-danger',
   rescheduled: 'border-t-attention',
@@ -190,13 +191,14 @@ function Statistics() {
             <LaneBand key={lane.track} lane={lane} />
           ))}
 
-          <section className="flex flex-col gap-2" data-statistics-band="misses">
-            <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.misses')}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-              {MISSES.map((key) => (
-                <Tile key={key} id={key} caption={t(`misses.${key}`)} value={readFigure(data.misses[key], dash)} accent={MISS_ACCENT[key]} />
-              ))}
-            </div>
+          {/* One row per track (490); the store-wide `misses` is not drawn — it stays for the table's All view. */}
+          <section className="flex flex-col gap-3" data-statistics-band="misses">
+            <h2 id="statistics-misses" className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              {t('band.misses')}
+            </h2>
+            {readMissesRows(data.tracks, dash).map((row) => (
+              <MissesRowBand key={row.track} row={row} />
+            ))}
           </section>
 
           {params && <SeriesChart series={data.series} granularity={params.Granularity} />}
@@ -349,6 +351,35 @@ function LaneBand({ lane }: { lane: Lane }) {
         </div>
       </div>
     </section>
+  )
+}
+
+/**
+ * One track's "Did not go to plan" row (490), captioned with the track. The Pick-up row may carry two
+ * tiles or five (`misses-rows.ts` hides what a pick-up cannot have at zero); its tiles keep the grid's
+ * columns from the reading start rather than lining up under the Delivery row's same miss. The group is
+ * named by the band's heading and the track ("Did not go to plan, Delivery"), so it is never read as
+ * the Delivery lane.
+ */
+function MissesRowBand({ row }: { row: MissesRow }) {
+  const { t } = useTranslation('delivery-statistics')
+  const { track } = row
+  return (
+    <div
+      role="group"
+      aria-labelledby={`statistics-misses statistics-misses-${track}`}
+      className="flex flex-col gap-2"
+      data-statistics-misses-row={track}
+    >
+      <h3 id={`statistics-misses-${track}`} className="text-xs font-medium text-muted-foreground">
+        {t(`lane.${track}`)}
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        {row.misses.map((miss) => (
+          <Tile key={miss.id} id={`${track}.${miss.id}`} caption={t(`misses.${miss.id}`)} value={miss.value} accent={MISS_ACCENT[miss.id]} />
+        ))}
+      </div>
+    </div>
   )
 }
 

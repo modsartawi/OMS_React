@@ -56,6 +56,14 @@
 //      totals; Unspecified hidden at 0 (on a 2658 answer: tracks without misses) and when absent;
 //      and the older server reads "—" across both lanes and both averages, never 0.
 //
+//  15. (ticket 490) the two "Did not go to plan" rows, one per track, from `tracks.*.misses`: the
+//      Delivery row all five, always, in the till's order and accents; the Pick-up row Close requested
+//      and Closed / cancelled always, Returned back / Rejected / Rescheduled hidden at 0 (the main
+//      stub) and shown when not zero (a stub with a Pick-up Rejected of 2); each row in reading order;
+//      the old single store-wide misses band gone; the no-`tracks` and the 2658 (tracks without
+//      misses) stubs read "—" on every shown miss, the hide-when-zero three hidden; nothing beside the
+//      store-wide Avg hand-over says "Delivered + picked up".
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/delivery-statistics-drive.mjs
 import { createRequire } from 'node:module'
@@ -240,6 +248,25 @@ const laneOf = (page, track) =>
 /** Strictly increasing (LTR) or decreasing (RTL) — the stages in reading order. */
 const inReadingOrder = (xs, dir) => xs.every((x, i) => i === 0 || (dir === 'rtl' ? x < xs[i - 1] : x > xs[i - 1]))
 
+/** One "Did not go to plan" row as drawn: its caption, its tiles in DOM order, each tile's value, left edge and accent. */
+const missesRowOf = (page, track) =>
+  page.evaluate((track) => {
+    const row = document.querySelector(`[data-statistics-band="misses"] [data-statistics-misses-row="${track}"]`)
+    if (!row) return null
+    const tiles = [...row.querySelectorAll('[data-figure-tile]')]
+    return {
+      heading: row.querySelector('h3')?.textContent.trim(),
+      tiles: tiles.map((e) => e.getAttribute('data-figure-tile')),
+      captions: tiles.map((e) => e.firstElementChild.textContent.trim()),
+      values: tiles.map((e) => e.querySelector('[data-figure] bdi[dir="ltr"]')?.textContent ?? null),
+      lefts: tiles.map((e) => Math.round(e.getBoundingClientRect().left)),
+      accents: tiles.map((e) => [...e.classList].find((c) => c.startsWith('border-t-') && c !== 'border-t-2') ?? null),
+    }
+  }, track)
+const NO_ROW = { heading: null, tiles: [], captions: [], values: [], lefts: [], accents: [] }
+const MISS_IDS = ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']
+const isMiss = (k) => MISS_IDS.some((m) => k.endsWith(`.${m}`))
+
 /** Every figure as drawn: its text, and whether the number sits in a <bdi dir="ltr">. */
 const figures = (page) =>
   page.evaluate(() =>
@@ -423,15 +450,50 @@ async function drive(dir) {
       split.join(','),
     )
     check(`${label}: Handed over says what it holds`, /Delivered \+ picked up/.test(await page.locator('[data-figure-tile="handedOver"]').innerText()))
-    const missOrder = await page.locator('[data-statistics-band="misses"] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
+    // 490: the misses band is two rows, one per track; the old single store-wide band is gone.
+    const missRows = await page.locator('[data-statistics-band="misses"] [data-statistics-misses-row]').evaluateAll((els) => els.map((e) => e.getAttribute('data-statistics-misses-row')))
+    // A missing row records failed checks below rather than throwing and ending the pass.
+    const dm = (await missesRowOf(page, 'delivery')) ?? NO_ROW
+    const pm = (await missesRowOf(page, 'pickUp')) ?? NO_ROW
     check(
-      `${label}: the misses band in order; Avg hand-over has moved to the store-wide group`,
-      same(missOrder, ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']),
-      missOrder.join(','),
+      `${label}: Did not go to plan is two rows, Delivery then Pick-up`,
+      same(missRows, ['delivery', 'pickUp']) && dm?.heading === 'Delivery' && pm?.heading === 'Pick-up',
+      `${missRows} · ${dm?.heading} · ${pm?.heading}`,
+    )
+    check(
+      `${label}: the old single store-wide misses band is gone (no store-wide miss tile anywhere)`,
+      (await page.locator(MISS_IDS.map((m) => `[data-figure-tile="${m}"]`).join(', ')).count()) === 0,
+    )
+    check(
+      `${label}: the Delivery row shows all five, in the till's order, from tracks.delivery.misses (not the totals)`,
+      same(dm.tiles, MISS_IDS.map((m) => `delivery.${m}`)) &&
+        same(dm.captions, ['Returned back', 'Rejected', 'Rescheduled', 'Close requested', 'Closed / cancelled']) &&
+        same(dm.values, ['20', '0', '8', '1', '11']),
+      JSON.stringify(dm),
+    )
+    check(
+      `${label}: the miss accents stay as on the till — failures danger, re-plans attention`,
+      same(dm.accents, ['border-t-danger', 'border-t-danger', 'border-t-attention', 'border-t-attention', 'border-t-border']),
+      dm.accents.join(','),
+    )
+    check(
+      `${label}: the Pick-up row at zero hides Returned back, Rejected, Rescheduled; Close requested and Closed / cancelled stay`,
+      same(pm.tiles, ['pickUp.closeRequested', 'pickUp.closedOrCancelled']) && same(pm.captions, ['Close requested', 'Closed / cancelled']) && same(pm.values, ['3', '6']),
+      JSON.stringify(pm),
+    )
+    check(`${label}: each misses row reads in reading order`, inReadingOrder(dm.lefts, dir) && inReadingOrder(pm.lefts, dir), `${dm.lefts} | ${pm.lefts}`)
+    // 490: the store-wide average now times a pick-up to Made ready — nothing beside it may say "Delivered + picked up".
+    const avgTile = await page.locator('[data-figure-tile="avgHandOver"]').innerText()
+    check(
+      `${label}: Avg hand-over stands alone — its own tile, outside the pair, no "Delivered + picked up" beside it`,
+      /^Avg hand-over\n/.test(avgTile) &&
+        !/picked up/i.test(avgTile) &&
+        (await page.locator('[data-figure-tile="handedOver"] [data-figure-tile="avgHandOver"], [data-statistics-split] [data-figure-tile="avgHandOver"]').count()) === 0,
+      JSON.stringify(avgTile),
     )
     check(`${label}: Came in reads the server's count, grouped`, f.cameIn?.bdi === '1,234', JSON.stringify(f.cameIn))
     check(`${label}: Handed over is the SERVER's figure, not Delivered + Picked up`, f.handedOver?.bdi === '1,093', JSON.stringify(f.handedOver))
-    check(`${label}: a real 0 reads 0`, f.rejected?.bdi === '0', JSON.stringify(f.rejected))
+    check(`${label}: a real 0 reads 0`, f['delivery.rejected']?.bdi === '0', JSON.stringify(f['delivery.rejected']))
     check(`${label}: Avg hand-over reads the minutes with its unit`, f.avgHandOver?.bdi === '87.46' && f.avgHandOver.text === '87.46min', JSON.stringify(f.avgHandOver))
     check(`${label}: every number is isolated`, Object.values(f).every((x) => x.isolated), Object.keys(f).filter((k) => !f[k].isolated).join(','))
     const asOf = await page.locator('[data-statistics-as-of]').innerText()
@@ -547,7 +609,7 @@ async function drive(dir) {
     // 489: no `tracks` at all — both lanes still drawn, stage for stage, every figure "—".
     const dl = await laneOf(page, 'delivery')
     const pl = await laneOf(page, 'pickUp')
-    const laneFigures = Object.entries(f).filter(([k]) => k.startsWith('delivery.') || k.startsWith('pickUp.'))
+    const laneFigures = Object.entries(f).filter(([k]) => (k.startsWith('delivery.') || k.startsWith('pickUp.')) && !isMiss(k))
     check(
       `${label}: with no tracks both lanes are drawn, stage for stage`,
       dl?.stages.length === 4 && pl?.stages.length === 3 && dl.avg === 'delivery.avg' && pl.avg === 'pickUp.avg',
@@ -560,6 +622,19 @@ async function drive(dir) {
     )
     check(`${label}: with no tracks the Delivery lane's trips reads "—", never 0`, f['delivery.trips']?.bdi === '—' && f['delivery.trips'].text === 'Trips —', JSON.stringify(f['delivery.trips']))
     check(`${label}: with no unspecified the Unspecified tile is hidden`, (await page.locator('[data-figure-tile="unspecified"]').count()) === 0)
+    // 490: no `tracks` — both misses rows still drawn; every shown miss "—", the hide-when-zero three hidden.
+    const dm = await missesRowOf(page, 'delivery')
+    const pm = await missesRowOf(page, 'pickUp')
+    check(
+      `${label}: with no tracks the Delivery misses row shows all five as "—", never 0`,
+      same(dm?.tiles, MISS_IDS.map((m) => `delivery.${m}`)) && dm.values.every((v) => v === '—'),
+      JSON.stringify(dm),
+    )
+    check(
+      `${label}: with no tracks the Pick-up misses row shows only Close requested and Closed / cancelled, as "—"`,
+      same(pm?.tiles, ['pickUp.closeRequested', 'pickUp.closedOrCancelled']) && same(pm.values, ['—', '—']),
+      JSON.stringify(pm),
+    )
     // 487: the store row reads the same dashes.
     await page.locator('[data-statistics-stores] .ag-row').first().waitFor({ timeout: 20000 })
     const older = await tableRows(page)
@@ -584,7 +659,42 @@ async function drive(dir) {
       `${label}: tracks without misses still draw both lanes and their averages`,
       f['delivery.delivered']?.bdi === '640' && f['pickUp.pickedUp']?.bdi === '455' && f['delivery.avg']?.bdi === '96.25' && f['pickUp.avg']?.bdi === '31.5',
     )
+    // 490: tracks without misses — every shown miss "—", the hide-when-zero three hidden.
+    const dm = await missesRowOf(page, 'delivery')
+    const pm = await missesRowOf(page, 'pickUp')
+    check(
+      `${label}: tracks without misses read "—" on both misses rows, never 0`,
+      same(dm?.tiles, MISS_IDS.map((m) => `delivery.${m}`)) &&
+        dm.values.every((v) => v === '—') &&
+        same(pm?.tiles, ['pickUp.closeRequested', 'pickUp.closedOrCancelled']) &&
+        same(pm.values, ['—', '—']),
+      `${JSON.stringify(dm?.values)} | ${JSON.stringify(pm?.tiles)} ${JSON.stringify(pm?.values)}`,
+    )
     check(`${label}: no page errors (2658 server)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 15 (490): bad data on a pick-up — a Pick-up Rejected that is not zero stays visible ─────────
+  {
+    const badPickUp = () => {
+      const t = tracks()
+      return { ...t, pickUp: { ...t.pickUp, misses: misses({ returnedBack: 0, rejected: 2, rescheduled: 0, closeRequested: 3, closedOrCancelled: 6 }) } }
+    }
+    const { context, page, errors } = await open(dir, { answer: () => statistics({ tracks: badPickUp() }) })
+    await page.goto(`${BASE}/oms/delivery-statistics`)
+    await waitFigures(page)
+    const pm = await missesRowOf(page, 'pickUp')
+    check(
+      `${label}: a non-zero Pick-up Rejected is shown, in the till's order and accent; the zero two stay hidden`,
+      same(pm?.tiles, ['pickUp.rejected', 'pickUp.closeRequested', 'pickUp.closedOrCancelled']) &&
+        same(pm.captions, ['Rejected', 'Close requested', 'Closed / cancelled']) &&
+        same(pm.values, ['2', '3', '6']) &&
+        pm.accents[0] === 'border-t-danger' &&
+        inReadingOrder(pm.lefts, dir),
+      JSON.stringify(pm),
+    )
+    await page.locator('[data-statistics-band="misses"]').screenshot({ path: `${SHOTS}/${dir}-misses-bad-pick-up.png` })
+    check(`${label}: no page errors (bad pick-up)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

@@ -89,7 +89,11 @@ export interface DeliveryStatisticsStore {
   storeCode: string
   flow: DeliveryStatisticsFlow
   misses: DeliveryStatisticsMisses
-  /** Minutes from creation to hand-over; `null` when nothing was handed over. */
+  /**
+   * Minutes from entry to each track's own hand-over point — Delivered for a home delivery, Made ready
+   * for a pick-up (BackOffice 2659), both tracks together; `null` when there is nothing to average. It
+   * is NOT an average over Delivered + Picked up.
+   */
   avgHandOverMinutes: number | null
   /** That store's split by track; absent from a server older than 2660. */
   tracks?: DeliveryStatisticsTracks
@@ -102,7 +106,11 @@ export interface DeliveryStatistics {
   asOf: string | null
   flow: DeliveryStatisticsFlow
   misses: DeliveryStatisticsMisses
-  /** Minutes from creation to hand-over; `null` when nothing was handed over. */
+  /**
+   * Minutes from entry to each track's own hand-over point — Delivered for a home delivery, Made ready
+   * for a pick-up (BackOffice 2659), both tracks together; `null` when there is nothing to average. It
+   * is NOT an average over Delivered + Picked up.
+   */
   avgHandOverMinutes: number | null
   series: DeliveryStatisticsBucket[]
   /** The period split by track; absent from a server older than 2658. */

@@ -66,15 +66,15 @@ describe('storeRows', () => {
 })
 
 describe('STORE_FIGURES', () => {
-  it('is the flow in order with Trips beside Out for delivery, then the misses, then Avg hand-over', () => {
+  it('is the flow in order with Trips beside Out for delivery and Handed over before its two halves, then the misses, then Avg hand-over', () => {
     expect(STORE_FIGURES).toEqual([
       'cameIn',
       'madeReady',
       'outForDelivery',
       'trips',
+      'handedOver',
       'delivered',
       'pickedUp',
-      'handedOver',
       'returnedBack',
       'rejected',
       'rescheduled',
@@ -88,7 +88,8 @@ describe('STORE_FIGURES', () => {
 describe('FLOW_FIGURES', () => {
   it('is the flow band in the table order, without Trips (its own caption)', () => {
     expect(FLOW_FIGURES).toEqual(STORE_FIGURES.filter((k) => FLOW_FIGURES.includes(k as never)))
-    expect(FLOW_FIGURES).toEqual(['cameIn', 'madeReady', 'outForDelivery', 'delivered', 'pickedUp', 'handedOver'])
+    // As on the till: the stages end at Handed over; Delivered (D) and Picked up (P) are its halves, after it.
+    expect(FLOW_FIGURES).toEqual(['cameIn', 'madeReady', 'outForDelivery', 'handedOver', 'delivered', 'pickedUp'])
   })
 })
 

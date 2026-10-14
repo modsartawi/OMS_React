@@ -121,3 +121,5 @@ tools/.deliverect-terms-shots/
 tools/.sync-console-replay-shots/
 # Delivery statistics drive screenshots (tools/delivery-statistics-*-drive.mjs, tickets 484-487)
 tools/.delivery-statistics-shots/
+# The LIVE statistics drive (ticket 488) - its screenshots hold real estate data, never commit them
+tools/.delivery-statistics-live-shots/

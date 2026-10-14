@@ -66,9 +66,15 @@
     "madeReady": "تم تجهيزه",
     "outForDelivery": "خرج للتوصيل",
     "trips": "الرحلات <v>{{n}}</v>",
+    "handedOver": "تم تسليمه",
+    "handedOverNote": "تم التوصيل + تم الاستلام",
     "delivered": "تم التوصيل",
-    "pickedUp": "تم الاستلام",
-    "handedOver": "تم تسليمه"
+    "pickedUp": "تم الاستلام"
+  },
+  "split": {
+    "caption": "تم تسليمه حسب نوع التوصيل",
+    "delivered": "توصيل للمنزل",
+    "pickedUp": "استلام من الفرع"
   },
   "misses": {
     "returnedBack": "أعيد",
@@ -94,6 +100,8 @@
   "table": {
     "store": "الفرع",
     "trips": "الرحلات",
+    "delivered": "تم التوصيل (توصيل للمنزل)",
+    "pickedUp": "تم الاستلام (استلام من الفرع)",
     "avgHandOver": "متوسط مدة التسليم (دقيقة)",
     "empty": "لا توجد أرقام لأي فرع في هذه الفترة."
   }

@@ -53,7 +53,7 @@
     }
   },
   "band": {
-    "flow": "Flow",
+    "flow": "Deliveries",
     "misses": "Did not go to plan",
     "stores": "By store"
   },
@@ -62,9 +62,15 @@
     "madeReady": "Made ready",
     "outForDelivery": "Out for delivery",
     "trips": "Trips <v>{{n}}</v>",
+    "handedOver": "Handed over",
+    "handedOverNote": "Delivered + picked up",
     "delivered": "Delivered",
-    "pickedUp": "Picked up",
-    "handedOver": "Handed over"
+    "pickedUp": "Picked up"
+  },
+  "split": {
+    "caption": "Handed over, by delivery type",
+    "delivered": "Home delivery",
+    "pickedUp": "Pick in store"
   },
   "misses": {
     "returnedBack": "Returned back",
@@ -90,6 +96,8 @@
   "table": {
     "store": "Store",
     "trips": "Trips",
+    "delivered": "Delivered (home delivery)",
+    "pickedUp": "Picked up (pick in store)",
     "avgHandOver": "Avg hand-over (min)",
     "empty": "No store has figures for this period."
   }

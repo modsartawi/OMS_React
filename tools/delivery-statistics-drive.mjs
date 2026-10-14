@@ -252,7 +252,15 @@ async function drive(dir) {
     // 4: the figures
     const f = await figures(page)
     const order = await page.locator('[data-statistics-band="flow"] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
-    check(`${label}: the flow band in order`, same(order, ['cameIn', 'madeReady', 'outForDelivery', 'delivered', 'pickedUp', 'handedOver']), order.join(','))
+    check(`${label}: the flow band in order, ending at Handed over, then its two halves`, same(order, ['cameIn', 'madeReady', 'outForDelivery', 'handedOver', 'delivered', 'pickedUp']), order.join(','))
+    const split = await page.locator('[data-statistics-split] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
+    const splitText = await page.locator('[data-statistics-split]').innerText()
+    check(
+      `${label}: Delivered (home delivery) and Picked up (pick in store) sit apart, as Handed over's halves`,
+      same(split, ['delivered', 'pickedUp']) && /Handed over, by delivery type/.test(splitText) && /Home delivery/.test(splitText) && /Pick in store/.test(splitText),
+      split.join(','),
+    )
+    check(`${label}: Handed over says what it holds`, /Delivered \+ picked up/.test(await page.locator('[data-figure-tile="handedOver"]').innerText()))
     const missOrder = await page.locator('[data-statistics-band="misses"] [data-figure-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-figure-tile')))
     check(
       `${label}: the misses band in order, then Avg hand-over`,
@@ -555,7 +563,7 @@ async function driveTable(dir) {
     headers.length === 14 &&
     same(
       headerIds,
-      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'delivered', 'pickedUp', 'handedOver', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'],
+      ['storeCode', 'cameIn', 'madeReady', 'outForDelivery', 'trips', 'handedOver', 'delivered', 'pickedUp', 'returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled', 'avgHandOverMinutes'],
     ),
     headers.map(([id]) => id).join(','),
   )
@@ -564,6 +572,8 @@ async function driveTable(dir) {
     headers.every(([, text]) => text && !text.includes(FSI) && !text.includes(PDI)) &&
       headerOf('trips') === 'Trips' &&
       headerOf('handedOver') === 'Handed over' &&
+      headerOf('delivered') === 'Delivered (home delivery)' &&
+      headerOf('pickedUp') === 'Picked up (pick in store)' &&
       headerOf('avgHandOverMinutes') === 'Avg hand-over (min)',
     headers.map(([, h]) => h).join(' | '),
   )

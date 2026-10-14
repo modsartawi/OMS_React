@@ -26,6 +26,8 @@ const DEFAULT_COL_DEF: ColDef<StoreRow> = {
 function header(t: TFunction, key: StoreFigure): string {
   if (key === 'trips') return t('table.trips')
   if (key === 'avgHandOverMinutes') return t('table.avgHandOver')
+  // The halves of Handed over name their delivery type, so neither reads as a stage after Out for delivery.
+  if (key === 'delivered' || key === 'pickedUp') return t(`table.${key}`)
   return t((FLOW_FIGURES as readonly string[]).includes(key) ? `flow.${key}` : `misses.${key}`)
 }
 

@@ -9,18 +9,22 @@
 import type { DeliveryStatisticsStore } from '@/core/models/delivery-statistics'
 import { hasFigure } from './figures'
 
-/** The flow figures captioned under the flow band (`flow.*`), in order; Trips is not one — it has its own caption. */
-export const FLOW_FIGURES = ['cameIn', 'madeReady', 'outForDelivery', 'delivered', 'pickedUp', 'handedOver'] as const
+/**
+ * The flow figures captioned under the flow band (`flow.*`), in order; Trips is not one — it has its own caption.
+ * As on the till: the stages end at Handed over, and Delivered (DeliveryType D) and Picked up (P) follow it as
+ * its two halves, never as a stage after Out for delivery.
+ */
+export const FLOW_FIGURES = ['cameIn', 'madeReady', 'outForDelivery', 'handedOver', 'delivered', 'pickedUp'] as const
 
-/** The table's figure columns, in order: the flow with Trips beside Out for delivery, the misses, Avg hand-over. */
+/** The table's figure columns, in order: the flow with Trips beside Out for delivery and Handed over before its two halves, the misses, Avg hand-over. */
 export const STORE_FIGURES = [
   'cameIn',
   'madeReady',
   'outForDelivery',
   'trips',
+  'handedOver',
   'delivered',
   'pickedUp',
-  'handedOver',
   'returnedBack',
   'rejected',
   'rescheduled',

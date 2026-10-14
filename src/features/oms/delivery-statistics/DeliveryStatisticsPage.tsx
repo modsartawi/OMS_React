@@ -61,7 +61,13 @@ function useMinuteClock(): Date {
   return now
 }
 
-const FLOW: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'madeReady', 'outForDelivery', 'delivered', 'pickedUp', 'handedOver']
+/**
+ * The stages, as on the till's lane: they end at Handed over. Delivered (DeliveryType D, home delivery) and
+ * Picked up (P, pick in store) are Handed over's two halves and sit apart from the stages (`SPLIT`), so a
+ * pick-in-store hand-over never reads as one that went out for delivery.
+ */
+const FLOW: readonly (keyof DeliveryStatisticsFlow)[] = ['cameIn', 'madeReady', 'outForDelivery', 'handedOver']
+const SPLIT: readonly (keyof DeliveryStatisticsFlow)[] = ['delivered', 'pickedUp']
 const MISSES: readonly (keyof DeliveryStatisticsMisses)[] = ['returnedBack', 'rejected', 'rescheduled', 'closeRequested', 'closedOrCancelled']
 
 /** A miss's accent, as on the till: the failures in danger, the re-plans in attention. */
@@ -137,7 +143,7 @@ function Statistics() {
         <>
           <section className="flex flex-col gap-2" data-statistics-band="flow">
             <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.flow')}</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
               {FLOW.map((key) => (
                 <Tile key={key} id={key} caption={t(`flow.${key}`)} value={readFigure(data.flow[key], dash)}>
                   {key === 'outForDelivery' && (
@@ -145,8 +151,24 @@ function Statistics() {
                       <Trans t={t} i18nKey="flow.trips" values={{ n: readFigure(data.flow.trips, dash) }} components={{ v: <Ltr /> }} />
                     </span>
                   )}
+                  {key === 'handedOver' && <span className="text-xs text-muted-foreground">{t('flow.handedOverNote')}</span>}
                 </Tile>
               ))}
+              <div
+                role="group"
+                aria-labelledby="statistics-split-caption"
+                className="col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-dashed border-border/60 p-2 sm:col-span-4 xl:col-span-2"
+                data-statistics-split=""
+              >
+                <span id="statistics-split-caption" className="col-span-2 text-xs font-medium text-muted-foreground">
+                  {t('split.caption')}
+                </span>
+                {SPLIT.map((key) => (
+                  <Tile key={key} id={key} caption={t(`flow.${key}`)} value={readFigure(data.flow[key], dash)}>
+                    <span className="text-xs text-muted-foreground">{t(`split.${key}`)}</span>
+                  </Tile>
+                ))}
+              </div>
             </div>
           </section>
 

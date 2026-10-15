@@ -8,6 +8,7 @@ import type {
   CouponDetails,
   CouponTransaction,
   EarlierUpload,
+  ImportJob,
   ImportJobDeletePreview,
   ImportJobResult,
   ImportJobStatus,
@@ -256,4 +257,29 @@ export function describeImportSummary(summary: ImportResultSummary, t: TFunction
  */
 export function needsLowerLimitConfirm({ newTotal, currentTotal, redeemed }: { newTotal: number; currentTotal: number; redeemed: number }): boolean {
   return newTotal !== currentTotal && newTotal > 0 && newTotal < redeemed
+}
+
+// ── Which file each upload was (BackOffice spec 2680, ticket 495) ─────────────────────────────
+
+/**
+ * The jobs grid's File cell: the name as it was named, and its size for the hover (`1.5 KB`,
+ * 1024-based, one decimal at most). `—` and no size when no file was recorded — a job older than
+ * BackOffice 2683, an API caller, or an API that does not send the fields. Not isolated: the cell
+ * wraps the name in `<bdi>` and the hover takes `fsi` ([bidi]).
+ */
+export function formatImportFile(
+  job: Pick<ImportJob, 'fileName' | 'fileSizeBytes'>,
+  t: TFunction,
+): { name: string; size: string | null } {
+  const name = job.fileName?.trim() ?? ''
+  if (!name) return { name: '—', size: null }
+  const bytes = job.fileSizeBytes ?? 0
+  return { name: job.fileName!, size: bytes > 0 ? formatFileSize(bytes, t) : null }
+}
+
+function formatFileSize(bytes: number, t: TFunction): string {
+  const one = (value: number) => value.toLocaleString('en-US', { maximumFractionDigits: 1 })
+  if (bytes < 1024) return t('import.jobs.file.bytes', { n: groupCount(bytes) })
+  if (bytes < 1024 * 1024) return t('import.jobs.file.kb', { n: one(bytes / 1024) })
+  return t('import.jobs.file.mb', { n: one(bytes / (1024 * 1024)) })
 }

@@ -150,6 +150,10 @@ export interface EarlierUpload {
 export interface CreateImportJobRequest {
   codes: string[]
   customerId?: string | null
+  /** The chosen file's name and size, recorded on the job (BackOffice 2683; an older API ignores
+   *  them). The server clamps the name to 260. */
+  fileName?: string | null
+  fileSizeBytes?: number | null
 }
 
 /** ImportJob.Status — the lifecycle the background worker drives; `Deleted` is an admin's delete
@@ -182,6 +186,10 @@ export interface ImportJob {
   /** Set once the job is `Deleted` (spec 2463). */
   deletedAt: string | null
   deletedBy: string | null
+  /** The uploaded file's name and size (BackOffice 2683); `''` / `0` = not recorded (an older job,
+   *  an API caller), absent from an API older than 2683. A deleted job keeps them. */
+  fileName?: string
+  fileSizeBytes?: number
 }
 
 /**

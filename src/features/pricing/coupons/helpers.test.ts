@@ -21,6 +21,7 @@ import {
   couponHistorySections,
   describeDeletePreview,
   describeImportSummary,
+  formatImportFile,
   importResultCsv,
   importResultFileName,
   jobActions,
@@ -327,5 +328,32 @@ describe('needsLowerLimitConfirm', () => {
 
   it('does not ask again when the total is unchanged (a save of other fields)', () => {
     expect(needsLowerLimitConfirm({ newTotal: 50, currentTotal: 50, redeemed: 70 })).toBe(false)
+  })
+})
+
+// Ticket 495 (BackOffice spec 2680 slice 3): the jobs grid shows which file each upload was.
+describe('formatImportFile', () => {
+  const t = i18n.getFixedT('en', 'coupons')
+
+  it('shows the name, with its size in B, KB or MB', () => {
+    expect(formatImportFile({ fileName: 'ramadan-batch-3.csv', fileSizeBytes: 512 }, t)).toEqual({ name: 'ramadan-batch-3.csv', size: '512 B' })
+    expect(formatImportFile({ fileName: 'a.txt', fileSizeBytes: 1536 }, t).size).toBe('1.5 KB')
+    expect(formatImportFile({ fileName: 'a.txt', fileSizeBytes: 1024 }, t).size).toBe('1 KB')
+    expect(formatImportFile({ fileName: 'a.txt', fileSizeBytes: 2_411_724 }, t).size).toBe('2.3 MB')
+  })
+
+  it('keeps an Arabic name exactly as it was named', () => {
+    expect(formatImportFile({ fileName: 'قسائم رمضان ١٤٤٧.csv', fileSizeBytes: 10 }, t).name).toBe('قسائم رمضان ١٤٤٧.csv')
+  })
+
+  it('shows "—" and no size when no file was recorded (an older job, an API caller)', () => {
+    expect(formatImportFile({ fileName: '', fileSizeBytes: 0 }, t)).toEqual({ name: '—', size: null })
+    expect(formatImportFile({ fileName: '   ', fileSizeBytes: 40 }, t)).toEqual({ name: '—', size: null })
+    // An API older than BackOffice 2683 sends neither field.
+    expect(formatImportFile({}, t)).toEqual({ name: '—', size: null })
+  })
+
+  it('shows the name without a size when the size was not recorded', () => {
+    expect(formatImportFile({ fileName: 'a.txt', fileSizeBytes: 0 }, t)).toEqual({ name: 'a.txt', size: null })
   })
 })

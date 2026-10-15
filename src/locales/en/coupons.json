@@ -195,10 +195,17 @@
         "skipped": "Skipped",
         "when": "When",
         "retry": "Retry",
-        "actions": "Actions"
+        "actions": "Actions",
+        "file": "File"
       },
       "delete": "Delete",
-      "deletedBy": "Deleted {{at}} by {{by}}"
+      "deletedBy": "Deleted {{at}} by {{by}}",
+      "file": {
+        "bytes": "{{n}} B",
+        "kb": "{{n}} KB",
+        "mb": "{{n}} MB",
+        "none": "No file recorded"
+      }
     },
     "delete": {
       "title": "Delete this upload",

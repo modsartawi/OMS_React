@@ -929,4 +929,4 @@ Web half; server half is a BackOffice spec still to write. Contract proposed in 
 ## Coupon template limits + upload file (BO spec 2680, grilled 2026-10-15)
 
 - [494](494-a-loaded-coupon-templates-redemption-limits-can-be-changed.md) — A loaded coupon template's redemption limits can be changed, with a warning when lowered below what is redeemed · *(ticket · BO spec 2680)* · **done 2026-10-15** · blocked by: — (live: BackOffice 2682) · caps inputs enabled, 0 = unlimited hint, confirm when a changed total < redeemed · drive 22/22 **stubbed**; live walk on 2682 owed
-- [495](495-the-jobs-grid-shows-which-file-each-upload-was.md) — The jobs grid shows which file each upload was · *(ticket · BO spec 2680)* · **open** · blocked by: — (live: BackOffice 2683) · send fileName/fileSize; File column, size on hover, — when blank
+- [495](495-the-jobs-grid-shows-which-file-each-upload-was.md) — The jobs grid shows which file each upload was · *(ticket · BO spec 2680)* · **done 2026-10-15** · blocked by: — (live: BackOffice 2683) · send fileName/fileSize; File column, size on hover, — when blank · drive 30/30 **stubbed**; live walk on 2683 + migration 011 owed

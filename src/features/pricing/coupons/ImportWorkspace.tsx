@@ -14,6 +14,7 @@ import { couponsApi } from './api'
 import DeleteJobDialog from './DeleteJobDialog'
 import {
   describeImportSummary,
+  formatImportFile,
   formatStamp,
   importResultCsv,
   importResultFileName,
@@ -40,9 +41,13 @@ import {
 // Ticket 440 (spec 2463 amendment): every row that is no longer running also offers Download
 // result, a CSV of what the upload did with each code (BackOffice 2477). A result rebuilt from
 // today's coupons (a job older than SIS.Coupons.Core 1.0.8) is still saved, after a toast says so.
+//
+// Ticket 495 (BackOffice spec 2680): the job records the chosen file's name and size, and the grid's
+// File column shows the name, its size on hover, "—" when none was recorded (BackOffice 2683).
 
 interface Preview {
   fileName: string
+  fileSizeBytes: number
   codes: string[]
   duplicates: number
 }
@@ -96,7 +101,7 @@ export default function ImportWorkspace() {
         return
       }
       setSubmitError(null)
-      setPreview({ fileName: file.name, codes, duplicates })
+      setPreview({ fileName: file.name, fileSizeBytes: file.size, codes, duplicates })
     } catch (err) {
       if (err instanceof ImportParseError) {
         notify.error(
@@ -118,6 +123,8 @@ export default function ImportWorkspace() {
       await couponsApi.createImportJob(templateKey, {
         codes: preview.codes,
         customerId: customerId.trim() || null,
+        fileName: preview.fileName,
+        fileSizeBytes: preview.fileSizeBytes,
       })
       notify.success(t('import.submitted', { count: preview.codes.length }))
       setPreview(null)
@@ -230,10 +237,11 @@ export default function ImportWorkspace() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/60">
-              <table className="w-full min-w-[40rem] text-sm">
+              <table className="w-full min-w-[48rem] text-sm">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted/40 text-start text-xs uppercase tracking-wide text-muted-foreground">
                     <Th>{t('import.jobs.col.job')}</Th>
+                    <Th>{t('import.jobs.col.file')}</Th>
                     <Th>{t('import.jobs.col.status')}</Th>
                     <Th className="text-end">{t('import.jobs.col.total')}</Th>
                     <Th className="text-end">{t('import.jobs.col.added')}</Th>
@@ -246,12 +254,20 @@ export default function ImportWorkspace() {
                   {rows.map((job) => {
                     const actions = jobActions(job.status)
                     const deleted = job.status === 'Deleted'
+                    const file = formatImportFile(job, t)
                     return (
                       <tr
                         key={job.jobId}
                         className={`border-b border-border/40 last:border-0 ${deleted ? 'text-muted-foreground opacity-70' : ''}`}
                       >
                         <td className="px-3 py-2 font-mono text-xs">{job.jobId}</td>
+                        <td
+                          className="max-w-[16rem] truncate px-3 py-2 text-xs"
+                          title={file.size ? fsi(file.size) : file.name === '—' ? t('import.jobs.file.none') : undefined}
+                          data-testid="job-file"
+                        >
+                          {file.name === '—' ? <span className="text-muted-foreground">—</span> : <bdi>{file.name}</bdi>}
+                        </td>
                         <td className="px-3 py-2">
                           <StatusPill status={job.status} label={t(`import.status.${job.status}`)} />
                           {job.status === 'Failed' && job.errorMessage ? (

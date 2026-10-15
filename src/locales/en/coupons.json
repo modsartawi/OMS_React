@@ -121,8 +121,13 @@
     "saveFailed": "Could not save the template",
     "create": "Create",
     "save": "Save",
-    "createHint": "Template ID, redemption limits and code prefix are fixed once created.",
-    "saveHint": "Redemption limits and code prefix cannot be changed after create.",
+    "createHint": "Template ID and code prefix are fixed once created.",
+    "saveHint": "Only the template ID and code prefix are fixed.",
+    "unlimitedHint": "0 = unlimited",
+    "lowerLimitConfirm": {
+      "header": "Lower the total limit?",
+      "message": "{{redeemed}} already redeemed — this limit stops all further use."
+    },
     "redeemedSoFar": "Redeemed so far: {{count}}",
     "originFilterHint": "Paste a column or row from Excel, or separate codes with commas, spaces or new lines.",
     "originFilterCount_one": "{{n}} code",

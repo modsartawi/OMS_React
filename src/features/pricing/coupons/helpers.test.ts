@@ -24,6 +24,7 @@ import {
   importResultCsv,
   importResultFileName,
   jobActions,
+  needsLowerLimitConfirm,
   summarizeImportResult,
   TEMPLATE_ORIGIN_FILTER_MAX,
   templateOriginFilterMeter,
@@ -304,5 +305,27 @@ describe('describeImportSummary', () => {
       'Added: 0',
       'In other templates: 5',
     ])
+  })
+})
+
+// Ticket 494 (BackOffice spec 2680 slice 3): a loaded template's limits are editable; Save asks
+// first when a new total limit stops all further use.
+describe('needsLowerLimitConfirm', () => {
+  it('asks when a changed total is non-zero and below what is redeemed', () => {
+    expect(needsLowerLimitConfirm({ newTotal: 50, currentTotal: 100, redeemed: 70 })).toBe(true)
+    expect(needsLowerLimitConfirm({ newTotal: 1, currentTotal: 0, redeemed: 70 })).toBe(true)
+  })
+
+  it('never asks for zero, which is unlimited', () => {
+    expect(needsLowerLimitConfirm({ newTotal: 0, currentTotal: 100, redeemed: 70 })).toBe(false)
+  })
+
+  it('does not ask at or above what is redeemed', () => {
+    expect(needsLowerLimitConfirm({ newTotal: 70, currentTotal: 100, redeemed: 70 })).toBe(false)
+    expect(needsLowerLimitConfirm({ newTotal: 80, currentTotal: 100, redeemed: 70 })).toBe(false)
+  })
+
+  it('does not ask again when the total is unchanged (a save of other fields)', () => {
+    expect(needsLowerLimitConfirm({ newTotal: 50, currentTotal: 50, redeemed: 70 })).toBe(false)
   })
 })

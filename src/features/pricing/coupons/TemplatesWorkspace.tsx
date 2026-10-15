@@ -5,15 +5,18 @@ import { ApiError } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
+import { confirmAction } from '@/core/services/confirm'
 import { formatCount, fsi } from '@/core/util/bidi'
 import type { CouponTemplate } from '@/core/models/coupons'
 import { couponsApi } from './api'
-import { templateOriginFilterMeter } from './helpers'
+import { isolatedCount, needsLowerLimitConfirm, templateOriginFilterMeter } from './helpers'
 
 // Templates workspace (ticket 520): a load-then-edit form over the 517 endpoints.
 // `Load` fills from GET Templates/{id}; `Save` = create (POST) when blank / update (PUT)
-// when loaded. The Template ID is editable only on create; MaxRedemptions*/CodePrefix
-// are immutable after create (the update DTO omits them), so they lock once loaded.
+// when loaded. The Template ID and CodePrefix are editable only on create and lock once loaded.
+// The two MaxRedemptions* limits stay editable (BackOffice spec 2680, ticket 494; 0 = unlimited):
+// a new total that is non-zero and below what is already redeemed stops all further use, so Save
+// asks first — the server accepts it either way.
 // Business failures surface as a toast from the server message + CUP-* code.
 // The material is the operator's own COUP number on create AND edit (ADR 0051): the server keeps it
 // as typed, creates it as a redeem-only coupon item when absent, and makes an existing hand-keyable
@@ -128,6 +131,17 @@ export default function TemplatesWorkspace() {
       notify.warn(t('templates.materialInvalid'))
       return
     }
+    const perCode = intOr(form.maxRedemptionsPerCode)
+    const total = intOr(form.maxRedemptionsTotal)
+    if (
+      isEdit &&
+      needsLowerLimitConfirm({ newTotal: total, currentTotal: loaded.maxRedemptionsTotal, redeemed: loaded.totalRedemptionCount }) &&
+      !(await confirmAction(
+        t('templates.lowerLimitConfirm.message', { redeemed: isolatedCount(loaded.totalRedemptionCount) }),
+        t('templates.lowerLimitConfirm.header'),
+      ))
+    )
+      return
     setSaving(true)
     try {
       if (isEdit) {
@@ -136,6 +150,8 @@ export default function TemplatesWorkspace() {
           materialNumber: material,
           description: form.description.trim(),
           isDisabled: form.isDisabled,
+          maxRedemptionsPerCode: perCode,
+          maxRedemptionsTotal: total,
           validFrom: form.validFrom || null,
           validTo: form.validTo || null,
           originFilter: originMeter.normalised,
@@ -148,8 +164,8 @@ export default function TemplatesWorkspace() {
           templateId: id,
           materialNumber: material,
           description: form.description.trim(),
-          maxRedemptionsPerCode: intOr(form.maxRedemptionsPerCode),
-          maxRedemptionsTotal: intOr(form.maxRedemptionsTotal),
+          maxRedemptionsPerCode: perCode,
+          maxRedemptionsTotal: total,
           codePrefix: form.codePrefix.trim(),
           validFrom: form.validFrom || null,
           validTo: form.validTo || null,
@@ -223,23 +239,25 @@ export default function TemplatesWorkspace() {
           <input type="text" className={inputCls} value={form.description} onChange={(e) => set('description', e.target.value)} />
         </Field>
 
-        <Field label={t('templates.fields.maxPerCode')}>
+        <Field label={t('templates.fields.maxPerCode')} hint={t('templates.unlimitedHint')}>
           <input
             type="number"
             inputMode="numeric"
+            min={0}
             className={inputCls}
             value={form.maxRedemptionsPerCode}
-            disabled={isEdit}
+            data-testid="coupon-template-max-per-code"
             onChange={(e) => set('maxRedemptionsPerCode', e.target.value)}
           />
         </Field>
-        <Field label={t('templates.fields.maxTotal')}>
+        <Field label={t('templates.fields.maxTotal')} hint={t('templates.unlimitedHint')}>
           <input
             type="number"
             inputMode="numeric"
+            min={0}
             className={inputCls}
             value={form.maxRedemptionsTotal}
-            disabled={isEdit}
+            data-testid="coupon-template-max-total"
             onChange={(e) => set('maxRedemptionsTotal', e.target.value)}
           />
         </Field>

@@ -123,3 +123,5 @@ tools/.sync-console-replay-shots/
 tools/.delivery-statistics-shots/
 # The LIVE statistics drive (ticket 488) - its screenshots hold real estate data, never commit them
 tools/.delivery-statistics-live-shots/
+# Coupon template limits drive screenshots (tools/coupon-template-limits-drive.mjs, ticket 494)
+tools/.coupon-template-limits-shots/

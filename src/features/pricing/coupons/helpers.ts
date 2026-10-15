@@ -245,3 +245,15 @@ export function describeImportSummary(summary: ImportResultSummary, t: TFunction
   if (summary.unknown > 0) lines.push(t('import.result.summary.unknown', { n: isolatedCount(summary.unknown) }))
   return lines
 }
+
+// ── A loaded template's redemption limits (BackOffice spec 2680, ticket 494) ─────────────────
+
+/**
+ * Whether Save asks first: a changed total limit that is non-zero and below what the template has
+ * already redeemed stops all further use (the server accepts it — redemption checks the live
+ * counters). Zero is unlimited and never asks; an unchanged total does not ask again on a save of
+ * other fields.
+ */
+export function needsLowerLimitConfirm({ newTotal, currentTotal, redeemed }: { newTotal: number; currentTotal: number; redeemed: number }): boolean {
+  return newTotal !== currentTotal && newTotal > 0 && newTotal < redeemed
+}

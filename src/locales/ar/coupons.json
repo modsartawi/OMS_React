@@ -1,4 +1,13 @@
 {
+  "templates": {
+    "createHint": "معرّف القالب وبادئة الرمز ثابتان بعد الإنشاء.",
+    "saveHint": "معرّف القالب وبادئة الرمز فقط ثابتان.",
+    "unlimitedHint": "0 = بلا حد",
+    "lowerLimitConfirm": {
+      "header": "خفض الحد الإجمالي؟",
+      "message": "تم استرداد {{redeemed}} بالفعل — هذا الحد يوقف أي استخدام لاحق."
+    }
+  },
   "import": {
     "status": {
       "Deleted": "محذوفة"

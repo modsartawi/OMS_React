@@ -16,7 +16,8 @@ export interface CouponsAccessResult {
 /**
  * A coupon template (CouponTemplate) — the load-then-edit form model. Times come back
  * as local ISO strings (no-utc-time rule); the form binds the date part only.
- * `maxRedemptions*` and `codePrefix` are set at create and immutable after.
+ * `codePrefix` is set at create and immutable after; `maxRedemptions*` change through the update
+ * (BackOffice 2682). Zero means unlimited.
  */
 export interface CouponTemplate {
   templateId: string
@@ -56,13 +57,16 @@ export interface CreateTemplateRequest {
 /**
  * PUT CouponsAdminWeb/Templates/{id}. The mutable subset — the route id wins over this
  * `templateId`. `isDisabled` is nullable server-side (null = leave unchanged); the form
- * always sends the current toggle. `updatedBy` is stamped server-side.
+ * always sends the current toggle. `updatedBy` is stamped server-side. The two limits are nullable
+ * the same way (BackOffice 2682 — the WPF screen omits them); the web form always sends both.
  */
 export interface UpdateTemplateRequest {
   templateId: string
   materialNumber: string
   description: string
   isDisabled: boolean
+  maxRedemptionsPerCode: number | null
+  maxRedemptionsTotal: number | null
   validFrom: string | null
   validTo: string | null
   originFilter: string

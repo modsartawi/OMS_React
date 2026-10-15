@@ -925,3 +925,8 @@ Web half; server half is a BackOffice spec still to write. Contract proposed in 
 - [490](490-each-track-has-its-own-did-not-go-to-plan-row.md) — Each track has its own Did not go to plan row · *(ticket · BO brief 2660)* · **done** · blocked by: 489 (live: BackOffice 2659) · two misses rows, Pick-up's Returned back/Rejected/Rescheduled hidden at 0 or absent; store-wide avg note check
 - [491](491-the-per-store-table-switches-between-delivery-pick-up-and-all.md) — The per-store table switches between Delivery, Pick-up and All · *(ticket · BO brief 2660)* · **done** · blocked by: 489 (live: BackOffice 2660) · switch in URL (`track`), columns per view, Unspecified column in All, "—" on rows without `tracks`
 - [492](492-the-split-statistics-page-calls-the-real-door-on-staging.md) — The split statistics page calls the real door on staging · *(ticket · BO brief 2660)* · **open** · blocked by: 489, 490, 491 (live: BackOffice 2658–2660 deployed + `055` run) · live drive + till parity + owner walk
+
+## Coupon template limits + upload file (BO spec 2680, grilled 2026-10-15)
+
+- [494](494-a-loaded-coupon-templates-redemption-limits-can-be-changed.md) — A loaded coupon template's redemption limits can be changed, with a warning when lowered below what is redeemed · *(ticket · BO spec 2680)* · **done 2026-10-15** · blocked by: — (live: BackOffice 2682) · caps inputs enabled, 0 = unlimited hint, confirm when a changed total < redeemed · drive 22/22 **stubbed**; live walk on 2682 owed
+- [495](495-the-jobs-grid-shows-which-file-each-upload-was.md) — The jobs grid shows which file each upload was · *(ticket · BO spec 2680)* · **open** · blocked by: — (live: BackOffice 2683) · send fileName/fileSize; File column, size on hover, — when blank

@@ -96,7 +96,7 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, Handshake, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+import { BookCheck, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -834,6 +834,13 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaign-list:menu.campaigns',
         icon: Megaphone,
         routerLink: '/campaigns',
+      },
+      {
+        // The evaluation order (ticket 513): more specific than the list's `/campaigns`, so it
+        // lights itself, not Campaigns.
+        labelKey: 'campaign-list:menu.priority',
+        icon: ListOrdered,
+        routerLink: '/campaigns/priority',
       },
     ],
   },

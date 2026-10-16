@@ -482,3 +482,32 @@ export interface RuleCampaignVersion extends RuleCampaignStamp {
 export interface RuleCampaignVersionDetail extends RuleCampaignVersion {
   rules: CampaignRule[]
 }
+
+/**
+ * A group's mode in the evaluation order (ADR 0090): every triggered campaign stacks; the first
+ * that actually yields wins; or the most discount money wins (points do not count).
+ */
+export type RuleOrderGroupMode = 'stackable' | 'first' | 'highest'
+/** What a group decides over: the whole session, or each unit (item discounts only). */
+export type RuleOrderGroupScope = 'session' | 'item'
+
+/** A flat evaluation group (ADR 0090): its campaigns by id, in their order. */
+export interface RuleOrderGroup {
+  id: string
+  name: string
+  mode: RuleOrderGroupMode
+  scope: RuleOrderGroupScope
+  items: string[]
+}
+
+/** One place in the stackable base: a campaign (`c`, its id) or a group (`g`, its id). */
+export type RuleOrderNode = { c: string } | { g: string }
+
+/**
+ * The evaluation order (ticket 513, BackOffice 2759): the stackable base list, top to bottom, with
+ * the groups placed in it. HQ answers and saves the DRAFT order; it publishes with the next version.
+ */
+export interface RuleEvaluationOrder {
+  base: RuleOrderNode[]
+  groups: RuleOrderGroup[]
+}

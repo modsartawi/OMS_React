@@ -1,7 +1,8 @@
 {
   "menu": {
     "group": "Campaigns",
-    "campaigns": "Campaigns"
+    "campaigns": "Campaigns",
+    "priority": "Priority"
   },
   "title": "Campaigns",
   "untitled": "Untitled",

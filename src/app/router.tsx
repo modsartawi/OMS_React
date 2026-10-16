@@ -664,6 +664,14 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Priority: the evaluation order, base list and groups (ticket 513) — a static leaf beside
+        // `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/priority',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/priority/PriorityPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

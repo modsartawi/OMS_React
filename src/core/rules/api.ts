@@ -19,6 +19,7 @@ import type {
   RuleCampaignTransition,
   RuleCampaignVersion,
   RuleCampaignVersionDetail,
+  RuleEvaluationOrder,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
   RuleLookupItem,
@@ -69,6 +70,8 @@ const BUDGET_USAGE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Bud
 const BUDGET_LIMIT = (id: string, budgetId: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Budgets/${encodeURIComponent(budgetId)}/Limit`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Versions`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const ORDER = 'RuleCampaign/Order'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -273,6 +276,21 @@ export const ruleCampaignApi = {
   restore(id: string, version: number): Promise<RuleCampaign> {
     return api.post<RuleCampaign>(`${VERSIONS(id)}/${version}/Restore`, {})
   },
+
+  /** GET RuleCampaign/Order — the DRAFT evaluation order: the stackable base list with the groups
+   *  placed in it (ticket 513, BackOffice 2759, ADR 0090). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  order(): Promise<RuleEvaluationOrder> {
+    return api.get<RuleEvaluationOrder>(ORDER)
+  },
+
+  /** PUT RuleCampaign/Order — save the whole draft order (ticket 513, BackOffice 2759); it reaches
+   *  tills only with the next published version. HQ answers the order as saved (a new group may come
+   *  back with HQ's own id). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveOrder(body: RuleEvaluationOrder): Promise<RuleEvaluationOrder> {
+    return api.put<RuleEvaluationOrder>(ORDER, body)
+  },
 }
 
 /** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
@@ -435,5 +453,14 @@ export const ruleCampaignVersionQuery = (id: string, version: number) => ({
   queryKey: [...ruleCampaignVersionKey(id), version] as const,
   queryFn: () => ruleCampaignApi.version(id, version),
   staleTime: Infinity,
+  retry: false as const,
+})
+
+/** The draft evaluation order's query options (ticket 513). Read afresh each time Priority opens
+ *  (no stale time), never on a focus: the page holds the reader's unsaved order over it. */
+export const ruleOrderQuery = () => ({
+  queryKey: [...RULE_CAMPAIGNS_KEY, 'order'] as const,
+  queryFn: () => ruleCampaignApi.order(),
+  refetchOnWindowFocus: false as const,
   retry: false as const,
 })

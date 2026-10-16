@@ -1,0 +1,185 @@
+{
+  "menu": {
+    "pickSupport": "Pick support"
+  },
+  "title": "Pick support",
+  "subtitle": "Find a delivery from any number a store sent and read what is wrong with it, in the server's words.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Pick support",
+    "deniedHint": "Your account does not hold the grant for Pick support. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "tabs": {
+    "label": "Pick support views",
+    "search": "Search"
+  },
+  "search": {
+    "label": "Number",
+    "placeholder": "Order, delivery, till transaction, picking document, donor request or serial",
+    "submit": "Find",
+    "looking": "Looking it up…",
+    "failedTitle": "The lookup failed",
+    "failed": "The number could not be looked up."
+  },
+  "noMatch": {
+    "title": "Nothing matched"
+  },
+  "list": {
+    "title": "Deliveries this number names",
+    "empty": "This number names no delivery.",
+    "delivery": "Delivery",
+    "order": "Order",
+    "currentStore": "Current store",
+    "closeStatus": "Close status",
+    "matchedBy": "Matched as",
+    "stuck": "Stuck",
+    "open": "Open diagnosis",
+    "opened": "Shown below"
+  },
+  "keyKind": {
+    "ORDER": "Order",
+    "DELIVERY": "Delivery",
+    "TILL_TRANSACTION": "Till transaction",
+    "PICKING_DOCUMENT": "Picking document",
+    "DONOR_REQUEST": "Donor request",
+    "SERIAL": "Serial"
+  },
+  "holds": {
+    "title": "Where this serial is held",
+    "serial": "Serial",
+    "gtin": "GTIN",
+    "document": "Document",
+    "source": "Source",
+    "store": "Store",
+    "documentState": "Document state",
+    "consumedByTrx": "Consumed by",
+    "delivery": "Delivery",
+    "hold": "Hold",
+    "explanation": "Explanation",
+    "open": "Open diagnosis"
+  },
+  "lang": {
+    "en": "English",
+    "ar": "Arabic"
+  },
+  "dash": "—",
+  "denied": "You do not have access to Pick support",
+  "panel": {
+    "loading": "Reading the diagnosis…",
+    "failedTitle": "The diagnosis could not be read",
+    "failed": "The diagnosis could not be read."
+  },
+  "facts": {
+    "delivery": "Delivery",
+    "order": "Order",
+    "currentStore": "Current store",
+    "readyStatus": "Ready status",
+    "closeStatus": "Close status",
+    "verdict": "Verdict"
+  },
+  "verdict": {
+    "healthy": "Nothing is stuck",
+    "escalate": "Unknown — escalate",
+    "escalateHint": "Copy the diagnosis and escalate it."
+  },
+  "shape": {
+    "explanation": "What is wrong",
+    "fix": "The fix",
+    "requests": "Donor requests it touches",
+    "documents": "Documents it touches",
+    "request": "Request",
+    "document": "Document",
+    "orderStore": "Order store",
+    "donorStore": "Donor store",
+    "store": "Store",
+    "state": "State",
+    "action": "Action"
+  },
+  "refusal": {
+    "title": "What the store's invoice is refused with"
+  },
+  "history": {
+    "title": "Store history",
+    "empty": "No store moves.",
+    "at": "When",
+    "by": "By",
+    "action": "Action",
+    "document": "Document",
+    "from": "From store",
+    "to": "To store"
+  },
+  "documents": {
+    "title": "Picking documents",
+    "empty": "No picking documents.",
+    "store": "Store",
+    "revision": "Revision",
+    "voidReason": "Void reason",
+    "consumedBy": "Consumed by",
+    "consumedByStore": "Consumed by store",
+    "consumedByTrx": "Consumed by transaction",
+    "picked": "Picked / required",
+    "created": "Created",
+    "lastPick": "Last pick",
+    "confirmed": "Confirmed",
+    "noLines": "No lines.",
+    "line": "Line",
+    "item": "Item",
+    "description": "Description",
+    "quantity": "Quantity",
+    "uom": "Unit",
+    "short": "Short",
+    "state": "State",
+    "units": "Units",
+    "pickIndex": "#",
+    "serial": "Serial",
+    "batch": "Batch",
+    "expiry": "Expiry",
+    "gtin": "GTIN",
+    "pickedBy": "Picked by",
+    "pickedAt": "Picked at"
+  },
+  "requests": {
+    "title": "Donor requests and transfer",
+    "empty": "No donor requests.",
+    "request": "Request",
+    "donorStore": "Donor store",
+    "orderStore": "Order store",
+    "state": "State",
+    "document": "Document",
+    "documentState": "Document state",
+    "voidReason": "Void reason",
+    "picked": "Picked / required",
+    "sto": "Transfer STO",
+    "postedAt": "Posted at",
+    "sapDocument": "SAP document",
+    "started": "started"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "empty": "No step matches the filters.",
+    "source": "Source",
+    "allSources": "All sources",
+    "key": "Key",
+    "keyPlaceholder": "Filter by key",
+    "at": "When",
+    "seq": "Seq",
+    "event": "Event",
+    "actor": "Actor",
+    "approvedBy": "Approved by",
+    "reason": "Reason",
+    "complaintRef": "Complaint",
+    "detail": "Detail",
+    "reconstructed": "reconstructed",
+    "reconstructedTip": "Read off the donor request's stamp columns, because the request was raised before its trail existed. The time is the column's, not an exact record of the act."
+  },
+  "copy": {
+    "label": "Copy diagnosis",
+    "text": "Copy as text",
+    "json": "Copy as JSON",
+    "done": "Diagnosis copied",
+    "failed": "The diagnosis was not copied",
+    "failedDetail": "The browser refused the clipboard."
+  }
+}

@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canOpenDeliveryStatistics, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canFixPickSupport, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -19,26 +19,29 @@ const NINE = [
   'canOpenDocumentSourceUsers',
   'canImportDocumentSourceUsers',
 ] as const
+/** The two Pick support flags (ticket 496, brief 2691; BackOffice 2731). */
+const PICK = ['canOpenPickSupport', 'canFixPickSupport'] as const
+const ALL = [...NINE, ...PICK] as const
 
 describe('omsGrants', () => {
-  it('names exactly the nine D2 flags', () => {
-    expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...NINE].sort())
+  it('names exactly the nine D2 flags and the two Pick support flags', () => {
+    expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...ALL].sort())
   })
 
   it('🚩 an absent flag is false for every D2 flag (an older server)', () => {
     const grants = omsGrants({ canOpenList: true, canOpenDetail: true })
-    for (const flag of NINE) expect([flag, grants[flag]]).toEqual([flag, false])
+    for (const flag of ALL) expect([flag, grants[flag]]).toEqual([flag, false])
   })
 
   it.each([null, undefined])('a %s answer grants nothing', (r) => {
     const grants = omsGrants(r)
-    for (const flag of NINE) expect(grants[flag]).toBe(false)
+    for (const flag of ALL) expect(grants[flag]).toBe(false)
   })
 
   it('each flag reads only its own field, and only an explicit true grants', () => {
-    for (const flag of NINE) {
+    for (const flag of ALL) {
       const grants = omsGrants({ canOpenList: false, canOpenDetail: false, [flag]: true })
-      for (const other of NINE) expect([other, grants[other]]).toEqual([other, other === flag])
+      for (const other of ALL) expect([other, grants[other]]).toEqual([other, other === flag])
     }
   })
 
@@ -78,5 +81,25 @@ describe('canOpenDeliveryStatistics', () => {
     expect(canOpenDeliveryStatistics({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
     expect(canOpenDeliveryStatistics(null)).toBe(false)
     expect(canOpenDeliveryStatistics(undefined)).toBe(false)
+  })
+})
+
+describe('Pick support (ticket 496)', () => {
+  it('canOpenPickSupport grants only on an explicit true', () => {
+    expect(canOpenPickSupport({ canOpenList: false, canOpenDetail: false, canOpenPickSupport: true })).toBe(true)
+    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true })).toBe(false)
+    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: false })).toBe(false)
+    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canFixPickSupport: true })).toBe(false)
+    expect(canOpenPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: 'true' } as unknown as OmsAccessResult)).toBe(false)
+    expect(canOpenPickSupport(null)).toBe(false)
+    expect(canOpenPickSupport(undefined)).toBe(false)
+  })
+
+  it('canFixPickSupport grants only on an explicit true, and reads only its own flag', () => {
+    expect(canFixPickSupport({ canOpenList: false, canOpenDetail: false, canFixPickSupport: true })).toBe(true)
+    expect(canFixPickSupport({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true })).toBe(false)
+    expect(canFixPickSupport({ canOpenList: true, canOpenDetail: true, canFixPickSupport: 1 } as unknown as OmsAccessResult)).toBe(false)
+    expect(canFixPickSupport(null)).toBe(false)
+    expect(canFixPickSupport(undefined)).toBe(false)
   })
 })

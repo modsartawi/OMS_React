@@ -111,6 +111,11 @@ import deliverectTermsAr from '@/locales/ar/deliverect-terms.json'
 // Arabic together. 485–487 add their keys here rather than minting a second namespace.
 import deliveryStatistics from '@/locales/en/delivery-statistics.json'
 import deliveryStatisticsAr from '@/locales/ar/delivery-statistics.json'
+// Pick support (BackOffice brief 2691, ticket 496). Namespace == feature name, English and Arabic
+// together. `core/pick-support` — the diagnosis panel Document Details also draws (499) — speaks in
+// it too, the `central-invoice` precedent. 497–499 add their keys here rather than minting another.
+import pickSupport from '@/locales/en/pick-support.json'
+import pickSupportAr from '@/locales/ar/pick-support.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -118,7 +123,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support'],
   resources: {
     en: {
       common,
@@ -161,6 +166,7 @@ i18n.use(initReactI18next).init({
       'deliverect-catalog': deliverectCatalog,
       'deliverect-terms': deliverectTerms,
       'delivery-statistics': deliveryStatistics,
+      'pick-support': pickSupport,
     },
     ar: {
       document: documentAr,
@@ -179,6 +185,7 @@ i18n.use(initReactI18next).init({
       'deliverect-catalog': deliverectCatalogAr,
       'deliverect-terms': deliverectTermsAr,
       'delivery-statistics': deliveryStatisticsAr,
+      'pick-support': pickSupportAr,
     },
   },
   interpolation: { escapeValue: false },

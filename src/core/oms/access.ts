@@ -6,7 +6,10 @@ import type { OmsAccessResult } from '@/core/models/oms-access'
 // (`@/core/oms/api`), so the OMS group still costs one call. This module is the one reading of
 // those flags: the menu leaf and the page gate take the same predicate, so they cannot disagree.
 
-/** The nine flags of D2, in the order the spec lists them. */
+/**
+ * The nine flags of D2, in the order the spec lists them, then the two Pick support flags
+ * (BackOffice brief 2691, shipped in BackOffice 2731) — read the same way, absent = denied.
+ */
 export const OMS_SCREEN_FLAGS = [
   'canOpenDonorRequests',
   'canOpenDocumentPayments',
@@ -17,6 +20,8 @@ export const OMS_SCREEN_FLAGS = [
   'canImportDistricts',
   'canOpenDocumentSourceUsers',
   'canImportDocumentSourceUsers',
+  'canOpenPickSupport',
+  'canFixPickSupport',
 ] as const
 
 export type OmsScreenFlag = (typeof OMS_SCREEN_FLAGS)[number]
@@ -57,3 +62,9 @@ export const canOpenDocumentSourceUsers = (r: OmsAccessResult | null | undefined
  * so this reads `canOpenList`. If the owner swaps in a dedicated statistics grant, only this changes.
  */
 export const canOpenDeliveryStatistics = (r: OmsAccessResult | null | undefined): boolean => r?.canOpenList === true
+
+/** Pick support (ticket 496, brief 2691) — `PickSupport,03`: the leaf's and the page gate's one predicate. */
+export const canOpenPickSupport = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canOpenPickSupport
+
+/** Pick support's fix (ticket 497 draws the button) — `PickSupport,06`. Hide the button without it. */
+export const canFixPickSupport = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canFixPickSupport

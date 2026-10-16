@@ -6,6 +6,7 @@ import type {
   RuleCampaign,
   RuleCatalogueBlock,
   RuleCatalogueField,
+  RuleCheckMessage,
   RuleCondition,
   RuleEffect,
   RuleFormulaGuide,
@@ -18,6 +19,8 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { INPUT, labelText, useHas } from './builder-ui'
+import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
+import { NO_BLOCK_CHECKS, type BlockChecks } from './checks'
 import FilterEditor from './FilterEditor'
 import FormulaBox from './FormulaBox'
 import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
@@ -31,6 +34,9 @@ import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
  * the field, and saving it adds a named filter to the rule and points the field at it, in ONE
  * history step. A formula is written with the guided ƒx helper and checked by HQ (`./FormulaBox`,
  * ticket 507); the client never parses the expression language (ADR 0089).
+ *
+ * HQ's checks of the saved draft (ticket 508) show at the field they point at; one on the block as
+ * a whole, or on a field this panel does not show, shows at the top.
  */
 export interface BlockPanelProps {
   block: RuleCondition | RuleEffect
@@ -45,11 +51,13 @@ export interface BlockPanelProps {
   /** Adds `filter` to the rule and sets `key = value` (which points at it), as one step. */
   withFilter: (filter: RuleItemFilter, key: string, value: unknown) => void
   newId: () => string
+  /** HQ's messages on this block (ticket 508, `./checks`). */
+  checks?: BlockChecks
   onDone: () => void
   onDelete: () => void
 }
 
-export default function BlockPanel({ block, entry, rule, campaign, guide, set, withFilter, newId, onDone, onDelete }: BlockPanelProps) {
+export default function BlockPanel({ block, entry, rule, campaign, guide, set, withFilter, newId, checks = NO_BLOCK_CHECKS, onDone, onDelete }: BlockPanelProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const raw = block as Record<string, unknown>
@@ -58,15 +66,18 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
   // A condition always has its "not met" pair, even where the catalogue does not list it (a group has none).
   const saysFields: RuleCatalogueField[] =
     entry.kind === 'condition' && entry.type !== 'group' && !says.some((f) => f.key === 'says') ? [...says, { key: 'says', kind: 'says', role: 'notMet' }] : says
+  const shown = new Set([...fields, ...saysFields].map((f) => f.key))
+  const atTop = checks.all.filter((m) => !shown.has(m.field ?? ''))
 
   return (
     <div className="mt-2 flex flex-col gap-3 rounded-md border border-primary/30 bg-primary-050/40 p-3" data-block-panel={block.id}>
+      <CheckNotes messages={atTop} data="panel" />
       {fields.length > 0 && (
         <div className="grid items-center gap-x-3 gap-y-2 sm:grid-cols-[11rem_1fr]">
           {fields.map((f) => {
             const id = `panel-${block.id}-${f.key}`
             return (
-              <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)}>
+              <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)} notes={checks.byField[f.key]} field={f.key}>
                 <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} />
               </FieldRow>
             )
@@ -81,6 +92,8 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
           value={(raw[f.key] as Partial<Says> | undefined) ?? { en: '', ar: '' }}
           onChange={(v) => set(f.key, v, true)}
           data={f.role ?? 'message'}
+          notes={checks.byField[f.key]}
+          field={f.key}
         />
       ))}
       <div className="flex justify-end gap-2">
@@ -97,13 +110,17 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
   )
 }
 
-function FieldRow({ id, label, children }: { id: string; label: ReactNode; children: ReactNode }) {
+function FieldRow({ id, label, notes, field, children }: { id: string; label: ReactNode; notes?: RuleCheckMessage[]; field: string; children: ReactNode }) {
+  const bad = checkTone(notes ?? []) === 'error'
   return (
     <>
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className={'text-xs font-medium ' + (bad ? SEVERITY_LOOK.error.ink : 'text-muted-foreground')}>
         {label}
       </label>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2" data-panel-row={field}>
+        {children}
+        <CheckNotes messages={notes ?? []} data={field} />
+      </div>
     </>
   )
 }
@@ -588,14 +605,30 @@ function TimingInput({ id, field, value, onChange }: { id: string; field: string
 }
 
 /** A marketer's text in both languages: two inputs, the Arabic one right-to-left. */
-function SaysInput({ id, label, value, onChange, data }: { id: string; label: string; value: Partial<Says>; onChange: (v: Says) => void; data: string }) {
+function SaysInput({
+  id,
+  label,
+  value,
+  onChange,
+  data,
+  notes,
+  field,
+}: {
+  id: string
+  label: string
+  value: Partial<Says>
+  onChange: (v: Says) => void
+  data: string
+  notes?: RuleCheckMessage[]
+  field: string
+}) {
   const { t } = useTranslation('campaign-workspace')
   const en = value.en ?? ''
   const ar = value.ar ?? ''
   return (
     <fieldset className="grid gap-x-3 gap-y-1 sm:grid-cols-[11rem_1fr_1fr]" data-panel-says={data}>
       <legend className="sr-only">{label}</legend>
-      <span className="text-xs font-medium text-muted-foreground" aria-hidden>
+      <span className={'text-xs font-medium ' + (checkTone(notes ?? []) === 'error' ? SEVERITY_LOOK.error.ink : 'text-muted-foreground')} aria-hidden>
         {label}
       </span>
       <input
@@ -620,6 +653,11 @@ function SaysInput({ id, label, value, onChange, data }: { id: string; label: st
         onChange={(e) => onChange({ en, ar: e.target.value })}
         data-panel-says-ar=""
       />
+      {notes && notes.length > 0 && (
+        <div className="sm:col-start-2 sm:col-end-4" data-panel-row={field}>
+          <CheckNotes messages={notes} data={field} />
+        </div>
+      )}
     </fieldset>
   )
 }

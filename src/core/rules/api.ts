@@ -3,6 +3,7 @@ import { api } from '@/core/api'
 import type {
   RuleBlockCatalogue,
   RuleCampaign,
+  RuleCampaignChecks,
   RuleCampaignCreate,
   RuleCampaignDraft,
   RuleCampaignListRow,
@@ -32,6 +33,8 @@ const LOOKUPS: Record<RuleLookupKind, string> = {
 }
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const FORMULA_CHECK = 'RuleCampaign/Formula/Check'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const VALIDATE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Validate`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -99,7 +102,31 @@ export const ruleCampaignApi = {
   checkFormula(body: RuleFormulaCheckRequest): Promise<RuleFormulaCheck> {
     return api.post<RuleFormulaCheck>(FORMULA_CHECK, body)
   },
+
+  /** GET RuleCampaign/Campaigns/{id}/Validate — HQ's checks of the campaign's saved draft (ticket
+   *  508, BackOffice 2758): errors and warnings, each pointed at rule → block → field by id. A draft
+   *  with problems is an answer, not a refusal; a refusal means the check could not be made. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  validate(id: string): Promise<RuleCampaignChecks> {
+    return api.get<RuleCampaignChecks>(VALIDATE(id))
+  },
 }
+
+/** A campaign's checks, keyed under the campaign queries: a Save re-reads them (`rememberSavedDraft`). */
+export const ruleCampaignChecksKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'checks', id] as const
+
+/**
+ * The checks' query options (ticket 508). The builder's pill and the dashboard's approval (511)
+ * read the same query, so they always agree on whether an error blocks approval.
+ */
+export const ruleCampaignChecksQuery = (id: string) => ({
+  queryKey: ruleCampaignChecksKey(id),
+  queryFn: () => ruleCampaignApi.validate(id),
+  // HQ's answer changes only with a save, which re-reads it: no re-ask on focus or remount.
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
 
 /**
  * A formula check's query options: one call per formula and the rule it is read in, kept while
@@ -141,11 +168,13 @@ export const ruleCampaignsQuery = () => ({
 
 /**
  * A draft HQ just saved (ticket 505): the campaign's own query takes HQ's answer, so every page of
- * its workspace reads the saved rules, and the list is read afresh.
+ * its workspace reads the saved rules, and the list and the draft's checks are read afresh.
  */
 export function rememberSavedDraft(queryClient: QueryClient, campaign: RuleCampaign): void {
   queryClient.setQueryData(ruleCampaignKey(campaign.id), campaign)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  // HQ validates the draft it saved (ticket 508): its checks are read afresh.
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignChecksKey(campaign.id) })
 }
 
 /** One campaign's query options — the same key wherever it is read, so one call serves them all. */

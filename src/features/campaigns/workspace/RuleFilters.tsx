@@ -17,6 +17,8 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { INPUT } from './builder-ui'
+import CheckNotes from './CheckNotes'
+import { NO_BLOCK_CHECKS } from './checks'
 import FilterEditor from './FilterEditor'
 import type { Builder } from './RuleCard'
 import SentenceView from './SentenceView'
@@ -95,6 +97,7 @@ export default function RuleFilters({ rule, rules, b }: { rule: CampaignRule; ru
                       {t(`filters.nameProblem.${problem}`)}
                     </span>
                   )}
+                  <CheckNotes messages={(b.checks.blocks.get(f.id) ?? NO_BLOCK_CHECKS).all} data="filter" />
                 </div>
                 {open && (
                   <div id={editorId}>

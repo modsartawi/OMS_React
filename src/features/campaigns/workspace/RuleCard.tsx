@@ -24,6 +24,8 @@ import {
 } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import BlockPanel from './BlockPanel'
+import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
+import { NO_BLOCK_CHECKS, type ChecksIndex } from './checks'
 import { INPUT } from './builder-ui'
 import PaletteMenu from './PaletteMenu'
 import { newBlock } from './palette'
@@ -53,6 +55,8 @@ export interface Builder {
   campaign: RuleCampaign
   catalogue: RuleBlockCatalogue
   newId: () => string
+  /** HQ's checks of the saved draft, found on the rules on screen and indexed (ticket 508). */
+  checks: ChecksIndex
 }
 
 /**
@@ -150,6 +154,7 @@ export default function RuleCard({
           labels={{ up: t('builder.moveRuleUp'), down: t('builder.moveRuleDown'), remove: t('builder.deleteRule') }}
           data="rule"
         />
+        <CheckNotes messages={b.checks.rules.get(rule.id) ?? []} data="rule" />
       </header>
       {open && (
         <div id={bodyId} className="flex flex-col gap-4 border-t border-border/60 p-3" data-rule-body="">
@@ -271,6 +276,7 @@ function Group({
         <MatchSelect value={mode} onChange={(m) => b.edit((rules) => setBlockField(rules, rule.id, group.id, 'mode', m))} data={group.id} />
         <BlockTools rule={rule} id={group.id} index={index} count={count} b={b} />
       </div>
+      <CheckNotes messages={(b.checks.blocks.get(group.id) ?? NO_BLOCK_CHECKS).all} data="group" />
       {group.items.length ? <Conditions items={group.items} rule={rule} ctx={ctx} b={b} pick={pick} /> : <Muted>{t('builder.emptyGroup')}</Muted>}
       <PaletteMenu
         kind="condition"
@@ -311,6 +317,8 @@ function Block({
   const open = !!entry && b.openId === item.id
   const panelId = `panel-${item.id}`
   const rx = kind === 'effect' && effectLetsRxIn(item, entry, rule.filters)
+  const notes = b.checks.blocks.get(item.id) ?? NO_BLOCK_CHECKS
+  const tone = checkTone(notes.all)
   const sentence = (
     <span className="block text-sm leading-relaxed" data-block-sentence="">
       <SentenceView s={read.sentence} />
@@ -323,12 +331,21 @@ function Block({
     <li
       className={
         'rounded-md border px-3 py-2 ' +
-        (!read.known ? 'border-attention-border bg-attention-050' : rx ? 'border-danger-border' : open ? 'border-primary/40' : 'border-border/60')
+        (!read.known
+          ? 'border-attention-border bg-attention-050'
+          : rx
+            ? 'border-danger-border'
+            : tone
+              ? SEVERITY_LOOK[tone].border
+              : open
+                ? 'border-primary/40'
+                : 'border-border/60')
       }
       {...{ [`data-${kind}`]: item.id }}
       data-sentence={read.sentence.key}
       data-open={open ? '' : undefined}
       data-block-rx={rx ? '' : undefined}
+      data-block-checks={tone ?? undefined}
     >
       <div className="flex items-start gap-2">
         {entry ? (
@@ -353,6 +370,12 @@ function Block({
         </p>
       )}
       {!open && read.says.map((line) => <Says key={line.field} line={line} />)}
+      {/* Closed, the block lists its messages; open, its panel shows each at its field. */}
+      {!(open && entry) && (
+        <div className="mt-1">
+          <CheckNotes messages={notes.all} data="block" />
+        </div>
+      )}
       {open && entry && (
         <div id={panelId}>
           <BlockPanel
@@ -364,6 +387,7 @@ function Block({
             set={(key, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, item.id, key, value), coalesce ? `field:${item.id}.${key}` : undefined)}
             withFilter={(filter, key, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, item.id, key, value))}
             newId={b.newId}
+            checks={notes}
             onDone={() => b.setOpenId(null)}
             onDelete={() => {
               b.setOpenId(null)

@@ -5,7 +5,7 @@ import { useBlocker } from 'react-router'
 import { Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type { CampaignRule } from '@/core/models/rule-campaign'
-import { rememberSavedDraft, ruleCampaignApi, ruleCatalogueQuery } from '@/core/rules/api'
+import { rememberSavedDraft, ruleCampaignApi, ruleCampaignChecksQuery, ruleCatalogueQuery } from '@/core/rules/api'
 import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
@@ -13,6 +13,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { mintRequestId } from '@/core/util/request-id'
 import { builderHistory, canRedo, canUndo, initialHistory, isDirty } from './builder-history'
+import { focusTarget, indexChecks, locateChecks, type CheckPlace } from './checks'
+import ChecksPill from './ChecksPill'
 import { useWorkspace } from './context'
 import { newRule } from './palette'
 import { addRule } from './rule-edit'
@@ -27,6 +29,10 @@ import RuleCard, { type Builder } from './RuleCard'
  * Every edit is a step of a pure history (`./builder-history`): Undo / Redo walk it, Cancel goes
  * back to the rules as HQ last saved them, Save sends them to the draft door. Leaving the page — in
  * the app or by closing the tab — with unsaved changes asks first.
+ *
+ * The checks pill (ticket 508) reads HQ's checks of the saved draft, re-read after every Save. Each
+ * message is found by id on the rules as they are on screen and shown where it points; a click on
+ * one in the pill expands its rule, opens its block's panel and focuses the field.
  */
 export default function RulesPage() {
   const { t, i18n } = useTranslation('campaign-workspace')
@@ -38,6 +44,11 @@ export default function RulesPage() {
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const rules = history.present
+  const checks = useQuery(ruleCampaignChecksQuery(c.id))
+  const located = useMemo(() => (checks.data ? locateChecks(rules, checks.data) : []), [rules, checks.data])
+  const checksIndex = useMemo(() => indexChecks(located), [located])
+  /** The control a click in the pill asked for; focused once the rule and the panel have opened. */
+  const [focusAsk, setFocusAsk] = useState<{ ids: string[]; within: string | null } | null>(null)
   // Serialises the rules: once per history change, not on every render (a panel opening, a toggle).
   const dirty = useMemo(() => isDirty(history), [history])
 
@@ -70,6 +81,34 @@ export default function RulesPage() {
     ),
   )
 
+  // Focus after the render that expanded the rule and opened the panel; scrolled into view.
+  useEffect(() => {
+    if (!focusAsk) return
+    const el = focusAsk.ids.map((id) => document.getElementById(id)).find((x) => x) ?? (focusAsk.within ? document.querySelector(focusAsk.within) : null)
+    const control = el?.matches(FOCUSABLE) ? el : el?.querySelector<HTMLElement>(FOCUSABLE)
+    if (control instanceof HTMLElement) {
+      control.scrollIntoView({ block: 'center' })
+      control.focus({ preventScroll: true })
+    }
+    setFocusAsk(null)
+  }, [focusAsk])
+
+  const goTo = (place: CheckPlace) => {
+    const target = focusTarget(place)
+    if (!target) return
+    setShut((prev) => {
+      if (!prev.has(target.ruleId)) return prev
+      const next = new Set(prev)
+      next.delete(target.ruleId)
+      return next
+    })
+    if (target.open !== null) {
+      dispatch({ type: 'seal' })
+      setOpenId(target.open)
+    }
+    setFocusAsk({ ids: target.ids, within: target.within })
+  }
+
   const toggle = (id: string) =>
     setShut((prev) => {
       const next = new Set(prev)
@@ -92,6 +131,7 @@ export default function RulesPage() {
         campaign: c,
         catalogue: catalogue.data,
         newId: mintRequestId,
+        checks: checksIndex,
       }
     : null
 
@@ -150,6 +190,17 @@ export default function RulesPage() {
         </div>
         {builder && (
           <div className="flex flex-wrap items-center gap-2" data-builder-bar="">
+            <ChecksPill
+              checks={checks.data}
+              fetching={checks.isFetching}
+              error={checks.error}
+              onRetry={() => void checks.refetch()}
+              located={located}
+              dirty={dirty}
+              rules={rules}
+              catalogue={builder.catalogue}
+              onGo={goTo}
+            />
             {dirty && (
               <span className="rounded-full bg-attention-050 px-2 py-0.5 text-xs font-medium text-attention-800" data-unsaved="">
                 {t('builder.unsaved')}
@@ -217,3 +268,6 @@ export default function RulesPage() {
     </section>
   )
 }
+
+/** What a jump from the pill may focus inside the place it lands on. */
+const FOCUSABLE = 'input, select, textarea, button'

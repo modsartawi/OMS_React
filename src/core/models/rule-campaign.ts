@@ -351,3 +351,30 @@ export interface RuleFormulaCheck {
   /** The result on HQ's sample basket; null when it cannot be tried there. */
   result: number | boolean | string | null
 }
+
+// ── The checks (ticket 508; HQ's door is BackOffice 2758) ────────────────────────────────────────
+// HQ validates the saved draft and answers its messages, each pointed at rule → block → field BY
+// ID. Errors block "Ask for approval" (511); warnings do not. The client never decides what is wrong
+// with a rule: it shows HQ's messages where they point.
+
+export type RuleCheckSeverity = 'error' | 'warning'
+
+/**
+ * One of HQ's messages about the draft. `message` is HQ's own text, shown as data. `ruleId` null =
+ * the campaign as a whole; `blockId` = a condition (in a group too), an effect, a filter or a named
+ * value of that rule, null = the rule itself; `field` = the block's catalogue field key (a filter's
+ * or a value's own `name` / `formula`), null = the block as a whole.
+ */
+export interface RuleCheckMessage {
+  severity: RuleCheckSeverity
+  code: string
+  message: string
+  ruleId: string | null
+  blockId: string | null
+  field: string | null
+}
+
+/** HQ's checks of a campaign's saved draft. */
+export interface RuleCampaignChecks {
+  messages: RuleCheckMessage[]
+}

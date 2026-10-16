@@ -5,6 +5,8 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { INPUT } from './builder-ui'
+import CheckNotes from './CheckNotes'
+import { NO_BLOCK_CHECKS } from './checks'
 import FormulaBox from './FormulaBox'
 import type { Builder } from './RuleCard'
 import { addValue, deleteValue, moveValue, newValue, nextValueName, pinValueRefs, updateValue, valueNameProblem, valueUses } from './value-edit'
@@ -101,6 +103,7 @@ export default function RuleValues({ rule, b }: { rule: CampaignRule; b: Builder
                     <Trans t={t} i18nKey="values.usedBy" count={uses} components={{ n: <Ltr /> }} />
                   </p>
                 )}
+                <CheckNotes messages={(b.checks.blocks.get(v.id) ?? NO_BLOCK_CHECKS).all} data="value" />
               </li>
             )
           })}

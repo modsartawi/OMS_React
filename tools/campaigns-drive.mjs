@@ -13,6 +13,8 @@
 //   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
 //   GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= → the hits (506, `lookup`)
 //   POST RuleCampaign/Formula/Check   → a canned check: an unknown word's span, or 12.5 / yes (507, `checkFormula`)
+//   GET RuleCampaign/Campaigns/{id}/Validate → the saved draft's checks: none, unless a section's
+//       `checksFor(id, n)` answers messages (n = how many times it was asked), or null to refuse (508)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -68,6 +70,7 @@ const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج 
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
 const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
 const CHECK_REFUSED = 'The formula check is not available. / التحقق من الصيغة غير متاح.'
+const VALIDATE_REFUSED = 'The rule checks are not available. / التحقق من القواعد غير متاح.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -79,7 +82,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, edit } = {}) {
+async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -96,6 +99,8 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
   const lookups = []
   /** 507: every formula check's body, in order. */
   const checks = []
+  /** 508: every validate, by campaign id, in order. */
+  const validations = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -137,6 +142,15 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       const c = store.find((x) => x.id === decodeURIComponent(one[1]))
       return route.fulfill(c ? envelope(c) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
+    const validate = /^RuleCampaign\/Campaigns\/([^/]+)\/Validate$/.exec(p)
+    if (validate && req.method() === 'GET') {
+      const id = decodeURIComponent(validate[1])
+      const n = validations.filter((v) => v === id).length
+      validations.push(id)
+      const messages = checksFor ? checksFor(id, n) : []
+      if (messages === null) return route.fulfill(envelope(null, { status: 503, success: false, message: VALIDATE_REFUSED, errorCode: 'RULE_VALIDATE_UNAVAILABLE' }))
+      return route.fulfill(envelope({ messages }))
+    }
     const draft = /^RuleCampaign\/Campaigns\/([^/]+)\/Draft$/.exec(p)
     if (draft && req.method() === 'PUT') {
       const body = req.postDataJSON()
@@ -156,7 +170,7 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -1132,6 +1146,160 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await first.locator('[data-fx-status="failed"]').waitFor({ timeout: 5000 })
   check('51: a refused check is the door’s own message under the box', (await first.locator('[data-fx-status="failed"]').innerText()) === CHECK_REFUSED && (await first.locator('[role="alert"]').count()) === 1)
   check('52: no page errors (51)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 508 ── it asserts:
+//  53. a draft with no messages: the pill reads "All checks pass", and nothing blocks approval;
+//      Escape closes the list;
+//  54. HQ's error and warnings: the pill counts them ("1 error", "3 warnings"); a closed block shows
+//      its own message, isolated, and is marked;
+//  55. the pill lists errors first, each with where it points (Rule 1 › Condition 2 › At least) and
+//      HQ's text; a campaign message and one on a block deleted since the save (named by its rule)
+//      cannot be jumped to;
+//      the errors block "Ask for approval";
+//  56. a click on the error expands the collapsed rule, opens the condition's panel and focuses its
+//      amount — where the message also shows;
+//  57. a click on the warning opens the effect and focuses the receipt label's English input, the
+//      message under the EN + AR pair;
+//  58. warnings alone never block approval;
+//  59. while there are unsaved changes the list says the checks are the last save's; Save asks HQ
+//      again, and the pill follows its answer;
+//  60. a refused check is the door's own message, with Try again;
+//  61. no page errors.
+{
+  const pts = CAMPAIGNS.find((c) => c.id === 'PTS-50OFF')
+  const rule = pts.rules[0]
+  const amount = rule.when.items[1]
+  const discount = rule.then[1]
+  const AMOUNT = 'The basket minimum must be above the points burned (SAR 30).'
+  const LABEL = 'The Arabic receipt label is longer than a till line.'
+  const BUDGET = 'No budget limits the points burned.'
+  const GONE = 'This condition repeats another.'
+  const messages = [
+    { severity: 'warning', code: 'NO_BURN_BUDGET', message: BUDGET, ruleId: null, blockId: null, field: null },
+    { severity: 'warning', code: 'LABEL_TOO_LONG', message: LABEL, ruleId: rule.id, blockId: discount.id, field: 'label' },
+    { severity: 'error', code: 'AMOUNT_BELOW_BURN', message: AMOUNT, ruleId: rule.id, blockId: amount.id, field: 'amount' },
+    { severity: 'warning', code: 'DUPLICATE_CONDITION', message: GONE, ruleId: rule.id, blockId: 'c-deleted', field: null },
+  ]
+  const { context, page, errors, validations } = await open({
+    checksFor: (id, n) =>
+      id === 'PTS-50OFF' ? (n === 0 ? messages : []) : id === 'WLCB' ? [{ severity: 'warning', code: 'W', message: LABEL, ruleId: null, blockId: null, field: null }] : [],
+  })
+  const pill = page.locator('[data-checks-pill]')
+  const list = page.locator('[data-checks-list]')
+  const bar = page.locator('[data-builder-bar]')
+  const active = () => page.evaluate(() => document.activeElement?.id ?? '')
+
+  // ── 53 ──
+  await page.goto(`${BASE}/campaigns/WKND20/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  await page.locator('[data-checks-pill="pass"]').waitFor({ timeout: 5000 })
+  check('53: no messages: the pill reads "All checks pass"', (await pill.innerText()).trim() === 'All checks pass')
+  await pill.click()
+  check('53: …and nothing blocks approval', (await list.locator('[data-checks-verdict="clear"]').innerText()) === 'Nothing blocks “Ask for approval”.')
+  check('53: the draft was checked once, by its id', JSON.stringify(validations) === '["WKND20"]', JSON.stringify(validations))
+  await page.keyboard.press('Escape')
+  check('53: Escape closes the list', (await list.count()) === 0 && (await pill.getAttribute('aria-expanded')) === 'false')
+
+  // ── 54 ──
+  await page.goto(`${BASE}/campaigns/PTS-50OFF/rules`)
+  await page.locator('[data-checks-pill="errors"]').waitFor({ timeout: 10000 })
+  check(
+    '54: the pill counts HQ’s error and warnings',
+    (await pill.locator('[data-checks-errors]').innerText()).trim() === '1 error' && (await pill.locator('[data-checks-warnings]').innerText()).trim() === '3 warnings',
+    await pill.innerText(),
+  )
+  const cond = page.locator(`[data-condition="${amount.id}"]`)
+  check(
+    '54: a closed block is marked and shows its own message, isolated',
+    (await cond.getAttribute('data-block-checks')) === 'error' && (await cond.locator('[data-check-note="error"] bdi[data-check-message]').innerText()) === AMOUNT,
+  )
+  check('54: a block with only a warning is marked as such', (await page.locator(`[data-effect="${discount.id}"]`).getAttribute('data-block-checks')) === 'warning')
+
+  // ── 55 ──
+  await page.locator('[data-rule-toggle]').click()
+  await page.locator('[data-rule-body]').waitFor({ state: 'detached' })
+  await pill.click()
+  const items = list.locator('[data-check-item]')
+  check(
+    '55: errors first, then the warnings in HQ’s order',
+    JSON.stringify(await items.evaluateAll((els) => els.map((e) => e.getAttribute('data-check-code')))) === '["AMOUNT_BELOW_BURN","NO_BURN_BUDGET","LABEL_TOO_LONG","DUPLICATE_CONDITION"]',
+  )
+  const first = items.nth(0)
+  const where = (await first.locator('[data-check-where]').innerText()).replace(/\s+/g, ' ').trim()
+  check('55: the error says where it points: rule › condition › field', where === `Rule 1 ${rule.name} Condition 2 At least`, where)
+  check('55: …and HQ’s text, isolated', (await first.locator('bdi[data-check-message]').innerText()) === AMOUNT)
+  check(
+    '55: a campaign message and one on a deleted block cannot be jumped to',
+    (await items.nth(1).locator('[data-check-go]').count()) === 0 &&
+      (await items.nth(3).locator('[data-check-go]').count()) === 0 &&
+      (await items.nth(1).locator('[data-check-where]').innerText()) === 'The campaign' &&
+      (await items.nth(3).locator('[data-check-where]').innerText()).replace(/\s+/g, ' ').trim() === `Rule 1 ${rule.name} No longer in the rules`,
+  )
+  check('55: the errors block “Ask for approval”', (await list.locator('[data-checks-verdict]').getAttribute('data-checks-verdict')) === 'blocked')
+  await page.screenshot({ path: `${SHOTS}/checks-list.png` })
+
+  // ── 56 ──
+  await first.locator('[data-check-go]').click()
+  await page.waitForFunction((id) => document.activeElement?.id === id, `panel-${amount.id}-amount`, { timeout: 5000 }).catch(() => {})
+  check('56: the click expands the rule', (await page.locator('[data-rule-body]').count()) === 1)
+  check('56: …opens the condition’s panel', (await page.locator(`[data-block-panel="${amount.id}"]`).count()) === 1 && (await cond.getAttribute('data-open')) === '')
+  check('56: …and focuses the field', (await active()) === `panel-${amount.id}-amount`, await active())
+  check('56: the message shows at the field', (await page.locator(`[data-block-panel="${amount.id}"] [data-panel-row="amount"] bdi[data-check-message]`).innerText()) === AMOUNT)
+  check('56: the list closed', (await list.count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/checks-field.png` })
+
+  // ── 57 ──
+  await pill.click()
+  await list.locator('[data-check-code="LABEL_TOO_LONG"] [data-check-go]').click()
+  await page.waitForFunction((id) => document.activeElement?.id === id, `panel-${discount.id}-label-en`, { timeout: 5000 }).catch(() => {})
+  check('57: the warning opens the effect and focuses the receipt label’s English input', (await active()) === `panel-${discount.id}-label-en`, await active())
+  check('57: …one panel open at a time', (await page.locator('[data-block-panel]').count()) === 1)
+  check(
+    '57: the warning shows under the EN + AR pair',
+    (await page.locator(`[data-block-panel="${discount.id}"] [data-panel-says="receiptLabel"] [data-check-note="warning"] bdi`).innerText()) === LABEL,
+  )
+
+  // ── 59 ──
+  await page.locator('[data-rule-name]').fill('Burn 30, take 50 off')
+  await pill.click()
+  check('59: with unsaved changes the list says the checks are the last save’s', await list.locator('[data-checks-stale]').isVisible())
+  await pill.click()
+  await bar.locator('[data-save]').click()
+  await page.locator('[data-checks-pill="pass"]').waitFor({ timeout: 10000 }).catch(() => {})
+  check(
+    '59: Save asks HQ again, and the pill follows its answer',
+    validations.filter((v) => v === 'PTS-50OFF').length === 2 && (await pill.getAttribute('data-checks-pill')) === 'pass',
+    JSON.stringify(validations),
+  )
+  check('59: …and the field’s message is gone with it', (await page.locator('[data-check-note]').count()) === 0)
+
+  // ── 58 ──
+  await page.goto(`${BASE}/campaigns/WLCB/rules`)
+  await page.locator('[data-checks-pill="warnings"]').waitFor({ timeout: 10000 })
+  await pill.click()
+  check(
+    '58: warnings alone never block approval',
+    (await list.locator('[data-checks-verdict]').getAttribute('data-checks-verdict')) === 'clear' &&
+      (await list.locator('[data-checks-verdict]').innerText()) === 'Warnings do not block “Ask for approval”.',
+  )
+  check('61: no page errors (53–59)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 60 ──
+{
+  const { context, page, errors } = await open({ checksFor: () => null })
+  await page.goto(`${BASE}/campaigns/WKND20/rules`)
+  await page.locator('[data-checks-pill="failed"]').waitFor({ timeout: 10000 })
+  check('60: a refused check reads "Checks unavailable"', (await page.locator('[data-checks-pill]').innerText()).trim() === 'Checks unavailable')
+  await page.locator('[data-checks-pill]').click()
+  check(
+    '60: …the door’s own message, with Try again',
+    (await page.locator('[data-checks-list]').innerText()).includes(VALIDATE_REFUSED) && (await page.locator('[data-checks-retry]').isVisible()),
+  )
+  check('61: no page errors (60)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

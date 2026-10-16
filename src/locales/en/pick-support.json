@@ -13,7 +13,9 @@
   },
   "tabs": {
     "label": "Pick support views",
-    "search": "Search"
+    "search": "Search",
+    "stuck": "Stuck now",
+    "stuckTotal": "Deliveries stuck now: {{total}}"
   },
   "search": {
     "label": "Number",
@@ -22,6 +24,19 @@
     "looking": "Looking it up…",
     "failedTitle": "The lookup failed",
     "failed": "The number could not be looked up."
+  },
+  "stuck": {
+    "store": "Store",
+    "storePlaceholder": "Any store",
+    "shape": "Shape",
+    "allShapes": "All",
+    "since": "Since",
+    "apply": "Show",
+    "refresh": "Refresh",
+    "failedTitle": "The census could not be read",
+    "failed": "The deliveries stuck now could not be read.",
+    "emptyFiltered": "Nothing is stuck for these filters.",
+    "empty": "Nothing is stuck"
   },
   "noMatch": {
     "title": "Nothing matched"

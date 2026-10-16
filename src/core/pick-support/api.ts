@@ -10,6 +10,8 @@
  */
 import { api } from '@/core/api'
 import type {
+  PickSupportCensus,
+  PickSupportCensusParams,
   PickSupportDiagnosis,
   PickSupportFixRequest,
   PickSupportFixResult,
@@ -24,6 +26,15 @@ export const pickSupportApi = {
    */
   resolve(key: string): Promise<PickSupportResolution> {
     return api.get<PickSupportResolution>('PickSupport/Resolve', { key })
+  },
+
+  /**
+   * `GET PickSupport/StuckNow?store=&shape=` (ticket 498) — every delivery stuck now, one row per
+   * delivery per shape. Read afresh on every call: there is no background job behind it. A shape
+   * that is not one of the three codes is refused `PICK-00003`.
+   */
+  stuckNow(params: PickSupportCensusParams): Promise<PickSupportCensus> {
+    return api.get<PickSupportCensus>('PickSupport/StuckNow', params)
   },
 
   /** `GET PickSupport/Delivery/{deliveryNo}` — the diagnosis. Unknown → `PICK-00002`. */
@@ -49,6 +60,9 @@ export const pickSupportKeys = {
   all: ['pick-support'] as const,
   resolve: (key: string) => ['pick-support', 'resolve', key] as const,
   delivery: (deliveryNo: string) => ['pick-support', 'delivery', deliveryNo] as const,
+  /** Every diagnosis read, whichever delivery. */
+  deliveries: ['pick-support', 'delivery'] as const,
+  census: (params: PickSupportCensusParams) => ['pick-support', 'census', params.store ?? '', params.shape ?? ''] as const,
 }
 
 /** The diagnosis query's options — shared by the console and Document Details (499). */

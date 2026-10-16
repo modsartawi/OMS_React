@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
 import { PICK_SUPPORT_KEY_KINDS, type PickSupportResolvedDelivery, type PickSupportSerialHold } from '@/core/models/pick-support'
@@ -15,8 +15,10 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { formatPair } from '@/core/util/bidi'
-import { openable, resolveView, searchFromParams, searchToParams } from './resolve-view'
+import { formatPair, fsi } from '@/core/util/bidi'
+import { censusQuery, pageFromParams, pageToParams, type CensusFilter, type PageQuery, type PickSupportTab } from './census-view'
+import { openable, resolveView } from './resolve-view'
+import StuckNowTab from './StuckNowTab'
 
 /**
  * **Pick support** (ticket 496, BackOffice brief 2691; spec 2685, ADR 0085) — HQ support types any
@@ -25,31 +27,119 @@ import { openable, resolveView, searchFromParams, searchToParams } from './resol
  * Behind `canOpenPickSupport` on the ONE shared OMS probe, the predicate the menu leaf reads. The
  * doors stay the boundary: a session without the grant that reaches one gets a bare 403.
  *
- * Tabs: Search (the default; this slice). The Stuck now census is ticket 498's tab.
+ * Tabs: Search (the default) and Stuck now (ticket 498, the census).
  */
 export default function PickSupportPage() {
   const { t } = useTranslation('pick-support')
   return (
     <ScreenGate query={omsAccessQuery()} can={canOpenPickSupport} ns="pick-support" title={t('title')} subtitle={t('subtitle')}>
-      <div className="flex flex-col gap-3">
-        <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60">
+      <PickSupportTabs />
+    </ScreenGate>
+  )
+}
+
+/**
+ * The same number asked again: its lookup and every diagnosis drawn under it are read again (the
+ * delivery may have changed since). The census is not the search's: its own Refresh re-reads it.
+ */
+function reask(queryClient: QueryClient, key: string) {
+  void queryClient.invalidateQueries({ queryKey: pickSupportKeys.resolve(key) })
+  void queryClient.invalidateQueries({ queryKey: pickSupportKeys.deliveries })
+}
+
+type UrlState = ReturnType<typeof useUrlQuery<PageQuery>>
+
+const TAB =
+  '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm font-medium aria-selected:border-primary aria-selected:text-foreground'
+
+/**
+ * The tab strip and its panel. The whole page's state is ONE URL reading (`pageFromParams`), so a
+ * write from one tab keeps the other's. The census is read here, not in its tab, so the badge is
+ * fetched when the page opens: afresh every visit (`gcTime: 0` — nothing is kept between visits),
+ * and again on Refresh.
+ */
+function PickSupportTabs() {
+  const { t } = useTranslation('pick-support')
+  const url = useUrlQuery(pageFromParams, pageToParams)
+  const { query, update } = url
+  const params = censusQuery(query)
+  const census = useQuery({
+    queryKey: pickSupportKeys.census(params),
+    queryFn: () => pickSupportApi.stuckNow(params),
+    retry: false,
+    gcTime: 0,
+  })
+  // The server's `total` (distinct deliveries), as sent — never a count of the rows.
+  const total = census.data && !census.isError ? census.data.total : null
+
+  const select = (tab: PickSupportTab) => update((q) => ({ ...q, tab }))
+  // The tabs pattern: one Tab stop, the arrows move between tabs. With two tabs either arrow is
+  // the other one, so the strip reads the same LTR and RTL.
+  const tabRefs = useRef<Partial<Record<PickSupportTab, HTMLButtonElement | null>>>({})
+  const onTabKey = (e: KeyboardEvent<HTMLButtonElement>, tab: PickSupportTab) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const other: PickSupportTab = tab === 'search' ? 'stuck' : 'search'
+    select(other)
+    tabRefs.current[other]?.focus()
+  }
+  const filter = useCallback((change: Partial<CensusFilter>) => update((q) => ({ ...q, ...change })), [update])
+  // A census row opens its delivery on Search, as a new `?key=`: the shared panel and its fix dialog, as they are.
+  // The key Search already holds is asked again, as the Search box would: the case is read as it is now.
+  const queryClient = useQueryClient()
+  const openRow = useCallback(
+    (deliveryNo: string) => {
+      if (deliveryNo === query.key) reask(queryClient, deliveryNo)
+      update((q) => ({ ...q, tab: 'search', key: deliveryNo, delivery: '' }))
+    },
+    [update, query.key, queryClient],
+  )
+
+  const tabs: { id: PickSupportTab; label: string }[] = [
+    { id: 'search', label: t('tabs.search') },
+    { id: 'stuck', label: t('tabs.stuck') },
+  ]
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60">
+        {tabs.map((tab) => (
           <button
+            key={tab.id}
             type="button"
             role="tab"
-            id="pick-support-tab-search"
-            aria-selected
+            id={`pick-support-tab-${tab.id}`}
+            aria-selected={query.tab === tab.id}
             aria-controls="pick-support-panel"
-            className="-mb-px border-b-2 border-primary px-3 py-1.5 text-sm font-medium text-foreground"
-            data-ps-tab="search"
+            tabIndex={query.tab === tab.id ? 0 : -1}
+            ref={(el) => {
+              tabRefs.current[tab.id] = el
+            }}
+            onKeyDown={(e) => onTabKey(e, tab.id)}
+            className={`${TAB} ${query.tab === tab.id ? '' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => select(tab.id)}
+            data-ps-tab={tab.id}
           >
-            {t('tabs.search')}
+            {tab.label}
+            {tab.id === 'stuck' && total !== null && (
+              <span
+                className="rounded-full bg-muted px-1.5 py-px text-[0.6875rem] font-semibold text-foreground"
+                aria-label={t('tabs.stuckTotal', { total: fsi(String(total)) })}
+                data-ps-census-total={total}
+              >
+                <Ltr>{total}</Ltr>
+              </span>
+            )}
           </button>
-        </div>
-        <div role="tabpanel" id="pick-support-panel" aria-labelledby="pick-support-tab-search">
-          <SearchTab />
-        </div>
+        ))}
       </div>
-    </ScreenGate>
+      <div role="tabpanel" id="pick-support-panel" aria-labelledby={`pick-support-tab-${query.tab}`}>
+        {query.tab === 'stuck' ? (
+          <StuckNowTab filter={query} census={census} onFilter={filter} onOpen={openRow} />
+        ) : (
+          <SearchTab url={url} />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -60,9 +150,9 @@ const INPUT =
  * Search: one input, Enter calls Resolve. The key lives in the URL (`?key=`), so a link to a case
  * can be shared and survives a reload; a row opened under a list or a hold is `?delivery=`.
  */
-function SearchTab() {
+function SearchTab({ url }: { url: UrlState }) {
   const { t } = useTranslation('pick-support')
-  const { query, update, changedFromOutside } = useUrlQuery(searchFromParams, searchToParams)
+  const { query, update, changedFromOutside } = url
   const [draft, setDraft] = useState(query.key)
   const queryClient = useQueryClient()
 
@@ -82,10 +172,9 @@ function SearchTab() {
   function submit() {
     const key = draft.trim()
     if (!key) return
-    // The same number again still asks again — the lookup AND the diagnosis drawn under it: the
-    // delivery may have changed since.
-    if (key === query.key) void queryClient.invalidateQueries({ queryKey: pickSupportKeys.all })
-    else update(() => ({ key, delivery: '' }))
+    // The same number again still asks again.
+    if (key === query.key) reask(queryClient, key)
+    else update((q) => ({ ...q, key, delivery: '' }))
   }
 
   const open = (deliveryNo: string) => update((q) => ({ ...q, delivery: deliveryNo }))

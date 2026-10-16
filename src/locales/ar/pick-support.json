@@ -13,7 +13,9 @@
   },
   "tabs": {
     "label": "عروض دعم التجهيز",
-    "search": "بحث"
+    "search": "بحث",
+    "stuck": "العالق الآن",
+    "stuckTotal": "التوصيلات العالقة الآن: {{total}}"
   },
   "search": {
     "label": "الرقم",
@@ -22,6 +24,19 @@
     "looking": "جارٍ البحث…",
     "failedTitle": "تعذّر البحث",
     "failed": "تعذّر البحث عن الرقم."
+  },
+  "stuck": {
+    "store": "الفرع",
+    "storePlaceholder": "أي فرع",
+    "shape": "النمط",
+    "allShapes": "الكل",
+    "since": "منذ",
+    "apply": "عرض",
+    "refresh": "تحديث",
+    "failedTitle": "تعذّرت قراءة الإحصاء",
+    "failed": "تعذّرت قراءة التوصيلات العالقة الآن.",
+    "emptyFiltered": "لا شيء عالق بهذه المرشّحات.",
+    "empty": "لا شيء عالق"
   },
   "noMatch": {
     "title": "لا شيء يطابق"

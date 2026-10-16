@@ -39,6 +39,16 @@
 //  20. `diagnosis: null` re-GETs the delivery and is still a success;
 //  21. PICK-00224 keeps the dialog open with its code and message and offers Refresh diagnosis;
 //      PICK-00225 offers no refresh; a bare 403 reads "You do not have access to apply fixes".
+// Ticket 498 (the Stuck now census) adds, against GET PickSupport/StuckNow?store=&shape= stubbed with
+// ONE delivery in TWO shapes and `total` 1 (the brief's row shape; the null-`since` row sent first):
+//  22. the badge is fetched when the page opens, on Search, and reads the server's 1 — not the 2 rows;
+//  23. the tab lists both rows, in the server's order with the null `since` moved last as "—"; the shape
+//      is its code; the delivery and the since read left to right under RTL;
+//  24. the shape and store filters reach the door (a blank one and "All" are dropped) and survive a
+//      reload; a store with nothing stuck reads "Nothing is stuck" with the badge at 0;
+//  25. Refresh re-calls the door; leaving the page and coming back reads it again (no cache);
+//  26. a row opens its diagnosis on Search (?key=), through the shared panel;
+//  27. an unknown shape typed into the URL shows the server's PICK-00003 with its code.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/pick-support-drive.mjs
@@ -418,6 +428,16 @@ const fixResult = (diagnosis) => ({
 const NOT_IN_SHAPE = 'Delivery 8006777365 is not in shape DONOR_AT_OLD_ORDER_STORE — nothing was changed; refresh its diagnosis'
 const NO_REASON = 'Delivery 8006777365: a reason and a complaint reference are required — nothing was changed'
 
+// ── Ticket 498: the census — one delivery in two shapes, `total` 1 ──────────────────────────────
+
+const SHAPE_CODES = ['DONOR_AT_OLD_ORDER_STORE', 'STORE_CHANGE_NOT_FOLLOWED', 'ENDED_STILL_HOLDS']
+// The brief's row shape. The server sends the null-`since` row FIRST here, so the drive proves the
+// client moves it last.
+const CENSUS_ROWS = [
+  { deliveryNo: '8006777365', orderNo: '1000456789', currentStore: '1139', shape: 'ENDED_STILL_HOLDS', since: null },
+  { deliveryNo: '8006777365', orderNo: '1000456789', currentStore: '1139', shape: 'DONOR_AT_OLD_ORDER_STORE', since: '2026-10-02T14:03:11' },
+]
+
 // ── The harness ──────────────────────────────────────────────────────────────────────────────
 
 const browser = await chromium.launch()
@@ -482,6 +502,14 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
             }),
         ),
       )
+    }
+    if (p === 'PickSupport/StuckNow') {
+      const store = url.searchParams.get('store')
+      const shape = url.searchParams.get('shape')
+      if (shape !== null && !SHAPE_CODES.includes(shape.trim().toUpperCase()))
+        return route.fulfill(refusal('PICK-00003', `'${shape}' is not a stuck shape`))
+      const rows = CENSUS_ROWS.filter((r) => (!store || r.currentStore === store) && (!shape || r.shape === shape.trim().toUpperCase()))
+      return route.fulfill(envelope({ total: new Set(rows.map((r) => r.deliveryNo)).size, rows }))
     }
     const fixDoor = /^PickSupport\/Delivery\/([^/]+)\/Fix$/.exec(p)
     if (fixDoor && route.request().method() === 'POST') {
@@ -1081,10 +1109,171 @@ async function driveFix(dir) {
   }
 }
 
+/** The census grid's rows, in the order shown. */
+const censusRows = (page) =>
+  page.locator('[data-ps-census] .ag-row[row-index]:not(.ag-header-row)').evaluateAll((els) =>
+    els
+      .map((r) => ({
+        i: Number(r.getAttribute('row-index')),
+        id: r.getAttribute('row-id'),
+        cell: Object.fromEntries([...r.querySelectorAll('[col-id]')].map((c) => [c.getAttribute('col-id'), c.innerText.trim()])),
+      }))
+      .sort((a, b) => a.i - b.i),
+  )
+
+const censusCalls = (calls) => calls.filter((c) => c.startsWith('PickSupport/StuckNow'))
+
+async function driveCensus(dir) {
+  const label = `${dir} census`
+  const rtl = dir === 'rtl'
+  const { context, page, errors, calls } = await open(dir)
+
+  // 22: the badge, on page open, on Search
+  await page.goto(`${BASE}/oms/pick-support`)
+  const badge = page.locator('[data-ps-tab="stuck"] [data-ps-census-total]')
+  await badge.waitFor({ timeout: 20000 })
+  check(
+    `${label}: the census is read when the page opens, on Search, with no filter`,
+    (await page.locator('[data-ps-tab="search"][aria-selected="true"]').count()) === 1 && censusCalls(calls).join(',') === 'PickSupport/StuckNow',
+    censusCalls(calls).join(','),
+  )
+  check(`${label}: the badge reads the server's total 1, not the 2 rows`, (await badge.innerText()).trim() === '1', await badge.innerText())
+
+  // 23: the rows
+  await page.locator('[data-ps-tab="stuck"]').click()
+  await page.locator('[data-ps-census] .ag-row').first().waitFor({ timeout: 10000 })
+  check(`${label}: the tab is held in the URL`, new URL(page.url()).searchParams.get('tab') === 'stuck', page.url())
+  let rows = await censusRows(page)
+  check(
+    `${label}: both rows of the one delivery, the null since moved last as "—"`,
+    rows.length === 2 &&
+      rows[0].cell.shape === 'DONOR_AT_OLD_ORDER_STORE' &&
+      rows[0].cell.since === '2026-10-02T14:03:11' &&
+      rows[1].cell.shape === 'ENDED_STILL_HOLDS' &&
+      rows[1].cell.since === '—' &&
+      rows.every((r) => r.cell.deliveryNo === '8006777365' && r.cell.orderNo === '1000456789' && r.cell.currentStore === '1139'),
+    JSON.stringify(rows.map((r) => r.cell)),
+  )
+  check(`${label}: the badge still reads 1 beside two rows`, (await badge.innerText()).trim() === '1')
+  const sinceCell = page.locator('[data-ps-census] .ag-row[row-index="0"] [col-id="since"]')
+  const deliveryCell = page.locator('[data-ps-census] .ag-row[row-index="0"] [col-id="deliveryNo"]')
+  check(
+    `${label}: the since and the delivery read left to right${rtl ? ' under RTL' : ''}`,
+    (await readsLtr(sinceCell)) === true && (await readsLtr(deliveryCell)) === true,
+  )
+  if (rtl) check(`${label}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  await page.screenshot({ path: `${SHOTS}/${dir}-census.png`, fullPage: true })
+
+  // 24: the filters
+  let before = censusCalls(calls).length
+  await page.locator('[data-ps-census-shape]').selectOption('ENDED_STILL_HOLDS')
+  await page.waitForTimeout(600)
+  check(
+    `${label}: a shape reaches the door, the blank store does not`,
+    censusCalls(calls).slice(before).includes('PickSupport/StuckNow?shape=ENDED_STILL_HOLDS'),
+    censusCalls(calls).slice(before).join(','),
+  )
+  rows = await censusRows(page)
+  check(
+    `${label}: the shape filter leaves its one row; the badge reads the server's 1`,
+    rows.length === 1 && rows[0].cell.shape === 'ENDED_STILL_HOLDS' && (await badge.innerText()).trim() === '1',
+  )
+  before = censusCalls(calls).length
+  await page.locator('[data-ps-census-store]').fill(' 1139 ')
+  await page.locator('[data-ps-census-store]').press('Enter')
+  await page.waitForTimeout(600)
+  check(
+    `${label}: the store (trimmed) and the shape both reach the door`,
+    censusCalls(calls).slice(before).includes('PickSupport/StuckNow?store=1139&shape=ENDED_STILL_HOLDS'),
+    censusCalls(calls).slice(before).join(','),
+  )
+  const sp = new URL(page.url()).searchParams
+  check(`${label}: both filters are in the URL`, sp.get('store') === '1139' && sp.get('shape') === 'ENDED_STILL_HOLDS' && sp.get('tab') === 'stuck', page.url())
+  before = censusCalls(calls).length
+  await page.reload()
+  await page.locator('[data-ps-census] .ag-row').first().waitFor({ timeout: 20000 })
+  check(
+    `${label}: the filters survive a reload, and the door is asked with them`,
+    (await page.locator('[data-ps-census-store]').inputValue()) === '1139' &&
+      (await page.locator('[data-ps-census-shape]').inputValue()) === 'ENDED_STILL_HOLDS' &&
+      censusCalls(calls).slice(before).includes('PickSupport/StuckNow?store=1139&shape=ENDED_STILL_HOLDS') &&
+      (await censusRows(page)).length === 1,
+    censusCalls(calls).slice(before).join(','),
+  )
+  before = censusCalls(calls).length
+  await page.locator('[data-ps-census-shape]').selectOption('')
+  await page.waitForTimeout(600)
+  check(
+    `${label}: "All" drops the shape from the URL and the call`,
+    !new URL(page.url()).searchParams.has('shape') && censusCalls(calls).slice(before).includes('PickSupport/StuckNow?store=1139'),
+    censusCalls(calls).slice(before).join(','),
+  )
+  await page.locator('[data-ps-census-store]').fill('1112')
+  await page.locator('[data-ps-census-store]').press('Enter')
+  await page.locator('[data-ps-census]', { hasText: 'Nothing is stuck' }).waitFor({ timeout: 10000 })
+  check(`${label}: a store with nothing stuck reads "Nothing is stuck", the badge 0`, (await badge.innerText()).trim() === '0' && (await censusRows(page)).length === 0)
+  await page.locator('[data-ps-census-store]').fill('')
+  await page.locator('[data-ps-census-store]').press('Enter')
+  await page.waitForTimeout(600)
+  check(`${label}: a blanked store is dropped from the URL and the call`, !new URL(page.url()).searchParams.has('store') && censusCalls(calls).at(-1) === 'PickSupport/StuckNow')
+
+  // 25: Refresh, and no cache between visits
+  before = censusCalls(calls).length
+  await page.locator('[data-ps-census-refresh]').click()
+  await page.waitForTimeout(600)
+  check(`${label}: Refresh re-calls the door`, censusCalls(calls).length === before + 1, `${before} → ${censusCalls(calls).length}`)
+  await page.locator('nav a[href="/oms/deliveries"]').first().click()
+  await page.waitForTimeout(500)
+  before = censusCalls(calls).length
+  await page.locator('nav a[href="/oms/pick-support"]').first().click()
+  await badge.waitFor({ timeout: 10000 })
+  await page.waitForTimeout(400)
+  check(`${label}: coming back to the page reads the census again`, censusCalls(calls).length === before + 1, `${before} → ${censusCalls(calls).length}`)
+
+  // 26: a row opens its diagnosis
+  await page.goto(`${BASE}/oms/pick-support?tab=stuck`)
+  await page.locator('[data-ps-census-open="8006777365"]').first().waitFor({ timeout: 20000 })
+  await page.locator('[data-ps-census-open="8006777365"]').first().click()
+  await page.locator('[data-ps-panel="8006777365"]').waitFor({ timeout: 10000 })
+  check(
+    `${label}: a row opens its delivery's diagnosis on Search, as ?key=`,
+    new URL(page.url()).search === '?key=8006777365' &&
+      (await page.locator('[data-ps-tab="search"][aria-selected="true"]').count()) === 1 &&
+      (await page.locator('[data-ps-key]').inputValue()) === '8006777365',
+    page.url(),
+  )
+  await page.locator('[data-ps-tab="search"]').focus()
+  await page.keyboard.press(rtl ? 'ArrowLeft' : 'ArrowRight')
+  await page.waitForTimeout(300)
+  check(
+    `${label}: an arrow key on the tab strip moves to Stuck now, and focus with it`,
+    (await page.locator('[data-ps-tab="stuck"][aria-selected="true"]').count()) === 1 &&
+      (await page.evaluate(() => document.activeElement?.getAttribute('data-ps-tab'))) === 'stuck',
+  )
+
+  // 27: PICK-00003
+  await page.goto(`${BASE}/oms/pick-support?tab=stuck&shape=NOT_A_SHAPE`)
+  const err = page.locator('[data-ps-failure="refused"]')
+  await err.waitFor({ timeout: 20000 })
+  check(
+    `${label}: an unknown shape in the URL shows the server's PICK-00003 with its code`,
+    (await err.locator('[data-ps-error-code="PICK-00003"]').innerText()).trim() === 'PICK-00003' &&
+      (await err.locator('[data-ps-error-message]').innerText()) === "'NOT_A_SHAPE' is not a stuck shape" &&
+      (await page.locator('[data-ps-census-shape]').inputValue()) === 'NOT_A_SHAPE' &&
+      (await page.locator('[data-ps-tab="stuck"] [data-ps-census-total]').count()) === 0,
+  )
+  check(`${label}: the refusal is not beside "Nothing is stuck"`, !(await page.locator('[data-ps-census]').innerText()).includes('Nothing is stuck'))
+  await page.screenshot({ path: `${SHOTS}/${dir}-census-00003.png`, fullPage: true })
+  check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await drive('ltr')
 await driveFix('ltr')
+await driveCensus('ltr')
 await drive('rtl')
 await driveFix('rtl')
+await driveCensus('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

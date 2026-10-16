@@ -120,6 +120,14 @@ export interface PickSupportCensusRow {
   since: string | null
 }
 
+/** The census door's query: a blank filter is never sent (blank = all). */
+export type PickSupportCensusParams = {
+  /** The store the delivery sits at now. */
+  store?: string
+  /** One of the three shape codes; anything else is refused `PICK-00003`. */
+  shape?: string
+}
+
 export interface PickSupportCensus {
   /** Distinct deliveries in `rows` after the filters — the count badge, shown as sent. */
   total: number

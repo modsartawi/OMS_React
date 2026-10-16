@@ -24,6 +24,7 @@ import type {
   RuleCampaignVersionDetail,
   RuleCouponBatch,
   RuleCouponBatchCreate,
+  RuleCouponFound,
   RuleCouponImportCheck,
   RuleCouponImportRow,
   RuleCouponUnusedDeleted,
@@ -32,6 +33,9 @@ import type {
   RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
+  RuleMember,
+  RuleMemberBudget,
+  RuleMemberKey,
   RuleOfflineVerdict,
   RuleSession,
   RuleSessionAccess,
@@ -40,6 +44,7 @@ import type {
   RuleSessionRow,
   RuleSimRequest,
   RuleSimResult,
+  RuleWalletCoupon,
 } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
@@ -100,6 +105,12 @@ const SESSIONS = 'RuleCampaign/Sessions'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 // Not under SESSIONS: a sale id could read `Access`.
 const SESSION_ACCESS = 'RuleCampaign/SessionAccess'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// (the coupon finder's contract is BackOffice 2754's; it names no door yet)
+const COUPON_FIND = 'RuleCampaign/Coupons'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// (a member's wallet is BackOffice 2754's, the budgets they used 2744's; neither names a door yet)
+const MEMBERS = 'RuleCampaign/Members'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -414,6 +425,33 @@ export const ruleCampaignApi = {
   cancelSession(saleId: string): Promise<RuleSessionCancelled> {
     return api.post<RuleSessionCancelled>(`${SESSIONS}/${encodeURIComponent(saleId)}/Cancel`, {})
   },
+
+  /** GET RuleCampaign/Coupons/{code} — one code across every campaign: its campaign, batch, status,
+   *  validity, bound member and uses (ticket 519). An unknown code is refused (404). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  findCoupon(code: string): Promise<RuleCouponFound> {
+    return api.get<RuleCouponFound>(`${COUPON_FIND}/${encodeURIComponent(code)}`)
+  },
+
+  /** GET RuleCampaign/Members?loyaltyId= | ?mobile= — the members matching one key (ticket 519):
+   *  none, one, or — a mobile shared by several — more than one. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  findMembers(by: RuleMemberKey, value: string): Promise<RuleMember[]> {
+    return api.get<RuleMember[]>(MEMBERS, { [by]: value })
+  },
+
+  /** GET RuleCampaign/Members/{id}/Wallet — the member's coupon wallet (ticket 519, BackOffice 2754). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  memberWallet(id: string): Promise<RuleWalletCoupon[]> {
+    return api.get<RuleWalletCoupon[]>(`${MEMBERS}/${encodeURIComponent(id)}/Wallet`)
+  },
+
+  /** GET RuleCampaign/Members/{id}/Budgets — the profile-scope budgets the member has used, each
+   *  counter in its current period (ticket 519, BackOffice 2744). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  memberBudgets(id: string): Promise<RuleMemberBudget[]> {
+    return api.get<RuleMemberBudget[]>(`${MEMBERS}/${encodeURIComponent(id)}/Budgets`)
+  },
 }
 
 /** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
@@ -655,4 +693,44 @@ export function rememberCancelledSession(queryClient: QueryClient, lookedUp: str
     rows?.map((r) => (r.id === session.id ? { ...r, status, lastActivity, gross, discount, net } : r)),
   )
   void queryClient.invalidateQueries({ queryKey: [...RULE_SESSIONS_KEY, 'list'] })
+  // The rollback frees coupon uses and budget counters: support's look-ups (519) read afresh.
+  void queryClient.invalidateQueries({ queryKey: RULE_SUPPORT_KEY })
 }
+
+/** Support's look-ups (ticket 519): a code, a member and what the member holds. Tills redeem codes
+ *  and count budgets, so each is read afresh when the reader comes back to the tab. */
+export const RULE_SUPPORT_KEY = ['rule-support'] as const
+
+/** One code's query options: asked only once a code is entered. */
+export const ruleCouponFindQuery = (code: string) => ({
+  queryKey: [...RULE_SUPPORT_KEY, 'coupon', code] as const,
+  queryFn: () => ruleCampaignApi.findCoupon(code),
+  enabled: !!code,
+  refetchOnWindowFocus: true as const,
+  retry: false as const,
+})
+
+/** The members matching a key: asked only once a value is entered. */
+export const ruleMembersQuery = (by: RuleMemberKey, value: string) => ({
+  queryKey: [...RULE_SUPPORT_KEY, 'members', by, value] as const,
+  queryFn: () => ruleCampaignApi.findMembers(by, value),
+  enabled: !!value,
+  refetchOnWindowFocus: true as const,
+  retry: false as const,
+})
+
+/** A member's coupon wallet. */
+export const ruleMemberWalletQuery = (id: string) => ({
+  queryKey: [...RULE_SUPPORT_KEY, 'wallet', id] as const,
+  queryFn: () => ruleCampaignApi.memberWallet(id),
+  refetchOnWindowFocus: true as const,
+  retry: false as const,
+})
+
+/** The budgets a member has used. */
+export const ruleMemberBudgetsQuery = (id: string) => ({
+  queryKey: [...RULE_SUPPORT_KEY, 'budgets', id] as const,
+  queryFn: () => ruleCampaignApi.memberBudgets(id),
+  refetchOnWindowFocus: true as const,
+  retry: false as const,
+})

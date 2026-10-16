@@ -28,7 +28,7 @@ describe('the Campaigns nav group', () => {
     for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
     expect(campaigns!.access).toBeUndefined()
     expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(4)
+    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(6)
   })
 
   it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
@@ -57,6 +57,13 @@ describe('the Campaigns nav group', () => {
       trail: ['campaign-list:menu.group', 'campaign-list:menu.sessions'],
       record: 'R101-0042',
     })
+  })
+
+  it('519 adds Coupon finder fifth and Customers sixth; each lights itself rather than Campaigns', () => {
+    expect(leaves([campaigns!])[4].routerLink).toBe('/campaigns/coupon-finder')
+    expect(leaves([campaigns!])[5].routerLink).toBe('/campaigns/customers')
+    expect(markedLeaf(MENU, '/campaigns/coupon-finder')?.labelKey).toBe('campaign-list:menu.couponFinder')
+    expect(markedLeaf(MENU, '/campaigns/customers')?.labelKey).toBe('campaign-list:menu.customers')
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {

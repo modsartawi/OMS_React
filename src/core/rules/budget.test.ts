@@ -76,15 +76,15 @@ describe('budgetSentence_readsEveryScopeAndPeriod', () => {
 
 describe('budgetUsage_showsOvershootOnlyPastTheLimit', () => {
   it('under the limit: no overshoot, the bar part-filled', () => {
-    expect(budgetUsage(12345.5, 50000)).toEqual({ used: 12345.5, limit: 50000, overshoot: null, share: 0.24691 })
+    expect(budgetUsage(12345.5, 50000)).toEqual({ used: 12345.5, limit: 50000, overshoot: null, share: 0.24691, usedUp: false })
   })
 
   it('exactly at the limit is used up, not over', () => {
-    expect(budgetUsage(2, 2)).toEqual({ used: 2, limit: 2, overshoot: null, share: 1 })
+    expect(budgetUsage(2, 2)).toEqual({ used: 2, limit: 2, overshoot: null, share: 1, usedUp: true })
   })
 
   it('past the limit: the overshoot is what went past, the bar full', () => {
-    expect(budgetUsage(3, 2)).toEqual({ used: 3, limit: 2, overshoot: 1, share: 1 })
+    expect(budgetUsage(3, 2)).toEqual({ used: 3, limit: 2, overshoot: 1, share: 1, usedUp: true })
   })
 
   it('an overshoot of money is rounded to the fils, not left as float noise', () => {
@@ -93,7 +93,7 @@ describe('budgetUsage_showsOvershootOnlyPastTheLimit', () => {
   })
 
   it('nothing used yet', () => {
-    expect(budgetUsage(0, 10)).toEqual({ used: 0, limit: 10, overshoot: null, share: 0 })
+    expect(budgetUsage(0, 10)).toEqual({ used: 0, limit: 10, overshoot: null, share: 0, usedUp: false })
   })
 })
 

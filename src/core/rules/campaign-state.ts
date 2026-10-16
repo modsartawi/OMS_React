@@ -34,6 +34,18 @@ export const campaignPath = (id: string) => `/campaigns/${encodeURIComponent(id)
 export const simulatorPath = (draftId?: string) =>
   draftId ? `/campaigns/simulator?draft=${encodeURIComponent(draftId)}` : '/campaigns/simulator'
 
+/** A campaign's coupons page — where the coupon finder's campaign link lands. */
+export const campaignCouponsPath = (id: string) => `${campaignPath(id)}/coupons`
+
+/** One customer session (ticket 518) — the coupon finder's sale ids open it. */
+export const ruleSessionPath = (saleId: string) => `/campaigns/sessions/${encodeURIComponent(saleId)}`
+
+/** The coupon finder (ticket 519), with a code already looked up. */
+export const couponFinderPath = (code: string) => `/campaigns/coupon-finder?code=${encodeURIComponent(code)}`
+
+/** Customers (ticket 519), with a member already looked up by loyalty id. */
+export const ruleCustomerPath = (loyaltyId: string) => `/campaigns/customers?loyaltyId=${encodeURIComponent(loyaltyId)}`
+
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /** A `yyyy-MM-dd` day, or null when it is absent or malformed (read as "no bound"). */

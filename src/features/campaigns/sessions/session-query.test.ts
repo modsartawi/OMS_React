@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { backPath, canCancelSession, listQuery, sessionPath, sessionsPath, sessionsQueryFromParams, sessionsQueryToParams } from './session-query'
+import { ruleSessionPath } from '@/core/rules/campaign-state'
+import { backPath, canCancelSession, listQuery, sessionsPath, sessionsQueryFromParams, sessionsQueryToParams } from './session-query'
 
 const read = (qs: string) => sessionsQueryFromParams(new URLSearchParams(qs))
 
@@ -44,7 +45,7 @@ describe('canCancelSession', () => {
 
 describe('paths', () => {
   it('escapes a sale id into one path segment', () => {
-    expect(sessionPath('P001/2026/0042')).toBe('/campaigns/sessions/P001%2F2026%2F0042')
+    expect(ruleSessionPath('P001/2026/0042')).toBe('/campaigns/sessions/P001%2F2026%2F0042')
   })
 
   it('Back goes to the list it came from, as it was left', () => {

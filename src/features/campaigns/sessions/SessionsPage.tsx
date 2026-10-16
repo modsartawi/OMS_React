@@ -13,6 +13,7 @@ import { apiErrorMessage } from '@/core/api'
 import { formatMoneyIn } from '@/core/money'
 import type { RuleSessionRow, RuleSessionStatus } from '@/core/models/rule-campaign'
 import { ruleLookupQuery, ruleSessionsQuery } from '@/core/rules/api'
+import { ruleSessionPath } from '@/core/rules/campaign-state'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -21,7 +22,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
-import { SESSION_STATUSES, SESSION_STATUS_SEV, listQuery, sessionPath, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
+import { SESSION_STATUSES, SESSION_STATUS_SEV, listQuery, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
 import { localMomentKey, momentText } from './timeline'
 
 /**
@@ -53,14 +54,14 @@ export default function SessionsPage() {
   const lookUp = (e: FormEvent) => {
     e.preventDefault()
     const id = saleId.trim()
-    if (id) navigate(sessionPath(id), { state: fromList })
+    if (id) navigate(ruleSessionPath(id), { state: fromList })
   }
 
   const columns = useMemo(() => sessionColumns(t), [t])
   const open = (e: RowClickedEvent<RuleSessionRow>) => {
     // The sale id is a link: a click on it has already navigated.
     if ((e.event?.target as Element | null)?.closest?.('a')) return
-    if (e.data) navigate(sessionPath(e.data.id), { state: fromList })
+    if (e.data) navigate(ruleSessionPath(e.data.id), { state: fromList })
   }
   const ids = { store: useId(), date: useId(), status: useId(), sale: useId() }
 
@@ -209,7 +210,7 @@ const DEFAULT_COL_DEF: ColDef<RuleSessionRow> = {
 function SaleIdCell({ data, context }: ICellRendererParams<RuleSessionRow, unknown, FromList>) {
   if (!data) return null
   return (
-    <Link to={sessionPath(data.id)} state={context} className="font-mono font-medium text-primary hover:underline" data-session-link={data.id}>
+    <Link to={ruleSessionPath(data.id)} state={context} className="font-mono font-medium text-primary hover:underline" data-session-link={data.id}>
       <Ltr>{data.id}</Ltr>
     </Link>
   )

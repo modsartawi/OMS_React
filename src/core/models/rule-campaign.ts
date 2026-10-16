@@ -950,3 +950,86 @@ export interface RuleSessionCancelled {
   session: RuleSession
   rollback: RuleSessionRollback
 }
+
+// ── Support's look-ups (ticket 519): the coupon finder and a member's rule-engine view ──────────
+// Provisional like the rest of this file: BackOffice 2754 (the coupon and its wallet) and 2744 (the
+// budgets used) name no door for them yet. Days are local `yyyy-MM-dd`, moments local, never a `Z`.
+
+/** One sale that redeemed a code. */
+export interface RuleCouponUse {
+  /** When the sale closed — a local moment. */
+  at: string
+  store: string
+  /** The customer session's sale id (Campaigns ▸ Sessions opens it). */
+  saleId: string
+}
+
+/** A code found across every campaign: where it belongs, where it is, and who used it. */
+export interface RuleCouponFound {
+  code: string
+  campaignId: string
+  campaignCode: string
+  campaignName: Says
+  batch: string
+  kind: RuleCouponKind
+  status: RuleCouponStatus
+  /** First day it works; null = at once. */
+  from: string | null
+  /** Last day it works; null = no end of its own. */
+  until: string | null
+  /** The member it is bound to, or null for anyone. */
+  member: string | null
+  /** Oldest first, as HQ answers them. */
+  uses: RuleCouponUse[]
+}
+
+/** How support looks a member up: by loyalty id, or by mobile. */
+export type RuleMemberKey = 'loyaltyId' | 'mobile'
+
+/** A member's points balance: spend points and tier points named separately, and what is pending. */
+export interface RuleMemberPoints {
+  /** Spend points: what the member can redeem. */
+  spend: number
+  /** Tier points: what the member's tier is counted on. */
+  tier: number
+  /** Points earned but still pending (the return window); not yet in the spend balance. */
+  pending: number
+}
+
+/** A member as the rule engine reads them. */
+export interface RuleMember {
+  /** The loyalty id. */
+  id: string
+  name: string
+  mobile: string | null
+  /** The tier's name as HQ answers it; null when the member has none. */
+  tier: string | null
+  points: RuleMemberPoints
+}
+
+/** One code in the member's coupon wallet: bound to them, enabled, unredeemed and in date (2754). */
+export interface RuleWalletCoupon {
+  code: string
+  campaignId: string
+  campaignCode: string
+  campaignName: Says
+  from: string | null
+  until: string | null
+}
+
+/** One profile-scope budget the member has used: its counter for the member in its current period. */
+export interface RuleMemberBudget {
+  campaignId: string
+  campaignCode: string
+  campaignName: Says
+  budgetId: string
+  name: string
+  limit: RuleBudgetLimit
+  /** The limit's figure. */
+  value: number
+  period: RuleBudgetPeriod
+  /** The member's counter in the current period (lifetime: ever). May pass `value` (ADR 0091). */
+  used: number
+  /** The campaign's currency, for a money or points limit; null when not known. */
+  currency: string | null
+}

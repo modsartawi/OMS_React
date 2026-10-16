@@ -2,7 +2,7 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import type { RuleCampaignCoupon, RuleCouponStatus } from '@/core/models/rule-campaign'
 import StatusBadge from '@/core/ui/StatusBadge'
-import type { Severity } from '@/core/ui/severity'
+import { COUPON_STATUS_SEV } from '@/core/rules/coupon'
 import { formatDateTime } from '@/core/util/date-format'
 
 type Row = RuleCampaignCoupon
@@ -17,10 +17,8 @@ export interface CouponGridContext {
   batchLabel: (batch: string) => string
 }
 
-const STATUS_SEV: Record<RuleCouponStatus, Severity> = { unused: 'go', used: 'ok', disabled: 'mute', expired: 'mute' }
-
 function StatusCell({ value, context }: ICellRendererParams<Row, RuleCouponStatus, CouponGridContext>) {
-  return value ? <StatusBadge sev={STATUS_SEV[value]}>{context.statusLabel(value)}</StatusBadge> : null
+  return value ? <StatusBadge sev={COUPON_STATUS_SEV[value]}>{context.statusLabel(value)}</StatusBadge> : null
 }
 
 /** The batch id as a button: a click filters the list to the batch, as the prototype's chip. */

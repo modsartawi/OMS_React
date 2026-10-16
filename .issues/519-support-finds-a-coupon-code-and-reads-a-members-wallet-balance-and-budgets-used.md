@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 2737 (brief C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md)
 blocked-by: 501
 ---
@@ -23,8 +23,11 @@ model/api (coupon find, member wallet / budgets) · logic (budget-used rows) · 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `profileBudgets_rowsShowUsedOfLimitPerPeriod` · pure
-- [ ] drive: find a code → its uses; find a member → wallet, balance, budgets used (stubbed) · flow
+- [x] `profileBudgets_rowsShowUsedOfLimitPerPeriod` · pure — `src/features/campaigns/customers/budgets-used.test.ts` (8 cases: used / limit as one string with its period, HQ's order, money and points in the campaign's currency with BHD at three decimals, at the limit is used up not over, past it the overshoot, a float hair under reads used up, 0 used, none) plus `member-query.test.ts` (the address keeps one key) and `budgetUsage`'s new `usedUp` in `core/rules/budget.test.ts`
+- [x] drive: find a code → its uses; find a member → wallet, balance, budgets used (stubbed) · flow — `tools/support-lookups-drive.mjs` 42/42 against vite :5199, every door stubbed at Playwright (code found/unknown, members by loyalty id / mobile with none, one or several, wallet ok/failing, budgets); sibling drives re-run green over the final tree: sessions 56/56, simulator 55/55, campaigns 596/596
+- [ ] OWNER: Arabic-UI eyeball of the EN + AR pairs (campaign names in the finder, wallet and budgets)
+- [ ] OWNER: sign-off on the HITL defaults (.afk/HITL-519.md: exact code lookup, several members per mobile, points as bare numbers)
+- [ ] LIVE: the real BackOffice 2754 / 2744 doors + grant — ticket 520
 
 ## Boundaries
 
@@ -42,3 +45,14 @@ The drive finds a code and a member against stubs.
 ## Open questions
 
 - Which endpoint serves a member's wallet and profile budgets is not named in BackOffice 2754 / 2744. Default: provisional, settled in 520.
+
+## Outcome (2026-10-17)
+
+Built on `spec/2737-rule-engine-screens`. `features/campaigns/coupon-finder/` at `/campaigns/coupon-finder?code=`
+and `features/campaigns/customers/` at `/campaigns/customers?loyaltyId=|mobile=`, plus two Campaigns leaves (ungated),
+namespaces `coupon-finder` and `rule-customers` (en only). Four PROVISIONAL doors in `core/rules/api.ts`
+(`RuleCampaign/Coupons/{code}`, `RuleCampaign/Members…`), types in `core/models/rule-campaign.ts`. Route links only
+across pages: a use's sale id → Sessions, a bound member → Customers, a wallet code → the finder, a campaign → its
+coupons. Graduated to core because two features need them: `SaysBoth`, `COUPON_STATUS_SEV` + `cleanCode`, the
+paths, and `budgetUsage().usedUp`. Gates: typecheck, vitest 332/5488, lint (4 gates) and build are green.
+Decisions are in `.afk/HITL-519.md`.

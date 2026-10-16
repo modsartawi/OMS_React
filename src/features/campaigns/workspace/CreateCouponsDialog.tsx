@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import type { RuleCampaign, RuleCouponBatch } from '@/core/models/rule-campaign'
 import { ruleCampaignApi, ruleCouponsKey } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
+import { cleanCode } from '@/core/rules/coupon'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
@@ -18,7 +19,6 @@ import {
   MAX_LENGTH,
   MIN_LENGTH,
   cleanAffix,
-  cleanCode,
   codeExample,
   couponCreateBody,
   couponCreateProblems,

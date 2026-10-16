@@ -1,0 +1,77 @@
+{
+  "title": "Customers",
+  "lede": "Find a member by loyalty id or mobile and see what the rule engine holds for them: their coupon wallet, their points balance and the budgets they have used. Their loyalty record itself is on the Loyalty screen.",
+  "none": "–",
+  "loading": "Loading…",
+  "form": {
+    "by": "Find by",
+    "key": {
+      "loyaltyId": "Loyalty id",
+      "mobile": "Mobile"
+    },
+    "value": "Loyalty id or mobile",
+    "find": "Find",
+    "hint": "Enter a loyalty id or a mobile number to see the member."
+  },
+  "result": {
+    "loading": "Looking the member up…",
+    "failedTitle": "The member could not be looked up",
+    "failed": "The member could not be looked up. Try again.",
+    "none": {
+      "loyaltyId": "No member has this loyalty id.",
+      "mobile": "No member has this mobile number."
+    },
+    "several": "More than one member has this mobile number. Choose one."
+  },
+  "member": {
+    "loyaltyId": "Loyalty id",
+    "mobile": "Mobile",
+    "tier": "Tier"
+  },
+  "points": {
+    "title": "Points balance",
+    "spend": "Spend points",
+    "spendHint": "What the member can redeem.",
+    "tier": "Tier points",
+    "tierHint": "What the member's tier is counted on.",
+    "pending": "Pending",
+    "pendingHint": "Earned, but not yet usable until the return window passes."
+  },
+  "wallet": {
+    "title": "Coupon wallet",
+    "lede": "Campaign coupons bound to the member that are enabled, unused and in date. The customer picks at most one per sale.",
+    "failed": "The coupon wallet could not be loaded. Try again.",
+    "empty": "The wallet is empty.",
+    "atOnce": "At once",
+    "noEnd": "No end",
+    "columns": {
+      "code": "Code",
+      "campaign": "Campaign",
+      "from": "Valid from",
+      "until": "Valid until"
+    }
+  },
+  "budgets": {
+    "title": "Budgets used",
+    "lede": "Budgets counted per member, such as \"once per customer\": what this member has used against each limit in its current period.",
+    "failed": "The budgets used could not be loaded. Try again.",
+    "empty": "No per-member budget counts anything for this member yet.",
+    "over": "Over by <v>{{amount}}</v>",
+    "usedUp": "Used up",
+    "open": "Available",
+    "period": {
+      "lifetime": "Ever",
+      "day": "Today",
+      "week": "This week",
+      "month": "This month",
+      "year": "This year"
+    },
+    "columns": {
+      "campaign": "Campaign",
+      "name": "Budget",
+      "used": "Used / limit",
+      "period": "Period",
+      "state": "State"
+    }
+  }
+}

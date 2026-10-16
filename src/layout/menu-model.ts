@@ -855,6 +855,19 @@ export const MENU: ShellMenuItem[] = [
         icon: Receipt,
         routerLink: '/campaigns/sessions',
       },
+      {
+        // Support finds a coupon code across every campaign (ticket 519).
+        labelKey: 'campaign-list:menu.couponFinder',
+        icon: Ticket,
+        routerLink: '/campaigns/coupon-finder',
+      },
+      {
+        // Support reads a member's wallet, balance and budgets used (ticket 519) — the rule
+        // engine's view only; Loyalty's member screen keeps the record.
+        labelKey: 'campaign-list:menu.customers',
+        icon: UserSearch,
+        routerLink: '/campaigns/customers',
+      },
     ],
   },
   {

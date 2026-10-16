@@ -53,7 +53,6 @@ export function canCancelSession(status: RuleSessionStatus): boolean {
   return status !== 'cancelled' && status !== 'returned'
 }
 
-export const sessionPath = (saleId: string) => `/campaigns/sessions/${encodeURIComponent(saleId)}`
 
 export function sessionsPath(q?: SessionsQuery): string {
   const qs = q ? sessionsQueryToParams(q).toString() : ''

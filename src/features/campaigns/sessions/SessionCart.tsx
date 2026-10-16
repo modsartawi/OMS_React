@@ -11,7 +11,8 @@ import type { RuleSession, RuleSessionLine } from '@/core/models/rule-campaign'
 import { moneyText } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
-import { Both, EffectText } from './session-ui'
+import SaysBoth from '@/core/rules/SaysBoth'
+import { EffectText } from './session-ui'
 
 interface GridContext {
   currency: string
@@ -45,7 +46,7 @@ function EffectsCell({ data, context }: ICellRendererParams<RuleSessionLine, unk
             </code>
             <EffectText effect={e} currency={context.currency} />
           </span>
-          {e.label && <Both says={e.label} />}
+          {e.label && <SaysBoth says={e.label} />}
         </div>
       ))}
     </div>

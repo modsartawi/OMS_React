@@ -8,8 +8,9 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { formatMoneyIn } from '@/core/money'
-import type { RuleSimEffect, RuleSimNearMiss, RuleSimOutcome, RuleSimResult, RuleSimTrace, Says } from '@/core/models/rule-campaign'
+import type { RuleSimEffect, RuleSimNearMiss, RuleSimOutcome, RuleSimResult, RuleSimTrace } from '@/core/models/rule-campaign'
 import { moneyText } from '@/core/rules/sentence'
+import SaysBoth from '@/core/rules/SaysBoth'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
@@ -87,20 +88,6 @@ export default function SimResults({ result }: { result: RuleSimResult }) {
   )
 }
 
-/** A text in both languages, both shown: the English, then the Arabic right to left. */
-function Both({ says }: { says: Says }) {
-  return (
-    <span className="flex flex-col" data-says="">
-      <bdi lang="en" data-says-en="">
-        {says.en}
-      </bdi>
-      <bdi dir="rtl" lang="ar" data-says-ar="">
-        {says.ar}
-      </bdi>
-    </span>
-  )
-}
-
 /** One effect: its campaign's code, what it does, and its label or message in both languages. */
 function Effect({ effect: e, currency }: { effect: RuleSimEffect; currency: string }) {
   return (
@@ -111,7 +98,7 @@ function Effect({ effect: e, currency }: { effect: RuleSimEffect; currency: stri
         </code>
         <EffectText effect={e} currency={currency} />
       </span>
-      {e.label && <Both says={e.label} />}
+      {e.label && <SaysBoth says={e.label} />}
     </div>
   )
 }
@@ -251,7 +238,7 @@ function Trace({ trace, outcomes }: { trace: RuleSimTrace[]; outcomes: Record<Ru
               <code className="font-mono font-semibold">
                 <Ltr>{c.code}</Ltr>
               </code>
-              <Both says={c.name} />
+              <SaysBoth says={c.name} />
             </div>
             <p className="mt-1.5 text-muted-foreground" data-sim-trace-group="">
               {c.group
@@ -289,7 +276,7 @@ function Trace({ trace, outcomes }: { trace: RuleSimTrace[]; outcomes: Record<Ru
                               ) : (
                                 <X className="mt-0.5 size-3.5 shrink-0 text-danger-800" aria-label={t('trace.notMetCondition')} />
                               )}
-                              <Both says={k.says} />
+                              <SaysBoth says={k.says} />
                             </li>
                           ))}
                         </ul>

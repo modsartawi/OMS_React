@@ -694,6 +694,20 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Support's look-ups (ticket 519): a coupon code, and a member's wallet, balance and budgets
+        // used. Static leaves beside `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/coupon-finder',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/coupon-finder/CouponFinderPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/customers',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/customers/CustomersPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

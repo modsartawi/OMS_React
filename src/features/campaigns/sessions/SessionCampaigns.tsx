@@ -7,7 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatNumber } from '@/core/util/number-format'
-import { Both } from './session-ui'
+import SaysBoth from '@/core/rules/SaysBoth'
 
 const OUTCOME_SEV: Record<RuleSimOutcome, Severity> = { applied: 'ok', notMet: 'mute', skipped: 'mute', budget: 'warn', lost: 'warn' }
 
@@ -28,7 +28,7 @@ export default function SessionCampaigns({ session }: { session: RuleSession }) 
             <Link to={campaignPath(c.campaignId)} className="font-mono font-semibold text-primary hover:underline">
               <Ltr>{c.code}</Ltr>
             </Link>
-            <Both says={c.name} />
+            <SaysBoth says={c.name} />
             {c.version != null && (
               <span className="ms-auto text-muted-foreground" data-session-campaign-version="">
                 <Trans t={t} i18nKey="campaigns.version" values={{ n: formatNumber(c.version) }} components={{ v: <Ltr /> }} />
@@ -65,7 +65,7 @@ export default function SessionCampaigns({ session }: { session: RuleSession }) 
               <ul className="mt-1 flex flex-col gap-1">
                 {c.notMet.map((says, i) => (
                   <li key={i} className="rounded border border-border/60 bg-card-2 px-2 py-1.5">
-                    <Both says={says} />
+                    <SaysBoth says={says} />
                   </li>
                 ))}
               </ul>

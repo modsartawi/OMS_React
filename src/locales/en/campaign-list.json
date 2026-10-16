@@ -4,7 +4,9 @@
     "campaigns": "Campaigns",
     "priority": "Priority",
     "simulator": "Simulator",
-    "sessions": "Sessions"
+    "sessions": "Sessions",
+    "couponFinder": "Coupon finder",
+    "customers": "Customers"
   },
   "title": "Campaigns",
   "untitled": "Untitled",

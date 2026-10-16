@@ -1,0 +1,47 @@
+{
+  "title": "Coupon finder",
+  "lede": "Find a campaign coupon code, for a customer on the phone or a cashier who cannot apply one: its campaign, batch, status, validity, the member it is bound to, and the sales that used it.",
+  "form": {
+    "code": "Coupon code",
+    "find": "Find",
+    "hint": "Enter a code to see where it belongs and who used it."
+  },
+  "result": {
+    "loading": "Looking the code up…",
+    "failedTitle": "The code could not be looked up",
+    "failed": "The code could not be looked up. Try again."
+  },
+  "status": {
+    "unused": "Unused",
+    "used": "Used",
+    "disabled": "Disabled",
+    "expired": "Expired"
+  },
+  "kind": {
+    "random": "Random",
+    "universal": "Universal",
+    "personal": "Personal",
+    "imported": "Imported"
+  },
+  "facts": {
+    "campaign": "Campaign",
+    "batch": "Batch",
+    "kind": "Kind",
+    "from": "Valid from",
+    "until": "Valid until",
+    "member": "Bound to member",
+    "atOnce": "At once",
+    "noEnd": "No end of its own",
+    "anyone": "Anyone (not bound)"
+  },
+  "uses": {
+    "title_one": "<n>{{n}}</n> use",
+    "title_other": "<n>{{n}}</n> uses",
+    "none": "No sale has used this code yet.",
+    "columns": {
+      "at": "When",
+      "store": "Store",
+      "saleId": "Sale id"
+    }
+  }
+}

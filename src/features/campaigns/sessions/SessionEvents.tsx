@@ -10,7 +10,8 @@ import type { RuleSession } from '@/core/models/rule-campaign'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
-import { Both, BudgetMoveText, JournalMoveText } from './session-ui'
+import SaysBoth from '@/core/rules/SaysBoth'
+import { BudgetMoveText, JournalMoveText } from './session-ui'
 import { momentText, sessionTimeline, type TimelineEntry, type TimelineKind } from './timeline'
 
 const KIND_SEV: Record<TimelineKind, Severity> = { call: 'go', refusal: 'bad', hold: 'mute', budget: 'mute', journal: 'mute' }
@@ -58,7 +59,7 @@ function WhatCell({ data, context }: ICellRendererParams<TimelineEntry, unknown,
             <code className="font-mono font-semibold" data-event-refusal={data.refusal.code}>
               <Ltr>{data.refusal.code}</Ltr>
             </code>
-            <Both says={data.refusal.reason} />
+            <SaysBoth says={data.refusal.reason} />
           </>
         )
       case 'hold':

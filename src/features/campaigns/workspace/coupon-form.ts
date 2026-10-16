@@ -1,4 +1,5 @@
 import type { RuleCampaignCoupon, RuleCouponBatchCreate, RuleCouponCharset, RuleCouponShape, RuleCouponStatus, RuleCouponValidity } from '@/core/models/rule-campaign'
+import { cleanCode } from '@/core/rules/coupon'
 
 /**
  * Create coupons (ticket 515; the prototype's `CouponCreate`): one batch of random, universal or
@@ -62,8 +63,6 @@ export const cleanAffix = (value: string): string =>
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, MAX_AFFIX)
 
-/** A universal code as it is kept: upper-case, no spaces. */
-export const cleanCode = (value: string): string => value.toUpperCase().replace(/\s/g, '')
 
 const UNIVERSAL = /^[A-Z0-9][A-Z0-9-]{2,31}$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/

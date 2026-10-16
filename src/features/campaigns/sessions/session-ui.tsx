@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next'
-import type { RuleBudgetLimit, RuleSessionBudgetMove, RuleSessionJournalMove, RuleSessionLineEffect, Says } from '@/core/models/rule-campaign'
+import type { RuleBudgetLimit, RuleSessionBudgetMove, RuleSessionJournalMove, RuleSessionLineEffect } from '@/core/models/rule-campaign'
 import { budgetFigure } from '@/core/rules/budget'
 import { moneyText } from '@/core/rules/sentence'
 import { formatNumber } from '@/core/util/number-format'
@@ -11,20 +11,6 @@ import { formatNumber } from '@/core/util/number-format'
 const V = <bdi dir="ltr" />
 /** Free text (a budget's name) inside a sentence. */
 const N = <bdi />
-
-/** A text in both languages, both shown: the English, then the Arabic right to left. */
-export function Both({ says }: { says: Says }) {
-  return (
-    <span className="flex flex-col" data-says="">
-      <bdi lang="en" data-says-en="">
-        {says.en}
-      </bdi>
-      <bdi dir="rtl" lang="ar" data-says-ar="">
-        {says.ar}
-      </bdi>
-    </span>
-  )
-}
 
 /** A budget movement: "Held SAR 40.00 of Discount money". */
 export function BudgetMoveText({

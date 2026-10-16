@@ -49,6 +49,8 @@ export interface BudgetUsage {
   limit: number
   /** How far the counter went past the limit; null while it has not (at the limit is used up, not over). */
   overshoot: number | null
+  /** At or past the limit (at three decimals, as the figures read): nothing more is given. */
+  usedUp: boolean
   /** The bar's fill, 0–1: full once used up or past. */
   share: number
 }
@@ -64,6 +66,7 @@ export function budgetUsage(used: number, limit: number): BudgetUsage {
     used,
     limit,
     overshoot: over > 0 ? over : null,
+    usedUp: over >= 0,
     share: limit > 0 ? Math.min(1, Math.max(0, used / limit)) : used > 0 ? 1 : 0,
   }
 }

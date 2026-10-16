@@ -1033,3 +1033,48 @@ export interface RuleMemberBudget {
   /** The campaign's currency, for a money or points limit; null when not known. */
   currency: string | null
 }
+
+// ── The store engine switch (ticket 517; HQ's doors are BackOffice 2745, ADR 0093) ──────────────
+// PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
+
+/** Which promotion engine a store runs. A store HQ holds no row for runs `BonusBuy`. */
+export type PromotionEngine = 'BonusBuy' | 'Rule'
+
+/** One store as the switch lists it. `engine` is null when HQ holds no row for it (reads BonusBuy);
+ *  `changedBy` / `changedAt` (local) / `reason` are the last flip's, null when never flipped. */
+export interface StoreEngineRow {
+  storeCode: string
+  storeName: string
+  engine: PromotionEngine | null
+  changedBy: string | null
+  changedAt: string | null
+  reason: string | null
+}
+
+/** A flip: the store, the engine the admin saw it on (HQ refuses the flip when that is no longer
+ *  so: another admin got there first), the engine it moves to and the admin's reason (required). */
+export interface StoreEngineFlip {
+  storeCode: string
+  from: PromotionEngine
+  engine: PromotionEngine
+  reason: string
+}
+
+/** What is in flight at a store HQ is asked to flip back to bonus buys. A warning, never a block. */
+export interface StoreEngineInFlight {
+  liveCampaigns: { code: string; name: Says }[]
+  /** Open call-center sessions at the store; `created` is local. */
+  openSessions: { saleId: string; created: string }[]
+  /** Store-scope budgets whose counters run at the store. */
+  budgets: { campaignCode: string; budget: string }[]
+}
+
+/** One line of a store's switch history: who, when (local), from → to, and why. `from` is null for
+ *  a store's first flip (no row, read as BonusBuy). */
+export interface StoreEngineHistoryEntry {
+  at: string
+  by: string
+  from: PromotionEngine | null
+  to: PromotionEngine
+  reason: string
+}

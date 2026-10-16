@@ -1,0 +1,83 @@
+{
+  "menu": {
+    "engineSwitch": "Store engine switch"
+  },
+  "title": "Store engine switch",
+  "lede": "Which promotion engine each store runs. A store with no setting runs bonus buys. A flip takes effect at the store's next shift open, and a sale keeps the engine it was started with.",
+  "none": "—",
+  "engine": {
+    "BonusBuy": "Bonus buys",
+    "Rule": "Rule engine"
+  },
+  "filter": {
+    "search": "Search a store by code or name",
+    "engine": "Engine",
+    "allEngines": "Every engine"
+  },
+  "columns": {
+    "store": "Store",
+    "engine": "Engine",
+    "changedBy": "Changed by",
+    "changedAt": "Changed at",
+    "reason": "Reason"
+  },
+  "results": {
+    "loading": "Loading the stores…",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores",
+    "empty": "No store matches.",
+    "failedTitle": "The stores did not load",
+    "failed": "Could not load the stores' engines."
+  },
+  "flip": {
+    "open": {
+      "Rule": "Flip to the rule engine",
+      "BonusBuy": "Flip back to bonus buys"
+    },
+    "title": {
+      "Rule": "Flip {{store}} to the rule engine",
+      "BonusBuy": "Flip {{store}} back to bonus buys"
+    },
+    "shiftOpen": "The flip takes effect at the store's next shift open, never during a shift. A sale already started keeps its engine.",
+    "reason": "Reason (required)",
+    "reasonRequired": "Enter a reason for the flip.",
+    "confirm": {
+      "Rule": "Flip to the rule engine",
+      "BonusBuy": "Flip back to bonus buys"
+    },
+    "continue": "Continue",
+    "back": "Back",
+    "cancel": "Cancel",
+    "refusedTitle": "HQ did not flip the store",
+    "refused": "The flip was refused.",
+    "refusalCode": "Code:"
+  },
+  "flipped": {
+    "Rule": "{{store}} flips to the rule engine",
+    "BonusBuy": "{{store}} flips back to bonus buys",
+    "shiftOpen": "From the store's next shift open."
+  },
+  "inFlight": {
+    "loading": "Asking HQ what is in flight at the store…",
+    "lede_one": "<n>{{n}}</n> thing is in flight at this store. This is a warning only: you can still flip back.",
+    "lede_other": "<n>{{n}}</n> things are in flight at this store. This is a warning only: you can still flip back.",
+    "failedNeverBlocks": "This check is a warning only: you can still flip back.",
+    "none": "Nothing is in flight at this store. You can flip back.",
+    "noneOfThese": "None.",
+    "failedTitle": "Could not read what is in flight",
+    "failed": "HQ did not answer the in-flight check.",
+    "liveCampaigns": "Live campaigns",
+    "openSessions": "Open call-center sessions",
+    "budgets": "Store-scope budgets",
+    "openedAt": "opened <v>{{at}}</v>"
+  },
+  "history": {
+    "title": "History",
+    "close": "Close the history",
+    "loading": "Loading the history…",
+    "empty": "This store has never been flipped. It runs bonus buys.",
+    "failedTitle": "The history did not load",
+    "failed": "Could not load the store's history.",
+    "change": "From {{from}} to {{to}}"
+  }
+}

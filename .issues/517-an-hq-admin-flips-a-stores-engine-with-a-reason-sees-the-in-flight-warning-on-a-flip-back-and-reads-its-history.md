@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 2737 (brief C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md)
 blocked-by: —
 ---
@@ -22,8 +22,8 @@ history pane; router + Admin menu leaf) · i18n (`engine-switch`) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `flipForm_requiresReason` · pure
-- [ ] drive: flip to Rule with a reason; flip back shows the in-flight list and proceeds; history row (stubbed) · flow
+- [x] `flipForm_requiresReason` · pure — `src/features/admin/engine-switch/helpers.test.ts` (`flipForm` › requires a reason; 9 tests)
+- [x] drive: flip to Rule with a reason; flip back shows the in-flight list and proceeds; history row (stubbed) · flow — `tools/engine-switch-drive.mjs` 46/46, every door stubbed
 
 ## Boundaries
 
@@ -41,3 +41,15 @@ None — can start immediately.
 ## Open questions
 
 - The permission name and who holds it are owner decisions after BackOffice 2745 seeds them.
+
+## Comments
+
+**Done 2026-10-17 (AFK).** `features/admin/engine-switch` at `/admin/engine-switch`, leaf last in Admin (ungated
+by ruling). Doors PROVISIONAL in the feature's `api.ts` (`StorePromotionEngine/Stores|InFlight|Flip|History`),
+types `StoreEngine*` in `rule-campaign.ts`. The flip back reads `InFlight` as its first step, before the reason;
+a failed check still lets the admin continue. The flip sends `from` (the engine seen) so HQ can refuse a
+flip another admin has overtaken. Gates: typecheck, lint (4/4), vitest 5497/5497, build all green.
+
+Outstanding (not AFK): live doors (520 / BackOffice 2745) and the Ua grant; owner sign-off on the Open
+question and on the defaults in `.afk/HITL-517.md` (the warning as a pre-check vs 2745's "flip returns a
+warning payload"; no per-row pending marker); an owner eyeball of RTL.

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -430,6 +430,16 @@ export const MENU: ShellMenuItem[] = [
           run: () => syncConsoleApi.access(),
           visible: canOpenSyncConsole,
         }),
+      },
+      {
+        // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group.
+        // 🚩 UNGATED by ruling: BackOffice 2745 has not seeded its Ua permission, so the leaf shows
+        // to everyone and the doors fail closed on the server (the page shows the refusal). Ticket
+        // 520 adds the probe.
+        labelKey: 'engine-switch:menu.engineSwitch',
+        icon: Repeat,
+        routerLink: '/admin/engine-switch',
+        activePrefix: '/admin/engine-switch',
       },
     ],
   },

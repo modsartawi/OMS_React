@@ -270,6 +270,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
         }),
       },
+      // The store engine switch (BackOffice spec 2737, ticket 517): HQ flips a store's promotion engine.
+      {
+        path: 'admin/engine-switch',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/engine-switch/EngineSwitchPage')).default,
+        }),
+      },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
       // join these under the same `/nphies/*` prefix as the wave lands; the check
       // form is slice 0 because its endpoint is the one that already ships.

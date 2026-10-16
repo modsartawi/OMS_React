@@ -1,5 +1,6 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RuleCampaign, RuleCampaignListRow } from '@/core/models/rule-campaign'
+import type { RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
 // campaigns, catalogue, lookups, validate, simulate, lifecycle, coupons and sessions as later
@@ -31,6 +32,21 @@ export const ruleCampaignApi = {
   get(id: string): Promise<RuleCampaign> {
     return api.get<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}`)
   },
+
+  /** POST RuleCampaign/Campaigns — a new draft from a name and features (BackOffice 2758); HQ
+   *  answers with the whole draft, its code and id minted there. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  create(body: RuleCampaignCreate): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(CAMPAIGNS, body)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Copy — an independent draft copied from a campaign
+   *  (BackOffice 2759); HQ names it "<name> (copy)" and answers with the new draft. The original
+   *  is untouched. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  copy(id: string): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Copy`, {})
+  },
 }
 
 /** The list's query options. */
@@ -46,3 +62,12 @@ export const ruleCampaignQuery = (id: string) => ({
   queryFn: () => ruleCampaignApi.get(id),
   retry: false as const,
 })
+
+/**
+ * A new draft HQ just made (a create or a copy, ticket 502): its own query is seeded, so its
+ * dashboard opens without asking again, and the list is read afresh to count it.
+ */
+export function rememberNewDraft(queryClient: QueryClient, draft: RuleCampaign): void {
+  queryClient.setQueryData(ruleCampaignKey(draft.id), draft)
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+}

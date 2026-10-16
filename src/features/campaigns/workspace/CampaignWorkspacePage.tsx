@@ -1,30 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet, useParams } from 'react-router'
-import { ArrowLeft, LayoutGrid, Loader2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, LayoutGrid, Loader2, Ticket, type LucideIcon } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { RuleCampaignFeatures } from '@/core/models/rule-campaign'
 import { ruleCampaignQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import { campaignPath, campaignState } from '@/core/rules/campaign-state'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { WorkspaceContext } from './context'
+import { drawnMenu, type WorkspaceMenuKey } from './menu'
 
-/**
- * The campaign's own menu (the prototype's `CMENU` + Settings ▸): Dashboard, Rule builder, Coupons
- * when the coupons feature is on, Versions, Settings. Each slice appends its page as it lands —
- * a menu item whose page has not landed is left out (ticket 501), so today it is the Dashboard.
- * `to` is relative to the workspace (`''` = `/campaigns/:id`).
- */
-interface WorkspaceMenuItem {
-  key: string
-  to: string
-  icon: LucideIcon
-  /** Shown only when the campaign's features allow it (Coupons). Absent = always. */
-  when?: (features: RuleCampaignFeatures) => boolean
+/** Each menu item's icon — here, not in `./menu`, so the menu's rules stay a pure, React-free module. */
+const MENU_ICON: Record<WorkspaceMenuKey, LucideIcon> = { dashboard: LayoutGrid, coupons: Ticket }
+
+function MenuIcon({ item }: { item: WorkspaceMenuKey }) {
+  const Icon = MENU_ICON[item]
+  return <Icon className="h-4 w-4" aria-hidden />
 }
-
-const WORKSPACE_MENU: WorkspaceMenuItem[] = [{ key: 'dashboard', to: '', icon: LayoutGrid }]
 
 /**
  * A campaign's workspace (ticket 501): its side menu beside the page, at `/campaigns/:id/…`. One
@@ -87,7 +79,7 @@ export default function CampaignWorkspacePage() {
         </div>
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t('menu.label')}</div>
         <nav className="flex flex-col gap-0.5">
-          {WORKSPACE_MENU.filter((item) => !item.when || item.when(c.features)).map((item) => (
+          {drawnMenu(c.features).map((item) => (
             <NavLink
               key={item.key}
               to={item.to ? `${base}/${item.to}` : base}
@@ -98,7 +90,7 @@ export default function CampaignWorkspacePage() {
                 (isActive ? 'bg-primary-050 font-medium text-primary-800' : 'text-foreground hover:bg-accent')
               }
             >
-              <item.icon className="h-4 w-4" aria-hidden />
+              <MenuIcon item={item.key} />
               {t(`menu.${item.key}`)}
             </NavLink>
           ))}

@@ -6,12 +6,13 @@ import { campaignState, scheduleRelative, type CampaignState } from '@/core/rule
 import Ltr from '@/core/ui/Ltr'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import CampaignActionsMenu from './CampaignActionsMenu'
 import { useWorkspace } from './context'
 
 /**
- * A campaign's dashboard (ticket 501): Details, State and Schedule, read-only in this slice. Every
- * date is the campaign's own local day or the local wall clock — never UTC — and "starts in N
- * days" counts local calendar days (`scheduleRelative`).
+ * A campaign's dashboard (ticket 501): Details, State and Schedule, read-only; the State cell's ⋯
+ * menu copies the campaign (ticket 502). Every date is the campaign's own local day or the local
+ * wall clock — never UTC — and "starts in N days" counts local calendar days (`scheduleRelative`).
  */
 export default function DashboardPage() {
   const { t } = useTranslation('campaign-workspace')
@@ -38,6 +39,7 @@ export default function DashboardPage() {
         <Cell title={t('dashboard.state.title')} data="state">
           <CampaignStateBadge state={state} />
           <StateSentence c={c} state={state} />
+          <CampaignActionsMenu campaign={c} />
         </Cell>
         <Cell title={t('dashboard.schedule.title')} data="schedule">
           <Schedule c={c} now={now} live={c.status === 'live'} />

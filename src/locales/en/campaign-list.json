@@ -43,5 +43,31 @@
     "empty": "No campaign matches.",
     "failedTitle": "The campaigns could not be read",
     "failed": "Try again in a moment."
+  },
+  "create": {
+    "open": "New campaign",
+    "title": "Create campaign",
+    "nameEn": "Name (English)",
+    "nameEnPlaceholder": "e.g. National Day 15% off",
+    "nameAr": "Name (Arabic)",
+    "nameArPlaceholder": "The same name in Arabic",
+    "problem": {
+      "nameEnRequired": "Enter the campaign’s English name.",
+      "nameArRequired": "Enter the campaign’s Arabic name."
+    },
+    "codeHint": "HQ gives the campaign its code, which receipts and SAP exports show.",
+    "features": {
+      "legend": "Features (optional)",
+      "coupons": "Coupons",
+      "couponsHint": "Adds the Coupons page and the coupon condition.",
+      "points": "Loyalty points (Arbahi)",
+      "pointsHint": "Adds the Arbahi earn and burn conditions and effects."
+    },
+    "later": "You can fine-tune the campaign in its settings after creating it. Features only switch on menus, conditions and effects.",
+    "cancel": "Cancel",
+    "submit": "Create campaign",
+    "done": "Campaign created as a draft.",
+    "failedTitle": "The campaign could not be created",
+    "failed": "Try again in a moment."
   }
 }

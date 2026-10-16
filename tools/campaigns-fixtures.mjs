@@ -254,3 +254,39 @@ export const CAMPAIGNS = [
 export const listRow = ({ id, code, name, tags, status, schedule, features, created, live }) => ({
   id, code, name, tags, status, schedule, features, created, live,
 })
+
+// ── 502: the stubbed HQ side of create and copy. HQ mints the code and the id; these mimic the
+// prototype's `create` / `copyCampaign` so a drive can read the result back. ──
+
+const BY = 'msartawi'
+/** A code from `base`, as the prototype makes one (at most `max` long), unique within `store`. */
+const mintCode = (store, base, max = 16) => {
+  const root = base.toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, max).replace(/^-|-$/g, '') || 'NEW'
+  let code = root
+  for (let n = 2; store.some((c) => c.id === code); n++) code = `${root}-${n}`
+  return code
+}
+
+/** POST RuleCampaign/Campaigns — a blank draft from a name and features. `at` is a local moment. */
+export function createDraft(store, { name, features }, at) {
+  const code = mintCode(store, name.en)
+  const draft = campaign({
+    id: code, code, name: { en: name.en, ar: name.ar }, features: { coupons: !!features.coupons, points: !!features.points },
+    schedule: schedule(null, null), created: [at, BY],
+  })
+  store.push(draft)
+  return draft
+}
+
+/** POST RuleCampaign/Campaigns/{id}/Copy — an independent draft named "<name> (copy)". */
+export function copyOf(store, source, at) {
+  const code = mintCode(store, `${source.code}-COPY`, source.code.length + 5)
+  const copy = {
+    ...structuredClone(source),
+    id: code, code,
+    name: { en: `${source.name.en} (copy)`, ar: source.name.ar ? `${source.name.ar} (نسخة)` : '' },
+    status: 'draft', live: null, approval: null, created: stamp(at, BY),
+  }
+  store.push(copy)
+  return copy
+}

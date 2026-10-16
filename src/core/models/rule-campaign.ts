@@ -151,3 +151,13 @@ export type RuleCampaignListRow = Pick<
   RuleCampaign,
   'id' | 'code' | 'name' | 'tags' | 'status' | 'schedule' | 'features' | 'created' | 'live'
 >
+
+/**
+ * What "Create campaign" sends (ticket 502): the name in both languages — both required — and the
+ * optional features. HQ answers with the whole new draft (code, id and empty schedule included):
+ * the client never mints a code or an id.
+ */
+export interface RuleCampaignCreate {
+  name: Says
+  features: RuleCampaignFeatures
+}

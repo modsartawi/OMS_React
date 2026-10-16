@@ -7,6 +7,9 @@
 // errors: [{ errorCode, internalErrorCode, errorMessage }], data }; ticket 520 re-points them:
 //   GET RuleCampaign/Campaigns        → list rows (tools/campaigns-fixtures.mjs `listRow`)
 //   GET RuleCampaign/Campaigns/{id}   → the whole campaign; an unknown id is a 404 refusal
+//   POST RuleCampaign/Campaigns       → a new draft from { name: {en, ar}, features } (502, `createDraft`)
+//   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
+// Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
 //
@@ -29,7 +32,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, listRow } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, copyOf, createDraft, listRow } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -57,6 +60,9 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 })
 
 const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرمز.'
+const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
+/** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
+const NOW_LOCAL = '2026-10-16 18:30'
 
 /** 2026-10-16 18:30 in Riyadh — the prototype's simulator moment. */
 const EVENING = new Date('2026-10-16T18:30:00+03:00')
@@ -65,11 +71,14 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING } = {}) {
+async function open({ at = EVENING, refuseCreate = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
   const calls = []
+  /** This context's HQ: the fixtures, copied, so a create or a copy (502) stays in its own run. */
+  const store = structuredClone(CAMPAIGNS)
+  const bodies = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -83,17 +92,28 @@ async function open({ at = EVENING } = {}) {
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     // PROVISIONAL doors (ticket 520 re-points them).
-    if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(CAMPAIGNS.map(listRow)))
+    if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
+    if (p === 'RuleCampaign/Campaigns' && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      bodies.push(body)
+      if (refuseCreate) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULE_CAMPAIGN_NAME_TAKEN' }))
+      return route.fulfill(envelope(createDraft(store, body, NOW_LOCAL)))
+    }
     const one = /^RuleCampaign\/Campaigns\/([^/]+)$/.exec(p)
     if (one && req.method() === 'GET') {
-      const c = CAMPAIGNS.find((x) => x.id === decodeURIComponent(one[1]))
+      const c = store.find((x) => x.id === decodeURIComponent(one[1]))
       return route.fulfill(c ? envelope(c) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+    }
+    const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
+    if (copy && req.method() === 'POST') {
+      const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
+      return route.fulfill(c ? envelope(copyOf(store, c, NOW_LOCAL)) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls }
+  return { context, page, errors, calls, store, bodies }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -165,6 +185,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.waitForFunction(() => document.querySelector('[data-campaigns-grid] .ag-overlay-no-rows-center, [data-campaigns-grid] .ag-overlay')?.textContent?.includes('No campaign matches.'), null, { timeout: 5000 }).catch(() => {})
   check('4: a tile and the search together can match nothing, and say so', (await page.locator(grid).innerText()).includes('No campaign matches.'))
   await page.locator('[data-tile="all"]').click()
+  // Let the tile's render COMMIT before typing (the URL changes first, the render follows in a
+  // transition): the search writes the tile it was rendered with.
+  await page.waitForFunction(() => document.querySelector('[data-tile="all"]')?.getAttribute('aria-pressed') === 'true')
   await page.locator('[data-campaign-search]').fill('weekend')
   await waitRows(page, 2)
 
@@ -250,6 +273,121 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.waitForURL(`${BASE}/campaigns`)
   check('8: …and the way back to the list', page.url() === `${BASE}/campaigns`)
   check('9: no page errors (8)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 502 ── it asserts:
+//  10. New campaign opens Create campaign: an English and an Arabic name (the Arabic one dir=rtl),
+//      Coupons off and Loyalty points on, each with its line saying what it switches on;
+//  11. Create with a name missing says so at the field and sends nothing; Cancel sends nothing;
+//      a reopened dialog is a fresh form;
+//  12. both names + Coupons, sent with Enter → ONE POST with both names trimmed and the features →
+//      the new draft's dashboard (both names, its code, Draft, its features, "No time limit"),
+//      toasted; the list counts it;
+//  13. a refusal is the door's own message, in the dialog, with the form kept; an edit clears it;
+//  14. ⋯ › Copy campaign → an independent draft "<name> (copy)" in both languages, opened on its
+//      dashboard as a Draft with no live version; the original is untouched (its name, Running,
+//      version 1); the list counts both new drafts; Escape closes the ⋯ menu;
+//  15. no page errors.
+{
+  const { context, page, errors, calls, bodies } = await open()
+  const posts = () => calls.filter((c) => c === 'POST RuleCampaign/Campaigns').length
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  await page.locator('[data-new-campaign]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  check('10: New campaign opens Create campaign', (await dialog.locator('#modal-title').innerText()) === 'Create campaign')
+  check('10: an English and an Arabic name, the Arabic one right-to-left', (await dialog.locator('[data-create-field="nameEn"]').getAttribute('dir')) === 'ltr' && (await dialog.locator('[data-create-field="nameAr"]').getAttribute('dir')) === 'rtl')
+  check('10: Coupons starts off and Loyalty points on', !(await dialog.locator('[data-create-feature="coupons"]').isChecked()) && (await dialog.locator('[data-create-feature="points"]').isChecked()))
+  const features = await dialog.locator('[data-create-features]').innerText()
+  check('10: each feature says what it switches on', features.includes('Adds the Coupons page and the coupon condition.') && features.includes('Adds the Arbahi earn and burn conditions and effects.'))
+  await page.screenshot({ path: `${SHOTS}/create-dialog.png` })
+
+  await dialog.locator('[data-create-submit]').click()
+  check('11: with no names, both fields say they are required', (await dialog.locator('[data-create-problem="nameEn"]').innerText()) === 'Enter the campaign’s English name.' && (await dialog.locator('[data-create-problem="nameAr"]').innerText()) === 'Enter the campaign’s Arabic name.')
+  await dialog.locator('[data-create-field="nameEn"]').fill('Ramadan nights')
+  await dialog.locator('[data-create-submit]').click()
+  check('11: with only the English name, the Arabic one is still asked for', (await dialog.locator('[data-create-problem]').count()) === 1 && (await dialog.locator('[data-create-problem="nameAr"]').isVisible()))
+  check('11: …and nothing was sent', posts() === 0)
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await page.waitForFunction(() => !document.querySelector('dialog[open]'))
+  check('11: Cancel closes the dialog and sends nothing', posts() === 0)
+
+  await page.locator('[data-new-campaign]').click()
+  await dialog.waitFor()
+  check('11: a reopened dialog is a fresh form', (await dialog.locator('[data-create-field="nameEn"]').inputValue()) === '' && (await dialog.locator('[data-create-problem]').count()) === 0)
+  await dialog.locator('[data-create-field="nameEn"]').fill('  Ramadan nights ')
+  await dialog.locator('[data-create-field="nameAr"]').fill(' ليالي رمضان ')
+  await dialog.locator('[data-create-feature="coupons"]').check()
+  await dialog.locator('[data-create-field="nameAr"]').press('Enter')
+  await page.waitForURL(`${BASE}/campaigns/RAMADAN-NIGHTS`, { timeout: 10000 })
+  await page.locator('[data-dashboard]').waitFor()
+  check('12: Enter sends ONE create', posts() === 1, String(posts()))
+  check('12: …with both names trimmed and the features chosen', JSON.stringify(bodies[0]) === JSON.stringify({ name: { en: 'Ramadan nights', ar: 'ليالي رمضان' }, features: { coupons: true, points: true } }), JSON.stringify(bodies[0]))
+  check('12: it lands on the new draft’s dashboard', page.url() === `${BASE}/campaigns/RAMADAN-NIGHTS`)
+  const details = page.locator('[data-dashboard-cell="details"]')
+  check('12: the dashboard shows both names', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Ramadan nights' && (await details.locator('[data-line="nameAr"] dd').innerText()) === 'ليالي رمضان')
+  check('12: …the code HQ minted and both features', (await details.locator('[data-line="code"] dd').innerText()) === 'RAMADAN-NIGHTS' && (await details.locator('[data-feature]').allInnerTexts()).join('|') === 'Coupons|Loyalty points (Arbahi)')
+  check('12: …a Draft with no time limit', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft' && (await page.locator('[data-schedule-relative]').innerText()) === 'No time limit')
+  check('12: a toast says it was created', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Campaign created as a draft.')))
+  check('12: the dialog has closed', (await page.locator('dialog[open]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/created-draft.png` })
+  await page.locator('[data-workspace-back]').click()
+  await waitRows(page, 17)
+  check('12: the list counts the new draft', (await tileCount(page, 'all')) === '17' && (await tileCount(page, 'draft')) === '2')
+
+  // ── 14 ──
+  await page.goto(`${BASE}/campaigns/WKND20`)
+  await page.locator('[data-dashboard]').waitFor()
+  await page.locator('[data-campaign-actions]').click()
+  const menu = page.locator('[data-campaign-actions-menu]')
+  await menu.waitFor()
+  check('14: ⋯ opens a menu with Copy campaign, focused', (await menu.locator('[data-campaign-action="copy"]').innerText()) === 'Copy campaign' && (await page.evaluate(() => document.activeElement?.getAttribute('data-campaign-action'))) === 'copy')
+  await page.keyboard.press('Escape')
+  await menu.waitFor({ state: 'detached' })
+  check('14: Escape closes it, focus back on ⋯', (await page.evaluate(() => document.activeElement?.hasAttribute('data-campaign-actions'))) === true)
+  const copies = () => calls.filter((c) => c === 'POST RuleCampaign/Campaigns/WKND20/Copy').length
+  check('14: …and copied nothing', copies() === 0)
+  await page.locator('[data-campaign-actions]').click()
+  await menu.locator('[data-campaign-action="copy"]').click()
+  await page.waitForURL(`${BASE}/campaigns/WKND20-COPY`, { timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-line="code"] dd')?.textContent === 'WKND20-COPY', null, { timeout: 10000 })
+  check('14: ONE copy was asked for', copies() === 1, String(copies()))
+  const cd = page.locator('[data-dashboard-cell="details"]')
+  check('14: the copy is "<name> (copy)" in English…', (await cd.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off, up to SAR 40 (copy)')
+  check('14: …and in Arabic', (await cd.locator('[data-line="nameAr"] dd').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% حتى 40 ريال (نسخة)')
+  check('14: the copy is a Draft with no live version', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft' && (await page.locator('[data-live-version]').count()) === 0)
+  check('14: a toast says it was copied', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Copied as a new draft.')))
+  await page.screenshot({ path: `${SHOTS}/copied-draft.png` })
+  await page.goto(`${BASE}/campaigns/WKND20`)
+  await page.locator('[data-dashboard]').waitFor()
+  check('14: the original is untouched — its name, Running, version 1', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off, up to SAR 40' && (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Running' && (await page.locator('[data-live-version]').innerText()).startsWith('Version 1,'))
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 18)
+  check('14: the list counts both new drafts', (await tileCount(page, 'all')) === '18' && (await tileCount(page, 'draft')) === '3' && (await tileCount(page, 'running')) === '11')
+  check('15: no page errors (10–14)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 13 ──
+{
+  const { context, page, errors } = await open({ refuseCreate: true })
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  await page.locator('[data-new-campaign]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon')
+  await dialog.locator('[data-create-field="nameAr"]').fill('قسيمة نهاية الأسبوع')
+  await dialog.locator('[data-create-submit]').click()
+  const banner = dialog.locator('[role="alert"]')
+  await banner.waitFor({ timeout: 10000 })
+  check('13: a refused create shows the door’s own message in the dialog', (await banner.innerText()).includes(CREATE_REFUSED), await banner.innerText())
+  check('13: …keeps the form and stays on the list', (await dialog.locator('[data-create-field="nameEn"]').inputValue()) === 'Weekend coupon' && page.url() === `${BASE}/campaigns`)
+  await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon 2')
+  check('13: an edit clears the refusal, which was about the name as sent', (await dialog.locator('[role="alert"]').count()) === 0)
+  check('15: no page errors (13)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

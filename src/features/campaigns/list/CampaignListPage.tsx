@@ -1,10 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, RowClickedEvent } from 'ag-grid-community'
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -13,16 +13,19 @@ import { apiErrorMessage } from '@/core/api'
 import type { RuleCampaignListRow } from '@/core/models/rule-campaign'
 import { ruleCampaignsQuery } from '@/core/rules/api'
 import { CAMPAIGN_STATES, CAMPAIGN_STATE_SEV, campaignPath } from '@/core/rules/campaign-state'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import type { Severity } from '@/core/ui/severity'
 import { campaignColumns } from './columns'
+import CreateCampaignDialog from './CreateCampaignDialog'
 import { stateCounts, tileFromParam, visibleRows, type StateTile } from './list-filter'
 
 /**
  * Campaigns (ticket 501, BackOffice spec 2737): every rule campaign, with a tile per state and its
  * count — the tiles are the filter — and a search over the name in English or Arabic. A row opens
- * the campaign's workspace on its dashboard.
+ * the campaign's workspace on its dashboard. **New campaign** opens the Create campaign dialog
+ * (ticket 502).
  *
  * No access probe yet (BackOffice 2759 seeds the author / approver roles): the leaf is visible to
  * every user and the door fails closed on the server; ticket 520 adds the probe.
@@ -36,6 +39,7 @@ export default function CampaignListPage() {
   const [params, setParams] = useSearchParams()
   const tile = tileFromParam(params.get('state'))
   const q = params.get('q') ?? ''
+  const [creating, setCreating] = useState(false)
 
   const set = (change: { state?: StateTile; q?: string }) => {
     const next = { state: tile, q, ...change }
@@ -67,10 +71,17 @@ export default function CampaignListPage() {
 
   return (
     <section className="flex h-full w-full flex-col gap-4">
-      <header>
-        <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <Button variant="primary" onClick={() => setCreating(true)} data-new-campaign="">
+          <Plus className="size-3.5" aria-hidden />
+          {t('create.open')}
+        </Button>
       </header>
+      <CreateCampaignDialog open={creating} onClose={() => setCreating(false)} />
 
       <section aria-label={t('tiles.label')} data-tiles="">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">

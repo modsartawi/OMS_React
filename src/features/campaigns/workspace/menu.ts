@@ -9,7 +9,7 @@ import type { RuleCampaignFeatures } from '@/core/models/rule-campaign'
  * feature. Separately, an item whose page has not landed yet (`landed: false`) is not drawn — each
  * slice flips its own item when its page arrives (Coupons: 515).
  */
-export type WorkspaceMenuKey = 'dashboard' | 'rules' | 'coupons'
+export type WorkspaceMenuKey = 'dashboard' | 'rules' | 'coupons' | 'versions'
 
 export interface WorkspaceMenuItem {
   key: WorkspaceMenuKey
@@ -24,6 +24,7 @@ export const WORKSPACE_MENU: readonly WorkspaceMenuItem[] = [
   { key: 'dashboard', to: '', landed: true },
   { key: 'rules', to: 'rules', landed: true },
   { key: 'coupons', to: 'coupons', when: (f) => f.coupons, landed: false },
+  { key: 'versions', to: 'versions', landed: true },
 ]
 
 /** The menu items a campaign with these features offers, in menu order. */

@@ -226,6 +226,8 @@ export const CAMPAIGNS = [
       id: 'GIFT-POUCH', code: 'GIFT-POUCH', name: says('Free travel pouch with a Vitamin C serum', 'حقيبة سفر مجانية مع سيروم فيتامين سي'),
       description: 'A free unit of a product (2718): the engine never adds a line. If the pouch is not scanned, the cashier is prompted.', tags: ['gift'],
       published: ['2026-10-10 15:00', 'Omar (marketing)'],
+      // 512: its third version — the two before it are `EARLIER` below.
+      created: ['2026-10-03 10:00', 'Omar (marketing)'], live: { version: 3, ...stamp('2026-10-10 15:00', 'Omar (marketing)') },
       rules: [R('Pouch free with the serum', {
         filters: [serum],
         when: { mode: 'all', items: [K('minCount', { count: 1, of: serum.id }, says('a Vitamin C serum', 'سيروم فيتامين سي'))] },
@@ -565,5 +567,59 @@ export function changeLimit(c, budgetId, value) {
   if (!b) return { refused: 'RULE_BUDGET_NOT_FOUND', message: 'No such budget.' }
   if (!(value > 0)) return { refused: 'RULE_BUDGET_INVALID', message: 'A budget limit must be above zero.' }
   b.value = value
+  return { campaign: c }
+}
+
+// ── 512: the stubbed version history (BackOffice 2759): GET RuleCampaign/Campaigns/{id}/Versions,
+// GET …/Versions/{n} and POST …/Versions/{n}/Restore. Every published campaign has its live version,
+// its rules as they are now; GIFT-POUCH has two before it (its live version is 3). A version keeps
+// its rules' ids, as HQ's snapshot would. ──
+
+/** GIFT-POUCH's versions 1 and 2, worked back from its live rules (built here, after CAMPAIGNS, so
+ *  the fixtures' ids above do not move). */
+const EARLIER = (() => {
+  const pouch = CAMPAIGNS.find((c) => c.id === 'GIFT-POUCH')
+  const at = (rules, f) => rules.map((r) => ({ ...r, then: r.then.map((e) => ({ ...e, ...f })) }))
+  const v1 = at(structuredClone(pouch.rules), { prompt: says('', ''), label: says('Gift pouch', 'حقيبة هدية') })
+  const v2 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') })
+  return {
+    'GIFT-POUCH': [
+      { version: 1, ...stamp('2026-10-03 10:00', 'Omar (marketing)'), note: 'First version: the pouch is free with the serum.', rules: v1 },
+      { version: 2, ...stamp('2026-10-06 12:30', 'Reem (approver)'), note: 'The cashier is prompted to scan the pouch.', rules: v2 },
+    ],
+  }
+})()
+/** The live version's note, where one was written. */
+const LIVE_NOTE = { 'GIFT-POUCH': 'The receipt says "Free pouch".' }
+
+/** Each campaign's versions with their rules, by id — a context's own copy, so an activation or a
+ *  restore stays in its run. */
+export function versionsOf(store) {
+  const out = new Map()
+  for (const c of store) {
+    if (!c.live) continue
+    out.set(c.id, [
+      ...structuredClone(EARLIER[c.id] ?? []),
+      { version: c.live.version, at: c.live.at, by: c.live.by, note: LIVE_NOTE[c.id] ?? '', rules: structuredClone(c.rules) },
+    ])
+  }
+  return out
+}
+
+/** A version as the list reads it: without its rules. */
+export const versionRow = ({ rules, ...row }) => row
+
+/** An activation publishes a version: the draft's rules as they were activated. */
+export function publishVersion(versions, c, note = '') {
+  versions.set(c.id, [...(versions.get(c.id) ?? []), { version: c.live.version, at: c.live.at, by: c.live.by, note, rules: structuredClone(c.rules) }])
+}
+
+/** POST …/Versions/{n}/Restore: the version is the campaign's NEW draft; its live version is
+ *  untouched. Or `{ refused, message }` — a request waiting for approval is not changed under it. */
+export function restoreVersion(c, versions, n) {
+  const v = (versions.get(c.id) ?? []).find((x) => x.version === n)
+  if (!v) return { refused: 'RULE_VERSION_NOT_FOUND', message: 'No such version.' }
+  if (c.status === 'waitingForApproval') return { refused: 'RULE_CAMPAIGN_WAITING', message: 'A request waits for approval. Send it back first.' }
+  Object.assign(c, { status: 'draft', rules: structuredClone(v.rules), approval: null, sentBack: null })
   return { campaign: c }
 }

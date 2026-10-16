@@ -7,6 +7,8 @@ import type {
   RuleCampaign,
   RuleCampaignCreate,
   RuleCampaignListRow,
+  RuleCampaignVersion,
+  RuleCampaignVersionDetail,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
   RuleLookupItem,
@@ -40,4 +42,12 @@ export function changeLimit(
   c: RuleCampaign,
   budgetId: string,
   value: number,
+): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
+export function versionsOf(store: RuleCampaign[]): Map<string, RuleCampaignVersionDetail[]>
+export function versionRow(v: RuleCampaignVersionDetail): RuleCampaignVersion
+export function publishVersion(versions: Map<string, RuleCampaignVersionDetail[]>, c: RuleCampaign, note?: string): void
+export function restoreVersion(
+  c: RuleCampaign,
+  versions: Map<string, RuleCampaignVersionDetail[]>,
+  n: number,
 ): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }

@@ -9,7 +9,8 @@
     "dashboard": "Dashboard",
     "rules": "Rule builder",
     "coupons": "Coupons",
-    "settings": "Settings"
+    "settings": "Settings",
+    "versions": "Versions"
   },
   "dashboard": {
     "stamp": "<at>{{at}}</at> by <by>{{by}}</by>",
@@ -40,7 +41,8 @@
       "expired": "Its schedule has ended. Tills no longer apply it.",
       "disabled": "Disabled: sales already open keep it, new sales do not get it.",
       "liveVersion": "Version <version>{{version}}</version>, activated <at>{{at}}</at> by <by>{{by}}</by>.",
-      "sentBack": "<by>{{by}}</by> sent it back on <at>{{at}}</at>. Change it, then ask for approval again."
+      "sentBack": "<by>{{by}}</by> sent it back on <at>{{at}}</at>. Change it, then ask for approval again.",
+      "liveUnderDraft": "Tills still run version <version>{{version}}</version>, activated <at>{{at}}</at> by <by>{{by}}</by>, until this draft is activated."
     },
     "schedule": {
       "title": "Schedule",
@@ -1249,6 +1251,44 @@
       "optOutHint": "Keep it off offline tills anyway.",
       "note": "An offline till runs only offline-safe campaigns. Saving the rules works the verdict out again.",
       "saved": "The offline setting is saved."
+    }
+  },
+  "versions": {
+    "title": "Versions",
+    "intro": "Every activation publishes a version. A sale keeps the version it started with. Restore makes an earlier version the new draft: tills keep the live version until that draft is approved and activated.",
+    "loading": "Reading the versions…",
+    "failedTitle": "The versions could not be read",
+    "failed": "Try again in a moment.",
+    "retry": "Try again",
+    "empty": "No versions yet. Activating the campaign publishes its first.",
+    "held": {
+      "waiting": "A request waits for approval, so its draft cannot be replaced. Restore comes back once the request is sent back or activated.",
+      "disabled": "This campaign is disabled, so no version is restored into it. Copy the campaign to start again from it."
+    },
+    "number": "Version <version>{{version}}</version>",
+    "mark": {
+      "live": "Live",
+      "disabled": "Last published, disabled"
+    },
+    "noNote": "No note.",
+    "view": "View rules",
+    "hide": "Hide rules",
+    "restore": "Restore as draft",
+    "restored": "Version {{version}} is the draft now. The live version is unchanged.",
+    "refusedTitle": "The version could not be restored",
+    "refused": "Try again in a moment.",
+    "rulesLoading": "Reading the version’s rules…",
+    "rulesFailedTitle": "The version’s rules could not be read",
+    "rulesFailed": "Try again in a moment.",
+    "noRules": "This version has no rule.",
+    "untitledRule": "Untitled rule",
+    "partial": "If the member is short of points: {{then}}.",
+    "ask": {
+      "title": "Replace the draft?",
+      "body": "Restoring version <version>{{version}}</version> replaces the campaign’s draft, with any change in it that is not published. That change cannot be got back.",
+      "live": "Tills keep running version <version>{{version}}</version> until the new draft is approved and activated.",
+      "cancel": "Keep the draft",
+      "confirm": "Replace the draft"
     }
   }
 }

@@ -465,7 +465,7 @@ function MatchSelect({ value, onChange, data }: { value: 'all' | 'any'; onChange
 }
 
 /** A marketer's EN + AR text, both shown: the English, then the Arabic right-to-left. */
-function Says({ line }: { line: SaysLine }) {
+export function Says({ line }: { line: SaysLine }) {
   const { t } = useTranslation('campaign-workspace')
   return (
     <dl className="mt-1 grid gap-x-2 text-xs sm:grid-cols-[11rem_1fr]" data-says={line.role}>
@@ -488,7 +488,7 @@ function Says({ line }: { line: SaysLine }) {
   )
 }
 
-function Section({ title, hint, data, children }: { title: string; hint?: string; data: string; children: ReactNode }) {
+export function Section({ title, hint, data, children }: { title: string; hint?: string; data: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5" data-rule-section={data}>
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
@@ -498,7 +498,7 @@ function Section({ title, hint, data, children }: { title: string; hint?: string
   )
 }
 
-function Pill({ children }: { children: ReactNode }) {
+export function Pill({ children }: { children: ReactNode }) {
   return <span className="rounded-full bg-muted px-2 py-0.5">{children}</span>
 }
 

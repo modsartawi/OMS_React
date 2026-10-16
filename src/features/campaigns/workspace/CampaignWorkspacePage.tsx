@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, ChevronDown, ChevronRight, LayoutGrid, ListTree, Loader2, SlidersHorizontal, Ticket, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, History, LayoutGrid, ListTree, Loader2, SlidersHorizontal, Ticket, type LucideIcon } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { ruleCampaignQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
@@ -12,7 +12,7 @@ import type { WorkspaceContext } from './context'
 import { drawnMenu, drawnSettings, type WorkspaceMenuKey } from './menu'
 
 /** Each menu item's icon — here, not in `./menu`, so the menu's rules stay a pure, React-free module. */
-const MENU_ICON: Record<WorkspaceMenuKey, LucideIcon> = { dashboard: LayoutGrid, rules: ListTree, coupons: Ticket }
+const MENU_ICON: Record<WorkspaceMenuKey, LucideIcon> = { dashboard: LayoutGrid, rules: ListTree, coupons: Ticket, versions: History }
 
 function MenuIcon({ item }: { item: WorkspaceMenuKey }) {
   const Icon = MENU_ICON[item]

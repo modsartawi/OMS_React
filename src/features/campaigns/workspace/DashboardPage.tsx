@@ -54,6 +54,7 @@ export default function DashboardPage() {
         <Cell title={t('dashboard.state.title')} data="state">
           <CampaignStateBadge state={state} />
           <StateSentence c={c} state={state} />
+          <LiveUnderDraft c={c} state={state} />
           <ApprovalPanel campaign={c} roles={roles} gate={gate} />
           <CampaignActionsMenu campaign={c} />
         </Cell>
@@ -201,6 +202,25 @@ function StateSentence({ c, state }: { c: RuleCampaign; state: CampaignState }) 
     )
   }
   return p(t(`dashboard.state.${state === 'waitingForApproval' ? 'waitingNoStamp' : state}`))
+}
+
+/**
+ * A draft or a request over a published version (511's changes waiting, 512's restored version):
+ * tills still run the live version until the draft is activated, so the State says which one.
+ */
+function LiveUnderDraft({ c, state }: { c: RuleCampaign; state: CampaignState }) {
+  const { t } = useTranslation('campaign-workspace')
+  if (!c.live || (state !== 'draft' && state !== 'waitingForApproval')) return null
+  return (
+    <p className="text-xs text-muted-foreground" data-live-under-draft="">
+      <Trans
+        t={t}
+        i18nKey="dashboard.state.liveUnderDraft"
+        values={{ version: c.live.version, at: formatDateTime(c.live.at), by: c.live.by }}
+        components={{ version: <Ltr />, at: <Ltr />, by: <bdi /> }}
+      />
+    </p>
+  )
 }
 
 function Schedule({ c, now, live }: { c: RuleCampaign; now: Date; live: boolean }) {

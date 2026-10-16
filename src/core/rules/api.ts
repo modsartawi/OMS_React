@@ -17,6 +17,8 @@ import type {
   RuleCampaignRoles,
   RuleCampaignSchedule,
   RuleCampaignTransition,
+  RuleCampaignVersion,
+  RuleCampaignVersionDetail,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
   RuleLookupItem,
@@ -65,6 +67,8 @@ const OFFLINE_VERDICT = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/
 const BUDGET_USAGE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/BudgetUsage`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const BUDGET_LIMIT = (id: string, budgetId: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Budgets/${encodeURIComponent(budgetId)}/Limit`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Versions`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -247,6 +251,28 @@ export const ruleCampaignApi = {
   remove(id: string): Promise<unknown> {
     return api.del<unknown>(`${CAMPAIGNS}/${encodeURIComponent(id)}`)
   },
+
+  /** GET RuleCampaign/Campaigns/{id}/Versions — every published version with who, when and the
+   *  note (ticket 512, BackOffice 2759); a campaign never activated has none. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  versions(id: string): Promise<RuleCampaignVersion[]> {
+    return api.get<RuleCampaignVersion[]>(VERSIONS(id))
+  },
+
+  /** GET RuleCampaign/Campaigns/{id}/Versions/{version} — one version with its rules as published,
+   *  for reading only (ticket 512, BackOffice 2759). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  version(id: string, version: number): Promise<RuleCampaignVersionDetail> {
+    return api.get<RuleCampaignVersionDetail>(`${VERSIONS(id)}/${version}`)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Versions/{version}/Restore — the version becomes the
+   *  campaign's NEW draft, replacing the draft it had; the live version is untouched (ticket 512,
+   *  BackOffice 2759). HQ answers the whole campaign as a draft. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  restore(id: string, version: number): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(`${VERSIONS(id)}/${version}/Restore`, {})
+  },
 }
 
 /** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
@@ -264,8 +290,11 @@ export const ruleCampaignRolesQuery = () => ({
  * tiles count it under the new state.
  */
 export function rememberTransition(queryClient: QueryClient, campaign: RuleCampaign): void {
+  const before = queryClient.getQueryData<RuleCampaign>(ruleCampaignKey(campaign.id))
   queryClient.setQueryData(ruleCampaignKey(campaign.id), campaign)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  // An activation publishes a version (512): the list is read afresh only when the live one moved.
+  if (before?.live?.version !== campaign.live?.version) void queryClient.invalidateQueries({ queryKey: ruleCampaignVersionsKey(campaign.id) })
 }
 
 /** A draft HQ just deleted: its own queries go, and the list is read afresh. */
@@ -274,6 +303,8 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignChecksKey(id) })
   queryClient.removeQueries({ queryKey: ruleOfflineVerdictKey(id) })
   queryClient.removeQueries({ queryKey: ruleBudgetUsageKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCampaignVersionsKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCampaignVersionKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
@@ -385,3 +416,24 @@ export function rememberNewDraft(queryClient: QueryClient, draft: RuleCampaign):
   queryClient.setQueryData(ruleCampaignKey(draft.id), draft)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
+
+/** A campaign's versions list, keyed under the campaign queries. */
+export const ruleCampaignVersionsKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'versions', id] as const
+/** A campaign's opened versions (by number after it) — apart from the list, so re-reading the list
+ *  never re-reads a version, which never changes. */
+export const ruleCampaignVersionKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'version', id] as const
+
+/** The versions list's query options (ticket 512): an activation re-reads it (`rememberTransition`). */
+export const ruleCampaignVersionsQuery = (id: string) => ({
+  queryKey: ruleCampaignVersionsKey(id),
+  queryFn: () => ruleCampaignApi.versions(id),
+  retry: false as const,
+})
+
+/** One version's query options. A published version never changes, so it is read once and kept. */
+export const ruleCampaignVersionQuery = (id: string, version: number) => ({
+  queryKey: [...ruleCampaignVersionKey(id), version] as const,
+  queryFn: () => ruleCampaignApi.version(id, version),
+  staleTime: Infinity,
+  retry: false as const,
+})

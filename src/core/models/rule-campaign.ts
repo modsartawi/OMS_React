@@ -465,3 +465,20 @@ export interface RuleBudgetUsage {
 export interface RuleBudgetLimitChange {
   value: number
 }
+
+// ── Versions (ticket 512; HQ's doors are BackOffice 2759) ────────────────────────────────────────
+// Every activation publishes an immutable version with who, when and the approver's note. Restore
+// makes an earlier version the campaign's NEW draft — never an in-place rollback: the live version
+// tills run is untouched until that draft is approved and activated in turn.
+
+/** One published version, as the Versions page lists it. `at` is a local moment. */
+export interface RuleCampaignVersion extends RuleCampaignStamp {
+  version: number
+  /** The note written when it was activated; empty when none was. */
+  note: string
+}
+
+/** One version opened read-only: its rules as they were published. */
+export interface RuleCampaignVersionDetail extends RuleCampaignVersion {
+  rules: CampaignRule[]
+}

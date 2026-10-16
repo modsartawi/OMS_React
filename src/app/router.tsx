@@ -690,6 +690,13 @@ export const router = createBrowserRouter([
               Component: (await import('@/features/campaigns/workspace/SettingsPage')).default,
             }),
           },
+          {
+            // Versions: every published version, and restore one as a new draft (ticket 512).
+            path: 'versions',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/VersionsPage')).default,
+            }),
+          },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

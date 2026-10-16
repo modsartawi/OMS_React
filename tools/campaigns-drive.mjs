@@ -29,6 +29,11 @@
 //   GET RuleCampaign/Campaigns/{id}/BudgetUsage → the counters (`budgetUsage`), or refused with `refuseUsage` (510)
 //   PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit → a live limit changed (`changeLimit`); the
 //       first `refuseLimit` changes are refused (510)
+//   GET RuleCampaign/Campaigns/{id}/Versions → the published versions without rules (`versionsOf`,
+//       `versionRow`), or refused with `refuseVersions`; an Activate publishes one (`publishVersion`) (512)
+//   GET RuleCampaign/Campaigns/{id}/Versions/{n} → one version with its rules (512)
+//   POST RuleCampaign/Campaigns/{id}/Versions/{n}/Restore → the version is the new draft
+//       (`restoreVersion`); the first `refuseRestore` restores are refused (512)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -52,7 +57,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, saveSettings } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -91,6 +96,8 @@ const SETTINGS_REFUSED = 'This campaign is waiting for approval and cannot be ch
 const VERDICT_REFUSED = 'The offline verdict is not available. / حكم العمل دون اتصال غير متاح.'
 const USAGE_REFUSED = 'The budget counters are not available. / عدادات الميزانية غير متاحة.'
 const LIMIT_REFUSED = 'The limit could not be changed right now. / تعذر تغيير الحد الآن.'
+const VERSIONS_REFUSED = 'The version history is not available. / سجل الإصدارات غير متاح.'
+const RESTORE_REFUSED = 'The version could not be restored right now. / تعذرت استعادة الإصدار الآن.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -102,7 +109,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -132,6 +139,10 @@ async function open({ at = EVENING, refuseUsage = false, refuseLimit = 0, refuse
   const usageReads = []
   const limits = []
   let limitRefusals = refuseLimit
+  /** 512: this context's version history, and every restore `<id> <n>`. */
+  const versions = versionsOf(store)
+  const restores = []
+  let restoreRefusals = refuseRestore
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -249,6 +260,7 @@ async function open({ at = EVENING, refuseUsage = false, refuseLimit = 0, refuse
       }
       const by = role === 'approver' ? 'Reem (approver)' : 'Omar (marketing)'
       const out = lifecycle(c, life[2], { note: body.note, by, at: NOW_LOCAL })
+      if (out.campaign && life[2] === 'Activate') publishVersion(versions, c, body.note)
       return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: 'Wrong state.', errorCode: out.refused }))
     }
     if (one && req.method() === 'DELETE') {
@@ -258,11 +270,37 @@ async function open({ at = EVENING, refuseUsage = false, refuseLimit = 0, refuse
       store.splice(i, 1)
       return route.fulfill(envelope(null))
     }
+    const vers = /^RuleCampaign\/Campaigns\/([^/]+)\/Versions(?:\/(\d+))?(\/Restore)?$/.exec(p)
+    if (vers) {
+      const id = decodeURIComponent(vers[1])
+      const c = store.find((x) => x.id === id)
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      const list = versions.get(id) ?? []
+      if (!vers[2] && req.method() === 'GET') {
+        if (refuseVersions) return route.fulfill(envelope(null, { status: 503, success: false, message: VERSIONS_REFUSED, errorCode: 'RULE_VERSIONS_UNAVAILABLE' }))
+        // Oldest first, as a table would answer: the page orders them itself.
+        return route.fulfill(envelope(list.map(versionRow)))
+      }
+      const n = Number(vers[2])
+      if (!vers[3] && req.method() === 'GET') {
+        const v = list.find((x) => x.version === n)
+        return route.fulfill(v ? envelope(v) : envelope(null, { status: 404, success: false, message: 'No such version.', errorCode: 'RULE_VERSION_NOT_FOUND' }))
+      }
+      if (vers[3] && req.method() === 'POST') {
+        restores.push(`${id} ${n}`)
+        if (restoreRefusals > 0) {
+          restoreRefusals--
+          return route.fulfill(envelope(null, { status: 503, success: false, message: RESTORE_REFUSED, errorCode: 'RULE_RESTORE_UNAVAILABLE' }))
+        }
+        const out = restoreVersion(c, versions, n)
+        return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+      }
+    }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, usageReads, limits, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -357,7 +395,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('5: Schedule shows the local days and the weekdays', (await sched.locator('[data-line="start"] dd').innerText()) === '2026-10-01' && (await sched.locator('[data-line="end"] dd').innerText()) === '2026-12-31' && (await sched.locator('[data-line="days"] dd').innerText()) === 'Thursday, Friday, Saturday')
   check('5: the campaign was read ONCE for the shell and the dashboard', reads() === 1, String(reads()))
   // 504 lands the Rule builder; Coupons still waits for its page (515).
-  check('5: the side menu shows Dashboard, Rule builder and Settings (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules","settings"]')
+  check('5: the side menu shows Dashboard, Rule builder, Versions (512) and Settings (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules","versions","settings"]')
   check('5: Dashboard is the current menu item', (await page.locator('[data-workspace-menu="dashboard"]').getAttribute('aria-current')) === 'page')
   check('5: the rail still lights the Campaigns leaf', (await page.locator('a[href="/campaigns"]:not([data-workspace-back])').first().getAttribute('aria-current')) === 'page')
   await page.screenshot({ path: `${SHOTS}/dashboard-wknd20.png` })
@@ -2099,6 +2137,195 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       settings.length === 1,
   )
   check('89: no page errors (88)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 512 ── it asserts:
+//  90. the campaign menu has Versions, which opens /campaigns/:id/versions as the current item;
+//  91. every published version, newest first, with its number, who, when (local) and the note — the
+//      live one marked Live;
+//  92. the live version of a live campaign offers no Restore (its draft is it); earlier ones do;
+//  93. a version opens read-only as its rules in sentences, with its EN + AR lines, and nothing to edit;
+//  94. Restore on a live campaign goes at once: HQ gets it once, the dashboard shows a Draft and the
+//      live version it still runs, unchanged (version 3); the rule builder reads the restored rules;
+//  95. over that draft, Restore asks first: Keep the draft sends nothing; Replace the draft restores;
+//      the live version may be restored too now (it throws the draft away);
+//  96. a refused restore is the envelope's message and code, on the page, and nothing moves;
+//  97. a refused versions read is its own message and code with Try again; a campaign never
+//      published has no versions yet;
+//  98. while a request waits, Restore is held and says why; activated, the new version is listed
+//      first, Live, by the approver, with the note;
+//  99. no page errors.
+{
+  const { context, page, errors, store, restores } = await open()
+  const vers = async (id) => {
+    await page.goto(`${BASE}/campaigns/${id}/versions`)
+    await page.locator('[data-versions], [data-versions-empty], [data-versions-refusal]').first().waitFor({ timeout: 10000 })
+  }
+  const order = () => page.locator('[data-version]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
+  const item = (n) => page.locator(`[data-version="${n}"]`)
+  const restorable = () => page.locator('[data-version]:has([data-version-restore])').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
+  const pouch = () => store.find((c) => c.id === 'GIFT-POUCH')
+
+  // ── 90 ──
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH`)
+  await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+  await page.locator('[data-workspace-menu="versions"]').click()
+  await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH/versions`)
+  await page.locator('[data-versions]').waitFor({ timeout: 10000 })
+  check('90: Versions opens /campaigns/:id/versions, the current menu item', (await page.locator('[data-workspace-menu="versions"]').getAttribute('aria-current')) === 'page')
+
+  // ── 91 ──
+  check('91: three versions, newest first', JSON.stringify(await order()) === '[3,2,1]', JSON.stringify(await order()))
+  check('91: version 3 is marked Live, and only it', (await item(3).locator('[data-version-marker]').innerText()) === 'Live' && (await page.locator('[data-version-marker]').count()) === 1)
+  check('91: each says its number', (await item(2).locator('[data-version-number]').innerText()) === 'Version 2')
+  check(
+    '91: who and when, in local time',
+    (await item(3).locator('[data-version-stamp]').innerText()) === '2026-10-10 15:00 by Omar (marketing)' &&
+      (await item(2).locator('[data-version-stamp]').innerText()) === '2026-10-06 12:30 by Reem (approver)',
+    await item(2).locator('[data-version-stamp]').innerText(),
+  )
+  check(
+    '91: and the note',
+    (await item(2).locator('[data-version-note]').innerText()) === 'The cashier is prompted to scan the pouch.' &&
+      (await item(1).locator('[data-version-note]').innerText()) === 'First version: the pouch is free with the serum.',
+  )
+
+  // ── 92 ──
+  check('92: the live version offers no Restore; versions 2 and 1 do', JSON.stringify(await restorable()) === '[2,1]', JSON.stringify(await restorable()))
+
+  // ── 93 ──
+  await item(2).locator('[data-version-view]').click()
+  const rules2 = page.locator('[data-version-rules="2"]')
+  await rules2.locator('[data-version-rule]').first().waitFor({ timeout: 5000 })
+  check('93: View opens the version’s rules', (await item(2).locator('[data-version-view]').getAttribute('aria-expanded')) === 'true' && (await rules2.locator('[data-version-rule]').count()) === 1)
+  check('93: …read as sentences', (await rules2.locator('[data-effect] [data-block-sentence]').innerText()) === 'Give 1 unit of GIFT-BAG free when it is scanned', await rules2.locator('[data-effect] [data-block-sentence]').innerText())
+  check(
+    '93: …with the cashier prompt in English and Arabic',
+    (await rules2.locator('[data-says="cashierPrompt"] [data-says-en]').innerText()) === 'Scan a travel pouch: it is free with the serum' &&
+      (await rules2.locator('[data-says="cashierPrompt"] [data-says-ar]').getAttribute('dir')) === 'rtl',
+  )
+  check('93: …and its receipt label as it was then', (await rules2.locator('[data-says="receiptLabel"] [data-says-en]').innerText()) === 'Gift pouch')
+  check('93: nothing in it edits', (await rules2.locator('input, select, textarea, [data-block-edit], [data-palette-open]').count()) === 0)
+  await item(1).locator('[data-version-view]').click()
+  await page.locator('[data-version-rules="1"] [data-version-rule]').waitFor({ timeout: 5000 })
+  check('93: version 1 had no cashier prompt', (await page.locator('[data-version-rules="1"] [data-says="cashierPrompt"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/512-versions.png`, fullPage: true })
+
+  // ── 94 ──
+  await item(2).locator('[data-version-restore]').click()
+  await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
+  await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
+  check('94: Restore on a live campaign asks nothing and goes to the dashboard', page.url() === `${BASE}/campaigns/GIFT-POUCH` && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
+  const stateCell = page.locator('[data-dashboard-cell="state"]')
+  check('94: the dashboard shows a Draft', (await stateCell.locator('[data-campaign-state]').innerText()) === 'Draft')
+  check(
+    '94: …and the live version it still runs, unchanged',
+    (await stateCell.locator('[data-live-under-draft]').innerText()) === 'Tills still run version 3, activated 2026-10-10 15:00 by Omar (marketing), until this draft is activated.',
+    await stateCell.locator('[data-live-under-draft]').innerText(),
+  )
+  check('94: HQ’s campaign: a draft with version 2’s rules, live version 3 untouched', pouch().status === 'draft' && pouch().live.version === 3 && pouch().rules[0].then[0].label.en === 'Gift pouch')
+  await page.screenshot({ path: `${SHOTS}/512-restored.png`, fullPage: true })
+  await page.locator('[data-workspace-menu="rules"]').click()
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  check('94: the rule builder reads the restored rules', (await page.locator('[data-effect] [data-says="receiptLabel"] [data-says-en]').innerText()) === 'Gift pouch')
+
+  // ── 95 ──
+  await vers('GIFT-POUCH')
+  check('95: version 3 is still Live', (await item(3).locator('[data-version-marker]').innerText()) === 'Live')
+  check('95: over the draft, every version offers Restore — the live one too', JSON.stringify(await restorable()) === '[3,2,1]', JSON.stringify(await restorable()))
+  await item(1).locator('[data-version-restore]').click()
+  const ask = page.locator('[data-restore-dialog="1"]')
+  await ask.waitFor({ timeout: 5000 })
+  check('95: Restore over a draft asks first, saying the live version stays', (await ask.innerText()).includes('Tills keep running version 3'))
+  await page.locator('[data-restore-cancel]').click()
+  await ask.waitFor({ state: 'detached', timeout: 5000 })
+  check('95: Keep the draft sends nothing', restores.length === 1 && pouch().rules[0].then[0].label.en === 'Gift pouch')
+  await item(1).locator('[data-version-restore]').click()
+  await page.locator('[data-restore-confirm]').click()
+  await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
+  await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
+  check('95: Replace the draft restores version 1', JSON.stringify(restores) === '["GIFT-POUCH 2","GIFT-POUCH 1"]' && pouch().rules[0].then[0].prompt.en === '' && pouch().live.version === 3)
+  check('99: no page errors (90–95)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 96, 97 ──
+{
+  const { context, page, errors, store, restores } = await open({ refuseRestore: 1 })
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
+  await page.locator('[data-versions]').waitFor({ timeout: 10000 })
+  await page.locator('[data-version="1"] [data-version-restore]').click()
+  await page.locator('[data-restore-refusal]').waitFor({ timeout: 5000 })
+  check(
+    '96: a refused restore is the envelope’s message and code, on the page',
+    (await page.locator('[data-restore-refusal]').innerText()).includes(RESTORE_REFUSED) &&
+      (await page.locator('[data-restore-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_RESTORE_UNAVAILABLE' &&
+      page.url().endsWith('/campaigns/GIFT-POUCH/versions'),
+  )
+  const pouch = store.find((c) => c.id === 'GIFT-POUCH')
+  check('96: …and nothing moved', restores.length === 1 && pouch.status === 'live' && pouch.rules[0].then[0].label.en === 'Free pouch')
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT/versions`)
+  await page.locator('[data-versions-empty]').waitFor({ timeout: 10000 })
+  check('97: a campaign never published has no versions yet', (await page.locator('[data-versions-empty]').innerText()) === 'No versions yet. Activating the campaign publishes its first.')
+  await page.goto(`${BASE}/campaigns/SUMMER-FLASH/versions`)
+  await page.locator('[data-versions]').waitFor({ timeout: 10000 })
+  check(
+    '98: a disabled campaign holds Restore, says why, and marks its last version as disabled',
+    (await page.locator('[data-versions-held="disabled"]').isVisible()) &&
+      (await page.locator('[data-version-restore]').count()) === 0 &&
+      (await page.locator('[data-version="1"] [data-version-marker]').innerText()) === 'Last published, disabled',
+  )
+  check('99: no page errors (96, 97)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open({ refuseVersions: true })
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
+  await page.locator('[data-versions-refusal]').waitFor({ timeout: 10000 })
+  check(
+    '97: a refused versions read is its own message and code, with Try again',
+    (await page.locator('[data-versions-refusal]').innerText()).includes(VERSIONS_REFUSED) &&
+      (await page.locator('[data-versions-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_VERSIONS_UNAVAILABLE' &&
+      (await page.locator('[data-versions-retry]').isVisible()),
+  )
+  check('99: no page errors (97)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 98 ──
+{
+  const { context, page, errors, as } = await open({
+    // The pouch's draft over version 3 waits for an approver.
+    edit: (store) =>
+      Object.assign(store.find((c) => c.id === 'GIFT-POUCH'), {
+        status: 'waitingForApproval',
+        approval: { at: '2026-10-16T09:00:00', by: 'Omar (marketing)', note: 'Back to the gift pouch label.' },
+      }),
+  })
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
+  await page.locator('[data-versions]').waitFor({ timeout: 10000 })
+  check('98: while a request waits, Restore is held and says why', (await page.locator('[data-versions-held="waiting"]').isVisible()) && (await page.locator('[data-version-restore]').count()) === 0)
+  check('98: …version 3 still Live', (await page.locator('[data-version="3"] [data-version-marker]').innerText()) === 'Live')
+  as('approver')
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH`)
+  await page.locator('[data-approval-action="activate"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-approval-action="activate"]').click()
+  await page.locator('[data-approval-dialog-note]').fill('Gift pouch label again.')
+  await page.locator('[data-approval-confirm]:not([disabled])').click({ timeout: 5000 })
+  await page.locator('[data-approval-dialog]').waitFor({ state: 'detached', timeout: 5000 })
+  await page.locator('[data-workspace-menu="versions"]').click()
+  await page.locator('[data-version="4"]').waitFor({ timeout: 5000 }).catch(() => {})
+  const listed = await page.locator('[data-version]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
+  check('98: activated, the new version is listed first', JSON.stringify(listed) === '[4,3,2,1]', JSON.stringify(listed))
+  check(
+    '98: …Live, by the approver, with the note',
+    (await page.locator('[data-version="4"] [data-version-marker]').innerText()) === 'Live' &&
+      (await page.locator('[data-version="4"] [data-version-stamp]').innerText()) === '2026-10-16 18:30 by Reem (approver)' &&
+      (await page.locator('[data-version="4"] [data-version-note]').innerText()) === 'Gift pouch label again.' &&
+      (await page.locator('[data-version="3"] [data-version-marker]').count()) === 0,
+  )
+  check('99: no page errors (98)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

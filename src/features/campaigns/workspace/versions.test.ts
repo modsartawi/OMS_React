@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest'
+import type { RuleCampaign, RuleCampaignStatus, RuleCampaignVersion } from '@/core/models/rule-campaign'
+import { newestFirst, restoreGuard, restoreHeld, versionMark } from './versions'
+
+const LIVE3 = { version: 3, at: '2026-10-10T15:00:00', by: 'Omar (marketing)' }
+const of = (status: RuleCampaignStatus, live: RuleCampaign['live'] = LIVE3) => ({ status, live })
+const v = (version: number): RuleCampaignVersion => ({ version, at: `2026-10-0${version}T10:00:00`, by: 'Omar (marketing)', note: '' })
+
+describe('restoreGuard_asksWhenADraftHasWork', () => {
+  it('a draft holds work not published yet — a sent-back request, or changes over the live version — so restoring asks first', () => {
+    expect(restoreGuard(of('draft'), 2)).toBe('ask')
+    expect(restoreGuard(of('draft'), 1)).toBe('ask')
+  })
+
+  it('a draft over the live version may restore the live version itself: it throws the changes away, so it asks too', () => {
+    expect(restoreGuard(of('draft'), 3)).toBe('ask')
+  })
+
+  it('a live campaign has no work of its own over its live version: an earlier version restores at once', () => {
+    expect(restoreGuard(of('live'), 2)).toBe('restore')
+    expect(restoreGuard(of('live'), 1)).toBe('restore')
+  })
+
+  it('a disabled campaign is held: the approval life has no way back from disabled', () => {
+    for (const n of [1, 2, 3]) expect(restoreGuard(of('disabled'), n)).toBe('disabled')
+  })
+
+  it('the version tills run is not restored over a campaign whose draft already is it', () => {
+    expect(restoreGuard(of('live'), 3)).toBe('current')
+  })
+
+  it('a campaign waiting for approval is held: the request is sent back before its draft changes', () => {
+    for (const n of [1, 2, 3]) expect(restoreGuard(of('waitingForApproval'), n)).toBe('waiting')
+  })
+
+  it('a status this client does not know is held as waiting — never restored blind', () => {
+    expect(restoreGuard(of('archived' as RuleCampaignStatus), 2)).toBe('waiting')
+  })
+
+  it('restoreHeld says why for the whole campaign, so the page can say so', () => {
+    expect(restoreHeld(of('waitingForApproval'))).toBe('waiting')
+    expect(restoreHeld(of('archived' as RuleCampaignStatus))).toBe('waiting')
+    expect(restoreHeld(of('disabled'))).toBe('disabled')
+    for (const s of ['draft', 'live'] as RuleCampaignStatus[]) expect(restoreHeld(of(s)), s).toBeNull()
+  })
+})
+
+describe('versionMark_marksTheLiveOne', () => {
+  it('the live version is marked live while tills run it — over a draft or a waiting request too', () => {
+    for (const s of ['live', 'draft', 'waitingForApproval'] as RuleCampaignStatus[]) {
+      expect(versionMark(of(s), 3), s).toBe('live')
+      expect(versionMark(of(s), 2), s).toBeNull()
+    }
+  })
+
+  it('a disabled campaign’s last version is marked as such, never live', () => {
+    expect(versionMark(of('disabled'), 3)).toBe('disabled')
+  })
+
+  it('a campaign never published marks nothing', () => {
+    expect(versionMark(of('draft', null), 1)).toBeNull()
+  })
+})
+
+describe('newestFirst', () => {
+  it('orders by version number, newest first, whatever order HQ answers in', () => {
+    expect(newestFirst([v(1), v(3), v(2)]).map((x) => x.version)).toEqual([3, 2, 1])
+  })
+
+  it('leaves its input alone', () => {
+    const list = [v(1), v(2)]
+    newestFirst(list)
+    expect(list.map((x) => x.version)).toEqual([1, 2])
+  })
+})

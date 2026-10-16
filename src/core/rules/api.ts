@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '@/core/models/rule-campaign'
+import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
 // campaigns, catalogue, lookups, validate, simulate, lifecycle, coupons and sessions as later
@@ -12,6 +12,8 @@ import type { RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '@/co
 
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const CAMPAIGNS = 'RuleCampaign/Campaigns'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const CATALOGUE = 'RuleCampaign/Catalogue'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -47,7 +49,26 @@ export const ruleCampaignApi = {
   copy(id: string): Promise<RuleCampaign> {
     return api.post<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Copy`, {})
   },
+
+  /** GET RuleCampaign/Catalogue — the block catalogue: condition and effect types, their fields,
+   *  units and palette groups (BackOffice 2758). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  catalogue(): Promise<RuleBlockCatalogue> {
+    return api.get<RuleBlockCatalogue>(CATALOGUE)
+  },
 }
+
+/**
+ * The block catalogue's query options (ticket 504). It changes only with an HQ release, so it is
+ * fetched once per page load and kept: every builder page and every campaign share the one read.
+ */
+export const ruleCatalogueQuery = () => ({
+  queryKey: ['rule-catalogue'] as const,
+  queryFn: () => ruleCampaignApi.catalogue(),
+  staleTime: Infinity,
+  gcTime: Infinity,
+  retry: false as const,
+})
 
 /** The list's query options. */
 export const ruleCampaignsQuery = () => ({

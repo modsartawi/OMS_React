@@ -17,7 +17,7 @@ describe('workspaceMenu', () => {
   })
 
   it('draws only the items whose page has landed: Coupons waits for its page (515)', () => {
-    expect(drawnMenu({ coupons: true, points: true }).map((i) => i.key)).toEqual(['dashboard'])
-    expect(drawnMenu({ coupons: false, points: false }).map((i) => i.key)).toEqual(['dashboard'])
+    expect(drawnMenu({ coupons: true, points: true }).map((i) => i.key)).toEqual(['dashboard', 'rules'])
+    expect(drawnMenu({ coupons: false, points: false }).map((i) => i.key)).toEqual(['dashboard', 'rules'])
   })
 })

@@ -290,3 +290,60 @@ export function copyOf(store, source, at) {
   store.push(copy)
   return copy
 }
+
+// ── 504: the stubbed block catalogue (GET RuleCampaign/Catalogue, BackOffice 2758). Every condition
+// and effect the prototype offers (its app.js COND_PALETTE / EFFECT_PALETTE), with its fields in the
+// PROVISIONAL `RuleBlockCatalogue` shape; `feature` gates the palette (505) as the create dialog
+// promises: coupons adds the coupon condition, points the earn and burn blocks. The vitest proof
+// (`src/core/rules/sentence.test.ts`) reads this same catalogue and these same campaigns. ──
+
+const field = (key, kind, o = {}) => ({ key, kind, ...o })
+const notMet = field('says', 'says', { role: 'notMet' })
+const receiptLabel = field('label', 'says', { role: 'receiptLabel' })
+const cond = (type, group, fields, o = {}) => ({ type, kind: 'condition', group, feature: null, decided: true, fields: [...fields, notMet], ...o })
+const eff = (type, group, fields, o = {}) => ({ type, kind: 'effect', group, feature: null, decided: true, fields, ...o })
+
+export const CATALOGUE = {
+  groups: [
+    { key: 'basket', kind: 'condition' },
+    { key: 'attribute', kind: 'condition' },
+    { key: 'coupon', kind: 'condition' },
+    { key: 'loyalty', kind: 'condition' },
+    { key: 'audience', kind: 'condition' },
+    { key: 'sale', kind: 'condition' },
+    { key: 'logic', kind: 'condition' },
+    { key: 'discounts', kind: 'effect' },
+    { key: 'points', kind: 'effect' },
+    { key: 'couponsAndMessages', kind: 'effect' },
+  ],
+  blocks: [
+    cond('minSubtotal', 'basket', [field('of', 'items'), field('amount', 'money'), field('basis', 'choice', { options: ['total', 'subtotal'] })], { variant: 'basis' }),
+    cond('minCount', 'basket', [field('count', 'count', { plural: true }), field('of', 'items')]),
+    cond('attribute', 'attribute', [field('path', 'code'), field('op', 'choice', { options: ['==', '!=', '>', '>=', '<', '<='] }), field('value', 'text')]),
+    cond('expr', 'attribute', [field('formula', 'formula')]),
+    cond('coupon', 'coupon', [field('source', 'choice', { options: ['campaign', 'pattern'] }), field('pattern', 'code')], { variant: 'source', feature: 'coupons' }),
+    cond('member', 'loyalty', [field('is', 'choice', { options: ['identified', 'earning'] })], { variant: 'is' }),
+    cond('tier', 'loyalty', [field('in', 'choices', { options: ['S', 'G', 'P'] })]),
+    cond('minPoints', 'loyalty', [field('amount', 'points', { unitFrom: 'unit' }), field('unit', 'choice', { options: ['SAR', 'PTS'] })], { feature: 'points' }),
+    cond('firstPurchase', 'loyalty', [field('is', 'choice', { options: ['never', 'done'] })], { variant: 'is' }),
+    cond('anniversary', 'loyalty', [field('path', 'choice', { options: ['birthday', 'membership'] }), field('withinDays', 'days')], { variant: 'path', decided: false }),
+    cond('audience', 'audience', [field('op', 'choice', { options: ['in', 'notIn'] }), field('name', 'text')], { variant: 'op', decided: false }),
+    cond('channel', 'sale', [field('in', 'codes')]),
+    cond('store', 'sale', [field('in', 'codes')]),
+    cond('sessionFlag', 'sale', [field('flag', 'choice', { options: ['pointsOffer'] })], { variant: 'flag' }),
+    cond('budgetLeft', 'sale', [field('budget', 'budget')]),
+    { type: 'group', kind: 'condition', group: 'logic', feature: null, decided: true, fields: [field('mode', 'choice', { options: ['all', 'any'] })] },
+
+    eff('discountItems', 'discounts', [field('kind', 'choice', { options: ['percent', 'amount', 'targetPrice'] }), field('value', 'discount', { unitFrom: 'kind' }), field('per', 'choice', { options: ['unit', 'line'] }), field('on', 'items'), receiptLabel], { variant: 'kind' }),
+    eff('discountSession', 'discounts', [field('kind', 'choice', { options: ['percent', 'amount'] }), field('value', 'discount', { unitFrom: 'kind' }), field('on', 'items'), field('cap', 'money', { clause: true }), field('scope', 'choice', { options: ['items', 'fees', 'itemsAndFees'], clause: true, default: 'items' }), receiptLabel], { variant: 'kind' }),
+    eff('discountFees', 'discounts', [field('kind', 'choice', { options: ['percent', 'amount'] }), field('value', 'discount', { unitFrom: 'kind' }), field('cap', 'money', { clause: true }), receiptLabel], { variant: 'kind' }),
+    eff('freeUnits', 'discounts', [field('which', 'choice', { options: ['cheapest', 'dearest'] }), field('buy', 'count'), field('on', 'items'), field('free', 'count', { plural: true }), receiptLabel], { variant: 'which' }),
+    eff('freeProduct', 'discounts', [field('qty', 'count', { plural: true }), field('sku', 'code'), field('prompt', 'says', { role: 'cashierPrompt' }), receiptLabel]),
+    eff('valueMap', 'discounts', [field('map', 'code'), receiptLabel]),
+    eff('bundle', 'discounts', [field('kind', 'choice', { options: ['bundlePrice', 'discount', 'cheapestFree'] }), field('parts', 'itemParts'), field('value', 'money'), field('max', 'count', { clause: true, plural: true }), receiptLabel], { variant: 'kind' }),
+    eff('awardPoints', 'points', [field('value', 'points', { unitFrom: 'unit' }), field('unit', 'choice', { options: ['SAR', 'PTS'] }), field('activity', 'code'), field('activates', 'timing', { clause: true }), field('expires', 'timing', { clause: true })], { feature: 'points' }),
+    eff('burnPoints', 'points', [field('value', 'points', { unitFrom: 'unit' }), field('unit', 'choice', { options: ['SAR', 'PTS'] })], { feature: 'points' }),
+    eff('createCoupon', 'couponsAndMessages', [field('from', 'code'), field('validDays', 'days'), field('bindToMember', 'flag', { clause: true })]),
+    eff('notify', 'couponsAndMessages', [field('text', 'says', { role: 'message' })]),
+  ],
+}

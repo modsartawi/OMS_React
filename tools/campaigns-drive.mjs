@@ -9,6 +9,7 @@
 //   GET RuleCampaign/Campaigns/{id}   → the whole campaign; an unknown id is a 404 refusal
 //   POST RuleCampaign/Campaigns       → a new draft from { name: {en, ar}, features } (502, `createDraft`)
 //   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
+//   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -21,7 +22,7 @@
 //   4. the search matches the English name, the Arabic name and the code, and says "n of m";
 //   5. a row opens /campaigns/:id on its Dashboard — Details (both names, code, features), State,
 //      Schedule ("Ends in N days", the weekdays) — with ONE read of the campaign; the side menu shows
-//      only Dashboard (no other page has landed); Back returns to the list as it was left;
+//      only the landed pages (Dashboard, and Rule builder since 504); Back returns to the list as it was left;
 //   6. the name link opens a scheduled campaign: "Starts in 3 days", its daily hours one range;
 //      a waiting campaign names who asked and the note; a draft with no schedule says "No time limit";
 //   7. at 02:30 local (23:30 UTC the day before) the counts and "Starts in 3 days" are unchanged;
@@ -32,7 +33,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, copyOf, createDraft, listRow } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, copyOf, createDraft, listRow } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -60,6 +61,7 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 })
 
 const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرمز.'
+const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -71,16 +73,19 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false } = {}) {
+async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
   const calls = []
   /** This context's HQ: the fixtures, copied, so a create or a copy (502) stays in its own run. */
   const store = structuredClone(CAMPAIGNS)
+  edit?.(store)
+  /** 504: the catalogue door refuses until `heal()`. */
+  let catalogueDown = refuseCatalogue
   const bodies = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
+  page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
   await page.addInitScript(() => {
     localStorage.setItem('oms.locale', 'en')
@@ -92,6 +97,8 @@ async function open({ at = EVENING, refuseCreate = false } = {}) {
     calls.push(`${req.method()} ${p}`)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     // PROVISIONAL doors (ticket 520 re-points them).
+    if (p === 'RuleCampaign/Catalogue' && req.method() === 'GET')
+      return route.fulfill(catalogueDown ? envelope(null, { status: 503, success: false, message: CATALOGUE_REFUSED, errorCode: 'RULE_CATALOGUE_UNAVAILABLE' }) : envelope(CATALOGUE))
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'POST') {
       const body = req.postDataJSON()
@@ -113,7 +120,7 @@ async function open({ at = EVENING, refuseCreate = false } = {}) {
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies }
+  return { context, page, errors, calls, store, bodies, heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -207,7 +214,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('5: Schedule says "Ends in 76 days"', (await sched.locator('[data-schedule-relative]').innerText()) === 'Ends in 76 days', await sched.locator('[data-schedule-relative]').innerText())
   check('5: Schedule shows the local days and the weekdays', (await sched.locator('[data-line="start"] dd').innerText()) === '2026-10-01' && (await sched.locator('[data-line="end"] dd').innerText()) === '2026-12-31' && (await sched.locator('[data-line="days"] dd').innerText()) === 'Thursday, Friday, Saturday')
   check('5: the campaign was read ONCE for the shell and the dashboard', reads() === 1, String(reads()))
-  check('5: the side menu shows only Dashboard (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard"]')
+  // 504 lands the Rule builder; Coupons still waits for its page (515).
+  check('5: the side menu shows Dashboard and Rule builder (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules"]')
   check('5: Dashboard is the current menu item', (await page.locator('[data-workspace-menu="dashboard"]').getAttribute('aria-current')) === 'page')
   check('5: the rail still lights the Campaigns leaf', (await page.locator('a[href="/campaigns"]:not([data-workspace-back])').first().getAttribute('aria-current')) === 'page')
   await page.screenshot({ path: `${SHOTS}/dashboard-wknd20.png` })
@@ -388,6 +396,155 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon 2')
   check('13: an edit clears the refusal, which was about the name as sent', (await dialog.locator('[role="alert"]').count()) === 0)
   check('15: no page errors (13)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 504 ── it asserts:
+//  16. the side menu's Rule builder opens /campaigns/:id/rules; the block catalogue is read ONCE
+//      for every builder page of the app's life (two campaigns, in-app navigation);
+//  17. SUN-3FOR2 reads as sentences: its filter as a chain, When all, two conditions and one
+//      effect in words, values isolated by kind (money and counts in a dir=ltr isolate, the filter's
+//      name in a plain <bdi>), and the marketer's EN + AR lines under each block, the Arabic dir=rtl;
+//  18. EVERY sample campaign renders every block as a sentence: no unknown block, no raw key, no
+//      template brace, no raw type id;
+//  19. a rule with no condition reads "Always", and its summary says so;
+//  20. a filter renamed on HQ reads by its new name — conditions and effects find it by id;
+//  21. a card collapses and expands (aria-expanded, the summary stays); Collapse all / Expand all;
+//  22. a refused catalogue is the door's own message, and Try again reads it afresh;
+//  23. no page errors.
+{
+  const { context, page, errors, calls } = await open()
+  const catalogueReads = () => calls.filter((c) => c === 'GET RuleCampaign/Catalogue').length
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2`)
+  await page.locator('[data-dashboard]').waitFor()
+  check('16: the catalogue is not read before the builder opens', catalogueReads() === 0)
+  await page.locator('[data-workspace-menu="rules"]').click()
+  await page.waitForURL(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  check('16: Rule builder opens /campaigns/:id/rules, the current menu item', (await page.locator('[data-workspace-menu="rules"]').getAttribute('aria-current')) === 'page')
+  check('16: one card per rule', (await page.locator('[data-rule-card]').count()) === 1)
+
+  const card = page.locator('[data-rule-card]').first()
+  check('17: the card is headed by its rule number and name', (await card.locator('[data-rule-name]').innerText()) === 'Cheapest of every three suncare units free')
+  check('17: its summary counts filters, conditions and effects', (await card.locator('[data-rule-summary]').innerText()).replace(/\s+/g, ' ') === '1 cart item filter 2 conditions 1 effect', await card.locator('[data-rule-summary]').innerText())
+  const filter = card.locator('[data-filter]').first()
+  check('17: the filter reads as a chain, by name', (await filter.locator('[data-filter-name]').innerText()) === 'sun' && JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()) === '["cart items","in collection SUNCARE"]', JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()))
+  check('17: When all', (await card.locator('[data-when]').innerText()) === 'When all of these are true')
+  const sentences = await card.locator('[data-condition] [data-block-sentence]').allInnerTexts()
+  check('17: the conditions read as sentences', JSON.stringify(sentences) === JSON.stringify(['At least 3 units of sun', 'The value of all merchandise is at least SAR 150.00, before any offer']), JSON.stringify(sentences))
+  check('17: the effect reads as a sentence', (await card.locator('[data-effect] [data-block-sentence]').innerText()) === 'For every 3 of sun, the cheapest 1 unit is free')
+  check('17: money is one dir=ltr isolate', (await card.locator('[data-condition] [data-value="money"] bdi[dir="ltr"]').innerText()) === 'SAR 150.00')
+  check('17: a count is a dir=ltr isolate', (await card.locator('[data-condition] [data-value="number"] bdi[dir="ltr"]').first().innerText()) === '3')
+  check('17: the filter’s name is free text in a plain <bdi>', (await card.locator('[data-condition] [data-value="name"] > bdi:not([dir])').first().innerText()) === 'sun')
+  const notMet = card.locator('[data-condition]').first().locator('[data-says="notMet"]')
+  check('17: a condition’s "not met" line shows the English and the Arabic', (await notMet.locator('[data-says-en]').innerText()) === 'three suncare items' && (await notMet.locator('[data-says-ar]').innerText()) === 'ثلاثة منتجات للعناية بالشمس')
+  check('17: …the Arabic one right-to-left', (await notMet.locator('[data-says-ar]').getAttribute('dir')) === 'rtl')
+  const label = card.locator('[data-effect] [data-says="receiptLabel"]')
+  check('17: the discount’s receipt label shows both languages', (await label.locator('[data-says-en]').innerText()) === 'Suncare 3 for 2' && (await label.locator('[data-says-ar]').innerText()) === 'العناية بالشمس 3 بسعر 2')
+  await page.screenshot({ path: `${SHOTS}/rules-sun.png`, fullPage: true })
+
+  // In-app to a second campaign's builder: the catalogue is not read again.
+  await page.locator('[data-workspace-back]').click()
+  await waitRows(page, 16)
+  await page.locator('[data-campaign-link="GP-BEAUTY15"]').click()
+  await page.locator('[data-dashboard]').waitFor()
+  await page.locator('[data-workspace-menu="rules"]').click()
+  await page.locator('[data-rules]').waitFor()
+  check('16: the catalogue was read ONCE for two builder pages', catalogueReads() === 1, String(catalogueReads()))
+  check('17: a choice reads in words: the tier', (await page.locator('[data-condition] [data-block-sentence]').first().innerText()) === 'The member’s tier is Gold or Platinum')
+  check('17: a percent reads as one isolate', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Take 15% off each line of beauty' && (await page.locator('[data-effect] [data-value="percent"] bdi[dir="ltr"]').innerText()) === '15%')
+  check('23: no page errors (16–17)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 18, 19 ──
+{
+  const { context, page, errors } = await open()
+  const TYPE_IDS = CATALOGUE.blocks.map((b) => b.type).filter((type) => /[A-Z]/.test(type))
+  const leaves = (items) => items.flatMap((c) => (c.type === 'group' ? leaves(c.items) : [c]))
+  const bad = []
+  let read = 0
+  for (const c of CAMPAIGNS.filter((x) => x.rules.length)) {
+    await page.goto(`${BASE}/campaigns/${c.id}/rules`)
+    await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+    const blocks = c.rules.reduce((n, r) => n + leaves(r.when.items).length + r.then.length, 0)
+    const shown = await page.locator('[data-condition], [data-effect]').count()
+    const unknown = await page.locator('[data-sentence="sentence.unknown"]').count()
+    const text = await page.locator('[data-rule-builder]').innerText()
+    const leaks = TYPE_IDS.filter((id) => text.includes(id))
+    if (shown !== blocks || unknown || /sentence\.|rules\.|\{\{|\}\}/.test(text) || leaks.length)
+      bad.push(`${c.id}: ${shown}/${blocks} shown, ${unknown} unknown, leaks ${leaks.join(',')}`)
+    read += shown
+  }
+  check('18: every sample campaign reads every block as a sentence, no raw key, no type id', bad.length === 0 && read > 0, bad.join(' | ') || `${read} blocks`)
+
+  await page.goto(`${BASE}/campaigns/WLCB/rules`)
+  await page.locator('[data-rules]').waitFor()
+  check('18: a formula is shown as written, in one isolate', (await page.locator('[data-condition] [data-value="formula"] bdi[dir="ltr"]').innerText()) === 'back > 0')
+  check('18: named values read with their formula', JSON.stringify(await page.locator('[data-value-id]').allInnerTexts()) === JSON.stringify(['spend is worked out as sum(eligible)', 'back is worked out as round(spend * 0.10, 0, halfUp)']))
+  check('18: points read in words, with when they activate and expire', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Award back in SAR of points under the activity WLCB, usable after 7 days, expiring after 30 days')
+  check('18: Prescription is named in the chain', (await page.locator('[data-filter-link]').allInnerTexts()).includes('not Prescription A006'))
+  await page.screenshot({ path: `${SHOTS}/rules-wlcb.png`, fullPage: true })
+
+  await page.goto(`${BASE}/campaigns/BH-SPEND10/rules`)
+  await page.locator('[data-rules]').waitFor()
+  check('18: a Bahraini amount reads to the fils', (await page.locator('[data-condition] [data-value="money"]').innerText()) === 'BHD 10.000')
+
+  await page.goto(`${BASE}/campaigns/PCUT-SA01/rules`)
+  await page.locator('[data-rules]').waitFor()
+  check('19: a rule with no condition reads "Always"', (await page.locator('[data-when]').innerText()) === 'Always' && (await page.locator('[data-when]').getAttribute('data-when')) === 'always')
+  check('19: …says what that means', (await page.locator('[data-rule-section="when"]').innerText()).includes('No condition: the effects apply to every sale the campaign reaches.'))
+  check('19: …and its summary says always', (await page.locator('[data-rule-summary]').innerText()).includes('always'))
+  check('19: a rule with no filter says it looks at all merchandise', (await page.locator('[data-rule-section="filters"]').innerText()).includes('No filter: the rule looks at all merchandise.'))
+  check('23: no page errors (18–19)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 20, 21 ──
+{
+  const { context, page, errors } = await open({
+    edit: (store) => {
+      const sun = store.find((c) => c.id === 'SUN-3FOR2')
+      sun.rules[0].filters[0].name = 'Suncare'
+      sun.rules.push({ id: 'r-extra', name: 'Pouch with every suncare basket', filters: [], values: [], when: { mode: 'any', items: [] }, then: [{ id: 'e-extra', type: 'notify', text: { en: 'Ask about the pouch', ar: '' } }], partial: 'refuse' })
+    },
+  })
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor()
+  const first = page.locator('[data-rule-card]').first()
+  check('20: a renamed filter reads by its new name, found by id', (await first.locator('[data-condition] [data-block-sentence]').first().innerText()) === 'At least 3 units of Suncare' && (await first.locator('[data-effect] [data-block-sentence]').innerText()) === 'For every 3 of Suncare, the cheapest 1 unit is free')
+  const second = page.locator('[data-rule-card="r-extra"]')
+  check('21: a message with no Arabic yet says so', (await second.locator('[data-says="message"] [data-says-ar]').innerText()) === 'No Arabic yet.')
+
+  const toggle = first.locator('[data-rule-toggle]')
+  check('21: a card opens expanded', (await toggle.getAttribute('aria-expanded')) === 'true' && (await first.locator('[data-rule-body]').count()) === 1)
+  await toggle.click()
+  check('21: its toggle collapses it to the header and the summary', (await toggle.getAttribute('aria-expanded')) === 'false' && (await first.locator('[data-rule-body]').count()) === 0 && (await first.locator('[data-rule-summary]').isVisible()))
+  check('21: …the other card stays open', (await second.locator('[data-rule-body]').count()) === 1)
+  await toggle.click()
+  check('21: and expands it again', (await toggle.getAttribute('aria-expanded')) === 'true' && (await first.locator('[data-rule-body]').count()) === 1)
+  await page.locator('[data-rules-collapse-all]').click()
+  check('21: Collapse all closes every card', (await page.locator('[data-rule-body]').count()) === 0 && (await page.locator('[data-rule-toggle][aria-expanded="false"]').count()) === 2)
+  await page.screenshot({ path: `${SHOTS}/rules-collapsed.png`, fullPage: true })
+  await page.locator('[data-rules-expand-all]').click()
+  check('21: Expand all opens them again', (await page.locator('[data-rule-body]').count()) === 2)
+  check('23: no page errors (20–21)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 22 ──
+{
+  const { context, page, errors, heal } = await open({ refuseCatalogue: true })
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  const banner = page.locator('[role="alert"]').first()
+  await banner.waitFor({ timeout: 10000 })
+  check('22: a refused catalogue shows the door’s own message', (await banner.innerText()).includes(CATALOGUE_REFUSED), await banner.innerText())
+  check('22: …and no rule is drawn half-read', (await page.locator('[data-rule-card]').count()) === 0)
+  heal()
+  await page.locator('[data-catalogue-retry]').click()
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  check('22: Try again reads the catalogue afresh and draws the rules', (await page.locator('[data-rule-card]').count()) === 1 && (await page.locator('[role="alert"]').count()) === 0)
+  check('23: no page errors (22)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

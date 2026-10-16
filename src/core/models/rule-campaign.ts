@@ -161,3 +161,87 @@ export interface RuleCampaignCreate {
   name: Says
   features: RuleCampaignFeatures
 }
+
+// ── The block catalogue (ticket 504; HQ's door is BackOffice 2758) ──────────────────────────────
+// What condition and effect types exist, their fields, units and palette groups. The builder reads
+// a rule through it: `@/core/rules/sentence` turns a block into a sentence from the catalogue's
+// field kinds, and the palette (505) groups and gates blocks by it. Fetched once and cached.
+
+/**
+ * How a field's value reads in a sentence. The client formats it by kind and never parses it:
+ * a `formula` is shown as written (ADR 0089 — syntax and meaning are HQ's).
+ */
+export type RuleFieldKind =
+  /** A filter id of this rule; `''` = all merchandise. */
+  | 'items'
+  /** A bundle's parts, `[{ of: filterId, count }]`. */
+  | 'itemParts'
+  /** An amount in the campaign's currency. */
+  | 'money'
+  | 'count'
+  | 'days'
+  /** A discount: a percent or an amount, as the block's `unitFrom` field says. */
+  | 'discount'
+  /** Points: a number or a named value, in points (`PTS`) or a currency's worth, per `unitFrom`. */
+  | 'points'
+  /** A machine code — a SKU, an activity, a value map, a campaign, a pattern. */
+  | 'code'
+  /** A list of codes — stores, channels. */
+  | 'codes'
+  /** Free text the marketer wrote in one language (an audience name, an attribute value). */
+  | 'text'
+  /** One of `options`. */
+  | 'choice'
+  /** Any of `options`. */
+  | 'choices'
+  /** An expression, shown as written. */
+  | 'formula'
+  /** When points activate or expire: `{ mode: 'afterDays' | 'afterHours' | 'on' | 'none', value }`. */
+  | 'timing'
+  /** A budget id of this campaign. */
+  | 'budget'
+  | 'flag'
+  /** A marketer's EN + AR text; `role` says which. Shown under the sentence, never inside it. */
+  | 'says'
+
+/** A block is a condition (When) or an effect (Then). */
+export type RuleBlockKind = 'condition' | 'effect'
+
+/** What an EN + AR field is for. */
+export type RuleSaysRole = 'notMet' | 'receiptLabel' | 'cashierPrompt' | 'message'
+
+export interface RuleCatalogueField {
+  key: string
+  kind: RuleFieldKind
+  /** The values a `choice` / `choices` field takes. */
+  options?: string[]
+  /** For `discount` / `points`: the sibling field that holds the unit. */
+  unitFrom?: string
+  /** For `says`. */
+  role?: RuleSaysRole
+  /** Read as a trailing clause, left out when empty, zero, false or `default`. */
+  clause?: boolean
+  default?: unknown
+  /** The sentence agrees in number with this field. */
+  plural?: boolean
+}
+
+export interface RuleCatalogueBlock {
+  type: string
+  kind: RuleBlockKind
+  /** The palette group (Basket, Customer, Discounts, Points, …). */
+  group: string
+  /** The campaign feature that must be on for the palette to offer it. */
+  feature: keyof RuleCampaignFeatures | null
+  /** False for a block the map has not decided — the palette leaves it out. */
+  decided: boolean
+  /** The field whose value picks the sentence's wording. */
+  variant?: string
+  fields: RuleCatalogueField[]
+}
+
+export interface RuleBlockCatalogue {
+  /** Palette groups, in palette order. */
+  groups: { key: string; kind: RuleBlockKind }[]
+  blocks: RuleCatalogueBlock[]
+}

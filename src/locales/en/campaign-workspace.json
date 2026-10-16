@@ -7,6 +7,7 @@
   "menu": {
     "label": "Manage campaign",
     "dashboard": "Dashboard",
+    "rules": "Rule builder",
     "coupons": "Coupons"
   },
   "dashboard": {
@@ -80,5 +81,222 @@
     "copied": "Copied as a new draft.",
     "copyFailed": "The campaign could not be copied",
     "tryAgain": "Try again in a moment."
+  },
+  "rules": {
+    "title": "Rule builder",
+    "intro": "A rule is “if this, then that”: when its conditions are true, all of its effects apply. Rules run top to bottom, and later rules see the prices left by earlier ones.",
+    "catalogueLoading": "Reading the block catalogue…",
+    "catalogueFailedTitle": "The block catalogue could not be read",
+    "catalogueFailed": "Try again in a moment.",
+    "retry": "Try again",
+    "noRules": "This campaign has no rules yet.",
+    "collapseAll": "Collapse all",
+    "expandAll": "Expand all",
+    "ruleNumber": "Rule <n>{{n}}</n>",
+    "untitledRule": "Untitled rule",
+    "expand": "Expand the rule",
+    "collapse": "Collapse the rule",
+    "summary": {
+      "filters_one": "<n>{{count}}</n> cart item filter",
+      "filters_other": "<n>{{count}}</n> cart item filters",
+      "conditions_one": "<n>{{count}}</n> condition",
+      "conditions_other": "<n>{{count}}</n> conditions",
+      "always": "always",
+      "effects_one": "<n>{{count}}</n> effect",
+      "effects_other": "<n>{{count}}</n> effects"
+    },
+    "filters": "Cart item filters",
+    "filtersHint": "Which cart items a condition or an effect looks at.",
+    "noFilters": "No filter: the rule looks at all merchandise.",
+    "values": "Named values",
+    "valuesHint": "Numbers worked out once, then used by name. HQ checks the formulas.",
+    "conditions": "Conditions",
+    "alwaysHint": "No condition: the effects apply to every sale the campaign reaches. Its schedule and audience still apply.",
+    "effects": "Effects",
+    "effectsHead": "Apply these effects:",
+    "noEffects": "No effect yet.",
+    "partial": {
+      "refuse": "If the member is short of points, the whole rule is refused.",
+      "scale": "If the member is short of points, fewer points are taken, in proportion."
+    },
+    "says": {
+      "notMet": "If not met, the till says it needs",
+      "receiptLabel": "On the receipt",
+      "cashierPrompt": "The cashier is prompted",
+      "message": "The message",
+      "noArabic": "No Arabic yet."
+    }
+  },
+  "sentence": {
+    "allItems": "all merchandise",
+    "missingFilter": "a filter that no longer exists",
+    "missingValue": "a value that no longer exists",
+    "missingBudget": "a budget that no longer exists",
+    "notPicked": "not picked yet",
+    "nothingPicked": "nothing picked yet",
+    "part": "<count>{{count}}</count> of <of>{{of}}</of>",
+    "unknown": "A block this screen cannot read yet (<type>{{type}}</type>)",
+    "value": "<name>{{name}}</name> is worked out as <formula>{{formula}}</formula>",
+    "when": {
+      "all": "When all of these are true",
+      "any": "When any of these is true",
+      "always": "Always"
+    },
+    "group": {
+      "all": "All of these are true",
+      "any": "Any of these is true"
+    },
+    "unit": {
+      "days_one": "<n>{{n}}</n> day",
+      "days_other": "<n>{{n}}</n> days",
+      "points_one": "<n>{{n}}</n> point",
+      "points_other": "<n>{{n}}</n> points",
+      "pointsWorth": "<money>{{money}}</money> of points",
+      "pointsNamed": "<name>{{name}}</name> points",
+      "pointsWorthNamed": "<name>{{name}}</name> in <currency>{{currency}}</currency> of points",
+    "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points"
+    },
+    "timing": {
+      "afterDays_one": "after <n>{{n}}</n> day",
+      "afterDays_other": "after <n>{{n}}</n> days",
+      "afterHours_one": "after <n>{{n}}</n> hour",
+      "afterHours_other": "after <n>{{n}}</n> hours",
+      "on": "on <day>{{day}}</day>"
+    },
+    "filter": {
+      "scope": {
+        "items": "cart items",
+        "fees": "fee lines",
+        "itemsAndFees": "cart items and fee lines"
+      },
+      "categories": "category <cats>{{cats}}</cats>",
+      "collections": "in collection <colls>{{colls}}</colls>",
+      "products": "product <skus>{{skus}}</skus>",
+      "never": "not <cats>{{cats}}</cats>",
+      "rx": "Prescription <code>{{code}}</code>"
+    },
+    "condition": {
+      "minSubtotal": {
+        "total": "The value of <of>{{of}}</of> is at least <amount>{{amount}}</amount>, after earlier offers",
+        "subtotal": "The value of <of>{{of}}</of> is at least <amount>{{amount}}</amount>, before any offer"
+      },
+      "minCount_one": "At least <count>{{count}}</count> unit of <of>{{of}}</of>",
+      "minCount_other": "At least <count>{{count}}</count> units of <of>{{of}}</of>",
+      "attribute": "<path>{{path}}</path> <op>{{op}}</op> <value>{{value}}</value>",
+      "expr": "The formula <formula>{{formula}}</formula> is true",
+      "coupon": {
+        "campaign": "A valid coupon of this campaign",
+        "pattern": "The coupon code matches <pattern>{{pattern}}</pattern>"
+      },
+      "member": {
+        "identified": "The customer is an identified member",
+        "earning": "The customer is an earning Arbahi member"
+      },
+      "tier": "The member’s tier is <in>{{in}}</in>",
+      "minPoints": "The member’s points balance is at least <amount>{{amount}}</amount>",
+      "firstPurchase": {
+        "never": "The member has never bought before",
+        "done": "The member has bought before"
+      },
+      "anniversary": {
+        "birthday": "The member’s birthday is within <withindays>{{withinDays}}</withindays>",
+        "membership": "The member’s membership anniversary is within <withindays>{{withinDays}}</withindays>"
+      },
+      "audience": {
+        "in": "The customer is in the audience <name>{{name}}</name>",
+        "notIn": "The customer is not in the audience <name>{{name}}</name>"
+      },
+      "channel": "The channel is <in>{{in}}</in>",
+      "store": "The store is <in>{{in}}</in>",
+      "sessionFlag": {
+        "pointsOffer": "The customer said yes to the points offer at the till"
+      },
+      "budgetLeft": "The budget <budget>{{budget}}</budget> is not used up"
+    },
+    "effect": {
+      "discountItems": {
+        "percent": "Take <value>{{value}}</value> off each <per>{{per}}</per> of <on>{{on}}</on>",
+        "amount": "Take <value>{{value}}</value> off each <per>{{per}}</per> of <on>{{on}}</on>",
+        "targetPrice": "Sell each <per>{{per}}</per> of <on>{{on}}</on> at <value>{{value}}</value>"
+      },
+      "discountSession": {
+        "percent": "Take <value>{{value}}</value> off <on>{{on}}</on>, spread pro rata",
+        "amount": "Take <value>{{value}}</value> off <on>{{on}}</on>, spread pro rata"
+      },
+      "discountFees": {
+        "percent": "Take <value>{{value}}</value> off the fee lines",
+        "amount": "Take <value>{{value}}</value> off the fee lines"
+      },
+      "freeUnits": {
+        "cheapest_one": "For every <buy>{{buy}}</buy> of <on>{{on}}</on>, the cheapest <free>{{free}}</free> unit is free",
+        "cheapest_other": "For every <buy>{{buy}}</buy> of <on>{{on}}</on>, the cheapest <free>{{free}}</free> units are free",
+        "dearest_one": "For every <buy>{{buy}}</buy> of <on>{{on}}</on>, the dearest <free>{{free}}</free> unit is free",
+        "dearest_other": "For every <buy>{{buy}}</buy> of <on>{{on}}</on>, the dearest <free>{{free}}</free> units are free"
+      },
+      "freeProduct_one": "Give <qty>{{qty}}</qty> unit of <sku>{{sku}}</sku> free when it is scanned",
+      "freeProduct_other": "Give <qty>{{qty}}</qty> units of <sku>{{sku}}</sku> free when they are scanned",
+      "valueMap": "Price each item from the value map <map>{{map}}</map>",
+      "bundle": {
+        "bundlePrice": "Sell <parts>{{parts}}</parts> together for <value>{{value}}</value>",
+        "discount": "Take <value>{{value}}</value> off each bundle of <parts>{{parts}}</parts>",
+        "cheapestFree": "Bundle <parts>{{parts}}</parts>, with the cheapest unit free"
+      },
+      "awardPoints": "Award <value>{{value}}</value> under the activity <activity>{{activity}}</activity>",
+      "burnPoints": "Take <value>{{value}}</value> from the member, as a tender",
+      "createCoupon": "Create a coupon from <from>{{from}}</from>, valid for <validdays>{{validDays}}</validdays>",
+      "notify": "Show the customer a message"
+    },
+    "clause": {
+      "discountSession": {
+        "cap": ", at most <cap>{{cap}}</cap>",
+        "scope": ", over <scope>{{scope}}</scope>"
+      },
+      "discountFees": {
+        "cap": ", at most <cap>{{cap}}</cap>"
+      },
+      "bundle": {
+        "max_one": ", at most <max>{{max}}</max> bundle per sale",
+        "max_other": ", at most <max>{{max}}</max> bundles per sale"
+      },
+      "awardPoints": {
+        "activates": ", usable <activates>{{activates}}</activates>",
+        "expires": ", expiring <expires>{{expires}}</expires>"
+      },
+      "createCoupon": {
+        "bindToMember": ", bound to the member"
+      }
+    },
+    "option": {
+      "attribute": {
+        "op": {
+          "==": "is",
+          "!=": "is not",
+          ">": "is more than",
+          ">=": "is at least",
+          "<": "is less than",
+          "<=": "is at most"
+        }
+      },
+      "tier": {
+        "in": {
+          "S": "Silver",
+          "G": "Gold",
+          "P": "Platinum"
+        }
+      },
+      "discountItems": {
+        "per": {
+          "unit": "unit",
+          "line": "line"
+        }
+      },
+      "discountSession": {
+        "scope": {
+          "items": "merchandise",
+          "fees": "the fee lines",
+          "itemsAndFees": "merchandise and the fee lines"
+        }
+      }
+    }
   }
 }

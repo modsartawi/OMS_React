@@ -1,0 +1,10 @@
+// Types for `campaigns-fixtures.mjs`, so a vitest proof reads the SAME stub data the drive serves
+// (ticket 504) rather than a copy of it. The shapes are the PROVISIONAL ones of
+// `src/core/models/rule-campaign.ts`; ticket 520 re-points both.
+import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '../src/core/models/rule-campaign'
+
+export const CAMPAIGNS: RuleCampaign[]
+export const CATALOGUE: RuleBlockCatalogue
+export function listRow(c: RuleCampaign): RuleCampaignListRow
+export function createDraft(store: RuleCampaign[], body: RuleCampaignCreate, at: string): RuleCampaign
+export function copyOf(store: RuleCampaign[], source: RuleCampaign, at: string): RuleCampaign

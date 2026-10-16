@@ -675,6 +675,12 @@ export const router = createBrowserRouter([
               Component: (await import('@/features/campaigns/workspace/DashboardPage')).default,
             }),
           },
+          {
+            path: 'rules',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/RulesPage')).default,
+            }),
+          },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

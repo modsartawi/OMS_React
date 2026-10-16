@@ -127,6 +127,15 @@ session is a document being built, is identified by a `transactionId`, and ends 
 abandoned or swept.
 _Avoid_: session (unqualified — it collides), draft (there are none; leaving abandons).
 
+**Customer session**:
+A sale at a rule-engine store as HQ's rule engine holds it (BackOffice spec 2737), identified by the
+channel's own **sale id** (`TransactionId` or `DocumentNo`): its calls, the budget holds and coupon /
+points movements they caused, and its status (open → paying → closed → partly returned / returned, or
+cancelled). Support reads and cancels one on Campaigns ▸ Sessions (ticket 518); a cancel rolls its
+movements back. Code names it `RuleSession*`; the screen's own pages may say "Sessions" inside the
+Campaigns group. Neither the auth **Session** nor an **Engine session**.
+_Avoid_: session (unqualified, outside the Campaigns screens), transaction.
+
 **Envelope**:
 The universal SIS.Api response shape `{ statusCode, success, message, errors, data }`
 (`HttpGeneralResponse<T>`). Every server call returns one; `src/core/api.ts` unwraps `.data` and

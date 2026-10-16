@@ -28,7 +28,7 @@ describe('the Campaigns nav group', () => {
     for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
     expect(campaigns!.access).toBeUndefined()
     expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(3)
+    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(4)
   })
 
   it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
@@ -47,6 +47,16 @@ describe('the Campaigns nav group', () => {
   it('514 adds Simulator third, at /campaigns/simulator, and it lights itself rather than Campaigns', () => {
     expect(leaves([campaigns!])[2].routerLink).toBe('/campaigns/simulator')
     expect(markedLeaf(MENU, '/campaigns/simulator')?.labelKey).toBe('campaign-list:menu.simulator')
+  })
+
+  it('518 adds Sessions fourth, at /campaigns/sessions; it and a session light it, the sale id in the crumb', () => {
+    expect(leaves([campaigns!])[3].routerLink).toBe('/campaigns/sessions')
+    expect(markedLeaf(MENU, '/campaigns/sessions')?.labelKey).toBe('campaign-list:menu.sessions')
+    expect(markedLeaf(MENU, '/campaigns/sessions/R101-0042')?.labelKey).toBe('campaign-list:menu.sessions')
+    expect(deriveCrumb(MENU, '/campaigns/sessions/R101-0042', { saleId: 'R101-0042' })).toEqual({
+      trail: ['campaign-list:menu.group', 'campaign-list:menu.sessions'],
+      record: 'R101-0042',
+    })
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {

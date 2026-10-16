@@ -848,6 +848,13 @@ export const MENU: ShellMenuItem[] = [
         icon: FlaskConical,
         routerLink: '/campaigns/simulator',
       },
+      {
+        // Support's view of the customer sessions (ticket 518); a session
+        // (`/campaigns/sessions/:saleId`) lights it too.
+        labelKey: 'campaign-list:menu.sessions',
+        icon: Receipt,
+        routerLink: '/campaigns/sessions',
+      },
     ],
   },
   {

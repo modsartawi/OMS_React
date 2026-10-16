@@ -33,6 +33,11 @@ import type {
   RuleLookupItem,
   RuleLookupKind,
   RuleOfflineVerdict,
+  RuleSession,
+  RuleSessionAccess,
+  RuleSessionCancelled,
+  RuleSessionListQuery,
+  RuleSessionRow,
   RuleSimRequest,
   RuleSimResult,
 } from '@/core/models/rule-campaign'
@@ -89,6 +94,12 @@ const SIMULATE = 'RuleCampaign/Simulate'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 // (the coupon doors' own contract is BackOffice 2755)
 const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// (the support doors' own contract is BackOffice 2760)
+const SESSIONS = 'RuleCampaign/Sessions'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// Not under SESSIONS: a sale id could read `Access`.
+const SESSION_ACCESS = 'RuleCampaign/SessionAccess'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -372,6 +383,37 @@ export const ruleCampaignApi = {
   deleteUnusedCoupons(id: string, batch: string): Promise<RuleCouponUnusedDeleted> {
     return api.del<RuleCouponUnusedDeleted>(`${COUPONS(id)}/Batches/${encodeURIComponent(batch)}/Unused`)
   },
+
+  /** GET RuleCampaign/Sessions?store=&date=&status= — one store's customer sessions on one local
+   *  day, in one status or all (ticket 518, BackOffice 2760). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  sessions(q: RuleSessionListQuery): Promise<RuleSessionRow[]> {
+    return api.get<RuleSessionRow[]>(SESSIONS, { store: q.store, date: q.date, status: q.status })
+  },
+
+  /** GET RuleCampaign/Sessions/{saleId} — one session whole: calls, holds, journal and budget
+   *  movements, refusals, its cart with each line's effects and units, and each campaign's outcome
+   *  (ticket 518, BackOffice 2760). An unknown sale id is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  session(saleId: string): Promise<RuleSession> {
+    return api.get<RuleSession>(`${SESSIONS}/${encodeURIComponent(saleId)}`)
+  },
+
+  /** GET RuleCampaign/SessionAccess — whether the reader may cancel a session (ticket 518,
+   *  BackOffice 2760's Ua permission): what the page draws. The cancel door still refuses. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  sessionAccess(): Promise<RuleSessionAccess> {
+    return api.get<RuleSessionAccess>(SESSION_ACCESS)
+  },
+
+  /** POST RuleCampaign/Sessions/{saleId}/Cancel — support cancels a session (ticket 518, BackOffice
+   *  2760): HQ rolls back its budgets, coupon uses, created codes and points, and answers the
+   *  session cancelled with what it rolled back. A reader without the permission, or a session HQ
+   *  will not cancel, is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  cancelSession(saleId: string): Promise<RuleSessionCancelled> {
+    return api.post<RuleSessionCancelled>(`${SESSIONS}/${encodeURIComponent(saleId)}/Cancel`, {})
+  },
 }
 
 /** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
@@ -567,3 +609,50 @@ export const ruleCouponsQuery = (id: string) => ({
   refetchOnWindowFocus: true as const,
   retry: false as const,
 })
+
+/** Every customer-session query — a cancel refreshes the lists. */
+export const RULE_SESSIONS_KEY = ['rule-sessions'] as const
+
+/** One session, keyed by its sale id. */
+export const ruleSessionKey = (saleId: string) => [...RULE_SESSIONS_KEY, 'one', saleId] as const
+
+/** The sessions list's query options (ticket 518): asked only once a store is chosen. Tills move
+ *  sessions along, so it is read afresh when the reader comes back to the tab. */
+export const ruleSessionsQuery = (q: RuleSessionListQuery) => ({
+  queryKey: [...RULE_SESSIONS_KEY, 'list', q] as const,
+  queryFn: () => ruleCampaignApi.sessions(q),
+  enabled: !!q.store && !!q.date,
+  refetchOnWindowFocus: true as const,
+  retry: false as const,
+})
+
+/** One session's query options (ticket 518). */
+export const ruleSessionQuery = (saleId: string) => ({
+  queryKey: ruleSessionKey(saleId),
+  queryFn: () => ruleCampaignApi.session(saleId),
+  retry: false as const,
+})
+
+/** The reader's session rights (ticket 518): read once, never retried (the door fails closed). */
+export const ruleSessionAccessQuery = () => ({
+  queryKey: [...RULE_SESSIONS_KEY, 'access'] as const,
+  queryFn: () => ruleCampaignApi.sessionAccess(),
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
+
+/**
+ * A session HQ just cancelled: its own query takes HQ's answer — under the sale id it was looked up
+ * by as well as HQ's own, should HQ match an id typed otherwise — and so does its row in every list
+ * already read, so Back never shows it in its old status while the lists are read afresh.
+ */
+export function rememberCancelledSession(queryClient: QueryClient, lookedUp: string, session: RuleSession): void {
+  queryClient.setQueryData(ruleSessionKey(lookedUp), session)
+  queryClient.setQueryData(ruleSessionKey(session.id), session)
+  const { status, lastActivity, gross, discount, net } = session
+  queryClient.setQueriesData<RuleSessionRow[]>({ queryKey: [...RULE_SESSIONS_KEY, 'list'] }, (rows) =>
+    rows?.map((r) => (r.id === session.id ? { ...r, status, lastActivity, gross, discount, net } : r)),
+  )
+  void queryClient.invalidateQueries({ queryKey: [...RULE_SESSIONS_KEY, 'list'] })
+}

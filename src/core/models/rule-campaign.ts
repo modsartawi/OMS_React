@@ -781,3 +781,172 @@ export interface RuleCouponUnusedDeleted {
   deleted: number
   kept: number
 }
+
+// ── Customer sessions, for support (ticket 518, BackOffice 2760) ──
+//
+// A rule store's sale is a customer session at HQ (spec 2737), identified by the channel's own sale
+// id (`TransactionId` or `DocumentNo`). Support reads one's calls and the movements they caused, and
+// may cancel it (a Ua permission 2760 seeds): HQ rolls back its budgets, coupon uses, created codes
+// and points, and answers what it rolled back. Every moment is LOCAL `yyyy-MM-ddTHH:mm:ss`, never a
+// `Z`. Not the auth cookie's session, nor the till's engine session (CONTEXT.md).
+
+/** Where a customer session is (spec 2737 "Session states"). */
+export type RuleSessionStatus = 'open' | 'paying' | 'closed' | 'partiallyReturned' | 'returned' | 'cancelled'
+
+/** The list's filter: one store, one local day (`yyyy-MM-dd`), and a status or every status. */
+export interface RuleSessionListQuery {
+  store: string
+  date: string
+  status: RuleSessionStatus | null
+}
+
+/** One row of the list. Money is in `currency`, the store's. */
+export interface RuleSessionRow {
+  /** The channel's own sale id. */
+  id: string
+  store: string
+  channel: string
+  /** The member on the sale; null = a walk-in. */
+  memberId: string | null
+  status: RuleSessionStatus
+  currency: string
+  gross: number
+  discount: number
+  net: number
+  created: string
+  lastActivity: string
+}
+
+/** One call the channel made (attach, subtotal, on demand, pay, close, returns, cancel, late close). */
+export interface RuleSessionCall {
+  at: string
+  /** The call's moment, HQ's word for it. */
+  moment: string
+  requestId: string
+  cartVersion: number
+  /** HQ's stored reply, in its own words. */
+  reply: string
+  /** False when HQ refused the call. */
+  ok: boolean
+}
+
+/** A budget movement: held at pay, committed at close, released by a cancel or a return. */
+export interface RuleSessionBudgetMove {
+  at: string
+  /** The call that caused it; null for one HQ made itself (a late close). */
+  requestId: string | null
+  campaignCode: string
+  /** The budget's name, as the marketer wrote it. */
+  budget: string
+  limit: RuleBudgetLimit
+  amount: number
+  kind: 'held' | 'committed' | 'released'
+}
+
+/** A coupon or points movement in the journal. */
+export interface RuleSessionJournalMove {
+  at: string
+  requestId: string | null
+  campaignCode: string | null
+  kind: 'couponRedeemed' | 'couponRefunded' | 'couponCreated' | 'couponDisabled' | 'pointsEarned' | 'pointsReversed' | 'pointsBurned' | 'pointsRefunded'
+  /** The coupon code, for a coupon movement. */
+  code: string | null
+  /** The points, for a points movement. */
+  points: number | null
+}
+
+/** A refusal HQ answered: its machine code and its reason in both languages. */
+export interface RuleSessionRefusal {
+  at: string
+  requestId: string | null
+  campaignCode: string | null
+  code: string
+  reason: Says
+}
+
+/** What a campaign did to a line (the effect library's kinds, as the simulator reads them). */
+export interface RuleSessionLineEffect {
+  campaignCode: string
+  kind: RuleSimEffectKind
+  amount: number | null
+  points: number | null
+  label: Says | null
+  /** `createCoupon`: the code of the coupon campaign it creates a code of. */
+  coupon: string | null
+}
+
+/** One unit of a line and the discount allocated to it — what a return rolls back first. */
+export interface RuleSessionUnit {
+  /** 1-based, within the line. */
+  unit: number
+  /** The campaign whose discount sits on it; null = none. */
+  campaignCode: string | null
+  discount: number
+  returned: boolean
+}
+
+export interface RuleSessionLine {
+  line: number
+  sku: string
+  name: string
+  qty: number
+  gross: number
+  discount: number
+  net: number
+  effects: RuleSessionLineEffect[]
+  units: RuleSessionUnit[]
+}
+
+/** How each campaign came out on the session — "why didn't I get the offer". */
+export interface RuleSessionCampaign {
+  campaignId: string
+  code: string
+  name: Says
+  /** The version that priced it; null when it did not run. */
+  version: number | null
+  outcome: RuleSimOutcome
+  /** HQ's words for a skip or a budget stop; null otherwise. */
+  reason: string | null
+  /** `lost`: the code of the campaign that won its group. */
+  lostTo: string | null
+  /** The "not met" messages of the conditions that failed, as the marketer wrote them. */
+  notMet: Says[]
+  /** The money it took off the sale, in the session's currency. */
+  discount: number
+  points: number
+}
+
+/** One session read whole: its calls, the movements they caused, its cart and its campaigns. */
+export interface RuleSession extends RuleSessionRow {
+  calls: RuleSessionCall[]
+  /** The holds: `held` at pay, `released` when a hold lapses or is let go — never a counter. */
+  holds: RuleSessionBudgetMove[]
+  /** The budget events on the counters: `committed` at close, `released` by a cancel or a return. */
+  budgets: RuleSessionBudgetMove[]
+  journal: RuleSessionJournalMove[]
+  refusals: RuleSessionRefusal[]
+  lines: RuleSessionLine[]
+  campaigns: RuleSessionCampaign[]
+}
+
+/** The reader's rights on customer sessions: what the page draws. The server still refuses. */
+export interface RuleSessionAccess {
+  canCancel: boolean
+}
+
+/** What a cancel rolled back. */
+export interface RuleSessionRollback {
+  budgets: { campaignCode: string; budget: string; limit: RuleBudgetLimit; amount: number }[]
+  /** Coupon uses refunded: the code is free again. */
+  coupons: { campaignCode: string; code: string }[]
+  /** Codes the sale created, disabled. */
+  createdCodes: { campaignCode: string; code: string }[]
+  /** Points earned taken back, and points burned given back. */
+  points: { campaignCode: string; kind: 'earnReversed' | 'burnRefunded'; points: number }[]
+}
+
+/** HQ's answer to a cancel: the session as it now stands, and its rollback. */
+export interface RuleSessionCancelled {
+  session: RuleSession
+  rollback: RuleSessionRollback
+}

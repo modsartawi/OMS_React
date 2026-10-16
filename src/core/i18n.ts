@@ -125,6 +125,8 @@ import campaignWorkspace from '@/locales/en/campaign-workspace.json'
 // Campaigns ▸ Priority (ticket 513) — its own namespace, English only by the same ruling.
 import campaignPriority from '@/locales/en/campaign-priority.json'
 import ruleSimulator from '@/locales/en/rule-simulator.json'
+// Campaigns ▸ Sessions (ticket 518): support's view of the customer sessions, English only too.
+import ruleSessions from '@/locales/en/rule-sessions.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -132,7 +134,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaign-list', 'campaign-workspace', 'campaign-priority', 'rule-simulator'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaign-list', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions'],
   resources: {
     en: {
       common,
@@ -180,6 +182,7 @@ i18n.use(initReactI18next).init({
       'campaign-workspace': campaignWorkspace,
       'campaign-priority': campaignPriority,
       'rule-simulator': ruleSimulator,
+      'rule-sessions': ruleSessions,
     },
     ar: {
       document: documentAr,

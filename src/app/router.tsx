@@ -680,6 +680,20 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Support's customer sessions (ticket 518): the list, then one session by its sale id. Both
+        // are static leaves beside `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/sessions',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/sessions/SessionsPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/sessions/:saleId',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/sessions/SessionPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

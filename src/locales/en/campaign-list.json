@@ -3,7 +3,8 @@
     "group": "Campaigns",
     "campaigns": "Campaigns",
     "priority": "Priority",
-    "simulator": "Simulator"
+    "simulator": "Simulator",
+    "sessions": "Sessions"
   },
   "title": "Campaigns",
   "untitled": "Untitled",

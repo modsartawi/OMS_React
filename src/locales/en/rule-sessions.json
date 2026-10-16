@@ -1,0 +1,174 @@
+{
+  "title": "Customer sessions",
+  "lede": "Every sale at a rule-engine store is a customer session at HQ. Read one's calls and the budget, coupon and points movements they caused, its cart and each campaign's outcome, or cancel it to roll them back.",
+  "walkIn": "Walk-in",
+  "none": "—",
+  "filter": {
+    "store": "Store",
+    "chooseStore": "Choose a store…",
+    "date": "Day",
+    "status": "Status",
+    "allStatuses": "Every status",
+    "storesFailed": "Could not load the stores."
+  },
+  "lookup": {
+    "label": "Or look one up by its sale id",
+    "open": "Open"
+  },
+  "status": {
+    "open": "Open",
+    "paying": "Paying",
+    "closed": "Closed",
+    "partiallyReturned": "Partly returned",
+    "returned": "Returned",
+    "cancelled": "Cancelled"
+  },
+  "columns": {
+    "saleId": "Sale id",
+    "status": "Status",
+    "channel": "Channel",
+    "member": "Member",
+    "currency": "Currency",
+    "gross": "Gross",
+    "discount": "Discounts",
+    "net": "Net",
+    "created": "Created",
+    "lastActivity": "Last activity"
+  },
+  "results": {
+    "needsStore": "Choose a store to list its sessions, or look one up by its sale id.",
+    "loading": "Loading sessions…",
+    "count_one": "<n>{{n}}</n> session",
+    "count_other": "<n>{{n}}</n> sessions",
+    "empty": "No session matches.",
+    "failedTitle": "Could not load the sessions",
+    "failed": "HQ did not answer the sessions list."
+  },
+  "detail": {
+    "back": "Sessions",
+    "loading": "Loading the session…",
+    "failedTitle": "Could not open this session",
+    "failed": "HQ did not answer for this sale id.",
+    "store": "Store",
+    "channel": "Channel",
+    "member": "Member",
+    "created": "Created",
+    "lastActivity": "Last activity",
+    "gross": "Session total",
+    "discount": "Total discounts",
+    "net": "Net total"
+  },
+  "tabs": {
+    "label": "The session",
+    "events": "Events",
+    "cart": "Cart items",
+    "campaigns": "Campaigns"
+  },
+  "events": {
+    "none": "HQ holds no call for this session.",
+    "kind": {
+      "call": "Call",
+      "refusal": "Refusal",
+      "hold": "Hold",
+      "budget": "Budget",
+      "journal": "Journal"
+    },
+    "moment": {
+      "attach": "Member attached",
+      "subtotal": "Subtotal",
+      "onDemand": "On demand",
+      "pay": "Pay",
+      "close": "Close",
+      "returns": "Return",
+      "cancel": "Cancel",
+      "lateClose": "Late close"
+    },
+    "refused": "Refused",
+    "columns": {
+      "at": "Time",
+      "kind": "Kind",
+      "campaign": "Campaign",
+      "what": "What happened",
+      "requestId": "Request id",
+      "cartVersion": "Cart version"
+    }
+  },
+  "move": {
+    "held": "Held <v>{{amount}}</v> of <n>{{budget}}</n>",
+    "committed": "Counted <v>{{amount}}</v> against <n>{{budget}}</n>",
+    "released": "Released <v>{{amount}}</v> of <n>{{budget}}</n>"
+  },
+  "journal": {
+    "couponRedeemed": "Coupon <v>{{code}}</v> redeemed",
+    "couponRefunded": "Coupon <v>{{code}}</v> is free again",
+    "couponCreated": "Coupon <v>{{code}}</v> created",
+    "couponDisabled": "Coupon <v>{{code}}</v> disabled",
+    "pointsEarned": "<v>{{points}}</v> points earned",
+    "pointsReversed": "<v>{{points}}</v> points taken back",
+    "pointsBurned": "<v>{{points}}</v> points burned",
+    "pointsRefunded": "<v>{{points}}</v> points given back"
+  },
+  "effect": {
+    "discount": "<v>{{amount}}</v> off",
+    "freeUnit": "A free unit, worth <v>{{amount}}</v>",
+    "points": "<v>{{points}}</v> points earned",
+    "pointsTaken": "<v>{{amount}}</v> of points taken as a tender",
+    "createCoupon": "Creates a <v>{{coupon}}</v> coupon at close",
+    "message": "Message for the receipt or the cashier"
+  },
+  "cart": {
+    "none": "The session has no cart lines.",
+    "noEffects": "No campaign touched this line.",
+    "unit": "Unit <v>{{n}}</v>: <v>{{code}}</v>, <v>{{amount}}</v> off",
+    "unitBare": "Unit <v>{{n}}</v>: no discount",
+    "returned": "returned",
+    "columns": {
+      "line": "#",
+      "item": "Item",
+      "qty": "Qty",
+      "gross": "Gross",
+      "discount": "Off",
+      "net": "Net",
+      "effects": "Effects",
+      "units": "Unit allocation"
+    }
+  },
+  "campaigns": {
+    "none": "HQ ran no campaign on this session.",
+    "outcome": {
+      "applied": "Applied",
+      "notMet": "Not met",
+      "skipped": "Skipped",
+      "budget": "Budget",
+      "lost": "Lost"
+    },
+    "version": "Version <v>{{n}}</v>",
+    "discount": "Took <v>{{amount}}</v> off",
+    "points": "Gave <v>{{points}}</v> points",
+    "lostTo": "Lost its group to <v>{{code}}</v>",
+    "notMet": "Not met:"
+  },
+  "cancel": {
+    "open": "Cancel session",
+    "title": "Cancel session",
+    "body": "Session <v>{{saleId}}</v> goes to Cancelled and every effect is rolled back: budget counters go down, a used coupon is free again, a coupon this sale created is disabled, and points earned or burned are reversed.",
+    "notReturn": "This is not a return: a return prices the items back under the original version.",
+    "keep": "Keep the session",
+    "confirm": "Cancel the session",
+    "refusedTitle": "HQ did not cancel the session",
+    "refused": "The cancel was refused.",
+    "refusalCode": "Code:"
+  },
+  "rollback": {
+    "title": "Session cancelled. HQ rolled back:",
+    "budgets": "Budgets released",
+    "coupons": "Coupon uses refunded",
+    "createdCodes": "Created codes disabled",
+    "points": "Points reversed",
+    "coupon": "<v>{{code}}</v> is free again",
+    "createdCode": "<v>{{code}}</v> disabled",
+    "earnReversed": "<v>{{points}}</v> points earned taken back",
+    "burnRefunded": "<v>{{points}}</v> points burned given back",
+    "none": "Nothing."
+  }
+}

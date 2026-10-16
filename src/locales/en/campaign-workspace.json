@@ -183,6 +183,7 @@
   "actions": {
     "label": "More actions",
     "copy": "Copy campaign",
+    "simulate": "Simulate the working copy",
     "copied": "Copied as a new draft.",
     "copyFailed": "The campaign could not be copied",
     "tryAgain": "Try again in a moment."

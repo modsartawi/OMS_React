@@ -672,6 +672,14 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // The rule engine's dry run (ticket 514) — a static leaf beside `campaigns/:id`. Distinct from
+        // Pricing's bonus-buy Simulation, which is the other engine.
+        path: 'campaigns/simulator',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/simulator/SimulatorPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

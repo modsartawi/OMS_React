@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 2737 (brief C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md)
 blocked-by: 501
 ---
@@ -25,9 +25,9 @@ i18n (`rule-simulator`) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `basketCsv_parsesSkuQty_andFlagsBadRows` · pure
-- [ ] `simResult_groupsEffectsPerLine_andSessionLevel` · pure
-- [ ] drive: typed basket + store + time → per-line effects, trace, near miss; CSV upload path (stubbed) · flow
+- [x] `basketCsv_parsesSkuQty_andFlagsBadRows` · pure — `src/features/campaigns/simulator/basket.test.ts`
+- [x] `simResult_groupsEffectsPerLine_andSessionLevel` · pure — `src/features/campaigns/simulator/sim-result.test.ts`
+- [x] drive: typed basket + store + time → per-line effects, trace, near miss; CSV upload path (stubbed) · flow
 
 ## Boundaries
 
@@ -41,3 +41,17 @@ The drive runs both a typed and a CSV basket and shows all three result sections
 ## Blocked by
 
 [501](501-a-marketer-sees-the-campaigns-list-by-state-and-opens-a-campaigns-dashboard.md)
+
+## Comments
+
+**2026-10-16 — built (AFK).** Campaigns ▸ Simulator is at `/campaigns/simulator` (`features/campaigns/simulator/`, namespace `rule-simulator`, en only). The sale has a store, an optional member id, a channel, and a LOCAL date and time. Campaigns run live, or as every working copy, or as one campaign's working copy (`?draft=`, from the dashboard's new ⋯ ▸ "Simulate the working copy").
+
+The basket is typed (materials lookup by SKU or name) or comes from a CSV that is pasted or uploaded. Each CSV row is checked (format, then the SKU on HQ's lookup) before the basket takes it. **Run** calls the PROVISIONAL `POST RuleCampaign/Simulate` and shows the totals, the near misses with their gap, the effects on the whole sale, the effects per line (AG Grid) and the trace per campaign (outcome, group, rules, conditions met or not, both languages).
+
+Proof:
+- vitest: 20 + 6 cases in the simulator, plus the menu test; the full suite passes (325 files, 5441 tests).
+- Drive `tools/simulator-drive.mjs`: **55/55**, STUBBED with the prototype's six baskets (`tools/simulator-fixtures.mjs`). It covers the typed basket, the pasted and uploaded CSV, BHD at three decimals, "will create", a draft, a refusal, and a bonus-buy store.
+- `tools/campaigns-drive.mjs` still passes 495/495, and `tools/priority-drive.mjs` 36/36.
+- typecheck, lint (4 gates) and build are clean.
+
+Outstanding (not AFK): the live door (520); the owner's sign-off on the decisions in `.afk/HITL-514.md`; and a human eyeballing the Arabic rendering.

@@ -27,6 +27,8 @@ import type {
   RuleLookupItem,
   RuleLookupKind,
   RuleOfflineVerdict,
+  RuleSimRequest,
+  RuleSimResult,
 } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
@@ -76,6 +78,8 @@ const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Version
 const ORDER = 'RuleCampaign/Order'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const TEMPLATES = 'RuleCampaign/Templates'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const SIMULATE = 'RuleCampaign/Simulate'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -309,6 +313,16 @@ export const ruleCampaignApi = {
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
   saveOrder(body: RuleEvaluationOrder): Promise<RuleEvaluationOrder> {
     return api.put<RuleEvaluationOrder>(ORDER, body)
+  },
+
+  /** POST RuleCampaign/Simulate — the dry run (ticket 514, BackOffice 2758): HQ prices the basket at
+   *  the store, member, channel and local moment given, on live versions or working copies, and
+   *  answers per-line and session effects, a trace per campaign and the near misses. Nothing is
+   *  held, closed or counted. A basket HQ cannot price (an unknown SKU or store) is refused on the
+   *  standard envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  simulate(body: RuleSimRequest): Promise<RuleSimResult> {
+    return api.post<RuleSimResult>(SIMULATE, body)
   },
 }
 

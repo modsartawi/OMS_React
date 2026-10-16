@@ -1,0 +1,147 @@
+{
+  "title": "Simulator",
+  "lede": "A dry run of the rule engine on a basket, the way SIS.Api would answer the till at subtotal. Nothing is held, closed or counted.",
+  "sale": {
+    "title": "The sale",
+    "store": "Store",
+    "chooseStore": "Choose a store…",
+    "channel": "Channel",
+    "member": "Member id",
+    "memberHint": "Optional. Leave it blank for a walk-in.",
+    "date": "Date",
+    "time": "Time",
+    "includeDrafts": "Use every campaign's working copy, not its live version",
+    "draft": "Working copy of",
+    "draftHint": "This campaign runs as its working copy; the others run live.",
+    "dropDraft": "Run it live instead",
+    "draftUnread": "Could not read this campaign.",
+    "storesFailed": "Could not load the stores.",
+    "channelsFailed": "Could not load the channels.",
+    "draftExcludes": "Not with one working copy chosen: run it live first."
+  },
+  "basket": {
+    "title": "Basket",
+    "empty": "The basket is empty. Find an item by its SKU or its name, or upload a CSV.",
+    "find": "Add an item",
+    "findPlaceholder": "SKU or name",
+    "searching": "Searching…",
+    "noHits": "No item matches.",
+    "add": "Add {{item}}",
+    "remove": "Remove {{sku}}",
+    "full": "A basket takes at most {{max}} lines.",
+    "columns": {
+      "line": "#",
+      "item": "Item",
+      "qty": "Qty"
+    },
+    "qtyLabel": "Quantity of {{sku}}",
+    "upload": "Upload or paste a basket (CSV)…"
+  },
+  "csv": {
+    "title": "Basket from a CSV",
+    "format": "One item per line: SKU, then quantity (a blank quantity is 1). A header line naming the columns (sku, qty) is optional. Each row is checked before it is used.",
+    "file": "Choose a file",
+    "paste": "Or paste the rows",
+    "pastePlaceholder": "sku,qty\nSUN-50,2\nSER-VC,1",
+    "fileFailed": "Could not read the file.",
+    "replace": "Replace the basket",
+    "add": "Add to it",
+    "use_one": "Use {{n}} row",
+    "use_other": "Use {{n}} rows",
+    "cancel": "Cancel",
+    "tally": "{{ok}} good · {{bad}} to fix · {{waiting}} being checked",
+    "fixFirst": "Fix or remove the rows marked before the basket can take them.",
+    "tooBig": "The basket would hold more than {{max}} lines.",
+    "tooMuch": "A line would hold more than {{max}} units.",
+    "columns": {
+      "line": "Line",
+      "sku": "SKU",
+      "qty": "Qty",
+      "check": "Check"
+    },
+    "status": {
+      "checking": "Checking…",
+      "failed": "Could not check this SKU",
+      "noSku": "No SKU",
+      "badQty": "Quantity must be a whole number from 1 to <v>{{max}}</v>",
+      "tooMany": "Past the basket's <v>{{max}}</v> lines",
+      "unknownSku": "No item with this SKU"
+    }
+  },
+  "run": {
+    "action": "Run",
+    "running": "Running…",
+    "needs": "A run needs a basket, a store, a channel, a date and a time.",
+    "failed": "The dry run failed",
+    "stale": "The sale has changed since this run. Run it again to see the new result."
+  },
+  "result": {
+    "none": "Fill in the sale and the basket, then Run.",
+    "bonusBuy": "This store runs the bonus-buy engine. Rule campaigns never apply here; flip the store under Store engine switch to try them.",
+    "totals": {
+      "gross": "Gross",
+      "discount": "Discounts",
+      "net": "To pay"
+    },
+    "tabs": {
+      "label": "Result",
+      "lines": "Effects per line",
+      "trace": "Why each campaign did or did not apply"
+    },
+    "session": {
+      "title": "On the whole sale",
+      "none": "Nothing on the whole sale."
+    },
+    "near": {
+      "title": "Close to an offer",
+      "hint": "What the on-demand check would tell the cashier.",
+      "none": "No campaign is close.",
+      "money": "add {{gap}} for {{offer}}",
+      "items_one": "{{n}} more item of {{of}} for {{offer}}",
+      "items_other": "{{n}} more items of {{of}} for {{offer}}"
+    },
+    "columns": {
+      "line": "#",
+      "name": "Item",
+      "qty": "Qty",
+      "gross": "Gross",
+      "discount": "Off",
+      "net": "Net",
+      "effects": "Effects"
+    }
+  },
+  "effect": {
+    "discount": "<v>{{amount}}</v> off",
+    "freeUnit_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
+    "freeUnit_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",
+    "points": "<v>{{points}}</v> points earned, pending",
+    "pointsTaken": "<v>{{amount}}</v> of points taken as a tender",
+    "createCoupon": "Will create a <v>{{coupon}}</v> coupon at close",
+    "message": "Message for the receipt or the cashier"
+  },
+  "trace": {
+    "summary": "{{applied}} applied · {{notMet}} not met · {{skipped}} skipped · {{budget}} stopped by a budget · {{lost}} lost in a group",
+    "none": "HQ ran no campaign on this sale.",
+    "outcome": {
+      "applied": "Applied",
+      "notMet": "Not met",
+      "skipped": "Skipped",
+      "budget": "Budget",
+      "lost": "Lost"
+    },
+    "base": "Base group, stackable",
+    "group": "In {{group}} · {{mode}}",
+    "groupLost": "In {{group}} · {{mode}} · lost the group to {{code}}",
+    "groupWon": "In {{group}} · {{mode}} · won the group",
+    "modes": {
+      "stackable": "stackable",
+      "first": "first that yields",
+      "highest": "highest discount"
+    },
+    "rule": "Rule",
+    "notReached": "Not reached",
+    "noConditions": "No condition: it always applies.",
+    "met": "Met",
+    "notMetCondition": "Not met"
+  }
+}

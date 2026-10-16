@@ -28,7 +28,7 @@ describe('the Campaigns nav group', () => {
     for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
     expect(campaigns!.access).toBeUndefined()
     expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(2)
+    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(3)
   })
 
   it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
@@ -42,6 +42,11 @@ describe('the Campaigns nav group', () => {
   it('513 adds Priority second, at /campaigns/priority, and it lights itself rather than Campaigns', () => {
     expect(leaves([campaigns!])[1].routerLink).toBe('/campaigns/priority')
     expect(markedLeaf(MENU, '/campaigns/priority')?.labelKey).toBe('campaign-list:menu.priority')
+  })
+
+  it('514 adds Simulator third, at /campaigns/simulator, and it lights itself rather than Campaigns', () => {
+    expect(leaves([campaigns!])[2].routerLink).toBe('/campaigns/simulator')
+    expect(markedLeaf(MENU, '/campaigns/simulator')?.labelKey).toBe('campaign-list:menu.simulator')
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {

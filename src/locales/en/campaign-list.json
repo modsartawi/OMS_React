@@ -2,7 +2,8 @@
   "menu": {
     "group": "Campaigns",
     "campaigns": "Campaigns",
-    "priority": "Priority"
+    "priority": "Priority",
+    "simulator": "Simulator"
   },
   "title": "Campaigns",
   "untitled": "Untitled",

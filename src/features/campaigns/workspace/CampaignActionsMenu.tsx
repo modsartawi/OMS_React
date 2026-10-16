@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { Copy, Loader2, MoreHorizontal, type LucideIcon } from 'lucide-react'
+import { Copy, FlaskConical, Loader2, MoreHorizontal, type LucideIcon } from 'lucide-react'
 import type { RuleCampaign } from '@/core/models/rule-campaign'
 import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
-import { campaignPath } from '@/core/rules/campaign-state'
+import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
 import { takesEscape } from '@/core/commands/key-layer'
 import { notify } from '@/core/services/notify'
 import { POPOVER } from '@/core/ui/overlay'
@@ -13,7 +13,8 @@ import { POPOVER } from '@/core/ui/overlay'
 /**
  * The dashboard's **⋯** menu (the prototype's State-cell menu). Ticket 502 gives it **Copy
  * campaign**: HQ makes an independent draft named "<name> (copy)", and the copy opens on its own
- * dashboard; the campaign it was copied from is untouched. Later slices add their acts here.
+ * dashboard; the campaign it was copied from is untouched. Ticket 514 adds **Simulate the working
+ * copy**: the simulator opens with this campaign's draft chosen. Later slices add their acts here.
  */
 export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampaign }) {
   const { t } = useTranslation('campaign-workspace')
@@ -67,6 +68,16 @@ export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampai
             }}
           >
             {t('actions.copy')}
+          </MenuItem>
+          <MenuItem
+            icon={FlaskConical}
+            data="simulate"
+            onClick={() => {
+              close(false)
+              navigate(simulatorPath(campaign.id))
+            }}
+          >
+            {t('actions.simulate')}
           </MenuItem>
         </ActionsPopover>
       )}

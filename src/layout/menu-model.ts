@@ -96,7 +96,7 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+import { BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -841,6 +841,12 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaign-list:menu.priority',
         icon: ListOrdered,
         routerLink: '/campaigns/priority',
+      },
+      {
+        // The rule engine's dry run (ticket 514); not Pricing's bonus-buy Simulation.
+        labelKey: 'campaign-list:menu.simulator',
+        icon: FlaskConical,
+        routerLink: '/campaigns/simulator',
       },
     ],
   },

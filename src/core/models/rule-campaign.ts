@@ -574,3 +574,123 @@ export interface RuleCampaignFromTemplate {
   values: Record<string, RuleTemplateValue>
   draft: RuleTemplateDraft
 }
+
+// ── The simulator (ticket 514; HQ's door is BackOffice 2758's dry run) ───────────────────────────
+// A dry run of the rule engine on a basket: nothing is held, closed or counted. HQ answers per-line
+// effects, session-level effects, a trace per campaign and the near misses; the client only groups
+// and draws them (it never evaluates a rule — ADR 0089).
+
+/** One basket line as it is sent: a material by its SKU and a whole quantity. */
+export interface RuleSimBasketLine {
+  sku: string
+  qty: number
+}
+
+export interface RuleSimRequest {
+  basket: RuleSimBasketLine[]
+  /** The store's code; its country, sales org, currency and engine are HQ's to look up. */
+  store: string
+  /** The member on the sale; null = a walk-in. */
+  memberId: string | null
+  channel: string
+  /** The sale's moment, LOCAL: `yyyy-MM-ddTHH:mm:ss`, never a `Z`. */
+  at: string
+  /** Run every campaign's working copy (its draft) instead of its live version. */
+  includeDrafts: boolean
+  /** Run this one campaign's working copy, the others live ("Simulate the working copy"). */
+  draftId: string | null
+}
+
+/** One line of the priced basket, in the order sent; `line` is 1-based. Money is in `currency`. */
+export interface RuleSimLine {
+  line: number
+  sku: string
+  name: string
+  qty: number
+  gross: number
+  discount: number
+  net: number
+}
+
+/**
+ * What a campaign does to the sale: money off, a free unit, points earned, points taken as a tender,
+ * a coupon it will create at close, or a message for the receipt or the cashier.
+ */
+export type RuleSimEffectKind = 'discount' | 'freeUnit' | 'points' | 'pointsTaken' | 'createCoupon' | 'message'
+
+export interface RuleSimEffect {
+  campaignId: string
+  code: string
+  kind: RuleSimEffectKind
+  /** The basket line it lands on; null = a session-level effect. */
+  line: number | null
+  /** Money (discount, free unit's worth, points taken), in the result's currency. */
+  amount: number | null
+  /** A free unit's count. */
+  quantity: number | null
+  /** Points earned. */
+  points: number | null
+  /** The receipt label, or the message / cashier prompt, in both languages. */
+  label: Says | null
+  /** `createCoupon`: the code of the coupon campaign it will create a code of. */
+  coupon: string | null
+}
+
+/**
+ * How a campaign came out: applied; triggered nothing ("not met"); not run at all (out of its
+ * schedule, audience or country, a draft not chosen — HQ says why); stopped by a budget; or lost
+ * inside its group to another campaign.
+ */
+export type RuleSimOutcome = 'applied' | 'notMet' | 'skipped' | 'budget' | 'lost'
+
+export interface RuleSimConditionTrace {
+  conditionId: string
+  /** The condition's "not met" text in both languages, as the marketer wrote it. */
+  says: Says
+  met: boolean
+}
+
+export interface RuleSimRuleTrace {
+  ruleId: string
+  name: string
+  /** False when HQ did not reach the rule (the campaign was skipped, or an earlier rule ended it). */
+  ran: boolean
+  conditions: RuleSimConditionTrace[]
+}
+
+export interface RuleSimTrace {
+  campaignId: string
+  code: string
+  name: Says
+  outcome: RuleSimOutcome
+  /** HQ's words for a skip or a budget stop ("not for SA", "ended 2026-09-04"); null otherwise. */
+  reason: string | null
+  /** The evaluation group it sits in; null = the stackable base. */
+  group: { id: string; name: string; mode: RuleOrderGroupMode } | null
+  /** `lost`: the code of the campaign that won the group. */
+  lostTo: string | null
+  rules: RuleSimRuleTrace[]
+}
+
+/** How far a campaign is from applying: money to add, or more items of one of its filters. */
+export type RuleSimGap = { kind: 'money'; amount: number } | { kind: 'items'; count: number; of: string }
+
+export interface RuleSimNearMiss {
+  campaignId: string
+  code: string
+  gap: RuleSimGap
+  /** What it would give, as its receipt label reads ("15% off"), in both languages. */
+  offer: Says
+}
+
+export interface RuleSimResult {
+  /** The store's currency; every money figure of the result is in it. */
+  currency: string
+  /** The store's engine: on `BonusBuy` rule campaigns never apply there. */
+  engine: 'Rule' | 'BonusBuy'
+  lines: RuleSimLine[]
+  totals: { gross: number; discount: number; net: number }
+  effects: RuleSimEffect[]
+  trace: RuleSimTrace[]
+  nearMisses: RuleSimNearMiss[]
+}

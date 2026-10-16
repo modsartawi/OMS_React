@@ -30,6 +30,10 @@ export const CAMPAIGN_STATE_SEV: Record<CampaignState, Severity> = {
 /** A campaign's workspace address — the list's row, its name link and the workspace's own menu. */
 export const campaignPath = (id: string) => `/campaigns/${encodeURIComponent(id)}`
 
+/** The simulator (ticket 514); with a campaign's id it runs that campaign's working copy. */
+export const simulatorPath = (draftId?: string) =>
+  draftId ? `/campaigns/simulator?draft=${encodeURIComponent(draftId)}` : '/campaigns/simulator'
+
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /** A `yyyy-MM-dd` day, or null when it is absent or malformed (read as "no bound"). */

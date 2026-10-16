@@ -9,7 +9,12 @@
  * the brief's JSON.
  */
 import { api } from '@/core/api'
-import type { PickSupportDiagnosis, PickSupportResolution } from '@/core/models/pick-support'
+import type {
+  PickSupportDiagnosis,
+  PickSupportFixRequest,
+  PickSupportFixResult,
+  PickSupportResolution,
+} from '@/core/models/pick-support'
 
 export const pickSupportApi = {
   /**
@@ -24,6 +29,15 @@ export const pickSupportApi = {
   /** `GET PickSupport/Delivery/{deliveryNo}` — the diagnosis. Unknown → `PICK-00002`. */
   delivery(deliveryNo: string): Promise<PickSupportDiagnosis> {
     return api.get<PickSupportDiagnosis>(`PickSupport/Delivery/${encodeURIComponent(deliveryNo)}`)
+  },
+
+  /**
+   * `POST PickSupport/Delivery/{deliveryNo}/Fix` (ticket 497) — a shape's one fix, which the
+   * server applies only while the delivery is still in that shape (`PICK-00224` otherwise). The
+   * body is `{ shape, reason, complaintRef }` and nothing else: the session is the actor.
+   */
+  fix(deliveryNo: string, body: PickSupportFixRequest): Promise<PickSupportFixResult> {
+    return api.post<PickSupportFixResult>(`PickSupport/Delivery/${encodeURIComponent(deliveryNo)}/Fix`, body)
   },
 }
 

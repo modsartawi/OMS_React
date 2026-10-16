@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, ShieldQuestion, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, ShieldQuestion, TriangleAlert, Wrench } from 'lucide-react'
 import type {
   PickDocumentLineModel,
   PickDocumentModel,
@@ -9,12 +9,14 @@ import type {
   PickSupportShapeMatch,
   PickSupportTimelineEntry,
 } from '@/core/models/pick-support'
+import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
-import { Code, EnAr, Section, Stamp, StampBy, TD, TH, Text, Val } from './bits'
+import { Code, Section, Stamp, StampBy, TD, TH, Text, Val } from './bits'
 import CopyDiagnosis from './CopyDiagnosis'
+import ShapeBody from './ShapeBody'
 import { filterTimeline, timelineSources, transferView, verdictView } from './diagnosis'
 
 /**
@@ -25,13 +27,24 @@ import { filterTimeline, timelineSources, transferView, verdictView } from './di
  *
  * 🚩 BackOffice decides every word (rules 1–6). Every explanation, fix sentence and refusal is the
  * server's, rendered as data; shapes, verdicts, actions and states are shown AS CODES. The only
- * words here are headings, labels and the two verdict states' UI sentences. The Apply fix button
- * is ticket 497's: UNKNOWN never gets one (rule 5), and `verdictView` gives it no slot.
+ * words here are headings, labels and the two verdict states' UI sentences.
+ *
+ * Apply fix (ticket 497): one button per shape card, drawn only when the caller passes
+ * `onApplyFix` — `DeliveryDiagnosis` does so only with `canFixPickSupport`. HEALTHY and UNKNOWN
+ * have no card, so never a button (rule 5): `verdictView` gives them no slot. The dialog lives with
+ * the caller, so it outlives the card it was opened from when the fix turns the panel HEALTHY.
  *
  * Key it by the delivery, so a new delivery starts on fresh timeline filters (`DeliveryDiagnosis`'s
  * callers do).
  */
-export default function DiagnosisPanel({ diagnosis }: { diagnosis: PickSupportDiagnosis }) {
+export default function DiagnosisPanel({
+  diagnosis,
+  onApplyFix,
+}: {
+  diagnosis: PickSupportDiagnosis
+  /** Opens the fix dialog for one shape; absent = no Apply fix button (no `canFixPickSupport`). */
+  onApplyFix?: (card: PickSupportShapeMatch) => void
+}) {
   const { t } = useTranslation('pick-support')
   const view = verdictView(diagnosis)
   const escalate = view.kind === 'escalate'
@@ -76,7 +89,7 @@ export default function DiagnosisPanel({ diagnosis }: { diagnosis: PickSupportDi
           {t('verdict.healthy')}
         </div>
       )}
-      {view.kind === 'stuck' && view.cards.map((card, i) => <ShapeCard key={`${card.shape}-${i}`} card={card} />)}
+      {view.kind === 'stuck' && view.cards.map((card, i) => <ShapeCard key={`${card.shape}-${i}`} card={card} onApplyFix={onApplyFix} />)}
       {escalate && (
         <div className="flex flex-col gap-3 rounded-lg border border-danger-border bg-danger-050 p-3" data-ps-escalate="">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -126,103 +139,27 @@ function RefusalBlock({ text }: { text: string }) {
   )
 }
 
-/** One stuck shape: its code, the server's explanation and fix (EN beside AR), and its action tags. */
-function ShapeCard({ card }: { card: PickSupportShapeMatch }) {
+/**
+ * One stuck shape: its code, the server's explanation and fix (EN beside AR), its action tags, and
+ * its one Apply fix button when the session may fix.
+ */
+function ShapeCard({ card, onApplyFix }: { card: PickSupportShapeMatch; onApplyFix?: (card: PickSupportShapeMatch) => void }) {
   const { t } = useTranslation('pick-support')
-  const requests = card.requests ?? []
-  const documents = card.documents ?? []
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-attention-800/30 bg-attention-050 p-3" data-ps-card={card.shape}>
-      <div className="flex items-center gap-2">
-        <TriangleAlert className="h-4 w-4 text-attention-800" aria-hidden />
-        <Code>{card.shape}</Code>
-      </div>
-      <div>
-        <h4 className="mb-1 text-xs font-semibold text-muted-foreground">{t('shape.explanation')}</h4>
-        <EnAr en={card.explanationEn} ar={card.explanationAr} name="explanation" />
-      </div>
-      <div>
-        <h4 className="mb-1 text-xs font-semibold text-muted-foreground">{t('shape.fix')}</h4>
-        <EnAr en={card.fixEn} ar={card.fixAr} name="fix" />
-      </div>
-      {requests.length > 0 && (
-        <div>
-          <h4 className="mb-1 text-xs font-semibold text-muted-foreground">{t('shape.requests')}</h4>
-          <div className="overflow-x-auto">
-            <table className="text-sm" data-ps-card-requests="">
-              <thead>
-                <tr>
-                  <th className={TH}>{t('shape.request')}</th>
-                  <th className={TH}>{t('shape.document')}</th>
-                  <th className={TH}>{t('shape.donorStore')}</th>
-                  <th className={TH}>{t('shape.orderStore')}</th>
-                  <th className={TH}>{t('shape.state')}</th>
-                  <th className={TH}>{t('shape.action')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((r) => (
-                  <tr key={r.requestNo}>
-                    <td className={TD}>
-                      <Val value={r.requestNo} />
-                    </td>
-                    <td className={TD}>
-                      <Val value={r.documentNo} />
-                    </td>
-                    <td className={TD}>
-                      <Val value={r.donorStore} />
-                    </td>
-                    <td className={TD}>
-                      <Val value={r.orderStore} />
-                    </td>
-                    <td className={TD}>
-                      <Code>{r.state}</Code>
-                    </td>
-                    <td className={TD} data-ps-action={r.action}>
-                      <Code>{r.action}</Code>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <TriangleAlert className="h-4 w-4 text-attention-800" aria-hidden />
+          <Code>{card.shape}</Code>
         </div>
-      )}
-      {documents.length > 0 && (
-        <div>
-          <h4 className="mb-1 text-xs font-semibold text-muted-foreground">{t('shape.documents')}</h4>
-          <div className="overflow-x-auto">
-            <table className="text-sm" data-ps-card-documents="">
-              <thead>
-                <tr>
-                  <th className={TH}>{t('shape.document')}</th>
-                  <th className={TH}>{t('shape.store')}</th>
-                  <th className={TH}>{t('shape.state')}</th>
-                  <th className={TH}>{t('shape.action')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((d) => (
-                  <tr key={d.documentNo}>
-                    <td className={TD}>
-                      <Val value={d.documentNo} />
-                    </td>
-                    <td className={TD}>
-                      <Val value={d.storeCode} />
-                    </td>
-                    <td className={TD}>
-                      <Code>{d.state}</Code>
-                    </td>
-                    <td className={TD} data-ps-action={d.action}>
-                      <Code>{d.action}</Code>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        {onApplyFix && (
+          <Button onClick={() => onApplyFix(card)} data-ps-apply-fix={card.shape}>
+            <Wrench className="h-3.5 w-3.5" aria-hidden />
+            {t('fix.apply')}
+          </Button>
+        )}
+      </div>
+      <ShapeBody card={card} />
     </article>
   )
 }

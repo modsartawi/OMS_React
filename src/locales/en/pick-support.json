@@ -181,5 +181,27 @@
     "done": "Diagnosis copied",
     "failed": "The diagnosis was not copied",
     "failedDetail": "The browser refused the clipboard."
+  },
+  "fix": {
+    "apply": "Apply fix",
+    "title": "Apply fix",
+    "shape": "Shape",
+    "reason": "Reason",
+    "reasonHint": "The document trail keeps only the first ~180 characters, so lead with the point.",
+    "reference": "Complaint reference",
+    "cancel": "Cancel",
+    "confirm": "Confirm fix",
+    "sending": "Applying…",
+    "close": "Close",
+    "refresh": "Refresh diagnosis",
+    "denied": "You do not have access to apply fixes",
+    "failedTitle": "The fix was not confirmed",
+    "failed": "The fix could not be sent.",
+    "done": "The fix was applied.",
+    "tellTheStore": "Tell the store",
+    "copyEn": "Copy English",
+    "copyAr": "Copy Arabic",
+    "copied": "Copied",
+    "copyFailed": "The text was not copied"
   }
 }

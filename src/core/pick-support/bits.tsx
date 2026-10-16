@@ -78,7 +78,18 @@ export function EnAr({ en, ar, name }: { en: string | null | undefined; ar: stri
  * A Pick support door's failure: a bare 403 in the UI's own sentence, anything else as the
  * server's message WITH its code beside it (support quotes the code when they escalate).
  */
-export function PickSupportFailureBanner({ error, title, fallback }: { error: unknown; title: string; fallback: string }) {
+export function PickSupportFailureBanner({
+  error,
+  title,
+  fallback,
+  denied,
+}: {
+  error: unknown
+  title: string
+  fallback: string
+  /** The bare 403's sentence, when the door is not a read (the fix: "…to apply fixes"). */
+  denied?: string
+}) {
   const { t } = useTranslation('pick-support')
   const failure = pickSupportFailure(error, fallback)
   return (
@@ -89,7 +100,7 @@ export function PickSupportFailureBanner({ error, title, fallback }: { error: un
     >
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <div>
-        <p className="font-semibold">{failure.kind === 'denied' ? t('denied') : title}</p>
+        <p className="font-semibold">{failure.kind === 'denied' ? (denied ?? t('denied')) : title}</p>
         {failure.kind === 'refused' && (
           <p className="flex flex-wrap items-baseline gap-2">
             {failure.code && (

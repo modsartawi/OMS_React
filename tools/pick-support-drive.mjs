@@ -7,6 +7,7 @@
 //   GET SdDocumentWeb/Access            → { canOpenList, canOpenDetail, canOpenPickSupport? }
 //   GET PickSupport/Resolve?key=        → PickSupportResolution
 //   GET PickSupport/Delivery/{no}       → PickSupportDiagnosis | PICK-00002 envelope
+//   POST PickSupport/Delivery/{no}/Fix  → PickSupportFixResult | PICK-00224 / PICK-00225 | bare 403
 // Fixtures: all three verdicts, an order with two deliveries, a serial held by a PUT_BACK_BASKET and
 // a STUCK document, a reconstructed timeline row, a PICK-00002 envelope and a bare 403.
 // In LTR and RTL (`oms.locale = 'ar'` sets dir="rtl"; i18n stays `lng: 'en'`), it asserts:
@@ -27,6 +28,17 @@
 //  13. matched:false shows the server's EN and AR sentences;
 //  14. PICK-00002 shows the server's message with its code beside it; a 403 the UI's sentence;
 //  15. no page errors.
+// Ticket 497 (the fix) adds, with `canFixPickSupport` granted:
+//  16. no Apply fix on HEALTHY or UNKNOWN; one per shape card on STUCK;
+//  17. the dialog shows the shape code, the server's explanation and fix EN beside AR, the action
+//      tags, reason maxLength 512 + the ~180 hint, reference maxLength 40; Confirm stays off until
+//      both are non-blank after trimming;
+//  18. a double click on Confirm sends ONE POST whose body carries exactly shape, reason, complaintRef;
+//  19. on success the panel turns HEALTHY, the timeline shows SUPPORT_FIX, the dialog shows the
+//      store's EN beside AR and each copy button copies its text verbatim; no second press offered;
+//  20. `diagnosis: null` re-GETs the delivery and is still a success;
+//  21. PICK-00224 keeps the dialog open with its code and message and offers Refresh diagnosis;
+//      PICK-00225 offers no refresh; a bare 403 reads "You do not have access to apply fixes".
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/pick-support-drive.mjs
@@ -133,6 +145,10 @@ const RESOLVE = {
         explanationAr: 'التوصيل 8006777365 عالق؛ إصلاح التوصيل ينهي هذا الاحتجاز.',
       },
     ],
+  }),
+  // A delivery in two shapes (ticket 497: two cards, two buttons).
+  8006777368: resolution('8006777368', {
+    deliveries: [resolved('8006777368', { shapes: ['DONOR_AT_OLD_ORDER_STORE', 'ENDED_STILL_HOLDS'] })],
   }),
   8006777367: resolution('8006777367', { deliveries: [resolved('8006777367', { currentStore: '1207' })] }),
   8006777300: resolution('8006777300', { deliveries: [resolved('8006777300')] }),
@@ -335,6 +351,20 @@ const DIAGNOSIS = {
     copy: { text: COPY_TEXT, json: COPY_JSON },
   }),
   8006777366: diagnosis('8006777366', { currentStore: '1112', closeStatus: 'C' }),
+  8006777368: diagnosis('8006777368', {
+    verdict: 'STUCK',
+    refusalText: REFUSAL_TEXT,
+    shapes: [
+      SHAPE,
+      {
+        ...SHAPE,
+        shape: 'ENDED_STILL_HOLDS',
+        explanationEn: 'Delivery 8006777368 has ended, but its picking document PD0001234 still holds a unit.',
+        explanationAr: 'انتهى التوصيل 8006777368، لكن مستند تجهيزه PD0001234 لا يزال يحتجز وحدة.',
+        requests: [],
+      },
+    ],
+  }),
   8006777367: diagnosis('8006777367', {
     currentStore: '1207',
     verdict: 'UNKNOWN',
@@ -343,11 +373,58 @@ const DIAGNOSIS = {
   }),
 }
 
+// After the fix (ticket 497): HEALTHY, the donor document closed TRANSFERRED OUT, and a SUPPORT_FIX
+// step on both the picking document and the donor request.
+const FIX_REASON = 'Store 1139 cannot invoice after the move'
+const FIX_REF = 'CMP-2026-10-0412'
+const FIXED_DIAGNOSIS = diagnosis('8006777365', {
+  ...DIAGNOSIS[8006777365],
+  verdict: 'HEALTHY',
+  refusalText: null,
+  shapes: [],
+  donorRequests: [donorRequest({ documentState: 'VOIDED', documentVoidReason: 'TRANSFERRED_OUT' })],
+  timeline: [
+    ...DIAGNOSIS[8006777365].timeline,
+    timelineEntry({
+      at: '2026-10-15T09:41:07',
+      source: 'PICK_DOCUMENT',
+      key: 'PD0000999',
+      seq: 2,
+      eventType: 'SUPPORT_FIX',
+      actor: 'support01',
+      reason: FIX_REASON,
+      complaintRef: FIX_REF,
+      detail: `DONOR_AT_OLD_ORDER_STORE; complaint ${FIX_REF}; ${FIX_REASON}`,
+    }),
+    timelineEntry({
+      at: '2026-10-15T09:41:07',
+      source: 'DONOR_REQUEST',
+      key: 'DR0000123',
+      seq: 4,
+      eventType: 'SUPPORT_FIX',
+      actor: 'support01',
+      reason: FIX_REASON,
+      complaintRef: FIX_REF,
+    }),
+  ],
+  copy: { text: 'Pick support - delivery 8006777365\nVerdict: HEALTHY\n', json: '{\n  "verdict": "HEALTHY"\n}' },
+})
+const fixResult = (diagnosis) => ({
+  shape: 'DONOR_AT_OLD_ORDER_STORE',
+  tellTheStoreEn: SHAPE.tellTheStoreEn,
+  tellTheStoreAr: SHAPE.tellTheStoreAr,
+  diagnosis,
+})
+const NOT_IN_SHAPE = 'Delivery 8006777365 is not in shape DONOR_AT_OLD_ORDER_STORE — nothing was changed; refresh its diagnosis'
+const NO_REASON = 'Delivery 8006777365: a reason and a complaint reference are required — nothing was changed'
+
 // ── The harness ──────────────────────────────────────────────────────────────────────────────
 
 const browser = await chromium.launch()
 
-async function open(dir, { grant = true } = {}) {
+/** `grant`: false (no flag), true (open), 'fix' (open + fix). `fixMode`: how the Fix door answers. */
+async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
+  const state = { fixMode, fixed: false, fixBodies: [] }
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
   const page = await context.newPage()
@@ -375,12 +452,25 @@ async function open(dir, { grant = true } = {}) {
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'support01', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access')
       return route.fulfill(
-        envelope(grant ? { canOpenList: true, canOpenDetail: true, canOpenPickSupport: true } : { canOpenList: true, canOpenDetail: true }),
+        envelope(
+          grant
+            ? { canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, ...(grant === 'fix' ? { canFixPickSupport: true } : {}) }
+            : { canOpenList: true, canOpenDetail: true },
+        ),
       )
     if (p === 'PickSupport/Resolve') {
       const key = url.searchParams.get('key') ?? ''
       // A 403 has NO body (brief "The envelope").
       if (key === 'DENIED') return route.fulfill({ status: 403, body: '' })
+      // Once fixed, the serial is no longer held by the stuck delivery's document.
+      if (key === 'SN12345' && state.fixed)
+        return route.fulfill(
+          envelope({
+            ...RESOLVE.SN12345,
+            deliveries: RESOLVE.SN12345.deliveries.filter((d) => d.deliveryNo !== '8006777365'),
+            serials: RESOLVE.SN12345.serials.filter((h) => h.hold !== 'STUCK'),
+          }),
+        )
       const answer = RESOLVE[key]
       return route.fulfill(
         envelope(
@@ -393,9 +483,21 @@ async function open(dir, { grant = true } = {}) {
         ),
       )
     }
+    const fixDoor = /^PickSupport\/Delivery\/([^/]+)\/Fix$/.exec(p)
+    if (fixDoor && route.request().method() === 'POST') {
+      state.fixBodies.push(route.request().postData())
+      // Slow enough that a double click lands while the first press is still in flight.
+      await new Promise((r) => setTimeout(r, 500))
+      if (state.fixMode === '403') return route.fulfill({ status: 403, body: '' })
+      if (state.fixMode === '224') return route.fulfill(refusal('PICK-00224', NOT_IN_SHAPE))
+      if (state.fixMode === '225') return route.fulfill(refusal('PICK-00225', NO_REASON))
+      state.fixed = true
+      return route.fulfill(envelope(fixResult(state.fixMode === 'null' ? null : FIXED_DIAGNOSIS)))
+    }
     const delivery = /^PickSupport\/Delivery\/([^/]+)$/.exec(p)
     if (delivery) {
       const no = decodeURIComponent(delivery[1])
+      if (state.fixed && no === '8006777365') return route.fulfill(envelope(FIXED_DIAGNOSIS))
       if (DIAGNOSIS[no]) return route.fulfill(envelope(DIAGNOSIS[no]))
       return route.fulfill(refusal('PICK-00002', `Delivery ${no} not found`))
     }
@@ -403,7 +505,7 @@ async function open(dir, { grant = true } = {}) {
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls }
+  return { context, page, errors, calls, state }
 }
 
 const omsLinks = (page) =>
@@ -500,7 +602,7 @@ async function drive(dir) {
       (await card.locator('[data-ps-card-requests] [data-ps-action="CLOSE_TRANSFERRED_OUT"]').count()) === 1 &&
         (await card.locator('[data-ps-card-documents] [data-ps-action="PUT_BACK_OR_VOID"]').count()) === 1,
     )
-    check(`${label}: no Apply fix button yet (497), and no tell-the-store text`, (await page.getByRole('button', { name: /apply fix/i }).count()) === 0 && !(await panel.innerText()).includes(SHAPE.tellTheStoreEn))
+    check(`${label}: without canFixPickSupport there is no Apply fix button, and no tell-the-store text`, (await page.getByRole('button', { name: /apply fix/i }).count()) === 0 && !(await panel.innerText()).includes(SHAPE.tellTheStoreEn))
     const refusalBlock = panel.locator('[data-ps-section="refusal"] [data-ps-refusal]')
     check(
       `${label}: the refusal is the server's sentence, in monospace`,
@@ -693,8 +795,296 @@ async function drive(dir) {
   }
 }
 
+// ── 16–21 (ticket 497): Apply fix ─────────────────────────────────────────────────────────────
+
+const fixCalls = (calls) => calls.filter((c) => /^PickSupport\/Delivery\/[^/]+\/Fix$/.test(c))
+const deliveryReads = (calls) => calls.filter((c) => c === 'PickSupport/Delivery/8006777365').length
+
+/** Opens the STUCK delivery with the fix granted, and its dialog with both fields filled. */
+async function openFixDialog(dir, fixMode) {
+  const ctx = await open(dir, { grant: 'fix', fixMode })
+  await ctx.page.goto(`${BASE}/oms/pick-support?key=8006777365`)
+  await ctx.page.locator('[data-ps-apply-fix="DONOR_AT_OLD_ORDER_STORE"]').click({ timeout: 20000 })
+  const dialog = ctx.page.locator('[data-ps-fix-dialog]')
+  await dialog.waitFor({ timeout: 5000 })
+  await dialog.locator('[data-ps-fix-reason]').fill(FIX_REASON)
+  await dialog.locator('[data-ps-fix-reference]').fill(FIX_REF)
+  return { ...ctx, dialog }
+}
+
+async function driveFix(dir) {
+  const label = `${dir} fix`
+  const rtl = dir === 'rtl'
+
+  // 16: no button on HEALTHY or UNKNOWN, even with the grant
+  {
+    const { context, page, errors } = await open(dir, { grant: 'fix' })
+    await page.goto(`${BASE}/oms/pick-support?key=1000456789&delivery=8006777366`)
+    await page.locator('[data-ps-panel="8006777366"]').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(300)
+    check(`${label}: HEALTHY has no Apply fix button`, (await page.locator('[data-ps-apply-fix]').count()) === 0)
+    await page.goto(`${BASE}/oms/pick-support?key=8006777367`)
+    await page.locator('[data-ps-panel="8006777367"]').waitFor({ timeout: 20000 })
+    await page.waitForTimeout(300)
+    check(
+      `${label}: UNKNOWN has no Apply fix button`,
+      (await page.locator('[data-ps-apply-fix]').count()) === 0 && (await page.getByRole('button', { name: /apply fix/i }).count()) === 0,
+    )
+    check(`${label}: no page errors (no button)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 16b: a delivery in two shapes gets two cards and two buttons, each opening its own shape
+  {
+    const { context, page, errors } = await open(dir, { grant: 'fix' })
+    await page.goto(`${BASE}/oms/pick-support?key=8006777368`)
+    const panel = page.locator('[data-ps-panel="8006777368"]')
+    await panel.waitFor({ timeout: 20000 })
+    const shapes = await panel.locator('[data-ps-apply-fix]').evaluateAll((els) => els.map((e) => e.getAttribute('data-ps-apply-fix')))
+    check(
+      `${label}: two shapes → two cards, each with its own Apply fix`,
+      (await panel.locator('[data-ps-card]').count()) === 2 && shapes.join(',') === 'DONOR_AT_OLD_ORDER_STORE,ENDED_STILL_HOLDS',
+      shapes.join(','),
+    )
+    await panel.locator('[data-ps-apply-fix="ENDED_STILL_HOLDS"]').click()
+    const dialog = page.locator('[data-ps-fix-dialog="ENDED_STILL_HOLDS"]')
+    await dialog.waitFor({ timeout: 5000 })
+    check(
+      `${label}: the second button opens the dialog on its own shape`,
+      (await dialog.locator('[data-ps-enar="explanation"] [data-ps-en]').innerText()) === DIAGNOSIS[8006777368].shapes[1].explanationEn,
+    )
+    check(`${label}: no page errors (two shapes)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 17–19: the dialog, one POST, success with a diagnosis
+  {
+    const { context, page, errors, calls, state } = await open(dir, { grant: 'fix' })
+    await page.goto(`${BASE}/oms/pick-support?key=8006777365`)
+    const panel = page.locator('[data-ps-panel="8006777365"]')
+    await panel.waitFor({ timeout: 20000 })
+    const buttons = panel.locator('[data-ps-apply-fix]')
+    await buttons.first().waitFor({ timeout: 5000 })
+    check(
+      `${label}: one Apply fix on the one shape card`,
+      (await buttons.count()) === 1 && (await panel.locator('[data-ps-card="DONOR_AT_OLD_ORDER_STORE"] [data-ps-apply-fix]').innerText()).trim() === 'Apply fix',
+    )
+    await buttons.click()
+    const dialog = page.locator('[data-ps-fix-dialog="DONOR_AT_OLD_ORDER_STORE"]')
+    await dialog.waitFor({ timeout: 5000 })
+    check(`${label}: the dialog shows the shape code`, (await dialog.locator('code', { hasText: 'DONOR_AT_OLD_ORDER_STORE' }).count()) >= 1)
+    const en = dialog.locator('[data-ps-enar="explanation"] [data-ps-en]')
+    const ar = dialog.locator('[data-ps-enar="explanation"] [data-ps-ar]')
+    const [eb, ab] = [await en.boundingBox(), await ar.boundingBox()]
+    check(
+      `${label}: the explanation and fix are the server's EN beside AR`,
+      (await en.innerText()) === SHAPE.explanationEn &&
+        (await ar.innerText()) === SHAPE.explanationAr &&
+        (await dialog.locator('[data-ps-enar="fix"] [data-ps-en]').innerText()) === SHAPE.fixEn &&
+        (await dialog.locator('[data-ps-enar="fix"] [data-ps-ar]').innerText()) === SHAPE.fixAr &&
+        eb &&
+        ab &&
+        Math.abs(eb.y - ab.y) < 4 &&
+        (rtl ? eb.x > ab.x : eb.x < ab.x),
+      JSON.stringify([eb, ab]),
+    )
+    check(
+      `${label}: the dialog lists the request and the document with their action tags`,
+      (await dialog.locator('[data-ps-card-requests] [data-ps-action="CLOSE_TRANSFERRED_OUT"]').count()) === 1 &&
+        (await dialog.locator('[data-ps-card-documents] [data-ps-action="PUT_BACK_OR_VOID"]').count()) === 1,
+    )
+    const reason = dialog.locator('[data-ps-fix-reason]')
+    const reference = dialog.locator('[data-ps-fix-reference]')
+    check(
+      `${label}: reason is a textarea of maxLength 512 with the ~180 hint; reference maxLength 40`,
+      (await reason.evaluate((el) => el.tagName)) === 'TEXTAREA' &&
+        (await reason.getAttribute('maxlength')) === '512' &&
+        (await reference.getAttribute('maxlength')) === '40' &&
+        /180/.test(await dialog.locator('[data-ps-fix-reason-hint]').innerText()),
+    )
+    const confirm = page.locator('[data-ps-fix-confirm]')
+    const off0 = await confirm.isDisabled()
+    await reason.fill('   \n  ')
+    await reference.fill(FIX_REF)
+    const off1 = await confirm.isDisabled()
+    await reason.fill(`  ${FIX_REASON} `)
+    await reference.fill('   ')
+    const off2 = await confirm.isDisabled()
+    await reference.fill(` ${FIX_REF} `)
+    const on = await confirm.isEnabled()
+    check(`${label}: Confirm stays off until both are non-blank after trimming`, off0 && off1 && off2 && on, `${off0} ${off1} ${off2} ${on}`)
+    await page.screenshot({ path: `${SHOTS}/${dir}-fix-dialog.png`, fullPage: true })
+
+    const readsBefore = deliveryReads(calls)
+    await confirm.dblclick()
+    await page.locator('[data-ps-fix-done]').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(600)
+    check(`${label}: a double click sends ONE POST`, fixCalls(calls).length === 1 && state.fixBodies.length === 1, fixCalls(calls).join(','))
+    const body = JSON.parse(state.fixBodies[0] ?? '{}')
+    check(
+      `${label}: the body carries exactly shape, reason and complaintRef (trimmed; no actor)`,
+      Object.keys(body).sort().join(',') === 'complaintRef,reason,shape' &&
+        body.shape === 'DONOR_AT_OLD_ORDER_STORE' &&
+        body.reason === FIX_REASON &&
+        body.complaintRef === FIX_REF,
+      state.fixBodies[0],
+    )
+    check(
+      `${label}: the panel takes the returned diagnosis — HEALTHY, no shape card, no re-GET`,
+      (await panel.getAttribute('data-ps-verdict')) === 'healthy' && (await panel.locator('[data-ps-card]').count()) === 0 && deliveryReads(calls) === readsBefore,
+      `${readsBefore} → ${deliveryReads(calls)}`,
+    )
+    const fixes = await panel
+      .locator('[data-ps-timeline] tr[data-ps-event="SUPPORT_FIX"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-ps-timeline-row')))
+    check(`${label}: the timeline shows SUPPORT_FIX on the picking document and the donor request`, fixes.join(',') === 'PD0000999,DR0000123', fixes.join(','))
+    const tellEn = dialog.locator('[data-ps-tell-lang="en"] [data-ps-tell-text]')
+    const tellAr = dialog.locator('[data-ps-tell-lang="ar"] [data-ps-tell-text]')
+    const [teb, tab] = [await tellEn.boundingBox(), await tellAr.boundingBox()]
+    check(
+      `${label}: the dialog shows the store's instructions, EN beside AR, as sent`,
+      (await tellEn.innerText()) === SHAPE.tellTheStoreEn &&
+        (await tellAr.innerText()) === SHAPE.tellTheStoreAr &&
+        teb &&
+        tab &&
+        Math.abs(teb.y - tab.y) < 4 &&
+        (rtl ? teb.x > tab.x : teb.x < tab.x),
+      JSON.stringify([teb, tab]),
+    )
+    const tellDirs = await Promise.all([tellEn, tellAr].map((l) => l.evaluate((el) => getComputedStyle(el).direction)))
+    check(`${label}: the store's EN reads LTR and its AR RTL`, tellDirs.join(',') === 'ltr,rtl', tellDirs.join(','))
+    await dialog.locator('[data-ps-tell-copy="en"]').click()
+    await page.waitForTimeout(200)
+    const copiedEn = (await clipboard(page)).written
+    await dialog.locator('[data-ps-tell-copy="ar"]').click()
+    await page.waitForTimeout(200)
+    const copiedAr = (await clipboard(page)).written
+    check(
+      `${label}: each copy button copies its language verbatim`,
+      copiedEn === SHAPE.tellTheStoreEn && copiedAr === SHAPE.tellTheStoreAr,
+      JSON.stringify([copiedEn, copiedAr]),
+    )
+    check(
+      `${label}: a fix that stood offers Close only — no Confirm, no retry, no failure`,
+      (await page.locator('[data-ps-fix-confirm]').count()) === 0 &&
+        (await page.locator('[data-ps-fix-close]').count()) === 1 &&
+        (await dialog.locator('[data-ps-failure]').count()) === 0,
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-fix-done.png`, fullPage: true })
+    await page.locator('[data-ps-fix-close]').click()
+    await page.waitForTimeout(300)
+    check(`${label}: Close leaves the HEALTHY panel`, (await page.locator('[data-ps-fix-dialog]').count()) === 0 && (await panel.locator('[data-ps-healthy]').count()) === 1)
+    check(`${label}: no page errors (fix)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 19b: a fix opened from a serial's STUCK hold — the lookup that named the delivery stops naming it
+  // once fixed, so it is read again only when the dialog closes, never under the open dialog.
+  {
+    const { context, page, errors, calls } = await open(dir, { grant: 'fix' })
+    const resolves = () => calls.filter((c) => c === 'PickSupport/Resolve?key=SN12345').length
+    await page.goto(`${BASE}/oms/pick-support?key=SN12345`)
+    await page.locator('[data-ps-hold-open="8006777365"]').click({ timeout: 20000 })
+    await page.locator('[data-ps-apply-fix="DONOR_AT_OLD_ORDER_STORE"]').click({ timeout: 20000 })
+    const dialog = page.locator('[data-ps-fix-dialog]')
+    await dialog.locator('[data-ps-fix-reason]').fill(FIX_REASON)
+    await dialog.locator('[data-ps-fix-reference]').fill(FIX_REF)
+    const before = resolves()
+    await page.locator('[data-ps-fix-confirm]').click()
+    await page.locator('[data-ps-fix-done]').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(800)
+    check(
+      `${label}: from a serial's hold, the dialog stays open with the store's text — the lookup is not re-read under it`,
+      (await dialog.locator('[data-ps-tell-lang="en"] [data-ps-tell-text]').innerText()) === SHAPE.tellTheStoreEn && resolves() === before,
+      `${before} → ${resolves()}`,
+    )
+    await page.locator('[data-ps-fix-close]').click()
+    await page.waitForTimeout(800)
+    check(
+      `${label}: Close re-reads the lookup, which no longer holds the serial at the stuck delivery`,
+      resolves() === before + 1 && (await page.locator('[data-ps-hold="STUCK"]').count()) === 0,
+      `${before} → ${resolves()}`,
+    )
+    check(`${label}: no page errors (serial fix)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 20: diagnosis null → re-GET, still a success
+  {
+    const { context, page, errors, calls, dialog } = await openFixDialog(dir, 'null')
+    const before = deliveryReads(calls)
+    await page.locator('[data-ps-fix-confirm]').click()
+    await page.locator('[data-ps-fix-done]').waitFor({ timeout: 10000 })
+    await page.locator('[data-ps-panel="8006777365"][data-ps-verdict="healthy"]').waitFor({ timeout: 10000 })
+    check(`${label}: diagnosis:null re-GETs the delivery and the panel turns HEALTHY`, deliveryReads(calls) === before + 1, `${before} → ${deliveryReads(calls)}`)
+    check(
+      `${label}: diagnosis:null is a success — the store's text, no failure, no retry`,
+      (await dialog.locator('[data-ps-tell-lang="en"] [data-ps-tell-text]').innerText()) === SHAPE.tellTheStoreEn &&
+        (await dialog.locator('[data-ps-failure]').count()) === 0 &&
+        (await page.locator('[data-ps-fix-confirm]').count()) === 0,
+    )
+    check(`${label}: no page errors (null)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 21: PICK-00224, PICK-00225, a bare 403
+  {
+    const { context, page, errors, calls, dialog } = await openFixDialog(dir, '224')
+    await page.locator('[data-ps-fix-confirm]').click()
+    const err = dialog.locator('[data-ps-fix-error="PICK-00224"]')
+    await err.waitFor({ timeout: 10000 })
+    check(
+      `${label}: PICK-00224 keeps the dialog open with its code beside the server's sentence, input kept`,
+      (await err.locator('[data-ps-error-code="PICK-00224"]').innerText()) === 'PICK-00224' &&
+        (await err.locator('[data-ps-error-message]').innerText()) === NOT_IN_SHAPE &&
+        (await dialog.locator('[data-ps-fix-reason]').inputValue()) === FIX_REASON,
+    )
+    check(
+      `${label}: PICK-00224 offers Refresh diagnosis, and no second press`,
+      (await page.locator('[data-ps-fix-refresh]').count()) === 1 && (await page.locator('[data-ps-fix-confirm]').isDisabled()),
+    )
+    await page.screenshot({ path: `${SHOTS}/${dir}-fix-224.png`, fullPage: true })
+    const before = deliveryReads(calls)
+    await page.locator('[data-ps-fix-refresh]').click()
+    await page.waitForTimeout(800)
+    check(
+      `${label}: Refresh diagnosis closes the dialog and reads the delivery again`,
+      (await page.locator('[data-ps-fix-dialog]').count()) === 0 && deliveryReads(calls) === before + 1,
+      `${before} → ${deliveryReads(calls)}`,
+    )
+    check(`${label}: no page errors (224)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors, dialog } = await openFixDialog(dir, '225')
+    await page.locator('[data-ps-fix-confirm]').click()
+    const err = dialog.locator('[data-ps-fix-error="PICK-00225"]')
+    await err.waitFor({ timeout: 10000 })
+    check(
+      `${label}: PICK-00225 shows its code and sentence, offers no refresh, and Confirm stays available`,
+      (await err.locator('[data-ps-error-code="PICK-00225"]').count()) === 1 &&
+        (await err.locator('[data-ps-error-message]').innerText()) === NO_REASON &&
+        (await page.locator('[data-ps-fix-refresh]').count()) === 0 &&
+        (await page.locator('[data-ps-fix-confirm]').isEnabled()),
+    )
+    check(`${label}: no page errors (225)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors, dialog } = await openFixDialog(dir, '403')
+    await page.locator('[data-ps-fix-confirm]').click()
+    const err = dialog.locator('[data-ps-failure="denied"]')
+    await err.waitFor({ timeout: 10000 })
+    check(`${label}: a bare 403 reads "You do not have access to apply fixes"`, (await err.innerText()).trim() === 'You do not have access to apply fixes')
+    check(`${label}: no page errors (403)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 await drive('ltr')
+await driveFix('ltr')
 await drive('rtl')
+await driveFix('rtl')
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

@@ -97,10 +97,10 @@ describe('fixOutcome', () => {
   })
 
   it('a failure with no code shows the fallback-backed message', () => {
-    expect(fixOutcome({ error: new Error('boom') }, 'The fix could not be sent.')).toEqual({
+    expect(fixOutcome({ error: new Error('boom') }, 'The fix did not complete. Refresh the diagnosis before trying again.')).toEqual({
       kind: 'refused',
       code: null,
-      message: 'The fix could not be sent.',
+      message: 'The fix did not complete. Refresh the diagnosis before trying again.',
       offerRefresh: false,
       canResend: true,
     })

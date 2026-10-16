@@ -62,8 +62,8 @@ export default function FixDialog({
       if (outcome.kind === 'fixed') {
         const own = pickSupportKeys.delivery(deliveryNo)
         // `null`: the fix stood but its re-read failed — the delivery is read again.
-        if (outcome.diagnosis) queryClient.setQueryData(own, outcome.diagnosis)
-        else void queryClient.invalidateQueries({ queryKey: own })
+        if (outcome.reread) void queryClient.invalidateQueries({ queryKey: own })
+        else queryClient.setQueryData(own, outcome.diagnosis)
         onFixed?.()
       }
       setAnswer({ outcome, error: null })

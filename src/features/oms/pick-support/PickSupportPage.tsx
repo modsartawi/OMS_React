@@ -123,10 +123,12 @@ function PickSupportTabs() {
             {tab.id === 'stuck' && total !== null && (
               <span
                 className="rounded-full bg-muted px-1.5 py-px text-[0.6875rem] font-semibold text-foreground"
-                aria-label={t('tabs.stuckTotal', { total: fsi(String(total)) })}
                 data-ps-census-total={total}
               >
-                <Ltr>{total}</Ltr>
+                <span aria-hidden="true">
+                  <Ltr>{total}</Ltr>
+                </span>
+                <span className="sr-only">{t('tabs.stuckTotal', { total: fsi(String(total)) })}</span>
               </span>
             )}
           </button>

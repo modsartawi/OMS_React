@@ -146,7 +146,6 @@
     "uom": "Unit",
     "short": "Short",
     "state": "State",
-    "units": "Units",
     "pickIndex": "#",
     "serial": "Serial",
     "batch": "Batch",
@@ -211,7 +210,7 @@
     "refresh": "Refresh diagnosis",
     "denied": "You do not have access to apply fixes",
     "failedTitle": "The fix was not confirmed",
-    "failed": "The fix could not be sent.",
+    "failed": "The fix did not complete. Refresh the diagnosis before trying again.",
     "done": "The fix was applied.",
     "tellTheStore": "Tell the store",
     "copyEn": "Copy English",
@@ -221,7 +220,6 @@
   },
   "section": {
     "heading": "Pick support",
-    "stuck": "Stuck",
     "openConsole": "Open in Pick support"
   }
 }

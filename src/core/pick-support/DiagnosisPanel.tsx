@@ -234,7 +234,7 @@ function Documents({ documents }: { documents: PickDocumentModel[] }) {
                 <Code>{d.sourceType}</Code>
                 <span data-ps-document-state={d.state}>
                   <StatusBadge sev="mute">
-                    <Ltr>{d.state}</Ltr>
+                    <Ltr>{d.state || t('dash')}</Ltr>
                   </StatusBadge>
                 </span>
                 <Inline label={t('documents.store')}>

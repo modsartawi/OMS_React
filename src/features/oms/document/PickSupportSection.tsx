@@ -39,7 +39,7 @@ export default function PickSupportSection({ deliveryNo, onFixed }: { deliveryNo
           {t('section.heading')}
           {stuck && (
             <span data-ps-doc-stuck="">
-              <StatusBadge sev="warn">{t('section.stuck')}</StatusBadge>
+              <StatusBadge sev="warn">{t('list.stuck')}</StatusBadge>
             </span>
           )}
         </span>

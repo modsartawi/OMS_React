@@ -3,7 +3,9 @@
 //
 // Drives the REAL app in Chromium against a STUB of the brief's wire contract — the doors are built
 // (BackOffice 2687–2690) but not confirmed deployed, so there is no live SIS.Api to point at. The
-// stub emits EXACTLY the brief's JSON (its "…" placeholders filled with plain sentences):
+// stub emits the brief's JSON with its "…" placeholders filled with plain sentences, plus one shape
+// document (and a VOIDED fixture state) the brief's example leaves empty, to exercise the
+// per-document action tag:
 //   GET SdDocumentWeb/Access            → { canOpenList, canOpenDetail, canOpenPickSupport? }
 //   GET PickSupport/Resolve?key=        → PickSupportResolution
 //   GET PickSupport/Delivery/{no}       → PickSupportDiagnosis | PICK-00002 envelope
@@ -529,9 +531,9 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
     if (p === 'PickSupport/StuckNow') {
       const store = url.searchParams.get('store')
       const shape = url.searchParams.get('shape')
-      if (shape !== null && !SHAPE_CODES.includes(shape.trim().toUpperCase()))
+      if (shape !== null && !SHAPE_CODES.includes(shape.trim()))
         return route.fulfill(refusal('PICK-00003', `'${shape}' is not a stuck shape`))
-      const rows = CENSUS_ROWS.filter((r) => (!store || r.currentStore === store) && (!shape || r.shape === shape.trim().toUpperCase()))
+      const rows = CENSUS_ROWS.filter((r) => (!store || r.currentStore === store) && (!shape || r.shape === shape.trim()))
       return route.fulfill(envelope({ total: new Set(rows.map((r) => r.deliveryNo)).size, rows }))
     }
     // Ticket 499: Document Details' own header, the ticket-078 capture renumbered.
@@ -1164,7 +1166,10 @@ async function driveCensus(dir) {
     (await page.locator('[data-ps-tab="search"][aria-selected="true"]').count()) === 1 && censusCalls(calls).join(',') === 'PickSupport/StuckNow',
     censusCalls(calls).join(','),
   )
-  check(`${label}: the badge reads the server's total 1, not the 2 rows`, (await badge.innerText()).trim() === '1', await badge.innerText())
+  const shown = (await badge.locator('[aria-hidden="true"]').innerText()).trim()
+  check(`${label}: the badge reads the server's total 1, not the 2 rows`, shown === '1', shown)
+  const spoken = (await badge.locator('.sr-only').textContent()) ?? ''
+  check(`${label}: the badge's count sentence is in the accessible tree, not an aria-label on a span`, spoken.includes('1') && (await badge.getAttribute('aria-label')) === null, spoken)
 
   // 23: the rows
   await page.locator('[data-ps-tab="stuck"]').click()
@@ -1181,7 +1186,7 @@ async function driveCensus(dir) {
       rows.every((r) => r.cell.deliveryNo === '8006777365' && r.cell.orderNo === '1000456789' && r.cell.currentStore === '1139'),
     JSON.stringify(rows.map((r) => r.cell)),
   )
-  check(`${label}: the badge still reads 1 beside two rows`, (await badge.innerText()).trim() === '1')
+  check(`${label}: the badge still reads 1 beside two rows`, (await badge.locator('[aria-hidden="true"]').innerText()).trim() === '1')
   const sinceCell = page.locator('[data-ps-census] .ag-row[row-index="0"] [col-id="since"]')
   const deliveryCell = page.locator('[data-ps-census] .ag-row[row-index="0"] [col-id="deliveryNo"]')
   check(
@@ -1203,7 +1208,7 @@ async function driveCensus(dir) {
   rows = await censusRows(page)
   check(
     `${label}: the shape filter leaves its one row; the badge reads the server's 1`,
-    rows.length === 1 && rows[0].cell.shape === 'ENDED_STILL_HOLDS' && (await badge.innerText()).trim() === '1',
+    rows.length === 1 && rows[0].cell.shape === 'ENDED_STILL_HOLDS' && (await badge.locator('[aria-hidden="true"]').innerText()).trim() === '1',
   )
   before = censusCalls(calls).length
   await page.locator('[data-ps-census-store]').fill(' 1139 ')
@@ -1238,7 +1243,7 @@ async function driveCensus(dir) {
   await page.locator('[data-ps-census-store]').fill('1112')
   await page.locator('[data-ps-census-store]').press('Enter')
   await page.locator('[data-ps-census]', { hasText: 'Nothing is stuck' }).waitFor({ timeout: 10000 })
-  check(`${label}: a store with nothing stuck reads "Nothing is stuck", the badge 0`, (await badge.innerText()).trim() === '0' && (await censusRows(page)).length === 0)
+  check(`${label}: a store with nothing stuck reads "Nothing is stuck", the badge 0`, (await badge.locator('[aria-hidden="true"]').innerText()).trim() === '0' && (await censusRows(page)).length === 0)
   await page.locator('[data-ps-census-store]').fill('')
   await page.locator('[data-ps-census-store]').press('Enter')
   await page.waitForTimeout(600)

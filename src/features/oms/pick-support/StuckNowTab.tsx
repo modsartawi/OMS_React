@@ -116,7 +116,7 @@ export default function StuckNowTab({
           {t('stuck.shape')}
           <select
             value={filter.shape}
-            onChange={(e) => onFilter({ shape: e.target.value })}
+            onChange={(e) => onFilter({ shape: e.target.value, store: store.trim() })}
             className={`${INPUT} w-72 font-mono`}
             data-ps-census-shape=""
           >

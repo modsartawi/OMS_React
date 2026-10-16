@@ -6,6 +6,8 @@ import type {
   RuleCampaign,
   RuleCampaignCreate,
   RuleCampaignListRow,
+  RuleFormulaCheck,
+  RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
 } from '../src/core/models/rule-campaign'
@@ -17,3 +19,5 @@ export function createDraft(store: RuleCampaign[], body: RuleCampaignCreate, at:
 export function copyOf(store: RuleCampaign[], source: RuleCampaign, at: string): RuleCampaign
 export const LOOKUPS: Record<RuleLookupKind, RuleLookupItem[]>
 export function lookup(kind: RuleLookupKind, search?: string): RuleLookupItem[]
+export const SAMPLE_RESULT: number
+export function checkFormula(body: RuleFormulaCheckRequest): RuleFormulaCheck

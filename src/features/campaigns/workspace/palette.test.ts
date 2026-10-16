@@ -51,8 +51,8 @@ describe('palette', () => {
     expect(paletteFor(CATALOGUE, 'effect', { coupons: false, points: false }).groups.map((g) => g.key)).toEqual(['discounts', 'couponsAndMessages'])
   })
 
-  it('leaves out a formula block until the guided fx helper lands (507)', () => {
-    expect(types('condition', { coupons: true, points: true })).not.toContain('expr')
+  it('offers the formula condition, written with the guided fx helper (507)', () => {
+    expect(types('condition', { coupons: false, points: false })).toContain('expr')
   })
 
   it('a pick adds a block with every catalogue field, empty, and the new id', () => {

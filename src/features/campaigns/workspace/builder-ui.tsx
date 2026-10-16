@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
 
@@ -20,4 +20,14 @@ export function useHas() {
  */
 export function labelText(t: (key: string) => string, key: string, code: string, has: (key: string) => boolean): ReactNode {
   return has(key) ? t(key) : <Ltr>{code}</Ltr>
+}
+
+/** `value`, once it has stopped changing for `ms` — a search or a check waits for typing to stop. */
+export function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(value), ms)
+    return () => clearTimeout(id)
+  }, [value, ms])
+  return settled
 }

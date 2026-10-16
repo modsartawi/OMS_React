@@ -17,7 +17,6 @@ import {
   groupSentence,
   isConditionGroup,
   ruleSummary,
-  valueSentence,
   whenSentence,
   type RuleConditionGroup,
   type SaysLine,
@@ -29,6 +28,7 @@ import { INPUT } from './builder-ui'
 import PaletteMenu from './PaletteMenu'
 import { newBlock } from './palette'
 import RuleFilters, { RxFlag } from './RuleFilters'
+import RuleValues from './RuleValues'
 import {
   addCondition,
   addEffect,
@@ -61,7 +61,8 @@ export interface Builder {
  * any — or "always") and Then. Each block reads as a sentence; clicking it opens its panel, closed
  * with Done. "+ Condition" / "+ Effect" open the palette. Filters are edited as chains
  * (`./RuleFilters`, ticket 506); a discount that reaches Prescription lines is flagged red. Named
- * values stay read-only here: their editor is 507's.
+ * values and the formula condition are written with the guided ƒx helper (`./RuleValues`,
+ * `./FormulaBox`, ticket 507).
  */
 export default function RuleCard({
   rule,
@@ -156,17 +157,9 @@ export default function RuleCard({
             <RuleFilters rule={rule} rules={rules} b={b} />
           </Section>
 
-          {rule.values.length > 0 && (
-            <Section title={t('rules.values')} hint={t('rules.valuesHint')} data="values">
-              <ul className="flex flex-col gap-1 text-sm">
-                {rule.values.map((v) => (
-                  <li key={v.id} data-value-id={v.id}>
-                    <SentenceView s={valueSentence(v)} />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+          <Section title={t('rules.values')} hint={t('rules.valuesHint')} data="values">
+            <RuleValues rule={rule} b={b} />
+          </Section>
 
           <Section title={t('rules.conditions')} data="when">
             <div className="flex flex-wrap items-center gap-2">
@@ -367,6 +360,7 @@ function Block({
             entry={entry}
             rule={rule}
             campaign={b.campaign}
+            guide={b.catalogue.formula}
             set={(key, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, item.id, key, value), coalesce ? `field:${item.id}.${key}` : undefined)}
             withFilter={(filter, key, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, item.id, key, value))}
             newId={b.newId}

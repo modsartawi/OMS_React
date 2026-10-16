@@ -7,7 +7,6 @@ import type {
   RuleCatalogueField,
   RuleCondition,
   RuleEffect,
-  RuleFieldKind,
 } from '@/core/models/rule-campaign'
 
 // The builder's palette (ticket 505): which blocks "+ Condition" / "+ Effect" offers, grouped by the
@@ -15,13 +14,8 @@ import type {
 //
 // A block is offered only when
 //   - the catalogue says it is decided (a block the map has not decided is left out, not greyed);
-//   - the campaign's features switch it on (points blocks with points, coupon blocks with coupons);
-//   - this screen can edit every field it has: a formula is written with the guided ƒx helper,
-//     which is ticket 507's, so a block with a formula field waits for it (an EXISTING one still
-//     reads and can be deleted).
-
-/** Field kinds the panel cannot edit yet. 507 empties it. */
-export const NOT_YET_EDITABLE: readonly RuleFieldKind[] = ['formula']
+//   - the campaign's features switch it on (points blocks with points, coupon blocks with coupons).
+// Every field kind has its control in the panel; a formula is written with the guided ƒx helper (507).
 
 export interface PaletteGroup {
   key: string
@@ -34,10 +28,8 @@ export interface Palette {
   hiddenFeatures: (keyof RuleCampaignFeatures)[]
 }
 
-const editable = (b: RuleCatalogueBlock) => !b.fields.some((f) => NOT_YET_EDITABLE.includes(f.kind))
-
 export function paletteFor(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, features: RuleCampaignFeatures): Palette {
-  const candidates = catalogue.blocks.filter((b) => b.kind === kind && b.decided && editable(b))
+  const candidates = catalogue.blocks.filter((b) => b.kind === kind && b.decided)
   const offered = candidates.filter((b) => b.feature === null || features[b.feature])
   const groups = catalogue.groups
     .filter((g) => g.kind === kind)

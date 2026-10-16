@@ -346,6 +346,86 @@ export const CATALOGUE = {
     eff('createCoupon', 'couponsAndMessages', [field('from', 'code'), field('validDays', 'days'), field('bindToMember', 'flag', { clause: true })]),
     eff('notify', 'couponsAndMessages', [field('text', 'says', { role: 'message' })]),
   ],
+  formula: {
+    // 507: what the guided ƒx helper offers — the prototype's helpers.js ATTRS (the decided ones),
+    // FUNC_DOCS, OPS and recipesFor, in the PROVISIONAL `RuleFormulaGuide` shape. `{filter}` in a
+    // recipe is the rule's filter the marketer picks; `{current}` the box's own formula.
+    fields: [
+      { path: 'session.subtotal', type: 'money', group: 'sale' },
+      { path: 'session.total', type: 'money', group: 'sale' },
+      { path: 'session.fees', type: 'money', group: 'sale' },
+      { path: 'session.decimals', type: 'number', group: 'sale' },
+      { path: 'session.channel', type: 'text', group: 'sale' },
+      { path: 'session.store', type: 'text', group: 'sale' },
+      { path: 'session.country', type: 'text', group: 'sale' },
+      { path: 'profile.id', type: 'text', group: 'profile' },
+      { path: 'profile.tier', type: 'text', group: 'profile' },
+      { path: 'profile.points', type: 'money', group: 'profile' },
+      { path: 'profile.tentativePoints', type: 'money', group: 'profile' },
+      { path: 'profile.firstPurchase', type: 'text', group: 'profile' },
+      { path: 'item.net', type: 'money', group: 'item' },
+      { path: 'item.price', type: 'money', group: 'item' },
+      { path: 'item.sku', type: 'text', group: 'item' },
+      { path: 'item.category', type: 'text', group: 'item' },
+    ],
+    functions: [
+      { name: 'sum', signature: 'sum(filter)', example: 'sum(beauty)', snippet: 'sum()', caret: 4 },
+      { name: 'count', signature: 'count(filter)', example: 'count(suncare) >= 3', snippet: 'count()', caret: 6 },
+      { name: 'round', signature: 'round(x, decimals, mode)', example: 'round(spend * 0.10, decimals, halfUp)', snippet: 'round(, decimals, halfUp)', caret: 6 },
+      { name: 'band', signature: 'band(x, from:rate, ...)', example: 'band(spend, 200:0.10, 400:0.12)', snippet: 'band(, 200:0.10, 400:0.12)', caret: 5 },
+      { name: 'min', signature: 'min(a, b, ...)', example: 'min(back, 100)', snippet: 'min(, 100)', caret: 4 },
+      { name: 'max', signature: 'max(a, b, ...)', example: 'max(back, 5)', snippet: 'max(, 5)', caret: 4 },
+      { name: 'floor', signature: 'floor(x)', example: 'floor(spend / 10)', snippet: 'floor()', caret: 6 },
+      { name: 'ceil', signature: 'ceil(x)', example: 'ceil(count(items) / 2)', snippet: 'ceil()', caret: 5 },
+      { name: 'abs', signature: 'abs(x)', example: 'abs(session.total - 100)', snippet: 'abs()', caret: 4 },
+      { name: 'if', signature: 'if(test, then, else)', example: "if(profile.tier == 'P', 0.15, 0.10)", snippet: 'if(, , )', caret: 3 },
+    ],
+    operators: ['+', '-', '*', '/', '(', ')', '>=', '>', '<=', '<', '==', '!=', 'and', 'or', 'not'],
+    recipes: [
+      { key: 'percentOfSpend', expect: 'number', formula: 'round(sum({filter}) * 10 / 100, decimals, halfUp)' },
+      { key: 'tieredRate', expect: 'number', formula: 'band(sum({filter}), 200:0.10, 400:0.12, 700:0.15)' },
+      { key: 'capped', expect: 'number', formula: 'min({current}, 100)' },
+      { key: 'pointsPerSar', expect: 'number', formula: 'floor(sum({filter}) / 10)' },
+      { key: 'topTiers', expect: 'number', formula: "if(profile.tier == 'P', 0.15, 0.10)" },
+      { key: 'basketBigEnough', expect: 'bool', formula: 'session.total >= 150' },
+      { key: 'enoughUnits', expect: 'bool', formula: 'count({filter}) >= 3' },
+      { key: 'goldOrPlatinum', expect: 'bool', formula: "profile.tier == 'G' or profile.tier == 'P'" },
+      { key: 'enoughPoints', expect: 'bool', formula: 'profile.tentativePoints >= 30' },
+      { key: 'tillOnly', expect: 'bool', formula: "session.channel == 'POS'" },
+    ],
+  },
+}
+
+// ── 507: the stubbed formula check (POST RuleCampaign/Formula/Check, BackOffice 2758). NOT the
+// expression language: a canned answer. A word that is not a field, a function, a mode or a filter
+// or value the request sent is an error with its span; anything else is valid, with a canned
+// result on "the sample basket" (12.5, or yes for a test). ──
+
+/** The result the stub gives every valid formula that needs a number. */
+export const SAMPLE_RESULT = 12.5
+const WORDS = ['decimals', 'halfUp', 'halfEven', 'down', 'up', 'and', 'or', 'not']
+
+/** What the stubbed check door answers for a `RuleFormulaCheckRequest`. */
+export function checkFormula(body) {
+  const formula = String(body.formula ?? '')
+  const answer = (o) => ({ ok: false, type: null, errors: [], warnings: [], result: null, ...o })
+  if (!formula.trim()) return answer({ errors: [{ code: 'FORMULA_EMPTY', message: 'Write a number or a formula.', start: null, end: null }] })
+  const known = new Set([
+    ...CATALOGUE.formula.fields.map((f) => f.path),
+    ...CATALOGUE.formula.functions.map((f) => f.name),
+    ...WORDS,
+    ...(body.filters ?? []).map((f) => f.name),
+    ...(body.values ?? []).map((v) => v.name),
+  ])
+  // Quoted text is blanked so a word inside quotes is not looked up.
+  const bare = formula.replace(/'[^']*'/g, (m) => ' '.repeat(m.length))
+  for (const m of bare.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*/g)) {
+    if (!known.has(m[0]))
+      return answer({
+        errors: [{ code: 'FORMULA_UNKNOWN_NAME', message: `"${m[0]}" is not a field, a function, or a filter or value of this rule.`, start: m.index, end: m.index + m[0].length }],
+      })
+  }
+  return body.expect === 'bool' ? answer({ ok: true, type: 'bool', result: true }) : answer({ ok: true, type: 'number', result: SAMPLE_RESULT })
 }
 
 // ── 506: the stubbed lookups (GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search=,

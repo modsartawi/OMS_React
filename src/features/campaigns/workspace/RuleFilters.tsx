@@ -47,7 +47,7 @@ export default function RuleFilters({ rule, rules, b }: { rule: CampaignRule; ru
             const chain = filterChain(f)
             const open = b.openId === f.id
             const uses = filterUses(rule, f.id, b.catalogue)
-            const problem = filterNameProblem(rule.filters, f.name, f.id)
+            const problem = filterNameProblem(rule.filters, f.name, f.id, rule.values)
             const rx = filterLetsRxIn(f)
             const editorId = `filter-editor-${f.id}`
             const remove = (

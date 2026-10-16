@@ -8,6 +8,7 @@ import type {
   RuleCatalogueField,
   RuleCondition,
   RuleEffect,
+  RuleFormulaGuide,
   RuleItemFilter,
   Says,
 } from '@/core/models/rule-campaign'
@@ -18,6 +19,7 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { INPUT, labelText, useHas } from './builder-ui'
 import FilterEditor from './FilterEditor'
+import FormulaBox from './FormulaBox'
 import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
 
 /**
@@ -27,15 +29,17 @@ import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
  *
  * Items are the rule's own filters, by id, or "Certain items…" (ticket 506): the picker opens at
  * the field, and saving it adds a named filter to the rule and points the field at it, in ONE
- * history step. A formula is shown as written and not edited here: the guided ƒx helper is 507's, and the client
- * never parses the expression language (ADR 0089).
+ * history step. A formula is written with the guided ƒx helper and checked by HQ (`./FormulaBox`,
+ * ticket 507); the client never parses the expression language (ADR 0089).
  */
 export interface BlockPanelProps {
   block: RuleCondition | RuleEffect
   /** Its catalogue entry. */
   entry: RuleCatalogueBlock
   rule: CampaignRule
-  campaign: Pick<RuleCampaign, 'budgets' | 'audience'>
+  campaign: Pick<RuleCampaign, 'id' | 'budgets' | 'audience'>
+  /** What the guided ƒx helper offers (ticket 507). */
+  guide: RuleFormulaGuide
   /** Sets one field; `coalesce` folds a run of keystrokes into one history step. */
   set: (key: string, value: unknown, coalesce?: boolean) => void
   /** Adds `filter` to the rule and sets `key = value` (which points at it), as one step. */
@@ -45,7 +49,7 @@ export interface BlockPanelProps {
   onDelete: () => void
 }
 
-export default function BlockPanel({ block, entry, rule, campaign, set, withFilter, newId, onDone, onDelete }: BlockPanelProps) {
+export default function BlockPanel({ block, entry, rule, campaign, guide, set, withFilter, newId, onDone, onDelete }: BlockPanelProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const raw = block as Record<string, unknown>
@@ -63,7 +67,7 @@ export default function BlockPanel({ block, entry, rule, campaign, set, withFilt
             const id = `panel-${block.id}-${f.key}`
             return (
               <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)}>
-                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} set={set} withFilter={withFilter} newId={newId} />
+                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} />
               </FieldRow>
             )
           })}
@@ -110,7 +114,8 @@ interface ControlProps {
   entry: RuleCatalogueBlock
   raw: Record<string, unknown>
   rule: CampaignRule
-  campaign: Pick<RuleCampaign, 'budgets' | 'audience'>
+  campaign: Pick<RuleCampaign, 'id' | 'budgets' | 'audience'>
+  guide: RuleFormulaGuide
   set: BlockPanelProps['set']
   withFilter: BlockPanelProps['withFilter']
   newId: () => string
@@ -118,7 +123,7 @@ interface ControlProps {
 
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 
-function FieldControl({ id, field, entry, raw, rule, campaign, set, withFilter, newId }: ControlProps) {
+function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withFilter, newId }: ControlProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const optionText = (o: string) => {
@@ -228,12 +233,20 @@ function FieldControl({ id, field, entry, raw, rule, campaign, set, withFilter, 
       )
     }
     case 'formula':
+      // A condition's formula is a yes / no test; any other is a number.
       return (
-        <span className="flex flex-col gap-1" {...data}>
-          <code id={id} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-            <Ltr>{typeof value === 'string' ? value : ''}</Ltr>
-          </code>
-          <span className="text-xs text-muted-foreground">{t('panel.formulaReadOnly')}</span>
+        <span className="flex w-full min-w-0" {...data}>
+          <FormulaBox
+            id={id}
+            value={typeof value === 'string' ? value : ''}
+            onChange={(formula, typed) => put(formula, typed)}
+            expect={entry.kind === 'condition' ? 'bool' : 'number'}
+            rule={rule}
+            valueId={null}
+            campaign={campaign}
+            guide={guide}
+            data={field.key}
+          />
         </span>
       )
     case 'timing':
@@ -321,7 +334,7 @@ function ItemsChoice({
   const { t } = useTranslation('campaign-workspace')
   const [draft, setDraft] = useState<RuleItemFilter | null>(null)
   const known = value === '' || rule.filters.some((f) => f.id === value)
-  const problem = draft ? filterNameProblem(rule.filters, draft.name) : null
+  const problem = draft ? filterNameProblem(rule.filters, draft.name, undefined, rule.values) : null
   return (
     <>
       <select
@@ -439,7 +452,7 @@ function PartsEditor({
 
 /**
  * A discount or points field: a number, or one of the rule's named values (by id). The named value's
- * formula is not touched here — it is 507's.
+ * formula is written in the rule's Named values (`./RuleValues`).
  */
 function NumberOrValue({
   id,
@@ -486,7 +499,7 @@ function NumberOrValue({
         <option value="">{t('panel.aNumber')}</option>
         {rule.values.map((v) => (
           <option key={v.id} value={v.id}>
-            {fsi(v.name)}
+            {v.name.trim() ? fsi(v.name) : t('panel.unnamedValue')}
           </option>
         ))}
         {missing && <option value={String(value)}>{t('panel.missing')}</option>}

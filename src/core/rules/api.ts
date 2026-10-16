@@ -6,6 +6,8 @@ import type {
   RuleCampaignCreate,
   RuleCampaignDraft,
   RuleCampaignListRow,
+  RuleFormulaCheck,
+  RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
 } from '@/core/models/rule-campaign'
@@ -28,6 +30,8 @@ const LOOKUPS: Record<RuleLookupKind, string> = {
   collections: 'RuleCampaign/Lookups/Collections',
   materials: 'RuleCampaign/Lookups/Materials',
 }
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const FORMULA_CHECK = 'RuleCampaign/Formula/Check'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -86,7 +90,27 @@ export const ruleCampaignApi = {
   lookup(kind: RuleLookupKind, search: string): Promise<RuleLookupItem[]> {
     return api.get<RuleLookupItem[]>(LOOKUPS[kind], { search })
   },
+
+  /** POST RuleCampaign/Formula/Check — the ƒx helper's validator (ticket 507, BackOffice 2758): HQ
+   *  parses the formula against the rule's filters and values, answers its errors with the span of
+   *  the bad word, or its type and its result on HQ's sample basket. A bad formula is an answer
+   *  (`ok: false`), not a refusal; a refusal means the check could not be made. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  checkFormula(body: RuleFormulaCheckRequest): Promise<RuleFormulaCheck> {
+    return api.post<RuleFormulaCheck>(FORMULA_CHECK, body)
+  },
 }
+
+/**
+ * A formula check's query options: one call per formula and the rule it is read in, kept while
+ * the same formula is on screen, so an Undo back to it does not ask again.
+ */
+export const ruleFormulaCheckQuery = (body: RuleFormulaCheckRequest) => ({
+  queryKey: ['rule-formula-check', body] as const,
+  queryFn: () => ruleCampaignApi.checkFormula(body),
+  staleTime: 5 * 60_000,
+  retry: false as const,
+})
 
 /** A lookup's query options: one read per kind and search, kept a few minutes. */
 export const ruleLookupQuery = (kind: RuleLookupKind, search: string) => ({

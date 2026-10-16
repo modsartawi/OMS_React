@@ -146,7 +146,7 @@
     "name": "Save as",
     "nameProblem": {
       "empty": "Give the filter a name.",
-      "taken": "This rule already has a filter with this name."
+      "taken": "This rule already has a filter or a value with this name."
     },
     "search": {
       "categories": "Search categories by code or name",
@@ -273,7 +273,6 @@
     "missing": "no longer exists",
     "aNumber": "a number",
     "codesHint": "Separate codes with commas.",
-    "formulaReadOnly": "A formula is written with the guided ƒx helper, which this screen does not have yet.",
     "unknownBlock": "This block cannot be edited here.",
     "pickBudget": "Pick a budget",
     "noBudgets": "This campaign has no budget yet.",
@@ -480,7 +479,8 @@
           "PTS": "points"
         }
       }
-    }
+    },
+    "unnamedValue": "a value with no name yet"
   },
   "sentence": {
     "allItems": "all merchandise",
@@ -509,7 +509,7 @@
       "pointsWorth": "<money>{{money}}</money> of points",
       "pointsNamed": "<name>{{name}}</name> points",
       "pointsWorthNamed": "<name>{{name}}</name> in <currency>{{currency}}</currency> of points",
-    "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points"
+      "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points"
     },
     "timing": {
       "afterDays_one": "after <n>{{n}}</n> day",
@@ -653,5 +653,216 @@
         }
       }
     }
+  },
+  "values": {
+    "defaultName": "value",
+    "none": "No named value yet.",
+    "add": "Add a value",
+    "name": "Name of the value",
+    "formula": "Formula of {{name}}",
+    "moveUp": "Move the value up",
+    "moveDown": "Move the value down",
+    "delete": "Delete the value",
+    "nameProblem": {
+      "empty": "Give the value a name.",
+      "taken": "This rule already has a value or a filter with this name."
+    },
+    "inUse_one": "Read by {{n}} condition or effect, so it cannot be deleted.",
+    "inUse_other": "Read by {{n}} conditions or effects, so it cannot be deleted.",
+    "usedBy_one": "Read by <n>{{count}}</n> condition or effect.",
+    "usedBy_other": "Read by <n>{{count}}</n> conditions or effects."
+  },
+  "fx": {
+    "toggle": "Fields, functions and recipes",
+    "tabs": "Formula helper",
+    "tab": {
+      "fields": "Fields",
+      "functions": "Functions",
+      "recipes": "Recipes"
+    },
+    "done": "Done",
+    "placeholder": {
+      "number": "a number or a formula",
+      "bool": "a test, for example session.total >= 150"
+    },
+    "empty": {
+      "number": "Write a number or a formula, or pick a recipe with ƒx.",
+      "bool": "Write a test, or pick a recipe with ƒx."
+    },
+    "checking": "Checking with HQ…",
+    "checkFailed": "HQ could not check the formula. Try again in a moment.",
+    "invalid": "HQ cannot read this formula.",
+    "valid": {
+      "number": "Valid · gives a number",
+      "bool": "Valid · gives yes or no",
+      "text": "Valid · gives text",
+      "date": "Valid · gives a date",
+      "items": "Valid · gives a list of cart items"
+    },
+    "onSample": "· on the sample basket: <result/>",
+    "yes": "yes",
+    "no": "no",
+    "operators": "Operators",
+    "insertOperator": "Insert {{op}}",
+    "insertText": "Insert text in quotes",
+    "textChip": "'text'",
+    "hint": "A click puts it where your cursor was. HQ checks the formula as you write it and tries it on its sample basket, with this rule’s filters and values.",
+    "search": "Search fields: tier, total, points…",
+    "noMatch": "Nothing matches.",
+    "insert": "Insert",
+    "use": "Use",
+    "example": "Example:",
+    "recipeFilter": "Recipes use the filter",
+    "recipeNeedsFilter": "Needs a cart item filter: add one to the rule first.",
+    "kind": {
+      "filter": "Item filter {{name}}",
+      "value": "Value {{name}}"
+    },
+    "kindHint": {
+      "filter": "The units this rule’s filter picks. Use it inside sum() or count().",
+      "value": "A value above this one, worked out first."
+    },
+    "group": {
+      "rule": "This rule",
+      "sale": "Current sale",
+      "profile": "Customer profile",
+      "item": "Cart item (inside sum)"
+    },
+    "type": {
+      "money": "money",
+      "number": "123",
+      "text": "abc",
+      "date": "date",
+      "items": "list",
+      "bool": "yes/no"
+    },
+    "field": {
+      "session": {
+        "subtotal": {
+          "label": "Basket subtotal",
+          "desc": "Merchandise at SIS.Pricing’s prices, before any campaign took anything off."
+        },
+        "total": {
+          "label": "Basket total after earlier offers",
+          "desc": "What is left after the campaigns above this one. Use it for “spend at least”."
+        },
+        "fees": {
+          "label": "Fee lines",
+          "desc": "Delivery and service fee lines. Never part of the subtotal."
+        },
+        "decimals": {
+          "label": "Currency decimals",
+          "desc": "2 for SAR, 3 for BHD. Put it in round() so one campaign works in both countries."
+        },
+        "channel": {
+          "label": "Channel",
+          "desc": "Which host asked: the till, the call center or the web."
+        },
+        "store": {
+          "label": "Store code",
+          "desc": "The store the sale is in."
+        },
+        "country": {
+          "label": "Country",
+          "desc": "SA or BH, from the store master."
+        }
+      },
+      "profile": {
+        "id": {
+          "label": "Member id",
+          "desc": "The Arbahi member on the sale. Empty for a walk-in."
+        },
+        "tier": {
+          "label": "Member tier",
+          "desc": "Silver, Gold or Platinum."
+        },
+        "points": {
+          "label": "Points balance",
+          "desc": "Spendable balance in money of value, at the start of the sale."
+        },
+        "tentativePoints": {
+          "label": "Points left in this pass",
+          "desc": "The balance after campaigns above this one took points. Use this one for “has enough points”."
+        },
+        "firstPurchase": {
+          "label": "First purchase",
+          "desc": "“never” until the member’s first closed sale, then “done”."
+        }
+      },
+      "item": {
+        "net": {
+          "label": "Unit net",
+          "desc": "One unit’s price after earlier campaigns. Only inside sum(filter, item.net)."
+        },
+        "price": {
+          "label": "Unit price",
+          "desc": "One unit’s price before any campaign. Only inside sum(filter, item.price)."
+        },
+        "sku": {
+          "label": "SKU",
+          "desc": "The unit’s material number."
+        },
+        "category": {
+          "label": "Category",
+          "desc": "The unit’s category, such as A002."
+        }
+      }
+    },
+    "function": {
+      "sum": "Adds up the net of the units in an item filter. Add item.price as a second argument for the price before discounts.",
+      "count": "How many units are in an item filter.",
+      "round": "Rounds x. The mode is halfUp, halfEven, down or up. Pass decimals for the store’s currency.",
+      "band": "The rate of the highest threshold x reaches; 0 below the first one.",
+      "min": "The smallest. Use it to cap an amount.",
+      "max": "The largest. Use it for a floor.",
+      "floor": "Rounds down to a whole number.",
+      "ceil": "Rounds up to a whole number.",
+      "abs": "Drops the minus sign.",
+      "if": "Picks between two values."
+    },
+    "recipe": {
+      "percentOfSpend": {
+        "title": "Percent of what they spend on a filter",
+        "desc": "10% of the net of {{filter}}, rounded for the currency."
+      },
+      "tieredRate": {
+        "title": "Tiered rate by spend",
+        "desc": "10% from 200, 12% from 400, 15% from 700 spent on {{filter}}."
+      },
+      "capped": {
+        "title": "Cap what you have",
+        "desc": "The formula in the box, never more than 100."
+      },
+      "pointsPerSar": {
+        "title": "Points per riyal spent",
+        "desc": "One for every 10 spent on {{filter}}, whole numbers only."
+      },
+      "topTiers": {
+        "title": "Higher rate for top tiers",
+        "desc": "15% for Platinum, 10% for everyone else."
+      },
+      "basketBigEnough": {
+        "title": "Basket is big enough",
+        "desc": "At least 150 left after earlier offers."
+      },
+      "enoughUnits": {
+        "title": "Enough units of a filter",
+        "desc": "Three or more units of {{filter}}."
+      },
+      "goldOrPlatinum": {
+        "title": "Gold or Platinum members",
+        "desc": "The member’s tier is G or P."
+      },
+      "enoughPoints": {
+        "title": "Enough points to burn",
+        "desc": "At least 30 of points left in this pass."
+      },
+      "tillOnly": {
+        "title": "Store till only",
+        "desc": "Not the call center or the web."
+      }
+    },
+    "symbol": "ƒx",
+    "recipeNeedsCurrent": "Write a formula first: this recipe caps it."
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Check, Search, ShoppingCart, TriangleAlert, X } from 'lucide-react'
@@ -10,7 +10,7 @@ import { RX_CATEGORY } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
-import { INPUT } from './builder-ui'
+import { INPUT, useDebounced } from './builder-ui'
 
 /**
  * A named cart-item filter as an editable chain (ticket 506): what it looks at, then the
@@ -242,13 +242,4 @@ function LookupPicks({
       {after}
     </Step>
   )
-}
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value)
-  useEffect(() => {
-    const id = setTimeout(() => setSettled(value), ms)
-    return () => clearTimeout(id)
-  }, [value, ms])
-  return settled
 }

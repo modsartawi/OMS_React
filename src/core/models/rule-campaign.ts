@@ -257,6 +257,8 @@ export interface RuleBlockCatalogue {
   /** Palette groups, in palette order. */
   groups: { key: string; kind: RuleBlockKind }[]
   blocks: RuleCatalogueBlock[]
+  /** What the guided ƒx helper offers (ticket 507). */
+  formula: RuleFormulaGuide
 }
 
 // ── Lookups (ticket 506; HQ's doors are BackOffice 2758) ────────────────────────────────────────
@@ -268,4 +270,84 @@ export type RuleLookupKind = 'categories' | 'collections' | 'materials'
 export interface RuleLookupItem {
   code: string
   name: string
+}
+
+// ── The guided ƒx helper (ticket 507; HQ's doors are BackOffice 2758) ───────────────────────────
+// A named value and the formula condition are written only through the helper: its Fields,
+// Functions, Recipes and operator chips come from the catalogue (`formula`), and the validator is
+// HQ's check door. The client never parses the expression language (ADR 0089): it inserts text
+// and shows what HQ answers.
+
+/** What a formula field, value or result is — its type badge. */
+export type RuleFormulaType = 'money' | 'number' | 'text' | 'date' | 'items' | 'bool'
+
+/** What a formula box needs: a named value is a number, the formula condition a yes / no test. */
+export type RuleFormulaExpect = 'number' | 'bool'
+
+/** A field a rule may read (`session.total`, `profile.tier`, `item.price` …). */
+export interface RuleFormulaField {
+  path: string
+  type: RuleFormulaType
+  /** The Fields list's group (`sale`, `profile`, `item`). */
+  group: string
+}
+
+/** A function of the expression language: its signature and an example, as HQ writes them. */
+export interface RuleFormulaFunction {
+  name: string
+  signature: string
+  example: string
+  /** What Insert puts in, and where the cursor goes inside it (an offset; absent = after it). */
+  snippet: string
+  caret?: number
+}
+
+/**
+ * A ready-made formula. `{filter}` in it stands for one of the rule's filters, by its current name,
+ * which the marketer picks; a recipe with it needs the rule to have a filter. `{current}` stands for
+ * the formula the box already has (a cap wraps it); a recipe with it needs one written first.
+ */
+export interface RuleFormulaRecipe {
+  key: string
+  expect: RuleFormulaExpect
+  formula: string
+}
+
+export interface RuleFormulaGuide {
+  fields: RuleFormulaField[]
+  functions: RuleFormulaFunction[]
+  /** The operator chips, in order (`+`, `>=`, `and` …). */
+  operators: string[]
+  recipes: RuleFormulaRecipe[]
+}
+
+/**
+ * What the validator sends: the formula, what its box needs, and the rule's filters and the named
+ * values it may read (a named value reads only the values above it), so HQ checks the draft as it
+ * is on screen, unsaved, and tries it on its sample basket in the campaign's currency.
+ */
+export interface RuleFormulaCheckRequest {
+  campaignId: string
+  expect: RuleFormulaExpect
+  formula: string
+  filters: RuleItemFilter[]
+  values: RuleNamedValue[]
+}
+
+/** One thing wrong with a formula. `start` / `end` mark the bad word (offsets into the formula). */
+export interface RuleFormulaProblem {
+  code: string
+  message: string
+  start: number | null
+  end: number | null
+}
+
+/** HQ's check of a formula: its errors, or its type and its result on the sample basket. */
+export interface RuleFormulaCheck {
+  ok: boolean
+  type: RuleFormulaType | null
+  errors: RuleFormulaProblem[]
+  warnings: RuleFormulaProblem[]
+  /** The result on HQ's sample basket; null when it cannot be tried there. */
+  result: number | boolean | string | null
 }

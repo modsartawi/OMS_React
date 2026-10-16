@@ -12,6 +12,7 @@
 //   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
 //   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
 //   GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= → the hits (506, `lookup`)
+//   POST RuleCampaign/Formula/Check   → a canned check: an unknown word's span, or 12.5 / yes (507, `checkFormula`)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -35,7 +36,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, copyOf, createDraft, listRow, lookup } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, listRow, lookup } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -66,6 +67,7 @@ const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرم�
 const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
 const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
+const CHECK_REFUSED = 'The formula check is not available. / التحقق من الصيغة غير متاح.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -77,7 +79,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, edit } = {}) {
+async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -92,6 +94,8 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
   const saves = []
   /** 506: every lookup, `<kind> <search>`. */
   const lookups = []
+  /** 507: every formula check's body, in order. */
+  const checks = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -114,6 +118,12 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       lookups.push(`${kind} ${search}`)
       if (refuseLookup) return route.fulfill(envelope(null, { status: 503, success: false, message: LOOKUP_REFUSED, errorCode: 'RULE_LOOKUP_UNAVAILABLE' }))
       return route.fulfill(envelope(lookup(kind, search)))
+    }
+    if (p === 'RuleCampaign/Formula/Check' && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      checks.push(body)
+      if (refuseCheck) return route.fulfill(envelope(null, { status: 503, success: false, message: CHECK_REFUSED, errorCode: 'RULE_FORMULA_CHECK_UNAVAILABLE' }))
+      return route.fulfill(envelope(checkFormula(body)))
     }
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'POST') {
@@ -146,7 +156,7 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -507,7 +517,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/WLCB/rules`)
   await page.locator('[data-rules]').waitFor()
   check('18: a formula is shown as written, in one isolate', (await page.locator('[data-condition] [data-value="formula"] bdi[dir="ltr"]').innerText()) === 'back > 0')
-  check('18: named values read with their formula', JSON.stringify(await page.locator('[data-value-id]').allInnerTexts()) === JSON.stringify(['spend is worked out as sum(eligible)', 'back is worked out as round(spend * 0.10, 0, halfUp)']))
+  check('18: named values read with their formula', JSON.stringify(await page.locator('[data-value-id]').evaluateAll((els) => els.map((e) => `${e.querySelector('[data-value-name]').value} = ${e.querySelector('[data-fx-input]').value}`))) === JSON.stringify(['spend = sum(eligible)', 'back = round(spend * 0.10, 0, halfUp)']))
   check('18: points read in words, with when they activate and expire', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Award back in SAR of points under the activity WLCB, usable after 7 days, expiring after 30 days')
   check('18: Prescription is named in the chain', (await page.locator('[data-filter-link]').allInnerTexts()).includes('not Prescription A006'))
   await page.screenshot({ path: `${SHOTS}/rules-wlcb.png`, fullPage: true })
@@ -577,8 +587,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 // ── 505 ── it asserts:
 //  24. the builder bar: Undo / Redo / Cancel / Save, all disabled on an unedited campaign;
 //  25. + Condition opens the palette by group — only blocks the features switch on (points yes,
-//      coupons no on SUN-3FOR2, saying where coupon blocks are), never a "not decided" one, and no
-//      formula block until 507; a coupons campaign offers the coupon condition; Escape closes it;
+//      coupons no on SUN-3FOR2, saying where coupon blocks are), never a "not decided" one (the
+//      formula block is offered since 507); a coupons campaign offers the coupon condition; Escape closes it;
 //  26. a pick adds the block with its panel open; the panel's typed fields (a count, the rule's
 //      filters by id) and the EN + AR "not met" pair (the Arabic dir=rtl) edit it live; Done closes
 //      it and the sentence and both lines read the edit;
@@ -591,8 +601,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  30. Add rule, name it, move it up, delete it; a group with a condition inside it (an empty one
 //      leaves the rule "Always"); codes typed with commas, and Undo empties the input too;
 //  31. leaving with unsaved changes asks: Stay keeps them, Leave and discard goes;
-//  32. a refused save is the door's own message, the edits kept; a formula reads in its panel,
-//      not editable;
+//  32. a refused save is the door's own message, the edits kept; a formula opens in its panel in
+//      the ƒx box (507);
 //  33. no page errors.
 {
   const { context, page, errors, saves } = await open()
@@ -614,7 +624,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('25: the palette is grouped by category', JSON.stringify(groups) === JSON.stringify(['basket', 'attribute', 'loyalty', 'sale', 'logic']), JSON.stringify(groups))
   check('25: points blocks with points on, no coupon block with coupons off', offered.includes('minPoints') && !offered.includes('coupon'), offered.join(','))
   check('25: …and it says where the coupon blocks are', (await palette.locator('[data-palette-hidden="coupons"]').count()) === 1 && (await palette.locator('[data-palette-hidden="points"]').count()) === 0)
-  check('25: "not decided" blocks and the formula block are left out', !offered.includes('anniversary') && !offered.includes('audience') && !offered.includes('expr'))
+  check('25: "not decided" blocks are left out; the formula block is offered (507)', !offered.includes('anniversary') && !offered.includes('audience') && offered.includes('expr'))
   check('25: blocks read in words', (await palette.locator('[data-palette-block="minCount"]').innerText()) === 'Number of items is at least')
   check('25: focus moves into the palette', await palette.locator('[data-palette-block="minSubtotal"]').evaluate((e) => e === document.activeElement))
   await page.keyboard.press('Escape')
@@ -758,7 +768,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const expr = page.locator('[data-condition][data-sentence="sentence.condition.expr"]')
   await expr.locator('[data-block-edit]').click()
   const fp = expr.locator('[data-block-panel]')
-  check('32: a formula reads in its panel as written, not editable', (await fp.locator('[data-panel-field="formula"] code').innerText()) === 'back > 0' && (await fp.locator('[data-panel-field="formula"] input, [data-panel-field="formula"] textarea').count()) === 0)
+  check('32: a formula opens in its panel, in the ƒx box', (await fp.locator('[data-panel-field="formula"] [data-fx-input]').inputValue()) === 'back > 0')
   await fp.locator('[data-panel-says="notMet"] [data-panel-says-en]').fill('something to give back')
   await fp.locator('[data-panel-done]').click()
   const award = page.locator('[data-effect]').first()
@@ -916,7 +926,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await added.locator('[data-filter-name-input]').fill('sun')
   check('40: a taken name keeps the editor from closing with Done', await added.locator('[data-filter-done]').isDisabled())
   await minCount.locator('[data-block-edit]').click()
-  check('40: …and once another panel opens, the chain says the name is taken', (await added.locator('[data-filter-editor]').count()) === 0 && (await added.locator('[data-filter-chain-problem="taken"]').innerText()) === 'This rule already has a filter with this name.')
+  check('40: …and once another panel opens, the chain says the name is taken', (await added.locator('[data-filter-editor]').count()) === 0 && (await added.locator('[data-filter-chain-problem="taken"]').innerText()) === 'This rule already has a filter or a value with this name.')
   await minCount.locator('[data-panel-done]').click()
   await added.locator('[data-filter-edit]').click()
   check('40: …an unused filter can be deleted', !(await added.locator('[data-filter-delete]').isDisabled()))
@@ -957,6 +967,171 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await cond.locator('[data-filter-cancel]').click()
   check('42: Cancel leaves the field as it was', (await cond.locator('[data-filter-editor]').count()) === 0 && (await cond.locator('[data-panel-field="of"] option:checked').innerText()).replace(/[⁨⁩]/g, '') === 'serum')
   check('43: no page errors (42)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 507 ── it asserts:
+//  44. the validator is always on: each named value's box shows HQ's answer — valid, and its result
+//      on the sample basket — and a value's check sends the rule's filters and only the values above it;
+//  45. Add a value → value1, "write a number or a formula"; ƒx › Recipes (numbers only, on the rule's
+//      filter) › Use writes the formula, checked, with its result; ONE Undo step;
+//  46. ƒx › Fields: type badges, this rule's filter and the values above, a search; a field put
+//      over a selection replaces it, the caret after it;
+//  47. renamed, the value is picked at the award's points field BY ID: the sentence reads it, the
+//      value says it is read and cannot be deleted; the old one is free to go;
+//  48. the formula condition: a yes / no check; Recipes offers only tests; a typo is underlined at
+//      HQ's span with HQ's message (aria-invalid), and a field picked over it mends it; an operator
+//      chip goes in at the caret; Functions show signature, meaning and example;
+//  49. typing waits for the keys to stop: one check for the typed formula, none for its halves;
+//  50. Save sends the value (name, formula) and the award's reference to it by id — no expression
+//      was typed by hand to write it;
+//  51. a refused check is the door's own message under the box;
+//  52. no page errors.
+{
+  const { context, page, errors, saves, checks } = await open()
+  const wlcb = CAMPAIGNS.find((c) => c.id === 'WLCB')
+  const [spend, back] = wlcb.rules[0].values
+  const eligible = wlcb.rules[0].filters[0]
+  await page.goto(`${BASE}/campaigns/WLCB/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const card = page.locator('[data-rule-card]').first()
+  const bar = page.locator('[data-builder-bar]')
+  const row = (id) => card.locator(`[data-value-id="${id}"]`)
+  const statusOf = (loc) => loc.locator('[data-fx-status]').first()
+  /** Text as read: one space between words, no isolate marks. */
+  const words = async (loc) => (await loc.innerText()).replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ').trim()
+  const waitStatus = (loc, state) => loc.locator(`[data-fx-status="${state}"]`).first().waitFor({ timeout: 5000 })
+
+  // ── 44 ──
+  await waitStatus(row(back.id), 'ok')
+  await waitStatus(row(spend.id), 'ok')
+  check('44: each value’s box shows HQ’s check: valid, and its result on the sample basket', (await words(statusOf(row(back.id)))) === 'Valid · gives a number · on the sample basket: 12.5', await words(statusOf(row(back.id))))
+  const backCheck = checks.find((c) => c.formula === back.formula)
+  check(
+    '44: a value’s check sends the rule’s filters and only the values above it',
+    backCheck?.campaignId === 'WLCB' && backCheck.expect === 'number' && JSON.stringify(backCheck.filters.map((f) => f.id)) === JSON.stringify([eligible.id]) && JSON.stringify(backCheck.values.map((v) => v.id)) === JSON.stringify([spend.id]),
+    JSON.stringify(backCheck),
+  )
+
+  // ── 45 ──
+  await card.locator('[data-value-add]').click()
+  const added = card.locator('[data-value-id]').nth(2)
+  const valueId = await added.getAttribute('data-value-id')
+  const box = added.locator('[data-fx-input]')
+  check('45: Add a value adds value1, its formula still to write', (await added.locator('[data-value-name]').inputValue()) === 'value1' && (await box.inputValue()) === '' && (await statusOf(added).getAttribute('data-fx-status')) === 'empty')
+  await added.locator('[data-fx-toggle]').click()
+  const helper = added.locator('[data-fx-helper]')
+  check('45: ƒx opens the helper on Fields', (await helper.count()) === 1 && (await helper.locator('[data-fx-tab="fields"]').getAttribute('aria-pressed')) === 'true')
+  await helper.locator('[data-fx-tab="recipes"]').click()
+  const recipes = await helper.locator('[data-fx-recipe]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-recipe')))
+  check('45: Recipes for a value give numbers only', recipes.includes('percentOfSpend') && recipes.includes('tieredRate') && recipes.includes('capped') && recipes.includes('pointsPerSar') && recipes.includes('topTiers') && !recipes.includes('basketBigEnough'), recipes.join(','))
+  const pct = helper.locator('[data-fx-recipe="percentOfSpend"]')
+  check('45: a recipe names the rule’s filter', (await pct.locator('[data-fx-recipe-formula]').innerText()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)' && (await words(pct)).includes('10% of the net of eligible, rounded for the currency.'), await words(pct))
+  await pct.locator('[data-fx-use]').click()
+  check('45: Use writes the recipe into the box', (await box.inputValue()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)')
+  await waitStatus(added, 'ok')
+  check('45: …HQ checks it and gives its result on the sample basket', (await added.locator('[data-fx-result]').innerText()) === '12.5' && checks.some((c) => c.formula === 'round(sum(eligible) * 10 / 100, decimals, halfUp)' && c.values.length === 2))
+  await bar.locator('[data-undo]').click()
+  check('45: the recipe is ONE Undo step', (await box.inputValue()) === '')
+  await bar.locator('[data-redo]').click()
+  check('45: …and Redo puts it back', (await box.inputValue()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)')
+
+  // ── 46 ──
+  await helper.locator('[data-fx-tab="fields"]').click()
+  const own = await helper.locator('[data-fx-group="rule"] [data-fx-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-item')))
+  check('46: Fields lists this rule’s filter and the values above this one', JSON.stringify(own) === JSON.stringify([`filter:${eligible.id}`, `value:${spend.id}`, `value:${back.id}`]), JSON.stringify(own))
+  check('46: …each with its type badge', (await helper.locator(`[data-fx-item="filter:${eligible.id}"] [data-fx-type]`).innerText()) === 'LIST' && (await helper.locator('[data-fx-item="field:session.total"] [data-fx-type]').innerText()) === 'MONEY')
+  await helper.locator('[data-fx-search]').fill('tier')
+  const found = await helper.locator('[data-fx-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-item')))
+  check('46: the search finds a field by its words', JSON.stringify(found) === '["field:profile.tier"]', JSON.stringify(found))
+  await helper.locator('[data-fx-search]').fill('')
+  // Select "sum(eligible)" in the box, then pick the value `spend` over it.
+  await box.focus()
+  await box.evaluate((el) => el.setSelectionRange(6, 19))
+  await helper.locator(`[data-fx-item="value:${spend.id}"]`).click()
+  check('46: a field picked over a selection replaces it', (await box.inputValue()) === 'round(spend * 10 / 100, decimals, halfUp)', await box.inputValue())
+  check('46: …and the caret is after it, in the box', (await box.evaluate((el) => [document.activeElement === el, el.selectionStart, el.selectionEnd].join())) === 'true,11,11')
+  await waitStatus(added, 'ok')
+  await helper.locator('[data-fx-done]').click()
+  check('46: Done closes the helper', (await added.locator('[data-fx-helper]').count()) === 0)
+
+  // ── 47 ──
+  await added.locator('[data-value-name]').fill('cashback')
+  const award = card.locator('[data-effect]').first()
+  await award.locator('[data-block-edit]').click()
+  await award.locator('[data-panel-value-source="value"]').selectOption(valueId)
+  check('47: the award reads the new value by name in its sentence', (await award.locator('[data-block-sentence]').innerText()).startsWith('Award cashback in SAR of points'), await award.locator('[data-block-sentence]').innerText())
+  await award.locator('[data-panel-done]').click()
+  check('47: the value says it is read, and cannot be deleted', (await added.locator('[data-value-uses]').innerText()) === 'Read by 1 condition or effect.' && (await added.locator('[data-value-delete]').isDisabled()))
+  check('47: the value the award no longer reads can be deleted', !(await row(back.id).locator('[data-value-delete]').isDisabled()))
+  await added.locator('[data-value-name]').fill('spend')
+  check('47: a name another value has is refused', (await added.locator('[data-value-name-problem="taken"]').innerText()) === 'This rule already has a value or a filter with this name.')
+  await added.locator('[data-value-name]').fill('cashback')
+
+  // ── 48 ──
+  const expr = card.locator('[data-condition][data-sentence="sentence.condition.expr"]')
+  await expr.locator('[data-block-edit]').click()
+  const ebox = expr.locator('[data-fx-input]')
+  await waitStatus(expr, 'ok')
+  check('48: the formula condition is a yes / no test, checked by HQ', (await words(statusOf(expr))) === 'Valid · gives yes or no · on the sample basket: yes' && checks.some((c) => c.formula === 'back > 0' && c.expect === 'bool' && c.values.length === 3))
+  await expr.locator('[data-fx-toggle]').click()
+  const eh = expr.locator('[data-fx-helper]')
+  await eh.locator('[data-fx-tab="recipes"]').click()
+  const tests = await eh.locator('[data-fx-recipe]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-recipe')))
+  check('48: Recipes for a condition offer tests only', tests.includes('basketBigEnough') && tests.includes('goldOrPlatinum') && !tests.includes('percentOfSpend'), tests.join(','))
+  await eh.locator('[data-fx-tab="functions"]').click()
+  const sum = eh.locator('[data-fx-function="sum"]')
+  check('48: Functions show the signature, the meaning and an example', (await sum.innerText()).includes('sum(filter)') && (await sum.innerText()).includes('Adds up the net') && (await sum.innerText()).includes('sum(beauty)'))
+  await ebox.fill('bakc > 0')
+  await waitStatus(expr, 'bad')
+  check('48: a typo is underlined at HQ’s span', (await expr.locator('[data-fx-underline] mark').innerText()) === 'bakc' && (await expr.locator('[data-fx-underline]').innerText()) === 'bakc > 0')
+  check('48: …with HQ’s message, and the box is marked invalid', (await expr.locator('[data-fx-error]').innerText()).includes('"bakc" is not a field') && (await ebox.getAttribute('aria-invalid')) === 'true')
+  await page.screenshot({ path: `${SHOTS}/fx-typo.png`, fullPage: true })
+  await eh.locator('[data-fx-tab="fields"]').click()
+  await ebox.focus()
+  await ebox.evaluate((el) => el.setSelectionRange(0, 4))
+  await eh.locator(`[data-fx-item="value:${back.id}"]`).click()
+  await waitStatus(expr, 'ok')
+  check('48: the value picked over the typo mends it', (await ebox.inputValue()) === 'back > 0' && (await ebox.getAttribute('aria-invalid')) === null && (await expr.locator('[data-fx-underline]').count()) === 0)
+  await ebox.evaluate((el) => el.setSelectionRange(8, 8))
+  await eh.locator('[data-fx-op="and"]').click()
+  check('48: an operator chip goes in at the caret', (await ebox.inputValue()) === 'back > 0 and ', await ebox.inputValue())
+  await bar.locator('[data-undo]').click()
+  check('48: …as one Undo step', (await ebox.inputValue()) === 'back > 0')
+  await expr.locator('[data-panel-done]').click()
+
+  // ── 49 ──
+  const before = checks.length
+  await box.focus()
+  await box.press('End')
+  await box.pressSequentially(' + 1', { delay: 40 })
+  await waitStatus(added, 'ok')
+  const typed = checks.slice(before).map((c) => c.formula)
+  check('49: typing waits for the keys to stop: one check for the whole formula', JSON.stringify(typed) === JSON.stringify(['round(spend * 10 / 100, decimals, halfUp) + 1']), JSON.stringify(typed))
+  await bar.locator('[data-undo]').click()
+  check('49: the typing is one Undo step', (await box.inputValue()) === 'round(spend * 10 / 100, decimals, halfUp)')
+  await page.screenshot({ path: `${SHOTS}/fx-values.png`, fullPage: true })
+
+  // ── 50 ──
+  await bar.locator('[data-save]').click()
+  await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
+  const sent = saves[0]?.rules?.[0]
+  const sentValue = sent?.values?.find((v) => v.id === valueId)
+  check('50: Save sends the value, written from a recipe and a field', saves.length === 1 && sentValue?.name === 'cashback' && sentValue.formula === 'round(spend * 10 / 100, decimals, halfUp)', JSON.stringify(sent?.values))
+  check('50: …and the award reads it by id', sent?.then?.[0]?.value === valueId, JSON.stringify(sent?.then?.[0]))
+  check('52: no page errors (44–50)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 51 ──
+{
+  const { context, page, errors } = await open({ refuseCheck: true })
+  await page.goto(`${BASE}/campaigns/PRCB-AUG26/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const first = page.locator('[data-value-id]').first()
+  await first.locator('[data-fx-status="failed"]').waitFor({ timeout: 5000 })
+  check('51: a refused check is the door’s own message under the box', (await first.locator('[data-fx-status="failed"]').innerText()) === CHECK_REFUSED && (await first.locator('[role="alert"]').count()) === 1)
+  check('52: no page errors (51)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

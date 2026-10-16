@@ -36,12 +36,21 @@ export function nextFilterName(filters: readonly RuleItemFilter[], base: string)
   return `${base}${k}`
 }
 
-/** Why a filter cannot have `name` in this rule: empty, or another filter's (ignoring case). */
+/**
+ * Why a filter cannot have `name` in this rule: empty, or another filter's or a named value's
+ * (ignoring case) — a formula reads both by name (ticket 507), so they never share one.
+ */
 export type FilterNameProblem = 'empty' | 'taken' | null
 
-export function filterNameProblem(filters: readonly RuleItemFilter[], name: string, selfId?: string): FilterNameProblem {
+export function filterNameProblem(
+  filters: readonly RuleItemFilter[],
+  name: string,
+  selfId?: string,
+  values: readonly { name: string }[] = [],
+): FilterNameProblem {
   if (!name.trim()) return 'empty'
-  return taken(filters, name, selfId) ? 'taken' : null
+  const n = name.trim().toLowerCase()
+  return taken(filters, name, selfId) || values.some((v) => v.name.trim().toLowerCase() === n) ? 'taken' : null
 }
 
 function mapRule(rules: Rules, ruleId: string, fn: (r: CampaignRule) => CampaignRule): Rules {

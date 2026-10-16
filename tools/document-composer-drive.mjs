@@ -115,7 +115,7 @@ function wire() {
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1017' }))
     if (/Access$/.test(p))
-      return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }))
+      return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (p === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope(LIST))
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes|Districts)$/.test(p))
       return route.fulfill(envelope([]))

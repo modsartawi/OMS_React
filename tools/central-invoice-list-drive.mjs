@@ -118,7 +118,7 @@ async function open(browser, { probe = 'granted', answer } = {}) {
       if (answer) return route.fulfill(answer(q))
       return route.fulfill(envelope({ rows: ROWS }))
     }
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (p === 'SdDocumentWeb/DeliveryDocumentList')
       return route.fulfill(envelope([{ deliveryNo: '8000000253', documentNo: '2000000551', storeCode: 'P001', netAmount: 12.5 }]))
     if (/Access$/.test(p))

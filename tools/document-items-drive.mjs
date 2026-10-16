@@ -86,7 +86,7 @@ async function run() {
     // guards on canOpenDetail, so this drive must answer the probe or every
     // assertion below meets the denied card instead of the screen.
     if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) {
       currentDoc = doc[1]

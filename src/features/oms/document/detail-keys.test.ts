@@ -25,6 +25,8 @@ const AT_REST: CommandContext = {
   canReturn: false,
   lines: [],
   busy: false,
+  canChangeDetail: true,
+  canCreateReturn: true,
 }
 const REQUEST_OPEN: CommandContext = { ...AT_REST, closeStatus: 'R' }
 
@@ -120,6 +122,14 @@ describe('Delivery details keys (spec 380 D10, ticket 405; ruling 365 §6)', () 
     expect(refused.run).toBeNull()
     expect(shipped(refused.reason!)).toBeTruthy()
     expect(build(AT_REST, { text: 'Customer called', posting: true }).back.run).toBeNull()
+  })
+})
+
+describe('a session without canChangeDetail (ticket 521)', () => {
+  it('gets no R, C or N — only Esc — whatever canCreateReturn says', () => {
+    for (const canCreateReturn of [false, true]) {
+      expect(Object.keys(build({ ...AT_REST, canChangeDetail: false, canCreateReturn }))).toEqual(['back'])
+    }
   })
 })
 

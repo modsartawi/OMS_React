@@ -21,9 +21,14 @@
  * (`DCCR`/`OCCR`): a cancellation request is irreversible (owner ruling
  * 2026-09-25, BackOffice ticket 2022 — the request itself sends a picked basket
  * to the store's put-back list), so it is on no document, ever.
+ *
+ * **A missing GRANT is not state** (BackOffice 2763, ticket 521). A session without
+ * `canChangeDetail` has no change command to discover, and one without `canCreateReturn` no
+ * return: those commands are left off the bar, a cluster left empty goes with them, and the
+ * terminal tier may be empty too. The bar is still the same on every document for one session.
  */
 import type { SdDocumentLineModel } from '@/core/models/sd-document'
-import { isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
+import { grantOf, isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
 import { returnableLines } from './return-order'
 
 /** The three labelled clusters, in reading order. */
@@ -108,6 +113,13 @@ export interface CommandContext {
   lines: SdDocumentLineModel[] | null | undefined
   /** An action is posting, its follow-up reload is running, or a dialog is open. */
   busy: boolean
+  /**
+   * The probe's `canChangeDetail` (BackOffice 2763): draws every command but Return Document.
+   * The caller reads it strictly (`@/core/oms/access`), so absent is `false`.
+   */
+  canChangeDetail: boolean
+  /** The probe's `canCreateReturn` (BackOffice 2763): draws Return Document. */
+  canCreateReturn: boolean
 }
 
 /** The translator, passed in. Same contract as `rail.ts`'s `TFn`. */
@@ -184,6 +196,14 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
 }
 
 /**
+ * Whether this session's grants draw a command at all (ticket 521). Not a gate: a command it
+ * refuses is not on the bar, not a key and not an intent the list can open.
+ */
+export function isGranted(kind: CommandKind, ctx: Pick<CommandContext, 'canChangeDetail' | 'canCreateReturn'>): boolean {
+  return grantOf(kind) === 'return' ? ctx.canCreateReturn : ctx.canChangeDetail
+}
+
+/**
  * The disabled reason for one command, as a `document` namespace KEY, or `null` when it is
  * takeable. Busy is handled by the caller: it outranks every reason and carries none.
  *
@@ -236,14 +256,18 @@ export function commandOf(bar: CommandBar, kind: CommandKind): CommandState | nu
   return [...bar.clusters.flatMap((c) => c.commands), ...bar.terminal].find((c) => c.kind === kind) ?? null
 }
 
-/** The whole bar for one document: three clusters plus the terminal tier. */
+/**
+ * The whole bar for one document: three clusters plus the terminal tier, less what this
+ * session's grants do not draw (ticket 521) — a cluster left with no command is dropped.
+ */
 export function commandBar(ctx: CommandContext, t: TFn): CommandBar {
+  const granted = (kind: CommandKind) => isGranted(kind, ctx)
   return {
     clusters: CLUSTERS.map(({ id, commands }) => ({
       id,
       label: t(`command.clusters.${id}`),
-      commands: commands.map((kind) => state(kind, ctx, t)),
-    })),
-    terminal: TERMINAL.map((kind) => state(kind, ctx, t)),
+      commands: commands.filter(granted).map((kind) => state(kind, ctx, t)),
+    })).filter((cluster) => cluster.commands.length > 0),
+    terminal: TERMINAL.filter(granted).map((kind) => state(kind, ctx, t)),
   }
 }

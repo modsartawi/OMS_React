@@ -230,7 +230,7 @@ const routeApi = (dir) => async (route) => {
   if (/^SdDocumentWeb\/(Delivery|Document)\//.test(path))
     return route.fulfill(envelope(null, { success: false, message: 'Not found in this drive' }))
   if (/Access$/.test(path))
-    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }))
+    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
   return route.fulfill(envelope({}))
 }
 

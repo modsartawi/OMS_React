@@ -52,4 +52,15 @@ export interface OmsAccessResult {
   canOpenPickSupport?: boolean
   /** `BackOfficeScreen[PickSupport,06]` — the fix. Hide the button without it. */
   canFixPickSupport?: boolean
+  // ── Document Details' write doors (BackOffice 2763, client ticket 521). `canOpenDetail` only
+  // READS since 2763; the writes need a second grant on top of it. Optional for the same reason:
+  // an older SIS.Api omits them, and an absent flag reads as denied.
+  /**
+   * `BackOfficeScreen[DocumentDetails,02]` — `UpdateDocument`, `UpdateDelivery`,
+   * `RescheduleDocument`, `RescheduleDelivery`: every bar command but the return and Mark
+   * delivered, and the list's acts.
+   */
+  canChangeDetail?: boolean
+  /** `BackOfficeScreen[OmsCreateReturn,01]` — `CreateReturn`. Neither grant implies the other. */
+  canCreateReturn?: boolean
 }

@@ -181,7 +181,7 @@ async function open(dir, { grant = true, answer = () => statistics(), clock = fa
     calls.push(p)
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: grant, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: grant, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/StoreStatistics') {
       statQueries.push(url.searchParams)

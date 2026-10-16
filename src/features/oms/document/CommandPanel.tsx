@@ -47,9 +47,10 @@ import {
  * - **The escape slot stays empty too.** Back is the header's chevron; a
  *   page is not a modal. Back top-start, Cancel Order bottom-end, as far apart
  *   as the page allows.
- * - **Nothing is ever hidden, and no `More ▾`.** Below the width where three
- *   clusters fit, the cluster group WRAPS and the terminal pair stays pinned to
- *   the end.
+ * - **Nothing is ever hidden for state, and no `More ▾`.** Below the width where
+ *   three clusters fit, the cluster group WRAPS and the terminal pair stays pinned
+ *   to the end. What a session's GRANTS do not draw (ticket 521) is not on the bar
+ *   at all — `commands.ts` leaves it out, so this file never sees it.
  */
 
 /**
@@ -215,13 +216,18 @@ export default function CommandPanel({
   keysOf?: Partial<Record<CommandKind, string>>
 }) {
   const { t } = useTranslation('document')
-  const { closeStatus, documentCategory, openedAs, canReturn, lines, busy } = context
+  const { closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn } = context
   // Memoised on the FIELDS, not on `context`: the parent builds the object
   // inline, so a reference dependency would recompute on every render.
   const bar = useMemo(
-    () => commandBar({ closeStatus, documentCategory, openedAs, canReturn, lines, busy }, t),
-    [closeStatus, documentCategory, openedAs, canReturn, lines, busy, t],
+    () =>
+      commandBar({ closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn }, t),
+    [closeStatus, documentCategory, openedAs, canReturn, lines, busy, canChangeDetail, canCreateReturn, t],
   )
+
+  // A view-only session (ticket 521: no change, no return, no billing, no Mark delivered) has no
+  // command at all, so it gets no empty bar either.
+  if (bar.clusters.length === 0 && bar.terminal.length === 0 && !onCentralInvoice && !markDelivered) return null
 
   return (
     <section className="rounded-lg border border-border/60 bg-card" aria-label={t('command.title')}>

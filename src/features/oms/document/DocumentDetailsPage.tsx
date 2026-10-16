@@ -6,7 +6,8 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+import { OMS_ACCESS_KEY, omsAccessApi, revokeOnForbidden } from '@/core/oms/api'
+import { canChangeDetail, canCreateReturn } from '@/core/oms/access'
 import { pickSupportKeys } from '@/core/pick-support/api'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
@@ -135,6 +136,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     retry: false,
   })
   const canOpenDetail = access.data?.canOpenDetail === true
+  // The write grants (BackOffice 2763, ticket 521): the screen opens on `canOpenDetail` alone,
+  // and these decide which of its commands — and whether the note composer — are drawn.
+  const mayChange = canChangeDetail(access.data)
+  const mayCreateReturn = canCreateReturn(access.data)
   // Central invoicing's own grant (ticket 332) — the SAME key and options as the menu leaf
   // and the bulk screen's gate, so it costs no extra call, and a 403 from the dialog (which
   // overwrites the entry) removes the action here too.
@@ -348,10 +353,11 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         void reload()
       } catch (err) {
         setActionRunning(false)
+        revokeOnForbidden(queryClient, err, 'canChangeDetail')
         notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
       }
     },
-    [document, actionBusy, reload, t],
+    [document, actionBusy, reload, t, queryClient],
   )
 
   /**
@@ -378,6 +384,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       await post(body)
     } catch (err) {
       failure = { err }
+      revokeOnForbidden(queryClient, err, 'canChangeDetail')
     }
     setActionRunning(false)
     setNotePosting(false)
@@ -453,6 +460,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         canReturn: document.canReturn,
         lines: document.lines,
         busy: commandBusy,
+        canChangeDetail: mayChange,
+        canCreateReturn: mayCreateReturn,
       }
     : null
 
@@ -504,6 +513,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       void reload()
     } catch (err) {
       setActionRunning(false)
+      revokeOnForbidden(queryClient, err, 'canChangeDetail')
       notify.apiError(t('toast.failed', { label }), err, t('toast.failedDetail', { label: label.toLowerCase() }))
     }
   }
@@ -663,17 +673,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 logs={logs}
                 jobs={jobs}
                 donors={donors}
+                // Add note posts through `UpdateDocument`/`UpdateDelivery`, so a session that
+                // may not change the record has no composer (ticket 521).
                 composer={
-                  <NoteComposer
-                    value={noteText}
-                    onChange={setNoteText}
-                    state={composer}
-                    busy={actionBusy}
-                    failure={noteFailure}
-                    onPost={() => void postNote()}
-                    textareaRef={composerRef}
-                    focusKeys={hints.composer}
-                  />
+                  mayChange ? (
+                    <NoteComposer
+                      value={noteText}
+                      onChange={setNoteText}
+                      state={composer}
+                      busy={actionBusy}
+                      failure={noteFailure}
+                      onPost={() => void postNote()}
+                      textareaRef={composerRef}
+                      focusKeys={hints.composer}
+                    />
+                  ) : null
                 }
               />
               <FactsColumn

@@ -211,7 +211,7 @@ async function open(scenario, mode = MODES[0]) {
           state: { ...served, status: 'submitted' },
         }),
       )
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))

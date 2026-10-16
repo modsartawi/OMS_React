@@ -27,6 +27,21 @@ export type UpdateActionKind =
  */
 export type CommandKind = UpdateActionKind | 'reschedule' | 'return-document'
 
+/**
+ * The grant a command's door checks (BackOffice 2763, ticket 521), on top of `canOpenDetail`:
+ *
+ * - `change` — `canChangeDetail`. Every Update action posts to `UpdateDocument`/`UpdateDelivery`
+ *   and Reschedule to its own pair; all four doors check `DocumentDetails,02`.
+ * - `return` — `canCreateReturn`. Return Document posts to `CreateReturn` (`OmsCreateReturn,01`).
+ *
+ * Neither implies the other. Mark delivered is not a `CommandKind` and keeps its own grant.
+ */
+export type CommandGrant = 'change' | 'return'
+
+export function grantOf(kind: CommandKind): CommandGrant {
+  return kind === 'return-document' ? 'return' : 'change'
+}
+
 /** What the command panel emits when the operator triggers an action. */
 export interface CommandRequest {
   kind: CommandKind

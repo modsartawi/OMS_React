@@ -233,7 +233,7 @@ async function driveOneMode({ theme, dir }) {
       return route.fulfill(envelope([]))
     if (/Access$/.test(path))
       return route.fulfill(
-        envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }),
+        envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
       )
     if (/\/(Outbox|Logs)$/.test(path)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
@@ -553,7 +553,7 @@ async function routeGrids(route) {
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
   if (/Access$/.test(path))
     return route.fulfill(
-      envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }),
+      envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
     )
   return route.fulfill(envelope([]))
 }
@@ -875,7 +875,7 @@ async function driveRanges({ theme, dir }) {
     if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
     if (/Access$/.test(path))
       return route.fulfill(
-        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }),
+        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
       )
     return route.fulfill(envelope([]))
   })
@@ -1006,7 +1006,7 @@ async function routeRail(route) {
     return route.fulfill(
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
     )
-  if (path === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+  if (path === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
   if (path === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
   if (path === 'CollectionWeb/Access')
     return route.fulfill(
@@ -2922,7 +2922,7 @@ const ALL_SCREENS_SHOTS = '.issues/assets/391-shots'
 const ALL_GRANTS = {
   canOpen: true,
   canOpenList: true,
-  canOpenDetail: true,
+  canOpenDetail: true, canChangeDetail: true, canCreateReturn: true,
   screenAllowed: true,
   allowed: true,
   canOpenConsole: true,

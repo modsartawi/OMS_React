@@ -145,7 +145,7 @@ async function open(dir, { grant, reRun = false, queue = () => 'rows', run = () 
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') {
-      const flags = { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
+      const flags = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
       if (grant) flags.canOpenFailedTransfers = true
       if (reRun) flags.canReRunFailedTransfer = true
       return route.fulfill(envelope(flags))

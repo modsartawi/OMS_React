@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Minus, Plus, Undo2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
@@ -7,6 +7,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorKind, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
+import { revokeOnForbidden } from '@/core/oms/api'
 import { mintRequestId } from '@/core/util/request-id'
 import { formatMoney } from '@/core/util/number-format'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
@@ -98,6 +99,7 @@ export default function ReturnDialog({
   document: SdDocumentHeaderModel
 }) {
   const { t } = useTranslation('document')
+  const queryClient = useQueryClient()
   const [lineState, setLineState] = useState<Record<number, LineState>>({})
   /**
    * **Neither reason pre-selected** (D5). `null` is the gate's third missing
@@ -209,6 +211,8 @@ export default function ReturnDialog({
       // them build detail — hard-coding one here is how this repo drifts from a
       // policy that moves. 401 is not ours either: `handle401` has already
       // cleared the session and redirected.
+      // A 403 is the grant refusing (ticket 521): the bar loses Return document behind this dialog.
+      revokeOnForbidden(queryClient, err, 'canCreateReturn')
       const refused = apiErrorKind(err) === 'business'
       const fallback = t('returnDocument.refused.fallback')
       setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err), refused })

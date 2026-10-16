@@ -38,6 +38,8 @@ function barFor(documentNo: CapturedDocumentNo, busy = false): CommandBar {
       canReturn: doc.canReturn,
       lines: doc.lines,
       busy,
+      canChangeDetail: true,
+      canCreateReturn: true,
     },
     t,
   )
@@ -61,6 +63,8 @@ const AT_REST: CommandContext = {
   canReturn: false,
   lines: [],
   busy: false,
+  canChangeDetail: true,
+  canCreateReturn: true,
 }
 
 /**
@@ -82,6 +86,8 @@ function returnBar(
       canReturn: document.canReturn,
       lines: document.lines,
       busy: false,
+      canChangeDetail: true,
+      canCreateReturn: true,
       ...overrides,
     },
     t,
@@ -329,6 +335,8 @@ describe('commandGating', () => {
         canReturn: null,
         lines: null,
         busy: false,
+        canChangeDetail: true,
+        canCreateReturn: true,
       },
       t,
     )
@@ -349,6 +357,8 @@ describe("the list's open intent, through this bar's own gate (ticket 401, D9)",
         canReturn: doc.canReturn,
         lines: doc.lines,
         busy,
+        canChangeDetail: true,
+        canCreateReturn: true,
       },
       t,
     )
@@ -381,5 +391,40 @@ describe("the list's open intent, through this bar's own gate (ticket 401, D9)",
   it('a busy bar opens nothing and explains nothing', () => {
     const bar = deliveryBar('8000000253', true)
     expect(resolveOpenIntent('reschedule', (kind) => commandOf(bar, kind))).toBeNull()
+  })
+})
+
+describe('the write grants draw the commands (ticket 521, BackOffice 2763)', () => {
+  const CHANGE_KINDS: CommandKind[] = ['reschedule', 'change-store', 'request-close', 'add-note', 'force-close', 'close']
+  const bar = (canChangeDetail: boolean, canCreateReturn: boolean) =>
+    commandBar({ ...AT_REST, canReturn: true, canChangeDetail, canCreateReturn }, t)
+  const kinds = (b: CommandBar) => everyCommand(b).map((c) => c.kind)
+
+  it('a viewer (neither grant) gets an empty bar: no cluster, no terminal tier, no intent opens', () => {
+    const viewer = bar(false, false)
+    expect(viewer.clusters).toEqual([])
+    expect(viewer.terminal).toEqual([])
+    for (const intent of ['reschedule', 'request-close', 'add-note'] as const) {
+      expect(resolveOpenIntent(intent, (kind) => commandOf(viewer, kind))).toBeNull()
+    }
+  })
+
+  it('canChangeDetail alone draws every change command and no return', () => {
+    const change = bar(true, false)
+    expect(kinds(change).sort()).toEqual([...CHANGE_KINDS].sort())
+    expect(change.clusters.map((c) => c.id)).toEqual(['fulfilment', 'cancel-request', 'notes'])
+    expect(commandOf(change, 'return-document')).toBeNull()
+  })
+
+  it('canCreateReturn alone draws only the return, in its own cluster', () => {
+    const ret = bar(false, true)
+    expect(kinds(ret)).toEqual(['return-document'])
+    expect(ret.clusters.map((c) => c.id)).toEqual(['notes'])
+    expect(ret.terminal).toEqual([])
+    expect(commandOf(ret, 'return-document')?.disabled).toBe(false)
+  })
+
+  it('both grants draw the whole bar', () => {
+    expect(kinds(bar(true, true)).sort()).toEqual([...CHANGE_KINDS, 'return-document'].sort())
   })
 })

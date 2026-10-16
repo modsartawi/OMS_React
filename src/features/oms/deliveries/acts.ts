@@ -7,6 +7,8 @@
  * its button carries on Delivery details.
  */
 import { CalendarClock, Flag, Plus, type LucideIcon } from 'lucide-react'
+import type { OmsAccessResult } from '@/core/models/oms-access'
+import { canChangeDetail } from '@/core/oms/access'
 import type { OpenIntent } from '@/core/oms/open-intent'
 
 export interface DeliveryAct {
@@ -22,3 +24,13 @@ export const DELIVERY_ACTS: readonly DeliveryAct[] = [
   { intent: 'request-close', keys: 'KeyC', icon: Flag, tone: 'text-fam-cancel-request' },
   { intent: 'add-note', keys: 'KeyN', icon: Plus, tone: 'text-muted-foreground' },
 ]
+
+/**
+ * Whether the list offers its acts at all (ticket 521, BackOffice 2763). Each deep-links to
+ * Delivery details, so it needs `canOpenDetail`; each then writes through a change door, so it
+ * needs `canChangeDetail` too. A view-only session gets neither the inspector rows, the keys nor
+ * the status bar's hint — Details would draw no command to open.
+ */
+export function actsOffered(access: OmsAccessResult | null | undefined): boolean {
+  return access?.canOpenDetail === true && canChangeDetail(access)
+}

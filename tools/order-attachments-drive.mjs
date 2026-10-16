@@ -256,7 +256,7 @@ async function run() {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     // Leaving lands on the deliveries list: its grid and its filter lookups answer empty lists.
     if (p === 'SdDocumentWeb/DeliveryDocumentList' || /^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes|StoreDetails)$/.test(p))
       return route.fulfill(envelope([]))

@@ -8,7 +8,8 @@ import type { OmsAccessResult } from '@/core/models/oms-access'
 
 /**
  * The nine flags of D2, in the order the spec lists them, then the two Pick support flags
- * (BackOffice brief 2691, shipped in BackOffice 2731) — read the same way, absent = denied.
+ * (BackOffice brief 2691, shipped in BackOffice 2731), then Document Details' two write grants
+ * (BackOffice 2763, ticket 521) — all read the same way, absent = denied.
  */
 export const OMS_SCREEN_FLAGS = [
   'canOpenDonorRequests',
@@ -22,6 +23,8 @@ export const OMS_SCREEN_FLAGS = [
   'canImportDocumentSourceUsers',
   'canOpenPickSupport',
   'canFixPickSupport',
+  'canChangeDetail',
+  'canCreateReturn',
 ] as const
 
 export type OmsScreenFlag = (typeof OMS_SCREEN_FLAGS)[number]
@@ -68,3 +71,12 @@ export const canOpenPickSupport = (r: OmsAccessResult | null | undefined): boole
 
 /** Pick support's fix (ticket 497 draws the button) — `PickSupport,06`. Hide the button without it. */
 export const canFixPickSupport = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canFixPickSupport
+
+/**
+ * Document Details' change doors (ticket 521, BackOffice 2763) — `DocumentDetails,02`. On top of
+ * `canOpenDetail`, never instead of it: the screen still opens on `canOpenDetail` alone.
+ */
+export const canChangeDetail = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canChangeDetail
+
+/** Create return (ticket 521, BackOffice 2763) — `OmsCreateReturn,01`. Change does not imply it. */
+export const canCreateReturn = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canCreateReturn

@@ -33,7 +33,7 @@ import { useSession } from '@/core/session'
 import { fsi } from '@/core/util/bidi'
 import { deliveriesApi } from './api'
 import { buildDeliveryColumns, DELIVERY_DEFAULT_COL_DEF, DELIVERY_ROW_SELECTION } from './columns'
-import { DELIVERY_ACTS } from './acts'
+import { DELIVERY_ACTS, actsOffered } from './acts'
 import DeliveryInspector from './DeliveryInspector'
 import EmptyOverlay, { type EmptyKind } from './EmptyOverlay'
 import { effectiveLimit, type DeliveryFilterCriteria } from './filter'
@@ -184,9 +184,10 @@ export default function DeliveriesPage() {
     retry: false,
   })
   const canOpenList = access.data?.canOpenList === true
-  // The acts deep-link to Delivery details, so the list offers them only to a session that may
-  // open it (365 §5: a letter is bound only if the list offers that act).
-  const canOpenDetail = access.data?.canOpenDetail === true
+  // The acts deep-link to Delivery details and write there, so the list offers them only to a
+  // session that may open it and change it (ticket 521; 365 §5: a letter is bound only if the
+  // list offers that act).
+  const offersActs = actsOffered(access.data)
 
   // The latest search's number. A view applied while a search runs starts its own search, and
   // the earlier one's answer, if it lands later, is dropped rather than shown under the view.
@@ -500,7 +501,7 @@ export default function DeliveriesPage() {
           },
           // R / C / N: deep links, never writes (365 §4). Refused with its reason until a row
           // with a delivery no. is current.
-          ...(canOpenDetail
+          ...(offersActs
             ? DELIVERY_ACTS.map(({ intent, keys, icon }) => ({
                 id: `act.${intent}`,
                 label: `deliveries:inspector.act.${intent}`,
@@ -681,7 +682,7 @@ export default function DeliveriesPage() {
               />
               {empty && <EmptyOverlay kind={empty} />}
             </div>
-            <StatusBar loaded={loaded} selected={selectedRow !== null} actsOffered={canOpenDetail} />
+            <StatusBar loaded={loaded} selected={selectedRow !== null} actsOffered={offersActs} />
           </div>
         )}
       </section>
@@ -693,7 +694,7 @@ export default function DeliveriesPage() {
           onWidth={(width) => setInspector((prefs) => ({ ...prefs, width }))}
           onCollapse={toggleInspector}
           onOpen={(to) => navigate(to, { state: fromListState() })}
-          onAct={canOpenDetail && selectedRow ? (intent) => openAct(selectedRow, intent) : null}
+          onAct={offersActs && selectedRow ? (intent) => openAct(selectedRow, intent) : null}
           // Flush with the screen's inline-end and bottom edges, under the 44px top bar.
           className="sticky top-11 -my-4 -me-4 ms-4 h-[calc(100dvh-2.75rem)] self-start"
         />

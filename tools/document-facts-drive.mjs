@@ -214,7 +214,7 @@ async function drive({ theme, dir, width }) {
     const p = url.pathname.split('/api/')[1]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))
     if (p === 'AttachmentWeb/Access') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: [] }))
     if (p === 'AttachmentWeb/ByOwner') {

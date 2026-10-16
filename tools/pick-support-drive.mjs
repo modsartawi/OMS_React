@@ -499,8 +499,8 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
       return route.fulfill(
         envelope(
           grant
-            ? { canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, ...(grant === 'fix' ? { canFixPickSupport: true } : {}) }
-            : { canOpenList: true, canOpenDetail: true },
+            ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenPickSupport: true, ...(grant === 'fix' ? { canFixPickSupport: true } : {}) }
+            : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true },
         ),
       )
     if (p === 'PickSupport/Resolve') {

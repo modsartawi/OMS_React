@@ -89,6 +89,9 @@ export function detailCommands(input: {
   }
 
   if (!context) return [back]
+  // R, C and N all write through the change doors: a session without `canChangeDetail` has no
+  // such command on the bar, so it gets no key or palette row for one either (ticket 521).
+  if (!context.canChangeDetail) return [back]
   return [
     act('reschedule', context),
     act('request-close', context),

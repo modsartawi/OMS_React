@@ -140,7 +140,7 @@ async function open(dir, { grant, list = 'today' }) {
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access')
       return route.fulfill(
-        envelope(grant ? { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true } : { canOpenList: true, canOpenDetail: true }),
+        envelope(grant ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true } : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }),
       )
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
     if (p === 'SdDocumentWeb/DonorRequests') {

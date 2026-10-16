@@ -112,7 +112,7 @@ async function open(browser, { probe = 'granted', answer } = {}) {
         }),
       )
     }
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     const doc = /^SdDocumentWeb\/(Document|Delivery)\/([^/]+)$/.exec(p)
     if (doc) return route.fulfill(envelope(DOCS[doc[2]]))
     if (/Access$/.test(p))

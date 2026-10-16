@@ -110,7 +110,7 @@ async function open(dir, { grant, importGrant = false, importAnswer = () => null
     if (p === 'SdDocumentWeb/Access') {
       const flags = {
         canOpenList: true,
-        canOpenDetail: true,
+        canOpenDetail: true, canChangeDetail: true, canCreateReturn: true,
         canOpenGeography: true,
       }
       if (grant) flags.canOpenDocumentSourceUsers = true

@@ -141,8 +141,8 @@ async function open(dir, { grant, list = 'rows' }) {
       return route.fulfill(
         envelope(
           grant
-            ? { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
-            : { canOpenList: true, canOpenDetail: true, canOpenDonorRequests: true },
+            ? { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true, canOpenDocumentPayments: true }
+            : { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDonorRequests: true },
         ),
       )
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))

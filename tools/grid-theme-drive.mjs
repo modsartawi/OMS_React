@@ -180,7 +180,7 @@ const routeApi = (dir) => async (route) => {
   // canOpenList/canOpenDetail answer the OMS probe added in ticket 125; the other flags
   // answer every sibling screen probe.
   if (/Access$/.test(path))
-    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }))
+    return route.fulfill(envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
   // Anything else (notifications, slots, …) → benign empty success.
   return route.fulfill(envelope({}))
 }

@@ -144,7 +144,7 @@ async function open(dir, { grant, importOnly = false, imports = {}, importAnswer
     calls.push(p)
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'SdDocumentWeb/Access') {
-      const flags = { canOpenList: true, canOpenDetail: true, canOpenDocumentPayments: true }
+      const flags = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canOpenDocumentPayments: true }
       if (grant) flags.canOpenGeography = true
       if (importOnly) Object.assign(flags, { canImportCities: true, canImportDistricts: true })
       if (imports.cities) flags.canImportCities = true

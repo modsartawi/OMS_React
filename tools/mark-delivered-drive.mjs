@@ -75,7 +75,7 @@ const withStatus = (doc, deliveryStatus, closeStatus = '') => ({ ...doc, status:
  * @param opts.status  the delivery's starting `deliveryStatus` / `closeStatus`
  * @param opts.answer  (body) => fulfilment for POST MarkDelivered; default `data: true` and the delivery turns `D`
  */
-async function open(browser, { access = { canOpenList: true, canOpenDetail: true, canMarkDelivered: true }, status = ['O', ''], answer } = {}) {
+async function open(browser, { access = { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }, status = ['O', ''], answer } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
   const page = await context.newPage()
   await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
@@ -210,9 +210,9 @@ async function run() {
 
   // ============================================ C · hidden
   for (const [label, access, no] of [
-    ['no grant', { canOpenList: true, canOpenDetail: true, canMarkDelivered: false }, DELIVERY],
-    ['an older API (field absent)', { canOpenList: true, canOpenDetail: true }, DELIVERY],
-    ['a delivery-return (T)', { canOpenList: true, canOpenDetail: true, canMarkDelivered: true }, RETURN],
+    ['no grant', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: false }, DELIVERY],
+    ['an older API (field absent)', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }, DELIVERY],
+    ['a delivery-return (T)', { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }, RETURN],
   ]) {
     const { context, page, calls } = await open(browser, { access })
     await openDelivery(page, no)

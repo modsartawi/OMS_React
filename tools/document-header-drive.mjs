@@ -175,7 +175,7 @@ async function drive({ theme, dir }) {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    if (p === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCS[doc[1]] ?? null))
     if (/\/(Logs|Outbox|DonorRequests)$/.test(p)) return route.fulfill(envelope([]))

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { api } from '@/core/api'
+import { api, ApiError } from '@/core/api'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 
 // The OMS screen-access probe (ticket 125, backend BackOffice 750). It lives in `@/core/`
@@ -27,7 +27,7 @@ export const OMS_ACCESS_KEY = ['oms', 'access'] as const
 
 export const omsAccessApi = {
   /**
-   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail, canMarkDelivered }`.
+   * GET SdDocumentWeb/Access → `{ canOpenList, canOpenDetail, canMarkDelivered, canChangeDetail, canCreateReturn, … }` (`OmsAccessResult`).
    *
    * ⚠️ **Fails closed, deliberately** — no 404/network-tolerant catch, unlike the
    * `Notifications/Access` and `Bby/Access` probes which degrade to allowed because
@@ -66,4 +66,19 @@ export function revokeMarkDelivered(queryClient: QueryClient): void {
   queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) =>
     prev ? { ...prev, canMarkDelivered: false } : prev,
   )
+}
+
+/**
+ * Drop one of Document Details' write grants after its door answers 403 (ticket 521, BackOffice
+ * 2763) — the same reasoning as `revokeMarkDelivered`: the server's answer outranks the probe's
+ * earlier one, and with `staleTime: Infinity` nothing else would re-ask. Anything but a 403 leaves
+ * the grant alone. Only that flag is cleared; the screen stays open.
+ */
+export function revokeOnForbidden(
+  queryClient: QueryClient,
+  err: unknown,
+  flag: 'canChangeDetail' | 'canCreateReturn',
+): void {
+  if (!(err instanceof ApiError) || err.statusCode !== 403) return
+  queryClient.setQueryData<OmsAccessResult>(OMS_ACCESS_KEY, (prev) => (prev ? { ...prev, [flag]: false } : prev))
 }

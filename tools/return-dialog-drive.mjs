@@ -253,7 +253,7 @@ async function run() {
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
     if (p === 'SdDocumentWeb/Access')
-      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) {
       docLoads += 1

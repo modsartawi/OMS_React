@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canFixPickSupport, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateReturn, canFixPickSupport, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -21,10 +21,12 @@ const NINE = [
 ] as const
 /** The two Pick support flags (ticket 496, brief 2691; BackOffice 2731). */
 const PICK = ['canOpenPickSupport', 'canFixPickSupport'] as const
-const ALL = [...NINE, ...PICK] as const
+/** Document Details' two write grants (ticket 521, BackOffice 2763). */
+const DETAIL_WRITES = ['canChangeDetail', 'canCreateReturn'] as const
+const ALL = [...NINE, ...PICK, ...DETAIL_WRITES] as const
 
 describe('omsGrants', () => {
-  it('names exactly the nine D2 flags and the two Pick support flags', () => {
+  it('names exactly the nine D2 flags, the two Pick support flags and the two Details write grants', () => {
     expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...ALL].sort())
   })
 
@@ -101,5 +103,24 @@ describe('Pick support (ticket 496)', () => {
     expect(canFixPickSupport({ canOpenList: true, canOpenDetail: true, canFixPickSupport: 1 } as unknown as OmsAccessResult)).toBe(false)
     expect(canFixPickSupport(null)).toBe(false)
     expect(canFixPickSupport(undefined)).toBe(false)
+  })
+})
+
+describe('Document Details write grants (ticket 521, BackOffice 2763)', () => {
+  it('an older SIS.Api (both fields absent) reads as denied, even with canOpenDetail', () => {
+    const older = { canOpenList: true, canOpenDetail: true }
+    expect(canChangeDetail(older)).toBe(false)
+    expect(canCreateReturn(older)).toBe(false)
+  })
+
+  it('change does not imply return, and return does not imply change', () => {
+    expect(canCreateReturn({ canOpenList: true, canOpenDetail: true, canChangeDetail: true })).toBe(false)
+    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canCreateReturn: true })).toBe(false)
+  })
+
+  it('only an explicit true grants', () => {
+    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: true })).toBe(true)
+    expect(canCreateReturn({ canOpenList: true, canOpenDetail: true, canCreateReturn: true })).toBe(true)
+    expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: 1 } as unknown as OmsAccessResult)).toBe(false)
   })
 })

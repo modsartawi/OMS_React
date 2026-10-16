@@ -347,3 +347,31 @@ export const CATALOGUE = {
     eff('notify', 'couponsAndMessages', [field('text', 'says', { role: 'message' })]),
   ],
 }
+
+// ── 506: the stubbed lookups (GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search=,
+// BackOffice 2758) that "Certain items…" searches: the prototype's categories, collections and
+// catalog (its engine.js CATS / CATALOG, data.js collections), in the PROVISIONAL `RuleLookupItem`
+// shape. A search matches a code or a name, ignoring case, and answers at most 20 hits. ──
+
+export const LOOKUPS = {
+  categories: [
+    { code: 'A001', name: 'Medicines (OTC)' }, { code: 'A002', name: 'Beauty Care' }, { code: 'A003', name: 'Baby & Mother' },
+    { code: 'A005', name: 'Personal Care' }, { code: 'A006', name: 'Prescription (Rx)' }, { code: 'A007', name: 'Services & fees' },
+    { code: 'A008', name: 'Infant formula' },
+  ],
+  collections: [{ code: 'SUNCARE', name: 'Suncare' }, { code: 'DIAPERS', name: 'Diapers' }, { code: 'WIPES', name: 'Baby wipes' }],
+  materials: [
+    { code: 'SUN-50', name: 'Sunblock SPF50 50ml' }, { code: 'SUN-30', name: 'Sun lotion SPF30 200ml' }, { code: 'SUN-KID', name: 'Kids sun spray SPF50' },
+    { code: 'SER-VC', name: 'Vitamin C serum 30ml' }, { code: 'DIA-4', name: 'Diapers size 4, 52 pcs' }, { code: 'WIP-80', name: 'Baby wipes, 80 pcs' },
+    { code: 'PAN-24', name: 'Paracetamol 500mg, 24 tabs' }, { code: 'AMOX-500', name: 'Amoxicillin 500mg (Rx)' }, { code: 'SHA-400', name: 'Shampoo 400ml' },
+    { code: 'SHA-DAN', name: 'Anti-dandruff shampoo 400ml' }, { code: 'SHA-ARG', name: 'Argan oil shampoo 250ml' }, { code: 'BAL-400', name: 'Balsam (conditioner) 400ml' },
+    { code: 'BAL-ARG', name: 'Argan oil balsam 250ml' }, { code: 'MIL-1', name: 'Infant formula stage 1' }, { code: 'GIFT-BAG', name: 'Travel pouch' },
+    { code: 'FEE-DLV', name: 'Delivery fee' },
+  ],
+}
+
+/** What the stubbed lookup door answers for `kind` (`categories` | `collections` | `materials`) and `search`. */
+export function lookup(kind, search = '') {
+  const q = search.trim().toLowerCase()
+  return (LOOKUPS[kind] ?? []).filter((x) => !q || x.code.toLowerCase().includes(q) || x.name.toLowerCase().includes(q)).slice(0, 20)
+}

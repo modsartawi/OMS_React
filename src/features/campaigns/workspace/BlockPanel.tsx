@@ -8,13 +8,16 @@ import type {
   RuleCatalogueField,
   RuleCondition,
   RuleEffect,
+  RuleItemFilter,
   Says,
 } from '@/core/models/rule-campaign'
+import { filterNameProblem, newFilter, nextFilterName } from '@/core/rules/filters'
 import { campaignCurrency } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { INPUT, labelText, useHas } from './builder-ui'
+import FilterEditor from './FilterEditor'
 import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
 
 /**
@@ -22,8 +25,9 @@ import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
  * the marketer's EN + AR texts as two inputs, the Arabic right-to-left. It edits the block in place
  * through `set` — every change is a step of the builder's history — and closes with Done.
  *
- * Items are picked from the rule's own filters, by id (the "Certain items…" picker is 506's). A
- * formula is shown as written and not edited here: the guided ƒx helper is 507's, and the client
+ * Items are the rule's own filters, by id, or "Certain items…" (ticket 506): the picker opens at
+ * the field, and saving it adds a named filter to the rule and points the field at it, in ONE
+ * history step. A formula is shown as written and not edited here: the guided ƒx helper is 507's, and the client
  * never parses the expression language (ADR 0089).
  */
 export interface BlockPanelProps {
@@ -34,11 +38,14 @@ export interface BlockPanelProps {
   campaign: Pick<RuleCampaign, 'budgets' | 'audience'>
   /** Sets one field; `coalesce` folds a run of keystrokes into one history step. */
   set: (key: string, value: unknown, coalesce?: boolean) => void
+  /** Adds `filter` to the rule and sets `key = value` (which points at it), as one step. */
+  withFilter: (filter: RuleItemFilter, key: string, value: unknown) => void
+  newId: () => string
   onDone: () => void
   onDelete: () => void
 }
 
-export default function BlockPanel({ block, entry, rule, campaign, set, onDone, onDelete }: BlockPanelProps) {
+export default function BlockPanel({ block, entry, rule, campaign, set, withFilter, newId, onDone, onDelete }: BlockPanelProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const raw = block as Record<string, unknown>
@@ -56,7 +63,7 @@ export default function BlockPanel({ block, entry, rule, campaign, set, onDone, 
             const id = `panel-${block.id}-${f.key}`
             return (
               <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)}>
-                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} set={set} />
+                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} set={set} withFilter={withFilter} newId={newId} />
               </FieldRow>
             )
           })}
@@ -105,11 +112,13 @@ interface ControlProps {
   rule: CampaignRule
   campaign: Pick<RuleCampaign, 'budgets' | 'audience'>
   set: BlockPanelProps['set']
+  withFilter: BlockPanelProps['withFilter']
+  newId: () => string
 }
 
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 
-function FieldControl({ id, field, entry, raw, rule, campaign, set }: ControlProps) {
+function FieldControl({ id, field, entry, raw, rule, campaign, set, withFilter, newId }: ControlProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const optionText = (o: string) => {
@@ -122,9 +131,30 @@ function FieldControl({ id, field, entry, raw, rule, campaign, set }: ControlPro
 
   switch (field.kind) {
     case 'items':
-      return <ItemsSelect id={id} value={typeof value === 'string' ? value : ''} rule={rule} onChange={put} data={field.key} />
-    case 'itemParts':
-      return <PartsEditor id={id} value={Array.isArray(value) ? (value as Part[]) : []} rule={rule} onChange={put} />
+      return (
+        <ItemsChoice
+          id={id}
+          value={typeof value === 'string' ? value : ''}
+          rule={rule}
+          newId={newId}
+          onChange={put}
+          onCreate={(filter) => withFilter(filter, field.key, filter.id)}
+          data={field.key}
+        />
+      )
+    case 'itemParts': {
+      const parts = Array.isArray(value) ? (value as Part[]) : []
+      return (
+        <PartsEditor
+          id={id}
+          value={parts}
+          rule={rule}
+          newId={newId}
+          onChange={put}
+          onCreate={(filter, i) => withFilter(filter, field.key, parts.map((p, j) => (j === i ? { ...p, of: filter.id } : p)))}
+        />
+      )
+    }
     case 'money': {
       const currency = campaignCurrency(campaign.audience)
       return (
@@ -262,20 +292,90 @@ function NumberInput({
   )
 }
 
-/** The rule's filters, by id, with "all merchandise" first; a filter that is gone stays visible as such. */
-function ItemsSelect({ id, value, rule, onChange, data }: { id: string; value: string; rule: CampaignRule; onChange: (v: string) => void; data: string }) {
+/** The select's value for "Certain items…" — never a filter id (the browser mints those). */
+const CERTAIN = '__certain'
+
+/**
+ * An items field: all merchandise, one of the rule's filters by id (a filter that is gone stays
+ * visible as such), or "Certain items…", which opens the picker here, at the field. Its draft is a
+ * new filter, Prescription kept out; Save filter adds it and points the field at it, Cancel leaves
+ * the field as it was.
+ */
+function ItemsChoice({
+  id,
+  value,
+  rule,
+  newId,
+  onChange,
+  onCreate,
+  data,
+}: {
+  id: string
+  value: string
+  rule: CampaignRule
+  newId: () => string
+  onChange: (v: string) => void
+  onCreate: (filter: RuleItemFilter) => void
+  data: string
+}) {
   const { t } = useTranslation('campaign-workspace')
+  const [draft, setDraft] = useState<RuleItemFilter | null>(null)
   const known = value === '' || rule.filters.some((f) => f.id === value)
+  const problem = draft ? filterNameProblem(rule.filters, draft.name) : null
   return (
-    <select id={id} className={INPUT} value={value} onChange={(e) => onChange(e.target.value)} data-panel-field={data}>
-      <option value="">{t('panel.allItems')}</option>
-      {rule.filters.map((f) => (
-        <option key={f.id} value={f.id}>
-          {fsi(f.name)}
-        </option>
-      ))}
-      {!known && <option value={value}>{t('panel.missing')}</option>}
-    </select>
+    <>
+      <select
+        id={id}
+        className={INPUT}
+        value={draft ? CERTAIN : value}
+        onChange={(e) => {
+          if (e.target.value === CERTAIN) setDraft(newFilter(newId(), nextFilterName(rule.filters, t('filters.defaultName'))))
+          else {
+            setDraft(null)
+            onChange(e.target.value)
+          }
+        }}
+        data-panel-field={data}
+      >
+        <option value="">{t('panel.allItems')}</option>
+        {rule.filters.map((f) => (
+          <option key={f.id} value={f.id}>
+            {fsi(f.name)}
+          </option>
+        ))}
+        {!known && <option value={value}>{t('panel.missing')}</option>}
+        <option value={CERTAIN}>{t('filters.certainItems')}</option>
+      </select>
+      {draft && (
+        <div className="basis-full">
+          <FilterEditor
+            filter={draft}
+            onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
+            nameProblem={problem}
+            data={`${data}-new`}
+            footer={
+              <>
+                <Button variant="text" onClick={() => setDraft(null)} data-filter-cancel="">
+                  {t('filters.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={problem !== null}
+                  onClick={() => {
+                    onCreate({ ...draft, name: draft.name.trim() })
+                    setDraft(null)
+                  }}
+                  data-filter-save=""
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                  {t('filters.save')}
+                </Button>
+              </>
+            }
+          />
+        </div>
+      )}
+    </>
   )
 }
 
@@ -284,15 +384,39 @@ interface Part {
   count: number | null
 }
 
-function PartsEditor({ id, value, rule, onChange }: { id: string; value: Part[]; rule: CampaignRule; onChange: (v: Part[]) => void }) {
+function PartsEditor({
+  id,
+  value,
+  rule,
+  newId,
+  onChange,
+  onCreate,
+}: {
+  id: string
+  value: Part[]
+  rule: CampaignRule
+  newId: () => string
+  onChange: (v: Part[]) => void
+  onCreate: (filter: RuleItemFilter, part: number) => void
+}) {
   const { t } = useTranslation('campaign-workspace')
   const put = (i: number, part: Partial<Part>) => onChange(value.map((p, j) => (j === i ? { ...p, ...part } : p)))
   return (
     <div id={id} className="flex flex-col gap-1.5" data-panel-field="parts">
       {value.map((p, i) => (
-        <span key={i} className="flex flex-wrap items-center gap-2" data-panel-part={i}>
+        // Keyed by place AND count: removing a part drops an open "Certain items…" draft rather than
+        // handing it to the part that moves into its place.
+        <span key={`${i}/${value.length}`} className="flex flex-wrap items-center gap-2" data-panel-part={i}>
           <NumberInput id={`${id}-count-${i}`} value={p.count} step={1} onChange={(count) => put(i, { count })} aria-label={t('panel.partCount')} />
-          <ItemsSelect id={`${id}-of-${i}`} value={p.of} rule={rule} onChange={(of) => put(i, { of })} data={`part-${i}`} />
+          <ItemsChoice
+            id={`${id}-of-${i}`}
+            value={p.of}
+            rule={rule}
+            newId={newId}
+            onChange={(of) => put(i, { of })}
+            onCreate={(filter) => onCreate(filter, i)}
+            data={`part-${i}`}
+          />
           <button
             type="button"
             className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-danger-800"

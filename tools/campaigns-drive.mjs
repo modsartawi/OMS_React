@@ -11,6 +11,7 @@
 //   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
 //   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
 //   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
+//   GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= → the hits (506, `lookup`)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -34,7 +35,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, copyOf, createDraft, listRow } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, copyOf, createDraft, listRow, lookup } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -64,6 +65,7 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرمز.'
 const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
+const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -75,7 +77,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, edit } = {}) {
+async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -88,6 +90,8 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
   const bodies = []
   /** 505: every draft save's body, in order. */
   const saves = []
+  /** 506: every lookup, `<kind> <search>`. */
+  const lookups = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -103,6 +107,14 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
     // PROVISIONAL doors (ticket 520 re-points them).
     if (p === 'RuleCampaign/Catalogue' && req.method() === 'GET')
       return route.fulfill(catalogueDown ? envelope(null, { status: 503, success: false, message: CATALOGUE_REFUSED, errorCode: 'RULE_CATALOGUE_UNAVAILABLE' }) : envelope(CATALOGUE))
+    const lk = /^RuleCampaign\/Lookups\/(Categories|Collections|Materials)$/.exec(p)
+    if (lk && req.method() === 'GET') {
+      const kind = lk[1].toLowerCase()
+      const search = new URL(req.url()).searchParams.get('search') ?? ''
+      lookups.push(`${kind} ${search}`)
+      if (refuseLookup) return route.fulfill(envelope(null, { status: 503, success: false, message: LOOKUP_REFUSED, errorCode: 'RULE_LOOKUP_UNAVAILABLE' }))
+      return route.fulfill(envelope(lookup(kind, search)))
+    }
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'POST') {
       const body = req.postDataJSON()
@@ -134,7 +146,7 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -775,6 +787,176 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const eff = await page.locator('[data-palette="then"] [data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
   check('25: points off hides the earn and burn effects, and says where they are', !eff.includes('awardPoints') && !eff.includes('burnPoints') && (await page.locator('[data-palette="then"] [data-palette-hidden="points"]').count()) === 1, eff.join(','))
   check('33: no page errors (25 features)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 506 ── it asserts:
+//  34. a sample filter that does not keep Prescription out is flagged red, and so is the discount on it;
+//  35. an effect's items field offers All items / the rule's filters / Certain items…, which opens the
+//      picker AT the field, a new filter with Prescription (A006) kept out;
+//  36. a product is found on HQ by SKU and by name (the lookup door is called with the search) and picked;
+//  37. a taken name is refused; Save filter adds the named filter to the rule and points the field at it
+//      by id; the chain reads "not Prescription A006", nothing flagged; ONE Undo takes back both;
+//  38. renaming the filter on the card keeps every block that uses it: the sentence follows, the id stays;
+//      a filter in use cannot be deleted;
+//  39. letting A006 in flags the filter and the discount red; "Keep Prescription out" clears it; a
+//      discount on all merchandise is flagged too;
+//  40. a category picked at a condition's field; Add filter (A006 kept out), a taken name shown on the
+//      chain, and delete an unused one;
+//      Copy filter from rule N copies it under a new id;
+//  41. Save sends the filters and every reference by id;
+//  42. a refused lookup is the door's own message, in the picker;
+//  43. no page errors.
+{
+  const { context, page, errors, saves, lookups } = await open()
+  const sun = CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2')
+  const sunFilter = sun.rules[0].filters[0].id
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const card = page.locator('[data-rule-card]').first()
+  const bar = page.locator('[data-builder-bar]')
+  const sentenceOf = (loc) => loc.locator('[data-block-sentence]').innerText()
+
+  // ── 34 ──
+  const sunRow = card.locator(`[data-filter="${sunFilter}"]`)
+  check('34: a filter that does not keep Prescription out is flagged red', (await sunRow.locator('[data-rx-flag]').innerText()) === 'Rx not excluded')
+  const free = card.locator('[data-effect]').first()
+  check('34: …and so is the discount on it', (await free.getAttribute('data-block-rx')) === '' && (await free.locator('[data-rx-flag]').innerText()) === 'Discounts Prescription items')
+
+  // ── 35 ──
+  await card.locator('[data-palette-open="then"]').click()
+  await card.locator('[data-palette="then"] [data-palette-block="discountItems"]').click()
+  const effect = card.locator('[data-effect]').nth(1)
+  const ep = effect.locator('[data-block-panel]')
+  await ep.locator('[data-panel-field="value"]').fill('10')
+  const options = (await ep.locator('[data-panel-field="on"] option').allInnerTexts()).map((x) => x.replace(/[⁨⁩]/g, ''))
+  check('35: the items field offers All items, the rule’s filters and Certain items…', JSON.stringify(options) === '["all merchandise","sun","Certain items…"]', JSON.stringify(options))
+  await ep.locator('[data-panel-field="on"]').selectOption({ label: 'Certain items…' })
+  const picker = ep.locator('[data-filter-editor="on-new"]')
+  await picker.waitFor({ timeout: 5000 })
+  check('35: Certain items… opens the picker at the field, inside the panel', (await picker.count()) === 1 && (await page.locator('[data-filter-editor]').count()) === 1)
+  check('35: …a new filter with Prescription (A006) kept out, named items1', JSON.stringify(await picker.locator('[data-picks="excl"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["A006"]' && (await picker.locator('[data-rx-missing]').count()) === 0 && (await picker.locator('[data-filter-name-input]').inputValue()) === 'items1')
+
+  // ── 36 ──
+  await picker.locator('[data-lookup="skus"]').fill('vitamin')
+  await picker.locator('[data-lookup-hit="SER-VC"]').waitFor({ timeout: 5000 })
+  check('36: a product is found by its name on HQ', lookups.includes('materials vitamin') && (await picker.locator('[data-lookup-hits="skus"] [data-lookup-hit]').count()) === 1)
+  await picker.locator('[data-lookup="skus"]').fill('SER-')
+  // The hit of "vitamin" is SER-VC too: wait for the SKU search itself to reach HQ and be drawn.
+  for (let i = 0; i < 50 && !lookups.includes('materials SER-'); i++) await page.waitForTimeout(100)
+  await page.locator('[data-lookup-hits="skus"] p').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  await page.waitForFunction(() => document.querySelector('[data-lookup-hits="skus"] [data-lookup-hit="SER-VC"]') && document.querySelectorAll('[data-lookup-hits="skus"] [data-lookup-hit]').length === 1, null, { timeout: 5000 })
+  check('36: …and by its SKU, the hit reads code · name', lookups.includes('materials SER-') && (await picker.locator('[data-lookup-hit="SER-VC"]').innerText()) === 'SER-VC · Vitamin C serum 30ml', await picker.locator('[data-lookup-hit="SER-VC"]').innerText())
+  await picker.locator('[data-lookup-hit="SER-VC"]').click()
+  check('36: a hit is picked, and the search clears', JSON.stringify(await picker.locator('[data-picks="skus"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SER-VC"]' && (await picker.locator('[data-lookup="skus"]').inputValue()) === '')
+
+  // ── 37 ──
+  await picker.locator('[data-filter-name-input]').fill('Sun')
+  check('37: a name the rule already has is refused', (await picker.locator('[data-filter-name-problem="taken"]').count()) === 1 && (await picker.locator('[data-filter-save]').isDisabled()))
+  await picker.locator('[data-filter-name-input]').fill('serum')
+  await picker.locator('[data-filter-save]').click()
+  check('37: Save filter closes the picker', (await page.locator('[data-filter-editor]').count()) === 0)
+  const filters = card.locator('[data-rule-section="filters"] [data-filter]')
+  const serumId = await filters.nth(1).getAttribute('data-filter')
+  const serumRow = card.locator(`[data-filter="${serumId}"]`)
+  check('37: a named filter is added to the rule', (await filters.count()) === 2 && (await serumRow.locator('[data-filter-name]').innerText()) === 'serum')
+  check('37: …its chain reads the product and "not Prescription A006", nothing flagged', JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()) === '["cart items","product SER-VC","not Prescription A006"]' && (await serumRow.locator('[data-rx-flag]').count()) === 0, JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()))
+  check('37: the field points at it by id', (await ep.locator('[data-panel-field="on"]').inputValue()) === serumId && serumId !== sunFilter)
+  check('37: the discount reads the filter, and is not flagged', (await sentenceOf(effect)) === 'Take 10% off each unit of serum' && (await effect.getAttribute('data-block-rx')) === null, await sentenceOf(effect))
+  await bar.locator('[data-undo]').click()
+  check('37: ONE Undo takes back the filter and the field together', (await filters.count()) === 1 && (await ep.locator('[data-panel-field="on"]').inputValue()) === sunFilter, `${await filters.count()} ${await ep.locator('[data-panel-field="on"]').inputValue()}`)
+  await bar.locator('[data-redo]').click()
+  check('37: …and Redo puts both back', (await filters.count()) === 2 && (await ep.locator('[data-panel-field="on"]').inputValue()) === serumId)
+  await ep.locator('[data-panel-done]').click()
+
+  // ── 38 ──
+  await serumRow.locator('[data-filter-edit]').click()
+  const editor = serumRow.locator('[data-filter-editor]')
+  check('38: the chain opens its editor on the card', (await editor.count()) === 1 && (await card.locator('[data-block-panel]').count()) === 0)
+  await editor.locator('[data-filter-name-input]').fill('vitc')
+  check('38: renaming keeps the reference: the sentence follows', (await sentenceOf(effect)) === 'Take 10% off each unit of vitc' && (await serumRow.locator('[data-filter-name]').innerText()) === 'vitc', await sentenceOf(effect))
+  check('38: …and the filter keeps its id', (await card.locator(`[data-filter="${serumId}"]`).count()) === 1)
+  check('38: a filter in use cannot be deleted, and says why', (await editor.locator('[data-filter-delete]').isDisabled()) && (await editor.locator('[data-filter-uses]').innerText()) === 'Used by 1 condition or effect.')
+  await bar.locator('[data-undo]').click()
+  check('38: the rename is ONE Undo step', (await sentenceOf(effect)) === 'Take 10% off each unit of serum')
+  await bar.locator('[data-redo]').click()
+
+  // ── 39 ──
+  await editor.locator('[data-picks="excl"] [data-pick-remove="A006"]').click()
+  check('39: letting A006 in flags the filter red, in its editor and on its chain', (await editor.locator('[data-rx-missing]').count()) === 1 && (await serumRow.locator('[data-rx-flag]').count()) === 1)
+  check('39: …and the discount on it', (await effect.getAttribute('data-block-rx')) === '' && (await effect.locator('[data-rx-flag]').count()) === 1)
+  await page.screenshot({ path: `${SHOTS}/filter-rx.png`, fullPage: true })
+  await editor.locator('[data-keep-rx-out]').click()
+  check('39: Keep Prescription out clears both flags', (await serumRow.locator('[data-rx-flag]').count()) === 0 && (await effect.getAttribute('data-block-rx')) === null)
+  await editor.locator('[data-filter-done]').click()
+  check('39: Done closes the editor', (await card.locator('[data-filter-editor]').count()) === 0)
+  await effect.locator('[data-block-edit]').click()
+  await ep.locator('[data-panel-field="on"]').selectOption('')
+  check('39: a discount on all merchandise is flagged', (await effect.getAttribute('data-block-rx')) === '' && (await sentenceOf(effect)) === 'Take 10% off each unit of all merchandise')
+  await ep.locator('[data-panel-field="on"]').selectOption(serumId)
+  await ep.locator('[data-panel-done]').click()
+
+  // ── 40 ──
+  const minCount = card.locator('[data-condition]').first()
+  await minCount.locator('[data-block-edit]').click()
+  await minCount.locator('[data-panel-field="of"]').selectOption({ label: 'Certain items…' })
+  const cp = minCount.locator('[data-filter-editor="of-new"]')
+  check('40: a condition’s items field opens the picker too, named after the free number', (await cp.locator('[data-filter-name-input]').inputValue()) === 'items1')
+  await cp.locator('[data-lookup="cats"]').fill('beauty')
+  await cp.locator('[data-lookup-hit="A002"]').click()
+  await cp.locator('[data-filter-name-input]').fill('beauty')
+  await cp.locator('[data-filter-save]').click()
+  const beautyRow = card.locator('[data-rule-section="filters"] [data-filter]').nth(2)
+  const beautyId = await beautyRow.getAttribute('data-filter')
+  check('40: a category picked at the field', lookups.includes('categories beauty') && JSON.stringify(await beautyRow.locator('[data-filter-link]').allInnerTexts()) === '["cart items","category A002","not Prescription A006"]' && (await sentenceOf(minCount)) === 'At least 3 units of beauty', await sentenceOf(minCount))
+  await minCount.locator('[data-panel-done]').click()
+  await card.locator('[data-filter-add]').click()
+  const added = card.locator('[data-rule-section="filters"] [data-filter]').nth(3)
+  check('40: Add filter opens a new one, Prescription kept out', (await added.locator('[data-filter-editor]').count()) === 1 && (await added.locator('[data-filter-name]').innerText()) === 'items1' && JSON.stringify(await added.locator('[data-filter-link]').allInnerTexts()) === '["cart items","not Prescription A006"]')
+  await added.locator('[data-filter-name-input]').fill('sun')
+  check('40: a taken name keeps the editor from closing with Done', await added.locator('[data-filter-done]').isDisabled())
+  await minCount.locator('[data-block-edit]').click()
+  check('40: …and once another panel opens, the chain says the name is taken', (await added.locator('[data-filter-editor]').count()) === 0 && (await added.locator('[data-filter-chain-problem="taken"]').innerText()) === 'This rule already has a filter with this name.')
+  await minCount.locator('[data-panel-done]').click()
+  await added.locator('[data-filter-edit]').click()
+  check('40: …an unused filter can be deleted', !(await added.locator('[data-filter-delete]').isDisabled()))
+  await added.locator('[data-filter-delete]').click()
+  check('40: delete removes it', (await card.locator('[data-rule-section="filters"] [data-filter]').count()) === 3)
+  await page.locator('[data-add-rule]').click()
+  const second = page.locator('[data-rule-card]').nth(1)
+  const copyOptions = (await second.locator('[data-filter-copy] option').allInnerTexts()).map((x) => x.replace(/[⁨⁩]/g, ''))
+  check('40: Copy filter from rule N lists the other rules’ filters', JSON.stringify(copyOptions) === '["Copy filter from rule…","sun","vitc","beauty"]' && (await second.locator('[data-filter-copy] optgroup').getAttribute('label')).replace(/[⁨⁩]/g, '') === 'Rule 1', JSON.stringify(copyOptions))
+  await second.locator('[data-filter-copy]').selectOption('0/1')
+  const copied = second.locator('[data-filter]').first()
+  check('40: …and copies it under a new id', (await copied.locator('[data-filter-name]').innerText()) === 'vitc' && (await copied.getAttribute('data-filter')) !== serumId && JSON.stringify(await copied.locator('[data-filter-link]').allInnerTexts()) === '["cart items","product SER-VC","not Prescription A006"]')
+  await second.locator('[data-delete="rule"]').click()
+
+  // ── 41 ──
+  await bar.locator('[data-save]').click()
+  await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
+  const sent = saves[0]?.rules?.[0]
+  const sentSerum = sent?.filters?.find((f) => f.id === serumId)
+  check('41: Save sends the filter by id, its picks and its exclusion', saves.length === 1 && sentSerum?.name === 'vitc' && JSON.stringify(sentSerum.skus) === '["SER-VC"]' && JSON.stringify(sentSerum.exclCats) === '["A006"]', JSON.stringify(sent?.filters))
+  check('41: …and every reference by id, never by name', sent?.then?.[1]?.on === serumId && sent?.when?.items?.[0]?.of === beautyId && sent?.then?.[0]?.on === sunFilter)
+  check('43: no page errors (34–41)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 42 ──
+{
+  const { context, page, errors } = await open({ refuseLookup: true })
+  await page.goto(`${BASE}/campaigns/GIFT-POUCH/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const cond = page.locator('[data-condition]').first()
+  await cond.locator('[data-block-edit]').click()
+  await cond.locator('[data-panel-field="of"]').selectOption({ label: 'Certain items…' })
+  await cond.locator('[data-lookup="skus"]').fill('pouch')
+  const alert = cond.locator('[data-lookup-hits="skus"] [role="alert"]')
+  await alert.waitFor({ timeout: 5000 })
+  check('42: a refused lookup is the door’s own message, in the picker', (await alert.innerText()) === LOOKUP_REFUSED)
+  await cond.locator('[data-filter-cancel]').click()
+  check('42: Cancel leaves the field as it was', (await cond.locator('[data-filter-editor]').count()) === 0 && (await cond.locator('[data-panel-field="of"] option:checked').innerText()).replace(/[⁨⁩]/g, '') === 'serum')
+  check('43: no page errors (42)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

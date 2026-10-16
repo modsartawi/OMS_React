@@ -66,7 +66,10 @@ export interface RuleCampaignBudget {
 
 /**
  * A named cart-item filter. Conditions and effects reference it BY ID (`of`, `on`), never by
- * name, so a rename never breaks a rule (2734 point 3).
+ * name, so a rename never breaks a rule (2734 point 3). Its steps narrow each other; the picks
+ * within a step match any: category codes (`cats`), collection codes (`colls`), material SKUs
+ * (`skus`), then the never-discount categories (`exclCats`, Prescription A006 by default — 506).
+ * `scope` is `items` (merchandise), `fees` (fee lines) or `itemsAndFees`.
  */
 export interface RuleItemFilter {
   id: string
@@ -254,4 +257,15 @@ export interface RuleBlockCatalogue {
   /** Palette groups, in palette order. */
   groups: { key: string; kind: RuleBlockKind }[]
   blocks: RuleCatalogueBlock[]
+}
+
+// ── Lookups (ticket 506; HQ's doors are BackOffice 2758) ────────────────────────────────────────
+// What "Certain items…" searches on HQ: categories, collections, and materials by SKU or name.
+
+export type RuleLookupKind = 'categories' | 'collections' | 'materials'
+
+/** One hit of a lookup: a category, a collection or a material (its SKU), and its name. */
+export interface RuleLookupItem {
+  code: string
+  name: string
 }

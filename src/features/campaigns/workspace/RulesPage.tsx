@@ -123,7 +123,7 @@ export default function RulesPage() {
         {rules.length ? (
           rules.map((rule, i) => {
             const ctx: SentenceContext = { campaign: c, rule, catalogue: builder.catalogue, has }
-            return <RuleCard key={rule.id} rule={rule} index={i} count={rules.length} open={!shut.has(rule.id)} onToggle={() => toggle(rule.id)} ctx={ctx} b={builder} />
+            return <RuleCard key={rule.id} rule={rule} rules={rules} index={i} open={!shut.has(rule.id)} onToggle={() => toggle(rule.id)} ctx={ctx} b={builder} />
           })
         ) : (
           <p className="text-sm text-muted-foreground" data-no-rules="">

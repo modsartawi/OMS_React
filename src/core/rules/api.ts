@@ -1,6 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaignDraft, RuleCampaignListRow } from '@/core/models/rule-campaign'
+import type {
+  RuleBlockCatalogue,
+  RuleCampaign,
+  RuleCampaignCreate,
+  RuleCampaignDraft,
+  RuleCampaignListRow,
+  RuleLookupItem,
+  RuleLookupKind,
+} from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
 // campaigns, catalogue, lookups, validate, simulate, lifecycle, coupons and sessions as later
@@ -14,6 +22,12 @@ import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaign
 const CAMPAIGNS = 'RuleCampaign/Campaigns'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const CATALOGUE = 'RuleCampaign/Catalogue'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const LOOKUPS: Record<RuleLookupKind, string> = {
+  categories: 'RuleCampaign/Lookups/Categories',
+  collections: 'RuleCampaign/Lookups/Collections',
+  materials: 'RuleCampaign/Lookups/Materials',
+}
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -64,7 +78,23 @@ export const ruleCampaignApi = {
   catalogue(): Promise<RuleBlockCatalogue> {
     return api.get<RuleBlockCatalogue>(CATALOGUE)
   },
+
+  /** GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= — what "Certain items…"
+   *  picks from (ticket 506, BackOffice 2758): HQ matches a code or a name (a material by its SKU
+   *  or its name) and answers the first hits. An empty search answers the first hits too. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  lookup(kind: RuleLookupKind, search: string): Promise<RuleLookupItem[]> {
+    return api.get<RuleLookupItem[]>(LOOKUPS[kind], { search })
+  },
 }
+
+/** A lookup's query options: one read per kind and search, kept a few minutes. */
+export const ruleLookupQuery = (kind: RuleLookupKind, search: string) => ({
+  queryKey: ['rule-lookup', kind, search] as const,
+  queryFn: () => ruleCampaignApi.lookup(kind, search),
+  staleTime: 5 * 60_000,
+  retry: false as const,
+})
 
 /**
  * The block catalogue's query options (ticket 504). It changes only with an HQ release, so it is

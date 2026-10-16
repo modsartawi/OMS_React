@@ -121,6 +121,56 @@
       "noArabic": "No Arabic yet."
     }
   },
+  "filters": {
+    "defaultName": "items",
+    "certainItems": "Certain items…",
+    "editor": "Cart item filter",
+    "head": "Customer’s cart items (current sale)",
+    "lookAt": "Look at",
+    "scope": {
+      "items": "merchandise",
+      "fees": "fee lines",
+      "itemsAndFees": "merchandise and fee lines"
+    },
+    "categories": "Category is",
+    "collections": "In collection",
+    "materials": "Product is one of",
+    "never": "Never discount",
+    "none": "Any",
+    "noneExcluded": "Nothing",
+    "hint": "Picks within a step match any; the steps narrow each other. Prescription shows red when it is not kept out.",
+    "rxMissing": "Prescription <code>{{code}}</code> is not kept out.",
+    "keepRxOut": "Keep Prescription out",
+    "rxFlag": "Rx not excluded",
+    "rxEffect": "Discounts Prescription items",
+    "name": "Save as",
+    "nameProblem": {
+      "empty": "Give the filter a name.",
+      "taken": "This rule already has a filter with this name."
+    },
+    "search": {
+      "categories": "Search categories by code or name",
+      "collections": "Search collections by code or name",
+      "materials": "Search products by SKU or name"
+    },
+    "searching": "Searching HQ…",
+    "noHits": "Nothing matches.",
+    "lookupFailed": "The search could not be done. Try again in a moment.",
+    "picked": "Picked",
+    "remove": "Remove {{code}}",
+    "save": "Save filter",
+    "cancel": "Cancel",
+    "done": "Done",
+    "add": "Add filter",
+    "edit": "Edit the filter {{name}}",
+    "delete": "Delete the filter",
+    "inUse_one": "Used by {{n}} condition or effect, so it cannot be deleted.",
+    "inUse_other": "Used by {{n}} conditions or effects, so it cannot be deleted.",
+    "usedBy_one": "Used by <n>{{count}}</n> condition or effect.",
+    "usedBy_other": "Used by <n>{{count}}</n> conditions or effects.",
+    "copyFrom": "Copy filter from rule…",
+    "copyGroup": "Rule {{n}}"
+  },
   "builder": {
     "undo": "Undo",
     "redo": "Redo",

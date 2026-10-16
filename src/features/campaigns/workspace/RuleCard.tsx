@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Equal, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import type {
   CampaignRule,
   RuleBlockCatalogue,
@@ -10,10 +10,10 @@ import type {
   RuleCondition,
   RuleEffect,
 } from '@/core/models/rule-campaign'
+import { addFilter, effectLetsRxIn } from '@/core/rules/filters'
 import {
   blockSentence,
   catalogueBlock,
-  filterChain,
   groupSentence,
   isConditionGroup,
   ruleSummary,
@@ -28,6 +28,7 @@ import BlockPanel from './BlockPanel'
 import { INPUT } from './builder-ui'
 import PaletteMenu from './PaletteMenu'
 import { newBlock } from './palette'
+import RuleFilters, { RxFlag } from './RuleFilters'
 import {
   addCondition,
   addEffect,
@@ -58,28 +59,30 @@ export interface Builder {
  * One rule of the builder (tickets 504, 505): a collapsible card with a one-line summary, its name,
  * and up / down / delete; inside, the rule's named filters as chains, its named values, When (all /
  * any — or "always") and Then. Each block reads as a sentence; clicking it opens its panel, closed
- * with Done. "+ Condition" / "+ Effect" open the palette. Filters and named values stay read-only
- * here: their editors are 506's and 507's.
+ * with Done. "+ Condition" / "+ Effect" open the palette. Filters are edited as chains
+ * (`./RuleFilters`, ticket 506); a discount that reaches Prescription lines is flagged red. Named
+ * values stay read-only here: their editor is 507's.
  */
 export default function RuleCard({
   rule,
+  rules,
   index,
-  count,
   open,
   onToggle,
   ctx,
   b,
 }: {
   rule: CampaignRule
+  /** Every rule of the campaign, as on screen — "Copy filter from rule N" reads them. */
+  rules: CampaignRule[]
   index: number
-  /** How many rules the campaign has — the last one cannot move down. */
-  count: number
   open: boolean
   onToggle: () => void
   ctx: SentenceContext
   b: Builder
 }) {
   const { t } = useTranslation('campaign-workspace')
+  const count = rules.length
   const sum = ruleSummary(rule)
   const bodyId = `rule-body-${rule.id}`
   const nameId = `rule-name-${rule.id}`
@@ -150,28 +153,7 @@ export default function RuleCard({
       {open && (
         <div id={bodyId} className="flex flex-col gap-4 border-t border-border/60 p-3" data-rule-body="">
           <Section title={t('rules.filters')} hint={t('rules.filtersHint')} data="filters">
-            {rule.filters.length ? (
-              <ul className="flex flex-col gap-1.5">
-                {rule.filters.map((f) => {
-                  const chain = filterChain(f)
-                  return (
-                    <li key={f.id} className="flex flex-wrap items-center gap-1.5 text-sm" data-filter={f.id}>
-                      <span className="font-mono font-semibold" data-filter-name="">
-                        <bdi>{chain.name}</bdi>
-                      </span>
-                      <Equal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                      {chain.links.map((link, i) => (
-                        <span key={i} className="rounded-full border border-border/60 px-2 py-0.5 text-xs" data-filter-link={link.key}>
-                          <SentenceView s={link} />
-                        </span>
-                      ))}
-                    </li>
-                  )
-                })}
-              </ul>
-            ) : (
-              <Muted>{t('rules.noFilters')}</Muted>
-            )}
+            <RuleFilters rule={rule} rules={rules} b={b} />
           </Section>
 
           {rule.values.length > 0 && (
@@ -335,6 +317,7 @@ function Block({
   const entry = catalogueBlock(ctx.catalogue, kind, item.type)
   const open = !!entry && b.openId === item.id
   const panelId = `panel-${item.id}`
+  const rx = kind === 'effect' && effectLetsRxIn(item, entry, rule.filters)
   const sentence = (
     <span className="block text-sm leading-relaxed" data-block-sentence="">
       <SentenceView s={read.sentence} />
@@ -345,10 +328,14 @@ function Block({
   )
   return (
     <li
-      className={'rounded-md border px-3 py-2 ' + (!read.known ? 'border-attention-border bg-attention-050' : open ? 'border-primary/40' : 'border-border/60')}
+      className={
+        'rounded-md border px-3 py-2 ' +
+        (!read.known ? 'border-attention-border bg-attention-050' : rx ? 'border-danger-border' : open ? 'border-primary/40' : 'border-border/60')
+      }
       {...{ [`data-${kind}`]: item.id }}
       data-sentence={read.sentence.key}
       data-open={open ? '' : undefined}
+      data-block-rx={rx ? '' : undefined}
     >
       <div className="flex items-start gap-2">
         {entry ? (
@@ -367,6 +354,11 @@ function Block({
         )}
         <BlockTools rule={rule} id={item.id} index={index} count={count} b={b} />
       </div>
+      {rx && (
+        <p className="mt-1">
+          <RxFlag label={t('filters.rxEffect')} />
+        </p>
+      )}
       {!open && read.says.map((line) => <Says key={line.field} line={line} />)}
       {open && entry && (
         <div id={panelId}>
@@ -376,6 +368,8 @@ function Block({
             rule={rule}
             campaign={b.campaign}
             set={(key, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, item.id, key, value), coalesce ? `field:${item.id}.${key}` : undefined)}
+            withFilter={(filter, key, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, item.id, key, value))}
+            newId={b.newId}
             onDone={() => b.setOpenId(null)}
             onDelete={() => {
               b.setOpenId(null)

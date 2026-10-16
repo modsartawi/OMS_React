@@ -96,7 +96,7 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, Handshake, ShoppingBag, Store, Truck } from 'lucide-react'
+import { BookCheck, Handshake, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -812,6 +812,28 @@ export const MENU: ShellMenuItem[] = [
           run: () => couponsApi.access(),
           visible: (r) => r.canSupport === true,
         }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, after Pricing and before Materials (BackOffice spec 2737, ticket 501):
+    // `/campaigns/*` is a new URL prefix and a new nav group, the rule engine's campaigns — Pricing's
+    // bonus-buy screens are the OTHER engine and stay where they are. Every leaf label lives in
+    // `campaign-list` (the area's first namespace); Priority (513), Simulator (514), Sessions (518),
+    // Coupon finder and Customers (519) each append their leaf with the page it opens.
+    //
+    // 🚩 UNGATED by ruling: no Ua permission exists until BackOffice 2759 seeds the author and
+    // approver roles, so the group is visible to every user and the doors fail closed on the server.
+    // Ticket 520 adds the probe.
+    labelKey: 'campaign-list:menu.group',
+    icon: Megaphone,
+    items: [
+      {
+        // The list owns `/campaigns/*` — a campaign's workspace (`/campaigns/:id/…`) lights it. A
+        // later static leaf (`/campaigns/priority`) wins its own address by being more specific.
+        labelKey: 'campaign-list:menu.campaigns',
+        icon: Megaphone,
+        routerLink: '/campaigns',
       },
     ],
   },

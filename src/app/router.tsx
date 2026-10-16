@@ -651,6 +651,32 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
         }),
       },
+      // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The list,
+      // then one campaign's workspace: a shell with the campaign's own menu and its pages as children
+      // (the dashboard is the index; 504+ add `rules`, `settings/:page`, `coupons`, `versions`).
+      // Static leaves (`/campaigns/priority`, `/campaigns/simulator`, …) are declared BESIDE
+      // `campaigns/:id` as their slices land — react-router ranks a static segment above `:id`.
+      // No access probe yet (no Ua permission exists until BackOffice 2759); the doors fail closed.
+      {
+        path: 'campaigns',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/list/CampaignListPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/:id',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,
+        }),
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/DashboardPage')).default,
+            }),
+          },
+        ],
+      },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

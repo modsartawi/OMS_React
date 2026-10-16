@@ -1,0 +1,76 @@
+{
+  "back": "To campaigns",
+  "loading": "Reading the campaign…",
+  "failedTitle": "The campaign could not be read",
+  "failed": "Try again in a moment.",
+  "untitled": "Untitled",
+  "menu": {
+    "label": "Manage campaign",
+    "dashboard": "Dashboard"
+  },
+  "dashboard": {
+    "stamp": "<at>{{at}}</at> by <by>{{by}}</by>",
+    "details": {
+      "title": "Details",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "noArabicName": "No Arabic name yet.",
+      "code": "Code",
+      "description": "Description",
+      "noDescription": "There is no description yet.",
+      "features": "Features",
+      "feature": {
+        "coupons": "Coupons",
+        "points": "Loyalty points (Arbahi)"
+      },
+      "noFeatures": "None",
+      "tags": "Tags",
+      "created": "Created"
+    },
+    "state": {
+      "title": "State",
+      "draft": "A draft. No till sees it until it is approved and activated.",
+      "waitingForApproval": "<by>{{by}}</by> asked for approval on <at>{{at}}</at>.",
+      "waitingNoStamp": "Waiting for an approver to activate it.",
+      "scheduled": "Approved and waiting for its start day.",
+      "running": "Live: tills apply it to every sale it matches.",
+      "expired": "Its schedule has ended. Tills no longer apply it.",
+      "disabled": "Disabled: sales already open keep it, new sales do not get it.",
+      "liveVersion": "Version <version>{{version}}</version>, activated <at>{{at}}</at> by <by>{{by}}</by>."
+    },
+    "schedule": {
+      "title": "Schedule",
+      "startsIn_one": "Starts in <n>{{n}}</n> day",
+      "startsIn_other": "Starts in <n>{{n}}</n> days",
+      "wouldStartIn_one": "Would start in <n>{{n}}</n> day",
+      "wouldStartIn_other": "Would start in <n>{{n}}</n> days",
+      "endsIn_one": "Ends in <n>{{n}}</n> day",
+      "endsIn_other": "Ends in <n>{{n}}</n> days",
+      "endedAgo_one": "Ended <n>{{n}}</n> day ago",
+      "endedAgo_other": "Ended <n>{{n}}</n> days ago",
+      "endedToday": "Ended today",
+      "noEnd": "No end date",
+      "noLimit": "No time limit",
+      "noLimitHint": "The campaign has no schedule. Once live, it runs with no time limit.",
+      "start": "Starts",
+      "end": "Ends (exclusive)",
+      "immediately": "Immediately",
+      "openEnded": "Open-ended",
+      "days": "Days",
+      "everyDay": "Every day",
+      "daySeparator": ", ",
+      "hours": "Daily hours",
+      "allDay": "All day",
+      "localTime": "Local time."
+    }
+  },
+  "weekdays": {
+    "0": "Sunday",
+    "1": "Monday",
+    "2": "Tuesday",
+    "3": "Wednesday",
+    "4": "Thursday",
+    "5": "Friday",
+    "6": "Saturday"
+  }
+}

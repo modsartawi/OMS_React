@@ -1,0 +1,47 @@
+{
+  "menu": {
+    "group": "Campaigns",
+    "campaigns": "Campaigns"
+  },
+  "title": "Campaigns",
+  "untitled": "Untitled",
+  "subtitle": "Every rule campaign for rule-engine stores. Stores still on bonus buys never see these.",
+  "tiles": {
+    "label": "Campaigns by state",
+    "all": "All"
+  },
+  "states": {
+    "draft": "Draft",
+    "waitingForApproval": "Waiting for approval",
+    "scheduled": "Scheduled",
+    "running": "Running",
+    "expired": "Expired",
+    "disabled": "Disabled"
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Campaign name in English or Arabic, or its code"
+  },
+  "columns": {
+    "name": "Campaign",
+    "nameAr": "Arabic name",
+    "code": "Code",
+    "state": "State",
+    "start": "Start",
+    "end": "End (exclusive)",
+    "created": "Created",
+    "createdBy": "Created by"
+  },
+  "schedule": {
+    "immediately": "Immediately",
+    "openEnded": "Open-ended"
+  },
+  "results": {
+    "loading": "Reading the campaigns…",
+    "count_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaign",
+    "count_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaigns",
+    "empty": "No campaign matches.",
+    "failedTitle": "The campaigns could not be read",
+    "failed": "Try again in a moment."
+  }
+}

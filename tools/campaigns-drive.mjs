@@ -41,6 +41,11 @@
 //   GET RuleCampaign/Campaigns/{id}/Coupons → the campaign's codes (`COUPONS`), or refused with `refuseCoupons` (515)
 //   POST RuleCampaign/Campaigns/{id}/Coupons/Batches → one batch minted (`createBatch`); a taken universal
 //       code is refused; the first `refuseBatch` creates are refused (515)
+//   POST RuleCampaign/Campaigns/{id}/Coupons/Imports/Check → codes in use and unknown members (`checkImport`);
+//       the first `refuseImportCheck` checks are refused (516)
+//   POST RuleCampaign/Campaigns/{id}/Coupons/Imports → one batch of imported codes (`importBatch`) (516)
+//   DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{b}/Unused → the batch's unused codes deleted
+//       (`deleteUnused`); the first `refuseDelete` deletes are refused (516)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -63,8 +68,8 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, createBatch, createDraft, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, checkImport, createBatch, createDraft, deleteUnused, importBatch, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -110,6 +115,8 @@ const RESTORE_REFUSED = 'The version could not be restored right now. / تعذر
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 const COUPONS_REFUSED = 'The coupon codes are not available. / رموز القسائم غير متاحة.'
 const BATCH_REFUSED = 'SIS.Coupons is not answering; no code was created. / خدمة القسائم لا تستجيب.'
+const IMPORT_CHECK_REFUSED = 'SIS.Coupons could not check the rows. / تعذر التحقق من الصفوف.'
+const DELETE_REFUSED = 'SIS.Coupons is not answering; no code was deleted. / لم يُحذف أي رمز.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
 
@@ -120,7 +127,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -161,6 +168,12 @@ async function open({ refuseCoupons = false, refuseBatch = 0, refuseTemplates = 
   const coupons = structuredClone(COUPONS)
   const batches = []
   let batchRefusals = refuseBatch
+  /** 516: every import check, import and delete unused `{ id, body | batch }`, in order. */
+  const importChecks = []
+  const imports = []
+  const deletes = []
+  let importCheckRefusals = refuseImportCheck
+  let deleteRefusals = refuseDelete
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -329,6 +342,37 @@ async function open({ refuseCoupons = false, refuseBatch = 0, refuseTemplates = 
         return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
       }
     }
+    const imp = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons\/(Imports(?:\/Check)?|Batches\/([^/]+)\/Unused)$/.exec(p)
+    if (imp) {
+      const id = decodeURIComponent(imp[1])
+      const c = store.find((x) => x.id === id)
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      const list = (coupons[id] ??= [])
+      if (imp[2] === 'Imports/Check' && req.method() === 'POST') {
+        const body = req.postDataJSON()
+        importChecks.push({ id, body })
+        if (importCheckRefusals > 0) {
+          importCheckRefusals--
+          return route.fulfill(envelope(null, { status: 503, success: false, message: IMPORT_CHECK_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
+        }
+        return route.fulfill(envelope(checkImport(list, body.rows)))
+      }
+      if (imp[2] === 'Imports' && req.method() === 'POST') {
+        const body = req.postDataJSON()
+        imports.push({ id, body })
+        const out = importBatch(c, list, body.rows, NOW_LOCAL)
+        return route.fulfill(out.batch ? envelope(out.batch) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+      }
+      if (imp[3] && req.method() === 'DELETE') {
+        const batch = decodeURIComponent(imp[3])
+        deletes.push({ id, batch })
+        if (deleteRefusals > 0) {
+          deleteRefusals--
+          return route.fulfill(envelope(null, { status: 503, success: false, message: DELETE_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
+        }
+        return route.fulfill(envelope(deleteUnused(list, batch)))
+      }
+    }
     const cps = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons(\/Batches)?$/.exec(p)
     if (cps) {
       const id = decodeURIComponent(cps[1])
@@ -354,7 +398,7 @@ async function open({ refuseCoupons = false, refuseBatch = 0, refuseTemplates = 
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, coupons, batches, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -2749,6 +2793,208 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('122: its coupons page says coupons are off, linking to Settings ▸ Features', (await page.locator('[data-coupons-off] a').getAttribute('href')) === '/campaigns/SUN-3FOR2/settings/features')
   check('122: …and reads no codes', !calls.some((x) => /Coupons$/.test(x)))
   check('123: no page errors (122)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 516 ── it asserts:
+// 124. the Coupons page offers Import CSV, Export (with how many codes it writes) and Create coupons;
+// 125. Export writes every code to WKND20-coupons.csv: a BOM, the import's own header, a line a
+//      code with its machine values, CRLF, and no bidi isolate anywhere;
+// 126. with a filter on, Export writes the filtered list only, and says so;
+// 127. a chosen CSV file is checked at once, row by row: the one bad row is shown with its reason,
+//      HQ's check is sent only the good rows, and Import sends exactly the good rows, upper-cased;
+// 128. the success modal says "Coupons imported" with HQ's batch id, the count and the row left out;
+//      Export the codes writes that batch alone to WKND20-<batch>.csv; Show the codes lists it,
+//      each code Imported, bound to its member;
+// 129. pasted rows are checked with Check the rows: a missing code, bad characters, a repeat, a code
+//      the campaign has, a code SIS.Coupons holds (HQ) and an unknown member (HQ), each with its
+//      reason; an edit makes the check stale; Cancel imports nothing;
+// 130. a file dropped on the drop zone is read and checked like a chosen one;
+// 131. a refused check shows its message and code, Import stays off, and checking again goes through;
+// 132. with a batch filtered, Delete unused confirms with the counts — the unused that go, the used,
+//      disabled and expired that stay — sends ONE delete for the batch, says what HQ did, and the
+//      used codes stay listed; a batch with no unused code cannot be asked;
+// 133. a refused delete shows in the confirmation, the codes are unchanged, and confirming again
+//      goes through;
+// 134. no page errors.
+{
+  const { context, page, errors, importChecks, imports } = await open()
+  const cgrid = '[data-coupons-grid]'
+  const shown = () => page.locator('[data-coupons-shown]').innerText()
+  const waitShown = (text) =>
+    page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
+  const ccell = (codeId, col) => page.locator(`${cgrid} .ag-row[row-id="${codeId}"] .ag-cell[col-id="${col}"]`).first().innerText()
+  const dialog = page.locator('[data-coupons-import]')
+  const verdict = (line) => dialog.locator(`[data-coupons-import-preview] .ag-row[row-id="${line}"] [data-coupons-import-row]`).first()
+  const download = async (button) => {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.locator(button).click()])
+    return { name: dl.suggestedFilename(), text: readFileSync(await dl.path(), 'utf8') }
+  }
+  const HEADER = '﻿code,member,status,kind,uses,batch,valid_from,valid_until,created'
+
+  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
+  await waitShown('Showing 6 of 6 codes')
+  check('124: Import CSV, Export and Create coupons are offered', (await page.locator('[data-coupons-import-open]').isEnabled()) && (await page.locator('[data-coupons-create-open]').isEnabled()))
+  check('124: Export says how many codes it writes', (await page.locator('[data-coupons-export]').innerText()).replace(/[⁦-⁩]/g, '') === 'Export 6 codes', await page.locator('[data-coupons-export]').innerText())
+
+  const all = await download('[data-coupons-export]')
+  const lines = all.text.split('\r\n')
+  check('125: Export writes WKND20-coupons.csv', all.name === 'WKND20-coupons.csv', all.name)
+  check('125: a BOM and the import’s own header', lines[0] === HEADER, JSON.stringify(lines[0]))
+  check('125: a line a code, CRLF, ending in one', lines.length === 8 && lines[7] === '', String(lines.length))
+  check('125: a code’s machine values, its days local', lines.includes('WKND-FLYER,,used,universal,12,u7d2w4pe,2026-10-01,2026-10-31,2026-10-01T09:00:00'), lines.join(' | '))
+  check('125: no bidi isolate anywhere in the file', !/[⁦-⁩‎‏]/.test(all.text))
+
+  await page.locator('[data-coupons-status]').selectOption('used')
+  await waitShown('Showing 2 of 6 codes')
+  check('126: with a filter, Export says it writes the shown codes', (await page.locator('[data-coupons-export]').innerText()).replace(/[⁦-⁩]/g, '') === 'Export 2 shown codes', await page.locator('[data-coupons-export]').innerText())
+  const used = await download('[data-coupons-export]')
+  const usedCodes = used.text.split('\r\n').slice(1, -1).map((l) => l.split(',')[0])
+  check('126: …and writes the filtered list only', JSON.stringify(usedCodes.sort()) === '["WKND-9XH3PL","WKND-FLYER"]', JSON.stringify(usedCodes))
+  await page.locator('[data-coupons-clear]').click()
+  await waitShown('Showing 6 of 6 codes')
+
+  // 127: a chosen file, one bad row.
+  await page.locator('[data-coupons-import-open]').click()
+  await dialog.waitFor({ timeout: 5000 })
+  check('127: Import stays off until rows are checked', await page.locator('[data-coupons-import-submit]').isDisabled())
+  await page.setInputFiles('[data-coupons-import-file]', {
+    name: 'wknd-print.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('code,member\r\nwknd-imp001,\r\nWKND-IMP002,M-100231\r\nWKND IMP3,\r\nWKND-IMP004,M-055410\r\n'),
+  })
+  const tally = dialog.locator('[data-coupons-import-tally]')
+  await tally.waitFor({ timeout: 10000 })
+  check('127: the file is checked at once', (await tally.innerText()) === '4 rows: 3 ready, 1 rejected.', await tally.innerText())
+  check('127: the file fills the text box', (await dialog.locator('[data-coupons-import-text]').inputValue()).startsWith('code,member'))
+  await verdict(4).waitFor({ timeout: 5000 })
+  check('127: the bad row is shown with its reason', (await verdict(4).getAttribute('data-coupons-import-row')) === 'badCode' && (await verdict(4).innerText()).startsWith('Bad characters'), await verdict(4).innerText())
+  check('127: the good rows read Ready', (await verdict(2).getAttribute('data-coupons-import-row')) === 'ok' && (await verdict(3).getAttribute('data-coupons-import-row')) === 'ok')
+  check(
+    '127: HQ’s check was sent the good rows only',
+    importChecks.length === 1 && JSON.stringify(importChecks[0].body) === JSON.stringify({ rows: [{ code: 'WKND-IMP001', member: null }, { code: 'WKND-IMP002', member: 'M-100231' }, { code: 'WKND-IMP004', member: 'M-055410' }] }),
+    JSON.stringify(importChecks[0]?.body),
+  )
+  check('127: Import counts the good rows', (await page.locator('[data-coupons-import-submit]').innerText()).replace(/[⁦-⁩]/g, '') === 'Import 3 codes')
+  await page.screenshot({ path: `${SHOTS}/coupons-import.png` })
+  await page.locator('[data-coupons-import-submit]').click()
+  const created = page.locator('[data-coupons-created]')
+  await created.waitFor({ timeout: 5000 })
+  check(
+    '127: Import sends exactly the good rows, upper-cased, once',
+    imports.length === 1 && JSON.stringify(imports[0].body) === JSON.stringify({ rows: [{ code: 'WKND-IMP001', member: null }, { code: 'WKND-IMP002', member: 'M-100231' }, { code: 'WKND-IMP004', member: 'M-055410' }] }),
+    JSON.stringify(imports[0]?.body),
+  )
+  const impBatch = await created.getAttribute('data-coupons-created')
+  check('128: the modal says Coupons imported, with HQ’s batch id', /^im\d{6}$/.test(impBatch) && (await page.locator('dialog[open] #modal-title').innerText()).includes('Coupons imported') && (await created.locator('[data-batch-id]').innerText()) === impBatch, impBatch)
+  check('128: …the count and the row left out', (await created.innerText()).includes('identifies the 3 codes you just imported') && (await created.locator('[data-coupons-created-left-out]').innerText()) === '1 rejected row was left out.')
+  check('128: the import dialog is closed', (await dialog.count()) === 0)
+  const one = await download('[data-coupons-created-export]')
+  const oneCodes = one.text.split('\r\n').slice(1, -1).map((l) => l.split(',').slice(0, 2).join(','))
+  check('128: Export the codes writes that batch alone', one.name === `WKND20-${impBatch}.csv` && JSON.stringify(oneCodes.sort()) === '["WKND-IMP001,","WKND-IMP002,M-100231","WKND-IMP004,M-055410"]', `${one.name} ${JSON.stringify(oneCodes)}`)
+  await page.screenshot({ path: `${SHOTS}/coupons-imported.png` })
+  await page.locator('[data-coupons-created-show]').click()
+  await waitShown('Showing 3 of 9 codes')
+  await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .ag-cell[col-id="kind"]`).length === 3, cgrid, { timeout: 5000 }).catch(() => {})
+  check('128: Show the codes lists the imported batch', (await shown()) === 'Showing 3 of 9 codes' && page.url().endsWith(`?batch=${impBatch}`), `${await shown()} ${page.url()}`)
+  check('128: …each code Imported, bound to its member', (await ccell('WKND-IMP002', 'kind')) === 'Imported' && (await ccell('WKND-IMP002', 'member')) === 'M-100231' && (await ccell('WKND-IMP001', 'member')) === 'Anyone')
+
+  // 129: pasted rows, every reason.
+  await page.locator('[data-coupons-batch-clear]').click()
+  await waitShown('Showing 9 of 9 codes')
+  await page.locator('[data-coupons-import-open]').click()
+  await dialog.waitFor({ timeout: 5000 })
+  const pasted = ['code;member', ';M-100231', 'WKND-NEW1;', 'wknd new2;', 'WKND-new1;', 'WKND-4F7K2Q;', 'hayak15;', 'WKND-NEW3;M-999999', 'WKND-NEW4;M-200118'].join('\n')
+  await dialog.locator('[data-coupons-import-text]').fill(pasted)
+  check('129: pasted rows wait for Check the rows', (await tally.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isDisabled()))
+  await dialog.locator('[data-coupons-import-check]').click()
+  await tally.waitFor({ timeout: 10000 })
+  check('129: the tally', (await tally.innerText()) === '8 rows: 2 ready, 6 rejected.', await tally.innerText())
+  await verdict(9).waitFor({ timeout: 5000 })
+  const reasons = []
+  for (let line = 2; line <= 9; line++) reasons.push(await verdict(line).getAttribute('data-coupons-import-row'))
+  check('129: each row with its reason (missing, ok, bad characters, repeat, taken, in use, unknown member, ok)', JSON.stringify(reasons) === JSON.stringify(['noCode', 'ok', 'badCode', 'repeated', 'taken', 'inUse', 'unknownMember', 'ok']), JSON.stringify(reasons))
+  check('129: HQ’s reasons read as words', (await verdict(7).innerText()) === 'Already a code in SIS.Coupons' && (await verdict(8).innerText()) === 'No member has this id')
+  check('129: HQ was asked about the rows good on this side only', importChecks.length === 2 && importChecks[1].body.rows.length === 4, JSON.stringify(importChecks[1]?.body))
+  await page.screenshot({ path: `${SHOTS}/coupons-import-reasons.png` })
+  await dialog.locator('[data-coupons-import-text]').fill(pasted + '\nWKND-NEW5;')
+  check('129: an edit makes the check stale', (await tally.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isDisabled()))
+  await page.locator('dialog[open] button', { hasText: 'Cancel' }).click()
+  check('129: Cancel imports nothing', (await dialog.count()) === 0 && imports.length === 1)
+
+  // 130: a dropped file.
+  await page.locator('[data-coupons-import-open]').click()
+  await dialog.waitFor({ timeout: 5000 })
+  const dt = await page.evaluateHandle(() => {
+    const d = new DataTransfer()
+    d.items.add(new File(['WKND-DROP1\nWKND-DROP2,M-100231\n'], 'dropped.csv', { type: 'text/csv' }))
+    return d
+  })
+  await page.dispatchEvent('[data-coupons-import-drop]', 'drop', { dataTransfer: dt })
+  await tally.waitFor({ timeout: 10000 })
+  check('130: a dropped file is read and checked, no header read by position', (await tally.innerText()) === '2 rows: 2 ready, 0 rejected.' && importChecks.length === 3, await tally.innerText())
+  await page.locator('dialog[open] button', { hasText: 'Cancel' }).click()
+  check('134: no page errors (124–130)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 131 ──
+{
+  const { context, page, errors, importChecks } = await open({ refuseImportCheck: 1 })
+  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
+  await page.locator('[data-coupons-shown]').waitFor({ timeout: 20000 })
+  await page.locator('[data-coupons-import-open]').click()
+  const dialog = page.locator('[data-coupons-import]')
+  await dialog.locator('[data-coupons-import-text]').fill('WKND-R1\nWKND-R2')
+  await dialog.locator('[data-coupons-import-check]').click()
+  const refusal = dialog.locator('[data-coupons-import-check-refusal]')
+  await refusal.waitFor({ timeout: 10000 })
+  check('131: a refused check shows its message and code', (await refusal.innerText()).includes(IMPORT_CHECK_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
+  check('131: …and Import stays off', await page.locator('[data-coupons-import-submit]').isDisabled())
+  await dialog.locator('[data-coupons-import-check]').click()
+  await dialog.locator('[data-coupons-import-tally]').waitFor({ timeout: 10000 })
+  check('131: checking again goes through', importChecks.length === 2 && (await refusal.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isEnabled()))
+  check('134: no page errors (131)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 132, 133 ──
+{
+  const { context, page, errors, deletes, calls } = await open({ refuseDelete: 1 })
+  const cgrid = '[data-coupons-grid]'
+  const waitShown = (text) =>
+    page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
+  await page.goto(`${BASE}/campaigns/WKND20/coupons?batch=k3m9q2xa`)
+  await waitShown('Showing 5 of 6 codes')
+  const del = page.locator('[data-coupons-delete-open]')
+  check('132: with a batch filtered, Delete unused is offered', await del.isEnabled())
+  await del.click()
+  const confirm = page.locator('[data-coupons-delete]')
+  await confirm.waitFor({ timeout: 5000 })
+  const plain = async (sel) => (await confirm.locator(sel).innerText()).replace(/[⁦-⁩]/g, '')
+  check('132: the confirmation says the unused codes that go', (await plain('[data-coupons-delete-unused]')) === 'Delete the 2 unused codes of batch k3m9q2xa? They stop working at once.', await plain('[data-coupons-delete-unused]'))
+  check('132: …and the codes that stay, by status', (await plain('[data-coupons-delete-stay]')) === '3 codes stay for the history: 1 used, 1 disabled, 1 expired.', await plain('[data-coupons-delete-stay]'))
+  await page.screenshot({ path: `${SHOTS}/coupons-delete-unused.png` })
+  await page.locator('[data-coupons-delete-confirm]').click()
+  const refusal = confirm.locator('[data-coupons-delete-refusal]')
+  await refusal.waitFor({ timeout: 5000 })
+  const reads = calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length
+  check('133: a refused delete shows its message and code', (await refusal.innerText()).includes(DELETE_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
+  check('133: …and the codes are unchanged', (await page.locator('[data-coupons-shown]').innerText()) === 'Showing 5 of 6 codes' && deletes.length === 1)
+  await page.locator('[data-coupons-delete-confirm]').click()
+  const done = page.locator('[data-coupons-deleted]')
+  await done.waitFor({ timeout: 5000 })
+  check('133: confirming again goes through', deletes.length === 2)
+  check('132: ONE delete per confirmation, for the batch', deletes.every((d) => d.id === 'WKND20' && d.batch === 'k3m9q2xa'), JSON.stringify(deletes))
+  check('132: the page says what HQ did', (await done.innerText()).replace(/[⁦-⁩]/g, '') === '2 unused codes of batch k3m9q2xa were deleted; 3 stay.', await done.innerText())
+  await waitShown('Showing 3 of 4 codes')
+  check('132: the codes are read afresh', calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length === reads + 1)
+  await page.waitForFunction((sel) => !document.querySelector(`${sel} .ag-row[row-id="WKND-4F7K2Q"]`), cgrid, { timeout: 5000 }).catch(() => {})
+  const left = await page.locator(`${cgrid} .ag-row`).evaluateAll((rows) => [...new Set(rows.map((r) => r.getAttribute('row-id')))].sort())
+  check('132: the used, disabled and expired codes stay listed', JSON.stringify(left) === '["WKND-9XH3PL","WKND-B3N6QW","WKND-P5R8ZD"]', JSON.stringify(left))
+  check('132: a batch with no unused code cannot be asked', await del.isDisabled())
+  await page.screenshot({ path: `${SHOTS}/coupons-deleted.png` })
+  check('134: no page errors (132, 133)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

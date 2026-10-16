@@ -24,6 +24,9 @@ import type {
   RuleCampaignVersionDetail,
   RuleCouponBatch,
   RuleCouponBatchCreate,
+  RuleCouponImportCheck,
+  RuleCouponImportRow,
+  RuleCouponUnusedDeleted,
   RuleEvaluationOrder,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
@@ -345,6 +348,29 @@ export const ruleCampaignApi = {
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
   createCoupons(id: string, body: RuleCouponBatchCreate): Promise<RuleCouponBatch> {
     return api.post<RuleCouponBatch>(`${COUPONS(id)}/Batches`, body)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports/Check — HQ's check of a CSV import's rows
+   *  before it is sent: the codes SIS.Coupons already holds and the member ids it does not know
+   *  (ticket 516, BackOffice 2755). Nothing is imported. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  checkCouponImport(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponImportCheck> {
+    return api.post<RuleCouponImportCheck>(`${COUPONS(id)}/Imports/Check`, { rows })
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports — the checked rows as one new batch of
+   *  `imported` codes (ticket 516, BackOffice 2755); HQ answers the batch id and the count. A row
+   *  taken since the check is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  importCoupons(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponBatch> {
+    return api.post<RuleCouponBatch>(`${COUPONS(id)}/Imports`, { rows })
+  },
+
+  /** DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{batch}/Unused — removes the batch's unused
+   *  codes; a used, disabled or expired code stays for the history (ticket 516, BackOffice 2755). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  deleteUnusedCoupons(id: string, batch: string): Promise<RuleCouponUnusedDeleted> {
+    return api.del<RuleCouponUnusedDeleted>(`${COUPONS(id)}/Batches/${encodeURIComponent(batch)}/Unused`)
   },
 }
 

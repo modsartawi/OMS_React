@@ -2,6 +2,8 @@
 // row before it is used. Pure: text in, rows out; no `t`, no DOM, no api. Whether a SKU exists is
 // HQ's answer (the materials lookup), handed in as a `SkuCheck`.
 
+import { csvCells } from '@/core/util/csv-cells'
+
 /** A basket line as the page holds it: the SKU, the name HQ's lookup gave it, a whole quantity. */
 export interface BasketLine {
   sku: string
@@ -36,31 +38,6 @@ function separatorOf(first: string): string {
   return ','
 }
 
-/** One line's cells; a quoted cell may hold the separator and `""` for a quote. */
-function cellsOf(line: string, sep: string): string[] {
-  const cells: string[] = []
-  let cell = ''
-  let quoted = false
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
-    if (quoted) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cell += '"'
-        i++
-      } else if (ch === '"') quoted = false
-      else cell += ch
-    } else if (ch === '"' && cell.trim() === '') {
-      cell = ''
-      quoted = true
-    } else if (ch === sep) {
-      cells.push(cell.trim())
-      cell = ''
-    } else cell += ch
-  }
-  cells.push(cell.trim())
-  return cells
-}
-
 /** A typed or written quantity: a whole number from 1 to MAX_QTY, or null. */
 export function parseQty(text: string): number | null {
   const s = text.trim()
@@ -85,7 +62,7 @@ export function parseBasketCsv(text: string): BasketCsvRow[] {
   let skuAt = 0
   let qtyAt = 1
   let from = 0
-  const head = cellsOf(lines[firstAt], sep).map((c) => c.toLowerCase())
+  const head = csvCells(lines[firstAt], sep).map((c) => c.toLowerCase())
   const named = head.findIndex((c) => SKU_HEADERS.includes(c))
   if (named >= 0) {
     skuAt = named
@@ -96,7 +73,7 @@ export function parseBasketCsv(text: string): BasketCsvRow[] {
   const rows: BasketCsvRow[] = []
   const distinct = new Set<string>()
   for (let i = from; i < lines.length; i++) {
-    const cells = cellsOf(lines[i], sep)
+    const cells = csvCells(lines[i], sep)
     if (cells.every((c) => c === '')) continue
     const sku = (cells[skuAt] ?? '').toUpperCase()
     const rawQty = qtyAt >= 0 ? (cells[qtyAt] ?? '') : ''

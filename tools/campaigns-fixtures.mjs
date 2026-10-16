@@ -757,3 +757,42 @@ export function createBatch(c, list, body, at) {
   list.unshift(...out)
   return { batch: { batch, count: out.length } }
 }
+
+// ── 516: coupon CSV import and delete unused ──
+//   POST   RuleCampaign/Campaigns/{id}/Coupons/Imports/Check     → `checkImport`
+//   POST   RuleCampaign/Campaigns/{id}/Coupons/Imports           → `importBatch`
+//   DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{b}/Unused → `deleteUnused`
+/** The member ids the stub HQ knows. */
+export const MEMBERS = ['M-100231', 'M-055410', 'M-200118']
+/** Codes SIS.Coupons holds under OTHER campaigns: the campaign's own list does not show them. */
+export const CODES_ELSEWHERE = ['HAYAK15']
+
+/** HQ's check of an import's rows: codes SIS.Coupons holds, and member ids it does not know. */
+export function checkImport(list, rows) {
+  const held = new Set([...list.map((k) => k.code), ...CODES_ELSEWHERE])
+  return {
+    inUse: rows.filter((r) => held.has(r.code)).map((r) => r.code),
+    unknownMembers: [...new Set(rows.filter((r) => r.member && !MEMBERS.includes(r.member)).map((r) => r.member))],
+  }
+}
+
+/** HQ imports the rows as one batch of `imported` codes; a row it would reject refuses the whole import. */
+export function importBatch(c, list, rows, at) {
+  if (!c.features.coupons) return { refused: 'RULE_COUPONS_OFF', message: 'Coupons are off for this campaign. / القسائم غير مفعلة لهذه الحملة.' }
+  const check = checkImport(list, rows)
+  if (check.inUse.length || check.unknownMembers.length) return { refused: 'RULE_COUPON_IMPORT_STALE', message: 'A row was taken since the check; check the rows again. / تغيّر أحد الصفوف منذ التحقق.' }
+  const batch = `im${String(++batchSeq).padStart(6, '0')}`
+  const created = at.replace(' ', 'T') + ':00'
+  const out = rows.map((r) => ({ code: r.code, status: 'unused', kind: 'imported', uses: 0, member: r.member, batch, created, from: null, until: null }))
+  list.unshift(...out)
+  return { batch: { batch, count: out.length } }
+}
+
+/** HQ deletes a batch's unused codes; every other code of the batch stays. */
+export function deleteUnused(list, batch) {
+  const before = list.length
+  const kept = list.filter((k) => k.batch === batch && k.status !== 'unused').length
+  const keep = list.filter((k) => !(k.batch === batch && k.status === 'unused'))
+  list.splice(0, list.length, ...keep)
+  return { deleted: before - keep.length, kept }
+}

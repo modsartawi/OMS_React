@@ -758,3 +758,26 @@ export interface RuleCouponBatch {
   batch: string
   count: number
 }
+
+// ── Campaign coupons: CSV import and delete unused (ticket 516, BackOffice 2755) ──
+
+/** One row of an import: a code (upper-cased) and the member it binds to, or null for anyone. */
+export interface RuleCouponImportRow {
+  code: string
+  member: string | null
+}
+
+/**
+ * HQ's check of an import's rows before anything is imported: the codes SIS.Coupons already holds
+ * (in any campaign), and the member ids it does not know. Every other row is good to import.
+ */
+export interface RuleCouponImportCheck {
+  inUse: string[]
+  unknownMembers: string[]
+}
+
+/** What Delete unused answers: the batch's unused codes it removed, and the codes that stay. */
+export interface RuleCouponUnusedDeleted {
+  deleted: number
+  kept: number
+}

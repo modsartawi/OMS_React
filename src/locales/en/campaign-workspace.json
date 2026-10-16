@@ -1347,7 +1347,13 @@
       "body_other": "This batch id identifies the <n>{{n}}</n> codes you just created:",
       "hint": "You will see it in the Batch column. Use it to find, organise or export the codes.",
       "show": "Show the codes",
-      "more": "Create more codes"
+      "more": "Create more codes",
+      "importedTitle": "Coupons imported",
+      "importedBody_one": "This batch id identifies the <n>{{n}}</n> code you just imported:",
+      "importedBody_other": "This batch id identifies the <n>{{n}}</n> codes you just imported:",
+      "export": "Export the codes",
+      "leftOut_one": "<n>{{n}}</n> rejected row was left out.",
+      "leftOut_other": "<n>{{n}}</n> rejected rows were left out."
     },
     "create": {
       "open": "Create coupons",
@@ -1409,6 +1415,66 @@
         "dayShape": "Pick a day.",
         "untilBeforeFrom": "The last day may not be before the first."
       }
+    },
+    "export": {
+      "all_one": "Export {{n}} code",
+      "all_other": "Export {{n}} codes",
+      "filtered_one": "Export {{n}} shown code",
+      "filtered_other": "Export {{n}} shown codes"
+    },
+    "import": {
+      "open": "Import CSV",
+      "title": "Import coupon codes",
+      "intro": "One code per row, with an optional member id that binds the code to that member. Each row is checked before anything is imported; the good rows become one batch of up to {{max}} codes.",
+      "drop": "Drop a CSV file here, or choose a file",
+      "fileFailed": "The file could not be read. Save it as a CSV (UTF-8) and try again.",
+      "paste": "Or paste rows",
+      "pastePlaceholder": "code,member\nWKND-7Q2M4X,\nWKND-K9P3RT,M-100231",
+      "format": "Columns: code, member (optional). A header row is optional. Comma, semicolon or tab. Codes are upper-cased.",
+      "check": "Check the rows",
+      "checkRefusedTitle": "The rows could not be checked",
+      "checkRefused": "Try again in a moment.",
+      "noCodeColumn": "The header has no code column. Name it code, coupon or coupon_code.",
+      "tally_one": "<rows>{{rows}}</rows> row: <ok>{{ok}}</ok> ready, <rejected>{{rejected}}</rejected> rejected.",
+      "tally_other": "<rows>{{rows}}</rows> rows: <ok>{{ok}}</ok> ready, <rejected>{{rejected}}</rejected> rejected.",
+      "leftOut": "Rejected rows are left out; fix them in the text and check again to include them.",
+      "ready": "Ready",
+      "problems": {
+        "noCode": "No code",
+        "badCode": "Bad characters: 3 to 32 letters, digits or dashes",
+        "repeated": "Twice in the file",
+        "taken": "This campaign already has this code",
+        "tooMany": "Past <v>{{max}}</v> codes in one batch",
+        "inUse": "Already a code in SIS.Coupons",
+        "unknownMember": "No member has this id"
+      },
+      "columns": {
+        "line": "Line",
+        "code": "Code",
+        "member": "Member",
+        "check": "Check"
+      },
+      "cancel": "Cancel",
+      "submit_one": "Import {{n}} code",
+      "submit_other": "Import {{n}} codes",
+      "refusedTitle": "The codes were not imported",
+      "refused": "Try again in a moment."
+    },
+    "deleteUnused": {
+      "open": "Delete unused",
+      "none": "This batch has no unused code.",
+      "title": "Delete unused codes",
+      "body_one": "Delete the <n>{{n}}</n> unused code of batch <batch>{{batch}}</batch>? It stops working at once.",
+      "body_other": "Delete the <n>{{n}}</n> unused codes of batch <batch>{{batch}}</batch>? They stop working at once.",
+      "stay_one": "<n>{{n}}</n> code stays for the history: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+      "stay_other": "<n>{{n}}</n> codes stay for the history: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+      "cancel": "Keep them",
+      "confirm_one": "Delete the unused code",
+      "confirm_other": "Delete the unused codes",
+      "refusedTitle": "The unused codes were not deleted",
+      "refused": "Try again in a moment.",
+      "done_one": "<n>{{n}}</n> unused code of batch <batch>{{batch}}</batch> was deleted; <kept>{{kept}}</kept> stay.",
+      "done_other": "<n>{{n}}</n> unused codes of batch <batch>{{batch}}</batch> were deleted; <kept>{{kept}}</kept> stay."
     }
   }
 }

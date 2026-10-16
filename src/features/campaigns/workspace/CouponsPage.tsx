@@ -4,22 +4,27 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { Layers, Plus, Search, Ticket, X } from 'lucide-react'
+import { Download, Layers, Plus, Search, Ticket, Trash2, Upload, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import type { RuleCampaignCoupon, RuleCouponBatch } from '@/core/models/rule-campaign'
+import type { RuleCampaignCoupon, RuleCouponBatch, RuleCouponUnusedDeleted } from '@/core/models/rule-campaign'
 import { ruleCouponsQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
+import { downloadCsv } from '@/core/util/download-file'
+import { formatNumber } from '@/core/util/number-format'
 import { useWorkspace } from './context'
 import { couponColumns, type CouponGridContext } from './coupon-columns'
+import { couponCsv, couponCsvFileName } from './coupon-csv'
 import { COUPON_STATUSES, couponCounts, statusFromParam, visibleCoupons, type CouponStatusFilter } from './coupon-form'
 import CreateCouponsDialog from './CreateCouponsDialog'
+import DeleteUnusedDialog from './DeleteUnusedDialog'
+import ImportCouponsDialog from './ImportCouponsDialog'
 import { Refusal, SETTINGS_CONTROL } from './settings-ui'
 
 /**
@@ -28,6 +33,12 @@ import { Refusal, SETTINGS_CONTROL } from './settings-ui'
  * over the code, a status filter and a batch filter. Create coupons opens a dialog for one batch of
  * random, universal or personal codes; on success a modal shows HQ's batch id and the count, and
  * "Show the codes" filters the list to that batch.
+ *
+ * Ticket 516 adds the CSV doors: Import CSV checks a file's rows and imports the good ones as one
+ * batch (the same success modal, with the rows left out); Export CSV writes the list as filtered —
+ * one batch when the batch filter is on — and the success modal exports its batch; with a batch
+ * filtered, Delete unused removes the batch's unused codes after a confirmation with the counts,
+ * and the used codes stay.
  *
  * The search, the status and the batch live in the URL (`?q=&status=&batch=`, replaced), so a
  * reload or a link keeps the list as it was filtered.
@@ -40,7 +51,12 @@ export default function CouponsPage() {
   const status = statusFromParam(params.get('status'))
   const batch = params.get('batch') ?? ''
   const [creating, setCreating] = useState(false)
-  const [created, setCreated] = useState<RuleCouponBatch | null>(null)
+  /** The batch just created or imported (with the rows an import left out), for the success modal. */
+  const [created, setCreated] = useState<(RuleCouponBatch & { imported: boolean; leftOut: number }) | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  /** What the last Delete unused did, said above the list until the next batch is made. */
+  const [deleted, setDeleted] = useState<(RuleCouponUnusedDeleted & { batch: string }) | null>(null)
 
   const set = (change: { q?: string; status?: CouponStatusFilter; batch?: string }) => {
     const next = { q, status, batch, ...change }
@@ -56,6 +72,10 @@ export default function CouponsPage() {
   const shown = useMemo(() => visibleCoupons(codes, { q, status, batch }), [codes, q, status, batch])
   const counts = useMemo(() => couponCounts(codes), [codes])
   const taken = useMemo(() => codes.map((k) => k.code.toUpperCase()), [codes])
+  const batchCounts = useMemo(() => couponCounts(batch ? codes.filter((k) => k.batch === batch) : []), [codes, batch])
+
+  /** Codes to a CSV download: no isolates, machine values as HQ answered them. */
+  const exportCodes = (list: readonly RuleCampaignCoupon[], ofBatch: string) => downloadCsv(couponCsvFileName(c.code, ofBatch), couponCsv(list))
 
   const columns = useMemo(() => couponColumns(t), [t])
   const gridContext = useMemo<CouponGridContext>(
@@ -102,10 +122,20 @@ export default function CouponsPage() {
             </p>
           )}
         </Header>
-        <Button variant="primary" onClick={() => setCreating(true)} disabled={!coupons.data} data-coupons-create-open="">
-          <Plus className="size-3.5" aria-hidden />
-          {t('coupons.create.open')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outlined" onClick={() => setImporting(true)} disabled={!coupons.data} data-coupons-import-open="">
+            <Upload className="size-3.5" aria-hidden />
+            {t('coupons.import.open')}
+          </Button>
+          <Button variant="outlined" onClick={() => exportCodes(shown, batch)} disabled={!shown.length} data-coupons-export="">
+            <Download className="size-3.5" aria-hidden />
+            {t(filtered ? 'coupons.export.filtered' : 'coupons.export.all', { count: shown.length, n: fsi(formatNumber(shown.length)) })}
+          </Button>
+          <Button variant="primary" onClick={() => setCreating(true)} disabled={!coupons.data} data-coupons-create-open="">
+            <Plus className="size-3.5" aria-hidden />
+            {t('coupons.create.open')}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3" data-coupons-filters="">
@@ -153,12 +183,37 @@ export default function CouponsPage() {
             </button>
           </span>
         )}
+        {batch && (
+          <Button
+            variant="danger-outlined"
+            className="h-9"
+            onClick={() => setDeleting(true)}
+            disabled={!batchCounts.unused}
+            title={batchCounts.unused ? undefined : t('coupons.deleteUnused.none')}
+            data-coupons-delete-open=""
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+            {t('coupons.deleteUnused.open')}
+          </Button>
+        )}
         {filtered && (
           <Button variant="text" onClick={() => setParams(new URLSearchParams(), { replace: true })} data-coupons-clear="">
             {t('coupons.clearFilters')}
           </Button>
         )}
       </div>
+
+      {deleted && (
+        <p className="rounded-md border border-border/60 bg-card px-3 py-2 text-sm" role="status" data-coupons-deleted={deleted.batch}>
+          <Trans
+            t={t}
+            i18nKey="coupons.deleteUnused.done"
+            count={deleted.deleted}
+            values={{ n: formatNumber(deleted.deleted), kept: formatNumber(deleted.kept), batch: deleted.batch }}
+            components={{ n: <Ltr />, kept: <Ltr />, batch: <bdi dir="ltr" className="font-mono" /> }}
+          />
+        </p>
+      )}
 
       {coupons.isError && (
         <div data-coupons-refusal="">
@@ -209,26 +264,61 @@ export default function CouponsPage() {
         onClose={() => setCreating(false)}
         onCreated={(b) => {
           setCreating(false)
-          setCreated(b)
+          setDeleted(null)
+          setCreated({ ...b, imported: false, leftOut: 0 })
         }}
       />
+      {importing && (
+        <ImportCouponsDialog
+          campaign={c}
+          taken={taken}
+          onClose={() => setImporting(false)}
+          onImported={(b, leftOut) => {
+            setImporting(false)
+            setDeleted(null)
+            setCreated({ ...b, imported: true, leftOut })
+          }}
+        />
+      )}
+      {deleting && batch && (
+        <DeleteUnusedDialog
+          campaignId={c.id}
+          batch={batch}
+          counts={batchCounts}
+          onClose={() => setDeleting(false)}
+          onDeleted={(result) => {
+            setDeleting(false)
+            setDeleted({ ...result, batch })
+          }}
+        />
+      )}
       {created && (
         <Modal
           open
           onClose={() => setCreated(null)}
-          title={t('coupons.created.title')}
+          title={t(created.imported ? 'coupons.created.importedTitle' : 'coupons.created.title')}
           width="30rem"
           footer={
             <>
+              {!created.imported && (
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    setCreated(null)
+                    setCreating(true)
+                  }}
+                  data-coupons-created-more=""
+                >
+                  {t('coupons.created.more')}
+                </Button>
+              )}
               <Button
-                variant="text"
-                onClick={() => {
-                  setCreated(null)
-                  setCreating(true)
-                }}
-                data-coupons-created-more=""
+                variant="outlined"
+                onClick={() => exportCodes(codes.filter((k) => k.batch === created.batch), created.batch)}
+                data-coupons-created-export=""
               >
-                {t('coupons.created.more')}
+                <Download className="size-3.5" aria-hidden />
+                {t('coupons.created.export')}
               </Button>
               <Button
                 variant="primary"
@@ -245,11 +335,16 @@ export default function CouponsPage() {
         >
           <div className="flex flex-col gap-3" data-coupons-created={created.batch}>
             <p className="text-sm">
-              <Trans t={t} i18nKey="coupons.created.body" count={created.count} values={{ n: created.count }} components={{ n: <Ltr /> }} />
+              <Trans t={t} i18nKey={created.imported ? 'coupons.created.importedBody' : 'coupons.created.body'} count={created.count} values={{ n: created.count }} components={{ n: <Ltr /> }} />
             </p>
             <p className="rounded-md border border-border/60 bg-muted px-3 py-2 text-center font-mono text-lg font-semibold tracking-wide" data-batch-id="">
               <Ltr>{created.batch}</Ltr>
             </p>
+            {created.leftOut > 0 && (
+              <p className="text-sm" data-coupons-created-left-out="">
+                <Trans t={t} i18nKey="coupons.created.leftOut" count={created.leftOut} values={{ n: formatNumber(created.leftOut) }} components={{ n: <Ltr /> }} />
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">{t('coupons.created.hint')}</p>
           </div>
         </Modal>

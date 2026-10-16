@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -26,6 +26,7 @@ import {
   canOpenDonorRequests,
   canOpenFailedTransfers,
   canOpenGeography,
+  canOpenPickSupport,
 } from '@/core/oms/access'
 // The Nphies probe, same reason and one step further (ticket 211): contract 209 §1
 // gives the whole area ONE grant, so the leaf and every screen in both
@@ -321,6 +322,20 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: canOpenDocumentSourceUsers,
+        }),
+      },
+      {
+        // Pick support (ticket 496, BackOffice brief 2691) — `PickSupport,03`, read off the ONE
+        // `OMS_ACCESS_KEY` entry, placed before Delivery statistics (which 484 keeps last). The
+        // fix's own flag (`canFixPickSupport`) is the screen's to read, not the leaf's.
+        labelKey: 'pick-support:menu.pickSupport',
+        icon: ScanSearch,
+        routerLink: '/oms/pick-support',
+        activePrefix: '/oms/pick-support',
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: canOpenPickSupport,
         }),
       },
       {

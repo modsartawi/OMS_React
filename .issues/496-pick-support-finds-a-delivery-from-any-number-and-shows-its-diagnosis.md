@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2691-oms-react-pick-support-brief.md
 blocked-by: — (live: BackOffice 2687–2690, probe flags 2731)
 ---
@@ -63,17 +63,17 @@ model/api (`core/models`, `core/pick-support`) · logic (verdict → card state,
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `verdictView`: STUCK yields one card per shape; HEALTHY a quiet state; UNKNOWN, an unlisted verdict and STUCK with no shapes all read as escalate, with no fix slot (vitest)
-- [ ] `readStamp`: `0001-01-01T00:00:00` and any year ≤ 1900 read as "—"; a real stamp is shown as sent, never converted (vitest)
-- [ ] `transferView`: an STO with a floor posted time reads "started"; no STO reads none; both set read posted (vitest)
-- [ ] `filterTimeline`: the source filter and key text narrow the list and keep the server's order; reconstructed is carried through (vitest)
-- [ ] `resolveView`: one delivery and no serials opens the diagnosis; several give a list; serials give the holds table; `matched:false` gives the server sentence (vitest)
-- [ ] `canOpenPickSupport` / `canFixPickSupport`: only an explicit `true` grants (vitest, `access.test.ts`)
-- [ ] `tools/pick-support-drive.mjs`, run LTR and RTL against a stub that emits **exactly** the brief's JSON (all three verdicts, an order with two deliveries, a serial with a PUT_BACK_BASKET and a STUCK hold, a reconstructed timeline row, a `PICK-00002` envelope, a 403). It checks:
+- [x] `verdictView`: STUCK yields one card per shape; HEALTHY a quiet state; UNKNOWN, an unlisted verdict and STUCK with no shapes all read as escalate, with no fix slot (vitest)
+- [x] `readStamp`: `0001-01-01T00:00:00` and any year ≤ 1900 read as "—"; a real stamp is shown as sent, never converted (vitest)
+- [x] `transferView`: an STO with a floor posted time reads "started"; no STO reads none; both set read posted (vitest)
+- [x] `filterTimeline`: the source filter and key text narrow the list and keep the server's order; reconstructed is carried through (vitest)
+- [x] `resolveView`: one delivery and no serials opens the diagnosis; several give a list; serials give the holds table; `matched:false` gives the server sentence (vitest)
+- [x] `canOpenPickSupport` / `canFixPickSupport`: only an explicit `true` grants (vitest, `access.test.ts`)
+- [x] `tools/pick-support-drive.mjs`, run LTR and RTL against a stub that emits **exactly** the brief's JSON (all three verdicts, an order with two deliveries, a serial with a PUT_BACK_BASKET and a STUCK hold, a reconstructed timeline row, a `PICK-00002` envelope, a 403). It checks:
   - the leaf is hidden with no flag;
   - `?key=` survives a reload;
   - Copy puts `copy.text` on the clipboard byte for byte.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -93,3 +93,25 @@ stubbed STUCK diagnosis with every section.
 ## Blocked by
 
 None — can start immediately (live doors: BackOffice 2687–2690; probe flags: BackOffice 2731).
+
+## Comments
+
+**Done 2026-10-16 (AFK).** Built to the brief, which was checked field for field against the shipped
+`PickSupportModels.cs`, `PickDocumentModel.cs` and `DonorRequestModels.cs`.
+
+- **Layout:**
+  - `core/models/pick-support.ts` holds every wire type. `PickDocumentModel` is new. The diagnosis's donor request is `PickSupportDonorRequest`, which extends `DonorRequestModel` without widening it and opens its `state`.
+  - `core/pick-support/` holds the door calls (`api.ts`), the pure helpers (`diagnosis.ts`, `failure.ts`), and the panel: `DiagnosisPanel`, `DeliveryDiagnosis` (the loader 499 reuses), `CopyDiagnosis` and `bits`.
+  - `features/oms/pick-support/` holds `PickSupportPage.tsx` and `resolve-view.ts`.
+  - There is no feature `api.ts`, because the doors are in core by the wave layout (HITL).
+- **Probe:** `canOpenPickSupport` / `canFixPickSupport` were added to `OMS_SCREEN_FLAGS`, with one predicate each. The menu leaf sits in the OMS group just before Delivery statistics, which 484 keeps last.
+- **How a row opens its diagnosis:** a pick-list row, or a STUCK hold, writes `?delivery={no}` beside `?key=`, and the diagnosis is drawn under the list. A `?delivery=` the key did not resolve to draws nothing. Pressing Enter on the same key re-reads both the lookup and the diagnosis.
+- **Proof:**
+  - vitest covers `verdictView`, `readStamp`, `transferView`, `filterTimeline`, `timelineSources`, `holdView`, `resolveView`, `openable`, the search URL state, `pickSupportFailure`, the access predicates and the menu leaf. The full suite passes, 5201 tests.
+  - `tools/pick-support-drive.mjs` passes 106/106, run LTR and RTL against the brief's JSON. The copy checks prove the exact string handed to `clipboard.writeText` (byte for byte) and the OS readback with line ends normalised, because Windows turns LF into CRLF.
+  - typecheck, lint (all four gates) and build are green.
+- **Decisions:** see `.afk/HITL-496.md`, which is not committed.
+- **Outstanding, not this ticket's:**
+  - the live doors (ticket 500);
+  - a human eyeballing the server's AR beside the EN;
+  - a `/domain-modeling` pass on Pick support vocabulary. CONTEXT.md's "Verdict" means something else.

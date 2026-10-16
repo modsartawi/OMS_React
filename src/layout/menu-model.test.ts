@@ -311,3 +311,24 @@ describe('the Delivery statistics leaf (ticket 484)', () => {
     expect(leaf.access?.visible({ canOpenList: false, canOpenDetail: true, canOpenDonorRequests: true })).toBe(false)
   })
 })
+
+describe('the Pick support leaf (ticket 496)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'pick-support:menu.pickSupport')!
+
+  it('sits in the OMS group just before Delivery statistics, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.at(-2)).toBe('pick-support:menu.pickSupport')
+    expect(leaf.routerLink).toBe('/oms/pick-support')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/pick-support')).map((i) => i.labelKey)).toEqual([
+      'pick-support:menu.pickSupport',
+    ])
+  })
+
+  it('🚩 reads canOpenPickSupport off the ONE OMS probe entry, and fails closed without it', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'access'])
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true })).toBe(true)
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true })).toBe(false)
+    expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canFixPickSupport: true })).toBe(false)
+  })
+})

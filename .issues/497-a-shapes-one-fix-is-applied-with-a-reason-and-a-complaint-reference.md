@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2691-oms-react-pick-support-brief.md
 blocked-by: 496
 ---
@@ -45,9 +45,9 @@ api (`Fix` call) · logic (confirm gate, success/refusal state) · dialog compon
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `canConfirmFix`: blank or whitespace-only reason or reference keeps Confirm off; both present turns it on (vitest)
-- [ ] `fixOutcome`: a success with a diagnosis replaces the panel; a success with `diagnosis: null` asks for a re-read and is still a success; `PICK-00224` offers refresh, `PICK-00225` does not (vitest)
-- [ ] The drive (extend `tools/pick-support-drive.mjs`, LTR + RTL, stub emitting the brief's exact JSON) checks:
+- [x] `canConfirmFix`: blank or whitespace-only reason or reference keeps Confirm off; both present turns it on (vitest)
+- [x] `fixOutcome`: a success with a diagnosis replaces the panel; a success with `diagnosis: null` asks for a re-read and is still a success; `PICK-00224` offers refresh, `PICK-00225` does not (vitest)
+- [x] The drive (extend `tools/pick-support-drive.mjs`, LTR + RTL, stub emitting the brief's exact JSON) checks:
   - no button without `canFixPickSupport`, on HEALTHY or on UNKNOWN;
   - a double click sends one POST;
   - the body carries exactly `shape`, `reason` and `complaintRef`;
@@ -56,7 +56,7 @@ api (`Fix` call) · logic (confirm gate, success/refusal state) · dialog compon
   - the tell-the-store copy buttons copy EN and AR verbatim;
   - a `PICK-00224` keeps the dialog open with Refresh;
   - a 403 shows its sentence.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -73,3 +73,34 @@ and AR, and leaves the panel HEALTHY.
 ## Blocked by
 
 [496](496-pick-support-finds-a-delivery-from-any-number-and-shows-its-diagnosis.md)
+
+## Comments
+
+**Done 2026-10-16 (AFK).** Built to the brief's "POST …/Fix" and "The fix dialog" sections.
+
+- **Layout:** everything lives in `core/pick-support/`, so Document Details (499) gets the fix with the panel.
+  - `fix.ts` holds the pure rules: `canConfirmFix`, `fixBody`, `fixOutcome` and the 512/40 widths.
+  - `FixDialog.tsx` is the dialog. `ShapeBody.tsx` draws the explanation and fix (EN beside AR) and the action-tagged requests and documents. It was lifted out of the shape card so the dialog draws the same body.
+  - `api.ts` gained `pickSupportApi.fix`.
+  - `DeliveryDiagnosis` reads `canFixPickSupport` off the one shared OMS probe and holds the dialog, so the dialog outlives the card a fix removes.
+- **Behaviour:**
+  - Confirm is held by a ref as well as `disabled`, so a double click sends one POST.
+  - On success the delivery's own read takes `diagnosis` at once. On `null` it is re-GET. Either way the dialog shows the store's EN/AR, each with its own copy button, and offers only Close.
+  - The rest of Pick support (Resolve, and later the census) is re-read when the dialog CLOSES, not under it. A serial lookup that stops naming the fixed delivery would otherwise unmount the dialog before the store's text was copied. The /code-review found this, and the drive now checks it.
+  - On a refusal the input is kept and the code is shown beside the server's sentence. `PICK-00224` offers Refresh diagnosis and disables Confirm. A bare 403 reads "You do not have access to apply fixes".
+- **Proof:**
+  - vitest: `fix.test.ts` has 12 tests. The full suite passes, 298 files and 5213 tests.
+  - `tools/pick-support-drive.mjs` passes 178/178 LTR + RTL. 496's 106 checks still pass, and 497 adds 72. They cover:
+    - HEALTHY and UNKNOWN with no button, and two shapes giving two buttons;
+    - the dialog content, maxLength and the Confirm gate;
+    - the double click sending one POST, and the exact body;
+    - HEALTHY with `SUPPORT_FIX` on PD0000999 and DR0000123;
+    - the null re-GET;
+    - EN and AR copied verbatim;
+    - the serial-lookup survival;
+    - 00224 with Refresh, 00225 with no refresh, and the 403 sentence.
+  - typecheck, lint (four gates) and build are green.
+- **Decisions:** see `.afk/HITL-497.md`, which is not committed.
+- **Outstanding, not this ticket's:**
+  - the live Fix door on staging (ticket 500);
+  - a human eyeballing the server's AR beside the EN in the dialog.

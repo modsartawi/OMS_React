@@ -46,4 +46,10 @@ export interface OmsAccessResult {
   canOpenDocumentSourceUsers?: boolean
   /** `DocumentSourceUsersImport,03`. */
   canImportDocumentSourceUsers?: boolean
+  // ── Pick support (BackOffice brief 2691; reported since BackOffice 2731) — optional for the
+  // same reason: an older SIS.Api omits them, and an absent flag reads as denied.
+  /** `BackOfficeScreen[PickSupport,03]` — the route, search, census and diagnosis. */
+  canOpenPickSupport?: boolean
+  /** `BackOfficeScreen[PickSupport,06]` — the fix. Hide the button without it. */
+  canFixPickSupport?: boolean
 }

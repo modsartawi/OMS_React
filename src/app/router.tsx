@@ -151,6 +151,15 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
         }),
       },
+      // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
+      // and reads its diagnosis, behind `canOpenPickSupport` on the shared OMS probe. `?key=` is the
+      // number looked up.
+      {
+        path: 'oms/pick-support',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/pick-support/PickSupportPage')).default,
+        }),
+      },
       // Donor requests (ticket 431, spec 430) — every store's donor asks, behind its own flag on
       // the shared OMS probe. `?request=<no>` seeds a one-request search (434's link).
       {

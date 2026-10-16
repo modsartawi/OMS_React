@@ -29,6 +29,7 @@ live doors · test
   - the timeline shows `SUPPORT_FIX` on the picking document and on the donor request;
   - a second press is refused with `PICK-00224`.
 - [ ] The view-only user sees no Apply fix button, and gets a 403 sentence if they POST by URL
+- [ ] Arabic read *(owner, not AFK)*: with the UI language set to Arabic, read the console (Search, Stuck now, the diagnosis panel, the fix dialog) and the Document Details section. The 496–499 drives' "RTL" passes run `dir="rtl"` with the EN bundle and match English copy, so they prove direction and isolation only — no drive has rendered a single `ar/pick-support.json` key. This read is the only check of the Arabic wording.
 - [ ] Owner walk: one of the three incident deliveries (8006777365, 8006775505, 8006766074) is cleared through the console, and the store is told with the console's text *(owner, not AFK)*
 
 ## Boundaries

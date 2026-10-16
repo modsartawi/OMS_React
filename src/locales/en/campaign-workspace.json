@@ -89,11 +89,9 @@
     "catalogueFailedTitle": "The block catalogue could not be read",
     "catalogueFailed": "Try again in a moment.",
     "retry": "Try again",
-    "noRules": "This campaign has no rules yet.",
     "collapseAll": "Collapse all",
     "expandAll": "Expand all",
     "ruleNumber": "Rule <n>{{n}}</n>",
-    "untitledRule": "Untitled rule",
     "expand": "Expand the rule",
     "collapse": "Collapse the rule",
     "summary": {
@@ -115,16 +113,323 @@
     "effects": "Effects",
     "effectsHead": "Apply these effects:",
     "noEffects": "No effect yet.",
-    "partial": {
-      "refuse": "If the member is short of points, the whole rule is refused.",
-      "scale": "If the member is short of points, fewer points are taken, in proportion."
-    },
     "says": {
       "notMet": "If not met, the till says it needs",
       "receiptLabel": "On the receipt",
       "cashierPrompt": "The cashier is prompted",
       "message": "The message",
       "noArabic": "No Arabic yet."
+    }
+  },
+  "builder": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "cancel": "Cancel",
+    "save": "Save",
+    "unsaved": "Unsaved changes",
+    "saved": "The rules are saved.",
+    "saveFailedTitle": "The rules could not be saved",
+    "saveFailed": "Try again in a moment. Your changes are still here.",
+    "addRule": "Add rule",
+    "noRules": "This campaign has no rules yet. Add one to get started.",
+    "ruleNamePlaceholder": "Type here to give this rule a name",
+    "moveRuleUp": "Move the rule up",
+    "moveRuleDown": "Move the rule down",
+    "deleteRule": "Delete the rule",
+    "addCondition": "Condition",
+    "addToGroup": "Condition in this group",
+    "addEffect": "Effect",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "delete": "Delete",
+    "match": "Match",
+    "matchAll": "all of these",
+    "matchAny": "any of these",
+    "emptyGroup": "Nothing in this group yet.",
+    "partial": "If the member is short of points",
+    "partialOption": {
+      "refuse": "refuse the whole rule",
+      "scale": "take fewer points, in proportion"
+    },
+    "leave": {
+      "title": "Leave without saving?",
+      "body": "Your changes to the rules are not saved. Leaving discards them.",
+      "stay": "Stay",
+      "go": "Leave and discard"
+    }
+  },
+  "palette": {
+    "condition": "Add a condition",
+    "effect": "Add an effect",
+    "close": "Close",
+    "hidden": {
+      "coupons": "Coupon blocks appear once the campaign’s Coupons feature is on.",
+      "points": "Loyalty points blocks appear once the campaign’s Loyalty points feature is on."
+    },
+    "group": {
+      "basket": "Basket",
+      "attribute": "Attribute",
+      "coupon": "Coupon",
+      "loyalty": "Loyalty",
+      "audience": "Audience",
+      "sale": "Sale",
+      "logic": "Group",
+      "discounts": "Discount",
+      "points": "Points",
+      "couponsAndMessages": "Create and show"
+    },
+    "block": {
+      "condition": {
+        "minSubtotal": "Basket value is at least",
+        "minCount": "Number of items is at least",
+        "attribute": "Check an attribute value",
+        "expr": "Formula (advanced)",
+        "coupon": "Coupon code is valid",
+        "member": "Customer is a member",
+        "tier": "Check the member’s tier",
+        "minPoints": "Points balance is at least",
+        "firstPurchase": "First purchase",
+        "anniversary": "Birthday or anniversary",
+        "audience": "Is or is not in an audience",
+        "channel": "Channel is",
+        "store": "Store is",
+        "sessionFlag": "Customer accepted an offer",
+        "budgetLeft": "Budget not used up",
+        "group": "A group of conditions"
+      },
+      "effect": {
+        "discountItems": "Discount individual items",
+        "discountSession": "Discount the basket",
+        "discountFees": "Discount the fee lines",
+        "freeUnits": "Buy N, cheapest free",
+        "freeProduct": "Free unit of a product",
+        "valueMap": "Price from a value map",
+        "bundle": "Bundle price or discount",
+        "awardPoints": "Add loyalty points",
+        "burnPoints": "Redeem loyalty points",
+        "createCoupon": "Create a coupon code",
+        "notify": "Show a message"
+      }
+    }
+  },
+  "panel": {
+    "done": "Done",
+    "delete": "Delete",
+    "english": "English",
+    "arabic": "Arabic",
+    "saysEnglish": "{{label}}, in English",
+    "saysArabic": "{{label}}, in Arabic",
+    "allItems": "all merchandise",
+    "missing": "no longer exists",
+    "aNumber": "a number",
+    "codesHint": "Separate codes with commas.",
+    "formulaReadOnly": "A formula is written with the guided ƒx helper, which this screen does not have yet.",
+    "unknownBlock": "This block cannot be edited here.",
+    "pickBudget": "Pick a budget",
+    "noBudgets": "This campaign has no budget yet.",
+    "addPart": "Add a part",
+    "removePart": "Remove the part",
+    "partCount": "How many",
+    "partOf": "Of",
+    "percent": "%",
+    "points": "points",
+    "timing": {
+      "none": "Not set",
+      "afterDays": "after a number of days",
+      "afterHours": "after a number of hours",
+      "on": "on a date",
+      "activates": {
+        "none": "at once"
+      },
+      "expires": {
+        "none": "never"
+      }
+    },
+    "field": {
+      "of": "Items",
+      "on": "Items",
+      "amount": "At least",
+      "basis": "Counted",
+      "count": "At least (units)",
+      "path": "Attribute",
+      "op": "Comparison",
+      "value": "Value",
+      "formula": "Formula",
+      "source": "Coupon",
+      "pattern": "Code pattern",
+      "is": "Customer",
+      "in": "Any of",
+      "unit": "Unit",
+      "withinDays": "Within (days)",
+      "name": "Audience",
+      "flag": "Offer",
+      "budget": "Budget",
+      "mode": "Match",
+      "kind": "Type",
+      "per": "Each",
+      "cap": "At most (empty: no cap)",
+      "scope": "Over",
+      "which": "Free unit",
+      "buy": "For every",
+      "free": "Free units",
+      "qty": "Units",
+      "sku": "Product (SKU)",
+      "map": "Value map",
+      "parts": "Bundle parts",
+      "max": "At most, bundles per sale (empty: no limit)",
+      "activity": "Activity",
+      "activates": "Usable",
+      "expires": "Expires",
+      "from": "From the coupon campaign",
+      "validDays": "Valid for (days)",
+      "bindToMember": "Bound to the member"
+    },
+    "typeField": {
+      "minPoints": {
+        "amount": "Balance at least"
+      },
+      "member": {
+        "is": "Who"
+      },
+      "firstPurchase": {
+        "is": "Purchase history"
+      },
+      "tier": {
+        "in": "Tiers"
+      },
+      "channel": {
+        "in": "Channels"
+      },
+      "store": {
+        "in": "Stores"
+      },
+      "anniversary": {
+        "path": "Date"
+      },
+      "audience": {
+        "op": "The customer"
+      },
+      "discountItems": {
+        "kind": "Discount",
+        "value": "Discount"
+      },
+      "discountSession": {
+        "kind": "Discount",
+        "value": "Discount"
+      },
+      "discountFees": {
+        "kind": "Discount",
+        "value": "Discount"
+      },
+      "bundle": {
+        "kind": "Bundle",
+        "value": "Price or amount"
+      },
+      "awardPoints": {
+        "value": "Points"
+      },
+      "burnPoints": {
+        "value": "Points to take"
+      }
+    },
+    "option": {
+      "minSubtotal": {
+        "basis": {
+          "total": "after earlier offers",
+          "subtotal": "before any offer"
+        }
+      },
+      "coupon": {
+        "source": {
+          "campaign": "one of this campaign’s coupons",
+          "pattern": "a code matching a pattern"
+        }
+      },
+      "member": {
+        "is": {
+          "identified": "any member on the sale",
+          "earning": "an earning Arbahi member"
+        }
+      },
+      "minPoints": {
+        "unit": {
+          "SAR": "SAR of points",
+          "PTS": "points"
+        }
+      },
+      "firstPurchase": {
+        "is": {
+          "never": "the member has never bought",
+          "done": "the member has bought before"
+        }
+      },
+      "anniversary": {
+        "path": {
+          "birthday": "birthday",
+          "membership": "membership anniversary"
+        }
+      },
+      "audience": {
+        "op": {
+          "in": "is in",
+          "notIn": "is not in"
+        }
+      },
+      "sessionFlag": {
+        "flag": {
+          "pointsOffer": "the points offer, asked at the till"
+        }
+      },
+      "group": {
+        "mode": {
+          "all": "all of these",
+          "any": "any of these"
+        }
+      },
+      "discountItems": {
+        "kind": {
+          "percent": "percent off",
+          "amount": "amount off",
+          "targetPrice": "sell at a price"
+        }
+      },
+      "discountSession": {
+        "kind": {
+          "percent": "percent off",
+          "amount": "amount off"
+        }
+      },
+      "discountFees": {
+        "kind": {
+          "percent": "percent off",
+          "amount": "amount off"
+        }
+      },
+      "freeUnits": {
+        "which": {
+          "cheapest": "the cheapest",
+          "dearest": "the dearest"
+        }
+      },
+      "bundle": {
+        "kind": {
+          "bundlePrice": "a bundle price",
+          "discount": "an amount off each bundle",
+          "cheapestFree": "the cheapest unit free"
+        }
+      },
+      "awardPoints": {
+        "unit": {
+          "SAR": "SAR of points",
+          "PTS": "points"
+        }
+      },
+      "burnPoints": {
+        "unit": {
+          "SAR": "SAR of points",
+          "PTS": "points"
+        }
+      }
     }
   },
   "sentence": {

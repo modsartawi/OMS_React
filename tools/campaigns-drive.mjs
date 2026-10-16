@@ -10,6 +10,7 @@
 //   POST RuleCampaign/Campaigns       → a new draft from { name: {en, ar}, features } (502, `createDraft`)
 //   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
 //   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
+//   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -63,6 +64,7 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرمز.'
 const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
+const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
 
@@ -73,7 +75,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, edit } = {}) {
+async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -84,6 +86,8 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
   /** 504: the catalogue door refuses until `heal()`. */
   let catalogueDown = refuseCatalogue
   const bodies = []
+  /** 505: every draft save's body, in order. */
+  const saves = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -111,6 +115,16 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       const c = store.find((x) => x.id === decodeURIComponent(one[1]))
       return route.fulfill(c ? envelope(c) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
+    const draft = /^RuleCampaign\/Campaigns\/([^/]+)\/Draft$/.exec(p)
+    if (draft && req.method() === 'PUT') {
+      const body = req.postDataJSON()
+      saves.push(body)
+      const c = store.find((x) => x.id === decodeURIComponent(draft[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (refuseSave) return route.fulfill(envelope(null, { status: 409, success: false, message: SAVE_REFUSED, errorCode: 'RULE_CAMPAIGN_NOT_EDITABLE' }))
+      c.rules = structuredClone(body.rules)
+      return route.fulfill(envelope(c))
+    }
     const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
     if (copy && req.method() === 'POST') {
       const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
@@ -120,7 +134,7 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -425,7 +439,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('16: one card per rule', (await page.locator('[data-rule-card]').count()) === 1)
 
   const card = page.locator('[data-rule-card]').first()
-  check('17: the card is headed by its rule number and name', (await card.locator('[data-rule-name]').innerText()) === 'Cheapest of every three suncare units free')
+  check('17: the card is headed by its rule number and name', (await card.locator('[data-rule-name]').inputValue()) === 'Cheapest of every three suncare units free')
   check('17: its summary counts filters, conditions and effects', (await card.locator('[data-rule-summary]').innerText()).replace(/\s+/g, ' ') === '1 cart item filter 2 conditions 1 effect', await card.locator('[data-rule-summary]').innerText())
   const filter = card.locator('[data-filter]').first()
   check('17: the filter reads as a chain, by name', (await filter.locator('[data-filter-name]').innerText()) === 'sun' && JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()) === '["cart items","in collection SUNCARE"]', JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()))
@@ -545,6 +559,222 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   check('22: Try again reads the catalogue afresh and draws the rules', (await page.locator('[data-rule-card]').count()) === 1 && (await page.locator('[role="alert"]').count()) === 0)
   check('23: no page errors (22)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 505 ── it asserts:
+//  24. the builder bar: Undo / Redo / Cancel / Save, all disabled on an unedited campaign;
+//  25. + Condition opens the palette by group — only blocks the features switch on (points yes,
+//      coupons no on SUN-3FOR2, saying where coupon blocks are), never a "not decided" one, and no
+//      formula block until 507; a coupons campaign offers the coupon condition; Escape closes it;
+//  26. a pick adds the block with its panel open; the panel's typed fields (a count, the rule's
+//      filters by id) and the EN + AR "not met" pair (the Arabic dir=rtl) edit it live; Done closes
+//      it and the sentence and both lines read the edit;
+//  27. "Unsaved changes" shows; Undo steps back one edit (the typed pair is ONE step), Redo
+//      forward; Undo to the start is clean again;
+//  28. Save sends ONE draft save with the rules as edited (filters by id, the pair, the browser's
+//      block id), clears the history, toasts; a reload reads the saved rule back;
+//  29. + Effect, a discount filled in its panel, reorder of effects, delete; Cancel goes back to
+//      the saved rules;
+//  30. Add rule, name it, move it up, delete it; a group with a condition inside it (an empty one
+//      leaves the rule "Always"); codes typed with commas, and Undo empties the input too;
+//  31. leaving with unsaved changes asks: Stay keeps them, Leave and discard goes;
+//  32. a refused save is the door's own message, the edits kept; a formula reads in its panel,
+//      not editable;
+//  33. no page errors.
+{
+  const { context, page, errors, saves } = await open()
+  const sun = CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2')
+  const sunFilter = sun.rules[0].filters[0].id
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const bar = page.locator('[data-builder-bar]')
+  const disabled = async (sel) => bar.locator(sel).isDisabled()
+  check('24: Undo, Redo, Cancel and Save are all disabled on an unedited campaign', (await disabled('[data-undo]')) && (await disabled('[data-redo]')) && (await disabled('[data-cancel]')) && (await disabled('[data-save]')) && (await page.locator('[data-unsaved]').count()) === 0)
+
+  // ── 25 ──
+  const card = page.locator('[data-rule-card]').first()
+  await card.locator('[data-palette-open="when"]').click()
+  const palette = card.locator('[data-palette="when"]')
+  await palette.waitFor()
+  const offered = await palette.locator('[data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
+  const groups = await palette.locator('[data-palette-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-group')))
+  check('25: the palette is grouped by category', JSON.stringify(groups) === JSON.stringify(['basket', 'attribute', 'loyalty', 'sale', 'logic']), JSON.stringify(groups))
+  check('25: points blocks with points on, no coupon block with coupons off', offered.includes('minPoints') && !offered.includes('coupon'), offered.join(','))
+  check('25: …and it says where the coupon blocks are', (await palette.locator('[data-palette-hidden="coupons"]').count()) === 1 && (await palette.locator('[data-palette-hidden="points"]').count()) === 0)
+  check('25: "not decided" blocks and the formula block are left out', !offered.includes('anniversary') && !offered.includes('audience') && !offered.includes('expr'))
+  check('25: blocks read in words', (await palette.locator('[data-palette-block="minCount"]').innerText()) === 'Number of items is at least')
+  check('25: focus moves into the palette', await palette.locator('[data-palette-block="minSubtotal"]').evaluate((e) => e === document.activeElement))
+  await page.keyboard.press('Escape')
+  check('25: Escape closes it, focus back on its button', (await card.locator('[data-palette="when"]').count()) === 0 && (await card.locator('[data-palette-open="when"]').evaluate((e) => e === document.activeElement)))
+
+  // ── 26 ──
+  await card.locator('[data-palette-open="when"]').click()
+  await card.locator('[data-palette="when"] [data-palette-block="minCount"]').click()
+  const added = card.locator('[data-condition]').nth(2)
+  const panel = added.locator('[data-block-panel]')
+  check('26: a pick adds the block at the end of When, its panel open', (await card.locator('[data-condition]').count()) === 3 && (await panel.count()) === 1 && (await card.locator('[data-palette="when"]').count()) === 0)
+  check('26: a new block reads with its number not picked yet', (await added.locator('[data-block-sentence]').innerText()) === 'At least not picked yet units of all merchandise', await added.locator('[data-block-sentence]').innerText())
+  check('26: …and the summary counts it', (await card.locator('[data-rule-summary]').innerText()).includes('3 conditions'))
+  await panel.locator('[data-panel-field="count"]').fill('2')
+  await panel.locator('[data-panel-field="of"]').selectOption(sunFilter)
+  check('26: the items field offers the rule’s filters by name', JSON.stringify(await panel.locator('[data-panel-field="of"] option').allInnerTexts()).includes('sun'))
+  const ar = panel.locator('[data-panel-says="notMet"] [data-panel-says-ar]')
+  check('26: the Arabic half is its own right-to-left input', (await ar.getAttribute('dir')) === 'rtl' && (await panel.locator('[data-panel-says="notMet"] [data-panel-says-en]').getAttribute('dir')) === 'ltr')
+  await panel.locator('[data-panel-says="notMet"] [data-panel-says-en]').fill('two suncare items')
+  await ar.fill('منتجان للعناية بالشمس')
+  check('26: the sentence reads the panel live', (await added.locator('[data-block-sentence]').innerText()) === 'At least 2 units of sun', await added.locator('[data-block-sentence]').innerText())
+  await page.screenshot({ path: `${SHOTS}/builder-panel.png`, fullPage: true })
+  await panel.locator('[data-panel-done]').click()
+  check('26: Done closes the panel', (await added.locator('[data-block-panel]').count()) === 0)
+  const notMetLine = added.locator('[data-says="notMet"]')
+  check('26: both halves of the "not met" pair show, the Arabic dir=rtl', (await notMetLine.locator('[data-says-en]').innerText()) === 'two suncare items' && (await notMetLine.locator('[data-says-ar]').innerText()) === 'منتجان للعناية بالشمس' && (await notMetLine.locator('[data-says-ar]').getAttribute('dir')) === 'rtl')
+
+  // ── 27 ──
+  check('27: Unsaved changes shows, Save and Undo are enabled', (await page.locator('[data-unsaved]').count()) === 1 && !(await disabled('[data-save]')) && !(await disabled('[data-undo]')) && (await disabled('[data-redo]')))
+  await bar.locator('[data-undo]').click()
+  check('27: Undo takes back the typed pair as ONE step', (await added.locator('[data-says="notMet"]').count()) === 0 && (await added.locator('[data-block-sentence]').innerText()) === 'At least 2 units of sun')
+  await bar.locator('[data-redo]').click()
+  check('27: Redo puts it back', (await added.locator('[data-says="notMet"] [data-says-ar]').innerText()) === 'منتجان للعناية بالشمس')
+  for (let i = 0; i < 4; i++) await bar.locator('[data-undo]').click()
+  check('27: Undo to the start removes the block and is clean again', (await card.locator('[data-condition]').count()) === 2 && (await page.locator('[data-unsaved]').count()) === 0 && (await disabled('[data-save]')) && (await disabled('[data-undo]')))
+  for (let i = 0; i < 4; i++) await bar.locator('[data-redo]').click()
+  check('27: Redo all the way brings it back whole', (await card.locator('[data-condition]').count()) === 3 && (await card.locator('[data-condition]').nth(2).locator('[data-block-sentence]').innerText()) === 'At least 2 units of sun' && (await disabled('[data-redo]')))
+
+  // ── 28 ──
+  await bar.locator('[data-save]').click()
+  await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
+  const sent = saves[0]?.rules?.[0]?.when?.items?.[2]
+  check('28: Save sends ONE draft save', saves.length === 1)
+  check('28: …with the block as edited, items by filter id, both languages', sent?.type === 'minCount' && sent.count === 2 && sent.of === sunFilter && sent.says?.en === 'two suncare items' && sent.says?.ar === 'منتجان للعناية بالشمس' && typeof sent.id === 'string' && sent.id.length > 0, JSON.stringify(sent))
+  check('28: …and the other blocks untouched', JSON.stringify(saves[0].rules[0].then) === JSON.stringify(sun.rules[0].then))
+  check('28: saved: no unsaved pill, Save, Undo and Cancel disabled', (await disabled('[data-save]')) && (await disabled('[data-undo]')) && (await disabled('[data-cancel]')))
+  check('28: a toast says so', await page.getByText('The rules are saved.').first().isVisible())
+  await page.reload()
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  check('28: a reload reads the saved rule back', (await page.locator('[data-condition]').nth(2).locator('[data-block-sentence]').innerText()) === 'At least 2 units of sun')
+
+  // ── 29 ──
+  const card2 = page.locator('[data-rule-card]').first()
+  await card2.locator('[data-palette-open="then"]').click()
+  const effects = await card2.locator('[data-palette="then"] [data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
+  check('29: the effect palette offers points blocks with points on', effects.includes('awardPoints') && effects.includes('discountItems'), effects.join(','))
+  await card2.locator('[data-palette="then"] [data-palette-block="discountItems"]').click()
+  const effect = card2.locator('[data-effect]').nth(1)
+  const ep = effect.locator('[data-block-panel]')
+  check('29: the new effect works on the rule’s filter', (await ep.locator('[data-panel-field="on"]').inputValue()) === sunFilter)
+  await ep.locator('[data-panel-field="value"]').fill('10')
+  await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-en]').fill('Sun 10%')
+  await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-ar]').fill('خصم الشمس 10%')
+  check('29: a discount’s receipt label is an EN + AR pair, the Arabic dir=rtl', (await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-ar]').getAttribute('dir')) === 'rtl')
+  check('29: a percent reads as a percent', (await effect.locator('[data-block-sentence]').innerText()) === 'Take 10% off each unit of sun', await effect.locator('[data-block-sentence]').innerText())
+  await ep.locator('[data-panel-field="kind"]').selectOption('amount')
+  check('29: a choice changes the wording and the unit', (await effect.locator('[data-block-sentence]').innerText()) === 'Take SAR 10.00 off each unit of sun', await effect.locator('[data-block-sentence]').innerText())
+  await ep.locator('[data-panel-done]').click()
+  await effect.locator('[data-move-up="block"]').click()
+  check('29: an effect moves up', (await card2.locator('[data-effect]').first().locator('[data-block-sentence]').innerText()) === 'Take SAR 10.00 off each unit of sun')
+  check('29: …the first cannot move up, the last cannot move down', (await card2.locator('[data-effect]').first().locator('[data-move-up="block"]').isDisabled()) && (await card2.locator('[data-effect]').last().locator('[data-move-down="block"]').isDisabled()))
+  await card2.locator('[data-effect]').first().locator('[data-delete="block"]').click()
+  check('29: delete removes it', (await card2.locator('[data-effect]').count()) === 1)
+  await card2.locator('[data-effect]').first().locator('[data-block-edit]').click()
+  check('29: a sentence opens its panel', (await card2.locator('[data-effect] [data-block-panel]').count()) === 1)
+  await card2.locator('[data-effect] [data-panel-field="buy"]').fill('4')
+  check('29: …which edits the saved block', (await card2.locator('[data-effect] [data-block-sentence]').innerText()) === 'For every 4 of sun, the cheapest 1 unit is free')
+  await bar.locator('[data-cancel]').click()
+  check('29: Cancel goes back to the saved rules', (await card2.locator('[data-effect]').count()) === 1 && (await card2.locator('[data-effect] [data-block-sentence]').innerText()) === 'For every 3 of sun, the cheapest 1 unit is free' && (await page.locator('[data-unsaved]').count()) === 0 && (await disabled('[data-undo]')))
+
+  // ── 30 ──
+  await page.locator('[data-add-rule]').click()
+  const fresh = page.locator('[data-rule-card]').nth(1)
+  check('30: Add rule adds an empty rule that reads "Always"', (await page.locator('[data-rule-card]').count()) === 2 && (await fresh.locator('[data-when]').innerText()) === 'Always')
+  await fresh.locator('[data-rule-name]').fill('Gift for big baskets')
+  await fresh.locator('[data-move-up="rule"]').click()
+  check('30: a named rule moves up', (await page.locator('[data-rule-card]').first().locator('[data-rule-name]').inputValue()) === 'Gift for big baskets')
+  const top = page.locator('[data-rule-card]').first()
+  await top.locator('[data-palette-open="when"]').click()
+  await top.locator('[data-palette="when"] [data-palette-block="group"]').click()
+  const group = top.locator('[data-condition-group]')
+  check('30: a group is added, empty, with its own palette', (await group.count()) === 1 && (await group.innerText()).includes('Nothing in this group yet.'))
+  check('30: …and an empty group leaves the rule "Always", with no all / any to pick', (await top.locator('[data-when]').innerText()) === 'Always' && (await top.locator('[data-match="when"]').count()) === 0)
+  await group.locator('[data-match]').selectOption('any')
+  await group.locator('[data-palette-open]').click()
+  await group.locator('[data-palette-block="member"]').click()
+  check('30: a condition goes into the group, its panel open', (await group.locator('[data-condition]').count()) === 1 && (await group.locator('[data-block-panel]').count()) === 1 && (await group.locator('p').first().innerText()) === 'Any of these is true')
+  await group.locator('[data-panel-done]').click()
+  check('30: …and reads as a sentence', (await group.locator('[data-condition] [data-block-sentence]').innerText()) === 'The customer is an identified member')
+  await top.locator('[data-palette-open="when"]').click()
+  await top.locator('[data-palette="when"] [data-palette-block="store"]').click()
+  const stores = top.locator('[data-condition][data-sentence="sentence.condition.store"]')
+  await stores.locator('[data-panel-field="in"]').fill('P001, P002')
+  check('30: codes typed with commas read as a list', (await stores.locator('[data-block-sentence]').innerText()) === 'The store is P001 or P002', await stores.locator('[data-block-sentence]').innerText())
+  await bar.locator('[data-undo]').click()
+  check('30: Undo empties the codes input too', (await stores.locator('[data-panel-field="in"]').inputValue()) === '' && (await stores.locator('[data-block-sentence]').innerText()) === 'The store is nothing picked yet')
+  await stores.locator('[data-panel-done]').click()
+  await top.locator('[data-delete="rule"]').click()
+  check('30: delete removes the rule', (await page.locator('[data-rule-card]').count()) === 1 && (await page.locator('[data-rule-card]').first().locator('[data-rule-name]').inputValue()) === 'Cheapest of every three suncare units free')
+
+  // ── 31 ──
+  await page.locator('[data-rule-card]').first().locator('[data-rule-name]').fill('Suncare 3 for 2')
+  await page.locator('[data-workspace-menu="dashboard"]').click()
+  const leave = page.locator('[data-leave-dialog]')
+  await leave.waitFor({ timeout: 5000 })
+  check('31: leaving with unsaved changes asks first', page.url().endsWith('/campaigns/SUN-3FOR2/rules'))
+  await page.locator('[data-leave-stay]').click()
+  await page.locator('[data-leave-dialog]').waitFor({ state: 'detached', timeout: 5000 })
+  check('31: Stay keeps the page and the edit', (await page.locator('[data-leave-dialog]').count()) === 0 && page.url().endsWith('/rules') && (await page.locator('[data-rule-name]').first().inputValue()) === 'Suncare 3 for 2', `${await page.locator('[data-leave-dialog]').count()} ${page.url()} ${await page.locator('[data-rule-name]').first().inputValue()}`)
+  await page.locator('[data-workspace-menu="dashboard"]').click()
+  await page.locator('[data-leave-go]').click()
+  await page.locator('[data-dashboard]').waitFor()
+  check('31: Leave and discard goes', page.url().endsWith('/campaigns/SUN-3FOR2'))
+  await page.locator('[data-workspace-menu="rules"]').click()
+  await page.locator('[data-rules]').waitFor()
+  check('31: …and the builder reads the saved rules again', (await page.locator('[data-rule-name]').first().inputValue()) === 'Cheapest of every three suncare units free' && (await page.locator('[data-unsaved]').count()) === 0)
+  check('31: a clean builder leaves without asking', await (async () => {
+    await page.locator('[data-workspace-menu="dashboard"]').click()
+    await page.locator('[data-dashboard]').waitFor()
+    return (await page.locator('[data-leave-dialog]').count()) === 0
+  })())
+  check('33: no page errors (24–31)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 32 ──
+{
+  const { context, page, errors, saves } = await open({ refuseSave: true })
+  await page.goto(`${BASE}/campaigns/WLCB/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const expr = page.locator('[data-condition][data-sentence="sentence.condition.expr"]')
+  await expr.locator('[data-block-edit]').click()
+  const fp = expr.locator('[data-block-panel]')
+  check('32: a formula reads in its panel as written, not editable', (await fp.locator('[data-panel-field="formula"] code').innerText()) === 'back > 0' && (await fp.locator('[data-panel-field="formula"] input, [data-panel-field="formula"] textarea').count()) === 0)
+  await fp.locator('[data-panel-says="notMet"] [data-panel-says-en]').fill('something to give back')
+  await fp.locator('[data-panel-done]').click()
+  const award = page.locator('[data-effect]').first()
+  await award.locator('[data-block-edit]').click()
+  check('32: a points value names its named value', (await award.locator('[data-panel-value-source="value"] option:checked').innerText()).replace(/[⁨⁩]/g, '') === 'back', (await award.locator('[data-block-panel]').innerHTML()).slice(0, 1500))
+  await page.locator('[data-builder-bar] [data-save]').click()
+  const banner = page.locator('[role="alert"]').first()
+  await banner.waitFor({ timeout: 10000 })
+  check('32: a refused save shows the door’s own message', (await banner.innerText()).includes(SAVE_REFUSED) && saves.length === 1, await banner.innerText())
+  check('32: …and the edits are kept, still unsaved', (await page.locator('[data-unsaved]').count()) === 1 && (await expr.locator('[data-says="notMet"] [data-says-en]').innerText()) === 'something to give back')
+  await page.screenshot({ path: `${SHOTS}/builder-refused.png`, fullPage: true })
+  check('33: no page errors (32)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 25 (features) ──
+{
+  const { context, page, errors } = await open({ edit: (store) => (store.find((c) => c.id === 'WKND20').features = { coupons: true, points: false }) })
+  await page.goto(`${BASE}/campaigns/WKND20/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  await page.locator('[data-palette-open="when"]').click()
+  const cond = await page.locator('[data-palette="when"] [data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
+  check('25: a coupons campaign offers the coupon condition; points off hides minPoints', cond.includes('coupon') && !cond.includes('minPoints'), cond.join(','))
+  await page.locator('[data-palette-close]').click()
+  await page.locator('[data-palette-open="then"]').click()
+  const eff = await page.locator('[data-palette="then"] [data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
+  check('25: points off hides the earn and burn effects, and says where they are', !eff.includes('awardPoints') && !eff.includes('burnPoints') && (await page.locator('[data-palette="then"] [data-palette-hidden="points"]').count()) === 1, eff.join(','))
+  check('33: no page errors (25 features)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

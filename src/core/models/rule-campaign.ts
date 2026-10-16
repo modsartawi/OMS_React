@@ -162,6 +162,16 @@ export interface RuleCampaignCreate {
   features: RuleCampaignFeatures
 }
 
+/**
+ * What the rule builder's Save sends (ticket 505): the campaign's rules as the marketer left them.
+ * It saves the campaign's DRAFT — for a live campaign, the working copy an approver publishes later
+ * (2759) — and HQ answers with the whole campaign as saved. Block and rule ids a new block was given
+ * in the browser travel as they are.
+ */
+export interface RuleCampaignDraft {
+  rules: CampaignRule[]
+}
+
 // ── The block catalogue (ticket 504; HQ's door is BackOffice 2758) ──────────────────────────────
 // What condition and effect types exist, their fields, units and palette groups. The builder reads
 // a rule through it: `@/core/rules/sentence` turns a block into a sentence from the catalogue's

@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaignListRow } from '@/core/models/rule-campaign'
+import type { RuleBlockCatalogue, RuleCampaign, RuleCampaignCreate, RuleCampaignDraft, RuleCampaignListRow } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
 // campaigns, catalogue, lookups, validate, simulate, lifecycle, coupons and sessions as later
@@ -50,6 +50,14 @@ export const ruleCampaignApi = {
     return api.post<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Copy`, {})
   },
 
+  /** PUT RuleCampaign/Campaigns/{id}/Draft — save the campaign's draft rules (ticket 505,
+   *  BackOffice 2758); HQ answers with the whole campaign as saved. A campaign HQ will not let the
+   *  reader edit is refused on the standard envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveDraft(id: string, body: RuleCampaignDraft): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Draft`, body)
+  },
+
   /** GET RuleCampaign/Catalogue — the block catalogue: condition and effect types, their fields,
    *  units and palette groups (BackOffice 2758). */
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
@@ -76,6 +84,15 @@ export const ruleCampaignsQuery = () => ({
   queryFn: () => ruleCampaignApi.list(),
   retry: false as const,
 })
+
+/**
+ * A draft HQ just saved (ticket 505): the campaign's own query takes HQ's answer, so every page of
+ * its workspace reads the saved rules, and the list is read afresh.
+ */
+export function rememberSavedDraft(queryClient: QueryClient, campaign: RuleCampaign): void {
+  queryClient.setQueryData(ruleCampaignKey(campaign.id), campaign)
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+}
 
 /** One campaign's query options — the same key wherever it is read, so one call serves them all. */
 export const ruleCampaignQuery = (id: string) => ({

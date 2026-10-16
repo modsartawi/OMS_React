@@ -391,6 +391,23 @@
     "noteLabel": "Test note",
     "saveFirst": "Save your changes first: Mark Tested marks the saved bonus buy."
   },
+  "activate": {
+    "run": "Activate",
+    "confirmTitle": "Activate this bonus buy",
+    "confirmBody": "Bonus buy {{number}} goes live at every till.",
+    "done": "Activated. It now prices at every till.",
+    "refused": "Not activated:",
+    "notFound": "This bonus buy no longer exists.",
+    "saveFirst": "Save your changes first: Activate puts the saved bonus buy live."
+  },
+  "deactivate": {
+    "run": "Deactivate",
+    "confirmTitle": "Deactivate this bonus buy",
+    "confirmBody": "Bonus buy {{number}} stops pricing at every till.",
+    "done": "Deactivated. It no longer prices at any till.",
+    "refused": "Not deactivated:",
+    "notFound": "This bonus buy no longer exists."
+  },
   "backToPlanned": {
     "run": "Back to Planned",
     "confirmTitle": "Take a live bonus buy back to Planned",

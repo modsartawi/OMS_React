@@ -308,7 +308,8 @@ The `BbyStatus` code on a `BbyHeader`, SAP's `KONBBYH.STATUS`: **blank** = Activ
 bonus buys only). Since BackOffice 2339 it is the **activation gate**: only a blank (Activated) bonus
 buy prices at a till; a Planned, Tested or Deactivated one prices only in the simulator, by an
 explicit option. Transitions (ADR 0063, reversing 2374's "never back"): Planned → Tested (**Mark
-Tested**, by someone other than the last writer, holding the tester grant; offered on one bonus buy
+Tested**, by anyone holding the tester grant, the last writer included (owner ruling 2026-10-07:
+no four-eyes); offered on one bonus buy
 in its editor and on a selection in the promotion overview, where only the selection's Planned ones
 are sent, one call each, under one shared note: the tester vouches for every one, having priced the
 cases they chose) → Activated ↔ Deactivated,

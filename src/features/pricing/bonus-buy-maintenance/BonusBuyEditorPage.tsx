@@ -301,7 +301,7 @@ function EditorBody({
    * moved) is shown as the server worded it, in both languages; on success the bonus buy and
    * the overview are read again, so the lock, the badge and the test mark follow the server.
    */
-  async function statusAct(act: 'test' | 'backToPlanned', call: (number: string) => Promise<BbyMaintainOutcome>) {
+  async function statusAct(act: 'test' | 'backToPlanned' | 'activate' | 'deactivate', call: (number: string) => Promise<BbyMaintainOutcome>) {
     const number = state.bbyNumber
     if (!number) return
     await guarded(async () => {
@@ -337,6 +337,17 @@ function EditorBody({
     )
       return
     await statusAct('backToPlanned', (n) => bbyMaintainApi.backToPlanned({ bbyNumber: n }))
+  }
+
+  /**
+   * Activate and Deactivate (ticket 493): the overview's acts, here too, so correcting a live bonus
+   * buy never leaves the editor. Either one changes what every till charges, so both ask first.
+   */
+  const flip = async (act: 'activate' | 'deactivate') => {
+    const number = state.bbyNumber
+    if (!number) return
+    if (!(await confirmAction(t(`${act}.confirmBody`, { number: fsi(number) }), t(`${act}.confirmTitle`)))) return
+    await statusAct(act, act === 'activate' ? bbyMaintainApi.activate : bbyMaintainApi.deactivate)
   }
 
   /**
@@ -409,6 +420,21 @@ function EditorBody({
             onClick={() => setMarkOpen(true)}
           >
             {t('test.mark')}
+          </Button>
+        )}
+        {access.canActivate && (
+          <Button
+            variant="secondary"
+            disabled={busy || unsaved}
+            title={unsaved ? t('activate.saveFirst') : undefined}
+            onClick={() => void flip('activate')}
+          >
+            {t('activate.run')}
+          </Button>
+        )}
+        {access.canDeactivate && (
+          <Button variant="secondary" disabled={busy} onClick={() => void flip('deactivate')}>
+            {t('deactivate.run')}
           </Button>
         )}
         {access.canBackToPlanned && (

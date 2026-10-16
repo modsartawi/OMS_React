@@ -463,10 +463,23 @@ export interface EditorAccess {
   canBackToPlanned: boolean
   /** Back to Planned on an Activated bonus buy pulls the offer off the tills: ask first. */
   backToPlannedAsks: boolean
+  /** Tested / Deactivated → Activated, on an OMS bonus buy (ticket 493). The page asks first. */
+  canActivate: boolean
+  /** Activated → Deactivated, on an OMS bonus buy (ticket 493). The page asks first. */
+  canDeactivate: boolean
 }
+
+/**
+ * An OMS bonus buy's number, exactly as the server tells one from SAP's (`OmsBonusBuyNumber`,
+ * `BbyMaintainWebService`). SAP-ness is read from this, never from `readOnly`: since BackOffice 2398
+ * the server sends `readOnly` for an OMS bonus buy that is not Planned too.
+ */
+const OMS_BONUS_BUY_NUMBER = /^OMS[0-9]{9}$/
 
 /** The statuses Back to Planned leaves from (ADR 0063). */
 const BACK_TO_PLANNED_FROM: readonly OverviewStatus[] = ['tested', 'activated', 'deactivated']
+/** The statuses Activate leaves from: Planned → Activated is refused (ADR 0063). */
+const ACTIVATE_FROM: readonly OverviewStatus[] = ['tested', 'deactivated']
 
 /**
  * Display opens any bonus buy read-only (story 42). A SAP bonus buy is read-only whatever the
@@ -475,18 +488,22 @@ const BACK_TO_PLANNED_FROM: readonly OverviewStatus[] = ['tested', 'activated', 
  * activated one); an unreadable status is locked too, never guessed editable. The page wraps the
  * whole form in one disabled `<fieldset>` when `readOnly`, so no input can escape it.
  *
- * Mark Tested and Back to Planned are status acts, not edits: Display offers them as Change does.
+ * Mark Tested, Back to Planned, Activate and Deactivate are status acts, not edits: Display offers
+ * them as Change does. Activate and Deactivate sit here too (ticket 493) so correcting a live bonus
+ * buy never sends anyone back to the overview.
  * `canTest` is the access answer's tester grant (`canMarkTested`), read by the caller. There is no
  * four-eyes rule (owner ruling 2026-10-07): the last writer may mark it Tested.
  */
 export function editorAccess(
   mode: EditorMode,
-  doc: Pick<BbyBonusBuyDocument, 'readOnly' | 'bbyStatus'> | null,
+  doc: Pick<BbyBonusBuyDocument, 'number' | 'readOnly' | 'bbyStatus'> | null,
   canTest = false,
 ): EditorAccess {
-  const sap = doc?.readOnly === true
+  const sap = doc !== null && !OMS_BONUS_BUY_NUMBER.test(doc.number)
   const status: OverviewStatus = doc ? overviewStatus(doc.bbyStatus) : 'planned'
-  const reason = mode === 'display' ? 'display' : sap ? 'sap' : status !== 'planned' ? 'locked' : null
+  // The server's `readOnly` on an OMS bonus buy means locked; honour it even if the status reads Planned.
+  const locked = status !== 'planned' || doc?.readOnly === true
+  const reason = mode === 'display' ? 'display' : sap ? 'sap' : locked ? 'locked' : null
   const readOnly = reason !== null
   const existing = mode !== 'create' && doc !== null && !sap
   return {
@@ -498,6 +515,8 @@ export function editorAccess(
     canMarkTested: existing && status === 'planned' && canTest,
     canBackToPlanned: existing && BACK_TO_PLANNED_FROM.includes(status),
     backToPlannedAsks: existing && status === 'activated',
+    canActivate: existing && ACTIVATE_FROM.includes(status),
+    canDeactivate: existing && status === 'activated',
   }
 }
 

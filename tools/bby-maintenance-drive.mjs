@@ -179,6 +179,9 @@ let uploadAnswer = null
 // Ticket 422: the COUP counter as the stub's server holds it, and what Generate answers.
 let coupCounter = 1034
 let generateAnswer = 'saved'
+// Ticket 493: Activate / Deactivate move the stub's status only once the editor block turns this
+// on, so the overview's earlier multi-select Activate (step 6) leaves the statuses 27–44 read.
+let flipMoves = false
 
 async function run() {
   const browser = await chromium.launch()
@@ -200,7 +203,8 @@ async function run() {
       if (n === '000100001124') return route.fulfill(envelope(bbyDoc(n, { readOnly: true, bbyStatus: '' })))
       if (/^OMS0000001(24|25)$|^OMS00000000[1-49]$/.test(n))
         return route.fulfill(envelope(bbyDoc(n, {
-          version: `v${bonusBuyGets}`, bbyStatus: statusOf[n] ?? '1',
+          // As shipped (BackOffice 2398): readOnly also on an OMS bonus buy that is not Planned.
+          version: `v${bonusBuyGets}`, bbyStatus: statusOf[n] ?? '1', readOnly: (statusOf[n] ?? '1') !== '1',
           testedBy: null, testedAt: null, testNote: null, ...(markOf[n] ?? {}),
         })))
       return route.fulfill(envelope({ status: 'notFound', number: n, bonusBuy: null, bbyStatus: null, readOnly: false, version: null, changedBy: null, changedAt: null }))
@@ -267,6 +271,11 @@ async function run() {
               refusals: [refusal('BBY-030', 'Unknown material 999.', 'مادة غير معروفة 999.')],
             }),
           )
+        if (flipMoves) statusOf[body.bbyNumber] = ''
+        return route.fulfill(envelope(saved(body.bbyNumber)))
+      }
+      if (op === 'BonusBuy/Deactivate' && flipMoves) {
+        statusOf[body.bbyNumber] = '2'
         return route.fulfill(envelope(saved(body.bbyNumber)))
       }
       if (op === 'BonusBuy/Copy') return route.fulfill(envelope(saved('OMS000000009')))
@@ -316,7 +325,7 @@ async function run() {
   })
 
   const text = () => page.locator('body').innerText()
-  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload|status|test|backToPlanned|couponMaterial)\.[a-zA-Z.]+/)
+  const rawKey = async () => (await text()).match(/(?:bonus-buy-maintenance:)?(?:overview|promotion|list|create|copySap|editor|access|engine|grouping|upload|status|test|backToPlanned|couponMaterial|activate|deactivate)\.[a-zA-Z.]+/)
 
   // ── 1. the nav leaf ──
   // The rail starts collapsed (its leaves live in a flyout), so expand it to read them.
@@ -1186,6 +1195,70 @@ async function run() {
     check('44. a SAP bonus buy never offers it', await none())
     const k422 = await rawKey()
     check('44. no raw i18n keys', k422 === null, (k422 || [''])[0])
+  }
+
+  // ════════ Ticket 493 — Activate and Deactivate on the editor (grilled 2026-10-15, STUBBED) ════════
+  {
+    const EDIT = `${ROOT}/${PROMO.promoNumber}/bonus-buy`
+    const flips = () => posts.filter(([op]) => op === 'BonusBuy/Activate' || op === 'BonusBuy/Deactivate')
+    const button = (name) => page.locator('button', { hasText: new RegExp(`^${name}$`) })
+    flipMoves = true
+
+    // ── 45. Tested: Activate asks, No posts nothing, Yes puts it live and the editor follows ──
+    statusOf.OMS000000004 = '3'
+    markOf.OMS000000004 = MARK
+    await page.goto(`${EDIT}/OMS000000004`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('45. Tested offers Activate, not Deactivate', (await button('Activate').count()) === 1 && (await button('Deactivate').count()) === 0)
+    posts.length = 0
+    await button('Activate').click()
+    const ask = page.locator('dialog[open]')
+    await ask.waitFor()
+    const askText = await ask.innerText()
+    check('45. the confirmation says it goes live at every till', askText.includes('goes live at every till') && askText.includes('OMS000000004'))
+    await ask.locator('button:has-text("No")').click()
+    await page.waitForTimeout(300)
+    check('45. No posts nothing', flips().length === 0)
+    await button('Activate').click()
+    await page.locator('dialog[open] button:has-text("Yes")').click()
+    await page.waitForSelector('text=Activated. It now prices at every till.')
+    const act = flips()[0]
+    check('45. Activate posts exactly { bbyNumber }',
+      act && act[0] === 'BonusBuy/Activate' && JSON.stringify(act[1]) === '{"bbyNumber":"OMS000000004"}', JSON.stringify(act))
+    await button('Deactivate').waitFor({ timeout: 5000 }).catch(() => {})
+    check('45. …and the re-read offers Deactivate, not Activate',
+      (await button('Deactivate').count()) === 1 && (await button('Activate').count()) === 0)
+
+    // ── 46. Activated: Deactivate asks, then the editor offers Activate again ──
+    posts.length = 0
+    await button('Deactivate').click()
+    const ask2 = page.locator('dialog[open]')
+    await ask2.waitFor()
+    check('46. the confirmation says it stops pricing at every till', (await ask2.innerText()).includes('stops pricing at every till'))
+    await ask2.locator('button:has-text("Yes")').click()
+    await page.waitForSelector('text=Deactivated. It no longer prices at any till.')
+    check('46. Deactivate posts exactly { bbyNumber }', JSON.stringify(flips()[0]) === '["BonusBuy/Deactivate",{"bbyNumber":"OMS000000004"}]', JSON.stringify(flips()[0]))
+    await button('Activate').waitFor({ timeout: 5000 }).catch(() => {})
+    check('46. Deactivated offers Activate again, straight back live', (await button('Activate').count()) === 1)
+
+    // ── 47. a refusal shows; Planned, Display-of-Planned and SAP never offer either ──
+    statusOf.OMS000000003 = '2'
+    await page.goto(`${EDIT}/OMS000000003?mode=display`)
+    await page.waitForSelector('table[data-grid="get"]')
+    check('47. Display offers Activate as Change does', (await button('Activate').count()) === 1)
+    await button('Activate').click()
+    await page.locator('dialog[open] button:has-text("Yes")').click()
+    await page.waitForSelector('text=Not activated:')
+    check('47. the refusal is shown with its code', (await text()).includes('BBY-030'))
+    for (const [where, url] of [['Planned', `${EDIT}/OMS000000001`], ['SAP', `${EDIT}/000100001124`]]) {
+      await page.goto(url)
+      await page.waitForSelector('table[data-grid="get"]')
+      check(`47. ${where} offers neither Activate nor Deactivate`,
+        (await page.locator('button', { hasText: /^(Activate|Deactivate)$/ }).count()) === 0)
+    }
+    const k493 = await rawKey()
+    check('47. no raw i18n keys', k493 === null, (k493 || [''])[0])
+    flipMoves = false
   }
 
   // ── 11. hygiene ──

@@ -86,6 +86,8 @@ const WIRE: BbyBonusBuyWire = {
   ],
 }
 
+/** A SAP bonus buy as the server sends it: a non-`OMS…` number, and `readOnly` (it always is). */
+const SAP = { number: '000100001124', readOnly: true }
 const doc = (over: Partial<BbyBonusBuyDocument> = {}): BbyBonusBuyDocument => ({
   status: 'found',
   number: 'OMS000000124',
@@ -351,7 +353,13 @@ describe('stale version shows the reload prompt', () => {
 
 describe('display mode disables every input', () => {
   /** The three status acts ticket 419 added; none of them applies to these four cases. */
-  const NO_ACTS = { canMarkTested: false, canBackToPlanned: false, backToPlannedAsks: false }
+  const NO_ACTS = {
+    canMarkTested: false,
+    canBackToPlanned: false,
+    backToPlannedAsks: false,
+    canActivate: false,
+    canDeactivate: false,
+  }
 
   it('Display is read-only: nothing to save or check, Copy still offered', () => {
     expect(editorAccess('display', doc())).toEqual({
@@ -365,7 +373,7 @@ describe('display mode disables every input', () => {
   })
 
   it('a SAP bonus buy opened for Change is read-only too — only Copy changes it', () => {
-    expect(editorAccess('change', doc({ readOnly: true, number: '000100001124' }))).toEqual({
+    expect(editorAccess('change', doc({ ...SAP }))).toEqual({
       readOnly: true,
       reason: 'sap',
       canSave: false,
@@ -423,8 +431,8 @@ describe('each status opens read-only except Planned', () => {
   })
 
   it('a SAP bonus buy keeps its own reason whatever its status: its hint is not "back to Planned"', () => {
-    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).reason).toBe('sap')
-    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' })).reason).toBe('sap')
+    expect(editorAccess('change', doc({ ...SAP, bbyStatus: '' })).reason).toBe('sap')
+    expect(editorAccess('change', doc({ ...SAP, bbyStatus: '1' })).reason).toBe('sap')
   })
 
   it('Back to Planned is offered on Tested, Activated and Deactivated, never on Planned or SAP', () => {
@@ -432,13 +440,84 @@ describe('each status opens read-only except Planned', () => {
       expect(editorAccess('change', doc({ bbyStatus })).canBackToPlanned, `status [${bbyStatus}]`).toBe(true)
     expect(editorAccess('change', doc({ bbyStatus: '1' })).canBackToPlanned).toBe(false)
     expect(editorAccess('change', doc({ bbyStatus: null })).canBackToPlanned).toBe(false)
-    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).canBackToPlanned).toBe(false)
+    expect(editorAccess('change', doc({ ...SAP, bbyStatus: '' })).canBackToPlanned).toBe(false)
     expect(editorAccess('create', null).canBackToPlanned).toBe(false)
   })
 
   it('Display offers the status acts as Change does: they are not edits', () => {
     expect(editorAccess('display', doc({ bbyStatus: '3' })).canBackToPlanned).toBe(true)
     expect(editorAccess('display', doc({ bbyStatus: '1' }), true).canMarkTested).toBe(true)
+  })
+})
+
+/**
+ * Since BackOffice 2398 the server's `readOnly` is "SAP, OR an OMS bonus buy that is not Planned"
+ * (`readOnly: !OmsBonusBuyNumber.IsMatch(number) || IsLocked(status)`). Reading it as "SAP" hid Back
+ * to Planned, Activate and Deactivate on every live non-Planned OMS bonus buy (found live 2026-10-15
+ * on OMS000001139). SAP-ness is the number: an OMS bonus buy is `OMS` + nine digits, as the server says.
+ */
+describe('an OMS bonus buy the server sends readOnly is locked, not SAP', () => {
+  it('Deactivated with readOnly: the lock hint, Back to Planned and Activate', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '2', readOnly: true }))).toMatchObject({
+      readOnly: true,
+      reason: 'locked',
+      canBackToPlanned: true,
+      canActivate: true,
+    })
+  })
+
+  it('Activated with readOnly: Deactivate and Back to Planned, which asks', () => {
+    expect(editorAccess('change', doc({ bbyStatus: '', readOnly: true }))).toMatchObject({
+      reason: 'locked',
+      canDeactivate: true,
+      canBackToPlanned: true,
+      backToPlannedAsks: true,
+    })
+  })
+
+  it('a number that is not OMS + nine digits is SAP, whatever readOnly says', () => {
+    for (const number of ['000100001124', 'OMS12345678', 'OMS0000001240', 'oms000000124'])
+      expect(editorAccess('change', doc({ number, bbyStatus: '1', readOnly: false })).reason, number).toBe('sap')
+  })
+})
+
+/**
+ * Ticket 493 (grilled 2026-10-15): the editor carries Activate and Deactivate, so correcting a live
+ * bonus buy (Back to Planned → edit → Save → Mark Tested → Activate) never leaves the editor.
+ * Status acts, not edits: Display offers them as Change does. The rule itself is unchanged.
+ */
+describe('activate and deactivate follow the status in the editor', () => {
+  it('Activate is offered on a Tested or Deactivated OMS bonus buy, Deactivate on an Activated one', () => {
+    for (const bbyStatus of ['3', '2'])
+      expect(editorAccess('change', doc({ bbyStatus })), `status [${bbyStatus}]`).toMatchObject({
+        canActivate: true,
+        canDeactivate: false,
+      })
+    for (const bbyStatus of ['', ' '])
+      expect(editorAccess('change', doc({ bbyStatus })), `status [${bbyStatus}]`).toMatchObject({
+        canActivate: false,
+        canDeactivate: true,
+      })
+  })
+
+  it('neither is offered on Planned, SAP, Create or an unreadable status', () => {
+    for (const d of [
+      doc({ bbyStatus: '1' }),
+      doc({ bbyStatus: null }),
+      doc({ bbyStatus: 'X' }),
+      doc({ ...SAP, bbyStatus: '3' }),
+      doc({ ...SAP, bbyStatus: '' }),
+    ])
+      expect(editorAccess('change', d), JSON.stringify(d.bbyStatus)).toMatchObject({
+        canActivate: false,
+        canDeactivate: false,
+      })
+    expect(editorAccess('create', null)).toMatchObject({ canActivate: false, canDeactivate: false })
+  })
+
+  it('Display offers them as Change does: they are not edits', () => {
+    expect(editorAccess('display', doc({ bbyStatus: '3' })).canActivate).toBe(true)
+    expect(editorAccess('display', doc({ bbyStatus: '' })).canDeactivate).toBe(true)
   })
 })
 
@@ -458,7 +537,7 @@ describe('mark tested is offered only with canTest on a Planned bonus buy', () =
   })
 
   it('a SAP bonus buy is never tested here; a new one has nothing saved to test', () => {
-    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' }), true).canMarkTested).toBe(false)
+    expect(editorAccess('change', doc({ ...SAP, bbyStatus: '1' }), true).canMarkTested).toBe(false)
     expect(editorAccess('create', null, true).canMarkTested).toBe(false)
   })
 
@@ -497,7 +576,7 @@ describe('back to planned on an activated bonus buy asks first', () => {
 
   it('nothing asks where nothing is offered', () => {
     expect(editorAccess('change', doc({ bbyStatus: '1' })).backToPlannedAsks).toBe(false)
-    expect(editorAccess('change', doc({ readOnly: true, bbyStatus: '' })).backToPlannedAsks).toBe(false)
+    expect(editorAccess('change', doc({ ...SAP, bbyStatus: '' })).backToPlannedAsks).toBe(false)
   })
 })
 
@@ -576,7 +655,7 @@ describe('the action is absent on a non-Planned bonus buy and on a grouping line
 
   it('never read-only: not in Display, not on a SAP bonus buy', () => {
     expect(couponMaterialOffered(editorAccess('display', doc({ bbyStatus: '1' })), material)).toBe(false)
-    expect(couponMaterialOffered(editorAccess('change', doc({ readOnly: true, bbyStatus: '1' })), material)).toBe(false)
+    expect(couponMaterialOffered(editorAccess('change', doc({ ...SAP, bbyStatus: '1' })), material)).toBe(false)
   })
 })
 

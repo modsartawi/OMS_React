@@ -192,7 +192,10 @@ export interface BbyBonusBuyDocument extends BbyTestMark {
   number: string
   bonusBuy: BbyBonusBuyWire | null
   bbyStatus: BbyStatusCode | null
-  /** True for a SAP bonus buy: displayed, copied, never saved. */
+  /**
+   * True when it cannot be saved: a SAP bonus buy (displayed, copied, never saved) OR an OMS one that is
+   * not Planned (BackOffice 2398). It does NOT say which — SAP-ness is the number (`OMS` + nine digits).
+   */
   readOnly: boolean
   /** The header's last-written stamp, opaque; a change sends it back. */
   version: string | null

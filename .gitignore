@@ -125,3 +125,9 @@ tools/.delivery-statistics-shots/
 tools/.delivery-statistics-live-shots/
 # Coupon template limits drive screenshots (tools/coupon-template-limits-drive.mjs, ticket 494)
 tools/.coupon-template-limits-shots/
+# Coupon import file drive screenshots
+tools/.coupon-import-file-shots/
+# Pick support drive screenshots (tools/pick-support-*-drive.mjs, tickets 496-499)
+tools/.pick-support-shots/
+# tsc incremental build info
+tsconfig.tsbuildinfo

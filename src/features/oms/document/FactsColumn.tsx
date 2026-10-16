@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
@@ -8,10 +8,10 @@ import { documentColumns, deletedLineRowStyle, ITEM_ROW_SELECTION } from './colu
 import { totalsFooterRow } from './items'
 import DetailGrid from './DetailGrid'
 import AttachmentsTab from './AttachmentsTab'
+import Disclosure from './Disclosure'
+import { HEADING } from './facts-heading'
+import PickSupportSection from './PickSupportSection'
 import type { OrderAttachments } from './use-order-attachments'
-
-/** The heading every block and section of the column wears (the 371 D captures). */
-const HEADING = 'text-[0.6875rem] font-bold tracking-wider uppercase'
 
 /**
  * A block's ink: its heading and the links inside it. Prescription is the one block an
@@ -62,14 +62,20 @@ const MONO = new Set([
  *   `attachmentsTabGate` admits. Its first opening starts the list's one read: the list is
  *   an AUDITED read and waits on it (`useOrderAttachments`). Its body stays mounted when
  *   folded, so a file still sending survives the fold. The Prescription block's
- *   Files · N · Show row opens it and moves focus to it.
+ *   Files · N · Show row opens it and moves focus to it;
+ * - **Pick support** (ticket 499), a disclosure drawn only on a delivery's page with
+ *   `canOpenPickSupport` (`pickSupportSectionGate`). Its first opening reads the delivery's
+ *   diagnosis and draws the shared panel from `@/core/pick-support`.
  */
 export default function FactsColumn({
   document,
   attachments,
+  pickSupport,
 }: {
   document: SdDocumentHeaderModel
   attachments: OrderAttachments
+  /** The Pick support section's delivery and its fix hook, or `null` when `pickSupportSectionGate` refuses. */
+  pickSupport: { deliveryNo: string; onFixed: () => void } | null
 }) {
   const { t } = useTranslation('document')
   const [conditionsBuilt, setConditionsBuilt] = useState(false)
@@ -179,6 +185,11 @@ export default function FactsColumn({
           />
         </Disclosure>
       )}
+
+      {pickSupport && (
+        // Keyed by the delivery: another delivery starts folded, and reads nothing until opened.
+        <PickSupportSection key={pickSupport.deliveryNo} deliveryNo={pickSupport.deliveryNo} onFixed={pickSupport.onFixed} />
+      )}
     </div>
   )
 }
@@ -187,43 +198,6 @@ export default function FactsColumn({
 function Counted({ i18nKey, count }: { i18nKey: string; count: number }) {
   const { t } = useTranslation('document')
   return <Trans t={t} i18nKey={i18nKey} count={count} components={{ n: <Ltr /> }} />
-}
-
-/**
- * A folded section of the column: a native `<details>`, whose marker points to the
- * inline end and mirrors under RTL on its own. `open` is passed only when the page
- * must open it (Attachments' Show); otherwise the browser holds it.
- */
-function Disclosure({
-  id,
-  summary,
-  summaryRef,
-  open,
-  onToggle,
-  children,
-}: {
-  id: string
-  summary: ReactNode
-  summaryRef?: Ref<HTMLElement>
-  open?: boolean
-  onToggle: (open: boolean) => void
-  children: ReactNode
-}) {
-  return (
-    <details
-      id={id}
-      open={open}
-      onToggle={(event) => onToggle(event.currentTarget.open)}
-      className="min-w-0 rounded-lg border border-border bg-card p-3"
-    >
-      <summary ref={summaryRef} className={`cursor-pointer select-none ${HEADING} text-muted-foreground`}>
-        {summary}
-      </summary>
-      <div data-disclosure-body="" className="mt-2">
-        {children}
-      </div>
-    </details>
-  )
 }
 
 /**

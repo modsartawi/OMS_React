@@ -49,11 +49,24 @@
 //  25. Refresh re-calls the door; leaving the page and coming back reads it again (no cache);
 //  26. a row opens its diagnosis on Search (?key=), through the shared panel;
 //  27. an unknown shape typed into the URL shows the server's PICK-00003 with its code.
+// Ticket 499 (Document Details' folded Pick support section) adds, on oms/delivery/:deliveryNo with the
+// header stubbed from the ticket-078 capture (8000000121) renumbered to the brief's deliveries:
+//  28. without canOpenPickSupport the section is absent; a page opened as a DOCUMENT has none either;
+//  29. with it the section is drawn folded, and no PickSupport/* call happens until it is opened;
+//  30. opening it calls PickSupport/Delivery/{no} once and renders the shared panel (STUCK, the
+//      server's EN beside AR, from → to and picked / required in reading order); the heading takes
+//      the stuck marker only then; folding and re-opening reads nothing again; the page's Refresh
+//      re-reads it only once it has been opened;
+//  31. the console link is /oms/pick-support?key={no} and opens the console's diagnosis;
+//  32. PICK-00002 shows the server's message with its code inside the section; a bare 403 the UI's
+//      "You do not have access to Pick support";
+//  33. with canFixPickSupport, a fix applied in the section turns it HEALTHY, drops the marker, and
+//      reads the page's own delivery header again.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
-//   2. node tools/pick-support-drive.mjs
+//   2. node tools/pick-support-drive.mjs   (DRIVE_ONLY=console | details runs one half)
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -438,6 +451,16 @@ const CENSUS_ROWS = [
   { deliveryNo: '8006777365', orderNo: '1000456789', currentStore: '1139', shape: 'DONOR_AT_OLD_ORDER_STORE', since: '2026-10-02T14:03:11' },
 ]
 
+// ── Ticket 499: Document Details' header ─────────────────────────────────────────────────────────
+
+const CAPTURE = JSON.parse(readFileSync('.issues/assets/078-document-payloads/8000000121-driver-assigned.json', 'utf8')).data
+/** A delivery header for any number: the 078 capture with its number swapped. */
+const documentHeader = (no) => ({ ...CAPTURE, documentNo: no })
+/** A delivery Document Details opens whose Pick support door answers a bare 403. */
+const DENIED_DELIVERY = '8006777403'
+/** A delivery Document Details opens that Pick support does not know (PICK-00002). */
+const UNKNOWN_DELIVERY = '8006777999'
+
 // ── The harness ──────────────────────────────────────────────────────────────────────────────
 
 const browser = await chromium.launch()
@@ -511,6 +534,9 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
       const rows = CENSUS_ROWS.filter((r) => (!store || r.currentStore === store) && (!shape || r.shape === shape.trim().toUpperCase()))
       return route.fulfill(envelope({ total: new Set(rows.map((r) => r.deliveryNo)).size, rows }))
     }
+    // Ticket 499: Document Details' own header, the ticket-078 capture renumbered.
+    const header = /^SdDocumentWeb\/(Delivery|Document)\/([^/]+)$/.exec(p)
+    if (header) return route.fulfill(envelope(documentHeader(decodeURIComponent(header[2]))))
     const fixDoor = /^PickSupport\/Delivery\/([^/]+)\/Fix$/.exec(p)
     if (fixDoor && route.request().method() === 'POST') {
       state.fixBodies.push(route.request().postData())
@@ -525,6 +551,7 @@ async function open(dir, { grant = true, fixMode = 'ok' } = {}) {
     const delivery = /^PickSupport\/Delivery\/([^/]+)$/.exec(p)
     if (delivery) {
       const no = decodeURIComponent(delivery[1])
+      if (no === DENIED_DELIVERY) return route.fulfill({ status: 403, body: '' })
       if (state.fixed && no === '8006777365') return route.fulfill(envelope(FIXED_DIAGNOSIS))
       if (DIAGNOSIS[no]) return route.fulfill(envelope(DIAGNOSIS[no]))
       return route.fulfill(refusal('PICK-00002', `Delivery ${no} not found`))
@@ -1268,12 +1295,201 @@ async function driveCensus(dir) {
   await context.close()
 }
 
-await drive('ltr')
-await driveFix('ltr')
-await driveCensus('ltr')
-await drive('rtl')
-await driveFix('rtl')
-await driveCensus('rtl')
+// ── Ticket 499: the folded section on Document Details ───────────────────────────────────────────
+
+const headerReads = (calls, no) => calls.filter((c) => c === `SdDocumentWeb/Delivery/${no}`).length
+
+/** Opens a delivery's (or a document's) Document Details and waits for its facts column. */
+async function openDetails(page, no, as = 'delivery') {
+  await page.goto(`${BASE}/oms/${as}/${no}`)
+  await page.locator('#doc-items').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(600)
+}
+
+async function driveDocument(dir) {
+  const label = `${dir} details`
+  const rtl = dir === 'rtl'
+
+  // 28: no flag → no section; a document page → no section
+  {
+    const { context, page, errors, calls } = await open(dir, { grant: false })
+    await openDetails(page, '8006777365')
+    check(`${label}: without canOpenPickSupport the section is absent`, (await page.locator('#doc-pick-support').count()) === 0)
+    check(`${label}: and nothing is read (no flag)`, doorCalls(calls).length === 0, doorCalls(calls).join(','))
+    check(`${label}: no page errors (no flag)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors, calls } = await open(dir)
+    await openDetails(page, '8006777365', 'document')
+    check(
+      `${label}: a page opened as a document has no section, even with the flag`,
+      (await page.locator('#doc-pick-support').count()) === 0 && doorCalls(calls).length === 0,
+    )
+    check(`${label}: no page errors (document)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 29–31: folded and unread, then opened
+  {
+    const { context, page, errors, calls } = await open(dir)
+    await openDetails(page, '8006777365')
+    const section = page.locator('#doc-pick-support')
+    check(
+      `${label}: with the flag the section is drawn, folded, headed "Pick support"`,
+      (await section.count()) === 1 &&
+        (await section.evaluate((el) => el.open)) === false &&
+        (await section.locator('[data-ps-doc-heading]').innerText()).trim().toLowerCase() === 'pick support',
+    )
+    check(`${label}: it is the facts column's last section`, await section.evaluate((el) => el.nextElementSibling === null))
+    check(`${label}: no PickSupport call until it is opened`, doorCalls(calls).length === 0, doorCalls(calls).join(','))
+    check(`${label}: no stuck marker before it is read`, (await section.locator('[data-ps-doc-stuck]').count()) === 0)
+    const refreshButton = page.getByRole('button', { name: /^Refresh/ }).first()
+    await refreshButton.click()
+    await page.waitForTimeout(800)
+    check(`${label}: the page's Refresh reads no diagnosis while the section is unopened`, doorCalls(calls).length === 0, doorCalls(calls).join(','))
+
+    await section.locator(':scope > summary').click()
+    const panel = section.locator('[data-ps-panel="8006777365"]')
+    await panel.waitFor({ timeout: 20000 })
+    await page.waitForTimeout(300)
+    check(`${label}: opening it reads PickSupport/Delivery/{no} once`, doorCalls(calls).join(',') === 'PickSupport/Delivery/8006777365', doorCalls(calls).join(','))
+    check(
+      `${label}: the shared panel renders the STUCK diagnosis`,
+      (await panel.getAttribute('data-ps-verdict')) === 'stuck' && (await panel.locator('[data-ps-card="DONOR_AT_OLD_ORDER_STORE"]').count()) === 1,
+    )
+    check(`${label}: the heading now carries the stuck marker`, (await section.locator('[data-ps-doc-stuck]').innerText()).trim().toLowerCase() === 'stuck')
+    const en = panel.locator('[data-ps-card] [data-ps-enar="explanation"] [data-ps-en]')
+    const ar = panel.locator('[data-ps-card] [data-ps-enar="explanation"] [data-ps-ar]')
+    const dirs = await Promise.all([en, ar].map((l) => l.evaluate((el) => getComputedStyle(el).direction)))
+    const [eb, ab] = [await en.boundingBox(), await ar.boundingBox()]
+    check(
+      `${label}: the server's EN beside AR, each in its own direction`,
+      (await en.innerText()) === SHAPE.explanationEn &&
+        (await ar.innerText()) === SHAPE.explanationAr &&
+        dirs.join(',') === 'ltr,rtl' &&
+        eb &&
+        ab &&
+        Math.abs(eb.y - ab.y) < 4 &&
+        (rtl ? eb.x > ab.x : eb.x < ab.x),
+      `${dirs} ${JSON.stringify([eb, ab])}`,
+    )
+    const fb = await panel.locator('[data-ps-move="0"] [data-ps-from]').boundingBox()
+    const tb = await panel.locator('[data-ps-move="0"] [data-ps-to]').boundingBox()
+    check(`${label}: the store move reads from 1112 → to 1139 in reading order`, fb && tb && (rtl ? fb.x > tb.x : fb.x < tb.x), `${fb?.x} ${tb?.x}`)
+    const doc = panel.locator('[data-ps-document="PD0001234"]')
+    await doc.locator('summary').click()
+    const count = doc.locator('[data-ps-line="1"] [data-ps-count]')
+    await count.waitFor({ timeout: 5000 })
+    check(`${label}: picked / required reads "1 / 3", left to right`, (await count.innerText()) === '1 / 3' && (await readsLtr(count)) === true)
+    const order = await panel.locator('[data-ps-timeline] tbody tr').evaluateAll((els) => els.map((e) => e.getAttribute('data-ps-event')))
+    check(`${label}: the timeline keeps the server's order`, order.join(',') === 'RAISE,PICK,TRANSFER_STARTED,DCST', order.join(','))
+    check(`${label}: no Apply fix without canFixPickSupport`, (await section.locator('[data-ps-apply-fix]').count()) === 0)
+    if (rtl) check(`${label}: the page is RTL`, (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+    await section.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: `${SHOTS}/${dir}-details-section.png`, fullPage: true })
+
+    await section.locator(':scope > summary').click()
+    await section.locator(':scope > summary').click()
+    await page.waitForTimeout(300)
+    check(`${label}: folding and re-opening reads nothing again`, doorCalls(calls).length === 1, doorCalls(calls).join(','))
+    await refreshButton.click()
+    await page.waitForTimeout(800)
+    check(`${label}: the page's Refresh re-reads the opened diagnosis`, doorCalls(calls).length === 2, doorCalls(calls).join(','))
+
+    const link = section.locator('[data-ps-doc-console]')
+    check(`${label}: the console link carries ?key={deliveryNo}`, (await link.getAttribute('href')) === '/oms/pick-support?key=8006777365')
+    await link.click()
+    await page.locator('[data-ps-key]').waitFor({ timeout: 20000 })
+    await page.locator('[data-ps-panel="8006777365"]').waitFor({ timeout: 20000 })
+    check(
+      `${label}: the link opens the console on the delivery's diagnosis`,
+      new URL(page.url()).pathname === '/oms/pick-support' &&
+        new URL(page.url()).search === '?key=8006777365' &&
+        (await page.locator('[data-ps-key]').inputValue()) === '8006777365',
+      page.url(),
+    )
+    check(`${label}: no page errors (opened)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 32: PICK-00002 and a bare 403, inside the section
+  {
+    const { context, page, errors } = await open(dir)
+    await openDetails(page, UNKNOWN_DELIVERY)
+    const section = page.locator('#doc-pick-support')
+    await section.locator(':scope > summary').click()
+    const err = section.locator('[data-ps-failure="refused"]')
+    await err.waitFor({ timeout: 20000 })
+    check(
+      `${label}: PICK-00002 shows the server's message with its code, inside the section`,
+      (await err.locator('[data-ps-error-code="PICK-00002"]').innerText()).trim() === 'PICK-00002' &&
+        (await err.locator('[data-ps-error-message]').innerText()) === `Delivery ${UNKNOWN_DELIVERY} not found`,
+    )
+    check(`${label}: a refusal carries no stuck marker`, (await section.locator('[data-ps-doc-stuck]').count()) === 0)
+    await section.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: `${SHOTS}/${dir}-details-00002.png`, fullPage: true })
+
+    await openDetails(page, DENIED_DELIVERY)
+    const denied = page.locator('#doc-pick-support')
+    check(`${label}: another delivery starts folded`, (await denied.evaluate((el) => el.open)) === false)
+    await denied.locator(':scope > summary').click()
+    const banner = denied.locator('[data-ps-failure="denied"]')
+    await banner.waitFor({ timeout: 20000 })
+    check(`${label}: a bare 403 reads "You do not have access to Pick support"`, (await banner.innerText()).includes('You do not have access to Pick support'))
+    check(`${label}: no page errors (refusals)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 33: a fix in the section re-reads the page's own header
+  {
+    const { context, page, errors, calls, state } = await open(dir, { grant: 'fix' })
+    await openDetails(page, '8006777365')
+    const section = page.locator('#doc-pick-support')
+    await section.locator(':scope > summary').click()
+    const panel = section.locator('[data-ps-panel="8006777365"]')
+    await panel.waitFor({ timeout: 20000 })
+    await panel.locator('[data-ps-apply-fix="DONOR_AT_OLD_ORDER_STORE"]').click()
+    const dialog = page.locator('[data-ps-fix-dialog]')
+    await dialog.waitFor({ timeout: 5000 })
+    await dialog.locator('[data-ps-fix-reason]').fill(FIX_REASON)
+    await dialog.locator('[data-ps-fix-reference]').fill(FIX_REF)
+    const before = headerReads(calls, '8006777365')
+    await page.locator('[data-ps-fix-confirm]').click()
+    await page.locator('[data-ps-fix-done]').waitFor({ timeout: 10000 })
+    await page.waitForTimeout(800)
+    check(`${label}: the fix sends one POST`, state.fixBodies.length === 1)
+    check(
+      `${label}: a fix that stood reads the page's own delivery header again`,
+      headerReads(calls, '8006777365') === before + 1,
+      `${before} → ${headerReads(calls, '8006777365')}`,
+    )
+    check(
+      `${label}: the dialog stays open over the reload, with the store's text`,
+      (await dialog.locator('[data-ps-tell-lang="en"] [data-ps-tell-text]').innerText()) === SHAPE.tellTheStoreEn,
+    )
+    await page.locator('[data-ps-fix-close]').click()
+    await page.waitForTimeout(300)
+    check(
+      `${label}: the section turns HEALTHY and drops its stuck marker, still open`,
+      (await panel.getAttribute('data-ps-verdict')) === 'healthy' &&
+        (await section.locator('[data-ps-doc-stuck]').count()) === 0 &&
+        (await section.evaluate((el) => el.open)) === true,
+    )
+    check(`${label}: no page errors (fix)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
+const only = process.env.DRIVE_ONLY
+for (const dir of ['ltr', 'rtl']) {
+  if (!only || only === 'console') {
+    await drive(dir)
+    await driveFix(dir)
+    await driveCensus(dir)
+  }
+  if (!only || only === 'details') await driveDocument(dir)
+}
 await browser.close()
 
 const failedChecks = results.filter((r) => !r.pass)

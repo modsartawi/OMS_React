@@ -218,5 +218,10 @@
     "copyAr": "Copy Arabic",
     "copied": "Copied",
     "copyFailed": "The text was not copied"
+  },
+  "section": {
+    "heading": "Pick support",
+    "stuck": "Stuck",
+    "openConsole": "Open in Pick support"
   }
 }

@@ -19,8 +19,9 @@ import FixDialog from './FixDialog'
  * Apply fix (ticket 497): the panel's buttons are drawn only with `canFixPickSupport`, read off the
  * ONE shared OMS probe. The fix dialog is held here, not in the shape card, so it stays open over
  * the panel the fix has just turned HEALTHY (no card left) to show the store's instructions.
+ * `onFixed` tells a host whose own load the fix changed (Document Details' document, 499).
  */
-export default function DeliveryDiagnosis({ deliveryNo }: { deliveryNo: string }) {
+export default function DeliveryDiagnosis({ deliveryNo, onFixed }: { deliveryNo: string; onFixed?: () => void }) {
   const { t } = useTranslation('pick-support')
   const diagnosis = useQuery(pickSupportDiagnosisQuery(deliveryNo))
   const access = useQuery(omsAccessQuery())
@@ -43,7 +44,7 @@ export default function DeliveryDiagnosis({ deliveryNo }: { deliveryNo: string }
   return (
     <>
       {body}
-      {fixing && <FixDialog deliveryNo={deliveryNo} card={fixing} onClose={() => setFixing(null)} />}
+      {fixing && <FixDialog deliveryNo={deliveryNo} card={fixing} onClose={() => setFixing(null)} onFixed={onFixed} />}
     </>
   )
 }

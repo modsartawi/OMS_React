@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useMatches, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
@@ -7,6 +7,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+import { pickSupportKeys } from '@/core/pick-support/api'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { notify } from '@/core/services/notify'
@@ -47,6 +48,7 @@ import DocumentHeader from './DocumentHeader'
 import ActivitySpine, { type Deferred } from './ActivitySpine'
 import CommandPanel from './CommandPanel'
 import FactsColumn from './FactsColumn'
+import { pickSupportSectionGate } from './pick-support-section'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
@@ -137,6 +139,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   // and the bulk screen's gate, so it costs no extra call, and a 403 from the dialog (which
   // overwrites the entry) removes the action here too.
   const centralInvoiceAccess = useQuery(centralInvoiceAccessQuery())
+  const queryClient = useQueryClient()
 
   const [document, setDocument] = useState<SdDocumentHeaderModel | null>(null)
   const [documentLoading, setDocumentLoading] = useState(true)
@@ -537,11 +540,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
    * files only when their disclosure has been opened on this visit. Before that it reads none:
    * every ByOwner is an audit row. Commands reload through `reload` alone, so they
-   * never re-read the files.
+   * never re-read the files. The Pick support diagnosis likewise: re-read only while its section
+   * has been opened (an unopened section has no active read to refetch).
    */
   const refresh = () => {
     void reload()
     attachments.refresh()
+    if (document && pickSupportSectionGate(openedAs, access.data))
+      void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
   }
 
   // ----- access states ------------------------------------------------------
@@ -670,7 +676,22 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                   />
                 }
               />
-              <FactsColumn document={document} attachments={attachments} />
+              <FactsColumn
+                document={document}
+                attachments={attachments}
+                pickSupport={
+                  pickSupportSectionGate(openedAs, access.data)
+                    ? {
+                        deliveryNo: document.documentNo,
+                        // A fix changed the delivery's picking state under the page: its own load is
+                        // read again — unless the operator has moved to another record meanwhile.
+                        onFixed: () => {
+                          if (currentRoute.current === routeId) void reload()
+                        },
+                      }
+                    : null
+                }
+              />
             </div>
 
             <RescheduleDialog

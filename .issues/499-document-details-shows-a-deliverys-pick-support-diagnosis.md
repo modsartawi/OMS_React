@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2691-oms-react-pick-support-brief.md
 blocked-by: 496
 ---
@@ -31,8 +31,8 @@ route (existing Document Details) · facts column section · shared panel · i18
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `pickSupportSectionGate`: shown only for a delivery and only with `canOpenPickSupport` (vitest)
-- [ ] The drive checks:
+- [x] `pickSupportSectionGate`: shown only for a delivery and only with `canOpenPickSupport` (vitest)
+- [x] The drive checks:
   - the section is absent without the flag;
   - no `PickSupport/Delivery` call happens until it is opened;
   - opening it renders the stubbed diagnosis;
@@ -41,7 +41,7 @@ route (existing Document Details) · facts column section · shared panel · i18
 
   Extend `tools/pick-support-drive.mjs`, or the Document Details drive if that is lighter. Run it
   LTR and RTL.
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -57,3 +57,17 @@ support section with the diagnosis.
 ## Blocked by
 
 [496](496-pick-support-finds-a-delivery-from-any-number-and-shows-its-diagnosis.md)
+
+## Outcome (2026-10-16, AFK)
+
+- **Gate + marker** in `src/features/oms/document/pick-support-section.ts`: `pickSupportSectionGate(openedAs, access)` and `headingShowsStuck(diagnosis)`. Vitest `pick-support-section.test.ts` has 7 tests. The console link builder moved to core as `src/core/pick-support/console-link.ts` (`pickSupportConsoleHref`, 2 tests), because two features rely on the console's `?key=`.
+- **Section** in `PickSupportSection.tsx`. It is a `Disclosure`, now in its own `Disclosure.tsx` with `HEADING` in `facts-heading.ts`, and it is the facts column's last section, keyed by the delivery:
+  - its first opening reads `PickSupport/Delivery/{no}` and draws the shared `DeliveryDiagnosis` from core (refusals and fix dialog included);
+  - its body stays built after a fold;
+  - the Stuck marker shows only once a `STUCK` read is in.
+- **Fix refresh:** `FixDialog`/`DeliveryDiagnosis` take an optional `onFixed`. The page passes a route-guarded `reload()`, so a fix re-reads the delivery header (and its log, jobs and donors) unless the operator has moved on. The page's own Refresh also re-reads an opened diagnosis.
+- **Drive:** `tools/pick-support-drive.mjs` adds `driveDocument` (checks 28–33, LTR + RTL). The full drive passes 288/288. `DRIVE_ONLY=details` runs the 499 half alone.
+- **Facts-column drives still pass:** document-facts 240/240, document-detail 36/36, document-donor 18/18, document-cards 45/45. document-rtl is 52/53, and its one failure is pre-existing: it fails the same way with this slice reverted (see `.afk/HITL-499.md`).
+- **Gates:** typecheck, lint (4 gates), vitest (300 files / 5238 tests) and build are all green.
+- **Outstanding (not AFK's):** the live door walk is ticket 500, and an owner still needs to eyeball the server's AR beside the EN on a real diagnosis.
+

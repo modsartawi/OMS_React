@@ -34,7 +34,18 @@ const FIELD = 'w-full rounded-md border border-border/60 bg-background px-2 py-1
  * lookup that no longer names this delivery would unmount the dialog before the store's
  * instructions are copied.
  */
-export default function FixDialog({ deliveryNo, card, onClose }: { deliveryNo: string; card: PickSupportShapeMatch; onClose: () => void }) {
+export default function FixDialog({
+  deliveryNo,
+  card,
+  onClose,
+  onFixed,
+}: {
+  deliveryNo: string
+  card: PickSupportShapeMatch
+  onClose: () => void
+  /** Told once a fix stood, so a host whose own load the fix changed reads it again (Document Details, 499). */
+  onFixed?: () => void
+}) {
   const { t } = useTranslation('pick-support')
   const queryClient = useQueryClient()
   const reasonId = useId()
@@ -53,6 +64,7 @@ export default function FixDialog({ deliveryNo, card, onClose }: { deliveryNo: s
         // `null`: the fix stood but its re-read failed — the delivery is read again.
         if (outcome.diagnosis) queryClient.setQueryData(own, outcome.diagnosis)
         else void queryClient.invalidateQueries({ queryKey: own })
+        onFixed?.()
       }
       setAnswer({ outcome, error: null })
     },

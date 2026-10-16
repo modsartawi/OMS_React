@@ -681,6 +681,15 @@ export const router = createBrowserRouter([
               Component: (await import('@/features/campaigns/workspace/RulesPage')).default,
             }),
           },
+          {
+            // Settings ▸ Details, Schedule, Audience, Features, Offline (ticket 509); a bare
+            // `settings` or an unknown page opens Details. A splat, not `:page`: the crumb's record
+            // is the route's last named param, which must stay the campaign's id.
+            path: 'settings/*',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/SettingsPage')).default,
+            }),
+          },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

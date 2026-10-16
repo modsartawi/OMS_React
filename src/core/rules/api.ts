@@ -4,15 +4,21 @@ import type {
   RuleBlockCatalogue,
   RuleCampaign,
   RuleCampaignChecks,
+  RuleCampaignAudience,
   RuleCampaignCreate,
+  RuleCampaignDetails,
   RuleCampaignDraft,
+  RuleCampaignFeatures,
   RuleCampaignListRow,
+  RuleCampaignOffline,
   RuleCampaignRoles,
+  RuleCampaignSchedule,
   RuleCampaignTransition,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
+  RuleOfflineVerdict,
 } from '@/core/models/rule-campaign'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
@@ -32,6 +38,9 @@ const LOOKUPS: Record<RuleLookupKind, string> = {
   categories: 'RuleCampaign/Lookups/Categories',
   collections: 'RuleCampaign/Lookups/Collections',
   materials: 'RuleCampaign/Lookups/Materials',
+  countries: 'RuleCampaign/Lookups/Countries',
+  channels: 'RuleCampaign/Lookups/Channels',
+  stores: 'RuleCampaign/Lookups/Stores',
 }
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const FORMULA_CHECK = 'RuleCampaign/Formula/Check'
@@ -43,6 +52,12 @@ const ROLES = 'RuleCampaign/Roles'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const LIFECYCLE = (id: string, act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable') =>
   `${CAMPAIGNS}/${encodeURIComponent(id)}/${act}`
+
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const SETTINGS = (id: string, part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Offline') =>
+  `${CAMPAIGNS}/${encodeURIComponent(id)}/Settings/${part}`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const OFFLINE_VERDICT = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/OfflineVerdict`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -94,9 +109,10 @@ export const ruleCampaignApi = {
     return api.get<RuleBlockCatalogue>(CATALOGUE)
   },
 
-  /** GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= — what "Certain items…"
-   *  picks from (ticket 506, BackOffice 2758): HQ matches a code or a name (a material by its SKU
-   *  or its name) and answers the first hits. An empty search answers the first hits too. */
+  /** GET RuleCampaign/Lookups/{Categories|Collections|Materials|Countries|Channels|Stores}?search=
+   *  — what "Certain items…" (ticket 506) and Settings ▸ Audience (509) pick from (BackOffice
+   *  2758): HQ matches a code or a name (a material by its SKU or its name) and answers the first
+   *  hits. An empty search answers the first hits too. */
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
   lookup(kind: RuleLookupKind, search: string): Promise<RuleLookupItem[]> {
     return api.get<RuleLookupItem[]>(LOOKUPS[kind], { search })
@@ -154,6 +170,48 @@ export const ruleCampaignApi = {
     return api.post<RuleCampaign>(LIFECYCLE(id, 'Disable'), body)
   },
 
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Details — the name in both languages and the
+   *  description (ticket 509, BackOffice 2758); HQ answers the whole campaign as saved. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveDetails(id: string, body: RuleCampaignDetails): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Details'), body)
+  },
+
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Schedule — local days and daily hours, never a `Z`
+   *  (ticket 509, BackOffice 2758); HQ answers the whole campaign as saved. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveSchedule(id: string, body: RuleCampaignSchedule): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Schedule'), body)
+  },
+
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Audience — countries, channels, stores and members
+   *  (ticket 509, BackOffice 2758); HQ answers the whole campaign as saved. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveAudience(id: string, body: RuleCampaignAudience): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Audience'), body)
+  },
+
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Features — coupons and points (ticket 509,
+   *  BackOffice 2758). Switching one off while a block uses it is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveFeatures(id: string, body: RuleCampaignFeatures): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Features'), body)
+  },
+
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Offline — "online only" (ticket 509, BackOffice
+   *  2758); HQ answers the whole campaign as saved. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveOffline(id: string, body: RuleCampaignOffline): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Offline'), body)
+  },
+
+  /** GET RuleCampaign/Campaigns/{id}/OfflineVerdict — HQ's offline-safe verdict on the saved draft
+   *  and its reasons (ticket 509, BackOffice 2758): HQ works it out, never the client. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  offlineVerdict(id: string): Promise<RuleOfflineVerdict> {
+    return api.get<RuleOfflineVerdict>(OFFLINE_VERDICT(id))
+  },
+
   /** DELETE RuleCampaign/Campaigns/{id} — an author deletes a draft that was never published
    *  (ticket 511, BackOffice 2759). */
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
@@ -185,6 +243,7 @@ export function rememberTransition(queryClient: QueryClient, campaign: RuleCampa
 export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignChecksKey(id) })
+  queryClient.removeQueries({ queryKey: ruleOfflineVerdictKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
@@ -249,9 +308,23 @@ export const ruleCampaignsQuery = () => ({
 export function rememberSavedDraft(queryClient: QueryClient, campaign: RuleCampaign): void {
   queryClient.setQueryData(ruleCampaignKey(campaign.id), campaign)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
-  // HQ validates the draft it saved (ticket 508): its checks are read afresh.
+  // HQ validates the draft it saved (ticket 508): its checks are read afresh, and so is its offline
+  // verdict (509), which the rules decide.
   void queryClient.invalidateQueries({ queryKey: ruleCampaignChecksKey(campaign.id) })
+  void queryClient.invalidateQueries({ queryKey: ruleOfflineVerdictKey(campaign.id) })
 }
+
+/** A campaign's offline verdict, keyed under the campaign queries. */
+export const ruleOfflineVerdictKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'offline', id] as const
+
+/** The offline verdict's query options (ticket 509): it changes only with a save, which re-reads it. */
+export const ruleOfflineVerdictQuery = (id: string) => ({
+  queryKey: ruleOfflineVerdictKey(id),
+  queryFn: () => ruleCampaignApi.offlineVerdict(id),
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
 
 /** One campaign's query options — the same key wherever it is read, so one call serves them all. */
 export const ruleCampaignQuery = (id: string) => ({

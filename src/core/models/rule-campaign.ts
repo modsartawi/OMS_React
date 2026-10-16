@@ -267,12 +267,14 @@ export interface RuleBlockCatalogue {
   formula: RuleFormulaGuide
 }
 
-// ── Lookups (ticket 506; HQ's doors are BackOffice 2758) ────────────────────────────────────────
-// What "Certain items…" searches on HQ: categories, collections, and materials by SKU or name.
+// ── Lookups (tickets 506, 509; HQ's doors are BackOffice 2758) ──────────────────────────────────
+// What "Certain items…" searches on HQ: categories, collections, and materials by SKU or name; and
+// what Settings ▸ Audience picks from: countries, sales channels and stores.
 
-export type RuleLookupKind = 'categories' | 'collections' | 'materials'
+export type RuleLookupKind = 'categories' | 'collections' | 'materials' | 'countries' | 'channels' | 'stores'
 
-/** One hit of a lookup: a category, a collection or a material (its SKU), and its name. */
+/** One hit of a lookup: a category, a collection, a material (its SKU), a country, a channel or a
+ *  store, and its name. */
 export interface RuleLookupItem {
   code: string
   name: string
@@ -402,4 +404,38 @@ export interface RuleCampaignRoles {
  */
 export interface RuleCampaignTransition {
   note: string
+}
+
+// ── Settings (ticket 509; HQ's doors are BackOffice 2758) ────────────────────────────────────────
+// Settings ▸ Details, Schedule, Audience, Features and Offline each save on their own: one door per
+// page, each taking its page's part (`RuleCampaignSchedule`, `RuleCampaignAudience`,
+// `RuleCampaignFeatures`, below for the other two) and answering the whole campaign as saved. A
+// feature switched off while a block uses it is refused on the standard envelope.
+
+/** What Settings ▸ Details saves: the name in both languages (both required) and the description. */
+export interface RuleCampaignDetails {
+  name: Says
+  description: string
+}
+
+/** What Settings ▸ Offline saves: "online only" — keep an offline-safe campaign off offline tills. */
+export interface RuleCampaignOffline {
+  offlineOptOut: boolean
+}
+
+/** One reason HQ gives for a campaign needing HQ (a budget, the member profile, a coupon …). */
+export interface RuleOfflineReason {
+  code: string
+  /** HQ's own sentence, shown as data. */
+  message: string
+}
+
+/**
+ * HQ's offline-safe verdict on the campaign's saved draft, worked out from its rules, budgets and
+ * audience. `safe` ignores the campaign's own "online only" choice (`offlineOptOut`): it says
+ * whether an offline till COULD run it, and `reasons` say why not.
+ */
+export interface RuleOfflineVerdict {
+  safe: boolean
+  reasons: RuleOfflineReason[]
 }

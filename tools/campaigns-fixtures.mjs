@@ -465,10 +465,77 @@ export const LOOKUPS = {
     { code: 'BAL-ARG', name: 'Argan oil balsam 250ml' }, { code: 'MIL-1', name: 'Infant formula stage 1' }, { code: 'GIFT-BAG', name: 'Travel pouch' },
     { code: 'FEE-DLV', name: 'Delivery fee' },
   ],
+  // 509: what Settings ▸ Audience picks from (the prototype's COUNTRIES, CHANNELS and STORES).
+  countries: [{ code: 'SA', name: 'Saudi Arabia' }, { code: 'BH', name: 'Bahrain' }],
+  channels: [
+    { code: 'POS', name: 'Store till (NewPos)' }, { code: 'CC', name: 'Call center / OMS' }, { code: 'SD', name: 'AddSdDocument' },
+    { code: 'CMRC', name: 'Hybris web (later phase)' },
+  ],
+  stores: [
+    { code: 'R101', name: 'Riyadh, Olaya' }, { code: 'J204', name: 'Jeddah, Tahlia' }, { code: 'D310', name: 'Dammam, Corniche' },
+    { code: 'M01', name: 'Manama, Seef' },
+  ],
 }
 
-/** What the stubbed lookup door answers for `kind` (`categories` | `collections` | `materials`) and `search`. */
+/** What the stubbed lookup door answers for `kind` (`categories` | `collections` | `materials` |
+ *  `countries` | `channels` | `stores`) and `search`. */
 export function lookup(kind, search = '') {
   const q = search.trim().toLowerCase()
   return (LOOKUPS[kind] ?? []).filter((x) => !q || x.code.toLowerCase().includes(q) || x.name.toLowerCase().includes(q)).slice(0, 20)
+}
+
+// ── 509: the stubbed HQ side of Settings (BackOffice 2758). ──
+
+const walkConds = (items, fn) => items.forEach((c) => { fn(c); if (Array.isArray(c.items)) walkConds(c.items, fn) })
+const PROFILE_CONDS = { tier: 1, member: 1, firstPurchase: 1, minPoints: 1, audience: 1, anniversary: 1 }
+
+/**
+ * GET RuleCampaign/Campaigns/{id}/OfflineVerdict — the prototype's `offlineVerdict` (engine.js),
+ * worked out from the saved draft. `safe` ignores the campaign's own "online only".
+ */
+export function offlineVerdict(c) {
+  const r = new Map()
+  const add = (code, message) => r.set(code, message)
+  if (c.budgets.length) add('BUDGET', 'has a budget (a central counter)')
+  if (c.audience.members !== 'any') add('MEMBERS_ONLY', 'is for members only')
+  for (const rule of c.rules) {
+    walkConds(rule.when.items, (cd) => {
+      if (PROFILE_CONDS[cd.type]) add('PROFILE', 'reads the member profile')
+      if (cd.type === 'coupon') add('COUPON', 'needs a coupon (redeemed at HQ)')
+      if (cd.type === 'budgetLeft') add('BUDGET_READ', 'reads a budget')
+      if (cd.type === 'expr' && /profile\./.test(cd.formula)) add('PROFILE', 'reads the member profile')
+    })
+    for (const v of rule.values) if (/profile\./.test(v.formula)) add('PROFILE', 'reads the member profile')
+    for (const e of rule.then) {
+      if (e.type === 'awardPoints') add('AWARDS_POINTS', 'awards points')
+      if (e.type === 'burnPoints') add('TAKES_POINTS', 'takes points')
+      if (e.type === 'createCoupon') add('CREATES_COUPON', 'creates a coupon')
+    }
+  }
+  return { safe: r.size === 0, reasons: [...r].map(([code, message]) => ({ code, message })) }
+}
+
+/**
+ * PUT RuleCampaign/Campaigns/{id}/Settings/{part} — the part saved onto the campaign, or `{ refused,
+ * message }`: a feature switched off while a block uses it is refused, naming the rules.
+ */
+export function saveSettings(c, part, body, catalogue = CATALOGUE) {
+  if (part === 'Details') Object.assign(c, { name: { en: body.name.en, ar: body.name.ar }, description: body.description })
+  if (part === 'Schedule') c.schedule = structuredClone(body)
+  if (part === 'Audience') c.audience = structuredClone(body)
+  if (part === 'Offline') c.offlineOptOut = !!body.offlineOptOut
+  if (part === 'Features') {
+    const needs = new Map(catalogue.blocks.map((b) => [b.type, b.feature]))
+    for (const f of ['coupons', 'points']) {
+      if (body[f] || !c.features[f]) continue
+      const using = c.rules.filter((r) => {
+        const blocks = [...r.then]
+        walkConds(r.when.items, (cd) => blocks.push(cd))
+        return blocks.some((b) => needs.get(b.type) === f)
+      })
+      if (using.length) return { refused: 'RULE_FEATURE_IN_USE', message: `The ${f} feature is used by: ${using.map((r) => r.name).join(', ')}.` }
+    }
+    c.features = { coupons: !!body.coupons, points: !!body.points }
+  }
+  return { campaign: c }
 }

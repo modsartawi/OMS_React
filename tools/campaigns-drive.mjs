@@ -20,6 +20,11 @@
 //   POST RuleCampaign/Campaigns/{id}/{AskForApproval|Activate|SendBack|Disable} → the campaign moved
 //       (`lifecycle`); the first `refuseActivate` activations are refused (511)
 //   DELETE RuleCampaign/Campaigns/{id} → the draft is gone from the list (511)
+//   PUT RuleCampaign/Campaigns/{id}/Settings/{Details|Schedule|Audience|Features|Offline} → the part
+//       saved (`saveSettings`), a feature still in use refused; every save refused with `refuseSettings` (509)
+//   GET RuleCampaign/Campaigns/{id}/OfflineVerdict → the prototype's verdict (`offlineVerdict`), or
+//       refused with `refuseVerdict` (509)
+//   GET RuleCampaign/Lookups/{Countries|Channels|Stores}?search= → Settings ▸ Audience's lists (509)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -43,7 +48,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, saveSettings } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -78,6 +83,8 @@ const CHECK_REFUSED = 'The formula check is not available. / التحقق من �
 const VALIDATE_REFUSED = 'The rule checks are not available. / التحقق من القواعد غير متاح.'
 const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
 const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
+const SETTINGS_REFUSED = 'This campaign is waiting for approval and cannot be changed. / الحملة بانتظار الموافقة.'
+const VERDICT_REFUSED = 'The offline verdict is not available. / حكم العمل دون اتصال غير متاح.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -89,7 +96,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ at = EVENING, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -113,6 +120,8 @@ async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, ref
   let role = 'author'
   let activateRefusals = refuseActivate
   const acts = []
+  /** 509: every settings save `{ part, id, body }`, in order. */
+  const settings = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -128,7 +137,7 @@ async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, ref
     // PROVISIONAL doors (ticket 520 re-points them).
     if (p === 'RuleCampaign/Catalogue' && req.method() === 'GET')
       return route.fulfill(catalogueDown ? envelope(null, { status: 503, success: false, message: CATALOGUE_REFUSED, errorCode: 'RULE_CATALOGUE_UNAVAILABLE' }) : envelope(CATALOGUE))
-    const lk = /^RuleCampaign\/Lookups\/(Categories|Collections|Materials)$/.exec(p)
+    const lk = /^RuleCampaign\/Lookups\/(Categories|Collections|Materials|Countries|Channels|Stores)$/.exec(p)
     if (lk && req.method() === 'GET') {
       const kind = lk[1].toLowerCase()
       const search = new URL(req.url()).searchParams.get('search') ?? ''
@@ -173,6 +182,23 @@ async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, ref
       c.rules = structuredClone(body.rules)
       return route.fulfill(envelope(c))
     }
+    const setting = /^RuleCampaign\/Campaigns\/([^/]+)\/Settings\/(Details|Schedule|Audience|Features|Offline)$/.exec(p)
+    if (setting && req.method() === 'PUT') {
+      const body = req.postDataJSON()
+      settings.push({ part: setting[2], id: decodeURIComponent(setting[1]), body })
+      const c = store.find((x) => x.id === decodeURIComponent(setting[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (refuseSettings) return route.fulfill(envelope(null, { status: 409, success: false, message: SETTINGS_REFUSED, errorCode: 'RULE_CAMPAIGN_NOT_EDITABLE' }))
+      const out = saveSettings(c, setting[2], body)
+      return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+    }
+    const verdict = /^RuleCampaign\/Campaigns\/([^/]+)\/OfflineVerdict$/.exec(p)
+    if (verdict && req.method() === 'GET') {
+      const c = store.find((x) => x.id === decodeURIComponent(verdict[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (refuseVerdict) return route.fulfill(envelope(null, { status: 503, success: false, message: VERDICT_REFUSED, errorCode: 'RULE_OFFLINE_VERDICT_UNAVAILABLE' }))
+      return route.fulfill(envelope(offlineVerdict(c)))
+    }
     const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
     if (copy && req.method() === 'POST') {
       const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
@@ -205,7 +231,7 @@ async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, ref
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -300,7 +326,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('5: Schedule shows the local days and the weekdays', (await sched.locator('[data-line="start"] dd').innerText()) === '2026-10-01' && (await sched.locator('[data-line="end"] dd').innerText()) === '2026-12-31' && (await sched.locator('[data-line="days"] dd').innerText()) === 'Thursday, Friday, Saturday')
   check('5: the campaign was read ONCE for the shell and the dashboard', reads() === 1, String(reads()))
   // 504 lands the Rule builder; Coupons still waits for its page (515).
-  check('5: the side menu shows Dashboard and Rule builder (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules"]')
+  check('5: the side menu shows Dashboard, Rule builder and Settings (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules","settings"]')
   check('5: Dashboard is the current menu item', (await page.locator('[data-workspace-menu="dashboard"]').getAttribute('aria-current')) === 'page')
   check('5: the rail still lights the Campaigns leaf', (await page.locator('a[href="/campaigns"]:not([data-workspace-back])').first().getAttribute('aria-current')) === 'page')
   await page.screenshot({ path: `${SHOTS}/dashboard-wknd20.png` })
@@ -1340,7 +1366,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 511 ── it asserts:
 //  62. an author's draft shows the pre-activation steps, each ticked or linked — the rules step to
-//      the rule builder, the Settings steps unlinked until their pages land (509);
+//      the rule builder, named and schedule to their Settings pages (509), budgets unlinked until 510;
 //  63. the author is offered Ask for approval and Delete draft, never Activate; HQ's error in the
 //      saved draft disables Ask, saying why, with the way to the builder;
 //  64. with clean checks the author asks with a note: HQ gets it, the State turns Waiting for
@@ -1381,8 +1407,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('62: none is ticked on this draft (no Arabic name, an error in its rule, no schedule, no budget)', (await page.locator('[data-steps] [data-step-done]').count()) === 0)
   check('62: the rules step links to the rule builder', (await page.locator('[data-step="rules"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules')
   check(
-    '62: the Settings steps are not linked before their pages land',
-    (await page.locator('[data-step="named"] [data-step-link], [data-step="schedule"] [data-step-link], [data-step="budgets"] [data-step-link]').count()) === 0,
+    '62: the named and schedule steps link to their Settings pages (509); budgets waits for its page (510)',
+    (await page.locator('[data-step="named"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/details' &&
+      (await page.locator('[data-step="schedule"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/schedule' &&
+      (await page.locator('[data-step="budgets"] [data-step-link]').count()) === 0,
   )
 
   // ── 63 ──
@@ -1526,6 +1554,300 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   )
   check('70: …and offers no act, only Try again', (await page.locator('[data-approval-action]').count()) === 0 && (await page.locator('[data-approval-roles-retry]').isVisible()))
   check('71: no page errors (70)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 509 ── it asserts:
+//  72. Settings ▸ in the side menu opens Details, its pages listed beneath it — Details, Schedule,
+//      Audience, Features, Offline; the crumb still names the campaign; Budgets waits for its page
+//      (510) and its address opens Details;
+//  73. Details: both names required (said at the field, nothing sent); the Arabic name is typed
+//      right to left; Save sends both names and the description, trimmed; a reload reads them back,
+//      the shell shows the Arabic name, and the dashboard's "named" step is ticked;
+//  74. Schedule, at 02:30 local (the UTC day is yesterday): an end not after the start, and hours
+//      that end before they start, hold Save back, saying why; Save sends the local days and hours
+//      as typed — no shift, no `Z`; a reload reads them back; the dashboard reads the new schedule;
+//      clearing the start sends null;
+//  75. Audience: countries and channels from HQ's lists, a store found on HQ's lookup, members only;
+//      Save sends them; a reload reads them back;
+//  76. Features: switching points off while a rule burns them is refused at the page, naming the
+//      rule, and nothing is sent; switching coupons on is saved and reads back;
+//  77. Offline: a campaign HQ finds unsafe reads Online only with HQ's reasons; a safe one reads
+//      Offline-safe and opts out with "Online only", saved and read back;
+//  78. a refused save keeps the page's changes and shows the envelope's message and code; a refused
+//      verdict is its own message and code, with Try again;
+//  79. leaving a page with unsaved changes asks first; Stay keeps them, and so does a re-read of the
+//      campaign in the background; Cancel goes back to what HQ saved last;
+//  80. no page errors.
+{
+  const { context, page, errors, settings, store } = await open()
+  const settingsPage = async (id, part) => {
+    await page.goto(`${BASE}/campaigns/${id}/settings/${part}`)
+    await page.locator(`[data-settings="${part}"]`).waitFor({ timeout: 10000 })
+  }
+  const field = (k) => page.locator(`[data-settings-field="${k}"]`)
+  const save = page.locator('[data-settings-save]')
+  const saved = async (n) => {
+    await page.waitForFunction(() => !document.querySelector('[data-settings-dirty]'), null, { timeout: 5000 }).catch(() => {})
+    return settings.length === n
+  }
+
+  // ── 72 ──
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT`)
+  await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+  check('72: the Settings sub-menu is closed on the dashboard', (await page.locator('[data-workspace-menu="settings"]').getAttribute('aria-expanded')) === 'false')
+  await page.locator('[data-workspace-menu="settings"]').click()
+  await page.locator('[data-settings="details"]').waitFor({ timeout: 5000 })
+  check('72: Settings opens Details', page.url() === `${BASE}/campaigns/SPRING-DRAFT/settings/details`)
+  check(
+    '72: its pages are listed beneath it, Budgets not yet (510)',
+    JSON.stringify(await page.locator('[data-workspace-settings]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-settings')))) ===
+      '["details","schedule","audience","features","offline"]',
+  )
+  check('72: Details is the current page', (await page.locator('[data-workspace-settings="details"]').getAttribute('aria-current')) === 'page')
+  check('72: the crumb still names the campaign', (await page.locator('[data-crumb-record]').innerText()) === 'SPRING-DRAFT')
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT/settings/budgets`)
+  await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
+  check('72: a page not landed yet (Budgets, 510) opens Details', page.url() === `${BASE}/campaigns/SPRING-DRAFT/settings/details`)
+
+  // ── 73 ──
+  check(
+    '73: the code is shown, the names as HQ saved them',
+    (await page.locator('[data-settings-code]').innerText()) === 'SPRING-DRAFT' && (await field('nameEn').inputValue()) === 'Spring skincare (draft)' && (await field('nameAr').inputValue()) === '',
+  )
+  check('73: Save waits for a change', await save.isDisabled())
+  await field('nameEn').fill('   ')
+  await save.click()
+  check(
+    '73: both names are required, said at the field, nothing sent',
+    (await page.locator('[data-settings-problem="nameEnRequired"]').isVisible()) && (await page.locator('[data-settings-problem="nameArRequired"]').isVisible()) && settings.length === 0,
+  )
+  check('73: the Arabic name is typed right to left', (await field('nameAr').getAttribute('dir')) === 'rtl')
+  await field('nameEn').fill(' Spring skincare ')
+  await field('nameAr').fill(' العناية بالبشرة في الربيع ')
+  await field('description').fill('Spring range, 15% off. ')
+  await save.click()
+  check(
+    '73: Save sends both names and the description, trimmed',
+    (await saved(1)) &&
+      JSON.stringify(settings[0]) ===
+        JSON.stringify({ part: 'Details', id: 'SPRING-DRAFT', body: { name: { en: 'Spring skincare', ar: 'العناية بالبشرة في الربيع' }, description: 'Spring range, 15% off.' } }),
+    JSON.stringify(settings[0]),
+  )
+  check('73: a toast says so', await page.getByText('The details are saved.').first().isVisible())
+  await page.screenshot({ path: `${SHOTS}/settings-details.png` })
+  await settingsPage('SPRING-DRAFT', 'details')
+  check(
+    '73: a reload reads them back',
+    (await field('nameEn').inputValue()) === 'Spring skincare' && (await field('nameAr').inputValue()) === 'العناية بالبشرة في الربيع' && (await field('description').inputValue()) === 'Spring range, 15% off.',
+  )
+  check('73: the shell shows both names', (await page.locator('[data-workspace-name]').innerText()).includes('العناية بالبشرة في الربيع'))
+  await page.locator('[data-workspace-menu="dashboard"]').click()
+  await page.locator('[data-steps]').waitFor({ timeout: 5000 })
+  check('73: the dashboard’s "named" step is ticked', (await page.locator('[data-step="named"][data-step-done]').count()) === 1)
+
+  // ── 75 ──
+  await settingsPage('SPRING-DRAFT', 'audience')
+  await page.locator('[data-settings-toggles="countries"]').waitFor({ timeout: 5000 })
+  check(
+    '75: the countries are HQ’s, SA picked',
+    (await page.locator('[data-settings-toggle="SA"]').getAttribute('aria-pressed')) === 'true' && (await page.locator('[data-settings-toggle="BH"]').getAttribute('aria-pressed')) === 'false',
+  )
+  check('75: a country reads code · name', (await page.locator('[data-settings-toggle="BH"]').innerText()) === 'BH · Bahrain')
+  await page.locator('[data-settings-toggle="BH"]').click()
+  await page.locator('[data-settings-toggles="channels"] [data-settings-toggle="POS"]').click()
+  await page.locator('[data-lookup="stores"]').fill('riy')
+  await page.locator('[data-lookup-hit="R101"]').click()
+  await field('members').selectOption('identified')
+  await save.click()
+  check(
+    '75: Save sends countries, channels, stores and members',
+    (await saved(2)) && JSON.stringify(settings[1].body) === JSON.stringify({ countries: ['SA', 'BH'], channels: ['POS'], stores: ['R101'], members: 'identified' }),
+    JSON.stringify(settings[1]),
+  )
+  await page.screenshot({ path: `${SHOTS}/settings-audience.png` })
+  await settingsPage('SPRING-DRAFT', 'audience')
+  await page.locator('[data-settings-toggles="countries"]').waitFor({ timeout: 5000 })
+  check(
+    '75: a reload reads them back',
+    (await page.locator('[data-settings-toggle="BH"]').getAttribute('aria-pressed')) === 'true' &&
+      (await page.locator('[data-settings-toggle="POS"]').getAttribute('aria-pressed')) === 'true' &&
+      (await page.locator('[data-picks="stores"] [data-pick="R101"]').count()) === 1 &&
+      (await field('members').inputValue()) === 'identified',
+  )
+
+  // ── 76 ──
+  await settingsPage('PTS-50OFF', 'features')
+  await page.locator('[data-settings-feature="points"]').uncheck()
+  await page.locator('[data-feature-in-use="points"]').waitFor({ timeout: 5000 })
+  check(
+    '76: points cannot be switched off while a rule burns them, naming the rule',
+    (await page.locator('[data-feature-in-use="points"]').innerText()).startsWith('Loyalty points cannot be switched off: these rules use it.') &&
+      (await page.locator('[data-feature-in-use="points"] [data-feature-in-use-rule]').allInnerTexts()).join('|') === 'Burn 30, take 50 off, together or not at all',
+  )
+  check('76: …Save is held back, nothing sent', (await save.isDisabled()) && settings.length === 2)
+  await page.screenshot({ path: `${SHOTS}/settings-features-in-use.png` })
+  await page.locator('[data-settings-feature="points"]').check()
+  check('76: switched back on, the refusal goes', (await page.locator('[data-feature-in-use]').count()) === 0)
+  await page.locator('[data-settings-feature="coupons"]').check()
+  await save.click()
+  check(
+    '76: switching coupons on is saved',
+    (await saved(3)) && JSON.stringify(settings[2]) === JSON.stringify({ part: 'Features', id: 'PTS-50OFF', body: { coupons: true, points: true } }),
+    JSON.stringify(settings[2]),
+  )
+  await settingsPage('PTS-50OFF', 'features')
+  check('76: a reload reads it back', await page.locator('[data-settings-feature="coupons"]').isChecked())
+
+  // ── 77 ──
+  await settingsPage('PTS-50OFF', 'offline')
+  await page.locator('[data-offline-verdict]').waitFor({ timeout: 5000 })
+  check('77: a campaign HQ finds unsafe reads Online only', (await page.locator('[data-offline-verdict]').getAttribute('data-offline-verdict')) === 'online')
+  check(
+    '77: …with HQ’s reasons',
+    (await page.locator('[data-offline-reason]').allInnerTexts()).join('|') === 'is for members only|reads the member profile|takes points',
+    (await page.locator('[data-offline-reason]').allInnerTexts()).join('|'),
+  )
+  check('77: …and no "online only" to choose', (await page.locator('[data-offline-opt-out]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/settings-offline-unsafe.png` })
+  await settingsPage('SUN-3FOR2', 'offline')
+  await page.locator('[data-offline-verdict]').waitFor({ timeout: 5000 })
+  check(
+    '77: a safe one reads Offline-safe',
+    (await page.locator('[data-offline-verdict]').getAttribute('data-offline-verdict')) === 'safe' && (await page.locator('[data-offline-verdict]').innerText()).startsWith('Offline-safe'),
+  )
+  await page.locator('[data-offline-opt-out]').check()
+  await save.click()
+  check(
+    '77: "Online only" is saved',
+    (await saved(4)) && JSON.stringify(settings[3]) === JSON.stringify({ part: 'Offline', id: 'SUN-3FOR2', body: { offlineOptOut: true } }),
+    JSON.stringify(settings[3]),
+  )
+  await settingsPage('SUN-3FOR2', 'offline')
+  await page.locator('[data-offline-verdict]').waitFor({ timeout: 5000 })
+  check(
+    '77: a reload reads it back: Online only, by choice',
+    (await page.locator('[data-offline-verdict]').getAttribute('data-offline-verdict')) === 'optedOut' && (await page.locator('[data-offline-opt-out]').isChecked()),
+  )
+  await page.screenshot({ path: `${SHOTS}/settings-offline-opted-out.png` })
+
+  // ── 79 ──
+  await settingsPage('SUN-3FOR2', 'details')
+  await field('description').fill('An edit not saved yet.')
+  await page.locator('[data-workspace-settings="schedule"]').click()
+  await page.locator('[data-leave-dialog]').waitFor({ timeout: 5000 })
+  check('79: leaving with unsaved changes asks first', page.url().endsWith('/settings/details'))
+  await page.locator('[data-leave-stay]').click()
+  check('79: Stay keeps the change', (await field('description').inputValue()) === 'An edit not saved yet.')
+  // Someone renames it elsewhere; the campaign is re-read when the browser comes back online.
+  store.find((c) => c.id === 'SUN-3FOR2').name.en = 'Renamed elsewhere'
+  await context.setOffline(true)
+  await context.setOffline(false)
+  await page.waitForFunction(() => document.querySelector('[data-workspace-name]')?.textContent?.includes('Renamed elsewhere'), null, { timeout: 5000 }).catch(() => {})
+  check(
+    '79: a re-read in the background keeps the unsaved change',
+    (await page.locator('[data-workspace-name]').innerText()).includes('Renamed elsewhere') && (await field('description').inputValue()) === 'An edit not saved yet.',
+  )
+  await page.locator('[data-settings-cancel]').click()
+  check(
+    '79: Cancel goes back to what HQ saved',
+    (await field('description').inputValue()) === CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2').description &&
+      (await field('nameEn').inputValue()) === 'Renamed elsewhere' &&
+      (await save.isDisabled()),
+  )
+  await page.locator('[data-workspace-settings="schedule"]').click()
+  await page.locator('[data-settings="schedule"]').waitFor({ timeout: 5000 })
+  check('79: …and then leaves without asking', (await page.locator('[data-leave-dialog]').count()) === 0 && settings.length === 4)
+  check('80: no page errors (72–77, 79)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 74 ──
+{
+  const { context, page, errors, settings } = await open({ at: SMALL_HOURS })
+  const field = (k) => page.locator(`[data-settings-field="${k}"]`)
+  const save = page.locator('[data-settings-save]')
+  const settled = () => page.waitForFunction(() => !document.querySelector('[data-settings-dirty]'), null, { timeout: 5000 }).catch(() => {})
+  await page.goto(`${BASE}/campaigns/NATDAY-15/settings/schedule`)
+  await page.locator('[data-settings="schedule"]').waitFor({ timeout: 10000 })
+  check(
+    '74: the schedule reads as HQ saved it, in local days and hours',
+    (await field('from').inputValue()) === '2026-10-19' &&
+      (await field('until').inputValue()) === '2026-10-26' &&
+      (await field('hoursFrom').inputValue()) === '16:00' &&
+      (await field('hoursTo').inputValue()) === '23:00',
+  )
+  await field('from').fill('2026-10-16')
+  await field('until').fill('2026-10-16')
+  check('74: an end not after the start holds Save back, saying why', (await page.locator('[data-settings-problem="untilNotAfterFrom"]').isVisible()) && (await save.isDisabled()))
+  await field('until').fill('2026-10-23')
+  await field('hoursFrom').fill('22:00')
+  await field('hoursTo').fill('02:00')
+  check('74: daily hours that end before they start hold Save back too', (await page.locator('[data-settings-problem="hoursToNotAfterFrom"]').isVisible()) && (await save.isDisabled()))
+  await field('hoursFrom').fill('00:30')
+  await field('hoursTo').fill('23:30')
+  await page.locator('[data-settings-day="4"]').click()
+  await page.locator('[data-settings-day="5"]').click()
+  check('74: the weekdays are pressed', (await page.locator('[data-settings-day="4"]').getAttribute('aria-pressed')) === 'true')
+  await save.click()
+  await settled()
+  check(
+    '74: Save sends the local days and hours as typed, at 02:30 local (23:30 UTC the day before)',
+    JSON.stringify(settings[0]?.body) === JSON.stringify({ from: '2026-10-16', until: '2026-10-23', days: [4, 5], hoursFrom: '00:30', hoursTo: '23:30' }),
+    JSON.stringify(settings[0]),
+  )
+  await page.screenshot({ path: `${SHOTS}/settings-schedule.png` })
+  await page.reload()
+  await page.locator('[data-settings="schedule"]').waitFor({ timeout: 10000 })
+  check(
+    '74: a reload reads them back',
+    (await field('from').inputValue()) === '2026-10-16' &&
+      (await field('until').inputValue()) === '2026-10-23' &&
+      (await field('hoursFrom').inputValue()) === '00:30' &&
+      (await page.locator('[data-settings-day][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-settings-day')))).join() === '4,5',
+  )
+  await page.locator('[data-workspace-menu="dashboard"]').click()
+  await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
+  check(
+    '74: the dashboard reads the new schedule: running from today, local',
+    (await page.locator('[data-dashboard-cell="schedule"] [data-schedule-relative]').getAttribute('data-schedule-relative')) === 'endsIn' &&
+      (await page.locator('[data-dashboard-cell="schedule"]').innerText()).includes('2026-10-16'),
+  )
+  await page.goto(`${BASE}/campaigns/NATDAY-15/settings/schedule`)
+  await page.locator('[data-settings="schedule"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-settings-clear="from"]').click()
+  await save.click()
+  await settled()
+  check('74: clearing the start sends null (immediately)', settings[1]?.body.from === null && settings[1]?.body.until === '2026-10-23', JSON.stringify(settings[1]))
+  check('80: no page errors (74)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 78 ──
+{
+  const { context, page, errors, settings } = await open({ refuseSettings: true, refuseVerdict: true })
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/settings/details`)
+  await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-settings-field="nameEn"]').fill('A new name')
+  await page.locator('[data-settings-save]').click()
+  await page.locator('[data-settings-refusal="details"]').waitFor({ timeout: 5000 })
+  check(
+    '78: a refused save shows the envelope’s message and code',
+    (await page.locator('[data-settings-refusal="details"]').innerText()).includes(SETTINGS_REFUSED) &&
+      (await page.locator('[data-settings-refusal="details"] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_NOT_EDITABLE',
+  )
+  check('78: …and keeps the change', (await page.locator('[data-settings-field="nameEn"]').inputValue()) === 'A new name' && settings.length === 1)
+  await page.screenshot({ path: `${SHOTS}/settings-refused.png` })
+  await page.locator('[data-settings-cancel]').click()
+  await page.locator('[data-workspace-settings="offline"]').click()
+  await page.locator('[data-offline-refusal]').waitFor({ timeout: 5000 })
+  check(
+    '78: a refused verdict is its own message and code, with Try again',
+    (await page.locator('[data-offline-refusal]').innerText()).includes(VERDICT_REFUSED) &&
+      (await page.locator('[data-offline-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_OFFLINE_VERDICT_UNAVAILABLE' &&
+      (await page.locator('[data-offline-retry]').isVisible()),
+  )
+  check('80: no page errors (78)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

@@ -1,14 +1,15 @@
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Link, NavLink, Outlet, useParams } from 'react-router'
-import { ArrowLeft, LayoutGrid, ListTree, Loader2, Ticket, type LucideIcon } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router'
+import { ArrowLeft, ChevronDown, ChevronRight, LayoutGrid, ListTree, Loader2, SlidersHorizontal, Ticket, type LucideIcon } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { ruleCampaignQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import { campaignPath, campaignState } from '@/core/rules/campaign-state'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { WorkspaceContext } from './context'
-import { drawnMenu, type WorkspaceMenuKey } from './menu'
+import { drawnMenu, drawnSettings, type WorkspaceMenuKey } from './menu'
 
 /** Each menu item's icon — here, not in `./menu`, so the menu's rules stay a pure, React-free module. */
 const MENU_ICON: Record<WorkspaceMenuKey, LucideIcon> = { dashboard: LayoutGrid, rules: ListTree, coupons: Ticket }
@@ -28,6 +29,14 @@ export default function CampaignWorkspacePage() {
   const { id = '' } = useParams()
   const campaign = useQuery(ruleCampaignQuery(id))
   const base = campaignPath(id)
+  // Settings ▸ opens its pages beneath it, and is open whenever one of them is (ticket 509).
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const onSettings = pathname.startsWith(`${base}/settings`)
+  const [settingsOpen, setSettingsOpen] = useState(onSettings)
+  useEffect(() => {
+    if (onSettings) setSettingsOpen(true)
+  }, [onSettings])
 
   const back = (
     <Link to="/campaigns" className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground" data-workspace-back="">
@@ -94,6 +103,42 @@ export default function CampaignWorkspacePage() {
               {t(`menu.${item.key}`)}
             </NavLink>
           ))}
+          <button
+            type="button"
+            aria-expanded={settingsOpen}
+            onClick={() => {
+              // From another page it lands on Settings' first page, as the prototype does, and opens
+              // once it got there (a page with unsaved changes may keep the reader where they are).
+              if (onSettings) setSettingsOpen((open) => !open)
+              else navigate(`${base}/settings/details`)
+            }}
+            className={
+              'flex items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm transition-colors ' +
+              (onSettings ? 'font-medium text-primary-800' : 'text-foreground hover:bg-accent')
+            }
+            data-workspace-menu="settings"
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            <span className="flex-1">{t('menu.settings')}</span>
+            {settingsOpen ? <ChevronDown className="h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />}
+          </button>
+          {settingsOpen && (
+            <div className="flex flex-col gap-0.5 ps-6" data-workspace-settings-menu="">
+              {drawnSettings().map((page) => (
+                <NavLink
+                  key={page}
+                  to={`${base}/settings/${page}`}
+                  data-workspace-settings={page}
+                  className={({ isActive }) =>
+                    'rounded-md px-2 py-1 text-sm transition-colors ' +
+                    (isActive ? 'bg-primary-050 font-medium text-primary-800' : 'text-foreground hover:bg-accent')
+                  }
+                >
+                  {t(`settings.${page}.menu`)}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
       </aside>
       <div className="min-w-0 flex-1">

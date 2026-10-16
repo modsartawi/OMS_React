@@ -130,7 +130,7 @@ function Step({ id, label, children }: { id: string; label: string; children: Re
  * One step of the chain: the codes picked so far, each removable, and a search on HQ's lookup
  * (`ruleLookupQuery`) whose hits add a code. A material is found by its SKU or its name.
  */
-function LookupPicks({
+export function LookupPicks({
   kind,
   label,
   value,

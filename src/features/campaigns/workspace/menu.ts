@@ -39,8 +39,31 @@ export function drawnMenu(features: RuleCampaignFeatures): WorkspaceMenuItem[] {
 /**
  * Whether a workspace page has landed, by its path relative to the workspace (`'rules'`,
  * `'settings/details'` …). A page that has not landed is not linked to (ticket 511's pre-activation
- * steps): Settings arrives with 509 and adds its pages here, landed.
+ * steps): Settings' pages landed with 509, Budgets waits for 510.
  */
 export function pageLanded(to: string): boolean {
+  if (to.startsWith('settings/')) return settingsPage(to.slice('settings/'.length)) !== null
   return WORKSPACE_MENU.some((item) => item.to === to && item.landed)
 }
+
+/**
+ * Settings ▸ (ticket 509; the prototype's `SMENU`): one page each, with its own Cancel / Save, at
+ * `settings/<key>`. Budgets is 510's and is not drawn until it lands.
+ */
+export type SettingsPageKey = 'details' | 'schedule' | 'audience' | 'features' | 'budgets' | 'offline'
+
+export const SETTINGS_PAGES: readonly { key: SettingsPageKey; landed: boolean }[] = [
+  { key: 'details', landed: true },
+  { key: 'schedule', landed: true },
+  { key: 'audience', landed: true },
+  { key: 'features', landed: true },
+  { key: 'budgets', landed: false },
+  { key: 'offline', landed: true },
+]
+
+/** The Settings pages the shell draws, in menu order. */
+export const drawnSettings = (): SettingsPageKey[] => SETTINGS_PAGES.filter((p) => p.landed).map((p) => p.key)
+
+/** A landed Settings page by its route segment, or null for one unknown or not landed yet. */
+export const settingsPage = (segment: string | undefined): SettingsPageKey | null =>
+  SETTINGS_PAGES.find((p) => p.key === segment && p.landed)?.key ?? null

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useBlocker } from 'react-router'
 import { Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type { CampaignRule } from '@/core/models/rule-campaign'
@@ -10,11 +9,11 @@ import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import Modal from '@/core/ui/Modal'
 import { mintRequestId } from '@/core/util/request-id'
 import { builderHistory, canRedo, canUndo, initialHistory, isDirty } from './builder-history'
 import { focusTarget, indexChecks, locateChecks, type CheckPlace } from './checks'
 import ChecksPill from './ChecksPill'
+import LeaveGuard from './LeaveGuard'
 import { useWorkspace } from './context'
 import { newRule } from './palette'
 import { addRule } from './rule-edit'
@@ -65,21 +64,6 @@ export default function RulesPage() {
       notify.success(t('builder.saved'))
     },
   })
-
-  // Closing or reloading the tab with unsaved changes: the browser's own question.
-  useEffect(() => {
-    if (!dirty) return
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
-  // Leaving in the app: ours. The login bounce is core/api's and is never held.
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) => dirty && nextLocation.pathname !== '/login' && currentLocation.pathname !== nextLocation.pathname,
-      [dirty],
-    ),
-  )
 
   // Focus after the render that expanded the rule and opened the panel; scrolled into view.
   useEffect(() => {
@@ -246,25 +230,7 @@ export default function RulesPage() {
       {save.isError && <ErrorBanner className="p-3" title={t('builder.saveFailedTitle')} message={apiErrorMessage(save.error, t('builder.saveFailed'))} />}
       {body}
 
-      <Modal
-        open={blocker.state === 'blocked'}
-        onClose={() => blocker.reset?.()}
-        title={t('builder.leave.title')}
-        footer={
-          <>
-            <Button variant="text" onClick={() => blocker.reset?.()} data-leave-stay="">
-              {t('builder.leave.stay')}
-            </Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()} data-leave-go="">
-              {t('builder.leave.go')}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm" data-leave-dialog="">
-          {t('builder.leave.body')}
-        </p>
-      </Modal>
+      <LeaveGuard dirty={dirty} words="builder.leave" />
     </section>
   )
 }

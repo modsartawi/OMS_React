@@ -37,4 +37,8 @@ describe('the Campaigns nav group', () => {
       record: 'WKND20',
     })
   })
+
+  it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {
+    expect(deriveCrumb(MENU, '/campaigns/WKND20/settings/schedule', { id: 'WKND20', '*': 'schedule' }).record).toBe('WKND20')
+  })
 })

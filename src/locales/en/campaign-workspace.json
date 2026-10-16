@@ -8,7 +8,8 @@
     "label": "Manage campaign",
     "dashboard": "Dashboard",
     "rules": "Rule builder",
-    "coupons": "Coupons"
+    "coupons": "Coupons",
+    "settings": "Settings"
   },
   "dashboard": {
     "stamp": "<at>{{at}}</at> by <by>{{by}}</by>",
@@ -253,7 +254,10 @@
     "search": {
       "categories": "Search categories by code or name",
       "collections": "Search collections by code or name",
-      "materials": "Search products by SKU or name"
+      "materials": "Search products by SKU or name",
+      "countries": "Search countries",
+      "channels": "Search channels",
+      "stores": "Search stores by code or name"
     },
     "searching": "Searching HQ…",
     "noHits": "Nothing matches.",
@@ -1008,6 +1012,113 @@
     "note": {
       "error": "<b>Error:</b> <msg>{{message}}</msg>",
       "warning": "<b>Warning:</b> <msg>{{message}}</msg>"
+    }
+  },
+  "settings": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "unchanged": "Unchanged",
+    "unsaved": "Unsaved changes",
+    "refusedTitle": "The change could not be saved",
+    "refused": "Try again in a moment. Your changes are still here.",
+    "refusalCode": "Code",
+    "leave": {
+      "title": "Leave without saving?",
+      "body": "Your changes on this page are not saved. Leaving discards them.",
+      "stay": "Stay",
+      "go": "Leave and discard"
+    },
+    "details": {
+      "menu": "Details",
+      "title": "Details",
+      "lede": "The name the till and receipts show, in English and in Arabic, and what the campaign is for.",
+      "code": "Code",
+      "codeHint": "Set by HQ. Shown on receipts and in SAP exports.",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "description": "Description",
+      "descriptionPlaceholder": "What the campaign is for, for whoever reads it next",
+      "problem": {
+        "nameEnRequired": "Enter the English name.",
+        "nameArRequired": "Enter the Arabic name."
+      },
+      "saved": "The details are saved."
+    },
+    "schedule": {
+      "menu": "Schedule",
+      "title": "Schedule",
+      "lede": "Choose a start and an end to set how long the campaign is active. Setting an end is highly recommended. The end day is exclusive: the campaign stops when it begins.",
+      "start": "Start",
+      "startEmpty": "Empty: it starts as soon as it is activated.",
+      "clearStart": "Clear the start",
+      "end": "End",
+      "endEmpty": "Empty: it runs with no end.",
+      "endExclusive": "The campaign stops at the start of this day.",
+      "clearEnd": "Clear the end",
+      "days": "Days of the week",
+      "daysHint": "None picked: every day.",
+      "hours": "Daily hours",
+      "hoursFrom": "Daily hours from",
+      "hoursTo": "to",
+      "hoursToLabel": "Daily hours to",
+      "hoursHint": "Each day of the window, between these hours. Empty: all day.",
+      "clearHours": "Clear the daily hours",
+      "localTime": "Days and hours are the store’s local time, never UTC.",
+      "problem": {
+        "untilNotAfterFrom": "The end must be after the start.",
+        "hoursToNotAfterFrom": "The daily hours must end after they start."
+      },
+      "saved": "The schedule is saved."
+    },
+    "audience": {
+      "menu": "Audience",
+      "title": "Audience",
+      "lede": "Where and for whom the campaign runs, before any rule is looked at.",
+      "countries": "Countries",
+      "countriesHint": "None picked: every country.",
+      "channels": "Channels",
+      "channelsHint": "None picked: every channel.",
+      "stores": "Stores",
+      "storesAll": "Every rule-engine store in the countries above",
+      "members": "Customers",
+      "member": {
+        "any": "Everyone, member or not",
+        "identified": "Members only",
+        "earning": "Earning Arbahi members only"
+      },
+      "saved": "The audience is saved."
+    },
+    "features": {
+      "menu": "Features",
+      "title": "Features",
+      "lede": "A feature switches on its menu, conditions and effects. You can switch one on after the campaign is created.",
+      "coupons": "Coupons",
+      "couponsHint": "Codes under a template this campaign owns, and the coupon condition.",
+      "points": "Loyalty points",
+      "pointsHint": "Arbahi earn and burn conditions and effects.",
+      "inUse": "{{feature}} cannot be switched off: these rules use it.",
+      "inUseLink": "Open the rule builder",
+      "untitledRule": "Untitled rule",
+      "note": "A feature a rule uses stays on until that rule stops using it.",
+      "saved": "The features are saved."
+    },
+    "offline": {
+      "menu": "Offline",
+      "title": "Offline",
+      "lede": "Whether a till that has lost HQ can still run the campaign. HQ works it out from the saved rules, budgets and audience.",
+      "loading": "Reading HQ’s verdict…",
+      "failedTitle": "HQ’s offline verdict could not be read",
+      "failed": "Try again in a moment.",
+      "retry": "Try again",
+      "safe": "Offline-safe",
+      "onlineOnly": "Online only",
+      "safeSentence": "Nothing here needs HQ, so an offline till can run it.",
+      "optedOutSentence": "An offline till could run it, but you keep it to online tills.",
+      "unsafeSentence": "It needs HQ, so only an online till runs it. It:",
+      "optOut": "Online only",
+      "optOutHint": "Keep it off offline tills anyway.",
+      "note": "An offline till runs only offline-safe campaigns. Saving the rules works the verdict out again.",
+      "saved": "The offline setting is saved."
     }
   }
 }

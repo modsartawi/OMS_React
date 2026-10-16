@@ -10,6 +10,7 @@ import type {
   RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
+  RuleOfflineVerdict,
 } from '../src/core/models/rule-campaign'
 
 export const CAMPAIGNS: RuleCampaign[]
@@ -26,3 +27,10 @@ export function lifecycle(
   act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable',
   o: { note?: string; by: string; at: string },
 ): { campaign: RuleCampaign; refused?: undefined } | { refused: string; campaign?: undefined }
+export function offlineVerdict(c: RuleCampaign): RuleOfflineVerdict
+export function saveSettings(
+  c: RuleCampaign,
+  part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Offline',
+  body: unknown,
+  catalogue?: RuleBlockCatalogue,
+): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }

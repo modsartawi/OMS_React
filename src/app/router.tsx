@@ -707,6 +707,13 @@ export const router = createBrowserRouter([
             }),
           },
           {
+            // Coupons: the codes, filters, and Create coupons with the batch id shown (ticket 515).
+            path: 'coupons',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/CouponsPage')).default,
+            }),
+          },
+          {
             // Versions: every published version, and restore one as a new draft (ticket 512).
             path: 'versions',
             lazy: async () => ({

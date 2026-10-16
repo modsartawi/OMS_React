@@ -694,3 +694,67 @@ export interface RuleSimResult {
   trace: RuleSimTrace[]
   nearMisses: RuleSimNearMiss[]
 }
+
+// ── Campaign coupons (ticket 515, BackOffice 2755) ──
+//
+// A coupon campaign's codes live in SIS.Coupons under a template the campaign owns (ADR 0094). A
+// code carries NO redemption limit of its own: "each code once" and "once per customer" are the
+// campaign's coupon and profile budgets (ADR 0094, Settings ▸ Budgets), so nothing below has a
+// limit field — `uses` is a count, never a count against a cap.
+
+/** Where a code is: HQ answers it, `expired` included (past its own `until` at HQ's local day). */
+export type RuleCouponStatus = 'unused' | 'used' | 'disabled' | 'expired'
+
+/** How a code came to be: one of Create coupons' three kinds, or a CSV import (516). */
+export type RuleCouponKind = 'random' | 'universal' | 'personal' | 'imported'
+
+/** One code of the campaign. Days are local `yyyy-MM-dd`, `created` a local moment, never a `Z`. */
+export interface RuleCampaignCoupon {
+  code: string
+  status: RuleCouponStatus
+  kind: RuleCouponKind
+  /** How many sales redeemed it. */
+  uses: number
+  /** The member it is bound to (a personal code), or null for anyone. */
+  member: string | null
+  /** The batch it was created in. */
+  batch: string
+  created: string
+  /** First day it works; null = at once. */
+  from: string | null
+  /** Last day it works; null = no end of its own (the campaign's end still applies). */
+  until: string | null
+}
+
+/** The characters a random code is drawn from. */
+export type RuleCouponCharset = 'lettersAndDigits' | 'letters' | 'digits'
+
+/** How a random or personal code is shaped: `PREFIX-RANDOM-SUFFIX`, the dashes HQ's. */
+export interface RuleCouponShape {
+  prefix: string
+  suffix: string
+  /** How many random characters. */
+  length: number
+  charset: RuleCouponCharset
+}
+
+/** A batch's validity, in local days (null = at once / no end of its own). */
+export interface RuleCouponValidity {
+  from: string | null
+  until: string | null
+}
+
+/**
+ * What Create coupons sends (ticket 515): one batch of one kind. HQ mints the codes and the batch
+ * id. No kind carries a redemption limit (ADR 0094).
+ */
+export type RuleCouponBatchCreate =
+  | ({ kind: 'random'; count: number } & RuleCouponShape & RuleCouponValidity)
+  | ({ kind: 'universal'; code: string } & RuleCouponValidity)
+  | ({ kind: 'personal'; members: string[] } & RuleCouponShape & RuleCouponValidity)
+
+/** HQ's answer to a create: the batch id and how many codes it holds. */
+export interface RuleCouponBatch {
+  batch: string
+  count: number
+}

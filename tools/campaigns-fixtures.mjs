@@ -702,3 +702,58 @@ export function restoreVersion(c, versions, n) {
   Object.assign(c, { status: 'draft', rules: structuredClone(v.rules), approval: null, sentBack: null })
   return { campaign: c }
 }
+
+// ── 515: campaign coupons ──
+//   GET  RuleCampaign/Campaigns/{id}/Coupons          → the campaign's codes (`COUPONS`, by id)
+//   POST RuleCampaign/Campaigns/{id}/Coupons/Batches  → one batch minted (`createBatch`)
+// A code carries no redemption limit (ADR 0094): `uses` is a count. HQ answers `expired` itself.
+const coupon = (c, status, batch, o = {}) => ({ code: c, status, kind: 'random', uses: status === 'used' ? 1 : 0, member: null, batch, created: '2026-09-28T11:30:00', from: null, until: null, ...o })
+
+export const COUPONS = {
+  WKND20: [
+    // The prototype's three, then one of each other status and a universal flyer code.
+    coupon('WKND-4F7K2Q', 'unused', 'k3m9q2xa'),
+    coupon('WKND-9XH3PL', 'used', 'k3m9q2xa'),
+    coupon('WKND-T2M8VA', 'unused', 'k3m9q2xa'),
+    coupon('WKND-P5R8ZD', 'disabled', 'k3m9q2xa'),
+    coupon('WKND-B3N6QW', 'expired', 'k3m9q2xa', { until: '2026-10-10' }),
+    coupon('WKND-FLYER', 'used', 'u7d2w4pe', { kind: 'universal', uses: 12, created: '2026-10-01T09:00:00', from: '2026-10-01', until: '2026-10-31' }),
+  ],
+}
+
+const ALPHABET = { lettersAndDigits: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', letters: 'ABCDEFGHJKLMNPQRSTUVWXYZ', digits: '0123456789' }
+let batchSeq = 0
+let rand = 515
+/** A deterministic draw, so a run's codes are the same each time. */
+const next = (n) => ((rand = (rand * 1103515245 + 12345) % 2147483648), (rand >>> 16) % n)
+
+/**
+ * HQ mints one batch: its codes and its batch id. A universal code the campaign already has, or a
+ * campaign without the coupons feature, is refused.
+ */
+export function createBatch(c, list, body, at) {
+  if (!c.features.coupons) return { refused: 'RULE_COUPONS_OFF', message: 'Coupons are off for this campaign. / القسائم غير مفعلة لهذه الحملة.' }
+  const batch = `nb${String(++batchSeq).padStart(6, '0')}`
+  const created = at.replace(' ', 'T') + ':00'
+  const taken = new Set(list.map((k) => k.code))
+  const mint = () => {
+    // A stub HQ: a shape it has run out of would loop here; the drive never asks that much.
+    for (let tries = 0; tries < 100000; tries++) {
+      const abc = ALPHABET[body.charset]
+      let s = ''
+      for (let i = 0; i < body.length; i++) s += abc[next(abc.length)]
+      const k = [body.prefix, s, body.suffix].filter(Boolean).join('-')
+      if (!taken.has(k)) return taken.add(k), k
+    }
+    throw new Error('the stub ran out of codes for this shape')
+  }
+  const one = (k, kind, member = null) => ({ code: k, status: 'unused', kind, uses: 0, member, batch, created, from: body.from, until: body.until })
+  let out
+  if (body.kind === 'universal') {
+    if (taken.has(body.code)) return { refused: 'RULE_COUPON_CODE_TAKEN', message: 'This code is already in use. / هذا الرمز مستخدم.' }
+    out = [one(body.code, 'universal')]
+  } else if (body.kind === 'random') out = Array.from({ length: body.count }, () => one(mint(), 'random'))
+  else out = body.members.map((m) => one(mint(), 'personal', m))
+  list.unshift(...out)
+  return { batch: { batch, count: out.length } }
+}

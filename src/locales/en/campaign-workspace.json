@@ -1291,5 +1291,124 @@
       "cancel": "Keep the draft",
       "confirm": "Replace the draft"
     }
+  },
+  "coupons": {
+    "title": "Coupons",
+    "intro": "Codes live in SIS.Coupons under a template this campaign owns. One campaign coupon per sale. A code has no redemption limit of its own: the campaign’s coupon and profile budgets set how often it works.",
+    "off": "Coupons are off for this campaign. Switch them on in <features>Settings ▸ Features</features>.",
+    "counts_one": "<total>{{total}}</total> code: <unused>{{unused}}</unused> unused, <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+    "counts_other": "<total>{{total}}</total> codes: <unused>{{unused}}</unused> unused, <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+    "search": {
+      "label": "Search",
+      "placeholder": "Coupon code"
+    },
+    "statusFilter": "Status",
+    "anyStatus": "Any status",
+    "status": {
+      "unused": "Unused",
+      "used": "Used",
+      "disabled": "Disabled",
+      "expired": "Expired"
+    },
+    "batchChip": "Batch <batch>{{batch}}</batch>",
+    "batchFilter": "Show batch {{batch}} only",
+    "clearBatch": "Clear the batch filter",
+    "clearFilters": "Clear filters",
+    "failedTitle": "The coupon codes could not be read",
+    "failed": "Try again in a moment.",
+    "retry": "Try again",
+    "shown_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> code",
+    "shown_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> codes",
+    "none": "No codes yet. Create some.",
+    "noMatch": "No code matches.",
+    "columns": {
+      "code": "Code",
+      "status": "Status",
+      "kind": "Kind",
+      "uses": "Uses",
+      "created": "Created",
+      "from": "Valid from",
+      "until": "Valid until",
+      "member": "Member",
+      "batch": "Batch",
+      "atOnce": "At once",
+      "noEnd": "No end",
+      "anyone": "Anyone"
+    },
+    "kind": {
+      "random": "Random",
+      "universal": "Universal",
+      "personal": "Personal",
+      "imported": "Imported"
+    },
+    "created": {
+      "title": "Coupons created",
+      "body_one": "This batch id identifies the <n>{{n}}</n> code you just created:",
+      "body_other": "This batch id identifies the <n>{{n}}</n> codes you just created:",
+      "hint": "You will see it in the Batch column. Use it to find, organise or export the codes.",
+      "show": "Show the codes",
+      "more": "Create more codes"
+    },
+    "create": {
+      "open": "Create coupons",
+      "title": "Create coupons",
+      "cancel": "Cancel",
+      "submit": "Create",
+      "kindLabel": "Kind of codes",
+      "kinds": {
+        "random": {
+          "label": "Random codes",
+          "intro": "A batch of random codes to share with customers: a mailing, a print run or a partner."
+        },
+        "universal": {
+          "label": "Universal code",
+          "intro": "One code anyone can use, like a code printed on a flyer. A coupon budget, not the code, limits how often it works."
+        },
+        "personal": {
+          "label": "Personal codes",
+          "intro": "One random code per member, bound to that member. Paste the member ids."
+        }
+      },
+      "count": "Number of codes",
+      "code": "Coupon code",
+      "codePlaceholder": "e.g. HAYAK15",
+      "members": "Member ids",
+      "membersPlaceholder": "One id per line, or separated by commas",
+      "membersReady_one": "<n>{{n}}</n> member gets a code.",
+      "membersReady_other": "<n>{{n}}</n> members get a code each.",
+      "membersRepeated_one": "<n>{{n}}</n> repeated id is counted once.",
+      "membersRepeated_other": "<n>{{n}}</n> repeated ids are counted once.",
+      "shape": "How the codes look",
+      "prefix": "Prefix",
+      "suffix": "Suffix",
+      "affixHint": "Up to {{max}} letters or digits.",
+      "length": "Random characters",
+      "charset": "Characters",
+      "charsets": {
+        "lettersAndDigits": "Letters and digits",
+        "letters": "Letters only",
+        "digits": "Digits only"
+      },
+      "example": "Looks like <code>{{code}}</code>",
+      "validity": "Validity (optional)",
+      "from": "Valid from",
+      "fromHint": "At once",
+      "until": "Valid until",
+      "untilHint": "No end of its own; the campaign’s end still applies",
+      "validityNote": "Days are local. A code dated next week waits even while the campaign runs, which suits birthday codes; it still works only while the campaign is active.",
+      "limits": "A code carries no redemption limit. “Each code once” and “once per customer” are coupon and profile budgets: set them in <budgets>Settings ▸ Budgets</budgets>.",
+      "refusedTitle": "The coupons were not created",
+      "refused": "Try again in a moment.",
+      "problems": {
+        "countRange": "Enter a whole number from 1 to {{max}}.",
+        "lengthRange": "Enter a whole number from {{min}} to {{max}}.",
+        "codeShape": "3 to 32 letters, digits or dashes, starting with a letter or a digit.",
+        "codeTaken": "This campaign already has this code.",
+        "membersEmpty": "Paste at least one member id.",
+        "membersRange": "At most {{max}} members in one batch.",
+        "dayShape": "Pick a day.",
+        "untilBeforeFrom": "The last day may not be before the first."
+      }
+    }
   }
 }

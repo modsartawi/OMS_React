@@ -5,6 +5,7 @@ import type {
   RuleBudgetLimitChange,
   RuleBudgetUsage,
   RuleCampaign,
+  RuleCampaignCoupon,
   RuleCampaignBudgets,
   RuleCampaignChecks,
   RuleCampaignAudience,
@@ -21,6 +22,8 @@ import type {
   RuleCampaignTransition,
   RuleCampaignVersion,
   RuleCampaignVersionDetail,
+  RuleCouponBatch,
+  RuleCouponBatchCreate,
   RuleEvaluationOrder,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
@@ -80,6 +83,9 @@ const ORDER = 'RuleCampaign/Order'
 const TEMPLATES = 'RuleCampaign/Templates'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const SIMULATE = 'RuleCampaign/Simulate'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// (the coupon doors' own contract is BackOffice 2755)
+const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -324,6 +330,22 @@ export const ruleCampaignApi = {
   simulate(body: RuleSimRequest): Promise<RuleSimResult> {
     return api.post<RuleSimResult>(SIMULATE, body)
   },
+
+  /** GET RuleCampaign/Campaigns/{id}/Coupons — every code of a coupon campaign with its status,
+   *  uses, member, batch and validity (ticket 515, BackOffice 2755); the page searches and filters
+   *  them itself. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  coupons(id: string): Promise<RuleCampaignCoupon[]> {
+    return api.get<RuleCampaignCoupon[]>(COUPONS(id))
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Coupons/Batches — one batch of random, universal or personal
+   *  codes (ticket 515, BackOffice 2755); HQ mints the codes and answers the batch id and the count.
+   *  A code already taken, or a campaign without the coupons feature, is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  createCoupons(id: string, body: RuleCouponBatchCreate): Promise<RuleCouponBatch> {
+    return api.post<RuleCouponBatch>(`${COUPONS(id)}/Batches`, body)
+  },
 }
 
 /** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
@@ -356,6 +378,7 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleBudgetUsageKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCouponsKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
@@ -504,5 +527,17 @@ export const ruleOrderQuery = () => ({
   queryKey: [...RULE_CAMPAIGNS_KEY, 'order'] as const,
   queryFn: () => ruleCampaignApi.order(),
   refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
+
+/** A campaign's coupon codes, keyed under the campaign queries. */
+export const ruleCouponsKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'coupons', id] as const
+
+/** The coupon codes' query options (ticket 515): a create re-reads them; tills redeem codes, so —
+ *  like the budget counters — they are read afresh when the reader comes back to the tab. */
+export const ruleCouponsQuery = (id: string) => ({
+  queryKey: ruleCouponsKey(id),
+  queryFn: () => ruleCampaignApi.coupons(id),
+  refetchOnWindowFocus: true as const,
   retry: false as const,
 })

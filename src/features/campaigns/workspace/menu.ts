@@ -7,7 +7,7 @@ import type { RuleCampaignFeatures } from '@/core/models/rule-campaign'
  *
  * A feature decides which items show (ticket 502): Coupons only for a campaign with the coupons
  * feature. Separately, an item whose page has not landed yet (`landed: false`) is not drawn — each
- * slice flips its own item when its page arrives (Coupons: 515).
+ * slice flipped its own item when its page arrived (Coupons: 515).
  */
 export type WorkspaceMenuKey = 'dashboard' | 'rules' | 'coupons' | 'versions'
 
@@ -23,7 +23,7 @@ export interface WorkspaceMenuItem {
 export const WORKSPACE_MENU: readonly WorkspaceMenuItem[] = [
   { key: 'dashboard', to: '', landed: true },
   { key: 'rules', to: 'rules', landed: true },
-  { key: 'coupons', to: 'coupons', when: (f) => f.coupons, landed: false },
+  { key: 'coupons', to: 'coupons', when: (f) => f.coupons, landed: true },
   { key: 'versions', to: 'versions', landed: true },
 ]
 

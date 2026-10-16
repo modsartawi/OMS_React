@@ -38,6 +38,9 @@
 //   GET RuleCampaign/Campaigns/{id}/Versions/{n} → one version with its rules (512)
 //   POST RuleCampaign/Campaigns/{id}/Versions/{n}/Restore → the version is the new draft
 //       (`restoreVersion`); the first `refuseRestore` restores are refused (512)
+//   GET RuleCampaign/Campaigns/{id}/Coupons → the campaign's codes (`COUPONS`), or refused with `refuseCoupons` (515)
+//   POST RuleCampaign/Campaigns/{id}/Coupons/Batches → one batch minted (`createBatch`); a taken universal
+//       code is refused; the first `refuseBatch` creates are refused (515)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -61,7 +64,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, createBatch, createDraft, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -105,6 +108,8 @@ const TEMPLATES_REFUSED = 'The templates are not available. / القوالب غ�
 const FROM_TEMPLATE_REFUSED = 'Percent off may be at most 30. / الخصم 30% كحد أقصى.'
 const RESTORE_REFUSED = 'The version could not be restored right now. / تعذرت استعادة الإصدار الآن.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
+const COUPONS_REFUSED = 'The coupon codes are not available. / رموز القسائم غير متاحة.'
+const BATCH_REFUSED = 'SIS.Coupons is not answering; no code was created. / خدمة القسائم لا تستجيب.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
 
@@ -115,7 +120,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -152,6 +157,10 @@ async function open({ refuseTemplates = false, refuseFromTemplate = 0, refuseVer
   /** 503: every create-from-template `{ id, body }`, in order. */
   const fromTemplate = []
   let fromTemplateRefusals = refuseFromTemplate
+  /** 515: this context's coupon codes by campaign id, and every batch create `{ id, body }`, in order. */
+  const coupons = structuredClone(COUPONS)
+  const batches = []
+  let batchRefusals = refuseBatch
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -320,11 +329,32 @@ async function open({ refuseTemplates = false, refuseFromTemplate = 0, refuseVer
         return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
       }
     }
+    const cps = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons(\/Batches)?$/.exec(p)
+    if (cps) {
+      const id = decodeURIComponent(cps[1])
+      const c = store.find((x) => x.id === id)
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      const list = (coupons[id] ??= [])
+      if (!cps[2] && req.method() === 'GET') {
+        if (refuseCoupons) return route.fulfill(envelope(null, { status: 503, success: false, message: COUPONS_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
+        return route.fulfill(envelope(list))
+      }
+      if (cps[2] && req.method() === 'POST') {
+        const body = req.postDataJSON()
+        batches.push({ id, body })
+        if (batchRefusals > 0) {
+          batchRefusals--
+          return route.fulfill(envelope(null, { status: 503, success: false, message: BATCH_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
+        }
+        const out = createBatch(c, list, body, NOW_LOCAL)
+        return route.fulfill(out.batch ? envelope(out.batch) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+      }
+    }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, coupons, batches, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -418,8 +448,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('5: Schedule says "Ends in 76 days"', (await sched.locator('[data-schedule-relative]').innerText()) === 'Ends in 76 days', await sched.locator('[data-schedule-relative]').innerText())
   check('5: Schedule shows the local days and the weekdays', (await sched.locator('[data-line="start"] dd').innerText()) === '2026-10-01' && (await sched.locator('[data-line="end"] dd').innerText()) === '2026-12-31' && (await sched.locator('[data-line="days"] dd').innerText()) === 'Thursday, Friday, Saturday')
   check('5: the campaign was read ONCE for the shell and the dashboard', reads() === 1, String(reads()))
-  // 504 lands the Rule builder; Coupons still waits for its page (515).
-  check('5: the side menu shows Dashboard, Rule builder, Versions (512) and Settings (coupons is on, but its page has not landed)', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules","versions","settings"]')
+  // 504 lands the Rule builder, 512 Versions and 515 Coupons (the coupons feature is on here).
+  check('5: the side menu shows Dashboard, Rule builder, Coupons (515), Versions (512) and Settings', JSON.stringify(await page.locator('[data-workspace-menu]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-menu')))) === '["dashboard","rules","coupons","versions","settings"]')
   check('5: Dashboard is the current menu item', (await page.locator('[data-workspace-menu="dashboard"]').getAttribute('aria-current')) === 'page')
   check('5: the rail still lights the Campaigns leaf', (await page.locator('a[href="/campaigns"]:not([data-workspace-back])').first().getAttribute('aria-current')) === 'page')
   await page.screenshot({ path: `${SHOTS}/dashboard-wknd20.png` })
@@ -2515,6 +2545,210 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       (await page.locator('[data-version="3"] [data-version-marker]').count()) === 0,
   )
   check('99: no page errors (98)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 515 ── it asserts:
+// 110. a coupons campaign's menu has Coupons, which opens /campaigns/:id/coupons as the current item:
+//      every code in the grid, the counts by status, and ONE read of the codes;
+// 111. each code reads its status, kind, uses (a count, never "n / limit"), validity as local days,
+//      its member or Anyone, and its batch;
+// 112. the search matches part of the code in any case and the status filter its status, both in
+//      the URL; Clear filters shows every code again;
+// 113. a batch id in the grid filters the list to its batch, with a chip that clears it;
+// 114. Create coupons opens on Random codes, with NO redemption-limit field anywhere in the dialog —
+//      a line says the limits are budgets and links to Settings ▸ Budgets;
+// 115. a count out of range is said at its field once Create is tried, and nothing is sent;
+// 116. a random batch sends ONE POST with exactly the random kind's fields, the days as typed; the
+//      success modal shows HQ's batch id and the count;
+// 117. Show the codes lists that batch only (?batch=), its 25 codes with their local validity;
+// 118. a universal code the campaign already has is said at its field and not sent; a new one is
+//      sent upper-cased with only its own fields, and the modal shows its batch id and "1 code";
+// 119. personal codes: pasted member ids, a repeat counted once, sent as each id once; the modal shows
+//      the batch id, and the batch lists one code per member;
+// 120. HQ's refusal shows in the dialog with its message and code, and the form is kept;
+// 121. a refused codes read is its own message and code with Try again;
+// 122. a campaign without the coupons feature has no Coupons item, and its coupons page says so,
+//      linking to Settings ▸ Features, and reads no codes;
+// 123. no page errors.
+{
+  const { context, page, errors, calls, batches } = await open()
+  const cgrid = '[data-coupons-grid]'
+  const shown = () => page.locator('[data-coupons-shown]').innerText()
+  const waitShown = (text) =>
+    page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
+  const ccell = (codeId, col) => page.locator(`${cgrid} .ag-row[row-id="${codeId}"] .ag-cell[col-id="${col}"]`).first().innerText()
+  const dialog = page.locator('form[data-coupons-create]')
+  const field = (f) => dialog.locator(`[data-coupon-field="${f}"]`)
+  const createButton = page.locator('[data-coupons-create-open]')
+
+  await page.goto(`${BASE}/campaigns/WKND20`)
+  await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+  await page.locator('[data-workspace-menu="coupons"]').click()
+  await page.waitForURL(`${BASE}/campaigns/WKND20/coupons`)
+  await waitShown('Showing 6 of 6 codes')
+  check('110: the menu’s Coupons opens /campaigns/WKND20/coupons', page.url() === `${BASE}/campaigns/WKND20/coupons`)
+  check('110: …as the current item', (await page.locator('[data-workspace-menu="coupons"]').getAttribute('aria-current')) === 'page')
+  check('110: every code is listed', (await shown()) === 'Showing 6 of 6 codes', await shown())
+  check('110: the counts by status', (await page.locator('[data-coupons-counts]').innerText()) === '6 codes: 2 unused, 2 used, 1 disabled, 1 expired.', await page.locator('[data-coupons-counts]').innerText())
+  check('110: the codes were read once', calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length === 1)
+
+  check('111: a status reads as its badge', (await ccell('WKND-B3N6QW', 'status')) === 'Expired' && (await ccell('WKND-P5R8ZD', 'status')) === 'Disabled')
+  check('111: the universal code: its kind and its uses as a count', (await ccell('WKND-FLYER', 'kind')) === 'Universal' && (await ccell('WKND-FLYER', 'uses')) === '12')
+  check('111: …its validity in local days', (await ccell('WKND-FLYER', 'from')) === '2026-10-01' && (await ccell('WKND-FLYER', 'until')) === '2026-10-31')
+  check('111: no validity reads At once / No end; no member reads Anyone', (await ccell('WKND-4F7K2Q', 'from')) === 'At once' && (await ccell('WKND-4F7K2Q', 'until')) === 'No end' && (await ccell('WKND-4F7K2Q', 'member')) === 'Anyone')
+  check('111: the batch column', (await ccell('WKND-4F7K2Q', 'batch')) === 'k3m9q2xa')
+  check('111: no column reads a limit', !/limit/i.test(await page.locator(`${cgrid} .ag-header`).innerText()))
+  await page.screenshot({ path: `${SHOTS}/coupons.png` })
+
+  await page.locator('[data-coupons-search]').fill('flyer')
+  await waitShown('Showing 1 of 6 codes')
+  check('112: the search matches part of the code, any case', (await shown()) === 'Showing 1 of 6 codes' && page.url().endsWith('?q=flyer'), page.url())
+  await page.locator('[data-coupons-search]').fill('')
+  // Let the cleared search's render COMMIT before the next filter (as 501's tile and search).
+  await waitShown('Showing 6 of 6 codes')
+  await page.locator('[data-coupons-status]').selectOption('used')
+  await waitShown('Showing 2 of 6 codes')
+  check('112: the status filter, in the URL', (await shown()) === 'Showing 2 of 6 codes' && page.url().endsWith('?status=used'), page.url())
+  await page.locator('[data-coupons-clear]').click()
+  await waitShown('Showing 6 of 6 codes')
+  check('112: Clear filters shows every code', (await shown()) === 'Showing 6 of 6 codes' && page.url() === `${BASE}/campaigns/WKND20/coupons`)
+
+  await page.locator(`${cgrid} [data-coupon-batch="u7d2w4pe"]`).click()
+  await waitShown('Showing 1 of 6 codes')
+  check('113: a batch id filters the list to its batch', (await shown()) === 'Showing 1 of 6 codes' && page.url().endsWith('?batch=u7d2w4pe'), page.url())
+  check('113: …with its chip', (await page.locator('[data-coupons-batch-chip="u7d2w4pe"]').innerText()).trim() === 'Batch u7d2w4pe', await page.locator('[data-coupons-batch-chip]').innerText())
+  await page.locator('[data-coupons-batch-clear]').click()
+  await waitShown('Showing 6 of 6 codes')
+  check('113: the chip clears it', (await page.locator('[data-coupons-batch-chip]').count()) === 0)
+
+  await createButton.click()
+  await dialog.waitFor({ timeout: 5000 })
+  check('114: Create coupons opens on Random codes', (await dialog.locator('[data-coupon-kind="random"]').getAttribute('aria-checked')) === 'true')
+  const noLimits = async () => {
+    const text = await dialog.innerText()
+    const labels = await dialog.locator('label, legend').allInnerTexts()
+    return (await dialog.locator('input[type="checkbox"]').count()) === 0 && !labels.some((l) => /limit|once|per customer|per member|uses/i.test(l)) && !/each code works once/i.test(text)
+  }
+  let all = true
+  for (const kind of ['random', 'universal', 'personal']) {
+    await dialog.locator(`[data-coupon-kind="${kind}"]`).click()
+    all = all && (await noLimits())
+  }
+  check('114: no redemption-limit field for any kind', all)
+  check('114: the line says limits are budgets and links to Settings ▸ Budgets', (await dialog.locator('[data-coupon-budgets-link]').getAttribute('href')) === '/campaigns/WKND20/settings/budgets' && (await dialog.locator('[data-coupon-limits]').innerText()).includes('coupon and profile budgets'))
+
+  await dialog.locator('[data-coupon-kind="random"]').click()
+  await field('count').fill('0')
+  await page.locator('[data-coupons-create-submit]').click()
+  check('115: a count out of range is said at its field', (await dialog.locator('[data-coupon-problem="countRange"]').innerText()).replace(/[⁦-⁩]/g, '') === 'Enter a whole number from 1 to 5000.', await dialog.locator('[data-coupon-problem="countRange"]').innerText())
+  check('115: …and nothing is sent', batches.length === 0)
+
+  await field('count').fill('25')
+  await field('prefix').fill('wknd')
+  await field('length').fill('8')
+  await field('from').fill('2026-11-01')
+  await field('until').fill('2026-11-30')
+  check('116: the example shows the shape', (await dialog.locator('[data-coupon-example]').innerText()) === 'Looks like WKND-K7Q2M9X4', await dialog.locator('[data-coupon-example]').innerText())
+  await page.screenshot({ path: `${SHOTS}/coupons-create.png` })
+  await page.locator('[data-coupons-create-submit]').click()
+  const created = page.locator('[data-coupons-created]')
+  await created.waitFor({ timeout: 5000 })
+  check('116: ONE POST with exactly the random kind’s fields, the days as typed', batches.length === 1 && JSON.stringify(batches[0].body) === JSON.stringify({ kind: 'random', count: 25, prefix: 'WKND', suffix: '', length: 8, charset: 'lettersAndDigits', from: '2026-11-01', until: '2026-11-30' }), JSON.stringify(batches[0]?.body))
+  const firstBatch = await created.getAttribute('data-coupons-created')
+  check('116: the modal shows HQ’s batch id', /^nb\d{6}$/.test(firstBatch) && (await created.locator('[data-batch-id]').innerText()) === firstBatch, firstBatch)
+  check('116: …and the count', (await created.innerText()).includes('identifies the 25 codes you just created'))
+  check('116: the create dialog is closed', !(await dialog.isVisible()))
+  await page.screenshot({ path: `${SHOTS}/coupons-created.png` })
+
+  await page.locator('[data-coupons-created-show]').click()
+  await waitShown('Showing 25 of 31 codes')
+  await page.waitForFunction((sel) => !document.querySelector(`${sel} .ag-row[row-id="WKND-FLYER"]`), cgrid, { timeout: 5000 }).catch(() => {})
+  check('117: Show the codes lists that batch only', (await shown()) === 'Showing 25 of 31 codes' && page.url().endsWith(`?batch=${firstBatch}`), `${await shown()} ${page.url()}`)
+  const firstRow = await page.locator(`${cgrid} .ag-row[row-index="0"]`).first().getAttribute('row-id')
+  check('117: …with its local validity and batch', (await ccell(firstRow, 'from')) === '2026-11-01' && (await ccell(firstRow, 'until')) === '2026-11-30' && (await ccell(firstRow, 'batch')) === firstBatch && (await ccell(firstRow, 'kind')) === 'Random')
+  check('117: the counts include it', (await page.locator('[data-coupons-counts]').innerText()).startsWith('31 codes: 27 unused'), await page.locator('[data-coupons-counts]').innerText())
+  await page.screenshot({ path: `${SHOTS}/coupons-batch.png` })
+
+  await createButton.click()
+  await dialog.waitFor()
+  check('118: a reopened dialog is a fresh form', (await field('count').inputValue()) === '100' && (await dialog.locator('[data-coupon-kind="random"]').getAttribute('aria-checked')) === 'true')
+  await dialog.locator('[data-coupon-kind="universal"]').click()
+  await field('code').fill('wknd-flyer')
+  await page.locator('[data-coupons-create-submit]').click()
+  check('118: a code the campaign has is said at its field, and not sent', (await dialog.locator('[data-coupon-problem="codeTaken"]').count()) === 1 && batches.length === 1)
+  await field('code').fill('hayak-wknd')
+  check('118: the code is upper-cased as typed', (await field('code').inputValue()) === 'HAYAK-WKND')
+  await page.locator('[data-coupons-create-submit]').click()
+  await created.waitFor({ timeout: 5000 })
+  check('118: only the universal kind’s fields are sent', JSON.stringify(batches[1]?.body) === JSON.stringify({ kind: 'universal', code: 'HAYAK-WKND', from: null, until: null }), JSON.stringify(batches[1]?.body))
+  const uniBatch = await created.getAttribute('data-coupons-created')
+  check('118: the modal shows its batch id and "1 code"', uniBatch !== firstBatch && (await created.locator('[data-batch-id]').innerText()) === uniBatch && (await created.innerText()).includes('identifies the 1 code you just created'))
+
+  await page.locator('[data-coupons-created-more]').click()
+  await dialog.waitFor()
+  await dialog.locator('[data-coupon-kind="personal"]').click()
+  await page.locator('[data-coupons-create-submit]').click()
+  check('119: no member is said at its field', (await dialog.locator('[data-coupon-problem="membersEmpty"]').count()) === 1 && batches.length === 2)
+  await field('members').fill('M-100231\nM-055410, M-100231')
+  check('119: the ids are counted, a repeat once', (await dialog.locator('[data-coupon-members-count]').innerText()) === '2 members get a code each. 1 repeated id is counted once.', await dialog.locator('[data-coupon-members-count]').innerText())
+  await page.locator('[data-coupons-create-submit]').click()
+  await created.waitFor({ timeout: 5000 })
+  check('119: each member id is sent once, with the shape', JSON.stringify(batches[2]?.body) === JSON.stringify({ kind: 'personal', members: ['M-100231', 'M-055410'], prefix: 'WKND20', suffix: '', length: 6, charset: 'lettersAndDigits', from: null, until: null }), JSON.stringify(batches[2]?.body))
+  const perBatch = await created.getAttribute('data-coupons-created')
+  check('119: the modal shows its batch id and "2 codes"', ![firstBatch, uniBatch].includes(perBatch) && (await created.locator('[data-batch-id]').innerText()) === perBatch && (await created.innerText()).includes('identifies the 2 codes you just created'))
+  await page.locator('[data-coupons-created-show]').click()
+  await waitShown('Showing 2 of 34 codes')
+  // The status bar counts at once; the grid's rows follow its rowData a moment later.
+  await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .ag-cell[col-id="member"]`).length === 2, cgrid, { timeout: 5000 }).catch(() => {})
+  const members = await page.locator(`${cgrid} .ag-cell[col-id="member"]`).allInnerTexts()
+  check('119: the batch lists one code per member', (await shown()) === 'Showing 2 of 34 codes' && JSON.stringify(members.sort()) === '["M-055410","M-100231"]', JSON.stringify(members))
+  check('123: no page errors (110–119)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 120, 121 ──
+{
+  const { context, page, errors, batches } = await open({ refuseBatch: 1 })
+  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
+  await page.locator('[data-coupons-shown]').waitFor({ timeout: 20000 })
+  await page.locator('[data-coupons-create-open]').click()
+  const dialog = page.locator('form[data-coupons-create]')
+  await dialog.locator('[data-coupon-field="count"]').fill('10')
+  await page.locator('[data-coupons-create-submit]').click()
+  const refusal = dialog.locator('[data-coupons-create-refusal]')
+  await refusal.waitFor({ timeout: 5000 })
+  check('120: HQ’s refusal shows in the dialog with its message', (await refusal.innerText()).includes(BATCH_REFUSED))
+  check('120: …and its code', (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
+  check('120: the form is kept, no modal', (await dialog.locator('[data-coupon-field="count"]').inputValue()) === '10' && (await page.locator('[data-coupons-created]').count()) === 0 && batches.length === 1)
+  await page.locator('[data-coupons-create-submit]').click()
+  await page.locator('[data-coupons-created]').waitFor({ timeout: 5000 })
+  check('120: Create again goes through', batches.length === 2 && (await page.locator('[data-coupons-created] [data-batch-id]').innerText()).startsWith('nb'))
+  check('123: no page errors (120)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open({ refuseCoupons: true })
+  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
+  const refusal = page.locator('[data-coupons-refusal]')
+  await refusal.waitFor({ timeout: 20000 })
+  check('121: a refused codes read is its own message and code', (await refusal.innerText()).includes(COUPONS_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
+  check('121: …with Try again, and Create coupons waits for the codes', (await page.locator('[data-coupons-retry]').isVisible()) && (await page.locator('[data-coupons-create-open]').isDisabled()))
+  check('123: no page errors (121)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 122 ──
+{
+  const { context, page, errors, calls } = await open()
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2`)
+  await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+  check('122: a campaign without coupons has no Coupons item', (await page.locator('[data-workspace-menu="coupons"]').count()) === 0)
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/coupons`)
+  await page.locator('[data-coupons-off]').waitFor({ timeout: 20000 })
+  check('122: its coupons page says coupons are off, linking to Settings ▸ Features', (await page.locator('[data-coupons-off] a').getAttribute('href')) === '/campaigns/SUN-3FOR2/settings/features')
+  check('122: …and reads no codes', !calls.some((x) => /Coupons$/.test(x)))
+  check('123: no page errors (122)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

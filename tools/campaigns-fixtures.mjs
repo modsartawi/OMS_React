@@ -524,6 +524,11 @@ export function saveSettings(c, part, body, catalogue = CATALOGUE) {
   if (part === 'Schedule') c.schedule = structuredClone(body)
   if (part === 'Audience') c.audience = structuredClone(body)
   if (part === 'Offline') c.offlineOptOut = !!body.offlineOptOut
+  if (part === 'Budgets') {
+    // 510: HQ refuses a limit that is not above zero, as the drawer does.
+    if (body.budgets.some((b) => !(b.value > 0))) return { refused: 'RULE_BUDGET_INVALID', message: 'A budget limit must be above zero.' }
+    c.budgets = structuredClone(body.budgets)
+  }
   if (part === 'Features') {
     const needs = new Map(catalogue.blocks.map((b) => [b.type, b.feature]))
     for (const f of ['coupons', 'points']) {
@@ -537,5 +542,28 @@ export function saveSettings(c, part, body, catalogue = CATALOGUE) {
     }
     c.features = { coupons: !!body.coupons, points: !!body.points }
   }
+  return { campaign: c }
+}
+
+/**
+ * GET RuleCampaign/Campaigns/{id}/BudgetUsage (510, BackOffice 2744) — a live campaign's counters, one
+ * per budget: WKND20 has used SAR 12,345.50 of its SAR 50,000.00; GP-BEAUTY15's busiest member has
+ * used 3 of 2 (an overshoot, ADR 0091); every other budget, nothing yet.
+ */
+const USED = { WKND20: 12345.5, 'GP-BEAUTY15': 3 }
+export function budgetUsage(c) {
+  return c.budgets.map((b, i) => ({ budgetId: b.id, used: i === 0 ? (USED[c.id] ?? 0) : 0 }))
+}
+
+/**
+ * PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit (510, BackOffice 2744) — a live budget's new
+ * limit, at once and with no publish; or `{ refused, message }`.
+ */
+export function changeLimit(c, budgetId, value) {
+  if (c.status !== 'live') return { refused: 'RULE_CAMPAIGN_NOT_LIVE', message: 'Only a live campaign’s limit changes on its own.' }
+  const b = c.budgets.find((x) => x.id === budgetId)
+  if (!b) return { refused: 'RULE_BUDGET_NOT_FOUND', message: 'No such budget.' }
+  if (!(value > 0)) return { refused: 'RULE_BUDGET_INVALID', message: 'A budget limit must be above zero.' }
+  b.value = value
   return { campaign: c }
 }

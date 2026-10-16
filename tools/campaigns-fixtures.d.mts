@@ -3,6 +3,7 @@
 // `src/core/models/rule-campaign.ts`; ticket 520 re-points both.
 import type {
   RuleBlockCatalogue,
+  RuleBudgetUsage,
   RuleCampaign,
   RuleCampaignCreate,
   RuleCampaignListRow,
@@ -30,7 +31,13 @@ export function lifecycle(
 export function offlineVerdict(c: RuleCampaign): RuleOfflineVerdict
 export function saveSettings(
   c: RuleCampaign,
-  part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Offline',
+  part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Budgets' | 'Offline',
   body: unknown,
   catalogue?: RuleBlockCatalogue,
+): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
+export function budgetUsage(c: RuleCampaign): RuleBudgetUsage[]
+export function changeLimit(
+  c: RuleCampaign,
+  budgetId: string,
+  value: number,
 ): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }

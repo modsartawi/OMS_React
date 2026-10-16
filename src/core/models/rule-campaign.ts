@@ -439,3 +439,29 @@ export interface RuleOfflineVerdict {
   safe: boolean
   reasons: RuleOfflineReason[]
 }
+
+// ── Budgets (ticket 510; HQ's doors are BackOffice 2758, the live limits 2744) ──────────────────
+// Settings ▸ Budgets saves the campaign's budgets as a list, like the other Settings pages. A live
+// campaign's counters are read beside it, and a live budget's LIMIT changes on its own door: limits
+// are live settings outside the ruleset version pin (ADR 0091), so changing one never republishes.
+
+/** What Settings ▸ Budgets saves: every budget of the campaign. A new one travels with the id the
+ *  browser gave it, as a new rule's does. */
+export interface RuleCampaignBudgets {
+  budgets: RuleCampaignBudget[]
+}
+
+/**
+ * A live campaign's counter for one budget, in its current period. For a per-key scope (member,
+ * coupon code, store, sale) it is the HIGHEST counter of any one key — the one nearest its limit.
+ * It may be above the limit (ADR 0091): an overshoot is shown, never clamped.
+ */
+export interface RuleBudgetUsage {
+  budgetId: string
+  used: number
+}
+
+/** A live budget's new limit — it applies at once, without a publish. */
+export interface RuleBudgetLimitChange {
+  value: number
+}

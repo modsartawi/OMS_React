@@ -2,7 +2,10 @@ import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
 import type {
   RuleBlockCatalogue,
+  RuleBudgetLimitChange,
+  RuleBudgetUsage,
   RuleCampaign,
+  RuleCampaignBudgets,
   RuleCampaignChecks,
   RuleCampaignAudience,
   RuleCampaignCreate,
@@ -54,10 +57,14 @@ const LIFECYCLE = (id: string, act: 'AskForApproval' | 'Activate' | 'SendBack' |
   `${CAMPAIGNS}/${encodeURIComponent(id)}/${act}`
 
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const SETTINGS = (id: string, part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Offline') =>
+const SETTINGS = (id: string, part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Budgets' | 'Offline') =>
   `${CAMPAIGNS}/${encodeURIComponent(id)}/Settings/${part}`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const OFFLINE_VERDICT = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/OfflineVerdict`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const BUDGET_USAGE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/BudgetUsage`
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const BUDGET_LIMIT = (id: string, budgetId: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Budgets/${encodeURIComponent(budgetId)}/Limit`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -212,6 +219,28 @@ export const ruleCampaignApi = {
     return api.get<RuleOfflineVerdict>(OFFLINE_VERDICT(id))
   },
 
+  /** PUT RuleCampaign/Campaigns/{id}/Settings/Budgets — every budget of the campaign: one added,
+   *  changed or deleted (ticket 510, BackOffice 2758); HQ answers the whole campaign as saved. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  saveBudgets(id: string, body: RuleCampaignBudgets): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(SETTINGS(id, 'Budgets'), body)
+  },
+
+  /** GET RuleCampaign/Campaigns/{id}/BudgetUsage — a live campaign's counters, one per budget, in
+   *  its current period (ticket 510, BackOffice 2744). A counter may be past its limit. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  budgetUsage(id: string): Promise<RuleBudgetUsage[]> {
+    return api.get<RuleBudgetUsage[]>(BUDGET_USAGE(id))
+  },
+
+  /** PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit — a live budget's new limit (ticket
+   *  510, BackOffice 2744). Limits are live settings outside the version pin (ADR 0091): it applies
+   *  at once, nothing is republished, and no counter is reset. HQ answers the whole campaign. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  changeLimit(id: string, budgetId: string, body: RuleBudgetLimitChange): Promise<RuleCampaign> {
+    return api.put<RuleCampaign>(BUDGET_LIMIT(id, budgetId), body)
+  },
+
   /** DELETE RuleCampaign/Campaigns/{id} — an author deletes a draft that was never published
    *  (ticket 511, BackOffice 2759). */
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
@@ -244,6 +273,7 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignChecksKey(id) })
   queryClient.removeQueries({ queryKey: ruleOfflineVerdictKey(id) })
+  queryClient.removeQueries({ queryKey: ruleBudgetUsageKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
@@ -312,6 +342,8 @@ export function rememberSavedDraft(queryClient: QueryClient, campaign: RuleCampa
   // verdict (509), which the rules decide.
   void queryClient.invalidateQueries({ queryKey: ruleCampaignChecksKey(campaign.id) })
   void queryClient.invalidateQueries({ queryKey: ruleOfflineVerdictKey(campaign.id) })
+  // A budget added, changed or deleted (510) changes what is counted against it.
+  void queryClient.invalidateQueries({ queryKey: ruleBudgetUsageKey(campaign.id) })
 }
 
 /** A campaign's offline verdict, keyed under the campaign queries. */
@@ -323,6 +355,18 @@ export const ruleOfflineVerdictQuery = (id: string) => ({
   queryFn: () => ruleCampaignApi.offlineVerdict(id),
   staleTime: 5 * 60_000,
   refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
+
+/** A live campaign's budget counters, keyed under the campaign queries. */
+export const ruleBudgetUsageKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'budget-usage', id] as const
+
+/** The budget counters' query options (ticket 510): tills move them, so — unlike the app's other
+ *  reads — they are read afresh when the reader comes back to the tab. */
+export const ruleBudgetUsageQuery = (id: string) => ({
+  queryKey: ruleBudgetUsageKey(id),
+  queryFn: () => ruleCampaignApi.budgetUsage(id),
+  refetchOnWindowFocus: true as const,
   retry: false as const,
 })
 

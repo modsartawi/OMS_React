@@ -25,6 +25,10 @@
 //   GET RuleCampaign/Campaigns/{id}/OfflineVerdict → the prototype's verdict (`offlineVerdict`), or
 //       refused with `refuseVerdict` (509)
 //   GET RuleCampaign/Lookups/{Countries|Channels|Stores}?search= → Settings ▸ Audience's lists (509)
+//   PUT RuleCampaign/Campaigns/{id}/Settings/Budgets → the budgets saved (`saveSettings`) (510)
+//   GET RuleCampaign/Campaigns/{id}/BudgetUsage → the counters (`budgetUsage`), or refused with `refuseUsage` (510)
+//   PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit → a live limit changed (`changeLimit`); the
+//       first `refuseLimit` changes are refused (510)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -48,7 +52,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, saveSettings } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, saveSettings } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -85,6 +89,8 @@ const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تع�
 const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
 const SETTINGS_REFUSED = 'This campaign is waiting for approval and cannot be changed. / الحملة بانتظار الموافقة.'
 const VERDICT_REFUSED = 'The offline verdict is not available. / حكم العمل دون اتصال غير متاح.'
+const USAGE_REFUSED = 'The budget counters are not available. / عدادات الميزانية غير متاحة.'
+const LIMIT_REFUSED = 'The limit could not be changed right now. / تعذر تغيير الحد الآن.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -96,7 +102,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -122,6 +128,10 @@ async function open({ at = EVENING, refuseSettings = false, refuseVerdict = fals
   const acts = []
   /** 509: every settings save `{ part, id, body }`, in order. */
   const settings = []
+  /** 510: every budget counter read (campaign id) and every live limit change `{ id, budgetId, body }`. */
+  const usageReads = []
+  const limits = []
+  let limitRefusals = refuseLimit
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -182,7 +192,7 @@ async function open({ at = EVENING, refuseSettings = false, refuseVerdict = fals
       c.rules = structuredClone(body.rules)
       return route.fulfill(envelope(c))
     }
-    const setting = /^RuleCampaign\/Campaigns\/([^/]+)\/Settings\/(Details|Schedule|Audience|Features|Offline)$/.exec(p)
+    const setting = /^RuleCampaign\/Campaigns\/([^/]+)\/Settings\/(Details|Schedule|Audience|Features|Budgets|Offline)$/.exec(p)
     if (setting && req.method() === 'PUT') {
       const body = req.postDataJSON()
       settings.push({ part: setting[2], id: decodeURIComponent(setting[1]), body })
@@ -198,6 +208,27 @@ async function open({ at = EVENING, refuseSettings = false, refuseVerdict = fals
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       if (refuseVerdict) return route.fulfill(envelope(null, { status: 503, success: false, message: VERDICT_REFUSED, errorCode: 'RULE_OFFLINE_VERDICT_UNAVAILABLE' }))
       return route.fulfill(envelope(offlineVerdict(c)))
+    }
+    const usage = /^RuleCampaign\/Campaigns\/([^/]+)\/BudgetUsage$/.exec(p)
+    if (usage && req.method() === 'GET') {
+      usageReads.push(decodeURIComponent(usage[1]))
+      const c = store.find((x) => x.id === decodeURIComponent(usage[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (refuseUsage) return route.fulfill(envelope(null, { status: 503, success: false, message: USAGE_REFUSED, errorCode: 'RULE_BUDGET_USAGE_UNAVAILABLE' }))
+      return route.fulfill(envelope(budgetUsage(c)))
+    }
+    const limit = /^RuleCampaign\/Campaigns\/([^/]+)\/Budgets\/([^/]+)\/Limit$/.exec(p)
+    if (limit && req.method() === 'PUT') {
+      const body = req.postDataJSON()
+      limits.push({ id: decodeURIComponent(limit[1]), budgetId: decodeURIComponent(limit[2]), body })
+      const c = store.find((x) => x.id === decodeURIComponent(limit[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (limitRefusals > 0) {
+        limitRefusals--
+        return route.fulfill(envelope(null, { status: 503, success: false, message: LIMIT_REFUSED, errorCode: 'RULE_BUDGET_LIMIT_UNAVAILABLE' }))
+      }
+      const out = changeLimit(c, decodeURIComponent(limit[2]), body.value)
+      return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
     }
     const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
     if (copy && req.method() === 'POST') {
@@ -231,7 +262,7 @@ async function open({ at = EVENING, refuseSettings = false, refuseVerdict = fals
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, usageReads, limits, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -1366,7 +1397,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 511 ── it asserts:
 //  62. an author's draft shows the pre-activation steps, each ticked or linked — the rules step to
-//      the rule builder, named and schedule to their Settings pages (509), budgets unlinked until 510;
+//      the rule builder, named, schedule and budgets to their Settings pages (509, 510);
 //  63. the author is offered Ask for approval and Delete draft, never Activate; HQ's error in the
 //      saved draft disables Ask, saying why, with the way to the builder;
 //  64. with clean checks the author asks with a note: HQ gets it, the State turns Waiting for
@@ -1407,10 +1438,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('62: none is ticked on this draft (no Arabic name, an error in its rule, no schedule, no budget)', (await page.locator('[data-steps] [data-step-done]').count()) === 0)
   check('62: the rules step links to the rule builder', (await page.locator('[data-step="rules"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules')
   check(
-    '62: the named and schedule steps link to their Settings pages (509); budgets waits for its page (510)',
+    '62: the named, schedule and budgets steps link to their Settings pages (509, 510)',
     (await page.locator('[data-step="named"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/details' &&
       (await page.locator('[data-step="schedule"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/schedule' &&
-      (await page.locator('[data-step="budgets"] [data-step-link]').count()) === 0,
+      (await page.locator('[data-step="budgets"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/budgets',
   )
 
   // ── 63 ──
@@ -1559,8 +1590,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 509 ── it asserts:
 //  72. Settings ▸ in the side menu opens Details, its pages listed beneath it — Details, Schedule,
-//      Audience, Features, Offline; the crumb still names the campaign; Budgets waits for its page
-//      (510) and its address opens Details;
+//      Audience, Features, Budgets (510), Offline; the crumb still names the campaign; an unknown
+//      page's address opens Details;
 //  73. Details: both names required (said at the field, nothing sent); the Arabic name is typed
 //      right to left; Save sends both names and the description, trimmed; a reload reads them back,
 //      the shell shows the Arabic name, and the dashboard's "named" step is ticked;
@@ -1600,15 +1631,15 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-settings="details"]').waitFor({ timeout: 5000 })
   check('72: Settings opens Details', page.url() === `${BASE}/campaigns/SPRING-DRAFT/settings/details`)
   check(
-    '72: its pages are listed beneath it, Budgets not yet (510)',
+    '72: its pages are listed beneath it, Budgets since 510',
     JSON.stringify(await page.locator('[data-workspace-settings]').evaluateAll((els) => els.map((e) => e.getAttribute('data-workspace-settings')))) ===
-      '["details","schedule","audience","features","offline"]',
+      '["details","schedule","audience","features","budgets","offline"]',
   )
   check('72: Details is the current page', (await page.locator('[data-workspace-settings="details"]').getAttribute('aria-current')) === 'page')
   check('72: the crumb still names the campaign', (await page.locator('[data-crumb-record]').innerText()) === 'SPRING-DRAFT')
-  await page.goto(`${BASE}/campaigns/SPRING-DRAFT/settings/budgets`)
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT/settings/nonsense`)
   await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
-  check('72: a page not landed yet (Budgets, 510) opens Details', page.url() === `${BASE}/campaigns/SPRING-DRAFT/settings/details`)
+  check('72: an unknown page opens Details', page.url() === `${BASE}/campaigns/SPRING-DRAFT/settings/details`)
 
   // ── 73 ──
   check(
@@ -1848,6 +1879,226 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       (await page.locator('[data-offline-retry]').isVisible()),
   )
   check('80: no page errors (78)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 510 ── it asserts:
+//  81. Settings ▸ Budgets on a draft: a section per scope (Coupon only with the coupons feature), no
+//      budget yet, and no counters read — a draft has none;
+//  82. + Budget opens the drawer, "Limit the … to … per … (per period)", its sentence read as it is
+//      answered; a figure that is not above zero, or uses not whole, is said at the field; Create
+//      saves the budgets with the new one and the sentence reads in its section; a reload reads it
+//      back, and the dashboard's budgets step is ticked;
+//  83. a click on the sentence opens the drawer on it; Save waits for a change; a new figure is saved;
+//  84. Delete asks first; confirmed, the budgets are saved without it;
+//  85. a live campaign reads its counters: used / limit, in the campaign's currency, and no overshoot
+//      while under; a member budget past its limit shows "Over by …";
+//  86. on a live campaign a click on a sentence changes only the limit — what it counts, per what,
+//      how often and its name are shown, not edited; a refused change keeps the drawer open with the
+//      envelope's message and code; the change goes to the limit's own door, with NO publish call
+//      (no Settings, Draft, Ask for approval or Activate); the sentence reads the new limit and the
+//      counters are read again;
+//  87. BHD has three decimals: a Bahrain budget reads BHD 1,250.500, and a fourth decimal is refused;
+//  88. a refused counter read is its own message and code, with Try again; a refused save keeps the
+//      drawer open, with the envelope's message and code;
+//  89. no page errors.
+{
+  const { context, page, errors, settings, usageReads } = await open()
+  const field = (k) => page.locator(`[data-budget-field="${k}"]`)
+  const drawer = page.locator('[data-budget-drawer]')
+  const budgetsPage = async (id) => {
+    await page.goto(`${BASE}/campaigns/${id}/settings/budgets`)
+    await page.locator('[data-settings="budgets"]').waitFor({ timeout: 10000 })
+  }
+  const closed = () => drawer.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false)
+
+  // ── 81 ──
+  await budgetsPage('SPRING-DRAFT')
+  check(
+    '81: a section per scope, Coupon only with the coupons feature',
+    JSON.stringify(await page.locator('[data-budget-scope]').evaluateAll((els) => els.map((e) => e.getAttribute('data-budget-scope')))) === '["campaign","profile","store","session"]',
+  )
+  check('81: no budget yet, and no counters read for a draft', (await page.locator('[data-budget]').count()) === 0 && usageReads.length === 0 && (await page.locator('[data-budgets-live="draft"]').count()) === 1)
+  check('81: Budgets is the current page', (await page.locator('[data-workspace-settings="budgets"]').getAttribute('aria-current')) === 'page')
+
+  // ── 82 ──
+  await page.locator('[data-budget-add]').click()
+  await page.locator('[data-budget-drawer="add"]').waitFor({ timeout: 5000 })
+  check('82: + Budget opens the drawer on a campaign money budget', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the discount money to SAR 10,000.00 per campaign', await page.locator('[data-budget-preview]').innerText())
+  await field('limit').selectOption('uses')
+  await field('value').fill('1.5')
+  check('82: uses are whole, said at the field', await page.locator('[data-budget-problem="notWhole"]').isVisible())
+  await field('value').fill('0')
+  check('82: a limit not above zero is said at the field', await page.locator('[data-budget-problem="notAboveZero"]').isVisible())
+  await field('value').fill('1')
+  await field('scope').selectOption('profile')
+  await field('period').selectOption('month')
+  check('82: the drawer reads its sentence', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the uses to 1 per member per month', await page.locator('[data-budget-preview]').innerText())
+  await page.screenshot({ path: `${SHOTS}/budgets-drawer-add.png` })
+  await page.locator('[data-budget-save]').click()
+  const isClosed = await closed()
+  const added = settings[0]?.body.budgets?.[0]
+  check(
+    '82: Create saves the budgets with the new one',
+    isClosed &&
+      settings.length === 1 &&
+      settings[0].part === 'Budgets' &&
+      settings[0].body.budgets.length === 1 &&
+      typeof added?.id === 'string' &&
+      added.id.length > 0 &&
+      JSON.stringify({ ...added, id: '' }) === JSON.stringify({ id: '', name: '', scope: 'profile', limit: 'uses', value: 1, period: 'month' }),
+    JSON.stringify(settings),
+  )
+  check('82: a toast says so', await page.getByText('The budgets are saved.').first().isVisible())
+  check('82: the sentence reads in the member section', (await page.locator(`[data-budget-scope="profile"] [data-budget-sentence="${added?.id}"]`).innerText()) === 'Limit the uses to 1 per member per month')
+  await budgetsPage('SPRING-DRAFT')
+  check('82: a reload reads it back', (await page.locator(`[data-budget-sentence="${added?.id}"]`).count()) === 1)
+  await page.locator('[data-workspace-menu="dashboard"]').click()
+  await page.locator('[data-steps]').waitFor({ timeout: 5000 })
+  check('82: the dashboard’s budgets step is ticked', (await page.locator('[data-step="budgets"][data-step-done]').count()) === 1)
+
+  // ── 83 ──
+  await budgetsPage('SPRING-DRAFT')
+  await page.locator(`[data-budget-sentence="${added?.id}"]`).click()
+  await page.locator('[data-budget-drawer="edit"]').waitFor({ timeout: 5000 })
+  check('83: a click on the sentence opens it; Save waits for a change', (await field('value').inputValue()) === '1' && (await page.locator('[data-budget-save]').isDisabled()))
+  await field('value').fill('2')
+  await page.locator('[data-budget-save]').click()
+  check('83: the new figure is saved', (await closed()) && settings.length === 2 && settings[1].body.budgets[0].value === 2 && settings[1].body.budgets[0].id === added?.id, JSON.stringify(settings[1]))
+  check('83: …and read', (await page.locator(`[data-budget-sentence="${added?.id}"]`).innerText()) === 'Limit the uses to 2 per member per month')
+
+  // ── 84 ──
+  await page.locator(`[data-budget-delete="${added?.id}"]`).click()
+  await page.locator('[data-budget-delete-dialog]').waitFor({ timeout: 5000 })
+  check('84: Delete asks first, nothing sent', settings.length === 2)
+  await page.locator('[data-budget-delete-confirm]').click()
+  await page.locator('[data-budget-delete-dialog]').waitFor({ state: 'detached', timeout: 5000 })
+  check('84: confirmed, the budgets are saved without it', settings.length === 3 && settings[2].body.budgets.length === 0 && (await page.locator('[data-budget]').count()) === 0)
+  check('89: no page errors (81–84)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+{
+  const { context, page, errors, settings, usageReads, limits, calls, store } = await open({ refuseLimit: 1 })
+  const field = (k) => page.locator(`[data-budget-field="${k}"]`)
+  const drawer = page.locator('[data-budget-drawer]')
+  const budgetsPage = async (id) => {
+    await page.goto(`${BASE}/campaigns/${id}/settings/budgets`)
+    await page.locator('[data-settings="budgets"]').waitFor({ timeout: 10000 })
+    await page.locator('[data-budget-usage], [data-budget-usage-refusal]').first().waitFor({ timeout: 5000 }).catch(() => {})
+  }
+  const wknd = store.find((c) => c.id === 'WKND20').budgets[0].id
+  const gp = store.find((c) => c.id === 'GP-BEAUTY15').budgets[0].id
+
+  // ── 85 ──
+  await budgetsPage('WKND20')
+  check('85: a live campaign reads its counters', usageReads.includes('WKND20') && (await page.locator('[data-budgets-live="live"]').count()) === 1)
+  check('85: the coupons feature shows the Coupon section', (await page.locator('[data-budget-scope="coupon"]').count()) === 1)
+  check(
+    '85: used / limit, in the campaign’s currency, no overshoot while under',
+    (await page.locator(`[data-budget-usage="${wknd}"] [data-budget-used]`).innerText()) === 'SAR 12,345.50 / SAR 50,000.00' &&
+      (await page.locator(`[data-budget-usage="${wknd}"] [data-budget-overshoot]`).count()) === 0,
+    await page.locator(`[data-budget-usage="${wknd}"]`).innerText(),
+  )
+  await page.screenshot({ path: `${SHOTS}/budgets-live.png` })
+  await budgetsPage('GP-BEAUTY15')
+  check(
+    '85: a member budget past its limit shows the overshoot',
+    (await page.locator(`[data-budget-usage="${gp}"] [data-budget-used]`).innerText()) === '3 / 2' &&
+      (await page.locator(`[data-budget-usage="${gp}"] [data-budget-overshoot]`).innerText()) === 'Over by 1' &&
+      (await page.locator(`[data-budget-usage="${gp}"]`).innerText()).startsWith('Most used by one member'),
+    await page.locator(`[data-budget-usage="${gp}"]`).innerText(),
+  )
+  await page.screenshot({ path: `${SHOTS}/budgets-overshoot.png` })
+
+  // ── 86 ──
+  await budgetsPage('WKND20')
+  const readsBefore = usageReads.filter((x) => x === 'WKND20').length
+  await page.locator(`[data-budget-sentence="${wknd}"]`).click()
+  await page.locator('[data-budget-drawer="live"]').waitFor({ timeout: 5000 })
+  check(
+    '86: on a live campaign only the limit changes; the rest is shown, not edited',
+    (await page.locator('[data-budget-live-note]').isVisible()) &&
+      (await field('limit').isDisabled()) &&
+      (await field('scope').isDisabled()) &&
+      (await field('period').isDisabled()) &&
+      (await field('name').isDisabled()) &&
+      (await field('value').isEnabled()) &&
+      (await field('name').inputValue()) === 'campaign money',
+  )
+  await field('value').fill('60000')
+  await page.locator('[data-budget-save]').click()
+  await page.locator('[data-budget-refusal]').waitFor({ timeout: 5000 })
+  check(
+    '86: a refused change keeps the drawer open, with the envelope’s message and code',
+    (await page.locator('[data-budget-refusal]').innerText()).includes(LIMIT_REFUSED) &&
+      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_BUDGET_LIMIT_UNAVAILABLE' &&
+      (await field('value').inputValue()) === '60000',
+  )
+  await page.screenshot({ path: `${SHOTS}/budgets-limit-refused.png` })
+  await page.locator('[data-budget-save]').click()
+  await drawer.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check('86: the change goes to the limit’s own door', limits.length === 2 && JSON.stringify(limits[1]) === JSON.stringify({ id: 'WKND20', budgetId: wknd, body: { value: 60000 } }), JSON.stringify(limits))
+  check(
+    '86: …with NO publish call — no Settings, Draft, Ask for approval or Activate',
+    !calls.some((c) => /^PUT .*\/(Settings\/Budgets|Draft)$|^POST .*\/(AskForApproval|Activate)$/.test(c)) && settings.length === 0,
+    calls.filter((c) => !c.startsWith('GET')).join(' | '),
+  )
+  check('86: a toast says nothing was republished', await page.getByText('The new limit applies now. Nothing was republished.').first().isVisible())
+  await page
+    .waitForFunction(([sel, n]) => document.querySelector(sel)?.textContent?.includes(n), [`[data-budget-usage="${wknd}"] [data-budget-used]`, '60,000.00'], { timeout: 5000 })
+    .catch(() => {})
+  check('86: the sentence reads the new limit', (await page.locator(`[data-budget-sentence="${wknd}"]`).innerText()) === 'Limit the discount money to SAR 60,000.00 per campaign')
+  check(
+    '86: …and the counters are read again',
+    usageReads.filter((x) => x === 'WKND20').length > readsBefore && (await page.locator(`[data-budget-usage="${wknd}"] [data-budget-used]`).innerText()) === 'SAR 12,345.50 / SAR 60,000.00',
+  )
+  check('86: the campaign is still live, on the same version', store.find((c) => c.id === 'WKND20').status === 'live' && store.find((c) => c.id === 'WKND20').live.version === 1)
+
+  // ── 87 ──
+  await budgetsPage('BH-SPEND10')
+  await page.locator('[data-budget-add-scope="campaign"]').click()
+  await page.locator('[data-budget-drawer="add"]').waitFor({ timeout: 5000 })
+  check('87: the figure’s currency is BHD', (await page.locator('[data-budget-currency]').innerText()) === 'BHD')
+  await field('value').fill('1.2345')
+  check('87: a fourth decimal is refused', await page.locator('[data-budget-problem="tooManyDecimals"]').isVisible())
+  await field('value').fill('1250.5')
+  check('87: BHD reads three decimals', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the discount money to BHD 1,250.500 per campaign', await page.locator('[data-budget-preview]').innerText())
+  await page.locator('[data-budget-save]').click()
+  await drawer.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  const bh = settings[0]?.body.budgets?.[0]
+  check('87: adding one to a live campaign saves the budgets', settings.length === 1 && settings[0].id === 'BH-SPEND10' && bh?.value === 1250.5 && limits.length === 2)
+  await page.locator(`[data-budget-usage="${bh?.id}"]`).waitFor({ timeout: 5000 }).catch(() => {})
+  check('87: …and its counter reads BHD 0.000 / BHD 1,250.500', (await page.locator(`[data-budget-usage="${bh?.id}"] [data-budget-used]`).innerText()) === 'BHD 0.000 / BHD 1,250.500')
+  check('89: no page errors (85–87)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 88 ──
+{
+  const { context, page, errors, settings } = await open({ refuseUsage: true, refuseSettings: true })
+  await page.goto(`${BASE}/campaigns/WKND20/settings/budgets`)
+  await page.locator('[data-budget-usage-refusal]').waitFor({ timeout: 10000 })
+  check(
+    '88: a refused counter read is its own message and code, with Try again',
+    (await page.locator('[data-budget-usage-refusal]').innerText()).includes(USAGE_REFUSED) &&
+      (await page.locator('[data-budget-usage-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_BUDGET_USAGE_UNAVAILABLE' &&
+      (await page.locator('[data-budget-usage-retry]').isVisible()),
+  )
+  check('88: …the budgets themselves still shown', (await page.locator('[data-budget-sentence]').count()) === 1)
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT/settings/budgets`)
+  await page.locator('[data-settings="budgets"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-budget-add-scope="store"]').click()
+  await page.locator('[data-budget-save]').click()
+  await page.locator('[data-budget-refusal]').waitFor({ timeout: 5000 })
+  check(
+    '88: a refused save keeps the drawer open, with the envelope’s message and code',
+    (await page.locator('[data-budget-drawer="add"]').isVisible()) &&
+      (await page.locator('[data-budget-refusal]').innerText()).includes(SETTINGS_REFUSED) &&
+      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_NOT_EDITABLE' &&
+      settings.length === 1,
+  )
+  check('89: no page errors (88)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

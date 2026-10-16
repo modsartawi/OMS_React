@@ -39,7 +39,7 @@ export function drawnMenu(features: RuleCampaignFeatures): WorkspaceMenuItem[] {
 /**
  * Whether a workspace page has landed, by its path relative to the workspace (`'rules'`,
  * `'settings/details'` …). A page that has not landed is not linked to (ticket 511's pre-activation
- * steps): Settings' pages landed with 509, Budgets waits for 510.
+ * steps): Settings' pages landed with 509, Budgets with 510.
  */
 export function pageLanded(to: string): boolean {
   if (to.startsWith('settings/')) return settingsPage(to.slice('settings/'.length)) !== null
@@ -48,7 +48,7 @@ export function pageLanded(to: string): boolean {
 
 /**
  * Settings ▸ (ticket 509; the prototype's `SMENU`): one page each, with its own Cancel / Save, at
- * `settings/<key>`. Budgets is 510's and is not drawn until it lands.
+ * `settings/<key>`. Budgets landed with 510.
  */
 export type SettingsPageKey = 'details' | 'schedule' | 'audience' | 'features' | 'budgets' | 'offline'
 
@@ -57,7 +57,7 @@ export const SETTINGS_PAGES: readonly { key: SettingsPageKey; landed: boolean }[
   { key: 'schedule', landed: true },
   { key: 'audience', landed: true },
   { key: 'features', landed: true },
-  { key: 'budgets', landed: false },
+  { key: 'budgets', landed: true },
   { key: 'offline', landed: true },
 ]
 

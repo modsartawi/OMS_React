@@ -1014,6 +1014,31 @@
       "warning": "<b>Warning:</b> <msg>{{message}}</msg>"
     }
   },
+  "budgets": {
+    "sentence": {
+      "lifetime": "Limit the <limit>{{limit}}</limit> to <value>{{value}}</value> per <scope>{{scope}}</scope>",
+      "periodic": "Limit the <limit>{{limit}}</limit> to <value>{{value}}</value> per <scope>{{scope}}</scope> per <period>{{period}}</period>"
+    },
+    "limit": {
+      "money": "<strong>discount money</strong>",
+      "uses": "<strong>uses</strong>",
+      "pointsGiven": "<strong>points given</strong>",
+      "pointsTaken": "<strong>points taken</strong>"
+    },
+    "scope": {
+      "campaign": "<strong>campaign</strong>",
+      "profile": "<strong>member</strong>",
+      "coupon": "<strong>coupon code</strong>",
+      "store": "<strong>store</strong>",
+      "session": "<strong>sale</strong>"
+    },
+    "period": {
+      "day": "<strong>day</strong>",
+      "week": "<strong>week</strong>",
+      "month": "<strong>month</strong>",
+      "year": "<strong>year</strong>"
+    }
+  },
   "settings": {
     "cancel": "Cancel",
     "save": "Save",
@@ -1101,6 +1126,111 @@
       "untitledRule": "Untitled rule",
       "note": "A feature a rule uses stays on until that rule stops using it.",
       "saved": "The features are saved."
+    },
+    "budgets": {
+      "menu": "Budgets",
+      "title": "Budgets",
+      "lede": "The most discount money, uses or points the campaign may give. A budget is held when the customer pays and committed when the sale closes. A sale that would cross a limit gets nothing from this campaign. A campaign’s coupons have no redemption limits of their own: a coupon or member budget does that job.",
+      "draftNote": "Each change is saved as soon as you save it in the drawer.",
+      "liveNote": "This campaign is live. Each budget shows what is used against its limit. A new limit applies at once, without republishing, and no counter is reset.",
+      "add": "Budget",
+      "edit": "Edit this budget",
+      "retry": "Try again",
+      "usageLoading": "Reading what is used…",
+      "usageFailedTitle": "What is used could not be read",
+      "usageFailed": "Try again in a moment. The budgets themselves are shown.",
+      "usage": {
+        "campaign": "Used",
+        "profile": "Most used by one member",
+        "coupon": "Most used by one code",
+        "store": "Most used by one store",
+        "session": "Most used in one sale"
+      },
+      "overshoot": "Over by <amount>{{amount}}</amount>",
+      "overshootWhy": "A counter can go past its limit when a hold expired, the limit was lowered, or a sale reused an earlier result.",
+      "scopes": {
+        "campaign": {
+          "title": "Campaign budgets",
+          "hint": "For the whole campaign.",
+          "add": "Add a campaign budget"
+        },
+        "profile": {
+          "title": "Member budgets",
+          "hint": "Counted per member, such as “once per customer”.",
+          "add": "Add a member budget"
+        },
+        "coupon": {
+          "title": "Coupon budgets",
+          "hint": "Counted per coupon code, such as “each code once”.",
+          "add": "Add a coupon budget"
+        },
+        "store": {
+          "title": "Store budgets",
+          "hint": "Counted per store.",
+          "add": "Add a store budget"
+        },
+        "session": {
+          "title": "Sale budgets",
+          "hint": "Counted per sale.",
+          "add": "Add a sale budget"
+        }
+      },
+      "drawer": {
+        "title": {
+          "add": "Add a budget",
+          "edit": "Edit the budget",
+          "live": "Change the limit"
+        },
+        "close": "Close",
+        "liveNote": "The campaign is live, so only the limit changes here. It applies at once, without republishing. To count something else, add a new budget.",
+        "limit": "Limit the…",
+        "limits": {
+          "money": "Discount money",
+          "uses": "Uses (closed sales)",
+          "pointsGiven": "Points given (their worth)",
+          "pointsTaken": "Points taken (their worth)"
+        },
+        "value": "To at most…",
+        "scope": "Counted per…",
+        "scopes": {
+          "campaign": "The whole campaign",
+          "profile": "Member",
+          "coupon": "Coupon code",
+          "store": "Store",
+          "session": "Sale"
+        },
+        "period": "Starting again…",
+        "periods": {
+          "lifetime": "Never (no recurrence)",
+          "day": "Every day",
+          "week": "Every week",
+          "month": "Every month",
+          "year": "Every year"
+        },
+        "name": "Name (optional)",
+        "namePlaceholder": "For whoever reads it next",
+        "previewWaiting": "The sentence shows once the limit is a figure above zero.",
+        "problem": {
+          "valueRequired": "Enter the limit as a figure.",
+          "notAboveZero": "The limit must be above zero.",
+          "notWhole": "Uses are counted whole.",
+          "tooManyDecimals": "The limit has more decimals than the currency."
+        },
+        "save": {
+          "add": "Create budget",
+          "edit": "Save budget",
+          "live": "Change the limit"
+        }
+      },
+      "delete": {
+        "action": "Delete this budget",
+        "title": "Delete the budget?",
+        "body": "The campaign stops counting against it. A rule that reads it will show it as missing.",
+        "bodyLive": "The campaign stops counting against it. A rule that reads it will show it as missing. What was used against it is kept in HQ’s history.",
+        "confirm": "Delete"
+      },
+      "saved": "The budgets are saved.",
+      "limitChanged": "The new limit applies now. Nothing was republished."
     },
     "offline": {
       "menu": "Offline",

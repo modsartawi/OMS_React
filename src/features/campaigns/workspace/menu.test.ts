@@ -21,24 +21,24 @@ describe('workspaceMenu', () => {
     expect(drawnMenu({ coupons: false, points: false }).map((i) => i.key)).toEqual(['dashboard', 'rules'])
   })
 
-  it('pageLanded links only a page that has landed: the rule builder and Settings (509), not Budgets before 510', () => {
+  it('pageLanded links only a page that has landed: the rule builder, Settings (509) and Budgets (510)', () => {
     expect(pageLanded('rules')).toBe(true)
     expect(pageLanded('settings/details')).toBe(true)
     expect(pageLanded('settings/schedule')).toBe(true)
-    expect(pageLanded('settings/budgets')).toBe(false)
+    expect(pageLanded('settings/budgets')).toBe(true)
     expect(pageLanded('settings/nonsense')).toBe(false)
     expect(pageLanded('coupons')).toBe(false)
   })
 })
 
 describe('settings pages', () => {
-  it('draws Details, Schedule, Audience, Features and Offline, in the prototype’s order, Budgets waiting for 510', () => {
-    expect(drawnSettings()).toEqual(['details', 'schedule', 'audience', 'features', 'offline'])
+  it('draws Details, Schedule, Audience, Features, Budgets and Offline, in the prototype’s order', () => {
+    expect(drawnSettings()).toEqual(['details', 'schedule', 'audience', 'features', 'budgets', 'offline'])
   })
 
   it('settingsPage reads a landed page by its segment, and nothing else', () => {
     expect(settingsPage('offline')).toBe('offline')
-    expect(settingsPage('budgets')).toBeNull()
+    expect(settingsPage('budgets')).toBe('budgets')
     expect(settingsPage(undefined)).toBeNull()
   })
 })

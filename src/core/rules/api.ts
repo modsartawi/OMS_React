@@ -12,10 +12,12 @@ import type {
   RuleCampaignDetails,
   RuleCampaignDraft,
   RuleCampaignFeatures,
+  RuleCampaignFromTemplate,
   RuleCampaignListRow,
   RuleCampaignOffline,
   RuleCampaignRoles,
   RuleCampaignSchedule,
+  RuleCampaignTemplate,
   RuleCampaignTransition,
   RuleCampaignVersion,
   RuleCampaignVersionDetail,
@@ -72,6 +74,8 @@ const BUDGET_LIMIT = (id: string, budgetId: string) => `${CAMPAIGNS}/${encodeURI
 const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Versions`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const ORDER = 'RuleCampaign/Order'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const TEMPLATES = 'RuleCampaign/Templates'
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -106,6 +110,21 @@ export const ruleCampaignApi = {
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
   copy(id: string): Promise<RuleCampaign> {
     return api.post<RuleCampaign>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Copy`, {})
+  },
+
+  /** GET RuleCampaign/Templates — every template, enabled or not, with its placeholders and the
+   *  draft they fill (ticket 503, BackOffice 2759). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  templates(): Promise<RuleCampaignTemplate[]> {
+    return api.get<RuleCampaignTemplate[]>(TEMPLATES)
+  },
+
+  /** POST RuleCampaign/Templates/{id}/Create — a new draft from a template, its placeholders filled
+   *  (ticket 503, BackOffice 2759); HQ checks the values, mints the code and id, and answers with the
+   *  whole draft. A disabled template or a value out of its bounds is refused on the envelope. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  createFromTemplate(templateId: string, body: RuleCampaignFromTemplate): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(`${TEMPLATES}/${encodeURIComponent(templateId)}/Create`, body)
   },
 
   /** PUT RuleCampaign/Campaigns/{id}/Draft — save the campaign's draft rules (ticket 505,
@@ -370,6 +389,15 @@ export const ruleCatalogueQuery = () => ({
   queryFn: () => ruleCampaignApi.catalogue(),
   staleTime: Infinity,
   gcTime: Infinity,
+  retry: false as const,
+})
+
+/** The templates' query options (ticket 503): read when the dialog's template tab first opens,
+ *  kept a few minutes. */
+export const ruleTemplatesQuery = () => ({
+  queryKey: ['rule-templates'] as const,
+  queryFn: () => ruleCampaignApi.templates(),
+  staleTime: 5 * 60_000,
   retry: false as const,
 })
 

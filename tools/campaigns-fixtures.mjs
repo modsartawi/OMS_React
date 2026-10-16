@@ -293,6 +293,85 @@ export function copyOf(store, source, at) {
   return copy
 }
 
+// ── 503: templates (BackOffice 2759). The prototype's `sampleTemplates()` in the provisional shape: a
+// campaign draft whose values are `{ placeholder: key }` marks or `{{key}}` inside a string, filled by
+// the Create dialog. Its block and filter ids are the template's own; HQ keeps them in the draft. ──
+
+const P = (key) => ({ placeholder: key })
+export const TEMPLATES = [
+  {
+    id: 'T-SPEND-PCT', name: says('Spend X, get Y% off a category', 'أنفق مبلغاً واحصل على خصم على فئة'), enabled: true,
+    description: 'A basket threshold and a percent off the categories picked. Marketing fills in three values.',
+    placeholders: [
+      { key: 'minSpend', label: 'Minimum basket (SAR)', kind: 'number', min: 50, max: 1000, default: 200 },
+      { key: 'pct', label: 'Percent off', kind: 'number', min: 5, max: 30, default: 10 },
+      { key: 'cats', label: 'Category', kind: 'pick', lookup: 'categories', default: ['A002'] },
+    ],
+    draft: {
+      name: says('Spend SAR {{minSpend}}, get {{pct}}% off', 'أنفق {{minSpend}} ريال واحصل على خصم {{pct}}%'),
+      features: { coupons: false, points: false },
+      rules: [{
+        id: 'tr-spend', name: '{{pct}}% off the category', values: [], partial: 'refuse',
+        filters: [{ id: 'tf-target', name: 'target', cats: P('cats'), colls: [], skus: [], exclCats: EXCL_RX, scope: 'items' }],
+        when: { mode: 'all', items: [{ id: 'tc-spend', type: 'minSubtotal', amount: P('minSpend'), basis: 'total', of: '', says: says('a basket of SAR {{minSpend}}', 'سلة بقيمة {{minSpend}} ريال') }] },
+        then: [{ id: 'te-spend', type: 'discountItems', on: 'tf-target', kind: 'percent', value: P('pct'), per: 'unit', label: says('{{pct}}% off', 'خصم {{pct}}%') }],
+      }],
+    },
+  },
+  {
+    id: 'T-BUY-N', name: says('Buy N in a collection, get M free', 'اشترِ عدداً من مجموعة واحصل على قطع مجاناً'), enabled: true,
+    description: 'The bonus-buy shape most stores know. Cheapest units go free.',
+    placeholders: [
+      { key: 'coll', label: 'Collection', kind: 'pick', lookup: 'collections', default: ['SUNCARE'] },
+      { key: 'buy', label: 'Buy (N)', kind: 'number', min: 2, max: 6, default: 3 },
+      { key: 'free', label: 'Free (M)', kind: 'number', min: 1, max: 2, default: 1 },
+    ],
+    draft: {
+      name: says('Buy {{buy}}, get {{free}} free', 'اشترِ {{buy}} واحصل على {{free}} مجاناً'),
+      features: { coupons: false, points: false },
+      rules: [{
+        id: 'tr-buy', name: 'Cheapest {{free}} of every {{buy}} free', values: [], partial: 'refuse',
+        filters: [{ id: 'tf-set', name: 'set', cats: [], colls: P('coll'), skus: [], exclCats: EXCL_RX, scope: 'items' }],
+        when: { mode: 'all', items: [{ id: 'tc-buy', type: 'minCount', count: P('buy'), of: 'tf-set', says: says('{{buy}} items from the collection', '{{buy}} منتجات من المجموعة') }] },
+        then: [{ id: 'te-buy', type: 'freeUnits', on: 'tf-set', buy: P('buy'), free: P('free'), which: 'cheapest', label: says('{{buy}} for less', '{{buy}} بسعر أقل') }],
+      }],
+    },
+  },
+  {
+    id: 'T-TIER-PTS', name: says('Extra points for a tier', 'نقاط إضافية لفئة عضوية'), enabled: false,
+    description: 'Award a multiple of the base earn to one tier. Waits on the tier rules work.',
+    placeholders: [
+      { key: 'tier', label: 'Tier', kind: 'choice', options: [{ code: 'S', name: 'Silver' }, { code: 'G', name: 'Gold' }, { code: 'P', name: 'Platinum' }], default: 'G' },
+      { key: 'mult', label: 'Points per riyal', kind: 'number', min: 1, max: 5, default: 2 },
+    ],
+    draft: {
+      name: says('Tier {{tier}}: {{mult}} points per riyal', 'الفئة {{tier}}: {{mult}} نقاط لكل ريال'),
+      features: { coupons: false, points: true },
+      audience: { countries: ['SA'], channels: [], stores: [], members: 'earning' },
+      rules: [{
+        id: 'tr-tier', name: 'Tier points', partial: 'refuse',
+        filters: [{ id: 'tf-earning', name: 'earning', cats: ['A001', 'A002', 'A003', 'A005'], colls: [], skus: [], exclCats: EXCL_RX, scope: 'items' }],
+        values: [{ id: 'tv-pts', name: 'pts', formula: 'floor(sum(earning) * {{mult}})' }],
+        when: { mode: 'all', items: [{ id: 'tc-tier', type: 'tier', in: [P('tier')], says: says('a {{tier}} member', 'عضو {{tier}}') }] },
+        then: [{ id: 'te-tier', type: 'awardPoints', value: 'pts', unit: 'PTS', activity: 'TIERX', activates: { mode: 'afterHours', value: 48 }, expires: { mode: 'afterDays', value: 365 } }],
+      }],
+    },
+  },
+]
+
+/** POST RuleCampaign/Templates/{id}/Create — a draft from the filled template the dialog sends. HQ
+ *  would re-fill from `values` to check it; the stub takes the draft as sent. */
+export function createFromTemplate(store, template, { draft }, at) {
+  const code = mintCode(store, draft.name.en)
+  const made = campaign({
+    id: code, code, name: { en: draft.name.en, ar: draft.name.ar }, features: { coupons: !!draft.features.coupons, points: !!draft.features.points },
+    ...(draft.audience ? { audience: structuredClone(draft.audience) } : {}),
+    rules: structuredClone(draft.rules), tags: ['from template'], schedule: schedule(null, null), created: [at, BY],
+  })
+  store.push(made)
+  return made
+}
+
 // ── 511: the stubbed HQ side of the approval life (BackOffice 2759): draft → waiting for approval
 // → (sent back → draft) | live → disabled. A move from the wrong state is HQ's refusal, as the real
 // door would answer it; who may move it is the drive's to stub (the roles door). ──

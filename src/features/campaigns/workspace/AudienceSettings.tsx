@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { apiErrorMessage } from '@/core/api'
 import type { RuleCampaignAudience, RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleCampaignApi, ruleLookupQuery } from '@/core/rules/api'
+import LookupPicks from '@/core/rules/LookupPicks'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { useWorkspace } from './context'
-import { LookupPicks } from './FilterEditor'
 import { SETTINGS_CONTROL, SaveRow, togglePill, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
 
 const MEMBERS: readonly RuleCampaignAudience['members'][] = ['any', 'identified', 'earning']

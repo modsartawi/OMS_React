@@ -69,6 +69,37 @@
     "submit": "Create campaign",
     "done": "Campaign created as a draft.",
     "failedTitle": "The campaign could not be created",
-    "failed": "Try again in a moment."
+    "failed": "Try again in a moment.",
+    "tabs": {
+      "label": "How to start",
+      "blank": "Blank campaign",
+      "template": "From a template"
+    }
+  },
+  "template": {
+    "loading": "Reading the templates…",
+    "failedTitle": "The templates could not be read",
+    "failed": "Try again in a moment.",
+    "none": "There are no templates yet.",
+    "listLabel": "Templates",
+    "draft": "Draft — not ready to use",
+    "asks": "Asks for: {{labels}}",
+    "pick": "Pick a template. Its rules stay as its author wrote them; you fill in the values.",
+    "fillLegend": "Fill in its values",
+    "named": "The draft will be named",
+    "later": "You can rename it and fine-tune its rules after creating it.",
+    "choose": "Choose…",
+    "between": "Between <v>{{range}}</v>.",
+    "atLeast": "At least <v>{{min}}</v>.",
+    "atMost": "At most <v>{{max}}</v>.",
+    "problem": {
+      "required": "Enter a value.",
+      "notNumber": "Enter a number.",
+      "belowMin": "Enter {{min}} or more.",
+      "aboveMax": "Enter {{max}} or less."
+    },
+    "brokenTitle": "This template cannot be used",
+    "broken": "Its rules use values it does not ask for: {{keys}}. Ask its author to fix it.",
+    "pickFirst": "Pick a template first."
   }
 }

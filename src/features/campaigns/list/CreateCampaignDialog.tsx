@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
@@ -10,6 +10,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
+import FromTemplate, { TEMPLATE_CREATE_KEY } from './FromTemplate'
 import { EMPTY_CREATE_FORM, createFormProblems, toCreateBody, type CreateCampaignForm, type CreateFormProblem } from './create-form'
 
 /**
@@ -19,8 +20,14 @@ import { EMPTY_CREATE_FORM, createFormProblems, toCreateBody, type CreateCampaig
  *
  * A missing name is said at its field once Create has been tried, not before — an empty form is not
  * an error. A refusal from the door is shown in the dialog, verbatim, and the form is kept.
+ *
+ * Its second tab, From a template (ticket 503), is `./FromTemplate`; the footer's Create sends
+ * whichever tab is open. A reopened dialog is on the blank tab.
  */
 const FORM_ID = 'create-campaign-form'
+const TEMPLATE_FORM_ID = 'create-campaign-template-form'
+type CreateTab = 'blank' | 'template'
+const TABS: readonly CreateTab[] = ['blank', 'template']
 
 export default function CreateCampaignDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation('campaign-list')
@@ -28,16 +35,20 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   const queryClient = useQueryClient()
   const [form, setForm] = useState<CreateCampaignForm>(EMPTY_CREATE_FORM)
   const [tried, setTried] = useState(false)
+  const [tab, setTab] = useState<CreateTab>('blank')
 
   const create = useMutation({
     mutationFn: ruleCampaignApi.create,
     onSuccess: (draft) => rememberNewDraft(queryClient, draft),
   })
+  const fromTemplatePending = useIsMutating({ mutationKey: TEMPLATE_CREATE_KEY }) > 0
+  const pending = create.isPending || fromTemplatePending
 
   /** Back to an empty form, on the way out, so a reopened dialog never shows the last one. */
   const clear = () => {
     setForm(EMPTY_CREATE_FORM)
     setTried(false)
+    setTab('blank')
     create.reset()
   }
 
@@ -50,7 +61,7 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   }
 
   const close = () => {
-    if (create.isPending) return
+    if (pending) return
     clear()
     onClose()
   }
@@ -77,64 +88,99 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
       width="34rem"
       footer={
         <>
-          <Button variant="text" disabled={create.isPending} onClick={close}>
+          <Button variant="text" disabled={pending} onClick={close}>
             {t('create.cancel')}
           </Button>
           {/* The form's own submit button (by `form=`), so Enter in a name field sends it too. */}
-          <Button type="submit" form={FORM_ID} variant="primary" disabled={create.isPending} data-create-submit="">
-            {create.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+          <Button type="submit" form={tab === 'blank' ? FORM_ID : TEMPLATE_FORM_ID} variant="primary" disabled={pending} data-create-submit="">
+            {pending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
             {t('create.submit')}
           </Button>
         </>
       }
     >
-      <form
-        id={FORM_ID}
-        className="flex flex-col gap-3"
-        data-create-campaign=""
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault()
-          submit()
-        }}
-      >
-        <NameField
-          id="create-name-en"
-          label={t('create.nameEn')}
-          placeholder={t('create.nameEnPlaceholder')}
-          value={form.nameEn}
-          onChange={(nameEn) => set({ nameEn })}
-          error={shown('nameEnRequired') ? t('create.problem.nameEnRequired') : null}
-          dir="ltr"
-          data="nameEn"
-        />
-        <NameField
-          id="create-name-ar"
-          label={t('create.nameAr')}
-          placeholder={t('create.nameArPlaceholder')}
-          value={form.nameAr}
-          onChange={(nameAr) => set({ nameAr })}
-          error={shown('nameArRequired') ? t('create.problem.nameArRequired') : null}
-          dir="rtl"
-          data="nameAr"
-        />
-        <p className="text-xs text-muted-foreground">{t('create.codeHint')}</p>
+      <div role="tablist" aria-label={t('create.tabs.label')} className="mb-3 flex gap-1 border-b border-border/60" data-create-tabs="">
+        {TABS.map((x) => (
+          <button
+            key={x}
+            type="button"
+            role="tab"
+            id={`create-tab-${x}`}
+            aria-selected={tab === x}
+            aria-controls={`create-panel-${x}`}
+            disabled={pending}
+            onClick={() => setTab(x)}
+            data-create-tab={x}
+            className={
+              '-mb-px border-b-2 px-3 py-2 text-sm transition-colors ' +
+              (tab === x ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
+            }
+          >
+            {t(`create.tabs.${x}`)}
+          </button>
+        ))}
+      </div>
+      {tab === 'template' ? (
+        <div role="tabpanel" id="create-panel-template" aria-labelledby="create-tab-template">
+          <FromTemplate
+            formId={TEMPLATE_FORM_ID}
+            onCreated={() => {
+              clear()
+              onClose()
+            }}
+          />
+        </div>
+      ) : (
+        <div role="tabpanel" id="create-panel-blank" aria-labelledby="create-tab-blank">
+          <form
+            id={FORM_ID}
+            className="flex flex-col gap-3"
+            data-create-campaign=""
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault()
+              submit()
+            }}
+          >
+            <NameField
+              id="create-name-en"
+              label={t('create.nameEn')}
+              placeholder={t('create.nameEnPlaceholder')}
+              value={form.nameEn}
+              onChange={(nameEn) => set({ nameEn })}
+              error={shown('nameEnRequired') ? t('create.problem.nameEnRequired') : null}
+              dir="ltr"
+              data="nameEn"
+            />
+            <NameField
+              id="create-name-ar"
+              label={t('create.nameAr')}
+              placeholder={t('create.nameArPlaceholder')}
+              value={form.nameAr}
+              onChange={(nameAr) => set({ nameAr })}
+              error={shown('nameArRequired') ? t('create.problem.nameArRequired') : null}
+              dir="rtl"
+              data="nameAr"
+            />
+            <p className="text-xs text-muted-foreground">{t('create.codeHint')}</p>
 
-        <fieldset className="flex flex-col gap-2 rounded-md border border-border/60 p-3" data-create-features="">
-          <legend className="px-1 text-xs font-medium text-muted-foreground">{t('create.features.legend')}</legend>
-          <Feature checked={form.coupons} onChange={(coupons) => set({ coupons })} data="coupons" hint={t('create.features.couponsHint')}>
-            {t('create.features.coupons')}
-          </Feature>
-          <Feature checked={form.points} onChange={(points) => set({ points })} data="points" hint={t('create.features.pointsHint')}>
-            {t('create.features.points')}
-          </Feature>
-        </fieldset>
-        <p className="text-xs text-muted-foreground">{t('create.later')}</p>
+            <fieldset className="flex flex-col gap-2 rounded-md border border-border/60 p-3" data-create-features="">
+              <legend className="px-1 text-xs font-medium text-muted-foreground">{t('create.features.legend')}</legend>
+              <Feature checked={form.coupons} onChange={(coupons) => set({ coupons })} data="coupons" hint={t('create.features.couponsHint')}>
+                {t('create.features.coupons')}
+              </Feature>
+              <Feature checked={form.points} onChange={(points) => set({ points })} data="points" hint={t('create.features.pointsHint')}>
+                {t('create.features.points')}
+              </Feature>
+            </fieldset>
+            <p className="text-xs text-muted-foreground">{t('create.later')}</p>
 
-        {create.isError && (
-          <ErrorBanner className="p-2.5" title={t('create.failedTitle')} message={apiErrorMessage(create.error, t('create.failed'))} />
-        )}
-      </form>
+            {create.isError && (
+              <ErrorBanner className="p-2.5" title={t('create.failedTitle')} message={apiErrorMessage(create.error, t('create.failed'))} />
+            )}
+          </form>
+        </div>
+      )}
     </Modal>
   )
 }

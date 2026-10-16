@@ -9,6 +9,10 @@
 //   GET RuleCampaign/Campaigns/{id}   → the whole campaign; an unknown id is a 404 refusal
 //   POST RuleCampaign/Campaigns       → a new draft from { name: {en, ar}, features } (502, `createDraft`)
 //   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
+//   GET RuleCampaign/Templates        → the prototype's three templates (503, `TEMPLATES`), or refused
+//       with `refuseTemplates`
+//   POST RuleCampaign/Templates/{id}/Create → a draft from { values, draft } (503, `createFromTemplate`);
+//       a disabled template is refused; the first `refuseFromTemplate` creates are refused
 //   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
 //   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
 //   GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= → the hits (506, `lookup`)
@@ -57,7 +61,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, createDraft, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -97,6 +101,8 @@ const VERDICT_REFUSED = 'The offline verdict is not available. / حكم العم
 const USAGE_REFUSED = 'The budget counters are not available. / عدادات الميزانية غير متاحة.'
 const LIMIT_REFUSED = 'The limit could not be changed right now. / تعذر تغيير الحد الآن.'
 const VERSIONS_REFUSED = 'The version history is not available. / سجل الإصدارات غير متاح.'
+const TEMPLATES_REFUSED = 'The templates are not available. / القوالب غير متاحة.'
+const FROM_TEMPLATE_REFUSED = 'Percent off may be at most 30. / الخصم 30% كحد أقصى.'
 const RESTORE_REFUSED = 'The version could not be restored right now. / تعذرت استعادة الإصدار الآن.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
@@ -109,7 +115,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -143,6 +149,9 @@ async function open({ refuseVersions = false, refuseRestore = 0, at = EVENING, r
   const versions = versionsOf(store)
   const restores = []
   let restoreRefusals = refuseRestore
+  /** 503: every create-from-template `{ id, body }`, in order. */
+  const fromTemplate = []
+  let fromTemplateRefusals = refuseFromTemplate
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -246,6 +255,21 @@ async function open({ refuseVersions = false, refuseRestore = 0, at = EVENING, r
       const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
       return route.fulfill(c ? envelope(copyOf(store, c, NOW_LOCAL)) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
+    if (p === 'RuleCampaign/Templates' && req.method() === 'GET')
+      return route.fulfill(refuseTemplates ? envelope(null, { status: 503, success: false, message: TEMPLATES_REFUSED, errorCode: 'RULE_TEMPLATES_UNAVAILABLE' }) : envelope(TEMPLATES))
+    const tpl = /^RuleCampaign\/Templates\/([^/]+)\/Create$/.exec(p)
+    if (tpl && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      const tid = decodeURIComponent(tpl[1])
+      fromTemplate.push({ id: tid, body })
+      const x = TEMPLATES.find((t) => t.id === tid)
+      if (!x || !x.enabled) return route.fulfill(envelope(null, { status: 409, success: false, message: 'This template cannot be used.', errorCode: 'RULE_TEMPLATE_NOT_ENABLED' }))
+      if (fromTemplateRefusals > 0) {
+        fromTemplateRefusals--
+        return route.fulfill(envelope(null, { status: 409, success: false, message: FROM_TEMPLATE_REFUSED, errorCode: 'RULE_TEMPLATE_VALUE_OUT_OF_BOUNDS' }))
+      }
+      return route.fulfill(envelope(createFromTemplate(store, x, body, NOW_LOCAL)))
+    }
     if (p === 'RuleCampaign/Roles' && req.method() === 'GET')
       return route.fulfill(refuseRoles ? envelope(null, { status: 503, success: false, message: ROLES_REFUSED, errorCode: 'RULE_ROLES_UNAVAILABLE' }) : envelope(ROLE[role]))
     const life = /^RuleCampaign\/Campaigns\/([^/]+)\/(AskForApproval|Activate|SendBack|Disable)$/.exec(p)
@@ -300,7 +324,7 @@ async function open({ refuseVersions = false, refuseRestore = 0, at = EVENING, r
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -576,6 +600,171 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon 2')
   check('13: an edit clears the refusal, which was about the name as sent', (await dialog.locator('[role="alert"]').count()) === 0)
   check('15: no page errors (13)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 503 ── it asserts:
+// 100. Create campaign opens on its Blank campaign tab; From a template lists HQ's templates, each
+//      with both names, its one line and what it asks for; a draft template is marked and cannot
+//      be picked;
+// 101. picking one asks for its placeholders at their defaults — a number with its bounds, the
+//      builder's item picker for a category — and shows the name the draft will have;
+// 102. a value out of bounds or missing is said at its field once Create is tried, and nothing is sent;
+//      Create with no template picked asks for one; Enter in the item search sends nothing and
+//      Escape there clears the search, not the dialog;
+// 103. the values typed and a second category picked → ONE create from that template, with the
+//      typed values and a draft whose every placeholder is filled;
+// 104. it lands on the new draft's dashboard (both filled names, Draft, toasted), and its rule
+//      builder reads the filled values: the threshold, the percent, both categories, both labels;
+// 105. a refusal is the door's own message, in the dialog, with the values kept; an edit clears it;
+//      a refused templates door says so in the tab;
+// 106. a reopened dialog is back on the blank tab; no page errors.
+{
+  const { context, page, errors, calls, fromTemplate } = await open()
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  await page.locator('[data-new-campaign]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  const tab = (x) => dialog.locator(`[data-create-tab="${x}"]`)
+  check('100: the dialog opens on Blank campaign', (await tab('blank').getAttribute('aria-selected')) === 'true' && (await tab('template').innerText()) === 'From a template')
+  check('100: …and reads no template until its tab opens', !calls.includes('GET RuleCampaign/Templates'))
+  await tab('template').click()
+  await dialog.locator('[data-template-list]').waitFor({ timeout: 10000 })
+  check('100: From a template is the open tab', (await tab('template').getAttribute('aria-selected')) === 'true')
+  const ids = await dialog.locator('[data-template]').evaluateAll((els) => els.map((e) => e.getAttribute('data-template')))
+  check('100: every template is listed', JSON.stringify(ids) === '["T-SPEND-PCT","T-BUY-N","T-TIER-PTS"]', JSON.stringify(ids))
+  const spend = dialog.locator('[data-template="T-SPEND-PCT"]')
+  const spendText = await spend.innerText()
+  check('100: a template shows both names and its one line', spendText.includes('Spend X, get Y% off a category') && spendText.includes('أنفق مبلغاً واحصل على خصم على فئة') && spendText.includes('A basket threshold and a percent off the categories picked.'), spendText)
+  const asks = (await spend.locator('[data-template-asks]').innerText()).replace(/[⁦-⁩]/g, '')
+  check('100: …and what it asks for', asks === 'Asks for: Minimum basket (SAR), Percent off, Category', asks)
+  const tier = dialog.locator('[data-template="T-TIER-PTS"]')
+  check('100: a draft template is marked and cannot be picked', (await tier.locator('[data-template-draft]').count()) === 1 && (await tier.isDisabled()))
+
+  await dialog.locator('[data-create-submit]').click()
+  check('102: Create with no template picked asks for one', (await dialog.locator('[data-template-pick="missing"]').innerText()) === 'Pick a template first.')
+  check('102: …and sent nothing', !calls.some((c) => c.startsWith('POST RuleCampaign/Templates/')))
+
+  await spend.click()
+  const fill = dialog.locator('[data-template-fill="T-SPEND-PCT"]')
+  await fill.waitFor()
+  check('101: the picked template is pressed', (await spend.getAttribute('aria-pressed')) === 'true')
+  const input = (k) => fill.locator(`[data-template-input="${k}"]`)
+  check('101: the numbers start at their defaults', (await input('minSpend').inputValue()) === '200' && (await input('pct').inputValue()) === '10')
+  check('101: a number says its bounds, as one isolate', (await fill.locator('[data-template-hint="minSpend"]').innerText()) === 'Between 50–1000.' && (await fill.locator('[data-template-hint="minSpend"] bdi[dir="ltr"]').innerText()) === '50–1000')
+  const picks = (k) => fill.locator(`[data-picks="template-${k}"] [data-pick]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))
+  check('101: the category is the builder’s item picker, at its default', JSON.stringify(await picks('cats')) === '["A002"]' && (await fill.locator('[data-lookup="template-cats"]').count()) === 1)
+  const preview = (lang) => fill.locator(`[data-template-preview-name="${lang}"]`).innerText()
+  check('101: the draft’s name is shown in both languages', (await preview('en')) === 'Spend SAR 200, get 10% off' && (await preview('ar')) === 'أنفق 200 ريال واحصل على خصم 10%')
+  await page.screenshot({ path: `${SHOTS}/from-template.png` })
+
+  const creates = () => calls.filter((c) => c.startsWith('POST RuleCampaign/Templates/')).length
+  await input('minSpend').fill('1200')
+  await input('pct').fill('')
+  check('101: no name is shown while a value is wrong', (await fill.locator('[data-template-preview]').count()) === 0)
+  await dialog.locator('[data-create-submit]').click()
+  check('102: out of bounds says so at its field', (await fill.locator('[data-template-problem="minSpend"]').innerText()).replace(/[⁦-⁩]/g, '') === 'Enter 1000 or less.')
+  check('102: an empty value says so at its field', (await fill.locator('[data-template-problem="pct"]').innerText()) === 'Enter a value.')
+  check('102: …and nothing was sent', creates() === 0)
+
+  await input('minSpend').fill('250')
+  await input('pct').fill('15')
+  await fill.locator('[data-lookup="template-cats"]').fill('baby')
+  await fill.locator('[data-lookup-hit="A003"]').waitFor({ timeout: 10000 })
+  await fill.locator('[data-lookup="template-cats"]').press('Enter')
+  await page.waitForTimeout(300)
+  check('102: Enter in the item search sends nothing', creates() === 0 && (await dialog.count()) === 1)
+  await fill.locator('[data-lookup="template-cats"]').press('Escape')
+  await page.waitForTimeout(200)
+  check('102: Escape there clears the search and keeps the dialog', (await fill.locator('[data-lookup="template-cats"]').inputValue()) === '' && (await page.locator('dialog[open]').count()) === 1 && (await input('minSpend').inputValue()) === '250')
+  await fill.locator('[data-lookup="template-cats"]').fill('baby')
+  await fill.locator('[data-lookup-hit="A003"]').click({ timeout: 10000 })
+  check('103: a second category is picked', JSON.stringify(await picks('cats')) === '["A002","A003"]')
+  check('103: the name follows the values', (await preview('en')) === 'Spend SAR 250, get 15% off')
+  await dialog.locator('[data-create-submit]').click()
+  await page.waitForURL(`${BASE}/campaigns/SPEND-SAR-250-GE`, { timeout: 10000 })
+  await page.locator('[data-dashboard]').waitFor()
+  check('103: ONE create from the template', creates() === 1 && fromTemplate[0]?.id === 'T-SPEND-PCT', String(creates()))
+  const sent = fromTemplate[0]?.body
+  check('103: …with the values as typed', JSON.stringify(sent?.values) === JSON.stringify({ minSpend: 250, pct: 15, cats: ['A002', 'A003'] }), JSON.stringify(sent?.values))
+  const rule = sent?.draft.rules[0]
+  check(
+    '103: …and a draft with every placeholder filled',
+    !/placeholder|\{\{/.test(JSON.stringify(sent?.draft)) && rule?.when.items[0].amount === 250 && rule?.then[0].value === 15 && JSON.stringify(rule?.filters[0].cats) === '["A002","A003"]',
+    JSON.stringify(sent?.draft),
+  )
+
+  const details = page.locator('[data-dashboard-cell="details"]')
+  check('104: the dashboard shows both filled names', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Spend SAR 250, get 15% off' && (await details.locator('[data-line="nameAr"] dd').innerText()) === 'أنفق 250 ريال واحصل على خصم 15%')
+  check('104: …a Draft', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft')
+  check('104: a toast says it was created', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Campaign created as a draft.')))
+  await page.locator('[data-workspace-menu="rules"]').click()
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  const card = page.locator('[data-rule-card]').first()
+  check('104: the rule’s name is filled', (await card.locator('[data-rule-name]').inputValue()) === '15% off the category')
+  const condition = await card.locator('[data-condition] [data-block-sentence]').innerText()
+  check('104: the condition reads the threshold', condition.includes('SAR 250.00'), condition)
+  const effect = await card.locator('[data-effect] [data-block-sentence]').innerText()
+  check('104: the effect reads the percent', effect.includes('15%') && effect.includes('target'), effect)
+  const links = await card.locator('[data-filter] [data-filter-link]').allInnerTexts()
+  check('104: the filter keeps both categories picked', links.some((l) => l.includes('A002') && l.includes('A003')), JSON.stringify(links))
+  const notMet = card.locator('[data-condition] [data-says="notMet"]')
+  check('104: the "not met" message is filled in both languages', (await notMet.locator('[data-says-en]').innerText()) === 'a basket of SAR 250' && (await notMet.locator('[data-says-ar]').innerText()) === 'سلة بقيمة 250 ريال')
+  const label = card.locator('[data-effect] [data-says="receiptLabel"]')
+  check('104: the receipt label is filled in both languages', (await label.locator('[data-says-en]').innerText()) === '15% off' && (await label.locator('[data-says-ar]').innerText()) === 'خصم 15%')
+  await page.screenshot({ path: `${SHOTS}/from-template-rules.png`, fullPage: true })
+
+  await page.locator('[data-workspace-back]').click()
+  await waitRows(page, 17)
+  check('104: the list counts the new draft', (await tileCount(page, 'all')) === '17' && (await tileCount(page, 'draft')) === '2')
+  await page.locator('[data-new-campaign]').click()
+  await dialog.waitFor()
+  check('106: a reopened dialog is back on the blank tab', (await tab('blank').getAttribute('aria-selected')) === 'true' && (await dialog.locator('[data-create-field="nameEn"]').count()) === 1)
+  check('106: no page errors (100–104)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 105 ──
+{
+  const { context, page, errors } = await open({ refuseFromTemplate: 1 })
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  await page.locator('[data-new-campaign]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  await dialog.locator('[data-create-tab="template"]').click()
+  await dialog.locator('[data-template="T-BUY-N"]').click()
+  const fill = dialog.locator('[data-template-fill="T-BUY-N"]')
+  await fill.waitFor()
+  check('105: a collection is picked with the builder’s picker', JSON.stringify(await fill.locator('[data-picks="template-coll"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SUNCARE"]')
+  await fill.locator('[data-template-input="buy"]').fill('4')
+  await dialog.locator('[data-create-submit]').click()
+  const banner = dialog.locator('[role="alert"]')
+  await banner.waitFor({ timeout: 10000 })
+  check('105: a refused create shows the door’s own message in the dialog', (await banner.innerText()).includes(FROM_TEMPLATE_REFUSED), await banner.innerText())
+  check('105: …keeps the values and stays on the list', (await fill.locator('[data-template-input="buy"]').inputValue()) === '4' && page.url() === `${BASE}/campaigns`)
+  await fill.locator('[data-template-input="free"]').fill('2')
+  check('105: an edit clears the refusal', (await dialog.locator('[role="alert"]').count()) === 0)
+  await dialog.locator('[data-create-submit]').click()
+  await page.waitForURL(`${BASE}/campaigns/BUY-4-GET-2-FREE`, { timeout: 10000 })
+  await page.locator('[data-dashboard]').waitFor()
+  check('105: sent again, it lands on the draft', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Buy 4, get 2 free')
+  check('106: no page errors (105)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors } = await open({ refuseTemplates: true })
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  await page.locator('[data-new-campaign]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor()
+  await dialog.locator('[data-create-tab="template"]').click()
+  const banner = dialog.locator('[role="alert"]')
+  await banner.waitFor({ timeout: 10000 })
+  check('105: a refused templates door says so in the tab, in its own words', (await banner.innerText()).includes('The templates could not be read') && (await banner.innerText()).includes(TEMPLATES_REFUSED), await banner.innerText())
+  check('106: no page errors (105, templates refused)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

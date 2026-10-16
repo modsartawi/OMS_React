@@ -511,3 +511,66 @@ export interface RuleEvaluationOrder {
   base: RuleOrderNode[]
   groups: RuleOrderGroup[]
 }
+
+// ── Templates (ticket 503; HQ's doors are BackOffice 2759) ───────────────────────────────────────
+// A template is a campaign draft with NAMED PLACEHOLDERS that the Create dialog fills (2759's
+// default, not yet decided there). Anywhere in the draft, a value that is exactly
+// `{ "placeholder": "<key>" }` is replaced by the placeholder's value as it is typed (a number, a
+// code, a list of codes), and `{{<key>}}` inside a string — a name, a "not met" message, a receipt
+// label, a formula — is replaced by the value as text. The client fills; HQ re-checks the values.
+
+/**
+ * How a placeholder is asked for: a typed `number` within `min`–`max`; `pick`, the builder's item
+ * picker on a lookup (one code or more); or `choice`, one of `options`.
+ */
+export type RuleTemplatePlaceholderKind = 'number' | 'pick' | 'choice'
+
+export interface RuleTemplatePlaceholder {
+  key: string
+  /** The template author's label, shown as data ("Minimum basket (SAR)", "Percent off"). */
+  label: string
+  kind: RuleTemplatePlaceholderKind
+  /** `number`: the bounds, inclusive; null = unbounded. */
+  min?: number | null
+  max?: number | null
+  /** `pick`: what the picker searches. */
+  lookup?: RuleLookupKind
+  /** `choice`: the codes it takes, with their names. */
+  options?: RuleLookupItem[]
+  /** What the field starts with: a number, a code, or a list of codes for `pick`. */
+  default: RuleTemplateValue | null
+}
+
+/** A placeholder's value: a number, a code (`choice`), or codes (`pick`). */
+export type RuleTemplateValue = number | string | string[]
+
+/** The campaign a template makes, with placeholders standing in for its values. */
+export interface RuleTemplateDraft {
+  name: Says
+  features: RuleCampaignFeatures
+  /** Who the campaign is for, when the template says (the prototype's tier template); absent = HQ's
+   *  default audience, as for a blank campaign. */
+  audience?: RuleCampaignAudience
+  rules: CampaignRule[]
+}
+
+export interface RuleCampaignTemplate {
+  id: string
+  name: Says
+  /** One line on what the template is for — the author's text, shown as data. */
+  description: string
+  /** Only an enabled template makes campaigns; a draft one is listed and cannot be used. */
+  enabled: boolean
+  placeholders: RuleTemplatePlaceholder[]
+  draft: RuleTemplateDraft
+}
+
+/**
+ * What "Create from a template" sends: the values the marketer gave, by placeholder key, and the
+ * draft the client filled with them. HQ re-fills the template from `values` to check the draft, mints
+ * the code and id, and answers with the whole new draft.
+ */
+export interface RuleCampaignFromTemplate {
+  values: Record<string, RuleTemplateValue>
+  draft: RuleTemplateDraft
+}

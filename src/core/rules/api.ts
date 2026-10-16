@@ -7,6 +7,8 @@ import type {
   RuleCampaignCreate,
   RuleCampaignDraft,
   RuleCampaignListRow,
+  RuleCampaignRoles,
+  RuleCampaignTransition,
   RuleFormulaCheck,
   RuleFormulaCheckRequest,
   RuleLookupItem,
@@ -35,6 +37,12 @@ const LOOKUPS: Record<RuleLookupKind, string> = {
 const FORMULA_CHECK = 'RuleCampaign/Formula/Check'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const VALIDATE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Validate`
+
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const ROLES = 'RuleCampaign/Roles'
+// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+const LIFECYCLE = (id: string, act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable') =>
+  `${CAMPAIGNS}/${encodeURIComponent(id)}/${act}`
 
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
@@ -110,6 +118,74 @@ export const ruleCampaignApi = {
   validate(id: string): Promise<RuleCampaignChecks> {
     return api.get<RuleCampaignChecks>(VALIDATE(id))
   },
+
+  /** GET RuleCampaign/Roles — the reader's roles on rule campaigns (ticket 511, BackOffice 2759's
+   *  Ua permissions): what the dashboard draws. The server still refuses what the reader may not do. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  roles(): Promise<RuleCampaignRoles> {
+    return api.get<RuleCampaignRoles>(ROLES)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/AskForApproval — an author sends the SAVED draft to an
+   *  approver with an optional note (ticket 511, BackOffice 2759); HQ answers the campaign waiting. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  askForApproval(id: string, body: RuleCampaignTransition): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(LIFECYCLE(id, 'AskForApproval'), body)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Activate — an approver publishes the waiting draft as a new
+   *  version (ticket 511, BackOffice 2759); HQ answers the campaign live. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  activate(id: string, body: RuleCampaignTransition): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(LIFECYCLE(id, 'Activate'), body)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/SendBack — an approver returns the waiting draft to its author
+   *  with a note (ticket 511, BackOffice 2759); HQ answers the campaign as a draft again. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  sendBack(id: string, body: RuleCampaignTransition): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(LIFECYCLE(id, 'SendBack'), body)
+  },
+
+  /** POST RuleCampaign/Campaigns/{id}/Disable — an approver stops a live campaign (ticket 511,
+   *  BackOffice 2759): sales already open keep it, new sales do not get it. */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  disable(id: string, body: RuleCampaignTransition): Promise<RuleCampaign> {
+    return api.post<RuleCampaign>(LIFECYCLE(id, 'Disable'), body)
+  },
+
+  /** DELETE RuleCampaign/Campaigns/{id} — an author deletes a draft that was never published
+   *  (ticket 511, BackOffice 2759). */
+  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  remove(id: string): Promise<unknown> {
+    return api.del<unknown>(`${CAMPAIGNS}/${encodeURIComponent(id)}`)
+  },
+}
+
+/** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
+export const ruleCampaignRolesQuery = () => ({
+  queryKey: ['rule-campaign-roles'] as const,
+  queryFn: () => ruleCampaignApi.roles(),
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
+
+/**
+ * A campaign HQ just moved along its approval life (ticket 511): its own query takes HQ's answer,
+ * so the dashboard's State and the shell's badge follow, and the list is read afresh so its state
+ * tiles count it under the new state.
+ */
+export function rememberTransition(queryClient: QueryClient, campaign: RuleCampaign): void {
+  queryClient.setQueryData(ruleCampaignKey(campaign.id), campaign)
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+}
+
+/** A draft HQ just deleted: its own queries go, and the list is read afresh. */
+export function forgetDeleted(queryClient: QueryClient, id: string): void {
+  queryClient.removeQueries({ queryKey: ruleCampaignKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCampaignChecksKey(id) })
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
 /** A campaign's checks, keyed under the campaign queries: a Save re-reads them (`rememberSavedDraft`). */

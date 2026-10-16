@@ -38,7 +38,8 @@
       "running": "Live: tills apply it to every sale it matches.",
       "expired": "Its schedule has ended. Tills no longer apply it.",
       "disabled": "Disabled: sales already open keep it, new sales do not get it.",
-      "liveVersion": "Version <version>{{version}}</version>, activated <at>{{at}}</at> by <by>{{by}}</by>."
+      "liveVersion": "Version <version>{{version}}</version>, activated <at>{{at}}</at> by <by>{{by}}</by>.",
+      "sentBack": "<by>{{by}}</by> sent it back on <at>{{at}}</at>. Change it, then ask for approval again."
     },
     "schedule": {
       "title": "Schedule",
@@ -65,6 +66,107 @@
       "allDay": "All day",
       "localTime": "Local time."
     }
+  },
+  "approval": {
+    "rolesLoading": "Reading your approval role…",
+    "rolesFailed": "Your approval role could not be read",
+    "askNote": "Note for the approver (optional)",
+    "askNotePlaceholder": "What changed, and why it is ready",
+    "action": {
+      "askForApproval": "Ask for approval",
+      "activate": "Activate",
+      "sendBack": "Send back",
+      "disable": "Disable",
+      "deleteDraft": "Delete draft"
+    },
+    "gate": {
+      "checking": "Checking the saved draft…",
+      "errors": "The saved draft has errors: fix them before it can go further.",
+      "unavailable": "The checks of the saved draft could not be read, so it cannot go further yet.",
+      "open": "Open the rule builder",
+      "noRules": "The saved draft has no rule yet: build one before it can go further."
+    },
+    "hint": {
+      "authorDraft": "Authors cannot activate: an approver activates once you ask.",
+      "authorWaiting": "Waiting for an approver. Authors cannot activate.",
+      "approverWaiting": "Activating publishes a new version. A sale already open keeps the version it started with.",
+      "approverLive": "Disabling stops new sales getting it; sales already open keep it.",
+      "readOnly": "You can read this campaign. An author asks for approval, and an approver activates."
+    },
+    "pending": {
+      "title": "Pending changes",
+      "first": "The first version: none of it is live yet.",
+      "overLive": "The draft’s rules, to replace live version <version>{{version}}</version>.",
+      "noRules": "No rules.",
+      "open": "Read them in the rule builder"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "activate": {
+        "title": "Activate the campaign",
+        "body": "Activate <name>{{name}}</name>? Tills pick it up with the next ruleset version.",
+        "note": "What changed (goes in the version history, optional)",
+        "confirm": "Activate"
+      },
+      "sendBack": {
+        "title": "Send back to the author",
+        "body": "Send <name>{{name}}</name> back to its author as a draft?",
+        "note": "Why (the author reads this)",
+        "confirm": "Send back"
+      },
+      "disable": {
+        "title": "Disable the campaign",
+        "body": "Disable <name>{{name}}</name>? Sales already open keep it; new sales stop getting it.",
+        "confirm": "Disable"
+      },
+      "deleteDraft": {
+        "title": "Delete the draft",
+        "body": "Delete <name>{{name}}</name>, code <code>{{code}}</code>? It was never published, so no till has it. This cannot be undone.",
+        "confirm": "Delete"
+      }
+    },
+    "asked": "Sent for approval.",
+    "done": {
+      "activate": "Campaign activated.",
+      "sendBack": "Sent back to the author.",
+      "disable": "Campaign disabled.",
+      "deleteDraft": "Draft deleted."
+    },
+    "refused": {
+      "askForApproval": "Approval could not be asked",
+      "activate": "The campaign could not be activated",
+      "sendBack": "The campaign could not be sent back",
+      "disable": "The campaign could not be disabled",
+      "deleteDraft": "The draft could not be deleted",
+      "fallback": "Try again in a moment.",
+      "code": "Code"
+    },
+    "steps": {
+      "title": "Consider these steps before activating",
+      "doneLabel": "Done",
+      "todoLabel": "To do",
+      "named": {
+        "title": "Name it in both languages",
+        "done": "English and Arabic names are set.",
+        "todo": "Add the Arabic name in Settings ▸ Details."
+      },
+      "rules": {
+        "title": "Valid rules",
+        "done": "The saved rules pass HQ’s checks.",
+        "todo": "Build rules that pass HQ’s checks."
+      },
+      "schedule": {
+        "title": "Set a schedule",
+        "done": "A start or end is set.",
+        "todo": "Set when it starts or ends in Settings ▸ Schedule."
+      },
+      "budgets": {
+        "title": "Consider a budget",
+        "done": "A budget limits what it gives.",
+        "todo": "Add money or use limits in Settings ▸ Budgets."
+      }
+    },
+    "retry": "Try again"
   },
   "weekdays": {
     "0": "Sunday",

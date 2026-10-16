@@ -15,6 +15,11 @@
 //   POST RuleCampaign/Formula/Check   → a canned check: an unknown word's span, or 12.5 / yes (507, `checkFormula`)
 //   GET RuleCampaign/Campaigns/{id}/Validate → the saved draft's checks: none, unless a section's
 //       `checksFor(id, n)` answers messages (n = how many times it was asked), or null to refuse (508)
+//   GET RuleCampaign/Roles            → the reader's roles: an author unless `as('approver' | 'both' |
+//       'none')` says otherwise (read on the next page load), or refused with `refuseRoles` (511)
+//   POST RuleCampaign/Campaigns/{id}/{AskForApproval|Activate|SendBack|Disable} → the campaign moved
+//       (`lifecycle`); the first `refuseActivate` activations are refused (511)
+//   DELETE RuleCampaign/Campaigns/{id} → the draft is gone from the list (511)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -38,7 +43,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, listRow, lookup } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, checkFormula, copyOf, createDraft, lifecycle, listRow, lookup } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -71,6 +76,8 @@ const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة ب
 const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
 const CHECK_REFUSED = 'The formula check is not available. / التحقق من الصيغة غير متاح.'
 const VALIDATE_REFUSED = 'The rule checks are not available. / التحقق من القواعد غير متاح.'
+const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
+const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
@@ -82,7 +89,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ at = EVENING, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -101,6 +108,11 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
   const checks = []
   /** 508: every validate, by campaign id, in order. */
   const validations = []
+  /** 511: the reader's roles, and every lifecycle act `<act> <id>` with its body. */
+  const ROLE = { author: { author: true, approver: false }, approver: { author: false, approver: true }, both: { author: true, approver: true }, none: { author: false, approver: false } }
+  let role = 'author'
+  let activateRefusals = refuseActivate
+  const acts = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
@@ -166,11 +178,34 @@ async function open({ at = EVENING, refuseCreate = false, refuseCatalogue = fals
       const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
       return route.fulfill(c ? envelope(copyOf(store, c, NOW_LOCAL)) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
+    if (p === 'RuleCampaign/Roles' && req.method() === 'GET')
+      return route.fulfill(refuseRoles ? envelope(null, { status: 503, success: false, message: ROLES_REFUSED, errorCode: 'RULE_ROLES_UNAVAILABLE' }) : envelope(ROLE[role]))
+    const life = /^RuleCampaign\/Campaigns\/([^/]+)\/(AskForApproval|Activate|SendBack|Disable)$/.exec(p)
+    if (life && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      acts.push({ act: `${life[2]} ${decodeURIComponent(life[1])}`, body })
+      const c = store.find((x) => x.id === decodeURIComponent(life[1]))
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      if (life[2] === 'Activate' && activateRefusals > 0) {
+        activateRefusals--
+        return route.fulfill(envelope(null, { status: 409, success: false, message: ACTIVATE_REFUSED, errorCode: 'RULE_CAMPAIGN_SELF_APPROVAL' }))
+      }
+      const by = role === 'approver' ? 'Reem (approver)' : 'Omar (marketing)'
+      const out = lifecycle(c, life[2], { note: body.note, by, at: NOW_LOCAL })
+      return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: 'Wrong state.', errorCode: out.refused }))
+    }
+    if (one && req.method() === 'DELETE') {
+      acts.push({ act: `Delete ${decodeURIComponent(one[1])}` })
+      const i = store.findIndex((x) => x.id === decodeURIComponent(one[1]))
+      if (i < 0) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+      store.splice(i, 1)
+      return route.fulfill(envelope(null))
+    }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, bodies, saves, lookups, checks, validations, acts, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -1300,6 +1335,197 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await page.locator('[data-checks-list]').innerText()).includes(VALIDATE_REFUSED) && (await page.locator('[data-checks-retry]').isVisible()),
   )
   check('61: no page errors (60)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 511 ── it asserts:
+//  62. an author's draft shows the pre-activation steps, each ticked or linked — the rules step to
+//      the rule builder, the Settings steps unlinked until their pages land (509);
+//  63. the author is offered Ask for approval and Delete draft, never Activate; HQ's error in the
+//      saved draft disables Ask, saying why, with the way to the builder;
+//  64. with clean checks the author asks with a note: HQ gets it, the State turns Waiting for
+//      approval naming who asked and the note, the shell's badge follows, the author is offered
+//      nothing and told an approver activates; the list's tiles count it under Waiting;
+//  65. an approver reads the pending changes and is offered Activate and Send back, not Ask or Delete;
+//  66. Send back wants a note; it returns the draft to its author, who reads who sent it back and why;
+//  67. asked again, a refused Activate keeps the dialog open with the envelope's message and code;
+//  68. Activate again: the campaign is live (Running, version 1, by the approver), the steps are gone;
+//      the approver may now Disable it, it reads Disabled, and the list's tiles follow;
+//  69. a draft with no rule cannot be asked yet, saying so; an author's Delete draft asks first;
+//      confirmed, the draft is gone and the list counts it out;
+//  70. a refused roles door is its own message and code, and offers no act;
+//  71. no page errors.
+{
+  const NO_RULES = { severity: 'error', code: 'NO_RULES', message: 'A campaign needs a rule.', ruleId: null, blockId: null, field: null }
+  const { context, page, errors, acts, as } = await open({
+    refuseActivate: 1,
+    // The bare draft gets one rule, so HQ's checks are what gate it (no rule gates it first — 69).
+    edit: (store) => (store.find((c) => c.id === 'SPRING-DRAFT').rules = structuredClone(store.find((c) => c.id === 'WKND20').rules.slice(0, 1))),
+    checksFor: (id, n) => (id === 'SPRING-DRAFT' && n === 0 ? [NO_RULES] : []),
+  })
+  const stateCell = page.locator('[data-dashboard-cell="state"]')
+  const stateBadge = () => stateCell.locator('[data-campaign-state]').innerText()
+  const action = (a) => page.locator(`[data-approval-action="${a}"]`)
+  const offered = () => page.locator('[data-approval-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-approval-action')))
+  const dialog = page.locator('[data-approval-dialog]')
+  const dash = async (id) => {
+    await page.goto(`${BASE}/campaigns/${id}`)
+    await page.locator('[data-approval]:not([data-approval="loading"])').waitFor({ timeout: 10000 })
+  }
+
+  // ── 62 ──
+  await dash('SPRING-DRAFT')
+  const steps = page.locator('[data-steps] [data-step]')
+  check('62: the four steps, in order', JSON.stringify(await steps.evaluateAll((els) => els.map((e) => e.getAttribute('data-step')))) === '["named","rules","schedule","budgets"]')
+  await page.locator('[data-approval-gate="errors"]').waitFor({ timeout: 5000 }).catch(() => {})
+  check('62: none is ticked on this draft (no Arabic name, an error in its rule, no schedule, no budget)', (await page.locator('[data-steps] [data-step-done]').count()) === 0)
+  check('62: the rules step links to the rule builder', (await page.locator('[data-step="rules"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules')
+  check(
+    '62: the Settings steps are not linked before their pages land',
+    (await page.locator('[data-step="named"] [data-step-link], [data-step="schedule"] [data-step-link], [data-step="budgets"] [data-step-link]').count()) === 0,
+  )
+
+  // ── 63 ──
+  check('63: an author is offered Ask for approval and Delete draft, never Activate', JSON.stringify(await offered()) === '["askForApproval","deleteDraft"]', JSON.stringify(await offered()))
+  check('63: HQ’s error disables Ask for approval', await action('askForApproval').isDisabled())
+  check(
+    '63: …saying why, with the way to the builder',
+    (await page.locator('[data-approval-gate="errors"]').innerText()).startsWith('The saved draft has errors') &&
+      (await page.locator('[data-approval-gate-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules',
+  )
+  await page.screenshot({ path: `${SHOTS}/approval-author-blocked.png` })
+
+  // ── 64 ──
+  await dash('SPRING-DRAFT') // a fresh load re-reads the checks: clean now
+  await page.locator('[data-approval-gate]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check('64: clean checks enable Ask for approval', await action('askForApproval').isEnabled())
+  check('64: …and tick the rules step, the others still to do', JSON.stringify(await page.locator('[data-step][data-step-done]').evaluateAll((els) => els.map((e) => e.getAttribute('data-step')))) === '["rules"]')
+  await page.locator('[data-ask-note]').fill('Spring range ready for review.')
+  await action('askForApproval').click()
+  await page.locator('[data-state-sentence="waitingForApproval"]').waitFor({ timeout: 5000 })
+  check(
+    '64: HQ got the ask with its note',
+    JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'AskForApproval SPRING-DRAFT', body: { note: 'Spring range ready for review.' } }),
+    JSON.stringify(acts.at(-1)),
+  )
+  check(
+    '64: the State reads Waiting for approval, naming who asked',
+    (await stateBadge()) === 'Waiting for approval' &&
+      (await page.locator('[data-state-sentence="waitingForApproval"]').innerText()) === 'Omar (marketing) asked for approval on 2026-10-16 18:30.',
+  )
+  check('64: …and the note', (await page.locator('[data-approval-note]').innerText()) === 'Spring range ready for review.')
+  check('64: the shell’s badge follows', (await page.locator('[data-workspace-name] [data-campaign-state]').getAttribute('data-campaign-state')) === 'waitingForApproval')
+  check('64: the author is offered nothing now, and told an approver activates', (await offered()).length === 0 && (await page.locator('[data-approval-hint="authorWaiting"]').isVisible()))
+  await page.screenshot({ path: `${SHOTS}/approval-author-waiting.png` })
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  check('64: the list counts it under Waiting', (await tileCount(page, 'draft')) === '0' && (await tileCount(page, 'waitingForApproval')) === '2', JSON.stringify(await readCounts(page)))
+
+  // ── 65 ──
+  as('approver')
+  await dash('SPRING-DRAFT')
+  check('65: an approver is offered Activate and Send back, not Ask or Delete', JSON.stringify(await offered()) === '["activate","sendBack"]', JSON.stringify(await offered()))
+  check(
+    '65: …reads the pending changes, a first version, and the way to its rules',
+    (await page.locator('[data-pending-changes]').innerText()).includes('The first version') &&
+      (await page.locator('[data-pending-open]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules',
+  )
+  await page.screenshot({ path: `${SHOTS}/approval-approver.png` })
+
+  // ── 66 ──
+  await action('sendBack').click()
+  await dialog.waitFor({ timeout: 5000 })
+  check('66: Send back wants a note', await page.locator('[data-approval-confirm]').isDisabled())
+  await page.locator('[data-approval-dialog-note]').fill('Add the Arabic name first.')
+  await page.locator('[data-approval-confirm]').click()
+  await page.locator('[data-state-sentence="draft"]').waitFor({ timeout: 5000 })
+  check(
+    '66: HQ got the note, and the campaign is a draft again',
+    acts.at(-1).act === 'SendBack SPRING-DRAFT' && acts.at(-1).body.note === 'Add the Arabic name first.' && (await stateBadge()) === 'Draft',
+  )
+  as('author')
+  await dash('SPRING-DRAFT')
+  check(
+    '66: the author reads who sent it back, and why',
+    (await page.locator('[data-state-sentence="draft"]').innerText()).startsWith('Reem (approver) sent it back on 2026-10-16 18:30.') &&
+      (await page.locator('[data-sent-back-note]').innerText()) === 'Add the Arabic name first.',
+  )
+
+  // ── 67 ──
+  await action('askForApproval').click()
+  await page.locator('[data-state-sentence="waitingForApproval"]').waitFor({ timeout: 5000 })
+  as('approver')
+  await dash('SPRING-DRAFT')
+  await page.locator('[data-approval-action="activate"]:not([disabled])').waitFor({ timeout: 5000 })
+  await action('activate').click()
+  await dialog.waitFor({ timeout: 5000 })
+  await page.locator('[data-approval-dialog-note]').fill('First spring version.')
+  await page.locator('[data-approval-confirm]').click()
+  await page.locator('[data-approval-refusal="activate"]').waitFor({ timeout: 5000 })
+  check('67: a refused Activate shows the envelope’s message', (await page.locator('[data-approval-refusal="activate"] bdi').first().innerText()) === ACTIVATE_REFUSED)
+  check(
+    '67: …and its code',
+    (await page.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_SELF_APPROVAL' &&
+      (await page.locator('[data-refusal-code]').innerText()) === 'Code RULE_CAMPAIGN_SELF_APPROVAL',
+  )
+  check('67: …and the dialog stays open, the campaign still waiting', (await dialog.count()) === 1 && (await stateBadge()) === 'Waiting for approval')
+  await page.screenshot({ path: `${SHOTS}/approval-refused.png` })
+
+  // ── 68 ──
+  await page.locator('[data-approval-confirm]').click()
+  await dialog.waitFor({ state: 'detached', timeout: 5000 })
+  check(
+    '68: Activate again: the campaign is live, version 1 by the approver',
+    (await stateBadge()) === 'Running' && (await page.locator('[data-live-version]').innerText()).startsWith('Version 1, activated 2026-10-16 18:30 by Reem (approver)'),
+  )
+  check('68: HQ got the version note', acts.at(-1).act === 'Activate SPRING-DRAFT' && acts.at(-1).body.note === 'First spring version.')
+  check('68: the steps are gone once published', (await page.locator('[data-steps]').count()) === 0)
+  check('68: the approver may now Disable it', JSON.stringify(await offered()) === '["disable"]', JSON.stringify(await offered()))
+  await action('disable').click()
+  await dialog.waitFor({ timeout: 5000 })
+  await page.locator('[data-approval-confirm]').click()
+  await dialog.waitFor({ state: 'detached', timeout: 5000 })
+  check('68: …and it reads Disabled', (await stateBadge()) === 'Disabled' && acts.at(-1).act === 'Disable SPRING-DRAFT')
+  await page.goto(`${BASE}/campaigns`)
+  await waitRows(page, 16)
+  check('68: the list’s tiles follow', (await tileCount(page, 'waitingForApproval')) === '1' && (await tileCount(page, 'disabled')) === '2', JSON.stringify(await readCounts(page)))
+  check('71: no page errors (62–68)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 69 ──
+{
+  const { context, page, errors, acts } = await open()
+  await page.goto(`${BASE}/campaigns/SPRING-DRAFT`)
+  await page.locator('[data-approval-gate="noRules"]').waitFor({ timeout: 10000 })
+  check('69: a draft with no rule cannot be asked yet, saying so', (await page.locator('[data-approval-action="askForApproval"]').isDisabled()) && (await page.locator('[data-approval-gate="noRules"]').innerText()).startsWith('The saved draft has no rule yet'))
+  await page.locator('[data-approval-action="deleteDraft"]').click()
+  const dialog = page.locator('[data-approval-dialog="deleteDraft"]')
+  await dialog.waitFor({ timeout: 5000 })
+  check('69: Delete draft asks first, naming the code', (await dialog.innerText()).includes('Delete Spring skincare (draft), code SPRING-DRAFT?') && !acts.length)
+  await page.locator('[data-approval-confirm]').click()
+  await page.waitForURL(`${BASE}/campaigns`, { timeout: 5000 }).catch(() => {})
+  await waitRows(page, 15)
+  check(
+    '69: confirmed, HQ deletes it and the list opens without it',
+    acts.at(-1)?.act === 'Delete SPRING-DRAFT' && !(await rowIds(page)).includes('SPRING-DRAFT') && (await tileCount(page, 'draft')) === '0',
+  )
+  check('71: no page errors (69)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 70 ──
+{
+  const { context, page, errors } = await open({ refuseRoles: true })
+  await page.goto(`${BASE}/campaigns/BDAY-BEAUTY`)
+  await page.locator('[data-approval-refusal="roles"]').waitFor({ timeout: 10000 })
+  check(
+    '70: a refused roles door is its own message and code',
+    (await page.locator('[data-approval-refusal="roles"]').innerText()).includes(ROLES_REFUSED) &&
+      (await page.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_ROLES_UNAVAILABLE',
+  )
+  check('70: …and offers no act, only Try again', (await page.locator('[data-approval-action]').count()) === 0 && (await page.locator('[data-approval-roles-retry]').isVisible()))
+  check('71: no page errors (70)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

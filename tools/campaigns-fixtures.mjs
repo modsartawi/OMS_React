@@ -291,6 +291,23 @@ export function copyOf(store, source, at) {
   return copy
 }
 
+// ── 511: the stubbed HQ side of the approval life (BackOffice 2759): draft → waiting for approval
+// → (sent back → draft) | live → disabled. A move from the wrong state is HQ's refusal, as the real
+// door would answer it; who may move it is the drive's to stub (the roles door). ──
+
+const FROM = { AskForApproval: ['draft'], Activate: ['waitingForApproval'], SendBack: ['waitingForApproval'], Disable: ['live'] }
+
+/** POST RuleCampaign/Campaigns/{id}/{act}: the campaign moved, or `{ refused }` with HQ's code. */
+export function lifecycle(c, act, { note = '', by, at }) {
+  if (!FROM[act]?.includes(c.status) || (act === 'Disable' && !c.live)) return { refused: 'RULE_CAMPAIGN_WRONG_STATE' }
+  const when = stamp(at, by)
+  if (act === 'AskForApproval') Object.assign(c, { status: 'waitingForApproval', approval: { ...when, note }, sentBack: null })
+  if (act === 'SendBack') Object.assign(c, { status: 'draft', approval: null, sentBack: { ...when, note } })
+  if (act === 'Activate') Object.assign(c, { status: 'live', approval: null, sentBack: null, live: { version: (c.live?.version ?? 0) + 1, ...when } })
+  if (act === 'Disable') Object.assign(c, { status: 'disabled', approval: null })
+  return { campaign: c }
+}
+
 // ── 504: the stubbed block catalogue (GET RuleCampaign/Catalogue, BackOffice 2758). Every condition
 // and effect the prototype offers (its app.js COND_PALETTE / EFFECT_PALETTE), with its fields in the
 // PROVISIONAL `RuleBlockCatalogue` shape; `feature` gates the palette (505) as the create dialog

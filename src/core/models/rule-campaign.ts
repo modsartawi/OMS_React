@@ -129,6 +129,9 @@ export interface RuleCampaignStamp {
   at: string
 }
 
+/** A stamp with the actor's note — an ask for approval, a send back. */
+export type RuleCampaignNoteStamp = RuleCampaignStamp & { note: string }
+
 export interface RuleCampaign {
   id: string
   code: string
@@ -146,7 +149,10 @@ export interface RuleCampaign {
   /** The published version tills run, or null for a campaign never activated. */
   live: (RuleCampaignStamp & { version: number }) | null
   /** Set while the campaign waits for an approver. */
-  approval: (RuleCampaignStamp & { note: string }) | null
+  approval: RuleCampaignNoteStamp | null
+  /** Set on a draft an approver sent back (ticket 511): who, when and why, until it is asked again.
+   *  Optional: a campaign never sent back may leave it out. */
+  sentBack?: RuleCampaignNoteStamp | null
 }
 
 /** One row of the campaigns list — the campaign without its rules, budgets and audience. */
@@ -377,4 +383,23 @@ export interface RuleCheckMessage {
 /** HQ's checks of a campaign's saved draft. */
 export interface RuleCampaignChecks {
   messages: RuleCheckMessage[]
+}
+
+// ── Approval (ticket 511; HQ's doors and Ua permissions are BackOffice 2759) ─────────────────────
+// An author asks for approval and only an approver activates. The roles say what the dashboard
+// draws; the server refuses whatever the reader may not do (the standard envelope), whatever is drawn.
+
+/** The reader's roles on rule campaigns. One person may hold both. */
+export interface RuleCampaignRoles {
+  author: boolean
+  approver: boolean
+}
+
+/**
+ * What a lifecycle act sends: the actor's note — for the approver when asking (optional), for the
+ * author when sending back (required), for the version history when activating (optional). HQ
+ * answers an ask, an activate, a send back or a disable with the whole campaign in its new state.
+ */
+export interface RuleCampaignTransition {
+  note: string
 }

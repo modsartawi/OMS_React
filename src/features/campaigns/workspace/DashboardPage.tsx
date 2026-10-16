@@ -1,17 +1,24 @@
 import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import type { RuleCampaign } from '@/core/models/rule-campaign'
+import { ruleCampaignChecksQuery, ruleCampaignRolesQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
-import { campaignState, scheduleRelative, type CampaignState } from '@/core/rules/campaign-state'
+import { campaignPath, campaignState, scheduleRelative, type CampaignState } from '@/core/rules/campaign-state'
 import Ltr from '@/core/ui/Ltr'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import { draftGate, preActivationSteps, showsSteps } from './approval'
+import ApprovalPanel from './ApprovalPanel'
 import CampaignActionsMenu from './CampaignActionsMenu'
+import { approvalVerdict } from './checks'
 import { useWorkspace } from './context'
+import PreActivationSteps from './PreActivationSteps'
 
 /**
- * A campaign's dashboard (ticket 501): Details, State and Schedule, read-only; the State cell's ⋯
- * menu copies the campaign (ticket 502). Every date is the campaign's own local day or the local
+ * A campaign's dashboard (ticket 501): Details, State and Schedule; the State cell's ⋯ menu copies
+ * the campaign (ticket 502), and its approval acts follow the reader's role (ticket 511), above them
+ * the pre-activation steps while the campaign was never published. Every date is the campaign's own local day or the local
  * wall clock — never UTC — and "starts in N days" counts local calendar days (`scheduleRelative`).
  */
 export default function DashboardPage() {
@@ -19,6 +26,13 @@ export default function DashboardPage() {
   const { campaign: c } = useWorkspace()
   const now = new Date()
   const state = campaignState(c, now)
+  const roles = useQuery(ruleCampaignRolesQuery())
+  // HQ's checks of the saved draft (508) — the same query the builder's pill reads: they gate
+  // "Ask for approval" and "Activate", and tick the rules step. Read only where a draft is in play.
+  const inPlay = c.status === 'draft' || c.status === 'waitingForApproval'
+  const checks = useQuery({ ...ruleCampaignChecksQuery(c.id), enabled: inPlay })
+  const verdict = checks.data && !checks.isFetching ? approvalVerdict(checks.data) : null
+  const gate = draftGate(c.rules.length, { failed: checks.isError, blocked: verdict ? verdict.blocked : null })
 
   return (
     <section className="flex flex-col gap-4" data-dashboard="">
@@ -32,6 +46,7 @@ export default function DashboardPage() {
           </p>
         )}
       </header>
+      {showsSteps(c) && <PreActivationSteps steps={preActivationSteps(c, checks.isError || !verdict ? null : verdict.blocked)} base={campaignPath(c.id)} />}
       <div className="grid gap-3 lg:grid-cols-3">
         <Cell title={t('dashboard.details.title')} data="details">
           <Details c={c} />
@@ -39,6 +54,7 @@ export default function DashboardPage() {
         <Cell title={t('dashboard.state.title')} data="state">
           <CampaignStateBadge state={state} />
           <StateSentence c={c} state={state} />
+          <ApprovalPanel campaign={c} roles={roles} gate={gate} />
           <CampaignActionsMenu campaign={c} />
         </Cell>
         <Cell title={t('dashboard.schedule.title')} data="schedule">
@@ -162,6 +178,25 @@ function StateSentence({ c, state }: { c: RuleCampaign; state: CampaignState }) 
             components={{ version: <Ltr />, at: <Ltr />, by: <bdi /> }}
           />
         </p>
+      </>
+    )
+  }
+  if (state === 'draft' && c.sentBack) {
+    return (
+      <>
+        {p(
+          <Trans
+            t={t}
+            i18nKey="dashboard.state.sentBack"
+            values={{ at: formatDateTime(c.sentBack.at), by: c.sentBack.by }}
+            components={{ at: <Ltr />, by: <bdi /> }}
+          />,
+        )}
+        {c.sentBack.note && (
+          <blockquote className="border-s-2 border-border ps-2 text-sm text-muted-foreground" data-sent-back-note="">
+            <bdi>{c.sentBack.note}</bdi>
+          </blockquote>
+        )}
       </>
     )
   }

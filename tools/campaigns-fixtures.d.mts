@@ -21,3 +21,8 @@ export const LOOKUPS: Record<RuleLookupKind, RuleLookupItem[]>
 export function lookup(kind: RuleLookupKind, search?: string): RuleLookupItem[]
 export const SAMPLE_RESULT: number
 export function checkFormula(body: RuleFormulaCheckRequest): RuleFormulaCheck
+export function lifecycle(
+  c: RuleCampaign,
+  act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable',
+  o: { note?: string; by: string; at: string },
+): { campaign: RuleCampaign; refused?: undefined } | { refused: string; campaign?: undefined }

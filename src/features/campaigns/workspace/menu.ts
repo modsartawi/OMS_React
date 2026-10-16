@@ -35,3 +35,12 @@ export function workspaceMenu(features: RuleCampaignFeatures): WorkspaceMenuItem
 export function drawnMenu(features: RuleCampaignFeatures): WorkspaceMenuItem[] {
   return workspaceMenu(features).filter((item) => item.landed)
 }
+
+/**
+ * Whether a workspace page has landed, by its path relative to the workspace (`'rules'`,
+ * `'settings/details'` …). A page that has not landed is not linked to (ticket 511's pre-activation
+ * steps): Settings arrives with 509 and adds its pages here, landed.
+ */
+export function pageLanded(to: string): boolean {
+  return WORKSPACE_MENU.some((item) => item.to === to && item.landed)
+}

@@ -83,8 +83,8 @@ stubbed against real-shaped replies.
 
 **Remaining. The ticket stays open until all of it is done.**
 
-1. **`tools/campaigns-drive.mjs`.** It was re-stubbed on the real draft doors and passes sections 1–35 (501–505, the features palette, and 502 with the new id flow). It stops at 35, because the 506 picker still uses the old lookup selectors (`[data-lookup="skus"|"cats"|"excl"]`, now `articles` / `categories` / `exclude`). Sections 35–516 have never run against the new UI:
-   - 506–512, 515 and 516;
+1. **`tools/campaigns-drive.mjs`.** It was re-stubbed on the real draft doors and passes sections 1–46 (501–506, the features palette, 502 with the new id flow, and 507's codec and issue-at-path checks). It stops at 47: on WLCB's award the value picker `[data-panel-value-source="amount"]` stays disabled after a value is renamed to `cashback`. That is not diagnosed yet. The sections after it have never run against the new UI:
+   - the rest of 507, then 508–512, 515 and 516;
    - the new 78b / 78c stale-save sections (Settings and the builder);
    - the Offline-from-`validation.offline` section.
    

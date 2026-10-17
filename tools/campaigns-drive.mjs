@@ -1238,20 +1238,20 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const picker = ep.locator('[data-filter-editor="filter-new"]')
   await picker.waitFor({ timeout: 5000 })
   check('35: Certain items… opens the picker at the field, inside the panel', (await picker.count()) === 1 && (await page.locator('[data-filter-editor]').count()) === 1)
-  check('35: …a new filter with Prescription (A006) kept out, named items1', JSON.stringify(await picker.locator('[data-picks="excl"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["A006"]' && (await picker.locator('[data-rx-missing]').count()) === 0 && (await picker.locator('[data-filter-name-input]').inputValue()) === 'items1')
+  check('35: …a new filter with Prescription (A006) kept out, named items1', JSON.stringify(await picker.locator('[data-picks="exclude"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["A006"]' && (await picker.locator('[data-rx-missing]').count()) === 0 && (await picker.locator('[data-filter-name-input]').inputValue()) === 'items1')
 
   // ── 36 ──
-  await picker.locator('[data-lookup="skus"]').fill('vitamin')
+  await picker.locator('[data-lookup="articles"]').fill('vitamin')
   await picker.locator('[data-lookup-hit="SER-VC"]').waitFor({ timeout: 5000 })
-  check('36: a product is found by its name on HQ', lookups.includes('materials vitamin') && (await picker.locator('[data-lookup-hits="skus"] [data-lookup-hit]').count()) === 1)
-  await picker.locator('[data-lookup="skus"]').fill('SER-')
+  check('36: a product is found by its name on HQ', lookups.includes('materials vitamin') && (await picker.locator('[data-lookup-hits="articles"] [data-lookup-hit]').count()) === 1)
+  await picker.locator('[data-lookup="articles"]').fill('SER-')
   // The hit of "vitamin" is SER-VC too: wait for the SKU search itself to reach HQ and be drawn.
   for (let i = 0; i < 50 && !lookups.includes('materials SER-'); i++) await page.waitForTimeout(100)
-  await page.locator('[data-lookup-hits="skus"] p').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
-  await page.waitForFunction(() => document.querySelector('[data-lookup-hits="skus"] [data-lookup-hit="SER-VC"]') && document.querySelectorAll('[data-lookup-hits="skus"] [data-lookup-hit]').length === 1, null, { timeout: 5000 })
+  await page.locator('[data-lookup-hits="articles"] p').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  await page.waitForFunction(() => document.querySelector('[data-lookup-hits="articles"] [data-lookup-hit="SER-VC"]') && document.querySelectorAll('[data-lookup-hits="articles"] [data-lookup-hit]').length === 1, null, { timeout: 5000 })
   check('36: …and by its SKU, the hit reads code · name', lookups.includes('materials SER-') && (await picker.locator('[data-lookup-hit="SER-VC"]').innerText()) === 'SER-VC · Vitamin C serum 30ml', await picker.locator('[data-lookup-hit="SER-VC"]').innerText())
   await picker.locator('[data-lookup-hit="SER-VC"]').click()
-  check('36: a hit is picked, and the search clears', JSON.stringify(await picker.locator('[data-picks="skus"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SER-VC"]' && (await picker.locator('[data-lookup="skus"]').inputValue()) === '')
+  check('36: a hit is picked, and the search clears', JSON.stringify(await picker.locator('[data-picks="articles"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SER-VC"]' && (await picker.locator('[data-lookup="articles"]').inputValue()) === '')
 
   // ── 37 ──
   await picker.locator('[data-filter-name-input]').fill('Sun')
@@ -1285,7 +1285,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await bar.locator('[data-redo]').click()
 
   // ── 39 ──
-  await editor.locator('[data-picks="excl"] [data-pick-remove="A006"]').click()
+  await editor.locator('[data-picks="exclude"] [data-pick-remove="A006"]').click()
   check('39: letting A006 in flags the filter red, in its editor and on its chain', (await editor.locator('[data-rx-missing]').count()) === 1 && (await serumRow.locator('[data-rx-flag]').count()) === 1)
   check('39: …and the discount on it', (await effect.getAttribute('data-block-rx')) === '' && (await effect.locator('[data-rx-flag]').count()) === 1)
   await page.screenshot({ path: `${SHOTS}/filter-rx.png`, fullPage: true })
@@ -1305,7 +1305,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await minCount.locator('[data-panel-field="of"]').selectOption({ label: 'Certain items…' })
   const cp = minCount.locator('[data-filter-editor="of-new"]')
   check('40: a condition’s items field opens the picker too, named after the free number', (await cp.locator('[data-filter-name-input]').inputValue()) === 'items1')
-  await cp.locator('[data-lookup="cats"]').fill('beauty')
+  await cp.locator('[data-lookup="categories"]').fill('beauty')
   await cp.locator('[data-lookup-hit="A002"]').click()
   await cp.locator('[data-filter-name-input]').fill('beauty')
   await cp.locator('[data-filter-save]').click()
@@ -1353,8 +1353,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const cond = page.locator('[data-condition]').first()
   await cond.locator('[data-block-edit]').click()
   await cond.locator('[data-panel-field="of"]').selectOption({ label: 'Certain items…' })
-  await cond.locator('[data-lookup="skus"]').fill('pouch')
-  const alert = cond.locator('[data-lookup-hits="skus"] [role="alert"]')
+  await cond.locator('[data-lookup="articles"]').fill('pouch')
+  const alert = cond.locator('[data-lookup-hits="articles"] [role="alert"]')
   await alert.waitFor({ timeout: 5000 })
   check('42: a refused lookup is the door’s own message, in the picker', (await alert.innerText()) === LOOKUP_REFUSED)
   await cond.locator('[data-filter-cancel]').click()
@@ -1392,7 +1392,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 44 ──
   check('44: each value’s box shows its expression as text', JSON.stringify(await boxes.evaluateAll((els) => els.map((e) => e.value))) === JSON.stringify(["sum(items('Eligible'), item.net)", 'round(eligible * 0.1, 0, halfUp)']))
-  check('44: HQ’s issue on a value’s path shows under that value', (await values.locator('[data-fx-error]').count()) >= 1 && (await values.innerText()).includes(ISSUE))
+  check('44: HQ’s issue on a value’s path shows under that value', (await values.locator('[data-fx-issue]').count()) >= 1 && (await values.innerText()).includes(ISSUE))
 
   // ── 45 ──
   await card.locator('[data-value-add]').click()
@@ -1407,7 +1407,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await names.nth(2).fill('cashback')
   const award = card.locator('[data-effect]').first()
   await award.locator('[data-block-edit]').click()
-  await award.locator('[data-panel-value-source="value"]').selectOption({ label: 'cashback' })
+  await award.locator('[data-panel-value-source="amount"]').selectOption({ label: 'cashback' })
   check('47: the award reads the new value by name in its sentence', (await award.locator('[data-block-sentence]').innerText()).startsWith('Award cashback in SAR of points'), await award.locator('[data-block-sentence]').innerText())
   await award.locator('[data-panel-done]').click()
   check('47: the value says it is read, and cannot be deleted', (await values.locator('[data-value-delete]').nth(2).isDisabled()))

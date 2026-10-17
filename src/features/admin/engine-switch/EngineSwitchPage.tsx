@@ -65,6 +65,10 @@ export default function EngineSwitchPage() {
       <header className="max-w-3xl">
         <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
+        {/* The prototype's banner, without its example permission name (2745 seeds the real one). */}
+        <p className="mt-2 rounded-md border border-border/60 bg-muted px-3 py-2 text-sm" data-engine-newpos="">
+          {t('newPos')}
+        </p>
       </header>
 
       <div className="flex flex-wrap items-end gap-3" data-engine-filter="">

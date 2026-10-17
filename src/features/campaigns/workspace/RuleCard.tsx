@@ -10,6 +10,7 @@ import type {
   RuleCondition,
   RuleEffect,
 } from '@/core/models/rule-campaign'
+import { RULE_BURN_POINTS, RULE_GROUP_TYPE, type RuleConditionGroup } from '@/core/models/rule-campaign'
 import { addFilter, effectLetsRxIn } from '@/core/rules/filters'
 import {
   blockSentence,
@@ -18,7 +19,6 @@ import {
   isConditionGroup,
   ruleSummary,
   whenSentence,
-  type RuleConditionGroup,
   type SaysLine,
   type SentenceContext,
 } from '@/core/rules/sentence'
@@ -97,7 +97,7 @@ export default function RuleCard({
   const pick = (block: RuleCatalogueBlock, groupId: string | null) => {
     const item = newBlock(block, rule, b.newId())
     edit((rules) => (block.kind === 'condition' ? addCondition(rules, rule.id, groupId, item as RuleCondition) : addEffect(rules, rule.id, item as RuleEffect)))
-    if (block.type !== 'group') b.setOpenId(item.id)
+    if (block.type !== RULE_GROUP_TYPE) b.setOpenId(item.id)
   }
 
   return (
@@ -195,7 +195,7 @@ export default function RuleCard({
                     <Block key={e.id} kind="effect" item={e} index={i} count={rule.then.length} rule={rule} ctx={ctx} b={b} />
                   ))}
                 </ul>
-                {rule.then.some((e) => e.type === 'burnPoints') && (
+                {rule.then.some((e) => e.type === RULE_BURN_POINTS) && (
                   <label className="flex flex-wrap items-center gap-2 text-sm" data-partial="">
                     <span className="text-muted-foreground">{t('builder.partial')}</span>
                     <select

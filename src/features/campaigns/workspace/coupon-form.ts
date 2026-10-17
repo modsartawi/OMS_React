@@ -63,7 +63,6 @@ export const cleanAffix = (value: string): string =>
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, MAX_AFFIX)
 
-
 const UNIVERSAL = /^[A-Z0-9][A-Z0-9-]{2,31}$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 

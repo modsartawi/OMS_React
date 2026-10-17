@@ -712,7 +712,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const spendText = await spend.innerText()
   check('100: a template shows both names and its one line', spendText.includes('Spend X, get Y% off a category') && spendText.includes('أنفق مبلغاً واحصل على خصم على فئة') && spendText.includes('A basket threshold and a percent off the categories picked.'), spendText)
   const asks = (await spend.locator('[data-template-asks]').innerText()).replace(/[⁦-⁩]/g, '')
-  check('100: …and what it asks for', asks === 'Asks for: Minimum basket (SAR), Percent off, Category', asks)
+  check('100: …and what it asks for', asks === 'Asks for: Minimum basket (SAR), Percent off, and Category', asks)
   const tier = dialog.locator('[data-template="T-TIER-PTS"]')
   check('100: a draft template is marked and cannot be picked', (await tier.locator('[data-template-draft]').count()) === 1 && (await tier.isDisabled()))
 
@@ -2472,6 +2472,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   )
   check('93: …and its receipt label as it was then', (await rules2.locator('[data-says="receiptLabel"] [data-says-en]').innerText()) === 'Gift pouch')
   check('93: nothing in it edits', (await rules2.locator('input, select, textarea, [data-block-edit], [data-palette-open]').count()) === 0)
+  check('93: a filter that lets Prescription in carries the red flag, as in the builder (512 review)',
+    (await rules2.locator('[data-filter][data-filter-rx] [data-rx-flag]').count()) === (await rules2.locator('[data-filter][data-filter-rx]').count()) &&
+      (await rules2.locator('[data-filter][data-filter-rx]').count()) > 0,
+    String(await rules2.locator('[data-rx-flag]').count()))
   await item(1).locator('[data-version-view]').click()
   await page.locator('[data-version-rules="1"] [data-version-rule]').waitFor({ timeout: 5000 })
   check('93: version 1 had no cashier prompt', (await page.locator('[data-version-rules="1"] [data-says="cashierPrompt"]').count()) === 0)

@@ -147,7 +147,11 @@ export default function SessionsPage() {
           </Button>
         </form>
       </div>
-      {stores.isError && <p className="text-xs text-danger-800">{apiErrorMessage(stores.error, t('filter.storesFailed'))}</p>}
+      {stores.isError && (
+        <p className="text-xs text-danger-800">
+          <bdi>{apiErrorMessage(stores.error, t('filter.storesFailed'))}</bdi>
+        </p>
+      )}
 
       {!query.store ? (
         <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-sessions-needs-store="">

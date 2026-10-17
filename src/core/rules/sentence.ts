@@ -9,8 +9,12 @@ import type {
   RuleEffect,
   RuleItemFilter,
   RuleSaysRole,
+  RuleConditionGroup,
+  RuleItemPart,
+  RuleTiming,
   Says,
 } from '@/core/models/rule-campaign'
+import { RULE_FILTER_SCOPES, RULE_GROUP_TYPE, RULE_PERCENT_UNIT, RULE_POINTS_UNIT } from '@/core/models/rule-campaign'
 import { formatMoneyIn, formatMoneyOfUnknownCurrency } from '@/core/money'
 import { formatDay } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
@@ -99,8 +103,9 @@ export function campaignCurrency(audience: Pick<RuleCampaign['audience'], 'count
   return currencies.size === 1 ? [...currencies][0] : null
 }
 
-/** A percent as one string, `15%`. */
-export const percentText = (n: number): string => `${formatNumber(n)}%`
+/** A percent as one string, `15%` — where the sign sits is the locale's (`sentence.unit.percent`). */
+export const percentText = (n: number, t: (key: string, options: Record<string, unknown>) => string): string =>
+  t('sentence.unit.percent', { n: formatNumber(n) })
 
 /** A money value as one string — the code and the figure, isolated once by the renderer. */
 export function moneyText(v: { amount: number; currency: string | null }): string {
@@ -128,7 +133,7 @@ function isAbsent(field: RuleCatalogueField, raw: unknown): boolean {
   if (raw === undefined || raw === null || raw === '' || raw === 0 || raw === false) return true
   if (Array.isArray(raw) && raw.length === 0) return true
   if (field.kind === 'timing') {
-    const mode = (raw as { mode?: unknown }).mode
+    const mode = (raw as Partial<RuleTiming>).mode
     return !mode || mode === 'none'
   }
   return field.default !== undefined && raw === field.default
@@ -152,7 +157,7 @@ function fieldValue(
     case 'items':
       return itemsValue(raw, ctx.rule.filters)
     case 'itemParts': {
-      const parts = Array.isArray(raw) ? (raw as { of?: unknown; count?: unknown }[]) : []
+      const parts = Array.isArray(raw) ? (raw as Partial<RuleItemPart>[]) : []
       if (!parts.length) return phrase('sentence.nothingPicked')
       return {
         kind: 'list',
@@ -172,14 +177,14 @@ function fieldValue(
       if (typeof raw === 'string' && raw) return namedValue(raw, ctx.rule)
       if (!isNumber(raw)) return notPicked
       const unit = field.unitFrom ? item[field.unitFrom] : undefined
-      if (unit === 'percent') return { kind: 'percent', n: raw }
+      if (unit === RULE_PERCENT_UNIT) return { kind: 'percent', n: raw }
       return { kind: 'money', amount: raw, currency: isCurrencyCode(unit) ? unit : currency }
     }
     case 'points': {
       const unit = field.unitFrom ? item[field.unitFrom] : undefined
       const named = typeof raw === 'string' && raw ? namedValue(raw, ctx.rule) : null
       if (!named && !isNumber(raw)) return notPicked
-      if (unit === 'PTS')
+      if (unit === RULE_POINTS_UNIT)
         return named ? phrase('sentence.unit.pointsNamed', { name: named }) : phrase('sentence.unit.points', { n: { kind: 'number', n: raw as number } }, raw as number)
       const worthIn = isCurrencyCode(unit) ? unit : currency
       if (named && !worthIn) return phrase('sentence.unit.pointsWorthNamedUnknown', { name: named })
@@ -204,7 +209,7 @@ function fieldValue(
     case 'formula':
       return typeof raw === 'string' && raw.trim() ? { kind: 'formula', formula: raw } : notPicked
     case 'timing': {
-      const t = (raw ?? {}) as { mode?: unknown; value?: unknown }
+      const t = (raw ?? {}) as Partial<RuleTiming>
       if (t.mode === 'on' && typeof t.value === 'string') return phrase('sentence.timing.on', { day: { kind: 'day', day: t.value } })
       if ((t.mode === 'afterDays' || t.mode === 'afterHours') && isNumber(t.value))
         return phrase(`sentence.timing.${t.mode}`, { n: { kind: 'number', n: t.value } }, t.value)
@@ -297,7 +302,8 @@ export function filterChain(f: RuleItemFilter): FilterChain {
     join,
     items: list.map((code) => (code === RX_CATEGORY ? phrase('sentence.filter.rx', { code: { kind: 'code', code } }) : { kind: 'code', code })),
   })
-  const scope = f.scope === 'fees' || f.scope === 'itemsAndFees' ? f.scope : 'items'
+  // A scope this client does not know reads as merchandise.
+  const scope = RULE_FILTER_SCOPES.includes(f.scope) ? f.scope : 'items'
   const links: Sentence[] = [S(`sentence.filter.scope.${scope}`)]
   if (f.cats.length) links.push(S('sentence.filter.categories', { cats: codes(f.cats) }))
   if (f.colls.length) links.push(S('sentence.filter.collections', { colls: codes(f.colls) }))
@@ -312,10 +318,8 @@ export function valueSentence(v: { name: string; formula: string }): Sentence {
 }
 
 /** A nested group of conditions (the catalogue's `group` block): its own all / any, its own items. */
-export type RuleConditionGroup = RuleCondition & { mode: unknown; items: RuleCondition[] }
-
 export function isConditionGroup(c: RuleCondition): c is RuleConditionGroup {
-  return c.type === 'group' && Array.isArray(c.items)
+  return c.type === RULE_GROUP_TYPE && Array.isArray(c.items)
 }
 
 /** Every leaf condition under a group, nested groups opened. */
@@ -353,7 +357,7 @@ export function plainValue(v: SentenceValue, t: (key: string, options: Record<st
     case 'number':
       return formatNumber(v.n)
     case 'percent':
-      return percentText(v.n)
+      return percentText(v.n, t)
     case 'code':
       return v.code
     case 'formula':

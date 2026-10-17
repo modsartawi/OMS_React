@@ -7,7 +7,10 @@ import type {
   RuleCatalogueField,
   RuleCondition,
   RuleEffect,
+  RuleItemPart,
+  RuleTiming,
 } from '@/core/models/rule-campaign'
+import { RULE_GROUP_TYPE } from '@/core/models/rule-campaign'
 
 // The builder's palette (ticket 505): which blocks "+ Condition" / "+ Effect" offers, grouped by the
 // catalogue's palette groups, and the new block a pick adds. Pure.
@@ -47,7 +50,7 @@ function emptyValue(field: RuleCatalogueField, rule: Pick<CampaignRule, 'filters
       // An effect usually works on the rule's own filter; a condition starts on all merchandise.
       return kind === 'effect' ? (rule.filters[0]?.id ?? '') : ''
     case 'itemParts':
-      return [{ of: rule.filters[0]?.id ?? '', count: 1 }]
+      return [newPart(rule)]
     case 'choice':
       return field.options?.[0] ?? ''
     case 'choices':
@@ -56,7 +59,7 @@ function emptyValue(field: RuleCatalogueField, rule: Pick<CampaignRule, 'filters
     case 'says':
       return { en: '', ar: '' }
     case 'timing':
-      return { mode: 'none', value: null }
+      return { mode: 'none', value: null } satisfies RuleTiming
     case 'flag':
       return false
     case 'code':
@@ -88,7 +91,10 @@ export const newRule = (id: string): CampaignRule => ({
 export function newBlock(block: RuleCatalogueBlock, rule: Pick<CampaignRule, 'filters'>, id: string): RuleCondition | RuleEffect {
   const fields: Record<string, unknown> = {}
   for (const f of block.fields) fields[f.key] = emptyValue(f, rule, block.kind)
-  if (block.type === 'group') fields.items = []
+  if (block.type === RULE_GROUP_TYPE) fields.items = []
   if (block.kind === 'condition') return { says: { en: '', ar: '' }, ...fields, id, type: block.type } as RuleCondition
   return { ...fields, id, type: block.type }
 }
+
+/** A bundle's new part: one unit of the rule's first filter (the palette's start, and "Add a part"). */
+export const newPart = (rule: Pick<CampaignRule, 'filters'>): RuleItemPart => ({ of: rule.filters[0]?.id ?? '', count: 1 })

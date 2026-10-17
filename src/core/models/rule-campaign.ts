@@ -21,7 +21,8 @@ export interface Says {
  * (sent back → draft) | live → disabled. Scheduled / running / expired are NOT stored: they are a
  * live campaign read against its schedule at a local now (`@/core/rules/campaign-state`).
  */
-export type RuleCampaignStatus = 'draft' | 'waitingForApproval' | 'live' | 'disabled'
+export const RULE_CAMPAIGN_STATUSES = ['draft', 'waitingForApproval', 'live', 'disabled'] as const
+export type RuleCampaignStatus = (typeof RULE_CAMPAIGN_STATUSES)[number]
 
 /**
  * When a campaign applies, in local days. `until` is EXCLUSIVE (the prototype's schedule page:
@@ -71,6 +72,9 @@ export interface RuleCampaignBudget {
  * (`skus`), then the never-discount categories (`exclCats`, Prescription A006 by default — 506).
  * `scope` is `items` (merchandise), `fees` (fee lines) or `itemsAndFees`.
  */
+export const RULE_FILTER_SCOPES = ['items', 'fees', 'itemsAndFees'] as const
+export type RuleFilterScope = (typeof RULE_FILTER_SCOPES)[number]
+
 export interface RuleItemFilter {
   id: string
   name: string
@@ -78,7 +82,7 @@ export interface RuleItemFilter {
   colls: string[]
   skus: string[]
   exclCats: string[]
-  scope: string
+  scope: RuleFilterScope
 }
 
 /** A named value: an expression HQ parses and validates. The client never parses it (ADR 0089). */
@@ -111,6 +115,34 @@ export interface RuleEffect {
   type: string
   [field: string]: unknown
 }
+
+// The guessed vocabulary INSIDE a block's open fields — named here, in the PROVISIONAL file, so a
+// re-point (520) edits one place and the compiler finds every reader (spec 2737 standards reviews).
+
+/** The catalogue's `group` block: a nested all / any of conditions. */
+export const RULE_GROUP_TYPE = 'group'
+export type RuleConditionGroup = RuleCondition & { mode: unknown; items: RuleCondition[] }
+
+/** One part of a bundle (an `itemParts` field): N units of a filter, by id. */
+export interface RuleItemPart {
+  of: string
+  count: number | null
+}
+
+/** A `timing` field: none, N days or hours after, or `on` a local `yyyy-MM-dd` day. */
+export const RULE_TIMING_MODES = ['none', 'afterDays', 'afterHours', 'on'] as const
+export type RuleTimingMode = (typeof RULE_TIMING_MODES)[number]
+export interface RuleTiming {
+  mode: RuleTimingMode
+  value: number | string | null
+}
+
+/** A discount's `unitFrom` word for a percent (anything else is an amount, in a currency). */
+export const RULE_PERCENT_UNIT = 'percent'
+/** A points field's `unitFrom` word for plain points (anything else is a currency's worth). */
+export const RULE_POINTS_UNIT = 'PTS'
+/** The effect that takes points as a tender: a rule with one says what a short member gets (`partial`). */
+export const RULE_BURN_POINTS = 'burnPoints'
 
 export interface CampaignRule {
   id: string
@@ -818,9 +850,13 @@ export interface RuleSessionRow {
 }
 
 /** One call the channel made (attach, subtotal, on demand, pay, close, returns, cancel, late close). */
+/** The moments a till calls the engine at (2760). */
+export const RULE_SESSION_MOMENTS = ['attach', 'subtotal', 'onDemand', 'pay', 'close', 'returns', 'cancel', 'lateClose'] as const
+export type RuleSessionMoment = (typeof RULE_SESSION_MOMENTS)[number]
+
 export interface RuleSessionCall {
   at: string
-  /** The call's moment, HQ's word for it. */
+  /** The call's moment, HQ's word for it — one of `RULE_SESSION_MOMENTS`, or a word this client lacks. */
   moment: string
   requestId: string
   cartVersion: number

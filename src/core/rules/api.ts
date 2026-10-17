@@ -96,8 +96,7 @@ const ORDER = 'RuleCampaign/Order'
 const TEMPLATES = 'RuleCampaign/Templates'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const SIMULATE = 'RuleCampaign/Simulate'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-// (the coupon doors' own contract is BackOffice 2755)
+// PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
 const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 // (the support doors' own contract is BackOffice 2760)
@@ -359,7 +358,7 @@ export const ruleCampaignApi = {
   /** GET RuleCampaign/Campaigns/{id}/Coupons — every code of a coupon campaign with its status,
    *  uses, member, batch and validity (ticket 515, BackOffice 2755); the page searches and filters
    *  them itself. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
   coupons(id: string): Promise<RuleCampaignCoupon[]> {
     return api.get<RuleCampaignCoupon[]>(COUPONS(id))
   },
@@ -367,7 +366,7 @@ export const ruleCampaignApi = {
   /** POST RuleCampaign/Campaigns/{id}/Coupons/Batches — one batch of random, universal or personal
    *  codes (ticket 515, BackOffice 2755); HQ mints the codes and answers the batch id and the count.
    *  A code already taken, or a campaign without the coupons feature, is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
   createCoupons(id: string, body: RuleCouponBatchCreate): Promise<RuleCouponBatch> {
     return api.post<RuleCouponBatch>(`${COUPONS(id)}/Batches`, body)
   },
@@ -375,7 +374,7 @@ export const ruleCampaignApi = {
   /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports/Check — HQ's check of a CSV import's rows
    *  before it is sent: the codes SIS.Coupons already holds and the member ids it does not know
    *  (ticket 516, BackOffice 2755). Nothing is imported. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
   checkCouponImport(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponImportCheck> {
     return api.post<RuleCouponImportCheck>(`${COUPONS(id)}/Imports/Check`, { rows })
   },
@@ -383,14 +382,14 @@ export const ruleCampaignApi = {
   /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports — the checked rows as one new batch of
    *  `imported` codes (ticket 516, BackOffice 2755); HQ answers the batch id and the count. A row
    *  taken since the check is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
   importCoupons(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponBatch> {
     return api.post<RuleCouponBatch>(`${COUPONS(id)}/Imports`, { rows })
   },
 
   /** DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{batch}/Unused — removes the batch's unused
    *  codes; a used, disabled or expired code stays for the history (ticket 516, BackOffice 2755). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
   deleteUnusedCoupons(id: string, batch: string): Promise<RuleCouponUnusedDeleted> {
     return api.del<RuleCouponUnusedDeleted>(`${COUPONS(id)}/Batches/${encodeURIComponent(batch)}/Unused`)
   },

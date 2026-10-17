@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Equal } from 'lucide-react'
-import type { CampaignRule, RuleBlockKind, RuleCondition, RuleEffect } from '@/core/models/rule-campaign'
+import type { CampaignRule, RuleBlockKind, RuleCondition, RuleEffect, RuleItemFilter } from '@/core/models/rule-campaign'
+import { RULE_BURN_POINTS } from '@/core/models/rule-campaign'
+import { effectLetsRxIn, filterLetsRxIn } from '@/core/rules/filters'
 import {
   blockSentence,
+  catalogueBlock,
   filterChain,
   groupSentence,
   isConditionGroup,
@@ -15,6 +18,7 @@ import {
 } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import { Pill, Says, Section } from './RuleCard'
+import { RxFlag } from './RuleFilters'
 import SentenceView from './SentenceView'
 
 /**
@@ -90,7 +94,7 @@ export default function VersionRuleCard({
                 {rule.filters.map((f) => {
                   const chain = filterChain(f)
                   return (
-                    <li key={f.id} className="flex flex-wrap items-center gap-1.5 text-sm" data-filter={f.id}>
+                    <li key={f.id} className="flex flex-wrap items-center gap-1.5 text-sm" data-filter={f.id} data-filter-rx={filterLetsRxIn(f) ? '' : undefined}>
                       <span className="font-mono font-semibold" data-filter-name="">
                         <bdi>{chain.name}</bdi>
                       </span>
@@ -100,6 +104,7 @@ export default function VersionRuleCard({
                           <SentenceView s={link} />
                         </span>
                       ))}
+                      {filterLetsRxIn(f) && <RxFlag label={t('filters.rxFlag')} />}
                     </li>
                   )
                 })}
@@ -125,7 +130,7 @@ export default function VersionRuleCard({
             <p className="text-sm font-medium" data-when={sum.conditions ? rule.when.mode : 'always'}>
               <SentenceView s={whenSentence(rule)} />
             </p>
-            {sum.conditions ? <Conditions items={rule.when.items} ctx={ctx} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
+            {sum.conditions ? <Conditions items={rule.when.items} ctx={ctx} filters={rule.filters} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
           </Section>
 
           <Section title={t('rules.effects')} data="then">
@@ -134,10 +139,10 @@ export default function VersionRuleCard({
                 <p className="text-sm font-medium">{t('rules.effectsHead')}</p>
                 <ul className="flex flex-col gap-1.5">
                   {rule.then.map((e) => (
-                    <Block key={e.id} kind="effect" item={e} ctx={ctx} />
+                    <Block key={e.id} kind="effect" item={e} ctx={ctx} filters={rule.filters} />
                   ))}
                 </ul>
-                {rule.then.some((e) => e.type === 'burnPoints') && (
+                {rule.then.some((e) => e.type === RULE_BURN_POINTS) && (
                   <p className="text-sm text-muted-foreground" data-partial="">
                     {t('versions.partial', { then: t(rule.partial === 'scale' ? 'builder.partialOption.scale' : 'builder.partialOption.refuse') })}
                   </p>
@@ -154,7 +159,7 @@ export default function VersionRuleCard({
 }
 
 /** A rule's conditions; a nested group opens with its own all / any line. */
-function Conditions({ items, ctx }: { items: RuleCondition[]; ctx: SentenceContext }) {
+function Conditions({ items, ctx, filters }: { items: RuleCondition[]; ctx: SentenceContext; filters: readonly RuleItemFilter[] }) {
   return (
     <ul className="flex flex-col gap-1.5">
       {items.map((c) =>
@@ -165,25 +170,42 @@ function Conditions({ items, ctx }: { items: RuleCondition[]; ctx: SentenceConte
               <p className="text-sm font-medium">
                 <SentenceView s={groupSentence(c.mode)} />
               </p>
-              <Conditions items={c.items} ctx={ctx} />
+              <Conditions items={c.items} ctx={ctx} filters={filters} />
             </li>
           )
         ) : (
-          <Block key={c.id} kind="condition" item={c} ctx={ctx} />
+          <Block key={c.id} kind="condition" item={c} ctx={ctx} filters={filters} />
         ),
       )}
     </ul>
   )
 }
 
-/** One condition or effect: its sentence and clauses, then its EN + AR lines. */
-function Block({ kind, item, ctx }: { kind: RuleBlockKind; item: RuleCondition | RuleEffect; ctx: SentenceContext }) {
+/**
+ * One condition or effect: its sentence and clauses, then its EN + AR lines. A discount that reaches
+ * Prescription lines carries the builder's red flag here too (512 review): a version is read to decide
+ * whether to restore it.
+ */
+function Block({
+  kind,
+  item,
+  ctx,
+  filters,
+}: {
+  kind: RuleBlockKind
+  item: RuleCondition | RuleEffect
+  ctx: SentenceContext
+  filters: readonly RuleItemFilter[]
+}) {
+  const { t } = useTranslation('campaign-workspace')
   const read = blockSentence(kind, item, ctx)
+  const rx = kind === 'effect' && effectLetsRxIn(item, catalogueBlock(ctx.catalogue, kind, item.type), filters)
   return (
     <li
-      className={'rounded-md border px-3 py-2 ' + (read.known ? 'border-border/60' : 'border-attention-border bg-attention-050')}
+      className={'rounded-md border px-3 py-2 ' + (!read.known ? 'border-attention-border bg-attention-050' : rx ? 'border-danger-border' : 'border-border/60')}
       {...{ [`data-${kind}`]: item.id }}
       data-sentence={read.sentence.key}
+      data-block-rx={rx ? '' : undefined}
     >
       <p className="text-sm leading-relaxed" data-block-sentence="">
         <SentenceView s={read.sentence} />
@@ -191,6 +213,11 @@ function Block({ kind, item, ctx }: { kind: RuleBlockKind; item: RuleCondition |
           <SentenceView key={c.key} s={c} />
         ))}
       </p>
+      {rx && (
+        <p className="mt-1">
+          <RxFlag label={t('filters.rxEffect')} />
+        </p>
+      )}
       {read.says.map((line) => (
         <Says key={line.field} line={line} />
       ))}

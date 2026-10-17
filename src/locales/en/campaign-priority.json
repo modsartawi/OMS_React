@@ -44,6 +44,7 @@
   "row": {
     "moveTo": "Move to",
     "base": "Base (stackable)",
+    "points": "points",
     "unknown": "Not in the campaigns list"
   },
   "move": {

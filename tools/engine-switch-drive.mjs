@@ -166,6 +166,7 @@ const flipCalls = (calls) => calls.filter((c) => c.startsWith('POST StorePromoti
   await page.locator('[data-engine-switch]').waitFor({ timeout: 15000 })
   check('1: it opens /admin/engine-switch and lights itself', (await leaf.getAttribute('aria-current')) === 'page')
   check('1: ungated — no probe call for the leaf', !calls.some((c) => /StorePromotionEngine\/Access|EngineSwitch\/Access/.test(c)))
+  check('1: the NewPos facts sit under the lede (517 review)', /Only effective on NewPos stores\. A NewPos rollback resets the store to bonus buys\./.test(await text(page.locator('[data-engine-newpos]'))))
 
   // ── 2 ──
   await waitRows(page, ALL)

@@ -109,12 +109,13 @@ function Effect({ effect: e, currency }: { effect: RuleSimEffect; currency: stri
  */
 function EffectText({ effect: e, currency }: { effect: RuleSimEffect; currency: string }) {
   const { t } = useTranslation('rule-simulator')
-  const money = (n: number | null) => (n === null ? '—' : moneyText({ amount: n, currency }))
+  const none = t('effect.noFigure')
+  const money = (n: number | null) => (n === null ? none : moneyText({ amount: n, currency }))
   const values: Record<string, string | number> =
     e.kind === 'freeUnit'
       ? { count: e.quantity ?? 1, n: formatNumber(e.quantity ?? 1), amount: money(e.amount) }
       : e.kind === 'points'
-        ? { points: e.points === null ? '—' : formatNumber(e.points) }
+        ? { points: e.points === null ? none : formatNumber(e.points) }
         : e.kind === 'createCoupon'
           ? { coupon: e.coupon ?? e.code }
           : { amount: money(e.amount) }

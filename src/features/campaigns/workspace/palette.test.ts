@@ -56,7 +56,7 @@ describe('palette', () => {
   })
 
   it('a pick adds a block with every catalogue field, empty, and the new id', () => {
-    const rule = { filters: [{ id: 'f-sun', name: 'sun', cats: [], colls: [], skus: [], exclCats: [], scope: 'items' }] }
+    const rule = { filters: [{ id: 'f-sun', name: 'sun', cats: [], colls: [], skus: [], exclCats: [], scope: 'items' as const }] }
     expect(newBlock(block('minSubtotal'), rule, 'c-new')).toEqual({ id: 'c-new', type: 'minSubtotal', of: '', amount: null, basis: 'total', says: { en: '', ar: '' } })
     expect(newBlock(block('discountItems'), rule, 'e-new')).toEqual({
       id: 'e-new',

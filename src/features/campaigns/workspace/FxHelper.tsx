@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import type { CampaignRule, RuleFormulaExpect, RuleFormulaGuide, RuleFormulaType } from '@/core/models/rule-campaign'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import { fsi } from '@/core/util/bidi'
+import { fsi, stripIsolates } from '@/core/util/bidi'
 import { INPUT, useHas } from './builder-ui'
 import { fxFields, operatorChip, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, TEXT_CHIP, type Chip, type FxField } from './fx'
 
@@ -113,7 +113,8 @@ function FieldsTab({ guide, rule, valueId, onInsert }: { guide: RuleFormulaGuide
   const q = find.trim().toLowerCase()
   const label = (f: FxField) => (f.kind === 'field' ? (has(`fx.field.${f.insert}.label`) ? t(`fx.field.${f.insert}.label`) : f.insert) : t(`fx.kind.${f.kind}`, { name: fsi(f.insert) }))
   const desc = (f: FxField) => (f.kind === 'field' ? (has(`fx.field.${f.insert}.desc`) ? t(`fx.field.${f.insert}.desc`) : '') : t(`fx.kindHint.${f.kind}`))
-  const items = fxFields(guide, rule, valueId).filter((f) => !q || `${label(f)} ${f.insert} ${desc(f)}`.toLowerCase().includes(q))
+  // The label's isolates would split a search across the name ("filter eligible" in "Item filter ⁨eligible⁩").
+  const items = fxFields(guide, rule, valueId).filter((f) => !q || stripIsolates(`${label(f)} ${f.insert} ${desc(f)}`).toLowerCase().includes(q))
   const groups = [...new Set(items.map((f) => f.group))]
   return (
     <div className="flex flex-col gap-1.5">
@@ -139,7 +140,8 @@ function FieldsTab({ guide, rule, valueId, onInsert }: { guide: RuleFormulaGuide
                       <TypeBadge type={f.type} />
                       <span className="flex min-w-0 flex-col">
                         <span className="text-sm">
-                          {f.kind !== 'field' ? <bdi>{label(f)}</bdi> : has(`fx.field.${f.insert}.label`) ? label(f) : <Ltr>{label(f)}</Ltr>}{' '}
+                          {/* A field this bundle has no words for shows its path once, as the code below. */}
+                          {f.kind !== 'field' ? <bdi>{label(f)}</bdi> : has(`fx.field.${f.insert}.label`) ? label(f) : null}{' '}
                           <code className="text-xs text-muted-foreground">
                             <Ltr>{f.insert}</Ltr>
                           </code>

@@ -44,7 +44,10 @@ export default function RulesPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const rules = history.present
   const checks = useQuery(ruleCampaignChecksQuery(c.id))
-  const located = useMemo(() => (checks.data ? locateChecks(rules, checks.data) : []), [rules, checks.data])
+  // A refused re-ask keeps TanStack's older `data`; the pill then says the checks are unavailable,
+  // so the marks go too — never an older answer at the fields (508 review).
+  const fresh = checks.isError ? undefined : checks.data
+  const located = useMemo(() => (fresh ? locateChecks(rules, fresh) : []), [rules, fresh])
   const checksIndex = useMemo(() => indexChecks(located), [located])
   /** The control a click in the pill asked for; focused once the rule and the panel have opened. */
   const [focusAsk, setFocusAsk] = useState<{ ids: string[]; within: string | null } | null>(null)

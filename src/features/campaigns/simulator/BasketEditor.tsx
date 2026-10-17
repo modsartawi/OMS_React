@@ -169,7 +169,9 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string) => void })
           {hits.isPending ? (
             <span className="text-xs text-muted-foreground">{t('basket.searching')}</span>
           ) : hits.isError ? (
-            <span className="text-xs text-danger-800">{apiErrorMessage(hits.error, t('basket.noHits'))}</span>
+            <span className="text-xs text-danger-800">
+              <bdi>{apiErrorMessage(hits.error, t('basket.noHits'))}</bdi>
+            </span>
           ) : found.length === 0 ? (
             <span className="text-xs text-muted-foreground">{t('basket.noHits')}</span>
           ) : (

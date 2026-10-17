@@ -9,7 +9,7 @@ import { Loader2, Search } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorMessage } from '@/core/api'
 import type { RuleCouponFound, RuleCouponUse } from '@/core/models/rule-campaign'
 import { ruleCouponFindQuery } from '@/core/rules/api'
 import { campaignCouponsPath, ruleCustomerPath, ruleSessionPath } from '@/core/rules/campaign-state'
@@ -86,6 +86,16 @@ export default function CouponFinderPage() {
           <Loader2 className="size-3.5 animate-spin" aria-hidden />
           {t('result.loading')}
         </p>
+      ) : found.error instanceof ApiError && found.error.statusCode === 404 ? (
+        // HQ refuses an unknown code with a 404 (519): support reads "no such code", not "it broke".
+        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-finder-none="">
+          <p>
+            <Trans t={t} i18nKey="result.none" values={{ code }} components={{ code: <Ltr /> }} />
+          </p>
+          <p className="mt-1 text-xs">
+            <bdi>{found.error.message}</bdi>
+          </p>
+        </div>
       ) : found.isError ? (
         <div data-finder-refusal="">
           <ErrorBanner className="p-2.5" title={t('result.failedTitle')} message={apiErrorMessage(found.error, t('result.failed'))} />

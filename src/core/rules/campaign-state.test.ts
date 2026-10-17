@@ -18,6 +18,13 @@ const window = (from: string | null, until: string | null): RuleCampaignSchedule
 /** A local wall-clock moment — the parts are local, as the reader's clock is. */
 const at = (y: number, m: number, d: number, h = 12, min = 0) => new Date(y, m - 1, d, h, min)
 
+// The pin above only bites in a worker that honours a runtime TZ (vitest's `forks` pool does, a
+// `threads` worker does not). Prove it took, so a pool change fails here instead of letting the
+// cross-midnight cases pass vacuously (501 review).
+it('runs east of UTC, so a local early morning is still the previous UTC day', () => {
+  expect(at(2026, 10, 16, 1, 30).getUTCDate()).toBe(15)
+})
+
 const OCT16 = at(2026, 10, 16, 18, 30)
 
 const of = (status: RuleCampaignStatus, schedule = window('2026-10-01', '2026-12-31')) => ({ status, schedule })

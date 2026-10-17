@@ -1,4 +1,5 @@
 import type { CampaignRule, RuleCampaignChecks, RuleCheckMessage, RuleCheckSeverity, RuleCondition } from '@/core/models/rule-campaign'
+import { RULE_GROUP_TYPE } from '@/core/models/rule-campaign'
 import { isConditionGroup } from '@/core/rules/sentence'
 
 // HQ's checks of a draft, read where they point (ticket 508). Pure. HQ points each message at
@@ -147,7 +148,7 @@ export function focusTarget(place: CheckPlace): { ruleId: string; open: string |
       return { ruleId, open: null, ids: [field === 'name' ? `value-name-${blockId}` : `value-formula-${blockId}`], within: null }
     default:
       // A group has no panel: its own all / any is the first control in it.
-      if (place.type === 'group') return { ruleId, open: null, ids: [], within: `[data-condition-group="${blockId}"]` }
+      if (place.type === RULE_GROUP_TYPE) return { ruleId, open: null, ids: [], within: `[data-condition-group="${blockId}"]` }
       // An EN + AR field's English input carries `-en`.
       return { ruleId, open: blockId, ids: field ? [`panel-${blockId}-${field}`, `panel-${blockId}-${field}-en`] : [], within: `[data-block-panel="${blockId}"]` }
   }

@@ -1,4 +1,4 @@
-import type { RuleCampaignSchedule, RuleCampaignStatus } from '@/core/models/rule-campaign'
+import { RULE_CAMPAIGN_STATUSES, type RuleCampaignSchedule, type RuleCampaignStatus } from '@/core/models/rule-campaign'
 import type { Severity } from '@/core/ui/severity'
 import { toIsoDate } from '@/core/util/date-format'
 
@@ -63,7 +63,7 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((utc(b) - utc(a)) / 86_400_000)
 }
 
-const STORED: readonly RuleCampaignStatus[] = ['draft', 'waitingForApproval', 'live', 'disabled']
+const STORED: readonly string[] = RULE_CAMPAIGN_STATUSES
 
 /**
  * The state a campaign counts under at a local `now`. `until` is exclusive.

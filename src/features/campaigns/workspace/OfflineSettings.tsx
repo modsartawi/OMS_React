@@ -96,8 +96,9 @@ export default function OfflineSettings() {
             {t('settings.offline.unsafeSentence')}
           </p>
           <ul className="list-disc ps-5 text-sm" data-offline-reasons="">
-            {v.reasons.map((r) => (
-              <li key={r.code} data-offline-reason={r.code}>
+            {/* By place too: HQ may answer one code for two reasons (509 review). */}
+            {v.reasons.map((r, i) => (
+              <li key={`${i}-${r.code}`} data-offline-reason={r.code}>
                 <bdi>{r.message}</bdi>
               </li>
             ))}

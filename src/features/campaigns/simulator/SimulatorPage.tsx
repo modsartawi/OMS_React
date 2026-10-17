@@ -133,7 +133,7 @@ export default function SimulatorPage() {
                 )}
                 {chosen.isError && (
                   <span className="text-danger-800" data-sim-draft-error="">
-                    {apiErrorMessage(chosen.error, t('sale.draftUnread'))}
+                    <bdi>{apiErrorMessage(chosen.error, t('sale.draftUnread'))}</bdi>
                   </span>
                 )}
                 <span className="text-muted-foreground">{t('sale.draftHint')}</span>
@@ -226,7 +226,7 @@ function LookupSelect({
       </select>
       {query.isError && (
         <span className="text-[11px] text-danger-800">
-          {apiErrorMessage(query.error, t(`sale.${kind}Failed`))}
+          <bdi>{apiErrorMessage(query.error, t(`sale.${kind}Failed`))}</bdi>
         </span>
       )}
     </>

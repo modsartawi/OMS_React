@@ -12,6 +12,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { notify } from '@/core/services/notify'
 import { formatPair, formatRange, fsi } from '@/core/util/bidi'
+import { listText } from '@/core/util/list-format'
 import { fillTemplate, templateFormFor, templateProblems, templateValues, type TemplateForm, type TemplateProblemCode } from './template-form'
 
 /** The create-from-template call's key: the dialog's footer reads whether it is under way. */
@@ -28,7 +29,7 @@ export const TEMPLATE_CREATE_KEY = ['rule-template-create'] as const
  * at its field once Create has been tried; a refusal from the door is shown here, verbatim.
  */
 export default function FromTemplate({ formId, onCreated }: { formId: string; onCreated: () => void }) {
-  const { t } = useTranslation('campaign-list')
+  const { t, i18n } = useTranslation('campaign-list')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const templates = useQuery(ruleTemplatesQuery())
@@ -137,7 +138,7 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
                   <bdi>{x.description}</bdi>
                 </span>
                 <span className="text-xs text-muted-foreground" data-template-asks="">
-                  {t('template.asks', { labels: x.placeholders.map((p) => fsi(p.label)).join(', ') })}
+                  {t('template.asks', { labels: listText(x.placeholders.map((p) => fsi(p.label)), i18n.language) })}
                 </span>
               </button>
             </li>
@@ -176,7 +177,7 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
       )}
 
       {unset.length > 0 && (
-        <ErrorBanner className="p-2.5" title={t('template.brokenTitle')} message={t('template.broken', { keys: unset.map((k) => fsi(k)).join(', ') })} />
+        <ErrorBanner className="p-2.5" title={t('template.brokenTitle')} message={t('template.broken', { keys: listText(unset.map((k) => fsi(k)), i18n.language) })} />
       )}
       {create.isError && <ErrorBanner className="p-2.5" title={t('create.failedTitle')} message={apiErrorMessage(create.error, t('create.failed'))} />}
     </form>

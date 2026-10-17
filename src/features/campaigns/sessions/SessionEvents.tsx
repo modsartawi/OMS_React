@@ -6,7 +6,7 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import type { RuleSession } from '@/core/models/rule-campaign'
+import { RULE_SESSION_MOMENTS, type RuleSession } from '@/core/models/rule-campaign'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
@@ -17,7 +17,7 @@ import { momentText, sessionTimeline, type TimelineEntry, type TimelineKind } fr
 const KIND_SEV: Record<TimelineKind, Severity> = { call: 'go', refusal: 'bad', hold: 'mute', budget: 'mute', journal: 'mute' }
 
 /** The moments a channel calls at (spec 2737); one HQ names otherwise is shown in its own word. */
-const MOMENTS = ['attach', 'subtotal', 'onDemand', 'pay', 'close', 'returns', 'cancel', 'lateClose']
+const MOMENTS: readonly string[] = RULE_SESSION_MOMENTS
 
 interface GridContext {
   currency: string

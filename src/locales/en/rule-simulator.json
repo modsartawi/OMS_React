@@ -111,6 +111,7 @@
     }
   },
   "effect": {
+    "noFigure": "—",
     "discount": "<v>{{amount}}</v> off",
     "freeUnit_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
     "freeUnit_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",

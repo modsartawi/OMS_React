@@ -168,12 +168,24 @@ export default function BudgetsSettings() {
       {deleting && (
         <Modal
           open
-          onClose={() => !pending && setDeleting(null)}
+          onClose={() => {
+            if (pending) return
+            resetSaves()
+            setDeleting(null)
+          }}
           title={t('settings.budgets.delete.title')}
           width="32rem"
           footer={
             <>
-              <Button variant="text" onClick={() => setDeleting(null)} disabled={pending} data-budget-delete-cancel="">
+              <Button
+                variant="text"
+                onClick={() => {
+                  resetSaves()
+                  setDeleting(null)
+                }}
+                disabled={pending}
+                data-budget-delete-cancel=""
+              >
                 {t('settings.cancel')}
               </Button>
               <Button variant="danger" disabled={pending} onClick={() => saveList.mutate(budgetsWithout(c.budgets, deleting.id))} data-budget-delete-confirm="">

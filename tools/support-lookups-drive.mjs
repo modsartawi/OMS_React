@@ -17,7 +17,7 @@
 //      local validity and its bound member; the code is kept in the address;
 //   4. its uses: when (local), store, and the sale id linking to Sessions;
 //   5. an unbound, unused code reads "Anyone" and no uses; validity with no bounds reads so;
-//   6. an unknown code shows HQ's refusal;
+//   6. an unknown code reads as no such code (not as a failure), with HQ's sentence under it;
 //   7. the bound member links to Customers, which finds them by loyalty id;
 //   8. Customers: the member's facts and points balance — spend vs tier, pending;
 //   9. the wallet: each code (linking back to the finder) and its campaign in EN + AR, local validity;
@@ -224,8 +224,9 @@ const gridRows = (page, grid) => page.$$eval(`[${grid}] .ag-row[row-index]`, (ro
   // ── 6 ──
   await page.locator('[data-finder-code]').fill('NOPE-000')
   await page.locator('[data-finder-find]').click()
-  await page.locator('[data-finder-refusal]').waitFor({ timeout: 10000 })
-  check('6: an unknown code shows HQ\'s refusal', (await text(page.locator('[data-finder-refusal]'))).includes(NOT_FOUND))
+  await page.locator('[data-finder-none]').waitFor({ timeout: 10000 })
+  check('6: an unknown code reads as no such code, not a failure', (await text(page.locator('[data-finder-none]'))).startsWith('No coupon has the code NOPE-000.') && (await page.locator('[data-finder-refusal]').count()) === 0)
+  check('6: …with HQ\'s sentence under it', (await text(page.locator('[data-finder-none]'))).includes(NOT_FOUND))
 
   // ── 7 ──
   await page.goto(`${BASE}/campaigns/coupon-finder?code=WKND-9XH3PL`)
@@ -266,7 +267,7 @@ const gridRows = (page, grid) => page.$$eval(`[${grid}] .ag-row[row-index]`, (ro
 
   await page.locator('[data-wallet-code="NV-7KQ2"]').click()
   await page.waitForURL(`${BASE}/campaigns/coupon-finder?code=NV-7KQ2`)
-  await page.locator('[data-finder-refusal], [data-finder-result]').first().waitFor({ timeout: 10000 })
+  await page.locator('[data-finder-refusal], [data-finder-none], [data-finder-result]').first().waitFor({ timeout: 10000 })
   check('9: a wallet code opens in the finder', calls.includes('GET RuleCampaign/Coupons/NV-7KQ2'))
 
   // ── 11 ──

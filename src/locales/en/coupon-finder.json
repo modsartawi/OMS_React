@@ -7,6 +7,7 @@
     "hint": "Enter a code to see where it belongs and who used it."
   },
   "result": {
+    "none": "No coupon has the code <code>{{code}}</code>.",
     "loading": "Looking the code up…",
     "failedTitle": "The code could not be looked up",
     "failed": "The code could not be looked up. Try again."

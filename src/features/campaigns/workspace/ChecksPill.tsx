@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronRight, CircleCheck, Loader2, TriangleAlert } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { CampaignRule, RuleBlockCatalogue, RuleCampaignChecks, RuleCheckSeverity } from '@/core/models/rule-campaign'
+import { RULE_GROUP_TYPE, type CampaignRule, type RuleBlockCatalogue, type RuleCampaignChecks, type RuleCheckSeverity } from '@/core/models/rule-campaign'
 import { catalogueBlock } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -238,7 +238,7 @@ function Where({ place, rules, catalogue }: { place: CheckPlace; rules: Campaign
         <span key="block">
           <Trans
             t={t}
-            i18nKey={place.type === 'group' ? 'checks.where.group' : place.groupId ? `checks.where.${place.kind}InGroup` : `checks.where.${place.kind}`}
+            i18nKey={place.type === RULE_GROUP_TYPE ? 'checks.where.group' : place.groupId ? `checks.where.${place.kind}InGroup` : `checks.where.${place.kind}`}
             values={{ n: place.index + 1 }}
             components={{ n: <Ltr /> }}
           />
@@ -262,8 +262,7 @@ function Where({ place, rules, catalogue }: { place: CheckPlace; rules: Campaign
 /** A field's label as its panel shows it; a field this bundle has no words for reads as its code. */
 function fieldLabel(place: Extract<CheckPlace, { at: 'rule' | 'block' }>, catalogue: RuleBlockCatalogue, t: (key: string) => string, has: (key: string) => boolean): ReactNode {
   const field = place.field ?? ''
-  if (place.at === 'rule') return <Ltr>{field}</Ltr>
-  if (place.kind === 'filter' || place.kind === 'value') return has(`checks.field.${field}`) ? t(`checks.field.${field}`) : <Ltr>{field}</Ltr>
+  if (place.at === 'rule' || place.kind === 'filter' || place.kind === 'value') return has(`checks.field.${field}`) ? t(`checks.field.${field}`) : <Ltr>{field}</Ltr>
   const entry = place.type ? catalogueBlock(catalogue, place.kind, place.type) : null
   const def = entry?.fields.find((f) => f.key === field)
   if (def?.kind === 'says' || (!def && field === 'says' && place.kind === 'condition')) return t(`rules.says.${def?.role ?? 'notMet'}`)

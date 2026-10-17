@@ -143,6 +143,12 @@ const saveBtn = (page) => page.locator('[data-save-order]')
       (await group(page, 'g-items').locator('[data-group-scope]').inputValue()) === 'item' &&
       (await group(page, 'g-basket').locator('[data-group-mode]').inputValue()) === 'first' &&
       (await group(page, 'g-basket').locator('[data-group-scope]').inputValue()) === 'session')
+  {
+    const pts = await page.locator('[data-order-points]').count()
+    const ordered = [...ORDER.base.filter((n) => 'c' in n).map((n) => n.c), ...ORDER.groups.flatMap((g) => g.items)]
+    const want = ordered.filter((id) => CAMPAIGNS.find((c) => c.id === id)?.features.points).length
+    check('2: every campaign that earns points says so, and only those (513 review)', want > 0 && pts === want, `${pts} badges, ${want} earn points`)
+  }
   check('2: a row shows the code, both names and the state',
     /WKND20/.test(await row(page, 'WKND20').innerText()) &&
       /Weekend coupon: 20% off/.test(await row(page, 'WKND20').innerText()) &&

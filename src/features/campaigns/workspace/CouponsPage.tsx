@@ -335,7 +335,7 @@ export default function CouponsPage() {
         >
           <div className="flex flex-col gap-3" data-coupons-created={created.batch}>
             <p className="text-sm">
-              <Trans t={t} i18nKey={created.imported ? 'coupons.created.importedBody' : 'coupons.created.body'} count={created.count} values={{ n: created.count }} components={{ n: <Ltr /> }} />
+              <Trans t={t} i18nKey={created.imported ? 'coupons.created.importedBody' : 'coupons.created.body'} count={created.count} values={{ n: formatNumber(created.count) }} components={{ n: <Ltr /> }} />
             </p>
             <p className="rounded-md border border-border/60 bg-muted px-3 py-2 text-center font-mono text-lg font-semibold tracking-wide" data-batch-id="">
               <Ltr>{created.batch}</Ltr>

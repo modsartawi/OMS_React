@@ -618,7 +618,8 @@
       "pointsWorth": "<money>{{money}}</money> of points",
       "pointsNamed": "<name>{{name}}</name> points",
       "pointsWorthNamed": "<name>{{name}}</name> in <currency>{{currency}}</currency> of points",
-      "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points"
+      "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points",
+      "percent": "{{n}}%"
     },
     "timing": {
       "afterDays_one": "after <n>{{n}}</n> day",
@@ -1010,7 +1011,8 @@
       "colls": "Collections",
       "skus": "Products",
       "exclCats": "Never these categories",
-      "scope": "Looks at"
+      "scope": "Looks at",
+      "partial": "If the member is short of points"
     },
     "note": {
       "error": "<b>Error:</b> <msg>{{message}}</msg>",

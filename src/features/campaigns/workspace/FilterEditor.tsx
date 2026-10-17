@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ShoppingCart, TriangleAlert } from 'lucide-react'
-import type { RuleItemFilter } from '@/core/models/rule-campaign'
+import { RULE_FILTER_SCOPES, type RuleFilterScope, type RuleItemFilter } from '@/core/models/rule-campaign'
 import { filterLetsRxIn, type FilterNameProblem } from '@/core/rules/filters'
 import LookupPicks from '@/core/rules/LookupPicks'
 import { RX_CATEGORY } from '@/core/rules/sentence'
@@ -50,9 +50,9 @@ export default function FilterEditor({
           {t('filters.lookAt')}
         </label>
         <span>
-          <select id={scopeId} className={INPUT} value={filter.scope} onChange={(e) => onChange({ scope: e.target.value })} data-filter-scope="">
-            {!SCOPES.includes(filter.scope) && <option value={filter.scope}>{fsi(filter.scope)}</option>}
-            {SCOPES.map((s) => (
+          <select id={scopeId} className={INPUT} value={filter.scope} onChange={(e) => onChange({ scope: e.target.value as RuleFilterScope })} data-filter-scope="">
+            {!RULE_FILTER_SCOPES.includes(filter.scope) && <option value={filter.scope}>{fsi(filter.scope)}</option>}
+            {RULE_FILTER_SCOPES.map((s) => (
               <option key={s} value={s}>
                 {t(`filters.scope.${s}`)}
               </option>
@@ -110,4 +110,3 @@ export default function FilterEditor({
   )
 }
 
-const SCOPES = ['items', 'fees', 'itemsAndFees']

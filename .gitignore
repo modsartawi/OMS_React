@@ -129,5 +129,7 @@ tools/.coupon-template-limits-shots/
 tools/.coupon-import-file-shots/
 # Pick support drive screenshots (tools/pick-support-*-drive.mjs, tickets 496-499)
 tools/.pick-support-shots/
+# Rule engine screens drive screenshots (tools/campaigns|priority|simulator|sessions|support-lookups-drive.mjs, tickets 501-519)
+tools/.campaigns-shots/
 # tsc incremental build info
 tsconfig.tsbuildinfo

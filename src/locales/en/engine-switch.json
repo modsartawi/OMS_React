@@ -4,6 +4,7 @@
   },
   "title": "Store engine switch",
   "lede": "Which promotion engine each store runs. A store with no setting runs bonus buys. A flip takes effect at the store's next shift open, and a sale keeps the engine it was started with.",
+  "newPos": "Only effective on NewPos stores. A NewPos rollback resets the store to bonus buys.",
   "none": "—",
   "engine": {
     "BonusBuy": "Bonus buys",

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, RowClickedEvent } from 'ag-grid-community'
 import { Plus, Search } from 'lucide-react'
@@ -20,6 +20,7 @@ import type { Severity } from '@/core/ui/severity'
 import { campaignColumns } from './columns'
 import CreateCampaignDialog from './CreateCampaignDialog'
 import { stateCounts, tileFromParam, visibleRows, type StateTile } from './list-filter'
+import { useUrlQuery } from '@/core/ui/use-url-query'
 
 /**
  * Campaigns (ticket 501, BackOffice spec 2737): every rule campaign, with a tile per state and its
@@ -33,21 +34,28 @@ import { stateCounts, tileFromParam, visibleRows, type StateTile } from './list-
  * The tile and the search live in the URL (`?state=&q=`, replaced), so Back from a campaign lands
  * on the list as it was left.
  */
+interface ListQuery {
+  state: StateTile
+  q: string
+}
+const listFromParams = (params: URLSearchParams): ListQuery => ({ state: tileFromParam(params.get('state')), q: params.get('q') ?? '' })
+function listToParams(query: ListQuery): URLSearchParams {
+  const out = new URLSearchParams()
+  if (query.state !== 'all') out.set('state', query.state)
+  if (query.q) out.set('q', query.q)
+  return out
+}
+
 export default function CampaignListPage() {
   const { t } = useTranslation('campaign-list')
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
-  const tile = tileFromParam(params.get('state'))
-  const q = params.get('q') ?? ''
+  // Through the core URL hook: a keystroke landing before the last tile click has committed builds on
+  // the newest query, never on a stale render's (the race HITL-502 found).
+  const { query, update } = useUrlQuery(listFromParams, listToParams)
+  const { state: tile, q } = query
   const [creating, setCreating] = useState(false)
 
-  const set = (change: { state?: StateTile; q?: string }) => {
-    const next = { state: tile, q, ...change }
-    const out = new URLSearchParams()
-    if (next.state !== 'all') out.set('state', next.state)
-    if (next.q) out.set('q', next.q)
-    setParams(out, { replace: true })
-  }
+  const set = (change: Partial<ListQuery>) => update((prev) => ({ ...prev, ...change }))
 
   const campaigns = useQuery(ruleCampaignsQuery())
   const rows = useMemo(() => campaigns.data ?? [], [campaigns.data])

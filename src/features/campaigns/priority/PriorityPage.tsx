@@ -276,6 +276,12 @@ function CampaignRow({
         )}
       </div>
       {campaign && <CampaignStateBadge state={campaignState(campaign, now)} />}
+      {/* The legend's "highest discount … points do not count" needs to say which rows earn points (2734 CRow). */}
+      {campaign?.features.points && (
+        <span className="rounded-full bg-primary-050 px-2 py-0.5 text-xs font-medium text-primary-800" data-order-points="">
+          {t('row.points')}
+        </span>
+      )}
       <UpDown pos={pos} count={count} label={fsi(code)} onMove={onMove} />
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {t('row.moveTo')}

@@ -32,7 +32,7 @@ const TOKEN = 'rounded bg-muted px-1 font-medium'
 
 /** One value, isolated by its kind. `children` (the template's text for the slot) is replaced. */
 function ValueSlot({ value }: { value: SentenceValue; children?: ReactNode }) {
-  const { i18n } = useTranslation('campaign-workspace')
+  const { t, i18n } = useTranslation('campaign-workspace')
   switch (value.kind) {
     case 'money':
       return (
@@ -44,7 +44,7 @@ function ValueSlot({ value }: { value: SentenceValue; children?: ReactNode }) {
     case 'percent':
       return (
         <span className={TOKEN} data-value={value.kind}>
-          <Ltr>{value.kind === 'percent' ? percentText(value.n) : formatNumber(value.n)}</Ltr>
+          <Ltr>{value.kind === 'percent' ? percentText(value.n, t) : formatNumber(value.n)}</Ltr>
         </span>
       )
     case 'code':

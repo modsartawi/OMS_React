@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -96,7 +96,7 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, Handshake, ShoppingBag, Store, Truck } from 'lucide-react'
+import { BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -430,6 +430,16 @@ export const MENU: ShellMenuItem[] = [
           run: () => syncConsoleApi.access(),
           visible: canOpenSyncConsole,
         }),
+      },
+      {
+        // The store engine switch (BackOffice spec 2737, ticket 517) — at the END of the Admin group.
+        // 🚩 UNGATED by ruling: BackOffice 2745 has not seeded its Ua permission, so the leaf shows
+        // to everyone and the doors fail closed on the server (the page shows the refusal). Ticket
+        // 520 adds the probe.
+        labelKey: 'engine-switch:menu.engineSwitch',
+        icon: Repeat,
+        routerLink: '/admin/engine-switch',
+        activePrefix: '/admin/engine-switch',
       },
     ],
   },
@@ -812,6 +822,61 @@ export const MENU: ShellMenuItem[] = [
           run: () => couponsApi.access(),
           visible: (r) => r.canSupport === true,
         }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, after Pricing and before Materials (BackOffice spec 2737, ticket 501):
+    // `/campaigns/*` is a new URL prefix and a new nav group, the rule engine's campaigns — Pricing's
+    // bonus-buy screens are the OTHER engine and stay where they are. Every leaf label lives in
+    // `campaign-list` (the area's first namespace); Priority (513), Simulator (514), Sessions (518),
+    // Coupon finder and Customers (519) each append their leaf with the page it opens.
+    //
+    // 🚩 UNGATED by ruling: no Ua permission exists until BackOffice 2759 seeds the author and
+    // approver roles, so the group is visible to every user and the doors fail closed on the server.
+    // Ticket 520 adds the probe.
+    labelKey: 'campaign-list:menu.group',
+    icon: Megaphone,
+    items: [
+      {
+        // The list owns `/campaigns/*` — a campaign's workspace (`/campaigns/:id/…`) lights it. A
+        // later static leaf (`/campaigns/priority`) wins its own address by being more specific.
+        labelKey: 'campaign-list:menu.campaigns',
+        icon: Megaphone,
+        routerLink: '/campaigns',
+      },
+      {
+        // The evaluation order (ticket 513): more specific than the list's `/campaigns`, so it
+        // lights itself, not Campaigns.
+        labelKey: 'campaign-list:menu.priority',
+        icon: ListOrdered,
+        routerLink: '/campaigns/priority',
+      },
+      {
+        // The rule engine's dry run (ticket 514); not Pricing's bonus-buy Simulation.
+        labelKey: 'campaign-list:menu.simulator',
+        icon: FlaskConical,
+        routerLink: '/campaigns/simulator',
+      },
+      {
+        // Support's view of the customer sessions (ticket 518); a session
+        // (`/campaigns/sessions/:saleId`) lights it too.
+        labelKey: 'campaign-list:menu.sessions',
+        icon: Receipt,
+        routerLink: '/campaigns/sessions',
+      },
+      {
+        // Support finds a coupon code across every campaign (ticket 519).
+        labelKey: 'campaign-list:menu.couponFinder',
+        icon: Ticket,
+        routerLink: '/campaigns/coupon-finder',
+      },
+      {
+        // Support reads a member's wallet, balance and budgets used (ticket 519) — the rule
+        // engine's view only; Loyalty's member screen keeps the record.
+        labelKey: 'campaign-list:menu.customers',
+        icon: UserSearch,
+        routerLink: '/campaigns/customers',
       },
     ],
   },

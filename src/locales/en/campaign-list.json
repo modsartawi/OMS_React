@@ -1,0 +1,109 @@
+{
+  "menu": {
+    "group": "Campaigns",
+    "campaigns": "Campaigns",
+    "priority": "Priority",
+    "simulator": "Simulator",
+    "sessions": "Sessions",
+    "couponFinder": "Coupon finder",
+    "customers": "Customers"
+  },
+  "title": "Campaigns",
+  "untitled": "Untitled",
+  "subtitle": "Every rule campaign for rule-engine stores. Stores still on bonus buys never see these.",
+  "tiles": {
+    "label": "Campaigns by state",
+    "all": "All"
+  },
+  "states": {
+    "draft": "Draft",
+    "waitingForApproval": "Waiting for approval",
+    "scheduled": "Scheduled",
+    "running": "Running",
+    "expired": "Expired",
+    "disabled": "Disabled"
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Campaign name in English or Arabic, or its code"
+  },
+  "columns": {
+    "name": "Campaign",
+    "nameAr": "Arabic name",
+    "code": "Code",
+    "state": "State",
+    "start": "Start",
+    "end": "End (exclusive)",
+    "created": "Created",
+    "createdBy": "Created by"
+  },
+  "schedule": {
+    "immediately": "Immediately",
+    "openEnded": "Open-ended"
+  },
+  "results": {
+    "loading": "Reading the campaigns…",
+    "count_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaign",
+    "count_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaigns",
+    "empty": "No campaign matches.",
+    "failedTitle": "The campaigns could not be read",
+    "failed": "Try again in a moment."
+  },
+  "create": {
+    "open": "New campaign",
+    "title": "Create campaign",
+    "nameEn": "Name (English)",
+    "nameEnPlaceholder": "e.g. National Day 15% off",
+    "nameAr": "Name (Arabic)",
+    "nameArPlaceholder": "The same name in Arabic",
+    "problem": {
+      "nameEnRequired": "Enter the campaign’s English name.",
+      "nameArRequired": "Enter the campaign’s Arabic name."
+    },
+    "codeHint": "HQ gives the campaign its code, which receipts and SAP exports show.",
+    "features": {
+      "legend": "Features (optional)",
+      "coupons": "Coupons",
+      "couponsHint": "Adds the Coupons page and the coupon condition.",
+      "points": "Loyalty points (Arbahi)",
+      "pointsHint": "Adds the Arbahi earn and burn conditions and effects."
+    },
+    "later": "You can fine-tune the campaign in its settings after creating it. Features only switch on menus, conditions and effects.",
+    "cancel": "Cancel",
+    "submit": "Create campaign",
+    "done": "Campaign created as a draft.",
+    "failedTitle": "The campaign could not be created",
+    "failed": "Try again in a moment.",
+    "tabs": {
+      "label": "How to start",
+      "blank": "Blank campaign",
+      "template": "From a template"
+    }
+  },
+  "template": {
+    "loading": "Reading the templates…",
+    "failedTitle": "The templates could not be read",
+    "failed": "Try again in a moment.",
+    "none": "There are no templates yet.",
+    "listLabel": "Templates",
+    "draft": "Draft — not ready to use",
+    "asks": "Asks for: {{labels}}",
+    "pick": "Pick a template. Its rules stay as its author wrote them; you fill in the values.",
+    "fillLegend": "Fill in its values",
+    "named": "The draft will be named",
+    "later": "You can rename it and fine-tune its rules after creating it.",
+    "choose": "Choose…",
+    "between": "Between <v>{{range}}</v>.",
+    "atLeast": "At least <v>{{min}}</v>.",
+    "atMost": "At most <v>{{max}}</v>.",
+    "problem": {
+      "required": "Enter a value.",
+      "notNumber": "Enter a number.",
+      "belowMin": "Enter {{min}} or more.",
+      "aboveMax": "Enter {{max}} or less."
+    },
+    "brokenTitle": "This template cannot be used",
+    "broken": "Its rules use values it does not ask for: {{keys}}. Ask its author to fix it.",
+    "pickFirst": "Pick a template first."
+  }
+}

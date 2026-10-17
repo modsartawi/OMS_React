@@ -270,6 +270,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
         }),
       },
+      // The store engine switch (BackOffice spec 2737, ticket 517): HQ flips a store's promotion engine.
+      {
+        path: 'admin/engine-switch',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/engine-switch/EngineSwitchPage')).default,
+        }),
+      },
       // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
       // join these under the same `/nphies/*` prefix as the wave lands; the check
       // form is slice 0 because its endpoint is the one that already ships.
@@ -650,6 +657,105 @@ export const router = createBrowserRouter([
         lazy: async () => ({
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
         }),
+      },
+      // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The list,
+      // then one campaign's workspace: a shell with the campaign's own menu and its pages as children
+      // (the dashboard is the index; 504+ add `rules`, `settings/:page`, `coupons`, `versions`).
+      // Static leaves (`/campaigns/priority`, `/campaigns/simulator`, …) are declared BESIDE
+      // `campaigns/:id` as their slices land — react-router ranks a static segment above `:id`.
+      // No access probe yet (no Ua permission exists until BackOffice 2759); the doors fail closed.
+      {
+        path: 'campaigns',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/list/CampaignListPage')).default,
+        }),
+      },
+      {
+        // Priority: the evaluation order, base list and groups (ticket 513) — a static leaf beside
+        // `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/priority',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/priority/PriorityPage')).default,
+        }),
+      },
+      {
+        // The rule engine's dry run (ticket 514) — a static leaf beside `campaigns/:id`. Distinct from
+        // Pricing's bonus-buy Simulation, which is the other engine.
+        path: 'campaigns/simulator',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/simulator/SimulatorPage')).default,
+        }),
+      },
+      {
+        // Support's customer sessions (ticket 518): the list, then one session by its sale id. Both
+        // are static leaves beside `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/sessions',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/sessions/SessionsPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/sessions/:saleId',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/sessions/SessionPage')).default,
+        }),
+      },
+      {
+        // Support's look-ups (ticket 519): a coupon code, and a member's wallet, balance and budgets
+        // used. Static leaves beside `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/coupon-finder',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/coupon-finder/CouponFinderPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/customers',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/customers/CustomersPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/:id',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,
+        }),
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/DashboardPage')).default,
+            }),
+          },
+          {
+            path: 'rules',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/RulesPage')).default,
+            }),
+          },
+          {
+            // Settings ▸ Details, Schedule, Audience, Features, Offline (ticket 509); a bare
+            // `settings` or an unknown page opens Details. A splat, not `:page`: the crumb's record
+            // is the route's last named param, which must stay the campaign's id.
+            path: 'settings/*',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/SettingsPage')).default,
+            }),
+          },
+          {
+            // Coupons: the codes, filters, and Create coupons with the batch id shown (ticket 515).
+            path: 'coupons',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/CouponsPage')).default,
+            }),
+          },
+          {
+            // Versions: every published version, and restore one as a new draft (ticket 512).
+            path: 'versions',
+            lazy: async () => ({
+              Component: (await import('@/features/campaigns/workspace/VersionsPage')).default,
+            }),
+          },
+        ],
       },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

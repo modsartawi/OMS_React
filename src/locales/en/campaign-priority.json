@@ -1,0 +1,74 @@
+{
+  "title": "Priority",
+  "lede": "The evaluation order, one level deep. The base runs top to bottom and stacks. A group decides among its own campaigns with its mode, then the base carries on.",
+  "cascade": "Groups always cascade: every discount is taken on what is left after the discounts above it.",
+  "publishes": "The order is saved as a draft and goes to tills with the next published version, so a till never mixes two orders.",
+  "unsaved": "Unsaved changes to the order.",
+  "actions": {
+    "addGroup": "Add group",
+    "discard": "Discard changes",
+    "save": "Save order",
+    "saving": "Saving…"
+  },
+  "legend": {
+    "label": "What a group's mode and scope mean",
+    "stackable": "every campaign that triggers applies, in order.",
+    "first": "the first campaign that actually yields wins; one stopped by a budget or a refused coupon passes the turn.",
+    "highest": "each campaign runs on the same basket and the most discount money wins; points do not count.",
+    "item": "the group decides per unit, so each unit has one winner; only item discounts may sit in it."
+  },
+  "modes": {
+    "stackable": "Stackable",
+    "first": "First that yields",
+    "highest": "Highest discount"
+  },
+  "scopes": {
+    "session": "Session scope",
+    "item": "Item scope"
+  },
+  "base": {
+    "title": "Base group · stackable · session scope",
+    "label": "The evaluation order",
+    "empty": "No campaign is in the order yet."
+  },
+  "group": {
+    "newName": "New group {{n}}",
+    "unnamed": "Unnamed group",
+    "name": "Group name",
+    "mode": "Mode",
+    "scope": "Scope",
+    "delete": "Delete the group {{what}}",
+    "deleteHeld": "Move its campaigns out first: only an empty group is deleted.",
+    "empty": "Empty. Move a campaign here with its Move to list."
+  },
+  "row": {
+    "moveTo": "Move to",
+    "base": "Base (stackable)",
+    "unknown": "Not in the campaigns list"
+  },
+  "move": {
+    "up": "Move {{what}} up",
+    "down": "Move {{what}} down"
+  },
+  "load": {
+    "loading": "Reading the order…",
+    "failedTitle": "The order could not be read",
+    "failed": "The evaluation order could not be read. Try again later."
+  },
+  "campaigns": {
+    "failedTitle": "The campaigns could not be read",
+    "failed": "The order shows campaign codes only until the campaigns list can be read."
+  },
+  "save": {
+    "failedTitle": "The order was not saved",
+    "failed": "The order could not be saved. Your changes are still here; try again.",
+    "blankName": "Every group needs a name before the order is saved.",
+    "done": "Saved as a draft. It goes to tills with the next published version."
+  },
+  "leave": {
+    "title": "Leave without saving?",
+    "body": "Your changes to the order are not saved. Leaving discards them.",
+    "stay": "Stay",
+    "go": "Leave and discard"
+  }
+}

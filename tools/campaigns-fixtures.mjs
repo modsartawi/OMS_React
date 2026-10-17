@@ -51,6 +51,16 @@ export function offlineOf(c) {
   return { safe: codes.size === 0, onlineOnly: !!c.onlineOnly, reasons: [...codes].map((code) => ({ code, ...REASON[code] })) }
 }
 
+/** The features a campaign's blocks need, where the fixture does not say: points for a points block. */
+function featuresOf(c) {
+  let points = false
+  for (const r of c.rules) {
+    walk(r.when, (cd) => (points ||= cd.check === 'minPoints'))
+    points ||= r.then.some((e) => e.effect === 'awardPoints' || e.effect === 'burnPoints')
+  }
+  return points ? ['points'] : []
+}
+
 /** A validation with no issue. */
 export const validationOf = (c) => ({ canActivate: true, errors: [], warnings: [], offline: offlineOf(c) })
 
@@ -65,7 +75,7 @@ function draft(campaign, o = {}) {
     code: campaign.id,
     source: published ? 'published' : 'draft',
     revision: published ? 0 : 1,
-    features: ['points'],
+    features: featuresOf(campaign),
     campaign,
     name: campaign.name,
     publishedVersionNo: published ? 1 : 0,
@@ -108,7 +118,7 @@ export const CAMPAIGNS = [
       ],
       then: [{ effect: 'freeUnits', filter: 'f-sun', buy: 3, free: 1, label: says('Suncare 3 for 2', 'العناية بالشمس 3 بسعر 2') }],
     })],
-  }, { published: ['2026-07-28 14:40', 'Omar (marketing)'] }),
+  }, { published: ['2026-07-28 14:40', 'Omar (marketing)'], features: ['points'] }), // points on, no points block yet (504's palette)
   draft({
     id: 'BABY-BUNDLE', name: says('Diapers + two packs of wipes for SAR 85', 'حفاضات مع عبوتي مناديل بـ 85 ريال'), audience: SA,
     rules: [R('Bundle price', {
@@ -274,7 +284,7 @@ export const CAMPAIGNS = [
       filters: [F('f-eligible', 'eligible', { exclude: { categories: [...RX] } })],
       then: [{ effect: 'discountSession', filter: 'f-eligible', kind: 'percent', value: 10, label: says('Summer 10%', 'خصم الصيف 10%') }],
     })],
-  }, { published: ['2026-08-30 12:00', 'Reem (approver)'], campaignStatus: 'Disabled', publishedVersionNo: 2 }),
+  }, { published: ['2026-08-30 12:00', 'Reem (approver)'], campaignStatus: 'Disabled' }),
 ]
 
 /** A campaign as the PROVISIONAL list door sends it (524 composes it from Drafts/List, Order and the
@@ -671,7 +681,8 @@ export function changeLimit(d, budgetId, value) {
 const EARLIER = (() => {
   const pouch = CAMPAIGNS.find((c) => c.code === 'GIFT-POUCH').campaign
   const at = (rules, f) => rules.map((r) => ({ ...r, then: r.then.map((e) => ({ ...e, ...f })) }))
-  const v1 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') })
+  // Version 1 had no cashier prompt (schema 1 leaves an unset `prompt` out).
+  const v1 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') }).map((r) => ({ ...r, then: r.then.map(({ prompt, ...e }) => e) }))
   const v2 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') })
   return {
     'GIFT-POUCH': [

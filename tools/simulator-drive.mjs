@@ -8,7 +8,8 @@
 //                                            six baskets with the prototype engine's answers; the
 //                                            first `refuseRun` runs are refused
 //   GET  RuleCampaign/Lookups/{Materials|Stores|Channels}?search= → tools/campaigns-fixtures.mjs `lookup`
-//   GET  RuleCampaign/Campaigns[/{id}], …/Validate, RuleCampaign/Roles → the dashboard's way in
+//   GET  RuleCampaign/Campaigns (PROVISIONAL, 524's list) and POST Rules/Authoring/Drafts/Load { campaign }
+//        (the real 2758 door, ticket 522: tools/campaigns-fixtures.mjs `loadDraft`) → the dashboard's way in
 // Never a live SIS.Api.
 //
 // It asserts:
@@ -31,7 +32,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/simulator-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
-import { CAMPAIGNS, listRow, lookup } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, listRow, loadDraft, lookup } from './campaigns-fixtures.mjs'
 import { SIX_BASKETS, simulate } from './simulator-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -95,10 +96,10 @@ async function open({ refuseRun = 0 } = {}) {
     const lk = /^RuleCampaign\/Lookups\/(Materials|Stores|Channels)$/.exec(p)
     if (lk && req.method() === 'GET') return route.fulfill(envelope(lookup(lk[1].toLowerCase(), url.searchParams.get('search') ?? '')))
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(CAMPAIGNS.map(listRow)))
-    const one = /^RuleCampaign\/Campaigns\/([^/]+)$/.exec(p)
-    if (one && req.method() === 'GET') return route.fulfill(envelope(CAMPAIGNS.find((c) => c.id === decodeURIComponent(one[1]))))
-    if (/^RuleCampaign\/Campaigns\/[^/]+\/Validate$/.test(p)) return route.fulfill(envelope({ messages: [] }))
-    if (p === 'RuleCampaign/Roles') return route.fulfill(envelope({ author: true, approver: false }))
+    if (p === 'Rules/Authoring/Drafts/Load' && req.method() === 'POST') {
+      const out = loadDraft(CAMPAIGNS, req.postDataJSON()?.campaign)
+      return route.fulfill(out.draft ? envelope(out.draft) : envelope(null, { status: 404, success: false, message: out.message, errorCode: out.refused }))
+    }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))

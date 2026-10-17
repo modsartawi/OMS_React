@@ -99,13 +99,14 @@ const LOOKUP_REFUSED = 'The product search is not available. / البحث عن �
 const STALE = 'The draft changed since it was loaded: load it again. / تغيّرت المسودة منذ تحميلها.'
 const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
 const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
-const SETTINGS_REFUSED = 'This campaign is waiting for approval and cannot be changed. / الحملة بانتظار الموافقة.'
+const SETTINGS_REFUSED = 'The request could not be read: an unknown feature. / تعذرت قراءة الطلب: ميزة غير معروفة.'
 const USAGE_REFUSED = 'The budget counters are not available. / عدادات الميزانية غير متاحة.'
 const LIMIT_REFUSED = 'The limit could not be changed right now. / تعذر تغيير الحد الآن.'
 const VERSIONS_REFUSED = 'The version history is not available. / سجل الإصدارات غير متاح.'
 const TEMPLATES_REFUSED = 'The templates are not available. / القوالب غير متاحة.'
 const FROM_TEMPLATE_REFUSED = 'Percent off may be at most 30. / الخصم 30% كحد أقصى.'
 const RESTORE_REFUSED = 'The version could not be restored right now. / تعذرت استعادة الإصدار الآن.'
+const STALE_PENDING = 'The draft waits for approval. / المسودة بانتظار الموافقة.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 const COUPONS_REFUSED = 'The coupon codes are not available. / رموز القسائم غير متاحة.'
 const BATCH_REFUSED = 'SIS.Coupons is not answering; no code was created. / خدمة القسائم لا تستجيب.'
@@ -121,7 +122,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, staleSaves = 0, checksFor, edit } = {}) {
+async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -215,6 +216,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
         return route.fulfill(envelope(null, { status: 409, success: false, message: STALE, errorCode: 'RULES_DRAFT_STALE' }))
       }
       if (refuseCreate && body.revision === 0) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULES_CAMPAIGN_EXISTS' }))
+      if (pendingSaves) return route.fulfill(envelope(null, { status: 409, success: false, message: STALE_PENDING, errorCode: 'RULES_DRAFT_PENDING' }))
       if (refuseSave || refuseSettings) return route.fulfill(envelope(null, { status: 400, success: false, message: refuseSave ? SAVE_REFUSED : SETTINGS_REFUSED, errorCode: 'RULES_BAD_REQUEST' }))
       const out = saveDraft(store, body, NOW_LOCAL)
       return route.fulfill(out.draft ? envelope(answer(out.draft)) : refused(out))
@@ -1407,12 +1409,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await names.nth(2).fill('cashback')
   const award = card.locator('[data-effect]').first()
   await award.locator('[data-block-edit]').click()
-  await award.locator('[data-panel-value-source="amount"]').selectOption({ label: 'cashback' })
+  await award.locator('[data-panel-value-source="amount"]').selectOption('$cashback')
   check('47: the award reads the new value by name in its sentence', (await award.locator('[data-block-sentence]').innerText()).startsWith('Award cashback in SAR of points'), await award.locator('[data-block-sentence]').innerText())
   await award.locator('[data-panel-done]').click()
   check('47: the value says it is read, and cannot be deleted', (await values.locator('[data-value-delete]').nth(2).isDisabled()))
   await names.nth(2).fill('eligible')
-  check('47: a name another value has is refused', (await values.locator('[data-value-name-problem="taken"]').count()) === 1)
+  check('47: a name another value has is refused, at the renamed value', (await values.locator('[data-value-index="2"] [data-value-name-problem="taken"]').count()) === 1)
   await names.nth(2).fill('cashback')
 
   // ── 48 ──
@@ -2057,7 +2059,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check(
     '78: a refused save shows the envelope’s message and code',
     (await page.locator('[data-settings-refusal="details"]').innerText()).includes(SETTINGS_REFUSED) &&
-      (await page.locator('[data-settings-refusal="details"] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_DRAFT_PENDING',
+      (await page.locator('[data-settings-refusal="details"] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BAD_REQUEST',
   )
   check('78: …and keeps the change', (await page.locator('[data-settings-field="nameEn"]').inputValue()) === 'A new name' && saves.length === 1)
   await page.screenshot({ path: `${SHOTS}/settings-refused.png` })
@@ -2086,6 +2088,25 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
+// ── 78d: a draft frozen since it was read (409 RULES_DRAFT_PENDING) is said in the page's own words ──
+{
+  const { context, page, errors, saves } = await open({ pendingSaves: true })
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/settings/details`)
+  await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-settings-field="nameEn"]').fill('Suncare, renamed')
+  await page.locator('[data-settings-save]').click()
+  await page.locator('[data-settings-refusal="details"]').waitFor({ timeout: 5000 })
+  check('78d: a pending refusal says the draft waits for an approver', saves.length === 1 && (await page.locator('[data-settings-refusal="details"]').innerText()).includes('The draft waits for an approver, so nothing can be saved'))
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  await page.locator('[data-rule-name]').first().fill('Suncare 3 for 2')
+  await page.locator('[data-builder-bar] [data-save]').click()
+  await page.locator('[data-save-refused="RULES_DRAFT_PENDING"]').waitFor({ timeout: 5000 })
+  check('78d: …and so does the builder', (await page.locator('[data-save-refused]').innerText()).includes('This draft waits for an approver, so it cannot be saved.'))
+  check('80: no page errors (78d)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 // ── 78c: the builder's own Save is stale too ──
 {
   const { context, page, errors, saves } = await open({ staleSaves: 1 })
@@ -2093,8 +2114,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   await page.locator('[data-rule-name]').first().fill('Suncare 3 for 2')
   await page.locator('[data-builder-bar] [data-save]').click()
-  await page.locator('[data-draft-stale]').waitFor({ timeout: 5000 })
-  check('78c: a stale rules save offers to reload, the edit kept', saves.length === 1 && (await page.locator('[data-draft-reload]').isVisible()) && (await page.locator('[data-rule-name]').first().inputValue()) === 'Suncare 3 for 2')
+  await page.locator('[data-save-stale]').waitFor({ timeout: 5000 })
+  check('78c: a stale rules save offers to reload, the edit kept', saves.length === 1 && (await page.locator('[data-save-reload]').isVisible()) && (await page.locator('[data-rule-name]').first().inputValue()) === 'Suncare 3 for 2')
   check('80: no page errors (78c)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -2141,7 +2162,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   // ── 82 ──
   await page.locator('[data-budget-add]').click()
   await page.locator('[data-budget-drawer="add"]').waitFor({ timeout: 5000 })
-  check('82: + Budget opens the drawer on a campaign money budget', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the discount money to SAR 10,000.00 per campaign', await page.locator('[data-budget-preview]').innerText())
+  // 522: schema 1 has no campaign currency; it is the one country's (`campaignCurrency`), and this
+  // draft has no audience yet, so the figure carries no code.
+  check('82: + Budget opens the drawer on a campaign money budget', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the discount money to 10,000.00 per campaign', await page.locator('[data-budget-preview]').innerText())
   await field('limit').selectOption('uses')
   await field('value').fill('1.5')
   check('82: uses are whole, said at the field', await page.locator('[data-budget-problem="notWhole"]').isVisible())
@@ -2314,7 +2337,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     '88: a refused save keeps the drawer open, with the envelope’s message and code',
     (await page.locator('[data-budget-drawer="add"]').isVisible()) &&
       (await page.locator('[data-budget-refusal]').innerText()).includes(SETTINGS_REFUSED) &&
-      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_DRAFT_PENDING' &&
+      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BAD_REQUEST' &&
       saves.length === 1,
   )
   check('89: no page errors (88)', errors.length === 0, errors.join(' | '))
@@ -2382,7 +2405,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const rules2 = page.locator('[data-version-rules="2"]')
   await rules2.locator('[data-version-rule]').first().waitFor({ timeout: 5000 })
   check('93: View opens the version’s rules', (await item(2).locator('[data-version-view]').getAttribute('aria-expanded')) === 'true' && (await rules2.locator('[data-version-rule]').count()) === 1)
-  check('93: …read as sentences', (await rules2.locator('[data-effect] [data-block-sentence]').innerText()) === 'Give 1 unit of GIFT-BAG free when it is scanned', await rules2.locator('[data-effect] [data-block-sentence]').innerText())
+  // 522: schema 1's freeProduct names its filter (`pouch`, the articles GIFT-BAG), as the builder does.
+  check('93: …read as sentences', (await rules2.locator('[data-effect] [data-block-sentence]').innerText()) === 'Give 1 unit of pouch free when it is scanned', await rules2.locator('[data-effect] [data-block-sentence]').innerText())
   check(
     '93: …with the cashier prompt in English and Arabic',
     (await rules2.locator('[data-says="cashierPrompt"] [data-says-en]').innerText()) === 'Scan a travel pouch: it is free with the serum' &&
@@ -2413,10 +2437,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
   check('94: Replace the draft restores once and goes to the dashboard', page.url() === `${BASE}/campaigns/GIFT-POUCH` && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
   const stateCell = page.locator('[data-dashboard-cell="state"]')
-  check('94: the dashboard shows a Draft', (await stateCell.locator('[data-campaign-state]').innerText()) === 'Draft')
+  // 522: a published campaign with an editing draft is read by its window (campaignStatus decides,
+  // HITL-522), and the Drafts/Load reply carries no activation stamp of the live version.
+  check('94: the dashboard still reads the live campaign Running', (await stateCell.locator('[data-campaign-state]').innerText()) === 'Running')
   check(
-    '94: …and the live version it still runs, unchanged',
-    (await stateCell.locator('[data-live-under-draft]').innerText()) === 'Tills still run version 3, activated 2026-10-10 15:00 by Omar (marketing), until this draft is activated.',
+    '94: …and the live version it still runs, unchanged, until the draft is activated',
+    (await stateCell.locator('[data-live-under-draft]').innerText()) === 'Tills still run version 3 until this draft is activated.',
     await stateCell.locator('[data-live-under-draft]').innerText(),
   )
   check('94: HQ’s campaign: a draft with version 2’s rules (origin restore:2), live version 3 untouched', pouch().source === 'draft' && pouch().origin === 'restore:2' && pouch().campaignStatus === 'Published' && pouch().publishedVersionNo === 3 && pouch().campaign.rules[0].then[0].label.en === 'Gift pouch')

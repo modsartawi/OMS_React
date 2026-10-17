@@ -146,13 +146,13 @@ const saveBtn = (page) => page.locator('[data-save-order]')
   {
     const pts = await page.locator('[data-order-points]').count()
     const ordered = [...ORDER.base.filter((n) => 'c' in n).map((n) => n.c), ...ORDER.groups.flatMap((g) => g.items)]
-    const want = ordered.filter((id) => CAMPAIGNS.find((c) => c.id === id)?.features.points).length
+    const want = ordered.filter((id) => CAMPAIGNS.find((c) => c.code === id)?.features.includes('points')).length
     check('2: every campaign that earns points says so, and only those (513 review)', want > 0 && pts === want, `${pts} badges, ${want} earn points`)
   }
   check('2: a row shows the code, both names and the state',
     /WKND20/.test(await row(page, 'WKND20').innerText()) &&
       /Weekend coupon: 20% off/.test(await row(page, 'WKND20').innerText()) &&
-      (await row(page, 'WKND20').locator('[data-order-name-ar]').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% حتى 40 ريال' &&
+      (await row(page, 'WKND20').locator('[data-order-name-ar]').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20%' &&
       (await row(page, 'WKND20').locator('[data-campaign-state]').count()) === 1)
   check('2: the line says groups always cascade', /always cascade/.test(await page.locator('[data-cascade]').innerText()))
 

@@ -153,13 +153,14 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
           <p className="flex items-start gap-1 text-xs font-medium text-danger-800" data-fx-status="bad">
             <X className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
             {reading.problem ? (
-              <Trans
-                t={t}
-                i18nKey={`fx.problem.${reading.problem.code}`}
-                values={{ at: reading.problem.at + 1 }}
-                components={{ n: <Ltr />, w: <code className="font-mono" /> }}
-                data-fx-error={reading.problem.code}
-              />
+              <span data-fx-error={reading.problem.code}>
+                <Trans
+                  t={t}
+                  i18nKey={`fx.problem.${reading.problem.code}`}
+                  values={{ at: reading.problem.at + 1 }}
+                  components={{ n: <Ltr />, w: <code className="font-mono" /> }}
+                />
+              </span>
             ) : (
               <span data-fx-error="json">{t('fx.problem.json')}</span>
             )}

@@ -107,9 +107,11 @@ export function renameValue(rules: Rules, ruleId: string, key: string, name: str
     if (!v || v.name === name) return r
     const from = valueRef(v.name)
     const to = valueRef(name)
+    // An empty old name reads nothing yet, and a name another value also has (or is about to have)
+    // is that value's too: following it would take its readers along. Only a name of its own moves.
+    const shared = (n: string) => r.values.some((x) => x !== v && x.name === n)
+    if (!v.name.trim() || shared(v.name) || shared(name)) return { ...r, values: r.values.map((x) => (x === v ? { ...x, name } : x)) }
     const values = r.values.map((x) => (x === v ? { ...x, name } : { ...x, expr: renamed(x.expr, from, to) }))
-    // An empty or half-typed old name reads nothing yet: only a real name is followed.
-    if (!v.name.trim()) return { ...r, values }
     return { ...r, values, when: renamed(r.when, from, to), then: renamed(r.then, from, to) }
   })
 }

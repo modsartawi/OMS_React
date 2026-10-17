@@ -5,7 +5,8 @@
 // The six baskets are the prototype's (BackOffice `.scratch/proto/2734-rule-builder/smoke-engine.js`),
 // with the prototype engine's own answers on them (lines, which campaign took what off which line,
 // the trace, near misses, points, the cashier prompt), turned into the provisional wire shape here.
-// The names, "not met" texts and receipt labels in both languages come from the campaign fixtures.
+// The names, "not met" texts and receipt labels in both languages come from the campaign fixtures
+// (Drafts/Load replies around schema-1 campaigns since ticket 522; the run's own shape is 525's).
 // A basket that is not one of the six is priced at the catalog's prices with no campaign, except
 // that a basket of SAR 300 earns NEXT-VISIT's coupon — so the drive can see "will create".
 import { CAMPAIGNS } from './campaigns-fixtures.mjs'
@@ -49,7 +50,7 @@ const signature = (basket) => basket.map((l) => `${l.sku}:${l.qty}`).sort().join
 /** A campaign's receipt label: its first effect that has one; else its name. */
 function labelOf(code) {
   const c = byCode.get(code)
-  for (const r of c?.rules ?? []) for (const e of r.then) if (e.label?.en) return e.label
+  for (const r of c?.campaign.rules ?? []) for (const e of r.then) if (e.label?.en) return e.label
   return c?.name ?? { en: code, ar: '' }
 }
 
@@ -62,19 +63,20 @@ function traceOf([code, status, reason]) {
   const c = byCode.get(code)
   const outcome = OUTCOME[status]
   return {
-    campaignId: c?.id ?? code,
+    campaignId: code,
     code,
     name: c?.name ?? { en: code, ar: '' },
     outcome,
     reason: outcome === 'skipped' || outcome === 'budget' ? reason : null,
     group: GROUPS[code] ?? null,
     lostTo: null,
-    rules: (c?.rules ?? []).map((r) => ({
+    rules: (c?.campaign.rules ?? []).map((r) => ({
       ruleId: r.id,
       name: r.name,
       ran: outcome !== 'skipped',
-      conditions: r.when.items.map((k) => ({
-        conditionId: k.id,
+      // Schema 1's conditions carry no id: the trace names one by its place in the rule.
+      conditions: r.when.filter((k) => k.says).map((k, i) => ({
+        conditionId: `when.${i}`,
         says: k.says,
         met: outcome === 'applied' || !(reason ?? '').includes(k.says.en),
       })),
@@ -86,7 +88,7 @@ function nearOf([code, text]) {
   const items = /^(\d+) more items? of (\S+)/.exec(text)
   const money = /add [A-Z]{3} ([\d.]+)/.exec(text)
   const gap = items ? { kind: 'items', count: Number(items[1]), of: items[2] } : { kind: 'money', amount: Number(money[1]) }
-  return { campaignId: byCode.get(code)?.id ?? code, code, gap, offer: labelOf(code) }
+  return { campaignId: code, code, gap, offer: labelOf(code) }
 }
 
 function fromRaw(raw) {

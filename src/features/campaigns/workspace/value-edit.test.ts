@@ -27,6 +27,18 @@ describe('named values', () => {
     expect(renameValue(next, r.id, back, 'payback')).toBe(next)
   })
 
+  it('a rename through another value’s name never takes that value’s readers with it', () => {
+    const rules = rulesOf('WLCB') // `back` reads "$eligible"
+    const r = rules[0]
+    const v = { ...newValue('cashback'), [BLOCK_KEY]: 'v-cash' }
+    let next = addValue(rules, r.id, v)
+    next = renameValue(next, r.id, 'v-cash', 'eligible') // taken: the readers of `eligible` stay its own
+    expect(next[0].values[1].expr).toEqual(r.values[1].expr)
+    next = renameValue(next, r.id, 'v-cash', 'cashback') // the old name is shared: nothing follows
+    expect(next[0].values[1].expr).toEqual(r.values[1].expr)
+    expect(next[0].values[2].name).toBe('cashback')
+  })
+
   it('a new value, its expression set and read by an effect', () => {
     const rules = rulesOf('WLCB')
     const r = rules[0]

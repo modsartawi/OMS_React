@@ -193,7 +193,7 @@ export default function BudgetDrawer({
           </div>
           {error != null && (
             <div data-budget-refusal="">
-              <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} />
+              <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} onReload={onEdit} />
             </div>
           )}
         </div>

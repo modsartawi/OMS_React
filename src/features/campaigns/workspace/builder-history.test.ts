@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import type { CampaignRule } from '@/core/models/rule-campaign'
 import { CAMPAIGNS } from '../../../../tools/campaigns-fixtures.mjs'
 import { builderHistory, canRedo, canUndo, HISTORY_LIMIT, initialHistory, isDirty, type BuilderAction, type BuilderHistory } from './builder-history'
+import { keyOf } from './block-keys'
 import { renameRule } from './rule-edit'
 
 const saved: CampaignRule[] = structuredClone(CAMPAIGNS.find((c) => c.code === 'SUN-3FOR2')!.campaign.rules)
@@ -53,6 +54,22 @@ describe('builderHistory', () => {
     const after = run(edited, { type: 'saved', rules: edited.present }, rename('B'), { type: 'cancel' })
     expect(name(after)).toBe('A')
     expect(isDirty(after)).toBe(false)
+  })
+
+  it('a save or a re-read keeps the keys of the blocks on screen (522: issues and the open panel find them)', () => {
+    const keys = (rules: CampaignRule[]) => [...rules[0].when.map(keyOf), ...rules[0].then.map(keyOf), ...rules[0].values.map(keyOf)]
+    const edited = run(initialHistory(saved), rename('A'))
+    const was = keys(edited.present)
+    expect(was.every(Boolean)).toBe(true)
+    // HQ answers the rules without keys (JSON drops them).
+    const answer = JSON.parse(JSON.stringify(edited.present)) as CampaignRule[]
+    const clean = run(edited, { type: 'saved', rules: answer, sent: edited.present })
+    expect(keys(clean.present)).toEqual(was)
+    const inFlight = run(edited, rename('B'))
+    const dirty = run(inFlight, { type: 'saved', rules: answer, sent: edited.present })
+    expect(keys(dirty.saved)).toEqual(was)
+    expect(keys(run(clean, { type: 'load', rules: answer }).present)).toEqual(was)
+    expect(keys(run(inFlight, { type: 'load', rules: answer }).saved)).toEqual(was)
   })
 
   it('an edit made while the save was in flight is kept, unsaved', () => {

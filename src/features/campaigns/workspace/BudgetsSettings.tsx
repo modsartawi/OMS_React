@@ -107,7 +107,7 @@ export default function BudgetsSettings() {
       )}
       {saveList.isError && !open && !deleting && (
         <div data-budget-refusal="">
-          <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={saveList.error} />
+          <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={saveList.error} onReload={resetSaves} />
         </div>
       )}
       {scopes.map((scope) => {
@@ -204,7 +204,7 @@ export default function BudgetsSettings() {
               <SentenceView s={budgetSentence(deleting, currency)} />
             </p>
             <p className="text-muted-foreground">{t(live ? 'settings.budgets.delete.bodyLive' : 'settings.budgets.delete.body')}</p>
-            {saveList.isError && <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={saveList.error} />}
+            {saveList.isError && <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={saveList.error} onReload={resetSaves} />}
           </div>
         </Modal>
       )}

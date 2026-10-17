@@ -69,6 +69,12 @@ describe('named values', () => {
     expect(valueNameProblem(r, 'two words', self)).toBe('pattern')
     expect(valueNameProblem(r, 'back', self)).toBe('taken')
     expect(valueNameProblem(r, 'spend', self)).toBeNull()
+    // The language's own words and HQ's field roots (`session.total` → `session`) would read as them.
+    const fields = [{ path: 'session.total' }, { path: 'item.net' }]
+    expect(valueNameProblem(r, 'not', self, fields)).toBe('reserved')
+    expect(valueNameProblem(r, 'true', self, fields)).toBe('reserved')
+    expect(valueNameProblem(r, 'session', self, fields)).toBe('reserved')
+    expect(valueNameProblem(r, 'sessionCap', self, fields)).toBeNull()
     expect(nextValueName({ filters: [], values: [newValue('value1')] }, 'value')).toBe('value2')
     expect(filterNameProblem(r.filters, 'BACK', undefined, r.values)).toBe('taken')
   })

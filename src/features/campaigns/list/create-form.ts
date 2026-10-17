@@ -40,26 +40,32 @@ export function suggestCampaignId(nameEn: string): string {
 /** The id the form sends: the typed one, or the suggestion while the author has not edited it. */
 export const formId = (form: CreateCampaignForm): string => (form.idEdited ? form.id.trim() : suggestCampaignId(form.nameEn))
 
-export type CampaignIdProblem = 'idRequired' | 'idTooLong' | 'idCharacters' | 'idReserved'
+export type CampaignIdProblem = 'idRequired' | 'idTooLong' | 'idCharacters' | 'idReserved' | 'idTaken'
 
-/** Why an id cannot be used, or null. A reserved leaf is refused in any case. */
-export function campaignIdProblem(id: string): CampaignIdProblem | null {
+/**
+ * Why an id cannot be used, or null. A reserved leaf is refused in any case; so is the id of a
+ * campaign the list holds (`taken`), in any case too: HQ takes a first save at revision 0 over a live
+ * campaign with no draft as that campaign's new draft, so Create would quietly draft over it.
+ */
+export function campaignIdProblem(id: string, taken: readonly string[] = []): CampaignIdProblem | null {
   if (!id) return 'idRequired'
   if (id.length > CAMPAIGN_ID_MAX) return 'idTooLong'
   if (!CAMPAIGN_ID.test(id)) return 'idCharacters'
   if (RESERVED_CAMPAIGN_IDS.includes(id.toLowerCase())) return 'idReserved'
+  if (taken.some((x) => x.toLowerCase() === id.toLowerCase())) return 'idTaken'
   return null
 }
 
 /** A field the form refuses, keyed to its locale message. */
 export type CreateFormProblem = 'nameEnRequired' | 'nameArRequired' | CampaignIdProblem
 
-/** Every reason the form cannot be sent yet; empty = it can. A name of only spaces is no name. */
-export function createFormProblems(form: CreateCampaignForm): CreateFormProblem[] {
+/** Every reason the form cannot be sent yet; empty = it can. A name of only spaces is no name.
+ *  `taken`: the ids of the campaigns listed. */
+export function createFormProblems(form: CreateCampaignForm, taken: readonly string[] = []): CreateFormProblem[] {
   const problems: CreateFormProblem[] = []
   if (!form.nameEn.trim()) problems.push('nameEnRequired')
   if (!form.nameAr.trim()) problems.push('nameArRequired')
-  const idProblem = campaignIdProblem(formId(form))
+  const idProblem = campaignIdProblem(formId(form), taken)
   if (idProblem) problems.push(idProblem)
   return problems
 }

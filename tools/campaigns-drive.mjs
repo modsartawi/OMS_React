@@ -585,6 +585,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-submit]').click()
   check('12: a static leaf is refused at the id field', await dialog.locator('[data-create-problem="id"]').isVisible())
   check('12: …and nothing was sent', posts() === 0)
+  // 522 review: a first save at revision 0 would draft over a live campaign with no draft.
+  await idField.fill('wknd20')
+  check('12: a listed campaign’s id is refused, in any case', (await dialog.locator('[data-create-problem="id"]').innerText()).includes('A campaign already has this id') && posts() === 0)
   await idField.fill('RAMADAN-NIGHTS')
   await dialog.locator('[data-create-field="nameAr"]').press('Enter')
   await page.waitForURL(`${BASE}/campaigns/RAMADAN-NIGHTS`, { timeout: 10000 })
@@ -2084,6 +2087,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-draft-reload]').click()
   for (let i = 0; i < 50 && loads() === before; i++) await page.waitForTimeout(100)
   check('78b: Reload reads the draft again (Drafts/Load)', loads() > before, `${before} → ${loads()}`)
+  await stale.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  check(
+    '78b: …and drops the unsaved change with the refusal, as its words say',
+    (await stale.count()) === 0 && (await page.locator('[data-settings-field="nameEn"]').inputValue()) === CAMPAIGNS.find((c) => c.code === 'SUN-3FOR2').campaign.name.en,
+    await page.locator('[data-settings-field="nameEn"]').inputValue(),
+  )
   check('80: no page errors (78b)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

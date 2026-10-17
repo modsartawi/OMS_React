@@ -78,6 +78,9 @@ describe('exprCodec_roundTrips', () => {
     expect(printExpr("it's", ctx)).toBeNull()
     expect(printExpr('$not a path', ctx)).toBeNull()
     expect(printExpr(null, ctx)).toBeNull()
+    // A number JavaScript writes with an exponent (1e-7, 1e+21) is not one the language reads.
+    expect(printExpr(['*', '$session.total', 0.0000001], ctx)).toBeNull()
+    expect(printExpr(1e21, ctx)).toBeNull()
   })
 
   it('says what is wrong and where', () => {

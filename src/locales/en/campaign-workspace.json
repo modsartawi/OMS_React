@@ -676,7 +676,8 @@
     "nameProblem": {
       "empty": "Give the value a name.",
       "taken": "This rule already has a value or a filter with this name.",
-      "pattern": "Start with a small letter, then use letters and digits only."
+      "pattern": "Start with a small letter, then use letters and digits only.",
+      "reserved": "Formulas already use this word. Choose another name."
     },
     "inUse_one": "Read by {{n}} condition, effect or value, so it cannot be deleted.",
     "inUse_other": "Read by {{n}} conditions, effects or values, so it cannot be deleted.",

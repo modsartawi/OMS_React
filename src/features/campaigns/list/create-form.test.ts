@@ -46,4 +46,11 @@ describe('campaignId_authorPicksIt', () => {
     expect(campaignIdProblem('خصم')).toBe('idCharacters')
     for (const leaf of ['priority', 'Simulator', 'SESSIONS', 'coupon-finder', 'customers']) expect(campaignIdProblem(leaf)).toBe('idReserved')
   })
+
+  it('refuses an id a listed campaign already has: a first save at revision 0 would draft over it', () => {
+    expect(campaignIdProblem('WKND20', ['WKND20', 'SUN-3FOR2'])).toBe('idTaken')
+    expect(campaignIdProblem('wknd20', ['WKND20'])).toBe('idTaken')
+    expect(campaignIdProblem('WKND21', ['WKND20'])).toBeNull()
+    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: 'Weekend 20', nameAr: 'ع', id: 'WKND20', idEdited: true }, ['WKND20'])).toEqual(['idTaken'])
+  })
 })

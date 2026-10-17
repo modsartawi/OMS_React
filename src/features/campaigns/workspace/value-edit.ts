@@ -1,4 +1,5 @@
 import type { CampaignRule, RuleBlockCatalogue, RuleCondition, RuleEffect, RuleExpr, RuleNamedValue } from '@/core/models/rule-campaign'
+import { EXPR_KEYWORDS } from '@/core/rules/expr'
 import { blockType, catalogueBlock, leafConditions } from '@/core/rules/sentence'
 import { keyOf } from './block-keys'
 
@@ -46,14 +47,23 @@ export function nextValueName(rule: Pick<CampaignRule, 'filters' | 'values'>, ba
 const NAME = /^[a-z][A-Za-z0-9]*$/
 
 /**
- * Why a value cannot have `name`: empty, not the checker's shape (`pattern`), or another value's or
- * a filter's name in the rule (ignoring case).
+ * Why a value cannot have `name`: empty, not the checker's shape (`pattern`), a word the language
+ * keeps (`and`, `true` …) or the root of one of HQ's fields (`session` of `session.total`), which a
+ * formula would read as that instead (`reserved`), or another value's or a filter's name in the rule
+ * (ignoring case).
  */
-export type ValueNameProblem = 'empty' | 'pattern' | 'taken' | null
+export type ValueNameProblem = 'empty' | 'pattern' | 'reserved' | 'taken' | null
 
-export function valueNameProblem(rule: Pick<CampaignRule, 'filters' | 'values'>, name: string, selfKey?: string): ValueNameProblem {
-  if (!name.trim()) return 'empty'
-  if (!NAME.test(name.trim())) return 'pattern'
+export function valueNameProblem(
+  rule: Pick<CampaignRule, 'filters' | 'values'>,
+  name: string,
+  selfKey?: string,
+  fields: readonly { path: string }[] = [],
+): ValueNameProblem {
+  const n = name.trim()
+  if (!n) return 'empty'
+  if (!NAME.test(n)) return 'pattern'
+  if (EXPR_KEYWORDS.has(n) || fields.some((f) => f.path.split('.')[0] === n)) return 'reserved'
   return taken(rule, name, selfKey) ? 'taken' : null
 }
 
@@ -100,7 +110,11 @@ export function setValueExpr(rules: Rules, ruleId: string, key: string, expr: Ru
   })
 }
 
-/** Renames a value, and every `"$old"` of the rule with it. */
+/**
+ * Renames a value, and every `"$old"` of the rule with it. The builder renames only to a name with
+ * no `valueNameProblem`, so a run of typing never passes the readers through an empty, a reserved
+ * or another value's name.
+ */
 export function renameValue(rules: Rules, ruleId: string, key: string, name: string): Rules {
   return mapRule(rules, ruleId, (r) => {
     const v = r.values.find((x) => keyOf(x) === key)

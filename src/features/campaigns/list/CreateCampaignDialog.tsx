@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from 'react'
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
+import { rememberNewDraft, ruleCampaignApi, ruleCampaignsQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -52,7 +52,11 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
     create.reset()
   }
 
-  const problems = createFormProblems(form)
+  // The campaigns listed: Create refuses one's id (a disabled campaign with no draft is not listed
+  // until HQ has a list door, BO ask A).
+  const listed = useQuery(ruleCampaignsQuery()).data
+  const taken = useMemo(() => (listed ?? []).map((r) => r.campaign), [listed])
+  const problems = createFormProblems(form, taken)
   const shown = (p: CreateFormProblem) => tried && problems.includes(p)
   // The id's own problem shows at once while it is typed (a reserved word, a bad character), and
   // an empty id once Create is pressed.

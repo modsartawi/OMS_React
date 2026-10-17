@@ -62,7 +62,8 @@
       "idRequired": "Enter the campaign id.",
       "idTooLong": "The campaign id is at most 40 characters.",
       "idCharacters": "Use only letters A–Z, digits, dots, dashes and underscores.",
-      "idReserved": "This word names a page of Campaigns. Choose another id."
+      "idReserved": "This word names a page of Campaigns. Choose another id.",
+      "idTaken": "A campaign already has this id. Choose another id."
     },
     "features": {
       "legend": "Features (optional)",

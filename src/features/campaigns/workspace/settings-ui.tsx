@@ -110,15 +110,24 @@ export const DRAFT_PENDING = 'RULES_DRAFT_PENDING'
 
 /**
  * A stale draft (409 `RULES_DRAFT_STALE`): someone saved it since this page read it. The page offers
- * to read it again; the reader's unsaved change is then lost, which the words say.
+ * to read it again; the reader's unsaved change is then lost, which the words say: `onReload` drops
+ * it (and the refusal) before the read, so the page takes the draft as it now is.
  */
-export function StaleDraft({ code: campaign }: { code: string }) {
+export function StaleDraft({ code: campaign, onReload }: { code: string; onReload?: () => void }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   return (
     <div data-draft-stale="">
       <ErrorBanner className="p-2.5" title={t('draft.staleTitle')} message={t('draft.stale')}>
-        <Button variant="outlined" className="mt-2" onClick={() => void queryClient.refetchQueries({ queryKey: ruleCampaignKey(campaign) })} data-draft-reload="">
+        <Button
+          variant="outlined"
+          className="mt-2"
+          onClick={() => {
+            onReload?.()
+            void queryClient.refetchQueries({ queryKey: ruleCampaignKey(campaign) })
+          }}
+          data-draft-reload=""
+        >
           <RotateCw className="h-3.5 w-3.5" aria-hidden />
           {t('draft.reload')}
         </Button>
@@ -127,12 +136,13 @@ export function StaleDraft({ code: campaign }: { code: string }) {
   )
 }
 
-/** HQ's refusal: the envelope's own message, and its code; a stale or a frozen draft in our words. */
-export function Refusal({ title, fallback, error }: { title: string; fallback: string; error: unknown }) {
+/** HQ's refusal: the envelope's own message, and its code; a stale or a frozen draft in our words.
+ *  `onReload` is what a stale draft's Reload drops first: the page's unsaved change and its refusal. */
+export function Refusal({ title, fallback, error, onReload }: { title: string; fallback: string; error: unknown; onReload?: () => void }) {
   const { t } = useTranslation('campaign-workspace')
   const { draft } = useWorkspace()
   const code = apiErrorCode(error)
-  if (code === DRAFT_STALE) return <StaleDraft code={draft.code} />
+  if (code === DRAFT_STALE) return <StaleDraft code={draft.code} onReload={onReload} />
   if (code === DRAFT_PENDING) return <ErrorBanner className="p-2.5" title={t('draft.pendingTitle')} message={t('draft.pending')} />
   return (
     <ErrorBanner className="p-2.5" title={title} message={apiErrorMessage(error, fallback)}>
@@ -182,7 +192,7 @@ export function SaveRow({
       )}
       {error != null && (
         <div data-settings-refusal={page}>
-          <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} />
+          <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} onReload={onCancel} />
         </div>
       )}
       <div className="flex flex-wrap items-center justify-end gap-2">

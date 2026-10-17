@@ -58,6 +58,15 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedJson])
 
+  // The same expression printed anew (a filter it reads was renamed): the typed text named the old
+  // filter and no longer reads, so the box shows the expression as it now prints.
+  const printedFor = useRef(storedJson)
+  useEffect(() => {
+    if (printedFor.current === storedJson) setTyped(null)
+    printedFor.current = storedJson
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored.text])
+
   useEffect(() => {
     const el = input.current
     const caret = caretAfter.current

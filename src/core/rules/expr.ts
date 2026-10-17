@@ -40,6 +40,8 @@ const BP: Record<string, number> = { or: 1, and: 2, '>': 3, '>=': 3, '<': 3, '<=
 const PREFIX_BP = 6
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/
 const KEYWORDS = new Set(['and', 'or', 'not', 'true', 'false'])
+/** The words the language keeps for itself: a name spelled like one cannot be read back. */
+export const EXPR_KEYWORDS: ReadonlySet<string> = KEYWORDS
 
 // ── Printing ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -50,8 +52,10 @@ const fail = (): never => {
 }
 
 function printNumber(n: number): string {
-  if (!Number.isFinite(n)) fail()
-  return String(n)
+  const text = String(n)
+  // The language has no exponent: `1e-7` would read as `1`, then a name.
+  if (!Number.isFinite(n) || /e/i.test(text)) fail()
+  return text
 }
 
 function printText(s: string): string {

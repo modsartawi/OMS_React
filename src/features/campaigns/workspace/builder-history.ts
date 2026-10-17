@@ -46,8 +46,9 @@ export type BuilderAction =
 /** How many steps Undo can go back. */
 export const HISTORY_LIMIT = 100
 
-export const initialHistory = (from: CampaignRule[]): BuilderHistory => {
-  const rules = withKeys(from, mintKey)
+/** `like`: rules whose blocks' keys are kept where a block sits in the same place (`withKeys`). */
+export const initialHistory = (from: CampaignRule[], like?: CampaignRule[]): BuilderHistory => {
+  const rules = withKeys(from, mintKey, like)
   return {
     saved: rules,
     present: rules,
@@ -109,12 +110,13 @@ export function builderHistory(h: BuilderHistory, action: BuilderAction): Builde
         coalesce: null,
       }
     case 'saved':
-      if (action.sent !== undefined && action.sent !== h.present) return { ...h, saved: withKeys(action.rules, mintKey) }
-      return initialHistory(action.rules)
+      // HQ's answer is the rules sent: their blocks keep the keys they have on screen.
+      if (action.sent !== undefined && action.sent !== h.present) return { ...h, saved: withKeys(action.rules, mintKey, action.sent) }
+      return initialHistory(action.rules, h.present)
     case 'seal':
       return h.coalesce === null ? h : { ...h, coalesce: null }
     case 'load':
       // An unsaved edit is never lost to a re-read; the next Save is HQ's to accept or refuse.
-      return isDirty(h) ? { ...h, saved: withKeys(action.rules, mintKey) } : initialHistory(action.rules)
+      return isDirty(h) ? { ...h, saved: withKeys(action.rules, mintKey, h.saved) } : initialHistory(action.rules, h.present)
   }
 }

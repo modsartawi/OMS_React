@@ -37,15 +37,17 @@ import type {
   RuleMemberBudget,
   RuleMemberKey,
   RuleOfflineVerdict,
-  RuleSession,
-  RuleSessionAccess,
-  RuleSessionCancelled,
-  RuleSessionListQuery,
-  RuleSessionRow,
   RuleSimRequest,
   RuleSimResult,
   RuleWalletCoupon,
 } from '@/core/models/rule-campaign'
+import type {
+  RuleSessionListQuery,
+  RuleSessionLookup,
+  RuleSessionSummary,
+  RuleSupportCancelReply,
+  RuleSupportCancelRequest,
+} from '@/core/models/rule-session'
 
 // The rule-campaign doors (spec 2737). Every endpoint string of the family lives in THIS file —
 // campaigns, catalogue, lookups, validate, simulate, lifecycle, coupons and sessions as later
@@ -98,12 +100,11 @@ const TEMPLATES = 'RuleCampaign/Templates'
 const SIMULATE = 'RuleCampaign/Simulate'
 // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
 const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-// (the support doors' own contract is BackOffice 2760)
-const SESSIONS = 'RuleCampaign/Sessions'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-// Not under SESSIONS: a sale id could read `Access`.
-const SESSION_ACCESS = 'RuleCampaign/SessionAccess'
+// Support's doors (BackOffice 2760): their own grant, `BackOfficeScreen[RuleSupport]` — 03 to read,
+// 02 to cancel. A reader without it gets a bare 403 with no body.
+const SUPPORT_SESSIONS = 'Rules/Support/Sessions'
+const SUPPORT_SESSION = 'Rules/Support/Session'
+const SUPPORT_CANCEL = 'Rules/Support/Cancel'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 // (the coupon finder's contract is BackOffice 2754's; it names no door yet)
 const COUPON_FIND = 'RuleCampaign/Coupons'
@@ -394,35 +395,25 @@ export const ruleCampaignApi = {
     return api.del<RuleCouponUnusedDeleted>(`${COUPONS(id)}/Batches/${encodeURIComponent(batch)}/Unused`)
   },
 
-  /** GET RuleCampaign/Sessions?store=&date=&status= — one store's customer sessions on one local
-   *  day, in one status or all (ticket 518, BackOffice 2760). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  sessions(q: RuleSessionListQuery): Promise<RuleSessionRow[]> {
-    return api.get<RuleSessionRow[]>(SESSIONS, { store: q.store, date: q.date, status: q.status })
+  /** GET Rules/Support/Sessions?storeCode=&from=&to=&state=&take= — one store's customer sessions
+   *  between two local days, in one state or all, newest first by `openedAt` (ticket 527). */
+  sessions(q: RuleSessionListQuery): Promise<RuleSessionSummary[]> {
+    return api.get<RuleSessionSummary[]>(SUPPORT_SESSIONS, { storeCode: q.storeCode, from: q.from, to: q.to, state: q.state, take: q.take })
   },
 
-  /** GET RuleCampaign/Sessions/{saleId} — one session whole: calls, holds, journal and budget
-   *  movements, refusals, its cart with each line's effects and units, and each campaign's outcome
-   *  (ticket 518, BackOffice 2760). An unknown sale id is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  session(saleId: string): Promise<RuleSession> {
-    return api.get<RuleSession>(`${SESSIONS}/${encodeURIComponent(saleId)}`)
+  /** GET Rules/Support/Session?sessionId= — one sale whole: its calls with their replies, cart,
+   *  effects, holds, budget journal and events, refusals, coupon, created codes and points posted
+   *  (ticket 527). An unknown sale is a 404 `RULES_SESSION_NOT_FOUND`. */
+  session(sessionId: string): Promise<RuleSessionLookup> {
+    return api.get<RuleSessionLookup>(SUPPORT_SESSION, { sessionId })
   },
 
-  /** GET RuleCampaign/SessionAccess — whether the reader may cancel a session (ticket 518,
-   *  BackOffice 2760's Ua permission): what the page draws. The cancel door still refuses. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  sessionAccess(): Promise<RuleSessionAccess> {
-    return api.get<RuleSessionAccess>(SESSION_ACCESS)
-  },
-
-  /** POST RuleCampaign/Sessions/{saleId}/Cancel — support cancels a session (ticket 518, BackOffice
-   *  2760): HQ rolls back its budgets, coupon uses, created codes and points, and answers the
-   *  session cancelled with what it rolled back. A reader without the permission, or a session HQ
-   *  will not cancel, is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  cancelSession(saleId: string): Promise<RuleSessionCancelled> {
-    return api.post<RuleSessionCancelled>(`${SESSIONS}/${encodeURIComponent(saleId)}/Cancel`, {})
+  /** POST Rules/Support/Cancel { sessionId, requestId, reason } — support cancels a session (ticket
+   *  527): a paying one releases its holds, a closed or partly returned one is a full return. The
+   *  answer is the rollback and the session after; the same `requestId` again is `repeated: true`
+   *  and moved nothing. */
+  cancelSession(body: RuleSupportCancelRequest): Promise<RuleSupportCancelReply> {
+    return api.post<RuleSupportCancelReply>(SUPPORT_CANCEL, body)
   },
 
   /** GET RuleCampaign/Coupons/{code} — one code across every campaign: its campaign, batch, status,
@@ -653,43 +644,35 @@ export const RULE_SESSIONS_KEY = ['rule-sessions'] as const
 /** One session, keyed by its sale id. */
 export const ruleSessionKey = (saleId: string) => [...RULE_SESSIONS_KEY, 'one', saleId] as const
 
-/** The sessions list's query options (ticket 518): asked only once a store is chosen. Tills move
+/** The sessions list's query options (ticket 527): asked only once a store is chosen. Tills move
  *  sessions along, so it is read afresh when the reader comes back to the tab. */
 export const ruleSessionsQuery = (q: RuleSessionListQuery) => ({
   queryKey: [...RULE_SESSIONS_KEY, 'list', q] as const,
   queryFn: () => ruleCampaignApi.sessions(q),
-  enabled: !!q.store && !!q.date,
+  enabled: !!q.storeCode,
   refetchOnWindowFocus: true as const,
   retry: false as const,
 })
 
-/** One session's query options (ticket 518). */
+/** One session's query options (ticket 527). */
 export const ruleSessionQuery = (saleId: string) => ({
   queryKey: ruleSessionKey(saleId),
   queryFn: () => ruleCampaignApi.session(saleId),
   retry: false as const,
 })
 
-/** The reader's session rights (ticket 518): read once, never retried (the door fails closed). */
-export const ruleSessionAccessQuery = () => ({
-  queryKey: [...RULE_SESSIONS_KEY, 'access'] as const,
-  queryFn: () => ruleCampaignApi.sessionAccess(),
-  staleTime: 5 * 60_000,
-  refetchOnWindowFocus: false as const,
-  retry: false as const,
-})
-
 /**
- * A session HQ just cancelled: its own query takes HQ's answer — under the sale id it was looked up
- * by as well as HQ's own, should HQ match an id typed otherwise — and so does its row in every list
- * already read, so Back never shows it in its old status while the lists are read afresh.
+ * A session HQ just cancelled: its own query takes HQ's lookup after the cancel — under the sale id
+ * it was looked up by as well as HQ's own, should HQ match an id typed otherwise — and so does its
+ * row in every list already read, so Back never shows it in its old state while the lists are read
+ * afresh.
  */
-export function rememberCancelledSession(queryClient: QueryClient, lookedUp: string, session: RuleSession): void {
-  queryClient.setQueryData(ruleSessionKey(lookedUp), session)
-  queryClient.setQueryData(ruleSessionKey(session.id), session)
-  const { status, lastActivity, gross, discount, net } = session
-  queryClient.setQueriesData<RuleSessionRow[]>({ queryKey: [...RULE_SESSIONS_KEY, 'list'] }, (rows) =>
-    rows?.map((r) => (r.id === session.id ? { ...r, status, lastActivity, gross, discount, net } : r)),
+export function rememberCancelledSession(queryClient: QueryClient, lookedUp: string, lookup: RuleSessionLookup): void {
+  const row = lookup.session
+  queryClient.setQueryData(ruleSessionKey(lookedUp), lookup)
+  queryClient.setQueryData(ruleSessionKey(row.sessionId), lookup)
+  queryClient.setQueriesData<RuleSessionSummary[]>({ queryKey: [...RULE_SESSIONS_KEY, 'list'] }, (rows) =>
+    rows?.map((r) => (r.sessionId === row.sessionId ? row : r)),
   )
   void queryClient.invalidateQueries({ queryKey: [...RULE_SESSIONS_KEY, 'list'] })
   // The rollback frees coupon uses and budget counters: support's look-ups (519) read afresh.

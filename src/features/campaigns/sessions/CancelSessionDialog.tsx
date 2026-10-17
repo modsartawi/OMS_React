@@ -1,35 +1,52 @@
+import { useId, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { RuleSessionCancelled, RuleSessionRollback } from '@/core/models/rule-campaign'
-import { rememberCancelledSession, ruleCampaignApi } from '@/core/rules/api'
+import { ApiError, apiErrorCode, apiErrorKind, apiErrorMessage, isBareDenial } from '@/core/api'
+import type { RuleSessionLookup, RuleSessionState, RuleSupportCancelReply } from '@/core/models/rule-session'
+import { RULE_SESSIONS_KEY, rememberCancelledSession, ruleCampaignApi } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatNumber } from '@/core/util/number-format'
-import { BudgetMoveText } from './session-ui'
+import { CANCEL_REASON_MAX, cancelBody, cancelFailure, isStaleRefusal, mayHaveLanded, pressRequestId, reasonProblem, type PreviousPress } from './cancel'
+import { BudgetEventText, MovementText } from './session-ui'
+import { momentText } from './timeline'
 
 /**
- * Cancel session (ticket 518): the confirmation says what a cancel rolls back; HQ does it
- * (`RuleCampaign/Sessions/{saleId}/Cancel`, PROVISIONAL, BackOffice 2760) and answers the session
- * cancelled with its rollback, which the page then shows. A refusal shows here, verbatim, with its
- * code.
+ * Cancel session (tickets 518, 527): the confirmation says what a cancel does to a session in this
+ * state and asks why — the reason is required (at most 500 characters) and HQ keeps it with the
+ * call. HQ does it (`POST Rules/Support/Cancel { sessionId, requestId, reason }`, BackOffice 2760)
+ * and answers the rollback and the session after, which the page then shows. Each press sends a new
+ * request id, but a retry of a press HQ never answered sends the same one, so a cancel that did land
+ * comes back `repeated` and moves nothing twice. A refusal shows here, verbatim, with its code; a
+ * bare 403 (no `RuleSupport` 02 grant) says so.
  */
 export default function CancelSessionDialog({
   saleId,
+  state,
   onClose,
   onCancelled,
 }: {
   saleId: string
+  state: RuleSessionState
   onClose: () => void
-  onCancelled: (result: RuleSessionCancelled) => void
+  onCancelled: (result: RuleSupportCancelReply) => void
 }) {
   const { t } = useTranslation('rule-sessions')
   const queryClient = useQueryClient()
+  const reasonId = useId()
+  const [reason, setReason] = useState('')
+  const [tried, setTried] = useState(false)
+  const [press, setPress] = useState<PreviousPress | null>(null)
   const cancel = useMutation({
-    mutationFn: () => ruleCampaignApi.cancelSession(saleId),
+    mutationFn: (requestId: string) => ruleCampaignApi.cancelSession(cancelBody(saleId, requestId, reason)),
+    onError: (err, requestId) => {
+      setPress({ requestId, failure: apiErrorKind(err), statusCode: err instanceof ApiError ? err.statusCode : 0 })
+      // The session moved on: it and the lists are read afresh, and this dialog has nothing left to send.
+      if (isStaleRefusal(apiErrorCode(err))) void queryClient.invalidateQueries({ queryKey: RULE_SESSIONS_KEY })
+    },
     onSuccess: (result) => {
       rememberCancelledSession(queryClient, saleId, result.session)
       onCancelled(result)
@@ -38,20 +55,32 @@ export default function CancelSessionDialog({
   const close = () => {
     if (!cancel.isPending) onClose()
   }
+  const problem = reasonProblem(reason)
+  const confirm = () => {
+    setTried(true)
+    if (problem) return
+    cancel.mutate(pressRequestId(press))
+  }
   const code = cancel.isError ? apiErrorCode(cancel.error) : null
+  const stale = isStaleRefusal(code)
+  // A press that may have landed is retried as it was: same id, same reason.
+  const retrying = !!press && mayHaveLanded(press)
+  const failure = cancel.isError ? cancelFailure(code, isBareDenial(cancel.error)) : null
+  const message = failure === 'denied' ? t('cancel.denied') : apiErrorMessage(cancel.error, t('cancel.refused'))
+  const returns = state === 'closed' || state === 'partiallyReturned'
 
   return (
     <Modal
       open
       onClose={close}
       title={t('cancel.title')}
-      width="32rem"
+      width="34rem"
       footer={
         <>
           <Button variant="text" disabled={cancel.isPending} onClick={close}>
             {t('cancel.keep')}
           </Button>
-          <Button variant="danger" disabled={cancel.isPending} onClick={() => cancel.mutate()} data-session-cancel-confirm="">
+          <Button variant="danger" disabled={cancel.isPending || stale} onClick={confirm} data-session-cancel-confirm="">
             {cancel.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
             {t('cancel.confirm')}
           </Button>
@@ -60,12 +89,44 @@ export default function CancelSessionDialog({
     >
       <div className="flex flex-col gap-3 text-sm" data-session-cancel={saleId}>
         <p>
-          <Trans t={t} i18nKey="cancel.body" values={{ saleId }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
+          <Trans t={t} i18nKey={returns ? 'cancel.bodyReturn' : 'cancel.bodyPaying'} values={{ saleId }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
         </p>
-        <p className="text-muted-foreground">{t('cancel.notReturn')}</p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={reasonId} className="text-xs font-medium text-muted-foreground">
+            {t('cancel.reason')}
+          </label>
+          <textarea
+            id={reasonId}
+            dir="auto"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={cancel.isPending}
+            readOnly={retrying}
+            aria-invalid={tried && !!problem}
+            aria-describedby={`${reasonId}-hint`}
+            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            data-session-cancel-reason=""
+          />
+          <p id={`${reasonId}-hint`} className={`text-xs ${tried && problem ? 'text-danger-800' : 'text-muted-foreground'}`} data-session-cancel-reason-hint={tried && problem ? problem : ''}>
+            {retrying ? (
+              t('cancel.reasonKept')
+            ) : tried && problem === 'required' ? (
+              t('cancel.reasonRequired')
+            ) : (
+              <Trans
+                t={t}
+                i18nKey={problem === 'tooLong' ? 'cancel.reasonTooLong' : 'cancel.reasonHint'}
+                values={{ n: formatNumber(reason.trim().length), max: formatNumber(CANCEL_REASON_MAX) }}
+                components={{ v: <bdi dir="ltr" /> }}
+              />
+            )}
+          </p>
+        </div>
         {cancel.isError && (
           <div data-session-cancel-refusal="">
-            <ErrorBanner className="p-2.5" title={t('cancel.refusedTitle')} message={apiErrorMessage(cancel.error, t('cancel.refused'))}>
+            <ErrorBanner className="p-2.5" title={t('cancel.refusedTitle')} message={message}>
+              {failure && failure !== 'denied' && <p className="mt-1 text-xs">{t(`cancel.refusal.${failure}`)}</p>}
               {code && (
                 <p className="mt-1 text-xs" data-refusal-code={code}>
                   {t('cancel.refusalCode')}{' '}
@@ -82,63 +143,88 @@ export default function CancelSessionDialog({
   )
 }
 
-/** What the cancel rolled back, as HQ answered it: budgets, coupon uses, created codes and points. */
-export function RollbackPanel({ rollback, currency }: { rollback: RuleSessionRollback; currency: string }) {
+/** What the cancel rolled back, as HQ answered it: budget journal lines and events, the coupon refund,
+ *  the created codes it disabled and the points it gave back. A repeat moved nothing and says so. */
+export function RollbackPanel({ result, session }: { result: RuleSupportCancelReply; session: RuleSessionLookup }) {
   const { t } = useTranslation('rule-sessions')
+  const { rollback, repeated } = result
   const code = (c: string) => (
     <code className="font-mono font-semibold">
       <Ltr>{c}</Ltr>
     </code>
   )
-  const sections = [
+  const sections: { key: string; items: ReactNode[] }[] = [
     {
       key: 'budgets',
-      items: rollback.budgets.map((b, i) => (
-        <li key={i} className="flex flex-wrap gap-1.5">
-          {code(b.campaignCode)}
+      items: (rollback.movements ?? []).map((m) => (
+        <li key={m.movementId} className="flex flex-wrap gap-1.5">
+          {code(m.campaign)}
           <span>
-            <BudgetMoveText kind="released" budget={b.budget} limit={b.limit} amount={b.amount} currency={currency} />
+            <MovementText move={m} />
           </span>
         </li>
       )),
     },
     {
-      key: 'coupons',
-      items: rollback.coupons.map((c, i) => (
-        <li key={i} className="flex flex-wrap gap-1.5">
-          {code(c.campaignCode)}
-          <span>
-            <Trans t={t} i18nKey="rollback.coupon" values={{ code: c.code }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
+      key: 'budgetEvents',
+      items: (rollback.budgetEvents ?? []).map((e) => (
+        <li key={e.eventId} className="flex flex-wrap gap-1.5">
+          {code(e.campaign)}
+          <span className="flex flex-col">
+            <BudgetEventText event={e} />
           </span>
         </li>
       )),
+    },
+    {
+      key: 'coupon',
+      items: rollback.couponRefund
+        ? [
+            <li key="refund">
+              <Trans
+                t={t}
+                i18nKey="rollback.couponRefund"
+                values={{ code: session.coupon?.code ?? session.session.couponCode ?? '', tx: rollback.couponRefund.transactionId }}
+                components={{ v: <bdi dir="ltr" className="font-mono" /> }}
+              />
+            </li>,
+          ]
+        : [],
     },
     {
       key: 'createdCodes',
-      items: rollback.createdCodes.map((c, i) => (
+      items: (rollback.createdCoupons ?? []).map((c, i) => (
         <li key={i} className="flex flex-wrap gap-1.5">
-          {code(c.campaignCode)}
+          {code(c.campaign)}
           <span>
-            <Trans t={t} i18nKey="rollback.createdCode" values={{ code: c.code }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
+            <Trans t={t} i18nKey="rollback.createdCode" values={{ code: c.code ?? '', state: c.state ?? '' }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
           </span>
         </li>
       )),
     },
     {
       key: 'points',
-      items: rollback.points.map((p, i) => (
-        <li key={i} className="flex flex-wrap gap-1.5">
-          {code(p.campaignCode)}
-          <span>
-            <Trans t={t} i18nKey={`rollback.${p.kind}`} values={{ points: formatNumber(p.points) }} components={{ v: <Ltr /> }} />
-          </span>
+      items: (rollback.pointsActivities ?? []).map((a) => (
+        <li key={a.activityId}>
+          <Trans
+            t={t}
+            i18nKey="rollback.pointsActivity"
+            values={{ type: a.activityType, points: formatNumber(a.points), loyId: a.loyId, at: momentText(a.at) }}
+            components={{ v: <bdi dir="ltr" /> }}
+          />
         </li>
       )),
     },
-  ] as const
+  ]
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-success-border bg-success-050 p-4 text-xs text-success-800" role="status" data-session-rollback="">
-      <h2 className="text-sm font-semibold">{t('rollback.title')}</h2>
+    <section
+      className="flex flex-col gap-3 rounded-lg border border-success-border bg-success-050 p-4 text-xs text-success-800"
+      role="status"
+      data-session-rollback=""
+      data-repeated={repeated}
+    >
+      <h2 className="text-sm font-semibold">{t(repeated ? 'rollback.repeatedTitle' : 'rollback.title', { state: t(`status.${session.session.state}`) })}</h2>
+      {repeated && <p data-rollback-repeated="">{t('rollback.repeated')}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         {sections.map((s) => (
           <div key={s.key} className="flex flex-col gap-1" data-rollback={s.key} data-rollback-count={s.items.length}>

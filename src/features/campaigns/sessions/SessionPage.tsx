@@ -3,45 +3,50 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
-import type { RuleSession, RuleSessionRollback } from '@/core/models/rule-campaign'
-import { ruleSessionAccessQuery, ruleSessionQuery } from '@/core/rules/api'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
+import type { RuleSessionLookup, RuleSupportCancelReply } from '@/core/models/rule-session'
+import { ruleSessionQuery } from '@/core/rules/api'
 import { moneyText } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { formatNumber } from '@/core/util/number-format'
 import CancelSessionDialog, { RollbackPanel } from './CancelSessionDialog'
 import SessionCampaigns from './SessionCampaigns'
 import SessionCart from './SessionCart'
 import SessionEvents from './SessionEvents'
 import { SESSION_STATUS_SEV, backPath, canCancelSession } from './session-query'
+import { sessionTotals } from './session-read'
 import { momentDay, momentText } from './timeline'
 
 type Tab = 'events' | 'cart' | 'campaigns'
 const TABS: readonly Tab[] = ['events', 'cart', 'campaigns']
 
 /**
- * One customer session (ticket 518, BackOffice spec 2737), looked up by its sale id: its header,
- * then three tabs — Events (every call and the movements it caused), Cart items (each line's effects
- * and unit allocation) and Campaigns (each campaign's outcome). **Cancel session** is drawn only for
- * support holding the permission (`RuleCampaign/SessionAccess`, failing closed); it asks first, and
- * then the page shows HQ's rollback.
+ * One customer session (tickets 518, 527, BackOffice 2760), looked up by its sale id through
+ * `GET Rules/Support/Session`: its header, then three tabs — Events (every call, journal line and
+ * budget event), Cart items (each line's effects and units) and Campaigns (what each campaign did
+ * and was refused). **Cancel session** is drawn on a session that holds something to roll back.
+ * There is no access probe for `RuleSupport` 02 yet (BO ask B, ticket 529): a reader without the
+ * grant meets the door's bare 403, which the dialog explains. It asks why first, then the page
+ * shows HQ's rollback.
  */
 export default function SessionPage() {
   const { t } = useTranslation('rule-sessions')
   const { saleId = '' } = useParams()
   const { state } = useLocation()
   const session = useQuery(ruleSessionQuery(saleId))
-  const access = useQuery(ruleSessionAccessQuery())
   const [tab, setTab] = useState<Tab>('events')
   const [cancelling, setCancelling] = useState(false)
-  // HQ's rollback, kept for the sale id it was asked for.
-  const [rollback, setRollback] = useState<{ saleId: string; rollback: RuleSessionRollback } | null>(null)
+  // HQ's cancel answer, kept for the sale id it was asked for.
+  const [cancelled, setCancelled] = useState<{ saleId: string; result: RuleSupportCancelReply } | null>(null)
 
   const s = session.data
-  const back = backPath(state, s ? { store: s.store, date: momentDay(s.created), status: null } : null)
-  const mayCancel = !!s && access.data?.canCancel === true && canCancelSession(s.status)
+  const row = s?.session
+  const back = backPath(state, row ? { store: row.storeCode, date: momentDay(row.openedAt), status: null } : null)
+  const mayCancel = !!row && canCancelSession(row.state)
+  const denied = isBareDenial(session.error)
 
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-session-page={saleId}>
@@ -55,9 +60,9 @@ export default function SessionPage() {
           <h1 className="font-mono text-lg font-semibold tracking-tight">
             <Ltr>{saleId}</Ltr>
           </h1>
-          {s && (
-            <span data-session-status={s.status}>
-              <StatusBadge sev={SESSION_STATUS_SEV[s.status]}>{t(`status.${s.status}`)}</StatusBadge>
+          {row && (
+            <span data-session-status={row.state}>
+              <StatusBadge sev={SESSION_STATUS_SEV[row.state]}>{t(`status.${row.state}`)}</StatusBadge>
             </span>
           )}
         </div>
@@ -75,12 +80,12 @@ export default function SessionPage() {
         </p>
       )}
       {session.isError && (
-        <ErrorBanner className="p-2.5" title={t('detail.failedTitle')} message={apiErrorMessage(session.error, t('detail.failed'))} />
+        <ErrorBanner className="p-2.5" title={t('detail.failedTitle')} message={denied ? t('detail.denied') : apiErrorMessage(session.error, t('detail.failed'))} />
       )}
 
-      {s && (
+      {s && row && (
         <>
-          {rollback?.saleId === saleId && <RollbackPanel rollback={rollback.rollback} currency={s.currency} />}
+          {cancelled?.saleId === saleId && <RollbackPanel result={cancelled.result} session={s} />}
           <Header session={s} />
 
           <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border">
@@ -106,12 +111,13 @@ export default function SessionPage() {
         </>
       )}
 
-      {cancelling && s && (
+      {cancelling && row && (
         <CancelSessionDialog
           saleId={saleId}
+          state={row.state}
           onClose={() => setCancelling(false)}
           onCancelled={(result) => {
-            setRollback({ saleId, rollback: result.rollback })
+            setCancelled({ saleId, result })
             setCancelling(false)
           }}
         />
@@ -120,26 +126,43 @@ export default function SessionPage() {
   )
 }
 
-/** The session's facts: where and who, when, and its money. */
-function Header({ session: s }: { session: RuleSession }) {
+/** The session's facts: where, which ruleset, when each stamp was reached, and its money. */
+function Header({ session: s }: { session: RuleSessionLookup }) {
   const { t } = useTranslation('rule-sessions')
-  const money = (n: number) => moneyText({ amount: n, currency: s.currency })
-  const facts: [string, string, boolean][] = [
-    ['store', s.store, true],
-    ['channel', s.channel, true],
-    ['member', s.memberId ?? t('walkIn'), !!s.memberId],
-    ['created', momentText(s.created), true],
-    ['lastActivity', momentText(s.lastActivity), true],
-    ['gross', money(s.gross), true],
-    ['discount', money(s.discount), true],
-    ['net', money(s.net), true],
+  const row = s.session
+  const totals = sessionTotals(s)
+  const money = (n: number) => moneyText({ amount: n, currency: row.currency })
+  // A stamp the session never reached is null: it is not shown at all.
+  const stamps: [string, string | null][] = [
+    ['opened', row.openedAt],
+    ['paid', row.paidAt],
+    ['closed', row.closedAt],
+    ['returnedAt', row.returnedAt],
+    ['cancelledAt', row.cancelledAt],
+    ['updated', row.updatedAt],
+  ]
+  const facts: [string, string][] = [
+    ['store', row.storeCode],
+    ['channel', row.channel],
+    ['ruleset', formatNumber(row.rulesetVersion)],
+    ...(row.couponCode ? ([['coupon', row.couponCode]] as [string, string][]) : []),
+    ...stamps.map(([k, at]): [string, string] => [k, momentText(at)]).filter(([, v]) => v !== ''),
+    ...(totals
+      ? ([
+          ['before', money(totals.before)],
+          ['discount', money(totals.discount)],
+          ['net', money(totals.net)],
+        ] as [string, string][])
+      : []),
   ]
   return (
     <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-4" data-session-facts="">
-      {facts.map(([k, v, machine]) => (
+      {facts.map(([k, v]) => (
         <div key={k} className="flex flex-col gap-0.5" data-session-fact={k}>
           <dt className="text-xs text-muted-foreground">{t(`detail.${k}`)}</dt>
-          <dd className={k === 'net' ? 'text-base font-semibold' : 'text-sm'}>{machine ? <Ltr>{v}</Ltr> : v}</dd>
+          <dd className={k === 'net' ? 'text-base font-semibold' : 'text-sm'}>
+            <Ltr>{v}</Ltr>
+          </dd>
         </div>
       ))}
     </dl>

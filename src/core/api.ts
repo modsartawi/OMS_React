@@ -111,6 +111,15 @@ export function apiErrorKind(err: unknown): ApiErrorKind | null {
   return err instanceof ApiError ? err.kind : null
 }
 
+/**
+ * A BARE 403: the grant filter refused before any handler ran, so no envelope, no message and no
+ * code came back (SIS.Api's `BackOfficeGrantEndpointFilter`). The screen has to say which grant is
+ * missing itself — `apiErrorMessage` alone would read "Unexpected API error (HTTP 403)".
+ */
+export function isBareDenial(err: unknown): boolean {
+  return err instanceof ApiError && err.statusCode === 403 && !apiErrorCode(err)
+}
+
 // API base is environment-driven (428/435). Dev talks to the `/api` Vite proxy
 // (stripped to root before SIS.Api); prod is same-origin under IIS with SIS.Api's
 // endpoints at the root, so the base is `/`. `VITE_API_BASE` overrides both if ops

@@ -26,18 +26,22 @@ describe('sessionsQueryFromParams', () => {
 })
 
 describe('listQuery', () => {
-  it('asks for today when no day is chosen, and passes every status as null', () => {
-    expect(listQuery({ store: 'P001', date: '', status: null }, '2026-10-16')).toEqual({ store: 'P001', date: '2026-10-16', status: null })
-    expect(listQuery({ store: 'P001', date: '2026-10-01', status: 'open' }, '2026-10-16')).toEqual({ store: 'P001', date: '2026-10-01', status: 'open' })
+  it('asks Rules/Support/Sessions for the store and today, as `from` alone, when no day is chosen; no state for every state', () => {
+    expect(listQuery({ store: 'P001', date: '', status: null }, '2026-10-16')).toEqual({ storeCode: 'P001', from: '2026-10-16', take: 500 })
+  })
+
+  it('sends the chosen day and state', () => {
+    expect(listQuery({ store: 'P001', date: '2026-10-01', status: 'paying' }, '2026-10-16')).toEqual({ storeCode: 'P001', from: '2026-10-01', state: 'paying', take: 500 })
   })
 })
 
 describe('canCancelSession', () => {
-  it('offers a cancel on a session with something left to roll back', () => {
-    expect(['open', 'paying', 'closed', 'partiallyReturned'].every((s) => canCancelSession(s as never))).toBe(true)
+  it('offers a cancel on a session holding something to roll back: paying, closed, partly returned', () => {
+    expect(['paying', 'closed', 'partiallyReturned'].every((s) => canCancelSession(s as never))).toBe(true)
   })
 
-  it('never on one already cancelled or wholly returned', () => {
+  it('never on an open one (it never paid: RULES_SESSION_OPEN), nor one cancelled or wholly returned', () => {
+    expect(canCancelSession('open')).toBe(false)
     expect(canCancelSession('cancelled')).toBe(false)
     expect(canCancelSession('returned')).toBe(false)
   })

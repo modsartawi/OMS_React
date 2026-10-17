@@ -1,27 +1,23 @@
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { RULE_SESSION_MOMENTS, type RuleSession } from '@/core/models/rule-campaign'
+import { RULE_SESSION_STATES, RULE_SESSION_VERBS, type RuleSessionLookup } from '@/core/models/rule-session'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
-import SaysBoth from '@/core/rules/SaysBoth'
-import { BudgetMoveText, JournalMoveText } from './session-ui'
+import { BudgetEventText, MovementText, RefusalText } from './session-ui'
 import { momentText, sessionTimeline, type TimelineEntry, type TimelineKind } from './timeline'
 
-const KIND_SEV: Record<TimelineKind, Severity> = { call: 'go', refusal: 'bad', hold: 'mute', budget: 'mute', journal: 'mute' }
+const KIND_SEV: Record<TimelineKind, Severity> = { call: 'go', movement: 'mute', budgetEvent: 'warn' }
 
-/** The moments a channel calls at (spec 2737); one HQ names otherwise is shown in its own word. */
-const MOMENTS: readonly string[] = RULE_SESSION_MOMENTS
-
-interface GridContext {
-  currency: string
-}
+/** The verbs a session call is written under (2760); one HQ names otherwise is shown in its own word. */
+const VERBS: readonly string[] = RULE_SESSION_VERBS
+const STATES: readonly string[] = RULE_SESSION_STATES
 
 function KindCell({ data }: ICellRendererParams<TimelineEntry>) {
   const { t } = useTranslation('rule-sessions')
@@ -29,52 +25,55 @@ function KindCell({ data }: ICellRendererParams<TimelineEntry>) {
 }
 
 /**
- * What happened: a call's moment and HQ's stored reply (its own words, passed through as free
- * text), a movement in a sentence, a refusal's code and its reason in both languages.
+ * What happened: a call's verb, the state it left the session in, a support cancel's person and
+ * reason (free text) and the refusals its reply carried; a journal line or a budget event in a
+ * sentence.
  */
-function WhatCell({ data, context }: ICellRendererParams<TimelineEntry, unknown, GridContext>) {
+function WhatCell({ data }: ICellRendererParams<TimelineEntry>) {
   const { t } = useTranslation('rule-sessions')
   if (!data) return null
   const body = (() => {
     switch (data.kind) {
       case 'call': {
         const c = data.call
+        const refusals = c.reply?.refusals ?? []
         return (
           <>
             <span className="flex flex-wrap items-center gap-2">
-              <span className="font-medium" data-event-moment={c.moment}>
-                {MOMENTS.includes(c.moment) ? t(`events.moment.${c.moment}`) : <Ltr>{c.moment}</Ltr>}
+              <span className="font-medium" data-event-verb={c.verb}>
+                {VERBS.includes(c.verb) ? t(`events.verb.${c.verb}`) : <Ltr>{c.verb}</Ltr>}
               </span>
-              {!c.ok && <StatusBadge sev="bad">{t('events.refused')}</StatusBadge>}
+              {c.state && (
+                <span className="text-muted-foreground" data-event-state={c.state}>
+                  {STATES.includes(c.state) ? t('events.leftIn', { state: t(`status.${c.state}`) }) : <Ltr>{c.state}</Ltr>}
+                </span>
+              )}
+              {refusals.length > 0 && <StatusBadge sev="bad">{t('events.refused', { count: refusals.length })}</StatusBadge>}
             </span>
-            <span className="text-muted-foreground" data-event-reply="">
-              <bdi>{c.reply}</bdi>
-            </span>
+            {c.by && (
+              <span className="text-muted-foreground" data-event-by="">
+                <Trans t={t} i18nKey="events.by" values={{ by: c.by }} components={{ n: <bdi /> }} />
+              </span>
+            )}
+            {c.note && (
+              <span data-event-note="">
+                <bdi>{c.note}</bdi>
+              </span>
+            )}
+            {refusals.map((r, i) => (
+              <RefusalText key={i} refusal={r} />
+            ))}
           </>
         )
       }
-      case 'refusal':
+      case 'movement':
         return (
-          <>
-            <code className="font-mono font-semibold" data-event-refusal={data.refusal.code}>
-              <Ltr>{data.refusal.code}</Ltr>
-            </code>
-            <SaysBoth says={data.refusal.reason} />
-          </>
-        )
-      case 'hold':
-      case 'budget':
-        return (
-          <span>
-            <BudgetMoveText {...data.move} currency={context.currency} />
+          <span data-event-move={data.move.kind}>
+            <MovementText move={data.move} />
           </span>
         )
-      case 'journal':
-        return (
-          <span>
-            <JournalMoveText move={data.move} />
-          </span>
-        )
+      case 'budgetEvent':
+        return <BudgetEventText event={data.event} />
     }
   })()
   return (
@@ -84,22 +83,21 @@ function WhatCell({ data, context }: ICellRendererParams<TimelineEntry, unknown,
   )
 }
 
-const campaignOf = (e: TimelineEntry): string => (e.kind === 'call' ? '' : e.kind === 'refusal' ? (e.refusal.campaignCode ?? '') : (e.move.campaignCode ?? ''))
-const requestOf = (e: TimelineEntry): string => (e.kind === 'call' ? e.call.requestId : e.kind === 'refusal' ? (e.refusal.requestId ?? '') : (e.move.requestId ?? ''))
+const campaignOf = (e: TimelineEntry): string => (e.kind === 'call' ? '' : e.kind === 'movement' ? e.move.campaign : e.event.campaign)
 
 const COL_DEF: ColDef<TimelineEntry> = { ...OMS_GRID_BASE_COL_DEF, sortable: false, resizable: true, suppressHeaderMenuButton: true }
 
-/** Events (ticket 518): every call and the movements it caused, oldest first by local time. */
-export default function SessionEvents({ session }: { session: RuleSession }) {
+/** Events (tickets 518, 527): every call and the journal lines and budget events, oldest first by local time. */
+export default function SessionEvents({ session }: { session: RuleSessionLookup }) {
   const { t } = useTranslation('rule-sessions')
   const entries = useMemo(() => sessionTimeline(session), [session])
   const columns = useMemo<ColDef<TimelineEntry>[]>(
     () => [
       { colId: 'at', field: 'at', headerName: t('events.columns.at'), valueFormatter: ({ value }) => momentText(value as string), width: 170 },
-      { colId: 'kind', headerName: t('events.columns.kind'), cellRenderer: KindCell, width: 110 },
+      { colId: 'kind', headerName: t('events.columns.kind'), cellRenderer: KindCell, width: 120 },
       { colId: 'campaign', headerName: t('events.columns.campaign'), valueGetter: ({ data }) => (data ? campaignOf(data) : ''), width: 140 },
       { colId: 'what', headerName: t('events.columns.what'), cellRenderer: WhatCell, flex: 1, minWidth: 320, autoHeight: true },
-      { colId: 'requestId', headerName: t('events.columns.requestId'), valueGetter: ({ data }) => (data ? requestOf(data) : ''), width: 150 },
+      { colId: 'requestId', headerName: t('events.columns.requestId'), valueGetter: ({ data }) => (data?.kind === 'call' ? data.call.requestId : ''), width: 150 },
       {
         colId: 'cartVersion',
         headerName: t('events.columns.cartVersion'),
@@ -110,7 +108,6 @@ export default function SessionEvents({ session }: { session: RuleSession }) {
     ],
     [t],
   )
-  const context = useMemo(() => ({ currency: session.currency }), [session.currency])
   if (entries.length === 0) return <p className="text-sm text-muted-foreground">{t('events.none')}</p>
   return (
     <div data-session-events="">
@@ -120,7 +117,6 @@ export default function SessionEvents({ session }: { session: RuleSession }) {
         columnDefs={columns}
         defaultColDef={COL_DEF}
         getRowId={({ data }) => data.key}
-        context={context}
         rowHeight={OMS_GRID_ROW_HEIGHT}
         headerHeight={OMS_GRID_HEADER_HEIGHT}
         animateRows={false}

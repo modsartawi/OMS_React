@@ -1,92 +1,97 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleSessionBudgetMove, RuleSessionCall, RuleSessionJournalMove, RuleSessionRefusal } from '@/core/models/rule-campaign'
-import { localMomentKey, momentText, sessionTimeline } from './timeline'
+import type { RuleSessionBudgetEvent, RuleSessionCall, RuleSessionMovement, RuleSessionReply } from '@/core/models/rule-session'
+import { localMomentKey, momentDay, momentText, sessionTimeline } from './timeline'
 
-const call = (at: string, moment: string, requestId: string, cartVersion: number, ok = true): RuleSessionCall => ({
-  at,
-  moment,
+const reply = (state: string): RuleSessionReply => ({
+  sessionId: 'R101-0042',
+  state,
+  rulesetVersion: 7,
+  cartVersion: 3,
+  currency: 'SAR',
+  decimals: 2,
+  effects: [],
+  points: [],
+  refusals: [],
+  prompts: [],
+  messages: [],
+  offers: [],
+  allocation: [],
+  createdCoupons: [],
+})
+const call = (at: string, verb: string, requestId: string, cartVersion = 3): RuleSessionCall => ({
+  verb,
   requestId,
+  at,
   cartVersion,
-  reply: `${moment} answered`,
-  ok,
+  state: 'paying',
+  by: null,
+  note: null,
+  reply: reply('paying'),
 })
-const budget = (at: string, kind: RuleSessionBudgetMove['kind'], requestId: string | null = null): RuleSessionBudgetMove => ({
-  at,
-  requestId,
-  campaignCode: 'WKND20',
-  budget: 'Discount money',
-  limit: 'money',
-  amount: 40,
+const move = (at: string, kind: string, movementId = `m-${at}-${kind}`, expiresAt: string | null = null): RuleSessionMovement => ({
+  movementId,
+  counterId: 'c-1',
+  campaign: 'WKND20',
+  budget: 'money-cap',
   kind,
-})
-const journal = (at: string, kind: RuleSessionJournalMove['kind']): RuleSessionJournalMove => ({
+  amount: 22,
+  expiresAt,
   at,
-  requestId: null,
-  campaignCode: 'WKND20',
-  kind,
-  code: 'WKND20',
-  points: null,
 })
-const refusal = (at: string): RuleSessionRefusal => ({
+const event = (at: string, eventId = `e-${at}`): RuleSessionBudgetEvent => ({
+  eventId,
+  campaign: 'WKND20',
+  budget: 'money-cap',
+  reason: 'expiredHold',
+  desired: 22,
+  awarded: 22,
+  used: 1010,
+  limit: 1000,
   at,
-  requestId: 'r-2',
-  campaignCode: 'PTS-50OFF',
-  code: 'RULE_COUPON_SECOND',
-  reason: { en: 'Only one coupon per sale.', ar: 'قسيمة واحدة فقط لكل عملية بيع.' },
 })
 
-const none = { calls: [], holds: [], budgets: [], journal: [], refusals: [] }
+const none = { calls: [], movements: [], budgetEvents: [] }
 
-describe('sessionTimeline_ordersCallsAndMovements_byLocalTime', () => {
-  it('merges calls, holds, budget and journal movements and refusals into one list, oldest first', () => {
+describe('timeline_mergesCallsMovementsAndBudgetEvents', () => {
+  it('merges the calls, the budget journal and the budget events into one list, oldest first', () => {
     const out = sessionTimeline({
-      calls: [call('2026-10-16T10:05:00', 'close', 'r-3', 3), call('2026-10-16T10:00:00', 'subtotal', 'r-1', 1)],
-      holds: [budget('2026-10-16T10:02:30', 'held', 'r-2')],
-      budgets: [budget('2026-10-16T10:05:01', 'committed', 'r-3')],
-      journal: [journal('2026-10-16T10:05:02', 'couponRedeemed')],
-      refusals: [refusal('2026-10-16T10:01:00')],
+      calls: [call('2026-10-16T10:03:20', 'close', 'r-2'), call('2026-10-16T10:03:00', 'pay', 'r-1')],
+      movements: [move('2026-10-16T10:03:20.400', 'commit'), move('2026-10-16T10:03:00.100', 'hold')],
+      budgetEvents: [event('2026-10-16T10:03:21')],
     })
     expect(out.map((e) => `${e.kind}@${e.at}`)).toEqual([
-      'call@2026-10-16T10:00:00',
-      'refusal@2026-10-16T10:01:00',
-      'hold@2026-10-16T10:02:30',
-      'call@2026-10-16T10:05:00',
-      'budget@2026-10-16T10:05:01',
-      'journal@2026-10-16T10:05:02',
+      'call@2026-10-16T10:03:00',
+      'movement@2026-10-16T10:03:00.100',
+      'call@2026-10-16T10:03:20',
+      'movement@2026-10-16T10:03:20.400',
+      'budgetEvent@2026-10-16T10:03:21',
     ])
+  })
+
+  it('at the same moment the call comes first, then the movements it caused, then the events', () => {
+    const at = '2026-10-16T10:05:00'
+    const out = sessionTimeline({ calls: [call(at, 'close', 'r-3')], movements: [move(at, 'commit')], budgetEvents: [event(at)] })
+    expect(out.map((e) => e.kind)).toEqual(['call', 'movement', 'budgetEvent'])
+  })
+
+  it('keeps HQ\'s own order between two entries of one kind at the same moment', () => {
+    const at = '2026-10-16T10:05:00'
+    const out = sessionTimeline({ ...none, movements: [move(at, 'release', 'm-b'), move(at, 'commit', 'm-a')] })
+    expect(out.map((e) => (e.kind === 'movement' ? e.move.movementId : ''))).toEqual(['m-b', 'm-a'])
   })
 
   it('compares moments as times, not as strings: no seconds, fractions and a space are read alike', () => {
     const out = sessionTimeline({
       ...none,
-      calls: [call('2026-10-16T10:00:00.250', 'pay', 'r-2', 2), call('2026-10-16 10:00', 'subtotal', 'r-1', 1), call('2026-10-16T09:59:59.9', 'attach', 'r-0', 0)],
+      calls: [call('2026-10-16T10:00:00.250', 'close', 'r-2'), call('2026-10-16 10:00', 'pay', 'r-1'), call('2026-10-16T09:59:59.9', 'pay', 'r-0')],
     })
     expect(out.map((e) => (e.kind === 'call' ? e.call.requestId : ''))).toEqual(['r-0', 'r-1', 'r-2'])
   })
 
-  it('at the same moment the call comes first, then its refusal, then the movements it caused', () => {
-    const at = '2026-10-16T10:05:00'
-    const out = sessionTimeline({
-      calls: [call(at, 'close', 'r-3', 3)],
-      holds: [budget(at, 'released')],
-      budgets: [budget(at, 'committed')],
-      journal: [journal(at, 'pointsEarned')],
-      refusals: [refusal(at)],
-    })
-    expect(out.map((e) => e.kind)).toEqual(['call', 'refusal', 'hold', 'budget', 'journal'])
-  })
-
-  it('keeps HQ\'s own order between two entries of one kind at the same moment', () => {
-    const at = '2026-10-16T10:05:00'
-    const out = sessionTimeline({ ...none, journal: [journal(at, 'couponRedeemed'), journal(at, 'pointsEarned'), journal(at, 'couponCreated')] })
-    expect(out.map((e) => (e.kind === 'journal' ? e.move.kind : ''))).toEqual(['couponRedeemed', 'pointsEarned', 'couponCreated'])
-  })
-
   it('reads a moment that carries an offset in local time (the drive pins Asia/Riyadh)', () => {
-    // 07:30Z is 10:30 in Riyadh: after a 10:00 local call, before an 11:00 one.
     const out = sessionTimeline({
       ...none,
-      calls: [call('2026-10-16T11:00:00', 'close', 'r-3', 3), call('2026-10-16T07:30:00Z', 'pay', 'r-2', 2), call('2026-10-16T10:00:00', 'subtotal', 'r-1', 1)],
+      calls: [call('2026-10-16T11:00:00', 'close', 'r-3'), call('2026-10-16T07:30:00Z', 'pay', 'r-2'), call('2026-10-16T10:00:00', 'pay', 'r-1')],
     })
     const local = new Date('2026-10-16T07:30:00Z').getHours() === 10
     if (local) expect(out.map((e) => (e.kind === 'call' ? e.call.requestId : ''))).toEqual(['r-1', 'r-2', 'r-3'])
@@ -94,15 +99,24 @@ describe('sessionTimeline_ordersCallsAndMovements_byLocalTime', () => {
   })
 
   it('puts a moment it cannot read last, never first', () => {
-    const out = sessionTimeline({ ...none, calls: [call('', 'pay', 'r-x', 9), call('2026-10-16T10:00:00', 'subtotal', 'r-1', 1)] })
+    const out = sessionTimeline({ ...none, calls: [call('', 'pay', 'r-x'), call('2026-10-16T10:00:00', 'pay', 'r-1')] })
     expect(out.map((e) => (e.kind === 'call' ? e.call.requestId : ''))).toEqual(['r-1', 'r-x'])
   })
 
-  it('gives every entry a key of its own, stable across reads', () => {
-    const s = { ...none, holds: [budget('2026-10-16T10:00:00', 'held'), budget('2026-10-16T10:00:00', 'held')] }
-    const a = sessionTimeline(s).map((e) => e.key)
-    expect(new Set(a).size).toBe(2)
-    expect(sessionTimeline(s).map((e) => e.key)).toEqual(a)
+  it('keys each entry by HQ\'s own id where it has one, so a re-read after a cancel keeps the rows', () => {
+    const s = { calls: [call('2026-10-16T10:00:00', 'pay', 'r-1')], movements: [move('2026-10-16T10:00:00', 'hold', 'm-1')], budgetEvents: [event('2026-10-16T10:00:01', 'e-1')] }
+    expect(sessionTimeline(s).map((e) => e.key)).toEqual(['call-r-1', 'movement-m-1', 'budgetEvent-e-1'])
+    // Two calls of one request id (a repeat stored twice) still get keys of their own, and no
+    // request id can make one collide with the repeat's.
+    const twice = sessionTimeline({
+      ...none,
+      calls: [call('2026-10-16T10:00:00', 'pay', 'x'), call('2026-10-16T10:00:01', 'pay', 'x'), call('2026-10-16T10:00:02', 'pay', 'x-1')],
+    })
+    expect(new Set(twice.map((e) => e.key)).size).toBe(3)
+  })
+
+  it('reads an absent list as empty', () => {
+    expect(sessionTimeline({} as never)).toEqual([])
   })
 })
 
@@ -116,5 +130,18 @@ describe('momentText', () => {
   it('shows what it cannot read as it came, and nothing for nothing', () => {
     expect(momentText('yesterday')).toBe('yesterday')
     expect(momentText('')).toBe('')
+    expect(momentText(null)).toBe('')
+  })
+
+  it('reads a never-set stamp (0001-01-01) as absent, never as a date', () => {
+    expect(momentText('0001-01-01T00:00:00')).toBe('')
+    expect(momentDay('0001-01-01T00:00:00')).toBe('')
+  })
+})
+
+describe('momentDay', () => {
+  it('is the local day a moment falls on', () => {
+    expect(momentDay('2026-10-16T23:59:59.999')).toBe('2026-10-16')
+    expect(momentDay('nope')).toBe('')
   })
 })

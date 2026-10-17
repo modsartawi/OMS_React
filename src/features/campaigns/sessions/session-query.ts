@@ -1,14 +1,14 @@
-import type { RuleSessionListQuery, RuleSessionStatus } from '@/core/models/rule-campaign'
+import { RULE_SESSION_STATES, type RuleSessionListQuery, type RuleSessionState } from '@/core/models/rule-session'
 import type { Severity } from '@/core/ui/severity'
 
-// Campaigns ▸ Sessions' URL and its statuses (ticket 518). The list's filter lives in the address
-// (`?store=&date=&status=`, replaced), so Back from a session lands on the list as it was left.
-// Pure: no React, no i18n.
+// Campaigns ▸ Sessions' URL and its states (tickets 518, 527). The list's filter lives in the
+// address (`?store=&date=&status=`, replaced), so Back from a session lands on the list as it was
+// left; `listQuery` turns it into what `Rules/Support/Sessions` is asked. Pure: no React, no i18n.
 
-/** Every status, in a session's life order (spec 2737 "Session states"). */
-export const SESSION_STATUSES: readonly RuleSessionStatus[] = ['open', 'paying', 'closed', 'partiallyReturned', 'returned', 'cancelled']
+/** Every state, in a session's life order (spec 2737 "Session states"). */
+export const SESSION_STATUSES: readonly RuleSessionState[] = RULE_SESSION_STATES
 
-export const SESSION_STATUS_SEV: Record<RuleSessionStatus, Severity> = {
+export const SESSION_STATUS_SEV: Record<RuleSessionState, Severity> = {
   open: 'go',
   paying: 'go',
   closed: 'ok',
@@ -17,8 +17,16 @@ export const SESSION_STATUS_SEV: Record<RuleSessionStatus, Severity> = {
   cancelled: 'bad',
 }
 
-/** The list's filter as the address holds it: '' = not chosen, null status = every status. */
-export type SessionsQuery = RuleSessionListQuery
+/** The list's filter as the address holds it: '' = not chosen, null status = every state. */
+export interface SessionsQuery {
+  store: string
+  /** One local day, `yyyy-MM-dd`. */
+  date: string
+  status: RuleSessionState | null
+}
+
+/** The most sessions one list asks for (HQ's own cap; its default is 100). */
+export const SESSIONS_TAKE = 500
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
@@ -28,7 +36,7 @@ export function sessionsQueryFromParams(params: URLSearchParams): SessionsQuery 
   return {
     store: (params.get('store') ?? '').trim(),
     date: DAY.test(date) ? date : '',
-    status: SESSION_STATUSES.includes(status as RuleSessionStatus) ? (status as RuleSessionStatus) : null,
+    status: SESSION_STATUSES.includes(status as RuleSessionState) ? (status as RuleSessionState) : null,
   }
 }
 
@@ -40,17 +48,24 @@ export function sessionsQueryToParams(q: SessionsQuery): URLSearchParams {
   return out
 }
 
-/** What the list door is asked: the chosen day, or `today` (local) when none is chosen. */
+/**
+ * What the list door is asked: the store, the chosen day — or `today` (local) when none is chosen —
+ * sent as `from` alone (HQ reads one end as one day), the state when one is chosen, and the cap.
+ */
 export function listQuery(q: SessionsQuery, today: string): RuleSessionListQuery {
-  return { store: q.store, date: q.date || today, status: q.status }
+  const asked: RuleSessionListQuery = { storeCode: q.store, from: q.date || today, take: SESSIONS_TAKE }
+  if (q.status) asked.state = q.status
+  return asked
 }
 
 /**
- * Whether Cancel session is offered: not on a session already cancelled, nor on one wholly
- * returned (nothing is left to roll back). HQ still refuses what it will not cancel.
+ * Whether Cancel session is offered: on a paying session (its holds are released) and on a closed
+ * or partly returned one (a full return of every unit still out). Never on an open one — it never
+ * paid, so it holds nothing (`RULES_SESSION_OPEN`) — nor one cancelled or wholly returned. HQ still
+ * refuses what it will not cancel.
  */
-export function canCancelSession(status: RuleSessionStatus): boolean {
-  return status !== 'cancelled' && status !== 'returned'
+export function canCancelSession(state: RuleSessionState): boolean {
+  return state === 'paying' || state === 'closed' || state === 'partiallyReturned'
 }
 
 export function sessionsPath(q?: SessionsQuery): string {

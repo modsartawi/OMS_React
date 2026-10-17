@@ -1,21 +1,20 @@
-import type { RuleSession, RuleSessionBudgetMove, RuleSessionCall, RuleSessionJournalMove, RuleSessionRefusal } from '@/core/models/rule-campaign'
+import type { RuleSessionBudgetEvent, RuleSessionCall, RuleSessionLookup, RuleSessionMovement } from '@/core/models/rule-session'
 
-// A customer session's Events tab (ticket 518): HQ answers the calls, the holds, the budget and
-// journal movements and the refusals as separate lists; the tab reads them as ONE story, oldest
-// first, by local time. Pure: no React, no i18n.
+// A customer session's Events tab (ticket 527): HQ answers the calls, the budget journal and the
+// budget events as separate lists (`Rules/Support/Session`); the tab reads them as ONE story, oldest
+// first, by local time. Refusals carry no time: each call shows its own reply's. Pure: no React, no
+// i18n.
 
 export type TimelineEntry = { key: string; at: string } & (
   | { kind: 'call'; call: RuleSessionCall }
-  | { kind: 'refusal'; refusal: RuleSessionRefusal }
-  | { kind: 'hold'; move: RuleSessionBudgetMove }
-  | { kind: 'budget'; move: RuleSessionBudgetMove }
-  | { kind: 'journal'; move: RuleSessionJournalMove }
+  | { kind: 'movement'; move: RuleSessionMovement }
+  | { kind: 'budgetEvent'; event: RuleSessionBudgetEvent }
 )
 
 export type TimelineKind = TimelineEntry['kind']
 
-/** At one moment: the call, then its refusal, then the movements it caused. */
-const KIND_ORDER: readonly TimelineKind[] = ['call', 'refusal', 'hold', 'budget', 'journal']
+/** At one moment: the call, then the journal lines it caused, then the events on the counters. */
+const KIND_ORDER: readonly TimelineKind[] = ['call', 'movement', 'budgetEvent']
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0')
 
@@ -23,6 +22,9 @@ const LOCAL = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$
 
 /** Sorts after every moment that reads. */
 const UNREAD = '￿'
+
+/** .NET's `DateTime.MinValue`: a stamp HQ never set. */
+const NEVER = '0001-01-01'
 
 /**
  * A moment as a key that sorts as time: `yyyy-MM-ddTHH:mm:ss.fff`, local. A local moment is read
@@ -39,28 +41,36 @@ export function localMomentKey(at: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
 }
 
-/** A moment shown to the second, local: `2026-10-16 10:05:07`. What does not read shows as it came. */
+/** A moment shown to the second, local: `2026-10-16 10:05:07`. What does not read shows as it came;
+ *  nothing, or a stamp never set (`0001-01-01`), shows as nothing. */
 export function momentText(at: string | null | undefined): string {
   if (!at) return ''
   const key = localMomentKey(at)
-  return key === UNREAD ? at : `${key.slice(0, 10)} ${key.slice(11, 19)}`
+  if (key === UNREAD) return at
+  return key.startsWith(NEVER) ? '' : `${key.slice(0, 10)} ${key.slice(11, 19)}`
 }
 
-/** The local day a moment falls on (`yyyy-MM-dd`), or '' when it does not read. */
+/** The local day a moment falls on (`yyyy-MM-dd`), or '' when it does not read or was never set. */
 export function momentDay(at: string | null | undefined): string {
   if (!at) return ''
   const key = localMomentKey(at)
-  return key === UNREAD ? '' : key.slice(0, 10)
+  return key === UNREAD || key.startsWith(NEVER) ? '' : key.slice(0, 10)
 }
 
-/** Every call and movement of the session, oldest first by local time. */
-export function sessionTimeline(s: Pick<RuleSession, 'calls' | 'holds' | 'budgets' | 'journal' | 'refusals'>): TimelineEntry[] {
+/** Every call, journal line and budget event of the session, oldest first by local time. */
+export function sessionTimeline(s: Pick<RuleSessionLookup, 'calls' | 'movements' | 'budgetEvents'>): TimelineEntry[] {
+  // A request id names one call; should HQ ever list one twice, the repeat is keyed by its index
+  // in a namespace of its own, which no request id can reach.
+  const seen = new Set<string>()
+  const callKey = (call: RuleSessionCall, i: number) => {
+    const key = seen.has(call.requestId) ? `repeat-${i}` : `call-${call.requestId}`
+    seen.add(call.requestId)
+    return key
+  }
   const entries: TimelineEntry[] = [
-    ...(s.calls ?? []).map((call, i): TimelineEntry => ({ key: `call-${i}`, at: call.at, kind: 'call', call })),
-    ...(s.refusals ?? []).map((refusal, i): TimelineEntry => ({ key: `refusal-${i}`, at: refusal.at, kind: 'refusal', refusal })),
-    ...(s.holds ?? []).map((move, i): TimelineEntry => ({ key: `hold-${i}`, at: move.at, kind: 'hold', move })),
-    ...(s.budgets ?? []).map((move, i): TimelineEntry => ({ key: `budget-${i}`, at: move.at, kind: 'budget', move })),
-    ...(s.journal ?? []).map((move, i): TimelineEntry => ({ key: `journal-${i}`, at: move.at, kind: 'journal', move })),
+    ...(s.calls ?? []).map((call, i): TimelineEntry => ({ key: callKey(call, i), at: call.at, kind: 'call', call })),
+    ...(s.movements ?? []).map((move): TimelineEntry => ({ key: `movement-${move.movementId}`, at: move.at, kind: 'movement', move })),
+    ...(s.budgetEvents ?? []).map((event): TimelineEntry => ({ key: `budgetEvent-${event.eventId}`, at: event.at, kind: 'budgetEvent', event })),
   ]
   const keyed = entries.map((e, i) => ({ e, i, t: localMomentKey(e.at ?? ''), k: KIND_ORDER.indexOf(e.kind) }))
   // Equal moment and kind keep HQ's order: the index breaks the last tie.

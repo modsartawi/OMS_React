@@ -1,65 +1,76 @@
 import { Trans, useTranslation } from 'react-i18next'
-import type { RuleBudgetLimit, RuleSessionBudgetMove, RuleSessionJournalMove, RuleSessionLineEffect } from '@/core/models/rule-campaign'
-import { budgetFigure } from '@/core/rules/budget'
-import { moneyText } from '@/core/rules/sentence'
+import type { RuleSessionBudgetEvent, RuleSessionMovement, RuleSessionRefusal } from '@/core/models/rule-session'
+import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
+import SaysBoth from '@/core/rules/SaysBoth'
+import { momentText } from './timeline'
 
-// The Sessions screens' small shared renderers (ticket 518). Their figures are isolated through
-// `<Trans>` slots, never `fsi`: they are drawn inside grid cells too.
+// The Sessions screens' small shared renderers (tickets 518, 527). Their figures are isolated
+// through `<Trans>` slots, never `fsi`: they are drawn inside grid cells too.
+//
+// A budget's amount is in its own unit (uses, money or points), and neither a journal line nor a
+// hold names that unit: the figure is shown as HQ sent it, beside the budget's id.
 
-/** A machine value (a figure, a code) inside a sentence. */
+/** A machine value (a figure, a code, a moment) inside a sentence. */
 const V = <bdi dir="ltr" />
-/** Free text (a budget's name) inside a sentence. */
-const N = <bdi />
 
-/** A budget movement: "Held SAR 40.00 of Discount money". */
-export function BudgetMoveText({
-  kind,
-  budget,
-  limit,
-  amount,
-  currency,
-}: {
-  kind: RuleSessionBudgetMove['kind']
-  budget: string
-  limit: RuleBudgetLimit
-  amount: number
-  currency: string
-}) {
+/** The journal's movement kinds (`RuleBudgetMovementKinds`). */
+const MOVE_KINDS: readonly string[] = ['hold', 'commit', 'release', 'return']
+
+/** Why a counter passed its limit (`RuleBudgetEventReasons`). */
+const EVENT_REASONS: readonly string[] = ['expiredHold', 'loweredLimit', 'confirmedResult', 'lateEarnRefused', 'createdCouponUsed']
+
+/** A line of the budget journal: "Held 22 of budget money-cap", and a hold's expiry. */
+export function MovementText({ move }: { move: Pick<RuleSessionMovement, 'kind' | 'amount' | 'budget' | 'expiresAt'> }) {
   const { t } = useTranslation('rule-sessions')
+  const known = MOVE_KINDS.includes(move.kind)
+  const expires = momentText(move.expiresAt)
   return (
-    <Trans
-      t={t}
-      i18nKey={`move.${kind}`}
-      values={{ amount: budgetFigure(limit, amount, currency), budget }}
-      components={{ v: V, n: N }}
-    />
+    <>
+      <Trans
+        t={t}
+        i18nKey={known ? `move.${move.kind}` : 'move.other'}
+        values={{ amount: formatNumber(move.amount), budget: move.budget, kind: move.kind }}
+        components={{ v: V }}
+      />
+      {expires && (
+        <span className="ms-1.5 text-muted-foreground" data-move-expires="">
+          <Trans t={t} i18nKey="move.expires" values={{ at: expires }} components={{ v: V }} />
+        </span>
+      )}
+    </>
   )
 }
 
-/** A coupon or points movement: "Coupon WKND20 redeemed", "120 points earned". */
-export function JournalMoveText({ move }: { move: Pick<RuleSessionJournalMove, 'kind' | 'code' | 'points'> }) {
+/** A budget event: why the counter passed its limit, and its figures. */
+export function BudgetEventText({ event: e }: { event: RuleSessionBudgetEvent }) {
   const { t } = useTranslation('rule-sessions')
+  const known = EVENT_REASONS.includes(e.reason)
   return (
-    <Trans
-      t={t}
-      i18nKey={`journal.${move.kind}`}
-      values={{ code: move.code ?? t('none'), points: move.points == null ? t('none') : formatNumber(move.points) }}
-      components={{ v: V }}
-    />
+    <>
+      <span className="font-medium" data-budget-event-reason={e.reason}>
+        {known ? t(`budgetEvent.reason.${e.reason}`) : <Ltr>{e.reason}</Ltr>}
+      </span>
+      <span className="text-muted-foreground">
+        <Trans
+          t={t}
+          i18nKey="budgetEvent.figures"
+          values={{ budget: e.budget, desired: formatNumber(e.desired), awarded: formatNumber(e.awarded), used: formatNumber(e.used), limit: formatNumber(e.limit) }}
+          components={{ v: V }}
+        />
+      </span>
+    </>
   )
 }
 
-/** What a campaign did to a line. An absent figure reads as a dash, never as 0. */
-export function EffectText({ effect: e, currency }: { effect: RuleSessionLineEffect; currency: string }) {
-  const { t } = useTranslation('rule-sessions')
-  const money = e.amount == null ? t('none') : moneyText({ amount: e.amount, currency })
+/** A refusal: its code, and its reason in both languages when HQ gave one. */
+export function RefusalText({ refusal: r }: { refusal: RuleSessionRefusal }) {
   return (
-    <Trans
-      t={t}
-      i18nKey={`effect.${e.kind}`}
-      values={{ amount: money, points: e.points == null ? t('none') : formatNumber(e.points), coupon: e.coupon ?? t('none') }}
-      components={{ v: V }}
-    />
+    <span className="flex flex-col gap-0.5" data-refusal={r.code}>
+      <code className="font-mono font-semibold">
+        <Ltr>{r.code}</Ltr>
+      </code>
+      {r.reason && <SaysBoth says={r.reason} />}
+    </span>
   )
 }

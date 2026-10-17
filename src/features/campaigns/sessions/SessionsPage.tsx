@@ -9,9 +9,8 @@ import { ArrowRight } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
-import type { RuleSessionRow, RuleSessionStatus } from '@/core/models/rule-campaign'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
+import type { RuleSessionState, RuleSessionSummary } from '@/core/models/rule-session'
 import { ruleLookupQuery, ruleSessionsQuery } from '@/core/rules/api'
 import { ruleSessionPath } from '@/core/rules/campaign-state'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
@@ -22,18 +21,20 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
-import { SESSION_STATUSES, SESSION_STATUS_SEV, listQuery, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
+import { SESSIONS_TAKE, SESSION_STATUSES, SESSION_STATUS_SEV, listQuery, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
 import { localMomentKey, momentText } from './timeline'
 
 /**
- * Campaigns ▸ Sessions (ticket 518, BackOffice spec 2737): support's view of the rule engine's
- * customer sessions. One store's sessions on one local day (today until another is chosen), in one
- * status or all, from `RuleCampaign/Sessions` (PROVISIONAL, BackOffice 2760); or one looked up by
- * its sale id. A row opens the session: its events, its cart and its campaigns, and — for support
- * holding the permission — Cancel session.
+ * Campaigns ▸ Sessions (tickets 518, 527, BackOffice spec 2737): support's view of the rule
+ * engine's customer sessions. One store's sessions on one local day (today until another is
+ * chosen), in one state or all, newest first, from `GET Rules/Support/Sessions` (BackOffice 2760);
+ * or one looked up by its sale id. A row opens the session: its events, its cart and its campaigns,
+ * and Cancel session.
  *
- * No access probe on the leaf yet (BackOffice 2760 seeds the permission): the doors fail closed on
- * the server; ticket 520 adds the probe.
+ * No access probe on the leaf yet (BO ask B, ticket 529): the doors answer a reader without
+ * `BackOfficeScreen[RuleSupport,03]` a bare 403, which the page explains. The store picker reads the
+ * builder's store lookup, under the author's grant: a support reader without it types the store
+ * code instead.
  */
 export default function SessionsPage() {
   const { t } = useTranslation('rule-sessions')
@@ -58,11 +59,20 @@ export default function SessionsPage() {
   }
 
   const columns = useMemo(() => sessionColumns(t), [t])
-  const open = (e: RowClickedEvent<RuleSessionRow>) => {
+  const open = (e: RowClickedEvent<RuleSessionSummary>) => {
     // The sale id is a link: a click on it has already navigated.
     if ((e.event?.target as Element | null)?.closest?.('a')) return
-    if (e.data) navigate(ruleSessionPath(e.data.id), { state: fromList })
+    if (e.data) navigate(ruleSessionPath(e.data.sessionId), { state: fromList })
   }
+  // Without the store lookup (its grant is the author's), the store code is typed. What is being
+  // typed is held only until it is set; otherwise the box shows the address's store.
+  const typeStore = stores.isError
+  const [typed, setTyped] = useState<string | null>(null)
+  const setStore = () => {
+    if (typed !== null) update((q) => ({ ...q, store: typed.trim() }))
+    setTyped(null)
+  }
+  const denied = isBareDenial(sessions.error)
   const ids = { store: useId(), date: useId(), status: useId(), sale: useId() }
 
   return (
@@ -78,20 +88,38 @@ export default function SessionsPage() {
             <label htmlFor={ids.store} className="text-xs font-medium text-muted-foreground">
               {t('filter.store')}
             </label>
-            <select
-              id={ids.store}
-              className={RULE_INPUT}
-              value={query.store}
-              onChange={(e) => update((q) => ({ ...q, store: e.target.value }))}
-              data-sessions-field="store"
-            >
-              <option value="">{t('filter.chooseStore')}</option>
-              {(stores.data ?? []).map((s) => (
-                <option key={s.code} value={s.code}>
-                  {fsi(formatPair(s.code, s.name))}
-                </option>
-              ))}
-            </select>
+            {typeStore ? (
+              <input
+                id={ids.store}
+                dir="ltr"
+                className={`${RULE_INPUT} w-32 font-mono`}
+                value={typed ?? query.store}
+                maxLength={20}
+                onChange={(e) => setTyped(e.target.value)}
+                onBlur={setStore}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setStore()
+                }}
+                data-sessions-field="storeCode"
+              />
+            ) : (
+              <select
+                id={ids.store}
+                className={RULE_INPUT}
+                value={query.store}
+                onChange={(e) => update((q) => ({ ...q, store: e.target.value }))}
+                data-sessions-field="store"
+              >
+                <option value="">{t('filter.chooseStore')}</option>
+                {/* A store from the address that the lookup does not list still shows as chosen. */}
+                {query.store && !(stores.data ?? []).some((s) => s.code === query.store) && <option value={query.store}>{fsi(query.store)}</option>}
+                {(stores.data ?? []).map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {fsi(formatPair(s.code, s.name))}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor={ids.date} className="text-xs font-medium text-muted-foreground">
@@ -101,7 +129,7 @@ export default function SessionsPage() {
               id={ids.date}
               type="date"
               className={RULE_INPUT}
-              value={asked.date}
+              value={asked.from}
               onChange={(e) => update((q) => ({ ...q, date: e.target.value }))}
               data-sessions-field="date"
             />
@@ -114,7 +142,7 @@ export default function SessionsPage() {
               id={ids.status}
               className={RULE_INPUT}
               value={query.status ?? ''}
-              onChange={(e) => update((q) => ({ ...q, status: (e.target.value || null) as RuleSessionStatus | null }))}
+              onChange={(e) => update((q) => ({ ...q, status: (e.target.value || null) as RuleSessionState | null }))}
               data-sessions-field="status"
             >
               <option value="">{t('filter.allStatuses')}</option>
@@ -148,8 +176,9 @@ export default function SessionsPage() {
         </form>
       </div>
       {stores.isError && (
-        <p className="text-xs text-danger-800">
-          <bdi>{apiErrorMessage(stores.error, t('filter.storesFailed'))}</bdi>
+        <p className="text-xs text-muted-foreground" data-sessions-stores-failed="">
+          {isBareDenial(stores.error) ? t('filter.storesDenied') : <bdi>{apiErrorMessage(stores.error, t('filter.storesFailed'))}</bdi>}{' '}
+          {t('filter.typeStore')}
         </p>
       )}
 
@@ -160,16 +189,16 @@ export default function SessionsPage() {
       ) : (
         <>
           {sessions.isError && (
-            <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={apiErrorMessage(sessions.error, t('results.failed'))} />
+            <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={denied ? t('results.denied') : apiErrorMessage(sessions.error, t('results.failed'))} />
           )}
           <div className="flex min-w-0 flex-col gap-1">
             <div className="relative h-[calc(100vh-22rem)] min-h-96" data-sessions-grid="">
-              <AgGridReact<RuleSessionRow>
+              <AgGridReact<RuleSessionSummary>
                 theme={omsGridTheme}
                 rowData={sessions.isError ? [] : rows}
                 columnDefs={columns}
                 defaultColDef={DEFAULT_COL_DEF}
-                getRowId={({ data }) => data.id}
+                getRowId={({ data }) => data.sessionId}
                 onRowClicked={open}
                 context={fromList}
                 rowClass="cursor-pointer"
@@ -190,9 +219,16 @@ export default function SessionsPage() {
                 {sessions.isPending ? (
                   <span>{t('results.loading')}</span>
                 ) : (
-                  <span data-status-count="">
-                    <Trans t={t} i18nKey="results.count" count={rows.length} values={{ n: rows.length }} components={{ n: <Ltr /> }} />
-                  </span>
+                  <>
+                    <span data-status-count="">
+                      <Trans t={t} i18nKey="results.count" count={rows.length} values={{ n: rows.length }} components={{ n: <Ltr /> }} />
+                    </span>
+                    {rows.length >= SESSIONS_TAKE && (
+                      <span data-status-capped="">
+                        <Trans t={t} i18nKey="results.capped" values={{ n: SESSIONS_TAKE }} components={{ n: <Ltr /> }} />
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -203,7 +239,7 @@ export default function SessionsPage() {
   )
 }
 
-const DEFAULT_COL_DEF: ColDef<RuleSessionRow> = {
+const DEFAULT_COL_DEF: ColDef<RuleSessionSummary> = {
   ...OMS_GRID_BASE_COL_DEF,
   sortable: true,
   resizable: true,
@@ -211,56 +247,59 @@ const DEFAULT_COL_DEF: ColDef<RuleSessionRow> = {
 }
 
 /** The sale id as a link into the session — the keyboard's way in, beside the row click. */
-function SaleIdCell({ data, context }: ICellRendererParams<RuleSessionRow, unknown, FromList>) {
+function SaleIdCell({ data, context }: ICellRendererParams<RuleSessionSummary, unknown, FromList>) {
   if (!data) return null
   return (
-    <Link to={ruleSessionPath(data.id)} state={context} className="font-mono font-medium text-primary hover:underline" data-session-link={data.id}>
-      <Ltr>{data.id}</Ltr>
+    <Link to={ruleSessionPath(data.sessionId)} state={context} className="font-mono font-medium text-primary hover:underline" data-session-link={data.sessionId}>
+      <Ltr>{data.sessionId}</Ltr>
     </Link>
   )
 }
 
-function StatusCell({ data }: ICellRendererParams<RuleSessionRow>) {
+function StatusCell({ data }: ICellRendererParams<RuleSessionSummary>) {
   const { t } = useTranslation('rule-sessions')
-  return data ? <StatusBadge sev={SESSION_STATUS_SEV[data.status]}>{t(`status.${data.status}`)}</StatusBadge> : null
+  return data ? <StatusBadge sev={SESSION_STATUS_SEV[data.state]}>{t(`status.${data.state}`)}</StatusBadge> : null
 }
 
-/** Local moments sort as time, whatever their seconds or fraction. */
-const byMoment = (a: string, b: string) => {
-  const x = localMomentKey(a ?? '')
-  const y = localMomentKey(b ?? '')
+/** Local moments sort as time, whatever their seconds or fraction; a stamp never reached sorts first. */
+const byMoment = (a: string | null, b: string | null) => {
+  const x = a ? localMomentKey(a) : ''
+  const y = b ? localMomentKey(b) : ''
   return x < y ? -1 : x > y ? 1 : 0
 }
 
+type Stamp = 'openedAt' | 'paidAt' | 'closedAt' | 'updatedAt'
+
 /** The sessions grid: plain cells are isolated by the core grid base; the renderers isolate their own. */
-function sessionColumns(t: (key: string) => string): ColDef<RuleSessionRow>[] {
-  const money: ColDef<RuleSessionRow>['valueFormatter'] = ({ value, data }) => (data ? formatMoneyIn(value as number, data.currency) : '')
+function sessionColumns(t: (key: string) => string): ColDef<RuleSessionSummary>[] {
+  const moment = (field: Stamp, header: string, extra: Partial<ColDef<RuleSessionSummary>> = {}): ColDef<RuleSessionSummary> => ({
+    colId: field,
+    field,
+    headerName: t(header),
+    valueFormatter: ({ value }) => momentText(value as string | null),
+    comparator: byMoment,
+    width: 170,
+    ...extra,
+  })
   return [
-    { colId: 'id', field: 'id', headerName: t('columns.saleId'), cellRenderer: SaleIdCell, minWidth: 180, flex: 1 },
+    { colId: 'sessionId', field: 'sessionId', headerName: t('columns.saleId'), cellRenderer: SaleIdCell, minWidth: 180, flex: 1 },
     {
-      colId: 'status',
-      field: 'status',
+      colId: 'state',
+      field: 'state',
       headerName: t('columns.status'),
       cellRenderer: StatusCell,
-      comparator: (a: RuleSessionStatus, b: RuleSessionStatus) => SESSION_STATUSES.indexOf(a) - SESSION_STATUSES.indexOf(b),
+      comparator: (a: RuleSessionState, b: RuleSessionState) => SESSION_STATUSES.indexOf(a) - SESSION_STATUSES.indexOf(b),
       width: 170,
     },
-    { colId: 'channel', field: 'channel', headerName: t('columns.channel'), width: 120 },
-    { colId: 'member', headerName: t('columns.member'), valueGetter: ({ data }) => data?.memberId ?? '', valueFormatter: ({ value }) => value || t('walkIn'), width: 150 },
+    { colId: 'channel', field: 'channel', headerName: t('columns.channel'), width: 110 },
+    { colId: 'couponCode', field: 'couponCode', headerName: t('columns.coupon'), width: 130 },
     { colId: 'currency', field: 'currency', headerName: t('columns.currency'), width: 90 },
-    { colId: 'gross', field: 'gross', headerName: t('columns.gross'), valueFormatter: money, type: 'rightAligned', width: 120 },
-    { colId: 'discount', field: 'discount', headerName: t('columns.discount'), valueFormatter: money, type: 'rightAligned', width: 120 },
-    { colId: 'net', field: 'net', headerName: t('columns.net'), valueFormatter: money, type: 'rightAligned', width: 120 },
-    { colId: 'created', field: 'created', headerName: t('columns.created'), valueFormatter: ({ value }) => momentText(value as string), comparator: byMoment, width: 170 },
-    {
-      colId: 'lastActivity',
-      field: 'lastActivity',
-      headerName: t('columns.lastActivity'),
-      valueFormatter: ({ value }) => momentText(value as string),
-      comparator: byMoment,
-      sort: 'desc',
-      width: 170,
-    },
+    { colId: 'rulesetVersion', field: 'rulesetVersion', headerName: t('columns.ruleset'), type: 'rightAligned', width: 100 },
+    // HQ answers newest first by `openedAt`; the grid shows it so until a header is clicked.
+    moment('openedAt', 'columns.opened', { sort: 'desc' }),
+    moment('paidAt', 'columns.paid'),
+    moment('closedAt', 'columns.closed'),
+    moment('updatedAt', 'columns.updated'),
   ]
 }
 

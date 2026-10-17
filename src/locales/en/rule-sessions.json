@@ -1,15 +1,15 @@
 {
   "title": "Customer sessions",
-  "lede": "Every sale at a rule-engine store is a customer session at HQ. Read one's calls and the budget, coupon and points movements they caused, its cart and each campaign's outcome, or cancel it to roll them back.",
-  "walkIn": "Walk-in",
-  "none": "—",
+  "lede": "Every sale at a rule-engine store is a customer session at HQ. Read one's calls and the budget movements they caused, its cart and what each campaign did, or cancel it to roll them back.",
   "filter": {
     "store": "Store",
     "chooseStore": "Choose a store…",
     "date": "Day",
     "status": "Status",
     "allStatuses": "Every status",
-    "storesFailed": "Could not load the stores."
+    "storesFailed": "The store list could not be read.",
+    "storesDenied": "The store list is the campaign builder's, and you do not hold its grant.",
+    "typeStore": "Type the store code instead."
   },
   "lookup": {
     "label": "Or look one up by its sale id",
@@ -27,34 +27,42 @@
     "saleId": "Sale id",
     "status": "Status",
     "channel": "Channel",
-    "member": "Member",
+    "coupon": "Coupon",
     "currency": "Currency",
-    "gross": "Gross",
-    "discount": "Discounts",
-    "net": "Net",
-    "created": "Created",
-    "lastActivity": "Last activity"
+    "ruleset": "Ruleset",
+    "opened": "Opened",
+    "paid": "Paid",
+    "closed": "Closed",
+    "updated": "Last activity"
   },
   "results": {
     "needsStore": "Choose a store to list its sessions, or look one up by its sale id.",
     "loading": "Loading sessions…",
     "count_one": "<n>{{n}}</n> session",
     "count_other": "<n>{{n}}</n> sessions",
+    "capped": "HQ answers the newest <n>{{n}}</n> only: narrow by status.",
     "empty": "No session matches.",
     "failedTitle": "Could not load the sessions",
-    "failed": "HQ did not answer the sessions list."
+    "failed": "HQ did not answer the sessions list.",
+    "denied": "You do not hold the support grant to read customer sessions (RuleSupport, display)."
   },
   "detail": {
     "back": "Sessions",
     "loading": "Loading the session…",
     "failedTitle": "Could not open this session",
     "failed": "HQ did not answer for this sale id.",
+    "denied": "You do not hold the support grant to read customer sessions (RuleSupport, display).",
     "store": "Store",
     "channel": "Channel",
-    "member": "Member",
-    "created": "Created",
-    "lastActivity": "Last activity",
-    "gross": "Session total",
+    "ruleset": "Ruleset version",
+    "coupon": "Coupon",
+    "opened": "Opened",
+    "paid": "Paid",
+    "closed": "Closed",
+    "returnedAt": "Returned",
+    "cancelledAt": "Cancelled",
+    "updated": "Last activity",
+    "before": "Before promotions",
     "discount": "Total discounts",
     "net": "Net total"
   },
@@ -68,22 +76,21 @@
     "none": "HQ holds no call for this session.",
     "kind": {
       "call": "Call",
-      "refusal": "Refusal",
-      "hold": "Hold",
-      "budget": "Budget",
-      "journal": "Journal"
+      "movement": "Budget",
+      "budgetEvent": "Budget event"
     },
-    "moment": {
-      "attach": "Member attached",
-      "subtotal": "Subtotal",
-      "onDemand": "On demand",
+    "verb": {
       "pay": "Pay",
       "close": "Close",
-      "returns": "Return",
       "cancel": "Cancel",
-      "lateClose": "Late close"
+      "returns": "Return",
+      "late-close": "Late close",
+      "support-cancel": "Support cancel"
     },
-    "refused": "Refused",
+    "leftIn": "left it {{state}}",
+    "refused_one": "{{count}} refusal",
+    "refused_other": "{{count}} refusals",
+    "by": "By <n>{{by}}</n>",
     "columns": {
       "at": "Time",
       "kind": "Kind",
@@ -94,81 +101,107 @@
     }
   },
   "move": {
-    "held": "Held <v>{{amount}}</v> of <n>{{budget}}</n>",
-    "committed": "Counted <v>{{amount}}</v> against <n>{{budget}}</n>",
-    "released": "Released <v>{{amount}}</v> of <n>{{budget}}</n>"
+    "hold": "Held <v>{{amount}}</v> of budget <v>{{budget}}</v>",
+    "commit": "Counted <v>{{amount}}</v> against budget <v>{{budget}}</v>",
+    "release": "Released <v>{{amount}}</v> of budget <v>{{budget}}</v>",
+    "return": "Gave <v>{{amount}}</v> back to budget <v>{{budget}}</v>",
+    "other": "<v>{{amount}}</v> on budget <v>{{budget}}</v> (<v>{{kind}}</v>)",
+    "expires": "expires <v>{{at}}</v>"
   },
-  "journal": {
-    "couponRedeemed": "Coupon <v>{{code}}</v> redeemed",
-    "couponRefunded": "Coupon <v>{{code}}</v> is free again",
-    "couponCreated": "Coupon <v>{{code}}</v> created",
-    "couponDisabled": "Coupon <v>{{code}}</v> disabled",
-    "pointsEarned": "<v>{{points}}</v> points earned",
-    "pointsReversed": "<v>{{points}}</v> points taken back",
-    "pointsBurned": "<v>{{points}}</v> points burned",
-    "pointsRefunded": "<v>{{points}}</v> points given back"
-  },
-  "effect": {
-    "discount": "<v>{{amount}}</v> off",
-    "freeUnit": "A free unit, worth <v>{{amount}}</v>",
-    "points": "<v>{{points}}</v> points earned",
-    "pointsTaken": "<v>{{amount}}</v> of points taken as a tender",
-    "createCoupon": "Creates a <v>{{coupon}}</v> coupon at close",
-    "message": "Message for the receipt or the cashier"
+  "budgetEvent": {
+    "reason": {
+      "expiredHold": "A hold expired before close and its commit passed the limit",
+      "loweredLimit": "The limit was lowered below what the counter holds",
+      "confirmedResult": "A late close counted a confirmed result past the limit",
+      "lateEarnRefused": "A late close's points were refused by the budget",
+      "createdCouponUsed": "The coupon this sale created was used before its return"
+    },
+    "figures": "Budget <v>{{budget}}</v>: wanted <v>{{desired}}</v>, given <v>{{awarded}}</v>, used <v>{{used}}</v> against a limit of <v>{{limit}}</v>"
   },
   "cart": {
-    "none": "The session has no cart lines.",
+    "none": "HQ holds no cart for this session.",
     "noEffects": "No campaign touched this line.",
-    "unit": "Unit <v>{{n}}</v>: <v>{{code}}</v>, <v>{{amount}}</v> off",
+    "fee": "Fee",
+    "effect": "<v>{{amount}}</v> off",
+    "effectFree_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
+    "effectFree_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",
+    "unit": "Unit <v>{{n}}</v>: <v>{{amount}}</v> off by",
     "unitBare": "Unit <v>{{n}}</v>: no discount",
+    "untouched_one": "<v>{{n}}</v> other unit: no discount",
+    "untouched_other": "<v>{{n}}</v> other units: no discount",
     "returned": "returned",
     "columns": {
       "line": "#",
-      "item": "Item",
+      "item": "Article",
       "qty": "Qty",
-      "gross": "Gross",
+      "net": "Net before",
       "discount": "Off",
-      "net": "Net",
+      "netAfter": "Net after",
       "effects": "Effects",
-      "units": "Unit allocation"
+      "units": "Units"
     }
   },
   "campaigns": {
-    "none": "HQ ran no campaign on this session.",
+    "none": "No campaign touched this session, and HQ refused it nothing.",
     "outcome": {
       "applied": "Applied",
-      "notMet": "Not met",
-      "skipped": "Skipped",
-      "budget": "Budget",
-      "lost": "Lost"
+      "refused": "Refused"
     },
-    "version": "Version <v>{{n}}</v>",
     "discount": "Took <v>{{amount}}</v> off",
-    "points": "Gave <v>{{points}}</v> points",
-    "lostTo": "Lost its group to <v>{{code}}</v>",
-    "notMet": "Not met:"
+    "freeUnits_one": "Gave <v>{{n}}</v> free unit",
+    "freeUnits_other": "Gave <v>{{n}}</v> free units",
+    "points": "Awarded <v>{{points}} {{unit}}</v>",
+    "burned": "Burned <v>{{points}} {{unit}}</v>",
+    "hold": "Holds <v>{{amount}}</v> of budget <v>{{budget}}</v>",
+    "holdReleased": "Held <v>{{amount}}</v> of budget <v>{{budget}}</v>, released when it expired (close still counts it)",
+    "created": "Created code <v>{{code}}</v> (<v>{{state}}</v>)",
+    "createdBare": "Created code <v>{{code}}</v>",
+    "toCreate": "Creates a code at close",
+    "refusals": "Refused:",
+    "saleRefusals": "Refusals of the sale",
+    "coupon": "Campaign coupon",
+    "couponRedeemed": "<v>{{code}}</v> redeemed in transaction <v>{{tx}}</v>",
+    "couponRefunded": "Refunded <v>{{at}}</v> in transaction <v>{{tx}}</v>",
+    "pointsPosted": "Points posted",
+    "activity": "On <v>{{at}}</v>, <v>{{type}}</v> of <v>{{points}}</v> for member <v>{{loyId}}</v> (<v>{{status}}</v>)"
   },
   "cancel": {
     "open": "Cancel session",
     "title": "Cancel session",
-    "body": "Session <v>{{saleId}}</v> goes to Cancelled and every effect is rolled back: budget counters go down, a used coupon is free again, a coupon this sale created is disabled, and points earned or burned are reversed.",
-    "notReturn": "This is not a return: a return prices the items back under the original version.",
+    "bodyPaying": "Session <v>{{saleId}}</v> is paying: HQ releases every budget it holds and it goes to Cancelled.",
+    "bodyReturn": "Session <v>{{saleId}}</v> has closed: HQ returns every unit still out — budgets back, the coupon refunded, the codes it created disabled when unused, the points given back — and it goes to Returned.",
+    "reason": "Why is it cancelled?",
+    "reasonHint": "Required. HQ keeps it with the cancel. <v>{{n}}</v> of <v>{{max}}</v> characters.",
+    "reasonRequired": "Say why the session is cancelled.",
+    "reasonTooLong": "At most <v>{{max}}</v> characters: this reason has <v>{{n}}</v>.",
+    "reasonKept": "HQ may have taken that press: pressing again retries it as it was, reason included, and HQ answers it once.",
     "keep": "Keep the session",
     "confirm": "Cancel the session",
     "refusedTitle": "HQ did not cancel the session",
     "refused": "The cancel was refused.",
-    "refusalCode": "Code:"
+    "denied": "You do not hold the support grant to cancel a session (RuleSupport, change).",
+    "refusalCode": "Code:",
+    "refusal": {
+      "RULES_SESSION_CANCELLED": "The session is already cancelled. It is read afresh.",
+      "RULES_SESSION_CLOSED": "Every unit of the sale is already returned: nothing is left to undo. It is read afresh.",
+      "RULES_SESSION_OPEN": "The session never paid, so it holds nothing to cancel. It is read afresh.",
+      "RULES_REQUEST_ID_REUSED": "HQ already answered this press under another call. Press again to send a new one.",
+      "RULES_REASON_REQUIRED": "HQ needs a reason for the cancel.",
+      "RULES_SESSION_NOT_FOUND": "HQ holds no session for this sale id."
+    }
   },
   "rollback": {
-    "title": "Session cancelled. HQ rolled back:",
-    "budgets": "Budgets released",
-    "coupons": "Coupon uses refunded",
-    "createdCodes": "Created codes disabled",
-    "points": "Points reversed",
-    "coupon": "<v>{{code}}</v> is free again",
-    "createdCode": "<v>{{code}}</v> disabled",
-    "earnReversed": "<v>{{points}}</v> points earned taken back",
-    "burnRefunded": "<v>{{points}}</v> points burned given back",
+    "title": "HQ cancelled the session; it is now {{state}}. It rolled back:",
+    "repeatedTitle": "HQ had already cancelled the session; it is {{state}}.",
+    "repeated": "This press repeated one HQ had already answered: nothing moved now.",
+    "budgets": "Budget journal",
+    "budgetEvents": "Budget events",
+    "coupon": "Coupon refunded",
+    "createdCodes": "Created codes",
+    "points": "Points given back",
+    "couponRefund": "<v>{{code}}</v> refunded in transaction <v>{{tx}}</v>",
+    "createdCode": "<v>{{code}}</v> is now <v>{{state}}</v>",
+    "pointsActivity": "<v>{{type}}</v> <v>{{points}}</v> for member <v>{{loyId}}</v>, <v>{{at}}</v>",
     "none": "Nothing."
   }
 }

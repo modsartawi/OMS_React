@@ -80,12 +80,15 @@ param(
     # No stream output for this long => the session is wedged; kill the tree and stop.
     [int]$StallMinutes = 25,
     # Absolute ceiling for one session, however chatty it is.
-    [int]$MaxHours = 5,
+    [double]$MaxHours = 5,
     [switch]$SkipReview,
     [switch]$DryRun,
     # Drive ONE trivial session through the exact same harness (start, stream, parse, exit) and
     # report. Run this once before you go to bed: it proves the plumbing without touching a ticket.
-    [switch]$SmokeTest
+    [switch]$SmokeTest,
+    # Resume a slice a killed session left half-built: keep the tracked modifications, and tell
+    # the FIRST ticket's session to continue from the working tree instead of starting over.
+    [switch]$ResumeDirty
 )
 
 $ErrorActionPreference = "Stop"
@@ -132,7 +135,10 @@ foreach ($b in $BlockingTickets) {
 # Tracked modifications only: an untracked scratch file must not stop a midnight run, but a
 # half-finished tracked edit would land inside the first ticket's commit and its review.
 $dirtyTracked = git status --porcelain --untracked-files=no
-if ($dirtyTracked) {
+if ($dirtyTracked -and $ResumeDirty) {
+    Say "ResumeDirty: keeping these tracked modifications for ticket $($Tickets[0]) to continue from:" "Yellow"
+    $dirtyTracked | Write-Host
+} elseif ($dirtyTracked) {
     Say "Working tree has TRACKED modifications - commit or stash them first, or ticket 1's diff and review will include them:" "Red"
     $dirtyTracked | Write-Host
     exit 1
@@ -388,7 +394,11 @@ foreach ($t in $Tickets) {
 
     $baseSha = (git rev-parse HEAD).Trim()
 
-    $afkProtocol = @"
+    $resumeNote = ''
+    if ($ResumeDirty -and $t -eq $Tickets[0]) {
+        $resumeNote = "RESUMING: a previous session for ticket $t was killed mid-slice. The working tree (git status / git diff, plus untracked files) holds its half-built work. CONTINUE from that tree; do not start over or discard it. Verify it against the ticket, finish it, run every gate and the drive, then commit as usual.`n`n"
+    }
+    $afkProtocol = $resumeNote + @"
 You are running unattended (AFK) - there is no human available to answer questions.
 Follow this protocol strictly:
 
@@ -514,7 +524,12 @@ Follow this protocol strictly:
    - A UI slice is proven by DRIVING THE APP with a Playwright script under tools\*-drive.mjs.
      That needs a vite server: start one on port 5199 (NOT the default 5173, so you cannot collide
      with a dev server the human left running), run the drive against it, then KILL the server you
-     started. Playwright is borrowed from C:/Playground/frontend/node_modules via a createRequire
+     started. Kill it ONLY by the port owner's PID:
+     Get-NetTCPConnection -LocalPort 5199 -State Listen | ForEach-Object { taskkill /T /F /PID $_.OwningProcess }
+     NEVER match processes by CommandLine (no Get-CimInstance ... -like '*vite*'): your own claude.exe
+     command line contains this brief, so a CommandLine match kills YOU and loses the slice.
+     Never background a command and never end your turn to "wait" - run drives in the foreground.
+     Playwright is borrowed from C:/Playground/frontend/node_modules via a createRequire
      shim in the drive files - it is not a dependency of this repo. Follow an existing drive file
      rather than inventing a new harness.
    - If a drive genuinely cannot run (it needs a live SIS.Api that is not up, or Playwright does

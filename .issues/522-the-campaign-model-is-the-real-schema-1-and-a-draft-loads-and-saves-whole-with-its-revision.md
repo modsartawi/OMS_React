@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 2737 (brief C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md, § HQ contract: the rule builder (2758))
 blocked-by: —
 ---
@@ -48,13 +48,13 @@ doors) · component (every builder and settings reader the compiler names) · te
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] the pure suites in `core/rules/*.test.ts` and `features/campaigns/workspace/*.test.ts` re-written over
+- [x] the pure suites in `core/rules/*.test.ts` and `features/campaigns/workspace/*.test.ts` re-written over
       schema 1 and green · pure
-- [ ] `campaignState_readsStateAndCampaignStatus`: editing / pending / sentBack × Published / Disabled /
+- [x] `campaignState_readsStateAndCampaignStatus`: editing / pending / sentBack × Published / Disabled /
       never published · pure
-- [ ] `tools/campaigns-fixtures.mjs` re-cut to real `Drafts/Load` replies (use 2734's five real campaigns
+- [x] `tools/campaigns-fixtures.mjs` re-cut to real `Drafts/Load` replies (use 2734's five real campaigns
       from BackOffice `.scratch/proto/2734-rule-builder/`); `campaigns-drive` green stubbed · flow
-- [ ] a stale save shows the reload offer (stubbed 409) · flow
+- [x] a stale save shows the reload offer (stubbed 409) · flow
 
 ## Boundaries
 
@@ -106,3 +106,69 @@ stubbed against real-shaped replies.
    - A new filter's id is a UUID (`mintRequestId`).
 
 **BO ask (log only):** none new. Ask A (a list door) still stands for 524.
+
+### 2026-10-18: AFK session 2, done
+
+Session 1's remaining items 1 to 4 are finished.
+
+**Results.**
+- Typecheck is clean.
+- Vitest passes: 339 files, 5589 tests.
+- All four lint gates are clean, and the build is green.
+- Drives, all stubbed against real-shaped replies, never a live SIS.Api:
+  - `campaigns-drive` 588/588
+  - `priority-drive` 37/37
+  - `simulator-drive` 55/55
+  - `sessions-drive` 73/73
+
+**Proof.**
+- The pure suites are re-written over schema 1 and green.
+- `campaignState_readsStateAndCampaignStatus` passes in `core/rules/campaign-state.test.ts`.
+- The fixtures are Drafts/Load replies built on 2734's campaigns.
+- The stale offer is covered in the drive:
+  - 78b (Settings): Reload re-reads the draft and drops the unsaved change with the refusal.
+  - 78c (the builder).
+  - 78d: a `RULES_DRAFT_PENDING` refusal is said in the page's own words, on Settings and in the builder.
+
+**What section 47 was.** The value picker's options are `fsi()`-isolated (the bidi rule for a native `<option>`), so the drive now picks by value. The drive also found two real bugs:
+- The formula box never rendered its `data-fx-error` marker: it was passed to `<Trans>`.
+- A value renamed through another value's name took that value's readers with it.
+
+**Fixture corrections.**
+- Features now follow each campaign's blocks. SUN-3FOR2 has points on with no points block, for 504's palette check.
+- Version 1 of GIFT-POUCH has no prompt.
+- SUMMER-FLASH (disabled) has one version.
+- The priority and simulator drives and `simulator-fixtures.mjs` read Drafts/Load replies. The dashboard's way in uses the real `Drafts/Load` stub.
+
+**Assertions re-cut, with reasons.** These are added to session 1's list:
+- 47: a taken name is marked on the renamed value. Both same-named values are marked.
+- 78 / 88: a refused save is `RULES_BAD_REQUEST` (an unknown feature). The pending case moved to 78d, in the client's words.
+- 82: a draft with no country has no currency. Schema 1 has no campaign currency (`campaignCurrency`), so the figure carries no code.
+- 93: a free product names its filter (`pouch`), not its articles.
+- 94: a published campaign with an editing draft reads Running (HITL-522). The live version's activation stamp is not in the Drafts/Load reply.
+- 13: the stubbed create refusal is `RULES_DRAFT_STALE`, a real code, instead of an invented `RULES_CAMPAIGN_EXISTS`.
+- Priority 2: the Arabic name follows the 2734 fixture.
+
+**/code-review fixes**, each with vitest or a drive check:
+- A value added in the builder gets its own key.
+- A save or a re-read keeps the keys of the blocks on screen (`withKeys(…, like)`). The open panel and the issues' way to their blocks survive. This fixes session 1's loose end "issues read gone after a re-read".
+- A value's rename is taken only for a name with no problem. A new problem, `reserved`, covers the language's words and the roots of HQ's fields.
+- The codec falls back to JSON for a number with an exponent.
+- A filter rename re-prints a formula box's typed text.
+- A stale Settings Reload drops the page's unsaved change.
+- Create refuses the id of a listed campaign (`idTaken`, see HITL).
+
+**/standards-review fixes.**
+- A save keeps the draft's own `tree`: "the save is the draft's whole state". Saves go through one `draftSave`, the builder's too.
+- The builder uses the shared refusal constants.
+- A stale "HQ mints its code" comment is gone.
+
+**Review findings declined.**
+- The "re-point in ticket 520" marks stay. They are uniform tags on doors that 523–529 own, and each ticket drops its own.
+- SaysBoth and name-fallback duplication: out of a re-point's scope.
+
+**Left for 523 / owner.**
+- `ChecksPill` keeps its fetching / failed / retry inputs, wired to a never-failing source. They come back when 523 adds the live Validate door.
+- A new filter's id is a UUID.
+- The owner's sign-off on the HITL-522 settled defaults: the ƒx codec, author-picked ids, `idTaken`, and Running over a draft.
+- Live proof against SIS.Api is ticket 520's.

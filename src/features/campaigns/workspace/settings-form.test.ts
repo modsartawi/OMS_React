@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CampaignRule, RuleCondition, RuleDraft } from '@/core/models/rule-campaign'
+import type { CampaignRule, RuleCondition, RuleDraft, RuleEvaluationTree } from '@/core/models/rule-campaign'
 import { CAMPAIGNS, CATALOGUE } from '../../../../tools/campaigns-fixtures.mjs'
 import { detailsProblems, draftAfterReread, draftSave, draftStateInput, featuresInUse, toDetailsName } from './settings-form'
 
@@ -43,6 +43,12 @@ describe('draftSave_sendsTheWholeDraftAtItsRevision', () => {
     expect(body.features).toEqual(d.features)
     expect(body.campaign).toEqual({ ...d.campaign, onlineOnly: true })
     expect(body).not.toHaveProperty('tree')
+  })
+
+  it('keeps the draft’s own evaluation tree: the save is the draft’s whole state (absent = the live order)', () => {
+    const tree: RuleEvaluationTree = { groups: [{ id: 'g1', name: { en: 'Deals', ar: 'عروض' }, mode: 'highest', scope: 'item', campaigns: ['WKND20'] }], order: [{ group: 'g1' }] }
+    const d = { ...byCode('WKND20'), tree }
+    expect(draftSave(d, {}).tree).toEqual(tree)
   })
 
   it('the Features page sends its own list', () => {

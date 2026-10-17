@@ -15,12 +15,19 @@ import { blockType } from '@/core/rules/sentence'
 // the feature-off guard.
 
 /**
- * What a Settings page sends (ticket 522): the loaded draft with the page's part put into its
- * campaign, saved WHOLE at the revision it was loaded at (`Rules/Authoring/Drafts/Save`). The
- * Features page sends its own list; every other page the draft's. No `tree`: the live order stays.
+ * What a Settings page — and the rule builder — sends (ticket 522): the loaded draft with the
+ * page's part put into its campaign, saved WHOLE at the revision it was loaded at
+ * (`Rules/Authoring/Drafts/Save`). The Features page sends its own list; every other page the
+ * draft's. The save is the draft's whole state, so a draft's own evaluation tree goes with it; with
+ * none, `tree` is left out and the live order stays.
  */
-export function draftSave(draft: Pick<RuleDraft, 'campaign' | 'features' | 'revision'>, part: Partial<RuleCampaign>, features?: RuleFeature[]): RuleDraftSave {
-  return { campaign: { ...draft.campaign, ...part }, features: features ?? draft.features, revision: draft.revision }
+export function draftSave(draft: Pick<RuleDraft, 'campaign' | 'features' | 'revision' | 'tree'>, part: Partial<RuleCampaign>, features?: RuleFeature[]): RuleDraftSave {
+  return {
+    campaign: { ...draft.campaign, ...part },
+    features: features ?? draft.features,
+    revision: draft.revision,
+    ...(draft.tree ? { tree: draft.tree } : {}),
+  }
 }
 
 /** What a loaded draft's state is read from: a draft's state only when there IS a draft (Load

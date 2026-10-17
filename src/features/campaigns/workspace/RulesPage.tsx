@@ -19,6 +19,8 @@ import { useWorkspace } from './context'
 import { newRule } from './palette'
 import { addRule } from './rule-edit'
 import RuleCard, { type Builder } from './RuleCard'
+import { draftSave } from './settings-form'
+import { DRAFT_PENDING, DRAFT_STALE } from './settings-ui'
 
 /**
  * The Rule builder (tickets 504, 505): the campaign's rules top to bottom, each a collapsible card
@@ -62,7 +64,7 @@ export default function RulesPage() {
 
   const save = useMutation({
     // The whole draft at the revision loaded; the builder's keys are symbols, which JSON drops.
-    mutationFn: (next: CampaignRule[]) => ruleCampaignApi.save({ campaign: { ...c, rules: next }, features: draft.features, revision: draft.revision }),
+    mutationFn: (next: CampaignRule[]) => ruleCampaignApi.save(draftSave(draft, { rules: next })),
     onSuccess: (saved, sent) => {
       // An edit made while the save was in flight stays, unsaved (the reducer compares `sent`).
       dispatch({ type: 'saved', rules: saved.campaign.rules, sent })
@@ -71,7 +73,7 @@ export default function RulesPage() {
     },
   })
   const refusal = save.isError ? apiErrorCode(save.error) : null
-  const stale = refusal === 'RULES_DRAFT_STALE'
+  const stale = refusal === DRAFT_STALE
   /** Reads the draft afresh — the reader's own press: the unsaved rules go with it. */
   const reload = () => {
     save.reset()
@@ -263,7 +265,7 @@ export default function RulesPage() {
             <ErrorBanner
               className="p-3"
               title={t('builder.saveFailedTitle')}
-              message={refusal === 'RULES_DRAFT_PENDING' ? t('builder.pending') : apiErrorMessage(save.error, t('builder.saveFailed'))}
+              message={refusal === DRAFT_PENDING ? t('builder.pending') : apiErrorMessage(save.error, t('builder.saveFailed'))}
             />
           </div>
         ))}

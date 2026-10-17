@@ -9,7 +9,7 @@
 //   POST Rules/Authoring/Drafts/Save { campaign, features, revision } → the draft one revision higher
 //       (`saveDraft`) — a create is revision 0 with the author's id; 409 RULES_DRAFT_STALE / PENDING;
 //       the first `staleSaves` saves answer RULES_DRAFT_STALE; `refuseSave` / `refuseSettings` refuse
-//       every save (pending), `refuseCreate` refuses a revision-0 save (RULES_CAMPAIGN_EXISTS)
+//       every save (pending), `refuseCreate` refuses a revision-0 save (RULES_DRAFT_STALE: a draft under that id was saved since)
 //   POST Rules/Authoring/Drafts/Delete { campaign, revision } → `{ campaign, deleted: true }`
 //   The checks and Offline read the draft's own `validation`; `checksFor(id, n)` answers the issues
 //   of the n-th draft reply of a campaign (508).
@@ -94,7 +94,7 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 
 const NOT_FOUND = 'No draft or version of this campaign.'
 const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
-const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
+const CREATE_REFUSED = 'A draft of this campaign was saved since: load it again. / حُفظت مسودة لهذه الحملة منذ ذلك الحين.'
 const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
 const STALE = 'The draft changed since it was loaded: load it again. / تغيّرت المسودة منذ تحميلها.'
 const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
@@ -215,7 +215,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
         staleRefusals--
         return route.fulfill(envelope(null, { status: 409, success: false, message: STALE, errorCode: 'RULES_DRAFT_STALE' }))
       }
-      if (refuseCreate && body.revision === 0) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULES_CAMPAIGN_EXISTS' }))
+      if (refuseCreate && body.revision === 0) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULES_DRAFT_STALE' }))
       if (pendingSaves) return route.fulfill(envelope(null, { status: 409, success: false, message: STALE_PENDING, errorCode: 'RULES_DRAFT_PENDING' }))
       if (refuseSave || refuseSettings) return route.fulfill(envelope(null, { status: 400, success: false, message: refuseSave ? SAVE_REFUSED : SETTINGS_REFUSED, errorCode: 'RULES_BAD_REQUEST' }))
       const out = saveDraft(store, body, NOW_LOCAL)

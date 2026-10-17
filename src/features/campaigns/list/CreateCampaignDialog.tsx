@@ -16,7 +16,8 @@ import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave, type Campa
 /**
  * Create campaign (ticket 502; the prototype's Talon-shaped dialog): the name in English and
  * Arabic — both required — and the optional features, each with a line saying what it switches on.
- * Create saves a new draft through HQ and lands on its dashboard; HQ mints its code.
+ * Create is the campaign's first draft save (ticket 522: the author picks its id) and lands on its
+ * dashboard.
  *
  * A missing name is said at its field once Create has been tried, not before — an empty form is not
  * an error. A refusal from the door is shown in the dialog, verbatim, and the form is kept.

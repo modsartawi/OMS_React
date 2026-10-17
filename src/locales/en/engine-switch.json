@@ -17,10 +17,7 @@
   },
   "columns": {
     "store": "Store",
-    "engine": "Engine",
-    "changedBy": "Changed by",
-    "changedAt": "Changed at",
-    "reason": "Reason"
+    "engine": "Engine"
   },
   "results": {
     "loading": "Loading the stores…",
@@ -28,7 +25,9 @@
     "count_other": "<n>{{n}}</n> stores",
     "empty": "No store matches.",
     "failedTitle": "The stores did not load",
-    "failed": "Could not load the stores' engines."
+    "failed": "Could not load the stores' engines.",
+    "denied": "The store list is the campaign builder's stores lookup, and you do not hold its grant (RuleAuthoring).",
+    "capped": "HQ answers at most <n>{{n}}</n> stores to a search: narrow it if a store is missing."
   },
   "flip": {
     "open": {
@@ -46,39 +45,47 @@
       "Rule": "Flip to the rule engine",
       "BonusBuy": "Flip back to bonus buys"
     },
-    "continue": "Continue",
-    "back": "Back",
     "cancel": "Cancel",
     "refusedTitle": "HQ did not flip the store",
     "refused": "The flip was refused.",
-    "refusalCode": "Code:"
+    "refusalCode": "Code:",
+    "inFlightAfter": "If anything is still in flight at the store, HQ lists it after the flip. It never blocks the flip.",
+    "done": "Done",
+    "denied": "You do not hold the grant to flip a store's engine (RuleEngineSwitch, change)."
   },
   "flipped": {
     "Rule": "{{store}} flips to the rule engine",
     "BonusBuy": "{{store}} flips back to bonus buys",
-    "shiftOpen": "From the store's next shift open."
+    "shiftOpen": "From the store's next shift open.",
+    "already": {
+      "Rule": "{{store}} was already on the rule engine",
+      "BonusBuy": "{{store}} was already on bonus buys"
+    }
   },
   "inFlight": {
-    "loading": "Asking HQ what is in flight at the store…",
-    "lede_one": "<n>{{n}}</n> thing is in flight at this store. This is a warning only: you can still flip back.",
-    "lede_other": "<n>{{n}}</n> things are in flight at this store. This is a warning only: you can still flip back.",
-    "failedNeverBlocks": "This check is a warning only: you can still flip back.",
-    "none": "Nothing is in flight at this store. You can flip back.",
+    "lede_one": "The store is back on bonus buys from its next shift open. <n>{{n}}</n> thing is still in flight there. This is a warning only: nothing was blocked.",
+    "lede_other": "The store is back on bonus buys from its next shift open. <n>{{n}}</n> things are still in flight there. This is a warning only: nothing was blocked.",
+    "truncated": "HQ lists at most 100 of each kind; some were left out.",
     "noneOfThese": "None.",
-    "failedTitle": "Could not read what is in flight",
-    "failed": "HQ did not answer the in-flight check.",
-    "liveCampaigns": "Live campaigns",
-    "openSessions": "Open call-center sessions",
-    "budgets": "Store-scope budgets",
-    "openedAt": "opened <v>{{at}}</v>"
+    "liveCampaigns": "Live campaigns: they stop reaching the store's tills",
+    "openSessions": "Customer sessions still paying: they keep the rule engine and still close",
+    "storeBudgets": "Store-scope budgets: their counters are kept",
+    "session": "opened <v>{{opened}}</v>, paid <v>{{paid}}</v>",
+    "budget": "used <v>{{used}}</v>, held <v>{{held}}</v>"
   },
   "history": {
     "title": "History",
     "close": "Close the history",
     "loading": "Loading the history…",
-    "empty": "This store has never been flipped. It runs bonus buys.",
+    "empty": "This store has never been flipped.",
     "failedTitle": "The history did not load",
     "failed": "Could not load the store's history.",
-    "change": "From {{from}} to {{to}}"
+    "change": "From {{from}} to {{to}}",
+    "denied": "You do not hold the grant to read a store's engine history (RuleEngineSwitch, display).",
+    "setBy": "Set <v>{{v}}</v>",
+    "neverSet": "HQ holds no setting for this store, so it runs bonus buys.",
+    "inFlight_one": "Left <n>{{n}}</n> thing in flight",
+    "inFlight_other": "Left <n>{{n}}</n> things in flight",
+    "inFlightTruncated": "(HQ kept at most 100 of each kind.)"
   }
 }

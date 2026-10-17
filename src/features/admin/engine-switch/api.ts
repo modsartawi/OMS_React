@@ -1,57 +1,46 @@
+import { keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { StoreEngineFlip, StoreEngineHistoryEntry, StoreEngineInFlight, StoreEngineRow } from '@/core/models/rule-campaign'
+import type { StoreEngineChange, StoreEngineFlip, StoreEngineHistory, StoreEngineLookupItem } from '@/core/models/rule-campaign'
 
-// The store engine switch's doors (ticket 517, BackOffice 2745, ADR 0093): ONE place for the family,
-// so ticket 520 re-points this file. A reader without the (unseeded) Ua permission is refused by the
-// server; the screen shows that refusal through `apiErrorMessage`.
-// PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
-const BASE = 'StorePromotionEngine'
+// The store engine switch's doors (ticket 517, re-pointed in 528; BackOffice 2745, ADR 0093): ONE
+// place for the family. Flip and History need the RuleEngineSwitch grant (02 / 03); a session
+// without it is a BARE 403, which the screen names through `isBareDenial`.
+const FLIP = 'Rules/Switch/Flip'
+const HISTORY = 'Rules/Switch/History'
+// No store list sits behind RuleEngineSwitch (BO ask C): the builder's stores lookup answers each
+// open store with its engine in `detail`, behind the RuleAuthoring grant (ticket 528 records it).
+const STORES = 'Rules/Authoring/Lookups/stores'
 
 export const engineSwitchApi = {
-  /** GET StorePromotionEngine/Stores — every store with its engine and its last flip. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
-  stores(): Promise<StoreEngineRow[]> {
-    return api.get<StoreEngineRow[]>(`${BASE}/Stores`)
+  /** POST Rules/Authoring/Lookups/stores { q } — open stores by code (prefix) or name, at most 50,
+   *  each with the engine HQ holds it on. */
+  stores(q: string): Promise<StoreEngineLookupItem[]> {
+    return api.post<StoreEngineLookupItem[]>(STORES, { q })
   },
 
-  /** GET StorePromotionEngine/InFlight?storeCode= — what a flip back to bonus buys would leave in
-   *  flight at the store (live campaigns, open call-center sessions, store-scope budgets). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
-  inFlight(storeCode: string): Promise<StoreEngineInFlight> {
-    return api.get<StoreEngineInFlight>(`${BASE}/InFlight`, { storeCode })
+  /** POST Rules/Switch/Flip { storeCode, engine, reason } — moves the store to the engine from its
+   *  next shift open. A flip from Rule back to BonusBuy answers what is in flight; never blocked. */
+  flip(body: StoreEngineFlip): Promise<StoreEngineChange> {
+    return api.post<StoreEngineChange>(FLIP, body)
   },
 
-  /** POST StorePromotionEngine/Flip — moves the store to the engine from its next shift open, with
-   *  the reason; answers the store's row as HQ now holds it. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
-  flip(body: StoreEngineFlip): Promise<StoreEngineRow> {
-    return api.post<StoreEngineRow>(`${BASE}/Flip`, body)
-  },
-
-  /** GET StorePromotionEngine/History?storeCode= — the store's flips, newest first. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
-  history(storeCode: string): Promise<StoreEngineHistoryEntry[]> {
-    return api.get<StoreEngineHistoryEntry[]>(`${BASE}/History`, { storeCode })
+  /** GET Rules/Switch/History?storeCode= — the store's engine now and its flips, newest first. */
+  history(storeCode: string): Promise<StoreEngineHistory> {
+    return api.get<StoreEngineHistory>(HISTORY, { storeCode })
   },
 }
 
 /** Every engine-switch query: a flip refreshes them all. */
 export const ENGINE_SWITCH_KEY = ['engine-switch'] as const
 
-export const storeEnginesQuery = () => ({
-  queryKey: [...ENGINE_SWITCH_KEY, 'stores'] as const,
-  queryFn: () => engineSwitchApi.stores(),
+export const storeEnginesQuery = (q: string) => ({
+  queryKey: [...ENGINE_SWITCH_KEY, 'stores', q] as const,
+  queryFn: () => engineSwitchApi.stores(q),
+  // A new search keeps the last answer on screen until HQ answers it.
+  placeholderData: keepPreviousData,
 })
 
 export const storeEngineHistoryQuery = (storeCode: string) => ({
   queryKey: [...ENGINE_SWITCH_KEY, 'history', storeCode] as const,
   queryFn: () => engineSwitchApi.history(storeCode),
-})
-
-/** Asked afresh each time the flip-back warning shows (what is in flight moves by the minute); a
- *  Back to it shows the answer already read while the new one comes. */
-export const storeInFlightQuery = (storeCode: string) => ({
-  queryKey: [...ENGINE_SWITCH_KEY, 'in-flight', storeCode] as const,
-  queryFn: () => engineSwitchApi.inFlight(storeCode),
-  staleTime: 0,
 })

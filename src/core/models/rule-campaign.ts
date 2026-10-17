@@ -899,47 +899,65 @@ export interface RuleMemberBudget {
   currency: string | null
 }
 
-// ── The store engine switch (ticket 517; HQ's doors are BackOffice 2745, ADR 0093) ──────────────
-// PROVISIONAL - shapes invented ahead of BackOffice 2745; re-point in ticket 520
+// ── The store engine switch (ticket 517, re-pointed in 528; BackOffice 2745, ADR 0093) ──────────
+// `POST Rules/Switch/Flip` and `GET Rules/Switch/History` (grant RuleEngineSwitch 02 / 03); the
+// store list is `POST Rules/Authoring/Lookups/stores` (grant RuleAuthoring — see ticket 528).
 
 /** Which promotion engine a store runs. A store HQ holds no row for runs `BonusBuy`. */
 export type PromotionEngine = 'BonusBuy' | 'Rule'
 
-/** One store as the switch lists it. `engine` is null when HQ holds no row for it (reads BonusBuy);
- *  `changedBy` / `changedAt` (local) / `reason` are the last flip's, null when never flipped. */
-export interface StoreEngineRow {
-  storeCode: string
-  storeName: string
-  engine: PromotionEngine | null
-  changedBy: string | null
-  changedAt: string | null
-  reason: string | null
-}
-
-/** A flip: the store, the engine the admin saw it on (HQ refuses the flip when that is no longer
- *  so: another admin got there first), the engine it moves to and the admin's reason (required). */
+/** `POST Rules/Switch/Flip`: the store, the engine it moves to and the reason (required). There is
+ *  no `from`: HQ reads it under a lock. */
 export interface StoreEngineFlip {
   storeCode: string
-  from: PromotionEngine
   engine: PromotionEngine
   reason: string
 }
 
-/** What is in flight at a store HQ is asked to flip back to bonus buys. A warning, never a block. */
-export interface StoreEngineInFlight {
-  liveCampaigns: { code: string; name: Says }[]
-  /** Open call-center sessions at the store; `created` is local. */
-  openSessions: { saleId: string; created: string }[]
-  /** Store-scope budgets whose counters run at the store. */
-  budgets: { campaignCode: string; budget: string }[]
+/** What a flip from Rule back to BonusBuy leaves in flight at the store. A warning, never a block:
+ *  each list holds at most 100 entries, and `truncated` says one was cut. */
+export interface RuleEngineInFlight {
+  /** The published campaigns: none of them reaches the store's tills from its next shift open. */
+  liveCampaigns: { code: string; nameEn: string; nameAr: string }[]
+  /** The store's paying sessions (local times): they keep the engine they were opened under. */
+  openSessions: { sessionId: string; channel: string; openedAt: string; paidAt: string }[]
+  /** The store-scope budget counters with something used or held at the store. */
+  storeBudgets: { campaignId: string; budgetId: string; periodKey: string; used: number; held: number }[]
+  truncated: boolean
 }
 
-/** One line of a store's switch history: who, when (local), from → to, and why. `from` is null for
- *  a store's first flip (no row, read as BonusBuy). */
-export interface StoreEngineHistoryEntry {
-  at: string
-  by: string
-  from: PromotionEngine | null
-  to: PromotionEngine
+/** One flip, as the flip answers it and as the history lists it. `changedAt` is local; `inFlight`
+ *  is null when the flip warned of nothing (every flip but Rule → BonusBuy, or nothing in flight). */
+export interface StoreEngineChange {
+  storeCode: string
+  fromEngine: PromotionEngine
+  engine: PromotionEngine
+  changedBy: string
+  changedAt: string
   reason: string
+  inFlight: RuleEngineInFlight | null
+}
+
+/** The store's engine now. `isSet` is false when HQ holds no row (it then reads BonusBuy, and
+ *  `changedAt` / `changedBy` are null). */
+export interface StoreEngineReading {
+  storeCode: string
+  engine: PromotionEngine
+  isSet: boolean
+  changedAt: string | null
+  changedBy: string | null
+}
+
+/** `GET Rules/Switch/History?storeCode=`: the engine now and its flips, newest first (at most 200). */
+export interface StoreEngineHistory {
+  store: StoreEngineReading
+  changes: StoreEngineChange[]
+}
+
+/** One answer of `Rules/Authoring/Lookups/stores`: an open store, its (English) name, and in
+ *  `detail` the engine HQ holds it on. At most 50 per search. Only the fields the switch reads. */
+export interface StoreEngineLookupItem {
+  code: string
+  name: Says
+  detail: string | null
 }

@@ -7,29 +7,30 @@ import type { CellKeyDownEvent, ColDef, ICellRendererParams, RowClickedEvent } f
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { apiErrorMessage } from '@/core/api'
-import type { PromotionEngine, StoreEngineRow } from '@/core/models/rule-campaign'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
+import type { PromotionEngine } from '@/core/models/rule-campaign'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair } from '@/core/util/bidi'
-import { formatDateTime } from '@/core/util/date-format'
+import { useDebounced } from '@/core/util/use-debounced'
 import { storeEnginesQuery } from './api'
+import EngineBadge from './EngineBadge'
 import FlipDialog from './FlipDialog'
 import HistoryPane from './HistoryPane'
-import { ENGINES, engineOf, filterStores, flipTarget, switchQueryFromParams, switchQueryToParams } from './helpers'
+import { ENGINES, filterByEngine, flipTarget, STORES_CAP, storeRows, switchQueryFromParams, switchQueryToParams, type StoreEngineRow } from './helpers'
 
 /**
- * Admin ▸ Store engine switch (ticket 517, BackOffice spec 2737 / 2745, ADR 0093): every store with
- * the promotion engine it runs — `BonusBuy` or `Rule`, a store HQ holds no row for reading BonusBuy —
- * and its last flip. Flip asks a reason and takes effect at the store's next shift open; a flip back
- * to bonus buys first shows what is in flight, never blocking. A row opens the store's history.
+ * Admin ▸ Store engine switch (ticket 517, re-pointed in 528; BackOffice 2745, ADR 0093): the stores
+ * HQ's search answers (at most 50), each with the promotion engine it runs — `BonusBuy` or `Rule`, a
+ * store HQ holds no row for reading BonusBuy. Flip asks a reason and takes effect at the store's next
+ * shift open; a flip back to bonus buys answers what is still in flight, shown after it — it never
+ * blocks. A row opens the store's history, with who flipped it last.
  *
- * No access probe on the leaf yet (BackOffice 2745 seeds the Ua permission): the doors fail closed
- * on the server, and their refusal shows here through `apiErrorMessage`. Ticket 520 adds the probe.
+ * The list is the builder's stores lookup (RuleAuthoring grant), not a switch door: there is none (BO
+ * ask C). No access probe on the leaf yet (BO ask B, ticket 529): a missing grant is a bare 403.
  */
 export default function EngineSwitchPage() {
   const { t } = useTranslation('engine-switch')
@@ -40,10 +41,14 @@ export default function EngineSwitchPage() {
   useEffect(() => {
     if (changedFromOutside()) setSearch(query.search)
   }, [query.search, changedFromOutside])
-  const stores = useQuery(storeEnginesQuery())
-  const all = stores.data ?? NO_ROWS
-  const rows = useMemo(() => filterStores(all, query), [all, query])
-  const opened = all.find((r) => r.storeCode === query.store) ?? null
+  // HQ searches (code prefix or name); the engine filter narrows its answer here.
+  const q = useDebounced(query.search.trim(), 250)
+  const stores = useQuery(storeEnginesQuery(q))
+  const all = useMemo(() => (stores.data ? storeRows(stores.data) : NO_ROWS), [stores.data])
+  const rows = useMemo(() => filterByEngine(all, query.engine), [all, query.engine])
+  const capped = (stores.data?.length ?? 0) >= STORES_CAP
+  // A store opened from the address or by a flip stays open when the search no longer lists it.
+  const openedName = all.find((r) => r.storeCode === query.store)?.storeName ?? null
 
   const [flipping, setFlipping] = useState<StoreEngineRow | null>(null)
   const context = useMemo<GridContext>(() => ({ onFlip: setFlipping }), [])
@@ -110,7 +115,13 @@ export default function EngineSwitchPage() {
         </div>
       </div>
 
-      {stores.isError && <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={apiErrorMessage(stores.error, t('results.failed'))} />}
+      {stores.isError && (
+        <ErrorBanner
+          className="p-2.5"
+          title={t('results.failedTitle')}
+          message={isBareDenial(stores.error) ? t('results.denied') : apiErrorMessage(stores.error, t('results.failed'))}
+        />
+      )}
 
       <div className="flex min-h-0 flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -142,24 +153,33 @@ export default function EngineSwitchPage() {
               {stores.isPending ? (
                 <span>{t('results.loading')}</span>
               ) : (
-                <span data-status-count="">
-                  <Trans t={t} i18nKey="results.count" count={rows.length} values={{ n: rows.length }} components={{ n: <Ltr /> }} />
-                </span>
+                <>
+                  <span data-status-count="">
+                    <Trans t={t} i18nKey="results.count" count={rows.length} values={{ n: rows.length }} components={{ n: <Ltr /> }} />
+                  </span>
+                  {capped && (
+                    <span data-status-capped="">
+                      <Trans t={t} i18nKey="results.capped" values={{ n: STORES_CAP }} components={{ n: <Ltr /> }} />
+                    </span>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
-        {opened && <HistoryPane key={opened.storeCode} row={opened} onClose={() => update((q) => ({ ...q, store: '' }))} />}
+        {query.store && (
+          <HistoryPane key={query.store} storeCode={query.store} storeName={openedName} onClose={() => update((q) => ({ ...q, store: '' }))} />
+        )}
       </div>
 
       {flipping && (
         <FlipDialog
           row={flipping}
-          target={flipTarget(engineOf(flipping))}
+          target={flipTarget(flipping.engine)}
           onClose={() => setFlipping(null)}
-          onFlipped={(row) => {
+          onFlipped={(storeCode) => {
             setFlipping(null)
-            update((q) => ({ ...q, store: row.storeCode }))
+            update((q) => ({ ...q, store: storeCode }))
           }}
         />
       )}
@@ -181,20 +201,13 @@ const DEFAULT_COL_DEF: ColDef<StoreEngineRow> = {
 }
 
 function EngineCell({ data }: ICellRendererParams<StoreEngineRow>) {
-  const { t } = useTranslation('engine-switch')
-  if (!data) return null
-  const engine = engineOf(data)
-  return (
-    <span data-engine={engine}>
-      <StatusBadge sev={engine === 'Rule' ? 'ok' : 'mute'}>{t(`engine.${engine}`)}</StatusBadge>
-    </span>
-  )
+  return data ? <EngineBadge engine={data.engine} /> : null
 }
 
 function FlipCell({ data, context }: ICellRendererParams<StoreEngineRow, unknown, GridContext>) {
   const { t } = useTranslation('engine-switch')
   if (!data) return null
-  const target = flipTarget(engineOf(data))
+  const target = flipTarget(data.engine)
   return (
     <Button variant="outlined" className="h-6 px-2.5 text-xs" onClick={() => context.onFlip(data)} data-flip-open={data.storeCode}>
       {t(`flip.open.${target}`)}
@@ -216,19 +229,10 @@ function engineColumns(t: (key: string) => string): ColDef<StoreEngineRow>[] {
     {
       colId: 'engine',
       headerName: t('columns.engine'),
-      valueGetter: ({ data }) => (data ? engineOf(data) : ''),
+      valueGetter: ({ data }) => data?.engine ?? '',
       cellRenderer: EngineCell,
       width: 130,
     },
-    { colId: 'changedBy', field: 'changedBy', headerName: t('columns.changedBy'), valueFormatter: ({ value }) => value || t('none'), width: 140 },
-    {
-      colId: 'changedAt',
-      field: 'changedAt',
-      headerName: t('columns.changedAt'),
-      valueFormatter: ({ value }) => formatDateTime(value as string | null) || t('none'),
-      width: 150,
-    },
-    { colId: 'reason', field: 'reason', headerName: t('columns.reason'), valueFormatter: ({ value }) => value || t('none'), minWidth: 140, flex: 1 },
     { colId: 'flip', headerName: '', cellRenderer: FlipCell, sortable: false, width: 190 },
   ]
 }

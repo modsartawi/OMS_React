@@ -1,23 +1,67 @@
 ---
 status: open
 spec: BO 2737 (brief C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md)
-blocked-by: 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517, 518, 519
+blocked-by: 522, 523, 524, 525, 526, 527, 528, 529
 ---
 
 # 520 — The rule-campaign screens call the real doors on staging
 
+> **Re-scoped 2026-10-17 (owner: "slice it into tickets").** All seven BO doors are `done` and the brief has its
+> contract sections. But the real contract is a **whole-draft model**: `Drafts/Save` takes the whole campaign at
+> a revision, and Catalogue, Validate and Simulate take the campaign JSON. 501–519 were built on an invented
+> per-resource REST shape (`GET/PUT RuleCampaign/Campaigns/{id}/Settings/*`, their own campaign fields and
+> status enum). That re-point rewrites the data layer of the whole wave, so it moved into 522–529. This
+> ticket keeps only the **live drives + owner walk**. When this was written, the deployed host
+> (172.23.27.111:8099) could not be reached from the dev box.
+
 ## What to build
 
-Once BackOffice 2758 has written its **contract section into the brief** and the doors are deployed to staging,
-re-point every provisional api in `core/rules/` and the campaigns / engine-switch features at the real paths and
-shapes. Drop the `PROVISIONAL` marks. Add the Ua **access probes** (author / approver for the group, the
-engine-switch and session-cancel permissions) and adapt the stubs to the real envelopes. Then run the
-drives live and do an **owner walk**: build one of the five real campaigns, simulate it, ask for approval, activate as an
-approver, and flip a pilot store.
+Once 522–529 are done and the doors are on staging with their Ua seeds and owner grants: run every
+campaigns drive live, then do an **owner walk**: build one of the five real campaigns, simulate it, ask for
+approval, activate as an approver, and flip a pilot store.
+
+## The re-point, sliced (2026-10-17)
+
+| Ticket | Contract | Covers | Blocked by |
+|---|---|---|---|
+| [522](522-the-campaign-model-is-the-real-schema-1-and-a-draft-loads-and-saves-whole-with-its-revision.md) | 2758 | **keystone**: schema-1 model, `Drafts/Load\|Save\|Delete`, settings save whole, author-picked id | — |
+| [523](523-the-builder-reads-the-real-catalogue-validate-lookups-value-maps-and-budgets.md) | 2758 | Catalogue, Validate (also offline + formula), Lookups, ValueMaps, Budgets / SetLimit | 522 |
+| [524](524-the-list-dashboard-versions-priority-copy-and-templates-call-the-2759-doors.md) | 2759 | approvals, versions, order (saved with a draft), copy, templates, list composition | 522 |
+| [525](525-the-simulator-sends-the-evaluate-request-and-reads-the-evaluate-reply.md) | 2758 | Simulate + the evaluate reply | 522 |
+| [526](526-coupons-call-the-real-batch-doors.md) | 2755 | `CouponBatches/Create\|List\|Export\|DeleteUnused` | 522 |
+| [527](527-support-sessions-call-the-real-2760-doors.md) | 2760 | Sessions / Session / Cancel (reason + requestId) | — |
+| [528](528-the-engine-switch-calls-flip-and-history-and-shows-in-flight-after-the-flip.md) | 2745 | Flip / History; in-flight shown after the flip | — |
+| [529](529-access-probes-coupon-finder-and-customers-on-the-doors-bo-adds.md) | BO asks | access probes, coupon finder, Customers | 524, 527, 528 + BO asks B, D |
+
+Frontier: **{522, 527, 528}**. Grill two things before building them: 522's ƒx text vs JSON `expr`, and
+524's Priority with no order save.
+
+### BO asks (NOT filed in BackOffice yet; the owner decides)
+
+- **A — a campaigns list door.** Every campaign with draft `state`, `campaignStatus`, live version and window.
+  Without it, a disabled campaign that has no draft appears nowhere (524).
+- **B — access probes.** Cookie-only `Rules/Authoring/Access` (reader / author / approver),
+  `Rules/Support/Access` (view / cancel) and `Rules/Switch/Access` (view / flip), answering booleans with
+  200, like the repo's other `X/Access` doors (529).
+- **C — engine switch reads.** A store list under the `RuleEngineSwitch` grant, and optionally a dry-run
+  in-flight read so the warning can show before the flip (528).
+- **D — support lookups.** Find a campaign coupon by code, and a member's wallet + per-member budgets used.
+  No door exists in 2744/2754/2755 (529). Or retire the two leaves.
+- **E — Audience lists.** Countries and channels have no lookup (523).
+
+### Rulings the real contract settles
+
+These are answered by the contract and reach the slices: `year` has no period (510). Labels are `{en,
+ar}`, and placeholders are JSON at a path (503). There is no disabled template (503). The author picks the
+campaign id, which voids 502's "HQ mints the code". Hours may cross midnight (509). A support cancel takes
+a required reason, which voids 518's "asks no reason". The in-flight warning comes on the flip's reply
+(517). Holds and budget events come as separate lists (518). The approver gets a live snapshot from
+`Approvals/List` (511). Order overwrites are refused by `RULES_ORDER_STALE` (513). There is still **no
+`draftChanged` flag** (512 stands).
 
 ## Spine reach
 
-model/api (re-point) · component (probes) · test (live drives)
+test (live drives) · manual (owner walk). The re-point itself lives in 522–529.
 
 ## Proof (→ `tdd` red-green cycles)
 
@@ -34,8 +78,9 @@ The drives pass against staging and the owner walk is recorded.
 
 ## Blocked by
 
-[501](501-a-marketer-sees-the-campaigns-list-by-state-and-opens-a-campaigns-dashboard.md) through
-[519](519-support-finds-a-coupon-code-and-reads-a-members-wallet-balance-and-budgets-used.md)
+[522](522-the-campaign-model-is-the-real-schema-1-and-a-draft-loads-and-saves-whole-with-its-revision.md) through
+[529](529-access-probes-coupon-finder-and-customers-on-the-doors-bo-adds.md), which are themselves built on
+501–519 (all done).
 
 ## Triage of the 501–519 reviews and HITLs (2026-10-17)
 

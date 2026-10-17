@@ -2407,10 +2407,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  90. the campaign menu has Versions, which opens /campaigns/:id/versions as the current item;
 //  91. every published version, newest first, with its number, who, when (local) and the note — the
 //      live one marked Live;
-//  92. the live version of a live campaign offers no Restore (its draft is it); earlier ones do;
+//  92. every version of a live campaign offers Restore, the live one too (its draft may hold saved
+//      edits, and restoring the live version is how they are thrown away);
 //  93. a version opens read-only as its rules in sentences, with its EN + AR lines, and nothing to edit;
-//  94. Restore on a live campaign goes at once: HQ gets it once, the dashboard shows a Draft and the
-//      live version it still runs, unchanged (version 3); the rule builder reads the restored rules;
+//  94. Restore on a live campaign asks first (saved edits may be in its draft): Keep the draft sends
+//      nothing; Replace the draft restores once, the dashboard shows a Draft and the live version it
+//      still runs, unchanged (version 3); the rule builder reads the restored rules;
 //  95. over that draft, Restore asks first: Keep the draft sends nothing; Replace the draft restores;
 //      the live version may be restored too now (it throws the draft away);
 //  96. a refused restore is the envelope's message and code, on the page, and nothing moves;
@@ -2455,7 +2457,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   )
 
   // ── 92 ──
-  check('92: the live version offers no Restore; versions 2 and 1 do', JSON.stringify(await restorable()) === '[2,1]', JSON.stringify(await restorable()))
+  check('92: every version of a live campaign offers Restore, the live one too', JSON.stringify(await restorable()) === '[3,2,1]', JSON.stringify(await restorable()))
 
   // ── 93 ──
   await item(2).locator('[data-version-view]').click()
@@ -2477,9 +2479,17 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 94 ──
   await item(2).locator('[data-version-restore]').click()
+  const askLive = page.locator('[data-restore-dialog="2"]')
+  await askLive.waitFor({ timeout: 5000 })
+  check('94: Restore on a live campaign asks first, saying the live version stays', (await askLive.innerText()).includes('Tills keep running version 3'))
+  await page.locator('[data-restore-cancel]').click()
+  await askLive.waitFor({ state: 'detached', timeout: 5000 })
+  check('94: Keep the draft sends nothing', restores.length === 0 && pouch().status === 'live', JSON.stringify(restores))
+  await item(2).locator('[data-version-restore]').click()
+  await page.locator('[data-restore-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
-  check('94: Restore on a live campaign asks nothing and goes to the dashboard', page.url() === `${BASE}/campaigns/GIFT-POUCH` && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
+  check('94: Replace the draft restores once and goes to the dashboard', page.url() === `${BASE}/campaigns/GIFT-POUCH` && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
   const stateCell = page.locator('[data-dashboard-cell="state"]')
   check('94: the dashboard shows a Draft', (await stateCell.locator('[data-campaign-state]').innerText()) === 'Draft')
   check(
@@ -2519,6 +2529,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
   await page.locator('[data-versions]').waitFor({ timeout: 10000 })
   await page.locator('[data-version="1"] [data-version-restore]').click()
+  await page.locator('[data-restore-confirm]').click()
   await page.locator('[data-restore-refusal]').waitFor({ timeout: 5000 })
   check(
     '96: a refused restore is the envelope’s message and code, on the page',

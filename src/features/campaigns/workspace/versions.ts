@@ -10,8 +10,8 @@ import type { RuleCampaign, RuleCampaignVersion } from '@/core/models/rule-campa
 /** Why Restore is held on the whole campaign. */
 export type RestoreHold = 'waiting' | 'disabled'
 
-/** What Restore on one version does: at once, after asking, or not at all (and why). */
-export type RestoreGuard = 'restore' | 'ask' | 'current' | RestoreHold
+/** What Restore on one version does: after asking, or not at all (and why). */
+export type RestoreGuard = 'ask' | RestoreHold
 
 type CampaignLife = Pick<RuleCampaign, 'status' | 'live'>
 
@@ -37,23 +37,20 @@ export function restoreHeld(campaign: Pick<RuleCampaign, 'status'>): RestoreHold
 }
 
 /**
- * Restore on `version` of a campaign in its state.
+ * Restore on a version of a campaign in its state.
  *
- * - **ask** — the campaign is a draft: it holds work that is not published (changes over the live
- *   version, or a request sent back), and the restore replaces it. Even the live version itself may
- *   be restored then — that throws the changes away, so it asks too.
- * - **restore** — a live campaign's draft is its live version: nothing is lost.
- * - **current** — that live version is the draft already; restoring it changes nothing.
+ * - **ask** — a draft or a live campaign: the restore replaces its draft, and the draft may hold
+ *   saved work that is not published (a request sent back, or rule edits saved over the live
+ *   version — saving keeps a live campaign live). Every version asks, the live one too: restoring
+ *   it is how saved edits are thrown away.
  * - **waiting** / **disabled** — held on the whole campaign (`restoreHeld`).
  *
- * ⚠️ PROVISIONAL (2759 unwritten): "the draft has work" is read from the status alone — 511's
- * life, where changes over a live version make it a draft again.
+ * ⚠️ PROVISIONAL (2759 unwritten): nothing tells this client whether a live campaign's draft
+ * differs from its live version, so it never infers "no work" from the status. Once 2759 gives a
+ * draft-changed flag, a live campaign with no work may restore at once.
  */
-export function restoreGuard(campaign: CampaignLife, version: number): RestoreGuard {
-  const held = restoreHeld(campaign)
-  if (held) return held
-  if (campaign.status === 'draft') return 'ask'
-  return campaign.live?.version === version ? 'current' : 'restore'
+export function restoreGuard(campaign: CampaignLife): RestoreGuard {
+  return restoreHeld(campaign) ?? 'ask'
 }
 
 /**

@@ -6,35 +6,25 @@ const LIVE3 = { version: 3, at: '2026-10-10T15:00:00', by: 'Omar (marketing)' }
 const of = (status: RuleCampaignStatus, live: RuleCampaign['live'] = LIVE3) => ({ status, live })
 const v = (version: number): RuleCampaignVersion => ({ version, at: `2026-10-0${version}T10:00:00`, by: 'Omar (marketing)', note: '' })
 
-describe('restoreGuard_asksWhenADraftHasWork', () => {
+describe('restoreGuard_asksWhenTheDraftMayHoldWork', () => {
   it('a draft holds work not published yet — a sent-back request, or changes over the live version — so restoring asks first', () => {
-    expect(restoreGuard(of('draft'), 2)).toBe('ask')
-    expect(restoreGuard(of('draft'), 1)).toBe('ask')
+    expect(restoreGuard(of('draft'))).toBe('ask')
   })
 
-  it('a draft over the live version may restore the live version itself: it throws the changes away, so it asks too', () => {
-    expect(restoreGuard(of('draft'), 3)).toBe('ask')
-  })
-
-  it('a live campaign has no work of its own over its live version: an earlier version restores at once', () => {
-    expect(restoreGuard(of('live'), 2)).toBe('restore')
-    expect(restoreGuard(of('live'), 1)).toBe('restore')
+  it('a live campaign asks too: saving rule edits keeps it live, so its draft may hold work the status does not show (512 review)', () => {
+    expect(restoreGuard(of('live'))).toBe('ask')
   })
 
   it('a disabled campaign is held: the approval life has no way back from disabled', () => {
-    for (const n of [1, 2, 3]) expect(restoreGuard(of('disabled'), n)).toBe('disabled')
-  })
-
-  it('the version tills run is not restored over a campaign whose draft already is it', () => {
-    expect(restoreGuard(of('live'), 3)).toBe('current')
+    expect(restoreGuard(of('disabled'))).toBe('disabled')
   })
 
   it('a campaign waiting for approval is held: the request is sent back before its draft changes', () => {
-    for (const n of [1, 2, 3]) expect(restoreGuard(of('waitingForApproval'), n)).toBe('waiting')
+    expect(restoreGuard(of('waitingForApproval'))).toBe('waiting')
   })
 
   it('a status this client does not know is held as waiting — never restored blind', () => {
-    expect(restoreGuard(of('archived' as RuleCampaignStatus), 2)).toBe('waiting')
+    expect(restoreGuard(of('archived' as RuleCampaignStatus))).toBe('waiting')
   })
 
   it('restoreHeld says why for the whole campaign, so the page can say so', () => {

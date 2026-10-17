@@ -22,8 +22,9 @@ import { newestFirst, restoreGuard, restoreHeld, versionMark } from './versions'
  * The campaign's Versions (ticket 512): every published version, newest first, with its number,
  * who activated it, when (local) and the note, the live one marked. A version opens read-only as its
  * rules in sentences. Restore makes it the campaign's NEW draft — never an in-place rollback: tills
- * keep the live version until that draft is approved and activated. Over a draft that holds work not
- * published, Restore asks first (`restoreGuard`); HQ's refusal shows with its message and code.
+ * keep the live version until that draft is approved and activated. Restore always asks first
+ * (`restoreGuard`): the draft it replaces may hold saved work not published, even on a live
+ * campaign. HQ's refusal shows with its message and code.
  */
 export default function VersionsPage() {
   const { t } = useTranslation('campaign-workspace')
@@ -63,8 +64,7 @@ export default function VersionsPage() {
 
   const start = (version: number) => {
     restore.reset()
-    if (restoreGuard(c, version) === 'ask') setAsking(version)
-    else restore.mutate(version)
+    if (restoreGuard(c) === 'ask') setAsking(version)
   }
 
   let body
@@ -188,7 +188,7 @@ function VersionItem({
 }) {
   const { t } = useTranslation('campaign-workspace')
   const mark = versionMark(c, v.version)
-  const guard = restoreGuard(c, v.version)
+  const guard = restoreGuard(c)
   const detailId = `version-${v.version}-rules`
   return (
     <li
@@ -216,7 +216,7 @@ function VersionItem({
             {open ? <EyeOff className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
             {t(open ? 'versions.hide' : 'versions.view')}
           </Button>
-          {(guard === 'restore' || guard === 'ask') && (
+          {guard === 'ask' && (
             <Button variant="outlined" onClick={onRestore} disabled={busy} data-version-restore="">
               {restoring && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
               {t('versions.restore')}

@@ -80,7 +80,7 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
         onSuccess: (draft) => {
           notify.success(t('create.done'))
           onCreated()
-          navigate(campaignPath(draft.id))
+          navigate(campaignPath(draft.code))
         },
       },
     )

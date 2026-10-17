@@ -1,14 +1,15 @@
 /**
- * Ticket 507 — the guided ƒx helper inserts at the cursor and shows HQ's check: the error under the
- * bad word, or the result on the sample basket. The client never parses the formula (ADR 0089).
+ * Tickets 507 / 522 — the guided ƒx helper inserts at the cursor; its text box reads into the
+ * stored JSON expression through the codec, and a stored one it cannot print shows as JSON.
  */
 import { describe, expect, it } from 'vitest'
-import type { CampaignRule, RuleFormulaCheck } from '@/core/models/rule-campaign'
+import type { CampaignRule } from '@/core/models/rule-campaign'
 import { CAMPAIGNS, CATALOGUE } from '../../../../tools/campaigns-fixtures.mjs'
-import { checkRequest, fxFields, insertAtCursor, operatorChip, readFormulaCheck, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter } from './fx'
+import { keyOf, withKeys } from './block-keys'
+import { boxOf, fxFields, insertAtCursor, operatorChip, readBox, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, valuesBefore } from './fx'
 
-const rule = (code: string): CampaignRule => structuredClone(CAMPAIGNS.find((c) => c.code === code)!.rules[0])
-const check = (o: Partial<RuleFormulaCheck>): RuleFormulaCheck => ({ ok: false, type: null, errors: [], warnings: [], result: null, ...o })
+let n = 0
+const rule = (code: string): CampaignRule => withKeys([structuredClone(CAMPAIGNS.find((c) => c.code === code)!.campaign.rules[0])], () => `k${++n}`)[0]
 
 describe('insertAtCursor', () => {
   it('insertAtCursor_placesChipAndKeepsCaret', () => {
@@ -36,43 +37,41 @@ describe('insertAtCursor', () => {
   })
 })
 
-describe('readFormulaCheck', () => {
-  it('formulaCheck_mapsHqErrorSpanToTheUnderline', () => {
-    const bad = readFormulaCheck(
-      'bakc > 0',
-      check({ errors: [{ code: 'UNKNOWN_NAME', message: '"bakc" is not a field.', start: 0, end: 4 }, { code: 'X', message: 'second', start: null, end: null }] }),
-    )
-    expect(bad).toEqual({ state: 'bad', message: '"bakc" is not a field.', underline: { before: '', bad: 'bakc', after: ' > 0' }, more: ['second'] })
+describe('the box', () => {
+  it('shows a stored expression as text and reads text back into it', () => {
+    const r = rule('WLCB') // values eligible, back
+    expect(boxOf(r.values[1].expr, r)).toEqual({ text: 'round(eligible * 0.1, 0, halfUp)', json: false })
+    expect(readBox('round(eligible * 0.1, 0, halfUp)', false, r)).toEqual({ ok: true, expr: r.values[1].expr })
+    expect(boxOf(null, r)).toEqual({ text: '', json: false })
+    expect(readBox('  ', false, r)).toEqual({ ok: true, expr: null })
+  })
 
-    // A span inside the formula.
-    expect(readFormulaCheck('sum(eligble) * 2', check({ errors: [{ code: 'U', message: 'm', start: 4, end: 11 }] }))).toMatchObject({
-      underline: { before: 'sum(', bad: 'eligble', after: ') * 2' },
-    })
-    // An empty span marks one character; at the end, a space stands for what is missing.
-    expect(readFormulaCheck('a >', check({ errors: [{ code: 'U', message: 'm', start: 1, end: 1 }] }))).toMatchObject({ underline: { before: 'a', bad: ' ', after: '>' } })
-    expect(readFormulaCheck('a >', check({ errors: [{ code: 'U', message: 'm', start: 3, end: 3 }] }))).toMatchObject({ underline: { before: 'a >', bad: ' ', after: '' } })
-    // A span past the end is held to the formula.
-    expect(readFormulaCheck('ab', check({ errors: [{ code: 'U', message: 'm', start: 1, end: 40 }] }))).toMatchObject({ underline: { before: 'a', bad: 'b', after: '' } })
-    // No span: the message, nothing underlined.
-    expect(readFormulaCheck('ab', check({ errors: [{ code: 'U', message: 'm', start: null, end: null }] }))).toMatchObject({ state: 'bad', underline: null })
+  it('a text that does not read keeps what is wrong and where', () => {
+    const r = rule('WLCB')
+    const read = readBox('round(eligible * , 0, halfUp)', false, r)
+    expect(read.ok).toBe(false)
+    if (!read.ok) {
+      expect(read.problem?.code).toBe('unexpected')
+      expect(read.underline?.bad).not.toBe('')
+    }
+  })
 
-    // A good formula: its type, its result on the sample basket and HQ's warnings.
-    expect(readFormulaCheck('spend', check({ ok: true, type: 'money', result: 12.5, warnings: [{ code: 'W', message: 'careful', start: null, end: null }] }))).toEqual({
-      state: 'ok',
-      type: 'money',
-      result: 12.5,
-      warnings: ['careful'],
-    })
+  it('an expression the codec cannot print is shown and edited as JSON', () => {
+    const r = rule('WLCB')
+    const odd = ['merge', { a: 1 }]
+    expect(boxOf(odd as never, r)).toEqual({ text: JSON.stringify(odd), json: true })
+    expect(readBox('["merge",{"a":2}]', true, r)).toEqual({ ok: true, expr: ['merge', { a: 2 }] })
+    expect(readBox('["merge",', true, r)).toEqual({ ok: false, problem: null, underline: null })
   })
 })
 
 describe('the helper’s lists', () => {
   it('Fields lists the rule’s filters, the values above this one, then HQ’s fields', () => {
     const r = rule('PRCB-AUG26') // values basis, rate, back
-    const back = r.values[2].id
+    const back = keyOf(r.values[2])
     const own = fxFields(CATALOGUE.formula, r, back).filter((f) => f.group === 'rule')
     expect(own.map((f) => [f.kind, f.insert, f.type])).toEqual([
-      ['filter', 'earning', 'items'],
+      ['filter', `items('${r.filters[0].name}')`, 'items'],
       ['value', 'basis', 'number'],
       ['value', 'rate', 'number'],
     ])
@@ -85,7 +84,7 @@ describe('the helper’s lists', () => {
   it('a recipe names the picked filter, and says when it needs one', () => {
     const pct = CATALOGUE.formula.recipes.find((x) => x.key === 'percentOfSpend')!
     expect(recipeNeedsFilter(pct)).toBe(true)
-    expect(recipeFormula(pct, 'eligible')).toBe('round(sum(eligible) * 10 / 100, decimals, halfUp)')
+    expect(recipeFormula(pct, 'Eligible')).toBe("round(sum(items('Eligible'), item.net) * 0.1, 0, halfUp)")
     expect(recipeNeedsFilter(CATALOGUE.formula.recipes.find((x) => x.key === 'topTiers')!)).toBe(false)
     // A cap wraps what the box already has.
     const cap = CATALOGUE.formula.recipes.find((x) => x.key === 'capped')!
@@ -93,10 +92,9 @@ describe('the helper’s lists', () => {
     expect(recipeFormula(cap, 'eligible', ' spend * 0.1 ')).toBe('min(spend * 0.1, 100)')
   })
 
-  it('the check sends the draft rule’s filters and only the values above the one being written', () => {
+  it('a value reads only the values above it; the formula condition reads them all', () => {
     const r = rule('PRCB-AUG26')
-    const req = checkRequest('PRCB-AUG26', r, r.values[1].id, 'number', ' band(basis, 200:0.10) ')
-    expect(req).toEqual({ campaignId: 'PRCB-AUG26', expect: 'number', formula: ' band(basis, 200:0.10) ', filters: r.filters, values: [r.values[0]] })
-    expect(checkRequest('X', r, null, 'bool', 'back > 0').values).toEqual(r.values)
+    expect(valuesBefore(r, keyOf(r.values[1]))).toEqual([r.values[0]])
+    expect(valuesBefore(r, null)).toEqual(r.values)
   })
 })

@@ -11,11 +11,11 @@ export function stateCounts(rows: readonly RuleCampaignListRow[], now: Date): Re
   return counts
 }
 
-/** Whether `row` is matched by the search text — its English or Arabic name, or its code. */
+/** Whether `row` is matched by the search text — its English or Arabic name, or its id. */
 export function matchesSearch(row: RuleCampaignListRow, q: string): boolean {
   const needle = q.trim().toLocaleLowerCase()
   if (!needle) return true
-  return [row.name.en, row.name.ar, row.code].some((v) => (v ?? '').toLocaleLowerCase().includes(needle))
+  return [row.name.en, row.name.ar, row.campaign].some((v) => (v ?? '').toLocaleLowerCase().includes(needle))
 }
 
 /** The rows the grid shows: the tile's state (at `now`) and the search, together. */

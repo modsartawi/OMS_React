@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import { ruleCampaignQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import { campaignPath, campaignState } from '@/core/rules/campaign-state'
+import { draftStateInput } from './settings-form'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { WorkspaceContext } from './context'
 import { drawnMenu, drawnSettings, type WorkspaceMenuKey } from './menu'
@@ -63,11 +64,12 @@ export default function CampaignWorkspacePage() {
     )
   }
 
-  const c = campaign.data
-  const context: WorkspaceContext = { campaign: c }
+  const d = campaign.data
+  const c = d.campaign
+  const context: WorkspaceContext = { draft: d }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 md:flex-row" data-workspace={c.id}>
+    <div className="flex min-w-0 flex-col gap-4 md:flex-row" data-workspace={d.code}>
       <aside
         aria-label={t('menu.label')}
         className="flex shrink-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 md:w-60 md:self-start"
@@ -83,12 +85,12 @@ export default function CampaignWorkspacePage() {
             </bdi>
           )}
           <span>
-            <CampaignStateBadge state={campaignState(c, new Date())} />
+            <CampaignStateBadge state={campaignState(draftStateInput(d), new Date())} />
           </span>
         </div>
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t('menu.label')}</div>
         <nav className="flex flex-col gap-0.5">
-          {drawnMenu(c.features).map((item) => (
+          {drawnMenu(d.features).map((item) => (
             <NavLink
               key={item.key}
               to={item.to ? `${base}/${item.to}` : base}

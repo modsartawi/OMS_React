@@ -1,48 +1,46 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleCampaignSchedule } from '@/core/models/rule-campaign'
-import { formToSchedule, scheduleProblems, scheduleToForm, type ScheduleForm } from './schedule'
+import { formToWindow, scheduleProblems, windowToForm, type ScheduleForm } from './schedule'
 
-const wire = (o: Partial<RuleCampaignSchedule> = {}): RuleCampaignSchedule => ({
-  from: null,
-  until: null,
-  days: [],
-  hoursFrom: null,
-  hoursTo: null,
-  ...o,
-})
 const form = (o: Partial<ScheduleForm> = {}): ScheduleForm => ({ from: '', until: '', days: [], hoursFrom: '', hoursTo: '', ...o })
 
-describe('schedule local ↔ wire', () => {
+describe('window local ↔ wire', () => {
   it('schedule_roundTripsLocalDateTime_withNoUtcShift', () => {
     // Midnight-adjacent values are where a UTC round trip moves the day (Riyadh is UTC+3).
-    const s = wire({ from: '2026-10-16', until: '2027-01-01', days: [4, 5], hoursFrom: '00:30', hoursTo: '23:59' })
-    const f = scheduleToForm(s)
-    expect(f).toEqual({ from: '2026-10-16', until: '2027-01-01', days: [4, 5], hoursFrom: '00:30', hoursTo: '23:59' })
-    const back = formToSchedule(f)
-    expect(back).toEqual(s)
-    for (const v of [back.from, back.until, back.hoursFrom, back.hoursTo]) expect(v).not.toMatch(/Z|T|[+-]\d{2}:\d{2}$/)
+    const w = { from: '2026-10-16', until: '2027-01-01', days: ['thu' as const, 'fri' as const], hours: { from: '00:30', until: '23:59' } }
+    const f = windowToForm(w)
+    expect(f).toEqual({ from: '2026-10-16', until: '2027-01-01', days: ['thu', 'fri'], hoursFrom: '00:30', hoursTo: '23:59' })
+    const back = formToWindow(f)
+    expect(back).toEqual(w)
+    for (const v of [back.from, back.until, back.hours?.from, back.hours?.until]) expect(v).not.toMatch(/Z|T|[+-]\d{2}:\d{2}$/)
+  })
+
+  it('keeps hours that cross midnight, as the contract allows', () => {
+    expect(formToWindow(form({ hoursFrom: '22:00', hoursTo: '02:00' }))).toEqual({ hours: { from: '22:00', until: '02:00' } })
+    expect(scheduleProblems(form({ hoursFrom: '22:00', hoursTo: '02:00' }))).toEqual([])
   })
 
   it('reads a moment on the wire as its local day, and seconds as the minute, never shifting them', () => {
-    const f = scheduleToForm(wire({ from: '2026-10-16T00:00:00', until: '2026-10-20T02:15:00', hoursFrom: '00:00:00', hoursTo: '16:45:59' }))
+    const f = windowToForm({ from: '2026-10-16T00:00:00', until: '2026-10-20T02:15:00', hours: { from: '00:00:00', until: '16:45:59' } })
     expect(f).toMatchObject({ from: '2026-10-16', until: '2026-10-20', hoursFrom: '00:00', hoursTo: '16:45' })
   })
 
   it('reads a day written with a Z or an offset as written, so a Save never erases it', () => {
-    expect(scheduleToForm(wire({ from: '2026-10-01T00:00:00Z', until: '2026-11-01T00:00:00+03:00' }))).toMatchObject({ from: '2026-10-01', until: '2026-11-01' })
+    expect(windowToForm({ from: '2026-10-01T00:00:00Z', until: '2026-11-01T00:00:00+03:00' })).toMatchObject({ from: '2026-10-01', until: '2026-11-01' })
   })
 
-  it('an empty field is null on the wire: no start is immediately, no end is open-ended, no hours is all day', () => {
-    expect(formToSchedule(form())).toEqual(wire())
-    expect(scheduleToForm(wire())).toEqual(form())
+  it('an empty field is left out of the wire: no start is immediately, no end open-ended, no hours all day', () => {
+    expect(formToWindow(form())).toEqual({})
+    expect(windowToForm({})).toEqual(form())
+    expect(windowToForm(undefined)).toEqual(form())
   })
 
-  it('sends the weekdays once each, in week order', () => {
-    expect(formToSchedule(form({ days: [6, 0, 4, 6] })).days).toEqual([0, 4, 6])
+  it('sends the weekdays once each, Sunday first; every day is no days at all', () => {
+    expect(formToWindow(form({ days: ['sat', 'sun', 'thu', 'sat'] })).days).toEqual(['sun', 'thu', 'sat'])
+    expect(formToWindow(form({ days: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] })).days).toBeUndefined()
   })
 
   it('reads a malformed value as empty rather than guessing', () => {
-    expect(scheduleToForm(wire({ from: '16/10/2026', hoursFrom: '4pm' }))).toMatchObject({ from: '', hoursFrom: '' })
+    expect(windowToForm({ from: '16/10/2026', hours: { from: '4pm', until: '18:00' } })).toMatchObject({ from: '', hoursFrom: '' })
   })
 })
 
@@ -59,10 +57,10 @@ describe('scheduleProblems', () => {
     expect(scheduleProblems(form({ from: '2026-10-16', until: '2026-10-17' }))).toEqual([])
   })
 
-  it('refuses daily hours that end on or before they start; one end alone is fine', () => {
-    expect(scheduleProblems(form({ hoursFrom: '16:00', hoursTo: '16:00' }))).toEqual(['hoursToNotAfterFrom'])
-    expect(scheduleProblems(form({ hoursFrom: '22:00', hoursTo: '02:00' }))).toEqual(['hoursToNotAfterFrom'])
-    expect(scheduleProblems(form({ hoursFrom: '16:00' }))).toEqual([])
-    expect(scheduleProblems(form({ hoursTo: '22:00' }))).toEqual([])
+  it('refuses hours that are not a pair, or that end when they start', () => {
+    expect(scheduleProblems(form({ hoursFrom: '16:00' }))).toEqual(['hoursIncomplete'])
+    expect(scheduleProblems(form({ hoursTo: '22:00' }))).toEqual(['hoursIncomplete'])
+    expect(scheduleProblems(form({ hoursFrom: '16:00', hoursTo: '16:00' }))).toEqual(['hoursSame'])
+    expect(scheduleProblems(form({ hoursFrom: '16:00', hoursTo: '23:00' }))).toEqual([])
   })
 })

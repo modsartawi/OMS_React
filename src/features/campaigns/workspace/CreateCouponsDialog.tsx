@@ -56,7 +56,7 @@ export default function CreateCouponsDialog({
 }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
-  const [form, setForm] = useState<CouponCreateForm>(() => emptyCouponForm(c.code))
+  const [form, setForm] = useState<CouponCreateForm>(() => emptyCouponForm(c.id))
   const [tried, setTried] = useState(false)
 
   const create = useMutation({
@@ -75,7 +75,7 @@ export default function CreateCouponsDialog({
 
   /** Back to a fresh form, so a reopened dialog never shows the last batch. */
   const clear = () => {
-    setForm(emptyCouponForm(c.code))
+    setForm(emptyCouponForm(c.id))
     setTried(false)
     create.reset()
   }

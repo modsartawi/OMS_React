@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 import { Link } from 'react-router'
 import type { RuleCampaignListRow } from '@/core/models/rule-campaign'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
-import { campaignPath, campaignState, stateOrder, type CampaignState } from '@/core/rules/campaign-state'
+import { campaignPath, campaignState, setAt, stateOrder, type CampaignState } from '@/core/rules/campaign-state'
 import { formatDateTime } from '@/core/util/date-format'
 
 type Row = RuleCampaignListRow
@@ -13,7 +13,7 @@ type Row = RuleCampaignListRow
 function NameCell({ data, value, context }: ICellRendererParams<Row, string, { untitled: string }>) {
   if (!data) return null
   return (
-    <Link to={campaignPath(data.id)} className="font-medium text-primary hover:underline" data-campaign-link={data.id}>
+    <Link to={campaignPath(data.campaign)} className="font-medium text-primary hover:underline" data-campaign-link={data.campaign}>
       {/* A draft may have only its Arabic name yet: the link must still read as something. */}
       <bdi>{value || context.untitled}</bdi>
     </Link>
@@ -26,8 +26,8 @@ function StateCell({ value }: ICellRendererParams<Row, CampaignState>) {
 
 /**
  * The campaigns grid (ticket 501): the name in English and in Arabic (both, wherever a name is
- * read), the code, the state at the reader's local now, the schedule's local days and who
- * created it. Plain cells are isolated by the core grid base; the two renderers isolate their own.
+ * read), the campaign's id, the state at the reader's local now (its draft's state and the live
+ * campaign's status, ticket 522), the window's local days and who saved it last. Plain cells are isolated by the core grid base; the two renderers isolate their own.
  */
 export function campaignColumns(t: TFunction, now: () => Date): ColDef<Row>[] {
   return [
@@ -46,7 +46,7 @@ export function campaignColumns(t: TFunction, now: () => Date): ColDef<Row>[] {
       flex: 2,
       minWidth: 220,
     },
-    { colId: 'code', field: 'code', headerName: t('columns.code'), width: 150 },
+    { colId: 'code', field: 'campaign', headerName: t('columns.code'), width: 150 },
     {
       colId: 'state',
       headerName: t('columns.state'),
@@ -59,28 +59,28 @@ export function campaignColumns(t: TFunction, now: () => Date): ColDef<Row>[] {
     {
       colId: 'start',
       headerName: t('columns.start'),
-      valueGetter: ({ data }) => data?.schedule.from ?? null,
+      valueGetter: ({ data }) => data?.window?.from ?? null,
       valueFormatter: ({ value }) => value ?? t('schedule.immediately'),
       width: 130,
     },
     {
       colId: 'end',
       headerName: t('columns.end'),
-      valueGetter: ({ data }) => data?.schedule.until ?? null,
+      valueGetter: ({ data }) => data?.window?.until ?? null,
       valueFormatter: ({ value }) => value ?? t('schedule.openEnded'),
       width: 150,
     },
     {
-      colId: 'created',
-      headerName: t('columns.created'),
-      valueGetter: ({ data }) => data?.created?.at ?? null,
+      colId: 'updated',
+      headerName: t('columns.updated'),
+      valueGetter: ({ data }) => (data ? setAt(data.updatedAt) : null),
       valueFormatter: ({ value }) => formatDateTime(value),
       width: 160,
     },
     {
-      colId: 'createdBy',
-      headerName: t('columns.createdBy'),
-      valueGetter: ({ data }) => data?.created?.by ?? '',
+      colId: 'updatedBy',
+      headerName: t('columns.updatedBy'),
+      valueGetter: ({ data }) => data?.updatedBy ?? '',
       width: 170,
     },
   ]

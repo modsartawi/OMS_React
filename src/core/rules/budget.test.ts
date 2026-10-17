@@ -39,13 +39,12 @@ describe('budgetSentence_readsEveryScopeAndPeriod', () => {
     ])
   })
 
-  it('names every period; lifetime adds none', () => {
+  it('names every period; lifetime adds none, and there is no year (2758)', () => {
     expect(BUDGET_PERIODS.map((p) => read('store', 'uses', 3, p))).toEqual([
       'Limit the uses to 3 per store',
       'Limit the uses to 3 per store per day',
       'Limit the uses to 3 per store per week',
       'Limit the uses to 3 per store per month',
-      'Limit the uses to 3 per store per year',
     ])
   })
 

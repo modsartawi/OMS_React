@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { drawnMenu, drawnSettings, pageLanded, settingsPage, workspaceMenu } from './menu'
 
-const keys = (coupons: boolean, points: boolean) => workspaceMenu({ coupons, points }).map((i) => i.key)
+const keys = (coupons: boolean, points: boolean) => workspaceMenu([...(coupons ? ['coupons' as const] : []), ...(points ? ['points' as const] : [])]).map((i) => i.key)
 
 describe('workspaceMenu', () => {
   it('workspaceMenu_showsCouponsOnlyWithTheCouponsFeature', () => {
@@ -17,8 +17,8 @@ describe('workspaceMenu', () => {
   })
 
   it('draws the offered items whose page has landed: Coupons (515) and Versions (512) both have', () => {
-    expect(drawnMenu({ coupons: true, points: true }).map((i) => i.key)).toEqual(['dashboard', 'rules', 'coupons', 'versions'])
-    expect(drawnMenu({ coupons: false, points: false }).map((i) => i.key)).toEqual(['dashboard', 'rules', 'versions'])
+    expect(drawnMenu(['coupons', 'points']).map((i) => i.key)).toEqual(['dashboard', 'rules', 'coupons', 'versions'])
+    expect(drawnMenu([]).map((i) => i.key)).toEqual(['dashboard', 'rules', 'versions'])
   })
 
   it('pageLanded links only a page that has landed: the rule builder, Settings (509), Budgets (510) and Coupons (515)', () => {

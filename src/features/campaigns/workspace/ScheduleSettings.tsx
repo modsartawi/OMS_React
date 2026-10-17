@@ -1,30 +1,33 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
-import { ruleCampaignApi } from '@/core/rules/api'
-import { formToSchedule, scheduleProblems, scheduleToForm, type ScheduleForm } from '@/core/rules/schedule'
+import { RULE_WEEKDAYS, type RuleWeekday } from '@/core/models/rule-campaign'
+import { formToWindow, scheduleProblems, windowToForm, type ScheduleForm } from '@/core/rules/schedule'
 import { useWorkspace } from './context'
+import { draftSave } from './settings-form'
 import { SETTINGS_CONTROL, SaveRow, togglePill, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
 
-const WEEK = [0, 1, 2, 3, 4, 5, 6]
 
 /**
  * Settings ▸ Schedule (ticket 509): the start and end days — either clearable, the end exclusive —
- * the weekdays and the daily hours, all in LOCAL time. The native date and time inputs give local
+ * the weekdays and the daily hours (which may cross midnight), all in LOCAL time. The native date and time inputs give local
  * `yyyy-MM-dd` and `HH:mm` and the wire takes them as they are (`@/core/rules/schedule`): no `Date`
  * is built, so nothing can shift a day.
  */
 export default function ScheduleSettings() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
-  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<ScheduleForm>(scheduleToForm(c.schedule))
-  const save = useSettingsSave('schedule', (body: ReturnType<typeof formToSchedule>) => ruleCampaignApi.saveSchedule(c.id, body), adoptNext)
+  const { draft: d } = useWorkspace()
+  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<ScheduleForm>(windowToForm(d.campaign.window))
+  const save = useSettingsSave('schedule', (form: ScheduleForm) => draftSave(d, { window: formToWindow(form) }), adoptNext)
   const problems = scheduleProblems(draft)
 
   const set = (change: Partial<ScheduleForm>) => {
     setDraft((d) => ({ ...d, ...change }))
     if (save.isError) save.reset()
   }
-  const toggleDay = (d: number) => set({ days: draft.days.includes(d) ? draft.days.filter((x) => x !== d) : [...draft.days, d].sort((a, b) => a - b) })
+  const toggleDay = (day: RuleWeekday) =>
+    set({ days: draft.days.includes(day) ? draft.days.filter((x) => x !== day) : RULE_WEEKDAYS.filter((x) => x === day || draft.days.includes(x)) })
+  // Hours that end before they start run past midnight into the next day (`22:00` until `02:00`).
+  const overnight = !!draft.hoursFrom && !!draft.hoursTo && draft.hoursTo < draft.hoursFrom
 
   return (
     <SettingsFrame page="schedule">
@@ -41,18 +44,18 @@ export default function ScheduleSettings() {
       </SettingsField>
       <SettingsField label={t('settings.schedule.days')} hint={t('settings.schedule.daysHint')}>
         <span className="flex flex-wrap gap-1.5" role="group" aria-label={t('settings.schedule.days')} data-settings-days="">
-          {WEEK.map((d) => {
-            const on = draft.days.includes(d)
+          {RULE_WEEKDAYS.map((day, i) => {
+            const on = draft.days.includes(day)
             return (
               <button
-                key={d}
+                key={day}
                 type="button"
                 aria-pressed={on}
-                onClick={() => toggleDay(d)}
+                onClick={() => toggleDay(day)}
                 className={togglePill(on)}
-                data-settings-day={d}
+                data-settings-day={day}
               >
-                {t(`weekdays.${d}`)}
+                {t(`weekdays.${i}`)}
               </button>
             )
           })}
@@ -82,10 +85,18 @@ export default function ScheduleSettings() {
             <ClearButton label={t('settings.schedule.clearHours')} onClick={() => set({ hoursFrom: '', hoursTo: '' })} data="hours" />
           )}
         </span>
-        {problems.includes('hoursToNotAfterFrom') && (
-          <p className="text-xs text-danger-800" data-settings-problem="hoursToNotAfterFrom">
-            {t('settings.schedule.problem.hoursToNotAfterFrom')}
+        {overnight && (
+          <p className="text-xs text-muted-foreground" data-settings-overnight="">
+            {t('settings.schedule.overnight')}
           </p>
+        )}
+        {(['hoursIncomplete', 'hoursSame'] as const).map(
+          (p) =>
+            problems.includes(p) && (
+              <p key={p} className="text-xs text-danger-800" data-settings-problem={p}>
+                {t(`settings.schedule.problem.${p}`)}
+              </p>
+            ),
         )}
       </SettingsField>
       <p className="text-xs text-muted-foreground">{t('settings.schedule.localTime')}</p>
@@ -101,7 +112,7 @@ export default function ScheduleSettings() {
         }}
         onSave={() => {
           if (problems.length || save.isPending) return
-          save.mutate(formToSchedule(draft))
+          save.mutate(draft)
         }}
       />
     </SettingsFrame>

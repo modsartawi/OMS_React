@@ -1,4 +1,4 @@
-import type { RuleCampaign, RuleCampaignVersion } from '@/core/models/rule-campaign'
+import type { RuleCampaignVersion, RuleDraft } from '@/core/models/rule-campaign'
 
 // The Versions page's rules (ticket 512). Pure: which version is marked live, and what Restore does
 // on a campaign in its state. The server's refusal is the backstop — this only decides what is
@@ -13,7 +13,8 @@ export type RestoreHold = 'waiting' | 'disabled'
 /** What Restore on one version does: after asking, or not at all (and why). */
 export type RestoreGuard = 'ask' | RestoreHold
 
-type CampaignLife = Pick<RuleCampaign, 'status' | 'live'>
+/** What the page reads off the loaded draft (ticket 522). */
+type CampaignLife = Pick<RuleDraft, 'source' | 'state' | 'campaignStatus' | 'publishedVersionNo'>
 
 /**
  * Restore held on the whole campaign, and why — or null.
@@ -24,16 +25,10 @@ type CampaignLife = Pick<RuleCampaign, 'status' | 'live'>
  *   way back from disabled: a restored draft there would read as changes over a live version that
  *   is not running. Copying the campaign starts it again.
  */
-export function restoreHeld(campaign: Pick<RuleCampaign, 'status'>): RestoreHold | null {
-  switch (campaign.status) {
-    case 'draft':
-    case 'live':
-      return null
-    case 'disabled':
-      return 'disabled'
-    default:
-      return 'waiting'
-  }
+export function restoreHeld(campaign: CampaignLife): RestoreHold | null {
+  // A pending draft is frozen (409 `RULES_DRAFT_PENDING`); an unknown draft state is held the same.
+  if (campaign.source === 'draft' && campaign.state !== 'editing' && campaign.state !== 'sentBack') return 'waiting'
+  return campaign.campaignStatus === 'Disabled' ? 'disabled' : null
 }
 
 /**
@@ -58,8 +53,8 @@ export function restoreGuard(campaign: CampaignLife): RestoreGuard {
  * for them), `disabled` for a disabled campaign's last version, otherwise nothing.
  */
 export function versionMark(campaign: CampaignLife, version: number): 'live' | 'disabled' | null {
-  if (campaign.live?.version !== version) return null
-  return campaign.status === 'disabled' ? 'disabled' : 'live'
+  if (campaign.publishedVersionNo !== version) return null
+  return campaign.campaignStatus === 'Disabled' ? 'disabled' : 'live'
 }
 
 /** Versions newest first, by number — whatever order HQ answers them in. */

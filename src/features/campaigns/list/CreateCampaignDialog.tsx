@@ -11,7 +11,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import FromTemplate, { TEMPLATE_CREATE_KEY } from './FromTemplate'
-import { EMPTY_CREATE_FORM, createFormProblems, toCreateBody, type CreateCampaignForm, type CreateFormProblem } from './create-form'
+import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave, type CampaignIdProblem, type CreateCampaignForm, type CreateFormProblem } from './create-form'
 
 /**
  * Create campaign (ticket 502; the prototype's Talon-shaped dialog): the name in English and
@@ -38,7 +38,7 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   const [tab, setTab] = useState<CreateTab>('blank')
 
   const create = useMutation({
-    mutationFn: ruleCampaignApi.create,
+    mutationFn: ruleCampaignApi.save,
     onSuccess: (draft) => rememberNewDraft(queryClient, draft),
   })
   const fromTemplatePending = useIsMutating({ mutationKey: TEMPLATE_CREATE_KEY }) > 0
@@ -54,6 +54,9 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
 
   const problems = createFormProblems(form)
   const shown = (p: CreateFormProblem) => tried && problems.includes(p)
+  // The id's own problem shows at once while it is typed (a reserved word, a bad character), and
+  // an empty id once Create is pressed.
+  const idProblem = problems.find((p): p is CampaignIdProblem => p.startsWith('id') && (tried || p !== 'idRequired')) ?? null
   const set = (change: Partial<CreateCampaignForm>) => {
     setForm((f) => ({ ...f, ...change }))
     // A refusal was about the form as it was sent; an edit makes it stale.
@@ -70,12 +73,12 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
     if (problems.length || create.isPending) return
     // Landing on the draft rides on THIS call's success, which does not fire once the list has
     // unmounted: a user who left during a slow create is not pulled back to the draft.
-    create.mutate(toCreateBody(form), {
+    create.mutate(toCreateSave(form), {
       onSuccess: (draft) => {
         notify.success(t('create.done'))
         clear()
         onClose()
-        navigate(campaignPath(draft.id))
+        navigate(campaignPath(draft.code))
       },
     })
   }
@@ -162,7 +165,17 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
               dir="rtl"
               data="nameAr"
             />
-            <p className="text-xs text-muted-foreground">{t('create.codeHint')}</p>
+            <NameField
+              id="create-id"
+              label={t('create.id')}
+              placeholder={t('create.idPlaceholder')}
+              value={formId(form)}
+              onChange={(id) => set({ id, idEdited: true })}
+              error={idProblem ? t(`create.problem.${idProblem}`) : null}
+              dir="ltr"
+              data="id"
+            />
+            <p className="text-xs text-muted-foreground">{t('create.idHint')}</p>
 
             <fieldset className="flex flex-col gap-2 rounded-md border border-border/60 p-3" data-create-features="">
               <legend className="px-1 text-xs font-medium text-muted-foreground">{t('create.features.legend')}</legend>

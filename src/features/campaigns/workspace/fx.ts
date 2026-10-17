@@ -1,22 +1,13 @@
-import type {
-  CampaignRule,
-  RuleFormulaCheck,
-  RuleFormulaCheckRequest,
-  RuleFormulaExpect,
-  RuleFormulaGuide,
-  RuleFormulaRecipe,
-  RuleFormulaType,
-  RuleNamedValue,
-} from '@/core/models/rule-campaign'
+import type { CampaignRule, RuleExpr, RuleFormulaGuide, RuleFormulaRecipe, RuleFormulaType, RuleNamedValue } from '@/core/models/rule-campaign'
+import { parseExpr, printExpr, type ExprProblem } from '@/core/rules/expr'
+import { keyOf } from './block-keys'
 
-// The guided ƒx helper's pure half (ticket 507). A named value and the formula condition are
-// written through it: a field, a function, a recipe or an operator goes in where the cursor was,
-// and HQ's check (BackOffice 2758) is read into what the box shows — the error under the bad word,
-// or the result on the sample basket.
-//
-// The client NEVER parses the expression language (ADR 0089). Nothing here reads a formula's
-// meaning: an insert only looks at the characters either side of the cursor, so two names never
-// run together and an operator is not given a second space; the bad word is the span HQ answered.
+// The guided ƒx helper's pure half (ticket 507; schema 1 in 522). A named value and the formula
+// condition are written through it: a field, a function, a recipe or an operator goes in where the
+// cursor was. The box holds TEXT; `@/core/rules/expr` reads it into the stored JSON expression and
+// prints a stored one back (ticket 522 reverses 507's "the client never parses": it had no
+// contract). An insert only looks at the characters either side of the cursor, so two names never
+// run together and an operator is not given a second space.
 
 /** Where the cursor is in the formula box: a caret (`start === end`) or a selection. */
 export interface Selection {
@@ -85,69 +76,73 @@ export const recipeNeedsFilter = (recipe: RuleFormulaRecipe): boolean => recipe.
 /** Whether a recipe wraps what the box already has (a cap); it needs something written first. */
 export const recipeNeedsCurrent = (recipe: RuleFormulaRecipe): boolean => recipe.formula.includes(CURRENT_SLOT)
 
-/** A recipe's formula with the picked filter's current name, and the box's formula as written, in it. */
+/** A recipe's formula with the picked filter's current name, and the box's formula as written, in it.
+ *  The recipe writes its own `items('{filter}')` around the name. */
 export const recipeFormula = (recipe: RuleFormulaRecipe, filterName: string, current = ''): string =>
   recipe.formula.split(FILTER_SLOT).join(filterName).split(CURRENT_SLOT).join(current.trim())
 
 /** The named values a formula may read: those above the value being written; the formula condition reads them all. */
-export function valuesBefore(rule: Pick<CampaignRule, 'values'>, valueId: string | null): RuleNamedValue[] {
-  if (valueId === null) return rule.values
-  const i = rule.values.findIndex((v) => v.id === valueId)
+export function valuesBefore(rule: Pick<CampaignRule, 'values'>, valueKey: string | null): RuleNamedValue[] {
+  if (valueKey === null) return rule.values
+  const i = rule.values.findIndex((v) => keyOf(v) === valueKey)
   return i < 0 ? rule.values : rule.values.slice(0, i)
 }
 
-/** What the validator sends for a formula of `rule`, as it is on screen. */
-export function checkRequest(
-  campaignId: string,
-  rule: Pick<CampaignRule, 'filters' | 'values'>,
-  valueId: string | null,
-  expect: RuleFormulaExpect,
-  formula: string,
-): RuleFormulaCheckRequest {
-  return { campaignId, expect, formula, filters: rule.filters, values: valuesBefore(rule, valueId) }
-}
+/** How a filter is written in a formula: `items('Name')`, its current name. */
+export const filterRef = (name: string): string => `items('${name}')`
 
 /** One entry of the Fields tab. `group` is `rule` for this rule's own filters and values. */
 export interface FxField {
   key: string
   kind: 'filter' | 'value' | 'field'
   group: string
-  /** What Insert puts in: a filter's or value's current name, or the field's path. */
+  /** What Insert puts in: a filter's `items('name')`, a value's current name, or the field's path. */
   insert: string
   type: RuleFormulaType
 }
 
 /** The Fields tab: this rule's filters, the values above the one being written, then HQ's fields. */
-export function fxFields(guide: RuleFormulaGuide, rule: Pick<CampaignRule, 'filters' | 'values'>, valueId: string | null): FxField[] {
+export function fxFields(guide: RuleFormulaGuide, rule: Pick<CampaignRule, 'filters' | 'values'>, valueKey: string | null): FxField[] {
   return [
-    ...rule.filters.map((f): FxField => ({ key: `filter:${f.id}`, kind: 'filter', group: 'rule', insert: f.name, type: 'items' })),
-    ...valuesBefore(rule, valueId).map((v): FxField => ({ key: `value:${v.id}`, kind: 'value', group: 'rule', insert: v.name, type: 'number' })),
+    ...rule.filters.map((f): FxField => ({ key: `filter:${f.id}`, kind: 'filter', group: 'rule', insert: filterRef(f.name), type: 'items' })),
+    ...valuesBefore(rule, valueKey).map((v, i): FxField => ({ key: `value:${keyOf(v) || i}`, kind: 'value', group: 'rule', insert: v.name, type: 'number' })),
     ...guide.fields.map((f): FxField => ({ key: `field:${f.path}`, kind: 'field', group: f.group, insert: f.path, type: f.type })),
   ]
 }
 
-/** The part of the formula HQ marked: the bad word, between what comes before and after it. */
+/** The part of the formula a problem marks: the bad word, between what comes before and after it. */
 export interface Underline {
   before: string
   bad: string
   after: string
 }
 
-/** What the box shows for HQ's check. */
-export type FormulaReading =
-  | { state: 'ok'; type: RuleFormulaType | null; result: RuleFormulaCheck['result']; warnings: string[] }
-  | { state: 'bad'; message: string; underline: Underline | null; more: string[] }
-
 /**
- * HQ's check, read for the box. A bad formula shows its first error's message with that error's
- * span underlined — held to the formula; an empty span marks one character, or a space at the end
- * for what is missing there — and its other errors under it. A good one shows its type, its
- * result on the sample basket and HQ's warnings.
+ * What the box holds for a stored expression: its text, or — for one the codec cannot print — its
+ * JSON, edited as JSON. An empty one is empty text.
  */
-export function readFormulaCheck(formula: string, check: RuleFormulaCheck): FormulaReading {
-  if (check.ok) return { state: 'ok', type: check.type, result: check.result, warnings: check.warnings.map((w) => w.message) }
-  const [first, ...rest] = check.errors
-  return { state: 'bad', message: first?.message ?? '', underline: first ? underlineOf(formula, first.start, first.end) : null, more: rest.map((e) => e.message) }
+export function boxOf(expr: RuleExpr | undefined, rule: Pick<CampaignRule, 'filters'>): { text: string; json: boolean } {
+  if (expr === null || expr === undefined || expr === '') return { text: '', json: false }
+  const text = printExpr(expr, { filters: rule.filters })
+  return text === null ? { text: JSON.stringify(expr), json: true } : { text, json: false }
+}
+
+/** What the box's text reads as: the expression to store, or why it cannot be read yet. */
+export type BoxReading = { ok: true; expr: RuleExpr } | { ok: false; problem: ExprProblem | null; underline: Underline | null }
+
+/** Reads the box: text through the codec, or JSON for a box that shows JSON. Empty is no expression. */
+export function readBox(text: string, json: boolean, rule: Pick<CampaignRule, 'filters'>): BoxReading {
+  if (!text.trim()) return { ok: true, expr: null }
+  if (json) {
+    try {
+      return { ok: true, expr: JSON.parse(text) as RuleExpr }
+    } catch {
+      return { ok: false, problem: null, underline: null }
+    }
+  }
+  const read = parseExpr(text, { filters: rule.filters })
+  if (read.ok) return read
+  return { ok: false, problem: read.problem, underline: underlineOf(text, read.problem.at, read.problem.at + (read.problem.token?.length ?? 1)) }
 }
 
 function underlineOf(formula: string, start: number | null, end: number | null): Underline | null {

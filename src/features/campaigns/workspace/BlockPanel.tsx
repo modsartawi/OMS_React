@@ -1,23 +1,22 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Plus, Trash2, X } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import type {
   CampaignRule,
   RuleCampaign,
   RuleCatalogueBlock,
   RuleCatalogueField,
-  RuleCheckMessage,
   RuleCondition,
   RuleEffect,
+  RuleExpr,
   RuleFormulaGuide,
+  RuleIssue,
   RuleItemFilter,
-  RuleItemPart,
-  RuleTiming,
   Says,
 } from '@/core/models/rule-campaign'
-import { RULE_GROUP_TYPE, RULE_PERCENT_UNIT, RULE_POINTS_UNIT, RULE_TIMING_MODES } from '@/core/models/rule-campaign'
+import { RULE_GROUP_CHECK, RULE_PERCENT_KIND, RULE_POINTS_UNIT } from '@/core/models/rule-campaign'
 import { filterNameProblem, newFilter, nextFilterName } from '@/core/rules/filters'
-import { campaignCurrency } from '@/core/rules/sentence'
+import { campaignCurrency, exprText } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -26,7 +25,6 @@ import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
 import { NO_BLOCK_CHECKS, type BlockChecks } from './checks'
 import FilterEditor from './FilterEditor'
 import FormulaBox from './FormulaBox'
-import { newPart } from './palette'
 import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
 
 /**
@@ -36,21 +34,23 @@ import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
  *
  * Items are the rule's own filters, by id, or "Certain items…" (ticket 506): the picker opens at
  * the field, and saving it adds a named filter to the rule and points the field at it, in ONE
- * history step. A formula is written with the guided ƒx helper and checked by HQ (`./FormulaBox`,
- * ticket 507); the client never parses the expression language (ADR 0089).
+ * history step. A formula is written with the guided ƒx helper (`./FormulaBox`, ticket 507): its
+ * text is read into the stored JSON expression by `@/core/rules/expr` (ticket 522).
  *
  * HQ's checks of the saved draft (ticket 508) show at the field they point at; one on the block as
  * a whole, or on a field this panel does not show, shows at the top.
  */
 export interface BlockPanelProps {
   block: RuleCondition | RuleEffect
+  /** The block's builder key (`./block-keys`) — its controls' ids. */
+  bkey: string
   /** Its catalogue entry. */
   entry: RuleCatalogueBlock
   rule: CampaignRule
   campaign: Pick<RuleCampaign, 'id' | 'budgets' | 'audience'>
   /** What the guided ƒx helper offers (ticket 507). */
   guide: RuleFormulaGuide
-  /** Sets one field; `coalesce` folds a run of keystrokes into one history step. */
+  /** Sets one field (`undefined` leaves it out); `coalesce` folds a run of keystrokes into one history step. */
   set: (key: string, value: unknown, coalesce?: boolean) => void
   /** Adds `filter` to the rule and sets `key = value` (which points at it), as one step. */
   withFilter: (filter: RuleItemFilter, key: string, value: unknown) => void
@@ -61,7 +61,7 @@ export interface BlockPanelProps {
   onDelete: () => void
 }
 
-export default function BlockPanel({ block, entry, rule, campaign, guide, set, withFilter, newId, checks = NO_BLOCK_CHECKS, onDone, onDelete }: BlockPanelProps) {
+export default function BlockPanel({ block, bkey, entry, rule, campaign, guide, set, withFilter, newId, checks = NO_BLOCK_CHECKS, onDone, onDelete }: BlockPanelProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const raw = block as Record<string, unknown>
@@ -69,20 +69,20 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
   const says = entry.fields.filter((f) => f.kind === 'says')
   // A condition always has its "not met" pair, even where the catalogue does not list it (a group has none).
   const saysFields: RuleCatalogueField[] =
-    entry.kind === 'condition' && entry.type !== RULE_GROUP_TYPE && !says.some((f) => f.key === 'says') ? [...says, { key: 'says', kind: 'says', role: 'notMet' }] : says
+    entry.kind === 'condition' && entry.type !== RULE_GROUP_CHECK && !says.some((f) => f.key === 'says') ? [...says, { key: 'says', kind: 'says', role: 'notMet' }] : says
   const shown = new Set([...fields, ...saysFields].map((f) => f.key))
-  const atTop = checks.all.filter((m) => !shown.has(m.field ?? ''))
+  const atTop = checks.all.filter((m) => !shown.has(fieldOf(m)))
 
   return (
-    <div className="mt-2 flex flex-col gap-3 rounded-md border border-primary/30 bg-primary-050/40 p-3" data-block-panel={block.id}>
+    <div className="mt-2 flex flex-col gap-3 rounded-md border border-primary/30 bg-primary-050/40 p-3" data-block-panel={bkey}>
       <CheckNotes messages={atTop} data="panel" />
       {fields.length > 0 && (
         <div className="grid items-center gap-x-3 gap-y-2 sm:grid-cols-[11rem_1fr]">
           {fields.map((f) => {
-            const id = `panel-${block.id}-${f.key}`
+            const id = `panel-${bkey}-${f.key}`
             return (
               <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)} notes={checks.byField[f.key]} field={f.key}>
-                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} />
+                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} issues={checks.byField[f.key] ?? []} />
               </FieldRow>
             )
           })}
@@ -91,7 +91,7 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
       {saysFields.map((f) => (
         <SaysInput
           key={f.key}
-          id={`panel-${block.id}-${f.key}`}
+          id={`panel-${bkey}-${f.key}`}
           label={t(`rules.says.${f.role ?? 'message'}`)}
           value={(raw[f.key] as Partial<Says> | undefined) ?? { en: '', ar: '' }}
           onChange={(v) => set(f.key, v, true)}
@@ -114,7 +114,10 @@ export default function BlockPanel({ block, entry, rule, campaign, guide, set, w
   )
 }
 
-function FieldRow({ id, label, notes, field, children }: { id: string; label: ReactNode; notes?: RuleCheckMessage[]; field: string; children: ReactNode }) {
+/** The control an issue points at: its field's first segment (`label.ar` → `label`). */
+const fieldOf = (m: RuleIssue): string => (m.field ?? '').split(/[.[]/)[0]
+
+function FieldRow({ id, label, notes, field, children }: { id: string; label: ReactNode; notes?: RuleIssue[]; field: string; children: ReactNode }) {
   const bad = checkTone(notes ?? []) === 'error'
   return (
     <>
@@ -140,11 +143,13 @@ interface ControlProps {
   set: BlockPanelProps['set']
   withFilter: BlockPanelProps['withFilter']
   newId: () => string
+  /** HQ's issues at this field — the ƒx helper's validator line. */
+  issues: RuleIssue[]
 }
 
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 
-function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withFilter, newId }: ControlProps) {
+function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withFilter, newId, issues }: ControlProps) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const optionText = (o: string) => {
@@ -168,44 +173,31 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
           value={typeof value === 'string' ? value : ''}
           rule={rule}
           newId={newId}
-          onChange={put}
+          onChange={(v) => put(v === '' ? undefined : v)}
           onCreate={(filter) => withFilter(filter, field.key, filter.id)}
           data={field.key}
         />
       )
-    case 'itemParts': {
-      const parts = Array.isArray(value) ? (value as RuleItemPart[]) : []
-      return (
-        <PartsEditor
-          id={id}
-          value={parts}
-          rule={rule}
-          newId={newId}
-          onChange={put}
-          onCreate={(filter, i) => withFilter(filter, field.key, parts.map((p, j) => (j === i ? { ...p, of: filter.id } : p)))}
-        />
-      )
-    }
     case 'money': {
       const currency = campaignCurrency(campaign.audience)
       return (
         <>
-          <NumberInput id={id} value={value} onChange={(v) => put(v, true)} {...data} />
+          <NumberInput id={id} value={value} onChange={(v) => put(v ?? undefined, true)} {...data} />
           {currency && <span className="text-xs text-muted-foreground"><Ltr>{currency}</Ltr></span>}
         </>
       )
     }
     case 'count':
     case 'days':
-      return <NumberInput id={id} value={value} step={1} onChange={(v) => put(v, true)} {...data} />
+      return <NumberInput id={id} value={value} step={1} onChange={(v) => put(v ?? undefined, true)} {...data} />
     case 'discount':
     case 'points': {
       const unit = field.unitFrom ? raw[field.unitFrom] : undefined
       // A currency code is a machine value and takes `Ltr`; a word ("points") reads in the UI's direction.
-      const currency = field.kind === 'discount' && unit !== RULE_PERCENT_UNIT ? campaignCurrency(campaign.audience) : null
+      const currency = field.kind === 'discount' && unit !== RULE_PERCENT_KIND ? campaignCurrency(campaign.audience) : null
       const suffix: ReactNode =
         field.kind === 'discount'
-          ? unit === RULE_PERCENT_UNIT
+          ? unit === RULE_PERCENT_KIND
             ? t('panel.percent')
             : currency && <Ltr>{currency}</Ltr>
           : unit === RULE_POINTS_UNIT
@@ -266,12 +258,11 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
         <span className="flex w-full min-w-0" {...data}>
           <FormulaBox
             id={id}
-            value={typeof value === 'string' ? value : ''}
-            onChange={(formula, typed) => put(formula, typed)}
+            value={(value ?? null) as RuleExpr}
+            onChange={(expr, typed) => put(expr, typed)}
             expect={entry.kind === 'condition' ? 'bool' : 'number'}
             rule={rule}
-            valueId={null}
-            campaign={campaign}
+            issues={issues}
             guide={guide}
             data={field.key}
           />
@@ -280,12 +271,12 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
     case 'timing':
       return <TimingInput id={id} field={field.key} value={value} onChange={put} />
     case 'budget':
-      return campaign.budgets.length ? (
+      return campaign.budgets?.length ? (
         <select id={id} className={INPUT} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value)} {...data}>
           <option value="">{t('panel.pickBudget')}</option>
-          {campaign.budgets.map((b) => (
+          {(campaign.budgets ?? []).map((b) => (
             <option key={b.id} value={b.id}>
-              {fsi(b.name)}
+              {fsi(b.name.en || b.id)}
             </option>
           ))}
         </select>
@@ -424,63 +415,13 @@ function ItemsChoice({
   )
 }
 
-function PartsEditor({
-  id,
-  value,
-  rule,
-  newId,
-  onChange,
-  onCreate,
-}: {
-  id: string
-  value: RuleItemPart[]
-  rule: CampaignRule
-  newId: () => string
-  onChange: (v: RuleItemPart[]) => void
-  onCreate: (filter: RuleItemFilter, part: number) => void
-}) {
-  const { t } = useTranslation('campaign-workspace')
-  const put = (i: number, part: Partial<RuleItemPart>) => onChange(value.map((p, j) => (j === i ? { ...p, ...part } : p)))
-  return (
-    <div id={id} className="flex flex-col gap-1.5" data-panel-field="parts">
-      {value.map((p, i) => (
-        // Keyed by place AND count: removing a part drops an open "Certain items…" draft rather than
-        // handing it to the part that moves into its place.
-        <span key={`${i}/${value.length}`} className="flex flex-wrap items-center gap-2" data-panel-part={i}>
-          <NumberInput id={`${id}-count-${i}`} value={p.count} step={1} onChange={(count) => put(i, { count })} aria-label={t('panel.partCount')} />
-          <ItemsChoice
-            id={`${id}-of-${i}`}
-            value={p.of}
-            rule={rule}
-            newId={newId}
-            onChange={(of) => put(i, { of })}
-            onCreate={(filter) => onCreate(filter, i)}
-            data={`part-${i}`}
-            ariaLabel={t('panel.partOf')}
-          />
-          <button
-            type="button"
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-danger-800"
-            aria-label={t('panel.removePart')}
-            onClick={() => onChange(value.filter((_, j) => j !== i))}
-          >
-            <X className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        </span>
-      ))}
-      <span>
-        <Button variant="ghost" onClick={() => onChange([...value, newPart(rule)])} data-panel-add-part="">
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          {t('panel.addPart')}
-        </Button>
-      </span>
-    </div>
-  )
-}
+/** The select's value for a field that holds an expression rather than a number or a named value. */
+const EXPR = '__expr'
 
 /**
- * A discount or points field: a number, or one of the rule's named values (by id). The named value's
- * formula is written in the rule's Named values (`./RuleValues`).
+ * A discount or points field: a number, one of the rule's named values (read by name, `"$name"`),
+ * or — as HQ stores it — an expression, shown as text (its JSON when it cannot be printed). A named
+ * value's formula is written in the rule's Named values (`./RuleValues`).
  */
 function NumberOrValue({
   id,
@@ -498,15 +439,17 @@ function NumberOrValue({
   data: string
 }) {
   const { t } = useTranslation('campaign-workspace')
-  const named = typeof value === 'string' && value ? (rule.values.find((v) => v.id === value) ?? rule.values.find((v) => v.name === value)) : undefined
-  const missing = typeof value === 'string' && value !== '' && !named
-  const choosing = rule.values.length > 0 || missing
+  const ref = typeof value === 'string' && value.startsWith('$') ? value.slice(1) : null
+  const named = ref !== null ? rule.values.find((v) => v.name === ref) : undefined
+  const missing = ref !== null && !named
+  const expr = Array.isArray(value) ? (value as RuleExpr) : null
+  const choosing = rule.values.length > 0 || missing || expr !== null
   const number = (
     <>
       <NumberInput
         id={choosing ? `${id}-n` : id}
         value={value}
-        onChange={(v) => onChange(v, true)}
+        onChange={(v) => onChange(v ?? undefined, true)}
         aria-label={choosing ? t('panel.aNumber') : undefined}
         data-panel-field={data}
       />
@@ -514,25 +457,33 @@ function NumberOrValue({
     </>
   )
   if (!choosing) return number
-  const picked = named ? named.id : missing ? String(value) : ''
+  const picked = expr !== null ? EXPR : ref !== null ? String(value) : ''
   return (
     <>
       <select
         id={id}
         className={INPUT}
         value={picked}
-        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        onChange={(e) => {
+          if (e.target.value !== EXPR) onChange(e.target.value === '' ? undefined : e.target.value)
+        }}
         data-panel-value-source={data}
       >
         <option value="">{t('panel.aNumber')}</option>
-        {rule.values.map((v) => (
-          <option key={v.id} value={v.id}>
+        {rule.values.map((v, i) => (
+          <option key={`${i}:${v.name}`} value={`$${v.name}`}>
             {v.name.trim() ? fsi(v.name) : t('panel.unnamedValue')}
           </option>
         ))}
         {missing && <option value={String(value)}>{t('panel.missing')}</option>}
+        {expr !== null && <option value={EXPR}>{t('panel.anExpression')}</option>}
       </select>
       {picked === '' && number}
+      {expr !== null && (
+        <code className="font-mono text-xs" data-panel-expr={data}>
+          <Ltr>{exprText(expr, rule)}</Ltr>
+        </code>
+      )}
     </>
   )
 }
@@ -576,22 +527,25 @@ const parseCodes = (text: string) =>
     .filter(Boolean)
 
 
-/** When points activate or expire: not set, after N days or hours, or on a local day (never a `Z`). */
+/** How a points date is set: not at all (at once / never), N days after, or on a local day. */
+const POINTS_DATE_MODES = ['none', 'afterDays', 'on'] as const
+
+/** When points activate or expire: `{ afterDays }` or `{ on: 'yyyy-MM-dd' }` (never a `Z`); absent = not set. */
 function TimingInput({ id, field, value, onChange }: { id: string; field: string; value: unknown; onChange: (v: unknown, coalesce?: boolean) => void }) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
-  const v = (value ?? {}) as Partial<RuleTiming>
-  const mode = v.mode && RULE_TIMING_MODES.includes(v.mode) ? v.mode : 'none'
+  const v = (value ?? {}) as { afterDays?: unknown; on?: unknown }
+  const mode = typeof v.on === 'string' ? 'on' : 'afterDays' in v ? 'afterDays' : 'none'
   return (
     <>
       <select
         id={id}
         className={INPUT}
         value={mode}
-        onChange={(e) => onChange({ mode: e.target.value, value: e.target.value === 'on' ? '' : null })}
+        onChange={(e) => onChange(e.target.value === 'on' ? { on: '' } : e.target.value === 'afterDays' ? { afterDays: null } : undefined)}
         data-panel-field={field}
       >
-        {RULE_TIMING_MODES.map((m) => (
+        {POINTS_DATE_MODES.map((m) => (
           <option key={m} value={m}>
             {m === 'none' ? t(timingNoneKey(field, has)) : t(`panel.timing.${m}`)}
           </option>
@@ -601,14 +555,14 @@ function TimingInput({ id, field, value, onChange }: { id: string; field: string
         <input
           type="date"
           className={INPUT}
-          value={typeof v.value === 'string' ? v.value : ''}
+          value={typeof v.on === 'string' ? v.on : ''}
           aria-label={t('panel.timing.on')}
-          onChange={(e) => onChange({ mode, value: e.target.value }, true)}
+          onChange={(e) => onChange({ on: e.target.value }, true)}
           data-panel-timing-day={field}
         />
       )}
-      {(mode === 'afterDays' || mode === 'afterHours') && (
-        <NumberInput id={`${id}-n`} value={v.value} step={1} onChange={(n) => onChange({ mode, value: n }, true)} aria-label={t(`panel.timing.${mode}`)} />
+      {mode === 'afterDays' && (
+        <NumberInput id={`${id}-n`} value={v.afterDays} step={1} onChange={(n) => onChange({ afterDays: n }, true)} aria-label={t('panel.timing.afterDays')} />
       )}
     </>
   )
@@ -629,7 +583,7 @@ function SaysInput({
   value: Partial<Says>
   onChange: (v: Says) => void
   data: string
-  notes?: RuleCheckMessage[]
+  notes?: RuleIssue[]
   field: string
 }) {
   const { t } = useTranslation('campaign-workspace')

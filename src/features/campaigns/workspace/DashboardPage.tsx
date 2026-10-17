@@ -1,19 +1,20 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import type { RuleCampaign } from '@/core/models/rule-campaign'
-import { ruleCampaignChecksQuery, ruleCampaignRolesQuery } from '@/core/rules/api'
+import type { RuleDraft } from '@/core/models/rule-campaign'
+import { ruleCampaignRolesQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
-import { campaignPath, campaignState, scheduleRelative, type CampaignState } from '@/core/rules/campaign-state'
+import { campaignPath, campaignState, scheduleRelative, setAt, type CampaignState } from '@/core/rules/campaign-state'
+import { RULE_WEEKDAYS } from '@/core/models/rule-campaign'
 import Ltr from '@/core/ui/Ltr'
 import { formatRange } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { draftGate, preActivationSteps, showsSteps } from './approval'
 import ApprovalPanel from './ApprovalPanel'
 import CampaignActionsMenu from './CampaignActionsMenu'
-import { approvalVerdict } from './checks'
 import { useWorkspace } from './context'
 import PreActivationSteps from './PreActivationSteps'
+import { draftStateInput } from './settings-form'
 
 /**
  * A campaign's dashboard (ticket 501): Details, State and Schedule; the State cell's ⋯ menu copies
@@ -23,16 +24,16 @@ import PreActivationSteps from './PreActivationSteps'
  */
 export default function DashboardPage() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
+  const { draft: d } = useWorkspace()
+  const c = d.campaign
   const now = new Date()
-  const state = campaignState(c, now)
+  const state = campaignState(draftStateInput(d), now)
   const roles = useQuery(ruleCampaignRolesQuery())
-  // HQ's checks of the saved draft (508) — the same query the builder's pill reads: they gate
-  // "Ask for approval" and "Activate", and tick the rules step. Read only where a draft is in play.
-  const inPlay = c.status === 'draft' || c.status === 'waitingForApproval'
-  const checks = useQuery({ ...ruleCampaignChecksQuery(c.id), enabled: inPlay })
-  const verdict = checks.data && !checks.isFetching ? approvalVerdict(checks.data) : null
-  const gate = draftGate(c.rules.length, { failed: checks.isError, blocked: verdict ? verdict.blocked : null })
+  // HQ's validation of the saved draft (Drafts/Load answers it, ticket 522) — what the builder's
+  // pill reads too: its errors gate "Ask for approval" and "Activate", and tick the rules step. A
+  // draft HQ answered without one is "unavailable" (fail closed).
+  const blocked = d.validation ? d.validation.errors.length > 0 : null
+  const gate = draftGate(c.rules.length, { failed: !d.validation, blocked })
 
   return (
     <section className="flex flex-col gap-4" data-dashboard="">
@@ -46,20 +47,20 @@ export default function DashboardPage() {
           </p>
         )}
       </header>
-      {showsSteps(c) && <PreActivationSteps steps={preActivationSteps(c, checks.isError || !verdict ? null : verdict.blocked)} base={campaignPath(c.id)} />}
+      {showsSteps(d) && <PreActivationSteps steps={preActivationSteps(c, blocked)} base={campaignPath(d.code)} />}
       <div className="grid gap-3 lg:grid-cols-3">
         <Cell title={t('dashboard.details.title')} data="details">
-          <Details c={c} />
+          <Details d={d} />
         </Cell>
         <Cell title={t('dashboard.state.title')} data="state">
           <CampaignStateBadge state={state} />
-          <StateSentence c={c} state={state} />
-          <LiveUnderDraft c={c} state={state} />
-          <ApprovalPanel campaign={c} roles={roles} gate={gate} />
-          <CampaignActionsMenu campaign={c} />
+          <StateSentence d={d} state={state} />
+          <LiveUnderDraft d={d} state={state} />
+          <ApprovalPanel draft={d} roles={roles} gate={gate} />
+          <CampaignActionsMenu draft={d} />
         </Cell>
         <Cell title={t('dashboard.schedule.title')} data="schedule">
-          <Schedule c={c} now={now} live={c.status === 'live'} />
+          <Schedule d={d} now={now} live={d.campaignStatus === 'Published'} />
         </Cell>
       </div>
     </section>
@@ -85,9 +86,10 @@ function Line({ label, data, children }: { label: string; data: string; children
   )
 }
 
-function Details({ c }: { c: RuleCampaign }) {
+function Details({ d }: { d: RuleDraft }) {
   const { t } = useTranslation('campaign-workspace')
-  const features = [c.features.coupons && 'coupons', c.features.points && 'points'].filter(Boolean) as string[]
+  const c = d.campaign
+  const updatedAt = setAt(d.updatedAt)
   return (
     <dl className="flex w-full flex-col gap-1.5">
       <Line label={t('dashboard.details.nameEn')} data="nameEn">
@@ -97,15 +99,12 @@ function Details({ c }: { c: RuleCampaign }) {
         {c.name.ar ? <bdi>{c.name.ar}</bdi> : <span className="text-muted-foreground">{t('dashboard.details.noArabicName')}</span>}
       </Line>
       <Line label={t('dashboard.details.code')} data="code">
-        <Ltr>{c.code}</Ltr>
-      </Line>
-      <Line label={t('dashboard.details.description')} data="description">
-        {c.description ? <bdi>{c.description}</bdi> : <span className="text-muted-foreground">{t('dashboard.details.noDescription')}</span>}
+        <Ltr>{d.code}</Ltr>
       </Line>
       <Line label={t('dashboard.details.features')} data="features">
-        {features.length ? (
+        {d.features.length ? (
           <span className="flex flex-wrap gap-1">
-            {features.map((f) => (
+            {d.features.map((f) => (
               <span key={f} className="rounded-full bg-muted px-2 py-0.5 text-xs" data-feature={f}>
                 {t(`dashboard.details.feature.${f}`)}
               </span>
@@ -115,25 +114,9 @@ function Details({ c }: { c: RuleCampaign }) {
           <span className="text-muted-foreground">{t('dashboard.details.noFeatures')}</span>
         )}
       </Line>
-      {c.tags.length > 0 && (
-        <Line label={t('dashboard.details.tags')} data="tags">
-          <span className="flex flex-wrap gap-1">
-            {c.tags.map((tag) => (
-              <span key={tag} className="rounded-full border border-border/60 px-2 py-0.5 text-xs">
-                <bdi>{tag}</bdi>
-              </span>
-            ))}
-          </span>
-        </Line>
-      )}
-      {c.created && (
-        <Line label={t('dashboard.details.created')} data="created">
-          <Trans
-            t={t}
-            i18nKey="dashboard.stamp"
-            values={{ at: formatDateTime(c.created.at), by: c.created.by }}
-            components={{ at: <Ltr />, by: <bdi /> }}
-          />
+      {updatedAt && (
+        <Line label={t('dashboard.details.updated')} data="updated">
+          <Trans t={t} i18nKey="dashboard.stamp" values={{ at: formatDateTime(updatedAt), by: d.updatedBy }} components={{ at: <Ltr />, by: <bdi /> }} />
         </Line>
       )}
     </dl>
@@ -141,61 +124,63 @@ function Details({ c }: { c: RuleCampaign }) {
 }
 
 /** What the state means for this campaign, in a sentence. */
-function StateSentence({ c, state }: { c: RuleCampaign; state: CampaignState }) {
+function StateSentence({ d, state }: { d: RuleDraft; state: CampaignState }) {
   const { t } = useTranslation('campaign-workspace')
+  const requestedAt = setAt(d.requestedAt)
+  const reviewedAt = setAt(d.reviewedAt)
   const p = (children: ReactNode) => (
     <p className="text-sm" data-state-sentence={state}>
       {children}
     </p>
   )
-  if (state === 'waitingForApproval' && c.approval) {
+  if (state === 'waitingForApproval' && requestedAt) {
     return (
       <>
         {p(
           <Trans
             t={t}
             i18nKey="dashboard.state.waitingForApproval"
-            values={{ at: formatDateTime(c.approval.at), by: c.approval.by }}
+            values={{ at: formatDateTime(requestedAt), by: d.requestedBy }}
             components={{ at: <Ltr />, by: <bdi /> }}
           />,
         )}
-        {c.approval.note && (
+        {d.requestNote && (
           <blockquote className="border-s-2 border-border ps-2 text-sm text-muted-foreground" data-approval-note="">
-            <bdi>{c.approval.note}</bdi>
+            <bdi>{d.requestNote}</bdi>
           </blockquote>
         )}
       </>
     )
   }
-  if ((state === 'running' || state === 'scheduled' || state === 'expired' || state === 'disabled') && c.live) {
+  if ((state === 'running' || state === 'scheduled' || state === 'expired' || state === 'disabled') && d.publishedVersionNo > 0) {
     return (
       <>
         {p(t(`dashboard.state.${state}`))}
         <p className="text-xs text-muted-foreground" data-live-version="">
           <Trans
             t={t}
-            i18nKey="dashboard.state.liveVersion"
-            values={{ version: c.live.version, at: formatDateTime(c.live.at), by: c.live.by }}
-            components={{ version: <Ltr />, at: <Ltr />, by: <bdi /> }}
+            i18nKey="dashboard.state.liveVersionNo"
+            values={{ version: d.publishedVersionNo }}
+            components={{ version: <Ltr /> }}
           />
         </p>
       </>
     )
   }
-  if (state === 'draft' && c.sentBack) {
+  if (d.source === 'draft' && d.state === 'sentBack' && reviewedAt) {
     return (
       <>
         {p(
           <Trans
             t={t}
             i18nKey="dashboard.state.sentBack"
-            values={{ at: formatDateTime(c.sentBack.at), by: c.sentBack.by }}
+            values={{ at: formatDateTime(reviewedAt), by: d.reviewedBy }}
             components={{ at: <Ltr />, by: <bdi /> }}
           />,
         )}
-        {c.sentBack.note && (
+        {d.reviewNote && (
           <blockquote className="border-s-2 border-border ps-2 text-sm text-muted-foreground" data-sent-back-note="">
-            <bdi>{c.sentBack.note}</bdi>
+            <bdi>{d.reviewNote}</bdi>
           </blockquote>
         )}
       </>
@@ -208,24 +193,25 @@ function StateSentence({ c, state }: { c: RuleCampaign; state: CampaignState }) 
  * A draft or a request over a published version (511's changes waiting, 512's restored version):
  * tills still run the live version until the draft is activated, so the State says which one.
  */
-function LiveUnderDraft({ c, state }: { c: RuleCampaign; state: CampaignState }) {
+function LiveUnderDraft({ d, state }: { d: RuleDraft; state: CampaignState }) {
   const { t } = useTranslation('campaign-workspace')
-  if (!c.live || (state !== 'draft' && state !== 'waitingForApproval')) return null
+  // A draft over a published version (changes waiting, a restored version): tills run the live one.
+  if (d.publishedVersionNo === 0 || d.source !== 'draft' || state === 'disabled') return null
   return (
     <p className="text-xs text-muted-foreground" data-live-under-draft="">
       <Trans
         t={t}
-        i18nKey="dashboard.state.liveUnderDraft"
-        values={{ version: c.live.version, at: formatDateTime(c.live.at), by: c.live.by }}
-        components={{ version: <Ltr />, at: <Ltr />, by: <bdi /> }}
+        i18nKey="dashboard.state.liveUnderDraftNo"
+        values={{ version: d.publishedVersionNo }}
+        components={{ version: <Ltr /> }}
       />
     </p>
   )
 }
 
-function Schedule({ c, now, live }: { c: RuleCampaign; now: Date; live: boolean }) {
+function Schedule({ d, now, live }: { d: RuleDraft; now: Date; live: boolean }) {
   const { t } = useTranslation('campaign-workspace')
-  const s = c.schedule
+  const s = d.campaign.window ?? {}
   const rel = scheduleRelative(s, now)
   const n = (key: string, days: number) => (
     <Trans t={t} i18nKey={key} count={days} values={{ n: days }} components={{ n: <Ltr /> }} />
@@ -238,7 +224,7 @@ function Schedule({ c, now, live }: { c: RuleCampaign; now: Date; live: boolean 
         : rel.kind === 'endedAgo'
           ? n('dashboard.schedule.endedAgo', rel.days)
           : t(`dashboard.schedule.${rel.kind}`)
-  const days = [...s.days].sort((a, b) => a - b)
+  const days = RULE_WEEKDAYS.flatMap((day, i) => ((s.days ?? []).includes(day) ? [i] : []))
   return (
     <>
       <p className="text-lg font-semibold" data-schedule-relative={rel.kind}>
@@ -258,8 +244,8 @@ function Schedule({ c, now, live }: { c: RuleCampaign; now: Date; live: boolean 
             {days.length ? <bdi>{days.map((d) => t(`weekdays.${d}`)).join(t('dashboard.schedule.daySeparator'))}</bdi> : t('dashboard.schedule.everyDay')}
           </Line>
           <Line label={t('dashboard.schedule.hours')} data="hours">
-            {s.hoursFrom || s.hoursTo ? (
-              <Ltr>{formatRange(s.hoursFrom || '00:00', s.hoursTo || '24:00')}</Ltr>
+            {s.hours ? (
+              <Ltr>{formatRange(s.hours.from, s.hours.until)}</Ltr>
             ) : (
               t('dashboard.schedule.allDay')
             )}

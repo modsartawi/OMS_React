@@ -15,19 +15,15 @@ const SPEND: RuleCampaignTemplate = {
   ],
   draft: {
     name: { en: 'Spend SAR {{minSpend}}, get {{pct}}% off', ar: 'أنفق {{minSpend}} ريال واحصل على خصم {{pct}}%' },
-    features: { coupons: false, points: false },
+    features: [],
     rules: [
       {
         id: 'r1',
         name: '{{pct}}% off the category',
-        filters: [{ id: 'f1', name: 'target', cats: { placeholder: 'cats' } as unknown as string[], colls: [], skus: [], exclCats: ['A006'], scope: 'items' }],
+        filters: [{ id: 'f1', name: 'target', categories: { placeholder: 'cats' } as unknown as string[], exclude: { categories: ['A006'] } }],
         values: [],
-        when: {
-          mode: 'all',
-          items: [{ id: 'c1', type: 'minSubtotal', amount: { placeholder: 'minSpend' }, of: '', says: { en: 'A basket of SAR {{minSpend}}', ar: 'سلة بقيمة {{minSpend}} ريال' } }],
-        },
-        then: [{ id: 'e1', type: 'discountItems', on: 'f1', kind: 'percent', value: { placeholder: 'pct' }, label: { en: '{{pct}}% off', ar: 'خصم {{pct}}%' } }],
-        partial: 'refuse',
+        when: [{ check: 'minSubtotal', amount: { placeholder: 'minSpend' }, says: { en: 'A basket of SAR {{minSpend}}', ar: 'سلة بقيمة {{minSpend}} ريال' } }],
+        then: [{ effect: 'discountItems', filter: 'f1', kind: 'percent', value: { placeholder: 'pct' }, label: { en: '{{pct}}% off', ar: 'خصم {{pct}}%' } }],
       },
     ],
   },
@@ -80,14 +76,14 @@ describe('fillTemplate', () => {
     expect(d.name).toEqual({ en: 'Spend SAR 250, get 15% off', ar: 'أنفق 250 ريال واحصل على خصم 15%' })
     const rule = d.rules[0]
     expect(rule.name).toBe('15% off the category')
-    expect(rule.filters[0].cats).toEqual(['A002', 'A003'])
-    expect(rule.when.items[0]).toMatchObject({ amount: 250, says: { en: 'A basket of SAR 250', ar: 'سلة بقيمة 250 ريال' } })
+    expect(rule.filters[0].categories).toEqual(['A002', 'A003'])
+    expect(rule.when[0]).toMatchObject({ amount: 250, says: { en: 'A basket of SAR 250', ar: 'سلة بقيمة 250 ريال' } })
     expect(rule.then[0]).toMatchObject({ value: 15, label: { en: '15% off', ar: 'خصم 15%' } })
     // Nothing of a mark is left anywhere.
     expect(JSON.stringify(d)).not.toMatch(/placeholder|\{\{/)
     // Everything else is as the template wrote it.
-    expect(rule.filters[0].exclCats).toEqual(['A006'])
-    expect(rule.then[0].on).toBe('f1')
+    expect(rule.filters[0].exclude).toEqual({ categories: ['A006'] })
+    expect(rule.then[0].filter).toBe('f1')
   })
 
   it('refuses, naming each key with no value once, rather than leave a mark in', () => {
@@ -98,13 +94,13 @@ describe('fillTemplate', () => {
     const before = JSON.stringify(SPEND.draft)
     const out = fillTemplate(SPEND.draft, { minSpend: 250, pct: 15, cats: ['A002'] })
     expect(JSON.stringify(SPEND.draft)).toBe(before)
-    if (out.ok) (out.draft.rules[0].filters[0].cats as string[]).push('A005')
+    if (out.ok) out.draft.rules[0].filters[0].categories?.push('A005')
     expect(JSON.stringify(SPEND.draft)).toBe(before)
   })
 
-  it('a formula takes the value as text, and is otherwise left as written', () => {
-    const draft = { ...SPEND.draft, rules: [{ ...SPEND.draft.rules[0], values: [{ id: 'v1', name: 'pts', formula: 'floor(sum(earning) * {{mult}})' }] }] }
+  it('a text inside an expression takes the value as text, and is otherwise left as written', () => {
+    const draft = { ...SPEND.draft, rules: [{ ...SPEND.draft.rules[0], values: [{ name: 'pts', expr: ['*', '$basis', '{{mult}}'] }] }] }
     const out = fillTemplate(draft, { minSpend: 1, pct: 1, cats: [], mult: 2.5 })
-    expect(out.ok && out.draft.rules[0].values[0].formula).toBe('floor(sum(earning) * 2.5)')
+    expect(out.ok && out.draft.rules[0].values[0].expr).toEqual(['*', '$basis', '2.5'])
   })
 })

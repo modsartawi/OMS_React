@@ -6,6 +6,8 @@ import { RULE_BURN_POINTS } from '@/core/models/rule-campaign'
 import { effectLetsRxIn, filterLetsRxIn } from '@/core/rules/filters'
 import {
   blockSentence,
+  blockType,
+  bundleSentence,
   catalogueBlock,
   filterChain,
   groupSentence,
@@ -117,9 +119,9 @@ export default function VersionRuleCard({
           {rule.values.length > 0 && (
             <Section title={t('rules.values')} hint={t('rules.valuesHint')} data="values">
               <ul className="flex flex-col gap-1 text-sm">
-                {rule.values.map((v) => (
-                  <li key={v.id} data-value-id={v.id}>
-                    <SentenceView s={valueSentence(v)} />
+                {rule.values.map((v, i) => (
+                  <li key={i} data-value-index={i}>
+                    <SentenceView s={valueSentence(v, rule)} />
                   </li>
                 ))}
               </ul>
@@ -127,10 +129,10 @@ export default function VersionRuleCard({
           )}
 
           <Section title={t('rules.conditions')} data="when">
-            <p className="text-sm font-medium" data-when={sum.conditions ? rule.when.mode : 'always'}>
+            <p className="text-sm font-medium" data-when={sum.conditions ? 'all' : 'always'}>
               <SentenceView s={whenSentence(rule)} />
             </p>
-            {sum.conditions ? <Conditions items={rule.when.items} ctx={ctx} filters={rule.filters} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
+            {sum.conditions ? <Conditions items={rule.when} path="when" ctx={ctx} filters={rule.filters} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
           </Section>
 
           <Section title={t('rules.effects')} data="then">
@@ -138,11 +140,19 @@ export default function VersionRuleCard({
               <>
                 <p className="text-sm font-medium">{t('rules.effectsHead')}</p>
                 <ul className="flex flex-col gap-1.5">
-                  {rule.then.map((e) => (
-                    <Block key={e.id} kind="effect" item={e} ctx={ctx} filters={rule.filters} />
+                  {rule.then.map((e, i) => (
+                    <Block key={i} kind="effect" item={e} path={`then.${i}`} ctx={ctx} filters={rule.filters} />
                   ))}
                 </ul>
-                {rule.then.some((e) => e.type === RULE_BURN_POINTS) && (
+                {rule.bundle && (
+                  <p className="text-sm" data-bundle-sentence="">
+                    <SentenceView s={bundleSentence(rule.bundle, rule).sentence} />
+                    {bundleSentence(rule.bundle, rule).clauses.map((c) => (
+                      <SentenceView key={c.key} s={c} />
+                    ))}
+                  </p>
+                )}
+                {rule.then.some((e) => e.effect === RULE_BURN_POINTS) && (
                   <p className="text-sm text-muted-foreground" data-partial="">
                     {t('versions.partial', { then: t(rule.partial === 'scale' ? 'builder.partialOption.scale' : 'builder.partialOption.refuse') })}
                   </p>
@@ -159,22 +169,22 @@ export default function VersionRuleCard({
 }
 
 /** A rule's conditions; a nested group opens with its own all / any line. */
-function Conditions({ items, ctx, filters }: { items: RuleCondition[]; ctx: SentenceContext; filters: readonly RuleItemFilter[] }) {
+function Conditions({ items, path, ctx, filters }: { items: RuleCondition[]; path: string; ctx: SentenceContext; filters: readonly RuleItemFilter[] }) {
   return (
     <ul className="flex flex-col gap-1.5">
-      {items.map((c) =>
+      {items.map((c, i) =>
         isConditionGroup(c) ? (
           // A group with nothing in it says nothing; the rule's summary does not count it either.
-          !leafConditions(c).length ? null : (
-            <li key={c.id} className="flex flex-col gap-1.5 rounded-md border border-dashed border-border p-2" data-condition-group={c.id}>
+          !leafConditions(c.conditions).length ? null : (
+            <li key={i} className="flex flex-col gap-1.5 rounded-md border border-dashed border-border p-2" data-condition-group={`${path}.${i}`}>
               <p className="text-sm font-medium">
                 <SentenceView s={groupSentence(c.mode)} />
               </p>
-              <Conditions items={c.items} ctx={ctx} filters={filters} />
+              <Conditions items={c.conditions} path={`${path}.${i}.conditions`} ctx={ctx} filters={filters} />
             </li>
           )
         ) : (
-          <Block key={c.id} kind="condition" item={c} ctx={ctx} filters={filters} />
+          <Block key={i} kind="condition" item={c} path={`${path}.${i}`} ctx={ctx} filters={filters} />
         ),
       )}
     </ul>
@@ -189,21 +199,24 @@ function Conditions({ items, ctx, filters }: { items: RuleCondition[]; ctx: Sent
 function Block({
   kind,
   item,
+  path,
   ctx,
   filters,
 }: {
   kind: RuleBlockKind
   item: RuleCondition | RuleEffect
+  path: string
   ctx: SentenceContext
   filters: readonly RuleItemFilter[]
 }) {
   const { t } = useTranslation('campaign-workspace')
   const read = blockSentence(kind, item, ctx)
-  const rx = kind === 'effect' && effectLetsRxIn(item, catalogueBlock(ctx.catalogue, kind, item.type), filters)
+  const rx = kind === 'effect' && effectLetsRxIn(item as RuleEffect, catalogueBlock(ctx.catalogue, kind, blockType(item)), filters)
   return (
     <li
       className={'rounded-md border px-3 py-2 ' + (!read.known ? 'border-attention-border bg-attention-050' : rx ? 'border-danger-border' : 'border-border/60')}
-      {...{ [`data-${kind}`]: item.id }}
+      {...{ [`data-${kind}`]: path }}
+      data-block-path={path}
       data-sentence={read.sentence.key}
       data-block-rx={rx ? '' : undefined}
     >

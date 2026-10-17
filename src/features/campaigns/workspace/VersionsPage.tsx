@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Eye, EyeOff, History, Loader2 } from 'lucide-react'
-import type { RuleCampaign, RuleCampaignVersion } from '@/core/models/rule-campaign'
+import type { RuleCampaign, RuleCampaignVersion, RuleDraft } from '@/core/models/rule-campaign'
 import { rememberSavedDraft, ruleCampaignApi, ruleCampaignVersionQuery, ruleCampaignVersionsQuery, ruleCatalogueQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import type { SentenceContext } from '@/core/rules/sentence'
@@ -28,7 +28,8 @@ import { newestFirst, restoreGuard, restoreHeld, versionMark } from './versions'
  */
 export default function VersionsPage() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
+  const { draft: d } = useWorkspace()
+  const c = d.campaign
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const versions = useQuery(ruleCampaignVersionsQuery(c.id))
@@ -60,11 +61,11 @@ export default function VersionsPage() {
     restore.reset()
     setAsking(null)
   }
-  const held = restoreHeld(c)
+  const held = restoreHeld(d)
 
   const start = (version: number) => {
     restore.reset()
-    if (restoreGuard(c) === 'ask') setAsking(version)
+    if (restoreGuard(d) === 'ask') setAsking(version)
   }
 
   let body
@@ -96,7 +97,7 @@ export default function VersionsPage() {
         {newestFirst(versions.data).map((v) => (
           <VersionItem
             key={v.version}
-            campaign={c}
+            draft={d}
             v={v}
             open={opened.has(v.version)}
             onToggle={() => toggle(v.version)}
@@ -151,9 +152,9 @@ export default function VersionsPage() {
             <p className="text-sm">
               <Trans t={t} i18nKey="versions.ask.body" values={{ version: asking }} components={{ version: <Ltr /> }} />
             </p>
-            {c.live && (
+            {d.publishedVersionNo > 0 && (
               <p className="text-sm text-muted-foreground">
-                <Trans t={t} i18nKey="versions.ask.live" values={{ version: c.live.version }} components={{ version: <Ltr /> }} />
+                <Trans t={t} i18nKey="versions.ask.live" values={{ version: d.publishedVersionNo }} components={{ version: <Ltr /> }} />
               </p>
             )}
             {restore.isError && (
@@ -170,7 +171,7 @@ export default function VersionsPage() {
 
 /** One version: its number and mark, who and when, the note; View opens its rules, Restore. */
 function VersionItem({
-  campaign: c,
+  draft: d,
   v,
   open,
   onToggle,
@@ -178,7 +179,7 @@ function VersionItem({
   restoring,
   busy,
 }: {
-  campaign: RuleCampaign
+  draft: RuleDraft
   v: RuleCampaignVersion
   open: boolean
   onToggle: () => void
@@ -187,8 +188,8 @@ function VersionItem({
   busy: boolean
 }) {
   const { t } = useTranslation('campaign-workspace')
-  const mark = versionMark(c, v.version)
-  const guard = restoreGuard(c)
+  const mark = versionMark(d, v.version)
+  const guard = restoreGuard(d)
   const detailId = `version-${v.version}-rules`
   return (
     <li
@@ -235,7 +236,7 @@ function VersionItem({
       )}
       {open && (
         <div id={detailId}>
-          <VersionRules campaign={c} version={v.version} />
+          <VersionRules campaign={d.campaign} version={v.version} />
         </div>
       )}
     </li>

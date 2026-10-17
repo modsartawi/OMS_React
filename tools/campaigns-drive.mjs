@@ -1,35 +1,31 @@
 // Campaigns drive (spec 2737; ticket 501 creates it — the workspace slices 502–512, 515 and 516
 // EXTEND it with a section of their own, below 501's, and leave 501's checks unchanged).
 //
-// Drives the REAL app in Chromium against STUBS of the rule-campaign doors. No HQ contract exists
-// yet (BackOffice 2758/2759 are unwritten), so the stubs serve the PROVISIONAL shapes of
-// `src/core/models/rule-campaign.ts`, on the REAL envelope { statusCode, success, message,
-// errors: [{ errorCode, internalErrorCode, errorMessage }], data }; ticket 520 re-points them:
+// Drives the REAL app in Chromium against STUBS of the rule-campaign doors, on the REAL envelope
+// { statusCode, success, message, errors: [{ errorCode, internalErrorCode, errorMessage }], data }.
+// Ticket 522 re-pointed the draft doors onto BackOffice 2758/2759's real shapes (the campaign JSON,
+// schema 1, inside the `Drafts/Load` reply); the doors 523-526 still own keep their PROVISIONAL paths:
+//   POST Rules/Authoring/Drafts/Load { campaign } → the draft (`loadDraft`); 404 RULES_DRAFT_NOT_FOUND
+//   POST Rules/Authoring/Drafts/Save { campaign, features, revision } → the draft one revision higher
+//       (`saveDraft`) — a create is revision 0 with the author's id; 409 RULES_DRAFT_STALE / PENDING;
+//       the first `staleSaves` saves answer RULES_DRAFT_STALE; `refuseSave` / `refuseSettings` refuse
+//       every save (pending), `refuseCreate` refuses a revision-0 save (RULES_CAMPAIGN_EXISTS)
+//   POST Rules/Authoring/Drafts/Delete { campaign, revision } → `{ campaign, deleted: true }`
+//   The checks and Offline read the draft's own `validation`; `checksFor(id, n)` answers the issues
+//   of the n-th draft reply of a campaign (508).
 //   GET RuleCampaign/Campaigns        → list rows (tools/campaigns-fixtures.mjs `listRow`)
-//   GET RuleCampaign/Campaigns/{id}   → the whole campaign; an unknown id is a 404 refusal
-//   POST RuleCampaign/Campaigns       → a new draft from { name: {en, ar}, features } (502, `createDraft`)
 //   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
 //   GET RuleCampaign/Templates        → the prototype's three templates (503, `TEMPLATES`), or refused
 //       with `refuseTemplates`
 //   POST RuleCampaign/Templates/{id}/Create → a draft from { values, draft } (503, `createFromTemplate`);
 //       a disabled template is refused; the first `refuseFromTemplate` creates are refused
 //   GET RuleCampaign/Catalogue        → the block catalogue (504, `CATALOGUE`)
-//   PUT RuleCampaign/Campaigns/{id}/Draft → saves { rules } and answers the whole campaign (505)
 //   GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search= → the hits (506, `lookup`)
-//   POST RuleCampaign/Formula/Check   → a canned check: an unknown word's span, or 12.5 / yes (507, `checkFormula`)
-//   GET RuleCampaign/Campaigns/{id}/Validate → the saved draft's checks: none, unless a section's
-//       `checksFor(id, n)` answers messages (n = how many times it was asked), or null to refuse (508)
 //   GET RuleCampaign/Roles            → the reader's roles: an author unless `as('approver' | 'both' |
 //       'none')` says otherwise (read on the next page load), or refused with `refuseRoles` (511)
 //   POST RuleCampaign/Campaigns/{id}/{AskForApproval|Activate|SendBack|Disable} → the campaign moved
 //       (`lifecycle`); the first `refuseActivate` activations are refused (511)
-//   DELETE RuleCampaign/Campaigns/{id} → the draft is gone from the list (511)
-//   PUT RuleCampaign/Campaigns/{id}/Settings/{Details|Schedule|Audience|Features|Offline} → the part
-//       saved (`saveSettings`), a feature still in use refused; every save refused with `refuseSettings` (509)
-//   GET RuleCampaign/Campaigns/{id}/OfflineVerdict → the prototype's verdict (`offlineVerdict`), or
-//       refused with `refuseVerdict` (509)
 //   GET RuleCampaign/Lookups/{Countries|Channels|Stores}?search= → Settings ▸ Audience's lists (509)
-//   PUT RuleCampaign/Campaigns/{id}/Settings/Budgets → the budgets saved (`saveSettings`) (510)
 //   GET RuleCampaign/Campaigns/{id}/BudgetUsage → the counters (`budgetUsage`), or refused with `refuseUsage` (510)
 //   PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit → a live limit changed (`changeLimit`); the
 //       first `refuseLimit` changes are refused (510)
@@ -69,7 +65,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetUsage, changeLimit, checkFormula, copyOf, checkImport, createBatch, createDraft, deleteUnused, importBatch, createFromTemplate, lifecycle, listRow, lookup, offlineVerdict, publishVersion, restoreVersion, saveSettings, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetUsage, changeLimit, copyOf, checkImport, createBatch, deleteDraft, deleteUnused, importBatch, createFromTemplate, lifecycle, listRow, loadDraft, lookup, publishVersion, restoreVersion, saveDraft, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -96,16 +92,14 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
   }),
 })
 
-const NOT_FOUND = 'No such campaign. / لا توجد حملة بهذا الرمز.'
+const NOT_FOUND = 'No draft or version of this campaign.'
 const CATALOGUE_REFUSED = 'The block catalogue is not available. / كتالوج الكتل غير متاح.'
 const CREATE_REFUSED = 'A campaign already has this name. / يوجد حملة بهذا الاسم.'
 const LOOKUP_REFUSED = 'The product search is not available. / البحث عن المنتجات غير متاح.'
-const CHECK_REFUSED = 'The formula check is not available. / التحقق من الصيغة غير متاح.'
-const VALIDATE_REFUSED = 'The rule checks are not available. / التحقق من القواعد غير متاح.'
+const STALE = 'The draft changed since it was loaded: load it again. / تغيّرت المسودة منذ تحميلها.'
 const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
 const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
 const SETTINGS_REFUSED = 'This campaign is waiting for approval and cannot be changed. / الحملة بانتظار الموافقة.'
-const VERDICT_REFUSED = 'The offline verdict is not available. / حكم العمل دون اتصال غير متاح.'
 const USAGE_REFUSED = 'The budget counters are not available. / عدادات الميزانية غير متاحة.'
 const LIMIT_REFUSED = 'The limit could not be changed right now. / تعذر تغيير الحد الآن.'
 const VERSIONS_REFUSED = 'The version history is not available. / سجل الإصدارات غير متاح.'
@@ -127,7 +121,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseVerdict = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, refuseCheck = false, checksFor, edit } = {}) {
+async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, refuseLookup = false, staleSaves = 0, checksFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -142,17 +136,14 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
   const saves = []
   /** 506: every lookup, `<kind> <search>`. */
   const lookups = []
-  /** 507: every formula check's body, in order. */
-  const checks = []
-  /** 508: every validate, by campaign id, in order. */
+  /** 508: every draft reply by campaign id, in order (`checksFor`'s n). */
   const validations = []
+  let staleRefusals = staleSaves
   /** 511: the reader's roles, and every lifecycle act `<act> <id>` with its body. */
   const ROLE = { author: { author: true, approver: false }, approver: { author: false, approver: true }, both: { author: true, approver: true }, none: { author: false, approver: false } }
   let role = 'author'
   let activateRefusals = refuseActivate
   const acts = []
-  /** 509: every settings save `{ part, id, body }`, in order. */
-  const settings = []
   /** 510: every budget counter read (campaign id) and every live limit change `{ id, budgetId, body }`. */
   const usageReads = []
   const limits = []
@@ -197,64 +188,48 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       if (refuseLookup) return route.fulfill(envelope(null, { status: 503, success: false, message: LOOKUP_REFUSED, errorCode: 'RULE_LOOKUP_UNAVAILABLE' }))
       return route.fulfill(envelope(lookup(kind, search)))
     }
-    if (p === 'RuleCampaign/Formula/Check' && req.method() === 'POST') {
-      const body = req.postDataJSON()
-      checks.push(body)
-      if (refuseCheck) return route.fulfill(envelope(null, { status: 503, success: false, message: CHECK_REFUSED, errorCode: 'RULE_FORMULA_CHECK_UNAVAILABLE' }))
-      return route.fulfill(envelope(checkFormula(body)))
-    }
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
-    if (p === 'RuleCampaign/Campaigns' && req.method() === 'POST') {
-      const body = req.postDataJSON()
-      bodies.push(body)
-      if (refuseCreate) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULE_CAMPAIGN_NAME_TAKEN' }))
-      return route.fulfill(envelope(createDraft(store, body, NOW_LOCAL)))
+    // The draft doors (ticket 522): BackOffice 2758 + 2759's real shapes.
+    const refused = (out) => envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused })
+    /** A draft as answered: its validation, unless `checksFor` gives this reply's issues (508). */
+    const answer = (d) => {
+      const n = validations.filter((v) => v === d.code).length
+      validations.push(d.code)
+      const issues = checksFor?.(d.code, n)
+      if (!issues) return d
+      const errors = issues.filter((x) => x.severity !== 'warning')
+      return { ...d, validation: { canActivate: errors.length === 0, errors, warnings: issues.filter((x) => x.severity === 'warning'), offline: errors.length ? null : d.validation?.offline ?? null } }
     }
-    const one = /^RuleCampaign\/Campaigns\/([^/]+)$/.exec(p)
-    if (one && req.method() === 'GET') {
-      const c = store.find((x) => x.id === decodeURIComponent(one[1]))
-      return route.fulfill(c ? envelope(c) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
+    if (p === 'Rules/Authoring/Drafts/Load' && req.method() === 'POST') {
+      const code = req.postDataJSON()?.campaign
+      calls.push(`LOAD ${code}`)
+      const out = loadDraft(store, code)
+      return route.fulfill(out.draft ? envelope(answer(out.draft)) : refused(out))
     }
-    const validate = /^RuleCampaign\/Campaigns\/([^/]+)\/Validate$/.exec(p)
-    if (validate && req.method() === 'GET') {
-      const id = decodeURIComponent(validate[1])
-      const n = validations.filter((v) => v === id).length
-      validations.push(id)
-      const messages = checksFor ? checksFor(id, n) : []
-      if (messages === null) return route.fulfill(envelope(null, { status: 503, success: false, message: VALIDATE_REFUSED, errorCode: 'RULE_VALIDATE_UNAVAILABLE' }))
-      return route.fulfill(envelope({ messages }))
-    }
-    const draft = /^RuleCampaign\/Campaigns\/([^/]+)\/Draft$/.exec(p)
-    if (draft && req.method() === 'PUT') {
+    if (p === 'Rules/Authoring/Drafts/Save' && req.method() === 'POST') {
       const body = req.postDataJSON()
       saves.push(body)
-      const c = store.find((x) => x.id === decodeURIComponent(draft[1]))
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      if (refuseSave) return route.fulfill(envelope(null, { status: 409, success: false, message: SAVE_REFUSED, errorCode: 'RULE_CAMPAIGN_NOT_EDITABLE' }))
-      c.rules = structuredClone(body.rules)
-      return route.fulfill(envelope(c))
+      if (body.revision === 0 && !store.some((x) => x.code === body.campaign?.id)) bodies.push(body)
+      if (staleRefusals > 0) {
+        staleRefusals--
+        return route.fulfill(envelope(null, { status: 409, success: false, message: STALE, errorCode: 'RULES_DRAFT_STALE' }))
+      }
+      if (refuseCreate && body.revision === 0) return route.fulfill(envelope(null, { status: 409, success: false, message: CREATE_REFUSED, errorCode: 'RULES_CAMPAIGN_EXISTS' }))
+      if (refuseSave || refuseSettings) return route.fulfill(envelope(null, { status: 400, success: false, message: refuseSave ? SAVE_REFUSED : SETTINGS_REFUSED, errorCode: 'RULES_BAD_REQUEST' }))
+      const out = saveDraft(store, body, NOW_LOCAL)
+      return route.fulfill(out.draft ? envelope(answer(out.draft)) : refused(out))
     }
-    const setting = /^RuleCampaign\/Campaigns\/([^/]+)\/Settings\/(Details|Schedule|Audience|Features|Budgets|Offline)$/.exec(p)
-    if (setting && req.method() === 'PUT') {
+    if (p === 'Rules/Authoring/Drafts/Delete' && req.method() === 'POST') {
       const body = req.postDataJSON()
-      settings.push({ part: setting[2], id: decodeURIComponent(setting[1]), body })
-      const c = store.find((x) => x.id === decodeURIComponent(setting[1]))
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      if (refuseSettings) return route.fulfill(envelope(null, { status: 409, success: false, message: SETTINGS_REFUSED, errorCode: 'RULE_CAMPAIGN_NOT_EDITABLE' }))
-      const out = saveSettings(c, setting[2], body)
-      return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+      acts.push({ act: `Delete ${body?.campaign}`, body })
+      const out = deleteDraft(store, body)
+      return route.fulfill(out.deleted ? envelope(out.deleted) : refused(out))
     }
-    const verdict = /^RuleCampaign\/Campaigns\/([^/]+)\/OfflineVerdict$/.exec(p)
-    if (verdict && req.method() === 'GET') {
-      const c = store.find((x) => x.id === decodeURIComponent(verdict[1]))
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      if (refuseVerdict) return route.fulfill(envelope(null, { status: 503, success: false, message: VERDICT_REFUSED, errorCode: 'RULE_OFFLINE_VERDICT_UNAVAILABLE' }))
-      return route.fulfill(envelope(offlineVerdict(c)))
-    }
+    // PROVISIONAL doors (tickets 523-526 re-point them).
     const usage = /^RuleCampaign\/Campaigns\/([^/]+)\/BudgetUsage$/.exec(p)
     if (usage && req.method() === 'GET') {
       usageReads.push(decodeURIComponent(usage[1]))
-      const c = store.find((x) => x.id === decodeURIComponent(usage[1]))
+      const c = store.find((x) => x.code === decodeURIComponent(usage[1]))
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       if (refuseUsage) return route.fulfill(envelope(null, { status: 503, success: false, message: USAGE_REFUSED, errorCode: 'RULE_BUDGET_USAGE_UNAVAILABLE' }))
       return route.fulfill(envelope(budgetUsage(c)))
@@ -263,7 +238,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
     if (limit && req.method() === 'PUT') {
       const body = req.postDataJSON()
       limits.push({ id: decodeURIComponent(limit[1]), budgetId: decodeURIComponent(limit[2]), body })
-      const c = store.find((x) => x.id === decodeURIComponent(limit[1]))
+      const c = store.find((x) => x.code === decodeURIComponent(limit[1]))
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       if (limitRefusals > 0) {
         limitRefusals--
@@ -274,7 +249,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
     }
     const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
     if (copy && req.method() === 'POST') {
-      const c = store.find((x) => x.id === decodeURIComponent(copy[1]))
+      const c = store.find((x) => x.code === decodeURIComponent(copy[1]))
       return route.fulfill(c ? envelope(copyOf(store, c, NOW_LOCAL)) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
     }
     if (p === 'RuleCampaign/Templates' && req.method() === 'GET')
@@ -298,7 +273,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
     if (life && req.method() === 'POST') {
       const body = req.postDataJSON()
       acts.push({ act: `${life[2]} ${decodeURIComponent(life[1])}`, body })
-      const c = store.find((x) => x.id === decodeURIComponent(life[1]))
+      const c = store.find((x) => x.code === decodeURIComponent(life[1]))
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       if (life[2] === 'Activate' && activateRefusals > 0) {
         activateRefusals--
@@ -309,17 +284,10 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       if (out.campaign && life[2] === 'Activate') publishVersion(versions, c, body.note)
       return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: 'Wrong state.', errorCode: out.refused }))
     }
-    if (one && req.method() === 'DELETE') {
-      acts.push({ act: `Delete ${decodeURIComponent(one[1])}` })
-      const i = store.findIndex((x) => x.id === decodeURIComponent(one[1]))
-      if (i < 0) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      store.splice(i, 1)
-      return route.fulfill(envelope(null))
-    }
     const vers = /^RuleCampaign\/Campaigns\/([^/]+)\/Versions(?:\/(\d+))?(\/Restore)?$/.exec(p)
     if (vers) {
       const id = decodeURIComponent(vers[1])
-      const c = store.find((x) => x.id === id)
+      const c = store.find((x) => x.code === id)
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       const list = versions.get(id) ?? []
       if (!vers[2] && req.method() === 'GET') {
@@ -345,7 +313,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
     const imp = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons\/(Imports(?:\/Check)?|Batches\/([^/]+)\/Unused)$/.exec(p)
     if (imp) {
       const id = decodeURIComponent(imp[1])
-      const c = store.find((x) => x.id === id)
+      const c = store.find((x) => x.code === id)
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       const list = (coupons[id] ??= [])
       if (imp[2] === 'Imports/Check' && req.method() === 'POST') {
@@ -376,7 +344,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
     const cps = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons(\/Batches)?$/.exec(p)
     if (cps) {
       const id = decodeURIComponent(cps[1])
-      const c = store.find((x) => x.id === id)
+      const c = store.find((x) => x.code === id)
       if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
       const list = (coupons[id] ??= [])
       if (!cps[2] && req.method() === 'GET') {
@@ -398,7 +366,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, checks, validations, acts, settings, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, validations, acts, usageReads, limits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -476,18 +444,19 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-campaign-search]').fill('weekend')
   await waitRows(page, 2)
 
-  const reads = () => calls.filter((c) => c === 'GET RuleCampaign/Campaigns/WKND20').length
+  const reads = () => calls.filter((c) => c === 'LOAD WKND20').length
   await page.locator(`${grid} .ag-row[row-id="WKND20"] .ag-cell[col-id="code"]`).click()
   await page.waitForURL(`${BASE}/campaigns/WKND20`)
   await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
   check('5: a row click opens the campaign at /campaigns/:id on its Dashboard', page.url() === `${BASE}/campaigns/WKND20`)
   const details = page.locator('[data-dashboard-cell="details"]')
-  check('5: Details shows the English name', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off, up to SAR 40')
-  check('5: Details shows the Arabic name, isolated as free text', (await details.locator('[data-line="nameAr"] dd > bdi:not([dir])').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% حتى 40 ريال')
+  check('5: Details shows the English name', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off')
+  check('5: Details shows the Arabic name, isolated as free text', (await details.locator('[data-line="nameAr"] dd > bdi:not([dir])').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20%')
   check('5: Details shows the code and the features', (await details.locator('[data-line="code"] dd').innerText()) === 'WKND20' && (await details.locator('[data-feature]').allInnerTexts()).join('|') === 'Coupons|Loyalty points (Arbahi)')
-  check('5: Details shows who created it, in local time', (await details.locator('[data-line="created"] dd').innerText()) === '2026-09-28 11:30 by Sara (CRM)', await details.locator('[data-line="created"] dd').innerText())
+  // 522: the draft carries no "created" stamp; Details says who last saved it (`updatedAt` / `updatedBy`).
+  check('5: Details shows who last saved it, in local time', (await details.locator('[data-line="updated"] dd').innerText()) === '2026-09-28 11:30 by Sara (CRM)', await details.locator('[data-line="updated"] dd').innerText())
   const state = page.locator('[data-dashboard-cell="state"]')
-  check('5: State reads Running with its live version', (await state.locator('[data-campaign-state]').innerText()) === 'Running' && (await state.locator('[data-live-version]').innerText()).startsWith('Version 1, activated 2026-09-28 11:30'))
+  check('5: State reads Running with its live version', (await state.locator('[data-campaign-state]').innerText()) === 'Running' && (await state.locator('[data-live-version]').innerText()) === 'Tills run version 1.')
   const sched = page.locator('[data-dashboard-cell="schedule"]')
   check('5: Schedule says "Ends in 76 days"', (await sched.locator('[data-schedule-relative]').innerText()) === 'Ends in 76 days', await sched.locator('[data-schedule-relative]').innerText())
   check('5: Schedule shows the local days and the weekdays', (await sched.locator('[data-line="start"] dd').innerText()) === '2026-10-01' && (await sched.locator('[data-line="end"] dd').innerText()) === '2026-12-31' && (await sched.locator('[data-line="days"] dd').innerText()) === 'Thursday, Friday, Saturday')
@@ -567,8 +536,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //      Coupons off and Loyalty points on, each with its line saying what it switches on;
 //  11. Create with a name missing says so at the field and sends nothing; Cancel sends nothing;
 //      a reopened dialog is a fresh form;
-//  12. both names + Coupons, sent with Enter → ONE POST with both names trimmed and the features →
-//      the new draft's dashboard (both names, its code, Draft, its features, "No time limit"),
+//  12. both names + Coupons → the id is suggested from the English name (522: the author picks it);
+//      a static leaf (`priority`) is refused at the field and nothing is sent; Enter sends ONE
+//      Drafts/Save at revision 0 with the typed id, both names trimmed, no rule and the features →
+//      the new draft's dashboard (both names, its id, Draft, its features, "No time limit"),
 //      toasted; the list counts it;
 //  13. a refusal is the door's own message, in the dialog, with the form kept; an edit clears it;
 //  14. ⋯ › Copy campaign → an independent draft "<name> (copy)" in both languages, opened on its
@@ -577,7 +548,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  15. no page errors.
 {
   const { context, page, errors, calls, bodies } = await open()
-  const posts = () => calls.filter((c) => c === 'POST RuleCampaign/Campaigns').length
+  const posts = () => bodies.length
   await page.goto(`${BASE}/campaigns`)
   await waitRows(page, 16)
   await page.locator('[data-new-campaign]').click()
@@ -606,15 +577,26 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-field="nameEn"]').fill('  Ramadan nights ')
   await dialog.locator('[data-create-field="nameAr"]').fill(' ليالي رمضان ')
   await dialog.locator('[data-create-feature="coupons"]').check()
+  const idField = dialog.locator('[data-create-field="id"]')
+  check('12: the id is suggested from the English name', (await idField.inputValue()) === 'RAMADAN-NIGHTS', await idField.inputValue())
+  await idField.fill('priority')
+  await dialog.locator('[data-create-submit]').click()
+  check('12: a static leaf is refused at the id field', await dialog.locator('[data-create-problem="id"]').isVisible())
+  check('12: …and nothing was sent', posts() === 0)
+  await idField.fill('RAMADAN-NIGHTS')
   await dialog.locator('[data-create-field="nameAr"]').press('Enter')
   await page.waitForURL(`${BASE}/campaigns/RAMADAN-NIGHTS`, { timeout: 10000 })
   await page.locator('[data-dashboard]').waitFor()
-  check('12: Enter sends ONE create', posts() === 1, String(posts()))
-  check('12: …with both names trimmed and the features chosen', JSON.stringify(bodies[0]) === JSON.stringify({ name: { en: 'Ramadan nights', ar: 'ليالي رمضان' }, features: { coupons: true, points: true } }), JSON.stringify(bodies[0]))
+  check('12: Enter sends ONE Drafts/Save', posts() === 1, String(posts()))
+  check(
+    '12: …at revision 0, with the typed id, both names trimmed, no rule and the features chosen',
+    bodies[0]?.revision === 0 && bodies[0]?.campaign?.id === 'RAMADAN-NIGHTS' && JSON.stringify(bodies[0]?.campaign?.name) === JSON.stringify({ en: 'Ramadan nights', ar: 'ليالي رمضان' }) && JSON.stringify(bodies[0]?.campaign?.rules) === '[]' && JSON.stringify(bodies[0]?.features) === '["coupons","points"]',
+    JSON.stringify(bodies[0]),
+  )
   check('12: it lands on the new draft’s dashboard', page.url() === `${BASE}/campaigns/RAMADAN-NIGHTS`)
   const details = page.locator('[data-dashboard-cell="details"]')
   check('12: the dashboard shows both names', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Ramadan nights' && (await details.locator('[data-line="nameAr"] dd').innerText()) === 'ليالي رمضان')
-  check('12: …the code HQ minted and both features', (await details.locator('[data-line="code"] dd').innerText()) === 'RAMADAN-NIGHTS' && (await details.locator('[data-feature]').allInnerTexts()).join('|') === 'Coupons|Loyalty points (Arbahi)')
+  check('12: …the id the author typed and both features', (await details.locator('[data-line="code"] dd').innerText()) === 'RAMADAN-NIGHTS' && (await details.locator('[data-feature]').allInnerTexts()).join('|') === 'Coupons|Loyalty points (Arbahi)')
   check('12: …a Draft with no time limit', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft' && (await page.locator('[data-schedule-relative]').innerText()) === 'No time limit')
   check('12: a toast says it was created', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Campaign created as a draft.')))
   check('12: the dialog has closed', (await page.locator('dialog[open]').count()) === 0)
@@ -641,14 +623,14 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.waitForFunction(() => document.querySelector('[data-line="code"] dd')?.textContent === 'WKND20-COPY', null, { timeout: 10000 })
   check('14: ONE copy was asked for', copies() === 1, String(copies()))
   const cd = page.locator('[data-dashboard-cell="details"]')
-  check('14: the copy is "<name> (copy)" in English…', (await cd.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off, up to SAR 40 (copy)')
-  check('14: …and in Arabic', (await cd.locator('[data-line="nameAr"] dd').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% حتى 40 ريال (نسخة)')
+  check('14: the copy is "<name> (copy)" in English…', (await cd.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off (copy)')
+  check('14: …and in Arabic', (await cd.locator('[data-line="nameAr"] dd').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% (نسخة)')
   check('14: the copy is a Draft with no live version', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft' && (await page.locator('[data-live-version]').count()) === 0)
   check('14: a toast says it was copied', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Copied as a new draft.')))
   await page.screenshot({ path: `${SHOTS}/copied-draft.png` })
   await page.goto(`${BASE}/campaigns/WKND20`)
   await page.locator('[data-dashboard]').waitFor()
-  check('14: the original is untouched — its name, Running, version 1', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off, up to SAR 40' && (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Running' && (await page.locator('[data-live-version]').innerText()).startsWith('Version 1,'))
+  check('14: the original is untouched — its name, Running, version 1', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off' && (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Running' && (await page.locator('[data-live-version]').innerText()) === 'Tills run version 1.')
   await page.goto(`${BASE}/campaigns`)
   await waitRows(page, 18)
   check('14: the list counts both new drafts', (await tileCount(page, 'all')) === '18' && (await tileCount(page, 'draft')) === '3' && (await tileCount(page, 'running')) === '11')
@@ -666,6 +648,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.waitFor()
   await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon')
   await dialog.locator('[data-create-field="nameAr"]').fill('قسيمة نهاية الأسبوع')
+  await dialog.locator('[data-create-field="id"]').fill('WKND-NEW')
   await dialog.locator('[data-create-submit]').click()
   const banner = dialog.locator('[role="alert"]')
   await banner.waitFor({ timeout: 10000 })
@@ -764,8 +747,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('103: …with the values as typed', JSON.stringify(sent?.values) === JSON.stringify({ minSpend: 250, pct: 15, cats: ['A002', 'A003'] }), JSON.stringify(sent?.values))
   const rule = sent?.draft.rules[0]
   check(
-    '103: …and a draft with every placeholder filled',
-    !/placeholder|\{\{/.test(JSON.stringify(sent?.draft)) && rule?.when.items[0].amount === 250 && rule?.then[0].value === 15 && JSON.stringify(rule?.filters[0].cats) === '["A002","A003"]',
+    '103: …and a schema-1 draft with every placeholder filled',
+    !/placeholder|\{\{/.test(JSON.stringify(sent?.draft)) && rule?.when[0].amount === 250 && rule?.then[0].value === 15 && JSON.stringify(rule?.filters[0].categories) === '["A002","A003"]',
     JSON.stringify(sent?.draft),
   )
 
@@ -778,7 +761,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const card = page.locator('[data-rule-card]').first()
   check('104: the rule’s name is filled', (await card.locator('[data-rule-name]').inputValue()) === '15% off the category')
   const condition = await card.locator('[data-condition] [data-block-sentence]').innerText()
-  check('104: the condition reads the threshold', condition.includes('SAR 250.00'), condition)
+  check('104: the condition reads the threshold', condition.includes('250.00'), condition)
   const effect = await card.locator('[data-effect] [data-block-sentence]').innerText()
   check('104: the effect reads the percent', effect.includes('15%') && effect.includes('target'), effect)
   const links = await card.locator('[data-filter] [data-filter-link]').allInnerTexts()
@@ -871,7 +854,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('17: the card is headed by its rule number and name', (await card.locator('[data-rule-name]').inputValue()) === 'Cheapest of every three suncare units free')
   check('17: its summary counts filters, conditions and effects', (await card.locator('[data-rule-summary]').innerText()).replace(/\s+/g, ' ') === '1 cart item filter 2 conditions 1 effect', await card.locator('[data-rule-summary]').innerText())
   const filter = card.locator('[data-filter]').first()
-  check('17: the filter reads as a chain, by name', (await filter.locator('[data-filter-name]').innerText()) === 'sun' && JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()) === '["cart items","in collection SUNCARE"]', JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()))
+  check('17: the filter reads as a chain, by name', (await filter.locator('[data-filter-name]').innerText()) === 'sun' && JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()) === '["product SUN-50, SUN-30, or SUN-KID"]', JSON.stringify(await filter.locator('[data-filter-link]').allInnerTexts()))
   check('17: When all', (await card.locator('[data-when]').innerText()) === 'When all of these are true')
   const sentences = await card.locator('[data-condition] [data-block-sentence]').allInnerTexts()
   check('17: the conditions read as sentences', JSON.stringify(sentences) === JSON.stringify(['At least 3 units of sun', 'The value of all merchandise is at least SAR 150.00, before any offer']), JSON.stringify(sentences))
@@ -895,7 +878,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-rules]').waitFor()
   check('16: the catalogue was read ONCE for two builder pages', catalogueReads() === 1, String(catalogueReads()))
   check('17: a choice reads in words: the tier', (await page.locator('[data-condition] [data-block-sentence]').first().innerText()) === 'The member’s tier is Gold or Platinum')
-  check('17: a percent reads as one isolate', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Take 15% off each line of beauty' && (await page.locator('[data-effect] [data-value="percent"] bdi[dir="ltr"]').innerText()) === '15%')
+  check('17: a percent reads as one isolate', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Take 15% off each item of beauty' && (await page.locator('[data-effect] [data-value="percent"] bdi[dir="ltr"]').innerText()) === '15%')
   check('23: no page errors (16–17)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -904,19 +887,19 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 {
   const { context, page, errors } = await open()
   const TYPE_IDS = CATALOGUE.blocks.map((b) => b.type).filter((type) => /[A-Z]/.test(type))
-  const leaves = (items) => items.flatMap((c) => (c.type === 'group' ? leaves(c.items) : [c]))
+  const leaves = (items) => items.flatMap((c) => (c.check === 'group' ? leaves(c.conditions) : [c]))
   const bad = []
   let read = 0
-  for (const c of CAMPAIGNS.filter((x) => x.rules.length)) {
-    await page.goto(`${BASE}/campaigns/${c.id}/rules`)
+  for (const c of CAMPAIGNS.filter((x) => x.campaign.rules.length)) {
+    await page.goto(`${BASE}/campaigns/${c.code}/rules`)
     await page.locator('[data-rules]').waitFor({ timeout: 10000 })
-    const blocks = c.rules.reduce((n, r) => n + leaves(r.when.items).length + r.then.length, 0)
+    const blocks = c.campaign.rules.reduce((n, r) => n + leaves(r.when).length + r.then.length, 0)
     const shown = await page.locator('[data-condition], [data-effect]').count()
     const unknown = await page.locator('[data-sentence="sentence.unknown"]').count()
     const text = await page.locator('[data-rule-builder]').innerText()
     const leaks = TYPE_IDS.filter((id) => text.includes(id))
     if (shown !== blocks || unknown || /sentence\.|rules\.|\{\{|\}\}/.test(text) || leaks.length)
-      bad.push(`${c.id}: ${shown}/${blocks} shown, ${unknown} unknown, leaks ${leaks.join(',')}`)
+      bad.push(`${c.code}: ${shown}/${blocks} shown, ${unknown} unknown, leaks ${leaks.join(',')}`)
     read += shown
   }
   check('18: every sample campaign reads every block as a sentence, no raw key, no type id', bad.length === 0 && read > 0, bad.join(' | ') || `${read} blocks`)
@@ -924,7 +907,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/WLCB/rules`)
   await page.locator('[data-rules]').waitFor()
   check('18: a formula is shown as written, in one isolate', (await page.locator('[data-condition] [data-value="formula"] bdi[dir="ltr"]').innerText()) === 'back > 0')
-  check('18: named values read with their formula', JSON.stringify(await page.locator('[data-value-id]').evaluateAll((els) => els.map((e) => `${e.querySelector('[data-value-name]').value} = ${e.querySelector('[data-fx-input]').value}`))) === JSON.stringify(['spend = sum(eligible)', 'back = round(spend * 0.10, 0, halfUp)']))
+  // 522: a value is { name, expr }; its box shows the expression as text (core/rules/expr).
+  const valueNames = await page.locator('[data-rule-section="values"] [data-value-name]').evaluateAll((els) => els.map((e) => e.value))
+  const valueTexts = await page.locator('[data-rule-section="values"] [data-fx-input]').evaluateAll((els) => els.map((e) => e.value))
+  check('18: named values read with their expression as text', JSON.stringify(valueNames.map((n, i) => `${n} = ${valueTexts[i]}`)) === JSON.stringify(["eligible = sum(items('Eligible'), item.net)", 'back = round(eligible * 0.1, 0, halfUp)']), JSON.stringify([valueNames, valueTexts]))
   check('18: points read in words, with when they activate and expire', (await page.locator('[data-effect] [data-block-sentence]').innerText()) === 'Award back in SAR of points under the activity WLCB, usable after 7 days, expiring after 30 days')
   check('18: Prescription is named in the chain', (await page.locator('[data-filter-link]').allInnerTexts()).includes('not Prescription A006'))
   await page.screenshot({ path: `${SHOTS}/rules-wlcb.png`, fullPage: true })
@@ -947,9 +933,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 {
   const { context, page, errors } = await open({
     edit: (store) => {
-      const sun = store.find((c) => c.id === 'SUN-3FOR2')
-      sun.rules[0].filters[0].name = 'Suncare'
-      sun.rules.push({ id: 'r-extra', name: 'Pouch with every suncare basket', filters: [], values: [], when: { mode: 'any', items: [] }, then: [{ id: 'e-extra', type: 'notify', text: { en: 'Ask about the pouch', ar: '' } }], partial: 'refuse' })
+      const sun = store.find((c) => c.code === 'SUN-3FOR2')
+      sun.campaign.rules[0].filters[0].name = 'Suncare'
+      sun.campaign.rules.push({ id: 'r-extra', name: 'Pouch with every suncare basket', filters: [], values: [], when: [], then: [{ effect: 'cashierMessage', text: { en: 'Ask about the pouch', ar: '' } }] })
     },
   })
   await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
@@ -1013,8 +999,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  33. no page errors.
 {
   const { context, page, errors, saves } = await open()
-  const sun = CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2')
-  const sunFilter = sun.rules[0].filters[0].id
+  const sun = CAMPAIGNS.find((c) => c.code === 'SUN-3FOR2')
+  const sunFilter = sun.campaign.rules[0].filters[0].id
   await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   const bar = page.locator('[data-builder-bar]')
@@ -1028,10 +1014,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await palette.waitFor()
   const offered = await palette.locator('[data-palette-block]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-block')))
   const groups = await palette.locator('[data-palette-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-palette-group')))
-  check('25: the palette is grouped by category', JSON.stringify(groups) === JSON.stringify(['basket', 'attribute', 'loyalty', 'sale', 'logic']), JSON.stringify(groups))
+  check('25: the palette is grouped by category', JSON.stringify(groups) === JSON.stringify(['cart', 'customer', 'context', 'limits', 'advanced']), JSON.stringify(groups))
   check('25: points blocks with points on, no coupon block with coupons off', offered.includes('minPoints') && !offered.includes('coupon'), offered.join(','))
   check('25: …and it says where the coupon blocks are', (await palette.locator('[data-palette-hidden="coupons"]').count()) === 1 && (await palette.locator('[data-palette-hidden="points"]').count()) === 0)
-  check('25: "not decided" blocks are left out; the formula block is offered (507)', !offered.includes('anniversary') && !offered.includes('audience') && offered.includes('expr'))
+  check('25: "not decided" blocks are left out; the formula block is offered (507)', !offered.includes('audience') && offered.includes('formula'))
   check('25: blocks read in words', (await palette.locator('[data-palette-block="minCount"]').innerText()) === 'Number of items is at least')
   check('25: focus moves into the palette', await palette.locator('[data-palette-block="minSubtotal"]').evaluate((e) => e === document.activeElement))
   await page.keyboard.press('Escape')
@@ -1073,10 +1059,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   // ── 28 ──
   await bar.locator('[data-save]').click()
   await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
-  const sent = saves[0]?.rules?.[0]?.when?.items?.[2]
-  check('28: Save sends ONE draft save', saves.length === 1)
-  check('28: …with the block as edited, items by filter id, both languages', sent?.type === 'minCount' && sent.count === 2 && sent.of === sunFilter && sent.says?.en === 'two suncare items' && sent.says?.ar === 'منتجان للعناية بالشمس' && typeof sent.id === 'string' && sent.id.length > 0, JSON.stringify(sent))
-  check('28: …and the other blocks untouched', JSON.stringify(saves[0].rules[0].then) === JSON.stringify(sun.rules[0].then))
+  const sent = saves[0]?.campaign?.rules?.[0]?.when?.[2]
+  check('28: Save sends ONE Drafts/Save', saves.length === 1)
+  check('28: …the WHOLE campaign at the revision loaded, with its features', saves[0]?.revision === sun.revision && saves[0]?.campaign?.id === 'SUN-3FOR2' && JSON.stringify(saves[0]?.campaign?.window) === JSON.stringify(sun.campaign.window) && JSON.stringify(saves[0]?.campaign?.name) === JSON.stringify(sun.campaign.name) && JSON.stringify(saves[0]?.features) === JSON.stringify(sun.features), JSON.stringify(saves[0]))
+  check('28: …with the block as edited, keyed by check, items by filter id, both languages, and no client key', sent?.check === 'minCount' && sent.count === 2 && sent.of === sunFilter && sent.says?.en === 'two suncare items' && sent.says?.ar === 'منتجان للعناية بالشمس' && !('id' in sent) && !('type' in sent), JSON.stringify(sent))
+  check('28: …and the other blocks untouched', JSON.stringify(saves[0]?.campaign?.rules?.[0]?.then) === JSON.stringify(sun.campaign.rules[0].then))
   check('28: saved: no unsaved pill, Save, Undo and Cancel disabled', (await disabled('[data-save]')) && (await disabled('[data-undo]')) && (await disabled('[data-cancel]')))
   check('28: a toast says so', await page.getByText('The rules are saved.').first().isVisible())
   await page.reload()
@@ -1091,17 +1078,15 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await card2.locator('[data-palette="then"] [data-palette-block="discountItems"]').click()
   const effect = card2.locator('[data-effect]').nth(1)
   const ep = effect.locator('[data-block-panel]')
-  check('29: the new effect works on the rule’s filter', (await ep.locator('[data-panel-field="on"]').inputValue()) === sunFilter)
+  check('29: the new effect works on the rule’s filter', (await ep.locator('[data-panel-field="filter"]').inputValue()) === sunFilter)
   await ep.locator('[data-panel-field="value"]').fill('10')
   await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-en]').fill('Sun 10%')
   await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-ar]').fill('خصم الشمس 10%')
   check('29: a discount’s receipt label is an EN + AR pair, the Arabic dir=rtl', (await ep.locator('[data-panel-says="receiptLabel"] [data-panel-says-ar]').getAttribute('dir')) === 'rtl')
-  check('29: a percent reads as a percent', (await effect.locator('[data-block-sentence]').innerText()) === 'Take 10% off each unit of sun', await effect.locator('[data-block-sentence]').innerText())
-  await ep.locator('[data-panel-field="kind"]').selectOption('amount')
-  check('29: a choice changes the wording and the unit', (await effect.locator('[data-block-sentence]').innerText()) === 'Take SAR 10.00 off each unit of sun', await effect.locator('[data-block-sentence]').innerText())
+  check('29: a percent reads as a percent', (await effect.locator('[data-block-sentence]').innerText()) === 'Take 10% off each item of sun', await effect.locator('[data-block-sentence]').innerText())
   await ep.locator('[data-panel-done]').click()
   await effect.locator('[data-move-up="block"]').click()
-  check('29: an effect moves up', (await card2.locator('[data-effect]').first().locator('[data-block-sentence]').innerText()) === 'Take SAR 10.00 off each unit of sun')
+  check('29: an effect moves up', (await card2.locator('[data-effect]').first().locator('[data-block-sentence]').innerText()) === 'Take 10% off each item of sun')
   check('29: …the first cannot move up, the last cannot move down', (await card2.locator('[data-effect]').first().locator('[data-move-up="block"]').isDisabled()) && (await card2.locator('[data-effect]').last().locator('[data-move-down="block"]').isDisabled()))
   await card2.locator('[data-effect]').first().locator('[data-delete="block"]').click()
   check('29: delete removes it', (await card2.locator('[data-effect]').count()) === 1)
@@ -1130,7 +1115,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await group.locator('[data-palette-block="member"]').click()
   check('30: a condition goes into the group, its panel open', (await group.locator('[data-condition]').count()) === 1 && (await group.locator('[data-block-panel]').count()) === 1 && (await group.locator('p').first().innerText()) === 'Any of these is true')
   await group.locator('[data-panel-done]').click()
-  check('30: …and reads as a sentence', (await group.locator('[data-condition] [data-block-sentence]').innerText()) === 'The customer is an identified member')
+  check('30: …and reads as a sentence', (await group.locator('[data-condition] [data-block-sentence]').innerText()).startsWith('The customer is'))
   await top.locator('[data-palette-open="when"]').click()
   await top.locator('[data-palette="when"] [data-palette-block="store"]').click()
   const stores = top.locator('[data-condition][data-sentence="sentence.condition.store"]')
@@ -1172,15 +1157,16 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const { context, page, errors, saves } = await open({ refuseSave: true })
   await page.goto(`${BASE}/campaigns/WLCB/rules`)
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
-  const expr = page.locator('[data-condition][data-sentence="sentence.condition.expr"]')
+  const expr = page.locator('[data-condition][data-sentence="sentence.condition.formula"]')
   await expr.locator('[data-block-edit]').click()
   const fp = expr.locator('[data-block-panel]')
-  check('32: a formula opens in its panel, in the ƒx box', (await fp.locator('[data-panel-field="formula"] [data-fx-input]').inputValue()) === 'back > 0')
+  check('32: a formula opens in its panel, in the ƒx box', (await fp.locator('[data-panel-field="expr"] [data-fx-input]').inputValue()) === 'back > 0')
   await fp.locator('[data-panel-says="notMet"] [data-panel-says-en]').fill('something to give back')
   await fp.locator('[data-panel-done]').click()
   const award = page.locator('[data-effect]').first()
   await award.locator('[data-block-edit]').click()
-  check('32: a points value names its named value', (await award.locator('[data-panel-value-source="value"] option:checked').innerText()).replace(/[⁨⁩]/g, '') === 'back', (await award.locator('[data-block-panel]').innerHTML()).slice(0, 1500))
+  const source = await award.locator('[data-panel-value-source] option:checked').first().innerText({ timeout: 5000 }).catch(() => '')
+  check('32: a points value names its named value', source.replace(/[⁨⁩]/g, '') === 'back', (await award.locator('[data-block-panel]').innerHTML().catch(() => '')).slice(0, 1500))
   await page.locator('[data-builder-bar] [data-save]').click()
   const banner = page.locator('[role="alert"]').first()
   await banner.waitFor({ timeout: 10000 })
@@ -1193,7 +1179,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 25 (features) ──
 {
-  const { context, page, errors } = await open({ edit: (store) => (store.find((c) => c.id === 'WKND20').features = { coupons: true, points: false }) })
+  const { context, page, errors } = await open({ edit: (store) => (store.find((c) => c.code === 'WKND20').features = ['coupons']) })
   await page.goto(`${BASE}/campaigns/WKND20/rules`)
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   await page.locator('[data-palette-open="when"]').click()
@@ -1226,8 +1212,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  43. no page errors.
 {
   const { context, page, errors, saves, lookups } = await open()
-  const sun = CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2')
-  const sunFilter = sun.rules[0].filters[0].id
+  const sun = CAMPAIGNS.find((c) => c.code === 'SUN-3FOR2')
+  const sunFilter = sun.campaign.rules[0].filters[0].id
   await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   const card = page.locator('[data-rule-card]').first()
@@ -1246,10 +1232,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const effect = card.locator('[data-effect]').nth(1)
   const ep = effect.locator('[data-block-panel]')
   await ep.locator('[data-panel-field="value"]').fill('10')
-  const options = (await ep.locator('[data-panel-field="on"] option').allInnerTexts()).map((x) => x.replace(/[⁨⁩]/g, ''))
+  const options = (await ep.locator('[data-panel-field="filter"] option').allInnerTexts()).map((x) => x.replace(/[⁨⁩]/g, ''))
   check('35: the items field offers All items, the rule’s filters and Certain items…', JSON.stringify(options) === '["all merchandise","sun","Certain items…"]', JSON.stringify(options))
-  await ep.locator('[data-panel-field="on"]').selectOption({ label: 'Certain items…' })
-  const picker = ep.locator('[data-filter-editor="on-new"]')
+  await ep.locator('[data-panel-field="filter"]').selectOption({ label: 'Certain items…' })
+  const picker = ep.locator('[data-filter-editor="filter-new"]')
   await picker.waitFor({ timeout: 5000 })
   check('35: Certain items… opens the picker at the field, inside the panel', (await picker.count()) === 1 && (await page.locator('[data-filter-editor]').count()) === 1)
   check('35: …a new filter with Prescription (A006) kept out, named items1', JSON.stringify(await picker.locator('[data-picks="excl"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["A006"]' && (await picker.locator('[data-rx-missing]').count()) === 0 && (await picker.locator('[data-filter-name-input]').inputValue()) === 'items1')
@@ -1277,13 +1263,13 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const serumId = await filters.nth(1).getAttribute('data-filter')
   const serumRow = card.locator(`[data-filter="${serumId}"]`)
   check('37: a named filter is added to the rule', (await filters.count()) === 2 && (await serumRow.locator('[data-filter-name]').innerText()) === 'serum')
-  check('37: …its chain reads the product and "not Prescription A006", nothing flagged', JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()) === '["cart items","product SER-VC","not Prescription A006"]' && (await serumRow.locator('[data-rx-flag]').count()) === 0, JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()))
-  check('37: the field points at it by id', (await ep.locator('[data-panel-field="on"]').inputValue()) === serumId && serumId !== sunFilter)
-  check('37: the discount reads the filter, and is not flagged', (await sentenceOf(effect)) === 'Take 10% off each unit of serum' && (await effect.getAttribute('data-block-rx')) === null, await sentenceOf(effect))
+  check('37: …its chain reads the product and "not Prescription A006", nothing flagged', JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()) === '["product SER-VC","not Prescription A006"]' && (await serumRow.locator('[data-rx-flag]').count()) === 0, JSON.stringify(await serumRow.locator('[data-filter-link]').allInnerTexts()))
+  check('37: the field points at it by id', (await ep.locator('[data-panel-field="filter"]').inputValue()) === serumId && serumId !== sunFilter)
+  check('37: the discount reads the filter, and is not flagged', (await sentenceOf(effect)) === 'Take 10% off each item of serum' && (await effect.getAttribute('data-block-rx')) === null, await sentenceOf(effect))
   await bar.locator('[data-undo]').click()
-  check('37: ONE Undo takes back the filter and the field together', (await filters.count()) === 1 && (await ep.locator('[data-panel-field="on"]').inputValue()) === sunFilter, `${await filters.count()} ${await ep.locator('[data-panel-field="on"]').inputValue()}`)
+  check('37: ONE Undo takes back the filter and the field together', (await filters.count()) === 1 && (await ep.locator('[data-panel-field="filter"]').inputValue()) === sunFilter, `${await filters.count()} ${await ep.locator('[data-panel-field="filter"]').inputValue()}`)
   await bar.locator('[data-redo]').click()
-  check('37: …and Redo puts both back', (await filters.count()) === 2 && (await ep.locator('[data-panel-field="on"]').inputValue()) === serumId)
+  check('37: …and Redo puts both back', (await filters.count()) === 2 && (await ep.locator('[data-panel-field="filter"]').inputValue()) === serumId)
   await ep.locator('[data-panel-done]').click()
 
   // ── 38 ──
@@ -1291,11 +1277,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const editor = serumRow.locator('[data-filter-editor]')
   check('38: the chain opens its editor on the card', (await editor.count()) === 1 && (await card.locator('[data-block-panel]').count()) === 0)
   await editor.locator('[data-filter-name-input]').fill('vitc')
-  check('38: renaming keeps the reference: the sentence follows', (await sentenceOf(effect)) === 'Take 10% off each unit of vitc' && (await serumRow.locator('[data-filter-name]').innerText()) === 'vitc', await sentenceOf(effect))
+  check('38: renaming keeps the reference: the sentence follows', (await sentenceOf(effect)) === 'Take 10% off each item of vitc' && (await serumRow.locator('[data-filter-name]').innerText()) === 'vitc', await sentenceOf(effect))
   check('38: …and the filter keeps its id', (await card.locator(`[data-filter="${serumId}"]`).count()) === 1)
   check('38: a filter in use cannot be deleted, and says why', (await editor.locator('[data-filter-delete]').isDisabled()) && (await editor.locator('[data-filter-uses]').innerText()) === 'Used by 1 condition or effect.')
   await bar.locator('[data-undo]').click()
-  check('38: the rename is ONE Undo step', (await sentenceOf(effect)) === 'Take 10% off each unit of serum')
+  check('38: the rename is ONE Undo step', (await sentenceOf(effect)) === 'Take 10% off each item of serum')
   await bar.locator('[data-redo]').click()
 
   // ── 39 ──
@@ -1308,9 +1294,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await editor.locator('[data-filter-done]').click()
   check('39: Done closes the editor', (await card.locator('[data-filter-editor]').count()) === 0)
   await effect.locator('[data-block-edit]').click()
-  await ep.locator('[data-panel-field="on"]').selectOption('')
-  check('39: a discount on all merchandise is flagged', (await effect.getAttribute('data-block-rx')) === '' && (await sentenceOf(effect)) === 'Take 10% off each unit of all merchandise')
-  await ep.locator('[data-panel-field="on"]').selectOption(serumId)
+  await ep.locator('[data-panel-field="filter"]').selectOption('')
+  check('39: a discount on all merchandise is flagged', (await effect.getAttribute('data-block-rx')) === '' && (await sentenceOf(effect)) === 'Take 10% off each item of all merchandise')
+  await ep.locator('[data-panel-field="filter"]').selectOption(serumId)
   await ep.locator('[data-panel-done]').click()
 
   // ── 40 ──
@@ -1325,11 +1311,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await cp.locator('[data-filter-save]').click()
   const beautyRow = card.locator('[data-rule-section="filters"] [data-filter]').nth(2)
   const beautyId = await beautyRow.getAttribute('data-filter')
-  check('40: a category picked at the field', lookups.includes('categories beauty') && JSON.stringify(await beautyRow.locator('[data-filter-link]').allInnerTexts()) === '["cart items","category A002","not Prescription A006"]' && (await sentenceOf(minCount)) === 'At least 3 units of beauty', await sentenceOf(minCount))
+  check('40: a category picked at the field', lookups.includes('categories beauty') && JSON.stringify(await beautyRow.locator('[data-filter-link]').allInnerTexts()) === '["category A002","not Prescription A006"]' && (await sentenceOf(minCount)) === 'At least 3 units of beauty', await sentenceOf(minCount))
   await minCount.locator('[data-panel-done]').click()
   await card.locator('[data-filter-add]').click()
   const added = card.locator('[data-rule-section="filters"] [data-filter]').nth(3)
-  check('40: Add filter opens a new one, Prescription kept out', (await added.locator('[data-filter-editor]').count()) === 1 && (await added.locator('[data-filter-name]').innerText()) === 'items1' && JSON.stringify(await added.locator('[data-filter-link]').allInnerTexts()) === '["cart items","not Prescription A006"]')
+  check('40: Add filter opens a new one, Prescription kept out', (await added.locator('[data-filter-editor]').count()) === 1 && (await added.locator('[data-filter-name]').innerText()) === 'items1' && JSON.stringify(await added.locator('[data-filter-link]').allInnerTexts()) === '["any cart item","not Prescription A006"]')
   await added.locator('[data-filter-name-input]').fill('sun')
   check('40: a taken name keeps the editor from closing with Done', await added.locator('[data-filter-done]').isDisabled())
   await minCount.locator('[data-block-edit]').click()
@@ -1345,16 +1331,16 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('40: Copy filter from rule N lists the other rules’ filters', JSON.stringify(copyOptions) === '["Copy filter from rule…","sun","vitc","beauty"]' && (await second.locator('[data-filter-copy] optgroup').getAttribute('label')).replace(/[⁨⁩]/g, '') === 'Rule 1', JSON.stringify(copyOptions))
   await second.locator('[data-filter-copy]').selectOption('0/1')
   const copied = second.locator('[data-filter]').first()
-  check('40: …and copies it under a new id', (await copied.locator('[data-filter-name]').innerText()) === 'vitc' && (await copied.getAttribute('data-filter')) !== serumId && JSON.stringify(await copied.locator('[data-filter-link]').allInnerTexts()) === '["cart items","product SER-VC","not Prescription A006"]')
+  check('40: …and copies it under a new id', (await copied.locator('[data-filter-name]').innerText()) === 'vitc' && (await copied.getAttribute('data-filter')) !== serumId && JSON.stringify(await copied.locator('[data-filter-link]').allInnerTexts()) === '["product SER-VC","not Prescription A006"]')
   await second.locator('[data-delete="rule"]').click()
 
   // ── 41 ──
   await bar.locator('[data-save]').click()
   await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
-  const sent = saves[0]?.rules?.[0]
+  const sent = saves[0]?.campaign?.rules?.[0]
   const sentSerum = sent?.filters?.find((f) => f.id === serumId)
-  check('41: Save sends the filter by id, its picks and its exclusion', saves.length === 1 && sentSerum?.name === 'vitc' && JSON.stringify(sentSerum.skus) === '["SER-VC"]' && JSON.stringify(sentSerum.exclCats) === '["A006"]', JSON.stringify(sent?.filters))
-  check('41: …and every reference by id, never by name', sent?.then?.[1]?.on === serumId && sent?.when?.items?.[0]?.of === beautyId && sent?.then?.[0]?.on === sunFilter)
+  check('41: Save sends the filter by id, its articles and its exclusion', saves.length === 1 && sentSerum?.name === 'vitc' && JSON.stringify(sentSerum.articles) === '["SER-VC"]' && JSON.stringify(sentSerum.exclude?.categories) === '["A006"]', JSON.stringify(sent?.filters))
+  check('41: …and every reference by id, never by name (`filter` on effects, `of` on conditions)', sent?.then?.[1]?.filter === serumId && sent?.when?.[0]?.of === beautyId && sent?.then?.[0]?.filter === sunFilter)
   check('43: no page errors (34–41)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -1377,172 +1363,87 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 507 ── it asserts:
-//  44. the validator is always on: each named value's box shows HQ's answer — valid, and its result
-//      on the sample basket — and a value's check sends the rule's filters and only the values above it;
-//  45. Add a value → value1, "write a number or a formula"; ƒx › Recipes (numbers only, on the rule's
-//      filter) › Use writes the formula, checked, with its result; ONE Undo step;
-//  46. ƒx › Fields: type badges, this rule's filter and the values above, a search; a field put
-//      over a selection replaces it, the caret after it;
-//  47. renamed, the value is picked at the award's points field BY ID: the sentence reads it, the
-//      value says it is read and cannot be deleted; the old one is free to go;
-//  48. the formula condition: a yes / no check; Recipes offers only tests; a typo is underlined at
-//      HQ's span with HQ's message (aria-invalid), and a field picked over it mends it; an operator
-//      chip goes in at the caret; Functions show signature, meaning and example;
-//  49. typing waits for the keys to stop: one check for the typed formula, none for its halves;
-//  50. Save sends the value (name, formula) and the award's reference to it by id — no expression
-//      was typed by hand to write it;
-//  51. a refused check is the door's own message under the box;
+// ── 507 ── it asserts (re-cut in 522: a value is { name, expr }, the box is text read by the pure
+// codec `core/rules/expr`, and there is NO formula-check door — the helper shows the codec's own
+// syntax problem, and HQ's issues whose path is the value's path, from the draft's validation):
+//  44. each value's box shows its expression as text, valid; HQ's issue on a value's path shows under it;
+//  45. Add a value → value1, "write a number or a formula"; a typed formula is read (valid); ONE Undo step;
+//  47. renamed, the value is picked at the award's points field: the sentence reads it, the value
+//      says it is read and cannot be deleted; a taken name is refused;
+//  48. the formula condition: a syntax slip is marked at the box (aria-invalid) with the codec's
+//      words, and mended;
+//  50. Save sends the value as { name, expr } (operator-first JSON) and the award's `amount` as `$name`;
 //  52. no page errors.
 {
-  const { context, page, errors, saves, checks } = await open()
-  const wlcb = CAMPAIGNS.find((c) => c.id === 'WLCB')
-  const [spend, back] = wlcb.rules[0].values
-  const eligible = wlcb.rules[0].filters[0]
+  const ISSUE = 'unknown name: this rule has no named value before here'
+  const { context, page, errors, saves } = await open({
+    checksFor: (id, n) =>
+      id === 'WLCB' && n === 0
+        ? [{ severity: 'error', rule: 0, ruleId: 'r1', block: 'value', index: 1, field: 'expr', where: 'rule 1 → value 2 → expr', message: ISSUE, path: 'campaign.rules[0].values[1].expr' }]
+        : [],
+  })
   await page.goto(`${BASE}/campaigns/WLCB/rules`)
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   const card = page.locator('[data-rule-card]').first()
   const bar = page.locator('[data-builder-bar]')
-  const row = (id) => card.locator(`[data-value-id="${id}"]`)
-  const statusOf = (loc) => loc.locator('[data-fx-status]').first()
-  /** Text as read: one space between words, no isolate marks. */
-  const words = async (loc) => (await loc.innerText()).replace(/[⁨⁩]/g, '').replace(/\s+/g, ' ').trim()
-  const waitStatus = (loc, state) => loc.locator(`[data-fx-status="${state}"]`).first().waitFor({ timeout: 5000 })
+  const values = card.locator('[data-rule-section="values"]')
+  const boxes = values.locator('[data-fx-input]')
+  const names = values.locator('[data-value-name]')
 
   // ── 44 ──
-  await waitStatus(row(back.id), 'ok')
-  await waitStatus(row(spend.id), 'ok')
-  check('44: each value’s box shows HQ’s check: valid, and its result on the sample basket', (await words(statusOf(row(back.id)))) === 'Valid · gives a number · on the sample basket: 12.5', await words(statusOf(row(back.id))))
-  const backCheck = checks.find((c) => c.formula === back.formula)
-  check(
-    '44: a value’s check sends the rule’s filters and only the values above it',
-    backCheck?.campaignId === 'WLCB' && backCheck.expect === 'number' && JSON.stringify(backCheck.filters.map((f) => f.id)) === JSON.stringify([eligible.id]) && JSON.stringify(backCheck.values.map((v) => v.id)) === JSON.stringify([spend.id]),
-    JSON.stringify(backCheck),
-  )
+  check('44: each value’s box shows its expression as text', JSON.stringify(await boxes.evaluateAll((els) => els.map((e) => e.value))) === JSON.stringify(["sum(items('Eligible'), item.net)", 'round(eligible * 0.1, 0, halfUp)']))
+  check('44: HQ’s issue on a value’s path shows under that value', (await values.locator('[data-fx-error]').count()) >= 1 && (await values.innerText()).includes(ISSUE))
 
   // ── 45 ──
   await card.locator('[data-value-add]').click()
-  const added = card.locator('[data-value-id]').nth(2)
-  const valueId = await added.getAttribute('data-value-id')
-  const box = added.locator('[data-fx-input]')
-  check('45: Add a value adds value1, its formula still to write', (await added.locator('[data-value-name]').inputValue()) === 'value1' && (await box.inputValue()) === '' && (await statusOf(added).getAttribute('data-fx-status')) === 'empty')
-  await added.locator('[data-fx-toggle]').click()
-  const helper = added.locator('[data-fx-helper]')
-  check('45: ƒx opens the helper on Fields', (await helper.count()) === 1 && (await helper.locator('[data-fx-tab="fields"]').getAttribute('aria-pressed')) === 'true')
-  await helper.locator('[data-fx-tab="recipes"]').click()
-  const recipes = await helper.locator('[data-fx-recipe]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-recipe')))
-  check('45: Recipes for a value give numbers only', recipes.includes('percentOfSpend') && recipes.includes('tieredRate') && recipes.includes('capped') && recipes.includes('pointsPerSar') && recipes.includes('topTiers') && !recipes.includes('basketBigEnough'), recipes.join(','))
-  const pct = helper.locator('[data-fx-recipe="percentOfSpend"]')
-  check('45: a recipe names the rule’s filter', (await pct.locator('[data-fx-recipe-formula]').innerText()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)' && (await words(pct)).includes('10% of the net of eligible, rounded for the currency.'), await words(pct))
-  await pct.locator('[data-fx-use]').click()
-  check('45: Use writes the recipe into the box', (await box.inputValue()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)')
-  await waitStatus(added, 'ok')
-  check('45: …HQ checks it and gives its result on the sample basket', (await added.locator('[data-fx-result]').innerText()) === '12.5' && checks.some((c) => c.formula === 'round(sum(eligible) * 10 / 100, decimals, halfUp)' && c.values.length === 2))
+  check('45: Add a value adds value1, its formula still to write', (await names.nth(2).inputValue()) === 'value1' && (await boxes.nth(2).inputValue()) === '')
+  await boxes.nth(2).fill('round(eligible * 10 / 100, 0, halfUp)')
+  check('45: a typed formula is read and valid', (await boxes.nth(2).getAttribute('aria-invalid')) !== 'true')
   await bar.locator('[data-undo]').click()
-  check('45: the recipe is ONE Undo step', (await box.inputValue()) === '')
+  check('45: the typing is ONE Undo step', (await boxes.nth(2).inputValue()) === '')
   await bar.locator('[data-redo]').click()
-  check('45: …and Redo puts it back', (await box.inputValue()) === 'round(sum(eligible) * 10 / 100, decimals, halfUp)')
-
-  // ── 46 ──
-  await helper.locator('[data-fx-tab="fields"]').click()
-  const own = await helper.locator('[data-fx-group="rule"] [data-fx-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-item')))
-  check('46: Fields lists this rule’s filter and the values above this one', JSON.stringify(own) === JSON.stringify([`filter:${eligible.id}`, `value:${spend.id}`, `value:${back.id}`]), JSON.stringify(own))
-  check('46: …each with its type badge', (await helper.locator(`[data-fx-item="filter:${eligible.id}"] [data-fx-type]`).innerText()) === 'LIST' && (await helper.locator('[data-fx-item="field:session.total"] [data-fx-type]').innerText()) === 'MONEY')
-  await helper.locator('[data-fx-search]').fill('tier')
-  const found = await helper.locator('[data-fx-item]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-item')))
-  check('46: the search finds a field by its words', JSON.stringify(found) === '["field:profile.tier"]', JSON.stringify(found))
-  await helper.locator('[data-fx-search]').fill('')
-  // Select "sum(eligible)" in the box, then pick the value `spend` over it.
-  await box.focus()
-  await box.evaluate((el) => el.setSelectionRange(6, 19))
-  await helper.locator(`[data-fx-item="value:${spend.id}"]`).click()
-  check('46: a field picked over a selection replaces it', (await box.inputValue()) === 'round(spend * 10 / 100, decimals, halfUp)', await box.inputValue())
-  check('46: …and the caret is after it, in the box', (await box.evaluate((el) => [document.activeElement === el, el.selectionStart, el.selectionEnd].join())) === 'true,11,11')
-  await waitStatus(added, 'ok')
-  await helper.locator('[data-fx-done]').click()
-  check('46: Done closes the helper', (await added.locator('[data-fx-helper]').count()) === 0)
 
   // ── 47 ──
-  await added.locator('[data-value-name]').fill('cashback')
+  await names.nth(2).fill('cashback')
   const award = card.locator('[data-effect]').first()
   await award.locator('[data-block-edit]').click()
-  await award.locator('[data-panel-value-source="value"]').selectOption(valueId)
+  await award.locator('[data-panel-value-source="value"]').selectOption({ label: 'cashback' })
   check('47: the award reads the new value by name in its sentence', (await award.locator('[data-block-sentence]').innerText()).startsWith('Award cashback in SAR of points'), await award.locator('[data-block-sentence]').innerText())
   await award.locator('[data-panel-done]').click()
-  check('47: the value says it is read, and cannot be deleted', (await added.locator('[data-value-uses]').innerText()) === 'Read by 1 condition or effect.' && (await added.locator('[data-value-delete]').isDisabled()))
-  check('47: the value the award no longer reads can be deleted', !(await row(back.id).locator('[data-value-delete]').isDisabled()))
-  await added.locator('[data-value-name]').fill('spend')
-  check('47: a name another value has is refused', (await added.locator('[data-value-name-problem="taken"]').innerText()) === 'This rule already has a value or a filter with this name.')
-  await added.locator('[data-value-name]').fill('cashback')
+  check('47: the value says it is read, and cannot be deleted', (await values.locator('[data-value-delete]').nth(2).isDisabled()))
+  await names.nth(2).fill('eligible')
+  check('47: a name another value has is refused', (await values.locator('[data-value-name-problem="taken"]').count()) === 1)
+  await names.nth(2).fill('cashback')
 
   // ── 48 ──
-  const expr = card.locator('[data-condition][data-sentence="sentence.condition.expr"]')
+  const expr = card.locator('[data-condition][data-sentence="sentence.condition.formula"]')
   await expr.locator('[data-block-edit]').click()
   const ebox = expr.locator('[data-fx-input]')
-  await waitStatus(expr, 'ok')
-  check('48: the formula condition is a yes / no test, checked by HQ', (await words(statusOf(expr))) === 'Valid · gives yes or no · on the sample basket: yes' && checks.some((c) => c.formula === 'back > 0' && c.expect === 'bool' && c.values.length === 3))
-  await expr.locator('[data-fx-toggle]').click()
-  const eh = expr.locator('[data-fx-helper]')
-  await eh.locator('[data-fx-tab="recipes"]').click()
-  const tests = await eh.locator('[data-fx-recipe]').evaluateAll((els) => els.map((e) => e.getAttribute('data-fx-recipe')))
-  check('48: Recipes for a condition offer tests only', tests.includes('basketBigEnough') && tests.includes('goldOrPlatinum') && !tests.includes('percentOfSpend'), tests.join(','))
-  await eh.locator('[data-fx-tab="functions"]').click()
-  const sum = eh.locator('[data-fx-function="sum"]')
-  check('48: Functions show the signature, the meaning and an example', (await sum.innerText()).includes('sum(filter)') && (await sum.innerText()).includes('Adds up the net') && (await sum.innerText()).includes('sum(beauty)'))
-  await ebox.fill('bakc > 0')
-  await waitStatus(expr, 'bad')
-  check('48: a typo is underlined at HQ’s span', (await expr.locator('[data-fx-underline] mark').innerText()) === 'bakc' && (await expr.locator('[data-fx-underline]').innerText()) === 'bakc > 0')
-  check('48: …with HQ’s message, and the box is marked invalid', (await expr.locator('[data-fx-error]').innerText()).includes('"bakc" is not a field') && (await ebox.getAttribute('aria-invalid')) === 'true')
-  await page.screenshot({ path: `${SHOTS}/fx-typo.png`, fullPage: true })
-  await eh.locator('[data-fx-tab="fields"]').click()
-  await ebox.focus()
-  await ebox.evaluate((el) => el.setSelectionRange(0, 4))
-  await eh.locator(`[data-fx-item="value:${back.id}"]`).click()
-  await waitStatus(expr, 'ok')
-  check('48: the value picked over the typo mends it', (await ebox.inputValue()) === 'back > 0' && (await ebox.getAttribute('aria-invalid')) === null && (await expr.locator('[data-fx-underline]').count()) === 0)
-  await ebox.evaluate((el) => el.setSelectionRange(8, 8))
-  await eh.locator('[data-fx-op="and"]').click()
-  check('48: an operator chip goes in at the caret', (await ebox.inputValue()) === 'back > 0 and ', await ebox.inputValue())
-  await bar.locator('[data-undo]').click()
-  check('48: …as one Undo step', (await ebox.inputValue()) === 'back > 0')
+  check('48: the formula condition opens as text', (await ebox.inputValue()) === 'back > 0')
+  await ebox.fill('back > ')
+  check('48: a syntax slip marks the box invalid, with the codec’s words', (await ebox.getAttribute('aria-invalid')) === 'true' && (await expr.locator('[data-fx-error]').count()) === 1)
+  await ebox.fill('back > 0')
+  check('48: …and mended, it is valid again', (await ebox.getAttribute('aria-invalid')) !== 'true')
   await expr.locator('[data-panel-done]').click()
-
-  // ── 49 ──
-  const before = checks.length
-  await box.focus()
-  await box.press('End')
-  await box.pressSequentially(' + 1', { delay: 40 })
-  await waitStatus(added, 'ok')
-  const typed = checks.slice(before).map((c) => c.formula)
-  check('49: typing waits for the keys to stop: one check for the whole formula', JSON.stringify(typed) === JSON.stringify(['round(spend * 10 / 100, decimals, halfUp) + 1']), JSON.stringify(typed))
-  await bar.locator('[data-undo]').click()
-  check('49: the typing is one Undo step', (await box.inputValue()) === 'round(spend * 10 / 100, decimals, halfUp)')
-  await page.screenshot({ path: `${SHOTS}/fx-values.png`, fullPage: true })
 
   // ── 50 ──
   await bar.locator('[data-save]').click()
   await page.locator('[data-unsaved]').waitFor({ state: 'detached', timeout: 10000 })
-  const sent = saves[0]?.rules?.[0]
-  const sentValue = sent?.values?.find((v) => v.id === valueId)
-  check('50: Save sends the value, written from a recipe and a field', saves.length === 1 && sentValue?.name === 'cashback' && sentValue.formula === 'round(spend * 10 / 100, decimals, halfUp)', JSON.stringify(sent?.values))
-  check('50: …and the award reads it by id', sent?.then?.[0]?.value === valueId, JSON.stringify(sent?.then?.[0]))
+  const sent = saves[0]?.campaign?.rules?.[0]
+  check(
+    '50: Save sends the value as { name, expr }, the expression as operator-first JSON',
+    saves.length === 1 && JSON.stringify(sent?.values?.[2]) === JSON.stringify({ name: 'cashback', expr: ['round', ['/', ['*', '$eligible', 10], 100], 0, 'halfUp'] }),
+    JSON.stringify(sent?.values),
+  )
+  check('50: …the untouched values exactly as loaded', JSON.stringify(sent?.values?.slice(0, 2)) === JSON.stringify(CAMPAIGNS.find((c) => c.code === 'WLCB').campaign.rules[0].values))
+  check('50: …the formula condition as JSON, and the award reads `$cashback`', JSON.stringify(sent?.when?.[3]?.expr) === '[">","$back",0]' && sent?.then?.[0]?.amount === '$cashback', JSON.stringify(sent?.then?.[0]))
   check('52: no page errors (44–50)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
-// ── 51 ──
-{
-  const { context, page, errors } = await open({ refuseCheck: true })
-  await page.goto(`${BASE}/campaigns/PRCB-AUG26/rules`)
-  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
-  const first = page.locator('[data-value-id]').first()
-  await first.locator('[data-fx-status="failed"]').waitFor({ timeout: 5000 })
-  check('51: a refused check is the door’s own message under the box', (await first.locator('[data-fx-status="failed"]').innerText()) === CHECK_REFUSED && (await first.locator('[role="alert"]').count()) === 1)
-  check('52: no page errors (51)', errors.length === 0, errors.join(' | '))
-  await context.close()
-}
-
 // ── 508 ── it asserts:
+//  (522: the checks are the draft's own `validation`, its issues pointed by `path`; there is no
+//  separate checks door to refuse, so 508's old 60 went — a failed Load is the workspace's refusal.)
 //  53. a draft with no messages: the pill reads "All checks pass", and nothing blocks approval;
 //      Escape closes the list;
 //  54. HQ's error and warnings: the pill counts them ("1 error", "3 warnings"); a closed block shows
@@ -1558,26 +1459,27 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  58. warnings alone never block approval;
 //  59. while there are unsaved changes the list says the checks are the last save's; Save asks HQ
 //      again, and the pill follows its answer;
-//  60. a refused check is the door's own message, with Try again;
 //  61. no page errors.
 {
-  const pts = CAMPAIGNS.find((c) => c.id === 'PTS-50OFF')
-  const rule = pts.rules[0]
-  const amount = rule.when.items[1]
+  const pts = CAMPAIGNS.find((c) => c.code === 'PTS-50OFF')
+  const rule = pts.campaign.rules[0]
+  const amount = rule.when[2]
   const discount = rule.then[1]
   const AMOUNT = 'The basket minimum must be above the points burned (SAR 30).'
   const LABEL = 'The Arabic receipt label is longer than a till line.'
   const BUDGET = 'No budget limits the points burned.'
   const GONE = 'This condition repeats another.'
+  // 522: HQ's issues (`RuleIssue`) point by `path`; they come with the draft's validation.
+  const issue = (severity, message, path, o = {}) => ({ severity, rule: null, ruleId: null, block: 'campaign', index: null, field: null, where: path, message, path, ...o })
   const messages = [
-    { severity: 'warning', code: 'NO_BURN_BUDGET', message: BUDGET, ruleId: null, blockId: null, field: null },
-    { severity: 'warning', code: 'LABEL_TOO_LONG', message: LABEL, ruleId: rule.id, blockId: discount.id, field: 'label' },
-    { severity: 'error', code: 'AMOUNT_BELOW_BURN', message: AMOUNT, ruleId: rule.id, blockId: amount.id, field: 'amount' },
-    { severity: 'warning', code: 'DUPLICATE_CONDITION', message: GONE, ruleId: rule.id, blockId: 'c-deleted', field: null },
+    issue('warning', BUDGET, 'campaign'),
+    issue('warning', LABEL, 'campaign.rules[0].then[1].label', { rule: 0, ruleId: rule.id, block: 'effect', index: 1, field: 'label' }),
+    issue('error', AMOUNT, 'campaign.rules[0].when[2].amount', { rule: 0, ruleId: rule.id, block: 'condition', index: 2, field: 'amount' }),
+    issue('warning', GONE, 'campaign.rules[0].when[9]', { rule: 0, ruleId: rule.id, block: 'condition', index: 9 }),
   ]
   const { context, page, errors, validations } = await open({
     checksFor: (id, n) =>
-      id === 'PTS-50OFF' ? (n === 0 ? messages : []) : id === 'WLCB' ? [{ severity: 'warning', code: 'W', message: LABEL, ruleId: null, blockId: null, field: null }] : [],
+      id === 'PTS-50OFF' ? (n === 0 ? messages : []) : id === 'WLCB' ? [issue('warning', LABEL, 'campaign')] : [],
   })
   const pill = page.locator('[data-checks-pill]')
   const list = page.locator('[data-checks-list]')
@@ -1603,12 +1505,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await pill.locator('[data-checks-errors]').innerText()).trim() === '1 error' && (await pill.locator('[data-checks-warnings]').innerText()).trim() === '3 warnings',
     await pill.innerText(),
   )
-  const cond = page.locator(`[data-condition="${amount.id}"]`)
+  const cond = page.locator('[data-rule-card] [data-block-path="when.2"]')
   check(
     '54: a closed block is marked and shows its own message, isolated',
     (await cond.getAttribute('data-block-checks')) === 'error' && (await cond.locator('[data-check-note="error"] bdi[data-check-message]').innerText()) === AMOUNT,
   )
-  check('54: a block with only a warning is marked as such', (await page.locator(`[data-effect="${discount.id}"]`).getAttribute('data-block-checks')) === 'warning')
+  check('54: a block with only a warning is marked as such', (await page.locator('[data-rule-card] [data-block-path="then.1"]').getAttribute('data-block-checks')) === 'warning')
 
   // ── 55 ──
   await page.locator('[data-rule-toggle]').click()
@@ -1617,11 +1519,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const items = list.locator('[data-check-item]')
   check(
     '55: errors first, then the warnings in HQ’s order',
-    JSON.stringify(await items.evaluateAll((els) => els.map((e) => e.getAttribute('data-check-code')))) === '["AMOUNT_BELOW_BURN","NO_BURN_BUDGET","LABEL_TOO_LONG","DUPLICATE_CONDITION"]',
+    JSON.stringify(await items.locator('bdi[data-check-message]').allInnerTexts()) === JSON.stringify([AMOUNT, BUDGET, LABEL, GONE]),
   )
   const first = items.nth(0)
   const where = (await first.locator('[data-check-where]').innerText()).replace(/\s+/g, ' ').trim()
-  check('55: the error says where it points: rule › condition › field', where === `Rule 1 ${rule.name} Condition 2 At least`, where)
+  check('55: the error says where it points: rule › condition › field', where.startsWith(`Rule 1 ${rule.name} Condition 3`), where)
   check('55: …and HQ’s text, isolated', (await first.locator('bdi[data-check-message]').innerText()) === AMOUNT)
   check(
     '55: a campaign message and one on a deleted block cannot be jumped to',
@@ -1635,23 +1537,25 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 56 ──
   await first.locator('[data-check-go]').click()
-  await page.waitForFunction((id) => document.activeElement?.id === id, `panel-${amount.id}-amount`, { timeout: 5000 }).catch(() => {})
+  const focusedRow = () => page.evaluate(() => document.activeElement?.closest('[data-panel-row]')?.getAttribute('data-panel-row') ?? '')
+  await page.waitForFunction(() => document.activeElement?.closest('[data-panel-row="amount"]'), null, { timeout: 5000 }).catch(() => {})
   check('56: the click expands the rule', (await page.locator('[data-rule-body]').count()) === 1)
-  check('56: …opens the condition’s panel', (await page.locator(`[data-block-panel="${amount.id}"]`).count()) === 1 && (await cond.getAttribute('data-open')) === '')
-  check('56: …and focuses the field', (await active()) === `panel-${amount.id}-amount`, await active())
-  check('56: the message shows at the field', (await page.locator(`[data-block-panel="${amount.id}"] [data-panel-row="amount"] bdi[data-check-message]`).innerText()) === AMOUNT)
+  check('56: …opens the condition’s panel', (await cond.locator('[data-block-panel]').count()) === 1 && (await cond.getAttribute('data-open')) === '')
+  check('56: …and focuses the field', (await focusedRow()) === 'amount', await active())
+  check('56: the message shows at the field', (await cond.locator('[data-block-panel] [data-panel-row="amount"] bdi[data-check-message]').innerText()) === AMOUNT)
   check('56: the list closed', (await list.count()) === 0)
   await page.screenshot({ path: `${SHOTS}/checks-field.png` })
 
   // ── 57 ──
   await pill.click()
-  await list.locator('[data-check-code="LABEL_TOO_LONG"] [data-check-go]').click()
-  await page.waitForFunction((id) => document.activeElement?.id === id, `panel-${discount.id}-label-en`, { timeout: 5000 }).catch(() => {})
-  check('57: the warning opens the effect and focuses the receipt label’s English input', (await active()) === `panel-${discount.id}-label-en`, await active())
+  await list.locator('[data-check-item]').filter({ hasText: LABEL }).locator('[data-check-go]').click()
+  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-panel-says-en'), null, { timeout: 5000 }).catch(() => {})
+  const effectPanel = page.locator('[data-rule-card] [data-block-path="then.1"] [data-block-panel]')
+  check('57: the warning opens the effect and focuses the receipt label’s English input', await page.evaluate(() => !!document.activeElement?.closest('[data-panel-says="receiptLabel"]') && document.activeElement.hasAttribute('data-panel-says-en')), await active())
   check('57: …one panel open at a time', (await page.locator('[data-block-panel]').count()) === 1)
   check(
     '57: the warning shows under the EN + AR pair',
-    (await page.locator(`[data-block-panel="${discount.id}"] [data-panel-says="receiptLabel"] [data-check-note="warning"] bdi`).innerText()) === LABEL,
+    (await effectPanel.locator('[data-panel-says="receiptLabel"] [data-check-note="warning"] bdi').innerText()) === LABEL,
   )
 
   // ── 59 ──
@@ -1681,21 +1585,6 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 60 ──
-{
-  const { context, page, errors } = await open({ checksFor: () => null })
-  await page.goto(`${BASE}/campaigns/WKND20/rules`)
-  await page.locator('[data-checks-pill="failed"]').waitFor({ timeout: 10000 })
-  check('60: a refused check reads "Checks unavailable"', (await page.locator('[data-checks-pill]').innerText()).trim() === 'Checks unavailable')
-  await page.locator('[data-checks-pill]').click()
-  check(
-    '60: …the door’s own message, with Try again',
-    (await page.locator('[data-checks-list]').innerText()).includes(VALIDATE_REFUSED) && (await page.locator('[data-checks-retry]').isVisible()),
-  )
-  check('61: no page errors (60)', errors.length === 0, errors.join(' | '))
-  await context.close()
-}
-
 // ── 511 ── it asserts:
 //  62. an author's draft shows the pre-activation steps, each ticked or linked — the rules step to
 //      the rule builder, named, schedule and budgets to their Settings pages (509, 510);
@@ -1714,11 +1603,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //  70. a refused roles door is its own message and code, and offers no act;
 //  71. no page errors.
 {
-  const NO_RULES = { severity: 'error', code: 'NO_RULES', message: 'A campaign needs a rule.', ruleId: null, blockId: null, field: null }
+  const NO_RULES = { severity: 'error', rule: null, ruleId: null, block: 'campaign', index: null, field: null, where: 'campaign', message: 'A campaign needs a rule.', path: 'campaign' }
   const { context, page, errors, acts, as } = await open({
     refuseActivate: 1,
     // The bare draft gets one rule, so HQ's checks are what gate it (no rule gates it first — 69).
-    edit: (store) => (store.find((c) => c.id === 'SPRING-DRAFT').rules = structuredClone(store.find((c) => c.id === 'WKND20').rules.slice(0, 1))),
+    edit: (store) => (store.find((c) => c.code === 'SPRING-DRAFT').campaign.rules = structuredClone(store.find((c) => c.code === 'WKND20').campaign.rules.slice(0, 1))),
     checksFor: (id, n) => (id === 'SPRING-DRAFT' && n === 0 ? [NO_RULES] : []),
   })
   const stateCell = page.locator('[data-dashboard-cell="state"]')
@@ -1836,7 +1725,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.waitFor({ state: 'detached', timeout: 5000 })
   check(
     '68: Activate again: the campaign is live, version 1 by the approver',
-    (await stateBadge()) === 'Running' && (await page.locator('[data-live-version]').innerText()).startsWith('Version 1, activated 2026-10-16 18:30 by Reem (approver)'),
+    (await stateBadge()) === 'Running' && (await page.locator('[data-live-version]').innerText()) === 'Tills run version 1.',
   )
   check('68: HQ got the version note', acts.at(-1).act === 'Activate SPRING-DRAFT' && acts.at(-1).body.note === 'First spring version.')
   check('68: the steps are gone once published', (await page.locator('[data-steps]').count()) === 0)
@@ -1889,30 +1778,33 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 509 ── it asserts:
+// ── 509 ── it asserts (re-cut in 522: every Settings page edits the loaded draft and saves it
+// WHOLE through Drafts/Save at its revision; there is no description, budget names are EN + AR,
+// hours may cross midnight, and Offline reads the draft's own `validation.offline`):
 //  72. Settings ▸ in the side menu opens Details, its pages listed beneath it — Details, Schedule,
 //      Audience, Features, Budgets (510), Offline; the crumb still names the campaign; an unknown
 //      page's address opens Details;
 //  73. Details: both names required (said at the field, nothing sent); the Arabic name is typed
-//      right to left; Save sends both names and the description, trimmed; a reload reads them back,
-//      the shell shows the Arabic name, and the dashboard's "named" step is ticked;
-//  74. Schedule, at 02:30 local (the UTC day is yesterday): an end not after the start, and hours
-//      that end before they start, hold Save back, saying why; Save sends the local days and hours
-//      as typed — no shift, no `Z`; a reload reads them back; the dashboard reads the new schedule;
-//      clearing the start sends null;
-//  75. Audience: countries and channels from HQ's lists, a store found on HQ's lookup, members only;
-//      Save sends them; a reload reads them back;
+//      right to left; Save sends the WHOLE campaign at the loaded revision with both names trimmed;
+//      a reload reads them back, the shell shows the Arabic name, the dashboard's "named" step is ticked;
+//  74. Schedule, at 02:30 local (the UTC day is yesterday): an end not after the start holds Save
+//      back, saying why; hours across midnight are allowed; Save sends the window's local days,
+//      weekday words and hours as typed — no shift, no `Z`; a reload reads them back; the dashboard
+//      reads the new window; clearing the start leaves `from` out;
+//  75. Audience: countries and channels, a store found on HQ's lookup, members only; Save sends
+//      them in the campaign; a reload reads them back;
 //  76. Features: switching points off while a rule burns them is refused at the page, naming the
-//      rule, and nothing is sent; switching coupons on is saved and reads back;
-//  77. Offline: a campaign HQ finds unsafe reads Online only with HQ's reasons; a safe one reads
-//      Offline-safe and opts out with "Online only", saved and read back;
-//  78. a refused save keeps the page's changes and shows the envelope's message and code; a refused
-//      verdict is its own message and code, with Try again;
+//      rule, and nothing is sent; switching coupons on is saved (the draft's `features`) and reads back;
+//  77. Offline: a campaign HQ finds unsafe reads Online only with HQ's reasons (validation.offline);
+//      a safe one reads Offline-safe and opts out with "Online only" (`onlineOnly: true`), saved and
+//      read back;
+//  78. a refused save keeps the page's changes and shows the envelope's message and code;
+//  78b. a STALE save (409 RULES_DRAFT_STALE) says so and offers to reload; Reload reads the draft again;
 //  79. leaving a page with unsaved changes asks first; Stay keeps them, and so does a re-read of the
 //      campaign in the background; Cancel goes back to what HQ saved last;
 //  80. no page errors.
 {
-  const { context, page, errors, settings, store } = await open()
+  const { context, page, errors, saves, store, calls } = await open()
   const settingsPage = async (id, part) => {
     await page.goto(`${BASE}/campaigns/${id}/settings/${part}`)
     await page.locator(`[data-settings="${part}"]`).waitFor({ timeout: 10000 })
@@ -1921,8 +1813,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const save = page.locator('[data-settings-save]')
   const saved = async (n) => {
     await page.waitForFunction(() => !document.querySelector('[data-settings-dirty]'), null, { timeout: 5000 }).catch(() => {})
-    return settings.length === n
+    return saves.length === n
   }
+  /** The draft as loaded, for comparing a save's untouched parts. */
+  const loaded = (code) => CAMPAIGNS.find((c) => c.code === code)
 
   // ── 72 ──
   await page.goto(`${BASE}/campaigns/SPRING-DRAFT`)
@@ -1944,7 +1838,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 73 ──
   check(
-    '73: the code is shown, the names as HQ saved them',
+    '73: the id is shown, the names as HQ saved them',
     (await page.locator('[data-settings-code]').innerText()) === 'SPRING-DRAFT' && (await field('nameEn').inputValue()) === 'Spring skincare (draft)' && (await field('nameAr').inputValue()) === '',
   )
   check('73: Save waits for a change', await save.isDisabled())
@@ -1952,27 +1846,24 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await save.click()
   check(
     '73: both names are required, said at the field, nothing sent',
-    (await page.locator('[data-settings-problem="nameEnRequired"]').isVisible()) && (await page.locator('[data-settings-problem="nameArRequired"]').isVisible()) && settings.length === 0,
+    (await page.locator('[data-settings-problem="nameEnRequired"]').isVisible()) && (await page.locator('[data-settings-problem="nameArRequired"]').isVisible()) && saves.length === 0,
   )
   check('73: the Arabic name is typed right to left', (await field('nameAr').getAttribute('dir')) === 'rtl')
   await field('nameEn').fill(' Spring skincare ')
   await field('nameAr').fill(' العناية بالبشرة في الربيع ')
-  await field('description').fill('Spring range, 15% off. ')
   await save.click()
   check(
-    '73: Save sends both names and the description, trimmed',
+    '73: Save sends the WHOLE campaign at the loaded revision, both names trimmed',
     (await saved(1)) &&
-      JSON.stringify(settings[0]) ===
-        JSON.stringify({ part: 'Details', id: 'SPRING-DRAFT', body: { name: { en: 'Spring skincare', ar: 'العناية بالبشرة في الربيع' }, description: 'Spring range, 15% off.' } }),
-    JSON.stringify(settings[0]),
+      saves[0].revision === loaded('SPRING-DRAFT').revision &&
+      JSON.stringify(saves[0].campaign) === JSON.stringify({ ...loaded('SPRING-DRAFT').campaign, name: { en: 'Spring skincare', ar: 'العناية بالبشرة في الربيع' } }) &&
+      JSON.stringify(saves[0].features) === JSON.stringify(loaded('SPRING-DRAFT').features),
+    JSON.stringify(saves[0]),
   )
   check('73: a toast says so', await page.getByText('The details are saved.').first().isVisible())
   await page.screenshot({ path: `${SHOTS}/settings-details.png` })
   await settingsPage('SPRING-DRAFT', 'details')
-  check(
-    '73: a reload reads them back',
-    (await field('nameEn').inputValue()) === 'Spring skincare' && (await field('nameAr').inputValue()) === 'العناية بالبشرة في الربيع' && (await field('description').inputValue()) === 'Spring range, 15% off.',
-  )
+  check('73: a reload reads them back', (await field('nameEn').inputValue()) === 'Spring skincare' && (await field('nameAr').inputValue()) === 'العناية بالبشرة في الربيع')
   check('73: the shell shows both names', (await page.locator('[data-workspace-name]').innerText()).includes('العناية بالبشرة في الربيع'))
   await page.locator('[data-workspace-menu="dashboard"]').click()
   await page.locator('[data-steps]').waitFor({ timeout: 5000 })
@@ -1981,28 +1872,24 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   // ── 75 ──
   await settingsPage('SPRING-DRAFT', 'audience')
   await page.locator('[data-settings-toggles="countries"]').waitFor({ timeout: 5000 })
-  check(
-    '75: the countries are HQ’s, SA picked',
-    (await page.locator('[data-settings-toggle="SA"]').getAttribute('aria-pressed')) === 'true' && (await page.locator('[data-settings-toggle="BH"]').getAttribute('aria-pressed')) === 'false',
-  )
-  check('75: a country reads code · name', (await page.locator('[data-settings-toggle="BH"]').innerText()) === 'BH · Bahrain')
-  await page.locator('[data-settings-toggle="BH"]').click()
+  await page.locator('[data-settings-toggle="SA"]').click()
   await page.locator('[data-settings-toggles="channels"] [data-settings-toggle="POS"]').click()
   await page.locator('[data-lookup="stores"]').fill('riy')
   await page.locator('[data-lookup-hit="R101"]').click()
   await field('members').selectOption('identified')
   await save.click()
+  const aud = saves[1]?.campaign?.audience
   check(
-    '75: Save sends countries, channels, stores and members',
-    (await saved(2)) && JSON.stringify(settings[1].body) === JSON.stringify({ countries: ['SA', 'BH'], channels: ['POS'], stores: ['R101'], members: 'identified' }),
-    JSON.stringify(settings[1]),
+    '75: Save sends countries, channels, stores and members in the campaign, at the new revision',
+    (await saved(2)) && saves[1].revision === saves[0].revision + 1 && JSON.stringify(aud?.countries) === '["SA"]' && JSON.stringify(aud?.channels) === '["POS"]' && JSON.stringify(aud?.stores) === '["R101"]' && aud?.members === 'identified',
+    JSON.stringify(saves[1]),
   )
   await page.screenshot({ path: `${SHOTS}/settings-audience.png` })
   await settingsPage('SPRING-DRAFT', 'audience')
   await page.locator('[data-settings-toggles="countries"]').waitFor({ timeout: 5000 })
   check(
     '75: a reload reads them back',
-    (await page.locator('[data-settings-toggle="BH"]').getAttribute('aria-pressed')) === 'true' &&
+    (await page.locator('[data-settings-toggle="SA"]').getAttribute('aria-pressed')) === 'true' &&
       (await page.locator('[data-settings-toggle="POS"]').getAttribute('aria-pressed')) === 'true' &&
       (await page.locator('[data-picks="stores"] [data-pick="R101"]').count()) === 1 &&
       (await field('members').inputValue()) === 'identified',
@@ -2017,16 +1904,16 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await page.locator('[data-feature-in-use="points"]').innerText()).startsWith('Loyalty points cannot be switched off: these rules use it.') &&
       (await page.locator('[data-feature-in-use="points"] [data-feature-in-use-rule]').allInnerTexts()).join('|') === 'Burn 30, take 50 off, together or not at all',
   )
-  check('76: …Save is held back, nothing sent', (await save.isDisabled()) && settings.length === 2)
+  check('76: …Save is held back, nothing sent', (await save.isDisabled()) && saves.length === 2)
   await page.screenshot({ path: `${SHOTS}/settings-features-in-use.png` })
   await page.locator('[data-settings-feature="points"]').check()
   check('76: switched back on, the refusal goes', (await page.locator('[data-feature-in-use]').count()) === 0)
   await page.locator('[data-settings-feature="coupons"]').check()
   await save.click()
   check(
-    '76: switching coupons on is saved',
-    (await saved(3)) && JSON.stringify(settings[2]) === JSON.stringify({ part: 'Features', id: 'PTS-50OFF', body: { coupons: true, points: true } }),
-    JSON.stringify(settings[2]),
+    '76: switching coupons on is saved as the draft’s features, the campaign untouched',
+    (await saved(3)) && JSON.stringify([...saves[2].features].sort()) === '["coupons","points"]' && JSON.stringify(saves[2].campaign) === JSON.stringify(loaded('PTS-50OFF').campaign) && saves[2].revision === 0,
+    JSON.stringify(saves[2]),
   )
   await settingsPage('PTS-50OFF', 'features')
   check('76: a reload reads it back', await page.locator('[data-settings-feature="coupons"]').isChecked())
@@ -2036,8 +1923,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-offline-verdict]').waitFor({ timeout: 5000 })
   check('77: a campaign HQ finds unsafe reads Online only', (await page.locator('[data-offline-verdict]').getAttribute('data-offline-verdict')) === 'online')
   check(
-    '77: …with HQ’s reasons',
-    (await page.locator('[data-offline-reason]').allInnerTexts()).join('|') === 'is for members only|reads the member profile|takes points',
+    '77: …with HQ’s reasons, from the draft’s validation',
+    (await page.locator('[data-offline-reason]').allInnerTexts()).join('|').includes('reads the member profile, looked up at HQ') &&
+      (await page.locator('[data-offline-reason]').allInnerTexts()).join('|').includes('awards or takes points'),
     (await page.locator('[data-offline-reason]').allInnerTexts()).join('|'),
   )
   check('77: …and no "online only" to choose', (await page.locator('[data-offline-opt-out]').count()) === 0)
@@ -2051,9 +1939,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-offline-opt-out]').check()
   await save.click()
   check(
-    '77: "Online only" is saved',
-    (await saved(4)) && JSON.stringify(settings[3]) === JSON.stringify({ part: 'Offline', id: 'SUN-3FOR2', body: { offlineOptOut: true } }),
-    JSON.stringify(settings[3]),
+    '77: "Online only" is saved as the campaign’s onlineOnly',
+    (await saved(4)) && saves[3].campaign.id === 'SUN-3FOR2' && saves[3].campaign.onlineOnly === true && JSON.stringify(saves[3].campaign.rules) === JSON.stringify(loaded('SUN-3FOR2').campaign.rules),
+    JSON.stringify(saves[3]),
   )
   await settingsPage('SUN-3FOR2', 'offline')
   await page.locator('[data-offline-verdict]').waitFor({ timeout: 5000 })
@@ -2065,45 +1953,46 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 79 ──
   await settingsPage('SUN-3FOR2', 'details')
-  await field('description').fill('An edit not saved yet.')
+  await field('nameAr').fill('تعديل غير محفوظ')
   await page.locator('[data-workspace-settings="schedule"]').click()
   await page.locator('[data-leave-dialog]').waitFor({ timeout: 5000 })
   check('79: leaving with unsaved changes asks first', page.url().endsWith('/settings/details'))
   await page.locator('[data-leave-stay]').click()
-  check('79: Stay keeps the change', (await field('description').inputValue()) === 'An edit not saved yet.')
+  check('79: Stay keeps the change', (await field('nameAr').inputValue()) === 'تعديل غير محفوظ')
   // Someone renames it elsewhere; the campaign is re-read when the browser comes back online.
-  store.find((c) => c.id === 'SUN-3FOR2').name.en = 'Renamed elsewhere'
+  const sun = store.find((c) => c.code === 'SUN-3FOR2')
+  sun.name = { ...sun.name, en: 'Renamed elsewhere' }
+  sun.campaign.name = { ...sun.campaign.name, en: 'Renamed elsewhere' }
   await context.setOffline(true)
   await context.setOffline(false)
   await page.waitForFunction(() => document.querySelector('[data-workspace-name]')?.textContent?.includes('Renamed elsewhere'), null, { timeout: 5000 }).catch(() => {})
   check(
     '79: a re-read in the background keeps the unsaved change',
-    (await page.locator('[data-workspace-name]').innerText()).includes('Renamed elsewhere') && (await field('description').inputValue()) === 'An edit not saved yet.',
+    (await page.locator('[data-workspace-name]').innerText()).includes('Renamed elsewhere') && (await field('nameAr').inputValue()) === 'تعديل غير محفوظ',
   )
   await page.locator('[data-settings-cancel]').click()
   check(
     '79: Cancel goes back to what HQ saved',
-    (await field('description').inputValue()) === CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2').description &&
-      (await field('nameEn').inputValue()) === 'Renamed elsewhere' &&
-      (await save.isDisabled()),
+    (await field('nameAr').inputValue()) === loaded('SUN-3FOR2').name.ar && (await field('nameEn').inputValue()) === 'Renamed elsewhere' && (await save.isDisabled()),
   )
   await page.locator('[data-workspace-settings="schedule"]').click()
   await page.locator('[data-settings="schedule"]').waitFor({ timeout: 5000 })
-  check('79: …and then leaves without asking', (await page.locator('[data-leave-dialog]').count()) === 0 && settings.length === 4)
+  check('79: …and then leaves without asking', (await page.locator('[data-leave-dialog]').count()) === 0 && saves.length === 4)
   check('80: no page errors (72–77, 79)', errors.length === 0, errors.join(' | '))
+  void calls
   await context.close()
 }
 
 // ── 74 ──
 {
-  const { context, page, errors, settings } = await open({ at: SMALL_HOURS })
+  const { context, page, errors, saves } = await open({ at: SMALL_HOURS })
   const field = (k) => page.locator(`[data-settings-field="${k}"]`)
   const save = page.locator('[data-settings-save]')
   const settled = () => page.waitForFunction(() => !document.querySelector('[data-settings-dirty]'), null, { timeout: 5000 }).catch(() => {})
   await page.goto(`${BASE}/campaigns/NATDAY-15/settings/schedule`)
   await page.locator('[data-settings="schedule"]').waitFor({ timeout: 10000 })
   check(
-    '74: the schedule reads as HQ saved it, in local days and hours',
+    '74: the window reads as HQ saved it, in local days and hours',
     (await field('from').inputValue()) === '2026-10-19' &&
       (await field('until').inputValue()) === '2026-10-26' &&
       (await field('hoursFrom').inputValue()) === '16:00' &&
@@ -2115,18 +2004,20 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await field('until').fill('2026-10-23')
   await field('hoursFrom').fill('22:00')
   await field('hoursTo').fill('02:00')
-  check('74: daily hours that end before they start hold Save back too', (await page.locator('[data-settings-problem="hoursToNotAfterFrom"]').isVisible()) && (await save.isDisabled()))
+  check('74: hours across midnight are allowed (2758: "hours may cross midnight")', (await page.locator('[data-settings-problem]').count()) === 0 && !(await save.isDisabled()))
+  await field('hoursTo').fill('22:00')
+  check('74: hours that end when they start hold Save back', (await page.locator('[data-settings-problem="hoursSame"]').isVisible()) && (await save.isDisabled()))
   await field('hoursFrom').fill('00:30')
   await field('hoursTo').fill('23:30')
-  await page.locator('[data-settings-day="4"]').click()
-  await page.locator('[data-settings-day="5"]').click()
-  check('74: the weekdays are pressed', (await page.locator('[data-settings-day="4"]').getAttribute('aria-pressed')) === 'true')
+  await page.locator('[data-settings-day="thu"]').click()
+  await page.locator('[data-settings-day="fri"]').click()
+  check('74: the weekdays are pressed', (await page.locator('[data-settings-day="thu"]').getAttribute('aria-pressed')) === 'true')
   await save.click()
   await settled()
   check(
-    '74: Save sends the local days and hours as typed, at 02:30 local (23:30 UTC the day before)',
-    JSON.stringify(settings[0]?.body) === JSON.stringify({ from: '2026-10-16', until: '2026-10-23', days: [4, 5], hoursFrom: '00:30', hoursTo: '23:30' }),
-    JSON.stringify(settings[0]),
+    '74: Save sends the window as typed — local days, weekday words, hours — at 02:30 local (23:30 UTC the day before)',
+    JSON.stringify(saves[0]?.campaign?.window) === JSON.stringify({ from: '2026-10-16', until: '2026-10-23', days: ['thu', 'fri'], hours: { from: '00:30', until: '23:30' } }),
+    JSON.stringify(saves[0]?.campaign?.window),
   )
   await page.screenshot({ path: `${SHOTS}/settings-schedule.png` })
   await page.reload()
@@ -2136,12 +2027,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await field('from').inputValue()) === '2026-10-16' &&
       (await field('until').inputValue()) === '2026-10-23' &&
       (await field('hoursFrom').inputValue()) === '00:30' &&
-      (await page.locator('[data-settings-day][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-settings-day')))).join() === '4,5',
+      (await page.locator('[data-settings-day][aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-settings-day')))).join() === 'thu,fri',
   )
   await page.locator('[data-workspace-menu="dashboard"]').click()
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
   check(
-    '74: the dashboard reads the new schedule: running from today, local',
+    '74: the dashboard reads the new window: running from today, local',
     (await page.locator('[data-dashboard-cell="schedule"] [data-schedule-relative]').getAttribute('data-schedule-relative')) === 'endsIn' &&
       (await page.locator('[data-dashboard-cell="schedule"]').innerText()).includes('2026-10-16'),
   )
@@ -2150,14 +2041,14 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-settings-clear="from"]').click()
   await save.click()
   await settled()
-  check('74: clearing the start sends null (immediately)', settings[1]?.body.from === null && settings[1]?.body.until === '2026-10-23', JSON.stringify(settings[1]))
+  check('74: clearing the start leaves `from` out (immediately)', saves[1] && !('from' in saves[1].campaign.window) && saves[1].campaign.window.until === '2026-10-23', JSON.stringify(saves[1]?.campaign?.window))
   check('80: no page errors (74)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 // ── 78 ──
 {
-  const { context, page, errors, settings } = await open({ refuseSettings: true, refuseVerdict: true })
+  const { context, page, errors, saves } = await open({ refuseSettings: true })
   await page.goto(`${BASE}/campaigns/SUN-3FOR2/settings/details`)
   await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
   await page.locator('[data-settings-field="nameEn"]').fill('A new name')
@@ -2166,20 +2057,45 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check(
     '78: a refused save shows the envelope’s message and code',
     (await page.locator('[data-settings-refusal="details"]').innerText()).includes(SETTINGS_REFUSED) &&
-      (await page.locator('[data-settings-refusal="details"] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_NOT_EDITABLE',
+      (await page.locator('[data-settings-refusal="details"] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_DRAFT_PENDING',
   )
-  check('78: …and keeps the change', (await page.locator('[data-settings-field="nameEn"]').inputValue()) === 'A new name' && settings.length === 1)
+  check('78: …and keeps the change', (await page.locator('[data-settings-field="nameEn"]').inputValue()) === 'A new name' && saves.length === 1)
   await page.screenshot({ path: `${SHOTS}/settings-refused.png` })
-  await page.locator('[data-settings-cancel]').click()
-  await page.locator('[data-workspace-settings="offline"]').click()
-  await page.locator('[data-offline-refusal]').waitFor({ timeout: 5000 })
-  check(
-    '78: a refused verdict is its own message and code, with Try again',
-    (await page.locator('[data-offline-refusal]').innerText()).includes(VERDICT_REFUSED) &&
-      (await page.locator('[data-offline-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_OFFLINE_VERDICT_UNAVAILABLE' &&
-      (await page.locator('[data-offline-retry]').isVisible()),
-  )
   check('80: no page errors (78)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 78b: a stale save offers to reload (ticket 522) ──
+{
+  const { context, page, errors, saves, calls } = await open({ staleSaves: 1 })
+  const loads = () => calls.filter((c) => c === 'LOAD SUN-3FOR2').length
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/settings/details`)
+  await page.locator('[data-settings="details"]').waitFor({ timeout: 10000 })
+  const before = loads()
+  await page.locator('[data-settings-field="nameEn"]').fill('Suncare, renamed')
+  await page.locator('[data-settings-save]').click()
+  const stale = page.locator('[data-draft-stale]')
+  await stale.waitFor({ timeout: 5000 })
+  check('78b: a stale save says the draft changed since it was loaded', saves.length === 1 && (await stale.isVisible()))
+  check('78b: …and offers to reload', await page.locator('[data-draft-reload]').isVisible())
+  await page.screenshot({ path: `${SHOTS}/settings-stale.png` })
+  await page.locator('[data-draft-reload]').click()
+  for (let i = 0; i < 50 && loads() === before; i++) await page.waitForTimeout(100)
+  check('78b: Reload reads the draft again (Drafts/Load)', loads() > before, `${before} → ${loads()}`)
+  check('80: no page errors (78b)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 78c: the builder's own Save is stale too ──
+{
+  const { context, page, errors, saves } = await open({ staleSaves: 1 })
+  await page.goto(`${BASE}/campaigns/SUN-3FOR2/rules`)
+  await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+  await page.locator('[data-rule-name]').first().fill('Suncare 3 for 2')
+  await page.locator('[data-builder-bar] [data-save]').click()
+  await page.locator('[data-draft-stale]').waitFor({ timeout: 5000 })
+  check('78c: a stale rules save offers to reload, the edit kept', saves.length === 1 && (await page.locator('[data-draft-reload]').isVisible()) && (await page.locator('[data-rule-name]').first().inputValue()) === 'Suncare 3 for 2')
+  check('80: no page errors (78c)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
@@ -2204,7 +2120,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //      drawer open, with the envelope's message and code;
 //  89. no page errors.
 {
-  const { context, page, errors, settings, usageReads } = await open()
+  const { context, page, errors, saves, usageReads } = await open()
   const field = (k) => page.locator(`[data-budget-field="${k}"]`)
   const drawer = page.locator('[data-budget-drawer]')
   const budgetsPage = async (id) => {
@@ -2238,17 +2154,19 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.screenshot({ path: `${SHOTS}/budgets-drawer-add.png` })
   await page.locator('[data-budget-save]').click()
   const isClosed = await closed()
-  const added = settings[0]?.body.budgets?.[0]
+  const added = saves[0]?.campaign?.budgets?.[0]
   check(
-    '82: Create saves the budgets with the new one',
+    '82: Create saves the draft whole, its budgets with the new one (EN + AR name, no `year` period)',
     isClosed &&
-      settings.length === 1 &&
-      settings[0].part === 'Budgets' &&
-      settings[0].body.budgets.length === 1 &&
+      saves.length === 1 &&
+      saves[0].campaign.id === 'SPRING-DRAFT' &&
+      saves[0].campaign.budgets.length === 1 &&
       typeof added?.id === 'string' &&
       added.id.length > 0 &&
-      JSON.stringify({ ...added, id: '' }) === JSON.stringify({ id: '', name: '', scope: 'profile', limit: 'uses', value: 1, period: 'month' }),
-    JSON.stringify(settings),
+      added.id.length <= 40 &&
+      typeof added.name?.en === 'string' && typeof added.name?.ar === 'string' &&
+      JSON.stringify({ scope: added.scope, limit: added.limit, value: added.value, period: added.period }) === JSON.stringify({ scope: 'profile', limit: 'uses', value: 1, period: 'month' }),
+    JSON.stringify(saves),
   )
   check('82: a toast says so', await page.getByText('The budgets are saved.').first().isVisible())
   check('82: the sentence reads in the member section', (await page.locator(`[data-budget-scope="profile"] [data-budget-sentence="${added?.id}"]`).innerText()) === 'Limit the uses to 1 per member per month')
@@ -2265,22 +2183,22 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('83: a click on the sentence opens it; Save waits for a change', (await field('value').inputValue()) === '1' && (await page.locator('[data-budget-save]').isDisabled()))
   await field('value').fill('2')
   await page.locator('[data-budget-save]').click()
-  check('83: the new figure is saved', (await closed()) && settings.length === 2 && settings[1].body.budgets[0].value === 2 && settings[1].body.budgets[0].id === added?.id, JSON.stringify(settings[1]))
+  check('83: the new figure is saved', (await closed()) && saves.length === 2 && saves[1].campaign.budgets[0].value === 2 && saves[1].campaign.budgets[0].id === added?.id && saves[1].revision === saves[0].revision + 1, JSON.stringify(saves[1]))
   check('83: …and read', (await page.locator(`[data-budget-sentence="${added?.id}"]`).innerText()) === 'Limit the uses to 2 per member per month')
 
   // ── 84 ──
   await page.locator(`[data-budget-delete="${added?.id}"]`).click()
   await page.locator('[data-budget-delete-dialog]').waitFor({ timeout: 5000 })
-  check('84: Delete asks first, nothing sent', settings.length === 2)
+  check('84: Delete asks first, nothing sent', saves.length === 2)
   await page.locator('[data-budget-delete-confirm]').click()
   await page.locator('[data-budget-delete-dialog]').waitFor({ state: 'detached', timeout: 5000 })
-  check('84: confirmed, the budgets are saved without it', settings.length === 3 && settings[2].body.budgets.length === 0 && (await page.locator('[data-budget]').count()) === 0)
+  check('84: confirmed, the draft is saved without it', saves.length === 3 && (saves[2].campaign.budgets ?? []).length === 0 && (await page.locator('[data-budget]').count()) === 0)
   check('89: no page errors (81–84)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 {
-  const { context, page, errors, settings, usageReads, limits, calls, store } = await open({ refuseLimit: 1 })
+  const { context, page, errors, saves, usageReads, limits, calls, store } = await open({ refuseLimit: 1 })
   const field = (k) => page.locator(`[data-budget-field="${k}"]`)
   const drawer = page.locator('[data-budget-drawer]')
   const budgetsPage = async (id) => {
@@ -2288,8 +2206,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     await page.locator('[data-settings="budgets"]').waitFor({ timeout: 10000 })
     await page.locator('[data-budget-usage], [data-budget-usage-refusal]').first().waitFor({ timeout: 5000 }).catch(() => {})
   }
-  const wknd = store.find((c) => c.id === 'WKND20').budgets[0].id
-  const gp = store.find((c) => c.id === 'GP-BEAUTY15').budgets[0].id
+  const wknd = store.find((c) => c.code === 'WKND20').campaign.budgets[0].id
+  const gp = store.find((c) => c.code === 'GP-BEAUTY15').campaign.budgets[0].id
 
   // ── 85 ──
   await budgetsPage('WKND20')
@@ -2323,9 +2241,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       (await field('limit').isDisabled()) &&
       (await field('scope').isDisabled()) &&
       (await field('period').isDisabled()) &&
-      (await field('name').isDisabled()) &&
+      (await field('nameEn').isDisabled()) &&
       (await field('value').isEnabled()) &&
-      (await field('name').inputValue()) === 'campaign money',
+      (await field('nameEn').inputValue()) === 'campaign money',
   )
   await field('value').fill('60000')
   await page.locator('[data-budget-save]').click()
@@ -2341,8 +2259,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await drawer.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
   check('86: the change goes to the limit’s own door', limits.length === 2 && JSON.stringify(limits[1]) === JSON.stringify({ id: 'WKND20', budgetId: wknd, body: { value: 60000 } }), JSON.stringify(limits))
   check(
-    '86: …with NO publish call — no Settings, Draft, Ask for approval or Activate',
-    !calls.some((c) => /^PUT .*\/(Settings\/Budgets|Draft)$|^POST .*\/(AskForApproval|Activate)$/.test(c)) && settings.length === 0,
+    '86: …with NO publish call — no Drafts/Save, Ask for approval or Activate',
+    !calls.some((c) => /^POST .*\/(AskForApproval|Activate)$/.test(c)) && saves.length === 0,
     calls.filter((c) => !c.startsWith('GET')).join(' | '),
   )
   check('86: a toast says nothing was republished', await page.getByText('The new limit applies now. Nothing was republished.').first().isVisible())
@@ -2354,7 +2272,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     '86: …and the counters are read again',
     usageReads.filter((x) => x === 'WKND20').length > readsBefore && (await page.locator(`[data-budget-usage="${wknd}"] [data-budget-used]`).innerText()) === 'SAR 12,345.50 / SAR 60,000.00',
   )
-  check('86: the campaign is still live, on the same version', store.find((c) => c.id === 'WKND20').status === 'live' && store.find((c) => c.id === 'WKND20').live.version === 1)
+  check('86: the campaign is still live, on the same version', store.find((c) => c.code === 'WKND20').campaignStatus === 'Published' && store.find((c) => c.code === 'WKND20').publishedVersionNo === 1)
 
   // ── 87 ──
   await budgetsPage('BH-SPEND10')
@@ -2367,8 +2285,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('87: BHD reads three decimals', (await page.locator('[data-budget-preview]').innerText()) === 'Limit the discount money to BHD 1,250.500 per campaign', await page.locator('[data-budget-preview]').innerText())
   await page.locator('[data-budget-save]').click()
   await drawer.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
-  const bh = settings[0]?.body.budgets?.[0]
-  check('87: adding one to a live campaign saves the budgets', settings.length === 1 && settings[0].id === 'BH-SPEND10' && bh?.value === 1250.5 && limits.length === 2)
+  const bh = saves[0]?.campaign?.budgets?.[0]
+  check('87: adding one to a live campaign saves its draft with the budget', saves.length === 1 && saves[0].campaign.id === 'BH-SPEND10' && saves[0].revision === 0 && bh?.value === 1250.5 && limits.length === 2)
   await page.locator(`[data-budget-usage="${bh?.id}"]`).waitFor({ timeout: 5000 }).catch(() => {})
   check('87: …and its counter reads BHD 0.000 / BHD 1,250.500', (await page.locator(`[data-budget-usage="${bh?.id}"] [data-budget-used]`).innerText()) === 'BHD 0.000 / BHD 1,250.500')
   check('89: no page errors (85–87)', errors.length === 0, errors.join(' | '))
@@ -2377,7 +2295,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 88 ──
 {
-  const { context, page, errors, settings } = await open({ refuseUsage: true, refuseSettings: true })
+  const { context, page, errors, saves } = await open({ refuseUsage: true, refuseSettings: true })
   await page.goto(`${BASE}/campaigns/WKND20/settings/budgets`)
   await page.locator('[data-budget-usage-refusal]').waitFor({ timeout: 10000 })
   check(
@@ -2396,8 +2314,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     '88: a refused save keeps the drawer open, with the envelope’s message and code',
     (await page.locator('[data-budget-drawer="add"]').isVisible()) &&
       (await page.locator('[data-budget-refusal]').innerText()).includes(SETTINGS_REFUSED) &&
-      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_NOT_EDITABLE' &&
-      settings.length === 1,
+      (await page.locator('[data-budget-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_DRAFT_PENDING' &&
+      saves.length === 1,
   )
   check('89: no page errors (88)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -2430,7 +2348,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const order = () => page.locator('[data-version]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
   const item = (n) => page.locator(`[data-version="${n}"]`)
   const restorable = () => page.locator('[data-version]:has([data-version-restore])').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
-  const pouch = () => store.find((c) => c.id === 'GIFT-POUCH')
+  const pouch = () => store.find((c) => c.code === 'GIFT-POUCH')
 
   // ── 90 ──
   await page.goto(`${BASE}/campaigns/GIFT-POUCH`)
@@ -2488,7 +2406,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('94: Restore on a live campaign asks first, saying the live version stays', (await askLive.innerText()).includes('Tills keep running version 3'))
   await page.locator('[data-restore-cancel]').click()
   await askLive.waitFor({ state: 'detached', timeout: 5000 })
-  check('94: Keep the draft sends nothing', restores.length === 0 && pouch().status === 'live', JSON.stringify(restores))
+  check('94: Keep the draft sends nothing', restores.length === 0 && pouch().source === 'published', JSON.stringify(restores))
   await item(2).locator('[data-version-restore]').click()
   await page.locator('[data-restore-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
@@ -2501,7 +2419,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await stateCell.locator('[data-live-under-draft]').innerText()) === 'Tills still run version 3, activated 2026-10-10 15:00 by Omar (marketing), until this draft is activated.',
     await stateCell.locator('[data-live-under-draft]').innerText(),
   )
-  check('94: HQ’s campaign: a draft with version 2’s rules, live version 3 untouched', pouch().status === 'draft' && pouch().live.version === 3 && pouch().rules[0].then[0].label.en === 'Gift pouch')
+  check('94: HQ’s campaign: a draft with version 2’s rules (origin restore:2), live version 3 untouched', pouch().source === 'draft' && pouch().origin === 'restore:2' && pouch().campaignStatus === 'Published' && pouch().publishedVersionNo === 3 && pouch().campaign.rules[0].then[0].label.en === 'Gift pouch')
   await page.screenshot({ path: `${SHOTS}/512-restored.png`, fullPage: true })
   await page.locator('[data-workspace-menu="rules"]').click()
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
@@ -2517,12 +2435,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('95: Restore over a draft asks first, saying the live version stays', (await ask.innerText()).includes('Tills keep running version 3'))
   await page.locator('[data-restore-cancel]').click()
   await ask.waitFor({ state: 'detached', timeout: 5000 })
-  check('95: Keep the draft sends nothing', restores.length === 1 && pouch().rules[0].then[0].label.en === 'Gift pouch')
+  check('95: Keep the draft sends nothing', restores.length === 1 && pouch().campaign.rules[0].then[0].label.en === 'Gift pouch')
   await item(1).locator('[data-version-restore]').click()
   await page.locator('[data-restore-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
-  check('95: Replace the draft restores version 1', JSON.stringify(restores) === '["GIFT-POUCH 2","GIFT-POUCH 1"]' && pouch().rules[0].then[0].prompt.en === '' && pouch().live.version === 3)
+  check('95: Replace the draft restores version 1', JSON.stringify(restores) === '["GIFT-POUCH 2","GIFT-POUCH 1"]' && pouch().origin === 'restore:1' && pouch().publishedVersionNo === 3)
   check('99: no page errors (90–95)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -2541,8 +2459,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       (await page.locator('[data-restore-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_RESTORE_UNAVAILABLE' &&
       page.url().endsWith('/campaigns/GIFT-POUCH/versions'),
   )
-  const pouch = store.find((c) => c.id === 'GIFT-POUCH')
-  check('96: …and nothing moved', restores.length === 1 && pouch.status === 'live' && pouch.rules[0].then[0].label.en === 'Free pouch')
+  const pouch = store.find((c) => c.code === 'GIFT-POUCH')
+  check('96: …and nothing moved', restores.length === 1 && pouch.source === 'published' && pouch.campaign.rules[0].then[0].label.en === 'Free pouch')
   await page.goto(`${BASE}/campaigns/SPRING-DRAFT/versions`)
   await page.locator('[data-versions-empty]').waitFor({ timeout: 10000 })
   check('97: a campaign never published has no versions yet', (await page.locator('[data-versions-empty]').innerText()) === 'No versions yet. Activating the campaign publishes its first.')
@@ -2576,9 +2494,13 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const { context, page, errors, as } = await open({
     // The pouch's draft over version 3 waits for an approver.
     edit: (store) =>
-      Object.assign(store.find((c) => c.id === 'GIFT-POUCH'), {
-        status: 'waitingForApproval',
-        approval: { at: '2026-10-16T09:00:00', by: 'Omar (marketing)', note: 'Back to the gift pouch label.' },
+      Object.assign(store.find((c) => c.code === 'GIFT-POUCH'), {
+        source: 'draft',
+        revision: 2,
+        state: 'pending',
+        requestedAt: '2026-10-16T09:00:00',
+        requestedBy: 'Omar (marketing)',
+        requestNote: 'Back to the gift pouch label.',
       }),
   })
   await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)

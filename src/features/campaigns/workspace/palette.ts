@@ -2,18 +2,16 @@ import type {
   CampaignRule,
   RuleBlockCatalogue,
   RuleBlockKind,
-  RuleCampaignFeatures,
   RuleCatalogueBlock,
   RuleCatalogueField,
   RuleCondition,
   RuleEffect,
-  RuleItemPart,
-  RuleTiming,
+  RuleFeature,
 } from '@/core/models/rule-campaign'
-import { RULE_GROUP_TYPE } from '@/core/models/rule-campaign'
+import { RULE_GROUP_CHECK } from '@/core/models/rule-campaign'
 
-// The builder's palette (ticket 505): which blocks "+ Condition" / "+ Effect" offers, grouped by the
-// catalogue's palette groups, and the new block a pick adds. Pure.
+// The builder's palette (ticket 505, schema 1 in 522): which blocks "+ Condition" / "+ Effect"
+// offers, grouped by the catalogue's palette groups, and the new block a pick adds. Pure.
 //
 // A block is offered only when
 //   - the catalogue says it is decided (a block the map has not decided is left out, not greyed);
@@ -28,73 +26,59 @@ export interface PaletteGroup {
 export interface Palette {
   groups: PaletteGroup[]
   /** Features that are off and would add blocks here — so the palette can say where they are. */
-  hiddenFeatures: (keyof RuleCampaignFeatures)[]
+  hiddenFeatures: RuleFeature[]
 }
 
-export function paletteFor(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, features: RuleCampaignFeatures): Palette {
+export function paletteFor(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, features: readonly RuleFeature[]): Palette {
   const candidates = catalogue.blocks.filter((b) => b.kind === kind && b.decided)
-  const offered = candidates.filter((b) => b.feature === null || features[b.feature])
+  const offered = candidates.filter((b) => b.feature === null || features.includes(b.feature))
   const groups = catalogue.groups
     .filter((g) => g.kind === kind)
     .map((g) => ({ key: g.key, blocks: offered.filter((b) => b.group === g.key) }))
     .filter((g) => g.blocks.length > 0)
-  const hiddenFeatures = [...new Set(candidates.flatMap((b) => (b.feature !== null && !features[b.feature] ? [b.feature] : [])))]
+  const hiddenFeatures = [...new Set(candidates.flatMap((b) => (b.feature !== null && !features.includes(b.feature) ? [b.feature] : [])))]
   return { groups, hiddenFeatures }
 }
 
-/** A new, empty value for a field, by its kind. A number is left unset: the sentence says "not picked yet". */
+/** A new, empty value for a field, by its kind; `undefined` leaves the field out (a number is left
+ *  unset, so the sentence says "not picked yet"; a clause stays off). */
 function emptyValue(field: RuleCatalogueField, rule: Pick<CampaignRule, 'filters'>, kind: RuleBlockKind): unknown {
   if (field.default !== undefined) return field.default
   switch (field.kind) {
     case 'items':
       // An effect usually works on the rule's own filter; a condition starts on all merchandise.
-      return kind === 'effect' ? (rule.filters[0]?.id ?? '') : ''
-    case 'itemParts':
-      return [newPart(rule)]
+      return kind === 'effect' ? rule.filters[0]?.id : undefined
     case 'choice':
-      return field.options?.[0] ?? ''
+      return field.options?.[0]
     case 'choices':
     case 'codes':
       return []
     case 'says':
       return { en: '', ar: '' }
-    case 'timing':
-      return { mode: 'none', value: null } satisfies RuleTiming
-    case 'flag':
-      return false
-    case 'code':
-    case 'text':
-    case 'formula':
-    case 'budget':
-      return ''
-    case 'money':
-    case 'count':
-    case 'days':
-    case 'discount':
-    case 'points':
-      return null
+    default:
+      return undefined
   }
 }
 
 /** A new rule: no name yet, no filter, no condition (it reads "always") and no effect. */
-export const newRule = (id: string): CampaignRule => ({
-  id,
-  name: '',
-  filters: [],
-  values: [],
-  when: { mode: 'all', items: [] },
-  then: [],
-  partial: 'refuse',
-})
+export const newRule = (id: string): CampaignRule => ({ id, name: '', filters: [], values: [], when: [], then: [] })
 
-/** The block a palette pick adds, every field present and empty; `id` is the browser's own. */
-export function newBlock(block: RuleCatalogueBlock, rule: Pick<CampaignRule, 'filters'>, id: string): RuleCondition | RuleEffect {
+/** The block a palette pick adds: `{ check | effect: type, ...defaults }` (schema 1 gives a block no id). */
+export function newBlock(block: RuleCatalogueBlock, rule: Pick<CampaignRule, 'filters'>): RuleCondition | RuleEffect {
   const fields: Record<string, unknown> = {}
-  for (const f of block.fields) fields[f.key] = emptyValue(f, rule, block.kind)
-  if (block.type === RULE_GROUP_TYPE) fields.items = []
-  if (block.kind === 'condition') return { says: { en: '', ar: '' }, ...fields, id, type: block.type } as RuleCondition
-  return { ...fields, id, type: block.type }
+  for (const f of block.fields) {
+    const v = emptyValue(f, rule, block.kind)
+    if (v !== undefined) fields[f.key] = v
+  }
+  if (block.kind === 'condition') {
+    if (block.type === RULE_GROUP_CHECK) return { check: block.type, ...fields, conditions: [] }
+    return { check: block.type, ...fields, says: { en: '', ar: '' } }
+  }
+  return { effect: block.type, ...fields }
 }
 
-/** A bundle's new part: one unit of the rule's first filter (the palette's start, and "Add a part"). */
-export const newPart = (rule: Pick<CampaignRule, 'filters'>): RuleItemPart => ({ of: rule.filters[0]?.id ?? '', count: 1 })
+/** The effects a rule's `bundle` prices; picking one on a rule with no bundle gives it one. */
+export const BUNDLE_EFFECTS: readonly string[] = ['bundlePrice', 'bundleDiscount', 'discountCheapestInBundle']
+
+/** A new bundle list: one unit of the rule's first filter. */
+export const newBundleList = (rule: Pick<CampaignRule, 'filters'>) => ({ filter: rule.filters[0]?.id ?? '', count: 1 })

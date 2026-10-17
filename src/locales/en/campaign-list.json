@@ -30,12 +30,12 @@
   "columns": {
     "name": "Campaign",
     "nameAr": "Arabic name",
-    "code": "Code",
+    "code": "Id",
     "state": "State",
     "start": "Start",
     "end": "End (exclusive)",
-    "created": "Created",
-    "createdBy": "Created by"
+    "updated": "Last saved",
+    "updatedBy": "Saved by"
   },
   "schedule": {
     "immediately": "Immediately",
@@ -58,9 +58,12 @@
     "nameArPlaceholder": "The same name in Arabic",
     "problem": {
       "nameEnRequired": "Enter the campaign’s English name.",
-      "nameArRequired": "Enter the campaign’s Arabic name."
+      "nameArRequired": "Enter the campaign’s Arabic name.",
+      "idRequired": "Enter the campaign id.",
+      "idTooLong": "The campaign id is at most 40 characters.",
+      "idCharacters": "Use only letters A–Z, digits, dots, dashes and underscores.",
+      "idReserved": "This word names a page of Campaigns. Choose another id."
     },
-    "codeHint": "HQ gives the campaign its code, which receipts and SAP exports show.",
     "features": {
       "legend": "Features (optional)",
       "coupons": "Coupons",
@@ -78,7 +81,10 @@
       "label": "How to start",
       "blank": "Blank campaign",
       "template": "From a template"
-    }
+    },
+    "id": "Campaign id",
+    "idPlaceholder": "e.g. NATDAY-15",
+    "idHint": "Up to 40 letters, digits, dots, dashes or underscores. It is suggested from the English name, and cannot change once the campaign is created."
   },
   "template": {
     "loading": "Reading the templates…",

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Copy, FlaskConical, Loader2, MoreHorizontal, type LucideIcon } from 'lucide-react'
-import type { RuleCampaign } from '@/core/models/rule-campaign'
+import type { RuleDraft } from '@/core/models/rule-campaign'
 import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
 import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
 import { takesEscape } from '@/core/commands/key-layer'
@@ -16,7 +16,7 @@ import { POPOVER } from '@/core/ui/overlay'
  * dashboard; the campaign it was copied from is untouched. Ticket 514 adds **Simulate the working
  * copy**: the simulator opens with this campaign's draft chosen. Later slices add their acts here.
  */
-export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampaign }) {
+export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
   const { t } = useTranslation('campaign-workspace')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -25,7 +25,7 @@ export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampai
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   const copy = useMutation({
-    mutationFn: () => ruleCampaignApi.copy(campaign.id),
+    mutationFn: () => ruleCampaignApi.copy(draft.code),
     onSuccess: (draft) => rememberNewDraft(queryClient, draft),
     onError: (err) => notify.apiError(t('actions.copyFailed'), err, t('actions.tryAgain')),
   })
@@ -60,9 +60,9 @@ export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampai
               // Opening the copy rides on THIS call's success, which does not fire once the
               // dashboard has unmounted: a user who moved on is not pulled to the copy.
               copy.mutate(undefined, {
-                onSuccess: (draft) => {
+                onSuccess: (copied) => {
                   notify.success(t('actions.copied'))
-                  navigate(campaignPath(draft.id))
+                  navigate(campaignPath(copied.code))
                 },
               })
             }}
@@ -74,7 +74,7 @@ export default function CampaignActionsMenu({ campaign }: { campaign: RuleCampai
             data="simulate"
             onClick={() => {
               close(false)
-              navigate(simulatorPath(campaign.id))
+              navigate(simulatorPath(draft.code))
             }}
           >
             {t('actions.simulate')}

@@ -11,7 +11,8 @@ import { moneyText, type Sentence, type SentenceValue } from './sentence'
 /** The scopes, in the Budgets page's order (the prototype's): the whole campaign, then per key. */
 export const BUDGET_SCOPES: readonly RuleBudgetScope[] = ['campaign', 'profile', 'coupon', 'store', 'session']
 export const BUDGET_LIMITS: readonly RuleBudgetLimit[] = ['money', 'uses', 'pointsGiven', 'pointsTaken']
-export const BUDGET_PERIODS: readonly RuleBudgetPeriod[] = ['lifetime', 'day', 'week', 'month', 'year']
+/** The periods HQ counts in (2758: no `year`). */
+export const BUDGET_PERIODS: readonly RuleBudgetPeriod[] = ['lifetime', 'day', 'week', 'month']
 
 const phrase = (key: string): SentenceValue => ({ kind: 'phrase', sentence: { key, values: {} } })
 

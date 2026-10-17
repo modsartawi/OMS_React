@@ -170,18 +170,20 @@ export default function BudgetDrawer({
               ))}
             </select>
           </Question>
-          <Question id={id('name')} label={t('settings.budgets.drawer.name')}>
-            <input
-              id={id('name')}
-              dir="auto"
-              className={`${SETTINGS_INPUT} border-border/60 focus:border-primary/50`}
-              value={form.name}
-              disabled={liveLimit}
-              placeholder={t('settings.budgets.drawer.namePlaceholder')}
-              onChange={(e) => set({ name: e.target.value })}
-              data-budget-field="name"
-            />
-          </Question>
+          {(['nameEn', 'nameAr'] as const).map((k) => (
+            <Question key={k} id={id(k)} label={t(`settings.budgets.drawer.${k}`)}>
+              <input
+                id={id(k)}
+                dir={k === 'nameAr' ? 'rtl' : 'ltr'}
+                className={`${SETTINGS_INPUT} border-border/60 focus:border-primary/50`}
+                value={form[k]}
+                disabled={liveLimit}
+                placeholder={t('settings.budgets.drawer.namePlaceholder')}
+                onChange={(e) => set({ [k]: e.target.value })}
+                data-budget-field={k}
+              />
+            </Question>
+          ))}
           <div className="rounded-md border border-border/60 bg-muted/40 p-2.5 text-sm" data-budget-preview="">
             {problem ? (
               <span className="text-muted-foreground">{t('settings.budgets.drawer.previewWaiting')}</span>

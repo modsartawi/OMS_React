@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Coins, Loader2, Pencil, Plus, Receipt, Store, Ticket, Trash2, User, type LucideIcon } from 'lucide-react'
-import type { RuleBudgetScope, RuleBudgetUsage, RuleCampaign, RuleCampaignBudget } from '@/core/models/rule-campaign'
+import type { RuleBudgetScope, RuleBudgetUsage, RuleCampaignBudget, RuleDraft } from '@/core/models/rule-campaign'
 import { rememberSavedDraft, ruleBudgetUsageQuery, ruleCampaignApi } from '@/core/rules/api'
 import { BUDGET_SCOPES, budgetFigure, budgetSentence, budgetUsage } from '@/core/rules/budget'
 import { campaignCurrency } from '@/core/rules/sentence'
@@ -15,6 +15,7 @@ import { mintRequestId } from '@/core/util/request-id'
 import BudgetDrawer from './BudgetDrawer'
 import { budgetForm, budgetsWith, budgetsWithout, newBudgetForm, toBudget, type BudgetForm } from './budget-form'
 import { useWorkspace } from './context'
+import { draftSave } from './settings-form'
 import SentenceView from './SentenceView'
 import { Refusal, SettingsFrame } from './settings-ui'
 
@@ -37,27 +38,30 @@ interface Open {
  */
 export default function BudgetsSettings() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
+  const { draft: d } = useWorkspace()
+  const c = d.campaign
+  const budgets: RuleCampaignBudget[] = c.budgets ?? []
   const queryClient = useQueryClient()
   const currency = campaignCurrency(c.audience)
-  const live = c.status === 'live'
-  const usage = useQuery({ ...ruleBudgetUsageQuery(c.id), enabled: live })
+  const live = d.campaignStatus === 'Published'
+  const usage = useQuery({ ...ruleBudgetUsageQuery(d.code), enabled: live })
   const [open, setOpen] = useState<Open | null>(null)
   const [deleting, setDeleting] = useState<RuleCampaignBudget | null>(null)
 
-  const done = (campaign: RuleCampaign, words: string) => {
-    rememberSavedDraft(queryClient, campaign)
+  const done = (saved: RuleDraft, words: string) => {
+    rememberSavedDraft(queryClient, saved)
     notify.success(t(words))
     setOpen(null)
     setDeleting(null)
   }
   const saveList = useMutation({
-    mutationFn: (budgets: RuleCampaignBudget[]) => ruleCampaignApi.saveBudgets(c.id, { budgets }),
-    onSuccess: (campaign) => done(campaign, 'settings.budgets.saved'),
+    // The budgets are part of the draft: the whole draft is saved at its revision (ticket 522).
+    mutationFn: (next: RuleCampaignBudget[]) => ruleCampaignApi.save(draftSave(d, { budgets: next })),
+    onSuccess: (saved) => done(saved, 'settings.budgets.saved'),
   })
   const changeLimit = useMutation({
-    mutationFn: ({ id, value }: { id: string; value: number }) => ruleCampaignApi.changeLimit(c.id, id, { value }),
-    onSuccess: (campaign) => done(campaign, 'settings.budgets.limitChanged'),
+    mutationFn: ({ id, value }: { id: string; value: number }) => ruleCampaignApi.changeLimit(d.code, id, { value }),
+    onSuccess: (saved) => done(saved, 'settings.budgets.limitChanged'),
   })
   const resetSaves = () => {
     saveList.reset()
@@ -77,8 +81,8 @@ export default function BudgetsSettings() {
   const liveLimit = live && open?.id != null
 
   /** Coupon is offered only with the coupons feature, or where a coupon budget is already there. */
-  const offered = (also: (s: RuleBudgetScope) => boolean) => BUDGET_SCOPES.filter((s) => s !== 'coupon' || c.features.coupons || also(s))
-  const scopes = offered((s) => c.budgets.some((b) => b.scope === s))
+  const offered = (also: (s: RuleBudgetScope) => boolean) => BUDGET_SCOPES.filter((s) => s !== 'coupon' || d.features.includes('coupons') || also(s))
+  const scopes = offered((s) => budgets.some((b) => b.scope === s))
 
   return (
     <SettingsFrame page="budgets">
@@ -108,7 +112,7 @@ export default function BudgetsSettings() {
       )}
       {scopes.map((scope) => {
         const Icon = SCOPE_ICON[scope]
-        const list = c.budgets.filter((b) => b.scope === scope)
+        const list = budgets.filter((b) => b.scope === scope)
         return (
           <section key={scope} className="flex flex-col gap-2" data-budget-scope={scope}>
             <h3 className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold">
@@ -161,7 +165,7 @@ export default function BudgetsSettings() {
           }}
           onSave={(form) => {
             if (liveLimit && open.id) changeLimit.mutate({ id: open.id, value: toBudget(form, open.id).value })
-            else saveList.mutate(budgetsWith(c.budgets, toBudget(form, open.id ?? mintRequestId())))
+            else saveList.mutate(budgetsWith(budgets, toBudget(form, open.id ?? mintRequestId())))
           }}
         />
       )}
@@ -188,7 +192,7 @@ export default function BudgetsSettings() {
               >
                 {t('settings.cancel')}
               </Button>
-              <Button variant="danger" disabled={pending} onClick={() => saveList.mutate(budgetsWithout(c.budgets, deleting.id))} data-budget-delete-confirm="">
+              <Button variant="danger" disabled={pending} onClick={() => saveList.mutate(budgetsWithout(budgets, deleting.id))} data-budget-delete-confirm="">
                 {pending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
                 {t('settings.budgets.delete.confirm')}
               </Button>
@@ -258,9 +262,14 @@ function BudgetLine({
           <Trash2 className="size-3.5" aria-hidden />
         </button>
       </div>
-      {b.name && (
-        <p className="text-xs text-muted-foreground" data-budget-name="">
-          <bdi>{b.name}</bdi>
+      {(b.name?.en || b.name?.ar) && (
+        <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground" data-budget-name="">
+          <bdi lang="en">{b.name.en}</bdi>
+          {b.name.ar && (
+            <bdi dir="rtl" lang="ar">
+              {b.name.ar}
+            </bdi>
+          )}
         </p>
       )}
       {usage === undefined && <p className="text-xs text-muted-foreground">{t('settings.budgets.usageLoading')}</p>}

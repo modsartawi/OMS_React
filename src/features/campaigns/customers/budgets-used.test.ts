@@ -32,12 +32,12 @@ describe('profileBudgets_rowsShowUsedOfLimitPerPeriod', () => {
 
   it('keeps each budget’s own period, a lifetime one included, in HQ’s order', () => {
     const rows = profileBudgetRows([
-      B({ budgetId: 'y', period: 'year', value: 1, used: 0 }),
+      B({ budgetId: 'y', period: 'week', value: 1, used: 0 }),
       B({ budgetId: 'l', period: 'lifetime', value: 1, used: 1 }),
       B({ budgetId: 'd', period: 'day', value: 3, used: 2 }),
     ])
     expect(rows.map((r) => [r.period, r.usedOfLimit])).toEqual([
-      ['year', '0 / 1'],
+      ['week', '0 / 1'],
       ['lifetime', '1 / 1'],
       ['day', '2 / 3'],
     ])

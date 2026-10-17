@@ -1,25 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleCampaign, RuleCampaignRoles, RuleCampaignStatus } from '@/core/models/rule-campaign'
+import type { RuleCampaign, RuleCampaignRoles, RuleCampaignStatus, RuleDraft, RuleDraftState } from '@/core/models/rule-campaign'
 import { actionGate, actionsFor, draftGate, preActivationSteps, showsSteps, type ApprovalAction } from './approval'
 
-const LIVE = { version: 1, at: '2026-10-12T10:00:00', by: 'Reem (approver)' }
 const AUTHOR: RuleCampaignRoles = { author: true, approver: false }
 const APPROVER: RuleCampaignRoles = { author: false, approver: true }
 const BOTH: RuleCampaignRoles = { author: true, approver: true }
 const NEITHER: RuleCampaignRoles = { author: false, approver: false }
 
-const STATUSES: RuleCampaignStatus[] = ['draft', 'waitingForApproval', 'live', 'disabled']
-const of = (status: RuleCampaignStatus, live: RuleCampaign['live'] = null) => ({ status, live })
+type Life = Pick<RuleDraft, 'source' | 'state' | 'campaignStatus'>
+/** A loaded draft: `state` null = Load answered the newest version (no draft). */
+const of = (state: RuleDraftState | null, campaignStatus: RuleCampaignStatus = ''): Life => ({
+  source: state === null ? 'published' : 'draft',
+  state: state ?? 'editing',
+  campaignStatus,
+})
+const STATES: (RuleDraftState | null)[] = ['editing', 'pending', 'sentBack', null]
+const STATUSES: RuleCampaignStatus[] = ['', 'Published', 'Disabled']
 
 describe('actionsFor_authorNeverActivates_approverCan', () => {
-  it('every state × role, never published', () => {
-    const table: Record<RuleCampaignStatus, Record<string, ApprovalAction[]>> = {
-      draft: { author: ['askForApproval', 'deleteDraft'], approver: [], both: ['askForApproval', 'deleteDraft'], neither: [] },
-      waitingForApproval: { author: [], approver: ['activate', 'sendBack'], both: ['activate', 'sendBack'], neither: [] },
-      live: { author: [], approver: ['disable'], both: ['disable'], neither: [] },
-      disabled: { author: [], approver: [], both: [], neither: [] },
+  it('every draft state × role, never published', () => {
+    const table: Record<string, Record<string, ApprovalAction[]>> = {
+      editing: { author: ['askForApproval', 'deleteDraft'], approver: [], both: ['askForApproval', 'deleteDraft'], neither: [] },
+      sentBack: { author: ['askForApproval', 'deleteDraft'], approver: [], both: ['askForApproval', 'deleteDraft'], neither: [] },
+      pending: { author: [], approver: ['activate', 'sendBack'], both: ['activate', 'sendBack'], neither: [] },
     }
-    for (const s of STATUSES) {
+    for (const s of ['editing', 'sentBack', 'pending'] as RuleDraftState[]) {
       expect(actionsFor(of(s), AUTHOR), `${s} author`).toEqual(table[s].author)
       expect(actionsFor(of(s), APPROVER), `${s} approver`).toEqual(table[s].approver)
       expect(actionsFor(of(s), BOTH), `${s} both`).toEqual(table[s].both)
@@ -27,10 +32,16 @@ describe('actionsFor_authorNeverActivates_approverCan', () => {
     }
   })
 
+  it('a published campaign with no draft: the approver may disable it, the author has no draft to ask for', () => {
+    expect(actionsFor(of(null, 'Published'), APPROVER)).toEqual(['disable'])
+    expect(actionsFor(of(null, 'Published'), AUTHOR)).toEqual([])
+    expect(actionsFor(of(null, 'Disabled'), BOTH)).toEqual([])
+  })
+
   it('an author is never offered Activate, Send back or Disable, in any state', () => {
-    for (const s of STATUSES)
-      for (const live of [null, LIVE]) {
-        const acts = actionsFor(of(s, live), AUTHOR)
+    for (const s of STATES)
+      for (const st of STATUSES) {
+        const acts = actionsFor(of(s, st), AUTHOR)
         expect(acts).not.toContain('activate')
         expect(acts).not.toContain('sendBack')
         expect(acts).not.toContain('disable')
@@ -38,24 +49,20 @@ describe('actionsFor_authorNeverActivates_approverCan', () => {
   })
 
   it('an approver is never offered Ask for approval or Delete draft', () => {
-    for (const s of STATUSES)
-      for (const live of [null, LIVE]) {
-        const acts = actionsFor(of(s, live), APPROVER)
+    for (const s of STATES)
+      for (const st of STATUSES) {
+        const acts = actionsFor(of(s, st), APPROVER)
         expect(acts).not.toContain('askForApproval')
         expect(acts).not.toContain('deleteDraft')
       }
   })
 
-  it('a draft that was once published cannot be deleted, only asked for again', () => {
-    expect(actionsFor(of('draft', LIVE), AUTHOR)).toEqual(['askForApproval'])
+  it('the draft of a live campaign may be deleted: the live campaign stays live (Drafts/Delete)', () => {
+    expect(actionsFor(of('editing', 'Published'), AUTHOR)).toEqual(['askForApproval', 'deleteDraft'])
   })
 
   it('changes waiting over a live version are activated or sent back, never disabled from there', () => {
-    expect(actionsFor(of('waitingForApproval', LIVE), APPROVER)).toEqual(['activate', 'sendBack'])
-  })
-
-  it('a status this client does not know offers nothing', () => {
-    expect(actionsFor(of('archived' as RuleCampaignStatus), BOTH)).toEqual([])
+    expect(actionsFor(of('pending', 'Published'), APPROVER)).toEqual(['activate', 'sendBack'])
   })
 })
 
@@ -92,7 +99,7 @@ const draft = (o: Partial<RuleCampaign> = {}) =>
   ({
     name: { en: 'Spring skincare', ar: 'العناية بالبشرة' },
     rules: [{ id: 'r1' }],
-    schedule: { from: '2026-10-19', until: null, days: [], hoursFrom: null, hoursTo: null },
+    window: { from: '2026-10-19' },
     budgets: [{ id: 'b1' }],
     ...o,
   }) as RuleCampaign
@@ -123,9 +130,9 @@ describe('preActivationSteps_tickFromTheDraft', () => {
   })
 
   it('a schedule is set by either bound; none is not set', () => {
-    const s = (from: string | null, until: string | null) => ({ from, until, days: [], hoursFrom: null, hoursTo: null })
-    expect(ticks(preActivationSteps(draft({ schedule: s(null, '2026-12-31') }), false)).schedule).toBe(true)
-    expect(ticks(preActivationSteps(draft({ schedule: s(null, null) }), false)).schedule).toBe(false)
+    expect(ticks(preActivationSteps(draft({ window: { until: '2026-12-31' } }), false)).schedule).toBe(true)
+    expect(ticks(preActivationSteps(draft({ window: {} }), false)).schedule).toBe(false)
+    expect(ticks(preActivationSteps(draft({ window: undefined }), false)).schedule).toBe(false)
   })
 
   it('budgets are considered once one exists', () => {
@@ -133,10 +140,8 @@ describe('preActivationSteps_tickFromTheDraft', () => {
   })
 
   it('the steps show until the campaign is first published', () => {
-    expect(showsSteps({ status: 'draft', live: null })).toBe(true)
-    expect(showsSteps({ status: 'waitingForApproval', live: null })).toBe(true)
-    expect(showsSteps({ status: 'live', live: LIVE })).toBe(false)
-    expect(showsSteps({ status: 'draft', live: LIVE })).toBe(false)
-    expect(showsSteps({ status: 'disabled', live: LIVE })).toBe(false)
+    expect(showsSteps({ publishedVersionNo: 0, campaignStatus: '' })).toBe(true)
+    expect(showsSteps({ publishedVersionNo: 1, campaignStatus: 'Published' })).toBe(false)
+    expect(showsSteps({ publishedVersionNo: 2, campaignStatus: 'Disabled' })).toBe(false)
   })
 })

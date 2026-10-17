@@ -9,7 +9,7 @@ import { CAMPAIGNS } from '../../../../tools/campaigns-fixtures.mjs'
 import { builderHistory, canRedo, canUndo, HISTORY_LIMIT, initialHistory, isDirty, type BuilderAction, type BuilderHistory } from './builder-history'
 import { renameRule } from './rule-edit'
 
-const saved: CampaignRule[] = structuredClone(CAMPAIGNS.find((c) => c.id === 'SUN-3FOR2')!.rules)
+const saved: CampaignRule[] = structuredClone(CAMPAIGNS.find((c) => c.code === 'SUN-3FOR2')!.campaign.rules)
 const ruleId = saved[0].id
 const run = (h: BuilderHistory, ...actions: BuilderAction[]) => actions.reduce(builderHistory, h)
 const rename = (name: string, coalesce?: string): BuilderAction => ({ type: 'edit', edit: (rules) => renameRule(rules, ruleId, name), coalesce })
@@ -41,11 +41,11 @@ describe('builderHistory', () => {
     expect(canRedo(run(edited, { type: 'undo' }, rename('C')))).toBe(false)
 
     const cancelled = run(edited, { type: 'cancel' })
-    expect(cancelled.present).toBe(saved)
+    expect(cancelled.present).toBe(start.saved)
     expect(isDirty(cancelled)).toBe(false)
     expect(canUndo(cancelled) || canRedo(cancelled)).toBe(false)
     // The saved rules were never touched by the edits.
-    expect(saved[0].name).toBe('Cheapest of every three suncare units free')
+    expect(start.saved[0].name).toBe(saved[0].name)
   })
 
   it('Save makes the present the saved rules, and Cancel then goes back to them', () => {

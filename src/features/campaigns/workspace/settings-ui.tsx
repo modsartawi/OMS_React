@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { RotateCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { RuleCampaign } from '@/core/models/rule-campaign'
-import { rememberSavedDraft } from '@/core/rules/api'
+import type { RuleDraftSave } from '@/core/models/rule-campaign'
+import { rememberSavedDraft, ruleCampaignApi, ruleCampaignKey } from '@/core/rules/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import { useWorkspace } from './context'
 import LeaveGuard from './LeaveGuard'
 import type { SettingsPageKey } from './menu'
 import { draftAfterReread } from './settings-form'
@@ -50,19 +52,20 @@ export function useSettingsDraft<T>(saved: T) {
 }
 
 /**
- * A page's Save: HQ answers the whole campaign, remembered as a saved draft is — every page reads
- * it, and the list, the checks and the offline verdict (which a setting can change: a feature a
- * block needs, a members-only audience) are read afresh. The page's draft takes HQ's answer
- * (`adoptNext`) — trimmed, normalised, as saved.
+ * A page's Save (ticket 522): the page's part goes into the loaded draft and the WHOLE draft is
+ * saved at its revision (`Rules/Authoring/Drafts/Save`; `toSave` builds the body with `draftSave`).
+ * HQ answers the draft one revision higher with its validation, remembered as a saved draft is —
+ * every page reads it, the checks and the offline verdict with it. The page's draft takes HQ's
+ * answer (`adoptNext`) — trimmed, normalised, as saved.
  */
-export function useSettingsSave<B>(page: SettingsPageKey, send: (body: B) => Promise<RuleCampaign>, adoptNext: () => void) {
+export function useSettingsSave<B>(page: SettingsPageKey, toSave: (body: B) => RuleDraftSave, adoptNext: () => void) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: send,
-    onSuccess: (campaign) => {
+    mutationFn: (body: B) => ruleCampaignApi.save(toSave(body)),
+    onSuccess: (draft) => {
       adoptNext()
-      rememberSavedDraft(queryClient, campaign)
+      rememberSavedDraft(queryClient, draft)
       notify.success(t(`settings.${page}.saved`))
     },
   })
@@ -101,10 +104,36 @@ export function SettingsField({ id, label, hint, children }: { id?: string; labe
   )
 }
 
-/** HQ's refusal: the envelope's own message, and its code. */
+/** The two draft refusals a save can meet, said in the page's own words (ticket 522). */
+export const DRAFT_STALE = 'RULES_DRAFT_STALE'
+export const DRAFT_PENDING = 'RULES_DRAFT_PENDING'
+
+/**
+ * A stale draft (409 `RULES_DRAFT_STALE`): someone saved it since this page read it. The page offers
+ * to read it again; the reader's unsaved change is then lost, which the words say.
+ */
+export function StaleDraft({ code: campaign }: { code: string }) {
+  const { t } = useTranslation('campaign-workspace')
+  const queryClient = useQueryClient()
+  return (
+    <div data-draft-stale="">
+      <ErrorBanner className="p-2.5" title={t('draft.staleTitle')} message={t('draft.stale')}>
+        <Button variant="outlined" className="mt-2" onClick={() => void queryClient.refetchQueries({ queryKey: ruleCampaignKey(campaign) })} data-draft-reload="">
+          <RotateCw className="h-3.5 w-3.5" aria-hidden />
+          {t('draft.reload')}
+        </Button>
+      </ErrorBanner>
+    </div>
+  )
+}
+
+/** HQ's refusal: the envelope's own message, and its code; a stale or a frozen draft in our words. */
 export function Refusal({ title, fallback, error }: { title: string; fallback: string; error: unknown }) {
   const { t } = useTranslation('campaign-workspace')
+  const { draft } = useWorkspace()
   const code = apiErrorCode(error)
+  if (code === DRAFT_STALE) return <StaleDraft code={draft.code} />
+  if (code === DRAFT_PENDING) return <ErrorBanner className="p-2.5" title={t('draft.pendingTitle')} message={t('draft.pending')} />
   return (
     <ErrorBanner className="p-2.5" title={title} message={apiErrorMessage(error, fallback)}>
       {code && (
@@ -142,8 +171,15 @@ export function SaveRow({
   onSave: () => void
 }) {
   const { t } = useTranslation('campaign-workspace')
+  // A draft waiting for an approver is frozen (409 `RULES_DRAFT_PENDING`): nothing is saved.
+  const frozen = useWorkspace().draft.state === 'pending'
   return (
     <>
+      {frozen && (
+        <p className="text-xs text-muted-foreground" data-settings-frozen="">
+          {t('draft.pending')}
+        </p>
+      )}
       {error != null && (
         <div data-settings-refusal={page}>
           <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} />
@@ -158,7 +194,7 @@ export function SaveRow({
         <Button variant="text" disabled={!dirty || pending} onClick={onCancel} data-settings-cancel="">
           {t('settings.cancel')}
         </Button>
-        <Button variant="primary" disabled={!dirty || blocked || pending} onClick={onSave} data-settings-save="">
+        <Button variant="primary" disabled={!dirty || blocked || pending || frozen} onClick={onSave} data-settings-save="">
           {pending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {dirty ? t('settings.save') : t('settings.unchanged')}
         </Button>

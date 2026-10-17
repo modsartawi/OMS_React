@@ -1,10 +1,11 @@
 import type { CampaignRule } from '@/core/models/rule-campaign'
+import { mintKey, withKeys } from './block-keys'
 
 // The rule builder's edit history (ticket 505): past / present / future over the campaign's rules,
 // beside the rules as HQ last saved them. Pure — the page holds it in a `useReducer` and stays a
 // thin renderer. Every edit is a pure function of the present rules (`./rule-edit`); Undo and
 // Redo step through whole snapshots, Cancel goes back to the saved rules, Save makes the present
-// the saved.
+// the saved. Rules taken from HQ are keyed (`./block-keys`): schema 1 gives blocks no id.
 
 export interface BuilderHistory {
   /** The rules as HQ last saved them — what Cancel goes back to. */
@@ -24,7 +25,11 @@ export interface BuilderHistory {
 }
 
 export type BuilderAction =
-  | { type: 'edit'; edit: (rules: CampaignRule[]) => CampaignRule[]; coalesce?: string }
+  | {
+      type: 'edit'
+      edit: (rules: CampaignRule[]) => CampaignRule[]
+      coalesce?: string
+    }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'cancel' }
@@ -41,13 +46,16 @@ export type BuilderAction =
 /** How many steps Undo can go back. */
 export const HISTORY_LIMIT = 100
 
-export const initialHistory = (rules: CampaignRule[]): BuilderHistory => ({
-  saved: rules,
-  present: rules,
-  past: [],
-  future: [],
-  coalesce: null,
-})
+export const initialHistory = (from: CampaignRule[]): BuilderHistory => {
+  const rules = withKeys(from, mintKey)
+  return {
+    saved: rules,
+    present: rules,
+    past: [],
+    future: [],
+    coalesce: null,
+  }
+}
 
 const same = (a: CampaignRule[], b: CampaignRule[]) => a === b || JSON.stringify(a) === JSON.stringify(b)
 
@@ -64,25 +72,49 @@ export function builderHistory(h: BuilderHistory, action: BuilderAction): Builde
       if (next === h.present) return h
       const key = action.coalesce ?? null
       if (key !== null && key === h.coalesce && h.past.length > 0) return { ...h, present: next, future: [] }
-      return { ...h, present: next, past: [...h.past, h.present].slice(-HISTORY_LIMIT), future: [], coalesce: key }
+      return {
+        ...h,
+        present: next,
+        past: [...h.past, h.present].slice(-HISTORY_LIMIT),
+        future: [],
+        coalesce: key,
+      }
     }
     case 'undo': {
       if (!h.past.length) return h
-      return { ...h, present: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.present, ...h.future], coalesce: null }
+      return {
+        ...h,
+        present: h.past[h.past.length - 1],
+        past: h.past.slice(0, -1),
+        future: [h.present, ...h.future],
+        coalesce: null,
+      }
     }
     case 'redo': {
       if (!h.future.length) return h
-      return { ...h, present: h.future[0], past: [...h.past, h.present], future: h.future.slice(1), coalesce: null }
+      return {
+        ...h,
+        present: h.future[0],
+        past: [...h.past, h.present],
+        future: h.future.slice(1),
+        coalesce: null,
+      }
     }
     case 'cancel':
-      return initialHistory(h.saved)
+      return {
+        saved: h.saved,
+        present: h.saved,
+        past: [],
+        future: [],
+        coalesce: null,
+      }
     case 'saved':
-      if (action.sent !== undefined && action.sent !== h.present) return { ...h, saved: action.rules }
+      if (action.sent !== undefined && action.sent !== h.present) return { ...h, saved: withKeys(action.rules, mintKey) }
       return initialHistory(action.rules)
     case 'seal':
       return h.coalesce === null ? h : { ...h, coalesce: null }
     case 'load':
       // An unsaved edit is never lost to a re-read; the next Save is HQ's to accept or refuse.
-      return isDirty(h) ? { ...h, saved: action.rules } : initialHistory(action.rules)
+      return isDirty(h) ? { ...h, saved: withKeys(action.rules, mintKey) } : initialHistory(action.rules)
   }
 }

@@ -74,7 +74,7 @@ export default function CampaignListPage() {
   const open = (e: RowClickedEvent<RuleCampaignListRow>) => {
     // The name is a link: a click on it has already navigated.
     if ((e.event?.target as Element | null)?.closest?.('a')) return
-    if (e.data) navigate(campaignPath(e.data.id))
+    if (e.data) navigate(campaignPath(e.data.campaign))
   }
 
   return (
@@ -126,7 +126,7 @@ export default function CampaignListPage() {
             rowData={campaigns.isError ? [] : shown}
             columnDefs={columns}
             defaultColDef={DEFAULT_COL_DEF}
-            getRowId={({ data }) => data.id}
+            getRowId={({ data }) => data.campaign}
             onRowClicked={open}
             context={gridContext}
             rowClass="cursor-pointer"

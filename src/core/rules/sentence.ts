@@ -2,38 +2,40 @@ import type {
   CampaignRule,
   RuleBlockCatalogue,
   RuleBlockKind,
+  RuleBundle,
   RuleCampaign,
   RuleCatalogueBlock,
   RuleCatalogueField,
   RuleCondition,
-  RuleEffect,
-  RuleItemFilter,
-  RuleSaysRole,
   RuleConditionGroup,
-  RuleItemPart,
-  RuleTiming,
+  RuleEffect,
+  RuleExpr,
+  RuleItemFilter,
+  RuleNamedValue,
+  RuleSaysRole,
   Says,
 } from '@/core/models/rule-campaign'
-import { RULE_FILTER_SCOPES, RULE_GROUP_TYPE, RULE_PERCENT_UNIT, RULE_POINTS_UNIT } from '@/core/models/rule-campaign'
+import { RULE_GROUP_CHECK, RULE_PERCENT_KIND, RULE_POINTS_UNIT } from '@/core/models/rule-campaign'
 import { formatMoneyIn, formatMoneyOfUnknownCurrency } from '@/core/money'
 import { formatDay } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
+import { printExpr } from './expr'
 
-// A rule read as sentences (ticket 504). Pure: a block in, a sentence out — a locale KEY and its
-// typed VALUES, never English. The wording lives in `campaign-workspace.json` under `sentence.*`;
-// the builder renders a sentence through <Trans>, each value in its own slot isolated by kind
-// (.claude/rules/bidi.md), and the sentence is formatted whole.
+// A rule read as sentences (ticket 504, re-pointed onto schema 1 in 522). Pure: a block in, a
+// sentence out — a locale KEY and its typed VALUES, never English. The wording lives in
+// `campaign-workspace.json` under `sentence.*`; the builder renders a sentence through <Trans>, each
+// value in its own slot isolated by kind (.claude/rules/bidi.md), and the sentence is formatted whole.
 //
-// The catalogue (HQ, BackOffice 2758) says which fields a block has and what kind each is; this
-// module turns each field into a value by its kind. Filters are named by their CURRENT name,
-// looked up by id, so a rename reads through. A formula is shown as written: the client never
-// parses the expression language (ADR 0089).
+// The catalogue says which fields a block has and what kind each is; this module turns each field
+// into a value by its kind. A condition is found in it by its `check`, an effect by its `effect`.
+// Filters are named by their CURRENT name, looked up by id, so a rename reads through. An expression
+// is printed as text by `./expr` (its raw JSON when it cannot be printed).
 //
 // Keys (all under the `campaign-workspace` namespace):
 //   sentence.<condition|effect>.<type>[.<variant>]   the block's sentence
 //   sentence.clause.<type>.<field>                   a trailing clause, only when the field is set
 //   sentence.option.<type>.<field>.<value>           one choice's words
-//   sentence.unit.* · sentence.timing.* · sentence.filter.* · sentence.when.*
+//   sentence.unit.* · sentence.timing.* · sentence.filter.* · sentence.when.* · sentence.bundle*
 
 /** One value in a sentence, by the kind that decides how it is formatted and isolated. */
 export type SentenceValue =
@@ -67,7 +69,7 @@ export interface SaysLine {
 
 export interface BlockSentence {
   sentence: Sentence
-  /** Trailing clauses, in field order (", at most SAR 40.00"). */
+  /** Trailing clauses, in field order (", over merchandise"). */
   clauses: Sentence[]
   says: SaysLine[]
   /** False when the catalogue does not know the block's type, or has no words for it. */
@@ -94,12 +96,12 @@ export const RX_CATEGORY = 'A006'
 
 /**
  * The currency a campaign's amounts are in. PROVISIONAL: the campaign carries no currency on the
- * wire yet, so it is read from the audience's countries — one country's currency, or null (an
- * amount then shows its own decimals, with no code) when the audience spans both or none.
+ * wire, so it is read from the audience's countries — one country's currency, or null (an amount
+ * then shows its own decimals, with no code) when the audience spans both or names none.
  */
 const COUNTRY_CURRENCY: Record<string, string> = { SA: 'SAR', BH: 'BHD' }
-export function campaignCurrency(audience: Pick<RuleCampaign['audience'], 'countries'>): string | null {
-  const currencies = new Set(audience.countries.map((c) => COUNTRY_CURRENCY[c.toUpperCase()]).filter(Boolean))
+export function campaignCurrency(audience: Pick<NonNullable<RuleCampaign['audience']>, 'countries'> | null | undefined): string | null {
+  const currencies = new Set((audience?.countries ?? []).map((c) => COUNTRY_CURRENCY[c.toUpperCase()]).filter(Boolean))
   return currencies.size === 1 ? [...currencies][0] : null
 }
 
@@ -113,29 +115,46 @@ export function moneyText(v: { amount: number; currency: string | null }): strin
 }
 
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
-const isCurrencyCode = (x: unknown): x is string => typeof x === 'string' && /^[A-Z]{3}$/.test(x)
 
-/** A filter of the rule, named by its current name — or words saying there is none. */
+/** A filter of the rule, named by its current name — all merchandise when absent, or words saying it is gone. */
 function itemsValue(id: unknown, filters: readonly RuleItemFilter[]): SentenceValue {
   if (id === '' || id == null) return phrase('sentence.allItems')
   const f = filters.find((x) => x.id === id)
   return f ? { kind: 'name', name: f.name } : phrase('sentence.missingFilter')
 }
 
-/** A named value of the rule, read by id (or, on the provisional wire, by its name). */
-function namedValue(ref: string, rule: SentenceContext['rule']): SentenceValue {
-  const v = rule.values.find((x) => x.id === ref) ?? rule.values.find((x) => x.name === ref)
-  return v ? { kind: 'name', name: v.name } : phrase('sentence.missingValue')
+/** An expression as text, or its raw JSON when the codec cannot print it. */
+export function exprText(expr: RuleExpr, rule: Pick<CampaignRule, 'filters'>): string {
+  return printExpr(expr, { filters: rule.filters }) ?? JSON.stringify(expr)
+}
+
+/**
+ * A formula field's value (a number, a named value or an expression), or null when it is a plain
+ * number (the caller formats that by its unit). A `"$name"` reads the named value by name.
+ */
+function formulaValue(raw: unknown, rule: SentenceContext['rule']): SentenceValue | null {
+  if (typeof raw === 'string' && /^\$[A-Za-z_]\w*$/.test(raw)) {
+    const v = rule.values.find((x) => x.name === raw.slice(1))
+    return v ? { kind: 'name', name: v.name } : phrase('sentence.missingValue')
+  }
+  if (Array.isArray(raw) || typeof raw === 'string') return { kind: 'formula', formula: exprText(raw as RuleExpr, rule) }
+  return null
+}
+
+/** A points date: `{ afterDays }` or `{ on }`; anything else is not set. */
+function timingOf(raw: unknown): { afterDays: number } | { on: string } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const t = raw as { afterDays?: unknown; on?: unknown }
+  if (isNumber(t.afterDays)) return { afterDays: t.afterDays }
+  if (typeof t.on === 'string' && t.on) return { on: t.on }
+  return null
 }
 
 /** True for a field a clause leaves out: empty, zero, false, "none", or its default. */
 function isAbsent(field: RuleCatalogueField, raw: unknown): boolean {
   if (raw === undefined || raw === null || raw === '' || raw === 0 || raw === false) return true
   if (Array.isArray(raw) && raw.length === 0) return true
-  if (field.kind === 'timing') {
-    const mode = (raw as Partial<RuleTiming>).mode
-    return !mode || mode === 'none'
-  }
+  if (field.kind === 'timing') return timingOf(raw) === null
   return field.default !== undefined && raw === field.default
 }
 
@@ -156,17 +175,6 @@ function fieldValue(
   switch (field.kind) {
     case 'items':
       return itemsValue(raw, ctx.rule.filters)
-    case 'itemParts': {
-      const parts = Array.isArray(raw) ? (raw as Partial<RuleItemPart>[]) : []
-      if (!parts.length) return phrase('sentence.nothingPicked')
-      return {
-        kind: 'list',
-        join: 'and',
-        items: parts.map((p) =>
-          phrase('sentence.part', { count: { kind: 'number', n: isNumber(p.count) ? p.count : 0 }, of: itemsValue(p.of, ctx.rule.filters) }),
-        ),
-      }
-    }
     case 'money':
       return isNumber(raw) ? { kind: 'money', amount: raw, currency } : notPicked
     case 'count':
@@ -174,19 +182,20 @@ function fieldValue(
     case 'days':
       return isNumber(raw) ? phrase('sentence.unit.days', { n: { kind: 'number', n: raw } }, raw) : notPicked
     case 'discount': {
-      if (typeof raw === 'string' && raw) return namedValue(raw, ctx.rule)
+      const named = formulaValue(raw, ctx.rule)
+      if (named) return named
       if (!isNumber(raw)) return notPicked
       const unit = field.unitFrom ? item[field.unitFrom] : undefined
-      if (unit === RULE_PERCENT_UNIT) return { kind: 'percent', n: raw }
-      return { kind: 'money', amount: raw, currency: isCurrencyCode(unit) ? unit : currency }
+      return unit === RULE_PERCENT_KIND ? { kind: 'percent', n: raw } : { kind: 'money', amount: raw, currency }
     }
     case 'points': {
       const unit = field.unitFrom ? item[field.unitFrom] : undefined
-      const named = typeof raw === 'string' && raw ? namedValue(raw, ctx.rule) : null
+      const named = formulaValue(raw, ctx.rule)
       if (!named && !isNumber(raw)) return notPicked
       if (unit === RULE_POINTS_UNIT)
         return named ? phrase('sentence.unit.pointsNamed', { name: named }) : phrase('sentence.unit.points', { n: { kind: 'number', n: raw as number } }, raw as number)
-      const worthIn = isCurrencyCode(unit) ? unit : currency
+      // `SAR` is a riyal's worth of points; the campaign's currency otherwise.
+      const worthIn = typeof unit === 'string' && /^[A-Z]{3}$/.test(unit) ? unit : currency
       if (named && !worthIn) return phrase('sentence.unit.pointsWorthNamedUnknown', { name: named })
       return named
         ? phrase('sentence.unit.pointsWorthNamed', { name: named, currency: { kind: 'code', code: worthIn ?? '' } })
@@ -207,23 +216,26 @@ function fieldValue(
       return picked.length ? { kind: 'list', join: 'or', items: picked.map(option) } : phrase('sentence.nothingPicked')
     }
     case 'formula':
-      return typeof raw === 'string' && raw.trim() ? { kind: 'formula', formula: raw } : notPicked
+      return raw === undefined || raw === null || raw === '' ? notPicked : { kind: 'formula', formula: exprText(raw as RuleExpr, ctx.rule) }
     case 'timing': {
-      const t = (raw ?? {}) as Partial<RuleTiming>
-      if (t.mode === 'on' && typeof t.value === 'string') return phrase('sentence.timing.on', { day: { kind: 'day', day: t.value } })
-      if ((t.mode === 'afterDays' || t.mode === 'afterHours') && isNumber(t.value))
-        return phrase(`sentence.timing.${t.mode}`, { n: { kind: 'number', n: t.value } }, t.value)
-      return notPicked
+      const t = timingOf(raw)
+      if (!t) return notPicked
+      if ('on' in t) return phrase('sentence.timing.on', { day: { kind: 'day', day: t.on } })
+      return phrase('sentence.timing.afterDays', { n: { kind: 'number', n: t.afterDays } }, t.afterDays)
     }
     case 'budget': {
-      const b = ctx.campaign.budgets.find((x) => x.id === raw)
-      return b ? { kind: 'name', name: b.name } : phrase('sentence.missingBudget')
+      const b = (ctx.campaign.budgets ?? []).find((x) => x.id === raw)
+      return b ? { kind: 'name', name: b.name.en || b.id } : phrase('sentence.missingBudget')
     }
     case 'flag':
     case 'says':
       return null
   }
 }
+
+/** A block's catalogue type: a condition's `check`, an effect's `effect`. */
+export const blockType = (item: RuleCondition | RuleEffect): string =>
+  String(('check' in item ? item.check : (item as RuleEffect).effect) ?? '')
 
 /** Where a block's catalogue entry is, by its type and kind. */
 export function catalogueBlock(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, type: string): RuleCatalogueBlock | undefined {
@@ -241,17 +253,19 @@ const pluralCount = (x: unknown): number => (isNumber(x) ? x : 2)
 
 /** A condition or an effect, as a sentence with its clauses and its EN + AR lines. */
 export function blockSentence(kind: RuleBlockKind, item: RuleCondition | RuleEffect, ctx: SentenceContext): BlockSentence {
-  const block = catalogueBlock(ctx.catalogue, kind, item.type)
-  if (!block) return unknownBlock(item.type)
+  const type = blockType(item)
+  const block = catalogueBlock(ctx.catalogue, kind, type)
+  if (!block) return unknownBlock(type)
   const currency = campaignCurrency(ctx.campaign.audience)
   const raw = item as Record<string, unknown>
 
-  const variant = block.variant ? raw[block.variant] : undefined
+  const variantField = block.variant ? block.fields.find((f) => f.key === block.variant) : undefined
+  const variant = block.variant ? (raw[block.variant] ?? variantField?.default) : undefined
   const key = `sentence.${kind}.${block.type}${block.variant ? `.${String(variant)}` : ''}`
   // A sentence that agrees in number reads in its "other" form while its number is not set yet.
   const pluralField = block.fields.find((f) => f.plural && !f.clause)
   const count = pluralField ? pluralCount(raw[pluralField.key]) : undefined
-  if (!ctx.has(key, count)) return unknownBlock(item.type)
+  if (!ctx.has(key, count)) return unknownBlock(type)
 
   const values: Record<string, SentenceValue> = {}
   const clauses: Sentence[] = []
@@ -283,10 +297,26 @@ export function groupSentence(mode: unknown): Sentence {
   return S(mode === 'any' ? 'sentence.group.any' : 'sentence.group.all')
 }
 
-/** The rule's When line: all / any of its conditions — or "always", for a rule with none. */
+/** The rule's When line: every condition must hold — or "always", for a rule with none. */
 export function whenSentence(rule: Pick<CampaignRule, 'when'>): Sentence {
-  if (!leafConditions(rule.when).length) return S('sentence.when.always')
-  return S(rule.when.mode === 'any' ? 'sentence.when.any' : 'sentence.when.all')
+  return S(leafConditions(rule.when).length ? 'sentence.when.all' : 'sentence.when.always')
+}
+
+/** A rule's bundle (`rule.bundle`): its lists — N of a filter each — and its limits, as clauses. */
+export function bundleSentence(bundle: RuleBundle, rule: Pick<CampaignRule, 'filters'>): { sentence: Sentence; clauses: Sentence[] } {
+  const lists: SentenceValue = bundle.lists.length
+    ? {
+        kind: 'list',
+        join: 'and',
+        items: bundle.lists.map((l) =>
+          phrase('sentence.part', { count: isNumber(l.count) ? { kind: 'number', n: l.count } : phrase('sentence.notPicked'), filter: itemsValue(l.filter, rule.filters) }),
+        ),
+      }
+    : phrase('sentence.nothingPicked')
+  const clauses: Sentence[] = []
+  if (isNumber(bundle.max) && bundle.max > 0) clauses.push(S('sentence.bundleMax', { max: { kind: 'number', n: bundle.max } }, bundle.max))
+  if (bundle.sameAttribute) clauses.push(S('sentence.bundleSame', { attribute: { kind: 'code', code: bundle.sameAttribute } }))
+  return { sentence: S('sentence.bundle', { lists }), clauses }
 }
 
 /** A named cart-item filter as a chain: its name, then what it looks at and keeps out. */
@@ -302,29 +332,31 @@ export function filterChain(f: RuleItemFilter): FilterChain {
     join,
     items: list.map((code) => (code === RX_CATEGORY ? phrase('sentence.filter.rx', { code: { kind: 'code', code } }) : { kind: 'code', code })),
   })
-  // A scope this client does not know reads as merchandise.
-  const scope = RULE_FILTER_SCOPES.includes(f.scope) ? f.scope : 'items'
-  const links: Sentence[] = [S(`sentence.filter.scope.${scope}`)]
-  if (f.cats.length) links.push(S('sentence.filter.categories', { cats: codes(f.cats) }))
-  if (f.colls.length) links.push(S('sentence.filter.collections', { colls: codes(f.colls) }))
-  if (f.skus.length) links.push(S('sentence.filter.products', { skus: codes(f.skus) }))
-  if (f.exclCats.length) links.push(S('sentence.filter.never', { cats: codes(f.exclCats) }))
+  const cats = f.categories ?? []
+  const articles = f.articles ?? []
+  const never = f.exclude?.categories ?? []
+  const links: Sentence[] = []
+  if (cats.length) links.push(S('sentence.filter.categories', { cats: codes(cats) }))
+  if (articles.length) links.push(S('sentence.filter.products', { skus: codes(articles) }))
+  // A filter that picks nothing matches every cart item; say so before what it keeps out.
+  if (!links.length) links.push(S('sentence.filter.all'))
+  if (never.length) links.push(S('sentence.filter.never', { cats: codes(never) }))
   return { id: f.id, name: f.name, links }
 }
 
-/** A named value: its name and its formula as written. */
-export function valueSentence(v: { name: string; formula: string }): Sentence {
-  return S('sentence.value', { name: { kind: 'name', name: v.name }, formula: { kind: 'formula', formula: v.formula } })
+/** A named value: its name and its expression as text (its JSON when it cannot be printed). */
+export function valueSentence(v: RuleNamedValue, rule: Pick<CampaignRule, 'filters'>): Sentence {
+  return S('sentence.value', { name: { kind: 'name', name: v.name }, formula: { kind: 'formula', formula: exprText(v.expr, rule) } })
 }
 
-/** A nested group of conditions (the catalogue's `group` block): its own all / any, its own items. */
+/** A nested group of conditions (the catalogue's `group` block): its own all / any, its own conditions. */
 export function isConditionGroup(c: RuleCondition): c is RuleConditionGroup {
-  return c.type === RULE_GROUP_TYPE && Array.isArray(c.items)
+  return c.check === RULE_GROUP_CHECK && Array.isArray(c.conditions)
 }
 
-/** Every leaf condition under a group, nested groups opened. */
-export function leafConditions(when: { items: RuleCondition[] }): RuleCondition[] {
-  return when.items.flatMap((c) => (isConditionGroup(c) ? leafConditions(c) : [c]))
+/** Every leaf condition under a list of conditions, nested groups opened. */
+export function leafConditions(when: readonly RuleCondition[]): RuleCondition[] {
+  return when.flatMap((c) => (isConditionGroup(c) ? leafConditions(c.conditions) : [c]))
 }
 
 /** A collapsed rule's one-line summary: how many filters, conditions and effects. */

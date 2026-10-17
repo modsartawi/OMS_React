@@ -21,7 +21,7 @@ const TABS: Tab[] = ['fields', 'functions', 'recipes']
 export default function FxHelper({
   guide,
   rule,
-  valueId,
+  valueKey,
   expect,
   current,
   onInsert,
@@ -30,7 +30,7 @@ export default function FxHelper({
 }: {
   guide: RuleFormulaGuide
   rule: CampaignRule
-  valueId: string | null
+  valueKey: string | null
   expect: RuleFormulaExpect
   /** The box's formula as written — a cap recipe wraps it. */
   current: string
@@ -63,7 +63,7 @@ export default function FxHelper({
           {t('fx.done')}
         </Button>
       </div>
-      {tab === 'fields' && <FieldsTab guide={guide} rule={rule} valueId={valueId} onInsert={onInsert} />}
+      {tab === 'fields' && <FieldsTab guide={guide} rule={rule} valueKey={valueKey} onInsert={onInsert} />}
       {tab === 'functions' && <FunctionsTab guide={guide} onInsert={onInsert} />}
       {tab === 'recipes' && <RecipesTab guide={guide} rule={rule} expect={expect} current={current} onUse={onUse} />}
       <div className="flex flex-wrap items-center gap-1" data-fx-operators="">
@@ -106,7 +106,7 @@ function TypeBadge({ type }: { type: RuleFormulaType }) {
   )
 }
 
-function FieldsTab({ guide, rule, valueId, onInsert }: { guide: RuleFormulaGuide; rule: CampaignRule; valueId: string | null; onInsert: (chip: Chip) => void }) {
+function FieldsTab({ guide, rule, valueKey, onInsert }: { guide: RuleFormulaGuide; rule: CampaignRule; valueKey: string | null; onInsert: (chip: Chip) => void }) {
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const [find, setFind] = useState('')
@@ -114,7 +114,7 @@ function FieldsTab({ guide, rule, valueId, onInsert }: { guide: RuleFormulaGuide
   const label = (f: FxField) => (f.kind === 'field' ? (has(`fx.field.${f.insert}.label`) ? t(`fx.field.${f.insert}.label`) : f.insert) : t(`fx.kind.${f.kind}`, { name: fsi(f.insert) }))
   const desc = (f: FxField) => (f.kind === 'field' ? (has(`fx.field.${f.insert}.desc`) ? t(`fx.field.${f.insert}.desc`) : '') : t(`fx.kindHint.${f.kind}`))
   // The label's isolates would split a search across the name ("filter eligible" in "Item filter ⁨eligible⁩").
-  const items = fxFields(guide, rule, valueId).filter((f) => !q || stripIsolates(`${label(f)} ${f.insert} ${desc(f)}`).toLowerCase().includes(q))
+  const items = fxFields(guide, rule, valueKey).filter((f) => !q || stripIsolates(`${label(f)} ${f.insert} ${desc(f)}`).toLowerCase().includes(q))
   const groups = [...new Set(items.map((f) => f.group))]
   return (
     <div className="flex flex-col gap-1.5">

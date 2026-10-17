@@ -1,18 +1,38 @@
 import type {
   CampaignRule,
   RuleBlockCatalogue,
-  RuleCampaignDetails,
-  RuleCampaignFeatures,
+  RuleCampaign,
   RuleCondition,
+  RuleDraft,
+  RuleDraftSave,
+  RuleFeature,
+  Says,
 } from '@/core/models/rule-campaign'
+import type { CampaignStateInput } from '@/core/rules/campaign-state'
+import { blockType } from '@/core/rules/sentence'
 
-// The Settings pages' pure parts (ticket 509): the Details form and the feature-off guard.
+// The Settings pages' pure parts (tickets 509, 522): the whole-draft save, the Details form and
+// the feature-off guard.
 
-/** Settings ▸ Details' fields: the name in both languages — both required — and the description. */
+/**
+ * What a Settings page sends (ticket 522): the loaded draft with the page's part put into its
+ * campaign, saved WHOLE at the revision it was loaded at (`Rules/Authoring/Drafts/Save`). The
+ * Features page sends its own list; every other page the draft's. No `tree`: the live order stays.
+ */
+export function draftSave(draft: Pick<RuleDraft, 'campaign' | 'features' | 'revision'>, part: Partial<RuleCampaign>, features?: RuleFeature[]): RuleDraftSave {
+  return { campaign: { ...draft.campaign, ...part }, features: features ?? draft.features, revision: draft.revision }
+}
+
+/** What a loaded draft's state is read from: a draft's state only when there IS a draft (Load
+ *  answers the newest version, `source: published`, when there is none). */
+export function draftStateInput(d: Pick<RuleDraft, 'source' | 'state' | 'campaignStatus' | 'campaign'>): CampaignStateInput {
+  return { state: d.source === 'draft' ? d.state : null, campaignStatus: d.campaignStatus, window: d.campaign.window }
+}
+
+/** Settings ▸ Details' fields: the name in both languages — both required. */
 export interface DetailsForm {
   nameEn: string
   nameAr: string
-  description: string
 }
 
 /** A field the Details form refuses, keyed to its locale message. */
@@ -26,40 +46,42 @@ export function detailsProblems(form: DetailsForm): DetailsProblem[] {
   return problems
 }
 
-/** The body the Details door takes — everything trimmed. */
-export function toDetailsBody(form: DetailsForm): RuleCampaignDetails {
-  return { name: { en: form.nameEn.trim(), ar: form.nameAr.trim() }, description: form.description.trim() }
+/** The campaign's name the Details page saves — trimmed. */
+export function toDetailsName(form: DetailsForm): Says {
+  return { en: form.nameEn.trim(), ar: form.nameAr.trim() }
 }
 
 /** A feature being switched off while rules still use it, and those rules, in rule order. */
 export interface FeatureInUse {
-  feature: keyof RuleCampaignFeatures
+  feature: RuleFeature
   rules: { id: string; name: string }[]
 }
 
-/** Every condition of a When, a group's own included (groups nest through `items`). */
+/** Every condition of a When, a group's own included (groups nest through `conditions`). */
 function conditionsOf(items: readonly RuleCondition[]): RuleCondition[] {
-  return items.flatMap((c) => [c, ...(Array.isArray(c.items) ? conditionsOf(c.items as RuleCondition[]) : [])])
+  return items.flatMap((c) => [c, ...(Array.isArray(c.conditions) ? conditionsOf(c.conditions as RuleCondition[]) : [])])
 }
 
 /**
  * The features `next` switches off that a block of the saved `rules` still needs (the catalogue
  * says which feature a block type needs — the palette's own gate, 505), with the rules that use it.
- * Empty = the change can be saved. Switching a feature on is never refused. The page refuses the
- * save and names the rules; HQ refuses it too, whatever the page draws. Only blocks are read: a
- * named value's formula that reads points is HQ's to find (the client never parses a formula, ADR
- * 0089), and its refusal is shown as it comes.
+ * Empty = the change can be saved. Switching a feature on is never refused. HQ's validation warns
+ * at a block of a feature the draft has not switched on, whatever the page draws.
  */
 export function featuresInUse(
-  current: RuleCampaignFeatures,
-  next: RuleCampaignFeatures,
+  current: readonly RuleFeature[],
+  next: readonly RuleFeature[],
   rules: readonly CampaignRule[],
   catalogue: RuleBlockCatalogue,
 ): FeatureInUse[] {
-  const needs = new Map(catalogue.blocks.map((b) => [b.type, b.feature]))
-  const off = (Object.keys(next) as (keyof RuleCampaignFeatures)[]).filter((f) => current[f] && !next[f])
+  const needs = new Map(catalogue.blocks.map((b) => [`${b.kind}:${b.type}`, b.feature]))
+  const off = current.filter((f) => !next.includes(f))
   return off.flatMap((feature) => {
-    const using = rules.filter((r) => [...conditionsOf(r.when.items), ...r.then].some((b) => needs.get(b.type) === feature))
+    const using = rules.filter(
+      (r) =>
+        conditionsOf(r.when).some((c) => needs.get(`condition:${blockType(c)}`) === feature) ||
+        r.then.some((e) => needs.get(`effect:${blockType(e)}`) === feature),
+    )
     return using.length ? [{ feature, rules: using.map((r) => ({ id: r.id, name: r.name })) }] : []
   })
 }

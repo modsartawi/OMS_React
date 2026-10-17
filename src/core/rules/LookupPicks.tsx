@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Check, Search, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import type { RuleLookupKind } from '@/core/models/rule-campaign'
+import type { RuleLookupItem, RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
@@ -42,6 +42,7 @@ export default function LookupPicks({
   after,
   empty,
   data,
+  onPickHit,
 }: {
   kind: RuleLookupKind
   /** A translated label, or the caller's data isolated in a `<bdi>`. */
@@ -52,6 +53,11 @@ export default function LookupPicks({
   /** What an empty step reads; "Any" by default. */
   empty?: string
   data: string
+  /**
+   * What a hit does instead of adding its code to `value` — a collection's hit writes its
+   * `articles` into the filter (2758: a filter keeps articles, not collections).
+   */
+  onPickHit?: (hit: RuleLookupItem) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const [find, setFind] = useState('')
@@ -132,7 +138,8 @@ export default function LookupPicks({
                       className="flex w-full items-center gap-2 px-2 py-1 text-start text-sm hover:bg-accent disabled:text-muted-foreground disabled:hover:bg-transparent"
                       disabled={picked}
                       onClick={() => {
-                        onChange([...value, h.code])
+                        if (onPickHit) onPickHit(h)
+                        else onChange([...value, h.code])
                         setFind('')
                       }}
                       data-lookup-hit={h.code}

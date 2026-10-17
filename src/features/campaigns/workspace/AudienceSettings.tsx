@@ -1,15 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { apiErrorMessage } from '@/core/api'
-import type { RuleCampaignAudience, RuleLookupKind } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleLookupQuery } from '@/core/rules/api'
+import type { RuleAudienceMembers, RuleCampaignAudience, RuleLookupKind } from '@/core/models/rule-campaign'
+import { ruleLookupQuery } from '@/core/rules/api'
 import LookupPicks from '@/core/rules/LookupPicks'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { useWorkspace } from './context'
+import { draftSave } from './settings-form'
 import { SETTINGS_CONTROL, SaveRow, togglePill, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
 
-const MEMBERS: readonly RuleCampaignAudience['members'][] = ['any', 'identified', 'earning']
+const MEMBERS: readonly RuleAudienceMembers[] = ['any', 'identified', 'earning']
+
+/** The page's fields: every part present (an absent one on the wire is none picked / anyone). */
+type AudienceForm = Required<RuleCampaignAudience>
+
+const audienceForm = (a: RuleCampaignAudience | undefined): AudienceForm => ({
+  countries: a?.countries ?? [],
+  channels: a?.channels ?? [],
+  stores: a?.stores ?? [],
+  members: a?.members ?? 'any',
+})
 
 /**
  * Settings ▸ Audience (ticket 509): where and for whom the campaign runs, before any rule is looked
@@ -19,11 +30,11 @@ const MEMBERS: readonly RuleCampaignAudience['members'][] = ['any', 'identified'
  */
 export default function AudienceSettings() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
-  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<RuleCampaignAudience>(c.audience)
-  const save = useSettingsSave('audience', (body: RuleCampaignAudience) => ruleCampaignApi.saveAudience(c.id, body), adoptNext)
+  const { draft: d } = useWorkspace()
+  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<AudienceForm>(audienceForm(d.campaign.audience))
+  const save = useSettingsSave('audience', (audience: AudienceForm) => draftSave(d, { audience }), adoptNext)
 
-  const set = (change: Partial<RuleCampaignAudience>) => {
+  const set = (change: Partial<AudienceForm>) => {
     setDraft((d) => ({ ...d, ...change }))
     if (save.isError) save.reset()
   }
@@ -51,7 +62,7 @@ export default function AudienceSettings() {
           id="settings-members"
           className={`${SETTINGS_CONTROL} w-full max-w-md`}
           value={draft.members}
-          onChange={(e) => set({ members: e.target.value as RuleCampaignAudience['members'] })}
+          onChange={(e) => set({ members: e.target.value as RuleAudienceMembers })}
           data-settings-field="members"
         >
           {MEMBERS.map((m) => (

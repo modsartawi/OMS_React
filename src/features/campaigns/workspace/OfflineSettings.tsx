@@ -1,71 +1,49 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
-import type { RuleCampaignOffline } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleOfflineVerdictQuery } from '@/core/rules/api'
-import Button from '@/core/ui/Button'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { useWorkspace } from './context'
-import { Refusal, SaveRow, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import { draftSave } from './settings-form'
+import { SaveRow, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
 
 /**
- * Settings ▸ Offline (ticket 509): HQ's offline-safe verdict on the saved draft, with its reasons —
- * worked out by HQ from the rules, budgets and audience, never by the client — and, for a campaign
- * HQ finds safe, "online only" to keep it off offline tills anyway.
+ * Settings ▸ Offline (tickets 509, 522): HQ's offline-safe verdict on the saved draft — the
+ * `offline` part of the validation `Drafts/Load` answers, worked out by HQ from the rules, budgets
+ * and audience, never by the client; null while the draft has errors — with its reasons in both
+ * languages, and, for a campaign HQ finds safe, "online only" (`onlineOnly`) to keep it off offline
+ * tills anyway. The whole draft is saved at its revision.
  */
 export default function OfflineSettings() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
-  const verdict = useQuery(ruleOfflineVerdictQuery(c.id))
-  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<RuleCampaignOffline>({ offlineOptOut: c.offlineOptOut })
-  const save = useSettingsSave('offline', (body: RuleCampaignOffline) => ruleCampaignApi.saveOffline(c.id, body), adoptNext)
+  const { draft: d } = useWorkspace()
+  const onlineOnly = !!d.campaign.onlineOnly
+  const v = d.validation?.offline ?? null
+  const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<{ onlineOnly: boolean }>({ onlineOnly })
+  const save = useSettingsSave('offline', (body: { onlineOnly: boolean }) => draftSave(d, { onlineOnly: body.onlineOnly }), adoptNext)
 
-  if (verdict.isPending) {
+  if (!v) {
     return (
       <SettingsFrame page="offline">
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('settings.offline.loading')}
+        <p className="text-sm text-muted-foreground" data-offline-verdict="unknown">
+          {t('settings.offline.noVerdict')}
         </p>
       </SettingsFrame>
     )
   }
 
-  if (verdict.isError) {
-    return (
-      <SettingsFrame page="offline">
-        <div data-offline-refusal="">
-          <Refusal title={t('settings.offline.failedTitle')} fallback={t('settings.offline.failed')} error={verdict.error} />
-        </div>
-        <div>
-          <Button variant="secondary" onClick={() => void verdict.refetch()} data-offline-retry="">
-            {t('settings.offline.retry')}
-          </Button>
-        </div>
-      </SettingsFrame>
-    )
-  }
-
-  const v = verdict.data
   return (
     <SettingsFrame page="offline">
       {v.safe ? (
         <>
-          <p className="flex flex-wrap items-center gap-2 text-sm" data-offline-verdict={c.offlineOptOut ? 'optedOut' : 'safe'}>
-            {c.offlineOptOut ? (
-              <StatusBadge sev="mute">{t('settings.offline.onlineOnly')}</StatusBadge>
-            ) : (
-              <StatusBadge sev="ok">{t('settings.offline.safe')}</StatusBadge>
-            )}
-            {t(c.offlineOptOut ? 'settings.offline.optedOutSentence' : 'settings.offline.safeSentence')}
+          <p className="flex flex-wrap items-center gap-2 text-sm" data-offline-verdict={onlineOnly ? 'optedOut' : 'safe'}>
+            {onlineOnly ? <StatusBadge sev="mute">{t('settings.offline.onlineOnly')}</StatusBadge> : <StatusBadge sev="ok">{t('settings.offline.safe')}</StatusBadge>}
+            {t(onlineOnly ? 'settings.offline.optedOutSentence' : 'settings.offline.safeSentence')}
           </p>
           <label className="flex cursor-pointer items-start gap-2 text-sm">
             <input
               type="checkbox"
               className="mt-1"
-              checked={draft.offlineOptOut}
+              checked={draft.onlineOnly}
               onChange={(e) => {
-                setDraft({ offlineOptOut: e.target.checked })
+                setDraft({ onlineOnly: e.target.checked })
                 if (save.isError) save.reset()
               }}
               data-offline-opt-out=""
@@ -99,7 +77,14 @@ export default function OfflineSettings() {
             {/* By place too: HQ may answer one code for two reasons (509 review). */}
             {v.reasons.map((r, i) => (
               <li key={`${i}-${r.code}`} data-offline-reason={r.code}>
-                <bdi>{r.message}</bdi>
+                <span className="flex flex-col">
+                  <bdi lang="en">{r.en}</bdi>
+                  {r.ar && (
+                    <bdi dir="rtl" lang="ar">
+                      {r.ar}
+                    </bdi>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

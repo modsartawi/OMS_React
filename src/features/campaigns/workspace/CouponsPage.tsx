@@ -45,7 +45,9 @@ import { Refusal, SETTINGS_CONTROL } from './settings-ui'
  */
 export default function CouponsPage() {
   const { t } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
+  const { draft: d } = useWorkspace()
+  const c = d.campaign
+  const couponsOn = d.features.includes('coupons')
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const status = statusFromParam(params.get('status'))
@@ -67,7 +69,7 @@ export default function CouponsPage() {
     setParams(out, { replace: true })
   }
 
-  const coupons = useQuery({ ...ruleCouponsQuery(c.id), enabled: c.features.coupons })
+  const coupons = useQuery({ ...ruleCouponsQuery(c.id), enabled: couponsOn })
   const codes = useMemo(() => coupons.data ?? [], [coupons.data])
   const shown = useMemo(() => visibleCoupons(codes, { q, status, batch }), [codes, q, status, batch])
   const counts = useMemo(() => couponCounts(codes), [codes])
@@ -75,7 +77,7 @@ export default function CouponsPage() {
   const batchCounts = useMemo(() => couponCounts(batch ? codes.filter((k) => k.batch === batch) : []), [codes, batch])
 
   /** Codes to a CSV download: no isolates, machine values as HQ answered them. */
-  const exportCodes = (list: readonly RuleCampaignCoupon[], ofBatch: string) => downloadCsv(couponCsvFileName(c.code, ofBatch), couponCsv(list))
+  const exportCodes = (list: readonly RuleCampaignCoupon[], ofBatch: string) => downloadCsv(couponCsvFileName(c.id, ofBatch), couponCsv(list))
 
   const columns = useMemo(() => couponColumns(t), [t])
   const gridContext = useMemo<CouponGridContext>(
@@ -89,7 +91,7 @@ export default function CouponsPage() {
     [t, q, status, batch],
   )
 
-  if (!c.features.coupons) {
+  if (!couponsOn) {
     return (
       <section className="flex flex-col gap-4" data-coupons-page="off">
         <Header />

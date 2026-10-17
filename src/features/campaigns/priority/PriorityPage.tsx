@@ -81,7 +81,7 @@ export default function PriorityPage() {
     save.reset()
   }
 
-  const byId = useMemo(() => new Map((campaigns.data ?? []).map((c) => [c.id, c])), [campaigns.data])
+  const byId = useMemo(() => new Map((campaigns.data ?? []).map((c) => [c.campaign, c])), [campaigns.data])
   const now = new Date()
 
   const places = (current?.groups ?? []).map((g) => ({ id: g.id, name: g.name }))
@@ -256,7 +256,7 @@ function CampaignRow({
   onMoveTo: (target: OrderPlace) => void
 }) {
   const { t } = useTranslation('campaign-priority')
-  const code = campaign?.code ?? id
+  const code = campaign?.campaign ?? id
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-card px-3 py-2" data-order-row={id}>
       <span className="w-6 text-xs text-muted-foreground tabular-nums">
@@ -277,7 +277,7 @@ function CampaignRow({
       </div>
       {campaign && <CampaignStateBadge state={campaignState(campaign, now)} />}
       {/* The legend's "highest discount … points do not count" needs to say which rows earn points (2734 CRow). */}
-      {campaign?.features.points && (
+      {campaign?.features.includes('points') && (
         <span className="rounded-full bg-primary-050 px-2 py-0.5 text-xs font-medium text-primary-800" data-order-points="">
           {t('row.points')}
         </span>

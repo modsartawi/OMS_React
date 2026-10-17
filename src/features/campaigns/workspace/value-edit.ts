@@ -1,15 +1,15 @@
-import type { CampaignRule, RuleBlockCatalogue, RuleCondition, RuleEffect, RuleNamedValue } from '@/core/models/rule-campaign'
-import { catalogueBlock, leafConditions } from '@/core/rules/sentence'
-import { setBlockField } from './rule-edit'
+import type { CampaignRule, RuleBlockCatalogue, RuleCondition, RuleEffect, RuleExpr, RuleNamedValue } from '@/core/models/rule-campaign'
+import { blockType, catalogueBlock, leafConditions } from '@/core/rules/sentence'
+import { keyOf } from './block-keys'
 
-// A rule's named values (ticket 507). Pure, like `./rule-edit`: an edit copies what it touches and
-// one that changes nothing answers the SAME rules, which the builder's history takes as "no step".
+// A rule's named values (ticket 507, schema 1 in 522). Pure, like `./rule-edit`: an edit copies
+// what it touches and one that changes nothing answers the SAME rules, which the builder's history
+// takes as "no step".
 //
-// A points or discount field reads a named value BY ID, so a rename touches the value alone and the
-// effect reads the new name. (The samples' older reference by name still counts as a use, and a
-// rename first pins it to the id — `pinValueRefs` — so it is not left pointing at the old name.) A
-// formula reads a value by its name inside the expression, which only HQ parses: a rename that
-// breaks a formula is HQ's check to report, on that formula's box.
+// Schema 1 reads a value BY NAME: a points or discount field holds `"$name"`, and an expression
+// holds `"$name"` wherever it reads it. A rename therefore rewrites every `"$old"` of the rule —
+// fields, the formulas of the values below and the formula conditions — so nothing is left pointing
+// at the old name. Values carry no id: the builder finds one by its key (`./block-keys`).
 
 type Rules = CampaignRule[]
 
@@ -24,12 +24,15 @@ function mapRule(rules: Rules, ruleId: string, fn: (r: CampaignRule) => Campaign
   return changed ? next : rules
 }
 
-/** A new named value, its formula still to be written. */
-export const newValue = (id: string, name: string): RuleNamedValue => ({ id, name, formula: '' })
+/** A new named value, its expression still to be written. */
+export const newValue = (name: string): RuleNamedValue => ({ name, expr: null })
 
-const taken = (rule: Pick<CampaignRule, 'filters' | 'values'>, name: string, selfId?: string) => {
+/** How a field or an expression reads a named value. */
+export const valueRef = (name: string): string => `$${name}`
+
+const taken = (rule: Pick<CampaignRule, 'filters' | 'values'>, name: string, selfKey?: string) => {
   const n = name.trim().toLowerCase()
-  return rule.values.some((v) => v.id !== selfId && v.name.trim().toLowerCase() === n) || rule.filters.some((f) => f.name.trim().toLowerCase() === n)
+  return rule.values.some((v) => keyOf(v) !== selfKey && v.name.trim().toLowerCase() === n) || rule.filters.some((f) => f.name.trim().toLowerCase() === n)
 }
 
 /** The first of `<base>1`, `<base>2`, … no value or filter of the rule is called. */
@@ -39,73 +42,112 @@ export function nextValueName(rule: Pick<CampaignRule, 'filters' | 'values'>, ba
   return `${base}${k}`
 }
 
-/**
- * Why a value cannot have `name`: empty, or another value's or a filter's name in the rule
- * (ignoring case) — a formula reads both by name, so two of them must never share one.
- */
-export type ValueNameProblem = 'empty' | 'taken' | null
+/** The checker's rule for a value's name: a small letter, then letters and digits only. */
+const NAME = /^[a-z][A-Za-z0-9]*$/
 
-export function valueNameProblem(rule: Pick<CampaignRule, 'filters' | 'values'>, name: string, selfId?: string): ValueNameProblem {
+/**
+ * Why a value cannot have `name`: empty, not the checker's shape (`pattern`), or another value's or
+ * a filter's name in the rule (ignoring case).
+ */
+export type ValueNameProblem = 'empty' | 'pattern' | 'taken' | null
+
+export function valueNameProblem(rule: Pick<CampaignRule, 'filters' | 'values'>, name: string, selfKey?: string): ValueNameProblem {
   if (!name.trim()) return 'empty'
-  return taken(rule, name, selfId) ? 'taken' : null
+  if (!NAME.test(name.trim())) return 'pattern'
+  return taken(rule, name, selfKey) ? 'taken' : null
 }
 
 export const addValue = (rules: Rules, ruleId: string, value: RuleNamedValue): Rules => mapRule(rules, ruleId, (r) => ({ ...r, values: [...r.values, value] }))
 
-/** Changes a value's name or formula; the blocks that read it are not touched. */
-export function updateValue(rules: Rules, ruleId: string, valueId: string, patch: Partial<Pick<RuleNamedValue, 'name' | 'formula'>>): Rules {
+/** `x` with every `"$from"` replaced by `"$to"`, the same object when there was none. */
+function renamed<T>(x: T, from: string, to: string): T {
+  if (x === from) return to as T
+  if (Array.isArray(x)) {
+    let changed = false
+    const next = x.map((v) => {
+      const n = renamed(v, from, to)
+      if (n !== v) changed = true
+      return n
+    })
+    return (changed ? next : x) as T
+  }
+  if (x && typeof x === 'object') {
+    let changed = false
+    const next: Record<string | symbol, unknown> = { ...(x as object) }
+    for (const k of Object.keys(x as object)) {
+      const v = (x as Record<string, unknown>)[k]
+      const n = renamed(v, from, to)
+      if (n !== v) {
+        changed = true
+        next[k] = n
+      }
+    }
+    return (changed ? next : x) as T
+  }
+  return x
+}
+
+/** Changes a value's expression. */
+export function setValueExpr(rules: Rules, ruleId: string, key: string, expr: RuleExpr): Rules {
   return mapRule(rules, ruleId, (r) => {
     let changed = false
     const values = r.values.map((v) => {
-      if (v.id !== valueId) return v
-      if ((patch.name === undefined || patch.name === v.name) && (patch.formula === undefined || patch.formula === v.formula)) return v
+      if (keyOf(v) !== key || JSON.stringify(v.expr) === JSON.stringify(expr)) return v
       changed = true
-      return { ...v, ...patch }
+      return { ...v, expr }
     })
     return changed ? { ...r, values } : r
   })
 }
 
-/** The points and discount fields of a block that read `value`, by id or by its name. */
+/** Renames a value, and every `"$old"` of the rule with it. */
+export function renameValue(rules: Rules, ruleId: string, key: string, name: string): Rules {
+  return mapRule(rules, ruleId, (r) => {
+    const v = r.values.find((x) => keyOf(x) === key)
+    if (!v || v.name === name) return r
+    const from = valueRef(v.name)
+    const to = valueRef(name)
+    const values = r.values.map((x) => (x === v ? { ...x, name } : { ...x, expr: renamed(x.expr, from, to) }))
+    // An empty or half-typed old name reads nothing yet: only a real name is followed.
+    if (!v.name.trim()) return { ...r, values }
+    return { ...r, values, when: renamed(r.when, from, to), then: renamed(r.then, from, to) }
+  })
+}
+
+/** Whether a field value reads the value (`"$name"`), or an expression reads it anywhere. */
+function reads(x: unknown, ref: string): boolean {
+  if (x === ref) return true
+  if (Array.isArray(x)) return x.some((v) => reads(v, ref))
+  return false
+}
+
+/** The fields of a block that read `value`: a points / discount field, or a formula. */
 function fieldsReading(kind: 'condition' | 'effect', block: RuleCondition | RuleEffect, value: RuleNamedValue, catalogue: RuleBlockCatalogue): string[] {
-  const entry = catalogueBlock(catalogue, kind, block.type)
+  const entry = catalogueBlock(catalogue, kind, blockType(block))
   const raw = block as Record<string, unknown>
-  return (entry?.fields ?? []).filter((f) => (f.kind === 'points' || f.kind === 'discount') && (raw[f.key] === value.id || raw[f.key] === value.name)).map((f) => f.key)
+  const ref = valueRef(value.name)
+  return (entry?.fields ?? []).filter((f) => (f.kind === 'points' || f.kind === 'discount' || f.kind === 'formula') && reads(raw[f.key], ref)).map((f) => f.key)
 }
 
-/**
- * Every field that reads the value by its NAME (the samples' older wire) made to read it by id, so
- * a rename that follows keeps them. Answers the same rules when there is none.
- */
-export function pinValueRefs(rules: Rules, ruleId: string, valueId: string, catalogue: RuleBlockCatalogue): Rules {
-  const rule = rules.find((r) => r.id === ruleId)
-  const value = rule?.values.find((v) => v.id === valueId)
-  if (!rule || !value) return rules
-  let next = rules
-  const pin = (kind: 'condition' | 'effect', block: RuleCondition | RuleEffect) => {
-    for (const key of fieldsReading(kind, block, value, catalogue)) if (block[key] === value.name) next = setBlockField(next, ruleId, block.id, key, value.id)
-  }
-  leafConditions(rule.when).forEach((c) => pin('condition', c))
-  rule.then.forEach((e) => pin('effect', e))
-  return next
-}
-
-/** Every condition and effect of the rule whose points or discount field reads the value. */
-export function valueUses(rule: CampaignRule, valueId: string, catalogue: RuleBlockCatalogue): number {
-  const value = rule.values.find((v) => v.id === valueId)
-  if (!value) return 0
-  const reads = (kind: 'condition' | 'effect', block: RuleCondition | RuleEffect) => fieldsReading(kind, block, value, catalogue).length > 0
-  return leafConditions(rule.when).filter((c) => reads('condition', c)).length + rule.then.filter((e) => reads('effect', e)).length
+/** Every condition, effect and later value of the rule that reads the value. */
+export function valueUses(rule: CampaignRule, key: string, catalogue: RuleBlockCatalogue): number {
+  const value = rule.values.find((v) => keyOf(v) === key)
+  if (!value || !value.name.trim()) return 0
+  const ref = valueRef(value.name)
+  const blocks =
+    leafConditions(rule.when).filter((c) => fieldsReading('condition', c, value, catalogue).length > 0).length +
+    rule.then.filter((e) => fieldsReading('effect', e, value, catalogue).length > 0).length
+  return blocks + rule.values.filter((v) => v !== value && reads(v.expr, ref)).length
 }
 
 /** Deletes a value — only one nothing reads; a value in use answers the same rules. */
-export const deleteValue = (rules: Rules, ruleId: string, valueId: string, catalogue: RuleBlockCatalogue): Rules =>
-  mapRule(rules, ruleId, (r) => (valueUses(r, valueId, catalogue) > 0 || !r.values.some((v) => v.id === valueId) ? r : { ...r, values: r.values.filter((v) => v.id !== valueId) }))
+export const deleteValue = (rules: Rules, ruleId: string, key: string, catalogue: RuleBlockCatalogue): Rules =>
+  mapRule(rules, ruleId, (r) => (valueUses(r, key, catalogue) > 0 || !r.values.some((v) => keyOf(v) === key) ? r : { ...r, values: r.values.filter((v) => keyOf(v) !== key) }))
 
 /** Moves a value up or down — a value reads only the values above it. */
-export function moveValue(rules: Rules, ruleId: string, valueId: string, delta: number): Rules {
+export function moveValue(rules: Rules, ruleId: string, key: string, delta: number): Rules {
   return mapRule(rules, ruleId, (r) => {
-    const i = r.values.findIndex((v) => v.id === valueId)
+    const i = r.values.findIndex((v) => keyOf(v) === key)
     const j = i + delta
     if (i < 0 || j < 0 || j >= r.values.length) return r
     const values = [...r.values]

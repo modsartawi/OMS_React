@@ -1,26 +1,49 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_CREATE_FORM, createFormProblems, toCreateBody } from './create-form'
+import { EMPTY_CREATE_FORM, campaignIdProblem, createFormProblems, formId, suggestCampaignId, toCreateSave } from './create-form'
+
+const named = { ...EMPTY_CREATE_FORM, nameEn: 'National Day 15% off', nameAr: 'خصم اليوم الوطني' }
 
 describe('createForm', () => {
   it('createForm_requiresBothNames', () => {
-    expect(createFormProblems(EMPTY_CREATE_FORM)).toEqual(['nameEnRequired', 'nameArRequired'])
-    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: 'National Day 15% off' })).toEqual(['nameArRequired'])
-    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameAr: 'خصم اليوم الوطني' })).toEqual(['nameEnRequired'])
-    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: 'National Day 15% off', nameAr: 'خصم اليوم الوطني' })).toEqual([])
+    expect(createFormProblems(EMPTY_CREATE_FORM)).toEqual(['nameEnRequired', 'nameArRequired', 'idRequired'])
+    expect(createFormProblems({ ...named, nameAr: '' })).toEqual(['nameArRequired'])
+    expect(createFormProblems({ ...named, nameEn: '', idEdited: true, id: 'NATDAY' })).toEqual(['nameEnRequired'])
+    expect(createFormProblems(named)).toEqual([])
   })
 
   it('a name of only spaces is no name', () => {
-    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: '   ', nameAr: '\t' })).toEqual(['nameEnRequired', 'nameArRequired'])
+    expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: '   ', nameAr: '\t' })).toEqual(['nameEnRequired', 'nameArRequired', 'idRequired'])
   })
 
   it('starts with points on and coupons off, as the prototype does', () => {
     expect(EMPTY_CREATE_FORM).toMatchObject({ coupons: false, points: true })
   })
 
-  it('sends both names trimmed and the features as chosen', () => {
-    expect(toCreateBody({ nameEn: ' Suncare ', nameAr: ' العناية بالشمس ', coupons: true, points: false })).toEqual({
-      name: { en: 'Suncare', ar: 'العناية بالشمس' },
-      features: { coupons: true, points: false },
+  it('sends the first save at revision 0, the picked id, both names trimmed, no rules and the features', () => {
+    expect(toCreateSave({ ...EMPTY_CREATE_FORM, nameEn: ' Suncare ', nameAr: ' العناية بالشمس ', id: 'SUN-26', idEdited: true, coupons: true, points: false })).toEqual({
+      campaign: { id: 'SUN-26', name: { en: 'Suncare', ar: 'العناية بالشمس' }, rules: [] },
+      features: ['coupons'],
+      revision: 0,
     })
+  })
+})
+
+describe('campaignId_authorPicksIt', () => {
+  it('is suggested from the English name until the author edits it', () => {
+    expect(suggestCampaignId('National Day 15% off')).toBe('NATIONAL-DAY-15-OFF')
+    expect(suggestCampaignId('  ')).toBe('')
+    expect(suggestCampaignId('x'.repeat(60))).toHaveLength(40)
+    expect(formId(named)).toBe('NATIONAL-DAY-15-OFF')
+    expect(formId({ ...named, idEdited: true, id: ' natday.26 ' })).toBe('natday.26')
+  })
+
+  it('takes at most 40 of A-Z a-z 0-9 . _ - and refuses the static leaves, in any case', () => {
+    expect(campaignIdProblem('WKND20')).toBeNull()
+    expect(campaignIdProblem('a.b_c-D9')).toBeNull()
+    expect(campaignIdProblem('')).toBe('idRequired')
+    expect(campaignIdProblem('A'.repeat(41))).toBe('idTooLong')
+    expect(campaignIdProblem('WEEKEND 20')).toBe('idCharacters')
+    expect(campaignIdProblem('خصم')).toBe('idCharacters')
+    for (const leaf of ['priority', 'Simulator', 'SESSIONS', 'coupon-finder', 'customers']) expect(campaignIdProblem(leaf)).toBe('idReserved')
   })
 })

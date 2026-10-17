@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { RuleCampaign, RuleCampaignRoles } from '@/core/models/rule-campaign'
+import type { RuleCampaignRoles, RuleDraft } from '@/core/models/rule-campaign'
 import { forgetDeleted, rememberTransition, ruleCampaignApi } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import { ruleSummary } from '@/core/rules/sentence'
@@ -37,11 +37,11 @@ const NOTE: Record<DialogAction, 'required' | 'optional' | null> = {
  * activating wait for HQ's checks of the saved draft (508), and an error blocks them.
  */
 export default function ApprovalPanel({
-  campaign: c,
+  draft: d,
   roles,
   gate,
 }: {
-  campaign: RuleCampaign
+  draft: RuleDraft
   roles: UseQueryResult<RuleCampaignRoles>
   gate: ChecksGate
 }) {
@@ -52,7 +52,7 @@ export default function ApprovalPanel({
   const [dialog, setDialog] = useState<DialogAction | null>(null)
 
   const ask = useMutation({
-    mutationFn: () => ruleCampaignApi.askForApproval(c.id, { note: note.trim() }),
+    mutationFn: () => ruleCampaignApi.askForApproval(d.code, { note: note.trim() }),
     onSuccess: (next) => {
       rememberTransition(queryClient, next)
       setNote('')
@@ -79,16 +79,17 @@ export default function ApprovalPanel({
     )
   }
 
-  const acts = actionsFor(c, roles.data)
+  const acts = actionsFor(d, roles.data)
   const offers = (a: ApprovalAction) => acts.includes(a)
   const askGate = actionGate('askForApproval', gate)
   const author = roles.data.author
   const approver = roles.data.approver
-  const hint = hintFor(c, roles.data)
+  const hint = hintFor(d, roles.data)
+  const pending = d.source === 'draft' && d.state === 'pending'
 
   return (
     <div className="flex w-full flex-col gap-2" data-approval="" data-approval-role={approver ? (author ? 'both' : 'approver') : author ? 'author' : 'none'}>
-      {approver && c.status === 'waitingForApproval' && <PendingChanges c={c} />}
+      {approver && pending && <PendingChanges d={d} />}
 
       {offers('askForApproval') && (
         <div className="flex w-full flex-col gap-1.5" data-ask="">
@@ -157,7 +158,7 @@ export default function ApprovalPanel({
         <p id="approval-gate" className="text-xs text-muted-foreground" data-approval-gate={gate}>
           {t(`approval.gate.${gate}`)}{' '}
           {gate !== 'checking' && gate !== 'unavailable' && (
-            <Link to={`${campaignPath(c.id)}/rules`} className="font-medium text-primary-800 hover:underline" data-approval-gate-link="">
+            <Link to={`${campaignPath(d.code)}/rules`} className="font-medium text-primary-800 hover:underline" data-approval-gate-link="">
               {t('approval.gate.open')}
             </Link>
           )}
@@ -175,7 +176,7 @@ export default function ApprovalPanel({
       {dialog && (
         <ActionDialog
           key={dialog}
-          campaign={c}
+          draft={d}
           action={dialog}
           gate={actionGate(dialog, gate)}
           onClose={() => setDialog(null)}
@@ -187,7 +188,7 @@ export default function ApprovalPanel({
               // Leave first: the shell still watches this campaign's queries, and forgetting them
               // under it would read the deleted campaign again.
               navigate('/campaigns')
-              forgetDeleted(queryClient, c.id)
+              forgetDeleted(queryClient, d.code)
             }
           }}
         />
@@ -199,24 +200,26 @@ export default function ApprovalPanel({
 /** The one line under the acts that says who does what next. */
 type Hint = 'approverWaiting' | 'authorWaiting' | 'authorDraft' | 'approverLive' | 'readOnly'
 
-function hintFor(c: RuleCampaign, roles: RuleCampaignRoles): Hint | null {
-  if (roles.approver && c.status === 'waitingForApproval') return 'approverWaiting'
-  if (roles.author && c.status === 'waitingForApproval') return 'authorWaiting'
-  if (roles.author && c.status === 'draft') return 'authorDraft'
-  if (roles.approver && c.status === 'live') return 'approverLive'
+function hintFor(d: RuleDraft, roles: RuleCampaignRoles): Hint | null {
+  const pending = d.source === 'draft' && d.state === 'pending'
+  if (roles.approver && pending) return 'approverWaiting'
+  if (roles.author && pending) return 'authorWaiting'
+  if (roles.author && d.source === 'draft') return 'authorDraft'
+  if (roles.approver && d.campaignStatus === 'Published') return 'approverLive'
   if (!roles.author && !roles.approver) return 'readOnly'
   return null
 }
 
 /** What an approver is asked to publish: the draft's rules, read in the rule builder. */
-function PendingChanges({ c }: { c: RuleCampaign }) {
+function PendingChanges({ d }: { d: RuleDraft }) {
   const { t } = useTranslation('campaign-workspace')
+  const c = d.campaign
   return (
     <section className="flex w-full flex-col gap-1.5 rounded-md border border-border/60 p-2.5" data-pending-changes="">
       <h3 className="text-xs font-semibold">{t('approval.pending.title')}</h3>
       <p className="text-xs text-muted-foreground">
-        {c.live ? (
-          <Trans t={t} i18nKey="approval.pending.overLive" values={{ version: c.live.version }} components={{ version: <Ltr /> }} />
+        {d.publishedVersionNo > 0 ? (
+          <Trans t={t} i18nKey="approval.pending.overLive" values={{ version: d.publishedVersionNo }} components={{ version: <Ltr /> }} />
         ) : (
           t('approval.pending.first')
         )}
@@ -247,7 +250,7 @@ function PendingChanges({ c }: { c: RuleCampaign }) {
       ) : (
         <p className="text-xs text-muted-foreground">{t('approval.pending.noRules')}</p>
       )}
-      <Link to={`${campaignPath(c.id)}/rules`} className="text-xs font-medium text-primary-800 hover:underline" data-pending-open="">
+      <Link to={`${campaignPath(d.code)}/rules`} className="text-xs font-medium text-primary-800 hover:underline" data-pending-open="">
         {t('approval.pending.open')}
       </Link>
     </section>
@@ -256,35 +259,36 @@ function PendingChanges({ c }: { c: RuleCampaign }) {
 
 /** A dialog act: confirm it, with a note where it takes one; a refusal shows inside, kept open. */
 function ActionDialog({
-  campaign: c,
+  draft: d,
   action,
   gate,
   onClose,
   onDone,
 }: {
-  campaign: RuleCampaign
+  draft: RuleDraft
   action: DialogAction
   /** What holds the act back now — the checks can change while the dialog is open. */
   gate: ChecksGate
   onClose: () => void
-  /** HQ's answer: the campaign in its new state, or null for a deleted draft. */
-  onDone: (next: RuleCampaign | null) => void
+  /** HQ's answer: the draft in its new state, or null for a deleted draft. */
+  onDone: (next: RuleDraft | null) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const [note, setNote] = useState('')
   const wants = NOTE[action]
   const run = useMutation({
-    mutationFn: async (): Promise<RuleCampaign | null> => {
+    mutationFn: async (): Promise<RuleDraft | null> => {
       const body = { note: note.trim() }
       switch (action) {
         case 'activate':
-          return ruleCampaignApi.activate(c.id, body)
+          return ruleCampaignApi.activate(d.code, body)
         case 'sendBack':
-          return ruleCampaignApi.sendBack(c.id, body)
+          return ruleCampaignApi.sendBack(d.code, body)
         case 'disable':
-          return ruleCampaignApi.disable(c.id, body)
+          return ruleCampaignApi.disable(d.code, body)
         case 'deleteDraft':
-          await ruleCampaignApi.remove(c.id)
+          // Drafts/Delete at the revision read (409 RULES_DRAFT_STALE when it moved since).
+          await ruleCampaignApi.deleteDraft(d.code, d.revision)
           return null
       }
     },
@@ -316,13 +320,13 @@ function ActionDialog({
           <Trans
             t={t}
             i18nKey={`approval.dialog.${action}.body`}
-            values={{ name: c.name.en || t('untitled'), code: c.code }}
+            values={{ name: d.campaign.name.en || t('untitled'), code: d.code }}
             components={{ name: <bdi className="font-semibold" />, code: <Ltr /> }}
           />
         </p>
-        {c.name.ar && (
+        {d.campaign.name.ar && (
           <p className="-mt-2 text-sm text-muted-foreground" data-approval-dialog-name-ar="">
-            <bdi>{c.name.ar}</bdi>
+            <bdi>{d.campaign.name.ar}</bdi>
           </p>
         )}
         {wants && (

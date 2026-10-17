@@ -1,19 +1,23 @@
 import type { ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2, X } from 'lucide-react'
 import type {
   CampaignRule,
   RuleBlockCatalogue,
   RuleBlockKind,
+  RuleBundle,
   RuleCampaign,
   RuleCatalogueBlock,
   RuleCondition,
   RuleEffect,
+  RuleFeature,
 } from '@/core/models/rule-campaign'
-import { RULE_BURN_POINTS, RULE_GROUP_TYPE, type RuleConditionGroup } from '@/core/models/rule-campaign'
+import { RULE_BURN_POINTS, RULE_GROUP_CHECK, type RuleConditionGroup } from '@/core/models/rule-campaign'
 import { addFilter, effectLetsRxIn } from '@/core/rules/filters'
 import {
   blockSentence,
+  blockType,
+  bundleSentence,
   catalogueBlock,
   groupSentence,
   isConditionGroup,
@@ -22,13 +26,15 @@ import {
   type SaysLine,
   type SentenceContext,
 } from '@/core/rules/sentence'
+import { fsi } from '@/core/util/bidi'
 import Ltr from '@/core/ui/Ltr'
 import BlockPanel from './BlockPanel'
 import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
 import { NO_BLOCK_CHECKS, type ChecksIndex } from './checks'
 import { INPUT } from './builder-ui'
 import PaletteMenu from './PaletteMenu'
-import { newBlock } from './palette'
+import { BLOCK_KEY, keyOf } from './block-keys'
+import { BUNDLE_EFFECTS, newBlock, newBundleList } from './palette'
 import RuleFilters, { RxFlag } from './RuleFilters'
 import RuleValues from './RuleValues'
 import {
@@ -40,8 +46,8 @@ import {
   moveRule,
   renameRule,
   setBlockField,
+  setBundle,
   setPartial,
-  setWhenMode,
 } from './rule-edit'
 import SentenceView from './SentenceView'
 
@@ -49,12 +55,17 @@ import SentenceView from './SentenceView'
 export interface Builder {
   /** One pure edit of the rules; `coalesce` folds a run of keystrokes into one history step. */
   edit: (fn: (rules: CampaignRule[]) => CampaignRule[], coalesce?: string) => void
-  /** The block whose panel is open — one at a time. */
+  /** The block whose panel is open (its builder key, or a filter's id) — one at a time. */
   openId: string | null
   setOpenId: (id: string | null) => void
   campaign: RuleCampaign
+  /** The draft's features: they gate the palette. */
+  features: RuleFeature[]
   catalogue: RuleBlockCatalogue
+  /** A new rule's or filter's id (blocks and values get builder keys instead). */
   newId: () => string
+  /** A new block's or value's builder key (`./block-keys`). */
+  newKey: () => string
   /** HQ's checks of the saved draft, found on the rules on screen and indexed (ticket 508). */
   checks: ChecksIndex
 }
@@ -94,10 +105,16 @@ export default function RuleCard({
   const Chevron = open ? ChevronDown : ChevronRight
   const edit = b.edit
 
-  const pick = (block: RuleCatalogueBlock, groupId: string | null) => {
-    const item = newBlock(block, rule, b.newId())
-    edit((rules) => (block.kind === 'condition' ? addCondition(rules, rule.id, groupId, item as RuleCondition) : addEffect(rules, rule.id, item as RuleEffect)))
-    if (block.type !== RULE_GROUP_TYPE) b.setOpenId(item.id)
+  const pick = (block: RuleCatalogueBlock, groupKey: string | null) => {
+    const key = b.newKey()
+    const item = { ...newBlock(block, rule), [BLOCK_KEY]: key } as unknown as RuleCondition | RuleEffect
+    edit((rules) => {
+      if (block.kind === 'condition') return addCondition(rules, rule.id, groupKey, item as RuleCondition)
+      const next = addEffect(rules, rule.id, item as RuleEffect)
+      // A bundle effect prices the rule's bundle: a rule with none gets one list to start from.
+      return BUNDLE_EFFECTS.includes(block.type) && !rule.bundle ? setBundle(next, rule.id, { lists: [newBundleList(rule)] }) : next
+    })
+    if (block.type !== RULE_GROUP_CHECK) b.setOpenId(key)
   }
 
   return (
@@ -168,19 +185,16 @@ export default function RuleCard({
 
           <Section title={t('rules.conditions')} data="when">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium" data-when={sum.conditions ? rule.when.mode : 'always'}>
+              <p className="text-sm font-medium" data-when={sum.conditions ? 'all' : 'always'}>
                 <SentenceView s={whenSentence(rule)} />
               </p>
-              {sum.conditions > 0 && (
-                <MatchSelect value={rule.when.mode} onChange={(mode) => edit((rules) => setWhenMode(rules, rule.id, mode))} data="when" />
-              )}
             </div>
-            {rule.when.items.length ? <Conditions items={rule.when.items} rule={rule} ctx={ctx} b={b} pick={pick} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
+            {rule.when.length ? <Conditions items={rule.when} path="when" rule={rule} ctx={ctx} b={b} pick={pick} /> : <Muted>{t('rules.alwaysHint')}</Muted>}
             <PaletteMenu
               kind="condition"
               label={t('builder.addCondition')}
               catalogue={b.catalogue}
-              features={b.campaign.features}
+              features={b.features}
               onPick={(block) => pick(block, null)}
               data="when"
             />
@@ -192,15 +206,15 @@ export default function RuleCard({
                 <p className="text-sm font-medium">{t('rules.effectsHead')}</p>
                 <ul className="flex flex-col gap-1.5">
                   {rule.then.map((e, i) => (
-                    <Block key={e.id} kind="effect" item={e} index={i} count={rule.then.length} rule={rule} ctx={ctx} b={b} />
+                    <Block key={keyOf(e)} kind="effect" item={e} path={`then.${i}`} index={i} count={rule.then.length} rule={rule} ctx={ctx} b={b} />
                   ))}
                 </ul>
-                {rule.then.some((e) => e.type === RULE_BURN_POINTS) && (
+                {rule.then.some((e) => e.effect === RULE_BURN_POINTS) && (
                   <label className="flex flex-wrap items-center gap-2 text-sm" data-partial="">
                     <span className="text-muted-foreground">{t('builder.partial')}</span>
                     <select
                       className={INPUT}
-                      value={rule.partial}
+                      value={rule.partial ?? 'refuse'}
                       onChange={(e) => edit((rules) => setPartial(rules, rule.id, e.target.value === 'scale' ? 'scale' : 'refuse'))}
                       data-partial-select=""
                     >
@@ -213,8 +227,14 @@ export default function RuleCard({
             ) : (
               <Muted>{t('rules.noEffects')}</Muted>
             )}
-            <PaletteMenu kind="effect" label={t('builder.addEffect')} catalogue={b.catalogue} features={b.campaign.features} onPick={(block) => pick(block, null)} data="then" />
+            <PaletteMenu kind="effect" label={t('builder.addEffect')} catalogue={b.catalogue} features={b.features} onPick={(block) => pick(block, null)} data="then" />
           </Section>
+
+          {(rule.bundle || rule.then.some((e) => BUNDLE_EFFECTS.includes(e.effect))) && (
+            <Section title={t('rules.bundle')} hint={t('rules.bundleHint')} data="bundle">
+              <BundleEditor rule={rule} b={b} />
+            </Section>
+          )}
         </div>
       )}
     </article>
@@ -224,24 +244,27 @@ export default function RuleCard({
 /** A rule's (or a group's) conditions; a group opens with its own all / any and its own palette. */
 function Conditions({
   items,
+  path,
   rule,
   ctx,
   b,
   pick,
 }: {
   items: RuleCondition[]
+  /** The list's place in the rule: `when`, or a group's `when.1.conditions`. */
+  path: string
   rule: CampaignRule
   ctx: SentenceContext
   b: Builder
-  pick: (block: RuleCatalogueBlock, groupId: string | null) => void
+  pick: (block: RuleCatalogueBlock, groupKey: string | null) => void
 }) {
   return (
     <ul className="flex flex-col gap-1.5">
       {items.map((c, i) =>
         isConditionGroup(c) ? (
-          <Group key={c.id} group={c} index={i} count={items.length} rule={rule} ctx={ctx} b={b} pick={pick} />
+          <Group key={keyOf(c)} group={c} path={`${path}.${i}`} index={i} count={items.length} rule={rule} ctx={ctx} b={b} pick={pick} />
         ) : (
-          <Block key={c.id} kind="condition" item={c} index={i} count={items.length} rule={rule} ctx={ctx} b={b} />
+          <Block key={keyOf(c)} kind="condition" item={c} path={`${path}.${i}`} index={i} count={items.length} rule={rule} ctx={ctx} b={b} />
         ),
       )}
     </ul>
@@ -250,6 +273,7 @@ function Conditions({
 
 function Group({
   group,
+  path,
   index,
   count,
   rule,
@@ -258,34 +282,33 @@ function Group({
   pick,
 }: {
   group: RuleConditionGroup
+  path: string
   index: number
   count: number
   rule: CampaignRule
   ctx: SentenceContext
   b: Builder
-  pick: (block: RuleCatalogueBlock, groupId: string | null) => void
+  pick: (block: RuleCatalogueBlock, groupKey: string | null) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const mode = group.mode === 'any' ? 'any' : 'all'
+  const key = keyOf(group)
   return (
-    <li className="flex flex-col gap-1.5 rounded-md border border-dashed border-border p-2" data-condition-group={group.id}>
+    <li className="flex flex-col gap-1.5 rounded-md border border-dashed border-border p-2" data-condition-group={key} data-block-path={path}>
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-sm font-medium">
           <SentenceView s={groupSentence(group.mode)} />
         </p>
-        <MatchSelect value={mode} onChange={(m) => b.edit((rules) => setBlockField(rules, rule.id, group.id, 'mode', m))} data={group.id} />
-        <BlockTools rule={rule} id={group.id} index={index} count={count} b={b} />
+        <MatchSelect value={mode} onChange={(m) => b.edit((rules) => setBlockField(rules, rule.id, key, 'mode', m))} data={key} />
+        <BlockTools rule={rule} id={key} index={index} count={count} b={b} />
       </div>
-      <CheckNotes messages={(b.checks.blocks.get(group.id) ?? NO_BLOCK_CHECKS).all} data="group" />
-      {group.items.length ? <Conditions items={group.items} rule={rule} ctx={ctx} b={b} pick={pick} /> : <Muted>{t('builder.emptyGroup')}</Muted>}
-      <PaletteMenu
-        kind="condition"
-        label={t('builder.addToGroup')}
-        catalogue={b.catalogue}
-        features={b.campaign.features}
-        onPick={(block) => pick(block, group.id)}
-        data={group.id}
-      />
+      <CheckNotes messages={(b.checks.blocks.get(key) ?? NO_BLOCK_CHECKS).all} data="group" />
+      {group.conditions.length ? (
+        <Conditions items={group.conditions} path={`${path}.conditions`} rule={rule} ctx={ctx} b={b} pick={pick} />
+      ) : (
+        <Muted>{t('builder.emptyGroup')}</Muted>
+      )}
+      <PaletteMenu kind="condition" label={t('builder.addToGroup')} catalogue={b.catalogue} features={b.features} onPick={(block) => pick(block, key)} data={key} />
     </li>
   )
 }
@@ -297,6 +320,7 @@ function Group({
 function Block({
   kind,
   item,
+  path,
   index,
   count,
   rule,
@@ -305,6 +329,8 @@ function Block({
 }: {
   kind: RuleBlockKind
   item: RuleCondition | RuleEffect
+  /** Its place in the rule: `when.0`, `when.1.conditions.0`, `then.1`. */
+  path: string
   index: number
   count: number
   rule: CampaignRule
@@ -312,12 +338,13 @@ function Block({
   b: Builder
 }) {
   const { t } = useTranslation('campaign-workspace')
+  const key = keyOf(item)
   const read = blockSentence(kind, item, ctx)
-  const entry = catalogueBlock(ctx.catalogue, kind, item.type)
-  const open = !!entry && b.openId === item.id
-  const panelId = `panel-${item.id}`
-  const rx = kind === 'effect' && effectLetsRxIn(item, entry, rule.filters)
-  const notes = b.checks.blocks.get(item.id) ?? NO_BLOCK_CHECKS
+  const entry = catalogueBlock(ctx.catalogue, kind, blockType(item))
+  const open = !!entry && b.openId === key
+  const panelId = `panel-${key}`
+  const rx = kind === 'effect' && effectLetsRxIn(item as RuleEffect, entry, rule.filters)
+  const notes = b.checks.blocks.get(key) ?? NO_BLOCK_CHECKS
   const tone = checkTone(notes.all)
   const sentence = (
     <span className="block text-sm leading-relaxed" data-block-sentence="">
@@ -341,7 +368,8 @@ function Block({
                 ? 'border-primary/40'
                 : 'border-border/60')
       }
-      {...{ [`data-${kind}`]: item.id }}
+      {...{ [`data-${kind}`]: key }}
+      data-block-path={path}
       data-sentence={read.sentence.key}
       data-open={open ? '' : undefined}
       data-block-rx={rx ? '' : undefined}
@@ -354,7 +382,7 @@ function Block({
             className="min-w-0 flex-1 rounded-sm text-start hover:text-primary-800"
             aria-expanded={open}
             aria-controls={open ? panelId : undefined}
-            onClick={() => b.setOpenId(open ? null : item.id)}
+            onClick={() => b.setOpenId(open ? null : key)}
             data-block-edit=""
           >
             {sentence}
@@ -362,7 +390,7 @@ function Block({
         ) : (
           <div className="min-w-0 flex-1">{sentence}</div>
         )}
-        <BlockTools rule={rule} id={item.id} index={index} count={count} b={b} />
+        <BlockTools rule={rule} id={key} index={index} count={count} b={b} />
       </div>
       {rx && (
         <p className="mt-1">
@@ -380,24 +408,107 @@ function Block({
         <div id={panelId}>
           <BlockPanel
             block={item}
+            bkey={key}
             entry={entry}
             rule={rule}
             campaign={b.campaign}
             guide={b.catalogue.formula}
-            set={(key, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, item.id, key, value), coalesce ? `field:${item.id}.${key}` : undefined)}
-            withFilter={(filter, key, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, item.id, key, value))}
+            set={(field, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, key, field, value), coalesce ? `field:${key}.${field}` : undefined)}
+            withFilter={(filter, field, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, key, field, value))}
             newId={b.newId}
             checks={notes}
             onDone={() => b.setOpenId(null)}
             onDelete={() => {
               b.setOpenId(null)
-              b.edit((rules) => deleteBlock(rules, rule.id, item.id))
+              b.edit((rules) => deleteBlock(rules, rule.id, key))
             }}
           />
         </div>
       )}
       {!entry && <p className="mt-1 text-xs text-muted-foreground">{t('panel.unknownBlock')}</p>}
     </li>
+  )
+}
+
+/** A rule's bundle (`rule.bundle`): its lists — N units of one of the rule's filters each — and at
+ *  most how many per sale. A bundle effect prices it. */
+function BundleEditor({ rule, b }: { rule: CampaignRule; b: Builder }) {
+  const { t } = useTranslation('campaign-workspace')
+  const bundle: RuleBundle = rule.bundle ?? { lists: [] }
+  const put = (next: RuleBundle | null) => b.edit((rules) => setBundle(rules, rule.id, next), 'bundle:' + rule.id)
+  const read = bundleSentence(bundle, rule)
+  const lists = bundle.lists
+  return (
+    <div className="flex flex-col gap-2" data-bundle="">
+      <p className="text-sm" data-bundle-sentence="">
+        <SentenceView s={read.sentence} />
+        {read.clauses.map((c) => (
+          <SentenceView key={c.key} s={c} />
+        ))}
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {lists.map((l, i) => (
+          <li key={`${i}/${lists.length}`} className="flex flex-wrap items-center gap-2" data-bundle-list={i}>
+            <input
+              type="number"
+              dir="ltr"
+              min={1}
+              step={1}
+              className={`${INPUT} w-20`}
+              aria-label={t('rules.bundleCount')}
+              value={Number.isFinite(l.count) ? l.count : ''}
+              onChange={(e) => put({ ...bundle, lists: lists.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x)) })}
+              data-bundle-count=""
+            />
+            <select
+              className={INPUT}
+              aria-label={t('rules.bundleFilter')}
+              value={l.filter}
+              onChange={(e) => put({ ...bundle, lists: lists.map((x, j) => (j === i ? { ...x, filter: e.target.value } : x)) })}
+              data-bundle-filter=""
+            >
+              {!rule.filters.some((f) => f.id === l.filter) && <option value={l.filter}>{t('panel.missing')}</option>}
+              {rule.filters.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {fsi(f.name)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-danger-800"
+              aria-label={t('rules.bundleRemove')}
+              onClick={() => put(lists.length > 1 ? { ...bundle, lists: lists.filter((_, j) => j !== i) } : null)}
+              data-bundle-remove=""
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-primary-800 hover:underline" onClick={() => put({ ...bundle, lists: [...lists, newBundleList(rule)] })} data-bundle-add="">
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          {t('rules.bundleAdd')}
+        </button>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          {t('rules.bundleMax')}
+          <input
+            type="number"
+            dir="ltr"
+            min={1}
+            step={1}
+            className={`${INPUT} w-20`}
+            value={bundle.max ?? ''}
+            onChange={(e) => {
+              const { max: _old, ...rest } = bundle
+              put(e.target.value === '' ? rest : { ...rest, max: Number(e.target.value) })
+            }}
+            data-bundle-max=""
+          />
+        </label>
+      </div>
+    </div>
   )
 }
 

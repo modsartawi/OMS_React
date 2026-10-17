@@ -1,13 +1,12 @@
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// The rule campaign as HQ stores it (spec 2737; BackOffice 2758 and 2759, the brief's "HQ contract"
+// sections, re-pointed in ticket 522). `RuleCampaign` is the campaign JSON of the rule language,
+// schema 1, exactly as HQ stores and the engine reads it; `RuleDraft` is what `Rules/Authoring/
+// Drafts/Load` answers around it. Field names, enum words and refusal codes are copied from the
+// contract: a guessed field must not appear here.
 //
-// The rule campaign as the builder screens read it (spec 2737, ticket 501). No HQ contract exists
-// yet: every field name below is taken from the owner-approved prototype's sample data
-// (BackOffice `.scratch/proto/2734-rule-builder/data.js`) and ADR 0089's typed blocks, so that
-// ticket 520 re-points ONE file when 2758/2759 write the real shapes. Feature code reads only what
-// its screen needs from here; a guessed field must not spread further than that.
-//
-// Every date and time on the wire is LOCAL (the estate's wall clock): a day is `yyyy-MM-dd`, a
-// moment `yyyy-MM-ddTHH:mm:ss`, never with a `Z`.
+// Every date and time on the wire is LOCAL (the estate's wall clock): a day is `yyyy-MM-dd`, a time
+// `HH:mm`, a moment `yyyy-MM-ddTHH:mm:ss`, never with a `Z`. A time HQ never set is
+// `0001-01-01T00:00:00` (`RULE_NEVER`): read it as absent, never show it.
 
 /** A marketer's text in both languages — a name, a "not met" message, a receipt label, a cashier
  *  prompt. Both halves are entered by the marketer and both are shown wherever the value is read. */
@@ -16,201 +15,273 @@ export interface Says {
   ar: string
 }
 
-/**
- * Where a campaign is in its approval life, as HQ stores it: draft → waiting for approval →
- * (sent back → draft) | live → disabled. Scheduled / running / expired are NOT stored: they are a
- * live campaign read against its schedule at a local now (`@/core/rules/campaign-state`).
- */
-export const RULE_CAMPAIGN_STATUSES = ['draft', 'waitingForApproval', 'live', 'disabled'] as const
-export type RuleCampaignStatus = (typeof RULE_CAMPAIGN_STATUSES)[number]
+/** The optional features a campaign switches on (`coupons`, `points`); they gate menus and blocks. */
+export const RULE_FEATURES = ['coupons', 'points'] as const
+export type RuleFeature = (typeof RULE_FEATURES)[number]
+
+/** The days of a window, Sunday first. */
+export const RULE_WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+export type RuleWeekday = (typeof RULE_WEEKDAYS)[number]
+
+/** Daily hours inside a window. They may cross midnight (`22:00` until `02:00`). */
+export interface RuleWindowHours {
+  from: string
+  until: string
+}
 
 /**
- * When a campaign applies, in local days. `until` is EXCLUSIVE (the prototype's schedule page:
- * "the end date is exclusive"); null `from` is "immediately", null `until` is open-ended. The two
- * hours are DAILY hours inside the window, not a start and end time.
+ * When a campaign applies. `until` is EXCLUSIVE; an absent `from` is "immediately", an absent
+ * `until` open-ended, absent `days` every day and absent `hours` all day.
  */
-export interface RuleCampaignSchedule {
-  from: string | null
-  until: string | null
-  /** Days of the week, 0 = Sunday; empty = every day. */
-  days: number[]
-  hoursFrom: string | null
-  hoursTo: string | null
+export interface RuleCampaignWindow {
+  from?: string | null
+  until?: string | null
+  days?: RuleWeekday[]
+  hours?: RuleWindowHours | null
 }
+
+export type RuleAudienceMembers = 'any' | 'identified' | 'earning'
 
 export interface RuleCampaignAudience {
-  countries: string[]
-  channels: string[]
-  stores: string[]
-  members: 'any' | 'identified' | 'earning'
-}
-
-/** The optional features a campaign switches on; they gate menus and palette items. */
-export interface RuleCampaignFeatures {
-  coupons: boolean
-  points: boolean
+  countries?: string[]
+  channels?: string[]
+  stores?: string[]
+  members?: RuleAudienceMembers
 }
 
 export type RuleBudgetScope = 'campaign' | 'profile' | 'store' | 'session' | 'coupon'
-export type RuleBudgetLimit = 'money' | 'uses' | 'pointsGiven' | 'pointsTaken'
-export type RuleBudgetPeriod = 'lifetime' | 'day' | 'week' | 'month' | 'year'
+export type RuleBudgetLimit = 'uses' | 'money' | 'pointsGiven' | 'pointsTaken'
+export type RuleBudgetPeriod = 'lifetime' | 'day' | 'week' | 'month'
 
-/** "Limit the <limit> to <value> per <scope>, <period>" (ADR 0091). */
+/** "Limit the <limit> to <value> per <scope>, <period>" (ADR 0091). `id` is at most 40 characters. */
 export interface RuleCampaignBudget {
   id: string
-  name: string
+  name: Says
   scope: RuleBudgetScope
   limit: RuleBudgetLimit
   value: number
   period: RuleBudgetPeriod
 }
 
-/**
- * A named cart-item filter. Conditions and effects reference it BY ID (`of`, `on`), never by
- * name, so a rename never breaks a rule (2734 point 3). Its steps narrow each other; the picks
- * within a step match any: category codes (`cats`), collection codes (`colls`), material SKUs
- * (`skus`), then the never-discount categories (`exclCats`, Prescription A006 by default — 506).
- * `scope` is `items` (merchandise), `fees` (fee lines) or `itemsAndFees`.
- */
-export const RULE_FILTER_SCOPES = ['items', 'fees', 'itemsAndFees'] as const
-export type RuleFilterScope = (typeof RULE_FILTER_SCOPES)[number]
+export type RuleValueMapMeaning = 'targetPrice' | 'percentOff' | 'amountOff'
 
+/** A number per material (ADR 0095): `entries` are `[material, number]`. */
+export interface RuleValueMap {
+  means: RuleValueMapMeaning
+  unit: string
+  entries: [string, number][]
+}
+
+/**
+ * A named cart-item filter. Conditions (`of`), effects (`filter`) and bundle lists (`filter`)
+ * reference it BY `id`, never by name, so a rename is one field (2734 point 3). A collection pick
+ * writes its lookup's `articles` here; a new filter excludes Prescription (A006).
+ */
 export interface RuleItemFilter {
   id: string
   name: string
-  cats: string[]
-  colls: string[]
-  skus: string[]
-  exclCats: string[]
-  scope: RuleFilterScope
-}
-
-/** A named value: an expression HQ parses and validates. The client never parses it (ADR 0089). */
-export interface RuleNamedValue {
-  id: string
-  name: string
-  formula: string
+  categories?: string[]
+  articles?: string[]
+  exclude?: { categories?: string[] }
 }
 
 /**
- * A condition block. Its `type` and its fields come from HQ's block catalogue (2758), so the
- * fields are open here; `says` is the marketer's "not met" sentence in both languages.
+ * The rule language's expression (ADR 0089): operator-first JSON arrays, `$`-paths and decimals —
+ * `["round", ["*", "$eligible", 0.10], 0, "halfUp"]`. `@/core/rules/expr` prints it as text and
+ * reads text back.
  */
+export type RuleExpr = number | string | boolean | null | RuleExpr[]
+
+/** A named value: it reads only the values above it. */
+export interface RuleNamedValue {
+  name: string
+  expr: RuleExpr
+}
+
+/** A condition, keyed by its `check`; its other fields are the catalogue's. */
 export interface RuleCondition {
-  id: string
-  type: string
-  says: Says
+  check: string
+  says?: Says
   [field: string]: unknown
 }
 
-export interface RuleWhen {
-  mode: 'all' | 'any'
-  /** Empty is legal and reads "always". */
-  items: RuleCondition[]
-}
+/** The catalogue's nested group of conditions. */
+export const RULE_GROUP_CHECK = 'group'
+export type RuleConditionGroup = RuleCondition & { mode: unknown; conditions: RuleCondition[] }
 
-/** An effect block; like a condition, its fields come from the catalogue. */
+/** An effect, keyed by its `effect`; its other fields are the catalogue's. */
 export interface RuleEffect {
-  id: string
-  type: string
+  effect: string
   [field: string]: unknown
 }
 
-// The guessed vocabulary INSIDE a block's open fields — named here, in the PROVISIONAL file, so a
-// re-point (520) edits one place and the compiler finds every reader (spec 2737 standards reviews).
-
-/** The catalogue's `group` block: a nested all / any of conditions. */
-export const RULE_GROUP_TYPE = 'group'
-export type RuleConditionGroup = RuleCondition & { mode: unknown; items: RuleCondition[] }
-
-/** One part of a bundle (an `itemParts` field): N units of a filter, by id. */
-export interface RuleItemPart {
-  of: string
-  count: number | null
-}
-
-/** A `timing` field: none, N days or hours after, or `on` a local `yyyy-MM-dd` day. */
-export const RULE_TIMING_MODES = ['none', 'afterDays', 'afterHours', 'on'] as const
-export type RuleTimingMode = (typeof RULE_TIMING_MODES)[number]
-export interface RuleTiming {
-  mode: RuleTimingMode
-  value: number | string | null
-}
-
-/** A discount's `unitFrom` word for a percent (anything else is an amount, in a currency). */
-export const RULE_PERCENT_UNIT = 'percent'
-/** A points field's `unitFrom` word for plain points (anything else is a currency's worth). */
-export const RULE_POINTS_UNIT = 'PTS'
 /** The effect that takes points as a tender: a rule with one says what a short member gets (`partial`). */
 export const RULE_BURN_POINTS = 'burnPoints'
+/** A discount's `kind` for a percent (`amount` is in the sale's currency). */
+export const RULE_PERCENT_KIND = 'percent'
+/** A points effect's `unit` for plain points (`SAR` is a currency's worth). */
+export const RULE_POINTS_UNIT = 'PTS'
+
+/** One list of a bundle: N units of a filter, by id. */
+export interface RuleBundleList {
+  filter: string
+  count: number
+}
+
+/** A rule's bundle, priced by a bundle effect. */
+export interface RuleBundle {
+  lists: RuleBundleList[]
+  sameAttribute?: string
+  max?: number
+}
+
+export type RulePartial = 'refuse' | 'scale'
 
 export interface CampaignRule {
   id: string
   name: string
+  /** What a points burn does when the member is short: refuse the rule, or scale it down. */
+  partial?: RulePartial
   filters: RuleItemFilter[]
   values: RuleNamedValue[]
-  when: RuleWhen
+  bundle?: RuleBundle | null
+  /** Every condition must hold; empty reads "always". */
+  when: RuleCondition[]
   then: RuleEffect[]
-  /** What a points burn does when the member is short: refuse the rule, or scale it down. */
-  partial: 'refuse' | 'scale'
 }
 
-/** Who did something, and when (local). */
-export interface RuleCampaignStamp {
-  by: string
-  at: string
-}
-
-/** A stamp with the actor's note — an ask for approval, a send back. */
-export type RuleCampaignNoteStamp = RuleCampaignStamp & { note: string }
-
+/** The campaign JSON (schema 1). `id` is at most 40 of `A-Z a-z 0-9 . _ -`, picked by the author. */
 export interface RuleCampaign {
   id: string
+  name: Says
+  window?: RuleCampaignWindow
+  audience?: RuleCampaignAudience
+  budgets?: RuleCampaignBudget[]
+  onlineOnly?: boolean
+  valueMap?: RuleValueMap | null
+  rules: CampaignRule[]
+}
+
+// ── The draft (Rules/Authoring/Drafts/*, BackOffice 2758 + 2759) ─────────────────────────────────
+
+/** A time HQ never set. */
+export const RULE_NEVER = '0001-01-01T00:00:00'
+
+/** A draft's approval state: being edited, waiting for an approver (frozen), or sent back. */
+export type RuleDraftState = 'editing' | 'pending' | 'sentBack'
+
+/** The live campaign's status: published, disabled, or `''` for one that never went live. */
+export type RuleCampaignStatus = 'Published' | 'Disabled' | ''
+
+/** The evaluation tree (ADR 0090) a draft publishes with, as `Rules/Authoring/Order` answers it. */
+export interface RuleEvaluationTree {
+  groups: { id: string; name: Says; mode: 'stackable' | 'first' | 'highest'; scope: 'session' | 'item'; campaigns: string[] }[]
+  order: ({ campaign: string } | { group: string })[]
+}
+
+/**
+ * One of HQ's issues with a campaign. `rule` and `index` are 0-based (null outside a rule / a
+ * list); `path` is where it points (`campaign.rules[1].when[1].conditions[0].amount`), `where` the
+ * same in words; `message` is HQ's own text, shown as data.
+ */
+export interface RuleIssue {
+  severity: 'error' | 'warning'
+  rule: number | null
+  ruleId: string | null
+  block: string | null
+  index: number | null
+  field: string | null
+  where: string
+  message: string
+  path: string
+}
+
+/** HQ's offline-safe verdict: why a campaign needs HQ, in both languages. */
+export interface RuleOfflineVerdict {
+  safe: boolean
+  onlineOnly: boolean
+  reasons: { code: string; en: string; ar: string }[]
+}
+
+/** A validation: errors block activation, warnings never do. `offline` is null while errors stand. */
+export interface RuleValidation {
+  canActivate: boolean
+  errors: RuleIssue[]
+  warnings: RuleIssue[]
+  offline: RuleOfflineVerdict | null
+}
+
+/**
+ * `Rules/Authoring/Drafts/Load` (and every door that answers "the draft"). With no draft it is the
+ * newest version (`source: published`, `revision` 0). `origin` is `restore:N`, `copy:CODE`,
+ * `template:CODE` or `''`.
+ */
+export interface RuleDraft {
   code: string
+  source: 'draft' | 'published'
+  revision: number
+  features: RuleFeature[]
+  campaign: RuleCampaign
   name: Says
-  description: string
-  tags: string[]
-  status: RuleCampaignStatus
-  schedule: RuleCampaignSchedule
-  audience: RuleCampaignAudience
-  budgets: RuleCampaignBudget[]
-  features: RuleCampaignFeatures
-  offlineOptOut: boolean
-  rules: CampaignRule[]
-  created: RuleCampaignStamp | null
-  /** The published version tills run, or null for a campaign never activated. */
-  live: (RuleCampaignStamp & { version: number }) | null
-  /** Set while the campaign waits for an approver. */
-  approval: RuleCampaignNoteStamp | null
-  /** Set on a draft an approver sent back (ticket 511): who, when and why, until it is asked again.
-   *  Optional: a campaign never sent back may leave it out. */
-  sentBack?: RuleCampaignNoteStamp | null
+  publishedVersionNo: number
+  updatedAt: string
+  updatedBy: string
+  validation: RuleValidation | null
+  state: RuleDraftState
+  tree: RuleEvaluationTree | null
+  origin: string
+  campaignStatus: RuleCampaignStatus
+  requestedBy: string
+  requestedAt: string
+  requestNote: string
+  reviewedBy: string
+  reviewedAt: string
+  reviewNote: string
 }
 
-/** One row of the campaigns list — the campaign without its rules, budgets and audience. */
-export type RuleCampaignListRow = Pick<
-  RuleCampaign,
-  'id' | 'code' | 'name' | 'tags' | 'status' | 'schedule' | 'features' | 'created' | 'live'
->
+/** `Rules/Authoring/Drafts/Save`: the draft's whole state at the revision loaded (0 on the first
+ *  save — which is also how a campaign is created). `tree` absent keeps the live order. */
+export interface RuleDraftSave {
+  campaign: RuleCampaign
+  features: RuleFeature[]
+  revision: number
+  tree?: RuleEvaluationTree
+}
 
-/**
- * What "Create campaign" sends (ticket 502): the name in both languages — both required — and the
- * optional features. HQ answers with the whole new draft (code, id and empty schedule included):
- * the client never mints a code or an id.
- */
-export interface RuleCampaignCreate {
+/** One row of `Rules/Authoring/Drafts/List`, last saved first. */
+export interface RuleDraftSummary {
+  campaign: string
   name: Says
-  features: RuleCampaignFeatures
+  revision: number
+  features: RuleFeature[]
+  publishedVersionNo: number
+  updatedAt: string
+  updatedBy: string
+  state: RuleDraftState
+  requestedBy: string
+}
+
+/** `Rules/Authoring/Drafts/Delete`'s answer. */
+export interface RuleDraftDeleted {
+  campaign: string
+  deleted: true
 }
 
 /**
- * What the rule builder's Save sends (ticket 505): the campaign's rules as the marketer left them.
- * It saves the campaign's DRAFT — for a live campaign, the working copy an approver publishes later
- * (2759) — and HQ answers with the whole campaign as saved. Block and rule ids a new block was given
- * in the browser travel as they are.
+ * One row of the campaigns list. PROVISIONAL - no list door yet (BO ask A, ticket 524): 524 composes
+ * it from Drafts/List, Order and the live ruleset behind one `ruleCampaignApi.list()`. The fields
+ * are the draft's own words; `state` is null for a live campaign with no draft.
  */
-export interface RuleCampaignDraft {
-  rules: CampaignRule[]
+export interface RuleCampaignListRow {
+  campaign: string
+  name: Says
+  state: RuleDraftState | null
+  campaignStatus: RuleCampaignStatus
+  publishedVersionNo: number
+  window: RuleCampaignWindow | null
+  features: RuleFeature[]
+  updatedAt: string
+  updatedBy: string
 }
 
 // ── The block catalogue (ticket 504; HQ's door is BackOffice 2758) ──────────────────────────────
@@ -219,21 +290,20 @@ export interface RuleCampaignDraft {
 // field kinds, and the palette (505) groups and gates blocks by it. Fetched once and cached.
 
 /**
- * How a field's value reads in a sentence. The client formats it by kind and never parses it:
- * a `formula` is shown as written (ADR 0089 — syntax and meaning are HQ's).
+ * How a field's value reads in a sentence. PROVISIONAL - the invented catalogue's field kinds until
+ * ticket 523 reads the real `Rules/Authoring/Catalogue` (its field `type`s); the blocks it describes
+ * are schema 1's (keyed by `check` / `effect`, filters by id).
  */
 export type RuleFieldKind =
   /** A filter id of this rule; `''` = all merchandise. */
   | 'items'
-  /** A bundle's parts, `[{ of: filterId, count }]`. */
-  | 'itemParts'
   /** An amount in the campaign's currency. */
   | 'money'
   | 'count'
   | 'days'
-  /** A discount: a percent or an amount, as the block's `unitFrom` field says. */
+  /** A discount (a number or a formula): a percent or an amount, as the block's `unitFrom` field says. */
   | 'discount'
-  /** Points: a number or a named value, in points (`PTS`) or a currency's worth, per `unitFrom`. */
+  /** Points (a number or a formula), in points (`PTS`) or a currency's worth, per `unitFrom`. */
   | 'points'
   /** A machine code — a SKU, an activity, a value map, a campaign, a pattern. */
   | 'code'
@@ -245,9 +315,9 @@ export type RuleFieldKind =
   | 'choice'
   /** Any of `options`. */
   | 'choices'
-  /** An expression, shown as written. */
+  /** An expression (`RuleExpr`), printed as text by `@/core/rules/expr`. */
   | 'formula'
-  /** When points activate or expire: `{ mode: 'afterDays' | 'afterHours' | 'on' | 'none', value }`. */
+  /** When points activate or expire: `{ afterDays }` or `{ on: 'yyyy-MM-dd' }`; absent = at once / never. */
   | 'timing'
   /** A budget id of this campaign. */
   | 'budget'
@@ -283,7 +353,7 @@ export interface RuleCatalogueBlock {
   /** The palette group (Basket, Customer, Discounts, Points, …). */
   group: string
   /** The campaign feature that must be on for the palette to offer it. */
-  feature: keyof RuleCampaignFeatures | null
+  feature: RuleFeature | null
   /** False for a block the map has not decided — the palette leaves it out. */
   decided: boolean
   /** The field whose value picks the sentence's wording. */
@@ -306,17 +376,18 @@ export interface RuleBlockCatalogue {
 export type RuleLookupKind = 'categories' | 'collections' | 'materials' | 'countries' | 'channels' | 'stores'
 
 /** One hit of a lookup: a category, a collection, a material (its SKU), a country, a channel or a
- *  store, and its name. */
+ *  store, and its name. A collection's `articles` are what a pick writes into a filter. */
 export interface RuleLookupItem {
   code: string
   name: string
+  articles?: string[]
 }
 
 // ── The guided ƒx helper (ticket 507; HQ's doors are BackOffice 2758) ───────────────────────────
 // A named value and the formula condition are written only through the helper: its Fields,
-// Functions, Recipes and operator chips come from the catalogue (`formula`), and the validator is
-// HQ's check door. The client never parses the expression language (ADR 0089): it inserts text
-// and shows what HQ answers.
+// Functions, Recipes and operator chips come from the catalogue (`formula`). Its text box is read
+// into the stored JSON expression by `@/core/rules/expr`; HQ's issues on the value's path are its
+// validator (there is no per-formula door).
 
 /** What a formula field, value or result is — its type badge. */
 export type RuleFormulaType = 'money' | 'number' | 'text' | 'date' | 'items' | 'bool'
@@ -361,64 +432,6 @@ export interface RuleFormulaGuide {
   recipes: RuleFormulaRecipe[]
 }
 
-/**
- * What the validator sends: the formula, what its box needs, and the rule's filters and the named
- * values it may read (a named value reads only the values above it), so HQ checks the draft as it
- * is on screen, unsaved, and tries it on its sample basket in the campaign's currency.
- */
-export interface RuleFormulaCheckRequest {
-  campaignId: string
-  expect: RuleFormulaExpect
-  formula: string
-  filters: RuleItemFilter[]
-  values: RuleNamedValue[]
-}
-
-/** One thing wrong with a formula. `start` / `end` mark the bad word (offsets into the formula). */
-export interface RuleFormulaProblem {
-  code: string
-  message: string
-  start: number | null
-  end: number | null
-}
-
-/** HQ's check of a formula: its errors, or its type and its result on the sample basket. */
-export interface RuleFormulaCheck {
-  ok: boolean
-  type: RuleFormulaType | null
-  errors: RuleFormulaProblem[]
-  warnings: RuleFormulaProblem[]
-  /** The result on HQ's sample basket; null when it cannot be tried there. */
-  result: number | boolean | string | null
-}
-
-// ── The checks (ticket 508; HQ's door is BackOffice 2758) ────────────────────────────────────────
-// HQ validates the saved draft and answers its messages, each pointed at rule → block → field BY
-// ID. Errors block "Ask for approval" (511); warnings do not. The client never decides what is wrong
-// with a rule: it shows HQ's messages where they point.
-
-export type RuleCheckSeverity = 'error' | 'warning'
-
-/**
- * One of HQ's messages about the draft. `message` is HQ's own text, shown as data. `ruleId` null =
- * the campaign as a whole; `blockId` = a condition (in a group too), an effect, a filter or a named
- * value of that rule, null = the rule itself; `field` = the block's catalogue field key (a filter's
- * or a value's own `name` / `formula`), null = the block as a whole.
- */
-export interface RuleCheckMessage {
-  severity: RuleCheckSeverity
-  code: string
-  message: string
-  ruleId: string | null
-  blockId: string | null
-  field: string | null
-}
-
-/** HQ's checks of a campaign's saved draft. */
-export interface RuleCampaignChecks {
-  messages: RuleCheckMessage[]
-}
-
 // ── Approval (ticket 511; HQ's doors and Ua permissions are BackOffice 2759) ─────────────────────
 // An author asks for approval and only an approver activates. The roles say what the dashboard
 // draws; the server refuses whatever the reader may not do (the standard envelope), whatever is drawn.
@@ -438,50 +451,10 @@ export interface RuleCampaignTransition {
   note: string
 }
 
-// ── Settings (ticket 509; HQ's doors are BackOffice 2758) ────────────────────────────────────────
-// Settings ▸ Details, Schedule, Audience, Features and Offline each save on their own: one door per
-// page, each taking its page's part (`RuleCampaignSchedule`, `RuleCampaignAudience`,
-// `RuleCampaignFeatures`, below for the other two) and answering the whole campaign as saved. A
-// feature switched off while a block uses it is refused on the standard envelope.
-
-/** What Settings ▸ Details saves: the name in both languages (both required) and the description. */
-export interface RuleCampaignDetails {
-  name: Says
-  description: string
-}
-
-/** What Settings ▸ Offline saves: "online only" — keep an offline-safe campaign off offline tills. */
-export interface RuleCampaignOffline {
-  offlineOptOut: boolean
-}
-
-/** One reason HQ gives for a campaign needing HQ (a budget, the member profile, a coupon …). */
-export interface RuleOfflineReason {
-  code: string
-  /** HQ's own sentence, shown as data. */
-  message: string
-}
-
-/**
- * HQ's offline-safe verdict on the campaign's saved draft, worked out from its rules, budgets and
- * audience. `safe` ignores the campaign's own "online only" choice (`offlineOptOut`): it says
- * whether an offline till COULD run it, and `reasons` say why not.
- */
-export interface RuleOfflineVerdict {
-  safe: boolean
-  reasons: RuleOfflineReason[]
-}
-
 // ── Budgets (ticket 510; HQ's doors are BackOffice 2758, the live limits 2744) ──────────────────
 // Settings ▸ Budgets saves the campaign's budgets as a list, like the other Settings pages. A live
 // campaign's counters are read beside it, and a live budget's LIMIT changes on its own door: limits
 // are live settings outside the ruleset version pin (ADR 0091), so changing one never republishes.
-
-/** What Settings ▸ Budgets saves: every budget of the campaign. A new one travels with the id the
- *  browser gave it, as a new rule's does. */
-export interface RuleCampaignBudgets {
-  budgets: RuleCampaignBudget[]
-}
 
 /**
  * A live campaign's counter for one budget, in its current period. For a per-key scope (member,
@@ -502,6 +475,12 @@ export interface RuleBudgetLimitChange {
 // Every activation publishes an immutable version with who, when and the approver's note. Restore
 // makes an earlier version the campaign's NEW draft — never an in-place rollback: the live version
 // tills run is untouched until that draft is approved and activated in turn.
+
+/** Who did something, and when (local). */
+export interface RuleCampaignStamp {
+  by: string
+  at: string
+}
 
 /** One published version, as the Versions page lists it. `at` is a local moment. */
 export interface RuleCampaignVersion extends RuleCampaignStamp {
@@ -579,7 +558,7 @@ export type RuleTemplateValue = number | string | string[]
 /** The campaign a template makes, with placeholders standing in for its values. */
 export interface RuleTemplateDraft {
   name: Says
-  features: RuleCampaignFeatures
+  features: RuleFeature[]
   /** Who the campaign is for, when the template says (the prototype's tier template); absent = HQ's
    *  default audience, as for a blank campaign. */
   audience?: RuleCampaignAudience

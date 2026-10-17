@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
-import type { RuleBlockCatalogue, RuleBlockKind, RuleCampaignFeatures, RuleCatalogueBlock } from '@/core/models/rule-campaign'
+import type { RuleBlockCatalogue, RuleBlockKind, RuleCatalogueBlock, RuleFeature } from '@/core/models/rule-campaign'
 import Button from '@/core/ui/Button'
 import { labelText, useHas } from './builder-ui'
 import { paletteFor } from './palette'
@@ -25,7 +25,7 @@ export default function PaletteMenu({
   /** The button's words. */
   label: string
   catalogue: RuleBlockCatalogue
-  features: RuleCampaignFeatures
+  features: RuleFeature[]
   onPick: (block: RuleCatalogueBlock) => void
   data: string
 }) {

@@ -1,31 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Check, Loader2, TriangleAlert, X } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
-import type { CampaignRule, RuleCampaign, RuleFormulaCheckRequest, RuleFormulaExpect, RuleFormulaGuide, RuleFormulaType } from '@/core/models/rule-campaign'
-import { ruleFormulaCheckQuery } from '@/core/rules/api'
-import { campaignCurrency, moneyText } from '@/core/rules/sentence'
+import { Check, TriangleAlert, X } from 'lucide-react'
+import type { CampaignRule, RuleExpr, RuleFormulaExpect, RuleFormulaGuide, RuleIssue } from '@/core/models/rule-campaign'
 import Ltr from '@/core/ui/Ltr'
-import { formatNumber } from '@/core/util/number-format'
-import { useDebounced } from '@/core/util/use-debounced'
 import { INPUT } from './builder-ui'
+import { severityOf } from './checks'
 import FxHelper from './FxHelper'
-import { checkRequest, insertAtCursor, readFormulaCheck, type Chip, type FormulaReading, type Selection } from './fx'
-
-/** How long typing must stop before the formula goes to HQ's check. */
-const CHECK_DEBOUNCE_MS = 300
+import { boxOf, insertAtCursor, readBox, type Chip, type Selection } from './fx'
 
 export interface FormulaBoxProps {
   id: string
-  value: string
+  /** The stored expression (schema 1's JSON); null when none is written. */
+  value: RuleExpr
   /** `typed` is a keystroke — a run of them is ONE step of the history; an insert is a step of its own. */
-  onChange: (formula: string, typed: boolean) => void
+  onChange: (expr: RuleExpr, typed: boolean) => void
   expect: RuleFormulaExpect
   rule: CampaignRule
-  /** The named value being written (it reads only the values above it); null for the formula condition. */
-  valueId: string | null
-  campaign: Pick<RuleCampaign, 'id' | 'audience'>
+  /** The named value being written (it reads only the values above it), by its builder key; null for the formula condition. */
+  valueKey?: string | null
+  /** HQ's issues of the saved draft at this expression's path — the validator (there is no per-formula door). */
+  issues: RuleIssue[]
   guide: RuleFormulaGuide
   /** The input's accessible name, where no `<label>` points at it. */
   label?: string
@@ -34,30 +28,35 @@ export interface FormulaBoxProps {
 
 /**
  * A formula, written with the guided ƒx helper (ticket 507): the input, the ƒx button that opens
- * the helper — Fields, Functions, Recipes and operator chips, each put in where the cursor was —
- * and the validator, always on. The validator is HQ's (BackOffice 2758): 300 ms after typing stops
- * the formula goes to the check door with the rule as it is on screen, and the box shows HQ's
- * answer — the error with the bad word underlined, or what the formula gives on the sample basket.
- * The client never parses the formula (ADR 0089).
+ * the helper — Fields, Functions, Recipes and operator chips, each put in where the cursor was — and
+ * the validator line. The box holds TEXT (ticket 522): the codec (`@/core/rules/expr`) reads it
+ * into the JSON expression HQ stores, and only text that reads is stored; until then the text stays
+ * in the box with what is wrong and where. A stored expression the codec cannot print shows as its
+ * JSON and is edited as JSON. HQ's issues of the saved draft at this expression's path show below.
  */
-export default function FormulaBox({ id, value, onChange, expect, rule, valueId, campaign, guide, label, data }: FormulaBoxProps) {
+export default function FormulaBox({ id, value, onChange, expect, rule, valueKey = null, issues, guide, label, data }: FormulaBoxProps) {
   const { t } = useTranslation('campaign-workspace')
   const [open, setOpen] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  /** Where the cursor was when the input last had it. */
   const selection = useRef<Selection | null>(null)
-  /** Where the caret goes once an insert has reached the input. */
   const caretAfter = useRef<number | null>(null)
+  const stored = boxOf(value, rule)
+  /** The text as typed, while it differs from what is stored (it may not read yet). */
+  const [typed, setTyped] = useState<string | null>(null)
+  const text = typed ?? stored.text
+  const reading = readBox(text, stored.json, rule)
+  const bad = !reading.ok
 
-  const request = checkRequest(campaign.id, rule, valueId, expect, value)
-  const key = JSON.stringify(request)
-  const settledKey = useDebounced(key, CHECK_DEBOUNCE_MS)
-  const settled = useMemo(() => JSON.parse(settledKey) as RuleFormulaCheckRequest, [settledKey])
-  const check = useQuery({ ...ruleFormulaCheckQuery(settled), enabled: settled.formula.trim() !== '' })
-  const current = settledKey === key
-
-  const reading: FormulaReading | null = current && check.data ? readFormulaCheck(value, check.data) : null
-  const bad = reading?.state === 'bad'
+  // An Undo, a Redo or a Cancel changes the expression under the box: show it as it now is.
+  const storedJson = JSON.stringify(value ?? null)
+  useEffect(() => {
+    setTyped((cur) => {
+      if (cur === null) return null
+      const r = readBox(cur, stored.json, rule)
+      return r.ok && JSON.stringify(r.expr) === storedJson ? cur : null
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedJson])
 
   useEffect(() => {
     const el = input.current
@@ -67,7 +66,13 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueId,
     el.focus()
     el.setSelectionRange(caret, caret)
     selection.current = { start: caret, end: caret }
-  }, [value])
+  }, [text])
+
+  const write = (next: string, keystroke: boolean) => {
+    setTyped(next)
+    const r = readBox(next, stored.json, rule)
+    if (r.ok && JSON.stringify(r.expr) !== storedJson) onChange(r.expr, keystroke)
+  }
 
   const remember = () => {
     const el = input.current
@@ -75,22 +80,21 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueId,
   }
 
   const insert = (chip: Chip, replaceAll = false) => {
-    const at = replaceAll ? { start: 0, end: value.length } : selection.current
-    const next = insertAtCursor(value, at, chip)
+    const at = replaceAll ? { start: 0, end: text.length } : selection.current
+    const next = insertAtCursor(text, at, chip)
     caretAfter.current = next.caret
-    if (next.formula === value) {
-      // Nothing changed (the same recipe again): the caret still goes where it was asked to.
+    if (next.formula === text) {
       input.current?.focus()
       input.current?.setSelectionRange(next.caret, next.caret)
       caretAfter.current = null
       return
     }
-    onChange(next.formula, false)
+    write(next.formula, false)
   }
 
   const statusId = `${id}-status`
   return (
-    <div className="flex w-full min-w-0 flex-col gap-1" data-fx-box={data}>
+    <div className="flex w-full min-w-0 flex-col gap-1" data-fx-box={data} data-fx-json={stored.json ? '' : undefined}>
       <div className="flex items-center gap-1.5">
         <input
           ref={input}
@@ -99,13 +103,13 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueId,
           spellCheck={false}
           autoComplete="off"
           className={`${INPUT} min-w-0 flex-1 font-mono ${bad ? 'border-danger-border' : ''}`}
-          value={value}
+          value={text}
           placeholder={t(`fx.placeholder.${expect}`)}
           aria-label={label}
           aria-invalid={bad || undefined}
           aria-describedby={statusId}
           onChange={(e) => {
-            onChange(e.target.value, true)
+            write(e.target.value, true)
             selection.current = { start: e.target.selectionStart ?? e.target.value.length, end: e.target.selectionEnd ?? e.target.value.length }
           }}
           onSelect={remember}
@@ -114,40 +118,72 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueId,
           onBlur={remember}
           data-fx-input=""
         />
-        <button
-          type="button"
-          className={
-            'h-8 shrink-0 rounded-md border px-2.5 font-serif text-sm font-semibold italic ' +
-            (open ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground')
-          }
-          aria-expanded={open}
-          aria-label={t('fx.toggle')}
-          title={t('fx.toggle')}
-          onMouseDown={remember}
-          onClick={() => setOpen((o) => !o)}
-          data-fx-toggle=""
-        >
-          {t('fx.symbol')}
-        </button>
+        {!stored.json && (
+          <button
+            type="button"
+            className={
+              'h-8 shrink-0 rounded-md border px-2.5 font-serif text-sm font-semibold italic ' +
+              (open ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground')
+            }
+            aria-expanded={open}
+            aria-label={t('fx.toggle')}
+            title={t('fx.toggle')}
+            onMouseDown={remember}
+            onClick={() => setOpen((o) => !o)}
+            data-fx-toggle=""
+          >
+            {t('fx.symbol')}
+          </button>
+        )}
       </div>
-      {reading?.state === 'bad' && reading.underline && (
-        // The formula again, in the input's font and padding, so the mark sits under the bad word.
+      {!reading.ok && reading.underline && (
         <div dir="ltr" className="overflow-x-auto border border-transparent px-2 font-mono text-sm whitespace-pre text-muted-foreground" aria-hidden data-fx-underline="">
           {reading.underline.before}
           <mark className="rounded-sm bg-danger-050 text-danger-800 underline decoration-danger-800 decoration-wavy">{reading.underline.bad}</mark>
           {reading.underline.after}
         </div>
       )}
-      <div id={statusId} aria-live="polite">
-        <Status value={value} expect={expect} reading={reading} pending={!current || check.isFetching} error={check.isError && current ? check.error : null} currency={campaignCurrency(campaign.audience)} />
+      <div id={statusId} aria-live="polite" className="flex flex-col gap-0.5">
+        {stored.json && <p className="text-xs text-muted-foreground" data-fx-status="json">{t('fx.asJson')}</p>}
+        {!text.trim() ? (
+          <p className="text-xs text-muted-foreground" data-fx-status="empty">
+            {t(`fx.empty.${expect}`)}
+          </p>
+        ) : !reading.ok ? (
+          <p className="flex items-start gap-1 text-xs font-medium text-danger-800" data-fx-status="bad">
+            <X className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            {reading.problem ? (
+              <Trans
+                t={t}
+                i18nKey={`fx.problem.${reading.problem.code}`}
+                values={{ at: reading.problem.at + 1 }}
+                components={{ n: <Ltr />, w: <code className="font-mono" /> }}
+                data-fx-error={reading.problem.code}
+              />
+            ) : (
+              <span data-fx-error="json">{t('fx.problem.json')}</span>
+            )}
+          </p>
+        ) : (
+          <p className="flex items-center gap-1 text-xs text-success-800" data-fx-status="ok">
+            <Check className="h-3 w-3 shrink-0" aria-hidden />
+            {t('fx.reads')}
+          </p>
+        )}
+        {issues.map((m, i) => (
+          <p key={i} className={'flex items-start gap-1 text-xs ' + (severityOf(m) === 'error' ? 'text-danger-800' : 'text-attention-800')} data-fx-issue={severityOf(m)}>
+            <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            <Trans t={t} i18nKey={`fx.issue.${severityOf(m)}`} values={{ message: m.message }} components={{ msg: <bdi /> }} />
+          </p>
+        ))}
       </div>
       {open && (
         <FxHelper
           guide={guide}
           rule={rule}
-          valueId={valueId}
+          valueKey={valueKey}
           expect={expect}
-          current={value}
+          current={text}
           onInsert={insert}
           onUse={(formula) => insert({ text: formula }, true)}
           onDone={() => setOpen(false)}
@@ -155,98 +191,4 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueId,
       )}
     </div>
   )
-}
-
-/** What the validator says: nothing written yet, checking, HQ's answer, or that the check could not be made. */
-function Status({
-  value,
-  expect,
-  reading,
-  pending,
-  error,
-  currency,
-}: {
-  value: string
-  expect: RuleFormulaExpect
-  reading: FormulaReading | null
-  pending: boolean
-  error: unknown
-  currency: string | null
-}) {
-  const { t } = useTranslation('campaign-workspace')
-  if (!value.trim())
-    return (
-      <p className="text-xs text-muted-foreground" data-fx-status="empty">
-        {t(`fx.empty.${expect}`)}
-      </p>
-    )
-  if (error)
-    return (
-      <p className="flex items-center gap-1 text-xs text-attention-800" role="alert" data-fx-status="failed">
-        <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />
-        <bdi>{apiErrorMessage(error, t('fx.checkFailed'))}</bdi>
-      </p>
-    )
-  if (pending || !reading)
-    return (
-      <p className="flex items-center gap-1 text-xs text-muted-foreground" data-fx-status="checking">
-        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-        {t('fx.checking')}
-      </p>
-    )
-  if (reading.state === 'bad')
-    return (
-      <div className="flex flex-col gap-0.5 text-xs font-medium text-danger-800" data-fx-status="bad">
-        <p className="flex items-start gap-1" data-fx-error="">
-          <X className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-          <bdi>{reading.message || t('fx.invalid')}</bdi>
-        </p>
-        {reading.more.map((m, i) => (
-          <p key={i} className="flex items-start gap-1 ps-4">
-            <bdi>{m}</bdi>
-          </p>
-        ))}
-      </div>
-    )
-  return (
-    <div className="flex flex-col gap-0.5 text-xs" data-fx-status="ok">
-      <p className="flex flex-wrap items-center gap-x-1 text-success-800">
-        <Check className="h-3 w-3 shrink-0" aria-hidden />
-        <span>{t(`fx.valid.${validKind(reading.type)}`)}</span>
-        {reading.result !== null && (
-          <span className="text-muted-foreground">
-            <Trans
-              t={t}
-              i18nKey="fx.onSample"
-              components={{
-                result: (
-                  <b className="text-foreground" data-fx-result="">
-                    <Result value={reading.result} money={reading.type === 'money'} currency={currency} />
-                  </b>
-                ),
-              }}
-            />
-          </span>
-        )}
-      </p>
-      {reading.warnings.map((w, i) => (
-        <p key={i} className="flex items-start gap-1 text-attention-800" data-fx-warning="">
-          <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-          <bdi>{w}</bdi>
-        </p>
-      ))}
-    </div>
-  )
-}
-
-/** What a valid formula gives, as the status names it: money reads as a number. */
-const validKind = (type: RuleFormulaType | null) => (type === 'bool' || type === 'text' || type === 'date' || type === 'items' ? type : 'number')
-
-/** A result on the sample basket, by its kind: money in the campaign's currency (code and figure, isolated once), a number, yes / no, or text. */
-function Result({ value, money, currency }: { value: number | boolean | string; money: boolean; currency: string | null }) {
-  const { t } = useTranslation('campaign-workspace')
-  if (typeof value === 'boolean') return <>{t(value ? 'fx.yes' : 'fx.no')}</>
-  if (typeof value === 'string') return <bdi>{value}</bdi>
-  if (money) return <Ltr>{moneyText({ amount: value, currency })}</Ltr>
-  return <Ltr>{formatNumber(value)}</Ltr>
 }

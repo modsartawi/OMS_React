@@ -1,11 +1,11 @@
-import type { RuleCampaign, RuleCampaignRoles, RuleCampaignStatus } from '@/core/models/rule-campaign'
+import type { RuleCampaign, RuleCampaignRoles, RuleDraft } from '@/core/models/rule-campaign'
 
 // The approval split on a campaign's dashboard (ticket 511). Pure: which acts the reader may take
 // on a campaign in its state, and the pre-activation steps read off the draft. The server's
 // refusal is the backstop — this only decides what is drawn, never what is allowed.
 //
-// The states are PROVISIONAL (BackOffice 2759 unwritten; the ticket's default ruled):
-// draft → waiting for approval → (sent back → draft) | live → disabled.
+// The states are the draft's (ticket 522, BackOffice 2759): a draft is editing → pending →
+// (sentBack → editing) | activated, beside the live campaign's Published | Disabled | ''.
 
 /** An act on the dashboard: an author asks or deletes a draft; an approver activates, sends back
  *  or disables. */
@@ -21,24 +21,25 @@ export const APPROVAL_ACTIONS: readonly ApprovalAction[] = ['askForApproval', 'a
  * client does not know offers nothing.
  */
 export function actionsFor(
-  campaign: { status: RuleCampaignStatus; live: RuleCampaign['live'] },
+  draft: Pick<RuleDraft, 'source' | 'state' | 'campaignStatus'>,
   roles: RuleCampaignRoles,
 ): ApprovalAction[] {
   const offered = new Set<ApprovalAction>()
-  const { status, live } = campaign
-  if (roles.author && status === 'draft') {
+  const hasDraft = draft.source === 'draft'
+  const pending = hasDraft && draft.state === 'pending'
+  if (roles.author && hasDraft && !pending) {
     offered.add('askForApproval')
-    // A campaign that was ever published is not a draft to throw away: tills have run it.
-    if (!live) offered.add('deleteDraft')
+    // Deleting a draft leaves a live campaign live (Drafts/Delete); a pending one is frozen.
+    offered.add('deleteDraft')
   }
   if (roles.approver) {
-    if (status === 'waitingForApproval') {
+    if (pending) {
       offered.add('activate')
       offered.add('sendBack')
     }
     // Disabling stops what tills run. Changes waiting over a live version are sent back first:
     // disabling then would strand the request.
-    if (status === 'live') offered.add('disable')
+    if (draft.campaignStatus === 'Published' && !pending) offered.add('disable')
   }
   return APPROVAL_ACTIONS.filter((a) => offered.has(a))
 }
@@ -83,18 +84,18 @@ export interface PreActivationStep {
  * the checks are not read yet or could not be read — the rules step is not ticked meanwhile.
  */
 export function preActivationSteps(
-  campaign: Pick<RuleCampaign, 'name' | 'rules' | 'schedule' | 'budgets'>,
+  campaign: Pick<RuleCampaign, 'name' | 'rules' | 'window' | 'budgets'>,
   checksBlocked: boolean | null,
 ): PreActivationStep[] {
-  const { name, rules, schedule, budgets } = campaign
+  const { name, rules, window, budgets = [] } = campaign
   return [
     { key: 'named', done: !!name.en.trim() && !!name.ar.trim(), page: 'settings/details' },
     { key: 'rules', done: rules.length > 0 && checksBlocked === false, page: 'rules' },
-    { key: 'schedule', done: !!(schedule.from || schedule.until), page: 'settings/schedule' },
+    { key: 'schedule', done: !!(window?.from || window?.until), page: 'settings/schedule' },
     { key: 'budgets', done: budgets.length > 0, page: 'settings/budgets' },
   ]
 }
 
 /** The steps show until the campaign is first published: afterwards they are history. */
-export const showsSteps = (campaign: Pick<RuleCampaign, 'status' | 'live'>): boolean =>
-  !campaign.live && (campaign.status === 'draft' || campaign.status === 'waitingForApproval')
+export const showsSteps = (draft: Pick<RuleDraft, 'publishedVersionNo' | 'campaignStatus'>): boolean =>
+  draft.publishedVersionNo === 0 && draft.campaignStatus === ''

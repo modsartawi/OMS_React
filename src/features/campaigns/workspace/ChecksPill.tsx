@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronRight, CircleCheck, Loader2, TriangleAlert } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { RULE_GROUP_TYPE, type CampaignRule, type RuleBlockCatalogue, type RuleCampaignChecks, type RuleCheckSeverity } from '@/core/models/rule-campaign'
+import { RULE_GROUP_CHECK, type CampaignRule, type RuleBlockCatalogue, type RuleValidation } from '@/core/models/rule-campaign'
 import { catalogueBlock } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -10,7 +10,7 @@ import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { labelText, useHas } from './builder-ui'
 import { SEVERITY_LOOK } from './CheckNotes'
-import { approvalVerdict, severityOf, type CheckPlace, type LocatedCheck } from './checks'
+import { approvalVerdict, severityOf, type CheckPlace, type CheckSeverity, type LocatedCheck } from './checks'
 import { fieldLabelKey } from './panel-keys'
 
 /**
@@ -32,7 +32,8 @@ export default function ChecksPill({
   catalogue,
   onGo,
 }: {
-  checks: RuleCampaignChecks | undefined
+  /** The saved draft's validation; undefined while it is not known. */
+  checks: RuleValidation | null | undefined
   /** HQ is being asked (the first read, or again after a Save or a retry). */
   fetching: boolean
   /** Why the last ask failed; null when it answered. */
@@ -49,7 +50,7 @@ export default function ChecksPill({
   const listId = useId()
   const root = useRef<HTMLDivElement>(null)
   const failed = !fetching && error != null
-  const verdict = !fetching && !failed && checks ? approvalVerdict(checks) : null
+  const verdict = !fetching && !failed && checks !== undefined ? approvalVerdict(checks) : null
 
   // Escape or a click elsewhere closes the list.
   useEffect(() => {
@@ -155,7 +156,7 @@ export default function ChecksPill({
                       </>
                     )
                     return (
-                      <li key={l.key} data-check-item={severity} data-check-code={l.message.code}>
+                      <li key={l.key} data-check-item={severity} data-check-path={l.message.path}>
                         {goes ? (
                           <button
                             type="button"
@@ -193,7 +194,7 @@ export default function ChecksPill({
 }
 
 /** "1 error" / "3 warnings" on the pill. */
-function CheckCount({ n, severity }: { n: number; severity: RuleCheckSeverity }) {
+function CheckCount({ n, severity }: { n: number; severity: CheckSeverity }) {
   const { t } = useTranslation('campaign-workspace')
   const { Icon, ink } = SEVERITY_LOOK[severity]
   return (
@@ -238,7 +239,7 @@ function Where({ place, rules, catalogue }: { place: CheckPlace; rules: Campaign
         <span key="block">
           <Trans
             t={t}
-            i18nKey={place.type === RULE_GROUP_TYPE ? 'checks.where.group' : place.groupId ? `checks.where.${place.kind}InGroup` : `checks.where.${place.kind}`}
+            i18nKey={place.type === RULE_GROUP_CHECK ? 'checks.where.group' : place.groupId ? `checks.where.${place.kind}InGroup` : `checks.where.${place.kind}`}
             values={{ n: place.index + 1 }}
             components={{ n: <Ltr /> }}
           />

@@ -1,53 +1,54 @@
 // Types for `campaigns-fixtures.mjs`, so a vitest proof reads the SAME stub data the drive serves
-// (ticket 504) rather than a copy of it. The shapes are the PROVISIONAL ones of
-// `src/core/models/rule-campaign.ts`; ticket 520 re-points both.
+// (ticket 504) rather than a copy of it. The draft doors' shapes are the real ones of
+// `src/core/models/rule-campaign.ts` (ticket 522); the doors 523-526 still own are PROVISIONAL.
 import type {
   RuleBlockCatalogue,
   RuleBudgetUsage,
   RuleCampaign,
-  RuleCampaignCreate,
+  RuleDraft,
+  RuleDraftDeleted,
+  RuleDraftSave,
+  RuleValidation,
   RuleCampaignListRow,
   RuleCampaignVersion,
   RuleCampaignVersionDetail,
-  RuleFormulaCheck,
-  RuleFormulaCheckRequest,
   RuleLookupItem,
   RuleLookupKind,
   RuleOfflineVerdict,
 } from '../src/core/models/rule-campaign'
 
-export const CAMPAIGNS: RuleCampaign[]
+/** A refusal of a stubbed door: its code, status and message. */
+type Refused = { refused: string; status: number; message: string }
+
+/** Drafts/Load replies around schema-1 campaigns (ticket 522). */
+export const CAMPAIGNS: RuleDraft[]
+export const NEVER: string
+export function offlineOf(c: RuleCampaign): RuleOfflineVerdict
+export function validationOf(c: RuleCampaign): RuleValidation
 export const CATALOGUE: RuleBlockCatalogue
-export function listRow(c: RuleCampaign): RuleCampaignListRow
-export function createDraft(store: RuleCampaign[], body: RuleCampaignCreate, at: string): RuleCampaign
-export function copyOf(store: RuleCampaign[], source: RuleCampaign, at: string): RuleCampaign
+export function listRow(d: RuleDraft): RuleCampaignListRow
+export function loadDraft(store: RuleDraft[], code: string): { draft: RuleDraft } | Refused
+export function saveDraft(store: RuleDraft[], body: RuleDraftSave, at: string): { draft: RuleDraft } | Refused
+export function deleteDraft(store: RuleDraft[], body: { campaign: string; revision: number }): { deleted: RuleDraftDeleted } | Refused
+export function copyOf(store: RuleDraft[], source: RuleDraft, at: string): RuleDraft
 export const LOOKUPS: Record<RuleLookupKind, RuleLookupItem[]>
 export function lookup(kind: RuleLookupKind, search?: string): RuleLookupItem[]
-export const SAMPLE_RESULT: number
-export function checkFormula(body: RuleFormulaCheckRequest): RuleFormulaCheck
 export function lifecycle(
-  c: RuleCampaign,
+  d: RuleDraft,
   act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable',
   o: { note?: string; by: string; at: string },
-): { campaign: RuleCampaign; refused?: undefined } | { refused: string; campaign?: undefined }
-export function offlineVerdict(c: RuleCampaign): RuleOfflineVerdict
-export function saveSettings(
-  c: RuleCampaign,
-  part: 'Details' | 'Schedule' | 'Audience' | 'Features' | 'Budgets' | 'Offline',
-  body: unknown,
-  catalogue?: RuleBlockCatalogue,
-): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
-export function budgetUsage(c: RuleCampaign): RuleBudgetUsage[]
+): { campaign: RuleDraft; refused?: undefined } | { refused: string; campaign?: undefined }
+export function budgetUsage(d: RuleDraft): RuleBudgetUsage[]
 export function changeLimit(
-  c: RuleCampaign,
+  d: RuleDraft,
   budgetId: string,
   value: number,
-): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
-export function versionsOf(store: RuleCampaign[]): Map<string, RuleCampaignVersionDetail[]>
+): { campaign: RuleDraft; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
+export function versionsOf(store: RuleDraft[]): Map<string, RuleCampaignVersionDetail[]>
 export function versionRow(v: RuleCampaignVersionDetail): RuleCampaignVersion
-export function publishVersion(versions: Map<string, RuleCampaignVersionDetail[]>, c: RuleCampaign, note?: string): void
+export function publishVersion(versions: Map<string, RuleCampaignVersionDetail[]>, d: RuleDraft, note?: string): void
 export function restoreVersion(
-  c: RuleCampaign,
+  d: RuleDraft,
   versions: Map<string, RuleCampaignVersionDetail[]>,
   n: number,
-): { campaign: RuleCampaign; refused?: undefined } | { refused: string; message: string; campaign?: undefined }
+): { campaign: RuleDraft; refused?: undefined } | { refused: string; message: string; campaign?: undefined }

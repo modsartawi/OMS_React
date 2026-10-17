@@ -1,8 +1,8 @@
 import type { CampaignRule, RuleBlockCatalogue, RuleCatalogueBlock, RuleCondition, RuleEffect, RuleItemFilter } from '@/core/models/rule-campaign'
-import { catalogueBlock, leafConditions, RX_CATEGORY } from './sentence'
+import { blockType, catalogueBlock, leafConditions, RX_CATEGORY } from './sentence'
 
-// A rule's named cart-item filters (ticket 506). Pure. Conditions and effects reference a filter BY
-// ID (`of`, `on`, a bundle part's `of`), so renaming one is a change to the filter alone and every
+// A rule's named cart-item filters (ticket 506, schema 1 since 522). Pure. Conditions (`of`), effects
+// (`filter`) and the rule's bundle lists (`filter`) reference a filter BY ID, so renaming one is a change to the filter alone and every
 // block that uses it reads the new name through its id (2734 point 3). Nothing is changed in
 // place: an edit copies what it touches, and one that changes nothing answers the SAME rules, which
 // the builder's history takes as "no step".
@@ -19,11 +19,9 @@ export const DEFAULT_EXCLUDED_CATEGORIES: readonly string[] = [RX_CATEGORY]
 export const newFilter = (id: string, name: string): RuleItemFilter => ({
   id,
   name,
-  cats: [],
-  colls: [],
-  skus: [],
-  exclCats: [...DEFAULT_EXCLUDED_CATEGORIES],
-  scope: 'items',
+  categories: [],
+  articles: [],
+  exclude: { categories: [...DEFAULT_EXCLUDED_CATEGORIES] },
 })
 
 const taken = (filters: readonly RuleItemFilter[], name: string, selfId?: string) =>
@@ -85,27 +83,26 @@ export function updateFilter(rules: Rules, ruleId: string, filterId: string, pat
 /** A rename is the filter's own name and nothing else: every reference is its id. */
 export const renameFilter = (rules: Rules, ruleId: string, filterId: string, name: string): Rules => updateFilter(rules, ruleId, filterId, { name })
 
-/** Every filter id a block points at, through its catalogue fields of kind `items` and `itemParts`. */
+/** Every filter id a block points at, through its catalogue fields of kind `items` (`''` = all merchandise). */
 export function blockFilterRefs(block: RuleCondition | RuleEffect, entry: RuleCatalogueBlock | undefined): string[] {
   if (!entry) return []
   const raw = block as Record<string, unknown>
   return entry.fields.flatMap((field) => {
     const v = raw[field.key]
-    if (field.kind === 'items') return [typeof v === 'string' ? v : '']
-    if (field.kind === 'itemParts') return (Array.isArray(v) ? (v as { of?: unknown }[]) : []).map((p) => (typeof p.of === 'string' ? p.of : ''))
-    return []
+    return field.kind === 'items' ? [typeof v === 'string' ? v : ''] : []
   })
 }
 
-/** How many of the rule's references (conditions at any depth, effects, bundle parts) point at a filter. */
+/** How many of the rule's references (conditions at any depth, effects, bundle lists) point at a filter. */
 export function filterUses(
-  rule: Pick<CampaignRule, 'when' | 'then'>,
+  rule: Pick<CampaignRule, 'when' | 'then' | 'bundle'>,
   filterId: string,
   catalogue: RuleBlockCatalogue,
 ): number {
   const refs = [
-    ...leafConditions(rule.when).flatMap((c) => blockFilterRefs(c, catalogueBlock(catalogue, 'condition', c.type))),
-    ...rule.then.flatMap((e) => blockFilterRefs(e, catalogueBlock(catalogue, 'effect', e.type))),
+    ...leafConditions(rule.when).flatMap((c) => blockFilterRefs(c, catalogueBlock(catalogue, 'condition', blockType(c)))),
+    ...rule.then.flatMap((e) => blockFilterRefs(e, catalogueBlock(catalogue, 'effect', blockType(e)))),
+    ...(rule.bundle?.lists ?? []).map((l) => l.filter),
   ]
   return refs.filter((id) => id === filterId).length
 }
@@ -134,22 +131,24 @@ export function copyFilterInto(rules: Rules, ruleId: string, source: RuleItemFil
 
 /**
  * Whether a filter can reach a Prescription line: it does not keep A006 out, and it is not held to
- * fee lines or to other categories only (a filter's steps narrow each other, so `category A002`
- * alone cannot match an A006 line). A collection or a product is not known to be Rx-free here.
+ * other categories only (`category A002` alone cannot match an A006 line). A product picked by its
+ * article is not known to be Rx-free here.
  */
 export function filterLetsRxIn(f: RuleItemFilter): boolean {
-  if (f.exclCats.includes(RX_CATEGORY)) return false
-  if (f.scope === 'fees') return false
-  if (f.cats.length > 0 && !f.cats.includes(RX_CATEGORY)) return false
+  if ((f.exclude?.categories ?? []).includes(RX_CATEGORY)) return false
+  const cats = f.categories ?? []
+  if (cats.length > 0 && !cats.includes(RX_CATEGORY) && !(f.articles ?? []).length) return false
   return true
 }
 
 /**
  * Whether an effect gives its discount to Prescription lines: one of its items fields is all
- * merchandise, or a filter that lets Rx in. A filter that is gone is a check of its own (508), not
- * an Rx flag; an effect with no items field (points, a message) never is one.
+ * merchandise, or a filter that lets Rx in. A discount held to the fee lines (`scope: fees`) never
+ * reaches one. A filter that is gone is a check of its own (508), not an Rx flag; an effect with no
+ * items field (points, a message) never is one.
  */
 export function effectLetsRxIn(effect: RuleEffect, entry: RuleCatalogueBlock | undefined, filters: readonly RuleItemFilter[]): boolean {
+  if (effect.scope === 'fees') return false
   return blockFilterRefs(effect, entry).some((id) => {
     if (id === '') return true
     const f = filters.find((x) => x.id === id)

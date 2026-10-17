@@ -1,4 +1,4 @@
-import { RULE_CAMPAIGN_STATUSES, type RuleCampaignSchedule, type RuleCampaignStatus } from '@/core/models/rule-campaign'
+import { RULE_NEVER, type RuleCampaignStatus, type RuleCampaignWindow, type RuleDraftState } from '@/core/models/rule-campaign'
 import type { Severity } from '@/core/ui/severity'
 import { toIsoDate } from '@/core/util/date-format'
 
@@ -63,23 +63,33 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((utc(b) - utc(a)) / 86_400_000)
 }
 
-const STORED: readonly string[] = RULE_CAMPAIGN_STATUSES
+/** A time HQ answered, or null for one it never set (`0001-01-01T00:00:00`) or left empty. */
+export function setAt(value: string | null | undefined): string | null {
+  return value && !value.startsWith(RULE_NEVER.slice(0, 10)) ? value : null
+}
+
+/** What a campaign's state is read from: its draft's state (null with no draft), the live
+ *  campaign's status, and the window. */
+export interface CampaignStateInput {
+  state: RuleDraftState | null
+  campaignStatus: RuleCampaignStatus
+  window?: RuleCampaignWindow | null
+}
 
 /**
- * The state a campaign counts under at a local `now`. `until` is exclusive.
- *
- * ⚠️ The status is PROVISIONAL (2759 unwritten): one we do not know reads as a draft — never as
- * live, which would put it on a till's tile — so every campaign still counts under exactly one tile.
+ * The state a campaign counts under at a local `now` (ticket 522). A draft waiting for an approver
+ * counts as waiting whatever the live campaign does (it needs a human); otherwise a published
+ * campaign is read against its window (`until` exclusive), a disabled one is disabled, and one that
+ * never went live is a draft (editing or sent back). A status HQ has not agreed with us reads as
+ * never live, so every campaign counts under exactly one tile and none reaches a till's by accident.
  */
-export function campaignState(
-  campaign: { status: RuleCampaignStatus; schedule: RuleCampaignSchedule },
-  now: Date,
-): CampaignState {
-  if (!STORED.includes(campaign.status)) return 'draft'
-  if (campaign.status !== 'live') return campaign.status
+export function campaignState(c: CampaignStateInput, now: Date): CampaignState {
+  if (c.state === 'pending') return 'waitingForApproval'
+  if (c.campaignStatus === 'Disabled') return 'disabled'
+  if (c.campaignStatus !== 'Published') return 'draft'
   const today = toIsoDate(now)
-  const until = dayOf(campaign.schedule.until)
-  const from = dayOf(campaign.schedule.from)
+  const until = dayOf(c.window?.until)
+  const from = dayOf(c.window?.from)
   if (until && today >= until) return 'expired'
   if (from && today < from) return 'scheduled'
   return 'running'
@@ -97,10 +107,10 @@ export type ScheduleRelative =
   | { kind: 'endedAgo'; days: number }
   | { kind: 'endedToday' }
 
-export function scheduleRelative(schedule: RuleCampaignSchedule, now: Date): ScheduleRelative {
+export function scheduleRelative(window: RuleCampaignWindow | null | undefined, now: Date): ScheduleRelative {
   const today = toIsoDate(now)
-  const from = dayOf(schedule.from)
-  const until = dayOf(schedule.until)
+  const from = dayOf(window?.from)
+  const until = dayOf(window?.until)
   if (!from && !until) return { kind: 'noLimit' }
   if (from && today < from) return { kind: 'startsIn', days: daysBetween(today, from) }
   if (until && today >= until) {

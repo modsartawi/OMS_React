@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { RuleCampaignBudget } from '@/core/models/rule-campaign'
 import { budgetForm, budgetProblem, budgetsWith, budgetsWithout, newBudgetForm, sameBudget, toBudget } from './budget-form'
 
-const B = (id: string, value = 2): RuleCampaignBudget => ({ id, name: '', scope: 'profile', limit: 'uses', value, period: 'month' })
+const B = (id: string, value = 2): RuleCampaignBudget => ({ id, name: { en: '', ar: '' }, scope: 'profile', limit: 'uses', value, period: 'month' })
 
 describe('the budget drawer’s form (ticket 510)', () => {
   it('a member or code budget starts as one use; the others as discount money', () => {
-    expect(newBudgetForm('profile')).toEqual({ scope: 'profile', limit: 'uses', value: '1', period: 'lifetime', name: '' })
+    expect(newBudgetForm('profile')).toEqual({ scope: 'profile', limit: 'uses', value: '1', period: 'lifetime', nameEn: '', nameAr: '' })
     expect(newBudgetForm('coupon').limit).toBe('uses')
-    expect(newBudgetForm('campaign')).toEqual({ scope: 'campaign', limit: 'money', value: '10000', period: 'lifetime', name: '' })
+    expect(newBudgetForm('campaign')).toEqual({ scope: 'campaign', limit: 'money', value: '10000', period: 'lifetime', nameEn: '', nameAr: '' })
     expect(newBudgetForm('store').limit).toBe('money')
   })
 
@@ -44,15 +44,15 @@ describe('the budget drawer’s form (ticket 510)', () => {
   })
 
   it('a budget reads back into the form and out again, the name trimmed', () => {
-    const b = { ...B('b1'), name: 'twice a month' }
+    const b = { ...B('b1'), name: { en: 'twice a month', ar: 'مرتان شهرياً' } }
     expect(toBudget(budgetForm(b), 'b1')).toEqual(b)
-    expect(toBudget({ ...budgetForm(b), name: '  x  ', value: ' 3 ' }, 'b1')).toEqual({ ...b, name: 'x', value: 3 })
+    expect(toBudget({ ...budgetForm(b), nameEn: '  x  ', nameAr: ' س ', value: ' 3 ' }, 'b1')).toEqual({ ...b, name: { en: 'x', ar: 'س' }, value: 3 })
   })
 
   it('an edit that changes nothing is the same budget: the figure as a number, the name trimmed', () => {
-    const f = budgetForm({ ...B('b1', 100), name: 'x' })
+    const f = budgetForm({ ...B('b1', 100), name: { en: 'x', ar: '' } })
     expect(sameBudget({ ...f, value: '100.00' }, f)).toBe(true)
-    expect(sameBudget({ ...f, name: ' x ' }, f)).toBe(true)
+    expect(sameBudget({ ...f, nameEn: ' x ' }, f)).toBe(true)
     expect(sameBudget({ ...f, value: '101' }, f)).toBe(false)
     expect(sameBudget({ ...f, period: 'day' }, f)).toBe(false)
   })

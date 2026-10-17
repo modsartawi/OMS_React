@@ -2,14 +2,15 @@ import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { CampaignRule } from '@/core/models/rule-campaign'
-import { rememberSavedDraft, ruleCampaignApi, ruleCampaignChecksQuery, ruleCatalogueQuery } from '@/core/rules/api'
+import { rememberSavedDraft, ruleCampaignApi, ruleCampaignKey, ruleCatalogueQuery } from '@/core/rules/api'
 import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { mintRequestId } from '@/core/util/request-id'
+import { mintKey } from './block-keys'
 import { builderHistory, canRedo, canUndo, initialHistory, isDirty } from './builder-history'
 import { focusTarget, indexChecks, locateChecks, type CheckPlace } from './checks'
 import ChecksPill from './ChecksPill'
@@ -26,28 +27,29 @@ import RuleCard, { type Builder } from './RuleCard'
  * renamed, reordered and deleted.
  *
  * Every edit is a step of a pure history (`./builder-history`): Undo / Redo walk it, Cancel goes
- * back to the rules as HQ last saved them, Save sends them to the draft door. Leaving the page — in
- * the app or by closing the tab — with unsaved changes asks first.
+ * back to the rules as HQ last saved them, Save sends the WHOLE draft at its revision
+ * (`Drafts/Save`, ticket 522). A save over a newer revision is refused (`RULES_DRAFT_STALE`) and
+ * the page offers to reload; a draft waiting for approval is frozen (`RULES_DRAFT_PENDING`). Leaving
+ * the page — in the app or by closing the tab — with unsaved changes asks first.
  *
- * The checks pill (ticket 508) reads HQ's checks of the saved draft, re-read after every Save. Each
- * message is found by id on the rules as they are on screen and shown where it points; a click on
- * one in the pill expands its rule, opens its block's panel and focuses the field.
+ * The checks pill (ticket 508) reads the saved draft's validation, which every Save answers anew.
+ * Each issue is found by its path in the saved rules and, through the block's builder key, on the
+ * rules as they are on screen; a click on one expands its rule, opens its panel and focuses the field.
  */
 export default function RulesPage() {
   const { t, i18n } = useTranslation('campaign-workspace')
-  const { campaign: c } = useWorkspace()
+  const { draft } = useWorkspace()
+  const c = draft.campaign
   const queryClient = useQueryClient()
   const catalogue = useQuery(ruleCatalogueQuery())
   const [history, dispatch] = useReducer(builderHistory, c.rules, initialHistory)
+  const frozen = draft.state === 'pending'
   /** The rules the reader closed; every rule opens expanded. */
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const rules = history.present
-  const checks = useQuery(ruleCampaignChecksQuery(c.id))
-  // A refused re-ask keeps TanStack's older `data`; the pill then says the checks are unavailable,
-  // so the marks go too — never an older answer at the fields (508 review).
-  const fresh = checks.isError ? undefined : checks.data
-  const located = useMemo(() => (fresh ? locateChecks(rules, fresh) : []), [rules, fresh])
+  const validation = draft.validation
+  const located = useMemo(() => locateChecks(history.saved, rules, validation), [history.saved, rules, validation])
   const checksIndex = useMemo(() => indexChecks(located), [located])
   /** The control a click in the pill asked for; focused once the rule and the panel have opened. */
   const [focusAsk, setFocusAsk] = useState<{ ids: string[]; within: string | null } | null>(null)
@@ -59,14 +61,24 @@ export default function RulesPage() {
   useEffect(() => dispatch({ type: 'load', rules: c.rules }), [c.rules])
 
   const save = useMutation({
-    mutationFn: (next: CampaignRule[]) => ruleCampaignApi.saveDraft(c.id, { rules: next }),
-    onSuccess: (campaign, sent) => {
+    // The whole draft at the revision loaded; the builder's keys are symbols, which JSON drops.
+    mutationFn: (next: CampaignRule[]) => ruleCampaignApi.save({ campaign: { ...c, rules: next }, features: draft.features, revision: draft.revision }),
+    onSuccess: (saved, sent) => {
       // An edit made while the save was in flight stays, unsaved (the reducer compares `sent`).
-      dispatch({ type: 'saved', rules: campaign.rules, sent })
-      rememberSavedDraft(queryClient, campaign)
+      dispatch({ type: 'saved', rules: saved.campaign.rules, sent })
+      rememberSavedDraft(queryClient, saved)
       notify.success(t('builder.saved'))
     },
   })
+  const refusal = save.isError ? apiErrorCode(save.error) : null
+  const stale = refusal === 'RULES_DRAFT_STALE'
+  /** Reads the draft afresh — the reader's own press: the unsaved rules go with it. */
+  const reload = () => {
+    save.reset()
+    setOpenId(null)
+    dispatch({ type: 'cancel' })
+    void queryClient.invalidateQueries({ queryKey: ruleCampaignKey(draft.code) })
+  }
 
   // Focus after the render that expanded the rule and opened the panel; scrolled into view.
   useEffect(() => {
@@ -116,8 +128,10 @@ export default function RulesPage() {
           setOpenId(id)
         },
         campaign: c,
+        features: draft.features,
         catalogue: catalogue.data,
         newId: mintRequestId,
+        newKey: mintKey,
         checks: checksIndex,
       }
     : null
@@ -178,10 +192,10 @@ export default function RulesPage() {
         {builder && (
           <div className="flex flex-wrap items-center gap-2" data-builder-bar="">
             <ChecksPill
-              checks={checks.data}
-              fetching={checks.isFetching}
-              error={checks.error}
-              onRetry={() => void checks.refetch()}
+              checks={validation}
+              fetching={false}
+              error={null}
+              onRetry={() => {}}
               located={located}
               dirty={dirty}
               rules={rules}
@@ -213,7 +227,7 @@ export default function RulesPage() {
             >
               {t('builder.cancel')}
             </Button>
-            <Button variant="primary" disabled={!dirty || busy} onClick={() => save.mutate(rules)} data-save="">
+            <Button variant="primary" disabled={!dirty || busy || frozen} onClick={() => save.mutate(rules)} data-save="">
               {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
               {t('builder.save')}
             </Button>
@@ -230,7 +244,29 @@ export default function RulesPage() {
           </Button>
         </div>
       )}
-      {save.isError && <ErrorBanner className="p-3" title={t('builder.saveFailedTitle')} message={apiErrorMessage(save.error, t('builder.saveFailed'))} />}
+      {frozen && (
+        <p className="rounded-md border border-attention-border bg-attention-050 p-3 text-sm text-attention-800" data-builder-frozen="">
+          {t('builder.frozen')}
+        </p>
+      )}
+      {save.isError &&
+        (stale ? (
+          <div data-save-stale="">
+            <ErrorBanner className="p-3" title={t('builder.staleTitle')} message={t('builder.stale')}>
+              <Button variant="outlined" className="mt-2" onClick={reload} data-save-reload="">
+                {t('builder.reload')}
+              </Button>
+            </ErrorBanner>
+          </div>
+        ) : (
+          <div data-save-refused={refusal ?? ''}>
+            <ErrorBanner
+              className="p-3"
+              title={t('builder.saveFailedTitle')}
+              message={refusal === 'RULES_DRAFT_PENDING' ? t('builder.pending') : apiErrorMessage(save.error, t('builder.saveFailed'))}
+            />
+          </div>
+        ))}
       {body}
 
       <LeaveGuard dirty={dirty} words="builder.leave" />

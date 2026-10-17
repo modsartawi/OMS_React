@@ -1,4 +1,4 @@
-import type { RuleCampaignFeatures } from '@/core/models/rule-campaign'
+import type { RuleFeature } from '@/core/models/rule-campaign'
 
 /**
  * The campaign's own menu (the prototype's `CMENU` + Settings ▸): Dashboard, Rule builder, Coupons
@@ -15,7 +15,7 @@ export interface WorkspaceMenuItem {
   key: WorkspaceMenuKey
   to: string
   /** Shown only when the campaign's features allow it. Absent = always. */
-  when?: (features: RuleCampaignFeatures) => boolean
+  when?: (features: readonly RuleFeature[]) => boolean
   /** False until the item's page lands; the shell leaves it out meanwhile. */
   landed: boolean
 }
@@ -23,17 +23,17 @@ export interface WorkspaceMenuItem {
 export const WORKSPACE_MENU: readonly WorkspaceMenuItem[] = [
   { key: 'dashboard', to: '', landed: true },
   { key: 'rules', to: 'rules', landed: true },
-  { key: 'coupons', to: 'coupons', when: (f) => f.coupons, landed: true },
+  { key: 'coupons', to: 'coupons', when: (f) => f.includes('coupons'), landed: true },
   { key: 'versions', to: 'versions', landed: true },
 ]
 
 /** The menu items a campaign with these features offers, in menu order. */
-export function workspaceMenu(features: RuleCampaignFeatures): WorkspaceMenuItem[] {
+export function workspaceMenu(features: readonly RuleFeature[]): WorkspaceMenuItem[] {
   return WORKSPACE_MENU.filter((item) => !item.when || item.when(features))
 }
 
 /** What the shell draws: the offered items whose page has landed. */
-export function drawnMenu(features: RuleCampaignFeatures): WorkspaceMenuItem[] {
+export function drawnMenu(features: readonly RuleFeature[]): WorkspaceMenuItem[] {
   return workspaceMenu(features).filter((item) => item.landed)
 }
 

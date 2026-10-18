@@ -391,3 +391,27 @@ needed. They rang sale **06GMWGFWWX6DJCAA213VD94V61**: 30 × article 200033 at 1
 17. The rule discount is written as condition `ZB01` "Bby Price" with `PromotionNumber = RULE`, and the header says
     `IsPromotionApplicable = 0` although a promotion applied. Confirm both are what SAP should receive for a
     rule sale.
+
+### Live run 1, part 7 — support cancel of a paying sale (2026-10-18)
+
+The owner rang sale **06GMWMGNA58HK74WM29KFPJN24** at store 1000 (30 × 200033) and stopped at the tender screen. HQ
+held the session as Paying after one Pay call at 12:23:00. As 1741 on the Sessions screen: **Cancel session** with a
+reason → `Rules/Support/Cancel` 200. The screen says "HQ cancelled the session; it is now Cancelled. It rolled back:"
+with five lists that all say Nothing. That is right: the basket campaign has no budget, so the session held nothing.
+The session now reads Cancelled 12:24:29, discounts 0.00, net 300.00, and its events show "Support cancel, by 1741"
+with the reason. **The client cancel is green.** (A walk where the cancel releases a budget needs a campaign with a
+budget.)
+
+The owner then took the cash at the till. The till's log shows `Rules/Session/Close` → **409** at 12:25:15, then
+"Rule session close failed …; the allocation is built on the till and the session awaits late close". It **completed
+the sale with the 20.00 discount** (gross 300.00, promotion −20.00, total 322.00), with `RuleSessionClosed = 0` and
+`RulePaidCartVersion = 0`. HQ still has the session cancelled.
+
+**Found, for the owner (till and HQ side):**
+18. **A support cancel does not stop the till.** The customer still got the discount HQ cancelled, and the till keeps
+    a "late close" owed that HQ will refuse again (409) on every try. Confirm that is the intended rule (the till
+    never blocks the money), and what happens to the owed late close: does it retry forever, and does anyone see it?
+    With a budgeted campaign this would spend a budget HQ thinks was released.
+19. **HQ does not record the refused Close.** The session's `refusals` is empty, so on the Sessions screen the 409 is
+    invisible: support sees "Cancelled" and cannot tell that the till took the money anyway. Ask (candidate BO ask
+    M): record a refused till call against the session, so the screen can show it.

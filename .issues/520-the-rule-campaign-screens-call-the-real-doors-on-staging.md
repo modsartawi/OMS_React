@@ -248,3 +248,29 @@ campaigns 638/638, sessions 73/73, simulator 71/71, engine-switch 56/56, priorit
 - The two identical coupon col-defs; the `KNOWN_EFFECTS` set and its `as never` cast in `SimResults`.
 - The field-`type` switch in four places; the `'currency|%'` unit strings.
 - Sessions still say `status` (URL, keys) where the wire says `state`.
+
+## Live run 1 — local SIS.Api :5111, 2026-10-18 (driven in the owner's Chrome, user 14419)
+
+Every rule door the screens call answered on the real contract; nothing was stubbed. Campaign
+`LIVE-TEST-520-BASKET-10-OFF` (coupons + points) was created on the local DB and left waiting for approval.
+
+**Green:** create (Drafts/Save rev 0 → Load), the builder (Catalogue, Validate on edit, Save at revisions 2 and 3
+with the `basis` choice round-tripping), the simulator on `?draft=` (Lookups stores + materials, Simulate: 125.00 →
+20.00 off → 105.00, trace "1 applied", near miss "add SAR 25.00" at 75.00, the bonus-buy store banner), Approvals
+Request + History, the `RULES_SELF_APPROVAL` refusal (403 with an envelope) shown as a business refusal, Coupons
+(CouponBatches/List), Sessions (store lookup), Priority (Order), engine switch (Lookups/stores, 50-store cap).
+
+**Found (client, fixable without BO):**
+1. Activate (and Send back) are offered to the person who asked for approval. The dashboard knows the requester
+   from Approvals/History, so it can hide them or say why before HQ refuses.
+2. The `RULES_SELF_APPROVAL` refusal prints its reason twice (the client's text, then HQ's message).
+3. The standalone simulator with nothing published is refused (`RULES_BAD_REQUEST`, "Nothing is published: send
+   the campaign to simulate"). It should say so up front and offer a draft to run (`?draft=`).
+4. An optional choice left unset (`basis`, the discount's `Over`) shows an empty box while the sentence already
+   reads HQ's default ("spread pro rata"); the empty option should name the default.
+5. The condition button's accessible name reads its parts out of order ("all merchandise the subtotal of is at
+   least 100.00").
+6. The near-miss card shows the machine path `campaigns[0].rules[0].when[0]` to the user.
+
+**Not run yet:** Activate as a second approver (needs another user with RuleAuthoring 06), Versions after a publish,
+a coupon batch create/export/delete, a session read/cancel (needs a rule-engine sale), and a store flip.

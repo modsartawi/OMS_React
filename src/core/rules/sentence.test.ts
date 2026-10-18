@@ -271,6 +271,12 @@ describe('sentence', () => {
     expect(ruleSummary(rule).conditions).toBe(0)
   })
 
+  it('counts a rule as HQ stores it when it omits a list (a template or upload bundle rule has no when)', () => {
+    const rule = { filters: [{ id: 'fx' }, { id: 'fy' }], then: [{ effect: 'bundlePrice', value: 30 }] } as unknown as Parameters<typeof ruleSummary>[0]
+    expect(ruleSummary(rule)).toEqual({ filters: 2, conditions: 0, effects: 1 })
+    expect(ruleSummary({} as Parameters<typeof ruleSummary>[0])).toEqual({ filters: 0, conditions: 0, effects: 0 })
+  })
+
   it('says so for a block the catalogue does not list, rather than guessing', () => {
     const c = campaign('PCUT-SA01')
     const read = blockSentence('effect', { effect: 'webhook' }, ctx(c, c.rules[0]))

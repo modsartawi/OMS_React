@@ -396,9 +396,11 @@ export function leafConditions(when: readonly RuleCondition[]): RuleCondition[] 
   return when.flatMap((c) => (isConditionGroup(c) ? leafConditions(c.conditions) : [c]))
 }
 
-/** A collapsed rule's one-line summary: how many filters, conditions and effects. */
+/** A collapsed rule's one-line summary: how many filters, conditions and effects. It also reads a rule
+ *  as HQ stores it (the approval panel's draft and live sides), which may omit a list: a template or
+ *  upload bundle rule has no `when`. */
 export function ruleSummary(rule: Pick<CampaignRule, 'filters' | 'when' | 'then'>) {
-  return { filters: rule.filters.length, conditions: leafConditions(rule.when).length, effects: rule.then.length }
+  return { filters: (rule.filters ?? []).length, conditions: leafConditions(rule.when ?? []).length, effects: (rule.then ?? []).length }
 }
 
 /** A template's text and its slots, in order: `"at least {amount}"` → text, then the `amount` slot. */

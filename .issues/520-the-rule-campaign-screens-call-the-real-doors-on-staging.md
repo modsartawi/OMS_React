@@ -274,3 +274,21 @@ Request + History, the `RULES_SELF_APPROVAL` refusal (403 with an envelope) show
 
 **Not run yet:** Activate as a second approver (needs another user with RuleAuthoring 06), Versions after a publish,
 a coupon batch create/export/delete, a session read/cancel (needs a rule-engine sale), and a store flip.
+
+### Live run 1, part 2 — a second approver activates (2026-10-18)
+
+User **1741** (RULE_APPROVER, granted by the owner on the local DB) activated the campaign as **version 1**:
+Approvals/Activate 200, state Running, approval trail "14419 asked … / 1741 activated it as version 1", Versions
+lists v1 Live with both notes, the list counts 1 Running, and the standalone simulator runs "on live version 1"
+(125.00 → 105.00). Before the grant, 1741's Activate got a bare 403 and the dialog explained the missing
+RuleAuthoring 06 correctly.
+
+**Found:**
+7. **Features vanish on publish (HQ design, BO ask J).** With no draft left, `Drafts/Load` answers the published
+   version with `features: []`: `RuleBuilderService.FeaturesUsedBy` derives a published campaign's features from
+   the blocks it uses, and this campaign uses no coupon or points block. So Coupons + Loyalty points disappear
+   from Details, the **Coupons** tab disappears with any batches behind it, and the next draft starts with no
+   features. Ask: keep the campaign's features on the published version (or the campaign row). Owner to rule.
+8. "Last saved 10:39 by 1741" after an activation reads as an edit; it is the publish moment. Say "Published".
+9. Finding 1 also covers an author who lacks RuleAuthoring 06: Activate is offered and only HQ's 403 explains it,
+   until 529's probes land.

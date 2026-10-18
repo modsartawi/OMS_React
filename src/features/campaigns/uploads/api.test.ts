@@ -63,3 +63,42 @@ describe('campaignUploadApi.read', () => {
     expect((err as ApiError).message).toBe('The file is not a workbook.')
   })
 })
+
+describe('campaignUploadApi.convertBby', () => {
+  it('POSTs the .txt as the multipart part `file` and saves under the reply’s name', async () => {
+    const fetchStub = file('attachment; filename=0001000048-261009-261015.xlsx')
+    vi.stubGlobal('fetch', fetchStub)
+    const txt = new File(['BBY\t0001000048'], 'Same GRP - 50 Pct.txt', { type: 'text/plain' })
+    const converted = await campaignUploadApi.convertBby(txt)
+    expect(converted.fileName).toBe('0001000048-261009-261015.xlsx')
+    expect(converted.blob).toBeInstanceOf(Blob)
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/Rules\/Authoring\/Uploads\/ConvertBby$/)
+    expect(init.method).toBe('POST')
+    const sent = (init.body as FormData).get('file') as File
+    expect(sent).toBeInstanceOf(File)
+    expect(sent.name).toBe('Same GRP - 50 Pct.txt')
+  })
+
+  it('falls back to campaign-upload.xlsx when the reply names none', async () => {
+    vi.stubGlobal('fetch', file(null))
+    expect((await campaignUploadApi.convertBby(new File(['x'], 'deal.txt'))).fileName).toBe(CAMPAIGN_UPLOAD_FALLBACK_NAME)
+  })
+
+  it('throws RULES_BAD_UPLOAD as an ApiError with the server’s message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      json(400, {
+        statusCode: 400,
+        success: false,
+        message: 'The file holds more than one SAP deal number.',
+        errors: [{ errorCode: 'RULES_BAD_UPLOAD', internalErrorCode: '', errorMessage: 'The file holds more than one SAP deal number.' }],
+        data: null,
+      }),
+    )
+    const err = await campaignUploadApi.convertBby(new File(['x'], 'deal.txt')).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(apiErrorCode(err)).toBe('RULES_BAD_UPLOAD')
+    expect((err as ApiError).message).toBe('The file holds more than one SAP deal number.')
+  })
+})

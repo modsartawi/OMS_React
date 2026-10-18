@@ -975,6 +975,6 @@ Web half; server half is a BackOffice spec still to write. Contract proposed in 
 ## Campaign uploads (BackOffice ADR 0097, brief 2839, doors 2836–2838, filed 2026-10-19)
 
 - [530](530-an-author-uploads-a-campaign-workbook-and-reads-its-all-or-none-report.md) — An author uploads a campaign workbook and reads its all-or-none report · *(ticket · BO brief 2839)* · **done** · blocked by: — · slice 0: `core/models/rule-upload.ts`, POST blob in `core/api`, /campaigns/upload, template + Read
-- [531](531-an-author-converts-a-sap-bby-file-into-a-campaign-upload-workbook.md) — An author converts a SAP BBy file into a campaign upload workbook · *(ticket · BO brief 2839)* · **open** · blocked by: 530
+- [531](531-an-author-converts-a-sap-bby-file-into-a-campaign-upload-workbook.md) — An author converts a SAP BBy file into a campaign upload workbook · *(ticket · BO brief 2839)* · **done** · blocked by: 530 · Convert a SAP BBy file in step 1 over `api.postBlob`; next step in words, no report; drive 130/130 stubbed
 - [532](532-an-approver-activates-or-sends-back-a-campaign-upload-as-a-whole.md) — An approver activates or sends back a campaign upload as a whole · *(ticket · BO brief 2839)* · **open** · blocked by: 530 · own page /campaigns/uploads (no Approvals screen in oms-react; overrulable)
 - [533](533-the-campaign-upload-screens-call-the-real-doors-on-staging.md) — The campaign upload screens call the real doors on staging · *(ticket · BO brief 2839)* · **open** · blocked by: 530, 531, 532 · (live: BO 2836–2838 deployed + HQ scripts 015, 016; owner acts)

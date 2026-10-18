@@ -4,10 +4,19 @@
   "denied": "You do not have access to this action.",
   "template": {
     "title": "Get a workbook",
-    "hint": "Start from the blank template. Its Upload, Campaigns and Items sheets carry dropdowns for Stacking, Mechanic, Kind, Members, List and Type.",
+    "hint": "Start from the blank template, or convert the SAP BBy file of a deal into one. The template's Upload, Campaigns and Items sheets carry dropdowns for Stacking, Mechanic, Kind, Members, List and Type.",
     "download": "Download the template",
     "downloading": "Downloading…",
     "failed": "The template could not be downloaded. Try again."
+  },
+  "convert": {
+    "pick": "Convert a SAP BBy file",
+    "file": "SAP BBy file (.txt)",
+    "converting": "Converting…",
+    "saved": "Saved as <file>{{fileName}}</file>.",
+    "next": "Next: open it and review it — the proposed DealCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.",
+    "stored": "The conversion stored nothing, and its notes are only in the workbook.",
+    "failed": "The file could not be converted. Try again."
   },
   "upload": {
     "title": "Upload the workbook",

@@ -12,6 +12,9 @@
 //        `read: 'accepted'` 200, accepted:true, stored:true, revision 3 — three mechanics, a generated Arabic name
 //        `read: 'bad'`      400 RULES_BAD_UPLOAD — the JSON refusal envelope
 //        `read: 'denied'`   a bare 403 with no body
+//   POST Rules/Authoring/Uploads/ConvertBby (multipart `file`, 2838) → the pre-filled workbook, a BINARY body
+//        with Content-Disposition `<DealCode>.xlsx` (`convert: 'named'`), 400 RULES_BAD_UPLOAD (`'bad'`), or
+//        a bare 403 (`'denied'`); each after READ_DELAY ms
 // Every Read answers after READ_DELAY ms, so the busy state can be seen. Never a live SIS.Api: the
 // doors are built (BackOffice 2836) but not deployed anywhere this drive can reach; ticket 533 walks them.
 //
@@ -29,6 +32,15 @@
 //      Arabic badge on the right row; a row opens its JSON read-only in a side panel;
 //   6. a 400 RULES_BAD_UPLOAD: the message and nothing else; a bare 403: "You do not have access…";
 //   7. no raw key and no page error.
+//
+// ── 531 ── in LTR and RTL, it asserts:
+//   8. "Convert a SAP BBy file" sits in step 1 beside the template; its picker accepts `.txt` only;
+//   9. a picked .txt goes to Uploads/ConvertBby as the multipart part `file`, with a busy state, and
+//      the workbook is saved under the stubbed Content-Disposition name (`<DealCode>.xlsx`);
+//  10. after it, the next step in words (open it, review DealCode / names / PRICE, read Convert notes,
+//      upload it below) and that the conversion stored nothing — and no report;
+//  11. a 400 RULES_BAD_UPLOAD shows the server's message and no next step; a bare 403 reads
+//      "You do not have access…"; no raw key and no page error.
 //
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/campaign-uploads-drive.mjs          (DRIVE_PORT overrides 5199)
@@ -67,6 +79,10 @@ const DEAL = '0001000048-261009-261015'
 const NOTE = 'SAP deal 0001000048, 9 to 15 October, from Same GRP - 50 Pct.txt'
 const BAD_UPLOAD = 'The file is not a campaign upload workbook (.xlsx).'
 const DENIED = 'You do not have access to this action.'
+const BAD_BBY = 'The file holds more than one SAP deal number: 0001000048, 0001000051.'
+const NEXT_STEP =
+  'Next: open it and review it — the proposed DealCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.'
+const BBY_TXT = Buffer.from('BBY\t0001000048\t20261009\t20261015\n')
 
 /** A campaign in the rule language, as HQ composed it: `window.until` is the EXCLUSIVE day after. */
 const campaignJson = (code, mechanic) => ({
@@ -133,7 +149,7 @@ const ACCEPTED = {
 
 const browser = await chromium.launch()
 
-async function open(dir, { template = 'named', read = 'accepted' } = {}) {
+async function open(dir, { template = 'named', read = 'accepted', convert = 'named' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true })
   const page = await context.newPage()
   const errors = []
@@ -163,6 +179,17 @@ async function open(dir, { template = 'named', read = 'accepted' } = {}) {
             ? { 'Content-Disposition': "attachment; filename=campaign-upload-template.xlsx; filename*=UTF-8''campaign-upload-template.xlsx" }
             : {},
         body: Buffer.from('PK\u0003\u0004 a workbook'),
+      })
+    }
+    if (p === 'Rules/Authoring/Uploads/ConvertBby') {
+      await new Promise((r) => setTimeout(r, READ_DELAY))
+      if (convert === 'denied') return route.fulfill(BARE_403)
+      if (convert === 'bad') return route.fulfill(envelope(null, { status: 400, success: false, message: BAD_BBY, errorCode: 'RULES_BAD_UPLOAD' }))
+      return route.fulfill({
+        status: 200,
+        contentType: XLSX,
+        headers: { 'Content-Disposition': `attachment; filename=${DEAL}.xlsx; filename*=UTF-8''${DEAL}.xlsx` },
+        body: Buffer.from('PK\u0003\u0004 the converted deal'),
       })
     }
     if (p === 'Rules/Authoring/Uploads/Read') {
@@ -201,7 +228,10 @@ const gridRows = (page, grid) =>
 const pick = (page, name = 'deal.xlsx') =>
   page.locator('[data-upload-file]').setInputFiles({ name, mimeType: XLSX, buffer: Buffer.from('PK\u0003\u0004 the deal') })
 
-const rawKey = async (page) => /campaign-uploads:|\b(outcome|report|issues|template|upload|campaigns|json)\.[a-z]+[A-Za-z.]*\b/.test(await page.locator('main').innerText())
+const pickBby = (page, name = 'Same GRP - 50 Pct.txt') =>
+  page.locator('[data-upload-bby-file]').setInputFiles({ name, mimeType: 'text/plain', buffer: BBY_TXT })
+
+const rawKey = async (page) => /campaign-uploads:|\b(outcome|report|issues|template|convert|upload|campaigns|json)\.[a-z]+[A-Za-z.]*\b/.test(await page.locator('main').innerText())
 
 async function drive(dir) {
   const tag = dir.toUpperCase()
@@ -360,6 +390,77 @@ async function drive(dir) {
     const refusal = page.locator('[data-upload-refusal]')
     await refusal.waitFor({ timeout: 10000 })
     check(`${tag} 6: a bare 403 on the read reads "${DENIED}", never an empty report`, (await text(refusal)) === DENIED && (await page.locator('[data-upload-report]').count()) === 0, await text(refusal))
+    await context.close()
+  }
+
+  // ════════════════════════ 531: convert a SAP BBy file ════════════════════════
+  {
+    const { context, page, errors, calls } = await open(dir)
+    const button = page.locator('[data-upload-step="1"] [data-upload-convert]')
+    check(
+      `${tag} 8: "Convert a SAP BBy file" sits in step 1, beside the template`,
+      (await button.count()) === 1 && (await text(button)) === 'Convert a SAP BBy file' && (await page.locator('[data-upload-step="1"] [data-upload-template]').count()) === 1,
+    )
+    check(`${tag} 8: its picker accepts .txt only`, (await page.locator('[data-upload-bby-file]').getAttribute('accept')) === '.txt')
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), button.click()])
+    check(`${tag} 8: the button opens the .txt picker, one file`, !chooser.isMultiple() && (await chooser.element().getAttribute('data-upload-bby-file')) === '')
+    check(`${tag} 10: no next step before a conversion`, (await page.locator('[data-upload-next-step]').count()) === 0)
+
+    const downloaded = page.waitForEvent('download')
+    await chooser.setFiles({ name: 'Same GRP - 50 Pct.txt', mimeType: 'text/plain', buffer: BBY_TXT })
+    await page.waitForFunction(() => document.querySelector('[data-upload-convert]')?.textContent?.includes('Converting'), null, { timeout: 5000 })
+    check(`${tag} 9: a busy state while HQ converts, the button held`, (await text(button)) === 'Converting…' && (await button.isDisabled()))
+    const download = await downloaded
+    const sent = calls.find((c) => c.p === 'Rules/Authoring/Uploads/ConvertBby')
+    check(
+      `${tag} 9: the .txt goes to Uploads/ConvertBby as the multipart part "file"`,
+      sent?.method === 'POST' && /^multipart\/form-data; boundary=/.test(sent.type) && /name="file"; filename="Same GRP - 50 Pct\.txt"/.test(sent.body),
+      sent?.type,
+    )
+    check(`${tag} 9: the workbook is saved under the reply's name`, download.suggestedFilename() === `${DEAL}.xlsx`, download.suggestedFilename())
+
+    const done = page.locator('[data-upload-converted]')
+    await done.waitFor({ timeout: 5000 })
+    const saved = done.locator('p').first()
+    check(`${tag} 10: it names the file it saved, isolated once`, (await text(saved)) === `Saved as ${DEAL}.xlsx.` && (await saved.locator('bdi[dir="ltr"]').count()) === 1, await text(saved))
+    check(`${tag} 10: the next step, in words`, (await text(page.locator('[data-upload-next-step]'))) === NEXT_STEP, await text(page.locator('[data-upload-next-step]')))
+    check(`${tag} 10: it says the conversion stored nothing`, (await text(done)).endsWith('The conversion stored nothing, and its notes are only in the workbook.'), await text(done))
+    check(
+      `${tag} 10: …and shows nothing else (no report, no read)`,
+      (await page.locator('[data-upload-outcome], [data-upload-report]').count()) === 0 && !calls.some((c) => c.p === 'Rules/Authoring/Uploads/Read'),
+    )
+    check(`${tag} 11: no raw key, no page error (converted)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/531-${dir}-converted.png`, fullPage: true })
+
+    // The box is cleared after each pick, so the same .txt picked again (fixed in SAP) converts again.
+    const again = page.waitForEvent('download')
+    await pickBby(page)
+    await again
+    check(`${tag} 9: the same .txt picked again converts again`, calls.filter((c) => c.p === 'Rules/Authoring/Uploads/ConvertBby').length === 2)
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open(dir, { convert: 'bad' })
+    await pickBby(page, 'Two deals.txt')
+    const refusal = page.locator('[data-upload-convert-error]')
+    await refusal.waitFor({ timeout: 10000 })
+    check(`${tag} 11: 400 RULES_BAD_UPLOAD shows the server's message`, (await text(refusal)) === BAD_BBY, await text(refusal))
+    check(`${tag} 11: …and no next step`, (await page.locator('[data-upload-next-step], [data-upload-converted]').count()) === 0)
+    check(`${tag} 11: the button is free again`, !(await page.locator('[data-upload-convert]').isDisabled()))
+    check(`${tag} 11: no raw key, no page error (bad BBy file)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/531-${dir}-refused.png`, fullPage: true })
+    await context.close()
+  }
+  {
+    const { context, page } = await open(dir, { convert: 'denied' })
+    await pickBby(page)
+    const refusal = page.locator('[data-upload-convert-error]')
+    await refusal.waitFor({ timeout: 10000 })
+    check(
+      `${tag} 11: a bare 403 on the conversion reads "${DENIED}", no next step`,
+      (await text(refusal)) === DENIED && (await refusal.locator('[data-upload-denied]').count()) === 1 && (await page.locator('[data-upload-next-step]').count()) === 0,
+      await text(refusal),
+    )
     await context.close()
   }
 }

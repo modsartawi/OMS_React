@@ -2,7 +2,7 @@ import { useId, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { Download, Loader2, Upload } from 'lucide-react'
+import { Download, FileText, Loader2, Upload } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleUploadReport } from '@/core/models/rule-upload'
 import Button from '@/core/ui/Button'
@@ -22,17 +22,28 @@ import { readReportView, type ReadReportView } from './report'
  * the success state says "waiting for approval" at its revision; one pending upload per deal; no
  * campaign of an upload is edited here.
  *
- * Two doors, `Uploads/Template` (03) and `Uploads/Read` (02). No access probe exists: a bare 403 on
- * either reads "You do not have access to this action", never an empty report. A 401 is core's.
+ * Ticket 531 (brief 2839's U2) adds the second way to get a workbook: SAP's BBy `.txt` is never
+ * uploaded, it is CONVERTED into ours, which the author reviews, completes and uploads in step 2.
+ * The conversion stores nothing and its notes live only in the workbook, so after one the screen
+ * says what to do next, in words, and shows nothing else.
+ *
+ * Three doors, `Uploads/Template` (03), `Uploads/ConvertBby` (02) and `Uploads/Read` (02). No access
+ * probe exists: a bare 403 on any reads "You do not have access to this action", never an empty
+ * report. A 401 is core's.
  */
 export default function CampaignUploadPage() {
   const { t } = useTranslation('campaign-uploads')
   const fileId = useId()
   const [file, setFile] = useState<File | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const bbyInput = useRef<HTMLInputElement>(null)
 
   const template = useMutation({
     mutationFn: campaignUploadApi.template,
+    onSuccess: ({ blob, fileName }) => saveBlob(fileName, blob),
+  })
+  const convert = useMutation({
+    mutationFn: campaignUploadApi.convertBby,
     onSuccess: ({ blob, fileName }) => saveBlob(fileName, blob),
   })
   const read = useMutation({ mutationFn: campaignUploadApi.read })
@@ -50,10 +61,44 @@ export default function CampaignUploadPage() {
             {template.isPending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Download className="size-3.5" aria-hidden />}
             {template.isPending ? t('template.downloading') : t('template.download')}
           </Button>
+          <Button variant="secondary" onClick={() => bbyInput.current?.click()} disabled={convert.isPending} data-upload-convert="">
+            {convert.isPending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <FileText className="size-3.5" aria-hidden />}
+            {convert.isPending ? t('convert.converting') : t('convert.pick')}
+          </Button>
+          <input
+            ref={bbyInput}
+            type="file"
+            accept=".txt"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label={t('convert.file')}
+            data-upload-bby-file=""
+            onChange={(e) => {
+              const picked = e.target.files?.[0]
+              // Cleared at once, so picking the same .txt again (after fixing it) fires a change.
+              e.target.value = ''
+              if (picked) convert.mutate(picked)
+            }}
+          />
         </div>
         {template.isError && (
           <div data-upload-template-error="">
             <Failure error={template.error} fallback={t('template.failed')} />
+          </div>
+        )}
+        {convert.isSuccess && (
+          <div role="status" className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3 text-sm" data-upload-converted="">
+            <p className="font-medium">
+              <Trans t={t} i18nKey="convert.saved" values={{ fileName: convert.data.fileName }} components={{ file: <Ltr /> }} />
+            </p>
+            <p data-upload-next-step="">{t('convert.next')}</p>
+            <p className="text-xs text-muted-foreground">{t('convert.stored')}</p>
+          </div>
+        )}
+        {convert.isError && (
+          // 400 RULES_BAD_UPLOAD: the file could not be converted at all — the server's message, no next step.
+          <div data-upload-convert-error="">
+            <Failure error={convert.error} fallback={t('convert.failed')} />
           </div>
         )}
       </Step>

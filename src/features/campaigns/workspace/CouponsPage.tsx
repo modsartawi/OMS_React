@@ -88,7 +88,9 @@ export default function CouponsPage() {
   const totals = useMemo(() => batchTotals(list), [list])
   const opened = batch ? list.find((b) => b.batchId === batch) : undefined
 
-  const exported = useQuery({ ...ruleCouponBatchExportQuery(c.id, batch), enabled: couponsOn && !!batch })
+  // A batch Delete unused emptied is gone from HQ: its codes are not asked for while the view leaves it.
+  const emptied = !!deleted && !deleted.kept && deleted.batchId === batch
+  const exported = useQuery({ ...ruleCouponBatchExportQuery(c.id, batch), enabled: couponsOn && !!batch && !emptied })
   // A code past its own last day reads as expired at the reader's local day.
   const today = toIsoDate(new Date())
   const codes = useMemo(() => (exported.data ? readBatchCsv(exported.data.csv, today) : []), [exported.data, today])

@@ -330,3 +330,37 @@ the page text is AG Grid's own screen-reader container, not ours.
 
 Left for 520: coupon batches (needs the campaign's SIS.Coupons template) and sessions (needs a NewPos sale at store
 1000 after its next shift open, plus `RULE_SUPPORT` / `RULE_SUPPORT_CANCEL`).
+
+### Live run 1, part 5 — coupon batches (2026-10-18)
+
+The owner made a SIS.Coupons template for the coupon campaign in POS_Server. Its id is
+`LIVE-TEST-520-COUPON-15-OF`: `TemplateId` is varchar(26), so the campaign code does not fit. It came with
+`CampaignId = ''`, so Create was refused with HQ's words "… is a template coupon, not a campaign's"
+(`RULES_BATCH_TEMPLATE`, 400), shown in the dialog. I set `CampaignId = 'LIVE-TEST-520-COUPON-15-OFF'` on that local
+row, and then every door answered:
+
+- **Create:** a 5-code random batch, 200. The "Coupons created" dialog names the batch, the list counts 1 batch with
+  5 codes, 0 used and 0 disabled, created by 1741.
+- **Show the codes:** 5 Unused codes, member Anyone, validity "The template's".
+- **Export:** 200, HQ's CSV `code,customerId,validFrom,validTo,used,disabled` with the 5 codes. It was read through
+  the door, not saved to disk.
+- **Delete unused:** the confirmation counts 5 deleted and 0 kept. Then 200, "5 unused codes of batch … were
+  deleted; 0 stay", back to the batch list, which is now empty.
+
+**Fixed (finding 11):** after Delete unused emptied a batch, the codes view asked HQ for its export again and got a 404,
+because a batch with no codes left is gone from HQ. Nothing showed on screen, but it was a needless call. The dialog
+now drops the emptied batch's codes from the cache, and the page stops asking for them while it leaves the batch.
+Walked again live: DeleteUnused then List only. Gates are green: vitest 243, lint 4/4, campaigns drive 638/638.
+
+**Found, for the owner:**
+12. **A template and a coupon rule are set apart.** The rule's condition is coupon `LT520*`, but the template has no
+    `CodePrefix`, so its codes come out random (`76T46VUW`) and would never meet the rule. Nothing warns of this,
+    either in Create or in Validate. Ask (candidate BO ask L): Validate should warn when a coupon condition's pattern
+    cannot match the campaign template's prefix, or Create should take the prefix from the rule.
+13. **Making the template takes setup outside the screens.** `CampaignId` must be set and no screen sets it (the
+    Coupons maintenance screen left it empty), and the 26-character `TemplateId` cannot hold a campaign code of
+    27 or more characters. The owner rules which screen creates a campaign's template.
+14. (minor) The codes say "The template's" for validity although the template has dates (2026-10-01 to 2026-10-31).
+    Showing those dates needs the template on the List or Export answer.
+
+What is left for 520 is sessions: a NewPos sale at store 1000, which runs the rule engine since part 4.

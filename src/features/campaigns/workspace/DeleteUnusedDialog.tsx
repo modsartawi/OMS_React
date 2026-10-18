@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import type { RuleCouponBatchDeletion, RuleCouponBatchSummary } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCouponBatchesKey, ruleCouponExportsKey } from '@/core/rules/api'
+import { ruleCampaignApi, ruleCouponBatchExportKey, ruleCouponBatchesKey, ruleCouponExportsKey } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
@@ -35,8 +35,10 @@ export default function DeleteUnusedDialog({
     mutationFn: () => ruleCampaignApi.deleteUnused(batch.batchId),
     // The page hears of it FIRST: the re-read may drop an emptied batch, which unmounts this dialog
     // (a `mutate` callback would then never run). Then the counts and the codes are read afresh.
+    // An emptied batch is gone from HQ: its codes are dropped, not read again (HQ would answer 404).
     onSuccess: (result) => {
       onDeleted(result)
+      if (!result.kept) queryClient.removeQueries({ queryKey: ruleCouponBatchExportKey(campaignId, result.batchId) })
       return Promise.all([
         queryClient.invalidateQueries({ queryKey: ruleCouponBatchesKey(campaignId) }),
         queryClient.invalidateQueries({ queryKey: ruleCouponExportsKey(campaignId) }),

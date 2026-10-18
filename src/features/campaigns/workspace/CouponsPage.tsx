@@ -339,9 +339,9 @@ export default function CouponsPage() {
           >
             <span data-coupons-shown="">
               {batch ? (
-                <Trans t={t} i18nKey="coupons.shown" count={codes.length} values={{ n: shownCodes.length, total: codes.length }} components={{ n: <Ltr />, total: <Ltr /> }} />
+                <Trans t={t} i18nKey="coupons.shown" count={codes.length} values={{ n: formatNumber(shownCodes.length), total: formatNumber(codes.length) }} components={{ n: <Ltr />, total: <Ltr /> }} />
               ) : (
-                <Trans t={t} i18nKey="coupons.shownBatches" count={list.length} values={{ n: shownBatches.length, total: list.length }} components={{ n: <Ltr />, total: <Ltr /> }} />
+                <Trans t={t} i18nKey="coupons.shownBatches" count={list.length} values={{ n: formatNumber(shownBatches.length), total: formatNumber(list.length) }} components={{ n: <Ltr />, total: <Ltr /> }} />
               )}
             </span>
             {batch && exported.data && (

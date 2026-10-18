@@ -129,8 +129,10 @@ function CheckCell({ data, context }: ICellRendererParams<BasketFileRow, unknown
   const { t } = context
   if (data.problems.length === 0) return <span data-csv-check="ok">{t('csv.status.ok')}</span>
   return (
-    <span className="text-danger-800" data-csv-check={data.problems.join(' ')}>
-      {data.problems.map((p) => t(`csv.status.${p}`)).join(' · ')}
+    <span className="flex flex-wrap gap-x-2 text-danger-800" data-csv-check={data.problems.join(' ')}>
+      {data.problems.map((p) => (
+        <span key={p}>{t(`csv.status.${p}`)}</span>
+      ))}
     </span>
   )
 }

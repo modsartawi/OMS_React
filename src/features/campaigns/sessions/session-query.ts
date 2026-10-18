@@ -5,9 +5,6 @@ import type { Severity } from '@/core/ui/severity'
 // address (`?store=&date=&status=`, replaced), so Back from a session lands on the list as it was
 // left; `listQuery` turns it into what `Rules/Support/Sessions` is asked. Pure: no React, no i18n.
 
-/** Every state, in a session's life order (spec 2737 "Session states"). */
-export const SESSION_STATUSES: readonly RuleSessionState[] = RULE_SESSION_STATES
-
 export const SESSION_STATUS_SEV: Record<RuleSessionState, Severity> = {
   open: 'go',
   paying: 'go',
@@ -36,7 +33,7 @@ export function sessionsQueryFromParams(params: URLSearchParams): SessionsQuery 
   return {
     store: (params.get('store') ?? '').trim(),
     date: DAY.test(date) ? date : '',
-    status: SESSION_STATUSES.includes(status as RuleSessionState) ? (status as RuleSessionState) : null,
+    status: RULE_SESSION_STATES.includes(status as RuleSessionState) ? (status as RuleSessionState) : null,
   }
 }
 

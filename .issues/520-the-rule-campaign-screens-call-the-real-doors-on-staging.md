@@ -172,3 +172,79 @@ can give (each slice built the default named here), and refactors for a hardenin
   set and cancel wiring (five), the approval note box, the session grids' context.
 - `{{key}}` text fill joins a pick's codes with `', '` (503).
 - `CampaignStateBadge` and `LookupPicks` read feature namespaces; they want a `rule-common` namespace.
+
+## Triage of the 522–528 re-point reviews and HITLs (2026-10-18)
+
+The 8 reviews: `.afk/REVIEW-522…528.md` and `REVIEW-522-full.md` (gitignored, kept in main's `.afk`).
+The 7 HITLs: `.afk/HITL-522…528.md`. The full-522 SERIOUS (S1, S2 deleted tests) and S3/S5 were already
+resolved in 3f2f50a. After the fixes below: typecheck, lint 4/4, vitest 5625/5625, and the drives
+campaigns 638/638, sessions 73/73, simulator 71/71, engine-switch 56/56, priority 50/50 (all stubbed).
+
+### Fixed in the triage commit
+
+- **527 (hard, bidi):** the refusals badge passed a count into `t()` with no isolate. It is now a `<Trans>`
+  `<v>` slot with `formatNumber` (`SessionEvents.tsx`). The shared `V` is exported once from
+  `session-ui.tsx`. The movement kinds and event reasons are now model constants
+  (`RULE_BUDGET_MOVEMENT_KINDS`, `RULE_BUDGET_EVENT_REASONS`). The `SESSION_STATUSES` alias is gone.
+- **522:** the Budgets drawer's stale Reload closes the drawer and drops its unsaved budget, as
+  `draft.stale` says (it used to only clear the refusal). Create waits for the campaigns list, so an
+  early press cannot draft over a live id. The drive's `SAVE_REFUSED` is now HQ's real 400
+  unknown-feature wording. The 529-owned PROVISIONAL doors are tagged 529, not 520.
+- **523:** the six ƒx fields that had no label now have one (`session.currency/requestedPoints`,
+  `profile.loyaltyId`, `item.lineNet/article/quantity`), and so does the `items` function. The orphaned
+  keys (`session.country`, `profile.id/firstPurchase`, `item.price/sku`, `function.abs`) are deleted, and
+  `sum` no longer mentions `item.price`.
+- **524:** the stub's `Versions/Load` always answers the ruleset, with `campaign: null` for a disable
+  version. Only an unknown version number is a 404.
+- **525:** the CSV check cell renders each reason as its own span instead of `.join(' · ')` over copy.
+- **526 (real bug):** `importCsv` now leads with `code,customerId`. Before, a code literally named CODE
+  that led the good rows was skipped by HQ as a header. Test `importCsv_leadsWithAHeader_soACodeNamedCodeIsNotEaten`.
+  `BatchCodeStatus` is now `RuleCouponStatus`, and the "Showing n of total" counts use `formatNumber`.
+- **528:** the drive's success envelope is the full `{ statusCode, success, message, errors, data }`.
+
+### Not changed (stale, or not worth it)
+
+- 522 #3 (trace `conditionId`) and #4 (`catalogue.formula.fields`): gone after 523/525's rewrites.
+- 523 #3 (`lookupName` language in BasketCsv): fixed by 525.
+- 524 #2 (`CAMPAIGNS` const): gone after 526.
+- 527 spec #3 (no `maxLength` on the reason): the reviewer's own call is no fix.
+- 523 #1-spec (`fileIssue` path `''`) is still in the stub. It is cosmetic, and nothing reads it.
+- No drawer leg was added to drive 78b. The fix is proven by typecheck and reading only.
+
+### Owner rulings owed (new from 522–528; each built the default named)
+
+- **522:** the ƒx text box over the client codec (reverses 507). The author types the campaign id (and
+  Create refuses a listed id). The rule-level all/any select is removed. Hours across midnight are allowed.
+- **523:** HQ's sentences and palette names replace the bundle's friendlier wording. A new block takes
+  HQ's `example` without its sample codes. Offline follows the saved draft, not the unsaved box. The new
+  Settings ▸ Value map page. `held` shows only when above 0 (the review asked for always). The simulator's
+  channel select shows bare codes.
+- **524:** an order change rides a picked `editing` draft (CarrierDialog). The approval acts follow
+  state, not role. The Priority names follow different EN/AR display rules on one screen.
+- **525:** a typed unit price per line (VAT 0, gross = net). The country select drives currency and is
+  not tied to the store. The earns-points / first-purchase boxes. "Every working copy" is removed.
+- **526:** the template id is typed. Export is the whole batch as HQ wrote it (no filtered export, no
+  BOM). The two limit boxes (reverses 515). "Expired" only from a code's own `validTo`.
+- **527:** a retry after a press that may have landed re-sends the same `requestId` (extends "new per
+  press"). If kept, the uncertain press should outlive the dialog (review spec #2). The list's money and
+  member columns are dropped.
+- **528:** in-flight is shown only after the flip. The "was already on" toast.
+
+### BO asks added (unfiled, on top of A–E)
+
+- **F:** the formula guide in `Rules/Authoring/Catalogue`.
+- **G:** a material hit's category code as its own field.
+- **H:** each store's country in the stores lookup.
+- **I:** the campaign's coupon template(s) on a door, and Create refusing another campaign's template.
+- On 2760: the budget's limit kind on a movement; the trace, member and totals on a session.
+- **C (widened):** a store list under RuleEngineSwitch and a dry-run in-flight read.
+- **A (wider):** a disabled campaign with no draft is unreachable (`Drafts/Load` 404s it).
+
+### Hardening, added to the list above
+
+- `isBareDenial ? denied : apiErrorMessage` repeats across features: wants a core `deniedOrMessage`.
+- `CarrierDialog`'s nested ternary of refusal codes, beside `approvalRefusal`.
+- `CampaignRow`'s 12 props; `held` meaning two things in `VersionsPage`; the dashboard trail keyed by index.
+- The two identical coupon col-defs; the `KNOWN_EFFECTS` set and its `as never` cast in `SimResults`.
+- The field-`type` switch in four places; the `'currency|%'` unit strings.
+- Sessions still say `status` (URL, keys) where the wire says `state`.

@@ -1,3 +1,4 @@
+import type { RuleCouponStatus } from '@/core/models/rule-campaign'
 import { csvCells } from '@/core/util/csv-cells'
 import { MAX_BATCH, isCodeOk, isMemberOk } from './coupon-form'
 
@@ -110,13 +111,15 @@ export function readCouponCsv(text: string): CouponCsvRead {
   return { rows, header, noCodeColumn: false }
 }
 
-/** The text sent as the import's `csv`: the good rows, in file order, as HQ reads them —
- *  `code` or `code,customerId` per line, no header. Rejected rows are left out. */
+/** HQ skips a first line whose first cell is `code` as a header. Sending one ourselves means a
+ *  code literally named CODE, leading the good rows, is read as data rather than eaten. */
+export const IMPORT_CSV_HEADER = 'code,customerId'
+
+/** The text sent as the import's `csv`: our header, then the good rows, in file order, as HQ
+ *  reads them — `code` or `code,customerId` per line. Rejected rows are left out. */
 export function importCsv(rows: readonly CouponCsvRow[]): string {
-  return rows
-    .filter((r) => !r.problem)
-    .map((r) => (r.member ? `${r.code},${r.member}` : r.code))
-    .join('\n')
+  const good = rows.filter((r) => !r.problem).map((r) => (r.member ? `${r.code},${r.member}` : r.code))
+  return [IMPORT_CSV_HEADER, ...good].join('\n')
 }
 
 /** What the preview says it holds. */
@@ -131,7 +134,7 @@ export function importTally(rows: readonly CouponCsvRow[]) {
  *  used (redeemed at least once), then expired — past its OWN last day at the reader's local day
  *  (a code with no day of its own follows the template's window, which no door answers, so it is
  *  never read as expired) — else unused. */
-export type BatchCodeStatus = 'unused' | 'used' | 'disabled' | 'expired'
+export type BatchCodeStatus = RuleCouponStatus
 export const BATCH_CODE_STATUSES: readonly BatchCodeStatus[] = ['unused', 'used', 'disabled', 'expired']
 
 /** One line of a batch's export. Days are local `yyyy-MM-dd`; null = the template's own. */

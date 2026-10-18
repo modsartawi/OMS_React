@@ -723,13 +723,17 @@
           "label": "Store code",
           "desc": "The store the sale is in."
         },
-        "country": {
-          "label": "Country",
-          "desc": "SA or BH, from the store master."
+        "currency": {
+          "label": "Currency",
+          "desc": "The sale’s currency, SAR or BHD."
+        },
+        "requestedPoints": {
+          "label": "Points asked to spend",
+          "desc": "The points the customer asked to pay with on this sale."
         }
       },
       "profile": {
-        "id": {
+        "loyaltyId": {
           "label": "Member id",
           "desc": "The Arbahi member on the sale. Empty for a walk-in."
         },
@@ -744,10 +748,6 @@
         "tentativePoints": {
           "label": "Points left in this pass",
           "desc": "The balance after campaigns above this one took points. Use this one for “has enough points”."
-        },
-        "firstPurchase": {
-          "label": "First purchase",
-          "desc": "“never” until the member’s first closed sale, then “done”."
         }
       },
       "item": {
@@ -755,22 +755,27 @@
           "label": "Unit net",
           "desc": "One unit’s price after earlier campaigns. Only inside sum(filter, item.net)."
         },
-        "price": {
-          "label": "Unit price",
-          "desc": "One unit’s price before any campaign. Only inside sum(filter, item.price)."
+        "lineNet": {
+          "label": "Line net",
+          "desc": "The whole cart line’s net after earlier campaigns, all its units together."
         },
-        "sku": {
-          "label": "SKU",
+        "article": {
+          "label": "Material",
           "desc": "The unit’s material number."
         },
         "category": {
           "label": "Category",
           "desc": "The unit’s category, such as A002."
+        },
+        "quantity": {
+          "label": "Line quantity",
+          "desc": "How many units the cart line holds."
         }
       }
     },
     "function": {
-      "sum": "Adds up the net of the units in an item filter. Add item.price as a second argument for the price before discounts.",
+      "items": "The units in an item filter, by the filter’s name. Use it inside sum() and count().",
+      "sum": "Adds up a value over the units of an item filter: item.net for what they cost after earlier campaigns.",
       "count": "How many units are in an item filter.",
       "round": "Rounds x. The mode is halfUp, halfEven, down or up. Pass decimals for the store’s currency.",
       "band": "The rate of the highest threshold x reaches; 0 below the first one.",
@@ -778,7 +783,6 @@
       "max": "The largest. Use it for a floor.",
       "floor": "Rounds down to a whole number.",
       "ceil": "Rounds up to a whole number.",
-      "abs": "Drops the minus sign.",
       "if": "Picks between two values."
     },
     "recipe": {

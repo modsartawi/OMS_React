@@ -116,7 +116,8 @@ const LIMIT_REFUSED = 'The newest version of WKND20 declares no budget b-money.'
 const FROM_TEMPLATE_REFUSED = 'Placeholder free: a value of 3 is more than the bundle allows (rules[0].then[0].free).'
 const RESTORE_REFUSED = 'Version 1 does not hold campaign GIFT-POUCH.'
 const STALE_PENDING = 'The draft waits for approval. / المسودة بانتظار الموافقة.'
-const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
+// A 400 RULES_BAD_REQUEST on Save is HQ's unknown-feature refusal (pending is 409 RULES_DRAFT_PENDING, 78d).
+const SAVE_REFUSED = SETTINGS_REFUSED
 /** 526: HQ's own refusal of a List with no campaign — what `refuseBatches` answers. */
 const BATCHES_REFUSED = 'Name the campaign whose batches to list.'
 /** 526: WKND20's two batches in the fixtures (2734's codes, then the flyer code). */
@@ -327,7 +328,7 @@ async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, re
         const version = { versionNo: LIVE_VERSION, campaign: 'NATDAY-15', action: 'publish', schemaVersion: 1, publishedAt: '2026-10-12T10:00:00', publishedBy: 'Reem (approver)', requestedBy: 'Omar (marketing)', note: '' }
         return route.fulfill(envelope({ version, ruleset: rulesetOf(store, liveTree), campaign: null }))
       }
-      const out = loadVersion(versions, body.campaign, body.versionNo)
+      const out = loadVersion(versions, body.campaign, body.versionNo, rulesetOf(store, liveTree))
       return route.fulfill(out.detail ? envelope(out.detail) : refused(out))
     }
     if (p === 'Rules/Authoring/Versions/Restore' && req.method() === 'POST') {
@@ -3045,7 +3046,7 @@ const couponRowIds = (page) =>
   await created.waitFor({ timeout: 5000 })
   check(
     '127: ONE Create, kind import, the template and exactly the good rows, upper-cased',
-    doors('Create').length === 1 && JSON.stringify(doors('Create')[0].body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'import', csv: 'WKND-IMP001\nWKND-IMP002,M-100231\nWKND-IMP004,M-055410', eachCodeOnce: false, oncePerCustomer: false }),
+    doors('Create').length === 1 && JSON.stringify(doors('Create')[0].body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'import', csv: 'code,customerId\nWKND-IMP001\nWKND-IMP002,M-100231\nWKND-IMP004,M-055410', eachCodeOnce: false, oncePerCustomer: false }),
     JSON.stringify(doors('Create')[0]?.body),
   )
   const impBatch = await created.getAttribute('data-coupons-created')

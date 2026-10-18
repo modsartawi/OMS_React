@@ -10,7 +10,7 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
-import type { RuleSessionState, RuleSessionSummary } from '@/core/models/rule-session'
+import { RULE_SESSION_STATES, type RuleSessionState, type RuleSessionSummary } from '@/core/models/rule-session'
 import { ruleLookupQuery, ruleSessionsQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
 import { ruleSessionPath } from '@/core/rules/campaign-state'
@@ -22,7 +22,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
-import { SESSIONS_TAKE, SESSION_STATUSES, SESSION_STATUS_SEV, listQuery, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
+import { SESSIONS_TAKE, SESSION_STATUS_SEV, listQuery, sessionsQueryFromParams, sessionsQueryToParams, type FromList } from './session-query'
 import { localMomentKey, momentText } from './timeline'
 
 /**
@@ -147,7 +147,7 @@ export default function SessionsPage() {
               data-sessions-field="status"
             >
               <option value="">{t('filter.allStatuses')}</option>
-              {SESSION_STATUSES.map((s) => (
+              {RULE_SESSION_STATES.map((s) => (
                 <option key={s} value={s}>
                   {t(`status.${s}`)}
                 </option>
@@ -289,7 +289,7 @@ function sessionColumns(t: (key: string) => string): ColDef<RuleSessionSummary>[
       field: 'state',
       headerName: t('columns.status'),
       cellRenderer: StatusCell,
-      comparator: (a: RuleSessionState, b: RuleSessionState) => SESSION_STATUSES.indexOf(a) - SESSION_STATUSES.indexOf(b),
+      comparator: (a: RuleSessionState, b: RuleSessionState) => RULE_SESSION_STATES.indexOf(a) - RULE_SESSION_STATES.indexOf(b),
       width: 170,
     },
     { colId: 'channel', field: 'channel', headerName: t('columns.channel'), width: 110 },

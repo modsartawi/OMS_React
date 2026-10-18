@@ -1,5 +1,5 @@
 import { Trans, useTranslation } from 'react-i18next'
-import type { RuleSessionBudgetEvent, RuleSessionMovement, RuleSessionRefusal } from '@/core/models/rule-session'
+import { RULE_BUDGET_EVENT_REASONS, RULE_BUDGET_MOVEMENT_KINDS, type RuleSessionBudgetEvent, type RuleSessionMovement, type RuleSessionRefusal } from '@/core/models/rule-session'
 import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
 import SaysBoth from '@/core/rules/SaysBoth'
@@ -12,13 +12,10 @@ import { momentText } from './timeline'
 // hold names that unit: the figure is shown as HQ sent it, beside the budget's id.
 
 /** A machine value (a figure, a code, a moment) inside a sentence. */
-const V = <bdi dir="ltr" />
+export const V = <bdi dir="ltr" />
 
-/** The journal's movement kinds (`RuleBudgetMovementKinds`). */
-const MOVE_KINDS: readonly string[] = ['hold', 'commit', 'release', 'return']
-
-/** Why a counter passed its limit (`RuleBudgetEventReasons`). */
-const EVENT_REASONS: readonly string[] = ['expiredHold', 'loweredLimit', 'confirmedResult', 'lateEarnRefused', 'createdCouponUsed']
+const MOVE_KINDS: readonly string[] = RULE_BUDGET_MOVEMENT_KINDS
+const EVENT_REASONS: readonly string[] = RULE_BUDGET_EVENT_REASONS
 
 /** A line of the budget journal: "Held 22 of budget money-cap", and a hold's expiry. */
 export function MovementText({ move }: { move: Pick<RuleSessionMovement, 'kind' | 'amount' | 'budget' | 'expiresAt'> }) {

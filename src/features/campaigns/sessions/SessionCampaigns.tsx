@@ -8,11 +8,9 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatNumber } from '@/core/util/number-format'
 import SaysBoth from '@/core/rules/SaysBoth'
-import { RefusalText } from './session-ui'
+import { RefusalText, V } from './session-ui'
 import { sessionCampaigns } from './session-read'
 import { momentText } from './timeline'
-
-const V = <bdi dir="ltr" />
 
 /**
  * Campaigns (tickets 518, 527): what each campaign did on the session — the money it took off, the

@@ -10,7 +10,8 @@ import { RULE_SESSION_STATES, RULE_SESSION_VERBS, type RuleSessionLookup } from 
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
-import { BudgetEventText, MovementText, RefusalText } from './session-ui'
+import { formatNumber } from '@/core/util/number-format'
+import { BudgetEventText, MovementText, RefusalText, V } from './session-ui'
 import { momentText, sessionTimeline, type TimelineEntry, type TimelineKind } from './timeline'
 
 const KIND_SEV: Record<TimelineKind, Severity> = { call: 'go', movement: 'mute', budgetEvent: 'warn' }
@@ -48,7 +49,7 @@ function WhatCell({ data }: ICellRendererParams<TimelineEntry>) {
                   {STATES.includes(c.state) ? t('events.leftIn', { state: t(`status.${c.state}`) }) : <Ltr>{c.state}</Ltr>}
                 </span>
               )}
-              {refusals.length > 0 && <StatusBadge sev="bad">{t('events.refused', { count: refusals.length })}</StatusBadge>}
+              {refusals.length > 0 && <StatusBadge sev="bad"><Trans t={t} i18nKey="events.refused" count={refusals.length} values={{ n: formatNumber(refusals.length) }} components={{ v: V }} /></StatusBadge>}
             </span>
             {c.by && (
               <span className="text-muted-foreground" data-event-by="">

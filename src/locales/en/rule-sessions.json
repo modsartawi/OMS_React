@@ -88,8 +88,8 @@
       "support-cancel": "Support cancel"
     },
     "leftIn": "left it {{state}}",
-    "refused_one": "{{count}} refusal",
-    "refused_other": "{{count}} refusals",
+    "refused_one": "<v>{{n}}</v> refusal",
+    "refused_other": "<v>{{n}}</v> refusals",
     "by": "By <n>{{by}}</n>",
     "columns": {
       "at": "Time",

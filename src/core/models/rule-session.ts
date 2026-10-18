@@ -192,13 +192,20 @@ export interface RuleSessionHold {
   released: boolean
 }
 
+/** The journal's movement kinds (`RuleBudgetMovementKinds`). */
+export const RULE_BUDGET_MOVEMENT_KINDS = ['hold', 'commit', 'release', 'return'] as const
+
+/** Why a counter passed its limit (`RuleBudgetEventReasons`). */
+export const RULE_BUDGET_EVENT_REASONS = ['expiredHold', 'loweredLimit', 'confirmedResult', 'lateEarnRefused', 'createdCouponUsed'] as const
+
 /** A line of the budget journal (`RuleSessionMovement`, ADR 0091). */
 export interface RuleSessionMovement {
   movementId: string
   counterId: string
   campaign: string
   budget: string
-  kind: 'hold' | 'commit' | 'release' | 'return' | string
+  /** One of `RULE_BUDGET_MOVEMENT_KINDS`, or a word this client lacks. */
+  kind: string
   amount: number
   /** A hold's expiry; null otherwise, and on a call-center order's hold. */
   expiresAt: string | null
@@ -210,7 +217,7 @@ export interface RuleSessionBudgetEvent {
   eventId: string
   campaign: string
   budget: string
-  /** `expiredHold`, `loweredLimit`, `confirmedResult` … HQ's word. */
+  /** One of `RULE_BUDGET_EVENT_REASONS`, or a word this client lacks. */
   reason: string
   desired: number
   awarded: number

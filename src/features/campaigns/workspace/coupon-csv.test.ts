@@ -32,9 +32,21 @@ describe('the coupon CSV import', () => {
       [10, 'ÄBCD-1', null, 'badCode'],
       [11, 'WKND_QUOTED.1', 'M-3', null],
     ])
-    // What is sent: the good rows as HQ reads them, `code[,customerId]` per line, no header.
-    expect(importCsv(read.rows)).toBe('WKND-7Q2M4X\nWKND-K9P3RT,M-100231\nAB\nWKND_QUOTED.1,M-3')
+    // What is sent: our header, then the good rows as HQ reads them, `code[,customerId]` per line.
+    expect(importCsv(read.rows)).toBe('code,customerId\nWKND-7Q2M4X\nWKND-K9P3RT,M-100231\nAB\nWKND_QUOTED.1,M-3')
     expect(importTally(read.rows)).toEqual({ rows: 9, ok: 4, rejected: 5 })
+  })
+
+  it('importCsv_leadsWithAHeader_soACodeNamedCodeIsNotEaten', () => {
+    // A rejected first row, then a code literally named "code": unguarded, it would be the first
+    // line sent and HQ would skip it as a header.
+    const read = readCouponCsv(['WKND 1', 'code', 'WKND-2'].join('\n'))
+    expect(read.rows.map((r) => [r.code, r.problem])).toEqual([
+      ['WKND 1', 'badCode'],
+      ['CODE', null],
+      ['WKND-2', null],
+    ])
+    expect(importCsv(read.rows)).toBe('code,customerId\nCODE\nWKND-2')
   })
 
   it('reads a file with no header by position, a semicolon or a tab, and named columns in any order', () => {

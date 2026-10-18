@@ -98,10 +98,10 @@ const COUPON_BATCH_DELETE_UNUSED = 'Rules/Authoring/CouponBatches/DeleteUnused'
 const SUPPORT_SESSIONS = 'Rules/Support/Sessions'
 const SUPPORT_SESSION = 'Rules/Support/Session'
 const SUPPORT_CANCEL = 'Rules/Support/Cancel'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
 // (the coupon finder's contract is BackOffice 2754's; it names no door yet)
 const COUPON_FIND = 'RuleCampaign/Coupons'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
 // (a member's wallet is BackOffice 2754's, the budgets they used 2744's; neither names a door yet)
 const MEMBERS = 'RuleCampaign/Members'
 
@@ -339,27 +339,27 @@ export const ruleCampaignApi = {
 
   /** GET RuleCampaign/Coupons/{code} — one code across every campaign: its campaign, batch, status,
    *  validity, bound member and uses (ticket 519). An unknown code is refused (404). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
   findCoupon(code: string): Promise<RuleCouponFound> {
     return api.get<RuleCouponFound>(`${COUPON_FIND}/${encodeURIComponent(code)}`)
   },
 
   /** GET RuleCampaign/Members?loyaltyId= | ?mobile= — the members matching one key (ticket 519):
    *  none, one, or — a mobile shared by several — more than one. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
   findMembers(by: RuleMemberKey, value: string): Promise<RuleMember[]> {
     return api.get<RuleMember[]>(MEMBERS, { [by]: value })
   },
 
   /** GET RuleCampaign/Members/{id}/Wallet — the member's coupon wallet (ticket 519, BackOffice 2754). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
   memberWallet(id: string): Promise<RuleWalletCoupon[]> {
     return api.get<RuleWalletCoupon[]>(`${MEMBERS}/${encodeURIComponent(id)}/Wallet`)
   },
 
   /** GET RuleCampaign/Members/{id}/Budgets — the profile-scope budgets the member has used, each
    *  counter in its current period (ticket 519, BackOffice 2744). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+  // PROVISIONAL - no door yet (BO ask D); re-point in ticket 529
   memberBudgets(id: string): Promise<RuleMemberBudget[]> {
     return api.get<RuleMemberBudget[]>(`${MEMBERS}/${encodeURIComponent(id)}/Budgets`)
   },

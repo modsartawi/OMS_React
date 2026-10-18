@@ -73,6 +73,6 @@ export function setLimit(
 ): { set: RuleBudgetLimitSet } | Refused
 export function versionsOf(store: RuleDraft[]): Map<string, StubVersion[]>
 export function versionRow(v: StubVersion): RuleVersionSummary
-export function loadVersion(versions: Map<string, StubVersion[]>, code: string, versionNo: number): { detail: RuleVersionDetail } | Refused
+export function loadVersion(versions: Map<string, StubVersion[]>, code: string, versionNo: number, ruleset: RuleRuleset): { detail: RuleVersionDetail } | Refused
 export function publishVersion(versions: Map<string, StubVersion[]>, d: RuleDraft, o: { versionNo: number; by: string; at: string }): void
 export function restoreVersion(d: RuleDraft, versions: Map<string, StubVersion[]>, n: number, revision: number): { draft: RuleDraft } | Refused

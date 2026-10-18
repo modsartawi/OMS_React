@@ -28,6 +28,7 @@ export default function BudgetDrawer({
   pending,
   error,
   onEdit,
+  onReload,
   onClose,
   onSave,
 }: {
@@ -41,6 +42,8 @@ export default function BudgetDrawer({
   error: unknown
   /** The form changed — a refusal shown for the last Save goes. */
   onEdit: () => void
+  /** A stale draft's Reload: the drawer and its unsaved budget go, as the refusal's words say. */
+  onReload: () => void
   onClose: () => void
   onSave: (form: BudgetForm) => void
 }) {
@@ -193,7 +196,7 @@ export default function BudgetDrawer({
           </div>
           {error != null && (
             <div data-budget-refusal="">
-              <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} onReload={onEdit} />
+              <Refusal title={t('settings.refusedTitle')} fallback={t('settings.refused')} error={error} onReload={onReload} />
             </div>
           )}
         </div>

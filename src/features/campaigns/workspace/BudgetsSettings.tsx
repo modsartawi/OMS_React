@@ -179,6 +179,10 @@ export default function BudgetsSettings() {
           pending={pending}
           error={failed}
           onEdit={() => failed != null && resetSaves()}
+          onReload={() => {
+            resetSaves()
+            setOpen(null)
+          }}
           onClose={() => {
             resetSaves()
             setOpen(null)

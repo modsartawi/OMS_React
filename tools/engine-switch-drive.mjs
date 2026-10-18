@@ -3,7 +3,7 @@
 //
 // Drives the REAL app in Chromium against STUBS of the REAL doors (BackOffice 2745, brief § Doors;
 // SIS.Api RuleSwitchWebEndpoints / RuleEngineSwitchService), on the rule doors' envelope
-// { success, data }, a refusal { success:false, statusCode, message, errors:[{ errorCode, errorMessage }] },
+// { statusCode, success, message, errors, data }, a refusal { success:false, statusCode, message, errors:[{ errorCode, errorMessage }] },
 // and a missing grant a BARE 403 with no body:
 //   POST Rules/Authoring/Lookups/stores { q }   → open stores by code prefix or name, at most 50, the
 //                                                 engine in `detail` (D310 has no row: BonusBuy)
@@ -52,7 +52,7 @@ const check = (name, pass, detail = '') => {
 }
 
 // The rule doors' envelopes (SIS.Api `RuleEndpointResults`).
-const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data }) })
+const ok = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ statusCode: 200, success: true, message: '', errors: [], data }) })
 const refused = (status, errorCode, message) => ({
   status,
   contentType: 'application/json',

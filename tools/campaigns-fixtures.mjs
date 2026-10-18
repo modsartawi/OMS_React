@@ -941,10 +941,12 @@ export function versionsOf(store) {
 export const versionRow = ({ json, ...row }) => row
 
 /** POST Rules/Authoring/Versions/Load { versionNo, campaign }: the version and the campaign it holds. */
-export function loadVersion(versions, code, versionNo) {
+/** HQ's Versions/Load always answers the version's ruleset; `campaign` is null when the version
+ *  does not hold it (a disable). Only a version number that does not exist is a 404. */
+export function loadVersion(versions, code, versionNo, ruleset) {
   const v = (versions.get(code) ?? []).find((x) => x.versionNo === versionNo)
-  if (!v || !v.json) return refuse('RULES_VERSION_NOT_FOUND', 404, `Version ${versionNo} does not hold campaign ${code}.`)
-  return { detail: { version: versionRow(v), ruleset: null, campaign: structuredClone(v.json) } }
+  if (!v) return refuse('RULES_VERSION_NOT_FOUND', 404, `There is no version ${versionNo}.`)
+  return { detail: { version: versionRow(v), ruleset, campaign: v.json ? structuredClone(v.json) : null } }
 }
 
 /** An activation publishes a version: the draft's campaign as it was activated, with the author's note. */

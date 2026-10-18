@@ -55,8 +55,10 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   }
 
   // The campaigns listed: Create refuses one's id (a disabled campaign with no draft is not listed
-  // until HQ has a list door, BO ask A).
-  const listed = useQuery(ruleCampaignsQuery()).data
+  // until HQ has a list door, BO ask A). Create waits for the list, so an early press cannot draft
+  // over a live campaign whose id the guard has not seen yet.
+  const listQuery = useQuery(ruleCampaignsQuery())
+  const listed = listQuery.data
   const taken = useMemo(() => (listed ?? []).map((r) => r.campaign), [listed])
   const problems = createFormProblems(form, taken)
   const shown = (p: CreateFormProblem) => tried && problems.includes(p)
@@ -76,7 +78,7 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   }
   const submit = () => {
     setTried(true)
-    if (problems.length || create.isPending) return
+    if (problems.length || create.isPending || listQuery.isPending) return
     // Landing on the draft rides on THIS call's success, which does not fire once the list has
     // unmounted: a user who left during a slow create is not pulled back to the draft.
     create.mutate(toCreateSave(form), {

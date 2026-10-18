@@ -715,6 +715,14 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // Campaign upload (ticket 530, BackOffice ADR 0097): one workbook for one deal, read all or
+        // none. A static leaf beside `campaigns/:id`, which react-router ranks above the param.
+        path: 'campaigns/upload',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/uploads/CampaignUploadPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

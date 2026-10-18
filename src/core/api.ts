@@ -332,8 +332,8 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
  * `window.open`) cannot send the `X-Web-Client` header the cookie branch
  * requires, so a plain download link answers 401.
  */
-async function requestBlob(path: string): Promise<FileResponse> {
-  const res = await send(path, { method: 'GET' })
+async function requestBlob(path: string, init: RequestInit = { method: 'GET' }): Promise<FileResponse> {
+  const res = await send(path, init)
 
   if (!res.ok) throw failureFromEnvelope(res, await readEnvelope<unknown>(res))
 
@@ -419,10 +419,20 @@ export const api = {
   },
   // A file rather than an envelope — the same base, credentials, CSRF header and
   // 401 redirect as `get`, but the 2xx body is read with `res.blob()` and the
-  // name comes off `Content-Disposition`. GET-only: the rail's downloads are
-  // GETs, and a body-bearing binary request is a shape to add when one exists.
+  // name comes off `Content-Disposition`. GET-only, and its signature stays so:
+  // the body-bearing binary request is `postBlob`, below.
   blob(path: string, params?: Record<string, unknown>): Promise<FileResponse> {
     return requestBlob(path + buildQuery(params))
+  },
+  /**
+   * `blob` for a door that is a POST (ticket 530): the campaign upload's two file doors,
+   * `Uploads/Template` (no body) and `Uploads/ConvertBby` (multipart `file`). The optional
+   * `FormData` goes out exactly as `upload` sends one — the browser sets its Content-Type — and the
+   * answer is read exactly as `blob` reads one: the bytes and the `Content-Disposition` name on a
+   * 2xx, the usual `ApiError` off the JSON refusal on a failure. A fallback name is the caller's.
+   */
+  postBlob(path: string, form?: FormData): Promise<FileResponse> {
+    return requestBlob(path, { method: 'POST', body: form })
   },
   /** `params`, when a door takes a query beside its body (ticket 479's `Catalog/Push?account=`), is
    *  built exactly as `get` builds it — `null`/`undefined`/`''` dropped. */

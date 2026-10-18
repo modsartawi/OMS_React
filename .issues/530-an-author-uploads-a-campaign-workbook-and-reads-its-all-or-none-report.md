@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2839-oms-react-campaign-upload-brief.md
 blocked-by: — (live: BackOffice 2836)
 ---
@@ -61,12 +61,12 @@ display, report view, success line) · route + menu + page · i18n EN · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `issueView`: `Campaigns!12:Value` → sheet Campaigns, row 12, column Value; `Items!40` → whole row; `Upload` / row 0 → whole sheet; errors sort before warnings (vitest)
-- [ ] `readReportView`: `accepted:false` gives the all-or-none state with N = `errors.length`; `accepted:true, stored:true` gives the waiting state with revision and note; a null window gives no range; every `mechanics` key becomes a tile, unknown ones included (vitest)
-- [ ] `windowDays`: `windowUntil` is shown as sent, the inclusive last day, never moved a day (vitest)
-- [ ] the POST blob request: the name comes from `Content-Disposition`, with the fallback when it is absent; a 400 JSON refusal throws an `ApiError` with `RULES_BAD_UPLOAD` (vitest, `api` tests)
-- [ ] `tools/campaign-uploads-drive.mjs`, LTR and RTL, against a stub that sends the contract's JSON (a refused read with errors on all three sheets and warnings, an accepted read with a generated Arabic name and three mechanics, a 400 `RULES_BAD_UPLOAD`, a bare 403, a template download). It checks the all-or-none message, the sheet filter, the badge, the JSON panel, and the saved file name
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `issueView`: `Campaigns!12:Value` → sheet Campaigns, row 12, column Value; `Items!40` → whole row; `Upload` / row 0 → whole sheet; errors sort before warnings (vitest)
+- [x] `readReportView`: `accepted:false` gives the all-or-none state with N = `errors.length`; `accepted:true, stored:true` gives the waiting state with revision and note; a null window gives no range; every `mechanics` key becomes a tile, unknown ones included (vitest)
+- [x] `windowDays`: `windowUntil` is shown as sent, the inclusive last day, never moved a day (vitest)
+- [x] the POST blob request: the name comes from `Content-Disposition`, with the fallback when it is absent; a 400 JSON refusal throws an `ApiError` with `RULES_BAD_UPLOAD` (vitest, `api` tests)
+- [x] `tools/campaign-uploads-drive.mjs`, LTR and RTL, against a stub that sends the contract's JSON (a refused read with errors on all three sheets and warnings, an accepted read with a generated Arabic name and three mechanics, a 400 `RULES_BAD_UPLOAD`, a bare 403, a template download). It checks the all-or-none message, the sheet filter, the badge, the JSON panel, and the saved file name
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -88,3 +88,29 @@ None. It can start immediately.
 
 - **Route and menu:** this ticket assumes `/campaigns/upload` with a leaf in the Campaigns group (a tab of
   the list is the brief's alternative). This is an overrulable default.
+
+## Comments
+
+**Done 2026-10-19 (AFK).** Built on branch `spec/2839-campaign-uploads`.
+
+- Model `core/models/rule-upload.ts`, field for field from the contract and checked against the reply types of
+  `RuleCampaignUploadWebEndpoints.cs` (no difference found): read report, issue, campaign, summary (+ its stored
+  `summary` JSON), detail, campaign item, activation, the two bodies. Closed lists are unions plus `string`;
+  `mechanics` is an open map.
+- `core/api`: `api.postBlob(path, form?)` on the same `send` / 401 / `failureFromEnvelope` tail as `api.blob`
+  (`requestBlob` now takes its `RequestInit`); `api.blob`'s signature unchanged. The `campaign-upload.xlsx`
+  fallback is the feature's (`CAMPAIGN_UPLOAD_FALLBACK_NAME`), as core returns `null` for a missing name.
+- Feature `features/campaigns/uploads/`: `api.ts`, `report.ts` (pure: `issueView`, `issueRows`, `issueSheets`,
+  `dayOf`, `windowDays`, `readReportView`), `CampaignUploadPage.tsx`, `ReadReport.tsx`, `CampaignJsonDrawer.tsx`;
+  namespace `campaign-uploads` (EN only); route `/campaigns/upload` beside `campaigns/:id`; menu leaf appended
+  last in the Campaigns group (`campaign-list:menu.upload`).
+- Proof: vitest `src/core/api.test.ts` (`api.postBlob`, 5), `features/campaigns/uploads/report.test.ts` (16),
+  `api.test.ts` (4), `layout/menu-campaigns.test.ts` (530 leaf). `tools/campaign-uploads-drive.mjs` **94/94**
+  in LTR and RTL against stubs on the real envelope (run on port 5299: 5199 was held by a server this run did
+  not start). typecheck, lint (4 gates), `npm test` (342 files, 5656 tests), build all green. The red step of
+  the `postBlob` tests came after the code (written in one pass); the report and feature api tests were red first.
+- Reviews: /code-review — fixed the stale re-pick of the same file and a half-open window shown as one day;
+  /standards-review — no hard violation, no missing requirement; added the generated-names tile. Judgement
+  calls and decisions in `.afk/HITL-530.md`.
+- Outstanding (not this ticket's): the live walk is 533; the "Open the campaign upload" link resolves once 532
+  declares `/campaigns/uploads/:dealCode`. Route/menu placement remains the overrulable default.

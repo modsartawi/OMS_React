@@ -1,0 +1,84 @@
+{
+  "title": "Campaign upload",
+  "lede": "One workbook for one deal. HQ reads it all or none: a file with no error waits for an approver as one campaign upload, and goes live as one version.",
+  "denied": "You do not have access to this action.",
+  "template": {
+    "title": "Get a workbook",
+    "hint": "Start from the blank template. Its Upload, Campaigns and Items sheets carry dropdowns for Stacking, Mechanic, Kind, Members, List and Type.",
+    "download": "Download the template",
+    "downloading": "Downloading…",
+    "failed": "The template could not be downloaded. Try again."
+  },
+  "upload": {
+    "title": "Upload the workbook",
+    "hint": "The whole deal in one file. The Note on its Upload sheet is what the approver reads.",
+    "file": "Workbook (.xlsx)",
+    "send": "Upload",
+    "reading": "Reading the workbook…",
+    "failed": "The file could not be read. Try again."
+  },
+  "outcome": {
+    "refused_one": "Nothing was stored: the file has <n>{{count}}</n> error. Fix every one and upload the whole file again.",
+    "refused_other": "Nothing was stored: the file has <n>{{count}}</n> errors. Fix every one and upload the whole file again.",
+    "waiting": "Waiting for approval — deal <deal>{{deal}}</deal>, revision <rev>{{revision}}</rev>. An approver activates it as one version.",
+    "unstored": "The file was read, but HQ stored nothing.",
+    "note": "Its note",
+    "open": "Open the campaign upload"
+  },
+  "report": {
+    "title": "The read report",
+    "deal": "Deal",
+    "stacking": "Stacking",
+    "note": "Note",
+    "revision": "Revision",
+    "tiles": "What the file holds",
+    "campaigns": "Campaigns",
+    "skus": "SKUs",
+    "generated": "Arabic names generated",
+    "window": "Window",
+    "noWindow": "None",
+    "errors": "Errors",
+    "warnings": "Warnings",
+    "mechanicTile": "Campaigns of this mechanic"
+  },
+  "issues": {
+    "title": "Errors and warnings",
+    "none": "No error and no warning.",
+    "sheet": "Sheet",
+    "allSheets": "All sheets",
+    "wholeSheet": "Whole sheet",
+    "wholeRow": "Whole row",
+    "kind": {
+      "error": "Error",
+      "warning": "Warning"
+    },
+    "columns": {
+      "kind": "Kind",
+      "at": "At",
+      "sheet": "Sheet",
+      "row": "Row",
+      "column": "Column",
+      "message": "Message"
+    }
+  },
+  "campaigns": {
+    "title": "Campaigns",
+    "none": "No campaign could be read.",
+    "generated": "Generated Arabic",
+    "view": "View",
+    "columns": {
+      "code": "Code",
+      "id": "Id",
+      "row": "Sheet row",
+      "mechanic": "Mechanic",
+      "stacking": "Stacking",
+      "nameAr": "Arabic name",
+      "json": "JSON"
+    }
+  },
+  "json": {
+    "eyebrow": "Campaign JSON, read only",
+    "close": "Close",
+    "none": "HQ sent no JSON for this campaign."
+  }
+}

@@ -28,7 +28,7 @@ describe('the Campaigns nav group', () => {
     for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
     expect(campaigns!.access).toBeUndefined()
     expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(6)
+    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(7)
   })
 
   it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
@@ -64,6 +64,11 @@ describe('the Campaigns nav group', () => {
     expect(leaves([campaigns!])[5].routerLink).toBe('/campaigns/customers')
     expect(markedLeaf(MENU, '/campaigns/coupon-finder')?.labelKey).toBe('campaign-list:menu.couponFinder')
     expect(markedLeaf(MENU, '/campaigns/customers')?.labelKey).toBe('campaign-list:menu.customers')
+  })
+
+  it('530 adds Campaign upload seventh, at /campaigns/upload, and it lights itself rather than Campaigns', () => {
+    expect(leaves([campaigns!])[6].routerLink).toBe('/campaigns/upload')
+    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {

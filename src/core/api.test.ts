@@ -208,6 +208,83 @@ describe('api.blob', () => {
 })
 
 /**
+ * `api.postBlob` — the body-bearing binary request (ticket 530): the campaign upload's file doors
+ * are POSTs, `Uploads/Template` with no body and `Uploads/ConvertBby` with a multipart `file`. A
+ * success is the workbook's bytes and its server name; a refusal is the JSON envelope at 400.
+ */
+describe('api.postBlob', () => {
+  const xlsx = () => new Blob(['PK'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const fileAnswer = (blob: Blob, disposition: string | null) =>
+    vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: new Headers(disposition ? { 'Content-Disposition': disposition } : {}),
+      blob: async () => blob,
+      json: async () => {
+        throw new SyntaxError('the body is a workbook, not JSON')
+      },
+    } as unknown as Response)
+
+  it('POSTs with no body and no Content-Type, and names the file from Content-Disposition', async () => {
+    const book = xlsx()
+    const fetchStub = fileAnswer(
+      book,
+      "attachment; filename=campaign-upload-template.xlsx; filename*=UTF-8''campaign-upload-template.xlsx",
+    )
+    vi.stubGlobal('fetch', fetchStub)
+
+    const file = await api.postBlob('Rules/Authoring/Uploads/Template')
+
+    expect(file.blob).toBe(book)
+    expect(file.filename).toBe('campaign-upload-template.xlsx')
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/Rules\/Authoring\/Uploads\/Template$/)
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeUndefined()
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+    expect(headers['X-Web-Client']).toBe('1')
+    expect(init.credentials).toBe('same-origin')
+  })
+
+  it('sends a FormData verbatim, the browser setting its Content-Type', async () => {
+    const fetchStub = fileAnswer(xlsx(), 'attachment; filename="0001000048-261009-261015.xlsx"')
+    vi.stubGlobal('fetch', fetchStub)
+    const form = new FormData()
+    form.append('file', new Blob(['Offer\tMaterial']), 'Same GRP - 50 Pct.txt')
+
+    const file = await api.postBlob('Rules/Authoring/Uploads/ConvertBby', form)
+
+    expect(file.filename).toBe('0001000048-261009-261015.xlsx')
+    const [, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(init.body).toBe(form)
+    expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+  })
+
+  it('leaves the filename null when the response names none (the fallback is the caller’s)', async () => {
+    vi.stubGlobal('fetch', fileAnswer(xlsx(), null))
+    expect((await api.postBlob('Rules/Authoring/Uploads/Template')).filename).toBeNull()
+  })
+
+  it('throws the usual ApiError off a 400 JSON refusal', async () => {
+    vi.stubGlobal('fetch', answer(400, envelope(400, 'RULES_BAD_UPLOAD', 'A SAP BBy upload file is required.')))
+    const err = (await api.postBlob('Rules/Authoring/Uploads/ConvertBby', new FormData()).catch((e: unknown) => e)) as ApiError
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.kind).toBe('business')
+    expect(err.statusCode).toBe(400)
+    expect(apiErrorCode(err)).toBe('RULES_BAD_UPLOAD')
+    expect(err.message).toBe('A SAP BBy upload file is required.')
+  })
+
+  it('reads a bare 403 as status 403 with no code', async () => {
+    vi.stubGlobal('fetch', answer(403, 'not json at all'))
+    const err = (await api.postBlob('Rules/Authoring/Uploads/Template').catch((e: unknown) => e)) as ApiError
+    expect(err.statusCode).toBe(403)
+    expect(apiErrorCode(err)).toBeNull()
+  })
+})
+
+/**
  * `api.upload` — the multipart door (ticket 273, spec 267 D8's bulk preview and
  * commit). Its subject is the one thing that cannot be asserted from a feature and
  * fails silently when it is wrong: **a `FormData` body must reach `fetch` with no

@@ -132,6 +132,8 @@ import couponFinder from '@/locales/en/coupon-finder.json'
 import ruleCustomers from '@/locales/en/rule-customers.json'
 // Admin ▸ Store engine switch (ticket 517): HQ flips a store's promotion engine, English only too.
 import engineSwitch from '@/locales/en/engine-switch.json'
+// Campaigns ▸ Campaign upload (ticket 530; 531 and 532 add their keys here): English only too.
+import campaignUploads from '@/locales/en/campaign-uploads.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -139,7 +141,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaign-list', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaign-list', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads'],
   resources: {
     en: {
       common,
@@ -191,6 +193,7 @@ i18n.use(initReactI18next).init({
       'coupon-finder': couponFinder,
       'rule-customers': ruleCustomers,
       'engine-switch': engineSwitch,
+      'campaign-uploads': campaignUploads,
     },
     ar: {
       document: documentAr,

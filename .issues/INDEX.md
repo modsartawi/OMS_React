@@ -971,3 +971,10 @@ Web half; server half is a BackOffice spec still to write. Contract proposed in 
 - [528](528-the-engine-switch-calls-flip-and-history-and-shows-in-flight-after-the-flip.md) — The engine switch calls Flip and History, and shows what is in flight after the flip · *(ticket · BO 2745)* · **done** · blocked by: — · list via Lookups/stores (RuleAuthoring grant), in-flight after the flip; BO ask C open
 - [529](529-access-probes-coupon-finder-and-customers-on-the-doors-bo-adds.md) — Access probes, the coupon finder and Customers, on the doors BackOffice adds · *(ticket · BO asks B, D)* · **open** · blocked by: 524, 527, 528
 - [521](521-a-view-only-oms-user-sees-no-update-reschedule-or-return-on-a-delivery.md) — A view-only OMS user sees no update, reschedule or return on a delivery · *(ticket · BO 2763)* · **open** · blocked by: — · CLIENT HALF DONE 2026-10-16 (Proof ticked, drive 31/31 stubbed); live OMS_VIEWER walk waits on BO 2763 deploy · ⚠ ship only after 2763 (absent = denied)
+
+## Campaign uploads (BackOffice ADR 0097, brief 2839, doors 2836–2838, filed 2026-10-19)
+
+- [530](530-an-author-uploads-a-campaign-workbook-and-reads-its-all-or-none-report.md) — An author uploads a campaign workbook and reads its all-or-none report · *(ticket · BO brief 2839)* · **open** · blocked by: — · slice 0: `core/models/rule-upload.ts`, POST blob in `core/api`, /campaigns/upload, template + Read
+- [531](531-an-author-converts-a-sap-bby-file-into-a-campaign-upload-workbook.md) — An author converts a SAP BBy file into a campaign upload workbook · *(ticket · BO brief 2839)* · **open** · blocked by: 530
+- [532](532-an-approver-activates-or-sends-back-a-campaign-upload-as-a-whole.md) — An approver activates or sends back a campaign upload as a whole · *(ticket · BO brief 2839)* · **open** · blocked by: 530 · own page /campaigns/uploads (no Approvals screen in oms-react; overrulable)
+- [533](533-the-campaign-upload-screens-call-the-real-doors-on-staging.md) — The campaign upload screens call the real doors on staging · *(ticket · BO brief 2839)* · **open** · blocked by: 530, 531, 532 · (live: BO 2836–2838 deployed + HQ scripts 015, 016; owner acts)

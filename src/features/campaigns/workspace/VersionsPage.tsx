@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Eye, EyeOff, History, Loader2 } from 'lucide-react'
 import type { RuleCampaign, RuleCampaignVersion, RuleDraft } from '@/core/models/rule-campaign'
-import { rememberSavedDraft, ruleCampaignApi, ruleCampaignVersionQuery, ruleCampaignVersionsQuery, ruleCatalogueQuery } from '@/core/rules/api'
+import { rememberSavedDraft, ruleCampaignApi, ruleCampaignVersionQuery, ruleCampaignVersionsQuery, ruleReadingCatalogueQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -247,7 +247,7 @@ function VersionItem({
 function VersionRules({ campaign: c, version }: { campaign: RuleCampaign; version: number }) {
   const { t, i18n } = useTranslation('campaign-workspace')
   const detail = useQuery(ruleCampaignVersionQuery(c.id, version))
-  const catalogue = useQuery(ruleCatalogueQuery())
+  const catalogue = useQuery(ruleReadingCatalogueQuery())
   /** The rules the reader closed; every rule opens expanded. */
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set())
 

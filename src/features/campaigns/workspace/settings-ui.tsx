@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { RotateCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleDraftSave } from '@/core/models/rule-campaign'
 import { rememberSavedDraft, ruleCampaignApi, ruleCampaignKey } from '@/core/rules/api'
 import { notify } from '@/core/services/notify'
@@ -136,6 +136,15 @@ export function StaleDraft({ code: campaign, onReload }: { code: string; onReloa
   )
 }
 
+/**
+ * What a refusal of an authoring door says: the envelope's own message, or — for a BARE 403, the
+ * rule-author grant's filter refusing before any handler ran — that the grant is missing, in our
+ * words (`apiErrorMessage` alone would read "Unexpected API error").
+ */
+export function refusalText(t: (key: string) => string, error: unknown, fallback: string): string {
+  return isBareDenial(error) ? t('draft.denied') : apiErrorMessage(error, fallback)
+}
+
 /** HQ's refusal: the envelope's own message, and its code; a stale or a frozen draft in our words.
  *  `onReload` is what a stale draft's Reload drops first: the page's unsaved change and its refusal. */
 export function Refusal({ title, fallback, error, onReload }: { title: string; fallback: string; error: unknown; onReload?: () => void }) {
@@ -145,7 +154,7 @@ export function Refusal({ title, fallback, error, onReload }: { title: string; f
   if (code === DRAFT_STALE) return <StaleDraft code={draft.code} onReload={onReload} />
   if (code === DRAFT_PENDING) return <ErrorBanner className="p-2.5" title={t('draft.pendingTitle')} message={t('draft.pending')} />
   return (
-    <ErrorBanner className="p-2.5" title={title} message={apiErrorMessage(error, fallback)}>
+    <ErrorBanner className="p-2.5" title={title} message={refusalText(t, error, fallback)}>
       {code && (
         <p className="mt-1 text-xs" data-refusal-code={code}>
           {t('settings.refusalCode')}{' '}

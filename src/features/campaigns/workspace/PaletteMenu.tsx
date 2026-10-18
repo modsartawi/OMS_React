@@ -1,36 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
-import type { RuleBlockCatalogue, RuleBlockKind, RuleCatalogueBlock, RuleFeature } from '@/core/models/rule-campaign'
+import type { RuleBlockCatalogue, RuleBlockKind, RuleCatalogueBlock } from '@/core/models/rule-campaign'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
-import { labelText, useHas } from './builder-ui'
 import { paletteFor } from './palette'
-import { blockLabelKey, groupLabelKey } from './panel-keys'
 
 /**
  * "+ Condition" / "+ Effect" (ticket 505): a button that opens the palette in place, the catalogue's
- * blocks grouped by category — only those the campaign's features switch on, never one the catalogue
- * marks "not decided" (`./palette`). A pick adds the block and closes the palette; Escape and Close
- * close it too, and focus goes back to the button.
+ * blocks grouped by category, each named in HQ's words — only those HQ lists for the campaign's
+ * features, never one it marks undecided (`./palette`). A pick adds the block and closes the palette;
+ * Escape and Close close it too, and focus goes back to the button.
  */
 export default function PaletteMenu({
   kind,
   label,
-  catalogue,
-  features,
+  palette: catalogue,
+  everything,
   onPick,
   data,
 }: {
   kind: RuleBlockKind
   /** The button's words. */
   label: string
-  catalogue: RuleBlockCatalogue
-  features: RuleFeature[]
+  /** The catalogue HQ answers for the campaign's features. */
+  palette: RuleBlockCatalogue
+  /** The catalogue with every feature on: what an off feature would add. */
+  everything: RuleBlockCatalogue
   onPick: (block: RuleCatalogueBlock) => void
   data: string
 }) {
-  const { t } = useTranslation('campaign-workspace')
-  const has = useHas()
+  const { t, i18n } = useTranslation('campaign-workspace')
   const [open, setOpen] = useState(false)
   const opener = useRef<HTMLSpanElement>(null)
   const first = useRef<HTMLButtonElement>(null)
@@ -60,7 +60,7 @@ export default function PaletteMenu({
       </span>
     )
 
-  const palette = paletteFor(catalogue, kind, features)
+  const palette = paletteFor(catalogue, kind, everything)
   const title = t(kind === 'condition' ? 'palette.condition' : 'palette.effect')
   return (
     <div
@@ -87,8 +87,10 @@ export default function PaletteMenu({
       </div>
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         {palette.groups.map((g, gi) => (
-          <div key={g.key} className="flex flex-col gap-1" data-palette-group={g.key}>
-            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{labelText(t, groupLabelKey(g.key), g.key, has)}</div>
+          <div key={g.group.id} className="flex flex-col gap-1" data-palette-group={g.group.id}>
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <bdi>{saysIn(g.group.name, i18n.language)}</bdi>
+            </div>
             {g.blocks.map((b, bi) => (
               <button
                 key={b.type}
@@ -101,7 +103,7 @@ export default function PaletteMenu({
                 }}
                 data-palette-block={b.type}
               >
-                {labelText(t, blockLabelKey(b.kind, b.type), b.type, has)}
+                <bdi>{saysIn(b.name, i18n.language)}</bdi>
               </button>
             ))}
           </div>

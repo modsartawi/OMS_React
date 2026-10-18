@@ -496,182 +496,293 @@ export function lifecycle(d, act, { note = '', by, at }) {
   return { campaign: d }
 }
 
-// ── 504: the stubbed block catalogue (GET RuleCampaign/Catalogue; PROVISIONAL until ticket 523 reads
-// the real `Rules/Authoring/Catalogue`). The invented `RuleBlockCatalogue` structure, re-cut in 522 to
-// the REAL block types and field names (BackOffice `RuleBlockCatalogue.cs`): conditions keyed by
-// `check`, effects by `effect`, a condition's filter in `of`, an effect's in `filter`. `feature`
-// gates the palette: coupons adds the coupon condition and the coupon effect, points the points
-// blocks. The vitest proof (`src/core/rules/sentence.test.ts`) reads this same catalogue and these
-// same campaigns. ──
+// ── 523: the block catalogue (POST Rules/Authoring/Catalogue { features }, BackOffice 2758). A port of
+// BackOffice `RuleBlockCatalogue.cs` (its groups, blocks, sentences, fields and examples, word for
+// word), served gated as HQ gates it: a block of a feature the campaign lacks is not listed, nor a
+// budget's coupon scope without coupons or its points limits without points; a group is listed only
+// with a block in it. Newtonsoft writes every unset member as null. The vitest proofs
+// (`src/core/rules/sentence.test.ts`, the palette's) read this same catalogue. ──
 
-const field = (key, kind, o = {}) => ({ key, kind, ...o })
-const notMet = field('says', 'says', { role: 'notMet' })
-const receiptLabel = field('label', 'says', { role: 'receiptLabel' })
-const cond = (type, group, fields, o = {}) => ({ type, kind: 'condition', group, feature: null, decided: true, fields: [...fields, notMet], ...o })
-const eff = (type, group, fields, o = {}) => ({ type, kind: 'effect', group, feature: null, decided: true, fields, ...o })
-const discountScope = field('scope', 'choice', { options: ['items', 'fees', 'itemsAndFees'], clause: true, default: 'items' })
-
-export const CATALOGUE = {
-  groups: [
-    { key: 'cart', kind: 'condition' },
-    { key: 'customer', kind: 'condition' },
-    { key: 'context', kind: 'condition' },
-    { key: 'limits', kind: 'condition' },
-    { key: 'couponConditions', kind: 'condition' },
-    { key: 'advanced', kind: 'condition' },
-    { key: 'discounts', kind: 'effect' },
-    { key: 'freeGoods', kind: 'effect' },
-    { key: 'bundles', kind: 'effect' },
-    { key: 'points', kind: 'effect' },
-    { key: 'couponEffects', kind: 'effect' },
-    { key: 'messages', kind: 'effect' },
-  ],
-  blocks: [
-    cond('minSubtotal', 'cart', [field('of', 'items'), field('amount', 'money'), field('basis', 'choice', { options: ['subtotal', 'total'], default: 'subtotal' })], { variant: 'basis' }),
-    cond('minCount', 'cart', [field('count', 'count', { plural: true }), field('of', 'items')]),
-    cond('minPoints', 'customer', [field('points', 'count')], { feature: 'points' }),
-    cond('tier', 'customer', [field('in', 'choices', { options: ['S', 'G', 'P'] })]),
-    cond('member', 'customer', [field('earning', 'flag', { default: false })], { variant: 'earning' }),
-    cond('firstPurchase', 'customer', []),
-    cond('audience', 'customer', [field('in', 'codes')], { decided: false }),
-    cond('channel', 'context', [field('in', 'codes')]),
-    cond('store', 'context', [field('in', 'codes')]),
-    cond('budgetLeft', 'limits', [field('budget', 'budget')]),
-    cond('coupon', 'couponConditions', [field('code', 'code')], { feature: 'coupons' }),
-    cond('sessionFlag', 'advanced', [field('flag', 'code')]),
-    cond('formula', 'advanced', [field('expr', 'formula')]),
-    { type: 'group', kind: 'condition', group: 'advanced', feature: null, decided: true, fields: [field('mode', 'choice', { options: ['all', 'any'] })] },
-
-    eff('discountItems', 'discounts', [field('kind', 'choice', { options: ['percent'], default: 'percent' }), field('value', 'discount', { unitFrom: 'kind' }), field('filter', 'items'), discountScope, receiptLabel], { variant: 'kind' }),
-    eff('discountSession', 'discounts', [field('kind', 'choice', { options: ['amount', 'percent'] }), field('value', 'discount', { unitFrom: 'kind' }), field('filter', 'items'), discountScope, receiptLabel], { variant: 'kind' }),
-    eff('discountPerItem', 'discounts', [field('from', 'choice', { options: ['valueMap'], default: 'valueMap' }), field('filter', 'items'), receiptLabel]),
-    eff('freeUnits', 'freeGoods', [field('buy', 'count'), field('filter', 'items'), field('free', 'count', { plural: true }), receiptLabel]),
-    eff('freeProduct', 'freeGoods', [field('count', 'count', { plural: true }), field('filter', 'items'), field('prompt', 'says', { role: 'cashierPrompt' }), receiptLabel]),
-    eff('bundlePrice', 'bundles', [field('value', 'money'), receiptLabel]),
-    eff('bundleDiscount', 'bundles', [field('value', 'money'), receiptLabel]),
-    eff('discountCheapestInBundle', 'bundles', [receiptLabel]),
-    eff('awardPoints', 'points', [field('amount', 'points', { unitFrom: 'unit' }), field('unit', 'choice', { options: ['SAR', 'PTS'] }), field('activity', 'code'), field('activates', 'timing', { clause: true }), field('expires', 'timing', { clause: true }), field('tierPoints', 'flag', { clause: true })], { feature: 'points' }),
-    eff('burnPoints', 'points', [field('amount', 'points', { unitFrom: 'unit' }), field('unit', 'choice', { options: ['PTS'], default: 'PTS' }), field('tender', 'flag', { clause: true })], { feature: 'points' }),
-    eff('createCoupon', 'couponEffects', [field('template', 'code'), field('validDays', 'days'), receiptLabel], { feature: 'coupons' }),
-    eff('cashierMessage', 'messages', [field('text', 'says', { role: 'message' })]),
-  ],
-  formula: {
-    // 507: what the guided ƒx helper offers — the prototype's helpers.js (ATTRS, FUNC_DOCS, OPS,
-    // recipesFor) re-cut in 522 to the real paths the SIS.Rules checker knows and the text the codec
-    // (`src/core/rules/expr.ts`) reads. `{filter}` in a recipe is the name of the rule's filter the
-    // marketer picks; `{current}` the box's own formula.
-    fields: [
-      { path: 'session.subtotal', type: 'money', group: 'sale' },
-      { path: 'session.total', type: 'money', group: 'sale' },
-      { path: 'session.fees', type: 'money', group: 'sale' },
-      { path: 'session.decimals', type: 'number', group: 'sale' },
-      { path: 'session.channel', type: 'text', group: 'sale' },
-      { path: 'session.store', type: 'text', group: 'sale' },
-      { path: 'session.currency', type: 'text', group: 'sale' },
-      { path: 'session.requestedPoints', type: 'number', group: 'sale' },
-      { path: 'profile.loyaltyId', type: 'text', group: 'profile' },
-      { path: 'profile.tier', type: 'text', group: 'profile' },
-      { path: 'profile.points', type: 'number', group: 'profile' },
-      { path: 'profile.tentativePoints', type: 'number', group: 'profile' },
-      { path: 'item.net', type: 'money', group: 'item' },
-      { path: 'item.lineNet', type: 'money', group: 'item' },
-      { path: 'item.article', type: 'text', group: 'item' },
-      { path: 'item.category', type: 'text', group: 'item' },
-      { path: 'item.quantity', type: 'number', group: 'item' },
-    ],
-    functions: [
-      { name: 'items', signature: "items('filter')", example: "items('Eligible')", snippet: "items('')", caret: 7 },
-      { name: 'sum', signature: "sum(items('filter'), item.net)", example: "sum(items('Eligible'), item.net)", snippet: 'sum(, item.net)', caret: 4 },
-      { name: 'count', signature: "count(items('filter'))", example: "count(items('Suncare')) >= 3", snippet: 'count()', caret: 6 },
-      { name: 'round', signature: 'round(x, decimals, mode)', example: 'round(eligible * 0.1, 0, halfUp)', snippet: 'round(, 0, halfUp)', caret: 6 },
-      { name: 'band', signature: 'band(x, from:rate, ...)', example: 'band(basis, 200:0.1, 400:0.12)', snippet: 'band(, 200:0.1, 400:0.12)', caret: 5 },
-      { name: 'min', signature: 'min(a, b, ...)', example: 'min(back, 105)', snippet: 'min(, 100)', caret: 4 },
-      { name: 'max', signature: 'max(a, b, ...)', example: 'max(back, 5)', snippet: 'max(, 5)', caret: 4 },
-      { name: 'floor', signature: 'floor(x)', example: 'floor(basis / 10)', snippet: 'floor()', caret: 6 },
-      { name: 'ceil', signature: 'ceil(x)', example: "ceil(count(items('Eligible')) / 2)", snippet: 'ceil()', caret: 5 },
-      { name: 'if', signature: 'if(test, then, else)', example: "if(profile.tier == 'P', 0.15, 0.1)", snippet: 'if(, , )', caret: 3 },
-    ],
-    operators: ['+', '-', '*', '/', '(', ')', '>=', '>', '<=', '<', '==', '!=', 'and', 'or', 'not'],
-    recipes: [
-      { key: 'percentOfSpend', expect: 'number', formula: "round(sum(items('{filter}'), item.net) * 0.1, 0, halfUp)" },
-      { key: 'tieredRate', expect: 'number', formula: "band(sum(items('{filter}'), item.net), 200:0.1, 400:0.12, 700:0.15)" },
-      { key: 'capped', expect: 'number', formula: 'min({current}, 100)' },
-      { key: 'pointsPerSar', expect: 'number', formula: "floor(sum(items('{filter}'), item.net) / 10)" },
-      { key: 'topTiers', expect: 'number', formula: "if(profile.tier == 'P', 0.15, 0.1)" },
-      { key: 'basketBigEnough', expect: 'bool', formula: 'session.total >= 150' },
-      { key: 'enoughUnits', expect: 'bool', formula: "count(items('{filter}')) >= 3" },
-      { key: 'goldOrPlatinum', expect: 'bool', formula: "profile.tier == 'G' or profile.tier == 'P'" },
-      { key: 'enoughPoints', expect: 'bool', formula: 'profile.tentativePoints >= 30' },
-      { key: 'tillOnly', expect: 'bool', formula: "session.channel == 'POS'" },
-    ],
-  },
+const LT = (en, ar) => ({ en, ar })
+const FLD = (name, type, o = {}) => ({ name, type, required: !!o.required, unit: o.unit ?? null, values: o.values ?? null, lookup: o.lookup ?? null, default: o.default ?? null, fields: o.fields ?? null })
+const SAY_TEXT = LT('not met yet', 'لم يتحقق بعد')
+const LABEL_TEXT = LT('Offer', 'عرض')
+const saysField = FLD('says', 'text')
+const labelField = FLD('label', 'text', { required: true })
+const ofField = FLD('of', 'filter')
+const scopeField = FLD('scope', 'choice', { values: ['items', 'fees', 'itemsAndFees'], default: 'items' })
+const catBlock = (kind, type, group, en, ar, sentenceEn, sentenceAr, feature, offline, example, fields, path) => ({
+  kind, type, group, name: LT(en, ar), sentence: LT(sentenceEn, sentenceAr), feature, offline, open: null, path, fields, example,
+})
+const cond = (type, group, en, ar, sEn, sAr, feature, offline, example, ...fields) =>
+  catBlock('condition', type, group, en, ar, sEn, sAr, feature, offline, { check: type, ...example }, [FLD('check', 'code', { required: true }), ...fields], 'rule.when[]')
+const eff = (type, group, en, ar, sEn, sAr, feature, offline, example, ...fields) =>
+  catBlock('effect', type, group, en, ar, sEn, sAr, feature, offline, { effect: type, ...example }, [FLD('effect', 'code', { required: true }), ...fields], 'rule.then[]')
+const setting = (path, group, en, ar, sEn, sAr, example, ...fields) => {
+  const type = path.slice(path.indexOf('.') + 1).replace(/\[\]$/, '')
+  return catBlock('setting', type, group, en, ar, sEn, sAr, null, type === 'budgets' ? 'budget' : null, example, fields, path)
 }
 
-// ── 506: the stubbed lookups (GET RuleCampaign/Lookups/{Categories|Collections|Materials}?search=,
-// BackOffice 2758) that "Certain items…" searches: the prototype's categories, collections and
-// catalog (its engine.js CATS / CATALOG, data.js collections), in the PROVISIONAL `RuleLookupItem`
-// shape. A search matches a code or a name, ignoring case, and answers at most 20 hits. ──
+const GROUPS = [
+  ['cart', 'condition', 'Cart', 'السلة'], ['customer', 'condition', 'Customer', 'العميل'], ['context', 'condition', 'Where and how', 'المكان والقناة'],
+  ['limits', 'condition', 'Budgets', 'الميزانيات'], ['couponConditions', 'condition', 'Coupons', 'القسائم'], ['advanced', 'condition', 'Advanced', 'متقدم'],
+  ['discounts', 'effect', 'Discounts', 'الخصومات'], ['freeGoods', 'effect', 'Free goods', 'بضاعة مجانية'], ['bundles', 'effect', 'Bundles', 'الحزم'],
+  ['points', 'effect', 'Points', 'النقاط'], ['couponEffects', 'effect', 'Coupons', 'القسائم'], ['messages', 'effect', 'Messages', 'الرسائل'],
+  ['items', 'setting', 'Items', 'الأصناف'], ['campaign', 'setting', 'Campaign', 'الحملة'],
+].map(([id, kind, en, ar]) => ({ id, kind, name: LT(en, ar) }))
+
+const BLOCKS = [
+  cond('minSubtotal', 'cart', 'Minimum subtotal', 'حد أدنى للمجموع', 'the subtotal of {of} is at least {amount}', 'مجموع {of} لا يقل عن {amount}', null, null,
+    { amount: 100, says: SAY_TEXT }, FLD('amount', 'money', { required: true, unit: 'currency' }), ofField, FLD('basis', 'choice', { values: ['subtotal', 'total'], default: 'subtotal' }), saysField),
+  cond('minCount', 'cart', 'Minimum count', 'حد أدنى للعدد', 'at least {count} units of {of}', '{count} وحدات على الأقل من {of}', null, null,
+    { count: 2, says: SAY_TEXT }, FLD('count', 'count', { required: true, unit: 'units' }), ofField, saysField),
+  cond('minPoints', 'customer', 'Minimum points', 'حد أدنى للنقاط', 'the member has at least {points} points', 'لدى العضو {points} نقطة على الأقل', 'points', 'profile',
+    { points: 500, says: SAY_TEXT }, FLD('points', 'points', { required: true, unit: 'points' }), saysField),
+  cond('tier', 'customer', 'Tier', 'الفئة', "the member's tier is {in}", 'فئة العضو {in}', null, 'profile',
+    { in: ['G', 'P'], says: SAY_TEXT }, FLD('in', 'codes', { required: true }), saysField),
+  cond('member', 'customer', 'Member', 'عضو', 'the customer is a member (earning: {earning})', 'العميل عضو (يكسب النقاط: {earning})', null, 'profile',
+    { earning: true, says: SAY_TEXT }, FLD('earning', 'bool', { default: false }), saysField),
+  cond('firstPurchase', 'customer', 'First purchase', 'أول عملية شراء', "it is the member's first purchase", 'إنها أول عملية شراء للعضو', null, 'profile',
+    { says: SAY_TEXT }, saysField),
+  {
+    ...cond('audience', 'customer', 'Audience', 'الجمهور', 'the member is in {in}', 'العضو ضمن {in}', null, 'profile',
+      { in: ['VIP'], says: SAY_TEXT }, FLD('in', 'codes', { required: true, lookup: 'audiences' }), saysField),
+    open: 'How an audience is uploaded and versioned is not decided (spec 2737, Further Notes): the lookup lists the audiences published campaigns already name.',
+  },
+  cond('channel', 'context', 'Channel', 'القناة', 'the sale is made through {in}', 'البيع عبر {in}', null, null,
+    { in: ['CASH'], says: SAY_TEXT }, FLD('in', 'codes', { required: true }), saysField),
+  cond('store', 'context', 'Store', 'الفرع', 'the sale is made at {in}', 'البيع في {in}', null, null,
+    { in: ['S101'], says: SAY_TEXT }, FLD('in', 'codes', { required: true, lookup: 'stores' }), saysField),
+  cond('budgetLeft', 'limits', 'Budget left', 'رصيد الميزانية', 'budget {budget} is not used up', 'الميزانية {budget} لم تُستنفد', null, 'budget',
+    { budget: 'b1', says: SAY_TEXT }, FLD('budget', 'budget', { required: true, lookup: 'budgets' }), saysField),
+  cond('coupon', 'couponConditions', 'Coupon', 'قسيمة', 'the customer presents coupon {code}', 'يقدم العميل القسيمة {code}', 'coupons', 'coupon',
+    { code: 'HAYAK*', says: SAY_TEXT }, FLD('code', 'code', { required: true }), saysField),
+  cond('sessionFlag', 'advanced', 'Customer accepts', 'قبول العميل', 'the customer accepts {flag}', 'يقبل العميل {flag}', null, null,
+    { flag: 'use-points', says: SAY_TEXT }, FLD('flag', 'code', { required: true }), saysField),
+  cond('formula', 'advanced', 'Formula', 'معادلة', '{expr} is true', '{expr} صحيحة', null, null,
+    { expr: ['>=', '$session.subtotal', 50], says: SAY_TEXT }, FLD('expr', 'formula', { required: true }), saysField),
+  cond('group', 'advanced', 'Group', 'مجموعة', '{mode} of these are met', '{mode} من هذه متحققة', null, null,
+    { mode: 'any', conditions: [{ check: 'firstPurchase', says: SAY_TEXT }] },
+    FLD('mode', 'choice', { required: true, values: ['all', 'any'] }), FLD('conditions', 'conditions', { required: true }), saysField),
+
+  eff('discountItems', 'discounts', 'Discount items', 'خصم على الأصناف', '{value}% off {filter}', 'خصم {value}% على {filter}', null, null,
+    { filter: 'f1', kind: 'percent', value: 10, label: LABEL_TEXT },
+    FLD('filter', 'filter', { required: true }), FLD('kind', 'choice', { required: true, values: ['percent'] }), FLD('value', 'percent', { required: true, unit: '%' }), scopeField, labelField),
+  eff('discountSession', 'discounts', 'Discount the basket', 'خصم على السلة', '{value} off {filter}, spread pro rata', 'خصم {value} على {filter} موزع بالتناسب', null, null,
+    { kind: 'amount', value: 20, label: LABEL_TEXT },
+    FLD('filter', 'filter'), FLD('kind', 'choice', { required: true, values: ['amount', 'percent'] }), FLD('value', 'formula', { required: true, unit: 'currency|%' }), scopeField, labelField),
+  eff('discountPerItem', 'discounts', 'Price from the value map', 'سعر من جدول القيم', 'each item of {filter} priced from the value map', 'كل صنف من {filter} بسعر من جدول القيم', null, null,
+    { from: 'valueMap', label: LABEL_TEXT },
+    FLD('from', 'choice', { required: true, values: ['valueMap'], lookup: 'valueMaps' }), FLD('filter', 'filter'), labelField),
+  eff('freeUnits', 'freeGoods', 'Buy N, cheapest free', 'اشترِ N والأرخص مجاناً', 'of every {buy} of {filter}, the {free} cheapest free', 'من كل {buy} من {filter} الأرخص {free} مجاناً', null, null,
+    { filter: 'f1', buy: 3, free: 1, label: LABEL_TEXT },
+    FLD('filter', 'filter', { required: true }), FLD('buy', 'count', { required: true, unit: 'units' }), FLD('free', 'count', { required: true, unit: 'units' }), labelField),
+  eff('freeProduct', 'freeGoods', 'A free product', 'منتج مجاني', '{count} of {filter} free, prompted if not scanned', '{count} من {filter} مجاناً مع تنبيه إن لم يُمسح', null, null,
+    { filter: 'f1', count: 1, label: LABEL_TEXT },
+    FLD('filter', 'filter', { required: true }), FLD('count', 'count', { required: true, unit: 'units' }), FLD('prompt', 'text'), labelField),
+  eff('bundlePrice', 'bundles', 'Bundle price', 'سعر الحزمة', 'each bundle for {value}', 'كل حزمة بسعر {value}', null, null,
+    { value: 30, label: LABEL_TEXT }, FLD('value', 'money', { required: true, unit: 'currency' }), labelField),
+  eff('bundleDiscount', 'bundles', 'Bundle discount', 'خصم الحزمة', '{value} off each bundle', 'خصم {value} على كل حزمة', null, null,
+    { value: 5, label: LABEL_TEXT }, FLD('value', 'money', { required: true, unit: 'currency' }), labelField),
+  eff('discountCheapestInBundle', 'bundles', 'Cheapest in bundle free', 'الأرخص في الحزمة مجاناً', 'the cheapest unit of each bundle free', 'أرخص وحدة في كل حزمة مجاناً', null, null,
+    { label: LABEL_TEXT }, labelField),
+  eff('awardPoints', 'points', 'Award points', 'منح نقاط', 'award {amount} {unit}', 'منح {amount} {unit}', 'points', 'points',
+    { amount: 500, unit: 'PTS', activity: 'BONUS' },
+    FLD('amount', 'formula', { required: true, unit: 'SAR|PTS' }), FLD('unit', 'choice', { required: true, values: ['SAR', 'PTS'] }), FLD('activity', 'code', { required: true }),
+    FLD('activates', 'pointsDate'), FLD('expires', 'pointsDate'), FLD('tierPoints', 'bool', { default: false })),
+  eff('burnPoints', 'points', 'Use points', 'استخدام النقاط', 'use {amount} points (pays the bill: {tender})', 'استخدام {amount} نقطة (دفع الفاتورة: {tender})', 'points', 'points',
+    { amount: 500, unit: 'PTS' },
+    FLD('amount', 'formula', { required: true, unit: 'points' }), FLD('unit', 'choice', { required: true, values: ['PTS'] }), FLD('tender', 'bool', { default: false })),
+  eff('createCoupon', 'couponEffects', 'Coupon for next time', 'قسيمة للزيارة القادمة', 'a coupon of {template}, valid {validDays} days', 'قسيمة من {template} صالحة {validDays} يوماً', 'coupons', 'profile',
+    { template: 'NEXT-VISIT', validDays: 30, label: LABEL_TEXT },
+    FLD('template', 'code', { required: true }), FLD('validDays', 'count', { required: true, unit: 'days' }), labelField),
+  eff('cashierMessage', 'messages', 'Cashier message', 'رسالة للكاشير', 'tell the cashier {text}', 'أبلغ الكاشير {text}', null, null,
+    { text: LT('Offer the gift bag', 'اعرض كيس الهدية') }, FLD('text', 'text', { required: true })),
+
+  setting('rule.filters[]', 'items', 'Item filter', 'مرشح الأصناف', '{name}: {categories} and {articles}, except {exclude}', '{name}: {categories} و{articles} باستثناء {exclude}',
+    { id: 'f1', name: 'Beauty', categories: ['A002'], exclude: { categories: ['A006'] } },
+    FLD('id', 'code', { required: true }), FLD('name', 'code'), FLD('categories', 'codes', { lookup: 'categories' }), FLD('articles', 'codes', { lookup: 'materials' }),
+    FLD('exclude', 'object', { fields: [FLD('categories', 'codes', { lookup: 'categories', default: ['A006'] })] })),
+  setting('rule.values[]', 'items', 'Named value', 'قيمة مسماة', '{name} = {expr}', '{name} = {expr}',
+    { name: 'back', expr: ['*', '$session.subtotal', 0.1] }, FLD('name', 'code', { required: true }), FLD('expr', 'formula', { required: true })),
+  setting('rule.bundle', 'items', 'Bundle', 'حزمة', 'a bundle of {lists}', 'حزمة من {lists}',
+    { lists: [{ filter: 'f1', count: 1 }] },
+    FLD('lists', 'objects', { required: true, fields: [FLD('filter', 'filter', { required: true }), FLD('count', 'count', { required: true, unit: 'units' })] }),
+    FLD('sameAttribute', 'code'), FLD('max', 'count', { unit: 'bundles' })),
+  setting('rule.partial', 'items', 'Points not covered', 'نقاط غير كافية', 'when the points do not cover it: {partial}', 'عند عدم كفاية النقاط: {partial}',
+    'refuse', FLD('partial', 'choice', { values: ['refuse', 'scale'], default: 'refuse' })),
+  setting('campaign.budgets[]', 'campaign', 'Budget', 'ميزانية', 'limit the {limit} to {value} per {scope} per {period}', 'حد {limit} إلى {value} لكل {scope} لكل {period}',
+    { id: 'b1', name: LT('Uses per member', 'الاستخدامات لكل عضو'), scope: 'profile', limit: 'uses', value: 1, period: 'month' },
+    FLD('id', 'code', { required: true }), FLD('name', 'text', { required: true }),
+    FLD('scope', 'choice', { required: true, values: ['campaign', 'profile', 'store', 'session', 'coupon'] }),
+    FLD('limit', 'choice', { required: true, values: ['uses', 'money', 'pointsGiven', 'pointsTaken'] }),
+    FLD('value', 'number', { required: true }), FLD('period', 'choice', { required: true, values: ['lifetime', 'day', 'week', 'month'] })),
+  setting('campaign.window', 'campaign', 'Schedule', 'الجدول', 'from {from} until {until}, on {days}, {hours}', 'من {from} حتى {until} أيام {days} {hours}',
+    { from: '2026-11-01', until: '2026-12-01', days: ['thu', 'fri'], hours: { from: '16:00', until: '23:00' } },
+    FLD('from', 'date'), FLD('until', 'date'), FLD('days', 'codes', { values: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] }),
+    FLD('hours', 'object', { fields: [FLD('from', 'time', { required: true }), FLD('until', 'time', { required: true })] })),
+  setting('campaign.audience', 'campaign', 'Audience', 'الجمهور', 'in {countries}, through {channels}, at {stores}, for {members}', 'في {countries} عبر {channels} في {stores} لـ {members}',
+    { countries: ['SA'], members: 'any' },
+    FLD('countries', 'codes'), FLD('channels', 'codes'), FLD('stores', 'codes', { lookup: 'stores' }), FLD('members', 'choice', { values: ['any', 'identified', 'earning'], default: 'any' })),
+  setting('campaign.valueMap', 'campaign', 'Value map', 'جدول القيم', 'a {means} per material, in {unit}', '{means} لكل صنف بوحدة {unit}',
+    { means: 'targetPrice', unit: 'EA', entries: [['PAN-24', 7.95]] },
+    FLD('means', 'choice', { required: true, values: ['targetPrice', 'percentOff', 'amountOff'] }), FLD('unit', 'code', { required: true }),
+    FLD('entries', 'entries', { required: true, lookup: 'valueMaps' })),
+  setting('campaign.onlineOnly', 'campaign', 'Online only', 'عبر الإنترنت فقط', 'never run on an offline till', 'لا تعمل على نقطة بيع غير متصلة',
+    true, FLD('onlineOnly', 'bool', { default: false })),
+]
+
+const ALL_FEATURES = ['coupons', 'points']
+/** A choice value that belongs to a feature (a budget's coupon scope, its points limits). */
+const FEATURE_VALUES = { coupon: 'coupons', pointsGiven: 'points', pointsTaken: 'points' }
+const LOOKUP_KINDS = ['categories', 'collections', 'materials', 'stores', 'audiences', 'valueMaps', 'budgets']
+
+/** What `Rules/Authoring/Catalogue { features }` answers: unknown features ignored, any case. */
+export function catalogueFor(features = []) {
+  const asked = new Set((features ?? []).filter((f) => typeof f === 'string').map((f) => f.trim().toLowerCase()))
+  const on = ALL_FEATURES.filter((f) => asked.has(f))
+  const gateField = (f) => ({
+    ...f,
+    values: f.values ? f.values.filter((v) => !FEATURE_VALUES[v] || on.includes(FEATURE_VALUES[v])) : null,
+    fields: f.fields ? f.fields.map(gateField) : null,
+  })
+  const blocks = BLOCKS.filter((b) => b.feature === null || on.includes(b.feature)).map((b) => structuredClone({ ...b, fields: b.fields.map(gateField) }))
+  return {
+    schema: 1,
+    features: on,
+    allFeatures: [...ALL_FEATURES],
+    groups: GROUPS.filter((g) => blocks.some((b) => b.group === g.id)).map((g) => structuredClone(g)),
+    conditions: blocks.filter((b) => b.kind === 'condition'),
+    effects: blocks.filter((b) => b.kind === 'effect'),
+    settings: blocks.filter((b) => b.kind === 'setting'),
+    lookups: [...LOOKUP_KINDS],
+  }
+}
+
+/** The catalogue with every feature on: what the builder reads blocks through. */
+export const CATALOGUE = catalogueFor(ALL_FEATURES)
+
+// ── 523: the stubbed lookups (POST Rules/Authoring/Lookups/{lookup} { q, campaign? }, BackOffice 2758)
+// in the real `RuleLookupItem` shape: `name { en, ar }` (categories, collections and stores in English
+// only), `detail`, a collection's `articles`, a value map's `entries`, A006's `neverDiscount`. The
+// prototype's categories, collections and catalog (its engine.js CATS / CATALOG, data.js collections). A
+// search matches a code or a name, ignoring case, and answers at most 50 hits; a material search
+// shorter than three characters and an unknown lookup are refused `RULES_BAD_LOOKUP`. ──
+
+const hit = (code, en, ar = '', o = {}) => ({ code, name: LT(en, ar), detail: o.detail ?? null, articles: o.articles ?? null, entries: o.entries ?? null, neverDiscount: !!o.neverDiscount })
 
 export const LOOKUPS = {
   categories: [
-    { code: 'A001', name: 'Medicines (OTC)' }, { code: 'A002', name: 'Beauty Care' }, { code: 'A003', name: 'Baby & Mother' },
-    { code: 'A005', name: 'Personal Care' }, { code: 'A006', name: 'Prescription (Rx)' }, { code: 'A007', name: 'Services & fees' },
-    { code: 'A008', name: 'Infant formula' },
+    hit('A001', 'Medicines (OTC)'), hit('A002', 'Beauty Care'), hit('A003', 'Baby & Mother'), hit('A005', 'Personal Care'),
+    hit('A006', 'Prescription (Rx)', '', { neverDiscount: true }), hit('A007', 'Services & fees'), hit('A008', 'Infant formula'),
   ],
   // A collection answers its articles: a pick writes them into the filter (2758).
   collections: [
-    { code: 'SUNCARE', name: 'Suncare', articles: ['SUN-50', 'SUN-30', 'SUN-KID'] },
-    { code: 'DIAPERS', name: 'Diapers', articles: ['DIA-4'] },
-    { code: 'WIPES', name: 'Baby wipes', articles: ['WIP-80'] },
+    hit('SUNCARE', 'Suncare', '', { articles: ['SUN-50', 'SUN-30', 'SUN-KID'] }),
+    hit('DIAPERS', 'Diapers', '', { articles: ['DIA-4'] }),
+    hit('WIPES', 'Baby wipes', '', { articles: ['WIP-80'] }),
   ],
   materials: [
-    { code: 'SUN-50', name: 'Sunblock SPF50 50ml' }, { code: 'SUN-30', name: 'Sun lotion SPF30 200ml' }, { code: 'SUN-KID', name: 'Kids sun spray SPF50' },
-    { code: 'SER-VC', name: 'Vitamin C serum 30ml' }, { code: 'DIA-4', name: 'Diapers size 4, 52 pcs' }, { code: 'WIP-80', name: 'Baby wipes, 80 pcs' },
-    { code: 'PAN-24', name: 'Paracetamol 500mg, 24 tabs' }, { code: 'AMOX-500', name: 'Amoxicillin 500mg (Rx)' }, { code: 'SHA-400', name: 'Shampoo 400ml' },
-    { code: 'SHA-DAN', name: 'Anti-dandruff shampoo 400ml' }, { code: 'SHA-ARG', name: 'Argan oil shampoo 250ml' }, { code: 'BAL-400', name: 'Balsam (conditioner) 400ml' },
-    { code: 'BAL-ARG', name: 'Argan oil balsam 250ml' }, { code: 'MIL-1', name: 'Infant formula stage 1' }, { code: 'GIFT-BAG', name: 'Travel pouch' },
-    { code: 'FEE-DLV', name: 'Delivery fee' },
+    hit('SUN-50', 'Sunblock SPF50 50ml', 'واقي شمس 50', { detail: 'A002' }), hit('SUN-30', 'Sun lotion SPF30 200ml', '', { detail: 'A002' }),
+    hit('SUN-KID', 'Kids sun spray SPF50', '', { detail: 'A002' }), hit('SER-VC', 'Vitamin C serum 30ml', '', { detail: 'A002' }),
+    hit('DIA-4', 'Diapers size 4, 52 pcs', '', { detail: 'A003' }), hit('WIP-80', 'Baby wipes, 80 pcs', '', { detail: 'A003' }),
+    hit('PAN-24', 'Paracetamol 500mg, 24 tabs', '', { detail: 'A001' }), hit('AMOX-500', 'Amoxicillin 500mg (Rx)', '', { detail: 'A006' }),
+    hit('SHA-400', 'Shampoo 400ml', '', { detail: 'A005' }), hit('SHA-DAN', 'Anti-dandruff shampoo 400ml', '', { detail: 'A005' }),
+    hit('SHA-ARG', 'Argan oil shampoo 250ml', '', { detail: 'A005' }), hit('BAL-400', 'Balsam (conditioner) 400ml', '', { detail: 'A005' }),
+    hit('BAL-ARG', 'Argan oil balsam 250ml', '', { detail: 'A005' }), hit('MIL-1', 'Infant formula stage 1', '', { detail: 'A008' }),
+    hit('GIFT-BAG', 'Travel pouch', '', { detail: 'A002' }), hit('FEE-DLV', 'Delivery fee', '', { detail: 'A007' }),
   ],
-  // 509: what Settings ▸ Audience picks from (the prototype's COUNTRIES, CHANNELS and STORES).
-  countries: [{ code: 'SA', name: 'Saudi Arabia' }, { code: 'BH', name: 'Bahrain' }],
-  channels: [
-    { code: 'POS', name: 'Store till (NewPos)' }, { code: 'CC', name: 'Call center / OMS' }, { code: 'SD', name: 'AddSdDocument' },
-    { code: 'CMRC', name: 'Hybris web (later phase)' },
-  ],
+  // 509: the stores Settings ▸ Audience searches; `detail` is the engine HQ holds each on.
   stores: [
-    { code: 'R101', name: 'Riyadh, Olaya' }, { code: 'J204', name: 'Jeddah, Tahlia' }, { code: 'D310', name: 'Dammam, Corniche' },
-    { code: 'M01', name: 'Manama, Seef' },
+    hit('R101', 'Riyadh, Olaya', '', { detail: 'Rule' }), hit('J204', 'Jeddah, Tahlia', '', { detail: 'BonusBuy' }),
+    hit('D310', 'Dammam, Corniche', '', { detail: 'BonusBuy' }), hit('M01', 'Manama, Seef', '', { detail: 'BonusBuy' }),
   ],
+  audiences: [hit('VIP', 'VIP')],
+  valueMaps: [hit('PCUT-SA01', 'Price cut (SA)', 'تخفيض السعر', { detail: 'targetPrice SAR', entries: 3 })],
+  budgets: [],
 }
 
-/** What the stubbed lookup door answers for `kind` (`categories` | `collections` | `materials` |
- *  `countries` | `channels` | `stores`) and `search`. */
-export function lookup(kind, search = '') {
-  const q = search.trim().toLowerCase()
-  return (LOOKUPS[kind] ?? []).filter((x) => !q || x.code.toLowerCase().includes(q) || x.name.toLowerCase().includes(q)).slice(0, 20)
+const BAD_LOOKUP = (message) => ({ refused: 'RULES_BAD_LOOKUP', status: 400, message })
+
+/** What the stubbed lookup door answers for `kind` and `q`: `{ hits }`, or a refusal. */
+export function lookup(kind, q = '') {
+  if (!LOOKUP_KINDS.includes(kind)) return BAD_LOOKUP(`There is no lookup '${kind}'.`)
+  const s = (q ?? '').trim().toLowerCase()
+  if (kind === 'materials' && s.length < 3) return BAD_LOOKUP('A material search needs at least 3 characters.')
+  const hits = (LOOKUPS[kind] ?? []).filter((x) => !s || x.code.toLowerCase().includes(s) || x.name.en.toLowerCase().includes(s) || (x.name.ar && x.name.ar.includes(q.trim())))
+  return { hits: hits.slice(0, 50) }
 }
 
-/**
- * GET RuleCampaign/Campaigns/{id}/BudgetUsage (510, BackOffice 2744; PROVISIONAL until 523) — a live
- * campaign's counters, one per budget: WKND20 has used SAR 12,345.50 of its SAR 50,000.00;
- * GP-BEAUTY15's busiest member has used 3 of 2 (an overshoot, ADR 0091); every other budget, nothing.
- */
-const USED = { WKND20: 12345.5, 'GP-BEAUTY15': 3 }
-export function budgetUsage(d) {
-  return (d.campaign.budgets ?? []).map((b, i) => ({ budgetId: b.id, used: i === 0 ? (USED[d.code] ?? 0) : 0 }))
+// ── 523: Validate (POST Rules/Authoring/Validate { campaign, tree? }) — the stub checks nothing of its
+// own: it answers the campaign as sound, with its offline verdict (`validationOf`). A drive that needs
+// issues answers them itself. ──
+
+// ── 523: the value map's CSV (POST Rules/Authoring/ValueMaps/Upload { campaign, csv }): `material,number`
+// per line, an optional header naming material | article | sku. A line that is not a material and a
+// number is an error pointed at its line (`block: file`, `where: "line 3"`); a material listed twice
+// is a warning. Nothing is stored: the answer's campaign has the map's entries replaced. ──
+
+const fileIssue = (severity, line, message) => ({ severity, rule: null, ruleId: null, block: 'file', index: null, field: null, where: `line ${line}`, message, path: '' })
+
+export function uploadValueMap(campaign, csv) {
+  const errors = []
+  const warnings = []
+  const entries = []
+  const seen = new Set()
+  const lines = String(csv ?? '').split(/\r?\n/)
+  lines.forEach((text, i) => {
+    const line = i + 1
+    if (!text.trim()) return
+    const cells = text.split(',').map((x) => x.trim())
+    if (i === 0 && /^(material|article|sku)$/i.test(cells[0])) return
+    const n = Number(cells[1])
+    if (cells.length !== 2 || !cells[0] || cells[1] === '' || !Number.isFinite(n)) return errors.push(fileIssue('error', line, 'A line is a material and a number.'))
+    if (seen.has(cells[0])) warnings.push(fileIssue('warning', line, `${cells[0]} is listed twice: the last line counts.`))
+    seen.add(cells[0])
+    entries.push([cells[0], n])
+  })
+  if (!entries.length && !errors.length) errors.push(fileIssue('error', 1, 'The file has no entries.'))
+  if (errors.length) return { accepted: false, entries: 0, campaign: null, errors, warnings }
+  const last = new Map(entries)
+  const map = campaign.valueMap ?? { means: 'targetPrice', unit: 'EA', entries: [] }
+  return { accepted: true, entries: last.size, campaign: { ...campaign, valueMap: { ...map, entries: [...last] } }, errors: [], warnings }
 }
 
-/**
- * PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit (510, BackOffice 2744; PROVISIONAL until
- * 523) — a live budget's new limit, at once and with no publish; or `{ refused, message }`.
- */
-export function changeLimit(d, budgetId, value) {
-  if (d.campaignStatus !== 'Published') return { refused: 'RULES_NOT_LIVE', message: 'Only a live campaign’s limit changes on its own.' }
-  const b = (d.campaign.budgets ?? []).find((x) => x.id === budgetId)
-  if (!b) return { refused: 'RULES_BUDGET_NOT_FOUND', message: 'No such budget.' }
-  if (!(value > 0)) return { refused: 'RULES_BAD_REQUEST', message: 'A budget limit must be above zero.' }
-  b.value = value
-  return { campaign: d }
+// ── 523: budgets (POST Rules/Authoring/Budgets { campaign } and Budgets/SetLimit { campaign, budget,
+// limit }, BackOffice 2758 over 2744). The NEWEST VERSION's budgets — a published campaign's — with
+// the limit in force (a live limit set here, else the declared one) and this period's used / held /
+// overshoot summed over every scope key: WKND20's campaign money has SAR 12,345.50 used and SAR 250
+// held of SAR 50,000.00; GP-BEAUTY15's member budget has one member at 3 uses of 2 (overshoot 1, ADR
+// 0091); every other budget, nothing. ──
+
+const COUNTED = { WKND20: { used: 12345.5, held: 250, counters: 1 }, 'GP-BEAUTY15': { used: 3, held: 0, counters: 1 } }
+const PERIOD_KEY = { lifetime: 'lifetime', day: '2026-10-15', week: '2026-W42', month: '2026-10' }
+
+/** What `Budgets { campaign }` answers for a campaign of `store`; `limits` holds the live limits set (`campaign|budget` → limit). */
+export function budgetsOf(store, code, limits = new Map()) {
+  const d = store.find((x) => x.code === code)
+  if (!d || d.campaignStatus !== 'Published') return []
+  return (d.campaign.budgets ?? []).map((b, i) => {
+    const limitValue = limits.get(`${code}|${b.id}`) ?? b.value
+    const c = i === 0 ? COUNTED[code] : undefined
+    const used = c?.used ?? 0
+    return {
+      campaign: code, budget: b.id, name: b.name, scope: b.scope, limit: b.limit, period: b.period,
+      declared: b.value, limitValue, periodKey: PERIOD_KEY[b.period] ?? 'lifetime',
+      used, held: c?.held ?? 0, overshoot: Math.max(0, Math.round((used - limitValue) * 1000) / 1000), counters: c?.counters ?? 0,
+    }
+  })
+}
+
+/** `Budgets/SetLimit { campaign, budget, limit }`: `{ set }`, or a refusal. */
+export function setLimit(store, limits, body) {
+  if (body?.limit == null) return { refused: 'RULES_BAD_REQUEST', status: 400, message: 'Send { campaign, budget, limit }: the new limit is required.' }
+  if (!(body.limit >= 0)) return { refused: 'RULES_BAD_REQUEST', status: 400, message: `A budget limit is zero or more, not ${body.limit}.` }
+  const view = budgetsOf(store, body.campaign, limits).find((v) => v.budget === body.budget)
+  if (!view) return { refused: 'RULES_BUDGET_NOT_FOUND', status: 404, message: `The newest version of ${body.campaign} declares no budget ${body.budget}.` }
+  limits.set(`${body.campaign}|${body.budget}`, body.limit)
+  const countersAbove = view.used > body.limit ? view.counters : 0
+  return { set: { campaignId: body.campaign, budgetId: body.budget, limitValue: body.limit, previousLimit: view.limitValue, countersAbove } }
 }
 
 // ── 512: the version history (PROVISIONAL doors until 524's Versions/*). Every published campaign has

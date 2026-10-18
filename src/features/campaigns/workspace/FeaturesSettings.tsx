@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { RULE_FEATURES, type RuleFeature } from '@/core/models/rule-campaign'
-import { ruleCatalogueQuery } from '@/core/rules/api'
+import { ruleReadingCatalogueQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import { useWorkspace } from './context'
 import { draftSave, featuresInUse } from './settings-form'
@@ -17,7 +17,7 @@ import { SaveRow, SettingsFrame, useSettingsDraft, useSettingsSave } from './set
 export default function FeaturesSettings() {
   const { t } = useTranslation('campaign-workspace')
   const { draft: d } = useWorkspace()
-  const catalogue = useQuery(ruleCatalogueQuery())
+  const catalogue = useQuery(ruleReadingCatalogueQuery())
   // The features in a fixed order, so a re-read and the page's own list compare equal.
   const { draft, setDraft, dirty, reset, adoptNext } = useSettingsDraft<RuleFeature[]>(RULE_FEATURES.filter((f) => d.features.includes(f)))
   const save = useSettingsSave('features', (features: RuleFeature[]) => draftSave(d, {}, features), adoptNext)

@@ -1,8 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { apiErrorMessage } from '@/core/api'
-import type { RuleAudienceMembers, RuleCampaignAudience, RuleLookupKind } from '@/core/models/rule-campaign'
-import { ruleLookupQuery } from '@/core/rules/api'
+import type { RuleAudienceMembers, RuleCampaignAudience } from '@/core/models/rule-campaign'
+import { AUDIENCE_CHANNELS, AUDIENCE_COUNTRIES } from '@/core/rules/lookups'
 import LookupPicks from '@/core/rules/LookupPicks'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
@@ -24,8 +22,8 @@ const audienceForm = (a: RuleCampaignAudience | undefined): AudienceForm => ({
 
 /**
  * Settings ▸ Audience (ticket 509): where and for whom the campaign runs, before any rule is looked
- * at — countries and channels picked from HQ's lists, stores searched on HQ's store lookup, and
- * whether it is for members only. None picked is every one. Uploading an audience is a later ticket
+ * at — countries and channels picked from fixed lists (HQ has no lookup for them, BO ask E), stores
+ * searched on HQ's store lookup, and whether it is for members only. None picked is every one. Uploading an audience is a later ticket
  * (the ticket's open question, ruled): this page picks only what HQ's lookups offer.
  */
 export default function AudienceSettings() {
@@ -42,10 +40,10 @@ export default function AudienceSettings() {
   return (
     <SettingsFrame page="audience">
       <SettingsField label={t('settings.audience.countries')} hint={t('settings.audience.countriesHint')}>
-        <LookupToggles kind="countries" label={t('settings.audience.countries')} value={draft.countries} onChange={(countries) => set({ countries })} />
+        <Toggles kind="countries" codes={AUDIENCE_COUNTRIES} label={t('settings.audience.countries')} value={draft.countries} onChange={(countries) => set({ countries })} />
       </SettingsField>
       <SettingsField label={t('settings.audience.channels')} hint={t('settings.audience.channelsHint')}>
-        <LookupToggles kind="channels" label={t('settings.audience.channels')} value={draft.channels} onChange={(channels) => set({ channels })} />
+        <Toggles kind="channels" codes={AUDIENCE_CHANNELS} label={t('settings.audience.channels')} value={draft.channels} onChange={(channels) => set({ channels })} />
       </SettingsField>
       <div className="grid gap-1.5 sm:grid-cols-[12rem_1fr] sm:gap-3">
         <LookupPicks
@@ -90,23 +88,29 @@ export default function AudienceSettings() {
 }
 
 /**
- * A short list HQ offers whole (countries, channels): each a toggle. A code picked earlier that HQ
- * no longer lists stays shown, pressed, so it can be taken off. It reads the lookup's answer to an
- * empty search, which is the whole list for lists this short; a list HQ caps belongs on a search
- * (`LookupPicks`), as the stores are.
+ * A short fixed list (countries, channels): each a toggle, its code and its name. A code picked
+ * earlier that the list does not hold stays shown, pressed, so it can be taken off.
  */
-function LookupToggles({ kind, label, value, onChange }: { kind: RuleLookupKind; label: string; value: string[]; onChange: (codes: string[]) => void }) {
-  const { t } = useTranslation('campaign-workspace')
-  const list = useQuery(ruleLookupQuery(kind, ''))
-  if (list.isPending) return <p className="pt-1.5 text-xs text-muted-foreground">{t('filters.searching')}</p>
-  if (list.isError)
-    return (
-      <p className="pt-1.5 text-xs text-danger-800" role="alert" data-settings-lookup-failed={kind}>
-        {apiErrorMessage(list.error, t('filters.lookupFailed'))}
-      </p>
-    )
-  const offered = list.data.map((x) => ({ code: x.code, label: formatPair(x.code, x.name) }))
-  const stale = value.filter((code) => !offered.some((o) => o.code === code)).map((code) => ({ code, label: code }))
+function Toggles({
+  kind,
+  codes,
+  label,
+  value,
+  onChange,
+}: {
+  kind: 'countries' | 'channels'
+  codes: readonly string[]
+  label: string
+  value: string[]
+  onChange: (codes: string[]) => void
+}) {
+  const { t, i18n } = useTranslation('campaign-workspace')
+  const nameOf = (code: string) => {
+    const key = `settings.audience.names.${kind}.${code}`
+    return i18n.exists(key, { ns: 'campaign-workspace' }) ? formatPair(code, t(key)) : code
+  }
+  const offered = codes.map((code) => ({ code, label: nameOf(code) }))
+  const stale = value.filter((code) => !codes.includes(code)).map((code) => ({ code, label: code }))
   return (
     <span className="flex flex-wrap gap-1.5" role="group" aria-label={label} data-settings-toggles={kind}>
       {[...offered, ...stale].map((o) => {

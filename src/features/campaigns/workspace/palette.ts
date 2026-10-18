@@ -3,23 +3,24 @@ import type {
   RuleBlockCatalogue,
   RuleBlockKind,
   RuleCatalogueBlock,
-  RuleCatalogueField,
+  RuleCatalogueGroup,
   RuleCondition,
   RuleEffect,
   RuleFeature,
 } from '@/core/models/rule-campaign'
 import { RULE_GROUP_CHECK } from '@/core/models/rule-campaign'
 
-// The builder's palette (ticket 505, schema 1 in 522): which blocks "+ Condition" / "+ Effect"
-// offers, grouped by the catalogue's palette groups, and the new block a pick adds. Pure.
+// The builder's palette (ticket 505; schema 1 in 522; HQ's catalogue in 523): which blocks
+// "+ Condition" / "+ Effect" offers, grouped by the catalogue's palette groups, and the new block a
+// pick adds. Pure.
 //
-// A block is offered only when
-//   - the catalogue says it is decided (a block the map has not decided is left out, not greyed);
-//   - the campaign's features switch it on (points blocks with points, coupon blocks with coupons).
-// Every field kind has its control in the panel; a formula is written with the guided ƒx helper (507).
+// The palette reads the catalogue HQ answers for the campaign's features (`Rules/Authoring/
+// Catalogue { features }`), which does not list a block of a feature the campaign lacks — so the
+// palette leaves those out, as 505 ruled. It also leaves out a block HQ marks `open` (what the spec
+// has not decided yet): left out, not greyed.
 
 export interface PaletteGroup {
-  key: string
+  group: RuleCatalogueGroup
   blocks: RuleCatalogueBlock[]
 }
 
@@ -29,51 +30,56 @@ export interface Palette {
   hiddenFeatures: RuleFeature[]
 }
 
-export function paletteFor(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, features: readonly RuleFeature[]): Palette {
-  const candidates = catalogue.blocks.filter((b) => b.kind === kind && b.decided)
-  const offered = candidates.filter((b) => b.feature === null || features.includes(b.feature))
+const blocksOf = (catalogue: RuleBlockCatalogue, kind: RuleBlockKind) => (kind === 'condition' ? catalogue.conditions : catalogue.effects)
+
+/**
+ * The palette of `catalogue` (the campaign's features'). `everything` — the catalogue with every
+ * feature on, when it is known — says which features that are off would add blocks of this kind.
+ */
+export function paletteFor(catalogue: RuleBlockCatalogue, kind: RuleBlockKind, everything?: RuleBlockCatalogue): Palette {
+  const offered = blocksOf(catalogue, kind).filter((b) => b.open == null)
   const groups = catalogue.groups
     .filter((g) => g.kind === kind)
-    .map((g) => ({ key: g.key, blocks: offered.filter((b) => b.group === g.key) }))
+    .map((group) => ({ group, blocks: offered.filter((b) => b.group === group.id) }))
     .filter((g) => g.blocks.length > 0)
-  const hiddenFeatures = [...new Set(candidates.flatMap((b) => (b.feature !== null && !features.includes(b.feature) ? [b.feature] : [])))]
+  const on = new Set(catalogue.features)
+  const hiddenFeatures = everything
+    ? [...new Set(blocksOf(everything, kind).flatMap((b) => (b.open == null && b.feature !== null && !on.has(b.feature) ? [b.feature] : [])))]
+    : []
   return { groups, hiddenFeatures }
-}
-
-/** A new, empty value for a field, by its kind; `undefined` leaves the field out (a number is left
- *  unset, so the sentence says "not picked yet"; a clause stays off). */
-function emptyValue(field: RuleCatalogueField, rule: Pick<CampaignRule, 'filters'>, kind: RuleBlockKind): unknown {
-  if (field.default !== undefined) return field.default
-  switch (field.kind) {
-    case 'items':
-      // An effect usually works on the rule's own filter; a condition starts on all merchandise.
-      return kind === 'effect' ? rule.filters[0]?.id : undefined
-    case 'choice':
-      return field.options?.[0]
-    case 'choices':
-    case 'codes':
-      return []
-    case 'says':
-      return { en: '', ar: '' }
-    default:
-      return undefined
-  }
 }
 
 /** A new rule: no name yet, no filter, no condition (it reads "always") and no effect. */
 export const newRule = (id: string): CampaignRule => ({ id, name: '', filters: [], values: [], when: [], then: [] })
 
-/** The block a palette pick adds: `{ check | effect: type, ...defaults }` (schema 1 gives a block no id). */
+const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+
+/**
+ * The block a palette pick adds: HQ's `example` for it (a block the checker accepts as written)
+ * — its figures, choices, yes / no and texts are the block's defaults (504/505's open question) —
+ * with HQ's SAMPLE identifiers left out, since they name nothing of this campaign: a `code` or
+ * `codes` (a sample store, channel, tier, coupon pattern, activity, template, flag) is left for the
+ * marketer to pick ("not picked yet"), and so is a `budget`; a field of type `filter` points at the
+ * rule's first filter on an effect (an effect usually works on the rule's own filter) and is left out
+ * on a condition (all merchandise); a group starts empty. Schema 1 gives a block no id.
+ */
 export function newBlock(block: RuleCatalogueBlock, rule: Pick<CampaignRule, 'filters'>): RuleCondition | RuleEffect {
-  const fields: Record<string, unknown> = {}
+  const example = isObject(block.example) ? structuredClone(block.example) : {}
   for (const f of block.fields) {
-    const v = emptyValue(f, rule, block.kind)
-    if (v !== undefined) fields[f.key] = v
+    if (f.type === 'filter') {
+      const first = block.kind === 'effect' ? rule.filters[0]?.id : undefined
+      if (first) example[f.name] = first
+      else delete example[f.name]
+    }
+    if (f.type === 'budget' || f.type === 'code') delete example[f.name]
+    if (f.type === 'codes') example[f.name] = []
   }
   if (block.kind === 'condition') {
+    const { check: _check, ...fields } = example
     if (block.type === RULE_GROUP_CHECK) return { check: block.type, ...fields, conditions: [] }
-    return { check: block.type, ...fields, says: { en: '', ar: '' } }
+    return { check: block.type, ...fields }
   }
+  const { effect: _effect, ...fields } = example
   return { effect: block.type, ...fields }
 }
 

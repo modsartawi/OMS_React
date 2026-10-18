@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import type { RuleLookupItem, RuleSimRequest } from '@/core/models/rule-campaign'
 import { ruleCampaignApi, ruleCampaignQuery, ruleLookupQuery } from '@/core/rules/api'
 import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
+import { AUDIENCE_CHANNELS, lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -47,11 +48,10 @@ export default function SimulatorPage() {
   const [includeDrafts, setIncludeDrafts] = useState(false)
 
   const stores = useQuery(ruleLookupQuery('stores', ''))
-  const channels = useQuery(ruleLookupQuery('channels', ''))
   const chosen = useQuery({ ...ruleCampaignQuery(draftId ?? ''), enabled: !!draftId })
   const draft = draftId ? chosen.data : undefined
-  // Until the reader picks one, the channel is the first HQ lists.
-  const channelValue = channel ?? channels.data?.[0]?.code ?? ''
+  // Until the reader picks one, the channel is the first listed. HQ has no channels lookup (BO ask E).
+  const channelValue = channel ?? AUDIENCE_CHANNELS[0]
 
   const request = simRequest({ basket, store, memberId, channel: channelValue, date, time, includeDrafts, draftId })
   const run = useMutation({
@@ -83,7 +83,15 @@ export default function SimulatorPage() {
                 )}
               </Field>
               <Field label={t('sale.channel')}>
-                {(id) => <LookupSelect id={id} kind="channels" query={channels} value={channelValue} onChange={setChannel} data="channel" />}
+                {(id) => (
+                  <select id={id} className={RULE_INPUT} value={channelValue} onChange={(e) => setChannel(e.target.value)} data-sim-field="channel">
+                    {AUDIENCE_CHANNELS.map((c) => (
+                      <option key={c} value={c}>
+                        {fsi(c)}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </Field>
               <Field label={t('sale.date')}>
                 {(id) => <input id={id} type="date" className={RULE_INPUT} value={date} onChange={(e) => setDate(e.target.value)} data-sim-field="date" />}
@@ -206,21 +214,21 @@ function LookupSelect({
   data,
 }: {
   id: string
-  kind: 'stores' | 'channels'
+  kind: 'stores'
   query: UseQueryResult<RuleLookupItem[]>
   value: string
   onChange: (code: string) => void
   placeholder?: string
   data: string
 }) {
-  const { t } = useTranslation('rule-simulator')
+  const { t, i18n } = useTranslation('rule-simulator')
   return (
     <>
       <select id={id} className={RULE_INPUT} value={value} onChange={(e) => onChange(e.target.value)} data-sim-field={data}>
         {placeholder && <option value="">{placeholder}</option>}
         {(query.data ?? []).map((x) => (
           <option key={x.code} value={x.code}>
-            {fsi(formatPair(x.code, x.name))}
+            {fsi(formatPair(x.code, lookupName(x, i18n.language)))}
           </option>
         ))}
       </select>

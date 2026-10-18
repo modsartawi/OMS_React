@@ -49,9 +49,9 @@ export function pageLanded(to: string): boolean {
 
 /**
  * Settings ▸ (ticket 509; the prototype's `SMENU`): one page each, with its own Cancel / Save, at
- * `settings/<key>`. Budgets landed with 510.
+ * `settings/<key>`. Budgets landed with 510, Value map with 523.
  */
-export type SettingsPageKey = 'details' | 'schedule' | 'audience' | 'features' | 'budgets' | 'offline'
+export type SettingsPageKey = 'details' | 'schedule' | 'audience' | 'features' | 'budgets' | 'valueMap' | 'offline'
 
 export const SETTINGS_PAGES: readonly { key: SettingsPageKey; landed: boolean }[] = [
   { key: 'details', landed: true },
@@ -59,6 +59,7 @@ export const SETTINGS_PAGES: readonly { key: SettingsPageKey; landed: boolean }[
   { key: 'audience', landed: true },
   { key: 'features', landed: true },
   { key: 'budgets', landed: true },
+  { key: 'valueMap', landed: true },
   { key: 'offline', landed: true },
 ]
 

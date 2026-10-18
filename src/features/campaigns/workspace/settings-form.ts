@@ -81,7 +81,7 @@ export function featuresInUse(
   rules: readonly CampaignRule[],
   catalogue: RuleBlockCatalogue,
 ): FeatureInUse[] {
-  const needs = new Map(catalogue.blocks.map((b) => [`${b.kind}:${b.type}`, b.feature]))
+  const needs = new Map([...catalogue.conditions, ...catalogue.effects].map((b) => [`${b.kind}:${b.type}`, b.feature]))
   const off = current.filter((f) => !next.includes(f))
   return off.flatMap((feature) => {
     const using = rules.filter(

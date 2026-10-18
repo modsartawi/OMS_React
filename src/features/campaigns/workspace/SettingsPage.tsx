@@ -7,9 +7,10 @@ import FeaturesSettings from './FeaturesSettings'
 import { settingsPage } from './menu'
 import OfflineSettings from './OfflineSettings'
 import ScheduleSettings from './ScheduleSettings'
+import ValueMapSettings from './ValueMapSettings'
 
 /**
- * Settings ▸ (ticket 509): Details, Schedule, Audience, Features, Budgets (510) and Offline, one
+ * Settings ▸ (ticket 509): Details, Schedule, Audience, Features, Budgets (510), Value map (523) and Offline, one
  * page each at `settings/<page>` — each with its own Cancel / Save, Budgets saving from its drawer.
  * A page that is unknown or not landed yet opens Details instead.
  */
@@ -26,6 +27,8 @@ export default function SettingsPage() {
       return <FeaturesSettings />
     case 'budgets':
       return <BudgetsSettings />
+    case 'valueMap':
+      return <ValueMapSettings />
     case 'offline':
       return <OfflineSettings />
     default:

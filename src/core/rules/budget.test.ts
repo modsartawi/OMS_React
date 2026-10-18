@@ -7,7 +7,7 @@ import i18next from 'i18next'
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/campaign-workspace.json'
 import type { RuleBudgetLimit, RuleBudgetPeriod, RuleBudgetScope } from '@/core/models/rule-campaign'
-import { BUDGET_LIMITS, BUDGET_PERIODS, BUDGET_SCOPES, budgetAmount, budgetFigure, budgetSentence, budgetUsage } from './budget'
+import { BUDGET_LIMITS, BUDGET_PERIODS, BUDGET_SCOPES, budgetAmount, budgetCount, budgetFigure, budgetSentence, budgetUsage } from './budget'
 import { plainSentence } from './sentence'
 
 const instance = i18next.createInstance()
@@ -68,7 +68,7 @@ describe('budgetSentence_readsEveryScopeAndPeriod', () => {
         for (const period of BUDGET_PERIODS) {
           const s = budgetSentence({ scope, limit, value: 1, period }, 'SAR')
           expect(instance.exists(s.key)).toBe(true)
-          for (const v of Object.values(s.values)) if (v.kind === 'phrase') expect(instance.exists(v.sentence.key)).toBe(true)
+          for (const v of Object.values(s.values)) if (v.kind === 'phrase' && 'key' in v.sentence) expect(instance.exists(v.sentence.key)).toBe(true)
         }
   })
 })
@@ -107,5 +107,26 @@ describe('budgetAmount', () => {
     expect(budgetFigure('money', 12345.5, 'SAR')).toBe('SAR 12,345.50')
     expect(budgetFigure('pointsGiven', 0.1, 'BHD')).toBe('BHD 0.100')
     expect(budgetFigure('uses', 1200, 'SAR')).toBe('1200')
+  })
+})
+
+describe('budgetCount_readsHqsView', () => {
+  const view = { scope: 'campaign' as const, used: 12345.5, held: 250, limitValue: 50000, overshoot: 0, counters: 1 }
+
+  it('a campaign-wide budget: used against the limit in force, held beside it, a bar', () => {
+    const c = budgetCount(view)
+    expect(c).toMatchObject({ used: 12345.5, held: 250, limit: 50000, overshoot: null, counters: 1 })
+    expect(c.bar?.share).toBeCloseTo(0.24691)
+  })
+
+  it('a per-key budget: what its keys used together, the limit each has, and no bar', () => {
+    const c = budgetCount({ ...view, scope: 'profile', used: 3, held: 0, limitValue: 2, overshoot: 1, counters: 1 })
+    expect(c).toMatchObject({ used: 3, limit: 2, overshoot: 1, counters: 1, bar: null })
+  })
+
+  it('the overshoot is HQ’s, held to the fils, never worked out again here', () => {
+    // Summed per key by HQ: two members one over each is 2, though 5 used of a limit of 2 "is" 3.
+    expect(budgetCount({ ...view, scope: 'profile', used: 5, limitValue: 2, overshoot: 2, counters: 2 }).overshoot).toBe(2)
+    expect(budgetCount({ ...view, overshoot: 0.1 + 0.2 }).overshoot).toBe(0.3)
   })
 })

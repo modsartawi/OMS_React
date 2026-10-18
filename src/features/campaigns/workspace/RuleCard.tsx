@@ -14,6 +14,7 @@ import type {
 } from '@/core/models/rule-campaign'
 import { RULE_BURN_POINTS, RULE_GROUP_CHECK, type RuleConditionGroup } from '@/core/models/rule-campaign'
 import { addFilter, effectLetsRxIn } from '@/core/rules/filters'
+import { FORMULA_GUIDE } from '@/core/rules/formula-guide'
 import {
   blockSentence,
   blockType,
@@ -22,6 +23,7 @@ import {
   groupSentence,
   isConditionGroup,
   ruleSummary,
+  sentenceId,
   whenSentence,
   type SaysLine,
   type SentenceContext,
@@ -59,9 +61,12 @@ export interface Builder {
   openId: string | null
   setOpenId: (id: string | null) => void
   campaign: RuleCampaign
-  /** The draft's features: they gate the palette. */
+  /** The draft's features. */
   features: RuleFeature[]
+  /** The catalogue with every feature on: what a block is read through. */
   catalogue: RuleBlockCatalogue
+  /** The catalogue HQ answers for the draft's features: what the palette offers. */
+  palette: RuleBlockCatalogue
   /** A new rule's or filter's id (blocks and values get builder keys instead). */
   newId: () => string
   /** A new block's or value's builder key (`./block-keys`). */
@@ -193,8 +198,8 @@ export default function RuleCard({
             <PaletteMenu
               kind="condition"
               label={t('builder.addCondition')}
-              catalogue={b.catalogue}
-              features={b.features}
+              palette={b.palette}
+              everything={b.catalogue}
               onPick={(block) => pick(block, null)}
               data="when"
             />
@@ -227,7 +232,7 @@ export default function RuleCard({
             ) : (
               <Muted>{t('rules.noEffects')}</Muted>
             )}
-            <PaletteMenu kind="effect" label={t('builder.addEffect')} catalogue={b.catalogue} features={b.features} onPick={(block) => pick(block, null)} data="then" />
+            <PaletteMenu kind="effect" label={t('builder.addEffect')} palette={b.palette} everything={b.catalogue} onPick={(block) => pick(block, null)} data="then" />
           </Section>
 
           {(rule.bundle || rule.then.some((e) => BUNDLE_EFFECTS.includes(e.effect))) && (
@@ -308,7 +313,7 @@ function Group({
       ) : (
         <Muted>{t('builder.emptyGroup')}</Muted>
       )}
-      <PaletteMenu kind="condition" label={t('builder.addToGroup')} catalogue={b.catalogue} features={b.features} onPick={(block) => pick(block, key)} data={key} />
+      <PaletteMenu kind="condition" label={t('builder.addToGroup')} palette={b.palette} everything={b.catalogue} onPick={(block) => pick(block, key)} data={key} />
     </li>
   )
 }
@@ -370,7 +375,7 @@ function Block({
       }
       {...{ [`data-${kind}`]: key }}
       data-block-path={path}
-      data-sentence={read.sentence.key}
+      data-sentence={sentenceId(read.sentence, blockType(item))}
       data-open={open ? '' : undefined}
       data-block-rx={rx ? '' : undefined}
       data-block-checks={tone ?? undefined}
@@ -412,7 +417,7 @@ function Block({
             entry={entry}
             rule={rule}
             campaign={b.campaign}
-            guide={b.catalogue.formula}
+            guide={FORMULA_GUIDE}
             set={(field, value, coalesce) => b.edit((rules) => setBlockField(rules, rule.id, key, field, value), coalesce ? `field:${key}.${field}` : undefined)}
             withFilter={(filter, field, value) => b.edit((rules) => setBlockField(addFilter(rules, rule.id, filter), rule.id, key, field, value))}
             newId={b.newId}

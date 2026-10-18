@@ -176,11 +176,10 @@ async function open({ cancel = ['ok'], list = 'ok', stores = 'ok' } = {}) {
     const p = decodeURIComponent(url.pathname.split('/api/')[1])
     calls.push(`${req.method()} ${p}${url.search}`)
     if (p === 'Auth/Me') return route.fulfill(ok({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    // The store lookup, on the builder's door it calls today (the provisional one) or the real one (ticket 523).
-    if (p === 'RuleCampaign/Lookups/Stores' || p === 'Rules/Authoring/Lookups/stores') {
+    // The store lookup (POST Rules/Authoring/Lookups/stores { q }, BackOffice 2758, re-pointed in 523).
+    if (p === 'Rules/Authoring/Lookups/stores' && req.method() === 'POST') {
       if (stores === 'denied') return route.fulfill(bare403)
-      const rows = lookup('stores', url.searchParams.get('search') ?? '')
-      return route.fulfill(ok(p.startsWith('Rules/') ? rows.map((s) => ({ code: s.code, name: { en: s.name, ar: '' }, detail: 'Rule', articles: [], entries: 0, neverDiscount: false })) : rows))
+      return route.fulfill(ok(lookup('stores', req.postDataJSON()?.q ?? '').hits))
     }
     if (p === 'Rules/Support/Sessions' && req.method() === 'GET') {
       if (list === 'denied') return route.fulfill(bare403)

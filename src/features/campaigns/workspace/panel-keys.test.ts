@@ -1,30 +1,25 @@
 /**
- * Ticket 505 — every block, palette group, field and choice of the catalogue has words in the
- * `campaign-workspace` bundle, so neither the palette nor a panel ever shows a raw key.
+ * Tickets 505 / 523 — every field and choice of HQ's catalogue blocks has words in the
+ * `campaign-workspace` bundle, so a panel never shows a raw key. (Blocks and palette groups are named
+ * in HQ's own words, the catalogue's `name`, since 523.)
  */
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/campaign-workspace.json'
+import { blockFields } from '@/core/rules/sentence'
 import { CATALOGUE } from '../../../../tools/campaigns-fixtures.mjs'
-import { blockLabelKey, fieldLabelKey, groupLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
+import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
 
 const has = (key: string) => typeof key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), en) === 'string'
 
 describe('panel keys', () => {
-  it('names every catalogue block and palette group', () => {
-    const missing = [
-      ...CATALOGUE.blocks.map((b) => blockLabelKey(b.kind, b.type)),
-      ...CATALOGUE.groups.map((g) => groupLabelKey(g.key)),
-    ].filter((k) => !has(k))
-    expect(missing).toEqual([])
-  })
-
-  it('labels every field and every choice', () => {
+  it('labels every field and every choice the panel shows', () => {
     const missing: string[] = []
-    for (const b of CATALOGUE.blocks)
-      for (const f of b.fields) {
-        if (f.kind === 'says') continue
-        if (!has(fieldLabelKey(b.type, f.key, has))) missing.push(`${b.type}.${f.key}`)
-        for (const o of f.options ?? []) if (!optionLabelKey(b.type, f.key, o, has)) missing.push(`${b.type}.${f.key}=${o}`)
+    for (const b of [...CATALOGUE.conditions, ...CATALOGUE.effects])
+      for (const f of blockFields(b)) {
+        // EN + AR lines are labelled by their role; a group's conditions are edited in the card.
+        if (f.type === 'text' || f.type === 'conditions') continue
+        if (!has(fieldLabelKey(b.type, f.name, has))) missing.push(`${b.type}.${f.name}`)
+        for (const o of f.values ?? []) if (!optionLabelKey(b.type, f.name, o, has)) missing.push(`${b.type}.${f.name}=${o}`)
       }
     expect(missing).toEqual([])
   })

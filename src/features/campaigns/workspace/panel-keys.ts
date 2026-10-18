@@ -1,16 +1,10 @@
-import type { RuleBlockKind } from '@/core/models/rule-campaign'
-
-// Where the palette's and the panel's words live in the `campaign-workspace` bundle (ticket 505).
-// Pure: `has` answers whether a key exists. A field's label is its block's own when the block has
-// one (`panel.typeField.<type>.<key>`), else the field's usual one (`panel.field.<key>`); a choice's
-// words are the panel's own, else the sentence's (`sentence.option.…`), else null — the panel then
-// shows the value as a code, never a raw key.
+// Where the panel's words live in the `campaign-workspace` bundle (ticket 505; the palette names
+// blocks and groups in HQ's words since 523). Pure: `has` answers whether a key exists. A field's
+// label is its block's own when the block has one (`panel.typeField.<type>.<key>`), else the field's
+// usual one (`panel.field.<key>`); a choice's words are the panel's own, else the sentence's
+// (`sentence.option.…`), else null — the panel then shows the value as a code, never a raw key.
 
 type Has = (key: string) => boolean
-
-export const blockLabelKey = (kind: RuleBlockKind, type: string) => `palette.block.${kind}.${type}`
-
-export const groupLabelKey = (group: string) => `palette.group.${group}`
 
 export const fieldLabelKey = (type: string, key: string, has: Has): string => {
   const own = `panel.typeField.${type}.${key}`

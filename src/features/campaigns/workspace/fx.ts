@@ -1,4 +1,5 @@
-import type { CampaignRule, RuleExpr, RuleFormulaGuide, RuleFormulaRecipe, RuleFormulaType, RuleNamedValue } from '@/core/models/rule-campaign'
+import type { CampaignRule, RuleExpr, RuleNamedValue } from '@/core/models/rule-campaign'
+import type { RuleFormulaGuide, RuleFormulaRecipe, RuleFormulaType } from '@/core/rules/formula-guide'
 import { parseExpr, printExpr, type ExprProblem } from '@/core/rules/expr'
 import { keyOf } from './block-keys'
 

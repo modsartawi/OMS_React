@@ -2,9 +2,10 @@ import { useId, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Check, Search, X } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
-import type { RuleLookupItem, RuleLookupKind } from '@/core/models/rule-campaign'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { RULE_MATERIAL_SEARCH_MIN, type RuleLookupItem, type RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
+import { lookupName } from '@/core/rules/lookups'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
@@ -32,7 +33,8 @@ function Step({ id, label, children }: { id: string; label: ReactNode; children:
 
 /**
  * One step of the chain: the codes picked so far, each removable, and a search on HQ's lookup
- * (`ruleLookupQuery`) whose hits add a code. A material is found by its SKU or its name.
+ * (`ruleLookupQuery`) whose hits add a code. A material is found by its SKU or its name, from
+ * three characters on (HQ refuses a shorter material search).
  */
 export default function LookupPicks({
   kind,
@@ -59,14 +61,15 @@ export default function LookupPicks({
    */
   onPickHit?: (hit: RuleLookupItem) => void
 }) {
-  const { t } = useTranslation('campaign-workspace')
+  const { t, i18n } = useTranslation('campaign-workspace')
   const [find, setFind] = useState('')
   const q = useDebounced(find.trim(), 250)
-  const hits = useQuery({ ...ruleLookupQuery(kind, q), enabled: q !== '' })
+  const tooShort = kind === 'materials' && q !== '' && q.length < RULE_MATERIAL_SEARCH_MIN
+  const hits = useQuery({ ...ruleLookupQuery(kind, q), enabled: q !== '' && !tooShort })
   const id = `lookup-${data}-${useId()}`
   const listId = `${id}-hits`
   // Only while the search settled on what is typed: a pick clears the input, and its old hits go with it.
-  const searching = q !== '' && q === find.trim()
+  const searching = q !== '' && !tooShort && q === find.trim()
   const found = hits.data ?? []
 
   return (
@@ -115,13 +118,18 @@ export default function LookupPicks({
           data-lookup={data}
         />
       </span>
+      {tooShort && q === find.trim() && (
+        <p className="text-xs text-muted-foreground" data-lookup-short={data}>
+          {t('filters.searchTooShort')}
+        </p>
+      )}
       {searching && (
         <div id={listId} className="max-w-md rounded-md border border-border/60 bg-card" aria-live="polite" data-lookup-hits={data}>
           {hits.isPending ? (
             <p className="px-2 py-1.5 text-xs text-muted-foreground">{t('filters.searching')}</p>
           ) : hits.isError ? (
             <p className="px-2 py-1.5 text-xs text-danger-800" role="alert">
-              {apiErrorMessage(hits.error, t('filters.lookupFailed'))}
+              {isBareDenial(hits.error) ? t('filters.lookupDenied') : apiErrorMessage(hits.error, t('filters.lookupFailed'))}
             </p>
           ) : found.length === 0 ? (
             <p className="px-2 py-1.5 text-xs text-muted-foreground" data-lookup-empty="">
@@ -145,7 +153,7 @@ export default function LookupPicks({
                       data-lookup-hit={h.code}
                     >
                       <span className="flex-1">
-                        <Ltr>{formatPair(h.code, h.name)}</Ltr>
+                        <Ltr>{formatPair(h.code, lookupName(h, i18n.language))}</Ltr>
                       </span>
                       {picked && <Check className="h-3.5 w-3.5" aria-label={t('filters.picked')} />}
                     </button>

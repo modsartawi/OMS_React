@@ -137,12 +137,12 @@ function reads(x: unknown, ref: string): boolean {
   return false
 }
 
-/** The fields of a block that read `value`: a points / discount field, or a formula. */
+/** The fields of a block that read `value`: its formula fields. */
 function fieldsReading(kind: 'condition' | 'effect', block: RuleCondition | RuleEffect, value: RuleNamedValue, catalogue: RuleBlockCatalogue): string[] {
   const entry = catalogueBlock(catalogue, kind, blockType(block))
   const raw = block as Record<string, unknown>
   const ref = valueRef(value.name)
-  return (entry?.fields ?? []).filter((f) => (f.kind === 'points' || f.kind === 'discount' || f.kind === 'formula') && reads(raw[f.key], ref)).map((f) => f.key)
+  return (entry?.fields ?? []).filter((f) => f.type === 'formula' && reads(raw[f.name], ref)).map((f) => f.name)
 }
 
 /** Every condition, effect and later value of the rule that reads the value. */

@@ -7,7 +7,8 @@
 //   POST RuleCampaign/Simulate             → tools/simulator-fixtures.mjs `simulate`: the prototype's
 //                                            six baskets with the prototype engine's answers; the
 //                                            first `refuseRun` runs are refused
-//   GET  RuleCampaign/Lookups/{Materials|Stores|Channels}?search= → tools/campaigns-fixtures.mjs `lookup`
+//   POST Rules/Authoring/Lookups/{materials|stores} { q } → tools/campaigns-fixtures.mjs `lookup` (523; a
+//       material search under three characters is refused RULES_BAD_LOOKUP; channels are a fixed list)
 //   GET  RuleCampaign/Campaigns (PROVISIONAL, 524's list) and POST Rules/Authoring/Drafts/Load { campaign }
 //        (the real 2758 door, ticket 522: tools/campaigns-fixtures.mjs `loadDraft`) → the dashboard's way in
 // Never a live SIS.Api.
@@ -93,8 +94,11 @@ async function open({ refuseRun = 0 } = {}) {
       }
       return route.fulfill(envelope(simulate(body)))
     }
-    const lk = /^RuleCampaign\/Lookups\/(Materials|Stores|Channels)$/.exec(p)
-    if (lk && req.method() === 'GET') return route.fulfill(envelope(lookup(lk[1].toLowerCase(), url.searchParams.get('search') ?? '')))
+    const lk = /^Rules\/Authoring\/Lookups\/(\w+)$/.exec(p)
+    if (lk && req.method() === 'POST') {
+      const out = lookup(lk[1], req.postDataJSON()?.q ?? '')
+      return route.fulfill(out.hits ? envelope(out.hits) : envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }))
+    }
     if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(CAMPAIGNS.map(listRow)))
     if (p === 'Rules/Authoring/Drafts/Load' && req.method() === 'POST') {
       const out = loadDraft(CAMPAIGNS, req.postDataJSON()?.campaign)

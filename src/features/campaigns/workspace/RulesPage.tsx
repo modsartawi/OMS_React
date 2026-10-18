@@ -2,16 +2,17 @@ import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode } from '@/core/api'
 import type { CampaignRule } from '@/core/models/rule-campaign'
-import { rememberSavedDraft, ruleCampaignApi, ruleCampaignKey, ruleCatalogueQuery } from '@/core/rules/api'
+import { rememberSavedDraft, ruleCampaignApi, ruleCampaignKey, ruleCatalogueQuery, ruleReadingCatalogueQuery, ruleValidateQuery } from '@/core/rules/api'
 import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { mintRequestId } from '@/core/util/request-id'
+import { useDebounced } from '@/core/util/use-debounced'
 import { mintKey } from './block-keys'
-import { builderHistory, canRedo, canUndo, initialHistory, isDirty } from './builder-history'
+import { builderHistory, canRedo, canUndo, initialHistory, isDirty, sameRules } from './builder-history'
 import { focusTarget, indexChecks, locateChecks, type CheckPlace } from './checks'
 import ChecksPill from './ChecksPill'
 import LeaveGuard from './LeaveGuard'
@@ -20,7 +21,7 @@ import { newRule } from './palette'
 import { addRule } from './rule-edit'
 import RuleCard, { type Builder } from './RuleCard'
 import { draftSave } from './settings-form'
-import { DRAFT_PENDING, DRAFT_STALE } from './settings-ui'
+import { DRAFT_PENDING, DRAFT_STALE, refusalText } from './settings-ui'
 
 /**
  * The Rule builder (tickets 504, 505): the campaign's rules top to bottom, each a collapsible card
@@ -34,24 +35,39 @@ import { DRAFT_PENDING, DRAFT_STALE } from './settings-ui'
  * the page offers to reload; a draft waiting for approval is frozen (`RULES_DRAFT_PENDING`). Leaving
  * the page — in the app or by closing the tab — with unsaved changes asks first.
  *
- * The checks pill (ticket 508) reads the saved draft's validation, which every Save answers anew.
- * Each issue is found by its path in the saved rules and, through the block's builder key, on the
- * rules as they are on screen; a click on one expands its rule, opens its panel and focuses the field.
+ * The checks pill (ticket 508) reads HQ's checks of the rules on screen: the saved draft's validation
+ * while nothing is changed, and once the edits settle, `Rules/Authoring/Validate` of the unsaved
+ * campaign (ticket 523; nothing is stored). Each issue is found by its path in the rules it was made
+ * of and, through the block's builder key, on the rules as they are on screen; a click on one expands
+ * its rule, opens its panel and focuses the field.
  */
 export default function RulesPage() {
   const { t, i18n } = useTranslation('campaign-workspace')
   const { draft } = useWorkspace()
   const c = draft.campaign
   const queryClient = useQueryClient()
-  const catalogue = useQuery(ruleCatalogueQuery())
+  // A block is read through the catalogue with every feature on; the palette offers what HQ lists
+  // for the draft's own features.
+  const catalogue = useQuery(ruleReadingCatalogueQuery())
+  const palette = useQuery(ruleCatalogueQuery(draft.features))
   const [history, dispatch] = useReducer(builderHistory, c.rules, initialHistory)
   const frozen = draft.state === 'pending'
   /** The rules the reader closed; every rule opens expanded. */
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const rules = history.present
-  const validation = draft.validation
-  const located = useMemo(() => locateChecks(history.saved, rules, validation), [history.saved, rules, validation])
+  // HQ's checks of the rules on screen, once the edits settle for a moment; the saved draft's own
+  // validation while they are the saved ones (Drafts/Load and Save answer it).
+  const settled = useDebounced(rules, VALIDATE_AFTER_MS)
+  const changed = useMemo(() => !sameRules(settled, history.saved), [settled, history.saved])
+  const asked = useMemo(() => ({ campaign: { ...c, rules: settled }, ...(draft.tree ? { tree: draft.tree } : {}) }), [c, settled, draft.tree])
+  const validateOptions = useMemo(() => ruleValidateQuery(asked), [asked])
+  const validate = useQuery({ ...validateOptions, enabled: changed })
+  const checked = changed ? { rules: settled, validation: validate.data } : { rules: history.saved, validation: draft.validation }
+  const validation = checked.validation
+  const located = useMemo(() => locateChecks(checked.rules, rules, validation), [checked.rules, rules, validation])
+  /** The checks are of rules other than those on screen: an edit since, not yet checked. */
+  const checksBehind = useMemo(() => !sameRules(checked.rules, rules), [checked.rules, rules])
   const checksIndex = useMemo(() => indexChecks(located), [located])
   /** The control a click in the pill asked for; focused once the rule and the panel have opened. */
   const [focusAsk, setFocusAsk] = useState<{ ids: string[]; within: string | null } | null>(null)
@@ -117,7 +133,8 @@ export default function RulesPage() {
       return next
     })
 
-  const builder: Builder | null = catalogue.data
+  const builder: Builder | null =
+    catalogue.data && palette.data
     ? {
         edit: (fn, coalesce) => {
           if (save.isError) save.reset()
@@ -132,6 +149,7 @@ export default function RulesPage() {
         campaign: c,
         features: draft.features,
         catalogue: catalogue.data,
+        palette: palette.data,
         newId: mintRequestId,
         newKey: mintKey,
         checks: checksIndex,
@@ -144,20 +162,26 @@ export default function RulesPage() {
   }
 
   let body: ReactNode
-  if (catalogue.isPending) {
+  const failedCatalogue = catalogue.isError ? catalogue : palette.isError ? palette : null
+  /** Reads again whichever catalogue failed — both, when both did. */
+  const retryCatalogues = () => {
+    if (catalogue.isError) void catalogue.refetch()
+    if (palette.isError) void palette.refetch()
+  }
+  if (failedCatalogue) {
+    body = (
+      <ErrorBanner className="p-3" title={t('rules.catalogueFailedTitle')} message={refusalText(t, failedCatalogue.error, t('rules.catalogueFailed'))}>
+        <Button variant="outlined" className="mt-2" onClick={retryCatalogues} disabled={catalogue.isFetching || palette.isFetching} data-catalogue-retry="">
+          {t('rules.retry')}
+        </Button>
+      </ErrorBanner>
+    )
+  } else if (!builder) {
     body = (
       <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         {t('rules.catalogueLoading')}
       </div>
-    )
-  } else if (catalogue.isError || !builder) {
-    body = (
-      <ErrorBanner className="p-3" title={t('rules.catalogueFailedTitle')} message={apiErrorMessage(catalogue.error, t('rules.catalogueFailed'))}>
-        <Button variant="outlined" className="mt-2" onClick={() => void catalogue.refetch()} disabled={catalogue.isFetching} data-catalogue-retry="">
-          {t('rules.retry')}
-        </Button>
-      </ErrorBanner>
     )
   } else {
     const has = (key: string, count?: number) => i18n.exists(key, { ns: 'campaign-workspace', ...(count === undefined ? {} : { count }) })
@@ -195,11 +219,11 @@ export default function RulesPage() {
           <div className="flex flex-wrap items-center gap-2" data-builder-bar="">
             <ChecksPill
               checks={validation}
-              fetching={false}
-              error={null}
-              onRetry={() => {}}
+              fetching={changed && validate.isFetching}
+              error={changed ? validate.error : null}
+              onRetry={() => void validate.refetch()}
               located={located}
-              dirty={dirty}
+              dirty={checksBehind}
               rules={rules}
               catalogue={builder.catalogue}
               onGo={goTo}
@@ -265,7 +289,7 @@ export default function RulesPage() {
             <ErrorBanner
               className="p-3"
               title={t('builder.saveFailedTitle')}
-              message={refusal === DRAFT_PENDING ? t('builder.pending') : apiErrorMessage(save.error, t('builder.saveFailed'))}
+              message={refusal === DRAFT_PENDING ? t('builder.pending') : refusalText(t, save.error, t('builder.saveFailed'))}
             />
           </div>
         ))}
@@ -275,6 +299,9 @@ export default function RulesPage() {
     </section>
   )
 }
+
+/** How long the rules stay unchanged before HQ checks them. */
+const VALIDATE_AFTER_MS = 600
 
 /** What a jump from the pill may focus inside the place it lands on. */
 const FOCUSABLE = 'input, select, textarea, button'

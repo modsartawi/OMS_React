@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { CampaignRule } from '@/core/models/rule-campaign'
-import { CAMPAIGNS, CATALOGUE } from '../../../../tools/campaigns-fixtures.mjs'
+import { FORMULA_GUIDE } from '@/core/rules/formula-guide'
+import { CAMPAIGNS } from '../../../../tools/campaigns-fixtures.mjs'
 import { keyOf, withKeys } from './block-keys'
 import { boxOf, fxFields, insertAtCursor, operatorChip, readBox, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, valuesBefore } from './fx'
 
@@ -66,28 +67,28 @@ describe('the box', () => {
 })
 
 describe('the helper’s lists', () => {
-  it('Fields lists the rule’s filters, the values above this one, then HQ’s fields', () => {
+  it('Fields lists the rule’s filters, the values above this one, then the language’s fields', () => {
     const r = rule('PRCB-AUG26') // values basis, rate, back
     const back = keyOf(r.values[2])
-    const own = fxFields(CATALOGUE.formula, r, back).filter((f) => f.group === 'rule')
+    const own = fxFields(FORMULA_GUIDE, r, back).filter((f) => f.group === 'rule')
     expect(own.map((f) => [f.kind, f.insert, f.type])).toEqual([
       ['filter', `items('${r.filters[0].name}')`, 'items'],
       ['value', 'basis', 'number'],
       ['value', 'rate', 'number'],
     ])
     // The formula condition reads every value.
-    expect(fxFields(CATALOGUE.formula, r, null).filter((f) => f.kind === 'value').map((f) => f.insert)).toEqual(['basis', 'rate', 'back'])
+    expect(fxFields(FORMULA_GUIDE, r, null).filter((f) => f.kind === 'value').map((f) => f.insert)).toEqual(['basis', 'rate', 'back'])
     // HQ's fields follow, in its groups.
-    expect(fxFields(CATALOGUE.formula, r, null).some((f) => f.kind === 'field' && f.insert === 'session.total')).toBe(true)
+    expect(fxFields(FORMULA_GUIDE, r, null).some((f) => f.kind === 'field' && f.insert === 'session.total')).toBe(true)
   })
 
   it('a recipe names the picked filter, and says when it needs one', () => {
-    const pct = CATALOGUE.formula.recipes.find((x) => x.key === 'percentOfSpend')!
+    const pct = FORMULA_GUIDE.recipes.find((x) => x.key === 'percentOfSpend')!
     expect(recipeNeedsFilter(pct)).toBe(true)
     expect(recipeFormula(pct, 'Eligible')).toBe("round(sum(items('Eligible'), item.net) * 0.1, 0, halfUp)")
-    expect(recipeNeedsFilter(CATALOGUE.formula.recipes.find((x) => x.key === 'topTiers')!)).toBe(false)
+    expect(recipeNeedsFilter(FORMULA_GUIDE.recipes.find((x) => x.key === 'topTiers')!)).toBe(false)
     // A cap wraps what the box already has.
-    const cap = CATALOGUE.formula.recipes.find((x) => x.key === 'capped')!
+    const cap = FORMULA_GUIDE.recipes.find((x) => x.key === 'capped')!
     expect(recipeNeedsCurrent(cap)).toBe(true)
     expect(recipeFormula(cap, 'eligible', ' spend * 0.1 ')).toBe('min(spend * 0.1, 100)')
   })

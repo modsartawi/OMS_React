@@ -284,152 +284,158 @@ export interface RuleCampaignListRow {
   updatedBy: string
 }
 
-// ── The block catalogue (ticket 504; HQ's door is BackOffice 2758) ──────────────────────────────
-// What condition and effect types exist, their fields, units and palette groups. The builder reads
-// a rule through it: `@/core/rules/sentence` turns a block into a sentence from the catalogue's
-// field kinds, and the palette (505) groups and gates blocks by it. Fetched once and cached.
+// ── The block catalogue (`Rules/Authoring/Catalogue`, BackOffice 2758; re-pointed in ticket 523) ──
+// What condition, effect and setting blocks exist, their fields, units, palette groups and
+// sentences, gated by the campaign's features: a block of a feature the campaign lacks is not listed
+// (nor a budget `scope: coupon` without coupons, nor a `pointsGiven` / `pointsTaken` limit without
+// points). The builder reads a rule through it: `@/core/rules/sentence` fills a block's `sentence`
+// (its fields in braces) from the block's values, and the palette (505) groups blocks by it.
 
-/**
- * How a field's value reads in a sentence. PROVISIONAL - the invented catalogue's field kinds until
- * ticket 523 reads the real `Rules/Authoring/Catalogue` (its field `type`s); the blocks it describes
- * are schema 1's (keyed by `check` / `effect`, filters by id).
- */
-export type RuleFieldKind =
-  /** A filter id of this rule; `''` = all merchandise. */
-  | 'items'
-  /** An amount in the campaign's currency. */
+/** A block of a rule: a condition (`rule.when[]`) or an effect (`rule.then[]`). */
+export type RuleBlockKind = 'condition' | 'effect'
+/** A catalogue block is a rule's block or a setting (a filter, a value, a budget, the window …). */
+export type RuleCatalogueKind = RuleBlockKind | 'setting'
+
+/** A field's value type in the builder's panel (BackOffice `RuleFieldTypes`). */
+export type RuleFieldType =
   | 'money'
   | 'count'
-  | 'days'
-  /** A discount (a number or a formula): a percent or an amount, as the block's `unitFrom` field says. */
-  | 'discount'
-  /** Points (a number or a formula), in points (`PTS`) or a currency's worth, per `unitFrom`. */
   | 'points'
-  /** A machine code — a SKU, an activity, a value map, a campaign, a pattern. */
-  | 'code'
-  /** A list of codes — stores, channels. */
-  | 'codes'
-  /** Free text the marketer wrote in one language (an audience name, an attribute value). */
+  | 'percent'
+  | 'number'
+  /** EN + AR text, `{ en, ar }`. */
   | 'text'
-  /** One of `options`. */
+  | 'code'
   | 'choice'
-  /** Any of `options`. */
-  | 'choices'
-  /** An expression (`RuleExpr`), printed as text by `@/core/rules/expr`. */
-  | 'formula'
-  /** When points activate or expire: `{ afterDays }` or `{ on: 'yyyy-MM-dd' }`; absent = at once / never. */
-  | 'timing'
-  /** A budget id of this campaign. */
+  | 'codes'
+  | 'bool'
+  /** The id of one of the rule's filters. */
+  | 'filter'
+  /** The id of one of the campaign's budgets. */
   | 'budget'
-  | 'flag'
-  /** A marketer's EN + AR text; `role` says which. Shown under the sentence, never inside it. */
-  | 'says'
+  /** A literal, a named value (`"$name"`) or an expression (`RuleExpr`). */
+  | 'formula'
+  /** `{ afterDays }` or `{ on: 'yyyy-MM-dd' }`. */
+  | 'pointsDate'
+  | 'date'
+  | 'time'
+  | 'conditions'
+  | 'object'
+  | 'objects'
+  | 'entries'
 
-/** A block is a condition (When) or an effect (Then). */
-export type RuleBlockKind = 'condition' | 'effect'
-
-/** What an EN + AR field is for. */
-export type RuleSaysRole = 'notMet' | 'receiptLabel' | 'cashierPrompt' | 'message'
-
+/** One field of a block, as its JSON names it. */
 export interface RuleCatalogueField {
-  key: string
-  kind: RuleFieldKind
-  /** The values a `choice` / `choices` field takes. */
-  options?: string[]
-  /** For `discount` / `points`: the sibling field that holds the unit. */
-  unitFrom?: string
-  /** For `says`. */
-  role?: RuleSaysRole
-  /** Read as a trailing clause, left out when empty, zero, false or `default`. */
-  clause?: boolean
-  default?: unknown
-  /** The sentence agrees in number with this field. */
-  plural?: boolean
+  /** The JSON property. */
+  name: string
+  type: RuleFieldType
+  required: boolean
+  /**
+   * The unit the panel shows beside the value: `currency` (the sale's), `%`, `units`, `points`,
+   * `days`, `bundles`; two words joined by `|` when the field's sibling decides (`currency|%` by a
+   * discount's `kind`, `SAR|PTS` by a points effect's `unit`); null for none.
+   */
+  unit: string | null
+  /** A `choice`'s values, only those the campaign's features allow. */
+  values: string[] | null
+  /** The lookup that fills the field; null when it is typed. */
+  lookup: RuleLookupKind | null
+  /** What the field holds when the author does not say. */
+  default: unknown
+  /** An object's or objects' own fields. */
+  fields: RuleCatalogueField[] | null
 }
 
 export interface RuleCatalogueBlock {
+  kind: RuleCatalogueKind
+  /** The `check` / `effect` value, or the setting's JSON property. */
   type: string
-  kind: RuleBlockKind
-  /** The palette group (Basket, Customer, Discounts, Points, …). */
+  /** The palette group, one of the catalogue's `groups`' ids. */
   group: string
-  /** The campaign feature that must be on for the palette to offer it. */
+  name: Says
+  /** How the block reads, its fields in braces: "the subtotal of {of} is at least {amount}". */
+  sentence: Says
+  /** The feature that switches it on; null for always. */
   feature: RuleFeature | null
-  /** False for a block the map has not decided — the palette leaves it out. */
-  decided: boolean
-  /** The field whose value picks the sentence's wording. */
-  variant?: string
+  /** The offline-safe verdict's reason a block of this type gives its campaign; null for none. */
+  offline: string | null
+  /** What the spec leaves undecided about the block; null when settled. */
+  open: string | null
+  /** Where it goes: `rule.when[]`, `rule.then[]`, `rule.filters[]`, `campaign.budgets[]` … */
+  path: string
   fields: RuleCatalogueField[]
+  /** A block the checker accepts as written at `path`: a new block's defaults. */
+  example: unknown
+}
+
+export interface RuleCatalogueGroup {
+  id: string
+  kind: RuleCatalogueKind
+  name: Says
 }
 
 export interface RuleBlockCatalogue {
-  /** Palette groups, in palette order. */
-  groups: { key: string; kind: RuleBlockKind }[]
-  blocks: RuleCatalogueBlock[]
-  /** What the guided ƒx helper offers (ticket 507). */
-  formula: RuleFormulaGuide
+  /** The rule language's schema version the blocks are written in. */
+  schema: number
+  /** The features the catalogue was asked for, as HQ understood them. */
+  features: RuleFeature[]
+  /** Every feature a campaign may switch on. */
+  allFeatures: RuleFeature[]
+  /** Palette groups, in palette order — only those with a block listed. */
+  groups: RuleCatalogueGroup[]
+  conditions: RuleCatalogueBlock[]
+  effects: RuleCatalogueBlock[]
+  settings: RuleCatalogueBlock[]
+  /** The lookups the fields name. */
+  lookups: RuleLookupKind[]
 }
 
-// ── Lookups (tickets 506, 509; HQ's doors are BackOffice 2758) ──────────────────────────────────
-// What "Certain items…" searches on HQ: categories, collections, and materials by SKU or name; and
-// what Settings ▸ Audience picks from: countries, sales channels and stores.
+// ── Lookups (`Rules/Authoring/Lookups/{lookup}`, BackOffice 2758) ───────────────────────────────
+// What a field picks from. There is no countries or channels lookup (BO ask E): Settings ▸ Audience
+// keeps a fixed list for those (`@/core/rules/lookups`).
 
-export type RuleLookupKind = 'categories' | 'collections' | 'materials' | 'countries' | 'channels' | 'stores'
+export type RuleLookupKind = 'categories' | 'collections' | 'materials' | 'stores' | 'audiences' | 'valueMaps' | 'budgets'
 
-/** One hit of a lookup: a category, a collection, a material (its SKU), a country, a channel or a
- *  store, and its name. A collection's `articles` are what a pick writes into a filter. */
-export interface RuleLookupItem {
-  code: string
-  name: string
-  articles?: string[]
-}
-
-// ── The guided ƒx helper (ticket 507; HQ's doors are BackOffice 2758) ───────────────────────────
-// A named value and the formula condition are written only through the helper: its Fields,
-// Functions, Recipes and operator chips come from the catalogue (`formula`). Its text box is read
-// into the stored JSON expression by `@/core/rules/expr`; HQ's issues on the value's path are its
-// validator (there is no per-formula door).
-
-/** What a formula field, value or result is — its type badge. */
-export type RuleFormulaType = 'money' | 'number' | 'text' | 'date' | 'items' | 'bool'
-
-/** What a formula box needs: a named value is a number, the formula condition a yes / no test. */
-export type RuleFormulaExpect = 'number' | 'bool'
-
-/** A field a rule may read (`session.total`, `profile.tier`, `item.price` …). */
-export interface RuleFormulaField {
-  path: string
-  type: RuleFormulaType
-  /** The Fields list's group (`sale`, `profile`, `item`). */
-  group: string
-}
-
-/** A function of the expression language: its signature and an example, as HQ writes them. */
-export interface RuleFormulaFunction {
-  name: string
-  signature: string
-  example: string
-  /** What Insert puts in, and where the cursor goes inside it (an offset; absent = after it). */
-  snippet: string
-  caret?: number
-}
+/** A material search needs at least this many characters, else HQ refuses it (`RULES_BAD_LOOKUP`). */
+export const RULE_MATERIAL_SEARCH_MIN = 3
 
 /**
- * A ready-made formula. `{filter}` in it stands for one of the rule's filters, by its current name,
- * which the marketer picks; a recipe with it needs the rule to have a filter. `{current}` stands for
- * the formula the box already has (a cap wraps it); a recipe with it needs one written first.
+ * One hit of a lookup, at most 50. `code` is what the field takes; `name` is as far as the master
+ * holds it (categories, collections and stores have English names only, `ar` empty); `detail` a
+ * second line (a material's category, a store's engine, a budget's sentence, a map's meaning +
+ * unit). A collection's `articles` are what a pick writes into a filter; `entries` a value map's
+ * count; `neverDiscount` a category no discount should reach by default (A006).
  */
-export interface RuleFormulaRecipe {
-  key: string
-  expect: RuleFormulaExpect
-  formula: string
+export interface RuleLookupItem {
+  code: string
+  name: Says
+  detail: string | null
+  articles: string[] | null
+  entries: number | null
+  neverDiscount: boolean
 }
 
-export interface RuleFormulaGuide {
-  fields: RuleFormulaField[]
-  functions: RuleFormulaFunction[]
-  /** The operator chips, in order (`+`, `>=`, `and` …). */
-  operators: string[]
-  recipes: RuleFormulaRecipe[]
+// ── Validate (`Rules/Authoring/Validate`, BackOffice 2758) ──────────────────────────────────────
+
+/** `Rules/Authoring/Validate`: the campaign as the builder holds it (unsaved), and its tree. */
+export interface RuleValidateRequest {
+  campaign: RuleCampaign
+  tree?: RuleEvaluationTree
+}
+
+// ── Value maps (`Rules/Authoring/ValueMaps/Upload`, BackOffice 2758) ────────────────────────────
+
+/**
+ * The upload's answer. Nothing is stored: `campaign` is the campaign sent with the map's entries
+ * replaced (null when refused), which the page saves as the draft. A file issue has `block: file`
+ * and `where: "line 3"`.
+ */
+export interface RuleValueMapUpload {
+  accepted: boolean
+  entries: number
+  campaign: RuleCampaign | null
+  errors: RuleIssue[]
+  warnings: RuleIssue[]
 }
 
 // ── Approval (ticket 511; HQ's doors and Ua permissions are BackOffice 2759) ─────────────────────
@@ -451,24 +457,41 @@ export interface RuleCampaignTransition {
   note: string
 }
 
-// ── Budgets (ticket 510; HQ's doors are BackOffice 2758, the live limits 2744) ──────────────────
-// Settings ▸ Budgets saves the campaign's budgets as a list, like the other Settings pages. A live
-// campaign's counters are read beside it, and a live budget's LIMIT changes on its own door: limits
-// are live settings outside the ruleset version pin (ADR 0091), so changing one never republishes.
+// ── Budgets (`Rules/Authoring/Budgets` + `Budgets/SetLimit`, BackOffice 2758 over 2744) ─────────
+// Settings ▸ Budgets saves the campaign's budgets inside the draft, like the other Settings pages. A
+// live campaign's counters are read beside it, and a live budget's LIMIT changes on its own door:
+// limits are live settings outside the ruleset version pin (ADR 0091), so changing one never
+// republishes.
 
 /**
- * A live campaign's counter for one budget, in its current period. For a per-key scope (member,
- * coupon code, store, sale) it is the HIGHEST counter of any one key — the one nearest its limit.
- * It may be above the limit (ADR 0091): an overshoot is shown, never clamped.
+ * One budget of the newest version, with the limit in force (`limitValue`: the live limit when one
+ * is set, else `declared`) and what this period (`periodKey`) has used, held and overshot, SUMMED
+ * over every scope key — `counters` is how many keys (members, stores, sessions, codes) counted.
+ * `limitValue` is per key. The overshoot is computed per key and never hidden (ADR 0091).
  */
-export interface RuleBudgetUsage {
-  budgetId: string
+export interface RuleBudgetView {
+  campaign: string
+  budget: string
+  name: Says
+  scope: RuleBudgetScope
+  limit: RuleBudgetLimit
+  period: RuleBudgetPeriod
+  declared: number
+  limitValue: number
+  periodKey: string
   used: number
+  held: number
+  overshoot: number
+  counters: number
 }
 
-/** A live budget's new limit — it applies at once, without a publish. */
-export interface RuleBudgetLimitChange {
-  value: number
+/** `Budgets/SetLimit`'s answer: the limit now in force, the one before, and how many counters are above it. */
+export interface RuleBudgetLimitSet {
+  campaignId: string
+  budgetId: string
+  limitValue: number
+  previousLimit: number
+  countersAbove: number
 }
 
 // ── Versions (ticket 512; HQ's doors are BackOffice 2759) ────────────────────────────────────────
@@ -547,7 +570,7 @@ export interface RuleTemplatePlaceholder {
   /** `pick`: what the picker searches. */
   lookup?: RuleLookupKind
   /** `choice`: the codes it takes, with their names. */
-  options?: RuleLookupItem[]
+  options?: { code: string; name: string }[]
   /** What the field starts with: a number, a code, or a list of codes for `pick`. */
   default: RuleTemplateValue | null
 }

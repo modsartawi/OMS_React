@@ -58,7 +58,9 @@ export const initialHistory = (from: CampaignRule[], like?: CampaignRule[]): Bui
   }
 }
 
-const same = (a: CampaignRule[], b: CampaignRule[]) => a === b || JSON.stringify(a) === JSON.stringify(b)
+/** The same rules as JSON reads them (the builder's keys are symbols, which it drops). */
+export const sameRules = (a: CampaignRule[], b: CampaignRule[]) => a === b || JSON.stringify(a) === JSON.stringify(b)
+const same = sameRules
 
 /** True when the rules on screen differ from the saved ones. */
 export const isDirty = (h: BuilderHistory): boolean => !same(h.present, h.saved)

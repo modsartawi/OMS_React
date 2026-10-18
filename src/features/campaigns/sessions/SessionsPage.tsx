@@ -12,6 +12,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleSessionState, RuleSessionSummary } from '@/core/models/rule-session'
 import { ruleLookupQuery, ruleSessionsQuery } from '@/core/rules/api'
+import { lookupName } from '@/core/rules/lookups'
 import { ruleSessionPath } from '@/core/rules/campaign-state'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
@@ -37,7 +38,7 @@ import { localMomentKey, momentText } from './timeline'
  * code instead.
  */
 export default function SessionsPage() {
-  const { t } = useTranslation('rule-sessions')
+  const { t, i18n } = useTranslation('rule-sessions')
   const navigate = useNavigate()
   const { query, update } = useUrlQuery(sessionsQueryFromParams, sessionsQueryToParams)
   // Read each render: a page left open past midnight asks for the new day.
@@ -115,7 +116,7 @@ export default function SessionsPage() {
                 {query.store && !(stores.data ?? []).some((s) => s.code === query.store) && <option value={query.store}>{fsi(query.store)}</option>}
                 {(stores.data ?? []).map((s) => (
                   <option key={s.code} value={s.code}>
-                    {fsi(formatPair(s.code, s.name))}
+                    {fsi(formatPair(s.code, lookupName(s, i18n.language)))}
                   </option>
                 ))}
               </select>

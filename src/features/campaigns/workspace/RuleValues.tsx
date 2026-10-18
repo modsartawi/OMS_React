@@ -9,6 +9,7 @@ import { INPUT } from './builder-ui'
 import CheckNotes from './CheckNotes'
 import { BLOCK_KEY, keyOf } from './block-keys'
 import { NO_BLOCK_CHECKS } from './checks'
+import { FORMULA_GUIDE } from '@/core/rules/formula-guide'
 import FormulaBox from './FormulaBox'
 import type { Builder } from './RuleCard'
 import { addValue, deleteValue, moveValue, newValue, nextValueName, renameValue, setValueExpr, valueNameProblem, valueUses } from './value-edit'
@@ -53,7 +54,7 @@ export default function RuleValues({ rule, b }: { rule: CampaignRule; b: Builder
                       rule={rule}
                       valueKey={k}
                       issues={notes.filter((m) => m.path.endsWith('.expr'))}
-                      guide={b.catalogue.formula}
+                      guide={FORMULA_GUIDE}
                       label={t('values.formula', { name: fsi(v.name) })}
                       data={k}
                     />
@@ -118,9 +119,9 @@ function ValueName({ rule, value: v, b }: { rule: CampaignRule; value: RuleNamed
   const k = keyOf(v)
   const [typed, setTyped] = useState<string | null>(null)
   const text = typed ?? v.name
-  const problem = valueNameProblem(rule, text, k, b.catalogue.formula.fields)
+  const problem = valueNameProblem(rule, text, k, FORMULA_GUIDE.fields)
   // An Undo or a Redo renames the value under the box: show the name it now has.
-  useEffect(() => setTyped((cur) => (cur !== null && cur.trim() !== v.name && valueNameProblem(rule, cur, k, b.catalogue.formula.fields) === null ? null : cur)), [v.name]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setTyped((cur) => (cur !== null && cur.trim() !== v.name && valueNameProblem(rule, cur, k, FORMULA_GUIDE.fields) === null ? null : cur)), [v.name]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex flex-col gap-0.5">
       <input
@@ -134,7 +135,7 @@ function ValueName({ rule, value: v, b }: { rule: CampaignRule; value: RuleNamed
         onChange={(e) => {
           const next = e.target.value
           setTyped(next)
-          if (valueNameProblem(rule, next, k, b.catalogue.formula.fields) === null) b.edit((rs) => renameValue(rs, rule.id, k, next.trim()), `value:${k}.name`)
+          if (valueNameProblem(rule, next, k, FORMULA_GUIDE.fields) === null) b.edit((rs) => renameValue(rs, rule.id, k, next.trim()), `value:${k}.name`)
         }}
         onBlur={() => setTyped(null)}
         data-value-name=""

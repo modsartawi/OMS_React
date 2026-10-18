@@ -1,7 +1,7 @@
-import type { RuleBudgetLimit, RuleBudgetPeriod, RuleBudgetScope, RuleCampaignBudget } from '@/core/models/rule-campaign'
+import type { RuleBudgetLimit, RuleBudgetPeriod, RuleBudgetScope, RuleBudgetView, RuleCampaignBudget } from '@/core/models/rule-campaign'
 import { roundMoney } from '@/core/money'
 import { formatNumber } from '@/core/util/number-format'
-import { moneyText, type Sentence, type SentenceValue } from './sentence'
+import { moneyText, type KeySentence, type SentenceValue } from './sentence'
 
 // A budget read as a sentence, and a live budget's used / limit (ticket 510, ADR 0091). Pure: the
 // sentence is a locale KEY and its typed values (`@/core/rules/sentence`'s shape, rendered by the
@@ -34,7 +34,7 @@ export function budgetFigure(limit: RuleBudgetLimit, value: number, currency: st
 export function budgetSentence(
   b: Pick<RuleCampaignBudget, 'scope' | 'limit' | 'value' | 'period'>,
   currency: string | null,
-): Sentence {
+): KeySentence {
   const values: Record<string, SentenceValue> = {
     limit: phrase(`budgets.limit.${b.limit}`),
     value: budgetAmount(b.limit, b.value, currency),
@@ -69,5 +69,37 @@ export function budgetUsage(used: number, limit: number): BudgetUsage {
     overshoot: over > 0 ? over : null,
     usedUp: over >= 0,
     share: limit > 0 ? Math.min(1, Math.max(0, used / limit)) : used > 0 ? 1 : 0,
+  }
+}
+
+/** A live budget as HQ counts it this period (`Rules/Authoring/Budgets`, ticket 523). */
+export interface BudgetCount {
+  /** Committed this period, over every scope key. */
+  used: number
+  /** Held by sales still paying. */
+  held: number
+  /** The limit in force: the live one when set, else the declared one; per key for a per-key scope. */
+  limit: number
+  /** What went past the limit, worked out per key by HQ; null when nothing did. */
+  overshoot: number | null
+  /** How many keys (members, codes, stores, sales) counted; one for the whole campaign. */
+  counters: number
+  /**
+   * The bar, for a campaign-wide budget only: its one counter against its limit. A per-key budget's
+   * `used` is the sum over its keys, which no one limit measures, so it has none.
+   */
+  bar: BudgetUsage | null
+}
+
+/** A budget's count from HQ's view of it: the overshoot is HQ's, never re-worked here (ADR 0091). */
+export function budgetCount(v: Pick<RuleBudgetView, 'scope' | 'used' | 'held' | 'limitValue' | 'overshoot' | 'counters'>): BudgetCount {
+  const overshoot = roundMoney(v.overshoot)
+  return {
+    used: v.used,
+    held: v.held,
+    limit: v.limitValue,
+    overshoot: overshoot > 0 ? overshoot : null,
+    counters: v.counters,
+    bar: v.scope === 'campaign' ? budgetUsage(v.used, v.limitValue) : null,
   }
 }

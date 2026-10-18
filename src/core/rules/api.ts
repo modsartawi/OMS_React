@@ -2,8 +2,9 @@ import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
 import type {
   RuleBlockCatalogue,
-  RuleBudgetLimitChange,
-  RuleBudgetUsage,
+  RuleBudgetLimitSet,
+  RuleBudgetView,
+  RuleCampaign,
   RuleCampaignCoupon,
   RuleCampaignFromTemplate,
   RuleCampaignListRow,
@@ -22,6 +23,7 @@ import type {
   RuleDraftDeleted,
   RuleDraftSave,
   RuleEvaluationOrder,
+  RuleFeature,
   RuleLookupItem,
   RuleLookupKind,
   RuleMember,
@@ -29,8 +31,12 @@ import type {
   RuleMemberKey,
   RuleSimRequest,
   RuleSimResult,
+  RuleValidateRequest,
+  RuleValidation,
+  RuleValueMapUpload,
   RuleWalletCoupon,
 } from '@/core/models/rule-campaign'
+import { RULE_FEATURES } from '@/core/models/rule-campaign'
 import type {
   RuleSessionListQuery,
   RuleSessionLookup,
@@ -53,17 +59,13 @@ const CAMPAIGNS = 'RuleCampaign/Campaigns'
 const DRAFT_LOAD = 'Rules/Authoring/Drafts/Load'
 const DRAFT_SAVE = 'Rules/Authoring/Drafts/Save'
 const DRAFT_DELETE = 'Rules/Authoring/Drafts/Delete'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const CATALOGUE = 'RuleCampaign/Catalogue'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const LOOKUPS: Record<RuleLookupKind, string> = {
-  categories: 'RuleCampaign/Lookups/Categories',
-  collections: 'RuleCampaign/Lookups/Collections',
-  materials: 'RuleCampaign/Lookups/Materials',
-  countries: 'RuleCampaign/Lookups/Countries',
-  channels: 'RuleCampaign/Lookups/Channels',
-  stores: 'RuleCampaign/Lookups/Stores',
-}
+// The builder's other doors (BackOffice 2758): POST, cookie session + the rule-author grant.
+const CATALOGUE = 'Rules/Authoring/Catalogue'
+const VALIDATE = 'Rules/Authoring/Validate'
+const LOOKUP = (kind: RuleLookupKind) => `Rules/Authoring/Lookups/${kind}`
+const VALUE_MAP_UPLOAD = 'Rules/Authoring/ValueMaps/Upload'
+const BUDGETS = 'Rules/Authoring/Budgets'
+const BUDGET_SET_LIMIT = 'Rules/Authoring/Budgets/SetLimit'
 
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const ROLES = 'RuleCampaign/Roles'
@@ -71,10 +73,6 @@ const ROLES = 'RuleCampaign/Roles'
 const LIFECYCLE = (id: string, act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable') =>
   `${CAMPAIGNS}/${encodeURIComponent(id)}/${act}`
 
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const BUDGET_USAGE = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/BudgetUsage`
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const BUDGET_LIMIT = (id: string, budgetId: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Budgets/${encodeURIComponent(budgetId)}/Limit`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Versions`
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
@@ -155,20 +153,44 @@ export const ruleCampaignApi = {
     return api.post<RuleDraft>(`${TEMPLATES}/${encodeURIComponent(templateId)}/Create`, body)
   },
 
-  /** GET RuleCampaign/Catalogue — the block catalogue: condition and effect types, their fields,
-   *  units and palette groups (BackOffice 2758). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  catalogue(): Promise<RuleBlockCatalogue> {
-    return api.get<RuleBlockCatalogue>(CATALOGUE)
+  /** POST Rules/Authoring/Catalogue { features } — the condition, effect and setting blocks a
+   *  campaign with these features shows: a block of a feature it lacks is not listed. */
+  catalogue(features: readonly RuleFeature[]): Promise<RuleBlockCatalogue> {
+    return api.post<RuleBlockCatalogue>(CATALOGUE, { features })
   },
 
-  /** GET RuleCampaign/Lookups/{Categories|Collections|Materials|Countries|Channels|Stores}?search=
-   *  — what "Certain items…" (ticket 506) and Settings ▸ Audience (509) pick from (BackOffice
-   *  2758): HQ matches a code or a name (a material by its SKU or its name) and answers the first
-   *  hits. An empty search answers the first hits too. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  lookup(kind: RuleLookupKind, search: string): Promise<RuleLookupItem[]> {
-    return api.get<RuleLookupItem[]>(LOOKUPS[kind], { search })
+  /** POST Rules/Authoring/Validate { campaign, tree? } — HQ's checks of the campaign as the builder
+   *  holds it (unsaved): errors and warnings pointed by `path`, and the offline verdict (null while
+   *  errors stand). Nothing is stored. */
+  validate(body: RuleValidateRequest): Promise<RuleValidation> {
+    return api.post<RuleValidation>(VALIDATE, body)
+  },
+
+  /** POST Rules/Authoring/Lookups/{lookup} { q, campaign? } — at most 50 hits matching a code or a
+   *  name. A material search shorter than three characters is refused (`RULES_BAD_LOOKUP`);
+   *  `campaign` narrows a budgets lookup. */
+  lookup(kind: RuleLookupKind, q: string, campaign?: string): Promise<RuleLookupItem[]> {
+    return api.post<RuleLookupItem[]>(LOOKUP(kind), campaign ? { q, campaign } : { q })
+  },
+
+  /** POST Rules/Authoring/ValueMaps/Upload { campaign, csv } — the value map's entries read from a
+   *  `material,number` CSV. Nothing is stored: the answer's `campaign` (null when refused) is saved
+   *  as the draft. */
+  uploadValueMap(campaign: RuleCampaign, csv: string): Promise<RuleValueMapUpload> {
+    return api.post<RuleValueMapUpload>(VALUE_MAP_UPLOAD, { campaign, csv })
+  },
+
+  /** POST Rules/Authoring/Budgets { campaign } — the newest version's budgets with the limit in
+   *  force and this period's used / held / overshoot, summed over every scope key (ADR 0091). */
+  budgets(campaign: string): Promise<RuleBudgetView[]> {
+    return api.post<RuleBudgetView[]>(BUDGETS, { campaign })
+  },
+
+  /** POST Rules/Authoring/Budgets/SetLimit { campaign, budget, limit } — a live limit, at once and
+   *  without a republish; lowering it below a counter claws nothing back. 404
+   *  `RULES_BUDGET_NOT_FOUND` for a budget the newest version does not declare. */
+  setLimit(campaign: string, budget: string, limit: number): Promise<RuleBudgetLimitSet> {
+    return api.post<RuleBudgetLimitSet>(BUDGET_SET_LIMIT, { campaign, budget, limit })
   },
 
   /** GET RuleCampaign/Roles — the reader's roles on rule campaigns (ticket 511, BackOffice 2759's
@@ -204,21 +226,6 @@ export const ruleCampaignApi = {
   // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
   disable(id: string, body: RuleCampaignTransition): Promise<RuleDraft> {
     return api.post<RuleDraft>(LIFECYCLE(id, 'Disable'), body)
-  },
-
-  /** GET RuleCampaign/Campaigns/{id}/BudgetUsage — a live campaign's counters, one per budget, in
-   *  its current period (ticket 510, BackOffice 2744). A counter may be past its limit. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  budgetUsage(id: string): Promise<RuleBudgetUsage[]> {
-    return api.get<RuleBudgetUsage[]>(BUDGET_USAGE(id))
-  },
-
-  /** PUT RuleCampaign/Campaigns/{id}/Budgets/{budgetId}/Limit — a live budget's new limit (ticket
-   *  510, BackOffice 2744). Limits are live settings outside the version pin (ADR 0091): it applies
-   *  at once, nothing is republished, and no counter is reset. HQ answers the whole campaign. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  changeLimit(id: string, budgetId: string, body: RuleBudgetLimitChange): Promise<RuleDraft> {
-    return api.put<RuleDraft>(BUDGET_LIMIT(id, budgetId), body)
   },
 
   /** GET RuleCampaign/Campaigns/{id}/Versions — every published version with who, when and the
@@ -381,30 +388,51 @@ export function rememberTransition(queryClient: QueryClient, draft: RuleDraft): 
 /** A draft HQ just deleted: its own queries go, and the list is read afresh. */
 export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignKey(id) })
-  queryClient.removeQueries({ queryKey: ruleBudgetUsageKey(id) })
+  queryClient.removeQueries({ queryKey: ruleBudgetsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionKey(id) })
   queryClient.removeQueries({ queryKey: ruleCouponsKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
-/** A lookup's query options: one read per kind and search, kept a few minutes. */
-export const ruleLookupQuery = (kind: RuleLookupKind, search: string) => ({
-  queryKey: ['rule-lookup', kind, search] as const,
-  queryFn: () => ruleCampaignApi.lookup(kind, search),
+/** A lookup's query options: one read per kind, search and campaign, kept a few minutes. */
+export const ruleLookupQuery = (kind: RuleLookupKind, q: string, campaign?: string) => ({
+  queryKey: ['rule-lookup', kind, q, campaign ?? ''] as const,
+  queryFn: () => ruleCampaignApi.lookup(kind, q, campaign),
   staleTime: 5 * 60_000,
   retry: false as const,
 })
 
 /**
- * The block catalogue's query options (ticket 504). It changes only with an HQ release, so it is
- * fetched once per page load and kept: every builder page and every campaign share the one read.
+ * The block catalogue's query options (ticket 523): one read per set of features — the palette asks
+ * again when the campaign's features change. A catalogue changes only with an HQ release, so each is
+ * fetched once per page load and kept. The features are sorted, so one set is one key.
  */
-export const ruleCatalogueQuery = () => ({
-  queryKey: ['rule-catalogue'] as const,
-  queryFn: () => ruleCampaignApi.catalogue(),
+export const ruleCatalogueQuery = (features: readonly RuleFeature[]) => {
+  const on = [...new Set(features)].sort()
+  return {
+    queryKey: ['rule-catalogue', ...on] as const,
+    queryFn: () => ruleCampaignApi.catalogue(on),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false as const,
+  }
+}
+
+/** The catalogue with every feature on — what a block is READ through (504), whatever the
+ *  campaign's own features: a block of a feature switched off since still reads as itself. */
+export const ruleReadingCatalogueQuery = () => ruleCatalogueQuery(RULE_FEATURES)
+
+/**
+ * HQ's checks of the campaign as the builder holds it (ticket 523): the builder asks with the
+ * unsaved campaign once its edits settle (the caller debounces), so the checks pill and the ƒx
+ * helper point at what is on screen. One answer per campaign asked, kept.
+ */
+export const ruleValidateQuery = (body: RuleValidateRequest) => ({
+  queryKey: [...RULE_CAMPAIGNS_KEY, 'validate', body.campaign.id, JSON.stringify(body)] as const,
+  queryFn: () => ruleCampaignApi.validate(body),
   staleTime: Infinity,
-  gcTime: Infinity,
+  gcTime: 60_000,
   retry: false as const,
 })
 
@@ -433,17 +461,17 @@ export function rememberSavedDraft(queryClient: QueryClient, draft: RuleDraft): 
   queryClient.setQueryData(ruleCampaignKey(draft.code), draft)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
   // A budget added, changed or deleted (510) changes what is counted against it.
-  void queryClient.invalidateQueries({ queryKey: ruleBudgetUsageKey(draft.code) })
+  void queryClient.invalidateQueries({ queryKey: ruleBudgetsKey(draft.code) })
 }
 
-/** A live campaign's budget counters, keyed under the campaign queries. */
-export const ruleBudgetUsageKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'budget-usage', id] as const
+/** A live campaign's budgets as counted, keyed under the campaign queries. */
+export const ruleBudgetsKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'budgets', id] as const
 
-/** The budget counters' query options (ticket 510): tills move them, so — unlike the app's other
- *  reads — they are read afresh when the reader comes back to the tab. */
-export const ruleBudgetUsageQuery = (id: string) => ({
-  queryKey: ruleBudgetUsageKey(id),
-  queryFn: () => ruleCampaignApi.budgetUsage(id),
+/** The budgets' query options (tickets 510, 523): tills move the counters, so — unlike the app's
+ *  other reads — they are read afresh when the reader comes back to the tab. */
+export const ruleBudgetsQuery = (id: string) => ({
+  queryKey: ruleBudgetsKey(id),
+  queryFn: () => ruleCampaignApi.budgets(id),
   refetchOnWindowFocus: true as const,
   retry: false as const,
 })

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Check, TriangleAlert, X } from 'lucide-react'
-import type { CampaignRule, RuleExpr, RuleFormulaExpect, RuleFormulaGuide, RuleIssue } from '@/core/models/rule-campaign'
+import type { CampaignRule, RuleExpr, RuleIssue } from '@/core/models/rule-campaign'
+import type { RuleFormulaExpect, RuleFormulaGuide } from '@/core/rules/formula-guide'
 import Ltr from '@/core/ui/Ltr'
 import { INPUT } from './builder-ui'
 import { severityOf } from './checks'
@@ -18,7 +19,7 @@ export interface FormulaBoxProps {
   rule: CampaignRule
   /** The named value being written (it reads only the values above it), by its builder key; null for the formula condition. */
   valueKey?: string | null
-  /** HQ's issues of the saved draft at this expression's path — the validator (there is no per-formula door). */
+  /** HQ's issues at this expression's path — of the rules on screen once they settle (`Rules/Authoring/Validate`, 523), else of the saved draft — the validator (there is no per-formula door). */
   issues: RuleIssue[]
   guide: RuleFormulaGuide
   /** The input's accessible name, where no `<label>` points at it. */
@@ -32,7 +33,7 @@ export interface FormulaBoxProps {
  * the validator line. The box holds TEXT (ticket 522): the codec (`@/core/rules/expr`) reads it
  * into the JSON expression HQ stores, and only text that reads is stored; until then the text stays
  * in the box with what is wrong and where. A stored expression the codec cannot print shows as its
- * JSON and is edited as JSON. HQ's issues of the saved draft at this expression's path show below.
+ * JSON and is edited as JSON. HQ's issues at this expression's path (Validate's, ticket 523) show below.
  */
 export default function FormulaBox({ id, value, onChange, expect, rule, valueKey = null, issues, guide, label, data }: FormulaBoxProps) {
   const { t } = useTranslation('campaign-workspace')

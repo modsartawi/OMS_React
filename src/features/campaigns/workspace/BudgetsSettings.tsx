@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Coins, Loader2, Pencil, Plus, Receipt, Store, Ticket, Trash2, User, type LucideIcon } from 'lucide-react'
-import type { RuleBudgetScope, RuleBudgetUsage, RuleCampaignBudget, RuleDraft } from '@/core/models/rule-campaign'
-import { rememberSavedDraft, ruleBudgetUsageQuery, ruleCampaignApi } from '@/core/rules/api'
-import { BUDGET_SCOPES, budgetFigure, budgetSentence, budgetUsage } from '@/core/rules/budget'
+import type { RuleBudgetScope, RuleBudgetView, RuleCampaignBudget, RuleDraft } from '@/core/models/rule-campaign'
+import { rememberSavedDraft, ruleBudgetsKey, ruleBudgetsQuery, ruleCampaignApi } from '@/core/rules/api'
+import { BUDGET_SCOPES, budgetCount, budgetFigure, budgetSentence } from '@/core/rules/budget'
 import { campaignCurrency } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatCount } from '@/core/util/bidi'
+import { formatNumber } from '@/core/util/number-format'
 import { mintRequestId } from '@/core/util/request-id'
 import BudgetDrawer from './BudgetDrawer'
 import { budgetForm, budgetsWith, budgetsWithout, newBudgetForm, toBudget, type BudgetForm } from './budget-form'
@@ -25,6 +26,13 @@ const SCOPE_ICON: Record<RuleBudgetScope, LucideIcon> = { campaign: Coins, profi
 interface Open {
   id: string | null
   form: BudgetForm
+  /**
+   * Whether Save changes the LIVE limit (`Budgets/SetLimit`) rather than the draft: an existing
+   * budget of a live campaign that the live version declares (or, while the counts are not read,
+   * any existing one: HQ refuses a budget it does not declare). Fixed when the drawer opens, so a
+   * read landing meanwhile never switches what Save does.
+   */
+  live: boolean
 }
 
 /**
@@ -32,9 +40,10 @@ interface Open {
  * sentences, grouped by scope (ADR 0091). "+ Budget", a section's Add, a sentence or its pencil open
  * the drawer; its Save saves the budgets at once, as a delete does once confirmed.
  *
- * On a live campaign each budget shows its counter — used / limit, and the overshoot once it went
- * past (BackOffice 2744) — and a budget's limit changes on its own door, without republishing:
- * limits are live settings outside the version pin.
+ * On a live campaign each budget the live version declares shows HQ's count of it this period
+ * (`Rules/Authoring/Budgets`, ticket 523): used and held against the limit in force, and the
+ * overshoot once a key went past. A budget's limit changes on its own door (`Budgets/SetLimit`),
+ * without republishing: limits are live settings outside the version pin (ADR 0091).
  */
 export default function BudgetsSettings() {
   const { t } = useTranslation('campaign-workspace')
@@ -44,15 +53,18 @@ export default function BudgetsSettings() {
   const queryClient = useQueryClient()
   const currency = campaignCurrency(c.audience)
   const live = d.campaignStatus === 'Published'
-  const usage = useQuery({ ...ruleBudgetUsageQuery(d.code), enabled: live })
+  const usage = useQuery({ ...ruleBudgetsQuery(d.code), enabled: live })
   const [open, setOpen] = useState<Open | null>(null)
   const [deleting, setDeleting] = useState<RuleCampaignBudget | null>(null)
 
-  const done = (saved: RuleDraft, words: string) => {
-    rememberSavedDraft(queryClient, saved)
+  const closed = (words: string) => {
     notify.success(t(words))
     setOpen(null)
     setDeleting(null)
+  }
+  const done = (saved: RuleDraft, words: string) => {
+    rememberSavedDraft(queryClient, saved)
+    closed(words)
   }
   const saveList = useMutation({
     // The budgets are part of the draft: the whole draft is saved at its revision (ticket 522).
@@ -60,8 +72,12 @@ export default function BudgetsSettings() {
     onSuccess: (saved) => done(saved, 'settings.budgets.saved'),
   })
   const changeLimit = useMutation({
-    mutationFn: ({ id, value }: { id: string; value: number }) => ruleCampaignApi.changeLimit(d.code, id, { value }),
-    onSuccess: (saved) => done(saved, 'settings.budgets.limitChanged'),
+    mutationFn: ({ id, value }: { id: string; value: number }) => ruleCampaignApi.setLimit(d.code, id, value),
+    // HQ answers the limit, not the campaign: the counts are read afresh (the draft is unchanged).
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ruleBudgetsKey(d.code) })
+      closed('settings.budgets.limitChanged')
+    },
   })
   const resetSaves = () => {
     saveList.reset()
@@ -72,13 +88,17 @@ export default function BudgetsSettings() {
 
   const add = (scope: RuleBudgetScope) => {
     resetSaves()
-    setOpen({ id: null, form: newBudgetForm(scope) })
+    setOpen({ id: null, form: newBudgetForm(scope), live: false })
   }
+  /** HQ's count of a budget the live version declares; null for one it does not (yet). */
+  const viewOf = (id: string): RuleBudgetView | null => usage.data?.find((v) => v.budget === id) ?? null
   const edit = (b: RuleCampaignBudget) => {
     resetSaves()
-    setOpen({ id: b.id, form: budgetForm(b) })
+    // A live budget's drawer changes its limit: it starts from the limit in force, not the declared one.
+    const inForce = live ? viewOf(b.id)?.limitValue : undefined
+    setOpen({ id: b.id, form: budgetForm(inForce === undefined ? b : { ...b, value: inForce }), live: live && (!usage.data || viewOf(b.id) !== null) })
   }
-  const liveLimit = live && open?.id != null
+  const liveLimit = !!open?.live
 
   /** Coupon is offered only with the coupons feature, or where a coupon budget is already there. */
   const offered = (also: (s: RuleBudgetScope) => boolean) => BUDGET_SCOPES.filter((s) => s !== 'coupon' || d.features.includes('coupons') || also(s))
@@ -127,7 +147,7 @@ export default function BudgetsSettings() {
                     key={b.id}
                     budget={b}
                     currency={currency}
-                    usage={!live || usage.isError ? null : usage.data && usedOf(usage.data, b.id)}
+                    usage={!live || usage.isError ? null : usage.data && viewOf(b.id)}
                     onEdit={() => edit(b)}
                     onDelete={() => {
                       resetSaves()
@@ -212,14 +232,11 @@ export default function BudgetsSettings() {
   )
 }
 
-/** A budget's counter; one HQ has not started yet is at zero (ADR 0091: a counter starts from zero). */
-const usedOf = (usage: readonly RuleBudgetUsage[], budgetId: string): RuleBudgetUsage =>
-  usage.find((u) => u.budgetId === budgetId) ?? { budgetId, used: 0 }
-
 /**
- * One budget: its sentence (a click opens the drawer), its name, and — on a live campaign — its
- * counter. `usage` is undefined while the counters are read, null when there are none to show (a
- * draft, or a read that failed — said once, above the sections).
+ * One budget: its sentence (a click opens the drawer), its name, and — on a live campaign — HQ's
+ * count of it. `usage` is undefined while the counts are read, null when there is none to show (a
+ * draft, a budget the live version does not declare yet, or a read that failed — said once, above
+ * the sections).
  */
 function BudgetLine({
   budget: b,
@@ -230,7 +247,7 @@ function BudgetLine({
 }: {
   budget: RuleCampaignBudget
   currency: string | null
-  usage: RuleBudgetUsage | null | undefined
+  usage: RuleBudgetView | null | undefined
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -239,7 +256,9 @@ function BudgetLine({
     <li className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-background px-3 py-2" data-budget={b.id}>
       <div className="flex items-start gap-2">
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-start text-sm hover:underline" data-budget-sentence={b.id}>
-          <SentenceView s={budgetSentence(b, currency)} />
+          {/* A live budget reads the limit in force (a live limit changes on its own door, ADR 0091) —
+              while the draft still counts what the live version counts. */}
+          <SentenceView s={budgetSentence(usage && sameCount(b, usage) ? { ...b, value: usage.limitValue } : b, currency)} />
         </button>
         <button
           type="button"
@@ -274,32 +293,59 @@ function BudgetLine({
       )}
       {usage === undefined && <p className="text-xs text-muted-foreground">{t('settings.budgets.usageLoading')}</p>}
       {usage !== undefined && usage !== null && (
-        <UsageBar budget={b} used={usage.used} figure={(n) => budgetFigure(b.limit, n, currency)} />
+        <UsageBar budget={b} view={usage} figure={(n) => budgetFigure(usage.limit, n, currency)} />
       )}
     </li>
   )
 }
 
-/** Used / limit as one isolated count, a bar, and the overshoot once the counter went past. */
-function UsageBar({ budget: b, used, figure }: { budget: RuleCampaignBudget; used: number; figure: (n: number) => string }) {
+/** Whether the draft's budget counts what the live version's does: the same limit, scope and period. */
+const sameCount = (b: RuleCampaignBudget, v: RuleBudgetView) => b.limit === v.limit && b.scope === v.scope && b.period === v.period
+
+/**
+ * HQ's count of a live budget, in the live version's own terms (its limit kind and scope: the draft
+ * may have changed them since). A campaign-wide budget reads used / limit as one isolated count with
+ * a bar; a per-key budget (a member, a code, a store, a sale) reads what its keys used together and
+ * the limit each key has — a sum no one limit measures, so it has no bar. Held (by sales still
+ * paying) is shown beside used, and the overshoot once a key went past its limit.
+ */
+function UsageBar({ budget: b, view, figure }: { budget: RuleCampaignBudget; view: RuleBudgetView; figure: (n: number) => string }) {
   const { t } = useTranslation('campaign-workspace')
-  const u = budgetUsage(used, b.value)
+  const u = budgetCount(view)
   return (
     <div className="flex flex-col gap-1" data-budget-usage={b.id}>
       <div className="flex flex-wrap items-center gap-x-2 text-xs">
-        <span className="text-muted-foreground">{t(`settings.budgets.usage.${b.scope}`)}</span>
-        <span className="font-medium" data-budget-used="">
-          <Ltr>{formatCount(figure(u.used), figure(u.limit))}</Ltr>
-        </span>
+        <span className="text-muted-foreground">{t(`settings.budgets.usage.${view.scope}`)}</span>
+        {u.bar ? (
+          <span className="font-medium" data-budget-used="">
+            <Ltr>{formatCount(figure(u.used), figure(u.limit))}</Ltr>
+          </span>
+        ) : (
+          <span className="font-medium" data-budget-used="">
+            <Trans
+              t={t}
+              i18nKey="settings.budgets.usedPerKey"
+              values={{ used: figure(u.used), limit: figure(u.limit), n: formatNumber(u.counters) }}
+              components={{ used: <Ltr />, limit: <Ltr />, n: <Ltr /> }}
+            />
+          </span>
+        )}
+        {u.held > 0 && (
+          <span className="text-muted-foreground" data-budget-held="">
+            <Trans t={t} i18nKey="settings.budgets.held" values={{ amount: figure(u.held) }} components={{ amount: <Ltr /> }} />
+          </span>
+        )}
         {u.overshoot != null && (
           <span className="rounded-full border border-danger-border bg-danger-050 px-2 py-0.5 font-medium text-danger-800" data-budget-overshoot="">
             <Trans t={t} i18nKey="settings.budgets.overshoot" values={{ amount: figure(u.overshoot) }} components={{ amount: <Ltr /> }} />
           </span>
         )}
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-        <div className={`h-full rounded-full ${u.overshoot != null ? 'bg-danger' : 'bg-primary'}`} style={{ width: `${u.share * 100}%` }} />
-      </div>
+      {u.bar && (
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+          <div className={`h-full rounded-full ${u.overshoot != null ? 'bg-danger' : 'bg-primary'}`} style={{ width: `${u.bar.share * 100}%` }} />
+        </div>
+      )}
       {u.overshoot != null && <p className="text-xs text-muted-foreground">{t('settings.budgets.overshootWhy')}</p>}
     </div>
   )

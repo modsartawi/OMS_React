@@ -33,8 +33,8 @@ describe('workspaceMenu', () => {
 })
 
 describe('settings pages', () => {
-  it('draws Details, Schedule, Audience, Features, Budgets and Offline, in the prototype’s order', () => {
-    expect(drawnSettings()).toEqual(['details', 'schedule', 'audience', 'features', 'budgets', 'offline'])
+  it('draws Details, Schedule, Audience, Features, Budgets, Value map (523) and Offline, in the prototype’s order', () => {
+    expect(drawnSettings()).toEqual(['details', 'schedule', 'audience', 'features', 'budgets', 'valueMap', 'offline'])
   })
 
   it('settingsPage reads a landed page by its segment, and nothing else', () => {

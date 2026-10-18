@@ -1,9 +1,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronRight, CircleCheck, Loader2, TriangleAlert } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
 import { RULE_GROUP_CHECK, type CampaignRule, type RuleBlockCatalogue, type RuleValidation } from '@/core/models/rule-campaign'
-import { catalogueBlock } from '@/core/rules/sentence'
+import { catalogueBlock, saysRoleOf } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -12,6 +11,7 @@ import { labelText, useHas } from './builder-ui'
 import { SEVERITY_LOOK } from './CheckNotes'
 import { approvalVerdict, severityOf, type CheckPlace, type CheckSeverity, type LocatedCheck } from './checks'
 import { fieldLabelKey } from './panel-keys'
+import { refusalText } from './settings-ui'
 
 /**
  * The builder's checks pill (ticket 508): HQ's checks of the saved draft — "2 errors  1 warning",
@@ -129,7 +129,7 @@ export default function ChecksPill({
       {showList && (
         <div id={listId} className={'absolute end-0 top-full z-50 mt-1 flex w-[32rem] max-w-[90vw] flex-col gap-2 p-3 ' + POPOVER} data-checks-list="">
           {failed || !verdict ? (
-            <ErrorBanner className="p-2" title={t('checks.failedTitle')} message={apiErrorMessage(error, t('checks.failedBody'))}>
+            <ErrorBanner className="p-2" title={t('checks.failedTitle')} message={refusalText(t, error, t('checks.failedBody'))}>
               <Button variant="outlined" className="mt-2" onClick={onRetry} disabled={fetching} data-checks-retry="">
                 {t('checks.retry')}
               </Button>
@@ -265,7 +265,7 @@ function fieldLabel(place: Extract<CheckPlace, { at: 'rule' | 'block' }>, catalo
   const field = place.field ?? ''
   if (place.at === 'rule' || place.kind === 'filter' || place.kind === 'value') return has(`checks.field.${field}`) ? t(`checks.field.${field}`) : <Ltr>{field}</Ltr>
   const entry = place.type ? catalogueBlock(catalogue, place.kind, place.type) : null
-  const def = entry?.fields.find((f) => f.key === field)
-  if (def?.kind === 'says' || (!def && field === 'says' && place.kind === 'condition')) return t(`rules.says.${def?.role ?? 'notMet'}`)
+  const def = entry?.fields.find((f) => f.name === field)
+  if (def?.type === 'text' || (!def && field === 'says' && place.kind === 'condition')) return t(`rules.says.${saysRoleOf(field)}`)
   return labelText(t, fieldLabelKey(place.type ?? '', field, has), field, has)
 }

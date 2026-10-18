@@ -9,14 +9,14 @@ import type {
   RuleCondition,
   RuleEffect,
   RuleExpr,
-  RuleFormulaGuide,
+  RuleFieldType,
   RuleIssue,
   RuleItemFilter,
   Says,
 } from '@/core/models/rule-campaign'
-import { RULE_GROUP_CHECK, RULE_PERCENT_KIND, RULE_POINTS_UNIT } from '@/core/models/rule-campaign'
 import { filterNameProblem, newFilter, nextFilterName } from '@/core/rules/filters'
-import { campaignCurrency, exprText } from '@/core/rules/sentence'
+import type { RuleFormulaGuide } from '@/core/rules/formula-guide'
+import { blockFields, campaignCurrency, exprText, saysRoleOf, unitOf } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -65,12 +65,11 @@ export default function BlockPanel({ block, bkey, entry, rule, campaign, guide, 
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const raw = block as Record<string, unknown>
-  const fields = entry.fields.filter((f) => f.kind !== 'says')
-  const says = entry.fields.filter((f) => f.kind === 'says')
-  // A condition always has its "not met" pair, even where the catalogue does not list it (a group has none).
-  const saysFields: RuleCatalogueField[] =
-    entry.kind === 'condition' && entry.type !== RULE_GROUP_CHECK && !says.some((f) => f.key === 'says') ? [...says, { key: 'says', kind: 'says', role: 'notMet' }] : says
-  const shown = new Set([...fields, ...saysFields].map((f) => f.key))
+  const own = blockFields(entry)
+  // A group's conditions are edited in the rule card, not here.
+  const fields = own.filter((f) => f.type !== 'text' && !NOT_IN_PANEL.has(f.type))
+  const saysFields = own.filter((f) => f.type === 'text')
+  const shown = new Set([...fields, ...saysFields].map((f) => f.name))
   const atTop = checks.all.filter((m) => !shown.has(fieldOf(m)))
 
   return (
@@ -79,10 +78,10 @@ export default function BlockPanel({ block, bkey, entry, rule, campaign, guide, 
       {fields.length > 0 && (
         <div className="grid items-center gap-x-3 gap-y-2 sm:grid-cols-[11rem_1fr]">
           {fields.map((f) => {
-            const id = `panel-${bkey}-${f.key}`
+            const id = `panel-${bkey}-${f.name}`
             return (
-              <FieldRow key={f.key} id={id} label={labelText(t, fieldLabelKey(entry.type, f.key, has), f.key, has)} notes={checks.byField[f.key]} field={f.key}>
-                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} issues={checks.byField[f.key] ?? []} />
+              <FieldRow key={f.name} id={id} label={labelText(t, fieldLabelKey(entry.type, f.name, has), f.name, has)} notes={checks.byField[f.name]} field={f.name}>
+                <FieldControl id={id} field={f} entry={entry} raw={raw} rule={rule} campaign={campaign} guide={guide} set={set} withFilter={withFilter} newId={newId} issues={checks.byField[f.name] ?? []} />
               </FieldRow>
             )
           })}
@@ -90,14 +89,14 @@ export default function BlockPanel({ block, bkey, entry, rule, campaign, guide, 
       )}
       {saysFields.map((f) => (
         <SaysInput
-          key={f.key}
-          id={`panel-${bkey}-${f.key}`}
-          label={t(`rules.says.${f.role ?? 'message'}`)}
-          value={(raw[f.key] as Partial<Says> | undefined) ?? { en: '', ar: '' }}
-          onChange={(v) => set(f.key, v, true)}
-          data={f.role ?? 'message'}
-          notes={checks.byField[f.key]}
-          field={f.key}
+          key={f.name}
+          id={`panel-${bkey}-${f.name}`}
+          label={t(`rules.says.${saysRoleOf(f.name)}`)}
+          value={(raw[f.name] as Partial<Says> | undefined) ?? { en: '', ar: '' }}
+          onChange={(v) => set(f.name, v, true)}
+          data={saysRoleOf(f.name)}
+          notes={checks.byField[f.name]}
+          field={f.name}
         />
       ))}
       <div className="flex justify-end gap-2">
@@ -113,6 +112,9 @@ export default function BlockPanel({ block, bkey, entry, rule, campaign, guide, 
     </div>
   )
 }
+
+/** Field types the panel has no control for: a group's nested conditions (edited in the card), and settings' shapes. */
+const NOT_IN_PANEL: ReadonlySet<RuleFieldType> = new Set<RuleFieldType>(['conditions', 'object', 'objects', 'entries'])
 
 /** The control an issue points at: its field's first segment (`label.ar` → `label`). */
 const fieldOf = (m: RuleIssue): string => (m.field ?? '').split(/[.[]/)[0]
@@ -153,20 +155,31 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
   const { t } = useTranslation('campaign-workspace')
   const has = useHas()
   const optionText = (o: string) => {
-    const key = optionLabelKey(entry.type, field.key, o, has)
+    const key = optionLabelKey(entry.type, field.name, o, has)
     return key ? t(key) : fsi(o)
   }
   /** The same option inside JSX (a checkbox label): a code HQ has no words for goes in `Ltr`, not `fsi`. */
   const optionNode = (o: string) => {
-    const key = optionLabelKey(entry.type, field.key, o, has)
+    const key = optionLabelKey(entry.type, field.name, o, has)
     return key ? t(key) : <Ltr>{o}</Ltr>
   }
-  const value = raw[field.key]
-  const put = (v: unknown, coalesce?: boolean) => set(field.key, v, coalesce)
-  const data = { 'data-panel-field': field.key }
+  const value = raw[field.name]
+  const put = (v: unknown, coalesce?: boolean) => set(field.name, v, coalesce)
+  const data = { 'data-panel-field': field.name }
+  // The unit beside a figure. A currency code is a machine value and takes `Ltr`; a word ("points")
+  // reads in the UI's direction.
+  const unit = unitOf(field, raw)
+  const currency = unit === 'currency' ? campaignCurrency(campaign.audience) : null
+  const suffix: ReactNode = unit === '%' ? t('panel.percent') : unit === 'points' ? t('panel.points') : currency && <Ltr>{currency}</Ltr>
+  const withSuffix = (control: ReactNode) => (
+    <>
+      {control}
+      {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+    </>
+  )
 
-  switch (field.kind) {
-    case 'items':
+  switch (field.type) {
+    case 'filter':
       return (
         <ItemsChoice
           id={id}
@@ -174,38 +187,37 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
           rule={rule}
           newId={newId}
           onChange={(v) => put(v === '' ? undefined : v)}
-          onCreate={(filter) => withFilter(filter, field.key, filter.id)}
-          data={field.key}
+          onCreate={(filter) => withFilter(filter, field.name, filter.id)}
+          data={field.name}
         />
       )
-    case 'money': {
-      const currency = campaignCurrency(campaign.audience)
-      return (
-        <>
-          <NumberInput id={id} value={value} onChange={(v) => put(v ?? undefined, true)} {...data} />
-          {currency && <span className="text-xs text-muted-foreground"><Ltr>{currency}</Ltr></span>}
-        </>
-      )
-    }
+    case 'money':
+    case 'percent':
+    case 'number':
+    case 'points':
+      return withSuffix(<NumberInput id={id} value={value} onChange={(v) => put(v ?? undefined, true)} {...data} />)
     case 'count':
-    case 'days':
-      return <NumberInput id={id} value={value} step={1} onChange={(v) => put(v ?? undefined, true)} {...data} />
-    case 'discount':
-    case 'points': {
-      const unit = field.unitFrom ? raw[field.unitFrom] : undefined
-      // A currency code is a machine value and takes `Ltr`; a word ("points") reads in the UI's direction.
-      const currency = field.kind === 'discount' && unit !== RULE_PERCENT_KIND ? campaignCurrency(campaign.audience) : null
-      const suffix: ReactNode =
-        field.kind === 'discount'
-          ? unit === RULE_PERCENT_KIND
-            ? t('panel.percent')
-            : currency && <Ltr>{currency}</Ltr>
-          : unit === RULE_POINTS_UNIT
-            ? t('panel.points')
-            : null
-      return <NumberOrValue id={id} value={value} rule={rule} suffix={suffix} onChange={put} data={field.key} />
-    }
+      return withSuffix(<NumberInput id={id} value={value} step={1} onChange={(v) => put(v ?? undefined, true)} {...data} />)
+    case 'formula':
+      // A figure with a unit (a discount, points) is a number, a named value or an expression; a
+      // formula with none (the formula condition's test) is written with the guided ƒx helper.
+      if (field.unit) return <NumberOrValue id={id} value={value} rule={rule} suffix={suffix} onChange={put} data={field.name} />
+      return (
+        <span className="flex w-full min-w-0" {...data}>
+          <FormulaBox
+            id={id}
+            value={(value ?? null) as RuleExpr}
+            onChange={(expr, typed) => put(expr, typed)}
+            expect={entry.kind === 'condition' ? 'bool' : 'number'}
+            rule={rule}
+            issues={issues}
+            guide={guide}
+            data={field.name}
+          />
+        </span>
+      )
     case 'code':
+    case 'time':
       return (
         <input
           id={id}
@@ -216,29 +228,12 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
           {...data}
         />
       )
-    case 'codes':
-      return <CodesInput id={id} value={Array.isArray(value) ? (value as string[]) : []} onChange={(v) => put(v, true)} data={field.key} />
-    case 'text':
-      return <input id={id} dir="auto" className={`${INPUT} w-64`} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value, true)} {...data} />
-    case 'choice': {
-      const options = field.options ?? []
-      const current = value == null ? '' : String(value)
-      return (
-        <select id={id} className={INPUT} value={current} onChange={(e) => put(e.target.value)} {...data}>
-          {!options.includes(current) && <option value={current}>{fsi(current)}</option>}
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {optionText(o)}
-            </option>
-          ))}
-        </select>
-      )
-    }
-    case 'choices': {
+    case 'codes': {
+      if (!field.values) return <CodesInput id={id} value={Array.isArray(value) ? (value as string[]) : []} onChange={(v) => put(v, true)} data={field.name} />
       const picked = Array.isArray(value) ? (value as string[]) : []
       return (
         <span id={id} role="group" className="flex flex-wrap gap-3" {...data}>
-          {(field.options ?? []).map((o) => (
+          {field.values.map((o) => (
             <label key={o} className="flex items-center gap-1.5 text-sm">
               <input
                 type="checkbox"
@@ -252,24 +247,24 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
         </span>
       )
     }
-    case 'formula':
-      // A condition's formula is a yes / no test; any other is a number.
+    case 'choice': {
+      const options = field.values ?? []
+      const current = value == null ? '' : String(value)
       return (
-        <span className="flex w-full min-w-0" {...data}>
-          <FormulaBox
-            id={id}
-            value={(value ?? null) as RuleExpr}
-            onChange={(expr, typed) => put(expr, typed)}
-            expect={entry.kind === 'condition' ? 'bool' : 'number'}
-            rule={rule}
-            issues={issues}
-            guide={guide}
-            data={field.key}
-          />
-        </span>
+        <select id={id} className={INPUT} value={current} onChange={(e) => put(e.target.value)} {...data}>
+          {!options.includes(current) && <option value={current}>{fsi(current)}</option>}
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {optionText(o)}
+            </option>
+          ))}
+        </select>
       )
-    case 'timing':
-      return <TimingInput id={id} field={field.key} value={value} onChange={put} />
+    }
+    case 'pointsDate':
+      return <TimingInput id={id} field={field.name} value={value} onChange={put} />
+    case 'date':
+      return <input id={id} type="date" className={INPUT} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value || undefined, true)} {...data} />
     case 'budget':
       return campaign.budgets?.length ? (
         <select id={id} className={INPUT} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value)} {...data}>
@@ -285,9 +280,13 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
           {t('panel.noBudgets')}
         </span>
       )
-    case 'flag':
+    case 'bool':
       return <input id={id} type="checkbox" checked={value === true} onChange={(e) => put(e.target.checked)} {...data} />
-    case 'says':
+    case 'text':
+    case 'conditions':
+    case 'object':
+    case 'objects':
+    case 'entries':
       return null
   }
 }

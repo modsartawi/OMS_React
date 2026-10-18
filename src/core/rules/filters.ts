@@ -83,13 +83,13 @@ export function updateFilter(rules: Rules, ruleId: string, filterId: string, pat
 /** A rename is the filter's own name and nothing else: every reference is its id. */
 export const renameFilter = (rules: Rules, ruleId: string, filterId: string, name: string): Rules => updateFilter(rules, ruleId, filterId, { name })
 
-/** Every filter id a block points at, through its catalogue fields of kind `items` (`''` = all merchandise). */
+/** Every filter id a block points at, through its catalogue fields of type `filter` (`''` = all merchandise). */
 export function blockFilterRefs(block: RuleCondition | RuleEffect, entry: RuleCatalogueBlock | undefined): string[] {
   if (!entry) return []
   const raw = block as Record<string, unknown>
   return entry.fields.flatMap((field) => {
-    const v = raw[field.key]
-    return field.kind === 'items' ? [typeof v === 'string' ? v : ''] : []
+    const v = raw[field.name]
+    return field.type === 'filter' ? [typeof v === 'string' ? v : ''] : []
   })
 }
 

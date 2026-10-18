@@ -9,6 +9,7 @@ import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { ruleLookupQuery } from '@/core/rules/api'
+import { lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -66,7 +67,7 @@ export default function BasketCsv({
       if (q.isPending) return [sku, { state: 'checking' }]
       if (q.isError) return [sku, { state: 'failed' }]
       const hit = q.data.find((m) => m.code.toUpperCase() === sku)
-      return [sku, hit ? { state: 'found', code: hit.code, name: hit.name } : { state: 'missing' }]
+      return [sku, hit ? { state: 'found', code: hit.code, name: lookupName(hit) } : { state: 'missing' }]
     }),
   )
   const preview: PreviewRow[] = rows.map((r) => ({ ...r, check: checkBasketRow(r, found.get(r.sku)) }))

@@ -277,7 +277,9 @@
     "usedBy_other": "Used by <n>{{count}}</n> conditions or effects.",
     "copyFrom": "Copy filter from rule…",
     "copyGroup": "Rule {{n}}",
-    "collectionsAdd": "Pick a collection: its products are added below."
+    "collectionsAdd": "Pick a collection: its products are added below.",
+    "searchTooShort": "Type at least three characters to search the products.",
+    "lookupDenied": "You do not have the rule-author permission (RuleAuthoring), so HQ refused the search."
   },
   "builder": {
     "undo": "Undo",
@@ -328,52 +330,6 @@
     "hidden": {
       "coupons": "Coupon blocks appear once the campaign’s Coupons feature is on.",
       "points": "Loyalty points blocks appear once the campaign’s Loyalty points feature is on."
-    },
-    "group": {
-      "cart": "Cart",
-      "customer": "Customer",
-      "context": "Where and how",
-      "limits": "Budgets",
-      "couponConditions": "Coupons",
-      "advanced": "Advanced",
-      "discounts": "Discounts",
-      "freeGoods": "Free goods",
-      "bundles": "Bundles",
-      "points": "Points",
-      "couponEffects": "Coupons",
-      "messages": "Messages"
-    },
-    "block": {
-      "condition": {
-        "minSubtotal": "Basket value is at least",
-        "minCount": "Number of items is at least",
-        "minPoints": "Points balance is at least",
-        "tier": "Check the member’s tier",
-        "member": "Customer is a member",
-        "firstPurchase": "First purchase",
-        "audience": "Is in an audience",
-        "channel": "Channel is",
-        "store": "Store is",
-        "budgetLeft": "Budget not used up",
-        "coupon": "Coupon code is presented",
-        "sessionFlag": "Customer accepted an offer",
-        "formula": "Formula (advanced)",
-        "group": "A group of conditions"
-      },
-      "effect": {
-        "discountItems": "Discount individual items",
-        "discountSession": "Discount the basket",
-        "discountPerItem": "Price from the value map",
-        "freeUnits": "Buy N, cheapest free",
-        "freeProduct": "Free unit of a product",
-        "bundlePrice": "Bundle price",
-        "bundleDiscount": "Bundle discount",
-        "discountCheapestInBundle": "Cheapest in the bundle free",
-        "awardPoints": "Add loyalty points",
-        "burnPoints": "Redeem loyalty points",
-        "createCoupon": "Create a coupon code for next time",
-        "cashierMessage": "Tell the cashier"
-      }
     }
   },
   "panel": {
@@ -552,14 +508,6 @@
       "any": "Any of these is true"
     },
     "unit": {
-      "days_one": "<n>{{n}}</n> day",
-      "days_other": "<n>{{n}}</n> days",
-      "points_one": "<n>{{n}}</n> point",
-      "points_other": "<n>{{n}}</n> points",
-      "pointsWorth": "<money>{{money}}</money> of points",
-      "pointsNamed": "<name>{{name}}</name> points",
-      "pointsWorthNamed": "<name>{{name}}</name> in <currency>{{currency}}</currency> of points",
-      "pointsWorthNamedUnknown": "<name>{{name}}</name> worth of points",
       "percent": "{{n}}%"
     },
     "timing": {
@@ -576,49 +524,6 @@
       "rx": "Prescription <code>{{code}}</code>",
       "all": "any cart item"
     },
-    "condition": {
-      "minSubtotal": {
-        "total": "The value of <of>{{of}}</of> is at least <amount>{{amount}}</amount>, after earlier offers",
-        "subtotal": "The value of <of>{{of}}</of> is at least <amount>{{amount}}</amount>, before any offer"
-      },
-      "minCount_one": "At least <count>{{count}}</count> unit of <of>{{of}}</of>",
-      "minCount_other": "At least <count>{{count}}</count> units of <of>{{of}}</of>",
-      "minPoints": "The member’s points balance is at least <points>{{points}}</points>",
-      "tier": "The member’s tier is <in>{{in}}</in>",
-      "member": {
-        "true": "The customer is an earning Arbahi member",
-        "false": "The customer is an Arbahi member"
-      },
-      "firstPurchase": "It is the member’s first purchase",
-      "audience": "The customer is in the audience <in>{{in}}</in>",
-      "channel": "The channel is <in>{{in}}</in>",
-      "store": "The store is <in>{{in}}</in>",
-      "budgetLeft": "The budget <budget>{{budget}}</budget> is not used up",
-      "coupon": "The customer presents a coupon matching <code>{{code}}</code>",
-      "sessionFlag": "The customer accepts the offer <flag>{{flag}}</flag>",
-      "formula": "The formula <expr>{{expr}}</expr> is true"
-    },
-    "effect": {
-      "discountItems": {
-        "percent": "Take <value>{{value}}</value> off each item of <filter>{{filter}}</filter>"
-      },
-      "discountSession": {
-        "percent": "Take <value>{{value}}</value> off <filter>{{filter}}</filter>, spread pro rata",
-        "amount": "Take <value>{{value}}</value> off <filter>{{filter}}</filter>, spread pro rata"
-      },
-      "discountPerItem": "Price each item of <filter>{{filter}}</filter> from the value map",
-      "freeUnits_one": "For every <buy>{{buy}}</buy> of <filter>{{filter}}</filter>, the cheapest <free>{{free}}</free> unit is free",
-      "freeUnits_other": "For every <buy>{{buy}}</buy> of <filter>{{filter}}</filter>, the cheapest <free>{{free}}</free> units are free",
-      "freeProduct_one": "Give <count>{{count}}</count> unit of <filter>{{filter}}</filter> free when it is scanned",
-      "freeProduct_other": "Give <count>{{count}}</count> units of <filter>{{filter}}</filter> free when they are scanned",
-      "bundlePrice": "Sell each bundle for <value>{{value}}</value>",
-      "bundleDiscount": "Take <value>{{value}}</value> off each bundle",
-      "discountCheapestInBundle": "Give the cheapest unit of each bundle free",
-      "awardPoints": "Award <amount>{{amount}}</amount> under the activity <activity>{{activity}}</activity>",
-      "burnPoints": "Take <amount>{{amount}}</amount> from the member",
-      "createCoupon": "Create a coupon from <template>{{template}}</template>, valid for <validdays>{{validDays}}</validdays>",
-      "cashierMessage": "Tell the cashier a message"
-    },
     "clause": {
       "discountItems": {
         "scope": ", over <scope>{{scope}}</scope>"
@@ -627,12 +532,13 @@
         "scope": ", over <scope>{{scope}}</scope>"
       },
       "awardPoints": {
+        "activity": ", under the activity <activity>{{activity}}</activity>",
         "activates": ", usable <activates>{{activates}}</activates>",
         "expires": ", expiring <expires>{{expires}}</expires>",
         "tierPoints": ", counted toward the tier"
       },
-      "burnPoints": {
-        "tender": ", as a tender"
+      "minSubtotal": {
+        "basis": ", counted <basis>{{basis}}</basis>"
       }
     },
     "option": {
@@ -656,13 +562,33 @@
           "fees": "the fee lines",
           "itemsAndFees": "merchandise and the fee lines"
         }
+      },
+      "group": {
+        "mode": {
+          "all": "all",
+          "any": "any"
+        }
+      },
+      "awardPoints": {
+        "unit": {
+          "SAR": "SAR of points",
+          "PTS": "points"
+        }
+      },
+      "minSubtotal": {
+        "basis": {
+          "subtotal": "before any offer",
+          "total": "after earlier offers"
+        }
       }
     },
     "bundle": "A bundle of <lists>{{lists}}</lists>",
     "bundleMax_one": ", at most <max>{{max}}</max> bundle per sale",
     "bundleMax_other": ", at most <max>{{max}}</max> bundles per sale",
     "bundleSame": ", all of the same <attribute>{{attribute}}</attribute>",
-    "part": "<count>{{count}}</count> of <filter>{{filter}}</filter>"
+    "part": "<count>{{count}}</count> of <filter>{{filter}}</filter>",
+    "yes": "yes",
+    "no": "no"
   },
   "values": {
     "defaultName": "value",
@@ -892,11 +818,11 @@
     "failedBody": "Try again in a moment.",
     "retry": "Try again",
     "verdict": {
-      "blocked": "Errors block “Ask for approval”. Fix them and save: HQ checks the rules again.",
+      "blocked": "Errors block “Ask for approval”. Fix them: HQ checks the rules again as you edit.",
       "warningsOnly": "Warnings do not block “Ask for approval”.",
       "clear": "Nothing blocks “Ask for approval”."
     },
-    "stale": "These are the checks of the last save. Save to check your changes.",
+    "stale": "These are the checks of your rules a moment ago. Your latest change is checked once you stop editing.",
     "where": {
       "campaign": "The campaign",
       "gone": "No longer in the rules",
@@ -1010,9 +936,9 @@
       "title": "Audience",
       "lede": "Where and for whom the campaign runs, before any rule is looked at.",
       "countries": "Countries",
-      "countriesHint": "None picked: every country.",
+      "countriesHint": "None picked: every country. HQ has no country list yet, so these are the countries the estate sells in.",
       "channels": "Channels",
-      "channelsHint": "None picked: every channel.",
+      "channelsHint": "None picked: every channel. HQ has no channel list yet, so these are the channels known today.",
       "stores": "Stores",
       "storesAll": "Every rule-engine store in the countries above",
       "members": "Customers",
@@ -1021,7 +947,19 @@
         "identified": "Members only",
         "earning": "Earning Arbahi members only"
       },
-      "saved": "The audience is saved."
+      "saved": "The audience is saved.",
+      "names": {
+        "countries": {
+          "SA": "Saudi Arabia",
+          "BH": "Bahrain"
+        },
+        "channels": {
+          "POS": "Store till (NewPos)",
+          "CC": "Call center / OMS",
+          "SD": "AddSdDocument",
+          "CMRC": "Hybris web (later phase)"
+        }
+      }
     },
     "features": {
       "menu": "Features",
@@ -1051,13 +989,13 @@
       "usageFailed": "Try again in a moment. The budgets themselves are shown.",
       "usage": {
         "campaign": "Used",
-        "profile": "Most used by one member",
-        "coupon": "Most used by one code",
-        "store": "Most used by one store",
-        "session": "Most used in one sale"
+        "profile": "Used by members",
+        "coupon": "Used by codes",
+        "store": "Used by stores",
+        "session": "Used in sales"
       },
       "overshoot": "Over by <amount>{{amount}}</amount>",
-      "overshootWhy": "A counter can go past its limit when a hold expired, the limit was lowered, or a sale reused an earlier result.",
+      "overshootWhy": "A counter can go past its limit when a hold expired, the limit was lowered, or a sale reused an earlier result. HQ adds up what went past, key by key.",
       "scopes": {
         "campaign": {
           "title": "Campaign budgets",
@@ -1141,7 +1079,40 @@
         "confirm": "Delete"
       },
       "saved": "The budgets are saved.",
-      "limitChanged": "The new limit applies now. Nothing was republished."
+      "limitChanged": "The new limit applies now. Nothing was republished.",
+      "usedPerKey": "<used>{{used}}</used> in all (<n>{{n}}</n> counted), at most <limit>{{limit}}</limit> each",
+      "held": "<amount>{{amount}}</amount> held by sales still paying"
+    },
+    "valueMap": {
+      "menu": "Value map",
+      "title": "Value map",
+      "lede": "A number per material, read by “Price from the value map”. Say what the number means and its unit, then read the entries from a CSV file. HQ checks the file; nothing changes until you save.",
+      "means": "Each number is",
+      "meaning": {
+        "targetPrice": "the price the item sells for",
+        "percentOff": "a percent off the item",
+        "amountOff": "an amount off the item"
+      },
+      "unit": "Unit",
+      "unitHint": "The unit the numbers are for, such as EA.",
+      "file": "Entries from a file",
+      "fileHint": "A CSV with a material and a number on each line, such as PAN-24,7.95. A first line naming material, article or sku is skipped. The file replaces every entry.",
+      "reading": "HQ is reading the file…",
+      "uploadFailedTitle": "The file could not be read",
+      "uploadFailed": "Try again in a moment.",
+      "accepted_one": "<n>{{n}}</n> entry read. Save to keep it.",
+      "accepted_other": "<n>{{n}}</n> entries read. Save to keep them.",
+      "refused": "HQ refused the file. Nothing was changed.",
+      "error": "<where>{{where}}</where>: <msg>{{message}}</msg>",
+      "warning": "<where>{{where}}</where>: <msg>{{message}}</msg>",
+      "entries": "Entries",
+      "none": "No entries yet.",
+      "material": "Material",
+      "number": "Number",
+      "more_one": "and <n>{{n}}</n> more entry",
+      "more_other": "and <n>{{n}}</n> more entries",
+      "saved": "The value map is saved.",
+      "fileFailed": "The file could not be read here. Pick it again."
     },
     "offline": {
       "menu": "Offline",
@@ -1387,6 +1358,7 @@
     "stale": "Your change was not saved. Reload to read the campaign as it is now; your unsaved change is then lost.",
     "reload": "Reload",
     "pendingTitle": "The draft waits for approval",
-    "pending": "The draft waits for an approver, so nothing can be saved until it is activated or sent back."
+    "pending": "The draft waits for an approver, so nothing can be saved until it is activated or sent back.",
+    "denied": "You do not have the rule-author permission (RuleAuthoring), so HQ refused. Ask an administrator for it."
   }
 }

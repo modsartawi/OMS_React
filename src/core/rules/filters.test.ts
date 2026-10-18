@@ -46,7 +46,7 @@ describe('filters', () => {
     const diapers = rule.filters[0]
     const ctx: SentenceContext = { campaign: campaignOf('BABY-BUNDLE'), rule, catalogue: CATALOGUE, has }
     const before = blockSentence('condition', rule.when[0], ctx)
-    expect(plainSentence(before.sentence, t)).toBe('At least 1 unit of diapers')
+    expect(plainSentence(before.sentence, t)).toBe('at least 1 units of diapers')
 
     const next = renameFilter(rules, rule.id, diapers.id, 'nappies')
     const renamed = next[0]
@@ -58,7 +58,7 @@ describe('filters', () => {
     expect(renamed.when).toBe(rule.when)
     expect(renamed.bundle).toBe(rule.bundle)
     const after = blockSentence('condition', renamed.when[0], { ...ctx, rule: renamed })
-    expect(plainSentence(after.sentence, t)).toBe('At least 1 unit of nappies')
+    expect(plainSentence(after.sentence, t)).toBe('at least 1 units of nappies')
     // The original rules are left as they were (the history keeps them for Undo).
     expect(rules[0].filters[0].name).toBe('diapers')
     // A rename to the same name changes nothing.

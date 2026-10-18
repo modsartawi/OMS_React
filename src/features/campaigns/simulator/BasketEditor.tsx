@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plus, Search, Upload, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import { RULE_MATERIAL_SEARCH_MIN } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
+import { lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
@@ -127,15 +129,16 @@ function QtyInput({ line, onCommit }: { line: BasketLine; onCommit: (n: number) 
   )
 }
 
-/** "Add an item": HQ's materials lookup by SKU or name; a hit adds one unit. */
+/** "Add an item": HQ's materials lookup by SKU or name (three characters at least); a hit adds one unit. */
 function ItemSearch({ onPick }: { onPick: (sku: string, name: string) => void }) {
-  const { t } = useTranslation('rule-simulator')
+  const { t, i18n } = useTranslation('rule-simulator')
   const [find, setFind] = useState('')
   const q = useDebounced(find.trim(), 250)
-  const hits = useQuery({ ...ruleLookupQuery('materials', q), enabled: q !== '' })
+  const searchable = q.length >= RULE_MATERIAL_SEARCH_MIN
+  const hits = useQuery({ ...ruleLookupQuery('materials', q), enabled: searchable })
   const id = useId()
-  const settled = q !== '' && q === find.trim()
-  const found = hits.data ?? []
+  const settled = searchable && q === find.trim()
+  const found = (hits.data ?? []).map((m) => ({ code: m.code, name: lookupName(m, i18n.language) }))
   const pick = (sku: string, name: string) => {
     onPick(sku, name)
     setFind('')

@@ -14,6 +14,7 @@ import {
   isConditionGroup,
   leafConditions,
   ruleSummary,
+  sentenceId,
   valueSentence,
   whenSentence,
   type SentenceContext,
@@ -217,7 +218,7 @@ function Block({
       className={'rounded-md border px-3 py-2 ' + (!read.known ? 'border-attention-border bg-attention-050' : rx ? 'border-danger-border' : 'border-border/60')}
       {...{ [`data-${kind}`]: path }}
       data-block-path={path}
-      data-sentence={read.sentence.key}
+      data-sentence={sentenceId(read.sentence, blockType(item))}
       data-block-rx={rx ? '' : undefined}
     >
       <p className="text-sm leading-relaxed" data-block-sentence="">

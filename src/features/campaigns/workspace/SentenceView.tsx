@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { moneyText, percentText, type Sentence, type SentenceValue } from '@/core/rules/sentence'
+import { moneyText, percentText, saysIn, templateParts, type Sentence, type SentenceValue } from '@/core/rules/sentence'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
 import { formatNumber } from '@/core/util/number-format'
@@ -16,7 +16,17 @@ import { formatNumber } from '@/core/util/number-format'
  * plural sentence's number comes in through `count`.
  */
 export default function SentenceView({ s }: { s: Sentence }) {
-  const { t } = useTranslation('campaign-workspace')
+  const { t, i18n } = useTranslation('campaign-workspace')
+  if ('template' in s)
+    // HQ's own words (a catalogue block's sentence): free text from data, isolated whole (bidi.md),
+    // its braced fields slots inside it.
+    return (
+      <bdi>
+        {templateParts(saysIn(s.template, i18n.language)).map((p, i) =>
+          'text' in p ? <span key={i}>{p.text}</span> : s.values[p.slot] ? <ValueSlot key={i} value={s.values[p.slot]} /> : null,
+        )}
+      </bdi>
+    )
   const values: Record<string, string> = {}
   const components: Record<string, ReactElement> = {}
   for (const [key, value] of Object.entries(s.values)) {
@@ -64,6 +74,12 @@ function ValueSlot({ value }: { value: SentenceValue; children?: ReactNode }) {
       return (
         <span className={`${TOKEN} font-mono text-[0.92em]`} data-value="name">
           <bdi>{value.name}</bdi>
+        </span>
+      )
+    case 'says':
+      return (
+        <span className={TOKEN} data-value="says">
+          <bdi>{saysIn(value.says, i18n.language)}</bdi>
         </span>
       )
     case 'phrase':

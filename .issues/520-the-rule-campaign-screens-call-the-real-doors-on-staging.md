@@ -415,3 +415,10 @@ the sale with the 20.00 discount** (gross 300.00, promotion −20.00, total 322.
 19. **HQ does not record the refused Close.** The session's `refusals` is empty, so on the Sessions screen the 409 is
     invisible: support sees "Cancelled" and cannot tell that the till took the money anyway. Ask (candidate BO ask
     M): record a refused till call against the session, so the screen can show it.
+
+### BO asks J–M filed in BackOffice (2026-10-18)
+
+Filed as grilling tickets under map 2697 (BackOffice `9d53476b9`): **J → 2829** (a published campaign loses its
+features), **K → 2830** (engine filter on `Lookups/stores`), **L → 2831** (coupon template vs coupon rule, and who
+creates the template), **M → 2832** (a support cancel does not stop the till; the refused close leaves no trace).
+Asks A–I stay unfiled, for the owner to decide.

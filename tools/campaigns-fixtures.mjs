@@ -391,8 +391,8 @@ export function saveDraft(store, body, at) {
     if (body.revision !== 0) return refuse('RULES_DRAFT_STALE', 409, 'The draft changed since it was loaded: load it again.')
     return { draft: newDraft(store, body.campaign, body.features ?? [], at) }
   }
-  if (d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, 'The draft waits for approval and cannot change.')
   if (d.revision !== body.revision) return refuse('RULES_DRAFT_STALE', 409, 'The draft changed since it was loaded: load it again.')
+  if (d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, 'The draft waits for approval and cannot change.')
   remember(d)
   Object.assign(d, {
     campaign: structuredClone(body.campaign),
@@ -422,8 +422,8 @@ export function deleteDraft(store, body) {
   const i = store.findIndex((c) => c.code === body?.campaign)
   if (i < 0 || store[i].source === 'published') return refuse('RULES_DRAFT_NOT_FOUND', 404, 'This campaign has no draft.')
   const d = store[i]
-  if (d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, 'The draft waits for approval and cannot change.')
   if (d.revision !== body.revision) return refuse('RULES_DRAFT_STALE', 409, 'The draft changed since it was loaded: load it again.')
+  if (d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, 'The draft waits for approval and cannot change.')
   // A never-published campaign goes with its draft; so does a disabled one (no version holds it).
   if (d.campaignStatus !== 'Published') store.splice(i, 1)
   else {

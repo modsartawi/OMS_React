@@ -146,7 +146,7 @@ Session 1's remaining items 1 to 4 are finished.
 - 82: a draft with no country has no currency. Schema 1 has no campaign currency (`campaignCurrency`), so the figure carries no code.
 - 93: a free product names its filter (`pouch`), not its articles.
 - 94: a published campaign with an editing draft reads Running (HITL-522). The live version's activation stamp is not in the Drafts/Load reply.
-- 13: the stubbed create refusal is `RULES_DRAFT_STALE`, a real code, instead of an invented `RULES_CAMPAIGN_EXISTS`.
+- 13: the stubbed create refusal is `RULES_DRAFT_STALE`, a real code, since `RULES_CAMPAIGN_EXISTS` (a real code, answered by Drafts/Copy and Drafts/FromTemplate) is not a Save refusal.
 - Priority 2: the Arabic name follows the 2734 fixture.
 
 **/code-review fixes**, each with vitest or a drive check:

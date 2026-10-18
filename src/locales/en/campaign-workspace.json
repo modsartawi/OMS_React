@@ -907,8 +907,7 @@
     "period": {
       "day": "<strong>day</strong>",
       "week": "<strong>week</strong>",
-      "month": "<strong>month</strong>",
-      "year": "<strong>year</strong>"
+      "month": "<strong>month</strong>"
     }
   },
   "settings": {
@@ -1088,8 +1087,7 @@
           "lifetime": "Never (no recurrence)",
           "day": "Every day",
           "week": "Every week",
-          "month": "Every month",
-          "year": "Every year"
+          "month": "Every month"
         },
         "namePlaceholder": "For whoever reads it next",
         "previewWaiting": "The sentence shows once the limit is a figure above zero.",

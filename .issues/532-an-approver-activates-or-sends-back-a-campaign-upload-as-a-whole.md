@@ -86,4 +86,5 @@ changes and disables, activates it or sends it back, and every refusal reads in 
 
 - **Where Uploads lives:** the brief says "a tab of Approvals", but oms-react has no Approvals list. This
   ticket's default is the own page above. Overrulable if the owner wants an Approvals page with Drafts and
-  Uploads tabs (Drafts would need a pending-drafts list door HQ does not have).
+  Uploads tabs. HQ's `Approvals/List` door could fill a Drafts tab, but today only the workspace's
+  `ApprovalPanel` reads it, inside a campaign.

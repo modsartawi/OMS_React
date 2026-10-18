@@ -364,3 +364,30 @@ Walked again live: DeleteUnused then List only. Gates are green: vitest 243, lin
     Showing those dates needs the template on the List or Export answer.
 
 What is left for 520 is sessions: a NewPos sale at store 1000, which runs the rule engine since part 4.
+
+### Live run 1, part 6 — a real NewPos sale at store 1000 (2026-10-18)
+
+The owner opened a NewPos till (DB `POS`, `NewPos.Enabled = X`, HQ address localhost:5111) as store 1000. At shift open
+the till wrote `PosConfig` `Promotions.Engine = Rule` itself at 12:04:52. Nothing was set by hand, and none is
+needed. They rang sale **06GMWGFWWX6DJCAA213VD94V61**: 30 × article 200033 at 10.00.
+
+- **Till (`POS`):** COMPLETED, `PromotionEngine = Rule`. The effects are `LIVE-TEST-520-BASKET-10-OFF`
+  `discountSession` spread over the 30 units (0.86 + 29 × 0.66 = 20.00), and `PosTransactionRuleUnit` agrees. Gross
+  300.00, promotion −20.00, net 280.00, VAT 42.00, total 322.00; cash 500.00, change 178.00. The sync outbox row is
+  not yet sent (`IsSynced = 0`).
+- **HQ (`POS_Server.RuleSession`):** state closed, ruleset v1, cart v1, paid 12:07:57, closed 12:08:02.
+- **Sessions screen (1741):** store 1000 and day 2026-10-18 list it, Closed. The details read 300.00 before
+  promotions, 20.00 off, net 280.00. Events show Pay ×3 then Close (request ids and cart versions), and Campaigns shows
+  "Applied LIVE-TEST-520-BASKET-10-OFF, took SAR 20.00 off". The read is green. **Cancel was not tried**: it is offered
+  on this closed, cash-paid sale, and cancelling it would roll back its budgets. The owner rules whether to try it (on
+  this sale or a fresh one).
+
+**Found, for the owner (till and HQ side, not this repo):**
+15. HQ's first engine call is **Pay** (12:07:20, cart v0, no effects), 2 minutes after the sale opened at 12:05:09. No
+    call is logged while items were scanned. If the cashier saw the discount only at tender, that is the till's design
+    to confirm.
+16. The till's rule state carries `"Coupon":"BBBBBBB"`, but HQ's session has no coupon. Was a code typed at the till?
+    It matched nothing, so nothing was applied, but the till keeps it.
+17. The rule discount is written as condition `ZB01` "Bby Price" with `PromotionNumber = RULE`, and the header says
+    `IsPromotionApplicable = 0` although a promotion applied. Confirm both are what SAP should receive for a
+    rule sale.

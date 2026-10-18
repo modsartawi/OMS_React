@@ -31,8 +31,8 @@ import type {
   RuleMemberKey,
   RuleOrder,
   RulePublishReply,
-  RuleSimRequest,
-  RuleSimResult,
+  RuleSimulateRequest,
+  RuleSimulation,
   RuleTemplate,
   RuleValidateRequest,
   RuleValidation,
@@ -90,8 +90,7 @@ const VALUE_MAP_UPLOAD = 'Rules/Authoring/ValueMaps/Upload'
 const BUDGETS = 'Rules/Authoring/Budgets'
 const BUDGET_SET_LIMIT = 'Rules/Authoring/Budgets/SetLimit'
 
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const SIMULATE = 'RuleCampaign/Simulate'
+const SIMULATE = 'Rules/Authoring/Simulate'
 // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
 const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
 // Support's doors (BackOffice 2760): their own grant, `BackOfficeScreen[RuleSupport]` — 03 to read,
@@ -281,14 +280,13 @@ export const ruleCampaignApi = {
     return api.post<RuleOrder>(ORDER, {})
   },
 
-  /** POST RuleCampaign/Simulate — the dry run (ticket 514, BackOffice 2758): HQ prices the basket at
-   *  the store, member, channel and local moment given, on live versions or working copies, and
-   *  answers per-line and session effects, a trace per campaign and the near misses. Nothing is
-   *  held, closed or counted. A basket HQ cannot price (an unknown SKU or store) is refused on the
-   *  standard envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  simulate(body: RuleSimRequest): Promise<RuleSimResult> {
-    return api.post<RuleSimResult>(SIMULATE, body)
+  /** POST Rules/Authoring/Simulate — the dry run (ticket 525, BackOffice 2758): the `evaluate`
+   *  request plus `campaign` (unsaved) or `draft` (a saved draft's id), neither = the newest version
+   *  alone; the basket as `lines` or as an uploaded `csv`. Answers the per-line money and the whole
+   *  `evaluate` reply; writes nothing. `RULES_INVALID_CAMPAIGN` (pointed at blocks), `RULES_BAD_BASKET`
+   *  (by file line), `RULES_BAD_REQUEST`, 404 `RULES_DRAFT_NOT_FOUND`. */
+  simulate(body: RuleSimulateRequest): Promise<RuleSimulation> {
+    return api.post<RuleSimulation>(SIMULATE, body)
   },
 
   /** GET RuleCampaign/Campaigns/{id}/Coupons — every code of a coupon campaign with its status,

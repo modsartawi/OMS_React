@@ -79,6 +79,12 @@ export function apiErrorCode(err: unknown): string | null {
   return err instanceof ApiError ? (err.details[0]?.errorCode ?? null) : null
 }
 
+/** A refusal's detail lines: SIS.Api's first error is the refusal, every further one a detail under
+ *  the same code (a checker's line per block, a bad file's line per row). Empty when there are none. */
+export function apiErrorDetails(err: unknown): string[] {
+  return err instanceof ApiError ? err.details.slice(1).map((d) => d.errorMessage) : []
+}
+
 /**
  * The render attempt this failure was journalled under (SIS.Api's `attemptId`),
  * or null when the failure carried none — and on the render rail it is carried on

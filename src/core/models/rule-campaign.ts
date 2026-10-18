@@ -8,6 +8,8 @@
 // `HH:mm`, a moment `yyyy-MM-ddTHH:mm:ss`, never with a `Z`. A time HQ never set is
 // `0001-01-01T00:00:00` (`RULE_NEVER`): read it as absent, never show it.
 
+import type { RuleCartLine, RuleCreatedCoupon, RulePointsEffect, RuleSessionRefusal, RuleSessionReply, RuleUnitEffect } from './rule-session'
+
 /** A marketer's text in both languages — a name, a "not met" message, a receipt label, a cashier
  *  prompt. Both halves are entered by the marketer and both are shown wherever the value is read. */
 export interface Says {
@@ -628,124 +630,129 @@ export interface RuleFromTemplateBody {
   values: Record<string, unknown>
 }
 
-// ── The simulator (ticket 514; HQ's door is BackOffice 2758's dry run) ───────────────────────────
-// A dry run of the rule engine on a basket: nothing is held, closed or counted. HQ answers per-line
-// effects, session-level effects, a trace per campaign and the near misses; the client only groups
-// and draws them (it never evaluates a rule — ADR 0089).
+// ── The simulator (ticket 525: `POST Rules/Authoring/Simulate`, BackOffice 2758) ─────────────────
+// A dry run of the rule engine: the `evaluate` request, plus what to run, answered with the per-line
+// money and the whole `evaluate` reply. Nothing is held, closed or counted. The client only groups
+// and draws what HQ answered (it never evaluates a rule — ADR 0089).
 
-/** One basket line as it is sent: a material by its SKU and a whole quantity. */
-export interface RuleSimBasketLine {
-  sku: string
-  qty: number
+/** The member on the sale (SIS.Rules `ProfileSnapshot`). A member HQ knows is read from HQ (its tier
+ *  when `tier` is empty, and its points); `earning` and `firstPurchase` are the request's. A walk-in
+ *  sends an empty `loyaltyId`. */
+export interface RuleSaleProfile {
+  loyaltyId: string
+  tier: string
+  earning: boolean
+  firstPurchase: boolean
+  points: number
+  audiences: string[]
 }
 
-export interface RuleSimRequest {
-  basket: RuleSimBasketLine[]
-  /** The store's code; its country, sales org, currency and engine are HQ's to look up. */
-  store: string
-  /** The member on the sale; null = a walk-in. */
-  memberId: string | null
+/** `Rules/Authoring/Simulate`: the `evaluate` request plus what to run. `campaign` (unsaved JSON)
+ *  or `draft` (a saved draft's id), never both; neither runs the newest version alone. `csv` is the
+ *  uploaded basket in place of `lines`; `at` is LOCAL (`yyyy-MM-ddTHH:mm`), absent = now. */
+export interface RuleSimulateRequest {
+  storeCode: string
+  country: string
   channel: string
-  /** The sale's moment, LOCAL: `yyyy-MM-ddTHH:mm:ss`, never a `Z`. */
-  at: string
-  /** Run every campaign's working copy (its draft) instead of its live version. */
-  includeDrafts: boolean
-  /** Run this one campaign's working copy, the others live ("Simulate the working copy"). */
-  draftId: string | null
-}
-
-/** One line of the priced basket, in the order sent; `line` is 1-based. Money is in `currency`. */
-export interface RuleSimLine {
-  line: number
-  sku: string
-  name: string
-  qty: number
-  gross: number
-  discount: number
-  net: number
-}
-
-/**
- * What a campaign does to the sale: money off, a free unit, points earned, points taken as a tender,
- * a coupon it will create at close, or a message for the receipt or the cashier.
- */
-export type RuleSimEffectKind = 'discount' | 'freeUnit' | 'points' | 'pointsTaken' | 'createCoupon' | 'message'
-
-export interface RuleSimEffect {
-  campaignId: string
-  code: string
-  kind: RuleSimEffectKind
-  /** The basket line it lands on; null = a session-level effect. */
-  line: number | null
-  /** Money (discount, free unit's worth, points taken), in the result's currency. */
-  amount: number | null
-  /** A free unit's count. */
-  quantity: number | null
-  /** Points earned. */
-  points: number | null
-  /** The receipt label, or the message / cashier prompt, in both languages. */
-  label: Says | null
-  /** `createCoupon`: the code of the coupon campaign it will create a code of. */
-  coupon: string | null
-}
-
-/**
- * How a campaign came out: applied; triggered nothing ("not met"); not run at all (out of its
- * schedule, audience or country, a draft not chosen — HQ says why); stopped by a budget; or lost
- * inside its group to another campaign.
- */
-export type RuleSimOutcome = 'applied' | 'notMet' | 'skipped' | 'budget' | 'lost'
-
-export interface RuleSimConditionTrace {
-  conditionId: string
-  /** The condition's "not met" text in both languages, as the marketer wrote it. */
-  says: Says
-  met: boolean
-}
-
-export interface RuleSimRuleTrace {
-  ruleId: string
-  name: string
-  /** False when HQ did not reach the rule (the campaign was skipped, or an earlier rule ended it). */
-  ran: boolean
-  conditions: RuleSimConditionTrace[]
-}
-
-export interface RuleSimTrace {
-  campaignId: string
-  code: string
-  name: Says
-  outcome: RuleSimOutcome
-  /** HQ's words for a skip or a budget stop ("not for SA", "ended 2026-09-04"); null otherwise. */
-  reason: string | null
-  /** The evaluation group it sits in; null = the stackable base. */
-  group: { id: string; name: string; mode: RuleOrderGroupMode } | null
-  /** `lost`: the code of the campaign that won the group. */
-  lostTo: string | null
-  rules: RuleSimRuleTrace[]
-}
-
-/** How far a campaign is from applying: money to add, or more items of one of its filters. */
-export type RuleSimGap = { kind: 'money'; amount: number } | { kind: 'items'; count: number; of: string }
-
-export interface RuleSimNearMiss {
-  campaignId: string
-  code: string
-  gap: RuleSimGap
-  /** What it would give, as its receipt label reads ("15% off"), in both languages. */
-  offer: Says
-}
-
-export interface RuleSimResult {
-  /** The store's currency; every money figure of the result is in it. */
   currency: string
-  /** The store's engine: on `BonusBuy` rule campaigns never apply there. */
-  engine: 'Rule' | 'BonusBuy'
-  lines: RuleSimLine[]
-  totals: { gross: number; discount: number; net: number }
-  effects: RuleSimEffect[]
-  trace: RuleSimTrace[]
-  nearMisses: RuleSimNearMiss[]
+  decimals: 2 | 3
+  lines: RuleCartLine[]
+  profile: RuleSaleProfile
+  coupons: string[]
+  /** The `flag`s of the offers the customer said yes to. */
+  flags: string[]
+  requestedPoints: number
+  campaign?: RuleCampaign
+  draft?: string
+  tree?: RuleEvaluationTree
+  csv?: string
+  at?: string
+}
+
+/** One line of the simulation: what the basket held and what the unit effects took off it. */
+export interface RuleSimulatedLine {
+  lineNumber: number
+  article: string
+  quantity: number
+  /** The line's net before promotions. */
+  net: number
+  /** Every unit effect's money on the line. */
+  discount: number
+  netAfter: number
+  /** The line's unit effects, in evaluation order. */
+  effects: RuleUnitEffect[]
+}
+
+/** A near miss's gap: what is missing, in HQ's words, and the condition's own "not met" text. */
+export interface RuleNearMissGap {
+  check: string
+  /** Where the condition is (`campaign.rules[0].when[1]`). */
+  path: string
+  amount: number
+  unit: 'money' | 'items' | 'points' | string
+  currency: string | null
+  /** "add SAR 12.00". */
+  text: Says | null
+  says: Says | null
+}
+
+/** A campaign close to applying (a begun bundle is one too). */
+export interface RuleNearMiss {
+  campaign: string
+  rule: string
+  text: Says | null
+  gaps: RuleNearMissGap[]
+}
+
+/** How a campaign came out, in evaluation order. */
+export type RuleTraceStatus = 'applied' | 'notTriggered' | 'lost' | 'skipped'
+export const RULE_TRACE_STATUSES: readonly RuleTraceStatus[] = ['applied', 'notTriggered', 'lost', 'skipped']
+
+/** Why: `notMet`, `refused`, `nothingLeft`, `lostToGroup`, `notScanned`, `window`, `audience`,
+ *  `budget` — or a word this client lacks. */
+export type RuleTraceCode = 'notMet' | 'refused' | 'nothingLeft' | 'lostToGroup' | 'notScanned' | 'window' | 'audience' | 'budget'
+export const RULE_TRACE_CODES: readonly RuleTraceCode[] = ['notMet', 'refused', 'nothingLeft', 'lostToGroup', 'notScanned', 'window', 'audience', 'budget']
+
+export interface RuleTraceEntry {
+  campaign: string
+  /** The evaluation group it ran in; null in the stackable base. */
+  group: string | null
+  status: RuleTraceStatus | string
+  code: RuleTraceCode | string | null
+  money: number
+  reason: Says | null
+}
+
+/** The `evaluate` reply (SIS.Rules `EvaluateReply`): what Simulate's `reply` is. */
+export interface RuleEvaluateReply {
+  rulesetVersion: number
+  currency: string
+  decimals: number
+  /** Per UNIT: `line` is the cart line number, `unit` the 0-based unit. */
+  effects: RuleUnitEffect[]
+  points: RulePointsEffect[]
+  nearMisses: RuleNearMiss[]
+  refusals: RuleSessionRefusal[]
+  trace: RuleTraceEntry[]
+  prompts: RuleSessionReply['prompts']
+  messages: RuleSessionReply['messages']
+  offers: RuleSessionReply['offers']
+  /** Null on an anonymous sale or a member HQ does not know. Not drawn by the simulator. */
+  member: unknown
+  wallet: unknown
+  createdCoupons: RuleCreatedCoupon[]
+}
+
+/** `Rules/Authoring/Simulate`'s reply. */
+export interface RuleSimulation {
+  /** The published version the run was composed on; 0 when nothing is published. */
+  basedOnVersion: number
+  /** The campaign run in place of its published self; null: the newest version alone. */
+  campaign: string | null
+  /** The LOCAL moment the basket was evaluated at. */
+  at: string
+  lines: RuleSimulatedLine[]
+  reply: RuleEvaluateReply
 }
 
 // ── Campaign coupons (ticket 515, BackOffice 2755) ──

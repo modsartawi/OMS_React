@@ -1,13 +1,13 @@
-import { useId, useState, type ReactNode } from 'react'
-import { useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Loader2, Play, X } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
-import type { RuleLookupItem, RuleSimRequest } from '@/core/models/rule-campaign'
+import { apiErrorCode, apiErrorDetails, apiErrorMessage, isBareDenial } from '@/core/api'
+import type { RuleSimulateRequest } from '@/core/models/rule-campaign'
 import { ruleCampaignApi, ruleCampaignQuery, ruleLookupQuery } from '@/core/rules/api'
 import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
-import { AUDIENCE_CHANNELS, lookupName } from '@/core/rules/lookups'
+import { AUDIENCE_CHANNELS, AUDIENCE_COUNTRIES, lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -17,47 +17,63 @@ import { toIsoDate } from '@/core/util/date-format'
 import type { BasketLine } from './basket'
 import BasketEditor from './BasketEditor'
 import SimResults from './SimResults'
-import { simRequest } from './sim-result'
+import { draftTarget, parsePoints, refusalLines, saleMoney, simRequest } from './sim-result'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
+/** HQ's refusal of a campaign its checker rejects: the details point at its blocks. */
+const INVALID_CAMPAIGN = 'RULES_INVALID_CAMPAIGN'
+
 /**
- * Campaigns ▸ Simulator (ticket 514, BackOffice spec 2737): a dry run of the rule engine. The
- * basket is typed or comes from a CSV; the sale has a store, an optional member, a channel and a
- * LOCAL date and time; campaigns run live, or as every working copy, or one campaign's working copy
+ * Campaigns ▸ Simulator (tickets 514, 525, BackOffice spec 2737): a dry run of the rule engine. The
+ * basket is typed (with the unit prices the author gives) or is a CSV file HQ reads; the sale has a
+ * store, a country, a channel, an optional member, coupons and points, and a LOCAL date and time.
+ * Campaigns run as the newest version publishes them, or one campaign as its saved draft
  * (`?draft=<id>`, the dashboard's "Simulate the working copy"). **Run** asks HQ's dry run
- * (`RuleCampaign/Simulate`, PROVISIONAL) and shows its effects per line and on the sale, a trace per
+ * (`Rules/Authoring/Simulate`) and shows its effects per line and on the sale, the trace per
  * campaign and the near misses. Distinct from Pricing's bonus-buy Simulation: that is the other
  * engine.
  *
- * No access probe yet (BackOffice 2759 seeds the roles): the door fails closed on the server.
+ * No access probe (BackOffice 2759 seeds the roles): a missing grant is a bare 403 on Run.
  */
 export default function SimulatorPage() {
-  const { t } = useTranslation('rule-simulator')
+  const { t, i18n } = useTranslation('rule-simulator')
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const draftId = params.get('draft') || null
 
   const [basket, setBasket] = useState<BasketLine[]>([])
+  const [file, setFile] = useState<string | null>(null)
   const [store, setStore] = useState('')
-  const [channel, setChannel] = useState<string | null>(null)
+  const [country, setCountry] = useState(AUDIENCE_COUNTRIES[0])
+  const [channel, setChannel] = useState(AUDIENCE_CHANNELS[0])
   const [memberId, setMemberId] = useState('')
+  const [earning, setEarning] = useState(true)
+  const [firstPurchase, setFirstPurchase] = useState(false)
+  const [coupons, setCoupons] = useState('')
+  const [points, setPoints] = useState('')
+  const [flags, setFlags] = useState<string[]>([])
   const [now] = useState(() => new Date())
   const [date, setDate] = useState(() => toIsoDate(now))
   const [time, setTime] = useState(() => `${pad(now.getHours())}:${pad(now.getMinutes())}`)
-  const [includeDrafts, setIncludeDrafts] = useState(false)
 
   const stores = useQuery(ruleLookupQuery('stores', ''))
   const chosen = useQuery({ ...ruleCampaignQuery(draftId ?? ''), enabled: !!draftId })
-  const draft = draftId ? chosen.data : undefined
-  // Until the reader picks one, the channel is the first listed. HQ has no channels lookup (BO ask E).
-  const channelValue = channel ?? AUDIENCE_CHANNELS[0]
+  const loaded = draftId ? chosen.data : undefined
+  const target = draftTarget(draftId, loaded)
+  const money = saleMoney(country)
 
-  const request = simRequest({ basket, store, memberId, channel: channelValue, date, time, includeDrafts, draftId })
+  const form = { basket, file, store, country, channel, memberId, earning, firstPurchase, coupons, points, flags, date, time, draft: target.draft }
+  const request = target.ready ? simRequest(form) : null
   const run = useMutation({
-    mutationFn: (body: RuleSimRequest) => ruleCampaignApi.simulate(body),
+    mutationFn: (body: RuleSimulateRequest) => ruleCampaignApi.simulate(body),
   })
   const stale = !!run.data && !!run.variables && JSON.stringify(run.variables) !== JSON.stringify(request)
+  // The store's engine as HQ holds it (the stores lookup's `detail`): a dry run runs at any store.
+  const ranAt = run.variables?.storeCode
+  const bonusBuy = !!ranAt && stores.data?.find((s) => s.code === ranAt)?.detail === 'BonusBuy'
+  const names = useMemo(() => new Map(basket.map((l) => [l.sku, l.name])), [basket])
+  const flag = (f: string, yes: boolean) => setFlags((all) => (yes ? [...new Set([...all, f])] : all.filter((x) => x !== f)))
 
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-simulator="">
@@ -72,19 +88,46 @@ export default function SimulatorPage() {
         </Button>
       </header>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4" data-sim-sale="">
             <h2 className="text-sm font-semibold">{t('sale.title')}</h2>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={t('sale.store')}>
+              <div className="col-span-2">
+                <Field label={t('sale.store')}>
+                  {(id) => (
+                    <>
+                      <select id={id} className={`${RULE_INPUT} w-full`} value={store} onChange={(e) => setStore(e.target.value)} data-sim-field="store">
+                        <option value="">{t('sale.chooseStore')}</option>
+                        {(stores.data ?? []).map((x) => (
+                          <option key={x.code} value={x.code}>
+                            {fsi(formatPair(x.code, lookupName(x, i18n.language)))}
+                          </option>
+                        ))}
+                      </select>
+                      {stores.isError && (
+                        <span className="text-[11px] text-danger-800">
+                          <bdi>{isBareDenial(stores.error) ? t('run.denied') : apiErrorMessage(stores.error, t('sale.storesFailed'))}</bdi>
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Field>
+              </div>
+              <Field label={t('sale.country')}>
                 {(id) => (
-                  <LookupSelect id={id} kind="stores" query={stores} value={store} onChange={setStore} placeholder={t('sale.chooseStore')} data="store" />
+                  <select id={id} className={RULE_INPUT} value={country} onChange={(e) => setCountry(e.target.value)} data-sim-field="country">
+                    {AUDIENCE_COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {fsi(formatPair(c, saleMoney(c)?.currency ?? ''))}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </Field>
               <Field label={t('sale.channel')}>
                 {(id) => (
-                  <select id={id} className={RULE_INPUT} value={channelValue} onChange={(e) => setChannel(e.target.value)} data-sim-field="channel">
+                  <select id={id} className={RULE_INPUT} value={channel} onChange={(e) => setChannel(e.target.value)} data-sim-field="channel">
                     {AUDIENCE_CHANNELS.map((c) => (
                       <option key={c} value={c}>
                         {fsi(c)}
@@ -102,24 +145,42 @@ export default function SimulatorPage() {
               <div className="col-span-2">
                 <Field label={t('sale.member')} hint={t('sale.memberHint')}>
                   {(id) => (
-                    <input
-                      id={id}
-                      dir="ltr"
-                      className={`${RULE_INPUT} w-full font-mono`}
-                      value={memberId}
-                      onChange={(e) => setMemberId(e.target.value)}
-                      data-sim-field="member"
-                    />
+                    <input id={id} dir="ltr" className={`${RULE_INPUT} w-full font-mono`} value={memberId} onChange={(e) => setMemberId(e.target.value)} data-sim-field="member" />
                   )}
                 </Field>
               </div>
+              <label className="col-span-2 inline-flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={earning} onChange={(e) => setEarning(e.target.checked)} data-sim-field="earning" />
+                {t('sale.earning')}
+              </label>
+              <label className="col-span-2 inline-flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={firstPurchase} onChange={(e) => setFirstPurchase(e.target.checked)} data-sim-field="firstPurchase" />
+                {t('sale.firstPurchase')}
+              </label>
+              <Field label={t('sale.coupons')} hint={t('sale.couponsHint')}>
+                {(id) => <input id={id} dir="ltr" className={`${RULE_INPUT} font-mono`} value={coupons} onChange={(e) => setCoupons(e.target.value)} data-sim-field="coupons" />}
+              </Field>
+              <Field label={t('sale.points')} hint={parsePoints(points) === null ? t('sale.pointsBad') : t('sale.pointsHint')}>
+                {(id) => (
+                  <input
+                    id={id}
+                    dir="ltr"
+                    inputMode="numeric"
+                    className={RULE_INPUT}
+                    aria-invalid={parsePoints(points) === null}
+                    value={points}
+                    onChange={(e) => setPoints(e.target.value)}
+                    data-sim-field="points"
+                  />
+                )}
+              </Field>
             </div>
             {draftId && (
-              <div className="flex flex-col gap-1 rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-xs" data-sim-draft={draftId}>
+              <div className="flex flex-col gap-1 rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-xs" data-sim-draft={draftId} data-sim-draft-sent={target.draft ?? ''}>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{t('sale.draft')}</span>
                   <Link to={campaignPath(draftId)} className="font-mono text-primary hover:underline">
-                    <Ltr>{draft?.code ?? draftId}</Ltr>
+                    <Ltr>{loaded?.code ?? draftId}</Ltr>
                   </Link>
                   <button
                     type="button"
@@ -131,52 +192,46 @@ export default function SimulatorPage() {
                     {t('sale.dropDraft')}
                   </button>
                 </span>
-                {draft && (
+                {loaded && (
                   <span className="flex flex-col" data-sim-draft-name="">
-                    <bdi lang="en">{draft.name.en}</bdi>
+                    <bdi lang="en">{loaded.name.en}</bdi>
                     <bdi dir="rtl" lang="ar">
-                      {draft.name.ar}
+                      {loaded.name.ar}
                     </bdi>
                   </span>
                 )}
                 {chosen.isError && (
                   <span className="text-danger-800" data-sim-draft-error="">
-                    <bdi>{apiErrorMessage(chosen.error, t('sale.draftUnread'))}</bdi>
+                    <bdi>{isBareDenial(chosen.error) ? t('run.denied') : apiErrorMessage(chosen.error, t('sale.draftUnread'))}</bdi>
                   </span>
                 )}
-                <span className="text-muted-foreground">{t('sale.draftHint')}</span>
+                {loaded && <span className="text-muted-foreground">{target.draft ? t('sale.draftHint') : t('sale.noDraft')}</span>}
               </div>
             )}
-            <label className="inline-flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={includeDrafts && !draftId}
-                disabled={!!draftId}
-                onChange={(e) => setIncludeDrafts(e.target.checked)}
-                data-sim-field="includeDrafts"
-              />
-              {t('sale.includeDrafts')}
-            </label>
-            {draftId && <span className="text-[11px] text-muted-foreground">{t('sale.draftExcludes')}</span>}
           </section>
 
-          <BasketEditor basket={basket} onChange={setBasket} />
+          <BasketEditor basket={basket} onChange={setBasket} file={file} onFile={setFile} currency={money?.currency ?? null} decimals={money?.decimals ?? 2} />
         </div>
 
         <div className="flex flex-col gap-3">
           {!request && (
             <p className="text-xs text-muted-foreground" data-sim-needs="">
-              {t('run.needs')}
+              {draftId && chosen.isError ? t('run.needsDraft') : t('run.needs')}
             </p>
           )}
-          {run.isError && <ErrorBanner title={t('run.failed')} message={apiErrorMessage(run.error, t('run.failed'))} className="px-3 py-2" />}
+          {run.isError && <RunRefusal error={run.error} draft={run.variables?.draft ?? null} />}
           {stale && (
             <p className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" data-sim-stale="">
               {t('run.stale')}
             </p>
           )}
+          {run.data && bonusBuy && (
+            <p className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" data-sim-bonus-buy="">
+              {t('result.bonusBuy')}
+            </p>
+          )}
           {run.data ? (
-            <SimResults result={run.data} />
+            <SimResults result={run.data} names={names} flags={flags} onFlag={flag} />
           ) : (
             !run.isError && (
               <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-sim-no-result="">
@@ -190,6 +245,54 @@ export default function SimulatorPage() {
   )
 }
 
+/**
+ * HQ's refusal of a run: its message and code, and its detail lines — a checker's refusal
+ * (`RULES_INVALID_CAMPAIGN`) one per block, where → what, with its path, the way the builder's
+ * checks pill lists them; a bad file (`RULES_BAD_BASKET`) one per file line. A bare 403 is the
+ * missing grant, in our words.
+ */
+function RunRefusal({ error, draft }: { error: unknown; draft: string | null }) {
+  const { t } = useTranslation('rule-simulator')
+  const code = apiErrorCode(error)
+  const lines = refusalLines(apiErrorDetails(error))
+  return (
+    <ErrorBanner className="px-3 py-2" title={t('run.failed')} message={isBareDenial(error) ? t('run.denied') : apiErrorMessage(error, t('run.failed'))}>
+      {code && (
+        <p className="mt-1 text-xs" data-sim-refusal-code={code}>
+          {t('run.code')}{' '}
+          <span className="font-mono">
+            <Ltr>{code}</Ltr>
+          </span>
+        </p>
+      )}
+      {lines.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1.5 text-xs" data-sim-refusal-lines="">
+          {lines.map((l, i) => (
+            <li key={i} className="flex flex-col" data-sim-refusal-line={l.path ?? l.where ?? ''}>
+              {l.where && (
+                <span className="text-muted-foreground" data-sim-refusal-where="">
+                  <bdi>{l.where}</bdi>
+                </span>
+              )}
+              <bdi>{l.message}</bdi>
+              {l.path && (
+                <code className="font-mono text-[11px] text-muted-foreground">
+                  <Ltr>{l.path}</Ltr>
+                </code>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {code === INVALID_CAMPAIGN && draft && (
+        <Link to={campaignPath(draft)} className="mt-2 inline-block text-xs text-primary hover:underline" data-sim-refusal-open="">
+          {t('run.openCampaign')}
+        </Link>
+      )}
+    </ErrorBanner>
+  )
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: (id: string) => ReactNode }) {
   const id = useId()
   return (
@@ -200,43 +303,5 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {children(id)}
       {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </div>
-  )
-}
-
-/** A store or a channel, from HQ's lookup; a failed read says so under the field. */
-function LookupSelect({
-  id,
-  kind,
-  query,
-  value,
-  onChange,
-  placeholder,
-  data,
-}: {
-  id: string
-  kind: 'stores'
-  query: UseQueryResult<RuleLookupItem[]>
-  value: string
-  onChange: (code: string) => void
-  placeholder?: string
-  data: string
-}) {
-  const { t, i18n } = useTranslation('rule-simulator')
-  return (
-    <>
-      <select id={id} className={RULE_INPUT} value={value} onChange={(e) => onChange(e.target.value)} data-sim-field={data}>
-        {placeholder && <option value="">{placeholder}</option>}
-        {(query.data ?? []).map((x) => (
-          <option key={x.code} value={x.code}>
-            {fsi(formatPair(x.code, lookupName(x, i18n.language)))}
-          </option>
-        ))}
-      </select>
-      {query.isError && (
-        <span className="text-[11px] text-danger-800">
-          <bdi>{apiErrorMessage(query.error, t(`sale.${kind}Failed`))}</bdi>
-        </span>
-      )}
-    </>
   )
 }

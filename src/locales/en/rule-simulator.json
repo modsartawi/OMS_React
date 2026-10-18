@@ -5,19 +5,25 @@
     "title": "The sale",
     "store": "Store",
     "chooseStore": "Choose a store…",
+    "country": "Country",
     "channel": "Channel",
-    "member": "Member id",
-    "memberHint": "Optional. Leave it blank for a walk-in.",
+    "member": "Member (loyalty id)",
+    "memberHint": "Optional. Leave it blank for a walk-in. A member HQ knows is read from HQ: tier and points.",
+    "earning": "The member earns points",
+    "firstPurchase": "It is the member's first purchase",
+    "coupons": "Coupon codes",
+    "couponsHint": "Optional. Separate codes with a space or a comma. A coupon is checked against today, not the date below.",
+    "points": "Points to redeem",
+    "pointsHint": "Optional. A whole number.",
+    "pointsBad": "Points are a whole number.",
     "date": "Date",
     "time": "Time",
-    "includeDrafts": "Use every campaign's working copy, not its live version",
-    "draft": "Working copy of",
-    "draftHint": "This campaign runs as its working copy; the others run live.",
+    "draft": "Draft of",
+    "draftHint": "This campaign runs as its saved draft; the others run live.",
+    "noDraft": "This campaign has no saved draft: the run uses the live version.",
     "dropDraft": "Run it live instead",
     "draftUnread": "Could not read this campaign.",
-    "storesFailed": "Could not load the stores.",
-    "channelsFailed": "Could not load the channels.",
-    "draftExcludes": "Not with one working copy chosen: run it live first."
+    "storesFailed": "Could not load the stores."
   },
   "basket": {
     "title": "Basket",
@@ -26,62 +32,84 @@
     "findPlaceholder": "SKU or name",
     "searching": "Searching…",
     "noHits": "No item matches.",
+    "searchFailed": "Could not search the items.",
     "add": "Add {{item}}",
     "remove": "Remove {{sku}}",
     "full": "A basket takes at most {{max}} lines.",
     "columns": {
       "line": "#",
       "item": "Item",
-      "qty": "Qty"
+      "qty": "Qty",
+      "price": "Unit price ({{currency}})"
     },
     "qtyLabel": "Quantity of {{sku}}",
-    "upload": "Upload or paste a basket (CSV)…"
+    "priceLabel": "Unit price of {{sku}}",
+    "pricePlaceholder": "Price",
+    "priceHint": "HQ prices nothing in a dry run: give each line its unit price before promotions.",
+    "upload": "Upload or paste a basket (CSV)…",
+    "file": {
+      "title_one": "The basket is a file of {{n}} line, sent to HQ as written.",
+      "title_other": "The basket is a file of {{n}} lines, sent to HQ as written.",
+      "typed": "Type a basket instead",
+      "more_one": "…and {{n}} more line, sent with the rest.",
+      "more_other": "…and {{n}} more lines, sent with the rest."
+    }
   },
   "csv": {
     "title": "Basket from a CSV",
-    "format": "One item per line: SKU, then quantity (a blank quantity is 1). A header line naming the columns (sku, qty) is optional. Each row is checked before it is used.",
+    "format": "Comma-separated. A header line names the columns: article (or material, sku), quantity (or qty) and net (the line's total before promotions) are required; line, unit, gross, vatRate, category and fee are optional. Then one line per cart line, with figures written 12.50. Every line is checked before the file is used.",
     "file": "Choose a file",
-    "paste": "Or paste the rows",
-    "pastePlaceholder": "sku,qty\nSUN-50,2\nSER-VC,1",
+    "paste": "Or paste the file",
+    "pastePlaceholder": "article,quantity,net,category\nSUN-50,2,110.00,A002\nSER-VC,1,89.00,A002",
     "fileFailed": "Could not read the file.",
-    "replace": "Replace the basket",
-    "add": "Add to it",
-    "use_one": "Use {{n}} row",
-    "use_other": "Use {{n}} rows",
+    "use_one": "Use this file of {{n}} line",
+    "use_other": "Use this file of {{n}} lines",
     "cancel": "Cancel",
-    "tally": "{{ok}} good · {{bad}} to fix · {{waiting}} being checked",
-    "fixFirst": "Fix or remove the rows marked before the basket can take them.",
-    "tooBig": "The basket would hold more than {{max}} lines.",
-    "tooMuch": "A line would hold more than {{max}} units.",
+    "tally": "{{ok}} good · {{bad}} to fix",
+    "fixFirst": "Fix or remove the lines marked before the file can be the basket.",
+    "header": "The header line does not name article, quantity and net.",
+    "empty": "A file is a header line and at least one cart line.",
     "columns": {
       "line": "Line",
-      "sku": "SKU",
+      "article": "Article",
       "qty": "Qty",
+      "net": "Net",
+      "category": "Category",
       "check": "Check"
     },
     "status": {
-      "checking": "Checking…",
-      "failed": "Could not check this SKU",
-      "noSku": "No SKU",
-      "badQty": "Quantity must be a whole number from 1 to <v>{{max}}</v>",
-      "tooMany": "Past the basket's <v>{{max}}</v> lines",
-      "unknownSku": "No item with this SKU"
+      "ok": "Good",
+      "noArticle": "No article",
+      "badQuantity": "The quantity is not a number",
+      "quantityNotPositive": "The quantity is not more than 0",
+      "badNet": "The net is not a number",
+      "badGross": "The gross is not a number",
+      "badVatRate": "The VAT rate is not a number",
+      "badLine": "The line number is not a whole number from 1",
+      "badFee": "Fee is not true or false"
     }
   },
   "run": {
     "action": "Run",
     "running": "Running…",
-    "needs": "A run needs a basket, a store, a channel, a date and a time.",
-    "failed": "The dry run failed",
+    "needs": "A run needs a basket with a unit price on every line, a store, a country, a channel, a date and a time.",
+    "needsDraft": "The campaign could not be read, so its draft cannot run. Run it live instead, or open the simulator again.",
+    "failed": "The dry run was refused",
+    "denied": "You do not have the rule-author permission (RuleAuthoring) that a dry run needs.",
+    "code": "Code",
+    "openCampaign": "Open the campaign to fix it",
     "stale": "The sale has changed since this run. Run it again to see the new result."
   },
   "result": {
     "none": "Fill in the sale and the basket, then Run.",
-    "bonusBuy": "This store runs the bonus-buy engine. Rule campaigns never apply here; flip the store under Store engine switch to try them.",
+    "bonusBuy": "This store runs the bonus-buy engine today: at its till these rule campaigns do not apply until the store is flipped under Store engine switch.",
+    "based": "Run on live version {{version}} at {{at}}.",
+    "basedNothing": "Nothing is published yet. Run at {{at}}.",
+    "basedDraft": "{{campaign}} ran as its draft.",
     "totals": {
-      "gross": "Gross",
+      "net": "Before promotions",
       "discount": "Discounts",
-      "net": "To pay"
+      "netAfter": "To pay"
     },
     "tabs": {
       "label": "Result",
@@ -96,53 +124,73 @@
       "title": "Close to an offer",
       "hint": "What the on-demand check would tell the cashier.",
       "none": "No campaign is close.",
-      "money": "add {{gap}} for {{offer}}",
-      "items_one": "{{n}} more item of {{of}} for {{offer}}",
-      "items_other": "{{n}} more items of {{of}} for {{offer}}"
+      "says": "Not met yet:"
     },
+    "offer": {
+      "yes": "The customer says yes",
+      "hint": "Run again to see the sale with this offer taken."
+    },
+    "stray": "On line {{line}}, which the basket does not have:",
     "columns": {
       "line": "#",
       "name": "Item",
       "qty": "Qty",
-      "gross": "Gross",
-      "discount": "Off",
       "net": "Net",
+      "discount": "Off",
+      "netAfter": "To pay",
       "effects": "Effects"
     }
   },
   "effect": {
-    "noFigure": "—",
-    "discount": "<v>{{amount}}</v> off",
-    "freeUnit_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
-    "freeUnit_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",
-    "points": "<v>{{points}}</v> points earned, pending",
-    "pointsTaken": "<v>{{amount}}</v> of points taken as a tender",
-    "createCoupon": "Will create a <v>{{coupon}}</v> coupon at close",
-    "message": "Message for the receipt or the cashier"
+    "discountItems": "<v>{{amount}}</v> off",
+    "discountSession": "<v>{{amount}}</v> off the sale, its share on this line",
+    "discountPerItem": "<v>{{amount}}</v> off by the value map",
+    "freeUnits_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
+    "freeUnits_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",
+    "freeProduct_one": "<v>{{n}}</v> free unit, worth <v>{{amount}}</v>",
+    "freeProduct_other": "<v>{{n}}</v> free units, worth <v>{{amount}}</v>",
+    "bundlePrice": "<v>{{amount}}</v> off by the bundle price",
+    "bundleDiscount": "<v>{{amount}}</v> off the bundle",
+    "discountCheapestInBundle": "<v>{{amount}}</v> off the cheapest in the bundle",
+    "other": "<v>{{amount}}</v> off by <v>{{effect}}</v>",
+    "units_one": "on <v>{{n}}</v> unit",
+    "units_other": "on <v>{{n}}</v> units"
+  },
+  "points": {
+    "pts_one": "{{n}} point",
+    "pts_other": "{{n}} points",
+    "awardPoints": "<w>{{figure}}</w> earned, pending",
+    "burnPoints": "<w>{{figure}}</w> of points for a discount",
+    "burnTender": "<w>{{figure}}</w> of points taken as a tender",
+    "other": "<w>{{figure}}</w> by <v>{{effect}}</v>"
+  },
+  "coupon": {
+    "created": "Will create a <v>{{template}}</v> coupon at close"
+  },
+  "refusal": {
+    "title": "Refused"
   },
   "trace": {
-    "summary": "{{applied}} applied · {{notMet}} not met · {{skipped}} skipped · {{budget}} stopped by a budget · {{lost}} lost in a group",
+    "summary": "{{applied}} applied · {{notTriggered}} not triggered · {{skipped}} skipped · {{lost}} lost",
     "none": "HQ ran no campaign on this sale.",
-    "outcome": {
+    "status": {
       "applied": "Applied",
-      "notMet": "Not met",
+      "notTriggered": "Not triggered",
       "skipped": "Skipped",
-      "budget": "Budget",
       "lost": "Lost"
     },
-    "base": "Base group, stackable",
-    "group": "In {{group}} · {{mode}}",
-    "groupLost": "In {{group}} · {{mode}} · lost the group to {{code}}",
-    "groupWon": "In {{group}} · {{mode}} · won the group",
-    "modes": {
-      "stackable": "stackable",
-      "first": "first that yields",
-      "highest": "highest discount"
+    "code": {
+      "notMet": "Its conditions are not met",
+      "refused": "Refused",
+      "nothingLeft": "Nothing left to give: earlier offers took it",
+      "lostToGroup": "Lost in its group",
+      "notScanned": "A free product is not in the basket",
+      "window": "Outside its dates or hours",
+      "audience": "Not for this sale's audience",
+      "budget": "Stopped by a budget"
     },
-    "rule": "Rule",
-    "notReached": "Not reached",
-    "noConditions": "No condition: it always applies.",
-    "met": "Met",
-    "notMetCondition": "Not met"
+    "base": "Base, stackable",
+    "group": "In group {{group}}",
+    "gave": "Gave {{money}}"
   }
 }

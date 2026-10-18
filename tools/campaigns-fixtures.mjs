@@ -796,14 +796,14 @@ export const LOOKUPS = {
     hit('WIPES', 'Baby wipes', '', { articles: ['WIP-80'] }),
   ],
   materials: [
-    hit('SUN-50', 'Sunblock SPF50 50ml', 'واقي شمس 50', { detail: 'A002' }), hit('SUN-30', 'Sun lotion SPF30 200ml', '', { detail: 'A002' }),
-    hit('SUN-KID', 'Kids sun spray SPF50', '', { detail: 'A002' }), hit('SER-VC', 'Vitamin C serum 30ml', '', { detail: 'A002' }),
-    hit('DIA-4', 'Diapers size 4, 52 pcs', '', { detail: 'A003' }), hit('WIP-80', 'Baby wipes, 80 pcs', '', { detail: 'A003' }),
-    hit('PAN-24', 'Paracetamol 500mg, 24 tabs', '', { detail: 'A001' }), hit('AMOX-500', 'Amoxicillin 500mg (Rx)', '', { detail: 'A006' }),
-    hit('SHA-400', 'Shampoo 400ml', '', { detail: 'A005' }), hit('SHA-DAN', 'Anti-dandruff shampoo 400ml', '', { detail: 'A005' }),
-    hit('SHA-ARG', 'Argan oil shampoo 250ml', '', { detail: 'A005' }), hit('BAL-400', 'Balsam (conditioner) 400ml', '', { detail: 'A005' }),
-    hit('BAL-ARG', 'Argan oil balsam 250ml', '', { detail: 'A005' }), hit('MIL-1', 'Infant formula stage 1', '', { detail: 'A008' }),
-    hit('GIFT-BAG', 'Travel pouch', '', { detail: 'A002' }), hit('FEE-DLV', 'Delivery fee', '', { detail: 'A007' }),
+    hit('SUN-50', 'Sunblock SPF50 50ml', 'واقي شمس 50', { detail: 'A002 Beauty Care' }), hit('SUN-30', 'Sun lotion SPF30 200ml', '', { detail: 'A002 Beauty Care' }),
+    hit('SUN-KID', 'Kids sun spray SPF50', '', { detail: 'A002 Beauty Care' }), hit('SER-VC', 'Vitamin C serum 30ml', '', { detail: 'A002 Beauty Care' }),
+    hit('DIA-4', 'Diapers size 4, 52 pcs', '', { detail: 'A003 Baby & Mother' }), hit('WIP-80', 'Baby wipes, 80 pcs', '', { detail: 'A003 Baby & Mother' }),
+    hit('PAN-24', 'Paracetamol 500mg, 24 tabs', '', { detail: 'A001 Medicines (OTC)' }), hit('AMOX-500', 'Amoxicillin 500mg (Rx)', '', { detail: 'A006 Prescription (Rx)' }),
+    hit('SHA-400', 'Shampoo 400ml', '', { detail: 'A005 Personal Care' }), hit('SHA-DAN', 'Anti-dandruff shampoo 400ml', '', { detail: 'A005 Personal Care' }),
+    hit('SHA-ARG', 'Argan oil shampoo 250ml', '', { detail: 'A005 Personal Care' }), hit('BAL-400', 'Balsam (conditioner) 400ml', '', { detail: 'A005 Personal Care' }),
+    hit('BAL-ARG', 'Argan oil balsam 250ml', '', { detail: 'A005 Personal Care' }), hit('MIL-1', 'Infant formula stage 1', '', { detail: 'A008 Infant formula' }),
+    hit('GIFT-BAG', 'Travel pouch', '', { detail: 'A002 Beauty Care' }), hit('FEE-DLV', 'Delivery fee', '', { detail: 'A007 Services & fees' }),
   ],
   // 509: the stores Settings ▸ Audience searches; `detail` is the engine HQ holds each on.
   stores: [

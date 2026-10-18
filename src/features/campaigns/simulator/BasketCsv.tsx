@@ -1,6 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
@@ -8,79 +7,30 @@ import type { TFunction } from 'i18next'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { ruleLookupQuery } from '@/core/rules/api'
-import { lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
-import { useDebounced } from '@/core/util/use-debounced'
-import {
-  MAX_BASKET_LINES,
-  MAX_QTY,
-  checkBasketRow,
-  csvVerdict,
-  overflowsQty,
-  parseBasketCsv,
-  takeRows,
-  type BasketCsvRow,
-  type BasketLine,
-  type BasketRowCheck,
-  type SkuCheck,
-} from './basket'
-
-interface PreviewRow extends BasketCsvRow {
-  check: BasketRowCheck
-}
+import { fileUsable, readBasketFile, type BasketFileRow } from './basket'
 
 /**
- * A basket from a CSV (ticket 514), uploaded or pasted. Every row is read and checked before it is
- * used — its SKU and quantity as written, then the SKU on HQ's materials lookup — and the rows are
- * taken only when every one is good: a bad row is fixed in the text or removed, never dropped
- * silently. They replace the basket or are added to it.
+ * A basket from a CSV (tickets 514, 525), uploaded or pasted. HQ reads the file itself
+ * (`Rules/Authoring/Simulate`'s `csv`); every line is first checked here by HQ's own rules and shown,
+ * and the file is used only when every line is good — a bad line is fixed in the text or removed,
+ * never dropped silently. The file then IS the basket, sent as written.
  */
-export default function BasketCsv({
-  basket,
-  onUse,
-  onCancel,
-}: {
-  basket: BasketLine[]
-  onUse: (basket: BasketLine[]) => void
-  onCancel: () => void
-}) {
+export default function BasketCsv({ onUse, onCancel }: { onUse: (text: string) => void; onCancel: () => void }) {
   const { t } = useTranslation('rule-simulator')
   const [text, setText] = useState('')
-  const [mode, setMode] = useState<'replace' | 'add'>('replace')
   const [fileFailed, setFileFailed] = useState(false)
   const fileId = useId()
   const pasteId = useId()
 
-  // Read once the typing settles: every distinct SKU is a lookup on HQ.
-  const settled = useDebounced(text, 300)
-  const rows = useMemo(() => parseBasketCsv(settled), [settled])
-  const skus = useMemo(() => [...new Set(rows.filter((r) => !r.problem).map((r) => r.sku))], [rows])
-  const lookups = useQueries({ queries: skus.map((sku) => ruleLookupQuery('materials', sku)) })
-  const found = new Map<string, SkuCheck>(
-    skus.map((sku, i) => {
-      const q = lookups[i]
-      if (q.isPending) return [sku, { state: 'checking' }]
-      if (q.isError) return [sku, { state: 'failed' }]
-      const hit = q.data.find((m) => m.code.toUpperCase() === sku)
-      return [sku, hit ? { state: 'found', code: hit.code, name: lookupName(hit) } : { state: 'missing' }]
-    }),
-  )
-  const preview: PreviewRow[] = rows.map((r) => ({ ...r, check: checkBasketRow(r, found.get(r.sku)) }))
-  const verdict = csvVerdict(preview.map((r) => r.check))
-  // A good row takes the SKU as HQ keeps it, so it merges with a typed line of the same item.
-  const good = verdict.usable
-    ? preview.flatMap((r) => (r.check.status === 'ok' ? [{ sku: r.check.code, name: r.check.name, qty: r.qty ?? 1 }] : []))
-    : null
-  const taken = good ? takeRows(basket, good, mode) : null
-  const tooBig = !!taken && taken.length > MAX_BASKET_LINES
-  const tooMuch = !!good && overflowsQty(basket, good, mode)
+  const file = useMemo(() => readBasketFile(text), [text])
+  const bad = file.rows.filter((r) => r.problems.length > 0).length
+  const usable = fileUsable(file)
   const n = (x: number) => fsi(formatNumber(x))
-
   const columns = useMemo(() => previewColumns(t), [t])
   const gridContext = useMemo(() => ({ t }), [t])
 
@@ -100,11 +50,11 @@ export default function BasketCsv({
           accept=".csv,.txt,text/csv,text/plain"
           className="text-xs"
           onChange={(e) => {
-            const file = e.target.files?.[0]
+            const picked = e.target.files?.[0]
             e.target.value = ''
-            if (!file) return
+            if (!picked) return
             setFileFailed(false)
-            file.text().then(setText, () => setFileFailed(true))
+            picked.text().then(setText, () => setFileFailed(true))
           }}
           data-csv-file=""
         />
@@ -126,17 +76,22 @@ export default function BasketCsv({
         />
       </div>
 
-      {rows.length > 0 && (
+      {text.trim() !== '' && file.problem && (
+        <p className="text-xs text-danger-800" data-csv-problem={file.problem}>
+          {t(`csv.${file.problem}`)}
+        </p>
+      )}
+      {file.rows.length > 0 && (
         <>
           <div className="h-56" data-csv-preview="">
-            <AgGridReact<PreviewRow>
+            <AgGridReact<BasketFileRow>
               theme={omsGridTheme}
-              rowData={preview}
+              rowData={file.rows}
               columnDefs={columns}
               defaultColDef={DEFAULT_COL_DEF}
               getRowId={({ data }) => String(data.line)}
               context={gridContext}
-              rowClassRules={{ 'bg-danger-050': ({ data }) => data?.check.status === 'bad' }}
+              rowClassRules={{ 'bg-danger-050': ({ data }) => (data?.problems.length ?? 0) > 0 }}
               rowHeight={OMS_GRID_ROW_HEIGHT}
               headerHeight={OMS_GRID_HEADER_HEIGHT}
               animateRows={false}
@@ -144,76 +99,49 @@ export default function BasketCsv({
             />
           </div>
           <p className="text-xs text-muted-foreground" data-csv-tally="">
-            {t('csv.tally', { ok: n(verdict.ok), bad: n(verdict.bad), waiting: n(verdict.waiting) })}
+            {t('csv.tally', { ok: n(file.rows.length - bad), bad: n(bad) })}
           </p>
-          {verdict.bad > 0 && (
+          {bad > 0 && (
             <p className="text-xs text-danger-800" data-csv-fix="">
               {t('csv.fixFirst')}
-            </p>
-          )}
-          {tooBig && (
-            <p className="text-xs text-danger-800" data-csv-too-big="">
-              {t('csv.tooBig', { max: n(MAX_BASKET_LINES) })}
-            </p>
-          )}
-          {tooMuch && (
-            <p className="text-xs text-danger-800" data-csv-too-much="">
-              {t('csv.tooMuch', { max: n(MAX_QTY) })}
             </p>
           )}
         </>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <fieldset className="flex items-center gap-3 text-xs">
-          {(['replace', 'add'] as const).map((m) => (
-            <label key={m} className="inline-flex items-center gap-1.5">
-              <input type="radio" name={`csv-mode-${fileId}`} checked={mode === m} onChange={() => setMode(m)} data-csv-mode={m} />
-              {t(`csv.${m}`)}
-            </label>
-          ))}
-        </fieldset>
-        <div className="ms-auto flex items-center gap-2">
-          <Button variant="text" onClick={onCancel} data-csv-cancel="">
-            {t('csv.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!taken || tooBig || tooMuch} onClick={() => taken && onUse(taken)} data-csv-use="">
-            {t('csv.use', { count: verdict.ok, n: n(verdict.ok) })}
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="text" onClick={onCancel} data-csv-cancel="">
+          {t('csv.cancel')}
+        </Button>
+        <Button variant="primary" disabled={!usable} onClick={() => usable && onUse(text)} data-csv-use="">
+          {t('csv.use', { count: file.rows.length, n: n(file.rows.length) })}
+        </Button>
       </div>
     </div>
   )
 }
 
-const DEFAULT_COL_DEF: ColDef<PreviewRow> = { ...OMS_GRID_BASE_COL_DEF, sortable: false, resizable: true }
+const DEFAULT_COL_DEF: ColDef<BasketFileRow> = { ...OMS_GRID_BASE_COL_DEF, sortable: false, resizable: true }
 
-/** The check's words; a good row reads its item's name. */
-function CheckCell({ data, context }: ICellRendererParams<PreviewRow, unknown, { t: TFunction }>) {
+/** The line's check: good, or each of HQ's reasons it is refused. */
+function CheckCell({ data, context }: ICellRendererParams<BasketFileRow, unknown, { t: TFunction }>) {
   if (!data) return null
-  const { check } = data
   const { t } = context
-  if (check.status === 'ok') return <bdi data-csv-check="ok">{check.name}</bdi>
-  if (check.status === 'checking') return <span className="text-muted-foreground" data-csv-check="checking">{t('csv.status.checking')}</span>
-  if (check.status === 'failed') return <span className="text-danger-800" data-csv-check="failed">{t('csv.status.failed')}</span>
+  if (data.problems.length === 0) return <span data-csv-check="ok">{t('csv.status.ok')}</span>
   return (
-    <span className="text-danger-800" data-csv-check={check.problem}>
-      {/* A grid cell: the figure is isolated by a <bdi>, never by fsi (it would reach Ctrl+C). */}
-      <Trans
-        t={t}
-        i18nKey={`csv.status.${check.problem}`}
-        values={{ max: formatNumber(check.problem === 'badQty' ? MAX_QTY : MAX_BASKET_LINES) }}
-        components={{ v: <bdi dir="ltr" /> }}
-      />
+    <span className="text-danger-800" data-csv-check={data.problems.join(' ')}>
+      {data.problems.map((p) => t(`csv.status.${p}`)).join(' · ')}
     </span>
   )
 }
 
-function previewColumns(t: TFunction): ColDef<PreviewRow>[] {
+function previewColumns(t: TFunction): ColDef<BasketFileRow>[] {
   return [
-    { colId: 'line', field: 'line', headerName: t('csv.columns.line'), width: 80 },
-    { colId: 'sku', field: 'sku', headerName: t('csv.columns.sku'), width: 150 },
-    { colId: 'qty', field: 'qty', headerName: t('csv.columns.qty'), width: 90 },
-    { colId: 'check', headerName: t('csv.columns.check'), cellRenderer: CheckCell, flex: 1, minWidth: 200 },
+    { colId: 'line', field: 'line', headerName: t('csv.columns.line'), width: 70 },
+    { colId: 'article', field: 'article', headerName: t('csv.columns.article'), width: 130 },
+    { colId: 'qty', field: 'quantity', headerName: t('csv.columns.qty'), width: 70 },
+    { colId: 'net', field: 'net', headerName: t('csv.columns.net'), width: 90 },
+    { colId: 'category', field: 'category', headerName: t('csv.columns.category'), width: 100 },
+    { colId: 'check', headerName: t('csv.columns.check'), cellRenderer: CheckCell, flex: 1, minWidth: 180 },
   ]
 }

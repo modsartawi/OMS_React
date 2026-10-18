@@ -723,6 +723,20 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // The approver's campaign uploads (ticket 532): every deal's upload, and one opened beside
+        // what is live, activated or sent back as a whole. Static leaves beside `campaigns/:id`.
+        path: 'campaigns/uploads',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/uploads/UploadsPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/uploads/:dealCode',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/uploads/UploadPage')).default,
+        }),
+      },
+      {
         path: 'campaigns/:id',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/workspace/CampaignWorkspacePage')).default,

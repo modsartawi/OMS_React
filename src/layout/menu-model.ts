@@ -830,7 +830,7 @@ export const MENU: ShellMenuItem[] = [
     // `/campaigns/*` is a new URL prefix and a new nav group, the rule engine's campaigns — Pricing's
     // bonus-buy screens are the OTHER engine and stay where they are. Every leaf label lives in
     // `campaign-list` (the area's first namespace); Priority (513), Simulator (514), Sessions (518),
-    // Coupon finder and Customers (519), and Campaign upload (530) each append their leaf with the
+    // Coupon finder and Customers (519), Campaign upload (530) and Campaign uploads (532) each append their leaf with the
     // page it opens.
     //
     // 🚩 UNGATED by ruling: no Ua permission exists until BackOffice 2759 seeds the author and
@@ -885,6 +885,14 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'campaign-list:menu.upload',
         icon: FileSpreadsheet,
         routerLink: '/campaigns/upload',
+      },
+      {
+        // The approver's list of every deal's upload (ticket 532); an opened upload
+        // (`/campaigns/uploads/:dealCode`) lights it too. No probe: readers see it, the doors
+        // answer a session without the grant a bare 403, which the page names.
+        labelKey: 'campaign-list:menu.uploads',
+        icon: ClipboardCheck,
+        routerLink: '/campaigns/uploads',
       },
     ],
   },

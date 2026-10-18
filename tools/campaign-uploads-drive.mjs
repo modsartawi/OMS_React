@@ -42,6 +42,32 @@
 //  11. a 400 RULES_BAD_UPLOAD shows the server's message and no next step; a bare 403 reads
 //      "You do not have access…"; no raw key and no page error.
 //
+// ── 532 ── the approver's screens, against stubs of Uploads/List, Load, Activate and SendBack:
+//   POST Rules/Authoring/Uploads/List → five summaries newest first (two pending, sentBack, activated, and an
+//        unlisted `archived`), or a bare 403 (`list: 'denied'`)
+//   POST Rules/Authoring/Uploads/Load { dealCode } → the pending upload at revision 3: new, changed and unchanged
+//        (the live JSON's keys in another order) campaigns, two disabling rows; `load: 'refuse'` adds two
+//        would-refuse lines (stale order first); an unknown deal is 404 RULES_UPLOAD_NOT_FOUND; `'denied'` a bare
+//        403. After a successful Activate or Send back it answers the new state.
+//   POST Rules/Authoring/Uploads/Activate → `activate: 'ok' | 'self' | 'stale' | 'invalid' | 'denied'`
+//   POST Rules/Authoring/Uploads/SendBack → `sendBack: 'ok' | 'reason'`
+// In LTR and RTL it asserts:
+//  12. the Campaigns group carries a Campaign uploads leaf that opens /campaigns/uploads;
+//  13. the list: pending by default (the URL bare), newest upload first; sentBack / activated / all held in the
+//      URL (`?state=`) and read back from it; an unlisted state listed under All as sent; the window inclusive;
+//  14. a bare 403 on the list reads "You do not have access…", never an empty list;
+//  15. an opened upload: the summary, every mechanic's tile, the generated-names flag, the read's warnings;
+//      new / changed / unchanged campaigns; two disabling rows in red; no would-refuse lines;
+//  16. a campaign opens uploaded beside live as read-only JSON;
+//  17. Activate: the dialog repeats the counts and the disabling list, sends the LOADED revision, and shows
+//      "Version 42 is live: 3 campaigns activated, 2 disabled." with the checker's warnings; the upload reloads;
+//  18. Send back: no note, no send; HQ's RULES_REASON_REQUIRED read in the dialog; a noted Send back shows
+//      sentBack and the note;
+//  19. RULES_SELF_APPROVAL, RULES_UPLOAD_STALE (with a reload), RULES_INVALID_CAMPAIGN (its lines, and Send back
+//      offered) and a bare 403, each in the dialog with the upload unchanged;
+//  20. would-refuse lines above the buttons, the stale-order line first; Load's 404 and bare 403;
+//  21. no raw key and no page error.
+//
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/campaign-uploads-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
@@ -465,8 +491,467 @@ async function drive(dir) {
   }
 }
 
+// ════════════════════════ 532: the approver activates or sends back ════════════════════════
+
+const UPLOADS = '/campaigns/uploads'
+const ME = 'approver2'
+/** A refusal on the real envelope: the code first, then one error per detail line under the same code. */
+const refusal = (status, code, message, details = []) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: status,
+    success: false,
+    message,
+    errors: [message, ...details].map((errorMessage) => ({ errorCode: code, internalErrorCode: '', errorMessage })),
+    data: null,
+  }),
+})
+
+const NEVER = '0001-01-01T00:00:00'
+const summaryOf = (dealCode, state, over = {}) => ({
+  dealCode,
+  state,
+  revision: 3,
+  stacking: 'compete',
+  note: NOTE,
+  fileName: `${dealCode}.xlsx`,
+  uploadedBy: 'author1',
+  uploadedAt: '2026-10-18T09:30:00',
+  campaignCount: 3,
+  skuCount: 41,
+  windowFrom: '2026-10-09T00:00:00',
+  windowUntil: '2026-10-15T00:00:00',
+  summary: {
+    mechanics: { percentOff: 1, buyNGetMFree: 1, futureMechanic: 1 },
+    skuCount: 41,
+    windowFrom: '2026-10-09',
+    windowUntil: '2026-10-15',
+    generatedNames: 1,
+    warnings: [{ at: 'Campaigns!4:NameAr', message: 'The Arabic name of OF3 was generated.' }],
+  },
+  reviewedBy: '',
+  reviewedAt: NEVER,
+  reviewNote: '',
+  versionNo: 0,
+  ...over,
+})
+const LIST = [
+  summaryOf(DEAL, 'pending'),
+  summaryOf('0001000051-261012-261018', 'archived'),
+  summaryOf('0001000050-261010-261016', 'activated', { reviewedBy: 'approver1', reviewedAt: '2026-10-17T14:00:00', versionNo: 41 }),
+  summaryOf('0001000049-261001-261007', 'pending'),
+  summaryOf('0001000047-260920-260926', 'sentBack', { reviewedBy: 'approver1', reviewedAt: '2026-10-16T11:00:00', reviewNote: 'The window is a week late.' }),
+]
+
+const OF2_LIVE = { ...campaignJson('OF2', 'percentOff'), name: { en: 'Sunscreen OF2', ar: 'واقي الشمس القديم' } }
+/** OF3 as live: the same JSON, its keys in another order — unchanged. */
+const OF3_LIVE = (() => {
+  const c = campaignJson('OF3', 'buyNGetMFree')
+  return { rules: c.rules, window: { until: c.window.until, from: c.window.from }, name: { ar: c.name.ar, en: c.name.en }, id: c.id, schema: 1 }
+})()
+const STALE_LINE = 'The live evaluation order was changed by hand since this upload was read (version 40 → 41).'
+const detailOf = (state, { refuse = false, over = {} } = {}) => ({
+  upload: summaryOf(DEAL, state, over),
+  campaigns: [
+    { id: `${DEAL}-OF1`, competes: true, campaign: campaignJson('OF1', 'percentOff'), live: null },
+    { id: `${DEAL}-OF2`, competes: true, campaign: campaignJson('OF2', 'percentOff'), live: OF2_LIVE },
+    { id: `${DEAL}-OF3`, competes: false, campaign: campaignJson('OF3', 'buyNGetMFree'), live: OF3_LIVE },
+  ],
+  disabling: [
+    { id: `${DEAL}-OF8`, competes: false, campaign: null, live: campaignJson('OF8', 'percentOff') },
+    { id: `${DEAL}-OF9`, competes: false, campaign: null, live: campaignJson('OF9', 'amountOff') },
+  ],
+  errors: refuse ? [STALE_LINE, `${DEAL}-OF2: rules[0]: a percent of 100 or more needs a cap (rules[0].effects[0])`] : [],
+})
+const ACTIVATION = {
+  versionNo: 42,
+  dealCode: DEAL,
+  revision: 3,
+  publishedAt: '2026-10-19T10:00:00',
+  publishedBy: ME,
+  activated: [`${DEAL}-OF1`, `${DEAL}-OF2`, `${DEAL}-OF3`],
+  disabled: [`${DEAL}-OF8`, `${DEAL}-OF9`],
+  warnings: [`${DEAL}-OF1: percentOff: a percent of 100 or more (rules[0].effects[0].value)`],
+}
+const INVALID_LINES = [`${DEAL}-OF2: rules[0]: the item scope is empty (rules[0].scope)`, `${DEAL}-OF9: an id differs only in case from a live one`]
+
+async function open532(dir, path, { list = 'ok', load = 'ok', activate = 'ok', sendBack = 'ok' } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  const calls = []
+  let state = 'pending'
+  let review = {}
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
+  await page.addInitScript((d) => {
+    localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    localStorage.setItem('oms.railExpanded', 'true')
+  }, dir)
+  await page.route('**/api/**', async (route) => {
+    const req = route.request()
+    const p = new URL(req.url()).pathname.split('/api/')[1]
+    let body = null
+    try {
+      body = req.postData() ? JSON.parse(req.postData()) : null
+    } catch {
+      body = null
+    }
+    calls.push({ p, method: req.method(), body })
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: ME, currentStoreCode: 'P001' }))
+    if (p === 'Rules/Authoring/Uploads/List') {
+      if (list === 'denied') return route.fulfill(BARE_403)
+      return route.fulfill(envelope(LIST))
+    }
+    if (p === 'Rules/Authoring/Uploads/Load') {
+      if (load === 'denied') return route.fulfill(BARE_403)
+      if (body?.dealCode !== DEAL) return route.fulfill(refusal(404, 'RULES_UPLOAD_NOT_FOUND', `No campaign upload of deal ${body?.dealCode}.`))
+      return route.fulfill(envelope(detailOf(state, { refuse: load === 'refuse', over: review })))
+    }
+    if (p === 'Rules/Authoring/Uploads/Activate') {
+      if (activate === 'denied') return route.fulfill(BARE_403)
+      if (activate === 'self') return route.fulfill(refusal(403, 'RULES_SELF_APPROVAL', 'The uploader cannot activate their own upload.'))
+      if (activate === 'stale') return route.fulfill(refusal(409, 'RULES_UPLOAD_STALE', 'Revision 4 of this deal was uploaded since revision 3.'))
+      if (activate === 'invalid') return route.fulfill(refusal(400, 'RULES_INVALID_CAMPAIGN', 'The checker refuses the upload on version 41.', INVALID_LINES))
+      state = 'activated'
+      review = { reviewedBy: ME, reviewedAt: '2026-10-19T10:00:00', versionNo: 42 }
+      return route.fulfill(envelope(ACTIVATION))
+    }
+    if (p === 'Rules/Authoring/Uploads/SendBack') {
+      if (sendBack === 'reason') return route.fulfill(refusal(400, 'RULES_REASON_REQUIRED', 'Say why the upload goes back: its uploader reads the note.'))
+      state = 'sentBack'
+      review = { reviewedBy: ME, reviewedAt: '2026-10-19T10:05:00', reviewNote: body?.note ?? '' }
+      return route.fulfill(envelope(summaryOf(DEAL, 'sentBack', review)))
+    }
+    if (/Access$/.test(p))
+      return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
+    return route.fulfill(envelope([]))
+  })
+  await page.goto(`${BASE}${path}`)
+  return { context, page, errors, calls }
+}
+
+const rawKey532 = async (page) => /campaign-uploads:|\b(review|uploads|compare|state|stacking)\.[a-z]+[A-Za-z.]*\b/.test(await page.locator('main').innerText())
+/** The list's rows once the grid has drawn the filter asked for (`until`), or as they are after 5 s. */
+const listRows = async (page, until = () => true) => {
+  let rows = []
+  for (let i = 0; i < 25; i++) {
+    rows = await gridRows(page, 'data-uploads-grid')
+    if (rows.length && until(rows)) break
+    await page.waitForTimeout(200)
+  }
+  return rows
+}
+const openUpload = async (dir, opts) => {
+  const o = await open532(dir, `${UPLOADS}/${DEAL}`, opts)
+  await o.page.locator('[data-review-summary], [data-review-failed]').first().waitFor({ timeout: 20000 })
+  return o
+}
+const loadsOf = (calls) => calls.filter((c) => c.p === 'Rules/Authoring/Uploads/Load').length
+const stateFact = (page) => text(page.locator('[data-review-header] [data-upload-fact="state"] dd'))
+
+async function drive532(dir) {
+  const tag = dir.toUpperCase()
+
+  // ── 12 + 13: the leaf, and the list with its filter in the URL ──
+  {
+    const { context, page, errors, calls } = await open532(dir, UPLOADS)
+    await page.locator('[data-uploads-grid] .ag-row').first().waitFor({ timeout: 20000 })
+    check(`${tag} 12: the document is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
+    const leaf = page.locator(`nav a[href="${UPLOADS}"]`)
+    check(`${tag} 12: the Campaigns group carries a Campaign uploads leaf`, (await leaf.count()) === 1 && (await text(leaf.first())) === 'Campaign uploads')
+    check(`${tag} 12: the page names itself`, (await text(page.locator('[data-campaign-uploads] h1'))) === 'Campaign uploads')
+    check(`${tag} 13: List is asked as a POST`, calls.some((c) => c.p === 'Rules/Authoring/Uploads/List' && c.method === 'POST'))
+    check(`${tag} 13: the filter is pending by default, the URL bare`, (await page.locator('[data-uploads-filter]').inputValue()) === 'pending' && new URL(page.url()).search === '')
+    let rows = await listRows(page)
+    check(`${tag} 13: pending lists the two pending uploads, newest first`, rows.map((r) => r.cells.dealCode).join(',') === `${DEAL},0001000049-261001-261007`, rows.map((r) => r.cells.dealCode).join(','))
+    const first = rows[0]?.cells ?? {}
+    check(`${tag} 13: the row's state badge, revision and counts`, first.state === 'Pending' && first.revision === '3' && first.campaignCount === '3' && first.skuCount === '41', JSON.stringify(first))
+    check(`${tag} 13: the window is the inclusive days sent`, first.window === '2026-10-09 – 2026-10-15', first.window)
+    check(
+      `${tag} 13: uploader and time; a pending upload has no review yet`,
+      first.uploadedBy === 'author1' && first.uploadedAt === '2026-10-18 09:30' && first.reviewedBy === '' && first.reviewedAt === '' && first.versionNo === '',
+      JSON.stringify(first),
+    )
+    check(`${tag} 13: the status bar counts the rows`, (await text(page.locator('[data-status-count]'))) === '2 campaign uploads', await text(page.locator('[data-status-count]')))
+
+    await page.locator('[data-uploads-filter]').selectOption('sentBack')
+    rows = await listRows(page, (r) => r.every((x) => x.cells.state === 'Sent back'))
+    check(`${tag} 13: sentBack goes into the URL`, new URL(page.url()).searchParams.get('state') === 'sentBack')
+    check(`${tag} 13: a sent-back row with its reviewer`, rows.length === 1 && rows[0].cells.state === 'Sent back' && rows[0].cells.reviewedBy === 'approver1' && rows[0].cells.versionNo === '', JSON.stringify(rows[0]?.cells))
+    await page.locator('[data-uploads-filter]').selectOption('activated')
+    rows = await listRows(page, (r) => r.every((x) => x.cells.state === 'Activated'))
+    check(`${tag} 13: an activated row with its version`, rows.length === 1 && rows[0].cells.state === 'Activated' && rows[0].cells.versionNo === '41' && rows[0].cells.reviewedAt === '2026-10-17 14:00', JSON.stringify(rows[0]?.cells))
+    await page.locator('[data-uploads-filter]').selectOption('all')
+    rows = await listRows(page, (r) => r.length === 5)
+    check(`${tag} 13: All lists every upload, newest first, the unlisted state as sent`, rows.length === 5 && rows[1].cells.state === 'archived' && rows[4].cells.state === 'Sent back', rows.map((r) => r.cells.state).join(','))
+    check(`${tag} 13: all goes into the URL`, new URL(page.url()).searchParams.get('state') === 'all')
+    check(`${tag} 21: no raw key, no page error (list)`, !(await rawKey532(page)) && errors.length === 0, errors.join(' | '))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-list.png`, fullPage: true })
+
+    await page.locator(`[data-uploads-open="${DEAL}"]`).click()
+    await page.locator('[data-review-summary]').waitFor({ timeout: 10000 })
+    check(`${tag} 13: the deal code opens its upload`, new URL(page.url()).pathname === `${UPLOADS}/${DEAL}`)
+    await context.close()
+  }
+  {
+    const { context, page } = await open532(dir, `${UPLOADS}?state=activated`)
+    await page.locator('[data-uploads-grid] .ag-row').first().waitFor({ timeout: 20000 })
+    const rows = await listRows(page)
+    check(`${tag} 13: the filter is read back from the URL`, (await page.locator('[data-uploads-filter]').inputValue()) === 'activated' && rows.length === 1, String(rows.length))
+    await context.close()
+  }
+
+  // ── 14: no grant ──
+  {
+    const { context, page } = await open532(dir, UPLOADS, { list: 'denied' })
+    const failed = page.locator('[data-uploads-failed]')
+    await failed.waitFor({ timeout: 20000 })
+    check(`${tag} 14: a bare 403 on the list reads "${DENIED}", never an empty list`, (await text(failed)) === DENIED && (await page.locator('[data-uploads-grid]').count()) === 0, await text(failed))
+    await context.close()
+  }
+
+  // ── 15 + 16 + 17: an opened upload, compared, then activated ──
+  {
+    const { context, page, errors, calls } = await openUpload(dir)
+    const fact = (k) => text(page.locator(`[data-review-header] [data-upload-fact="${k}"] dd`))
+    check(`${tag} 15: Load is asked { dealCode }`, calls.some((c) => c.p === 'Rules/Authoring/Uploads/Load' && c.body?.dealCode === DEAL))
+    check(`${tag} 15: the summary: deal, state, revision, stacking`, (await fact('deal')) === DEAL && (await fact('state')) === 'Pending' && (await fact('revision')) === '3' && (await fact('stacking')) === 'compete')
+    check(`${tag} 15: …note, file, uploader and time`, (await fact('note')) === NOTE && (await fact('file')) === `${DEAL}.xlsx` && (await fact('uploadedBy')) === 'author1' && (await fact('uploadedAt')) === '2026-10-18 09:30')
+    const tiles = await page
+      .locator('[data-review-tiles] [data-upload-tile^="mechanic:"]')
+      .evaluateAll((t) => t.map((x) => `${x.getAttribute('data-upload-tile')}=${x.querySelector('span:last-child').innerText.replace(/[⁦-⁩]/g, '')}`))
+    check(`${tag} 15: a tile for every mechanic, an unknown one included`, tiles.join(',') === 'mechanic:percentOff=1,mechanic:buyNGetMFree=1,mechanic:futureMechanic=1', tiles.join(','))
+    check(
+      `${tag} 15: generated Arabic names counted and flagged`,
+      (await text(page.locator('[data-review-tiles] [data-upload-tile="generated"] bdi').first())) === '1' && (await page.locator('[data-review-generated-flag]').count()) === 1,
+    )
+    const win = page.locator('[data-review-tiles] [data-upload-tile="window"] span').last()
+    check(`${tag} 15: the window inclusive, isolated once`, (await text(win)) === '2026-10-09 – 2026-10-15' && (await win.locator('bdi[dir="ltr"]').count()) === 1, await text(win))
+    check(
+      `${tag} 15: the read's warnings as a list`,
+      (await page.locator('[data-review-warning]').count()) === 1 && (await text(page.locator('[data-review-warning]'))) === 'Campaigns!4:NameAr The Arabic name of OF3 was generated.',
+    )
+    check(`${tag} 15: no last review on a pending upload`, (await page.locator('[data-review-last]').count()) === 0)
+
+    await page.locator('[data-review-campaigns-grid] .ag-row').first().waitFor({ timeout: 10000 })
+    const camps = await page.locator('[data-review-campaigns-grid] .ag-row').evaluateAll((rows) =>
+      rows
+        .sort((a, b) => Number(a.getAttribute('row-index')) - Number(b.getAttribute('row-index')))
+        .map((r) => {
+          const cell = (id) => r.querySelector(`[col-id="${id}"]`).innerText.replace(/[⁦-⁩]/g, '').trim()
+          return `${cell('id').split('-').pop()}:${cell('stacking')}:${r.querySelector('[data-review-change]')?.getAttribute('data-review-change')}`
+        }),
+    )
+    check(`${tag} 15: new, changed and unchanged (keys reordered), compete / stacks`, camps.join(',') === 'OF1:compete:new,OF2:compete:changed,OF3:stacks:unchanged', camps.join(','))
+    const disabling = page.locator('[data-review-disabling]').first()
+    check(`${tag} 15: two disabling rows, red`, (await disabling.getAttribute('data-review-disabling')) === '2' && /danger/.test(await disabling.getAttribute('class')))
+    check(
+      `${tag} 15: "Activating disables these 2 live campaigns."`,
+      (await text(page.locator('[data-review-disabling-title]'))) === 'Activating disables these 2 live campaigns.',
+      await text(page.locator('[data-review-disabling-title]')),
+    )
+    check(`${tag} 20: no would-refuse lines when HQ sends none`, (await page.locator('[data-review-would-refuse]').count()) === 0)
+    // AG Grid's own widget inputs (its focus and filter plumbing) are not the upload's.
+    const editable = await page.evaluate(
+      () => [...document.querySelectorAll('[data-campaign-upload-review] input, [data-campaign-upload-review] textarea, [data-campaign-upload-review] [contenteditable="true"]')].filter((e) => !e.closest('.ag-root-wrapper')).length,
+    )
+    check(`${tag} 15: nothing of the upload is editable`, editable === 0, String(editable))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-opened.png`, fullPage: true })
+
+    // 16: side by side
+    await page.locator('[data-review-campaigns-grid] .ag-row[row-index="1"] [col-id="id"]').click()
+    const sheet = page.locator(`[data-upload-json="${DEAL}-OF2"]`)
+    await sheet.waitFor({ timeout: 5000 })
+    const up = JSON.parse(await sheet.locator('[data-upload-json-side="uploaded"] [data-upload-json-body]').innerText())
+    const live = JSON.parse(await sheet.locator('[data-upload-json-side="live"] [data-upload-json-body]').innerText())
+    check(`${tag} 16: a changed campaign opens uploaded beside live`, up.name.ar === 'واقي الشمس OF2' && live.name.ar === 'واقي الشمس القديم')
+    check(`${tag} 16: both JSON panels are LTR islands, read only`, (await sheet.locator('pre[dir="ltr"]').count()) === 2 && (await sheet.locator('input, textarea, [contenteditable="true"]').count()) === 0)
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-compare.png` })
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+    await page.locator(`[data-review-compare="${DEAL}-OF1"]`).click()
+    await page.locator(`[data-upload-json="${DEAL}-OF1"]`).waitFor({ timeout: 5000 })
+    check(`${tag} 16: a new campaign: nothing live beside it`, (await text(page.locator('[data-upload-json-side="live"] [data-upload-json-none]'))) === 'Not live: the activation adds it.')
+    await page.locator('[data-upload-json-close]').click()
+    await page.waitForTimeout(200)
+    await page.locator(`[data-review-disabling-view="${DEAL}-OF8"]`).click()
+    await page.locator(`[data-upload-json="${DEAL}-OF8"]`).waitFor({ timeout: 5000 })
+    check(
+      `${tag} 16: a disabling row: the live campaign, nothing uploaded`,
+      (await text(page.locator('[data-upload-json-side="uploaded"] [data-upload-json-none]'))) === 'Not in the upload: the activation disables it.' &&
+        JSON.parse(await page.locator('[data-upload-json-side="live"] [data-upload-json-body]').innerText()).id === `${DEAL}-OF8`,
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+
+    // 17: Activate
+    await page.locator('[data-review-action="activate"]').click()
+    const dialog = page.locator('[data-review-dialog="activate"]')
+    await dialog.waitFor({ timeout: 5000 })
+    check(
+      `${tag} 17: the dialog names the deal and the revision`,
+      (await text(dialog.locator('p').first())) === `Activate deal ${DEAL}, revision 3, as one version: every campaign of it goes live together.`,
+      await text(dialog.locator('p').first()),
+    )
+    check(`${tag} 17: it repeats the counts`, (await text(page.locator('[data-review-counts]'))) === '3 campaigns: 1 new, 1 changed, 1 unchanged.', await text(page.locator('[data-review-counts]')))
+    const ids = await dialog.locator('[data-review-disabling-id]').evaluateAll((l) => l.map((x) => x.getAttribute('data-review-disabling-id')))
+    check(`${tag} 17: …and the disabling list`, ids.join(',') === `${DEAL}-OF8,${DEAL}-OF9`, ids.join(','))
+    check(`${tag} 17: the note is optional`, !(await page.locator('[data-review-confirm]').isDisabled()))
+    const loadsBefore = loadsOf(calls)
+    await page.locator('[data-review-confirm]').click()
+    const done = page.locator('[data-review-activated-line]')
+    await done.waitFor({ timeout: 10000 })
+    const asked = calls.find((c) => c.p === 'Rules/Authoring/Uploads/Activate')
+    check(`${tag} 17: Activate sends the loaded revision, no blank note`, JSON.stringify(asked?.body) === JSON.stringify({ dealCode: DEAL, revision: 3 }), JSON.stringify(asked?.body))
+    check(`${tag} 17: "Version 42 is live: 3 campaigns activated, 2 disabled."`, (await text(done)) === 'Version 42 is live: 3 campaigns activated, 2 disabled.', await text(done))
+    check(`${tag} 17: each number isolated`, (await done.locator('bdi[dir="ltr"]').count()) === 3)
+    check(`${tag} 17: who published it, and when`, (await text(page.locator('[data-review-activated-by]'))) === `Published by ${ME} at 2026-10-19 10:00.`, await text(page.locator('[data-review-activated-by]')))
+    check(`${tag} 17: the checker's warnings`, (await page.locator('[data-review-activated-warnings]').getAttribute('data-review-activated-warnings')) === '1')
+    await page.waitForFunction(() => document.querySelector('[data-review-header] [data-upload-state]')?.getAttribute('data-upload-state') === 'activated', null, { timeout: 10000 })
+    check(`${tag} 17: the upload is loaded again and reads activated`, loadsOf(calls) > loadsBefore && (await page.locator('[data-review-dialog]').count()) === 0)
+    check(
+      `${tag} 17: the last review shows the version; no buttons on an activated upload`,
+      (await text(page.locator('[data-review-last] [data-upload-fact="versionNo"] dd'))) === '42' && (await page.locator('[data-review-actions]').count()) === 0,
+    )
+    check(`${tag} 21: no raw key, no page error (activated)`, !(await rawKey532(page)) && errors.length === 0, errors.join(' | '))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-activated.png`, fullPage: true })
+    await context.close()
+  }
+
+  // ── 18: Send back ──
+  {
+    const { context, page, calls } = await openUpload(dir, { sendBack: 'reason' })
+    await page.locator('[data-review-action="sendBack"]').click()
+    const dialog = page.locator('[data-review-dialog="sendBack"]')
+    await dialog.waitFor({ timeout: 5000 })
+    check(
+      `${tag} 18: Send back names who reads the note`,
+      (await text(dialog.locator('p').first())) === `Send deal ${DEAL}, revision 3, back to author1. Nothing is published; the deal's next upload replaces it.`,
+      await text(dialog.locator('p').first()),
+    )
+    check(`${tag} 18: without a note it is not sent`, (await page.locator('[data-review-confirm]').isDisabled()) && (await text(page.locator('[data-review-note-required]'))) === 'A note is required.')
+    await page.locator('[data-review-note]').fill('   ')
+    check(`${tag} 18: spaces are no note`, await page.locator('[data-review-confirm]').isDisabled())
+    const loadsBefore = loadsOf(calls)
+    await page.locator('[data-review-note]').fill('x')
+    await page.locator('[data-review-confirm]').click()
+    const refused = page.locator('[data-review-refusal="sendBack"]')
+    await refused.waitFor({ timeout: 10000 })
+    check(
+      `${tag} 18: HQ's RULES_REASON_REQUIRED reads in the dialog`,
+      (await refused.getAttribute('data-review-refusal-reason')) === 'reasonRequired' && (await refused.locator('[data-review-refusal-code="RULES_REASON_REQUIRED"]').count()) === 1,
+    )
+    check(`${tag} 18: …the upload left as it was`, (await stateFact(page)) === 'Pending' && loadsOf(calls) === loadsBefore)
+    await context.close()
+  }
+  {
+    const { context, page, calls } = await openUpload(dir)
+    await page.locator('[data-review-action="sendBack"]').click()
+    await page.locator('[data-review-note]').fill(' The window is a week late. ')
+    await page.locator('[data-review-confirm]').click()
+    await page.locator('[data-review-sent-back]').waitFor({ timeout: 10000 })
+    const asked = calls.find((c) => c.p === 'Rules/Authoring/Uploads/SendBack')
+    check(
+      `${tag} 18: Send back sends the loaded revision and the note`,
+      JSON.stringify(asked?.body) === JSON.stringify({ dealCode: DEAL, revision: 3, note: 'The window is a week late.' }),
+      JSON.stringify(asked?.body),
+    )
+    await page.locator('[data-review-last]').waitFor({ timeout: 10000 })
+    check(
+      `${tag} 18: the upload shows sentBack and the note`,
+      (await stateFact(page)) === 'Sent back' && (await text(page.locator('[data-review-last] [data-upload-fact="reviewNote"] dd'))) === 'The window is a week late.',
+    )
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-sent-back.png`, fullPage: true })
+    await context.close()
+  }
+
+  // ── 19: refusals in the dialog, the upload unchanged ──
+  const refuse = async (mode, run) => {
+    const o = await openUpload(dir, { activate: mode })
+    await o.page.locator('[data-review-action="activate"]').click()
+    await o.page.locator('[data-review-confirm]').click()
+    const r = o.page.locator('[data-review-refusal="activate"]')
+    await r.waitFor({ timeout: 10000 })
+    const unchanged =
+      (await o.page.locator('[data-review-dialog="activate"]').count()) === 1 &&
+      (await stateFact(o.page)) === 'Pending' &&
+      (await o.page.locator('[data-review-activated]').count()) === 0 &&
+      loadsOf(o.calls) === 1
+    await run(o, r, unchanged)
+    await o.context.close()
+  }
+  await refuse('self', async ({ page }, r, unchanged) => {
+    check(
+      `${tag} 19: RULES_SELF_APPROVAL in the dialog`,
+      (await r.getAttribute('data-review-refusal-reason')) === 'selfApproval' &&
+        (await text(r)).includes('You made this revision of the upload: another approver must activate it or send it back.') &&
+        (await r.locator('[data-review-refusal-code="RULES_SELF_APPROVAL"]').count()) === 1,
+      await text(r),
+    )
+    check(`${tag} 19: …with HQ's own message under our words`, (await text(r.locator('[data-review-refusal-message]'))) === 'The uploader cannot activate their own upload.')
+    check(`${tag} 19: …the upload unchanged`, unchanged)
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-self.png` })
+  })
+  await refuse('stale', async ({ page, calls }, r, unchanged) => {
+    check(`${tag} 19: RULES_UPLOAD_STALE in the dialog, with a reload`, (await r.getAttribute('data-review-refusal-reason')) === 'uploadStale' && (await r.locator('[data-review-reload]').count()) === 1, await text(r))
+    check(`${tag} 19: …the upload unchanged`, unchanged)
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-stale.png` })
+    await r.locator('[data-review-reload]').click()
+    await page.waitForTimeout(500)
+    check(`${tag} 19: Load it again closes the dialog and loads the upload`, (await page.locator('[data-review-dialog]').count()) === 0 && loadsOf(calls) === 2)
+  })
+  await refuse('invalid', async ({ page }, r, unchanged) => {
+    const lines = (await r.locator('[data-review-refusal-details] li').allInnerTexts()).map((l) => l.replace(/[⁦-⁩]/g, ''))
+    check(`${tag} 19: RULES_INVALID_CAMPAIGN lists HQ's lines, one each`, lines.join('|') === INVALID_LINES.join('|'), lines.join('|'))
+    check(`${tag} 19: …and HQ's message`, (await text(r.locator('[data-review-refusal-message]'))) === 'The checker refuses the upload on version 41.')
+    check(`${tag} 19: …the upload unchanged`, unchanged)
+    await r.locator('[data-review-send-back]').click()
+    check(`${tag} 19: Send it back opens the Send back dialog`, (await page.locator('[data-review-dialog="sendBack"]').count()) === 1)
+  })
+  await refuse('denied', async (_o, r, unchanged) => {
+    check(`${tag} 19: a bare 403 on Activate reads "${DENIED}"`, (await text(r)).includes(DENIED) && (await r.getAttribute('data-upload-denied')) === '' && unchanged, await text(r))
+  })
+
+  // ── 20: would-refuse lines, Load refused ──
+  {
+    const { context, page, errors } = await openUpload(dir, { load: 'refuse' })
+    const lines = (await page.locator('[data-review-would-refuse-line]').allInnerTexts()).map((l) => l.replace(/[⁦-⁩]/g, ''))
+    check(`${tag} 20: the would-refuse lines, the stale-order line first`, lines.length === 2 && lines[0] === STALE_LINE, lines.join('|'))
+    const above = await page.evaluate(() => {
+      const r = document.querySelector('[data-review-would-refuse]')
+      const b = document.querySelector('[data-review-actions]')
+      return !!(r && b && r.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+    check(`${tag} 20: …above the buttons`, above)
+    check(`${tag} 21: no raw key, no page error (would refuse)`, !(await rawKey532(page)) && errors.length === 0, errors.join(' | '))
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-would-refuse.png`, fullPage: true })
+    await context.close()
+  }
+  {
+    const { context, page } = await open532(dir, `${UPLOADS}/0009999999-000000-000000`)
+    const failed = page.locator('[data-review-failed]')
+    await failed.waitFor({ timeout: 20000 })
+    check(
+      `${tag} 20: a stale link reads RULES_UPLOAD_NOT_FOUND in our words`,
+      (await failed.getAttribute('data-review-failed')) === 'notFound' && (await text(failed)) === 'There is no campaign upload of this deal: the link may be stale.',
+      await text(failed),
+    )
+    await context.close()
+  }
+  {
+    const { context, page } = await openUpload(dir, { load: 'denied' })
+    const failed = page.locator('[data-review-failed]')
+    check(`${tag} 20: a bare 403 on Load reads "${DENIED}", never an empty upload`, (await text(failed)) === DENIED && (await page.locator('[data-review-summary]').count()) === 0, await text(failed))
+    await context.close()
+  }
+}
+
 await drive('ltr')
 await drive('rtl')
+await drive532('ltr')
+await drive532('rtl')
 await browser.close()
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

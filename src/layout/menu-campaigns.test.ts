@@ -28,7 +28,7 @@ describe('the Campaigns nav group', () => {
     for (const leaf of leaves([campaigns!])) expect(leaf.access).toBeUndefined()
     expect(campaigns!.access).toBeUndefined()
     expect(resolveMenu([campaigns!], []).items).toHaveLength(1)
-    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(7)
+    expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(8)
   })
 
   it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
@@ -68,6 +68,13 @@ describe('the Campaigns nav group', () => {
 
   it('530 adds Campaign upload seventh, at /campaigns/upload, and it lights itself rather than Campaigns', () => {
     expect(leaves([campaigns!])[6].routerLink).toBe('/campaigns/upload')
+    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
+  })
+
+  it('532 adds Campaign uploads eighth, at /campaigns/uploads; an opened upload lights it, never Campaign upload', () => {
+    expect(leaves([campaigns!])[7].routerLink).toBe('/campaigns/uploads')
+    expect(markedLeaf(MENU, '/campaigns/uploads')?.labelKey).toBe('campaign-list:menu.uploads')
+    expect(markedLeaf(MENU, '/campaigns/uploads/0001000048-261009-261015')?.labelKey).toBe('campaign-list:menu.uploads')
     expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
   })
 

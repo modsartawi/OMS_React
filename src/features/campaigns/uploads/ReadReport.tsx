@@ -76,7 +76,7 @@ export default function ReadReport({ report, view }: { report: RuleUploadReport;
   )
 }
 
-function Fact({ k, label, children }: { k: string; label: string; children: ReactNode }) {
+export function Fact({ k, label, children }: { k: string; label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5" data-upload-fact={k}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -85,7 +85,7 @@ function Fact({ k, label, children }: { k: string; label: string; children: Reac
   )
 }
 
-function Tile({ k, label, title, children }: { k: string; label: ReactNode; title?: string; children: ReactNode }) {
+export function Tile({ k, label, title, children }: { k: string; label: ReactNode; title?: string; children: ReactNode }) {
   return (
     <li className="flex min-w-[7rem] flex-col gap-0.5 rounded-lg border border-border bg-card px-3 py-2" title={title} data-upload-tile={k}>
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -287,7 +287,14 @@ function Campaigns({ campaigns }: { campaigns: RuleUploadCampaign[] }) {
           />
         </div>
       )}
-      {open && <CampaignJsonDrawer campaign={open} onClose={() => setOpen(null)} />}
+      {open && (
+        <CampaignJsonDrawer
+          id={open.id}
+          eyebrow={t('json.eyebrow')}
+          sides={[{ key: 'read', campaign: open.campaign, none: t('json.none') }]}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </section>
   )
 }

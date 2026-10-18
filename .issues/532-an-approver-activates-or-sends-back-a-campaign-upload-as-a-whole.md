@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2839-oms-react-campaign-upload-brief.md
 blocked-by: 530 (live: BackOffice 2837)
 ---
@@ -61,11 +61,11 @@ view) · route + menu + pages + dialogs · i18n EN · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `compareCampaign`: `live` null → new; equal JSON with keys in a different order → unchanged; a changed value → changed; a disabling row → disabled (vitest)
-- [ ] `uploadListFilter`: the default is `pending`; an unlisted state still lists under "all"; newest upload first is kept (vitest)
-- [ ] `uploadRefusalView`: each code above maps to its message and its offered next step (reload for STALE, send back for ORDER_STALE / INVALID_CAMPAIGN), and the `errors` details are carried through (vitest)
-- [ ] `tools/campaign-uploads-drive.mjs` gains: the list with three states and the filter in the URL; an opened upload with new, changed and unchanged campaigns and two disabling rows; side-by-side JSON; Activate's success line; a Send back without a note refused; `RULES_SELF_APPROVAL` and `RULES_UPLOAD_STALE` shown in the dialog with the upload unchanged. LTR and RTL
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `compareCampaign`: `live` null → new; equal JSON with keys in a different order → unchanged; a changed value → changed; a disabling row → disabled (vitest)
+- [x] `uploadListFilter`: the default is `pending`; an unlisted state still lists under "all"; newest upload first is kept (vitest)
+- [x] `uploadRefusalView`: each code above maps to its message and its offered next step (reload for STALE, send back for ORDER_STALE / INVALID_CAMPAIGN), and the `errors` details are carried through (vitest)
+- [x] `tools/campaign-uploads-drive.mjs` gains: the list with three states and the filter in the URL; an opened upload with new, changed and unchanged campaigns and two disabling rows; side-by-side JSON; Activate's success line; a Send back without a note refused; `RULES_SELF_APPROVAL` and `RULES_UPLOAD_STALE` shown in the dialog with the upload unchanged. LTR and RTL
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -88,3 +88,32 @@ changes and disables, activates it or sends it back, and every refusal reads in 
   ticket's default is the own page above. Overrulable if the owner wants an Approvals page with Drafts and
   Uploads tabs. HQ's `Approvals/List` door could fill a Drafts tab, but today only the workspace's
   `ApprovalPanel` reads it, inside a campaign.
+
+## Comments
+
+**Done 2026-10-19 (AFK).** Built on branch `spec/2839-campaign-uploads`, on 531's commit. (A first session
+built and reviewed it and was killed before committing; a resumed session re-checked the diff against this
+ticket, re-ran every gate and the drive, and committed.)
+
+- Contract checked against `RuleCampaignUploadWebEndpoints.cs` + `RuleUploadApprovalService.cs`: the
+  summary, detail, campaign item and activation replies match `core/models/rule-upload.ts` field for field;
+  no difference from the brief.
+- `features/campaigns/uploads/api.ts`: `list`, `load`, `activate` (the loaded revision; a blank note left
+  out), `sendBack` (note trimmed), and their queries under one `CAMPAIGN_UPLOADS_KEY`; an Activate also
+  invalidates core's `RULE_CAMPAIGNS_KEY`.
+- `review.ts` (pure): `compareCampaign` / `sameJson` (keys in any order, arrays ordered), `campaignChanges`,
+  the state filter (`?state=`, `pending` by default), `uploadListFilter`, `uploadRefusalView` (its own small
+  map, `approval.ts` untouched).
+- `UploadsPage.tsx` (the list), `UploadPage.tsx` (summary, last review, campaigns grid, red disabling list,
+  would-refuse lines, Activate / Send back), `ReviewDialog.tsx` (counts + disabling list, required note on
+  Send back, refusals in the dialog with HQ's message, details, code and next step), `UploadStateBadge.tsx`.
+  `CampaignJsonDrawer` now takes one or two sides (530's single panel unchanged). Route leaves beside
+  `campaigns/:id`; menu leaf "Campaign uploads" (`campaign-list:menu.uploads`). Keys in `campaign-uploads` (EN).
+- Proof: vitest `review.test.ts` (new) + `api.test.ts` (+6) + `menu-campaigns.test.ts`; typecheck, lint (4
+  gates), `npm test` (343 files, 5688 tests), build all green. `tools/campaign-uploads-drive.mjs` gains
+  section 532 (checks 12–21), **272/272** in LTR and RTL (530 + 531's checks unchanged; run on port 5299, 5199
+  was held by a server this run did not start).
+- Reviews: /code-review and /standards-review run by the first session, their fixes applied before the kill.
+  Decisions in `.afk/HITL-532.md`.
+- Outstanding (not this ticket's): the live walk of the doors is 533; the route/placement default above
+  stays overrulable.

@@ -120,6 +120,21 @@ export function approvalRefusal(action: ApprovalAction, code: string | null, bar
   return { reason, offer }
 }
 
+/**
+ * Whether HQ would refuse this reader's activation as their own (`RULES_SELF_APPROVAL`): they asked
+ * for it or last saved the draft. HQ compares the user ids ignoring case; an unknown reader is not
+ * held back here (HQ still refuses). Only Activate is held: HQ lets them send it back.
+ */
+export function isSelfApprover(draft: Pick<RuleDraft, 'requestedBy' | 'updatedBy'>, userId: string | null): boolean {
+  const me = userId?.trim().toLowerCase()
+  if (!me) return false
+  return [draft.requestedBy, draft.updatedBy].some((by) => by?.trim().toLowerCase() === me)
+}
+
+/** Whether HQ's message adds to our words for a refusal: only where it names what moved (the
+ *  order) or which blocks fail. Elsewhere it says what our words already say. */
+export const refusalAddsMessage = (reason: ApprovalRefusalReason): boolean => reason === 'orderStale' || reason === 'invalidCampaign'
+
 /** The grant a bare 403 says is missing: the author's (02) or the approver's (06). */
 export const grantOf = (action: ApprovalAction): 'author' | 'approver' =>
   action === 'askForApproval' || action === 'deleteDraft' ? 'author' : 'approver'

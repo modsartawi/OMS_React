@@ -1789,8 +1789,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
     (await refusal.getAttribute('data-approval-refusal-reason')) === 'selfApproval' && (await refusal.innerText()).includes('another approver must activate it'),
   )
   check(
-    '67: …with HQ’s own message and its code',
-    (await refusal.locator('[data-refusal-message]').innerText()) === 'You asked for this approval or wrote the draft: another approver activates it.' &&
+    '67: …with its code, and HQ’s message not said twice (520 live run: it restates ours)',
+    (await refusal.locator('[data-refusal-message]').count()) === 0 &&
       (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_SELF_APPROVAL',
   )
   check('67: …and the dialog stays open, the campaign still waiting', (await dialog.count()) === 1 && (await stateBadge()) === 'Waiting for approval')

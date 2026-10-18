@@ -9,6 +9,7 @@ import { forgetDeleted, rememberPublished, rememberTransition, ruleApprovalsQuer
 import { campaignPath } from '@/core/rules/campaign-state'
 import { ruleSummary } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
+import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -21,7 +22,9 @@ import {
   approvalRefusal,
   dialogBodyKey,
   grantOf,
+  isSelfApprover,
   noteReady,
+  refusalAddsMessage,
   type ApprovalAction,
   type ChecksGate,
 } from './approval'
@@ -54,6 +57,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
     },
   })
 
+  const userId = useSession((s) => s.userId)
   const acts = actionsFor(d)
   const offers = (a: ApprovalAction) => acts.includes(a)
   const askGate = actionGate('askForApproval', gate)
@@ -61,6 +65,9 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
   const pending = d.source === 'draft' && d.state === 'pending'
   const hint = pending ? 'waiting' : d.source === 'draft' ? 'draft' : d.campaignStatus === 'Published' ? 'live' : null
   const reload = () => void queryClient.invalidateQueries({ queryKey: ruleCampaignKey(d.code) })
+  // HQ refuses the reader's own activation (RULES_SELF_APPROVAL): hold the button and say why first.
+  const self = pending && isSelfApprover(d, userId)
+  const activateGate = actionGate('activate', gate)
 
   return (
     <div className="flex w-full flex-col gap-2" data-approval="">
@@ -111,8 +118,8 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
           {offers('activate') && (
             <Button
               variant="primary"
-              disabled={!!actionGate('activate', gate)}
-              aria-describedby={actionGate('activate', gate) ? 'approval-gate' : undefined}
+              disabled={self || !!activateGate}
+              aria-describedby={self ? 'approval-self' : activateGate ? 'approval-gate' : undefined}
               onClick={() => setDialog('activate')}
               data-approval-action="activate"
             >
@@ -145,6 +152,12 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
               {t('approval.gate.open')}
             </Link>
           )}
+        </p>
+      )}
+
+      {self && offers('activate') && (
+        <p id="approval-self" className="text-xs text-muted-foreground" data-approval-self="">
+          {t('approval.refusal.selfApproval')}
         </p>
       )}
 
@@ -386,7 +399,7 @@ function ActionDialog({
 
 /**
  * HQ's refusal of an approval act, by its code (`approvalRefusal`): in our words where the dashboard
- * has them, with HQ's own message under them and what to do next (read the campaign again, or send
+ * has them, with HQ's own message under them where it says more (`refusalAddsMessage`), and what to do next (read the campaign again, or send
  * the draft back); otherwise HQ's message as it is. Its code is shown either way.
  */
 function Refusal({ action, error, onReload, onSendBack }: { action: ApprovalAction; error: unknown; onReload: () => void; onSendBack?: () => void }) {
@@ -400,7 +413,7 @@ function Refusal({ action, error, onReload, onSendBack }: { action: ApprovalActi
   return (
     <div data-approval-refusal={action} data-approval-refusal-reason={known?.reason} className="w-full">
       <ErrorBanner className="p-2.5" title={t(`approval.refused.${action}`)} message={said}>
-        {known && !bare && (
+        {known && !bare && refusalAddsMessage(known.reason) && (
           <p className="mt-1 text-xs" data-refusal-message="">
             <bdi>{apiErrorMessage(error, t('approval.refused.fallback'))}</bdi>
           </p>

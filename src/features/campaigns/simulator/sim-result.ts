@@ -54,6 +54,22 @@ export function draftTarget(param: string | null, loaded: RuleDraft | undefined)
   return { ready: true, draft: loaded.source === 'draft' ? loaded.code : null }
 }
 
+/**
+ * Whether a run must name a draft: HQ refuses a dry run with nothing published and no draft
+ * (`RULES_BAD_REQUEST`, "Nothing is published"). The live version is read from the order
+ * (`versionNo` 0 = nothing published); unknown while it loads, so nothing is held back yet.
+ */
+export function needsDraft(draftParam: string | null, liveVersionNo: number | undefined): boolean {
+  return !draftParam && liveVersionNo === 0
+}
+
+/** Where a near miss's gap sits, by rule and condition (1-based), from HQ's path
+ *  `campaigns[i].rules[r].when[c]`; null for a path of another shape. */
+export function gapPlace(path: string | null | undefined): { rule: number; condition: number } | null {
+  const m = /rules\[(\d+)\]\.when\[(\d+)\]/.exec(path ?? '')
+  return m ? { rule: Number(m[1]) + 1, condition: Number(m[2]) + 1 } : null
+}
+
 export interface SimForm {
   /** The typed basket; ignored while a file is the basket. */
   basket: readonly BasketLine[]

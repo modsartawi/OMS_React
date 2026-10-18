@@ -250,9 +250,13 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
     case 'choice': {
       const options = field.values ?? []
       const current = value == null ? '' : String(value)
+      // Unset: HQ applies the catalogue's default, so the empty choice names it.
+      const fallback = field.default != null && options.includes(String(field.default)) ? String(field.default) : null
       return (
         <select id={id} className={INPUT} value={current} onChange={(e) => put(e.target.value)} {...data}>
-          {!options.includes(current) && <option value={current}>{fsi(current)}</option>}
+          {!options.includes(current) && (
+            <option value={current}>{current === '' && fallback ? t('panel.defaultChoice', { option: optionText(fallback) }) : fsi(current)}</option>
+          )}
           {options.map((o) => (
             <option key={o} value={o}>
               {optionText(o)}

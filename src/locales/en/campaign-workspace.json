@@ -26,7 +26,8 @@
         "points": "Loyalty points (Arbahi)"
       },
       "noFeatures": "None",
-      "updated": "Last saved"
+      "updated": "Last saved",
+      "published": "Published"
     },
     "state": {
       "title": "State",
@@ -370,6 +371,7 @@
   },
   "panel": {
     "done": "Done",
+    "defaultChoice": "{{option}} (HQ’s default)",
     "delete": "Delete",
     "english": "English",
     "arabic": "Arabic",

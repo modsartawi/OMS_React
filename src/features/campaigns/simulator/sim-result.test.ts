@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import type { RuleDraft, RuleEvaluateReply, RuleSimulation, RuleTraceEntry } from '@/core/models/rule-campaign'
 import type { RuleUnitEffect } from '@/core/models/rule-session'
-import { couponCodes, draftTarget, parsePoints, refusalLines, saleMoney, shapeSimulation, simAt, simRequest, sumUnits, type SimForm } from './sim-result'
+import { couponCodes, draftTarget, gapPlace, needsDraft, parsePoints, refusalLines, saleMoney, shapeSimulation, simAt, simRequest, sumUnits, type SimForm } from './sim-result'
+
+describe('needsDraft_whenNothingIsPublished', () => {
+  it('nothing published and no draft named: a run must name one; a draft named, a live version, or the order still loading: not', () => {
+    expect(needsDraft(null, 0)).toBe(true)
+    expect(needsDraft('X', 0)).toBe(false)
+    expect(needsDraft(null, 1)).toBe(false)
+    expect(needsDraft(null, undefined)).toBe(false)
+  })
+})
+
+describe('gapPlace_readsHqsPath', () => {
+  it('a condition path is its rule and condition, counted from 1; another shape is null', () => {
+    expect(gapPlace('campaigns[0].rules[0].when[0]')).toEqual({ rule: 1, condition: 1 })
+    expect(gapPlace('campaigns[2].rules[3].when[1]')).toEqual({ rule: 4, condition: 2 })
+    expect(gapPlace('campaigns[0].rules[0].then[0]')).toBeNull()
+    expect(gapPlace(null)).toBeNull()
+  })
+})
 
 const LABEL = { en: '10% off Beauty', ar: 'خصم 10% على التجميل' }
 const unit = (line: number, u: number, amount: number, o: Partial<RuleUnitEffect> = {}): RuleUnitEffect => ({

@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest'
 import type { RuleCampaign, RuleCampaignStatus, RuleDraft, RuleDraftState } from '@/core/models/rule-campaign'
-import { actionGate, actionsFor, approvalRefusal, dialogBodyKey, draftGate, grantOf, noteReady, preActivationSteps, showsSteps, type ApprovalAction } from './approval'
+import {
+  actionGate,
+  actionsFor,
+  approvalRefusal,
+  dialogBodyKey,
+  draftGate,
+  grantOf,
+  isSelfApprover,
+  noteReady,
+  preActivationSteps,
+  refusalAddsMessage,
+  showsSteps,
+  type ApprovalAction,
+} from './approval'
+
+describe('isSelfApprover_matchesHqsSelfApprovalRule', () => {
+  const d = { requestedBy: '14419', updatedBy: '14419' }
+  it('who asked or last saved is held back, ignoring case and spaces; anyone else is not', () => {
+    expect(isSelfApprover(d, '14419')).toBe(true)
+    expect(isSelfApprover({ requestedBy: 'Ayed', updatedBy: '14419' }, ' ayed ')).toBe(true)
+    expect(isSelfApprover({ requestedBy: '14419', updatedBy: 'ayed' }, 'AYED')).toBe(true)
+    expect(isSelfApprover(d, '1741')).toBe(false)
+  })
+
+  it('an unknown reader is not held back here: HQ refuses', () => {
+    expect(isSelfApprover(d, null)).toBe(false)
+    expect(isSelfApprover(d, '  ')).toBe(false)
+  })
+})
+
+describe('refusalAddsMessage', () => {
+  it('HQ’s message shows under our words only where it says more: the order that moved, the failing blocks', () => {
+    expect(refusalAddsMessage('orderStale')).toBe(true)
+    expect(refusalAddsMessage('invalidCampaign')).toBe(true)
+    expect(refusalAddsMessage('selfApproval')).toBe(false)
+    expect(refusalAddsMessage('notPending')).toBe(false)
+  })
+})
 
 type Life = Pick<RuleDraft, 'source' | 'state' | 'campaignStatus'>
 /** A loaded draft: `state` null = Load answered the newest version (no draft). */

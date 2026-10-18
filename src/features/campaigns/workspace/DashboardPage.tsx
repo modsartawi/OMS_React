@@ -181,7 +181,7 @@ function Details({ d }: { d: RuleDraft }) {
         )}
       </Line>
       {updatedAt && (
-        <Line label={t('dashboard.details.updated')} data="updated">
+        <Line label={t(d.source === 'published' ? 'dashboard.details.published' : 'dashboard.details.updated')} data="updated">
           <Trans t={t} i18nKey="dashboard.stamp" values={{ at: formatDateTime(updatedAt), by: d.updatedBy }} components={{ at: <Ltr />, by: <bdi /> }} />
         </Line>
       )}

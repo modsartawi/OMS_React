@@ -22,6 +22,10 @@
     "draftHint": "This campaign runs as its saved draft; the others run live.",
     "noDraft": "This campaign has no saved draft: the run uses the live version.",
     "dropDraft": "Run it live instead",
+    "nothingLive": "Nothing is published yet, so there is no live campaign to run. Run a campaign’s saved draft instead.",
+    "pickDraft": "Pick a draft to run…",
+    "draftsLoading": "Loading the drafts…",
+    "noDrafts": "There is no draft to run.",
     "draftUnread": "Could not read this campaign.",
     "storesFailed": "Could not load the stores."
   },
@@ -93,6 +97,7 @@
     "action": "Run",
     "running": "Running…",
     "needs": "A run needs a basket with a unit price on every line, a store, a country, a channel, a date and a time.",
+    "needsLiveOrDraft": "Nothing is published yet: pick a draft to run.",
     "needsDraft": "The campaign could not be read, so its draft cannot run. Run it live instead, or open the simulator again.",
     "failed": "The dry run was refused",
     "denied": "You do not have the rule-author permission (RuleAuthoring) that a dry run needs.",
@@ -124,7 +129,8 @@
       "title": "Close to an offer",
       "hint": "What the on-demand check would tell the cashier.",
       "none": "No campaign is close.",
-      "says": "Not met yet:"
+      "says": "Not met yet:",
+      "where": "Rule <rule>{{rule}}</rule>, condition <condition>{{condition}}</condition>"
     },
     "offer": {
       "yes": "The customer says yes",

@@ -16,7 +16,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
-import { shapeSimulation, type LineEffect, type ShapedLine } from './sim-result'
+import { gapPlace, shapeSimulation, type LineEffect, type ShapedLine } from './sim-result'
 
 const STATUS_SEV: Record<string, Severity> = { applied: 'ok', notTriggered: 'mute', skipped: 'mute', lost: 'warn' }
 
@@ -242,9 +242,7 @@ function NearMisses({ near }: { near: RuleNearMiss[] }) {
                         <SaysBoth says={g.says} />
                       </span>
                     )}
-                    <code className="font-mono text-[11px] text-muted-foreground">
-                      <Ltr>{g.path}</Ltr>
-                    </code>
+                    <GapPlace path={g.path} />
                   </li>
                 ))}
               </ul>
@@ -366,5 +364,17 @@ function Trace({ trace, counts, currency }: { trace: RuleTraceEntry[]; counts: R
         ))}
       </ol>
     </div>
+  )
+}
+
+/** Where a gap sits, in words ("Rule 1, condition 1"); HQ's machine path stays on the row's data only. */
+function GapPlace({ path }: { path: string | null | undefined }) {
+  const { t } = useTranslation('rule-simulator')
+  const at = gapPlace(path)
+  if (!at) return null
+  return (
+    <span className="text-[11px] text-muted-foreground" data-sim-gap-place="">
+      <Trans t={t} i18nKey="result.near.where" values={{ rule: at.rule, condition: at.condition }} components={{ rule: <Ltr />, condition: <Ltr /> }} />
+    </span>
   )
 }

@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Loader2, Play, X } from 'lucide-react'
 import { apiErrorCode, apiErrorDetails, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleSimulateRequest } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCampaignQuery, ruleLookupQuery } from '@/core/rules/api'
+import { ruleCampaignApi, ruleCampaignQuery, ruleDraftsQuery, ruleLookupQuery, ruleOrderQuery } from '@/core/rules/api'
 import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
 import { AUDIENCE_CHANNELS, AUDIENCE_COUNTRIES, lookupName } from '@/core/rules/lookups'
 import { RULE_INPUT } from '@/core/rules/LookupPicks'
@@ -17,7 +17,7 @@ import { toIsoDate } from '@/core/util/date-format'
 import type { BasketLine } from './basket'
 import BasketEditor from './BasketEditor'
 import SimResults from './SimResults'
-import { draftTarget, parsePoints, refusalLines, saleMoney, simRequest } from './sim-result'
+import { draftTarget, needsDraft, parsePoints, refusalLines, saleMoney, simRequest } from './sim-result'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -59,12 +59,16 @@ export default function SimulatorPage() {
 
   const stores = useQuery(ruleLookupQuery('stores', ''))
   const chosen = useQuery({ ...ruleCampaignQuery(draftId ?? ''), enabled: !!draftId })
+  // Nothing published and no draft named: HQ refuses the run, so ask for a draft up front.
+  const order = useQuery({ ...ruleOrderQuery(), enabled: !draftId })
+  const noLive = needsDraft(draftId, order.data?.versionNo)
+  const drafts = useQuery({ ...ruleDraftsQuery(), enabled: noLive })
   const loaded = draftId ? chosen.data : undefined
   const target = draftTarget(draftId, loaded)
   const money = saleMoney(country)
 
   const form = { basket, file, store, country, channel, memberId, earning, firstPurchase, coupons, points, flags, date, time, draft: target.draft }
-  const request = target.ready ? simRequest(form) : null
+  const request = target.ready && !noLive ? simRequest(form) : null
   const run = useMutation({
     mutationFn: (body: RuleSimulateRequest) => ruleCampaignApi.simulate(body),
   })
@@ -175,6 +179,26 @@ export default function SimulatorPage() {
                 )}
               </Field>
             </div>
+            {noLive && (
+              <div className="flex flex-col gap-1.5 rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" data-sim-no-live="">
+                <span>{t('sale.nothingLive')}</span>
+                <select
+                  aria-label={t('sale.pickDraft')}
+                  className={`${RULE_INPUT} w-full`}
+                  value=""
+                  onChange={(e) => e.target.value && navigate(simulatorPath(e.target.value), { replace: true })}
+                  disabled={!drafts.data?.length}
+                  data-sim-pick-draft=""
+                >
+                  <option value="">{drafts.isPending ? t('sale.draftsLoading') : drafts.data?.length ? t('sale.pickDraft') : t('sale.noDrafts')}</option>
+                  {(drafts.data ?? []).map((x) => (
+                    <option key={x.campaign} value={x.campaign}>
+                      {fsi(formatPair(x.campaign, (i18n.language === 'ar' && x.name.ar) || x.name.en))}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {draftId && (
               <div className="flex flex-col gap-1 rounded-md border border-primary-border bg-primary-050 px-3 py-2 text-xs" data-sim-draft={draftId} data-sim-draft-sent={target.draft ?? ''}>
                 <span className="flex flex-wrap items-center gap-2">
@@ -216,7 +240,7 @@ export default function SimulatorPage() {
         <div className="flex flex-col gap-3">
           {!request && (
             <p className="text-xs text-muted-foreground" data-sim-needs="">
-              {draftId && chosen.isError ? t('run.needsDraft') : t('run.needs')}
+              {noLive ? t('run.needsLiveOrDraft') : draftId && chosen.isError ? t('run.needsDraft') : t('run.needs')}
             </p>
           )}
           {run.isError && <RunRefusal error={run.error} draft={run.variables?.draft ?? null} />}

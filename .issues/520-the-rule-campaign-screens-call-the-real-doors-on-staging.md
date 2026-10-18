@@ -292,3 +292,26 @@ RuleAuthoring 06 correctly.
 8. "Last saved 10:39 by 1741" after an activation reads as an edit; it is the publish moment. Say "Published".
 9. Finding 1 also covers an author who lacks RuleAuthoring 06: Activate is offered and only HQ's 403 explains it,
    until 529's probes land.
+
+### Live run 1, part 3 — fixes, a coupon campaign, the flip (2026-10-18)
+
+**Fixed in 02b5cde** (vitest + lint green, drives campaigns 638/638, simulator 71/71, checked live): 1 (a
+self-approver's Activate is held with the reason; HQ's rule is "asked or last saved", Activate only), 2 (HQ's
+message shows under ours only for order-stale and invalid-campaign), 3 (nothing published and no `?draft=`: a notice
+and a draft picker, Run held), 4 (an unset optional choice reads "<default> (HQ’s default)" from the catalogue's
+`default`), 6 (a near miss says "Rule n, condition m"; the path stays in `data-sim-gap-path`), 8 ("Published" on a
+published read). **5 was a false positive**: the button's text is in order; the inspection tool reordered it.
+
+**Coupon campaign** `LIVE-TEST-520-COUPON-15-OFF` (coupons only; rule: coupon `LT520*` → 15% off the basket) saved
+clean at revision 3. **Batch create is blocked on setup, not code:** Create takes a SIS.Coupons template whose
+`CampaignId` is this campaign (coupons SQL 012), and nothing in either repo creates one; the client stops at "Enter
+the campaign's coupon template." Owner: create that template on the local OMS-HQ DB, then Create / Export / Delete
+unused can be walked.
+
+**Flip:** 1741 lacks `RuleEngineSwitch` 02 → `Rules/Switch/Flip` 403, said as "You do not hold the grant to flip a
+store's engine (RuleEngineSwitch, change)". Owner: add 1741 to `RULE_ENGINE_SWITCH`, then flip store 1000; sessions
+need a real NewPos sale at the flipped store (`RULE_SUPPORT` / `RULE_SUPPORT_CANCEL` for read / cancel).
+
+Finding 10 (minor): the create dialog's Features checkboxes ignored a scripted check (the campaign came out
+points-only); real clicks in Settings ▸ Features work. Likely the automation, not the app — watch for it in the
+owner walk.

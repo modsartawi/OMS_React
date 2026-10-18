@@ -315,3 +315,18 @@ need a real NewPos sale at the flipped store (`RULE_SUPPORT` / `RULE_SUPPORT_CAN
 Finding 10 (minor): the create dialog's Features checkboxes ignored a scripted check (the campaign came out
 points-only); real clicks in Settings ▸ Features work. Likely the automation, not the app — watch for it in the
 owner walk.
+
+### Live run 1, part 4 — the flip (2026-10-18)
+
+With 1741 in `RULE_ENGINE_SWITCH`, store **1000** was flipped to the rule engine: `Rules/Switch/Flip` 200, the row
+reads "Rule engine" with "Flip back to bonus buys", the History pane lists "From Bonus buys to Rule engine" by 1741
+with the reason, and the Rule engine filter answers that one store. **Store 1000 is left on the rule engine** for the
+sessions walk.
+
+Noted, not changed: the engine filter narrows HQ's first 50 answers only, so the cap note still shows under a
+one-store result. That is correct (a rule-engine store past the 50 would be missing), but an engine filter on
+`Lookups/stores` would let "every rule-engine store" be listed whole: candidate BO ask K. The grid's "Loading..." in
+the page text is AG Grid's own screen-reader container, not ours.
+
+Left for 520: coupon batches (needs the campaign's SIS.Coupons template) and sessions (needs a NewPos sale at store
+1000 after its next shift open, plus `RULE_SUPPORT` / `RULE_SUPPORT_CANCEL`).

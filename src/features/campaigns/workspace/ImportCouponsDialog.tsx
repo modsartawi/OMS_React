@@ -9,91 +9,76 @@ import { Loader2, Upload } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import type { RuleCampaign, RuleCouponBatch } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCouponsKey } from '@/core/rules/api'
+import type { RuleCouponBatchCreated } from '@/core/models/rule-campaign'
+import { ruleCampaignApi, ruleCouponBatchesKey } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
-import { MAX_BATCH } from './coupon-form'
-import { importTally, importableRows, readCouponCsv, withHqCheck, type CouponCsvRow } from './coupon-csv'
-import { Refusal } from './settings-ui'
-
-/** The rows as last checked, and the text they were read from: an edit makes them stale. */
-interface Checked {
-  text: string
-  rows: CouponCsvRow[]
-  noCodeColumn: boolean
-}
+import { MAX_BATCH, MAX_CODE, MAX_MEMBER, MAX_TEMPLATE, couponImportBody, templateProblem } from './coupon-form'
+import { importCsv, importTally, readCouponCsv, type CouponCsvRow } from './coupon-csv'
+import { Refusal, SETTINGS_INPUT } from './settings-ui'
 
 /**
- * Import coupons (ticket 516; the prototype's coupon Uploader): codes from a CSV file — chosen or
- * dropped — or pasted rows. The text box is the one source: a file fills it and is checked at once;
- * pasted or edited text is checked with "Check the rows". Each row is checked before anything is
- * imported — on this side for a missing code, bad characters, a repeat in the file and a code the
- * campaign has; then on HQ's import check for a code SIS.Coupons holds and an unknown member. The
- * rejected rows are shown with their reason and left out; the rest are imported as one batch, whose
- * id the page shows.
+ * Import coupons (tickets 516, 526; the prototype's coupon Uploader): codes from a CSV file — chosen
+ * or dropped — or pasted rows, as one batch under the campaign's coupon template
+ * (`CouponBatches/Create`, `kind: import`). The text box is the one source; it is read as it is
+ * typed: each row is checked here for a missing code, a code or member id HQ would not take, and a
+ * repeat in the file, and shown with its reason. The good rows are sent as `code[,customerId]` lines.
+ *
+ * HQ has no pre-import check: a code SIS.Coupons already holds (`RULES_BATCH_CODE_TAKEN`) or a member
+ * it does not know (`RULES_BATCH_BAD`, naming the ids) refuses the whole import, all or none, and the
+ * refusal shows here verbatim with the rows kept to fix.
  *
  * It is open while it is mounted: the page mounts it per import, so nothing of one import is drawn in
  * the next.
  */
 export default function ImportCouponsDialog({
-  campaign: c,
-  taken,
+  campaignId,
+  templateId: suggested,
   onClose,
   onImported,
 }: {
-  campaign: RuleCampaign
-  /** The codes the campaign has. */
-  taken: readonly string[]
+  campaignId: string
+  /** The template the import starts from (the newest batch's, or ''). */
+  templateId: string
   onClose: () => void
   /** HQ took the rows: its batch, and how many rows were left out. */
-  onImported: (batch: RuleCouponBatch, leftOut: number) => void
+  onImported: (batch: RuleCouponBatchCreated, leftOut: number) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   const [text, setText] = useState('')
-  const [lastChecked, setLastChecked] = useState<Checked | null>(null)
+  const [templateId, setTemplateId] = useState(suggested)
+  const [tried, setTried] = useState(false)
   const [fileFailed, setFileFailed] = useState(false)
   const [drag, setDrag] = useState(false)
   const fileId = useId()
   const pasteId = useId()
+  const templateFieldId = useId()
 
-  const hqCheck = useMutation({
-    mutationFn: (rows: CouponCsvRow[]) => ruleCampaignApi.checkCouponImport(c.id, importableRows(rows)),
-  })
   const send = useMutation({
-    mutationFn: (rows: ReturnType<typeof importableRows>) => ruleCampaignApi.importCoupons(c.id, rows),
-    // The list is read afresh BEFORE the page hears of the batch, so "Show the codes" finds it.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ruleCouponsKey(c.id) }),
+    mutationFn: (csv: string) => ruleCampaignApi.createBatch(couponImportBody(templateId, csv)),
+    // The batches are read afresh BEFORE the page hears of the batch, so "Show the codes" finds it.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ruleCouponBatchesKey(campaignId) }),
   })
-  const busy = hqCheck.isPending || send.isPending
 
-  /** Reads the text and checks it: on this side, then — when a row is still good — on HQ's door. */
-  const check = (source: string) => {
-    hqCheck.reset()
-    send.reset()
-    const read = readCouponCsv(source, taken)
-    if (read.noCodeColumn || !read.rows.some((r) => !r.problem)) {
-      setLastChecked({ text: source, rows: read.rows, noCodeColumn: read.noCodeColumn })
-      return
-    }
-    setLastChecked(null)
-    hqCheck.mutate(read.rows, {
-      onSuccess: (answer) => setLastChecked({ text: source, rows: withHqCheck(read.rows, answer), noCodeColumn: false }),
-    })
-  }
+  const read = useMemo(() => readCouponCsv(text), [text])
+  const rows = read.rows
+  const tally = importTally(rows)
+  const csv = importCsv(rows)
+  const n = (x: number) => fsi(formatNumber(x))
+  const template = templateProblem(templateId)
 
   const readFile = (file: File | undefined) => {
-    if (!file || busy) return
+    if (!file || send.isPending) return
     setFileFailed(false)
     file.text().then(
       (body) => {
         setText(body)
-        check(body)
+        send.reset()
       },
       () => setFileFailed(true),
     )
@@ -101,27 +86,17 @@ export default function ImportCouponsDialog({
 
   const edit = (value: string) => {
     setText(value)
-    // Rows checked from other text are stale.
-    if (lastChecked || hqCheck.isError) {
-      setLastChecked(null)
-      hqCheck.reset()
-    }
+    // A refusal was about the rows as they were sent.
     if (send.isError) send.reset()
   }
-
-  // Only rows read from the text as it stands count: a check that answers after an edit is stale.
-  const checked = lastChecked?.text === text ? lastChecked : null
-  const rows = checked?.rows ?? []
-  const tally = importTally(rows)
-  const good = importableRows(rows)
-  const n = (x: number) => fsi(formatNumber(x))
 
   const close = () => {
     if (!send.isPending) onClose()
   }
   const submit = () => {
-    if (!checked || !good.length || busy) return
-    send.mutate(good, { onSuccess: (batch) => onImported(batch, tally.rejected) })
+    setTried(true)
+    if (template || !tally.ok || send.isPending) return
+    send.mutate(csv, { onSuccess: (batch) => onImported(batch, tally.rejected) })
   }
 
   const columns = useMemo(() => previewColumns(t), [t])
@@ -138,15 +113,39 @@ export default function ImportCouponsDialog({
           <Button variant="text" disabled={send.isPending} onClick={close}>
             {t('coupons.import.cancel')}
           </Button>
-          <Button variant="primary" disabled={!checked || !good.length || busy} onClick={submit} data-coupons-import-submit="">
+          <Button variant="primary" disabled={!tally.ok || send.isPending} onClick={submit} data-coupons-import-submit="">
             {send.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-            {t('coupons.import.submit', { count: good.length, n: n(good.length) })}
+            {t('coupons.import.submit', { count: tally.ok, n: n(tally.ok) })}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3" data-coupons-import="">
         <p className="text-sm text-muted-foreground">{t('coupons.import.intro', { max: n(MAX_BATCH) })}</p>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor={templateFieldId} className="text-xs font-medium text-muted-foreground">
+            {t('coupons.create.template')}
+          </label>
+          <input
+            id={templateFieldId}
+            dir="ltr"
+            value={templateId}
+            onChange={(e) => {
+              setTemplateId(e.target.value)
+              if (send.isError) send.reset()
+            }}
+            className={`${SETTINGS_INPUT} max-w-xs font-mono ${tried && template ? 'border-danger' : 'border-border/60'}`}
+            data-coupons-import-template=""
+          />
+          {tried && template ? (
+            <p className="text-xs text-danger" role="alert" data-coupon-problem={template}>
+              {t(`coupons.create.problems.${template}`, { max: fsi(MAX_TEMPLATE) })}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('coupons.create.templateHint')}</p>
+          )}
+        </div>
 
         <label
           htmlFor={fileId}
@@ -173,7 +172,7 @@ export default function ImportCouponsDialog({
             type="file"
             accept=".csv,.txt,text/csv,text/plain"
             className="sr-only"
-            disabled={busy}
+            disabled={send.isPending}
             onChange={(e) => {
               const file = e.target.files?.[0]
               e.target.value = ''
@@ -199,27 +198,15 @@ export default function ImportCouponsDialog({
             data-coupons-import-text=""
           />
           <p className="text-xs text-muted-foreground">{t('coupons.import.format')}</p>
-          <div>
-            <Button variant="outlined" disabled={!text.trim() || busy || (!!checked && !send.isError)} onClick={() => check(text)} data-coupons-import-check="">
-              {hqCheck.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-              {t('coupons.import.check')}
-            </Button>
-          </div>
         </div>
 
-        {hqCheck.isError && (
-          <div data-coupons-import-check-refusal="">
-            <Refusal title={t('coupons.import.checkRefusedTitle')} fallback={t('coupons.import.checkRefused')} error={hqCheck.error} />
-          </div>
-        )}
-
-        {checked?.noCodeColumn && (
+        {read.noCodeColumn && (
           <p className="text-sm text-danger-800" data-coupons-import-no-code="">
             {t('coupons.import.noCodeColumn')}
           </p>
         )}
 
-        {checked && !checked.noCodeColumn && (
+        {rows.length > 0 && (
           <>
             <p className="text-sm" data-coupons-import-tally="">
               <Trans
@@ -230,24 +217,23 @@ export default function ImportCouponsDialog({
                 components={{ rows: <Ltr />, ok: <Ltr />, rejected: <Ltr /> }}
               />
             </p>
-            {rows.length > 0 && (
-              <div className="h-56" data-coupons-import-preview="">
-                <AgGridReact<CouponCsvRow>
-                  theme={omsGridTheme}
-                  rowData={rows}
-                  columnDefs={columns}
-                  defaultColDef={DEFAULT_COL_DEF}
-                  getRowId={({ data }) => String(data.line)}
-                  context={gridContext}
-                  rowClassRules={{ 'bg-danger-050': ({ data }) => !!data?.problem }}
-                  rowHeight={OMS_GRID_ROW_HEIGHT}
-                  headerHeight={OMS_GRID_HEADER_HEIGHT}
-                  animateRows={false}
-                  suppressColumnVirtualisation
-                />
-              </div>
-            )}
-            {tally.rejected > 0 && good.length > 0 && <p className="text-xs text-muted-foreground">{t('coupons.import.leftOut')}</p>}
+            <div className="h-56" data-coupons-import-preview="">
+              <AgGridReact<CouponCsvRow>
+                theme={omsGridTheme}
+                rowData={rows}
+                columnDefs={columns}
+                defaultColDef={DEFAULT_COL_DEF}
+                getRowId={({ data }) => String(data.line)}
+                context={gridContext}
+                rowClassRules={{ 'bg-danger-050': ({ data }) => !!data?.problem }}
+                rowHeight={OMS_GRID_ROW_HEIGHT}
+                headerHeight={OMS_GRID_HEADER_HEIGHT}
+                animateRows={false}
+                suppressColumnVirtualisation
+              />
+            </div>
+            {tally.rejected > 0 && tally.ok > 0 && <p className="text-xs text-muted-foreground">{t('coupons.import.leftOut')}</p>}
+            <p className="text-xs text-muted-foreground">{t('coupons.import.hqChecks')}</p>
           </>
         )}
 
@@ -271,7 +257,7 @@ function CheckCell({ data, context }: ICellRendererParams<CouponCsvRow, unknown,
   return (
     <span className="text-danger-800" data-coupons-import-row={data.problem}>
       {/* A grid cell: the bound is isolated by a <bdi>, never by fsi (it would reach Ctrl+C). */}
-      <Trans t={t} i18nKey={`coupons.import.problems.${data.problem}`} values={{ max: formatNumber(MAX_BATCH) }} components={{ v: <bdi dir="ltr" /> }} />
+      <Trans t={t} i18nKey={`coupons.import.problems.${data.problem}`} values={{ max: formatNumber(MAX_BATCH), code: MAX_CODE, member: MAX_MEMBER }} components={{ v: <bdi dir="ltr" /> }} />
     </span>
   )
 }

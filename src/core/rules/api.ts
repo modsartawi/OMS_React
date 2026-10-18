@@ -8,15 +8,14 @@ import type {
   RuleApprovalBody,
   RuleApprovalItem,
   RuleApprovalStep,
-  RuleCampaignCoupon,
   RuleCampaignListRow,
   RuleCopyBody,
-  RuleCouponBatch,
   RuleCouponBatchCreate,
+  RuleCouponBatchCreated,
+  RuleCouponBatchDeletion,
+  RuleCouponBatchExport,
+  RuleCouponBatchSummary,
   RuleCouponFound,
-  RuleCouponImportCheck,
-  RuleCouponImportRow,
-  RuleCouponUnusedDeleted,
   RuleDraft,
   RuleDraftDeleted,
   RuleDisableBody,
@@ -59,8 +58,6 @@ import type {
 // It sits in `core/` because the simulator (514), Priority (513) and support (518, 519) read
 // campaigns too, and a feature may not import another feature's api.
 
-// PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-const CAMPAIGNS = 'RuleCampaign/Campaigns'
 // The draft doors (BackOffice 2758 + 2759): POST, cookie session + the rule-author grant.
 const DRAFT_LOAD = 'Rules/Authoring/Drafts/Load'
 const DRAFT_SAVE = 'Rules/Authoring/Drafts/Save'
@@ -91,8 +88,11 @@ const BUDGETS = 'Rules/Authoring/Budgets'
 const BUDGET_SET_LIMIT = 'Rules/Authoring/Budgets/SetLimit'
 
 const SIMULATE = 'Rules/Authoring/Simulate'
-// PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-const COUPONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Coupons`
+// Campaign coupon batches (BackOffice 2755): every door POST, behind the rule-author grant.
+const COUPON_BATCH_CREATE = 'Rules/Authoring/CouponBatches/Create'
+const COUPON_BATCH_LIST = 'Rules/Authoring/CouponBatches/List'
+const COUPON_BATCH_EXPORT = 'Rules/Authoring/CouponBatches/Export'
+const COUPON_BATCH_DELETE_UNUSED = 'Rules/Authoring/CouponBatches/DeleteUnused'
 // Support's doors (BackOffice 2760): their own grant, `BackOfficeScreen[RuleSupport]` — 03 to read,
 // 02 to cancel. A reader without it gets a bare 403 with no body.
 const SUPPORT_SESSIONS = 'Rules/Support/Sessions'
@@ -289,43 +289,31 @@ export const ruleCampaignApi = {
     return api.post<RuleSimulation>(SIMULATE, body)
   },
 
-  /** GET RuleCampaign/Campaigns/{id}/Coupons — every code of a coupon campaign with its status,
-   *  uses, member, batch and validity (ticket 515, BackOffice 2755); the page searches and filters
-   *  them itself. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-  coupons(id: string): Promise<RuleCampaignCoupon[]> {
-    return api.get<RuleCampaignCoupon[]>(COUPONS(id))
+  /** POST Rules/Authoring/CouponBatches/Create — one batch of random, universal, personal or
+   *  imported codes under the campaign's coupon template, all or none (ticket 526). HQ answers the
+   *  batch id, its codes and the budgets the dialog's checkboxes became, for the draft (ADR 0094).
+   *  400 `RULES_BATCH_BAD` (an unknown member is named in its message), `RULES_BATCH_CODE_TAKEN`;
+   *  400 / 404 `RULES_BATCH_TEMPLATE`. */
+  createBatch(body: RuleCouponBatchCreate): Promise<RuleCouponBatchCreated> {
+    return api.post<RuleCouponBatchCreated>(COUPON_BATCH_CREATE, body)
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Coupons/Batches — one batch of random, universal or personal
-   *  codes (ticket 515, BackOffice 2755); HQ mints the codes and answers the batch id and the count.
-   *  A code already taken, or a campaign without the coupons feature, is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-  createCoupons(id: string, body: RuleCouponBatchCreate): Promise<RuleCouponBatch> {
-    return api.post<RuleCouponBatch>(`${COUPONS(id)}/Batches`, body)
+  /** POST Rules/Authoring/CouponBatches/List { campaign } — the campaign's batches, newest first,
+   *  with their used and disabled counts (not their codes). */
+  batches(campaign: string): Promise<RuleCouponBatchSummary[]> {
+    return api.post<RuleCouponBatchSummary[]>(COUPON_BATCH_LIST, { campaign })
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports/Check — HQ's check of a CSV import's rows
-   *  before it is sent: the codes SIS.Coupons already holds and the member ids it does not know
-   *  (ticket 516, BackOffice 2755). Nothing is imported. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-  checkCouponImport(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponImportCheck> {
-    return api.post<RuleCouponImportCheck>(`${COUPONS(id)}/Imports/Check`, { rows })
+  /** POST Rules/Authoring/CouponBatches/Export { batchId } — the batch as HQ's CSV, one line per
+   *  code, with the file name to save it as. 404 `RULES_BATCH_NOT_FOUND`. */
+  exportBatch(batchId: string): Promise<RuleCouponBatchExport> {
+    return api.post<RuleCouponBatchExport>(COUPON_BATCH_EXPORT, { batchId })
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Coupons/Imports — the checked rows as one new batch of
-   *  `imported` codes (ticket 516, BackOffice 2755); HQ answers the batch id and the count. A row
-   *  taken since the check is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-  importCoupons(id: string, rows: RuleCouponImportRow[]): Promise<RuleCouponBatch> {
-    return api.post<RuleCouponBatch>(`${COUPONS(id)}/Imports`, { rows })
-  },
-
-  /** DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{batch}/Unused — removes the batch's unused
-   *  codes; a used, disabled or expired code stays for the history (ticket 516, BackOffice 2755). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
-  deleteUnusedCoupons(id: string, batch: string): Promise<RuleCouponUnusedDeleted> {
-    return api.del<RuleCouponUnusedDeleted>(`${COUPONS(id)}/Batches/${encodeURIComponent(batch)}/Unused`)
+  /** POST Rules/Authoring/CouponBatches/DeleteUnused { batchId } — deletes the batch's codes nobody
+   *  used; a code ever redeemed is kept. 404 `RULES_BATCH_NOT_FOUND`. */
+  deleteUnused(batchId: string): Promise<RuleCouponBatchDeletion> {
+    return api.post<RuleCouponBatchDeletion>(COUPON_BATCH_DELETE_UNUSED, { batchId })
   },
 
   /** GET Rules/Support/Sessions?storeCode=&from=&to=&state=&take= — one store's customer sessions
@@ -414,7 +402,8 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleBudgetsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionKey(id) })
-  queryClient.removeQueries({ queryKey: ruleCouponsKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCouponBatchesKey(id) })
+  queryClient.removeQueries({ queryKey: ruleCouponExportsKey(id) })
   queryClient.removeQueries({ queryKey: ruleApprovalHistoryKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
@@ -574,15 +563,28 @@ export const ruleApprovalHistoryQuery = (id: string) => ({
   retry: false as const,
 })
 
-/** A campaign's coupon codes, keyed under the campaign queries. */
-export const ruleCouponsKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'coupons', id] as const
+/** A campaign's coupon batches, keyed under the campaign queries. */
+export const ruleCouponBatchesKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'coupon-batches', id] as const
 
-/** The coupon codes' query options (ticket 515): a create re-reads them; tills redeem codes, so —
- *  like the budget counters — they are read afresh when the reader comes back to the tab. */
-export const ruleCouponsQuery = (id: string) => ({
-  queryKey: ruleCouponsKey(id),
-  queryFn: () => ruleCampaignApi.coupons(id),
+/** The batches' query options (ticket 526): a create or a delete re-reads them; tills redeem codes,
+ *  so — like the budget counters — they are read afresh when the reader comes back to the tab. */
+export const ruleCouponBatchesQuery = (id: string) => ({
+  queryKey: ruleCouponBatchesKey(id),
+  queryFn: () => ruleCampaignApi.batches(id),
   refetchOnWindowFocus: true as const,
+  retry: false as const,
+})
+
+/** A campaign's batch exports, keyed apart from its batches: a create re-reads the cheap list, not
+ *  every batch's codes; a delete re-reads both. */
+export const ruleCouponExportsKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'coupon-exports', id] as const
+export const ruleCouponBatchExportKey = (id: string, batchId: string) => [...ruleCouponExportsKey(id), batchId] as const
+
+/** The export's query options: opening a batch reads its codes from HQ's CSV (up to 10,000 lines),
+ *  so — unlike the list — not again on every return to the tab. */
+export const ruleCouponBatchExportQuery = (id: string, batchId: string) => ({
+  queryKey: ruleCouponBatchExportKey(id, batchId),
+  queryFn: () => ruleCampaignApi.exportBatch(batchId),
   retry: false as const,
 })
 

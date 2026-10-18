@@ -1,117 +1,113 @@
-import type { RuleCampaignCoupon, RuleCouponBatchCreate, RuleCouponCharset, RuleCouponShape, RuleCouponStatus, RuleCouponValidity } from '@/core/models/rule-campaign'
+import type { RuleCampaignBudget, RuleCouponBatchCreate, RuleCouponBatchKind, RuleCouponBatchSummary } from '@/core/models/rule-campaign'
 import { cleanCode } from '@/core/rules/coupon'
 
 /**
- * Create coupons (ticket 515; the prototype's `CouponCreate`): one batch of random, universal or
- * personal codes, with a validity in local days. The form holds what the marketer typed, as typed;
+ * Create coupons (tickets 515, 526; the prototype's `CouponCreate`): one batch of random, universal
+ * or personal codes under the campaign's coupon template (`Rules/Authoring/CouponBatches/Create`),
+ * with a validity in local days. The form holds what the marketer typed, as typed;
  * `couponCreateProblems` says what holds Create back, at its field; `couponCreateBody` is what is
- * sent. HQ mints the codes and the batch id — the client never draws a code.
+ * sent. HQ mints the codes and the batch id, shaped by the template — the client never draws one.
  *
- * There are NO redemption-limit fields (ADR 0094): "each code once" and "once per customer" are the
- * campaign's coupon and profile budgets, under Settings ▸ Budgets. Nothing here can carry one.
+ * The codes carry NO redemption limit (ADR 0094). The dialog's "each code once" and "once per
+ * customer" boxes are sent as `eachCodeOnce` / `oncePerCustomer`; HQ answers them as a coupon and a
+ * profile uses budget, which the page adds to the draft (`budgetsToAdd`).
  */
-export type CouponKind = RuleCouponBatchCreate['kind']
+export type CouponKind = Exclude<RuleCouponBatchKind, 'import'>
 export const COUPON_KINDS: readonly CouponKind[] = ['random', 'universal', 'personal']
-export const COUPON_CHARSETS: readonly RuleCouponCharset[] = ['lettersAndDigits', 'letters', 'digits']
 
 export interface CouponCreateForm {
   kind: CouponKind
+  /** The campaign's SIS.Coupons template, as typed. */
+  templateId: string
   /** random: how many codes, as typed. */
   count: string
-  /** random and personal: the code's shape. */
-  prefix: string
-  suffix: string
-  length: string
-  charset: RuleCouponCharset
-  /** universal: the one code. */
+  /** universal: the one code; blank = HQ generates it with the template's prefix. */
   code: string
   /** personal: the member ids, as pasted (a column, a comma list…). */
   members: string
-  /** Local `yyyy-MM-dd` from the date inputs; '' = at once / no end of its own. */
+  /** Local `yyyy-MM-dd` from the date inputs; '' = the template's own. */
   from: string
   until: string
+  /** The dialog's two limits, which become budgets (ADR 0094). */
+  eachCodeOnce: boolean
+  oncePerCustomer: boolean
 }
 
-/** One batch's bounds (the prototype's: up to 5,000 codes in one batch). */
-export const MAX_BATCH = 5000
-/** The shortest random part: 10^4 digit codes hold twice `MAX_BATCH`, so any shape fits a batch. */
-export const MIN_LENGTH = 4
-export const MAX_LENGTH = 16
-/** A prefix or a suffix: up to 8 letters or digits. */
-export const MAX_AFFIX = 8
+/** HQ's bounds (BackOffice `RuleCouponBatchService`): codes in one batch, and the column widths. */
+export const MAX_BATCH = 10000
+export const MAX_CODE = 64
+export const MAX_MEMBER = 26
+export const MAX_TEMPLATE = 26
 
-/** A fresh form: random codes, prefixed with the campaign code's first part, as the prototype. */
-export function emptyCouponForm(campaignCode: string): CouponCreateForm {
-  return {
-    kind: 'random',
-    count: '100',
-    prefix: cleanAffix(campaignCode.split('-')[0] ?? ''),
-    suffix: '',
-    length: '6',
-    charset: 'lettersAndDigits',
-    code: '',
-    members: '',
-    from: '',
-    until: '',
-  }
-}
-
-/** A prefix or suffix as it is kept: upper-case letters and digits only, at most `MAX_AFFIX`. */
-export const cleanAffix = (value: string): string =>
-  value
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .slice(0, MAX_AFFIX)
-
-const UNIVERSAL = /^[A-Z0-9][A-Z0-9-]{2,31}$/
+/** What HQ takes as a code or a customer id: letters, digits and - _ . only, starting with a letter
+ *  or a digit (so it never splits a CSV line or opens as a spreadsheet formula). */
+const SAFE_VALUE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
-/** The member ids a paste holds, each once, in the order first seen — as typed: an id's case is
- *  HQ's to read, never the client's to change. */
+export const isCodeOk = (code: string): boolean => code.length <= MAX_CODE && SAFE_VALUE.test(code)
+export const isMemberOk = (id: string): boolean => id.length <= MAX_MEMBER && SAFE_VALUE.test(id)
+
+/** A fresh form: random codes, under the template the campaign's newest batch used (if any). */
+export function emptyCouponForm(templateId: string): CouponCreateForm {
+  return { kind: 'random', templateId, count: '100', code: '', members: '', from: '', until: '', eachCodeOnce: false, oncePerCustomer: false }
+}
+
+/** The template a new batch starts from: the newest batch's (List answers newest first), else none.
+ *  HQ names no door for a campaign's coupon template (logged as a BO ask), so the author types it
+ *  the first time. */
+export const suggestedTemplate = (batches: readonly RuleCouponBatchSummary[] | undefined): string => batches?.[0]?.templateId ?? ''
+
+/** The member ids a paste holds, each once in any case (HQ counts `M-1` and `m-1` as one member),
+ *  in the order first seen and as first typed: an id's case is HQ's to read, never the client's to
+ *  change. */
 export function memberIds(pasted: string): { ids: string[]; repeated: number } {
   const all = pasted
     .split(/[,;| \r\n\t]/)
     .map((m) => m.trim())
     .filter((m) => m.length > 0)
-  const ids = [...new Set(all)]
+  const seen = new Set<string>()
+  const ids = all.filter((m) => !seen.has(m.toUpperCase()) && !!seen.add(m.toUpperCase()))
   return { ids, repeated: all.length - ids.length }
 }
 
 const whole = (value: string): number | null => (/^\d+$/.test(value.trim()) ? Number(value.trim()) : null)
 
-export type CouponField = 'count' | 'length' | 'code' | 'members' | 'until' | 'from'
+export type CouponField = 'templateId' | 'count' | 'code' | 'members' | 'until' | 'from'
 export type CouponProblem =
+  | 'templateRequired'
+  | 'templateLong'
   | 'countRange'
-  | 'lengthRange'
   | 'codeShape'
-  | 'codeTaken'
   | 'membersEmpty'
   | 'membersRange'
+  | 'membersShape'
   | 'dayShape'
   | 'untilBeforeFrom'
 
-/**
- * What holds Create back, one problem per field, for the form's kind only. `taken` is the codes the
- * campaign already has (a universal code may not repeat one; HQ refuses it too).
- */
-export function couponCreateProblems(form: CouponCreateForm, taken: readonly string[] = []): Partial<Record<CouponField, CouponProblem>> {
+/** The template's problem, if any: required, at most `MAX_TEMPLATE` characters. */
+export function templateProblem(templateId: string): CouponProblem | undefined {
+  const id = templateId.trim()
+  if (!id) return 'templateRequired'
+  if (id.length > MAX_TEMPLATE) return 'templateLong'
+  return undefined
+}
+
+/** What holds Create back, one problem per field, for the form's kind only. */
+export function couponCreateProblems(form: CouponCreateForm): Partial<Record<CouponField, CouponProblem>> {
   const out: Partial<Record<CouponField, CouponProblem>> = {}
-  if (form.kind !== 'universal') {
-    const length = whole(form.length)
-    if (length === null || length < MIN_LENGTH || length > MAX_LENGTH) out.length = 'lengthRange'
-    const howMany = form.kind === 'random' ? whole(form.count) : memberIds(form.members).ids.length
-    if (form.kind === 'random' && (howMany === null || howMany < 1 || howMany > MAX_BATCH)) out.count = 'countRange'
-    if (form.kind === 'personal') {
-      if (!howMany) out.members = 'membersEmpty'
-      else if (howMany > MAX_BATCH) out.members = 'membersRange'
-    }
-    // No shape is too small for ONE batch: ten digits at the shortest length (10^4) hold twice the
-    // largest. Codes the campaign's earlier batches took from the same shape are HQ's to count: a
-    // shape it has run out of is refused on the envelope.
-  } else {
+  const template = templateProblem(form.templateId)
+  if (template) out.templateId = template
+  if (form.kind === 'random') {
+    const howMany = whole(form.count)
+    if (howMany === null || howMany < 1 || howMany > MAX_BATCH) out.count = 'countRange'
+  } else if (form.kind === 'universal') {
     const code = cleanCode(form.code)
-    if (!UNIVERSAL.test(code)) out.code = 'codeShape'
-    else if (taken.includes(code)) out.code = 'codeTaken'
+    if (code && !isCodeOk(code)) out.code = 'codeShape'
+  } else {
+    const { ids } = memberIds(form.members)
+    if (!ids.length) out.members = 'membersEmpty'
+    else if (ids.length > MAX_BATCH) out.members = 'membersRange'
+    else if (!ids.every(isMemberOk)) out.members = 'membersShape'
   }
   if (form.from && !DAY.test(form.from)) out.from = 'dayShape'
   if (form.until && !DAY.test(form.until)) out.until = 'dayShape'
@@ -119,56 +115,65 @@ export function couponCreateProblems(form: CouponCreateForm, taken: readonly str
   return out
 }
 
-/** The body Create sends, or null while a problem holds it back. Only the kind's own fields go. */
-export function couponCreateBody(form: CouponCreateForm, taken: readonly string[] = []): RuleCouponBatchCreate | null {
-  if (Object.keys(couponCreateProblems(form, taken)).length) return null
-  const validity: RuleCouponValidity = { from: form.from || null, until: form.until || null }
-  const shape: RuleCouponShape = {
-    prefix: cleanAffix(form.prefix),
-    suffix: cleanAffix(form.suffix),
-    length: Number(form.length.trim()),
-    charset: form.charset,
+/** The dialog's limits a budget of the campaign already does: a coupon-scope budget of ONE use for
+ *  the lifetime is "each code once", a profile-scope one "once per customer" — what HQ answers for
+ *  the boxes. A looser budget (100 uses, once a month) does not: the box stays the author's. A
+ *  covered box shows ticked and is not sent again. */
+export function limitsCovered(budgets: readonly RuleCampaignBudget[] | undefined): { eachCodeOnce: boolean; oncePerCustomer: boolean } {
+  const once = (b: RuleCampaignBudget, scope: RuleCampaignBudget['scope']) => b.scope === scope && b.limit === 'uses' && b.value === 1 && b.period === 'lifetime'
+  const list = budgets ?? []
+  return { eachCodeOnce: list.some((b) => once(b, 'coupon')), oncePerCustomer: list.some((b) => once(b, 'profile')) }
+}
+
+/**
+ * The body Create sends, or null while a problem holds it back. Only the kind's own field goes, the
+ * days as typed (never a `Z`), and a limit only when its box is ticked and no budget does it yet. A
+ * universal code is used as often as the budgets allow, so it never sends "each code once".
+ */
+export function couponCreateBody(form: CouponCreateForm, covered = limitsCovered([])): RuleCouponBatchCreate | null {
+  if (Object.keys(couponCreateProblems(form)).length) return null
+  const body: RuleCouponBatchCreate = {
+    templateId: form.templateId.trim(),
+    kind: form.kind,
+    eachCodeOnce: form.kind !== 'universal' && form.eachCodeOnce && !covered.eachCodeOnce,
+    oncePerCustomer: form.oncePerCustomer && !covered.oncePerCustomer,
   }
-  if (form.kind === 'random') return { kind: 'random', count: Number(form.count.trim()), ...shape, ...validity }
-  if (form.kind === 'universal') return { kind: 'universal', code: cleanCode(form.code), ...validity }
-  return { kind: 'personal', members: memberIds(form.members).ids, ...shape, ...validity }
+  if (form.kind === 'random') body.count = Number(form.count.trim())
+  else if (form.kind === 'universal') {
+    const code = cleanCode(form.code)
+    if (code) body.code = code
+  } else body.members = memberIds(form.members).ids
+  if (form.from) body.validFrom = form.from
+  if (form.until) body.validTo = form.until
+  return body
 }
 
-/** A sample of each charset's characters, so "Looks like" is the same on every render. */
-const SAMPLE: Record<RuleCouponCharset, string> = {
-  lettersAndDigits: 'K7Q2M9X4TR3W8PZ5',
-  letters: 'KQMXTRWPZHJNVBCD',
-  digits: '4827361950482736',
+/** An import's body: the same door, `kind: import`, the rows as `code[,customerId]` lines. An import
+ *  ticks no limit box: its budgets are set under Settings ▸ Budgets. */
+export function couponImportBody(templateId: string, csv: string): RuleCouponBatchCreate {
+  return { templateId: templateId.trim(), kind: 'import', csv, eachCodeOnce: false, oncePerCustomer: false }
 }
 
-/** What a code of this shape looks like — an example, not a code HQ will mint. */
-export function codeExample(form: Pick<CouponCreateForm, 'prefix' | 'suffix' | 'length' | 'charset'>): string {
-  const length = Math.min(Math.max(whole(form.length) ?? MIN_LENGTH, 1), MAX_LENGTH)
-  return [cleanAffix(form.prefix), SAMPLE[form.charset].slice(0, length), cleanAffix(form.suffix)].filter(Boolean).join('-')
+/** The budgets a create answered that the campaign does not have yet (by id), in HQ's order: what
+ *  the page adds to the draft (ADR 0094). */
+export function budgetsToAdd(have: readonly RuleCampaignBudget[] | undefined, answered: readonly RuleCampaignBudget[]): RuleCampaignBudget[] {
+  const ids = new Set((have ?? []).map((b) => b.id))
+  return answered.filter((b) => !ids.has(b.id))
 }
 
-// ── The list's filters ──
+// ── The batch list ──
 
-export type CouponStatusFilter = 'all' | RuleCouponStatus
-export const COUPON_STATUSES: readonly RuleCouponStatus[] = ['unused', 'used', 'disabled', 'expired']
-
-export const statusFromParam = (value: string | null): CouponStatusFilter =>
-  COUPON_STATUSES.includes(value as RuleCouponStatus) ? (value as CouponStatusFilter) : 'all'
-
-/** The codes shown: the search matches part of the code, any case; status and batch match exactly. */
-export function visibleCoupons(
-  codes: readonly RuleCampaignCoupon[],
-  { q, status, batch }: { q: string; status: CouponStatusFilter; batch: string },
-): RuleCampaignCoupon[] {
+/** The batches shown: the search matches part of the batch id or the template, any case. */
+export function visibleBatches(batches: readonly RuleCouponBatchSummary[], q: string): RuleCouponBatchSummary[] {
   const needle = q.trim().toUpperCase()
-  return codes.filter(
-    (k) => (!needle || k.code.toUpperCase().includes(needle)) && (status === 'all' || k.status === status) && (!batch || k.batch === batch),
-  )
+  return needle ? batches.filter((b) => b.batchId.toUpperCase().includes(needle) || b.templateId.toUpperCase().includes(needle)) : [...batches]
 }
 
-/** How many codes in each status. */
-export function couponCounts(codes: readonly RuleCampaignCoupon[]): Record<RuleCouponStatus, number> {
-  const out = Object.fromEntries(COUPON_STATUSES.map((s) => [s, 0])) as Record<RuleCouponStatus, number>
-  for (const k of codes) out[k.status]++
-  return out
+/** The campaign's totals over its batches. */
+export function batchTotals(batches: readonly RuleCouponBatchSummary[]): { batches: number; codes: number; used: number; disabled: number } {
+  return batches.reduce((t, b) => ({ batches: t.batches + 1, codes: t.codes + b.codes, used: t.used + b.used, disabled: t.disabled + b.disabled }), { batches: 0, codes: 0, used: 0, disabled: 0 })
 }
+
+/** How many of a batch's codes nobody used — what Delete unused may delete (HQ also keeps a code a
+ *  paying sale holds, so its answer can be fewer). */
+export const unusedOf = (b: Pick<RuleCouponBatchSummary, 'codes' | 'used'>): number => Math.max(0, b.codes - b.used)

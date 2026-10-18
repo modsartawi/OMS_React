@@ -1210,13 +1210,16 @@
   },
   "coupons": {
     "title": "Coupons",
-    "intro": "Codes live in SIS.Coupons under a template this campaign owns. One campaign coupon per sale. A code has no redemption limit of its own: the campaign’s coupon and profile budgets set how often it works.",
+    "intro": "Codes live in SIS.Coupons under a template this campaign owns, in batches. One campaign coupon per sale. A code has no redemption limit of its own: the campaign’s coupon and profile budgets set how often it works.",
     "off": "Coupons are off for this campaign. Switch them on in <features>Settings ▸ Features</features>.",
-    "counts_one": "<total>{{total}}</total> code: <unused>{{unused}}</unused> unused, <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
-    "counts_other": "<total>{{total}}</total> codes: <unused>{{unused}}</unused> unused, <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+    "countsBatches_one": "<n>{{n}}</n> batch.",
+    "countsBatches_other": "<n>{{n}}</n> batches.",
+    "countsCodes_one": "<n>{{n}}</n> code: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled.",
+    "countsCodes_other": "<n>{{n}}</n> codes: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled.",
     "search": {
       "label": "Search",
-      "placeholder": "Coupon code"
+      "batchPlaceholder": "Batch id or template",
+      "codePlaceholder": "Coupon code or member id"
     },
     "statusFilter": "Status",
     "anyStatus": "Any status",
@@ -1227,41 +1230,35 @@
       "expired": "Expired"
     },
     "batchChip": "Batch <batch>{{batch}}</batch>",
-    "batchFilter": "Show batch {{batch}} only",
-    "clearBatch": "Clear the batch filter",
     "clearFilters": "Clear filters",
-    "failedTitle": "The coupon codes could not be read",
+    "failedTitle": "The coupon batches could not be read",
     "failed": "Try again in a moment.",
     "retry": "Try again",
     "shown_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> code",
     "shown_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> codes",
-    "none": "No codes yet. Create some.",
-    "noMatch": "No code matches.",
+    "none": "No batch yet. Create coupons or import a CSV.",
+    "noMatch": "Nothing matches.",
     "columns": {
+      "batch": "Batch",
+      "template": "Template",
+      "codes": "Codes",
+      "used": "Used",
+      "disabled": "Disabled",
+      "created": "Created",
+      "createdBy": "Created by",
       "code": "Code",
       "status": "Status",
-      "kind": "Kind",
-      "uses": "Uses",
-      "created": "Created",
+      "member": "Member",
       "from": "Valid from",
       "until": "Valid until",
-      "member": "Member",
-      "batch": "Batch",
-      "atOnce": "At once",
-      "noEnd": "No end",
+      "templateDays": "The template’s",
       "anyone": "Anyone"
-    },
-    "kind": {
-      "random": "Random",
-      "universal": "Universal",
-      "personal": "Personal",
-      "imported": "Imported"
     },
     "created": {
       "title": "Coupons created",
       "body_one": "This batch id identifies the <n>{{n}}</n> code you just created:",
       "body_other": "This batch id identifies the <n>{{n}}</n> codes you just created:",
-      "hint": "You will see it in the Batch column. Use it to find, organise or export the codes.",
+      "hint": "You will see it in the batch list. Open the batch to find its codes, or export them.",
       "show": "Show the codes",
       "more": "Create more codes",
       "importedTitle": "Coupons imported",
@@ -1269,7 +1266,17 @@
       "importedBody_other": "This batch id identifies the <n>{{n}}</n> codes you just imported:",
       "export": "Export the codes",
       "leftOut_one": "<n>{{n}}</n> rejected row was left out.",
-      "leftOut_other": "<n>{{n}}</n> rejected rows were left out."
+      "leftOut_other": "<n>{{n}}</n> rejected rows were left out.",
+      "elsewhere": "This template belongs to campaign <campaign>{{campaign}}</campaign>: the batch is listed there, and no budget was added here.",
+      "budgetsAdding_one": "Adding this budget to the draft…",
+      "budgetsAdding_other": "Adding these budgets to the draft…",
+      "budgetsAdded_one": "This budget was added to the draft. It limits the codes once the draft is activated:",
+      "budgetsAdded_other": "These budgets were added to the draft. They limit the codes once the draft is activated:",
+      "budgetsNotAdded_one": "HQ answered this budget for the dialog’s limit, but it is not on the draft yet:",
+      "budgetsNotAdded_other": "HQ answered these budgets for the dialog’s limits, but they are not on the draft yet:",
+      "budgetsRefusedTitle": "The draft was not saved",
+      "budgetsRefused": "Try again, or add the budget under Settings ▸ Budgets.",
+      "budgetsRetry": "Add them again"
     },
     "create": {
       "open": "Create coupons",
@@ -1280,7 +1287,7 @@
       "kinds": {
         "random": {
           "label": "Random codes",
-          "intro": "A batch of random codes to share with customers: a mailing, a print run or a partner."
+          "intro": "A batch of random codes to share with customers: a mailing, a print run or a partner. The template sets how they look."
         },
         "universal": {
           "label": "Universal code",
@@ -1288,7 +1295,7 @@
         },
         "personal": {
           "label": "Personal codes",
-          "intro": "One random code per member, bound to that member. Paste the member ids."
+          "intro": "One random code per member, bound to that member. Paste the loyalty ids."
         }
       },
       "count": "Number of codes",
@@ -1300,69 +1307,61 @@
       "membersReady_other": "<n>{{n}}</n> members get a code each.",
       "membersRepeated_one": "<n>{{n}}</n> repeated id is counted once.",
       "membersRepeated_other": "<n>{{n}}</n> repeated ids are counted once.",
-      "shape": "How the codes look",
-      "prefix": "Prefix",
-      "suffix": "Suffix",
-      "affixHint": "Up to {{max}} letters or digits.",
-      "length": "Random characters",
-      "charset": "Characters",
-      "charsets": {
-        "lettersAndDigits": "Letters and digits",
-        "letters": "Letters only",
-        "digits": "Digits only"
-      },
-      "example": "Looks like <code>{{code}}</code>",
       "validity": "Validity (optional)",
       "from": "Valid from",
-      "fromHint": "At once",
+      "fromHint": "The template’s",
       "until": "Valid until",
-      "untilHint": "No end of its own; the campaign’s end still applies",
+      "untilHint": "The template’s; the campaign’s end still applies",
       "validityNote": "Days are local. A code dated next week waits even while the campaign runs, which suits birthday codes; it still works only while the campaign is active.",
-      "limits": "A code carries no redemption limit. “Each code once” and “once per customer” are coupon and profile budgets: set them in <budgets>Settings ▸ Budgets</budgets>.",
+      "limits": "A code carries no limit of its own. Ticking a box adds a budget to the campaign’s draft, which you can change in <budgets>Settings ▸ Budgets</budgets>.",
       "refusedTitle": "The coupons were not created",
       "refused": "Try again in a moment.",
       "problems": {
+        "templateRequired": "Enter the campaign’s coupon template.",
+        "templateLong": "At most {{max}} characters.",
         "countRange": "Enter a whole number from 1 to {{max}}.",
-        "lengthRange": "Enter a whole number from {{min}} to {{max}}.",
-        "codeShape": "3 to 32 letters, digits or dashes, starting with a letter or a digit.",
-        "codeTaken": "This campaign already has this code.",
+        "codeShape": "Letters, digits and - _ . only, starting with a letter or a digit, at most {{max}}.",
         "membersEmpty": "Paste at least one member id.",
         "membersRange": "At most {{max}} members in one batch.",
+        "membersShape": "A member id is letters, digits and - _ . only, starting with a letter or a digit, at most {{width}}.",
         "dayShape": "Pick a day.",
         "untilBeforeFrom": "The last day may not be before the first."
-      }
+      },
+      "template": "Coupon template",
+      "templateHint": "The campaign’s SIS.Coupons template the codes are made under, as HQ set it up.",
+      "codeHint": "Leave it empty and HQ makes one with the template’s prefix.",
+      "limitsTitle": "Redemption limits",
+      "eachCodeOnce": "Each code works once",
+      "eachCodeOnceCovered": "(a coupon budget already does this)",
+      "oncePerCustomer": "Once per customer",
+      "oncePerCustomerCovered": "(a profile budget already does this)",
+      "universalLimit": "A universal code works without limit unless a budget stops it."
     },
     "export": {
-      "all_one": "Export {{n}} code",
-      "all_other": "Export {{n}} codes",
-      "filtered_one": "Export {{n}} shown code",
-      "filtered_other": "Export {{n}} shown codes"
+      "open": "Export CSV",
+      "refusedTitle": "The codes were not exported",
+      "refused": "Try again in a moment."
     },
     "import": {
       "open": "Import CSV",
       "title": "Import coupon codes",
-      "intro": "One code per row, with an optional member id that binds the code to that member. Each row is checked before anything is imported; the good rows become one batch of up to {{max}} codes.",
+      "intro": "One code per row, with an optional member id that binds the code to that member. The good rows become one batch of up to {{max}} codes, all or none.",
       "drop": "Drop a CSV file here, or choose a file",
       "fileFailed": "The file could not be read. Save it as a CSV (UTF-8) and try again.",
       "paste": "Or paste rows",
       "pastePlaceholder": "code,member\nWKND-7Q2M4X,\nWKND-K9P3RT,M-100231",
       "format": "Columns: code, member (optional). A header row is optional. Comma, semicolon or tab. Codes are upper-cased.",
-      "check": "Check the rows",
-      "checkRefusedTitle": "The rows could not be checked",
-      "checkRefused": "Try again in a moment.",
       "noCodeColumn": "The header has no code column. Name it code, coupon or coupon_code.",
       "tally_one": "<rows>{{rows}}</rows> row: <ok>{{ok}}</ok> ready, <rejected>{{rejected}}</rejected> rejected.",
       "tally_other": "<rows>{{rows}}</rows> rows: <ok>{{ok}}</ok> ready, <rejected>{{rejected}}</rejected> rejected.",
-      "leftOut": "Rejected rows are left out; fix them in the text and check again to include them.",
+      "leftOut": "Rejected rows are left out; fix them in the text to include them.",
       "ready": "Ready",
       "problems": {
         "noCode": "No code",
-        "badCode": "Bad characters: 3 to 32 letters, digits or dashes",
+        "badCode": "Not a code: letters, digits and - _ . only, at most <v>{{code}}</v>",
+        "badMember": "Not a member id: letters, digits and - _ . only, at most <v>{{member}}</v>",
         "repeated": "Twice in the file",
-        "taken": "This campaign already has this code",
-        "tooMany": "Past <v>{{max}}</v> codes in one batch",
-        "inUse": "Already a code in SIS.Coupons",
-        "unknownMember": "No member has this id"
+        "tooMany": "Past <v>{{max}}</v> codes in one batch"
       },
       "columns": {
         "line": "Line",
@@ -1374,16 +1373,17 @@
       "submit_one": "Import {{n}} code",
       "submit_other": "Import {{n}} codes",
       "refusedTitle": "The codes were not imported",
-      "refused": "Try again in a moment."
+      "refused": "Try again in a moment.",
+      "hqChecks": "HQ checks the rest when you import: a code already in SIS.Coupons, or a member it does not know, refuses the whole file, and nothing is imported."
     },
     "deleteUnused": {
       "open": "Delete unused",
       "none": "This batch has no unused code.",
       "title": "Delete unused codes",
-      "body_one": "Delete the <n>{{n}}</n> unused code of batch <batch>{{batch}}</batch>? It stops working at once.",
-      "body_other": "Delete the <n>{{n}}</n> unused codes of batch <batch>{{batch}}</batch>? They stop working at once.",
-      "stay_one": "<n>{{n}}</n> code stays for the history: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
-      "stay_other": "<n>{{n}}</n> codes stay for the history: <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired.",
+      "body_one": "Delete the <n>{{n}}</n> code of batch <batch>{{batch}}</batch> nobody used? It stops working at once.",
+      "body_other": "Delete the <n>{{n}}</n> codes of batch <batch>{{batch}}</batch> nobody used? They stop working at once.",
+      "stay_one": "<n>{{n}}</n> used code stays for the history, and so does a code a sale still paying holds.",
+      "stay_other": "<n>{{n}}</n> used codes stay for the history, and so does a code a sale still paying holds.",
       "cancel": "Keep them",
       "confirm_one": "Delete the unused code",
       "confirm_other": "Delete the unused codes",
@@ -1391,7 +1391,14 @@
       "refused": "Try again in a moment.",
       "done_one": "<n>{{n}}</n> unused code of batch <batch>{{batch}}</batch> was deleted; <kept>{{kept}}</kept> stay.",
       "done_other": "<n>{{n}}</n> unused codes of batch <batch>{{batch}}</batch> were deleted; <kept>{{kept}}</kept> stay."
-    }
+    },
+    "openBatch": "Open batch {{batch}}: its codes",
+    "back": "All batches",
+    "codesFailedTitle": "The batch’s codes could not be read",
+    "shownBatches_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> batch",
+    "shownBatches_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> batches",
+    "codeCounts": "<unused>{{unused}}</unused> unused, <used>{{used}}</used> used, <disabled>{{disabled}}</disabled> disabled, <expired>{{expired}}</expired> expired",
+    "noCodes": "This batch has no code left."
   },
   "draft": {
     "staleTitle": "Someone saved this campaign since you opened it",

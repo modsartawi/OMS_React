@@ -5,7 +5,7 @@
 // { statusCode, success, message, errors: [{ errorCode, internalErrorCode, errorMessage }], data }.
 // Ticket 522 re-pointed the draft doors onto BackOffice 2758/2759's real shapes (the campaign JSON,
 // schema 1, inside the `Drafts/Load` reply), ticket 523 the builder's other 2758 doors, ticket 524
-// the 2759 doors; the coupon doors 526 owns keep their PROVISIONAL paths:
+// the 2759 doors, ticket 526 the coupon batch doors (BackOffice 2755):
 //   POST Rules/Authoring/Drafts/Load { campaign } → the draft (`loadDraft`); 404 RULES_DRAFT_NOT_FOUND
 //   POST Rules/Authoring/Drafts/Save { campaign, features, revision, tree? } → the draft one revision higher
 //       (`saveDraft`) — a create is revision 0 with the author's id; 409 RULES_DRAFT_STALE / PENDING;
@@ -44,14 +44,15 @@
 //   POST Rules/Authoring/Versions/Load { versionNo, campaign } → one version and its campaign
 //   POST Rules/Authoring/Versions/Restore { campaign, versionNo, revision } → the version is the draft;
 //        the first `refuseRestore` are refused (512, 524)
-//   GET RuleCampaign/Campaigns/{id}/Coupons → the campaign's codes (`COUPONS`), or refused with `refuseCoupons` (515)
-//   POST RuleCampaign/Campaigns/{id}/Coupons/Batches → one batch minted (`createBatch`); a taken universal
-//       code is refused; the first `refuseBatch` creates are refused (515)
-//   POST RuleCampaign/Campaigns/{id}/Coupons/Imports/Check → codes in use and unknown members (`checkImport`);
-//       the first `refuseImportCheck` checks are refused (516)
-//   POST RuleCampaign/Campaigns/{id}/Coupons/Imports → one batch of imported codes (`importBatch`) (516)
-//   DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{b}/Unused → the batch's unused codes deleted
-//       (`deleteUnused`); the first `refuseDelete` deletes are refused (516)
+//   POST Rules/Authoring/CouponBatches/List { campaign } → the campaign's batches, newest first
+//       (`listBatches`); `refuseBatches` answers RULES_BATCH_BAD (515, 526)
+//   POST Rules/Authoring/CouponBatches/Create { templateId, kind, count?, code?, members?, csv?, validFrom?,
+//       validTo?, eachCodeOnce, oncePerCustomer } → one batch, all or none, and the budgets its boxes became
+//       (`createBatch`); HQ's refusals RULES_BATCH_BAD / _TEMPLATE / _CODE_TAKEN; the first `denyBatch`
+//       creates are a bare 403 (515, 516, 526)
+//   POST Rules/Authoring/CouponBatches/Export { batchId } → `{ batchId, fileName, csv }` (`exportBatch`)
+//   POST Rules/Authoring/CouponBatches/DeleteUnused { batchId } → `{ batchId, deleted, kept }`
+//       (`deleteUnusedCodes`); the first `refuseDelete` deletes are 404 RULES_BATCH_NOT_FOUND (516, 526)
 // Each browser context has its own copy of the fixtures, so a create or a copy stays in its run.
 // Never a live SIS.Api. The browser runs in Asia/Riyadh (UTC+3) with its clock fixed, so the local
 // day and the UTC day can be made to disagree.
@@ -75,7 +76,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, COUPONS, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, checkImport, copyDraft, createBatch, deleteDraft, deleteUnused, draftsList, fromTemplate as makeFromTemplate, importBatch, loadDraft, loadVersion, lookup, orderOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -116,10 +117,11 @@ const FROM_TEMPLATE_REFUSED = 'Placeholder free: a value of 3 is more than the b
 const RESTORE_REFUSED = 'Version 1 does not hold campaign GIFT-POUCH.'
 const STALE_PENDING = 'The draft waits for approval. / المسودة بانتظار الموافقة.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
-const COUPONS_REFUSED = 'The coupon codes are not available. / رموز القسائم غير متاحة.'
-const BATCH_REFUSED = 'SIS.Coupons is not answering; no code was created. / خدمة القسائم لا تستجيب.'
-const IMPORT_CHECK_REFUSED = 'SIS.Coupons could not check the rows. / تعذر التحقق من الصفوف.'
-const DELETE_REFUSED = 'SIS.Coupons is not answering; no code was deleted. / لم يُحذف أي رمز.'
+/** 526: HQ's own refusal of a List with no campaign — what `refuseBatches` answers. */
+const BATCHES_REFUSED = 'Name the campaign whose batches to list.'
+/** 526: WKND20's two batches in the fixtures (2734's codes, then the flyer code). */
+const WKND_BATCH = '01J8Y3K3M9Q2XA7C4D5E6F7G8H'
+const FLYER_BATCH = '01J9A0W7D2W4PE5R8ZD3N6QW2T'
 /** The stubbed HQ's local clock for a create or a copy — the drive's EVENING. */
 const NOW_LOCAL = '2026-10-16 18:30'
 
@@ -130,7 +132,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, denyApprover = false, orderStale = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
+async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, denyApprover = false, orderStale = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -174,15 +176,10 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
   /** 503: every create-from-template `{ id, body }`, in order. */
   const fromTemplate = []
   let fromTemplateRefusals = refuseFromTemplate
-  /** 515: this context's coupon codes by campaign id, and every batch create `{ id, body }`, in order. */
-  const coupons = structuredClone(COUPONS)
-  const batches = []
-  let batchRefusals = refuseBatch
-  /** 516: every import check, import and delete unused `{ id, body | batch }`, in order. */
-  const importChecks = []
-  const imports = []
-  const deletes = []
-  let importCheckRefusals = refuseImportCheck
+  /** 526: this context's coupon batches (SIS.Coupons), and every coupon batch call `{ door, body }`, in order. */
+  const batches = structuredClone(BATCHES)
+  const couponCalls = []
+  let batchDenials = denyBatch
   let deleteRefusals = refuseDelete
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
@@ -345,63 +342,40 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       const out = restoreVersion(c, versions, body.versionNo, body.revision)
       return route.fulfill(out.draft ? envelope(out.draft) : refused(out))
     }
-    const imp = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons\/(Imports(?:\/Check)?|Batches\/([^/]+)\/Unused)$/.exec(p)
-    if (imp) {
-      const id = decodeURIComponent(imp[1])
-      const c = store.find((x) => x.code === id)
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      const list = (coupons[id] ??= [])
-      if (imp[2] === 'Imports/Check' && req.method() === 'POST') {
-        const body = req.postDataJSON()
-        importChecks.push({ id, body })
-        if (importCheckRefusals > 0) {
-          importCheckRefusals--
-          return route.fulfill(envelope(null, { status: 503, success: false, message: IMPORT_CHECK_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
+    // The coupon batch doors (ticket 526): BackOffice 2755's real shapes, every one POST.
+    const cb = /^Rules\/Authoring\/CouponBatches\/(Create|List|Export|DeleteUnused)$/.exec(p)
+    if (cb && req.method() === 'POST') {
+      const body = req.postDataJSON() ?? {}
+      couponCalls.push({ door: cb[1], body })
+      const answer = (out, data) => route.fulfill(out.refused ? envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }) : envelope(data))
+      if (cb[1] === 'List') {
+        const out = listBatches(batches, refuseBatches ? '' : body.campaign)
+        return answer(out, out.list)
+      }
+      if (cb[1] === 'Create') {
+        if (batchDenials > 0) {
+          batchDenials--
+          return route.fulfill(BARE_403)
         }
-        return route.fulfill(envelope(checkImport(list, body.rows)))
+        const out = createBatch(batches, body, 'msartawi', NOW_LOCAL)
+        return answer(out, out.batch)
       }
-      if (imp[2] === 'Imports' && req.method() === 'POST') {
-        const body = req.postDataJSON()
-        imports.push({ id, body })
-        const out = importBatch(c, list, body.rows, NOW_LOCAL)
-        return route.fulfill(out.batch ? envelope(out.batch) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
+      if (cb[1] === 'Export') {
+        const out = exportBatch(batches, body.batchId)
+        return answer(out, out.file)
       }
-      if (imp[3] && req.method() === 'DELETE') {
-        const batch = decodeURIComponent(imp[3])
-        deletes.push({ id, batch })
-        if (deleteRefusals > 0) {
-          deleteRefusals--
-          return route.fulfill(envelope(null, { status: 503, success: false, message: DELETE_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
-        }
-        return route.fulfill(envelope(deleteUnused(list, batch)))
+      if (deleteRefusals > 0) {
+        deleteRefusals--
+        return answer({ refused: 'RULES_BATCH_NOT_FOUND', status: 404, message: `No coupon batch ${body.batchId}.` })
       }
-    }
-    const cps = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons(\/Batches)?$/.exec(p)
-    if (cps) {
-      const id = decodeURIComponent(cps[1])
-      const c = store.find((x) => x.code === id)
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      const list = (coupons[id] ??= [])
-      if (!cps[2] && req.method() === 'GET') {
-        if (refuseCoupons) return route.fulfill(envelope(null, { status: 503, success: false, message: COUPONS_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
-        return route.fulfill(envelope(list))
-      }
-      if (cps[2] && req.method() === 'POST') {
-        const body = req.postDataJSON()
-        batches.push({ id, body })
-        if (batchRefusals > 0) {
-          batchRefusals--
-          return route.fulfill(envelope(null, { status: 503, success: false, message: BATCH_REFUSED, errorCode: 'RULE_COUPONS_UNAVAILABLE' }))
-        }
-        const out = createBatch(c, list, body, NOW_LOCAL)
-        return route.fulfill(out.batch ? envelope(out.batch) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
-      }
+      const out = deleteUnusedCodes(batches, body.batchId)
+      return answer(out, out.result)
     }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, validations, checks, checkBodies, catalogueReads, valueMapUploads, acts, history, usageReads, limits, liveLimits, versions, restores, tree: () => liveTree, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, batches, couponCalls, bodies, fromTemplate, saves, lookups, validations, checks, checkBodies, catalogueReads, valueMapUploads, acts, history, usageReads, limits, liveLimits, versions, restores, tree: () => liveTree, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -2714,168 +2688,204 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 515 ── it asserts:
+/** 526: the row ids the coupons grid shows, in order (batch ids, or a batch's codes). */
+const couponRowIds = (page) =>
+  page.$$eval('[data-coupons-grid] .ag-row[row-id]', (rows) => [
+    ...new Set(rows.sort((x, y) => Number(x.getAttribute('row-index')) - Number(y.getAttribute('row-index'))).map((r) => r.getAttribute('row-id'))),
+  ])
+
+// ── 515, re-pointed by 526 onto CouponBatches/* ── it asserts:
 // 110. a coupons campaign's menu has Coupons, which opens /campaigns/:id/coupons as the current item:
-//      every code in the grid, the counts by status, and ONE read of the codes;
-// 111. each code reads its status, kind, uses (a count, never "n / limit"), validity as local days,
-//      its member or Anyone, and its batch;
-// 112. the search matches part of the code in any case and the status filter its status, both in
-//      the URL; Clear filters shows every code again;
-// 113. a batch id in the grid filters the list to its batch, with a chip that clears it;
-// 114. Create coupons opens on Random codes, with NO redemption-limit field anywhere in the dialog —
-//      a line says the limits are budgets and links to Settings ▸ Budgets;
-// 115. a count out of range is said at its field once Create is tried, and nothing is sent;
-// 116. a random batch sends ONE POST with exactly the random kind's fields, the days as typed; the
-//      success modal shows HQ's batch id and the count;
-// 117. Show the codes lists that batch only (?batch=), its 25 codes with their local validity;
-// 118. a universal code the campaign already has is said at its field and not sent; a new one is
-//      sent upper-cased with only its own fields, and the modal shows its batch id and "1 code";
-// 119. personal codes: pasted member ids, a repeat counted once, sent as each id once; the modal shows
-//      the batch id, and the batch lists one code per member;
-// 120. HQ's refusal shows in the dialog with its message and code, and the form is kept;
-// 121. a refused codes read is its own message and code with Try again;
+//      the campaign's BATCHES (HQ lists batches, not codes), newest first, the totals, and ONE List
+//      `{ campaign }`;
+// 111. each batch reads its template, codes, used and disabled counts (counts, never "n / limit"),
+//      and who created it when, local; opening one reads its codes from ONE Export `{ batchId }`:
+//      a status badge each, the member or Anyone, its own local days or the template's;
+// 112. in a batch, the search matches part of the code in any case and the status filter its
+//      status, both in the URL; Clear filters shows every code again; the batch search matches a
+//      part of a batch id;
+// 113. a batch id opens its batch (?batch=) with a chip; All batches goes back;
+// 114. Create coupons opens on Random codes under the newest batch's template; the redemption
+//      limits are two boxes that become budgets (ADR 0094) — a line links to Settings ▸ Budgets, and a
+//      universal code has no "each code once";
+// 115. a count out of range, and no template, are said at their fields, and nothing is sent;
+// 116. a random batch sends ONE Create with exactly the random kind's fields, the days as typed and
+//      the ticked box; the modal shows HQ's batch id and the count; the budget HQ answered is added
+//      to the draft (ONE Drafts/Save, the campaign's budgets plus it) and the modal says so;
+// 117. Show the codes opens that batch: its 25 codes with their local validity;
+// 118. a covered box shows ticked and is not sent; a universal code SIS.Coupons holds is HQ's refusal
+//      (RULES_BATCH_CODE_TAKEN) in the dialog, the form kept; a new one is sent upper-cased with only
+//      its own fields, and the modal shows its batch id and "1 code";
+// 119. personal codes: pasted member ids, a repeat counted once, sent as each id once; a member HQ
+//      does not know is its RULES_BATCH_BAD naming the id; the batch then lists one code per member;
+// 120. a template that is not a campaign's is HQ's refusal with its message and code, and the form
+//      is kept; a missing grant (a bare 403) says which grant; Create again goes through;
+// 121. a refused batch read is its own message and code with Try again;
 // 122. a campaign without the coupons feature has no Coupons item, and its coupons page says so,
-//      linking to Settings ▸ Features, and reads no codes;
+//      linking to Settings ▸ Features, and reads no batch;
 // 123. no page errors.
+// 141. a draft the save refuses keeps HQ's answered budget OFF the draft, and the modal says so, with
+//      HQ's refusal and Add them again.
 {
-  const { context, page, errors, calls, batches } = await open()
+  const { context, page, errors, calls, couponCalls, saves } = await open()
   const cgrid = '[data-coupons-grid]'
   const shown = () => page.locator('[data-coupons-shown]').innerText()
   const waitShown = (text) =>
     page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
-  const ccell = (codeId, col) => page.locator(`${cgrid} .ag-row[row-id="${codeId}"] .ag-cell[col-id="${col}"]`).first().innerText()
+  const cell = (rowId, col) => page.locator(`${cgrid} .ag-row[row-id="${rowId}"] .ag-cell[col-id="${col}"]`).first().innerText()
   const dialog = page.locator('form[data-coupons-create]')
   const field = (f) => dialog.locator(`[data-coupon-field="${f}"]`)
+  const box = (name) => dialog.locator(`[data-coupon-limit="${name}"]`)
   const createButton = page.locator('[data-coupons-create-open]')
+  const doors = (door) => couponCalls.filter((x) => x.door === door)
 
   await page.goto(`${BASE}/campaigns/WKND20`)
   await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
   await page.locator('[data-workspace-menu="coupons"]').click()
   await page.waitForURL(`${BASE}/campaigns/WKND20/coupons`)
-  await waitShown('Showing 6 of 6 codes')
+  await waitShown('Showing 2 of 2 batches')
   check('110: the menu’s Coupons opens /campaigns/WKND20/coupons', page.url() === `${BASE}/campaigns/WKND20/coupons`)
   check('110: …as the current item', (await page.locator('[data-workspace-menu="coupons"]').getAttribute('aria-current')) === 'page')
-  check('110: every code is listed', (await shown()) === 'Showing 6 of 6 codes', await shown())
-  check('110: the counts by status', (await page.locator('[data-coupons-counts]').innerText()) === '6 codes: 2 unused, 2 used, 1 disabled, 1 expired.', await page.locator('[data-coupons-counts]').innerText())
-  check('110: the codes were read once', calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length === 1)
+  check('110: every batch is listed, newest first', (await shown()) === 'Showing 2 of 2 batches' && JSON.stringify(await couponRowIds(page)) === JSON.stringify([FLYER_BATCH, WKND_BATCH]), JSON.stringify(await couponRowIds(page)))
+  check('110: the totals over the batches', (await page.locator('[data-coupons-counts]').innerText()) === '2 batches. 6 codes: 2 used, 1 disabled.', await page.locator('[data-coupons-counts]').innerText())
+  check('110: ONE List, for the campaign', doors('List').length === 1 && JSON.stringify(doors('List')[0].body) === '{"campaign":"WKND20"}', JSON.stringify(doors('List')))
 
-  check('111: a status reads as its badge', (await ccell('WKND-B3N6QW', 'status')) === 'Expired' && (await ccell('WKND-P5R8ZD', 'status')) === 'Disabled')
-  check('111: the universal code: its kind and its uses as a count', (await ccell('WKND-FLYER', 'kind')) === 'Universal' && (await ccell('WKND-FLYER', 'uses')) === '12')
-  check('111: …its validity in local days', (await ccell('WKND-FLYER', 'from')) === '2026-10-01' && (await ccell('WKND-FLYER', 'until')) === '2026-10-31')
-  check('111: no validity reads At once / No end; no member reads Anyone', (await ccell('WKND-4F7K2Q', 'from')) === 'At once' && (await ccell('WKND-4F7K2Q', 'until')) === 'No end' && (await ccell('WKND-4F7K2Q', 'member')) === 'Anyone')
-  check('111: the batch column', (await ccell('WKND-4F7K2Q', 'batch')) === 'k3m9q2xa')
+  check('111: a batch’s template and counts', (await cell(WKND_BATCH, 'templateId')) === 'TPL-WKND20' && (await cell(WKND_BATCH, 'codes')) === '5' && (await cell(WKND_BATCH, 'used')) === '1' && (await cell(WKND_BATCH, 'disabled')) === '1')
+  check('111: …who created it, when (local)', (await cell(WKND_BATCH, 'createdBy')) === 'Sara (CRM)' && (await cell(WKND_BATCH, 'createdAt')).startsWith('2026-09-28'), await cell(WKND_BATCH, 'createdAt'))
   check('111: no column reads a limit', !/limit/i.test(await page.locator(`${cgrid} .ag-header`).innerText()))
   await page.screenshot({ path: `${SHOTS}/coupons.png` })
 
-  await page.locator('[data-coupons-search]').fill('flyer')
-  await waitShown('Showing 1 of 6 codes')
-  check('112: the search matches part of the code, any case', (await shown()) === 'Showing 1 of 6 codes' && page.url().endsWith('?q=flyer'), page.url())
-  await page.locator('[data-coupons-search]').fill('')
-  // Let the cleared search's render COMMIT before the next filter (as 501's tile and search).
-  await waitShown('Showing 6 of 6 codes')
-  await page.locator('[data-coupons-status]').selectOption('used')
-  await waitShown('Showing 2 of 6 codes')
-  check('112: the status filter, in the URL', (await shown()) === 'Showing 2 of 6 codes' && page.url().endsWith('?status=used'), page.url())
+  await page.locator('[data-coupons-search]').fill('w7d2')
+  await waitShown('Showing 1 of 2 batches')
+  check('112: the batch search matches part of a batch id, any case', (await shown()) === 'Showing 1 of 2 batches' && page.url().endsWith('?q=w7d2'), page.url())
   await page.locator('[data-coupons-clear]').click()
-  await waitShown('Showing 6 of 6 codes')
-  check('112: Clear filters shows every code', (await shown()) === 'Showing 6 of 6 codes' && page.url() === `${BASE}/campaigns/WKND20/coupons`)
+  await waitShown('Showing 2 of 2 batches')
 
-  await page.locator(`${cgrid} [data-coupon-batch="u7d2w4pe"]`).click()
-  await waitShown('Showing 1 of 6 codes')
-  check('113: a batch id filters the list to its batch', (await shown()) === 'Showing 1 of 6 codes' && page.url().endsWith('?batch=u7d2w4pe'), page.url())
-  check('113: …with its chip', (await page.locator('[data-coupons-batch-chip="u7d2w4pe"]').innerText()).trim() === 'Batch u7d2w4pe', await page.locator('[data-coupons-batch-chip]').innerText())
-  await page.locator('[data-coupons-batch-clear]').click()
-  await waitShown('Showing 6 of 6 codes')
-  check('113: the chip clears it', (await page.locator('[data-coupons-batch-chip]').count()) === 0)
+  await page.locator(`${cgrid} [data-coupon-batch="${WKND_BATCH}"]`).click()
+  await waitShown('Showing 5 of 5 codes')
+  check('113: a batch id opens its batch', (await shown()) === 'Showing 5 of 5 codes' && page.url().endsWith(`?batch=${WKND_BATCH}`), page.url())
+  check('113: …with its chip', (await page.locator(`[data-coupons-batch-chip="${WKND_BATCH}"]`).innerText()).trim() === `Batch ${WKND_BATCH}`)
+  check('111: its codes come from ONE Export of the batch', doors('Export').length === 1 && JSON.stringify(doors('Export')[0].body) === JSON.stringify({ batchId: WKND_BATCH }), JSON.stringify(doors('Export')))
+  check('111: a status reads as its badge', (await cell('WKND-9XH3PL', 'status')) === 'Used' && (await cell('WKND-P5R8ZD', 'status')) === 'Disabled' && (await cell('WKND-4F7K2Q', 'status')) === 'Unused')
+  check('111: no own validity reads the template’s; no member reads Anyone', (await cell('WKND-4F7K2Q', 'from')) === 'The template’s' && (await cell('WKND-4F7K2Q', 'member')) === 'Anyone')
+  check('111: a code’s own last day, local; past it at the local day, it reads Expired', (await cell('WKND-B3N6QW', 'until')) === '2026-10-10' && (await cell('WKND-B3N6QW', 'status')) === 'Expired')
+  check('111: the batch’s codes by status', (await page.locator('[data-coupons-code-counts]').innerText()) === '2 unused, 1 used, 1 disabled, 1 expired', await page.locator('[data-coupons-code-counts]').innerText())
+
+  await page.locator('[data-coupons-search]').fill('9xh')
+  await waitShown('Showing 1 of 5 codes')
+  check('112: the search matches part of the code, any case', (await shown()) === 'Showing 1 of 5 codes' && page.url().includes('q=9xh'), page.url())
+  await page.locator('[data-coupons-search]').fill('')
+  await waitShown('Showing 5 of 5 codes')
+  await page.locator('[data-coupons-status]').selectOption('unused')
+  await waitShown('Showing 2 of 5 codes')
+  check('112: the status filter, in the URL', (await shown()) === 'Showing 2 of 5 codes' && page.url().includes('status=unused'), page.url())
+  await page.locator('[data-coupons-clear]').click()
+  await waitShown('Showing 5 of 5 codes')
+  check('112: Clear filters shows every code', (await shown()) === 'Showing 5 of 5 codes' && page.url().endsWith(`?batch=${WKND_BATCH}`))
+  await page.locator('[data-coupons-back]').click()
+  await waitShown('Showing 2 of 2 batches')
+  check('113: All batches goes back', page.url() === `${BASE}/campaigns/WKND20/coupons` && (await page.locator('[data-coupons-batch-chip]').count()) === 0)
 
   await createButton.click()
   await dialog.waitFor({ timeout: 5000 })
   check('114: Create coupons opens on Random codes', (await dialog.locator('[data-coupon-kind="random"]').getAttribute('aria-checked')) === 'true')
-  const noLimits = async () => {
-    const text = await dialog.innerText()
-    const labels = await dialog.locator('label, legend').allInnerTexts()
-    return (await dialog.locator('input[type="checkbox"]').count()) === 0 && !labels.some((l) => /limit|once|per customer|per member|uses/i.test(l)) && !/each code works once/i.test(text)
-  }
-  let all = true
-  for (const kind of ['random', 'universal', 'personal']) {
-    await dialog.locator(`[data-coupon-kind="${kind}"]`).click()
-    all = all && (await noLimits())
-  }
-  check('114: no redemption-limit field for any kind', all)
-  check('114: the line says limits are budgets and links to Settings ▸ Budgets', (await dialog.locator('[data-coupon-budgets-link]').getAttribute('href')) === '/campaigns/WKND20/settings/budgets' && (await dialog.locator('[data-coupon-limits]').innerText()).includes('coupon and profile budgets'))
-
+  check('114: …under the newest batch’s template', (await field('templateId').inputValue()) === 'TPL-WKND20')
+  check('114: the limits are two boxes, unticked', (await box('eachCodeOnce').count()) === 1 && !(await box('eachCodeOnce').isChecked()) && !(await box('oncePerCustomer').isChecked()))
+  check('114: the line says a box adds a budget and links to Settings ▸ Budgets', (await dialog.locator('[data-coupon-budgets-link]').getAttribute('href')) === '/campaigns/WKND20/settings/budgets' && (await dialog.locator('[data-coupon-limits]').innerText()).includes('adds a budget'))
+  check('114: no shape field: the template shapes the codes', (await field('prefix').count()) === 0 && (await field('length').count()) === 0)
+  await dialog.locator('[data-coupon-kind="universal"]').click()
+  check('114: a universal code has no "each code once"', (await box('eachCodeOnce').count()) === 0 && (await dialog.locator('[data-coupon-universal-limit]').count()) === 1 && (await box('oncePerCustomer').count()) === 1)
   await dialog.locator('[data-coupon-kind="random"]').click()
-  await field('count').fill('0')
-  await page.locator('[data-coupons-create-submit]').click()
-  check('115: a count out of range is said at its field', (await dialog.locator('[data-coupon-problem="countRange"]').innerText()).replace(/[⁦-⁩]/g, '') === 'Enter a whole number from 1 to 5000.', await dialog.locator('[data-coupon-problem="countRange"]').innerText())
-  check('115: …and nothing is sent', batches.length === 0)
 
+  await field('count').fill('0')
+  await field('templateId').fill('')
+  await page.locator('[data-coupons-create-submit]').click()
+  check('115: a count out of range is said at its field', (await dialog.locator('[data-coupon-problem="countRange"]').innerText()).replace(/[⁦-⁩]/g, '') === 'Enter a whole number from 1 to 10000.', await dialog.locator('[data-coupon-problem="countRange"]').innerText())
+  check('115: …and no template at its own', (await dialog.locator('[data-coupon-problem="templateRequired"]').count()) === 1)
+  check('115: …and nothing is sent', doors('Create').length === 0)
+
+  await field('templateId').fill('TPL-WKND20')
   await field('count').fill('25')
-  await field('prefix').fill('wknd')
-  await field('length').fill('8')
   await field('from').fill('2026-11-01')
   await field('until').fill('2026-11-30')
-  check('116: the example shows the shape', (await dialog.locator('[data-coupon-example]').innerText()) === 'Looks like WKND-K7Q2M9X4', await dialog.locator('[data-coupon-example]').innerText())
+  await box('eachCodeOnce').check()
   await page.screenshot({ path: `${SHOTS}/coupons-create.png` })
   await page.locator('[data-coupons-create-submit]').click()
   const created = page.locator('[data-coupons-created]')
   await created.waitFor({ timeout: 5000 })
-  check('116: ONE POST with exactly the random kind’s fields, the days as typed', batches.length === 1 && JSON.stringify(batches[0].body) === JSON.stringify({ kind: 'random', count: 25, prefix: 'WKND', suffix: '', length: 8, charset: 'lettersAndDigits', from: '2026-11-01', until: '2026-11-30' }), JSON.stringify(batches[0]?.body))
+  check(
+    '116: ONE Create with exactly the random kind’s fields, the days as typed, the ticked box',
+    doors('Create').length === 1 && JSON.stringify(doors('Create')[0].body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'random', eachCodeOnce: true, oncePerCustomer: false, count: 25, validFrom: '2026-11-01', validTo: '2026-11-30' }),
+    JSON.stringify(doors('Create')[0]?.body),
+  )
   const firstBatch = await created.getAttribute('data-coupons-created')
-  check('116: the modal shows HQ’s batch id', /^nb\d{6}$/.test(firstBatch) && (await created.locator('[data-batch-id]').innerText()) === firstBatch, firstBatch)
+  check('116: the modal shows HQ’s batch id', /^01JAFH[0-9A-Z]{20}$/.test(firstBatch) && (await created.locator('[data-batch-id]').innerText()) === firstBatch, firstBatch)
   check('116: …and the count', (await created.innerText()).includes('identifies the 25 codes you just created'))
-  check('116: the create dialog is closed', !(await dialog.isVisible()))
+  check('116: the create dialog is closed', (await dialog.count()) === 0)
+  await page.locator('[data-coupons-created-budgets="added"]').waitFor({ timeout: 5000 })
+  check(
+    '116: HQ’s answered budget is added to the draft: ONE whole save, the campaign’s budgets plus it',
+    saves.length === 1 && saves[0].campaign.id === 'WKND20' && JSON.stringify(saves[0].campaign.budgets.map((b) => b.id)) === '["b-money","b-each-code-once"]' && saves[0].campaign.budgets[1].scope === 'coupon' && saves[0].campaign.rules.length === 1,
+    JSON.stringify(saves[0]?.campaign?.budgets),
+  )
+  check('116: …and the modal says so, naming it', (await created.locator('[data-coupons-created-budgets]').innerText()).includes('This budget was added to the draft') && (await created.locator('[data-coupons-created-budget="b-each-code-once"]').innerText()) === 'each code once')
   await page.screenshot({ path: `${SHOTS}/coupons-created.png` })
 
   await page.locator('[data-coupons-created-show]').click()
-  await waitShown('Showing 25 of 31 codes')
-  await page.waitForFunction((sel) => !document.querySelector(`${sel} .ag-row[row-id="WKND-FLYER"]`), cgrid, { timeout: 5000 }).catch(() => {})
-  check('117: Show the codes lists that batch only', (await shown()) === 'Showing 25 of 31 codes' && page.url().endsWith(`?batch=${firstBatch}`), `${await shown()} ${page.url()}`)
+  await waitShown('Showing 25 of 25 codes')
+  check('117: Show the codes opens that batch', (await shown()) === 'Showing 25 of 25 codes' && page.url().endsWith(`?batch=${firstBatch}`), `${await shown()} ${page.url()}`)
   const firstRow = await page.locator(`${cgrid} .ag-row[row-index="0"]`).first().getAttribute('row-id')
-  check('117: …with its local validity and batch', (await ccell(firstRow, 'from')) === '2026-11-01' && (await ccell(firstRow, 'until')) === '2026-11-30' && (await ccell(firstRow, 'batch')) === firstBatch && (await ccell(firstRow, 'kind')) === 'Random')
-  check('117: the counts include it', (await page.locator('[data-coupons-counts]').innerText()).startsWith('31 codes: 27 unused'), await page.locator('[data-coupons-counts]').innerText())
+  check('117: …its codes with their local validity, shaped by the template', /^WKND-[A-Z0-9]{6}$/.test(firstRow) && (await cell(firstRow, 'from')) === '2026-11-01' && (await cell(firstRow, 'until')) === '2026-11-30' && (await cell(firstRow, 'status')) === 'Unused', firstRow)
   await page.screenshot({ path: `${SHOTS}/coupons-batch.png` })
 
   await createButton.click()
   await dialog.waitFor()
   check('118: a reopened dialog is a fresh form', (await field('count').inputValue()) === '100' && (await dialog.locator('[data-coupon-kind="random"]').getAttribute('aria-checked')) === 'true')
+  check('118: a box the new budget does shows ticked and fixed', (await box('eachCodeOnce').isChecked()) && (await box('eachCodeOnce').isDisabled()) && (await dialog.locator('[data-coupon-limit-covered="eachCodeOnce"]').count()) === 1)
   await dialog.locator('[data-coupon-kind="universal"]').click()
   await field('code').fill('wknd-flyer')
   await page.locator('[data-coupons-create-submit]').click()
-  check('118: a code the campaign has is said at its field, and not sent', (await dialog.locator('[data-coupon-problem="codeTaken"]').count()) === 1 && batches.length === 1)
+  const refusal = dialog.locator('[data-coupons-create-refusal]')
+  await refusal.waitFor({ timeout: 5000 })
+  check('118: a code SIS.Coupons holds is HQ’s refusal, with its code', (await refusal.innerText()).includes('Coupon code WKND-FLYER already exists.') && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_CODE_TAKEN')
+  check('118: …the form is kept, no modal', (await field('code').inputValue()) === 'WKND-FLYER' && (await created.count()) === 0)
   await field('code').fill('hayak-wknd')
-  check('118: the code is upper-cased as typed', (await field('code').inputValue()) === 'HAYAK-WKND')
+  check('118: the code is upper-cased as typed, and an edit clears the refusal', (await field('code').inputValue()) === 'HAYAK-WKND' && (await refusal.count()) === 0)
   await page.locator('[data-coupons-create-submit]').click()
   await created.waitFor({ timeout: 5000 })
-  check('118: only the universal kind’s fields are sent', JSON.stringify(batches[1]?.body) === JSON.stringify({ kind: 'universal', code: 'HAYAK-WKND', from: null, until: null }), JSON.stringify(batches[1]?.body))
+  check('118: only the universal kind’s fields are sent', JSON.stringify(doors('Create').at(-1)?.body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'universal', eachCodeOnce: false, oncePerCustomer: false, code: 'HAYAK-WKND' }), JSON.stringify(doors('Create').at(-1)?.body))
   const uniBatch = await created.getAttribute('data-coupons-created')
   check('118: the modal shows its batch id and "1 code"', uniBatch !== firstBatch && (await created.locator('[data-batch-id]').innerText()) === uniBatch && (await created.innerText()).includes('identifies the 1 code you just created'))
+  check('118: no box ticked, no budget, no save', (await created.locator('[data-coupons-created-budgets]').count()) === 0 && saves.length === 1)
 
   await page.locator('[data-coupons-created-more]').click()
   await dialog.waitFor()
   await dialog.locator('[data-coupon-kind="personal"]').click()
   await page.locator('[data-coupons-create-submit]').click()
-  check('119: no member is said at its field', (await dialog.locator('[data-coupon-problem="membersEmpty"]').count()) === 1 && batches.length === 2)
+  check('119: no member is said at its field', (await dialog.locator('[data-coupon-problem="membersEmpty"]').count()) === 1 && doors('Create').length === 3)
+  await field('members').fill('M-100231\nM-055410, M-100231\nM-999999')
+  check('119: the ids are counted, a repeat once', (await dialog.locator('[data-coupon-members-count]').innerText()) === '3 members get a code each. 1 repeated id is counted once.', await dialog.locator('[data-coupon-members-count]').innerText())
+  await page.locator('[data-coupons-create-submit]').click()
+  await refusal.waitFor({ timeout: 5000 })
+  check('119: a member HQ does not know is its refusal, naming the id', (await refusal.innerText()).includes('No loyalty member M-999999') && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_BAD', await refusal.innerText())
   await field('members').fill('M-100231\nM-055410, M-100231')
-  check('119: the ids are counted, a repeat once', (await dialog.locator('[data-coupon-members-count]').innerText()) === '2 members get a code each. 1 repeated id is counted once.', await dialog.locator('[data-coupon-members-count]').innerText())
   await page.locator('[data-coupons-create-submit]').click()
   await created.waitFor({ timeout: 5000 })
-  check('119: each member id is sent once, with the shape', JSON.stringify(batches[2]?.body) === JSON.stringify({ kind: 'personal', members: ['M-100231', 'M-055410'], prefix: 'WKND20', suffix: '', length: 6, charset: 'lettersAndDigits', from: null, until: null }), JSON.stringify(batches[2]?.body))
+  check('119: each member id is sent once', JSON.stringify(doors('Create').at(-1)?.body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'personal', eachCodeOnce: false, oncePerCustomer: false, members: ['M-100231', 'M-055410'] }), JSON.stringify(doors('Create').at(-1)?.body))
   const perBatch = await created.getAttribute('data-coupons-created')
-  check('119: the modal shows its batch id and "2 codes"', ![firstBatch, uniBatch].includes(perBatch) && (await created.locator('[data-batch-id]').innerText()) === perBatch && (await created.innerText()).includes('identifies the 2 codes you just created'))
+  check('119: the modal shows its batch id and "2 codes"', ![firstBatch, uniBatch].includes(perBatch) && (await created.innerText()).includes('identifies the 2 codes you just created'))
   await page.locator('[data-coupons-created-show]').click()
-  await waitShown('Showing 2 of 34 codes')
-  // The status bar counts at once; the grid's rows follow its rowData a moment later.
+  await waitShown('Showing 2 of 2 codes')
   await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .ag-cell[col-id="member"]`).length === 2, cgrid, { timeout: 5000 }).catch(() => {})
   const members = await page.locator(`${cgrid} .ag-cell[col-id="member"]`).allInnerTexts()
-  check('119: the batch lists one code per member', (await shown()) === 'Showing 2 of 34 codes' && JSON.stringify(members.sort()) === '["M-055410","M-100231"]', JSON.stringify(members))
+  check('119: the batch lists one code per member', JSON.stringify(members.sort()) === '["M-055410","M-100231"]', JSON.stringify(members))
   check('123: no page errors (110–119)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
-// ── 120, 121 ──
+// ── 120, 121, 141 ──
 {
-  const { context, page, errors, batches } = await open({ refuseBatch: 1 })
+  const { context, page, errors, couponCalls } = await open({ denyBatch: 1 })
   await page.goto(`${BASE}/campaigns/WKND20/coupons`)
   await page.locator('[data-coupons-shown]').waitFor({ timeout: 20000 })
   await page.locator('[data-coupons-create-open]').click()
@@ -2884,102 +2894,138 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-coupons-create-submit]').click()
   const refusal = dialog.locator('[data-coupons-create-refusal]')
   await refusal.waitFor({ timeout: 5000 })
-  check('120: HQ’s refusal shows in the dialog with its message', (await refusal.innerText()).includes(BATCH_REFUSED))
-  check('120: …and its code', (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
-  check('120: the form is kept, no modal', (await dialog.locator('[data-coupon-field="count"]').inputValue()) === '10' && (await page.locator('[data-coupons-created]').count()) === 0 && batches.length === 1)
+  check('120: a missing grant (a bare 403) says which grant', (await refusal.innerText()).includes(DENIED), await refusal.innerText())
+  await dialog.locator('[data-coupon-field="templateId"]').fill('BBY-HAYAK')
+  await page.locator('[data-coupons-create-submit]').click()
+  await refusal.waitFor({ timeout: 5000 })
+  await page.waitForFunction(() => document.querySelector('[data-coupons-create-refusal] [data-refusal-code]'), null, { timeout: 5000 }).catch(() => {})
+  check('120: a template that is not a campaign’s is HQ’s refusal with its message', (await refusal.innerText()).includes("Coupon template BBY-HAYAK is not a campaign's template."), await refusal.innerText())
+  check('120: …and its code', (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_TEMPLATE')
+  check('120: the form is kept, no modal', (await dialog.locator('[data-coupon-field="count"]').inputValue()) === '10' && (await page.locator('[data-coupons-created]').count()) === 0)
+  await dialog.locator('[data-coupon-field="templateId"]').fill('TPL-WKND20')
   await page.locator('[data-coupons-create-submit]').click()
   await page.locator('[data-coupons-created]').waitFor({ timeout: 5000 })
-  check('120: Create again goes through', batches.length === 2 && (await page.locator('[data-coupons-created] [data-batch-id]').innerText()).startsWith('nb'))
+  check('120: Create again goes through', couponCalls.filter((x) => x.door === 'Create').length === 3 && /^01JAFH/.test(await page.locator('[data-coupons-created] [data-batch-id]').innerText()))
+  // A template another campaign owns: HQ makes the batch THERE (its reply names that campaign).
+  await page.locator('[data-coupons-created-more]').click()
+  await dialog.waitFor({ timeout: 5000 })
+  await dialog.locator('[data-coupon-field="templateId"]').fill('TPL-NEXT-VISIT')
+  await dialog.locator('[data-coupon-field="count"]').fill('2')
+  await dialog.locator('[data-coupon-limit="oncePerCustomer"]').check()
+  await page.locator('[data-coupons-create-submit]').click()
+  const elsewhere = page.locator('[data-coupons-created-elsewhere="NEXT-VISIT"]')
+  await elsewhere.waitFor({ timeout: 5000 })
+  check('120: a batch under another campaign’s template says where it is listed', (await elsewhere.innerText()).includes('campaign NEXT-VISIT'), await elsewhere.innerText())
+  check('120: …adds no budget here and offers no Show the codes', (await page.locator('[data-coupons-created-budgets]').count()) === 0 && (await page.locator('[data-coupons-created-show]').count()) === 0)
   check('123: no page errors (120)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 {
-  const { context, page, errors } = await open({ refuseCoupons: true })
+  const { context, page, errors } = await open({ refuseBatches: true })
   await page.goto(`${BASE}/campaigns/WKND20/coupons`)
   const refusal = page.locator('[data-coupons-refusal]')
   await refusal.waitFor({ timeout: 20000 })
-  check('121: a refused codes read is its own message and code', (await refusal.innerText()).includes(COUPONS_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
-  check('121: …with Try again, and Create coupons waits for the codes', (await page.locator('[data-coupons-retry]').isVisible()) && (await page.locator('[data-coupons-create-open]').isDisabled()))
+  check('121: a refused batch read is its own message and code', (await refusal.innerText()).includes(BATCHES_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_BAD')
+  check('121: …with Try again, and Create coupons waits for the batches', (await page.locator('[data-coupons-retry]').isVisible()) && (await page.locator('[data-coupons-create-open]').isDisabled()))
   check('123: no page errors (121)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  // 141: the draft refuses the save — HQ made the codes, but its budget is not on the draft.
+  const { context, page, errors, saves } = await open({ refuseSave: true })
+  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
+  await page.locator('[data-coupons-shown]').waitFor({ timeout: 20000 })
+  await page.locator('[data-coupons-create-open]').click()
+  const dialog = page.locator('form[data-coupons-create]')
+  await dialog.locator('[data-coupon-field="count"]').fill('3')
+  await dialog.locator('[data-coupon-limit="oncePerCustomer"]').check()
+  await page.locator('[data-coupons-create-submit]').click()
+  const budgets = page.locator('[data-coupons-created-budgets="refused"]')
+  await budgets.waitFor({ timeout: 5000 })
+  check('141: the codes are made, but the refused save keeps the budget off the draft, and says so', (await budgets.innerText()).includes('not on the draft yet') && (await budgets.innerText()).includes(SAVE_REFUSED) && saves.length === 1)
+  check('141: …naming it, with Add them again', (await budgets.locator('[data-coupons-created-budget="b-once-per-customer"]').innerText()) === 'once per customer' && (await budgets.locator('[data-coupons-created-budgets-retry]').isVisible()))
+  await budgets.locator('[data-coupons-created-budgets-retry]').click()
+  await page.waitForFunction(() => document.querySelector('[data-coupons-created-budgets="refused"]'), null, { timeout: 5000 }).catch(() => {})
+  check('141: Add them again sends the save again', saves.length === 2 && JSON.stringify(saves[1].campaign.budgets.map((b) => b.id)) === '["b-money","b-once-per-customer"]', JSON.stringify(saves[1]?.campaign?.budgets))
+  check('123: no page errors (141)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 // ── 122 ──
 {
-  const { context, page, errors, calls } = await open()
+  const { context, page, errors, couponCalls } = await open()
   await page.goto(`${BASE}/campaigns/SUN-3FOR2`)
   await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
   check('122: a campaign without coupons has no Coupons item', (await page.locator('[data-workspace-menu="coupons"]').count()) === 0)
   await page.goto(`${BASE}/campaigns/SUN-3FOR2/coupons`)
   await page.locator('[data-coupons-off]').waitFor({ timeout: 20000 })
   check('122: its coupons page says coupons are off, linking to Settings ▸ Features', (await page.locator('[data-coupons-off] a').getAttribute('href')) === '/campaigns/SUN-3FOR2/settings/features')
-  check('122: …and reads no codes', !calls.some((x) => /Coupons$/.test(x)))
+  check('122: …and reads no batch', couponCalls.length === 0)
   check('123: no page errors (122)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
-// ── 516 ── it asserts:
-// 124. the Coupons page offers Import CSV, Export (with how many codes it writes) and Create coupons;
-// 125. Export writes every code to WKND20-coupons.csv: a BOM, the import's own header, a line a
-//      code with its machine values, CRLF, and no bidi isolate anywhere;
-// 126. with a filter on, Export writes the filtered list only, and says so;
-// 127. a chosen CSV file is checked at once, row by row: the one bad row is shown with its reason,
-//      HQ's check is sent only the good rows, and Import sends exactly the good rows, upper-cased;
+// ── 516, re-pointed by 526 ── it asserts:
+// 124. the Coupons page offers Import CSV and Create coupons; a batch offers Export CSV;
+// 125. Export saves HQ's CSV exactly as HQ wrote it, under HQ's file name, and asks HQ each press
+//      (ONE Export `{ batchId }`); no client CSV writer remains (126, the filtered export, went with it);
+// 127. a chosen CSV file is read at once, row by row: the bad row is shown with its reason, and Import
+//      sends ONE Create `{ kind: import }` with the template and exactly the good rows as
+//      `code[,customerId]` lines, upper-cased, no limit box;
 // 128. the success modal says "Coupons imported" with HQ's batch id, the count and the row left out;
-//      Export the codes writes that batch alone to WKND20-<batch>.csv; Show the codes lists it,
-//      each code Imported, bound to its member;
-// 129. pasted rows are checked with Check the rows: a missing code, bad characters, a repeat, a code
-//      the campaign has, a code SIS.Coupons holds (HQ) and an unknown member (HQ), each with its
-//      reason; an edit makes the check stale; Cancel imports nothing;
-// 130. a file dropped on the drop zone is read and checked like a chosen one;
-// 131. a refused check shows its message and code, Import stays off, and checking again goes through;
-// 132. with a batch filtered, Delete unused confirms with the counts — the unused that go, the used,
-//      disabled and expired that stay — sends ONE delete for the batch, says what HQ did, and the
-//      used codes stay listed; a batch with no unused code cannot be asked;
+//      Export the codes saves that batch's CSV; Show the codes opens it, each code bound to its member;
+// 129. pasted rows: a missing code, a bad code, a bad member id and a repeat, each with its reason;
+//      Cancel imports nothing;
+// 130. a file dropped on the drop zone is read like a chosen one;
+// 131. HQ has no pre-import check: a code SIS.Coupons holds refuses the WHOLE import
+//      (RULES_BATCH_CODE_TAKEN) and a member it does not know too (RULES_BATCH_BAD, naming the id),
+//      each shown in the dialog with the rows kept; the fixed rows import;
+// 132. in a batch, Delete unused confirms with the List's counts — the codes nobody used that go,
+//      the used that stay — sends ONE DeleteUnused `{ batchId }`, says what HQ did, reads the batch
+//      afresh with the used codes still listed; a batch with no unused code cannot be asked;
 // 133. a refused delete shows in the confirmation, the codes are unchanged, and confirming again
 //      goes through;
 // 134. no page errors.
 {
-  const { context, page, errors, importChecks, imports } = await open()
+  const { context, page, errors, couponCalls } = await open()
   const cgrid = '[data-coupons-grid]'
   const shown = () => page.locator('[data-coupons-shown]').innerText()
   const waitShown = (text) =>
     page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
-  const ccell = (codeId, col) => page.locator(`${cgrid} .ag-row[row-id="${codeId}"] .ag-cell[col-id="${col}"]`).first().innerText()
+  const cell = (rowId, col) => page.locator(`${cgrid} .ag-row[row-id="${rowId}"] .ag-cell[col-id="${col}"]`).first().innerText()
   const dialog = page.locator('[data-coupons-import]')
   const verdict = (line) => dialog.locator(`[data-coupons-import-preview] .ag-row[row-id="${line}"] [data-coupons-import-row]`).first()
+  const doors = (door) => couponCalls.filter((x) => x.door === door)
   const download = async (button) => {
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.locator(button).click()])
     return { name: dl.suggestedFilename(), text: readFileSync(await dl.path(), 'utf8') }
   }
-  const HEADER = '﻿code,member,status,kind,uses,batch,valid_from,valid_until,created'
 
   await page.goto(`${BASE}/campaigns/WKND20/coupons`)
-  await waitShown('Showing 6 of 6 codes')
-  check('124: Import CSV, Export and Create coupons are offered', (await page.locator('[data-coupons-import-open]').isEnabled()) && (await page.locator('[data-coupons-create-open]').isEnabled()))
-  check('124: Export says how many codes it writes', (await page.locator('[data-coupons-export]').innerText()).replace(/[⁦-⁩]/g, '') === 'Export 6 codes', await page.locator('[data-coupons-export]').innerText())
+  await waitShown('Showing 2 of 2 batches')
+  check('124: Import CSV and Create coupons are offered', (await page.locator('[data-coupons-import-open]').isEnabled()) && (await page.locator('[data-coupons-create-open]').isEnabled()))
+  check('124: …and Export waits for a batch', (await page.locator('[data-coupons-export]').count()) === 0)
 
+  await page.goto(`${BASE}/campaigns/WKND20/coupons?batch=${WKND_BATCH}`)
+  await waitShown('Showing 5 of 5 codes')
+  const exportsBefore = doors('Export').length
   const all = await download('[data-coupons-export]')
-  const lines = all.text.split('\r\n')
-  check('125: Export writes WKND20-coupons.csv', all.name === 'WKND20-coupons.csv', all.name)
-  check('125: a BOM and the import’s own header', lines[0] === HEADER, JSON.stringify(lines[0]))
-  check('125: a line a code, CRLF, ending in one', lines.length === 8 && lines[7] === '', String(lines.length))
-  check('125: a code’s machine values, its days local', lines.includes('WKND-FLYER,,used,universal,12,u7d2w4pe,2026-10-01,2026-10-31,2026-10-01T09:00:00'), lines.join(' | '))
-  check('125: no bidi isolate anywhere in the file', !/[⁦-⁩‎‏]/.test(all.text))
-
-  await page.locator('[data-coupons-status]').selectOption('used')
-  await waitShown('Showing 2 of 6 codes')
-  check('126: with a filter, Export says it writes the shown codes', (await page.locator('[data-coupons-export]').innerText()).replace(/[⁦-⁩]/g, '') === 'Export 2 shown codes', await page.locator('[data-coupons-export]').innerText())
-  const used = await download('[data-coupons-export]')
-  const usedCodes = used.text.split('\r\n').slice(1, -1).map((l) => l.split(',')[0])
-  check('126: …and writes the filtered list only', JSON.stringify(usedCodes.sort()) === '["WKND-9XH3PL","WKND-FLYER"]', JSON.stringify(usedCodes))
-  await page.locator('[data-coupons-clear]').click()
-  await waitShown('Showing 6 of 6 codes')
+  check('125: Export saves under HQ’s file name', all.name === `coupons-${WKND_BATCH}.csv`, all.name)
+  check(
+    '125: …HQ’s CSV exactly as HQ wrote it',
+    all.text ===
+      'code,customerId,validFrom,validTo,used,disabled\r\nWKND-4F7K2Q,,,,no,no\r\nWKND-9XH3PL,,,,yes,no\r\nWKND-B3N6QW,,,2026-10-10,no,no\r\nWKND-P5R8ZD,,,,no,yes\r\nWKND-T2M8VA,,,,no,no\r\n',
+    JSON.stringify(all.text),
+  )
+  check('125: …asking HQ again for it, ONE Export of the batch', doors('Export').length === exportsBefore + 1 && doors('Export').at(-1).body.batchId === WKND_BATCH)
+  await page.locator('[data-coupons-back]').click()
+  await waitShown('Showing 2 of 2 batches')
 
   // 127: a chosen file, one bad row.
   await page.locator('[data-coupons-import-open]').click()
   await dialog.waitFor({ timeout: 5000 })
-  check('127: Import stays off until rows are checked', await page.locator('[data-coupons-import-submit]').isDisabled())
+  check('127: Import stays off until a row is read', await page.locator('[data-coupons-import-submit]').isDisabled())
+  check('127: …under the newest batch’s template', (await dialog.locator('[data-coupons-import-template]').inputValue()) === 'TPL-WKND20')
   await page.setInputFiles('[data-coupons-import-file]', {
     name: 'wknd-print.csv',
     mimeType: 'text/csv',
@@ -2987,62 +3033,48 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   })
   const tally = dialog.locator('[data-coupons-import-tally]')
   await tally.waitFor({ timeout: 10000 })
-  check('127: the file is checked at once', (await tally.innerText()) === '4 rows: 3 ready, 1 rejected.', await tally.innerText())
+  check('127: the file is read at once', (await tally.innerText()) === '4 rows: 3 ready, 1 rejected.', await tally.innerText())
   check('127: the file fills the text box', (await dialog.locator('[data-coupons-import-text]').inputValue()).startsWith('code,member'))
   await verdict(4).waitFor({ timeout: 5000 })
-  check('127: the bad row is shown with its reason', (await verdict(4).getAttribute('data-coupons-import-row')) === 'badCode' && (await verdict(4).innerText()).startsWith('Bad characters'), await verdict(4).innerText())
+  check('127: the bad row is shown with its reason', (await verdict(4).getAttribute('data-coupons-import-row')) === 'badCode' && (await verdict(4).innerText()).startsWith('Not a code'), await verdict(4).innerText())
   check('127: the good rows read Ready', (await verdict(2).getAttribute('data-coupons-import-row')) === 'ok' && (await verdict(3).getAttribute('data-coupons-import-row')) === 'ok')
-  check(
-    '127: HQ’s check was sent the good rows only',
-    importChecks.length === 1 && JSON.stringify(importChecks[0].body) === JSON.stringify({ rows: [{ code: 'WKND-IMP001', member: null }, { code: 'WKND-IMP002', member: 'M-100231' }, { code: 'WKND-IMP004', member: 'M-055410' }] }),
-    JSON.stringify(importChecks[0]?.body),
-  )
   check('127: Import counts the good rows', (await page.locator('[data-coupons-import-submit]').innerText()).replace(/[⁦-⁩]/g, '') === 'Import 3 codes')
   await page.screenshot({ path: `${SHOTS}/coupons-import.png` })
   await page.locator('[data-coupons-import-submit]').click()
   const created = page.locator('[data-coupons-created]')
   await created.waitFor({ timeout: 5000 })
   check(
-    '127: Import sends exactly the good rows, upper-cased, once',
-    imports.length === 1 && JSON.stringify(imports[0].body) === JSON.stringify({ rows: [{ code: 'WKND-IMP001', member: null }, { code: 'WKND-IMP002', member: 'M-100231' }, { code: 'WKND-IMP004', member: 'M-055410' }] }),
-    JSON.stringify(imports[0]?.body),
+    '127: ONE Create, kind import, the template and exactly the good rows, upper-cased',
+    doors('Create').length === 1 && JSON.stringify(doors('Create')[0].body) === JSON.stringify({ templateId: 'TPL-WKND20', kind: 'import', csv: 'WKND-IMP001\nWKND-IMP002,M-100231\nWKND-IMP004,M-055410', eachCodeOnce: false, oncePerCustomer: false }),
+    JSON.stringify(doors('Create')[0]?.body),
   )
   const impBatch = await created.getAttribute('data-coupons-created')
-  check('128: the modal says Coupons imported, with HQ’s batch id', /^im\d{6}$/.test(impBatch) && (await page.locator('dialog[open] #modal-title').innerText()).includes('Coupons imported') && (await created.locator('[data-batch-id]').innerText()) === impBatch, impBatch)
+  check('128: the modal says Coupons imported, with HQ’s batch id', /^01JAFH/.test(impBatch) && (await page.locator('dialog[open] #modal-title').innerText()).includes('Coupons imported') && (await created.locator('[data-batch-id]').innerText()) === impBatch, impBatch)
   check('128: …the count and the row left out', (await created.innerText()).includes('identifies the 3 codes you just imported') && (await created.locator('[data-coupons-created-left-out]').innerText()) === '1 rejected row was left out.')
   check('128: the import dialog is closed', (await dialog.count()) === 0)
   const one = await download('[data-coupons-created-export]')
-  const oneCodes = one.text.split('\r\n').slice(1, -1).map((l) => l.split(',').slice(0, 2).join(','))
-  check('128: Export the codes writes that batch alone', one.name === `WKND20-${impBatch}.csv` && JSON.stringify(oneCodes.sort()) === '["WKND-IMP001,","WKND-IMP002,M-100231","WKND-IMP004,M-055410"]', `${one.name} ${JSON.stringify(oneCodes)}`)
+  check('128: Export the codes saves that batch’s CSV', one.name === `coupons-${impBatch}.csv` && one.text === 'code,customerId,validFrom,validTo,used,disabled\r\nWKND-IMP001,,,,no,no\r\nWKND-IMP002,M-100231,,,no,no\r\nWKND-IMP004,M-055410,,,no,no\r\n', `${one.name} ${JSON.stringify(one.text)}`)
   await page.screenshot({ path: `${SHOTS}/coupons-imported.png` })
   await page.locator('[data-coupons-created-show]').click()
-  await waitShown('Showing 3 of 9 codes')
-  await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .ag-cell[col-id="kind"]`).length === 3, cgrid, { timeout: 5000 }).catch(() => {})
-  check('128: Show the codes lists the imported batch', (await shown()) === 'Showing 3 of 9 codes' && page.url().endsWith(`?batch=${impBatch}`), `${await shown()} ${page.url()}`)
-  check('128: …each code Imported, bound to its member', (await ccell('WKND-IMP002', 'kind')) === 'Imported' && (await ccell('WKND-IMP002', 'member')) === 'M-100231' && (await ccell('WKND-IMP001', 'member')) === 'Anyone')
+  await waitShown('Showing 3 of 3 codes')
+  check('128: Show the codes opens the imported batch', page.url().endsWith(`?batch=${impBatch}`), page.url())
+  check('128: …each code bound to its member', (await cell('WKND-IMP002', 'member')) === 'M-100231' && (await cell('WKND-IMP001', 'member')) === 'Anyone')
 
-  // 129: pasted rows, every reason.
-  await page.locator('[data-coupons-batch-clear]').click()
-  await waitShown('Showing 9 of 9 codes')
+  // 129: pasted rows, every reason this side reads.
   await page.locator('[data-coupons-import-open]').click()
   await dialog.waitFor({ timeout: 5000 })
-  const pasted = ['code;member', ';M-100231', 'WKND-NEW1;', 'wknd new2;', 'WKND-new1;', 'WKND-4F7K2Q;', 'hayak15;', 'WKND-NEW3;M-999999', 'WKND-NEW4;M-200118'].join('\n')
+  const pasted = ['code;member', ';M-100231', 'WKND-NEW1;', 'wknd new2;', 'WKND-new1;', 'WKND-NEW3;M 999', 'WKND-NEW4;M-200118'].join('\n')
   await dialog.locator('[data-coupons-import-text]').fill(pasted)
-  check('129: pasted rows wait for Check the rows', (await tally.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isDisabled()))
-  await dialog.locator('[data-coupons-import-check]').click()
   await tally.waitFor({ timeout: 10000 })
-  check('129: the tally', (await tally.innerText()) === '8 rows: 2 ready, 6 rejected.', await tally.innerText())
-  await verdict(9).waitFor({ timeout: 5000 })
+  check('129: the tally', (await tally.innerText()) === '6 rows: 2 ready, 4 rejected.', await tally.innerText())
+  await verdict(7).waitFor({ timeout: 5000 })
   const reasons = []
-  for (let line = 2; line <= 9; line++) reasons.push(await verdict(line).getAttribute('data-coupons-import-row'))
-  check('129: each row with its reason (missing, ok, bad characters, repeat, taken, in use, unknown member, ok)', JSON.stringify(reasons) === JSON.stringify(['noCode', 'ok', 'badCode', 'repeated', 'taken', 'inUse', 'unknownMember', 'ok']), JSON.stringify(reasons))
-  check('129: HQ’s reasons read as words', (await verdict(7).innerText()) === 'Already a code in SIS.Coupons' && (await verdict(8).innerText()) === 'No member has this id')
-  check('129: HQ was asked about the rows good on this side only', importChecks.length === 2 && importChecks[1].body.rows.length === 4, JSON.stringify(importChecks[1]?.body))
+  for (let line = 2; line <= 7; line++) reasons.push(await verdict(line).getAttribute('data-coupons-import-row'))
+  check('129: each row with its reason (missing, ok, bad code, repeat, bad member, ok)', JSON.stringify(reasons) === JSON.stringify(['noCode', 'ok', 'badCode', 'repeated', 'badMember', 'ok']), JSON.stringify(reasons))
+  check('129: …and says HQ checks the rest when importing', (await dialog.innerText()).includes('refuses the whole file'))
   await page.screenshot({ path: `${SHOTS}/coupons-import-reasons.png` })
-  await dialog.locator('[data-coupons-import-text]').fill(pasted + '\nWKND-NEW5;')
-  check('129: an edit makes the check stale', (await tally.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isDisabled()))
   await page.locator('dialog[open] button', { hasText: 'Cancel' }).click()
-  check('129: Cancel imports nothing', (await dialog.count()) === 0 && imports.length === 1)
+  check('129: Cancel imports nothing', (await dialog.count()) === 0 && doors('Create').length === 1)
 
   // 130: a dropped file.
   await page.locator('[data-coupons-import-open]').click()
@@ -3054,68 +3086,84 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   })
   await page.dispatchEvent('[data-coupons-import-drop]', 'drop', { dataTransfer: dt })
   await tally.waitFor({ timeout: 10000 })
-  check('130: a dropped file is read and checked, no header read by position', (await tally.innerText()) === '2 rows: 2 ready, 0 rejected.' && importChecks.length === 3, await tally.innerText())
-  await page.locator('dialog[open] button', { hasText: 'Cancel' }).click()
-  check('134: no page errors (124–130)', errors.length === 0, errors.join(' | '))
-  await context.close()
-}
+  check('130: a dropped file is read, no header read by position', (await tally.innerText()) === '2 rows: 2 ready, 0 rejected.', await tally.innerText())
 
-// ── 131 ──
-{
-  const { context, page, errors, importChecks } = await open({ refuseImportCheck: 1 })
-  await page.goto(`${BASE}/campaigns/WKND20/coupons`)
-  await page.locator('[data-coupons-shown]').waitFor({ timeout: 20000 })
-  await page.locator('[data-coupons-import-open]').click()
-  const dialog = page.locator('[data-coupons-import]')
-  await dialog.locator('[data-coupons-import-text]').fill('WKND-R1\nWKND-R2')
-  await dialog.locator('[data-coupons-import-check]').click()
-  const refusal = dialog.locator('[data-coupons-import-check-refusal]')
-  await refusal.waitFor({ timeout: 10000 })
-  check('131: a refused check shows its message and code', (await refusal.innerText()).includes(IMPORT_CHECK_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
-  check('131: …and Import stays off', await page.locator('[data-coupons-import-submit]').isDisabled())
-  await dialog.locator('[data-coupons-import-check]').click()
-  await dialog.locator('[data-coupons-import-tally]').waitFor({ timeout: 10000 })
-  check('131: checking again goes through', importChecks.length === 2 && (await refusal.count()) === 0 && (await page.locator('[data-coupons-import-submit]').isEnabled()))
-  check('134: no page errors (131)', errors.length === 0, errors.join(' | '))
+  // 131: HQ refuses the whole import; the fixed rows go through.
+  await dialog.locator('[data-coupons-import-text]').fill('WKND-DROP1\nWKND-FLYER\nWKND-DROP2,M-100231')
+  await page.locator('[data-coupons-import-submit]').click()
+  const refusal = dialog.locator('[data-coupons-import-refusal]')
+  await refusal.waitFor({ timeout: 5000 })
+  check('131: a code SIS.Coupons holds refuses the whole import, with its code', (await refusal.innerText()).includes('Coupon code WKND-FLYER already exists.') && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_CODE_TAKEN')
+  check('131: …nothing is imported and the rows are kept', (await page.locator('[data-coupons-created]').count()) === 0 && (await dialog.locator('[data-coupons-import-text]').inputValue()).includes('WKND-FLYER'))
+  await dialog.locator('[data-coupons-import-text]').fill('WKND-DROP1\nWKND-DROP2,M-777001')
+  check('131: an edit clears the refusal', (await refusal.count()) === 0)
+  await page.locator('[data-coupons-import-submit]').click()
+  await refusal.waitFor({ timeout: 5000 })
+  check('131: a member HQ does not know refuses it too, naming the id', (await refusal.innerText()).includes('No loyalty member M-777001') && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_BAD')
+  await dialog.locator('[data-coupons-import-text]').fill('WKND-DROP1\nWKND-DROP2,M-100231')
+  await page.locator('[data-coupons-import-submit]').click()
+  await created.waitFor({ timeout: 5000 })
+  check('131: the fixed rows import', doors('Create').length === 4 && (await created.innerText()).includes('identifies the 2 codes you just imported'))
+  await page.locator('dialog[open] [data-coupons-created-show]').click()
+  check('134: no page errors (124–131)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
 // ── 132, 133 ──
 {
-  const { context, page, errors, deletes, calls } = await open({ refuseDelete: 1 })
+  const { context, page, errors, couponCalls } = await open({ refuseDelete: 1 })
+  const doors = (door) => couponCalls.filter((x) => x.door === door)
   const cgrid = '[data-coupons-grid]'
   const waitShown = (text) =>
     page.waitForFunction((t) => document.querySelector('[data-coupons-shown]')?.textContent === t, text, { timeout: 20000 }).catch(() => {})
-  await page.goto(`${BASE}/campaigns/WKND20/coupons?batch=k3m9q2xa`)
-  await waitShown('Showing 5 of 6 codes')
+  await page.goto(`${BASE}/campaigns/WKND20/coupons?batch=${WKND_BATCH}`)
+  await waitShown('Showing 5 of 5 codes')
   const del = page.locator('[data-coupons-delete-open]')
-  check('132: with a batch filtered, Delete unused is offered', await del.isEnabled())
+  check('132: with a batch open, Delete unused is offered', await del.isEnabled())
   await del.click()
   const confirm = page.locator('[data-coupons-delete]')
   await confirm.waitFor({ timeout: 5000 })
   const plain = async (sel) => (await confirm.locator(sel).innerText()).replace(/[⁦-⁩]/g, '')
-  check('132: the confirmation says the unused codes that go', (await plain('[data-coupons-delete-unused]')) === 'Delete the 2 unused codes of batch k3m9q2xa? They stop working at once.', await plain('[data-coupons-delete-unused]'))
-  check('132: …and the codes that stay, by status', (await plain('[data-coupons-delete-stay]')) === '3 codes stay for the history: 1 used, 1 disabled, 1 expired.', await plain('[data-coupons-delete-stay]'))
+  check('132: the confirmation says the codes nobody used that go', (await plain('[data-coupons-delete-unused]')) === `Delete the 4 codes of batch ${WKND_BATCH} nobody used? They stop working at once.`, await plain('[data-coupons-delete-unused]'))
+  check('132: …and the used codes that stay', (await plain('[data-coupons-delete-stay]')) === '1 used code stays for the history, and so does a code a sale still paying holds.', await plain('[data-coupons-delete-stay]'))
   await page.screenshot({ path: `${SHOTS}/coupons-delete-unused.png` })
   await page.locator('[data-coupons-delete-confirm]').click()
   const refusal = confirm.locator('[data-coupons-delete-refusal]')
   await refusal.waitFor({ timeout: 5000 })
-  const reads = calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length
-  check('133: a refused delete shows its message and code', (await refusal.innerText()).includes(DELETE_REFUSED) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_COUPONS_UNAVAILABLE')
-  check('133: …and the codes are unchanged', (await page.locator('[data-coupons-shown]').innerText()) === 'Showing 5 of 6 codes' && deletes.length === 1)
+  const reads = doors('Export').length
+  check('133: a refused delete shows its message and code', (await refusal.innerText()).includes(`No coupon batch ${WKND_BATCH}.`) && (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_BATCH_NOT_FOUND')
+  check('133: …and the codes are unchanged', (await page.locator('[data-coupons-shown]').innerText()) === 'Showing 5 of 5 codes' && doors('DeleteUnused').length === 1)
   await page.locator('[data-coupons-delete-confirm]').click()
   const done = page.locator('[data-coupons-deleted]')
   await done.waitFor({ timeout: 5000 })
-  check('133: confirming again goes through', deletes.length === 2)
-  check('132: ONE delete per confirmation, for the batch', deletes.every((d) => d.id === 'WKND20' && d.batch === 'k3m9q2xa'), JSON.stringify(deletes))
-  check('132: the page says what HQ did', (await done.innerText()).replace(/[⁦-⁩]/g, '') === '2 unused codes of batch k3m9q2xa were deleted; 3 stay.', await done.innerText())
-  await waitShown('Showing 3 of 4 codes')
-  check('132: the codes are read afresh', calls.filter((x) => x === 'GET RuleCampaign/Campaigns/WKND20/Coupons').length === reads + 1)
-  await page.waitForFunction((sel) => !document.querySelector(`${sel} .ag-row[row-id="WKND-4F7K2Q"]`), cgrid, { timeout: 5000 }).catch(() => {})
-  const left = await page.locator(`${cgrid} .ag-row`).evaluateAll((rows) => [...new Set(rows.map((r) => r.getAttribute('row-id')))].sort())
-  check('132: the used, disabled and expired codes stay listed', JSON.stringify(left) === '["WKND-9XH3PL","WKND-B3N6QW","WKND-P5R8ZD"]', JSON.stringify(left))
+  check('133: confirming again goes through', doors('DeleteUnused').length === 2)
+  check('132: ONE DeleteUnused per confirmation, for the batch', doors('DeleteUnused').every((d) => JSON.stringify(d.body) === JSON.stringify({ batchId: WKND_BATCH })), JSON.stringify(doors('DeleteUnused')))
+  check('132: the page says what HQ did', (await done.innerText()).replace(/[⁦-⁩]/g, '') === `4 unused codes of batch ${WKND_BATCH} were deleted; 1 stay.`, await done.innerText())
+  await waitShown('Showing 1 of 1 code')
+  check('132: the batch is read afresh', doors('Export').length === reads + 1, String(doors('Export').length))
+  const left = await couponRowIds(page)
+  check('132: the used code stays listed', JSON.stringify(left) === '["WKND-9XH3PL"]', JSON.stringify(left))
+  await page.waitForFunction(() => document.querySelector('[data-coupons-delete-open]')?.disabled, null, { timeout: 5000 }).catch(() => {})
   check('132: a batch with no unused code cannot be asked', await del.isDisabled())
   await page.screenshot({ path: `${SHOTS}/coupons-deleted.png` })
+
+  // A batch nobody used at all: Delete unused empties it, HQ no longer has it, the page goes back.
+  await page.locator('[data-coupons-back]').click()
+  await page.locator('[data-coupons-create-open]').click()
+  const form = page.locator('form[data-coupons-create]')
+  await form.locator('[data-coupon-field="count"]').fill('2')
+  await page.locator('[data-coupons-create-submit]').click()
+  const created = page.locator('[data-coupons-created]')
+  await created.waitFor({ timeout: 5000 })
+  const emptied = await created.getAttribute('data-coupons-created')
+  await page.locator('[data-coupons-created-show]').click()
+  await waitShown('Showing 2 of 2 codes')
+  await page.waitForFunction(() => !document.querySelector('[data-coupons-delete-open]')?.disabled, null, { timeout: 5000 }).catch(() => {})
+  await del.click()
+  await page.locator('[data-coupons-delete-confirm]').click()
+  await page.locator(`[data-coupons-deleted="${emptied}"]`).waitFor({ timeout: 5000 })
+  await waitShown('Showing 2 of 2 batches')
+  check('132: a batch emptied by Delete unused: the page says so and goes back to the batches', page.url() === `${BASE}/campaigns/WKND20/coupons` && (await page.locator('[data-coupons-delete]').count()) === 0 && !(await couponRowIds(page)).includes(emptied), page.url())
   check('134: no page errors (132, 133)', errors.length === 0, errors.join(' | '))
   await context.close()
 }

@@ -755,89 +755,85 @@ export interface RuleSimulation {
   reply: RuleEvaluateReply
 }
 
-// ── Campaign coupons (ticket 515, BackOffice 2755) ──
+// ── Campaign coupons (BackOffice 2755, re-pointed in ticket 526) ──
 //
-// A coupon campaign's codes live in SIS.Coupons under a template the campaign owns (ADR 0094). A
-// code carries NO redemption limit of its own: "each code once" and "once per customer" are the
-// campaign's coupon and profile budgets (ADR 0094, Settings ▸ Budgets), so nothing below has a
-// limit field — `uses` is a count, never a count against a cap.
+// A coupon campaign's codes live in SIS.Coupons under a coupon template the campaign owns (ADR 0094).
+// A code carries NO redemption limit of its own: the Create dialog's "each code once" and "once per
+// customer" come back from HQ as a coupon and a profile uses budget for the campaign (ADR 0094), which
+// the page adds to the draft. Every door is POST `Rules/Authoring/CouponBatches/*`, behind the
+// rule-author grant. Days are local `yyyy-MM-dd`, moments local, never a `Z`.
 
-/** Where a code is: HQ answers it, `expired` included (past its own `until` at HQ's local day). */
+/** A code's status, as the coupon finder (519) reads it. */
 export type RuleCouponStatus = 'unused' | 'used' | 'disabled' | 'expired'
 
-/** How a code came to be: one of Create coupons' three kinds, or a CSV import (516). */
+/** How a code came to be, as the coupon finder (519) reads it. */
 export type RuleCouponKind = 'random' | 'universal' | 'personal' | 'imported'
 
-/** One code of the campaign. Days are local `yyyy-MM-dd`, `created` a local moment, never a `Z`. */
-export interface RuleCampaignCoupon {
-  code: string
-  status: RuleCouponStatus
-  kind: RuleCouponKind
-  /** How many sales redeemed it. */
-  uses: number
-  /** The member it is bound to (a personal code), or null for anyone. */
-  member: string | null
-  /** The batch it was created in. */
-  batch: string
-  created: string
-  /** First day it works; null = at once. */
-  from: string | null
-  /** Last day it works; null = no end of its own (the campaign's end still applies). */
-  until: string | null
-}
-
-/** The characters a random code is drawn from. */
-export type RuleCouponCharset = 'lettersAndDigits' | 'letters' | 'digits'
-
-/** How a random or personal code is shaped: `PREFIX-RANDOM-SUFFIX`, the dashes HQ's. */
-export interface RuleCouponShape {
-  prefix: string
-  suffix: string
-  /** How many random characters. */
-  length: number
-  charset: RuleCouponCharset
-}
-
-/** A batch's validity, in local days (null = at once / no end of its own). */
-export interface RuleCouponValidity {
-  from: string | null
-  until: string | null
-}
+/** A batch's kind: `count` random codes, one universal code, one code per member, or a CSV import. */
+export type RuleCouponBatchKind = 'random' | 'universal' | 'personal' | 'import'
 
 /**
- * What Create coupons sends (ticket 515): one batch of one kind. HQ mints the codes and the batch
- * id. No kind carries a redemption limit (ADR 0094).
+ * `CouponBatches/Create`: one batch under the campaign's coupon template, all or none. Each kind
+ * reads its own field — `count` (random), `code` (universal; absent = generated with the template's
+ * prefix), `members` (personal: loyalty ids, one code each), `csv` (import: `code[,customerId]` per
+ * line). `validFrom` / `validTo` are each code's own first and last valid day, inclusive; absent =
+ * the template's.
  */
-export type RuleCouponBatchCreate =
-  | ({ kind: 'random'; count: number } & RuleCouponShape & RuleCouponValidity)
-  | ({ kind: 'universal'; code: string } & RuleCouponValidity)
-  | ({ kind: 'personal'; members: string[] } & RuleCouponShape & RuleCouponValidity)
-
-/** HQ's answer to a create: the batch id and how many codes it holds. */
-export interface RuleCouponBatch {
-  batch: string
-  count: number
+export interface RuleCouponBatchCreate {
+  templateId: string
+  kind: RuleCouponBatchKind
+  count?: number
+  code?: string
+  members?: string[]
+  csv?: string
+  validFrom?: string
+  validTo?: string
+  eachCodeOnce: boolean
+  oncePerCustomer: boolean
 }
 
-// ── Campaign coupons: CSV import and delete unused (ticket 516, BackOffice 2755) ──
-
-/** One row of an import: a code (upper-cased) and the member it binds to, or null for anyone. */
-export interface RuleCouponImportRow {
+/** One code of a batch as created: bound to a member, or `customerId` null for a bearer code. */
+export interface RuleCouponBatchCode {
   code: string
-  member: string | null
+  customerId: string | null
 }
 
-/**
- * HQ's check of an import's rows before anything is imported: the codes SIS.Coupons already holds
- * (in any campaign), and the member ids it does not know. Every other row is good to import.
- */
-export interface RuleCouponImportCheck {
-  inUse: string[]
-  unknownMembers: string[]
+/** What a create made: the batch id, its template and campaign, its codes, and the budgets the
+ *  dialog's checkboxes became, for the draft (ADR 0094). */
+export interface RuleCouponBatchCreated {
+  batchId: string
+  templateId: string
+  campaign: string
+  kind: RuleCouponBatchKind
+  codes: RuleCouponBatchCode[]
+  budgets: RuleCampaignBudget[]
 }
 
-/** What Delete unused answers: the batch's unused codes it removed, and the codes that stay. */
-export interface RuleCouponUnusedDeleted {
+/** One row of `CouponBatches/List { campaign }`, newest first: how many codes, how many were used
+ *  at least once, how many are disabled. The codes themselves come from Export. */
+export interface RuleCouponBatchSummary {
+  batchId: string
+  templateId: string
+  campaign: string
+  codes: number
+  used: number
+  disabled: number
+  createdAt: string
+  createdBy: string
+}
+
+/** `CouponBatches/Export { batchId }`: the batch as CSV text — header
+ *  `code,customerId,validFrom,validTo,used,disabled`, one line per code — and its file name. */
+export interface RuleCouponBatchExport {
+  batchId: string
+  fileName: string
+  csv: string
+}
+
+/** `CouponBatches/DeleteUnused { batchId }`: the codes nobody used were deleted; every code ever
+ *  used is kept. */
+export interface RuleCouponBatchDeletion {
+  batchId: string
   deleted: number
   kept: number
 }

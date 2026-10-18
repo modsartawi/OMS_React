@@ -1,28 +1,27 @@
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import type { RuleCampaignCoupon, RuleCouponStatus } from '@/core/models/rule-campaign'
+import type { RuleCouponBatchSummary } from '@/core/models/rule-campaign'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { COUPON_STATUS_SEV } from '@/core/rules/coupon'
 import { formatDateTime } from '@/core/util/date-format'
+import type { BatchCode, BatchCodeStatus } from './coupon-csv'
 
-type Row = RuleCampaignCoupon
-
-/** What the grid's renderers read from the page. */
+/** What the grids' renderers read from the page. */
 export interface CouponGridContext {
   /** The status label, by status. */
-  statusLabel: (status: RuleCouponStatus) => string
-  /** Filters the list to a batch. */
+  statusLabel: (status: BatchCodeStatus) => string
+  /** Opens a batch: its codes, read from HQ's export. */
   onBatch: (batch: string) => void
   /** The batch button's accessible name, for a batch. */
   batchLabel: (batch: string) => string
 }
 
-function StatusCell({ value, context }: ICellRendererParams<Row, RuleCouponStatus, CouponGridContext>) {
+function StatusCell({ value, context }: ICellRendererParams<BatchCode, BatchCodeStatus, CouponGridContext>) {
   return value ? <StatusBadge sev={COUPON_STATUS_SEV[value]}>{context.statusLabel(value)}</StatusBadge> : null
 }
 
-/** The batch id as a button: a click filters the list to the batch, as the prototype's chip. */
-function BatchCell({ value, context }: ICellRendererParams<Row, string, CouponGridContext>) {
+/** The batch id as a button: a click opens the batch, as the prototype's chip. */
+function BatchCell({ value, context }: ICellRendererParams<RuleCouponBatchSummary, string, CouponGridContext>) {
   if (!value) return null
   return (
     <button
@@ -38,27 +37,33 @@ function BatchCell({ value, context }: ICellRendererParams<Row, string, CouponGr
 }
 
 /**
- * The coupons grid (ticket 515; the prototype's coupon table): the code, its status, how it came to
- * be, how many sales used it — a count, never against a limit (ADR 0094) — when it was created, its
- * local validity, the member it is bound to, and its batch. Plain cells are isolated by the core
- * grid base; the two renderers isolate their own.
+ * The batches grid (ticket 526, `CouponBatches/List`): the batch id, its template, how many codes,
+ * how many were used at least once — a count, never against a limit (ADR 0094) — how many are
+ * disabled, and who created it when (local). Plain cells are isolated by the core grid base; the
+ * batch renderer isolates its own.
  */
-export function couponColumns(t: TFunction): ColDef<Row>[] {
+export function batchColumns(t: TFunction): ColDef<RuleCouponBatchSummary>[] {
   return [
-    { colId: 'code', field: 'code', headerName: t('coupons.columns.code'), cellClass: 'font-mono', flex: 1, minWidth: 170 },
-    {
-      colId: 'status',
-      field: 'status',
-      headerName: t('coupons.columns.status'),
-      cellRenderer: StatusCell,
-      width: 130,
-    },
-    { colId: 'kind', field: 'kind', headerName: t('coupons.columns.kind'), valueFormatter: ({ value }) => (value ? t(`coupons.kind.${value}`) : ''), width: 130 },
-    { colId: 'uses', field: 'uses', headerName: t('coupons.columns.uses'), type: 'rightAligned', width: 100 },
-    { colId: 'created', field: 'created', headerName: t('coupons.columns.created'), valueFormatter: ({ value }) => formatDateTime(value), width: 160 },
-    { colId: 'from', field: 'from', headerName: t('coupons.columns.from'), valueFormatter: ({ value }) => value || t('coupons.columns.atOnce'), width: 130 },
-    { colId: 'until', field: 'until', headerName: t('coupons.columns.until'), valueFormatter: ({ value }) => value || t('coupons.columns.noEnd'), width: 130 },
-    { colId: 'member', field: 'member', headerName: t('coupons.columns.member'), valueFormatter: ({ value }) => value || t('coupons.columns.anyone'), width: 150 },
-    { colId: 'batch', field: 'batch', headerName: t('coupons.columns.batch'), cellRenderer: BatchCell, width: 140 },
+    { colId: 'batchId', field: 'batchId', headerName: t('coupons.columns.batch'), cellRenderer: BatchCell, flex: 1, minWidth: 200 },
+    { colId: 'templateId', field: 'templateId', headerName: t('coupons.columns.template'), cellClass: 'font-mono', width: 170 },
+    { colId: 'codes', field: 'codes', headerName: t('coupons.columns.codes'), type: 'rightAligned', width: 110 },
+    { colId: 'used', field: 'used', headerName: t('coupons.columns.used'), type: 'rightAligned', width: 110 },
+    { colId: 'disabled', field: 'disabled', headerName: t('coupons.columns.disabled'), type: 'rightAligned', width: 110 },
+    { colId: 'createdAt', field: 'createdAt', headerName: t('coupons.columns.created'), valueFormatter: ({ value }) => formatDateTime(value), width: 170 },
+    { colId: 'createdBy', field: 'createdBy', headerName: t('coupons.columns.createdBy'), width: 170 },
+  ]
+}
+
+/**
+ * One batch's codes (ticket 526, read from `CouponBatches/Export`'s CSV): the code, its status, the
+ * member it is bound to, and its own local validity (none = the template's).
+ */
+export function codeColumns(t: TFunction): ColDef<BatchCode>[] {
+  return [
+    { colId: 'code', field: 'code', headerName: t('coupons.columns.code'), cellClass: 'font-mono', flex: 1, minWidth: 190 },
+    { colId: 'status', field: 'status', headerName: t('coupons.columns.status'), cellRenderer: StatusCell, width: 130 },
+    { colId: 'member', field: 'customerId', headerName: t('coupons.columns.member'), valueFormatter: ({ value }) => value || t('coupons.columns.anyone'), width: 170 },
+    { colId: 'from', field: 'validFrom', headerName: t('coupons.columns.from'), valueFormatter: ({ value }) => value || t('coupons.columns.templateDays'), width: 150 },
+    { colId: 'until', field: 'validTo', headerName: t('coupons.columns.until'), valueFormatter: ({ value }) => value || t('coupons.columns.templateDays'), width: 150 },
   ]
 }

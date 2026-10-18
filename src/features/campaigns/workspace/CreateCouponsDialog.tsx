@@ -3,8 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Loader2 } from 'lucide-react'
-import type { RuleCampaign, RuleCouponBatch } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCouponsKey } from '@/core/rules/api'
+import type { RuleCampaign, RuleCouponBatchCreated } from '@/core/models/rule-campaign'
+import { ruleCampaignApi, ruleCouponBatchesKey } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import { cleanCode } from '@/core/rules/coupon'
 import Button from '@/core/ui/Button'
@@ -12,17 +12,15 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import {
-  COUPON_CHARSETS,
   COUPON_KINDS,
-  MAX_AFFIX,
   MAX_BATCH,
-  MAX_LENGTH,
-  MIN_LENGTH,
-  cleanAffix,
-  codeExample,
+  MAX_CODE,
+  MAX_MEMBER,
+  MAX_TEMPLATE,
   couponCreateBody,
   couponCreateProblems,
   emptyCouponForm,
+  limitsCovered,
   memberIds,
   type CouponCreateForm,
   type CouponField,
@@ -32,40 +30,44 @@ import { Refusal, SETTINGS_CONTROL, SETTINGS_INPUT } from './settings-ui'
 const FORM_ID = 'create-coupons-form'
 
 /**
- * Create coupons (ticket 515; the prototype's `CouponCreate`): one batch of random codes, one
- * universal code, or one personal code per member, each with a validity in local days. HQ mints the
- * codes and the batch id; on success the dialog closes and the page shows the batch id.
+ * Create coupons (tickets 515, 526; the prototype's `CouponCreate`): one batch of random codes, one
+ * universal code, or one personal code per member, under the campaign's coupon template
+ * (`CouponBatches/Create`), each with a validity in local days. HQ mints the codes — shaped by the
+ * template — and the batch id; on success the dialog closes and the page shows the batch id.
  *
- * There are no redemption-limit fields (ADR 0094): a line says the limits are budgets and links to
- * Settings ▸ Budgets. A problem is said at its field once Create has been tried; HQ's refusal shows
- * in the dialog, verbatim, and the form is kept.
+ * The template id is typed: HQ names no door for a campaign's template, so it starts from the
+ * newest batch's. The codes carry no redemption limit (ADR 0094): "each code once" and "once per
+ * customer" are boxes HQ answers as budgets, which the page adds to the draft; a box a budget already
+ * does shows ticked and is not sent. A problem is said at its field once Create has been tried; HQ's
+ * refusal shows in the dialog, verbatim, and the form is kept.
  */
 export default function CreateCouponsDialog({
   campaign: c,
-  taken,
+  templateId,
   open,
   onClose,
   onCreated,
 }: {
   campaign: RuleCampaign
-  /** The codes the campaign has: a universal code may not repeat one. */
-  taken: readonly string[]
+  /** The template a new batch starts from (the newest batch's, or ''). */
+  templateId: string
   open: boolean
   onClose: () => void
-  onCreated: (batch: RuleCouponBatch) => void
+  onCreated: (batch: RuleCouponBatchCreated) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
-  const [form, setForm] = useState<CouponCreateForm>(() => emptyCouponForm(c.id))
+  const [form, setForm] = useState<CouponCreateForm>(() => emptyCouponForm(templateId))
   const [tried, setTried] = useState(false)
+  const covered = limitsCovered(c.budgets)
 
   const create = useMutation({
-    mutationFn: (body: NonNullable<ReturnType<typeof couponCreateBody>>) => ruleCampaignApi.createCoupons(c.id, body),
-    // The list is read afresh BEFORE the page hears of the batch, so "Show the codes" finds it.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ruleCouponsKey(c.id) }),
+    mutationFn: (body: NonNullable<ReturnType<typeof couponCreateBody>>) => ruleCampaignApi.createBatch(body),
+    // The batches are read afresh BEFORE the page hears of the batch, so "Show the codes" finds it.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ruleCouponBatchesKey(c.id) }),
   })
 
-  const problems = couponCreateProblems(form, taken)
+  const problems = couponCreateProblems(form)
   const problem = (field: CouponField) => (tried ? problems[field] : undefined)
   const set = (change: Partial<CouponCreateForm>) => {
     setForm((f) => ({ ...f, ...change }))
@@ -73,9 +75,10 @@ export default function CreateCouponsDialog({
     if (create.isError) create.reset()
   }
 
-  /** Back to a fresh form, so a reopened dialog never shows the last batch. */
+  /** Back to a fresh form, so a reopened dialog never shows the last batch. A template typed here
+   *  is kept until the batches are read again, which names it. */
   const clear = () => {
-    setForm(emptyCouponForm(c.id))
+    setForm((f) => emptyCouponForm(templateId || f.templateId.trim()))
     setTried(false)
     create.reset()
   }
@@ -86,7 +89,7 @@ export default function CreateCouponsDialog({
   }
   const submit = () => {
     setTried(true)
-    const body = couponCreateBody(form, taken)
+    const body = couponCreateBody(form, covered)
     if (!body || create.isPending) return
     create.mutate(body, {
       onSuccess: (batch) => {
@@ -97,7 +100,6 @@ export default function CreateCouponsDialog({
   }
 
   const members = memberIds(form.members)
-  const shaped = form.kind !== 'universal'
 
   return (
     <Modal
@@ -150,6 +152,17 @@ export default function CreateCouponsDialog({
           {t(`coupons.create.kinds.${form.kind}.intro`)}
         </p>
 
+        <Field id="coupon-template" label={t('coupons.create.template')} problem={problem('templateId')} values={{ max: MAX_TEMPLATE }} hint={t('coupons.create.templateHint')}>
+          <input
+            id="coupon-template"
+            dir="ltr"
+            value={form.templateId}
+            onChange={(e) => set({ templateId: e.target.value })}
+            className={`${SETTINGS_INPUT} max-w-xs font-mono ${problem('templateId') ? 'border-danger' : 'border-border/60'}`}
+            data-coupon-field="templateId"
+          />
+        </Field>
+
         {form.kind === 'random' && (
           <Field id="coupon-count" label={t('coupons.create.count')} problem={problem('count')} values={{ max: MAX_BATCH }}>
             <input
@@ -164,7 +177,7 @@ export default function CreateCouponsDialog({
         )}
 
         {form.kind === 'universal' && (
-          <Field id="coupon-code" label={t('coupons.create.code')} problem={problem('code')}>
+          <Field id="coupon-code" label={t('coupons.create.code')} problem={problem('code')} values={{ max: MAX_CODE }} hint={form.code ? undefined : t('coupons.create.codeHint')}>
             <input
               id="coupon-code"
               dir="ltr"
@@ -182,7 +195,7 @@ export default function CreateCouponsDialog({
             id="coupon-members"
             label={t('coupons.create.members')}
             problem={problem('members')}
-            values={{ max: MAX_BATCH }}
+            values={{ max: MAX_BATCH, width: MAX_MEMBER }}
             hint={
               members.ids.length > 0 && (
                 <span data-coupon-members-count="">
@@ -208,62 +221,6 @@ export default function CreateCouponsDialog({
               data-coupon-field="members"
             />
           </Field>
-        )}
-
-        {shaped && (
-          <fieldset className="flex flex-col gap-3" data-coupon-shape="">
-            <legend className="mb-2 text-sm font-semibold">{t('coupons.create.shape')}</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="coupon-prefix" label={t('coupons.create.prefix')} hint={t('coupons.create.affixHint', { max: fsi(MAX_AFFIX) })}>
-                <input
-                  id="coupon-prefix"
-                  dir="ltr"
-                  value={form.prefix}
-                  onChange={(e) => set({ prefix: cleanAffix(e.target.value) })}
-                  className={`${SETTINGS_INPUT} font-mono border-border/60`}
-                  data-coupon-field="prefix"
-                />
-              </Field>
-              <Field id="coupon-suffix" label={t('coupons.create.suffix')}>
-                <input
-                  id="coupon-suffix"
-                  dir="ltr"
-                  value={form.suffix}
-                  onChange={(e) => set({ suffix: cleanAffix(e.target.value) })}
-                  className={`${SETTINGS_INPUT} font-mono border-border/60`}
-                  data-coupon-field="suffix"
-                />
-              </Field>
-              <Field id="coupon-length" label={t('coupons.create.length')} problem={problem('length')} values={{ min: MIN_LENGTH, max: MAX_LENGTH }}>
-                <input
-                  id="coupon-length"
-                  inputMode="numeric"
-                  value={form.length}
-                  onChange={(e) => set({ length: e.target.value })}
-                  className={`${SETTINGS_INPUT} max-w-[8rem] ${problem('length') ? 'border-danger' : 'border-border/60'}`}
-                  data-coupon-field="length"
-                />
-              </Field>
-              <Field id="coupon-charset" label={t('coupons.create.charset')}>
-                <select
-                  id="coupon-charset"
-                  value={form.charset}
-                  onChange={(e) => set({ charset: e.target.value as CouponCreateForm['charset'] })}
-                  className={SETTINGS_CONTROL}
-                  data-coupon-field="charset"
-                >
-                  {COUPON_CHARSETS.map((cs) => (
-                    <option key={cs} value={cs}>
-                      {t(`coupons.create.charsets.${cs}`)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <p className="text-sm text-muted-foreground" data-coupon-example="">
-              <Trans t={t} i18nKey="coupons.create.example" values={{ code: codeExample(form) }} components={{ code: <bdi className="font-mono text-foreground" dir="ltr" /> }} />
-            </p>
-          </fieldset>
         )}
 
         <fieldset className="flex flex-col gap-3" data-coupon-validity="">
@@ -293,13 +250,40 @@ export default function CreateCouponsDialog({
           <p className="text-xs text-muted-foreground">{t('coupons.create.validityNote')}</p>
         </fieldset>
 
-        <p className="rounded-md border border-border/60 bg-muted px-3 py-2 text-sm" data-coupon-limits="">
-          <Trans
-            t={t}
-            i18nKey="coupons.create.limits"
-            components={{ budgets: <Link to={`${campaignPath(c.id)}/settings/budgets`} className="font-medium text-primary hover:underline" data-coupon-budgets-link="" /> }}
+        <fieldset className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted px-3 py-2" data-coupon-limits="">
+          <legend className="px-1 text-sm font-semibold">{t('coupons.create.limitsTitle')}</legend>
+          <p className="text-xs text-muted-foreground">
+            <Trans
+              t={t}
+              i18nKey="coupons.create.limits"
+              components={{ budgets: <Link to={`${campaignPath(c.id)}/settings/budgets`} className="font-medium text-primary hover:underline" data-coupon-budgets-link="" /> }}
+            />
+          </p>
+          {form.kind !== 'universal' ? (
+            <Limit
+              name="eachCodeOnce"
+              label={t('coupons.create.eachCodeOnce')}
+              covered={covered.eachCodeOnce}
+              coveredNote={t('coupons.create.eachCodeOnceCovered')}
+              checked={form.eachCodeOnce}
+              disabled={create.isPending}
+              onChange={(eachCodeOnce) => set({ eachCodeOnce })}
+            />
+          ) : (
+            <p className="text-sm" data-coupon-universal-limit="">
+              {t('coupons.create.universalLimit')}
+            </p>
+          )}
+          <Limit
+            name="oncePerCustomer"
+            label={t('coupons.create.oncePerCustomer')}
+            covered={covered.oncePerCustomer}
+            coveredNote={t('coupons.create.oncePerCustomerCovered')}
+            checked={form.oncePerCustomer}
+            disabled={create.isPending}
+            onChange={(oncePerCustomer) => set({ oncePerCustomer })}
           />
-        </p>
+        </fieldset>
 
         {create.isError && (
           <div data-coupons-create-refusal="">
@@ -308,6 +292,37 @@ export default function CreateCouponsDialog({
         )}
       </form>
     </Modal>
+  )
+}
+
+/** One of the dialog's limits: a box, ticked and fixed when a budget of the campaign already does it. */
+function Limit({
+  name,
+  label,
+  covered,
+  coveredNote,
+  checked,
+  disabled,
+  onChange,
+}: {
+  name: 'eachCodeOnce' | 'oncePerCustomer'
+  label: string
+  covered: boolean
+  coveredNote: string
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex flex-wrap items-center gap-2 text-sm">
+      <input type="checkbox" checked={checked || covered} disabled={disabled || covered} onChange={(e) => onChange(e.target.checked)} data-coupon-limit={name} />
+      <span>{label}</span>
+      {covered && (
+        <span className="text-xs text-muted-foreground" data-coupon-limit-covered={name}>
+          {coveredNote}
+        </span>
+      )}
+    </label>
   )
 }
 

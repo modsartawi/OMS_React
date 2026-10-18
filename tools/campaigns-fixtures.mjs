@@ -973,96 +973,196 @@ export function restoreVersion(d, versions, n, revision) {
   return { draft: d }
 }
 
-// ── 515: campaign coupons ──
-//   GET  RuleCampaign/Campaigns/{id}/Coupons          → the campaign's codes (`COUPONS`, by id)
-//   POST RuleCampaign/Campaigns/{id}/Coupons/Batches  → one batch minted (`createBatch`)
-// A code carries no redemption limit (ADR 0094): `uses` is a count. HQ answers `expired` itself.
-const coupon = (c, status, batch, o = {}) => ({ code: c, status, kind: 'random', uses: status === 'used' ? 1 : 0, member: null, batch, created: '2026-09-28T11:30:00', from: null, until: null, ...o })
+// ── 526: campaign coupon batches (BackOffice 2755, the brief's "HQ contract: campaign coupons") ──
+//   POST Rules/Authoring/CouponBatches/Create { templateId, kind, count?, code?, members?, csv?, validFrom?,
+//        validTo?, eachCodeOnce, oncePerCustomer } → `createBatch`
+//   POST Rules/Authoring/CouponBatches/List { campaign }        → `listBatches`, newest first
+//   POST Rules/Authoring/CouponBatches/Export { batchId }       → `exportBatch`
+//   POST Rules/Authoring/CouponBatches/DeleteUnused { batchId } → `deleteUnusedCodes`
+// A stub of `RuleCouponBatchService` over SIS.Coupons: the codes live under a campaign-owned coupon
+// template (`CouponTemplate.CampaignId`), each stamped with its batch id; a code carries no redemption
+// limit (ADR 0094) — the dialog's two boxes come back as budgets. WKND20's codes are 2734's prototype
+// three (`data.js`), then one disabled, one dated and a universal flyer code.
 
-export const COUPONS = {
-  WKND20: [
-    // The prototype's three, then one of each other status and a universal flyer code.
-    coupon('WKND-4F7K2Q', 'unused', 'k3m9q2xa'),
-    coupon('WKND-9XH3PL', 'used', 'k3m9q2xa'),
-    coupon('WKND-T2M8VA', 'unused', 'k3m9q2xa'),
-    coupon('WKND-P5R8ZD', 'disabled', 'k3m9q2xa'),
-    coupon('WKND-B3N6QW', 'expired', 'k3m9q2xa', { until: '2026-10-10' }),
-    coupon('WKND-FLYER', 'used', 'u7d2w4pe', { kind: 'universal', uses: 12, created: '2026-10-01T09:00:00', from: '2026-10-01', until: '2026-10-31' }),
-  ],
-}
+/** SIS.Coupons' templates: template id → the campaign that owns it, or null for a bonus-buy store's
+ *  template coupon (not a campaign's, so HQ refuses a batch under it). */
+export const COUPON_TEMPLATES = { 'TPL-WKND20': 'WKND20', 'TPL-NEXT-VISIT': 'NEXT-VISIT', 'BBY-HAYAK': null }
+/** The prefix a template gives a generated code. */
+const TEMPLATE_PREFIX = { 'TPL-WKND20': 'WKND', 'TPL-NEXT-VISIT': 'NEXT' }
 
-const ALPHABET = { lettersAndDigits: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', letters: 'ABCDEFGHJKLMNPQRSTUVWXYZ', digits: '0123456789' }
+const code = (c, o = {}) => ({ code: c, customerId: null, validFrom: null, validTo: null, used: false, disabled: false, ...o })
+
+/** The batches SIS.Coupons holds, as HQ stores them (ULID batch ids, local moments). */
+export const BATCHES = [
+  {
+    batchId: '01J8Y3K3M9Q2XA7C4D5E6F7G8H',
+    templateId: 'TPL-WKND20',
+    createdAt: '2026-09-28T11:30:00',
+    createdBy: 'Sara (CRM)',
+    codes: [code('WKND-4F7K2Q'), code('WKND-9XH3PL', { used: true }), code('WKND-T2M8VA'), code('WKND-P5R8ZD', { disabled: true }), code('WKND-B3N6QW', { validTo: '2026-10-10' })],
+  },
+  {
+    batchId: '01J9A0W7D2W4PE5R8ZD3N6QW2T',
+    templateId: 'TPL-WKND20',
+    createdAt: '2026-10-01T09:00:00',
+    createdBy: 'Sara (CRM)',
+    codes: [code('WKND-FLYER', { used: true, validFrom: '2026-10-01', validTo: '2026-10-31' })],
+  },
+]
+
+/** The loyalty members HQ knows (`LoyMembership`). */
+export const MEMBERS = ['M-100231', 'M-055410', 'M-200118']
+/** Codes SIS.Coupons holds outside every batch (a bonus-buy store's template coupons). */
+export const CODES_ELSEWHERE = ['HAYAK15']
+
+const MAX_COUPONS = 10000
+const SAFE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 let batchSeq = 0
-let rand = 515
+let rand = 2755
 /** A deterministic draw, so a run's codes are the same each time. */
 const next = (n) => ((rand = (rand * 1103515245 + 12345) % 2147483648), (rand >>> 16) % n)
 
-/**
- * HQ mints one batch: its codes and its batch id. A universal code the campaign already has, or a
- * campaign without the coupons feature, is refused.
- */
-export function createBatch(c, list, body, at) {
-  if (!c.features.includes('coupons')) return { refused: 'RULE_COUPONS_OFF', message: 'Coupons are off for this campaign. / القسائم غير مفعلة لهذه الحملة.' }
-  const batch = `nb${String(++batchSeq).padStart(6, '0')}`
-  const created = at.replace(' ', 'T') + ':00'
-  const taken = new Set(list.map((k) => k.code))
-  const mint = () => {
-    // A stub HQ: a shape it has run out of would loop here; the drive never asks that much.
-    for (let tries = 0; tries < 100000; tries++) {
-      const abc = ALPHABET[body.charset]
-      let s = ''
-      for (let i = 0; i < body.length; i++) s += abc[next(abc.length)]
-      const k = [body.prefix, s, body.suffix].filter(Boolean).join('-')
-      if (!taken.has(k)) return taken.add(k), k
-    }
-    throw new Error('the stub ran out of codes for this shape')
-  }
-  const one = (k, kind, member = null) => ({ code: k, status: 'unused', kind, uses: 0, member, batch, created, from: body.from, until: body.until })
-  let out
-  if (body.kind === 'universal') {
-    if (taken.has(body.code)) return { refused: 'RULE_COUPON_CODE_TAKEN', message: 'This code is already in use. / هذا الرمز مستخدم.' }
-    out = [one(body.code, 'universal')]
-  } else if (body.kind === 'random') out = Array.from({ length: body.count }, () => one(mint(), 'random'))
-  else out = body.members.map((m) => one(mint(), 'personal', m))
-  list.unshift(...out)
-  return { batch: { batch, count: out.length } }
-}
+const refusal = (errorCode, status, message) => ({ refused: errorCode, status, message })
+const bad = (message) => refusal('RULES_BATCH_BAD', 400, message)
 
-// ── 516: coupon CSV import and delete unused ──
-//   POST   RuleCampaign/Campaigns/{id}/Coupons/Imports/Check     → `checkImport`
-//   POST   RuleCampaign/Campaigns/{id}/Coupons/Imports           → `importBatch`
-//   DELETE RuleCampaign/Campaigns/{id}/Coupons/Batches/{b}/Unused → `deleteUnused`
-/** The member ids the stub HQ knows. */
-export const MEMBERS = ['M-100231', 'M-055410', 'M-200118']
-/** Codes SIS.Coupons holds under OTHER campaigns: the campaign's own list does not show them. */
-export const CODES_ELSEWHERE = ['HAYAK15']
-
-/** HQ's check of an import's rows: codes SIS.Coupons holds, and member ids it does not know. */
-export function checkImport(list, rows) {
-  const held = new Set([...list.map((k) => k.code), ...CODES_ELSEWHERE])
+/** The campaign's batches, newest first, with their used and disabled counts — never their codes. */
+export function listBatches(batches, campaign) {
+  if (!campaign || !String(campaign).trim()) return bad('Name the campaign whose batches to list.')
   return {
-    inUse: rows.filter((r) => held.has(r.code)).map((r) => r.code),
-    unknownMembers: [...new Set(rows.filter((r) => r.member && !MEMBERS.includes(r.member)).map((r) => r.member))],
+    list: batches
+      .filter((b) => COUPON_TEMPLATES[b.templateId] === campaign && b.codes.length)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : a.batchId.localeCompare(b.batchId)))
+      .map((b) => ({
+        batchId: b.batchId,
+        templateId: b.templateId,
+        campaign,
+        codes: b.codes.length,
+        used: b.codes.filter((k) => k.used).length,
+        disabled: b.codes.filter((k) => k.disabled).length,
+        createdAt: b.createdAt,
+        createdBy: b.createdBy,
+      })),
   }
 }
 
-/** HQ imports the rows as one batch of `imported` codes; a row it would reject refuses the whole import. */
-export function importBatch(c, list, rows, at) {
-  if (!c.features.includes('coupons')) return { refused: 'RULE_COUPONS_OFF', message: 'Coupons are off for this campaign. / القسائم غير مفعلة لهذه الحملة.' }
-  const check = checkImport(list, rows)
-  if (check.inUse.length || check.unknownMembers.length) return { refused: 'RULE_COUPON_IMPORT_STALE', message: 'A row was taken since the check; check the rows again. / تغيّر أحد الصفوف منذ التحقق.' }
-  const batch = `im${String(++batchSeq).padStart(6, '0')}`
-  const created = at.replace(' ', 'T') + ':00'
-  const out = rows.map((r) => ({ code: r.code, status: 'unused', kind: 'imported', uses: 0, member: r.member, batch, created, from: null, until: null }))
-  list.unshift(...out)
-  return { batch: { batch, count: out.length } }
+function existing(batches, batchId) {
+  const id = String(batchId ?? '').trim()
+  if (!id || id.length > 26) return { out: bad('Name the batch (its id from the create).') }
+  const b = batches.find((x) => x.batchId === id && x.codes.length)
+  return b ? { b } : { out: refusal('RULES_BATCH_NOT_FOUND', 404, `No coupon batch ${id}.`) }
 }
 
-/** HQ deletes a batch's unused codes; every other code of the batch stays. */
-export function deleteUnused(list, batch) {
-  const before = list.length
-  const kept = list.filter((k) => k.batch === batch && k.status !== 'unused').length
-  const keep = list.filter((k) => !(k.batch === batch && k.status === 'unused'))
-  list.splice(0, list.length, ...keep)
-  return { deleted: before - keep.length, kept }
+/** HQ's export: the header, then one CRLF line a code, by code; days local, `yes` / `no` flags. */
+export function exportBatch(batches, batchId) {
+  const { b, out } = existing(batches, batchId)
+  if (out) return out
+  const yn = (v) => (v ? 'yes' : 'no')
+  const lines = [...b.codes]
+    .sort((x, y) => (x.code < y.code ? -1 : x.code > y.code ? 1 : 0))
+    .map((k) => [k.code, k.customerId ?? '', k.validFrom ?? '', k.validTo ?? '', yn(k.used), yn(k.disabled)].join(','))
+  const csv = ['code,customerId,validFrom,validTo,used,disabled', ...lines].map((l) => l + '\r\n').join('')
+  return { file: { batchId: b.batchId, fileName: `coupons-${b.batchId}.csv`, csv } }
+}
+
+/** HQ deletes the codes nobody used; a code ever used stays (the stub holds no paying sale). */
+export function deleteUnusedCodes(batches, batchId) {
+  const { b, out } = existing(batches, batchId)
+  if (out) return out
+  const before = b.codes.length
+  b.codes = b.codes.filter((k) => k.used)
+  return { result: { batchId: b.batchId, deleted: before - b.codes.length, kept: b.codes.length } }
+}
+
+/** An imported file as HQ parses it: `code` or `code,customerId` a line, a first `code,...` a header. */
+function parseImport(csv) {
+  const specs = []
+  const lines = String(csv ?? '').replace(/\r\n/g, '\n').split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    const cells = line.split(',').map((c) => c.trim())
+    if (!specs.length && cells[0].toLowerCase() === 'code') continue
+    if (cells.length > 2 || !cells[0]) return { out: bad(`Line ${i + 1} is not code[,customerId]: '${line}'.`) }
+    specs.push({ code: cells[0], customerId: cells.length === 2 && cells[1] ? cells[1] : null })
+  }
+  return specs.length ? { specs } : { out: bad('The file has no codes.') }
+}
+
+/** The budgets the dialog's two boxes become (HQ's `BudgetsOf`, in the rule language's shape). */
+function batchBudgetsOf(body) {
+  const out = []
+  if (body.eachCodeOnce) out.push({ id: 'b-each-code-once', name: { en: 'each code once', ar: 'كل قسيمة مرة واحدة' }, scope: 'coupon', limit: 'uses', value: 1, period: 'lifetime' })
+  if (body.oncePerCustomer) out.push({ id: 'b-once-per-customer', name: { en: 'once per customer', ar: 'مرة واحدة لكل عميل' }, scope: 'profile', limit: 'uses', value: 1, period: 'lifetime' })
+  return out
+}
+
+/**
+ * HQ creates one batch, all or none, under a new ULID batch id, refusing as `RuleCouponBatchService`
+ * does: a missing template or a bad body `RULES_BATCH_BAD`; an unknown template 404 and a template
+ * that is not a campaign's 400, both `RULES_BATCH_TEMPLATE`; a member HQ has no loyalty membership
+ * for `RULES_BATCH_BAD` naming them; a code SIS.Coupons already holds `RULES_BATCH_CODE_TAKEN`.
+ */
+export function createBatch(batches, body, user, at) {
+  const templateId = String(body?.templateId ?? '').trim()
+  if (!templateId || templateId.length > 26) return bad('A batch names its campaign coupon template (1 to 26 characters).')
+  let specs
+  if (body.kind === 'random') {
+    if (!(body.count >= 1 && body.count <= MAX_COUPONS)) return bad(`A random batch asks for 1 to ${MAX_COUPONS} codes, not ${body.count ?? 0}.`)
+    specs = Array.from({ length: body.count }, () => ({ code: null, customerId: null }))
+  } else if (body.kind === 'universal') specs = [{ code: body.code?.trim() || null, customerId: null }]
+  else if (body.kind === 'personal') {
+    const seen = new Set()
+    const members = (body.members ?? []).map((m) => m.trim()).filter((m) => m && !seen.has(m.toUpperCase()) && seen.add(m.toUpperCase()))
+    if (!members.length) return bad('A personal batch names the members, one code each.')
+    specs = members.map((m) => ({ code: null, customerId: m }))
+  } else if (body.kind === 'import') {
+    const parsed = parseImport(body.csv)
+    if (parsed.out) return parsed.out
+    specs = parsed.specs
+  } else return bad(`A batch is random, universal, personal or import, not '${body.kind}'.`)
+
+  if (specs.length > MAX_COUPONS) return bad(`A batch has at most ${MAX_COUPONS} codes; this one has ${specs.length}.`)
+  const tooLong = specs.find((s) => (s.code ?? '').length > 64 || (s.customerId ?? '').length > 26)
+  if (tooLong) return bad(`Code '${tooLong.code}' or its customer is too long: a code is at most 64 characters, a customer id 26.`)
+  const unsafe = specs.flatMap((s) => [s.code, s.customerId]).find((v) => v != null && !SAFE.test(v))
+  if (unsafe) return bad(`'${unsafe}' is not a code or customer id: letters, digits and - _ . only, starting with a letter or digit.`)
+  const repeatSeen = new Set()
+  const repeated = specs.find((s) => s.code && (repeatSeen.has(s.code.toUpperCase()) || !repeatSeen.add(s.code.toUpperCase())))
+  if (repeated) return bad(`Code '${repeated.code}' is in the batch more than once.`)
+  const unknown = [...new Set(specs.filter((s) => s.customerId && !MEMBERS.some((m) => m.toUpperCase() === s.customerId.toUpperCase())).map((s) => s.customerId))]
+  if (unknown.length) return bad(`No loyalty member ${unknown.join(', ')}: a code is bound only to a member HQ knows.`)
+
+  if (!(templateId in COUPON_TEMPLATES)) return refusal('RULES_BATCH_TEMPLATE', 404, `Coupon template ${templateId} was not found.`)
+  if (COUPON_TEMPLATES[templateId] === null) return refusal('RULES_BATCH_TEMPLATE', 400, `Coupon template ${templateId} is not a campaign's template.`)
+
+  const held = new Set([...batches.flatMap((b) => b.codes.map((k) => k.code.toUpperCase())), ...CODES_ELSEWHERE])
+  const taken = specs.find((s) => s.code && held.has(s.code.toUpperCase()))
+  if (taken) return refusal('RULES_BATCH_CODE_TAKEN', 400, `Coupon code ${taken.code} already exists.`)
+  const prefix = TEMPLATE_PREFIX[templateId] ?? 'CPN'
+  const mint = () => {
+    for (;;) {
+      let s = ''
+      for (let i = 0; i < 6; i++) s += CODE_ALPHABET[next(CODE_ALPHABET.length)]
+      const k = `${prefix}-${s}`
+      if (!held.has(k)) return held.add(k), k
+    }
+  }
+  let seq = ++batchSeq
+  let tail = ''
+  for (let i = 0; i < 16; i++, seq = Math.floor(seq / 32)) tail = CROCKFORD[seq % 32] + tail
+  const batchId = `01JAFH${'0'.repeat(4)}${tail}`.slice(0, 26)
+  const codes = specs.map((s) => code(s.code ?? mint(), { customerId: s.customerId, validFrom: body.validFrom ?? null, validTo: body.validTo ?? null }))
+  batches.push({ batchId, templateId, createdAt: at.replace(' ', 'T') + ':00', createdBy: user, codes })
+  return {
+    batch: {
+      batchId,
+      templateId,
+      campaign: COUPON_TEMPLATES[templateId],
+      kind: body.kind,
+      codes: codes.map((k) => ({ code: k.code, customerId: k.customerId })),
+      budgets: batchBudgetsOf(body),
+    },
+  }
 }

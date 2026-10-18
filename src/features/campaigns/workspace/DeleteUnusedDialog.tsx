@@ -1,41 +1,49 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import type { RuleCouponStatus, RuleCouponUnusedDeleted } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCouponsKey } from '@/core/rules/api'
+import type { RuleCouponBatchDeletion, RuleCouponBatchSummary } from '@/core/models/rule-campaign'
+import { ruleCampaignApi, ruleCouponBatchesKey, ruleCouponExportsKey } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatNumber } from '@/core/util/number-format'
+import { unusedOf } from './coupon-form'
 import { Refusal } from './settings-ui'
 
 /**
- * Delete unused (ticket 516; the prototype's "Delete all unused coupons", kept to one batch): the
- * confirmation says how many unused codes go and how many codes stay, by status, as the list last
- * read them. HQ deletes the batch's unused codes only — a used, disabled or expired code stays for
- * the history — and answers what it did, which the page reports. A refusal shows here, verbatim.
+ * Delete unused (tickets 516, 526; the prototype's "Delete all unused coupons", kept to one batch):
+ * the confirmation says, from the batch list's counts, how many codes nobody used and how many were
+ * used. HQ (`CouponBatches/DeleteUnused`) deletes the codes nobody ever used — a code ever redeemed,
+ * or held by a sale still paying, stays — and answers what it did, which the page reports. A refusal
+ * shows here, verbatim.
  */
 export default function DeleteUnusedDialog({
   campaignId,
   batch,
-  counts,
   onClose,
   onDeleted,
 }: {
   campaignId: string
-  batch: string
-  /** The batch's codes by status, as the list last read them. */
-  counts: Record<RuleCouponStatus, number>
+  /** The batch, as the list last read it. */
+  batch: RuleCouponBatchSummary
   onClose: () => void
-  onDeleted: (result: RuleCouponUnusedDeleted) => void
+  onDeleted: (result: RuleCouponBatchDeletion) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   const remove = useMutation({
-    mutationFn: () => ruleCampaignApi.deleteUnusedCoupons(campaignId, batch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ruleCouponsKey(campaignId) }),
+    mutationFn: () => ruleCampaignApi.deleteUnused(batch.batchId),
+    // The page hears of it FIRST: the re-read may drop an emptied batch, which unmounts this dialog
+    // (a `mutate` callback would then never run). Then the counts and the codes are read afresh.
+    onSuccess: (result) => {
+      onDeleted(result)
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ruleCouponBatchesKey(campaignId) }),
+        queryClient.invalidateQueries({ queryKey: ruleCouponExportsKey(campaignId) }),
+      ])
+    },
   })
-  const stay = counts.used + counts.disabled + counts.expired
+  const unused = unusedOf(batch)
   const close = () => {
     if (!remove.isPending) onClose()
   }
@@ -51,31 +59,25 @@ export default function DeleteUnusedDialog({
           <Button variant="text" disabled={remove.isPending} onClick={close}>
             {t('coupons.deleteUnused.cancel')}
           </Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(undefined, { onSuccess: onDeleted })} data-coupons-delete-confirm="">
+          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()} data-coupons-delete-confirm="">
             {remove.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-            {t('coupons.deleteUnused.confirm', { count: counts.unused })}
+            {t('coupons.deleteUnused.confirm', { count: unused })}
           </Button>
         </>
       }
     >
-      <div className="flex flex-col gap-3 text-sm" data-coupons-delete={batch}>
+      <div className="flex flex-col gap-3 text-sm" data-coupons-delete={batch.batchId}>
         <p data-coupons-delete-unused="">
           <Trans
             t={t}
             i18nKey="coupons.deleteUnused.body"
-            count={counts.unused}
-            values={{ n: formatNumber(counts.unused), batch }}
+            count={unused}
+            values={{ n: formatNumber(unused), batch: batch.batchId }}
             components={{ n: <Ltr />, batch: <bdi dir="ltr" className="font-mono" /> }}
           />
         </p>
         <p className="text-muted-foreground" data-coupons-delete-stay="">
-          <Trans
-            t={t}
-            i18nKey="coupons.deleteUnused.stay"
-            count={stay}
-            values={{ n: formatNumber(stay), used: formatNumber(counts.used), disabled: formatNumber(counts.disabled), expired: formatNumber(counts.expired) }}
-            components={{ n: <Ltr />, used: <Ltr />, disabled: <Ltr />, expired: <Ltr /> }}
-          />
+          <Trans t={t} i18nKey="coupons.deleteUnused.stay" count={batch.used} values={{ n: formatNumber(batch.used) }} components={{ n: <Ltr /> }} />
         </p>
         {remove.isError && (
           <div data-coupons-delete-refusal="">

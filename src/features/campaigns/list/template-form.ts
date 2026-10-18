@@ -1,118 +1,130 @@
-import type { RuleCampaignTemplate, RuleTemplateDraft, RuleTemplateValue } from '@/core/models/rule-campaign'
+import type { RuleFromTemplateBody, RuleLookupKind, RuleTemplate, RuleTemplatePlaceholder } from '@/core/models/rule-campaign'
+import { campaignIdProblem, suggestCampaignId, type CampaignIdProblem } from '@/core/rules/campaign-id'
 
 /**
- * "From a template" (ticket 503): the placeholders a template asks for, as the dialog holds them,
- * and the fill that turns the template's draft into the campaign it makes.
- *
- * A template's draft marks a value with `{ placeholder: key }` (replaced whole, by the typed
- * value) or with `{{key}}` inside a string (replaced by the value as text) — the provisional shape
- * of `@/core/models/rule-campaign`. The fill only swaps marks for values: it never reads a formula
- * (ADR 0089), a `{{key}}` in one is plain text to it.
+ * "From a template" (tickets 503, 524; BackOffice 2759's `Templates/List` + `Drafts/FromTemplate`):
+ * the values a template's placeholders ask for, as the dialog holds them, and the body that makes
+ * the draft. A placeholder names a field inside the template's campaign (`path`, e.g.
+ * `rules[0].then[0].value`) and HQ puts the sent JSON there — the client never fills the campaign
+ * itself, and an unsent value keeps the template's default. How a value is asked for follows its
+ * default's JSON: a number, a text, yes / no, a list of codes, or anything else as JSON.
  */
 
-/** The dialog's form: a number or a choice as typed, a pick as its codes, by placeholder key. */
-export type TemplateForm = Record<string, string | string[]>
+/** How the dialog asks for a placeholder's value. */
+export type PlaceholderKind = 'number' | 'text' | 'bool' | 'codes' | 'json'
 
-/** What the dialog starts with: each placeholder's default, or empty. */
-export function templateFormFor(template: RuleCampaignTemplate): TemplateForm {
-  const form: TemplateForm = {}
-  for (const p of template.placeholders) {
-    const d = p.default
-    if (p.kind === 'pick') form[p.key] = Array.isArray(d) ? [...d] : typeof d === 'string' && d ? [d] : []
-    else form[p.key] = d == null || Array.isArray(d) ? '' : String(d)
-  }
-  return form
+/** The kind a placeholder's default says. */
+export function placeholderKind(p: Pick<RuleTemplatePlaceholder, 'default'>): PlaceholderKind {
+  const d = p.default
+  if (typeof d === 'number') return 'number'
+  if (typeof d === 'string') return 'text'
+  if (typeof d === 'boolean') return 'bool'
+  if (Array.isArray(d) && d.every((x) => typeof x === 'string')) return 'codes'
+  return 'json'
 }
 
-export type TemplateProblemCode = 'required' | 'notNumber' | 'belowMin' | 'aboveMax'
+/** The lookup a list of codes is picked through, by the field its path ends in: the builder's item
+ *  picker for categories, articles and stores; null for any other list (typed, comma-separated). */
+export function placeholderLookup(p: Pick<RuleTemplatePlaceholder, 'path'>): RuleLookupKind | null {
+  const field = /([A-Za-z]+)(?:\[\d+\])?$/.exec(p.path)?.[1] ?? ''
+  if (field === 'categories') return 'categories'
+  if (field === 'articles') return 'materials'
+  if (field === 'stores') return 'stores'
+  return null
+}
+
+/** The dialog's form: each placeholder's value as typed (a list of codes as its codes), the new
+ *  draft's id — suggested from the English name until the author edits it — and its names. */
+export interface TemplateForm {
+  values: Record<string, string | string[]>
+  nameEn: string
+  nameAr: string
+  /** The id as typed; `''` while it still follows the suggestion. */
+  id: string
+  idEdited: boolean
+}
+
+/** What the dialog starts with: each placeholder's default, and the template campaign's names. */
+export function templateFormFor(template: RuleTemplate): TemplateForm {
+  const values: TemplateForm['values'] = {}
+  for (const p of template.placeholders) {
+    const kind = placeholderKind(p)
+    const d = p.default
+    values[p.name] =
+      kind === 'codes' ? [...(d as string[])] : kind === 'json' ? (d === undefined ? '' : JSON.stringify(d)) : String(d)
+  }
+  return { values, nameEn: template.campaign?.name?.en ?? '', nameAr: template.campaign?.name?.ar ?? '', id: '', idEdited: false }
+}
+
+/** The id the form sends: the typed one, or the suggestion while the author has not edited it. */
+export const templateFormId = (form: TemplateForm): string => (form.idEdited ? form.id.trim() : suggestCampaignId(form.nameEn))
+
+export type TemplateProblemCode = 'required' | 'notNumber' | 'notJson'
 
 /** A placeholder the form refuses, keyed to its locale message. */
 export interface TemplateProblem {
-  key: string
+  name: string
   problem: TemplateProblemCode
+}
+
+/** Every reason the form cannot be sent yet. */
+export interface TemplateFormProblems {
+  values: TemplateProblem[]
+  id: CampaignIdProblem | null
+  nameEnRequired: boolean
+  nameArRequired: boolean
 }
 
 const DECIMAL = /^-?\d+(\.\d+)?$/
 const text = (v: string | string[] | undefined) => (typeof v === 'string' ? v.trim() : '')
-const codes = (v: string | string[] | undefined) => (Array.isArray(v) ? v : [])
+const codes = (v: string | string[] | undefined) => (Array.isArray(v) ? v : text(v).split(',').map((x) => x.trim()).filter(Boolean))
 
-/** Every reason the form cannot be sent yet, one per placeholder at most; empty = it can. */
-export function templateProblems(template: RuleCampaignTemplate, form: TemplateForm): TemplateProblem[] {
-  const problems: TemplateProblem[] = []
+/** The JSON a typed text holds, or `undefined` when it holds none. */
+function parseJson(typed: string): unknown {
+  try {
+    return JSON.parse(typed)
+  } catch {
+    return undefined
+  }
+}
+
+/** Every reason the form cannot be sent yet. `taken`: the ids of the campaigns listed. */
+export function templateProblems(template: RuleTemplate, form: TemplateForm, taken: readonly string[] = []): TemplateFormProblems {
+  const values: TemplateProblem[] = []
   for (const p of template.placeholders) {
-    const v = form[p.key]
-    if (p.kind === 'pick') {
-      if (codes(v).length === 0) problems.push({ key: p.key, problem: 'required' })
+    const v = form.values[p.name]
+    const kind = placeholderKind(p)
+    if (kind === 'bool') continue
+    if (kind === 'codes') {
+      if (codes(v).length === 0) values.push({ name: p.name, problem: 'required' })
       continue
     }
     const typed = text(v)
-    if (p.kind === 'choice') {
-      if (!(p.options ?? []).some((o) => o.code === typed)) problems.push({ key: p.key, problem: 'required' })
-      continue
-    }
-    if (typed === '') {
-      problems.push({ key: p.key, problem: 'required' })
-      continue
-    }
-    // A plain decimal only: Number() would also take `0x1E` or `1e2`, and the name would then read a
-    // value the marketer never typed.
-    const n = DECIMAL.test(typed) ? Number(typed) : NaN
-    if (!Number.isFinite(n)) problems.push({ key: p.key, problem: 'notNumber' })
-    else if (p.min != null && n < p.min) problems.push({ key: p.key, problem: 'belowMin' })
-    else if (p.max != null && n > p.max) problems.push({ key: p.key, problem: 'aboveMax' })
+    if (typed === '') values.push({ name: p.name, problem: 'required' })
+    // A plain decimal only: Number() would also take `0x1E` or `1e2`, a value the marketer never typed.
+    else if (kind === 'number' && !DECIMAL.test(typed)) values.push({ name: p.name, problem: 'notNumber' })
+    else if (kind === 'json' && parseJson(typed) === undefined) values.push({ name: p.name, problem: 'notJson' })
   }
-  return problems
+  return {
+    values,
+    id: campaignIdProblem(templateFormId(form), taken),
+    nameEnRequired: !form.nameEn.trim(),
+    nameArRequired: !form.nameAr.trim(),
+  }
 }
 
-/** The form's values as the template takes them: a number as a number, a pick as its codes. Read
- *  only once `templateProblems` is empty. */
-export function templateValues(template: RuleCampaignTemplate, form: TemplateForm): Record<string, RuleTemplateValue> {
-  const values: Record<string, RuleTemplateValue> = {}
+/** Whether the form can be sent. */
+export const templateReady = (p: TemplateFormProblems): boolean => p.values.length === 0 && !p.id && !p.nameEnRequired && !p.nameArRequired
+
+/** `Drafts/FromTemplate`'s body: every placeholder's value as JSON, the picked id and both names.
+ *  Read only once `templateReady` holds. */
+export function templateBody(template: RuleTemplate, form: TemplateForm): RuleFromTemplateBody {
+  const values: Record<string, unknown> = {}
   for (const p of template.placeholders) {
-    const v = form[p.key]
-    values[p.key] = p.kind === 'pick' ? [...codes(v)] : p.kind === 'number' ? Number(text(v)) : text(v)
+    const v = form.values[p.name]
+    const kind = placeholderKind(p)
+    values[p.name] =
+      kind === 'number' ? Number(text(v)) : kind === 'bool' ? text(v) === 'true' : kind === 'codes' ? [...codes(v)] : kind === 'json' ? parseJson(text(v)) : text(v)
   }
-  return values
-}
-
-export type FillResult = { ok: true; draft: RuleTemplateDraft } | { ok: false; unset: string[] }
-
-const TOKEN = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g
-
-const isMark = (v: unknown): v is { placeholder: string } =>
-  typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length === 1 && typeof (v as { placeholder?: unknown }).placeholder === 'string'
-
-const asText = (v: RuleTemplateValue) => (Array.isArray(v) ? v.join(', ') : String(v))
-
-/**
- * The template's draft with every placeholder replaced by its value. A mark whose key has no value
- * is never left in: the fill refuses, naming each such key once, in the order it met them.
- */
-export function fillTemplate(draft: RuleTemplateDraft, values: Record<string, RuleTemplateValue>): FillResult {
-  const unset: string[] = []
-  const has = (key: string) => Object.prototype.hasOwnProperty.call(values, key)
-  const miss = (key: string) => {
-    if (!unset.includes(key)) unset.push(key)
-  }
-  const walk = (v: unknown): unknown => {
-    if (typeof v === 'string')
-      return v.replace(TOKEN, (whole, key: string) => {
-        if (has(key)) return asText(values[key])
-        miss(key)
-        return whole
-      })
-    if (Array.isArray(v)) return v.map(walk)
-    if (isMark(v)) {
-      if (has(v.placeholder)) {
-        const value = values[v.placeholder]
-        return Array.isArray(value) ? [...value] : value
-      }
-      miss(v.placeholder)
-      return v
-    }
-    if (typeof v === 'object' && v !== null) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]))
-    return v
-  }
-  const filled = walk(draft) as RuleTemplateDraft
-  return unset.length ? { ok: false, unset } : { ok: true, draft: filled }
+  return { template: template.code, campaign: templateFormId(form), name: { en: form.nameEn.trim(), ar: form.nameAr.trim() }, values }
 }

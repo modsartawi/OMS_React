@@ -1,106 +1,105 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleCampaignTemplate } from '@/core/models/rule-campaign'
-import { fillTemplate, templateFormFor, templateProblems, templateValues } from './template-form'
+import type { RuleTemplate } from '@/core/models/rule-campaign'
+import {
+  placeholderKind,
+  placeholderLookup,
+  templateBody,
+  templateFormFor,
+  templateFormId,
+  templateProblems,
+  templateReady,
+  type TemplateForm,
+} from './template-form'
 
-/** The prototype's "Spend X, get Y% off a category", in the provisional template shape. */
-const SPEND: RuleCampaignTemplate = {
-  id: 'T-SPEND-PCT',
+/** The prototype's "Spend X, get Y% off a category", as `Templates/List` answers it (2759). */
+const SPEND: RuleTemplate = {
+  code: 'T-SPEND-PCT',
   name: { en: 'Spend X, get Y% off a category', ar: 'أنفق واحصل على خصم' },
-  description: 'A basket threshold and a percent off one category.',
-  enabled: true,
-  placeholders: [
-    { key: 'minSpend', label: 'Minimum basket (SAR)', kind: 'number', min: 50, max: 1000, default: 200 },
-    { key: 'pct', label: 'Percent off', kind: 'number', min: 5, max: 30, default: 10 },
-    { key: 'cats', label: 'Category', kind: 'pick', lookup: 'categories', default: ['A002'] },
-  ],
-  draft: {
-    name: { en: 'Spend SAR {{minSpend}}, get {{pct}}% off', ar: 'أنفق {{minSpend}} ريال واحصل على خصم {{pct}}%' },
-    features: [],
-    rules: [
-      {
-        id: 'r1',
-        name: '{{pct}}% off the category',
-        filters: [{ id: 'f1', name: 'target', categories: { placeholder: 'cats' } as unknown as string[], exclude: { categories: ['A006'] } }],
-        values: [],
-        when: [{ check: 'minSubtotal', amount: { placeholder: 'minSpend' }, says: { en: 'A basket of SAR {{minSpend}}', ar: 'سلة بقيمة {{minSpend}} ريال' } }],
-        then: [{ effect: 'discountItems', filter: 'f1', kind: 'percent', value: { placeholder: 'pct' }, label: { en: '{{pct}}% off', ar: 'خصم {{pct}}%' } }],
-      },
-    ],
+  revision: 2,
+  features: [],
+  campaign: {
+    id: 'T-SPEND-PCT',
+    name: { en: 'Spend SAR 200, get 10% off', ar: 'أنفق 200 ريال واحصل على خصم 10%' },
+    rules: [],
   },
+  placeholders: [
+    { name: 'minSpend', label: { en: 'Minimum basket', ar: 'الحد الأدنى للسلة' }, path: 'rules[0].when[0].amount', default: 200 },
+    { name: 'pct', label: { en: 'Percent off', ar: 'نسبة الخصم' }, path: 'rules[0].then[0].value', default: 10 },
+    { name: 'cats', label: { en: 'Category', ar: 'الفئة' }, path: 'rules[0].filters[0].categories', default: ['A002'] },
+    { name: 'label', label: { en: 'Receipt label', ar: 'نص الإيصال' }, path: 'rules[0].then[0].label.en', default: '10% off' },
+    { name: 'fees', label: { en: 'Fees too', ar: 'الرسوم أيضاً' }, path: 'rules[0].then[0].scope', default: false },
+    { name: 'window', label: { en: 'Window', ar: 'الفترة' }, path: 'window', default: { from: '2026-11-01' } },
+  ],
+  updatedAt: '2026-10-10T09:00:00',
+  updatedBy: 'Omar (marketing)',
 }
 
-describe('templateForm', () => {
-  it('starts each placeholder at its default', () => {
-    expect(templateFormFor(SPEND)).toEqual({ minSpend: '200', pct: '10', cats: ['A002'] })
+describe('the placeholder kinds', () => {
+  it('follow the default’s JSON: a number, a text, yes / no, a list of codes, anything else JSON', () => {
+    expect(SPEND.placeholders.map(placeholderKind)).toEqual(['number', 'number', 'codes', 'text', 'bool', 'json'])
+    expect(placeholderKind({ default: null })).toBe('json')
+    expect(placeholderKind({ default: [1, 2] })).toBe('json')
   })
 
-  it('refuses an empty, a non-number and an out-of-bounds value, and an empty pick', () => {
-    expect(templateProblems(SPEND, templateFormFor(SPEND))).toEqual([])
-    expect(templateProblems(SPEND, { minSpend: ' ', pct: 'ten', cats: [] })).toEqual([
-      { key: 'minSpend', problem: 'required' },
-      { key: 'pct', problem: 'notNumber' },
-      { key: 'cats', problem: 'required' },
-    ])
-    expect(templateProblems(SPEND, { minSpend: '49.5', pct: '31', cats: ['A002'] })).toEqual([
-      { key: 'minSpend', problem: 'belowMin' },
-      { key: 'pct', problem: 'aboveMax' },
-    ])
-    expect(templateProblems(SPEND, { minSpend: '0x1E', pct: '1e1', cats: ['A002'] })).toEqual([
-      { key: 'minSpend', problem: 'notNumber' },
-      { key: 'pct', problem: 'notNumber' },
-    ])
-    // The bounds are inclusive.
-    expect(templateProblems(SPEND, { minSpend: '50', pct: '30', cats: ['A002'] })).toEqual([])
-  })
-
-  it('a choice must be one of its options', () => {
-    const tier: RuleCampaignTemplate = {
-      ...SPEND,
-      placeholders: [{ key: 'tier', label: 'Tier', kind: 'choice', options: [{ code: 'G', name: 'Gold' }], default: 'G' }],
-    }
-    expect(templateProblems(tier, { tier: 'G' })).toEqual([])
-    expect(templateProblems(tier, { tier: 'X' })).toEqual([{ key: 'tier', problem: 'required' }])
-  })
-
-  it('types the values: a number as a number, a pick as its codes', () => {
-    expect(templateValues(SPEND, { minSpend: ' 250 ', pct: '15', cats: ['A002', 'A003'] })).toEqual({ minSpend: 250, pct: 15, cats: ['A002', 'A003'] })
+  it('a list of codes is picked through the lookup its path’s field names', () => {
+    expect(placeholderLookup({ path: 'rules[0].filters[0].categories' })).toBe('categories')
+    expect(placeholderLookup({ path: 'rules[0].filters[1].articles' })).toBe('materials')
+    expect(placeholderLookup({ path: 'audience.stores' })).toBe('stores')
+    expect(placeholderLookup({ path: 'audience.channels' })).toBeNull()
   })
 })
 
-describe('fillTemplate', () => {
-  it('fillTemplate_replacesEveryPlaceholder_andLeavesNoneUnset', () => {
-    const out = fillTemplate(SPEND.draft, { minSpend: 250, pct: 15, cats: ['A002', 'A003'] })
-    expect(out.ok).toBe(true)
-    if (!out.ok) return
-    const d = out.draft
-    expect(d.name).toEqual({ en: 'Spend SAR 250, get 15% off', ar: 'أنفق 250 ريال واحصل على خصم 15%' })
-    const rule = d.rules[0]
-    expect(rule.name).toBe('15% off the category')
-    expect(rule.filters[0].categories).toEqual(['A002', 'A003'])
-    expect(rule.when[0]).toMatchObject({ amount: 250, says: { en: 'A basket of SAR 250', ar: 'سلة بقيمة 250 ريال' } })
-    expect(rule.then[0]).toMatchObject({ value: 15, label: { en: '15% off', ar: 'خصم 15%' } })
-    // Nothing of a mark is left anywhere.
-    expect(JSON.stringify(d)).not.toMatch(/placeholder|\{\{/)
-    // Everything else is as the template wrote it.
-    expect(rule.filters[0].exclude).toEqual({ categories: ['A006'] })
-    expect(rule.then[0].filter).toBe('f1')
+describe('templateForm', () => {
+  it('starts each placeholder at its default and the names at the template campaign’s', () => {
+    const form = templateFormFor(SPEND)
+    expect(form.values).toEqual({ minSpend: '200', pct: '10', cats: ['A002'], label: '10% off', fees: 'false', window: '{"from":"2026-11-01"}' })
+    expect(form).toMatchObject({ nameEn: 'Spend SAR 200, get 10% off', nameAr: 'أنفق 200 ريال واحصل على خصم 10%', idEdited: false })
+    expect(templateFormId(form)).toBe('SPEND-SAR-200-GET-10-OFF')
   })
 
-  it('refuses, naming each key with no value once, rather than leave a mark in', () => {
-    expect(fillTemplate(SPEND.draft, { pct: 15 })).toEqual({ ok: false, unset: ['minSpend', 'cats'] })
+  it('refuses an empty value, a non-number, a list with no code and text that is not JSON', () => {
+    const form = templateFormFor(SPEND)
+    expect(templateReady(templateProblems(SPEND, form))).toBe(true)
+    const bad: TemplateForm = { ...form, values: { ...form.values, minSpend: ' ', pct: '1e1', cats: [], label: '', window: '{from:' } }
+    expect(templateProblems(SPEND, bad).values).toEqual([
+      { name: 'minSpend', problem: 'required' },
+      { name: 'pct', problem: 'notNumber' },
+      { name: 'cats', problem: 'required' },
+      { name: 'label', problem: 'required' },
+      { name: 'window', problem: 'notJson' },
+    ])
   })
 
-  it('never changes the template it fills', () => {
-    const before = JSON.stringify(SPEND.draft)
-    const out = fillTemplate(SPEND.draft, { minSpend: 250, pct: 15, cats: ['A002'] })
-    expect(JSON.stringify(SPEND.draft)).toBe(before)
-    if (out.ok) out.draft.rules[0].filters[0].categories?.push('A005')
-    expect(JSON.stringify(SPEND.draft)).toBe(before)
+  it('wants both names and an id it can use', () => {
+    const form = { ...templateFormFor(SPEND), nameAr: ' ' }
+    expect(templateProblems(SPEND, form)).toMatchObject({ nameArRequired: true, nameEnRequired: false, id: null })
+    expect(templateProblems(SPEND, { ...form, idEdited: true, id: 'priority' }).id).toBe('idReserved')
+    expect(templateProblems(SPEND, { ...form, idEdited: true, id: 'WKND20' }, ['WKND20']).id).toBe('idTaken')
+  })
+})
+
+describe('templateBody_sendsJsonByPlaceholderName', () => {
+  it('sends each value as the JSON its kind says, the picked id and both names trimmed', () => {
+    const form: TemplateForm = {
+      ...templateFormFor(SPEND),
+      values: { minSpend: ' 250 ', pct: '15', cats: ['A002', 'A003'], label: ' 15% off ', fees: 'true', window: '{"from":"2026-12-01","until":"2026-12-31"}' },
+      nameEn: ' Spend 250 ',
+      nameAr: ' أنفق 250 ',
+      idEdited: true,
+      id: ' SPEND-250 ',
+    }
+    expect(templateBody(SPEND, form)).toEqual({
+      template: 'T-SPEND-PCT',
+      campaign: 'SPEND-250',
+      name: { en: 'Spend 250', ar: 'أنفق 250' },
+      values: { minSpend: 250, pct: 15, cats: ['A002', 'A003'], label: '15% off', fees: true, window: { from: '2026-12-01', until: '2026-12-31' } },
+    })
   })
 
-  it('a text inside an expression takes the value as text, and is otherwise left as written', () => {
-    const draft = { ...SPEND.draft, rules: [{ ...SPEND.draft.rules[0], values: [{ name: 'pts', expr: ['*', '$basis', '{{mult}}'] }] }] }
-    const out = fillTemplate(draft, { minSpend: 1, pct: 1, cats: [], mult: 2.5 })
-    expect(out.ok && out.draft.rules[0].values[0].expr).toEqual(['*', '$basis', '2.5'])
+  it('a list of codes typed by hand is split at its commas', () => {
+    const t: RuleTemplate = { ...SPEND, placeholders: [{ name: 'ch', label: { en: 'Channels', ar: '' }, path: 'audience.channels', default: ['POS'] }] }
+    const form = { ...templateFormFor(t), values: { ch: 'POS, CC ,' } }
+    expect(templateProblems(t, form).values).toEqual([])
+    expect(templateBody(t, form).values).toEqual({ ch: ['POS', 'CC'] })
   })
 })

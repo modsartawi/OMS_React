@@ -14,9 +14,9 @@ const row = (
   name: { en, ar },
   state,
   campaignStatus,
-  publishedVersionNo: campaignStatus ? 1 : 0,
   window: { from, until },
   features: ['points'],
+  live: null,
   updatedAt: '2026-10-01T09:00:00',
   updatedBy: 'Omar (marketing)',
 })

@@ -1,14 +1,13 @@
 {
   "title": "Priority",
-  "lede": "The evaluation order, one level deep. The base runs top to bottom and stacks. A group decides among its own campaigns with its mode, then the base carries on.",
+  "lede": "The live evaluation order, one level deep. The base runs top to bottom and stacks. A group decides among its own campaigns with its mode, then the base carries on.",
   "cascade": "Groups always cascade: every discount is taken on what is left after the discounts above it.",
-  "publishes": "The order is saved as a draft and goes to tills with the next published version, so a till never mixes two orders.",
+  "publishes": "HQ has no order of its own to save: the order is saved with a campaign draft and goes to tills when that draft is activated, so a till never mixes two orders.",
   "unsaved": "Unsaved changes to the order.",
   "actions": {
     "addGroup": "Add group",
     "discard": "Discard changes",
-    "save": "Save order",
-    "saving": "Saving…"
+    "save": "Save with a draft…"
   },
   "legend": {
     "label": "What a group's mode and scope mean",
@@ -34,12 +33,13 @@
   "group": {
     "newName": "New group {{n}}",
     "unnamed": "Unnamed group",
-    "name": "Group name",
+    "name": "Group name (English)",
     "mode": "Mode",
     "scope": "Scope",
     "delete": "Delete the group {{what}}",
     "deleteHeld": "Move its campaigns out first: only an empty group is deleted.",
-    "empty": "Empty. Move a campaign here with its Move to list."
+    "empty": "Empty. Move a campaign here with its Move to list.",
+    "nameAr": "Group name (Arabic)"
   },
   "row": {
     "moveTo": "Move to",
@@ -54,22 +54,44 @@
   "load": {
     "loading": "Reading the order…",
     "failedTitle": "The order could not be read",
-    "failed": "The evaluation order could not be read. Try again later."
+    "failed": "The evaluation order could not be read. Try again later.",
+    "denied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the order."
   },
   "campaigns": {
     "failedTitle": "The campaigns could not be read",
-    "failed": "The order shows campaign codes only until the campaigns list can be read."
+    "failed": "The order shows campaign codes only until the campaigns list can be read.",
+    "denied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the campaigns list. The order shows campaign codes only."
   },
   "save": {
-    "failedTitle": "The order was not saved",
-    "failed": "The order could not be saved. Your changes are still here; try again.",
-    "blankName": "Every group needs a name before the order is saved.",
-    "done": "Saved as a draft. It goes to tills with the next published version."
+    "blankName": "Every group needs an English name before the order is saved.",
+    "done": "Showing the order saved with the draft of {{campaign}}. It goes live when that draft is activated; until then tills run the live order.",
+    "showLive": "Show the live order"
   },
   "leave": {
     "title": "Leave without saving?",
     "body": "Your changes to the order are not saved. Leaving discards them.",
     "stay": "Stay",
     "go": "Leave and discard"
+  },
+  "liveVersion": "The order as live version {{version}} runs it.",
+  "carrier": {
+    "title": "Which draft carries the order?",
+    "intro": "HQ saves the order with a campaign draft: the draft you pick is saved as it is, with this order.",
+    "goesLive": "The order goes live when that draft is activated, not before.",
+    "legend": "Drafts being edited",
+    "loading": "Reading the drafts…",
+    "listFailedTitle": "The drafts could not be read",
+    "none": "No draft is being edited. Open a campaign and save a draft first: the order rides with it.",
+    "saved": "Saved <at>{{at}}</at> by <by>{{by}}</by>",
+    "cancel": "Cancel",
+    "save": "Save the order with it",
+    "failedTitle": "The order was not saved",
+    "failed": "The order could not be saved. Your changes are still here; try again.",
+    "notEditing": "That draft is no longer being edited (it waits for approval or was sent back). Pick another.",
+    "stale": "That draft was saved by someone else just now. Pick it again to save the order with its newest state.",
+    "denied": "You do not have the rule-author permission (RuleAuthoring 02), so HQ refused.",
+    "carriesOrderTitle": "That draft already carries an order",
+    "carriesOrder": "Its saved order would be replaced by this one. Replace it, or pick another draft.",
+    "replace": "Replace its order"
   }
 }

@@ -4,8 +4,8 @@
 // Drives the REAL app in Chromium against STUBS of the rule-campaign doors, on the REAL envelope
 // { statusCode, success, message, errors: [{ errorCode, internalErrorCode, errorMessage }], data }.
 // Ticket 522 re-pointed the draft doors onto BackOffice 2758/2759's real shapes (the campaign JSON,
-// schema 1, inside the `Drafts/Load` reply), ticket 523 the builder's other 2758 doors; the doors
-// 524-526 still own keep their PROVISIONAL paths:
+// schema 1, inside the `Drafts/Load` reply), ticket 523 the builder's other 2758 doors, ticket 524
+// the 2759 doors; the coupon doors 526 owns keep their PROVISIONAL paths:
 //   POST Rules/Authoring/Drafts/Load { campaign } → the draft (`loadDraft`); 404 RULES_DRAFT_NOT_FOUND
 //   POST Rules/Authoring/Drafts/Save { campaign, features, revision, tree? } → the draft one revision higher
 //       (`saveDraft`) — a create is revision 0 with the author's id; 409 RULES_DRAFT_STALE / PENDING;
@@ -25,21 +25,25 @@
 //       with `refuseUsage` (510, 523)
 //   POST Rules/Authoring/Budgets/SetLimit { campaign, budget, limit } → a live limit set (`setLimit`);
 //       the first `refuseLimit` changes are refused (510, 523)
-//   GET RuleCampaign/Campaigns        → list rows (tools/campaigns-fixtures.mjs `listRow`)
-//   POST RuleCampaign/Campaigns/{id}/Copy → an independent draft "<name> (copy)" (502, `copyOf`)
-//   GET RuleCampaign/Templates        → the prototype's three templates (503, `TEMPLATES`), or refused
-//       with `refuseTemplates`
-//   POST RuleCampaign/Templates/{id}/Create → a draft from { values, draft } (503, `createFromTemplate`);
-//       a disabled template is refused; the first `refuseFromTemplate` creates are refused
-//   GET RuleCampaign/Roles            → the reader's roles: an author unless `as('approver' | 'both' |
-//       'none')` says otherwise (read on the next page load), or refused with `refuseRoles` (511)
-//   POST RuleCampaign/Campaigns/{id}/{AskForApproval|Activate|SendBack|Disable} → the campaign moved
-//       (`lifecycle`); the first `refuseActivate` activations are refused (511)
-//   GET RuleCampaign/Campaigns/{id}/Versions → the published versions without rules (`versionsOf`,
-//       `versionRow`), or refused with `refuseVersions`; an Activate publishes one (`publishVersion`) (512)
-//   GET RuleCampaign/Campaigns/{id}/Versions/{n} → one version with its rules (512)
-//   POST RuleCampaign/Campaigns/{id}/Versions/{n}/Restore → the version is the new draft
-//       (`restoreVersion`); the first `refuseRestore` restores are refused (512)
+//   POST Rules/Authoring/Drafts/List  → every draft, last saved first (`draftsList`) ┐ the list is
+//   POST Rules/Authoring/Order        → the live tree + campaigns (`orderOf`)       ├ composed from
+//   POST Rules/Authoring/Versions/Load { versionNo } → the live ruleset (`rulesetOf`) ┘ these (524)
+//   POST Rules/Authoring/Drafts/Copy { from, campaign, name? } → a new draft (`copyDraft`, 502, 524)
+//   POST Rules/Authoring/Templates/List → the prototype's three templates (`TEMPLATES`), or a bare
+//        403 with `refuseTemplates` (503, 524)
+//   POST Rules/Authoring/Drafts/FromTemplate { template, campaign, name?, values } → a new draft
+//        (`fromTemplate`); the first `refuseFromTemplate` are RULES_BAD_TEMPLATE (503, 524)
+//   POST Rules/Authoring/Approvals/{Request|SendBack|Activate|Disable} → HQ's approval life
+//        (`approval`), acted by `as('author' | 'approver')`'s person; the first `orderStale`
+//        Activates are 409 RULES_ORDER_STALE, and `denyApprover` answers the approver's doors with
+//        a bare 403 (511, 524)
+//   POST Rules/Authoring/Approvals/List → the waiting drafts beside their live campaign
+//   POST Rules/Authoring/Approvals/History { campaign } → the campaign's trail (`HISTORY` + acts)
+//   POST Rules/Authoring/Versions/List { campaign } → the versions, oldest first (the page orders
+//        them itself), or 503 with `refuseVersions` (512, 524)
+//   POST Rules/Authoring/Versions/Load { versionNo, campaign } → one version and its campaign
+//   POST Rules/Authoring/Versions/Restore { campaign, versionNo, revision } → the version is the draft;
+//        the first `refuseRestore` are refused (512, 524)
 //   GET RuleCampaign/Campaigns/{id}/Coupons → the campaign's codes (`COUPONS`), or refused with `refuseCoupons` (515)
 //   POST RuleCampaign/Campaigns/{id}/Coupons/Batches → one batch minted (`createBatch`); a taken universal
 //       code is refused; the first `refuseBatch` creates are refused (515)
@@ -71,7 +75,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { CAMPAIGNS, CATALOGUE, COUPONS, TEMPLATES, budgetsOf, catalogueFor, setLimit, uploadValueMap, validationOf, copyOf, checkImport, createBatch, deleteDraft, deleteUnused, importBatch, createFromTemplate, lifecycle, listRow, loadDraft, lookup, publishVersion, restoreVersion, saveDraft, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, CATALOGUE, COUPONS, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, checkImport, copyDraft, createBatch, deleteDraft, deleteUnused, draftsList, fromTemplate as makeFromTemplate, importBatch, loadDraft, loadVersion, lookup, orderOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -105,14 +109,11 @@ const DENIED = 'You do not have the rule-author permission (RuleAuthoring), so H
 const CREATE_REFUSED = 'A draft of this campaign was saved since: load it again. / حُفظت مسودة لهذه الحملة منذ ذلك الحين.'
 const LOOKUP_DENIED = 'You do not have the rule-author permission (RuleAuthoring), so HQ refused the search.'
 const STALE = 'The draft changed since it was loaded: load it again. / تغيّرت المسودة منذ تحميلها.'
-const ROLES_REFUSED = 'Your rule-campaign permissions could not be read. / تعذرت قراءة صلاحياتك.'
-const ACTIVATE_REFUSED = 'You asked for this approval; another approver must activate it. / طلبت هذه الموافقة بنفسك.'
+const ORDER_STALE = 'The order of draft SPRING-DRAFT was edited from version 40; the live order is at 41 now.'
 const SETTINGS_REFUSED = 'The request could not be read: an unknown feature. / تعذرت قراءة الطلب: ميزة غير معروفة.'
 const LIMIT_REFUSED = 'The newest version of WKND20 declares no budget b-money.'
-const VERSIONS_REFUSED = 'The version history is not available. / سجل الإصدارات غير متاح.'
-const TEMPLATES_REFUSED = 'The templates are not available. / القوالب غير متاحة.'
-const FROM_TEMPLATE_REFUSED = 'Percent off may be at most 30. / الخصم 30% كحد أقصى.'
-const RESTORE_REFUSED = 'The version could not be restored right now. / تعذرت استعادة الإصدار الآن.'
+const FROM_TEMPLATE_REFUSED = 'Placeholder free: a value of 3 is more than the bundle allows (rules[0].then[0].free).'
+const RESTORE_REFUSED = 'Version 1 does not hold campaign GIFT-POUCH.'
 const STALE_PENDING = 'The draft waits for approval. / المسودة بانتظار الموافقة.'
 const SAVE_REFUSED = 'This campaign is waiting for approval and cannot be edited. / الحملة بانتظار الموافقة ولا يمكن تعديلها.'
 const COUPONS_REFUSED = 'The coupon codes are not available. / رموز القسائم غير متاحة.'
@@ -129,7 +130,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, refuseRoles = false, refuseActivate = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
+async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = false, refuseBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, denyApprover = false, orderStale = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -153,11 +154,14 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
   /** 523: every value map upload `{ campaign, csv }`. */
   const valueMapUploads = []
   let staleRefusals = staleSaves
-  /** 511: the reader's roles, and every lifecycle act `<act> <id>` with its body. */
-  const ROLE = { author: { author: true, approver: false }, approver: { author: false, approver: true }, both: { author: true, approver: true }, none: { author: false, approver: false } }
+  /** 511, 524: who acts (the person behind the session: an author or an approver), every approval
+   *  act `<act> <id>` with its body, this context's approval trail and live evaluation tree. */
+  const PERSON = { author: 'Omar (marketing)', approver: 'Reem (approver)' }
   let role = 'author'
-  let activateRefusals = refuseActivate
+  let staleOrders = orderStale
   const acts = []
+  const history = structuredClone(HISTORY)
+  let liveTree = structuredClone(TREE)
   /** 510: every budgets read (campaign id) and every live limit set (its body); the live limits set. */
   const usageReads = []
   const limits = []
@@ -237,7 +241,9 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       const out = setLimit(store, liveLimits, body)
       return route.fulfill(out.set ? envelope(out.set) : envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }))
     }
-    if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(store.map(listRow)))
+    // The list's three doors (ticket 524): HQ has no list door (BO ask A).
+    if (p === 'Rules/Authoring/Drafts/List' && req.method() === 'POST') return route.fulfill(envelope(draftsList(store)))
+    if (p === 'Rules/Authoring/Order' && req.method() === 'POST') return route.fulfill(envelope(orderOf(store, liveTree)))
     // The draft doors (ticket 522): BackOffice 2758 + 2759's real shapes.
     const refused = (out) => envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused })
     /** A draft as answered: its validation, unless `checksFor` gives this reply's issues (508). */
@@ -275,69 +281,69 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       const out = deleteDraft(store, body)
       return route.fulfill(out.deleted ? envelope(out.deleted) : refused(out))
     }
-    // PROVISIONAL doors (tickets 523-526 re-point them).
-    const copy = /^RuleCampaign\/Campaigns\/([^/]+)\/Copy$/.exec(p)
-    if (copy && req.method() === 'POST') {
-      const c = store.find((x) => x.code === decodeURIComponent(copy[1]))
-      return route.fulfill(c ? envelope(copyOf(store, c, NOW_LOCAL)) : envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-    }
-    if (p === 'RuleCampaign/Templates' && req.method() === 'GET')
-      return route.fulfill(refuseTemplates ? envelope(null, { status: 503, success: false, message: TEMPLATES_REFUSED, errorCode: 'RULE_TEMPLATES_UNAVAILABLE' }) : envelope(TEMPLATES))
-    const tpl = /^RuleCampaign\/Templates\/([^/]+)\/Create$/.exec(p)
-    if (tpl && req.method() === 'POST') {
+    // The 2759 doors (ticket 524): copy, templates, approvals, versions.
+    if (p === 'Rules/Authoring/Drafts/Copy' && req.method() === 'POST') {
       const body = req.postDataJSON()
-      const tid = decodeURIComponent(tpl[1])
-      fromTemplate.push({ id: tid, body })
-      const x = TEMPLATES.find((t) => t.id === tid)
-      if (!x || !x.enabled) return route.fulfill(envelope(null, { status: 409, success: false, message: 'This template cannot be used.', errorCode: 'RULE_TEMPLATE_NOT_ENABLED' }))
+      acts.push({ act: `Copy ${body?.from}`, body })
+      const out = copyDraft(store, body, NOW_LOCAL)
+      return route.fulfill(out.draft ? envelope(out.draft) : refused(out))
+    }
+    if (p === 'Rules/Authoring/Templates/List' && req.method() === 'POST') return route.fulfill(refuseTemplates ? BARE_403 : envelope(TEMPLATES))
+    if (p === 'Rules/Authoring/Drafts/FromTemplate' && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      fromTemplate.push(body)
       if (fromTemplateRefusals > 0) {
         fromTemplateRefusals--
-        return route.fulfill(envelope(null, { status: 409, success: false, message: FROM_TEMPLATE_REFUSED, errorCode: 'RULE_TEMPLATE_VALUE_OUT_OF_BOUNDS' }))
+        return route.fulfill(envelope(null, { status: 400, success: false, message: FROM_TEMPLATE_REFUSED, errorCode: 'RULES_BAD_TEMPLATE' }))
       }
-      return route.fulfill(envelope(createFromTemplate(store, x, body, NOW_LOCAL)))
+      const out = makeFromTemplate(store, body, NOW_LOCAL)
+      return route.fulfill(out.draft ? envelope(out.draft) : refused(out))
     }
-    if (p === 'RuleCampaign/Roles' && req.method() === 'GET')
-      return route.fulfill(refuseRoles ? envelope(null, { status: 503, success: false, message: ROLES_REFUSED, errorCode: 'RULE_ROLES_UNAVAILABLE' }) : envelope(ROLE[role]))
-    const life = /^RuleCampaign\/Campaigns\/([^/]+)\/(AskForApproval|Activate|SendBack|Disable)$/.exec(p)
+    if (p === 'Rules/Authoring/Approvals/List' && req.method() === 'POST') return route.fulfill(envelope(approvalsList(store)))
+    if (p === 'Rules/Authoring/Approvals/History' && req.method() === 'POST') {
+      const code = req.postDataJSON()?.campaign
+      return route.fulfill(envelope(history.filter((x) => x.campaign === code)))
+    }
+    const life = /^Rules\/Authoring\/Approvals\/(Request|Activate|SendBack|Disable)$/.exec(p)
     if (life && req.method() === 'POST') {
       const body = req.postDataJSON()
-      acts.push({ act: `${life[2]} ${decodeURIComponent(life[1])}`, body })
-      const c = store.find((x) => x.code === decodeURIComponent(life[1]))
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      if (life[2] === 'Activate' && activateRefusals > 0) {
-        activateRefusals--
-        return route.fulfill(envelope(null, { status: 409, success: false, message: ACTIVATE_REFUSED, errorCode: 'RULE_CAMPAIGN_SELF_APPROVAL' }))
+      acts.push({ act: `${life[1]} ${body?.campaign}`, body })
+      if (denyApprover && life[1] !== 'Request') return route.fulfill(BARE_403)
+      if (life[1] === 'Activate' && staleOrders > 0) {
+        staleOrders--
+        return route.fulfill(envelope(null, { status: 409, success: false, message: ORDER_STALE, errorCode: 'RULES_ORDER_STALE' }))
       }
-      const by = role === 'approver' ? 'Reem (approver)' : 'Omar (marketing)'
-      const out = lifecycle(c, life[2], { note: body.note, by, at: NOW_LOCAL })
-      if (out.campaign && life[2] === 'Activate') publishVersion(versions, c, body.note)
-      return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: 'Wrong state.', errorCode: out.refused }))
+      const out = approval(store.find((x) => x.code === body?.campaign && !x.gone), life[1], body, { by: PERSON[role], at: NOW_LOCAL, history, versions, tree: { set: (t) => (liveTree = t) } })
+      const data = out.draft ?? out.published ?? out.version
+      return route.fulfill(data ? envelope(data) : refused(out))
     }
-    const vers = /^RuleCampaign\/Campaigns\/([^/]+)\/Versions(?:\/(\d+))?(\/Restore)?$/.exec(p)
-    if (vers) {
-      const id = decodeURIComponent(vers[1])
-      const c = store.find((x) => x.code === id)
-      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULE_CAMPAIGN_NOT_FOUND' }))
-      const list = versions.get(id) ?? []
-      if (!vers[2] && req.method() === 'GET') {
-        if (refuseVersions) return route.fulfill(envelope(null, { status: 503, success: false, message: VERSIONS_REFUSED, errorCode: 'RULE_VERSIONS_UNAVAILABLE' }))
-        // Oldest first, as a table would answer: the page orders them itself.
-        return route.fulfill(envelope(list.map(versionRow)))
+    if (p === 'Rules/Authoring/Versions/List' && req.method() === 'POST') {
+      const code = req.postDataJSON()?.campaign
+      if (refuseVersions) return route.fulfill(BARE_403)
+      // Oldest first, as a table would answer: the page orders them itself.
+      return route.fulfill(envelope((versions.get(code) ?? []).map(versionRow)))
+    }
+    if (p === 'Rules/Authoring/Versions/Load' && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      if (!body?.campaign) {
+        if (body?.versionNo !== LIVE_VERSION) return route.fulfill(envelope(null, { status: 404, success: false, message: `There is no version ${body?.versionNo}.`, errorCode: 'RULES_VERSION_NOT_FOUND' }))
+        const version = { versionNo: LIVE_VERSION, campaign: 'NATDAY-15', action: 'publish', schemaVersion: 1, publishedAt: '2026-10-12T10:00:00', publishedBy: 'Reem (approver)', requestedBy: 'Omar (marketing)', note: '' }
+        return route.fulfill(envelope({ version, ruleset: rulesetOf(store, liveTree), campaign: null }))
       }
-      const n = Number(vers[2])
-      if (!vers[3] && req.method() === 'GET') {
-        const v = list.find((x) => x.version === n)
-        return route.fulfill(v ? envelope(v) : envelope(null, { status: 404, success: false, message: 'No such version.', errorCode: 'RULE_VERSION_NOT_FOUND' }))
+      const out = loadVersion(versions, body.campaign, body.versionNo)
+      return route.fulfill(out.detail ? envelope(out.detail) : refused(out))
+    }
+    if (p === 'Rules/Authoring/Versions/Restore' && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      restores.push(`${body?.campaign} ${body?.versionNo}`)
+      if (restoreRefusals > 0) {
+        restoreRefusals--
+        return route.fulfill(envelope(null, { status: 404, success: false, message: RESTORE_REFUSED, errorCode: 'RULES_VERSION_NOT_FOUND' }))
       }
-      if (vers[3] && req.method() === 'POST') {
-        restores.push(`${id} ${n}`)
-        if (restoreRefusals > 0) {
-          restoreRefusals--
-          return route.fulfill(envelope(null, { status: 503, success: false, message: RESTORE_REFUSED, errorCode: 'RULE_RESTORE_UNAVAILABLE' }))
-        }
-        const out = restoreVersion(c, versions, n)
-        return route.fulfill(out.campaign ? envelope(out.campaign) : envelope(null, { status: 409, success: false, message: out.message, errorCode: out.refused }))
-      }
+      const c = store.find((x) => x.code === body?.campaign && !x.gone)
+      if (!c) return route.fulfill(envelope(null, { status: 404, success: false, message: NOT_FOUND, errorCode: 'RULES_DRAFT_NOT_FOUND' }))
+      const out = restoreVersion(c, versions, body.versionNo, body.revision)
+      return route.fulfill(out.draft ? envelope(out.draft) : refused(out))
     }
     const imp = /^RuleCampaign\/Campaigns\/([^/]+)\/Coupons\/(Imports(?:\/Check)?|Batches\/([^/]+)\/Unused)$/.exec(p)
     if (imp) {
@@ -395,7 +401,7 @@ async function open({ refuseImportCheck = 0, refuseDelete = 0, refuseCoupons = f
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, validations, checks, checkBodies, catalogueReads, valueMapUploads, acts, usageReads, limits, liveLimits, versions, restores, as: (r) => (role = r), heal: () => (catalogueDown = false) }
+  return { context, page, errors, calls, store, coupons, batches, importChecks, imports, deletes, bodies, fromTemplate, saves, lookups, validations, checks, checkBodies, catalogueReads, valueMapUploads, acts, history, usageReads, limits, liveLimits, versions, restores, tree: () => liveTree, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
 const grid = '[data-campaigns-grid]'
@@ -571,12 +577,14 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //      the new draft's dashboard (both names, its id, Draft, its features, "No time limit"),
 //      toasted; the list counts it;
 //  13. a refusal is the door's own message, in the dialog, with the form kept; an edit clears it;
-//  14. ⋯ › Copy campaign → an independent draft "<name> (copy)" in both languages, opened on its
-//      dashboard as a Draft with no live version; the original is untouched (its name, Running,
-//      version 1); the list counts both new drafts; Escape closes the ⋯ menu;
+//  14. ⋯ › Copy campaign asks for the copy's id (offered as `<id>-COPY`) and its names (offered as
+//      the source's); a listed id is refused at the field; Copy sends ONE Drafts/Copy { from,
+//      campaign, name } (524: the author picks the id) → the new draft opened on its dashboard as a
+//      Draft with no live version; the original is untouched (its name, Running, version 1); the
+//      list counts both new drafts; Escape closes the ⋯ menu;
 //  15. no page errors.
 {
-  const { context, page, errors, calls, bodies } = await open()
+  const { context, page, errors, calls, bodies, acts } = await open()
   const posts = () => bodies.length
   await page.goto(`${BASE}/campaigns`)
   await waitRows(page, 16)
@@ -647,15 +655,32 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.keyboard.press('Escape')
   await menu.waitFor({ state: 'detached' })
   check('14: Escape closes it, focus back on ⋯', (await page.evaluate(() => document.activeElement?.hasAttribute('data-campaign-actions'))) === true)
-  const copies = () => calls.filter((c) => c === 'POST RuleCampaign/Campaigns/WKND20/Copy').length
+  const copies = () => calls.filter((c) => c === 'POST Rules/Authoring/Drafts/Copy').length
   check('14: …and copied nothing', copies() === 0)
   await page.locator('[data-campaign-actions]').click()
   await menu.locator('[data-campaign-action="copy"]').click()
+  const copyDialog = page.locator('[data-copy-campaign]')
+  await copyDialog.waitFor({ timeout: 5000 })
+  const copyField = (f) => copyDialog.locator(`[data-copy-field="${f}"]`)
+  check('14: Copy asks for the copy’s id, offered as the source’s with -COPY', (await copyField('id').inputValue()) === 'WKND20-COPY')
+  check('14: …and its names, offered as the source’s', (await copyField('nameEn').inputValue()) === 'Weekend coupon: 20% off' && (await copyField('nameAr').inputValue()) === 'قسيمة نهاية الأسبوع: خصم 20%')
+  await copyField('id').fill('wknd20')
+  check('14: a listed campaign’s id is refused at the field, and nothing is sent', (await copyDialog.locator('[data-copy-problem="id"]').innerText()) === 'A campaign already has this id.' && copies() === 0)
+  await copyField('id').fill('WKND20-COPY')
+  await copyField('nameEn').fill('Weekend coupon: 20% off (copy)')
+  await copyField('nameAr').fill('قسيمة نهاية الأسبوع: خصم 20% (نسخة)')
+  await page.locator('[data-copy-submit]').click()
   await page.waitForURL(`${BASE}/campaigns/WKND20-COPY`, { timeout: 10000 })
   await page.waitForFunction(() => document.querySelector('[data-line="code"] dd')?.textContent === 'WKND20-COPY', null, { timeout: 10000 })
   check('14: ONE copy was asked for', copies() === 1, String(copies()))
+  const copyBody = acts.find((a) => a.act === 'Copy WKND20')?.body
+  check(
+    '14: …Drafts/Copy from the source, under the picked id, with both names',
+    JSON.stringify(copyBody) === JSON.stringify({ from: 'WKND20', campaign: 'WKND20-COPY', name: { en: 'Weekend coupon: 20% off (copy)', ar: 'قسيمة نهاية الأسبوع: خصم 20% (نسخة)' } }),
+    JSON.stringify(copyBody),
+  )
   const cd = page.locator('[data-dashboard-cell="details"]')
-  check('14: the copy is "<name> (copy)" in English…', (await cd.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off (copy)')
+  check('14: the copy is named as the author named it, in English…', (await cd.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off (copy)')
   check('14: …and in Arabic', (await cd.locator('[data-line="nameAr"] dd').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20% (نسخة)')
   check('14: the copy is a Draft with no live version', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft' && (await page.locator('[data-live-version]').count()) === 0)
   check('14: a toast says it was copied', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Copied as a new draft.')))
@@ -692,21 +717,24 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 503 ── it asserts:
+// ── 503 ── it asserts (re-cut in 524 onto Templates/List + Drafts/FromTemplate: a placeholder is a
+// JSON value at a path, labelled EN + AR; HQ fills the campaign, the client never does — so the
+// `{{key}}` text fill, the name preview, the bounds and the "draft template" mark are gone):
 // 100. Create campaign opens on its Blank campaign tab; From a template lists HQ's templates, each
-//      with both names, its one line and what it asks for; a draft template is marked and cannot
-//      be picked;
-// 101. picking one asks for its placeholders at their defaults — a number with its bounds, the
-//      builder's item picker for a category — and shows the name the draft will have;
-// 102. a value out of bounds or missing is said at its field once Create is tried, and nothing is sent;
-//      Create with no template picked asks for one; Enter in the item search sends nothing and
-//      Escape there clears the search, not the dialog;
-// 103. the values typed and a second category picked → ONE create from that template, with the
-//      typed values and a draft whose every placeholder is filled;
-// 104. it lands on the new draft's dashboard (both filled names, Draft, toasted), and its rule
-//      builder reads the filled values: the threshold, the percent, both categories, both labels;
+//      with both names and what it asks for, every one pickable;
+// 101. picking one asks for its placeholders at their defaults — a number, the builder's item picker
+//      for a category — each with the field it goes into, and for the draft's names (offered as the
+//      template campaign's) and its id (suggested from the English name);
+// 102. a value that is not a number or is missing is said at its field once Create is tried, and
+//      nothing is sent; Create with no template picked asks for one; Enter in the item search sends
+//      nothing and Escape there clears the search, not the dialog;
+// 103. the values typed, a second category picked and the names → ONE Drafts/FromTemplate with the
+//      template, the id, both names and the values as JSON by placeholder name;
+// 104. it lands on the new draft's dashboard (both names, Draft, toasted), and its rule builder reads
+//      HQ's filled campaign: the threshold, the percent, both categories; the "not met" message and
+//      the receipt label as the template wrote them;
 // 105. a refusal is the door's own message, in the dialog, with the values kept; an edit clears it;
-//      a refused templates door says so in the tab;
+//      a templates door the reader lacks the grant for (a bare 403) says so in our words;
 // 106. a reopened dialog is back on the blank tab; no page errors.
 {
   const { context, page, errors, calls, fromTemplate } = await open()
@@ -717,7 +745,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.waitFor()
   const tab = (x) => dialog.locator(`[data-create-tab="${x}"]`)
   check('100: the dialog opens on Blank campaign', (await tab('blank').getAttribute('aria-selected')) === 'true' && (await tab('template').innerText()) === 'From a template')
-  check('100: …and reads no template until its tab opens', !calls.includes('GET RuleCampaign/Templates'))
+  check('100: …and reads no template until its tab opens', !calls.includes('POST Rules/Authoring/Templates/List'))
   await tab('template').click()
   await dialog.locator('[data-template-list]').waitFor({ timeout: 10000 })
   check('100: From a template is the open tab', (await tab('template').getAttribute('aria-selected')) === 'true')
@@ -725,15 +753,15 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('100: every template is listed', JSON.stringify(ids) === '["T-SPEND-PCT","T-BUY-N","T-TIER-PTS"]', JSON.stringify(ids))
   const spend = dialog.locator('[data-template="T-SPEND-PCT"]')
   const spendText = await spend.innerText()
-  check('100: a template shows both names and its one line', spendText.includes('Spend X, get Y% off a category') && spendText.includes('أنفق مبلغاً واحصل على خصم على فئة') && spendText.includes('A basket threshold and a percent off the categories picked.'), spendText)
+  check('100: a template shows both names', spendText.includes('Spend X, get Y% off a category') && spendText.includes('أنفق مبلغاً واحصل على خصم على فئة'), spendText)
   const asks = (await spend.locator('[data-template-asks]').innerText()).replace(/[⁦-⁩]/g, '')
-  check('100: …and what it asks for', asks === 'Asks for: Minimum basket (SAR), Percent off, and Category', asks)
-  const tier = dialog.locator('[data-template="T-TIER-PTS"]')
-  check('100: a draft template is marked and cannot be picked', (await tier.locator('[data-template-draft]').count()) === 1 && (await tier.isDisabled()))
+  check('100: …and what it asks for, by its English labels', asks === 'Asks for: Minimum basket (SAR), Percent off, and Category', asks)
+  check('100: every template can be picked (2759 has no disabled template)', !(await dialog.locator('[data-template="T-TIER-PTS"]').isDisabled()) && (await dialog.locator('[data-template-draft]').count()) === 0)
 
+  const creates = () => calls.filter((c) => c === 'POST Rules/Authoring/Drafts/FromTemplate').length
   await dialog.locator('[data-create-submit]').click()
   check('102: Create with no template picked asks for one', (await dialog.locator('[data-template-pick="missing"]').innerText()) === 'Pick a template first.')
-  check('102: …and sent nothing', !calls.some((c) => c.startsWith('POST RuleCampaign/Templates/')))
+  check('102: …and sent nothing', creates() === 0)
 
   await spend.click()
   const fill = dialog.locator('[data-template-fill="T-SPEND-PCT"]')
@@ -741,19 +769,18 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('101: the picked template is pressed', (await spend.getAttribute('aria-pressed')) === 'true')
   const input = (k) => fill.locator(`[data-template-input="${k}"]`)
   check('101: the numbers start at their defaults', (await input('minSpend').inputValue()) === '200' && (await input('pct').inputValue()) === '10')
-  check('101: a number says its bounds, as one isolate', (await fill.locator('[data-template-hint="minSpend"]').innerText()) === 'Between 50–1000.' && (await fill.locator('[data-template-hint="minSpend"] bdi[dir="ltr"]').innerText()) === '50–1000')
+  check('101: each value says the field it goes into', (await fill.locator('[data-template-path="minSpend"]').innerText()) === 'Goes into rules[0].when[0].amount')
   const picks = (k) => fill.locator(`[data-picks="template-${k}"] [data-pick]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))
   check('101: the category is the builder’s item picker, at its default', JSON.stringify(await picks('cats')) === '["A002"]' && (await fill.locator('[data-lookup="template-cats"]').count()) === 1)
-  const preview = (lang) => fill.locator(`[data-template-preview-name="${lang}"]`).innerText()
-  check('101: the draft’s name is shown in both languages', (await preview('en')) === 'Spend SAR 200, get 10% off' && (await preview('ar')) === 'أنفق 200 ريال واحصل على خصم 10%')
+  const nameField = (f) => fill.locator(`[data-template-field-name="${f}"]`)
+  check('101: the draft’s names are offered as the template campaign’s', (await nameField('nameEn').inputValue()) === 'Spend SAR 200, get 10% off' && (await nameField('nameAr').inputValue()) === 'أنفق 200 ريال واحصل على خصم 10%')
+  check('101: …and its id is suggested from the English name', (await nameField('id').inputValue()) === 'SPEND-SAR-200-GET-10-OFF', await nameField('id').inputValue())
   await page.screenshot({ path: `${SHOTS}/from-template.png` })
 
-  const creates = () => calls.filter((c) => c.startsWith('POST RuleCampaign/Templates/')).length
-  await input('minSpend').fill('1200')
+  await input('minSpend').fill('lots')
   await input('pct').fill('')
-  check('101: no name is shown while a value is wrong', (await fill.locator('[data-template-preview]').count()) === 0)
   await dialog.locator('[data-create-submit]').click()
-  check('102: out of bounds says so at its field', (await fill.locator('[data-template-problem="minSpend"]').innerText()).replace(/[⁦-⁩]/g, '') === 'Enter 1000 or less.')
+  check('102: a value that is not a number says so at its field', (await fill.locator('[data-template-problem="minSpend"]').innerText()) === 'Enter a number.')
   check('102: an empty value says so at its field', (await fill.locator('[data-template-problem="pct"]').innerText()) === 'Enter a value.')
   check('102: …and nothing was sent', creates() === 0)
 
@@ -770,38 +797,39 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await fill.locator('[data-lookup="template-cats"]').fill('baby')
   await fill.locator('[data-lookup-hit="A003"]').click({ timeout: 10000 })
   check('103: a second category is picked', JSON.stringify(await picks('cats')) === '["A002","A003"]')
-  check('103: the name follows the values', (await preview('en')) === 'Spend SAR 250, get 15% off')
+  await nameField('nameEn').fill('Spend SAR 250, get 15% off')
+  await nameField('nameAr').fill('أنفق 250 ريال واحصل على خصم 15%')
+  check('103: the id follows the English name', (await nameField('id').inputValue()) === 'SPEND-SAR-250-GET-15-OFF')
   await dialog.locator('[data-create-submit]').click()
-  await page.waitForURL(`${BASE}/campaigns/SPEND-SAR-250-GE`, { timeout: 10000 })
+  await page.waitForURL(`${BASE}/campaigns/SPEND-SAR-250-GET-15-OFF`, { timeout: 10000 })
   await page.locator('[data-dashboard]').waitFor()
-  check('103: ONE create from the template', creates() === 1 && fromTemplate[0]?.id === 'T-SPEND-PCT', String(creates()))
-  const sent = fromTemplate[0]?.body
-  check('103: …with the values as typed', JSON.stringify(sent?.values) === JSON.stringify({ minSpend: 250, pct: 15, cats: ['A002', 'A003'] }), JSON.stringify(sent?.values))
-  const rule = sent?.draft.rules[0]
+  check('103: ONE Drafts/FromTemplate', creates() === 1, String(creates()))
   check(
-    '103: …and a schema-1 draft with every placeholder filled',
-    !/placeholder|\{\{/.test(JSON.stringify(sent?.draft)) && rule?.when[0].amount === 250 && rule?.then[0].value === 15 && JSON.stringify(rule?.filters[0].categories) === '["A002","A003"]',
-    JSON.stringify(sent?.draft),
+    '103: …with the template, the id, both names and the values as JSON by placeholder name',
+    JSON.stringify(fromTemplate[0]) ===
+      JSON.stringify({ template: 'T-SPEND-PCT', campaign: 'SPEND-SAR-250-GET-15-OFF', name: { en: 'Spend SAR 250, get 15% off', ar: 'أنفق 250 ريال واحصل على خصم 15%' }, values: { minSpend: 250, pct: 15, cats: ['A002', 'A003'] } }),
+    JSON.stringify(fromTemplate[0]),
   )
 
   const details = page.locator('[data-dashboard-cell="details"]')
-  check('104: the dashboard shows both filled names', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Spend SAR 250, get 15% off' && (await details.locator('[data-line="nameAr"] dd').innerText()) === 'أنفق 250 ريال واحصل على خصم 15%')
+  check('104: the dashboard shows both names', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Spend SAR 250, get 15% off' && (await details.locator('[data-line="nameAr"] dd').innerText()) === 'أنفق 250 ريال واحصل على خصم 15%')
   check('104: …a Draft', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Draft')
   check('104: a toast says it was created', (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.includes('Campaign created as a draft.')))
   await page.locator('[data-workspace-menu="rules"]').click()
   await page.locator('[data-rules]').waitFor({ timeout: 10000 })
   const card = page.locator('[data-rule-card]').first()
-  check('104: the rule’s name is filled', (await card.locator('[data-rule-name]').inputValue()) === '15% off the category')
+  check('104: the rule keeps the template’s own name', (await card.locator('[data-rule-name]').inputValue()) === '10% off the category')
   const condition = await card.locator('[data-condition] [data-block-sentence]').innerText()
-  check('104: the condition reads the threshold', condition.includes('250.00'), condition)
+  check('104: the condition reads the threshold HQ put at its path', condition.includes('250.00'), condition)
   const effect = await card.locator('[data-effect] [data-block-sentence]').innerText()
   check('104: the effect reads the percent', effect.includes('15%') && effect.includes('target'), effect)
   const links = await card.locator('[data-filter] [data-filter-link]').allInnerTexts()
   check('104: the filter keeps both categories picked', links.some((l) => l.includes('A002') && l.includes('A003')), JSON.stringify(links))
+  // 524: no `{{key}}` text fill — a text changes only where a placeholder names it.
   const notMet = card.locator('[data-condition] [data-says="notMet"]')
-  check('104: the "not met" message is filled in both languages', (await notMet.locator('[data-says-en]').innerText()) === 'a basket of SAR 250' && (await notMet.locator('[data-says-ar]').innerText()) === 'سلة بقيمة 250 ريال')
+  check('104: the "not met" message is the template’s own, in both languages', (await notMet.locator('[data-says-en]').innerText()) === 'a basket of SAR 200' && (await notMet.locator('[data-says-ar]').innerText()) === 'سلة بقيمة 200 ريال')
   const label = card.locator('[data-effect] [data-says="receiptLabel"]')
-  check('104: the receipt label is filled in both languages', (await label.locator('[data-says-en]').innerText()) === '15% off' && (await label.locator('[data-says-ar]').innerText()) === 'خصم 15%')
+  check('104: …and so is the receipt label', (await label.locator('[data-says-en]').innerText()) === '10% off' && (await label.locator('[data-says-ar]').innerText()) === 'خصم 10%')
   await page.screenshot({ path: `${SHOTS}/from-template-rules.png`, fullPage: true })
 
   await page.locator('[data-workspace-back]').click()
@@ -816,7 +844,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 105 ──
 {
-  const { context, page, errors } = await open({ refuseFromTemplate: 1 })
+  const { context, page, errors, fromTemplate } = await open({ refuseFromTemplate: 1 })
   await page.goto(`${BASE}/campaigns`)
   await waitRows(page, 16)
   await page.locator('[data-new-campaign]').click()
@@ -826,8 +854,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-template="T-BUY-N"]').click()
   const fill = dialog.locator('[data-template-fill="T-BUY-N"]')
   await fill.waitFor()
-  check('105: a collection is picked with the builder’s picker', JSON.stringify(await fill.locator('[data-picks="template-coll"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SUNCARE"]')
+  check('105: articles are picked with the builder’s picker, at their default', JSON.stringify(await fill.locator('[data-picks="template-items"] [data-pick]').evaluateAll((els) => els.map((e) => e.getAttribute('data-pick')))) === '["SUN-50","SUN-30","SUN-KID"]')
   await fill.locator('[data-template-input="buy"]').fill('4')
+  await fill.locator('[data-template-input="free"]').fill('3')
   await dialog.locator('[data-create-submit]').click()
   const banner = dialog.locator('[role="alert"]')
   await banner.waitFor({ timeout: 10000 })
@@ -836,9 +865,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await fill.locator('[data-template-input="free"]').fill('2')
   check('105: an edit clears the refusal', (await dialog.locator('[role="alert"]').count()) === 0)
   await dialog.locator('[data-create-submit]').click()
-  await page.waitForURL(`${BASE}/campaigns/BUY-4-GET-2-FREE`, { timeout: 10000 })
+  await page.waitForURL(`${BASE}/campaigns/BUY-3-GET-1-FREE`, { timeout: 10000 })
   await page.locator('[data-dashboard]').waitFor()
-  check('105: sent again, it lands on the draft', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Buy 4, get 2 free')
+  check('105: sent again, it lands on the draft', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Buy 3, get 1 free' && fromTemplate.at(-1)?.values?.buy === 4 && fromTemplate.at(-1)?.values?.free === 2)
   check('106: no page errors (105)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -852,7 +881,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-tab="template"]').click()
   const banner = dialog.locator('[role="alert"]')
   await banner.waitFor({ timeout: 10000 })
-  check('105: a refused templates door says so in the tab, in its own words', (await banner.innerText()).includes('The templates could not be read') && (await banner.innerText()).includes(TEMPLATES_REFUSED), await banner.innerText())
+  check('105: a bare 403 on the templates says the grant is missing, in our words', (await banner.innerText()).includes('The templates could not be read') && (await banner.innerText()).includes('rule-reader permission (RuleAuthoring 03)'), await banner.innerText())
   check('106: no page errors (105, templates refused)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -1638,27 +1667,32 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 511 ── it asserts:
+// ── 511 ── it asserts (re-cut in 524 onto Approvals/*: HQ has no roles door (BO ask B), so the acts
+// follow the campaign's state and HQ refuses what the person may not do; a note is required to ask,
+// send back and disable):
 //  62. an author's draft shows the pre-activation steps, each ticked or linked — the rules step to
 //      the rule builder, named, schedule and budgets to their Settings pages (509, 510);
-//  63. the author is offered Ask for approval and Delete draft, never Activate; HQ's error in the
-//      saved draft disables Ask, saying why, with the way to the builder;
-//  64. with clean checks the author asks with a note: HQ gets it, the State turns Waiting for
-//      approval naming who asked and the note, the shell's badge follows, the author is offered
-//      nothing and told an approver activates; the list's tiles count it under Waiting;
-//  65. an approver reads the pending changes and is offered Activate and Send back, not Ask or Delete;
+//  63. a draft offers Ask for approval and Delete draft; HQ's error in the saved draft disables Ask,
+//      saying why, with the way to the builder;
+//  64. with clean checks Ask still waits for a note; asked with one, HQ gets { campaign, revision,
+//      note }, the State turns Waiting for approval naming who asked and the note, the shell's badge
+//      follows, Activate and Send back are offered with who may take them; the trail names the ask;
+//      the list's tiles count it under Waiting;
+//  65. the approver reads the pending changes (a first version) and is offered Activate and Send back;
 //  66. Send back wants a note; it returns the draft to its author, who reads who sent it back and why;
-//  67. asked again, a refused Activate keeps the dialog open with the envelope's message and code;
-//  68. Activate again: the campaign is live (Running, version 1, by the approver), the steps are gone;
-//      the approver may now Disable it, it reads Disabled, and the list's tiles follow;
-//  69. a draft with no rule cannot be asked yet, saying so; an author's Delete draft asks first;
-//      confirmed, the draft is gone and the list counts it out;
-//  70. a refused roles door is its own message and code, and offers no act;
+//  67. asked again, the author who asked cannot activate it: HQ's RULES_SELF_APPROVAL (403) in our
+//      words, HQ's message and the code; the dialog stays open, the campaign still waiting;
+//  68. an approver activates: the campaign is live (Running, version 1), the steps are gone, the trail
+//      names every step; Disable wants a note; disabled, it reads Disabled — and, with no draft, the
+//      list cannot show it any more (BO ask A);
+//  69. a draft with no rule cannot be asked yet, saying so; Delete draft asks first; confirmed, the
+//      draft is gone and the list counts it out;
+//  70. Activate refused with RULES_ORDER_STALE says the order moved and offers Send back, which opens
+//      the Send back dialog; a bare 403 on the approver's door names the approver's grant;
 //  71. no page errors.
 {
   const NO_RULES = { severity: 'error', rule: null, ruleId: null, block: 'campaign', index: null, field: null, where: 'campaign', message: 'A campaign needs a rule.', path: 'campaign' }
   const { context, page, errors, acts, as } = await open({
-    refuseActivate: 1,
     // The bare draft gets one rule, so HQ's checks are what gate it (no rule gates it first — 69).
     edit: (store) => (store.find((c) => c.code === 'SPRING-DRAFT').campaign.rules = structuredClone(store.find((c) => c.code === 'WKND20').campaign.rules.slice(0, 1))),
     checksFor: (id, n) => (id === 'SPRING-DRAFT' && n === 0 ? [NO_RULES] : []),
@@ -1668,9 +1702,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const action = (a) => page.locator(`[data-approval-action="${a}"]`)
   const offered = () => page.locator('[data-approval-action]').evaluateAll((els) => els.map((e) => e.getAttribute('data-approval-action')))
   const dialog = page.locator('[data-approval-dialog]')
+  const trail = () => page.locator('[data-trail-step]').evaluateAll((els) => els.map((e) => e.getAttribute('data-trail-step')))
   const dash = async (id) => {
     await page.goto(`${BASE}/campaigns/${id}`)
-    await page.locator('[data-approval]:not([data-approval="loading"])').waitFor({ timeout: 10000 })
+    await page.locator('[data-approval]').waitFor({ timeout: 10000 })
   }
 
   // ── 62 ──
@@ -1686,9 +1721,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
       (await page.locator('[data-step="schedule"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/schedule' &&
       (await page.locator('[data-step="budgets"] [data-step-link]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/settings/budgets',
   )
+  check('62: the trail says no one has asked yet', (await page.locator('[data-trail-empty]').innerText()) === 'No one has asked for approval of this campaign yet.')
 
   // ── 63 ──
-  check('63: an author is offered Ask for approval and Delete draft, never Activate', JSON.stringify(await offered()) === '["askForApproval","deleteDraft"]', JSON.stringify(await offered()))
+  check('63: a draft offers Ask for approval and Delete draft', JSON.stringify(await offered()) === '["askForApproval","deleteDraft"]', JSON.stringify(await offered()))
   check('63: HQ’s error disables Ask for approval', await action('askForApproval').isDisabled())
   check(
     '63: …saying why, with the way to the builder',
@@ -1700,14 +1736,17 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   // ── 64 ──
   await dash('SPRING-DRAFT') // a fresh load re-reads the checks: clean now
   await page.locator('[data-approval-gate]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
-  check('64: clean checks enable Ask for approval', await action('askForApproval').isEnabled())
+  check('64: clean checks, but Ask waits for its note', (await action('askForApproval').isDisabled()) && (await page.locator('[data-ask-note-hint]').innerText()).startsWith('Required'))
   check('64: …and tick the rules step, the others still to do', JSON.stringify(await page.locator('[data-step][data-step-done]').evaluateAll((els) => els.map((e) => e.getAttribute('data-step')))) === '["rules"]')
+  await page.locator('[data-ask-note]').fill('   ')
+  check('64: a note of spaces is no note', await action('askForApproval').isDisabled())
   await page.locator('[data-ask-note]').fill('Spring range ready for review.')
+  check('64: with a note, Ask is on', await action('askForApproval').isEnabled())
   await action('askForApproval').click()
   await page.locator('[data-state-sentence="waitingForApproval"]').waitFor({ timeout: 5000 })
   check(
-    '64: HQ got the ask with its note',
-    JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'AskForApproval SPRING-DRAFT', body: { note: 'Spring range ready for review.' } }),
+    '64: HQ got Approvals/Request with the campaign, the revision read and the note',
+    JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'Request SPRING-DRAFT', body: { campaign: 'SPRING-DRAFT', revision: 1, note: 'Spring range ready for review.' } }),
     JSON.stringify(acts.at(-1)),
   )
   check(
@@ -1717,7 +1756,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   )
   check('64: …and the note', (await page.locator('[data-approval-note]').innerText()) === 'Spring range ready for review.')
   check('64: the shell’s badge follows', (await page.locator('[data-workspace-name] [data-campaign-state]').getAttribute('data-campaign-state')) === 'waitingForApproval')
-  check('64: the author is offered nothing now, and told an approver activates', (await offered()).length === 0 && (await page.locator('[data-approval-hint="authorWaiting"]').isVisible()))
+  check(
+    '64: Activate and Send back are offered, saying who may take them',
+    JSON.stringify(await offered()) === '["activate","sendBack"]' && (await page.locator('[data-approval-hint="waiting"]').innerText()).startsWith('Waiting for an approver: one who did not ask for it'),
+  )
+  await page.locator('[data-trail-step="requested"]').waitFor({ timeout: 5000 })
+  check('64: the trail names the ask, who and the note', (await page.locator('[data-trail-step="requested"]').innerText()).includes('Omar (marketing) asked for approval') && (await page.locator('[data-trail-step="requested"] [data-trail-note]').innerText()) === 'Spring range ready for review.')
   await page.screenshot({ path: `${SHOTS}/approval-author-waiting.png` })
   await page.goto(`${BASE}/campaigns`)
   await waitRows(page, 16)
@@ -1726,10 +1770,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   // ── 65 ──
   as('approver')
   await dash('SPRING-DRAFT')
-  check('65: an approver is offered Activate and Send back, not Ask or Delete', JSON.stringify(await offered()) === '["activate","sendBack"]', JSON.stringify(await offered()))
+  check('65: the approver is offered Activate and Send back', JSON.stringify(await offered()) === '["activate","sendBack"]', JSON.stringify(await offered()))
   check(
     '65: …reads the pending changes, a first version, and the way to its rules',
     (await page.locator('[data-pending-changes]').innerText()).includes('The first version') &&
+      (await page.locator('[data-pending-side="live"]').count()) === 0 &&
       (await page.locator('[data-pending-open]').getAttribute('href')) === '/campaigns/SPRING-DRAFT/rules',
   )
   await page.screenshot({ path: `${SHOTS}/approval-approver.png` })
@@ -1742,8 +1787,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-approval-confirm]').click()
   await page.locator('[data-state-sentence="draft"]').waitFor({ timeout: 5000 })
   check(
-    '66: HQ got the note, and the campaign is a draft again',
-    acts.at(-1).act === 'SendBack SPRING-DRAFT' && acts.at(-1).body.note === 'Add the Arabic name first.' && (await stateBadge()) === 'Draft',
+    '66: HQ got Approvals/SendBack at the revision with the note, and the campaign is a draft again',
+    JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'SendBack SPRING-DRAFT', body: { campaign: 'SPRING-DRAFT', revision: 1, note: 'Add the Arabic name first.' } }) && (await stateBadge()) === 'Draft',
+    JSON.stringify(acts.at(-1)),
   )
   as('author')
   await dash('SPRING-DRAFT')
@@ -1754,8 +1800,29 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   )
 
   // ── 67 ──
+  await page.locator('[data-ask-note]').fill('Arabic name to follow; rules ready.')
   await action('askForApproval').click()
   await page.locator('[data-state-sentence="waitingForApproval"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-approval-action="activate"]:not([disabled])').waitFor({ timeout: 5000 })
+  await action('activate').click()
+  await dialog.waitFor({ timeout: 5000 })
+  await page.locator('[data-approval-confirm]').click()
+  await page.locator('[data-approval-refusal="activate"]').waitFor({ timeout: 5000 })
+  const refusal = page.locator('[data-approval-refusal="activate"]')
+  check(
+    '67: the author who asked cannot activate it: HQ’s refusal, in our words',
+    (await refusal.getAttribute('data-approval-refusal-reason')) === 'selfApproval' && (await refusal.innerText()).includes('another approver must activate it'),
+  )
+  check(
+    '67: …with HQ’s own message and its code',
+    (await refusal.locator('[data-refusal-message]').innerText()) === 'You asked for this approval or wrote the draft: another approver activates it.' &&
+      (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_SELF_APPROVAL',
+  )
+  check('67: …and the dialog stays open, the campaign still waiting', (await dialog.count()) === 1 && (await stateBadge()) === 'Waiting for approval')
+  await page.screenshot({ path: `${SHOTS}/approval-refused.png` })
+  await page.locator('[data-approval-cancel]').click()
+
+  // ── 68 ──
   as('approver')
   await dash('SPRING-DRAFT')
   await page.locator('[data-approval-action="activate"]:not([disabled])').waitFor({ timeout: 5000 })
@@ -1763,34 +1830,30 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.waitFor({ timeout: 5000 })
   await page.locator('[data-approval-dialog-note]').fill('First spring version.')
   await page.locator('[data-approval-confirm]').click()
-  await page.locator('[data-approval-refusal="activate"]').waitFor({ timeout: 5000 })
-  check('67: a refused Activate shows the envelope’s message', (await page.locator('[data-approval-refusal="activate"] bdi').first().innerText()) === ACTIVATE_REFUSED)
-  check(
-    '67: …and its code',
-    (await page.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_CAMPAIGN_SELF_APPROVAL' &&
-      (await page.locator('[data-refusal-code]').innerText()) === 'Code RULE_CAMPAIGN_SELF_APPROVAL',
-  )
-  check('67: …and the dialog stays open, the campaign still waiting', (await dialog.count()) === 1 && (await stateBadge()) === 'Waiting for approval')
-  await page.screenshot({ path: `${SHOTS}/approval-refused.png` })
-
-  // ── 68 ──
-  await page.locator('[data-approval-confirm]').click()
   await dialog.waitFor({ state: 'detached', timeout: 5000 })
-  check(
-    '68: Activate again: the campaign is live, version 1 by the approver',
-    (await stateBadge()) === 'Running' && (await page.locator('[data-live-version]').innerText()) === 'Tills run version 1.',
-  )
-  check('68: HQ got the version note', acts.at(-1).act === 'Activate SPRING-DRAFT' && acts.at(-1).body.note === 'First spring version.')
+  await page.locator('[data-live-version]').waitFor({ timeout: 5000 })
+  check('68: an approver activates: the campaign is live, version 1', (await stateBadge()) === 'Running' && (await page.locator('[data-live-version]').innerText()) === 'Tills run version 1.')
+  check('68: HQ got Approvals/Activate at the revision with the note', JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'Activate SPRING-DRAFT', body: { campaign: 'SPRING-DRAFT', revision: 1, note: 'First spring version.' } }), JSON.stringify(acts.at(-1)))
   check('68: the steps are gone once published', (await page.locator('[data-steps]').count()) === 0)
-  check('68: the approver may now Disable it', JSON.stringify(await offered()) === '["disable"]', JSON.stringify(await offered()))
+  await page.locator('[data-trail-step="activated"]').waitFor({ timeout: 5000 })
+  check('68: the trail names every step, oldest first', JSON.stringify(await trail()) === '["requested","sentBack","requested","activated"]', JSON.stringify(await trail()))
+  check('68: …the activation with the version it made', (await page.locator('[data-trail-step="activated"]').innerText()).includes('Reem (approver) activated it as version 1'))
+  check('68: a live campaign may now be disabled', JSON.stringify(await offered()) === '["disable"]', JSON.stringify(await offered()))
   await action('disable').click()
   await dialog.waitFor({ timeout: 5000 })
+  check('68: Disable wants a note', await page.locator('[data-approval-confirm]').isDisabled())
+  await page.locator('[data-approval-dialog-note]').fill('Spring range withdrawn.')
   await page.locator('[data-approval-confirm]').click()
   await dialog.waitFor({ state: 'detached', timeout: 5000 })
-  check('68: …and it reads Disabled', (await stateBadge()) === 'Disabled' && acts.at(-1).act === 'Disable SPRING-DRAFT')
+  check('68: …and it reads Disabled', (await stateBadge()) === 'Disabled' && JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'Disable SPRING-DRAFT', body: { campaign: 'SPRING-DRAFT', note: 'Spring range withdrawn.' } }), JSON.stringify(acts.at(-1)))
   await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
-  check('68: the list’s tiles follow', (await tileCount(page, 'waitingForApproval')) === '1' && (await tileCount(page, 'disabled')) === '2', JSON.stringify(await readCounts(page)))
+  await waitRows(page, 15)
+  // ⚠ Held open on BO ask A: disabled with no draft, it is in none of the list's three doors.
+  check(
+    '68: disabled with no draft, the list no longer shows it (BO ask A)',
+    !(await rowIds(page)).includes('SPRING-DRAFT') && (await tileCount(page, 'waitingForApproval')) === '1' && (await tileCount(page, 'disabled')) === '1',
+    JSON.stringify(await readCounts(page)),
+  )
   check('71: no page errors (62–68)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -1818,16 +1881,47 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 70 ──
 {
-  const { context, page, errors } = await open({ refuseRoles: true })
+  const { context, page, errors, acts, as } = await open({ orderStale: 1 })
+  as('approver')
   await page.goto(`${BASE}/campaigns/BDAY-BEAUTY`)
-  await page.locator('[data-approval-refusal="roles"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-approval-action="activate"]:not([disabled])').waitFor({ timeout: 10000 })
+  await page.locator('[data-approval-action="activate"]').click()
+  await page.locator('[data-approval-confirm]').click()
+  const refusal = page.locator('[data-approval-refusal="activate"]')
+  await refusal.waitFor({ timeout: 5000 })
   check(
-    '70: a refused roles door is its own message and code',
-    (await page.locator('[data-approval-refusal="roles"]').innerText()).includes(ROLES_REFUSED) &&
-      (await page.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_ROLES_UNAVAILABLE',
+    '70: RULES_ORDER_STALE says the order moved, in our words, with HQ’s message and code',
+    (await refusal.getAttribute('data-approval-refusal-reason')) === 'orderStale' &&
+      (await refusal.innerText()).includes('edited from a live order that has changed since') &&
+      (await refusal.locator('[data-refusal-message]').innerText()) === ORDER_STALE &&
+      (await refusal.locator('[data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_ORDER_STALE',
   )
-  check('70: …and offers no act, only Try again', (await page.locator('[data-approval-action]').count()) === 0 && (await page.locator('[data-approval-roles-retry]').isVisible()))
+  await refusal.locator('[data-approval-refusal-send-back]').click()
+  await page.locator('[data-approval-dialog="sendBack"]').waitFor({ timeout: 5000 })
+  check('70: …and offers Send back, which opens its dialog', (await page.locator('[data-approval-dialog="sendBack"]').count()) === 1)
+  await page.locator('[data-approval-dialog-note]').fill('The order moved: save it again.')
+  await page.locator('[data-approval-confirm]').click()
+  await page.locator('[data-state-sentence="draft"]').waitFor({ timeout: 5000 })
+  check('70: sent back, the draft goes to its author', acts.at(-1)?.act === 'SendBack BDAY-BEAUTY' && (await page.locator('[data-sent-back-note]').innerText()) === 'The order moved: save it again.')
   check('71: no page errors (70)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  const { context, page, errors, as } = await open({ denyApprover: true })
+  as('approver')
+  await page.goto(`${BASE}/campaigns/BDAY-BEAUTY`)
+  await page.locator('[data-approval-action="activate"]:not([disabled])').waitFor({ timeout: 10000 })
+  await page.locator('[data-approval-action="activate"]').click()
+  await page.locator('[data-approval-confirm]').click()
+  const refusal = page.locator('[data-approval-refusal="activate"]')
+  await refusal.waitFor({ timeout: 5000 })
+  check(
+    '70: a bare 403 names the approver’s grant, with no code to show',
+    (await refusal.getAttribute('data-approval-refusal-reason')) === 'denied' &&
+      (await refusal.innerText()).includes('rule-approver permission (RuleAuthoring 06)') &&
+      (await refusal.locator('[data-refusal-code]').count()) === 0,
+  )
+  check('71: no page errors (70, denied)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
@@ -2402,23 +2496,26 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await context.close()
 }
 
-// ── 512 ── it asserts:
+// ── 512 ── it asserts (re-cut in 524 onto Versions/List | Load | Restore: a version names who
+// published it and who asked, and its note is the author's request note; with no draft, Restore
+// replaces nothing and does not ask; a disable is a version too):
 //  90. the campaign menu has Versions, which opens /campaigns/:id/versions as the current item;
-//  91. every published version, newest first, with its number, who, when (local) and the note — the
-//      live one marked Live;
-//  92. every version of a live campaign offers Restore, the live one too (its draft may hold saved
-//      edits, and restoring the live version is how they are thrown away);
-//  93. a version opens read-only as its rules in sentences, with its EN + AR lines, and nothing to edit;
-//  94. Restore on a live campaign asks first (saved edits may be in its draft): Keep the draft sends
-//      nothing; Replace the draft restores once, the dashboard shows a Draft and the live version it
-//      still runs, unchanged (version 3); the rule builder reads the restored rules;
-//  95. over that draft, Restore asks first: Keep the draft sends nothing; Replace the draft restores;
-//      the live version may be restored too now (it throws the draft away);
+//  91. every version, newest first, with its number, who published it, when (local), who asked and
+//      the note — the live one marked Live;
+//  92. every version of a live campaign offers Restore, the live one too;
+//  93. a version opens read-only as its rules in sentences (Versions/Load), with its EN + AR lines,
+//      and nothing to edit;
+//  94. with no draft (Load answered the live version), Restore replaces nothing, so it restores at
+//      once at revision 0: the dashboard shows the live campaign Running and the version it still
+//      runs (3); the rule builder reads the restored rules;
+//  95. over that draft, Restore asks first: Keep the draft sends nothing; Replace the draft restores
+//      at the draft's revision; the live version may be restored too (it throws the draft away);
 //  96. a refused restore is the envelope's message and code, on the page, and nothing moves;
-//  97. a refused versions read is its own message and code with Try again; a campaign never
-//      published has no versions yet;
+//  97. a campaign never published has no versions yet; a disabled campaign's draft lists its disable
+//      as a version with nothing to read or restore, and marks its last published version; a bare
+//      403 on the versions is said in our words, with Try again;
 //  98. while a request waits, Restore is held and says why; activated, the new version is listed
-//      first, Live, by the approver, with the note;
+//      first, Live, by the approver, asked by its author, with the author's note;
 //  99. no page errors.
 {
   const { context, page, errors, store, restores } = await open()
@@ -2430,6 +2527,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const item = (n) => page.locator(`[data-version="${n}"]`)
   const restorable = () => page.locator('[data-version]:has([data-version-restore])').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
   const pouch = () => store.find((c) => c.code === 'GIFT-POUCH')
+  const restoreBodies = []
+  page.on('request', (r) => r.url().endsWith('/Rules/Authoring/Versions/Restore') && restoreBodies.push(r.postDataJSON()))
 
   // ── 90 ──
   await page.goto(`${BASE}/campaigns/GIFT-POUCH`)
@@ -2444,11 +2543,12 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('91: version 3 is marked Live, and only it', (await item(3).locator('[data-version-marker]').innerText()) === 'Live' && (await page.locator('[data-version-marker]').count()) === 1)
   check('91: each says its number', (await item(2).locator('[data-version-number]').innerText()) === 'Version 2')
   check(
-    '91: who and when, in local time',
+    '91: who published it and when, in local time',
     (await item(3).locator('[data-version-stamp]').innerText()) === '2026-10-10 15:00 by Omar (marketing)' &&
       (await item(2).locator('[data-version-stamp]').innerText()) === '2026-10-06 12:30 by Reem (approver)',
     await item(2).locator('[data-version-stamp]').innerText(),
   )
+  check('91: …and who asked for it', (await item(2).locator('[data-version-requested]').innerText()) === 'asked by Omar (marketing)' && (await item(3).locator('[data-version-requested]').count()) === 0)
   check(
     '91: and the note',
     (await item(2).locator('[data-version-note]').innerText()) === 'The cashier is prompted to scan the pouch.' &&
@@ -2483,17 +2583,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
   // ── 94 ──
   await item(2).locator('[data-version-restore]').click()
-  const askLive = page.locator('[data-restore-dialog="2"]')
-  await askLive.waitFor({ timeout: 5000 })
-  check('94: Restore on a live campaign asks first, saying the live version stays', (await askLive.innerText()).includes('Tills keep running version 3'))
-  await page.locator('[data-restore-cancel]').click()
-  await askLive.waitFor({ state: 'detached', timeout: 5000 })
-  check('94: Keep the draft sends nothing', restores.length === 0 && pouch().source === 'published', JSON.stringify(restores))
-  await item(2).locator('[data-version-restore]').click()
-  await page.locator('[data-restore-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
-  check('94: Replace the draft restores once and goes to the dashboard', page.url() === `${BASE}/campaigns/GIFT-POUCH` && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
+  check('94: with no draft, Restore restores at once — nothing asked', (await page.locator('[data-restore-dialog]').count()) === 0 && JSON.stringify(restores) === '["GIFT-POUCH 2"]', JSON.stringify(restores))
+  check('94: …at revision 0, the campaign and the version', JSON.stringify(restoreBodies[0]) === JSON.stringify({ campaign: 'GIFT-POUCH', versionNo: 2, revision: 0 }), JSON.stringify(restoreBodies[0]))
   const stateCell = page.locator('[data-dashboard-cell="state"]')
   // 522: a published campaign with an editing draft is read by its window (campaignStatus decides,
   // HITL-522), and the Drafts/Load reply carries no activation stamp of the live version.
@@ -2524,7 +2617,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-restore-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns/GIFT-POUCH`, { timeout: 5000 }).catch(() => {})
   await page.locator('[data-dashboard]').waitFor({ timeout: 5000 })
-  check('95: Replace the draft restores version 1', JSON.stringify(restores) === '["GIFT-POUCH 2","GIFT-POUCH 1"]' && pouch().origin === 'restore:1' && pouch().publishedVersionNo === 3)
+  check('95: Replace the draft restores version 1, at the draft’s revision', JSON.stringify(restores) === '["GIFT-POUCH 2","GIFT-POUCH 1"]' && restoreBodies[1]?.revision === 1 && pouch().origin === 'restore:1' && pouch().publishedVersionNo === 3, JSON.stringify(restoreBodies[1]))
   check('99: no page errors (90–95)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -2535,12 +2628,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
   await page.locator('[data-versions]').waitFor({ timeout: 10000 })
   await page.locator('[data-version="1"] [data-version-restore]').click()
-  await page.locator('[data-restore-confirm]').click()
   await page.locator('[data-restore-refusal]').waitFor({ timeout: 5000 })
   check(
     '96: a refused restore is the envelope’s message and code, on the page',
     (await page.locator('[data-restore-refusal]').innerText()).includes(RESTORE_REFUSED) &&
-      (await page.locator('[data-restore-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_RESTORE_UNAVAILABLE' &&
+      (await page.locator('[data-restore-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULES_VERSION_NOT_FOUND' &&
       page.url().endsWith('/campaigns/GIFT-POUCH/versions'),
   )
   const pouch = store.find((c) => c.code === 'GIFT-POUCH')
@@ -2550,11 +2642,18 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('97: a campaign never published has no versions yet', (await page.locator('[data-versions-empty]').innerText()) === 'No versions yet. Activating the campaign publishes its first.')
   await page.goto(`${BASE}/campaigns/SUMMER-FLASH/versions`)
   await page.locator('[data-versions]').waitFor({ timeout: 10000 })
+  check('97: a disabled campaign’s draft lists its disable as a version, newest first', JSON.stringify(await page.locator('[data-version]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-version')}:${e.getAttribute('data-version-action')}`))) === '["2:disable","1:publish"]')
   check(
-    '98: a disabled campaign holds Restore, says why, and marks its last version as disabled',
-    (await page.locator('[data-versions-held="disabled"]').isVisible()) &&
-      (await page.locator('[data-version-restore]').count()) === 0 &&
-      (await page.locator('[data-version="1"] [data-version-marker]').innerText()) === 'Last published, disabled',
+    '97: …with nothing of the campaign to read or restore',
+    (await page.locator('[data-version="2"] [data-version-disable]').innerText()) === 'Disabled here' &&
+      (await page.locator('[data-version="2"] [data-version-view], [data-version="2"] [data-version-restore]').count()) === 0 &&
+      (await page.locator('[data-version="2"] [data-version-note]').innerText()) === 'The summer range is over.',
+  )
+  check(
+    '97: …its last published version is marked, and may be restored into its draft (activating it brings it back)',
+    (await page.locator('[data-version="1"] [data-version-marker]').innerText()) === 'Last published, disabled' &&
+      (await page.locator('[data-version="1"] [data-version-restore]').count()) === 1 &&
+      (await page.locator('[data-versions-held]').count()) === 0,
   )
   check('99: no page errors (96, 97)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -2564,10 +2663,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/GIFT-POUCH/versions`)
   await page.locator('[data-versions-refusal]').waitFor({ timeout: 10000 })
   check(
-    '97: a refused versions read is its own message and code, with Try again',
-    (await page.locator('[data-versions-refusal]').innerText()).includes(VERSIONS_REFUSED) &&
-      (await page.locator('[data-versions-refusal] [data-refusal-code]').getAttribute('data-refusal-code')) === 'RULE_VERSIONS_UNAVAILABLE' &&
-      (await page.locator('[data-versions-retry]').isVisible()),
+    '97: a bare 403 on the versions is said in our words, with Try again',
+    (await page.locator('[data-versions-refusal]').innerText()).includes('permission (RuleAuthoring)') && (await page.locator('[data-versions-retry]').isVisible()),
+    await page.locator('[data-versions-refusal]').innerText(),
   )
   check('99: no page errors (97)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -2602,11 +2700,14 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-version="4"]').waitFor({ timeout: 5000 }).catch(() => {})
   const listed = await page.locator('[data-version]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-version'))))
   check('98: activated, the new version is listed first', JSON.stringify(listed) === '[4,3,2,1]', JSON.stringify(listed))
+  // 524: a version's note is the author's request note (HQ publishes it with the version); the
+  // approver's activation note goes on the approval trail.
   check(
-    '98: …Live, by the approver, with the note',
+    '98: …Live, by the approver, asked by its author, with the author’s note',
     (await page.locator('[data-version="4"] [data-version-marker]').innerText()) === 'Live' &&
       (await page.locator('[data-version="4"] [data-version-stamp]').innerText()) === '2026-10-16 18:30 by Reem (approver)' &&
-      (await page.locator('[data-version="4"] [data-version-note]').innerText()) === 'Gift pouch label again.' &&
+      (await page.locator('[data-version="4"] [data-version-requested]').innerText()) === 'asked by Omar (marketing)' &&
+      (await page.locator('[data-version="4"] [data-version-note]').innerText()) === 'Back to the gift pouch label.' &&
       (await page.locator('[data-version="3"] [data-version-marker]').count()) === 0,
   )
   check('99: no page errors (98)', errors.length === 0, errors.join(' | '))

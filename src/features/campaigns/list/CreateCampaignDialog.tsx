@@ -11,7 +11,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import FromTemplate, { TEMPLATE_CREATE_KEY } from './FromTemplate'
-import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave, type CampaignIdProblem, type CreateCampaignForm, type CreateFormProblem } from './create-form'
+import type { CampaignIdProblem } from '@/core/rules/campaign-id'
+import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave, type CreateCampaignForm, type CreateFormProblem } from './create-form'
 
 /**
  * Create campaign (ticket 502; the prototype's Talon-shaped dialog): the name in English and

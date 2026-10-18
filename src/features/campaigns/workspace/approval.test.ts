@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleCampaign, RuleCampaignRoles, RuleCampaignStatus, RuleDraft, RuleDraftState } from '@/core/models/rule-campaign'
-import { actionGate, actionsFor, draftGate, preActivationSteps, showsSteps, type ApprovalAction } from './approval'
-
-const AUTHOR: RuleCampaignRoles = { author: true, approver: false }
-const APPROVER: RuleCampaignRoles = { author: false, approver: true }
-const BOTH: RuleCampaignRoles = { author: true, approver: true }
-const NEITHER: RuleCampaignRoles = { author: false, approver: false }
+import type { RuleCampaign, RuleCampaignStatus, RuleDraft, RuleDraftState } from '@/core/models/rule-campaign'
+import { actionGate, actionsFor, approvalRefusal, dialogBodyKey, draftGate, grantOf, noteReady, preActivationSteps, showsSteps, type ApprovalAction } from './approval'
 
 type Life = Pick<RuleDraft, 'source' | 'state' | 'campaignStatus'>
 /** A loaded draft: `state` null = Load answered the newest version (no draft). */
@@ -14,55 +9,89 @@ const of = (state: RuleDraftState | null, campaignStatus: RuleCampaignStatus = '
   state: state ?? 'editing',
   campaignStatus,
 })
-const STATES: (RuleDraftState | null)[] = ['editing', 'pending', 'sentBack', null]
-const STATUSES: RuleCampaignStatus[] = ['', 'Published', 'Disabled']
 
-describe('actionsFor_authorNeverActivates_approverCan', () => {
-  it('every draft state × role, never published', () => {
-    const table: Record<string, Record<string, ApprovalAction[]>> = {
-      editing: { author: ['askForApproval', 'deleteDraft'], approver: [], both: ['askForApproval', 'deleteDraft'], neither: [] },
-      sentBack: { author: ['askForApproval', 'deleteDraft'], approver: [], both: ['askForApproval', 'deleteDraft'], neither: [] },
-      pending: { author: [], approver: ['activate', 'sendBack'], both: ['activate', 'sendBack'], neither: [] },
-    }
-    for (const s of ['editing', 'sentBack', 'pending'] as RuleDraftState[]) {
-      expect(actionsFor(of(s), AUTHOR), `${s} author`).toEqual(table[s].author)
-      expect(actionsFor(of(s), APPROVER), `${s} approver`).toEqual(table[s].approver)
-      expect(actionsFor(of(s), BOTH), `${s} both`).toEqual(table[s].both)
-      expect(actionsFor(of(s), NEITHER), `${s} neither`).toEqual(table[s].neither)
-    }
+describe('actionsFor_followsTheState', () => {
+  it('every draft state, never published: an editing or sent-back draft is asked for or deleted; a pending one waits for an approver', () => {
+    expect(actionsFor(of('editing'))).toEqual(['askForApproval', 'deleteDraft'])
+    expect(actionsFor(of('sentBack'))).toEqual(['askForApproval', 'deleteDraft'])
+    expect(actionsFor(of('pending'))).toEqual(['activate', 'sendBack'])
   })
 
-  it('a published campaign with no draft: the approver may disable it, the author has no draft to ask for', () => {
-    expect(actionsFor(of(null, 'Published'), APPROVER)).toEqual(['disable'])
-    expect(actionsFor(of(null, 'Published'), AUTHOR)).toEqual([])
-    expect(actionsFor(of(null, 'Disabled'), BOTH)).toEqual([])
+  it('a published campaign with no draft may be disabled; a disabled one with no draft offers nothing', () => {
+    expect(actionsFor(of(null, 'Published'))).toEqual(['disable'])
+    expect(actionsFor(of(null, 'Disabled'))).toEqual([])
   })
 
-  it('an author is never offered Activate, Send back or Disable, in any state', () => {
-    for (const s of STATES)
-      for (const st of STATUSES) {
-        const acts = actionsFor(of(s, st), AUTHOR)
-        expect(acts).not.toContain('activate')
-        expect(acts).not.toContain('sendBack')
-        expect(acts).not.toContain('disable')
-      }
-  })
-
-  it('an approver is never offered Ask for approval or Delete draft', () => {
-    for (const s of STATES)
-      for (const st of STATUSES) {
-        const acts = actionsFor(of(s, st), APPROVER)
-        expect(acts).not.toContain('askForApproval')
-        expect(acts).not.toContain('deleteDraft')
-      }
-  })
-
-  it('the draft of a live campaign may be deleted: the live campaign stays live (Drafts/Delete)', () => {
-    expect(actionsFor(of('editing', 'Published'), AUTHOR)).toEqual(['askForApproval', 'deleteDraft'])
+  it('the draft of a live campaign may be asked for, deleted (the live campaign stays live) or the campaign disabled', () => {
+    expect(actionsFor(of('editing', 'Published'))).toEqual(['askForApproval', 'disable', 'deleteDraft'])
   })
 
   it('changes waiting over a live version are activated or sent back, never disabled from there', () => {
-    expect(actionsFor(of('pending', 'Published'), APPROVER)).toEqual(['activate', 'sendBack'])
+    expect(actionsFor(of('pending', 'Published'))).toEqual(['activate', 'sendBack'])
+  })
+
+  it('a draft state this client does not know offers nothing of the draft', () => {
+    expect(actionsFor(of('archived' as RuleDraftState))).toEqual([])
+  })
+})
+
+describe('the approval notes', () => {
+  it('asking, sending back and disabling need a note; activating may have one; deleting takes none', () => {
+    for (const a of ['askForApproval', 'sendBack', 'disable'] as ApprovalAction[]) {
+      expect(noteReady(a, ''), a).toBe(false)
+      expect(noteReady(a, '   '), a).toBe(false)
+      expect(noteReady(a, 'Ready'), a).toBe(true)
+    }
+    expect(noteReady('activate', '')).toBe(true)
+    expect(noteReady('deleteDraft', '')).toBe(true)
+  })
+})
+
+describe('dialogBodyKey', () => {
+  it('Delete draft says what it leaves: a live campaign live, a disabled one gone from the list, a new one nothing', () => {
+    expect(dialogBodyKey('deleteDraft', 'Published')).toBe('bodyLive')
+    expect(dialogBodyKey('deleteDraft', 'Disabled')).toBe('bodyDisabled')
+    expect(dialogBodyKey('deleteDraft', '')).toBe('body')
+    expect(dialogBodyKey('disable', 'Published')).toBe('body')
+  })
+})
+
+describe('approval_branchesOnRefusalCode', () => {
+  it('a bare 403 is a missing grant: the author’s for asking and deleting, the approver’s for the rest', () => {
+    expect(approvalRefusal('activate', null, true)).toEqual({ reason: 'denied', offer: null })
+    expect(grantOf('askForApproval')).toBe('author')
+    expect(grantOf('deleteDraft')).toBe('author')
+    for (const a of ['activate', 'sendBack', 'disable'] as ApprovalAction[]) expect(grantOf(a)).toBe('approver')
+  })
+
+  it('RULES_SELF_APPROVAL: another approver activates — nothing to offer', () => {
+    expect(approvalRefusal('activate', 'RULES_SELF_APPROVAL', false)).toEqual({ reason: 'selfApproval', offer: null })
+  })
+
+  it('RULES_NOT_PENDING and RULES_NOT_LIVE: the campaign moved since it was read — read it again', () => {
+    expect(approvalRefusal('activate', 'RULES_NOT_PENDING', false)).toEqual({ reason: 'notPending', offer: 'reload' })
+    expect(approvalRefusal('sendBack', 'RULES_NOT_PENDING', false)).toEqual({ reason: 'notPending', offer: 'reload' })
+    expect(approvalRefusal('disable', 'RULES_NOT_LIVE', false)).toEqual({ reason: 'notLive', offer: 'reload' })
+  })
+
+  it('RULES_ORDER_STALE at Activate: the draft stays pending and is sent back', () => {
+    expect(approvalRefusal('activate', 'RULES_ORDER_STALE', false)).toEqual({ reason: 'orderStale', offer: 'sendBack' })
+  })
+
+  it('RULES_INVALID_CAMPAIGN: at Activate the live ruleset moved under it (send it back); at the ask, fix the draft', () => {
+    expect(approvalRefusal('activate', 'RULES_INVALID_CAMPAIGN', false)).toEqual({ reason: 'invalidCampaign', offer: 'sendBack' })
+    expect(approvalRefusal('askForApproval', 'RULES_INVALID_CAMPAIGN', false)).toEqual({ reason: 'invalidCampaign', offer: null })
+  })
+
+  it('a stale or frozen draft is read again; a missing note is said', () => {
+    expect(approvalRefusal('askForApproval', 'RULES_DRAFT_STALE', false)).toEqual({ reason: 'draftStale', offer: 'reload' })
+    expect(approvalRefusal('askForApproval', 'RULES_DRAFT_PENDING', false)).toEqual({ reason: 'draftPending', offer: 'reload' })
+    expect(approvalRefusal('sendBack', 'RULES_REASON_REQUIRED', false)).toEqual({ reason: 'reasonRequired', offer: null })
+  })
+
+  it('a code the dashboard has no words for is shown as HQ said it', () => {
+    expect(approvalRefusal('activate', 'RULES_SOMETHING_NEW', false)).toBeNull()
+    expect(approvalRefusal('activate', null, false)).toBeNull()
   })
 })
 

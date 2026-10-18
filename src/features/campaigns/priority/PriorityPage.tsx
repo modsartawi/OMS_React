@@ -1,18 +1,23 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Link } from 'react-router'
 import { ArrowDown, ArrowUp, FolderPlus, Trash2 } from 'lucide-react'
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type {
   RuleCampaignListRow,
-  RuleEvaluationOrder,
-  RuleOrderGroup,
+  RuleEvaluationTree,
+  RuleFeature,
+  RuleOrderCampaign,
   RuleOrderGroupMode,
   RuleOrderGroupScope,
+  RuleTreeGroup,
+  Says,
 } from '@/core/models/rule-campaign'
-import { ruleCampaignApi, ruleCampaignsQuery, ruleOrderQuery } from '@/core/rules/api'
+import { ruleCampaignsQuery, ruleOrderQuery, ruleReadingCatalogueQuery } from '@/core/rules/api'
+import { featuresUsedBy } from '@/core/rules/campaign-list'
+import { saysIn } from '@/core/rules/sentence'
 import { campaignPath, campaignState } from '@/core/rules/campaign-state'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import Button from '@/core/ui/Button'
@@ -20,6 +25,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import CarrierDialog from './CarrierDialog'
 import {
   addGroup,
   blankGroups,
@@ -40,48 +46,49 @@ const MODES: RuleOrderGroupMode[] = ['stackable', 'first', 'highest']
 const SCOPES: RuleOrderGroupScope[] = ['session', 'item']
 
 /**
- * Campaigns ▸ Priority (ticket 513, BackOffice spec 2737, ADR 0090): the evaluation order — the
- * stackable base list, top to bottom, with flat groups placed in it, each with its mode and scope.
- * Campaigns move up / down within their list and to another place with **Move to**; a group moves
- * as one place in the base; **Add group** adds an empty one. Every edit is local until **Save**,
- * which saves the DRAFT order: it reaches tills only with the next published version.
+ * Campaigns ▸ Priority (tickets 513, 524; BackOffice 2759, ADR 0090): the LIVE evaluation order
+ * (`Rules/Authoring/Order`) — the stackable base list, top to bottom, with flat groups placed in it,
+ * each with its name (EN + AR), mode and scope. Campaigns move up / down within their list and to
+ * another place with **Move to**; a group moves as one place in the base; **Add group** adds an
+ * empty one. Every edit is local until **Save**. HQ has no order save — an order-only change rides a
+ * campaign draft — so Save asks which draft being edited carries the tree (`CarrierDialog`) and sends
+ * that draft's Drafts/Save with it: the order goes live when that draft is activated. Saved, the page
+ * keeps showing the order that draft carries (edits build on it) until the reader asks for the live
+ * order again.
  *
- * No access probe yet (BackOffice 2759 seeds the roles): the door fails closed on the server.
+ * No access probe yet (BO ask B): the door fails closed on the server.
  */
 export default function PriorityPage() {
   const { t } = useTranslation('campaign-priority')
-  const queryClient = useQueryClient()
   const order = useQuery(ruleOrderQuery())
   const campaigns = useQuery(ruleCampaignsQuery())
+  const catalogue = useQuery(ruleReadingCatalogueQuery())
   /** The reader's unsaved order; null while they have changed nothing. */
-  const [draft, setDraft] = useState<RuleEvaluationOrder | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [draft, setDraft] = useState<RuleEvaluationTree | null>(null)
+  /** The order the last save left on a draft, and that draft: what the page shows and builds on until
+   *  the reader asks for the live order again. */
+  const [carried, setCarried] = useState<{ campaign: string; tree: RuleEvaluationTree } | null>(null)
+  const [choosing, setChoosing] = useState(false)
 
   // HQ's order is drawn tidy (each campaign in one place, each group placed once), and a save sends
   // what is drawn.
-  const hqOrder = useMemo(() => (order.data ? tidyOrder(order.data) : undefined), [order.data])
-  const current = draft ?? hqOrder
-  const dirty = !!draft && !!hqOrder && !sameOrder(draft, hqOrder)
+  const hqOrder = useMemo(() => (order.data ? tidyOrder(order.data.tree) : undefined), [order.data])
+  const base = carried?.tree ?? hqOrder
+  const current = draft ?? base
+  const dirty = !!draft && !!base && !sameOrder(draft, base)
   const blank = current ? blankGroups(current) : []
 
-  const save = useMutation({
-    mutationFn: (body: RuleEvaluationOrder) => ruleCampaignApi.saveOrder(body),
-    onSuccess: (answer) => {
-      queryClient.setQueryData(ruleOrderQuery().queryKey, answer)
-      setDraft(null)
-      setSaved(true)
-    },
-  })
-
-  // Nothing moves while a save is in flight: its answer replaces the draft.
-  const edit = (change: (o: RuleEvaluationOrder) => RuleEvaluationOrder) => {
-    if (!current || save.isPending) return
+  // Nothing moves while the carrier is chosen: the save sends the order as it is then.
+  const edit = (change: (o: RuleEvaluationTree) => RuleEvaluationTree) => {
+    if (!current || choosing) return
     setDraft(change(current))
-    setSaved(false)
-    save.reset()
   }
 
-  const byId = useMemo(() => new Map((campaigns.data ?? []).map((c) => [c.campaign, c])), [campaigns.data])
+  const listed = useMemo(() => new Map((campaigns.data ?? []).map((c) => [c.campaign, c])), [campaigns.data])
+  const live = useMemo(() => new Map((order.data?.campaigns ?? []).map((c) => [c.code, c])), [order.data])
+  /** A row's features: its draft's, else what its live blocks use (read through the catalogue). */
+  const featuresOf = (row: RuleCampaignListRow | undefined): RuleFeature[] =>
+    row?.features ?? (row?.live && catalogue.data ? featuresUsedBy(row.live, catalogue.data) : [])
   const now = new Date()
 
   const places = (current?.groups ?? []).map((g) => ({ id: g.id, name: g.name }))
@@ -89,7 +96,9 @@ export default function PriorityPage() {
     <CampaignRow
       key={id}
       id={id}
-      campaign={byId.get(id)}
+      live={live.get(id)}
+      campaign={listed.get(id)}
+      features={featuresOf(listed.get(id))}
       listRead={!!campaigns.data}
       pos={pos}
       count={count}
@@ -111,31 +120,18 @@ export default function PriorityPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
-            disabled={!current || save.isPending}
-            onClick={() => edit((o) => addGroup(o, newGroupId(o), freshGroupName(o, (n) => t('group.newName', { n }))))}
+            disabled={!current || choosing}
+            onClick={() => edit((o) => addGroup(o, newGroupId(o), { en: freshGroupName(o, (n) => t('group.newName', { n })), ar: '' }))}
             data-add-group=""
           >
             <FolderPlus className="size-3.5" aria-hidden />
             {t('actions.addGroup')}
           </Button>
-          <Button
-            variant="text"
-            disabled={!dirty || save.isPending}
-            onClick={() => {
-              setDraft(null)
-              save.reset()
-            }}
-            data-discard-order=""
-          >
+          <Button variant="text" disabled={!dirty || choosing} onClick={() => setDraft(null)} data-discard-order="">
             {t('actions.discard')}
           </Button>
-          <Button
-            variant="primary"
-            disabled={!dirty || blank.length > 0 || save.isPending}
-            onClick={() => draft && save.mutate(draft)}
-            data-save-order=""
-          >
-            {save.isPending ? t('actions.saving') : t('actions.save')}
+          <Button variant="primary" disabled={!dirty || blank.length > 0 || choosing} onClick={() => draft && setChoosing(true)} data-save-order="">
+            {t('actions.save')}
           </Button>
         </div>
       </header>
@@ -154,20 +150,37 @@ export default function PriorityPage() {
         {t('cascade')}
       </p>
 
-      {order.isError && <ErrorBanner className="p-2.5" title={t('load.failedTitle')} message={apiErrorMessage(order.error, t('load.failed'))} />}
-      {campaigns.isError && (
-        <ErrorBanner className="p-2.5" title={t('campaigns.failedTitle')} message={apiErrorMessage(campaigns.error, t('campaigns.failed'))} />
+      {order.isError && (
+        <ErrorBanner className="p-2.5" title={t('load.failedTitle')} message={isBareDenial(order.error) ? t('load.denied') : apiErrorMessage(order.error, t('load.failed'))} />
       )}
-      {save.isError && <ErrorBanner className="p-2.5" title={t('save.failedTitle')} message={apiErrorMessage(save.error, t('save.failed'))} />}
+      {order.data && (
+        <p className="text-xs text-muted-foreground" data-order-version={order.data.versionNo}>
+          {t('liveVersion', { version: fsi(order.data.versionNo) })}
+        </p>
+      )}
+      {campaigns.isError && (
+        <ErrorBanner className="p-2.5" title={t('campaigns.failedTitle')} message={isBareDenial(campaigns.error) ? t('campaigns.denied') : apiErrorMessage(campaigns.error, t('campaigns.failed'))} />
+      )}
       {dirty && blank.length > 0 && (
         <p className="text-sm text-danger-800" role="alert" data-blank-group="">
           {t('save.blankName')}
         </p>
       )}
-      {saved && !dirty && (
-        <p className="text-sm text-muted-foreground" role="status" data-order-saved="">
-          {t('save.done')}
-        </p>
+      {carried && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted px-3 py-2 text-sm" role="status" data-order-saved={carried.campaign}>
+          <span data-order-saved-text="">{t('save.done', { campaign: fsi(carried.campaign) })}</span>
+          <Button
+            variant="text"
+            disabled={choosing}
+            onClick={() => {
+              setCarried(null)
+              setDraft(null)
+            }}
+            data-show-live=""
+          >
+            {t('save.showLive')}
+          </Button>
+        </div>
       )}
       {dirty && (
         <p className="text-xs font-medium text-muted-foreground" data-order-dirty="">
@@ -179,39 +192,56 @@ export default function PriorityPage() {
       {current && (
         <div className="flex flex-col gap-1.5 border-s-2 border-border ps-3">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('base.title')}</p>
-          {current.base.length === 0 && <p className="text-sm text-muted-foreground">{t('base.empty')}</p>}
+          {current.order.length === 0 && <p className="text-sm text-muted-foreground">{t('base.empty')}</p>}
           <ol className="flex flex-col gap-1.5" aria-label={t('base.label')} data-order-base="">
-          {current.base.map((node, i) => {
-            if ('c' in node) return row(node.c, i + 1, current.base.length, 'base')
-            const group = current.groups.find((g) => g.id === node.g)
-            if (!group) return null
-            return (
-              <GroupBlock
-                key={group.id}
-                group={group}
-                pos={i + 1}
-                count={current.base.length}
-                blank={blank.includes(group.id)}
-                onMove={(delta) => edit((o) => moveGroup(o, group.id, delta))}
-                onSet={(patch) => edit((o) => setGroup(o, group.id, patch))}
-                onRemove={() => edit((o) => removeGroup(o, group.id))}
-              >
-                {group.items.map((id, j) => row(id, j + 1, group.items.length, group.id))}
-              </GroupBlock>
-            )
-          })}
+            {current.order.map((node, i) => {
+              if ('campaign' in node) return row(node.campaign, i + 1, current.order.length, 'base')
+              const group = current.groups.find((g) => g.id === node.group)
+              if (!group) return null
+              return (
+                <GroupBlock
+                  key={group.id}
+                  group={group}
+                  pos={i + 1}
+                  count={current.order.length}
+                  blank={blank.includes(group.id)}
+                  onMove={(delta) => edit((o) => moveGroup(o, group.id, delta))}
+                  onSet={(patch) => edit((o) => setGroup(o, group.id, patch))}
+                  onRemove={() => edit((o) => removeGroup(o, group.id))}
+                >
+                  {group.campaigns.map((id, j) => row(id, j + 1, group.campaigns.length, group.id))}
+                </GroupBlock>
+              )
+            })}
           </ol>
         </div>
       )}
       <p className="text-xs text-muted-foreground">{t('publishes')}</p>
+
+      {choosing && current && (
+        <CarrierDialog
+          tree={current}
+          preferred={carried?.campaign ?? null}
+          onClose={() => setChoosing(false)}
+          onSaved={(campaign, tree) => {
+            setChoosing(false)
+            setDraft(null)
+            setCarried({ campaign, tree })
+          }}
+        />
+      )}
 
       <LeaveGuard dirty={dirty} words={{ title: t('leave.title'), body: t('leave.body'), stay: t('leave.stay'), go: t('leave.go') }} />
     </section>
   )
 }
 
-/** A group's name for a string-only sink (an option, a label), isolated whole; a blank one says so. */
-const groupLabel = (name: string, t: TFunction<'campaign-priority'>) => (name.trim() ? fsi(name) : t('group.unnamed'))
+/** A group's name in the reader's language for a string-only sink (an option, a label), isolated
+ *  whole; a blank one says so. */
+function groupLabel(name: Says, t: TFunction<'campaign-priority'>, lang: string): string {
+  const shown = saysIn({ en: name.en.trim(), ar: name.ar.trim() }, lang)
+  return shown ? fsi(shown) : t('group.unnamed')
+}
 
 /** Up / down for a campaign or a group: disabled at the ends of its list. */
 function UpDown({ pos, count, label, onMove }: { pos: number; count: number; label: string; onMove: (delta: -1 | 1) => void }) {
@@ -233,7 +263,9 @@ const SELECT =
 
 function CampaignRow({
   id,
+  live,
   campaign,
+  features,
   listRead,
   pos,
   count,
@@ -244,19 +276,24 @@ function CampaignRow({
   onMoveTo,
 }: {
   id: string
+  /** The campaign in the live order (its names), when it is live. */
+  live: RuleOrderCampaign | undefined
+  /** Its row in the campaigns list (its state). */
   campaign: RuleCampaignListRow | undefined
+  features: RuleFeature[]
   /** The campaigns list has been read: a campaign missing from it is named as such. */
   listRead: boolean
   pos: number
   count: number
   place: OrderPlace
-  places: { id: string; name: string }[]
+  places: { id: string; name: Says }[]
   now: Date
   onMove: (delta: -1 | 1) => void
   onMoveTo: (target: OrderPlace) => void
 }) {
-  const { t } = useTranslation('campaign-priority')
+  const { t, i18n } = useTranslation('campaign-priority')
   const code = campaign?.campaign ?? id
+  const name = campaign?.name ?? live?.name
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-card px-3 py-2" data-order-row={id}>
       <span className="w-6 text-xs text-muted-foreground tabular-nums">
@@ -267,17 +304,17 @@ function CampaignRow({
           <Link to={campaignPath(id)} className="font-mono text-xs font-semibold text-primary hover:underline">
             <Ltr>{code}</Ltr>
           </Link>
-          {campaign ? <bdi>{campaign.name.en}</bdi> : listRead && <span className="text-muted-foreground">{t('row.unknown')}</span>}
+          {name ? <bdi>{name.en}</bdi> : listRead && <span className="text-muted-foreground">{t('row.unknown')}</span>}
         </span>
-        {campaign?.name.ar && (
+        {name?.ar && (
           <span className="text-xs text-muted-foreground" data-order-name-ar="">
-            <bdi>{campaign.name.ar}</bdi>
+            <bdi>{name.ar}</bdi>
           </span>
         )}
       </div>
       {campaign && <CampaignStateBadge state={campaignState(campaign, now)} />}
       {/* The legend's "highest discount … points do not count" needs to say which rows earn points (2734 CRow). */}
-      {campaign?.features.includes('points') && (
+      {features.includes('points') && (
         <span className="rounded-full bg-primary-050 px-2 py-0.5 text-xs font-medium text-primary-800" data-order-points="">
           {t('row.points')}
         </span>
@@ -289,7 +326,7 @@ function CampaignRow({
           <option value="base">{t('row.base')}</option>
           {places.map((g) => (
             <option key={g.id} value={g.id}>
-              {groupLabel(g.name, t)}
+              {groupLabel(g.name, t, i18n.language)}
             </option>
           ))}
         </select>
@@ -308,7 +345,7 @@ function GroupBlock({
   onRemove,
   children,
 }: {
-  group: RuleOrderGroup
+  group: RuleTreeGroup
   pos: number
   count: number
   blank: boolean
@@ -317,9 +354,9 @@ function GroupBlock({
   onRemove: () => void
   children: ReactNode
 }) {
-  const { t } = useTranslation('campaign-priority')
-  const label = groupLabel(group.name, t)
-  const held = group.items.length > 0
+  const { t, i18n } = useTranslation('campaign-priority')
+  const label = groupLabel(group.name, t, i18n.language)
+  const held = group.campaigns.length > 0
   return (
     <li className="flex flex-col gap-1.5 rounded-md border border-border bg-card-2 p-2" data-order-group={group.id}>
       <div className="flex flex-wrap items-center gap-2">
@@ -327,13 +364,21 @@ function GroupBlock({
           <Ltr>{pos}</Ltr>
         </span>
         <input
-          value={group.name}
-          onChange={(e) => onSet({ name: e.target.value })}
-          dir="auto"
+          value={group.name.en}
+          onChange={(e) => onSet({ name: { ...group.name, en: e.target.value } })}
+          dir="ltr"
           aria-label={t('group.name')}
           aria-invalid={blank || undefined}
           className={`h-7 w-48 rounded-md border bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none ${blank ? 'border-danger-border' : 'border-border/60'}`}
           data-group-name=""
+        />
+        <input
+          value={group.name.ar}
+          onChange={(e) => onSet({ name: { ...group.name, ar: e.target.value } })}
+          dir="rtl"
+          aria-label={t('group.nameAr')}
+          className="h-7 w-48 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          data-group-name-ar=""
         />
         <select className={SELECT} value={group.mode} onChange={(e) => onSet({ mode: e.target.value as RuleOrderGroupMode })} aria-label={t('group.mode')} data-group-mode="">
           {MODES.map((m) => (
@@ -363,7 +408,7 @@ function GroupBlock({
           <Trash2 className="size-3.5" aria-hidden />
         </Button>
       </div>
-      {group.items.length === 0 ? (
+      {group.campaigns.length === 0 ? (
         <p className="ps-8 text-xs text-muted-foreground" data-group-empty="">
           {t('group.empty')}
         </p>

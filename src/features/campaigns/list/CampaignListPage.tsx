@@ -9,7 +9,7 @@ import { Plus, Search } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleCampaignListRow } from '@/core/models/rule-campaign'
 import { ruleCampaignsQuery } from '@/core/rules/api'
 import { CAMPAIGN_STATES, CAMPAIGN_STATE_SEV, campaignPath } from '@/core/rules/campaign-state'
@@ -116,7 +116,7 @@ export default function CampaignListPage() {
       </label>
 
       {campaigns.isError && (
-        <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={apiErrorMessage(campaigns.error, t('results.failed'))} />
+        <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={isBareDenial(campaigns.error) ? t('results.denied') : apiErrorMessage(campaigns.error, t('results.failed'))} />
       )}
 
       <div className="flex min-w-0 flex-col gap-1">

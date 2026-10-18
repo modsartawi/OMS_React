@@ -65,12 +65,23 @@
       "hours": "Daily hours",
       "allDay": "All day",
       "localTime": "Local time."
+    },
+    "trail": {
+      "title": "Approval trail",
+      "loading": "Reading the approval trail…",
+      "failed": "The approval trail could not be read.",
+      "denied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the approval trail.",
+      "empty": "No one has asked for approval of this campaign yet.",
+      "action": {
+        "requested": "<by>{{by}}</by> asked for approval",
+        "sentBack": "<by>{{by}}</by> sent it back",
+        "activated": "<by>{{by}}</by> activated it as version <version>{{version}}</version>",
+        "disabled": "<by>{{by}}</by> disabled it in version <version>{{version}}</version>"
+      }
     }
   },
   "approval": {
-    "rolesLoading": "Reading your approval role…",
-    "rolesFailed": "Your approval role could not be read",
-    "askNote": "Note for the approver (optional)",
+    "askNote": "Note for the approver",
     "askNotePlaceholder": "What changed, and why it is ready",
     "action": {
       "askForApproval": "Ask for approval",
@@ -87,25 +98,30 @@
       "noRules": "The saved draft has no rule yet: build one before it can go further."
     },
     "hint": {
-      "authorDraft": "Authors cannot activate: an approver activates once you ask.",
-      "authorWaiting": "Waiting for an approver. Authors cannot activate.",
-      "approverWaiting": "Activating publishes a new version. A sale already open keeps the version it started with.",
-      "approverLive": "Disabling stops new sales getting it; sales already open keep it.",
-      "readOnly": "You can read this campaign. An author asks for approval, and an approver activates."
+      "draft": "An approver activates once you ask. Whoever asks for approval, or last saved the draft, cannot activate it.",
+      "waiting": "Waiting for an approver: one who did not ask for it or last save it. Activating publishes a new version; a sale already open keeps the version it started with.",
+      "live": "An approver may disable it, with a reason: the next version runs without it, and sales already open keep it."
     },
     "pending": {
       "title": "Pending changes",
       "first": "The first version: none of it is live yet.",
-      "overLive": "The draft’s rules, to replace live version <version>{{version}}</version>.",
+      "overLive": "The draft’s rules, to replace live version <version>{{version}}</version>, beside the live ones.",
       "noRules": "No rules.",
-      "open": "Read them in the rule builder"
+      "open": "Read them in the rule builder",
+      "draft": "This draft",
+      "live": "Live now",
+      "liveLoading": "Reading the live campaign…",
+      "liveFailed": "The live campaign could not be read.",
+      "liveDenied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the live campaign.",
+      "liveNone": "Not live in the newest version.",
+      "overDisabled": "The draft’s rules. The campaign is disabled: activating this draft brings it back."
     },
     "dialog": {
       "cancel": "Cancel",
       "activate": {
         "title": "Activate the campaign",
         "body": "Activate <name>{{name}}</name>? Tills pick it up with the next ruleset version.",
-        "note": "What changed (goes in the version history, optional)",
+        "note": "A note for the approval trail (optional). The version carries the author’s note.",
         "confirm": "Activate"
       },
       "sendBack": {
@@ -116,13 +132,16 @@
       },
       "disable": {
         "title": "Disable the campaign",
-        "body": "Disable <name>{{name}}</name>? Sales already open keep it; new sales stop getting it.",
-        "confirm": "Disable"
+        "body": "Disable <name>{{name}}</name>? The next version runs without it: sales already open keep it, new sales stop getting it.",
+        "confirm": "Disable",
+        "note": "Why it is disabled (goes in the version history)"
       },
       "deleteDraft": {
         "title": "Delete the draft",
         "body": "Delete <name>{{name}}</name>, code <code>{{code}}</code>? It was never published, so no till has it. This cannot be undone.",
-        "confirm": "Delete"
+        "confirm": "Delete",
+        "bodyLive": "Delete the draft of <name>{{name}}</name>, code <code>{{code}}</code>? The live campaign stays live; only the unpublished changes go. This cannot be undone.",
+        "bodyDisabled": "Delete the draft of <name>{{name}}</name>, code <code>{{code}}</code>? The campaign is disabled and no version holds it, so without its draft it leaves the campaigns list and cannot be opened again. This cannot be undone."
       }
     },
     "asked": "Sent for approval.",
@@ -166,7 +185,24 @@
         "todo": "Add money or use limits in Settings ▸ Budgets."
       }
     },
-    "retry": "Try again"
+    "retry": "Try again",
+    "askNoteRequired": "Required: say what the draft changes. The note travels with the version.",
+    "refusal": {
+      "denied": {
+        "author": "You do not have the rule-author permission (RuleAuthoring 02), so HQ refused. Ask an administrator for it.",
+        "approver": "You do not have the rule-approver permission (RuleAuthoring 06), so HQ refused. Ask an administrator for it."
+      },
+      "selfApproval": "You asked for this approval or last saved the draft: another approver must activate it.",
+      "notPending": "The draft is no longer waiting for approval: it was activated, sent back or changed since you read it.",
+      "orderStale": "The draft’s evaluation order was edited from a live order that has changed since. It stays waiting and is never published over that change: send it back so its author saves the order again.",
+      "notLive": "The campaign is no longer live: it was disabled since you read it.",
+      "draftStale": "The draft was saved by someone else since you read it.",
+      "draftPending": "The draft is already waiting for approval.",
+      "invalidCampaign": "HQ’s checker refuses the draft inside the live ruleset (HQ’s lines are below). The author fixes it: an approver sends it back.",
+      "reasonRequired": "A note is required.",
+      "reload": "Read it again",
+      "sendBack": "Send it back"
+    }
   },
   "weekdays": {
     "0": "Sunday",
@@ -1132,15 +1168,14 @@
   },
   "versions": {
     "title": "Versions",
-    "intro": "Every activation publishes a version. A sale keeps the version it started with. Restore makes an earlier version the new draft: tills keep the live version until that draft is approved and activated.",
+    "intro": "Every activation publishes a version, and so does a disable (the live version without the campaign). A sale keeps the version it started with. Restore makes an earlier version the draft: tills keep the live version until that draft is approved and activated. The evaluation order is not restored.",
     "loading": "Reading the versions…",
     "failedTitle": "The versions could not be read",
     "failed": "Try again in a moment.",
     "retry": "Try again",
     "empty": "No versions yet. Activating the campaign publishes its first.",
     "held": {
-      "waiting": "A request waits for approval, so its draft cannot be replaced. Restore comes back once the request is sent back or activated.",
-      "disabled": "This campaign is disabled, so no version is restored into it. Copy the campaign to start again from it."
+      "waiting": "A request waits for approval, so its draft cannot be replaced. Restore comes back once the request is sent back or activated."
     },
     "number": "Version <version>{{version}}</version>",
     "mark": {
@@ -1166,7 +1201,12 @@
       "live": "Tills keep running version <version>{{version}}</version> until the new draft is approved and activated.",
       "cancel": "Keep the draft",
       "confirm": "Replace the draft"
-    }
+    },
+    "action": {
+      "disable": "Disabled here"
+    },
+    "requestedBy": "asked by <by>{{by}}</by>",
+    "notHeld": "This version holds nothing of the campaign to read."
   },
   "coupons": {
     "title": "Coupons",
@@ -1360,5 +1400,25 @@
     "pendingTitle": "The draft waits for approval",
     "pending": "The draft waits for an approver, so nothing can be saved until it is activated or sent back.",
     "denied": "You do not have the rule-author permission (RuleAuthoring), so HQ refused. Ask an administrator for it."
+  },
+  "copy": {
+    "title": "Copy campaign",
+    "intro": "The copy is a new, independent draft: its budgets count under its own id, and it goes live only through approval. The campaign it is copied from is untouched.",
+    "id": "The copy’s id",
+    "idHint": "At most 40 letters, digits, dots, dashes or underscores. It cannot be changed later.",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "cancel": "Cancel",
+    "submit": "Copy",
+    "denied": "You do not have the rule-author permission (RuleAuthoring 02), so HQ refused the copy.",
+    "problem": {
+      "idRequired": "Give the copy an id.",
+      "idTooLong": "At most 40 characters.",
+      "idCharacters": "Only letters, digits, dots, dashes and underscores.",
+      "idReserved": "This word names a page under Campaigns: choose another id.",
+      "idTaken": "A campaign already has this id.",
+      "nameEnRequired": "Give the copy an English name.",
+      "nameArRequired": "Give the copy an Arabic name."
+    }
   }
 }

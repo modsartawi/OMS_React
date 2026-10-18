@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import type { RuleDraft } from '@/core/models/rule-campaign'
-import { ruleCampaignRolesQuery } from '@/core/rules/api'
+import type { RuleApprovalStep, RuleDraft } from '@/core/models/rule-campaign'
+import { isBareDenial, apiErrorMessage } from '@/core/api'
+import { ruleApprovalHistoryQuery } from '@/core/rules/api'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import { campaignPath, campaignState, scheduleRelative, setAt, type CampaignState } from '@/core/rules/campaign-state'
 import { RULE_WEEKDAYS } from '@/core/models/rule-campaign'
@@ -18,8 +19,9 @@ import { draftStateInput } from './settings-form'
 
 /**
  * A campaign's dashboard (ticket 501): Details, State and Schedule; the State cell's ⋯ menu copies
- * the campaign (ticket 502), and its approval acts follow the reader's role (ticket 511), above them
- * the pre-activation steps while the campaign was never published. Every date is the campaign's own local day or the local
+ * the campaign (ticket 502), and its approval acts follow its state (tickets 511, 524), above them
+ * the pre-activation steps while the campaign was never published; under the cells, the approval
+ * trail (`Approvals/History`). Every date is the campaign's own local day or the local
  * wall clock — never UTC — and "starts in N days" counts local calendar days (`scheduleRelative`).
  */
 export default function DashboardPage() {
@@ -28,7 +30,6 @@ export default function DashboardPage() {
   const c = d.campaign
   const now = new Date()
   const state = campaignState(draftStateInput(d), now)
-  const roles = useQuery(ruleCampaignRolesQuery())
   // HQ's validation of the saved draft (Drafts/Load answers it, ticket 522) — what the builder's
   // pill reads too: its errors gate "Ask for approval" and "Activate", and tick the rules step. A
   // draft HQ answered without one is "unavailable" (fail closed).
@@ -56,14 +57,79 @@ export default function DashboardPage() {
           <CampaignStateBadge state={state} />
           <StateSentence d={d} state={state} />
           <LiveUnderDraft d={d} state={state} />
-          <ApprovalPanel draft={d} roles={roles} gate={gate} />
+          <ApprovalPanel draft={d} gate={gate} />
           <CampaignActionsMenu draft={d} />
         </Cell>
         <Cell title={t('dashboard.schedule.title')} data="schedule">
           <Schedule d={d} now={now} live={d.campaignStatus === 'Published'} />
         </Cell>
       </div>
+      <ApprovalTrail code={d.code} />
     </section>
+  )
+}
+
+/**
+ * The campaign's approval trail (`Approvals/History`, oldest first): who asked, sent back, activated
+ * or disabled, when (local) and with what note; an activation or a disable names the version it made.
+ */
+function ApprovalTrail({ code }: { code: string }) {
+  const { t } = useTranslation('campaign-workspace')
+  const history = useQuery(ruleApprovalHistoryQuery(code))
+  let body
+  if (history.isPending) body = <p className="text-sm text-muted-foreground">{t('dashboard.trail.loading')}</p>
+  else if (history.isError)
+    body = (
+      <p className="text-sm text-danger-800" data-trail-failed="">
+        {isBareDenial(history.error) ? t('dashboard.trail.denied') : <bdi>{apiErrorMessage(history.error, t('dashboard.trail.failed'))}</bdi>}
+      </p>
+    )
+  else if (!history.data.length)
+    body = (
+      <p className="text-sm text-muted-foreground" data-trail-empty="">
+        {t('dashboard.trail.empty')}
+      </p>
+    )
+  else
+    body = (
+      <ol className="flex flex-col gap-2" data-trail="">
+        {history.data.map((step, i) => (
+          <TrailStep key={i} step={step} />
+        ))}
+      </ol>
+    )
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4" data-dashboard-cell="trail">
+      <h2 className="text-sm font-semibold">{t('dashboard.trail.title')}</h2>
+      {body}
+    </section>
+  )
+}
+
+function TrailStep({ step }: { step: RuleApprovalStep }) {
+  const { t } = useTranslation('campaign-workspace')
+  const at = setAt(step.at)
+  return (
+    <li className="flex flex-col gap-0.5 border-s-2 border-border ps-2 text-sm" data-trail-step={step.action}>
+      <span>
+        <Trans
+          t={t}
+          i18nKey={`dashboard.trail.action.${step.action}`}
+          values={{ by: step.by, version: step.versionNo }}
+          components={{ by: <bdi className="font-medium" />, version: <Ltr /> }}
+        />
+        {at && (
+          <span className="ms-2 text-xs text-muted-foreground">
+            <Ltr>{formatDateTime(at)}</Ltr>
+          </span>
+        )}
+      </span>
+      {step.note && (
+        <span className="text-xs text-muted-foreground" data-trail-note="">
+          <bdi>{step.note}</bdi>
+        </span>
+      )}
+    </li>
   )
 }
 

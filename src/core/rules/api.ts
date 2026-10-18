@@ -5,14 +5,12 @@ import type {
   RuleBudgetLimitSet,
   RuleBudgetView,
   RuleCampaign,
+  RuleApprovalBody,
+  RuleApprovalItem,
+  RuleApprovalStep,
   RuleCampaignCoupon,
-  RuleCampaignFromTemplate,
   RuleCampaignListRow,
-  RuleCampaignRoles,
-  RuleCampaignTemplate,
-  RuleCampaignTransition,
-  RuleCampaignVersion,
-  RuleCampaignVersionDetail,
+  RuleCopyBody,
   RuleCouponBatch,
   RuleCouponBatchCreate,
   RuleCouponFound,
@@ -21,22 +19,30 @@ import type {
   RuleCouponUnusedDeleted,
   RuleDraft,
   RuleDraftDeleted,
+  RuleDisableBody,
   RuleDraftSave,
-  RuleEvaluationOrder,
+  RuleDraftSummary,
   RuleFeature,
+  RuleFromTemplateBody,
   RuleLookupItem,
   RuleLookupKind,
   RuleMember,
   RuleMemberBudget,
   RuleMemberKey,
+  RuleOrder,
+  RulePublishReply,
   RuleSimRequest,
   RuleSimResult,
+  RuleTemplate,
   RuleValidateRequest,
   RuleValidation,
   RuleValueMapUpload,
+  RuleVersionDetail,
+  RuleVersionSummary,
   RuleWalletCoupon,
 } from '@/core/models/rule-campaign'
 import { RULE_FEATURES } from '@/core/models/rule-campaign'
+import { composeCampaignList } from './campaign-list'
 import type {
   RuleSessionListQuery,
   RuleSessionLookup,
@@ -53,12 +59,29 @@ import type {
 // It sits in `core/` because the simulator (514), Priority (513) and support (518, 519) read
 // campaigns too, and a feature may not import another feature's api.
 
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
+// PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
 const CAMPAIGNS = 'RuleCampaign/Campaigns'
 // The draft doors (BackOffice 2758 + 2759): POST, cookie session + the rule-author grant.
 const DRAFT_LOAD = 'Rules/Authoring/Drafts/Load'
 const DRAFT_SAVE = 'Rules/Authoring/Drafts/Save'
 const DRAFT_DELETE = 'Rules/Authoring/Drafts/Delete'
+const DRAFT_LIST = 'Rules/Authoring/Drafts/List'
+// Approval, versions, order, copy and templates (BackOffice 2759): every door POST (the bodiless
+// ones with an empty body), each with its own grant on BackOfficeScreen[RuleAuthoring, command] —
+// 02 author, 06 approver, 03 reader. A session without it is a bare 403 with no body.
+const APPROVAL_REQUEST = 'Rules/Authoring/Approvals/Request'
+const APPROVAL_LIST = 'Rules/Authoring/Approvals/List'
+const APPROVAL_HISTORY = 'Rules/Authoring/Approvals/History'
+const APPROVAL_ACTIVATE = 'Rules/Authoring/Approvals/Activate'
+const APPROVAL_SEND_BACK = 'Rules/Authoring/Approvals/SendBack'
+const APPROVAL_DISABLE = 'Rules/Authoring/Approvals/Disable'
+const VERSIONS_LIST = 'Rules/Authoring/Versions/List'
+const VERSIONS_LOAD = 'Rules/Authoring/Versions/Load'
+const VERSIONS_RESTORE = 'Rules/Authoring/Versions/Restore'
+const ORDER = 'Rules/Authoring/Order'
+const DRAFT_COPY = 'Rules/Authoring/Drafts/Copy'
+const TEMPLATES_LIST = 'Rules/Authoring/Templates/List'
+const DRAFT_FROM_TEMPLATE = 'Rules/Authoring/Drafts/FromTemplate'
 // The builder's other doors (BackOffice 2758): POST, cookie session + the rule-author grant.
 const CATALOGUE = 'Rules/Authoring/Catalogue'
 const VALIDATE = 'Rules/Authoring/Validate'
@@ -67,18 +90,6 @@ const VALUE_MAP_UPLOAD = 'Rules/Authoring/ValueMaps/Upload'
 const BUDGETS = 'Rules/Authoring/Budgets'
 const BUDGET_SET_LIMIT = 'Rules/Authoring/Budgets/SetLimit'
 
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const ROLES = 'RuleCampaign/Roles'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const LIFECYCLE = (id: string, act: 'AskForApproval' | 'Activate' | 'SendBack' | 'Disable') =>
-  `${CAMPAIGNS}/${encodeURIComponent(id)}/${act}`
-
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const VERSIONS = (id: string) => `${CAMPAIGNS}/${encodeURIComponent(id)}/Versions`
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const ORDER = 'RuleCampaign/Order'
-// PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-const TEMPLATES = 'RuleCampaign/Templates'
 // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
 const SIMULATE = 'RuleCampaign/Simulate'
 // PROVISIONAL - shapes invented ahead of BackOffice 2755; re-point in ticket 520
@@ -102,11 +113,23 @@ export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
 export const ruleCampaignKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'one', id] as const
 
 export const ruleCampaignApi = {
-  /** GET RuleCampaign/Campaigns — every campaign, unfiltered; the list counts and filters locally,
-   *  because scheduled / running / expired are read at the reader's local now. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  list(): Promise<RuleCampaignListRow[]> {
-    return api.get<RuleCampaignListRow[]>(CAMPAIGNS)
+  /**
+   * The campaigns list (ticket 524), unfiltered. HQ has no list door (BO ask A), so it is composed
+   * (`composeCampaignList`) from POST Rules/Authoring/Drafts/List (the drafts and their state), POST
+   * Rules/Authoring/Order (the live campaigns) and POST Rules/Authoring/Versions/Load of the order's
+   * version (each live campaign's window). The list counts and filters locally, because scheduled /
+   * running / expired are read at the reader's local now. A disabled campaign with no draft is in
+   * none of the three, so it is not listed.
+   */
+  async list(): Promise<RuleCampaignListRow[]> {
+    const [drafts, order] = await Promise.all([ruleCampaignApi.drafts(), ruleCampaignApi.order()])
+    const live = order.versionNo > 0 ? await ruleCampaignApi.version(order.versionNo) : null
+    return composeCampaignList(drafts, order, live?.ruleset ?? null)
+  },
+
+  /** POST Rules/Authoring/Drafts/List — every draft with its state, last saved first. */
+  drafts(): Promise<RuleDraftSummary[]> {
+    return api.post<RuleDraftSummary[]>(DRAFT_LIST, {})
   },
 
   /** POST Rules/Authoring/Drafts/Load { campaign } — the campaign's draft whole, at its revision;
@@ -130,27 +153,26 @@ export const ruleCampaignApi = {
     return api.post<RuleDraftDeleted>(DRAFT_DELETE, { campaign, revision })
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Copy — an independent draft copied from a campaign
-   *  (BackOffice 2759); HQ names it "<name> (copy)" and answers with the new draft. The original
-   *  is untouched. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  copy(id: string): Promise<RuleDraft> {
-    return api.post<RuleDraft>(`${CAMPAIGNS}/${encodeURIComponent(id)}/Copy`, {})
+  /** POST Rules/Authoring/Drafts/Copy { from, campaign, name? } (grant 02) — a NEW draft under the
+   *  id the author picked: the source's draft (else its live campaign) with its features, `origin:
+   *  copy:FROM`, no tree. The source is untouched. 409 `RULES_CAMPAIGN_EXISTS`; 404
+   *  `RULES_DRAFT_NOT_FOUND`; `RULES_BAD_CAMPAIGN_CODE`. */
+  copy(body: RuleCopyBody): Promise<RuleDraft> {
+    return api.post<RuleDraft>(DRAFT_COPY, body)
   },
 
-  /** GET RuleCampaign/Templates — every template, enabled or not, with its placeholders and the
-   *  draft they fill (ticket 503, BackOffice 2759). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  templates(): Promise<RuleCampaignTemplate[]> {
-    return api.get<RuleCampaignTemplate[]>(TEMPLATES)
+  /** POST Rules/Authoring/Templates/List (grant 03) — every template, by code, with its
+   *  placeholders and each one's default. */
+  templates(): Promise<RuleTemplate[]> {
+    return api.post<RuleTemplate[]>(TEMPLATES_LIST, {})
   },
 
-  /** POST RuleCampaign/Templates/{id}/Create — a new draft from a template, its placeholders filled
-   *  (ticket 503, BackOffice 2759); HQ checks the values, mints the code and id, and answers with the
-   *  whole draft. A disabled template or a value out of its bounds is refused on the envelope. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  createFromTemplate(templateId: string, body: RuleCampaignFromTemplate): Promise<RuleDraft> {
-    return api.post<RuleDraft>(`${TEMPLATES}/${encodeURIComponent(templateId)}/Create`, body)
+  /** POST Rules/Authoring/Drafts/FromTemplate { template, campaign, name?, values } (grant 02) — a
+   *  new draft under the picked id: the template's campaign with each sent value at its
+   *  placeholder's path (an unsent one keeps its default). 404 `RULES_TEMPLATE_NOT_FOUND`; 400
+   *  `RULES_BAD_TEMPLATE`; 409 `RULES_CAMPAIGN_EXISTS`. */
+  fromTemplate(body: RuleFromTemplateBody): Promise<RuleDraft> {
+    return api.post<RuleDraft>(DRAFT_FROM_TEMPLATE, body)
   },
 
   /** POST Rules/Authoring/Catalogue { features } — the condition, effect and setting blocks a
@@ -193,76 +215,70 @@ export const ruleCampaignApi = {
     return api.post<RuleBudgetLimitSet>(BUDGET_SET_LIMIT, { campaign, budget, limit })
   },
 
-  /** GET RuleCampaign/Roles — the reader's roles on rule campaigns (ticket 511, BackOffice 2759's
-   *  Ua permissions): what the dashboard draws. The server still refuses what the reader may not do. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  roles(): Promise<RuleCampaignRoles> {
-    return api.get<RuleCampaignRoles>(ROLES)
+  /** POST Rules/Authoring/Approvals/Request { campaign, revision, note } (grant 02) — the author
+   *  asks for approval of the draft at the revision read, with a note (required): the draft is
+   *  `pending` and frozen. 400 `RULES_INVALID_CAMPAIGN` / `RULES_REASON_REQUIRED`; 409
+   *  `RULES_DRAFT_STALE` / `RULES_DRAFT_PENDING`. */
+  requestApproval(body: RuleApprovalBody): Promise<RuleDraft> {
+    return api.post<RuleDraft>(APPROVAL_REQUEST, body)
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/AskForApproval — an author sends the SAVED draft to an
-   *  approver with an optional note (ticket 511, BackOffice 2759); HQ answers the campaign waiting. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  askForApproval(id: string, body: RuleCampaignTransition): Promise<RuleDraft> {
-    return api.post<RuleDraft>(LIFECYCLE(id, 'AskForApproval'), body)
+  /** POST Rules/Authoring/Approvals/List (grant 03) — the drafts waiting, oldest request first, each
+   *  beside the campaign as the live version holds it (null when it is not live). */
+  approvals(): Promise<RuleApprovalItem[]> {
+    return api.post<RuleApprovalItem[]>(APPROVAL_LIST, {})
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Activate — an approver publishes the waiting draft as a new
-   *  version (ticket 511, BackOffice 2759); HQ answers the campaign live. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  activate(id: string, body: RuleCampaignTransition): Promise<RuleDraft> {
-    return api.post<RuleDraft>(LIFECYCLE(id, 'Activate'), body)
+  /** POST Rules/Authoring/Approvals/History { campaign } (grant 03) — the approval trail, oldest first. */
+  approvalHistory(campaign: string): Promise<RuleApprovalStep[]> {
+    return api.post<RuleApprovalStep[]>(APPROVAL_HISTORY, { campaign })
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/SendBack — an approver returns the waiting draft to its author
-   *  with a note (ticket 511, BackOffice 2759); HQ answers the campaign as a draft again. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  sendBack(id: string, body: RuleCampaignTransition): Promise<RuleDraft> {
-    return api.post<RuleDraft>(LIFECYCLE(id, 'SendBack'), body)
+  /** POST Rules/Authoring/Approvals/Activate { campaign, revision, note? } (grant 06) — the publish:
+   *  a new immutable version, and the draft goes. 403 `RULES_SELF_APPROVAL`; 409 `RULES_NOT_PENDING`
+   *  / `RULES_DRAFT_STALE` / `RULES_ORDER_STALE`; 400 `RULES_INVALID_CAMPAIGN`. */
+  activate(body: RuleApprovalBody): Promise<RulePublishReply> {
+    return api.post<RulePublishReply>(APPROVAL_ACTIVATE, body)
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Disable — an approver stops a live campaign (ticket 511,
-   *  BackOffice 2759): sales already open keep it, new sales do not get it. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  disable(id: string, body: RuleCampaignTransition): Promise<RuleDraft> {
-    return api.post<RuleDraft>(LIFECYCLE(id, 'Disable'), body)
+  /** POST Rules/Authoring/Approvals/SendBack { campaign, revision, note } (grant 06, note required)
+   *  — the draft back to its author, `sentBack`. 409 `RULES_NOT_PENDING` / `RULES_DRAFT_STALE`. */
+  sendBack(body: RuleApprovalBody): Promise<RuleDraft> {
+    return api.post<RuleDraft>(APPROVAL_SEND_BACK, body)
   },
 
-  /** GET RuleCampaign/Campaigns/{id}/Versions — every published version with who, when and the
-   *  note (ticket 512, BackOffice 2759); a campaign never activated has none. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  versions(id: string): Promise<RuleCampaignVersion[]> {
-    return api.get<RuleCampaignVersion[]>(VERSIONS(id))
+  /** POST Rules/Authoring/Approvals/Disable { campaign, note } (grant 06, note required) — the next
+   *  version is the live one without the campaign. 409 `RULES_NOT_LIVE`. */
+  disable(body: RuleDisableBody): Promise<RuleVersionSummary> {
+    return api.post<RuleVersionSummary>(APPROVAL_DISABLE, body)
   },
 
-  /** GET RuleCampaign/Campaigns/{id}/Versions/{version} — one version with its rules as published,
-   *  for reading only (ticket 512, BackOffice 2759). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  version(id: string, version: number): Promise<RuleCampaignVersionDetail> {
-    return api.get<RuleCampaignVersionDetail>(`${VERSIONS(id)}/${version}`)
+  /** POST Rules/Authoring/Versions/List { campaign } (grant 03) — the versions the campaign's
+   *  publishes and disable made, newest first. */
+  versions(campaign: string): Promise<RuleVersionSummary[]> {
+    return api.post<RuleVersionSummary[]>(VERSIONS_LIST, { campaign })
   },
 
-  /** POST RuleCampaign/Campaigns/{id}/Versions/{version}/Restore — the version becomes the
-   *  campaign's NEW draft, replacing the draft it had; the live version is untouched (ticket 512,
-   *  BackOffice 2759). HQ answers the whole campaign as a draft. */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  restore(id: string, version: number): Promise<RuleDraft> {
-    return api.post<RuleDraft>(`${VERSIONS(id)}/${version}/Restore`, {})
+  /** POST Rules/Authoring/Versions/Load { versionNo, campaign? } (grant 03) — one version: its
+   *  ruleset, and the named campaign as it holds it. 404 `RULES_VERSION_NOT_FOUND`. */
+  version(versionNo: number, campaign?: string): Promise<RuleVersionDetail> {
+    return api.post<RuleVersionDetail>(VERSIONS_LOAD, campaign ? { versionNo, campaign } : { versionNo })
   },
 
-  /** GET RuleCampaign/Order — the DRAFT evaluation order: the stackable base list with the groups
-   *  placed in it (ticket 513, BackOffice 2759, ADR 0090). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  order(): Promise<RuleEvaluationOrder> {
-    return api.get<RuleEvaluationOrder>(ORDER)
+  /** POST Rules/Authoring/Versions/Restore { campaign, versionNo, revision } (grant 02) — that
+   *  version's campaign as the DRAFT (`origin: restore:N`), at the draft's revision (0 without one);
+   *  the live version is untouched and the order is not restored. 404 `RULES_VERSION_NOT_FOUND`; 409
+   *  `RULES_DRAFT_STALE` / `RULES_DRAFT_PENDING`. */
+  restore(campaign: string, versionNo: number, revision: number): Promise<RuleDraft> {
+    return api.post<RuleDraft>(VERSIONS_RESTORE, { campaign, versionNo, revision })
   },
 
-  /** PUT RuleCampaign/Order — save the whole draft order (ticket 513, BackOffice 2759); it reaches
-   *  tills only with the next published version. HQ answers the order as saved (a new group may come
-   *  back with HQ's own id). */
-  // PROVISIONAL - shapes invented ahead of BackOffice 2758/2759; re-point in ticket 520
-  saveOrder(body: RuleEvaluationOrder): Promise<RuleEvaluationOrder> {
-    return api.put<RuleEvaluationOrder>(ORDER, body)
+  /** POST Rules/Authoring/Order (grant 03) — the LIVE evaluation order at the newest version. There
+   *  is no order save: the edited tree goes out with a draft's Drafts/Save and publishes with that
+   *  draft's version (an order edited from a live order that has changed since is refused at
+   *  Activate, `RULES_ORDER_STALE`). */
+  order(): Promise<RuleOrder> {
+    return api.post<RuleOrder>(ORDER, {})
   },
 
   /** POST RuleCampaign/Simulate — the dry run (ticket 514, BackOffice 2758): HQ prices the basket at
@@ -363,26 +379,35 @@ export const ruleCampaignApi = {
   },
 }
 
-/** The reader's roles' query options: read once a session-ish, never retried (the door fails closed). */
-export const ruleCampaignRolesQuery = () => ({
-  queryKey: ['rule-campaign-roles'] as const,
-  queryFn: () => ruleCampaignApi.roles(),
-  staleTime: 5 * 60_000,
-  refetchOnWindowFocus: false as const,
-  retry: false as const,
-})
-
 /**
- * A campaign HQ just moved along its approval life (ticket 511): its own query takes HQ's answer,
- * so the dashboard's State and the shell's badge follow, and the list is read afresh so its state
- * tiles count it under the new state.
+ * A draft HQ just moved along its approval life (an ask or a send back, ticket 511): its own query
+ * takes HQ's answer, so the dashboard's State and the shell's badge follow, and the list, the
+ * waiting requests and the campaign's trail are read afresh.
  */
 export function rememberTransition(queryClient: QueryClient, draft: RuleDraft): void {
-  const before = queryClient.getQueryData<RuleDraft>(ruleCampaignKey(draft.code))
   queryClient.setQueryData(ruleCampaignKey(draft.code), draft)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
-  // An activation publishes a version (512): the list is read afresh only when the live one moved.
-  if (before?.publishedVersionNo !== draft.publishedVersionNo) void queryClient.invalidateQueries({ queryKey: ruleCampaignVersionsKey(draft.code) })
+  void queryClient.invalidateQueries({ queryKey: ruleApprovalsQuery().queryKey })
+  void queryClient.invalidateQueries({ queryKey: ruleApprovalHistoryKey(draft.code) })
+}
+
+/**
+ * A version HQ just made (an activation or a disable, ticket 511): neither answers the draft. After
+ * an activation the campaign is read again (its draft is gone: Load answers the new live version).
+ * After a disable it is NOT: with no draft, a disabled campaign is in no version and Load answers it
+ * 404 (BO ask A), so its own query keeps what was loaded, marked Disabled. The list, its versions,
+ * the order, the waiting requests and its trail are read afresh either way.
+ */
+export function rememberPublished(queryClient: QueryClient, code: string, act: 'activated' | 'disabled' = 'activated'): void {
+  if (act === 'disabled') queryClient.setQueryData<RuleDraft>(ruleCampaignKey(code), (d) => (d ? { ...d, campaignStatus: 'Disabled' } : d))
+  else void queryClient.invalidateQueries({ queryKey: ruleCampaignKey(code) })
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  void queryClient.invalidateQueries({ queryKey: ruleCampaignVersionsKey(code) })
+  void queryClient.invalidateQueries({ queryKey: ruleOrderQuery().queryKey })
+  void queryClient.invalidateQueries({ queryKey: ruleApprovalsQuery().queryKey })
+  void queryClient.invalidateQueries({ queryKey: ruleApprovalHistoryKey(code) })
+  // A disable makes the next version without it, so its live budgets are gone with it.
+  void queryClient.invalidateQueries({ queryKey: ruleBudgetsKey(code) })
 }
 
 /** A draft HQ just deleted: its own queries go, and the list is read afresh. */
@@ -392,6 +417,7 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignVersionsKey(id) })
   queryClient.removeQueries({ queryKey: ruleCampaignVersionKey(id) })
   queryClient.removeQueries({ queryKey: ruleCouponsKey(id) })
+  queryClient.removeQueries({ queryKey: ruleApprovalHistoryKey(id) })
   void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
 }
 
@@ -436,8 +462,8 @@ export const ruleValidateQuery = (body: RuleValidateRequest) => ({
   retry: false as const,
 })
 
-/** The templates' query options (ticket 503): read when the dialog's template tab first opens,
- *  kept a few minutes. */
+/** The templates' query options (ticket 503, `Templates/List`): read when the dialog's template tab
+ *  first opens, kept a few minutes. */
 export const ruleTemplatesQuery = () => ({
   queryKey: ['rule-templates'] as const,
   queryFn: () => ruleCampaignApi.templates(),
@@ -445,7 +471,7 @@ export const ruleTemplatesQuery = () => ({
   retry: false as const,
 })
 
-/** The list's query options. */
+/** The list's query options: the composed list (`ruleCampaignApi.list`), one key for its three reads. */
 export const ruleCampaignsQuery = () => ({
   queryKey: [...RULE_CAMPAIGNS_KEY, 'list'] as const,
   queryFn: () => ruleCampaignApi.list(),
@@ -505,20 +531,48 @@ export const ruleCampaignVersionsQuery = (id: string) => ({
   retry: false as const,
 })
 
-/** One version's query options. A published version never changes, so it is read once and kept. */
+/** One version of a campaign (`Versions/Load { versionNo, campaign }`). A published version never
+ *  changes, so it is read once and kept. */
 export const ruleCampaignVersionQuery = (id: string, version: number) => ({
   queryKey: [...ruleCampaignVersionKey(id), version] as const,
-  queryFn: () => ruleCampaignApi.version(id, version),
+  queryFn: () => ruleCampaignApi.version(version, id),
   staleTime: Infinity,
   retry: false as const,
 })
 
-/** The draft evaluation order's query options (ticket 513). Read afresh each time Priority opens
- *  (no stale time), never on a focus: the page holds the reader's unsaved order over it. */
+/** The LIVE evaluation order's query options (ticket 513, `Rules/Authoring/Order`). Read afresh each
+ *  time Priority opens (no stale time), never on a focus: the page holds the reader's unsaved order
+ *  over it. */
 export const ruleOrderQuery = () => ({
   queryKey: [...RULE_CAMPAIGNS_KEY, 'order'] as const,
   queryFn: () => ruleCampaignApi.order(),
   refetchOnWindowFocus: false as const,
+  retry: false as const,
+})
+
+/** Every draft (`Drafts/List`) — the drafts Priority's order may ride with. Read afresh each time
+ *  it is asked for. */
+export const ruleDraftsQuery = () => ({
+  queryKey: [...RULE_CAMPAIGNS_KEY, 'drafts'] as const,
+  queryFn: () => ruleCampaignApi.drafts(),
+  retry: false as const,
+})
+
+/** The drafts waiting for approval, each beside its live campaign (`Approvals/List`): the approver's
+ *  comparison on a waiting draft's dashboard. */
+export const ruleApprovalsQuery = () => ({
+  queryKey: [...RULE_CAMPAIGNS_KEY, 'approvals'] as const,
+  queryFn: () => ruleCampaignApi.approvals(),
+  retry: false as const,
+})
+
+/** A campaign's approval trail, keyed under the campaign queries. */
+export const ruleApprovalHistoryKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'approval-history', id] as const
+
+/** The approval trail's query options (`Approvals/History`): the dashboard's trail. */
+export const ruleApprovalHistoryQuery = (id: string) => ({
+  queryKey: ruleApprovalHistoryKey(id),
+  queryFn: () => ruleCampaignApi.approvalHistory(id),
   retry: false as const,
 })
 

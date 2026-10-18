@@ -9,7 +9,7 @@
 //                                            first `refuseRun` runs are refused
 //   POST Rules/Authoring/Lookups/{materials|stores} { q } → tools/campaigns-fixtures.mjs `lookup` (523; a
 //       material search under three characters is refused RULES_BAD_LOOKUP; channels are a fixed list)
-//   GET  RuleCampaign/Campaigns (PROVISIONAL, 524's list) and POST Rules/Authoring/Drafts/Load { campaign }
+//   POST Rules/Authoring/Drafts/List + Order (524: two of the list's doors) and POST Rules/Authoring/Drafts/Load { campaign }
 //        (the real 2758 door, ticket 522: tools/campaigns-fixtures.mjs `loadDraft`) → the dashboard's way in
 // Never a live SIS.Api.
 //
@@ -33,7 +33,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/simulator-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
-import { CAMPAIGNS, listRow, loadDraft, lookup } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, draftsList, loadDraft, lookup, orderOf } from './campaigns-fixtures.mjs'
 import { SIX_BASKETS, simulate } from './simulator-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -99,7 +99,8 @@ async function open({ refuseRun = 0 } = {}) {
       const out = lookup(lk[1], req.postDataJSON()?.q ?? '')
       return route.fulfill(out.hits ? envelope(out.hits) : envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }))
     }
-    if (p === 'RuleCampaign/Campaigns' && req.method() === 'GET') return route.fulfill(envelope(CAMPAIGNS.map(listRow)))
+    if (p === 'Rules/Authoring/Drafts/List' && req.method() === 'POST') return route.fulfill(envelope(draftsList(CAMPAIGNS)))
+    if (p === 'Rules/Authoring/Order' && req.method() === 'POST') return route.fulfill(envelope(orderOf(CAMPAIGNS)))
     if (p === 'Rules/Authoring/Drafts/Load' && req.method() === 'POST') {
       const out = loadDraft(CAMPAIGNS, req.postDataJSON()?.campaign)
       return route.fulfill(out.draft ? envelope(out.draft) : envelope(null, { status: 404, success: false, message: out.message, errorCode: out.refused }))

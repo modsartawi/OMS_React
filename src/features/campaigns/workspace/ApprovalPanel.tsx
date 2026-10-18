@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { RuleCampaignRoles, RuleDraft } from '@/core/models/rule-campaign'
-import { forgetDeleted, rememberTransition, ruleCampaignApi } from '@/core/rules/api'
+import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
+import type { CampaignRule, RuleDraft } from '@/core/models/rule-campaign'
+import { forgetDeleted, rememberPublished, rememberTransition, ruleApprovalsQuery, ruleCampaignApi, ruleCampaignKey } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import { ruleSummary } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
@@ -13,38 +13,32 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { actionGate, actionsFor, type ApprovalAction, type ChecksGate } from './approval'
-
-/** A note's longest length — a sentence or two for the approver, the author or the version history. */
-const NOTE_MAX = 500
+import {
+  APPROVAL_NOTE,
+  APPROVAL_NOTE_MAX,
+  actionGate,
+  actionsFor,
+  approvalRefusal,
+  dialogBodyKey,
+  grantOf,
+  noteReady,
+  type ApprovalAction,
+  type ChecksGate,
+} from './approval'
 
 /** The acts taken in a dialog (asking for approval is inline, under the State). */
 type DialogAction = Exclude<ApprovalAction, 'askForApproval'>
 
-/** Which dialog acts take a note, and whether it is required. */
-const NOTE: Record<DialogAction, 'required' | 'optional' | null> = {
-  activate: 'optional',
-  sendBack: 'required',
-  disable: null,
-  deleteDraft: null,
-}
-
 /**
- * The State cell's approval acts (ticket 511): an author asks for approval, with a note, or deletes
- * a never-published draft; an approver reads the pending changes and activates, sends back with a
- * note, or disables. Which acts show is `actionsFor` (the reader's roles × the campaign's state);
- * the server's refusal is the backstop and shows with its envelope message and code. Asking and
- * activating wait for HQ's checks of the saved draft (508), and an error blocks them.
+ * The State cell's approval acts (tickets 511, 524; BackOffice 2759's Approvals doors): an author
+ * asks for approval with a note (required), or deletes the draft; an approver reads the pending
+ * changes beside the live campaign (`Approvals/List`) and activates, sends back with a note, or
+ * disables a live campaign with a note. Which acts show follows the campaign's state
+ * (`actionsFor`): HQ has no roles door (BO ask B), so each door's grant is HQ's to refuse, and a
+ * refusal is said by its code (`approvalRefusal`). Asking and activating wait for HQ's checks of the
+ * saved draft (508), and an error blocks them.
  */
-export default function ApprovalPanel({
-  draft: d,
-  roles,
-  gate,
-}: {
-  draft: RuleDraft
-  roles: UseQueryResult<RuleCampaignRoles>
-  gate: ChecksGate
-}) {
+export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; gate: ChecksGate }) {
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -52,7 +46,7 @@ export default function ApprovalPanel({
   const [dialog, setDialog] = useState<DialogAction | null>(null)
 
   const ask = useMutation({
-    mutationFn: () => ruleCampaignApi.askForApproval(d.code, { note: note.trim() }),
+    mutationFn: () => ruleCampaignApi.requestApproval({ campaign: d.code, revision: d.revision, note: note.trim() }),
     onSuccess: (next) => {
       rememberTransition(queryClient, next)
       setNote('')
@@ -60,36 +54,17 @@ export default function ApprovalPanel({
     },
   })
 
-  if (roles.isPending) {
-    return (
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" data-approval="loading">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden />
-        {t('approval.rolesLoading')}
-      </p>
-    )
-  }
-  if (roles.isError) {
-    return (
-      <div className="flex w-full flex-col items-start gap-2">
-        <Refusal title={t('approval.rolesFailed')} error={roles.error} data="roles" />
-        <Button variant="outlined" disabled={roles.isFetching} onClick={() => void roles.refetch()} data-approval-roles-retry="">
-          {t('approval.retry')}
-        </Button>
-      </div>
-    )
-  }
-
-  const acts = actionsFor(d, roles.data)
+  const acts = actionsFor(d)
   const offers = (a: ApprovalAction) => acts.includes(a)
   const askGate = actionGate('askForApproval', gate)
-  const author = roles.data.author
-  const approver = roles.data.approver
-  const hint = hintFor(d, roles.data)
+  const noted = noteReady('askForApproval', note)
   const pending = d.source === 'draft' && d.state === 'pending'
+  const hint = pending ? 'waiting' : d.source === 'draft' ? 'draft' : d.campaignStatus === 'Published' ? 'live' : null
+  const reload = () => void queryClient.invalidateQueries({ queryKey: ruleCampaignKey(d.code) })
 
   return (
-    <div className="flex w-full flex-col gap-2" data-approval="" data-approval-role={approver ? (author ? 'both' : 'approver') : author ? 'author' : 'none'}>
-      {approver && pending && <PendingChanges d={d} />}
+    <div className="flex w-full flex-col gap-2" data-approval="">
+      {pending && <PendingChanges d={d} />}
 
       {offers('askForApproval') && (
         <div className="flex w-full flex-col gap-1.5" data-ask="">
@@ -100,14 +75,22 @@ export default function ApprovalPanel({
             id="approval-note"
             dir="auto"
             rows={2}
-            maxLength={NOTE_MAX}
+            maxLength={APPROVAL_NOTE_MAX}
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            required
+            onChange={(e) => {
+              setNote(e.target.value)
+              if (ask.isError) ask.reset()
+            }}
             placeholder={t('approval.askNotePlaceholder')}
             disabled={ask.isPending}
+            aria-describedby="approval-note-hint"
             className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
             data-ask-note=""
           />
+          <p id="approval-note-hint" className="text-xs text-muted-foreground" data-ask-note-hint="">
+            {t('approval.askNoteRequired')}
+          </p>
         </div>
       )}
 
@@ -116,9 +99,9 @@ export default function ApprovalPanel({
           {offers('askForApproval') && (
             <Button
               variant="primary"
-              disabled={!!askGate || ask.isPending}
-              aria-describedby={askGate ? 'approval-gate' : undefined}
-              onClick={() => ask.mutate()}
+              disabled={!!askGate || ask.isPending || !noted}
+              aria-describedby={askGate ? 'approval-gate' : 'approval-note-hint'}
+              onClick={() => noted && ask.mutate()}
               data-approval-action="askForApproval"
             >
               {ask.isPending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
@@ -165,7 +148,7 @@ export default function ApprovalPanel({
         </p>
       )}
 
-      {ask.isError && <Refusal title={t('approval.refused.askForApproval')} error={ask.error} data="askForApproval" />}
+      {ask.isError && <Refusal action="askForApproval" error={ask.error} onReload={reload} />}
 
       {hint && (
         <p className="text-xs text-muted-foreground" data-approval-hint={hint}>
@@ -180,16 +163,21 @@ export default function ApprovalPanel({
           action={dialog}
           gate={actionGate(dialog, gate)}
           onClose={() => setDialog(null)}
+          onSendBack={() => setDialog('sendBack')}
+          onReload={() => {
+            setDialog(null)
+            reload()
+          }}
           onDone={(next) => {
             setDialog(null)
             notify.success(t(`approval.done.${dialog}`))
-            if (next) rememberTransition(queryClient, next)
-            else {
+            if (next === 'deleted') {
               // Leave first: the shell still watches this campaign's queries, and forgetting them
               // under it would read the deleted campaign again.
               navigate('/campaigns')
               forgetDeleted(queryClient, d.code)
-            }
+            } else if (next === 'activated' || next === 'disabled') rememberPublished(queryClient, d.code, next)
+            else rememberTransition(queryClient, next)
           }}
         />
       )}
@@ -197,59 +185,84 @@ export default function ApprovalPanel({
   )
 }
 
-/** The one line under the acts that says who does what next. */
-type Hint = 'approverWaiting' | 'authorWaiting' | 'authorDraft' | 'approverLive' | 'readOnly'
-
-function hintFor(d: RuleDraft, roles: RuleCampaignRoles): Hint | null {
-  const pending = d.source === 'draft' && d.state === 'pending'
-  if (roles.approver && pending) return 'approverWaiting'
-  if (roles.author && pending) return 'authorWaiting'
-  if (roles.author && d.source === 'draft') return 'authorDraft'
-  if (roles.approver && d.campaignStatus === 'Published') return 'approverLive'
-  if (!roles.author && !roles.approver) return 'readOnly'
-  return null
+/** One rule as a line: its name (or number), its conditions and effects counted. */
+function RuleLine({ rule: r, index: i, side }: { rule: CampaignRule; index: number; side: 'draft' | 'live' }) {
+  const { t } = useTranslation('campaign-workspace')
+  const sum = ruleSummary(r)
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2 text-xs" data-pending-rule={side === 'draft' ? r.id : undefined} data-live-rule={side === 'live' ? r.id : undefined}>
+      <b className="font-medium">{r.name ? <bdi>{r.name}</bdi> : <Trans t={t} i18nKey="rules.ruleNumber" values={{ n: i + 1 }} components={{ n: <Ltr /> }} />}</b>
+      <span className="text-muted-foreground">
+        {sum.conditions ? <Trans t={t} i18nKey="rules.summary.conditions" count={sum.conditions} components={{ n: <Ltr /> }} /> : t('rules.summary.always')}
+      </span>
+      <span className="text-muted-foreground">
+        <Trans t={t} i18nKey="rules.summary.effects" count={sum.effects} components={{ n: <Ltr /> }} />
+      </span>
+    </li>
+  )
 }
 
-/** What an approver is asked to publish: the draft's rules, read in the rule builder. */
+/**
+ * What an approver is asked to publish: the draft's rules, beside the campaign as the live version
+ * holds it (`Approvals/List`'s `live`; none when it is not live).
+ */
 function PendingChanges({ d }: { d: RuleDraft }) {
   const { t } = useTranslation('campaign-workspace')
-  const c = d.campaign
+  // Beside the live campaign only while one runs: a disabled campaign is in no version.
+  const overLive = d.campaignStatus === 'Published'
+  const approvals = useQuery({ ...ruleApprovalsQuery(), enabled: overLive })
+  const live = approvals.data?.find((x) => x.draft.code === d.code)?.live ?? null
   return (
     <section className="flex w-full flex-col gap-1.5 rounded-md border border-border/60 p-2.5" data-pending-changes="">
       <h3 className="text-xs font-semibold">{t('approval.pending.title')}</h3>
       <p className="text-xs text-muted-foreground">
-        {d.publishedVersionNo > 0 ? (
+        {overLive ? (
           <Trans t={t} i18nKey="approval.pending.overLive" values={{ version: d.publishedVersionNo }} components={{ version: <Ltr /> }} />
         ) : (
-          t('approval.pending.first')
+          t(d.campaignStatus === 'Disabled' ? 'approval.pending.overDisabled' : 'approval.pending.first')
         )}
       </p>
-      {c.rules.length ? (
-        <ul className="flex flex-col gap-1">
-          {c.rules.map((r, i) => {
-            const sum = ruleSummary(r)
-            return (
-              <li key={r.id} className="flex flex-wrap items-baseline gap-x-2 text-xs" data-pending-rule={r.id}>
-                <b className="font-medium">
-                  {r.name ? <bdi>{r.name}</bdi> : <Trans t={t} i18nKey="rules.ruleNumber" values={{ n: i + 1 }} components={{ n: <Ltr /> }} />}
-                </b>
-                <span className="text-muted-foreground">
-                  {sum.conditions ? (
-                    <Trans t={t} i18nKey="rules.summary.conditions" count={sum.conditions} components={{ n: <Ltr /> }} />
-                  ) : (
-                    t('rules.summary.always')
-                  )}
-                </span>
-                <span className="text-muted-foreground">
-                  <Trans t={t} i18nKey="rules.summary.effects" count={sum.effects} components={{ n: <Ltr /> }} />
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground">{t('approval.pending.noRules')}</p>
-      )}
+      <div className={'grid gap-2 ' + (overLive ? 'sm:grid-cols-2' : '')}>
+        <div className="flex flex-col gap-1" data-pending-side="draft">
+          {overLive && <h4 className="text-xs font-medium">{t('approval.pending.draft')}</h4>}
+          {d.campaign.rules.length ? (
+            <ul className="flex flex-col gap-1">
+              {d.campaign.rules.map((r, i) => (
+                <RuleLine key={r.id} rule={r} index={i} side="draft" />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('approval.pending.noRules')}</p>
+          )}
+        </div>
+        {overLive && (
+          <div className="flex flex-col gap-1" data-pending-side="live">
+            <h4 className="text-xs font-medium">{t('approval.pending.live')}</h4>
+            {approvals.isPending ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                {t('approval.pending.liveLoading')}
+              </p>
+            ) : approvals.isError ? (
+              <p className="text-xs text-danger-800" data-pending-live-failed="">
+                {isBareDenial(approvals.error) ? t('approval.pending.liveDenied') : <bdi>{apiErrorMessage(approvals.error, t('approval.pending.liveFailed'))}</bdi>}
+              </p>
+            ) : !live ? (
+              <p className="text-xs text-muted-foreground" data-pending-live-none="">
+                {t('approval.pending.liveNone')}
+              </p>
+            ) : live.rules.length ? (
+              <ul className="flex flex-col gap-1">
+                {live.rules.map((r, i) => (
+                  <RuleLine key={r.id} rule={r} index={i} side="live" />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('approval.pending.noRules')}</p>
+            )}
+          </div>
+        )}
+      </div>
       <Link to={`${campaignPath(d.code)}/rules`} className="text-xs font-medium text-primary-800 hover:underline" data-pending-open="">
         {t('approval.pending.open')}
       </Link>
@@ -257,12 +270,18 @@ function PendingChanges({ d }: { d: RuleDraft }) {
   )
 }
 
+/** What a dialog act leaves: the draft in its new state, a version made (by an activation or a
+ *  disable), or the draft deleted. */
+type DialogOutcome = RuleDraft | 'activated' | 'disabled' | 'deleted'
+
 /** A dialog act: confirm it, with a note where it takes one; a refusal shows inside, kept open. */
 function ActionDialog({
   draft: d,
   action,
   gate,
   onClose,
+  onSendBack,
+  onReload,
   onDone,
 }: {
   draft: RuleDraft
@@ -270,31 +289,37 @@ function ActionDialog({
   /** What holds the act back now — the checks can change while the dialog is open. */
   gate: ChecksGate
   onClose: () => void
-  /** HQ's answer: the draft in its new state, or null for a deleted draft. */
-  onDone: (next: RuleDraft | null) => void
+  /** A refused activation that must go back to its author: the Send back dialog instead. */
+  onSendBack: () => void
+  /** A refusal that says the campaign moved: read it again. */
+  onReload: () => void
+  onDone: (next: DialogOutcome) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
   const [note, setNote] = useState('')
-  const wants = NOTE[action]
+  const wants = APPROVAL_NOTE[action]
   const run = useMutation({
-    mutationFn: async (): Promise<RuleDraft | null> => {
-      const body = { note: note.trim() }
+    mutationFn: async (): Promise<DialogOutcome> => {
+      const body = { campaign: d.code, revision: d.revision, note: note.trim() }
       switch (action) {
         case 'activate':
-          return ruleCampaignApi.activate(d.code, body)
+          // The publish answers the version it made, not the draft (which goes).
+          await ruleCampaignApi.activate(body)
+          return 'activated'
         case 'sendBack':
-          return ruleCampaignApi.sendBack(d.code, body)
+          return ruleCampaignApi.sendBack(body)
         case 'disable':
-          return ruleCampaignApi.disable(d.code, body)
+          await ruleCampaignApi.disable({ campaign: d.code, note: note.trim() })
+          return 'disabled'
         case 'deleteDraft':
           // Drafts/Delete at the revision read (409 RULES_DRAFT_STALE when it moved since).
           await ruleCampaignApi.deleteDraft(d.code, d.revision)
-          return null
+          return 'deleted'
       }
     },
     onSuccess: onDone,
   })
-  const ready = !run.isPending && !gate && (wants !== 'required' || note.trim().length > 0)
+  const ready = !run.isPending && !gate && noteReady(action, note)
   const danger = action === 'disable' || action === 'deleteDraft'
 
   return (
@@ -319,7 +344,7 @@ function ActionDialog({
         <p className="text-sm">
           <Trans
             t={t}
-            i18nKey={`approval.dialog.${action}.body`}
+            i18nKey={`approval.dialog.${action}.${dialogBodyKey(action, d.campaignStatus)}`}
             values={{ name: d.campaign.name.en || t('untitled'), code: d.code }}
             components={{ name: <bdi className="font-semibold" />, code: <Ltr /> }}
           />
@@ -338,7 +363,7 @@ function ActionDialog({
               id="approval-dialog-note"
               dir="auto"
               rows={3}
-              maxLength={NOTE_MAX}
+              maxLength={APPROVAL_NOTE_MAX}
               value={note}
               required={wants === 'required'}
               onChange={(e) => setNote(e.target.value)}
@@ -353,19 +378,33 @@ function ActionDialog({
             {t(`approval.gate.${gate}`)}
           </p>
         )}
-        {run.isError && <Refusal title={t(`approval.refused.${action}`)} error={run.error} data={action} />}
+        {run.isError && <Refusal action={action} error={run.error} onReload={onReload} onSendBack={onSendBack} />}
       </div>
     </Modal>
   )
 }
 
-/** The server's refusal: its own envelope message, and its code. */
-function Refusal({ title, error, data }: { title: string; error: unknown; data: string }) {
+/**
+ * HQ's refusal of an approval act, by its code (`approvalRefusal`): in our words where the dashboard
+ * has them, with HQ's own message under them and what to do next (read the campaign again, or send
+ * the draft back); otherwise HQ's message as it is. Its code is shown either way.
+ */
+function Refusal({ action, error, onReload, onSendBack }: { action: ApprovalAction; error: unknown; onReload: () => void; onSendBack?: () => void }) {
   const { t } = useTranslation('campaign-workspace')
   const code = apiErrorCode(error)
+  const bare = isBareDenial(error)
+  const known = approvalRefusal(action, code, bare)
+  const said = known
+    ? t(known.reason === 'denied' ? `approval.refusal.denied.${grantOf(action)}` : `approval.refusal.${known.reason}`)
+    : apiErrorMessage(error, t('approval.refused.fallback'))
   return (
-    <div data-approval-refusal={data} className="w-full">
-      <ErrorBanner className="p-2.5" title={title} message={apiErrorMessage(error, t('approval.refused.fallback'))}>
+    <div data-approval-refusal={action} data-approval-refusal-reason={known?.reason} className="w-full">
+      <ErrorBanner className="p-2.5" title={t(`approval.refused.${action}`)} message={said}>
+        {known && !bare && (
+          <p className="mt-1 text-xs" data-refusal-message="">
+            <bdi>{apiErrorMessage(error, t('approval.refused.fallback'))}</bdi>
+          </p>
+        )}
         {code && (
           <p className="mt-1 text-xs" data-refusal-code={code}>
             {t('approval.refused.code')}{' '}
@@ -373,6 +412,16 @@ function Refusal({ title, error, data }: { title: string; error: unknown; data: 
               <Ltr>{code}</Ltr>
             </span>
           </p>
+        )}
+        {known?.offer === 'reload' && (
+          <Button variant="outlined" className="mt-2" onClick={onReload} data-approval-refusal-reload="">
+            {t('approval.refusal.reload')}
+          </Button>
+        )}
+        {known?.offer === 'sendBack' && onSendBack && (
+          <Button variant="outlined" className="mt-2" onClick={onSendBack} data-approval-refusal-send-back="">
+            {t('approval.refusal.sendBack')}
+          </Button>
         )}
       </ErrorBanner>
     </div>

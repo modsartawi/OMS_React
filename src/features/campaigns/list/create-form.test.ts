@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_CREATE_FORM, campaignIdProblem, createFormProblems, formId, suggestCampaignId, toCreateSave } from './create-form'
+import { campaignIdProblem, copyIdOf, suggestCampaignId } from '@/core/rules/campaign-id'
+import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave } from './create-form'
 
 const named = { ...EMPTY_CREATE_FORM, nameEn: 'National Day 15% off', nameAr: 'خصم اليوم الوطني' }
 
@@ -52,5 +53,11 @@ describe('campaignId_authorPicksIt', () => {
     expect(campaignIdProblem('wknd20', ['WKND20'])).toBe('idTaken')
     expect(campaignIdProblem('WKND21', ['WKND20'])).toBeNull()
     expect(createFormProblems({ ...EMPTY_CREATE_FORM, nameEn: 'Weekend 20', nameAr: 'ع', id: 'WKND20', idEdited: true }, ['WKND20'])).toEqual(['idTaken'])
+  })
+
+  it('a copy is offered the source id with -COPY, kept within 40', () => {
+    expect(copyIdOf('WKND20')).toBe('WKND20-COPY')
+    expect(copyIdOf('A'.repeat(40))).toHaveLength(40)
+    expect(campaignIdProblem(copyIdOf('A'.repeat(40)))).toBeNull()
   })
 })

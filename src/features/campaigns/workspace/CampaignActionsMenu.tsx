@@ -1,34 +1,27 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
-import { Copy, FlaskConical, Loader2, MoreHorizontal, type LucideIcon } from 'lucide-react'
+import { Copy, FlaskConical, MoreHorizontal, type LucideIcon } from 'lucide-react'
 import type { RuleDraft } from '@/core/models/rule-campaign'
-import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
-import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
+import { simulatorPath } from '@/core/rules/campaign-state'
 import { takesEscape } from '@/core/commands/key-layer'
-import { notify } from '@/core/services/notify'
 import { POPOVER } from '@/core/ui/overlay'
+import CopyCampaignDialog from './CopyCampaignDialog'
 
 /**
  * The dashboard's **⋯** menu (the prototype's State-cell menu). Ticket 502 gives it **Copy
- * campaign**: HQ makes an independent draft named "<name> (copy)", and the copy opens on its own
- * dashboard; the campaign it was copied from is untouched. Ticket 514 adds **Simulate the working
+ * campaign** (ticket 524: the author picks the copy's id and name, `CopyCampaignDialog`): HQ makes
+ * an independent draft, and the copy opens on its own dashboard; the campaign it was copied from is
+ * untouched. Ticket 514 adds **Simulate the working
  * copy**: the simulator opens with this campaign's draft chosen. Later slices add their acts here.
  */
 export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
   const { t } = useTranslation('campaign-workspace')
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [copying, setCopying] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
-
-  const copy = useMutation({
-    mutationFn: () => ruleCampaignApi.copy(draft.code),
-    onSuccess: (draft) => rememberNewDraft(queryClient, draft),
-    onError: (err) => notify.apiError(t('actions.copyFailed'), err, t('actions.tryAgain')),
-  })
 
   const close = (refocus: boolean) => {
     setOpen(false)
@@ -43,12 +36,11 @@ export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
         aria-label={t('actions.label')}
         aria-haspopup="menu"
         aria-expanded={open}
-        disabled={copy.isPending}
         onClick={() => setOpen((o) => !o)}
         data-campaign-actions=""
         className="inline-flex h-7 items-center justify-center rounded-md border border-border-strong px-2 text-muted-foreground hover:bg-accent disabled:opacity-50"
       >
-        {copy.isPending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <MoreHorizontal className="size-3.5" aria-hidden />}
+        <MoreHorizontal className="size-3.5" aria-hidden />
       </button>
       {open && (
         <ActionsPopover wrapRef={wrapRef} onClose={close}>
@@ -57,14 +49,7 @@ export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
             data="copy"
             onClick={() => {
               close(false)
-              // Opening the copy rides on THIS call's success, which does not fire once the
-              // dashboard has unmounted: a user who moved on is not pulled to the copy.
-              copy.mutate(undefined, {
-                onSuccess: (copied) => {
-                  notify.success(t('actions.copied'))
-                  navigate(campaignPath(copied.code))
-                },
-              })
+              setCopying(true)
             }}
           >
             {t('actions.copy')}
@@ -81,6 +66,7 @@ export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
           </MenuItem>
         </ActionsPopover>
       )}
+      {copying && <CopyCampaignDialog source={draft} onClose={() => setCopying(false)} />}
     </div>
   )
 }

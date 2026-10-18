@@ -175,9 +175,21 @@ export type RuleCampaignStatus = 'Published' | 'Disabled' | ''
 
 /** The evaluation tree (ADR 0090) a draft publishes with, as `Rules/Authoring/Order` answers it. */
 export interface RuleEvaluationTree {
-  groups: { id: string; name: Says; mode: 'stackable' | 'first' | 'highest'; scope: 'session' | 'item'; campaigns: string[] }[]
-  order: ({ campaign: string } | { group: string })[]
+  groups: RuleTreeGroup[]
+  order: RuleTreeNode[]
 }
+
+/** A flat evaluation group (ADR 0090): its campaigns by id, in their order. */
+export interface RuleTreeGroup {
+  id: string
+  name: Says
+  mode: RuleOrderGroupMode
+  scope: RuleOrderGroupScope
+  campaigns: string[]
+}
+
+/** One place in the stackable base: a campaign or a group, by id. */
+export type RuleTreeNode = { campaign: string } | { group: string }
 
 /**
  * One of HQ's issues with a campaign. `rule` and `index` are 0-based (null outside a rule / a
@@ -268,18 +280,22 @@ export interface RuleDraftDeleted {
 }
 
 /**
- * One row of the campaigns list. PROVISIONAL - no list door yet (BO ask A, ticket 524): 524 composes
- * it from Drafts/List, Order and the live ruleset behind one `ruleCampaignApi.list()`. The fields
- * are the draft's own words; `state` is null for a live campaign with no draft.
+ * One row of the campaigns list. HQ has no list door (BO ask A): `ruleCampaignApi.list()` composes
+ * it from `Drafts/List` (the drafts and their `state`), `Order.campaigns` (what is live) and the live
+ * ruleset (`Versions/Load` of `Order.versionNo`, for each live campaign's window). `state` is null
+ * for a live campaign with no draft; `window` is the LIVE window (null for a campaign that is not
+ * live); `features` is the draft's, null for a live campaign with no draft (`live` holds its blocks);
+ * `updatedAt` / `updatedBy` are the draft's last save, `''` with no draft.
  */
 export interface RuleCampaignListRow {
   campaign: string
   name: Says
   state: RuleDraftState | null
   campaignStatus: RuleCampaignStatus
-  publishedVersionNo: number
   window: RuleCampaignWindow | null
-  features: RuleFeature[]
+  features: RuleFeature[] | null
+  /** The campaign as the live version holds it; null when it is not live. */
+  live: RuleCampaign | null
   updatedAt: string
   updatedBy: string
 }
@@ -438,25 +454,6 @@ export interface RuleValueMapUpload {
   warnings: RuleIssue[]
 }
 
-// ── Approval (ticket 511; HQ's doors and Ua permissions are BackOffice 2759) ─────────────────────
-// An author asks for approval and only an approver activates. The roles say what the dashboard
-// draws; the server refuses whatever the reader may not do (the standard envelope), whatever is drawn.
-
-/** The reader's roles on rule campaigns. One person may hold both. */
-export interface RuleCampaignRoles {
-  author: boolean
-  approver: boolean
-}
-
-/**
- * What a lifecycle act sends: the actor's note — for the approver when asking (optional), for the
- * author when sending back (required), for the version history when activating (optional). HQ
- * answers an ask, an activate, a send back or a disable with the whole campaign in its new state.
- */
-export interface RuleCampaignTransition {
-  note: string
-}
-
 // ── Budgets (`Rules/Authoring/Budgets` + `Budgets/SetLimit`, BackOffice 2758 over 2744) ─────────
 // Settings ▸ Budgets saves the campaign's budgets inside the draft, like the other Settings pages. A
 // live campaign's counters are read beside it, and a live budget's LIMIT changes on its own door:
@@ -494,119 +491,141 @@ export interface RuleBudgetLimitSet {
   countersAbove: number
 }
 
-// ── Versions (ticket 512; HQ's doors are BackOffice 2759) ────────────────────────────────────────
-// Every activation publishes an immutable version with who, when and the approver's note. Restore
-// makes an earlier version the campaign's NEW draft — never an in-place rollback: the live version
-// tills run is untouched until that draft is approved and activated in turn.
+// ── Approval, versions, order, copy and templates (BackOffice 2759) ──────────────────────────────
+// Every door is POST with its own grant on `BackOfficeScreen[RuleAuthoring, command]`: 02 author,
+// 06 approver, 03 reader. A session without the door's grant is a bare 403 with no body. An author
+// asks for approval with a note (the draft is `pending` and frozen); an approver — never the author
+// who asked nor the one who last wrote it — activates it at the revision read (a new immutable
+// version), sends it back with a note (`sentBack`), or disables a live campaign with a note.
 
-/** Who did something, and when (local). */
-export interface RuleCampaignStamp {
-  by: string
-  at: string
-}
-
-/** One published version, as the Versions page lists it. `at` is a local moment. */
-export interface RuleCampaignVersion extends RuleCampaignStamp {
-  version: number
-  /** The note written when it was activated; empty when none was. */
+/** `Approvals/Request` and `Approvals/SendBack` (note required) and `Approvals/Activate` (note optional). */
+export interface RuleApprovalBody {
+  campaign: string
+  revision: number
   note: string
 }
 
-/** One version opened read-only: its rules as they were published. */
-export interface RuleCampaignVersionDetail extends RuleCampaignVersion {
-  rules: CampaignRule[]
+/** `Approvals/Disable`: the live campaign and why (required). */
+export interface RuleDisableBody {
+  campaign: string
+  note: string
 }
 
-/**
- * A group's mode in the evaluation order (ADR 0090): every triggered campaign stacks; the first
- * that actually yields wins; or the most discount money wins (points do not count).
- */
+/** One row of `Approvals/List`, oldest request first: the waiting draft beside the campaign as the
+ *  live version holds it (null when it is not live), for the approver to compare. */
+export interface RuleApprovalItem {
+  draft: RuleDraft
+  live: RuleCampaign | null
+}
+
+export type RuleApprovalAction = 'requested' | 'sentBack' | 'activated' | 'disabled'
+
+/** One step of `Approvals/History`, oldest first. `revision` is 0 for a disable, `versionNo` 0 for
+ *  a request or a send back. */
+export interface RuleApprovalStep {
+  campaign: string
+  action: RuleApprovalAction
+  revision: number
+  versionNo: number
+  by: string
+  at: string
+  note: string
+}
+
+/** `Approvals/Activate`'s answer (the publish reply): the version it made. */
+export interface RulePublishReply {
+  versionNo: number
+  campaign: string
+  publishedAt: string
+  publishedBy: string
+  warnings: string[]
+  offline: RuleOfflineVerdict | null
+}
+
+/** One row of `Versions/List`, newest first; also what `Approvals/Disable` answers. A `disable`
+ *  version is the live one without the campaign: it holds none of it to read or restore. */
+export interface RuleVersionSummary {
+  versionNo: number
+  campaign: string
+  action: 'publish' | 'disable'
+  schemaVersion: number
+  publishedAt: string
+  publishedBy: string
+  requestedBy: string
+  note: string
+}
+
+/** `Versions/Load { versionNo, campaign? }`: the version, its whole ruleset, and the named campaign
+ *  as that version holds it (null when none is named). */
+export interface RuleVersionDetail {
+  version: RuleVersionSummary
+  ruleset: RuleRuleset | null
+  campaign: RuleCampaign | null
+}
+
+/** A published ruleset as `Versions/Load` answers it: what the list reads is its campaigns. */
+export interface RuleRuleset {
+  campaigns?: RuleCampaign[]
+  groups?: RuleTreeGroup[]
+  order?: RuleTreeNode[]
+}
+
+/** A group's mode in the evaluation order (ADR 0090): every triggered campaign stacks; the first
+ *  that actually yields wins; or the most discount money wins (points do not count). */
 export type RuleOrderGroupMode = 'stackable' | 'first' | 'highest'
 /** What a group decides over: the whole session, or each unit (item discounts only). */
 export type RuleOrderGroupScope = 'session' | 'item'
 
-/** A flat evaluation group (ADR 0090): its campaigns by id, in their order. */
-export interface RuleOrderGroup {
-  id: string
-  name: string
-  mode: RuleOrderGroupMode
-  scope: RuleOrderGroupScope
-  items: string[]
+/** One campaign of the live order, with the group it sits in (null in the base). */
+export interface RuleOrderCampaign {
+  code: string
+  name: Says
+  group: string | null
 }
 
-/** One place in the stackable base: a campaign (`c`, its id) or a group (`g`, its id). */
-export type RuleOrderNode = { c: string } | { g: string }
-
-/**
- * The evaluation order (ticket 513, BackOffice 2759): the stackable base list, top to bottom, with
- * the groups placed in it. HQ answers and saves the DRAFT order; it publishes with the next version.
- */
-export interface RuleEvaluationOrder {
-  base: RuleOrderNode[]
-  groups: RuleOrderGroup[]
+/** `Rules/Authoring/Order`: the live evaluation tree for the Priority screen, at the newest version.
+ *  There is no order save: the edited `tree` goes out with a draft's `Drafts/Save`. */
+export interface RuleOrder {
+  versionNo: number
+  tree: RuleEvaluationTree
+  campaigns: RuleOrderCampaign[]
 }
 
-// ── Templates (ticket 503; HQ's doors are BackOffice 2759) ───────────────────────────────────────
-// A template is a campaign draft with NAMED PLACEHOLDERS that the Create dialog fills (2759's
-// default, not yet decided there). Anywhere in the draft, a value that is exactly
-// `{ "placeholder": "<key>" }` is replaced by the placeholder's value as it is typed (a number, a
-// code, a list of codes), and `{{<key>}}` inside a string — a name, a "not met" message, a receipt
-// label, a formula — is replaced by the value as text. The client fills; HQ re-checks the values.
+/** `Drafts/Copy`: the campaign copied, the new one's id (the author picks it), and its name. */
+export interface RuleCopyBody {
+  from: string
+  campaign: string
+  name?: Says
+}
 
-/**
- * How a placeholder is asked for: a typed `number` within `min`–`max`; `pick`, the builder's item
- * picker on a lookup (one code or more); or `choice`, one of `options`.
- */
-export type RuleTemplatePlaceholderKind = 'number' | 'pick' | 'choice'
-
+/** A template's placeholder: a field inside its campaign (`path`, e.g. `rules[0].then[0].value`),
+ *  labelled in both languages; `default` is the template's own value there (JSON). */
 export interface RuleTemplatePlaceholder {
-  key: string
-  /** The template author's label, shown as data ("Minimum basket (SAR)", "Percent off"). */
-  label: string
-  kind: RuleTemplatePlaceholderKind
-  /** `number`: the bounds, inclusive; null = unbounded. */
-  min?: number | null
-  max?: number | null
-  /** `pick`: what the picker searches. */
-  lookup?: RuleLookupKind
-  /** `choice`: the codes it takes, with their names. */
-  options?: { code: string; name: string }[]
-  /** What the field starts with: a number, a code, or a list of codes for `pick`. */
-  default: RuleTemplateValue | null
+  name: string
+  label: Says
+  path: string
+  default: unknown
 }
 
-/** A placeholder's value: a number, a code (`choice`), or codes (`pick`). */
-export type RuleTemplateValue = number | string | string[]
-
-/** The campaign a template makes, with placeholders standing in for its values. */
-export interface RuleTemplateDraft {
+/** One row of `Templates/List`, by code. */
+export interface RuleTemplate {
+  code: string
   name: Says
+  revision: number
   features: RuleFeature[]
-  /** Who the campaign is for, when the template says (the prototype's tier template); absent = HQ's
-   *  default audience, as for a blank campaign. */
-  audience?: RuleCampaignAudience
-  rules: CampaignRule[]
-}
-
-export interface RuleCampaignTemplate {
-  id: string
-  name: Says
-  /** One line on what the template is for — the author's text, shown as data. */
-  description: string
-  /** Only an enabled template makes campaigns; a draft one is listed and cannot be used. */
-  enabled: boolean
+  campaign: RuleCampaign
   placeholders: RuleTemplatePlaceholder[]
-  draft: RuleTemplateDraft
+  updatedAt: string
+  updatedBy: string
 }
 
-/**
- * What "Create from a template" sends: the values the marketer gave, by placeholder key, and the
- * draft the client filled with them. HQ re-fills the template from `values` to check the draft, mints
- * the code and id, and answers with the whole new draft.
- */
-export interface RuleCampaignFromTemplate {
-  values: Record<string, RuleTemplateValue>
-  draft: RuleTemplateDraft
+/** `Drafts/FromTemplate`: the new draft's id and name, and a JSON value by placeholder name (an
+ *  unsent one keeps its default). */
+export interface RuleFromTemplateBody {
+  template: string
+  campaign: string
+  name?: Says
+  values: Record<string, unknown>
 }
 
 // ── The simulator (ticket 514; HQ's door is BackOffice 2758's dry run) ───────────────────────────

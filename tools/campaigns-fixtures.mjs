@@ -284,22 +284,82 @@ export const CAMPAIGNS = [
       filters: [F('f-eligible', 'eligible', { exclude: { categories: [...RX] } })],
       then: [{ effect: 'discountSession', filter: 'f-eligible', kind: 'percent', value: 10, label: says('Summer 10%', 'خصم الصيف 10%') }],
     })],
-  }, { published: ['2026-08-30 12:00', 'Reem (approver)'], campaignStatus: 'Disabled' }),
+  }, {
+    // A disabled campaign's draft: a disable makes the next version without it, so with no draft it
+    // would be in none of the list's three doors (BO ask A) — and Drafts/Load answers it 404.
+    published: ['2026-08-30 12:00', 'Reem (approver)'], campaignStatus: 'Disabled',
+    source: 'draft', revision: 1, updatedAt: moment('2026-09-20 11:00'), updatedBy: 'Omar (marketing)',
+  }),
 ]
 
-/** A campaign as the PROVISIONAL list door sends it (524 composes it from Drafts/List, Order and the
- *  live ruleset): the draft's own words; `state` is null for a live campaign with no draft. */
-export const listRow = (d) => ({
+// ── 524: the list's three doors (BackOffice 2759 has no list door, BO ask A). The client composes
+// the list from Drafts/List, Order.campaigns and the live ruleset (Versions/Load of the order's
+// version). Version numbers here are each campaign's own (the stub keeps no global ruleset count):
+// LIVE_VERSION is the newest ruleset's number the Order door answers. ──
+
+/** The newest ruleset version, as `Rules/Authoring/Order` answers its `versionNo`. */
+export const LIVE_VERSION = 41
+
+/** One row of `Drafts/List`. */
+const summaryOf = (d) => ({
   campaign: d.code,
   name: d.name,
-  state: d.source === 'published' ? null : d.state,
-  campaignStatus: d.campaignStatus,
-  publishedVersionNo: d.publishedVersionNo,
-  window: d.campaign.window ?? null,
+  revision: d.revision,
   features: d.features,
+  publishedVersionNo: d.publishedVersionNo,
   updatedAt: d.updatedAt,
   updatedBy: d.updatedBy,
+  state: d.state,
+  requestedBy: d.requestedBy,
 })
+
+/** POST Rules/Authoring/Drafts/List: every draft, last saved first. */
+export const draftsList = (store) =>
+  store.filter((d) => d.source === 'draft').map(summaryOf).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+
+/** The campaign as the live version holds it: the copy remembered when its draft first changed,
+ *  else the loaded campaign itself (it has no draft). */
+const liveOf = (d) => d[LIVE] ?? d.campaign
+
+/** The live campaigns, in the store's order. */
+const liveCampaigns = (store) => store.filter((d) => d.campaignStatus === 'Published')
+
+/**
+ * The prototype's sample evaluation tree (BackOffice `.scratch/proto/2734-rule-builder/data.js`,
+ * `tree`), in HQ's shape: `{ groups: [{ id, name {en, ar}, mode, scope, campaigns }], order:
+ * [{ campaign } | { group }] }`.
+ */
+export const TREE = {
+  groups: [
+    { id: 'g-items', name: says('Item deals', 'عروض الأصناف'), mode: 'highest', scope: 'item', campaigns: ['SUN-3FOR2', 'BABY-BUNDLE'] },
+    { id: 'g-basket', name: says('Basket offers', 'عروض السلة'), mode: 'first', scope: 'session', campaigns: ['WKND20', 'PTS-50OFF'] },
+  ],
+  order: [
+    { campaign: 'PCUT-SA01' }, { group: 'g-items' }, { campaign: 'GP-BEAUTY15' }, { campaign: 'GIFT-POUCH' }, { group: 'g-basket' },
+    { campaign: 'BH-SPEND10' }, { campaign: 'NEXT-VISIT' }, { campaign: 'WLCB' }, { campaign: 'PRCB-AUG26' }, { campaign: 'NATDAY-15' }, { campaign: 'BASE-EARN' },
+  ],
+}
+
+/** The ids a tree places, in evaluation order. */
+const placed = (tree) => tree.order.flatMap((n) => ('campaign' in n ? [n.campaign] : (tree.groups.find((g) => g.id === n.group)?.campaigns ?? [])))
+
+/** POST Rules/Authoring/Order: the live tree, and the live campaigns in evaluation order (one the
+ *  tree does not place runs at the end of the base) with the group each sits in. */
+export function orderOf(store, tree = TREE) {
+  const live = liveCampaigns(store)
+  const ids = [...placed(tree).filter((id) => live.some((d) => d.code === id)), ...live.map((d) => d.code).filter((id) => !placed(tree).includes(id))]
+  return {
+    versionNo: LIVE_VERSION,
+    tree: structuredClone(tree),
+    campaigns: ids.map((id) => {
+      const d = live.find((x) => x.code === id)
+      return { code: id, name: liveOf(d).name, group: tree.groups.find((g) => g.campaigns.includes(id))?.id ?? null }
+    }),
+  }
+}
+
+/** The newest ruleset, as `Versions/Load { versionNo: LIVE_VERSION }` answers its `ruleset`. */
+export const rulesetOf = (store, tree = TREE) => ({ campaigns: liveCampaigns(store).map((d) => structuredClone(liveOf(d))), groups: structuredClone(tree.groups), order: structuredClone(tree.order) })
 
 // ── 522: the draft doors (POST Rules/Authoring/Drafts/Load | Save | Delete, BackOffice 2758 + 2759).
 // A refusal is `{ refused, status, message }`; the drive wraps it in the refusal envelope. ──
@@ -318,7 +378,7 @@ function newDraft(store, campaign, features, at, origin = '') {
 
 /** POST Rules/Authoring/Drafts/Load { campaign }. */
 export function loadDraft(store, code) {
-  const d = store.find((c) => c.code === code)
+  const d = store.find((c) => c.code === code && !c.gone)
   return d ? { draft: d } : refuse('RULES_DRAFT_NOT_FOUND', 404, 'No draft or version of this campaign.')
 }
 
@@ -349,10 +409,12 @@ export function saveDraft(store, body, at) {
   return { draft: d }
 }
 
-/** The published copies, by code, so a deleted draft falls back to its live campaign. */
-const PUBLISHED = new Map()
+/** The live copy of a published campaign, kept on its reply under a symbol (never on the wire, and
+ *  dropped by `structuredClone`, so each context starts from the fixtures): a deleted draft falls
+ *  back to it, and the list's live ruleset reads it. */
+const LIVE = Symbol('live')
 function remember(d) {
-  if (d.campaignStatus && !PUBLISHED.has(d.code)) PUBLISHED.set(d.code, structuredClone(d.campaign))
+  if (d.campaignStatus && !d[LIVE]) d[LIVE] = structuredClone(d.campaign)
 }
 
 /** POST Rules/Authoring/Drafts/Delete { campaign, revision }. */
@@ -362,138 +424,189 @@ export function deleteDraft(store, body) {
   const d = store[i]
   if (d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, 'The draft waits for approval and cannot change.')
   if (d.revision !== body.revision) return refuse('RULES_DRAFT_STALE', 409, 'The draft changed since it was loaded: load it again.')
-  if (!d.campaignStatus) store.splice(i, 1)
+  // A never-published campaign goes with its draft; so does a disabled one (no version holds it).
+  if (d.campaignStatus !== 'Published') store.splice(i, 1)
   else {
-    const live = PUBLISHED.get(d.code) ?? d.campaign
+    const live = liveOf(d)
     Object.assign(d, { source: 'published', revision: 0, state: 'editing', campaign: structuredClone(live), name: live.name, validation: validationOf(live) })
   }
   return { deleted: { campaign: d.code, deleted: true } }
 }
 
-/** A code from `base` (at most `max` long), unique within `store`. */
-const mintCode = (store, base, max = 16) => {
-  const root = base.toUpperCase().replace(/[^A-Z0-9]+/g, '-').slice(0, max).replace(/^-|-$/g, '') || 'NEW'
-  let code = root
-  for (let n = 2; store.some((c) => c.code === code); n++) code = `${root}-${n}`
-  return code
+/** POST Rules/Authoring/Drafts/Copy { from, campaign, name? }: a new draft under the picked id — the
+ *  source's draft (else its live campaign), its features, `origin: copy:FROM`, no tree. */
+export function copyDraft(store, body, at) {
+  const source = store.find((c) => c.code === body?.from)
+  if (!source) return refuse('RULES_DRAFT_NOT_FOUND', 404, `Campaign ${body?.from} has no draft and is not published.`)
+  if (typeof body.campaign !== 'string' || !CODE.test(body.campaign)) return refuse('RULES_BAD_CAMPAIGN_CODE', 400, 'Give the new campaign an id.')
+  if (store.some((c) => c.code.toLowerCase() === body.campaign.toLowerCase())) return refuse('RULES_CAMPAIGN_EXISTS', 409, `Campaign ${body.campaign} already exists: choose another id.`)
+  const campaign = { ...structuredClone(source.campaign), id: body.campaign, ...(body.name ? { name: { en: body.name.en ?? '', ar: body.name.ar ?? '' } } : {}) }
+  return { draft: newDraft(store, campaign, source.features, at, `copy:${source.code}`) }
 }
 
-/** POST RuleCampaign/Campaigns/{id}/Copy (PROVISIONAL until 524's Drafts/Copy) — a new draft "<name> (copy)". */
-export function copyOf(store, source, at) {
-  const code = mintCode(store, `${source.code}-COPY`, source.code.length + 5)
-  const campaign = {
-    ...structuredClone(source.campaign),
-    id: code,
-    name: { en: `${source.name.en} (copy)`, ar: source.name.ar ? `${source.name.ar} (نسخة)` : '' },
-  }
-  return newDraft(store, campaign, source.features, at, `copy:${source.code}`)
-}
+// ── 503, 524: templates (POST Rules/Authoring/Templates/List and Drafts/FromTemplate, BackOffice
+// 2759). The prototype's `sampleTemplates()`: a schema-1 campaign whose own values are the defaults,
+// and placeholders naming a field inside it (`path`), labelled EN + AR. HQ puts each sent JSON value
+// at its path; an unsent one keeps the default. ──
 
-// ── 503: templates (BackOffice 2759; PROVISIONAL until 524). The prototype's `sampleTemplates()`: a
-// schema-1 campaign whose values are `{ placeholder: key }` marks or `{{key}}` inside a string, filled
-// by the Create dialog. ──
-
-const P = (key) => ({ placeholder: key })
+const PH = (name, en, ar, path, value) => ({ name, label: says(en, ar), path, default: value })
+const TEMPLATE = (code, en, ar, features, campaign, placeholders) => ({
+  code, name: says(en, ar), revision: 1, features, campaign, placeholders, updatedAt: moment('2026-10-01 09:00'), updatedBy: 'Omar (marketing)',
+})
 export const TEMPLATES = [
-  {
-    id: 'T-SPEND-PCT', name: says('Spend X, get Y% off a category', 'أنفق مبلغاً واحصل على خصم على فئة'), enabled: true,
-    description: 'A basket threshold and a percent off the categories picked. Marketing fills in three values.',
-    placeholders: [
-      { key: 'minSpend', label: 'Minimum basket (SAR)', kind: 'number', min: 50, max: 1000, default: 200 },
-      { key: 'pct', label: 'Percent off', kind: 'number', min: 5, max: 30, default: 10 },
-      { key: 'cats', label: 'Category', kind: 'pick', lookup: 'categories', default: ['A002'] },
-    ],
-    draft: {
-      name: says('Spend SAR {{minSpend}}, get {{pct}}% off', 'أنفق {{minSpend}} ريال واحصل على خصم {{pct}}%'),
-      features: [],
-      rules: [{
-        id: 'tr-spend', name: '{{pct}}% off the category', values: [], partial: 'refuse',
-        filters: [{ id: 'tf-target', name: 'target', categories: P('cats'), exclude: { categories: [...RX] } }],
-        when: [{ check: 'minSubtotal', amount: P('minSpend'), basis: 'total', says: says('a basket of SAR {{minSpend}}', 'سلة بقيمة {{minSpend}} ريال') }],
-        then: [{ effect: 'discountItems', filter: 'tf-target', kind: 'percent', value: P('pct'), label: says('{{pct}}% off', 'خصم {{pct}}%') }],
-      }],
-    },
-  },
-  {
-    id: 'T-BUY-N', name: says('Buy N in a collection, get M free', 'اشترِ عدداً من مجموعة واحصل على قطع مجاناً'), enabled: true,
-    description: 'The bonus-buy shape most stores know. Cheapest units go free.',
-    placeholders: [
-      { key: 'coll', label: 'Collection', kind: 'pick', lookup: 'collections', default: ['SUNCARE'] },
-      { key: 'buy', label: 'Buy (N)', kind: 'number', min: 2, max: 6, default: 3 },
-      { key: 'free', label: 'Free (M)', kind: 'number', min: 1, max: 2, default: 1 },
-    ],
-    draft: {
-      name: says('Buy {{buy}}, get {{free}} free', 'اشترِ {{buy}} واحصل على {{free}} مجاناً'),
-      features: [],
-      rules: [{
-        id: 'tr-buy', name: 'Cheapest {{free}} of every {{buy}} free', values: [], partial: 'refuse',
-        filters: [{ id: 'tf-set', name: 'set', articles: P('coll'), exclude: { categories: [...RX] } }],
-        when: [{ check: 'minCount', count: P('buy'), of: 'tf-set', says: says('{{buy}} items from the collection', '{{buy}} منتجات من المجموعة') }],
-        then: [{ effect: 'freeUnits', filter: 'tf-set', buy: P('buy'), free: P('free'), label: says('{{buy}} for less', '{{buy}} بسعر أقل') }],
-      }],
-    },
-  },
-  {
-    id: 'T-TIER-PTS', name: says('Extra points for a tier', 'نقاط إضافية لفئة عضوية'), enabled: false,
-    description: 'Award a multiple of the base earn to one tier. Waits on the tier rules work.',
-    placeholders: [
-      { key: 'tier', label: 'Tier', kind: 'choice', options: [{ code: 'S', name: 'Silver' }, { code: 'G', name: 'Gold' }, { code: 'P', name: 'Platinum' }], default: 'G' },
-      { key: 'mult', label: 'Points per riyal', kind: 'number', min: 1, max: 5, default: 2 },
-    ],
-    draft: {
-      name: says('Tier {{tier}}: {{mult}} points per riyal', 'الفئة {{tier}}: {{mult}} نقاط لكل ريال'),
-      features: ['points'],
-      audience: { countries: ['SA'], members: 'earning' },
-      rules: [{
-        id: 'tr-tier', name: 'Tier points', partial: 'refuse',
-        filters: [{ id: 'tf-earning', name: 'earning', categories: ['A001', 'A002', 'A003', 'A005'], exclude: { categories: [...RX] } }],
-        values: [{ name: 'pts', expr: ['floor', ['*', ['sum', ['items', 'tf-earning'], '$item.net'], P('mult')]] }],
-        when: [{ check: 'tier', in: [P('tier')], says: says('a {{tier}} member', 'عضو {{tier}}') }],
-        then: [{ effect: 'awardPoints', amount: '$pts', unit: 'PTS', activity: 'TIERX', activates: { afterDays: 2 }, expires: { afterDays: 365 } }],
-      }],
-    },
-  },
+  TEMPLATE('T-SPEND-PCT', 'Spend X, get Y% off a category', 'أنفق مبلغاً واحصل على خصم على فئة', [], {
+    id: 'T-SPEND-PCT', name: says('Spend SAR 200, get 10% off', 'أنفق 200 ريال واحصل على خصم 10%'),
+    rules: [{
+      id: 'tr-spend', name: '10% off the category', values: [], partial: 'refuse',
+      filters: [{ id: 'tf-target', name: 'target', categories: ['A002'], exclude: { categories: [...RX] } }],
+      when: [{ check: 'minSubtotal', amount: 200, basis: 'total', says: says('a basket of SAR 200', 'سلة بقيمة 200 ريال') }],
+      then: [{ effect: 'discountItems', filter: 'tf-target', kind: 'percent', value: 10, label: says('10% off', 'خصم 10%') }],
+    }],
+  }, [
+    PH('minSpend', 'Minimum basket (SAR)', 'الحد الأدنى للسلة (ريال)', 'rules[0].when[0].amount', 200),
+    PH('pct', 'Percent off', 'نسبة الخصم', 'rules[0].then[0].value', 10),
+    PH('cats', 'Category', 'الفئة', 'rules[0].filters[0].categories', ['A002']),
+  ]),
+  TEMPLATE('T-BUY-N', 'Buy N in a collection, get M free', 'اشترِ عدداً من مجموعة واحصل على قطع مجاناً', [], {
+    id: 'T-BUY-N', name: says('Buy 3, get 1 free', 'اشترِ 3 واحصل على 1 مجاناً'),
+    rules: [{
+      id: 'tr-buy', name: 'Cheapest of every set free', values: [], partial: 'refuse',
+      filters: [{ id: 'tf-set', name: 'set', articles: ['SUN-50', 'SUN-30', 'SUN-KID'], exclude: { categories: [...RX] } }],
+      when: [{ check: 'minCount', count: 3, of: 'tf-set', says: says('items from the collection', 'منتجات من المجموعة') }],
+      then: [{ effect: 'freeUnits', filter: 'tf-set', buy: 3, free: 1, label: says('Multi-buy', 'عرض الكمية') }],
+    }],
+  }, [
+    PH('items', 'Collection items', 'منتجات المجموعة', 'rules[0].filters[0].articles', ['SUN-50', 'SUN-30', 'SUN-KID']),
+    PH('buy', 'Buy (N)', 'اشترِ (ن)', 'rules[0].then[0].buy', 3),
+    PH('free', 'Free (M)', 'مجاناً (م)', 'rules[0].then[0].free', 1),
+  ]),
+  TEMPLATE('T-TIER-PTS', 'Extra points for a tier', 'نقاط إضافية لفئة عضوية', ['points'], {
+    id: 'T-TIER-PTS', name: says('Gold: 2 points per riyal', 'الذهبية: نقطتان لكل ريال'),
+    audience: { countries: ['SA'], members: 'earning' },
+    rules: [{
+      id: 'tr-tier', name: 'Tier points', partial: 'refuse',
+      filters: [{ id: 'tf-earning', name: 'earning', categories: ['A001', 'A002', 'A003', 'A005'], exclude: { categories: [...RX] } }],
+      values: [{ name: 'pts', expr: ['floor', ['*', ['sum', ['items', 'tf-earning'], '$item.net'], 2]] }],
+      when: [{ check: 'tier', in: ['G'], says: says('a Gold member', 'عضو ذهبي') }],
+      then: [{ effect: 'awardPoints', amount: '$pts', unit: 'PTS', activity: 'TIERX', activates: { afterDays: 2 }, expires: { afterDays: 365 } }],
+    }],
+  }, [
+    PH('tiers', 'Tiers', 'الفئات', 'rules[0].when[0].in', ['G']),
+    PH('expires', 'Points expire after', 'تنتهي النقاط بعد', 'rules[0].then[0].expires', { afterDays: 365 }),
+  ]),
 ]
 
-/** POST RuleCampaign/Templates/{id}/Create (PROVISIONAL until 524's Drafts/FromTemplate) — a new
- *  draft from the filled template the dialog sends; the stub takes the draft as sent. */
-export function createFromTemplate(store, template, { draft: filled }, at) {
-  const code = mintCode(store, filled.name.en)
-  const campaign = {
-    id: code,
-    name: { en: filled.name.en, ar: filled.name.ar },
-    ...(filled.audience ? { audience: structuredClone(filled.audience) } : {}),
-    rules: structuredClone(filled.rules),
+/** `value` set at `path` (`rules[0].then[0].value`) inside `obj`; false when the path is not there. */
+function setAt(obj, path, value) {
+  const keys = path.replace(/\[(\d+)\]/g, '.$1').split('.')
+  let cur = obj
+  for (const k of keys.slice(0, -1)) {
+    if (cur == null || typeof cur !== 'object' || !(k in cur)) return false
+    cur = cur[k]
   }
-  return newDraft(store, campaign, filled.features ?? [], at, `template:${template.id}`)
+  if (cur == null || typeof cur !== 'object') return false
+  cur[keys.at(-1)] = value
+  return true
 }
 
-// ── 511: the approval life (PROVISIONAL doors until 524's Approvals/*), over the draft's `state` and
-// `campaignStatus`. A move from the wrong state is HQ's refusal. ──
+/** POST Rules/Authoring/Drafts/FromTemplate { template, campaign, name?, values }: the template's
+ *  campaign with each sent value at its placeholder's path, under the picked id and name. */
+export function fromTemplate(store, body, at) {
+  const t = TEMPLATES.find((x) => x.code === body?.template)
+  if (!t) return refuse('RULES_TEMPLATE_NOT_FOUND', 404, `There is no template ${body?.template}.`)
+  if (typeof body.campaign !== 'string' || !CODE.test(body.campaign)) return refuse('RULES_BAD_CAMPAIGN_CODE', 400, 'Give the new campaign an id.')
+  if (store.some((c) => c.code.toLowerCase() === body.campaign.toLowerCase())) return refuse('RULES_CAMPAIGN_EXISTS', 409, `Campaign ${body.campaign} already exists: choose another id.`)
+  const campaign = structuredClone(t.campaign)
+  for (const [name, value] of Object.entries(body.values ?? {})) {
+    const ph = t.placeholders.find((x) => x.name === name)
+    if (!ph) return refuse('RULES_BAD_TEMPLATE', 400, `Template ${t.code} has no placeholder ${name}.`)
+    setAt(campaign, ph.path, structuredClone(value))
+  }
+  campaign.id = body.campaign
+  if (body.name) campaign.name = { en: body.name.en ?? '', ar: body.name.ar ?? '' }
+  return { draft: newDraft(store, campaign, t.features, at, `template:${t.code}`) }
+}
 
-/** POST RuleCampaign/Campaigns/{id}/{act}: the draft moved, or `{ refused }` with HQ's code. */
-export function lifecycle(d, act, { note = '', by, at }) {
-  remember(d)
+// ── 511, 524: the approval life (POST Rules/Authoring/Approvals/*, BackOffice 2759), over the draft's
+// `state` and `campaignStatus`. `by` is the acting user. A refusal is HQ's code and status. ──
+
+/** One step of a campaign's approval trail (`Approvals/History`). */
+const step = (campaign, action, revision, versionNo, by, at, note) => ({ campaign, action, revision, versionNo, by, at, note })
+
+/** The approval trail the store starts with: BDAY-BEAUTY's request. */
+export const HISTORY = [step('BDAY-BEAUTY', 'requested', 3, 0, 'Omar (marketing)', moment('2026-10-15 16:20'), 'Ready for the November CRM push.')]
+
+/** POST Rules/Authoring/Approvals/List: the drafts waiting, oldest request first, each beside the
+ *  campaign as the live version holds it (null when it is not live). */
+export const approvalsList = (store) =>
+  store
+    .filter((d) => d.source === 'draft' && d.state === 'pending')
+    .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt))
+    .map((d) => ({ draft: d, live: d.campaignStatus === 'Published' ? structuredClone(liveOf(d)) : null }))
+
+/** A draft at the revision named, in the state the act needs — or HQ's refusal. */
+function checked(d, revision, expectPending) {
+  if (!d || d.source !== 'draft') return refuse('RULES_DRAFT_NOT_FOUND', 404, `Campaign ${d?.code ?? ''} has no draft.`)
+  if (d.revision !== revision) return refuse('RULES_DRAFT_STALE', 409, `Draft ${d.code} is at revision ${d.revision}, not ${revision}: load it again.`)
+  if (expectPending && d.state !== 'pending') return refuse('RULES_NOT_PENDING', 409, `Draft ${d.code} is not waiting for approval.`)
+  if (!expectPending && d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, `Draft ${d.code} is already waiting for approval.`)
+  return null
+}
+
+/**
+ * POST Rules/Authoring/Approvals/{Request|SendBack|Activate|Disable}: `{ draft }` (Request,
+ * SendBack), `{ published }` (Activate: the publish reply) or `{ version }` (Disable: the version
+ * made) — or `{ refused, status, message }`. Activate deletes the draft and publishes it as the
+ * campaign's next version (its tree with it, `tree.set`); Disable makes the next version without it.
+ */
+export function approval(d, act, body, { by, at, history, versions, tree }) {
   const when = moment(at)
-  const drafted = d.source === 'draft'
-  if (act === 'AskForApproval') {
-    if (!drafted || d.state === 'pending') return { refused: 'RULES_DRAFT_PENDING' }
-    Object.assign(d, { state: 'pending', requestedBy: by, requestedAt: when, requestNote: note, reviewedBy: '', reviewedAt: NEVER, reviewNote: '' })
-  } else if (act === 'SendBack') {
-    if (d.state !== 'pending') return { refused: 'RULES_NOT_PENDING' }
-    Object.assign(d, { state: 'sentBack', reviewedBy: by, reviewedAt: when, reviewNote: note })
-  } else if (act === 'Activate') {
-    if (d.state !== 'pending') return { refused: 'RULES_NOT_PENDING' }
-    PUBLISHED.set(d.code, structuredClone(d.campaign))
+  const note = (body?.note ?? '').trim()
+  if (act === 'Request') {
+    const no = checked(d, body?.revision, false)
+    if (no) return no
+    if (!note) return refuse('RULES_REASON_REQUIRED', 400, 'Say what the draft changes: the note travels with the version.')
+    // HQ answers the draft validated afresh (the stub's checks find nothing).
+    Object.assign(d, { state: 'pending', requestedBy: by, requestedAt: when, requestNote: note, validation: validationOf(d.campaign) })
+    history.push(step(d.code, 'requested', d.revision, 0, by, when, note))
+    return { draft: d }
+  }
+  if (act === 'SendBack') {
+    const no = checked(d, body?.revision, true)
+    if (no) return no
+    if (!note) return refuse('RULES_REASON_REQUIRED', 400, 'Say why the draft goes back: its author reads the note.')
+    Object.assign(d, { state: 'sentBack', reviewedBy: by, reviewedAt: when, reviewNote: note, validation: validationOf(d.campaign) })
+    history.push(step(d.code, 'sentBack', d.revision, 0, by, when, note))
+    return { draft: d }
+  }
+  if (act === 'Activate') {
+    const no = checked(d, body?.revision, true)
+    if (no) return no
+    if (by === d.requestedBy || by === d.updatedBy) return refuse('RULES_SELF_APPROVAL', 403, 'You asked for this approval or wrote the draft: another approver activates it.')
+    const versionNo = Math.max(d.publishedVersionNo, ...(versions.get(d.code) ?? []).map((v) => v.versionNo)) + 1
+    d[LIVE] = structuredClone(d.campaign)
+    publishVersion(versions, d, { versionNo, by, at: when })
+    if (d.tree) tree.set(structuredClone(d.tree))
+    history.push(step(d.code, 'activated', d.revision, versionNo, by, when, note))
     Object.assign(d, {
-      source: 'published', revision: 0, state: 'editing', campaignStatus: 'Published', publishedVersionNo: d.publishedVersionNo + 1,
-      requestedBy: '', requestedAt: NEVER, requestNote: '', reviewedBy: by, reviewedAt: when, reviewNote: note, updatedAt: when, updatedBy: by,
+      source: 'published', revision: 0, state: 'editing', campaignStatus: 'Published', publishedVersionNo: versionNo, tree: null, origin: '',
+      requestedBy: '', requestedAt: NEVER, requestNote: '', reviewedBy: '', reviewedAt: NEVER, reviewNote: '', updatedAt: when, updatedBy: by,
     })
-  } else if (act === 'Disable') {
-    if (d.campaignStatus !== 'Published') return { refused: 'RULES_NOT_LIVE' }
-    Object.assign(d, { campaignStatus: 'Disabled', publishedVersionNo: d.publishedVersionNo + 1 })
-  } else return { refused: 'RULES_BAD_REQUEST' }
-  return { campaign: d }
+    return { published: { versionNo, campaign: d.code, publishedAt: when, publishedBy: by, warnings: [], offline: validationOf(d.campaign).offline } }
+  }
+  if (act === 'Disable') {
+    if (!d || d.campaignStatus !== 'Published') return refuse('RULES_NOT_LIVE', 409, `Campaign ${d?.code ?? ''} is not live.`)
+    if (!note) return refuse('RULES_REASON_REQUIRED', 400, 'Say why the campaign is disabled: the note travels with the version.')
+    const versionNo = Math.max(d.publishedVersionNo, ...(versions.get(d.code) ?? []).map((v) => v.versionNo)) + 1
+    const version = { versionNo, campaign: d.code, action: 'disable', schemaVersion: 1, publishedAt: when, publishedBy: by, requestedBy: '', note }
+    versions.set(d.code, [...(versions.get(d.code) ?? []), { ...version, json: null }])
+    history.push(step(d.code, 'disabled', 0, versionNo, by, when, note))
+    d.campaignStatus = 'Disabled'
+    // With no draft, a disabled campaign is in no version: Drafts/Load answers it 404 (`gone`).
+    if (d.source === 'published') d.gone = true
+    return { version }
+  }
+  return refuse('RULES_BAD_REQUEST', 400, 'Unknown act.')
 }
 
 // ── 523: the block catalogue (POST Rules/Authoring/Catalogue { features }, BackOffice 2758). A port of
@@ -785,8 +898,10 @@ export function setLimit(store, limits, body) {
   return { set: { campaignId: body.campaign, budgetId: body.budget, limitValue: body.limit, previousLimit: view.limitValue, countersAbove } }
 }
 
-// ── 512: the version history (PROVISIONAL doors until 524's Versions/*). Every published campaign has
-// its live version, its rules as they are now; GIFT-POUCH has two before it (its live version is 3). ──
+// ── 512, 524: the version history (POST Rules/Authoring/Versions/List | Load | Restore, BackOffice
+// 2759). Every published campaign has its live version, its campaign as it is now; GIFT-POUCH has two
+// before it (its live version is 3), SUMMER-FLASH its disable after its one version. A version's
+// note is the author's request note; who published it is the approver. ──
 
 /** GIFT-POUCH's versions 1 and 2, worked back from its live rules. */
 const EARLIER = (() => {
@@ -795,51 +910,67 @@ const EARLIER = (() => {
   // Version 1 had no cashier prompt (schema 1 leaves an unset `prompt` out).
   const v1 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') }).map((r) => ({ ...r, then: r.then.map(({ prompt, ...e }) => e) }))
   const v2 = at(structuredClone(pouch.rules), { label: says('Gift pouch', 'حقيبة هدية') })
+  const v = (versionNo, published, by, requestedBy, note, rules) =>
+    ({ versionNo, campaign: 'GIFT-POUCH', action: 'publish', schemaVersion: 1, publishedAt: moment(published), publishedBy: by, requestedBy, note, json: { ...structuredClone(pouch), rules } })
   return {
     'GIFT-POUCH': [
-      { version: 1, at: moment('2026-10-03 10:00'), by: 'Omar (marketing)', note: 'First version: the pouch is free with the serum.', rules: v1 },
-      { version: 2, at: moment('2026-10-06 12:30'), by: 'Reem (approver)', note: 'The cashier is prompted to scan the pouch.', rules: v2 },
+      v(1, '2026-10-03 10:00', 'Reem (approver)', 'Omar (marketing)', 'First version: the pouch is free with the serum.', v1),
+      v(2, '2026-10-06 12:30', 'Reem (approver)', 'Omar (marketing)', 'The cashier is prompted to scan the pouch.', v2),
     ],
   }
 })()
 /** The live version's note, where one was written. */
 const LIVE_NOTE = { 'GIFT-POUCH': 'The receipt says "Free pouch".' }
 
-/** Each campaign's versions with their rules, by code — a context's own copy. */
+/** Each campaign's versions by code, oldest first, each with its campaign whole (`json`) — a
+ *  context's own copy. */
 export function versionsOf(store) {
   const out = new Map()
   for (const d of store) {
     if (!d.publishedVersionNo || !d.campaignStatus) continue
-    out.set(d.code, [
-      ...structuredClone(EARLIER[d.code] ?? []),
-      { version: d.publishedVersionNo, at: d.updatedAt, by: d.updatedBy, note: LIVE_NOTE[d.code] ?? '', rules: structuredClone(d.campaign.rules) },
-    ])
+    const live = { versionNo: d.publishedVersionNo, campaign: d.code, action: 'publish', schemaVersion: 1, publishedAt: d.updatedAt, publishedBy: d.updatedBy, requestedBy: '', note: LIVE_NOTE[d.code] ?? '', json: structuredClone(liveOf(d)) }
+    const list = [...structuredClone(EARLIER[d.code] ?? []), live]
+    if (d.campaignStatus === 'Disabled')
+      list.push({ versionNo: d.publishedVersionNo + 1, campaign: d.code, action: 'disable', schemaVersion: 1, publishedAt: moment('2026-09-15 09:00'), publishedBy: 'Reem (approver)', requestedBy: '', note: 'The summer range is over.', json: null })
+    out.set(d.code, list)
   }
   return out
 }
 
-/** A version as the list reads it: without its rules. */
-export const versionRow = ({ rules, ...row }) => row
+/** A version as Versions/List answers it: without its campaign. */
+export const versionRow = ({ json, ...row }) => row
 
-/** An activation publishes a version: the draft's rules as they were activated. */
-export function publishVersion(versions, d, note = '') {
-  versions.set(d.code, [...(versions.get(d.code) ?? []), { version: d.publishedVersionNo, at: d.reviewedAt, by: d.reviewedBy, note, rules: structuredClone(d.campaign.rules) }])
+/** POST Rules/Authoring/Versions/Load { versionNo, campaign }: the version and the campaign it holds. */
+export function loadVersion(versions, code, versionNo) {
+  const v = (versions.get(code) ?? []).find((x) => x.versionNo === versionNo)
+  if (!v || !v.json) return refuse('RULES_VERSION_NOT_FOUND', 404, `Version ${versionNo} does not hold campaign ${code}.`)
+  return { detail: { version: versionRow(v), ruleset: null, campaign: structuredClone(v.json) } }
 }
 
-/** POST …/Versions/{n}/Restore: the version is the campaign's NEW draft (`origin: restore:N`); the
- *  live version is untouched. Or `{ refused, message }` — a pending draft is frozen. */
-export function restoreVersion(d, versions, n) {
-  const v = (versions.get(d.code) ?? []).find((x) => x.version === n)
-  if (!v) return { refused: 'RULES_VERSION_NOT_FOUND', message: 'No such version.' }
-  if (d.state === 'pending') return { refused: 'RULES_DRAFT_PENDING', message: 'A request waits for approval. Send it back first.' }
+/** An activation publishes a version: the draft's campaign as it was activated, with the author's note. */
+export function publishVersion(versions, d, { versionNo, by, at }) {
+  versions.set(d.code, [
+    ...(versions.get(d.code) ?? []),
+    { versionNo, campaign: d.code, action: 'publish', schemaVersion: 1, publishedAt: at, publishedBy: by, requestedBy: d.requestedBy, note: d.requestNote, json: structuredClone(d.campaign) },
+  ])
+}
+
+/** POST Rules/Authoring/Versions/Restore { campaign, versionNo, revision }: the version's campaign is
+ *  the DRAFT (`origin: restore:N`); the live version is untouched. Or HQ's refusal. */
+export function restoreVersion(d, versions, n, revision) {
+  const v = (versions.get(d.code) ?? []).find((x) => x.versionNo === n)
+  if (!v || !v.json) return refuse('RULES_VERSION_NOT_FOUND', 404, `Version ${n} does not hold campaign ${d.code}.`)
+  const at = d.source === 'draft' ? d.revision : 0
+  if (revision !== at) return refuse('RULES_DRAFT_STALE', 409, `Draft ${d.code} is at revision ${at}, not ${revision}: load it again.`)
+  if (d.source === 'draft' && d.state === 'pending') return refuse('RULES_DRAFT_PENDING', 409, `Draft ${d.code} is waiting for approval.`)
   remember(d)
   Object.assign(d, {
-    source: 'draft', state: 'editing', revision: d.revision + 1, origin: `restore:${n}`,
-    campaign: { ...d.campaign, rules: structuredClone(v.rules) },
+    source: 'draft', state: 'editing', revision: at + 1, origin: `restore:${n}`,
+    campaign: structuredClone(v.json),
     requestedBy: '', requestedAt: NEVER, requestNote: '', reviewedBy: '', reviewedAt: NEVER, reviewNote: '',
   })
   d.validation = validationOf(d.campaign)
-  return { campaign: d }
+  return { draft: d }
 }
 
 // ── 515: campaign coupons ──

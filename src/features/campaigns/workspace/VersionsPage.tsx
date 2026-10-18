@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Eye, EyeOff, History, Loader2 } from 'lucide-react'
-import type { RuleCampaign, RuleCampaignVersion, RuleDraft } from '@/core/models/rule-campaign'
+import type { RuleCampaign, RuleDraft, RuleVersionSummary } from '@/core/models/rule-campaign'
 import { rememberSavedDraft, ruleCampaignApi, ruleCampaignVersionQuery, ruleCampaignVersionsQuery, ruleReadingCatalogueQuery } from '@/core/rules/api'
-import { campaignPath } from '@/core/rules/campaign-state'
+import { campaignPath, setAt } from '@/core/rules/campaign-state'
 import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
@@ -16,14 +16,15 @@ import { formatDateTime } from '@/core/util/date-format'
 import { useWorkspace } from './context'
 import { Refusal } from './settings-ui'
 import VersionRuleCard from './VersionRuleCard'
-import { newestFirst, restoreGuard, restoreHeld, versionMark } from './versions'
+import { holdsCampaign, newestFirst, restoreGuard, restoreHeld, restoreRevision, versionMark } from './versions'
 
 /**
- * The campaign's Versions (ticket 512): every published version, newest first, with its number,
- * who activated it, when (local) and the note, the live one marked. A version opens read-only as its
- * rules in sentences. Restore makes it the campaign's NEW draft — never an in-place rollback: tills
- * keep the live version until that draft is approved and activated. Restore always asks first
- * (`restoreGuard`): the draft it replaces may hold saved work not published, even on a live
+ * The campaign's Versions (tickets 512, 524; `Versions/List`): every version its publishes and its
+ * disable made, newest first, with its number, who activated it and who asked, when (local) and the
+ * note, the live one marked. A published version opens read-only as its rules in sentences
+ * (`Versions/Load`). Restore makes it the campaign's DRAFT (`Versions/Restore`) — never an in-place
+ * rollback: tills keep the live version until that draft is approved and activated. Restore asks
+ * first when a draft exists (`restoreGuard`): it may hold saved work not published, even on a live
  * campaign. HQ's refusal shows with its message and code.
  */
 export default function VersionsPage() {
@@ -38,7 +39,7 @@ export default function VersionsPage() {
   const [asking, setAsking] = useState<number | null>(null)
 
   const restore = useMutation({
-    mutationFn: (version: number) => ruleCampaignApi.restore(c.id, version),
+    mutationFn: (version: number) => ruleCampaignApi.restore(c.id, version, restoreRevision(d)),
     onSuccess: (next, version) => {
       // The restored draft is the campaign's draft now: every page of the workspace reads it, and
       // its checks, offline verdict and counters are read afresh, as after a builder Save.
@@ -65,7 +66,9 @@ export default function VersionsPage() {
 
   const start = (version: number) => {
     restore.reset()
-    if (restoreGuard(d) === 'ask') setAsking(version)
+    const guard = restoreGuard(d)
+    if (guard === 'ask') setAsking(version)
+    else if (guard === 'now') restore.mutate(version)
   }
 
   let body
@@ -96,13 +99,13 @@ export default function VersionsPage() {
       <ol className="flex flex-col gap-3" data-versions="">
         {newestFirst(versions.data).map((v) => (
           <VersionItem
-            key={v.version}
+            key={v.versionNo}
             draft={d}
             v={v}
-            open={opened.has(v.version)}
-            onToggle={() => toggle(v.version)}
-            onRestore={() => start(v.version)}
-            restoring={restore.isPending && restore.variables === v.version}
+            open={opened.has(v.versionNo)}
+            onToggle={() => toggle(v.versionNo)}
+            onRestore={() => start(v.versionNo)}
+            restoring={restore.isPending && restore.variables === v.versionNo}
             busy={restore.isPending}
           />
         ))}
@@ -180,7 +183,7 @@ function VersionItem({
   busy,
 }: {
   draft: RuleDraft
-  v: RuleCampaignVersion
+  v: RuleVersionSummary
   open: boolean
   onToggle: () => void
   onRestore: () => void
@@ -188,19 +191,27 @@ function VersionItem({
   busy: boolean
 }) {
   const { t } = useTranslation('campaign-workspace')
-  const mark = versionMark(d, v.version)
+  const mark = versionMark(d, v)
   const guard = restoreGuard(d)
-  const detailId = `version-${v.version}-rules`
+  const holds = holdsCampaign(v)
+  const detailId = `version-${v.versionNo}-rules`
+  const at = setAt(v.publishedAt)
   return (
     <li
       className={'flex flex-col gap-2 rounded-lg border bg-card p-4 ' + (mark === 'live' ? 'border-primary/40' : 'border-border/60')}
-      data-version={v.version}
+      data-version={v.versionNo}
       data-version-mark={mark ?? undefined}
+      data-version-action={v.action}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="text-sm font-semibold" data-version-number="">
-          <Trans t={t} i18nKey="versions.number" values={{ version: v.version }} components={{ version: <Ltr /> }} />
+          <Trans t={t} i18nKey="versions.number" values={{ version: v.versionNo }} components={{ version: <Ltr /> }} />
         </h2>
+        {!holds && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground" data-version-disable="">
+            {t('versions.action.disable')}
+          </span>
+        )}
         {mark && (
           <span
             className={'rounded-full px-2 py-0.5 text-xs font-medium ' + (mark === 'live' ? 'bg-primary-050 text-primary-800' : 'bg-muted text-muted-foreground')}
@@ -210,14 +221,25 @@ function VersionItem({
           </span>
         )}
         <span className="text-xs text-muted-foreground" data-version-stamp="">
-          <Trans t={t} i18nKey="dashboard.stamp" values={{ at: formatDateTime(v.at), by: v.by }} components={{ at: <Ltr />, by: <bdi /> }} />
+          {at ? (
+            <Trans t={t} i18nKey="dashboard.stamp" values={{ at: formatDateTime(at), by: v.publishedBy }} components={{ at: <Ltr />, by: <bdi /> }} />
+          ) : (
+            <bdi>{v.publishedBy}</bdi>
+          )}
         </span>
+        {v.requestedBy && (
+          <span className="text-xs text-muted-foreground" data-version-requested="">
+            <Trans t={t} i18nKey="versions.requestedBy" values={{ by: v.requestedBy }} components={{ by: <bdi /> }} />
+          </span>
+        )}
         <span className="ms-auto flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={onToggle} aria-expanded={open} aria-controls={open ? detailId : undefined} data-version-view="">
-            {open ? <EyeOff className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
-            {t(open ? 'versions.hide' : 'versions.view')}
-          </Button>
-          {guard === 'ask' && (
+          {holds && (
+            <Button variant="ghost" onClick={onToggle} aria-expanded={open} aria-controls={open ? detailId : undefined} data-version-view="">
+              {open ? <EyeOff className="h-3.5 w-3.5" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
+              {t(open ? 'versions.hide' : 'versions.view')}
+            </Button>
+          )}
+          {holds && guard !== 'waiting' && (
             <Button variant="outlined" onClick={onRestore} disabled={busy} data-version-restore="">
               {restoring && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
               {t('versions.restore')}
@@ -234,9 +256,9 @@ function VersionItem({
           {t('versions.noNote')}
         </p>
       )}
-      {open && (
+      {open && holds && (
         <div id={detailId}>
-          <VersionRules campaign={d.campaign} version={v.version} />
+          <VersionRules campaign={d.campaign} version={v.versionNo} />
         </div>
       )}
     </li>
@@ -272,13 +294,21 @@ function VersionRules({ campaign: c, version }: { campaign: RuleCampaign; versio
   }
 
   const has = (key: string, count?: number) => i18n.exists(key, { ns: 'campaign-workspace', ...(count === undefined ? {} : { count }) })
-  const rules = detail.data.rules
+  // The campaign as that version holds it: its own rules, budgets and audience. HQ answers a version
+  // that does not hold it with a 404; a null is never filled in with the campaign as it is now.
+  const held = detail.data.campaign
+  if (!held)
+    return (
+      <p className="border-t border-border/60 pt-3 text-sm text-muted-foreground" data-version-rules={version} data-version-not-held="">
+        {t('versions.notHeld')}
+      </p>
+    )
+  const rules = held.rules
   return (
     <div className="flex flex-col gap-2 border-t border-border/60 pt-3" data-version-rules={version}>
       {rules.length ? (
         rules.map((rule, i) => {
-          // Budgets and audience are the campaign's as they are now — a version carries its rules only.
-          const ctx: SentenceContext = { campaign: c, rule, catalogue: catalogue.data, has }
+          const ctx: SentenceContext = { campaign: held, rule, catalogue: catalogue.data, has }
           return (
             <VersionRuleCard
               key={rule.id}

@@ -335,7 +335,7 @@
     "isStackable": "Stackable",
     "score": "Score",
     "maxValue": "Max value",
-    "maxValueUnavailable": "Unavailable until the engine update.",
+    "maxValueHint": "Caps a % discount each time it applies. 0 means no cap.",
     "timeFrom": "Time of day from",
     "timeTo": "Time of day to",
     "timeHint": "Set both or neither. A window past midnight is allowed."

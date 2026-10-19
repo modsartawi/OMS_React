@@ -5,8 +5,9 @@ import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter } f
 
 /**
  * The Engine Rules tab (owner's verdict on 2335, option 1): the fields the engine reads and SAP's
- * screen lacks. Empty means no restriction. Max value is shown and held at 0: the validator refuses
- * it above 0 until track B's engine bump (B-03). `AllowNestedStacking` is never exposed.
+ * screen lacks. Empty means no restriction. Max value caps a % discount each time it applies, 0 is
+ * no cap; the engine copies the capped rate per application since SIS.Pricing.Core 26.4.47 (B-03),
+ * so the validator takes any cap of 0 or more. `AllowNestedStacking` is never exposed.
  *
  * The six lists are multi-line paste boxes (ticket 420, spec 2396 stories 35-37): a pasted Excel
  * column keeps its newlines, and each box shows how many codes it holds and its stored length
@@ -60,8 +61,16 @@ export default function EngineRulesTab({ engine, onChange }: { engine: EngineRul
         </label>
         <label className={label}>
           {t('engine.maxValue')}
-          <input type="number" disabled className={`${INPUT} w-28 text-end`} value={engine.maxValue} readOnly />
-          <span className="font-normal">{t('engine.maxValueUnavailable')}</span>
+          <input
+            type="number"
+            min={0}
+            step={0.001}
+            className={`${INPUT} w-28 text-end`}
+            value={engine.maxValue}
+            data-testid="bby-engine-maxValue"
+            onChange={(e) => set({ maxValue: e.target.value })}
+          />
+          <span className="font-normal">{t('engine.maxValueHint')}</span>
         </label>
       </div>
       <div className="flex flex-wrap items-end gap-4">

@@ -238,6 +238,13 @@ describe('editor state maps to the BonusBuy/Save request and back', () => {
     })
   })
 
+  it('max value is read and sent as typed: a cap on a % discount, blank is no cap', () => {
+    const opened = fromDocument(doc({ bonusBuy: { ...WIRE, engineRules: { ...WIRE.engineRules!, maxValue: 50 } } }))
+    expect(opened.engine.maxValue).toBe('50')
+    expect(toRequest({ ...opened, engine: { ...opened.engine, maxValue: '12.5' } }).engineRules?.maxValue).toBe(12.5)
+    expect(toRequest({ ...opened, engine: { ...opened.engine, maxValue: '' } }).engineRules?.maxValue).toBe(0)
+  })
+
   // Ticket 420 (spec 2396 stories 35–37): a pasted Excel column goes up as the comma list the
   // server stores, so the client never relies on the server's separator set being 2400's yet.
   it('a pasted column goes up as the comma list the server stores; loyalty groups and tiers upper-cased', () => {

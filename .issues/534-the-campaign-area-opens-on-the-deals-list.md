@@ -9,7 +9,7 @@ blocked-by: — (live: BackOffice 2846)
 ## What to build
 
 **Slice 0 of deals** (BackOffice ADR 0097, tickets 2846–2847, brief 2848, the brief's D1). `/campaigns` stops being
-one flat list of every week's ~560 campaigns and becomes the list of **deals**: one row per weekly flyer or ad-hoc
+one flat list of every campaign (~560 a weekly flyer) and becomes the list of **deals**: one row per weekly flyer or ad-hoc
 offer set. **The brief is the contract; read it whole before starting**, and the door-by-door shapes in
 `C:\Work\DMSCO\BackOffice\.issues\assets\2737-oms-react-rule-engine-brief.md` § "HQ contract: deals (2846-2847)". Its
 "rules the screens live by" are decided: deal / campaign / rule are the words (never "batch", "week", "promotion",
@@ -34,7 +34,8 @@ The owner picked variant 1 (drill-down pages) of the prototype in BackOffice
     empty), kind **Uploaded** / **Hand-made** from `origin`, window (inclusive days, `formatRange`), `campaignCount`,
     `skuCount`, a **state badge** (an unlisted state renders as `disabled`), `liveVersionNo` when live, and for an
     uploaded deal `revision`, `uploadState`, `uploadedBy`, `approvedBy`;
-  - the **no-deal row** last (`dealCode: null`), labelled "No deal", opening `/campaigns/no-deal`;
+  - the **no-deal row** last, told by `dealCode: null` (never by `origin`: a row whose code is neither a record nor an
+    upload comes with `origin: null` and gets no kind), labelled "No deal", opening `/campaigns/no-deal`;
   - a row opens `/campaigns/deals/:dealCode` (535 builds the page; a placeholder until then);
   - action **Upload a deal** → `/campaigns/upload` (530). **New deal** is 536's.
 - **Menu:** the leaf that reads "Campaigns" reads **Deals** and keeps owning `/campaigns/*`.
@@ -47,7 +48,7 @@ label) · route + menu + page · i18n EN · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `dealRowView`: each of the four states gives its badge and an unknown one gives `disabled`; `upload` / `manual` give their kind; the no-deal row reads "No deal" and links `/campaigns/no-deal`; empty names show the code alone (vitest)
+- [ ] `dealRowView`: each of the four states gives its badge and an unknown one gives `disabled`; `upload` / `manual` give their kind; the no-deal row (by `dealCode: null`) reads "No deal" and links `/campaigns/no-deal`; a dealt row with `origin: null` has no kind; empty names show the code alone (vitest)
 - [ ] `windowDays` (or the shared helper): a deal's `windowUntil` is shown as sent, the inclusive last day; a null window shows none (vitest)
 - [ ] `tools/campaign-deals-drive.mjs`, LTR and RTL, against a stub serving `Deals/List` with a live, a pending, an ended, a disabled and a hand-made deal plus the no-deal row, and a bare 403: the badges, the order, the no-deal row last, Upload a deal's link, the 403 message
 - [ ] `npm run typecheck`, `npm run lint`, `npm test` green

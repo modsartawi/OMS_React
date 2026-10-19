@@ -16,7 +16,8 @@ the 2737 brief's `Deals/Campaigns` row.
   react-router ranks above the param), one page component; the no-deal page sends `dealCode: null`.
 - **Header** from the deal's row of 534's `Deals/List` query (there is no single-deal door): code, both names, kind,
   window, state badge, `liveVersionNo`, `note` (and `uploadNote` when it differs).
-- **Tiles:** campaigns (`campaignCount`), SKUs (`skuCount`), generated Arabic names (the page's `generatedNames`),
+- **Tiles:** campaigns (`campaignCount`, with "+N pending" when the unfiltered `total` is larger: a pending
+  re-upload's new campaigns are rows but not yet in the deal's counts), SKUs (`skuCount`), generated Arabic names (the page's `generatedNames`),
   and **with a budget** only when the page answers `withBudget` (BO ask J, BackOffice 2855); hidden otherwise.
 - **Filters, all in the URL** (`?q=&mechanic=&status=&page=`): a search box → `q` (id and both names, Arabic works);
   **mechanic chips** from `mechanics` (every key, `builder` included) plus "All"; a **status** filter
@@ -35,7 +36,9 @@ the 2737 brief's `Deals/Campaigns` row.
 - **Retire 524's composition:** `composeCampaignList` and `ruleCampaignApi.list()` / `ruleCampaignsQuery` go, with
   `CampaignListPage`, `list/columns.tsx` and `list-filter.ts`. Their other readers stop reading the composed list:
   `CreateCampaignDialog`, `FromTemplate` and `CopyCampaignDialog` drop the id pre-check and rely on HQ's 409
-  `RULES_CAMPAIGN_EXISTS` (already shown); `PriorityPage` takes names from `Order.campaigns`. The mutations that
+  `RULES_CAMPAIGN_EXISTS` (already shown). `PriorityPage` keeps its state badges and feature chips, which neither
+  `Order.campaigns` nor `Deals/Campaigns` answers: the composition moves into `features/campaigns/priority/` as its
+  own reader (no longer the area's list). The mutations that
   invalidated `ruleCampaignsQuery` invalidate the deals queries instead.
 
 ## Spine reach
@@ -50,12 +53,14 @@ api (feature `api.ts`: `campaigns(query)`) · logic (URL ↔ query, chip view, n
 - [ ] `neverPublishedDrafts`: a draft with `publishedVersionNo` > 0 is not listed; one with 0 is (vitest)
 - [ ] `tools/campaign-deals-drive.mjs` gains: a 560-campaign deal paged, a mechanic chip and a status filter narrowing it, an Arabic search, Back restoring the filters, an uploaded deal's Re-upload / Its upload links, the no-deal page's New campaign and a never-published draft, a stale deal link's 404. LTR and RTL
 - [ ] The campaigns drive (`tools/campaigns-drive.mjs`) re-cut where it read the flat list, with reasons in this ticket
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green; no reader of `ruleCampaignsQuery` / `composeCampaignList` left
+- [ ] `npm run typecheck`, `npm run lint`, `npm test` green; no reader of the composed list left outside Priority
 
 ## Boundaries
 
 - Doors: `Deals/Campaigns` (BackOffice 2846), `Drafts/List` (2759). Stubbed until 538.
-- Removes the flat campaigns list and its composition (oms-react 524's "BO ask A" workaround).
+- Removes the flat campaigns list; its composition survives only as Priority's reader.
+- `/campaigns/no-deal` is a static leaf, so it shadows a campaign whose id is literally `no-deal` (ids allow it). Accepted: no
+  campaign carries that id today; if one ever does, its workspace is unreachable until it is copied to another id.
 
 ## Done when
 

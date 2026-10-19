@@ -39,6 +39,11 @@ test (live drive + owner walk). Code changes only where the wire differs from th
 - [ ] `tools/campaign-deals-drive.mjs` run against the live doors (no stubs), steps 1–6 green
 - [ ] Each step's request and reply recorded here
 
+## Boundaries
+
+- Doors: `Rules/Authoring/Deals/*` (BackOffice 2846–2847), live. No stubs.
+- Writes on staging only: one hand-made deal, created and deleted by the walk.
+
 ## Done when
 
 The walk is green on staging and recorded here.

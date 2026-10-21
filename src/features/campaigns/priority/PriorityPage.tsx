@@ -6,7 +6,6 @@ import { Link } from 'react-router'
 import { ArrowDown, ArrowUp, FolderPlus, Trash2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type {
-  RuleCampaignListRow,
   RuleEvaluationTree,
   RuleFeature,
   RuleOrderCampaign,
@@ -15,8 +14,7 @@ import type {
   RuleTreeGroup,
   Says,
 } from '@/core/models/rule-campaign'
-import { ruleCampaignsQuery, ruleOrderQuery, ruleReadingCatalogueQuery } from '@/core/rules/api'
-import { featuresUsedBy } from '@/core/rules/campaign-list'
+import { ruleOrderQuery, ruleReadingCatalogueQuery } from '@/core/rules/api'
 import { saysIn } from '@/core/rules/sentence'
 import { campaignPath, campaignState } from '@/core/rules/campaign-state'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
@@ -25,7 +23,9 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import { priorityCampaignsQuery } from './api'
 import CarrierDialog from './CarrierDialog'
+import { featuresUsedBy, type PriorityCampaign } from './priority-campaigns'
 import {
   addGroup,
   blankGroups,
@@ -61,7 +61,7 @@ const SCOPES: RuleOrderGroupScope[] = ['session', 'item']
 export default function PriorityPage() {
   const { t } = useTranslation('campaign-priority')
   const order = useQuery(ruleOrderQuery())
-  const campaigns = useQuery(ruleCampaignsQuery())
+  const campaigns = useQuery(priorityCampaignsQuery())
   const catalogue = useQuery(ruleReadingCatalogueQuery())
   /** The reader's unsaved order; null while they have changed nothing. */
   const [draft, setDraft] = useState<RuleEvaluationTree | null>(null)
@@ -87,7 +87,7 @@ export default function PriorityPage() {
   const listed = useMemo(() => new Map((campaigns.data ?? []).map((c) => [c.campaign, c])), [campaigns.data])
   const live = useMemo(() => new Map((order.data?.campaigns ?? []).map((c) => [c.code, c])), [order.data])
   /** A row's features: its draft's, else what its live blocks use (read through the catalogue). */
-  const featuresOf = (row: RuleCampaignListRow | undefined): RuleFeature[] =>
+  const featuresOf = (row: PriorityCampaign | undefined): RuleFeature[] =>
     row?.features ?? (row?.live && catalogue.data ? featuresUsedBy(row.live, catalogue.data) : [])
   const now = new Date()
 
@@ -278,10 +278,10 @@ function CampaignRow({
   id: string
   /** The campaign in the live order (its names), when it is live. */
   live: RuleOrderCampaign | undefined
-  /** Its row in the campaigns list (its state). */
-  campaign: RuleCampaignListRow | undefined
+  /** How Priority reads it (its state). */
+  campaign: PriorityCampaign | undefined
   features: RuleFeature[]
-  /** The campaigns list has been read: a campaign missing from it is named as such. */
+  /** The campaigns have been read: a campaign missing from them is named as such. */
   listRead: boolean
   pos: number
   count: number

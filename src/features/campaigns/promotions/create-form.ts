@@ -26,13 +26,13 @@ export const formId = (form: CreateCampaignForm): string => (form.idEdited ? for
 /** A field the form refuses, keyed to its locale message. */
 export type CreateFormProblem = 'nameEnRequired' | 'nameArRequired' | CampaignIdProblem
 
-/** Every reason the form cannot be sent yet; empty = it can. A name of only spaces is no name.
- *  `taken`: the ids of the campaigns listed. */
-export function createFormProblems(form: CreateCampaignForm, taken: readonly string[] = []): CreateFormProblem[] {
+/** Every reason the form cannot be sent yet; empty = it can. A name of only spaces is no name. A
+ *  taken id is HQ's to refuse (`RULES_CAMPAIGN_EXISTS`). */
+export function createFormProblems(form: CreateCampaignForm): CreateFormProblem[] {
   const problems: CreateFormProblem[] = []
   if (!form.nameEn.trim()) problems.push('nameEnRequired')
   if (!form.nameAr.trim()) problems.push('nameArRequired')
-  const idProblem = campaignIdProblem(formId(form), taken)
+  const idProblem = campaignIdProblem(formId(form))
   if (idProblem) problems.push(idProblem)
   return problems
 }

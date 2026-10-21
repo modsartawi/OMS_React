@@ -8,7 +8,6 @@ import type {
   RuleApprovalBody,
   RuleApprovalItem,
   RuleApprovalStep,
-  RuleCampaignListRow,
   RuleCopyBody,
   RuleCouponBatchCreate,
   RuleCouponBatchCreated,
@@ -41,7 +40,6 @@ import type {
   RuleWalletCoupon,
 } from '@/core/models/rule-campaign'
 import { RULE_FEATURES } from '@/core/models/rule-campaign'
-import { composeCampaignList } from './campaign-list'
 import type {
   RuleSessionListQuery,
   RuleSessionLookup,
@@ -108,24 +106,28 @@ const MEMBERS = 'RuleCampaign/Members'
 /** Every campaign query — a write refreshes them all. */
 export const RULE_CAMPAIGNS_KEY = ['rule-campaigns'] as const
 
+/**
+ * Every query of the rule engine's promotions (ticket 534's list, 535's pages; BackOffice brief 2848):
+ * keyed here, beside the campaign queries, because a campaign write changes them and the writes
+ * live in core and in several features.
+ */
+export const RULE_PROMOTIONS_KEY = ['rule-promotions'] as const
+
+/**
+ * What a campaign write changes beyond the campaign itself (ticket 535, where the composed campaigns
+ * list went): the promotions' lists and pages (a publish, a disable or an upload's activation moves a
+ * campaign's row and counts) and the drafts (the no-promotion page's never-published ones, and
+ * Priority's own reader, keyed under them).
+ */
+export function refreshCampaignLists(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: RULE_PROMOTIONS_KEY })
+  void queryClient.invalidateQueries({ queryKey: ruleDraftsQuery().queryKey })
+}
+
 /** One campaign, keyed by its id — the workspace shell and every page inside it share it. */
 export const ruleCampaignKey = (id: string) => [...RULE_CAMPAIGNS_KEY, 'one', id] as const
 
 export const ruleCampaignApi = {
-  /**
-   * The campaigns list (ticket 524), unfiltered. HQ has no list door (BO ask A), so it is composed
-   * (`composeCampaignList`) from POST Rules/Authoring/Drafts/List (the drafts and their state), POST
-   * Rules/Authoring/Order (the live campaigns) and POST Rules/Authoring/Versions/Load of the order's
-   * version (each live campaign's window). The list counts and filters locally, because scheduled /
-   * running / expired are read at the reader's local now. A disabled campaign with no draft is in
-   * none of the three, so it is not listed.
-   */
-  async list(): Promise<RuleCampaignListRow[]> {
-    const [drafts, order] = await Promise.all([ruleCampaignApi.drafts(), ruleCampaignApi.order()])
-    const live = order.versionNo > 0 ? await ruleCampaignApi.version(order.versionNo) : null
-    return composeCampaignList(drafts, order, live?.ruleset ?? null)
-  },
-
   /** POST Rules/Authoring/Drafts/List — every draft with its state, last saved first. */
   drafts(): Promise<RuleDraftSummary[]> {
     return api.post<RuleDraftSummary[]>(DRAFT_LIST, {})
@@ -367,12 +369,12 @@ export const ruleCampaignApi = {
 
 /**
  * A draft HQ just moved along its approval life (an ask or a send back, ticket 511): its own query
- * takes HQ's answer, so the dashboard's State and the shell's badge follow, and the list, the
- * waiting requests and the campaign's trail are read afresh.
+ * takes HQ's answer, so the dashboard's State and the shell's badge follow, and the promotions and
+ * drafts (`refreshCampaignLists`), the waiting requests and the campaign's trail are read afresh.
  */
 export function rememberTransition(queryClient: QueryClient, draft: RuleDraft): void {
   queryClient.setQueryData(ruleCampaignKey(draft.code), draft)
-  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  refreshCampaignLists(queryClient)
   void queryClient.invalidateQueries({ queryKey: ruleApprovalsQuery().queryKey })
   void queryClient.invalidateQueries({ queryKey: ruleApprovalHistoryKey(draft.code) })
 }
@@ -381,13 +383,13 @@ export function rememberTransition(queryClient: QueryClient, draft: RuleDraft): 
  * A version HQ just made (an activation or a disable, ticket 511): neither answers the draft. After
  * an activation the campaign is read again (its draft is gone: Load answers the new live version).
  * After a disable it is NOT: with no draft, a disabled campaign is in no version and Load answers it
- * 404 (BO ask A), so its own query keeps what was loaded, marked Disabled. The list, its versions,
- * the order, the waiting requests and its trail are read afresh either way.
+ * 404 (BO ask A), so its own query keeps what was loaded, marked Disabled. The promotions and
+ * drafts, its versions, the order, the waiting requests and its trail are read afresh either way.
  */
 export function rememberPublished(queryClient: QueryClient, code: string, act: 'activated' | 'disabled' = 'activated'): void {
   if (act === 'disabled') queryClient.setQueryData<RuleDraft>(ruleCampaignKey(code), (d) => (d ? { ...d, campaignStatus: 'Disabled' } : d))
   else void queryClient.invalidateQueries({ queryKey: ruleCampaignKey(code) })
-  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  refreshCampaignLists(queryClient)
   void queryClient.invalidateQueries({ queryKey: ruleCampaignVersionsKey(code) })
   void queryClient.invalidateQueries({ queryKey: ruleOrderQuery().queryKey })
   void queryClient.invalidateQueries({ queryKey: ruleApprovalsQuery().queryKey })
@@ -396,7 +398,7 @@ export function rememberPublished(queryClient: QueryClient, code: string, act: '
   void queryClient.invalidateQueries({ queryKey: ruleBudgetsKey(code) })
 }
 
-/** A draft HQ just deleted: its own queries go, and the list is read afresh. */
+/** A draft HQ just deleted: its own queries go, and the promotions and drafts are read afresh. */
 export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCampaignKey(id) })
   queryClient.removeQueries({ queryKey: ruleBudgetsKey(id) })
@@ -405,7 +407,7 @@ export function forgetDeleted(queryClient: QueryClient, id: string): void {
   queryClient.removeQueries({ queryKey: ruleCouponBatchesKey(id) })
   queryClient.removeQueries({ queryKey: ruleCouponExportsKey(id) })
   queryClient.removeQueries({ queryKey: ruleApprovalHistoryKey(id) })
-  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  refreshCampaignLists(queryClient)
 }
 
 /** A lookup's query options: one read per kind, search and campaign, kept a few minutes. */
@@ -458,21 +460,14 @@ export const ruleTemplatesQuery = () => ({
   retry: false as const,
 })
 
-/** The list's query options: the composed list (`ruleCampaignApi.list`), one key for its three reads. */
-export const ruleCampaignsQuery = () => ({
-  queryKey: [...RULE_CAMPAIGNS_KEY, 'list'] as const,
-  queryFn: () => ruleCampaignApi.list(),
-  retry: false as const,
-})
-
 /**
  * A draft HQ just saved (Drafts/Save, ticket 522): the campaign's own query takes HQ's answer — its
  * new revision and its validation (the checks pill and Offline read it) — so every page of its
- * workspace reads the saved draft, and the list is read afresh.
+ * workspace reads the saved draft, and the promotions and drafts are read afresh.
  */
 export function rememberSavedDraft(queryClient: QueryClient, draft: RuleDraft): void {
   queryClient.setQueryData(ruleCampaignKey(draft.code), draft)
-  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  refreshCampaignLists(queryClient)
   // A budget added, changed or deleted (510) changes what is counted against it.
   void queryClient.invalidateQueries({ queryKey: ruleBudgetsKey(draft.code) })
 }
@@ -498,11 +493,11 @@ export const ruleCampaignQuery = (id: string) => ({
 
 /**
  * A new draft HQ just made (a create or a copy, ticket 502): its own query is seeded, so its
- * dashboard opens without asking again, and the list is read afresh to count it.
+ * dashboard opens without asking again, and the promotions and drafts are read afresh to count it.
  */
 export function rememberNewDraft(queryClient: QueryClient, draft: RuleDraft): void {
   queryClient.setQueryData(ruleCampaignKey(draft.code), draft)
-  void queryClient.invalidateQueries({ queryKey: ruleCampaignsQuery().queryKey })
+  refreshCampaignLists(queryClient)
 }
 
 /** A campaign's versions list, keyed under the campaign queries. */

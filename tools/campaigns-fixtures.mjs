@@ -1168,3 +1168,76 @@ export function createBatch(batches, body, user, at) {
     },
   }
 }
+
+// ── 535: the promotion doors over the same store (POST Rules/Authoring/Promotions/List and
+// Promotions/Campaigns, BackOffice 2846 renamed by 2862; brief 2848). Every campaign here is
+// hand-built and in no promotion: List answers the no-promotion row alone, and Campaigns
+// { promotionCode: null } a page of the campaigns HQ keeps a row for — each one published once, live
+// or disabled (a disabled campaign with no draft included); a draft never published is in none. A
+// code is a 404 RULES_PROMOTION_NOT_FOUND. HQ's reading: `q` matches the id and both names in any
+// case, `status` in any case, `mechanics` counts the rows matching q and status, rows by id. ──
+
+/** The day before a `yyyy-MM-dd` (the campaign JSON's `until` is exclusive; a row's is inclusive). */
+const dayBefore = (day) => {
+  const d = new Date(`${day}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/** A `Promotions/Campaigns` row of a campaign HQ keeps a row for. */
+function promotionRowOf(d) {
+  const c = liveOf(d)
+  const w = c.window ?? {}
+  return {
+    id: d.code,
+    nameEn: c.name?.en ?? '',
+    nameAr: c.name?.ar ?? '',
+    nameArGenerated: false,
+    mechanic: 'builder',
+    skuCount: 0,
+    ruleCount: (c.rules ?? []).length,
+    windowFrom: w.from && w.until ? `${w.from}T00:00:00` : null,
+    windowUntil: w.from && w.until ? `${dayBefore(w.until)}T00:00:00` : null,
+    status: d.campaignStatus,
+  }
+}
+
+// A disabled campaign with no draft (`gone`: Drafts/Load answers it 404) keeps its campaign row.
+const promotionRows = (store) => store.filter((d) => d.campaignStatus === 'Published' || d.campaignStatus === 'Disabled').map(promotionRowOf)
+
+/** POST Rules/Authoring/Promotions/List: the no-promotion row alone. */
+export const promotionListOf = (store) => [
+  {
+    promotionCode: null,
+    nameEn: '',
+    nameAr: '',
+    origin: null,
+    note: '',
+    campaignCount: promotionRows(store).length,
+    skuCount: 0,
+    windowFrom: null,
+    windowUntil: null,
+    state: 'live',
+    liveVersionNo: LIVE_VERSION,
+    revision: null,
+    uploadState: null,
+    uploadedBy: null,
+    uploadNote: null,
+    approvedBy: null,
+    createdAt: NEVER,
+  },
+]
+
+/** POST Rules/Authoring/Promotions/Campaigns { promotionCode | null, all?, q?, mechanic?, status?, page, pageSize }. */
+export function promotionCampaignsOf(store, body) {
+  if (!body.all && body.promotionCode) return refuse('RULES_PROMOTION_NOT_FOUND', 404, `There is no promotion ${body.promotionCode}: neither a record nor an upload.`)
+  const q = (body.q ?? '').toLowerCase()
+  const status = (body.status ?? '').toLowerCase()
+  const matching = promotionRows(store).filter((r) => (!q || [r.id, r.nameEn, r.nameAr].some((v) => v.toLowerCase().includes(q))) && (!status || r.status.toLowerCase() === status))
+  const mechanics = {}
+  for (const r of matching) if (r.mechanic != null) mechanics[r.mechanic] = (mechanics[r.mechanic] ?? 0) + 1
+  const rows = matching.filter((r) => !body.mechanic || r.mechanic === body.mechanic).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const page = body.page ?? 1
+  const size = Math.min(body.pageSize ?? 50, 200)
+  return { page: { promotionCode: null, total: rows.length, page, pageSize: size, mechanics, generatedNames: 0, campaigns: rows.slice((page - 1) * size, page * size) } }
+}

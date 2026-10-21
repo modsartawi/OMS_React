@@ -85,12 +85,6 @@ export const campaignUploadApi = {
   },
 }
 
-/** The approver's list, Campaigns ▸ Campaign uploads (ticket 532). */
-export const CAMPAIGN_UPLOADS_PATH = '/campaigns/uploads'
-
-/** An upload's page (ticket 532's route); the read's success line links here. */
-export const campaignUploadPath = (promotionCode: string) => `${CAMPAIGN_UPLOADS_PATH}/${encodeURIComponent(promotionCode)}`
-
 /** Every upload query: an Activate or a Send back refreshes the list and the upload together. A
  *  refusal is final (a bare 403, a 404 for a stale link), so neither query retries it. */
 export const CAMPAIGN_UPLOADS_KEY = ['campaign-uploads'] as const

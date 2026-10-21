@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleDraft } from '@/core/models/rule-campaign'
-import { rememberNewDraft, ruleCampaignApi, ruleCampaignsQuery } from '@/core/rules/api'
+import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
 import { campaignIdProblem, copyIdOf } from '@/core/rules/campaign-id'
 import { campaignPath } from '@/core/rules/campaign-state'
 import { notify } from '@/core/services/notify'
@@ -19,8 +19,8 @@ const FORM_ID = 'copy-campaign-form'
  * Copy campaign (tickets 502, 524; `Drafts/Copy { from, campaign, name? }`): the author picks the
  * copy's id — offered as the source's with `-COPY` — and its name in both languages, offered as the
  * source's. HQ makes an independent draft (its budgets count under its own id, no evaluation order),
- * and the copy opens on its own dashboard; the source is untouched. An id the list holds is refused
- * at once; one HQ knows otherwise (a disabled campaign with no draft) is HQ's `RULES_CAMPAIGN_EXISTS`.
+ * and the copy opens on its own dashboard; the source is untouched. An id another campaign holds is
+ * HQ's `RULES_CAMPAIGN_EXISTS`, shown in the dialog (ticket 535 dropped the client's pre-check).
  */
 export default function CopyCampaignDialog({ source, onClose }: { source: RuleDraft; onClose: () => void }) {
   const { t } = useTranslation('campaign-workspace')
@@ -31,9 +31,7 @@ export default function CopyCampaignDialog({ source, onClose }: { source: RuleDr
   const [nameAr, setNameAr] = useState(source.campaign.name.ar)
   const [tried, setTried] = useState(false)
 
-  const listed = useQuery(ruleCampaignsQuery()).data
-  const taken = useMemo(() => (listed ?? []).map((r) => r.campaign), [listed])
-  const idProblem = campaignIdProblem(id.trim(), taken)
+  const idProblem = campaignIdProblem(id.trim())
   const enMissing = !nameEn.trim()
   const arMissing = !nameAr.trim()
 

@@ -281,27 +281,6 @@ export interface RuleDraftDeleted {
   deleted: true
 }
 
-/**
- * One row of the campaigns list. HQ has no list door (BO ask A): `ruleCampaignApi.list()` composes
- * it from `Drafts/List` (the drafts and their `state`), `Order.campaigns` (what is live) and the live
- * ruleset (`Versions/Load` of `Order.versionNo`, for each live campaign's window). `state` is null
- * for a live campaign with no draft; `window` is the LIVE window (null for a campaign that is not
- * live); `features` is the draft's, null for a live campaign with no draft (`live` holds its blocks);
- * `updatedAt` / `updatedBy` are the draft's last save, `''` with no draft.
- */
-export interface RuleCampaignListRow {
-  campaign: string
-  name: Says
-  state: RuleDraftState | null
-  campaignStatus: RuleCampaignStatus
-  window: RuleCampaignWindow | null
-  features: RuleFeature[] | null
-  /** The campaign as the live version holds it; null when it is not live. */
-  live: RuleCampaign | null
-  updatedAt: string
-  updatedBy: string
-}
-
 // ── The block catalogue (`Rules/Authoring/Catalogue`, BackOffice 2758; re-pointed in ticket 523) ──
 // What condition, effect and setting blocks exist, their fields, units, palette groups and
 // sentences, gated by the campaign's features: a block of a feature the campaign lacks is not listed

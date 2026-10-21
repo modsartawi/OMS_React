@@ -25,9 +25,12 @@
 //       with `refuseUsage` (510, 523)
 //   POST Rules/Authoring/Budgets/SetLimit { campaign, budget, limit } → a live limit set (`setLimit`);
 //       the first `refuseLimit` changes are refused (510, 523)
-//   POST Rules/Authoring/Drafts/List  → every draft, last saved first (`draftsList`) ┐ the list is
-//   POST Rules/Authoring/Order        → the live tree + campaigns (`orderOf`)       ├ composed from
-//   POST Rules/Authoring/Versions/Load { versionNo } → the live ruleset (`rulesetOf`) ┘ these (524)
+//   POST Rules/Authoring/Drafts/List  → every draft, last saved first (`draftsList`) ┐ Priority composes
+//   POST Rules/Authoring/Order        → the live tree + campaigns (`orderOf`)       ├ its campaigns from
+//   POST Rules/Authoring/Versions/Load { versionNo } → the live ruleset (`rulesetOf`) ┘ these (524, 535)
+//   POST Rules/Authoring/Promotions/List → the no-promotion row alone (`promotionListOf`, 535)
+//   POST Rules/Authoring/Promotions/Campaigns { promotionCode: null, q?, … } → the campaigns HQ keeps a row
+//        for, every one in no promotion, filtered and paged as HQ does it (`promotionCampaignsOf`, 535)
 //   POST Rules/Authoring/Drafts/Copy { from, campaign, name? } → a new draft (`copyDraft`, 502, 524)
 //   POST Rules/Authoring/Templates/List → the prototype's three templates (`TEMPLATES`), or a bare
 //        403 with `refuseTemplates` (503, 524)
@@ -76,7 +79,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, promotionCampaignsOf, promotionListOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -239,8 +242,14 @@ async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, re
       const out = setLimit(store, liveLimits, body)
       return route.fulfill(out.set ? envelope(out.set) : envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }))
     }
-    // The list's three doors (ticket 524): HQ has no list door (BO ask A).
+    // Priority's three doors (ticket 524), the no-promotion page's drafts (535).
     if (p === 'Rules/Authoring/Drafts/List' && req.method() === 'POST') return route.fulfill(envelope(draftsList(store)))
+    // The promotion doors (ticket 535): the campaign area's list since the flat one was retired.
+    if (p === 'Rules/Authoring/Promotions/List' && req.method() === 'POST') return route.fulfill(envelope(promotionListOf(store)))
+    if (p === 'Rules/Authoring/Promotions/Campaigns' && req.method() === 'POST') {
+      const out = promotionCampaignsOf(store, req.postDataJSON() ?? {})
+      return route.fulfill(out.page ? envelope(out.page) : envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused }))
+    }
     if (p === 'Rules/Authoring/Order' && req.method() === 'POST') return route.fulfill(envelope(orderOf(store, liveTree)))
     // The draft doors (ticket 522): BackOffice 2758 + 2759's real shapes.
     const refused = (out) => envelope(null, { status: out.status, success: false, message: out.message, errorCode: out.refused })
@@ -379,7 +388,20 @@ async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, re
   return { context, page, errors, calls, store, batches, couponCalls, bodies, fromTemplate, saves, lookups, validations, checks, checkBodies, catalogueReads, valueMapUploads, acts, history, usageReads, limits, liveLimits, versions, restores, tree: () => liveTree, as: (r) => (role = r), heal: () => (catalogueDown = false) }
 }
 
-const grid = '[data-campaigns-grid]'
+// 535: the flat list is retired; the no-promotion page's table (every campaign here is in no promotion)
+// stands where its grid stood. Its rows are the campaigns HQ keeps a row for — published once — by id.
+const grid = '[data-promotion-campaigns-grid]'
+const NO_PROMOTION = `${BASE}/campaigns/no-promotion`
+/** The fixtures' campaigns with a row (published once, live or disabled), by id. */
+const ROWS = CAMPAIGNS.filter((d) => d.campaignStatus).map((d) => d.code).sort()
+/** The drafts the no-promotion page lists as never published, last saved first. */
+const neverPublished = (page) => page.locator('[data-never-published-draft]').evaluateAll((els) => els.map((e) => e.getAttribute('data-never-published-draft')))
+/** From the Promotions list, in the app: its no-promotion row. */
+const toNoPromotion = async (page) => {
+  await page.locator('[data-promotions-grid] [data-no-promotion]').waitFor({ timeout: 15000 })
+  await page.locator('[data-promotions-grid] [data-no-promotion]').click()
+  await page.waitForURL(NO_PROMOTION)
+}
 /** The row ids the grid shows, in order. */
 const rowIds = (page) =>
   page.$$eval(`${grid} .ag-row[row-id]`, (rows) => [
@@ -398,11 +420,14 @@ const waitRows = async (page, n) => {
   await page.waitForTimeout(100)
 }
 const cell = (page, id, col) => page.locator(`${grid} .ag-row[row-id="${id}"] .ag-cell[col-id="${col}"]`).innerText()
-const tileCount = async (page, tile) => (await page.locator(`[data-tile="${tile}"] [data-tile-count]`).innerText()).trim()
-const COUNTS = { all: '16', draft: '1', waitingForApproval: '1', scheduled: '1', running: '11', expired: '1', disabled: '1' }
-const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.keys(COUNTS).map(async (k) => [k, await tileCount(page, k)])))
 
-// ── 1–5 ──
+// ── 1–5 ── (re-cut in 535: the flat list and its state tiles are retired, BackOffice brief 2848 —
+// the campaign area opens on the Promotions list and a promotion's page lists its campaigns, filtered
+// and paged by HQ; tools/campaign-promotions-drive.mjs proves those pages. Checks 2–4 read the flat
+// list (its six state tiles and their counts at the local now, a tile as a filter, the local search
+// and its "n of m"); they went with it. Here the no-promotion page — every campaign of these
+// fixtures is in no promotion — stands in: its rows, both names, the drafts never published, HQ's
+// search, and a row opening the campaign with the list's context.)
 {
   const { context, page, errors, calls } = await open()
   await page.goto(`${BASE}/`)
@@ -411,54 +436,29 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('1: the Campaigns leaf is in the rail', await leaf.isVisible())
   await leaf.click()
   await page.waitForURL(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  await page.locator('[data-promotions-grid] [data-no-promotion]').waitFor({ timeout: 15000 })
   check('1: the leaf opens /campaigns', page.url() === `${BASE}/campaigns`)
   check('1: ungated — no probe call was made for the group', !calls.some((c) => /RuleCampaign\/Access/.test(c)))
 
-  const counts = await readCounts(page)
-  check('2: a tile per state with its count at the local now', JSON.stringify(counts) === JSON.stringify(COUNTS), JSON.stringify(counts))
-  check('2: every campaign is a row', (await rowIds(page)).length === 16)
-  check('2: the English and the Arabic name are both shown', (await cell(page, 'BABY-BUNDLE', 'name')) === 'Diapers + two packs of wipes for SAR 85' && (await cell(page, 'BABY-BUNDLE', 'nameAr')) === 'حفاضات مع عبوتي مناديل بـ 85 ريال')
-  check('2: the state column reads the derived state', (await cell(page, 'PRCB-AUG26', 'state')) === 'Expired' && (await cell(page, 'NATDAY-15', 'state')) === 'Scheduled' && (await cell(page, 'BDAY-BEAUTY', 'state')) === 'Waiting for approval')
-  check('2: start and end are the local days; no end reads Open-ended', (await cell(page, 'WKND20', 'start')) === '2026-10-01' && (await cell(page, 'BASE-EARN', 'end')) === 'Open-ended')
+  await toNoPromotion(page)
+  await waitRows(page, ROWS.length)
+  check('2: the no-promotion page lists every campaign HQ keeps a row for, by id', JSON.stringify(await rowIds(page)) === JSON.stringify(ROWS), JSON.stringify(await rowIds(page)))
+  check('2: the English and the Arabic name are both shown', (await cell(page, 'BABY-BUNDLE', 'nameEn')) === 'Diapers + two packs of wipes for SAR 85' && (await cell(page, 'BABY-BUNDLE', 'nameAr')) === 'حفاضات مع عبوتي مناديل بـ 85 ريال')
+  check('2: a disabled campaign with no draft has its row (the composed list missed it)', (await cell(page, 'GIFT-POUCH', 'status')) === 'Published' && (await cell(page, 'SUMMER-FLASH', 'status')) === 'Disabled')
+  await page.locator('[data-never-published-draft]').first().waitFor({ timeout: 10000 })
+  check('2: the drafts never published are listed above it', JSON.stringify(await neverPublished(page)) === JSON.stringify(draftsList(CAMPAIGNS).filter((d) => d.publishedVersionNo === 0).map((d) => d.campaign)), JSON.stringify(await neverPublished(page)))
   await page.screenshot({ path: `${SHOTS}/list.png` })
 
-  await page.locator('[data-tile="expired"]').click()
-  await waitRows(page, 1)
-  check('3: the Expired tile shows only the expired campaign', JSON.stringify(await rowIds(page)) === '["PRCB-AUG26"]')
-  check('3: the tile is pressed and lands in the URL', (await page.locator('[data-tile="expired"]').getAttribute('aria-pressed')) === 'true' && page.url().endsWith('?state=expired'))
-  await page.locator('[data-tile="running"]').click()
-  await waitRows(page, 11)
-  check('3: the Running tile shows its eleven', (await rowIds(page)).length === 11 && !(await rowIds(page)).includes('NATDAY-15'))
-  await page.locator('[data-tile="all"]').click()
-  await waitRows(page, 16)
-  check('3: All clears the filter', page.url() === `${BASE}/campaigns`)
-
-  await page.locator('[data-campaign-search]').fill('حفاضات')
-  await waitRows(page, 1)
-  check('4: the Arabic name is searched', JSON.stringify(await rowIds(page)) === '["BABY-BUNDLE"]')
-  await page.locator('[data-campaign-search]').fill('weekend')
+  await page.locator('[data-promotion-search]').fill('weekend')
   await waitRows(page, 2)
-  check('4: the English name is searched', JSON.stringify((await rowIds(page)).sort()) === '["NEXT-VISIT","WKND20"]')
-  check('4: the status bar says n of m', (await page.locator('[data-status-count]').innerText()) === 'Showing 2 of 16 campaigns', await page.locator('[data-status-count]').innerText())
-  await page.locator('[data-campaign-search]').fill('gp-beauty')
-  await waitRows(page, 1)
-  check('4: the code is searched', JSON.stringify(await rowIds(page)) === '["GP-BEAUTY15"]')
-  await page.locator('[data-tile="disabled"]').click()
-  await page.waitForFunction(() => document.querySelector('[data-campaigns-grid] .ag-overlay-no-rows-center, [data-campaigns-grid] .ag-overlay')?.textContent?.includes('No campaign matches.'), null, { timeout: 5000 }).catch(() => {})
-  check('4: a tile and the search together can match nothing, and say so', (await page.locator(grid).innerText()).includes('No campaign matches.'))
-  await page.locator('[data-tile="all"]').click()
-  // Let the tile's render COMMIT before typing (the URL changes first, the render follows in a
-  // transition): the search writes the tile it was rendered with.
-  await page.waitForFunction(() => document.querySelector('[data-tile="all"]')?.getAttribute('aria-pressed') === 'true')
-  await page.locator('[data-campaign-search]').fill('weekend')
-  await waitRows(page, 2)
+  check('4: HQ searches the English name', JSON.stringify(await rowIds(page)) === '["NEXT-VISIT","WKND20"]' && page.url() === `${NO_PROMOTION}?q=weekend`)
 
   const reads = () => calls.filter((c) => c === 'LOAD WKND20').length
-  await page.locator(`${grid} .ag-row[row-id="WKND20"] .ag-cell[col-id="code"]`).click()
-  await page.waitForURL(`${BASE}/campaigns/WKND20`)
+  await page.locator(`${grid} .ag-row[row-id="WKND20"] .ag-cell[col-id="nameEn"]`).click()
+  await page.waitForURL((u) => u.pathname === '/campaigns/WKND20')
   await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
-  check('5: a row click opens the campaign at /campaigns/:id on its Dashboard', page.url() === `${BASE}/campaigns/WKND20`)
+  // 535: the list's context rides along (`promotion` empty = no promotion); 537 reads it.
+  check('5: a row click opens the campaign at /campaigns/:id on its Dashboard, with the list’s context', page.url() === `${BASE}/campaigns/WKND20?promotion=&q=weekend`, page.url())
   const details = page.locator('[data-dashboard-cell="details"]')
   check('5: Details shows the English name', (await details.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off')
   check('5: Details shows the Arabic name, isolated as free text', (await details.locator('[data-line="nameAr"] dd > bdi:not([dir])').innerText()) === 'قسيمة نهاية الأسبوع: خصم 20%')
@@ -478,7 +478,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.screenshot({ path: `${SHOTS}/dashboard-wknd20.png` })
   await page.goBack()
   await waitRows(page, 2)
-  check('5: Back returns to the list as it was left', page.url() === `${BASE}/campaigns?q=weekend`, page.url())
+  check('5: Back returns to the list as it was left', page.url() === `${NO_PROMOTION}?q=weekend`, page.url())
   check('9: no page errors (1–5)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -486,20 +486,23 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 // ── 6 ──
 {
   const { context, page, errors } = await open()
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
-  await page.locator('[data-campaign-link="NATDAY-15"]').click()
-  await page.waitForURL(`${BASE}/campaigns/NATDAY-15`)
+  // 535: from the no-promotion page; its id is the link (the flat list's name link went with it).
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
+  await page.locator('[data-promotion-campaign="NATDAY-15"]').click()
+  await page.waitForURL((u) => u.pathname === '/campaigns/NATDAY-15')
   await page.locator('[data-dashboard]').waitFor()
-  check('6: the name link opens the campaign', page.url() === `${BASE}/campaigns/NATDAY-15`)
+  check('6: the id link opens the campaign', new URL(page.url()).pathname === '/campaigns/NATDAY-15')
   check('6: a scheduled campaign "Starts in 3 days"', (await page.locator('[data-schedule-relative]').innerText()) === 'Starts in 3 days', await page.locator('[data-schedule-relative]').innerText())
   check('6: …reads Scheduled', (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Scheduled')
   check('6: its daily hours are one isolated range', (await page.locator('[data-line="hours"] dd bdi[dir="ltr"]').innerText()) === '16:00–23:00')
   await page.screenshot({ path: `${SHOTS}/dashboard-natday.png` })
 
+  // 535: the way back is the Promotions list until 537 names the promotion; a draft never published
+  // is in no promotion's table, it is listed above the no-promotion page's.
   await page.locator('[data-workspace-back]').click()
-  await waitRows(page, 16)
-  await page.locator('[data-campaign-link="BDAY-BEAUTY"]').click()
+  await toNoPromotion(page)
+  await page.locator('[data-never-published-draft="BDAY-BEAUTY"] a').click()
   await page.locator('[data-dashboard]').waitFor()
   check('6: a waiting campaign names who asked, and when', (await page.locator('[data-state-sentence="waitingForApproval"]').innerText()) === 'Omar (marketing) asked for approval on 2026-10-15 16:20.')
   check('6: …and shows the note', (await page.locator('[data-approval-note]').innerText()) === 'Ready for the November CRM push.')
@@ -515,11 +518,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 
 // ── 7 ──
 {
+  // 535: the state tiles counted at the local now went with the flat list; the dashboard keeps the local day.
   const { context, page, errors } = await open({ at: SMALL_HOURS })
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
-  const counts = await readCounts(page)
-  check('7: at 02:30 local (23:30 UTC the day before) the counts are the local day’s', JSON.stringify(counts) === JSON.stringify(COUNTS), JSON.stringify(counts))
   await page.goto(`${BASE}/campaigns/NATDAY-15`)
   await page.locator('[data-dashboard]').waitFor()
   check('7: …and the scheduled campaign still "Starts in 3 days"', (await page.locator('[data-schedule-relative]').innerText()) === 'Starts in 3 days', await page.locator('[data-schedule-relative]').innerText())
@@ -550,19 +550,20 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 //      a static leaf (`priority`) is refused at the field and nothing is sent; Enter sends ONE
 //      Drafts/Save at revision 0 with the typed id, both names trimmed, no rule and the features →
 //      the new draft's dashboard (both names, its id, Draft, its features, "No time limit"),
-//      toasted; the list counts it;
+//      toasted; the no-promotion page lists it among the drafts never published (535);
 //  13. a refusal is the door's own message, in the dialog, with the form kept; an edit clears it;
 //  14. ⋯ › Copy campaign asks for the copy's id (offered as `<id>-COPY`) and its names (offered as
-//      the source's); a listed id is refused at the field; Copy sends ONE Drafts/Copy { from,
+//      the source's); a taken id is HQ's RULES_CAMPAIGN_EXISTS, in the dialog (535); Copy sends Drafts/Copy { from,
 //      campaign, name } (524: the author picks the id) → the new draft opened on its dashboard as a
 //      Draft with no live version; the original is untouched (its name, Running, version 1); the
-//      list counts both new drafts; Escape closes the ⋯ menu;
+//      no-promotion page lists both new drafts (535); Escape closes the ⋯ menu;
 //  15. no page errors.
 {
   const { context, page, errors, calls, bodies, acts } = await open()
   const posts = () => bodies.length
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  // 535: New campaign moved to the no-promotion page.
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
   await page.locator('[data-new-campaign]').click()
   const dialog = page.locator('dialog[open]')
   await dialog.waitFor()
@@ -595,9 +596,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await dialog.locator('[data-create-submit]').click()
   check('12: a static leaf is refused at the id field', await dialog.locator('[data-create-problem="id"]').isVisible())
   check('12: …and nothing was sent', posts() === 0)
-  // 522 review: a first save at revision 0 would draft over a live campaign with no draft.
+  // 535 retired the id pre-check with the composed list: a taken id is HQ's to refuse.
   await idField.fill('wknd20')
-  check('12: a listed campaign’s id is refused, in any case', (await dialog.locator('[data-create-problem="id"]').innerText()).includes('A campaign already has this id') && posts() === 0)
+  check('12: a taken id is not pre-checked at the field (HQ is the guard)', (await dialog.locator('[data-create-problem="id"]').count()) === 0 && posts() === 0)
   await idField.fill('RAMADAN-NIGHTS')
   await dialog.locator('[data-create-field="nameAr"]').press('Enter')
   await page.waitForURL(`${BASE}/campaigns/RAMADAN-NIGHTS`, { timeout: 10000 })
@@ -617,8 +618,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('12: the dialog has closed', (await page.locator('dialog[open]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/created-draft.png` })
   await page.locator('[data-workspace-back]').click()
-  await waitRows(page, 17)
-  check('12: the list counts the new draft', (await tileCount(page, 'all')) === '17' && (await tileCount(page, 'draft')) === '2')
+  await toNoPromotion(page)
+  await page.locator('[data-never-published-draft="RAMADAN-NIGHTS"]').waitFor({ timeout: 10000 })
+  check('12: the no-promotion page lists the new draft as never published', (await neverPublished(page)).includes('RAMADAN-NIGHTS'), JSON.stringify(await neverPublished(page)))
 
   // ── 14 ──
   await page.goto(`${BASE}/campaigns/WKND20`)
@@ -639,16 +641,20 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const copyField = (f) => copyDialog.locator(`[data-copy-field="${f}"]`)
   check('14: Copy asks for the copy’s id, offered as the source’s with -COPY', (await copyField('id').inputValue()) === 'WKND20-COPY')
   check('14: …and its names, offered as the source’s', (await copyField('nameEn').inputValue()) === 'Weekend coupon: 20% off' && (await copyField('nameAr').inputValue()) === 'قسيمة نهاية الأسبوع: خصم 20%')
+  // 535: no pre-check — HQ refuses a taken id (RULES_CAMPAIGN_EXISTS), shown in the dialog.
   await copyField('id').fill('wknd20')
-  check('14: a listed campaign’s id is refused at the field, and nothing is sent', (await copyDialog.locator('[data-copy-problem="id"]').innerText()) === 'A campaign already has this id.' && copies() === 0)
+  check('14: a taken id is not refused at the field', (await copyDialog.locator('[data-copy-problem="id"]').count()) === 0)
+  await page.locator('[data-copy-submit]').click()
+  await copyDialog.locator('[data-copy-refusal]').waitFor({ timeout: 10000 })
+  check('14: …HQ refuses it, its message in the dialog, and the dialog stays', (await copyDialog.locator('[data-copy-refusal]').innerText()).includes('Campaign wknd20 already exists') && copies() === 1 && (await copyDialog.count()) === 1, await copyDialog.locator('[data-copy-refusal]').innerText())
   await copyField('id').fill('WKND20-COPY')
   await copyField('nameEn').fill('Weekend coupon: 20% off (copy)')
   await copyField('nameAr').fill('قسيمة نهاية الأسبوع: خصم 20% (نسخة)')
   await page.locator('[data-copy-submit]').click()
   await page.waitForURL(`${BASE}/campaigns/WKND20-COPY`, { timeout: 10000 })
   await page.waitForFunction(() => document.querySelector('[data-line="code"] dd')?.textContent === 'WKND20-COPY', null, { timeout: 10000 })
-  check('14: ONE copy was asked for', copies() === 1, String(copies()))
-  const copyBody = acts.find((a) => a.act === 'Copy WKND20')?.body
+  check('14: ONE more copy was asked for (after the refused one)', copies() === 2, String(copies()))
+  const copyBody = acts.findLast((a) => a.act === 'Copy WKND20')?.body
   check(
     '14: …Drafts/Copy from the source, under the picked id, with both names',
     JSON.stringify(copyBody) === JSON.stringify({ from: 'WKND20', campaign: 'WKND20-COPY', name: { en: 'Weekend coupon: 20% off (copy)', ar: 'قسيمة نهاية الأسبوع: خصم 20% (نسخة)' } }),
@@ -663,9 +669,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.goto(`${BASE}/campaigns/WKND20`)
   await page.locator('[data-dashboard]').waitFor()
   check('14: the original is untouched — its name, Running, version 1', (await page.locator('[data-line="nameEn"] dd').innerText()) === 'Weekend coupon: 20% off' && (await page.locator('[data-dashboard-cell="state"] [data-campaign-state]').innerText()) === 'Running' && (await page.locator('[data-live-version]').innerText()) === 'Tills run version 1.')
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 18)
-  check('14: the list counts both new drafts', (await tileCount(page, 'all')) === '18' && (await tileCount(page, 'draft')) === '3' && (await tileCount(page, 'running')) === '11')
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
+  await page.locator('[data-never-published-draft="WKND20-COPY"]').waitFor({ timeout: 10000 })
+  const drafts = await neverPublished(page)
+  check('14: the no-promotion page lists both new drafts as never published, the original still Published', drafts.includes('RAMADAN-NIGHTS') && drafts.includes('WKND20-COPY') && (await cell(page, 'WKND20', 'status')) === 'Published', JSON.stringify(drafts))
   check('15: no page errors (10–14)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -673,8 +681,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 // ── 13 ──
 {
   const { context, page, errors } = await open({ refuseCreate: true })
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
   await page.locator('[data-new-campaign]').click()
   const dialog = page.locator('dialog[open]')
   await dialog.waitFor()
@@ -685,7 +693,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const banner = dialog.locator('[role="alert"]')
   await banner.waitFor({ timeout: 10000 })
   check('13: a refused create shows the door’s own message in the dialog', (await banner.innerText()).includes(CREATE_REFUSED), await banner.innerText())
-  check('13: …keeps the form and stays on the list', (await dialog.locator('[data-create-field="nameEn"]').inputValue()) === 'Weekend coupon' && page.url() === `${BASE}/campaigns`)
+  check('13: …keeps the form and stays on the list', (await dialog.locator('[data-create-field="nameEn"]').inputValue()) === 'Weekend coupon' && page.url() === NO_PROMOTION)
   await dialog.locator('[data-create-field="nameEn"]').fill('Weekend coupon 2')
   check('13: an edit clears the refusal, which was about the name as sent', (await dialog.locator('[role="alert"]').count()) === 0)
   check('15: no page errors (13)', errors.length === 0, errors.join(' | '))
@@ -713,8 +721,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 // 106. a reopened dialog is back on the blank tab; no page errors.
 {
   const { context, page, errors, calls, fromTemplate } = await open()
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
   await page.locator('[data-new-campaign]').click()
   const dialog = page.locator('dialog[open]')
   await dialog.waitFor()
@@ -808,8 +816,9 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.screenshot({ path: `${SHOTS}/from-template-rules.png`, fullPage: true })
 
   await page.locator('[data-workspace-back]').click()
-  await waitRows(page, 17)
-  check('104: the list counts the new draft', (await tileCount(page, 'all')) === '17' && (await tileCount(page, 'draft')) === '2')
+  await toNoPromotion(page)
+  await page.locator('[data-never-published-draft="SPEND-SAR-250-GET-15-OFF"]').waitFor({ timeout: 10000 })
+  check('104: the no-promotion page lists the new draft as never published', (await neverPublished(page)).includes('SPEND-SAR-250-GET-15-OFF'))
   await page.locator('[data-new-campaign]').click()
   await dialog.waitFor()
   check('106: a reopened dialog is back on the blank tab', (await tab('blank').getAttribute('aria-selected')) === 'true' && (await dialog.locator('[data-create-field="nameEn"]').count()) === 1)
@@ -820,8 +829,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 // ── 105 ──
 {
   const { context, page, errors, fromTemplate } = await open({ refuseFromTemplate: 1 })
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
   await page.locator('[data-new-campaign]').click()
   const dialog = page.locator('dialog[open]')
   await dialog.waitFor()
@@ -836,7 +845,7 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   const banner = dialog.locator('[role="alert"]')
   await banner.waitFor({ timeout: 10000 })
   check('105: a refused create shows the door’s own message in the dialog', (await banner.innerText()).includes(FROM_TEMPLATE_REFUSED), await banner.innerText())
-  check('105: …keeps the values and stays on the list', (await fill.locator('[data-template-input="buy"]').inputValue()) === '4' && page.url() === `${BASE}/campaigns`)
+  check('105: …keeps the values and stays on the list', (await fill.locator('[data-template-input="buy"]').inputValue()) === '4' && page.url() === NO_PROMOTION)
   await fill.locator('[data-template-input="free"]').fill('2')
   check('105: an edit clears the refusal', (await dialog.locator('[role="alert"]').count()) === 0)
   await dialog.locator('[data-create-submit]').click()
@@ -848,8 +857,8 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
 }
 {
   const { context, page, errors } = await open({ refuseTemplates: true })
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length)
   await page.locator('[data-new-campaign]').click()
   const dialog = page.locator('dialog[open]')
   await dialog.waitFor()
@@ -906,9 +915,11 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.screenshot({ path: `${SHOTS}/rules-sun.png`, fullPage: true })
 
   // In-app to a second campaign's builder: the catalogue is not read again.
+  // 535: back to the Promotions list, in the app, then the no-promotion page's id link.
   await page.locator('[data-workspace-back]').click()
-  await waitRows(page, 16)
-  await page.locator('[data-campaign-link="GP-BEAUTY15"]').click()
+  await toNoPromotion(page)
+  await waitRows(page, ROWS.length)
+  await page.locator('[data-promotion-campaign="GP-BEAUTY15"]').click()
   await page.locator('[data-dashboard]').waitFor()
   await page.locator('[data-workspace-menu="rules"]').click()
   await page.locator('[data-rules]').waitFor()
@@ -1738,9 +1749,10 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-trail-step="requested"]').waitFor({ timeout: 5000 })
   check('64: the trail names the ask, who and the note', (await page.locator('[data-trail-step="requested"]').innerText()).includes('Omar (marketing) asked for approval') && (await page.locator('[data-trail-step="requested"] [data-trail-note]').innerText()) === 'Spring range ready for review.')
   await page.screenshot({ path: `${SHOTS}/approval-author-waiting.png` })
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 16)
-  check('64: the list counts it under Waiting', (await tileCount(page, 'draft')) === '0' && (await tileCount(page, 'waitingForApproval')) === '2', JSON.stringify(await readCounts(page)))
+  // 535: the state tiles went with the flat list; a waiting draft never published stays listed as such.
+  await page.goto(NO_PROMOTION)
+  await page.locator('[data-never-published-draft]').first().waitFor({ timeout: 10000 })
+  check('64: the no-promotion page still lists it as never published', (await neverPublished(page)).includes('SPRING-DRAFT'), JSON.stringify(await neverPublished(page)))
 
   // ── 65 ──
   as('approver')
@@ -1821,13 +1833,13 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   await page.locator('[data-approval-confirm]').click()
   await dialog.waitFor({ state: 'detached', timeout: 5000 })
   check('68: …and it reads Disabled', (await stateBadge()) === 'Disabled' && JSON.stringify(acts.at(-1)) === JSON.stringify({ act: 'Disable SPRING-DRAFT', body: { campaign: 'SPRING-DRAFT', note: 'Spring range withdrawn.' } }), JSON.stringify(acts.at(-1)))
-  await page.goto(`${BASE}/campaigns`)
-  await waitRows(page, 15)
-  // ⚠ Held open on BO ask A: disabled with no draft, it is in none of the list's three doors.
+  // 535: BO ask A is answered by Promotions/Campaigns — a disabled campaign with no draft keeps its row.
+  await page.goto(NO_PROMOTION)
+  await waitRows(page, ROWS.length + 1)
   check(
-    '68: disabled with no draft, the list no longer shows it (BO ask A)',
-    !(await rowIds(page)).includes('SPRING-DRAFT') && (await tileCount(page, 'waitingForApproval')) === '1' && (await tileCount(page, 'disabled')) === '1',
-    JSON.stringify(await readCounts(page)),
+    '68: disabled with no draft, the no-promotion page lists it Disabled, no longer as a draft',
+    (await cell(page, 'SPRING-DRAFT', 'status')) === 'Disabled' && !(await neverPublished(page)).includes('SPRING-DRAFT'),
+    JSON.stringify(await neverPublished(page)),
   )
   check('71: no page errors (62–68)', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -1845,10 +1857,14 @@ const readCounts = async (page) => Object.fromEntries(await Promise.all(Object.k
   check('69: Delete draft asks first, naming the code', (await dialog.innerText()).includes('Delete Spring skincare (draft), code SPRING-DRAFT?') && !acts.length)
   await page.locator('[data-approval-confirm]').click()
   await page.waitForURL(`${BASE}/campaigns`, { timeout: 5000 }).catch(() => {})
-  await waitRows(page, 15)
+  // 535: the delete lands on the Promotions list; the draft is gone from the no-promotion page.
+  await toNoPromotion(page)
+  await waitRows(page, ROWS.length)
+  await page.locator('[data-never-published-draft]').first().waitFor({ timeout: 10000 })
   check(
     '69: confirmed, HQ deletes it and the list opens without it',
-    acts.at(-1)?.act === 'Delete SPRING-DRAFT' && !(await rowIds(page)).includes('SPRING-DRAFT') && (await tileCount(page, 'draft')) === '0',
+    acts.at(-1)?.act === 'Delete SPRING-DRAFT' && !(await neverPublished(page)).includes('SPRING-DRAFT') && !(await rowIds(page)).includes('SPRING-DRAFT'),
+    JSON.stringify(await neverPublished(page)),
   )
   check('71: no page errors (69)', errors.length === 0, errors.join(' | '))
   await context.close()

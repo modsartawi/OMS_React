@@ -1,5 +1,5 @@
 // A campaign's id, which the author picks (BackOffice 2758: there is no create door, and Copy and
-// "from a template" take the new id too, 2759). Shared by the list's Create dialog and the
+// "from a template" take the new id too, 2759). Shared by the no-promotion page's Create dialog and the
 // workspace's Copy, so it sits in `core/rules`. Pure.
 
 /** A campaign id (2758): at most 40 of `A-Z a-z 0-9 . _ -`. */
@@ -22,20 +22,23 @@ export function suggestCampaignId(name: string): string {
     .replace(/-+$/, '')
 }
 
-export type CampaignIdProblem = 'idRequired' | 'idTooLong' | 'idCharacters' | 'idReserved' | 'idTaken'
+export type CampaignIdProblem = 'idRequired' | 'idTooLong' | 'idCharacters' | 'idReserved'
 
 /**
- * Why an id cannot be used, or null. A reserved leaf is refused in any case; so is the id of a
- * campaign the list holds (`taken`), in any case too: HQ takes a first save at revision 0 over a live
- * campaign with no draft as that campaign's new draft, so Create would quietly draft over it (Copy
- * and "from a template" are refused by HQ, `RULES_CAMPAIGN_EXISTS`).
+ * Why an id cannot be used, or null. A reserved leaf is refused in any case. An id another campaign
+ * already holds is not checked here: ticket 535 retired the composed campaigns list it was checked
+ * against (BackOffice brief 2848; rebuilding every campaign in the browser grows with every
+ * promotion ever kept). Copy and "from a template" are refused by HQ, 409 `RULES_CAMPAIGN_EXISTS`, shown in their
+ * dialog. ⚠ A blank Create is NOT: it is a first `Drafts/Save` at revision 0, which HQ takes over a
+ * live campaign with no draft as that campaign's new draft (its live rules untouched until an
+ * approver activates it). Accepted by 535's ruled default; a server guard is a BackOffice ask
+ * (`.afk/HITL-535.md`).
  */
-export function campaignIdProblem(id: string, taken: readonly string[] = []): CampaignIdProblem | null {
+export function campaignIdProblem(id: string): CampaignIdProblem | null {
   if (!id) return 'idRequired'
   if (id.length > CAMPAIGN_ID_MAX) return 'idTooLong'
   if (!CAMPAIGN_ID.test(id)) return 'idCharacters'
   if (RESERVED_CAMPAIGN_IDS.includes(id.toLowerCase())) return 'idReserved'
-  if (taken.some((x) => x.toLowerCase() === id.toLowerCase())) return 'idTaken'
   return null
 }
 

@@ -1,10 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, type ReactNode } from 'react'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
-import { rememberNewDraft, ruleCampaignApi, ruleCampaignsQuery } from '@/core/rules/api'
+import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -24,20 +24,28 @@ import { EMPTY_CREATE_FORM, createFormProblems, formId, toCreateSave, type Creat
  * an error. A refusal from the door is shown in the dialog, verbatim, and the form is kept.
  *
  * Its second tab, From a template (ticket 503), is `./FromTemplate`; the footer's Create sends
- * whichever tab is open. A reopened dialog is on the blank tab.
+ * whichever tab is open. It opens on the tab its caller names (the no-promotion page's New campaign
+ * on the blank one, its From a template on the template one, ticket 535); a reopened dialog is on it
+ * again.
  */
 const FORM_ID = 'create-campaign-form'
 const TEMPLATE_FORM_ID = 'create-campaign-template-form'
-type CreateTab = 'blank' | 'template'
+export type CreateTab = 'blank' | 'template'
 const TABS: readonly CreateTab[] = ['blank', 'template']
 
-export default function CreateCampaignDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t } = useTranslation('campaign-list')
+export default function CreateCampaignDialog({ open, onClose, startOn = 'blank' }: { open: boolean; onClose: () => void; startOn?: CreateTab }) {
+  const { t } = useTranslation('campaign-promotions')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<CreateCampaignForm>(EMPTY_CREATE_FORM)
   const [tried, setTried] = useState(false)
-  const [tab, setTab] = useState<CreateTab>('blank')
+  const [tab, setTab] = useState<CreateTab>(startOn)
+  // Each opening starts on the caller's tab (set while rendering, React's way to follow a prop).
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setTab(startOn)
+  }
 
   const create = useMutation({
     mutationFn: ruleCampaignApi.save,
@@ -54,13 +62,8 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
     create.reset()
   }
 
-  // The campaigns listed: Create refuses one's id (a disabled campaign with no draft is not listed
-  // until HQ has a list door, BO ask A). Create waits for the list, so an early press cannot draft
-  // over a live campaign whose id the guard has not seen yet.
-  const listQuery = useQuery(ruleCampaignsQuery())
-  const listed = listQuery.data
-  const taken = useMemo(() => (listed ?? []).map((r) => r.campaign), [listed])
-  const problems = createFormProblems(form, taken)
+  // No pre-check of a taken id (ticket 535): HQ's refusal says so, in the dialog.
+  const problems = createFormProblems(form)
   const shown = (p: CreateFormProblem) => tried && problems.includes(p)
   // The id's own problem shows at once while it is typed (a reserved word, a bad character), and
   // an empty id once Create is pressed.
@@ -78,8 +81,8 @@ export default function CreateCampaignDialog({ open, onClose }: { open: boolean;
   }
   const submit = () => {
     setTried(true)
-    if (problems.length || create.isPending || listQuery.isPending) return
-    // Landing on the draft rides on THIS call's success, which does not fire once the list has
+    if (problems.length || create.isPending) return
+    // Landing on the draft rides on THIS call's success, which does not fire once the page has
     // unmounted: a user who left during a slow create is not pulled back to the draft.
     create.mutate(toCreateSave(form), {
       onSuccess: (draft) => {

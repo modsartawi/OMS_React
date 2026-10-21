@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/core/api'
-import { CAMPAIGN_UPLOAD_FALLBACK_NAME, campaignUploadApi, campaignUploadPath } from './api'
+import { campaignUploadPath } from '@/core/rules/campaign-state'
+import { CAMPAIGN_UPLOAD_FALLBACK_NAME, campaignUploadApi } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 

@@ -88,8 +88,8 @@ function parseJson(typed: string): unknown {
   }
 }
 
-/** Every reason the form cannot be sent yet. `taken`: the ids of the campaigns listed. */
-export function templateProblems(template: RuleTemplate, form: TemplateForm, taken: readonly string[] = []): TemplateFormProblems {
+/** Every reason the form cannot be sent yet. A taken id is HQ's to refuse (`RULES_CAMPAIGN_EXISTS`). */
+export function templateProblems(template: RuleTemplate, form: TemplateForm): TemplateFormProblems {
   const values: TemplateProblem[] = []
   for (const p of template.placeholders) {
     const v = form.values[p.name]
@@ -107,7 +107,7 @@ export function templateProblems(template: RuleTemplate, form: TemplateForm, tak
   }
   return {
     values,
-    id: campaignIdProblem(templateFormId(form), taken),
+    id: campaignIdProblem(templateFormId(form)),
     nameEnRequired: !form.nameEn.trim(),
     nameArRequired: !form.nameAr.trim(),
   }

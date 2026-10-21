@@ -11,14 +11,15 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleUploadActivation, RuleUploadCampaignItem, RuleUploadDetail, RuleUploadSummary } from '@/core/models/rule-upload'
-import { RULE_CAMPAIGNS_KEY } from '@/core/rules/api'
+import { RULE_CAMPAIGNS_KEY, RULE_PROMOTIONS_KEY } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { windowDays } from '@/core/rules/wire-days'
 import { formatDateTime } from '@/core/util/date-format'
-import { CAMPAIGN_UPLOADS_KEY, CAMPAIGN_UPLOADS_PATH, campaignUploadKey, campaignUploadQuery } from './api'
+import { CAMPAIGN_UPLOADS_PATH } from '@/core/rules/campaign-state'
+import { CAMPAIGN_UPLOADS_KEY, campaignUploadKey, campaignUploadQuery } from './api'
 import CampaignJsonDrawer from './CampaignJsonDrawer'
 import { Fact, Tile } from './ReadReport'
 import ReviewDialog from './ReviewDialog'
@@ -59,8 +60,10 @@ function OpenedUpload({ promotionCode }: { promotionCode: string }) {
     setSentBack(false)
     setActivation(done)
     refresh()
-    // The new version holds every campaign of the promotion: the campaigns list and Versions read again.
+    // The new version holds every campaign of the promotion: its campaigns, Versions and the promotions
+    // (their lists and pages) read again.
     void queryClient.invalidateQueries({ queryKey: RULE_CAMPAIGNS_KEY })
+    void queryClient.invalidateQueries({ queryKey: RULE_PROMOTIONS_KEY })
   }
   const onSentBack = (summary: RuleUploadSummary) => {
     setDialog(null)

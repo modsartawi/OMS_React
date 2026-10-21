@@ -1427,7 +1427,6 @@
       "idTooLong": "At most 40 characters.",
       "idCharacters": "Only letters, digits, dots, dashes and underscores.",
       "idReserved": "This word names a page under Campaigns: choose another id.",
-      "idTaken": "A campaign already has this id.",
       "nameEnRequired": "Give the copy an English name.",
       "nameArRequired": "Give the copy an Arabic name."
     }

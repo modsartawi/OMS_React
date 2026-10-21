@@ -3,7 +3,7 @@ import type { Severity } from '@/core/ui/severity'
 import { toIsoDate } from '@/core/util/date-format'
 
 // A campaign's state and its schedule as words, read at the reader's LOCAL now (ticket 501).
-// Shared by the campaigns list and the workspace, and later by Priority and the simulator, so it
+// Shared by the workspace, Priority and the simulator (the flat campaigns list read it until 535), so it
 // sits in `core/rules` rather than in one feature. Pure: no React, no i18n.
 //
 // 🚩 Local time only. A day is the local calendar day (`toIsoDate`, never `toISOString`): at
@@ -11,13 +11,13 @@ import { toIsoDate } from '@/core/util/date-format'
 
 /**
  * The tile a campaign counts under. HQ stores four statuses; a LIVE campaign is further read
- * against its schedule as scheduled, running or expired. In the order the list shows its tiles.
+ * against its schedule as scheduled, running or expired. In lifecycle order.
  */
 export const CAMPAIGN_STATES = ['draft', 'waitingForApproval', 'scheduled', 'running', 'expired', 'disabled'] as const
 export type CampaignState = (typeof CAMPAIGN_STATES)[number]
 
 /** Each state's severity — the prototype's dots: a draft quiet, waiting and disabled need a human,
- *  scheduled in motion, running well, expired ended. The badge and the list's tiles both read it. */
+ *  scheduled in motion, running well, expired ended. The badge reads it. */
 export const CAMPAIGN_STATE_SEV: Record<CampaignState, Severity> = {
   draft: 'mute',
   waitingForApproval: 'warn',
@@ -27,7 +27,7 @@ export const CAMPAIGN_STATE_SEV: Record<CampaignState, Severity> = {
   disabled: 'warn',
 }
 
-/** A campaign's workspace address — the list's row, its name link and the workspace's own menu. */
+/** A campaign's workspace address — a promotion page's row (with its list context, `promotion-query`) and the workspace's own menu. */
 export const campaignPath = (id: string) => `/campaigns/${encodeURIComponent(id)}`
 
 /** The Promotions list (ticket 534, BackOffice brief 2848): the campaign area's top level. */
@@ -38,6 +38,13 @@ export const NO_PROMOTION_PATH = '/campaigns/no-promotion'
 
 /** The campaign upload (ticket 530): one workbook for one promotion. */
 export const CAMPAIGN_UPLOAD_PATH = '/campaigns/upload'
+
+/** The approver's list, Campaigns ▸ Campaign uploads (ticket 532). */
+export const CAMPAIGN_UPLOADS_PATH = '/campaigns/uploads'
+
+/** An upload's page (ticket 532's route): the read's success line and an uploaded promotion's page
+ *  (ticket 535) link here. */
+export const campaignUploadPath = (promotionCode: string) => `${CAMPAIGN_UPLOADS_PATH}/${encodeURIComponent(promotionCode)}`
 
 /** A promotion's page — the rule engine's promotion, never a bonus buy's. */
 export const promotionPath = (promotionCode: string) => `/campaigns/promotions/${encodeURIComponent(promotionCode)}`
@@ -107,7 +114,7 @@ export function campaignState(c: CampaignStateInput, now: Date): CampaignState {
   return 'running'
 }
 
-/** Lifecycle order (the tiles'), for sorting by state. */
+/** Lifecycle order, for sorting by state. */
 export const stateOrder = (state: CampaignState): number => CAMPAIGN_STATES.indexOf(state)
 
 /** The schedule as the dashboard says it: starts in / ends in / ended N local days. */

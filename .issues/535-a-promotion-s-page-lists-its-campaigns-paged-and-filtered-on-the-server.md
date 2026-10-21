@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2848-oms-react-promotions-brief.md
 blocked-by: 534 (live: BackOffice 2846)
 ---
@@ -51,12 +51,12 @@ api (feature `api.ts`: `campaigns(query)`) · logic (URL ↔ query, chip view, n
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `promotionQueryFromUrl` / `urlFromPromotionQuery`: round-trip; a changed filter resets `page` to 1; `no-promotion` sends `promotionCode: null` (vitest)
-- [ ] `mechanicChips`: every `mechanics` key becomes a chip with its count, `builder` and unknown keys included, plus "All" with the sum (vitest)
-- [ ] `neverPublishedDrafts`: a draft with `publishedVersionNo` > 0 is not listed; one with 0 is (vitest)
-- [ ] `tools/campaign-promotions-drive.mjs` gains: a 560-campaign promotion paged, a mechanic chip and a status filter narrowing it, an Arabic search, Back restoring the filters, an uploaded promotion's Re-upload / Its upload links, the no-promotion page's New campaign and a never-published draft, a stale promotion link's 404. LTR and RTL
-- [ ] The campaigns drive (`tools/campaigns-drive.mjs`) re-cut where it read the flat list, with reasons in this ticket
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green; no reader of the composed list left outside Priority
+- [x] `promotionQueryFromUrl` / `urlFromPromotionQuery`: round-trip; a changed filter resets `page` to 1; `no-promotion` sends `promotionCode: null` (vitest)
+- [x] `mechanicChips`: every `mechanics` key becomes a chip with its count, `builder` and unknown keys included, plus "All" with the sum (vitest)
+- [x] `neverPublishedDrafts`: a draft with `publishedVersionNo` > 0 is not listed; one with 0 is (vitest)
+- [x] `tools/campaign-promotions-drive.mjs` gains: a 560-campaign promotion paged, a mechanic chip and a status filter narrowing it, an Arabic search, Back restoring the filters, an uploaded promotion's Re-upload / Its upload links, the no-promotion page's New campaign and a never-published draft, a stale promotion link's 404. LTR and RTL
+- [x] The campaigns drive (`tools/campaigns-drive.mjs`) re-cut where it read the flat list, with reasons in this ticket
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green; no reader of the composed list left outside Priority
 
 ## Boundaries
 
@@ -79,3 +79,40 @@ server, and no screen composes the campaigns list any more.
 - **The id pre-check goes.** Create, Copy and From a template no longer warn about a taken id before sending; HQ's 409
   `RULES_CAMPAIGN_EXISTS` does. Default, overrulable: rebuilding the whole list in the browser (`{ all: true }` paged
   at 200) to keep the pre-check costs one read per 200 campaigns of every promotion ever kept, growing each week.
+
+## Comments
+
+**2026-10-21 — built (AFK).** Done when holds on the stubbed app: a promotion opens on its campaigns, filters
+and pages on the server, and no screen composes the campaigns list any more.
+
+- **Pure seams (vitest, red → green):** `core/rules/promotion-query.test.ts` (URL ↔ query round-trip, a changed
+  filter resets the page, no-promotion sends `promotionCode: null`, the list-context path 537 reads);
+  `promotions/promotion-page.test.ts` (`mechanicChips` incl. builder, unknown keys and the URL's mechanic kept
+  at 0; `neverPublishedDrafts`; `pendingBeyond`; the row view). `npm test` 347 files / 5728 tests; typecheck,
+  the four lint gates and the build green.
+- **Drives:** `tools/campaign-promotions-drive.mjs` 180/180 (534's checks unchanged + 535's section, LTR and
+  RTL: a 572-row flyer paged 50 at a time, a mechanic chip and Pending narrowing it, an Arabic search, Back
+  restoring it, the list context on a row, Re-upload / Its upload, BO ask J's tile only when answered, the
+  no-promotion page's New campaign / From a template and its never-published drafts, a stray code's 404, a
+  bare 403 with the filters kept — and the RTL order of "+12 pending", which failed before `dir="auto"`).
+  `tools/campaigns-drive.mjs` 629/629, `priority-drive` 50/50, `campaign-uploads-drive` 272/272,
+  `sessions-drive` 73/73, `simulator-drive` 71/71 (vite on :5197; :5199 was another process's).
+- **campaigns-drive re-cut, with reasons:** it read the flat list in 1–8, 502, 503, 504 and 511. Checks 2–4
+  (six state tiles and their counts at the local now, a tile as a filter, the local search's "n of m") and
+  7's counts went with the list (534's ruling: the tiles go with it). The no-promotion page stands in — every
+  fixture campaign is in no promotion: its rows by id, both names, a disabled campaign with no draft keeping
+  its row, the drafts never published, HQ's search, a row opening with its list context, and Back. "The list
+  counts the new draft" became "the no-promotion page lists it as never published"; "a listed id is refused"
+  became "a taken id is not pre-checked" (Create) and "HQ's RULES_CAMPAIGN_EXISTS in the dialog" (Copy); 68's
+  "disabled with no draft, the list no longer shows it (BO ask A)" became "…the no-promotion page lists it
+  Disabled" — the door answers ask A. 6 and 504 open campaigns through the page's id link (the flat list's
+  name link went with it). `campaigns-fixtures.mjs` gains `promotionListOf` / `promotionCampaignsOf` (additive).
+  The drive stays LTR-only, as since 501.
+- **Retired:** `core/rules/campaign-list.ts` (moved, renamed `composePriorityCampaigns`, into
+  `features/campaigns/priority/priority-campaigns.ts` with its test), `ruleCampaignApi.list` /
+  `ruleCampaignsQuery`, `RuleCampaignListRow` (now Priority's `PriorityCampaign`), `CampaignListPage`,
+  `list/columns.tsx`, `list-filter.ts` and its test (it tested only the retired tiles and local search); the
+  list folder is gone. Every invalidation of the old query now calls `refreshCampaignLists` (promotions +
+  drafts, Priority's reader keyed under the drafts); an upload's activation refreshes the promotions too.
+- **Open / owner:** `.afk/HITL-535.md` — notably a blank Create over a live campaign with no draft is not
+  refused by HQ (a BackOffice ask, logged); the live walk is 538.

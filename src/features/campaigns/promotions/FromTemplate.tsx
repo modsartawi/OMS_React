@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleFromTemplateBody, RuleTemplate, RuleTemplatePlaceholder } from '@/core/models/rule-campaign'
-import { rememberNewDraft, ruleCampaignApi, ruleCampaignsQuery, ruleTemplatesQuery } from '@/core/rules/api'
+import { rememberNewDraft, ruleCampaignApi, ruleTemplatesQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import LookupPicks, { RULE_INPUT } from '@/core/rules/LookupPicks'
 import { saysIn } from '@/core/rules/sentence'
@@ -41,7 +41,7 @@ export const TEMPLATE_CREATE_KEY = ['rule-template-create'] as const
  * Create has been tried; a refusal from the door is shown here, verbatim.
  */
 export default function FromTemplate({ formId, onCreated }: { formId: string; onCreated: () => void }) {
-  const { t, i18n } = useTranslation('campaign-list')
+  const { t, i18n } = useTranslation('campaign-promotions')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const templates = useQuery(ruleTemplatesQuery())
@@ -51,8 +51,6 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
   // Read from the templates as HQ last answered them, so a template changed since it was picked is
   // never sent from a stale copy.
   const picked = templates.data?.find((x) => x.code === pickedCode) ?? null
-  const listed = useQuery(ruleCampaignsQuery()).data
-  const taken = useMemo(() => (listed ?? []).map((r) => r.campaign), [listed])
 
   const create = useMutation({
     mutationKey: TEMPLATE_CREATE_KEY,
@@ -77,7 +75,7 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
     if (create.isError) create.reset()
   }
 
-  const problems = picked && form ? templateProblems(picked, form, taken) : null
+  const problems = picked && form ? templateProblems(picked, form) : null
   const problemOf = (name: string) => (tried ? (problems?.values.find((p) => p.name === name)?.problem ?? null) : null)
   // The id's own problem shows at once while it is typed, and an empty id once Create is pressed.
   const idProblem = problems?.id && (tried || problems.id !== 'idRequired') ? problems.id : null
@@ -263,7 +261,7 @@ function Placeholder({
   onChange: (value: string | string[]) => void
   problem: TemplateProblemCode | null
 }) {
-  const { t, i18n } = useTranslation('campaign-list')
+  const { t, i18n } = useTranslation('campaign-promotions')
   const id = `template-${p.name}`
   const problemId = `${id}-problem`
   const label = <bdi>{saysIn(p.label, i18n.language)}</bdi>

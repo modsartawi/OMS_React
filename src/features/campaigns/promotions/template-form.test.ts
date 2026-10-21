@@ -74,7 +74,8 @@ describe('templateForm', () => {
     const form = { ...templateFormFor(SPEND), nameAr: ' ' }
     expect(templateProblems(SPEND, form)).toMatchObject({ nameArRequired: true, nameEnRequired: false, id: null })
     expect(templateProblems(SPEND, { ...form, idEdited: true, id: 'priority' }).id).toBe('idReserved')
-    expect(templateProblems(SPEND, { ...form, idEdited: true, id: 'WKND20' }, ['WKND20']).id).toBe('idTaken')
+    // No pre-check of a taken id (ticket 535): HQ refuses it, RULES_CAMPAIGN_EXISTS.
+    expect(templateProblems(SPEND, { ...form, idEdited: true, id: 'WKND20' }).id).toBeNull()
   })
 })
 

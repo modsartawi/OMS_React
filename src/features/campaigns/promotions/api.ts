@@ -1,5 +1,7 @@
+import { keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RulePromotionSummary } from '@/core/models/rule-promotion'
+import type { RulePromotionCampaignPage, RulePromotionCampaignsBody, RulePromotionSummary } from '@/core/models/rule-promotion'
+import { RULE_PROMOTIONS_KEY } from '@/core/rules/api'
 
 // The rule engine's promotion doors (BackOffice ADR 0097, tickets 2846-2847 renamed by 2862; the 2737
 // brief's section "HQ contract: promotions (2846-2847)"): every door POST, cookie session, each with
@@ -9,6 +11,7 @@ import type { RulePromotionSummary } from '@/core/models/rule-promotion'
 // writes a ruleset version or asks for approval. Calls go through @/core/api
 // (.claude/rules/api-envelope.md).
 const LIST = 'Rules/Authoring/Promotions/List'
+const CAMPAIGNS = 'Rules/Authoring/Promotions/Campaigns'
 
 export const promotionApi = {
   /**
@@ -18,13 +21,30 @@ export const promotionApi = {
   list(): Promise<RulePromotionSummary[]> {
     return api.post<RulePromotionSummary[]>(LIST, {})
   },
+
+  /**
+   * POST Rules/Authoring/Promotions/Campaigns — one page of a promotion's campaigns (`promotionCode`
+   * null = the campaigns in no promotion), filtered and paged by HQ, rows by id. 404
+   * `RULES_PROMOTION_NOT_FOUND` for a code that is neither a record nor an upload.
+   */
+  campaigns(body: RulePromotionCampaignsBody): Promise<RulePromotionCampaignPage> {
+    return api.post<RulePromotionCampaignPage>(CAMPAIGNS, body)
+  },
 }
 
-/** Every promotion query. A refusal is final (a bare 403), so the list does not retry it. */
-export const RULE_PROMOTIONS_KEY = ['rule-promotions'] as const
+// Every promotion query is keyed under core's RULE_PROMOTIONS_KEY: a campaign write refreshes them
+// (`refreshCampaignLists`). A refusal is final (a bare 403, a 404), so none is retried.
 
 export const promotionsQuery = () => ({
   queryKey: [...RULE_PROMOTIONS_KEY, 'list'] as const,
   queryFn: promotionApi.list,
+  retry: false,
+})
+
+/** One page of a promotion's campaigns, keyed by its body; the page shown stays while the next loads. */
+export const promotionCampaignsQuery = (body: RulePromotionCampaignsBody) => ({
+  queryKey: [...RULE_PROMOTIONS_KEY, 'campaigns', body] as const,
+  queryFn: () => promotionApi.campaigns(body),
+  placeholderData: keepPreviousData,
   retry: false,
 })

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { RuleCampaign, RuleDraftSummary, RuleOrder } from '@/core/models/rule-campaign'
-import { CATALOGUE } from '../../../tools/campaigns-fixtures.mjs'
-import { composeCampaignList, featuresUsedBy } from './campaign-list'
-import { campaignState } from './campaign-state'
+import { CATALOGUE } from '../../../../tools/campaigns-fixtures.mjs'
+import { composePriorityCampaigns, featuresUsedBy } from './priority-campaigns'
+import { campaignState } from '@/core/rules/campaign-state'
 
 const says = (en: string, ar = '') => ({ en, ar })
 const summary = (campaign: string, o: Partial<RuleDraftSummary> = {}): RuleDraftSummary => ({
@@ -34,8 +34,8 @@ const RULESET = {
 }
 const NOW = new Date(2026, 9, 16, 18, 30)
 
-describe('campaignList_composesDraftsLiveAndWindows', () => {
-  const rows = composeCampaignList(
+describe('priorityCampaigns_composesDraftsLiveAndWindows', () => {
+  const rows = composePriorityCampaigns(
     [
       summary('SPRING-DRAFT'),
       summary('BDAY-BEAUTY', { state: 'pending', requestedBy: 'Omar (marketing)' }),
@@ -81,19 +81,19 @@ describe('campaignList_composesDraftsLiveAndWindows', () => {
   })
 
   it('a live campaign the ruleset could not be read for keeps the order’s name and no window', () => {
-    const [row] = composeCampaignList([], ORDER, null)
+    const [row] = composePriorityCampaigns([], ORDER, null)
     expect(row).toMatchObject({ campaign: 'SUN-3FOR2', name: says('Suncare (order)'), window: null, live: null })
   })
 
   it('a draft Drafts/List names twice is listed once', () => {
-    expect(composeCampaignList([summary('A'), summary('A')], { campaigns: [] }, null)).toHaveLength(1)
+    expect(composePriorityCampaigns([summary('A'), summary('A')], { campaigns: [] }, null)).toHaveLength(1)
   })
 
   // ⚠ Held open on BO ask A: a disabled campaign with NO draft is in none of the three answers
   // (Drafts/List has no draft for it; a disable makes the next version without it, so neither
   // Order nor the live ruleset holds it). It cannot be listed until HQ adds a list door.
   it('a disabled campaign with no draft is not listed (BO ask A)', () => {
-    const out = composeCampaignList([], ORDER, { campaigns: [...RULESET.campaigns] })
+    const out = composePriorityCampaigns([], ORDER, { campaigns: [...RULESET.campaigns] })
     expect(out.map((r) => r.campaign)).not.toContain('OLD-DISABLED')
     expect(out.some((r) => r.campaignStatus === 'Disabled')).toBe(false)
   })

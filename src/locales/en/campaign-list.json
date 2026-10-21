@@ -10,13 +10,6 @@
     "couponFinder": "Coupon finder",
     "customers": "Customers"
   },
-  "title": "Campaigns",
-  "untitled": "Untitled",
-  "subtitle": "Every rule campaign for rule-engine stores. Stores still on bonus buys never see these.",
-  "tiles": {
-    "label": "Campaigns by state",
-    "all": "All"
-  },
   "states": {
     "draft": "Draft",
     "waitingForApproval": "Waiting for approval",
@@ -24,93 +17,5 @@
     "running": "Running",
     "expired": "Expired",
     "disabled": "Disabled"
-  },
-  "search": {
-    "label": "Search",
-    "placeholder": "Campaign name in English or Arabic, or its code"
-  },
-  "columns": {
-    "name": "Campaign",
-    "nameAr": "Arabic name",
-    "code": "Id",
-    "state": "State",
-    "start": "Start",
-    "end": "End (exclusive)",
-    "updated": "Last saved",
-    "updatedBy": "Saved by"
-  },
-  "schedule": {
-    "immediately": "Immediately",
-    "openEnded": "Open-ended"
-  },
-  "results": {
-    "loading": "Reading the campaigns…",
-    "count_one": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaign",
-    "count_other": "Showing <n>{{n}}</n> of <total>{{total}}</total> campaigns",
-    "empty": "No campaign matches.",
-    "failedTitle": "The campaigns could not be read",
-    "failed": "Try again in a moment.",
-    "denied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the campaigns."
-  },
-  "create": {
-    "open": "New campaign",
-    "title": "Create campaign",
-    "nameEn": "Name (English)",
-    "nameEnPlaceholder": "e.g. National Day 15% off",
-    "nameAr": "Name (Arabic)",
-    "nameArPlaceholder": "The same name in Arabic",
-    "problem": {
-      "nameEnRequired": "Enter the campaign’s English name.",
-      "nameArRequired": "Enter the campaign’s Arabic name.",
-      "idRequired": "Enter the campaign id.",
-      "idTooLong": "The campaign id is at most 40 characters.",
-      "idCharacters": "Use only letters A–Z, digits, dots, dashes and underscores.",
-      "idReserved": "This word names a page of Campaigns. Choose another id.",
-      "idTaken": "A campaign already has this id. Choose another id."
-    },
-    "features": {
-      "legend": "Features (optional)",
-      "coupons": "Coupons",
-      "couponsHint": "Adds the Coupons page and the coupon condition.",
-      "points": "Loyalty points (Arbahi)",
-      "pointsHint": "Adds the Arbahi earn and burn conditions and effects."
-    },
-    "later": "You can fine-tune the campaign in its settings after creating it. Features only switch on menus, conditions and effects.",
-    "cancel": "Cancel",
-    "submit": "Create campaign",
-    "done": "Campaign created as a draft.",
-    "failedTitle": "The campaign could not be created",
-    "failed": "Try again in a moment.",
-    "tabs": {
-      "label": "How to start",
-      "blank": "Blank campaign",
-      "template": "From a template"
-    },
-    "id": "Campaign id",
-    "idPlaceholder": "e.g. NATDAY-15",
-    "idHint": "Up to 40 letters, digits, dots, dashes or underscores. It is suggested from the English name, and cannot change once the campaign is created."
-  },
-  "template": {
-    "loading": "Reading the templates…",
-    "failedTitle": "The templates could not be read",
-    "failed": "Try again in a moment.",
-    "none": "There are no templates yet.",
-    "listLabel": "Templates",
-    "asks": "Asks for: {{labels}}",
-    "pick": "Pick a template. Its rules stay as its author wrote them; you fill in the values it asks for.",
-    "fillLegend": "Fill in its values",
-    "later": "HQ puts each value where the template says. You can rename the draft and fine-tune its rules after creating it.",
-    "problem": {
-      "required": "Enter a value.",
-      "notNumber": "Enter a number.",
-      "notJson": "Enter a JSON value."
-    },
-    "pickFirst": "Pick a template first.",
-    "asksNothing": "Asks for no value.",
-    "path": "Goes into",
-    "jsonHint": "A JSON value, as the template's default shows it.",
-    "codesHint": "Codes, separated by commas.",
-    "denied": "You do not have the rule-reader permission (RuleAuthoring 03), so HQ refused the templates.",
-    "createDenied": "You do not have the rule-author permission (RuleAuthoring 02), so HQ refused the draft."
   }
 }

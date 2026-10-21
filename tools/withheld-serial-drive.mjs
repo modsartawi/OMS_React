@@ -13,7 +13,8 @@
 //   1. ungranted: the GS1 unit reads Restricted (lock, tooltip), the plain unit reads "—";
 //   2. ungranted: the units carry the one-line "Serials are restricted for your account" note;
 //   3. ungranted: the search hint drops "serial";
-//   4. ungranted: Copy as text puts the server's `[restricted]` text on the clipboard verbatim, and the
+//   4. ungranted: Copy as text puts the server's `[restricted]` text on the clipboard verbatim, Copy as
+//      JSON the server's withheld JSON (`"serialNumber": ""`, `"serialWithheld": true`), and the
 //      timeline shows `[restricted]` as sent;
 //   5. ungranted: a serial key gives the plain no-match sentence — no "restricted" hint;
 //   6. granted: the serial is drawn (left to right), no Restricted, no note, the hint names "serial";
@@ -77,6 +78,8 @@ const plainUnit = () => unit({ pickIndex: 2, scannedText: '6281234567890', seria
 const COPY_WITHHELD = `Pick support - delivery ${DELIVERY}\nVerdict: HEALTHY\nUnit 1: GTIN 06281234567890 serial [restricted]\n`
 const COPY_GRANTED = `Pick support - delivery ${DELIVERY}\nVerdict: HEALTHY\nUnit 1: GTIN 06281234567890 serial ${SERIAL}\n`
 const DETAIL_WITHHELD = 'Picked GTIN 06281234567890 serial [restricted]'
+/** The brief: a withheld unit in `copy.json` has `"serialNumber": ""` and `"serialWithheld": true`. */
+const COPY_JSON_WITHHELD = '{\n  "units": [\n    { "gtin": "06281234567890", "serialNumber": "", "serialWithheld": true }\n  ]\n}'
 
 const diagnosis = (deliveryNo, withheld) => ({
   deliveryNo,
@@ -146,7 +149,7 @@ const diagnosis = (deliveryNo, withheld) => ({
       reconstructed: false,
     },
   ],
-  copy: withheld ? { text: COPY_WITHHELD, json: '{\n  "serialNumber": "[restricted]"\n}' } : { text: COPY_GRANTED, json: `{\n  "serialNumber": "${SERIAL}"\n}` },
+  copy: withheld ? { text: COPY_WITHHELD, json: COPY_JSON_WITHHELD } : { text: COPY_GRANTED, json: `{\n  "serialNumber": "${SERIAL}"\n}` },
 })
 
 const resolution = (key, over = {}) => ({ key, matched: true, messageEn: null, messageAr: null, deliveries: [], serials: [], ...over })
@@ -298,6 +301,10 @@ async function drive(dir) {
     await page.waitForTimeout(200)
     const copied = await page.evaluate(() => window.__copied ?? null)
     check(`${label} ungranted: Copy as text puts the [restricted] text on the clipboard verbatim`, copied === COPY_WITHHELD, JSON.stringify(copied))
+    await panel.locator('[data-ps-copy="json"]').first().click()
+    await page.waitForTimeout(200)
+    const copiedJson = await page.evaluate(() => window.__copied ?? null)
+    check(`${label} ungranted: Copy as JSON puts the withheld JSON on the clipboard verbatim`, copiedJson === COPY_JSON_WITHHELD, JSON.stringify(copiedJson))
     const detail = await panel.locator('[data-ps-timeline-row="PD0001234"]').innerText()
     check(`${label} ungranted: the timeline shows [restricted] as sent`, detail.includes(DETAIL_WITHHELD), detail.replace(/\s+/g, ' '))
     await page.screenshot({ path: `${SHOTS}/${label}-ungranted-units.png`, fullPage: true })

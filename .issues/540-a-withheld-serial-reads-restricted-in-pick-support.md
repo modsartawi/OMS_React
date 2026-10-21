@@ -125,8 +125,20 @@ and the two bound users.
 - Restricted is muted italic text with the lucide `Lock` and a `title` tooltip (a fixed UI sentence,
   no data in it, so no `fsi`). The note sits once at the top of the Documents section, not once per
   units table (one line per line item read as noise).
-- Drive: `tools/withheld-serial-drive.mjs` 34/34 (LTR + RTL), including the data-wins case (granted
+- Drive: `tools/withheld-serial-drive.mjs` 36/36 (LTR + RTL; Copy as text AND Copy as JSON verbatim), including the data-wins case (granted
   flag, withheld unit → Restricted). `tools/pick-support-drive.mjs` 290/290 unchanged. typecheck,
   lint and build green.
 - Left for the owner: the staging walk (BackOffice 2872–2874 deployed, seed run, two bound users).
+- `/standards-review` since 120b8f1: Standards — no hard violations. Judgement calls left as they
+  are: the same flag is named two ways (`seesSerials` vs `serialsRestricted`), the probe is read in
+  two places, and there is no CONTEXT.md entry for withheld/Restricted (a `/domain-modeling` candidate).
+  Spec — no blocking findings. The drive's `copy.json` stub was off-brief and has been fixed in this ticket.
+- **Owner sign-offs:**
+  1. The note sits once per Documents section, not once per units table.
+  2. A unit that is `serialWithheld: true` but still carries a serial reads **Restricted**. That is
+     fail-closed, and the brief only defines `true` with `""`.
+  3. Restricted's tooltip is a `title`, so a keyboard user cannot reach it.
+- Probe flash: while the probe is pending, the flag reads false, so a granted user would see the note
+  and the hint without "serial". In practice both hosts open behind the same cached probe, through
+  `ScreenGate` or the Details section's gate, so it does not show.
 

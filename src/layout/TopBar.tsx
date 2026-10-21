@@ -37,15 +37,15 @@ function Separator() {
 }
 
 /**
- * Group / [sub-group] / screen / record number, derived from the menu (`crumb.ts`).
+ * Group / [sub-group] / screen / [promotion] / record number, derived from the menu (`crumb.ts`).
  * Read off the FULL menu rather than the permission-filtered one, so it names the screen
  * while the access probes are still settling. The record is a machine value: `Ltr`, mono.
  */
 function Crumb() {
   const { t } = useTranslation()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const matches = useMatches()
-  const { trail, record } = deriveCrumb(MENU, pathname, matches[matches.length - 1]?.params)
+  const { trail, scope, record } = deriveCrumb(MENU, pathname, matches[matches.length - 1]?.params, search)
   // An address no item claims (the home page) still says where the user is.
   const labels = trail.length > 0 ? trail.map((key) => t(key)) : [t('brandName')]
   return (
@@ -65,6 +65,19 @@ function Crumb() {
             </li>
           )
         })}
+        {scope && (
+          // The promotion a campaign was opened from (537): its code is a machine value, as the record.
+          <li className="flex min-w-0 items-center gap-1.5" data-crumb-scope>
+            <Separator />
+            {'code' in scope ? (
+              <span className="truncate font-mono">
+                <Ltr>{scope.code}</Ltr>
+              </span>
+            ) : (
+              <span className="truncate">{t(scope.labelKey)}</span>
+            )}
+          </li>
+        )}
         {record && (
           <li className="flex shrink-0 items-center gap-1.5">
             <Separator />

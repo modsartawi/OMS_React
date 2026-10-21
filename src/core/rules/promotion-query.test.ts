@@ -3,6 +3,10 @@ import {
   EMPTY_PROMOTION_QUERY,
   PROMOTION_PAGE_SIZE,
   campaignInPromotionPath,
+  listContextBackPath,
+  listContextFromUrl,
+  listContextSearch,
+  withListContext,
   promotionCampaignsBody,
   promotionQueryFromUrl,
   urlFromPromotionQuery,
@@ -79,5 +83,40 @@ describe('campaignInPromotionPath', () => {
 
   it('an empty promotion is no promotion', () => {
     expect(campaignInPromotionPath('WKND20', null, EMPTY_PROMOTION_QUERY)).toBe('/campaigns/WKND20?promotion=')
+  })
+})
+
+describe('the list context a campaign was opened with (537)', () => {
+  it('reads the promotion and its filters off the workspace address; promotion empty is no promotion', () => {
+    expect(listContextFromUrl(url('promotion=FLYER-1&q=sun&mechanic=bundle&status=pending&page=2'))).toEqual({
+      promotionCode: 'FLYER-1',
+      query: { q: 'sun', mechanic: 'bundle', status: 'Pending', page: 2 },
+    })
+    expect(listContextFromUrl(url('promotion='))).toEqual({ promotionCode: null, query: EMPTY_PROMOTION_QUERY })
+  })
+
+  it('an address without `promotion` has no context (a direct link)', () => {
+    expect(listContextFromUrl(url(''))).toBeNull()
+    expect(listContextFromUrl(url('q=sun&batch=B1'))).toBeNull()
+  })
+
+  it('writes back the same context, and nothing without one', () => {
+    const at = url('promotion=FLYER-1&q=sun&page=3')
+    expect(listContextSearch(listContextFromUrl(at))).toBe('?promotion=FLYER-1&q=sun&page=3')
+    expect(listContextSearch(null)).toBe('')
+    expect(listContextSearch({ promotionCode: null, query: EMPTY_PROMOTION_QUERY })).toBe('?promotion=')
+  })
+
+  it('a workspace link keeps the context on any of its pages', () => {
+    const ctx = listContextFromUrl(url('promotion=FLYER-1&mechanic=bundle'))
+    expect(withListContext('/campaigns/X/rules', ctx)).toBe('/campaigns/X/rules?promotion=FLYER-1&mechanic=bundle')
+    expect(withListContext('/campaigns/X', null)).toBe('/campaigns/X')
+  })
+
+  it('the way back is the promotion’s page with its filters, the no-promotion page, or the Promotions list', () => {
+    expect(listContextBackPath(listContextFromUrl(url('promotion=FLYER 1&q=sun&page=2')))).toBe('/campaigns/promotions/FLYER%201?q=sun&page=2')
+    expect(listContextBackPath(listContextFromUrl(url('promotion=&status=Disabled')))).toBe('/campaigns/no-promotion?status=Disabled')
+    expect(listContextBackPath(listContextFromUrl(url('promotion=')))).toBe('/campaigns/no-promotion')
+    expect(listContextBackPath(null)).toBe('/campaigns')
   })
 })

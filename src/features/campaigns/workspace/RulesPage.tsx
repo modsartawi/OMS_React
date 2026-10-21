@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
 import { apiErrorCode } from '@/core/api'
 import type { CampaignRule } from '@/core/models/rule-campaign'
@@ -9,6 +9,7 @@ import type { SentenceContext } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Ltr from '@/core/ui/Ltr'
 import { mintRequestId } from '@/core/util/request-id'
 import { useDebounced } from '@/core/util/use-debounced'
 import { mintKey } from './block-keys'
@@ -43,7 +44,7 @@ import { DRAFT_PENDING, DRAFT_STALE, refusalText } from './settings-ui'
  */
 export default function RulesPage() {
   const { t, i18n } = useTranslation('campaign-workspace')
-  const { draft } = useWorkspace()
+  const { draft, uploadedFrom } = useWorkspace()
   const c = draft.campaign
   const queryClient = useQueryClient()
   // A block is read through the catalogue with every feature on; the palette offers what HQ lists
@@ -260,6 +261,12 @@ export default function RulesPage() {
           </div>
         )}
       </header>
+      {uploadedFrom && (
+        // An uploaded campaign (537): a note, not a lock — HQ does not refuse the edit, the next upload replaces it.
+        <p className="rounded-md border border-border/60 bg-primary-050 p-3 text-sm text-primary-800" data-rules-uploaded={uploadedFrom}>
+          <Trans t={t} i18nKey="rules.uploadedNote" values={{ promotionCode: uploadedFrom }} components={{ c: <Ltr /> }} />
+        </p>
+      )}
       {rules.length > 1 && builder && (
         <div className="flex gap-2">
           <Button variant="outlined" onClick={() => setShut(new Set(rules.map((r) => r.id)))} data-rules-collapse-all="">

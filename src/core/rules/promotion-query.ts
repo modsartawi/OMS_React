@@ -1,5 +1,5 @@
 import type { RulePromotionCampaignsBody } from '@/core/models/rule-promotion'
-import { campaignPath } from './campaign-state'
+import { NO_PROMOTION_PATH, PROMOTIONS_PATH, campaignPath, promotionPath } from './campaign-state'
 
 // A promotion's page as its address holds it (ticket 535; BackOffice brief 2848 D2): the search, the
 // mechanic, the status and the page live in the URL (`?q=&mechanic=&status=&page=`), so Back and a
@@ -73,9 +73,48 @@ export function promotionCampaignsBody(promotionCode: string | null, query: Prom
   }
 }
 
+/**
+ * The list a campaign's workspace was opened from (ticket 537): the promotion (null = no promotion)
+ * and that page's filters and page. It rides in the workspace's address — `?promotion=<code>&q=&…`,
+ * `promotion` empty = no promotion — so a reload or a shared link keeps it; without `promotion` there
+ * is none (a direct link).
+ */
+export interface PromotionListContext {
+  promotionCode: string | null
+  query: PromotionQuery
+}
+
+/** The address key that holds the list context's promotion ("" = no promotion). */
+export const LIST_CONTEXT_KEY = 'promotion'
+
+/** The list context an address holds, or null for a direct link. */
+export function listContextFromUrl(params: URLSearchParams): PromotionListContext | null {
+  const code = params.get(LIST_CONTEXT_KEY)
+  if (code === null) return null
+  return { promotionCode: code || null, query: promotionQueryFromUrl(params) }
+}
+
+/** The search a context writes (`?promotion=…&…`), or "" for none. */
+export function listContextSearch(context: PromotionListContext | null): string {
+  if (!context) return ''
+  const params = new URLSearchParams({ [LIST_CONTEXT_KEY]: context.promotionCode ?? '' })
+  for (const [k, v] of urlFromPromotionQuery(context.query)) params.set(k, v)
+  return `?${params.toString()}`
+}
+
+/** A workspace address that keeps the list context, so it survives every page of the workspace. */
+export const withListContext = (path: string, context: PromotionListContext | null): string => `${path}${listContextSearch(context)}`
+
+/** The way back: the promotion's page as it was filtered, the no-promotion page, or — without a
+ *  context — the Promotions list. */
+export function listContextBackPath(context: PromotionListContext | null): string {
+  if (!context) return PROMOTIONS_PATH
+  const search = urlFromPromotionQuery(context.query).toString()
+  const page = context.promotionCode === null ? NO_PROMOTION_PATH : promotionPath(context.promotionCode)
+  return search ? `${page}?${search}` : page
+}
+
 /** A campaign opened from a promotion's page, with the list context the workspace reads (537). */
 export function campaignInPromotionPath(id: string, promotionCode: string | null, query: PromotionQuery): string {
-  const params = new URLSearchParams({ promotion: promotionCode ?? '' })
-  for (const [k, v] of urlFromPromotionQuery(query)) params.set(k, v)
-  return `${campaignPath(id)}?${params.toString()}`
+  return withListContext(campaignPath(id), { promotionCode, query })
 }

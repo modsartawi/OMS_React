@@ -26,6 +26,7 @@ import {
   type CouponField,
 } from './coupon-form'
 import { Refusal, SETTINGS_CONTROL, SETTINGS_INPUT } from './settings-ui'
+import { useWorkspace } from './context'
 
 const FORM_ID = 'create-coupons-form'
 
@@ -56,6 +57,7 @@ export default function CreateCouponsDialog({
   onCreated: (batch: RuleCouponBatchCreated) => void
 }) {
   const { t } = useTranslation('campaign-workspace')
+  const { link } = useWorkspace()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<CouponCreateForm>(() => emptyCouponForm(templateId))
   const [tried, setTried] = useState(false)
@@ -256,7 +258,7 @@ export default function CreateCouponsDialog({
             <Trans
               t={t}
               i18nKey="coupons.create.limits"
-              components={{ budgets: <Link to={`${campaignPath(c.id)}/settings/budgets`} className="font-medium text-primary hover:underline" data-coupon-budgets-link="" /> }}
+              components={{ budgets: <Link to={link(`${campaignPath(c.id)}/settings/budgets`)} className="font-medium text-primary hover:underline" data-coupon-budgets-link="" /> }}
             />
           </p>
           {form.kind !== 'universal' ? (

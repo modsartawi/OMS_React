@@ -43,7 +43,7 @@
 //   1. run the app:  npx vite --port 5199 --strictPort
 //   2. node tools/simulator-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
-import { CAMPAIGNS, draftsList, loadDraft, lookup, orderOf } from './campaigns-fixtures.mjs'
+import { CAMPAIGNS, draftsList, loadDraft, lookup, orderOf, promotionCampaignsOf } from './campaigns-fixtures.mjs'
 import { CATALOG, SIX_BASKETS, simulate } from './simulator-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -120,6 +120,8 @@ async function open({ denyRuns = 0 } = {}) {
     }
     if (p === 'Rules/Authoring/Drafts/List' && req.method() === 'POST') return route.fulfill(envelope(draftsList(CAMPAIGNS)))
     if (p === 'Rules/Authoring/Order' && req.method() === 'POST') return route.fulfill(envelope(orderOf(CAMPAIGNS)))
+    // 537: a campaign's workspace opened by a direct link looks its promotion up (`{ all, q: <id> }`).
+    if (p === 'Rules/Authoring/Promotions/Campaigns' && req.method() === 'POST') return route.fulfill(envelope(promotionCampaignsOf(CAMPAIGNS, req.postDataJSON() ?? {}).page))
     if (p === 'Rules/Authoring/Drafts/Load' && req.method() === 'POST') {
       const out = loadDraft(CAMPAIGNS, req.postDataJSON()?.campaign)
       return route.fulfill(out.draft ? envelope(out.draft) : envelope(null, { status: 404, success: false, message: out.message, errorCode: out.refused }))

@@ -12,7 +12,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { CAMPAIGN_UPLOAD_PATH } from '@/core/rules/campaign-state'
 import Ltr from '@/core/ui/Ltr'
-import { promotionsQuery } from './api'
+import { rulePromotionsQuery } from '@/core/rules/promotion-api'
 import { promotionRowView, type PromotionRowView } from './promotion-row'
 import PromotionsRefusal from './PromotionsRefusal'
 import PromotionStateBadge from './PromotionStateBadge'
@@ -33,7 +33,7 @@ import PromotionStateBadge from './PromotionStateBadge'
 export default function PromotionsPage() {
   const { t } = useTranslation('campaign-promotions')
   const navigate = useNavigate()
-  const promotions = useQuery(promotionsQuery())
+  const promotions = useQuery(rulePromotionsQuery())
   const rows = useMemo(() => (promotions.data ?? []).map(promotionRowView), [promotions.data])
   const count = rows.filter((r) => !r.noPromotion).length
   const columns = useMemo(() => promotionColumns(t), [t])

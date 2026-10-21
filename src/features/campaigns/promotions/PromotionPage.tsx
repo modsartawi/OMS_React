@@ -10,7 +10,7 @@ import { EMPTY_PROMOTION_QUERY, promotionCampaignsBody, promotionQueryFromUrl, u
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
-import { promotionCampaignsQuery, promotionsQuery } from './api'
+import { rulePromotionCampaignsQuery, rulePromotionsQuery } from '@/core/rules/promotion-api'
 import CreateCampaignDialog, { type CreateTab } from './CreateCampaignDialog'
 import NeverPublishedDrafts from './NeverPublishedDrafts'
 import PromotionCampaigns from './PromotionCampaigns'
@@ -42,7 +42,7 @@ export default function PromotionPage() {
 
 function PromotionView({ code }: { code: string | null }) {
   const { t } = useTranslation('campaign-promotions')
-  const promotions = useQuery(promotionsQuery())
+  const promotions = useQuery(rulePromotionsQuery())
   // HQ keeps codes unique in any case, and the router keeps a typed link's case: match in any case.
   const found = promotions.data?.find((p) => (code === null ? p.promotionCode === null : p.promotionCode?.toLowerCase() === code.toLowerCase()))
   const row = found ? promotionRowView(found) : null
@@ -50,10 +50,10 @@ function PromotionView({ code }: { code: string | null }) {
   const { query, update, changedFromOutside } = useUrlQuery(promotionQueryFromUrl, urlFromPromotionQuery)
   // Asked once the row is known, under HQ's spelling of the code.
   const sent = row?.promotionCode ?? null
-  const campaigns = useQuery({ ...promotionCampaignsQuery(promotionCampaignsBody(sent, query)), enabled: !!row })
+  const campaigns = useQuery({ ...rulePromotionCampaignsQuery(promotionCampaignsBody(sent, query)), enabled: !!row })
   // "+N pending" weighs the UNFILTERED total: while a filter is on, one row of the whole promotion tells it.
   const filtered = query.q.trim() !== '' || query.mechanic !== '' || query.status !== ''
-  const whole = useQuery({ ...promotionCampaignsQuery({ ...promotionCampaignsBody(sent, EMPTY_PROMOTION_QUERY), pageSize: 1 }), enabled: !!row && filtered })
+  const whole = useQuery({ ...rulePromotionCampaignsQuery({ ...promotionCampaignsBody(sent, EMPTY_PROMOTION_QUERY), pageSize: 1 }), enabled: !!row && filtered })
   // A page still shown from the last filter is not the unfiltered total: the one-row read (kept) is.
   const unfilteredTotal = filtered || campaigns.isPlaceholderData ? whole.data?.total : campaigns.data?.total
   const pending = row && unfilteredTotal !== undefined ? pendingBeyond(row.campaignCount, unfilteredTotal) : 0

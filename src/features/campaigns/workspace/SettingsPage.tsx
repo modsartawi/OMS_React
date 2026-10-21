@@ -1,6 +1,7 @@
 import { Navigate, useParams } from 'react-router'
 import { campaignPath } from '@/core/rules/campaign-state'
 import AudienceSettings from './AudienceSettings'
+import { useWorkspace } from './context'
 import BudgetsSettings from './BudgetsSettings'
 import DetailsSettings from './DetailsSettings'
 import FeaturesSettings from './FeaturesSettings'
@@ -16,8 +17,9 @@ import ValueMapSettings from './ValueMapSettings'
  */
 export default function SettingsPage() {
   const { id = '', '*': page } = useParams()
+  const { link } = useWorkspace()
   const key = settingsPage(page)
-  if (!key) return <Navigate to={`${campaignPath(id)}/settings/details`} replace />
+  if (!key) return <Navigate to={link(`${campaignPath(id)}/settings/details`)} replace />
   switch (key) {
     case 'schedule':
       return <ScheduleSettings />

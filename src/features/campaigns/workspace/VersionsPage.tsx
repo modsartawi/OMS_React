@@ -29,7 +29,7 @@ import { holdsCampaign, newestFirst, restoreGuard, restoreHeld, restoreRevision,
  */
 export default function VersionsPage() {
   const { t } = useTranslation('campaign-workspace')
-  const { draft: d } = useWorkspace()
+  const { draft: d, link } = useWorkspace()
   const c = d.campaign
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -46,7 +46,7 @@ export default function VersionsPage() {
       rememberSavedDraft(queryClient, next)
       setAsking(null)
       notify.success(t('versions.restored', { version: fsi(version) }))
-      navigate(campaignPath(c.id))
+      navigate(link(campaignPath(c.id)))
     },
   })
 

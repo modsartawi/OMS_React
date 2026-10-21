@@ -28,6 +28,7 @@ import {
   type ApprovalAction,
   type ChecksGate,
 } from './approval'
+import { useWorkspace } from './context'
 
 /** The acts taken in a dialog (asking for approval is inline, under the State). */
 type DialogAction = Exclude<ApprovalAction, 'askForApproval'>
@@ -45,6 +46,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
   const { t } = useTranslation('campaign-workspace')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { back, link } = useWorkspace()
   const [note, setNote] = useState('')
   const [dialog, setDialog] = useState<DialogAction | null>(null)
 
@@ -148,7 +150,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
         <p id="approval-gate" className="text-xs text-muted-foreground" data-approval-gate={gate}>
           {t(`approval.gate.${gate}`)}{' '}
           {gate !== 'checking' && gate !== 'unavailable' && (
-            <Link to={`${campaignPath(d.code)}/rules`} className="font-medium text-primary-800 hover:underline" data-approval-gate-link="">
+            <Link to={link(`${campaignPath(d.code)}/rules`)} className="font-medium text-primary-800 hover:underline" data-approval-gate-link="">
               {t('approval.gate.open')}
             </Link>
           )}
@@ -187,7 +189,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
             if (next === 'deleted') {
               // Leave first: the shell still watches this campaign's queries, and forgetting them
               // under it would read the deleted campaign again.
-              navigate('/campaigns')
+              navigate(back)
               forgetDeleted(queryClient, d.code)
             } else if (next === 'activated' || next === 'disabled') rememberPublished(queryClient, d.code, next)
             else rememberTransition(queryClient, next)
@@ -220,6 +222,7 @@ function RuleLine({ rule: r, index: i, side }: { rule: CampaignRule; index: numb
  * holds it (`Approvals/List`'s `live`; none when it is not live).
  */
 function PendingChanges({ d }: { d: RuleDraft }) {
+  const { link } = useWorkspace()
   const { t } = useTranslation('campaign-workspace')
   // Beside the live campaign only while one runs: a disabled campaign is in no version.
   const overLive = d.campaignStatus === 'Published'
@@ -276,7 +279,7 @@ function PendingChanges({ d }: { d: RuleDraft }) {
           </div>
         )}
       </div>
-      <Link to={`${campaignPath(d.code)}/rules`} className="text-xs font-medium text-primary-800 hover:underline" data-pending-open="">
+      <Link to={link(`${campaignPath(d.code)}/rules`)} className="text-xs font-medium text-primary-800 hover:underline" data-pending-open="">
         {t('approval.pending.open')}
       </Link>
     </section>

@@ -79,7 +79,7 @@
 //   2. node tools/campaigns-drive.mjs          (DRIVE_PORT overrides 5199)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, promotionCampaignsOf, promotionListOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
+import { BATCHES, CAMPAIGNS, CATALOGUE, HISTORY, LIVE_VERSION, TEMPLATES, TREE, approval, approvalsList, budgetsOf, catalogueFor, copyDraft, createBatch, deleteDraft, deleteUnusedCodes, draftsList, exportBatch, fromTemplate as makeFromTemplate, listBatches, loadDraft, loadVersion, lookup, orderOf, promotionCampaignsOf, promotionDraftsOf, promotionListOf, promotionPageOf, promotionSummaryOf, restoreVersion, rulesetOf, saveDraft, setLimit, uploadValueMap, validationOf, versionRow, versionsOf } from './campaigns-fixtures.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -136,7 +136,7 @@ const SMALL_HOURS = new Date('2026-10-16T02:30:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, denyApprover = false, orderStale = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
+async function open({ locale = 'en', refuseDelete = 0, refuseBatches = false, denyBatch = 0, refuseTemplates = false, refuseFromTemplate = 0, refuseVersions = false, refuseRestore = 0, at = EVENING, refuseUsage = false, refuseLimit = 0, refuseSettings = false, denyApprover = false, orderStale = 0, refuseCreate = false, refuseCatalogue = false, refuseSave = false, pendingSaves = false, refuseLookup = false, staleSaves = 0, checksFor, validateFor, edit } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -188,10 +188,11 @@ async function open({ refuseDelete = 0, refuseBatches = false, denyBatch = 0, re
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.clock.setFixedTime(at)
-  await page.addInitScript(() => {
-    localStorage.setItem('oms.locale', 'en')
+  // 537 runs its section under Arabic too (`locale: 'ar'` sets dir="rtl"); every earlier section is English.
+  await page.addInitScript((l) => {
+    localStorage.setItem('oms.locale', l)
     localStorage.setItem('oms.railExpanded', 'true')
-  })
+  }, locale)
   await page.route('**/api/**', async (route) => {
     const req = route.request()
     const p = new URL(req.url()).pathname.split('/api/')[1]
@@ -498,10 +499,10 @@ const cell = (page, id, col) => page.locator(`${grid} .ag-row[row-id="${id}"] .a
   check('6: its daily hours are one isolated range', (await page.locator('[data-line="hours"] dd bdi[dir="ltr"]').innerText()) === '16:00–23:00')
   await page.screenshot({ path: `${SHOTS}/dashboard-natday.png` })
 
-  // 535: the way back is the Promotions list until 537 names the promotion; a draft never published
-  // is in no promotion's table, it is listed above the no-promotion page's.
+  // 535: a draft never published is in no promotion's table, it is listed above the no-promotion
+  // page's. 537: the way back is the page the campaign was opened from — here the no-promotion page.
   await page.locator('[data-workspace-back]').click()
-  await toNoPromotion(page)
+  await page.waitForURL(NO_PROMOTION)
   await page.locator('[data-never-published-draft="BDAY-BEAUTY"] a').click()
   await page.locator('[data-dashboard]').waitFor()
   check('6: a waiting campaign names who asked, and when', (await page.locator('[data-state-sentence="waitingForApproval"]').innerText()) === 'Omar (marketing) asked for approval on 2026-10-15 16:20.')
@@ -2772,9 +2773,11 @@ const couponRowIds = (page) =>
   check('111: no column reads a limit', !/limit/i.test(await page.locator(`${cgrid} .ag-header`).innerText()))
   await page.screenshot({ path: `${SHOTS}/coupons.png` })
 
+  // 537: the coupons page's own keys are `search` and `codeStatus` (they were `q` and `status`), so the
+  // promotion's list context the workspace keeps (`?promotion=&q=&status=…`) is never read as a coupon search.
   await page.locator('[data-coupons-search]').fill('w7d2')
   await waitShown('Showing 1 of 2 batches')
-  check('112: the batch search matches part of a batch id, any case', (await shown()) === 'Showing 1 of 2 batches' && page.url().endsWith('?q=w7d2'), page.url())
+  check('112: the batch search matches part of a batch id, any case', (await shown()) === 'Showing 1 of 2 batches' && page.url().endsWith('?search=w7d2'), page.url())
   await page.locator('[data-coupons-clear]').click()
   await waitShown('Showing 2 of 2 batches')
 
@@ -2790,12 +2793,12 @@ const couponRowIds = (page) =>
 
   await page.locator('[data-coupons-search]').fill('9xh')
   await waitShown('Showing 1 of 5 codes')
-  check('112: the search matches part of the code, any case', (await shown()) === 'Showing 1 of 5 codes' && page.url().includes('q=9xh'), page.url())
+  check('112: the search matches part of the code, any case', (await shown()) === 'Showing 1 of 5 codes' && page.url().includes('search=9xh'), page.url())
   await page.locator('[data-coupons-search]').fill('')
   await waitShown('Showing 5 of 5 codes')
   await page.locator('[data-coupons-status]').selectOption('unused')
   await waitShown('Showing 2 of 5 codes')
-  check('112: the status filter, in the URL', (await shown()) === 'Showing 2 of 5 codes' && page.url().includes('status=unused'), page.url())
+  check('112: the status filter, in the URL', (await shown()) === 'Showing 2 of 5 codes' && page.url().includes('codeStatus=unused'), page.url())
   await page.locator('[data-coupons-clear]').click()
   await waitShown('Showing 5 of 5 codes')
   check('112: Clear filters shows every code', (await shown()) === 'Showing 5 of 5 codes' && page.url().endsWith(`?batch=${WKND_BATCH}`))
@@ -3297,6 +3300,191 @@ const couponRowIds = (page) =>
 
   check('140: no page errors (135–139)', errors.length === 0, errors.join(' | '))
   await context.close()
+}
+
+// ── 537 ── the campaign workspace knows its promotion (BackOffice brief 2848 "The campaign workspace").
+// Promotion FLYER-2610 is an upload's (origin upload) holding 55 campaigns FLYER-2610-C01…C55 (copies
+// of SUN-3FOR2, "Suncare offer N") plus WKND20, assigned by hand; SUMMER-HAND is hand-made and holds
+// SUMMER-HAND-C01. HQ pages at 50, so `q=sun` is two pages: C01…C50, then C51…C55. In LTR and RTL it
+// asserts:
+//  142. a row of the filtered promotion page opens the campaign with the list's context; the crumb
+//       reads Campaigns / Promotions / FLYER-2610 / <campaign>; the way back names the promotion;
+//  143. the context survives every page of the workspace's own menu (rules, versions, settings, dashboard);
+//  144. Prev / Next: at the list's start Prev is disabled; within a page Next is the next row; at page
+//       1's last row Next reads page 2 with the same filters and opens its first, on the same workspace
+//       page; Prev crosses back; at the list's end Next is disabled;
+//  145. the way back opens the promotion's page as filtered, at the page the campaign is on;
+//  146. an uploaded campaign's Rules page says it is part of the upload; WKND20 (in the promotion by
+//       hand, no prefix) and a hand-made promotion's campaign say nothing;
+//  147. a direct link without BO ask J: Campaigns / Promotions / <campaign>, back to /campaigns, no
+//       Prev / Next, no note;
+//  148. a direct link with BO ask J (rows carry `promotionCode`): the promotion is found and named, the
+//       way back is its page;
+//  149. a bare 403 on the list's page reads "You do not have access to this action", no Prev / Next;
+//  150. no page errors.
+{
+  const FLYER = 'FLYER-2610'
+  const HAND = 'SUMMER-HAND'
+  const strip = (s) => s.replace(/[⁦-⁩]/g, '')
+  for (const dir of ['ltr', 'rtl']) {
+    const tag = dir.toUpperCase()
+    /** This section's HQ: the fixtures, FLYER-2610's 55 uploaded campaigns and SUMMER-HAND's one. */
+    const run = async ({ askJ = false, deny = false } = {}) => {
+      let flyer = []
+      let hand = []
+      const opened = await open({
+        locale: dir === 'rtl' ? 'ar' : 'en',
+        edit: (store) => {
+          flyer = promotionDraftsOf(store, FLYER, 55, 'SUN-3FOR2')
+          hand = promotionDraftsOf(store, HAND, 1, 'SUN-3FOR2')
+          store.push(...flyer, ...hand)
+        },
+      })
+      const { page, store } = opened
+      const members = () => [...flyer, store.find((d) => d.code === 'WKND20')]
+      const codeOf = (id) => (id.startsWith(`${FLYER}-`) || id === 'WKND20' ? FLYER : id.startsWith(`${HAND}-`) ? HAND : null)
+      const asked = []
+      await page.route('**/api/Rules/Authoring/Promotions/**', async (route) => {
+        const p = new URL(route.request().url()).pathname.split('/api/')[1]
+        const body = route.request().postDataJSON() ?? {}
+        if (p === 'Rules/Authoring/Promotions/List')
+          return route.fulfill(envelope([promotionSummaryOf(FLYER, 'upload', 56), promotionSummaryOf(HAND, 'manual', 1), ...promotionListOf(store.filter((d) => !codeOf(d.code)))]))
+        if (p !== 'Rules/Authoring/Promotions/Campaigns') return route.fallback()
+        asked.push(body)
+        if (deny) return route.fulfill(BARE_403)
+        if (body.all) return route.fulfill(envelope(promotionPageOf(store, body, askJ ? { codeOf } : {})))
+        if (body.promotionCode === FLYER) return route.fulfill(envelope(promotionPageOf(members(), body, { promotionCode: FLYER })))
+        if (body.promotionCode === HAND) return route.fulfill(envelope(promotionPageOf(hand, body, { promotionCode: HAND })))
+        return route.fallback()
+      })
+      return { ...opened, asked }
+    }
+    const crumb = async (page) => ({
+      trail: (await page.locator('[data-crumb] li').allInnerTexts()).map((x) => strip(x).replace(/^\/\s*/, '').trim()),
+      scope: (await page.locator('[data-crumb-scope]').count()) ? strip(await page.locator('[data-crumb-scope]').innerText()).replace(/^\/\s*/, '').trim() : null,
+    })
+    const search = (page) => new URL(page.url()).search
+    const step = (page, which) => page.locator(`[data-workspace-step="${which}"]`)
+    const ready = (page, which) => page.locator(`[data-workspace-step="${which}"][data-step-state="ready"]`).waitFor({ timeout: 10000 })
+
+    {
+      const { context, page, errors, asked } = await run()
+      // ── 142 ──
+      await page.goto(`${BASE}/campaigns/promotions/${FLYER}?q=sun`)
+      await page.locator(`${grid} .ag-row[row-id="${FLYER}-C01"]`).waitFor({ timeout: 15000 })
+      check(`${tag} 142: the document is ${dir}`, (await page.evaluate(() => document.documentElement.dir || 'ltr')) === dir)
+      await page.locator(`${grid} .ag-row[row-id="${FLYER}-C01"] .ag-cell[col-id="nameEn"]`).click()
+      await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+      check(`${tag} 142: a row opens its campaign with the list’s context`, page.url() === `${BASE}/campaigns/${FLYER}-C01?promotion=${FLYER}&q=sun`, page.url())
+      const c1 = await crumb(page)
+      check(`${tag} 142: the crumb reads Campaigns / Promotions / ${FLYER} / the campaign`, JSON.stringify(c1.trail) === JSON.stringify(['Campaigns', 'Promotions', FLYER, `${FLYER}-C01`]) && c1.scope === FLYER, JSON.stringify(c1))
+      const back = page.locator('[data-workspace-back]')
+      check(`${tag} 142: the way back names the promotion and goes to its filtered page`, strip(await back.innerText()) === `To promotion ${FLYER}` && (await back.getAttribute('href')) === `/campaigns/promotions/${FLYER}?q=sun`, `${await back.innerText()} ${await back.getAttribute('href')}`)
+      await page.screenshot({ path: `${SHOTS}/537-${dir}-dashboard.png` })
+
+      // ── 145 (start) ──
+      await ready(page, 'next')
+      check(`${tag} 144: at the list’s start Prev is disabled`, (await step(page, 'prev').getAttribute('data-step-state')) === 'end' && (await step(page, 'prev').getAttribute('href')) === null)
+      check(`${tag} 144: within a page Next is the next row`, (await step(page, 'next').getAttribute('href')) === `/campaigns/${FLYER}-C02?promotion=${FLYER}&q=sun`, await step(page, 'next').getAttribute('href'))
+
+      // ── 143 ──
+      const kept = []
+      for (const item of ['rules', 'versions', 'settings', 'dashboard']) {
+        await page.locator(`[data-workspace-menu="${item}"]`).click()
+        await page.waitForURL((u) => (item === 'dashboard' ? u.pathname === `/campaigns/${FLYER}-C01` : u.pathname.startsWith(`/campaigns/${FLYER}-C01/${item}`)))
+        kept.push(`${item}:${search(page)}`)
+      }
+      check(`${tag} 143: the context survives every page of the workspace’s menu`, kept.every((k) => k.endsWith(`:?promotion=${FLYER}&q=sun`)), kept.join(' '))
+      check(`${tag} 143: …and so does the crumb’s promotion`, (await crumb(page)).scope === FLYER)
+
+      // ── 146 ──
+      await page.locator('[data-workspace-menu="rules"]').click()
+      await page.locator('[data-rules-uploaded]').waitFor({ timeout: 10000 })
+      check(`${tag} 146: an uploaded campaign’s Rules page says it is part of the upload`, strip(await page.locator('[data-rules-uploaded]').innerText()) === `This campaign is part of promotion ${FLYER}’s upload. Change it by uploading the promotion again: a change made here is replaced by the next upload.`, await page.locator('[data-rules-uploaded]').innerText())
+      check(`${tag} 146: …a note, not a lock: the builder still edits`, (await page.locator('[data-builder-bar]').count()) === 1 && (await page.locator('[data-builder-frozen]').count()) === 0)
+      await page.screenshot({ path: `${SHOTS}/537-${dir}-rules-note.png` })
+
+      // ── 145 (across a page) ── a shared link to page 1's last row, on its Rules page.
+      await page.goto(`${BASE}/campaigns/${FLYER}-C50/rules?promotion=${FLYER}&q=sun`)
+      await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+      await ready(page, 'next')
+      const nextAsk = asked.find((b) => b.promotionCode === FLYER && b.page === 2)
+      check(`${tag} 144: at a page’s last row Next reads the next page with the same filters`, !!nextAsk && nextAsk.q === 'sun' && nextAsk.pageSize === 50, JSON.stringify(nextAsk))
+      check(`${tag} 144: …and is its first row, on the same workspace page`, (await step(page, 'next').getAttribute('href')) === `/campaigns/${FLYER}-C51/rules?promotion=${FLYER}&q=sun&page=2`, await step(page, 'next').getAttribute('href'))
+      await step(page, 'next').click()
+      await page.waitForURL((u) => u.pathname === `/campaigns/${FLYER}-C51/rules`)
+      await page.waitForFunction(() => document.querySelector('[data-workspace-name]')?.textContent?.includes('Suncare offer 51') && document.querySelector('[data-rules]'), null, { timeout: 10000 }).catch(() => {})
+      check(`${tag} 144: Next opens it`, (await page.locator('[data-workspace-name]').innerText()).includes('Suncare offer 51'), await page.locator('[data-workspace-name]').innerText())
+      await page.waitForFunction((to) => document.querySelector('[data-workspace-step="prev"]')?.getAttribute('href') === to, `/campaigns/${FLYER}-C50/rules?promotion=${FLYER}&q=sun`, { timeout: 10000 }).catch(() => {})
+      check(`${tag} 144: Prev crosses back to the previous page’s last row`, (await step(page, 'prev').getAttribute('href')) === `/campaigns/${FLYER}-C50/rules?promotion=${FLYER}&q=sun`, await step(page, 'prev').getAttribute('href'))
+
+      // ── 145 ──
+      await page.locator('[data-workspace-back]').click()
+      await page.waitForURL((u) => u.pathname === `/campaigns/promotions/${FLYER}`)
+      await waitRows(page, 5)
+      check(`${tag} 145: the way back is the promotion’s page as filtered, at the page the campaign is on`, search(page) === '?q=sun&page=2' && JSON.stringify(await rowIds(page)) === JSON.stringify([51, 52, 53, 54, 55].map((n) => `${FLYER}-C${n}`)), `${page.url()} ${JSON.stringify(await rowIds(page))}`)
+
+      // ── 145 (end) ──
+      await page.goto(`${BASE}/campaigns/${FLYER}-C55?promotion=${FLYER}&q=sun&page=2`)
+      await ready(page, 'prev')
+      check(`${tag} 144: at the list’s end Next is disabled`, (await step(page, 'next').getAttribute('data-step-state')) === 'end')
+
+      // ── 147 (none) ──
+      // Unfiltered, WKND20 sorts after C01…C55: on page 2.
+      await page.goto(`${BASE}/campaigns/WKND20/rules?promotion=${FLYER}&page=2`)
+      await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+      await page.locator('[data-workspace-steps]').waitFor({ timeout: 10000 })
+      await page.waitForTimeout(300)
+      check(`${tag} 146: a campaign in the uploaded promotion by hand (no prefix) has no note`, (await page.locator('[data-rules-uploaded]').count()) === 0)
+      await page.goto(`${BASE}/campaigns/${HAND}-C01/rules?promotion=${HAND}`)
+      await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+      await page.locator('[data-workspace-steps]').waitFor({ timeout: 10000 })
+      await page.waitForTimeout(300)
+      check(`${tag} 146: a hand-made promotion’s campaign has no note`, (await page.locator('[data-rules-uploaded]').count()) === 0)
+
+      // ── 147 ──
+      await page.goto(`${BASE}/campaigns/${FLYER}-C01/rules`)
+      await page.locator('[data-rules]').waitFor({ timeout: 10000 })
+      await page.waitForTimeout(500)
+      const c2 = await crumb(page)
+      check(`${tag} 147: a direct link (no ask J): the crumb is Campaigns / Promotions / the campaign`, JSON.stringify(c2.trail) === JSON.stringify(['Campaigns', 'Promotions', `${FLYER}-C01`]) && c2.scope === null && search(page) === '', `${JSON.stringify(c2)} ${page.url()}`)
+      check(`${tag} 147: …back goes to /campaigns, no Prev / Next, no note`, (await page.locator('[data-workspace-back]').getAttribute('href')) === '/campaigns' && strip(await page.locator('[data-workspace-back]').innerText()) === 'To promotions' && (await page.locator('[data-workspace-steps]').count()) === 0 && (await page.locator('[data-rules-uploaded]').count()) === 0)
+      check(`${tag} 147: …the lookup asked every campaign for its id`, asked.some((b) => b.all === true && b.q === `${FLYER}-C01` && b.promotionCode === null), JSON.stringify(asked.filter((b) => b.all)))
+      await page.screenshot({ path: `${SHOTS}/537-${dir}-direct.png` })
+      check(`${tag} 150: no page errors (142–147)`, errors.length === 0, errors.join(' | '))
+      await context.close()
+    }
+
+    // ── 148 ──
+    {
+      const { context, page, errors } = await run({ askJ: true })
+      await page.goto(`${BASE}/campaigns/${FLYER}-C01`)
+      await page.waitForURL((u) => u.search === `?promotion=${FLYER}`, { timeout: 10000 })
+      await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
+      await page.locator('[data-crumb-scope]').waitFor({ timeout: 10000 })
+      const c3 = await crumb(page)
+      check(`${tag} 148: with ask J a direct link finds and names its promotion`, c3.scope === FLYER && (await page.locator('[data-workspace-back]').getAttribute('href')) === `/campaigns/promotions/${FLYER}`, `${JSON.stringify(c3)} ${await page.locator('[data-workspace-back]').getAttribute('href')}`)
+      await page.goto(`${BASE}/campaigns/WKND20`)
+      await page.waitForURL((u) => u.search === `?promotion=${FLYER}`, { timeout: 10000 })
+      await page.locator('[data-crumb-scope]').waitFor({ timeout: 10000 })
+      check(`${tag} 148: …a campaign assigned by hand too`, (await crumb(page)).scope === FLYER)
+      await page.goto(`${BASE}/campaigns/BABY-BUNDLE`)
+      await page.waitForURL((u) => u.search === '?promotion=', { timeout: 10000 })
+      await page.locator('[data-crumb-scope]').waitFor({ timeout: 10000 })
+      check(`${tag} 148: …and a campaign in no promotion reads “No promotion”, back to its page`, (await crumb(page)).scope === 'No promotion' && (await page.locator('[data-workspace-back]').getAttribute('href')) === '/campaigns/no-promotion')
+      check(`${tag} 150: no page errors (147)`, errors.length === 0, errors.join(' | '))
+      await context.close()
+    }
+
+    // ── 149 ──
+    {
+      const { context, page } = await run({ deny: true })
+      await page.goto(`${BASE}/campaigns/${FLYER}-C01?promotion=${FLYER}&q=sun`)
+      await page.locator('[data-workspace-list-failed]').waitFor({ timeout: 10000 })
+      check(`${tag} 149: a bare 403 on the list reads “You do not have access to this action”, no Prev / Next`, (await page.locator('[data-workspace-list-failed][data-denied]').innerText()).includes('You do not have access to this action.') && (await page.locator('[data-workspace-steps]').count()) === 0)
+      await context.close()
+    }
+  }
 }
 
 await browser.close()

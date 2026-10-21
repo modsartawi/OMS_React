@@ -30,6 +30,7 @@ describe('the Campaigns nav group', () => {
     expect(markedLeaf(MENU, '/campaigns/no-promotion')?.labelKey).toBe('campaign-list:menu.promotions')
     expect(deriveCrumb(MENU, '/campaigns/promotions/WKND', { promotionCode: 'WKND' })).toEqual({
       trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
+      scope: null,
       record: 'WKND',
     })
   })
@@ -45,6 +46,7 @@ describe('the Campaigns nav group', () => {
     expect(markedLeaf(MENU, '/campaigns/WKND20')?.labelKey).toBe('campaign-list:menu.promotions')
     expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' })).toEqual({
       trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
+      scope: null,
       record: 'WKND20',
     })
   })
@@ -65,6 +67,7 @@ describe('the Campaigns nav group', () => {
     expect(markedLeaf(MENU, '/campaigns/sessions/R101-0042')?.labelKey).toBe('campaign-list:menu.sessions')
     expect(deriveCrumb(MENU, '/campaigns/sessions/R101-0042', { saleId: 'R101-0042' })).toEqual({
       trail: ['campaign-list:menu.group', 'campaign-list:menu.sessions'],
+      scope: null,
       record: 'R101-0042',
     })
   })

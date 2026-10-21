@@ -12,6 +12,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { RuleCampaignBudget, RuleCouponBatchCreated, RuleCouponBatchDeletion, RuleCouponBatchSummary } from '@/core/models/rule-campaign'
 import { rememberSavedDraft, ruleCampaignApi, ruleCouponBatchExportKey, ruleCouponBatchExportQuery, ruleCouponBatchesQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
+import { listContextSearch } from '@/core/rules/promotion-query'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
@@ -47,18 +48,21 @@ type Created = RuleCouponBatchCreated & { imported: boolean; leftOut: number; ad
  * Export saves HQ's CSV as HQ wrote it. With a batch open, Delete unused deletes the codes nobody used
  * (`CouponBatches/DeleteUnused`) after a confirmation, and says what HQ did.
  *
- * The search, the status and the batch live in the URL (`?q=&status=&batch=`, replaced), so a
- * reload or a link keeps the page as it was.
+ * The search, the status and the batch live in the URL (`?search=&codeStatus=&batch=`, replaced), so
+ * a reload or a link keeps the page as it was; beside them, the promotion's list context the workspace
+ * keeps (ticket 537).
  */
 export default function CouponsPage() {
   const { t, i18n } = useTranslation('campaign-workspace')
-  const { draft: d } = useWorkspace()
+  const { draft: d, listContext, link } = useWorkspace()
   const c = d.campaign
   const queryClient = useQueryClient()
   const couponsOn = d.features.includes('coupons')
+  // Its own keys (`search`, `codeStatus`, `batch`) beside the promotion's list context the workspace
+  // keeps (`promotion`, `q`, `mechanic`, `status`, `page`; ticket 537), which a change here carries on.
   const [params, setParams] = useSearchParams()
-  const q = params.get('q') ?? ''
-  const status = statusFromParam(params.get('status'))
+  const q = params.get('search') ?? ''
+  const status = statusFromParam(params.get('codeStatus'))
   const batch = params.get('batch') ?? ''
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<Created | null>(null)
@@ -69,9 +73,9 @@ export default function CouponsPage() {
 
   const set = (change: { q?: string; status?: CouponStatusFilter; batch?: string }) => {
     const next = { q, status, batch, ...change }
-    const out = new URLSearchParams()
-    if (next.q) out.set('q', next.q)
-    if (next.batch && next.status !== 'all') out.set('status', next.status)
+    const out = new URLSearchParams(listContextSearch(listContext))
+    if (next.q) out.set('search', next.q)
+    if (next.batch && next.status !== 'all') out.set('codeStatus', next.status)
     if (next.batch) out.set('batch', next.batch)
     setParams(out, { replace: true })
   }
@@ -79,7 +83,9 @@ export default function CouponsPage() {
    *  for another batch is not this one's. */
   const openBatch = (b: string) => {
     download.reset()
-    setParams(b ? new URLSearchParams({ batch: b }) : new URLSearchParams(), { replace: true })
+    const out = new URLSearchParams(listContextSearch(listContext))
+    if (b) out.set('batch', b)
+    setParams(out, { replace: true })
   }
 
   const batches = useQuery({ ...ruleCouponBatchesQuery(c.id), enabled: couponsOn })
@@ -152,7 +158,7 @@ export default function CouponsPage() {
           <Trans
             t={t}
             i18nKey="coupons.off"
-            components={{ features: <Link to={`${campaignPath(c.id)}/settings/features`} className="font-medium text-primary hover:underline" /> }}
+            components={{ features: <Link to={link(`${campaignPath(c.id)}/settings/features`)} className="font-medium text-primary hover:underline" /> }}
           />
         </p>
       </section>

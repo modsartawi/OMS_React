@@ -1241,3 +1241,54 @@ export function promotionCampaignsOf(store, body) {
   const size = Math.min(body.pageSize ?? 50, 200)
   return { page: { promotionCode: null, total: rows.length, page, pageSize: size, mechanics, generatedNames: 0, campaigns: rows.slice((page - 1) * size, page * size) } }
 }
+
+// ── 537 ── promotions of their own, beside the fixtures' no-promotion campaigns: the workspace steps
+// through one promotion's list across HQ's pages, and names its promotion. Additive: every drive above
+// keeps reading `promotionListOf` / `promotionCampaignsOf` as before.
+
+/** `n` published campaigns `<code>-Cnn` (an upload's, by their prefix), each a copy of `likeId` under its own id and name. */
+export function promotionDraftsOf(store, code, n, likeId) {
+  const like = store.find((d) => d.code === likeId)
+  return Array.from({ length: n }, (_, i) => {
+    const id = `${code}-C${String(i + 1).padStart(2, '0')}`
+    const d = structuredClone(like)
+    const name = says(`Suncare offer ${i + 1}`, `عرض العناية بالشمس ${i + 1}`)
+    d.code = id
+    d.name = name
+    d.campaign = { ...d.campaign, id, name }
+    return d
+  })
+}
+
+/** A `Promotions/List` row for a promotion of `count` campaigns: an upload's (activated) or a hand-made one. */
+export const promotionSummaryOf = (code, origin, count) => ({
+  ...promotionListOf([])[0],
+  promotionCode: code,
+  nameEn: `Promotion ${code}`,
+  nameAr: `العرض ${code}`,
+  origin,
+  campaignCount: count,
+  revision: origin === 'upload' ? 1 : null,
+  uploadState: origin === 'upload' ? 'activated' : null,
+  uploadedBy: origin === 'upload' ? 'Omar (marketing)' : null,
+  uploadNote: origin === 'upload' ? '' : null,
+  approvedBy: origin === 'upload' ? 'Reem (approver)' : null,
+  createdAt: '2026-10-09T08:00:00',
+})
+
+/** `Promotions/Campaigns` over these drafts as HQ answers it: filtered by `q` / `status` / `mechanic`,
+ *  by id, paged; `codeOf` puts BO ask J's `promotionCode` on each row (`codeOf(id)`). */
+export function promotionPageOf(drafts, body, { promotionCode = null, codeOf } = {}) {
+  const q = (body.q ?? '').toLowerCase()
+  const status = (body.status ?? '').toLowerCase()
+  const matching = drafts
+    .filter((d) => d.campaignStatus === 'Published' || d.campaignStatus === 'Disabled')
+    .map((d) => ({ ...promotionRowOf(d), ...(codeOf ? { promotionCode: codeOf(d.code) } : {}) }))
+    .filter((r) => (!q || [r.id, r.nameEn, r.nameAr].some((v) => v.toLowerCase().includes(q))) && (!status || r.status.toLowerCase() === status))
+  const mechanics = {}
+  for (const r of matching) if (r.mechanic != null) mechanics[r.mechanic] = (mechanics[r.mechanic] ?? 0) + 1
+  const rows = matching.filter((r) => !body.mechanic || r.mechanic === body.mechanic).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const page = body.page ?? 1
+  const size = Math.min(body.pageSize ?? 50, 200)
+  return { promotionCode, total: rows.length, page, pageSize: size, mechanics, generatedNames: 0, campaigns: rows.slice((page - 1) * size, page * size) }
+}

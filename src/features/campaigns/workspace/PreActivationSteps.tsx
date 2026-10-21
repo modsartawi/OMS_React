@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { CheckCircle2, Circle } from 'lucide-react'
 import type { PreActivationStep } from './approval'
 import { pageLanded } from './menu'
+import { useWorkspace } from './context'
 
 /**
  * The dashboard's "Consider these steps before activating" (ticket 511, the prototype's step grid):
@@ -12,6 +13,7 @@ import { pageLanded } from './menu'
  */
 export default function PreActivationSteps({ steps, base }: { steps: PreActivationStep[]; base: string }) {
   const { t } = useTranslation('campaign-workspace')
+  const { link } = useWorkspace()
   return (
     <section className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4" data-steps="">
       <h2 className="text-sm font-semibold">{t('approval.steps.title')}</h2>
@@ -31,7 +33,7 @@ export default function PreActivationSteps({ steps, base }: { steps: PreActivati
                 <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label={t('approval.steps.todoLabel')} />
               )}
               {!step.done && pageLanded(step.page) ? (
-                <Link to={`${base}/${step.page}`} className="flex min-w-0 flex-col gap-0.5 hover:underline" data-step-link="">
+                <Link to={link(`${base}/${step.page}`)} className="flex min-w-0 flex-col gap-0.5 hover:underline" data-step-link="">
                   {body}
                 </Link>
               ) : (

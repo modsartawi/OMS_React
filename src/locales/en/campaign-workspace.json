@@ -1,9 +1,18 @@
 {
-  "back": "To campaigns",
+  "back": "To promotions",
   "loading": "Reading the campaign…",
   "failedTitle": "The campaign could not be read",
   "failed": "Try again in a moment.",
   "untitled": "Untitled",
+  "listContext": {
+    "back": "To promotion <c>{{promotion}}</c>",
+    "backNoPromotion": "To the campaigns in no promotion",
+    "steps": "Step through the list",
+    "prev": "Previous",
+    "next": "Next",
+    "denied": "You do not have access to this action.",
+    "failed": "HQ could not read the promotion’s list."
+  },
   "menu": {
     "label": "Manage campaign",
     "dashboard": "Dashboard",
@@ -266,7 +275,8 @@
     "bundleFilter": "Of the filter",
     "bundleRemove": "Remove the list",
     "bundleAdd": "Add a list",
-    "bundleMax": "At most, bundles per sale (empty: no limit)"
+    "bundleMax": "At most, bundles per sale (empty: no limit)",
+    "uploadedNote": "This campaign is part of promotion <c>{{promotionCode}}</c>’s upload. Change it by uploading the promotion again: a change made here is replaced by the next upload."
   },
   "filters": {
     "defaultName": "items",

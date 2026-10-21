@@ -1,6 +1,6 @@
 // The campaign upload's wire model (ADR 0097; BackOffice 2836-2838, the 2737 brief's section "HQ
-// contract: campaign uploads (2836-2838)"). A **campaign upload** is one workbook for one **deal**:
-// read all or none, held as the deal's ONE pending upload, activated as a whole into ONE ruleset
+// contract: campaign uploads (2836-2838)"). A **campaign upload** is one workbook for one **promotion**:
+// read all or none, held as the promotion's ONE pending upload, activated as a whole into ONE ruleset
 // version. Field names are copied from the contract, checked against the reply types of SIS.Api's
 // `RuleCampaignUploadWebEndpoints.cs`: a guessed field must not appear here.
 //
@@ -26,13 +26,13 @@ export type RuleUploadMechanic =
   | 'minSubtotal'
   | (string & {})
 
-/** A deal's or a campaign's stacking: `compete` (blank in the sheet) or `stacks`. */
+/** A promotion's or a campaign's stacking: `compete` (blank in the sheet) or `stacks`. */
 export type RuleUploadStacking = 'compete' | 'stacks' | (string & {})
 
 /** A Campaigns row's Kind. */
 export type RuleUploadKind = 'percent' | 'amount' | 'price' | (string & {})
 
-/** A deal's upload state. */
+/** A promotion's upload state. */
 export type RuleUploadState = 'pending' | 'sentBack' | 'activated' | (string & {})
 
 /**
@@ -50,7 +50,7 @@ export interface RuleUploadIssue {
 /** One campaign the read composed, in the rule language. */
 export interface RuleUploadCampaign {
   code: string
-  /** `<DealCode>-<Code>`. */
+  /** `<PromotionCode>-<Code>`. */
   id: string
   /** Its row on the Campaigns sheet. */
   row: number
@@ -64,13 +64,13 @@ export interface RuleUploadCampaign {
 
 /**
  * `POST Rules/Authoring/Uploads/Read` — what HQ made of the workbook. Any error: `accepted: false,
- * stored: false, revision: 0`, nothing stored. No error: the deal's pending upload is stored (or
+ * stored: false, revision: 0`, nothing stored. No error: the promotion's pending upload is stored (or
  * replaced at the next revision), `stored: true`; no ruleset version is written.
  */
 export interface RuleUploadReport {
   accepted: boolean
   stored: boolean
-  dealCode: string
+  promotionCode: string
   stacking: RuleUploadStacking
   note: string
   /** The pending upload's revision; 0 when nothing was stored. */
@@ -98,9 +98,9 @@ export interface RuleUploadReadSummary {
   warnings: { at: string; message: string }[]
 }
 
-/** `Uploads/List` row (and `SendBack`'s reply): a deal's upload as the approver reads it. */
+/** `Uploads/List` row (and `SendBack`'s reply): a promotion's upload as the approver reads it. */
 export interface RuleUploadSummary {
-  dealCode: string
+  promotionCode: string
   state: RuleUploadState
   revision: number
   stacking: RuleUploadStacking
@@ -119,7 +119,7 @@ export interface RuleUploadSummary {
   /** `0001-01-01T00:00:00` until reviewed. */
   reviewedAt: string
   reviewNote: string
-  /** The version the deal's last activation made; 0 when never activated. */
+  /** The version the promotion's last activation made; 0 when never activated. */
   versionNo: number
 }
 
@@ -132,20 +132,20 @@ export interface RuleUploadCampaignItem {
   live: RuleCampaign | null
 }
 
-/** `POST Rules/Authoring/Uploads/Load { dealCode }` — an upload, opened. */
+/** `POST Rules/Authoring/Uploads/Load { promotionCode }` — an upload, opened. */
 export interface RuleUploadDetail {
   upload: RuleUploadSummary
   campaigns: RuleUploadCampaignItem[]
-  /** The deal's live campaigns the upload no longer holds: an activation disables them. */
+  /** The promotion's live campaigns the upload no longer holds: an activation disables them. */
   disabling: RuleUploadCampaignItem[]
   /** What an activation would refuse now; empty when it would publish (a stale-order line first). */
   errors: string[]
 }
 
-/** `POST Rules/Authoring/Uploads/Activate { dealCode, revision, note? }` — the one version it made. */
+/** `POST Rules/Authoring/Uploads/Activate { promotionCode, revision, note? }` — the one version it made. */
 export interface RuleUploadActivation {
   versionNo: number
-  dealCode: string
+  promotionCode: string
   revision: number
   publishedAt: string
   publishedBy: string
@@ -156,12 +156,12 @@ export interface RuleUploadActivation {
 
 /** The body of `Uploads/Load`. */
 export interface RuleUploadRef {
-  dealCode: string
+  promotionCode: string
 }
 
 /** The body of `Uploads/Activate` (note optional) and `Uploads/SendBack` (note required). */
 export interface RuleUploadReviewBody {
-  dealCode: string
+  promotionCode: string
   revision: number
   note?: string
 }

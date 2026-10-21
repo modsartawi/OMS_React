@@ -21,8 +21,8 @@ import { UPLOAD_STATE_FILTERS, stateFilterFromParams, stateFilterToParams, uploa
 import UploadStateBadge from './UploadStateBadge'
 
 /**
- * Campaigns ▸ Campaign uploads (ticket 532; BackOffice brief 2839 U3): every deal's upload, one row
- * per deal, newest upload first (`Uploads/List`), filtered by state — `pending` by default, held in
+ * Campaigns ▸ Campaign uploads (ticket 532; BackOffice brief 2839 U3): every promotion's upload, one row
+ * per promotion, newest upload first (`Uploads/List`), filtered by state — `pending` by default, held in
  * the address. A row opens the upload, where an approver activates or sends it back as a whole.
  *
  * Readers (03) see it; there is no access probe, so a session without the grant is a bare 403 that
@@ -39,9 +39,9 @@ export default function UploadsPage() {
   const denied = isBareDenial(uploads.error)
 
   const open = (e: RowClickedEvent<RuleUploadSummary>) => {
-    // The deal code is a link: a click on it has already navigated.
+    // The promotion code is a link: a click on it has already navigated.
     if ((e.event?.target as Element | null)?.closest?.('a')) return
-    if (e.data) navigate(campaignUploadPath(e.data.dealCode))
+    if (e.data) navigate(campaignUploadPath(e.data.promotionCode))
   }
 
   return (
@@ -81,7 +81,7 @@ export default function UploadsPage() {
               rowData={rows}
               columnDefs={columns}
               defaultColDef={DEFAULT_COL_DEF}
-              getRowId={({ data }) => data.dealCode}
+              getRowId={({ data }) => data.promotionCode}
               onRowClicked={open}
               rowClass="cursor-pointer"
               rowHeight={OMS_GRID_ROW_HEIGHT}
@@ -126,11 +126,11 @@ const DEFAULT_COL_DEF: ColDef<RuleUploadSummary> = {
   suppressHeaderMenuButton: true,
 }
 
-function DealCell({ data }: ICellRendererParams<RuleUploadSummary>) {
+function PromotionCell({ data }: ICellRendererParams<RuleUploadSummary>) {
   if (!data) return null
   return (
-    <Link to={campaignUploadPath(data.dealCode)} className="font-mono font-medium text-primary hover:underline" data-uploads-open={data.dealCode}>
-      <Ltr>{data.dealCode}</Ltr>
+    <Link to={campaignUploadPath(data.promotionCode)} className="font-mono font-medium text-primary hover:underline" data-uploads-open={data.promotionCode}>
+      <Ltr>{data.promotionCode}</Ltr>
     </Link>
   )
 }
@@ -142,7 +142,7 @@ function StateCell({ data }: ICellRendererParams<RuleUploadSummary>) {
 /** A reviewed upload's own columns read blank until it is reviewed (`reviewedBy` "", `versionNo` 0). */
 function uploadColumns(t: TFunction<'campaign-uploads'>): ColDef<RuleUploadSummary>[] {
   return [
-    { colId: 'dealCode', field: 'dealCode', headerName: t('uploads.columns.dealCode'), cellRenderer: DealCell, minWidth: 240, flex: 1 },
+    { colId: 'promotionCode', field: 'promotionCode', headerName: t('uploads.columns.promotionCode'), cellRenderer: PromotionCell, minWidth: 240, flex: 1 },
     { colId: 'state', field: 'state', headerName: t('uploads.columns.state'), cellRenderer: StateCell, width: 130 },
     { colId: 'revision', field: 'revision', headerName: t('uploads.columns.revision'), width: 110 },
     { colId: 'campaignCount', field: 'campaignCount', headerName: t('uploads.columns.campaignCount'), width: 120 },

@@ -58,13 +58,13 @@ describe('compareCampaign', () => {
   })
 })
 
-const summary = (dealCode: string, state: string): RuleUploadSummary => ({
-  dealCode,
+const summary = (promotionCode: string, state: string): RuleUploadSummary => ({
+  promotionCode,
   state,
   revision: 1,
   stacking: 'compete',
   note: '',
-  fileName: `${dealCode}.xlsx`,
+  fileName: `${promotionCode}.xlsx`,
   uploadedBy: 'author',
   uploadedAt: '2026-10-18T10:00:00',
   campaignCount: 1,
@@ -80,12 +80,12 @@ const summary = (dealCode: string, state: string): RuleUploadSummary => ({
 
 describe('uploadListFilter', () => {
   // HQ's order: newest upload first.
-  const rows = [summary('D4', 'pending'), summary('D3', 'archived'), summary('D2', 'activated'), summary('D1', 'pending'), summary('D0', 'sentBack')]
+  const rows = [summary('P4', 'pending'), summary('P3', 'archived'), summary('P2', 'activated'), summary('P1', 'pending'), summary('P0', 'sentBack')]
 
   it('defaults to pending, in the URL and in the rows', () => {
     expect(stateFilterFromParams(new URLSearchParams())).toBe('pending')
     expect(stateFilterToParams('pending').toString()).toBe('')
-    expect(uploadListFilter(rows, 'pending').map((r) => r.dealCode)).toEqual(['D4', 'D1'])
+    expect(uploadListFilter(rows, 'pending').map((r) => r.promotionCode)).toEqual(['P4', 'P1'])
   })
 
   it('reads every listed state and "all" from the URL; anything else is the default', () => {
@@ -98,8 +98,8 @@ describe('uploadListFilter', () => {
   })
 
   it('lists an unlisted state under "all", and keeps the newest upload first', () => {
-    expect(uploadListFilter(rows, 'all').map((r) => r.dealCode)).toEqual(['D4', 'D3', 'D2', 'D1', 'D0'])
-    expect(uploadListFilter(rows, 'activated').map((r) => r.dealCode)).toEqual(['D2'])
+    expect(uploadListFilter(rows, 'all').map((r) => r.promotionCode)).toEqual(['P4', 'P3', 'P2', 'P1', 'P0'])
+    expect(uploadListFilter(rows, 'activated').map((r) => r.promotionCode)).toEqual(['P2'])
   })
 })
 

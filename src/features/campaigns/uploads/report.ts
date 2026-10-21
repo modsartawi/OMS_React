@@ -86,7 +86,7 @@ export function windowDays(from: string | null | undefined, until: string | null
 
 /**
  * - `refused`: `accepted: false` — nothing was stored; the all-or-none message.
- * - `waiting`: stored — the deal's pending upload at `revision`, waiting for an approver.
+ * - `waiting`: stored — the promotion's pending upload at `revision`, waiting for an approver.
  * - `unstored`: accepted but not stored, which the contract does not send; the report alone.
  */
 export type ReadState = 'refused' | 'waiting' | 'unstored'
@@ -95,7 +95,7 @@ export interface ReadReportView {
   state: ReadState
   errorCount: number
   warningCount: number
-  dealCode: string
+  promotionCode: string
   stacking: string
   note: string
   /** Only when stored. */
@@ -115,7 +115,7 @@ export function readReportView(report: RuleUploadReport): ReadReportView {
     state,
     errorCount: (report.errors ?? []).length,
     warningCount: (report.warnings ?? []).length,
-    dealCode: report.dealCode ?? '',
+    promotionCode: report.promotionCode ?? '',
     stacking: report.stacking ?? '',
     note: report.note ?? '',
     revision: state === 'waiting' ? report.revision : null,

@@ -48,7 +48,7 @@ export default function ReviewDialog({
   const hintId = useId()
   const [note, setNote] = useState('')
   const { upload, campaigns, disabling } = detail
-  const body = { dealCode: upload.dealCode, revision: upload.revision, note }
+  const body = { promotionCode: upload.promotionCode, revision: upload.revision, note }
   const activate = useMutation({ mutationFn: () => campaignUploadApi.activate(body), onSuccess: onActivated })
   const sendBack = useMutation({ mutationFn: () => campaignUploadApi.sendBack(body), onSuccess: onSentBack })
   const run = action === 'activate' ? activate : sendBack
@@ -79,8 +79,8 @@ export default function ReviewDialog({
           <Trans
             t={t}
             i18nKey={`review.dialog.${action}.body`}
-            values={{ deal: upload.dealCode, revision: upload.revision, by: upload.uploadedBy }}
-            components={{ deal: <Ltr />, rev: <Ltr />, by: <Ltr /> }}
+            values={{ promotion: upload.promotionCode, revision: upload.revision, by: upload.uploadedBy }}
+            components={{ promotion: <Ltr />, rev: <Ltr />, by: <Ltr /> }}
           />
         </p>
 

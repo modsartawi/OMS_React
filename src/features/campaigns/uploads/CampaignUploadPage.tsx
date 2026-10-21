@@ -15,11 +15,11 @@ import { readReportView, type ReadReportView } from './report'
 
 /**
  * Campaigns ▸ Campaign upload (ticket 530; BackOffice ADR 0097, brief 2839's U1): a marketer gets
- * the template, fills one workbook for one **deal**, uploads it, and reads what HQ made of it.
+ * the template, fills one workbook for one **promotion**, uploads it, and reads what HQ made of it.
  *
  * The decided rules: all or none (one error refuses the whole file and stores nothing); a valid
  * read IS the approval request — there is no request door, the Note is a row of the workbook, and
- * the success state says "waiting for approval" at its revision; one pending upload per deal; no
+ * the success state says "waiting for approval" at its revision; one pending upload per promotion; no
  * campaign of an upload is edited here.
  *
  * Ticket 531 (brief 2839's U2) adds the second way to get a workbook: SAP's BBy `.txt` is never
@@ -213,8 +213,8 @@ function StateLine({ view }: { view: ReadReportView }) {
         <Trans
           t={t}
           i18nKey="outcome.waiting"
-          values={{ deal: view.dealCode, revision: view.revision }}
-          components={{ deal: <Ltr />, rev: <Ltr /> }}
+          values={{ promotion: view.promotionCode, revision: view.revision }}
+          components={{ promotion: <Ltr />, rev: <Ltr /> }}
         />
       </p>
       {view.note && (
@@ -223,7 +223,7 @@ function StateLine({ view }: { view: ReadReportView }) {
           <bdi>{view.note}</bdi>
         </p>
       )}
-      <Link to={campaignUploadPath(view.dealCode)} className="w-fit text-sm font-medium text-primary hover:underline" data-upload-open="">
+      <Link to={campaignUploadPath(view.promotionCode)} className="w-fit text-sm font-medium text-primary hover:underline" data-upload-open="">
         {t('outcome.open')}
       </Link>
     </div>

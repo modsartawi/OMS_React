@@ -26,7 +26,7 @@ import { CHANGE_SEV, compareCampaign, isKnownStacking, type ReviewAction } from 
 import UploadStateBadge from './UploadStateBadge'
 
 /**
- * Campaigns ▸ Campaign uploads ▸ one deal's upload (ticket 532; BackOffice brief 2839 U3), from
+ * Campaigns ▸ Campaign uploads ▸ one promotion's upload (ticket 532; BackOffice brief 2839 U3), from
  * `Uploads/Load`: the summary, the last review, each campaign beside the live one of its id, the
  * live campaigns an activation disables, and what it would refuse now. An approver activates the
  * WHOLE upload as one ruleset version, or sends it back with a note — never one campaign of it, and
@@ -37,16 +37,16 @@ import UploadStateBadge from './UploadStateBadge'
  * the dialog names. Four-eyes is HQ's too (`RULES_SELF_APPROVAL`).
  */
 export default function UploadPage() {
-  const { dealCode = '' } = useParams()
-  // Keyed: another deal's page starts with no activation line and no dialog.
-  return <OpenedUpload key={dealCode} dealCode={dealCode} />
+  const { promotionCode = '' } = useParams()
+  // Keyed: another promotion's page starts with no activation line and no dialog.
+  return <OpenedUpload key={promotionCode} promotionCode={promotionCode} />
 }
 
-function OpenedUpload({ dealCode }: { dealCode: string }) {
+function OpenedUpload({ promotionCode }: { promotionCode: string }) {
   const { t } = useTranslation('campaign-uploads')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const upload = useQuery(campaignUploadQuery(dealCode))
+  const upload = useQuery(campaignUploadQuery(promotionCode))
   const [dialog, setDialog] = useState<ReviewAction | null>(null)
   const [activation, setActivation] = useState<RuleUploadActivation | null>(null)
   const [sentBack, setSentBack] = useState(false)
@@ -59,19 +59,19 @@ function OpenedUpload({ dealCode }: { dealCode: string }) {
     setSentBack(false)
     setActivation(done)
     refresh()
-    // The new version holds every campaign of the deal: the campaigns list and Versions read again.
+    // The new version holds every campaign of the promotion: the campaigns list and Versions read again.
     void queryClient.invalidateQueries({ queryKey: RULE_CAMPAIGNS_KEY })
   }
   const onSentBack = (summary: RuleUploadSummary) => {
     setDialog(null)
     setActivation(null)
     setSentBack(true)
-    queryClient.setQueryData<RuleUploadDetail>(campaignUploadKey(dealCode), (old) => (old ? { ...old, upload: summary } : old))
+    queryClient.setQueryData<RuleUploadDetail>(campaignUploadKey(promotionCode), (old) => (old ? { ...old, upload: summary } : old))
     refresh()
   }
 
   return (
-    <section className="flex w-full max-w-7xl flex-col gap-4" data-campaign-upload-review={dealCode}>
+    <section className="flex w-full max-w-7xl flex-col gap-4" data-campaign-upload-review={promotionCode}>
       <Link to={CAMPAIGN_UPLOADS_PATH} className="inline-flex w-fit items-center gap-1 text-sm font-medium text-primary hover:underline" data-review-back="">
         <ArrowLeft className="size-3.5 rtl:-scale-x-100" aria-hidden />
         {t('review.back')}
@@ -79,7 +79,7 @@ function OpenedUpload({ dealCode }: { dealCode: string }) {
       <header className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold tracking-tight">{t('review.title')}</h1>
         <span className="font-mono text-lg font-semibold">
-          <Ltr>{dealCode}</Ltr>
+          <Ltr>{promotionCode}</Ltr>
         </span>
         {upload.data && <UploadStateBadge state={upload.data.upload.state} />}
       </header>
@@ -216,9 +216,9 @@ function Summary({ upload: u }: { upload: RuleUploadSummary }) {
     <section className="flex flex-col gap-3" data-review-summary="">
       <h2 className="text-sm font-semibold">{t('review.summary.title')}</h2>
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-4" data-review-header="">
-        <Fact k="deal" label={t('review.summary.deal')}>
+        <Fact k="promotion" label={t('review.summary.promotion')}>
           <span className="font-mono font-medium">
-            <Ltr>{u.dealCode}</Ltr>
+            <Ltr>{u.promotionCode}</Ltr>
           </span>
         </Fact>
         <Fact k="state" label={t('review.summary.state')}>
@@ -413,7 +413,7 @@ function Campaigns({ items, onOpen }: { items: RuleUploadCampaignItem[]; onOpen:
   )
 }
 
-/** The deal's live campaigns the upload no longer holds, red: an activation switches them off. */
+/** The promotion's live campaigns the upload no longer holds, red: an activation switches them off. */
 function Disabling({ items, onOpen }: { items: RuleUploadCampaignItem[]; onOpen: (item: RuleUploadCampaignItem) => void }) {
   const { t } = useTranslation('campaign-uploads')
   return (

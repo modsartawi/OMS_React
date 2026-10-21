@@ -25,9 +25,9 @@ export default function ReadReport({ report, view }: { report: RuleUploadReport;
       <h2 className="text-sm font-semibold">{t('report.title')}</h2>
 
       <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-4" data-upload-header="">
-        <Fact k="deal" label={t('report.deal')}>
+        <Fact k="promotion" label={t('report.promotion')}>
           <span className="font-mono font-medium">
-            <Ltr>{view.dealCode}</Ltr>
+            <Ltr>{view.promotionCode}</Ltr>
           </span>
         </Fact>
         <Fact k="stacking" label={t('report.stacking')}>

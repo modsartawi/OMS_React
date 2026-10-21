@@ -715,7 +715,7 @@ export const router = createBrowserRouter([
         }),
       },
       {
-        // Campaign upload (ticket 530, BackOffice ADR 0097): one workbook for one deal, read all or
+        // Campaign upload (ticket 530, BackOffice ADR 0097): one workbook for one promotion, read all or
         // none. A static leaf beside `campaigns/:id`, which react-router ranks above the param.
         path: 'campaigns/upload',
         lazy: async () => ({
@@ -723,7 +723,7 @@ export const router = createBrowserRouter([
         }),
       },
       {
-        // The approver's campaign uploads (ticket 532): every deal's upload, and one opened beside
+        // The approver's campaign uploads (ticket 532): every promotion's upload, and one opened beside
         // what is live, activated or sent back as a whole. Static leaves beside `campaigns/:id`.
         path: 'campaigns/uploads',
         lazy: async () => ({
@@ -731,7 +731,7 @@ export const router = createBrowserRouter([
         }),
       },
       {
-        path: 'campaigns/uploads/:dealCode',
+        path: 'campaigns/uploads/:promotionCode',
         lazy: async () => ({
           Component: (await import('@/features/campaigns/uploads/UploadPage')).default,
         }),

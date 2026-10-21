@@ -1,10 +1,10 @@
 {
   "title": "Campaign upload",
-  "lede": "One workbook for one deal. HQ reads it all or none: a file with no error waits for an approver as one campaign upload, and goes live as one version.",
+  "lede": "One workbook for one promotion. HQ reads it all or none: a file with no error waits for an approver as one campaign upload, and goes live as one version.",
   "denied": "You do not have access to this action.",
   "template": {
     "title": "Get a workbook",
-    "hint": "Start from the blank template, or convert the SAP BBy file of a deal into one. The template's Upload, Campaigns and Items sheets carry dropdowns for Stacking, Mechanic, Kind, Members, List and Type.",
+    "hint": "Start from the blank template, or convert the SAP BBy file of a promotion into one. The template's Upload, Campaigns and Items sheets carry dropdowns for Stacking, Mechanic, Kind, Members, List and Type.",
     "download": "Download the template",
     "downloading": "Downloading…",
     "failed": "The template could not be downloaded. Try again."
@@ -14,13 +14,13 @@
     "file": "SAP BBy file (.txt)",
     "converting": "Converting…",
     "saved": "Saved as <file>{{fileName}}</file>.",
-    "next": "Next: open it and review it — the proposed DealCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.",
+    "next": "Next: open it and review it — the proposed PromotionCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.",
     "stored": "The conversion stored nothing, and its notes are only in the workbook.",
     "failed": "The file could not be converted. Try again."
   },
   "upload": {
     "title": "Upload the workbook",
-    "hint": "The whole deal in one file. The Note on its Upload sheet is what the approver reads.",
+    "hint": "The whole promotion in one file. The Note on its Upload sheet is what the approver reads.",
     "file": "Workbook (.xlsx)",
     "send": "Upload",
     "reading": "Reading the workbook…",
@@ -29,14 +29,14 @@
   "outcome": {
     "refused_one": "Nothing was stored: the file has <n>{{count}}</n> error. Fix every one and upload the whole file again.",
     "refused_other": "Nothing was stored: the file has <n>{{count}}</n> errors. Fix every one and upload the whole file again.",
-    "waiting": "Waiting for approval — deal <deal>{{deal}}</deal>, revision <rev>{{revision}}</rev>. An approver activates it as one version.",
+    "waiting": "Waiting for approval — promotion <promotion>{{promotion}}</promotion>, revision <rev>{{revision}}</rev>. An approver activates it as one version.",
     "unstored": "The file was read, but HQ stored nothing.",
     "note": "Its note",
     "open": "Open the campaign upload"
   },
   "report": {
     "title": "The read report",
-    "deal": "Deal",
+    "promotion": "Promotion",
     "stacking": "Stacking",
     "note": "Note",
     "revision": "Revision",
@@ -101,7 +101,7 @@
   },
   "uploads": {
     "title": "Campaign uploads",
-    "lede": "Every deal's campaign upload, newest upload first. Open one to see what it changes and disables beside what is live, then activate it as one version or send it back. No campaign of an upload is approved or edited on its own.",
+    "lede": "Every promotion's campaign upload, newest upload first. Open one to see what it changes and disables beside what is live, then activate it as one version or send it back. No campaign of an upload is approved or edited on its own.",
     "filter": "State",
     "allStates": "All states",
     "loading": "Reading the campaign uploads…",
@@ -111,7 +111,7 @@
     "count_one": "<n>{{count}}</n> campaign upload",
     "count_other": "<n>{{count}}</n> campaign uploads",
     "columns": {
-      "dealCode": "Deal",
+      "promotionCode": "Promotion",
       "state": "State",
       "revision": "Revision",
       "campaignCount": "Campaigns",
@@ -130,10 +130,10 @@
     "loading": "Opening the campaign upload…",
     "failedTitle": "The campaign upload could not be opened",
     "failed": "Try again in a moment.",
-    "notFound": "There is no campaign upload of this deal: the link may be stale.",
+    "notFound": "There is no campaign upload of this promotion: the link may be stale.",
     "summary": {
       "title": "The upload",
-      "deal": "Deal",
+      "promotion": "Promotion",
       "state": "State",
       "revision": "Revision",
       "note": "Note",
@@ -202,7 +202,7 @@
       "cancel": "Cancel",
       "activate": {
         "title": "Activate the campaign upload",
-        "body": "Activate deal <deal>{{deal}}</deal>, revision <rev>{{revision}}</rev>, as one version: every campaign of it goes live together.",
+        "body": "Activate promotion <promotion>{{promotion}}</promotion>, revision <rev>{{revision}}</rev>, as one version: every campaign of it goes live together.",
         "counts_one": "<n>{{count}}</n> campaign: <new>{{new}}</new> new, <changed>{{changed}}</changed> changed, <unchanged>{{unchanged}}</unchanged> unchanged.",
         "counts_other": "<n>{{count}}</n> campaigns: <new>{{new}}</new> new, <changed>{{changed}}</changed> changed, <unchanged>{{unchanged}}</unchanged> unchanged.",
         "noDisabling": "Activating disables no live campaign.",
@@ -211,7 +211,7 @@
       },
       "sendBack": {
         "title": "Send back the campaign upload",
-        "body": "Send deal <deal>{{deal}}</deal>, revision <rev>{{revision}}</rev>, back to <by>{{by}}</by>. Nothing is published; the deal's next upload replaces it.",
+        "body": "Send promotion <promotion>{{promotion}}</promotion>, revision <rev>{{revision}}</rev>, back to <by>{{by}}</by>. Nothing is published; the promotion's next upload replaces it.",
         "note": "Why it goes back (required): its uploader reads it.",
         "required": "A note is required.",
         "confirm": "Send back"
@@ -225,13 +225,13 @@
     },
     "refusal": {
       "selfApproval": "You made this revision of the upload: another approver must activate it or send it back.",
-      "uploadStale": "A newer revision of this deal was uploaded since you opened it. Load it again and review that one.",
+      "uploadStale": "A newer revision of this promotion was uploaded since you opened it. Load it again and review that one.",
       "notPending": "The upload no longer waits for approval: it was activated or sent back since you opened it.",
       "orderStale": "The live evaluation order was changed by hand since the upload was read. It stays pending: send it back, or its author uploads it again.",
       "invalidCampaign": "HQ's checker refuses the upload on the live version now (its lines are below). It stays pending: send it back.",
       "reasonRequired": "A note is required: its uploader reads it.",
-      "notFound": "There is no campaign upload of this deal: the link may be stale.",
-      "badRequest": "HQ could not read the request: no deal code, or one too long to be one.",
+      "notFound": "There is no campaign upload of this promotion: the link may be stale.",
+      "badRequest": "HQ could not read the request: no promotion code, or one too long to be one.",
       "reload": "Load it again",
       "sendBack": "Send it back",
       "list": "All campaign uploads"

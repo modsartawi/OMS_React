@@ -13,7 +13,7 @@
 //        `read: 'bad'`      400 RULES_BAD_UPLOAD — the JSON refusal envelope
 //        `read: 'denied'`   a bare 403 with no body
 //   POST Rules/Authoring/Uploads/ConvertBby (multipart `file`, 2838) → the pre-filled workbook, a BINARY body
-//        with Content-Disposition `<DealCode>.xlsx` (`convert: 'named'`), 400 RULES_BAD_UPLOAD (`'bad'`), or
+//        with Content-Disposition `<PromotionCode>.xlsx` (`convert: 'named'`), 400 RULES_BAD_UPLOAD (`'bad'`), or
 //        a bare 403 (`'denied'`); each after READ_DELAY ms
 // Every Read answers after READ_DELAY ms, so the busy state can be seen. Never a live SIS.Api: the
 // doors are built (BackOffice 2836) but not deployed anywhere this drive can reach; ticket 533 walks them.
@@ -26,7 +26,7 @@
 //   4. a refused read: the all-or-none message with N = 3, the issues grid errors first (red) then
 //      warnings (amber), `Upload` reading "Whole sheet" and `Items!40` "Whole row", the sheet filter
 //      narrowing it; no waiting line;
-//   5. an accepted read: "Waiting for approval — deal …, revision 3. An approver activates it as one
+//   5. an accepted read: "Waiting for approval — promotion …, revision 3. An approver activates it as one
 //      version.", the note, the link to the upload's page; a tile for every mechanic; the window as
 //      the INCLUSIVE days sent (…-15, never the JSON's exclusive …-16), isolated once; the generated
 //      Arabic badge on the right row; a row opens its JSON read-only in a side panel;
@@ -36,8 +36,8 @@
 // ── 531 ── in LTR and RTL, it asserts:
 //   8. "Convert a SAP BBy file" sits in step 1 beside the template; its picker accepts `.txt` only;
 //   9. a picked .txt goes to Uploads/ConvertBby as the multipart part `file`, with a busy state, and
-//      the workbook is saved under the stubbed Content-Disposition name (`<DealCode>.xlsx`);
-//  10. after it, the next step in words (open it, review DealCode / names / PRICE, read Convert notes,
+//      the workbook is saved under the stubbed Content-Disposition name (`<PromotionCode>.xlsx`);
+//  10. after it, the next step in words (open it, review PromotionCode / names / PRICE, read Convert notes,
 //      upload it below) and that the conversion stored nothing — and no report;
 //  11. a 400 RULES_BAD_UPLOAD shows the server's message and no next step; a bare 403 reads
 //      "You do not have access…"; no raw key and no page error.
@@ -45,9 +45,9 @@
 // ── 532 ── the approver's screens, against stubs of Uploads/List, Load, Activate and SendBack:
 //   POST Rules/Authoring/Uploads/List → five summaries newest first (two pending, sentBack, activated, and an
 //        unlisted `archived`), or a bare 403 (`list: 'denied'`)
-//   POST Rules/Authoring/Uploads/Load { dealCode } → the pending upload at revision 3: new, changed and unchanged
+//   POST Rules/Authoring/Uploads/Load { promotionCode } → the pending upload at revision 3: new, changed and unchanged
 //        (the live JSON's keys in another order) campaigns, two disabling rows; `load: 'refuse'` adds two
-//        would-refuse lines (stale order first); an unknown deal is 404 RULES_UPLOAD_NOT_FOUND; `'denied'` a bare
+//        would-refuse lines (stale order first); an unknown promotion is 404 RULES_UPLOAD_NOT_FOUND; `'denied'` a bare
 //        403. After a successful Activate or Send back it answers the new state.
 //   POST Rules/Authoring/Uploads/Activate → `activate: 'ok' | 'self' | 'stale' | 'invalid' | 'denied'`
 //   POST Rules/Authoring/Uploads/SendBack → `sendBack: 'ok' | 'reason'`
@@ -101,26 +101,26 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
 const BARE_403 = { status: 403, body: '' }
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-const DEAL = '0001000048-261009-261015'
-const NOTE = 'SAP deal 0001000048, 9 to 15 October, from Same GRP - 50 Pct.txt'
+const PROMOTION = '0001000048-261009-261015'
+const NOTE = 'SAP promotion number 0001000048, 9 to 15 October, from Same GRP - 50 Pct.txt'
 const BAD_UPLOAD = 'The file is not a campaign upload workbook (.xlsx).'
 const DENIED = 'You do not have access to this action.'
-const BAD_BBY = 'The file holds more than one SAP deal number: 0001000048, 0001000051.'
+const BAD_BBY = 'One upload is one SAP promotion number; this file holds 2: 0001000048, 0001000051.'
 const NEXT_STEP =
-  'Next: open it and review it — the proposed DealCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.'
+  'Next: open it and review it — the proposed PromotionCode, the names, and every PRICE value. Read its Convert notes sheet if it has one, then upload it below.'
 const BBY_TXT = Buffer.from('BBY\t0001000048\t20261009\t20261015\n')
 
 /** A campaign in the rule language, as HQ composed it: `window.until` is the EXCLUSIVE day after. */
 const campaignJson = (code, mechanic) => ({
   schema: 1,
-  id: `${DEAL}-${code}`,
+  id: `${PROMOTION}-${code}`,
   name: { en: `Sunscreen ${code}`, ar: `واقي الشمس ${code}` },
   window: { from: '2026-10-09', until: '2026-10-16' },
   rules: [{ id: 'r1', mechanic }],
 })
 const campaign = (code, row, mechanic, nameArGenerated = false, stacking = 'compete') => ({
   code,
-  id: `${DEAL}-${code}`,
+  id: `${PROMOTION}-${code}`,
   row,
   mechanic,
   stacking,
@@ -132,7 +132,7 @@ const issue = (at, sheet, row, column, message) => ({ at, sheet, row, column, me
 const REFUSED = {
   accepted: false,
   stored: false,
-  dealCode: DEAL,
+  promotionCode: PROMOTION,
   stacking: 'compete',
   note: NOTE,
   revision: 0,
@@ -148,14 +148,14 @@ const REFUSED = {
   ],
   warnings: [
     issue('Campaigns!3:NameAr', 'Campaigns', 3, 'NameAr', 'The Arabic name of OF2 was generated: واقي الشمس OF2.'),
-    issue('Items!7', 'Items', 7, '', 'Material 100111 is live in campaign 0001000031-260901-260930-OF4 of another deal.'),
+    issue('Items!7', 'Items', 7, '', 'Material 100111 is live in campaign 0001000031-260901-260930-OF4 of another promotion.'),
   ],
 }
 
 const ACCEPTED = {
   accepted: true,
   stored: true,
-  dealCode: DEAL,
+  promotionCode: PROMOTION,
   stacking: 'compete',
   note: NOTE,
   revision: 3,
@@ -214,8 +214,8 @@ async function open(dir, { template = 'named', read = 'accepted', convert = 'nam
       return route.fulfill({
         status: 200,
         contentType: XLSX,
-        headers: { 'Content-Disposition': `attachment; filename=${DEAL}.xlsx; filename*=UTF-8''${DEAL}.xlsx` },
-        body: Buffer.from('PK\u0003\u0004 the converted deal'),
+        headers: { 'Content-Disposition': `attachment; filename=${PROMOTION}.xlsx; filename*=UTF-8''${PROMOTION}.xlsx` },
+        body: Buffer.from('PK\u0003\u0004 the converted promotion'),
       })
     }
     if (p === 'Rules/Authoring/Uploads/Read') {
@@ -251,8 +251,8 @@ const gridRows = (page, grid) =>
       .sort((a, b) => a.index - b.index),
   )
 
-const pick = (page, name = 'deal.xlsx') =>
-  page.locator('[data-upload-file]').setInputFiles({ name, mimeType: XLSX, buffer: Buffer.from('PK\u0003\u0004 the deal') })
+const pick = (page, name = 'promotion.xlsx') =>
+  page.locator('[data-upload-file]').setInputFiles({ name, mimeType: XLSX, buffer: Buffer.from('PK\u0003\u0004 the promotion') })
 
 const pickBby = (page, name = 'Same GRP - 50 Pct.txt') =>
   page.locator('[data-upload-bby-file]').setInputFiles({ name, mimeType: 'text/plain', buffer: BBY_TXT })
@@ -304,7 +304,7 @@ async function drive(dir) {
     const sent = calls.find((c) => c.p === 'Rules/Authoring/Uploads/Read')
     check(
       `${tag} 3: the workbook goes as the multipart part "file"`,
-      sent?.method === 'POST' && /^multipart\/form-data; boundary=/.test(sent.type) && /name="file"; filename="deal\.xlsx"/.test(sent.body),
+      sent?.method === 'POST' && /^multipart\/form-data; boundary=/.test(sent.type) && /name="file"; filename="promotion\.xlsx"/.test(sent.body),
       sent?.type,
     )
     const banner = page.locator('[data-upload-all-or-none]')
@@ -315,7 +315,7 @@ async function drive(dir) {
       await text(banner),
     )
     check(`${tag} 4: no waiting line on a refused read`, (await page.locator('[data-upload-waiting]').count()) === 0)
-    check(`${tag} 4: the report follows (deal, no revision)`, (await text(page.locator('[data-upload-fact="deal"] dd'))) === DEAL && (await page.locator('[data-upload-fact="revision"]').count()) === 0)
+    check(`${tag} 4: the report follows (promotion, no revision)`, (await text(page.locator('[data-upload-fact="promotion"] dd'))) === PROMOTION && (await page.locator('[data-upload-fact="revision"]').count()) === 0)
 
     await page.locator('[data-upload-issues-grid] .ag-row').first().waitFor({ timeout: 10000 })
     const rows = await gridRows(page, 'data-upload-issues-grid')
@@ -354,11 +354,11 @@ async function drive(dir) {
     await waiting.waitFor({ timeout: 10000 })
     check(
       `${tag} 5: the waiting line`,
-      (await text(waiting.locator('p').first())) === `Waiting for approval — deal ${DEAL}, revision 3. An approver activates it as one version.`,
+      (await text(waiting.locator('p').first())) === `Waiting for approval — promotion ${PROMOTION}, revision 3. An approver activates it as one version.`,
       await text(waiting.locator('p').first()),
     )
     check(`${tag} 5: the note it carries`, (await text(page.locator('[data-upload-waiting-note]'))) === `Its note ${NOTE}`)
-    check(`${tag} 5: a link to the upload's page`, (await page.locator('[data-upload-open]').getAttribute('href')) === `/campaigns/uploads/${DEAL}`)
+    check(`${tag} 5: a link to the upload's page`, (await page.locator('[data-upload-open]').getAttribute('href')) === `/campaigns/uploads/${PROMOTION}`)
     check(`${tag} 5: no all-or-none message`, (await page.locator('[data-upload-all-or-none]').count()) === 0)
     check(`${tag} 5: the header holds the revision`, (await text(page.locator('[data-upload-fact="revision"] dd'))) === '3' && (await text(page.locator('[data-upload-fact="stacking"] dd'))) === 'compete')
 
@@ -373,21 +373,21 @@ async function drive(dir) {
 
     await page.locator('[data-upload-campaigns-grid] .ag-row').first().waitFor({ timeout: 10000 })
     const camps = await gridRows(page, 'data-upload-campaigns-grid')
-    check(`${tag} 5: every campaign is a row`, camps.length === 4 && camps[0].cells.id === `${DEAL}-OF1` && camps[3].cells.stacking === 'stacks', JSON.stringify(camps.map((c) => c.cells.id)))
+    check(`${tag} 5: every campaign is a row`, camps.length === 4 && camps[0].cells.id === `${PROMOTION}-OF1` && camps[3].cells.stacking === 'stacks', JSON.stringify(camps.map((c) => c.cells.id)))
     check(`${tag} 5: the generated Arabic badge on OF3 alone`, camps.filter((c) => c.generated).map((c) => c.cells.code).join(',') === 'OF3' && (await text(page.locator('[data-upload-generated]'))) === 'Generated Arabic')
 
     await page.locator(`[data-upload-campaigns-grid] .ag-row[row-index="3"] [col-id="mechanic"]`).click()
-    const panel = page.locator(`[data-upload-json="${DEAL}-OF4"]`)
+    const panel = page.locator(`[data-upload-json="${PROMOTION}-OF4"]`)
     await panel.waitFor({ timeout: 5000 })
     const json = await panel.locator('[data-upload-json-body]').innerText()
-    check(`${tag} 5: a row opens its JSON, pretty-printed, read-only`, JSON.parse(json).id === `${DEAL}-OF4` && json.includes('\n  "rules": [') && (await panel.locator('input, textarea, [contenteditable="true"]').count()) === 0)
+    check(`${tag} 5: a row opens its JSON, pretty-printed, read-only`, JSON.parse(json).id === `${PROMOTION}-OF4` && json.includes('\n  "rules": [') && (await panel.locator('input, textarea, [contenteditable="true"]').count()) === 0)
     check(`${tag} 5: the JSON is one LTR island`, (await panel.locator('[data-upload-json-body]').getAttribute('dir')) === 'ltr')
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/530-${dir}-json.png` })
     await page.locator('[data-upload-json-close]').click()
     await page.waitForTimeout(200)
     check(`${tag} 5: the panel closes`, (await page.locator('[data-upload-json]').count()) === 0)
-    await page.locator(`[data-upload-view="${DEAL}-OF1"]`).click()
-    await page.locator(`[data-upload-json="${DEAL}-OF1"]`).waitFor({ timeout: 5000 })
+    await page.locator(`[data-upload-view="${PROMOTION}-OF1"]`).click()
+    await page.locator(`[data-upload-json="${PROMOTION}-OF1"]`).waitFor({ timeout: 5000 })
     check(`${tag} 5: the row's View button opens it too, once`, (await page.locator('[data-upload-json]').count()) === 1)
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
@@ -400,7 +400,7 @@ async function drive(dir) {
   // ── 6: the file could not be read, or the grant is missing ──
   {
     const { context, page, errors } = await open(dir, { read: 'bad' })
-    await pick(page, 'deal.xls')
+    await pick(page, 'promotion.xls')
     await page.locator('[data-upload-send]').click()
     const refusal = page.locator('[data-upload-refusal]')
     await refusal.waitFor({ timeout: 10000 })
@@ -443,12 +443,12 @@ async function drive(dir) {
       sent?.method === 'POST' && /^multipart\/form-data; boundary=/.test(sent.type) && /name="file"; filename="Same GRP - 50 Pct\.txt"/.test(sent.body),
       sent?.type,
     )
-    check(`${tag} 9: the workbook is saved under the reply's name`, download.suggestedFilename() === `${DEAL}.xlsx`, download.suggestedFilename())
+    check(`${tag} 9: the workbook is saved under the reply's name`, download.suggestedFilename() === `${PROMOTION}.xlsx`, download.suggestedFilename())
 
     const done = page.locator('[data-upload-converted]')
     await done.waitFor({ timeout: 5000 })
     const saved = done.locator('p').first()
-    check(`${tag} 10: it names the file it saved, isolated once`, (await text(saved)) === `Saved as ${DEAL}.xlsx.` && (await saved.locator('bdi[dir="ltr"]').count()) === 1, await text(saved))
+    check(`${tag} 10: it names the file it saved, isolated once`, (await text(saved)) === `Saved as ${PROMOTION}.xlsx.` && (await saved.locator('bdi[dir="ltr"]').count()) === 1, await text(saved))
     check(`${tag} 10: the next step, in words`, (await text(page.locator('[data-upload-next-step]'))) === NEXT_STEP, await text(page.locator('[data-upload-next-step]')))
     check(`${tag} 10: it says the conversion stored nothing`, (await text(done)).endsWith('The conversion stored nothing, and its notes are only in the workbook.'), await text(done))
     check(
@@ -467,7 +467,7 @@ async function drive(dir) {
   }
   {
     const { context, page, errors } = await open(dir, { convert: 'bad' })
-    await pickBby(page, 'Two deals.txt')
+    await pickBby(page, 'Two promotions.txt')
     const refusal = page.locator('[data-upload-convert-error]')
     await refusal.waitFor({ timeout: 10000 })
     check(`${tag} 11: 400 RULES_BAD_UPLOAD shows the server's message`, (await text(refusal)) === BAD_BBY, await text(refusal))
@@ -509,13 +509,13 @@ const refusal = (status, code, message, details = []) => ({
 })
 
 const NEVER = '0001-01-01T00:00:00'
-const summaryOf = (dealCode, state, over = {}) => ({
-  dealCode,
+const summaryOf = (promotionCode, state, over = {}) => ({
+  promotionCode,
   state,
   revision: 3,
   stacking: 'compete',
   note: NOTE,
-  fileName: `${dealCode}.xlsx`,
+  fileName: `${promotionCode}.xlsx`,
   uploadedBy: 'author1',
   uploadedAt: '2026-10-18T09:30:00',
   campaignCount: 3,
@@ -537,7 +537,7 @@ const summaryOf = (dealCode, state, over = {}) => ({
   ...over,
 })
 const LIST = [
-  summaryOf(DEAL, 'pending'),
+  summaryOf(PROMOTION, 'pending'),
   summaryOf('0001000051-261012-261018', 'archived'),
   summaryOf('0001000050-261010-261016', 'activated', { reviewedBy: 'approver1', reviewedAt: '2026-10-17T14:00:00', versionNo: 41 }),
   summaryOf('0001000049-261001-261007', 'pending'),
@@ -552,29 +552,29 @@ const OF3_LIVE = (() => {
 })()
 const STALE_LINE = 'The live evaluation order was changed by hand since this upload was read (version 40 → 41).'
 const detailOf = (state, { refuse = false, over = {} } = {}) => ({
-  upload: summaryOf(DEAL, state, over),
+  upload: summaryOf(PROMOTION, state, over),
   campaigns: [
-    { id: `${DEAL}-OF1`, competes: true, campaign: campaignJson('OF1', 'percentOff'), live: null },
-    { id: `${DEAL}-OF2`, competes: true, campaign: campaignJson('OF2', 'percentOff'), live: OF2_LIVE },
-    { id: `${DEAL}-OF3`, competes: false, campaign: campaignJson('OF3', 'buyNGetMFree'), live: OF3_LIVE },
+    { id: `${PROMOTION}-OF1`, competes: true, campaign: campaignJson('OF1', 'percentOff'), live: null },
+    { id: `${PROMOTION}-OF2`, competes: true, campaign: campaignJson('OF2', 'percentOff'), live: OF2_LIVE },
+    { id: `${PROMOTION}-OF3`, competes: false, campaign: campaignJson('OF3', 'buyNGetMFree'), live: OF3_LIVE },
   ],
   disabling: [
-    { id: `${DEAL}-OF8`, competes: false, campaign: null, live: campaignJson('OF8', 'percentOff') },
-    { id: `${DEAL}-OF9`, competes: false, campaign: null, live: campaignJson('OF9', 'amountOff') },
+    { id: `${PROMOTION}-OF8`, competes: false, campaign: null, live: campaignJson('OF8', 'percentOff') },
+    { id: `${PROMOTION}-OF9`, competes: false, campaign: null, live: campaignJson('OF9', 'amountOff') },
   ],
-  errors: refuse ? [STALE_LINE, `${DEAL}-OF2: rules[0]: a percent of 100 or more needs a cap (rules[0].effects[0])`] : [],
+  errors: refuse ? [STALE_LINE, `${PROMOTION}-OF2: rules[0]: a percent of 100 or more needs a cap (rules[0].effects[0])`] : [],
 })
 const ACTIVATION = {
   versionNo: 42,
-  dealCode: DEAL,
+  promotionCode: PROMOTION,
   revision: 3,
   publishedAt: '2026-10-19T10:00:00',
   publishedBy: ME,
-  activated: [`${DEAL}-OF1`, `${DEAL}-OF2`, `${DEAL}-OF3`],
-  disabled: [`${DEAL}-OF8`, `${DEAL}-OF9`],
-  warnings: [`${DEAL}-OF1: percentOff: a percent of 100 or more (rules[0].effects[0].value)`],
+  activated: [`${PROMOTION}-OF1`, `${PROMOTION}-OF2`, `${PROMOTION}-OF3`],
+  disabled: [`${PROMOTION}-OF8`, `${PROMOTION}-OF9`],
+  warnings: [`${PROMOTION}-OF1: percentOff: a percent of 100 or more (rules[0].effects[0].value)`],
 }
-const INVALID_LINES = [`${DEAL}-OF2: rules[0]: the item scope is empty (rules[0].scope)`, `${DEAL}-OF9: an id differs only in case from a live one`]
+const INVALID_LINES = [`${PROMOTION}-OF2: rules[0]: the item scope is empty (rules[0].scope)`, `${PROMOTION}-OF9: an id differs only in case from a live one`]
 
 async function open532(dir, path, { list = 'ok', load = 'ok', activate = 'ok', sendBack = 'ok' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
@@ -606,13 +606,13 @@ async function open532(dir, path, { list = 'ok', load = 'ok', activate = 'ok', s
     }
     if (p === 'Rules/Authoring/Uploads/Load') {
       if (load === 'denied') return route.fulfill(BARE_403)
-      if (body?.dealCode !== DEAL) return route.fulfill(refusal(404, 'RULES_UPLOAD_NOT_FOUND', `No campaign upload of deal ${body?.dealCode}.`))
+      if (body?.promotionCode !== PROMOTION) return route.fulfill(refusal(404, 'RULES_UPLOAD_NOT_FOUND', `No campaign upload of promotion ${body?.promotionCode}.`))
       return route.fulfill(envelope(detailOf(state, { refuse: load === 'refuse', over: review })))
     }
     if (p === 'Rules/Authoring/Uploads/Activate') {
       if (activate === 'denied') return route.fulfill(BARE_403)
       if (activate === 'self') return route.fulfill(refusal(403, 'RULES_SELF_APPROVAL', 'The uploader cannot activate their own upload.'))
-      if (activate === 'stale') return route.fulfill(refusal(409, 'RULES_UPLOAD_STALE', 'Revision 4 of this deal was uploaded since revision 3.'))
+      if (activate === 'stale') return route.fulfill(refusal(409, 'RULES_UPLOAD_STALE', 'Revision 4 of this promotion was uploaded since revision 3.'))
       if (activate === 'invalid') return route.fulfill(refusal(400, 'RULES_INVALID_CAMPAIGN', 'The checker refuses the upload on version 41.', INVALID_LINES))
       state = 'activated'
       review = { reviewedBy: ME, reviewedAt: '2026-10-19T10:00:00', versionNo: 42 }
@@ -622,7 +622,7 @@ async function open532(dir, path, { list = 'ok', load = 'ok', activate = 'ok', s
       if (sendBack === 'reason') return route.fulfill(refusal(400, 'RULES_REASON_REQUIRED', 'Say why the upload goes back: its uploader reads the note.'))
       state = 'sentBack'
       review = { reviewedBy: ME, reviewedAt: '2026-10-19T10:05:00', reviewNote: body?.note ?? '' }
-      return route.fulfill(envelope(summaryOf(DEAL, 'sentBack', review)))
+      return route.fulfill(envelope(summaryOf(PROMOTION, 'sentBack', review)))
     }
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
@@ -644,7 +644,7 @@ const listRows = async (page, until = () => true) => {
   return rows
 }
 const openUpload = async (dir, opts) => {
-  const o = await open532(dir, `${UPLOADS}/${DEAL}`, opts)
+  const o = await open532(dir, `${UPLOADS}/${PROMOTION}`, opts)
   await o.page.locator('[data-review-summary], [data-review-failed]').first().waitFor({ timeout: 20000 })
   return o
 }
@@ -665,7 +665,7 @@ async function drive532(dir) {
     check(`${tag} 13: List is asked as a POST`, calls.some((c) => c.p === 'Rules/Authoring/Uploads/List' && c.method === 'POST'))
     check(`${tag} 13: the filter is pending by default, the URL bare`, (await page.locator('[data-uploads-filter]').inputValue()) === 'pending' && new URL(page.url()).search === '')
     let rows = await listRows(page)
-    check(`${tag} 13: pending lists the two pending uploads, newest first`, rows.map((r) => r.cells.dealCode).join(',') === `${DEAL},0001000049-261001-261007`, rows.map((r) => r.cells.dealCode).join(','))
+    check(`${tag} 13: pending lists the two pending uploads, newest first`, rows.map((r) => r.cells.promotionCode).join(',') === `${PROMOTION},0001000049-261001-261007`, rows.map((r) => r.cells.promotionCode).join(','))
     const first = rows[0]?.cells ?? {}
     check(`${tag} 13: the row's state badge, revision and counts`, first.state === 'Pending' && first.revision === '3' && first.campaignCount === '3' && first.skuCount === '41', JSON.stringify(first))
     check(`${tag} 13: the window is the inclusive days sent`, first.window === '2026-10-09 – 2026-10-15', first.window)
@@ -690,9 +690,9 @@ async function drive532(dir) {
     check(`${tag} 21: no raw key, no page error (list)`, !(await rawKey532(page)) && errors.length === 0, errors.join(' | '))
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-list.png`, fullPage: true })
 
-    await page.locator(`[data-uploads-open="${DEAL}"]`).click()
+    await page.locator(`[data-uploads-open="${PROMOTION}"]`).click()
     await page.locator('[data-review-summary]').waitFor({ timeout: 10000 })
-    check(`${tag} 13: the deal code opens its upload`, new URL(page.url()).pathname === `${UPLOADS}/${DEAL}`)
+    check(`${tag} 13: the promotion code opens its upload`, new URL(page.url()).pathname === `${UPLOADS}/${PROMOTION}`)
     await context.close()
   }
   {
@@ -716,9 +716,9 @@ async function drive532(dir) {
   {
     const { context, page, errors, calls } = await openUpload(dir)
     const fact = (k) => text(page.locator(`[data-review-header] [data-upload-fact="${k}"] dd`))
-    check(`${tag} 15: Load is asked { dealCode }`, calls.some((c) => c.p === 'Rules/Authoring/Uploads/Load' && c.body?.dealCode === DEAL))
-    check(`${tag} 15: the summary: deal, state, revision, stacking`, (await fact('deal')) === DEAL && (await fact('state')) === 'Pending' && (await fact('revision')) === '3' && (await fact('stacking')) === 'compete')
-    check(`${tag} 15: …note, file, uploader and time`, (await fact('note')) === NOTE && (await fact('file')) === `${DEAL}.xlsx` && (await fact('uploadedBy')) === 'author1' && (await fact('uploadedAt')) === '2026-10-18 09:30')
+    check(`${tag} 15: Load is asked { promotionCode }`, calls.some((c) => c.p === 'Rules/Authoring/Uploads/Load' && c.body?.promotionCode === PROMOTION))
+    check(`${tag} 15: the summary: promotion, state, revision, stacking`, (await fact('promotion')) === PROMOTION && (await fact('state')) === 'Pending' && (await fact('revision')) === '3' && (await fact('stacking')) === 'compete')
+    check(`${tag} 15: …note, file, uploader and time`, (await fact('note')) === NOTE && (await fact('file')) === `${PROMOTION}.xlsx` && (await fact('uploadedBy')) === 'author1' && (await fact('uploadedAt')) === '2026-10-18 09:30')
     const tiles = await page
       .locator('[data-review-tiles] [data-upload-tile^="mechanic:"]')
       .evaluateAll((t) => t.map((x) => `${x.getAttribute('data-upload-tile')}=${x.querySelector('span:last-child').innerText.replace(/[⁦-⁩]/g, '')}`))
@@ -762,7 +762,7 @@ async function drive532(dir) {
 
     // 16: side by side
     await page.locator('[data-review-campaigns-grid] .ag-row[row-index="1"] [col-id="id"]').click()
-    const sheet = page.locator(`[data-upload-json="${DEAL}-OF2"]`)
+    const sheet = page.locator(`[data-upload-json="${PROMOTION}-OF2"]`)
     await sheet.waitFor({ timeout: 5000 })
     const up = JSON.parse(await sheet.locator('[data-upload-json-side="uploaded"] [data-upload-json-body]').innerText())
     const live = JSON.parse(await sheet.locator('[data-upload-json-side="live"] [data-upload-json-body]').innerText())
@@ -771,17 +771,17 @@ async function drive532(dir) {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/532-${dir}-compare.png` })
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
-    await page.locator(`[data-review-compare="${DEAL}-OF1"]`).click()
-    await page.locator(`[data-upload-json="${DEAL}-OF1"]`).waitFor({ timeout: 5000 })
+    await page.locator(`[data-review-compare="${PROMOTION}-OF1"]`).click()
+    await page.locator(`[data-upload-json="${PROMOTION}-OF1"]`).waitFor({ timeout: 5000 })
     check(`${tag} 16: a new campaign: nothing live beside it`, (await text(page.locator('[data-upload-json-side="live"] [data-upload-json-none]'))) === 'Not live: the activation adds it.')
     await page.locator('[data-upload-json-close]').click()
     await page.waitForTimeout(200)
-    await page.locator(`[data-review-disabling-view="${DEAL}-OF8"]`).click()
-    await page.locator(`[data-upload-json="${DEAL}-OF8"]`).waitFor({ timeout: 5000 })
+    await page.locator(`[data-review-disabling-view="${PROMOTION}-OF8"]`).click()
+    await page.locator(`[data-upload-json="${PROMOTION}-OF8"]`).waitFor({ timeout: 5000 })
     check(
       `${tag} 16: a disabling row: the live campaign, nothing uploaded`,
       (await text(page.locator('[data-upload-json-side="uploaded"] [data-upload-json-none]'))) === 'Not in the upload: the activation disables it.' &&
-        JSON.parse(await page.locator('[data-upload-json-side="live"] [data-upload-json-body]').innerText()).id === `${DEAL}-OF8`,
+        JSON.parse(await page.locator('[data-upload-json-side="live"] [data-upload-json-body]').innerText()).id === `${PROMOTION}-OF8`,
     )
     await page.keyboard.press('Escape')
     await page.waitForTimeout(200)
@@ -791,20 +791,20 @@ async function drive532(dir) {
     const dialog = page.locator('[data-review-dialog="activate"]')
     await dialog.waitFor({ timeout: 5000 })
     check(
-      `${tag} 17: the dialog names the deal and the revision`,
-      (await text(dialog.locator('p').first())) === `Activate deal ${DEAL}, revision 3, as one version: every campaign of it goes live together.`,
+      `${tag} 17: the dialog names the promotion and the revision`,
+      (await text(dialog.locator('p').first())) === `Activate promotion ${PROMOTION}, revision 3, as one version: every campaign of it goes live together.`,
       await text(dialog.locator('p').first()),
     )
     check(`${tag} 17: it repeats the counts`, (await text(page.locator('[data-review-counts]'))) === '3 campaigns: 1 new, 1 changed, 1 unchanged.', await text(page.locator('[data-review-counts]')))
     const ids = await dialog.locator('[data-review-disabling-id]').evaluateAll((l) => l.map((x) => x.getAttribute('data-review-disabling-id')))
-    check(`${tag} 17: …and the disabling list`, ids.join(',') === `${DEAL}-OF8,${DEAL}-OF9`, ids.join(','))
+    check(`${tag} 17: …and the disabling list`, ids.join(',') === `${PROMOTION}-OF8,${PROMOTION}-OF9`, ids.join(','))
     check(`${tag} 17: the note is optional`, !(await page.locator('[data-review-confirm]').isDisabled()))
     const loadsBefore = loadsOf(calls)
     await page.locator('[data-review-confirm]').click()
     const done = page.locator('[data-review-activated-line]')
     await done.waitFor({ timeout: 10000 })
     const asked = calls.find((c) => c.p === 'Rules/Authoring/Uploads/Activate')
-    check(`${tag} 17: Activate sends the loaded revision, no blank note`, JSON.stringify(asked?.body) === JSON.stringify({ dealCode: DEAL, revision: 3 }), JSON.stringify(asked?.body))
+    check(`${tag} 17: Activate sends the loaded revision, no blank note`, JSON.stringify(asked?.body) === JSON.stringify({ promotionCode: PROMOTION, revision: 3 }), JSON.stringify(asked?.body))
     check(`${tag} 17: "Version 42 is live: 3 campaigns activated, 2 disabled."`, (await text(done)) === 'Version 42 is live: 3 campaigns activated, 2 disabled.', await text(done))
     check(`${tag} 17: each number isolated`, (await done.locator('bdi[dir="ltr"]').count()) === 3)
     check(`${tag} 17: who published it, and when`, (await text(page.locator('[data-review-activated-by]'))) === `Published by ${ME} at 2026-10-19 10:00.`, await text(page.locator('[data-review-activated-by]')))
@@ -828,7 +828,7 @@ async function drive532(dir) {
     await dialog.waitFor({ timeout: 5000 })
     check(
       `${tag} 18: Send back names who reads the note`,
-      (await text(dialog.locator('p').first())) === `Send deal ${DEAL}, revision 3, back to author1. Nothing is published; the deal's next upload replaces it.`,
+      (await text(dialog.locator('p').first())) === `Send promotion ${PROMOTION}, revision 3, back to author1. Nothing is published; the promotion's next upload replaces it.`,
       await text(dialog.locator('p').first()),
     )
     check(`${tag} 18: without a note it is not sent`, (await page.locator('[data-review-confirm]').isDisabled()) && (await text(page.locator('[data-review-note-required]'))) === 'A note is required.')
@@ -855,7 +855,7 @@ async function drive532(dir) {
     const asked = calls.find((c) => c.p === 'Rules/Authoring/Uploads/SendBack')
     check(
       `${tag} 18: Send back sends the loaded revision and the note`,
-      JSON.stringify(asked?.body) === JSON.stringify({ dealCode: DEAL, revision: 3, note: 'The window is a week late.' }),
+      JSON.stringify(asked?.body) === JSON.stringify({ promotionCode: PROMOTION, revision: 3, note: 'The window is a week late.' }),
       JSON.stringify(asked?.body),
     )
     await page.locator('[data-review-last]').waitFor({ timeout: 10000 })
@@ -935,7 +935,7 @@ async function drive532(dir) {
     await failed.waitFor({ timeout: 20000 })
     check(
       `${tag} 20: a stale link reads RULES_UPLOAD_NOT_FOUND in our words`,
-      (await failed.getAttribute('data-review-failed')) === 'notFound' && (await text(failed)) === 'There is no campaign upload of this deal: the link may be stale.',
+      (await failed.getAttribute('data-review-failed')) === 'notFound' && (await text(failed)) === 'There is no campaign upload of this promotion: the link may be stale.',
       await text(failed),
     )
     await context.close()

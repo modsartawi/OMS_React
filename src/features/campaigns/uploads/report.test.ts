@@ -14,9 +14,9 @@ const issue = (at: string, message = 'something', over: Partial<RuleUploadIssue>
 const report = (over: Partial<RuleUploadReport> = {}): RuleUploadReport => ({
   accepted: true,
   stored: true,
-  dealCode: '0001000048-261009-261015',
+  promotionCode: '0001000048-261009-261015',
   stacking: 'compete',
-  note: 'SAP deal 0001000048, 9-15 October',
+  note: 'SAP promotion number 0001000048, 9-15 October',
   revision: 3,
   mechanics: { percentOff: 2, buyNGetMFree: 1 },
   skuCount: 41,
@@ -105,8 +105,8 @@ describe('readReportView', () => {
     const v = readReportView(report())
     expect(v.state).toBe('waiting')
     expect(v.revision).toBe(3)
-    expect(v.note).toBe('SAP deal 0001000048, 9-15 October')
-    expect(v.dealCode).toBe('0001000048-261009-261015')
+    expect(v.note).toBe('SAP promotion number 0001000048, 9-15 October')
+    expect(v.promotionCode).toBe('0001000048-261009-261015')
     expect(v.window).toBe('2026-10-09 – 2026-10-15')
   })
 

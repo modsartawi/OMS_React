@@ -880,15 +880,15 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/campaigns/customers',
       },
       {
-        // One workbook for one deal, read all or none (ticket 530). No access probe exists: the
+        // One workbook for one promotion, read all or none (ticket 530). No access probe exists: the
         // doors answer a bare 403, which the page names.
         labelKey: 'campaign-list:menu.upload',
         icon: FileSpreadsheet,
         routerLink: '/campaigns/upload',
       },
       {
-        // The approver's list of every deal's upload (ticket 532); an opened upload
-        // (`/campaigns/uploads/:dealCode`) lights it too. No probe: readers see it, the doors
+        // The approver's list of every promotion's upload (ticket 532); an opened upload
+        // (`/campaigns/uploads/:promotionCode`) lights it too. No probe: readers see it, the doors
         // answer a session without the grant a bare 403, which the page names.
         labelKey: 'campaign-list:menu.uploads',
         icon: ClipboardCheck,

@@ -71,7 +71,7 @@ export const DEFAULT_STATE_FILTER: UploadStateFilter = 'pending'
 
 export const isKnownState = (state: RuleUploadState): state is KnownUploadState => (UPLOAD_STATES as readonly string[]).includes(state)
 
-/** A deal's stacking this client has words for; another renders as sent. */
+/** A promotion's stacking this client has words for; another renders as sent. */
 export const isKnownStacking = (stacking: string): stacking is 'compete' | 'stacks' => stacking === 'compete' || stacking === 'stacks'
 
 export const STATE_SEV: Record<KnownUploadState, Severity> = { pending: 'go', sentBack: 'warn', activated: 'ok' }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\assets\2848-oms-react-promotions-brief.md
 blocked-by: — (live: BackOffice 2846)
 ---
@@ -53,10 +53,10 @@ label) · route + menu + page · i18n EN · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `promotionRowView`: each of the four states gives its badge and an unknown one gives `disabled`; `upload` / `manual` give their kind; the no-promotion row (by `promotionCode: null`) reads "No promotion" and links `/campaigns/no-promotion`; a row with a `promotionCode` and `origin: null` has no kind; empty names show the code alone (vitest)
-- [ ] `windowDays` (or the shared helper): a promotion's `windowUntil` is shown as sent, the inclusive last day; a null window shows none (vitest)
-- [ ] `tools/campaign-promotions-drive.mjs`, LTR and RTL, against a stub serving `Promotions/List` with a live, a pending, an ended, a disabled and a hand-made promotion plus the no-promotion row, and a bare 403: the badges, the order, the no-promotion row last, Upload a promotion's link, the 403 message
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `promotionRowView`: each of the four states gives its badge and an unknown one gives `disabled`; `upload` / `manual` give their kind; the no-promotion row (by `promotionCode: null`) reads "No promotion" and links `/campaigns/no-promotion`; a row with a `promotionCode` and `origin: null` has no kind; empty names show the code alone (vitest)
+- [x] `windowDays` (or the shared helper): a promotion's `windowUntil` is shown as sent, the inclusive last day; a null window shows none (vitest)
+- [x] `tools/campaign-promotions-drive.mjs`, LTR and RTL, against a stub serving `Promotions/List` with a live, a pending, an ended, a disabled and a hand-made promotion plus the no-promotion row, and a bare 403: the badges, the order, the no-promotion row last, Upload a promotion's link, the 403 message
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -76,3 +76,28 @@ no-promotion row, and a row opens its promotion's address.
 
 - The old list's state tiles (drafts / scheduled / running / expired / disabled across every campaign) have no place
   in variant 1. Default: they go with the flat list. Overrulable.
+
+## Comments
+
+**2026-10-21, built (AFK).** Done when holds on the stubbed app.
+
+- Proof: `src/features/campaigns/promotions/promotion-row.test.ts` (the badge for each of the four states and an
+  unknown one, kind from origin, the no-promotion row by `promotionCode: null`, a stray code with `origin: null`
+  has no kind, the code alone with empty names, the live version only when live, the upload facts, the window
+  inclusive and none when null); `windowDays` / `dayOf` graduated to `src/core/rules/wire-days.ts` (the upload
+  screens import it; their tests moved to `wire-days.test.ts`, none deleted). `tools/campaign-promotions-drive.mjs`
+  **82/82, LTR + RTL**, stubbed `Promotions/List` on the real envelope (live, pending, ended, disabled, hand-made, a
+  stray code with an unlisted state, the no-promotion row; a bare 403). `tools/campaign-uploads-drive.mjs` still
+  272/272. typecheck, lint (4 gates), `npm test` (5711) and build green.
+- `/campaigns/promotions/:promotionCode` and `/campaigns/no-promotion` are a placeholder for 535: the promotion's
+  header from its List row, a stale code's "no such promotion", the bare 403's message, the way back.
+- The menu leaf's key is `campaign-list:menu.promotions` ("Promotions"); `promotions` and `no-promotion` are reserved
+  campaign ids; CONTEXT.md gains the rule engine's **Promotion** beside the bonus-buy one.
+- **Left for 535 (by this ticket's split):** `CampaignListPage` is unrouted but still in the tree, so New campaign /
+  From a template have no entry point until 535 moves them to the no-promotion page; `tools/campaigns-drive.mjs`
+  stops at its first flat-list check (`waitRows` on `/campaigns`), which 535 re-cuts; the promotions query is not yet
+  invalidated by an upload's Activate (it refetches on mount). **Left for 537:** the workspace's "To campaigns" back
+  link still goes to `/campaigns`.
+- Open question ruled by its default: the old list's state tiles went with the flat list.
+- Decisions in `.afk/HITL-534.md`. Outstanding (not this ticket's): the live walk is 538.
+

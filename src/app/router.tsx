@@ -658,8 +658,9 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
         }),
       },
-      // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The list,
-      // then one campaign's workspace: a shell with the campaign's own menu and its pages as children
+      // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
+      // Promotions list (ticket 534, BackOffice brief 2848: `/campaigns` lists the promotions, no
+      // longer every campaign), a promotion's page, then one campaign's workspace: a shell with the campaign's own menu and its pages as children
       // (the dashboard is the index; 504+ add `rules`, `settings/:page`, `coupons`, `versions`).
       // Static leaves (`/campaigns/priority`, `/campaigns/simulator`, …) are declared BESIDE
       // `campaigns/:id` as their slices land — react-router ranks a static segment above `:id`.
@@ -667,7 +668,21 @@ export const router = createBrowserRouter([
       {
         path: 'campaigns',
         lazy: async () => ({
-          Component: (await import('@/features/campaigns/list/CampaignListPage')).default,
+          Component: (await import('@/features/campaigns/promotions/PromotionsPage')).default,
+        }),
+      },
+      {
+        // A promotion's page and the no-promotion page (ticket 534 routes the list's rows here; 535
+        // lists their campaigns): one component, static leaves beside `campaigns/:id`.
+        path: 'campaigns/promotions/:promotionCode',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/promotions/PromotionPage')).default,
+        }),
+      },
+      {
+        path: 'campaigns/no-promotion',
+        lazy: async () => ({
+          Component: (await import('@/features/campaigns/promotions/PromotionPage')).default,
         }),
       },
       {

@@ -20,8 +20,18 @@ describe('the Campaigns nav group', () => {
     expect(MENU[at + 1].labelKey).toBe('materials-search:menu.materials')
   })
 
-  it('501 ships the Campaigns leaf first, at /campaigns', () => {
+  it('501 ships the first leaf at /campaigns; since 534 it is the Promotions list', () => {
     expect(leaves([campaigns!])[0].routerLink).toBe('/campaigns')
+    expect(leaves([campaigns!])[0].labelKey).toBe('campaign-list:menu.promotions')
+  })
+
+  it('534: a promotion’s page and the no-promotion page light Promotions, the code in the crumb', () => {
+    expect(markedLeaf(MENU, '/campaigns/promotions/0001000048-261009-261015')?.labelKey).toBe('campaign-list:menu.promotions')
+    expect(markedLeaf(MENU, '/campaigns/no-promotion')?.labelKey).toBe('campaign-list:menu.promotions')
+    expect(deriveCrumb(MENU, '/campaigns/promotions/WKND', { promotionCode: 'WKND' })).toEqual({
+      trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
+      record: 'WKND',
+    })
   })
 
   it('🚩 no leaf carries a probe until ticket 520 — the group shows for every user', () => {
@@ -31,20 +41,20 @@ describe('the Campaigns nav group', () => {
     expect(resolveMenu([campaigns!], []).items[0].items).toHaveLength(8)
   })
 
-  it('a campaign’s workspace lights the Campaigns leaf and puts its id in the crumb', () => {
-    expect(markedLeaf(MENU, '/campaigns/WKND20')?.labelKey).toBe('campaign-list:menu.campaigns')
+  it('a campaign’s workspace lights the Promotions leaf and puts its id in the crumb', () => {
+    expect(markedLeaf(MENU, '/campaigns/WKND20')?.labelKey).toBe('campaign-list:menu.promotions')
     expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' })).toEqual({
-      trail: ['campaign-list:menu.group', 'campaign-list:menu.campaigns'],
+      trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
       record: 'WKND20',
     })
   })
 
-  it('513 adds Priority second, at /campaigns/priority, and it lights itself rather than Campaigns', () => {
+  it('513 adds Priority second, at /campaigns/priority, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[1].routerLink).toBe('/campaigns/priority')
     expect(markedLeaf(MENU, '/campaigns/priority')?.labelKey).toBe('campaign-list:menu.priority')
   })
 
-  it('514 adds Simulator third, at /campaigns/simulator, and it lights itself rather than Campaigns', () => {
+  it('514 adds Simulator third, at /campaigns/simulator, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[2].routerLink).toBe('/campaigns/simulator')
     expect(markedLeaf(MENU, '/campaigns/simulator')?.labelKey).toBe('campaign-list:menu.simulator')
   })
@@ -59,14 +69,14 @@ describe('the Campaigns nav group', () => {
     })
   })
 
-  it('519 adds Coupon finder fifth and Customers sixth; each lights itself rather than Campaigns', () => {
+  it('519 adds Coupon finder fifth and Customers sixth; each lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[4].routerLink).toBe('/campaigns/coupon-finder')
     expect(leaves([campaigns!])[5].routerLink).toBe('/campaigns/customers')
     expect(markedLeaf(MENU, '/campaigns/coupon-finder')?.labelKey).toBe('campaign-list:menu.couponFinder')
     expect(markedLeaf(MENU, '/campaigns/customers')?.labelKey).toBe('campaign-list:menu.customers')
   })
 
-  it('530 adds Campaign upload seventh, at /campaigns/upload, and it lights itself rather than Campaigns', () => {
+  it('530 adds Campaign upload seventh, at /campaigns/upload, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[6].routerLink).toBe('/campaigns/upload')
     expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
   })

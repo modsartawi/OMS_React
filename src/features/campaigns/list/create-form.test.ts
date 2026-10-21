@@ -45,7 +45,7 @@ describe('campaignId_authorPicksIt', () => {
     expect(campaignIdProblem('A'.repeat(41))).toBe('idTooLong')
     expect(campaignIdProblem('WEEKEND 20')).toBe('idCharacters')
     expect(campaignIdProblem('خصم')).toBe('idCharacters')
-    for (const leaf of ['priority', 'Simulator', 'SESSIONS', 'coupon-finder', 'customers']) expect(campaignIdProblem(leaf)).toBe('idReserved')
+    for (const leaf of ['priority', 'Simulator', 'SESSIONS', 'coupon-finder', 'customers', 'Promotions', 'no-promotion']) expect(campaignIdProblem(leaf)).toBe('idReserved')
   })
 
   it('refuses an id a listed campaign already has: a first save at revision 0 would draft over it', () => {

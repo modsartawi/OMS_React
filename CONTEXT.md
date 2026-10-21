@@ -136,6 +136,16 @@ movements back. Code names it `RuleSession*`; the screen's own pages may say "Se
 Campaigns group. Neither the auth **Session** nor an **Engine session**.
 _Avoid_: session (unqualified, outside the Campaigns screens), transaction.
 
+**Promotion** (rule engine, on Campaigns ▸ Promotions):
+The weekly flyer or an ad-hoc set of rule **campaigns**, identified by its `promotionCode` (BackOffice
+ADR 0097, brief 2848; the word BackOffice 2862 gave it). An **uploaded** promotion (`origin: upload`)
+owns the campaigns whose ids start with `<promotionCode>-`; a **hand-made** one (`origin: manual`) is a
+label campaigns are assigned to. Grouping is not publishing: a promotion has no version, no approval,
+no budget and no disable of its own. A **campaign** is one offer inside it, a **rule** one when/then
+inside a campaign. Code names it `RulePromotion*` wherever a bare `Promotion` could be confused. Not
+the bonus-buy **Promotion** (SAP's container, below).
+_Avoid_: batch, week, offer group; "promotion" for one campaign or for a bonus buy.
+
 **Envelope**:
 The universal SIS.Api response shape `{ statusCode, success, message, errors, data }`
 (`HttpGeneralResponse<T>`). Every server call returns one; `src/core/api.ts` unwraps `.data` and

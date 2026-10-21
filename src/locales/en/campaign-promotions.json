@@ -1,0 +1,59 @@
+{
+  "denied": "You do not have access to this action.",
+  "list": {
+    "title": "Promotions",
+    "lede": "Each flyer or ad-hoc set of campaigns, newest first. Open a promotion to see its campaigns.",
+    "upload": "Upload a promotion",
+    "noPromotion": "No promotion",
+    "loading": "Reading the promotions…",
+    "count_one": "<n>{{count}}</n> promotion",
+    "count_other": "<n>{{count}}</n> promotions",
+    "none": "HQ keeps no promotion yet.",
+    "failedTitle": "The promotions could not be read",
+    "failed": "Try again in a moment.",
+    "columns": {
+      "promotion": "Promotion",
+      "nameEn": "English name",
+      "nameAr": "Arabic name",
+      "kind": "Kind",
+      "window": "Window",
+      "campaignCount": "Campaigns",
+      "skuCount": "SKUs",
+      "state": "State",
+      "liveVersionNo": "Live version",
+      "revision": "Upload revision",
+      "uploadState": "Upload",
+      "uploadedBy": "Uploaded by",
+      "approvedBy": "Approved by"
+    }
+  },
+  "kind": {
+    "uploaded": "Uploaded",
+    "handMade": "Hand-made"
+  },
+  "state": {
+    "live": "Live",
+    "pending": "Pending",
+    "ended": "Ended",
+    "disabled": "Disabled"
+  },
+  "uploadState": {
+    "pending": "Pending",
+    "sentBack": "Sent back",
+    "activated": "Activated"
+  },
+  "promotion": {
+    "back": "Back to the promotions",
+    "loading": "Reading the promotion…",
+    "notFound": "There is no such promotion: the link may be stale.",
+    "campaignsLater": "This promotion's campaigns are not listed on this page yet.",
+    "facts": {
+      "kind": "Kind",
+      "window": "Window",
+      "campaignCount": "Campaigns",
+      "skuCount": "SKUs",
+      "state": "State",
+      "liveVersionNo": "Live version"
+    }
+  }
+}

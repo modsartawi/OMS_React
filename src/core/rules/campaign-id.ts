@@ -6,8 +6,10 @@
 export const CAMPAIGN_ID_MAX = 40
 const CAMPAIGN_ID = /^[A-Za-z0-9._-]+$/
 
-/** The static leaves under `/campaigns/…`: a campaign with one of these ids would be shadowed. */
-export const RESERVED_CAMPAIGN_IDS: readonly string[] = ['priority', 'simulator', 'sessions', 'coupon-finder', 'customers']
+/** The static leaves under `/campaigns/…`: a campaign with one of these ids would be shadowed
+ *  (`no-promotion` by its page; `promotions` by `/campaigns/promotions/:promotionCode`, which takes its
+ *  workspace's pages). */
+export const RESERVED_CAMPAIGN_IDS: readonly string[] = ['priority', 'simulator', 'sessions', 'coupon-finder', 'customers', 'promotions', 'no-promotion']
 
 /** An id suggested from a name: upper-case, every other character a dash, at most 40. */
 export function suggestCampaignId(name: string): string {

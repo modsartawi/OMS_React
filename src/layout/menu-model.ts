@@ -840,9 +840,10 @@ export const MENU: ShellMenuItem[] = [
     icon: Megaphone,
     items: [
       {
-        // The list owns `/campaigns/*` — a campaign's workspace (`/campaigns/:id/…`) lights it. A
-        // later static leaf (`/campaigns/priority`) wins its own address by being more specific.
-        labelKey: 'campaign-list:menu.campaigns',
+        // The Promotions list (ticket 534; it read "Campaigns" before BackOffice brief 2848) owns
+        // `/campaigns/*` — a promotion's page and a campaign's workspace (`/campaigns/:id/…`) light it.
+        // A later static leaf (`/campaigns/priority`) wins its own address by being more specific.
+        labelKey: 'campaign-list:menu.promotions',
         icon: Megaphone,
         routerLink: '/campaigns',
       },

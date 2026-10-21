@@ -30,6 +30,18 @@ export const CAMPAIGN_STATE_SEV: Record<CampaignState, Severity> = {
 /** A campaign's workspace address — the list's row, its name link and the workspace's own menu. */
 export const campaignPath = (id: string) => `/campaigns/${encodeURIComponent(id)}`
 
+/** The Promotions list (ticket 534, BackOffice brief 2848): the campaign area's top level. */
+export const PROMOTIONS_PATH = '/campaigns'
+
+/** The page of the hand-built campaigns that belong to no promotion (the list's last row). */
+export const NO_PROMOTION_PATH = '/campaigns/no-promotion'
+
+/** The campaign upload (ticket 530): one workbook for one promotion. */
+export const CAMPAIGN_UPLOAD_PATH = '/campaigns/upload'
+
+/** A promotion's page — the rule engine's promotion, never a bonus buy's. */
+export const promotionPath = (promotionCode: string) => `/campaigns/promotions/${encodeURIComponent(promotionCode)}`
+
 /** The simulator (ticket 514); with a campaign's id it runs that campaign's working copy. */
 export const simulatorPath = (draftId?: string) =>
   draftId ? `/campaigns/simulator?draft=${encodeURIComponent(draftId)}` : '/campaigns/simulator'

@@ -1,5 +1,6 @@
 // Campaign promotions drive (BackOffice ADR 0097, brief 2848 renamed by 2862; ticket 534 creates it —
-// 535 and 536 each ADD a section of their own below the previous one, and leave earlier checks unchanged).
+// 535 and 536 each ADD a section of their own below the previous one, and leave earlier checks unchanged;
+// 536 re-cut 534's check 8, which asserted New promotion was not there yet).
 //
 // Drives the REAL app in Chromium against STUBS of the rule engine's promotion doors, on the REAL envelope
 // { statusCode, success, message, errors: [{ errorCode, internalErrorCode, errorMessage }], data }, the
@@ -369,7 +370,8 @@ async function drive(dir) {
     check(`${tag} 7: the status bar counts the promotions, not the no-promotion row`, (await text(page.locator('[data-status-count]'))) === '6 promotions', await text(page.locator('[data-status-count]')))
     const up = page.locator('[data-promotions-upload]')
     check(`${tag} 8: Upload a promotion links /campaigns/upload`, (await text(up)) === 'Upload a promotion' && (await up.getAttribute('href')) === '/campaigns/upload')
-    check(`${tag} 8: there is no New promotion yet (536), no promotion budget and no promotion-wide disable`, (await page.locator('main button', { hasText: /New promotion|budget|Disable/i }).count()) === 0)
+    // Re-cut by 536: New promotion is its button now; the lasting half stands.
+    check(`${tag} 8: no promotion budget and no promotion-wide disable`, (await page.locator('main button', { hasText: /budget|Disable/i }).count()) === 0)
     check(`${tag} 11: no raw key, no page error (list)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/534-${dir}-list.png`, fullPage: true })
 
@@ -680,10 +682,463 @@ async function drive535(dir) {
   }
 }
 
+// ── 536 ── a hand-made promotion: New promotion, Rename, Assign, Unassign, Delete, and every refusal in
+// the dialog that made the call. The stubs keep a WORLD (the promotions and which campaigns each holds)
+// that every door reads and writes, as HQ does — all or none:
+//   POST Promotions/Create { promotionCode, nameEn, nameAr?, note? } → the record (origin manual); 409
+//        RULES_PROMOTION_EXISTS for a code a promotion has already, in any case
+//   POST Promotions/Update { promotionCode, nameEn, nameAr?, note? } → the record
+//   POST Promotions/Assign { promotionCode, campaigns } → { promotionCode, changed, moved: [{ id, from }] };
+//        409 RULES_PROMOTION_OWNED (one detail per campaign an upload owns: its id starts with
+//        `<upload's code>-`); 404 RULES_PROMOTION_CAMPAIGN_NOT_FOUND
+//   POST Promotions/Unassign { campaigns } → { promotionCode: null, changed, moved }
+//   POST Promotions/Delete { promotionCode } → the record; 409 RULES_PROMOTION_NOT_EMPTY
+//   POST Promotions/Campaigns { all: true, q } → every campaign of every promotion and of none
+//   every write a bare 403 with `writes: 'denied'`
+// In LTR and RTL it asserts:
+//  20. New promotion: the code's rule said beside it, a bad code said at once, nothing sent without a
+//      code and an English name; a taken code refused RULES_PROMOTION_EXISTS in the dialog (HQ's message,
+//      the code, nothing changed), the list unchanged; then Create sends the fields as shown and opens
+//      the new promotion's page (Hand-made, empty, Delete offered);
+//  21. Assign: the search reads every campaign (all: true, q, the first page); picks outlive a new
+//      search; Assign sends both; "2 assigned, 1 moved from RAMADAN-BUNDLES", each value isolated; the
+//      table and the list are read afresh, and the promotion it left holds one fewer;
+//  22. an uploaded campaign's Assign refused RULES_PROMOTION_OWNED, one detail line, the promotion unchanged;
+//      a Pending campaign (a pending upload's) cannot be picked;
+//  23. Unassign: a ticked row, confirmed, sent alone; it goes to no promotion;
+//  24. Delete is not offered while the promotion has campaigns; refused RULES_PROMOTION_NOT_EMPTY when
+//      another author filled it meanwhile, and the page read afresh shows why; allowed once empty, back
+//      to the list without it;
+//  25. Rename sends every field as shown (the code shown, never edited); an uploaded promotion offers
+//      Rename and no Assign, Unassign or Delete;
+//  26. a bare 403 on a write reads "You do not have access to this action." in its dialog;
+//  27. no raw key and no page error.
+const NEW = 'EID-GIFTS'
+const PROMOTIONS_DOOR = 'Rules/Authoring/Promotions/'
+/** A refusal on the real envelope: the code and HQ's message first, then one error per detail under the same code. */
+const refusal = (status, errorCode, message, details = []) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: status,
+    success: false,
+    message,
+    errors: [message, ...details].map((errorMessage) => ({ errorCode, internalErrorCode: '', errorMessage })),
+    data: null,
+  }),
+})
+
+/** HQ's state for one run: the promotions (534's list) and the campaigns each holds ('' = none; 535's rows). */
+function newWorld() {
+  const records = LIST.filter((p) => p.promotionCode !== null).map((p) => ({ ...p }))
+  const members = Object.fromEntries(Object.entries(CAMPAIGNS_535).filter(([k]) => k !== FLYER).map(([k, rows]) => [k, rows.map((r) => ({ ...r }))]))
+  return { records, members }
+}
+const recordOf = (p) => ({ promotionCode: p.promotionCode, nameEn: p.nameEn, nameAr: p.nameAr, origin: p.origin, note: p.note, createdAt: p.createdAt, createdBy: ME, updatedAt: '2026-10-21T10:00:00', updatedBy: ME })
+const findCode = (world, code) => world.records.find((p) => p.promotionCode.toLowerCase() === (code ?? '').toLowerCase())
+/** Which group holds a campaign: a promotion's code, '' for none, undefined for no campaign row. */
+const groupOf = (world, id) => Object.keys(world.members).find((k) => world.members[k].some((r) => r.id === id))
+/** The upload that owns a campaign: its id starts with an uploaded promotion's `<code>-`. */
+const ownerOf = (world, id) => world.records.find((p) => p.origin === 'upload' && id.startsWith(`${p.promotionCode}-`))
+
+function listOf(world) {
+  // A hand-made promotion's counts follow its members; an upload's are its fixture's.
+  const rows = world.records.map((p) => (p.origin === 'manual' ? { ...p, campaignCount: world.members[p.promotionCode]?.length ?? 0 } : p))
+  return [...rows, promotion({ ...LIST.at(-1), campaignCount: world.members[''].length })]
+}
+
+function pageOf(world, body) {
+  let all
+  if (body.all) all = Object.values(world.members).flat()
+  else {
+    const code = body.promotionCode ? findCode(world, body.promotionCode)?.promotionCode : ''
+    if (code === undefined || !world.members[code]) return null
+    all = world.members[code]
+  }
+  const q = (body.q ?? '').toLowerCase()
+  const rows = all.filter((r) => !q || [r.id, r.nameEn, r.nameAr].some((v) => v.toLowerCase().includes(q))).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const page = body.page ?? 1
+  const size = Math.min(body.pageSize ?? 50, 200)
+  const mechanics = {}
+  for (const r of rows) if (r.mechanic != null) mechanics[r.mechanic] = (mechanics[r.mechanic] ?? 0) + 1
+  return { promotionCode: body.all ? null : body.promotionCode || null, total: rows.length, page, pageSize: size, mechanics, generatedNames: 0, campaigns: rows.slice((page - 1) * size, page * size) }
+}
+
+/** Assign (to `target`) or Unassign (target ''): all or none, as HQ checks it. */
+function regroup(world, target, ids) {
+  const missing = ids.filter((id) => groupOf(world, id) === undefined)
+  if (missing.length) return refusal(404, 'RULES_PROMOTION_CAMPAIGN_NOT_FOUND', `HQ has no campaign ${missing[0]}: it was never published.`)
+  const owned = ids.filter((id) => ownerOf(world, id))
+  if (owned.length)
+    return refusal(
+      409,
+      'RULES_PROMOTION_OWNED',
+      `${owned.length} campaign(s) belong to an uploaded promotion and are neither moved nor unassigned.`,
+      owned.map((id) => `Campaign ${id} belongs to promotion ${ownerOf(world, id).promotionCode}'s upload.`),
+    )
+  const moved = []
+  for (const id of ids) {
+    const from = groupOf(world, id)
+    if (from === target) continue
+    const row = world.members[from].find((r) => r.id === id)
+    world.members[from] = world.members[from].filter((r) => r.id !== id)
+    world.members[target].push(row)
+    if (from !== '') moved.push({ id, from })
+  }
+  return envelope({ promotionCode: target || null, changed: ids, moved })
+}
+
+async function open536(dir, path, world, { writes = 'ok' } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1800, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  const calls = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
+  await page.addInitScript((d) => {
+    localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    localStorage.setItem('oms.railExpanded', 'true')
+  }, dir)
+  await page.route('**/api/**', async (route) => {
+    const req = route.request()
+    const p = new URL(req.url()).pathname.split('/api/')[1]
+    const body = JSON.parse(req.postData() || '{}')
+    calls.push({ p, method: req.method(), body })
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: ME, currentStoreCode: 'P001' }))
+    if (!p.startsWith(PROMOTIONS_DOOR)) {
+      if (p === 'Rules/Authoring/Drafts/List') return route.fulfill(envelope(DRAFTS))
+      if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
+      return route.fulfill(envelope([]))
+    }
+    const door = p.slice(PROMOTIONS_DOOR.length)
+    if (door === 'List') return route.fulfill(envelope(listOf(world)))
+    if (door === 'Campaigns') {
+      const out = pageOf(world, body)
+      return route.fulfill(out ? envelope(out) : refusal(404, 'RULES_PROMOTION_NOT_FOUND', `There is no promotion ${body.promotionCode}.`))
+    }
+    if (writes === 'denied') return route.fulfill(BARE_403)
+    if (door === 'Create') {
+      const code = (body.promotionCode ?? '').trim()
+      if (findCode(world, code)) return route.fulfill(refusal(409, 'RULES_PROMOTION_EXISTS', `There is already a promotion ${findCode(world, code).promotionCode}.`))
+      const made = promotion({ promotionCode: code, nameEn: body.nameEn, nameAr: body.nameAr ?? '', note: body.note ?? '', origin: 'manual', state: 'disabled', createdAt: '2026-10-21T10:00:00' })
+      world.records.unshift(made)
+      world.members[code] = []
+      return route.fulfill(envelope(recordOf(made)))
+    }
+    if (door === 'Update') {
+      const p0 = findCode(world, body.promotionCode)
+      if (!p0) return route.fulfill(refusal(404, 'RULES_PROMOTION_NOT_FOUND', `There is no promotion ${body.promotionCode}.`))
+      Object.assign(p0, { nameEn: body.nameEn, ...(body.nameAr != null ? { nameAr: body.nameAr } : {}), ...(body.note != null ? { note: body.note } : {}) })
+      return route.fulfill(envelope(recordOf(p0)))
+    }
+    if (door === 'Assign') return route.fulfill(regroup(world, findCode(world, body.promotionCode).promotionCode, body.campaigns))
+    if (door === 'Unassign') return route.fulfill(regroup(world, '', body.campaigns))
+    if (door === 'Delete') {
+      const p0 = findCode(world, body.promotionCode)
+      const held = world.members[p0.promotionCode].length
+      if (held) return route.fulfill(refusal(409, 'RULES_PROMOTION_NOT_EMPTY', `Promotion ${p0.promotionCode} still has ${held} campaign(s): unassign them first.`))
+      world.records = world.records.filter((r) => r !== p0)
+      delete world.members[p0.promotionCode]
+      return route.fulfill(envelope(recordOf(p0)))
+    }
+    return route.fulfill(envelope([]))
+  })
+  await page.goto(`${BASE}${path}`)
+  return { context, page, errors, calls }
+}
+
+const dialogOpen = 'dialog[open]'
+const bodiesOf = (calls, door) => calls.filter((c) => c.p === `${PROMOTIONS_DOOR}${door}`).map((c) => c.body)
+const gridIds = (page) => page.locator(`${pageGrid} .ag-row`).evaluateAll((rows) => rows.map((r) => r.getAttribute('row-id')).sort())
+async function waitIds(page, ids) {
+  await page.waitForFunction(
+    ([sel, want]) => [...document.querySelectorAll(`${sel} .ag-row`)].map((r) => r.getAttribute('row-id')).sort().join(',') === want && !!document.querySelector('[data-campaigns-count]'),
+    [pageGrid, [...ids].sort().join(',')],
+    { timeout: 20000 },
+  )
+}
+async function closeDialog(page) {
+  await page.locator(dialogOpen).getByRole('button', { name: 'Cancel' }).click()
+  await page.waitForFunction(() => !document.querySelector('dialog[open]'))
+}
+
+async function drive536(dir) {
+  const tag = `${dir.toUpperCase()} 536`
+  const world = newWorld()
+
+  // ── 20: New promotion ──
+  const { context, page, errors, calls } = await open536(dir, ROUTE, world)
+  await page.locator('[data-promotions-grid] .ag-row').nth(LIST.length - 1).waitFor({ timeout: 20000 })
+  const newButton = page.locator('[data-new-promotion]')
+  check(`${tag} 20: the list offers New promotion`, (await text(newButton)) === 'New promotion')
+  await newButton.click()
+  const dialog = page.locator(dialogOpen)
+  await dialog.waitFor()
+  check(`${tag} 20: its dialog names itself`, (await dialog.locator('#modal-title').innerText()) === 'New promotion')
+  check(`${tag} 20: the code's rule is said beside it`, (await dialog.innerText()).includes('Letters, digits, dots, dashes and underscores, at most 38. It never changes after.'))
+  const field = (k) => dialog.locator(`[data-promotion-field="${k}"]`)
+  await field('promotionCode').fill('EID GIFTS')
+  check(`${tag} 20: a bad code is said at once`, (await text(dialog.locator('[data-promotion-problem="promotionCode"]'))) === 'Use only letters A–Z, digits, dots, dashes and underscores.')
+  await field('promotionCode').fill('')
+  await dialog.locator('[data-promotion-form-submit]').click()
+  check(
+    `${tag} 20: nothing is sent without a code and an English name`,
+    (await dialog.locator('[data-promotion-problem]').count()) === 2 && bodiesOf(calls, 'Create').length === 0,
+  )
+  await field('promotionCode').fill(HAND.toLowerCase())
+  await field('nameEn').fill('Ramadan again')
+  await dialog.locator('[data-promotion-form-submit]').click()
+  const taken = dialog.locator('[data-write-refusal="exists"]')
+  await taken.waitFor({ timeout: 10000 })
+  check(
+    `${tag} 20: a taken code is refused RULES_PROMOTION_EXISTS in the dialog: our words, HQ's message, the code, nothing changed`,
+    (await text(taken)).includes('That code is taken') &&
+      (await text(taken.locator('[data-write-refusal-message]'))) === `There is already a promotion ${HAND}.` &&
+      (await taken.locator('[data-write-refusal-code="RULES_PROMOTION_EXISTS"]').count()) === 1 &&
+      (await text(taken.locator('[data-write-refusal-unchanged]'))) === 'Nothing was changed.',
+    await text(taken),
+  )
+  check(`${tag} 20: …the dialog stays, the list unchanged`, new URL(page.url()).pathname === ROUTE && (await gridRows(page)).length === LIST.length)
+  await field('promotionCode').fill(NEW)
+  check(`${tag} 20: an edit clears the stale refusal`, (await dialog.locator('[data-write-refusal]').count()) === 0)
+  await field('nameEn').fill('Eid gifts')
+  await field('nameAr').fill('هدايا العيد')
+  await field('note').fill('Gift sets for Eid')
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/536-${dir}-new.png` })
+  await dialog.locator('[data-promotion-form-submit]').click()
+  await page.waitForURL(`${BASE}${ROUTE}/promotions/${NEW}`, { timeout: 10000 })
+  check(
+    `${tag} 20: Create sends the fields as shown`,
+    JSON.stringify(bodiesOf(calls, 'Create').at(-1)) === JSON.stringify({ promotionCode: NEW, nameEn: 'Eid gifts', nameAr: 'هدايا العيد', note: 'Gift sets for Eid' }),
+    JSON.stringify(bodiesOf(calls, 'Create')),
+  )
+  await page.locator('[data-promotion-header]').waitFor({ timeout: 10000 })
+  const fact = (k) => text(page.locator(`[data-promotion-fact="${k}"] dd`))
+  check(`${tag} 20: …and opens the new promotion's page, Hand-made`, (await text(page.locator('[data-promotion-header] h1'))) === NEW && (await fact('kind')) === 'Hand-made' && (await fact('note')) === 'Gift sets for Eid')
+  await page.locator('[data-campaigns-count]').waitFor({ timeout: 10000 })
+  check(`${tag} 20: …empty, so Delete is offered`, (await page.locator('[data-promotion-delete]').isEnabled()) && (await page.locator('[data-promotion-delete-hint]').count()) === 0)
+  check(`${tag} 25: Unassign waits for a ticked row`, !(await page.locator('[data-promotion-unassign]').isEnabled()))
+
+  // ── 21: Assign, one moved ──
+  await page.locator('[data-promotion-assign]').click()
+  await dialog.waitFor()
+  check(`${tag} 21: Assign names the promotion`, (await dialog.locator('#modal-title').innerText()).replace(/[⁦-⁩]/g, '') === `Assign campaigns to ${NEW}`)
+  await dialog.locator('[data-assign-hits]').waitFor({ timeout: 10000 })
+  await dialog.locator('[data-assign-search]').fill('RAMADAN')
+  await dialog.locator('[data-assign-pick="RAMADAN-JUICE"]').waitFor({ timeout: 10000 })
+  await dialog.locator('[data-assign-pick="RAMADAN-DATES"]').check()
+  await dialog.locator('[data-assign-search]').fill('WKND')
+  await page.waitForFunction(() => !document.querySelector('[data-assign-pick="RAMADAN-DATES"]') && !!document.querySelector('[data-assign-pick="WKND20"]'), null, { timeout: 10000 })
+  const searches = bodiesOf(calls, 'Campaigns').filter((b) => b.all)
+  check(
+    `${tag} 21: the search reads every campaign: all, q, the first page`,
+    JSON.stringify(searches.at(-1)) === JSON.stringify({ promotionCode: null, all: true, q: 'WKND', page: 1, pageSize: 50 }),
+    JSON.stringify(searches.at(-1)),
+  )
+  await dialog.locator('[data-assign-pick="WKND20"]').check()
+  check(`${tag} 21: picks outlive a new search`, (await dialog.locator('[data-assign-picked]').getAttribute('data-assign-picked')) === '2' && (await text(dialog.locator('[data-assign-picked]'))) === '2 campaigns picked')
+  const listReads = calls.filter((c) => c.p === `${PROMOTIONS_DOOR}List`).length
+  await dialog.locator('[data-assign-submit]').click()
+  const doneLine = page.locator('[data-promotion-done="assigned"]')
+  await doneLine.waitFor({ timeout: 10000 })
+  check(`${tag} 21: Assign sends both`, JSON.stringify(bodiesOf(calls, 'Assign').at(-1)) === JSON.stringify({ promotionCode: NEW, campaigns: ['RAMADAN-DATES', 'WKND20'] }), JSON.stringify(bodiesOf(calls, 'Assign')))
+  check(`${tag} 21: "2 assigned, 1 moved from ${HAND}"`, (await text(doneLine)) === `2 assigned, 1 moved from ${HAND}`, await text(doneLine))
+  check(`${tag} 21: …each value isolated`, (await doneLine.locator('bdi[dir="ltr"]').count()) === 3)
+  // Read in its words' order in RTL too: 2, then 1, then the promotion, left to right.
+  check(
+    `${tag} 21: …drawn in the order it reads, in ${dir.toUpperCase()} too`,
+    await doneLine.evaluate((el) => {
+      const x = [...el.querySelectorAll('bdi')].map((b) => b.getBoundingClientRect().left)
+      return x.length === 3 && x[0] < x[1] && x[1] < x[2]
+    }),
+  )
+  check(`${tag} 21: …and the dialog is closed`, (await page.locator(dialogOpen).count()) === 0)
+  await waitIds(page, ['RAMADAN-DATES', 'WKND20'])
+  check(`${tag} 21: the table is read afresh`, JSON.stringify(await gridIds(page)) === JSON.stringify(['RAMADAN-DATES', 'WKND20']))
+  check(`${tag} 21: …and the list`, calls.filter((c) => c.p === `${PROMOTIONS_DOOR}List`).length > listReads)
+  check(`${tag} 24: Delete is not offered while the promotion has campaigns`, !(await page.locator('[data-promotion-delete]').isEnabled()) && (await text(page.locator('[data-promotion-delete-hint]'))) === 'Only an empty promotion can be deleted: unassign its campaigns first.')
+  check(`${tag} 27: no raw key, no page error (assigned)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/536-${dir}-assigned.png`, fullPage: true })
+
+  // ── 22: an uploaded campaign is its upload's ──
+  await page.locator('[data-promotion-assign]').click()
+  await dialog.waitFor()
+  check(`${tag} 22: a new write clears the last line`, (await page.locator('[data-promotion-done]').count()) === 0)
+  // A Pending campaign is held by a pending upload only: an upload owns it, so it is not offered.
+  await dialog.locator('[data-assign-search]').fill(PENDING)
+  await dialog.locator(`[data-assign-pick="${PENDING}-N1"]`).waitFor({ timeout: 10000 })
+  check(`${tag} 22: a Pending campaign cannot be picked`, await dialog.locator(`[data-assign-pick="${PENDING}-N1"]`).isDisabled())
+  await dialog.locator('[data-assign-search]').fill(`${LIVE}-S1`)
+  await dialog.locator(`[data-assign-pick="${LIVE}-S1"]`).waitFor({ timeout: 10000 })
+  await dialog.locator(`[data-assign-pick="${LIVE}-S1"]`).check()
+  await dialog.locator('[data-assign-submit]').click()
+  const owned = dialog.locator('[data-write-refusal="owned"]')
+  await owned.waitFor({ timeout: 10000 })
+  check(
+    `${tag} 22: refused RULES_PROMOTION_OWNED in the dialog, one detail line for the campaign`,
+    (await owned.locator('[data-write-refusal-code="RULES_PROMOTION_OWNED"]').count()) === 1 &&
+      (await owned.locator('[data-write-refusal-details]').getAttribute('data-write-refusal-details')) === '1' &&
+      (await text(owned.locator('[data-write-refusal-details] li'))) === `Campaign ${LIVE}-S1 belongs to promotion ${LIVE}'s upload.`,
+    await text(owned),
+  )
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/536-${dir}-owned.png` })
+  await closeDialog(page)
+  check(`${tag} 22: …the promotion unchanged`, JSON.stringify(await gridIds(page)) === JSON.stringify(['RAMADAN-DATES', 'WKND20']) && world.members[NEW].length === 2 && world.members[LIVE].length === 3)
+
+  // ── 23: Unassign one ──
+  await page.locator(`${pageGrid} .ag-row[row-id="WKND20"] input[type="checkbox"]`).check()
+  await page.waitForFunction(() => document.querySelector('[data-promotion-unassign]')?.getAttribute('data-promotion-unassign') === '1')
+  check(`${tag} 23: a ticked row stays on its page (a tick does not open it)`, new URL(page.url()).pathname === `${ROUTE}/promotions/${NEW}`)
+  await page.locator('[data-promotion-unassign]').click()
+  await dialog.waitFor()
+  check(`${tag} 23: Unassign asks first`, (await text(dialog.locator('[data-confirm-dialog="unassign"]'))) === `Take 1 campaign out of ${NEW}? It goes to no promotion.`, await text(dialog))
+  await dialog.locator('[data-confirm-write]').click()
+  const unassigned = page.locator('[data-promotion-done="unassigned"]')
+  await unassigned.waitFor({ timeout: 10000 })
+  check(`${tag} 23: Unassign sends the ticked campaign alone`, JSON.stringify(bodiesOf(calls, 'Unassign').at(-1)) === JSON.stringify({ campaigns: ['WKND20'] }))
+  check(`${tag} 23: …it goes to no promotion`, (await text(unassigned)) === '1 unassigned: it is in no promotion now.' && world.members[''].some((r) => r.id === 'WKND20'))
+  await waitIds(page, ['RAMADAN-DATES'])
+  check(`${tag} 23: …and the table holds the other`, JSON.stringify(await gridIds(page)) === JSON.stringify(['RAMADAN-DATES']))
+
+  // ── 21: the promotion it left holds one fewer (both sides read afresh) ──
+  await page.locator('[data-promotion-back]').click()
+  await page.waitForURL(`${BASE}${ROUTE}`)
+  await page.locator(`[data-promotions-grid] .ag-row[row-id="${NEW}"]`).waitFor({ timeout: 10000 })
+  const listed = Object.fromEntries((await gridRows(page)).map((r) => [r.id, r]))
+  check(`${tag} 21: the list counts the move: ${NEW} 1, ${HAND} 1`, listed[NEW]?.cells.campaignCount === '1' && listed[HAND]?.cells.campaignCount === '1', `${listed[NEW]?.cells.campaignCount} ${listed[HAND]?.cells.campaignCount}`)
+  await page.locator(`[data-promotion-open="${HAND}"]`).click()
+  await waitIds(page, ['RAMADAN-JUICE'])
+  check(`${tag} 21: …and ${HAND}'s page holds only the one it kept`, JSON.stringify(await gridIds(page)) === JSON.stringify(['RAMADAN-JUICE']))
+
+  // ── 25: Rename ──
+  await page.locator('[data-promotion-rename]').click()
+  await dialog.waitFor()
+  check(
+    `${tag} 25: Rename shows the code, never as a field, and the promotion's own fields`,
+    (await text(dialog.locator('[data-promotion-form-code]'))) === `Promotion code ${HAND} The code never changes.` &&
+      (await field('promotionCode').count()) === 0 &&
+      (await field('nameEn').inputValue()) === 'Ramadan bundles' &&
+      (await field('nameAr').inputValue()) === 'باقات رمضان',
+  )
+  await field('nameEn').fill('Ramadan bundles 2026')
+  await dialog.locator('[data-promotion-form-submit]').click()
+  await page.locator('[data-promotion-done="renamed"]').waitFor({ timeout: 10000 })
+  check(
+    `${tag} 25: Rename sends every field as shown`,
+    JSON.stringify(bodiesOf(calls, 'Update').at(-1)) === JSON.stringify({ promotionCode: HAND, nameEn: 'Ramadan bundles 2026', nameAr: 'باقات رمضان', note: '' }),
+    JSON.stringify(bodiesOf(calls, 'Update')),
+  )
+  await page.waitForFunction(() => document.querySelector('[data-promotion-names]')?.textContent?.includes('Ramadan bundles 2026'), null, { timeout: 10000 })
+  check(`${tag} 25: …and the header reads the new name`, (await text(page.locator('[data-promotion-names]'))).startsWith('Ramadan bundles 2026'))
+
+  // ── 24: Delete, refused while not empty, then allowed ──
+  await page.goto(`${BASE}${ROUTE}/promotions/${NEW}`)
+  await waitIds(page, ['RAMADAN-DATES'])
+  await page.locator(`${pageGrid} .ag-row[row-id="RAMADAN-DATES"] input[type="checkbox"]`).check()
+  await page.waitForFunction(() => document.querySelector('[data-promotion-unassign]')?.getAttribute('data-promotion-unassign') === '1')
+  await page.locator('[data-promotion-unassign]').click()
+  await dialog.waitFor()
+  await dialog.locator('[data-confirm-write]').click()
+  await page.locator('[data-promotion-done="unassigned"]').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('[data-promotion-delete]') && !document.querySelector('[data-promotion-delete]').disabled, null, { timeout: 10000 })
+  check(`${tag} 24: emptied, Delete is offered`, await page.locator('[data-promotion-delete]').isEnabled())
+  // Another author assigns a campaign to it meanwhile: this page does not know yet.
+  world.members[NEW].push(world.members[''].find((r) => r.id === 'NATDAY-15'))
+  world.members[''] = world.members[''].filter((r) => r.id !== 'NATDAY-15')
+  await page.locator('[data-promotion-delete]').click()
+  await dialog.waitFor()
+  check(`${tag} 24: Delete asks first`, (await text(dialog.locator('[data-confirm-dialog="remove"]'))) === `Delete ${NEW}? It has no campaigns; its names and note go with it.`)
+  await dialog.locator('[data-confirm-write]').click()
+  const notEmpty = dialog.locator('[data-write-refusal="notEmpty"]')
+  await notEmpty.waitFor({ timeout: 10000 })
+  check(
+    `${tag} 24: refused RULES_PROMOTION_NOT_EMPTY in the dialog, the promotion unchanged`,
+    (await text(notEmpty)).includes('The promotion still has campaigns: unassign them first.') &&
+      (await notEmpty.locator('[data-write-refusal-code="RULES_PROMOTION_NOT_EMPTY"]').count()) === 1 &&
+      new URL(page.url()).pathname === `${ROUTE}/promotions/${NEW}` &&
+      !!findCode(world, NEW),
+    await text(notEmpty),
+  )
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/536-${dir}-not-empty.png` })
+  // The refusal says the page is stale: it is read afresh, the campaign shown and Delete withdrawn.
+  await page.waitForFunction(() => document.querySelector('[data-promotion-delete]')?.disabled === true, null, { timeout: 10000 })
+  await closeDialog(page)
+  await waitIds(page, ['NATDAY-15'])
+  check(`${tag} 24: …the page is read afresh: the campaign shown, Delete withdrawn`, JSON.stringify(await gridIds(page)) === JSON.stringify(['NATDAY-15']) && !(await page.locator('[data-promotion-delete]').isEnabled()))
+  // Unassigned, it is empty again.
+  await page.locator(`${pageGrid} .ag-row[row-id="NATDAY-15"] input[type="checkbox"]`).check()
+  await page.waitForFunction(() => document.querySelector('[data-promotion-unassign]')?.getAttribute('data-promotion-unassign') === '1')
+  await page.locator('[data-promotion-unassign]').click()
+  await dialog.waitFor()
+  await dialog.locator('[data-confirm-write]').click()
+  await page.waitForFunction(() => document.querySelector('[data-promotion-delete]') && !document.querySelector('[data-promotion-delete]').disabled, null, { timeout: 10000 })
+  check(`${tag} 23: an Unassign leaves no tick to send again`, (await page.locator('[data-promotion-unassign]').getAttribute('data-promotion-unassign')) === '0' && !(await page.locator('[data-promotion-unassign]').isEnabled()))
+  await page.locator('[data-promotion-delete]').click()
+  await dialog.waitFor()
+  await dialog.locator('[data-confirm-write]').click()
+  await page.waitForURL(`${BASE}${ROUTE}`, { timeout: 10000 })
+  check(`${tag} 24: allowed once empty: Delete sends the code and goes back to the list`, JSON.stringify(bodiesOf(calls, 'Delete').at(-1)) === JSON.stringify({ promotionCode: NEW }) && bodiesOf(calls, 'Delete').length === 2)
+  await page.locator('[data-promotions-grid] .ag-row').nth(LIST.length - 1).waitFor({ timeout: 10000 })
+  check(`${tag} 24: …the list without it`, !(await gridRows(page)).some((r) => r.id === NEW))
+  check(`${tag} 24: …and a toast says so`, (await page.locator('[data-sonner-toast]').allInnerTexts()).some((x) => x.replace(/[⁦-⁩]/g, '').includes(`Promotion ${NEW} deleted.`)))
+  check(`${tag} 27: no raw key, no page error (written)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
+
+  // ── 25: an uploaded promotion is named, never regrouped ──
+  await page.goto(`${BASE}${ROUTE}/promotions/${LIVE}`)
+  await page.locator('[data-promotion-actions]').waitFor({ timeout: 20000 })
+  check(
+    `${tag} 25: an uploaded promotion offers Rename and no Assign, Unassign or Delete; no row checkbox`,
+    (await page.locator('[data-promotion-rename]').count()) === 1 &&
+      (await page.locator('[data-promotion-assign], [data-promotion-unassign], [data-promotion-delete]').count()) === 0 &&
+      (await page.locator(`${pageGrid} input[type="checkbox"]`).count()) === 0,
+  )
+  // An author may name a promotion its upload left unnamed: names and note only, the code as it is.
+  await page.locator('[data-promotion-rename]').click()
+  await dialog.waitFor()
+  await field('note').fill('Week 41 flyer, sun care')
+  await dialog.locator('[data-promotion-form-submit]').click()
+  await page.locator('[data-promotion-done="renamed"]').waitFor({ timeout: 10000 })
+  check(
+    `${tag} 25: …and Rename on it sends its names and the note, under its own code`,
+    JSON.stringify(bodiesOf(calls, 'Update').at(-1)) === JSON.stringify({ promotionCode: LIVE, nameEn: 'Sunscreen offers', nameAr: 'أسبوع واقي الشمس', note: 'Week 41 flyer, sun care' }),
+    JSON.stringify(bodiesOf(calls, 'Update').at(-1)),
+  )
+  await context.close()
+
+  // ── 26: no grant ──
+  {
+    const { context, page, errors } = await open536(dir, ROUTE, newWorld(), { writes: 'denied' })
+    await page.locator('[data-promotions-grid] .ag-row').nth(LIST.length - 1).waitFor({ timeout: 20000 })
+    await page.locator('[data-new-promotion]').click()
+    const dialog = page.locator(dialogOpen)
+    await dialog.waitFor()
+    await dialog.locator('[data-promotion-field="promotionCode"]').fill(NEW)
+    await dialog.locator('[data-promotion-field="nameEn"]').fill('Eid gifts')
+    await dialog.locator('[data-promotion-form-submit]').click()
+    const denied = dialog.locator('[data-write-refusal="denied"]')
+    await denied.waitFor({ timeout: 10000 })
+    check(`${tag} 26: a bare 403 on Create reads "${DENIED}" in its dialog`, (await text(denied)).includes(DENIED) && (await denied.getAttribute('data-denied')) === '' && (await denied.locator('[data-write-refusal-code]').count()) === 0, await text(denied))
+    await closeDialog(page)
+    await page.goto(`${BASE}${ROUTE}/promotions/${HAND}`)
+    await page.locator('[data-promotion-assign]').click()
+    await dialog.waitFor()
+    await dialog.locator('[data-assign-search]').fill('WKND')
+    await dialog.locator('[data-assign-pick="WKND20"]').waitFor({ timeout: 10000 })
+    await dialog.locator('[data-assign-pick="WKND20"]').check()
+    await dialog.locator('[data-assign-submit]').click()
+    await dialog.locator('[data-write-refusal="denied"]').waitFor({ timeout: 10000 })
+    check(`${tag} 26: …and on Assign`, (await text(dialog.locator('[data-write-refusal="denied"]'))).includes(DENIED))
+    check(`${tag} 27: no raw key, no page error (denied)`, !(await rawKey(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+}
+
 await drive('ltr')
 await drive('rtl')
 await drive535('ltr')
 await drive535('rtl')
+await drive536('ltr')
+await drive536('rtl')
 await browser.close()
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} passed`)

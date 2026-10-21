@@ -1,18 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, ICellRendererParams, RowClickedEvent } from 'ag-grid-community'
-import { Upload } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { CAMPAIGN_UPLOAD_PATH } from '@/core/rules/campaign-state'
+import { CAMPAIGN_UPLOAD_PATH, promotionPath } from '@/core/rules/campaign-state'
+import { notify } from '@/core/services/notify'
+import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { rulePromotionsQuery } from '@/core/rules/promotion-api'
+import { fsi } from '@/core/util/bidi'
+import PromotionFormDialog from './PromotionFormDialog'
+import { EMPTY_PROMOTION_FORM } from './promotion-write'
 import { promotionRowView, type PromotionRowView } from './promotion-row'
 import PromotionsRefusal from './PromotionsRefusal'
 import PromotionStateBadge from './PromotionStateBadge'
@@ -21,14 +26,16 @@ import PromotionStateBadge from './PromotionStateBadge'
  * Campaigns ▸ Promotions (ticket 534; BackOffice brief 2848 D1): the campaign area's top level, one
  * row per promotion — a weekly flyer or an ad-hoc set of campaigns — in the reply's order (newest
  * first), then the no-promotion row of the hand-built campaigns. A row opens the promotion's page.
- * **Upload a promotion** opens the campaign upload; **New promotion** is ticket 536's.
+ * **Upload a promotion** opens the campaign upload; **New promotion** (ticket 536) makes a hand-made
+ * one and opens its page.
  *
  * The rows keep HQ's order (no column sorts), so the no-promotion row stays last. Grouping is not
  * publishing: nothing here writes a version, and there is no promotion budget or promotion-wide
  * disable.
  *
  * Readers (03) see it; there is no access probe, so a session without the grant is a bare 403 that
- * reads "You do not have access to this action", never an empty list.
+ * reads "You do not have access to this action", never an empty list. New promotion is offered to
+ * everyone for the same reason: an author's grant (02) is HQ's to check, and a refusal reads in the dialog.
  */
 export default function PromotionsPage() {
   const { t } = useTranslation('campaign-promotions')
@@ -37,6 +44,7 @@ export default function PromotionsPage() {
   const rows = useMemo(() => (promotions.data ?? []).map(promotionRowView), [promotions.data])
   const count = rows.filter((r) => !r.noPromotion).length
   const columns = useMemo(() => promotionColumns(t), [t])
+  const [creating, setCreating] = useState(false)
 
   const open = (e: RowClickedEvent<PromotionRowView>) => {
     // The promotion's code is a link: a click on it has already navigated.
@@ -51,15 +59,33 @@ export default function PromotionsPage() {
           <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
         </div>
-        <Link
-          to={CAMPAIGN_UPLOAD_PATH}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
-          data-promotions-upload=""
-        >
-          <Upload className="size-3.5" aria-hidden />
-          {t('list.upload')}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setCreating(true)} data-new-promotion="">
+            <Plus className="size-3.5" aria-hidden />
+            {t('newPromotion.open')}
+          </Button>
+          <Link
+            to={CAMPAIGN_UPLOAD_PATH}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
+            data-promotions-upload=""
+          >
+            <Upload className="size-3.5" aria-hidden />
+            {t('list.upload')}
+          </Link>
+        </div>
       </header>
+      {creating && (
+        <PromotionFormDialog
+          mode="create"
+          initial={EMPTY_PROMOTION_FORM}
+          onClose={() => setCreating(false)}
+          onSaved={(record) => {
+            setCreating(false)
+            notify.success(t('newPromotion.done', { code: fsi(record.promotionCode) }))
+            navigate(promotionPath(record.promotionCode))
+          }}
+        />
+      )}
 
       {/* A failed refetch keeps the rows already shown; only a list never read is replaced by the refusal. */}
       {promotions.isError && !promotions.data ? (

@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
 import { AgGridReact } from 'ag-grid-react'
-import type { ColDef, ICellRendererParams, RowClickedEvent } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams, RowClickedEvent, RowSelectionOptions } from 'ag-grid-community'
 import { Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
@@ -43,6 +43,9 @@ const SEARCH_SETTLE_MS = 300
  * filter goes back to page 1. A row opens the campaign's workspace with this list's context (537).
  *
  * The rows are HQ's, in HQ's order (by id): no column sorts them. A rule count, never the rules.
+ *
+ * On a hand-made promotion (ticket 536) each row has a checkbox, for Unassign: the ticks are the
+ * page's (a new page or filter starts with none).
  */
 export default function PromotionCampaigns({
   promotionCode,
@@ -50,6 +53,7 @@ export default function PromotionCampaigns({
   update,
   changedFromOutside,
   campaigns,
+  onTicked,
 }: {
   /** Null for no promotion. */
   promotionCode: string | null
@@ -57,6 +61,8 @@ export default function PromotionCampaigns({
   update: (change: (prev: PromotionQuery) => PromotionQuery) => void
   changedFromOutside: () => boolean
   campaigns: UseQueryResult<RulePromotionCampaignPage>
+  /** Given: a checkbox per row, and the ticked ids on every change. */
+  onTicked?: (ids: string[]) => void
 }) {
   const { t } = useTranslation('campaign-promotions')
   const navigate = useNavigate()
@@ -83,8 +89,8 @@ export default function PromotionCampaigns({
   const total = page?.total ?? 0
 
   const open = (e: RowClickedEvent<GridRow>) => {
-    // The id is a link: a click on it has already navigated.
-    if ((e.event?.target as Element | null)?.closest?.('a')) return
+    // The id is a link: a click on it has already navigated; a checkbox ticks, it does not open.
+    if ((e.event?.target as Element | null)?.closest?.('a, input, [col-id="ag-Grid-SelectionColumn"]')) return
     if (e.data) navigate(e.data.path)
   }
 
@@ -153,6 +159,8 @@ export default function PromotionCampaigns({
               defaultColDef={DEFAULT_COL_DEF}
               getRowId={({ data }) => data.id}
               onRowClicked={open}
+              rowSelection={onTicked ? TICK_SELECTION : undefined}
+              onSelectionChanged={onTicked ? (e) => onTicked(e.api.getSelectedRows().map((r) => r.id)) : undefined}
               rowClass="cursor-pointer"
               rowHeight={OMS_GRID_ROW_HEIGHT}
               headerHeight={OMS_GRID_HEADER_HEIGHT}
@@ -220,6 +228,9 @@ function NoRows({ pastLast }: { pastLast?: boolean }) {
     </span>
   )
 }
+
+/** Checkboxes only (the header's ticks the page): a click on a row opens its campaign, never ticks it. */
+const TICK_SELECTION: RowSelectionOptions<GridRow> = { mode: 'multiRow', checkboxes: true, headerCheckbox: true, enableClickSelection: false }
 
 // HQ's order (by id) is the table's: no column sorts it, so a page never reorders under the pager.
 const DEFAULT_COL_DEF: ColDef<GridRow> = {

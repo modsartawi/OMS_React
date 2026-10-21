@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
-import { ArrowLeft, FileSpreadsheet, LayoutTemplate, Plus, Upload } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ArrowLeft, FileSpreadsheet, LayoutTemplate, ListPlus, ListX, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { apiErrorCode } from '@/core/api'
 import type { RulePromotionSummary } from '@/core/models/rule-promotion'
 import { CAMPAIGN_UPLOAD_PATH, PROMOTIONS_PATH, campaignUploadPath } from '@/core/rules/campaign-state'
@@ -11,11 +11,18 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { rulePromotionCampaignsQuery, rulePromotionsQuery } from '@/core/rules/promotion-api'
+import { notify } from '@/core/services/notify'
+import { fsi } from '@/core/util/bidi'
+import { promotionWriteApi, refreshPromotions } from './api'
+import AssignCampaignsDialog from './AssignCampaignsDialog'
+import ConfirmWriteDialog from './ConfirmWriteDialog'
 import CreateCampaignDialog, { type CreateTab } from './CreateCampaignDialog'
 import NeverPublishedDrafts from './NeverPublishedDrafts'
 import PromotionCampaigns from './PromotionCampaigns'
 import { pendingBeyond } from './promotion-page'
 import { promotionRowView, type PromotionRowView } from './promotion-row'
+import PromotionFormDialog from './PromotionFormDialog'
+import { assignmentLine, assignmentSummary, promotionEmptiness, type AssignmentSummary, type PromotionEmptiness } from './promotion-write'
 import PromotionsRefusal from './PromotionsRefusal'
 import PromotionStateBadge from './PromotionStateBadge'
 
@@ -29,9 +36,13 @@ import PromotionStateBadge from './PromotionStateBadge'
  * `RULES_PROMOTION_NOT_FOUND`, is a stale link, said so with the way back. The campaigns are paged and
  * filtered by HQ, every filter in the URL (`./PromotionCampaigns`).
  *
- * An uploaded promotion links its re-upload and its upload; it has no assign, unassign or delete. The
- * no-promotion page keeps the old list's create actions and lists the drafts never published. Grouping
- * is not publishing: there is no promotion budget and no promotion-wide disable.
+ * An uploaded promotion links its re-upload and its upload, and may be renamed (names and note); it has
+ * no assign, unassign or delete — its campaigns are its upload's. A hand-made promotion (ticket 536)
+ * is renamed, assigned campaigns (a search over every campaign), unassigned the ticked rows and
+ * deleted once empty; every write happens at once and its refusal reads in the dialog that made it.
+ * The buttons are offered to every reader: there is no access probe, so the author's grant is HQ's to
+ * check. The no-promotion page keeps the old list's create actions and lists the drafts never
+ * published. Grouping is not publishing: there is no promotion budget and no promotion-wide disable.
  */
 export default function PromotionPage() {
   const { promotionCode } = useParams()
@@ -58,6 +69,11 @@ function PromotionView({ code }: { code: string | null }) {
   const unfilteredTotal = filtered || campaigns.isPlaceholderData ? whole.data?.total : campaigns.data?.total
   const pending = row && unfilteredTotal !== undefined ? pendingBeyond(row.campaignCount, unfilteredTotal) : 0
   const stale = apiErrorCode(campaigns.error) === 'RULES_PROMOTION_NOT_FOUND'
+  // The ticked rows (a hand-made promotion's, for Unassign) and what the last write did.
+  const [ticked, setTicked] = useState<string[]>([])
+  const [done, setDone] = useState<WriteDone | null>(null)
+  // Delete is offered only once empty; the hint only once it is known to hold campaigns.
+  const emptiness = row ? promotionEmptiness(row.campaignCount, unfilteredTotal) : 'unknown'
 
   let body: ReactNode
   if (promotions.isError && !promotions.data) body = <PromotionsRefusal error={promotions.error} at="data-promotion-failed" />
@@ -82,9 +98,17 @@ function PromotionView({ code }: { code: string | null }) {
           {/* BO ask J (BackOffice 2855): shown only once HQ answers it — never a guessed number. */}
           {campaigns.data?.withBudget !== undefined && <Tile k="withBudget" label={t('promotion.tiles.withBudget')} value={campaigns.data.withBudget} />}
         </section>
-        <Actions row={row} />
+        <Actions row={row} found={found} ticked={ticked} emptiness={emptiness} onDone={setDone} onUnassigned={() => setTicked([])} />
+        {done && <Done done={done} />}
         {row.noPromotion && <NeverPublishedDrafts />}
-        <PromotionCampaigns promotionCode={sent} query={query} update={update} changedFromOutside={changedFromOutside} campaigns={campaigns} />
+        <PromotionCampaigns
+          promotionCode={sent}
+          query={query}
+          update={update}
+          changedFromOutside={changedFromOutside}
+          campaigns={campaigns}
+          onTicked={row.kind === 'handMade' ? setTicked : undefined}
+        />
       </>
     )
 
@@ -193,24 +217,170 @@ function Tile({ k, label, value, children }: { k: string; label: string; value: 
 
 const LINK = 'inline-flex h-7 items-center gap-1.5 rounded-md border border-border/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent'
 
-/** An uploaded promotion's way to its upload; the no-promotion page's create actions. */
-function Actions({ row }: { row: PromotionRowView }) {
+/** What the last write on this page did, said under the actions until the next one. */
+type WriteDone = { kind: 'assigned'; summary: AssignmentSummary } | { kind: 'unassigned'; count: number } | { kind: 'renamed' }
+
+function Done({ done }: { done: WriteDone }) {
   const { t } = useTranslation('campaign-promotions')
+  return (
+    // dir="auto": the line opens with an isolated count, so its own words, not the page, set its direction.
+    <p role="status" dir="auto" className="rounded-lg border border-success-border bg-success-050 px-3 py-2 text-sm text-success-800" data-promotion-done={done.kind}>
+      {done.kind === 'assigned'
+        ? // "3 assigned, 1 moved from X": each count and each promotion isolated, the words carrying the order.
+          assignmentLine(done.summary).map((part, i) =>
+            part.key === 'assign.done' ? (
+              <Trans key={i} t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
+            ) : (
+              <Trans key={i} t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US'), from: part.from }} components={{ n: <Ltr />, from: <Ltr /> }} />
+            ),
+          )
+        : done.kind === 'unassigned'
+          ? <Trans t={t} i18nKey="unassign.done" count={done.count} values={{ n: done.count.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
+          : t('rename.done')}
+    </p>
+  )
+}
+
+type Writing = 'rename' | 'assign' | 'unassign' | 'remove'
+
+/**
+ * A promotion's actions: Rename on any promotion (names and note); an uploaded one's way to its
+ * upload; a hand-made one's Assign, Unassign (the ticked rows) and Delete (only once empty); the
+ * no-promotion page's create actions.
+ */
+function Actions({
+  row,
+  found,
+  ticked,
+  emptiness,
+  onDone,
+  onUnassigned,
+}: {
+  row: PromotionRowView
+  found: RulePromotionSummary
+  ticked: string[]
+  emptiness: PromotionEmptiness
+  onDone: (done: WriteDone | null) => void
+  /** The ticked campaigns are out: no tick is left to send again. */
+  onUnassigned: () => void
+}) {
+  const { t } = useTranslation('campaign-promotions')
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [creating, setCreating] = useState<CreateTab | null>(null)
-  if (row.kind === 'uploaded' && row.promotionCode)
+  const [writing, setWriting] = useState<Writing | null>(null)
+  const code = row.promotionCode
+  const start = (w: Writing) => {
+    onDone(null)
+    setWriting(w)
+  }
+  const finish = (done: WriteDone) => {
+    setWriting(null)
+    onDone(done)
+  }
+
+  if (code && (row.kind === 'uploaded' || row.kind === 'handMade')) {
+    const handMade = row.kind === 'handMade'
     return (
       <div className="flex flex-wrap items-center gap-2" data-promotion-actions="">
-        {/* The workbook names the promotion (its PromotionCode): a re-upload replaces its campaigns. */}
-        <Link to={CAMPAIGN_UPLOAD_PATH} className={LINK} data-promotion-reupload="">
-          <Upload className="size-3.5" aria-hidden />
-          {t('promotion.reupload')}
-        </Link>
-        <Link to={campaignUploadPath(row.promotionCode)} className={LINK} data-promotion-its-upload="">
-          <FileSpreadsheet className="size-3.5" aria-hidden />
-          {t('promotion.itsUpload')}
-        </Link>
+        {!handMade && (
+          <>
+            {/* The workbook names the promotion (its PromotionCode): a re-upload replaces its campaigns. */}
+            <Link to={CAMPAIGN_UPLOAD_PATH} className={LINK} data-promotion-reupload="">
+              <Upload className="size-3.5" aria-hidden />
+              {t('promotion.reupload')}
+            </Link>
+            <Link to={campaignUploadPath(code)} className={LINK} data-promotion-its-upload="">
+              <FileSpreadsheet className="size-3.5" aria-hidden />
+              {t('promotion.itsUpload')}
+            </Link>
+          </>
+        )}
+        {handMade && (
+          <>
+            <Button variant="primary" onClick={() => start('assign')} data-promotion-assign="">
+              <ListPlus className="size-3.5" aria-hidden />
+              {t('assign.open')}
+            </Button>
+            <Button variant="secondary" disabled={ticked.length === 0} onClick={() => start('unassign')} data-promotion-unassign={ticked.length}>
+              <ListX className="size-3.5" aria-hidden />
+              {t('unassign.open')}
+            </Button>
+          </>
+        )}
+        <Button variant="secondary" onClick={() => start('rename')} data-promotion-rename="">
+          <Pencil className="size-3.5" aria-hidden />
+          {t('rename.open')}
+        </Button>
+        {handMade && (
+          <>
+            <Button variant="danger-outlined" disabled={emptiness !== 'empty'} onClick={() => start('remove')} data-promotion-delete="">
+              <Trash2 className="size-3.5" aria-hidden />
+              {t('remove.open')}
+            </Button>
+            {emptiness === 'held' && (
+              <span className="text-xs text-muted-foreground" data-promotion-delete-hint="">
+                {t('remove.notEmpty')}
+              </span>
+            )}
+          </>
+        )}
+
+        {writing === 'rename' && (
+          <PromotionFormDialog
+            mode="rename"
+            initial={{ promotionCode: code, nameEn: found.nameEn ?? '', nameAr: found.nameAr ?? '', note: found.note ?? '' }}
+            onClose={() => setWriting(null)}
+            onSaved={() => finish({ kind: 'renamed' })}
+          />
+        )}
+        {writing === 'assign' && (
+          <AssignCampaignsDialog
+            promotionCode={code}
+            onClose={() => setWriting(null)}
+            onAssigned={(reply) => finish({ kind: 'assigned', summary: assignmentSummary(reply) })}
+          />
+        )}
+        {writing === 'unassign' && (
+          <ConfirmWriteDialog
+            title={t('unassign.title')}
+            confirm={t('unassign.submit')}
+            refusedTitle={t('unassign.refusedTitle')}
+            run={() => promotionWriteApi.unassign(ticked)}
+            onClose={() => setWriting(null)}
+            onDone={(reply) => {
+              onUnassigned()
+              finish({ kind: 'unassigned', count: reply.changed.length })
+            }}
+            data="unassign"
+          >
+            <Trans t={t} i18nKey="unassign.body" count={ticked.length} values={{ code }} components={{ n: <Ltr />, code: <Ltr /> }} />
+          </ConfirmWriteDialog>
+        )}
+        {writing === 'remove' && (
+          <ConfirmWriteDialog
+            title={t('remove.title')}
+            confirm={t('remove.submit')}
+            refusedTitle={t('remove.refusedTitle')}
+            run={() => promotionWriteApi.remove(code)}
+            onClose={() => setWriting(null)}
+            onDone={() => {
+              setWriting(null)
+              notify.success(t('remove.done', { code: fsi(code) }))
+              navigate(PROMOTIONS_PATH)
+              // Read once the page has gone: the deleted promotion's campaigns are not asked again.
+              void refreshPromotions(queryClient)
+            }}
+            danger
+            leaves
+            data="remove"
+          >
+            <Trans t={t} i18nKey="remove.body" values={{ code }} components={{ code: <Ltr /> }} />
+          </ConfirmWriteDialog>
+        )}
       </div>
     )
+  }
   if (!row.noPromotion) return null
   return (
     <div className="flex flex-wrap items-center gap-2" data-promotion-actions="">

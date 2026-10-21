@@ -20,6 +20,7 @@
   "search": {
     "label": "Number",
     "placeholder": "Order, delivery, till transaction, picking document, donor request or serial",
+    "placeholderNoSerial": "Order, delivery, till transaction, picking document or donor request",
     "submit": "Find",
     "looking": "Looking it up…",
     "failedTitle": "The lookup failed",
@@ -60,6 +61,11 @@
     "PICKING_DOCUMENT": "Picking document",
     "DONOR_REQUEST": "Donor request",
     "SERIAL": "Serial"
+  },
+  "serial": {
+    "restricted": "Restricted",
+    "restrictedTip": "Serials are visible only to users with the serial permission",
+    "restrictedNote": "Serials are restricted for your account"
   },
   "holds": {
     "title": "Where this serial is held",

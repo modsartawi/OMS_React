@@ -14,7 +14,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
-import { Code, Section, Stamp, StampBy, TD, TH, Text, Val } from './bits'
+import { Code, Section, Serial, SerialsRestrictedNote, Stamp, StampBy, TD, TH, Text, Val } from './bits'
 import CopyDiagnosis from './CopyDiagnosis'
 import ShapeBody from './ShapeBody'
 import { filterTimeline, timelineSources, transferView, verdictView } from './diagnosis'
@@ -34,16 +34,23 @@ import { filterTimeline, timelineSources, transferView, verdictView } from './di
  * have no card, so never a button (rule 5): `verdictView` gives them no slot. The dialog lives with
  * the caller, so it outlives the card it was opened from when the fix turns the panel HEALTHY.
  *
+ * Serials (ticket 540, brief 2875): each unit's serial cell reads the server's own `serialWithheld`
+ * (Restricted / the serial / "—"). `serialsRestricted` only adds the one-line note over the units;
+ * it never decides a cell.
+ *
  * Key it by the delivery, so a new delivery starts on fresh timeline filters (`DeliveryDiagnosis`'s
  * callers do).
  */
 export default function DiagnosisPanel({
   diagnosis,
   onApplyFix,
+  serialsRestricted = false,
 }: {
   diagnosis: PickSupportDiagnosis
   /** Opens the fix dialog for one shape; absent = no Apply fix button (no `canFixPickSupport`). */
   onApplyFix?: (card: PickSupportShapeMatch) => void
+  /** No `canSeePickSupportSerial`: show "Serials are restricted for your account" over the units. */
+  serialsRestricted?: boolean
 }) {
   const { t } = useTranslation('pick-support')
   const view = verdictView(diagnosis)
@@ -112,7 +119,7 @@ export default function DiagnosisPanel({
       )}
 
       <StoreHistory diagnosis={diagnosis} />
-      <Documents documents={diagnosis.documents ?? []} />
+      <Documents documents={diagnosis.documents ?? []} serialsRestricted={serialsRestricted} />
       <DonorRequests requests={diagnosis.donorRequests ?? []} />
       <Timeline entries={diagnosis.timeline ?? []} />
     </div>
@@ -217,7 +224,7 @@ function StoreHistory({ diagnosis }: { diagnosis: PickSupportDiagnosis }) {
 }
 
 /** 4. Documents → lines → units: one expandable entry per document, OMS and DNR told apart. */
-function Documents({ documents }: { documents: PickDocumentModel[] }) {
+function Documents({ documents, serialsRestricted }: { documents: PickDocumentModel[]; serialsRestricted: boolean }) {
   const { t } = useTranslation('pick-support')
   return (
     <Section name="documents" title={t('documents.title')}>
@@ -225,6 +232,7 @@ function Documents({ documents }: { documents: PickDocumentModel[] }) {
         <p className="text-sm text-muted-foreground">{t('documents.empty')}</p>
       ) : (
         <div className="flex flex-col gap-2">
+          {serialsRestricted && <SerialsRestrictedNote />}
           {documents.map((d) => (
             <details key={d.documentNo} className="rounded-md border border-border/60" data-ps-document={d.documentNo}>
               <summary className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-2 py-1.5 text-sm">
@@ -380,8 +388,8 @@ function LineRows({ line }: { line: PickDocumentLineModel }) {
                     <td className={TD}>
                       <Val value={u.pickIndex} />
                     </td>
-                    <td className={TD}>
-                      <Val value={u.serialNumber} />
+                    <td className={TD} data-ps-serial="">
+                      <Serial unit={u} />
                     </td>
                     <td className={TD}>
                       <Val value={u.batchLot} />

@@ -52,6 +52,12 @@ export interface OmsAccessResult {
   canOpenPickSupport?: boolean
   /** `BackOfficeScreen[PickSupport,06]` — the fix. Hide the button without it. */
   canFixPickSupport?: boolean
+  /**
+   * `BackOfficeScreen[PickSupportSerial,03]` — Pick support returns serials (BackOffice 2874, client
+   * ticket 540). ADVISORY: it words the search hint and the "restricted" note only. Whether a serial
+   * is drawn is the server's per-unit `serialWithheld`, never this flag.
+   */
+  canSeePickSupportSerial?: boolean
   // ── Document Details' write doors (BackOffice 2763, client ticket 521). `canOpenDetail` only
   // READS since 2763; the writes need a second grant on top of it. Optional for the same reason:
   // an older SIS.Api omits them, and an absent flag reads as denied.

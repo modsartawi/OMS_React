@@ -9,7 +9,8 @@ import type { OmsAccessResult } from '@/core/models/oms-access'
 /**
  * The nine flags of D2, in the order the spec lists them, then the two Pick support flags
  * (BackOffice brief 2691, shipped in BackOffice 2731), then Document Details' two write grants
- * (BackOffice 2763, ticket 521) — all read the same way, absent = denied.
+ * (BackOffice 2763, ticket 521), then Pick support's serial grant (BackOffice 2874, ticket 540) — all
+ * read the same way, absent = denied.
  */
 export const OMS_SCREEN_FLAGS = [
   'canOpenDonorRequests',
@@ -25,6 +26,7 @@ export const OMS_SCREEN_FLAGS = [
   'canFixPickSupport',
   'canChangeDetail',
   'canCreateReturn',
+  'canSeePickSupportSerial',
 ] as const
 
 export type OmsScreenFlag = (typeof OMS_SCREEN_FLAGS)[number]
@@ -80,3 +82,12 @@ export const canChangeDetail = (r: OmsAccessResult | null | undefined): boolean 
 
 /** Create return (ticket 521, BackOffice 2763) — `OmsCreateReturn,01`. Change does not imply it. */
 export const canCreateReturn = (r: OmsAccessResult | null | undefined): boolean => omsGrants(r).canCreateReturn
+
+/**
+ * Pick support's serial grant (ticket 540, BackOffice 2874) — `PickSupportSerial,03`. ADVISORY: it
+ * words the search hint and the "restricted" note. It never decides whether a serial is drawn — the
+ * server's per-unit `serialWithheld` does (`serialCell`, `@/core/pick-support/serial`), and when the
+ * two disagree the data wins. False while the probe is pending or failed, and from an older SIS.Api.
+ */
+export const canSeePickSupportSerial = (r: OmsAccessResult | null | undefined): boolean =>
+  omsGrants(r).canSeePickSupportSerial

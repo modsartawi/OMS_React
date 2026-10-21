@@ -89,6 +89,11 @@ export interface PickSupportSerialHold {
   shapes: PickSupportShape[]
   explanationEn: string
   explanationAr: string
+  /**
+   * True when SIS.Api withheld this unit's serial (BackOffice 2872). Absent reads false. Always false
+   * today (only a granted caller gets holds), but drawn by the same rule as a unit (ticket 540).
+   */
+  serialWithheld?: boolean
 }
 
 /**
@@ -155,10 +160,14 @@ export interface PickDocumentUnitModel {
   pickIndex: number
   pickType: string
   channel: string
+  /** `""` when the serial is withheld (a GS1 scan embeds it). Not drawn; if ever drawn, "—", never Restricted. */
   scannedText: string
   barcode: string
   gtin: string
+  /** `""` when withheld — `serialWithheld` tells that apart from a unit that never had one. */
   serialNumber: string
+  /** True when SIS.Api withheld this unit's serial (BackOffice 2872). Absent reads false. */
+  serialWithheld?: boolean
   batchLot: string
   expiryDate: string
   overrideReason: string

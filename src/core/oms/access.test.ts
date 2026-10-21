@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { OmsAccessResult } from '@/core/models/oms-access'
-import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateReturn, canFixPickSupport, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
+import { OMS_SCREEN_FLAGS, canChangeDetail, canCreateReturn, canFixPickSupport, canSeePickSupportSerial, canOpenDeliveryStatistics, canOpenPickSupport, canOpenDocumentPayments, canOpenDonorRequests, canOpenFailedTransfers, canOpenGeography, omsGrants } from './access'
 
 const NINE = [
   'canOpenDonorRequests',
@@ -21,12 +21,14 @@ const NINE = [
 ] as const
 /** The two Pick support flags (ticket 496, brief 2691; BackOffice 2731). */
 const PICK = ['canOpenPickSupport', 'canFixPickSupport'] as const
+/** Pick support's serial grant (ticket 540, BackOffice 2874). */
+const SERIAL = ['canSeePickSupportSerial'] as const
 /** Document Details' two write grants (ticket 521, BackOffice 2763). */
 const DETAIL_WRITES = ['canChangeDetail', 'canCreateReturn'] as const
-const ALL = [...NINE, ...PICK, ...DETAIL_WRITES] as const
+const ALL = [...NINE, ...PICK, ...DETAIL_WRITES, ...SERIAL] as const
 
 describe('omsGrants', () => {
-  it('names exactly the nine D2 flags, the two Pick support flags and the two Details write grants', () => {
+  it('names exactly the nine D2 flags, the two Pick support flags, the two Details write grants and the serial grant', () => {
     expect([...OMS_SCREEN_FLAGS].sort()).toEqual([...ALL].sort())
   })
 
@@ -122,5 +124,23 @@ describe('Document Details write grants (ticket 521, BackOffice 2763)', () => {
     expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: true })).toBe(true)
     expect(canCreateReturn({ canOpenList: true, canOpenDetail: true, canCreateReturn: true })).toBe(true)
     expect(canChangeDetail({ canOpenList: true, canOpenDetail: true, canChangeDetail: 1 } as unknown as OmsAccessResult)).toBe(false)
+  })
+})
+
+describe('Pick support serial grant (ticket 540, BackOffice 2874)', () => {
+  it('omsGrants reads canSeePickSupportSerial false when absent, false, or the probe is pending/failed', () => {
+    // An older SIS.Api leaves it out.
+    expect(omsGrants({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true }).canSeePickSupportSerial).toBe(false)
+    expect(omsGrants({ canOpenList: true, canOpenDetail: true, canSeePickSupportSerial: false }).canSeePickSupportSerial).toBe(false)
+    // Pending or failed: the query has no data.
+    expect(omsGrants(undefined).canSeePickSupportSerial).toBe(false)
+    expect(omsGrants(null).canSeePickSupportSerial).toBe(false)
+    expect(canSeePickSupportSerial(undefined)).toBe(false)
+    expect(canSeePickSupportSerial({ canOpenList: true, canOpenDetail: true, canSeePickSupportSerial: 'true' } as unknown as OmsAccessResult)).toBe(false)
+    expect(canSeePickSupportSerial({ canOpenList: false, canOpenDetail: false, canSeePickSupportSerial: true })).toBe(true)
+  })
+
+  it('neither Pick support grant implies the serial one', () => {
+    expect(canSeePickSupportSerial({ canOpenList: true, canOpenDetail: true, canOpenPickSupport: true, canFixPickSupport: true })).toBe(false)
   })
 })

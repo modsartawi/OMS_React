@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import type { PickSupportShapeMatch } from '@/core/models/pick-support'
 import { omsAccessQuery } from '@/core/oms/api'
-import { canFixPickSupport } from '@/core/oms/access'
+import { canFixPickSupport, canSeePickSupportSerial } from '@/core/oms/access'
 import { pickSupportDiagnosisQuery } from './api'
 import { PickSupportFailureBanner } from './bits'
 import DiagnosisPanel from './DiagnosisPanel'
@@ -26,6 +26,8 @@ export default function DeliveryDiagnosis({ deliveryNo, onFixed }: { deliveryNo:
   const diagnosis = useQuery(pickSupportDiagnosisQuery(deliveryNo))
   const access = useQuery(omsAccessQuery())
   const canFix = canFixPickSupport(access.data)
+  // Advisory (ticket 540): the note only. Each serial cell reads the server's own `serialWithheld`.
+  const serialsRestricted = !canSeePickSupportSerial(access.data)
   const [fixing, setFixing] = useState<PickSupportShapeMatch | null>(null)
 
   let body
@@ -39,7 +41,7 @@ export default function DeliveryDiagnosis({ deliveryNo, onFixed }: { deliveryNo:
   else if (diagnosis.isError)
     body = <PickSupportFailureBanner error={diagnosis.error} title={t('panel.failedTitle')} fallback={t('panel.failed')} />
   // Callers key this component by the delivery, so the panel's filters start fresh per delivery.
-  else body = <DiagnosisPanel diagnosis={diagnosis.data} onApplyFix={canFix ? setFixing : undefined} />
+  else body = <DiagnosisPanel diagnosis={diagnosis.data} onApplyFix={canFix ? setFixing : undefined} serialsRestricted={serialsRestricted} />
 
   return (
     <>

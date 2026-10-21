@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Lock } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { pickSupportFailure } from './failure'
 import { readStamp } from './diagnosis'
+import { serialCell } from './serial'
 
 /**
  * The small pieces the Pick support panel and the console share (ticket 496). They speak in the
@@ -28,6 +29,39 @@ export function Val({ value }: { value: string | number | null | undefined }) {
   const { t } = useTranslation('pick-support')
   const v = value == null ? '' : String(value).trim()
   return <Ltr>{v || t('dash')}</Ltr>
+}
+
+/**
+ * A picked unit's serial (ticket 540, brief 2875): Restricted when the server withheld it, the
+ * serial as sent (a machine value, `Ltr`), or the dash for a unit that never had one. The one cell
+ * every serial column draws — the diagnosis units and the serial holds.
+ */
+export function Serial({ unit }: { unit: { serialNumber: string; serialWithheld?: boolean } }) {
+  const { t } = useTranslation('pick-support')
+  const cell = serialCell(unit)
+  if (cell.kind === 'serial') return <Ltr>{cell.serial}</Ltr>
+  if (cell.kind === 'none') return <Ltr>{t('dash')}</Ltr>
+  return (
+    <span
+      title={t('serial.restrictedTip')}
+      className="inline-flex items-center gap-1 text-muted-foreground italic"
+      data-ps-serial-restricted=""
+    >
+      <Lock className="h-3 w-3 shrink-0" aria-hidden />
+      {t('serial.restricted')}
+    </span>
+  )
+}
+
+/** The one-line "Serials are restricted for your account" over a serial column, without the serial grant. */
+export function SerialsRestrictedNote() {
+  const { t } = useTranslation('pick-support')
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-ps-serials-note="">
+      <Lock className="h-3 w-3 shrink-0" aria-hidden />
+      {t('serial.restrictedNote')}
+    </p>
+  )
 }
 
 /** Free text in either script (a reason, a description), or the dash when blank. */

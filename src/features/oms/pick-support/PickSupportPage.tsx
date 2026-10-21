@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
 import { PICK_SUPPORT_KEY_KINDS, type PickSupportResolvedDelivery, type PickSupportSerialHold } from '@/core/models/pick-support'
 import { omsAccessQuery } from '@/core/oms/api'
-import { canOpenPickSupport } from '@/core/oms/access'
+import { canOpenPickSupport, canSeePickSupportSerial } from '@/core/oms/access'
 import { pickSupportApi, pickSupportKeys } from '@/core/pick-support/api'
-import { Code, EnAr, PickSupportFailureBanner, Section, TD, TH, Val } from '@/core/pick-support/bits'
+import { Code, EnAr, PickSupportFailureBanner, Section, Serial, SerialsRestrictedNote, TD, TH, Val } from '@/core/pick-support/bits'
 import DeliveryDiagnosis from '@/core/pick-support/DeliveryDiagnosis'
 import { holdView, type HoldView } from '@/core/pick-support/diagnosis'
 import Button from '@/core/ui/Button'
@@ -157,6 +157,8 @@ function SearchTab({ url }: { url: UrlState }) {
   const { query, update, changedFromOutside } = url
   const [draft, setDraft] = useState(query.key)
   const queryClient = useQueryClient()
+  // Advisory (ticket 540): words the hint and the holds note only. False while pending or failed.
+  const seesSerials = canSeePickSupportSerial(useQuery(omsAccessQuery()).data)
 
   // A key arriving from outside (a pasted link, Back) replaces what is typed; an echo of our own
   // write keeps it.
@@ -202,7 +204,7 @@ function SearchTab({ url }: { url: UrlState }) {
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={t('search.placeholder')}
+            placeholder={t(seesSerials ? 'search.placeholder' : 'search.placeholderNoSerial')}
             className={INPUT}
             autoFocus
             data-ps-key=""
@@ -231,7 +233,7 @@ function SearchTab({ url }: { url: UrlState }) {
       {view?.kind === 'diagnosis' && <DeliveryDiagnosis key={view.deliveryNo} deliveryNo={view.deliveryNo} />}
       {view?.kind === 'holds' && (
         <>
-          <HoldsTable holds={view.holds} opened={openedNo} onOpen={open} />
+          <HoldsTable holds={view.holds} opened={openedNo} onOpen={open} serialsRestricted={!seesSerials} />
           {view.deliveries.length > 0 && <DeliveryList deliveries={view.deliveries} opened={openedNo} onOpen={open} />}
         </>
       )}
@@ -348,12 +350,24 @@ const HOLD_SEV: Record<HoldView, Severity> = { neutral: 'mute', stuck: 'warn', e
 /**
  * A serial's holds: one row per picking document and GTIN holding a unit, each with the server's
  * explanation (EN beside AR). STUCK links to its delivery's diagnosis; UNKNOWN — or a hold the
- * client does not know — reads as escalate.
+ * client does not know — reads as escalate. The serial is the one serial cell (ticket 540): only a
+ * granted caller gets holds today, but a withheld one would read Restricted, as a unit does.
  */
-function HoldsTable({ holds, opened, onOpen }: { holds: PickSupportSerialHold[]; opened: string; onOpen: (deliveryNo: string) => void }) {
+function HoldsTable({
+  holds,
+  opened,
+  onOpen,
+  serialsRestricted,
+}: {
+  holds: PickSupportSerialHold[]
+  opened: string
+  onOpen: (deliveryNo: string) => void
+  serialsRestricted: boolean
+}) {
   const { t } = useTranslation('pick-support')
   return (
     <Section name="holds" title={t('holds.title')}>
+      {serialsRestricted && <SerialsRestrictedNote />}
       <div className="overflow-x-auto">
         <table className="text-sm">
           <thead>
@@ -376,8 +390,8 @@ function HoldsTable({ holds, opened, onOpen }: { holds: PickSupportSerialHold[];
               const deliveryNo = (h.deliveryNo ?? '').trim()
               return (
                 <tr key={`${h.documentNo}-${h.gtin}-${i}`} className="border-t border-border/40" data-ps-hold={h.hold} data-ps-hold-view={view}>
-                  <td className={TD}>
-                    <Val value={h.serialNumber} />
+                  <td className={TD} data-ps-serial="">
+                    <Serial unit={h} />
                   </td>
                   <td className={TD}>
                     <Val value={h.gtin} />

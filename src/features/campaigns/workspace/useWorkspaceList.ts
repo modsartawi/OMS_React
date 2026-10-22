@@ -7,6 +7,7 @@ import { rulePromotionCampaignsQuery, rulePromotionsQuery } from '@/core/rules/p
 import {
   EMPTY_PROMOTION_QUERY,
   LIST_CONTEXT_KEY,
+  findRulePromotion,
   listContextBackPath,
   listContextFromUrl,
   promotionCampaignsBody,
@@ -24,7 +25,8 @@ export interface WorkspaceList {
   context: PromotionListContext | null
   /** The side menu's way back: the promotion's page as filtered, the no-promotion page, or the Promotions list. */
   back: string
-  /** Prev / Next, or null when hidden: no context, or the campaign is not on its list's page. */
+  /** Prev / Next, or null when hidden: no context, or the campaign is not on its list's page (both
+   *  `loading` while that page is read). */
   steps: { prev: StepTarget; next: StepTarget } | null
   /** A read of the list that failed (a bare 403 included), or null. */
   failure: unknown
@@ -79,14 +81,17 @@ export function useWorkspaceList(id: string): WorkspaceList {
   }
 
   const promotions = useQuery({ ...rulePromotionsQuery(), enabled: !!context?.promotionCode })
-  // HQ matches a code in any case (a typed or shared link may not be HQ's spelling).
-  const code = context?.promotionCode?.toLowerCase()
-  const summary = code ? promotions.data?.find((p) => p.promotionCode?.toLowerCase() === code) : undefined
+  const summary = context?.promotionCode ? findRulePromotion(promotions.data, context.promotionCode) : undefined
 
   return {
     context,
     back: listContextBackPath(context),
-    steps: around ? { prev: target(around.prev, prevPage), next: target(around.next, nextPage) } : null,
+    // While the context's page is read (a crossed page re-keys it), both steps wait, disabled: hidden is only for no context.
+    steps: around
+      ? { prev: target(around.prev, prevPage), next: target(around.next, nextPage) }
+      : context && (current.isPending || current.isPlaceholderData)
+        ? { prev: { state: 'loading' }, next: { state: 'loading' } }
+        : null,
     // A direct link's lookup is a quiet fallback (brief 2848), unless HQ denies it outright.
     failure: current.error ?? prevPage.error ?? nextPage.error ?? promotions.error ?? (isBareDenial(lookup.error) ? lookup.error : null),
     uploadedFrom: summary && isUploadedCampaign(id, summary) ? summary.promotionCode : null,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RulePromotionCampaignPage, RulePromotionCampaignRow } from '@/core/models/rule-promotion'
+import type { PromotionListContext } from '@/core/rules/promotion-query'
 import { campaignLookupBody, isUploadedCampaign, neighbourId, neighbours, promotionOfLookup, stepPath } from './list-step'
 
 const row = (id: string, extra: Partial<RulePromotionCampaignRow> = {}): RulePromotionCampaignRow => ({
@@ -62,7 +63,7 @@ describe('neighbours', () => {
 })
 
 describe('stepPath', () => {
-  const ctx = { promotionCode: 'FLYER', query: { q: 'sun', mechanic: '', status: '', page: 2 } }
+  const ctx: PromotionListContext = { promotionCode: 'FLYER', query: { q: 'sun', mechanic: '', status: '', page: 2 } }
 
   it('opens the neighbour on the same workspace page, the context at the neighbour’s page', () => {
     expect(stepPath('FLYER-07', '/rules', ctx, 3)).toBe('/campaigns/FLYER-07/rules?promotion=FLYER&q=sun&page=3')

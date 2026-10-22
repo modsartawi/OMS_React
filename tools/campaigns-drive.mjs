@@ -3309,7 +3309,8 @@ const couponRowIds = (page) =>
 // asserts:
 //  142. a row of the filtered promotion page opens the campaign with the list's context; the crumb
 //       reads Campaigns / Promotions / FLYER-2610 / <campaign>; the way back names the promotion;
-//  143. the context survives every page of the workspace's own menu (rules, versions, settings, dashboard);
+//  143. the context survives every page of the workspace's own menu (rules, versions, settings, dashboard)
+//       and the coupons page's own search and batch (WKND20, a coupons campaign in FLYER's list);
 //  144. Prev / Next: at the list's start Prev is disabled; within a page Next is the next row; at page
 //       1's last row Next reads page 2 with the same filters and opens its first, on the same workspace
 //       page; Prev crosses back; at the list's end Next is disabled;
@@ -3396,6 +3397,26 @@ const couponRowIds = (page) =>
       }
       check(`${tag} 143: the context survives every page of the workspace’s menu`, kept.every((k) => k.endsWith(`:?promotion=${FLYER}&q=sun`)), kept.join(' '))
       check(`${tag} 143: …and so does the crumb’s promotion`, (await crumb(page)).scope === FLYER)
+      // Coupons is the one page that rewrites its own address (`search`, `codeStatus`, `batch`): WKND20 is in
+      // FLYER's list and has the coupons feature, so its coupon search and a batch keep the context too.
+      await page.goto(`${BASE}/campaigns/WKND20/coupons?promotion=${FLYER}&q=sun`)
+      await page.locator('[data-coupons-search]').waitFor({ timeout: 10000 })
+      await page.locator('[data-coupons-search]').fill('w7d2')
+      await page.waitForURL((u) => u.searchParams.get('search') === 'w7d2', { timeout: 10000 }).catch(() => {})
+      const searched = new URL(page.url()).searchParams
+      check(`${tag} 143: a coupon search keeps the context beside its own key`, searched.get('promotion') === FLYER && searched.get('q') === 'sun' && searched.get('search') === 'w7d2', search(page))
+      // Clear once the search has been applied (the grid shows its one batch), as 112 does.
+      const batchRows = (n) => page.waitForFunction((k) => document.querySelectorAll('[data-coupons-grid] .ag-row').length === k, n, { timeout: 10000 }).catch(() => {})
+      await batchRows(1)
+      await page.locator('[data-coupons-clear]').click()
+      await batchRows(2)
+      await page.locator(`[data-coupons-grid] [data-coupon-batch="${WKND_BATCH}"]`).click()
+      await page.waitForURL((u) => u.searchParams.get('batch') === WKND_BATCH, { timeout: 10000 }).catch(() => {})
+      const opened = new URL(page.url()).searchParams
+      check(`${tag} 143: …and so does opening a batch`, opened.get('promotion') === FLYER && opened.get('q') === 'sun' && opened.get('batch') === WKND_BATCH, search(page))
+      check(`${tag} 143: …and the crumb still names the promotion on Coupons`, (await crumb(page)).scope === FLYER)
+      await page.goto(`${BASE}/campaigns/${FLYER}-C01?promotion=${FLYER}&q=sun`)
+      await page.locator('[data-dashboard]').waitFor({ timeout: 10000 })
 
       // ── 146 ──
       await page.locator('[data-workspace-menu="rules"]').click()

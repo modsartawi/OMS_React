@@ -10,7 +10,7 @@ import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
 import { resolveMenu } from './useVisibleMenu'
 import { deriveCrumb } from './crumb'
 
-const campaigns = MENU.find((g) => g.labelKey === 'campaign-list:menu.group')
+const campaigns = MENU.find((g) => g.labelKey === 'campaigns:menu.group')
 const leaves = (items: ShellMenuItem[]): ShellMenuItem[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
 
 describe('the Campaigns nav group', () => {
@@ -22,14 +22,14 @@ describe('the Campaigns nav group', () => {
 
   it('501 ships the first leaf at /campaigns; since 534 it is the Promotions list', () => {
     expect(leaves([campaigns!])[0].routerLink).toBe('/campaigns')
-    expect(leaves([campaigns!])[0].labelKey).toBe('campaign-list:menu.promotions')
+    expect(leaves([campaigns!])[0].labelKey).toBe('campaigns:menu.promotions')
   })
 
   it('534: a promotion’s page and the no-promotion page light Promotions, the code in the crumb', () => {
-    expect(markedLeaf(MENU, '/campaigns/promotions/0001000048-261009-261015')?.labelKey).toBe('campaign-list:menu.promotions')
-    expect(markedLeaf(MENU, '/campaigns/no-promotion')?.labelKey).toBe('campaign-list:menu.promotions')
+    expect(markedLeaf(MENU, '/campaigns/promotions/0001000048-261009-261015')?.labelKey).toBe('campaigns:menu.promotions')
+    expect(markedLeaf(MENU, '/campaigns/no-promotion')?.labelKey).toBe('campaigns:menu.promotions')
     expect(deriveCrumb(MENU, '/campaigns/promotions/WKND', { promotionCode: 'WKND' })).toEqual({
-      trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
+      trail: ['campaigns:menu.group', 'campaigns:menu.promotions'],
       scope: null,
       record: 'WKND',
     })
@@ -43,9 +43,9 @@ describe('the Campaigns nav group', () => {
   })
 
   it('a campaign’s workspace lights the Promotions leaf and puts its id in the crumb', () => {
-    expect(markedLeaf(MENU, '/campaigns/WKND20')?.labelKey).toBe('campaign-list:menu.promotions')
+    expect(markedLeaf(MENU, '/campaigns/WKND20')?.labelKey).toBe('campaigns:menu.promotions')
     expect(deriveCrumb(MENU, '/campaigns/WKND20', { id: 'WKND20' })).toEqual({
-      trail: ['campaign-list:menu.group', 'campaign-list:menu.promotions'],
+      trail: ['campaigns:menu.group', 'campaigns:menu.promotions'],
       scope: null,
       record: 'WKND20',
     })
@@ -53,20 +53,20 @@ describe('the Campaigns nav group', () => {
 
   it('513 adds Priority second, at /campaigns/priority, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[1].routerLink).toBe('/campaigns/priority')
-    expect(markedLeaf(MENU, '/campaigns/priority')?.labelKey).toBe('campaign-list:menu.priority')
+    expect(markedLeaf(MENU, '/campaigns/priority')?.labelKey).toBe('campaigns:menu.priority')
   })
 
   it('514 adds Simulator third, at /campaigns/simulator, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[2].routerLink).toBe('/campaigns/simulator')
-    expect(markedLeaf(MENU, '/campaigns/simulator')?.labelKey).toBe('campaign-list:menu.simulator')
+    expect(markedLeaf(MENU, '/campaigns/simulator')?.labelKey).toBe('campaigns:menu.simulator')
   })
 
   it('518 adds Sessions fourth, at /campaigns/sessions; it and a session light it, the sale id in the crumb', () => {
     expect(leaves([campaigns!])[3].routerLink).toBe('/campaigns/sessions')
-    expect(markedLeaf(MENU, '/campaigns/sessions')?.labelKey).toBe('campaign-list:menu.sessions')
-    expect(markedLeaf(MENU, '/campaigns/sessions/R101-0042')?.labelKey).toBe('campaign-list:menu.sessions')
+    expect(markedLeaf(MENU, '/campaigns/sessions')?.labelKey).toBe('campaigns:menu.sessions')
+    expect(markedLeaf(MENU, '/campaigns/sessions/R101-0042')?.labelKey).toBe('campaigns:menu.sessions')
     expect(deriveCrumb(MENU, '/campaigns/sessions/R101-0042', { saleId: 'R101-0042' })).toEqual({
-      trail: ['campaign-list:menu.group', 'campaign-list:menu.sessions'],
+      trail: ['campaigns:menu.group', 'campaigns:menu.sessions'],
       scope: null,
       record: 'R101-0042',
     })
@@ -75,20 +75,20 @@ describe('the Campaigns nav group', () => {
   it('519 adds Coupon finder fifth and Customers sixth; each lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[4].routerLink).toBe('/campaigns/coupon-finder')
     expect(leaves([campaigns!])[5].routerLink).toBe('/campaigns/customers')
-    expect(markedLeaf(MENU, '/campaigns/coupon-finder')?.labelKey).toBe('campaign-list:menu.couponFinder')
-    expect(markedLeaf(MENU, '/campaigns/customers')?.labelKey).toBe('campaign-list:menu.customers')
+    expect(markedLeaf(MENU, '/campaigns/coupon-finder')?.labelKey).toBe('campaigns:menu.couponFinder')
+    expect(markedLeaf(MENU, '/campaigns/customers')?.labelKey).toBe('campaigns:menu.customers')
   })
 
   it('530 adds Campaign upload seventh, at /campaigns/upload, and it lights itself rather than Promotions', () => {
     expect(leaves([campaigns!])[6].routerLink).toBe('/campaigns/upload')
-    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
+    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaigns:menu.upload')
   })
 
   it('532 adds Campaign uploads eighth, at /campaigns/uploads; an opened upload lights it, never Campaign upload', () => {
     expect(leaves([campaigns!])[7].routerLink).toBe('/campaigns/uploads')
-    expect(markedLeaf(MENU, '/campaigns/uploads')?.labelKey).toBe('campaign-list:menu.uploads')
-    expect(markedLeaf(MENU, '/campaigns/uploads/0001000048-261009-261015')?.labelKey).toBe('campaign-list:menu.uploads')
-    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaign-list:menu.upload')
+    expect(markedLeaf(MENU, '/campaigns/uploads')?.labelKey).toBe('campaigns:menu.uploads')
+    expect(markedLeaf(MENU, '/campaigns/uploads/0001000048-261009-261015')?.labelKey).toBe('campaigns:menu.uploads')
+    expect(markedLeaf(MENU, '/campaigns/upload')?.labelKey).toBe('campaigns:menu.upload')
   })
 
   it('a Settings page keeps the campaign’s id as the crumb’s record (509: its page is a splat, not a param)', () => {

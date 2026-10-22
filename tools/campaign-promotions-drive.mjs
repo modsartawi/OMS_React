@@ -313,7 +313,7 @@ const gridRows = (page) =>
       }))
       .sort((a, b) => a.index - b.index),
   )
-const rawKey = async (page) => /campaign-promotions:|campaign-list:|\b(list|kind|state|uploadState|promotion|columns|facts)\.[a-z]+[A-Za-z.]*\b/.test(await page.locator('main').innerText())
+const rawKey = async (page) => /campaign-promotions:|campaigns:|\b(list|kind|state|uploadState|promotion|columns|facts)\.[a-z]+[A-Za-z.]*\b/.test(await page.locator('main').innerText())
 
 async function drive(dir) {
   const tag = dir.toUpperCase()

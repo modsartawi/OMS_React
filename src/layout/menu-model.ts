@@ -829,61 +829,61 @@ export const MENU: ShellMenuItem[] = [
     // Its own top-level group, after Pricing and before Materials (BackOffice spec 2737, ticket 501):
     // `/campaigns/*` is a new URL prefix and a new nav group, the rule engine's campaigns — Pricing's
     // bonus-buy screens are the OTHER engine and stay where they are. Every leaf label lives in
-    // `campaign-list` (the area's first namespace); Priority (513), Simulator (514), Sessions (518),
+    // `campaigns`, the area's own namespace (named for the area since 535 retired the campaign list); Priority (513), Simulator (514), Sessions (518),
     // Coupon finder and Customers (519), Campaign upload (530) and Campaign uploads (532) each append their leaf with the
     // page it opens.
     //
     // 🚩 UNGATED by ruling: no Ua permission exists until BackOffice 2759 seeds the author and
     // approver roles, so the group is visible to every user and the doors fail closed on the server.
     // Ticket 520 adds the probe.
-    labelKey: 'campaign-list:menu.group',
+    labelKey: 'campaigns:menu.group',
     icon: Megaphone,
     items: [
       {
         // The Promotions list (ticket 534; it read "Campaigns" before BackOffice brief 2848) owns
         // `/campaigns/*` — a promotion's page and a campaign's workspace (`/campaigns/:id/…`) light it.
         // A later static leaf (`/campaigns/priority`) wins its own address by being more specific.
-        labelKey: 'campaign-list:menu.promotions',
+        labelKey: 'campaigns:menu.promotions',
         icon: Megaphone,
         routerLink: '/campaigns',
       },
       {
         // The evaluation order (ticket 513): more specific than the list's `/campaigns`, so it
         // lights itself, not Campaigns.
-        labelKey: 'campaign-list:menu.priority',
+        labelKey: 'campaigns:menu.priority',
         icon: ListOrdered,
         routerLink: '/campaigns/priority',
       },
       {
         // The rule engine's dry run (ticket 514); not Pricing's bonus-buy Simulation.
-        labelKey: 'campaign-list:menu.simulator',
+        labelKey: 'campaigns:menu.simulator',
         icon: FlaskConical,
         routerLink: '/campaigns/simulator',
       },
       {
         // Support's view of the customer sessions (ticket 518); a session
         // (`/campaigns/sessions/:saleId`) lights it too.
-        labelKey: 'campaign-list:menu.sessions',
+        labelKey: 'campaigns:menu.sessions',
         icon: Receipt,
         routerLink: '/campaigns/sessions',
       },
       {
         // Support finds a coupon code across every campaign (ticket 519).
-        labelKey: 'campaign-list:menu.couponFinder',
+        labelKey: 'campaigns:menu.couponFinder',
         icon: Ticket,
         routerLink: '/campaigns/coupon-finder',
       },
       {
         // Support reads a member's wallet, balance and budgets used (ticket 519) — the rule
         // engine's view only; Loyalty's member screen keeps the record.
-        labelKey: 'campaign-list:menu.customers',
+        labelKey: 'campaigns:menu.customers',
         icon: UserSearch,
         routerLink: '/campaigns/customers',
       },
       {
         // One workbook for one promotion, read all or none (ticket 530). No access probe exists: the
         // doors answer a bare 403, which the page names.
-        labelKey: 'campaign-list:menu.upload',
+        labelKey: 'campaigns:menu.upload',
         icon: FileSpreadsheet,
         routerLink: '/campaigns/upload',
       },
@@ -891,7 +891,7 @@ export const MENU: ShellMenuItem[] = [
         // The approver's list of every promotion's upload (ticket 532); an opened upload
         // (`/campaigns/uploads/:promotionCode`) lights it too. No probe: readers see it, the doors
         // answer a session without the grant a bare 403, which the page names.
-        labelKey: 'campaign-list:menu.uploads',
+        labelKey: 'campaigns:menu.uploads',
         icon: ClipboardCheck,
         routerLink: '/campaigns/uploads',
       },

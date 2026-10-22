@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -6,7 +6,7 @@ import { ArrowLeft, FileSpreadsheet, LayoutTemplate, ListPlus, ListX, Pencil, Pl
 import { apiErrorCode } from '@/core/api'
 import type { RulePromotionSummary } from '@/core/models/rule-promotion'
 import { CAMPAIGN_UPLOAD_PATH, PROMOTIONS_PATH, campaignUploadPath } from '@/core/rules/campaign-state'
-import { EMPTY_PROMOTION_QUERY, promotionCampaignsBody, promotionQueryFromUrl, urlFromPromotionQuery } from '@/core/rules/promotion-query'
+import { EMPTY_PROMOTION_QUERY, findRulePromotion, promotionCampaignsBody, promotionQueryFromUrl, urlFromPromotionQuery } from '@/core/rules/promotion-query'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -54,8 +54,7 @@ export default function PromotionPage() {
 function PromotionView({ code }: { code: string | null }) {
   const { t } = useTranslation('campaign-promotions')
   const promotions = useQuery(rulePromotionsQuery())
-  // HQ keeps codes unique in any case, and the router keeps a typed link's case: match in any case.
-  const found = promotions.data?.find((p) => (code === null ? p.promotionCode === null : p.promotionCode?.toLowerCase() === code.toLowerCase()))
+  const found = findRulePromotion(promotions.data, code)
   const row = found ? promotionRowView(found) : null
 
   const { query, update, changedFromOutside } = useUrlQuery(promotionQueryFromUrl, urlFromPromotionQuery)
@@ -65,8 +64,9 @@ function PromotionView({ code }: { code: string | null }) {
   // "+N pending" weighs the UNFILTERED total: while a filter is on, one row of the whole promotion tells it.
   const filtered = query.q.trim() !== '' || query.mechanic !== '' || query.status !== ''
   const whole = useQuery({ ...rulePromotionCampaignsQuery({ ...promotionCampaignsBody(sent, EMPTY_PROMOTION_QUERY), pageSize: 1 }), enabled: !!row && filtered })
-  // A page still shown from the last filter is not the unfiltered total: the one-row read (kept) is.
-  const unfilteredTotal = filtered || campaigns.isPlaceholderData ? whole.data?.total : campaigns.data?.total
+  // A page still shown while the next loads may be the last filter's: the one-row read (cached once a filter
+  // was on) is the unfiltered total, and without one the shown page is unfiltered too, so "+N" holds on a page turn.
+  const unfilteredTotal = filtered ? whole.data?.total : campaigns.isPlaceholderData ? (whole.data?.total ?? campaigns.data?.total) : campaigns.data?.total
   const pending = row && unfilteredTotal !== undefined ? pendingBeyond(row.campaignCount, unfilteredTotal) : 0
   const stale = apiErrorCode(campaigns.error) === 'RULES_PROMOTION_NOT_FOUND'
   // The ticked rows (a hand-made promotion's, for Unassign) and what the last write did.
@@ -226,14 +226,18 @@ function Done({ done }: { done: WriteDone }) {
     // dir="auto": the line opens with an isolated count, so its own words, not the page, set its direction.
     <p role="status" dir="auto" className="rounded-lg border border-success-border bg-success-050 px-3 py-2 text-sm text-success-800" data-promotion-done={done.kind}>
       {done.kind === 'assigned'
-        ? // "3 assigned, 1 moved from X": each count and each promotion isolated, the words carrying the order.
-          assignmentLine(done.summary).map((part, i) =>
-            part.key === 'assign.done' ? (
-              <Trans key={i} t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
-            ) : (
-              <Trans key={i} t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US'), from: part.from }} components={{ n: <Ltr />, from: <Ltr /> }} />
-            ),
-          )
+        ? // "3 assigned, 1 moved from X": each count and each promotion isolated, the words carrying the order;
+          // the parts are joined by the locale's own joiner, never a comma written here.
+          assignmentLine(done.summary).map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && t('assign.joiner')}
+              {part.key === 'assign.done' ? (
+                <Trans t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
+              ) : (
+                <Trans t={t} i18nKey={part.key} values={{ n: part.count.toLocaleString('en-US'), from: part.from }} components={{ n: <Ltr />, from: <Ltr /> }} />
+              )}
+            </Fragment>
+          ))
         : done.kind === 'unassigned'
           ? <Trans t={t} i18nKey="unassign.done" count={done.count} values={{ n: done.count.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
           : t('rename.done')}
@@ -354,7 +358,7 @@ function Actions({
             }}
             data="unassign"
           >
-            <Trans t={t} i18nKey="unassign.body" count={ticked.length} values={{ code }} components={{ n: <Ltr />, code: <Ltr /> }} />
+            <Trans t={t} i18nKey="unassign.body" count={ticked.length} values={{ n: ticked.length.toLocaleString('en-US'), code }} components={{ n: <Ltr />, code: <Ltr /> }} />
           </ConfirmWriteDialog>
         )}
         {writing === 'remove' && (
@@ -368,8 +372,8 @@ function Actions({
               setWriting(null)
               notify.success(t('remove.done', { code: fsi(code) }))
               navigate(PROMOTIONS_PATH)
-              // Read once the page has gone: the deleted promotion's campaigns are not asked again.
-              void refreshPromotions(queryClient)
+              // The page may still be mounted this tick: the deleted promotion's campaigns are left out, so HQ is not asked for them (a 404).
+              void refreshPromotions(queryClient, code)
             }}
             danger
             leaves

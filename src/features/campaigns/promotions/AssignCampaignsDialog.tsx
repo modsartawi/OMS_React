@@ -77,7 +77,7 @@ export default function AssignCampaignsDialog({
       footer={
         <>
           <span className="me-auto text-xs text-muted-foreground" data-assign-picked={picked.length}>
-            <Trans t={t} i18nKey="assign.picked" count={picked.length} components={{ n: <Ltr /> }} />
+            <Trans t={t} i18nKey="assign.picked" count={picked.length} values={{ n: picked.length.toLocaleString('en-US') }} components={{ n: <Ltr /> }} />
           </span>
           <Button variant="text" disabled={assign.isPending} onClick={close}>
             {t('form.cancel')}

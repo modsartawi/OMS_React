@@ -1,4 +1,4 @@
-import type { RulePromotionCampaignsBody } from '@/core/models/rule-promotion'
+import type { RulePromotionCampaignsBody, RulePromotionSummary } from '@/core/models/rule-promotion'
 import { NO_PROMOTION_PATH, PROMOTIONS_PATH, campaignPath, promotionPath } from './campaign-state'
 
 // A promotion's page as its address holds it (ticket 535; BackOffice brief 2848 D2): the search, the
@@ -15,7 +15,7 @@ export interface PromotionQuery {
   /** A key of the page's `mechanics` (`builder` included). */
   mechanic: string
   /** One of `PROMOTION_CAMPAIGN_STATUSES`. */
-  status: string
+  status: PromotionCampaignStatus | ''
   /** 1-based. */
   page: number
 }
@@ -27,6 +27,14 @@ export const PROMOTION_PAGE_SIZE = 50
 
 /** The statuses a campaign row has and the filter offers; HQ accepts any case. */
 export const PROMOTION_CAMPAIGN_STATUSES = ['Published', 'Disabled', 'Pending'] as const
+export type PromotionCampaignStatus = (typeof PROMOTION_CAMPAIGN_STATUSES)[number]
+
+/** A promotion's `Promotions/List` row by its code (null = the no-promotion row). HQ keeps codes unique
+ *  in any case, and a typed or shared link may not be HQ's spelling, so the code matches in any case. */
+export function findRulePromotion(list: readonly RulePromotionSummary[] | undefined, code: string | null): RulePromotionSummary | undefined {
+  const wanted = code?.toLowerCase()
+  return list?.find((p) => (wanted === undefined ? p.promotionCode === null : p.promotionCode?.toLowerCase() === wanted))
+}
 
 const WHOLE = /^[1-9]\d*$/
 

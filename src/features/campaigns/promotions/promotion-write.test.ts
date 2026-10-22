@@ -76,7 +76,7 @@ describe('assignmentSummary', () => {
     expect(summary).toEqual({ assigned: 3, moved: [{ from: 'X', count: 1 }] })
     const line = assignmentLine(summary)
       .map((p) => plain(p.key, p.key === 'assign.done' ? { n: p.count } : { n: p.count, from: p.from }))
-      .join('')
+      .join(plain('assign.joiner', {}))
     expect(line).toBe('3 assigned, 1 moved from X')
   })
 

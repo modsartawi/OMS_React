@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { RulePromotionSummary } from '@/core/models/rule-promotion'
 import {
   EMPTY_PROMOTION_QUERY,
   PROMOTION_PAGE_SIZE,
   campaignInPromotionPath,
+  findRulePromotion,
   listContextBackPath,
   listContextFromUrl,
   listContextSearch,
@@ -11,13 +13,14 @@ import {
   promotionQueryFromUrl,
   urlFromPromotionQuery,
   withPromotionFilter,
+  type PromotionQuery,
 } from './promotion-query'
 
 const url = (s: string) => new URLSearchParams(s)
 
 describe('promotionQueryFromUrl / urlFromPromotionQuery', () => {
   it('round-trips every filter and the page', () => {
-    const query = { q: 'واقي', mechanic: 'bundle', status: 'Pending', page: 3 }
+    const query: PromotionQuery = { q: 'واقي', mechanic: 'bundle', status: 'Pending', page: 3 }
     expect(promotionQueryFromUrl(urlFromPromotionQuery(query))).toEqual(query)
     expect(urlFromPromotionQuery(promotionQueryFromUrl(url('q=sun&mechanic=builder&status=Published&page=2'))).toString()).toBe('q=sun&mechanic=builder&status=Published&page=2')
   })
@@ -43,7 +46,7 @@ describe('promotionQueryFromUrl / urlFromPromotionQuery', () => {
 })
 
 describe('withPromotionFilter', () => {
-  const on = { q: 'sun', mechanic: 'bundle', status: '', page: 4 }
+  const on: PromotionQuery = { q: 'sun', mechanic: 'bundle', status: '', page: 4 }
 
   it('a changed filter goes back to page 1', () => {
     expect(withPromotionFilter(on, { q: 'sunscreen' })).toEqual({ ...on, q: 'sunscreen', page: 1 })
@@ -118,5 +121,20 @@ describe('the list context a campaign was opened with (537)', () => {
     expect(listContextBackPath(listContextFromUrl(url('promotion=&status=Disabled')))).toBe('/campaigns/no-promotion?status=Disabled')
     expect(listContextBackPath(listContextFromUrl(url('promotion=')))).toBe('/campaigns/no-promotion')
     expect(listContextBackPath(null)).toBe('/campaigns')
+  })
+})
+
+describe('findRulePromotion', () => {
+  const row = (promotionCode: string | null) => ({ promotionCode }) as RulePromotionSummary
+  const list = [row('FLYER-2610'), row('SUMMER-HAND'), row(null)]
+
+  it('finds a code in any case, and null finds the no-promotion row', () => {
+    expect(findRulePromotion(list, 'flyer-2610')?.promotionCode).toBe('FLYER-2610')
+    expect(findRulePromotion(list, null)).toBe(list[2])
+  })
+
+  it('a code the list does not hold, or no list yet, finds nothing', () => {
+    expect(findRulePromotion(list, 'FLYER-26')).toBeUndefined()
+    expect(findRulePromotion(undefined, 'FLYER-2610')).toBeUndefined()
   })
 })

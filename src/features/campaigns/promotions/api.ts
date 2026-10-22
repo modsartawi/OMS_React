@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { api } from '@/core/api'
-import type { RulePromotionAssignBody, RulePromotionAssignment, RulePromotionBody, RulePromotionRecord } from '@/core/models/rule-promotion'
+import type { RulePromotionAssignBody, RulePromotionAssignment, RulePromotionBody, RulePromotionCampaignsBody, RulePromotionRecord } from '@/core/models/rule-promotion'
 import { RULE_PROMOTIONS_KEY } from '@/core/rules/api'
 
 // A hand-made promotion's writes (ticket 536; BackOffice 2847 renamed by 2862, the 2737 brief's
@@ -51,7 +51,13 @@ export const promotionWriteApi = {
  * them are keyed under RULE_PROMOTIONS_KEY). A promotion write touches no draft, so core's
  * `refreshCampaignLists` (promotions + drafts) is more than it needs. Resolves once the shown ones
  * are read, for a caller that must wait for them (Create opens the new promotion's page from the list).
+ * After a Delete, `deleted` names the promotion that is gone: its campaign pages are left as they are,
+ * since HQ would answer them 404.
  */
-export function refreshPromotions(queryClient: QueryClient): Promise<void> {
-  return queryClient.invalidateQueries({ queryKey: RULE_PROMOTIONS_KEY })
+export function refreshPromotions(queryClient: QueryClient, deleted?: string): Promise<void> {
+  const gone = deleted?.toLowerCase()
+  return queryClient.invalidateQueries({
+    queryKey: RULE_PROMOTIONS_KEY,
+    predicate: gone === undefined ? undefined : ({ queryKey }) => !(queryKey[1] === 'campaigns' && (queryKey[2] as RulePromotionCampaignsBody | undefined)?.promotionCode?.toLowerCase() === gone),
+  })
 }

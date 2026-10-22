@@ -99,7 +99,7 @@ describe('crumb derives group, sub-group and screen from the menu for a route', 
 })
 
 describe('a campaign opened from a promotion names the promotion between the list and the campaign (537)', () => {
-  const PROMOTIONS = ['campaign-list:menu.group', 'campaign-list:menu.promotions']
+  const PROMOTIONS = ['campaigns:menu.group', 'campaigns:menu.promotions']
 
   it('Promotions › <promotion> › <campaign>, on every page of the workspace', () => {
     expect(deriveCrumb(MENU, '/campaigns/FLYER-1-SUN', { id: 'FLYER-1-SUN' }, '?promotion=FLYER-1&q=sun&page=2')).toEqual({

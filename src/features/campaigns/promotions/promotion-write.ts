@@ -100,7 +100,8 @@ export function assignmentSummary(reply: Pick<RulePromotionAssignment, 'changed'
   return { assigned: reply.changed.length, moved }
 }
 
-/** The success line's parts in order, each a key of the namespace and its values; the page isolates every value. */
+/** The success line's parts in order, each a key of the namespace and its values; the page isolates every value
+ *  and joins the parts with the locale's `assign.joiner`. */
 export type AssignmentLinePart = { key: 'assign.done'; count: number } | { key: 'assign.movedFrom'; count: number; from: string }
 
 export const assignmentLine = (summary: AssignmentSummary): AssignmentLinePart[] => [

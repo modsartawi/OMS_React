@@ -133,3 +133,5 @@ tools/.pick-support-shots/
 tools/.campaigns-shots/
 # tsc incremental build info
 tsconfig.tsbuildinfo
+# Dispatch scorecard drive screenshots (tools/dispatch-scorecard-drive.mjs, ticket 543)
+tools/.dispatch-scorecard-shots/

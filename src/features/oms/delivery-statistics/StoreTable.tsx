@@ -11,8 +11,8 @@ import { pinStart } from '@/core/theme/direction'
 import type { DeliveryStatisticsStore } from '@/core/models/delivery-statistics'
 import { PILL, PILL_GROUP, PILL_OFF, PILL_ON } from './controls'
 import { readAverage, readFigure } from './figures'
+import { compareFigures } from '@/core/util/compare-figures'
 import {
-  compareFigures,
   FLOW_FIGURES,
   HAND_OVER_FIGURE,
   storeRows,

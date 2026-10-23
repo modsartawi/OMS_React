@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2952-competed-delivery-callout-spec.md
 blocked-by: — (live: BackOffice 2965)
 ---
@@ -42,12 +42,12 @@ page + drawer + card · export · i18n EN + AR · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] figure logic: direction labels; nulls last both ways; "too few" rows last; context columns not sortable as
+- [x] figure logic: direction labels; nulls last both ways; "too few" rows last; context columns not sortable as
       ranks; card "#n of m" and estate median shown as sent (vitest)
-- [ ] range: default 30 days; over 92 days blocked before the call; each `CALLOUT-30x` maps to its message (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Grid, Drill, StoreCard, Access (allowed and not) and a bare
+- [x] range: default 30 days; over 92 days blocked before the call; each `CALLOUT-30x` maps to its message (vitest)
+- [x] drive script, LTR and RTL, against a stub serving Grid, Drill, StoreCard, Access (allowed and not) and a bare
       403: both tabs, a header sort both ways, a figure opening its drawer, a store opening its card, export offered
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -70,3 +70,40 @@ to its bids, and opens a store's report card.
 - Win rate leaves beaten bids out of its denominator (the ticket and ruling 2948 D3); the spec's table says every bid
   but withdrawn. Owner to confirm on the BackOffice side; nothing changes here either way.
 - City / region filter here is the store's area; the board (541) filters on the delivery address's city.
+
+## Comments
+
+### Built 2026-10-23 (stubbed — no live SIS.Api)
+
+- **Model** `core/models/dispatch-scorecard.ts` mirrors `DispatchScorecardModels.cs` field for field.
+- **Feature** `features/oms/dispatch-scorecard/` at `/oms/dispatch-scorecard`, namespace `dispatch-scorecard`
+  (EN + AR, AR with all six plural forms): `access.ts` (own probe `DispatchScorecard/Access`, key
+  `['oms','dispatch-scorecard','access']`, `canOpenDispatchScorecard` = `screenAllowed === true`, fails closed),
+  `api.ts` (Grid / Drill / StoreCard), `figures.ts` + `range.ts` (pure, vitest), `columns.tsx`, `DrillDrawer.tsx`,
+  `StoreCardDrawer.tsx`, `Sheet.tsx`, the Page behind `ScreenGate`. Menu leaf in the OMS group, placed **before Pick
+  support** so Pick support / Delivery statistics keep the last two places their menu tests pin.
+- **`compareFigures` graduated** to `core/util/compare-figures.ts` (its tests moved with it); delivery-statistics
+  re-pointed at it.
+- **Proof:** vitest 30 new (figures 18, range 12) + 2 menu-leaf + the 4 moved; full suite 5808/5808; typecheck and
+  all four lint gates green; `tools/dispatch-scorecard-drive.mjs` **72/72** (LTR + RTL, port 5203), every door stubbed.
+
+Decisions taken (overrulable):
+
+1. **Context columns do not sort at all** (`sortable: false`), not merely "unranked": the ticket's "never ranked" and
+   2948 D4's "best and worst are the two directions of the sort" read together leave a sortable context column
+   offering a best/worst it must not. Only the five measures (Staff: the two answer times) sort.
+2. **Unsorted order** is the server's, with the too-few rows moved last; no default sort is imposed.
+3. **Links:** on Stores, the five ranked figures and Lost races drill (as the ticket says); on Staff, Won, Lost races,
+   Passed with stock and the two times drill that person's own bids (`staff=…`, store filter dropped). Card tiles drill
+   their measure for the store, over the card.
+4. **Figures read** as: rates (sent 0..1) `12.3%`; answer times `42 s` under a minute else `m:ss`; km one decimal;
+   absent = "—". Lost races shows its near misses in brackets; Unseen shows `n (nobody signed in · old build)`;
+   Released after award carries its reasons in the tooltip.
+5. **A bid row** navigates to `/oms/delivery/<subjectId>` (Delivery details); 542's Activity/Callout tab is not built,
+   so it lands on the details page. Only `subjectType === 'DELIVERY'` rows are links.
+6. **Filters** (type, channel, city, region, store) are free-text boxes written to the URL — no lookup door was named.
+   The date inputs show the resolved default; editing one end pins both into the URL.
+7. A `CALLOUT-30x` refusal is shown in our own sentence (`refusal.*`), any other failure in the server's words.
+
+Open for the owner: the live walk on BackOffice 2965 deployed (SQL 056 / Callouts 001 / the screen seed); the two
+open questions above are unchanged by this build.

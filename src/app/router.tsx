@@ -151,6 +151,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
         }),
       },
+      // Dispatch scorecard (ticket 543, BackOffice spec 2952) — HQ ranks stores and staff on competed
+      // deliveries and drills to the bids, behind its own `DispatchScorecard/Access` probe. Filters in the URL.
+      {
+        path: 'oms/dispatch-scorecard',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
+        }),
+      },
       // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
       // and reads its diagnosis, behind `canOpenPickSupport` on the shared OMS probe. `?key=` is the
       // number looked up.

@@ -32,6 +32,13 @@ import {
 // gives the whole area ONE grant, so the leaf and every screen in both
 // `features/nphies/*` features share this single probe.
 import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
+// The dispatch scorecard's probe stays with its feature (ticket 543): it is its only consumer.
+import {
+  DISPATCH_SCORECARD_ACCESS_KEY,
+  canOpenDispatchScorecard,
+  dispatchScorecardAccessApi,
+} from '@/features/oms/dispatch-scorecard/access'
+import { Trophy } from 'lucide-react'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -322,6 +329,21 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: canOpenDocumentSourceUsers,
+        }),
+      },
+      {
+        // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
+        // `BackOfficeScreen[DispatchScorecard, 03]`, on its own probe; the leaf and the page's gate
+        // share the one predicate and fail closed (ruling 2950 point 5). Before Pick support, so
+        // Pick support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'dispatch-scorecard:menu.dispatchScorecard',
+        icon: Trophy,
+        routerLink: '/oms/dispatch-scorecard',
+        activePrefix: '/oms/dispatch-scorecard',
+        access: accessProbe({
+          key: DISPATCH_SCORECARD_ACCESS_KEY,
+          run: () => dispatchScorecardAccessApi.access(),
+          visible: canOpenDispatchScorecard,
         }),
       },
       {

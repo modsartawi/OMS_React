@@ -332,3 +332,23 @@ describe('the Pick support leaf (ticket 496)', () => {
     expect(leaf.access?.visible({ canOpenList: true, canOpenDetail: true, canFixPickSupport: true })).toBe(false)
   })
 })
+
+describe('the Dispatch scorecard leaf (ticket 543)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'dispatch-scorecard:menu.dispatchScorecard')!
+
+  it('sits in the OMS group, lit alone on its own screen', () => {
+    expect(leaf.routerLink).toBe('/oms/dispatch-scorecard')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/dispatch-scorecard')).map((i) => i.labelKey)).toEqual([
+      'dispatch-scorecard:menu.dispatchScorecard',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (DispatchScorecard/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'dispatch-scorecard', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})

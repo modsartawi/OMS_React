@@ -111,6 +111,8 @@ import deliverectTermsAr from '@/locales/ar/deliverect-terms.json'
 // Arabic together. 485–487 add their keys here rather than minting a second namespace.
 import deliveryStatistics from '@/locales/en/delivery-statistics.json'
 import deliveryStatisticsAr from '@/locales/ar/delivery-statistics.json'
+import dispatchScorecard from '@/locales/en/dispatch-scorecard.json'
+import dispatchScorecardAr from '@/locales/ar/dispatch-scorecard.json'
 // Pick support (BackOffice brief 2691, ticket 496). Namespace == feature name, English and Arabic
 // together. `core/pick-support` — the diagnosis panel Document Details also draws (499) — speaks in
 // it too, the `central-invoice` precedent. 497–499 add their keys here rather than minting another.
@@ -144,7 +146,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-scorecard'],
   resources: {
     en: {
       common,
@@ -187,6 +189,7 @@ i18n.use(initReactI18next).init({
       'deliverect-catalog': deliverectCatalog,
       'deliverect-terms': deliverectTerms,
       'delivery-statistics': deliveryStatistics,
+      'dispatch-scorecard': dispatchScorecard,
       'pick-support': pickSupport,
       campaigns,
       'campaign-workspace': campaignWorkspace,
@@ -216,6 +219,7 @@ i18n.use(initReactI18next).init({
       'deliverect-catalog': deliverectCatalogAr,
       'deliverect-terms': deliverectTermsAr,
       'delivery-statistics': deliveryStatisticsAr,
+      'dispatch-scorecard': dispatchScorecardAr,
       'pick-support': pickSupportAr,
     },
   },

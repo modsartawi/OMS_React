@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
+import { Activity, ArrowLeftRight, ArrowUpDown, Banknote, Box, Calculator, ChartColumn, ClipboardCheck, CloudUpload, CreditCard, FileBarChart, FileCheck2, FilePen, FileSearch, FileSpreadsheet, FileText, Gem, UserCheck, MapPinned, PackageSearch, PackageX, Pill, Radar, ReceiptText, Repeat, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, ScanBarcode, ScanSearch, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet, Warehouse } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -75,6 +75,9 @@ import {
 // …and the SAP export console's (BackOffice spec 2579, ticket 461) with ITS feature, a third
 // screen in the area on a third grant.
 import { SAP_EXPORT_ACCESS_KEY, canOpenSapExport, sapExportAccessApi } from '@/features/reports/sap-export-console/access'
+// The Dispatch board's probe lives in `@/core/` (ticket 541): Delivery details (542) reads its Execute
+// flag for the same Release lock, and a feature may not import another.
+import { DISPATCH_ACCESS_KEY, canOpenDispatchBoard, dispatchApi } from '@/core/dispatch/access'
 // Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
 // delivery page's action (`features/oms/document`) and the bulk screen
 // (`features/oms/central-invoice`) both read it, and neither may import the other.
@@ -332,10 +335,25 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // The Dispatch board (ticket 541, BackOffice spec 2952) — `BackOfficeScreen[DispatchBoard, Display]`
+        // read off `GET DispatchBoard/Access`. The SAME key, call and predicate as the board's own
+        // `ScreenGate`, so the two never disagree. 🚩 FAILS CLOSED: a pending, errored, 403 or malformed
+        // probe hides the leaf (BackOffice 2949's pattern). Before Pick support, which 496 keeps just before Delivery statistics.
+        labelKey: 'dispatch-board:menu.dispatchBoard',
+        icon: Radar,
+        routerLink: '/oms/dispatch-board',
+        activePrefix: '/oms/dispatch-board',
+        access: accessProbe({
+          key: DISPATCH_ACCESS_KEY,
+          run: () => dispatchApi.access(),
+          visible: canOpenDispatchBoard,
+        }),
+      },
+      {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
         // `BackOfficeScreen[DispatchScorecard, 03]`, on its own probe; the leaf and the page's gate
-        // share the one predicate and fail closed (ruling 2950 point 5). Before Pick support, so
-        // Pick support and Delivery statistics keep the last two places their tests pin.
+        // share the one predicate and fail closed (ruling 2950 point 5). After the board and before
+        // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
         labelKey: 'dispatch-scorecard:menu.dispatchScorecard',
         icon: Trophy,
         routerLink: '/oms/dispatch-scorecard',

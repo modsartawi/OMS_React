@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2952-competed-delivery-callout-spec.md
 blocked-by: — (live: BackOffice 2959, 2964)
 ---
@@ -48,14 +48,14 @@ gate + page · i18n EN + AR · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] view logic: an open callout's countdown from `secondsLeft` + the 1 s clock never goes below 0; each outcome
+- [x] view logic: an open callout's countdown from `secondsLeft` + the 1 s clock never goes below 0; each outcome
       gives its label; a bid row shows dark / ATP (covers · short n · unknown) / the four moments with seconds from
       offer; an unknown status still renders (vitest)
-- [ ] release form: no reason → blocked; `Other` without a note → blocked; each `CALLOUT-10x` maps to its message (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Board (open + closed + locked rows), Access (both flag
+- [x] release form: no reason → blocked; `Other` without a note → blocked; each `CALLOUT-10x` maps to its message (vitest)
+- [x] drive script, LTR and RTL, against a stub serving Board (open + closed + locked rows), Access (both flag
       combinations), ReleaseLock (ok and each refusal) and a bare 403: tiles, countdown, inspector, Release lock only
       with Execute, the Change store link after release, filters in the URL
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -78,3 +78,35 @@ Execute holder releases a locked delivery with a reason.
 
 - City / region: the board door filters on the delivery address's city (code or name); the scorecard (543) filters
   on the store's area. The owner has not ruled which reading is wanted; build to the door as it is.
+
+## Comments
+
+### Built (2026-10-23)
+
+- **Shared core** (for 542): `core/models/dispatch-board.ts` (`DispatchBoard`, `DispatchCallout`, `DispatchBid`, the
+  release request/answer, `RELEASE_REASONS`, `CALLOUT_LOCK_ERRORS`); `core/dispatch/access.ts` (the probe's key, query
+  and the two predicates `canOpenDispatchBoard` / `canReleaseLock`, plus `dispatchApi.releaseLock`);
+  `core/dispatch/release.ts` (form validation + `CALLOUT-102/103/104` refusal map); `core/dispatch/view.ts`
+  (countdown, outcome / bid-status labels, ATP, a bid row's four moments with seconds from offer — 542's ledger rows
+  can reuse `bidRow`); `core/dispatch/ReleaseLockDialog.tsx` (owns its mutation, speaks in `dispatch-board`, the
+  `central-invoice` precedent).
+- **Feature** `features/oms/dispatch-board/`: Page behind `ScreenGate`, tiles, two AG Grids, inspector, filters in
+  the URL (`useUrlQuery`), 30 s poll (hidden tab paused by TanStack's default), 1 s clock. Menu leaf in the OMS group
+  before Pick support, on the same key/predicate as the gate. EN + AR namespace `dispatch-board`.
+- **Proof:** vitest 3 files / 52 tests (`core/dispatch/{release,view,access}.test.ts`,
+  `features/oms/dispatch-board/board-view.test.ts`); `tools/dispatch-board-drive.mjs` **101/101** LTR + RTL
+  (port 5201), **all stubbed** — no live SIS.Api; typecheck, lint, `npm test` (5828) green.
+
+### Decisions (overrulable)
+
+- **City / region** (open question): built to the door as it is — the board's `city` filter is the delivery
+  address's city (code or name), a free-text field. Not reconciled with 543's store-area reading; owner to rule.
+- Filters are three free-text fields applied together (Enter / Apply), not pick-lists: the door matches
+  case-insensitively and there is no lookup door for channels / cities yet.
+- The countdown counts from the client's receipt time of each read (`dataUpdatedAt`), not from `asOf`, so a server
+  clock skew never moves it.
+- The RTL pass is the direction only: the app's `lng` stays `en` until Arabic is switched on, so the AR bundle ships
+  but the drive reads English words mirrored (the repo's existing RTL drives do the same).
+- A bare 403 on the board door (probe said yes) shows the gate's "You do not have access" sentence in place of the
+  board.
+

@@ -1,0 +1,155 @@
+{
+  "menu": {
+    "dispatchBoard": "Dispatch board"
+  },
+  "title": "Dispatch board",
+  "subtitle": "Competed deliveries on callout now, and those closed in the last hour.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the Dispatch board grant.",
+    "unreachableTitle": "Access could not be checked",
+    "unreachableHint": "Try again in a moment."
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "refreshing": "Refreshing…",
+  "loading": "Loading the board…",
+  "failed": "The board could not be read.",
+  "filters": {
+    "channel": "Channel",
+    "city": "City / region",
+    "store": "Store",
+    "any": "All",
+    "apply": "Apply",
+    "clear": "Clear filters"
+  },
+  "tiles": {
+    "label": "Dispatch figures",
+    "onCalloutNow": "On callout now",
+    "bidsAwaiting": "Bids awaiting an answer",
+    "takenLastHour": "Taken · last {{n}} min",
+    "fellBack": "Fell back · last {{n}} min",
+    "notCompeted": "Not competed · last {{n}} min",
+    "withdrawn": "Withdrawn · last {{n}} min",
+    "oldest": "oldest <v>{{age}}</v>",
+    "noneOpen": "none open",
+    "atDark": "<v>{{n}}</v> at a dark store",
+    "medianToTake": "median time to take <v>{{median}}</v>",
+    "noMedian": "nothing taken",
+    "fellBackHint": "nobody took it",
+    "notCompetedHint": "sent straight to a store",
+    "withdrawnHint": "cancelled while open"
+  },
+  "sections": {
+    "open": "On callout now",
+    "closed": "Closed · last {{n}} min",
+    "emptyOpen": "Nothing on callout right now.",
+    "emptyClosed": "Nothing closed in the last {{n}} min.",
+    "emptyFiltered": "No callouts match the filters."
+  },
+  "columns": {
+    "delivery": "Delivery",
+    "opened": "Opened",
+    "channel": "Channel",
+    "place": "District · city",
+    "value": "Value",
+    "bids": "Bids",
+    "countdown": "Countdown",
+    "outcome": "Outcome",
+    "ended": "Ended"
+  },
+  "countdown": {
+    "left": "left"
+  },
+  "outcome": {
+    "Open": "On callout",
+    "Taken": "Taken",
+    "FellBack": "Fell back",
+    "Withdrawn": "Withdrawn",
+    "NotCompeted": "Not competed"
+  },
+  "endReasons": {
+    "AllPassed": "all passed",
+    "Expired": "lapsed",
+    "Withdrawn": "withdrawn"
+  },
+  "bidStatus": {
+    "OPEN": "Awaiting",
+    "TAKEN": "Took it",
+    "PASSED": "Passed",
+    "LOST": "Lost the race",
+    "EXPIRED": "Unanswered",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "atp": {
+    "covers": "covers",
+    "short": "short <n>{{n}}</n>",
+    "unknown": "not checked"
+  },
+  "moments": {
+    "delivered": "Delivered",
+    "shown": "Shown",
+    "opened": "Opened",
+    "answered": "Answered"
+  },
+  "bid": {
+    "store": "Store",
+    "km": "km",
+    "atp": "ATP at offer",
+    "tills": "Tills",
+    "tillsHint": "Online / signed in when offered",
+    "seen": "Seen",
+    "answer": "Answer",
+    "dark": "dark",
+    "register": "reg <r>{{reg}}</r>"
+  },
+  "inspector": {
+    "select": "Select a callout.",
+    "activity": "Activity ›",
+    "lines_one": "{{n}} line",
+    "lines_other": "{{n}} lines",
+    "openedLine": "Opened <at>{{at}}</at> · candidates <n>{{n}}</n>",
+    "fallbackLine": "fallback <s>{{store}}</s>",
+    "notCompeted": "Why not competed",
+    "candidates_one": "{{n}} candidate",
+    "candidates_other": "{{n}} candidates",
+    "bids": "Bids",
+    "dotsHint": "Dots: delivered · shown · opened, with the time since offer. Tills: online / signed in when offered.",
+    "locked": "Locked at <s>{{store}}</s>: no line edits, item cancels or store cancel.",
+    "lockedShort": "Locked",
+    "releaseLock": "Release lock…",
+    "releasedAt": "Lock released <at>{{at}}</at> by <by>{{by}}</by>.",
+    "releasedNow": "Lock released.",
+    "changeStore": "Change store",
+    "changeStoreHint": "opens the delivery's details, where it is moved."
+  },
+  "reasons": {
+    "NoStock": "No stock",
+    "CustomerChange": "Customer change",
+    "StoreCannotFulfil": "Store cannot fulfil",
+    "Other": "Other"
+  },
+  "release": {
+    "title": "Release lock",
+    "explain": "Release the lock on delivery <d>{{delivery}}</d>. This cannot be undone.",
+    "explainHeld": "Release the lock that holds delivery <d>{{delivery}}</d> at <s>{{store}}</s>. This cannot be undone: the delivery can then be changed or moved to another store.",
+    "reason": "Reason",
+    "noteRequired": "Note (required for Other)",
+    "noteOptional": "Note (optional)",
+    "blocked": {
+      "reasonMissing": "Pick a reason.",
+      "noteMissing": "Other needs a note."
+    },
+    "refusal": {
+      "reasonMissing": "The release needs one of the listed reasons.",
+      "noteMissing": "A release for another reason needs a note.",
+      "notLocked": "This delivery is no longer locked: it was already released, or it is closed."
+    },
+    "confirm": "Release lock",
+    "sending": "Releasing…",
+    "cancel": "Cancel",
+    "failed": "The lock was not released",
+    "failedHint": "Something went wrong. Try again.",
+    "done": "Lock released on delivery {{delivery}}."
+  }
+}

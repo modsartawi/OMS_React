@@ -1,0 +1,163 @@
+{
+  "menu": {
+    "dispatchBoard": "لوحة الإسناد"
+  },
+  "title": "لوحة الإسناد",
+  "subtitle": "التوصيلات المطروحة على الفروع الآن، وما أُغلق منها في الساعة الأخيرة.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحيتك…",
+    "deniedTitle": "ليست لديك صلاحية",
+    "deniedHint": "اطلب من المسؤول صلاحية لوحة الإسناد.",
+    "unreachableTitle": "تعذّر التحقق من الصلاحية",
+    "unreachableHint": "حاول مرة أخرى بعد قليل."
+  },
+  "asOf": "حتى <at>{{at}}</at>",
+  "refreshing": "جارٍ التحديث…",
+  "loading": "جارٍ تحميل اللوحة…",
+  "failed": "تعذّرت قراءة اللوحة.",
+  "filters": {
+    "channel": "القناة",
+    "city": "المدينة / المنطقة",
+    "store": "الفرع",
+    "any": "الكل",
+    "apply": "تطبيق",
+    "clear": "مسح عوامل التصفية"
+  },
+  "tiles": {
+    "label": "أرقام الإسناد",
+    "onCalloutNow": "مطروحة الآن",
+    "bidsAwaiting": "عروض بانتظار الرد",
+    "takenLastHour": "مأخوذة · آخر {{n}} دقيقة",
+    "fellBack": "آلت إلى الفرع الاحتياطي · آخر {{n}} دقيقة",
+    "notCompeted": "لم تُطرح · آخر {{n}} دقيقة",
+    "withdrawn": "مسحوبة · آخر {{n}} دقيقة",
+    "oldest": "الأقدم <v>{{age}}</v>",
+    "noneOpen": "لا شيء مطروح",
+    "atDark": "<v>{{n}}</v> عند فرع غير متصل",
+    "medianToTake": "وسيط زمن الأخذ <v>{{median}}</v>",
+    "noMedian": "لم يُؤخذ شيء",
+    "fellBackHint": "لم يأخذها أحد",
+    "notCompetedHint": "أُرسلت مباشرة إلى فرع",
+    "withdrawnHint": "أُلغيت وهي مطروحة"
+  },
+  "sections": {
+    "open": "مطروحة الآن",
+    "closed": "مغلقة · آخر {{n}} دقيقة",
+    "emptyOpen": "لا شيء مطروح الآن.",
+    "emptyClosed": "لم يُغلق شيء في آخر {{n}} دقيقة.",
+    "emptyFiltered": "لا توجد طروحات تطابق عوامل التصفية."
+  },
+  "columns": {
+    "delivery": "التوصيلة",
+    "opened": "فُتحت",
+    "channel": "القناة",
+    "place": "الحي · المدينة",
+    "value": "القيمة",
+    "bids": "العروض",
+    "countdown": "العد التنازلي",
+    "outcome": "النتيجة",
+    "ended": "انتهت"
+  },
+  "countdown": {
+    "left": "متبقٍ"
+  },
+  "outcome": {
+    "Open": "مطروحة",
+    "Taken": "مأخوذة",
+    "FellBack": "آلت إلى الاحتياطي",
+    "Withdrawn": "مسحوبة",
+    "NotCompeted": "لم تُطرح"
+  },
+  "endReasons": {
+    "AllPassed": "اعتذر الجميع",
+    "Expired": "انقضت المهلة",
+    "Withdrawn": "سُحبت"
+  },
+  "bidStatus": {
+    "OPEN": "بانتظار الرد",
+    "TAKEN": "أخذها",
+    "PASSED": "اعتذر",
+    "LOST": "سبقه غيره",
+    "EXPIRED": "لم يرد",
+    "WITHDRAWN": "مسحوب"
+  },
+  "atp": {
+    "covers": "متوفر",
+    "short": "ناقص <n>{{n}}</n>",
+    "unknown": "لم يُفحص"
+  },
+  "moments": {
+    "delivered": "وصل",
+    "shown": "عُرض",
+    "opened": "فُتح",
+    "answered": "رُدّ عليه"
+  },
+  "bid": {
+    "store": "الفرع",
+    "km": "كم",
+    "atp": "المخزون عند الطرح",
+    "tills": "الأجهزة",
+    "tillsHint": "متصلة / مسجّل الدخول عليها عند الطرح",
+    "seen": "الاطلاع",
+    "answer": "الرد",
+    "dark": "غير متصل",
+    "register": "جهاز <r>{{reg}}</r>"
+  },
+  "inspector": {
+    "select": "اختر طرحًا.",
+    "activity": "النشاط ›",
+    "lines_zero": "{{n}} سطر",
+    "lines_one": "سطر واحد",
+    "lines_two": "سطران",
+    "lines_few": "{{n}} أسطر",
+    "lines_many": "{{n}} سطرًا",
+    "lines_other": "{{n}} سطر",
+    "openedLine": "فُتحت <at>{{at}}</at> · المرشحون <n>{{n}}</n>",
+    "fallbackLine": "الاحتياطي <s>{{store}}</s>",
+    "notCompeted": "سبب عدم الطرح",
+    "candidates_zero": "لا مرشحين",
+    "candidates_one": "مرشح واحد",
+    "candidates_two": "مرشحان",
+    "candidates_few": "{{n}} مرشحين",
+    "candidates_many": "{{n}} مرشحًا",
+    "candidates_other": "{{n}} مرشح",
+    "bids": "العروض",
+    "dotsHint": "النقاط: وصل · عُرض · فُتح، مع الزمن منذ الطرح. الأجهزة: متصلة / مسجّل الدخول عليها عند الطرح.",
+    "locked": "مقفلة عند <s>{{store}}</s>: لا تعديل للأسطر ولا إلغاء أصناف ولا إلغاء من الفرع.",
+    "lockedShort": "مقفلة",
+    "releaseLock": "فك القفل…",
+    "releasedAt": "فُك القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>.",
+    "releasedNow": "فُك القفل.",
+    "changeStore": "تغيير الفرع",
+    "changeStoreHint": "يفتح تفاصيل التوصيلة، حيث يتم نقلها."
+  },
+  "reasons": {
+    "NoStock": "لا يوجد مخزون",
+    "CustomerChange": "تغيير من العميل",
+    "StoreCannotFulfil": "الفرع لا يستطيع التنفيذ",
+    "Other": "أخرى"
+  },
+  "release": {
+    "title": "فك القفل",
+    "explain": "فك القفل عن التوصيلة <d>{{delivery}}</d>. لا يمكن التراجع عن ذلك.",
+    "explainHeld": "فك القفل الذي يُبقي التوصيلة <d>{{delivery}}</d> عند <s>{{store}}</s>. لا يمكن التراجع عن ذلك: يمكن بعدها تعديل التوصيلة أو نقلها إلى فرع آخر.",
+    "reason": "السبب",
+    "noteRequired": "ملاحظة (مطلوبة مع «أخرى»)",
+    "noteOptional": "ملاحظة (اختيارية)",
+    "blocked": {
+      "reasonMissing": "اختر سببًا.",
+      "noteMissing": "«أخرى» تحتاج إلى ملاحظة."
+    },
+    "refusal": {
+      "reasonMissing": "فك القفل يحتاج إلى أحد الأسباب المدرجة.",
+      "noteMissing": "فك القفل لسبب آخر يحتاج إلى ملاحظة.",
+      "notLocked": "هذه التوصيلة لم تعد مقفلة: فُك قفلها من قبل، أو أنها مغلقة."
+    },
+    "confirm": "فك القفل",
+    "sending": "جارٍ فك القفل…",
+    "cancel": "إلغاء",
+    "failed": "لم يُفك القفل",
+    "failedHint": "حدث خطأ. حاول مرة أخرى.",
+    "done": "فُك القفل عن التوصيلة {{delivery}}."
+  }
+}

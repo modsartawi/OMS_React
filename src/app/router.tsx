@@ -151,6 +151,15 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
         }),
       },
+      // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
+      // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
+      // `?channel=&city=&store=` live in the URL.
+      {
+        path: 'oms/dispatch-board',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/dispatch-board/DispatchBoardPage')).default,
+        }),
+      },
       // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
       // and reads its diagnosis, behind `canOpenPickSupport` on the shared OMS probe. `?key=` is the
       // number looked up.

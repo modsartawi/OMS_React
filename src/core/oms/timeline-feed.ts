@@ -1,4 +1,6 @@
+import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import type { DonorRequestModel, SdDocumentLogModel, SdDocumentOutboxModel } from '@/core/models/sd-document'
+import { calloutMoments, compareCalloutMoments, onCallout, type CalloutMoment } from '@/core/oms/callout-moments'
 import {
   compareDonorMoments,
   donorMoments,
@@ -45,16 +47,17 @@ export function jobState(job: SdDocumentOutboxModel): JobState {
 }
 
 /**
- * One merged row: a Log row or an outbox job, at its `entryTime` (null when it has none), or a
- * donor moment at its own time (ticket 429).
+ * One merged row: a Log row or an outbox job, at its `entryTime` (null when it has none), a
+ * donor moment at its own time (ticket 429), or a callout moment at its event's time (ticket 542).
  */
 export type FeedItem =
   | { source: 'log'; at: string | null; log: SdDocumentLogModel }
   | { source: 'job'; at: string | null; job: SdDocumentOutboxModel }
   | { source: 'donor'; at: string; moment: DonorMoment }
+  | { source: 'callout'; at: string | null; moment: CalloutMoment }
 
-/** On a tie: the Log row first (D6), then a donor moment, then a job. */
-const SOURCE_ORDER: Record<FeedItem['source'], number> = { log: 0, donor: 1, job: 2 }
+/** On a tie: the Log row first (D6), then a donor moment, then a callout moment, then a job. */
+const SOURCE_ORDER: Record<FeedItem['source'], number> = { log: 0, donor: 1, callout: 2, job: 3 }
 
 const idValue = (id: string | null | undefined) => {
   const value = Number(id)
@@ -73,6 +76,7 @@ function newestFirst(a: FeedItem, b: FeedItem): number {
   if (a.source === 'log' && b.source === 'log') return compareLogRows(b.log, a.log)
   if (a.source === 'job' && b.source === 'job') return idValue(b.job.outboxId) - idValue(a.job.outboxId)
   if (a.source === 'donor' && b.source === 'donor') return compareDonorMoments(a.moment, b.moment)
+  if (a.source === 'callout' && b.source === 'callout') return compareCalloutMoments(a.moment, b.moment)
   return 0
 }
 
@@ -85,11 +89,13 @@ export function feed(
   logs: readonly SdDocumentLogModel[] | null | undefined,
   jobs: readonly SdDocumentOutboxModel[] | null | undefined,
   donors?: readonly DonorRequestModel[] | null,
+  callouts?: readonly DeliveryCalloutRecord[] | null,
 ): FeedItem[] {
   const items: FeedItem[] = [
     ...(logs ?? []).map((log): FeedItem => ({ source: 'log', at: realTime(log.entryTime), log })),
     ...(jobs ?? []).map((job): FeedItem => ({ source: 'job', at: realTime(job.entryTime), job })),
     ...donorMoments(donors).map((moment): FeedItem => ({ source: 'donor', at: moment.at, moment })),
+    ...calloutMoments(callouts).map((moment): FeedItem => ({ source: 'callout', at: moment.at, moment })),
   ]
   return items.sort(newestFirst)
 }
@@ -109,6 +115,8 @@ export type SpineEntry =
   | { kind: 'job'; at: string | null; job: SdDocumentOutboxModel; state: JobState; donor: DonorRequestModel | null }
   /** A donor moment (ticket 429): a point from a donor request's own record. */
   | { kind: 'donor'; at: string; moment: DonorMomentKind; request: DonorRequestModel }
+  /** A callout moment (ticket 542): a point from the delivery's callout history. */
+  | { kind: 'callout'; at: string | null; moment: CalloutMoment }
 
 /** The four steps a rewind can send a delivery back past (371 §3). The cancellation steps are final. */
 const LIFECYCLE: readonly TimelineStepKey[] = ['created', 'ready', 'out', 'delivered']
@@ -127,6 +135,8 @@ export interface Spine {
   future: TimelineStep[]
   /** One "Waiting on donor" line per OPEN, unpicked request, between the future and Now (429). */
   waiting: DonorRequestModel[]
+  /** One "On callout" line per callout still open, between the future and Now (542). */
+  onCallout: DeliveryCalloutRecord[]
   /** Below the Now line, newest first. */
   past: SpineEntry[]
 }
@@ -173,6 +183,7 @@ export function spine(
   logs: readonly SdDocumentLogModel[] | null | undefined,
   jobs: readonly SdDocumentOutboxModel[] | null | undefined,
   donors?: readonly DonorRequestModel[] | null,
+  callouts?: readonly DeliveryCalloutRecord[] | null,
 ): Spine {
   const reached = steps.filter(isReached)
   const milestones = new Map<SdDocumentLogModel, TimelineStep>()
@@ -181,12 +192,13 @@ export function spine(
     if (row) milestones.set(row, step)
   }
 
-  const items = feed(logs, jobs, donors)
+  const items = feed(logs, jobs, donors, callouts)
   const past: SpineEntry[] = items.map((item): SpineEntry => {
     if (item.source === 'job')
       return { kind: 'job', at: item.at, job: item.job, state: jobState(item.job), donor: donorOfJob(item.job, donors) }
     if (item.source === 'donor')
       return { kind: 'donor', at: item.at, moment: item.moment.kind, request: item.moment.request }
+    if (item.source === 'callout') return { kind: 'callout', at: item.at, moment: item.moment }
     return logEntry(item.log, item.at, milestones, logs ?? [])
   })
 
@@ -208,6 +220,7 @@ export function spine(
     retrying: jobsNewestFirst.filter((job) => jobState(job) === 'retrying'),
     future: steps.filter((step) => !isReached(step)).reverse(),
     waiting: waitingOnDonor(donors),
+    onCallout: onCallout(callouts),
     past,
   }
 }

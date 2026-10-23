@@ -10,6 +10,7 @@ import {
   Store,
   Truck,
   Undo2,
+  Unlock,
   XCircle,
 } from 'lucide-react'
 import { useKeyHint } from '@/core/commands/key-hint'
@@ -181,6 +182,7 @@ export default function CommandPanel({
   onCommand,
   onCentralInvoice,
   markDelivered = null,
+  onReleaseLock = null,
   refused = null,
   onRefusedLeft = () => {},
   keysOf = {},
@@ -206,6 +208,13 @@ export default function CommandPanel({
    */
   markDelivered?: { disabled: boolean; reason: string | null; onTake: () => void } | null
   /**
+   * *Release lock…* (BackOffice 2951/2959, ticket 542), or `null` when it is not drawn: the
+   * delivery is not locked by a competed callout, or the session lacks the dispatch board's
+   * Execute grant (`canReleaseLock`). Hidden for a missing grant or lock, like Central Invoice:
+   * its own cluster outside the `commands.ts` grammar.
+   */
+  onReleaseLock?: (() => void) | null
+  /**
    * The command the list's open intent was refused on (ticket 401, D9), or `null`. Its button
    * takes focus, wears the attention ring and shows its reason until focus leaves it, then
    * `onRefusedLeft`.
@@ -227,7 +236,8 @@ export default function CommandPanel({
 
   // A view-only session (ticket 521: no change, no return, no billing, no Mark delivered) has no
   // command at all, so it gets no empty bar either.
-  if (bar.clusters.length === 0 && bar.terminal.length === 0 && !onCentralInvoice && !markDelivered) return null
+  if (bar.clusters.length === 0 && bar.terminal.length === 0 && !onCentralInvoice && !markDelivered && !onReleaseLock)
+    return null
 
   return (
     <section className="rounded-lg border border-border/60 bg-card" aria-label={t('command.title')}>
@@ -277,6 +287,19 @@ export default function CommandPanel({
                 <Button variant="secondary" disabled={busy} onClick={onCentralInvoice} data-central-invoice-action>
                   <ReceiptText className="h-3.5 w-3.5" aria-hidden />
                   {t('actions.central-invoice')}
+                </Button>
+              </div>
+            </div>
+          )}
+          {onReleaseLock && (
+            <div className="flex flex-col gap-1">
+              <span className="ps-0.5 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-ink-3">
+                {t('command.clusters.callout')}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <Button variant="danger-outlined" disabled={busy} onClick={onReleaseLock} data-release-lock-action>
+                  <Unlock className="h-3.5 w-3.5" aria-hidden />
+                  {t('actions.release-lock')}
                 </Button>
               </div>
             </div>

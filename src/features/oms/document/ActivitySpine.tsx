@@ -3,16 +3,33 @@ import { Trans, useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   ArrowLeftRight,
+  ArrowRight,
+  Award,
+  Ban,
   Check,
+  CircleSlash,
+  Clock,
+  CornerDownLeft,
+  Eye,
+  EyeOff,
   Flag,
   History,
+  Inbox,
+  Megaphone,
   MessageSquare,
   RefreshCw,
   RotateCcw,
+  SkipForward,
+  Store,
+  TimerOff,
+  Unlock,
   XCircle,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { countdownLeft, formatClock } from '@/core/dispatch/view'
+import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
+import type { CalloutMoment, CalloutMomentKind } from '@/core/oms/callout-moments'
 import type {
   DonorRequestModel,
   SdDocumentHeaderModel,
@@ -87,6 +104,8 @@ export default function ActivitySpine({
   logs,
   jobs,
   donors,
+  callouts,
+  calloutsReadAt = 0,
   composer,
 }: {
   document: SdDocumentHeaderModel
@@ -94,14 +113,18 @@ export default function ActivitySpine({
   jobs: Deferred<SdDocumentOutboxModel>
   /** A delivery's donor requests (ticket 429); a failure leaves the rest of the spine drawn. */
   donors?: Deferred<DonorRequestModel>
+  /** A delivery's callouts (ticket 542); a failure leaves the rest of the spine drawn. */
+  callouts?: Deferred<DeliveryCalloutRecord>
+  /** When the callout read arrived (client clock), for an open callout's countdown. */
+  calloutsReadAt?: number
   /** The note composer, set on the Now line (D8, ticket 405). The page owns its post. */
   composer?: ReactNode
 }) {
   const { t } = useTranslation('document')
   const view = useMemo(() => {
     const steps = timeline(timelineInputFromHeader(document, logs.rows))
-    return spine(steps, logs.rows, jobs.rows, donors?.rows)
-  }, [document, logs.rows, jobs.rows, donors?.rows])
+    return spine(steps, logs.rows, jobs.rows, donors?.rows, callouts?.rows)
+  }, [document, logs.rows, jobs.rows, donors?.rows, callouts?.rows])
   // D12: the schedule's range is a machine value; the slot's own day and text are free text.
   const windowIsMachine = hasScheduledWindow(document)
 
@@ -129,6 +152,9 @@ export default function ActivitySpine({
       {view.waiting.map((request, i) => (
         <WaitingOnDonorLine key={`${request.requestNo}-${i}`} request={request} />
       ))}
+      {view.onCallout.map((callout, i) => (
+        <OnCalloutLine key={`${callout.calloutId}-${i}`} callout={callout} readAt={calloutsReadAt} />
+      ))}
 
       {/* The Now line, carrying the note composer (D4, D8): new notes join the past just below. */}
       <div
@@ -147,7 +173,12 @@ export default function ActivitySpine({
           <ErrorBanner message={donors.error} className="px-3 py-1.5" />
         </div>
       )}
-      {(logs.loading || jobs.loading || donors?.loading) && (
+      {callouts?.error && (
+        <div data-callout-error="">
+          <ErrorBanner message={callouts.error} className="px-3 py-1.5" />
+        </div>
+      )}
+      {(logs.loading || jobs.loading || donors?.loading || callouts?.loading) && (
         <p role="status" className="text-xs text-muted-foreground">
           {t('spine.loading')}
         </p>
@@ -165,6 +196,7 @@ export default function ActivitySpine({
 function entryKey(entry: SpineEntry, i: number): string {
   if (entry.kind === 'job') return `job-${entry.job.outboxId}-${i}`
   if (entry.kind === 'donor') return `donor-${entry.request.requestNo}-${entry.moment}-${i}`
+  if (entry.kind === 'callout') return `callout-${entry.moment.callout.calloutId}-${entry.moment.event?.eventId ?? entry.moment.kind}-${i}`
   if (entry.kind === 'milestone' && !entry.log) return `step-${entry.step.key}`
   return `log-${entry.log?.logNo}-${i}`
 }
@@ -527,6 +559,8 @@ function PastEntry({ entry }: { entry: SpineEntry }) {
         </Row>
       )
     }
+    case 'callout':
+      return <CalloutMomentRow moment={entry.moment} />
     case 'job': {
       const { Icon, ink } = JOB_ICON[entry.state]
       const failed = entry.state === 'failed'
@@ -578,4 +612,178 @@ function PastEntry({ entry }: { entry: SpineEntry }) {
       )
     }
   }
+}
+
+/** The current time, ticking each second, so an open callout's countdown moves between reads. */
+function useSecondClock(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return now
+}
+
+/**
+ * "On callout · 2:20 left · waiting on 3 stores" (ticket 542; 2950 Answer point 2): one line per
+ * callout still open, below the future steps and above Now. The countdown is the board's (541):
+ * the door's `secondsLeft` less what the client clock has moved since the read, never below 0.
+ */
+function OnCalloutLine({ callout, readAt }: { callout: DeliveryCalloutRecord; readAt: number }) {
+  const { t } = useTranslation('document')
+  const now = useSecondClock()
+  const left = countdownLeft(callout.secondsLeft, readAt || now, now)
+  const waiting = callout.bids.filter((b) => b.status === 'OPEN').length
+  return (
+    <div
+      data-on-callout={callout.calloutId}
+      className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-dashed border-primary/60 bg-card px-3 py-1.5 text-[0.8125rem] text-muted-foreground"
+    >
+      <Megaphone className="mt-0.5 size-4 text-primary" aria-hidden />
+      <span>
+        <Trans
+          t={t}
+          i18nKey={left === 0 ? 'callout.onCalloutDue' : 'callout.onCallout'}
+          count={waiting}
+          values={{ left: formatClock(left ?? 0), count: waiting }}
+          components={{ left: <Ltr />, n: <Ltr /> }}
+        />
+      </span>
+    </div>
+  )
+}
+
+/** A callout moment's icon and ink: success for the award, amber where a store did not answer. */
+const CALLOUT_LOOK: Record<CalloutMomentKind, { Icon: LucideIcon; ink: string }> = {
+  opened: { Icon: Megaphone, ink: 'text-primary' },
+  delivered: { Icon: Inbox, ink: 'text-muted-foreground' },
+  shown: { Icon: Eye, ink: 'text-primary' },
+  bidOpened: { Icon: Eye, ink: 'text-primary' },
+  dismissed: { Icon: EyeOff, ink: 'text-muted-foreground' },
+  took: { Icon: Award, ink: 'text-success-800' },
+  awardedElsewhere: { Icon: CircleSlash, ink: 'text-muted-foreground' },
+  passed: { Icon: SkipForward, ink: 'text-attention-800' },
+  answeredLate: { Icon: Clock, ink: 'text-muted-foreground' },
+  answered: { Icon: Clock, ink: 'text-muted-foreground' },
+  fellBack: { Icon: CornerDownLeft, ink: 'text-attention-800' },
+  withdrawn: { Icon: Ban, ink: 'text-muted-foreground' },
+  lockReleased: { Icon: Unlock, ink: 'text-primary' },
+  fallbackFailed: { Icon: AlertTriangle, ink: 'text-danger-800' },
+  fallbackDelivered: { Icon: Store, ink: 'text-muted-foreground' },
+  fallbackShown: { Icon: Store, ink: 'text-primary' },
+  fallbackOpened: { Icon: Store, ink: 'text-primary' },
+  fallbackDismissed: { Icon: Store, ink: 'text-muted-foreground' },
+  bidExpired: { Icon: TimerOff, ink: 'text-attention-800' },
+  notCompeted: { Icon: ArrowRight, ink: 'text-muted-foreground' },
+  other: { Icon: History, ink: 'text-muted-foreground' },
+}
+
+/** Which word list a moment's `reason` is read against, under `callout.*`. */
+const REASON_GROUP: Partial<Record<CalloutMomentKind, string>> = {
+  answeredLate: 'answer',
+  answered: 'answer',
+  fellBack: 'endReason',
+  withdrawn: 'withdrawOutcome',
+  lockReleased: 'releaseReason',
+  bidExpired: 'ignoreReason',
+  notCompeted: 'notOpened',
+}
+
+/** A reason as its words when the client knows it, else the raw value as one machine value. */
+function ReasonText({ group, value }: { group: string; value: string }) {
+  const { t, i18n } = useTranslation('document')
+  const key = `callout.${group}.${value}`
+  return i18n.exists(`document:${key}`) ? <>{t(key)}</> : <Ltr>{value}</Ltr>
+}
+
+/** The moment's own line: what happened and at which store. */
+function CalloutText({ moment }: { moment: CalloutMoment }) {
+  const { t } = useTranslation('document')
+  const c = moment.callout
+  const isolate = { store: <Ltr />, n: <Ltr />, kind: <Ltr /> }
+  switch (moment.kind) {
+    case 'opened':
+      return (
+        <Trans
+          t={t}
+          i18nKey={c.fallbackParty ? 'callout.moment.opened' : 'callout.moment.openedNoFallback'}
+          count={c.bids.length}
+          values={{ store: c.fallbackParty, count: c.bids.length }}
+          components={isolate}
+        />
+      )
+    case 'notCompeted':
+      return (
+        <Trans
+          t={t}
+          i18nKey={moment.party ? 'callout.moment.notCompeted' : 'callout.moment.notCompetedNoStore'}
+          values={{ store: moment.party }}
+          components={isolate}
+        />
+      )
+    case 'other':
+      return <Trans t={t} i18nKey="callout.moment.other" values={{ kind: moment.raw, store: moment.party }} components={isolate} />
+    default:
+      return <Trans t={t} i18nKey={`callout.moment.${moment.kind}`} values={{ store: moment.party }} components={isolate} />
+  }
+}
+
+/** A callout moment (ticket 542): beside the donor moments, one row on the spine. */
+function CalloutMomentRow({ moment }: { moment: CalloutMoment }) {
+  const { t } = useTranslation('document')
+  const look = CALLOUT_LOOK[moment.kind]
+  const group = REASON_GROUP[moment.kind]
+  const reason = moment.reason.trim()
+  const raw = moment.kind === 'fallbackFailed' || moment.kind === 'other' ? reason : ''
+  const hasDetail = Boolean((group && reason) || raw || moment.note || moment.register || moment.kind === 'notCompeted')
+  return (
+    <Row
+      data={{
+        'data-entry': 'callout',
+        'data-moment': moment.kind,
+        'data-callout-id': moment.callout.calloutId,
+        ...(moment.party ? { 'data-party': moment.party } : {}),
+        ...(reason ? { 'data-reason': reason } : {}),
+      }}
+      dot={<look.Icon className={`size-3.5 ${look.ink}`} aria-hidden />}
+    >
+      <div className="flex flex-wrap items-baseline gap-x-2 text-[0.8125rem]">
+        <span className={look.ink === 'text-muted-foreground' ? '' : look.ink} data-label="">
+          <CalloutText moment={moment} />
+        </span>
+        <Meta who={moment.staff || undefined} at={moment.at} />
+      </div>
+      {hasDetail && (
+        <div className="flex flex-wrap gap-x-2 text-xs text-muted-foreground" data-detail="">
+          {group && reason && (
+            <span data-reason-text="">
+              <ReasonText group={group} value={reason} />
+            </span>
+          )}
+          {moment.kind === 'notCompeted' && (
+            <span>
+              <Trans
+                t={t}
+                i18nKey="callout.candidates"
+                count={moment.callout.candidateCount}
+                values={{ count: moment.callout.candidateCount }}
+                components={{ n: <Ltr /> }}
+              />
+            </span>
+          )}
+          {raw && <bdi>{raw}</bdi>}
+          {moment.note && (
+            <span data-note="">
+              <bdi>{moment.note}</bdi>
+            </span>
+          )}
+          {moment.register && (
+            <span>
+              <Trans t={t} i18nKey="callout.register" values={{ reg: moment.register }} components={{ r: <Ltr /> }} />
+            </span>
+          )}
+        </div>
+      )}
+    </Row>
+  )
 }

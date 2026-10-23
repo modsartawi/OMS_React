@@ -182,7 +182,8 @@ async function run() {
       JSON.stringify(posts[0]),
     )
     check('A: success closes the dialog', (await dialog(page).count()) === 0)
-    check('A: success reloads the delivery', count(calls, /^GET SdDocumentWeb\/Delivery\//) === 2, `${count(calls, /^GET SdDocumentWeb\/Delivery\//)}`)
+    // The delivery's own read only: its donor (429) and callout (542) reads share the prefix.
+    check('A: success reloads the delivery', count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/) === 2, `${count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/)}`)
     check('A: success reloads the log', count(calls, /^GET SdDocumentWeb\/Document\/.+\/Logs$/) === 2, `${count(calls, /Logs$/)}`)
     check('A: the reloaded delivery (now D) disables the command with its reason', (await command(page).getAttribute('aria-disabled')) === 'true')
     check('A: ONE reasons read and ONE Access call', count(calls, /MarkDeliveredReasons$/) === 1 && count(calls, /^GET SdDocumentWeb\/Access$/) === 1)
@@ -239,7 +240,7 @@ async function run() {
       text,
     )
     check('D: the dialog stays open, the reason kept', (await dialog(page).count()) === 1 && (await dialog(page).locator('#mark-delivered-reason').inputValue()) === 'CARR')
-    check('D: no reload after a refusal', count(calls, /^GET SdDocumentWeb\/Delivery\//) === 1)
+    check('D: no reload after a refusal', count(calls, /^GET SdDocumentWeb\/Delivery\/[^/]+$/) === 1)
     await shot(page, 'mark-delivered-refused')
     await context.close()
   }

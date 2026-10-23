@@ -1,4 +1,5 @@
 import { api } from '@/core/api'
+import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
 import type {
   CreatedReturnModel,
   CreateReturnRequest,
@@ -57,6 +58,14 @@ export const documentApi = {
    */
   getDonorRequests(deliveryNo: string): Promise<DonorRequestModel[]> {
     return api.get<DonorRequestModel[]>(`${BASE}/Delivery/${encode(deliveryNo)}/DonorRequests`)
+  },
+  /**
+   * A delivery's callout history (BackOffice 2964, ticket 542): every callout of the delivery,
+   * oldest first, each with its bids and its raw event log. Behind the Delivery details grant
+   * (`GatedByDetail`); read-only. A delivery never competed answers `callouts: []`.
+   */
+  getCallout(deliveryNo: string): Promise<DeliveryCalloutHistory> {
+    return api.get<DeliveryCalloutHistory>(`${BASE}/Delivery/${encode(deliveryNo)}/Callout`)
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

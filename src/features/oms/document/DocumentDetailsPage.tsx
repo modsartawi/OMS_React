@@ -11,6 +11,10 @@ import { canChangeDetail, canCreateReturn } from '@/core/oms/access'
 import { pickSupportKeys } from '@/core/pick-support/api'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
+import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
+import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
+import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
+import { calloutsOf, lockedCallout } from '@/core/oms/callout-moments'
 import { notify } from '@/core/services/notify'
 import { recordRecent } from '@/core/commands/recent'
 import { fsi } from '@/core/util/bidi'
@@ -47,6 +51,7 @@ import { detailCommands, keyHints } from './detail-keys'
 import NoteComposer, { type ComposerFailure } from './NoteComposer'
 import DocumentHeader from './DocumentHeader'
 import ActivitySpine, { type Deferred } from './ActivitySpine'
+import CalloutPanel from './CalloutPanel'
 import CommandPanel from './CommandPanel'
 import FactsColumn from './FactsColumn'
 import { pickSupportSectionGate } from './pick-support-section'
@@ -155,6 +160,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [logs, setLogs] = useState<Deferred<SdDocumentLogModel>>(PENDING)
   const [jobs, setJobs] = useState<Deferred<SdDocumentOutboxModel>>(PENDING)
   const [donors, setDonors] = useState<Deferred<DonorRequestModel>>(PENDING)
+  const [callouts, setCallouts] = useState<Deferred<DeliveryCalloutRecord>>(PENDING)
+  /** When the callout read arrived (client clock): an open callout's countdown counts from it. */
+  const [calloutsReadAt, setCalloutsReadAt] = useState(0)
+  /** Activity's two views (ticket 542): the spine, or the Callout sub-tab (only with a callout). */
+  const [activityView, setActivityView] = useState<'activity' | 'callout'>('activity')
+  const [releaseOpen, setReleaseOpen] = useState(false)
 
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
@@ -199,6 +210,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     returnOpen ||
     centralInvoiceOpen ||
     markDeliveredOpen ||
+    releaseOpen ||
     noteCommand !== null
 
   // Another record drops what the last one was asked to open. Declared before the capture, so
@@ -208,6 +220,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     setRefusedIntent(null)
     setNoteText('')
     setNoteFailure(null)
+    setActivityView('activity')
     currentRoute.current = routeId
   }, [routeId])
 
@@ -271,6 +284,29 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     [t],
   )
 
+  /**
+   * A delivery's callout history (BackOffice 2964, ticket 542), the spine's fifth deferred read, on
+   * the same Delivery details grant. A document that is not a delivery asks for none. A failure
+   * stays inside the spine as one inline line; the rest draws without the callout moments.
+   */
+  const loadCallouts = useCallback(
+    async (doc: SdDocumentHeaderModel) => {
+      if (!isDeliveryCategory(doc.documentCategory)) {
+        setCallouts(NONE)
+        return
+      }
+      setCallouts(PENDING)
+      try {
+        const history = await documentApi.getCallout(doc.documentNo)
+        setCallouts({ rows: calloutsOf(history), loading: false, error: null })
+        setCalloutsReadAt(Date.now())
+      } catch (err) {
+        setCallouts({ rows: null, loading: false, error: apiErrorMessage(err, t('callout.loadFailed')) })
+      }
+    },
+    [t],
+  )
+
   // Initial load. Keyed on the route id, so navigating between documents without
   // unmounting still reloads. Gated on the access probe: until it says yes, nothing is
   // requested — the denied card below must not be preceded by a document fetch.
@@ -292,6 +328,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         void loadLogs(doc.documentNo)
         void loadJobs(doc.documentNo)
         void loadDonors(doc)
+        void loadCallouts(doc)
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -301,7 +338,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     return () => {
       cancelled = true
     }
-  }, [routeId, openedAs, canOpenDetail, loadLogs, loadJobs, loadDonors, t])
+  }, [routeId, openedAs, canOpenDetail, loadLogs, loadJobs, loadDonors, loadCallouts, t])
 
   /**
    * Reload the document plus Log and Jobs, in place. A failed reload is
@@ -324,13 +361,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         void loadLogs(fresh.documentNo)
         void loadJobs(fresh.documentNo)
         void loadDonors(fresh)
+        void loadCallouts(fresh)
       } catch (err) {
         notify.warn(t('refresh.failed'), apiErrorMessage(err, t('refresh.failedDetail')))
       } finally {
         setRefreshing(false)
       }
     },
-    [document, refreshing, openedAs, loadLogs, loadJobs, loadDonors, t],
+    [document, refreshing, openedAs, loadLogs, loadJobs, loadDonors, loadCallouts, t],
   )
 
   /**
@@ -560,6 +598,17 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
   }
 
+  /**
+   * Release lock (BackOffice 2951, ticket 542): drawn only on a delivery a competed callout locks
+   * now, and only with the dispatch board's Execute grant — the board's own probe (541), asked
+   * only once a lock is on screen, on the one key the board's gate shares.
+   */
+  const locked = lockedCallout(callouts.rows)
+  const dispatchAccess = useQuery({ ...dispatchAccessQuery(), enabled: locked !== null })
+  const mayReleaseLock = locked !== null && canReleaseLock(dispatchAccess.data)
+  const hasCallout = (callouts.rows?.length ?? 0) > 0
+  const showCallout = hasCallout && activityView === 'callout'
+
   // ----- access states ------------------------------------------------------
   // After every hook, before any render. The header is not rendered either: a
   // denied session should not learn the document number resolves to anything.
@@ -649,6 +698,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                     ? () => setCentralInvoiceOpen(true)
                     : null
                 }
+                onReleaseLock={mayReleaseLock ? () => setReleaseOpen(true) : null}
                 markDelivered={
                   markDeliveredState && {
                     disabled: markDeliveredState.disabled,
@@ -667,29 +717,62 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               its failed-job banners first. 083's tabs and 340px summary rail are gone:
               every fact they held is in one of the two.
             */}
-            <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(340px,400px)_minmax(0,1fr)]">
-              <ActivitySpine
-                document={document}
-                logs={logs}
-                jobs={jobs}
-                donors={donors}
-                // Add note posts through `UpdateDocument`/`UpdateDelivery`, so a session that
-                // may not change the record has no composer (ticket 521).
-                composer={
-                  mayChange ? (
-                    <NoteComposer
-                      value={noteText}
-                      onChange={setNoteText}
-                      state={composer}
-                      busy={actionBusy}
-                      failure={noteFailure}
-                      onPost={() => void postNote()}
-                      textareaRef={composerRef}
-                      focusKeys={hints.composer}
-                    />
-                  ) : null
-                }
-              />
+            <div
+              className={`grid items-start gap-2.5 ${showCallout ? '' : 'xl:grid-cols-[minmax(340px,400px)_minmax(0,1fr)]'}`}
+            >
+              <div className="flex min-w-0 flex-col gap-1.5">
+                {/*
+                  Activity's sub-tabs (ticket 542; 2950 Answer point 2): drawn only when the delivery
+                  has a callout. The Callout view takes the full width, for its ledger and raw log.
+                */}
+                {hasCallout && (
+                  <div role="tablist" aria-label={t('callout.tabs.label')} className="flex gap-1" data-activity-tabs="">
+                    {(['activity', 'callout'] as const).map((view) => (
+                      <button
+                        key={view}
+                        type="button"
+                        role="tab"
+                        aria-selected={activityView === view}
+                        onClick={() => setActivityView(view)}
+                        data-activity-tab={view}
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          activityView === view ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {t(`callout.tabs.${view}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showCallout ? (
+                  <CalloutPanel callouts={callouts.rows ?? []} />
+                ) : (
+                  <ActivitySpine
+                    document={document}
+                    logs={logs}
+                    jobs={jobs}
+                    donors={donors}
+                    callouts={callouts}
+                    calloutsReadAt={calloutsReadAt}
+                    // Add note posts through `UpdateDocument`/`UpdateDelivery`, so a session that
+                    // may not change the record has no composer (ticket 521).
+                    composer={
+                      mayChange ? (
+                        <NoteComposer
+                          value={noteText}
+                          onChange={setNoteText}
+                          state={composer}
+                          busy={actionBusy}
+                          failure={noteFailure}
+                          onPost={() => void postNote()}
+                          textareaRef={composerRef}
+                          focusKeys={hints.composer}
+                        />
+                      ) : null
+                    }
+                  />
+                )}
+              </div>
               <FactsColumn
                 document={document}
                 attachments={attachments}
@@ -761,6 +844,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               deliveryNo={document.documentNo}
               amountDue={document.amountDue}
             />
+            {/*
+              Release lock (ticket 542), the board's own dialog (541): on success the delivery and its
+              callout reload, so the lock line and this action go and the release joins the spine.
+            */}
+            {locked && (
+              <ReleaseLockDialog
+                open={releaseOpen}
+                deliveryNumber={document.documentNo}
+                heldBy={locked.awardedParty || locked.fallbackParty}
+                onClose={() => setReleaseOpen(false)}
+                onReleased={() => {
+                  setReleaseOpen(false)
+                  notify.success(t('callout.release.done'), t('callout.release.doneDetail', { delivery: fsi(document.documentNo) }))
+                  void reload()
+                }}
+              />
+            )}
             <NoteDialog
               kind={noteCommand}
               onClose={() => setNoteCommand(null)}

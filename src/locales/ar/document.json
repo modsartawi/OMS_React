@@ -1,11 +1,172 @@
 {
+  "callout": {
+    "loadFailed": "تعذّر تحميل عرض التوصيل على المتاجر.",
+    "tabs": {
+      "label": "عروض النشاط",
+      "activity": "النشاط",
+      "callout": "العرض على المتاجر"
+    },
+    "onCallout_zero": "معروض على المتاجر · بقي <left>{{left}}</left> · لا ينتظر ردّ أي متجر",
+    "onCallout_one": "معروض على المتاجر · بقي <left>{{left}}</left> · بانتظار ردّ متجر واحد",
+    "onCallout_two": "معروض على المتاجر · بقي <left>{{left}}</left> · بانتظار ردّ متجرين",
+    "onCallout_few": "معروض على المتاجر · بقي <left>{{left}}</left> · بانتظار ردّ <n>{{count}}</n> متاجر",
+    "onCallout_many": "معروض على المتاجر · بقي <left>{{left}}</left> · بانتظار ردّ <n>{{count}}</n> متجرًا",
+    "onCallout_other": "معروض على المتاجر · بقي <left>{{left}}</left> · بانتظار ردّ <n>{{count}}</n> متجر",
+    "onCalloutDue_zero": "معروض على المتاجر · يحين التحويل الآن · لا ينتظر ردّ أي متجر",
+    "onCalloutDue_one": "معروض على المتاجر · يحين التحويل الآن · بانتظار ردّ متجر واحد",
+    "onCalloutDue_two": "معروض على المتاجر · يحين التحويل الآن · بانتظار ردّ متجرين",
+    "onCalloutDue_few": "معروض على المتاجر · يحين التحويل الآن · بانتظار ردّ <n>{{count}}</n> متاجر",
+    "onCalloutDue_many": "معروض على المتاجر · يحين التحويل الآن · بانتظار ردّ <n>{{count}}</n> متجرًا",
+    "onCalloutDue_other": "معروض على المتاجر · يحين التحويل الآن · بانتظار ردّ <n>{{count}}</n> متجر",
+    "candidates_zero": "لا متجر مرشّح",
+    "candidates_one": "متجر مرشّح واحد",
+    "candidates_two": "متجران مرشّحان",
+    "candidates_few": "<n>{{count}}</n> متاجر مرشّحة",
+    "candidates_many": "<n>{{count}}</n> متجرًا مرشّحًا",
+    "candidates_other": "<n>{{count}}</n> متجر مرشّح",
+    "register": "الجهاز <r>{{reg}}</r>",
+    "moment": {
+      "opened_zero": "فُتح العرض على المتاجر · المتجر البديل <store>{{store}}</store>",
+      "opened_one": "فُتح العرض على متجر واحد · المتجر البديل <store>{{store}}</store>",
+      "opened_two": "فُتح العرض على متجرين · المتجر البديل <store>{{store}}</store>",
+      "opened_few": "فُتح العرض على <n>{{count}}</n> متاجر · المتجر البديل <store>{{store}}</store>",
+      "opened_many": "فُتح العرض على <n>{{count}}</n> متجرًا · المتجر البديل <store>{{store}}</store>",
+      "opened_other": "فُتح العرض على <n>{{count}}</n> متجر · المتجر البديل <store>{{store}}</store>",
+      "openedNoFallback_zero": "فُتح العرض على المتاجر",
+      "openedNoFallback_one": "فُتح العرض على متجر واحد",
+      "openedNoFallback_two": "فُتح العرض على متجرين",
+      "openedNoFallback_few": "فُتح العرض على <n>{{count}}</n> متاجر",
+      "openedNoFallback_many": "فُتح العرض على <n>{{count}}</n> متجرًا",
+      "openedNoFallback_other": "فُتح العرض على <n>{{count}}</n> متجر",
+      "delivered": "وصل العرض إلى <store>{{store}}</store>",
+      "shown": "ظهر العرض في <store>{{store}}</store>",
+      "bidOpened": "فتح <store>{{store}}</store> العرض",
+      "dismissed": "أغلق <store>{{store}}</store> العرض دون ردّ",
+      "took": "أخذ <store>{{store}}</store> التوصيل: أُسند إليه",
+      "awardedElsewhere": "حاول <store>{{store}}</store> أخذه: أُسند إلى متجر آخر",
+      "passed": "اعتذر <store>{{store}}</store>",
+      "answeredLate": "ردّ <store>{{store}}</store> بعد إغلاق العرض",
+      "answered": "ردّ <store>{{store}}</store>",
+      "fellBack": "لم يأخذه أحد: حُوّل إلى <store>{{store}}</store>",
+      "withdrawn": "سُحب العرض",
+      "lockReleased": "رُفع القفل في <store>{{store}}</store>",
+      "fallbackFailed": "فشل التحويل إلى <store>{{store}}</store>",
+      "fallbackDelivered": "وصلت بطاقة الإسناد إلى <store>{{store}}</store>",
+      "fallbackShown": "ظهرت بطاقة الإسناد في <store>{{store}}</store>",
+      "fallbackOpened": "فتح <store>{{store}}</store> بطاقة الإسناد",
+      "fallbackDismissed": "أغلق <store>{{store}}</store> بطاقة الإسناد",
+      "bidExpired": "لم يردّ <store>{{store}}</store>",
+      "notCompeted": "لم يُعرض على المتاجر: أُرسل مباشرة إلى <store>{{store}}</store>",
+      "notCompetedNoStore": "لم يُعرض على المتاجر",
+      "other": "حدث العرض <kind>{{kind}}</kind> · <store>{{store}}</store>"
+    },
+    "answer": {
+      "Won": "أُسند إليه",
+      "AlreadyYours": "مُسند إليه من قبل",
+      "AwardedElsewhere": "أُسند إلى متجر آخر",
+      "Expired": "متأخر: كان العرض قد انتهى",
+      "Withdrawn": "متأخر: كان العرض قد سُحب",
+      "YouPassed": "اعتذر"
+    },
+    "endReason": {
+      "AllPassed": "اعتذرت كل المتاجر",
+      "Expired": "انتهت مدة العرض",
+      "Withdrawn": "سُحب"
+    },
+    "withdrawOutcome": {
+      "Withdrawn": "أُغلقت كل العروض المفتوحة",
+      "AlreadyTaken": "كان قد أُخذ من قبل",
+      "AlreadyUnanswered": "كان قد حُوّل من قبل"
+    },
+    "ignoreReason": {
+      "NotReached": "لم يصل إلى أي جهاز",
+      "ReachedNotShownNobodySignedIn": "وصل إلى جهاز ولم يكن أحد مسجّل الدخول",
+      "ReachedNotShownOldBuild": "وصل إلى جهاز بإصدار قديم لم يعرضه",
+      "ShownNotOpened": "ظهر ولم يُفتح",
+      "OpenedNotAnswered": "فُتح ولم يُردّ عليه"
+    },
+    "notOpened": {
+      "NoGps": "العنوان بلا موقع",
+      "NoCandidates": "لا متجر في النطاق",
+      "OneCandidate": "متجر واحد فقط في النطاق",
+      "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون"
+    },
+    "releaseReason": {
+      "NoStock": "لا مخزون",
+      "CustomerChange": "تغيير من العميل",
+      "StoreCannotFulfil": "المتجر لا يستطيع التنفيذ",
+      "Other": "أخرى"
+    },
+    "outcome": {
+      "Open": "معروض على المتاجر",
+      "Taken": "أُخذ",
+      "FellBack": "حُوّل",
+      "Withdrawn": "سُحب",
+      "NotCompeted": "لم يُعرض"
+    },
+    "bidStatus": {
+      "OPEN": "بانتظار الردّ",
+      "TAKEN": "أخذه",
+      "PASSED": "اعتذر",
+      "LOST": "سبقه غيره",
+      "EXPIRED": "لم يردّ",
+      "WITHDRAWN": "سُحب"
+    },
+    "atp": {
+      "covers": "متوفر",
+      "short": "ناقص <n>{{n}}</n>",
+      "unknown": "لم يُفحص"
+    },
+    "panel": {
+      "ariaLabel": "عرض التوصيل على المتاجر",
+      "title": "العرض على المتاجر",
+      "opened": "فُتح <at>{{at}}</at>",
+      "fallback": "المتجر البديل <store>{{store}}</store>",
+      "locked": "مقفل في <store>{{store}}</store>: لا تعديل للبنود ولا إلغاء لها ولا إلغاء من المتجر.",
+      "released": "رُفع القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>"
+    },
+    "ledger": {
+      "title": "العروض",
+      "store": "المتجر",
+      "km": "كم",
+      "atp": "المخزون عند العرض",
+      "tills": "الأجهزة",
+      "tillsHint": "متصلة / مسجّل فيها الدخول عند العرض",
+      "delivered": "وصل",
+      "shown": "ظهر",
+      "opened": "فُتح",
+      "answered": "الردّ",
+      "by": "بواسطة",
+      "outcome": "النتيجة",
+      "dark": "غير متصل",
+      "never": "—",
+      "hint": "الأوقات من لحظة العرض. الأجهزة: متصلة / مسجّل فيها الدخول عند العرض."
+    },
+    "log": {
+      "title": "سجل الأحداث الخام · <n>{{n}}</n>",
+      "empty": "لم يُسجَّل أي حدث.",
+      "at": "وقت الخادم",
+      "offset": "+",
+      "party": "الطرف",
+      "kind": "النوع",
+      "staff": "الموظف",
+      "register": "الجهاز",
+      "detail": "التفاصيل"
+    },
+    "release": {
+      "done": "رُفع القفل",
+      "doneDetail": "يمكن الآن تعديل التوصيل {{delivery}} أو نقله إلى متجر آخر."
+    }
+  },
   "command": {
     "clusters": {
-      "delivery": "التوصيل"
+      "delivery": "التوصيل",
+      "callout": "العرض على المتاجر"
     }
   },
   "actions": {
-    "mark-delivered": "تأكيد التسليم…"
+    "mark-delivered": "تأكيد التسليم…",
+    "release-lock": "رفع القفل…"
   },
   "donor": {
     "loadFailed": "تعذّر تحميل طلبات المتجر المانح.",

@@ -1,4 +1,143 @@
 {
+  "callout": {
+    "loadFailed": "Could not load the delivery's callout.",
+    "tabs": {
+      "label": "Activity views",
+      "activity": "Activity",
+      "callout": "Callout"
+    },
+    "onCallout_one": "On callout · <left>{{left}}</left> left · waiting on <n>{{count}}</n> store",
+    "onCallout_other": "On callout · <left>{{left}}</left> left · waiting on <n>{{count}}</n> stores",
+    "onCalloutDue_one": "On callout · due to fall back now · waiting on <n>{{count}}</n> store",
+    "onCalloutDue_other": "On callout · due to fall back now · waiting on <n>{{count}}</n> stores",
+    "candidates_one": "<n>{{count}}</n> candidate",
+    "candidates_other": "<n>{{count}}</n> candidates",
+    "register": "reg <r>{{reg}}</r>",
+    "moment": {
+      "opened_one": "Callout opened to <n>{{count}}</n> store · fallback <store>{{store}}</store>",
+      "opened_other": "Callout opened to <n>{{count}}</n> stores · fallback <store>{{store}}</store>",
+      "openedNoFallback_one": "Callout opened to <n>{{count}}</n> store",
+      "openedNoFallback_other": "Callout opened to <n>{{count}}</n> stores",
+      "delivered": "Bid delivered to <store>{{store}}</store>",
+      "shown": "Bid shown at <store>{{store}}</store>",
+      "bidOpened": "<store>{{store}}</store> opened the bid",
+      "dismissed": "<store>{{store}}</store> dismissed the bid",
+      "took": "<store>{{store}}</store> took it: awarded",
+      "awardedElsewhere": "<store>{{store}}</store> tried to take it: awarded elsewhere",
+      "passed": "<store>{{store}}</store> passed",
+      "answeredLate": "<store>{{store}}</store> answered after the callout closed",
+      "answered": "<store>{{store}}</store> answered",
+      "fellBack": "Nobody took it: fell back to <store>{{store}}</store>",
+      "withdrawn": "Callout withdrawn",
+      "lockReleased": "Lock released at <store>{{store}}</store>",
+      "fallbackFailed": "Falling back to <store>{{store}}</store> failed",
+      "fallbackDelivered": "Assigned card delivered to <store>{{store}}</store>",
+      "fallbackShown": "Assigned card shown at <store>{{store}}</store>",
+      "fallbackOpened": "<store>{{store}}</store> opened the assigned card",
+      "fallbackDismissed": "<store>{{store}}</store> dismissed the assigned card",
+      "bidExpired": "<store>{{store}}</store> did not answer",
+      "notCompeted": "Not competed: sent straight to <store>{{store}}</store>",
+      "notCompetedNoStore": "Not competed",
+      "other": "Callout event <kind>{{kind}}</kind> · <store>{{store}}</store>"
+    },
+    "answer": {
+      "Won": "awarded",
+      "AlreadyYours": "already theirs",
+      "AwardedElsewhere": "awarded elsewhere",
+      "Expired": "too late: the callout had lapsed",
+      "Withdrawn": "too late: the callout was withdrawn",
+      "YouPassed": "passed"
+    },
+    "endReason": {
+      "AllPassed": "every store passed",
+      "Expired": "the callout lapsed",
+      "Withdrawn": "withdrawn"
+    },
+    "withdrawOutcome": {
+      "Withdrawn": "every open bid closed",
+      "AlreadyTaken": "it was already taken",
+      "AlreadyUnanswered": "it had already fallen back"
+    },
+    "ignoreReason": {
+      "NotReached": "never reached a till",
+      "ReachedNotShownNobodySignedIn": "reached a till, nobody was signed in",
+      "ReachedNotShownOldBuild": "reached a till on an old build that never showed it",
+      "ShownNotOpened": "shown, never opened",
+      "OpenedNotAnswered": "opened, never answered"
+    },
+    "notOpened": {
+      "NoGps": "the address has no location",
+      "NoCandidates": "no store in reach",
+      "OneCandidate": "only one store in reach",
+      "StockLeftFewerThanTwo": "fewer than two stores had the stock"
+    },
+    "releaseReason": {
+      "NoStock": "No stock",
+      "CustomerChange": "Customer change",
+      "StoreCannotFulfil": "Store cannot fulfil",
+      "Other": "Other"
+    },
+    "outcome": {
+      "Open": "On callout",
+      "Taken": "Taken",
+      "FellBack": "Fell back",
+      "Withdrawn": "Withdrawn",
+      "NotCompeted": "Not competed"
+    },
+    "bidStatus": {
+      "OPEN": "Awaiting",
+      "TAKEN": "Took it",
+      "PASSED": "Passed",
+      "LOST": "Lost the race",
+      "EXPIRED": "Unanswered",
+      "WITHDRAWN": "Withdrawn"
+    },
+    "atp": {
+      "covers": "covers",
+      "short": "short <n>{{n}}</n>",
+      "unknown": "not checked"
+    },
+    "panel": {
+      "ariaLabel": "The delivery's callout",
+      "title": "Callout",
+      "opened": "opened <at>{{at}}</at>",
+      "fallback": "fallback <store>{{store}}</store>",
+      "locked": "Locked at <store>{{store}}</store>: no line edits, item cancels or store cancel.",
+      "released": "Lock released <at>{{at}}</at> by <by>{{by}}</by>"
+    },
+    "ledger": {
+      "title": "Bids",
+      "store": "Store",
+      "km": "km",
+      "atp": "ATP at offer",
+      "tills": "Tills",
+      "tillsHint": "Online / signed in when offered",
+      "delivered": "Delivered",
+      "shown": "Shown",
+      "opened": "Opened",
+      "answered": "Answered",
+      "by": "By",
+      "outcome": "Outcome",
+      "dark": "dark",
+      "never": "—",
+      "hint": "Times are from the bid's offer. Tills: online / signed in when offered."
+    },
+    "log": {
+      "title": "Raw event log · <n>{{n}}</n>",
+      "empty": "No event was recorded.",
+      "at": "Server time",
+      "offset": "+",
+      "party": "Party",
+      "kind": "Kind",
+      "staff": "Staff",
+      "register": "Register",
+      "detail": "Detail"
+    },
+    "release": {
+      "done": "Lock released",
+      "doneDetail": "Delivery {{delivery}} can now be changed or moved to another store."
+    }
+  },
   "back": "Back to Delivery Documents",
   "dawaaNow": "Dawaa Now",
   "header": {
@@ -119,7 +258,8 @@
       "cancel-request": "Cancellation request",
       "notes": "Notes & docs",
       "billing": "Billing",
-      "delivery": "Delivery"
+      "delivery": "Delivery",
+      "callout": "Callout"
     },
     "disabled": {
       "requestOpen": "A cancellation request is already open for this document.",
@@ -129,6 +269,7 @@
     }
   },
   "actions": {
+    "release-lock": "Release lock…",
     "add-note": "Add Note…",
     "change-store": "Change Store",
     "reschedule": "Reschedule",

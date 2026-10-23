@@ -1,0 +1,212 @@
+{
+  "menu": {
+    "dispatchScorecard": "Dispatch scorecard"
+  },
+  "title": "Dispatch scorecard",
+  "subtitle": "How stores, and the staff who answer for them, handled competed deliveries over a range — ranked, with the bids behind every figure.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the dispatch scorecard",
+    "deniedHint": "Your account does not hold the dispatch scorecard grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "sheet": {
+    "close": "Close"
+  },
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "type": "Delivery type",
+    "channel": "Channel",
+    "city": "Store city",
+    "region": "Store region",
+    "store": "Store",
+    "any": "Any",
+    "reset": "Last 30 days"
+  },
+  "problem": {
+    "incomplete": "Pick both ends of the range.",
+    "reversed": "The range ends before it starts.",
+    "tooLong": "A range is at most <max>{{max}}</max> days."
+  },
+  "refusal": {
+    "rangeTooLong": "The server refused the range: it is longer than 92 days.",
+    "rangeReversed": "The server refused the range: it ends before it starts.",
+    "unknownFigure": "The server does not know that figure, so its bids cannot be listed.",
+    "storeRequired": "A store is needed for its report card."
+  },
+  "list": {
+    "failedTitle": "The scorecard could not be loaded",
+    "failed": "Something went wrong reading the scorecard. Try again in a moment.",
+    "empty": "No competed bids in this range."
+  },
+  "tabs": {
+    "label": "Rank",
+    "stores": "Stores",
+    "staff": "Staff (own actions only)"
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "note": {
+    "stores": "Click a ranked header twice for best and worst. A store needs <n>{{n}}</n> answered or ignored bids to rank; below that it reads “too few” and sorts last. Beaten and withdrawn bids are out of every rate. Any underlined figure opens the bids behind it.",
+    "staff": "A person is ranked on their own Takes and Passes only — never on ignores, which are the store’s. <n>{{n}}</n> answers are needed to rank; below that the row sorts last."
+  },
+  "direction": {
+    "lower": "lower is better",
+    "higher": "higher is better"
+  },
+  "measure": {
+    "ignoreRate": "Ignore rate",
+    "medianAnswerSeconds": "Median answer",
+    "slowQuarterAnswerSeconds": "Slow quarter",
+    "winRate": "Win rate",
+    "declineRate": "Decline rate"
+  },
+  "column": {
+    "store": "Store",
+    "staff": "Staff",
+    "stores": "Stores",
+    "bids": "Bids",
+    "beaten": "Beaten",
+    "lostRaces": "Lost races",
+    "lostRacesNearMisses": "Lost races (near misses)",
+    "passedShort": "Passed short",
+    "passedUnknown": "Passed, stock unknown",
+    "darkOffers": "Dark offers",
+    "unseen": "Unseen (no sign-in · old build)",
+    "medianKm": "Median km",
+    "fallbacksReceived": "Fallbacks received",
+    "releasedAfterAward": "Released after award",
+    "won": "Won",
+    "passedWithStock": "Passed with stock",
+    "answers": "Answers"
+  },
+  "columnHint": {
+    "lostRaces": "A near miss is a lost race at most 10 seconds after the award — poll luck, not slowness.",
+    "unseen": "Bids never shown: nobody signed in, or a till on an old build.",
+    "releasedAfterAward": "Awarded deliveries this store won and later released; hover a figure for its reasons."
+  },
+  "tooFew": "too few",
+  "figure": {
+    "bids": "Bids",
+    "won": "Won",
+    "lostRaces": "Lost races",
+    "nearMisses": "Near misses",
+    "passedWithStock": "Passed with stock",
+    "passedShort": "Passed short",
+    "passedUnknown": "Passed, stock unknown",
+    "ignored": "Ignored",
+    "unseen": "Unseen",
+    "unseenNotReached": "Unseen, not reached",
+    "unseenNobodySignedIn": "Unseen, nobody signed in",
+    "unseenOldBuild": "Unseen, old build",
+    "beaten": "Beaten",
+    "withdrawn": "Withdrawn",
+    "answered": "Answered",
+    "darkOffers": "Dark offers",
+    "medianKm": "Distance",
+    "fallbacksReceived": "Fallbacks received",
+    "releasedAfterAward": "Released after award",
+    "ignoreRate": "Ignore rate",
+    "medianAnswerSeconds": "Median answer",
+    "slowQuarterAnswerSeconds": "Slow quarter",
+    "winRate": "Win rate",
+    "declineRate": "Decline rate"
+  },
+  "drill": {
+    "eyebrow": "The bids behind",
+    "eyebrowStaff": "Their own bids behind",
+    "everyStore": "every store",
+    "loading": "Loading the bids…",
+    "failedTitle": "The bids could not be loaded",
+    "failed": "Something went wrong reading the bids. Try again in a moment.",
+    "count_one": "<n>{{n}}</n> row, from <from>{{from}}</from> to <to>{{to}}</to>.",
+    "count_other": "<n>{{n}}</n> rows, from <from>{{from}}</from> to <to>{{to}}</to>.",
+    "openHint": "A row opens that delivery.",
+    "empty": "No bids behind this figure.",
+    "nearMiss": "near miss",
+    "counted": "Counted",
+    "notCounted": "—",
+    "countedHint": "For a rate, every row is in its denominator; Counted marks its numerator.",
+    "tillsHint": "Tills online / signed in when the bid was offered.",
+    "column": {
+      "offeredAt": "Offered",
+      "delivery": "Delivery",
+      "store": "Store",
+      "class": "Outcome",
+      "counted": "Counted",
+      "answer": "Answer time",
+      "staff": "Answered by",
+      "km": "km",
+      "atp": "Stock at offer",
+      "tills": "Tills"
+    }
+  },
+  "class": {
+    "Won": "Won",
+    "LostRace": "Lost race",
+    "PassedWithStock": "Passed with stock",
+    "PassedShort": "Passed short",
+    "PassedUnknown": "Passed, stock unknown",
+    "Ignored": "Ignored",
+    "Unseen": "Unseen",
+    "Beaten": "Beaten",
+    "Withdrawn": "Withdrawn",
+    "Fallback": "Fallback",
+    "Released": "Released"
+  },
+  "ignoreReason": {
+    "ShownNotOpened": "shown, not opened",
+    "OpenedNotAnswered": "opened, not answered",
+    "NotReached": "not reached",
+    "ReachedNotShown": "reached, not shown"
+  },
+  "atp": {
+    "covers": "Covers",
+    "short": "Short",
+    "unknown": "Unknown"
+  },
+  "export": {
+    "button": "Export .xlsx",
+    "storesSheet": "Stores",
+    "staffSheet": "Staff",
+    "fileName": "dispatch-scorecard",
+    "drillSheet": "Bids",
+    "drillFileName": "dispatch-scorecard-bids",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "card": {
+    "eyebrow": "Store report card",
+    "loading": "Loading the report card…",
+    "failedTitle": "The report card could not be loaded",
+    "failed": "Something went wrong reading the report card. Try again in a moment.",
+    "tooFew": "too few to rank",
+    "bids_one": "<n>{{n}}</n> bid in the range",
+    "bids_other": "<n>{{n}}</n> bids in the range",
+    "rank": "#<rank>{{rank}}</rank> of <of>{{of}}</of>",
+    "unranked": "not ranked",
+    "estate": "estate median <median>{{median}}</median>",
+    "whereBidsWent": "Where its bids went",
+    "noBids": "No bids in this range.",
+    "context": "Context",
+    "chip": {
+      "nearMisses_one": "<n>{{n}}</n> near miss",
+      "nearMisses_other": "<n>{{n}}</n> near misses",
+      "darkOffers_one": "<n>{{n}}</n> dark offer",
+      "darkOffers_other": "<n>{{n}}</n> dark offers",
+      "unseen": "unseen: <a>{{a}}</a> nobody signed in, <b>{{b}}</b> old build",
+      "medianKm": "median <km>{{km}}</km> km",
+      "fallbacks_one": "<n>{{n}}</n> fallback received",
+      "fallbacks_other": "<n>{{n}}</n> fallbacks received",
+      "released_one": "<n>{{n}}</n> released after award",
+      "released_other": "<n>{{n}}</n> released after award"
+    },
+    "staff": "Staff at this store",
+    "noStaff": "No Takes or Passes by anyone here."
+  }
+}

@@ -151,6 +151,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/delivery-statistics/DeliveryStatisticsPage')).default,
         }),
       },
+      // Dispatch scorecard (ticket 543, BackOffice spec 2952) — HQ ranks stores and staff on competed
+      // deliveries and drills to the bids, behind its own `DispatchScorecard/Access` probe. Filters in the URL.
+      {
+        path: 'oms/dispatch-scorecard',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

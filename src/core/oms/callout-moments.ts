@@ -115,7 +115,7 @@ function splitRelease(detail: string): { reason: string; note: string } {
 
 function eventMoment(callout: DeliveryCalloutRecord, event: DispatchCalloutEvent, seq: number): CalloutMoment {
   const raw = event.kind ?? ''
-  const bid = event.bidId ? (callout.bids.find((b) => b.bidId === event.bidId) ?? null) : null
+  const bid = event.bidId ? ((callout.bids ?? []).find((b) => b.bidId === event.bidId) ?? null) : null
   const detail = (event.detail ?? '').trim()
   const kind = raw === 'Take' || raw === 'Pass' ? answerMoment(detail) : (EVENT_MOMENT[raw] ?? 'other')
   const release =

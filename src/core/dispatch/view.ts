@@ -18,6 +18,15 @@ export function countdownLeft(secondsLeft: number | null, fetchedAt: number, now
   return Math.max(0, secondsLeft - moved)
 }
 
+/** What an open callout's line says of its time: time left, due to fall back now, or nothing (no `secondsLeft`). */
+export type CalloutClock = { kind: 'left'; left: number } | { kind: 'due' } | { kind: 'none' }
+
+export function calloutClock(secondsLeft: number | null, fetchedAt: number, now: number): CalloutClock {
+  const left = countdownLeft(secondsLeft, fetchedAt, now)
+  if (left == null) return { kind: 'none' }
+  return left === 0 ? { kind: 'due' } : { kind: 'left', left }
+}
+
 /** Seconds as `m:ss` (minutes are not wrapped into hours: a callout lives minutes). */
 export function formatClock(seconds: number): string {
   const s = Math.max(0, Math.round(seconds))

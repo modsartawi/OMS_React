@@ -33,7 +33,7 @@ export default function Inspector({
   justReleased: boolean
   onRelease: () => void
 }) {
-  const { t } = useTranslation('dispatch-board')
+  const { t, i18n } = useTranslation('dispatch-board')
   if (!row) {
     return (
       <aside className="rounded-lg border border-border/60 bg-card p-4 text-sm text-muted-foreground" data-inspector="">
@@ -98,9 +98,14 @@ export default function Inspector({
         <section data-not-competed="">
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('inspector.notCompeted')}</h3>
           <p>
-            <span className="font-mono">
-              <Ltr>{c.endReason}</Ltr>
-            </span>
+            {/* The reason in words, as Delivery details reads it; a reason the client does not know shows as it came. */}
+            {i18n.exists(`dispatch-board:notOpened.${c.endReason}`) ? (
+              <span data-not-competed-reason={c.endReason}>{t(`notOpened.${c.endReason}`)}</span>
+            ) : (
+              <span className="font-mono" data-not-competed-reason={c.endReason}>
+                <Ltr>{c.endReason}</Ltr>
+              </span>
+            )}
             {' · '}
             {t('inspector.candidates', { count: c.candidateCount, n: fsi(String(c.candidateCount)) })}
           </p>

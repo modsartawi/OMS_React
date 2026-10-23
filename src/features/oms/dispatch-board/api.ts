@@ -26,13 +26,20 @@ export const BOARD_KEY = ['oms', 'dispatch-board', 'board'] as const
 export const BOARD_REFETCH_MS = 30_000
 
 /**
+ * A board read and the client time it arrived (the countdowns' origin). The time travels WITH the data,
+ * so the previous filter's board shown as placeholder while a new filter loads keeps its own receipt
+ * time (the query's `dataUpdatedAt` is 0 then, and every countdown would read 0:00).
+ */
+export type BoardRead = DispatchBoard & { receivedAt: number }
+
+/**
  * The board's query. `refetchIntervalInBackground` stays at its default `false`, so a hidden tab stops
  * polling (the sync console's pattern) and refetches when it is shown again.
  */
 export function boardQuery(filter: DispatchBoardFilter) {
   return {
     queryKey: [...BOARD_KEY, filter] as const,
-    queryFn: () => dispatchBoardApi.board(filter),
+    queryFn: async (): Promise<BoardRead> => ({ ...(await dispatchBoardApi.board(filter)), receivedAt: Date.now() }),
     placeholderData: keepPreviousData,
     refetchInterval: BOARD_REFETCH_MS,
     retry: false,

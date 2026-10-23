@@ -24,7 +24,9 @@
 //   9. export is offered on the grid and writes a workbook;
 //  10. a range over 92 days is blocked before the call; the door's CALLOUT-301 reads as its message;
 //  11. every figure is isolated left to right, also under RTL;
-//  12. no page errors.
+//  12. no page errors;
+//  13. (review of 2952) a text filter holds an inner space ("Al Khobar"), asks nothing while typed, and
+//      is applied — trimmed — on Enter, reaching the Grid and the URL.
 //
 //   1. run the app:  npx vite --port 5203 --strictPort
 //   2. DRIVE_PORT=5203 node tools/dispatch-scorecard-drive.mjs
@@ -491,6 +493,34 @@ async function drive(dir) {
     const refusal = page.locator('[data-sc-refusal="refusal.rangeTooLong"]')
     await refusal.waitFor({ timeout: 10000 })
     check(`${label}: the door's CALLOUT-301 reads as its own message`, (await refusal.innerText()).includes(words.refusal), (await refusal.innerText()).replace(/\s+/g, ' '))
+
+    // 13: a text filter is a draft, applied on Enter.
+    await page.goto(`${BASE}/oms/dispatch-scorecard`)
+    await page.locator('[data-sc-grid="stores"] .ag-row[row-index]').first().waitFor({ timeout: 10000 })
+    await page.waitForTimeout(300)
+    const beforeTyping = calls.filter((c) => c === 'DispatchScorecard/Grid').length
+    const city = page.locator('input[data-sc-filter="city"]')
+    await city.click()
+    await city.pressSequentially(' Al Khobar ')
+    await page.waitForTimeout(400)
+    check(
+      `${label}: a text filter holds an inner space and asks nothing while typed`,
+      (await city.inputValue()) === ' Al Khobar ' && calls.filter((c) => c === 'DispatchScorecard/Grid').length === beforeTyping,
+      `${JSON.stringify(await city.inputValue())} · ${calls.filter((c) => c === 'DispatchScorecard/Grid').length - beforeTyping} reads`,
+    )
+    await city.press('Enter')
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('city') === 'Al Khobar', null, { timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(400)
+    check(
+      `${label}: Enter applies it trimmed, to the Grid and the URL`,
+      params(queries['DispatchScorecard/Grid']?.at(-1))?.city === 'Al Khobar' &&
+        new URL(page.url()).searchParams.get('city') === 'Al Khobar' &&
+        (await city.inputValue()) === 'Al Khobar',
+      `${params(queries['DispatchScorecard/Grid']?.at(-1))?.city} · ${page.url()}`,
+    )
+    await page.locator('[data-sc-reset]').click()
+    await page.waitForTimeout(300)
+    check(`${label}: reset clears the typed filter too`, (await city.inputValue()) === '' && !new URL(page.url()).searchParams.has('city'))
 
     check(`${label}: no page errors (allowed)`, errors.length === 0, errors.join(' | '))
     await context.close()

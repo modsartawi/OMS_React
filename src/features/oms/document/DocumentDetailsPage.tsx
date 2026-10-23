@@ -166,6 +166,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   /** Activity's two views (ticket 542): the spine, or the Callout sub-tab (only with a callout). */
   const [activityView, setActivityView] = useState<'activity' | 'callout'>('activity')
   const [releaseOpen, setReleaseOpen] = useState(false)
+  /**
+   * The callout read's guards: the delivery whose callouts are on screen, and the latest read asked.
+   * Only the latest read lands — a late answer for the delivery left behind must never drive this
+   * delivery's lock line and Release lock.
+   */
+  const calloutsShownFor = useRef<string | null>(null)
+  const calloutsAsk = useRef(0)
 
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
@@ -222,6 +229,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     setNoteFailure(null)
     setActivityView('activity')
     currentRoute.current = routeId
+    // A callout read still out for the record left behind is dropped when it answers.
+    calloutsAsk.current += 1
   }, [routeId])
 
   // Every history entry: take its intent and replace the entry without it. The replace is a new
@@ -291,16 +300,25 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
    */
   const loadCallouts = useCallback(
     async (doc: SdDocumentHeaderModel) => {
+      const ask = ++calloutsAsk.current
       if (!isDeliveryCategory(doc.documentCategory)) {
+        calloutsShownFor.current = doc.documentNo
         setCallouts(NONE)
         return
       }
-      setCallouts(PENDING)
+      // A refresh of the delivery already shown keeps its callouts (the Callout tab, the lock line and
+      // Release lock) on screen while it reads; another delivery starts from nothing.
+      const same = calloutsShownFor.current === doc.documentNo
+      setCallouts((prev) => (same && prev.rows ? { ...prev, loading: true } : PENDING))
       try {
         const history = await documentApi.getCallout(doc.documentNo)
+        if (ask !== calloutsAsk.current) return
+        calloutsShownFor.current = doc.documentNo
         setCallouts({ rows: calloutsOf(history), loading: false, error: null })
         setCalloutsReadAt(Date.now())
       } catch (err) {
+        if (ask !== calloutsAsk.current) return
+        calloutsShownFor.current = doc.documentNo
         setCallouts({ rows: null, loading: false, error: apiErrorMessage(err, t('callout.loadFailed')) })
       }
     },

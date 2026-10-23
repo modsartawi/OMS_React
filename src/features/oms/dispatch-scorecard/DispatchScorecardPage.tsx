@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -77,10 +77,29 @@ const INPUT =
 const TAB = 'rounded-full px-3 py-1 text-sm transition-colors'
 
 const FILTER_INPUTS = ['type', 'channel', 'city', 'region', 'store'] as const
+type TextFilters = Pick<ScorecardFilters, (typeof FILTER_INPUTS)[number]>
+const textFiltersOf = (f: ScorecardFilters): TextFilters => ({
+  type: f.type,
+  channel: f.channel,
+  city: f.city,
+  region: f.region,
+  store: f.store,
+})
 
 function Scorecard() {
   const { t } = useTranslation('dispatch-scorecard')
-  const { query: filters, update } = useUrlQuery(filtersFromParams, filtersToParams)
+  const { query: filters, update, changedFromOutside } = useUrlQuery(filtersFromParams, filtersToParams)
+  // The text filters are a draft, applied together on Enter or Apply (the board's way): typed into the
+  // URL on every key they could not hold an inner space ("Al Khobar") and each key fired a grid read.
+  const [draft, setDraft] = useState<TextFilters>(() => textFiltersOf(filters))
+  useEffect(() => {
+    if (changedFromOutside()) setDraft(textFiltersOf(filters))
+  }, [filters, changedFromOutside])
+  const applyDraft = () => {
+    const applied = Object.fromEntries(FILTER_INPUTS.map((key) => [key, draft[key].trim()])) as TextFilters
+    setDraft(applied)
+    update((prev) => ({ ...prev, ...applied }))
+  }
   // "Today" is read once per visit: a range defaulted at 23:59 does not slide under the reader.
   const [now] = useState(() => new Date())
   const range = useMemo(() => resolveRange(filters, now), [filters, now])
@@ -125,7 +144,14 @@ function Scorecard() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3" data-sc-filters="">
+      <form
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          applyDraft()
+        }}
+        data-sc-filters=""
+      >
         <label className={FIELD}>
           {t('filters.from')}
           <input
@@ -151,15 +177,25 @@ function Scorecard() {
             {t(`filters.${key}`)}
             <input
               type="text"
-              value={filters[key]}
-              onChange={(e) => patch({ [key]: e.target.value.trim() })}
+              value={draft[key]}
+              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
               placeholder={t('filters.any')}
               className={`${INPUT} w-28`}
               data-sc-filter={key}
             />
           </label>
         ))}
-        <Button variant="outlined" onClick={() => update((prev) => ({ ...DEFAULT_FILTERS, tab: prev.tab }))} data-sc-reset="">
+        <Button type="submit" variant="secondary" data-sc-apply="">
+          {t('filters.apply')}
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setDraft(textFiltersOf(DEFAULT_FILTERS))
+            update((prev) => ({ ...DEFAULT_FILTERS, tab: prev.tab }))
+          }}
+          data-sc-reset=""
+        >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('filters.reset')}
         </Button>
@@ -172,7 +208,7 @@ function Scorecard() {
             )}
           </p>
         )}
-      </div>
+      </form>
 
       {grid.isError && (
         <div data-sc-refusal={refusal ?? ''}>

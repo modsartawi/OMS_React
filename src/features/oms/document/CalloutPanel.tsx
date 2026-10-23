@@ -7,6 +7,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatCount } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
+import ReasonText from './CalloutReason'
 
 /**
  * The Callout sub-tab under Activity (ticket 542; 2950 Answer point 2, variant C): for each callout
@@ -23,13 +24,6 @@ export default function CalloutPanel({ callouts }: { callouts: readonly Delivery
       ))}
     </div>
   )
-}
-
-/** A reason in words when the client knows it, else the raw value as one machine value. */
-function Known({ group, value }: { group: string; value: string }) {
-  const { t, i18n } = useTranslation('document')
-  const key = `callout.${group}.${value}`
-  return i18n.exists(`document:${key}`) ? <>{t(key)}</> : <Ltr>{value}</Ltr>
 }
 
 const TH = 'py-1 pe-3 text-start font-medium whitespace-nowrap'
@@ -83,7 +77,7 @@ function CalloutSection({ callout: c }: { callout: DeliveryCalloutRecord }) {
         )}
         {c.endReason && !notCompeted && (
           <span className="text-xs text-muted-foreground" data-end-reason={c.endReason}>
-            <Known group="endReason" value={c.endReason} />
+            <ReasonText group="endReason" value={c.endReason} />
           </span>
         )}
       </div>
@@ -110,7 +104,7 @@ function CalloutSection({ callout: c }: { callout: DeliveryCalloutRecord }) {
           </span>
           {c.releaseReason && (
             <span className="text-muted-foreground">
-              <Known group="releaseReason" value={c.releaseReason} />
+              <ReasonText group="releaseReason" value={c.releaseReason} />
             </span>
           )}
           {c.releaseNote && (
@@ -132,7 +126,7 @@ function CalloutSection({ callout: c }: { callout: DeliveryCalloutRecord }) {
           {c.endReason && (
             <>
               {' · '}
-              <Known group="notOpened" value={c.endReason} />
+              <ReasonText group="notOpened" value={c.endReason} />
             </>
           )}
         </p>
@@ -298,7 +292,7 @@ function LedgerRow({ view }: { view: BidRowView }) {
         </StatusBadge>
         {view.ignoreReason && (
           <div className="mt-0.5 text-[11px] text-muted-foreground" data-ignore-reason={view.ignoreReason}>
-            <Known group="ignoreReason" value={view.ignoreReason} />
+            <ReasonText group="ignoreReason" value={view.ignoreReason} />
           </div>
         )}
       </td>

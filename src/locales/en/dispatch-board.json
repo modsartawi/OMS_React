@@ -15,6 +15,7 @@
   "refreshing": "Refreshing…",
   "loading": "Loading the board…",
   "failed": "The board could not be read.",
+  "failedStale": "The last refresh failed; the board below is from the previous read.",
   "filters": {
     "channel": "Channel",
     "city": "City / region",
@@ -72,6 +73,12 @@
     "AllPassed": "all passed",
     "Expired": "lapsed",
     "Withdrawn": "withdrawn"
+  },
+  "notOpened": {
+    "NoGps": "the address has no location",
+    "NoCandidates": "no store in reach",
+    "OneCandidate": "only one store in reach",
+    "StockLeftFewerThanTwo": "fewer than two stores had the stock"
   },
   "bidStatus": {
     "OPEN": "Awaiting",

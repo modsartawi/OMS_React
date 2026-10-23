@@ -52,8 +52,10 @@ function Board() {
   const board = useQuery(boardQuery(filter))
   const queryClient = useQueryClient()
 
-  const fetchedAt = board.dataUpdatedAt
-  const data = board.isError ? undefined : board.data
+  // The last good board stays on screen when one 30 s poll fails (a notice says so); the error state
+  // is only for a board never read. A placeholder (the previous filter's board) keeps its own receipt time.
+  const data = board.data
+  const fetchedAt = data?.receivedAt ?? 0
   const open: BoardRow[] = useMemo(() => (data?.open ?? []).map((c) => ({ ...c, fetchedAt })), [data, fetchedAt])
   const closed: BoardRow[] = useMemo(() => (data?.closed ?? []).map((c) => ({ ...c, fetchedAt })), [data, fetchedAt])
   const tiles = useMemo(() => (data ? boardTiles(data.tiles) : []), [data])
@@ -112,15 +114,20 @@ function Board() {
           <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
           <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
         </div>
-      ) : board.isError ? (
+      ) : board.isError && !data ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(board.error, t('failed'))} />
-      ) : board.isPending ? (
+      ) : !data ? (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           {t('loading')}
         </div>
       ) : (
         <>
+          {board.isError && (
+            <div data-board-stale="">
+              <ErrorBanner className="p-2.5" title={t('failedStale')} message={apiErrorMessage(board.error, t('failed'))} />
+            </div>
+          )}
           <section aria-label={t('tiles.label')} className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2" data-tiles="">
             {tiles.map((tile) => (
               <Tile key={tile.key} tile={tile} windowMin={windowMin} />

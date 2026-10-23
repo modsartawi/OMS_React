@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { DispatchBid } from '@/core/models/dispatch-board'
-import { atpView, bidRow, bidStatusView, countdownLeft, formatClock, outcomeView } from './view'
+import { atpView, bidRow, bidStatusView, calloutClock, countdownLeft, formatClock, outcomeView } from './view'
 
 describe('countdownLeft', () => {
   const fetchedAt = 1_000_000
@@ -27,6 +27,23 @@ describe('countdownLeft', () => {
 
   it('a closed callout (no secondsLeft) has no countdown', () => {
     expect(countdownLeft(null, fetchedAt, fetchedAt)).toBeNull()
+  })
+})
+
+describe('calloutClock — what the line of an open callout says of its time', () => {
+  const readAt = 1_000_000
+
+  it('counts down while time is left', () => {
+    expect(calloutClock(140, readAt, readAt + 2000)).toEqual({ kind: 'left', left: 138 })
+  })
+
+  it('is due once the countdown reaches 0', () => {
+    expect(calloutClock(5, readAt, readAt + 9000)).toEqual({ kind: 'due' })
+    expect(calloutClock(0, readAt, readAt)).toEqual({ kind: 'due' })
+  })
+
+  it('says nothing of time when the door sent no secondsLeft (never "0:00 left")', () => {
+    expect(calloutClock(null, readAt, readAt)).toEqual({ kind: 'none' })
   })
 })
 

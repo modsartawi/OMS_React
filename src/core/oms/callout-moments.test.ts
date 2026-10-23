@@ -315,6 +315,17 @@ describe('calloutMoments — each event kind gives its moment', () => {
     expect(calloutMoments([])).toEqual([])
     expect(calloutMoments(null)).toEqual([])
   })
+
+  it('reads a bid-level event of a record with no bid list as a moment with no bid', () => {
+    const record = {
+      ...callout({ events: [ev('10:00:30', 'Shown', { bidId: 'B1', party: 'R047' })] }),
+      bids: undefined,
+    } as never
+    const [m] = calloutMoments([record])
+    expect(m.kind).toBe('shown')
+    expect(m.bid).toBeNull()
+    expect(m.party).toBe('R047')
+  })
 })
 
 describe('compareCalloutMoments', () => {

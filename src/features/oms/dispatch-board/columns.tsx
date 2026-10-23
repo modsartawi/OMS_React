@@ -7,11 +7,11 @@ import { countdownLeft, formatClock, outcomeView } from '@/core/dispatch/view'
 import type { DispatchCallout } from '@/core/models/dispatch-board'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
+import { useSecondClock } from '@/core/ui/second-clock'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
 import { formatTimeOfDay } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
-import { useNow } from './use-now'
 
 /** A board row: the callout and the client time its read arrived (the countdown's origin). */
 export type BoardRow = DispatchCallout & { fetchedAt: number }
@@ -27,10 +27,10 @@ export const BOARD_DEFAULT_COL_DEF: ColDef = {
 
 const MONO = 'font-mono text-[12px]'
 
-/** The live countdown: the door's `secondsLeft`, moved by the 1 s clock, never below 0. */
+/** The live countdown: the door's `secondsLeft`, moved by the shared 1 s clock (one interval for every cell), never below 0. */
 export function Countdown({ secondsLeft, fetchedAt }: { secondsLeft: number | null; fetchedAt: number }) {
   const { t } = useTranslation('dispatch-board')
-  const now = useNow()
+  const now = useSecondClock()
   const left = countdownLeft(secondsLeft, fetchedAt, now)
   if (left == null) return null
   return (

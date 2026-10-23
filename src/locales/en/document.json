@@ -10,6 +10,8 @@
     "onCallout_other": "On callout · <left>{{left}}</left> left · waiting on <n>{{count}}</n> stores",
     "onCalloutDue_one": "On callout · due to fall back now · waiting on <n>{{count}}</n> store",
     "onCalloutDue_other": "On callout · due to fall back now · waiting on <n>{{count}}</n> stores",
+    "onCalloutNoClock_one": "On callout · waiting on <n>{{count}}</n> store",
+    "onCalloutNoClock_other": "On callout · waiting on <n>{{count}}</n> stores",
     "candidates_one": "<n>{{count}}</n> candidate",
     "candidates_other": "<n>{{count}}</n> candidates",
     "register": "reg <r>{{reg}}</r>",

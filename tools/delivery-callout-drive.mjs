@@ -16,7 +16,10 @@
 //   7. an empty list: no sub-tabs, no callout moment, no Release lock;
 //   8. Release lock on Delivery details: only on a locked delivery with Execute; the board's dialog;
 //      the POST body; after release the action goes and the release joins the spine;
-//   9. a failing callout read leaves the spine drawn with one inline error.
+//   9. a failing callout read leaves the spine drawn with one inline error;
+//  10. (review of 2952) a Refresh keeps the Callout tab and its ledger on screen while it reads; a late
+//      callout answer for the delivery left behind never lands on the next one; an open callout the
+//      door sent no `secondsLeft` for says nothing of time (never "0:00 left").
 //
 //   1. run the app:  npx vite --port 5202 --strictPort
 //   2. node tools/delivery-callout-drive.mjs
@@ -290,6 +293,22 @@ function cases(rtl) {
       ],
     },
     '8000000606': { doc: ready('8000000606'), logs, callouts: 'fail' },
+    '8000000607': {
+      doc: ready('8000000607'),
+      logs: [log(1, local(new Date(now.getTime() - 60_000)), 'DCRT', 'Delivery created', 'web')],
+      callouts: [
+        callout('8000000607', {
+          status: 'OPEN',
+          outcome: 'Open',
+          openedAt: local(new Date(now.getTime() - 30_000)),
+          expiresAt: null,
+          endedAt: null,
+          secondsLeft: null,
+          bids: [bid('B1', 'R047'), bid('B2', 'R012')],
+          events: [ev(local(new Date(now.getTime() - 30_000)), 'Opened')],
+        }),
+      ],
+    },
   }
 }
 
@@ -307,6 +326,7 @@ async function drive(dir) {
   const CASES = cases(rtl)
   const access = { canOpenDispatchBoard: true, canReleaseLock: true }
   const releases = []
+  const calloutDelay = {}
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
@@ -331,6 +351,7 @@ async function drive(dir) {
     }
     const co = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/Callout$/)
     if (co) {
+      if (calloutDelay[co[1]]) await new Promise((r) => setTimeout(r, calloutDelay[co[1]]))
       const rows = CASES[co[1]]?.callouts
       if (rows === 'fail') return route.fulfill(envelope(null, { status: 400, success: false, message: 'Callout store unavailable' }))
       return route.fulfill(envelope({ asOf: `${D}12:00:00`, deliveryNumber: co[1], callouts: rows ?? [] }))
@@ -582,6 +603,52 @@ async function drive(dir) {
     /Callout store unavailable/.test(failed.error ?? '') && failed.milestones === 2 && failed.tabs === 0,
     JSON.stringify(failed),
   )
+
+  // ── 10: refresh keeps the Callout tab; a late answer never lands on the next delivery ────────
+  // (8000000601 is a locked fell-back delivery; 8000000600 was released by step 8.)
+  await open('8000000601')
+  await page.locator('[data-activity-tab="callout"]').click()
+  await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
+  calloutDelay['8000000601'] = 1500
+  await page.getByRole('button', { name: 'Refresh' }).click()
+  await page.waitForTimeout(600)
+  const midRead = await page.evaluate(() => ({
+    panel: document.querySelectorAll('[data-callout-panel]').length,
+    selected: document.querySelector('[data-activity-tab="callout"]')?.getAttribute('aria-selected'),
+    action: document.querySelectorAll('[data-release-lock-action]').length,
+  }))
+  check(`${label}: a Refresh keeps the Callout tab, its ledger and Release lock while it reads`, midRead.panel === 1 && midRead.selected === 'true' && midRead.action === 1, JSON.stringify(midRead))
+  await page.waitForTimeout(1500)
+  check(`${label}: …and after it, still on the Callout tab`, (await page.locator('[data-callout-panel]').count()) === 1)
+  delete calloutDelay['8000000601']
+
+  const nav = (no) =>
+    page.evaluate((path) => {
+      history.pushState({}, '', path)
+      dispatchEvent(new PopStateEvent('popstate'))
+    }, `/oms/delivery/${no}`)
+  await open('8000000604')
+  calloutDelay['8000000601'] = 2500
+  await nav('8000000601')
+  await page.waitForTimeout(700)
+  await nav('8000000604')
+  await page.waitForTimeout(3200)
+  const leftBehind = await page.evaluate(() => ({
+    path: location.pathname,
+    tabs: document.querySelectorAll('[data-activity-tab]').length,
+    action: document.querySelectorAll('[data-release-lock-action]').length,
+    moments: document.querySelectorAll('[data-entry="callout"]').length,
+  }))
+  check(
+    `${label}: a late callout answer for the delivery left behind never lands on the next one`,
+    leftBehind.path === '/oms/delivery/8000000604' && leftBehind.tabs === 0 && leftBehind.action === 0 && leftBehind.moments === 0,
+    JSON.stringify(leftBehind),
+  )
+  delete calloutDelay['8000000601']
+
+  await open('8000000607')
+  const noClock = (await page.locator('[data-on-callout]').textContent()) ?? ''
+  check(`${label}: an open callout with no secondsLeft says nothing of time`, /On callout · waiting on 2 stores/.test(noClock) && !/left|0:00/.test(noClock), noClock)
 
   check(`${label}: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()

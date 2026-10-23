@@ -17,6 +17,8 @@
 //   5. the filters reach the door and the URL, and a URL opens on them;
 //   6. 30 s polling, paused in a hidden tab;
 //   7. no Display → the gate's denial and no board read; a bare 403 on the board → "You do not have access".
+//   8. (review of 2952) one failed poll keeps the last good board with a notice; while a new filter's
+//      read is out, the previous board's countdowns keep counting (never 0:00 from a zero receipt time).
 //
 //   1. run the app:  npx vite --port 5201
 //   2. node tools/dispatch-board-drive.mjs
@@ -214,7 +216,7 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
   const errors = []
   const boards = []
   const releases = []
-  const state = { releaseMode: 'ok', released: new Set() }
+  const state = { releaseMode: 'ok', released: new Set(), boardFail: false, boardDelayMs: 0 }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -229,6 +231,8 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
     if (p === 'DispatchBoard/Board') {
       boards.push(url.searchParams)
       if (boardStatus === 403) return route.fulfill({ status: 403, body: '' })
+      if (state.boardDelayMs) await new Promise((r) => setTimeout(r, state.boardDelayMs))
+      if (state.boardFail) return route.fulfill(envelope(null, { status: 500, success: false, message: 'Database timeout.', errorCode: 'SD-500' }))
       const store = url.searchParams.get('store')
       const closed = [TAKEN_LOCKED, FELL_BACK, NOT_COMPETED, WITHDRAWN].map((c) =>
         state.released.has(c.deliveryNumber) ? { ...c, locked: false, releasedAt: stamp(1000), releasedBy: 'msartawi', releaseReason: 'Other', releaseNote: 'n' } : c,
@@ -336,7 +340,11 @@ for (const dir of ['ltr', 'rtl']) {
     // not competed
     await rowOf(page, 'closed', 'D8003').click()
     await page.locator('[data-inspector="C-D8003"]').waitFor()
-    check(`${dir} 3. a not-competed callout says why`, (await insp.locator('[data-not-competed]').innerText()).includes('OneCandidate') && (await insp.locator('[data-bid]').count()) === 0)
+    check(
+      `${dir} 3. a not-competed callout says why, in words`,
+      (await insp.locator('[data-not-competed-reason="OneCandidate"]').innerText()).trim() === 'only one store in reach' && (await insp.locator('[data-bid]').count()) === 0,
+      await insp.locator('[data-not-competed]').innerText(),
+    )
 
     // 4. Release lock
     await rowOf(page, 'closed', 'D8001').click()
@@ -456,6 +464,39 @@ for (const dir of ['ltr', 'rtl']) {
   await page.clock.fastForward(31_000)
   await page.waitForTimeout(500)
   check('6. shown again, it polls again', boards.length > n1, `${n1} → ${boards.length}`)
+  await context.close()
+}
+
+// ── 8. a failed poll keeps the last good board; a new filter's read keeps the old countdowns ─────
+{
+  const { context, page, state } = await open('ltr', { clock: true })
+  await page.goto(URL_)
+  await page.locator('[data-open-grid] [data-delivery="D9001"]').waitFor({ timeout: 20000 })
+  state.boardFail = true
+  await page.clock.fastForward(31_000)
+  await page.locator('[data-board-stale]').waitFor({ timeout: 5000 }).catch(() => {})
+  check(
+    '8. one failed poll keeps the last good board, with a notice',
+    (await page.locator('[data-board-stale]').count()) === 1 &&
+      (await page.locator('[data-open-grid] [data-delivery="D9001"]').count()) === 1 &&
+      (await page.locator('[data-tile]').count()) === 6,
+  )
+  state.boardFail = false
+  await page.clock.fastForward(31_000)
+  await page.waitForTimeout(500)
+  check('8. the next good poll clears the notice', (await page.locator('[data-board-stale]').count()) === 0)
+  await context.close()
+}
+{
+  const { context, page, state } = await open('ltr')
+  await page.goto(URL_)
+  await page.locator('[data-open-grid] [data-delivery="D9002"]').waitFor({ timeout: 20000 })
+  state.boardDelayMs = 4000
+  await page.locator('[data-filter="channel"]').fill('WEB')
+  await page.locator('[data-filter-apply]').click()
+  await page.waitForTimeout(1500)
+  const left = Number(await page.locator('[data-open-grid] .ag-row:has([data-delivery="D9002"]) [data-countdown]').getAttribute('data-countdown'))
+  check('8. while a new filter reads, the previous board keeps counting down (not 0:00)', left > 0, String(left))
   await context.close()
 }
 

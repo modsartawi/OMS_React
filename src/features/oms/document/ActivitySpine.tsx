@@ -27,7 +27,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import { countdownLeft, formatClock } from '@/core/dispatch/view'
+import { calloutClock, formatClock } from '@/core/dispatch/view'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import type { CalloutMoment, CalloutMomentKind } from '@/core/oms/callout-moments'
 import type {
@@ -42,8 +42,10 @@ import { timeline, timelineInputFromHeader, type TimelineStep, type TimelineStep
 import { spine, type JobState, type SpineEntry } from '@/core/oms/timeline-feed'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import { useSecondClock } from '@/core/ui/second-clock'
 import { formatCount } from '@/core/util/bidi'
 import { formatDateTime, formatTimeOfDay } from '@/core/util/date-format'
+import ReasonText from './CalloutReason'
 
 /** One deferred collection (Log / Jobs / donor requests): `rows: null` until it resolves. */
 export interface Deferred<T> {
@@ -614,16 +616,6 @@ function PastEntry({ entry }: { entry: SpineEntry }) {
   }
 }
 
-/** The current time, ticking each second, so an open callout's countdown moves between reads. */
-function useSecondClock(): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-  return now
-}
-
 /**
  * "On callout · 2:20 left · waiting on 3 stores" (ticket 542; 2950 Answer point 2): one line per
  * callout still open, below the future steps and above Now. The countdown is the board's (541):
@@ -632,8 +624,11 @@ function useSecondClock(): number {
 function OnCalloutLine({ callout, readAt }: { callout: DeliveryCalloutRecord; readAt: number }) {
   const { t } = useTranslation('document')
   const now = useSecondClock()
-  const left = countdownLeft(callout.secondsLeft, readAt || now, now)
+  const clock = calloutClock(callout.secondsLeft, readAt || now, now)
   const waiting = callout.bids.filter((b) => b.status === 'OPEN').length
+  // No `secondsLeft` from the door: the line says nothing of time rather than "0:00 left".
+  const key =
+    clock.kind === 'due' ? 'callout.onCalloutDue' : clock.kind === 'left' ? 'callout.onCallout' : 'callout.onCalloutNoClock'
   return (
     <div
       data-on-callout={callout.calloutId}
@@ -643,9 +638,9 @@ function OnCalloutLine({ callout, readAt }: { callout: DeliveryCalloutRecord; re
       <span>
         <Trans
           t={t}
-          i18nKey={left === 0 ? 'callout.onCalloutDue' : 'callout.onCallout'}
+          i18nKey={key}
           count={waiting}
-          values={{ left: formatClock(left ?? 0), count: waiting }}
+          values={{ left: clock.kind === 'left' ? formatClock(clock.left) : '', count: waiting }}
           components={{ left: <Ltr />, n: <Ltr /> }}
         />
       </span>
@@ -687,13 +682,6 @@ const REASON_GROUP: Partial<Record<CalloutMomentKind, string>> = {
   lockReleased: 'releaseReason',
   bidExpired: 'ignoreReason',
   notCompeted: 'notOpened',
-}
-
-/** A reason as its words when the client knows it, else the raw value as one machine value. */
-function ReasonText({ group, value }: { group: string; value: string }) {
-  const { t, i18n } = useTranslation('document')
-  const key = `callout.${group}.${value}`
-  return i18n.exists(`document:${key}`) ? <>{t(key)}</> : <Ltr>{value}</Ltr>
 }
 
 /** The moment's own line: what happened and at which store. */

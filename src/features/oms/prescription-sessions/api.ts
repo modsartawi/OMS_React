@@ -31,4 +31,14 @@ export const prescriptionSessionsApi = {
       isTruncated: data?.isTruncated === true,
     }
   },
+
+  /**
+   * `POST PrescriptionSessionWeb/{sessionId}/WriteOff` `{ reason, note }` (ticket 548) — "Close
+   * without invoice", behind its own `BackOfficeScreen[PrescriptionSessionWriteOff, 06]` (a viewer
+   * gets a bare 403). The actor is the signed-in user, never a body field. The door answers the
+   * session read back, Written off; the screen re-reads the list instead, so nothing is returned.
+   */
+  async writeOff(sessionId: string, body: { reason: string; note: string }): Promise<void> {
+    await api.post<unknown>(`PrescriptionSessionWeb/${encodeURIComponent(sessionId)}/WriteOff`, body)
+  },
 }

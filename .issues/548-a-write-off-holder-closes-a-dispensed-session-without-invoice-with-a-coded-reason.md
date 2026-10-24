@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice-2994\.issues\2994-prescription-session-spec.md
 blocked-by: 545 (live: BackOffice 3015 on branch spec2994)
 ---
@@ -33,11 +33,11 @@ api · logic (write-off form: reason/note validity, refusal view) · dialog + ro
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] write-off form: OTHER without a note blocks; other reasons don't need one; the body sent is `{ reason, note }`
+- [x] write-off form: OTHER without a note blocks; other reasons don't need one; the body sent is `{ reason, note }`
       trimmed; each PSES code maps to its refusal view; a bare 403 maps to "not granted" (vitest, pure)
-- [ ] drive script, LTR and RTL, against a stub: each reason written off, an OTHER with an Arabic note (the body
+- [x] drive script, LTR and RTL, against a stub: each reason written off, an OTHER with an Arabic note (the body
       carries it unchanged), `PSES-00009`, a bare 403 hiding the button, the row leaving the list
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -62,3 +62,41 @@ invoice with a coded reason (a note for Other), and every refusal shows in the d
 - **BackOffice follow-up (unfiled):** a `PrescriptionSessionWeb/Access` probe answering both grants (list Display,
   write-off Execute), so the menu leaf and the button can be gated like the dispatch board's. Record it under 549's
   BO asks; don't build around it.
+
+## Comments
+
+**2026-10-24 — built (stubbed; live walk is 549).** Open question settled as recommended: the button shows on every
+DISPENSED row; a bare 403 says so in the dialog and hides the button on every row for the rest of the visit.
+
+What was built:
+- `api.ts` — `prescriptionSessionsApi.writeOff(sessionId, { reason, note })` → `POST PrescriptionSessionWeb/{id}/WriteOff`
+  through `@/core/api`; returns nothing (the screen re-reads the list rather than reading the answer back).
+- `write-off.ts` (pure) — `writeOffBlock` (no reason / OTHER without a note), `writeOffBody` (`{ reason, note }`, note
+  trimmed, script untouched), `writeOffRefusal` (bare 403 → `notGranted`; any envelope code → `refused` with message +
+  code, and words for `PSES-00009/00220/00221/00222`; no envelope → `failed`).
+- `WriteOffDialog.tsx` — four coded reasons (radio), the put-back hint on Goods never left, the note (`dir="auto"`,
+  `maxLength` 400 = `PrescriptionSessionWidths.EndNote`, required for Other), the confirm sentence naming
+  `displayId` + holding store (each `Ltr`), refusals as an `ErrorBanner` in the dialog (envelope message, words, code
+  `Ltr`); success → toast naming the session (`fsi`), close, invalidate `['prescription-sessions','open']`.
+- `OpenRowAction.tsx` — the button (`OPEN_ROW_ACTION_ENABLED = true`); the dialog is portalled to `<body>` so AG Grid's
+  cell key handlers never see the note's keys. `write-off-grant.ts` — the per-visit "not granted" flag (zustand),
+  reset when the Open tab unmounts (one effect added to `OpenTab.tsx`).
+- Copy in `prescription-sessions` EN + AR under `writeOff.*`.
+- **Core words:** a self-contained block at the end of `core/prescription-session/words.ts`
+  (`PRESCRIPTION_WRITE_OFF_REASONS`, `writeOffReasonWord`) and `writeOffReason.PAYER_REFUSED|SALE_LOST|GOODS_NEVER_LEFT|OTHER`
+  in the core `prescription-session` EN + AR. ⚠ **Merger:** 547 adds the end reasons (abandon + write-off) in parallel —
+  dedupe this block against 547's (keep one list and one key set; the dialog only needs a word per write-off code).
+
+Judgement calls (overrulable):
+- The confirm is the dialog's own Write off button (no second "are you sure?" step); its sentence names the session and store.
+- After a business refusal the dialog stays open with the note kept; the buttons stay. Only a bare 403 hides them.
+- 545's drive check "no row action yet" now asserts the action on the DISPENSED row only.
+
+Proof:
+- vitest: `write-off.test.ts` 17 + `core/prescription-session/write-off-words.test.ts` 3 = 20 new; full suite 5967/5967.
+- Drive `tools/prescription-sessions-write-off-drive.mjs` (`npx vite --port 5216 --strictPort`, then `DRIVE_PORT=5216
+  node tools/prescription-sessions-write-off-drive.mjs`): **84/84** (LTR + RTL) — button on DISPENSED only (All + Owed),
+  each of the four reasons written off (body `{ reason, note }` trimmed, toast, re-read, row leaves, Owed count drops),
+  OTHER with an Arabic note carried unchanged, `PSES-00009` in the dialog, a bare 403 hiding every button. 545's drive
+  still 112/112. Stubbed doors.
+- `npm run typecheck`, `npm run lint` (4 gates) green.

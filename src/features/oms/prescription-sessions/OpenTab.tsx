@@ -36,6 +36,7 @@ import {
   type OpenFilter,
 } from './open-filter'
 import { flagChips, openRow, type OpenGridRow } from './open-row'
+import { useWriteOffGrant } from './write-off-grant'
 
 /** The bad-filter refusal (`PrescriptionSessionHqErrorCodes.BadFilter`): said beside the filters. */
 const BAD_FILTER = 'PSES-00223'
@@ -74,6 +75,9 @@ export default function OpenTab() {
   const { query: filter, update, changedFromOutside } = useUrlQuery(openFilterFromParams, openFilterToParams)
   const [draft, setDraft] = useState<Draft>(() => draftOf(filter))
   const owedView = filter.view === 'owed'
+
+  // 548: a bare 403 on the write-off hides its button for this visit of the tab only.
+  useEffect(() => () => useWriteOffGrant.getState().reset(), [])
 
   // Back, a pasted link or the menu leaf resets the bar; the page's own writes keep what is typed.
   useEffect(() => {

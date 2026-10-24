@@ -65,5 +65,11 @@
     "STALLED": "متوقفة",
     "ABOUT_TO_LAPSE": "على وشك الانقضاء",
     "OWED": "مستحقة"
+  },
+  "writeOffReason": {
+    "PAYER_REFUSED": "رفض الدافع / لا تغطية",
+    "SALE_LOST": "ضاع البيع أو تم خارج الجلسة",
+    "GOODS_NEVER_LEFT": "لم تغادر البضاعة الصيدلية",
+    "OTHER": "أخرى"
   }
 }

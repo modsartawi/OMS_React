@@ -4,6 +4,30 @@
   },
   "title": "Prescription sessions",
   "lede": "Every store's prescription sessions, read from HQ: the open ones, the orders not yet opened, and the ended ones.",
+  "writeOff": {
+    "action": "Close without invoice",
+    "title": "Close without invoice",
+    "names": "Session <v>{{session}}</v>, held at store <v>{{store}}</v>, will end Written off and will never be invoiced.",
+    "reason": "Reason",
+    "putBackHint": "The session's held units go to put-back.",
+    "noteOptional": "Note (optional)",
+    "noteRequired": "Note (required for Other)",
+    "noteHint": "Say why this session can never be invoiced.",
+    "cancel": "Cancel",
+    "confirm": "Write off",
+    "sending": "Writing off…",
+    "done": "Session {{session}} written off, without invoice.",
+    "refusedTitle": "The session wasn't written off",
+    "failed": "The write-off could not be sent.",
+    "notGrantedTitle": "You don't hold the write-off grant",
+    "notGranted": "Closing a session without invoice needs the PrescriptionSessionWriteOff grant. Ask an administrator to bind you to the HQ prescription-session write-off role.",
+    "refusal": {
+      "notEndable": "Not dispensed, or something is still pending",
+      "badReason": "Not a coded reason",
+      "noteRequired": "Other needs a note",
+      "noActor": "No signed-in user to name"
+    }
+  },
   "tabs": {
     "label": "Prescription session lists",
     "open": "Open",

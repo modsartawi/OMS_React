@@ -95,3 +95,14 @@ export const flagWord = (code: string | null | undefined): CodeWord => wordFrom(
 export function wordText(t: (key: string) => string, word: CodeWord): string {
   return word.key === null ? word.raw : t(word.key)
 }
+
+// ---- Ticket 548: the write-off ("Close without invoice") reasons -------------------------------
+// A self-contained block: 547 adds the end reasons (abandon + write-off) in parallel, so a merger
+// may fold this into its list (same codes, same `writeOffReason.*` keys).
+
+/** The coded reasons of "Close without invoice" (`PrescriptionSessionWriteOffReasons`), in offer order. */
+export const PRESCRIPTION_WRITE_OFF_REASONS = ['PAYER_REFUSED', 'SALE_LOST', 'GOODS_NEVER_LEFT', 'OTHER'] as const
+export type PrescriptionWriteOffReason = (typeof PRESCRIPTION_WRITE_OFF_REASONS)[number]
+
+export const writeOffReasonWord = (code: string | null | undefined): CodeWord =>
+  wordFrom(PRESCRIPTION_WRITE_OFF_REASONS, 'writeOffReason', code)

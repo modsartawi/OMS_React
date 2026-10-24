@@ -228,7 +228,8 @@ async function drive(dir) {
   check(`${L}: chip counts from the answer, not the rows`, c.map((x) => `${x.flag}=${x.count}`).join() === 'STALLED=310,ABOUT_TO_LAPSE=12,OWED=87', c.map((x) => `${x.flag}=${x.count}`).join())
   check(`${L}: no chip pressed`, c.every((x) => !x.pressed && !x.disabled))
   check(`${L}: the store field says it matches either store`, /holding store or the other store/.test(await page.locator('[data-ps-store-hint]').textContent()))
-  check(`${L}: no row action yet on the DISPENSED row (548's slot hidden)`, g.every((r) => !r.action) && (await page.locator('[data-ps-grid] [col-id="actions"]').count()) === 0)
+  // 548 enabled the slot: the act shows on the DISPENSED row only (its own drive covers the dialog).
+  check(`${L}: the row action shows on the DISPENSED row only`, g.map((r) => r.action).join() === 'false,false,true,false', g.map((r) => r.action).join())
   check(`${L}: no truncation notice on a whole answer`, (await page.locator('[data-ps-truncated]').count()) === 0)
   await page.screenshot({ path: `${SHOTS}/${L}-list.png`, fullPage: true })
 

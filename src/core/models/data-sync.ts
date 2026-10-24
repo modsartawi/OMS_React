@@ -264,8 +264,19 @@ export interface DataSyncAccess {
 
 // ── Requests ────────────────────────────────────────────────────────────────────
 
+/**
+ * A target store as the create request names it. `client` is optional here (spec 558 DataSync
+ * ask A: omitted defaults to `DataSync:FleetClient`); the estate's pickers know only `code`.
+ * ⚠ [CODE] ask A is not built yet: the running service refuses an entry without `client` with a
+ * 400 (`every storeCodes entry needs a client and a code.`) — the live walk (566) owns it.
+ */
+export interface TargetStoreRef {
+  client?: string
+  code: string
+}
+
 /** Exactly ONE of the two ([CODE] 400 otherwise). `fleet: 'all'` is the only selector in v1. */
-export type Targets = { storeCodes: StoreRef[]; fleet?: never } | { fleet: 'all'; storeCodes?: never }
+export type Targets = { storeCodes: TargetStoreRef[]; fleet?: never } | { fleet: 'all'; storeCodes?: never }
 
 export interface CreateCampaignRequest {
   profileId: Ulid

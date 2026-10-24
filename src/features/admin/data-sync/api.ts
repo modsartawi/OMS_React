@@ -7,8 +7,16 @@
  * origin, so the session cookie and `X-Web-Client` travel); in dev `vite.config.ts` sends
  * `/api/DataSync` to `DATASYNC_API`. The shapes are `@/core/models/data-sync`'s.
  */
-import { api, isBareDenial } from '@/core/api'
-import type { Campaign, ChangeManifestRow, DataSyncAccess, DataSyncHealth, Job, SyncProfile } from '@/core/models/data-sync'
+import { api, isBareDenial, type ApiEnvelope } from '@/core/api'
+import type {
+  Campaign,
+  ChangeManifestRow,
+  CreateCampaignRequest,
+  DataSyncAccess,
+  DataSyncHealth,
+  Job,
+  SyncProfile,
+} from '@/core/models/data-sync'
 import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
 import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
@@ -95,6 +103,22 @@ export const dataSyncApi = {
    */
   changes(jobId: string, view: ChangesView): Promise<ChangeManifestRow[]> {
     return api.get<ChangeManifestRow[]>(`DataSync/Jobs/${encodeURIComponent(jobId)}/Changes`, { ...changesQuery(view) })
+  },
+
+  // ── Create and Start (ticket 561) ──
+
+  /**
+   * `POST DataSync/Campaigns` → **201** with the campaign, created `Ready`. The whole envelope comes
+   * back because an Apply create (564) carries per-store warnings in `errors[]` on a SUCCESS
+   * (`DATASYNC_STORE_BUSY` / `DATASYNC_STORE_WPF_HOSTED`). Refusals throw: 404, 422×5, 400, 409.
+   */
+  createCampaign(body: CreateCampaignRequest): Promise<ApiEnvelope<Campaign>> {
+    return api.postEnvelope<Campaign>('DataSync/Campaigns', body)
+  },
+
+  /** `POST DataSync/Campaigns/{id}/Start` → the campaign, Running. 409 `DATASYNC_INVALID_STATE`, 404. */
+  startCampaign(campaignId: string): Promise<Campaign> {
+    return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/Start`, {})
   },
 }
 

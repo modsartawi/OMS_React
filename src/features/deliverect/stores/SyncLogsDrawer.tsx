@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ListTree, Loader2, X } from 'lucide-react'
@@ -13,12 +13,9 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { SYNC_LOGS_TAKE, storesApi, syncLogsKey } from './api'
 import PushLines from './PushLines'
 import { runFailed, syncTypeKey } from './sync-health'
+import { figure } from './sync-lines'
+import { TD, TH } from './table-cells'
 
-/** The number a cell shows, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
-const TH = 'px-2 py-1.5 text-start font-medium whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
 
 /**
  * **A store's stock sync log** (ticket 480; contract § Stock sync, `GET Sync/{store}/Logs`) — the
@@ -36,12 +33,39 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
   const { t } = useTranslation('deliverect-stores')
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
-  const [openRun, setOpenRun] = useState<DeliverectSyncLogRow | null>(null)
+  // The open run by id: its row is read from the log as it stands, so a refetch updates it.
+  const [openRunId, setOpenRunId] = useState<string | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  /** Where the log was scrolled, and whose Lines button opened the run — given back on Back. */
+  const returnTo = useRef<{ logId: string; scrollTop: number } | null>(null)
   const logs = useQuery({
     queryKey: syncLogsKey(row.storeCode),
     queryFn: () => storesApi.syncLogs(row.storeCode),
     retry: false,
   })
+
+  const openRun = openRunId ? (logs.data?.find((l) => l.logId === openRunId) ?? null) : null
+
+  const openLines = (logId: string) => {
+    returnTo.current = { logId, scrollTop: scroller.current?.scrollTop ?? 0 }
+    setOpenRunId(logId)
+  }
+
+  // Opening a run starts its lines at the top (PushLines focuses its Back); Back puts the log
+  // where it was and gives focus back to the run's Lines button.
+  useLayoutEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    if (openRunId) {
+      box.scrollTop = 0
+      return
+    }
+    const back = returnTo.current
+    if (!back) return
+    returnTo.current = null
+    box.scrollTop = back.scrollTop
+    box.querySelector<HTMLButtonElement>(`[data-log-open-lines="${CSS.escape(back.logId)}"]`)?.focus()
+  }, [openRunId])
 
   useEffect(() => {
     const dialog = ref.current
@@ -92,9 +116,9 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
             <X className="h-4 w-4" aria-hidden />
           </button>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+        <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4" data-sync-logs-scroller="">
           {openRun ? (
-            <PushLines storeCode={row.storeCode} log={openRun} onBack={() => setOpenRun(null)} />
+            <PushLines storeCode={row.storeCode} log={openRun} onBack={() => setOpenRunId(null)} />
           ) : logs.isPending ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" data-sync-logs-loading="">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -125,7 +149,7 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
               </thead>
               <tbody>
                 {logs.data.map((log) => (
-                  <LogRow key={log.logId} log={log} onLines={() => setOpenRun(log)} />
+                  <LogRow key={log.logId} log={log} onLines={() => openLines(log.logId)} />
                 ))}
               </tbody>
             </table>

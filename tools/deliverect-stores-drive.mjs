@@ -194,6 +194,8 @@ const logRow = (logId, over = {}) => ({
 const SYNC_LOGS = {
   1234: [
     logRow('01JD0003', { startTime: '2026-10-12T10:30:00', endTime: null, rows: 0, fileId: null, callbackStatus: null }),
+    // 550 review: a push still running whose status so far reads E — in progress, never "attempted".
+    logRow('01JD0004', { startTime: '2026-10-12T10:29:00', endTime: null, status: 'E', rows: 0, fileId: null, callbackStatus: null }),
     logRow('01JD0002', { status: 'E', rows: 0, fileId: null, callbackStatus: null, error: 'Deliverect refused the file: location unknown' }),
     logRow('01JF0001', { syncType: 'F', startTime: '2026-10-12T07:05:00', endTime: '2026-10-12T07:09:12', rows: 18240 }),
     // 550: the log still says kept, but the door answers linesKept:false (it expired between the reads).
@@ -227,6 +229,7 @@ const PUSH_LINES = {
   '01JF0001': { kept: true, lines: FULL_LINES },
   '01JD0002': { kept: true, lines: FULL_LINES.slice(0, 6) },
   '01JD0003': { kept: true, lines: [] },
+  '01JD0004': { kept: true, lines: FULL_LINES.slice(0, 3) },
   '01JD0001': { kept: false, lines: [] },
 }
 // 550: one material's history at a store, exactly as the contract has it, newest push first.
@@ -237,6 +240,19 @@ const MATERIAL_LINES = {
     { logId: '01JD0002', syncType: 'D', sentAt: '2026-10-12T10:00:05', status: 'E', callbackStatus: null, plu: '601624', channel: null, price: 18.95, stock: 0, stockStatus: 'OUT_OF_STOCK' },
     { logId: '01JF0001', syncType: 'F', sentAt: '2026-10-12T07:05:40', status: 'S', callbackStatus: 'processed', plu: '601624', channel: null, price: null, stock: 12, stockStatus: 'IN_STOCK' },
   ],
+  // 550 review: a history at the door's cap of 200 lines.
+  '1234|700000': Array.from({ length: 200 }, (_, k) => ({
+    logId: `01JD${String(9000 - k).padStart(4, '0')}`,
+    syncType: 'D',
+    sentAt: '2026-10-12T10:30:12',
+    status: 'S',
+    callbackStatus: 'processed',
+    plu: '700000',
+    channel: null,
+    price: 9.5,
+    stock: k,
+    stockStatus: 'IN_STOCK',
+  })),
 }
 
 // 481: the hours a push sends, and a status history, exactly as the contract has them.
@@ -357,6 +373,8 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
       const channel = qs.get('channel')
       const skip = Number(qs.get('skip') ?? 0)
       const take = Number(qs.get('take') ?? 200)
+      // 550 review: the second page answers late, so the drive can read the screen while it loads.
+      if (skip === 200 && !plu && !channel) await new Promise((r) => setTimeout(r, 1500))
       const matching = entry.lines.filter(
         (l) => (!plu || l.plu === plu) && (!channel || (channel === 'base' ? l.channel === null : l.channel === channel)),
       )
@@ -1468,6 +1486,7 @@ const settled = (drawer) =>
   const heads = await drawer.locator('[data-lines-table] thead th').allInnerTexts()
   check('21: PLU, platform, price, stock, stock status', JSON.stringify(heads) === JSON.stringify(['PLU', 'Platform', 'Price', 'Stock', 'Stock status']), heads.join(' | '))
   check('21: the run is named — Full and its start', (await drawer.locator('[data-lines-run]').innerText()) === 'Full 2026-10-12 07:05')
+  check('21: opening a run gives focus to Back', (await page.evaluate(() => document.activeElement?.hasAttribute('data-lines-back'))) === true)
   const showing = () => drawer.locator('[data-lines-showing]').innerText()
   check('21: it says which lines of how many', (await showing()) === 'Lines 1–200 of 753', await showing())
   const line = async (key) => {
@@ -1501,15 +1520,27 @@ const settled = (drawer) =>
   await page.screenshot({ path: `${SHOTS}/lines.png` })
   // Paging.
   await drawer.locator('[data-lines-pager] button', { hasText: 'Next' }).click()
+  await drawer.locator('[data-lines-stale]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '21: 🚩 while the next page loads, the drawn page keeps its own caption and page number',
+    (await drawer.locator('[data-lines-showing]').innerText()) === 'Lines 1–200 of 753' &&
+      /Page 1 of 4/.test(await drawer.locator('[data-lines-pager]').innerText()),
+    (await drawer.locator('[data-lines-showing]').innerText()) + ' / ' + (await drawer.locator('[data-lines-pager]').innerText()),
+  )
   await page.waitForFunction(() => document.querySelector('[data-lines-showing]')?.textContent === 'Lines 201–400 of 753', null, { timeout: LINES_WAIT })
   check('21: Next reads skip=200', JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ skip: '200', take: '200' }), JSON.stringify(lineReads.at(-1)))
-  // The platform filter offers the platforms the lines carried.
+  check('21: …and the page it lands on is named page 2', /Page 2 of 4/.test(await drawer.locator('[data-lines-pager]').innerText()))
+  // The platform filter: all rows, base rows only, or one platform typed by name.
   const options = await drawer.locator('[data-lines-platform] option').allInnerTexts()
   check(
-    '21: the platform filter offers all rows, base rows only, and each platform seen',
-    JSON.stringify(options.map(unisolated)) === JSON.stringify(['All rows', 'Base rows only', 'Jahez', 'Keeta']),
+    '21: the platform filter offers all rows, base rows only, or one platform',
+    JSON.stringify(options) === JSON.stringify(['All rows', 'Base rows only', 'One platform']),
     options.join(' | '),
   )
+  await drawer.locator('[data-lines-platform]').selectOption('platform')
+  const suggested = await drawer.locator('[data-lines-platform-name]').evaluate((i) => [...i.list.options].map((o) => o.value))
+  check('21: the name field suggests the platforms the lines carried', JSON.stringify(suggested) === JSON.stringify(['Jahez', 'Keeta']), suggested.join(' | '))
+  await drawer.locator('[data-lines-platform]').selectOption('all')
   // PLU filter: exact, back to page 1.
   await drawer.locator('[data-lines-plu]').fill(' 601624 ')
   await drawer.locator('[data-lines-apply]').click()
@@ -1535,7 +1566,8 @@ const settled = (drawer) =>
   check('21: base rows only sends channel=base', JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ channel: 'base', skip: '0', take: '200' }))
   const platforms = await drawer.locator('[data-lines-table] [data-line-platform]').allInnerTexts()
   check('21: …and every row is a base row', platforms.every((x) => x === 'Base (location)'), [...new Set(platforms)].join(' | '))
-  await drawer.locator('[data-lines-platform]').selectOption('Keeta')
+  await drawer.locator('[data-lines-platform]').selectOption('platform')
+  await drawer.locator('[data-lines-platform-name]').fill(' Keeta ')
   await drawer.locator('[data-lines-apply]').click()
   // The base-only read had the same total, so wait on the rows themselves, not the count line.
   await page.waitForFunction(
@@ -1543,13 +1575,13 @@ const settled = (drawer) =>
     null,
     { timeout: LINES_WAIT },
   )
-  check('21: a platform sends its name as channel', lineReads.at(-1).params.channel === 'Keeta')
+  check('21: a typed platform sends its name, trimmed, as channel', lineReads.at(-1).params.channel === 'Keeta')
   check(
     '21: …and every row is that platform',
     (await drawer.locator('[data-lines-table] [data-line-platform]').allInnerTexts()).every((x) => x === 'Keeta'),
   )
   // A filter matching nothing.
-  await drawer.locator('[data-lines-platform]').selectOption('')
+  await drawer.locator('[data-lines-platform]').selectOption('all')
   await drawer.locator('[data-lines-plu]').fill('999999')
   await drawer.locator('[data-lines-apply]').click()
   await drawer.locator('[data-lines-notice="noMatch"]').waitFor({ timeout: LINES_WAIT })
@@ -1564,6 +1596,10 @@ const settled = (drawer) =>
   await drawer.locator('[data-lines-back]').click()
   await drawer.locator('[data-sync-logs-table]').waitFor({ timeout: LINES_WAIT })
   check('21: Back returns to the log', (await drawer.locator('[data-push-lines]').count()) === 0)
+  check(
+    "21: …and gives focus back to the run's Lines button",
+    (await page.evaluate(() => document.activeElement?.getAttribute('data-log-open-lines'))) === '01JF0001',
+  )
   // A refused run: its lines are attempted, not delivered.
   await openLines(page, '01JD0002')
   await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
@@ -1578,8 +1614,16 @@ const settled = (drawer) =>
   await openLines(page, '01JD0003')
   await settled(drawer)
   check(
-    '21: a run that sent nothing says so',
-    (await drawer.locator('[data-lines-notice="noneSent"]').innerText()) === 'This push sent no lines.',
+    '21: 🚩 a run still going with no line yet says it is in progress — never "sent no lines"',
+    (await drawer.locator('[data-lines-notice="running"]').innerText()) === 'This push is still running: its lines are not all in yet.' &&
+      (await drawer.locator('[data-lines-notice="noneSent"]').count()) === 0,
+  )
+  await drawer.locator('[data-lines-back]').click()
+  await openLines(page, '01JD0004')
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '21: 🚩 a run still going whose status reads E so far does not say attempted',
+    (await drawer.locator('[data-lines-attempted]').count()) === 0 && (await drawer.locator('[data-lines-table] tbody tr').count()) === 3,
   )
   await drawer.locator('[data-lines-back]').click()
   // The log says the lines are gone: words, no door call, no table.
@@ -1614,6 +1658,27 @@ const settled = (drawer) =>
   await page.keyboard.press('Escape')
   await drawer.waitFor({ state: 'detached', timeout: LINES_WAIT })
   check('21: Escape closes the drawer from the lines view', (await page.locator('dialog[open]').count()) === 0)
+  // Scroll: a short window, so the log scrolls. Lines open at the top; Back puts the log back.
+  await page.setViewportSize({ width: 1700, height: 320 })
+  await page.locator('[data-sync-logs="1234"]').click()
+  await drawer.locator('[data-sync-logs-table]').waitFor({ timeout: LINES_WAIT })
+  const box = drawer.locator('[data-sync-logs-scroller]')
+  const logScroll = await box.evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+    return el.scrollTop
+  })
+  check('21: (the short window lets the log scroll)', logScroll > 0, String(logScroll))
+  await drawer.locator('[data-log-open-lines="01JF0000"]').click()
+  await drawer.locator('[data-lines-notice="expired"]').waitFor({ timeout: LINES_WAIT })
+  check('21: opening a run shows its lines from the top', (await box.evaluate((el) => el.scrollTop)) === 0)
+  await drawer.locator('[data-lines-back]').click()
+  await drawer.locator('[data-sync-logs-table]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '21: Back restores the log where it was scrolled, focus on that run',
+    (await box.evaluate((el) => el.scrollTop)) === logScroll &&
+      (await page.evaluate(() => document.activeElement?.getAttribute('data-log-open-lines'))) === '01JF0000',
+    String(await box.evaluate((el) => el.scrollTop)),
+  )
   check('21: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -1678,6 +1743,17 @@ const settled = (drawer) =>
   )
   check('22: a full push with no price sent', (await read(3)).type === 'Full' && (await read(3)).price === 'Not sent' && (await read(3)).stock === '12')
   await page.screenshot({ path: `${SHOTS}/material-history.png` })
+  check('22: under the cap there is no cap notice', (await drawer.locator('[data-material-capped]').count()) === 0)
+  await drawer.locator('[data-material-plu]').fill('700000')
+  await drawer.locator('[data-material-search]').click()
+  await drawer.locator('[data-material-capped]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '22: a history at the 200-line cap says only the newest are shown',
+    unisolated(await drawer.locator('[data-material-capped]').innerText()) ===
+      'Showing the newest 200 lines only. Older lines from the last 15 days are not shown.' &&
+      (await drawer.locator('[data-material-table] tbody tr').count()) === 200,
+    await drawer.locator('[data-material-capped]').innerText(),
+  )
   await drawer.locator('[data-material-plu]').fill('999999')
   await drawer.locator('[data-material-search]').click()
   await drawer.locator('[data-material-empty]').waitFor({ timeout: LINES_WAIT })

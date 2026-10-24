@@ -174,6 +174,7 @@
     "attempted": "This push did not reach Deliverect: these lines were attempted, not delivered.",
     "expired": "Line detail is kept for {{days}} days from a push's start. This push is older, so its lines are no longer kept. Its log row stays.",
     "noneSent": "This push sent no lines.",
+    "running": "This push is still running: its lines are not all in yet.",
     "noMatch": "No line matches the filter.",
     "showing": "Lines <range>{{range}}</range> of <total>{{total}}</total>",
     "base": "Base (location)",
@@ -189,6 +190,9 @@
       "platform": "Platform",
       "allRows": "All rows",
       "baseOnly": "Base rows only",
+      "onePlatform": "One platform",
+      "platformName": "Platform name",
+      "platformNamePlaceholder": "e.g. Jahez",
       "apply": "Filter",
       "clear": "Clear"
     },
@@ -212,6 +216,7 @@
     "loading": "Loading the material's history…",
     "failed": "The material's history could not be loaded",
     "empty": "No line was sent for <plu>{{plu}}</plu> at this store in the last {{days}} days.",
+    "capped": "Showing the newest {{max}} lines only. Older lines from the last {{days}} days are not shown.",
     "outcome": {
       "sent": "Sent",
       "attempted": "Attempted"

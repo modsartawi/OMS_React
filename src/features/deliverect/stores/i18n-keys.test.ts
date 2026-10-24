@@ -98,6 +98,10 @@ describe('deliverect-stores — the keys the code builds exist', () => {
       ...['expired', 'noneSent', 'noMatch', 'attempted', 'base', 'noPrice', 'showing'].map((k) => `lines.${k}`),
       ...['sent', 'attempted'].map((o) => `material.outcome.${o}`),
       'material.empty',
+      'material.capped',
+      'lines.running',
+      'lines.filters.onePlatform',
+      'lines.filters.platformName',
       'logs.columns.lines',
     ]
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])

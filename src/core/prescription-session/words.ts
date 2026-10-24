@@ -48,6 +48,16 @@ export const PRESCRIPTION_STEP_BADGES = ['EXPIRES_TOMORROW'] as const
 /** PrescriptionSessionAfterCloseKinds. */
 export const PRESCRIPTION_AFTER_CLOSE_KINDS = ['RETURN', 'CORRECTION', 'RESALE'] as const
 
+/** Why an HQ row shows a second store (ticket 545; `PrescriptionSessionHqOtherStoreReasons`). */
+export const PRESCRIPTION_OTHER_STORE_REASONS = ['DONOR', 'TRANSFER'] as const
+
+/** The Notification Center items an HQ row can have open (`PrescriptionSessionHqItems` + 3013's kinds). */
+export const PRESCRIPTION_OPEN_ITEMS = ['INVOICE_OWED', 'STALLED', 'LAPSE_WARNING'] as const
+
+/** The HQ list's flags, as the `flag` filter takes them (`PrescriptionSessionHqFlags`). */
+export const PRESCRIPTION_HQ_FLAGS = ['STALLED', 'ABOUT_TO_LAPSE', 'OWED'] as const
+export type PrescriptionHqFlag = (typeof PRESCRIPTION_HQ_FLAGS)[number]
+
 /** A word for `code` from one closed list: an own-list match only, so `toString` is never a code. */
 function wordFrom(list: readonly string[], prefix: string, code: string | null | undefined): CodeWord {
   const raw = code ?? ''
@@ -70,6 +80,13 @@ export const badgeWord = (code: string | null | undefined): CodeWord => wordFrom
 
 export const afterCloseKindWord = (code: string | null | undefined): CodeWord =>
   wordFrom(PRESCRIPTION_AFTER_CLOSE_KINDS, 'afterClose.kind', code)
+
+export const otherStoreReasonWord = (code: string | null | undefined): CodeWord =>
+  wordFrom(PRESCRIPTION_OTHER_STORE_REASONS, 'otherStoreReason', code)
+
+export const openItemWord = (code: string | null | undefined): CodeWord => wordFrom(PRESCRIPTION_OPEN_ITEMS, 'openItem', code)
+
+export const flagWord = (code: string | null | undefined): CodeWord => wordFrom(PRESCRIPTION_HQ_FLAGS, 'flag', code)
 
 /**
  * The text a word reads as: `t(key)` when known, else the code itself. `t` is the caller's,

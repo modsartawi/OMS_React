@@ -150,6 +150,10 @@ import dispatchBoardAr from '@/locales/ar/dispatch-board.json'
 // their shared words here, a feature's own chrome stays in the feature's namespace.
 import prescriptionSession from '@/locales/en/prescription-session.json'
 import prescriptionSessionAr from '@/locales/ar/prescription-session.json'
+// HQ prescription sessions (BackOffice spec 2994, tickets 545-548) — the feature's own chrome; the
+// codes it shows read in `prescription-session` above. Namespace == feature name, English and Arabic.
+import prescriptionSessions from '@/locales/en/prescription-sessions.json'
+import prescriptionSessionsAr from '@/locales/ar/prescription-sessions.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -157,7 +161,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions'],
   resources: {
     en: {
       common,
@@ -214,6 +218,7 @@ i18n.use(initReactI18next).init({
       'campaign-promotions': campaignPromotions,
       'dispatch-board': dispatchBoard,
       'prescription-session': prescriptionSession,
+      'prescription-sessions': prescriptionSessions,
     },
     ar: {
       document: documentAr,
@@ -236,6 +241,7 @@ i18n.use(initReactI18next).init({
       'pick-support': pickSupportAr,
       'dispatch-board': dispatchBoardAr,
       'prescription-session': prescriptionSessionAr,
+      'prescription-sessions': prescriptionSessionsAr,
     },
   },
   interpolation: { escapeValue: false },

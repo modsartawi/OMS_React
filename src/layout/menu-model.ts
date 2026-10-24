@@ -335,6 +335,15 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // HQ prescription sessions (tickets 545-548, BackOffice spec 2994). NO access probe: BackOffice
+        // 3015 built none, so the leaf shows to everyone and the page names the bare 403 of
+        // `BackOfficeScreen[PrescriptionSessionHq, 03]` (the campaign upload leaves' pattern).
+        labelKey: 'prescription-sessions:menu.prescriptionSessions',
+        icon: Pill,
+        routerLink: '/oms/prescription-sessions',
+        activePrefix: '/oms/prescription-sessions',
+      },
+      {
         // The Dispatch board (ticket 541, BackOffice spec 2952) — `BackOfficeScreen[DispatchBoard, Display]`
         // read off `GET DispatchBoard/Access`. The SAME key, call and predicate as the board's own
         // `ScreenGate`, so the two never disagree. 🚩 FAILS CLOSED: a pending, errored, 403 or malformed

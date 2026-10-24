@@ -74,3 +74,58 @@ export interface PrescriptionSessionOrderStatus {
   /** Every session on the order is Invoiced or Closed. False with no session. */
   isInvoiced: boolean
 }
+
+// ── The HQ list (ticket 545; BackOffice 3015 `PrescriptionSessionHqModels.cs`) ──────────────────
+
+/** One open session on the HQ list (`PrescriptionSessionHqRowModel`), read-only. */
+export interface PrescriptionSessionHqRow {
+  sessionId: string
+  /** `PS-{sessionId}`. */
+  displayId: string
+  /** `NPHS | WSFT`. */
+  sourceKind: string
+  /** The current attempt's key; empty before attach. */
+  sourceKey: string | null
+  beneficiaryId: string | null
+  beneficiaryName: string | null
+  holdingStore: string
+  /** The second store: a donor (an OPEN donor request) or the asking store (an OPEN transfer); null when none. */
+  otherStore: string | null
+  /** `DONOR | TRANSFER`; null when `otherStore` is. */
+  otherStoreReason: string | null
+  state: string
+  route: string | null
+  orderNo: string | null
+  /** The step as the holding store sees it (the till's own computation). */
+  step: PrescriptionSessionStep | null
+  createdAt: PrescriptionSessionLocalTime
+  /** Whole calendar days since the mint. */
+  ageDays: number
+  /** The idle clock: the later of the last act and the last pick move. */
+  idleSince: PrescriptionSessionLocalTime
+  idleDays: number
+  isStalled: boolean
+  isAboutToLapse: boolean
+  /** Dispensed, not invoiced. */
+  isOwed: boolean
+  /** The day it lapses at the end of, when about to lapse. */
+  lapsesAtEndOf: PrescriptionSessionLocalTime | null
+  dispensedAt: PrescriptionSessionLocalTime | null
+  /** When its business day ended still owed; kept after the invoice. */
+  invoiceOwedAt: PrescriptionSessionLocalTime | null
+  /** The open Notification Center items: `INVOICE_OWED | STALLED | LAPSE_WARNING`. */
+  openItems: string[]
+  hasOpenItem: boolean
+}
+
+/** The HQ list (`PrescriptionSessionHqListModel`): rows oldest idle first, counts over EVERY matched row. */
+export interface PrescriptionSessionHqList {
+  rows: PrescriptionSessionHqRow[]
+  /** Rows matched before the 2,000-row cap. */
+  total: number
+  stalled: number
+  aboutToLapse: number
+  owed: number
+  /** `total` exceeded the cap: only the oldest-idle rows came back. The counts are never truncated. */
+  isTruncated: boolean
+}

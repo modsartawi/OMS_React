@@ -1,0 +1,77 @@
+{
+  "menu": {
+    "prescriptionSessions": "Prescription sessions"
+  },
+  "title": "Prescription sessions",
+  "lede": "Every store's prescription sessions, read from HQ: the open ones, the orders not yet opened, and the ended ones.",
+  "tabs": {
+    "label": "Prescription session lists",
+    "open": "Open",
+    "toOpen": "To open",
+    "ended": "Ended"
+  },
+  "denied": {
+    "title": "You don't hold the prescription-session list grant",
+    "body": "Reading HQ's prescription-session lists needs the PrescriptionSessionHq view grant. Ask an administrator to bind you to the HQ prescription-session role."
+  },
+  "views": {
+    "label": "View",
+    "all": "All open",
+    "owed": "Owed",
+    "owedHint": "Dispensed and not yet invoiced. Only the store filter applies."
+  },
+  "filters": {
+    "store": "Store",
+    "storePlaceholder": "e.g. P019",
+    "storeHint": "Matches the holding store or the other store (a donor or an asking store).",
+    "state": "State",
+    "owner": "Step owner",
+    "source": "Source",
+    "minAge": "Age from (days)",
+    "maxAge": "Age to (days)",
+    "any": "Any",
+    "search": "Search",
+    "reset": "Reset",
+    "bad": "These filters can't be read."
+  },
+  "flags": {
+    "label": "Flags"
+  },
+  "columns": {
+    "displayId": "Session",
+    "source": "Source",
+    "sourceKey": "Source key",
+    "beneficiary": "Beneficiary",
+    "beneficiaryId": "Beneficiary ID",
+    "holdingStore": "Holding store",
+    "otherStore": "Other store",
+    "otherStoreHint": "The donor store, or the store asking for a transfer",
+    "state": "State",
+    "route": "Route",
+    "orderNo": "Order",
+    "step": "Next step",
+    "ageDays": "Age (days)",
+    "idleDays": "Idle (days)",
+    "lapsesAtEndOf": "Lapses end of",
+    "dispensedAt": "Dispensed at",
+    "invoiceOwedAt": "Invoice owed at",
+    "openItems": "Open items"
+  },
+  "list": {
+    "empty": "No open session matches these filters.",
+    "failedTitle": "The sessions couldn't be read",
+    "failed": "The prescription-session list could not be read.",
+    "truncated": "Only the oldest-idle <n>{{shown}}</n> of <n>{{total}}</n> matching sessions are shown. The flag counts cover all of them."
+  },
+  "statusBar": {
+    "loading": "Reading…",
+    "rows_one": "<n>{{n}}</n> session",
+    "rows_other": "<n>{{n}}</n> sessions"
+  },
+  "toOpen": {
+    "placeholder": "The orders waiting to be opened, by store, aren't available here yet."
+  },
+  "ended": {
+    "placeholder": "Ended sessions and what happened after close aren't available here yet."
+  }
+}

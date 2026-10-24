@@ -193,6 +193,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/failed-donor-transfers/FailedDonorTransfersPage')).default,
         }),
       },
+      // HQ prescription sessions (tickets 545-548, BackOffice spec 2994) — no probe; the page names
+      // the bare 403 of `BackOfficeScreen[PrescriptionSessionHq, 03]`.
+      {
+        path: 'oms/prescription-sessions',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/prescription-sessions/PrescriptionSessionsPage')).default,
+        }),
+      },
       // Document payments (ticket 433, spec 430) — the WPF Document Payment Inquiry, behind its own
       // flag on the shared OMS probe.
       {

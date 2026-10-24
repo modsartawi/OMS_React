@@ -51,5 +51,19 @@
     "owner": "Owner: <o>{{owner}}</o>",
     "waitingOn": "Waiting on <v>{{session}}</v>",
     "parked": "Parked"
+  },
+  "otherStoreReason": {
+    "DONOR": "Donor",
+    "TRANSFER": "Transfer"
+  },
+  "openItem": {
+    "INVOICE_OWED": "Invoice owed",
+    "STALLED": "Stalled",
+    "LAPSE_WARNING": "Lapse warning"
+  },
+  "flag": {
+    "STALLED": "Stalled",
+    "ABOUT_TO_LAPSE": "About to lapse",
+    "OWED": "Owed"
   }
 }

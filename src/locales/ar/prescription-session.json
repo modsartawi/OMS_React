@@ -51,5 +51,19 @@
     "owner": "المسؤول: <o>{{owner}}</o>",
     "waitingOn": "بانتظار <v>{{session}}</v>",
     "parked": "مؤجلة"
+  },
+  "otherStoreReason": {
+    "DONOR": "مانح",
+    "TRANSFER": "تحويل"
+  },
+  "openItem": {
+    "INVOICE_OWED": "فاتورة مستحقة",
+    "STALLED": "متوقفة",
+    "LAPSE_WARNING": "تنبيه انقضاء"
+  },
+  "flag": {
+    "STALLED": "متوقفة",
+    "ABOUT_TO_LAPSE": "على وشك الانقضاء",
+    "OWED": "مستحقة"
   }
 }

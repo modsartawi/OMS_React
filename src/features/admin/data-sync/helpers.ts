@@ -18,8 +18,11 @@ import {
 /** The campaigns list refetches every 30 s (spec 558). */
 export const CAMPAIGNS_REFRESH_MS = 30_000
 
-/** A count as the screen draws it: grouped, `12,345`. One spelling for every figure. */
-export const figure = (n: number): string => n.toLocaleString('en-US')
+/**
+ * A count with its digits grouped, `12,345` — the one spelling of every number the screen draws.
+ * (Not core's `formatNumber`, which does not group.) Locale templates take it as `{{figure}}`.
+ */
+export const groupDigits = (n: number): string => n.toLocaleString('en-US')
 
 // ── Code → label + severity ─────────────────────────────────────────────────────
 

@@ -5,10 +5,15 @@ import type { StoreControlRequest, StoreControlResponse } from '@/core/models/sy
 import { buildCreateRequest, type CreateDraft } from './create-helpers'
 import en from '@/locales/en/data-sync.json'
 import {
+  ACK_POLL_MS,
+  ACK_WAIT_MS,
+  ackDecision,
+  ackProgress,
   applyReadiness,
   applyTableSplit,
   campaignControlReason,
   createWarningStore,
+  createWarningsFromState,
   pendingControlReason,
   reasonProblem,
   runApplyFlow,
@@ -139,7 +144,7 @@ describe('storesReadiness', () => {
       controlPending: false,
     },
   ]
-  it('matches picked codes case-insensitively and groups them; every store not "never" is paused, spelt as ActionSync spells it', () => {
+  it('matches picked codes case-insensitively and groups them; only the stores still worked are paused — a ready store keeps its own pause', () => {
     expect(storesReadiness({ kind: 'stores', codes: ['p003', 'P001', 'X999', 'P002'] }, rows)).toEqual({
       never: [
         { code: 'P001', why: 'wpf' },
@@ -147,7 +152,7 @@ describe('storesReadiness', () => {
       ],
       ready: ['P002'],
       willPause: ['P003'],
-      toPause: ['P003', 'P002'],
+      toPause: ['P003'],
     })
   })
   it('reads the whole fleet as every row ActionSync lists', () => {
@@ -155,7 +160,7 @@ describe('storesReadiness', () => {
       never: [{ code: 'P001', why: 'wpf' }],
       ready: ['P002'],
       willPause: ['P003'],
-      toPause: ['P002', 'P003'],
+      toPause: ['P003'],
     })
   })
 })
@@ -183,6 +188,45 @@ describe('ActionSync control batches', () => {
   })
 })
 
+// ── Waiting for ActionSync to acknowledge ─────────────────────────────────────
+
+const ackRow = (code: string, isPaused: boolean, controlPending: boolean, host: 'Worker' | 'Wpf' | 'None' = 'Worker') => ({
+  code,
+  host,
+  isPaused,
+  controlPending,
+})
+
+describe('ackProgress', () => {
+  it('splits the stores we paused into acknowledged (paused, no control pending) and still waiting, matching codes case-insensitively', () => {
+    const rows = [ackRow('P001', true, false), ackRow('P002', true, true), ackRow('P003', false, false)]
+    expect(ackProgress(rows, ['p001', 'P002', 'P003', 'X999'])).toEqual({
+      acknowledged: ['p001'],
+      waiting: ['P002', 'P003', 'X999'],
+    })
+  })
+})
+
+describe('ackDecision', () => {
+  const p = (acknowledged: string[], waiting: string[]) => ({ acknowledged, waiting })
+  it('waits while some store has not acknowledged and the bound has not passed', () => {
+    expect(ackDecision(p(['P001'], ['P002']), 0, false)).toBe('wait')
+  })
+  it('creates as soon as every store has acknowledged', () => {
+    expect(ackDecision(p(['P001', 'P002'], []), 0, false)).toBe('create')
+  })
+  it('at the bound, creates when at least one target is safe — acknowledged now, or ready before', () => {
+    expect(ackDecision(p(['P001'], ['P002']), 0, true)).toBe('create')
+    expect(ackDecision(p([], ['P002']), 1, true)).toBe('create')
+  })
+  it('at the bound, with no target safe, stops', () => {
+    expect(ackDecision(p([], ['P001', 'P002']), 0, true)).toBe('stop')
+  })
+  it('with nothing paused and nothing ready, stops at once', () => {
+    expect(ackDecision(p([], []), 0, false)).toBe('stop')
+  })
+})
+
 // ── The flow ──────────────────────────────────────────────────────────────────
 
 const CID = '01JB2C9X4E6F8G0H1J3K5M7N9P'
@@ -197,22 +241,44 @@ const okRows = (req: StoreControlRequest): StoreControlResponse => ({
   })),
 })
 
-/** A fake set of doors that writes down every call, in order. */
+/**
+ * A fake set of doors that writes down every call, in order, on a fake clock. The fleet answers
+ * every store we paused as paused-but-pending until the `ackOnRead`-th read (1 = the first read).
+ */
 function doors(
   over: {
     create?: () => Promise<ApiEnvelope<Campaign>>
     start?: () => Promise<Campaign>
     failControlAt?: number
+    ackOnRead?: number
   } = {},
 ) {
   const calls: string[] = []
+  const waits: number[] = []
+  const paused = new Set<string>()
   let n = 0
+  let reads = 0
+  let clock = 0
+  const ackOnRead = over.ackOnRead ?? 1
   const deps: ApplyFlowDeps = {
     control: async (req) => {
       calls.push(`control ${req.action} [${req.codes.join(',')}] ${req.reason}`)
       if (over.failControlAt === n++) throw new ApiError('server', 'ActionSync is down.', 500)
-      return okRows(req)
+      const res = okRows(req)
+      for (const r of res.results) if (r.ok) paused.add(r.code)
+      return res
     },
+    readFleet: async () => {
+      reads++
+      calls.push('fleet')
+      return [...paused].map((code) => ackRow(code, true, reads < ackOnRead))
+    },
+    sleep: async (ms) => {
+      calls.push(`sleep ${ms}`)
+      clock += ms
+    },
+    now: () => clock,
+    onWait: (p) => waits.push(p.waiting.length),
     create: async (body) => {
       calls.push(`create ${body.mode}`)
       return over.create
@@ -236,7 +302,7 @@ function doors(
       return over.start ? over.start() : campaign('Running')
     },
   }
-  return { calls, deps }
+  return { calls, deps, waits }
 }
 
 const BODY = {
@@ -248,18 +314,20 @@ const BODY = {
 const many = Array.from({ length: 60 }, (_, i) => `S${String(i).padStart(2, '0')}`)
 
 describe('runApplyFlow', () => {
-  it('with "pause ActionSync first": pauses untagged, creates, re-pauses the same stores tagged with the new id, then starts — in that order, in batches of 50', async () => {
+  it('with "pause ActionSync first": pauses untagged, waits for ActionSync to acknowledge, creates, re-pauses the stores it paused tagged with the new id, then starts — in batches of 50', async () => {
     const { calls, deps } = doors()
     const out = await runApplyFlow(deps, {
       body: BODY,
       reason: '  Fix the drift  ',
       toPause: many,
+      alreadySafe: [],
     })
     const first = many.slice(0, 50).join(',')
     const rest = many.slice(50).join(',')
     expect(calls).toEqual([
       `control Pause [${first}] DataSync campaign (pending): Fix the drift`,
       `control Pause [${rest}] DataSync campaign (pending): Fix the drift`,
+      'fleet',
       'create Apply',
       `control Pause [${first}] DataSync campaign ${CID}: Fix the drift`,
       `control Pause [${rest}] DataSync campaign ${CID}: Fix the drift`,
@@ -270,15 +338,74 @@ describe('runApplyFlow', () => {
     expect(out.warnings.map((w) => w.errorCode)).toEqual(['DATASYNC_STORE_WPF_HOSTED'])
   })
 
+  it('re-reads the fleet every 3 s, telling how many still wait, until every paused store has acknowledged', async () => {
+    const { calls, deps, waits } = doors({ ackOnRead: 3 })
+    const out = await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: ['P001', 'P002'], alreadySafe: [] })
+    expect(calls.slice(1, 7)).toEqual(['fleet', `sleep ${ACK_POLL_MS}`, 'fleet', `sleep ${ACK_POLL_MS}`, 'fleet', 'create Apply'])
+    expect(waits).toEqual([2, 2, 0])
+    expect(out.ack).toEqual({ acknowledged: ['P001', 'P002'], waiting: [] })
+  })
+
+  it('never re-pauses a store that was already paused and acknowledged: it is neither held nor tagged', async () => {
+    const { calls, deps } = doors()
+    await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: ['P001'], alreadySafe: ['P002'] })
+    expect(calls.filter((c) => c.startsWith('control'))).toEqual([
+      'control Pause [P001] DataSync campaign (pending): Fix the drift',
+      `control Pause [P001] DataSync campaign ${CID}: Fix the drift`,
+    ])
+  })
+
+  it('with every target already safe, creates at once — no pause, no wait — and starts', async () => {
+    const { calls, deps } = doors()
+    await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: [], alreadySafe: ['P002'] })
+    expect(calls).toEqual(['create Apply', `start ${CID}`])
+  })
+
+  it('when the bound passes with no target safe, stops before the create and leaves the stores paused', async () => {
+    const { calls, deps } = doors({ ackOnRead: Infinity })
+    const out = await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: ['P001', 'P002'], alreadySafe: [] })
+    expect(calls).not.toContain('create Apply')
+    expect(calls.filter((c) => c === 'fleet').length).toBe(ACK_WAIT_MS / ACK_POLL_MS + 1)
+    expect(out.ackStopped).toBe(true)
+    expect(out.campaign).toBeNull()
+    expect(stillPausedAfterFailure(out)).toEqual(['P001', 'P002'])
+  })
+
+  it("when the bound passes with some target safe, creates anyway: the stores still waiting are the create's warnings", async () => {
+    const { calls, deps } = doors({ ackOnRead: Infinity })
+    const out = await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: ['P001'], alreadySafe: ['P002'] })
+    expect(calls).toContain('create Apply')
+    expect(out.ackStopped).toBe(false)
+    expect(out.ack?.waiting).toEqual(['P001'])
+  })
+
+  it('a fleet read that fails is waited through, not a reason to give up early', async () => {
+    const { calls, deps } = doors()
+    const real = deps.readFleet
+    let first = true
+    deps.readFleet = async () => {
+      if (first) {
+        first = false
+        calls.push('fleet!')
+        throw new ApiError('network', 'offline', 0)
+      }
+      return real()
+    }
+    const out = await runApplyFlow(deps, { body: BODY, reason: 'Fix the drift', toPause: ['P001'], alreadySafe: [] })
+    expect(calls.slice(1, 5)).toEqual(['fleet!', `sleep ${ACK_POLL_MS}`, 'fleet', 'create Apply'])
+    expect(out.campaign?.campaignId).toBe(CID)
+  })
+
   it('re-pauses only the stores the first pause took, and lists the per-store refusals', async () => {
     const { calls, deps } = doors()
     const out = await runApplyFlow(deps, {
       body: BODY,
       reason: 'Fix the drift',
       toPause: ['P001', 'P009'],
+      alreadySafe: [],
     })
     expect(out.held?.refused).toEqual([{ code: 'P009', error: 'NOT_ON_WORKER' }])
-    expect(calls[2]).toBe(`control Pause [P001] DataSync campaign ${CID}: Fix the drift`)
+    expect(calls[3]).toBe(`control Pause [P001] DataSync campaign ${CID}: Fix the drift`)
   })
 
   it('a failed create leaves the stores paused and says which — nothing is resumed and nothing started', async () => {
@@ -294,8 +421,9 @@ describe('runApplyFlow', () => {
       body: BODY,
       reason: 'Fix the drift',
       toPause: ['P001', 'P002'],
+      alreadySafe: [],
     })
-    expect(calls).toEqual(['control Pause [P001,P002] DataSync campaign (pending): Fix the drift', 'create Apply'])
+    expect(calls).toEqual(['control Pause [P001,P002] DataSync campaign (pending): Fix the drift', 'fleet', 'create Apply'])
     expect(out.createError).toBe(refused)
     expect(stillPausedAfterFailure(out)).toEqual(['P001', 'P002'])
   })
@@ -306,6 +434,7 @@ describe('runApplyFlow', () => {
       body: BODY,
       reason: 'Fix the drift',
       toPause: many,
+      alreadySafe: [],
     })
     expect(calls).toHaveLength(2)
     expect(out.held?.error).toBeInstanceOf(ApiError)
@@ -322,6 +451,7 @@ describe('runApplyFlow', () => {
       body: BODY,
       reason: 'Fix the drift',
       toPause: ['P001'],
+      alreadySafe: [],
     })
     expect(out.campaign?.campaignId).toBe(CID)
     expect(out.startError).toBeInstanceOf(ApiError)
@@ -334,10 +464,23 @@ describe('runApplyFlow', () => {
       body: BODY,
       reason: 'Fix the drift',
       toPause: null,
+      alreadySafe: [],
     })
     expect(calls).toEqual(['create Apply'])
     expect(out.campaign?.status).toBe('Ready')
     expect(out.started).toBeNull()
+  })
+})
+
+describe('createWarningsFromState', () => {
+  it('reads the create warnings the Apply outcome hands the campaign page', () => {
+    const w = { errorCode: 'DATASYNC_STORE_BUSY', internalErrorCode: 'DS-0409-07', errorMessage: 'driving 000/P001' }
+    expect(createWarningsFromState({ createWarnings: [w] })).toEqual([w])
+  })
+  it('gives nothing for a page opened any other way (no state, or a state of another shape)', () => {
+    expect(createWarningsFromState(null)).toEqual([])
+    expect(createWarningsFromState({ createWarnings: 'x' })).toEqual([])
+    expect(createWarningsFromState({ createWarnings: [{ errorCode: 3 }] })).toEqual([])
   })
 })
 
@@ -371,7 +514,7 @@ describe('createWarningStore', () => {
 
 describe('the Apply words', () => {
   it('has a sentence for every step, never-why, ActionSync refusal and create warning the dialog names by key', () => {
-    const steps: ApplyStep[] = ['holding', 'creating', 'tagging', 'starting']
+    const steps: ApplyStep[] = ['holding', 'waiting', 'creating', 'tagging', 'starting']
     for (const s of steps) expect(en.apply.step[s]).toBeTruthy()
     for (const w of ['wpf', 'notFound'] as const) expect(en.apply.readiness[w]).toBeTruthy()
     for (const c of ['NOT_ON_WORKER', 'NO_STORE'] as const) expect(en.apply.refused[c]).toBeTruthy()

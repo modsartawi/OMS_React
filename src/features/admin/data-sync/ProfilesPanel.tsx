@@ -8,6 +8,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import type { SyncProfile } from '@/core/models/data-sync'
 import { formatPair } from '@/core/util/bidi'
 import { profilesQuery } from './api'
+import CodeWord from './CodeWord'
 
 /**
  * The Profiles panel (spec 558 story 5): each runnable profile's source and tables, with each
@@ -74,7 +75,9 @@ function ProfileCard({ profile }: { profile: SyncProfile }) {
               <td className="py-1 pe-2 font-mono">
                 <Ltr>{spec.table}</Ltr>
               </td>
-              <td className="py-1 pe-2">{t(`strategy.${spec.strategy}`, { defaultValue: spec.strategy })}</td>
+              <td className="py-1 pe-2">
+                <CodeWord prefix="strategy" code={spec.strategy} />
+              </td>
               <td className="py-1 pe-2 font-mono" data-where="">
                 {spec.where ? <Ltr>{spec.where}</Ltr> : <span className="font-sans text-muted-foreground">{t('profiles.wholeTable')}</span>}
               </td>

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Loader2, Plus } from 'lucide-react'
-import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
+import { ApiError, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import Button from '@/core/ui/Button'
@@ -11,13 +11,22 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import type { Mode, SyncProfile } from '@/core/models/data-sync'
-import { CAMPAIGNS_KEY, actionSyncApi, canOperateDataSync, dataSyncAccessQuery, dataSyncApi, profilesQuery } from './api'
-import { applyTableSplit, reasonProblem, runApplyFlow, stillPausedAfterFailure, type ApplyOutcome, type ApplyStep } from './apply-helpers'
+import { CAMPAIGNS_KEY, actionSyncApi, actionSyncFleetQuery, canOperateDataSync, dataSyncAccessQuery, dataSyncApi, profilesQuery } from './api'
+import {
+  applyTableSplit,
+  reasonProblem,
+  runApplyFlow,
+  stillPausedAfterFailure,
+  type ApplyOutcome,
+  type ApplyStep,
+  type CampaignPageState,
+} from './apply-helpers'
 import ApplyOutcomeView from './ApplyOutcomeView'
 import ApplyPanel, { RefusalList, StoreList, useApplyReadiness } from './ApplyPanel'
 import { campaignPath } from './campaign-columns'
 import { buildCreateRequest, createRefusalWords, parseStoreCodes, type CreateDraft } from './create-helpers'
-import { figure } from './helpers'
+import RefusalBanner from './RefusalBanner'
+import { groupDigits } from './helpers'
 
 /**
  * The Campaigns page's **New campaign** button and dialog (spec 558, ticket 561).
@@ -78,6 +87,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
   const [reason, setReason] = useState('')
   const [pauseFirst, setPauseFirst] = useState(true)
   const [step, setStep] = useState<ApplyStep | null>(null)
+  const [waiting, setWaiting] = useState<number | null>(null)
   const [outcome, setOutcome] = useState<ApplyOutcome | null>(null)
 
   const profile: SyncProfile | undefined = profiles.data?.find((p) => p.profileId === profileId)
@@ -130,22 +140,41 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       runApplyFlow(
         {
           control: (req) => actionSyncApi.control(req),
+          readFleet: () => actionSyncApi.fleet(),
           create: (body) => dataSyncApi.createCampaign(body),
           start: (id) => dataSyncApi.startCampaign(id),
+          // The wait's timer lives here, in the flow's driver; the decision is `ackDecision`'s.
+          sleep: (ms) => new Promise((done) => setTimeout(done, ms)),
+          now: () => Date.now(),
           onStep: setStep,
+          onWait: (p) => setWaiting(p.waiting.length),
         },
-        { body: buildCreateRequest(draft), reason, toPause: pausing ? (check.readiness?.toPause ?? []) : null },
+        {
+          body: buildCreateRequest(draft),
+          reason,
+          toPause: pausing ? (check.readiness?.toPause ?? []) : null,
+          alreadySafe: check.readiness?.ready ?? [],
+        },
       ),
-    onMutate: () => setOutcome(null),
+    onMutate: () => {
+      setOutcome(null)
+      setWaiting(null)
+    },
     onSuccess: (out) => {
       setStep(null)
+      setWaiting(null)
       setOutcome(out)
       if (out.campaign) {
         void qc.invalidateQueries({ queryKey: CAMPAIGNS_KEY })
         notify.success(t('apply.outcome.title'))
       } else if (isBareDenial(out.createError) && stillPausedAfterFailure(out).length === 0) onDenied()
     },
-    onError: () => setStep(null),
+    onError: () => {
+      setStep(null)
+      setWaiting(null)
+    },
+    // The flow paused stores: the readiness the dialog shows (and a second Create pauses from) is stale.
+    onSettled: () => qc.invalidateQueries({ queryKey: actionSyncFleetQuery().queryKey }),
   })
   const created = outcome?.campaign ?? null
   const busy = send.isPending || applyRun.isPending
@@ -172,7 +201,6 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     setPicked((cur) => (on ? (cur.includes(table) ? cur : [...cur, table]) : cur.filter((x) => x !== table)))
 
   const error = send.error ?? (outcome?.createError || null)
-  const code = error ? apiErrorCode(error) : null
   const words = error ? createRefusalWords(error) : null
   const detail = error instanceof ApiError ? (error.details[0]?.errorMessage ?? '') : ''
 
@@ -192,7 +220,9 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
               variant="primary"
               onClick={() => {
                 onClose()
-                navigate(campaignPath(created.campaignId))
+                // The create's warnings go along (router state): the campaign page shows them once.
+                const state: CampaignPageState = { createWarnings: outcome?.warnings ?? [] }
+                navigate(campaignPath(created.campaignId), { state })
               }}
               data-apply-open=""
             >
@@ -206,7 +236,17 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
             </Button>
             <Button variant="primary" disabled={!ready} onClick={submit} data-create-submit="">
               {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-              {busy ? (step ? t(`apply.step.${step}`) : t('create.submitting')) : t('create.submit')}
+              {!busy ? (
+                t('create.submit')
+              ) : step === 'waiting' && waiting !== null ? (
+                <span data-apply-waiting={waiting}>
+                  <Trans t={t} i18nKey="apply.step.waitingCount" count={waiting} values={{ figure: groupDigits(waiting) }} components={{ n: <Ltr /> }} />
+                </span>
+              ) : step ? (
+                t(`apply.step.${step}`)
+              ) : (
+                t('create.submitting')
+              )}
             </Button>
           </>
         )
@@ -356,11 +396,11 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
                 {parsed.codes.length === 0 ? (
                   <span className="text-muted-foreground">{t('create.codesNone')}</span>
                 ) : (
-                  <Trans t={t} i18nKey="create.codesCount" count={parsed.codes.length} values={{ figure: figure(parsed.codes.length) }} components={{ n: <Ltr /> }} />
+                  <Trans t={t} i18nKey="create.codesCount" count={parsed.codes.length} values={{ figure: groupDigits(parsed.codes.length) }} components={{ n: <Ltr /> }} />
                 )}
                 {parsed.duplicates > 0 && (
                   <span className="ms-2 text-muted-foreground" data-create-duplicates={parsed.duplicates}>
-                    <Trans t={t} i18nKey="create.duplicates" count={parsed.duplicates} values={{ figure: figure(parsed.duplicates) }} components={{ n: <Ltr /> }} />
+                    <Trans t={t} i18nKey="create.duplicates" count={parsed.duplicates} values={{ figure: groupDigits(parsed.duplicates) }} components={{ n: <Ltr /> }} />
                   </span>
                 )}
               </p>
@@ -416,6 +456,11 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
         <p className="text-xs text-muted-foreground">{pausing ? t('apply.flowNote') : t('create.readyNote')}</p>
 
         {/* ── Apply stopped before a campaign existed: what ActionSync was told, and what is still paused ── */}
+        {outcome?.ackStopped && (
+          <div data-apply-ack-stopped="">
+            <ErrorBanner className="p-2" message={t('apply.ackStopped')} />
+          </div>
+        )}
         {outcome?.held?.error != null && (
           <ErrorBanner className="p-2" title={t('apply.holdFailed')} message={apiErrorMessage(outcome.held.error, t('create.failedHint'))} />
         )}
@@ -437,28 +482,23 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
         )}
 
         {error != null && !isBareDenial(error) && (
-          <ErrorBanner className="p-2" title={t('create.failed')} message={apiErrorMessage(error, t('create.failedHint'))}>
-            {words && (
-              <p className="mt-1 text-xs" data-create-refusal="">
+          <RefusalBanner
+            error={error}
+            title={t('create.failed')}
+            fallback={t('create.failedHint')}
+            detail={detail}
+            hook="create"
+            words={
+              words && (
                 <Trans
                   t={t}
                   i18nKey={words.key}
                   values={{ store: words.store ?? t('create.refusal.someStore'), table: words.table ?? t('create.refusal.someTable') }}
                   components={{ v: <Ltr /> }}
                 />
-              </p>
-            )}
-            {detail && (
-              <p className="mt-1 text-xs" data-create-detail="">
-                <bdi>{detail}</bdi>
-              </p>
-            )}
-            {code && (
-              <span className="font-mono text-xs" data-create-error={code}>
-                <Ltr>{code}</Ltr>
-              </span>
-            )}
-          </ErrorBanner>
+              )
+            }
+          />
         )}
       </div>
       )}

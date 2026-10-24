@@ -2,12 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode } from '@/core/api'
 import Button, { type ButtonVariant } from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { controlRefusalWords } from './control-helpers'
+import RefusalBanner from './RefusalBanner'
 
 /**
  * The Data sync screen's ONE confirm dialog (ticket 563), on the app modal — never `confirm()`.
@@ -58,8 +57,7 @@ export default function ControlDialog({
 }) {
   const { t } = useTranslation('data-sync')
   const [text, setText] = useState('')
-  const code = error ? apiErrorCode(error) : null
-  const wordsKey = error ? refusalWords(code) : null
+  const wordsKey = error ? refusalWords(apiErrorCode(error)) : null
 
   return createPortal(
     <Modal
@@ -104,18 +102,7 @@ export default function ControlDialog({
           </label>
         )}
         {error != null && (
-          <ErrorBanner className="p-2" title={t('controls.failed')} message={apiErrorMessage(error, t('controls.failedHint'))}>
-            {wordsKey && (
-              <span className="me-2 text-xs" data-control-refusal="">
-                {t(wordsKey)}
-              </span>
-            )}
-            {code && (
-              <span className="font-mono text-xs" data-control-error={code}>
-                <Ltr>{code}</Ltr>
-              </span>
-            )}
-          </ErrorBanner>
+          <RefusalBanner error={error} title={t('controls.failed')} fallback={t('controls.failedHint')} words={wordsKey && t(wordsKey)} hook="control" />
         )}
       </div>
     </Modal>,

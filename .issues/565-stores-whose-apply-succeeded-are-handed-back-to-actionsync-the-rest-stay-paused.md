@@ -69,3 +69,16 @@ Drive `tools/data-sync-handback-drive.mjs` 30/30 against stubs (125 jobs over 3 
 - Not checked: whether DataSync flips `actionSyncResumable` back to false after our Resume (the
   control version changes) — if it does not, re-opening offers the same stores again (a harmless
   second Resume). The live walk (566) should look.
+
+### 2026-10-24 — review fixes (branch `review/558-fixes`; orchestrator rulings)
+
+- **Hand back now needs BOTH `DataSync.Operate` and `ActionSync.Operate`** (spec 558: every action
+  needs DataSync.Operate; story 34). `HandBackButton` reads `useCanOperateDataSync()` beside the
+  ActionSync grant; absent, not disabled, without either. Drive §7 adds a DataSync viewer holding
+  ActionSync.Operate: no button.
+- Since 564 no longer pauses stores that were already paused and acknowledged, their jobs come back
+  `actionSyncResumable: false` and are listed here as staying paused; `handBack.why.notResumable` now
+  names that case first ("it was already paused before the campaign, …"). They stay paused for
+  whoever paused them.
+- `apiErrorMessage(run.error, '')` → `t('handBack.stoppedHint')` fallback (api-envelope rule).
+- Drive `tools/data-sync-handback-drive.mjs` 32/32 (stubbed).

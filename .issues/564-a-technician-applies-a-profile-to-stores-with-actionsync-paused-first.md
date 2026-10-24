@@ -100,3 +100,34 @@ that order; the helpers and the drive are green.
 - **ActionSync access** reuses the sync console's probe key `['sync-console','access']` re-spelt
   (features can't import features) so the two share one cache entry.
 - Deferred: the live walk (566) — ActionSync's real reason length limit and the ask A `client` gap.
+
+### 2026-10-24 — review fixes (branch `review/558-fixes`; orchestrator rulings, overrule the notes above)
+
+- **The flow now waits for ActionSync to acknowledge** before it creates (code review SERIOUS: the
+  create refuses 409 `DATASYNC_STORE_BUSY` when no target is paused ∧ acknowledged, wire §7.2). Order:
+  untagged pause of the stores still worked → re-read `ActionSync/Fleet` every 3 s (`ACK_POLL_MS`),
+  at most 2 min (`ACK_WAIT_MS`), the button reading "Waiting for N stores to acknowledge…" → create
+  if at least one target is safe, else **stop** before the create and list the stores still paused
+  (nothing is ever resumed) → tagged re-pause of the stores the flow paused → Start. The decision is
+  pure (`ackProgress(rows, codes)` + `ackDecision(progress, alreadySafe, timedOut)` in
+  `apply-helpers.ts`); the timer is injected into `runApplyFlow` (`sleep`, `now`, `readFleet`). A
+  failed fleet read is waited through, not a reason to give up. At the bound with some target safe
+  the create goes ahead; the stores still waiting come back as its warnings.
+- **Ready stores are no longer paused** (overrules "ready stores are paused too"): a store already
+  paused and acknowledged by someone else is never paused again, untagged or tagged — never tag a
+  pause that isn't ours. `StoresReadiness.toPause` = `willPause` only. Their jobs are therefore not
+  `actionSyncResumable`; the dialog now says up front (`apply.readiness.readyKept`) that they keep
+  that pause and stay paused afterwards for whoever paused them.
+- **Create warnings reach the campaign page**: "Open the campaign" carries them in router state
+  (`CampaignPageState`, read by `createWarningsFromState`) and the page shows them as a notice
+  (`CreateWarnings.tsx`). DataSync keeps no copy, so they **do not survive a reload** — the notice
+  takes them once and clears the history entry's state (a browser would otherwise keep it across a
+  reload), and says so on screen.
+- Standards: shared `RefusalBanner` (was copied in four places), `CodeWord` / `code-words.ts` for
+  the "code → word, else the raw code" idiom (raw fallback in `Ltr` in JSX, `fsi` in toasts, bare in
+  grid values), `apiErrorMessage` always with a `t()` fallback, the reason hint's `{{min}}` in an
+  `<n>` slot, `figure` renamed `groupDigits` (core's `formatNumber` does not group), unused
+  `jobs.open` key removed.
+- Drive `tools/data-sync-apply-drive.mjs` 67/67 (stubbed): asserts ≥ 2 fleet re-reads between the
+  last pause and the create, the ready store never paused/tagged, the warnings notice (and its absence
+  after a reload), and a new §7 where ActionSync never acknowledges (clock fast-forwarded past 2 min).

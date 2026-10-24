@@ -5,7 +5,8 @@ import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { JOBS_BY_STATE_KEYS, type Campaign } from '@/core/models/data-sync'
 import CodeBadgeView from './CodeBadgeView'
-import { campaignStatusBadge, figure } from './helpers'
+import CodeWord from './CodeWord'
+import { campaignStatusBadge, groupDigits } from './helpers'
 
 /**
  * The campaign page's header (ticket 560): name, profile, mode, status, reason (Apply), the source,
@@ -53,7 +54,7 @@ export default function CampaignHeader({
           {profileName ? <bdi>{profileName}</bdi> : <span className="font-mono text-xs"><Ltr>{c.profileId}</Ltr></span>}
         </Field>
         <Field label={t('campaign.mode')} hook="mode">
-          {t(`mode.${c.mode}`, { defaultValue: c.mode })}
+          <CodeWord prefix="mode" code={c.mode} className="font-mono text-xs" />
         </Field>
         <Field label={t('campaign.source')} hook="source">
           <span className="font-mono text-xs">
@@ -111,7 +112,7 @@ function Tile({ label, value, hook }: { label: string; value: number; hook: stri
     <li className="flex flex-col rounded-md border border-border/60 px-3 py-2" data-tile={hook}>
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="font-mono text-lg font-semibold tabular-nums" data-tile-count="">
-        <Ltr>{figure(value)}</Ltr>
+        <Ltr>{groupDigits(value)}</Ltr>
       </span>
     </li>
   )

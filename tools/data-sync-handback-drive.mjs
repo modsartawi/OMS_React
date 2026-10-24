@@ -13,7 +13,8 @@
 //      batches of ≤ 50, each with reason `DataSync campaign <id>: <reason>`;
 //   5. per-store results render: the stores back with ActionSync, and ActionSync's refusals in words;
 //   6. a batch that fails outright stops the run and lists the stores never sent;
-//   7. nothing shows without ActionSync.Operate, on a report-only campaign, or on a Ready one.
+//   7. nothing shows without ActionSync.Operate, to a DataSync viewer (no DataSync.Operate) even with
+//      ActionSync.Operate, on a report-only campaign, or on a Ready one.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/data-sync-handback-drive.mjs          (DRIVE_PORT overrides 5199)
@@ -97,7 +98,7 @@ const IN_FLIGHT = idx.filter((i) => ['running', 'queued'].includes(kindOf(i))).l
 
 const browser = await chromium.launch()
 
-async function open({ mode = 'Apply', status = 'Running', actionSyncOperate = true, failSecondBatch = false } = {}) {
+async function open({ mode = 'Apply', status = 'Running', actionSyncOperate = true, dataSyncOperate = true, failSecondBatch = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   const errors = []
@@ -114,7 +115,7 @@ async function open({ mode = 'Apply', status = 'Running', actionSyncOperate = tr
     const url = new URL(req.url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: true }))
+    if (p === 'DataSync/Access') return route.fulfill(envelope({ screenAllowed: true, canOperate: dataSyncOperate }))
     if (p === 'ActionSync/Access')
       return route.fulfill(envelope({ screenAllowed: true, canOperate: actionSyncOperate, canOnboard: false, canEnrol: false, canReplay: false }))
     if (p === 'DataSync/Health') return route.fulfill(envelope({ stateDb: 'Ok', workerEnabled: true, lastWorkerTick: new Date().toISOString() }))
@@ -182,7 +183,7 @@ const attrs = (page, sel, a) => page.locator(sel).evaluateAll((els, a) => els.ma
     /000\/S001 its job failed/.test(stayText) &&
       /000\/S003 its job was cancelled/.test(stayText) &&
       /000\/S005 its job has not finished/.test(stayText) &&
-      /000\/S007 not resumable: ActionSync's control changed since the job began/.test(stayText),
+      /000\/S007 not resumable: it was already paused before the campaign, ActionSync's control changed since the job began/.test(stayText),
   )
   check(
     `3. says ${IN_FLIGHT} jobs are still in flight`,
@@ -232,9 +233,10 @@ const attrs = (page, sel, a) => page.locator(sel).evaluateAll((els, a) => els.ma
   await context.close()
 }
 
-// ── 7: nothing without ActionSync.Operate, on report-only, or on Ready ─────────────────────────
+// ── 7: nothing without both Operate grants, on report-only, or on Ready ────────────────────────
 for (const [label, opts] of [
   ['without ActionSync.Operate', { actionSyncOperate: false }],
+  ['to a DataSync viewer who holds ActionSync.Operate', { dataSyncOperate: false, actionSyncOperate: true }],
   ['on a report-only campaign', { mode: 'ReportOnly' }],
   ['on a Ready campaign', { status: 'Ready' }],
 ]) {

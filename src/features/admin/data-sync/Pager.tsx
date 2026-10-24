@@ -1,7 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
-import { figure, nextEnabledOnFullPage } from './helpers'
+import { groupDigits, nextEnabledOnFullPage } from './helpers'
 
 /**
  * The pager for a DataSync list door, which returns a plain array and **no total** (spec 558).
@@ -41,7 +41,7 @@ export default function Pager({
         {tc('pager.previous')}
       </button>
       <span className="text-xs text-muted-foreground tabular-nums" data-ds-page="">
-        <Trans t={t} i18nKey="pager.readout" values={{ page: figure(page) }} components={{ n: <Ltr /> }} />
+        <Trans t={t} i18nKey="pager.readout" values={{ page: groupDigits(page) }} components={{ n: <Ltr /> }} />
       </span>
       <button
         className={btn}

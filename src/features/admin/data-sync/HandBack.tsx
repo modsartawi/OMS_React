@@ -12,12 +12,14 @@ import type { Campaign } from '@/core/models/data-sync'
 import { actionSyncAccessQuery, actionSyncApi, campaignKey, canOperateActionSync, dataSyncApi } from './api'
 import { campaignControlReason, runStoreControl, type StoreControlRun } from './apply-helpers'
 import { RefusalList, StoreList } from './ApplyPanel'
+import { useCanOperateDataSync } from './Controls'
 import { allCampaignJobs, handBackBatches, handBackSplit } from './handback-helpers'
-import { figure } from './helpers'
+import { groupDigits } from './helpers'
 
 /**
  * The campaign header's **Hand back to ActionSync** (spec 558, ticket 565). Offered on an Apply
- * campaign once it has started, to holders of `ActionSync.Operate` only (absent otherwise). Never
+ * campaign once it has started, to holders of BOTH `DataSync.Operate` (spec 558: every action needs
+ * it; story 34) and `ActionSync.Operate` (the Resume is ActionSync's) — absent otherwise. Never
  * automatic: it opens a dialog that reads EVERY job of the campaign (all pages, not just the one
  * shown), pre-selects the stores whose job `Succeeded` with `actionSyncResumable`, lists the rest as
  * staying paused with why, and on confirm resumes the picked stores through
@@ -28,8 +30,9 @@ export default function HandBackButton({ campaign }: { campaign: Campaign }) {
   const { t } = useTranslation('data-sync')
   const applying = campaign.mode === 'Apply'
   const access = useQuery({ ...actionSyncAccessQuery(), enabled: applying })
+  const canOperate = useCanOperateDataSync()
   const [open, setOpen] = useState(false)
-  if (!applying || campaign.status === 'Ready' || !canOperateActionSync(access.data)) return null
+  if (!applying || campaign.status === 'Ready' || !canOperate || !canOperateActionSync(access.data)) return null
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)} data-hand-back="">
@@ -76,7 +79,7 @@ function HandBackDialog({ campaign, onClose }: { campaign: Campaign; onClose: ()
 
   const count = (key: string, n: number, attrs: Record<string, string | number> = {}) => (
     <p {...attrs}>
-      <Trans t={t} i18nKey={key} count={n} values={{ figure: figure(n) }} components={{ n: <Ltr /> }} />
+      <Trans t={t} i18nKey={key} count={n} values={{ figure: groupDigits(n) }} components={{ n: <Ltr /> }} />
     </p>
   )
 
@@ -102,7 +105,7 @@ function HandBackDialog({ campaign, onClose }: { campaign: Campaign; onClose: ()
               {busy ? (
                 t('handBack.sending')
               ) : (
-                <Trans t={t} i18nKey="handBack.confirm" count={picked.length} values={{ figure: figure(picked.length) }} components={{ n: <Ltr /> }} />
+                <Trans t={t} i18nKey="handBack.confirm" count={picked.length} values={{ figure: groupDigits(picked.length) }} components={{ n: <Ltr /> }} />
               )}
             </Button>
           )}
@@ -197,7 +200,7 @@ function HandBackResult({ run }: { run: StoreControlRun }) {
       {run.ok.length > 0 && (
         <div className="text-success-800" data-hand-back-ok={run.ok.length}>
           <p>
-            <Trans t={t} i18nKey="handBack.done" count={run.ok.length} values={{ figure: figure(run.ok.length) }} components={{ n: <Ltr /> }} />
+            <Trans t={t} i18nKey="handBack.done" count={run.ok.length} values={{ figure: groupDigits(run.ok.length) }} components={{ n: <Ltr /> }} />
           </p>
           <StoreList codes={run.ok} attr="data-hand-back-ok-store" />
         </div>
@@ -209,7 +212,7 @@ function HandBackResult({ run }: { run: StoreControlRun }) {
         </div>
       )}
       {run.error != null && (
-        <ErrorBanner className="p-2" title={t('handBack.stopped')} message={apiErrorMessage(run.error, '')}>
+        <ErrorBanner className="p-2" title={t('handBack.stopped')} message={apiErrorMessage(run.error, t('handBack.stoppedHint'))}>
           {isBareDenial(run.error) && (
             <p className="mt-1" data-hand-back-denied="">
               {t('handBack.denied')}

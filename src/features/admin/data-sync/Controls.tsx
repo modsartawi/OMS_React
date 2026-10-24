@@ -17,6 +17,7 @@ import {
 } from './control-helpers'
 import ControlDialog from './ControlDialog'
 import { storeLabel } from './job-helpers'
+import { codeValue } from './code-words'
 
 /**
  * The campaign page's Pause / Resume / Cancel (spec 558, ticket 563): a campaign's in the header,
@@ -58,7 +59,7 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
     onSuccess: (next) => {
       qc.setQueryData(campaignSummaryKey(id), next)
       void qc.invalidateQueries({ queryKey: campaignKey(id) })
-      notify.success(t('controls.done.campaign', { status: t(`campaignStatus.${next.status}`, { defaultValue: next.status }) }))
+      notify.success(t('controls.done.campaign', { status: codeValue(t, 'campaignStatus', next.status) }))
       close()
     },
     onError: (err) => {
@@ -132,7 +133,7 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
       )
       void qc.invalidateQueries({ queryKey: campaignKey(cid) })
       notify.success(
-        t('controls.done.job', { store: fsi(store), status: t(`jobStatus.${next.status}`, { defaultValue: next.status }) }),
+        t('controls.done.job', { store: fsi(store), status: codeValue(t, 'jobStatus', next.status) }),
       )
       close()
     },

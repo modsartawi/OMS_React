@@ -77,3 +77,10 @@ Seams left for 561–565 (all in `CampaignPage.tsx`, near the top of `CampaignVi
 (→ `CampaignHeader`'s `actions` slot), `jobRowActions` (→ `buildJobColumns`' `rowActions`, adds an
 `actions` column), `jobDrawerFooter` (→ `JobDrawer`'s `footer(job)`). Invalidate the whole page with
 `campaignKey(campaignId)`.
+
+### 2026-10-24 — review fixes (branch `review/558-fixes`)
+
+- `CampaignHeader`'s mode and the table-task phase/disposition/strategy now go through the shared
+  `CodeWord` / `codeText` helpers: an unknown code shows raw and isolated (`Ltr` in JSX; bare in grid
+  values, which the grid base isolates). The campaign page also shows the Apply create's warnings as a
+  notice when opened from the New campaign dialog (564's fix; not kept on reload).

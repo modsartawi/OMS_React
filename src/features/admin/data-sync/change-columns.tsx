@@ -5,6 +5,7 @@ import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import type { ChangeKind, ChangeManifestRow } from '@/core/models/data-sync'
 import { MONO, formatTime } from './campaign-columns'
+import { codeText } from './code-words'
 import { changeCells, type ChangeValue } from './changes-helpers'
 
 /**
@@ -54,7 +55,7 @@ export function buildChangeColumns(t: TFunction): ColDef<ChangeManifestRow>[] {
       field: 'kind',
       width: 140,
       valueFormatter: (p: ValueFormatterParams<ChangeManifestRow, ChangeKind>) =>
-        p.value ? t(`kind.${p.value}`, { defaultValue: p.value }) : '',
+        p.value ? codeText(t, 'kind', p.value) : '',
     },
     {
       headerName: t('changes.columns.key'),

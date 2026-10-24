@@ -24,6 +24,7 @@ import {
   profilesQuery,
 } from './api'
 import CampaignHeader from './CampaignHeader'
+import { CreateWarningsNotice } from './CreateWarnings'
 import { CampaignControls, jobDrawerControls, jobRowControls, useCanOperateDataSync } from './Controls'
 import { useChangesLinkFooter } from './ChangesLink'
 import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
@@ -169,6 +170,7 @@ function CampaignView() {
       {campaign.isError && <ErrorBanner className="p-3" message={apiErrorMessage(campaign.error, t('campaign.failed'))} />}
 
       <CampaignHeader campaign={c} profileName={profileName} actions={headerActions} />
+      <CreateWarningsNotice />
 
       <section className="flex min-w-0 flex-col gap-2" aria-labelledby="ds-jobs-heading" data-jobs="">
         <div className="flex flex-wrap items-center gap-2">

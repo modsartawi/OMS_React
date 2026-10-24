@@ -72,3 +72,9 @@ Decisions an owner may overrule:
 - 560's `actions` column is now pinned to the reading end (`pinEnd`, 180px) with compact row
   buttons: the row is wider than the grid and the actions scrolled off its end.
 - The dialog is portalled to `<body>` so the grid never sees keystrokes typed into the note.
+
+### 2026-10-24 — review fixes (branch `review/558-fixes`)
+
+- The success toasts' `{{status}}` falls back to the raw code under `fsi()` (`codeValue`), and the
+  control dialog's refusal is the shared `RefusalBanner` (same `data-control-refusal` /
+  `data-control-error` hooks). Drive 50/50.

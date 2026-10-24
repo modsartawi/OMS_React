@@ -15,7 +15,8 @@ import {
   type StoresReadiness,
 } from './apply-helpers'
 import type { CreateTargets } from './create-helpers'
-import { figure } from './helpers'
+import CodeWord from './CodeWord'
+import { groupDigits } from './helpers'
 
 /**
  * What the Apply side of the New campaign dialog needs from ActionSync (ticket 564): whether the
@@ -95,7 +96,9 @@ export default function ApplyPanel({ split, reason, onReason, targets, check, pa
           data-apply-reason=""
         />
       </label>
-      <p className="-mt-3 text-xs text-muted-foreground">{t('apply.reasonHint', { min: MIN_APPLY_REASON })}</p>
+      <p className="-mt-3 text-xs text-muted-foreground">
+        <Trans t={t} i18nKey="apply.reasonHint" values={{ min: MIN_APPLY_REASON }} components={{ n: <Ltr /> }} />
+      </p>
       {problem && (
         <p className="-mt-3 text-xs text-danger-800" data-apply-reason-problem={problem}>
           {problem === 'required' ? (
@@ -136,16 +139,22 @@ export default function ApplyPanel({ split, reason, onReason, targets, check, pa
                 t={t}
                 i18nKey="apply.readiness.ready"
                 count={r.ready.length}
-                values={{ figure: figure(r.ready.length) }}
+                values={{ figure: groupDigits(r.ready.length) }}
                 components={{ n: <Ltr /> }}
               />
             </p>
+            {/* Ruling 2026-10-24: a store someone else paused is never paused again, so it keeps that pause afterwards. */}
+            {r.ready.length > 0 && (
+              <p className="text-attention-800" data-apply-ready-kept="">
+                {t('apply.readiness.readyKept')}
+              </p>
+            )}
             <p data-apply-will-pause={r.willPause.length}>
               <Trans
                 t={t}
                 i18nKey="apply.readiness.willPause"
                 count={r.willPause.length}
-                values={{ figure: figure(r.willPause.length) }}
+                values={{ figure: groupDigits(r.willPause.length) }}
                 components={{ n: <Ltr /> }}
               />
             </p>
@@ -224,7 +233,6 @@ export function StoreList({ codes, attr }: { codes: readonly string[]; attr: str
 
 /** ActionSync's per-store refusals, each code with its word (raw code when unknown). */
 export function RefusalList({ refused }: { refused: readonly StoreRefusal[] }) {
-  const { t } = useTranslation('data-sync')
   return (
     <ul className="mt-1 flex flex-col gap-0.5">
       {refused.map((x) => (
@@ -233,11 +241,7 @@ export function RefusalList({ refused }: { refused: readonly StoreRefusal[] }) {
             <Ltr>{x.code}</Ltr>
           </span>{' '}
           <span className="text-muted-foreground">
-            {t(`apply.refused.${x.error}`, { defaultValue: '' }) || (
-              <span className="font-mono">
-                <Ltr>{x.error}</Ltr>
-              </span>
-            )}
+            <CodeWord prefix="apply.refused" code={x.error} className="font-mono" />
           </span>
         </li>
       ))}

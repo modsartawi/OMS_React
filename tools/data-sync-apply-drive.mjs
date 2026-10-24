@@ -4,18 +4,24 @@
 // `@/core/models/sync-console` (door contract BackOffice 2523).
 // 🚩 NOTHING here is driven against a live DataSync or ActionSync: ticket 566 is the live walk.
 //
-// The apply order is the orchestrator's standing ruling (DataSync ask B not built, ADR 0004 §2):
-//   pause untagged (`DataSync campaign (pending): <reason>`) → create → re-pause the SAME stores
-//   tagged `DataSync campaign <id>: <reason>` → Start. Every call is logged in one ordered list
-//   and the drive asserts that exact order.
+// The apply order is the orchestrator's ruling (DataSync ask B not built, ADR 0004 §2; re-ruled on
+// review 2026-10-24): pause the stores ActionSync still works untagged
+// (`DataSync campaign (pending): <reason>`) → WAIT, re-reading ActionSync/Fleet every 3 s, until
+// ActionSync acknowledges (bounded at 2 min) → create → re-pause the SAME stores tagged
+// `DataSync campaign <id>: <reason>` → Start. A store already paused and acknowledged is never
+// paused again. Every call is logged in one ordered list and the drive asserts that exact order.
+// The fleet stub answers a store we paused as paused-but-pending on the first read after the
+// pause and acknowledged from the second (`state.ackAfterReads`).
 //
 // It verifies:
 //   1. the whole fleet (two ActionSync fleet pages, 230 stores on the worker + 2 WPF): Apply is
 //      chosen, written vs reported tables listed, the reason checked as typed; WPF stores named as
-//      never appliable (no drop for the fleet); the order pause×5 (≤ 50, pending) → create →
-//      pause×5 (tagged with the new id, the same stores) → start is exact; the outcome names the
-//      campaign, says it started, counts the tagged stores, lists ActionSync's refusal and the
-//      create's warnings;
+//      never appliable (no drop for the fleet); the already-paused store is said to keep its pause;
+//      the order pause×5 (≤ 50, pending, the ready store left out) → fleet re-read(s) while the
+//      button says how many still wait → create → pause×5 (tagged with the new id, the same
+//      stores) → start is exact; the outcome names the campaign, says it started, counts the
+//      tagged stores, lists ActionSync's refusal and the create's warnings; opening the campaign
+//      carries the warnings to its page as a notice, gone after a reload;
 //   2. picked stores: readiness grouped (ready / will pause / never: WPF + not on ActionSync);
 //      "Drop them" removes the never ones; a create refused 409 DATASYNC_STORE_BUSY shows in words
 //      and the dialog lists the stores that were paused and are still paused — no re-pause, no start;
@@ -24,7 +30,9 @@
 //   4. without ActionSync.Operate the toggle is disabled with the "someone must pause" sentence, and
 //      no ActionSync control is posted;
 //   5. Apply can't be chosen when no ticked table is applyAllowed;
-//   6. a pause batch failing outright stops before the create and lists the stores still paused.
+//   6. a pause batch failing outright stops before the create and lists the stores still paused;
+//   7. ActionSync never acknowledging: at the 2-minute bound (clock fast-forwarded) with no target
+//      safe the flow stops before the create and lists the stores still paused — nothing resumed.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/data-sync-apply-drive.mjs          (DRIVE_PORT overrides 5199)
@@ -131,13 +139,19 @@ const campaignOf = (status, body) => ({
 
 const browser = await chromium.launch()
 
-async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnboard: false, canReplay: false }, fleet = BIG_FLEET } = {}) {
+async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnboard: false, canReplay: false }, fleet = BIG_FLEET, clock = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1200 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
+  if (clock) await page.clock.install({ time: new Date('2026-10-24T12:04:00') })
   const errors = []
   const log = [] // every write, in order
   const posts = { create: [], control: [], start: [] }
-  const state = { createRefusal: null, failControlAt: null, refuse: new Set(['S017']) }
+  const state = { createRefusal: null, failControlAt: null, refuse: new Set(['S017']), ackAfterReads: 2, fleetReads: 0, pausedAt: new Map() }
+  // A row as ActionSync would answer it now: a store we paused is paused, pending until acknowledged.
+  const live = (r) => {
+    if (!state.pausedAt.has(r.code)) return r
+    return { ...r, isPaused: true, controlPending: state.fleetReads - state.pausedAt.get(r.code) < state.ackAfterReads }
+  }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript(() => {
@@ -156,8 +170,9 @@ async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnb
     if (p === 'ActionSync/Fleet') {
       const pg = Number(url.searchParams.get('page') || 1)
       const size = Number(url.searchParams.get('pageSize') || 50)
+      if (pg === 1) state.fleetReads++
       log.push(`fleet page ${pg} size ${size}`)
-      return route.fulfill(envelope({ items: fleet.slice((pg - 1) * size, pg * size), total: fleet.length, page: pg, pageSize: size }, { errors: null }))
+      return route.fulfill(envelope({ items: fleet.slice((pg - 1) * size, pg * size).map(live), total: fleet.length, page: pg, pageSize: size }, { errors: null }))
     }
     if (p === 'ActionSync/Stores/Control' && method === 'POST') {
       const body = route.request().postDataJSON()
@@ -165,6 +180,7 @@ async function open({ asAccess = { screenAllowed: true, canOperate: true, canOnb
       posts.control.push(body)
       log.push({ kind: 'control', action: body.action, reason: body.reason, codes: body.codes })
       if (state.failControlAt === n) return route.fulfill(envelope(null, { status: 500, success: false, message: 'ActionSync is down.' }))
+      if (body.action === 'Pause') for (const c of body.codes) if (!state.refuse.has(c)) state.pausedAt.set(c, state.fleetReads)
       return route.fulfill(
         envelope(
           {
@@ -261,24 +277,32 @@ async function openDialog(page, profile = P_APPLY) {
   check('1. the WPF stores are named as never appliable', JSON.stringify(never) === '["W001:wpf","W002:wpf"]', JSON.stringify(never))
   check('1. …with no drop for the whole fleet', (await dialog.locator('[data-apply-drop]').count()) === 0)
   check('1. "pause ActionSync first" is on by default', await dialog.locator('[data-apply-pause-first]').isChecked())
+  check('1. the dialog says up front that an already-paused store keeps its pause', /Stores already paused keep that pause: DataSync does not pause them again, so they stay paused afterwards for whoever paused them/.test(strip(await dialog.locator('[data-apply-ready-kept]').innerText())))
   await page.screenshot({ path: `${SHOTS}/apply-fleet.png`, fullPage: true })
   await dialog.locator('[data-create-submit]').click()
+  await dialog.locator('[data-apply-waiting]').waitFor({ timeout: 20000 })
+  check('1. while waiting the button says how many stores still have to acknowledge', /^Waiting for 228 stores to acknowledge/.test(strip(await dialog.locator('[data-create-submit]').innerText())), strip(await dialog.locator('[data-create-submit]').innerText()))
+  await page.screenshot({ path: `${SHOTS}/apply-waiting.png`, fullPage: true })
   await page.locator('[data-apply-outcome]').waitFor({ timeout: 20000 })
 
   const w = writes(log)
   const kinds = w.map((e) => (e.kind === 'control' ? (e.reason === PENDING ? 'hold' : e.reason === TAGGED ? 'tag' : 'control?') : e.kind))
   check('1. the order is exact: pause ×5 (pending) → create → pause ×5 (tagged) → start', kinds.join(',') === 'hold,hold,hold,hold,hold,create,tag,tag,tag,tag,tag,start', kinds.join(','))
+  const lastHold = log.findLastIndex((e) => typeof e !== 'string' && e.kind === 'control' && e.reason === PENDING)
+  const createAt = log.findIndex((e) => typeof e !== 'string' && e.kind === 'create')
+  const rereads = log.slice(lastHold + 1, createAt).filter((e) => e === 'fleet page 1 size 200').length
+  check('1. the fleet is re-read between the pause and the create (waiting for the acknowledgement)', rereads >= 2, `${rereads} reads`)
   check('1. every batch is at most 50 stores and a Pause', w.filter((e) => e.kind === 'control').every((e) => e.codes.length <= 50 && e.codes.length > 0 && e.action === 'Pause'))
   const held = w.filter((e) => e.kind === 'control' && e.reason === PENDING).flatMap((e) => e.codes)
   const tagged = w.filter((e) => e.kind === 'control' && e.reason === TAGGED).flatMap((e) => e.codes)
-  check('1. the first pause takes all 230 worker stores, no WPF one', held.length === 230 && !held.includes('W001'))
+  check('1. the first pause takes the 229 worker stores still worked — not the already-paused S000, no WPF one', held.length === 229 && !held.includes('S000') && !held.includes('W001'))
   check('1. the tag carries the new campaign id', w.some((e) => e.kind === 'control' && e.reason === TAGGED))
-  check('1. the tagged pause re-pauses the same stores (less the one ActionSync refused)', tagged.length === 229 && !tagged.includes('S017') && tagged.every((c) => held.includes(c)))
+  check('1. the tagged pause re-pauses the same stores (less the one ActionSync refused), never S000', tagged.length === 228 && !tagged.includes('S017') && !tagged.includes('S000') && tagged.every((c) => held.includes(c)))
   check('1. the create body is Apply with the reason trimmed and the whole fleet', JSON.stringify(posts.create[0]) === JSON.stringify({ profileId: P_APPLY, mode: 'Apply', targets: { fleet: 'all' }, reason: REASON }), JSON.stringify(posts.create[0]))
   check('1. no pause flag is sent on create (ask B not built)', !('pauseActionSyncFirst' in posts.create[0]))
   check('1. the outcome names the campaign', strip(await page.locator('[data-apply-created]').innerText()) === `Campaign ${NEW_ID} was created.`)
   check('1. …says it started', (await page.locator('[data-apply-started="Running"]').count()) === 1)
-  check('1. …counts the tagged stores', (await page.locator('[data-apply-tagged="229"]').count()) === 1)
+  check('1. …counts the tagged stores', (await page.locator('[data-apply-tagged="228"]').count()) === 1)
   check('1. …lists ActionSync\'s refusal in words', strip(await page.locator('[data-apply-refused="S017"]').innerText()) === 'S017 not on the ActionSync worker')
   const warns = await page.locator('[data-apply-warning]').evaluateAll((els) => els.map((e) => `${e.dataset.applyWarning}@${e.dataset.store}`))
   check('1. …and the create warnings, as warnings on the new campaign', JSON.stringify(warns) === '["DATASYNC_STORE_WPF_HOSTED@000/W001","DATASYNC_STORE_BUSY@000/S017"]', JSON.stringify(warns))
@@ -288,6 +312,14 @@ async function openDialog(page, profile = P_APPLY) {
   await page.locator('[data-apply-open]').click()
   await page.waitForURL(`**/admin/data-sync/campaigns/${NEW_ID}`, { timeout: 10000 })
   check('1. Open the campaign goes to its page', new URL(page.url()).pathname === `/admin/data-sync/campaigns/${NEW_ID}`)
+  await page.locator('[data-campaign-create-warnings]').waitFor({ timeout: 10000 })
+  const carried = await page.locator('[data-campaign-create-warnings] [data-apply-warning]').evaluateAll((els) => els.map((e) => `${e.dataset.applyWarning}@${e.dataset.store}`))
+  check('1. the campaign page shows the create warnings as a notice', JSON.stringify(carried) === '["DATASYNC_STORE_WPF_HOSTED@000/W001","DATASYNC_STORE_BUSY@000/S017"]', JSON.stringify(carried))
+  check('1. …saying they are not kept on a reload', /not kept if the page is reloaded/.test(strip(await page.locator('[data-campaign-create-warnings]').innerText())))
+  await page.screenshot({ path: `${SHOTS}/apply-campaign-warnings.png`, fullPage: true })
+  await page.goto(`${BASE}/admin/data-sync/campaigns/${NEW_ID}`)
+  await page.locator('[data-campaign-header]').waitFor({ timeout: 10000 })
+  check('1. …and the notice is gone when the page is opened afresh', (await page.locator('[data-campaign-create-warnings]').count()) === 0)
   check('no page errors (fleet apply)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
@@ -315,10 +347,10 @@ async function openDialog(page, profile = P_APPLY) {
   await dialog.locator('[data-create-submit]').click()
   await dialog.locator('[data-create-error="DATASYNC_STORE_BUSY"]').waitFor({ timeout: 10000 })
   const w = writes(log)
-  check('2. the stores were paused (pending, by ActionSync\'s spelling) then the create was refused — nothing else', JSON.stringify(w.map((e) => e.kind)) === '["control","create"]' && w[0].reason === PENDING && JSON.stringify(w[0].codes) === '["P001","P002"]', JSON.stringify(w))
+  check('2. only the store still worked was paused (pending, by ActionSync\'s spelling) — never the ready P002 — then the create was refused; nothing else', JSON.stringify(w.map((e) => e.kind)) === '["control","create"]' && w[0].reason === PENDING && JSON.stringify(w[0].codes) === '["P001"]', JSON.stringify(w))
   check('2. the 409 shows in words', strip(await dialog.locator('[data-create-refusal]').innerText()) === 'No target store is safe to apply yet. Pause them on ActionSync first.')
   const still = await dialog.locator('[data-apply-still-paused-store]').evaluateAll((els) => els.map((e) => e.dataset.applyStillPausedStore))
-  check('2. the dialog says which stores were paused and are still paused', JSON.stringify(still) === '["P001","P002"]', JSON.stringify(still))
+  check('2. the dialog says which stores were paused and are still paused', JSON.stringify(still) === '["P001"]', JSON.stringify(still))
   check('2. …in words', /were paused on ActionSync and are still paused/.test(strip(await dialog.locator('[data-apply-still-paused]').innerText())))
   check('2. no Start was posted', !w.some((e) => e.kind === 'start'))
   await page.screenshot({ path: `${SHOTS}/apply-create-refused.png`, fullPage: true })
@@ -394,6 +426,31 @@ async function openDialog(page, profile = P_APPLY) {
   check('6. the first batch\'s 50 stores are listed as still paused', (await dialog.locator('[data-apply-still-paused="50"]').count()) === 1)
   await page.screenshot({ path: `${SHOTS}/apply-hold-failed.png`, fullPage: true })
   check('no page errors (pause failed)', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 7: ActionSync never acknowledges — the bound passes with no target safe ────────────────────
+{
+  const { context, page, errors, log, state } = await open({ fleet: SMALL_FLEET, clock: true })
+  state.refuse = new Set()
+  state.ackAfterReads = Infinity
+  const dialog = await openDialog(page)
+  await dialog.locator('[data-create-mode-pick="Apply"]').check()
+  await dialog.locator('[data-create-target="stores"]').check()
+  await dialog.locator('[data-create-codes]').fill('P001')
+  await dialog.locator('[data-apply-reason]').fill(REASON)
+  await dialog.locator('[data-apply-will-pause="1"]').waitFor({ timeout: 10000 })
+  await dialog.locator('[data-create-submit]').click()
+  await dialog.locator('[data-apply-waiting="1"]').waitFor({ timeout: 10000 })
+  await page.clock.fastForward(125_000)
+  await dialog.locator('[data-apply-ack-stopped]').waitFor({ timeout: 10000 })
+  const w = writes(log)
+  check('7. no store acknowledged in time: only the pause was posted — no create, no Start, nothing resumed', JSON.stringify(w.map((e) => e.kind)) === '["control"]' && w[0].action === 'Pause', JSON.stringify(w))
+  check('7. the dialog says no campaign was created', /did not acknowledge the pause of any store in time, so no campaign was created/.test(strip(await dialog.locator('[data-apply-ack-stopped]').innerText())))
+  const still = await dialog.locator('[data-apply-still-paused-store]').evaluateAll((els) => els.map((e) => e.dataset.applyStillPausedStore))
+  check('7. …and lists the store still paused', JSON.stringify(still) === '["P001"]', JSON.stringify(still))
+  await page.screenshot({ path: `${SHOTS}/apply-ack-stopped.png`, fullPage: true })
+  check('no page errors (never acknowledged)', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

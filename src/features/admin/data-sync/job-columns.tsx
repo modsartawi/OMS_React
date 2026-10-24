@@ -8,12 +8,14 @@ import Ltr from '@/core/ui/Ltr'
 import { formatCount } from '@/core/util/bidi'
 import type { Job, TableTask } from '@/core/models/data-sync'
 import CodeBadgeView from './CodeBadgeView'
+import { codeText } from './code-words'
+import CodeWord from './CodeWord'
 import { FailureView, JobReasonView, JobStatusView } from './JobStateView'
 import { MONO, formatTime } from './campaign-columns'
-import { figure } from './helpers'
+import { groupDigits } from './helpers'
 import { jobStateWords, storeLabel, tableProgress, tableTaskStatusBadge } from './job-helpers'
 
-const count = (p: ValueFormatterParams<TableTask, number>) => (p.value == null ? '' : figure(p.value))
+const count = (p: ValueFormatterParams<TableTask, number>) => (p.value == null ? '' : groupDigits(p.value))
 
 export interface JobColumnsOptions {
   /** Opens a job's drawer (`?job=`). */
@@ -68,7 +70,7 @@ export function buildJobColumns(t: TFunction, opts: JobColumnsOptions): ColDef<J
       field: 'attemptCount',
       width: 100,
       type: 'rightAligned',
-      valueFormatter: (p: ValueFormatterParams<Job, number>) => (p.value == null ? '' : figure(p.value)),
+      valueFormatter: (p: ValueFormatterParams<Job, number>) => (p.value == null ? '' : groupDigits(p.value)),
     },
     { headerName: t('jobs.columns.startedAt'), field: 'startedAt', width: 150, cellClass: MONO, valueFormatter: formatTime },
     { headerName: t('jobs.columns.finishedAt'), field: 'finishedAt', width: 150, cellClass: MONO, valueFormatter: formatTime },
@@ -121,7 +123,7 @@ function ProgressCell({ task, t }: { task: TableTask; t: TFunction }) {
         </span>
       )}
       <span className="font-mono text-[12px] tabular-nums">
-        {pr.kind === 'determinate' ? <Ltr>{formatCount(figure(pr.done), figure(pr.total))}</Ltr> : t('drawer.progressIndeterminate')}
+        {pr.kind === 'determinate' ? <Ltr>{formatCount(groupDigits(pr.done), groupDigits(pr.total))}</Ltr> : t('drawer.progressIndeterminate')}
       </span>
     </span>
   )
@@ -145,7 +147,9 @@ export function buildTableTaskColumns(t: TFunction): ColDef<TableTask>[] {
           <span className="inline-flex items-center gap-1.5" data-table-status={p.data.status}>
             <CodeBadgeView badge={tableTaskStatusBadge(p.data.status)} code={p.data.status} />
             {p.data.status === 'Running' && p.data.phase && (
-              <span className="text-xs text-muted-foreground">{t(`jobPhase.${p.data.phase}`, { defaultValue: p.data.phase })}</span>
+              <span className="text-xs text-muted-foreground">
+                <CodeWord prefix="jobPhase" code={p.data.phase} />
+              </span>
             )}
           </span>
         ) : null,
@@ -155,14 +159,14 @@ export function buildTableTaskColumns(t: TFunction): ColDef<TableTask>[] {
       field: 'disposition',
       width: 120,
       valueFormatter: (p: ValueFormatterParams<TableTask, string>) =>
-        p.value ? t(`disposition.${p.value}`, { defaultValue: p.value }) : '',
+        p.value ? codeText(t, 'disposition', p.value) : '',
     },
     {
       headerName: t('drawer.columns.strategy'),
       field: 'strategy',
       width: 100,
       valueFormatter: (p: ValueFormatterParams<TableTask, string>) =>
-        p.value ? t(`strategy.${p.value}`, { defaultValue: p.value }) : '',
+        p.value ? codeText(t, 'strategy', p.value) : '',
     },
     {
       headerName: t('drawer.columns.progress'),

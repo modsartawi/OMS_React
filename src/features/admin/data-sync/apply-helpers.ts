@@ -70,9 +70,11 @@ export interface StoresReadiness {
   ready: string[]
   willPause: string[]
   /**
-   * The stores the flow pauses: every target that is not `never`, ready ones too — the tagged
-   * pause must be each store's LATEST ActionSync control, or DataSync never marks its job
-   * `actionSyncResumable` (engine spec §7.4). Spelt as ActionSync spells the code.
+   * The stores the flow pauses: the `willPause` ones only. A `ready` store is already paused and
+   * acknowledged by someone else — the flow never pauses it again, untagged or tagged, so it keeps
+   * that pause (orchestrator ruling, 2026-10-24: never tag a pause that isn't ours). Its job is
+   * therefore not `actionSyncResumable` (engine spec §7.4) and it stays paused afterwards for
+   * whoever paused it. Spelt as ActionSync spells the code.
    */
   toPause: string[]
 }
@@ -100,7 +102,7 @@ export function storesReadiness(targets: CreateTargets, rows: readonly Readiness
       continue
     }
     out[r.readiness].push(code)
-    out.toPause.push(code)
+    if (r.readiness === 'willPause') out.toPause.push(code)
   }
   return out
 }
@@ -179,17 +181,67 @@ export async function runStoreControl(
   return run
 }
 
+// ── Waiting for ActionSync to acknowledge (review fix, 2026-10-24) ──────────────
+
+/** How often the flow re-reads `ActionSync/Fleet` while it waits for the pause to be acknowledged. */
+export const ACK_POLL_MS = 3_000
+/** How long it waits at most before deciding with what it has. */
+export const ACK_WAIT_MS = 120_000
+
+/** Of the stores the flow paused: those ActionSync has acknowledged, and those it still waits on. */
+export interface AckProgress {
+  acknowledged: string[]
+  waiting: string[]
+}
+
+/**
+ * Which of `codes` are now safe to apply (DataSync's §7.2: on the worker, paused and acknowledged —
+ * `applyReadiness` says `ready`), matched case-insensitively, each spelt as given. A store the
+ * fleet no longer lists is still waiting.
+ */
+export function ackProgress(rows: readonly ReadinessRow[], codes: readonly string[]): AckProgress {
+  const byCode = new Map(rows.map((r) => [r.code.toUpperCase(), r]))
+  const out: AckProgress = { acknowledged: [], waiting: [] }
+  for (const code of codes) {
+    const row = byCode.get(code.toUpperCase())
+    ;(row && applyReadiness(row).readiness === 'ready' ? out.acknowledged : out.waiting).push(code)
+  }
+  return out
+}
+
+export type AckDecision = 'wait' | 'create' | 'stop'
+
+/**
+ * Whether to keep waiting, create, or stop. DataSync's create refuses 409 `DATASYNC_STORE_BUSY`
+ * when NO target is safe, so: every paused store acknowledged → create; the bound passed → create
+ * if at least one target is safe (acknowledged now, or `alreadySafe` ready ones), else stop;
+ * otherwise wait. With nothing to wait on and nothing safe, stop at once.
+ */
+export function ackDecision(progress: AckProgress, alreadySafe: number, timedOut: boolean): AckDecision {
+  const safe = progress.acknowledged.length + alreadySafe
+  if (progress.waiting.length === 0) return safe > 0 ? 'create' : 'stop'
+  if (!timedOut) return 'wait'
+  return safe > 0 ? 'create' : 'stop'
+}
+
 // ── The apply flow ──────────────────────────────────────────────────────────────
 
 export interface ApplyFlowDeps {
   control: (req: StoreControlRequest) => Promise<StoreControlResponse>
+  /** `ActionSync/Fleet`, re-read while waiting for the pause to be acknowledged. */
+  readFleet: () => Promise<readonly ReadinessRow[]>
   create: (body: CreateCampaignRequest) => Promise<ApiEnvelope<Campaign>>
   start: (campaignId: string) => Promise<Campaign>
+  /** The timer, injected (the dialog passes `setTimeout`; the tests a fake clock). */
+  sleep: (ms: number) => Promise<void>
+  now: () => number
   /** Told as each step begins, for the dialog's progress line. */
   onStep?: (step: ApplyStep) => void
+  /** Told after each fleet read while waiting: how many stores still have to acknowledge. */
+  onWait?: (progress: AckProgress) => void
 }
 
-export type ApplyStep = 'holding' | 'creating' | 'tagging' | 'starting'
+export type ApplyStep = 'holding' | 'waiting' | 'creating' | 'tagging' | 'starting'
 
 export interface ApplyFlowInput {
   body: CreateCampaignRequest
@@ -197,39 +249,51 @@ export interface ApplyFlowInput {
   reason: string
   /** The stores to pause first (`StoresReadiness.toPause`); `null` = "pause ActionSync first" is off. */
   toPause: readonly string[] | null
+  /** Targets already paused and acknowledged (`StoresReadiness.ready`) — never paused again, but safe. */
+  alreadySafe: readonly string[]
 }
 
 export interface ApplyOutcome {
   /** Step 1, the untagged pause; `null` when the toggle is off or there was nothing to pause. */
   held: StoreControlRun | null
+  /** Step 2, what the wait last saw; `null` when nothing was waited on. */
+  ack: AckProgress | null
+  /** The wait ended with no target safe: no campaign was created. */
+  ackStopped: boolean
   createError: unknown
   campaign: Campaign | null
   /** The create's per-store warnings (`DATASYNC_STORE_BUSY` / `DATASYNC_STORE_WPF_HOSTED`) on a success. */
   warnings: GeneralErrorResponse[]
-  /** Step 3, the tagged re-pause. */
+  /** Step 4, the tagged re-pause. */
   tagged: StoreControlRun | null
   startError: unknown
   started: Campaign | null
 }
 
 /**
- * The Apply flow (spec 558, ticket 564, under the orchestrator's standing ruling — DataSync ask B
- * is not built and ADR 0004 §2 says the create carries no pause flag):
+ * The Apply flow (spec 558, ticket 564; order re-ruled by the orchestrator on review, 2026-10-24 —
+ * DataSync ask B is not built and ADR 0004 §2 says the create carries no pause flag):
  *
- * 1. pause the target stores **untagged** (`DataSync campaign (pending): <reason>`), batches ≤ 50,
- *    so the create finds them safe instead of refusing 409 `DATASYNC_STORE_BUSY`;
- * 2. create the campaign (Apply + reason) → Ready, with its id;
- * 3. re-pause the stores step 1 took, **tagged** `DataSync campaign <id>: <reason>`, batches ≤ 50 —
+ * 1. pause the stores still worked by ActionSync **untagged** (`DataSync campaign (pending): <reason>`),
+ *    batches ≤ 50 — never a store someone else already paused (`alreadySafe`);
+ * 2. **wait** for ActionSync to acknowledge: re-read `ActionSync/Fleet` every `ACK_POLL_MS`, at most
+ *    `ACK_WAIT_MS`, deciding with `ackDecision` — a create before the acknowledgement is refused
+ *    409 `DATASYNC_STORE_BUSY` (safe = on worker ∧ paused ∧ acknowledged, engine spec §7.2);
+ * 3. create the campaign (Apply + reason) → Ready, with its id;
+ * 4. re-pause the stores step 1 took, **tagged** `DataSync campaign <id>: <reason>`, batches ≤ 50 —
  *    the tag must be each store's latest control or its job is never `actionSyncResumable`;
- * 4. Start.
+ * 5. Start.
  *
- * A batch failing outright in step 1 stops before the create; a failed create stops there. Neither
- * resumes anything: the stores paused so far stay paused (`stillPausedAfterFailure`) and the dialog
- * names them. With the toggle off it only creates, and Start stays the page's.
+ * A batch failing outright in step 1, a wait that ends with no target safe, or a failed create
+ * stops there. Nothing is ever resumed: the stores paused so far stay paused
+ * (`stillPausedAfterFailure`) and the dialog names them. With the toggle off it only creates, and
+ * Start stays the page's.
  */
 export async function runApplyFlow(deps: ApplyFlowDeps, input: ApplyFlowInput): Promise<ApplyOutcome> {
   const out: ApplyOutcome = {
     held: null,
+    ack: null,
+    ackStopped: false,
     createError: null,
     campaign: null,
     warnings: [],
@@ -242,6 +306,10 @@ export async function runApplyFlow(deps: ApplyFlowDeps, input: ApplyFlowInput): 
     deps.onStep?.('holding')
     out.held = await runStoreControl(deps.control, storeControlBatches('Pause', input.toPause!, pendingControlReason(input.reason)))
     if (out.held.error) return out
+    if (!(await waitForAck(deps, out, out.held.ok, input.alreadySafe.length))) {
+      out.ackStopped = true
+      return out
+    }
   }
   deps.onStep?.('creating')
   try {
@@ -265,6 +333,43 @@ export async function runApplyFlow(deps: ApplyFlowDeps, input: ApplyFlowInput): 
     out.startError = err
   }
   return out
+}
+
+/**
+ * Step 2: re-reads the fleet until `ackDecision` stops waiting. A failed read counts as "nobody
+ * acknowledged yet" and is waited through. `true` = go on to the create.
+ */
+async function waitForAck(deps: ApplyFlowDeps, out: ApplyOutcome, paused: readonly string[], alreadySafe: number): Promise<boolean> {
+  let progress: AckProgress = { acknowledged: [], waiting: [...paused] }
+  if (paused.length === 0) return ackDecision(progress, alreadySafe, true) === 'create'
+  deps.onStep?.('waiting')
+  const deadline = deps.now() + ACK_WAIT_MS
+  for (;;) {
+    try {
+      progress = ackProgress(await deps.readFleet(), paused)
+    } catch {
+      // keep the last progress; the bound still applies
+    }
+    out.ack = progress
+    deps.onWait?.(progress)
+    const decision = ackDecision(progress, alreadySafe, deps.now() >= deadline)
+    if (decision !== 'wait') return decision === 'create'
+    await deps.sleep(ACK_POLL_MS)
+  }
+}
+
+/** The create warnings the Apply outcome hands the campaign page in router state (they don't survive a reload). */
+export interface CampaignPageState {
+  createWarnings: GeneralErrorResponse[]
+}
+
+const isWarning = (w: unknown): w is GeneralErrorResponse =>
+  typeof w === 'object' && w !== null && typeof (w as GeneralErrorResponse).errorCode === 'string'
+
+/** The create warnings carried to the campaign page, or none (opened any other way, or reloaded). */
+export function createWarningsFromState(state: unknown): GeneralErrorResponse[] {
+  const list = (state as Partial<CampaignPageState> | null)?.createWarnings
+  return Array.isArray(list) && list.every(isWarning) ? list : []
 }
 
 /**

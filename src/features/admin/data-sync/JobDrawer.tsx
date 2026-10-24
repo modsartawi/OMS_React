@@ -19,7 +19,7 @@ import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { buildTableTaskColumns } from './job-columns'
 import { isDataSyncNotFound, jobStateWords, storeLabel } from './job-helpers'
 import { FailureView, JobReasonView, JobStatusView } from './JobStateView'
-import { figure } from './helpers'
+import { groupDigits } from './helpers'
 
 const tableTaskId = ({ data }: { data: TableTask }) => data.tableTaskId
 
@@ -137,7 +137,7 @@ export default function JobDrawer({
                   <div className="flex flex-col gap-0.5" data-field="attempts">
                     <dt className="text-xs text-muted-foreground">{t('drawer.attempts')}</dt>
                     <dd className="font-mono text-xs">
-                      <Ltr>{figure(job.attemptCount)}</Ltr>
+                      <Ltr>{groupDigits(job.attemptCount)}</Ltr>
                     </dd>
                   </div>
                   <div className="flex flex-col gap-0.5" data-field="startedAt">

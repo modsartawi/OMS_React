@@ -150,7 +150,11 @@
     "notYet": "—",
     "rollup": "Jobs by state",
     "asOf": "As of <at>{{at}}</at>",
-    "totalJobs": "Jobs"
+    "totalJobs": "Jobs",
+    "createWarnings": {
+      "title": "DataSync warned about these stores when the campaign was created:",
+      "note": "Carried over from the New campaign dialog; it is not kept if the page is reloaded."
+    }
   },
   "jobStatus": {
     "Queued": "Queued",
@@ -260,7 +264,6 @@
     "empty": "This campaign has no jobs.",
     "emptyFiltered": "No jobs with this status.",
     "emptyPage": "No more jobs on this page.",
-    "open": "Open the job for store {{store}}",
     "columns": {
       "store": "Store",
       "status": "Status",
@@ -359,7 +362,7 @@
     "written": "Written",
     "reported": "Only reported",
     "reason": "Reason",
-    "reasonHint": "Why these stores are being written to. At least {{min}} characters; kept with the campaign.",
+    "reasonHint": "Why these stores are being written to. At least <n>{{min}}</n> characters; kept with the campaign.",
     "reasonRequired": "An Apply campaign needs a reason.",
     "reasonTooShort": "At least <n>{{min}}</n> characters, <n>{{have}}</n> so far.",
     "readiness": {
@@ -370,6 +373,7 @@
       "ready_other": "<n>{{figure}}</n> stores are paused and acknowledged: ready.",
       "willPause_one": "<n>{{figure}}</n> store is still worked by ActionSync: it will be paused.",
       "willPause_other": "<n>{{figure}}</n> stores are still worked by ActionSync: they will be paused.",
+      "readyKept": "Stores already paused keep that pause: DataSync does not pause them again, so they stay paused afterwards for whoever paused them and are not offered for hand-back.",
       "neverTitle": "Never appliable, so DataSync will not write to these:",
       "wpf": "synced by the WPF host",
       "notFound": "not on ActionSync",
@@ -377,18 +381,22 @@
       "fleetNever": "They are part of the whole fleet: DataSync skips them and warns on the campaign."
     },
     "pauseFirst": "Pause ActionSync first",
-    "pauseFirstHint": "Pauses the stores on ActionSync, tagged with the campaign, before the campaign starts, so the live worker never writes to them at the same time.",
+    "pauseFirstHint": "Pauses the stores ActionSync still works and waits until ActionSync acknowledges, then tags the pause with the campaign before it starts, so the live worker never writes to them at the same time.",
     "pauseOff": "Unpaused stores will wait until someone pauses them on ActionSync. The campaign is created Ready; press Start on its page.",
     "pauseNeedsGrant": "Pausing stores on ActionSync needs ActionSync Operate, which you do not hold. Someone who holds it must pause the stores; until then their jobs wait.",
     "pauseNoFleet": "Without the stores' ActionSync readiness the pause cannot be sent.",
-    "flowNote": "Create pauses the stores on ActionSync, creates the campaign, tags the pause with it and starts it.",
+    "flowNote": "Create pauses the stores still worked on ActionSync, waits for ActionSync to acknowledge, creates the campaign, tags the pause with it and starts it.",
     "step": {
       "holding": "Pausing the stores on ActionSync…",
+      "waiting": "Waiting for ActionSync to acknowledge the pause…",
+      "waitingCount_one": "Waiting for <n>{{figure}}</n> store to acknowledge…",
+      "waitingCount_other": "Waiting for <n>{{figure}}</n> stores to acknowledge…",
       "creating": "Creating the campaign…",
       "tagging": "Tagging the pause with the campaign…",
       "starting": "Starting the campaign…"
     },
     "holdFailed": "Pausing the stores on ActionSync failed, so no campaign was created.",
+    "ackStopped": "ActionSync did not acknowledge the pause of any store in time, so no campaign was created.",
     "stillPausedTitle": "These stores were paused on ActionSync and are still paused:",
     "stillPausedHint": "Nothing was resumed. Create again, or resume them in the sync console.",
     "refusedTitle": "ActionSync did not pause these stores:",
@@ -406,6 +414,7 @@
       "paused_other": "<n>{{figure}}</n> stores paused on ActionSync, tagged with this campaign.",
       "untaggedTitle": "Paused, but the campaign tag did not reach these stores, so their jobs will not be offered for hand-back:",
       "tagFailed": "Tagging the pause stopped part-way.",
+      "tagFailedHint": "ActionSync could not be reached.",
       "warningsTitle": "DataSync warned about these stores:",
       "warning": {
         "DATASYNC_STORE_BUSY": "still worked by ActionSync; its job waits until the store is paused",
@@ -446,7 +455,7 @@
       "failed": "its job failed",
       "cancelled": "its job was cancelled",
       "inFlight": "its job has not finished",
-      "notResumable": "not resumable: ActionSync's control changed since the job began, or its last ActionSync control was not this campaign's"
+      "notResumable": "not resumable: it was already paused before the campaign, ActionSync's control changed since the job began, or its last ActionSync control was not this campaign's"
     },
     "confirm_one": "Hand back <n>{{figure}}</n> store",
     "confirm_other": "Hand back <n>{{figure}}</n> stores",
@@ -456,6 +465,7 @@
     "done_other": "<n>{{figure}}</n> stores are back with ActionSync:",
     "refusedTitle": "ActionSync did not resume these stores; they stay paused:",
     "stopped": "The hand-back stopped part-way.",
+    "stoppedHint": "ActionSync could not be reached.",
     "denied": "Resuming stores on ActionSync needs ActionSync Operate.",
     "unsentTitle": "Not sent, so still paused:"
   }

@@ -7,7 +7,8 @@ import Ltr from '@/core/ui/Ltr'
 import { JOBS_BY_STATE_KEYS, type Campaign } from '@/core/models/data-sync'
 import { formatDateTime } from '@/core/util/date-format'
 import CodeBadgeView from './CodeBadgeView'
-import { campaignStatusBadge, figure } from './helpers'
+import { codeText } from './code-words'
+import { campaignStatusBadge, groupDigits } from './helpers'
 
 /**
  * What every Data sync grid shares. Sorting and paging are the door's, so no column is
@@ -64,7 +65,7 @@ export function buildCampaignColumns(t: TFunction, profileName: (id: string) => 
       width: 110,
       // A mode this bundle does not know shows its raw code, never a raw key.
       valueFormatter: (p: ValueFormatterParams<Campaign, string>) =>
-        p.value ? t(`mode.${p.value}`, { defaultValue: p.value }) : '',
+        p.value ? codeText(t, 'mode', p.value) : '',
     },
     {
       headerName: t('campaigns.columns.status'),
@@ -89,7 +90,7 @@ export function buildCampaignColumns(t: TFunction, profileName: (id: string) => 
               <span key={k} data-bucket={k}>
                 {t(`jobsByState.${k}`)}{' '}
                 <span className="font-mono tabular-nums">
-                  <Ltr>{figure((p.data as Campaign).jobsByState[k])}</Ltr>
+                  <Ltr>{groupDigits((p.data as Campaign).jobsByState[k])}</Ltr>
                 </span>
               </span>
             ))}
@@ -101,7 +102,7 @@ export function buildCampaignColumns(t: TFunction, profileName: (id: string) => 
       field: 'totalJobs',
       width: 90,
       type: 'rightAligned',
-      valueFormatter: (p: ValueFormatterParams<Campaign, number>) => (p.value == null ? '' : figure(p.value)),
+      valueFormatter: (p: ValueFormatterParams<Campaign, number>) => (p.value == null ? '' : groupDigits(p.value)),
     },
     { headerName: t('campaigns.columns.createdAt'), field: 'createdAt', width: 150, cellClass: MONO, valueFormatter: formatTime },
   ]

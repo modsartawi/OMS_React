@@ -2,14 +2,13 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Play } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
+import { isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import Ltr from '@/core/ui/Ltr'
 import type { Campaign } from '@/core/models/data-sync'
 import { campaignKey, canOperateDataSync, dataSyncAccessQuery, dataSyncApi } from './api'
 import { startRefusalWords } from './create-helpers'
+import RefusalBanner from './RefusalBanner'
 
 /**
  * The campaign header's **Start** (spec 558, ticket 561): shown only while the campaign is `Ready`
@@ -39,7 +38,6 @@ export default function StartCampaignButton({ campaign }: { campaign: Campaign }
   if (!canOperateDataSync(access.data) || denied) return null
   if (campaign.status !== 'Ready' && !error) return null
 
-  const code = error ? apiErrorCode(error) : null
   const wordsKey = error ? startRefusalWords(error) : null
   return (
     <div className="flex flex-col items-end gap-2" data-campaign-start="">
@@ -50,18 +48,14 @@ export default function StartCampaignButton({ campaign }: { campaign: Campaign }
         </Button>
       )}
       {error != null && (
-        <ErrorBanner className="max-w-sm p-2" title={t('start.failed')} message={apiErrorMessage(error, t('start.failedHint'))}>
-          {wordsKey && (
-            <p className="mt-1 text-xs" data-start-refusal="">
-              {t(wordsKey)}
-            </p>
-          )}
-          {code && (
-            <span className="font-mono text-xs" data-start-error={code}>
-              <Ltr>{code}</Ltr>
-            </span>
-          )}
-        </ErrorBanner>
+        <RefusalBanner
+          className="max-w-sm p-2"
+          error={error}
+          title={t('start.failed')}
+          fallback={t('start.failedHint')}
+          words={wordsKey && t(wordsKey)}
+          hook="start"
+        />
       )}
     </div>
   )

@@ -1,11 +1,12 @@
 import { Trans, useTranslation } from 'react-i18next'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import ErrorBanner from '@/core/ui/ErrorBanner'
+import { apiErrorMessage } from '@/core/api'
 import Ltr from '@/core/ui/Ltr'
-import { createWarningStore, untaggedStores, type ApplyOutcome } from './apply-helpers'
+import { untaggedStores, type ApplyOutcome } from './apply-helpers'
+import { CreateWarningList } from './CreateWarnings'
 import { RefusalList, StoreList } from './ApplyPanel'
 import { startRefusalWords } from './create-helpers'
-import { figure } from './helpers'
+import RefusalBanner from './RefusalBanner'
+import { groupDigits } from './helpers'
 
 /**
  * What an Apply create did, shown in the dialog once the campaign exists (ticket 564): the new
@@ -21,7 +22,6 @@ export default function ApplyOutcomeView({ outcome, paused }: { outcome: ApplyOu
   const untagged = untaggedStores(outcome)
   const tagged = outcome.tagged?.ok ?? []
   const startWords = outcome.startError ? startRefusalWords(outcome.startError) : null
-  const startCode = outcome.startError ? apiErrorCode(outcome.startError) : null
   return (
     <div className="flex flex-col gap-3 text-sm" data-apply-outcome={c.campaignId}>
       <p data-apply-created="">
@@ -45,22 +45,13 @@ export default function ApplyOutcomeView({ outcome, paused }: { outcome: ApplyOu
           {t('apply.outcome.started')}
         </p>
       ) : (
-        <ErrorBanner
-          className="p-2"
+        <RefusalBanner
+          error={outcome.startError}
           title={t('apply.outcome.notStarted')}
-          message={apiErrorMessage(outcome.startError, t('start.failedHint'))}
-        >
-          {startWords && (
-            <p className="mt-1 text-xs" data-apply-start-refusal="">
-              {t(startWords)}
-            </p>
-          )}
-          {startCode && (
-            <span className="font-mono text-xs" data-apply-start-error={startCode}>
-              <Ltr>{startCode}</Ltr>
-            </span>
-          )}
-        </ErrorBanner>
+          fallback={t('start.failedHint')}
+          words={startWords && t(startWords)}
+          hook="apply-start"
+        />
       )}
 
       {paused && tagged.length > 0 && (
@@ -69,7 +60,7 @@ export default function ApplyOutcomeView({ outcome, paused }: { outcome: ApplyOu
             t={t}
             i18nKey="apply.outcome.paused"
             count={tagged.length}
-            values={{ figure: figure(tagged.length) }}
+            values={{ figure: groupDigits(tagged.length) }}
             components={{ n: <Ltr /> }}
           />
         </p>
@@ -89,7 +80,7 @@ export default function ApplyOutcomeView({ outcome, paused }: { outcome: ApplyOu
         >
           {outcome.tagged?.error != null && (
             <p className="font-medium">
-              {t('apply.outcome.tagFailed')} <bdi>{apiErrorMessage(outcome.tagged.error, '')}</bdi>
+              {t('apply.outcome.tagFailed')} <bdi>{apiErrorMessage(outcome.tagged.error, t('apply.outcome.tagFailedHint'))}</bdi>
             </p>
           )}
           <p>{t('apply.outcome.untaggedTitle')}</p>
@@ -103,29 +94,7 @@ export default function ApplyOutcomeView({ outcome, paused }: { outcome: ApplyOu
           data-apply-warnings={outcome.warnings.length}
         >
           <p className="font-medium">{t('apply.outcome.warningsTitle')}</p>
-          <ul className="mt-1 flex flex-col gap-1">
-            {outcome.warnings.map((w, i) => {
-              const store = createWarningStore(w)
-              const said = t(`apply.outcome.warning.${w.errorCode}`, {
-                defaultValue: '',
-              })
-              return (
-                <li key={i} data-apply-warning={w.errorCode} data-store={store ?? ''}>
-                  {store ? (
-                    <span className="font-mono">
-                      <Ltr>{store}</Ltr>
-                    </span>
-                  ) : (
-                    t('apply.outcome.someStore')
-                  )}{' '}
-                  {said || <bdi>{w.errorMessage}</bdi>}{' '}
-                  <span className="font-mono text-muted-foreground">
-                    <Ltr>{w.errorCode}</Ltr>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
+          <CreateWarningList warnings={outcome.warnings} />
         </div>
       )}
     </div>

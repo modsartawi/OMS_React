@@ -158,3 +158,39 @@ export interface PrescriptionSessionHqEndedRow {
   wasInvoiced: boolean
   afterClose: PrescriptionSessionAfterClose[]
 }
+
+// ── The HQ "To open" read (ticket 546; BackOffice 3015 `PrescriptionSessionHqToOpenModel`) ──────
+
+/** One unopened prescription order (`PrescriptionSessionHqToOpenOrderModel`). */
+export interface PrescriptionSessionHqToOpenOrder {
+  documentNo: string
+  documentType: string
+  /** The source it meets its prescription at: `NPHS | WSFT`. */
+  sourceKind: string
+  /** SdDocumentSource — `BKOF` for a NUPCO bulk upload. */
+  documentSource: string | null
+  patientId: string | null
+  approvalNumber: string | null
+  orderedAt: PrescriptionSessionLocalTime
+  /** Whole calendar days since the order's entry time. */
+  ageDays: number
+}
+
+/** One store's unopened orders (`PrescriptionSessionHqToOpenStoreModel`). */
+export interface PrescriptionSessionHqToOpenStore {
+  storeCode: string
+  /** Exact, even when `orders` is capped. */
+  count: number
+  oldestAgeDays: number
+  oldestOrderedAt: PrescriptionSessionLocalTime
+  /** Oldest first, capped across the whole read. */
+  orders: PrescriptionSessionHqToOpenOrder[]
+}
+
+/** "To open" across stores (`PrescriptionSessionHqToOpenModel`). */
+export interface PrescriptionSessionHqToOpen {
+  stores: PrescriptionSessionHqToOpenStore[]
+  total: number
+  /** Always false today (the NUPCO upload stamps no batch reference); ignored until a ticket adds one. */
+  byUpload: boolean
+}

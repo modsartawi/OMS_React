@@ -12,6 +12,8 @@
 import { api } from '@/core/api'
 import type { PrescriptionSessionHqList } from '@/core/models/prescription-session'
 import { openRequest, type OpenFilter } from './open-filter'
+import type { PrescriptionSessionHqToOpen } from '@/core/models/prescription-session'
+import { toOpenRequest, type ToOpenFilter } from './to-open'
 import type { PrescriptionSessionHqEndedRow } from '@/core/models/prescription-session'
 import { endedRequest, type EndedFilter } from './ended-filter'
 
@@ -31,6 +33,20 @@ export const prescriptionSessionsApi = {
       aboutToLapse: data?.aboutToLapse ?? 0,
       owed: data?.owed ?? 0,
       isTruncated: data?.isTruncated === true,
+    }
+  },
+
+  /**
+   * `GET PrescriptionSessionWeb/ToOpen?store` (ticket 546) — the unopened prescription orders, one
+   * group per store; each group's `orders` capped across the read, its `count` exact.
+   */
+  async toOpen(filter: ToOpenFilter): Promise<PrescriptionSessionHqToOpen> {
+    const { path, params } = toOpenRequest(filter)
+    const data = await api.get<PrescriptionSessionHqToOpen | null>(path, params)
+    return {
+      stores: (data?.stores ?? []).map((s) => ({ ...s, orders: s.orders ?? [] })),
+      total: data?.total ?? 0,
+      byUpload: data?.byUpload === true,
     }
   },
 

@@ -92,6 +92,27 @@ describe('deliverect-stores — the keys the code builds exist', () => {
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 
+  it.each([en, ar])('550: the line labels, notices and outcomes the code builds', (locale) => {
+    const keys = [
+      ...['inStock', 'outOfStock'].map((s) => `lines.stockStatus.${s}`),
+      ...['expired', 'noneSent', 'noMatch', 'attempted', 'base', 'noPrice', 'showing'].map((k) => `lines.${k}`),
+      ...['sent', 'attempted'].map((o) => `material.outcome.${o}`),
+      'material.empty',
+      'logs.columns.lines',
+    ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it('550: the 15-day wording names the days as ONE value, and the expired notice never reads as "nothing was sent"', () => {
+    for (const locale of [en, ar]) expect(locale.lines.expired.match(/\{\{\w+\}\}/g)).toEqual(['{{days}}'])
+    expect(en.lines.expired).toMatch(/kept for \{\{days\}\} days/)
+    expect(en.lines.expired).not.toMatch(/no lines were sent|nothing was sent/i)
+  })
+
+  it('550: the showing line isolates the range and the total as slots, never a bare separator template', () => {
+    for (const locale of [en, ar]) expect(locale.lines.showing).toMatch(/<range>\{\{range\}\}<\/range>.*<total>\{\{total\}\}<\/total>/)
+  })
+
   it('481: the overnight template keeps the range as ONE interpolated value', () => {
     for (const locale of [en, ar]) expect(locale.hours.overnight.match(/\{\{\w+\}\}/g)).toEqual(['{{range}}'])
   })

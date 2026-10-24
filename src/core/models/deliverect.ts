@@ -225,11 +225,61 @@ export interface DeliverectSyncLogRow {
   fileId: string | null
   callbackStatus: string | null
   error: string | null
+  /**
+   * BackOffice 3026: `true` while the push's lines are kept (15 days from its start), else `false`.
+   * Optional only because a server before 3026 leaves it off; then the Lines door is the answer.
+   */
+  linesKept?: boolean
 }
 
 /** The query of `GET DeliverectWeb/Sync/{storeCode}/Logs?take=` — `take` defaults to 50. */
 export interface DeliverectSyncLogsQuery {
   take: number | null
+}
+
+// ── Stock sync lines (3026) ──────────────────────────────────────────────────────────────────────
+
+/**
+ * One row of an inventory file built for a push. A **base row** (`channel` `null`) carries the
+ * location's stock, status and price; a **platform row** (`channel` = the platform's name on
+ * Deliverect) its stock status only.
+ */
+export interface DeliverectSyncLine {
+  plu: string
+  channel: string | null
+  /** The VAT-inclusive price sent, or `null` when none was sent (the items file's price stands). */
+  price: number | null
+  /** The ATP sent on a base row; `null` on a platform row. */
+  stock: number | null
+  /** `"IN_STOCK"` or `"OUT_OF_STOCK"`. */
+  stockStatus: string
+}
+
+/** `GET DeliverectWeb/Sync/{storeCode}/Logs/{logId}/Lines?plu=&channel=&skip=&take=`. */
+export interface DeliverectSyncLinesPage {
+  logId: string
+  /** `false` for a push outside the 15 days: no lines, and `total` 0. */
+  linesKept: boolean
+  /** The lines matching the filters. */
+  total: number
+  lines: DeliverectSyncLine[]
+}
+
+/** The query of the Lines door. `channel` is a platform name or `base`; `take` 1–1000, default 200. */
+export interface DeliverectSyncLinesQuery {
+  plu: string | null
+  channel: string | null
+  skip: number
+  take: number
+}
+
+/** One row of `GET DeliverectWeb/Sync/{storeCode}/Lines?plu=` — a line with its push. */
+export interface DeliverectMaterialLine extends DeliverectSyncLine {
+  logId: string
+  syncType: string
+  sentAt: LocalDateTime
+  status: string
+  callbackStatus: string | null
 }
 
 // ── Store status (2625) ──────────────────────────────────────────────────────────────────────────

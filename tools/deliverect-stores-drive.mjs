@@ -20,6 +20,12 @@
 //   POST   DeliverectWeb/StoreStatus/{store}/Hours  → [{ day, open, close, overnight }]; DLV-00010/11 (481)
 //   GET    DeliverectWeb/StoreStatus/{store}/History?take= → [{ action, delayMinutes, reason, by, at,
 //                                                     deliverectAnswer }]                  (481)
+//   GET    DeliverectWeb/Sync/{store}/Logs gains `linesKept` (BackOffice 3026)               (550)
+//   GET    DeliverectWeb/Sync/{store}/Logs/{logId}/Lines?plu=&channel=&skip=&take=
+//          → { logId, linesKept, total, lines: [{ plu, channel, price, stock, stockStatus }] };
+//            DLV-00001/13                                                                 (550)
+//   GET    DeliverectWeb/Sync/{store}/Lines?plu= → [{ logId, syncType, sentAt, status, callbackStatus,
+//                                                     plu, channel, price, stock, stockStatus }] (550)
 //
 // ── 477 (this slice) ── it asserts:
 //   1. the Deliverect group comes LAST (after Materials) with ONE leaf, Stores; the group, the leaf
@@ -76,6 +82,22 @@
 //      reads say so; Escape closes it;
 //  20. under RTL the hours label (an overnight one in <bdi>, its range one ltr isolate), the history's machine values and the dialog note are isolated, and
 //      a busy works.
+//
+// ── 550 (appended; 1–20 above stay unchanged except 14's header list, which gains the Lines column) ──
+// against the 3026 shapes, it asserts:
+//  21. a run opens its lines in the drawer: Lines?skip=0&take=200, PLU / platform / price / stock /
+//      stock status; a base row against a platform row (no price sent, no stock figure); out of stock
+//      marked; paging reads skip=200; the PLU and platform filters drive the door (plu exact,
+//      channel=base or a platform name); a filter matching nothing says so; a refused run's lines read
+//      as attempted; a run that sent nothing says so; a run whose log says linesKept:false says in
+//      words that lines are kept 15 days WITHOUT calling the door, and so does the door's own
+//      linesKept:false — never an empty table; DLV-00013 shows the server's sentence; Back returns;
+//  22. a store row's Material history reads Lines?plu= once per lookup and shows sent at, push type,
+//      push status (a refused push Attempted, never Sent), callback, platform, price, stock and stock
+//      status, out of stock marked; an empty history says the 15 days in words; DLV-00001 shows;
+//      a row with no sync block has no Material history;
+//  23. under RTL the lines' and the history's machine values are isolated, the showing range ONE
+//      isolate, the platform name its own <bdi>, and both work.
 //
 // ── 479 (note) ── the Catalog leaf joined too: check 1's list of built leaves gains /deliverect/catalog.
 // ── 482 (note) ── and the Terms leaf: the list gains /deliverect/terms.
@@ -146,6 +168,7 @@ const REFUSALS = {
   'DLV-00003': [400, 'No such account, or the account is inactive. / لا يوجد حساب بهذا المفتاح، أو الحساب غير نشط.'],
   'DLV-00009': [400, 'A reason is required (1–200 characters). / السبب مطلوب (1–200 حرف).'],
   'DLV-00010': [409, 'The store is not linked to a Deliverect location yet. / الفرع غير مربوط بموقع Deliverect بعد.'],
+  'DLV-00013': [404, 'No such push for this store. / لا توجد عملية إرسال بهذا المعرّف لهذا الفرع.'],
   'DLV-00011': [502, 'Deliverect refused the call: busy mode is not enabled for this location. / رفض Deliverect الطلب: وضع الانشغال غير مفعّل لهذا الموقع.'],
 }
 const refuse = (code) => {
@@ -165,6 +188,7 @@ const logRow = (logId, over = {}) => ({
   fileId: 'inv-7f3a9c',
   callbackStatus: 'processed',
   error: null,
+  linesKept: true,
   ...over,
 })
 const SYNC_LOGS = {
@@ -172,6 +196,46 @@ const SYNC_LOGS = {
     logRow('01JD0003', { startTime: '2026-10-12T10:30:00', endTime: null, rows: 0, fileId: null, callbackStatus: null }),
     logRow('01JD0002', { status: 'E', rows: 0, fileId: null, callbackStatus: null, error: 'Deliverect refused the file: location unknown' }),
     logRow('01JF0001', { syncType: 'F', startTime: '2026-10-12T07:05:00', endTime: '2026-10-12T07:09:12', rows: 18240 }),
+    // 550: the log still says kept, but the door answers linesKept:false (it expired between the reads).
+    logRow('01JD0001', { startTime: '2026-09-27T07:30:00', endTime: '2026-09-27T07:30:20' }),
+    // 550: a push the door does not know for this store (DLV-00013).
+    logRow('01JX0404', { startTime: '2026-09-27T07:00:00', endTime: '2026-09-27T07:00:20' }),
+    // 550: outside the 15 days — the log itself says so.
+    logRow('01JF0000', { syncType: 'F', startTime: '2026-09-20T07:05:00', endTime: '2026-09-20T07:09:00', linesKept: false }),
+  ],
+}
+
+// 550: a push's lines exactly as the contract has them — ordered by PLU, then the base row, then
+// each platform row. 250 PLUs plus 601624, each a base row and a Jahez and a Keeta row: 753 lines.
+const PLATFORMS = ['Jahez', 'Keeta']
+const FULL_LINES = []
+for (const i of [...Array.from({ length: 250 }, (_, k) => k + 1), 'x']) {
+  const plu = i === 'x' ? '601624' : String(100000 + i)
+  const n = i === 'x' ? 1 : i
+  const out = i !== 'x' && n % 10 === 0
+  FULL_LINES.push({
+    plu,
+    channel: null,
+    price: i === 'x' ? 18.95 : n % 25 === 0 ? null : Math.round((5 + n * 0.37) * 1000) / 1000,
+    stock: i === 'x' ? 7 : out ? 0 : n * 3,
+    stockStatus: out ? 'OUT_OF_STOCK' : 'IN_STOCK',
+  })
+  for (const channel of PLATFORMS)
+    FULL_LINES.push({ plu, channel, price: null, stock: null, stockStatus: out || i === 'x' ? 'OUT_OF_STOCK' : 'IN_STOCK' })
+}
+const PUSH_LINES = {
+  '01JF0001': { kept: true, lines: FULL_LINES },
+  '01JD0002': { kept: true, lines: FULL_LINES.slice(0, 6) },
+  '01JD0003': { kept: true, lines: [] },
+  '01JD0001': { kept: false, lines: [] },
+}
+// 550: one material's history at a store, exactly as the contract has it, newest push first.
+const MATERIAL_LINES = {
+  '1234|601624': [
+    { logId: '01JD0005', syncType: 'D', sentAt: '2026-10-12T10:30:12', status: 'S', callbackStatus: 'processed', plu: '601624', channel: null, price: 18.95, stock: 7, stockStatus: 'IN_STOCK' },
+    { logId: '01JD0005', syncType: 'D', sentAt: '2026-10-12T10:30:12', status: 'S', callbackStatus: 'processed', plu: '601624', channel: 'Jahez', price: null, stock: null, stockStatus: 'OUT_OF_STOCK' },
+    { logId: '01JD0002', syncType: 'D', sentAt: '2026-10-12T10:00:05', status: 'E', callbackStatus: null, plu: '601624', channel: null, price: 18.95, stock: 0, stockStatus: 'OUT_OF_STOCK' },
+    { logId: '01JF0001', syncType: 'F', sentAt: '2026-10-12T07:05:40', status: 'S', callbackStatus: 'processed', plu: '601624', channel: null, price: null, stock: 12, stockStatus: 'IN_STOCK' },
   ],
 }
 
@@ -220,6 +284,8 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
   const logReads = []
   const statusWrites = []
   const historyReads = []
+  const lineReads = []
+  const materialReads = []
   page.on('pageerror', (e) => errors.push(String(e)))
   // The browser logs every refused stub's status; DLV-00011 (481) is a stubbed 502.
   page.on('console', (m) => m.type() === 'error' && !/status of (4\d\d|502)/.test(m.text()) && errors.push(m.text()))
@@ -278,6 +344,30 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
       if (body.reason === 'trigger 00001') return route.fulfill(refuse('DLV-00001'))
       return route.fulfill(envelope(null))
     }
+    // 550: the stock sync lines doors (contract § Stock sync lines, BackOffice 3026).
+    if (/^DeliverectWeb\/Sync\/[^/]+\/Logs\/[^/]+\/Lines$/.test(p) && req.method() === 'GET') {
+      const [, , code, , logId] = p.split('/').map(decodeURIComponent)
+      const qs = url.searchParams
+      lineReads.push({ code, logId, params: Object.fromEntries(qs) })
+      if (code === '2001') return route.fulfill(refuse('DLV-00001'))
+      const entry = code === '1234' ? PUSH_LINES[logId] : undefined
+      if (!entry) return route.fulfill(refuse('DLV-00013'))
+      if (!entry.kept) return route.fulfill(envelope({ logId, linesKept: false, total: 0, lines: [] }))
+      const plu = qs.get('plu')
+      const channel = qs.get('channel')
+      const skip = Number(qs.get('skip') ?? 0)
+      const take = Number(qs.get('take') ?? 200)
+      const matching = entry.lines.filter(
+        (l) => (!plu || l.plu === plu) && (!channel || (channel === 'base' ? l.channel === null : l.channel === channel)),
+      )
+      return route.fulfill(envelope({ logId, linesKept: true, total: matching.length, lines: matching.slice(skip, skip + take) }))
+    }
+    if (/^DeliverectWeb\/Sync\/[^/]+\/Lines$/.test(p) && req.method() === 'GET') {
+      const code = decodeURIComponent(p.split('/')[2])
+      materialReads.push({ code, search: url.search.slice(1) })
+      if (code === '2001') return route.fulfill(refuse('DLV-00001'))
+      return route.fulfill(envelope(MATERIAL_LINES[`${code}|${url.searchParams.get('plu')}`] ?? []))
+    }
     if (/^DeliverectWeb\/Sync\/[^/]+\/Logs$/.test(p) && req.method() === 'GET') {
       const code = decodeURIComponent(p.split('/')[2])
       logReads.push({ code, search: url.search.slice(1) })
@@ -314,7 +404,7 @@ async function open(dir, { access = ALL, accounts = 'ok', stores = STORES } = {}
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, lists, writes, logReads, statusWrites, historyReads }
+  return { context, page, errors, calls, lists, writes, logReads, statusWrites, historyReads, lineReads, materialReads }
 }
 
 /** Wait until the grid holds `n` rows (a row is drawn once per pinned/centre section) and has settled. */
@@ -850,7 +940,7 @@ const painted = (page, code) =>
   const heads = await drawer.locator('thead th').allInnerTexts()
   check(
     '14: type, start, end, rows, status, file id, callback, error',
-    JSON.stringify(heads) === JSON.stringify(['Type', 'Start', 'End', 'Rows', 'Status', 'File id', 'Deliverect callback', 'Error']),
+    JSON.stringify(heads) === JSON.stringify(['Type', 'Start', 'End', 'Rows', 'Status', 'File id', 'Deliverect callback', 'Error', 'Lines']),
     heads.join(' | '),
   )
   const read = (id, col) => drawer.locator(`[data-sync-log="${id}"] [data-log-${col}]`).innerText()
@@ -1335,6 +1425,308 @@ const unisolated = (s) => s.replace(/[⁦-⁩]/g, '')
     JSON.stringify(statusWrites.at(-1)),
   )
   check('20: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ═══ 550: a push's lines and a material's history ═══════════════════════════════════════════════
+
+/** These sections wait longer than 5s: a busy machine (parallel drives) once left a read pending past it. */
+const LINES_WAIT = 15000
+
+const EXPIRED_WORDS =
+  "Line detail is kept for 15 days from a push's start. This push is older, so its lines are no longer kept. Its log row stays."
+
+/** Open the logs drawer of 1234, then one run's lines. */
+async function openLines(page, logId) {
+  const drawer = page.locator('dialog[open][data-sync-logs-drawer="1234"]')
+  if (!(await drawer.count())) {
+    await page.locator('[data-sync-logs="1234"]').click()
+    await drawer.locator('[data-sync-logs-table]').waitFor({ timeout: LINES_WAIT })
+  }
+  await drawer.locator(`[data-log-open-lines="${logId}"]`).click()
+  await drawer.locator(`[data-push-lines="${logId}"]`).waitFor({ timeout: LINES_WAIT })
+  return drawer
+}
+
+/** Wait until the lines view has settled on a table, a notice or an error. */
+const settled = (drawer) =>
+  drawer.locator('[data-lines-table], [data-lines-notice], [data-lines-error]').first().waitFor({ timeout: LINES_WAIT })
+
+// ── 21: a run's lines ────────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, lineReads } = await open('ltr', { stores: SYNCED })
+  await page.clock.setFixedTime(ELEVEN)
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 6)
+  const drawer = await openLines(page, '01JF0001')
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '21: opening a run reads its Lines with skip=0&take=200 and no filter',
+    JSON.stringify(lineReads) === JSON.stringify([{ code: '1234', logId: '01JF0001', params: { skip: '0', take: '200' } }]),
+    JSON.stringify(lineReads),
+  )
+  const heads = await drawer.locator('[data-lines-table] thead th').allInnerTexts()
+  check('21: PLU, platform, price, stock, stock status', JSON.stringify(heads) === JSON.stringify(['PLU', 'Platform', 'Price', 'Stock', 'Stock status']), heads.join(' | '))
+  check('21: the run is named — Full and its start', (await drawer.locator('[data-lines-run]').innerText()) === 'Full 2026-10-12 07:05')
+  const showing = () => drawer.locator('[data-lines-showing]').innerText()
+  check('21: it says which lines of how many', (await showing()) === 'Lines 1–200 of 753', await showing())
+  const line = async (key) => {
+    const out = {}
+    for (const col of ['plu', 'platform', 'price', 'stock', 'stock-status']) out[col] = await drawer.locator(`[data-line="${key}"] [data-line-${col}]`).innerText()
+    return out
+  }
+  check(
+    '21: a base row is the location row — its price at 3 decimals, its stock, in stock',
+    JSON.stringify(await line('100001|')) ===
+      JSON.stringify({ plu: '100001', platform: 'Base (location)', price: '5.370', stock: '3', 'stock-status': 'In stock' }),
+    JSON.stringify(await line('100001|')),
+  )
+  check(
+    '21: a platform row names its platform, no price sent, no stock figure',
+    JSON.stringify(await line('100001|Jahez')) ===
+      JSON.stringify({ plu: '100001', platform: 'Jahez', price: 'Not sent', stock: '—', 'stock-status': 'In stock' }),
+    JSON.stringify(await line('100001|Jahez')),
+  )
+  check('21: a base row with no price sent says Not sent, never 0', (await line('100025|')).price === 'Not sent')
+  const outRow = drawer.locator('[data-line="100010|"]')
+  check(
+    '21: 🚩 out of stock is marked — the row and its status, its stock of 0 shown',
+    (await outRow.getAttribute('data-line-out')) === '' &&
+      (await outRow.getAttribute('class')).includes('bg-attention-050') &&
+      (await line('100010|'))['stock-status'] === 'Out of stock' &&
+      (await line('100010|')).stock === '0',
+  )
+  check('21: 200 lines on the page', (await drawer.locator('[data-lines-table] tbody tr').count()) === 200)
+  check('21: a run Deliverect took does not say attempted', (await drawer.locator('[data-lines-attempted]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/lines.png` })
+  // Paging.
+  await drawer.locator('[data-lines-pager] button', { hasText: 'Next' }).click()
+  await page.waitForFunction(() => document.querySelector('[data-lines-showing]')?.textContent === 'Lines 201–400 of 753', null, { timeout: LINES_WAIT })
+  check('21: Next reads skip=200', JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ skip: '200', take: '200' }), JSON.stringify(lineReads.at(-1)))
+  // The platform filter offers the platforms the lines carried.
+  const options = await drawer.locator('[data-lines-platform] option').allInnerTexts()
+  check(
+    '21: the platform filter offers all rows, base rows only, and each platform seen',
+    JSON.stringify(options.map(unisolated)) === JSON.stringify(['All rows', 'Base rows only', 'Jahez', 'Keeta']),
+    options.join(' | '),
+  )
+  // PLU filter: exact, back to page 1.
+  await drawer.locator('[data-lines-plu]').fill(' 601624 ')
+  await drawer.locator('[data-lines-apply]').click()
+  await page.waitForFunction(() => document.querySelector('[data-lines-showing]')?.textContent === 'Lines 1–3 of 3', null, { timeout: LINES_WAIT })
+  check(
+    '21: the PLU filter sends plu (trimmed) from the first page',
+    JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ plu: '601624', skip: '0', take: '200' }),
+    JSON.stringify(lineReads.at(-1)),
+  )
+  check(
+    "21: 601624's base row and both platform rows, the platforms out of stock",
+    (await line('601624|')).price === '18.950' &&
+      (await line('601624|')).stock === '7' &&
+      (await line('601624|Jahez'))['stock-status'] === 'Out of stock' &&
+      (await line('601624|Keeta'))['stock-status'] === 'Out of stock',
+  )
+  check('21: one page needs no pager', (await drawer.locator('[data-lines-pager]').count()) === 0)
+  // Platform filter: base rows only.
+  await drawer.locator('[data-lines-plu]').fill('')
+  await drawer.locator('[data-lines-platform]').selectOption('base')
+  await drawer.locator('[data-lines-apply]').click()
+  await page.waitForFunction(() => document.querySelector('[data-lines-showing]')?.textContent === 'Lines 1–200 of 251', null, { timeout: LINES_WAIT })
+  check('21: base rows only sends channel=base', JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ channel: 'base', skip: '0', take: '200' }))
+  const platforms = await drawer.locator('[data-lines-table] [data-line-platform]').allInnerTexts()
+  check('21: …and every row is a base row', platforms.every((x) => x === 'Base (location)'), [...new Set(platforms)].join(' | '))
+  await drawer.locator('[data-lines-platform]').selectOption('Keeta')
+  await drawer.locator('[data-lines-apply]').click()
+  // The base-only read had the same total, so wait on the rows themselves, not the count line.
+  await page.waitForFunction(
+    () => document.querySelector('[data-lines-table] tbody tr [data-line-platform]')?.textContent === 'Keeta',
+    null,
+    { timeout: LINES_WAIT },
+  )
+  check('21: a platform sends its name as channel', lineReads.at(-1).params.channel === 'Keeta')
+  check(
+    '21: …and every row is that platform',
+    (await drawer.locator('[data-lines-table] [data-line-platform]').allInnerTexts()).every((x) => x === 'Keeta'),
+  )
+  // A filter matching nothing.
+  await drawer.locator('[data-lines-platform]').selectOption('')
+  await drawer.locator('[data-lines-plu]').fill('999999')
+  await drawer.locator('[data-lines-apply]').click()
+  await drawer.locator('[data-lines-notice="noMatch"]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '21: a filter that matches nothing says so, and draws no table',
+    (await drawer.locator('[data-lines-notice]').innerText()) === 'No line matches the filter.' && (await drawer.locator('[data-lines-table]').count()) === 0,
+  )
+  await drawer.locator('[data-lines-clear]').click()
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
+  check('21: Clear reads the whole run again', JSON.stringify(lineReads.at(-1).params) === JSON.stringify({ skip: '0', take: '200' }))
+  // Back to the log.
+  await drawer.locator('[data-lines-back]').click()
+  await drawer.locator('[data-sync-logs-table]').waitFor({ timeout: LINES_WAIT })
+  check('21: Back returns to the log', (await drawer.locator('[data-push-lines]').count()) === 0)
+  // A refused run: its lines are attempted, not delivered.
+  await openLines(page, '01JD0002')
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
+  check(
+    "21: 🚩 a refused run's lines read as attempted, not delivered",
+    (await drawer.locator('[data-lines-attempted]').innerText()) ===
+      'This push did not reach Deliverect: these lines were attempted, not delivered.' &&
+      (await drawer.locator('[data-lines-table] tbody tr').count()) === 6,
+  )
+  await drawer.locator('[data-lines-back]').click()
+  // A run that sent nothing.
+  await openLines(page, '01JD0003')
+  await settled(drawer)
+  check(
+    '21: a run that sent nothing says so',
+    (await drawer.locator('[data-lines-notice="noneSent"]').innerText()) === 'This push sent no lines.',
+  )
+  await drawer.locator('[data-lines-back]').click()
+  // The log says the lines are gone: words, no door call, no table.
+  check('21: a run outside the 15 days is marked Not kept in the log', (await drawer.locator('[data-sync-log="01JF0000"] [data-log-lines-gone]').innerText()) === 'Not kept')
+  const readsBefore = lineReads.length
+  await openLines(page, '01JF0000')
+  await drawer.locator('[data-lines-notice="expired"]').waitFor({ timeout: LINES_WAIT })
+  await page.waitForTimeout(300)
+  check(
+    '21: 🚩 an expired run says in words that line detail is kept 15 days — never an empty table',
+    unisolated(await drawer.locator('[data-lines-notice]').innerText()) === EXPIRED_WORDS &&
+      (await drawer.locator('[data-lines-table], [data-lines-filters]').count()) === 0,
+    await drawer.locator('[data-lines-notice]').innerText(),
+  )
+  check('21: …and the door is not called for it', lineReads.length === readsBefore && !lineReads.some((r) => r.logId === '01JF0000'))
+  await drawer.locator('[data-lines-back]').click()
+  // The door's own linesKept:false reads the same.
+  await openLines(page, '01JD0001')
+  await drawer.locator('[data-lines-notice="expired"]').waitFor({ timeout: LINES_WAIT })
+  check(
+    "21: the door's own linesKept:false reads the same words, no table",
+    unisolated(await drawer.locator('[data-lines-notice]').innerText()) === EXPIRED_WORDS &&
+      (await drawer.locator('[data-lines-table]').count()) === 0 &&
+      lineReads.at(-1).logId === '01JD0001',
+  )
+  await page.screenshot({ path: `${SHOTS}/lines-expired.png` })
+  await drawer.locator('[data-lines-back]').click()
+  // DLV-00013.
+  await openLines(page, '01JX0404')
+  await drawer.locator('[data-lines-error="DLV-00013"]').waitFor({ timeout: LINES_WAIT })
+  check("21: DLV-00013 shows the server's sentence", /No such push for this store\. \/ لا توجد/.test(await drawer.locator('[data-lines-error]').innerText()))
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: LINES_WAIT })
+  check('21: Escape closes the drawer from the lines view', (await page.locator('dialog[open]').count()) === 0)
+  check('21: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 22: a material's history ─────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors, materialReads } = await open('ltr', { stores: SYNCED })
+  await page.clock.setFixedTime(ELEVEN)
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 6)
+  check('22: a row with no sync block has no Material history', (await page.locator('[data-material-history="5001"]').count()) === 0)
+  await page.locator('[data-material-history="1234"]').click()
+  const drawer = page.locator('dialog[open][data-material-history-drawer="1234"]')
+  await drawer.waitFor()
+  check(
+    '22: it opens on a prompt, reads nothing, and Look up waits for a PLU',
+    (await drawer.locator('[data-material-prompt]').count()) === 1 &&
+      materialReads.length === 0 &&
+      (await drawer.locator('[data-material-search]').isDisabled()),
+  )
+  check(
+    '22: the title is the store · name pair, isolated once',
+    (await drawer.locator('[data-material-title] bdi[dir="ltr"]').count()) === 1 &&
+      (await drawer.locator('[data-material-title]').innerText()) === '1234 · Riyadh Olaya',
+  )
+  await drawer.locator('[data-material-plu]').fill(' 601624 ')
+  await drawer.locator('[data-material-search]').click()
+  await drawer.locator('[data-material-table]').waitFor({ timeout: LINES_WAIT })
+  check('22: it reads Lines?plu= once, trimmed', JSON.stringify(materialReads) === JSON.stringify([{ code: '1234', search: 'plu=601624' }]), JSON.stringify(materialReads))
+  const heads = await drawer.locator('thead th').allInnerTexts()
+  check(
+    '22: sent at, push, push status, callback, platform, price, stock, stock status',
+    JSON.stringify(heads) ===
+      JSON.stringify(['Sent at', 'Push', 'Push status', 'Deliverect callback', 'Platform', 'Price', 'Stock', 'Stock status']),
+    heads.join(' | '),
+  )
+  const rows = drawer.locator('[data-material-table] tbody tr')
+  const read = async (i) => {
+    const r = rows.nth(i)
+    const out = {}
+    for (const col of ['material-sent-at', 'material-type', 'material-outcome', 'material-callback', 'line-platform', 'line-price', 'line-stock', 'line-stock-status'])
+      out[col.replace(/^(material|line)-/, '')] = await r.locator(`[data-${col}]`).innerText()
+    return out
+  }
+  check('22: newest push first, every line', (await rows.count()) === 4)
+  check(
+    '22: the newest line — its push sent, processed, the base row in stock',
+    JSON.stringify(await read(0)) ===
+      JSON.stringify({ 'sent-at': '2026-10-12 10:30', type: 'Delta', outcome: 'Sent S', callback: 'processed', platform: 'Base (location)', price: '18.950', stock: '7', 'stock-status': 'In stock' }),
+    JSON.stringify(await read(0)),
+  )
+  check(
+    '22: a platform row out of stock is marked',
+    (await read(1)).platform === 'Jahez' && (await read(1))['stock-status'] === 'Out of stock' && (await rows.nth(1).getAttribute('data-line-out')) === '',
+  )
+  check(
+    "22: 🚩 a refused push's line reads Attempted, never Sent, and its row is red",
+    (await read(2)).outcome === 'Attempted E' &&
+      (await rows.nth(2).getAttribute('data-material-attempted')) === '' &&
+      (await rows.nth(2).getAttribute('class')).includes('bg-danger-050') &&
+      (await read(2)).callback === 'Not yet',
+  )
+  check('22: a full push with no price sent', (await read(3)).type === 'Full' && (await read(3)).price === 'Not sent' && (await read(3)).stock === '12')
+  await page.screenshot({ path: `${SHOTS}/material-history.png` })
+  await drawer.locator('[data-material-plu]').fill('999999')
+  await drawer.locator('[data-material-search]').click()
+  await drawer.locator('[data-material-empty]').waitFor({ timeout: LINES_WAIT })
+  check(
+    '22: an empty history says the 15 days in words',
+    unisolated(await drawer.locator('[data-material-empty]').innerText()) === 'No line was sent for 999999 at this store in the last 15 days.',
+    await drawer.locator('[data-material-empty]').innerText(),
+  )
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached', timeout: LINES_WAIT })
+  check('22: Escape closes it', (await page.locator('dialog[open]').count()) === 0)
+  await page.locator('[data-material-history="2001"]').click()
+  await page.locator('[data-material-plu]').fill('601624')
+  await page.locator('[data-material-search]').click()
+  await page.locator('[data-material-error="DLV-00001"]').waitFor({ timeout: LINES_WAIT })
+  check("22: a refused read shows the server's sentence", /No such store\. \/ لا يوجد/.test(await page.locator('[data-material-error]').innerText()))
+  check('22: no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// ── 23: RTL ──────────────────────────────────────────────────────────────────────────────────
+{
+  const { context, page, errors } = await open('rtl', { stores: SYNCED })
+  await page.clock.setFixedTime(ELEVEN)
+  await page.goto(`${BASE}/deliverect/stores`)
+  await waitRows(page, 6)
+  check('23: dir is rtl', (await page.evaluate(() => document.documentElement.dir)) === 'rtl')
+  const drawer = await openLines(page, '01JF0001')
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: LINES_WAIT })
+  const iso = await drawer.locator('[data-line="100001|"] bdi[dir="ltr"]').allInnerTexts()
+  check('23: a line isolates its PLU, price and stock whole', ['100001', '5.370', '3'].every((v) => iso.includes(v)), iso.join(' | '))
+  const showingIso = await drawer.locator('[data-lines-showing] bdi[dir="ltr"]').allInnerTexts()
+  check('23: the showing range is ONE isolate, the total another', JSON.stringify(showingIso) === JSON.stringify(['1–200', '753']), showingIso.join(' | '))
+  const platform = drawer.locator('[data-line="100001|Jahez"] [data-line-platform] bdi')
+  check('23: the platform name is free text in its own <bdi>', (await platform.count()) === 1 && (await platform.getAttribute('dir')) === null && (await platform.innerText()) === 'Jahez')
+  await page.screenshot({ path: `${SHOTS}/rtl-lines.png` })
+  await drawer.locator('[data-lines-back]').click()
+  await openLines(page, '01JF0000')
+  check('23: the expired words show under RTL', unisolated(await drawer.locator('[data-lines-notice="expired"]').innerText()) === EXPIRED_WORDS)
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached' })
+  await page.locator('[data-material-history="1234"]').click()
+  await page.locator('[data-material-plu]').fill('601624')
+  await page.locator('[data-material-search]').click()
+  await page.locator('[data-material-table]').waitFor({ timeout: LINES_WAIT })
+  const mIso = await page.locator('[data-material-table] tbody tr').first().locator('bdi[dir="ltr"]').allInnerTexts()
+  check('23: the history isolates its time, code, callback and figures', ['2026-10-12 10:30', 'S', 'processed', '18.950', '7'].every((v) => mIso.includes(v)), mIso.join(' | '))
+  await page.screenshot({ path: `${SHOTS}/rtl-material-history.png` })
+  check('23: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

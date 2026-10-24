@@ -159,7 +159,72 @@
       "status": "Status",
       "fileId": "File id",
       "callback": "Deliverect callback",
-      "error": "Error"
+      "error": "Error",
+      "lines": "Lines"
+    },
+    "openLines": "Lines",
+    "linesGone": "Not kept"
+  },
+  "lines": {
+    "eyebrow": "Lines of a push",
+    "back": "Back to the log",
+    "hint": "Every row of the inventory file built for this push. Line detail is kept {{days}} days.",
+    "loading": "Loading the push's lines…",
+    "failed": "The push's lines could not be loaded",
+    "attempted": "This push did not reach Deliverect: these lines were attempted, not delivered.",
+    "expired": "Line detail is kept for {{days}} days from a push's start. This push is older, so its lines are no longer kept. Its log row stays.",
+    "noneSent": "This push sent no lines.",
+    "noMatch": "No line matches the filter.",
+    "showing": "Lines <range>{{range}}</range> of <total>{{total}}</total>",
+    "base": "Base (location)",
+    "noPrice": "Not sent",
+    "noStock": "—",
+    "stockStatus": {
+      "inStock": "In stock",
+      "outOfStock": "Out of stock"
+    },
+    "filters": {
+      "plu": "PLU",
+      "pluPlaceholder": "The exact PLU",
+      "platform": "Platform",
+      "allRows": "All rows",
+      "baseOnly": "Base rows only",
+      "apply": "Filter",
+      "clear": "Clear"
+    },
+    "columns": {
+      "plu": "PLU",
+      "platform": "Platform",
+      "price": "Price",
+      "stock": "Stock",
+      "stockStatus": "Stock status"
+    }
+  },
+  "material": {
+    "button": "Material history",
+    "eyebrow": "Material sync history",
+    "hint": "Every line sent for one material at this store in the last {{days}} days, newest push first, at most {{max}}.",
+    "close": "Close",
+    "plu": "Material (PLU)",
+    "pluPlaceholder": "e.g. 601624",
+    "search": "Look up",
+    "prompt": "Enter a material's PLU to see what Deliverect was sent for it at this store.",
+    "loading": "Loading the material's history…",
+    "failed": "The material's history could not be loaded",
+    "empty": "No line was sent for <plu>{{plu}}</plu> at this store in the last {{days}} days.",
+    "outcome": {
+      "sent": "Sent",
+      "attempted": "Attempted"
+    },
+    "columns": {
+      "sentAt": "Sent at",
+      "type": "Push",
+      "outcome": "Push status",
+      "callback": "Deliverect callback",
+      "platform": "Platform",
+      "price": "Price",
+      "stock": "Stock",
+      "stockStatus": "Stock status"
     }
   },
   "statusAction": {

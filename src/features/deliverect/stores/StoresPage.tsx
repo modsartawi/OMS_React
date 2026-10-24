@@ -24,6 +24,7 @@ import { MoveDialog, OnboardDialog, RemoveDialog, SyncActiveDialog } from './Sto
 import { LINKED_FILTERS, accountChoices, onboardWarning, optionalColumns, storesFromParams, storesToParams } from './store-state'
 import { syncHealth, syncHighlight } from './sync-health'
 import SyncLogsDrawer from './SyncLogsDrawer'
+import MaterialHistoryDrawer from './MaterialHistoryDrawer'
 import { PushHoursDialog, StatusActionDialog } from './StatusDialogs'
 import StatusHistoryDrawer from './StatusHistoryDrawer'
 
@@ -72,6 +73,7 @@ type Dialog =
   | { kind: 'remove'; row: Row }
   | { kind: 'syncActive'; row: Row }
   | { kind: 'logs'; row: Row }
+  | { kind: 'material'; row: Row }
   | { kind: 'status'; row: Row }
   | { kind: 'hours'; row: Row }
   | { kind: 'history'; row: Row }
@@ -175,6 +177,7 @@ function Stores() {
           onRemove: (row) => setDialog({ kind: 'remove', row }),
           onSyncActive: (row) => setDialog({ kind: 'syncActive', row }),
           onLogs: (row) => setDialog({ kind: 'logs', row }),
+          onMaterial: (row) => setDialog({ kind: 'material', row }),
           onStatus: (row) => setDialog({ kind: 'status', row }),
           onHours: (row) => setDialog({ kind: 'hours', row }),
           onHistory: (row) => setDialog({ kind: 'history', row }),
@@ -346,6 +349,7 @@ function Stores() {
         <SyncActiveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
       )}
       {dialog?.kind === 'logs' && <SyncLogsDrawer row={dialog.row} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'material' && <MaterialHistoryDrawer row={dialog.row} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'status' && (
         <StatusActionDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
       )}

@@ -1,6 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import { Clock, History, Pause, Play, ScrollText, Store } from 'lucide-react'
+import { Clock, History, PackageSearch, Pause, Play, ScrollText, Store } from 'lucide-react'
 import type { DeliverectStoreRow, DeliverectStoreState } from '@/core/models/deliverect'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -77,6 +77,8 @@ export function storeColumns(
     onRemove: (row: Row) => void
     onSyncActive: (row: Row) => void
     onLogs: (row: Row) => void
+    /** 550: one material's sync history at the store. */
+    onMaterial: (row: Row) => void
     onStatus: (row: Row) => void
     onHours: (row: Row) => void
     onHistory: (row: Row) => void
@@ -210,7 +212,7 @@ export function storeColumns(
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 180 + (shown.sync ? 160 : 0) + (shown.status ? 360 : 0),
+      width: 180 + (shown.sync ? 310 : 0) + (shown.status ? 360 : 0),
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -225,6 +227,10 @@ export function storeColumns(
                 <Button variant="ghost" onClick={() => act.onLogs(data)} data-sync-logs={data.storeCode}>
                   <ScrollText className="h-3.5 w-3.5" aria-hidden />
                   {t('logs.button')}
+                </Button>
+                <Button variant="ghost" onClick={() => act.onMaterial(data)} data-material-history={data.storeCode}>
+                  <PackageSearch className="h-3.5 w-3.5" aria-hidden />
+                  {t('material.button')}
                 </Button>
               </>
             )}

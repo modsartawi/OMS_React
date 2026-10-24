@@ -1,0 +1,92 @@
+{
+  "menu": {
+    "dataSync": "Data sync"
+  },
+  "title": "Data sync",
+  "subtitle": "Compare a store's data to HQ and reconcile it: campaigns of per-store jobs, run from pre-configured profiles.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to data sync",
+    "deniedHint": "Your account does not hold the grant to view data sync. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "refreshing": "Refreshing…",
+  "campaignStatus": {
+    "Ready": "Ready",
+    "Running": "Running",
+    "Pausing": "Pausing",
+    "Paused": "Paused",
+    "Cancelling": "Cancelling",
+    "Cancelled": "Cancelled",
+    "Completed": "Completed"
+  },
+  "mode": {
+    "ReportOnly": "Report only",
+    "Apply": "Apply"
+  },
+  "strategy": {
+    "Reconcile": "Reconcile",
+    "Seed": "Seed"
+  },
+  "jobsByState": {
+    "queued": "Queued",
+    "running": "Running",
+    "paused": "Paused",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "banner": {
+    "stateDbUnreachable": "DataSync's state database is unreachable. Campaigns cannot be read or advanced until it is back.",
+    "workerDisabled": "DataSync's worker is turned off. Campaigns will not advance until it is turned on.",
+    "workerStale": "DataSync's worker has not ticked since <at>{{at}}</at>. Running campaigns may be stalled, not slow.",
+    "workerNeverTicked": "DataSync's worker has not ticked yet. Running campaigns may be stalled, not slow."
+  },
+  "campaigns": {
+    "heading": "Campaigns",
+    "status": "Status",
+    "statusAny": "Any status",
+    "failed": "The campaigns could not be loaded.",
+    "loading": "Loading campaigns…",
+    "empty": "No campaigns yet.",
+    "emptyFiltered": "No campaigns with this status.",
+    "emptyPage": "No more campaigns on this page.",
+    "unnamed": "(unnamed)",
+    "columns": {
+      "name": "Name",
+      "profile": "Profile",
+      "mode": "Mode",
+      "status": "Status",
+      "jobsByState": "Jobs by state",
+      "totalJobs": "Jobs",
+      "createdAt": "Created"
+    }
+  },
+  "pager": {
+    "readout": "Page <n>{{page}}</n>"
+  },
+  "profiles": {
+    "heading": "Profiles",
+    "hint": "The profiles DataSync can run. Read-only: an administrator maintains them.",
+    "failed": "The profiles could not be loaded.",
+    "loading": "Loading profiles…",
+    "empty": "No profile is enabled.",
+    "source": "Source",
+    "applyAllowed": "May be applied",
+    "reportOnly": "Report only",
+    "wholeTable": "Whole table",
+    "noApply": "No table of this profile may be applied; it runs report-only.",
+    "columns": {
+      "table": "Table",
+      "strategy": "Strategy",
+      "where": "Compare window",
+      "apply": "Apply"
+    }
+  },
+  "campaign": {
+    "placeholderTitle": "Campaign",
+    "placeholder": "The campaign page arrives with the next slice.",
+    "back": "Back to campaigns"
+  }
+}

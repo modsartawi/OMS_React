@@ -15,6 +15,7 @@ import { CAMPAIGN_STATUSES, DATA_SYNC_PAGE_SIZE, type Campaign, type CampaignSta
 import { campaignsListQuery, canOpenDataSync, dataSyncAccessQuery, profilesQuery } from './api'
 import { campaignsFilterFromParams, campaignsFilterToParams } from './helpers'
 import { DATA_SYNC_DEFAULT_COL_DEF, buildCampaignColumns } from './campaign-columns'
+import { NewCampaignButton } from './NewCampaignDialog'
 import Pager from './Pager'
 import ProfilesPanel from './ProfilesPanel'
 import ServiceBannerView from './ServiceBannerView'
@@ -67,6 +68,7 @@ function Campaigns() {
               {t('refreshing')}
             </span>
           )}
+          <NewCampaignButton />
           <select
             value={filter.status ?? ''}
             onChange={(e) => update(() => ({ status: (e.target.value || null) as CampaignStatus | null, page: 1 }))}

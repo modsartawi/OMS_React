@@ -204,5 +204,63 @@
       "failure": "Failure",
       "flags": "Manifest"
     }
+  },
+  "create": {
+    "open": "New campaign",
+    "title": "New campaign",
+    "profile": "Profile",
+    "profilePick": "Choose a profile…",
+    "profilesLoading": "Loading profiles…",
+    "profilesFailed": "The profiles could not be loaded.",
+    "noProfiles": "No profile is enabled, so no campaign can be created.",
+    "tables": "Tables",
+    "tablesHint": "Every table is run unless you untick some.",
+    "tablesNone": "Tick at least one table.",
+    "targets": "Target stores",
+    "fleet": "The whole fleet",
+    "fleetHint": "Every store in HQ's store list.",
+    "stores": "Stores by code",
+    "codes": "Store codes",
+    "codesHint": "Paste or type them: one per line, or separated by commas or tabs.",
+    "codesCount_one": "<n>{{figure}}</n> store",
+    "codesCount_other": "<n>{{figure}}</n> stores",
+    "codesNone": "Enter at least one store code.",
+    "duplicates_one": "<n>{{figure}}</n> repeated code was dropped.",
+    "duplicates_other": "<n>{{figure}}</n> repeated codes were dropped.",
+    "malformedTitle": "These are not store codes. Fix or remove them before creating:",
+    "malformedLine": "Line <line>{{line}}</line>: <code>{{value}}</code>",
+    "name": "Name (optional)",
+    "mode": "Mode",
+    "reportOnlyNote": "Report only: each store is compared to HQ and nothing is written to it.",
+    "readyNote": "The campaign is created Ready. Nothing runs until you press Start on its page.",
+    "cancel": "Cancel",
+    "submit": "Create",
+    "submitting": "Creating…",
+    "failed": "The campaign was not created.",
+    "failedHint": "The campaign could not be created. Try again in a moment.",
+    "created": "Campaign created. Review it, then press Start.",
+    "refusal": {
+      "DATASYNC_PROFILE_NOT_FOUND": "This profile no longer exists or has been disabled. Choose another profile.",
+      "DATASYNC_TABLE_NOT_IN_PROFILE": "The table <v>{{table}}</v> is not in this profile. Reopen the dialog to see the profile's current tables.",
+      "DATASYNC_UNKNOWN_STORE": "The store <v>{{store}}</v> is not in HQ's store list. Remove it and create again.",
+      "DATASYNC_SOURCE_UNAVAILABLE": "This profile's HQ source is not available to DataSync. Ask an administrator to configure it.",
+      "DATASYNC_INVALID_REQUEST": "DataSync could not read this request. Check the stores and tables and try again.",
+      "DATASYNC_REASON_REQUIRED": "An Apply campaign needs a reason of at least 10 characters.",
+      "DATASYNC_PROFILE_NO_APPLY_TABLES": "None of the chosen tables may be applied. Run it as report only.",
+      "DATASYNC_STORE_BUSY": "No target store is safe to apply yet. Pause them on ActionSync first.",
+      "someStore": "one of the stores",
+      "someTable": "one of the tables"
+    }
+  },
+  "start": {
+    "button": "Start",
+    "starting": "Starting…",
+    "failed": "The campaign did not start.",
+    "failedHint": "The campaign could not be started. Try again in a moment.",
+    "started": "Campaign started.",
+    "refusal": {
+      "DATASYNC_INVALID_STATE": "The campaign is no longer Ready, so it cannot be started. The page shows its current status.",
+      "DATASYNC_CAMPAIGN_NOT_FOUND": "This campaign no longer exists."
+    }
   }
 }

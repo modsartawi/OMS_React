@@ -24,6 +24,7 @@ import {
   profilesQuery,
 } from './api'
 import CampaignHeader from './CampaignHeader'
+import { useChangesLinkFooter } from './ChangesLink'
 import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { buildJobColumns } from './job-columns'
 import { campaignJobsFromParams, campaignJobsToParams, isDataSyncNotFound, pollInterval } from './job-helpers'
@@ -91,7 +92,7 @@ function CampaignView() {
   // 563: a job row's Pause / Resume / Cancel — set this and the grid grows an `actions` column.
   const jobRowActions: ((job: Job) => ReactNode) | undefined = undefined
   // 562 (Changes link, report-only + Operate) / 563 (the open job's controls): the drawer's footer.
-  const jobDrawerFooter: ((job: Job) => ReactNode) | undefined = undefined
+  const jobDrawerFooter: ((job: Job) => ReactNode) | undefined = useChangesLinkFooter(campaign.data?.mode)
 
   const columns = useMemo(() => buildJobColumns(t, { onOpen: openJob, rowActions: jobRowActions }), [t, openJob, jobRowActions])
 

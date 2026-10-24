@@ -7,10 +7,11 @@
  * origin, so the session cookie and `X-Web-Client` travel); in dev `vite.config.ts` sends
  * `/api/DataSync` to `DATASYNC_API`. The shapes are `@/core/models/data-sync`'s.
  */
-import { api, type ApiEnvelope } from '@/core/api'
+import { api, isBareDenial, type ApiEnvelope } from '@/core/api'
 import type {
   Campaign,
   ControlRequest,
+  ChangeManifestRow,
   CreateCampaignRequest,
   DataSyncAccess,
   DataSyncHealth,
@@ -20,6 +21,7 @@ import type {
 import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
 import type { ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
+import { changesQuery, isManifestPruned, type ChangesView } from './changes-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
 import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
 
@@ -114,6 +116,15 @@ export const dataSyncApi = {
    */
   controlJob(jobId: string, action: ControlAction, body: ControlRequest): Promise<Job> {
     return api.post<Job>(`DataSync/Jobs/${encodeURIComponent(jobId)}/${action}`, body)
+  },
+
+  /**
+   * `GET DataSync/Jobs/{id}/Changes?table=&kind=&page=&pageSize=` (ticket 562, **Operate**) → a
+   * report-only job's manifest rows, a plain array with no total. 410 `DATASYNC_MANIFEST_PRUNED`
+   * once past retention; a bare 403 without Operate. 🚩 Rows may hold personal data: never logged.
+   */
+  changes(jobId: string, view: ChangesView): Promise<ChangeManifestRow[]> {
+    return api.get<ChangeManifestRow[]>(`DataSync/Jobs/${encodeURIComponent(jobId)}/Changes`, { ...changesQuery(view) })
   },
 
   // ── Create and Start (ticket 561) ──
@@ -273,5 +284,34 @@ export function actionSyncFleetQuery() {
     queryFn: () => actionSyncApi.fleet(),
     staleTime: 0,
     retry: false,
+  } as const
+}
+
+// ── The Changes view (ticket 562) ───────────────────────────────────────────────
+
+/**
+ * The Changes view's own read of its job (the table filter, the truncated flags, the way back),
+ * keyed apart from the campaign page: it is not polled, and the view does not know the campaign
+ * before it has read the job.
+ */
+export function changesJobQuery(jobId: string) {
+  return {
+    queryKey: ['data-sync', 'changes', jobId, 'job'] as const,
+    queryFn: () => dataSyncApi.job(jobId),
+    retry: retryUnlessNotFound,
+  } as const
+}
+
+/**
+ * One page of a job's changes. 🚩 `gcTime: 0`: the rows (possibly personal data) stay in memory
+ * only while the view shows them and are dropped when it closes. A prune, a not-found or a bare
+ * refusal is an answer, never retried.
+ */
+export function changesListQuery(jobId: string, view: ChangesView) {
+  return {
+    queryKey: ['data-sync', 'changes', jobId, 'rows', { table: view.table, kind: view.kind, page: view.page }] as const,
+    queryFn: () => dataSyncApi.changes(jobId, view),
+    gcTime: 0,
+    retry: (count: number, err: unknown) => !isManifestPruned(err) && !isDataSyncNotFound(err) && !isBareDenial(err) && count < 1,
   } as const
 }

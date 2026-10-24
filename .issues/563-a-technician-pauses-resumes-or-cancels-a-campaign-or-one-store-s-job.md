@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 558
 blocked-by: 560
 ---
@@ -29,9 +29,9 @@ model/api · store/logic · component/route · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `campaignControls` / `jobControls`: every status × `canOperate` gives exactly the allowed actions · pure
-- [ ] `controlRefusalWords`: each 409 code maps to its sentence key · pure
-- [ ] `tools/data-sync-controls-drive.mjs`: with stubs, each control posts to the right door with the note, the refusals show in the dialog, and no control renders without `canOperate`
+- [x] `campaignControls` / `jobControls`: every status × `canOperate` gives exactly the allowed actions · pure
+- [x] `controlRefusalWords`: each 409 code maps to its sentence key · pure
+- [x] `tools/data-sync-controls-drive.mjs`: with stubs, each control posts to the right door with the note, the refusals show in the dialog, and no control renders without `canOperate`
 
 ## Boundaries
 
@@ -45,3 +45,30 @@ are green.
 ## Blocked by
 
 [560](560-a-technician-follows-a-campaign-s-jobs-and-each-store-s-tables-as-they-run.md)
+
+## Comments
+
+**Built 2026-10-24 (ticket/563).** `control-helpers.ts` (`campaignControls`, `jobControls`,
+`controlTakesNote`, `controlBody`, `controlRefusalWords`, `isOperateDenied`; vitest 13 tests),
+`dataSyncApi.controlCampaign` / `controlJob`, `ControlDialog.tsx` (the shared confirm dialog for
+564/565), `Controls.tsx` (`CampaignControls`, `JobControls`, `jobRowControls`, `jobDrawerControls`,
+`useCanOperateDataSync`). Drive `tools/data-sync-controls-drive.mjs` 50/50 against stubs; 560's
+campaign drive still 60/60. Nothing driven against a live DataSync (566).
+
+Decisions an owner may overrule:
+- **Legal moves are the service's [CODE] tables**, not the ticket's shorthand: Cancel is offered on
+  a Ready campaign and on a Pausing campaign or job, never on Cancelling. A job's moves ignore its
+  campaign's status (a queued job may be paused before Start), as the service does.
+- **Resume takes no note** (the ticket gives one to Pause and Cancel); it posts `{}`. A blank note
+  is not sent.
+- **A bare 403 on a control** drops `canOperate` from the cached `DataSync/Access` answer, so EVERY
+  Operate control on the page hides (561's Start and 562's Changes link too, if they read that
+  answer), with one warning toast. No re-probe.
+- After a control the door's answer goes straight into the cache (header, the job's row on every
+  jobs page held, the drawer) and the campaign's reads are invalidated at once (rollup), not left
+  to the next poll tick. A refusal invalidates too, so INVALID_STATE's "the page now shows the
+  current state" holds. A success toast names the new status.
+- The 404 not-found codes also get words in the dialog (beyond the ticket's 409s).
+- 560's `actions` column is now pinned to the reading end (`pinEnd`, 180px) with compact row
+  buttons: the row is wider than the grid and the actions scrolled off its end.
+- The dialog is portalled to `<body>` so the grid never sees keystrokes typed into the note.

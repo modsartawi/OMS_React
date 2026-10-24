@@ -128,6 +128,56 @@
     "Operator": "Paused by a person",
     "StoreBusy": "Held: ActionSync is working this store"
   },
+  "controls": {
+    "action": {
+      "Pause": "Pause",
+      "Resume": "Resume",
+      "Cancel": "Cancel"
+    },
+    "title": {
+      "campaign": {
+        "Pause": "Pause the campaign",
+        "Resume": "Resume the campaign",
+        "Cancel": "Cancel the campaign"
+      },
+      "job": {
+        "Pause": "Pause the job for store {{store}}",
+        "Resume": "Resume the job for store {{store}}",
+        "Cancel": "Cancel the job for store {{store}}"
+      }
+    },
+    "actsOnCampaign": "Campaign",
+    "actsOnJob": "Job",
+    "note": {
+      "campaign": {
+        "Pause": "Pause takes effect at the next chunk boundary: running jobs show Pausing until they reach it, then Paused. Queued jobs are simply not started.",
+        "Resume": "Resume re-queues the jobs a person paused. Jobs held because their store became busy resume on their own once it is safe.",
+        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back."
+      },
+      "job": {
+        "Pause": "Pause takes effect at the next chunk boundary: a running job shows Pausing until it reaches it, then Paused. A queued job is paused at once.",
+        "Resume": "Resume puts the job back in the queue. An apply job checks again that its store is safe to write to.",
+        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back."
+      }
+    },
+    "reason": "Note (optional)",
+    "close": "Close",
+    "sending": "Sending…",
+    "failed": "DataSync refused this control.",
+    "failedHint": "The control could not be sent.",
+    "done": {
+      "campaign": "The campaign is now {{status}}.",
+      "job": "The job for store {{store}} is now {{status}}."
+    },
+    "denied": "Your account does not hold the grant to operate data sync, so the controls are hidden.",
+    "refusal": {
+      "DATASYNC_INVALID_STATE": "This move is no longer allowed from its current status. The page now shows the current state.",
+      "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then resume this job.",
+      "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to. Cancel this job instead.",
+      "DATASYNC_CAMPAIGN_NOT_FOUND": "DataSync no longer knows this campaign.",
+      "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job."
+    }
+  },
   "tableStatus": {
     "Pending": "Pending",
     "Running": "Running",

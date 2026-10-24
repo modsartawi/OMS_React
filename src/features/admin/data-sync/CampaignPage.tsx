@@ -24,6 +24,7 @@ import {
   profilesQuery,
 } from './api'
 import CampaignHeader from './CampaignHeader'
+import { CampaignControls, jobDrawerControls, jobRowControls, useCanOperateDataSync } from './Controls'
 import { DATA_SYNC_DEFAULT_COL_DEF } from './campaign-columns'
 import { buildJobColumns } from './job-columns'
 import { campaignJobsFromParams, campaignJobsToParams, isDataSyncNotFound, pollInterval } from './job-helpers'
@@ -37,7 +38,7 @@ import ServiceBannerView from './ServiceBannerView'
  * The header and rollup, the jobs grid (one row per store, 50 a page, a job-status filter kept in
  * the URL) and the job drawer (`?job=`). Campaign, jobs and the open job refetch every 5 s while
  * any job is non-terminal and the tab is visible (`pollInterval`); a 404 shows a not-found state.
- * Read-only: the controls arrive with 563.
+ * Pause / Resume / Cancel (563, `./Controls`) show for holders of `DataSync.Operate` only.
  */
 export default function CampaignPage() {
   const { t } = useTranslation('data-sync')
@@ -84,14 +85,15 @@ function CampaignView() {
 
   const openJob = useCallback((id: string) => update((v) => ({ ...v, job: id })), [update])
   const closeJob = useCallback(() => update((v) => ({ ...v, job: null })), [update])
+  const canOperate = useCanOperateDataSync()
 
   // ── 🔌 Seams for the later slices (all absent today: this slice is read-only) ──────────────
   // 561/563/565: campaign-level buttons (Start; Pause / Resume / Cancel; hand back to ActionSync).
-  const headerActions: ReactNode = undefined
+  const headerActions: ReactNode = campaign.data && <CampaignControls campaign={campaign.data} />
   // 563: a job row's Pause / Resume / Cancel — set this and the grid grows an `actions` column.
-  const jobRowActions: ((job: Job) => ReactNode) | undefined = undefined
+  const jobRowActions: ((job: Job) => ReactNode) | undefined = canOperate ? jobRowControls : undefined
   // 562 (Changes link, report-only + Operate) / 563 (the open job's controls): the drawer's footer.
-  const jobDrawerFooter: ((job: Job) => ReactNode) | undefined = undefined
+  const jobDrawerFooter: ((job: Job) => ReactNode) | undefined = canOperate ? jobDrawerControls : undefined
 
   const columns = useMemo(() => buildJobColumns(t, { onOpen: openJob, rowActions: jobRowActions }), [t, openJob, jobRowActions])
 

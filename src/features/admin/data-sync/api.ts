@@ -8,7 +8,8 @@
  * `/api/DataSync` to `DATASYNC_API`. The shapes are `@/core/models/data-sync`'s.
  */
 import { api } from '@/core/api'
-import type { Campaign, DataSyncAccess, DataSyncHealth, Job, SyncProfile } from '@/core/models/data-sync'
+import type { Campaign, ControlRequest, DataSyncAccess, DataSyncHealth, Job, SyncProfile } from '@/core/models/data-sync'
+import type { ControlAction } from './control-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
 import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
 
@@ -85,6 +86,24 @@ export const dataSyncApi = {
   /** `GET DataSync/Jobs/{id}` → one job with its table tasks (the drawer). 404 `DATASYNC_JOB_NOT_FOUND`. */
   job(jobId: string): Promise<Job> {
     return api.get<Job>(`DataSync/Jobs/${encodeURIComponent(jobId)}`)
+  },
+
+  /**
+   * `POST DataSync/Campaigns/{id}/{Pause|Resume|Cancel}` (ticket 563) → the campaign AFTER the move
+   * and its settle (Pause → Pausing or Paused; Cancel → Cancelling or Cancelled). 409
+   * `DATASYNC_INVALID_STATE`, 404 `DATASYNC_CAMPAIGN_NOT_FOUND`; a bare 403 without Operate.
+   */
+  controlCampaign(campaignId: string, action: ControlAction, body: ControlRequest): Promise<Campaign> {
+    return api.post<Campaign>(`DataSync/Campaigns/${encodeURIComponent(campaignId)}/${action}`, body)
+  },
+
+  /**
+   * `POST DataSync/Jobs/{id}/{Pause|Resume|Cancel}` (ticket 563) → the job after the move. 409
+   * `DATASYNC_INVALID_STATE`; an apply job's Resume re-checks its store: 409 `DATASYNC_STORE_BUSY` /
+   * `DATASYNC_STORE_WPF_HOSTED`. 404 `DATASYNC_JOB_NOT_FOUND`; a bare 403 without Operate.
+   */
+  controlJob(jobId: string, action: ControlAction, body: ControlRequest): Promise<Job> {
+    return api.post<Job>(`DataSync/Jobs/${encodeURIComponent(jobId)}/${action}`, body)
   },
 }
 

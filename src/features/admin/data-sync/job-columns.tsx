@@ -3,6 +3,7 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import type { TFunction } from 'i18next'
 import { AlertTriangle } from 'lucide-react'
 
+import { pinEnd } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
 import { formatCount } from '@/core/util/bidi'
 import type { Job, TableTask } from '@/core/models/data-sync'
@@ -84,7 +85,11 @@ export function buildJobColumns(t: TFunction, opts: JobColumnsOptions): ColDef<J
     cols.push({
       headerName: t('jobs.columns.actions'),
       colId: 'actions',
-      width: 220,
+      width: 180,
+      sortable: false,
+      // 🚩 Pinned (563): the row is wider than the grid, and an action scrolled off its end is
+      // gone. AG Grid's sides are PHYSICAL, so the reading end comes from the boot direction.
+      pinned: pinEnd,
       cellRenderer: (p: ICellRendererParams<Job>) => (p.data ? draw(p.data) : null),
     })
   }

@@ -10,6 +10,7 @@ import {
   openFilterToParams,
   openRequest,
   withFlag,
+  withView,
   type OpenFilter,
 } from './open-filter'
 
@@ -45,7 +46,12 @@ describe('filter ↔ URL', () => {
     expect(url('state=INVOICED&owner=BOSS&source=X&flag=LATE&minAge=-1&maxAge=2.5')).toEqual(DEFAULT_OPEN_FILTER)
   })
 
-  it('offers the open states only, in lifecycle order', () => {
+  it('INVOICED is not an open state the door accepts (HqOpenStates; it closes in the same act)', () => {
+    expect(OPEN_STATES).not.toContain('INVOICED')
+    expect(url('state=INVOICED').state).toBe('')
+  })
+
+  it('offers exactly the open states the Sessions door accepts (HqOpenStates), in lifecycle order', () => {
     expect(OPEN_STATES).toEqual([
       'DRAFT',
       'VALIDATING',
@@ -93,6 +99,21 @@ describe('filter → query', () => {
   it('the Owed view sends only the store, to Sessions/Owed', () => {
     expect(openRequest({ ...full, view: 'owed' })).toEqual({ path: 'PrescriptionSessionWeb/Sessions/Owed', params: { store: 'P019' } })
     expect(openRequest({ ...DEFAULT_OPEN_FILTER, view: 'owed' })).toEqual({ path: 'PrescriptionSessionWeb/Sessions/Owed', params: {} })
+  })
+})
+
+describe('switching the view', () => {
+  it('All open → Owed keeps the store and drops every filter the Owed door does not take', () => {
+    expect(withView(full, 'owed')).toEqual({ ...DEFAULT_OPEN_FILTER, view: 'owed', store: 'P019' })
+  })
+
+  it('Owed → All open is the store alone: nothing hidden comes back', () => {
+    const owed = withView(full, 'owed')
+    expect(withView(owed, 'all')).toEqual({ ...DEFAULT_OPEN_FILTER, store: 'P019' })
+  })
+
+  it('the view already shown changes nothing', () => {
+    expect(withView(full, 'all')).toBe(full)
   })
 })
 

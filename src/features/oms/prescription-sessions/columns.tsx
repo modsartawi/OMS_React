@@ -6,7 +6,7 @@ import { StepSummary, Word } from '@/core/prescription-session/SessionWords'
 import { wordText } from '@/core/prescription-session/words'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { listText } from '@/core/util/list-format'
-import OpenRowAction, { OPEN_ROW_ACTION_ENABLED } from './OpenRowAction'
+import OpenRowAction from './OpenRowAction'
 import type { OpenGridRow } from './open-row'
 
 type Cell = ICellRendererParams<OpenGridRow>
@@ -20,8 +20,14 @@ type Cell = ICellRendererParams<OpenGridRow>
  * dir auto: a name in either script); a renderer isolates its own values (`Ltr` for a store, a code).
  *
  * `t` is this feature's namespace, `tw` the core `prescription-session` one the codes read in.
+ * `onWriteOff` asks the tab to open the write-off dialog for a row (the dialog lives in the tab).
  */
-export function openColumns(t: TFunction, tw: TFunction, lang: string): ColDef<OpenGridRow>[] {
+export function openColumns(
+  t: TFunction,
+  tw: TFunction,
+  lang: string,
+  onWriteOff: (row: OpenGridRow) => void,
+): ColDef<OpenGridRow>[] {
   const code = 'font-mono text-[12px]'
   const when = ({ value }: ValueFormatterParams<OpenGridRow, string | null>) => formatDateTime(value)
   const num = { type: 'numericColumn', width: 90, cellClass: 'text-end tabular-nums' } as const
@@ -123,17 +129,16 @@ export function openColumns(t: TFunction, tw: TFunction, lang: string): ColDef<O
         ) : null,
     },
     {
-      // 548's seam: the row-action slot, on a DISPENSED row only. Hidden until 548 enables it.
+      // The row-action slot (548): "Close without invoice", on a DISPENSED row only.
       colId: 'actions',
       headerName: '',
       width: 170,
-      hide: !OPEN_ROW_ACTION_ENABLED,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: Cell) =>
         data?.view.rowAction ? (
           <span data-ps-row-action={data.sessionId}>
-            <OpenRowAction row={data} />
+            <OpenRowAction row={data} onOpen={onWriteOff} />
           </span>
         ) : null,
     },

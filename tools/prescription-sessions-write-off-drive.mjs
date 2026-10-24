@@ -208,6 +208,20 @@ async function drive(dir) {
   await page.locator('[data-ps-write-off-note]').fill(ARABIC_NOTE)
   check(`${L}: the Arabic note reads in its own direction`, (await page.locator('[data-ps-write-off-note]').getAttribute('dir')) === 'auto')
   await page.screenshot({ path: `${SHOTS}/${L}-other-arabic.png`, fullPage: true })
+  // Review fix 4: the dialog does not live in the cell. The list is re-read with PS-58 gone (its
+  // cell destroyed) while the dialog is open: the dialog, its reason and its typed note stay, and
+  // its Confirm still sends and still closes, toasts and re-reads.
+  gone.add('58')
+  const readsBeforeDrop = reads.length
+  await page.evaluate(() => document.querySelector('[data-ps-search]').click())
+  await page.waitForFunction(() => !document.querySelector('[data-ps-row-action="58"]'), null, { timeout: 10000 })
+  check(`${L}: the row's cell is gone after the re-read`, reads.length > readsBeforeDrop && !(await ids()).some((r) => r.id === 'PS-58'))
+  check(
+    `${L}: the dialog outlives its cell, with its reason and note`,
+    (await page.locator('[data-ps-write-off-dialog="58"]').count()) === 1 &&
+      (await page.locator('[data-ps-write-off-note]').inputValue()) === ARABIC_NOTE &&
+      (await page.locator('[data-ps-write-off-reason="OTHER"]').isChecked()),
+  )
   await writeOff('58', 'OTHER', null, ARABIC_NOTE, 2)
 
   // ── 5: PSES-00009 ──────────────────────────────────────────────────────────────────────────

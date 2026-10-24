@@ -87,3 +87,8 @@ Proof:
 Left for the integrator: 545's `tools/prescription-sessions-hq-drive.mjs` still waits on
 `[data-ps-tab-placeholder="toOpen"]` (lines ~324/330), which this ticket removed; point those two checks at
 `[data-ps-to-open]` (not edited here to avoid colliding with 547's edit of the neighbouring Ended lines).
+
+### Review fixes (2026-10-24, branch `impl/review-fixes`)
+
+- Search no longer asks twice: a changed store writes the address (new query key, fetches by itself); only an
+  unchanged one `refetch()`es. To-open drive re-run 72/72.

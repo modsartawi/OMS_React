@@ -10,12 +10,14 @@
  * 546 (`ToOpen`), 547 (`Ended`) and 548 (`WriteOff`) add their calls to this object.
  */
 import { api } from '@/core/api'
-import type { PrescriptionSessionHqList } from '@/core/models/prescription-session'
-import { openRequest, type OpenFilter } from './open-filter'
-import type { PrescriptionSessionHqToOpen } from '@/core/models/prescription-session'
-import { toOpenRequest, type ToOpenFilter } from './to-open'
-import type { PrescriptionSessionHqEndedRow } from '@/core/models/prescription-session'
+import type {
+  PrescriptionSessionHqEndedRow,
+  PrescriptionSessionHqList,
+  PrescriptionSessionHqToOpen,
+} from '@/core/models/prescription-session'
 import { endedRequest, type EndedFilter } from './ended-filter'
+import { openRequest, type OpenFilter } from './open-filter'
+import { toOpenRequest, type ToOpenFilter } from './to-open'
 
 export const prescriptionSessionsApi = {
   /**

@@ -145,7 +145,7 @@ export default function WriteOffDialog({ row, onClose }: { row: OpenGridRow; onC
           </ErrorBanner>
         )}
         {refusal?.kind === 'failed' && (
-          <ErrorBanner className="p-2" title={t('writeOff.refusedTitle')} message={t('writeOff.failed')}>
+          <ErrorBanner className="p-2" title={t('writeOff.refusedTitle')} message={refusal.message || t('writeOff.failed')}>
             <span data-ps-write-off-refusal="failed" />
           </ErrorBanner>
         )}

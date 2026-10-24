@@ -67,8 +67,12 @@ describe('writeOffRefusal', () => {
       message: 'No prescription session PS-9.',
     })
   })
-  it('a failure with no envelope is "failed"', () => {
-    expect(writeOffRefusal(new ApiError('network', 'offline', 0))).toEqual({ kind: 'failed' })
-    expect(writeOffRefusal(new Error('bug'))).toEqual({ kind: 'failed' })
+  it('an envelope refusal with a message but no code surfaces the server message', () => {
+    const uncoded = new ApiError('business', 'The session is held by another write-off.', 409)
+    expect(writeOffRefusal(uncoded)).toEqual({ kind: 'failed', message: 'The session is held by another write-off.' })
+  })
+  it('a failure with no envelope is "failed", with the taxonomy’s own message when there is one', () => {
+    expect(writeOffRefusal(new ApiError('network', 'offline', 0))).toEqual({ kind: 'failed', message: 'offline' })
+    expect(writeOffRefusal(new Error('bug'))).toEqual({ kind: 'failed', message: '' })
   })
 })

@@ -33,9 +33,11 @@ import {
   openFilterToParams,
   openRequest,
   withFlag,
+  withView,
   type OpenFilter,
 } from './open-filter'
 import { flagChips, openRow, type OpenGridRow } from './open-row'
+import WriteOffDialog from './WriteOffDialog'
 import { useWriteOffGrant } from './write-off-grant'
 
 /** The bad-filter refusal (`PrescriptionSessionHqErrorCodes.BadFilter`): said beside the filters. */
@@ -93,7 +95,10 @@ export default function OpenTab() {
 
   const denied = isBareDenial(list.error)
   const badFilter = list.isError && apiErrorCode(list.error) === BAD_FILTER
-  const columns = useMemo(() => openColumns(t, tw, i18n.language), [t, tw, i18n.language])
+  // 548: the write-off dialog lives here, not in its grid cell — a cell is re-created at will, and
+  // the typed note and the mutation's callbacks would die with it.
+  const [writeOffRow, setWriteOffRow] = useState<OpenGridRow | null>(null)
+  const columns = useMemo(() => openColumns(t, tw, i18n.language, setWriteOffRow), [t, tw, i18n.language])
   const rows = useMemo<OpenGridRow[]>(
     () => (list.isError ? [] : (list.data?.rows ?? [])).map((r) => ({ ...r, view: openRow(r) })),
     [list.data, list.isError],
@@ -104,15 +109,20 @@ export default function OpenTab() {
 
   const patch = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }))
   const search = () => {
-    update((prev) => (prev.view === 'owed' ? { ...prev, store: draft.store } : { ...prev, ...draft }))
-    void list.refetch()
+    const next = filter.view === 'owed' ? { ...filter, store: draft.store } : { ...filter, ...draft }
+    // A changed filter is a new query key, which fetches by itself; only an unchanged one re-reads.
+    if (openFilterToParams(next).toString() === openFilterToParams(filter).toString()) void list.refetch()
+    else update((prev) => (prev.view === 'owed' ? { ...prev, store: draft.store } : { ...prev, ...draft }))
   }
   const reset = () => {
     setDraft(draftOf(DEFAULT_OPEN_FILTER))
     update((prev) => ({ ...DEFAULT_OPEN_FILTER, view: prev.view }))
   }
-  const setView = (view: OpenFilter['view']) =>
-    update((prev) => (view === 'owed' ? { ...DEFAULT_OPEN_FILTER, view, store: prev.store } : { ...prev, view }))
+  // The bar follows the filter the view applies: nothing the Owed view hid stays typed in the bar.
+  const setView = (view: OpenFilter['view']) => {
+    setDraft(draftOf(withView(filter, view)))
+    update((prev) => withView(prev, view))
+  }
 
   const select = (key: keyof Draft, label: string, codes: readonly string[], word: (c: string) => ReturnType<typeof stateWord>) => (
     <label className={FIELD}>
@@ -240,7 +250,8 @@ export default function OpenTab() {
             data-ps-chip={chip.flag}
           >
             {wordText(tw, flagWord(chip.flag))}
-            {chip.count !== null && (
+            {/* In the Owed view the chips are disabled (that door takes no flag): a count there would read as a filter it is not. */}
+            {chip.count !== null && !owedView && (
               <span className="tabular-nums" data-ps-chip-count="">
                 <Ltr>{chip.count}</Ltr>
               </span>
@@ -297,6 +308,7 @@ export default function OpenTab() {
           )}
         </div>
       )}
+      {writeOffRow && <WriteOffDialog key={writeOffRow.sessionId} row={writeOffRow} onClose={() => setWriteOffRow(null)} />}
     </div>
   )
 }

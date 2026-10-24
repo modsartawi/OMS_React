@@ -46,12 +46,23 @@ describe('filter ↔ URL', () => {
     )
   })
 
+  it('one bad end reads as the whole default range, never a mix of the URL and the default', () => {
+    expect(url('tab=ended&from=2026-09-01&to=nope')).toEqual(defaultEndedFilter(TODAY))
+    expect(url('tab=ended&from=2026-02-30&to=2026-09-30')).toEqual(defaultEndedFilter(TODAY))
+    expect(url('tab=ended&to=2026-09-30')).toEqual(defaultEndedFilter(TODAY))
+  })
+
   it('a state that is not an end state, or a date that is not a day, reads as the default', () => {
     expect(url('tab=ended&from=yesterday&to=2026-13-40&state=DISPENSED')).toEqual(defaultEndedFilter(TODAY))
   })
 
-  it('offers the three end states', () => {
+  it('offers exactly the end states the Ended door accepts (PrescriptionSessionStates.Final)', () => {
     expect(ENDED_STATES).toEqual(['CLOSED', 'ABANDONED', 'WRITTEN_OFF'])
+  })
+
+  it('INVOICED is not an end state the door accepts (it closes in the same act): PSES-00223', () => {
+    expect(ENDED_STATES).not.toContain('INVOICED')
+    expect(url('tab=ended&state=INVOICED').state).toBe('')
   })
 })
 

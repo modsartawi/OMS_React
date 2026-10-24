@@ -49,8 +49,10 @@ export default function ToOpenTab() {
   if (isBareDenial(list.error)) return <Denied />
 
   const search = () => {
-    update((prev) => ({ ...prev, store }))
-    void list.refetch()
+    // A changed store is a new query key, which fetches by itself; only an unchanged one re-reads.
+    if (toOpenFilterToParams({ ...filter, store }).toString() !== toOpenFilterToParams(filter).toString())
+      update((prev) => ({ ...prev, store }))
+    else void list.refetch()
   }
   const reset = () => {
     setStore('')

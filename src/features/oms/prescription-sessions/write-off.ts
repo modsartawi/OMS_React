@@ -3,7 +3,7 @@
  * form's validity, the body it sends, and what each failure reads as in the dialog. Pure: no React,
  * no `t` — the dialog turns `labelKey` into words.
  */
-import { apiErrorCode, apiErrorKind, apiErrorMessage, isBareDenial } from '@/core/api'
+import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 
 export interface WriteOffForm {
   /** One of `WRITE_OFF_REASONS`, or `''` before a choice. */
@@ -39,14 +39,16 @@ export type WriteOffRefusal =
   | { kind: 'notGranted' }
   /** An envelope refusal: its message and code, with this side's words for a known code. */
   | { kind: 'refused'; code: string; labelKey: string | null; message: string }
-  /** Anything else (network, a crash): the dialog's generic failure line. */
-  | { kind: 'failed' }
+  /**
+   * Anything without a code: an envelope refusal that carried only a message, the taxonomy's own
+   * network/server line, or a crash (`message` `''`, the dialog's generic failure line then).
+   */
+  | { kind: 'failed'; message: string }
 
 export function writeOffRefusal(err: unknown): WriteOffRefusal {
   if (isBareDenial(err)) return { kind: 'notGranted' }
+  const message = apiErrorMessage(err, '')
   const code = apiErrorCode(err)
-  if (code && apiErrorKind(err) !== null) {
-    return { kind: 'refused', code, labelKey: REFUSAL_LABEL[code] ?? null, message: apiErrorMessage(err, '') }
-  }
-  return { kind: 'failed' }
+  if (code) return { kind: 'refused', code, labelKey: REFUSAL_LABEL[code] ?? null, message }
+  return { kind: 'failed', message }
 }

@@ -261,6 +261,11 @@ async function drive(dir) {
   const wantWire = JSON.stringify({ store: 'P019', state: 'PICKING', owner: 'DONOR_STORE', source: 'WSFT', minAgeDays: '3', maxAgeDays: '30' })
   check(`${L}: Search writes every filter to the address`, search() === wantQs, search())
   check(`${L}: Search asks the door with every filter`, JSON.stringify(last().params) === wantWire, JSON.stringify(last().params))
+  check(`${L}: a changed Search asks once, not twice (review fix 3)`, asked.length - before === 1, String(asked.length - before))
+  before = asked.length
+  await page.locator('[data-ps-search]').click()
+  await settle(before)
+  check(`${L}: an unchanged Search re-reads once (review fix 3)`, asked.length - before === 1 && JSON.stringify(last().params) === wantWire, String(asked.length - before))
   before = asked.length
   await page.locator('[data-ps-chip="STALLED"]').click()
   await settle(before)
@@ -283,7 +288,7 @@ async function drive(dir) {
   check(`${L}: Owed keeps only the store in the address`, search() === 'view=owed&store=P019', search())
   check(`${L}: Owed hides the other filters`, (await page.locator('select[data-ps-filter]').count()) === 0 && (await page.locator('[data-ps-filter="minAge"]').count()) === 0)
   c = await chips()
-  check(`${L}: in Owed the chips are counts, not filters`, c.every((x) => x.disabled))
+  check(`${L}: in Owed the chips are disabled and carry no count (review fix 7)`, c.every((x) => x.disabled && x.count === '') && (await page.locator('[data-ps-chip-count]').count()) === 0, JSON.stringify(c))
   await page.locator('[data-ps-filter="store"]').fill('')
   before = asked.length
   await page.locator('[data-ps-search]').click()
@@ -296,6 +301,22 @@ async function drive(dir) {
   await page.locator('[data-ps-view-button="all"]').click()
   await settle(before)
   check(`${L}: All open asks Sessions again`, last().path === 'PrescriptionSessionWeb/Sessions' && search() === '', search())
+
+  // Review fix 1: Owed → All open leaves no hidden stale value in the bar to come back on Search.
+  await open('?store=P019&state=PICKING&owner=DONOR_STORE&source=WSFT&minAge=3&maxAge=30')
+  before = asked.length
+  await page.locator('[data-ps-view-button="owed"]').click()
+  await settle(before)
+  before = asked.length
+  await page.locator('[data-ps-view-button="all"]').click()
+  await settle(before)
+  const back = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-ps-filter]')].map((e) => [e.getAttribute('data-ps-filter'), e.value])))
+  check(`${L}: Owed → All open: the bar is the applied filter, the store alone`, JSON.stringify(back) === JSON.stringify({ store: 'P019', state: '', owner: '', source: '', minAge: '', maxAge: '' }), JSON.stringify(back))
+  check(`${L}: Owed → All open asks with the store alone`, search() === 'store=P019' && JSON.stringify(last().params) === '{"store":"P019"}', `${search()} ${JSON.stringify(last().params)}`)
+  before = asked.length
+  await page.locator('[data-ps-search]').click()
+  await settle(before)
+  check(`${L}: Search after the switch re-applies no stale filter`, search() === 'store=P019' && JSON.stringify(last().params) === '{"store":"P019"}' && asked.length - before === 1, `${search()} ${JSON.stringify(last().params)} ${asked.length - before}`)
 
   // ── 5: truncated ────────────────────────────────────────────────────────────────────────────
   await open('?store=TRUNC')

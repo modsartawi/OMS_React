@@ -96,3 +96,11 @@ Proof:
   reversed / 93-day refused before sending (92 sent), pasted reversed, empty, bare 403, `PSES-00223`. 545's drive
   re-run 112/112.
 - `npm run typecheck`, `npm run lint` (4 gates) green.
+
+### Review fixes (2026-10-24, branch `impl/review-fixes`)
+
+- `endedFilterFromParams`: if EITHER `from` or `to` in the URL is missing or not a day, the WHOLE default range stands
+  (never one URL end mixed with one default end, which could be reversed or too wide). Tested.
+- `ENDED_STATES` is an explicit mirror of `PrescriptionSessionStates.Final` (the `ListHqEndedAsync` check); INVOICED
+  is pinned as excluded (see 545's review-fix note).
+- Search no longer asks twice: only an unchanged search `refetch()`es. Ended drive re-run 74/74.

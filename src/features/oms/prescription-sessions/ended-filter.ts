@@ -16,8 +16,12 @@
 import { PRESCRIPTION_SESSION_STATES } from '@/core/prescription-session/words'
 import { fromIsoDate, toIsoDate } from '@/core/util/date-format'
 
-/** The states a session is ENDED in — this tab's (`PrescriptionSessionStates.Final`). */
-export const ENDED_STATES = PRESCRIPTION_SESSION_STATES.slice(PRESCRIPTION_SESSION_STATES.indexOf('CLOSED'))
+/**
+ * The states the Ended door accepts — exactly `PrescriptionSessionStates.Final` (`ListHqEndedAsync`
+ * refuses any other with `PSES-00223`). INVOICED is in neither this nor `OPEN_STATES`: a session
+ * that is invoiced closes in the same act, so no list ever holds one in that state.
+ */
+export const ENDED_STATES = ['CLOSED', 'ABANDONED', 'WRITTEN_OFF'] as const satisfies readonly (typeof PRESCRIPTION_SESSION_STATES)[number][]
 
 /** The widest range one read covers, both ends counted (`PrescriptionSessionHqLimits.EndedRangeDays`). */
 export const ENDED_RANGE_DAYS = 92
@@ -56,13 +60,19 @@ function day(value: string | null | undefined): string | null {
   return d && toIsoDate(d) === v ? v : null
 }
 
-/** The search a URL describes. A date that is not a day, or a state that is not an end state, reads as the default. */
+/**
+ * The search a URL describes. A state that is not an end state reads as all three. If EITHER end of
+ * the range is missing or not a day, the WHOLE default range stands — never one end from the URL
+ * and the other from the default, which could be reversed or too wide.
+ */
 export function endedFilterFromParams(params: URLSearchParams, today: Date = new Date()): EndedFilter {
   const fallback = defaultEndedFilter(today)
   const state = (params.get('state') ?? '').trim()
+  const from = day(params.get('from'))
+  const to = day(params.get('to'))
+  const range = from !== null && to !== null ? { from, to } : { from: fallback.from, to: fallback.to }
   return {
-    from: day(params.get('from')) ?? fallback.from,
-    to: day(params.get('to')) ?? fallback.to,
+    ...range,
     store: (params.get('store') ?? '').trim(),
     state: (ENDED_STATES as readonly string[]).includes(state) ? state : '',
   }

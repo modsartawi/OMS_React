@@ -92,8 +92,10 @@ export default function EndedTab() {
     const p = endedRangeProblem(draft)
     setDraftProblem(p)
     if (p) return
-    update(() => ({ ...draft, store: draft.store.trim() }))
-    if (problem === null) void list.refetch()
+    const next = { ...draft, store: draft.store.trim() }
+    // A changed search is a new query key, which fetches by itself; only an unchanged one re-reads.
+    if (endedFilterToParams(next).toString() !== endedFilterToParams(filter).toString()) update(() => next)
+    else if (problem === null) void list.refetch()
   }
   const reset = () => {
     const fresh = defaultEndedFilter(new Date())

@@ -18,8 +18,21 @@ import {
   type PrescriptionHqFlag,
 } from '@/core/prescription-session/words'
 
-/** The states a session is still OPEN in — the list's (an ended one is the Ended tab's, 547). */
-export const OPEN_STATES = PRESCRIPTION_SESSION_STATES.slice(0, PRESCRIPTION_SESSION_STATES.indexOf('DISPENSED') + 1)
+/**
+ * The states the Sessions door accepts — exactly `HqOpenStates` (`PrescriptionSessionService.Hq.cs`,
+ * `ListHqAsync` refuses any other with `PSES-00223`). An ended one is the Ended tab's (547); INVOICED
+ * is neither tab's — an invoiced session closes in the same act.
+ */
+export const OPEN_STATES = [
+  'DRAFT',
+  'VALIDATING',
+  'AWAITING_APPROVAL',
+  'APPROVED',
+  'AWAITING_ORDER',
+  'PICKING',
+  'AWAITING_DELIVERY',
+  'DISPENSED',
+] as const satisfies readonly (typeof PRESCRIPTION_SESSION_STATES)[number][]
 
 export interface OpenFilter {
   /** `all` is the list; `owed` is the saved view on `Sessions/Owed`. */
@@ -125,6 +138,16 @@ export function openRequest(f: OpenFilter): OpenRequest {
   putDays('maxAgeDays', f.maxAge)
   put('flag', f.flag)
   return { path: SESSIONS, params }
+}
+
+/**
+ * The view switched. Owed takes the store and nothing else, so going there drops every other filter;
+ * coming back from it is the store alone. The bar's draft follows this result, so no filter the Owed
+ * view hid can come back on the next Search.
+ */
+export function withView(f: OpenFilter, view: OpenFilter['view']): OpenFilter {
+  if (f.view === view) return f
+  return view === 'owed' ? { ...DEFAULT_OPEN_FILTER, view, store: f.store } : { ...f, view }
 }
 
 /**

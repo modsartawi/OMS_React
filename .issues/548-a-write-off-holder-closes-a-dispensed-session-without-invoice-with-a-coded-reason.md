@@ -101,3 +101,14 @@ Proof:
   OTHER with an Arabic note carried unchanged, `PSES-00009` in the dialog, a bare 403 hiding every button. 545's drive
   still 112/112. Stubbed doors.
 - `npm run typecheck`, `npm run lint` (4 gates) green.
+
+### Review fixes (2026-10-24, branch `impl/review-fixes`)
+
+- The write-off dialog moved out of the grid cell: `OpenTab` holds the target row and renders `WriteOffDialog`;
+  `OpenRowAction` only asks (`onOpen`, passed through `openColumns`). The typed note and the mutation's callbacks now
+  survive the cell being destroyed (a re-read, a sort). The portal is gone (the dialog is no longer inside the grid).
+- `writeOffRefusal`: an envelope refusal with a message but no code now surfaces that message through
+  `apiErrorMessage` (`{ kind: 'failed', message }`; the dialog falls back to its generic line only when there is no
+  message); the redundant `apiErrorKind` check is dropped. Tested.
+- Write-off drive re-run 88/88 (new: the row's cell is destroyed by a re-read while the dialog is open — the dialog,
+  its reason and its Arabic note stay, and Confirm still sends, closes, toasts and re-reads).

@@ -130,3 +130,22 @@ Seams left for parallel tickets (each touches its own file; the page needs no ed
 - **548** — `OpenRowAction.tsx`: the slot rendered in the Open grid's hidden `actions` column for rows with
   `view.rowAction` (DISPENSED). Build the write-off there, flip `OPEN_ROW_ACTION_ENABLED`, add `writeOff()` to `api.ts`
   and invalidate `['prescription-sessions', 'open']` after it.
+
+### Review fixes (2026-10-24, branch `impl/review-fixes`)
+
+- **Owed → All open** (`withView` in `open-filter.ts`, tested): the bar's draft follows the filter the view applies, so
+  the State/Owner/Source/Age the Owed view dropped no longer sit hidden in the bar to come back on the next Search.
+- **Search** asks once: a changed filter is a new query key (fetches by itself); only an unchanged one `refetch()`es.
+  Same fix in `ToOpenTab` (546) and `EndedTab` (547).
+- **Owed view chips** show no count (they are disabled there).
+- **`OPEN_ROW_ACTION_ENABLED`** and its `hide` removed from `columns.tsx`; `api.ts`'s model imports merged.
+- **State options vs. the doors (finding 5)** — read in BackOffice-2994 `PrescriptionSessionService.Hq.cs`:
+  `ListHqAsync` accepts exactly `HqOpenStates` = Draft…Dispensed (8 states) and refuses any other with
+  `PSES-00223` ("not an open state; ended sessions are read by date range"); `ListHqEndedAsync` accepts exactly
+  `PrescriptionSessionStates.Final` = Closed, Abandoned, WrittenOff, else `PSES-00223` ("not an end state").
+  **INVOICED is in neither by design** — the code comment says an Invoiced session closes in the same act, so no list
+  holds one. The client already offered exactly those lists (it was not a bug); `OPEN_STATES` / `ENDED_STATES` are now
+  explicit literals mirroring the server arrays (not slices of the word list), and both tests pin that INVOICED is
+  excluded and reads as no filter from a URL.
+- Proof: vitest green; drives re-run on :5221 — hq 122/122 (new: one request per Search, Owed→All bar reset, no
+  Owed chip counts), base 52/52.

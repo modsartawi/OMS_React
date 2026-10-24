@@ -86,7 +86,123 @@
   },
   "campaign": {
     "placeholderTitle": "Campaign",
-    "placeholder": "The campaign page arrives with the next slice.",
-    "back": "Back to campaigns"
+    "back": "Back to campaigns",
+    "loading": "Loading the campaign…",
+    "failed": "The campaign could not be loaded.",
+    "notFoundTitle": "Campaign not found",
+    "notFoundHint": "No campaign has this id. It may have been mistyped, or the link belongs to another DataSync.",
+    "unnamed": "Unnamed campaign",
+    "profile": "Profile",
+    "mode": "Mode",
+    "status": "Status",
+    "reason": "Reason",
+    "source": "Source",
+    "createdAt": "Created",
+    "startedAt": "Started",
+    "finishedAt": "Finished",
+    "notYet": "—",
+    "rollup": "Jobs by state",
+    "asOf": "As of <at>{{at}}</at>",
+    "totalJobs": "Jobs"
+  },
+  "jobStatus": {
+    "Queued": "Queued",
+    "Running": "Running",
+    "Pausing": "Pausing",
+    "Paused": "Paused",
+    "Cancelling": "Cancelling",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "jobPhase": {
+    "Comparing": "Comparing",
+    "Reconciling": "Reconciling"
+  },
+  "waitReason": {
+    "WaitingForPause": "Waiting for ActionSync to pause this store",
+    "BackingOff": "Backing off after a fault, until <at>{{at}}</at>",
+    "BackingOffNoTime": "Backing off after a fault"
+  },
+  "holdReason": {
+    "Operator": "Paused by a person",
+    "StoreBusy": "Held: ActionSync is working this store"
+  },
+  "tableStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Paused": "Paused",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed"
+  },
+  "disposition": {
+    "Applied": "Applied",
+    "ReportedOnly": "Reported only"
+  },
+  "failure": {
+    "job": {
+      "TableFailures": "One or more tables failed.",
+      "StoreUnreachable": "The store could not be reached after three attempts.",
+      "StoreWpfHosted": "The store is synced by the WPF host and can never be applied to.",
+      "TargetUnresolved": "The store's database could not be resolved from HQ.",
+      "Error": "The job stopped on an unexpected error."
+    },
+    "table": {
+      "SchemaMismatch": "The table's columns differ between HQ and the store.",
+      "InvalidKey": "The table has no usable match key.",
+      "ConstraintViolation": "A constraint check failed after the apply (for example a child row without its parent).",
+      "Error": "The table stopped on an unexpected error."
+    }
+  },
+  "jobs": {
+    "heading": "Jobs",
+    "status": "Job status",
+    "statusAny": "Any status",
+    "failed": "The jobs could not be loaded.",
+    "loading": "Loading jobs…",
+    "empty": "This campaign has no jobs.",
+    "emptyFiltered": "No jobs with this status.",
+    "emptyPage": "No more jobs on this page.",
+    "open": "Open the job for store {{store}}",
+    "columns": {
+      "store": "Store",
+      "status": "Status",
+      "why": "Waiting or held",
+      "attempts": "Attempts",
+      "startedAt": "Started",
+      "finishedAt": "Finished",
+      "failure": "Failure",
+      "actions": "Actions"
+    }
+  },
+  "drawer": {
+    "eyebrow": "Job",
+    "close": "Close",
+    "loading": "Loading the job…",
+    "failed": "The job could not be loaded.",
+    "notFoundTitle": "Job not found",
+    "notFoundHint": "No job has this id. It may have been mistyped, or it belongs to another DataSync.",
+    "target": "Target",
+    "targetUnresolved": "Not resolved",
+    "attempts": "Attempts",
+    "tables": "Tables",
+    "noTables": "This job has no tables.",
+    "truncated": "Manifest truncated",
+    "truncatedHint": "The counts are exact, but the row-level changes stop at the cap.",
+    "progressIndeterminate": "Sizing the table…",
+    "columns": {
+      "table": "Table",
+      "status": "Status",
+      "disposition": "Disposition",
+      "strategy": "Strategy",
+      "progress": "Chunks",
+      "rowsCompared": "Compared",
+      "toInsert": "To insert",
+      "toUpdate": "To update",
+      "toDelete": "To delete",
+      "rowsApplied": "Applied",
+      "failure": "Failure",
+      "flags": "Manifest"
+    }
   }
 }

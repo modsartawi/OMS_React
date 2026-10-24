@@ -1,7 +1,7 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import { useIsMutating } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
-import { Loader2, Pause, Pencil, Play, RefreshCw, Trash2 } from 'lucide-react'
+import { History, Loader2, Pause, Pencil, Play, RefreshCw, ScrollText, Trash2 } from 'lucide-react'
 import type { HungerStationStoreRow } from '@/core/models/hungerstation'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -30,6 +30,10 @@ export interface StoreActions {
   /** Pause an active store's stock sync, or resume a paused one (553). */
   onToggleSync: (row: Row) => void
   onSyncNow: (row: Row) => void
+  /** Open the store's pushes (554). */
+  onLogs: (row: Row) => void
+  /** Look up one material's history at the store (554). */
+  onMaterial: (row: Row) => void
 }
 
 /**
@@ -65,7 +69,7 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * updated at/by, then the sync block — active or paused, health (`healthLabel`: failing red, silent
  * amber, the row highlighted the same way by the page), last full, last delta, the last run in 24 h
  * with its status and error — and the row's actions: Edit, Remove (552), Pause / Resume and Sync
- * now (553). 554 (logs, material history) adds its buttons to `act` and the actions cell.
+ * now (553), Logs and Material history (554).
  *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value.
@@ -158,7 +162,7 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 470,
+      width: 720,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -173,6 +177,14 @@ export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
               {t(data.sync.active ? 'pause.button' : 'resume.button')}
             </Button>
             <SyncNowButton row={data} t={t} onSyncNow={act.onSyncNow} />
+            <Button variant="ghost" onClick={() => act.onLogs(data)} data-store-logs={data.storeCode}>
+              <ScrollText className="h-3.5 w-3.5" aria-hidden />
+              {t('logs.button')}
+            </Button>
+            <Button variant="ghost" onClick={() => act.onMaterial(data)} data-store-material={data.storeCode}>
+              <History className="h-3.5 w-3.5" aria-hidden />
+              {t('material.button')}
+            </Button>
             <Button variant="danger-outlined" onClick={() => act.onRemove(data)} data-store-remove={data.storeCode}>
               <Trash2 className="h-3.5 w-3.5" aria-hidden />
               {t('remove.button')}

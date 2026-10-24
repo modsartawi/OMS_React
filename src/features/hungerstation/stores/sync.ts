@@ -4,7 +4,7 @@ import { HUNGERSTATION_ERRORS, type HungerStationStoreRow, type HungerStationSyn
 // contract § Stock sync, `PUT …/Sync/{storeCode}/Active` and `POST …/Sync/{storeCode}/Now`).
 // Pure: no React, no `t`, no `@/core/api`.
 
-const syncPath = (storeCode: string) => `HungerStationWeb/Sync/${encodeURIComponent(storeCode)}`
+export const syncPath = (storeCode: string) => `HungerStationWeb/Sync/${encodeURIComponent(storeCode)}`
 
 /** `PUT HungerStationWeb/Sync/{storeCode}/Active` — body `{ active, reason }`, answers the store row. */
 export const syncActivePath = (storeCode: string) => `${syncPath(storeCode)}/Active`

@@ -1,20 +1,21 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ListTree, Loader2, X } from 'lucide-react'
+import { ListTree, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { DeliverectStoreRow, DeliverectSyncLogRow } from '@/core/models/deliverect'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { SHEET } from '@/core/ui/overlay'
+import SideSheet from '@/core/ui/SideSheet'
+import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { SYNC_LOGS_TAKE, storesApi, syncLogsKey } from './api'
 import PushLines from './PushLines'
 import { runFailed, syncTypeKey } from './sync-health'
 import { figure } from './sync-lines'
-import { TD, TH } from './table-cells'
+import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 
 
 /**
@@ -22,16 +23,14 @@ import { TD, TH } from './table-cells'
  * last 50 runs, most recent first as the door answers them: type (full or delta), start, end, rows,
  * status, Deliverect's file id, its `processed` callback, and the error. A failed run's row is red.
  *
- * The frame copies the house side sheet (`admin/sync-console`'s `SnapshotDrawer`; a feature never
- * imports another): a native `<dialog>` docked to the inline end on the overlay recipe's `SHEET`,
- * over the `--backdrop` scrim, with its top layer, focus trap, focus given back and Escape. React
+ * The frame is core's `SideSheet` (ticket 556; its header core's `SideSheetHeader`, ticket 554): a native `<dialog>`
+ * docked to the inline end, with its top layer, focus trap, focus given back and Escape. React
  * state stays the one source of truth for open. It reads the door when it opens.
  *
  * Ticket 550: each run opens its lines in place (`PushLines`), with a way back to the log.
  */
 export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreRow; onClose: () => void }) {
   const { t } = useTranslation('deliverect-stores')
-  const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   // The open run by id: its row is read from the log as it stands, so a refetch updates it.
   const [openRunId, setOpenRunId] = useState<string | null>(null)
@@ -67,96 +66,59 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
     box.querySelector<HTMLButtonElement>(`[data-log-open-lines="${CSS.escape(back.logId)}"]`)?.focus()
   }, [openRunId])
 
-  useEffect(() => {
-    const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
-    return () => {
-      if (dialog?.open) dialog.close()
-    }
-  }, [])
-
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      data-sync-logs-drawer={row.storeCode}
-      onCancel={(e) => {
-        e.preventDefault()
-        // As core's Modal: Escape belongs to the top dialog, never to one that holds it too.
-        e.stopPropagation()
-        if (e.target === ref.current) onClose()
-      }}
-      onClose={() => {
-        if (ref.current && !ref.current.open) onClose()
-      }}
-      // The backdrop reports the dialog itself as the target; content never does.
-      onClick={(e) => {
-        if (e.target === ref.current) onClose()
-      }}
-      className={'end-0 my-0 me-0 ms-auto h-dvh max-h-dvh w-[60rem] max-w-[96vw] border-0 border-s p-0 ' + SHEET}
-    >
-      <div className="flex h-full flex-col">
-        <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">{t('logs.eyebrow')}</span>
-            <h2 id={titleId} className="text-sm font-semibold tracking-tight" data-sync-logs-title="">
-              {/* A pair led by a machine value: one string, isolated once (bidi rule). */}
-              <Ltr>{formatPair(row.storeCode, row.storeName)}</Ltr>
-            </h2>
-            <span className="text-xs text-muted-foreground">{t('logs.hint', { max: fsi(String(SYNC_LOGS_TAKE)) })}</span>
+    <SideSheet onClose={onClose} width="w-[60rem]" aria-labelledby={titleId} data-sync-logs-drawer={row.storeCode}>
+      <SideSheetHeader
+        titleId={titleId}
+        eyebrow={t('logs.eyebrow')}
+        // A pair led by a machine value: one string, isolated once (bidi rule).
+        title={<Ltr>{formatPair(row.storeCode, row.storeName)}</Ltr>}
+        hint={t('logs.hint', { max: fsi(String(SYNC_LOGS_TAKE)) })}
+        closeLabel={t('logs.close')}
+        onClose={onClose}
+        titleData={{ 'data-sync-logs-title': '' }}
+        closeData={{ 'data-sync-logs-close': '' }}
+      />
+      <div ref={scroller} className={SHEET_BODY} data-sync-logs-scroller="">
+        {openRun ? (
+          <PushLines storeCode={row.storeCode} log={openRun} onBack={() => setOpenRunId(null)} />
+        ) : logs.isPending ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground" data-sync-logs-loading="">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            {t('logs.loading')}
+          </p>
+        ) : logs.isError ? (
+          <div data-sync-logs-error={apiErrorCode(logs.error) ?? ''}>
+            <ErrorBanner className="p-3" title={t('logs.failed')} message={apiErrorMessage(logs.error, t('dialog.failedHint'))} />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('logs.close')}
-            title={t('logs.close')}
-            data-sync-logs-close=""
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
-        </header>
-        <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4" data-sync-logs-scroller="">
-          {openRun ? (
-            <PushLines storeCode={row.storeCode} log={openRun} onBack={() => setOpenRunId(null)} />
-          ) : logs.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground" data-sync-logs-loading="">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              {t('logs.loading')}
-            </p>
-          ) : logs.isError ? (
-            <div data-sync-logs-error={apiErrorCode(logs.error) ?? ''}>
-              <ErrorBanner className="p-3" title={t('logs.failed')} message={apiErrorMessage(logs.error, t('dialog.failedHint'))} />
-            </div>
-          ) : logs.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground" data-sync-logs-empty="">
-              {t('logs.empty')}
-            </p>
-          ) : (
-            <table className="w-full border-collapse text-xs" data-sync-logs-table="">
-              <thead className="border-b border-border/60 text-muted-foreground">
-                <tr>
-                  <th className={TH}>{t('logs.columns.type')}</th>
-                  <th className={TH}>{t('logs.columns.start')}</th>
-                  <th className={TH}>{t('logs.columns.end')}</th>
-                  <th className={TH + ' text-end'}>{t('logs.columns.rows')}</th>
-                  <th className={TH}>{t('logs.columns.status')}</th>
-                  <th className={TH}>{t('logs.columns.fileId')}</th>
-                  <th className={TH}>{t('logs.columns.callback')}</th>
-                  <th className={TH}>{t('logs.columns.error')}</th>
-                  <th className={TH}>{t('logs.columns.lines')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.data.map((log) => (
-                  <LogRow key={log.logId} log={log} onLines={() => openLines(log.logId)} />
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        ) : logs.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-sync-logs-empty="">
+            {t('logs.empty')}
+          </p>
+        ) : (
+          <table className="w-full border-collapse text-xs" data-sync-logs-table="">
+            <thead className="border-b border-border/60 text-muted-foreground">
+              <tr>
+                <th className={TH}>{t('logs.columns.type')}</th>
+                <th className={TH}>{t('logs.columns.start')}</th>
+                <th className={TH}>{t('logs.columns.end')}</th>
+                <th className={TH + ' text-end'}>{t('logs.columns.rows')}</th>
+                <th className={TH}>{t('logs.columns.status')}</th>
+                <th className={TH}>{t('logs.columns.fileId')}</th>
+                <th className={TH}>{t('logs.columns.callback')}</th>
+                <th className={TH}>{t('logs.columns.error')}</th>
+                <th className={TH}>{t('logs.columns.lines')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.data.map((log) => (
+                <LogRow key={log.logId} log={log} onLines={() => openLines(log.logId)} />
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-    </dialog>
+    </SideSheet>
   )
 }
 

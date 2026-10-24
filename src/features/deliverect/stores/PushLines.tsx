@@ -30,7 +30,7 @@ import {
   pushOutcome,
   readLine,
 } from "./sync-lines";
-import { TD, TH } from "./table-cells";
+import { TD, TH } from "@/core/ui/sheet-table";
 
 const FIELD = "flex flex-col gap-1 text-xs font-medium text-muted-foreground";
 const INPUT =

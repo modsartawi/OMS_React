@@ -1039,8 +1039,8 @@ export const MENU: ShellMenuItem[] = [
     // Its own top-level group, LAST, right after Deliverect (BackOffice spec 3028, ticket 551):
     // `/hungerstation/*` is a new URL prefix and a new nav group — the DIRECT HungerStation rail,
     // not HungerStation through Deliverect. All leaf labels live in `hungerstation-stores` (the
-    // area's first namespace). 551 ships every leaf, one per probe flag: Materials (555) and Orders
-    // (556) route to a placeholder page until those tickets re-point their route at their page.
+    // area's first namespace). 551 shipped every leaf, one per probe flag; Materials (555) and Orders
+    // (556) now route to their own pages.
     labelKey: 'hungerstation-stores:menu.hungerstation',
     icon: Bike,
     items: [

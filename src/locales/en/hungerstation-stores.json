@@ -14,32 +14,6 @@
     "unreachableTitle": "This screen is unavailable",
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
-  "placeholder": {
-    "materials": {
-      "title": "HungerStation materials",
-      "subtitle": "The list of materials offered to HungerStation.",
-      "body": "This page is on its way. Until it arrives, use the HungerStation material inquiry in the back office.",
-      "access": {
-        "checking": "Checking your access…",
-        "deniedTitle": "No access to HungerStation materials",
-        "deniedHint": "Your account does not hold the HungerStation catalog grant. Ask an administrator if you need it.",
-        "unreachableTitle": "This screen is unavailable",
-        "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
-      }
-    },
-    "orders": {
-      "title": "HungerStation orders",
-      "subtitle": "Every HungerStation order and what became of it on our side.",
-      "body": "This page is on its way.",
-      "access": {
-        "checking": "Checking your access…",
-        "deniedTitle": "No access to HungerStation orders",
-        "deniedHint": "Your account does not hold the HungerStation orders grant. Ask an administrator if you need it.",
-        "unreachableTitle": "This screen is unavailable",
-        "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
-      }
-    }
-  },
   "filters": {
     "chain": "Chain",
     "anyChain": "Any chain",
@@ -190,6 +164,80 @@
       "busyHint": "Another push of this store is running right now. Nothing was pushed or recorded.",
       "gone": "This store is no longer onboarded",
       "goneHint": "It was removed meanwhile. The list has been refreshed."
+    }
+  },
+  "logs": {
+    "button": "Logs",
+    "eyebrow": "Stock sync logs",
+    "hint": "Newest first, the last {{days}} days (at most {{max}} pushes).",
+    "close": "Close the logs",
+    "loading": "Loading the pushes…",
+    "failed": "The pushes could not be loaded",
+    "empty": "No push was recorded for this store in the last {{days}} days.",
+    "unknownStore": "No HungerStation store and no push is recorded for this store code.",
+    "running": "Running",
+    "openLines": "Lines",
+    "type": {
+      "F": "Full",
+      "D": "Delta"
+    },
+    "columns": {
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "status": "Status",
+      "rows": "Rows sent",
+      "error": "Error",
+      "lines": "Lines"
+    }
+  },
+  "lines": {
+    "back": "Back to the logs",
+    "eyebrow": "Lines of the push",
+    "hint": "A push's lines are kept for {{days}} days.",
+    "expired": "This push's detail is no longer here: push detail is kept for {{days}} days.",
+    "loading": "Loading the lines…",
+    "failed": "The lines could not be loaded",
+    "noMatch": "No line of this push matches that material number.",
+    "noneSent": "This push sent no material.",
+    "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "notSent": "Not sent by this push",
+    "filters": {
+      "material": "Material number",
+      "materialPlaceholder": "Exact, e.g. 601624",
+      "apply": "Filter",
+      "clear": "Clear"
+    },
+    "columns": {
+      "material": "Material",
+      "active": "Active",
+      "quantity": "Quantity",
+      "maximumSalesQuantity": "Max sales qty",
+      "price": "Price",
+      "sentAt": "Sent at"
+    },
+    "active": {
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "material": {
+    "button": "Material history",
+    "eyebrow": "A material's history",
+    "hint": "Every line sent for one material at this store in the last {{days}} days, newest first (at most {{max}}).",
+    "close": "Close the material history",
+    "material": "Material number",
+    "materialPlaceholder": "e.g. 601624",
+    "search": "Look up",
+    "prompt": "Type a material number to see what HungerStation was sent for it at this store.",
+    "loading": "Loading the material's history…",
+    "failed": "The material's history could not be loaded",
+    "empty": "Material <m>{{material}}</m> was not sent to this store in the last {{days}} days.",
+    "capped": "Only the newest {{max}} lines are shown; older lines from the last {{days}} days are not.",
+    "columns": {
+      "sentAt": "Sent at",
+      "type": "Push type",
+      "status": "Push status"
     }
   },
   "reason": {

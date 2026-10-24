@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
@@ -27,7 +27,10 @@ import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
 import { EditDialog, OnboardDialog, RemoveDialog, SyncActiveDialog, SyncNowDialog } from './StoreDialogs'
+import MaterialHistoryDrawer from './MaterialHistoryDrawer'
+import SyncLogsDrawer from './SyncLogsDrawer'
 import { syncNowResult } from './sync'
+import { sheetFromParams, withSheet, type SheetTarget } from './sync-history'
 import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromParams, storesToParams } from './store-state'
 
 /**
@@ -35,7 +38,9 @@ import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromPara
  * HungerStation rail, its chain and vendor id, who onboarded and last changed it, and its stock
  * sync — active or paused, the last full and delta runs, the newest push in 24 h, and its health
  * (failing red, silent amber). Onboard, edit and remove (552; onboarding the code again revives
- * it), pause / resume and sync now (553), each with a reason. 554 adds the logs drawer.
+ * it), pause / resume and sync now (553), each with a reason. The logs drawer (a push's lines) and a
+ * material's history (554) open from a row, or from `?logs=<code>` / `?history=<code>` for any
+ * store code — a removed store's history stays readable from wherever its code is known.
  *
  * Behind `canManageStores` on the ONE HungerStation probe, the same predicate the menu leaf reads.
  * Its doors are BackOffice 3030.
@@ -122,6 +127,21 @@ function Stores() {
   // The last sync now's answer, shown above the grid until dismissed (553).
   const [pushed, setPushed] = useState<{ storeCode: string; log: HungerStationSyncLogRow } | null>(null)
 
+  // The drawers live in the URL, so a link that knows only a store code opens them (554).
+  const sheet = sheetFromParams(params)
+  const openSheet = useCallback(
+    (next: SheetTarget | null) => setParams((prev) => withSheet(prev, next), { replace: true }),
+    [setParams],
+  )
+  // The grid's columns call it through a ref: `setParams` changes with the URL, and rebuilding the
+  // column defs on every URL change would redraw the grid.
+  const openSheetRef = useRef(openSheet)
+  useEffect(() => {
+    openSheetRef.current = openSheet
+  }, [openSheet])
+  // The store's name when it is on the list; a removed store (or one filtered out) shows its code.
+  const sheetName = sheet ? (rows.find((r) => r.storeCode === sheet.storeCode)?.storeName ?? '') : ''
+
   const rowClassRules = useMemo<RowClassRules<Row>>(
     () => ({
       // The row's ground is painted from `--ag-data-background-color` (global.css), so a highlight
@@ -139,6 +159,8 @@ function Stores() {
         onRemove: (row) => setDialog({ kind: 'remove', row }),
         onToggleSync: (row) => setDialog({ kind: 'syncActive', row }),
         onSyncNow: (row) => setDialog({ kind: 'syncNow', row }),
+        onLogs: (row) => openSheetRef.current({ kind: 'logs', storeCode: row.storeCode }),
+        onMaterial: (row) => openSheetRef.current({ kind: 'material', storeCode: row.storeCode }),
       }),
     [t],
   )
@@ -272,6 +294,10 @@ function Stores() {
         )}
       </div>
 
+      {sheet?.kind === 'logs' && <SyncLogsDrawer key={sheet.storeCode} storeCode={sheet.storeCode} storeName={sheetName} onClose={() => openSheet(null)} />}
+      {sheet?.kind === 'material' && (
+        <MaterialHistoryDrawer key={sheet.storeCode} storeCode={sheet.storeCode} storeName={sheetName} onClose={() => openSheet(null)} />
+      )}
       {dialog?.kind === 'onboard' && <OnboardDialog rowKeys={seen} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
       {dialog?.kind === 'edit' && (
         <EditDialog row={dialog.row} rowKeys={seen} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />

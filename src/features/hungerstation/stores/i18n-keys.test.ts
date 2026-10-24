@@ -68,15 +68,23 @@ describe('hungerstation-stores — the keys the code builds exist', () => {
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 
-  it.each([en, ar])('the five ScreenGate sentences, for the page and each placeholder', (locale) => {
-    for (const prefix of ['access', 'placeholder.materials.access', 'placeholder.orders.access'])
-      for (const key of ['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'])
-        expect([`${prefix}.${key}`, has(locale, `${prefix}.${key}`)]).toEqual([`${prefix}.${key}`, true])
+  it.each([en, ar])('the five ScreenGate sentences', (locale) => {
+    for (const key of ['checking', 'deniedTitle', 'deniedHint', 'unreachableTitle', 'unreachableHint'])
+      expect([`access.${key}`, has(locale, `access.${key}`)]).toEqual([`access.${key}`, true])
   })
 
   it.each([en, ar])('the reason dialog’s chrome (the core dialog reads it in this namespace)', (locale) => {
     for (const key of ['reason.label', 'reason.hint', 'reason.tooLong', 'dialog.cancel', 'dialog.sending', 'dialog.failed', 'dialog.failedHint'])
       expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('554: every push type, active reading and lines notice the drawers build', (locale) => {
+    const keys = ['logs.type.F', 'logs.type.D', 'lines.active.active', 'lines.active.inactive', 'lines.noMatch', 'lines.noneSent', 'lines.expired', 'logs.unknownStore', 'material.capped']
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it('554: the material-history empty sentence isolates the material as a slot', () => {
+    for (const locale of [en, ar]) expect(locale.material.empty).toMatch(/<m>\{\{material\}\}<\/m>/)
   })
 
   it('the edit note isolates the store as a slot, never a bare value', () => {

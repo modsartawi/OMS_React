@@ -25,7 +25,7 @@
 //      (Stores, Materials, Orders); the group, its leaves and the page gate cost ONE probe call;
 //      without canManageStores the Stores leaf is hidden (the others stay) and the URL shows the
 //      denied card with no Stores call; a bare-403 probe hides the whole group; the Materials and
-//      Orders placeholders render behind their own flags;
+//      Orders pages (555, 556) render behind their own flags;
 //   2. the rows render every column; a null onboardedAt / updatedAt and a "" store name are blank;
 //      health reads OK / Failing / Silent / Paused — a failing row RED, a silent row AMBER, a paused
 //      store reads Paused (never Silent) with no highlight;
@@ -70,8 +70,29 @@
 //      DHS-00007 refreshes the list;
 //  14. the same under RTL.
 //
-//   1. run the app:  npx vite --port 5231 --strictPort
-//   2. DRIVE_PORT=5231 node tools/hungerstation-stores-drive.mjs
+// ── 554 (logs drawer, push lines, material history) ── it asserts, LTR and RTL, against stubs of
+//   GET  HungerStationWeb/Sync/{store}/Logs?take=                 → push rows; DHS-00007 (no store, no logs)
+//   GET  HungerStationWeb/Sync/{store}/Logs/{logId}/Lines?material=&skip=&take= → { logId, total, lines };
+//                                                                   DHS-00015 (gone / older than 15 days)
+//   GET  HungerStationWeb/Sync/{store}/Lines?material=            → material lines (newest 200); 400 without material
+//  15. a row's Logs opens the store's pushes (GET Logs?take=500), newest first as the door answers:
+//      type, start, end, status, rows sent, error; a failed push RED, its error isolated as free
+//      text; the title the store code · name isolated once; a push's Lines opens them (skip 0, take
+//      200, no material): "Showing 1–200 of 450", a null value BLANK (never 0), a sent 0 stays 0,
+//      an inactive line marked, the price at 3 decimals with SAR; page 2 asks skip=200; filter by
+//      material number sends material= exactly and resets to page 1; a filter matching nothing says
+//      so; Back returns focus to the push's Lines; DHS-00015 says push detail is kept 15 days, no
+//      table; Escape closes and takes ?logs= off the URL;
+//  16. a row's Material history: a prompt, then GET Lines?material= — the lines newest first, each
+//      with its push type and status, a failed push RED; the 200-cap notice when the door answers
+//      200; an empty answer names the material and the 15 days;
+//  17. a store code alone opens them: ?logs=<removed code> (not on the list) shows its pushes,
+//      titled by the code; ?logs=<unknown code> says DHS-00007 in words; ?history=<removed code>
+//      looks up a material;
+//  18. the same under RTL.
+//
+//   1. run the app:  npx vite --port 5234 --strictPort
+//   2. DRIVE_PORT=5234 node tools/hungerstation-stores-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -165,9 +186,61 @@ const REFUSALS = {
   'DHS-00013': [409, "The store's stock sync is paused. / مزامنة مخزون الفرع موقوفة."],
   'DHS-00014': [502, 'HungerStation answered 422: vendor abc12 is closed. / ردّت هنقرستيشن 422: المورّد مغلق.'],
   HungerStationSyncBusy: [409, 'Another push of this store is running. / إرسال آخر لهذا الفرع جارٍ.'],
+  'DHS-00015': [404, 'No such push for this store (or it is older than the 15 days kept). / لا يوجد إرسال بهذا الرقم لهذا الفرع.'],
+  HungerStationInputInvalid: [400, 'material is required. / رقم المادة مطلوب.'],
 }
 /** The push sync now answers (contract § Stock sync, the Logs row shape). */
 const PUSH = { logId: '01JHSNOW', syncType: 'F', startTime: '2026-10-24T11:00:00', endTime: '2026-10-24T11:00:04', status: 'S', rows: 1812, error: null }
+// ── 554: pushes, lines and a material's history, exactly the contract's fields ──
+const push = (logId, syncType, startTime, endTime, status, rows, error = null) => ({ logId, syncType, startTime, endTime, status, rows, error })
+const LOGS = {
+  1234: [
+    push('01JDELTA', 'D', '2026-10-24T10:30:00', '2026-10-24T10:30:02', 'S', 12),
+    push('01JFAIL', 'D', '2026-10-24T10:00:00', '2026-10-24T10:00:03', 'E', 4, 'HTTP 500 from Delivery Hero'),
+    push('01JFULL', 'F', '2026-10-24T07:05:00', '2026-10-24T07:06:10', 'S', 450),
+    push('01JOLD', 'F', '2026-10-09T07:05:00', '2026-10-09T07:06:00', 'S', 1800),
+  ],
+  // A removed store: not on the list, its logs still readable.
+  7777: [push('01JREMOVED', 'F', '2026-10-20T07:05:00', '2026-10-20T07:05:30', 'S', 3)],
+}
+const hsLine = (materialNumber, over = {}) => ({
+  materialNumber,
+  active: true,
+  quantity: 7,
+  maximumSalesQuantity: 3,
+  price: 18.95,
+  currencyKey: 'SAR',
+  sentAt: '2026-10-24T07:05:40',
+  ...over,
+})
+/** 01JFULL's 450 lines, by material number: 601203 sent no values, 601205 inactive, 601207 zeros. */
+const FULL_LINES = Array.from({ length: 450 }, (_, i) => {
+  const m = String(601200 + i)
+  if (i === 3) return hsLine(m, { active: null, quantity: null, maximumSalesQuantity: null, price: null })
+  if (i === 5) return hsLine(m, { active: false })
+  if (i === 7) return hsLine(m, { quantity: 0, maximumSalesQuantity: 0, price: 0 })
+  return hsLine(m, { quantity: i + 1 })
+})
+const LINES = {
+  '01JFULL': FULL_LINES,
+  '01JDELTA': FULL_LINES.slice(0, 12),
+  '01JFAIL': FULL_LINES.slice(0, 4),
+  '01JREMOVED': FULL_LINES.slice(0, 3),
+}
+const historyLine = (logId, syncType, status, sentAt, over = {}) => {
+  const { sentAt: _drop, ...values } = hsLine('601624', over)
+  return { logId, syncType, status, sentAt, ...values }
+}
+const HISTORY = {
+  601624: [
+    historyLine('01JDELTA', 'D', 'S', '2026-10-24T10:30:01', { quantity: 5 }),
+    historyLine('01JFAIL', 'D', 'E', '2026-10-24T10:00:01', { quantity: 6 }),
+    historyLine('01JFULL', 'F', 'S', '2026-10-24T07:05:40', { quantity: 7, price: null }),
+  ],
+  // At the cap: the door answers its newest 200.
+  999999: Array.from({ length: 200 }, (_, i) => ({ ...historyLine('01JDELTA', 'D', 'S', '2026-10-24T10:30:01'), materialNumber: '999999', quantity: i })),
+}
+
 const refuse = (code) => {
   const [status, message] = REFUSALS[code]
   return envelope(null, { status, success: false, message, errorCode: code })
@@ -199,6 +272,8 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
   const calls = []
   const lists = []
   const writes = []
+  // The 554 reads (Logs, Lines, material history), each with its query string.
+  const reads = []
   // This context's own stores (552): a DELETE takes one off, a POST of a removed code revives it.
   const list = STORES.map((s) => ({ ...s }))
   const removed = new Set()
@@ -307,13 +382,35 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
       list[at] = { ...list[at], sync: { ...pushed, lastStatus: 'S', lastError: null, health: 'ok' } }
       return route.fulfill(envelope(PUSH))
     }
+    if (p.startsWith('HungerStationWeb/Sync/') && req.method() === 'GET') {
+      reads.push({ path: p, search: url.search.slice(1) })
+      const rest = p.slice('HungerStationWeb/Sync/'.length).split('/')
+      const code = decodeURIComponent(rest[0])
+      const known = list.some((s) => s.storeCode === code) || code in LOGS
+      if (!known) return route.fulfill(refuse('DHS-00007'))
+      if (rest[1] === 'Logs' && rest.length === 2) return route.fulfill(envelope(LOGS[code] ?? []))
+      if (rest[1] === 'Logs' && rest[3] === 'Lines') {
+        const logId = decodeURIComponent(rest[2])
+        if (!(logId in LINES)) return route.fulfill(refuse('DHS-00015'))
+        const material = url.searchParams.get('material')
+        const skip = Number(url.searchParams.get('skip') ?? 0)
+        const take = Number(url.searchParams.get('take') ?? 200)
+        const matching = LINES[logId].filter((l) => !material || l.materialNumber === material)
+        return route.fulfill(envelope({ logId, total: matching.length, lines: matching.slice(skip, skip + take) }))
+      }
+      if (rest[1] === 'Lines' && rest.length === 2) {
+        const material = url.searchParams.get('material')
+        if (!material) return route.fulfill(refuse('HungerStationInputInvalid'))
+        return route.fulfill(envelope(HISTORY[material] ?? []))
+      }
+    }
     // Deliverect's group is shown so the HungerStation group's place after it can be read.
     if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(DLV_ALL))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, lists, writes, gate }
+  return { context, page, errors, calls, lists, writes, gate, reads }
 }
 
 /** Wait until the grid holds `n` rows and has settled. */
@@ -391,8 +488,8 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   await page.locator('[data-materials-grid]').waitFor({ timeout: 10000 })
   check('1: Materials opens its own page (ticket 555)', (await page.locator('h1').innerText()) === 'HungerStation materials')
   await page.locator('nav a[href="/hungerstation/orders"]').first().click()
-  await page.locator('[data-hs-placeholder="orders"]').waitFor({ timeout: 10000 })
-  check('1: Orders opens its placeholder (556 fills it)', (await page.locator('h1').innerText()) === 'HungerStation orders')
+  await page.locator('[data-orders-grid]').waitFor({ timeout: 10000 })
+  check('1: Orders opens its own page (ticket 556)', (await page.locator('h1').innerText()) === 'HungerStation orders')
   check('1: still ONE probe call after three pages', calls.filter((c) => c === 'HungerStationWeb/Access').length === 1)
   check('1: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -421,7 +518,7 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   await page.goto(`${BASE}/hungerstation/orders`)
   await page.getByText(/No access to HungerStation orders|This screen is unavailable/).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(400)
-  check('1: a hand-typed placeholder URL stays closed too', (await page.locator('[data-hs-placeholder]').count()) === 0)
+  check('1: a hand-typed Orders URL stays closed too', (await page.locator('[data-orders-grid]').count()) === 0)
   check('1: and no Stores call', !calls.includes('HungerStationWeb/Stores'))
   check('1 (403): no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
@@ -430,8 +527,8 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   const { context, page, errors } = await open('ltr', { access: { canManageStores: true, canManageCatalog: false, canViewOrders: false } })
   await page.goto(`${BASE}/hungerstation/materials`)
   await page.getByText('No access to HungerStation materials').waitFor({ timeout: 20000 })
-  check('1: the Materials page stands behind canManageCatalog', (await page.locator('[data-hs-placeholder], [data-materials-grid]').count()) === 0)
-  check('1 (placeholder denied): no page errors', errors.length === 0, errors.join(' | '))
+  check('1: the Materials page stands behind canManageCatalog', (await page.locator('[data-materials-grid]').count()) === 0)
+  check('1 (Materials denied): no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
 
@@ -1048,10 +1145,251 @@ async function syncNow(dir) {
   check(`${dir}: (553 sync now) no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }
+// ── 554 ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** Text with its FSI…PDI isolates taken off (a value interpolated into a sentence is isolated). */
+const plain = (text) => text.replace(/[⁦-⁩]/g, '')
+const cellText = (row, attr) => row.locator(`[${attr}]`).innerText()
+
+/** The logs drawer and a push's lines, in one direction. */
+async function logsDrawer(dir) {
+  const tag = dir === 'rtl' ? '18 (rtl, 15)' : '15'
+  const { context, page, errors, reads } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores`)
+  await waitRows(page, 4)
+  await page.locator('[data-store-logs="1234"]').click()
+  const drawer = page.locator('[data-hs-logs-drawer="1234"]')
+  await drawer.locator('[data-hs-logs-table]').waitFor({ timeout: 10000 })
+  check(`${tag}: a row's Logs opens the drawer, ?logs=1234 in the URL`, new URL(page.url()).searchParams.get('logs') === '1234', page.url())
+  const logRead = reads.find((r) => r.path === 'HungerStationWeb/Sync/1234/Logs')
+  check(`${tag}: GET Sync/1234/Logs?take=500`, logRead?.search === 'take=500', JSON.stringify(logRead))
+  check(
+    `${tag}: the title is the store code · name, isolated once`,
+    (await drawer.locator('[data-hs-logs-title]').innerText()) === '1234 · Riyadh Olaya' && (await drawer.locator('[data-hs-logs-title] bdi[dir="ltr"]').count()) === 1,
+  )
+  const ids = await drawer.locator('[data-hs-log]').evaluateAll((els) => els.map((e) => e.getAttribute('data-hs-log')))
+  check(`${tag}: the pushes newest first, as the door answers`, JSON.stringify(ids) === JSON.stringify(['01JDELTA', '01JFAIL', '01JFULL', '01JOLD']), JSON.stringify(ids))
+  const fail = drawer.locator('[data-hs-log="01JFAIL"]')
+  check(
+    `${tag}: a failed push is RED, and only it`,
+    (await fail.getAttribute('data-hs-log-failed')) === '' &&
+      /bg-danger-050/.test((await fail.getAttribute('class')) ?? '') &&
+      (await drawer.locator('[data-hs-log-failed]').count()) === 1,
+  )
+  check(
+    `${tag}: its type, start, end, status, rows sent and error`,
+    (await cellText(fail, 'data-log-type')) === 'Delta' &&
+      (await cellText(fail, 'data-log-start')) === '2026-10-24 10:00' &&
+      (await cellText(fail, 'data-log-end')) === '2026-10-24 10:00' &&
+      (await cellText(fail, 'data-log-status')) === 'Error' &&
+      (await cellText(fail, 'data-log-rows')) === '4' &&
+      (await cellText(fail, 'data-log-error')) === 'HTTP 500 from Delivery Hero',
+  )
+  check(
+    `${tag}: machine values isolated left-to-right, the error as free text`,
+    (await fail.locator('[data-log-start] bdi[dir="ltr"]').count()) === 1 && (await fail.locator('[data-log-error] bdi:not([dir])').count()) === 1,
+  )
+  const full = drawer.locator('[data-hs-log="01JFULL"]')
+  check(
+    `${tag}: a full push reads Full, Success, 450`,
+    (await cellText(full, 'data-log-type')) === 'Full' && (await cellText(full, 'data-log-status')) === 'Success' && (await cellText(full, 'data-log-rows')) === '450',
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-logs.png` })
+
+  // a push's lines
+  await drawer.locator('[data-log-open-lines="01JFULL"]').click()
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: 10000 })
+  const linesReads = () => reads.filter((r) => r.path === 'HungerStationWeb/Sync/1234/Logs/01JFULL/Lines').map((r) => r.search)
+  check(`${tag}: Lines asks skip=0&take=200, no material`, linesReads()[0] === 'skip=0&take=200', JSON.stringify(linesReads()))
+  check(`${tag}: the lines' Back button takes focus`, await page.evaluate(() => document.activeElement?.hasAttribute('data-lines-back') ?? false))
+  const showing = await drawer.locator('[data-lines-showing]').innerText()
+  check(
+    `${tag}: "Showing 1–200 of 450", the range isolated whole`,
+    showing === 'Showing 1–200 of 450' && (await drawer.locator('[data-lines-showing] bdi[dir="ltr"]').first().innerText()) === '1–200',
+    showing,
+  )
+  check(`${tag}: 200 lines on the page`, (await drawer.locator('[data-line]').count()) === 200)
+  const line = (m) => drawer.locator(`[data-line="${m}"]`)
+  const values = async (m) => [
+    await cellText(line(m), 'data-line-active'),
+    await cellText(line(m), 'data-line-quantity'),
+    await cellText(line(m), 'data-line-max-sales'),
+    await cellText(line(m), 'data-line-price'),
+  ]
+  check(
+    `${tag}: a line sent in full: Active, its figures, 18.950 SAR, sent at`,
+    JSON.stringify(await values('601200')) === JSON.stringify(['Active', '1', '3', '18.950 SAR']) &&
+      (await cellText(line('601200'), 'data-line-sent-at')) === '2026-10-24 07:05' &&
+      (await line('601200').locator('[data-line-price] bdi[dir="ltr"]').innerText()) === '18.950 SAR',
+    JSON.stringify(await values('601200')),
+  )
+  check(
+    `${tag}: values the push did not send are BLANK, never 0`,
+    JSON.stringify(await values('601203')) === JSON.stringify(['', '', '', '']) && (await line('601203').locator('[data-not-sent]').count()) === 4,
+    JSON.stringify(await values('601203')),
+  )
+  check(`${tag}: a 0 that was sent stays 0`, JSON.stringify(await values('601207')) === JSON.stringify(['Active', '0', '0', '0.000 SAR']), JSON.stringify(await values('601207')))
+  check(
+    `${tag}: an inactive line is marked`,
+    (await line('601205').getAttribute('data-line-inactive')) === '' && (await cellText(line('601205'), 'data-line-active')) === 'Inactive',
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-push-lines.png` })
+
+  // page 2
+  await drawer.locator('[data-lines-pager] button', { hasText: 'Next' }).click()
+  await page.waitForFunction(() => document.querySelector('[data-lines-showing]')?.textContent === 'Showing 201–400 of 450', null, { timeout: 10000 })
+  check(`${tag}: Next asks skip=200&take=200`, linesReads().at(-1) === 'skip=200&take=200', JSON.stringify(linesReads()))
+  check(`${tag}: and lands on 601400`, (await drawer.locator('[data-line]').first().getAttribute('data-line')) === '601400')
+
+  // filter by material
+  await drawer.locator('[data-lines-material]').fill(' 601624 ')
+  await drawer.locator('[data-lines-apply]').click()
+  await page.waitForFunction(() => document.querySelectorAll('[data-line]').length === 1, null, { timeout: 10000 })
+  check(`${tag}: the material filter sends material= exactly, from page 1`, linesReads().at(-1) === 'material=601624&skip=0&take=200', JSON.stringify(linesReads()))
+  check(`${tag}: one line, 601624, no pager`, (await drawer.locator('[data-line]').getAttribute('data-line')) === '601624' && (await drawer.locator('[data-lines-pager]').count()) === 0)
+  await drawer.locator('[data-lines-material]').fill('123')
+  await drawer.locator('[data-lines-apply]').click()
+  await drawer.locator('[data-lines-notice="noMatch"]').waitFor({ timeout: 10000 })
+  check(`${tag}: a material matching nothing says so`, (await drawer.locator('[data-lines-notice="noMatch"]').innerText()) === 'No line of this push matches that material number.')
+
+  // back
+  await drawer.locator('[data-lines-back]').click()
+  await drawer.locator('[data-hs-logs-table]').waitFor()
+  check(`${tag}: Back returns to the log, focus on the push's Lines`, await page.evaluate(() => document.activeElement?.getAttribute('data-log-open-lines') === '01JFULL'))
+
+  // DHS-00015
+  await drawer.locator('[data-log-open-lines="01JOLD"]').click()
+  await drawer.locator('[data-lines-notice="expired"]').waitFor({ timeout: 10000 })
+  const expired = plain(await drawer.locator('[data-lines-notice="expired"]').innerText())
+  check(`${tag}: DHS-00015 says push detail is kept 15 days`, /push detail is kept for\s*15\s*days/.test(expired), expired)
+  check(`${tag}: no table, no filter, no "nothing sent"`, (await drawer.locator('[data-lines-table], [data-lines-filters], [data-lines-notice="noneSent"]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-push-expired.png` })
+
+  // Escape closes
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached' })
+  check(`${tag}: Escape closes the drawer and takes ?logs= off the URL`, new URL(page.url()).searchParams.get('logs') === null)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A material's history from a store row, in one direction. */
+async function materialHistory(dir) {
+  const tag = dir === 'rtl' ? '18 (rtl, 16)' : '16'
+  const { context, page, errors, reads } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores`)
+  await waitRows(page, 4)
+  await page.locator('[data-store-material="1234"]').click()
+  const drawer = page.locator('[data-hs-material-drawer="1234"]')
+  await drawer.waitFor()
+  const historyReads = () => reads.filter((r) => r.path === 'HungerStationWeb/Sync/1234/Lines').map((r) => r.search)
+  check(
+    `${tag}: Material history opens on a prompt, ?history=1234 in the URL, nothing read yet`,
+    (await drawer.locator('[data-hs-material-prompt]').count()) === 1 && new URL(page.url()).searchParams.get('history') === '1234' && historyReads().length === 0,
+  )
+  check(`${tag}: Look up waits for a material number`, await drawer.locator('[data-hs-material-search]').isDisabled())
+  await drawer.locator('[data-hs-material-input]').fill(' 601624 ')
+  await drawer.locator('[data-hs-material-search]').click()
+  await drawer.locator('[data-hs-material-table]').waitFor({ timeout: 10000 })
+  check(`${tag}: GET Sync/1234/Lines?material=601624`, historyReads().at(-1) === 'material=601624', JSON.stringify(historyReads()))
+  const rows = drawer.locator('[data-hs-material-line]')
+  const sent = await rows.evaluateAll((els) => els.map((e) => e.querySelector('[data-line-sent-at]').textContent))
+  check(`${tag}: every line, newest first`, JSON.stringify(sent) === JSON.stringify(['2026-10-24 10:30', '2026-10-24 10:00', '2026-10-24 07:05']), JSON.stringify(sent))
+  const failed = drawer.locator('[data-hs-material-line="01JFAIL"]')
+  check(
+    `${tag}: each with its push type and status; a failed push's line RED`,
+    (await cellText(failed, 'data-line-push-type')) === 'Delta' &&
+      (await cellText(failed, 'data-line-push-status')) === 'Error' &&
+      /bg-danger-050/.test((await failed.getAttribute('class')) ?? '') &&
+      (await drawer.locator('[data-hs-material-failed]').count()) === 1,
+  )
+  const fullLine = drawer.locator('[data-hs-material-line="01JFULL"]')
+  check(
+    `${tag}: the full push's line: Full, Success, quantity 7, its unsent price blank`,
+    (await cellText(fullLine, 'data-line-push-type')) === 'Full' &&
+      (await cellText(fullLine, 'data-line-push-status')) === 'Success' &&
+      (await cellText(fullLine, 'data-line-quantity')) === '7' &&
+      (await cellText(fullLine, 'data-line-price')) === '' &&
+      (await fullLine.locator('[data-line-price] [data-not-sent]').count()) === 1,
+  )
+  check(`${tag}: under 200 lines, no cap notice`, (await drawer.locator('[data-hs-material-capped]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-material-history.png` })
+
+  await drawer.locator('[data-hs-material-input]').fill('999999')
+  await drawer.locator('[data-hs-material-search]').click()
+  await drawer.locator('[data-hs-material-capped]').waitFor({ timeout: 10000 })
+  const capped = plain(await drawer.locator('[data-hs-material-capped]').innerText())
+  check(`${tag}: at 200 lines the cap notice says only the newest 200 are shown`, /Only the newest\s*200\s*lines are shown/.test(capped) && /15\s*days/.test(capped), capped)
+  check(`${tag}: and the 200 lines`, (await rows.count()) === 200)
+  await page.screenshot({ path: `${SHOTS}/${dir}-material-capped.png` })
+
+  await drawer.locator('[data-hs-material-input]').fill('000000')
+  await drawer.locator('[data-hs-material-search]').click()
+  await drawer.locator('[data-hs-material-empty]').waitFor({ timeout: 10000 })
+  const empty = plain(await drawer.locator('[data-hs-material-empty]').innerText())
+  check(
+    `${tag}: an empty answer names the material (isolated) and the 15 days`,
+    empty === 'Material 000000 was not sent to this store in the last 15 days.' && (await drawer.locator('[data-hs-material-empty] bdi[dir="ltr"]').innerText()) === '000000',
+    empty,
+  )
+  await drawer.locator('[data-hs-material-close]').click()
+  await drawer.waitFor({ state: 'detached' })
+  check(`${tag}: Close takes ?history= off the URL`, new URL(page.url()).searchParams.get('history') === null)
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** A store code alone opens its history: a removed store's, and an unknown code's refusal. */
+async function byCode(dir) {
+  const tag = dir === 'rtl' ? '18 (rtl, 17)' : '17'
+  const { context, page, errors, reads } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores?logs=7777`)
+  const drawer = page.locator('[data-hs-logs-drawer="7777"]')
+  await drawer.locator('[data-hs-logs-table]').waitFor({ timeout: 15000 })
+  check(
+    `${tag}: ?logs=7777 (a removed store, not on the list) shows its pushes, titled by the code`,
+    (await drawer.locator('[data-hs-log]').count()) === 1 && (await drawer.locator('[data-hs-logs-title]').innerText()) === '7777',
+  )
+  await drawer.locator('[data-log-open-lines="01JREMOVED"]').click()
+  await drawer.locator('[data-lines-table]').waitFor({ timeout: 10000 })
+  check(`${tag}: and its push's lines`, (await drawer.locator('[data-line]').count()) === 3)
+  await page.keyboard.press('Escape')
+  await drawer.waitFor({ state: 'detached' })
+
+  await page.goto(`${BASE}/hungerstation/stores?logs=8888`)
+  const unknown = page.locator('[data-hs-logs-drawer="8888"] [data-hs-logs-unknown]')
+  await unknown.waitFor({ timeout: 15000 })
+  check(
+    `${tag}: ?logs=8888: DHS-00007 says no store and no push, in words, no banner`,
+    (await unknown.innerText()) === 'No HungerStation store and no push is recorded for this store code.' &&
+      (await page.locator('[data-hs-logs-drawer="8888"] [data-hs-logs-error]').count()) === 0,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-logs-unknown.png` })
+
+  await page.goto(`${BASE}/hungerstation/stores?history=7777`)
+  const hist = page.locator('[data-hs-material-drawer="7777"]')
+  await hist.waitFor({ timeout: 15000 })
+  await hist.locator('[data-hs-material-input]').fill('601624')
+  await hist.locator('[data-hs-material-search]').click()
+  await hist.locator('[data-hs-material-table]').waitFor({ timeout: 10000 })
+  check(
+    `${tag}: ?history=7777 looks up a material at the removed store`,
+    reads.some((r) => r.path === 'HungerStationWeb/Sync/7777/Lines' && r.search === 'material=601624') && (await hist.locator('[data-hs-material-line]').count()) === 3,
+  )
+  check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
 await pauseResume('ltr')
 await syncNow('ltr')
 await pauseResume('rtl')
 await syncNow('rtl')
+await logsDrawer('ltr')
+await materialHistory('ltr')
+await byCode('ltr')
+await logsDrawer('rtl')
+await materialHistory('rtl')
+await byCode('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

@@ -2,8 +2,8 @@
  * The HungerStation nav group, gated (ticket 551, BackOffice spec 3028).
  *
  * Read out of the **real** `MENU`, never re-declared, so a leaf that lost its probe or drifted off
- * the ONE shared key fails here. 551 ships all three leaves — Stores, and the Materials (555) and
- * Orders (556) placeholders those tickets fill — each on its own flag.
+ * the ONE shared key fails here. 551 shipped all three leaves — Stores, Materials (555) and Orders
+ * (556) — each on its own flag.
  */
 import { describe, expect, it } from 'vitest'
 import { HUNGERSTATION_ACCESS_KEY } from '@/core/hungerstation/api'

@@ -426,5 +426,37 @@
       "DATASYNC_INVALID_STATE": "The campaign is no longer Ready, so it cannot be started. The page shows its current status.",
       "DATASYNC_CAMPAIGN_NOT_FOUND": "This campaign no longer exists."
     }
+  },
+  "handBack": {
+    "button": "Hand back to ActionSync",
+    "title": "Hand back to ActionSync",
+    "note": "Resumes ActionSync on the stores whose apply succeeded and that DataSync marks resumable. Nothing is resumed until you confirm.",
+    "tag": "Sent with the reason <tag>{{tag}}</tag>",
+    "loading": "Reading every job of the campaign…",
+    "failed": "The campaign's jobs could not be read, so nothing can be handed back yet.",
+    "inFlight_one": "<n>{{figure}}</n> job is still in flight. Its store stays paused; open this again when it finishes.",
+    "inFlight_other": "<n>{{figure}}</n> jobs are still in flight. Their stores stay paused; open this again when they finish.",
+    "readyTitle_one": "<n>{{figure}}</n> store can go back to ActionSync:",
+    "readyTitle_other": "<n>{{figure}}</n> stores can go back to ActionSync:",
+    "none": "No store is ready to hand back yet.",
+    "stayTitle_one": "<n>{{figure}}</n> store stays paused for a person:",
+    "stayTitle_other": "<n>{{figure}}</n> stores stay paused for a person:",
+    "stayHint": "Check these in the sync console before they sync again.",
+    "why": {
+      "failed": "its job failed",
+      "cancelled": "its job was cancelled",
+      "inFlight": "its job has not finished",
+      "notResumable": "not resumable: ActionSync's control changed since the job began, or its last ActionSync control was not this campaign's"
+    },
+    "confirm_one": "Hand back <n>{{figure}}</n> store",
+    "confirm_other": "Hand back <n>{{figure}}</n> stores",
+    "sending": "Handing back…",
+    "close": "Close",
+    "done_one": "<n>{{figure}}</n> store is back with ActionSync:",
+    "done_other": "<n>{{figure}}</n> stores are back with ActionSync:",
+    "refusedTitle": "ActionSync did not resume these stores; they stay paused:",
+    "stopped": "The hand-back stopped part-way.",
+    "denied": "Resuming stores on ActionSync needs ActionSync Operate.",
+    "unsentTitle": "Not sent, so still paused:"
   }
 }

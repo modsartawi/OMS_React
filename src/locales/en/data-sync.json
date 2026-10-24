@@ -12,6 +12,53 @@
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
   "refreshing": "Refreshing…",
+  "kind": {
+    "SourceOnly": "Only at source",
+    "Different": "Different",
+    "TargetOnly": "Only at store"
+  },
+  "changes": {
+    "title": "Changes",
+    "subtitle": "A report-only job's row-level differences, source against store.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to changes",
+      "deniedHint": "Row-level changes need the grant to operate data sync. Ask an administrator if you need it.",
+      "unreachableTitle": "This screen is unavailable",
+      "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+    },
+    "link": "Review changes",
+    "back": "Back to the campaign",
+    "eyebrow": "Job",
+    "table": "Table",
+    "tableAny": "All tables",
+    "kind": "Kind",
+    "kindAny": "All kinds",
+    "loading": "Loading the changes…",
+    "failed": "The changes could not be loaded.",
+    "jobFailed": "The job could not be loaded.",
+    "notFoundTitle": "Job not found",
+    "notFoundHint": "No job has this id. It may have been mistyped, or it belongs to another DataSync.",
+    "empty": "This job found no differences.",
+    "emptyFiltered": "No differences match these filters.",
+    "emptyPage": "No more differences on this page.",
+    "truncated": "The counts are exact, but the rows stop at the cap for:",
+    "pruned": "The row-level changes were pruned after the retention window. The counts remain on the job.",
+    "nullValue": "NULL",
+    "emptyValue": "(empty)",
+    "column": "Column",
+    "source": "Source",
+    "store": "Store",
+    "notAtSource": "not at source",
+    "notAtStore": "not at store",
+    "columns": {
+      "table": "Table",
+      "kind": "Kind",
+      "key": "Key",
+      "values": "Differences (source → store)",
+      "capturedAt": "Captured"
+    }
+  },
   "campaignStatus": {
     "Ready": "Ready",
     "Running": "Running",

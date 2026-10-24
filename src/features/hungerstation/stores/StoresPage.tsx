@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, RowClassRules } from 'ag-grid-community'
-import { Plus, RotateCcw, Search } from 'lucide-react'
+import { Plus, RotateCcw, Search, X } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -17,6 +17,7 @@ import type {
   HungerStationStoreRow,
   HungerStationStoresQuery,
   HungerStationSyncFilter,
+  HungerStationSyncLogRow,
 } from '@/core/models/hungerstation'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -25,7 +26,8 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
-import { EditDialog, OnboardDialog, RemoveDialog } from './StoreDialogs'
+import { EditDialog, OnboardDialog, RemoveDialog, SyncActiveDialog, SyncNowDialog } from './StoreDialogs'
+import { syncNowResult } from './sync'
 import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromParams, storesToParams } from './store-state'
 
 /**
@@ -33,7 +35,7 @@ import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromPara
  * HungerStation rail, its chain and vendor id, who onboarded and last changed it, and its stock
  * sync — active or paused, the last full and delta runs, the newest push in 24 h, and its health
  * (failing red, silent amber). Onboard, edit and remove (552; onboarding the code again revives
- * it), each with a reason. 553 adds pause / resume and sync now, 554 the logs drawer.
+ * it), pause / resume and sync now (553), each with a reason. 554 adds the logs drawer.
  *
  * Behind `canManageStores` on the ONE HungerStation probe, the same predicate the menu leaf reads.
  * Its doors are BackOffice 3030.
@@ -76,7 +78,13 @@ const ROW_SILENT = '[--ag-data-background-color:var(--attention-050)]'
 /** The number a sentence names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
 
-type Dialog = { kind: 'onboard' } | { kind: 'edit'; row: Row } | { kind: 'remove'; row: Row } | null
+type Dialog =
+  | { kind: 'onboard' }
+  | { kind: 'edit'; row: Row }
+  | { kind: 'remove'; row: Row }
+  | { kind: 'syncActive'; row: Row }
+  | { kind: 'syncNow'; row: Row }
+  | null
 
 function Stores() {
   const { t } = useTranslation('hungerstation-stores')
@@ -111,6 +119,8 @@ function Stores() {
   const filterChains = chainChoices(chains.isSuccess ? chains.data : undefined, seen, [query.chain])
 
   const [dialog, setDialog] = useState<Dialog>(null)
+  // The last sync now's answer, shown above the grid until dismissed (553).
+  const [pushed, setPushed] = useState<{ storeCode: string; log: HungerStationSyncLogRow } | null>(null)
 
   const rowClassRules = useMemo<RowClassRules<Row>>(
     () => ({
@@ -127,6 +137,8 @@ function Stores() {
       storeColumns(t, {
         onEdit: (row) => setDialog({ kind: 'edit', row }),
         onRemove: (row) => setDialog({ kind: 'remove', row }),
+        onToggleSync: (row) => setDialog({ kind: 'syncActive', row }),
+        onSyncNow: (row) => setDialog({ kind: 'syncNow', row }),
       }),
     [t],
   )
@@ -217,6 +229,8 @@ function Stores() {
         </Button>
       </form>
 
+      {pushed && <PushResult storeCode={pushed.storeCode} log={pushed.log} onDismiss={() => setPushed(null)} />}
+
       {stores.isError && (
         <ErrorBanner className="p-2.5" title={t('results.failedTitle')} message={apiErrorMessage(stores.error, t('results.failed'))} />
       )}
@@ -263,6 +277,45 @@ function Stores() {
         <EditDialog row={dialog.row} rowKeys={seen} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
       )}
       {dialog?.kind === 'remove' && <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
+      {dialog?.kind === 'syncActive' && <SyncActiveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
+      {dialog?.kind === 'syncNow' && (
+        <SyncNowDialog
+          row={dialog.row}
+          onClose={() => setDialog(null)}
+          onDone={(log) => {
+            setPushed({ storeCode: dialog.row.storeCode, log })
+            setDialog(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** A sync now's result: the store, the materials sent and the push's status (553). */
+function PushResult({ storeCode, log, onDismiss }: { storeCode: string; log: HungerStationSyncLogRow; onDismiss: () => void }) {
+  const { t } = useTranslation('hungerstation-stores')
+  const line = syncNowResult(log)
+  const ok = line.status === 'S'
+  return (
+    <div
+      role="status"
+      className={
+        'flex items-center gap-3 rounded-md border px-3 py-2 text-xs ' +
+        (ok ? 'border-border bg-card-2 text-foreground' : 'border-danger-border bg-danger-050 text-danger-800')
+      }
+      data-sync-now-result={storeCode}
+      data-status={line.status}
+    >
+      <span className="font-semibold">
+        <Trans t={t} i18nKey="syncNow.resultTitle" values={{ store: storeCode }} components={{ store: <Ltr /> }} />
+      </span>
+      <span data-sync-now-result-line="">
+        <Trans t={t} i18nKey={line.key} values={{ rows: line.rows }} components={{ n: <Ltr /> }} />
+      </span>
+      <Button variant="text" className="ms-auto" onClick={onDismiss} aria-label={t('syncNow.dismiss')} data-sync-now-dismiss="">
+        <X className="h-3.5 w-3.5" aria-hidden />
+      </Button>
     </div>
   )
 }

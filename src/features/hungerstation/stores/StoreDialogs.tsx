@@ -1,17 +1,18 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { hungerStationChainsQuery } from '@/core/hungerstation/api'
 import ReasonDialog, { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
 import { fieldRefusal, type FieldRefusal } from '@/core/hungerstation/reason'
-import { HUNGERSTATION_ERRORS, type HungerStationStoreRow } from '@/core/models/hungerstation'
+import { HUNGERSTATION_ERRORS, type HungerStationStoreRow, type HungerStationSyncLogRow } from '@/core/models/hungerstation'
 import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { STORES_KEY, storesApi } from './api'
+import { STORES_KEY, storesApi, syncNowKey } from './api'
 import { REMOVE_CONSEQUENCES } from './remove'
 import { chainChoices } from './store-state'
+import { SYNC_NOW_CODES, applyPush, replaceRow, syncNowRefusal } from './sync'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium'
 const INPUT =
@@ -373,6 +374,151 @@ export function RemoveDialog({ row, onClose, onDone }: { row: HungerStationStore
             <p>{t('remove.goneHint')}</p>
             <InlineRefusal message={apiErrorMessage(send.error, t('dialog.failedHint'))} code={E.notOnboarded} />
           </div>
+        )}
+      </div>
+    </ReasonDialog>
+  )
+}
+
+/**
+ * Pause an active store's stock sync, or resume a paused one, with a reason (ticket 553). The door
+ * answers the store row, which replaces the row where it stands in every cached list — no refetch.
+ * DHS-00007 (removed meanwhile) says so inline, refreshes the list and turns Confirm off.
+ */
+export function SyncActiveDialog({ row, onClose, onDone }: { row: HungerStationStoreRow; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('hungerstation-stores')
+  const qc = useQueryClient()
+  const active = !row.sync.active
+  const ns = active ? 'resume' : 'pause'
+  const send = useMutation({
+    mutationFn: (reason: string) => storesApi.setActive(row.storeCode, { active, reason }),
+    onSuccess: (next) => {
+      qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
+      notify.success(t(`${ns}.done`), t(`${ns}.doneDetail`, { store: fsi(row.storeCode) }))
+      onDone()
+    },
+    onError: (err) => {
+      if (apiErrorCode(err) === E.notOnboarded) void qc.invalidateQueries({ queryKey: STORES_KEY })
+    },
+  })
+  const gone = apiErrorCode(send.error) === E.notOnboarded
+
+  return (
+    <ReasonDialog
+      open
+      title={t(`${ns}.title`)}
+      note={<Trans t={t} i18nKey={`${ns}.note`} values={{ store: row.storeCode }} components={{ store: <Ltr /> }} />}
+      busy={send.isPending}
+      error={send.error}
+      confirmLabel={t(`${ns}.confirm`)}
+      confirmDisabled={gone}
+      handledCodes={[E.notOnboarded]}
+      onEdit={() => send.reset()}
+      onConfirm={(reason) => send.mutate(reason)}
+      onClose={onClose}
+    >
+      <div data-sync-active-dialog={ns}>
+        {gone && (
+          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800" data-sync-active-gone="">
+            <p className="font-semibold">{t(`${ns}.gone`)}</p>
+            <p>{t(`${ns}.goneHint`)}</p>
+            <InlineRefusal message={apiErrorMessage(send.error, t('dialog.failedHint'))} code={E.notOnboarded} />
+          </div>
+        )}
+      </div>
+    </ReasonDialog>
+  )
+}
+
+/**
+ * Push a store's stock to HungerStation now, IN FULL, with a reason (ticket 553). The note says it
+ * is a full push to the live HungerStation vendor. The door answers the push's log row: the row's
+ * sync block takes it at once (`applyPush`), the list is read again, and `onDone` hands the log row
+ * to the page, which shows the result (rows sent, status).
+ *
+ * The mutation is keyed by `syncNowKey`, so the actions cell shows the push running and cannot
+ * start a second one. Sync now's own refusals (`syncNowRefusal`) read in words beside the server's:
+ * DHS-00013 paused, DHS-00014 HungerStation refused (its answer is `message`; the push was recorded
+ * as failed), DHS-00007 removed meanwhile — and 409 `HungerStationSyncBusy`, which is NOT an error:
+ * a push is already running, nothing was recorded, try again shortly.
+ */
+export function SyncNowDialog({
+  row,
+  onClose,
+  onDone,
+}: {
+  row: HungerStationStoreRow
+  onClose: () => void
+  onDone: (log: HungerStationSyncLogRow) => void
+}) {
+  const { t } = useTranslation('hungerstation-stores')
+  const qc = useQueryClient()
+  // 🔑 One push per click: a double click lands both clicks before React re-renders the confirm as
+  // busy, so the guard is a ref, set before `mutate` and cleared when the push settles.
+  const inFlight = useRef(false)
+  const send = useMutation({
+    mutationKey: syncNowKey(row.storeCode),
+    onSettled: () => {
+      inFlight.current = false
+    },
+    mutationFn: (reason: string) => storesApi.syncNow(row.storeCode, { reason }),
+    onSuccess: (log) => {
+      qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) =>
+        rows?.map((r) => (r.storeCode === row.storeCode ? applyPush(r, log) : r)),
+      )
+      void qc.invalidateQueries({ queryKey: STORES_KEY })
+      notify.success(t('syncNow.done'), t('syncNow.doneDetail', { store: fsi(row.storeCode) }))
+      onDone(log)
+    },
+    onError: (err) => {
+      // Busy recorded nothing, so the list has nothing new; every other refusal of its own has.
+      const kind = syncNowRefusal(apiErrorCode(err))
+      if (kind === 'gone' || kind === 'paused' || kind === 'hungerStationFailed') void qc.invalidateQueries({ queryKey: STORES_KEY })
+    },
+  })
+  const code = apiErrorCode(send.error)
+  const kind = syncNowRefusal(code)
+  const message = apiErrorMessage(send.error, t('dialog.failedHint'))
+
+  return (
+    <ReasonDialog
+      open
+      title={t('syncNow.title')}
+      note={
+        <Trans
+          t={t}
+          i18nKey="syncNow.note"
+          values={{ store: row.storeCode, vendorId: row.vendorId }}
+          components={{ store: <Ltr />, vendor: <Ltr /> }}
+        />
+      }
+      busy={send.isPending}
+      error={send.error}
+      confirmLabel={t('syncNow.confirm')}
+      confirmDisabled={!row.sync.active || kind === 'gone' || kind === 'paused'}
+      handledCodes={SYNC_NOW_CODES}
+      onEdit={() => send.reset()}
+      onConfirm={(reason) => {
+        if (inFlight.current) return
+        inFlight.current = true
+        send.mutate(reason)
+      }}
+      onClose={onClose}
+    >
+      <div data-sync-now-dialog="">
+        {kind === 'busy' ? (
+          <div role="status" className="flex flex-col gap-1 rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground" data-sync-now-refusal="busy">
+            <p className="font-semibold">{t('syncNow.refusal.busy')}</p>
+            <p className="text-muted-foreground">{t('syncNow.refusal.busyHint')}</p>
+          </div>
+        ) : (
+          kind && (
+            <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800" data-sync-now-refusal={kind}>
+              <p className="font-semibold">{t(`syncNow.refusal.${kind}`)}</p>
+              <p>{t(`syncNow.refusal.${kind}Hint`)}</p>
+              <InlineRefusal message={message} code={code} />
+            </div>
+          )
         )}
       </div>
     </ReasonDialog>

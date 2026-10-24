@@ -4,8 +4,12 @@ import type {
   HungerStationOnboardBody,
   HungerStationStoreRow,
   HungerStationStoresQuery,
+  HungerStationSyncActiveBody,
+  HungerStationSyncLogRow,
+  HungerStationSyncNowBody,
 } from '@/core/models/hungerstation'
 import { removePath } from './remove'
+import { syncActivePath, syncNowPath } from './sync'
 
 // The HungerStation stores doors (BackOffice 3030; contract § Stores). The area's shared reads —
 // the access probe and the chain list — live in `@/core/hungerstation/api`. 552 (remove), 553
@@ -58,4 +62,26 @@ export const storesApi = {
   async remove(storeCode: string, reason: string): Promise<void> {
     await api.del<null>(removePath(storeCode, reason))
   },
+
+  /**
+   * PUT HungerStationWeb/Sync/{storeCode}/Active — pause (`active: false`) or resume the store's
+   * stock sync (ticket 553). Returns the store row, patched into the list in place.
+   * Refusals: DHS-00007, 00008.
+   */
+  setActive(storeCode: string, body: HungerStationSyncActiveBody): Promise<HungerStationStoreRow> {
+    return api.put<HungerStationStoreRow>(syncActivePath(storeCode), body)
+  },
+
+  /**
+   * POST HungerStationWeb/Sync/{storeCode}/Now — push the store's stock to HungerStation IN FULL,
+   * now (ticket 553). Returns the push's log row.
+   * Refusals: DHS-00007, 00008, 00013 (paused), 00014 (502 — HungerStation refused or unreachable;
+   * the push is still recorded as `E`), and 409 `HungerStationSyncBusy` (nothing recorded).
+   */
+  syncNow(storeCode: string, body: HungerStationSyncNowBody): Promise<HungerStationSyncLogRow> {
+    return api.post<HungerStationSyncLogRow>(syncNowPath(storeCode), body)
+  },
 }
+
+/** The mutation key of one store's sync now — the actions cell reads it to show the push running. */
+export const syncNowKey = (storeCode: string) => ['hungerstation', 'syncNow', storeCode] as const

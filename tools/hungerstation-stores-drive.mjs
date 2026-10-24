@@ -12,6 +12,9 @@
 //   POST HungerStationWeb/Stores                        → the row; DHS-00001/2/3/4/5/6/8
 //   PUT  HungerStationWeb/Stores/{store}                → the row; DHS-00005/6/7/8
 //   DELETE HungerStationWeb/Stores/{store}?reason=      → data: null; DHS-00007/8 (552)
+//   PUT  HungerStationWeb/Sync/{store}/Active           → the row; DHS-00007/8 (553)
+//   POST HungerStationWeb/Sync/{store}/Now              → the push's log row; DHS-00007/8/13, 502 DHS-00014,
+//                                                         409 HungerStationSyncBusy (553)
 //
 // Each browser context holds its OWN copy of the stores: a DELETE takes the store off it (a removed
 // store is never listed), and a POST of a removed store's code brings it back on the body's chain
@@ -51,6 +54,21 @@
 //  10. onboarding the removed code again revives it on the dialog's chain and vendor id — the
 //      freed vendor id is accepted — and the row is back;
 //  11. under RTL: the remove note isolates the store; remove, DHS-00007 and revive all work.
+//
+// ── 553 (pause / resume, sync now) ── it asserts, LTR and RTL:
+//  12. Pause on an active row / Resume on a paused one opens a reason dialog naming the store
+//      (isolated); it PUTs Sync/{store}/Active with exactly { active, reason }; DHS-00008 inline; the
+//      row flips in place (sync, health, the toggle's label) with NO list re-read; DHS-00007 says the
+//      store is gone, re-reads the list and turns Confirm off;
+//  13. Sync now says it is a FULL push to the LIVE HungerStation vendor (store and vendor id
+//      isolated); it POSTs Sync/{store}/Now with exactly { reason }; while in flight the confirm and
+//      the row's action show progress and a double click sends ONE push; the result reads the rows
+//      sent and the status, and the row's sync block takes the push; it is off on a paused store
+//      (and says why); DHS-00013 inline (the list re-read, the row Paused); 502 DHS-00014 shows
+//      HungerStation's answer and says the push was recorded as failed (in the logs); 409
+//      HungerStationSyncBusy says a push is already running — not an error state, no re-read;
+//      DHS-00007 refreshes the list;
+//  14. the same under RTL.
 //
 //   1. run the app:  npx vite --port 5231 --strictPort
 //   2. DRIVE_PORT=5231 node tools/hungerstation-stores-drive.mjs
@@ -144,7 +162,12 @@ const REFUSALS = {
   'DHS-00006': [400, 'No such chain configured. / لا توجد سلسلة بهذا المفتاح.'],
   'DHS-00007': [404, 'The store is not onboarded. / الفرع غير مسجّل.'],
   'DHS-00008': [400, 'A reason is required (1–200 characters). / السبب مطلوب (1–200 حرف).'],
+  'DHS-00013': [409, "The store's stock sync is paused. / مزامنة مخزون الفرع موقوفة."],
+  'DHS-00014': [502, 'HungerStation answered 422: vendor abc12 is closed. / ردّت هنقرستيشن 422: المورّد مغلق.'],
+  HungerStationSyncBusy: [409, 'Another push of this store is running. / إرسال آخر لهذا الفرع جارٍ.'],
 }
+/** The push sync now answers (contract § Stock sync, the Logs row shape). */
+const PUSH = { logId: '01JHSNOW', syncType: 'F', startTime: '2026-10-24T11:00:00', endTime: '2026-10-24T11:00:04', status: 'S', rows: 1812, error: null }
 const refuse = (code) => {
   const [status, message] = REFUSALS[code]
   return envelope(null, { status, success: false, message, errorCode: code })
@@ -179,6 +202,8 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
   // This context's own stores (552): a DELETE takes one off, a POST of a removed code revives it.
   const list = STORES.map((s) => ({ ...s }))
   const removed = new Set()
+  // A sync now whose reason is "slow push" waits here until the drive releases it (553).
+  const gate = { release: null }
   page.on('pageerror', (e) => errors.push(String(e)))
   // The browser logs every refused stub's status.
   page.on('console', (m) => m.type() === 'error' && !/status of (4\d\d|502)/.test(m.text()) && errors.push(m.text()))
@@ -245,13 +270,50 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
       removed.add(code)
       return route.fulfill(envelope(null))
     }
+    if (p.startsWith('HungerStationWeb/Sync/') && p.endsWith('/Active') && req.method() === 'PUT') {
+      const body = req.postDataJSON()
+      const code = decodeURIComponent(p.slice('HungerStationWeb/Sync/'.length, -'/Active'.length))
+      writes.push({ method: 'PUT', path: p, body })
+      if (body.reason === 'trigger 00008') return route.fulfill(refuse('DHS-00008'))
+      const at = list.findIndex((s) => s.storeCode === code)
+      if (body.reason === 'trigger 00007' || at < 0) {
+        if (at >= 0) list.splice(at, 1)
+        return route.fulfill(refuse('DHS-00007'))
+      }
+      list[at] = { ...list[at], updatedBy: 'MSARTAWI', sync: { ...list[at].sync, active: body.active } }
+      return route.fulfill(envelope(list[at]))
+    }
+    if (p.startsWith('HungerStationWeb/Sync/') && p.endsWith('/Now') && req.method() === 'POST') {
+      const body = req.postDataJSON()
+      const code = decodeURIComponent(p.slice('HungerStationWeb/Sync/'.length, -'/Now'.length))
+      writes.push({ method: 'POST', path: p, body })
+      if (body.reason === 'slow push') await new Promise((r) => (gate.release = r))
+      if (body.reason === 'trigger 00008') return route.fulfill(refuse('DHS-00008'))
+      if (body.reason === 'trigger busy') return route.fulfill(refuse('HungerStationSyncBusy'))
+      const at = list.findIndex((s) => s.storeCode === code)
+      if (body.reason === 'trigger 00007' || at < 0) {
+        if (at >= 0) list.splice(at, 1)
+        return route.fulfill(refuse('DHS-00007'))
+      }
+      // Paused from another screen meanwhile: the server's list says so too.
+      if (body.reason === 'trigger 00013') list[at] = { ...list[at], sync: { ...list[at].sync, active: false } }
+      if (!list[at].sync.active) return route.fulfill(refuse('DHS-00013'))
+      const pushed = { ...list[at].sync, lastFullRun: PUSH.startTime, lastRun: PUSH.startTime }
+      if (body.reason === 'trigger 00014') {
+        // Recorded as failed — the row's sync block says so on the next read.
+        list[at] = { ...list[at], sync: { ...pushed, lastStatus: 'E', lastError: 'HTTP 422', health: 'failing' } }
+        return route.fulfill(refuse('DHS-00014'))
+      }
+      list[at] = { ...list[at], sync: { ...pushed, lastStatus: 'S', lastError: null, health: 'ok' } }
+      return route.fulfill(envelope(PUSH))
+    }
     // Deliverect's group is shown so the HungerStation group's place after it can be read.
     if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(DLV_ALL))
     if (/Access$/.test(p))
       return route.fulfill(envelope({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canSupport: false }))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, calls, lists, writes }
+  return { context, page, errors, calls, lists, writes, gate }
 }
 
 /** Wait until the grid holds `n` rows and has settled. */
@@ -759,6 +821,237 @@ async function removeAndRevive(dir) {
 }
 await removeAndRevive('ltr')
 await removeAndRevive('rtl')
+
+// ── 12–14: pause / resume, sync now (553) ───────────────────────────────────────────────────────
+/** Pause, resume and DHS-00007 on the Active door, in one direction. */
+async function pauseResume(dir) {
+  const tag = dir === 'rtl' ? '14 (rtl)' : '12'
+  const { context, page, errors, lists, writes } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores`)
+  await waitRows(page, 4)
+  const confirm = page.locator('[data-reason-confirm]')
+
+  const toggle = (code) => page.locator(`[data-store-toggle-sync="${code}"]`)
+  check(`${tag}: an active row offers Pause, a paused one Resume`, (await toggle('1234').innerText()).trim() === 'Pause' && (await toggle('0450').innerText()).trim() === 'Resume')
+
+  await toggle('1234').click()
+  await dialog(page).waitFor()
+  check(
+    `${tag}: the pause dialog is titled and names the store, isolated`,
+    (await dialog(page).innerText()).includes("Pause a store's stock sync") && JSON.stringify(await page.locator('[data-reason-note] bdi[dir="ltr"]').allInnerTexts()) === '["1234"]',
+  )
+  check(`${tag}: Pause waits for a reason`, await confirm.isDisabled())
+  await page.locator('[data-reason-input]').fill('trigger 00008')
+  await confirm.click()
+  await dialog(page).locator('[data-inline-refusal="DHS-00008"]').waitFor({ timeout: 5000 })
+  check(`${tag}: DHS-00008 shows inline at the reason`, true)
+  const reason = '  توقف مؤقت للجرد  '
+  await page.locator('[data-reason-input]').fill(reason)
+  const listsBefore = lists.length
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  const put = writes.at(-1)
+  check(
+    `${tag}: PUT Sync/1234/Active with exactly { active: false, reason }, trimmed`,
+    put.method === 'PUT' && put.path === 'HungerStationWeb/Sync/1234/Active' && JSON.stringify(put.body) === JSON.stringify({ active: false, reason: reason.trim() }),
+    JSON.stringify(put),
+  )
+  await page.waitForTimeout(500)
+  check(
+    `${tag}: the row flips in place — Paused, health Paused, the toggle reads Resume`,
+    (await cell(page, '1234', 'sync')) === 'Paused' && (await cell(page, '1234', 'health')) === 'Paused' && (await toggle('1234').innerText()).trim() === 'Resume',
+  )
+  check(`${tag}: …with no list re-read`, lists.length === listsBefore, `${listsBefore} → ${lists.length}`)
+  check(
+    `${tag}: …and Sync now on it is off, saying why`,
+    (await page.locator('[data-store-sync-now="1234"]').getAttribute('aria-disabled')) === 'true' &&
+      /paused/.test((await page.locator('[data-store-sync-now="1234"]').getAttribute('title')) ?? ''),
+  )
+
+  await toggle('0450').click()
+  await dialog(page).waitFor()
+  check(`${tag}: the resume dialog is titled`, (await dialog(page).innerText()).includes("Resume a store's stock sync"))
+  await page.locator('[data-reason-input]').fill('stock count done')
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    `${tag}: PUT Sync/0450/Active with exactly { active: true, reason }`,
+    writes.at(-1).path === 'HungerStationWeb/Sync/0450/Active' && JSON.stringify(writes.at(-1).body) === JSON.stringify({ active: true, reason: 'stock count done' }),
+  )
+  await page.waitForTimeout(400)
+  check(`${tag}: the resumed row reads Active, and Sync now is on`, (await cell(page, '0450', 'sync')) === 'Active' && (await page.locator('[data-store-sync-now="0450"]').getAttribute('aria-disabled')) === null)
+  await page.screenshot({ path: `${SHOTS}/${dir}-paused.png` })
+
+  await toggle('2001').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-reason-input]').fill('trigger 00007')
+  const beforeGone = lists.length
+  await confirm.click()
+  await page.locator('[data-sync-active-gone]').waitFor({ timeout: 5000 })
+  const gone = await page.locator('[data-sync-active-gone]').innerText()
+  check(`${tag}: DHS-00007 says the store is no longer onboarded, in the server's words`, /no longer onboarded/.test(gone) && gone.includes(REFUSALS['DHS-00007'][1]), gone)
+  check(`${tag}: …not twice (no banner)`, (await dialog(page).locator('[data-reason-error]').count()) === 0)
+  await waitRows(page, 3)
+  check(`${tag}: …the list is read again, the store gone, Confirm off`, lists.length > beforeGone && (await rowIndex(page, '2001')) === null && (await confirm.isDisabled()))
+  await page.locator('[data-reason-cancel]').click()
+  await dialog(page).waitFor({ state: 'detached' })
+  check(`${dir}: (553 pause/resume) no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+/** Sync now: success, in flight, the result, and each refusal, in one direction. */
+async function syncNow(dir) {
+  const tag = dir === 'rtl' ? '14 (rtl)' : '13'
+  const { context, page, errors, lists, writes, gate } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores`)
+  await waitRows(page, 4)
+  const confirm = page.locator('[data-reason-confirm]')
+  const action = (code) => page.locator(`[data-store-sync-now="${code}"]`)
+  const nows = () => writes.filter((w) => w.method === 'POST' && w.path.endsWith('/Now'))
+
+  // off on a paused store
+  check(
+    `${tag}: Sync now is off on a paused store, and its title says why`,
+    (await action('0450').getAttribute('aria-disabled')) === 'true' && (await action('0450').getAttribute('title')) === 'The stock sync is paused. Resume it first.',
+  )
+  await action('0450').click({ force: true })
+  await page.waitForTimeout(300)
+  check(`${tag}: …clicking it opens nothing`, (await dialog(page).count()) === 0)
+
+  // the confirmation
+  await action('0099').click()
+  await dialog(page).waitFor()
+  const note = await page.locator('[data-reason-note]').innerText()
+  check(`${tag}: the confirmation says it is a FULL push to the LIVE HungerStation vendor`, /full push/.test(note) && /live HungerStation vendor/.test(note), note)
+  check(`${tag}: …store and vendor id isolated, each whole`, JSON.stringify(await page.locator('[data-reason-note] bdi[dir="ltr"]').allInnerTexts()) === '["0099","jd099"]')
+  check(`${tag}: Push now waits for a reason`, await confirm.isDisabled())
+  await page.screenshot({ path: `${SHOTS}/${dir}-sync-now.png` })
+
+  // in flight: one push, progress on both the confirm and the row
+  await page.locator('[data-reason-input]').fill('  slow push  ')
+  await confirm.dblclick()
+  await page.waitForFunction(() => document.querySelector('[data-store-sync-now="0099"]')?.hasAttribute('data-running'), null, { timeout: 5000 })
+  check(`${tag}: in flight the confirm reads Sending… and is off`, (await confirm.isDisabled()) && /Sending/.test(await confirm.innerText()))
+  check(
+    `${tag}: …and the row's action shows progress and is off`,
+    (await action('0099').getAttribute('aria-disabled')) === 'true' && (await action('0099').getAttribute('aria-busy')) === 'true' && /Pushing/.test(await action('0099').innerText()),
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-sync-now-running.png` })
+  await page.waitForTimeout(300)
+  check(`${tag}: a double click sends ONE push`, nows().length === 1, String(nows().length))
+  const listsBefore = lists.length
+  gate.release()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    `${tag}: POST Sync/0099/Now with exactly { reason }, trimmed`,
+    nows()[0].path === 'HungerStationWeb/Sync/0099/Now' && JSON.stringify(nows()[0].body) === JSON.stringify({ reason: 'slow push' }),
+    JSON.stringify(nows()[0]),
+  )
+  const result = page.locator('[data-sync-now-result="0099"]')
+  await result.waitFor({ timeout: 5000 })
+  check(`${tag}: the result names the store`, /Push of store 0099/.test(await result.innerText()) && (await result.locator('bdi[dir="ltr"]').first().innerText()) === '0099')
+  const line = await page.locator('[data-sync-now-result-line]').innerText()
+  check(`${tag}: …and reads the rows sent and the status`, line === '1,812 materials sent. Status: Success.', line)
+  check(`${tag}: …the rows isolated whole`, (await page.locator('[data-sync-now-result-line] bdi[dir="ltr"]').innerText()) === '1,812')
+  await page.waitForTimeout(500)
+  check(
+    `${tag}: the row's sync block takes the push — last full and last run 11:00, Success, health OK`,
+    (await cell(page, '0099', 'lastFullRun')) === '2026-10-24 11:00' &&
+      (await cell(page, '0099', 'lastRun')) === '2026-10-24 11:00' &&
+      (await cell(page, '0099', 'lastStatus')) === 'Success' &&
+      (await cell(page, '0099', 'health')) === 'OK',
+  )
+  check(
+    `${tag}: …the list read again, and the action back on`,
+    lists.length > listsBefore && (await action('0099').getAttribute('aria-disabled')) === null && (await action('0099').getAttribute('data-running')) === null,
+  )
+  await page.screenshot({ path: `${SHOTS}/${dir}-sync-now-result.png` })
+  await page.locator('[data-sync-now-dismiss]').click()
+  check(`${tag}: the result can be dismissed`, (await result.count()) === 0)
+
+  const refused = async (code, reason) => {
+    await action(code).click()
+    await dialog(page).waitFor()
+    await page.locator('[data-reason-input]').fill(reason)
+    const before = lists.length
+    await confirm.click()
+    await page.locator('[data-sync-now-refusal]').waitFor({ timeout: 5000 })
+    await page.waitForTimeout(400)
+    return { panel: page.locator('[data-sync-now-refusal]'), reread: lists.length > before }
+  }
+  const close = async () => {
+    await page.locator('[data-reason-cancel]').click()
+    await dialog(page).waitFor({ state: 'detached' })
+    await page.waitForTimeout(300)
+  }
+
+  // 502 DHS-00014
+  {
+    const { panel, reread } = await refused('1234', 'trigger 00014')
+    const text = await panel.innerText()
+    check(
+      `${tag}: 502 DHS-00014 shows HungerStation's answer from the message`,
+      (await panel.getAttribute('data-sync-now-refusal')) === 'hungerStationFailed' && text.includes(REFUSALS['DHS-00014'][1]),
+      text,
+    )
+    check(`${tag}: …and says the push was recorded as failed, in the logs`, /recorded as failed/.test(text) && /logs/.test(text))
+    check(
+      `${tag}: …its code isolated, not twice (no banner)`,
+      (await panel.locator('[data-inline-refusal="DHS-00014"] bdi[dir="ltr"]').innerText()) === 'DHS-00014' && (await dialog(page).locator('[data-reason-error]').count()) === 0,
+    )
+    check(`${tag}: …the list is read again, Push now still on (it can be tried again)`, reread && !(await confirm.isDisabled()))
+    await page.screenshot({ path: `${SHOTS}/${dir}-sync-now-502.png` })
+    await close()
+    check(`${tag}: …and the row reads the failed push`, (await cell(page, '1234', 'lastStatus')) === 'Error' && (await cell(page, '1234', 'health')) === 'Failing')
+  }
+
+  // 409 busy
+  {
+    const { panel, reread } = await refused('2001', 'trigger busy')
+    const text = await panel.innerText()
+    check(
+      `${tag}: 409 busy says a push is already running; try again shortly`,
+      (await panel.getAttribute('data-sync-now-refusal')) === 'busy' && text.includes('A push is already running; try again shortly.'),
+      text,
+    )
+    check(`${tag}: …and that nothing was recorded`, /Nothing was pushed or recorded/.test(text))
+    check(
+      `${tag}: …NOT an error state — a status, no danger, no banner`,
+      (await panel.getAttribute('role')) === 'status' &&
+        !/danger/.test((await panel.getAttribute('class')) ?? '') &&
+        (await dialog(page).locator('[data-reason-error], [role="alert"]').count()) === 0,
+    )
+    check(`${tag}: …no list re-read, Push now still on`, !reread && !(await confirm.isDisabled()))
+    await page.screenshot({ path: `${SHOTS}/${dir}-sync-now-busy.png` })
+    await close()
+  }
+
+  // DHS-00013 — paused from elsewhere meanwhile
+  {
+    const { panel, reread } = await refused('0099', 'trigger 00013')
+    const text = await panel.innerText()
+    check(`${tag}: DHS-00013 shows inline — paused, in the server's words`, (await panel.getAttribute('data-sync-now-refusal')) === 'paused' && text.includes(REFUSALS['DHS-00013'][1]), text)
+    check(`${tag}: …the list is read again, Push now off`, reread && (await confirm.isDisabled()))
+    await close()
+    check(`${tag}: …and the row reads Paused, its Sync now off`, (await cell(page, '0099', 'sync')) === 'Paused' && (await action('0099').getAttribute('aria-disabled')) === 'true')
+  }
+
+  // DHS-00007 — removed meanwhile
+  {
+    const { panel, reread } = await refused('2001', 'trigger 00007')
+    check(`${tag}: DHS-00007 says the store is no longer onboarded`, (await panel.getAttribute('data-sync-now-refusal')) === 'gone' && /no longer onboarded/.test(await panel.innerText()))
+    check(`${tag}: …the list is read again, Push now off`, reread && (await confirm.isDisabled()))
+    await close()
+    await waitRows(page, 3)
+    check(`${tag}: …and the store is gone from the list`, (await rowIndex(page, '2001')) === null)
+  }
+  check(`${dir}: (553 sync now) no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+await pauseResume('ltr')
+await syncNow('ltr')
+await pauseResume('rtl')
+await syncNow('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

@@ -106,7 +106,16 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+// The HungerStation probe lives in `@/core/` (ticket 551) for the same reason: three features
+// (stores, materials, orders) read it. ONE key; each leaf reads its own flag.
+import { HUNGERSTATION_ACCESS_KEY, hungerStationApi } from '@/core/hungerstation/api'
+import {
+  canManageCatalog as canManageHsCatalog,
+  canManageStores as canManageHsStores,
+  canViewOrders as canViewHsOrders,
+} from '@/core/hungerstation/access'
+import type { HungerStationAccessResult } from '@/core/models/hungerstation'
+import { Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -212,6 +221,13 @@ const materialProbe = (visible: (r: MaterialAccessResult) => boolean): AccessPro
  */
 const deliverectProbe = (visible: (r: DeliverectAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: DELIVERECT_ACCESS_KEY, run: () => deliverectApi.access(), visible })
+
+/**
+ * The HungerStation area's leaves share ONE probe on ONE key (ticket 551), the Deliverect shape:
+ * each leaf passes its own flag's predicate. 🚩 FAILS CLOSED — see `@/core/hungerstation/api`.
+ */
+const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: HUNGERSTATION_ACCESS_KEY, run: () => hungerStationApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -1016,6 +1032,38 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/deliverect/terms',
         activePrefix: '/deliverect/terms',
         access: deliverectProbe(canManageTerms),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, LAST, right after Deliverect (BackOffice spec 3028, ticket 551):
+    // `/hungerstation/*` is a new URL prefix and a new nav group — the DIRECT HungerStation rail,
+    // not HungerStation through Deliverect. All leaf labels live in `hungerstation-stores` (the
+    // area's first namespace). 551 ships every leaf, one per probe flag: Materials (555) and Orders
+    // (556) route to a placeholder page until those tickets re-point their route at their page.
+    labelKey: 'hungerstation-stores:menu.hungerstation',
+    icon: Bike,
+    items: [
+      {
+        labelKey: 'hungerstation-stores:menu.stores',
+        icon: Store,
+        routerLink: '/hungerstation/stores',
+        activePrefix: '/hungerstation/stores',
+        access: hungerStationProbe(canManageHsStores),
+      },
+      {
+        labelKey: 'hungerstation-stores:menu.materials',
+        icon: PackageSearch,
+        routerLink: '/hungerstation/materials',
+        activePrefix: '/hungerstation/materials',
+        access: hungerStationProbe(canManageHsCatalog),
+      },
+      {
+        labelKey: 'hungerstation-stores:menu.orders',
+        icon: ShoppingBag,
+        routerLink: '/hungerstation/orders',
+        activePrefix: '/hungerstation/orders',
+        access: hungerStationProbe(canViewHsOrders),
       },
     ],
   },

@@ -1,0 +1,143 @@
+{
+  "menu": {
+    "hungerstation": "HungerStation",
+    "stores": "Stores",
+    "materials": "Materials",
+    "orders": "Orders"
+  },
+  "title": "HungerStation stores",
+  "subtitle": "Stores onboarded on the direct HungerStation rail, their chain and vendor id, and how their stock sync is doing.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to HungerStation stores",
+    "deniedHint": "Your account does not hold the HungerStation stores grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "placeholder": {
+    "materials": {
+      "title": "HungerStation materials",
+      "subtitle": "The list of materials offered to HungerStation.",
+      "body": "This page is on its way. Until it arrives, use the HungerStation material inquiry in the back office.",
+      "access": {
+        "checking": "Checking your access…",
+        "deniedTitle": "No access to HungerStation materials",
+        "deniedHint": "Your account does not hold the HungerStation catalog grant. Ask an administrator if you need it.",
+        "unreachableTitle": "This screen is unavailable",
+        "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+      }
+    },
+    "orders": {
+      "title": "HungerStation orders",
+      "subtitle": "Every HungerStation order and what became of it on our side.",
+      "body": "This page is on its way.",
+      "access": {
+        "checking": "Checking your access…",
+        "deniedTitle": "No access to HungerStation orders",
+        "deniedHint": "Your account does not hold the HungerStation orders grant. Ask an administrator if you need it.",
+        "unreachableTitle": "This screen is unavailable",
+        "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+      }
+    }
+  },
+  "filters": {
+    "chain": "Chain",
+    "anyChain": "Any chain",
+    "sync": "Stock sync",
+    "syncAny": "Any",
+    "syncActive": "Active",
+    "syncPaused": "Paused",
+    "health": "Health",
+    "healthAny": "Any",
+    "healthOk": "OK",
+    "healthFailing": "Failing",
+    "healthSilent": "Silent",
+    "q": "Store",
+    "qPlaceholder": "Store code, name or vendor id",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "columns": {
+    "store": "Store",
+    "name": "Name",
+    "chain": "Chain",
+    "vendorId": "Vendor id",
+    "onboardedAt": "Onboarded at",
+    "onboardedBy": "Onboarded by",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
+    "sync": "Stock sync",
+    "health": "Health",
+    "lastFullRun": "Last full run",
+    "lastDeltaRun": "Last delta run",
+    "lastRun": "Last run (24 h)",
+    "lastStatus": "Last status",
+    "lastError": "Last error",
+    "actions": "Actions"
+  },
+  "sync": {
+    "active": "Active",
+    "paused": "Paused"
+  },
+  "health": {
+    "ok": "OK",
+    "failing": "Failing",
+    "silent": "Silent",
+    "paused": "Paused",
+    "unknown": "Unknown",
+    "failingHint": "The newest push in the last 24 hours failed.",
+    "silentHint": "This active store sent no push in the last 24 hours."
+  },
+  "pushStatus": {
+    "S": "Success",
+    "E": "Error"
+  },
+  "results": {
+    "loading": "Loading stores…",
+    "failedTitle": "The stores could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No HungerStation store matches.",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores"
+  },
+  "chain": {
+    "choose": "Choose a chain",
+    "loading": "Loading chains…",
+    "fallbackHint": "The chain list could not be read. Type the chain key; a wrong key is refused.",
+    "typePlaceholder": "Chain key"
+  },
+  "onboard": {
+    "button": "Onboard store",
+    "title": "Onboard a HungerStation store",
+    "note": "The store's HungerStation orders are matched by its vendor id, and its stock starts flowing to HungerStation. A store whose onboarding was removed comes back on the chain and vendor id given here.",
+    "store": "Store code",
+    "storePlaceholder": "e.g. 1234",
+    "vendorId": "Vendor id",
+    "vendorIdPlaceholder": "HungerStation vendor id",
+    "confirm": "Onboard",
+    "done": "Store onboarded",
+    "doneDetail": "{{store}} is on {{chain}} with vendor id {{vendorId}}."
+  },
+  "edit": {
+    "button": "Edit",
+    "title": "Edit a HungerStation store",
+    "note": "Correct the chain or vendor id of store <store>{{store}}</store>. Its orders are matched by the new vendor id from now on.",
+    "confirm": "Save",
+    "unchanged": "Change the chain or the vendor id first.",
+    "done": "Store updated",
+    "doneDetail": "{{store}} is on {{chain}} with vendor id {{vendorId}}.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. It is kept with the change.",
+    "tooLong": "At most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The change was refused",
+    "failedHint": "Try again in a moment."
+  }
+}

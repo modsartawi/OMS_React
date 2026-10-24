@@ -691,7 +691,7 @@ export const router = createBrowserRouter([
         }),
       },
       // The HungerStation area (BackOffice spec 3028, ticket 551) — the DIRECT rail. Materials (555)
-      // and Orders (556) open the placeholder until each re-points its route at its own page.
+      // opens the placeholder until it re-points its route at its own page; Orders is 556's.
       {
         path: 'hungerstation/stores',
         lazy: async () => ({
@@ -707,10 +707,9 @@ export const router = createBrowserRouter([
       },
       {
         path: 'hungerstation/orders',
-        lazy: async () => {
-          const { default: Placeholder } = await import('./HungerStationPlaceholderPage')
-          return { Component: () => <Placeholder screen="orders" /> }
-        },
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/orders/OrdersPage')).default,
+        }),
       },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
       // Promotions list (ticket 534, BackOffice brief 2848: `/campaigns` lists the promotions, no

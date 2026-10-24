@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -9,7 +9,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { SHEET } from '@/core/ui/overlay'
+import SideSheet from '@/core/ui/SideSheet'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney3 } from '@/core/util/number-format'
@@ -33,10 +33,8 @@ const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
  * invoicing) leads with the alert: it needs a person. The raw body and, for a refused or
  * status-failed order only, Retry open over it.
  *
- * The frame copies the house side sheet (`admin/sync-console`'s `SnapshotDrawer`; a feature never
- * imports another): a native `<dialog>` docked to the inline end on the overlay recipe's `SHEET`,
- * over the `--backdrop` scrim, with its top layer, focus trap, focus given back and Escape. React
- * state stays the one source of truth for open. It reads the door when it opens.
+ * The frame is the house side sheet, `@/core/ui/SideSheet` (graduated by ticket 556). It reads the
+ * door when it opens.
  */
 export default function OrderDrawer({
   row,
@@ -50,7 +48,6 @@ export default function OrderDrawer({
   onRetry: (row: DeliverectOrderRow) => void
 }) {
   const { t } = useTranslation('deliverect-orders')
-  const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const detail = useQuery({
     queryKey: orderKey(row.deliverectOrderId),
@@ -60,105 +57,77 @@ export default function OrderDrawer({
   // Until the detail answers, the row the grid holds speaks for it.
   const order: DeliverectOrderRow = detail.data ?? row
 
-  useEffect(() => {
-    const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
-    return () => {
-      if (dialog?.open) dialog.close()
-    }
-  }, [])
-
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      data-order-drawer={row.deliverectOrderId}
-      onCancel={(e) => {
-        e.preventDefault()
-        // As core's Modal: Escape belongs to the top dialog, never to one that holds it too.
-        e.stopPropagation()
-        if (e.target === ref.current) onClose()
-      }}
-      onClose={() => {
-        if (ref.current && !ref.current.open) onClose()
-      }}
-      // The backdrop reports the dialog itself as the target; content never does.
-      onClick={(e) => {
-        if (e.target === ref.current) onClose()
-      }}
-      className={'end-0 my-0 me-0 ms-auto h-dvh max-h-dvh w-[60rem] max-w-[96vw] border-0 border-s p-0 ' + SHEET}
-    >
-      <div className="flex h-full flex-col">
-        <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">{t('detail.eyebrow')}</span>
-            <h2 id={titleId} className="text-sm font-semibold tracking-tight" data-order-title="">
-              {/* A pair led by a machine value: one string, isolated once (bidi rule). */}
-              <Ltr>{formatPair(order.platformKey, order.channelDisplayId)}</Ltr>
-            </h2>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="secondary" onClick={() => onRaw(order)} data-order-raw="">
-              <FileJson className="h-3.5 w-3.5" aria-hidden />
-              {t('actions.raw')}
-            </Button>
-            {retryOffered(order.outcome) && (
-              <Button variant="outlined" onClick={() => onRetry(order)} data-order-drawer-retry="">
-                <RotateCw className="h-3.5 w-3.5" aria-hidden />
-                {t('actions.retry')}
-              </Button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('detail.close')}
-              title={t('detail.close')}
-              data-order-close=""
-              className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
-          {needsPerson(order.lastStatusSent) && (
-            <div
-              role="alert"
-              className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-050 px-3 py-2 text-[0.8125rem] text-danger-800"
-              data-order-alert=""
-            >
-              <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <div>
-                <p className="font-semibold">{t('alert.title')}</p>
-                <p>{t('alert.hint')}</p>
-              </div>
-            </div>
-          )}
-          <Header order={order} />
-          {detail.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground" data-order-loading="">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              {t('detail.loading')}
-            </p>
-          ) : detail.isError ? (
-            <div data-order-error={apiErrorCode(detail.error) ?? ''}>
-              <ErrorBanner className="p-3" title={t('detail.failed')} message={apiErrorMessage(detail.error, t('results.failed'))}>
-                {apiErrorCode(detail.error) && (
-                  <span className="font-mono text-xs">
-                    <Ltr>{apiErrorCode(detail.error)}</Ltr>
-                  </span>
-                )}
-              </ErrorBanner>
-            </div>
-          ) : (
-            <>
-              <Lines order={detail.data} />
-              <Statuses statuses={detail.data.statuses ?? []} />
-            </>
-          )}
+    <SideSheet onClose={onClose} width="w-[60rem]" aria-labelledby={titleId} data-order-drawer={row.deliverectOrderId}>
+      <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">{t('detail.eyebrow')}</span>
+          <h2 id={titleId} className="text-sm font-semibold tracking-tight" data-order-title="">
+            {/* A pair led by a machine value: one string, isolated once (bidi rule). */}
+            <Ltr>{formatPair(order.platformKey, order.channelDisplayId)}</Ltr>
+          </h2>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="secondary" onClick={() => onRaw(order)} data-order-raw="">
+            <FileJson className="h-3.5 w-3.5" aria-hidden />
+            {t('actions.raw')}
+          </Button>
+          {retryOffered(order.outcome) && (
+            <Button variant="outlined" onClick={() => onRetry(order)} data-order-drawer-retry="">
+              <RotateCw className="h-3.5 w-3.5" aria-hidden />
+              {t('actions.retry')}
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('detail.close')}
+            title={t('detail.close')}
+            data-order-close=""
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
+        {needsPerson(order.lastStatusSent) && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-050 px-3 py-2 text-[0.8125rem] text-danger-800"
+            data-order-alert=""
+          >
+            <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div>
+              <p className="font-semibold">{t('alert.title')}</p>
+              <p>{t('alert.hint')}</p>
+            </div>
+          </div>
+        )}
+        <Header order={order} />
+        {detail.isPending ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground" data-order-loading="">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            {t('detail.loading')}
+          </p>
+        ) : detail.isError ? (
+          <div data-order-error={apiErrorCode(detail.error) ?? ''}>
+            <ErrorBanner className="p-3" title={t('detail.failed')} message={apiErrorMessage(detail.error, t('results.failed'))}>
+              {apiErrorCode(detail.error) && (
+                <span className="font-mono text-xs">
+                  <Ltr>{apiErrorCode(detail.error)}</Ltr>
+                </span>
+              )}
+            </ErrorBanner>
+          </div>
+        ) : (
+          <>
+            <Lines order={detail.data} />
+            <Statuses statuses={detail.data.statuses ?? []} />
+          </>
+        )}
       </div>
-    </dialog>
+    </SideSheet>
   )
 }
 

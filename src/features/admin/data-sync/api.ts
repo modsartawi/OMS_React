@@ -17,6 +17,8 @@ import type {
   Job,
   SyncProfile,
 } from '@/core/models/data-sync'
+import type { Paged, StoreControlRequest, StoreControlResponse, StoreRow, SyncConsoleAccess } from '@/core/models/sync-console'
+import type { ReadinessRow } from './apply-helpers'
 import type { ControlAction } from './control-helpers'
 import { CAMPAIGNS_REFRESH_MS, campaignsQuery, type CampaignsFilter } from './helpers'
 import { isDataSyncNotFound, jobsQuery, type CampaignJobsView } from './job-helpers'
@@ -203,5 +205,73 @@ export function jobQuery(campaignId: string, jobId: string, refetchInterval: num
     queryFn: () => dataSyncApi.job(jobId),
     refetchInterval,
     retry: retryUnlessNotFound,
+  } as const
+}
+
+// ── ActionSync doors for the Apply flow (ticket 564; 565's hand-back reuses them) ──
+//
+// SIS.Api doors the sync console also calls. Features never import features, so the three calls
+// are written again here (spec 558) with the sync console's types from `@/core/models/sync-console`.
+
+/**
+ * The sync console's own probe key, RE-SPELT (it cannot be imported): the same key and options mean
+ * the menu's sync-console probe and this read share one cache entry and one call. Keep it in step
+ * with `SYNC_CONSOLE_ACCESS_KEY`.
+ */
+export const ACTION_SYNC_ACCESS_KEY = ['sync-console', 'access'] as const
+
+/** `GET ActionSync/Fleet` caps `pageSize` at 200 (400 `BAD_PAGING` beyond). */
+const FLEET_PAGE_SIZE = 200
+
+export const actionSyncApi = {
+  /** `GET ActionSync/Access` → `{ screenAllowed, canOperate, … }`; `canOperate` is `ActionSync.Operate`. */
+  access(): Promise<SyncConsoleAccess> {
+    return api.get<SyncConsoleAccess>('ActionSync/Access')
+  },
+
+  /**
+   * Every store ActionSync lists, all pages (`GET ActionSync/Fleet?page=&pageSize=200`). The door
+   * has no exact-codes filter, so picked stores are matched against the whole fleet. Only the
+   * readiness fields are kept.
+   */
+  async fleet(): Promise<ReadinessRow[]> {
+    const rows: ReadinessRow[] = []
+    for (let page = 1; ; page++) {
+      const res = await api.get<Paged<StoreRow>>('ActionSync/Fleet', { page, pageSize: FLEET_PAGE_SIZE })
+      for (const r of res.items) rows.push({ code: r.code, host: r.host, isPaused: r.isPaused, controlPending: r.controlPending })
+      if (res.items.length === 0 || page * FLEET_PAGE_SIZE >= res.total) return rows
+    }
+  },
+
+  /**
+   * `POST ActionSync/Stores/Control` — 1–50 codes and a reason → per-store results on a 200
+   * (`NOT_ON_WORKER`, `NO_STORE`). 400 `TOO_MANY_STORES` / `NO_STORES` / `REASON_REQUIRED`; a bare 403
+   * without `ActionSync.Operate`. Batch through `storeControlBatches` + `runStoreControl`.
+   */
+  control(body: StoreControlRequest): Promise<StoreControlResponse> {
+    return api.post<StoreControlResponse>('ActionSync/Stores/Control', body)
+  },
+}
+
+/** Same options as the sync console's probe (`staleTime: Infinity`, `retry: false`) — see the key. */
+export function actionSyncAccessQuery() {
+  return {
+    queryKey: ACTION_SYNC_ACCESS_KEY,
+    queryFn: () => actionSyncApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/** `ActionSync.Operate` — the pause (564) and the hand-back (565). `=== true`, so a malformed answer is a denial. */
+export const canOperateActionSync = (r: SyncConsoleAccess | null | undefined): boolean => r?.canOperate === true
+
+/** The fleet's apply readiness, read fresh each time the dialog asks (it changes as people pause stores). */
+export function actionSyncFleetQuery() {
+  return {
+    queryKey: ['data-sync', 'action-sync-fleet'] as const,
+    queryFn: () => actionSyncApi.fleet(),
+    staleTime: 0,
+    retry: false,
   } as const
 }

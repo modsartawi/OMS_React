@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 558
 blocked-by: 561, 563
 ---
@@ -38,9 +38,9 @@ model/api · store/logic · component/route · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `buildCreateRequest` (Apply): reason trimmed and required ≥ 10; written vs reported tables from `applyAllowed` · pure
-- [ ] `applyReadiness`: each ActionSync row → never / ready / will-pause; batches of ≤ 50 with the tagged reason · pure
-- [ ] `tools/data-sync-apply-drive.mjs`: with stubs, the order create → pause batches → start is exact, the reason tag carries the new id, WPF stores can be dropped, warnings and refusals render, the toggle is disabled without `ActionSync.Operate`
+- [x] `buildCreateRequest` (Apply): reason trimmed and required ≥ 10; written vs reported tables from `applyAllowed` · pure (`apply-helpers.test.ts`: `reasonProblem`, `buildCreateRequest` Apply, `applyTableSplit`)
+- [x] `applyReadiness`: each ActionSync row → never / ready / will-pause; batches of ≤ 50 with the tagged reason · pure (`applyReadiness`, `storesReadiness`, `storeControlBatches`, `campaignControlReason`, `runApplyFlow` order + failure branches; 24 tests)
+- [x] `tools/data-sync-apply-drive.mjs`: with stubs, the order **pause (pending) → create → pause (tagged) → start** is exact (the ruled order, see Comments), the reason tag carries the new id, WPF stores can be dropped, warnings and refusals render, the toggle is disabled without `ActionSync.Operate` — **57/57** (561's create drive still 36/36)
 
 ## Boundaries
 
@@ -66,3 +66,37 @@ that order; the helpers and the drive are green.
   `pauseActionSyncFirst: true` create flag that turns the all-unsafe refusal into per-store warnings.
   Decide before building: build ask B in `C:\Work\Replicate_SqlDataCompare` (recommended), or pause
   untagged first and re-pause with the tag after create.
+
+## Comments
+
+**2026-10-24 — built (stubbed; no live DataSync or ActionSync).** Rulings an owner may overrule:
+
+- **Open question settled by the orchestrator's standing ruling (replaces the step order above).**
+  DataSync ask B is not built and ADR 0004 §2 says the create carries no pause flag, so no
+  `pauseActionSyncFirst` is sent. With "pause ActionSync first" on: (1) pause the targets
+  **untagged**, reason `DataSync campaign (pending): <reason>`, batches ≤ 50; (2) create (Apply +
+  reason); (3) re-pause the stores step 1 took, **tagged** `DataSync campaign <campaignId>: <reason>`,
+  batches ≤ 50; (4) Start. Why: DataSync marks a job `actionSyncResumable` only when the store's
+  LATEST ActionSync control audit row carries the tag. `runApplyFlow` in `apply-helpers.ts` owns the
+  order; the drive asserts it exactly. If ask B ships, step 1 can go (create → tag → start).
+- **Ready stores are paused too.** Both pauses take every target that is not never-appliable,
+  already-paused ones included — otherwise their latest audit row is not ours and the hand-back
+  (565) never sees them resumable.
+- **Nothing is resumed on a failure.** A pause batch failing outright stops before the create; a
+  refused create stops there. The dialog lists the stores that were paused and are still paused.
+  A failed tagged re-pause or a refused Start still keeps the campaign: the outcome lists the
+  untagged stores (they will not be offered for hand-back) / the Start refusal.
+- **Toggle off ⇒ create only.** The campaign is created Ready and Start stays on its page (like
+  report-only), with the "unpaused stores will wait" warning. With it on, the flow starts the
+  campaign itself, per spec step 4.
+- **Apply ends on an outcome view in the dialog** (campaign id, started or not, tagged count,
+  ActionSync per-store refusals, the create's warnings) with "Open the campaign", rather than closing
+  onto the page — the warnings exist only on the create's envelope. That is how "warnings show on
+  the new campaign" is read; report-only still closes onto the page.
+- **The whole fleet: WPF stores are named but cannot be dropped** (`fleet: 'all'` has no exclusion;
+  dropping would mean sending every other code, which waits on ask A). DataSync warns on them.
+- **Readiness reads the whole ActionSync fleet** (pages of 200) — the door has no exact-codes filter.
+  A code ActionSync does not know is "never" (not on ActionSync), droppable with the WPF ones.
+- **ActionSync access** reuses the sync console's probe key `['sync-console','access']` re-spelt
+  (features can't import features) so the two share one cache entry.
+- Deferred: the live walk (566) — ActionSync's real reason length limit and the ask A `client` gap.

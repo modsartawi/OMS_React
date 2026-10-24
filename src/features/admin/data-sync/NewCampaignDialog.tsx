@@ -11,7 +11,10 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import type { Mode, SyncProfile } from '@/core/models/data-sync'
-import { CAMPAIGNS_KEY, canOperateDataSync, dataSyncAccessQuery, dataSyncApi, profilesQuery } from './api'
+import { CAMPAIGNS_KEY, actionSyncApi, canOperateDataSync, dataSyncAccessQuery, dataSyncApi, profilesQuery } from './api'
+import { applyTableSplit, reasonProblem, runApplyFlow, stillPausedAfterFailure, type ApplyOutcome, type ApplyStep } from './apply-helpers'
+import ApplyOutcomeView from './ApplyOutcomeView'
+import ApplyPanel, { RefusalList, StoreList, useApplyReadiness } from './ApplyPanel'
 import { campaignPath } from './campaign-columns'
 import { buildCreateRequest, createRefusalWords, parseStoreCodes, type CreateDraft } from './create-helpers'
 import { figure } from './helpers'
@@ -55,9 +58,10 @@ type TargetKind = 'fleet' | 'stores'
  * the dialog closes onto its page, where Start waits. A refusal stays in the dialog, in words, so
  * nothing typed is lost.
  *
- * 🔌 564 adds Apply here: `mode` is already the draft's (fixed to ReportOnly in this slice; its
- * switch replaces the note), `reason` already travels through `buildCreateRequest`, and the create
- * call is one `mutationFn` that 564's pause-before / re-pause-after steps can wrap.
+ * Apply (564) is offered when some ticked table may be written: a reason, the stores' ActionSync
+ * readiness, and "pause ActionSync first" (`ApplyPanel`). Its create runs inside `runApplyFlow`
+ * (pause untagged → create → re-pause tagged → Start) and ends on `ApplyOutcomeView` rather than
+ * closing, so warnings and per-store refusals are read before leaving.
  */
 function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenied: () => void }) {
   const { t } = useTranslation('data-sync')
@@ -67,15 +71,24 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
 
   const [profileId, setProfileId] = useState('')
   const [picked, setPicked] = useState<string[]>([])
-  const mode: Mode = 'ReportOnly'
+  const [chosenMode, setChosenMode] = useState<Mode>('ReportOnly')
   const [targetKind, setTargetKind] = useState<TargetKind>('fleet')
   const [codesText, setCodesText] = useState('')
   const [name, setName] = useState('')
-  const reason = ''
+  const [reason, setReason] = useState('')
+  const [pauseFirst, setPauseFirst] = useState(true)
+  const [step, setStep] = useState<ApplyStep | null>(null)
+  const [outcome, setOutcome] = useState<ApplyOutcome | null>(null)
 
   const profile: SyncProfile | undefined = profiles.data?.find((p) => p.profileId === profileId)
   const profileTables = useMemo(() => profile?.tableSet.map((s) => s.table) ?? [], [profile])
   const parsed = useMemo(() => parseStoreCodes(codesText), [codesText])
+
+  // Apply (564): only when some ticked table may be written; otherwise the run is report-only.
+  const split = useMemo(() => applyTableSplit(profile?.tableSet ?? [], picked), [profile, picked])
+  const canApply = split.written.length > 0
+  const mode: Mode = chosenMode === 'Apply' && canApply ? 'Apply' : 'ReportOnly'
+  const applying = mode === 'Apply'
 
   const draft: CreateDraft = {
     profileId,
@@ -87,7 +100,11 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
     reason,
   }
   const targetsOk = targetKind === 'fleet' || (parsed.codes.length > 0 && parsed.malformed.length === 0)
-  const draftOk = !!profile && picked.length > 0 && targetsOk
+  const check = useApplyReadiness(applying, draft.targets)
+  // The pause runs only for a holder of ActionSync.Operate, and needs the stores' readiness to know what to pause.
+  const pausing = applying && pauseFirst && check.canPause
+  const applyOk = !applying || (reasonProblem(reason) === null && !check.accessPending && (!pausing || check.readiness !== null))
+  const draftOk = !!profile && picked.length > 0 && targetsOk && applyOk
 
   const send = useMutation({
     mutationFn: () => dataSyncApi.createCampaign(buildCreateRequest(draft)),
@@ -102,19 +119,59 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       if (isBareDenial(err)) onDenied()
     },
   })
-  const busy = send.isPending
+  /**
+   * The Apply flow (564, the standing ruling in `runApplyFlow`): pause untagged → create → re-pause
+   * tagged → Start. It never throws: what each step did comes back as the outcome. A created
+   * campaign turns the dialog into its outcome; anything short of one stays on the form, naming
+   * the stores left paused.
+   */
+  const applyRun = useMutation({
+    mutationFn: () =>
+      runApplyFlow(
+        {
+          control: (req) => actionSyncApi.control(req),
+          create: (body) => dataSyncApi.createCampaign(body),
+          start: (id) => dataSyncApi.startCampaign(id),
+          onStep: setStep,
+        },
+        { body: buildCreateRequest(draft), reason, toPause: pausing ? (check.readiness?.toPause ?? []) : null },
+      ),
+    onMutate: () => setOutcome(null),
+    onSuccess: (out) => {
+      setStep(null)
+      setOutcome(out)
+      if (out.campaign) {
+        void qc.invalidateQueries({ queryKey: CAMPAIGNS_KEY })
+        notify.success(t('apply.outcome.title'))
+      } else if (isBareDenial(out.createError) && stillPausedAfterFailure(out).length === 0) onDenied()
+    },
+    onError: () => setStep(null),
+  })
+  const created = outcome?.campaign ?? null
+  const busy = send.isPending || applyRun.isPending
   const ready = draftOk && !busy
+  const submit = () => {
+    if (!ready) return
+    if (applying) applyRun.mutate()
+    else send.mutate()
+  }
 
   const pickProfile = (id: string) => {
     setProfileId(id)
     const p = profiles.data?.find((x) => x.profileId === id)
     setPicked(p ? p.tableSet.map((s) => s.table) : [])
     send.reset()
+    setOutcome(null)
+  }
+  /** "Drop them": the never-appliable stores leave the pasted codes (case-insensitively). */
+  const dropStores = (codes: string[]) => {
+    const gone = new Set(codes.map((c) => c.toUpperCase()))
+    setCodesText(parsed.codes.filter((c) => !gone.has(c.toUpperCase())).join('\n'))
   }
   const toggleTable = (table: string, on: boolean) =>
     setPicked((cur) => (on ? (cur.includes(table) ? cur : [...cur, table]) : cur.filter((x) => x !== table)))
 
-  const error = send.error
+  const error = send.error ?? (outcome?.createError || null)
   const code = error ? apiErrorCode(error) : null
   const words = error ? createRefusalWords(error) : null
   const detail = error instanceof ApiError ? (error.details[0]?.errorMessage ?? '') : ''
@@ -126,17 +183,38 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
       title={t('create.title')}
       width="38rem"
       footer={
-        <>
-          <Button variant="text" onClick={onClose} disabled={busy} data-create-cancel="">
-            {t('create.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!ready} onClick={() => ready && send.mutate()} data-create-submit="">
-            {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
-            {busy ? t('create.submitting') : t('create.submit')}
-          </Button>
-        </>
+        created ? (
+          <>
+            <Button variant="text" onClick={onClose} data-apply-close="">
+              {t('apply.outcome.close')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                onClose()
+                navigate(campaignPath(created.campaignId))
+              }}
+              data-apply-open=""
+            >
+              {t('apply.outcome.open')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="text" onClick={onClose} disabled={busy} data-create-cancel="">
+              {t('create.cancel')}
+            </Button>
+            <Button variant="primary" disabled={!ready} onClick={submit} data-create-submit="">
+              {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+              {busy ? (step ? t(`apply.step.${step}`) : t('create.submitting')) : t('create.submit')}
+            </Button>
+          </>
+        )
       }
     >
+      {created && outcome ? (
+        <ApplyOutcomeView outcome={outcome} paused={outcome.held !== null} />
+      ) : (
       <div className="flex flex-col gap-4 text-sm" data-create-dialog="">
         {/* ── Profile ── */}
         <label className="flex flex-col gap-1 text-xs font-medium">
@@ -198,11 +276,40 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           </fieldset>
         )}
 
-        {/* ── Mode (564 turns this note into the ReportOnly / Apply switch) ── */}
-        <div className="flex flex-col gap-1" data-create-mode={mode}>
-          <span className="text-xs font-medium">{t('create.mode')}</span>
-          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{t('create.reportOnlyNote')}</p>
-        </div>
+        {/* ── Mode: report only, or Apply when some ticked table may be written (564) ── */}
+        <fieldset className="flex flex-col gap-1" data-create-mode={mode}>
+          <legend className="text-xs font-medium">{t('create.mode')}</legend>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="ds-create-mode"
+              checked={mode === 'ReportOnly'}
+              onChange={() => setChosenMode('ReportOnly')}
+              disabled={busy}
+              data-create-mode-pick="ReportOnly"
+            />
+            {t('apply.reportOnly')}
+            <span className="text-xs text-muted-foreground">{t('apply.reportOnlyHint')}</span>
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="ds-create-mode"
+              checked={mode === 'Apply'}
+              onChange={() => setChosenMode('Apply')}
+              disabled={busy || !canApply}
+              data-create-mode-pick="Apply"
+            />
+            {t('apply.apply')}
+            <span className="text-xs text-muted-foreground">{t('apply.applyHint')}</span>
+          </label>
+          {profile && !canApply && (
+            <p className="text-xs text-muted-foreground" data-apply-unavailable="">
+              {t('apply.noApplyTables')}
+            </p>
+          )}
+          {!applying && <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{t('create.reportOnlyNote')}</p>}
+        </fieldset>
 
         {/* ── Targets ── */}
         <fieldset className="flex flex-col gap-2">
@@ -278,6 +385,20 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           )}
         </fieldset>
 
+        {applying && (
+          <ApplyPanel
+            split={split}
+            reason={reason}
+            onReason={setReason}
+            targets={draft.targets}
+            check={check}
+            pauseFirst={pauseFirst}
+            onPauseFirst={setPauseFirst}
+            onDrop={dropStores}
+            busy={busy}
+          />
+        )}
+
         {/* ── Name ── */}
         <label className="flex flex-col gap-1 text-xs font-medium">
           {t('create.name')}
@@ -292,7 +413,28 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           />
         </label>
 
-        <p className="text-xs text-muted-foreground">{t('create.readyNote')}</p>
+        <p className="text-xs text-muted-foreground">{pausing ? t('apply.flowNote') : t('create.readyNote')}</p>
+
+        {/* ── Apply stopped before a campaign existed: what ActionSync was told, and what is still paused ── */}
+        {outcome?.held?.error != null && (
+          <ErrorBanner className="p-2" title={t('apply.holdFailed')} message={apiErrorMessage(outcome.held.error, t('create.failedHint'))} />
+        )}
+        {outcome && !outcome.campaign && (outcome.held?.refused.length ?? 0) > 0 && (
+          <div className="rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs" data-apply-refusals="">
+            <p className="font-medium">{t('apply.refusedTitle')}</p>
+            <RefusalList refused={outcome.held?.refused ?? []} />
+          </div>
+        )}
+        {outcome && stillPausedAfterFailure(outcome).length > 0 && (
+          <div
+            className="rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800"
+            data-apply-still-paused={stillPausedAfterFailure(outcome).length}
+          >
+            <p className="font-medium">{t('apply.stillPausedTitle')}</p>
+            <StoreList codes={stillPausedAfterFailure(outcome)} attr="data-apply-still-paused-store" />
+            <p className="mt-1">{t('apply.stillPausedHint')}</p>
+          </div>
+        )}
 
         {error != null && !isBareDenial(error) && (
           <ErrorBanner className="p-2" title={t('create.failed')} message={apiErrorMessage(error, t('create.failedHint'))}>
@@ -319,6 +461,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           </ErrorBanner>
         )}
       </div>
+      )}
     </Modal>
   )
 }

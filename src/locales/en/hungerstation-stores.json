@@ -129,6 +129,69 @@
     "gone": "This store is no longer onboarded",
     "goneHint": "It was removed meanwhile. The list has been refreshed."
   },
+  "remove": {
+    "button": "Remove",
+    "title": "Remove a store's onboarding",
+    "note": "Remove the HungerStation onboarding of store <store>{{store}}</store>.",
+    "consequences": {
+      "syncStops": "Its stock sync stops and its orders are no longer fetched.",
+      "vendorIdFree": "Its vendor id becomes free for another store.",
+      "historyStays": "Its logs, orders and history stay readable.",
+      "notOffHungerStation": "It is not taken off HungerStation: that is done in HungerStation's portal."
+    },
+    "revive": "To bring it back, onboard the same store code again.",
+    "confirm": "Remove onboarding",
+    "done": "Onboarding removed",
+    "doneDetail": "Store {{store}} is no longer onboarded on HungerStation.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was already removed, or never onboarded. The list has been refreshed."
+  },
+  "pause": {
+    "button": "Pause",
+    "title": "Pause a store's stock sync",
+    "note": "Pause the stock sync of store <store>{{store}}</store>. No stock is pushed to HungerStation until it is resumed.",
+    "confirm": "Pause sync",
+    "done": "Stock sync paused",
+    "doneDetail": "Store {{store}}: its stock is no longer pushed to HungerStation.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "resume": {
+    "button": "Resume",
+    "title": "Resume a store's stock sync",
+    "note": "Resume the stock sync of store <store>{{store}}</store>. The scheduled pushes send its stock to HungerStation again.",
+    "confirm": "Resume sync",
+    "done": "Stock sync resumed",
+    "doneDetail": "Store {{store}}: its stock is pushed to HungerStation again.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "syncNow": {
+    "button": "Sync now",
+    "running": "Pushing…",
+    "pausedHint": "The stock sync is paused. Resume it first.",
+    "title": "Push a store's stock now",
+    "note": "This is a full push of store <store>{{store}}</store>'s stock to the live HungerStation vendor <vendor>{{vendorId}}</vendor>, now. Every material is sent, not only the changes.",
+    "confirm": "Push now",
+    "done": "Stock pushed",
+    "doneDetail": "Store {{store}}: the full push is recorded.",
+    "resultTitle": "Push of store <store>{{store}}</store>",
+    "dismiss": "Dismiss",
+    "result": {
+      "S": "<n>{{rows}}</n> materials sent. Status: Success.",
+      "E": "<n>{{rows}}</n> materials sent. Status: Error."
+    },
+    "refusal": {
+      "paused": "The stock sync of this store is paused.",
+      "pausedHint": "Resume it first, then push. The list has been refreshed.",
+      "hungerStationFailed": "HungerStation refused the push or could not be reached.",
+      "hungerStationFailedHint": "The push was recorded as failed: it appears in the store's logs. HungerStation's answer:",
+      "busy": "A push is already running; try again shortly.",
+      "busyHint": "Another push of this store is running right now. Nothing was pushed or recorded.",
+      "gone": "This store is no longer onboarded",
+      "goneHint": "It was removed meanwhile. The list has been refreshed."
+    }
+  },
   "reason": {
     "label": "Reason",
     "hint": "Required. It is kept with the change.",

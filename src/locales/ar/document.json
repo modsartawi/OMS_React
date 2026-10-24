@@ -1,4 +1,10 @@
 {
+  "prescriptionSessions": {
+    "heading": "جلسات الوصفات",
+    "row": "حالة الطلب",
+    "holdingStore": "محفوظة في <v>{{store}}</v>",
+    "afterClose": "بعد الإغلاق"
+  },
   "callout": {
     "loadFailed": "تعذّر تحميل عرض التوصيل على المتاجر.",
     "tabs": {

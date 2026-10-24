@@ -9,6 +9,7 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi, revokeOnForbidden } from '@/core/oms/api'
 import { canChangeDetail, canCreateReturn } from '@/core/oms/access'
 import { pickSupportKeys } from '@/core/pick-support/api'
+import { orderSessionsView } from '@/core/prescription-session/lines'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
@@ -71,6 +72,9 @@ function numericAsc(a: string, b: string): number {
   if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb
   return (a ?? '').localeCompare(b ?? '')
 }
+
+/** The query key of an order's prescription-session read (ticket 544), by the loaded record's number. */
+const prescriptionSessionsKey = (documentNo: string) => ['document', 'prescription-sessions', documentNo] as const
 
 const PENDING = { rows: null, loading: true, error: null } as const
 /** A read that has nothing to ask: a document that is not a delivery has no donor requests. */
@@ -614,7 +618,22 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     attachments.refresh()
     if (document && pickSupportSectionGate(openedAs, access.data))
       void queryClient.invalidateQueries({ queryKey: pickSupportKeys.delivery(document.documentNo) })
+    if (document) void queryClient.invalidateQueries({ queryKey: prescriptionSessionsKey(document.documentNo) })
   }
+
+  /**
+   * The order's prescription sessions (BackOffice 3016 + 3014, ticket 544), read once the record is
+   * loaded, on the same Document details grant; a delivery's number is read through its order. Keyed
+   * by the number, so an answer for a record left behind never lands on the next one. Read-only.
+   * A failed read hides the panel and blocks nothing: no retry, no banner, no toast.
+   */
+  const sessionsRead = useQuery({
+    queryKey: prescriptionSessionsKey(document?.documentNo ?? ''),
+    queryFn: () => documentApi.getPrescriptionSessions(document!.documentNo),
+    enabled: document !== null && document.documentNo !== '',
+    retry: false,
+  })
+  const sessionsView = sessionsRead.isError ? null : orderSessionsView(sessionsRead.data)
 
   /**
    * Release lock (BackOffice 2951, ticket 542): drawn only on a delivery a competed callout locks
@@ -794,6 +813,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               <FactsColumn
                 document={document}
                 attachments={attachments}
+                prescriptionSessions={sessionsView}
                 pickSupport={
                   pickSupportSectionGate(openedAs, access.data)
                     ? {

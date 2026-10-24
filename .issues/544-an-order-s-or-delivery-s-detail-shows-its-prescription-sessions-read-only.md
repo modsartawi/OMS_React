@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice-2994\.issues\2994-prescription-session-spec.md
 blocked-by: — (live: BackOffice 3016 + 3014 on branch spec2994)
 ---
@@ -70,14 +70,14 @@ model · api · logic (code → words, panel lines) · Details panel · i18n EN 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] code words: every state, owner, route, source, badge and after-close kind maps to a key; an unknown code
+- [x] code words: every state, owner, route, source, badge and after-close kind maps to a key; an unknown code
       renders itself; a null route reads "not chosen" (vitest, pure)
-- [ ] panel lines: one session, a shared order with two sessions (one `waitingOn`), a parked session with its note
+- [x] panel lines: one session, a shared order with two sessions (one `waitingOn`), a parked session with its note
       and `EXPIRES_TOMORROW`, a closed session with RETURN, CORRECTION and RESALE lines; empty `sessions` → no lines
       (vitest, pure)
-- [ ] drive script, LTR and RTL, against a stub serving the door for those cases, opened both as an order and as a
+- [x] drive script, LTR and RTL, against a stub serving the door for those cases, opened both as an order and as a
       delivery: the panel shows / is absent, no button on it, a failed read leaves the page working
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -96,3 +96,41 @@ after-close events read-only, and one without shows nothing.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**2026-10-24 — built (stubbed; live walk is 549).**
+
+What was built:
+- `src/core/models/prescription-session.ts` — `PrescriptionSessionOrderStatus`, `PrescriptionSessionStatus`,
+  `PrescriptionSessionStep`, `PrescriptionSessionAfterClose` (wire shapes from 3016 + 3014). 545–548 add their HQ row
+  shapes beside these; step and after-close are reused as they are.
+- `src/core/prescription-session/words.ts` — code → `CodeWord { key | null, raw }` for state (12), owner (6), route
+  (+ `route.notChosen` for null/blank), source, badge, after-close kind; the closed code lists are exported
+  (`PRESCRIPTION_SESSION_STATES`, …) so 545's filters can offer exactly them. `wordText(t, word)`: unknown → the code.
+- `src/core/prescription-session/lines.ts` — `orderSessionsView(status)` (null = draw nothing), plus the reusable
+  `stepLine`, `afterCloseLine`, `sessionLine`, `stateSeverity`.
+- `src/core/prescription-session/SessionWords.tsx` — shared renderers `Word`, `StepSummary`, `AfterCloseText` (for 545/547).
+- New core-owned namespace `prescription-session` (EN + AR, registered in `core/i18n.ts`, the `attachments`
+  precedent); panel chrome (`prescriptionSessions.*`) in `document` EN + AR.
+- Door `documentApi.getPrescriptionSessions(documentNo)`; panel `features/oms/document/PrescriptionSessionsPanel.tsx`
+  in the facts column, right under the fact blocks. Read through TanStack Query keyed by the loaded record's number
+  (`retry: false`), re-read by the page's Refresh.
+
+Judgement calls (overrulable):
+- Panel sits in the facts column under the Customer/Prescription/… blocks, not as a disclosure: it is read on open
+  (most answers are empty → nothing drawn), so "where is my medicine?" is visible without a click.
+- After-close sentences are the client's, worded after BackOffice `Describe()`; an unknown kind reads `KIND document`.
+  A CORRECTION without a re-invoice number would read "re-invoice " with an empty value (server Describe does the same).
+- State severities: in motion `go`, DISPENSED `warn` (owed), INVOICED/CLOSED `ok`, WRITTEN_OFF `bad`, ABANDONED and
+  unknown `mute`.
+- A failed read (400 envelope or bare 403) hides the panel silently: no banner, no toast — it must block nothing.
+- Store · time on an after-close line is one `formatPair` isolate; time via `formatDateTime` (wall-clock as sent).
+- Under `dir="rtl"` with `lng: 'en'` (how every drive runs RTL today) an English sentence ending in an isolated value
+  lays out right-to-left (screenshot `rtl-after-close.png`), as on every other screen; with the Arabic bundle active it reads right.
+
+Proof:
+- vitest: `words.test.ts` 11 + `lines.test.ts` 16 = 27 new; full suite 5909/5909.
+- Drive `tools/prescription-sessions-drive.mjs` (`npx vite --port 5203 --strictPort`, then `DRIVE_PORT=5203 node
+  tools/prescription-sessions-drive.mjs`): **52/52** (LTR + RTL), opened as an order and as a delivery; stubbed door.
+- `npm run typecheck`, `npm run lint` (4 gates) green.

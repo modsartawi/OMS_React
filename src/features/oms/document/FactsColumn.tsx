@@ -11,6 +11,8 @@ import AttachmentsTab from './AttachmentsTab'
 import Disclosure from './Disclosure'
 import { HEADING } from './facts-heading'
 import PickSupportSection from './PickSupportSection'
+import PrescriptionSessionsPanel from './PrescriptionSessionsPanel'
+import type { OrderSessionsView } from '@/core/prescription-session/lines'
 import type { OrderAttachments } from './use-order-attachments'
 
 /**
@@ -70,10 +72,13 @@ const MONO = new Set([
 export default function FactsColumn({
   document,
   attachments,
+  prescriptionSessions,
   pickSupport,
 }: {
   document: SdDocumentHeaderModel
   attachments: OrderAttachments
+  /** The order's prescription sessions (ticket 544), or `null` — draw nothing — with none or a failed read. */
+  prescriptionSessions: OrderSessionsView | null
   /** The Pick support section's delivery and its fix hook, or `null` when `pickSupportSectionGate` refuses. */
   pickSupport: { deliveryNo: string; onFixed: () => void } | null
 }) {
@@ -127,6 +132,8 @@ export default function FactsColumn({
           </section>
         ))}
       </div>
+
+      {prescriptionSessions && <PrescriptionSessionsPanel view={prescriptionSessions} />}
 
       <section id="doc-items" aria-labelledby="doc-items-heading" className="min-w-0 rounded-lg border border-border bg-card p-3">
         <h3 id="doc-items-heading" className={`mb-1.5 ${HEADING} text-muted-foreground`}>

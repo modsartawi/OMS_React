@@ -1,4 +1,10 @@
 {
+  "prescriptionSessions": {
+    "heading": "Prescription sessions",
+    "row": "Order status",
+    "holdingStore": "Held at <v>{{store}}</v>",
+    "afterClose": "After close"
+  },
   "callout": {
     "loadFailed": "Could not load the delivery's callout.",
     "tabs": {

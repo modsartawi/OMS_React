@@ -1,0 +1,55 @@
+{
+  "state": {
+    "DRAFT": "مسودة",
+    "VALIDATING": "قيد التحقق",
+    "AWAITING_APPROVAL": "بانتظار الموافقة",
+    "APPROVED": "تمت الموافقة",
+    "AWAITING_ORDER": "بانتظار الطلب",
+    "PICKING": "قيد التجهيز",
+    "AWAITING_DELIVERY": "بانتظار التوصيل",
+    "DISPENSED": "تم الصرف",
+    "INVOICED": "تمت الفوترة",
+    "CLOSED": "مغلقة",
+    "ABANDONED": "متروكة",
+    "WRITTEN_OFF": "مشطوبة"
+  },
+  "owner": {
+    "HOLDING_STORE": "الفرع الحاضن",
+    "PAYER": "الجهة الدافعة",
+    "CUSTOMER": "العميل",
+    "DONOR_STORE": "الفرع المانح",
+    "SYSTEM": "النظام",
+    "NONE": "لا أحد"
+  },
+  "route": {
+    "COUNTER": "الكاونتر",
+    "DELIVERY": "التوصيل",
+    "notChosen": "لم يُحدد المسار"
+  },
+  "source": {
+    "NPHS": "نفيس",
+    "WSFT": "وصفتي"
+  },
+  "badge": {
+    "EXPIRES_TOMORROW": "تنتهي غدًا"
+  },
+  "afterClose": {
+    "kind": {
+      "RETURN": "إرجاع",
+      "CORRECTION": "تصحيح",
+      "RESALE": "إعادة بيع"
+    },
+    "line": {
+      "RETURN": "أُرجع <v>{{document}}</v> (البيع <v>{{sale}}</v>)",
+      "CORRECTION": "صُحّحت حصة المريض على <v>{{sale}}</v>: عكس <v>{{document}}</v>، إعادة فوترة <v>{{resale}}</v>",
+      "RESALE": "أُعيد البيع برقم <v>{{resale}}</v> (بعد البيع <v>{{sale}}</v>)",
+      "other": "<v>{{kind}}</v> <v>{{document}}</v>"
+    },
+    "recordedBy": "بواسطة <w>{{by}}</w>"
+  },
+  "step": {
+    "owner": "المسؤول: <o>{{owner}}</o>",
+    "waitingOn": "بانتظار <v>{{session}}</v>",
+    "parked": "مؤجلة"
+  }
+}

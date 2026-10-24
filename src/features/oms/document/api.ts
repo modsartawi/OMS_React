@@ -1,5 +1,6 @@
 import { api } from '@/core/api'
 import type { DeliveryCalloutHistory } from '@/core/models/delivery-callout'
+import type { PrescriptionSessionOrderStatus } from '@/core/models/prescription-session'
 import type {
   CreatedReturnModel,
   CreateReturnRequest,
@@ -66,6 +67,15 @@ export const documentApi = {
    */
   getCallout(deliveryNo: string): Promise<DeliveryCalloutHistory> {
     return api.get<DeliveryCalloutHistory>(`${BASE}/Delivery/${encode(deliveryNo)}/Callout`)
+  },
+  /**
+   * An order's prescription sessions (BackOffice 3016 + 3014, ticket 544): each attached session's
+   * state, next step and owner, and what happened after it closed. Behind the Document details
+   * grant (`GatedByDetail`); read-only by shape. A delivery number works too — SIS.Api reads it
+   * through its order. An order with no session answers `sessions: []`.
+   */
+  getPrescriptionSessions(documentNo: string): Promise<PrescriptionSessionOrderStatus> {
+    return api.get<PrescriptionSessionOrderStatus>(`${BASE}/Document/${encode(documentNo)}/PrescriptionSessions`)
   },
   updateDocument(body: UpdateSdDocumentHeader): Promise<boolean> {
     return api.post<boolean>(`${BASE}/UpdateDocument`, body)

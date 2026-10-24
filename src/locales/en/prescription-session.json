@@ -1,0 +1,55 @@
+{
+  "state": {
+    "DRAFT": "Draft",
+    "VALIDATING": "Validating",
+    "AWAITING_APPROVAL": "Awaiting approval",
+    "APPROVED": "Approved",
+    "AWAITING_ORDER": "Awaiting order",
+    "PICKING": "Picking",
+    "AWAITING_DELIVERY": "Awaiting delivery",
+    "DISPENSED": "Dispensed",
+    "INVOICED": "Invoiced",
+    "CLOSED": "Closed",
+    "ABANDONED": "Abandoned",
+    "WRITTEN_OFF": "Written off"
+  },
+  "owner": {
+    "HOLDING_STORE": "Holding store",
+    "PAYER": "Payer",
+    "CUSTOMER": "Customer",
+    "DONOR_STORE": "Donor store",
+    "SYSTEM": "System",
+    "NONE": "Nobody"
+  },
+  "route": {
+    "COUNTER": "Counter",
+    "DELIVERY": "Delivery",
+    "notChosen": "Route not chosen"
+  },
+  "source": {
+    "NPHS": "NPHIES",
+    "WSFT": "Wasfaty"
+  },
+  "badge": {
+    "EXPIRES_TOMORROW": "Expires tomorrow"
+  },
+  "afterClose": {
+    "kind": {
+      "RETURN": "Return",
+      "CORRECTION": "Correction",
+      "RESALE": "Re-sale"
+    },
+    "line": {
+      "RETURN": "Returned <v>{{document}}</v> (sale <v>{{sale}}</v>)",
+      "CORRECTION": "Patient share corrected on <v>{{sale}}</v>: reversal <v>{{document}}</v>, re-invoice <v>{{resale}}</v>",
+      "RESALE": "Re-sold as <v>{{resale}}</v> (after sale <v>{{sale}}</v>)",
+      "other": "<v>{{kind}}</v> <v>{{document}}</v>"
+    },
+    "recordedBy": "by <w>{{by}}</w>"
+  },
+  "step": {
+    "owner": "Owner: <o>{{owner}}</o>",
+    "waitingOn": "Waiting on <v>{{session}}</v>",
+    "parked": "Parked"
+  }
+}

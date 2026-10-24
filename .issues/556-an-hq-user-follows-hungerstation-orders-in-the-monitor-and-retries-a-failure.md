@@ -110,8 +110,8 @@ it, so 555 deletes it once it lands.
 
 Judgement calls (overrulable):
 1. **The unmatched alert** paints the row on the attention ground and badges *Store not onboarded*; its link
-   opens `/hungerstation/stores?q=<vendorId>` (the Stores search matches vendor ids, so a removed store with that
-   id shows there to revive). The link shows whatever the viewer's grants — the Stores page gates itself. The
+   opens `/hungerstation/stores?q=<vendorId>` (the Stores search matches vendor ids, so an empty answer confirms
+   no onboarded store holds it; Onboard there, which also revives a removed store per 552, is the action). The link shows whatever the viewer's grants — the Stores page gates itself. The
    drawer of an unmatched order leads with the same alert and link. An alert the contract does not name reads
    *Needs a person* rather than vanishing.
 2. **Outcome tones:** created ok, failed bad, cancelled neutral, pending *in motion* (`go`), not a warning.

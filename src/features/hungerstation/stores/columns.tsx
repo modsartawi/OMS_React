@@ -1,6 +1,7 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
+import { useIsMutating } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
-import { Pencil } from 'lucide-react'
+import { Loader2, Pause, Pencil, Play, RefreshCw, Trash2 } from 'lucide-react'
 import type { HungerStationStoreRow } from '@/core/models/hungerstation'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -8,6 +9,7 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatDateTime } from '@/core/util/date-format'
+import { syncNowKey } from './api'
 import { healthLabel, type HealthReading } from './store-state'
 
 type Row = HungerStationStoreRow
@@ -21,6 +23,40 @@ function LtrCell({ value, valueFormatted }: ICellRendererParams) {
 /** The badge's tone: the row's highlight (one rule for both) — else ok, or neutral. */
 const healthSev = (health: HealthReading, highlight: Severity | null): Severity => highlight ?? (health === 'ok' ? 'ok' : 'mute')
 
+/** What a row's actions do — each opens its dialog (the page holds them). */
+export interface StoreActions {
+  onEdit: (row: Row) => void
+  onRemove: (row: Row) => void
+  /** Pause an active store's stock sync, or resume a paused one (553). */
+  onToggleSync: (row: Row) => void
+  onSyncNow: (row: Row) => void
+}
+
+/**
+ * Sync now (553). Off on a paused store — `aria-disabled`, so it stays focusable and its title says
+ * why. While the store's push is in flight (its mutation, keyed by `syncNowKey`) it shows progress
+ * and cannot be clicked again.
+ */
+function SyncNowButton({ row, t, onSyncNow }: { row: Row; t: TFunction; onSyncNow: (row: Row) => void }) {
+  const running = useIsMutating({ mutationKey: syncNowKey(row.storeCode) }) > 0
+  const paused = !row.sync.active
+  const off = paused || running
+  return (
+    <Button
+      variant="ghost"
+      aria-disabled={off || undefined}
+      aria-busy={running || undefined}
+      title={paused ? t('syncNow.pausedHint') : undefined}
+      onClick={() => !off && onSyncNow(row)}
+      data-store-sync-now={row.storeCode}
+      data-running={running ? '' : undefined}
+    >
+      {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
+      {running ? t('syncNow.running') : t('syncNow.button')}
+    </Button>
+  )
+}
+
 /** `null` renders blank — a `0001-01-01` stamp arrives as `null` (contract § Stores). */
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)
 
@@ -28,13 +64,13 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * The HungerStation stores grid (ticket 551): store, name, chain, vendor id, onboarded at/by,
  * updated at/by, then the sync block — active or paused, health (`healthLabel`: failing red, silent
  * amber, the row highlighted the same way by the page), last full, last delta, the last run in 24 h
- * with its status and error — and the row's actions. 552 (remove), 553 (pause / resume, sync now)
- * and 554 (logs, material history) add their buttons to `act` and the actions cell.
+ * with its status and error — and the row's actions: Edit, Remove (552), Pause / Resume and Sync
+ * now (553). 554 (logs, material history) adds its buttons to `act` and the actions cell.
  *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value.
  */
-export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }): ColDef<Row>[] {
+export function storeColumns(t: TFunction, act: StoreActions): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
     { field: 'storeCode', headerName: t('columns.store'), width: 100, pinned: pinStart, cellClass: code, cellRenderer: LtrCell },
@@ -122,7 +158,7 @@ export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }):
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 140,
+      width: 470,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -131,6 +167,15 @@ export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }):
             <Button variant="ghost" onClick={() => act.onEdit(data)} data-store-edit={data.storeCode}>
               <Pencil className="h-3.5 w-3.5" aria-hidden />
               {t('edit.button')}
+            </Button>
+            <Button variant="ghost" onClick={() => act.onToggleSync(data)} data-store-toggle-sync={data.storeCode} data-to={data.sync.active ? 'pause' : 'resume'}>
+              {data.sync.active ? <Pause className="h-3.5 w-3.5" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />}
+              {t(data.sync.active ? 'pause.button' : 'resume.button')}
+            </Button>
+            <SyncNowButton row={data} t={t} onSyncNow={act.onSyncNow} />
+            <Button variant="danger-outlined" onClick={() => act.onRemove(data)} data-store-remove={data.storeCode}>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              {t('remove.button')}
             </Button>
           </span>
         ) : null,

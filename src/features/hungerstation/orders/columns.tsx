@@ -13,8 +13,9 @@ import { alertLabel, outcomeLabel } from './order-outcome'
 
 type Row = HungerStationOrderRow
 
-/** The Stores page an `unmatched` alert sends a person to, searched by the order's vendor id — a
- *  removed store with that id shows there to be revived. */
+/** The Stores page an `unmatched` alert sends a person to, searched by the order's vendor id: an
+ *  empty answer confirms no onboarded store holds it, and Onboard there (which also revives a
+ *  removed store, ticket 552) is the action. */
 export function storesPath(vendorId: string): string {
   return `/hungerstation/stores?${new URLSearchParams({ q: vendorId })}`
 }

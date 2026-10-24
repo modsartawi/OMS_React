@@ -69,7 +69,27 @@
     "rows_other": "<n>{{n}}</n> sessions"
   },
   "toOpen": {
-    "placeholder": "The orders waiting to be opened, by store, aren't available here yet."
+    "store": "Store",
+    "total_one": "<n>{{n}}</n> prescription order not yet opened",
+    "total_other": "<n>{{n}}</n> prescription orders not yet opened",
+    "count_one": "<n>{{n}}</n> order",
+    "count_other": "<n>{{n}}</n> orders",
+    "oldest_one": "Oldest <n>{{n}}</n> day",
+    "oldest_other": "Oldest <n>{{n}}</n> days",
+    "capped": "Only the oldest <n>{{shown}}</n> of this store's <n>{{count}}</n> orders are listed: the list is capped across all stores, the count is exact.",
+    "bulkUpload": "Bulk upload",
+    "empty": "No prescription order is waiting to be opened.",
+    "failedTitle": "The orders couldn't be read",
+    "failed": "The orders waiting to be opened could not be read.",
+    "columns": {
+      "documentNo": "Order",
+      "documentType": "Type",
+      "source": "Source",
+      "patientId": "Patient ID",
+      "approvalNumber": "Approval number",
+      "orderedAt": "Ordered at",
+      "ageDays": "Age (days)"
+    }
   },
   "ended": {
     "placeholder": "Ended sessions and what happened after close aren't available here yet."

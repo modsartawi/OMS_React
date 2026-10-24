@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3028-hungerstation-follow-up-on-oms-react-spec.md
 blocked-by: 551 (live: BackOffice 3035)
 ---
@@ -39,16 +39,16 @@ UI → app (BackOffice doors, stubbed until 557)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `materialImport`: X/blank and true/false parse to booleans, the last repeat wins, a non-number is
+- [x] `materialImport`: X/blank and true/false parse to booleans, the last repeat wins, a non-number is
   flagged, 5000 is allowed and 5001 refused (vitest)
-- [ ] `materialsQuery`: filters ⇄ URL ⇄ door, server paging (vitest)
-- [ ] `tools/hungerstation-materials-drive.mjs`, against stubs, LTR and RTL:
+- [x] `materialsQuery`: filters ⇄ URL ⇄ door, server paging (vitest)
+- [x] `tools/hungerstation-materials-drive.mjs`, against stubs, LTR and RTL:
   - list, filter, page;
   - change one with a reason;
   - import a paste and an xlsx, the preview, the answer with unknowns;
   - the refusals inline;
   - the menu entry hidden when `canManageCatalog` is false.
-- [ ] typecheck, lint, test green
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -64,3 +64,46 @@ The helpers and the drive are green; the live check rides 557.
 - [551](551-an-hq-user-lists-onboards-and-edits-hungerstation-stores-with-a-reason.md)
 
 (live: BackOffice 3035)
+
+## Comments
+
+**Done 2026-10-24** (branch `ticket/555`). Proof: vitest (`features/hungerstation/materials/material-import.test.ts`,
+`materials-query.test.ts`, `i18n-keys.test.ts`), typecheck + lint (4 gates) + `npm test` green, and
+`tools/hungerstation-materials-drive.mjs` **69/69 against STUBS** (LTR and RTL). 🚩 Not driven against a live
+SIS.Api — the live walk is 557. Re-run after the core moves: `hungerstation-stores-drive` 84/84 (its Materials
+checks now expect this page), `deliverect-catalog-drive` 90/90.
+
+What moved to core (a feature may never import another):
+- `features/deliverect/catalog/material-list.ts` (+ test) → `core/import/material-list.ts`, unchanged but for
+  `isHeader`'s export: the HungerStation parser reads its header rule. Its one-column parse did not fit a
+  three-column sheet, so the HungerStation rows have their own parser (`material-import.ts`) rather than a
+  stretched shared one.
+- Deliverect's import answer (counts + unknown list + Copy) → `core/import/ImportAnswerDialog.tsx`, used by both
+  rails; the Deliverect hooks (`data-result-*`) are unchanged.
+
+Judgement calls (overrulable):
+1. **The sheet is the WPF one**: tab-separated (commas / semicolons also break columns, spaces do not), material
+   number then disabled then deleted; columns past the third are ignored, as the WPF import ignored them. A
+   first line with no digit is a header, skipped and said. `X`/`x`/blank and `true`/`false` (any case) are read;
+   **any other mark is flagged, never guessed** (WPF read anything but `X` as false).
+2. **A material number is 1–18 digits**, kept as typed (leading zeros kept, no padding). A row that is not one,
+   or holds an unreadable mark, is listed with its line and **keeps Import off** — the door refuses the whole
+   import for it (DHS-00010), so sending it is pointless. DHS-00010 still shows inline if the server's own test
+   is stricter.
+3. **Repeats**: one row per number, the LAST row's marks, kept in its FIRST place (the server's own rule, applied
+   before sending so the preview shows what the door will do). The 5000 cap counts the rows the body carries
+   (repeats collapsed): 5000 allowed, 5001 refused on screen, never truncated.
+4. **A picked `.xlsx` replaces the paste**, its first three columns written out tab-separated, so what is shown is
+   what is parsed and sent (one source, Deliverect's rule); blank rows stay as blank lines so a problem's line is
+   its sheet row.
+5. **Change patches in place** — the returned row is swapped into every cached page (`withRow`), no list read; a
+   changed material stays on the page it is on (e.g. one just disabled under *Active*) until the next read.
+   DHS-00009 shows inline, reads the list again and turns Save off.
+6. **No client sort/filter on the grid** — it is one server page, and a client sort would only reorder that page.
+   A set flag reads as a badge (disabled amber, deleted red); a clear one is blank.
+7. **Placeholder file kept**: `src/app/HungerStationPlaceholderPage.tsx` and its `placeholder.materials.*` keys in
+   `hungerstation-stores` stay — Orders (556) still routes to the file. 556 (or whoever lands last) deletes the
+   file and both placeholder key blocks.
+
+Open for the owner: none blocking. The Arabic copy is unread by a native eye (the drive's RTL pass is direction
+only, `lng` stays `en`).

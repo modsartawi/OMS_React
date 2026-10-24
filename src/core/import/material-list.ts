@@ -1,6 +1,8 @@
 /**
  * The whitelist import's list of material numbers (ticket 479, contract § Catalog
- * `POST Whitelist/Import`) — pure.
+ * `POST Whitelist/Import`) — pure. Graduated from `features/deliverect/catalog/` to core by ticket
+ * 555, unchanged but for `isHeader`'s export, when the HungerStation material import became the
+ * second reader of its header rule (a feature may never import another).
  *
  * The category manager pastes material numbers or picks a one-column `.xlsx`, and this one parser
  * decides what the request carries. It does not judge a value: a row that is not a material number is
@@ -31,7 +33,7 @@ export interface MaterialList {
 }
 
 /** A header holds no digit at all: "Material", "Material number", "رقم المادة". */
-const isHeader = (value: string) => !/\d/.test(value)
+export const isHeader = (value: string) => !/\d/.test(value)
 
 /**
  * Pasted text (split on line breaks, commas, semicolons, tabs and spaces), or a sheet's rows (the

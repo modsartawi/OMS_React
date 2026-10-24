@@ -690,8 +690,8 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
         }),
       },
-      // The HungerStation area (BackOffice spec 3028, ticket 551) — the DIRECT rail. Materials (555)
-      // and Orders (556) open the placeholder until each re-points its route at its own page.
+      // The HungerStation area (BackOffice spec 3028, ticket 551) — the DIRECT rail. Materials is
+      // ticket 555's page; Orders (556) opens the placeholder until it re-points its route.
       {
         path: 'hungerstation/stores',
         lazy: async () => ({
@@ -700,10 +700,9 @@ export const router = createBrowserRouter([
       },
       {
         path: 'hungerstation/materials',
-        lazy: async () => {
-          const { default: Placeholder } = await import('./HungerStationPlaceholderPage')
-          return { Component: () => <Placeholder screen="materials" /> }
-        },
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/materials/MaterialsPage')).default,
+        }),
       },
       {
         path: 'hungerstation/orders',

@@ -1,0 +1,111 @@
+{
+  "title": "HungerStation materials",
+  "subtitle": "The list of materials offered to HungerStation, and which of them are disabled or deleted.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to HungerStation materials",
+    "deniedHint": "Your account does not hold the HungerStation catalog grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "state": "State",
+    "stateActive": "Active",
+    "stateDisabled": "Disabled",
+    "stateDeleted": "Deleted",
+    "stateAny": "Any",
+    "q": "Search",
+    "qPlaceholder": "Start of a material number or SKU, or part of a name",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "columns": {
+    "material": "Material",
+    "sku": "SKU",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "disabled": "Disabled",
+    "deleted": "Deleted",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
+    "actions": "Actions"
+  },
+  "flag": {
+    "disabled": "Disabled",
+    "deleted": "Deleted"
+  },
+  "results": {
+    "loading": "Loading materials…",
+    "count_one": "<n>{{n}}</n> material",
+    "count_other": "<n>{{n}}</n> materials",
+    "page": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "previous": "Previous",
+    "next": "Next",
+    "empty": "No material matches these filters.",
+    "failedTitle": "The materials could not be loaded",
+    "failed": "Something went wrong while loading the materials. Try again in a moment."
+  },
+  "change": {
+    "button": "Change",
+    "title": "Change the material",
+    "note": "A disabled material is not offered to HungerStation until it is enabled again. A deleted one is taken off the list HungerStation reads.",
+    "confirm": "Save",
+    "legend": "On HungerStation, this material is",
+    "disabled": "Disabled",
+    "deleted": "Deleted",
+    "done": "Material changed",
+    "doneDetail": "Material {{material}} is saved.",
+    "gone": "This material is no longer in the HungerStation list. The list has been read again.",
+    "goneHint": "The material is not in the HungerStation list."
+  },
+  "import": {
+    "button": "Import",
+    "title": "Import the material list",
+    "note": "Each row sets one material's disabled and deleted flags. A material not yet in the list is added; a number the material master does not have is not.",
+    "confirm": "Import",
+    "list": "Rows",
+    "placeholder": "101234\tX\t\n101235\t\tX",
+    "format": "One row per material: the material number, then X if it is disabled, then X if it is deleted (true and false read too). Paste from Excel, or pick a sheet.",
+    "failedHint": "The import was refused.",
+    "file": {
+      "pick": "Pick an .xlsx",
+      "read_one": "Read {{n}} row from {{fileName}}.",
+      "read_other": "Read {{n}} rows from {{fileName}}.",
+      "empty": "{{fileName}} holds no rows.",
+      "unreadable": "{{fileName}} could not be read as a workbook. Save it as .xlsx, or paste the rows."
+    },
+    "preview": {
+      "rows_one": "<n>{{n}}</n> row to send",
+      "rows_other": "<n>{{n}}</n> rows to send",
+      "disabled_one": "<n>{{n}}</n> disabled",
+      "disabled_other": "<n>{{n}}</n> disabled",
+      "deleted_one": "<n>{{n}}</n> deleted",
+      "deleted_other": "<n>{{n}}</n> deleted",
+      "repeats_one": "<n>{{n}}</n> repeat collapsed (the last row wins)",
+      "repeats_other": "<n>{{n}}</n> repeats collapsed (the last row wins)",
+      "header": "The first line, <header>{{header}}</header>, is read as a header and skipped."
+    },
+    "problems": {
+      "title_one": "<n>{{n}}</n> row cannot be sent. Fix it or take it out:",
+      "title_other": "<n>{{n}}</n> rows cannot be sent. Fix them or take them out:",
+      "material": "Line <line>{{line}}</line>: <value>{{value}}</value> is not a material number.",
+      "mark": "Line <line>{{line}}</line>: <value>{{value}}</value> is not a mark. Use X or leave it blank."
+    },
+    "overCap_one": "One import takes at most {{max}} rows. This one is {{overBy}} row over: split it.",
+    "overCap_other": "One import takes at most {{max}} rows. This one is {{overBy}} rows over: split it."
+  },
+  "result": {
+    "title": "Import done",
+    "close": "Close",
+    "added": "Added",
+    "updated": "Updated",
+    "unknown": "Not in the material master",
+    "unknownHint": "These numbers were not added:",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copiedDetail_one": "{{n}} material number is on the clipboard.",
+    "copiedDetail_other": "{{n}} material numbers are on the clipboard.",
+    "copyFailed": "The list could not be copied.",
+    "noneUnknown": "Every material number was known."
+  }
+}

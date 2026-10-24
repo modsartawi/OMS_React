@@ -284,8 +284,8 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
     String(calls.filter((c) => c === 'HungerStationWeb/Access').length),
   )
   await page.locator('nav a[href="/hungerstation/materials"]').first().click()
-  await page.locator('[data-hs-placeholder="materials"]').waitFor({ timeout: 10000 })
-  check('1: Materials opens its placeholder (555 fills it)', (await page.locator('h1').innerText()) === 'HungerStation materials')
+  await page.locator('[data-materials-grid]').waitFor({ timeout: 10000 })
+  check('1: Materials opens its own page (ticket 555)', (await page.locator('h1').innerText()) === 'HungerStation materials')
   await page.locator('nav a[href="/hungerstation/orders"]').first().click()
   await page.locator('[data-hs-placeholder="orders"]').waitFor({ timeout: 10000 })
   check('1: Orders opens its placeholder (556 fills it)', (await page.locator('h1').innerText()) === 'HungerStation orders')
@@ -326,7 +326,7 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   const { context, page, errors } = await open('ltr', { access: { canManageStores: true, canManageCatalog: false, canViewOrders: false } })
   await page.goto(`${BASE}/hungerstation/materials`)
   await page.getByText('No access to HungerStation materials').waitFor({ timeout: 20000 })
-  check('1: the Materials placeholder stands behind canManageCatalog', (await page.locator('[data-hs-placeholder]').count()) === 0)
+  check('1: the Materials page stands behind canManageCatalog', (await page.locator('[data-hs-placeholder], [data-materials-grid]').count()) === 0)
   check('1 (placeholder denied): no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }

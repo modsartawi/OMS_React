@@ -31,6 +31,7 @@ import { campaignJobsFromParams, campaignJobsToParams, isDataSyncNotFound, pollI
 import JobDrawer from './JobDrawer'
 import Pager from './Pager'
 import ServiceBannerView from './ServiceBannerView'
+import StartCampaignButton from './StartCampaignButton'
 
 /**
  * One campaign's page (spec 558, ticket 560) — `/admin/data-sync/campaigns/:campaignId`.
@@ -89,7 +90,12 @@ function CampaignView() {
 
   // ── 🔌 Seams for the later slices (all absent today: this slice is read-only) ──────────────
   // 561/563/565: campaign-level buttons (Start; Pause / Resume / Cancel; hand back to ActionSync).
-  const headerActions: ReactNode = campaign.data && <CampaignControls campaign={campaign.data} />
+  const headerActions: ReactNode = campaign.data && (
+    <>
+      <StartCampaignButton campaign={campaign.data} />
+      <CampaignControls campaign={campaign.data} />
+    </>
+  )
   // 563: a job row's Pause / Resume / Cancel — set this and the grid grows an `actions` column.
   const jobRowActions: ((job: Job) => ReactNode) | undefined = canOperate ? jobRowControls : undefined
   // 562 (Changes link, report-only + Operate) / 563 (the open job's controls): the drawer's footer.

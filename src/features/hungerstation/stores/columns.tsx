@@ -1,6 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import type { HungerStationStoreRow } from '@/core/models/hungerstation'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
@@ -28,13 +28,13 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
  * The HungerStation stores grid (ticket 551): store, name, chain, vendor id, onboarded at/by,
  * updated at/by, then the sync block — active or paused, health (`healthLabel`: failing red, silent
  * amber, the row highlighted the same way by the page), last full, last delta, the last run in 24 h
- * with its status and error — and the row's actions. 552 (remove), 553 (pause / resume, sync now)
- * and 554 (logs, material history) add their buttons to `act` and the actions cell.
+ * with its status and error — and the row's actions: Edit, and Remove (552). 553 (pause / resume,
+ * sync now) and 554 (logs, material history) add their buttons to `act` and the actions cell.
  *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value.
  */
-export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }): ColDef<Row>[] {
+export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void; onRemove: (row: Row) => void }): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
     { field: 'storeCode', headerName: t('columns.store'), width: 100, pinned: pinStart, cellClass: code, cellRenderer: LtrCell },
@@ -122,7 +122,7 @@ export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }):
     {
       colId: 'actions',
       headerName: t('columns.actions'),
-      width: 140,
+      width: 220,
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: ICellRendererParams<Row>) =>
@@ -131,6 +131,10 @@ export function storeColumns(t: TFunction, act: { onEdit: (row: Row) => void }):
             <Button variant="ghost" onClick={() => act.onEdit(data)} data-store-edit={data.storeCode}>
               <Pencil className="h-3.5 w-3.5" aria-hidden />
               {t('edit.button')}
+            </Button>
+            <Button variant="danger-outlined" onClick={() => act.onRemove(data)} data-store-remove={data.storeCode}>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              {t('remove.button')}
             </Button>
           </span>
         ) : null,

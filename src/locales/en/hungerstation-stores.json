@@ -129,6 +129,23 @@
     "gone": "This store is no longer onboarded",
     "goneHint": "It was removed meanwhile. The list has been refreshed."
   },
+  "remove": {
+    "button": "Remove",
+    "title": "Remove a store's onboarding",
+    "note": "Remove the HungerStation onboarding of store <store>{{store}}</store>.",
+    "consequences": {
+      "syncStops": "Its stock sync stops and its orders are no longer fetched.",
+      "vendorIdFree": "Its vendor id becomes free for another store.",
+      "historyStays": "Its logs, orders and history stay readable.",
+      "notOffHungerStation": "It is not taken off HungerStation: that is done in HungerStation's portal."
+    },
+    "revive": "To bring it back, onboard the same store code again.",
+    "confirm": "Remove onboarding",
+    "done": "Onboarding removed",
+    "doneDetail": "Store {{store}} is no longer onboarded on HungerStation.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was already removed, or never onboarded. The list has been refreshed."
+  },
   "reason": {
     "label": "Reason",
     "hint": "Required. It is kept with the change.",

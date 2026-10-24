@@ -11,6 +11,11 @@
 //   GET  HungerStationWeb/Stores?chain=&sync=&health=&q= → store rows, each with its sync block
 //   POST HungerStationWeb/Stores                        → the row; DHS-00001/2/3/4/5/6/8
 //   PUT  HungerStationWeb/Stores/{store}                → the row; DHS-00005/6/7/8
+//   DELETE HungerStationWeb/Stores/{store}?reason=      → data: null; DHS-00007/8 (552)
+//
+// Each browser context holds its OWN copy of the stores: a DELETE takes the store off it (a removed
+// store is never listed), and a POST of a removed store's code brings it back on the body's chain
+// and vendor id (the contract's revive). A POST of a code never listed is answered but not added.
 //
 // ── 551 (this slice) ── it asserts:
 //   1. the HungerStation group is its OWN group, LAST, right after Deliverect, with a leaf per flag
@@ -35,6 +40,17 @@
 //   7. Chains refused: the chain field is a typed key with the rows' chains as suggestions;
 //   8. under RTL (direction only — `lng` stays `en` app-wide) machine values are isolated, a
 //      refusal's code is isolated, onboard and edit work, and nothing errors.
+//
+// ── 552 (remove onboarding, and revive) ── it asserts:
+//   9. a row's Remove opens a danger dialog that names the store and says, in words, that the stock
+//      sync stops and orders are no longer fetched, the vendor id becomes free, logs / orders /
+//      history stay readable, and the store is NOT taken off HungerStation (its portal does that);
+//      it waits for a reason; it DELETEs Stores/{store} with the reason in the QUERY STRING (no
+//      body), unicode kept and `&` / `#` inside it; the row leaves the list; DHS-00008 inline at the
+//      reason; DHS-00007 (already removed) shows inline, the list is read again, and Remove is off;
+//  10. onboarding the removed code again revives it on the dialog's chain and vendor id — the
+//      freed vendor id is accepted — and the row is back;
+//  11. under RTL: the remove note isolates the store; remove, DHS-00007 and revive all work.
 //
 //   1. run the app:  npx vite --port 5231 --strictPort
 //   2. DRIVE_PORT=5231 node tools/hungerstation-stores-drive.mjs
@@ -160,6 +176,9 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
   const calls = []
   const lists = []
   const writes = []
+  // This context's own stores (552): a DELETE takes one off, a POST of a removed code revives it.
+  const list = STORES.map((s) => ({ ...s }))
+  const removed = new Set()
   page.on('pageerror', (e) => errors.push(String(e)))
   // The browser logs every refused stub's status.
   page.on('console', (m) => m.type() === 'error' && !/status of (4\d\d|502)/.test(m.text()) && errors.push(m.text()))
@@ -177,7 +196,7 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
     if (p === 'HungerStationWeb/Chains') return route.fulfill(chains === 'ok' ? envelope(CHAINS) : bare403)
     if (p === 'HungerStationWeb/Stores' && req.method() === 'GET') {
       lists.push(url.search.slice(1))
-      return route.fulfill(envelope(storesAnswer(url.searchParams, STORES)))
+      return route.fulfill(envelope(storesAnswer(url.searchParams, list)))
     }
     if (p === 'HungerStationWeb/Stores' && req.method() === 'POST') {
       const body = req.postDataJSON()
@@ -186,9 +205,16 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
       if (body.vendorId === 'x'.repeat(40)) return route.fulfill(refuse('DHS-00001'))
       if (body.storeCode === '9999') return route.fulfill(refuse('DHS-00002'))
       if (body.storeCode === '0300') return route.fulfill(refuse('DHS-00003'))
-      if (STORES.some((s) => s.storeCode === body.storeCode)) return route.fulfill(refuse('DHS-00004'))
+      if (list.some((s) => s.storeCode === body.storeCode)) return route.fulfill(refuse('DHS-00004'))
       if (!CHAINS.includes(body.chainKey)) return route.fulfill(refuse('DHS-00006'))
-      if (STORES.some((s) => s.vendorId === body.vendorId)) return route.fulfill(refuse('DHS-00005'))
+      if (list.some((s) => s.vendorId === body.vendorId)) return route.fulfill(refuse('DHS-00005'))
+      if (removed.has(body.storeCode)) {
+        // The revive: the same store, back on the body's chain and vendor id.
+        removed.delete(body.storeCode)
+        const back = { ...STORES.find((s) => s.storeCode === body.storeCode), chainKey: body.chainKey, vendorId: body.vendorId, updatedBy: 'MSARTAWI' }
+        list.push(back)
+        return route.fulfill(envelope(back))
+      }
       return route.fulfill(
         envelope(store(body.storeCode, { storeName: 'New store', chainKey: body.chainKey, vendorId: body.vendorId, sync: sync({ lastRun: null, lastStatus: null, lastFullRun: null, lastDeltaRun: null, health: 'silent' }) })),
       )
@@ -202,6 +228,22 @@ async function open(dir, { access = ALL, chains = 'ok' } = {}) {
       if (STORES.some((s) => s.storeCode !== code && s.vendorId === body.vendorId)) return route.fulfill(refuse('DHS-00005'))
       if (!CHAINS.includes(body.chainKey)) return route.fulfill(refuse('DHS-00006'))
       return route.fulfill(envelope({ ...STORES.find((s) => s.storeCode === code), chainKey: body.chainKey, vendorId: body.vendorId }))
+    }
+    if (p.startsWith('HungerStationWeb/Stores/') && req.method() === 'DELETE') {
+      const code = decodeURIComponent(p.slice('HungerStationWeb/Stores/'.length))
+      const reason = url.searchParams.get('reason')
+      writes.push({ method: 'DELETE', path: p, search: url.search, keys: [...url.searchParams.keys()], reason, body: req.postData() })
+      if (!reason || reason.trim().length > 200 || reason === 'trigger 00008') return route.fulfill(refuse('DHS-00008'))
+      const at = list.findIndex((s) => s.storeCode === code)
+      // 0450 was removed meanwhile, from another screen: the server no longer lists it.
+      if (code === '0450') {
+        if (at >= 0) list.splice(at, 1)
+        return route.fulfill(refuse('DHS-00007'))
+      }
+      if (at < 0) return route.fulfill(refuse('DHS-00007'))
+      list.splice(at, 1)
+      removed.add(code)
+      return route.fulfill(envelope(null))
     }
     // Deliverect's group is shown so the HungerStation group's place after it can be read.
     if (p === 'DeliverectWeb/Access') return route.fulfill(envelope(DLV_ALL))
@@ -619,6 +661,104 @@ const groupHeaders = (page) => page.locator('nav button[aria-expanded]').evaluat
   check('rtl: no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
+
+// ── 9–11: remove onboarding, and revive (552) ───────────────────────────────────────────────────
+/** Remove, DHS-00008, DHS-00007 and revive, in one direction. */
+async function removeAndRevive(dir) {
+  const tag = dir === 'rtl' ? '11 (rtl)' : '9'
+  const reviveTag = dir === 'rtl' ? '11 (rtl)' : '10'
+  const { context, page, errors, lists, writes } = await open(dir)
+  await page.goto(`${BASE}/hungerstation/stores`)
+  await waitRows(page, 4)
+
+  // the dialog says what it does
+  await page.locator('[data-store-remove="1234"]').click()
+  await dialog(page).waitFor()
+  const note = await page.locator('[data-reason-note]').innerText()
+  check(`${tag}: the remove dialog names the store`, /1234/.test(note), note)
+  const isolated = await page.locator('[data-reason-note] bdi[dir="ltr"]').allInnerTexts()
+  check(`${tag}: …isolated whole`, JSON.stringify(isolated) === JSON.stringify(['1234']), isolated.join())
+  const said = await page.locator('[data-remove-consequence]').allInnerTexts()
+  check(
+    `${tag}: it says the sync stops and orders are no longer fetched, the vendor id is freed, the history stays, and it is NOT taken off HungerStation`,
+    said.length === 4 &&
+      /stock sync stops/.test(said[0]) &&
+      /orders are no longer fetched/.test(said[0]) &&
+      /vendor id becomes free for another store/.test(said[1]) &&
+      /logs, orders and history stay readable/.test(said[2]) &&
+      /not taken off HungerStation/.test(said[3]) &&
+      /HungerStation's portal/.test(said[3]),
+    said.join(' | '),
+  )
+  check(`${tag}: it says how to bring the store back`, /onboard the same store code again/.test(await page.locator('[data-remove-revive]').innerText()))
+  const confirm = page.locator('[data-reason-confirm]')
+  check(`${tag}: Remove waits for a reason`, await confirm.isDisabled())
+  check(`${tag}: …and confirms on the danger button`, /danger/.test((await confirm.getAttribute('class')) ?? ''))
+  await page.screenshot({ path: `${SHOTS}/${dir}-remove.png` })
+
+  // DHS-00008 at the reason
+  await page.locator('[data-reason-input]').fill('trigger 00008')
+  await confirm.click()
+  const r8 = dialog(page).locator('[data-inline-refusal="DHS-00008"]')
+  await r8.waitFor({ timeout: 5000 })
+  check(`${tag}: DHS-00008 shows inline at the reason, the dialog open`, (await r8.innerText()).includes(REFUSALS['DHS-00008'][1]))
+
+  // remove
+  const reason = '  أُغلق الفرع & نُقل #2 50% 👍  '
+  await page.locator('[data-reason-input]').fill(reason)
+  await confirm.click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  const del = writes.at(-1)
+  check(
+    `${tag}: DELETE Stores/1234 with the reason in the query string, trimmed, unicode and & # kept, no body`,
+    del.method === 'DELETE' && del.path === 'HungerStationWeb/Stores/1234' && del.reason === reason.trim() && JSON.stringify(del.keys) === '["reason"]' && !del.body,
+    JSON.stringify(del),
+  )
+  check(`${tag}: …percent-encoded on the wire`, /^\?reason=[\x21-\x7e]+$/.test(del.search), del.search)
+  await waitRows(page, 3)
+  check(`${tag}: the row leaves the list`, (await rowIndex(page, '1234')) === null)
+  check(`${tag}: the count reads 3 stores`, (await page.locator('[data-status-count]').innerText()) === '3 stores')
+
+  // DHS-00007: already removed (from another screen)
+  await page.locator('[data-store-remove="0450"]').click()
+  await dialog(page).waitFor()
+  await page.locator('[data-reason-input]').fill('closing')
+  const before = lists.length
+  await confirm.click()
+  await page.locator('[data-remove-gone]').waitFor({ timeout: 5000 })
+  const gone = await page.locator('[data-remove-gone]').innerText()
+  check(`${tag}: DHS-00007 shows inline — no longer onboarded, in the server's words`, /no longer onboarded/.test(gone) && gone.includes(REFUSALS['DHS-00007'][1]), gone)
+  check(`${tag}: …with its code isolated`, (await page.locator('[data-remove-gone] [data-inline-refusal="DHS-00007"] bdi[dir="ltr"]').innerText()) === 'DHS-00007')
+  check(`${tag}: …not twice (no banner)`, (await dialog(page).locator('[data-reason-error]').count()) === 0)
+  await waitRows(page, 2)
+  check(`${tag}: …the list is read again and the store is gone from it`, lists.length > before && (await rowIndex(page, '0450')) === null)
+  check(`${tag}: …and Remove can no longer be sent`, await confirm.isDisabled())
+  await page.screenshot({ path: `${SHOTS}/${dir}-remove-gone.png` })
+  await page.locator('[data-reason-cancel]').click()
+  await dialog(page).waitFor({ state: 'detached' })
+
+  // 10: revive — onboard the removed code again
+  await page.locator('[data-stores-onboard]').click()
+  await dialog(page).waitFor()
+  check(`${reviveTag}: the onboard note says a removed store comes back`, /removed comes back/.test(await page.locator('[data-reason-note]').innerText()))
+  await page.locator('[data-onboard-store]').fill('1234')
+  await page.locator('[data-chain-select]').selectOption('AlDawaa')
+  await page.locator('[data-onboard-vendor]').fill('abc12')
+  await page.locator('[data-reason-input]').fill('back on HungerStation')
+  await page.locator('[data-reason-confirm]').click()
+  await dialog(page).waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    `${reviveTag}: onboarding the removed code POSTs it with the dialog's chain and vendor id (the freed one)`,
+    JSON.stringify(writes.at(-1).body) === JSON.stringify({ storeCode: '1234', chainKey: 'AlDawaa', vendorId: 'abc12', reason: 'back on HungerStation' }),
+    JSON.stringify(writes.at(-1).body),
+  )
+  await waitRows(page, 3)
+  check(`${reviveTag}: the store is back on the list, on the new chain`, (await cell(page, '1234', 'chainKey')) === 'AlDawaa' && (await cell(page, '1234', 'vendorId')) === 'abc12')
+  check(`${dir}: (552) no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+await removeAndRevive('ltr')
+await removeAndRevive('rtl')
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

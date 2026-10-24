@@ -5,6 +5,7 @@ import type {
   HungerStationStoreRow,
   HungerStationStoresQuery,
 } from '@/core/models/hungerstation'
+import { removePath } from './remove'
 
 // The HungerStation stores doors (BackOffice 3030; contract § Stores). The area's shared reads —
 // the access probe and the chain list — live in `@/core/hungerstation/api`. 552 (remove), 553
@@ -47,5 +48,14 @@ export const storesApi = {
    */
   edit(storeCode: string, body: HungerStationEditBody): Promise<HungerStationStoreRow> {
     return api.put<HungerStationStoreRow>(storePath(storeCode), body)
+  },
+
+  /**
+   * DELETE HungerStationWeb/Stores/{storeCode}?reason= — remove onboarding (ticket 552). The reason
+   * rides the query string (`removePath`). Answers `data: null`; a removed store is never listed.
+   * Refusals: DHS-00007, 00008.
+   */
+  async remove(storeCode: string, reason: string): Promise<void> {
+    await api.del<null>(removePath(storeCode, reason))
   },
 }

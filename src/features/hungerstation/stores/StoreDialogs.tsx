@@ -10,6 +10,7 @@ import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi } from './api'
+import { REMOVE_CONSEQUENCES } from './remove'
 import { chainChoices } from './store-state'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium'
@@ -306,6 +307,71 @@ export function EditDialog({
             <p className="font-semibold">{t('edit.gone')}</p>
             <p>{t('edit.goneHint')}</p>
             <InlineRefusal message={apiErrorMessage(send.error, fallback)} code={E.notOnboarded} />
+          </div>
+        )}
+      </div>
+    </ReasonDialog>
+  )
+}
+
+/**
+ * Remove a store's onboarding, with a reason (ticket 552). The dialog says in words what that does
+ * (`REMOVE_CONSEQUENCES`): the stock sync stops and its orders are no longer fetched, its vendor id
+ * is free for another store, its logs / orders / history stay readable, and it is NOT taken off
+ * HungerStation — that is done in HungerStation's portal. Onboarding the same code revives it.
+ *
+ * The door answers `data: null` and a removed store is never listed, so the row is dropped from
+ * every cached list at once and the list is read again. DHS-00007 (already removed, or never
+ * onboarded) says so inline, refreshes the list and turns Remove off.
+ */
+export function RemoveDialog({ row, onClose, onDone }: { row: HungerStationStoreRow; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('hungerstation-stores')
+  const qc = useQueryClient()
+  const send = useMutation({
+    mutationFn: (reason: string) => storesApi.remove(row.storeCode, reason),
+    onSuccess: () => {
+      qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) => rows?.filter((r) => r.storeCode !== row.storeCode))
+      void qc.invalidateQueries({ queryKey: STORES_KEY })
+      notify.success(t('remove.done'), t('remove.doneDetail', { store: fsi(row.storeCode) }))
+      onDone()
+    },
+    onError: (err) => {
+      if (apiErrorCode(err) === E.notOnboarded) void qc.invalidateQueries({ queryKey: STORES_KEY })
+    },
+  })
+  const gone = apiErrorCode(send.error) === E.notOnboarded
+
+  return (
+    <ReasonDialog
+      open
+      title={t('remove.title')}
+      note={<Trans t={t} i18nKey="remove.note" values={{ store: row.storeCode }} components={{ store: <Ltr /> }} />}
+      busy={send.isPending}
+      error={send.error}
+      confirmLabel={t('remove.confirm')}
+      danger
+      confirmDisabled={gone}
+      handledCodes={[E.notOnboarded]}
+      onEdit={() => send.reset()}
+      onConfirm={(reason) => send.mutate(reason)}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-2 text-xs" data-remove-dialog="">
+        <ul className="flex list-disc flex-col gap-1 ps-5 text-foreground">
+          {REMOVE_CONSEQUENCES.map((key) => (
+            <li key={key} data-remove-consequence={key}>
+              {t(`remove.consequences.${key}`)}
+            </li>
+          ))}
+        </ul>
+        <p className="text-muted-foreground" data-remove-revive="">
+          {t('remove.revive')}
+        </p>
+        {gone && (
+          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-danger-800" data-remove-gone="">
+            <p className="font-semibold">{t('remove.gone')}</p>
+            <p>{t('remove.goneHint')}</p>
+            <InlineRefusal message={apiErrorMessage(send.error, t('dialog.failedHint'))} code={E.notOnboarded} />
           </div>
         )}
       </div>

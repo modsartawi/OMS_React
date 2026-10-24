@@ -25,15 +25,15 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
-import { EditDialog, OnboardDialog } from './StoreDialogs'
+import { EditDialog, OnboardDialog, RemoveDialog } from './StoreDialogs'
 import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromParams, storesToParams } from './store-state'
 
 /**
  * HungerStation stores (ticket 551, BackOffice spec 3028): every store onboarded on the DIRECT
  * HungerStation rail, its chain and vendor id, who onboarded and last changed it, and its stock
  * sync — active or paused, the last full and delta runs, the newest push in 24 h, and its health
- * (failing red, silent amber). Onboard and edit, each with a reason. 552 adds remove, 553 pause /
- * resume and sync now, 554 the logs drawer.
+ * (failing red, silent amber). Onboard, edit and remove (552; onboarding the code again revives
+ * it), each with a reason. 553 adds pause / resume and sync now, 554 the logs drawer.
  *
  * Behind `canManageStores` on the ONE HungerStation probe, the same predicate the menu leaf reads.
  * Its doors are BackOffice 3030.
@@ -76,7 +76,7 @@ const ROW_SILENT = '[--ag-data-background-color:var(--attention-050)]'
 /** The number a sentence names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
 
-type Dialog = { kind: 'onboard' } | { kind: 'edit'; row: Row } | null
+type Dialog = { kind: 'onboard' } | { kind: 'edit'; row: Row } | { kind: 'remove'; row: Row } | null
 
 function Stores() {
   const { t } = useTranslation('hungerstation-stores')
@@ -122,7 +122,14 @@ function Stores() {
     [],
   )
 
-  const columns = useMemo(() => storeColumns(t, { onEdit: (row) => setDialog({ kind: 'edit', row }) }), [t])
+  const columns = useMemo(
+    () =>
+      storeColumns(t, {
+        onEdit: (row) => setDialog({ kind: 'edit', row }),
+        onRemove: (row) => setDialog({ kind: 'remove', row }),
+      }),
+    [t],
+  )
 
   return (
     <div className="flex flex-col gap-3">
@@ -255,6 +262,7 @@ function Stores() {
       {dialog?.kind === 'edit' && (
         <EditDialog row={dialog.row} rowKeys={seen} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />
       )}
+      {dialog?.kind === 'remove' && <RemoveDialog row={dialog.row} onClose={() => setDialog(null)} onDone={() => setDialog(null)} />}
     </div>
   )
 }

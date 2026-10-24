@@ -167,7 +167,7 @@ async function drive(dir) {
   check(
     `${L}: the four coded reasons, worded from core`,
     reasons.join('|') ===
-      'PAYER_REFUSED=Payer refused / no coverage|SALE_LOST=Sale lost or made outside the session|GOODS_NEVER_LEFT=Goods never left the storeThe session\'s held units go to put-back.|OTHER=Other',
+      'PAYER_REFUSED=Payer refused or no coverage|SALE_LOST=Sale lost or made outside the session|GOODS_NEVER_LEFT=Goods never left the storeThe session\'s held units go to put-back.|OTHER=Other',
     reasons.join('|'),
   )
   check(`${L}: Confirm waits for a reason`, await confirm().isDisabled())

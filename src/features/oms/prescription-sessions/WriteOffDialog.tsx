@@ -9,7 +9,7 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import {
   PRESCRIPTION_SESSION_NS,
-  PRESCRIPTION_WRITE_OFF_REASONS,
+  WRITE_OFF_REASONS,
   wordText,
   writeOffReasonWord,
 } from '@/core/prescription-session/words'
@@ -83,7 +83,7 @@ export default function WriteOffDialog({ row, onClose }: { row: OpenGridRow; onC
 
         <fieldset className="flex flex-col gap-1.5" disabled={busy}>
           <legend className="mb-1 text-xs font-medium">{t('writeOff.reason')}</legend>
-          {PRESCRIPTION_WRITE_OFF_REASONS.map((code) => (
+          {WRITE_OFF_REASONS.map((code) => (
             <label key={code} className="flex items-start gap-2 text-sm">
               <input
                 type="radio"

@@ -82,18 +82,19 @@ What was built:
   cell key handlers never see the note's keys. `write-off-grant.ts` — the per-visit "not granted" flag (zustand),
   reset when the Open tab unmounts (one effect added to `OpenTab.tsx`).
 - Copy in `prescription-sessions` EN + AR under `writeOff.*`.
-- **Core words:** a self-contained block at the end of `core/prescription-session/words.ts`
-  (`PRESCRIPTION_WRITE_OFF_REASONS`, `writeOffReasonWord`) and `writeOffReason.PAYER_REFUSED|SALE_LOST|GOODS_NEVER_LEFT|OTHER`
-  in the core `prescription-session` EN + AR. ⚠ **Merger:** 547 adds the end reasons (abandon + write-off) in parallel —
-  dedupe this block against 547's (keep one list and one key set; the dialog only needs a word per write-off code).
+- **Core words:** the reasons are 547's (`WRITE_OFF_REASONS`, `writeOffReasonWord` → `writeOffReason.*` in the core
+  `prescription-session` namespace). 548 was built with its own identical block in parallel; on merging the
+  integration tip it was dropped in favour of 547's (keys and words are 547's; my `write-off-words.test.ts` removed,
+  547's `end-reason-words.test.ts` covers them).
 
 Judgement calls (overrulable):
 - The confirm is the dialog's own Write off button (no second "are you sure?" step); its sentence names the session and store.
 - After a business refusal the dialog stays open with the note kept; the buttons stay. Only a bare 403 hides them.
-- 545's drive check "no row action yet" now asserts the action on the DISPENSED row only.
+- 545's drive check "no row action yet" now asserts the action on the DISPENSED row only; its To open checks point at
+  546's `[data-ps-to-open]` (the placeholder is gone).
 
 Proof:
-- vitest: `write-off.test.ts` 17 + `core/prescription-session/write-off-words.test.ts` 3 = 20 new; full suite 5967/5967.
+- vitest: `write-off.test.ts` 17 new; full suite 6003/6003 (after merging 546 + 547).
 - Drive `tools/prescription-sessions-write-off-drive.mjs` (`npx vite --port 5216 --strictPort`, then `DRIVE_PORT=5216
   node tools/prescription-sessions-write-off-drive.mjs`): **84/84** (LTR + RTL) — button on DISPENSED only (All + Owed),
   each of the four reasons written off (body `{ reason, note }` trimmed, toast, re-read, row leaves, Owed count drops),

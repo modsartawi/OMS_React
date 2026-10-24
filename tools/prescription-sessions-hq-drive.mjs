@@ -322,13 +322,13 @@ async function drive(dir) {
   // ── 8: tabs ─────────────────────────────────────────────────────────────────────────────────
   await open('?store=P019')
   await page.locator('[data-ps-tab-button="toOpen"]').click()
-  await page.locator('[data-ps-tab-placeholder="toOpen"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-ps-to-open]').waitFor({ timeout: 5000 })
   check(`${L}: To open is in the address, Open's filters dropped`, search() === 'tab=toOpen', search())
   await page.locator('[data-ps-tab-button="ended"]').click()
-  await page.locator('[data-ps-tab-placeholder="ended"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-ps-ended]').waitFor({ timeout: 5000 }) // 547 filled the tab
   check(`${L}: Ended is in the address`, search() === 'tab=ended' && (await page.locator('[data-ps-open]').count()) === 0)
   await open('?tab=toOpen')
-  check(`${L}: a pasted tab opens that tab`, (await page.locator('[data-ps-tab-placeholder="toOpen"]').count()) === 1)
+  check(`${L}: a pasted tab opens that tab`, (await page.locator('[data-ps-to-open]').count()) === 1)
   before = asked.length
   await page.locator('[data-ps-tab-button="open"]').click()
   await settle(before)

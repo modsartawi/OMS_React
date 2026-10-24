@@ -14,6 +14,8 @@ import type { PrescriptionSessionHqList } from '@/core/models/prescription-sessi
 import { openRequest, type OpenFilter } from './open-filter'
 import type { PrescriptionSessionHqToOpen } from '@/core/models/prescription-session'
 import { toOpenRequest, type ToOpenFilter } from './to-open'
+import type { PrescriptionSessionHqEndedRow } from '@/core/models/prescription-session'
+import { endedRequest, type EndedFilter } from './ended-filter'
 
 export const prescriptionSessionsApi = {
   /**
@@ -56,5 +58,17 @@ export const prescriptionSessionsApi = {
       total: data?.total ?? 0,
       byUpload: data?.byUpload === true,
     }
+  },
+
+  /**
+   * `GET PrescriptionSessionWeb/Ended?from&to&store&state` (ticket 547) — the sessions that ended
+   * in the range (by `endedAt`, earliest first), each with its sales and after-close events. A bare
+   * list, capped at 2,000 rows server-side with no flag. A bad range is `PSES-00223`; the tab checks
+   * the range first (`endedRangeProblem`) so that is a backstop.
+   */
+  async ended(filter: EndedFilter): Promise<PrescriptionSessionHqEndedRow[]> {
+    const { path, params } = endedRequest(filter)
+    const data = await api.get<PrescriptionSessionHqEndedRow[] | null>(path, params)
+    return Array.isArray(data) ? data : []
   },
 }

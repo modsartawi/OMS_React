@@ -6,7 +6,7 @@
 import { apiErrorCode, apiErrorKind, apiErrorMessage, isBareDenial } from '@/core/api'
 
 export interface WriteOffForm {
-  /** One of `PRESCRIPTION_WRITE_OFF_REASONS`, or `''` before a choice. */
+  /** One of `WRITE_OFF_REASONS`, or `''` before a choice. */
   reason: string
   note: string
 }

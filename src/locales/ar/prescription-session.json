@@ -66,10 +66,17 @@
     "ABOUT_TO_LAPSE": "على وشك الانقضاء",
     "OWED": "مستحقة"
   },
+  "abandonReason": {
+    "INVALID": "وصفة غير صالحة",
+    "REJECTED": "مرفوضة",
+    "PATIENT_WITHDREW": "انسحب المريض",
+    "DUPLICATE": "مكررة",
+    "LAPSED": "انقضت"
+  },
   "writeOffReason": {
-    "PAYER_REFUSED": "رفض الدافع / لا تغطية",
-    "SALE_LOST": "ضاع البيع أو تم خارج الجلسة",
-    "GOODS_NEVER_LEFT": "لم تغادر البضاعة الصيدلية",
+    "PAYER_REFUSED": "رفض الدافع أو لا تغطية",
+    "SALE_LOST": "فُقد البيع أو تم خارج الجلسة",
+    "GOODS_NEVER_LEFT": "لم تغادر البضاعة الفرع",
     "OTHER": "أخرى"
   }
 }

@@ -25,7 +25,10 @@
 //   1. the Orders leaf rides canViewOrders on the ONE probe (one call); without it the leaf is hidden
 //      and the URL shows the denied card with no Orders call;
 //   2. the grid: a bare URL is written out as today..today and sent with take=100; every column; the
-//      four outcomes in words; a null store / document blank; the total 3 decimals beside its currency;
+//      four outcomes in words; a null store / document blank; the total and its currency ONE value
+//      (`123.450 SAR`, no separate currency column); the store code links to its logs on the Stores
+//      page (`?logs=<code>`, the 554 deep link) — only with canManageStores, else plain text and NO
+//      Chains call (Chains rides canManageStores; the filter offers the rows' chains);
 //   3. the unmatched alert: badged "Store not onboarded", the row on the attention ground, its link
 //      opens the Stores page searched by the vendor id;
 //   4. the window: 32 days refused with NO call; 31 sent; reversed; tomorrow sent, the day after out of
@@ -33,7 +36,8 @@
 //   5. filters: outcome is a repeated key (incl. replacedLines / unmatched) in the URL AND on the door;
 //      the chain filter offers the Chains read, or the rows' chains when it is refused; store and text
 //      land on Search; a pasted URL drives the door; Clear resets;
-//   6. paging: total > rows offers Next, which sends skip=100;
+//   6. paging (the stub pages for real by skip/take): total > rows offers Next, which sends skip=100 and
+//      shows DIFFERENT rows (page 2's), Previous goes back to page 1's;
 //   7. the drawer: the fields; lines with each replacement right after the line it replaced and
 //      HungerStation's line status, money in the order's currency; deliveries oldest first with their
 //      run (Done / Waiting / Stopped, attempts, last, next only for P, error) and "intake failed" for a
@@ -192,20 +196,27 @@ function ordersAnswer(qs, list) {
       (!chain || o.chainKey === chain) &&
       (!q || [o.orderId, o.orderCode, o.documentNumber].some((v) => v?.toLowerCase().includes(q))),
   )
-  return { total: rows.length, rows }
+  // Paged for real: `total` is every match, `rows` only the page skip/take asks for.
+  const skip = Number(qs.get('skip') ?? 0)
+  const take = Number(qs.get('take') ?? 100)
+  return { total: rows.length, rows: rows.slice(skip, skip + take) }
 }
+
+/** 243 more created orders, so the window holds 250 and pages past the first 100. */
+const extraOrders = () =>
+  Array.from({ length: 243 }, (_, i) => order(`hs-x${String(i + 1).padStart(3, '0')}`, { orderCode: `X-${String(i + 1).padStart(3, '0')}` }))
 
 const ALL = { canManageStores: true, canManageCatalog: true, canViewOrders: true }
 const ELEVEN = new Date('2026-10-24T11:00:00+03:00')
 
 const browser = await chromium.launch()
 
-async function open(dir, { access = ALL, chains = 'ok', total = null } = {}) {
+async function open(dir, { access = ALL, chains = 'ok', many = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
   const page = await context.newPage()
   await page.clock.setFixedTime(ELEVEN)
-  const orders = freshOrders()
+  const orders = many ? [...freshOrders(), ...extraOrders()] : freshOrders()
   const errors = []
   const calls = []
   const lists = []
@@ -229,8 +240,7 @@ async function open(dir, { access = ALL, chains = 'ok', total = null } = {}) {
     if (p === 'HungerStationWeb/Orders' && req.method() === 'GET') {
       lists.push(url.search.slice(1))
       if (url.searchParams.get('from') === '2026-10-01' && url.searchParams.get('to') === '2026-10-02') return route.fulfill(refuse('HungerStationWindowInvalid'))
-      const answer = ordersAnswer(url.searchParams, orders)
-      return route.fulfill(envelope(total === null ? answer : { ...answer, total }))
+      return route.fulfill(envelope(ordersAnswer(url.searchParams, orders)))
     }
     const m = /^HungerStationWeb\/Orders\/([^/]+)(?:\/(Retry)|\/Deliveries\/([^/]+)\/Raw)?$/.exec(p)
     if (m) {
@@ -297,11 +307,6 @@ const confirmWith = async (dialog, reason) => {
   const input = dialog.locator('[data-reason-input]')
   const confirm = dialog.locator('[data-reason-confirm]')
   await input.fill(reason)
-  // A dialog opening can still clear its field just after the first keystrokes land: type again.
-  for (let i = 0; i < 5 && ((await input.inputValue()) !== reason || !(await confirm.isEnabled())); i++) {
-    await dialog.page().waitForTimeout(150)
-    await input.fill(reason)
-  }
   await confirm.click()
 }
 
@@ -346,7 +351,7 @@ const chip = async (page, o) => {
 
 // ── 2–6: the grid, the alert, the window, the filters ───────────────────────────────────────
 {
-  const { context, page, errors, lists } = await open('ltr')
+  const { context, page, errors, lists, calls } = await open('ltr')
   await page.goto(`${BASE}/hungerstation/orders`)
   await waitRows(page, N)
 
@@ -372,7 +377,14 @@ const chip = async (page, o) => {
   )
   check('2: document, reason, replaced lines, deliveries', (await cell(page, 'hs-a001', 'documentNumber')) === '45000001' && (await cell(page, 'hs-a002', 'reason')) === 'Material 101 is not on the HungerStation list' && (await cell(page, 'hs-a006', 'replacedLines')) === '1' && (await cell(page, 'hs-a002', 'deliveries')) === '2')
   check('2: 🚩 a null store and a null document render blank', (await cell(page, 'hs-a005', 'storeCode')) === '' && (await cell(page, 'hs-a005', 'documentNumber')) === '')
-  check('2: the total has 3 decimals, beside its currency', (await cell(page, 'hs-a001', 'total')) === '123.450' && (await cell(page, 'hs-a002', 'total')) === '58.100' && (await cell(page, 'hs-a001', 'currencyKey')) === 'SAR')
+  check('2: 🚩 the total is ONE value, 3 decimals then its currency', (await cell(page, 'hs-a001', 'total')) === '123.450 SAR' && (await cell(page, 'hs-a002', 'total')) === '58.100 SAR')
+  check('2: …and there is no separate currency column', (await page.locator('[data-orders-grid] .ag-header-cell[col-id="currencyKey"]').count()) === 0)
+  check('2: the total is isolated once, whole, with no fsi marks', (await cellLoc(page, 'hs-a001', 'total').locator('bdi').allTextContents()).join('|') === '123.450 SAR')
+  check(
+    '2: 🚩 with canManageStores the store code links to its logs on the Stores page',
+    (await page.locator('[data-orders-grid] [data-order-store-link="2001"]').getAttribute('href')) === '/hungerstation/stores?logs=2001',
+  )
+  check('2: …the Chains read is made (it rides canManageStores)', calls.includes('HungerStationWeb/Chains'))
   check('2: the count reads 7 orders', (await page.locator('[data-status-count]').innerText()) === '7 orders')
 
   // 3: the unmatched alert
@@ -497,18 +509,69 @@ const chip = async (page, o) => {
   check('5 (403): no page errors', errors.length === 0, errors.join(' | '))
   await context.close()
 }
+{
+  // 2 + 5 + 7: an orders user WITHOUT canManageStores — no Chains call, the rows' chains, plain store codes
+  const { context, page, errors, calls } = await open('ltr', { access: { ...ALL, canManageStores: false } })
+  await page.goto(`${BASE}/hungerstation/orders`)
+  await waitRows(page, N)
+  check('5: 🚩 without canManageStores the Chains read is never sent (it could only be a bare 403)', !calls.includes('HungerStationWeb/Chains'), calls.join())
+  const opts = await page.locator('[data-filter-chain] option').evaluateAll((els) => els.map((e) => e.value))
+  check('5: …the chain filter offers the rows’ chains', JSON.stringify(opts) === JSON.stringify(['', 'AlDawaa', 'OlaCare']), opts.join())
+  check(
+    '2: 🚩 without canManageStores the store code is plain text (isolated), no link',
+    (await page.locator('[data-order-store-link]').count()) === 0 && (await cellLoc(page, 'hs-a003', 'storeCode').locator('bdi[dir="ltr"]').innerText()) === '2001',
+  )
+  await page.locator('[data-order-details="hs-a001"]').click()
+  const d1 = page.locator('dialog[open][data-order-drawer="hs-a001"]')
+  await d1.locator('[data-order-lines]').waitFor({ timeout: 15000 })
+  check('7: …nor in the drawer', (await d1.locator('[data-order-drawer-store-link]').count()) === 0 && (await d1.locator('[data-order-field="store"] dd').innerText()) === '1234')
+  check('(no canManageStores): no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+{
+  // 7: the drawer's store code is the 554 deep link — it opens the store's logs on the Stores page, even
+  // for a store the list no longer holds (the Stores stub answers no rows: a removed store).
+  const { context, page, errors } = await open('ltr')
+  await page.goto(`${BASE}/hungerstation/orders`)
+  await waitRows(page, N)
+  await page.locator('[data-order-details="hs-a001"]').click()
+  const d1 = page.locator('dialog[open][data-order-drawer="hs-a001"]')
+  await d1.locator('[data-order-lines]').waitFor({ timeout: 15000 })
+  const link = d1.locator('[data-order-drawer-store-link="1234"]')
+  check('7: 🚩 with canManageStores the drawer links the store code to its logs', (await link.getAttribute('href')) === '/hungerstation/stores?logs=1234' && (await link.locator('bdi[dir="ltr"]').innerText()) === '1234')
+  await link.click()
+  await page.waitForURL(/\/hungerstation\/stores\?logs=1234$/, { timeout: 15000 })
+  await page.locator('dialog[open][data-hs-logs-drawer="1234"]').waitFor({ timeout: 15000 })
+  check('7: …following it opens the logs drawer of a store the list does not hold', true)
+  check('7 (store link): no page errors', errors.length === 0, errors.join(' | '))
+  await context.close()
+}
 
 // ── 6: paging ───────────────────────────────────────────────────────────────────────────────
 {
-  const { context, page, lists } = await open('ltr', { total: 250 })
+  const { context, page, lists } = await open('ltr', { many: true })
   await page.goto(`${BASE}/hungerstation/orders`)
-  await waitRows(page, N)
-  check('6: the bar says which part of the total shows', (await page.locator('[data-status-count]').innerText()) === 'Showing 1–7 of 250')
+  const status = page.locator('[data-status-count]')
+  const statusReads = (text) => page.waitForFunction((t) => document.querySelector('[data-status-count]')?.textContent === t, text, { timeout: 20000 })
+  await statusReads('Showing 1–100 of 250')
+  await cellLoc(page, 'hs-a001', 'orderCode').waitFor({ timeout: 10000 })
+  check('6: the bar says which part of the total shows', (await status.innerText()) === 'Showing 1–100 of 250')
+  check('6: page 1 shows page 1’s rows', (await cell(page, 'hs-a001', 'orderCode')) === 'C-001' && (await cellLoc(page, 'hs-x094', 'orderCode').count()) === 0)
   check('6: Previous is disabled on the first page', await page.locator('[data-orders-previous]').isDisabled())
   await page.locator('[data-orders-next]').click()
   await page.waitForFunction(() => new URLSearchParams(location.search).get('skip') === '100')
-  await waitRows(page, N)
+  await statusReads('Showing 101–200 of 250')
   check('6: Next sends skip=100 and writes it to the URL', lastList(lists).get('skip') === '100' && lastList(lists).get('take') === '100', lists.at(-1))
+  await cellLoc(page, 'hs-x094', 'orderCode').waitFor({ timeout: 10000 })
+  check(
+    '6: 🚩 page 2 shows DIFFERENT rows — the 101st order on, none of page 1’s',
+    (await cell(page, 'hs-x094', 'orderCode')) === 'X-094' && (await cellLoc(page, 'hs-a001', 'orderCode').count()) === 0,
+  )
+  check('6: …and Next stays on (200 of 250)', !(await page.locator('[data-orders-next]').isDisabled()))
+  await page.locator('[data-orders-previous]').click()
+  await statusReads('Showing 1–100 of 250')
+  await cellLoc(page, 'hs-a001', 'orderCode').waitFor({ timeout: 10000 })
+  check('6: Previous goes back to page 1’s rows', (await cellLoc(page, 'hs-x094', 'orderCode').count()) === 0, lists.at(-1))
   await chip(page, 'failed')
   await page.waitForFunction(() => !new URLSearchParams(location.search).has('skip'))
   await waitRows(page, 2)

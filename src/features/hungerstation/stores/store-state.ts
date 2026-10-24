@@ -67,16 +67,3 @@ export function storesToParams(query: HungerStationStoresQuery): URLSearchParams
   if (query.q) out.set('q', query.q)
   return out
 }
-
-/**
- * The chain keys a filter or a field offers: the `Chains` read when it answered, else the chains
- * seen on the rows — plus any in `also` (the current filter value), sorted and distinct, so a
- * filtered list never hides the value it is filtered by.
- */
-export function chainChoices(
-  chains: readonly string[] | undefined,
-  rowKeys: readonly string[],
-  also: readonly (string | null)[] = [],
-): string[] {
-  return [...new Set([...(chains ?? rowKeys), ...also].filter((k): k is string => !!k))].sort((a, b) => a.localeCompare(b))
-}

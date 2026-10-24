@@ -17,8 +17,9 @@
 
 /** A local wall-clock time, `yyyy-MM-ddTHH:mm:ss`, no offset. Never append a `Z`. */
 export type LocalDateTime = string
-/** A date-only value, `yyyy-MM-dd`. */
-export type LocalDate = string
+/** A date-only value, `yyyy-MM-dd` — declared once, in `@/core/util/date-window`. */
+import type { LocalDate } from '@/core/util/date-window'
+export type { LocalDate }
 
 // ── Errors ───────────────────────────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
@@ -9,9 +9,9 @@ import { HUNGERSTATION_ERRORS, type HungerStationStoreRow, type HungerStationSyn
 import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import { keyChoices } from '@/core/util/filter-choices'
 import { STORES_KEY, storesApi, syncNowKey } from './api'
 import { REMOVE_CONSEQUENCES } from './remove'
-import { chainChoices } from './store-state'
 import { SYNC_NOW_CODES, applyPush, replaceRow, syncNowRefusal } from './sync'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium'
@@ -47,7 +47,7 @@ function ChainField({
   const chains = useQuery(hungerStationChainsQuery())
   const listId = useId()
   // The store's current chain stays choosable even if the list no longer names it.
-  const choices = chainChoices(chains.isSuccess ? chains.data : undefined, rowKeys, [value])
+  const choices = keyChoices(chains.isSuccess ? chains.data : undefined, rowKeys, [value])
 
   return (
     <div className="flex flex-col gap-1">
@@ -136,6 +136,22 @@ function CodeField({
         />
       </label>
       {refusal && <InlineRefusal message={refusal.message} code={refusal.code} />}
+    </div>
+  )
+}
+
+/**
+ * DHS-00007 — the store is no longer onboarded (removed meanwhile, or never onboarded): what happened,
+ * what the screen did about it (the list was read again), and the server's own sentence with its code.
+ * Edit, Remove and Pause / Resume all say it this way, each in its own words (`<prefix>.gone`, `.goneHint`).
+ */
+function GoneAlert({ prefix, error, data }: { prefix: string; error: unknown; data: string }) {
+  const { t } = useTranslation('hungerstation-stores')
+  return (
+    <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800" {...{ [data]: '' }}>
+      <p className="font-semibold">{t(`${prefix}.gone`)}</p>
+      <p>{t(`${prefix}.goneHint`)}</p>
+      <InlineRefusal message={apiErrorMessage(error, t('dialog.failedHint'))} code={E.notOnboarded} />
     </div>
   )
 }
@@ -303,13 +319,7 @@ export function EditDialog({
             {t('edit.unchanged')}
           </span>
         )}
-        {gone && (
-          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800" data-edit-gone="">
-            <p className="font-semibold">{t('edit.gone')}</p>
-            <p>{t('edit.goneHint')}</p>
-            <InlineRefusal message={apiErrorMessage(send.error, fallback)} code={E.notOnboarded} />
-          </div>
-        )}
+        {gone && <GoneAlert prefix="edit" error={send.error} data="data-edit-gone" />}
       </div>
     </ReasonDialog>
   )
@@ -368,13 +378,7 @@ export function RemoveDialog({ row, onClose, onDone }: { row: HungerStationStore
         <p className="text-muted-foreground" data-remove-revive="">
           {t('remove.revive')}
         </p>
-        {gone && (
-          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-danger-800" data-remove-gone="">
-            <p className="font-semibold">{t('remove.gone')}</p>
-            <p>{t('remove.goneHint')}</p>
-            <InlineRefusal message={apiErrorMessage(send.error, t('dialog.failedHint'))} code={E.notOnboarded} />
-          </div>
-        )}
+        {gone && <GoneAlert prefix="remove" error={send.error} data="data-remove-gone" />}
       </div>
     </ReasonDialog>
   )
@@ -388,13 +392,14 @@ export function RemoveDialog({ row, onClose, onDone }: { row: HungerStationStore
 export function SyncActiveDialog({ row, onClose, onDone }: { row: HungerStationStoreRow; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation('hungerstation-stores')
   const qc = useQueryClient()
-  const active = !row.sync.active
-  const ns = active ? 'resume' : 'pause'
+  // The state the write asks for, and the word for it — the key prefix of the dialog's copy.
+  const nextActive = !row.sync.active
+  const verb = nextActive ? 'resume' : 'pause'
   const send = useMutation({
-    mutationFn: (reason: string) => storesApi.setActive(row.storeCode, { active, reason }),
+    mutationFn: (reason: string) => storesApi.setActive(row.storeCode, { active: nextActive, reason }),
     onSuccess: (next) => {
       qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) => replaceRow(rows, next))
-      notify.success(t(`${ns}.done`), t(`${ns}.doneDetail`, { store: fsi(row.storeCode) }))
+      notify.success(t(`${verb}.done`), t(`${verb}.doneDetail`, { store: fsi(row.storeCode) }))
       onDone()
     },
     onError: (err) => {
@@ -406,25 +411,19 @@ export function SyncActiveDialog({ row, onClose, onDone }: { row: HungerStationS
   return (
     <ReasonDialog
       open
-      title={t(`${ns}.title`)}
-      note={<Trans t={t} i18nKey={`${ns}.note`} values={{ store: row.storeCode }} components={{ store: <Ltr /> }} />}
+      title={t(`${verb}.title`)}
+      note={<Trans t={t} i18nKey={`${verb}.note`} values={{ store: row.storeCode }} components={{ store: <Ltr /> }} />}
       busy={send.isPending}
       error={send.error}
-      confirmLabel={t(`${ns}.confirm`)}
+      confirmLabel={t(`${verb}.confirm`)}
       confirmDisabled={gone}
       handledCodes={[E.notOnboarded]}
       onEdit={() => send.reset()}
       onConfirm={(reason) => send.mutate(reason)}
       onClose={onClose}
     >
-      <div data-sync-active-dialog={ns}>
-        {gone && (
-          <div role="alert" className="flex flex-col gap-1 rounded-md border border-danger-border bg-danger-050 px-3 py-2 text-xs text-danger-800" data-sync-active-gone="">
-            <p className="font-semibold">{t(`${ns}.gone`)}</p>
-            <p>{t(`${ns}.goneHint`)}</p>
-            <InlineRefusal message={apiErrorMessage(send.error, t('dialog.failedHint'))} code={E.notOnboarded} />
-          </div>
-        )}
+      <div data-sync-active-dialog={verb}>
+        {gone && <GoneAlert prefix={verb} error={send.error} data="data-sync-active-gone" />}
       </div>
     </ReasonDialog>
   )
@@ -453,14 +452,9 @@ export function SyncNowDialog({
 }) {
   const { t } = useTranslation('hungerstation-stores')
   const qc = useQueryClient()
-  // 🔑 One push per click: a double click lands both clicks before React re-renders the confirm as
-  // busy, so the guard is a ref, set before `mutate` and cleared when the push settles.
-  const inFlight = useRef(false)
+  // One push per click: the shared ReasonDialog ignores a second Confirm while the first is sending.
   const send = useMutation({
     mutationKey: syncNowKey(row.storeCode),
-    onSettled: () => {
-      inFlight.current = false
-    },
     mutationFn: (reason: string) => storesApi.syncNow(row.storeCode, { reason }),
     onSuccess: (log) => {
       qc.setQueriesData<HungerStationStoreRow[]>({ queryKey: STORES_KEY }, (rows) =>
@@ -498,11 +492,7 @@ export function SyncNowDialog({
       confirmDisabled={!row.sync.active || kind === 'gone' || kind === 'paused'}
       handledCodes={SYNC_NOW_CODES}
       onEdit={() => send.reset()}
-      onConfirm={(reason) => {
-        if (inFlight.current) return
-        inFlight.current = true
-        send.mutate(reason)
-      }}
+      onConfirm={(reason) => send.mutate(reason)}
       onClose={onClose}
     >
       <div data-sync-now-dialog="">

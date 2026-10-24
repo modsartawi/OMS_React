@@ -12,9 +12,10 @@ import { showsPager } from '@/core/ui/pager'
 import { TD, TH } from '@/core/ui/sheet-table'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatRange, fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { storesApi, syncLinesKey } from './api'
 import { LineCells, PushStatus, PushType } from './PushCells'
-import { LINES_TAKE, type LinesFilter, expiredNotice, figure, historyRefusal, linesNotice, linesQuery } from './sync-history'
+import { LINES_TAKE, type LinesFilter, expiredNotice, historyRefusal, linesNotice, linesQuery } from './sync-history'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
 const INPUT =

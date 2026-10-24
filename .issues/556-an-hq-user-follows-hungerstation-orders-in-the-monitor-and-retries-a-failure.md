@@ -141,3 +141,12 @@ so the drive waits for a rendered sign between two date changes.
 Open for the owner: the Arabic copy is unread by a native eye (the app's `lng` stays `en`; the drive's RTL pass
 is direction only). The retry-semantics question (BackOffice 3028) stays open; the UI is the same either way.
 
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The Chains read is now gated: the contract puts Chains behind `canManageStores`, so the monitor never sends it without that flag (it could only be a bare 403). The chain filter then offers the chains seen on the rows. The drive asserts that no Chains call is made.
+- The total is now ONE isolated value, `<total 3dp> <currencyKey>` (`orderMoney`, e.g. `123.450 SAR`, matching 554's price). The separate currency column and its `columns.currency` key are gone. In the grid it is the plain cell value, isolated once by the grid base (no `fsi`).
+- The store code links to its logs (see 554), gated on `canManageStores`.
+- `storesPath`, `storeLogsPath` and `orderMoney` now live in a pure `order-links.ts`, with vitest coverage.
+- The drawer uses core `sheet-table` `TH`/`TD` (Deliverect's order drawer too).
+- `RetryDialog` now checks DHS-00012 with `apiErrorCode(err) === code`.
+- Drive: the stub now pages by `skip`/`take` with a real `total` (250 orders). The paging test proves page 2 shows different rows and that Previous returns to page 1. The `confirmWith` re-type workaround is removed, now that the ReasonDialog reset can no longer eat keystrokes.

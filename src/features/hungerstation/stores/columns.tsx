@@ -5,7 +5,7 @@ import { History, Loader2, Pause, Pencil, Play, RefreshCw, ScrollText, Trash2 } 
 import type { HungerStationStoreRow } from '@/core/models/hungerstation'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
-import Ltr from '@/core/ui/Ltr'
+import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatDateTime } from '@/core/util/date-format'
@@ -13,12 +13,6 @@ import { syncNowKey } from './api'
 import { healthLabel, type HealthReading } from './store-state'
 
 type Row = HungerStationStoreRow
-
-/** A machine value (a code, a key, a time) isolated left-to-right once, as the formatter shaped it. */
-function LtrCell({ value, valueFormatted }: ICellRendererParams) {
-  const text = valueFormatted ?? (value == null ? '' : String(value))
-  return text === '' ? null : <Ltr>{text}</Ltr>
-}
 
 /** The badge's tone: the row's highlight (one rule for both) — else ok, or neutral. */
 const healthSev = (health: HealthReading, highlight: Severity | null): Severity => highlight ?? (health === 'ok' ? 'ok' : 'mute')

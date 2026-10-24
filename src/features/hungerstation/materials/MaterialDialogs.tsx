@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, FileSpreadsheet } from 'lucide-react'
+import { apiErrorCode } from '@/core/api'
 import ImportAnswerDialog from '@/core/import/ImportAnswerDialog'
 import ReasonDialog, { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
 import { fieldRefusal } from '@/core/hungerstation/reason'
@@ -15,13 +16,11 @@ import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { xlsxRows } from '@/core/util/xlsx-read'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { MATERIAL_IMPORT_MAX, parseMaterialImport } from './material-import'
 import { withRow } from './materials-query'
-
-/** A count, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
 
 /** How many problem rows the preview lists; the count says how many there are in all. */
 const PROBLEMS_SHOWN = 50
@@ -64,7 +63,7 @@ export function ChangeDialog({ row, onClose }: { row: HungerStationMaterialRow; 
       onClose()
     },
     onError: (err) => {
-      if (fieldRefusal(err, [HUNGERSTATION_ERRORS.noSuchMaterial], '')) void qc.invalidateQueries({ queryKey: MATERIALS_KEY })
+      if (apiErrorCode(err) === HUNGERSTATION_ERRORS.noSuchMaterial) void qc.invalidateQueries({ queryKey: MATERIALS_KEY })
     },
   })
   const gone = fieldRefusal(send.error, [HUNGERSTATION_ERRORS.noSuchMaterial], t('change.goneHint'))

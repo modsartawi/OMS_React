@@ -5,8 +5,8 @@ import { fromIsoDate, toIsoDate } from './date-format'
 // Deliverect orders monitor (ticket 478) by ticket 556, when the HungerStation orders monitor became
 // its second reader. Pure: no React, no `t`.
 
-/** A date-only value, `yyyy-MM-dd`. */
-type LocalDate = string
+/** A date-only value, `yyyy-MM-dd`. The ONE declaration: the wire models re-export it. */
+export type LocalDate = string
 
 /**
  * Today as the browser's LOCAL calendar date, built from its parts (`toIsoDate` reads

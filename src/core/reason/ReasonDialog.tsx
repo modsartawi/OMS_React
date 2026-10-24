@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
@@ -23,6 +23,14 @@ import { REASON_MAX, reasonField } from './reason'
  * under the field. Any other refusal shows in the dialog with its code — unless the caller lists it
  * in `handledCodes` because it shows that refusal inline at its own field. The dialog stays open on
  * a refusal, so the reason is not lost.
+ *
+ * One write per Confirm: a second click before the first send shows as busy (TanStack notifies its
+ * observers a tick late, so a double click lands both clicks first) is ignored, for every write the
+ * dialog carries — the latch opens again once that send settles, or the reason is edited.
+ *
+ * A fresh opening never carries the last write's reason: the field is cleared on the open/close
+ * transition WHILE RENDERING, so the clear lands before the dialog paints and can never eat the first
+ * keystrokes typed into it.
  *
  * It speaks in `ns`, whose `reason.*` and `dialog.*` keys every binding's namespace carries.
  */
@@ -74,6 +82,24 @@ export default function ReasonDialog({
 }) {
   const { t } = useTranslation(ns)
   const [text, setText] = useState('')
+  // Cleared on every open/close transition, during render (React's "adjust state on a prop change"):
+  // before paint, so never after the first keystrokes of a freshly opened dialog.
+  const [shownOpen, setShownOpen] = useState(open)
+  if (shownOpen !== open) {
+    setShownOpen(open)
+    setText('')
+  }
+  // 🔑 The double-submit latch: set on Confirm, opened again when the send it started settles
+  // (`busy` true → false), when the reason is edited, or on a fresh opening.
+  const sending = useRef(false)
+  const wasBusy = useRef(busy)
+  useEffect(() => {
+    if (wasBusy.current && !busy) sending.current = false
+    wasBusy.current = busy
+  }, [busy])
+  useEffect(() => {
+    sending.current = false
+  }, [open])
   const check = reasonField(text)
   const ready = check.problem === null && !busy && !confirmDisabled
   const code = error ? apiErrorCode(error) : null
@@ -84,8 +110,6 @@ export default function ReasonDialog({
     <Modal
       open={open}
       onClose={() => !busy && onClose()}
-      // A fresh opening never carries the last write's reason.
-      onShow={() => setText('')}
       title={title}
       width="34rem"
       footer={
@@ -96,7 +120,11 @@ export default function ReasonDialog({
           <Button
             variant={danger ? 'danger' : 'primary'}
             disabled={!ready}
-            onClick={() => ready && onConfirm(check.reason)}
+            onClick={() => {
+              if (!ready || sending.current) return
+              sending.current = true
+              onConfirm(check.reason)
+            }}
             data-reason-confirm=""
           >
             {busy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
@@ -126,6 +154,7 @@ export default function ReasonDialog({
             value={text}
             onChange={(e) => {
               setText(e.target.value)
+              sending.current = false
               onEdit?.()
             }}
             rows={3}

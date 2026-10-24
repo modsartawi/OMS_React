@@ -11,10 +11,11 @@ import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { storesApi, syncLogsKey } from './api'
 import { PushStatus, PushType } from './PushCells'
 import PushLines from './PushLines'
-import { LOGS_TAKE, figure, historyRefusal, pushReading } from './sync-history'
+import { LOGS_TAKE, historyRefusal, pushReading } from './sync-history'
 
 /**
  * **A HungerStation store's pushes** (ticket 554; contract § Stock sync, `GET Sync/{store}/Logs`) —

@@ -15,24 +15,17 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import SideSheet from '@/core/ui/SideSheet'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatMoney3 } from '@/core/util/number-format'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { orderKey, ordersApi } from './api'
-import { AlertBadge, OutcomeBadge, storesPath } from './columns'
+import { AlertBadge, OutcomeBadge, StoreCode } from './columns'
+import { orderMoney as money, storesPath } from './order-links'
 import { lineOrder } from './order-lines'
 import { alertLabel, runLabel } from './order-outcome'
 import type { RawTarget } from './RawDrawer'
 import type { RetryTarget } from './RetryDialog'
-
-/** The number a cell shows, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
-/** Money with its currency — one machine value, isolated once by the caller. */
-const money = (amount: number, currencyKey: string) => `${formatMoney3(amount)} ${currencyKey}`
-
-const TH = 'px-2 py-1.5 text-start font-medium whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
 
 /** The fields a row and its detail share — what the header reads while the detail loads. */
 type OrderFields = Omit<HungerStationOrderRow, 'deliveries'>
@@ -46,11 +39,14 @@ type OrderFields = Omit<HungerStationOrderRow, 'deliveries'>
  */
 export default function OrderDrawer({
   row,
+  linkStores,
   onClose,
   onRaw,
   onRetry,
 }: {
   row: HungerStationOrderRow
+  /** `canManageStores`: the store code links to its logs on the Stores page. */
+  linkStores: boolean
   onClose: () => void
   onRaw: (target: RawTarget) => void
   onRetry: (target: RetryTarget) => void
@@ -114,7 +110,7 @@ export default function OrderDrawer({
             </div>
           </div>
         )}
-        <Header order={order} />
+        <Header order={order} linkStores={linkStores} />
         {detail.isPending ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground" data-order-loading="">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -142,7 +138,7 @@ export default function OrderDrawer({
 }
 
 /** The order's own fields, label beside value. A `null` store or document is blank. */
-function Header({ order }: { order: OrderFields }) {
+function Header({ order, linkStores }: { order: OrderFields; linkStores: boolean }) {
   const { t } = useTranslation('hungerstation-orders')
   const field = (label: string, value: ReactNode, data: string) => (
     <div className="flex flex-col gap-0.5" data-order-field={data}>
@@ -162,7 +158,15 @@ function Header({ order }: { order: OrderFields }) {
       {field(t('detail.orderCode'), code(order.orderCode), 'orderCode')}
       {field(t('detail.chain'), code(order.chainKey), 'chain')}
       {field(t('detail.vendorId'), code(order.vendorId), 'vendorId')}
-      {field(t('detail.store'), code(order.storeCode), 'store')}
+      {field(
+        t('detail.store'),
+        order.storeCode ? (
+          <span className="font-mono text-[12.5px]">
+            <StoreCode code={order.storeCode} linked={linkStores} data="data-order-drawer-store-link" />
+          </span>
+        ) : null,
+        'store',
+      )}
       {field(t('detail.document'), code(order.documentNumber), 'document')}
       {field(t('detail.receivedAt'), <Ltr>{formatDateTime(order.receivedAt)}</Ltr>, 'receivedAt')}
       {field(t('detail.hsStatus'), code(order.hsStatus), 'hsStatus')}

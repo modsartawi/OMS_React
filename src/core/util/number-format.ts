@@ -26,3 +26,11 @@ export function formatNumber(value: number | null | undefined): string {
 export function formatMoney3(value: number | null | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(3) : ''
 }
+
+/**
+ * A count or a figure a sentence names, grouped in Latin digits (`1,234`) — how figures are drawn
+ * across the app, whatever the locale. One helper, so the screens never re-declare it.
+ */
+export function formatFigure(n: number): string {
+  return n.toLocaleString('en-US')
+}

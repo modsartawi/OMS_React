@@ -4,19 +4,13 @@ import { Ban, ListChecks, RotateCcw, Trash2 } from 'lucide-react'
 import type { DeliverectWhitelistRow } from '@/core/models/deliverect'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
-import Ltr from '@/core/ui/Ltr'
+import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import PlatformChip from './PlatformChip'
 import { rowActions, type WhitelistAction } from './whitelist-state'
 
 type Row = DeliverectWhitelistRow
-
-/** A machine value (a code, a key, a time) isolated left-to-right once, as the formatter shaped it. */
-function LtrCell({ value, valueFormatted }: ICellRendererParams) {
-  const text = valueFormatted ?? (value == null ? '' : String(value))
-  return text === '' ? null : <Ltr>{text}</Ltr>
-}
 
 const ACTION_ICON = { disable: Ban, delete: Trash2, restore: RotateCcw } as const
 

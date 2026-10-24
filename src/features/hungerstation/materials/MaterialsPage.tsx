@@ -23,6 +23,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { materialColumns } from './columns'
 import { ChangeDialog, ImportDialog, ImportResultDialog } from './MaterialDialogs'
@@ -66,9 +67,6 @@ const STATE_KEY: Record<HungerStationMaterialState, string> = {
   deleted: 'filters.stateDeleted',
   any: 'filters.stateAny',
 }
-
-/** A count, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
 
 type Dialog = { kind: 'import' } | { kind: 'result'; result: HungerStationMaterialImportResult } | { kind: 'change'; row: Row } | null
 

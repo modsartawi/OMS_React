@@ -12,6 +12,7 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage } from '@/core/api'
 import { hungerStationAccessQuery, hungerStationChainsQuery } from '@/core/hungerstation/api'
 import { canManageStores } from '@/core/hungerstation/access'
+import { useSeenChains } from '@/core/hungerstation/seen-chains'
 import type {
   HungerStationHealthFilter,
   HungerStationStoreRow,
@@ -24,6 +25,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
+import { keyChoices } from '@/core/util/filter-choices'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
 import { EditDialog, OnboardDialog, RemoveDialog, SyncActiveDialog, SyncNowDialog } from './StoreDialogs'
@@ -31,7 +34,7 @@ import MaterialHistoryDrawer from './MaterialHistoryDrawer'
 import SyncLogsDrawer from './SyncLogsDrawer'
 import { syncNowResult } from './sync'
 import { sheetFromParams, withSheet, type SheetTarget } from './sync-history'
-import { HEALTH_FILTERS, SYNC_FILTERS, chainChoices, healthLabel, storesFromParams, storesToParams } from './store-state'
+import { HEALTH_FILTERS, SYNC_FILTERS, healthLabel, storesFromParams, storesToParams } from './store-state'
 
 /**
  * HungerStation stores (ticket 551, BackOffice spec 3028): every store onboarded on the DIRECT
@@ -80,9 +83,6 @@ const HEALTH_KEY: Record<HungerStationHealthFilter, string> = {
 const ROW_FAILING = '[--ag-data-background-color:var(--danger-050)]'
 const ROW_SILENT = '[--ag-data-background-color:var(--attention-050)]'
 
-/** The number a sentence names, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
 type Dialog =
   | { kind: 'onboard' }
   | { kind: 'edit'; row: Row }
@@ -114,14 +114,8 @@ function Stores() {
   // The chain filter offers the `Chains` read; if it fails, the chains seen on the rows so far,
   // remembered across filters so filtering by one chain never shrinks the choice to that chain.
   const chains = useQuery(hungerStationChainsQuery())
-  const [seen, setSeen] = useState<string[]>([])
-  useEffect(() => {
-    setSeen((prev) => {
-      const next = chainChoices(undefined, [...prev, ...rows.map((r) => r.chainKey)])
-      return next.length === prev.length ? prev : next
-    })
-  }, [rows])
-  const filterChains = chainChoices(chains.isSuccess ? chains.data : undefined, seen, [query.chain])
+  const seen = useSeenChains(rows)
+  const filterChains = keyChoices(chains.isSuccess ? chains.data : undefined, seen, [query.chain])
 
   const [dialog, setDialog] = useState<Dialog>(null)
   // The last sync now's answer, shown above the grid until dismissed (553).

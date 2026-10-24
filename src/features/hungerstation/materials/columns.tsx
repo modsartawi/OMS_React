@@ -4,17 +4,11 @@ import { Pencil } from 'lucide-react'
 import type { HungerStationMaterialRow } from '@/core/models/hungerstation'
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
-import Ltr from '@/core/ui/Ltr'
+import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 
 type Row = HungerStationMaterialRow
-
-/** A machine value (a code, a time) isolated left-to-right once, as the formatter shaped it. */
-function LtrCell({ value, valueFormatted }: ICellRendererParams) {
-  const text = valueFormatted ?? (value == null ? '' : String(value))
-  return text === '' ? null : <Ltr>{text}</Ltr>
-}
 
 /** `null` renders blank — a `0001-01-01` stamp arrives as `null` (contract § Materials). */
 const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDateTime(value)

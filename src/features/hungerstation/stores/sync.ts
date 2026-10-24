@@ -1,4 +1,5 @@
 import { HUNGERSTATION_ERRORS, type HungerStationStoreRow, type HungerStationSyncLogRow } from '@/core/models/hungerstation'
+import { formatFigure as figure } from '@/core/util/number-format'
 
 // Pausing / resuming a HungerStation store's stock sync, and pushing its stock now (ticket 553;
 // contract § Stock sync, `PUT …/Sync/{storeCode}/Active` and `POST …/Sync/{storeCode}/Now`).
@@ -11,9 +12,6 @@ export const syncActivePath = (storeCode: string) => `${syncPath(storeCode)}/Act
 
 /** `POST HungerStationWeb/Sync/{storeCode}/Now` — body `{ reason }`, answers the push's log row. */
 export const syncNowPath = (storeCode: string) => `${syncPath(storeCode)}/Now`
-
-/** The number a sentence names, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
 
 /**
  * The line a finished push reads: the materials sent (grouped, for an `<n>` slot) and its status,

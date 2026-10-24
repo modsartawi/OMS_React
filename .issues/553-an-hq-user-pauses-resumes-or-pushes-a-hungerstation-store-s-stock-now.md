@@ -96,3 +96,9 @@ Judgement calls (overrulable):
 
 Open for the owner: whether the double-submit guard should move into the shared core ReasonDialog (5).
 The Arabic copy is unread by a native eye.
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- Spec story 19: the pause confirmation now also says pausing does NOT take the store offline on HungerStation (en + ar `pause.note`). The stores drive asserts it, LTR and RTL.
+- In `SyncActiveDialog`, `active`/`ns` are renamed to `nextActive`/`verb`.
+- Comment 5's open item is done: the double-submit guard now lives in the shared core `ReasonDialog`, and the local ref in `SyncNowDialog` is removed. The drive's "a double click sends ONE push" still passes.

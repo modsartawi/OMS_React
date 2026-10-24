@@ -109,3 +109,7 @@ Open for the owner:
   No per-environment switch exists in this repo and none was added: hiding it until index script 007 part 2 is
   in (or BackOffice refusing the door while the index is missing) is the owner's call.
 - The Arabic copy is unread by a native eye (the drive's RTL pass is direction only).
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The 554 deep link is now reachable from where the store code is known: in the orders monitor, the store cell and the order drawer's store field link to `/hungerstation/stores?logs=<code>`, only when the user has `canManageStores` (otherwise plain isolated text). The orders drive follows the drawer link into the logs drawer of a store the Stores list does not hold.

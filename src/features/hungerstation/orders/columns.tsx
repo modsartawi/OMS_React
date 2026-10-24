@@ -8,16 +8,24 @@ import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatMoney3 } from '@/core/util/number-format'
+import { orderMoney, storeLogsPath, storesPath } from './order-links'
 import { alertLabel, outcomeLabel } from './order-outcome'
 
 type Row = HungerStationOrderRow
 
-/** The Stores page an `unmatched` alert sends a person to, searched by the order's vendor id: an
- *  empty answer confirms no onboarded store holds it, and Onboard there (which also revives a
- *  removed store, ticket 552) is the action. */
-export function storesPath(vendorId: string): string {
-  return `/hungerstation/stores?${new URLSearchParams({ q: vendorId })}`
+/**
+ * The store code, linked to its logs on the Stores page (`storeLogsPath`, the 554 deep link) when the
+ * person may open that page — a removed store's history stays readable from here. Without
+ * `canManageStores` the link would only reach the denied card, so it is plain text. One isolated value.
+ */
+export function StoreCode({ code, linked, data }: { code: string; linked: boolean; data: string }) {
+  return linked ? (
+    <Link to={storeLogsPath(code)} className="text-primary underline-offset-2 hover:underline" {...{ [data]: code }}>
+      <Ltr>{code}</Ltr>
+    </Link>
+  ) : (
+    <Ltr>{code}</Ltr>
+  )
 }
 
 /** An outcome in words; one the contract does not name, as sent. */
@@ -47,14 +55,19 @@ const time = ({ value }: ValueFormatterParams<Row, string | null>) => formatDate
 /**
  * The HungerStation orders grid (ticket 556; contract § Orders monitor): received at, order code,
  * order id, chain, vendor id, store, HungerStation's own status, our document, the outcome judged on
- * our side, the reason, replaced lines, the delivery count, the total (3 decimals) beside its
- * currency, and the alert — `unmatched` with its link to the Stores page — then Details and, for a
+ * our side, the reason, replaced lines, the delivery count, the total (3 decimals and its currency,
+ * one value), and the alert — `unmatched` with its link to the Stores page — then Details and, for a
  * `retryable` order only, Retry.
  *
  * Every plain cell is isolated by the core grid base. A column with its own renderer isolates its
  * own whole value. `storeCode` and `documentNumber` render blank when `null`.
  */
-export function orderColumns(t: TFunction, act: { onDetails: (row: Row) => void; onRetry: (row: Row) => void }): ColDef<Row>[] {
+export function orderColumns(
+  t: TFunction,
+  act: { onDetails: (row: Row) => void; onRetry: (row: Row) => void },
+  /** `canManageStores`: the store code links to its logs on the Stores page. */
+  linkStores: boolean,
+): ColDef<Row>[] {
   const code = 'font-mono text-[12px]'
   return [
     { field: 'receivedAt', headerName: t('columns.receivedAt'), width: 150, pinned: pinStart, valueFormatter: time },
@@ -62,7 +75,14 @@ export function orderColumns(t: TFunction, act: { onDetails: (row: Row) => void;
     { field: 'orderId', headerName: t('columns.orderId'), width: 150, cellClass: code, tooltipField: 'orderId' },
     { field: 'chainKey', headerName: t('columns.chain'), width: 110, cellClass: code },
     { field: 'vendorId', headerName: t('columns.vendorId'), width: 110, cellClass: code },
-    { field: 'storeCode', headerName: t('columns.store'), width: 90, cellClass: code },
+    {
+      field: 'storeCode',
+      headerName: t('columns.store'),
+      width: 90,
+      cellClass: code,
+      cellRenderer: ({ value }: ICellRendererParams<Row, string | null>) =>
+        value ? <StoreCode code={value} linked={linkStores} data="data-order-store-link" /> : null,
+    },
     { field: 'hsStatus', headerName: t('columns.hsStatus'), width: 150, cellClass: code },
     { field: 'documentNumber', headerName: t('columns.document'), width: 130, cellClass: code },
     {
@@ -81,14 +101,14 @@ export function orderColumns(t: TFunction, act: { onDetails: (row: Row) => void;
     { field: 'replacedLines', headerName: t('columns.replacedLines'), width: 120, type: 'numericColumn', cellClass: 'tabular-nums' },
     { field: 'deliveries', headerName: t('columns.deliveries'), width: 100, type: 'numericColumn', cellClass: 'tabular-nums' },
     {
+      // The total and its currency are ONE machine value (`18.950 SAR`), isolated whole by the grid base.
       field: 'total',
       headerName: t('columns.total'),
-      width: 110,
+      width: 130,
       type: 'numericColumn',
       cellClass: 'tabular-nums',
-      valueFormatter: ({ value }: ValueFormatterParams<Row, number>) => formatMoney3(value),
+      valueGetter: ({ data }) => (data ? orderMoney(data.total, data.currencyKey) : ''),
     },
-    { field: 'currencyKey', headerName: t('columns.currency'), width: 90, cellClass: code },
     {
       field: 'alert',
       headerName: t('columns.alert'),

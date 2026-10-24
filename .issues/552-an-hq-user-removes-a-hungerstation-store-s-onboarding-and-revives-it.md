@@ -82,3 +82,7 @@ Judgement calls (overrulable):
 
 Open for the owner: none blocking. The Arabic copy is unread by a native eye (the drive's RTL pass is
 direction only).
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The DHS-00007 ("no longer onboarded") alert block was copied in Edit, Remove and Pause/Resume. It is now one `GoneAlert` in `StoreDialogs.tsx`. Its data hooks and copy are unchanged.

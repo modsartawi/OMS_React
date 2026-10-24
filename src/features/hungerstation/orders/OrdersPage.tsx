@@ -11,7 +11,8 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { hungerStationAccessQuery, hungerStationChainsQuery } from '@/core/hungerstation/api'
-import { canViewOrders } from '@/core/hungerstation/access'
+import { canManageStores, canViewOrders } from '@/core/hungerstation/access'
+import { useSeenChains } from '@/core/hungerstation/seen-chains'
 import { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
 import {
   HUNGERSTATION_ERRORS,
@@ -27,6 +28,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { addDays, localToday } from '@/core/util/date-window'
 import { keyChoices, toggled } from '@/core/util/filter-choices'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { ORDERS_KEY, ordersApi } from './api'
 import { orderColumns } from './columns'
 import OrderDrawer from './OrderDrawer'
@@ -78,9 +80,6 @@ const CHIP =
 /** An alert row — the vendor id resolves to no onboarded store — on the attention ground. */
 const ROW_ALERT = '[--ag-data-background-color:var(--attention-050)]'
 
-/** The number a sentence names, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
 function Orders() {
   const { t } = useTranslation('hungerstation-orders')
   const [params, setParams] = useSearchParams()
@@ -120,23 +119,20 @@ function Orders() {
   // The server stays authoritative on the window: its 400 shows inline, beside the dates.
   const serverWindow = problem === null && orders.isError && apiErrorCode(orders.error) === HUNGERSTATION_ERRORS.windowInvalid
 
-  // The `Chains` read rides `canManageStores`, which an orders user may lack: then the filter offers
-  // the chains seen on the rows, remembered across filters so one chain never shrinks the choice.
-  const chains = useQuery(hungerStationChainsQuery())
-  const [seen, setSeen] = useState<string[]>([])
-  useEffect(() => {
-    setSeen((prev) => {
-      const next = keyChoices(undefined, [...prev, ...rows.map((r) => r.chainKey)])
-      return next.length === prev.length ? prev : next
-    })
-  }, [rows])
-  const chainKeys = keyChoices(chains.isSuccess ? chains.data : undefined, seen, [query.chain])
+  // 🚩 The `Chains` read rides `canManageStores` (contract § Access), which an orders user may lack —
+  // then it is never sent (it could only be a bare 403), and the filter offers the chains seen on the
+  // rows. The same grant links a store code to its logs on the Stores page.
+  const access = useQuery(hungerStationAccessQuery())
+  const manageStores = canManageStores(access.data)
+  const chains = useQuery({ ...hungerStationChainsQuery(), enabled: manageStores })
+  const seen = useSeenChains(rows)
+  const chainKeys = keyChoices(manageStores && chains.isSuccess ? chains.data : undefined, seen, [query.chain])
 
   const [details, setDetails] = useState<Row | null>(null)
   const [raw, setRaw] = useState<RawTarget | null>(null)
   const [retry, setRetry] = useState<RetryTarget | null>(null)
 
-  const columns = useMemo(() => orderColumns(t, { onDetails: setDetails, onRetry: setRetry }), [t])
+  const columns = useMemo(() => orderColumns(t, { onDetails: setDetails, onRetry: setRetry }, manageStores), [t, manageStores])
   const rowClassRules = useMemo<RowClassRules<Row>>(() => ({ [ROW_ALERT]: ({ data }) => !!data?.alert }), [])
 
   const loading = orders.isFetching && (!orders.data || orders.isPlaceholderData)
@@ -270,7 +266,7 @@ function Orders() {
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             tooltipShowDelay={500}
             animateRows={false}
-            // Sixteen columns: render every one, so a cell off to the side is in the DOM for
+            // Fifteen columns: render every one, so a cell off to the side is in the DOM for
             // find-in-page and for the drive.
             suppressColumnVirtualisation
             loading={loading}
@@ -324,7 +320,7 @@ function Orders() {
         </div>
       </div>
 
-      {details && <OrderDrawer row={details} onClose={() => setDetails(null)} onRaw={setRaw} onRetry={setRetry} />}
+      {details && <OrderDrawer row={details} linkStores={manageStores} onClose={() => setDetails(null)} onRaw={setRaw} onRetry={setRetry} />}
       {raw && <RawDrawer target={raw} onClose={() => setRaw(null)} />}
       {retry && <RetryDialog target={retry} onClose={() => setRetry(null)} />}
     </div>

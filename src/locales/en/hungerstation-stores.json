@@ -123,7 +123,7 @@
   "pause": {
     "button": "Pause",
     "title": "Pause a store's stock sync",
-    "note": "Pause the stock sync of store <store>{{store}}</store>. No stock is pushed to HungerStation until it is resumed.",
+    "note": "Pause the stock sync of store <store>{{store}}</store>. No stock is pushed to HungerStation until it is resumed. Pausing does not take the store offline on HungerStation: it stays open there.",
     "confirm": "Pause sync",
     "done": "Stock sync paused",
     "doneDetail": "Store {{store}}: its stock is no longer pushed to HungerStation.",

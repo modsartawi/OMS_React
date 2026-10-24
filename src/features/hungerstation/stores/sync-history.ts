@@ -10,7 +10,7 @@ import {
   type LocalDateTime,
 } from '@/core/models/hungerstation'
 import { skipForPage } from '@/core/ui/pager'
-import { formatMoney3 } from '@/core/util/number-format'
+import { formatFigure as figure, formatMoney3 } from '@/core/util/number-format'
 import { syncPath } from './sync'
 
 // A HungerStation store's pushes, a push's lines and a material's history (ticket 554; contract
@@ -36,9 +36,6 @@ export const LOGS_TAKE = HUNGERSTATION_LOGS_TAKE.max
 
 /** The drawer reads the Lines door's default page. */
 export const LINES_TAKE = HUNGERSTATION_LINES_TAKE.default
-
-/** The number a cell or sentence shows, grouped as figures are drawn across the app. */
-export const figure = (n: number) => n.toLocaleString('en-US')
 
 /** The push-lines filter: a material number (exact match) and a 1-based page. */
 export interface LinesFilter {

@@ -57,7 +57,8 @@
 //
 // ── 553 (pause / resume, sync now) ── it asserts, LTR and RTL:
 //  12. Pause on an active row / Resume on a paused one opens a reason dialog naming the store
-//      (isolated); it PUTs Sync/{store}/Active with exactly { active, reason }; DHS-00008 inline; the
+//      (isolated), pause adding that it does NOT take the store offline on HungerStation (story 19);
+//      it PUTs Sync/{store}/Active with exactly { active, reason }; DHS-00008 inline; the
 //      row flips in place (sync, health, the toggle's label) with NO list re-read; DHS-00007 says the
 //      store is gone, re-reads the list and turns Confirm off;
 //  13. Sync now says it is a FULL push to the LIVE HungerStation vendor (store and vendor id
@@ -936,6 +937,10 @@ async function pauseResume(dir) {
   check(
     `${tag}: the pause dialog is titled and names the store, isolated`,
     (await dialog(page).innerText()).includes("Pause a store's stock sync") && JSON.stringify(await page.locator('[data-reason-note] bdi[dir="ltr"]').allInnerTexts()) === '["1234"]',
+  )
+  check(
+    `${tag}: 🚩 the pause confirmation says pausing does NOT take the store offline on HungerStation (story 19)`,
+    /Pausing does not take the store offline on HungerStation/.test(await page.locator('[data-reason-note]').innerText()),
   )
   check(`${tag}: Pause waits for a reason`, await confirm.isDisabled())
   await page.locator('[data-reason-input]').fill('trigger 00008')

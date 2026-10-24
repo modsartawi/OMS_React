@@ -12,9 +12,10 @@ import SideSheetHeader from '@/core/ui/SideSheetHeader'
 import { SHEET_BODY, TD, TH } from '@/core/ui/sheet-table'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { materialLinesKey, storesApi } from './api'
 import { LineCells, PushStatus, PushType } from './PushCells'
-import { cappedNotice, figure, historyRefusal, pushReading } from './sync-history'
+import { cappedNotice, historyRefusal, pushReading } from './sync-history'
 
 const INPUT =
   'h-8 w-48 rounded-md border border-border/60 bg-background px-2 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none'

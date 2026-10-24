@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
+import { apiErrorCode } from '@/core/api'
 import ReasonDialog, { InlineRefusal } from '@/core/hungerstation/ReasonDialog'
 import { fieldRefusal } from '@/core/hungerstation/reason'
 import { HUNGERSTATION_ERRORS } from '@/core/models/hungerstation'
@@ -41,7 +42,7 @@ export default function RetryDialog({ target, onClose }: { target: RetryTarget; 
       onClose()
     },
     onError: (err) => {
-      if (fieldRefusal(err, [HUNGERSTATION_ERRORS.notFailed], '') !== null) void qc.invalidateQueries({ queryKey: ORDERS_KEY })
+      if (apiErrorCode(err) === HUNGERSTATION_ERRORS.notFailed) void qc.invalidateQueries({ queryKey: ORDERS_KEY })
     },
   })
   const inline = fieldRefusal(send.error, INLINE, '')

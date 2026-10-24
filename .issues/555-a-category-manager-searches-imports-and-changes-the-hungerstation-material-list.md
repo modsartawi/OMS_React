@@ -107,3 +107,9 @@ Judgement calls (overrulable):
 
 Open for the owner: none blocking. The Arabic copy is unread by a native eye (the drive's RTL pass is direction
 only, `lng` stays `en`).
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- `MaterialDialogs` now checks DHS-00009 with `apiErrorCode(err) === code`, not `fieldRefusal(..., '')`.
+- `figure` comes from core `formatFigure`, and `LtrCell` from `core/ui/LtrCell`.
+- Pager: left hand-rolled, on purpose. Core `GridPager` does fit server paging, but it is a separate footer row with a "Page N of M" readout in `common` words. The delivery-rail monitors (Deliverect and HungerStation alike) put the range readout and Previous/Next inline in the status bar. Swapping only the HungerStation screens would split the two rails' look, so this is left for a cross-rail decision.

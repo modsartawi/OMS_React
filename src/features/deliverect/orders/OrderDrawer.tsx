@@ -10,21 +10,16 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import SideSheet from '@/core/ui/SideSheet'
+import { TD, TH } from '@/core/ui/sheet-table'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatMoney3 } from '@/core/util/number-format'
+import { formatFigure as figure, formatMoney3 } from '@/core/util/number-format'
 import { orderKey, ordersApi } from './api'
 import { NeedsPerson, OutcomeBadge, statusText } from './columns'
 import { documentPath, needsPerson, retryOffered, statusLabel } from './order-status'
 
-/** The number a cell shows, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
 /** Money with its currency — one machine value, isolated once by the caller. */
 const money = (amount: number, currencyKey: string) => `${formatMoney3(amount)} ${currencyKey}`
-
-const TH = 'px-2 py-1.5 text-start font-medium whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
 
 /**
  * **One Deliverect order** (ticket 478; contract § Orders monitor, `GET Orders/{id}`) — its header,

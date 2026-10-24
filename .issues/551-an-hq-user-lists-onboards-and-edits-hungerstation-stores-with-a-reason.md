@@ -116,3 +116,11 @@ Judgement calls (overrulable):
 Open for the owner: none blocking. The Arabic copy is unread by a native eye (the app's `lng` stays `en`;
 the drive's RTL pass is direction only).
 
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The chain choices now use core `keyChoices` (`core/util/filter-choices`). The local `chainChoices` is gone.
+- The "seen chains" effect is now `useSeenChains` in `core/hungerstation/seen-chains.ts`, shared with the orders monitor.
+- `LtrCell` is one core renderer (`core/ui/LtrCell.tsx`), used by the stores and materials grids here and by Deliverect's stores and catalog grids.
+- Grouped figures use one core helper, `formatFigure` (`core/util/number-format`), with a vitest case. The local `figure` copies are gone from the HungerStation pages, drawers and pure modules, and from the Deliverect orders and stores pages and order drawer.
+- `LocalDate` is declared once, in `core/util/date-window.ts`. Both wire models re-export it.
+- Shared `core/reason/ReasonDialog`: it now ignores a second Confirm while the first send is in flight, so every write gets the guard. The reason field is now cleared on the open/close transition while rendering, so the clear lands before paint and can no longer eat the first keystrokes.

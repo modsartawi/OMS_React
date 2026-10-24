@@ -1,6 +1,7 @@
 import { api } from '@/core/api'
 import type {
   DeliverectHoursRow,
+  DeliverectMaterialLine,
   DeliverectMoveBody,
   DeliverectOnboardBody,
   DeliverectStoreRow,
@@ -8,6 +9,8 @@ import type {
   DeliverectStoreStatusHistoryRow,
   DeliverectStoresQuery,
   DeliverectSyncActiveBody,
+  DeliverectSyncLinesPage,
+  DeliverectSyncLinesQuery,
   DeliverectSyncLogRow,
 } from '@/core/models/deliverect'
 
@@ -27,6 +30,13 @@ export const syncLogsKey = (storeCode: string) => ['deliverect', 'sync-logs', st
 
 /** The log drawer reads the contract's default page: the last 50 runs. */
 export const SYNC_LOGS_TAKE = 50
+
+/** One push's lines under one filter — keyed by store, push and the door's params. */
+export const syncLinesKey = (storeCode: string, logId: string, query: DeliverectSyncLinesQuery) =>
+  ['deliverect', 'sync-lines', storeCode, logId, query] as const
+
+/** One material's history at one store. */
+export const materialLinesKey = (storeCode: string, plu: string) => ['deliverect', 'material-lines', storeCode, plu] as const
 
 /** The status history drawer reads the most recent changes — the contract names no default `take`. */
 export const STATUS_HISTORY_TAKE = 50
@@ -84,6 +94,28 @@ export const storesApi = {
   /** GET DeliverectWeb/Sync/{storeCode}/Logs?take= — the most recent runs. */
   syncLogs(storeCode: string, take: number = SYNC_LOGS_TAKE): Promise<DeliverectSyncLogRow[]> {
     return api.get<DeliverectSyncLogRow[]>(`${syncPath(storeCode)}/Logs`, { take })
+  },
+
+  /**
+   * GET DeliverectWeb/Sync/{storeCode}/Logs/{logId}/Lines?plu=&channel=&skip=&take= — one push's
+   * lines (BackOffice 3026). An expired push answers `linesKept: false` and no lines.
+   * Refusals: DLV-00001, DLV-00013 (no such push for this store).
+   */
+  syncLines(storeCode: string, logId: string, query: DeliverectSyncLinesQuery): Promise<DeliverectSyncLinesPage> {
+    return api.get<DeliverectSyncLinesPage>(`${syncPath(storeCode)}/Logs/${encodeURIComponent(logId)}/Lines`, {
+      plu: query.plu,
+      channel: query.channel,
+      skip: query.skip,
+      take: query.take,
+    })
+  },
+
+  /**
+   * GET DeliverectWeb/Sync/{storeCode}/Lines?plu= — every line sent for one material at the store
+   * within the 15 days, newest push first, at most 200 (BackOffice 3026). Refusal: DLV-00001.
+   */
+  async materialLines(storeCode: string, plu: string): Promise<DeliverectMaterialLine[]> {
+    return (await api.get<DeliverectMaterialLine[] | null>(`${syncPath(storeCode)}/Lines`, { plu })) ?? []
   },
 
   /**

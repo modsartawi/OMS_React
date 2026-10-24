@@ -1,7 +1,7 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, X } from 'lucide-react'
+import { ListTree, Loader2, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { DeliverectStoreRow, DeliverectSyncLogRow } from '@/core/models/deliverect'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -11,13 +11,11 @@ import { SHEET } from '@/core/ui/overlay'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { SYNC_LOGS_TAKE, storesApi, syncLogsKey } from './api'
+import PushLines from './PushLines'
 import { runFailed, syncTypeKey } from './sync-health'
+import { figure } from './sync-lines'
+import { TD, TH } from './table-cells'
 
-/** The number a cell shows, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
-
-const TH = 'px-2 py-1.5 text-start font-medium whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
 
 /**
  * **A store's stock sync log** (ticket 480; contract § Stock sync, `GET Sync/{store}/Logs`) — the
@@ -28,16 +26,46 @@ const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
  * imports another): a native `<dialog>` docked to the inline end on the overlay recipe's `SHEET`,
  * over the `--backdrop` scrim, with its top layer, focus trap, focus given back and Escape. React
  * state stays the one source of truth for open. It reads the door when it opens.
+ *
+ * Ticket 550: each run opens its lines in place (`PushLines`), with a way back to the log.
  */
 export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreRow; onClose: () => void }) {
   const { t } = useTranslation('deliverect-stores')
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  // The open run by id: its row is read from the log as it stands, so a refetch updates it.
+  const [openRunId, setOpenRunId] = useState<string | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  /** Where the log was scrolled, and whose Lines button opened the run — given back on Back. */
+  const returnTo = useRef<{ logId: string; scrollTop: number } | null>(null)
   const logs = useQuery({
     queryKey: syncLogsKey(row.storeCode),
     queryFn: () => storesApi.syncLogs(row.storeCode),
     retry: false,
   })
+
+  const openRun = openRunId ? (logs.data?.find((l) => l.logId === openRunId) ?? null) : null
+
+  const openLines = (logId: string) => {
+    returnTo.current = { logId, scrollTop: scroller.current?.scrollTop ?? 0 }
+    setOpenRunId(logId)
+  }
+
+  // Opening a run starts its lines at the top (PushLines focuses its Back); Back puts the log
+  // where it was and gives focus back to the run's Lines button.
+  useLayoutEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    if (openRunId) {
+      box.scrollTop = 0
+      return
+    }
+    const back = returnTo.current
+    if (!back) return
+    returnTo.current = null
+    box.scrollTop = back.scrollTop
+    box.querySelector<HTMLButtonElement>(`[data-log-open-lines="${CSS.escape(back.logId)}"]`)?.focus()
+  }, [openRunId])
 
   useEffect(() => {
     const dialog = ref.current
@@ -88,8 +116,10 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
             <X className="h-4 w-4" aria-hidden />
           </button>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
-          {logs.isPending ? (
+        <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4" data-sync-logs-scroller="">
+          {openRun ? (
+            <PushLines storeCode={row.storeCode} log={openRun} onBack={() => setOpenRunId(null)} />
+          ) : logs.isPending ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" data-sync-logs-loading="">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {t('logs.loading')}
@@ -114,11 +144,12 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
                   <th className={TH}>{t('logs.columns.fileId')}</th>
                   <th className={TH}>{t('logs.columns.callback')}</th>
                   <th className={TH}>{t('logs.columns.error')}</th>
+                  <th className={TH}>{t('logs.columns.lines')}</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.data.map((log) => (
-                  <LogRow key={log.logId} log={log} />
+                  <LogRow key={log.logId} log={log} onLines={() => openLines(log.logId)} />
                 ))}
               </tbody>
             </table>
@@ -133,7 +164,7 @@ export default function SyncLogsDrawer({ row, onClose }: { row: DeliverectStoreR
  * One run. Machine values isolated left-to-right; the error is free text (`<bdi>`). A run with no
  * end yet is still going: its status is shown as sent, neutral, never as a failure.
  */
-function LogRow({ log }: { log: DeliverectSyncLogRow }) {
+function LogRow({ log, onLines }: { log: DeliverectSyncLogRow; onLines: () => void }) {
   const { t } = useTranslation('deliverect-stores')
   const type = syncTypeKey(log.syncType)
   const running = log.endTime == null
@@ -180,6 +211,24 @@ function LogRow({ log }: { log: DeliverectSyncLogRow }) {
       </td>
       <td className={'px-2 py-1.5 align-top ' + (log.error ? 'text-danger-800' : '')} data-log-error="">
         {log.error ? <bdi>{log.error}</bdi> : null}
+      </td>
+      <td className={TD} data-log-lines="">
+        <span className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onLines}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium text-primary hover:bg-muted"
+            data-log-open-lines={log.logId}
+          >
+            <ListTree className="h-3.5 w-3.5" aria-hidden />
+            {t('logs.openLines')}
+          </button>
+          {log.linesKept === false && (
+            <span className="text-muted-foreground" data-log-lines-gone="">
+              {t('logs.linesGone')}
+            </span>
+          )}
+        </span>
       </td>
     </tr>
   )

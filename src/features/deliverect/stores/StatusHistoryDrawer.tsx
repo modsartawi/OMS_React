@@ -11,9 +11,8 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { STATUS_HISTORY_TAKE, statusHistoryKey, storesApi } from './api'
 import { historyActionKey } from './store-status'
+import { TD, TH } from './table-cells'
 
-const TH = 'px-2 py-1.5 text-start font-medium whitespace-nowrap'
-const TD = 'px-2 py-1.5 align-top whitespace-nowrap'
 
 /**
  * **A store's status history** (ticket 481; contract § Store status, `GET StoreStatus/{store}/History`)

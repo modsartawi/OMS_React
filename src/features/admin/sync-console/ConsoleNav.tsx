@@ -7,7 +7,8 @@ import { REPLAY_PATH } from './replay-draft'
 
 /**
  * The console's own page links (ticket 447), the prototype's top bar: the Fleet, the
- * fleet-wide Commands (448) and Audit, then New store and Sync pending (449).
+ * fleet's Recent passes, the fleet-wide Commands (448) and Audit, then New store and
+ * Sync pending (449).
  * The menu keeps its one leaf; these are the way between the console's pages.
  *
  * New store is the wizard, which is nothing but controls: a holder who may onboard
@@ -18,6 +19,7 @@ import { REPLAY_PATH } from './replay-draft'
  */
 const PAGES = [
   { to: '/admin/sync', key: 'fleet', end: true },
+  { to: '/admin/sync/passes', key: 'passes', end: false },
   { to: '/admin/sync/commands', key: 'commands', end: false },
   { to: '/admin/sync/audit', key: 'audit', end: false },
   { to: '/admin/sync/new-store', key: 'newStore', end: false },

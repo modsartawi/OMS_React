@@ -264,6 +264,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/StorePage')).default,
         }),
       },
+      // The fleet's last passes, newest first, and how they ended: is the rail green or the network down?
+      {
+        path: 'admin/sync/passes',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/sync-console/RecentPassesPage')).default,
+        }),
+      },
       {
         path: 'admin/sync/commands',
         lazy: async () => ({

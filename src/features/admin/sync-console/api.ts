@@ -36,6 +36,7 @@ import type {
   Paged,
   PendingStore,
   PassDetail,
+  RecentPasses,
   RePushRequest,
   ReplayRegisters,
   ReplayRequest,
@@ -65,6 +66,7 @@ import type {
 import { COMMANDS_PAGE_SIZE, commandsQuery, type CommandsFilter } from './command-helpers'
 import { auditQuery, type AuditFilter } from './control-helpers'
 import { FLEET_REFRESH_MS, fleetQuery, type FleetFilter } from './helpers'
+import { recentPassesQuery, type RecentPassesFilter } from './recent-passes-helpers'
 import { replaysQuery } from './replay-helpers'
 import { PASSES_PAGE_SIZE, agreementQuery, mirrorQuery, type MirrorFilter, type StoreTab } from './store-helpers'
 import { transactionsPollInterval, transactionsQuery, type TransactionsFilter } from './transactions-helpers'
@@ -151,6 +153,11 @@ export const syncConsoleApi = {
   /** `GET ActionSync/Fleet?state=&host=&q=&sort=&page=&pageSize=` → one page of stores. */
   fleet(filter: FleetFilter): Promise<Paged<StoreRow>> {
     return api.get<Paged<WireStoreRow>>('ActionSync/Fleet', fleetQuery(filter)).then(normaliseFleet)
+  },
+
+  /** `GET ActionSync/Passes?minutes=&loop=&kind=&code=&page=&pageSize=` → the fleet's last passes and their mix. */
+  recentPasses(filter: RecentPassesFilter): Promise<RecentPasses> {
+    return api.get<RecentPasses>('ActionSync/Passes', recentPassesQuery(filter))
   },
 
   // ── The store page (ticket 446) ──
@@ -417,6 +424,13 @@ export const fleetLastHourQuery = () => ({
 export const fleetStoresQuery = (filter: FleetFilter) => ({
   queryKey: [...FLEET_KEY, 'stores', fleetQuery(filter)] as const,
   queryFn: () => syncConsoleApi.fleet(filter),
+  ...refresh,
+})
+
+/** The Recent passes page: the window moves with the clock, so it rides the fleet's 30 s refresh. */
+export const recentPassesQueryOptions = (filter: RecentPassesFilter) => ({
+  queryKey: ['sync-console', 'recent-passes', recentPassesQuery(filter)] as const,
+  queryFn: () => syncConsoleApi.recentPasses(filter),
   ...refresh,
 })
 

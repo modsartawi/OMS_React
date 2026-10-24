@@ -365,6 +365,44 @@ export interface StorePass {
   errorMessage: string | null
 }
 
+/**
+ * The contract's `PassKind` (recent passes): what a pass row says happened, classed by
+ * the door from its status and error text. `connect` = the store could not be reached.
+ */
+export const PASS_KINDS = ['ok', 'running', 'connect', 'deadline', 'timeout', 'chunk', 'restart', 'other'] as const
+export type PassKind = (typeof PASS_KINDS)[number]
+
+/** One row of `GET ActionSync/Passes`: a pass of any store, with its store and kind. */
+export interface FleetPass extends StorePass {
+  code: string
+  description: string
+  /** Start to finish, whole seconds; `null` while running. */
+  seconds: number | null
+  kind: PassKind
+}
+
+/**
+ * The window's mix, under the loop and code filters but never the kind. 🔑 A push
+ * connect failure writes no pass row, so `reachedStores` / `unreachedStores` (the
+ * worker stores' last connect in the window, from health) are the network's count.
+ */
+export interface RecentPassesSummary {
+  passes: number
+  stores: number
+  kinds: Record<PassKind, number>
+  reachedStores: number
+  unreachedStores: number
+}
+
+/** `GET ActionSync/Passes?minutes=&loop=&kind=&code=&page=&pageSize=`. */
+export interface RecentPasses {
+  asOf: string
+  since: string
+  minutes: number
+  summary: RecentPassesSummary
+  items: Paged<FleetPass>
+}
+
 export type PassLineStatus = 'Ok' | 'Error'
 
 /** One row of `GET ActionSync/Store/PassDetail?processId=`. */

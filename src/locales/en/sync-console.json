@@ -312,6 +312,7 @@
   "nav": {
     "label": "Store sync pages",
     "fleet": "Fleet",
+    "passes": "Recent passes",
     "audit": "Audit",
     "commands": "Commands",
     "newStore": "New store",
@@ -1061,6 +1062,63 @@
         "register": "Register",
         "receipt": "New receipt"
       }
+    }
+  },
+  "passKinds": {
+    "ok": "Done",
+    "running": "Running",
+    "connect": "Could not connect",
+    "deadline": "Deadline cut",
+    "timeout": "Command timeout",
+    "chunk": "Chunk failed",
+    "restart": "Worker restart",
+    "other": "Other error"
+  },
+  "recentPasses": {
+    "title": "Recent passes",
+    "subtitle": "The fleet's last push and pull passes, newest first: is the sync mostly green, or are the stores out of reach?",
+    "filters": "Filter the passes",
+    "window": "Window",
+    "windows": {
+      "15": "Last 15 minutes",
+      "60": "Last hour",
+      "180": "Last 3 hours",
+      "720": "Last 12 hours",
+      "1440": "Last 24 hours"
+    },
+    "loop": "Loop",
+    "loopAny": "Push and pull",
+    "code": "Store code",
+    "codeHint": "Exact code",
+    "since": "Since <at>{{at}}</at>",
+    "okShare": "Passes done",
+    "okShareHint": "of the finished passes ended well",
+    "reachShare": "Stores reached",
+    "reachShareHint": "<n>{{reached}}</n> reached, <bad>{{unreached}}</bad> not, by their last connect",
+    "noShare": "Nothing to judge",
+    "percent": "{{n}}%",
+    "passes": "Passes",
+    "passesHint": "across <n>{{stores}}</n> stores",
+    "mix": "How the passes in this window ended",
+    "mixEmpty": "No pass in this window.",
+    "mixSegment": "{{kind}}: {{n}} ({{percent}}%)",
+    "kinds": "Filter by how a pass ended",
+    "connectNote": "A push that cannot connect writes no pass, so \"Stores reached\" is the network's measure, not \"Could not connect\".",
+    "failed": "The passes could not be loaded.",
+    "loading": "Loading passes…",
+    "empty": "No pass matches these filters.",
+    "emptyPage": "This page is empty. Go back a page.",
+    "count_one": "<n>{{n}}</n> pass",
+    "count_other": "<n>{{n}}</n> passes",
+    "columns": {
+      "startOn": "Started",
+      "code": "Code",
+      "description": "Store",
+      "loop": "Loop",
+      "kind": "Ended",
+      "seconds": "Seconds",
+      "actionsCount": "Actions",
+      "errorMessage": "Error"
     }
   }
 }

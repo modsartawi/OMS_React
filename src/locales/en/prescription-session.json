@@ -65,5 +65,18 @@
     "STALLED": "Stalled",
     "ABOUT_TO_LAPSE": "About to lapse",
     "OWED": "Owed"
+  },
+  "abandonReason": {
+    "INVALID": "Invalid prescription",
+    "REJECTED": "Rejected",
+    "PATIENT_WITHDREW": "Patient withdrew",
+    "DUPLICATE": "Duplicate",
+    "LAPSED": "Lapsed"
+  },
+  "writeOffReason": {
+    "PAYER_REFUSED": "Payer refused or no coverage",
+    "SALE_LOST": "Sale lost or made outside the session",
+    "GOODS_NEVER_LEFT": "Goods never left the store",
+    "OTHER": "Other"
   }
 }

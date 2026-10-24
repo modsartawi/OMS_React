@@ -129,3 +129,32 @@ export interface PrescriptionSessionHqList {
   /** `total` exceeded the cap: only the oldest-idle rows came back. The counts are never truncated. */
   isTruncated: boolean
 }
+
+// ── The ended sessions (ticket 547; BackOffice 3015 `PrescriptionSessionHqEndedRowModel` + 3014) ──
+
+/** One ended session — Closed, Abandoned or Written off — with its sales and after-close events, read-only. */
+export interface PrescriptionSessionHqEndedRow {
+  sessionId: string
+  /** `PS-{sessionId}`. */
+  displayId: string
+  /** `NPHS | WSFT`. */
+  sourceKind: string
+  holdingStore: string
+  /** `CLOSED | ABANDONED | WRITTEN_OFF`. */
+  state: string
+  route: string | null
+  createdAt: PrescriptionSessionLocalTime
+  dispensedAt: PrescriptionSessionLocalTime | null
+  endedAt: PrescriptionSessionLocalTime | null
+  endedBy: string | null
+  /** An abandon reason (ABANDONED) or a write-off reason (WRITTEN_OFF); usually empty for CLOSED. */
+  endReason: string | null
+  /** The note given with the reason (required for a write-off's OTHER). */
+  endNote: string | null
+  /** Its business day ended dispensed and not invoiced ("was owed"); kept after the invoice. */
+  invoiceOwedAt: PrescriptionSessionLocalTime | null
+  /** Its own sale and any re-sale; empty = never invoiced. */
+  saleNos: string[]
+  wasInvoiced: boolean
+  afterClose: PrescriptionSessionAfterClose[]
+}

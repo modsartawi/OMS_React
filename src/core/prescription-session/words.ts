@@ -88,6 +88,38 @@ export const openItemWord = (code: string | null | undefined): CodeWord => wordF
 
 export const flagWord = (code: string | null | undefined): CodeWord => wordFrom(PRESCRIPTION_HQ_FLAGS, 'flag', code)
 
+// ── End reasons (ticket 547; shared with 548's write-off dialog) ─────────────────────────────────
+// A session's `EndReason` is an abandon reason (ABANDONED) or a write-off reason (WRITTEN_OFF).
+
+/** PrescriptionSessionAbandonReasons (`PrescriptionSessionConstants.cs`); LAPSED is the lapse job's alone. */
+export const ABANDON_REASONS = ['INVALID', 'REJECTED', 'PATIENT_WITHDREW', 'DUPLICATE', 'LAPSED'] as const
+export type PrescriptionAbandonReason = (typeof ABANDON_REASONS)[number]
+
+/** PrescriptionSessionWriteOffReasons (`PrescriptionSessionHqConstants.cs`), in the server's order; OTHER needs a note. */
+export const WRITE_OFF_REASONS = ['PAYER_REFUSED', 'SALE_LOST', 'GOODS_NEVER_LEFT', 'OTHER'] as const
+export type PrescriptionWriteOffReason = (typeof WRITE_OFF_REASONS)[number]
+
+export const abandonReasonWord = (code: string | null | undefined): CodeWord => wordFrom(ABANDON_REASONS, 'abandonReason', code)
+
+export const writeOffReasonWord = (code: string | null | undefined): CodeWord =>
+  wordFrom(WRITE_OFF_REASONS, 'writeOffReason', code)
+
+/**
+ * An ended session's reason as a word: read from its own state's list first (ABANDONED → abandon,
+ * WRITTEN_OFF → write-off), then from either list; an unknown reason renders itself. No reason
+ * (a CLOSED session, usually) is `null` — nothing to say.
+ */
+export function endReasonWord(state: string | null | undefined, reason: string | null | undefined): CodeWord | null {
+  const raw = (reason ?? '').trim()
+  if (!raw) return null
+  const lists = state === 'WRITTEN_OFF' ? [writeOffReasonWord, abandonReasonWord] : [abandonReasonWord, writeOffReasonWord]
+  for (const word of lists) {
+    const w = word(raw)
+    if (w.key !== null) return w
+  }
+  return { key: null, raw }
+}
+
 /**
  * The text a word reads as: `t(key)` when known, else the code itself. `t` is the caller's,
  * bound to the `prescription-session` namespace.

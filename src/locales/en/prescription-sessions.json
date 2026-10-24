@@ -72,6 +72,38 @@
     "placeholder": "The orders waiting to be opened, by store, aren't available here yet."
   },
   "ended": {
-    "placeholder": "Ended sessions and what happened after close aren't available here yet."
+    "filters": {
+      "from": "Ended from",
+      "to": "Ended to",
+      "store": "Holding store",
+      "storeHint": "The store that held the session.",
+      "state": "How it ended",
+      "anyEnd": "Any end"
+    },
+    "range": {
+      "missing": "Choose both dates of the range.",
+      "reversed": "The range is reversed: the first date is after the last.",
+      "tooWide": "A search covers at most <n>{{days}}</n> days. Narrow the range."
+    },
+    "columns": {
+      "displayId": "Session",
+      "source": "Source",
+      "holdingStore": "Holding store",
+      "state": "State",
+      "route": "Route",
+      "createdAt": "Created at",
+      "dispensedAt": "Dispensed at",
+      "endedAt": "Ended at",
+      "endedBy": "Ended by",
+      "endReason": "End reason",
+      "sales": "Sales"
+    },
+    "neverInvoiced": "Never invoiced",
+    "wasOwed": "Was owed",
+    "afterCloseLabel": "After close",
+    "empty": "No session ended in this range.",
+    "capped": "Only the first <n>{{n}}</n> sessions to end in this range are shown. Narrow the range to see the rest.",
+    "failedTitle": "The ended sessions couldn't be read",
+    "failed": "The ended prescription sessions could not be read."
   }
 }

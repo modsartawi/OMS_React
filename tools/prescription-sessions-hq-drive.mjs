@@ -324,7 +324,7 @@ async function drive(dir) {
   await page.locator('[data-ps-tab-placeholder="toOpen"]').waitFor({ timeout: 5000 })
   check(`${L}: To open is in the address, Open's filters dropped`, search() === 'tab=toOpen', search())
   await page.locator('[data-ps-tab-button="ended"]').click()
-  await page.locator('[data-ps-tab-placeholder="ended"]').waitFor({ timeout: 5000 })
+  await page.locator('[data-ps-ended]').waitFor({ timeout: 5000 }) // 547 filled the tab
   check(`${L}: Ended is in the address`, search() === 'tab=ended' && (await page.locator('[data-ps-open]').count()) === 0)
   await open('?tab=toOpen')
   check(`${L}: a pasted tab opens that tab`, (await page.locator('[data-ps-tab-placeholder="toOpen"]').count()) === 1)

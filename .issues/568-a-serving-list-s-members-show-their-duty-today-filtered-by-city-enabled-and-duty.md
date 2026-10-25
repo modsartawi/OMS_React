@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3042-serving-lists-and-store-duty-for-callouts-spec.md
 blocked-by: 567 (live: BackOffice 3045, 3046 deployed)
 ---
@@ -38,12 +38,12 @@ api · logic (duty cell view, filter ⇄ URL ⇄ query) · route + page · i18n 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] duty cell: each state's label; hours from `todayShifts` (one, two, overnight, empty → "Closed today"); an
+- [x] duty cell: each state's label; hours from `todayShifts` (one, two, overnight, empty → "Closed today"); an
       unknown state still renders (vitest)
-- [ ] filters: URL → query and back; blanks are omitted; the duty filter only offers the three states (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Members (every duty state, a closed store, a disabled member,
+- [x] filters: URL → query and back; blanks are omitted; the duty filter only offers the three states (vitest)
+- [x] drive script, LTR and RTL, against a stub serving Members (every duty state, a closed store, a disabled member,
       an overnight shift) and an unknown-list `SVL-00001`
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -64,3 +64,33 @@ enabled state and duty, and sees which stores have no roster.
 
 - BackOffice 3046 reads a store whose valid roster has no row for today's weekday as `OffDuty` with no shifts, not
   `NoRoster` (HITL, owner not yet ruled). Show it as "Closed today" either way.
+
+## Comments
+
+### Built (2026-10-25, stubbed)
+
+- Route `oms/serving-lists/:servingListId` → `ServingListPage.tsx` (ScreenGate on `canViewServingLists`; `canEdit` from
+  the same cached probe). Header `ListHeader.tsx` from the Lists read's row (no single-list door); tabs `ListTabs.tsx`
+  with `?tab=` (`tab.ts`; Members default writes no key); `MembersTab.tsx` (filters via `useUrlQuery` +
+  `members-filter.ts`, grid `member-columns.tsx`, client paging at 50); duty view `duty-cell.ts`. The pointing-type
+  chips moved from 567's `columns.tsx` into `PointingChips.tsx`, shared by the grid cell and the header.
+- `api.ts`: `SERVING_LIST_MEMBERS_KEY = ['oms','serving-lists','members']`, `membersQuery(id, filter)` keyed
+  `[...SERVING_LIST_MEMBERS_KEY, id, filter]` — a write invalidates `[...SERVING_LIST_MEMBERS_KEY, id]`.
+- **Seams for the parallel slices** (each a file the slice replaces, so none of them edits the page or the tab):
+  - 570 header actions → `HeaderActions.tsx` (`{ list, canEdit }`, rendered at the end of the header's title row);
+  - 569 toolbar → `MembersToolbar.tsx` (`{ servingListId, list, canEdit }`, at the end of the Members filter bar);
+  - 570 per-row actions → `MemberActions.tsx` exports `MemberActionsCell` (now `null`; a renderer adds a pinned-end
+    `actions` column); it gets the row as `p.data` and `MembersGridContext { servingListId, list, canEdit }` as
+    `p.context`;
+  - 571 → `HistoryTab.tsx` (`{ servingListId, list }`, a placeholder mounted on `?tab=history`).
+- Proof: vitest `duty-cell.test.ts`, `members-filter.test.ts`, `tab.test.ts`, `i18n-keys.test.ts` (en/ar mirror, six
+  Arabic plurals); `npm test` 6310 green; typecheck + lint green; `tools/serving-list-members-drive.mjs` **102/102
+  stubbed**, LTR + RTL; 567's drive still 49/49.
+- Decisions (overrulable):
+  - an overnight shift reads `18:00–02:00` + the word "next morning" (a locale key), not `(+1)`;
+  - duty sorts worst first (No roster, unknown, Closed today, Off duty, On duty); No roster carries a hint tooltip;
+  - NoRoster ignores any shifts the door sends (there should be none);
+  - an id missing from the Lists read still renders the tabs (header shows the id alone), so the Members door's
+    `SVL-00001` is what says "This serving list does not exist";
+  - filters apply on Apply / Enter (the Dispatch board's draft pattern), not on each change; a no-match reads its own
+    sentence apart from an empty list.

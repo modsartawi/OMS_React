@@ -176,6 +176,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/serving-lists/ServingListsPage')).default,
         }),
       },
+      // A serving list's detail (ticket 568): the header, then Members (568) and History (571) tabs, `?tab=`.
+      {
+        path: 'oms/serving-lists/:servingListId',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serving-lists/ServingListPage')).default,
+        }),
+      },
       // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
       // and reads its diagnosis, behind `canOpenPickSupport` on the shared OMS probe. `?key=` is the
       // number looked up.

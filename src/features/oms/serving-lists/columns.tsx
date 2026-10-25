@@ -1,15 +1,16 @@
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import { TriangleAlert, Zap } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import type { ServingListRow } from '@/core/models/serving-list'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { formatPair, fsi } from '@/core/util/bidi'
+import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { listFlag, membersLabel, pointingChips } from './list-view'
+import PointingChips from './PointingChips'
 
 /** Read-only grid; the door orders it by English name, and the user may re-sort. */
 export const LISTS_DEFAULT_COL_DEF: ColDef = {
@@ -59,25 +60,7 @@ function PointingCell(p: ICellRendererParams<ServingListRow>) {
   if (!p.data) return null
   const chips = pointingChips(p.data)
   if (chips.length === 0) return <span className="text-muted-foreground" data-pointing-none="">{t('pointing.none')}</span>
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {chips.map((c) => (
-        <span
-          key={c.code}
-          title={fsi(c.tooltip)}
-          className={
-            'inline-flex items-center gap-0.5 rounded-full border px-2 py-0 font-mono text-[11px] leading-5 ' +
-            (c.competed ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 text-muted-foreground')
-          }
-          data-chip={c.code}
-          data-competed={c.competed ? 'true' : 'false'}
-        >
-          {c.competed && <Zap className="h-3 w-3" aria-label={t('pointing.competed')} />}
-          <Ltr>{c.code}</Ltr>
-        </span>
-      ))}
-    </span>
-  )
+  return <PointingChips chips={chips} />
 }
 
 /** Updated at · by — a pair led by a machine value, isolated once. */

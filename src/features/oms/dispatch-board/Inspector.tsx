@@ -2,7 +2,8 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
 
-import { bidRow, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import ServingListName from '@/core/dispatch/ServingListName'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, servingListView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -26,9 +27,12 @@ export default function Inspector({
   canRelease,
   justReleased,
   onRelease,
+  canLinkServingList = false,
 }: {
   row: BoardRow | null
   canRelease: boolean
+  /** 567's `canViewServingLists`: the serving list links to its screen. */
+  canLinkServingList?: boolean
   /** Released in this page life — the board's next read will carry `releasedAt` too. */
   justReleased: boolean
   onRelease: () => void
@@ -47,6 +51,7 @@ export default function Inspector({
   const released = justReleased || c.releasedAt != null
   const notCompeted = c.status === 'NOT_OPENED' || c.outcome === 'NotCompeted'
   const endReason = c.endReason ? (KNOWN_END_REASONS.includes(c.endReason) ? t(`endReasons.${c.endReason}`) : null) : null
+  const dutyRemoved = dutyRemovedView(c)
 
   return (
     <aside className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 text-sm" data-inspector={c.calloutId}>
@@ -86,6 +91,17 @@ export default function Inspector({
           </>
         )}
         {endReason && <> · {endReason}</>}
+      </p>
+      {/* Beside the candidate count: did a serving list or the duty check narrow the race (spec 3042)? */}
+      <p className="text-xs text-muted-foreground" data-inspector-serving="">
+        {t('inspector.servingList')}{' '}
+        <ServingListName view={servingListView(c, i18n.language)} dash={t('inspector.noServingList')} canLink={canLinkServingList} />
+        {dutyRemoved != null && (
+          <span data-duty-removed={dutyRemoved}>
+            {' · '}
+            <Trans t={t} i18nKey="inspector.dutyRemoved" values={{ n: String(dutyRemoved) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
       </p>
 
       {c.outcome === 'Open' && (

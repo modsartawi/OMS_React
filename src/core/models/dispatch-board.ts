@@ -72,6 +72,16 @@ export interface DispatchCallout {
   /** Open callouts only: seconds to expiry at `asOf` (0 once due, until the sweeper ends it). */
   secondsLeft: number | null
   candidateCount: number
+  // The serving list and the duty check (BackOffice spec 3042, oms 572), stamped on opened and not-opened
+  // callouts alike. Optional: a callout read before spec 3042 deployed carries none of the four, and reads
+  // as no list and no duty removal.
+  /** `''` when the delivery type had no serving list. */
+  servingListId?: string
+  /** `''` when the list is gone: show the id alone. */
+  servingListNameEn?: string
+  servingListNameAr?: string
+  /** How many radius candidates the duty check took out. */
+  dutyRemovedCount?: number
   locksDelivery: boolean
   /** The delivery is locked now: a locking callout, taken or fell back, never released, delivery not closed. */
   locked: boolean

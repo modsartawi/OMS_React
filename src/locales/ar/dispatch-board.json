@@ -78,7 +78,9 @@
     "NoGps": "العنوان بلا موقع",
     "NoCandidates": "لا متجر في النطاق",
     "OneCandidate": "متجر واحد فقط في النطاق",
-    "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون"
+    "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون",
+    "ServingListInactive": "قائمة الخدمة غير مفعّلة أو فارغة",
+    "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة"
   },
   "bidStatus": {
     "OPEN": "بانتظار الرد",
@@ -121,6 +123,9 @@
     "lines_other": "{{n}} سطر",
     "openedLine": "فُتحت <at>{{at}}</at> · المرشحون <n>{{n}}</n>",
     "fallbackLine": "الاحتياطي <s>{{store}}</s>",
+    "servingList": "قائمة الخدمة",
+    "noServingList": "—",
+    "dutyRemoved": "استبعدتهم المناوبة <n>{{n}}</n>",
     "notCompeted": "سبب عدم الطرح",
     "candidates_zero": "لا مرشحين",
     "candidates_one": "مرشح واحد",

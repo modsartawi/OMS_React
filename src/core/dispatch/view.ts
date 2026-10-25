@@ -1,4 +1,4 @@
-import type { DispatchBid, LocalDateTime } from '@/core/models/dispatch-board'
+import type { DispatchBid, DispatchCallout, LocalDateTime } from '@/core/models/dispatch-board'
 import type { Severity } from '@/core/ui/severity'
 
 // A callout's view logic (BackOffice spec 2952, oms ticket 541): the countdown, an outcome's and a bid
@@ -135,4 +135,32 @@ export function bidRow(bid: DispatchBid): BidRowView {
     status: bidStatusView(bid.status),
     ignoreReason: bid.ignoreReason ?? '',
   }
+}
+
+/**
+ * A callout's serving list (spec 3042, oms 572): the name in the UI language (the other language's when
+ * that one is blank), else the id alone when the list is gone; `none` (the dash) when the type had no list.
+ * `named` is false when the label IS the id, so it is drawn as a machine value.
+ */
+export type ServingListView = { kind: 'none' } | { kind: 'list'; id: string; label: string; named: boolean }
+
+export function servingListView(
+  c: Partial<Pick<DispatchCallout, 'servingListId' | 'servingListNameEn' | 'servingListNameAr'>>,
+  lang: string,
+): ServingListView {
+  const id = (c.servingListId ?? '').trim()
+  if (!id) return { kind: 'none' }
+  const en = (c.servingListNameEn ?? '').trim()
+  const ar = (c.servingListNameAr ?? '').trim()
+  const name = lang.startsWith('ar') ? ar || en : en || ar
+  return name ? { kind: 'list', id, label: name, named: true } : { kind: 'list', id, label: id, named: false }
+}
+
+/** The serving list's own screen (567's route). */
+export const servingListHref = (id: string) => `/oms/serving-lists/${encodeURIComponent(id)}`
+
+/** Removed by duty: the count, or `null` (not shown) at 0 or when the callout predates the duty check. */
+export function dutyRemovedView(c: Partial<Pick<DispatchCallout, 'dutyRemovedCount'>>): number | null {
+  const n = c.dutyRemovedCount ?? 0
+  return n > 0 ? n : null
 }

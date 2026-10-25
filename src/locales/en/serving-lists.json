@@ -39,5 +39,70 @@
     "deactivatedCompetedHint": "A competed delivery type still points at this deactivated list: its deliveries record ServingListInactive and are not competed.",
     "empty": "No members",
     "emptyHint": "No store is on this list yet."
+  },
+  "detail": {
+    "title": "Serving list",
+    "subtitle": "The stores on this list, with their duty today, and the list's history.",
+    "back": "All serving lists",
+    "members": "Enabled members",
+    "deactivatedNote": "This list is deactivated: the deliveries of the types pointing at it are not competed. It still lists its members."
+  },
+  "tabs": {
+    "label": "Serving list sections",
+    "members": "Members",
+    "history": "History"
+  },
+  "duty": {
+    "onDuty": "On duty now",
+    "offDuty": "Off duty now",
+    "closedToday": "Closed today",
+    "noRoster": "No roster",
+    "noRosterHint": "No roster holds today: a delivery type that checks duty never bids this store.",
+    "nextMorning": "next morning"
+  },
+  "member": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "storeClosed": "Closed",
+    "storeOpen": "Open"
+  },
+  "members": {
+    "loading": "Loading members…",
+    "failed": "The members could not be loaded.",
+    "empty": "No store is on this list yet.",
+    "noMatch": "No member matches these filters.",
+    "notFoundTitle": "This serving list does not exist",
+    "notFoundHint": "No serving list has the id <v>{{id}}</v>.",
+    "count_one": "<v>{{n}}</v> member",
+    "count_other": "<v>{{n}}</v> members",
+    "dutyReadOnly": "Duty is read from the store's roster, which is edited elsewhere.",
+    "columns": {
+      "storeCode": "Store",
+      "storeName": "Store name",
+      "city": "City",
+      "duty": "Duty today",
+      "dutyTooltip": "Whether a callout opening now would bid the store, and today's hours",
+      "storeClosed": "Store status",
+      "enabled": "On the list",
+      "added": "Added",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "filters": {
+      "city": "City",
+      "enabled": "On the list",
+      "duty": "Duty",
+      "any": "Any",
+      "apply": "Apply",
+      "clear": "Clear",
+      "dutyOption": {
+        "OnDuty": "On duty now",
+        "OffDuty": "Off duty now",
+        "NoRoster": "No roster"
+      }
+    }
+  },
+  "history": {
+    "placeholder": "The list's history is not shown yet."
   }
 }

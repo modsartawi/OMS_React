@@ -11,6 +11,7 @@
  * ⚠️ BackOffice 3045 is built on `spec3042`, not deployed: nothing here has met a real door.
  * `tools/serving-lists-drive.mjs` stubs every call in the shapes of `ServingListAdminModels.cs`.
  */
+import { keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/core/api'
 import type {
   ServingListAddStoresRequest,
@@ -100,4 +101,19 @@ export const SERVING_LISTS_KEY = ['oms', 'serving-lists', 'lists'] as const
 
 export function listsQuery() {
   return { queryKey: SERVING_LISTS_KEY, queryFn: () => servingListsApi.lists(), retry: false } as const
+}
+
+/**
+ * The members read's key prefix (568). One list's members, whatever the filter, sit under
+ * `[...SERVING_LIST_MEMBERS_KEY, id]` — a write on that list (569, 570) invalidates that prefix.
+ */
+export const SERVING_LIST_MEMBERS_KEY = ['oms', 'serving-lists', 'members'] as const
+
+export function membersQuery(id: string, filter: ServingListMembersFilter) {
+  return {
+    queryKey: [...SERVING_LIST_MEMBERS_KEY, id, filter] as const,
+    queryFn: () => servingListsApi.members(id, filter),
+    placeholderData: keepPreviousData,
+    retry: false,
+  }
 }

@@ -45,7 +45,8 @@ export default function MembersTab({ servingListId, list, canEdit }: { servingLi
   const { t } = useTranslation('serving-lists')
   const { query: filter, update, changedFromOutside } = useUrlQuery(membersFilterFromParams, membersFilterToParams)
   const members = useQuery(membersQuery(servingListId, membersDoorFilter(filter)))
-  const columns = useMemo(() => buildMemberColumns(t, { actions: MemberActionsCell }), [t])
+  // No actions column at all without Execute (570).
+  const columns = useMemo(() => buildMemberColumns(t, { actions: canEdit ? MemberActionsCell : null }), [t, canEdit])
   const context = useMemo<MembersGridContext>(() => ({ servingListId, list, canEdit }), [servingListId, list, canEdit])
 
   const unknownList = members.isError && apiErrorCode(members.error) === SERVING_LIST_ERRORS.UnknownList

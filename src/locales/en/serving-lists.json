@@ -1,0 +1,43 @@
+{
+  "menu": {
+    "servingLists": "Serving lists"
+  },
+  "title": "Serving lists",
+  "subtitle": "The stores each list lets a delivery type's competed deliveries be bid to, and the types pointing at it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the Serving lists grant.",
+    "unreachableTitle": "Access could not be checked",
+    "unreachableHint": "Try again in a moment."
+  },
+  "loading": "Loading serving lists…",
+  "failed": "The serving lists could not be loaded.",
+  "empty": "There are no serving lists yet.",
+  "readOnlyPointing": "A delivery type is pointed at a list by an HQ script; this screen shows the pointing types read-only.",
+  "columns": {
+    "nameEn": "English name",
+    "nameAr": "Arabic name",
+    "status": "Status",
+    "members": "Members",
+    "membersTooltip": "Enabled members / all members",
+    "pointingTypes": "Pointing types",
+    "updated": "Updated"
+  },
+  "status": {
+    "active": "Active",
+    "deactivated": "Deactivated"
+  },
+  "pointing": {
+    "none": "None",
+    "competed": "Competed"
+  },
+  "flag": {
+    "noEnabledMember": "No enabled member",
+    "noEnabledMemberHint": "A competed delivery type points at this list, but no member is enabled: its deliveries record ServingListInactive and are not competed.",
+    "deactivatedCompeted": "Deactivated, still pointed at",
+    "deactivatedCompetedHint": "A competed delivery type still points at this deactivated list: its deliveries record ServingListInactive and are not competed.",
+    "empty": "No members",
+    "emptyHint": "No store is on this list yet."
+  }
+}

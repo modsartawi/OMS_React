@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3042-serving-lists-and-store-duty-for-callouts-spec.md
 blocked-by: 568 (live: BackOffice 3045 deployed)
 ---
@@ -36,13 +36,13 @@ api · logic (basket: add / remove / paste-parse / de-dup; refusal → highlight
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] basket: pasted text splits on newlines / commas / spaces, trims, de-dups case-insensitively; `onList` rows cannot
+- [x] basket: pasted text splits on newlines / commas / spaces, trims, de-dups case-insensitively; `onList` rows cannot
       be added (vitest)
-- [ ] refusal map: `SVL-00002` / `SVL-00003` with `data.badStoreCodes` mark exactly those codes; a `data` missing or of
+- [x] refusal map: `SVL-00002` / `SVL-00003` with `data.badStoreCodes` mark exactly those codes; a `data` missing or of
       the wrong shape falls back to the message (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Stores (by code, by name, by city, closed, onList) and the add
+- [x] drive script, LTR and RTL, against a stub serving Stores (by code, by name, by city, closed, onList) and the add
       door (ok, `SVL-00002` with 2 codes, `SVL-00003`): the dialog is hidden without Execute
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -62,3 +62,33 @@ column of codes, and adds them in one call, and a bad code is pointed out rather
 
 - A closed store can be added (BackOffice 3045 HITL). If the owner rules that it is refused, the door gains a code and
   this dialog only maps it.
+
+## Comments
+
+### Built (2026-10-25, stubbed)
+
+- Seam `MembersToolbar.tsx`: "Add stores" (primary) shown only when `canEditServingLists` **and** the list's row is
+  known; it mounts `AddStoresDialog.tsx` only while open, so every open starts with an empty basket.
+- `AddStoresDialog.tsx`: debounced (250 ms) `GET ServingListWeb/Stores?search=&servingListId=&take=50` (own key
+  `['oms','serving-lists','stores', id, search]`); hits are checkbox rows (code, name, city), `onList` checked off and
+  disabled, `closed` marked with a warn badge + "never bid while closed" tooltip but pickable; "Pick all shown"; a
+  paste box (one per line / commas / spaces) with "Added: n. Already in it: m."; the basket as chips with a count,
+  per-chip remove and Clear; an optional note (500, counter). One `POST …/Stores` per confirm; on success a toast
+  names the count and the list, and `[...SERVING_LIST_MEMBERS_KEY, id]`, `SERVING_LISTS_KEY` and the picker's key are
+  invalidated.
+- Pure `basket.ts` (paste-parse over `normaliseCodeList` + case-insensitive de-dup keeping the first spelling,
+  toggle / pick-all / remove / body) and `add-stores-refusal.ts` (`badCodes` for SVL-00002/03 with a readable
+  `data.badStoreCodes`, else `refused` by code with the server text, `notGranted` on a bare 403, `failed`).
+  Bad codes are highlighted in the basket case-insensitively; "Remove these and retry" drops them and re-sends.
+- Locale keys under one new top-level `addStores` (EN + AR, six Arabic plurals for `basket.count` and `done`).
+- Proof: vitest `basket.test.ts` (13), `add-stores-refusal.test.ts` (13), `add-stores-i18n.test.ts`; `npm test` 6347
+  green; typecheck + lint green; `tools/serving-list-add-stores-drive.mjs` **80/80 stubbed**, LTR + RTL (the stub add
+  door behaves as 3045: unknown first, then members, so the drive walks SVL-00002 → SVL-00003 → added).
+- Decisions (overrulable):
+  - the button hides while the list's row is unknown (a missing id is the Members door's SVL-00001, nothing to add to);
+  - a blank search shows the door's first 50 stores at once (the door allows it), with a "narrow the search" line when
+    a page comes back full;
+  - "Pick all shown" was added beyond the ticket (cheap help for a contract's 500 stores);
+  - a pasted code is not checked against `onList` client-side (only search hits know it); the door's SVL-00003 names it;
+  - picking a picked hit again takes it back out; confirm stays enabled after a refusal (re-sends the same basket);
+  - the SVL-00001 refusal also re-reads the Lists query.

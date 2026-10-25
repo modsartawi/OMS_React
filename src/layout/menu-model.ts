@@ -38,7 +38,7 @@ import {
   canOpenDispatchScorecard,
   dispatchScorecardAccessApi,
 } from '@/features/oms/dispatch-scorecard/access'
-import { Trophy } from 'lucide-react'
+import { ListTree, Trophy } from 'lucide-react'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -78,6 +78,9 @@ import { SAP_EXPORT_ACCESS_KEY, canOpenSapExport, sapExportAccessApi } from '@/f
 // The Dispatch board's probe lives in `@/core/` (ticket 541): Delivery details (542) reads its Execute
 // flag for the same Release lock, and a feature may not import another.
 import { DISPATCH_ACCESS_KEY, canOpenDispatchBoard, dispatchApi } from '@/core/dispatch/access'
+// The serving-list probe lives in `@/core/` (ticket 567): the Dispatch board (572) links a callout's
+// serving list only for a View holder, and a feature may not import another.
+import { SERVING_LIST_ACCESS_KEY, canViewServingLists, servingListAccessApi } from '@/core/serving-list/access'
 // Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
 // delivery page's action (`features/oms/document`) and the bulk screen
 // (`features/oms/central-invoice`) both read it, and neither may import the other.
@@ -372,6 +375,20 @@ export const MENU: ShellMenuItem[] = [
           key: DISPATCH_ACCESS_KEY,
           run: () => dispatchApi.access(),
           visible: canOpenDispatchBoard,
+        }),
+      },
+      {
+        // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
+        // `GET ServingListWeb/Access`. The SAME key, call and predicate as the screen's own `ScreenGate`.
+        // 🚩 FAILS CLOSED: a pending, errored, 403 or malformed probe hides the leaf. Beside the Dispatch board.
+        labelKey: 'serving-lists:menu.servingLists',
+        icon: ListTree,
+        routerLink: '/oms/serving-lists',
+        activePrefix: '/oms/serving-lists',
+        access: accessProbe({
+          key: SERVING_LIST_ACCESS_KEY,
+          run: () => servingListAccessApi.access(),
+          visible: canViewServingLists,
         }),
       },
       {

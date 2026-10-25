@@ -168,6 +168,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-board/DispatchBoardPage')).default,
         }),
       },
+      // Serving lists (ticket 567, BackOffice spec 3042) — every list and the delivery types pointing at it,
+      // behind `canViewServingLists` on `GET ServingListWeb/Access`. A row opens `/oms/serving-lists/:id` (568).
+      {
+        path: 'oms/serving-lists',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serving-lists/ServingListsPage')).default,
+        }),
+      },
       // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
       // and reads its diagnosis, behind `canOpenPickSupport` on the shared OMS probe. `?key=` is the
       // number looked up.

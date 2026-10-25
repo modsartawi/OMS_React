@@ -103,6 +103,55 @@
     }
   },
   "history": {
-    "placeholder": "The list's history is not shown yet."
+    "loading": "Loading the list's history…",
+    "failed": "The list's history could not be loaded.",
+    "empty": "Nothing has been recorded for this list yet.",
+    "noMatch": "No change matches these filters.",
+    "readOnly": "The history is a record: it cannot be edited or undone.",
+    "count_one": "<v>{{n}}</v> change, newest first",
+    "count_other": "<v>{{n}}</v> changes, newest first",
+    "matching_one": "<v>{{n}}</v> of <v>{{total}}</v> change matches",
+    "matching_other": "<v>{{n}}</v> of <v>{{total}}</v> changes match",
+    "showMore": "Show more",
+    "atMax": "Only the newest <v>{{n}}</v> changes can be shown.",
+    "columns": {
+      "changedAt": "When",
+      "changedBy": "Who",
+      "action": "Action",
+      "storeCode": "Store",
+      "names": "Names",
+      "note": "Note"
+    },
+    "action": {
+      "Create": "Created",
+      "Rename": "Renamed",
+      "Deactivate": "Deactivated",
+      "Reactivate": "Reactivated",
+      "AddStore": "Store added",
+      "RemoveStore": "Store removed",
+      "EnableStore": "Store enabled",
+      "DisableStore": "Store disabled"
+    },
+    "names": {
+      "create": "Named <v>{{en}}</v> (<v>{{ar}}</v>)",
+      "rename": "From <v>{{fromEn}}</v> (<v>{{fromAr}}</v>) to <v>{{toEn}}</v> (<v>{{toAr}}</v>)"
+    },
+    "filters": {
+      "action": "Action",
+      "store": "Store code",
+      "storePlaceholder": "Any store",
+      "any": "Any",
+      "clear": "Clear"
+    },
+    "export": {
+      "button": "Export to Excel",
+      "sheet": "History",
+      "fileName": "serving-list-history",
+      "done": "History exported",
+      "doneDetail_one": "{{n}} change written.",
+      "doneDetail_other": "{{n}} changes written.",
+      "failed": "The export failed",
+      "failedDetail": "The workbook could not be written. Try again."
+    }
   }
 }

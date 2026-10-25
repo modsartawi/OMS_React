@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3042-serving-lists-and-store-duty-for-callouts-spec.md
 blocked-by: 568 (live: BackOffice 3045 deployed)
 ---
@@ -27,11 +27,11 @@ api · logic (action labels, rename / create text) · tab · i18n EN + AR · tes
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] change row view: each action's label; a rename's before → after; a create's names; a list-level row has no store;
+- [x] change row view: each action's label; a rename's before → after; a create's names; a list-level row has no store;
       an unknown action renders raw (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Changes (every action, an Arabic note): store filter finds one
+- [x] drive script, LTR and RTL, against a stub serving Changes (every action, an Arabic note): store filter finds one
       store's add and removal; "Show more" asks for a larger `take`
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -50,3 +50,28 @@ when, newest first.
 ## Open questions
 
 —
+
+## Comments
+
+### Built (2026-10-25, stubbed)
+
+- `HistoryTab.tsx` (the 568 seam): `GET ServingListWeb/Lists/{id}/Changes?take=` through `changesQuery(id, take)`,
+  keyed `[...SERVING_LIST_CHANGES_KEY, id, take]` with `SERVING_LIST_CHANGES_KEY = ['oms','serving-lists','changes']`
+  in `api.ts` — a write on a list invalidates `[...SERVING_LIST_CHANGES_KEY, id]`. Grid (`history-columns.tsx`):
+  when, who, action in words, store, names, note; client paging at 50; grid-xlsx export
+  (`serving-list-history-*.xlsx`, store and who written as text). `SVL-00001` → "does not exist", bare 403 →
+  "You do not have access", as the Members tab.
+- Pure `change-row.ts` (action key or raw, store blank on Create / Rename / Deactivate / Reactivate, create /
+  rename names) and `history-filter.ts` (action + store filter, action options, `take` 200 → +200 → 1000,
+  `canShowMore`). Locale keys under `history.*`, EN + AR (six Arabic plurals).
+- Proof: vitest `change-row.test.ts`, `history-filter.test.ts`, `history-i18n.test.ts`; `npm test` 6346 green;
+  typecheck + lint green; `tools/serving-list-history-drive.mjs` **61/61 stubbed**, LTR + RTL. 568's members
+  drive check 9 now looks for `[data-history-tab]` instead of the placeholder (102/102); 567's drive 49/49.
+- Decisions (overrulable):
+  - the filters are local state, not in the URL, and apply as typed (the rows are already read);
+  - the store filter is an exact, case-insensitive code match (P019 does not catch P0190), not a substring;
+  - the action filter offers the eight actions plus any unlisted action the rows carry (raw);
+  - Show more steps `take` by 200 and goes when a read comes back short; at 1000 a line says only the newest
+    1000 can be shown;
+  - names read as words ("From EN (AR) to EN (AR)", "Named EN (AR)"), each name its own `<bdi>`, not an arrow;
+  - action labels are past-tense phrases ("Store removed", "Renamed").

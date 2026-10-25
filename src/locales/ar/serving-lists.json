@@ -107,7 +107,68 @@
     }
   },
   "history": {
-    "placeholder": "لا يُعرض سجل القائمة بعد."
+    "loading": "جارٍ تحميل سجل القائمة…",
+    "failed": "تعذّر تحميل سجل القائمة.",
+    "empty": "لم يُسجَّل أي تغيير على هذه القائمة بعد.",
+    "noMatch": "لا يوجد تغيير يطابق عوامل التصفية هذه.",
+    "readOnly": "السجل للاطلاع فقط: لا يمكن تعديله أو التراجع عنه.",
+    "count_zero": "لا توجد تغييرات",
+    "count_one": "تغيير واحد <v>{{n}}</v>، الأحدث أولاً",
+    "count_two": "تغييران <v>{{n}}</v>، الأحدث أولاً",
+    "count_few": "<v>{{n}}</v> تغييرات، الأحدث أولاً",
+    "count_many": "<v>{{n}}</v> تغييرًا، الأحدث أولاً",
+    "count_other": "<v>{{n}}</v> تغيير، الأحدث أولاً",
+    "matching_zero": "<v>{{n}}</v> من <v>{{total}}</v> تغيير يطابق",
+    "matching_one": "<v>{{n}}</v> من <v>{{total}}</v> تغيير يطابق",
+    "matching_two": "<v>{{n}}</v> من <v>{{total}}</v> تغييرين يطابقان",
+    "matching_few": "<v>{{n}}</v> من <v>{{total}}</v> تغييرات تطابق",
+    "matching_many": "<v>{{n}}</v> من <v>{{total}}</v> تغييرًا يطابق",
+    "matching_other": "<v>{{n}}</v> من <v>{{total}}</v> تغيير يطابق",
+    "showMore": "عرض المزيد",
+    "atMax": "لا يمكن عرض إلا أحدث <v>{{n}}</v> تغيير.",
+    "columns": {
+      "changedAt": "الوقت",
+      "changedBy": "المستخدم",
+      "action": "الإجراء",
+      "storeCode": "الفرع",
+      "names": "الأسماء",
+      "note": "ملاحظة"
+    },
+    "action": {
+      "Create": "إنشاء",
+      "Rename": "إعادة تسمية",
+      "Deactivate": "إيقاف",
+      "Reactivate": "إعادة تفعيل",
+      "AddStore": "إضافة فرع",
+      "RemoveStore": "إزالة فرع",
+      "EnableStore": "تفعيل فرع",
+      "DisableStore": "تعطيل فرع"
+    },
+    "names": {
+      "create": "سُمّيت <v>{{en}}</v> (<v>{{ar}}</v>)",
+      "rename": "من <v>{{fromEn}}</v> (<v>{{fromAr}}</v>) إلى <v>{{toEn}}</v> (<v>{{toAr}}</v>)"
+    },
+    "filters": {
+      "action": "الإجراء",
+      "store": "رمز الفرع",
+      "storePlaceholder": "أي فرع",
+      "any": "الكل",
+      "clear": "مسح"
+    },
+    "export": {
+      "button": "تصدير إلى Excel",
+      "sheet": "السجل",
+      "fileName": "serving-list-history",
+      "done": "تم تصدير السجل",
+      "doneDetail_zero": "لم يُكتب أي تغيير.",
+      "doneDetail_one": "كُتب تغيير واحد {{n}}.",
+      "doneDetail_two": "كُتب تغييران {{n}}.",
+      "doneDetail_few": "كُتبت {{n}} تغييرات.",
+      "doneDetail_many": "كُتب {{n}} تغييرًا.",
+      "doneDetail_other": "كُتب {{n}} تغيير.",
+      "failed": "فشل التصدير",
+      "failedDetail": "تعذّرت كتابة الملف. حاول مرة أخرى."
+    }
   },
   "addStores": {
     "button": "إضافة فروع",

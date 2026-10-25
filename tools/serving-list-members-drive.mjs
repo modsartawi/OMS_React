@@ -13,7 +13,7 @@
 //   6. a deep link with filters reads them into the bar and the door;
 //   7. a deactivated list says its deliveries are not competed, and still lists its members;
 //   8. an unknown id (SVL-00001) reads "This serving list does not exist" in place of the grid;
-//   9. the History tab is held in the URL (571's placeholder), and Members writes no tab key;
+//   9. the History tab is held in the URL (571's tab), and Members writes no tab key;
 //  10. the back link; no raw keys; no page errors.
 //
 //   1. run the app:  npx vite --port 5208 --strictPort
@@ -257,8 +257,8 @@ for (const dir of ['ltr', 'rtl']) {
 
     // 9. tabs
     await page.locator('[role="tab"][data-tab="history"]').click()
-    await page.locator('[data-history-placeholder]').waitFor({ timeout: 5000 }).catch(() => {})
-    check(`${dir} 9. History is held in the URL`, new URL(page.url()).search === '?tab=history' && (await page.locator('[data-history-placeholder]').count()) === 1)
+    await page.locator('[data-history-tab]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 9. History is held in the URL`, new URL(page.url()).search === '?tab=history' && (await page.locator('[data-history-tab]').count()) === 1)
     check(`${dir} 9. History unmounts the Members tab`, (await page.locator('[data-members-tab]').count()) === 0)
     await page.locator('[role="tab"][data-tab="members"]').click()
     await grid(page).waitFor({ timeout: 5000 }).catch(() => {})

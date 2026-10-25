@@ -119,7 +119,18 @@ export function membersQuery(id: string, filter: ServingListMembersFilter) {
 }
 
 /**
- * The changes read's key prefix (571 reads it). One list's change log, whatever the `take`, sits under
- * `[...SERVING_LIST_CHANGES_KEY, id]` — a write on that list (569, 570) invalidates that prefix.
+ * The changes read's key prefix (571). One list's history, whatever the `take`, sits under
+ * `[...SERVING_LIST_CHANGES_KEY, id]` — every write on that list (569, 570) invalidates that prefix, since
+ * each write logs a change.
  */
 export const SERVING_LIST_CHANGES_KEY = ['oms', 'serving-lists', 'changes'] as const
+
+export function changesQuery(id: string, take: number) {
+  return {
+    queryKey: [...SERVING_LIST_CHANGES_KEY, id, take] as const,
+    queryFn: () => servingListsApi.changes(id, take),
+    // "Show more" raises `take`: keep the shown rows while the larger read comes.
+    placeholderData: keepPreviousData,
+    retry: false,
+  }
+}

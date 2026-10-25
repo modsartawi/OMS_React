@@ -94,8 +94,8 @@ re-enables and removes a member, and is warned before deactivating a list that a
   `SERVING_LISTS_KEY`, `[...SERVING_LIST_MEMBERS_KEY, id]`, `[...SERVING_LIST_CHANGES_KEY, id]`), `NameDialog.tsx`
   (create + rename; Arabic field `dir="rtl"`), `HeaderActions.tsx` (Rename, Deactivate / Reactivate),
   `MemberActions.tsx` (`MemberActionsCell`: Disable / Enable, Remove; dialog portalled to `body`),
-  `NewListButton.tsx` on `ServingListsPage`. `api.ts` gained `SERVING_LIST_CHANGES_KEY = ['oms','serving-lists','changes']`
-  (571 should key its Changes read under it).
+  `NewListButton.tsx` on `ServingListsPage`. The Changes key is 571's `SERVING_LIST_CHANGES_KEY` (merged from the
+  integration tip); no second key.
 - Proof: `npm test` 6342 green; typecheck + lint green; `tools/serving-list-writes-drive.mjs` **102/102 stubbed**,
   LTR + RTL; 568's drive 102/102 (its "no actions column until 570" check flipped), 567's 49/49.
 - Decisions (overrulable):

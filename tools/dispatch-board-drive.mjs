@@ -11,6 +11,9 @@
 //   3. the inspector: one row per bid — dark, ATP covers / short n / not checked, tills, the moments with
 //      seconds from offer, the answer with staff and register, an unknown status rendered as itself;
 //      a not-competed callout says why;
+//      (572, spec 3042) beside the candidate count: the serving list by name (the id alone when the list is
+//      gone, "—" when none, as an older payload reads), plain text without 567's View, a link to /oms/serving-lists/:id with it; "removed by duty n"
+//      only above 0; ServingListInactive / DutyLeftFewerThanTwo read as words and count in Not competed;
 //   4. Release lock only on a locked callout and only with Execute; the reason picker blocks no reason and
 //      Other-without-note; each CALLOUT-102/103/104 refusal and a non-lock failure show in the dialog; a
 //      release sends { deliveryNumber, reason, note }, refreshes the board and offers Change store;
@@ -153,6 +156,10 @@ const TAKEN_LOCKED = callout('D8001', {
   awardedParty: 'P014',
   awardedAt: plus(T1, 75),
   takenByStaff: 'amal',
+  servingListId: 'SL7',
+  servingListNameEn: 'Riyadh north',
+  servingListNameAr: 'شمال الرياض',
+  dutyRemovedCount: 3,
   bids: [
     bid('P014', T1, {
       status: 'TAKEN',
@@ -193,6 +200,33 @@ const NOT_COMPETED = callout('D8003', {
   endedAt: stamp(40 * 60_000),
   locksDelivery: false,
 })
+// 572: the two new not-competed reasons (spec 3042).
+const LIST_INACTIVE = callout('D8005', {
+  status: 'NOT_OPENED',
+  outcome: 'NotCompeted',
+  endReason: 'ServingListInactive',
+  candidateCount: 0,
+  servingListId: 'SL9',
+  servingListNameEn: '',
+  servingListNameAr: '',
+  dutyRemovedCount: 0,
+  openedAt: stamp(52 * 60_000),
+  endedAt: stamp(52 * 60_000),
+  locksDelivery: false,
+})
+const DUTY_FEW = callout('D8006', {
+  status: 'NOT_OPENED',
+  outcome: 'NotCompeted',
+  endReason: 'DutyLeftFewerThanTwo',
+  candidateCount: 1,
+  servingListId: 'SL7',
+  servingListNameEn: 'Riyadh north',
+  servingListNameAr: 'شمال الرياض',
+  dutyRemovedCount: 4,
+  openedAt: stamp(54 * 60_000),
+  endedAt: stamp(54 * 60_000),
+  locksDelivery: false,
+})
 const WITHDRAWN = callout('D8004', { status: 'WITHDRAWN', outcome: 'Withdrawn', endReason: 'Withdrawn', openedAt: stamp(50 * 60_000), endedAt: stamp(48 * 60_000), locksDelivery: false })
 
 const TILES = {
@@ -203,13 +237,13 @@ const TILES = {
   takenLastHour: 1,
   medianSecondsToTake: 75,
   fellBack: 1,
-  notCompeted: 1,
+  notCompeted: 3,
   withdrawn: 1,
 }
 
 const browser = await chromium.launch()
 
-async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock: true }, boardStatus = 200, clock = false } = {}) {
+async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock: true }, boardStatus = 200, clock = false, servingAccess = { canViewServingLists: false, canEditServingLists: false } } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 } })
   const page = await context.newPage()
   if (clock) await page.clock.install()
@@ -228,13 +262,14 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'DispatchBoard/Access') return route.fulfill(envelope(access))
+    if (p === 'ServingListWeb/Access') return route.fulfill(envelope(servingAccess))
     if (p === 'DispatchBoard/Board') {
       boards.push(url.searchParams)
       if (boardStatus === 403) return route.fulfill({ status: 403, body: '' })
       if (state.boardDelayMs) await new Promise((r) => setTimeout(r, state.boardDelayMs))
       if (state.boardFail) return route.fulfill(envelope(null, { status: 500, success: false, message: 'Database timeout.', errorCode: 'SD-500' }))
       const store = url.searchParams.get('store')
-      const closed = [TAKEN_LOCKED, FELL_BACK, NOT_COMPETED, WITHDRAWN].map((c) =>
+      const closed = [TAKEN_LOCKED, FELL_BACK, NOT_COMPETED, WITHDRAWN, LIST_INACTIVE, DUTY_FEW].map((c) =>
         state.released.has(c.deliveryNumber) ? { ...c, locked: false, releasedAt: stamp(1000), releasedBy: 'msartawi', releaseReason: 'Other', releaseNote: 'n' } : c,
       )
       const keep = (c) => !store || c.bids.some((b) => b.store === store) || c.awardedParty === store || c.fallbackParty === store
@@ -291,7 +326,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the title`, (await page.locator('h1').first().innerText()).trim() === L.title)
     check(`${dir} 1. the menu leaf is shown`, (await page.locator('a[href="/oms/dispatch-board"]').count()) >= 1)
     const tiles = await page.locator('[data-tile]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tile') + '=' + e.getAttribute('data-tile-value')))
-    check(`${dir} 1. six tiles in order with their figures`, JSON.stringify(tiles) === JSON.stringify(['onCalloutNow=2', 'bidsAwaiting=3', 'takenLastHour=1', 'fellBack=1', 'notCompeted=1', 'withdrawn=1']), JSON.stringify(tiles))
+    check(`${dir} 1. six tiles in order with their figures`, JSON.stringify(tiles) === JSON.stringify(['onCalloutNow=2', 'bidsAwaiting=3', 'takenLastHour=1', 'fellBack=1', 'notCompeted=3', 'withdrawn=1']), JSON.stringify(tiles))
     check(`${dir} 1. tile lines`, (await text(page.locator('[data-tile="onCalloutNow"]'))) === L.tile0 && (await text(page.locator('[data-tile="bidsAwaiting"]'))) === L.tile1 && (await text(page.locator('[data-tile="takenLastHour"]'))) === L.tile2, [await text(page.locator('[data-tile="onCalloutNow"]')), await text(page.locator('[data-tile="bidsAwaiting"]')), await text(page.locator('[data-tile="takenLastHour"]'))].join(' | '))
     check(`${dir} 1. the fell-back tile draws attention`, /border-t-attention/.test((await page.locator('[data-tile="fellBack"]').getAttribute('class')) ?? ''))
     check(`${dir} 1. asOf is shown`, (await page.locator('[data-as-of]').count()) === 1 && /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(await page.locator('[data-as-of]').innerText()))
@@ -310,9 +345,9 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 2. a due countdown stops at 0, never below`, (await low.getAttribute('data-countdown')) === '0' && strip(await low.innerText()).startsWith('0:00'), await low.innerText())
     if (dir === 'rtl') check('rtl 2. the countdown is an ltr isolate', (await low.locator('bdi[dir="ltr"]').first().innerText()) === '0:00')
     const closedRows = await page.locator('[data-closed-grid] [data-delivery]').evaluateAll((els) => els.map((e) => e.getAttribute('data-delivery')))
-    check(`${dir} 2. closed grid holds the four closed callouts`, JSON.stringify(closedRows) === JSON.stringify(['D8001', 'D8002', 'D8003', 'D8004']), JSON.stringify(closedRows))
+    check(`${dir} 2. closed grid holds the six closed callouts`, JSON.stringify(closedRows) === JSON.stringify(['D8001', 'D8002', 'D8003', 'D8004', 'D8005', 'D8006']), JSON.stringify(closedRows))
     const outcomes = await page.locator('[data-closed-grid] [data-outcome]').evaluateAll((els) => els.map((e) => e.getAttribute('data-outcome') + (e.querySelector('[data-locked]') ? '+lock' : '')))
-    check(`${dir} 2. outcomes with the lock`, JSON.stringify(outcomes) === JSON.stringify(['Taken+lock', 'FellBack+lock', 'NotCompeted', 'Withdrawn']), JSON.stringify(outcomes))
+    check(`${dir} 2. outcomes with the lock`, JSON.stringify(outcomes) === JSON.stringify(['Taken+lock', 'FellBack+lock', 'NotCompeted', 'Withdrawn', 'NotCompeted', 'NotCompeted']), JSON.stringify(outcomes))
 
     // 3. inspector — the first open callout by default
     const insp = page.locator('[data-inspector]')
@@ -328,12 +363,25 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. an unknown bid status renders as itself`, strip(await insp.locator('[data-bid="P030"] [data-answer]').innerText()) === 'HANDED')
     check(`${dir} 3. an open callout's inspector counts down`, (await insp.locator('[data-inspector-countdown] [data-countdown]').count()) === 1)
     check(`${dir} 3. no Release lock on an open callout`, (await insp.locator('[data-release-open]').count()) === 0)
+    check(
+      `${dir} 3. 572 an older payload (no list fields): serving list "—", no duty count`,
+      strip(await insp.locator('[data-inspector-serving]').innerText()) === 'Serving list —' && (await insp.locator('[data-duty-removed]').count()) === 0,
+      await insp.locator('[data-inspector-serving]').innerText(),
+    )
 
     // the taken callout: answer with staff and register, lost race, expired with its reason
     await rowOf(page, 'closed', 'D8001').click()
     await page.locator('[data-inspector="C-D8001"]').waitFor()
     check(`${dir} 3. the answer carries staff, register and +1:15`, /amal · .*02 · \+1:15/.test(strip(await insp.locator('[data-bid="P014"] [data-answered-by]').innerText())), await insp.locator('[data-bid="P014"] [data-answered-by]').innerText())
     check(`${dir} 3. lost and expired stay distinct, expired shows its ignore reason`, (await insp.locator('[data-bid-status="LOST"]').count()) === 1 && (await insp.locator('[data-bid="P030"] [data-ignore-reason="ShownNotOpened"]').count()) === 1)
+    check(
+      `${dir} 3. 572 the serving list by name, not a link, removed by duty 3`,
+      strip(await insp.locator('[data-inspector-serving]').innerText()) === 'Serving list Riyadh north · removed by duty 3' &&
+        (await insp.locator('[data-inspector-serving] [data-serving-list="SL7"] > bdi').innerText()) === 'Riyadh north' &&
+        (await insp.locator('[data-serving-list-link]').count()) === 0 &&
+        (await insp.locator('[data-duty-removed="3"] bdi[dir="ltr"]').innerText()) === '3',
+      await insp.locator('[data-inspector-serving]').innerText(),
+    )
     check(`${dir} 3. the locked line names the store`, (await insp.locator('[data-locked-line]').innerText()).includes('P014'))
     if (dir === 'rtl') check('rtl 3. the inspector delivery is an ltr isolate', (await insp.locator('[data-inspector-delivery] bdi[dir="ltr"]').innerText()) === 'D8001')
 
@@ -345,6 +393,22 @@ for (const dir of ['ltr', 'rtl']) {
       (await insp.locator('[data-not-competed-reason="OneCandidate"]').innerText()).trim() === 'only one store in reach' && (await insp.locator('[data-bid]').count()) === 0,
       await insp.locator('[data-not-competed]').innerText(),
     )
+
+    // 572: the two new not-competed reasons, in words, with the serving list and the duty count
+    for (const [no, reason, words, serving] of [
+      ['D8005', 'ServingListInactive', 'serving list inactive or empty', 'Serving list SL9'],
+      ['D8006', 'DutyLeftFewerThanTwo', 'fewer than two stores on duty', 'Serving list Riyadh north · removed by duty 4'],
+    ]) {
+      await rowOf(page, 'closed', no).click()
+      await page.locator(`[data-inspector="C-${no}"]`).waitFor()
+      check(
+        `${dir} 3. 572 ${reason} reads as words, with the serving list`,
+        (await insp.locator(`[data-not-competed-reason="${reason}"]`).innerText()).trim() === words &&
+          strip(await insp.locator('[data-inspector-serving]').innerText()) === serving &&
+          (no !== 'D8005' || (await insp.locator('[data-serving-list="SL9"] bdi[dir="ltr"]').innerText()) === 'SL9'),
+        `${await insp.locator('[data-not-competed]').innerText()} | ${await insp.locator('[data-inspector-serving]').innerText()}`,
+      )
+    }
 
     // 4. Release lock
     await rowOf(page, 'closed', 'D8001').click()
@@ -405,6 +469,25 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${URL_}?channel=HYBR&city=RUH`)
     await page.locator('[data-tile]').first().waitFor({ timeout: 20000 })
     check(`${dir} 5. a URL opens on its filters`, boards[0].get('channel') === 'HYBR' && boards[0].get('city') === 'RUH' && (await page.locator('[data-filter="channel"]').inputValue()) === 'HYBR')
+    await context.close()
+  }
+
+  // ── 572: with View on serving lists, the inspector's serving list links to its screen ─────────
+  {
+    const { context, page } = await open(dir, { servingAccess: { canViewServingLists: true, canEditServingLists: false } })
+    await page.goto(URL_)
+    await rowOf(page, 'closed', 'D8001').waitFor({ timeout: 20000 })
+    await rowOf(page, 'closed', 'D8001').click()
+    const link = page.locator('[data-inspector="C-D8001"] [data-serving-list-link]')
+    await link.waitFor({ timeout: 5000 }).catch(() => {})
+    check(
+      `${dir} 3. 572 with View the serving list is a link to its screen`,
+      (await link.count()) === 1 && (await link.getAttribute('href')) === '/oms/serving-lists/SL7' && strip(await link.innerText()) === 'Riyadh north',
+      String(await link.count()),
+    )
+    await rowOf(page, 'closed', 'D8003').click()
+    await page.locator('[data-inspector="C-D8003"]').waitFor()
+    check(`${dir} 3. 572 with View, no list stays "—" with no link`, (await page.locator('[data-serving-list-link]').count()) === 0)
     await context.close()
   }
 

@@ -77,7 +77,9 @@
       "NoGps": "the address has no location",
       "NoCandidates": "no store in reach",
       "OneCandidate": "only one store in reach",
-      "StockLeftFewerThanTwo": "fewer than two stores had the stock"
+      "StockLeftFewerThanTwo": "fewer than two stores had the stock",
+      "ServingListInactive": "serving list inactive or empty",
+      "DutyLeftFewerThanTwo": "fewer than two stores on duty"
     },
     "releaseReason": {
       "NoStock": "No stock",
@@ -111,7 +113,10 @@
       "opened": "opened <at>{{at}}</at>",
       "fallback": "fallback <store>{{store}}</store>",
       "locked": "Locked at <store>{{store}}</store>: no line edits, item cancels or store cancel.",
-      "released": "Lock released <at>{{at}}</at> by <by>{{by}}</by>"
+      "released": "Lock released <at>{{at}}</at> by <by>{{by}}</by>",
+      "servingList": "serving list",
+      "noServingList": "—",
+      "dutyRemoved": "removed by duty <n>{{n}}</n>"
     },
     "ledger": {
       "title": "Bids",

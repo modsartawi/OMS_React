@@ -153,5 +153,56 @@
       "failed": "The export failed",
       "failedDetail": "The workbook could not be written. Try again."
     }
+  },
+  "addStores": {
+    "button": "Add stores",
+    "title": "Add stores to {{list}}",
+    "intro": "Search by code, name or city and pick stores, or paste a column of codes. They are added in one go, enabled; one bad code refuses the whole batch.",
+    "search": {
+      "label": "Search stores",
+      "placeholder": "Code, name or city",
+      "searching": "Searching…",
+      "noHits": "No store matches.",
+      "failed": "The stores could not be searched.",
+      "more": "Showing the first <v>{{n}}</v> stores: narrow the search to see others.",
+      "pickAll": "Pick all shown",
+      "onList": "On the list",
+      "closed": "Closed",
+      "closedHint": "This store is closed: it is never bid while it is closed."
+    },
+    "paste": {
+      "label": "Paste codes",
+      "hint": "One per line, or separated by commas or spaces.",
+      "add": "Add to basket",
+      "result": "Added to the basket: <v>{{added}}</v>. Already in it: <v>{{skipped}}</v>."
+    },
+    "basket": {
+      "title": "Basket",
+      "count_one": "<v>{{n}}</v> store in the basket",
+      "count_other": "<v>{{n}}</v> stores in the basket",
+      "empty": "The basket is empty. Pick stores or paste codes.",
+      "clear": "Clear",
+      "remove": "Remove {{code}}",
+      "closed": "Closed",
+      "refused": "Refused"
+    },
+    "note": {
+      "label": "Note (optional)"
+    },
+    "cancel": "Cancel",
+    "confirm": "Add to the list",
+    "sending": "Adding…",
+    "done_one": "Added {{n}} store to {{list}}.",
+    "done_other": "Added {{n}} stores to {{list}}.",
+    "refusal": {
+      "title": "Nothing was added",
+      "unknownList": "This serving list no longer exists.",
+      "unknownStores": "These codes are not stores:",
+      "alreadyMembers": "These stores are already on the list:",
+      "noCodes": "Name at least one store to add.",
+      "notGranted": "You may not edit serving lists.",
+      "failed": "The stores could not be added.",
+      "removeAndRetry": "Remove these and retry"
+    }
   }
 }

@@ -1,5 +1,5 @@
 /**
- * The serial refusal report's access probe (ticket 573, BackOffice 3054) — apart from `./api` so the OMS menu leaf,
+ * The serial refusal report's access probe (ticket 573, BackOffice 3065) — apart from `./api` so the OMS menu leaf,
  * which imports it eagerly, costs the main bundle only this.
  *
  * Through `@/core/api` like every call (`.claude/rules/api-envelope.md`).

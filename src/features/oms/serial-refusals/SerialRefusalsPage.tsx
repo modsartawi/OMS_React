@@ -63,7 +63,7 @@ import {
 } from './filters'
 
 /**
- * The serial refusal report (ticket 573, BackOffice 3054, spec 3049): every time head office told a till a serial
+ * The serial refusal report (ticket 573, BackOffice 3065, spec 3049): every time head office told a till a serial
  * was already SOLD or HELD, read back to see who keeps trying to sell packs that are gone. The totals, then one tab
  * per section of the saved analysis (staff, repeat offenders, serials, stores, articles, held by, per day) and the
  * refusals themselves. A row of any section opens the refusals behind it on the Refusals tab.

@@ -413,7 +413,7 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // Serial refusals (ticket 573, BackOffice 3054) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
+        // Serial refusals (ticket 573, BackOffice 3065) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
         // probe; the leaf and the page's gate share the one predicate and fail closed. After the scorecard and before
         // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
         labelKey: 'serial-refusals:menu.serialRefusals',

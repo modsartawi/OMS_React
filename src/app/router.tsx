@@ -159,7 +159,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
         }),
       },
-      // Serial refusals (ticket 573, BackOffice spec 3049 / 3054) — every SOLD / HELD answer head office gave a till's
+      // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
       // serial check, by staff, serial, store and article, behind its own `SerialRefusal/Access` probe. Filters in the URL.
       {
         path: 'oms/serial-refusals',

@@ -1,7 +1,7 @@
 ---
 status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3049-head-office-records-every-serial-refusal-spec.md
-blocked-by: — (live: BackOffice 3054 deployed + seed)
+blocked-by: — (live: BackOffice 3065 deployed + seed)
 ---
 
 # 573 — Head office reads the serial refusals: who keeps trying to sell packs that are already sold or held
@@ -9,7 +9,7 @@ blocked-by: — (live: BackOffice 3054 deployed + seed)
 ## What to build
 
 `/oms/serial-refusals`, an OMS leaf behind its own probe (`SerialRefusal/Access`, grant
-`BackOfficeScreen[SerialRefusal, 03]`), over BackOffice 3054's `SerialRefusal/Report` and `SerialRefusal/Rows`.
+`BackOfficeScreen[SerialRefusal, 03]`), over BackOffice 3065's `SerialRefusal/Report` and `SerialRefusal/Rows`.
 
 - Scope: From / To (30 days by default, at most 92, refused before any call), asking stores (comma list, applied on
   Enter / Apply), answer (sold, held or both). All in the URL.
@@ -34,4 +34,4 @@ blocked-by: — (live: BackOffice 3054 deployed + seed)
 
 **Done 2026-10-25** (branch `serial-refusal-report`). The drive caught a real bug fixed in this slice: on the
 Refusals tab a failed Report read (the tiles) showed no error, because the banner watched only the open tab's read.
-Live run waits on BackOffice 3054 deployed, its seed run and the role bound.
+Live run waits on BackOffice 3065 deployed, its seed run and the role bound.

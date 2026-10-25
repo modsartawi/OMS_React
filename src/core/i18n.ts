@@ -131,7 +131,7 @@ import dispatchScorecardAr from '@/locales/ar/dispatch-scorecard.json'
 // it too, the `central-invoice` precedent. 497–499 add their keys here rather than minting another.
 import pickSupport from '@/locales/en/pick-support.json'
 import pickSupportAr from '@/locales/ar/pick-support.json'
-// Serial refusals (BackOffice spec 3049 / ticket 3054, ticket 573). Namespace == feature name, English and Arabic together.
+// Serial refusals (BackOffice spec 3049 / ticket 3065, ticket 573). Namespace == feature name, English and Arabic together.
 import serialRefusals from '@/locales/en/serial-refusals.json'
 import serialRefusalsAr from '@/locales/ar/serial-refusals.json'
 // Rule campaigns (BackOffice spec 2737, ticket 501) — the Campaigns area's list and workspace. ENGLISH

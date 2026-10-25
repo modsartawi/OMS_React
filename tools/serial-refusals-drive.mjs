@@ -1,6 +1,6 @@
-// Serial refusals drive (ticket 573; BackOffice spec 3049, doors 3054).
+// Serial refusals drive (ticket 573; BackOffice spec 3049, doors 3065).
 //
-// Drives the REAL app in Chromium against a STUB of the three doors — 3054 is on a BackOffice branch, not deployed, so
+// Drives the REAL app in Chromium against a STUB of the three doors — 3065 is on a BackOffice branch, not deployed, so
 // there is no live SIS.Api to point at. The stub answers EXACTLY the shapes of `SerialRefusalReportModels.cs`, camelCase:
 //   GET SerialRefusal/Access → { screenAllowed }              (allowed, not allowed)
 //   GET SerialRefusal/Report → { asOf, from, to, totals, days[], stores[], staff[], articles[], serials[], heldBy[], offenders[] }

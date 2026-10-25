@@ -1,5 +1,5 @@
 /**
- * The serial refusal report's wire shapes (ticket 573, BackOffice ticket 3054, spec 3049) — mirrored field for field,
+ * The serial refusal report's wire shapes (ticket 573, BackOffice ticket 3065, spec 3049) — mirrored field for field,
  * camelCase, from BackOffice `Sartawi.Retail.Data\Modules\Pick\Reports\SerialRefusalReportModels.cs`. A shape change
  * goes there first, then here.
  *

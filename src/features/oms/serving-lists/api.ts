@@ -117,3 +117,9 @@ export function membersQuery(id: string, filter: ServingListMembersFilter) {
     retry: false,
   }
 }
+
+/**
+ * The changes read's key prefix (571 reads it). One list's change log, whatever the `take`, sits under
+ * `[...SERVING_LIST_CHANGES_KEY, id]` — a write on that list (569, 570) invalidates that prefix.
+ */
+export const SERVING_LIST_CHANGES_KEY = ['oms', 'serving-lists', 'changes'] as const

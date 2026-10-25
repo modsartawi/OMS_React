@@ -104,5 +104,79 @@
   },
   "history": {
     "placeholder": "The list's history is not shown yet."
+  },
+  "writes": {
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "note": "Note (optional)",
+    "refusedTitle": "The change was refused",
+    "failed": "The change could not be saved.",
+    "notGrantedTitle": "Not allowed",
+    "notGranted": "You do not have the right to edit serving lists.",
+    "refreshed": "The screen was behind and has been refreshed.",
+    "openBids": "A bid already offered is never withdrawn: the change applies from the next callout.",
+    "refusal": {
+      "unknownList": "This serving list no longer exists.",
+      "notMember": "This store is no longer on the list.",
+      "nameRequired": "A serving list needs a name in English and in Arabic.",
+      "nameTooLong": "A name is longer than 100 characters.",
+      "alreadyInState": "This change has already been made."
+    },
+    "name": {
+      "en": "English name",
+      "ar": "Arabic name",
+      "required": "Required.",
+      "tooLong": "At most 100 characters.",
+      "unchanged": "Change a name to save."
+    },
+    "create": {
+      "button": "New list",
+      "title": "New serving list",
+      "confirm": "Create",
+      "done": "Serving list {{name}} created.",
+      "hint": "A new list is active and has no members: add stores to it next."
+    },
+    "rename": {
+      "button": "Rename",
+      "title": "Rename serving list",
+      "confirm": "Save",
+      "done": "Serving list renamed to {{name}}."
+    },
+    "deactivate": {
+      "button": "Deactivate",
+      "title": "Deactivate serving list",
+      "confirm": "Deactivate",
+      "done": "Serving list {{name}} deactivated.",
+      "subject": "Deactivate <b>{{name}}</b>?",
+      "effect": "No delivery is competed through a deactivated list. Its members stay, and it can be reactivated.",
+      "competed": "The deliveries of {{types}} will stop being competed; they go to their fallback store.",
+      "noCompeted": "No competed delivery type points at this list.",
+      "warned": "Deliveries are no longer competed"
+    },
+    "reactivate": {
+      "button": "Reactivate",
+      "title": "Reactivate serving list",
+      "confirm": "Reactivate",
+      "done": "Serving list {{name}} reactivated.",
+      "subject": "Reactivate <b>{{name}}</b>?",
+      "effect": "Its enabled members are bid again from the next callout."
+    },
+    "member": {
+      "disable": "Disable",
+      "enable": "Enable",
+      "remove": "Remove",
+      "disableAria": "Disable store {{store}} on this list",
+      "enableAria": "Enable store {{store}} on this list",
+      "removeAria": "Remove store {{store}} from this list",
+      "disableTitle": "Disable member",
+      "enableTitle": "Enable member",
+      "removeTitle": "Remove member",
+      "disableEffect": "The store keeps its place and its history on the list, but is not bid.",
+      "enableEffect": "The store is bid again from the next callout.",
+      "removeEffect": "The store is no longer bid from the next callout. The list's history keeps it.",
+      "disableDone": "Store {{store}} disabled.",
+      "enableDone": "Store {{store}} enabled.",
+      "removeDone": "Store {{store}} removed from the list."
+    }
   }
 }

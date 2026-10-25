@@ -131,7 +131,8 @@ export function buildMemberColumns(
       headerName: t('members.columns.actions'),
       colId: 'actions',
       pinned: pinEnd,
-      width: 160,
+      // Two labelled buttons (570): Disable / Enable and Remove.
+      width: 210,
       sortable: false,
       resizable: false,
       // Changes with the inputs a row's actions read, so the cell refreshes after a write.

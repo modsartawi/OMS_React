@@ -185,7 +185,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the first read sends no filter`, calls.length >= 1 && calls[0].qs === '' && calls[0].id === A, JSON.stringify(calls))
     check(`${dir} 1. every member, by store code`, JSON.stringify(await rowIds(page)) === JSON.stringify(ALL), JSON.stringify(await rowIds(page)))
     check(`${dir} 1. the count reads 8 members`, strip(await page.locator('[data-members-count]').innerText()) === '8 members')
-    check(`${dir} 1. no actions column until 570`, (await grid(page).locator('[col-id="actions"]').count()) === 0)
+    check(`${dir} 1. the actions column (570, Execute held)`, (await grid(page).locator(`[col-id="actions"]`).count()) > 0)
 
     // 2. duty
     const duty = async (code) => {

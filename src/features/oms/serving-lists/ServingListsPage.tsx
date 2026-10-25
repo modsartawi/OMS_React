@@ -15,6 +15,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { listsQuery } from './api'
 import { LISTS_DEFAULT_COL_DEF, buildListColumns } from './columns'
+import NewListButton from './NewListButton'
 
 /**
  * Serving lists — `/oms/serving-lists` (BackOffice spec 3042, oms ticket 567). Every serving list, with its
@@ -27,6 +28,9 @@ export default function ServingListsPage() {
   const { t } = useTranslation('serving-lists')
   return (
     <ScreenGate query={servingListAccessQuery()} can={canViewServingLists} ns="serving-lists" title={t('title')} subtitle={t('subtitle')}>
+      <div className="mb-2 flex justify-end" data-lists-toolbar="">
+        <NewListButton />
+      </div>
       <Lists />
     </ScreenGate>
   )

@@ -131,6 +131,9 @@ import dispatchScorecardAr from '@/locales/ar/dispatch-scorecard.json'
 // it too, the `central-invoice` precedent. 497–499 add their keys here rather than minting another.
 import pickSupport from '@/locales/en/pick-support.json'
 import pickSupportAr from '@/locales/ar/pick-support.json'
+// Serial refusals (BackOffice spec 3049 / ticket 3054, ticket 573). Namespace == feature name, English and Arabic together.
+import serialRefusals from '@/locales/en/serial-refusals.json'
+import serialRefusalsAr from '@/locales/ar/serial-refusals.json'
 // Rule campaigns (BackOffice spec 2737, ticket 501) — the Campaigns area's list and workspace. ENGLISH
 // ONLY by ruling for this wave: the UI's Arabic chrome is a later pass, so there is no `ar` bundle.
 // (A campaign's own names and messages ARE bilingual — they are data the marketer enters, not keys.)
@@ -177,7 +180,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals'],
   resources: {
     en: {
       common,
@@ -239,6 +242,7 @@ i18n.use(initReactI18next).init({
       'prescription-session': prescriptionSession,
       'prescription-sessions': prescriptionSessions,
       'serving-lists': servingLists,
+      'serial-refusals': serialRefusals,
     },
     ar: {
       document: documentAr,
@@ -266,6 +270,7 @@ i18n.use(initReactI18next).init({
       'prescription-session': prescriptionSessionAr,
       'prescription-sessions': prescriptionSessionsAr,
       'serving-lists': servingListsAr,
+      'serial-refusals': serialRefusalsAr,
     },
   },
   interpolation: { escapeValue: false },

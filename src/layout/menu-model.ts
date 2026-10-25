@@ -38,7 +38,13 @@ import {
   canOpenDispatchScorecard,
   dispatchScorecardAccessApi,
 } from '@/features/oms/dispatch-scorecard/access'
-import { ListTree, Trophy } from 'lucide-react'
+// The serial refusal report's probe stays with its feature (ticket 573): it is its only consumer.
+import {
+  SERIAL_REFUSAL_ACCESS_KEY,
+  canOpenSerialRefusals,
+  serialRefusalAccessApi,
+} from '@/features/oms/serial-refusals/access'
+import { ListTree, ShieldAlert, Trophy } from 'lucide-react'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -404,6 +410,20 @@ export const MENU: ShellMenuItem[] = [
           key: DISPATCH_SCORECARD_ACCESS_KEY,
           run: () => dispatchScorecardAccessApi.access(),
           visible: canOpenDispatchScorecard,
+        }),
+      },
+      {
+        // Serial refusals (ticket 573, BackOffice 3054) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
+        // probe; the leaf and the page's gate share the one predicate and fail closed. After the scorecard and before
+        // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'serial-refusals:menu.serialRefusals',
+        icon: ShieldAlert,
+        routerLink: '/oms/serial-refusals',
+        activePrefix: '/oms/serial-refusals',
+        access: accessProbe({
+          key: SERIAL_REFUSAL_ACCESS_KEY,
+          run: () => serialRefusalAccessApi.access(),
+          visible: canOpenSerialRefusals,
         }),
       },
       {

@@ -159,6 +159,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
         }),
       },
+      // Serial refusals (ticket 573, BackOffice spec 3049 / 3054) — every SOLD / HELD answer head office gave a till's
+      // serial check, by staff, serial, store and article, behind its own `SerialRefusal/Access` probe. Filters in the URL.
+      {
+        path: 'oms/serial-refusals',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serial-refusals/SerialRefusalsPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.

@@ -12,7 +12,7 @@
 //      seconds from offer, the answer with staff and register, an unknown status rendered as itself;
 //      a not-competed callout says why;
 //      (572, spec 3042) beside the candidate count: the serving list by name (the id alone when the list is
-//      gone, "—" when none, as an older payload reads), never a link until 567's route; "removed by duty n"
+//      gone, "—" when none, as an older payload reads), plain text without 567's View, a link to /oms/serving-lists/:id with it; "removed by duty n"
 //      only above 0; ServingListInactive / DutyLeftFewerThanTwo read as words and count in Not competed;
 //   4. Release lock only on a locked callout and only with Execute; the reason picker blocks no reason and
 //      Other-without-note; each CALLOUT-102/103/104 refusal and a non-lock failure show in the dialog; a
@@ -243,7 +243,7 @@ const TILES = {
 
 const browser = await chromium.launch()
 
-async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock: true }, boardStatus = 200, clock = false } = {}) {
+async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock: true }, boardStatus = 200, clock = false, servingAccess = { canViewServingLists: false, canEditServingLists: false } } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 } })
   const page = await context.newPage()
   if (clock) await page.clock.install()
@@ -262,6 +262,7 @@ async function open(dir, { access = { canOpenDispatchBoard: true, canReleaseLock
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'DispatchBoard/Access') return route.fulfill(envelope(access))
+    if (p === 'ServingListWeb/Access') return route.fulfill(envelope(servingAccess))
     if (p === 'DispatchBoard/Board') {
       boards.push(url.searchParams)
       if (boardStatus === 403) return route.fulfill({ status: 403, body: '' })
@@ -468,6 +469,25 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${URL_}?channel=HYBR&city=RUH`)
     await page.locator('[data-tile]').first().waitFor({ timeout: 20000 })
     check(`${dir} 5. a URL opens on its filters`, boards[0].get('channel') === 'HYBR' && boards[0].get('city') === 'RUH' && (await page.locator('[data-filter="channel"]').inputValue()) === 'HYBR')
+    await context.close()
+  }
+
+  // ── 572: with View on serving lists, the inspector's serving list links to its screen ─────────
+  {
+    const { context, page } = await open(dir, { servingAccess: { canViewServingLists: true, canEditServingLists: false } })
+    await page.goto(URL_)
+    await rowOf(page, 'closed', 'D8001').waitFor({ timeout: 20000 })
+    await rowOf(page, 'closed', 'D8001').click()
+    const link = page.locator('[data-inspector="C-D8001"] [data-serving-list-link]')
+    await link.waitFor({ timeout: 5000 }).catch(() => {})
+    check(
+      `${dir} 3. 572 with View the serving list is a link to its screen`,
+      (await link.count()) === 1 && (await link.getAttribute('href')) === '/oms/serving-lists/SL7' && strip(await link.innerText()) === 'Riyadh north',
+      String(await link.count()),
+    )
+    await rowOf(page, 'closed', 'D8003').click()
+    await page.locator('[data-inspector="C-D8003"]').waitFor()
+    check(`${dir} 3. 572 with View, no list stays "—" with no link`, (await page.locator('[data-serving-list-link]').count()) === 0)
     await context.close()
   }
 

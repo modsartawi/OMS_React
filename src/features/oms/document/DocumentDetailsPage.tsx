@@ -14,6 +14,7 @@ import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
+import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutsOf, lockedCallout } from '@/core/oms/callout-moments'
 import { notify } from '@/core/services/notify'
@@ -644,6 +645,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const dispatchAccess = useQuery({ ...dispatchAccessQuery(), enabled: locked !== null })
   const mayReleaseLock = locked !== null && canReleaseLock(dispatchAccess.data)
   const hasCallout = (callouts.rows?.length ?? 0) > 0
+  /**
+   * A callout's serving list links to its screen only for a View holder (ticket 572; 567's probe, on
+   * the key the menu leaf shares), asked only once a callout drawn from a list is on screen.
+   */
+  const hasServingList = (callouts.rows ?? []).some((c) => (c.servingListId ?? '').trim() !== '')
+  const servingListAccess = useQuery({ ...servingListAccessQuery(), enabled: hasServingList })
+  const canLinkServingList = hasServingList && canViewServingLists(servingListAccess.data)
   const showCallout = hasCallout && activityView === 'callout'
 
   // ----- access states ------------------------------------------------------
@@ -782,7 +790,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                   </div>
                 )}
                 {showCallout ? (
-                  <CalloutPanel callouts={callouts.rows ?? []} />
+                  <CalloutPanel callouts={callouts.rows ?? []} canLinkServingList={canLinkServingList} />
                 ) : (
                   <ActivitySpine
                     document={document}

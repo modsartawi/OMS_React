@@ -18,8 +18,8 @@
 //      the POST body; after release the action goes and the release joins the spine;
 //   9. a failing callout read leaves the spine drawn with one inline error;
 //  11. (572, spec 3042) the sub-tab shows the serving list (name; id alone when gone; "—" when none, as an
-//      older payload without the fields reads) and "removed by duty n" only above 0, never a link (567's
-//      route waits); the two new not-competed reasons ServingListInactive / DutyLeftFewerThanTwo read as words;
+//      older payload without the fields reads) and "removed by duty n" only above 0, a link only with 567's View
+//      (canViewServingLists); the two new not-competed reasons ServingListInactive / DutyLeftFewerThanTwo read as words;
 //  10. (review of 2952) a Refresh keeps the Callout tab and its ledger on screen while it reads; a late
 //      callout answer for the delivery left behind never lands on the next one; an open callout the
 //      door sent no `secondsLeft` for says nothing of time (never "0:00 left").
@@ -375,6 +375,8 @@ async function drive(dir) {
   const access = { canOpenDispatchBoard: true, canReleaseLock: true }
   const releases = []
   const calloutDelay = {}
+  // 567's probe: without View the serving list is plain text; with it, a link (572).
+  const servingAccess = { canViewServingLists: false, canEditServingLists: false }
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
@@ -396,6 +398,9 @@ async function drive(dir) {
       return route.fulfill(
         envelope({ deliveryNumber: body.deliveryNumber, calloutId: c.calloutId, heldBy: c.awardedParty, releasedAt: at, releasedBy: 'msartawi', reason: body.reason, note: '' }),
       )
+    }
+    if (p === 'ServingListWeb/Access') {
+      return route.fulfill(envelope({ ...servingAccess }))
     }
     const co = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/Callout$/)
     if (co) {
@@ -616,6 +621,21 @@ async function drive(dir) {
     )
     if (no === '8000000609') await page.locator('[data-callout-panel]').screenshot({ path: `${SHOTS}/${dir}-572-duty.png` })
   }
+  // With View on serving lists the name links to the list's screen; a callout with no list stays "—".
+  servingAccess.canViewServingLists = true
+  await open('8000000609')
+  await page.locator('[data-activity-tab="callout"]').click()
+  await page.locator('[data-callout-serving] [data-serving-list-link]').waitFor({ timeout: 5000 }).catch(() => {})
+  const link = page.locator('[data-callout-serving] [data-serving-list-link]')
+  check(
+    `${label}: 572 with View the serving list links to its screen`,
+    (await link.count()) === 1 && (await link.getAttribute('href')) === '/oms/serving-lists/SL7' && strip(await link.innerText()) === 'Riyadh north',
+    String(await link.count()),
+  )
+  await open('8000000603')
+  await page.locator('[data-activity-tab="callout"]').click()
+  check(`${label}: 572 with View, a callout with no list stays "—", no link`, (await page.locator('[data-serving-list-link]').count()) === 0 && strip(await page.locator('[data-callout-serving]').innerText()) === 'serving list —')
+  servingAccess.canViewServingLists = false
 
   // ── 6: an open callout ──────────────────────────────────────────────────────────────────────
   await open('8000000605')

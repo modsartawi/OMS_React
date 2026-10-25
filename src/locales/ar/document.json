@@ -101,7 +101,9 @@
       "NoGps": "العنوان بلا موقع",
       "NoCandidates": "لا متجر في النطاق",
       "OneCandidate": "متجر واحد فقط في النطاق",
-      "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون"
+      "StockLeftFewerThanTwo": "أقل من متجرين لديهما المخزون",
+      "ServingListInactive": "قائمة الخدمة غير مفعّلة أو فارغة",
+      "DutyLeftFewerThanTwo": "أقل من متجرين في المناوبة"
     },
     "releaseReason": {
       "NoStock": "لا مخزون",
@@ -135,7 +137,10 @@
       "opened": "فُتح <at>{{at}}</at>",
       "fallback": "المتجر البديل <store>{{store}}</store>",
       "locked": "مقفل في <store>{{store}}</store>: لا تعديل للبنود ولا إلغاء لها ولا إلغاء من المتجر.",
-      "released": "رُفع القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>"
+      "released": "رُفع القفل <at>{{at}}</at> بواسطة <by>{{by}}</by>",
+      "servingList": "قائمة الخدمة",
+      "noServingList": "—",
+      "dutyRemoved": "استبعدتهم المناوبة <n>{{n}}</n>"
     },
     "ledger": {
       "title": "العروض",

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3042-serving-lists-and-store-duty-for-callouts-spec.md
 blocked-by: — (live: BackOffice 3047 deployed)
 ---
@@ -37,12 +37,12 @@ model · logic (inspector serving-list cell, reason labels) · inspector + sub-t
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] view: list name by language → id fallback → "—"; duty-removed hidden at 0; both new reasons have labels; an
+- [x] view: list name by language → id fallback → "—"; duty-removed hidden at 0; both new reasons have labels; an
       older payload without the four fields still parses (vitest)
-- [ ] drive script, LTR and RTL, against the board stub extended with an opened callout drawn from a list (duty removed
+- [x] drive script, LTR and RTL, against the board stub extended with an opened callout drawn from a list (duty removed
       3), a `ServingListInactive` and a `DutyLeftFewerThanTwo` not-opened row: the inspector, the not-competed tile,
       the sub-tab
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -63,3 +63,18 @@ the serving list and the duty-removed count, and the two new not-competed reason
 ## Open questions
 
 —
+
+## Comments
+
+### Built 2026-10-25 (stubbed)
+
+- Pure view in `core/dispatch/view.ts` (`servingListView`, `dutyRemovedView`, `servingListHref`) + the shared cell
+  `core/dispatch/ServingListName.tsx` (`canLink`); vitest `core/dispatch/serving-list.test.ts` (8).
+- The four fields are **optional** on `DispatchCallout`: a pre-3042 payload reads as no list ("—") and no duty count.
+- The link is wired on 567's probe (`servingListAccessQuery()` / `canViewServingLists`) on the board and on Delivery
+  details (asked there only when a callout carries a list). Its target `/oms/serving-lists/:id` arrives with 568.
+- Drives (STUBBED, LTR + RTL): `tools/dispatch-board-drive.mjs` 116/116, `tools/delivery-callout-drive.mjs` 96/96.
+- Rulings (overrulable): the reason words are lowercase like their siblings ("serving list inactive or empty",
+  "fewer than two stores on duty"), shown mid-sentence; the duty count reads "removed by duty n"; AR wording
+  ("قائمة الخدمة", "استبعدتهم المناوبة") wants an Arabic sign-off.
+- Live walk rides BackOffice 3047 deployed + `Callouts/Sql/002`, `003`.

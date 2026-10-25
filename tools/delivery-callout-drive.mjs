@@ -17,6 +17,9 @@
 //   8. Release lock on Delivery details: only on a locked delivery with Execute; the board's dialog;
 //      the POST body; after release the action goes and the release joins the spine;
 //   9. a failing callout read leaves the spine drawn with one inline error;
+//  11. (572, spec 3042) the sub-tab shows the serving list (name; id alone when gone; "—" when none, as an
+//      older payload without the fields reads) and "removed by duty n" only above 0, a link only with 567's View
+//      (canViewServingLists); the two new not-competed reasons ServingListInactive / DutyLeftFewerThanTwo read as words;
 //  10. (review of 2952) a Refresh keeps the Callout tab and its ledger on screen while it reads; a late
 //      callout answer for the delivery left behind never lands on the next one; an open callout the
 //      door sent no `secondsLeft` for says nothing of time (never "0:00 left").
@@ -144,6 +147,10 @@ const callout = (deliveryNumber, over = {}) => ({
 
 function takenCallout(no, rtl) {
   return callout(no, {
+    servingListId: 'SL7',
+    servingListNameEn: 'Riyadh north',
+    servingListNameAr: 'شمال الرياض',
+    dutyRemovedCount: 3,
     locked: true,
     awardedParty: 'R047',
     awardedAt: `${D}10:02:00`,
@@ -293,6 +300,45 @@ function cases(rtl) {
       ],
     },
     '8000000606': { doc: ready('8000000606'), logs, callouts: 'fail' },
+    // 572: the two new not-competed reasons (spec 3042).
+    '8000000608': {
+      doc: ready('8000000608'),
+      logs,
+      callouts: [
+        callout('8000000608', {
+          status: 'NOT_OPENED',
+          outcome: 'NotCompeted',
+          endReason: 'ServingListInactive',
+          candidateCount: 0,
+          servingListId: 'SL9',
+          servingListNameEn: '',
+          servingListNameAr: '',
+          dutyRemovedCount: 0,
+          endedAt: `${D}10:00:00`,
+          locksDelivery: false,
+          events: [ev('10:00:00', 'Opened')],
+        }),
+      ],
+    },
+    '8000000609': {
+      doc: ready('8000000609'),
+      logs,
+      callouts: [
+        callout('8000000609', {
+          status: 'NOT_OPENED',
+          outcome: 'NotCompeted',
+          endReason: 'DutyLeftFewerThanTwo',
+          candidateCount: 1,
+          servingListId: 'SL7',
+          servingListNameEn: 'Riyadh north',
+          servingListNameAr: 'شمال الرياض',
+          dutyRemovedCount: 4,
+          endedAt: `${D}10:00:00`,
+          locksDelivery: false,
+          events: [ev('10:00:00', 'Opened')],
+        }),
+      ],
+    },
     '8000000607': {
       doc: ready('8000000607'),
       logs: [log(1, local(new Date(now.getTime() - 60_000)), 'DCRT', 'Delivery created', 'web')],
@@ -312,6 +358,8 @@ function cases(rtl) {
   }
 }
 
+const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
+
 const browser = await chromium.launch()
 
 async function drive(dir) {
@@ -327,6 +375,8 @@ async function drive(dir) {
   const access = { canOpenDispatchBoard: true, canReleaseLock: true }
   const releases = []
   const calloutDelay = {}
+  // 567's probe: without View the serving list is plain text; with it, a link (572).
+  const servingAccess = { canViewServingLists: false, canEditServingLists: false }
   await page.route('**/api/**', async (route) => {
     const p = route.request().url().split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
@@ -348,6 +398,9 @@ async function drive(dir) {
       return route.fulfill(
         envelope({ deliveryNumber: body.deliveryNumber, calloutId: c.calloutId, heldBy: c.awardedParty, releasedAt: at, releasedBy: 'msartawi', reason: body.reason, note: '' }),
       )
+    }
+    if (p === 'ServingListWeb/Access') {
+      return route.fulfill(envelope({ ...servingAccess }))
     }
     const co = p.match(/^SdDocumentWeb\/Delivery\/(\d+)\/Callout$/)
     if (co) {
@@ -451,12 +504,22 @@ async function drive(dir) {
         tills: r('R090')?.querySelector('[data-tills]')?.textContent,
         ignore: r('R090')?.querySelector('[data-ignore-reason]')?.textContent,
       },
+      serving: p.querySelector('[data-callout-serving]')?.textContent ?? '',
+      servingId: p.querySelector('[data-callout-serving] [data-serving-list]')?.getAttribute('data-serving-list'),
+      servingBdi: p.querySelector('[data-callout-serving] [data-serving-list] > bdi')?.textContent ?? '',
+      servingLinks: p.querySelectorAll('[data-serving-list-link]').length,
+      duty: p.querySelector('[data-duty-removed]')?.textContent ?? '',
       log: [...p.querySelectorAll('[data-event-log] [data-event]')].map((x) => x.getAttribute('data-event')),
       logFirst: [...(p.querySelector('[data-event-log] [data-event]')?.children ?? [])].map((c) => c.textContent),
     }
   })
   check(`${label}: the Callout view replaces the spine`, !panel.spine && panel.selected === 'true', JSON.stringify(panel.selected))
   check(`${label}: panel header — outcome and lock`, panel.outcome === 'Taken' && /Locked at R047/.test(panel.locked), `${panel.outcome} | ${panel.locked}`)
+  check(
+    `${label}: 572 the serving list by name, not a link, and removed by duty 3`,
+    strip(panel.serving) === 'serving list Riyadh north' && panel.servingId === 'SL7' && panel.servingBdi === 'Riyadh north' && panel.servingLinks === 0 && strip(panel.duty) === 'removed by duty 3',
+    JSON.stringify([panel.serving, panel.servingId, panel.servingBdi, panel.servingLinks, panel.duty]),
+  )
   check(`${label}: ledger has one row per bid with its status`, JSON.stringify(panel.ledger) === JSON.stringify(['R047:TAKEN', 'R012:LOST', 'R030:PASSED', 'R090:EXPIRED']), JSON.stringify(panel.ledger))
   check(
     `${label}: ledger row — km, the four moments from offer, answer by`,
@@ -529,6 +592,50 @@ async function drive(dir) {
     outcome: document.querySelector('[data-callout-outcome]')?.textContent,
   }))
   check(`${label}: not competed — the sub-tab has no ledger, says why`, ncPanel.ledger === 0 && /only one store in reach/.test(ncPanel.reason) && ncPanel.outcome === 'Not competed', JSON.stringify(ncPanel))
+  const olderPanel = await page.evaluate(() => ({
+    serving: document.querySelector('[data-callout-serving]')?.textContent ?? '',
+    duty: document.querySelectorAll('[data-duty-removed]').length,
+  }))
+  check(`${label}: 572 an older payload (no list fields) reads "—" and no duty count`, strip(olderPanel.serving) === 'serving list —' && olderPanel.duty === 0, JSON.stringify(olderPanel))
+
+  // ── 11: the two new not-competed reasons (572) ──────────────────────────────────────────────
+  for (const [no, reason, words, serving, duty] of [
+    ['8000000608', 'ServingListInactive', 'serving list inactive or empty', 'serving list SL9', 0],
+    ['8000000609', 'DutyLeftFewerThanTwo', 'fewer than two stores on duty', 'serving list Riyadh north', 4],
+  ]) {
+    await open(no)
+    const spineText = await page.evaluate(() => [...document.querySelectorAll('[data-spine] [data-entry="callout"]')].map((x) => x.textContent).join(' | '))
+    check(`${label}: 572 ${reason} reads as words on the spine`, spineText.includes(words) && !spineText.includes(reason), spineText)
+    await page.locator('[data-activity-tab="callout"]').click()
+    await page.locator('[data-callout-panel]').waitFor({ timeout: 5000 })
+    const p = await page.evaluate(() => ({
+      reason: document.querySelector('[data-not-competed]')?.textContent ?? '',
+      serving: document.querySelector('[data-callout-serving]')?.textContent ?? '',
+      idLtr: document.querySelector('[data-callout-serving] [data-serving-list] bdi[dir="ltr"]')?.textContent ?? '',
+      duty: document.querySelector('[data-duty-removed]')?.textContent ?? '',
+    }))
+    check(
+      `${label}: 572 ${reason} on the sub-tab — words, the serving list, duty`,
+      p.reason.includes(words) && strip(p.serving) === serving && (duty ? strip(p.duty) === `removed by duty ${duty}` : p.duty === '') && (no === '8000000608' ? p.idLtr === 'SL9' : true),
+      JSON.stringify(p),
+    )
+    if (no === '8000000609') await page.locator('[data-callout-panel]').screenshot({ path: `${SHOTS}/${dir}-572-duty.png` })
+  }
+  // With View on serving lists the name links to the list's screen; a callout with no list stays "—".
+  servingAccess.canViewServingLists = true
+  await open('8000000609')
+  await page.locator('[data-activity-tab="callout"]').click()
+  await page.locator('[data-callout-serving] [data-serving-list-link]').waitFor({ timeout: 5000 }).catch(() => {})
+  const link = page.locator('[data-callout-serving] [data-serving-list-link]')
+  check(
+    `${label}: 572 with View the serving list links to its screen`,
+    (await link.count()) === 1 && (await link.getAttribute('href')) === '/oms/serving-lists/SL7' && strip(await link.innerText()) === 'Riyadh north',
+    String(await link.count()),
+  )
+  await open('8000000603')
+  await page.locator('[data-activity-tab="callout"]').click()
+  check(`${label}: 572 with View, a callout with no list stays "—", no link`, (await page.locator('[data-serving-list-link]').count()) === 0 && strip(await page.locator('[data-callout-serving]').innerText()) === 'serving list —')
+  servingAccess.canViewServingLists = false
 
   // ── 6: an open callout ──────────────────────────────────────────────────────────────────────
   await open('8000000605')

@@ -73,4 +73,13 @@ export const CALLOUT_IGNORE_REASONS = [
 ] as const
 
 /** Why a competed type's delivery was not put to a callout (`CalloutNotOpenedReasons`): its `endReason`. */
-export const CALLOUT_NOT_OPENED_REASONS = ['NoGps', 'NoCandidates', 'OneCandidate', 'StockLeftFewerThanTwo'] as const
+export const CALLOUT_NOT_OPENED_REASONS = [
+  'NoGps',
+  'NoCandidates',
+  'OneCandidate',
+  'StockLeftFewerThanTwo',
+  /** The type's serving list is deactivated, missing or has no enabled member (spec 3042). */
+  'ServingListInactive',
+  /** The duty check left fewer than two stores (spec 3042). */
+  'DutyLeftFewerThanTwo',
+] as const

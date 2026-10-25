@@ -78,7 +78,9 @@
     "NoGps": "the address has no location",
     "NoCandidates": "no store in reach",
     "OneCandidate": "only one store in reach",
-    "StockLeftFewerThanTwo": "fewer than two stores had the stock"
+    "StockLeftFewerThanTwo": "fewer than two stores had the stock",
+    "ServingListInactive": "serving list inactive or empty",
+    "DutyLeftFewerThanTwo": "fewer than two stores on duty"
   },
   "bidStatus": {
     "OPEN": "Awaiting",
@@ -117,6 +119,9 @@
     "lines_other": "{{n}} lines",
     "openedLine": "Opened <at>{{at}}</at> · candidates <n>{{n}}</n>",
     "fallbackLine": "fallback <s>{{store}}</s>",
+    "servingList": "Serving list",
+    "noServingList": "—",
+    "dutyRemoved": "removed by duty <n>{{n}}</n>",
     "notCompeted": "Why not competed",
     "candidates_one": "{{n}} candidate",
     "candidates_other": "{{n}} candidates",

@@ -82,6 +82,17 @@ export interface SessionAddress {
   districtCode: string
   districtName: string
   line: string
+  /**
+   * v1.12 (574, BackOffice spec 2482 contract §1) — Street2 alone, `null` when empty.
+   * The location card's Details row ticks *into Address line 2* only when this is `null`
+   * (575). Absent on a pre-1.12 server.
+   */
+  line2?: string | null
+  /** v1.12 — the order's national Short Address, `null` when empty. */
+  shortAddress?: string | null
+  /** v1.12 — the order's pin. Both `null` when there is none (the server's 0/0). */
+  gpsLat?: number | null
+  gpsLon?: number | null
 }
 
 export interface SessionSlot {
@@ -645,6 +656,14 @@ export interface SessionCapabilities {
    */
   canLinkRequest?: boolean
   /**
+   * v1.12 (574, BackOffice spec 2482 contract §1) — `status == open && deliveryType ==
+   * Delivery &&` the location link is configured on this SIS.Api. **No feature flag**:
+   * while SIS.Api has no public base URL this is `false`, and the console **hides** *Send
+   * location link* — never a dead control. No `capabilityReasons` entry. Absent on a
+   * pre-1.12 server, read strictly (absent ⇒ hidden).
+   */
+  canSendLocationLink?: boolean
+  /**
    * 🚩 **PROPOSED, ticket 176 — not on the frozen contract.** Why a `can*` above
    * is false, keyed by its own name (`canChangeFulfilment`), valued as a typed
    * code the client words. [153](.issues/153-console-keyboard-grammar.md) named
@@ -1133,4 +1152,139 @@ export interface StockElsewhereResult {
   withStock: number
   /** `withStock > stores.length`. */
   truncated: boolean
+}
+
+/* ------------------------------------------------------------------------------------
+ * The location link (574–576, BackOffice spec 2482, CC web contract v1.12). Wire shapes:
+ * `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-contract.md`.
+ *
+ * The four link calls (`CallCenterWeb/LocationLinks/*`) are NOT session verbs: they take
+ * no `requestId`, never return `SessionState`, and refuse with an HTTP 400 whose
+ * `errors[0].errorCode` is a `CCL-` code. Applying a capture IS a session verb
+ * (`ApplyLocation`, §3), typed here so the models land once.
+ * ---------------------------------------------------------------------------------- */
+
+/** Which seat sent the link. The web console always sends `OMSWEB`. */
+export type LocationLinkSeatKind = 'OMSWEB'
+
+/** `POST CallCenterWeb/LocationLinks/Send` body (§2). */
+export interface LocationLinkSendRequest {
+  seatKind: LocationLinkSeatKind
+  /** The session's `transactionId`. A Send on the same order supersedes its live link. */
+  orderContextId: string
+  /** The customer's mobile or a number the agent typed. The server validates and
+   *  normalises it; the console never does either. */
+  mobile: string
+  /** True when the number is not the attached customer's (in any spelling of it). */
+  mobileWasTyped: boolean
+}
+
+/** `Send`'s `data`. `maskedMobile` is all the screen ever gets back of the number. */
+export interface LocationLinkSent {
+  token: string
+  /** The server's clock: seconds the link has left (900 at mint). */
+  secondsLeft: number
+  maskedMobile: string
+}
+
+export type LocationLinkStatusValue = 'Live' | 'Captured' | 'Lapsed' | 'Superseded'
+
+/** Where the captured pin came from. `accuracyMeters` is always `0` for `MANUAL`. */
+export type LocationPinSource = 'DEVICE' | 'MANUAL'
+
+/**
+ * What the customer sent (§2). An unset stamp is `0001-01-01T00:00:00`. There is no
+ * Google text: none is stored.
+ */
+export interface LocationCapture {
+  gpsLat: number
+  gpsLon: number
+  pinSource: LocationPinSource
+  accuracyMeters: number
+  /** Normalised `AAAA9999`, or `''` when the customer skipped it. */
+  shortAddress: string
+  /** Free text, or `''`. */
+  addressDetails: string
+  capturedAt: string
+  appliedAt: string
+  appliedBy: string
+  discardedAt: string
+  discardedBy: string
+}
+
+/**
+ * `GET CallCenterWeb/LocationLinks/{token}/Status`'s `data`. `Live` carries
+ * `secondsLeft`; `Captured` carries `capture`; `Lapsed` / `Superseded` carry nothing.
+ */
+export interface LocationLinkStatus {
+  status: LocationLinkStatusValue
+  secondsLeft: number
+  capture: LocationCapture | null
+}
+
+/** `POST CallCenterWeb/LocationLinks/{token}/Discarded`'s `data` (576). */
+export interface LocationLinkDiscarded {
+  stamp: 'Discarded'
+  stampedAt: string
+}
+
+/** `POST CallCenterWeb/LocationLinks/Retire` body. */
+export interface LocationLinkRetireRequest {
+  orderContextId: string
+}
+
+/** `Retire`'s `data`. `0` is a no-op, not a refusal. */
+export interface LocationLinkRetired {
+  retired: number
+}
+
+/**
+ * `POST CallCenterWeb/ApplyLocation` body (§3, 575) — a session verb, answering
+ * `SessionState`. 🚩 **Only the ticks travel**: the values are read off the capture the
+ * server holds, so the client chooses which fields apply, never what they say.
+ */
+export interface ApplyLocationRequest {
+  transactionId: string
+  requestId: string
+  token: string
+  applyPin: boolean
+  applyShortAddress: boolean
+  applyDetails: boolean
+  saveToCustomer: boolean
+}
+
+/** The session-verb refusal code `ApplyLocation` answers when nothing changed (409). */
+export const LOCATION_LINK_REFUSED = 'LOCATION_LINK_REFUSED'
+
+/**
+ * The `CCL-` codes the console words (§4). Machine codes matched against the envelope,
+ * deliberately not localised. `CCL-00010`–`00016` are the public page's and never reach
+ * the console.
+ */
+export const CCL = {
+  /** Not configured — hide the action and drop the card. */
+  notConfigured: 'CCL-00001',
+  /** Mobile invalid — inline on the send dialog's number. */
+  mobileInvalid: 'CCL-00004',
+  /** Caller unknown — generic error. */
+  callerUnknown: 'CCL-00005',
+  /** No such link (or not yours) — drop the card, offer Send again. */
+  noSuchLink: 'CCL-00006',
+  /** 30 s since this order's last send — the server's message holds the seconds left. */
+  cooldown: 'CCL-00008',
+  /** 5 sends per order reached. */
+  orderLimit: 'CCL-00009',
+  /** 10 sends to this number today. */
+  mobileDailyLimit: 'CCL-00020',
+  /** Nothing captured yet — keep waiting. */
+  nothingCaptured: 'CCL-00030',
+  /** Already applied or discarded — refresh the session. */
+  alreadyStamped: 'CCL-00031',
+} as const
+
+export type CclCode = (typeof CCL)[keyof typeof CCL]
+
+/** `LOCATION_LINK_REFUSED`'s `detail` (§3): the link's own `CCL-` code. */
+export interface LocationLinkRefusalDetail {
+  code: CclCode | (string & {})
 }

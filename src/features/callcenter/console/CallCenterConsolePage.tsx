@@ -126,6 +126,8 @@ import CouponPicker from './CouponPicker'
 import { couponRemoveFailure, couponSurface } from './coupon-view'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
+import LocationLinkPanel from './LocationLinkPanel'
+import { shouldRetire } from './location-link-view'
 import NoteForm from './NoteForm'
 import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
 import {
@@ -546,6 +548,28 @@ function ConsoleSession() {
     retry: false,
   })
 
+  /** The orders this tab sent a location link on (574) — so an order that has since
+   *  flipped to collection, and lost `canSendLocationLink`, is still retired. */
+  const linkSentOn = useRef(new Set<string>())
+
+  /**
+   * 574 — the order in progress has ended (submitted, abandoned, or left for a fresh
+   * one): kill its live location link. 🚩 **The server does not retire for us.** Fire and
+   * forget: a failure is logged, never shown — the link lapses on its own at 15 minutes.
+   * Read off the cache BEFORE the caller replaces or drops the order's state.
+   */
+  const retireLocationLink = useCallback(
+    (endedId: string) => {
+      const ended = queryClient.getQueryData<SessionState>(sessionKey(endedId))
+      if (!shouldRetire(ended, linkSentOn.current.has(endedId))) return
+      linkSentOn.current.delete(endedId)
+      callCenterApi
+        .retireLocationLink(endedId)
+        .catch((error: unknown) => console.warn('location link retire failed', endedId, error))
+    },
+    [queryClient],
+  )
+
   /**
    * Abandon, then open — **in that order** (163), and only ever as a pair. The
    * verb returns no state (§8.2), so the landing is this callback's whole job:
@@ -555,6 +579,8 @@ function ConsoleSession() {
    */
   const startFresh = useCallback(
     (voidedId: string) => {
+      // 574 — the order is over however it ended; its location link goes with it.
+      retireLocationLink(voidedId)
       // An abandoned order must not be renderable from cache — the stale-tab
       // harm (127) starts with a basket that is still on screen.
       queryClient.removeQueries({ queryKey: sessionKey(voidedId) })
@@ -604,7 +630,7 @@ function ConsoleSession() {
       setFault(null)
       setRequestId(newRequestId())
     },
-    [queryClient],
+    [queryClient, retireLocationLink],
   )
 
   /**
@@ -1191,6 +1217,9 @@ function ConsoleSession() {
     // The last attempt's news belongs to the last attempt.
     onMutate: () => setPlaced(null),
     onSuccess: (result) => {
+      // 574 — a placed order's location link is retired, read off the state as it was
+      // BEFORE the submitted one replaces it (which can no longer send one).
+      retireLocationLink(transactionId!)
       // Law 2, as everywhere: the whole returned state goes through the one
       // write path. It is what closes the order on screen — the corrections, the
       // abandon and the header sections all read `status` and stand down.
@@ -2295,6 +2324,14 @@ function ConsoleSession() {
         // 🚩 175 §9 — the chips' sections land IN the centre column, under the row
         // they collapsed. The shell owns the place; this page owns the verbs.
         headerSection={headerSection}
+        // 574 — keyed by the order, so a new order starts holding no link.
+        locationLink={
+          <LocationLinkPanel
+            key={session.data.transactionId}
+            state={session.data}
+            onSent={() => linkSentOn.current.add(session.data!.transactionId)}
+          />
+        }
         // One open at a time (`openSection`), so this is the whole question the
         // sequence card needs answered before it stands down.
         headerSectionOpen={

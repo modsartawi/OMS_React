@@ -725,5 +725,31 @@
       "raisedAt": "Raised at store",
       "note": "Pharmacist's note"
     }
+  },
+  "location": {
+    "send": {
+      "action": "Send location link",
+      "title": "Send location link",
+      "body": "The customer gets a text with a link that works for 15 minutes. They drop a pin on their door, and it appears here.",
+      "mobile": "Mobile number",
+      "cancel": "Cancel",
+      "confirm": "Send link",
+      "sending": "Sending…",
+      "failed": "The link couldn't be sent. Nothing reached the customer — try again."
+    },
+    "refused": {
+      "orderLimit": "No more links for this order",
+      "mobileDailyLimit": "This number has had 10 links today"
+    },
+    "strip": {
+      "waiting": "Location link sent to <mobile>{{mobile}}</mobile> - waiting (<clock>{{clock}}</clock>)",
+      "unreachable": "Location link sent to <mobile>{{mobile}}</mobile> - Can't reach the server - still trying",
+      "expired": "Link expired - the customer didn't send a location",
+      "replaced": "This link was replaced - send a new one",
+      "received": "Location received",
+      "resend": "Resend",
+      "resendIn": "Resend (<seconds>{{seconds}}</seconds> s)",
+      "sendAgain": "Send again"
+    }
   }
 }

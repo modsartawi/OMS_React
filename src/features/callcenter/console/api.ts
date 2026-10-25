@@ -33,6 +33,11 @@ import type {
   DeliveryType,
   ItemSearchResult,
   LinkRequestResult,
+  LocationLinkRetired,
+  LocationLinkRetireRequest,
+  LocationLinkSendRequest,
+  LocationLinkSent,
+  LocationLinkStatus,
   LoyaltyMember,
   LoyaltySignupCapture,
   LoyaltySignupConfirmCapture,
@@ -1081,7 +1086,45 @@ export const callCenterApi = {
   getState(transactionId: string): Promise<SessionState> {
     return api.get<SessionState>('CallCenterWeb/State', { transactionId })
   },
+
+  /**
+   * `POST CallCenterWeb/LocationLinks/Send` → `{ token, secondsLeft, maskedMobile }`
+   * (574, BackOffice spec 2482 contract §2) — texts the caller a 15-minute link.
+   *
+   * 🚩 **Not a session verb.** No `requestId`, no `SessionState`, no `withBusyRetry`: the
+   * link lives in its own table, and a Send on the same order supersedes that order's live
+   * link server-side. The body is `location-link-view.ts`'s `sendBody` and only ever that.
+   * A refusal is HTTP 400 carrying a `CCL-` code (`sendRefusal` places it).
+   */
+  sendLocationLink(body: LocationLinkSendRequest): Promise<LocationLinkSent> {
+    return api.post<LocationLinkSent>('CallCenterWeb/LocationLinks/Send', body)
+  },
+
+  /**
+   * `GET CallCenterWeb/LocationLinks/{token}/Status` → `{ status, secondsLeft, capture }`
+   * — the waiting strip's 3 s poll. Only the sender may read it; anyone else gets
+   * `CCL-00006`, the same answer as an unknown token.
+   */
+  locationLinkStatus(token: string): Promise<LocationLinkStatus> {
+    return api.get<LocationLinkStatus>(`CallCenterWeb/LocationLinks/${encodeURIComponent(token)}/Status`)
+  },
+
+  /**
+   * `POST CallCenterWeb/LocationLinks/Retire` → `{ retired }` — kills the order's live
+   * link when the order in progress is submitted, abandoned or cleared. 🚩 **The server
+   * does not retire for us**; this is the console's job. `retired: 0` is a no-op. The
+   * caller fires and forgets: an un-retired link simply lapses at 15 minutes.
+   */
+  retireLocationLink(transactionId: string): Promise<LocationLinkRetired> {
+    return api.post<LocationLinkRetired>('CallCenterWeb/LocationLinks/Retire', {
+      orderContextId: transactionId,
+    } satisfies LocationLinkRetireRequest)
+  },
 }
+
+/** The status poll of ONE link, keyed by its token — so a Resend, which mints a new
+ *  token, starts a new poll rather than continuing the superseded one's (574). */
+export const locationLinkKey = (token: string) => ['callcenter', 'locationLink', token] as const
 
 /**
  * The collision backoff, in milliseconds before each retry (§6.1 / law 7).

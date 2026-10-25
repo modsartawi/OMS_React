@@ -16,6 +16,9 @@ import coupons from '@/locales/en/coupons.json'
 import notifications from '@/locales/en/notifications.json'
 import broadcast from '@/locales/en/broadcast.json'
 import callcenter from '@/locales/en/callcenter.json'
+// The console's Arabic is PARTIAL (574 is its first key set, the location link): a key it has
+// not translated falls back to English through `fallbackLng`, as the header sentence expects.
+import callcenterAr from '@/locales/ar/callcenter.json'
 import eligibility from '@/locales/en/eligibility.json'
 import authorizations from '@/locales/en/authorizations.json'
 // 🚩 `loy`, not `member` — a DELIBERATE deviation from "namespace == feature
@@ -271,6 +274,7 @@ i18n.use(initReactI18next).init({
       'prescription-sessions': prescriptionSessionsAr,
       'serving-lists': servingListsAr,
       'serial-refusals': serialRefusalsAr,
+      callcenter: callcenterAr,
     },
   },
   interpolation: { escapeValue: false },

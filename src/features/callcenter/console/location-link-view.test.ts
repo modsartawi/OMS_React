@@ -11,6 +11,7 @@ import { ApiError } from '@/core/api'
 import {
   formatClock,
   mobileWasTyped,
+  pollRefusal,
   resendCooldownSeconds,
   sendBody,
   sendRefusal,
@@ -241,5 +242,24 @@ describe('shouldRetire', () => {
   it('does not call Retire for an order that never could have had a link', () => {
     expect(shouldRetire(caps(false), false)).toBe(false)
     expect(shouldRetire(caps(undefined), false)).toBe(false)
+  })
+})
+
+describe('pollRefusal — a status poll that answered, but with a refusal', () => {
+  const refused = (code: string) =>
+    new ApiError('business', 'Refused.', 400, [{ errorCode: code, internalErrorCode: '', errorMessage: 'Refused.' }])
+
+  it('CCL-00006 (no such link, or not yours) drops the link and offers Send again — it is not a failed poll', () => {
+    expect(pollRefusal(refused('CCL-00006'))).toBe('gone')
+  })
+
+  it('CCL-00001 (not configured) hides the action', () => {
+    expect(pollRefusal(refused('CCL-00001'))).toBe('hide')
+  })
+
+  it('anything else is a failed poll, retried quietly at the same pace', () => {
+    expect(pollRefusal(refused('CCL-00005'))).toBe('failed')
+    expect(pollRefusal(new ApiError('network', 'offline', 0))).toBe('failed')
+    expect(pollRefusal(new Error('boom'))).toBe('failed')
   })
 })

@@ -42,7 +42,9 @@ export function resendCooldownSeconds(lastSentAt: number, now: number): number {
   return left <= 0 ? 0 : Math.ceil(left / 1000)
 }
 
-export type StripKind = 'waiting' | 'unreachable' | 'expired' | 'replaced' | 'received'
+/** `gone` (the link is no longer the agent's) and `discarded` are the panel's own facts, never
+ *  `stripView`'s: they come from a refusal or a stamp, not from the clock or the status. */
+export type StripKind = 'waiting' | 'unreachable' | 'expired' | 'replaced' | 'received' | 'gone' | 'discarded'
 
 export interface StripInput {
   /** The console's clock at the Send answer (the latest send, Resend included). */
@@ -178,4 +180,19 @@ export function shouldRetire(
   sentHere: boolean,
 ): boolean {
   return sentHere || state === undefined || state.capabilities.canSendLocationLink === true
+}
+
+/**
+ * What a status poll's REFUSAL means (§4) — as against a poll that never answered.
+ * - `gone`: `CCL-00006`, no such link for this agent (or not theirs). The server has answered
+ *   and will answer the same again, so it is not a failed poll: the link is dropped and the
+ *   strip offers Send again (574 counted it toward "can't reach the server");
+ * - `hide`: `CCL-00001`, not configured — the action goes for the rest of the order;
+ * - `failed`: anything else, retried quietly at the same pace.
+ */
+export function pollRefusal(err: unknown): 'gone' | 'hide' | 'failed' {
+  const code = apiErrorCode(err)
+  if (code === CCL.noSuchLink) return 'gone'
+  if (code === CCL.notConfigured) return 'hide'
+  return 'failed'
 }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\2482-the-call-centre-texts-the-customer-a-location-link-spec.md
 blocked-by: 574 (live: BackOffice 2489 + 861)
 ---
@@ -41,13 +41,44 @@ UI → app → BackOffice `ApplyLocation` (stubbed until 577)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `location-card.ts` (pure): capture + `header.address` → rows, default ticks and notes: replaces the
+- [x] `location-card.ts` (pure): capture + `header.address` → rows, default ticks and notes: replaces the
   earlier pin, Short Address absent or different, line2 filled vs empty, save-to-customer shown/hidden (vitest)
-- [ ] the Apply body field for field, with no captured values in it (vitest)
-- [ ] the refusal → screen mapping for the four `detail.code`s and the two save refusals (vitest)
-- [ ] the drive (`tools/callcenter-location-drive.mjs`, extended) against stubs, LTR and RTL: captured →
+- [x] the Apply body field for field, with no captured values in it (vitest)
+- [x] the refusal → screen mapping for the four `detail.code`s and the two save refusals (vitest)
+- [x] the drive (`tools/callcenter-location-drive.mjs`, extended) against stubs, LTR and RTL: captured →
   card → untick a row → Apply → chip, with the body asserted; every refusal; Open in Google Maps' URL
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
+
+**Done 2026-10-26.** `location-card.test.ts` 31/31 and `location-link-view.test.ts` 33/33 (3 new for the
+poll's `CCL-00006`); full suite 6482/6482; lint's four gates clean; the drive 207/207 **stubbed** (LTR +
+RTL, the 574 checks kept; `ApplyLocation` stubbed with the contract's seven-field body, the whole
+`SessionState` back, and the session verbs' refusal shape — `detail` = `{ code }` on the envelope's
+`data`, as `CallCenterWebEndpointHelpers.Refusal` writes it). Rulings, all overrulable:
+
+1. **No details given** — 2468 is silent. The Details row reads *"No details given"* with no tick and
+   no Copy (`mode: 'none'`).
+2. **A pre-1.12 address (no `line2` at all) reads as filled** — Copy, not a tick: a tick the server might
+   ignore is worse than a Copy.
+3. **"A different pin" is compared at six decimals** (the server's `DECIMAL(9,6)`); the coordinates and
+   the Maps URL are written at six decimals too.
+4. **`CCL-00030` retries once, automatically, one poll interval (3 s) later, with the same body** (same
+   `requestId` — the refused press recorded nothing). A second `CCL-00030` says *"The server has no
+   location for this link yet - try Apply again in a moment"* on the card; the agent can press Apply again.
+5. **`CCL-00031` re-reads both** the order (`getState`) and the link's status; the capture's own stamp
+   then draws the chip (at the capture's `appliedAt`) or a **"Location discarded"** strip with Send again.
+   That `discarded` strip kind lands here (576 owns the Discard button that stamps it).
+6. **`CCL-00006` is a new strip kind, `gone`**: *"This link is no longer available - send a new one"* with
+   Send again — on Apply AND on the status poll, where it is no longer a failed poll (574's open point):
+   the poll stops at once instead of reaching the 30 s note. `CCL-00001` on either hides the panel for
+   the order, as on Send.
+7. **The chip's hh:mm is the console's clock at the Apply answer** — `SessionState` carries no
+   `appliedAt`; only the `CCL-00031` path has the server's stamp.
+8. **The save refusals are in the console's words** (`location.card.refused.*`), not the server's
+   "not found", each ending "untick it and Apply again"; unticking clears the line.
+9. **Apply rides `runGuarded` with no `again`** — the card draws its own failure (164's ruling); a spent
+   `SESSION_BUSY` schedule lands on the card in the server's sentence. Apply is never disabled by the
+   ticks: everything unticked is a legal Apply that records the review (§3).
+10. **A capture already stamped never shows the card** — the chip or the discarded strip instead.
 
 ## Boundaries
 

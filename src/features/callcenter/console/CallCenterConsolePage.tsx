@@ -49,6 +49,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
+  ApplyLocationRequest,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
   DeliveryType,
@@ -569,6 +570,21 @@ function ConsoleSession() {
     },
     [queryClient],
   )
+
+  /**
+   * 575 — `ApplyLocation`, the location card's Apply. A SESSION VERB, so it rides this
+   * page's verb path like every other: `runGuarded` (the busy strip, the `SESSION_BUSY`
+   * schedule, the dead-order faults), and its `SessionState` through `applyState`. The
+   * `requestId` is the card's, minted once per press in the body, so a busy retry replays
+   * the same act. No `again`: the card draws this call's own failure (164's ruling).
+   */
+  const applyLocation = async (body: ApplyLocationRequest): Promise<SessionState> => {
+    const fresh = await runGuarded(() => callCenterApi.applyLocation(body))
+    queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+      applyState(current, fresh),
+    )
+    return fresh
+  }
 
   /**
    * Abandon, then open — **in that order** (163), and only ever as a pair. The
@@ -2330,6 +2346,8 @@ function ConsoleSession() {
             key={session.data.transactionId}
             state={session.data}
             onSent={() => linkSentOn.current.add(session.data!.transactionId)}
+            onApply={applyLocation}
+            onRefresh={refreshSession}
           />
         }
         // One open at a time (`openSection`), so this is the whole question the

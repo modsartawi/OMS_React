@@ -21,10 +21,22 @@
 //      without the dialog — and the poll moves to the new token;
 //   6. 30 s of failed polls → "Can't reach the server - still trying"; recovery → countdown;
 //   7. Lapsed → expired + Send again (opens the dialog); Superseded → replaced + Send again;
-//      Captured → "Location received" (575 turns it into the card);
+//      Captured → the card (575);
 //   8. the refusals: CCL-00004 inline at the number, CCL-00008 / 00009 / 00020 in the dialog,
 //      CCL-00001 hides the action;
 //   9. Retire `{ orderContextId }` on submit and on abandon; the strip goes with the order.
+// …and ticket 575's (the card, Apply, the chip — `ApplyLocation` answers the whole SessionState,
+// its refusals the session verbs' shape with `detail` = `{ code }` on `data`, contract §3):
+//   7c. the card replaces the strip in place; its rows (phone pin ±m, the coordinates as one
+//       isolated string, Open in Google Maps' URL in a new tab, the Short Address, details into
+//       line 2, save to customer unticked); untick a row → Apply → the chip; the body is the
+//       seven fields with no captured value; the chip stays;
+//   10. the notes: replaces the earlier pin, "Order has: …", a MANUAL pin, Short Address not
+//       given (no tick), line 2 filled (Copy, no tick), no customer (no save tick);
+//   11. the refusals: the two save refusals inline on the save tick (the card stays),
+//       CCL-00030 (kept, one retry on the next poll), CCL-00031 (re-read → chip, or the
+//       discarded strip), CCL-00006 (drop → Send again; on the status poll too, at once),
+//       CCL-00001 (the card and the action go).
 // Screenshots → tools/.callcenter-location-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -66,14 +78,14 @@ const ok = (c, m, detail = '') =>
 const PRICED = fixture('02-two-lines-priced')
 const MOBILE = '0551234567'
 const MASKED = '055•••4567'
-const stateOf = (transactionId, canSendLocationLink) => ({
+const stateOf = (transactionId, canSendLocationLink, { address = {}, customer = 'attached' } = {}) => ({
   ...PRICED,
   contractVersion: '1.12',
   transactionId,
   header: {
     ...PRICED.header,
     deliveryType: 'Delivery',
-    customer: { ...PRICED.header.customer, mobile: MOBILE },
+    customer: customer === null ? null : { ...PRICED.header.customer, mobile: MOBILE },
     address: {
       addressNumber: '77120',
       label: 'Home',
@@ -86,6 +98,7 @@ const stateOf = (transactionId, canSendLocationLink) => ({
       shortAddress: 'RIMA6904',
       gpsLat: null,
       gpsLon: null,
+      ...address,
     },
     slot: { slotId: 'S-1', from: '18:00', to: '21:00', isActive: true },
   },
@@ -112,11 +125,35 @@ const CAPTURE = {
   discardedAt: '0001-01-01T00:00:00',
   discardedBy: '',
 }
-const statusBody = (status, secondsLeft = 0) => ({
+const statusBody = (status, secondsLeft = 0, capture = CAPTURE) => ({
   status,
   secondsLeft: status === 'Live' ? secondsLeft : 0,
-  capture: status === 'Captured' ? CAPTURE : null,
+  capture: status === 'Captured' ? capture : null,
 })
+
+/** A session-verb refusal (CONTRACT §7, the door's `Refusal`): the code in `errors[0]`, the
+ *  server's sentence, and the code's extras on `data` — `LOCATION_LINK_REFUSED`'s `detail`
+ *  is `{ code: <CCL-> }` there (§3). */
+const codedRefusal = (code, status, message, data = null) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: status,
+    success: false,
+    message,
+    errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }],
+    data,
+  }),
+})
+const APPLY_REFUSALS = {
+  stamped: ['LOCATION_LINK_REFUSED', 409, 'The location was already applied or discarded.', { code: 'CCL-00031' }],
+  notYet: ['LOCATION_LINK_REFUSED', 409, 'Nothing has been captured yet.', { code: 'CCL-00030' }],
+  noLink: ['LOCATION_LINK_REFUSED', 409, 'No such location link.', { code: 'CCL-00006' }],
+  notConfigured: ['LOCATION_LINK_REFUSED', 409, 'The location link is not configured.', { code: 'CCL-00001' }],
+  noCustomer: ['NO_CUSTOMER_ATTACHED', 409, 'No customer attached to session.'],
+  notTheirs: ['ADDRESS_NOT_FOR_CUSTOMER', 403, 'Address 77120 not found for customer.'],
+}
+const isBlank = (text) => !text || !text.trim()
 
 const MODES = [{ dir: 'ltr' }, { dir: 'rtl' }]
 const browser = await chromium.launch()
@@ -126,7 +163,7 @@ const allErrors = []
  * One console, with its own stub server. `wire` is every call the page made; `link` is the
  * server's view of each token, and `next` queues the answer the next Send gets.
  */
-async function open({ dir }, { canSendLocationLink = true } = {}) {
+async function open({ dir }, { canSendLocationLink = true, address, customer, capture = CAPTURE } = {}) {
   if (canSendLocationLink === 'absent') canSendLocationLink = undefined
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
@@ -154,7 +191,9 @@ async function open({ dir }, { canSendLocationLink = true } = {}) {
     /** Queued Send answers: a refusal `[code, message]`, else success. */
     next: [],
     failPolls: false,
-    state: stateOf(TX1, canSendLocationLink),
+    /** Queued ApplyLocation answers: an `APPLY_REFUSALS` entry, else success. */
+    applyNext: [],
+    state: stateOf(TX1, canSendLocationLink, { address, customer }),
   }
   await page.route('**/api/**', async (route) => {
     const req = route.request()
@@ -168,7 +207,7 @@ async function open({ dir }, { canSendLocationLink = true } = {}) {
     if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
     if (p === 'CallCenterWeb/Open') {
       srv.opens++
-      if (srv.opens > 1) srv.state = stateOf(TX2, canSendLocationLink)
+      if (srv.opens > 1) srv.state = stateOf(TX2, canSendLocationLink, { address, customer })
       return route.fulfill(envelope({ outcome: 'opened', state: srv.state, existing: null }))
     }
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(srv.state))
@@ -177,7 +216,7 @@ async function open({ dir }, { canSendLocationLink = true } = {}) {
       if (queued) return route.fulfill(refusal(...queued))
       const token = `Tok${String(++srv.tokens).padStart(9, '0')}`
       for (const live of srv.link.values()) if (live.status === 'Live') live.status = 'Superseded'
-      srv.link.set(token, { status: 'Live', issuedAt: await page.evaluate(() => Date.now()) })
+      srv.link.set(token, { status: 'Live', issuedAt: await page.evaluate(() => Date.now()), capture })
       return route.fulfill(envelope({ token, secondsLeft: 900, maskedMobile: MASKED }))
     }
     const statusPath = /^CallCenterWeb\/LocationLinks\/([^/]+)\/Status$/.exec(p)
@@ -187,7 +226,23 @@ async function open({ dir }, { canSendLocationLink = true } = {}) {
       if (!held) return route.fulfill(refusal('CCL-00006', 'No such link.'))
       const pageNow = await page.evaluate(() => Date.now())
       const secondsLeft = Math.max(0, 900 - Math.floor((pageNow - held.issuedAt) / 1000))
-      return route.fulfill(envelope(statusBody(held.status, secondsLeft)))
+      return route.fulfill(envelope(statusBody(held.status, secondsLeft, held.capture)))
+    }
+    // §3 — the Apply verb. Only the ticks arrive; the values come off the capture the server
+    // holds, under its rules (a blank never wipes; details only into an EMPTY line 2), and
+    // the capture is stamped Applied in the same act. Answers the whole SessionState.
+    if (p === 'CallCenterWeb/ApplyLocation') {
+      const queued = srv.applyNext.shift()
+      if (queued) return route.fulfill(codedRefusal(...queued))
+      const held = srv.link.get(body.token)
+      const cap = held.capture
+      const address = { ...srv.state.header.address }
+      if (body.applyPin) Object.assign(address, { gpsLat: cap.gpsLat, gpsLon: cap.gpsLon })
+      if (body.applyShortAddress && !isBlank(cap.shortAddress)) address.shortAddress = cap.shortAddress
+      if (body.applyDetails && !isBlank(cap.addressDetails) && isBlank(address.line2)) address.line2 = cap.addressDetails
+      held.capture = { ...cap, appliedAt: '2026-10-26T10:00:00', appliedBy: 'a.alharbi' }
+      srv.state = { ...srv.state, version: srv.state.version + 1, header: { ...srv.state.header, address } }
+      return route.fulfill(envelope(srv.state))
     }
     if (p === 'CallCenterWeb/LocationLinks/Retire') return route.fulfill(envelope({ retired: 1 }))
     if (p === 'CallCenterWeb/Submit') {
@@ -229,6 +284,22 @@ async function run(page, ms) {
     await page.waitForTimeout(60)
   }
   await page.waitForTimeout(100)
+}
+
+const MAPS_URL = 'https://www.google.com/maps/search/?api=1&query=24.774265,46.738586'
+const rowText = async (page, field) =>
+  (await page.locator(`[data-cc-location-row="${field}"]`).innerText()).replace(/\s+/g, ' ').trim()
+const tickOf = (page, field) => page.locator(`[data-cc-location-tick="${field}"]`).isChecked()
+const lastApply = (srv) => calls(srv, /ApplyLocation$/).at(-1)?.body ?? null
+
+/** Send a link from a fresh order and have the customer send their location: the card. */
+async function toCard(page, srv, mobile) {
+  await page.locator('[data-cc-location-send]').click()
+  await sendFromDialog(page, mobile)
+  await page.locator('[data-cc-location-strip]').waitFor({ timeout: 5_000 })
+  srv.link.get(`Tok${String(srv.tokens).padStart(9, '0')}`).status = 'Captured'
+  await run(page, 3_500)
+  await page.locator('[data-cc-location-card]').waitFor({ timeout: 5_000 })
 }
 
 async function sendFromDialog(page, mobile) {
@@ -427,16 +498,103 @@ for (const mode of MODES) {
   ok(await page.locator('[data-cc-location-again]').isVisible(), `${at}: with Send again`)
   await page.screenshot({ path: `${SHOTS}/replaced-${at}.png` })
 
-  // ---- 7c. captured → "Location received" ----
+  // ---- 7c. captured → the card (575), in the strip's place ----
   await page.locator('[data-cc-location-again]').click()
   await sendFromDialog(page)
   await page.waitForTimeout(250)
   srv.link.get('Tok000000004').status = 'Captured'
   await run(page, 3_500)
-  ok((await stripState(page)) === 'received', `${at}: Captured → Location received`)
+  ok(
+    (await page.locator('[data-cc-location-card]').isVisible()) && (await page.locator('[data-cc-location-strip]').count()) === 0,
+    `${at}: Captured → the card replaces the strip`,
+  )
+  const cardBox = await page.locator('[data-cc-location-card]').boundingBox()
+  ok(cardBox && cardBox.y >= sentence.y + sentence.height - 1, `${at}: in the same place, under the header sentence`)
   const capturedPolls = calls(srv, /Tok000000004\/Status$/).length
   await run(page, 9_000)
   ok(calls(srv, /Tok000000004\/Status$/).length === capturedPolls, `${at}: Captured stops the poll`)
+
+  // The rows, against an order with no pin, the same Short Address and an empty line 2.
+  ok(
+    (await rowText(page, 'pin')).includes("Pinned by the customer's phone (±12 m)"),
+    `${at}: the pin row says the phone pinned it, with its accuracy`,
+    await rowText(page, 'pin'),
+  )
+  ok(
+    (await page.locator('[data-cc-location-coords]').innerText()).trim() === '24.774265, 46.738586' &&
+      (await page.locator('[data-cc-location-coords] bdi[dir="ltr"]').count()) === 1,
+    `${at}: the coordinates are one copyable string, isolated whole`,
+  )
+  const maps = page.locator('[data-cc-location-card] [data-cc-location-maps]')
+  ok(
+    (await maps.getAttribute('href')) === MAPS_URL &&
+      (await maps.getAttribute('target')) === '_blank' &&
+      /noopener/.test((await maps.getAttribute('rel')) ?? ''),
+    `${at}: Open in Google Maps is the search URL, in a new tab`,
+    await maps.getAttribute('href'),
+  )
+  ok((await page.locator('[data-cc-location-note="pin"]').count()) === 0, `${at}: no earlier pin, so nothing is replaced`)
+  ok(await tickOf(page, 'pin'), `${at}: the pin is ticked`)
+  ok(
+    (await page.locator('[data-cc-location-short]').innerText()).trim() === 'RIMA6904' &&
+      (await page.locator('[data-cc-location-note="shortAddress"]').count()) === 0 &&
+      (await tickOf(page, 'shortAddress')),
+    `${at}: the Short Address, ticked, with no note when the order has the same one`,
+  )
+  ok(
+    (await rowText(page, 'details')).includes('Details into Address line 2') &&
+      (await rowText(page, 'details')).includes('Villa 4, second gate') &&
+      (await tickOf(page, 'details')),
+    `${at}: the details tick into Address line 2 while it is empty`,
+  )
+  ok(
+    (await page.locator('[data-cc-location-tick="saveToCustomer"]').isVisible()) &&
+      !(await tickOf(page, 'saveToCustomer')) &&
+      (await rowText(page, 'saveToCustomer')).includes('Also save to this customer address'),
+    `${at}: Also save to this customer address is shown, unticked`,
+  )
+  await page.screenshot({ path: `${SHOTS}/card-${at}.png` })
+
+  // Untick a row, Apply → the chip; the body is the ticks and nothing else.
+  await page.locator('[data-cc-location-tick="shortAddress"]').uncheck()
+  await page.locator('[data-cc-location-apply]').click()
+  await page.locator('[data-cc-location-chip]').waitFor({ timeout: 5_000 })
+  const applies = calls(srv, /ApplyLocation$/)
+  const applied = applies.at(-1)?.body ?? {}
+  ok(applies.length === 1, `${at}: one Apply per press`)
+  ok(
+    JSON.stringify({ ...applied, requestId: '·' }) ===
+      JSON.stringify({
+        transactionId: TX1,
+        requestId: '·',
+        token: 'Tok000000004',
+        applyPin: true,
+        applyShortAddress: false,
+        applyDetails: true,
+        saveToCustomer: false,
+      }) && typeof applied.requestId === 'string' && applied.requestId.length > 0,
+    `${at}: the Apply body is the contract's seven fields — the untick travels`,
+    JSON.stringify(applied),
+  )
+  ok(
+    !['24.77', '46.73', 'RIMA6904', 'Villa', 'DEVICE'].some((v) => JSON.stringify(applied).includes(v)),
+    `${at}: and no captured value is in it`,
+  )
+  const chip = (await page.locator('[data-cc-location-chip]').innerText()).replace(/\s+/g, ' ').trim()
+  ok(/^Location applied \d\d:\d\d · Open in Google Maps$/.test(chip), `${at}: the chip reads "Location applied hh:mm · Open in Google Maps"`, chip)
+  ok(
+    (await page.locator('[data-cc-location-chip] [data-cc-location-maps]').getAttribute('href')) === MAPS_URL,
+    `${at}: and its map link is the pin's`,
+  )
+  ok((await page.locator('[data-cc-location-card]').count()) === 0, `${at}: the card is gone`)
+  await page.screenshot({ path: `${SHOTS}/chip-${at}.png` })
+  await run(page, 9_000)
+  ok(
+    (await page.locator('[data-cc-location-chip]').isVisible()) &&
+      calls(srv, /Tok000000004\/Status$/).length === capturedPolls &&
+      calls(srv, /ApplyLocation$/).length === 1,
+    `${at}: the chip stays, and nothing is asked again`,
+  )
 
   // ---- 9a. Retire on submit ----
   await page.locator('[data-cc-submit]').click()
@@ -447,7 +605,7 @@ for (const mode of MODES) {
     `${at}: placing the order retires its link — { orderContextId: transactionId }`,
     JSON.stringify(retireOnSubmit.map((w) => w.body)),
   )
-  ok((await page.locator('[data-cc-location]').count()) === 0, `${at}: and the strip goes with the open order`)
+  ok((await page.locator('[data-cc-location]').count()) === 0, `${at}: and the chip goes with the open order`)
   ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
   allErrors.push(...errors)
   await context.close()
@@ -511,6 +669,215 @@ for (const mode of MODES) {
       (await page.locator('[data-sonner-toast]').count()) === 0 && (await page.locator('[data-cc-submit-failed]').count()) === 0,
       `${at}: a failed Retire is logged, never shown`,
     )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- 10. the card's notes, against an order that already holds a pin, another Short
+  //          Address and a filled line 2; a hand-placed pin with no Short Address ----
+  {
+    const { context, page, errors, srv } = await open(mode, {
+      address: { gpsLat: 24.7, gpsLon: 46.6, shortAddress: 'RRRD2929', line2: null },
+    })
+    await toCard(page, srv)
+    ok(
+      (await page.locator('[data-cc-location-note="pin"]').innerText()).includes('Replaces the earlier pin'),
+      `${at}: an order with a different pin → "Replaces the earlier pin"`,
+    )
+    const has = page.locator('[data-cc-location-note="shortAddress"]')
+    ok(
+      (await has.innerText()).includes('Order has: RRRD2929') && (await has.locator('bdi[dir="ltr"]').innerText()) === 'RRRD2929',
+      `${at}: a different Short Address → "Order has: RRRD2929", the code isolated`,
+    )
+    ok(await tickOf(page, 'shortAddress'), `${at}: and it is still ticked`)
+    await page.screenshot({ path: `${SHOTS}/card-notes-${at}.png` })
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+  {
+    const { context, page, errors, srv } = await open(mode, {
+      address: { line2: 'Flat 2' },
+      capture: { ...CAPTURE, pinSource: 'MANUAL', accuracyMeters: 0, shortAddress: '' },
+    })
+    await toCard(page, srv)
+    ok((await rowText(page, 'pin')).includes('Placed by hand on the map'), `${at}: a MANUAL pin → "Placed by hand on the map"`)
+    ok(
+      (await page.locator('[data-cc-location-tick="shortAddress"]').count()) === 0 &&
+        (await page.locator('[data-cc-location-note="shortAddress"]').innerText()).includes(
+          "Not given - the order's Short Address is kept",
+        ),
+      `${at}: no Short Address given → no tick, "the order's Short Address is kept"`,
+    )
+    ok(
+      (await page.locator('[data-cc-location-tick="details"]').count()) === 0 &&
+        (await page.locator('[data-cc-location-copy]').isVisible()) &&
+        (await page.locator('[data-cc-location-note="details"]').innerText()).includes(
+          'Address line 2 is already filled - copy by hand',
+        ),
+      `${at}: line 2 filled → no tick, a Copy button and the note`,
+    )
+    await page.screenshot({ path: `${SHOTS}/card-copy-${at}.png` })
+    await page.locator('[data-cc-location-apply]').click()
+    await page.locator('[data-cc-location-chip]').waitFor({ timeout: 5_000 })
+    const body = lastApply(srv)
+    ok(
+      body && body.applyPin === true && body.applyShortAddress === false && body.applyDetails === false && body.saveToCustomer === false,
+      `${at}: Apply sends no tick the card did not offer`,
+      JSON.stringify(body),
+    )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+  {
+    const { context, page, errors, srv } = await open(mode, { customer: null })
+    await toCard(page, srv, MOBILE)
+    ok(
+      (await page.locator('[data-cc-location-row="saveToCustomer"]').count()) === 0,
+      `${at}: no customer attached → no save-to-customer tick`,
+    )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- 11. the refusals ----
+  {
+    const { context, page, errors, srv } = await open(mode)
+    await toCard(page, srv)
+
+    // The two save refusals: inline on the save tick, the card stays, untick and Apply again.
+    for (const [which, words] of [
+      ['noCustomer', 'There is no customer on this order'],
+      ['notTheirs', "This order's address is not in this customer's address book"],
+    ]) {
+      await page.locator('[data-cc-location-tick="saveToCustomer"]').check()
+      srv.applyNext.push(APPLY_REFUSALS[which])
+      await page.locator('[data-cc-location-apply]').click()
+      await page.locator('[data-cc-location-save-error]').waitFor({ timeout: 5_000 })
+      ok(
+        (await page.locator('[data-cc-location-save-error]').innerText()).includes(words) &&
+          (await page.locator('[data-cc-location-card]').isVisible()) &&
+          lastApply(srv).saveToCustomer === true,
+        `${at}: ${APPLY_REFUSALS[which][0]} → inline on the save tick, the card stays open`,
+      )
+      ok(
+        !(await page.locator('[data-cc-location-save-error]').innerText()).includes('not found'),
+        `${at}: in the console's words, not the server's "not found"`,
+      )
+    }
+    await page.screenshot({ path: `${SHOTS}/save-refused-${at}.png` })
+    await page.locator('[data-cc-location-tick="saveToCustomer"]').uncheck()
+    ok((await page.locator('[data-cc-location-save-error]').count()) === 0, `${at}: unticking clears it`)
+
+    // CCL-00030: the card stays and the same press is tried once more on the next poll.
+    srv.applyNext.push(APPLY_REFUSALS.notYet)
+    const before = calls(srv, /ApplyLocation$/).length
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(250)
+    ok(
+      (await page.locator('[data-cc-location-card]').isVisible()) &&
+        (await page.locator('[data-cc-location-card-error]').count()) === 0 &&
+        calls(srv, /ApplyLocation$/).length === before + 1,
+      `${at}: CCL-00030 keeps the card, quietly`,
+    )
+    srv.applyNext.push(APPLY_REFUSALS.notYet)
+    await run(page, 3_500)
+    const tried = calls(srv, /ApplyLocation$/)
+    ok(
+      tried.length === before + 2 && JSON.stringify(tried.at(-1).body) === JSON.stringify(tried.at(-2).body),
+      `${at}: and retries the same press once, on the next poll`,
+      String(tried.length - before),
+    )
+    ok(
+      (await page.locator('[data-cc-location-card-error]').innerText()).includes('The server has no location for this link yet'),
+      `${at}: a second "not yet" is said on the card`,
+    )
+    await run(page, 6_000)
+    ok(calls(srv, /ApplyLocation$/).length === before + 2, `${at}: and only once`)
+
+    // CCL-00031: re-read the order and the capture; its stamp draws the chip.
+    const link = srv.link.get('Tok000000001')
+    link.capture = { ...link.capture, appliedAt: '2026-10-26T10:05:00', appliedBy: 'm.saleh' }
+    srv.applyNext.push(APPLY_REFUSALS.stamped)
+    const states = calls(srv, /CallCenterWeb\/State$/).length
+    const statuses = calls(srv, /Tok000000001\/Status$/).length
+    await page.locator('[data-cc-location-apply]').click()
+    await page.locator('[data-cc-location-chip]').waitFor({ timeout: 5_000 })
+    ok(
+      calls(srv, /CallCenterWeb\/State$/).length > states && calls(srv, /Tok000000001\/Status$/).length > statuses,
+      `${at}: CCL-00031 re-reads the order and the link`,
+    )
+    const chip = (await page.locator('[data-cc-location-chip]').innerText()).replace(/\s+/g, ' ')
+    ok(chip.includes('Location applied 10:05'), `${at}: and shows the chip at the capture's own stamp`, chip)
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+  {
+    const { context, page, errors, srv } = await open(mode)
+    // CCL-00006 on Apply: drop the card, offer Send again.
+    await toCard(page, srv)
+    srv.applyNext.push(APPLY_REFUSALS.noLink)
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(300)
+    ok(
+      (await page.locator('[data-cc-location-card]').count()) === 0 && (await stripState(page)) === 'gone',
+      `${at}: CCL-00006 on Apply drops the card`,
+    )
+    ok(
+      (await page.locator('[data-cc-location-line]').innerText()).includes('This link is no longer available - send a new one') &&
+        (await page.locator('[data-cc-location-again]').isVisible()),
+      `${at}: and offers Send again`,
+    )
+    await page.screenshot({ path: `${SHOTS}/gone-${at}.png` })
+
+    // CCL-00031 over a DISCARDED capture: the strip, not the chip.
+    await page.locator('[data-cc-location-again]').click()
+    await sendFromDialog(page)
+    // The dead strip is already on screen: wait for the NEW link's, not any strip.
+    await page.locator('[data-cc-location-strip="waiting"]').waitFor({ timeout: 5_000 })
+    ok((await stripState(page)) === 'waiting', `${at}: Send again starts a new link`)
+    const second = srv.link.get('Tok000000002')
+    second.status = 'Captured'
+    await run(page, 3_500)
+    await page.locator('[data-cc-location-card]').waitFor({ timeout: 5_000 })
+    second.capture = { ...second.capture, discardedAt: '2026-10-26T10:06:00', discardedBy: 'm.saleh' }
+    srv.applyNext.push(APPLY_REFUSALS.stamped)
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(400)
+    ok(
+      (await stripState(page)) === 'discarded' &&
+        (await page.locator('[data-cc-location-chip]').count()) === 0 &&
+        (await page.locator('[data-cc-location-again]').isVisible()),
+      `${at}: CCL-00031 over a discarded capture → "Location discarded" with Send again`,
+    )
+
+    // CCL-00006 on the STATUS poll: the link is dropped at once — not a failed poll.
+    await page.locator('[data-cc-location-again]').click()
+    await sendFromDialog(page)
+    // The dead strip is already on screen: wait for the NEW link's, not any strip.
+    await page.locator('[data-cc-location-strip="waiting"]').waitFor({ timeout: 5_000 })
+    srv.link.delete('Tok000000003')
+    await run(page, 3_500)
+    ok((await stripState(page)) === 'gone', `${at}: CCL-00006 on the status poll → Send again within one poll, not the 30 s note`)
+    const polled = calls(srv, /Tok000000003\/Status$/).length
+    await run(page, 9_000)
+    ok(calls(srv, /Tok000000003\/Status$/).length === polled, `${at}: and the poll stops`)
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+  {
+    // CCL-00001 on Apply: the card and the action go.
+    const { context, page, errors, srv } = await open(mode)
+    await toCard(page, srv)
+    srv.applyNext.push(APPLY_REFUSALS.notConfigured)
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(300)
+    ok((await page.locator('[data-cc-location]').count()) === 0, `${at}: CCL-00001 on Apply drops the card and hides the action`)
     ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
     allErrors.push(...errors)
     await context.close()

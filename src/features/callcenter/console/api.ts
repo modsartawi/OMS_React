@@ -26,6 +26,7 @@ import { api, apiErrorCode } from '@/core/api'
 import type {
   AbandonResult,
   AgentDocumentSource,
+  ApplyLocationRequest,
   CallCenterAccessResult,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
@@ -1119,6 +1120,18 @@ export const callCenterApi = {
     return api.post<LocationLinkRetired>('CallCenterWeb/LocationLinks/Retire', {
       orderContextId: transactionId,
     } satisfies LocationLinkRetireRequest)
+  },
+
+  /**
+   * `POST CallCenterWeb/ApplyLocation` → `SessionState` (§3, 575) — a SESSION VERB, unlike
+   * the link calls above: it carries the order's `requestId` (replayed like every verb) and
+   * rides `runGuarded`'s `SESSION_BUSY` schedule. 🚩 **Only the ticks travel**
+   * (`location-card.ts`'s `applyBody`); the server reads the values off its own capture and
+   * stamps it Applied in the same transaction. Refuses `LOCATION_LINK_REFUSED` (with
+   * `detail.code` on `data`), `NO_CUSTOMER_ATTACHED` and `ADDRESS_NOT_FOR_CUSTOMER`.
+   */
+  applyLocation(body: ApplyLocationRequest): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/ApplyLocation', body)
   },
 }
 

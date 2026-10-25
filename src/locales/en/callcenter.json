@@ -749,7 +749,46 @@
       "received": "Location received",
       "resend": "Resend",
       "resendIn": "Resend (<seconds>{{seconds}}</seconds> s)",
-      "sendAgain": "Send again"
+      "sendAgain": "Send again",
+      "gone": "This link is no longer available - send a new one",
+      "discarded": "Location discarded"
+    },
+    "card": {
+      "title": "Location received",
+      "row": {
+        "pin": "Pin",
+        "shortAddress": "Short Address",
+        "details": "Details",
+        "detailsInto": "Details into Address line 2"
+      },
+      "pin": {
+        "device": "Pinned by the customer's phone (<accuracy>±{{meters}} m</accuracy>)",
+        "manual": "Placed by hand on the map",
+        "replaces": "Replaces the earlier pin"
+      },
+      "openMaps": "Open in Google Maps",
+      "shortAddress": {
+        "orderHas": "Order has: <code>{{code}}</code>",
+        "notGiven": "Not given - the order's Short Address is kept"
+      },
+      "details": {
+        "filled": "Address line 2 is already filled - copy by hand",
+        "none": "No details given",
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "saveToCustomer": "Also save to this customer address",
+      "apply": "Apply",
+      "applying": "Applying…",
+      "failed": "The location couldn't be applied. Nothing changed - try again.",
+      "notYet": "The server has no location for this link yet - try Apply again in a moment.",
+      "refused": {
+        "noCustomer": "There is no customer on this order to save the address to - untick it and Apply again.",
+        "notTheirs": "This order's address is not in this customer's address book - untick it and Apply again."
+      }
+    },
+    "chip": {
+      "applied": "Location applied <time>{{time}}</time> · <map>Open in Google Maps</map>"
     }
   }
 }

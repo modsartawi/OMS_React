@@ -17,19 +17,45 @@
  * - **The poll** follows the LATEST token (`locationLinkKey(token)`), every 3 s, only while
  *   that link is live and the order is open; react-query pauses it while the tab is hidden.
  *   A failed poll retries quietly at the same pace; 30 s of continuous failure turns the
- *   countdown into the "can't reach the server" note (`stripView`).
+ *   countdown into the "can't reach the server" note (`stripView`). A poll REFUSED with
+ *   `CCL-00006` is not a failed poll: the link is gone, and the strip offers Send again (575).
+ * - **The card** (575) replaces the strip, in the same place, when the poll answers
+ *   `Captured`: one row per field with its tick (`location-card.ts`), compared against the
+ *   order's address as it stands now. **Apply** is a session verb, so it is the PAGE's
+ *   (`onApply`, through `runGuarded`); the panel only builds its body — the ticks, never the
+ *   values — and words its refusals (`applyRefusal`).
+ * - **The chip** (575) — *Location applied hh:mm · Open in Google Maps* — stays until the
+ *   order in progress ends, which is when this panel is unmounted.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { MapPin } from 'lucide-react'
-import type { LocationLinkSendRequest, SessionState } from '@/core/models/callcenter'
+import type {
+  ApplyLocationRequest,
+  LocationCapture,
+  LocationLinkSendRequest,
+  SessionState,
+} from '@/core/models/callcenter'
+import { newRequestId } from '@/core/engine-session/request-id'
+import { formatTimeOfDay } from '@/core/util/date-format'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { useSecondClock } from '@/core/ui/second-clock'
 import { callCenterApi, locationLinkKey } from './api'
-import { LOCATION_POLL_MS, sendBody, sendRefusal, showsSendAction, stripView, type SendRefusal } from './location-link-view'
+import { applyBody, applyRefusal, captureStamp, locationCard, mapsUrl, type LocationTicks } from './location-card'
+import LocationCardView from './LocationCardView'
+import {
+  LOCATION_POLL_MS,
+  pollRefusal,
+  sendBody,
+  sendRefusal,
+  showsSendAction,
+  stripView,
+  type SendRefusal,
+  type StripView,
+} from './location-link-view'
 
 /** The link this order holds: the latest Send's answer, and the body that sent it (Resend
  *  re-sends that body, to the same number, without the dialog). */
@@ -41,13 +67,30 @@ interface HeldLink {
   body: LocationLinkSendRequest
 }
 
+/**
+ * What became of the held link, when the panel learned it from something other than the
+ * status: `applied` (this press's Apply landed — `at` is the console's clock), `gone`
+ * (`CCL-00006`: no such link for this agent), or `discarded` (576 stamps it).
+ */
+type LinkOutcome = { kind: 'applied'; at: string } | { kind: 'gone' } | { kind: 'discarded' }
+
+/** A card's text error: the server's sentence or the console's key. */
+type CardError = { text: string } | { key: string }
+
 export default function LocationLinkPanel({
   state,
   onSent,
+  onApply,
+  onRefresh,
 }: {
   state: SessionState
   /** Told after every successful Send, so the page knows this order has a link to Retire. */
   onSent?: () => void
+  /** `ApplyLocation` through the page's verb path (`runGuarded`: the busy strip, the
+   *  `SESSION_BUSY` retry, the dead-order faults), its answer written into the session. */
+  onApply: (body: ApplyLocationRequest) => Promise<SessionState>
+  /** Re-read the order (`CCL-00031`: the capture was already stamped). */
+  onRefresh: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const now = useSecondClock()
@@ -59,6 +102,16 @@ export default function LocationLinkPanel({
   const [refusal, setRefusal] = useState<SendRefusal | null>(null)
   /** When the current run of failed polls began; `null` while the last poll succeeded. */
   const [failingSince, setFailingSince] = useState<number | null>(null)
+  /** What became of the link outside the poll — an Apply, a `CCL-00006`. */
+  const [outcome, setOutcome] = useState<LinkOutcome | null>(null)
+  /** The agent's ticks, for the token they were made on; a new capture starts from the
+   *  card's defaults. */
+  const [ticked, setTicked] = useState<{ token: string; ticks: LocationTicks } | null>(null)
+  const [cardError, setCardError] = useState<CardError | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  /** `CCL-00030`'s one retry: the body waiting for the next poll, and whether it was spent. */
+  const [retryBody, setRetryBody] = useState<ApplyLocationRequest | null>(null)
+  const [retried, setRetried] = useState(false)
 
   const open = state.status === 'open'
   const customerMobile = state.header.customer?.mobile ?? null
@@ -75,6 +128,12 @@ export default function LocationLinkPanel({
         body,
       })
       setFailingSince(null)
+      setOutcome(null)
+      setTicked(null)
+      setCardError(null)
+      setSaveError(null)
+      setRetryBody(null)
+      setRetried(false)
       setDialogOpen(false)
       onSent?.()
     },
@@ -100,13 +159,19 @@ export default function LocationLinkPanel({
         setFailingSince(null)
         return read
       } catch (err) {
-        setFailingSince((since) => since ?? Date.now())
+        // 575 — a REFUSAL is an answer, not an outage: `CCL-00006` would be answered again
+        // on every poll, so the link is dropped rather than counted toward the note.
+        const why = pollRefusal(err)
+        if (why === 'gone') setOutcome({ kind: 'gone' })
+        else if (why === 'hide') setHidden(true)
+        else setFailingSince((since) => since ?? Date.now())
         throw err
       }
     },
     // Until Captured, Lapsed or Superseded, and only on an open order. The rule reads the
     // query's own answer: once the server has decided, nothing re-asks (not even a focus).
-    enabled: (query) => open && token !== null && (query.state.data?.status ?? 'Live') === 'Live',
+    enabled: (query) =>
+      open && token !== null && outcome === null && (query.state.data?.status ?? 'Live') === 'Live',
     refetchInterval: LOCATION_POLL_MS,
     // Failed polls retry quietly at the same pace — the interval IS the retry.
     retry: false,
@@ -115,9 +180,84 @@ export default function LocationLinkPanel({
   const read = status.data
     ? { status: status.data.status, secondsLeft: status.data.secondsLeft, at: status.dataUpdatedAt }
     : null
-  const view = held
-    ? stripView({ sentAt: held.sentAt, sentSecondsLeft: held.sentSecondsLeft, read, failingSince, now })
+  const capture: LocationCapture | null =
+    status.data?.status === 'Captured' ? (status.data.capture ?? null) : null
+  // A capture the server already stamped (an Apply that landed, `CCL-00031`'s re-read) is
+  // the chip or the strip, never a card.
+  const stamp = capture ? captureStamp(capture) : null
+  const applied = outcome?.kind === 'applied' ? outcome.at : stamp?.kind === 'applied' ? stamp.at : null
+  const settled: StripView['kind'] | null =
+    outcome?.kind === 'gone'
+      ? 'gone'
+      : outcome?.kind === 'discarded' || stamp?.kind === 'discarded'
+        ? 'discarded'
+        : null
+  const view: StripView | null = held
+    ? settled
+      ? { kind: settled, clock: null, resendIn: 0, polling: false }
+      : stripView({ sentAt: held.sentAt, sentSecondsLeft: held.sentSecondsLeft, read, failingSince, now })
     : null
+  const card =
+    capture && !applied && !settled
+      ? locationCard(capture, state.header.address, state.header.customer !== null)
+      : null
+  const ticks = card ? (ticked && ticked.token === token ? ticked.ticks : card.ticks) : null
+
+  const apply = useMutation({
+    mutationFn: (body: ApplyLocationRequest) => onApply(body),
+    onMutate: () => {
+      setCardError(null)
+      setSaveError(null)
+    },
+    onSuccess: () => {
+      setRetryBody(null)
+      setOutcome({ kind: 'applied', at: new Date().toISOString() })
+    },
+    onError: (err, body) => {
+      const placed = applyRefusal(err)
+      switch (placed.at) {
+        case 'refetch':
+          // Already applied or discarded (another press, another tab): the order and the
+          // capture are re-read, and the capture's own stamp draws the chip or the strip.
+          onRefresh()
+          void status.refetch()
+          return
+        case 'retry':
+          // Nothing captured yet: the card stays, and the same press is tried once more on
+          // the next poll. A second "not yet" is said on the card.
+          if (!retried) {
+            setRetried(true)
+            setRetryBody(body)
+          } else setCardError({ key: 'location.card.notYet' })
+          return
+        case 'gone':
+          setOutcome({ kind: 'gone' })
+          return
+        case 'hide':
+          setHidden(true)
+          setHeld(null)
+          return
+        case 'save':
+          setSaveError(placed.key)
+          return
+        case 'card':
+          setCardError('key' in placed ? { key: placed.key } : { text: placed.text })
+      }
+    },
+    retry: false,
+  })
+
+  // `CCL-00030`'s retry, one poll interval on — the same press (the same `requestId`: it
+  // was refused, so nothing was recorded against it). An unmount (the order ended) clears it.
+  const { mutate: applyMutate } = apply
+  useEffect(() => {
+    if (!retryBody) return
+    const timer = setTimeout(() => {
+      setRetryBody(null)
+      applyMutate(retryBody)
+    }, LOCATION_POLL_MS)
+    return () => clearTimeout(timer)
+  }, [retryBody, applyMutate])
 
   if (!open || hidden) return null
   if (!held && !showsSendAction(state.capabilities)) return null
@@ -140,7 +280,52 @@ export default function LocationLinkPanel({
           </Button>
         </div>
       )}
-      {held && view && (
+      {held && applied && capture && (
+        <div
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 self-start rounded-full border border-border bg-muted px-3 py-1 text-[12.5px]"
+          role="status"
+          data-cc-location-chip
+        >
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span dir="auto">
+            <Trans
+              t={t}
+              ns="callcenter"
+              i18nKey="location.chip.applied"
+              values={{ time: formatTimeOfDay(applied) }}
+              components={{
+                time: <Ltr />,
+                map: (
+                  <a
+                    href={mapsUrl(capture.gpsLat, capture.gpsLon)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                    data-cc-location-maps
+                  />
+                ),
+              }}
+            />
+          </span>
+        </div>
+      )}
+      {held && card && ticks && token && (
+        <LocationCardView
+          card={card}
+          ticks={ticks}
+          onTick={(next) => {
+            setTicked({ token, ticks: next })
+            if (!next.saveToCustomer) setSaveError(null)
+          }}
+          applying={apply.isPending || retryBody !== null}
+          onApply={() =>
+            state.transactionId && apply.mutate(applyBody(state.transactionId, newRequestId(), token, card, ticks))
+          }
+          error={cardError ? ('key' in cardError ? t(cardError.key) : cardError.text) : null}
+          saveError={saveError ? t(saveError) : null}
+        />
+      )}
+      {held && view && !applied && !card && (
         <LocationStrip
           view={view}
           maskedMobile={held.maskedMobile}
@@ -225,7 +410,7 @@ function LocationStrip({
   onSendAgain,
   error,
 }: {
-  view: ReturnType<typeof stripView>
+  view: StripView
   maskedMobile: string
   resending: boolean
   onResend: () => void
@@ -234,8 +419,9 @@ function LocationStrip({
 }) {
   const { t } = useTranslation('callcenter')
   const live = view.kind === 'waiting' || view.kind === 'unreachable'
-  const tone =
-    view.kind === 'expired' || view.kind === 'replaced'
+  /** A link that can no longer bring a location: Send again is the one act left. */
+  const dead = view.kind === 'expired' || view.kind === 'replaced' || view.kind === 'gone' || view.kind === 'discarded'
+  const tone = dead
       ? 'border-attention-border bg-attention-050 text-attention-800'
       : 'border-border bg-muted text-foreground'
   return (
@@ -271,6 +457,8 @@ function LocationStrip({
         {view.kind === 'expired' && t('location.strip.expired')}
         {view.kind === 'replaced' && t('location.strip.replaced')}
         {view.kind === 'received' && t('location.strip.received')}
+        {view.kind === 'gone' && t('location.strip.gone')}
+        {view.kind === 'discarded' && t('location.strip.discarded')}
       </span>
       {live && (
         <Button
@@ -295,7 +483,7 @@ function LocationStrip({
           )}
         </Button>
       )}
-      {(view.kind === 'expired' || view.kind === 'replaced') && (
+      {dead && (
         <Button variant="secondary" onClick={onSendAgain} data-cc-location-again>
           {t('location.strip.sendAgain')}
         </Button>

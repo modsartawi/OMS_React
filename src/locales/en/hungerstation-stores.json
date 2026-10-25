@@ -1,0 +1,254 @@
+{
+  "menu": {
+    "hungerstation": "HungerStation",
+    "stores": "Stores",
+    "materials": "Materials",
+    "orders": "Orders"
+  },
+  "title": "HungerStation stores",
+  "subtitle": "Stores onboarded on the direct HungerStation rail, their chain and vendor id, and how their stock sync is doing.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to HungerStation stores",
+    "deniedHint": "Your account does not hold the HungerStation stores grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "chain": "Chain",
+    "anyChain": "Any chain",
+    "sync": "Stock sync",
+    "syncAny": "Any",
+    "syncActive": "Active",
+    "syncPaused": "Paused",
+    "health": "Health",
+    "healthAny": "Any",
+    "healthOk": "OK",
+    "healthFailing": "Failing",
+    "healthSilent": "Silent",
+    "q": "Store",
+    "qPlaceholder": "Store code, name or vendor id",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "columns": {
+    "store": "Store",
+    "name": "Name",
+    "chain": "Chain",
+    "vendorId": "Vendor id",
+    "onboardedAt": "Onboarded at",
+    "onboardedBy": "Onboarded by",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by",
+    "sync": "Stock sync",
+    "health": "Health",
+    "lastFullRun": "Last full run",
+    "lastDeltaRun": "Last delta run",
+    "lastRun": "Last run (24 h)",
+    "lastStatus": "Last status",
+    "lastError": "Last error",
+    "actions": "Actions"
+  },
+  "sync": {
+    "active": "Active",
+    "paused": "Paused"
+  },
+  "health": {
+    "ok": "OK",
+    "failing": "Failing",
+    "silent": "Silent",
+    "paused": "Paused",
+    "unknown": "Unknown",
+    "failingHint": "The newest push in the last 24 hours failed.",
+    "silentHint": "This active store sent no push in the last 24 hours."
+  },
+  "pushStatus": {
+    "S": "Success",
+    "E": "Error"
+  },
+  "results": {
+    "loading": "Loading stores…",
+    "failedTitle": "The stores could not be loaded",
+    "failed": "Try again in a moment.",
+    "empty": "No HungerStation store matches.",
+    "count_one": "<n>{{n}}</n> store",
+    "count_other": "<n>{{n}}</n> stores"
+  },
+  "chain": {
+    "choose": "Choose a chain",
+    "loading": "Loading chains…",
+    "fallbackHint": "The chain list could not be read. Type the chain key; a wrong key is refused.",
+    "typePlaceholder": "Chain key"
+  },
+  "onboard": {
+    "button": "Onboard store",
+    "title": "Onboard a HungerStation store",
+    "note": "The store's HungerStation orders are matched by its vendor id, and its stock starts flowing to HungerStation. A store whose onboarding was removed comes back on the chain and vendor id given here.",
+    "store": "Store code",
+    "storePlaceholder": "e.g. 1234",
+    "vendorId": "Vendor id",
+    "vendorIdPlaceholder": "HungerStation vendor id",
+    "confirm": "Onboard",
+    "done": "Store onboarded",
+    "doneDetail": "{{store}} is on {{chain}} with vendor id {{vendorId}}."
+  },
+  "edit": {
+    "button": "Edit",
+    "title": "Edit a HungerStation store",
+    "note": "Correct the chain or vendor id of store <store>{{store}}</store>. Its orders are matched by the new vendor id from now on.",
+    "confirm": "Save",
+    "unchanged": "Change the chain or the vendor id first.",
+    "done": "Store updated",
+    "doneDetail": "{{store}} is on {{chain}} with vendor id {{vendorId}}.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "remove": {
+    "button": "Remove",
+    "title": "Remove a store's onboarding",
+    "note": "Remove the HungerStation onboarding of store <store>{{store}}</store>.",
+    "consequences": {
+      "syncStops": "Its stock sync stops and its orders are no longer fetched.",
+      "vendorIdFree": "Its vendor id becomes free for another store.",
+      "historyStays": "Its logs, orders and history stay readable.",
+      "notOffHungerStation": "It is not taken off HungerStation: that is done in HungerStation's portal."
+    },
+    "revive": "To bring it back, onboard the same store code again.",
+    "confirm": "Remove onboarding",
+    "done": "Onboarding removed",
+    "doneDetail": "Store {{store}} is no longer onboarded on HungerStation.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was already removed, or never onboarded. The list has been refreshed."
+  },
+  "pause": {
+    "button": "Pause",
+    "title": "Pause a store's stock sync",
+    "note": "Pause the stock sync of store <store>{{store}}</store>. No stock is pushed to HungerStation until it is resumed. Pausing does not take the store offline on HungerStation: it stays open there.",
+    "confirm": "Pause sync",
+    "done": "Stock sync paused",
+    "doneDetail": "Store {{store}}: its stock is no longer pushed to HungerStation.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "resume": {
+    "button": "Resume",
+    "title": "Resume a store's stock sync",
+    "note": "Resume the stock sync of store <store>{{store}}</store>. The scheduled pushes send its stock to HungerStation again.",
+    "confirm": "Resume sync",
+    "done": "Stock sync resumed",
+    "doneDetail": "Store {{store}}: its stock is pushed to HungerStation again.",
+    "gone": "This store is no longer onboarded",
+    "goneHint": "It was removed meanwhile. The list has been refreshed."
+  },
+  "syncNow": {
+    "button": "Sync now",
+    "running": "Pushing…",
+    "pausedHint": "The stock sync is paused. Resume it first.",
+    "title": "Push a store's stock now",
+    "note": "This is a full push of store <store>{{store}}</store>'s stock to the live HungerStation vendor <vendor>{{vendorId}}</vendor>, now. Every material is sent, not only the changes.",
+    "confirm": "Push now",
+    "done": "Stock pushed",
+    "doneDetail": "Store {{store}}: the full push is recorded.",
+    "resultTitle": "Push of store <store>{{store}}</store>",
+    "dismiss": "Dismiss",
+    "result": {
+      "S": "<n>{{rows}}</n> materials sent. Status: Success.",
+      "E": "<n>{{rows}}</n> materials sent. Status: Error."
+    },
+    "refusal": {
+      "paused": "The stock sync of this store is paused.",
+      "pausedHint": "Resume it first, then push. The list has been refreshed.",
+      "hungerStationFailed": "HungerStation refused the push or could not be reached.",
+      "hungerStationFailedHint": "The push was recorded as failed: it appears in the store's logs. HungerStation's answer:",
+      "busy": "A push is already running; try again shortly.",
+      "busyHint": "Another push of this store is running right now. Nothing was pushed or recorded.",
+      "gone": "This store is no longer onboarded",
+      "goneHint": "It was removed meanwhile. The list has been refreshed."
+    }
+  },
+  "logs": {
+    "button": "Logs",
+    "eyebrow": "Stock sync logs",
+    "hint": "Newest first, the last {{days}} days (at most {{max}} pushes).",
+    "close": "Close the logs",
+    "loading": "Loading the pushes…",
+    "failed": "The pushes could not be loaded",
+    "empty": "No push was recorded for this store in the last {{days}} days.",
+    "unknownStore": "No HungerStation store and no push is recorded for this store code.",
+    "running": "Running",
+    "openLines": "Lines",
+    "type": {
+      "F": "Full",
+      "D": "Delta"
+    },
+    "columns": {
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "status": "Status",
+      "rows": "Rows sent",
+      "error": "Error",
+      "lines": "Lines"
+    }
+  },
+  "lines": {
+    "back": "Back to the logs",
+    "eyebrow": "Lines of the push",
+    "hint": "A push's lines are kept for {{days}} days.",
+    "expired": "This push's detail is no longer here: push detail is kept for {{days}} days.",
+    "loading": "Loading the lines…",
+    "failed": "The lines could not be loaded",
+    "noMatch": "No line of this push matches that material number.",
+    "noneSent": "This push sent no material.",
+    "showing": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "notSent": "Not sent by this push",
+    "filters": {
+      "material": "Material number",
+      "materialPlaceholder": "Exact, e.g. 601624",
+      "apply": "Filter",
+      "clear": "Clear"
+    },
+    "columns": {
+      "material": "Material",
+      "active": "Active",
+      "quantity": "Quantity",
+      "maximumSalesQuantity": "Max sales qty",
+      "price": "Price",
+      "sentAt": "Sent at"
+    },
+    "active": {
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "material": {
+    "button": "Material history",
+    "eyebrow": "A material's history",
+    "hint": "Every line sent for one material at this store in the last {{days}} days, newest first (at most {{max}}).",
+    "close": "Close the material history",
+    "material": "Material number",
+    "materialPlaceholder": "e.g. 601624",
+    "search": "Look up",
+    "prompt": "Type a material number to see what HungerStation was sent for it at this store.",
+    "loading": "Loading the material's history…",
+    "failed": "The material's history could not be loaded",
+    "empty": "Material <m>{{material}}</m> was not sent to this store in the last {{days}} days.",
+    "capped": "Only the newest {{max}} lines are shown; older lines from the last {{days}} days are not.",
+    "columns": {
+      "sentAt": "Sent at",
+      "type": "Push type",
+      "status": "Push status"
+    }
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. It is kept with the change.",
+    "tooLong": "At most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The change was refused",
+    "failedHint": "Try again in a moment."
+  }
+}

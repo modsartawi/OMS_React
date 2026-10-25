@@ -107,6 +107,19 @@ import deliverectCatalogAr from '@/locales/ar/deliverect-catalog.json'
 // Deliverect delivery platforms and terms (ticket 482), English and Arabic together.
 import deliverectTerms from '@/locales/en/deliverect-terms.json'
 import deliverectTermsAr from '@/locales/ar/deliverect-terms.json'
+// HungerStation stores (BackOffice spec 3028, ticket 551) — the HungerStation area's first namespace,
+// English and Arabic together. It also holds the area's shared words: the menu group and all three
+// leaf labels (`menu.*`), the 555/556 placeholders, and the reason dialog
+// `@/core/hungerstation/ReasonDialog` draws for every HungerStation write.
+import hungerstationStores from '@/locales/en/hungerstation-stores.json'
+import hungerstationStoresAr from '@/locales/ar/hungerstation-stores.json'
+// HungerStation materials (BackOffice spec 3028, ticket 555). Namespace == feature name, English and
+// Arabic together. The reason dialog's chrome stays in `hungerstation-stores` (the area's binding).
+import hungerstationMaterials from '@/locales/en/hungerstation-materials.json'
+import hungerstationMaterialsAr from '@/locales/ar/hungerstation-materials.json'
+// HungerStation orders monitor (ticket 556), English and Arabic together.
+import hungerstationOrders from '@/locales/en/hungerstation-orders.json'
+import hungerstationOrdersAr from '@/locales/ar/hungerstation-orders.json'
 // Delivery statistics (BackOffice brief 2641, ticket 484). Namespace == feature name, English and
 // Arabic together. 485–487 add their keys here rather than minting a second namespace.
 import deliveryStatistics from '@/locales/en/delivery-statistics.json'
@@ -161,7 +174,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions'],
   resources: {
     en: {
       common,
@@ -203,6 +216,9 @@ i18n.use(initReactI18next).init({
       'deliverect-orders': deliverectOrders,
       'deliverect-catalog': deliverectCatalog,
       'deliverect-terms': deliverectTerms,
+      'hungerstation-stores': hungerstationStores,
+      'hungerstation-materials': hungerstationMaterials,
+      'hungerstation-orders': hungerstationOrders,
       'delivery-statistics': deliveryStatistics,
       'dispatch-scorecard': dispatchScorecard,
       'pick-support': pickSupport,
@@ -236,6 +252,9 @@ i18n.use(initReactI18next).init({
       'deliverect-orders': deliverectOrdersAr,
       'deliverect-catalog': deliverectCatalogAr,
       'deliverect-terms': deliverectTermsAr,
+      'hungerstation-stores': hungerstationStoresAr,
+      'hungerstation-materials': hungerstationMaterialsAr,
+      'hungerstation-orders': hungerstationOrdersAr,
       'delivery-statistics': deliveryStatisticsAr,
       'dispatch-scorecard': dispatchScorecardAr,
       'pick-support': pickSupportAr,

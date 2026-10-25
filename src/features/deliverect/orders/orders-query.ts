@@ -1,5 +1,6 @@
 import type { DeliverectOrderOutcome, DeliverectOrdersQuery, LocalDate } from '@/core/models/deliverect'
-import { fromIsoDate, toIsoDate } from '@/core/util/date-format'
+import { type WindowProblem as CoreWindowProblem, windowProblem as coreWindowProblem } from '@/core/util/date-window'
+import { keyChoices } from '@/core/util/filter-choices'
 
 // The Deliverect orders monitor's search (spec 2615, ticket 478): the URL ⇄ query mapping and the
 // date window rule. Pure: no React, no `t`.
@@ -17,40 +18,15 @@ export const ORDERS_PAGE_SIZE = 200
 /** The contract's five outcomes, in the order the filter offers them. */
 export const ORDER_OUTCOMES: readonly DeliverectOrderOutcome[] = ['created', 'refused', 'droppedLines', 'cancelled', 'statusFailed']
 
-/**
- * Today as the browser's LOCAL calendar date, built from its parts (`toIsoDate` reads
- * getFullYear / getMonth / getDate) — never `toISOString()`, which would hand back yesterday
- * after midnight in Riyadh.
- */
-export function localToday(now: Date = new Date()): LocalDate {
-  return toIsoDate(now)
-}
+/** Today as the browser's LOCAL calendar date (the core window rule's, `@/core/util/date-window`). */
+export { localToday, windowDays } from '@/core/util/date-window'
 
-/** A strict `yyyy-MM-dd` that names a real day (no 2026-02-30), else `null`. */
-function validDate(value: string | null): LocalDate | null {
-  const date = fromIsoDate(value)
-  return date && toIsoDate(date) === value?.trim() ? toIsoDate(date) : null
-}
-
-/** The window's day count, both ends included; `null` when either end is not a date. */
-export function windowDays(from: LocalDate, to: LocalDate): number | null {
-  const a = fromIsoDate(from)
-  const b = fromIsoDate(to)
-  if (!a || !b) return null
-  // Calendar days from the date parts, so no clock change can make a day 23 or 25 hours long.
-  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000
-  return day(b) - day(a) + 1
-}
-
-/** Why a window may not be sent, or `null` when it may. */
-export type WindowProblem = 'invalid' | 'reversed' | 'tooLong'
+/** Why a window may not be sent, or `null` when it may. Deliverect's contract names no date bounds. */
+export type WindowProblem = Exclude<CoreWindowProblem, 'outOfBounds'>
 
 /** The window rule, checked before any call: both dates real, `from` ≤ `to`, at most 31 days. */
 export function windowProblem(from: LocalDate, to: LocalDate): WindowProblem | null {
-  const days = windowDays(from, to)
-  if (days === null || validDate(from) === null || validDate(to) === null) return 'invalid'
-  if (days < 1) return 'reversed'
-  return days > ORDERS_MAX_WINDOW_DAYS ? 'tooLong' : null
+  return coreWindowProblem(from, to, { maxDays: ORDERS_MAX_WINDOW_DAYS }) as WindowProblem | null
 }
 
 /**
@@ -100,10 +76,7 @@ export function ordersToParams(query: DeliverectOrdersQuery): URLSearchParams {
   return out
 }
 
-/** A repeatable filter's value with one key switched on or off. */
-export function toggled<T>(values: readonly T[], value: T): T[] {
-  return values.includes(value) ? values.filter((v) => v !== value) : [...values, value]
-}
+export { toggled } from '@/core/util/filter-choices'
 
 /**
  * The platform keys the filter offers, sorted and distinct: the `Platforms` read's keys when it
@@ -116,6 +89,5 @@ export function platformChoices(
   rowKeys: readonly string[],
   selected: readonly string[],
 ): string[] {
-  const keys = platforms ? platforms.map((p) => p.platformKey) : rowKeys
-  return [...new Set([...keys, ...selected].filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  return keyChoices(platforms?.map((p) => p.platformKey), rowKeys, selected)
 }

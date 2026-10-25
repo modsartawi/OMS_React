@@ -690,6 +690,26 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
         }),
       },
+      // The HungerStation area (BackOffice spec 3028, ticket 551) — the DIRECT rail: Stores (551),
+      // Materials (555) and Orders (556), each its own page.
+      {
+        path: 'hungerstation/stores',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/stores/StoresPage')).default,
+        }),
+      },
+      {
+        path: 'hungerstation/materials',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/materials/MaterialsPage')).default,
+        }),
+      },
+      {
+        path: 'hungerstation/orders',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/orders/OrdersPage')).default,
+        }),
+      },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The
       // Promotions list (ticket 534, BackOffice brief 2848: `/campaigns` lists the promotions, no
       // longer every campaign), a promotion's page, then one campaign's workspace: a shell with the campaign's own menu and its pages as children

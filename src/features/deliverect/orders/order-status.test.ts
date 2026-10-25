@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/deliverect-orders.json'
 import ar from '@/locales/ar/deliverect-orders.json'
-import { ORDER_STATUS, documentPath, needsPerson, outcomeLabel, rawView, retryOffered, statusLabel } from './order-status'
+import { ORDER_STATUS, documentPath, needsPerson, outcomeLabel, retryOffered, statusLabel } from './order-status'
 import { ORDER_OUTCOMES } from './orders-query'
 
 const has = (locale: unknown, key: string) =>
@@ -73,45 +73,5 @@ describe('documentPath', () => {
   it('opens the document page, the number encoded', () => {
     expect(documentPath('4500012345')).toBe('/oms/document/4500012345')
     expect(documentPath('A/1')).toBe('/oms/document/A%2F1')
-  })
-})
-
-describe('rawView', () => {
-  it('re-indents a body that parses', () => {
-    expect(rawView('{"a":1,"b":[1,2],"c":{}, "d":[]}')).toEqual({
-      text: '{\n  "a": 1,\n  "b": [\n    1,\n    2\n  ],\n  "c": {},\n  "d": []\n}',
-      pretty: true,
-    })
-  })
-
-  it('🚩 never alters a value: 1.10, a 20-digit number, an escape and spaces inside a string survive', () => {
-    const body = '{"price":1.10,"id":12345678901234567890,"name":"\\u0041 b  \\"q\\" , : {"}'
-    const { text, pretty } = rawView(body)
-    expect(pretty).toBe(true)
-    expect(text).toContain('"price": 1.10')
-    expect(text).toContain('"id": 12345678901234567890')
-    expect(text).toContain('"name": "\\u0041 b  \\"q\\" , : {"')
-    // White space aside, the text is the body byte for byte.
-    const strip = (s: string) => {
-      let out = ''
-      let inString = false
-      for (let i = 0; i < s.length; i++) {
-        const c = s[i]
-        if (inString) {
-          out += c
-          if (c === '\\') out += s[++i]
-          else if (c === '"') inString = false
-        } else if (c === '"') {
-          inString = true
-          out += c
-        } else if (!/\s/.test(c)) out += c
-      }
-      return out
-    }
-    expect(strip(text)).toBe(strip(body))
-  })
-
-  it('a body that does not parse is shown exactly as received', () => {
-    expect(rawView('not json {')).toEqual({ text: 'not json {', pretty: false })
   })
 })

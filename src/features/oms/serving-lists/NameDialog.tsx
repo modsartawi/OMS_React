@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import type { ServingListRow } from '@/core/models/serving-list'
+import { servingListHref, servingListName } from '@/core/serving-list/view'
 import Ltr from '@/core/ui/Ltr'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { servingListsApi } from './api'
 import { NAME_MAX, nameBody, nameCheck, type NameForm, type NameProblem } from './name-form'
-import WriteDialog, { listName, useRefreshList } from './WriteDialog'
+import WriteDialog, { useRefreshList } from './WriteDialog'
 import { writeRefusal } from './write-refusal'
 
 const FIELD = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60'
@@ -33,8 +34,8 @@ export default function NameDialog({ list, onClose }: { list?: ServingListRow; o
     onSuccess: (row) => {
       onClose()
       refresh(row.servingListId)
-      toast.success(t(`writes.${mode}.done`, { name: fsi(listName(row, i18n.language)) }))
-      if (!list) navigate(`/oms/serving-lists/${encodeURIComponent(row.servingListId)}`)
+      toast.success(t(`writes.${mode}.done`, { name: fsi(servingListName(row, i18n.language)) }))
+      if (!list) navigate(servingListHref(row.servingListId))
     },
     onError: (err) => {
       const r = writeRefusal(err)

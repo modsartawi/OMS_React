@@ -107,3 +107,8 @@ re-enables and removes a member, and is warned before deactivating a list that a
   - a deactivate's answer `warning` toasts as a warning with the server text as its description;
   - the dialog fixes deactivate vs reactivate at open, so a refetch behind it never flips what Confirm sends;
   - toasts name the list in the reader's language (AR name once Arabic is switched on).
+- **Review fixes (2026-10-25, branch ticket/3042-review):** the member write dialog no longer lives in the grid
+  cell — the cell asks (`context.onWrite`) and `MembersTab` renders it, so an SVL-00004 refresh that drops the row
+  keeps the dialog, its banner and the typed note (writes drive now removes the row server-side and checks it);
+  `writeRefusal` is the shared `./refusal` skeleton; `NoteField` extracted from `WriteDialog`; `listName` replaced
+  by `core/serving-list/view`'s `servingListName`; NameDialog navigates via `servingListHref`.

@@ -4,25 +4,24 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Check, ClipboardPaste, Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { SERVING_LIST_ERRORS, type ServingListAddStoresRequest, type ServingListRow, type ServingListStoreRow } from '@/core/models/serving-list'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
+import type { ServingListAddStoresRequest, ServingListRow, ServingListStoreRow } from '@/core/models/serving-list'
+import { servingListName } from '@/core/serving-list/view'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { useDebounced } from '@/core/util/use-debounced'
-import { SERVING_LISTS_KEY, SERVING_LIST_MEMBERS_KEY, servingListsApi } from './api'
+import { servingListsApi } from './api'
 import { addStoresRefusal, isBadCode } from './add-stores-refusal'
 import { EMPTY_BASKET, addHits, addPasted, basketBody, inBasket, pickable, removeCodes, toggleHit, type Basket } from './basket'
+import { NoteField, useRefreshList } from './WriteDialog'
 
 /** The search door's page: its default, said aloud when the answer fills it. */
 const STORE_SEARCH_TAKE = 50
-/** The door clamps a note to this. */
-const NOTE_MAX = 500
-
 /** The picker's own key (under the feature's prefix); a successful add re-reads it, `onList` having changed. */
 const STORES_KEY = ['oms', 'serving-lists', 'stores'] as const
 
@@ -54,8 +53,9 @@ const FIELD =
 export default function AddStoresDialog({ list, onClose }: { list: ServingListRow; onClose: () => void }) {
   const { t, i18n } = useTranslation('serving-lists')
   const queryClient = useQueryClient()
+  const refresh = useRefreshList()
   const id = list.servingListId
-  const listName = i18n.language === 'ar' ? list.nameAr : list.nameEn
+  const listName = servingListName(list, i18n.language)
 
   const [basket, setBasket] = useState<Basket>(EMPTY_BASKET)
   const [note, setNote] = useState('')
@@ -66,14 +66,17 @@ export default function AddStoresDialog({ list, onClose }: { list: ServingListRo
       const n = body.storeCodes.length
       toast.success(t('addStores.done', { count: n, n: fsi(formatFigure(n)), list: fsi(listName) }))
       onClose()
-      void queryClient.invalidateQueries({ queryKey: [...SERVING_LIST_MEMBERS_KEY, id] })
-      void queryClient.invalidateQueries({ queryKey: SERVING_LISTS_KEY })
+      // Lists, this list's Members and Changes (an add logs a change), and the picker's `onList`.
+      refresh(id)
       void queryClient.invalidateQueries({ queryKey: [...STORES_KEY, id] })
     },
     onError: (err) => {
-      // The list is gone: the Lists read is stale.
-      if (apiErrorCode(err) === SERVING_LIST_ERRORS.UnknownList)
-        void queryClient.invalidateQueries({ queryKey: SERVING_LISTS_KEY })
+      // The list is gone, or a code is already on it: the screen is behind the server.
+      const r = addStoresRefusal(err)
+      if ((r.kind === 'refused' || r.kind === 'badCodes') && r.stale) {
+        refresh(id)
+        void queryClient.invalidateQueries({ queryKey: [...STORES_KEY, id] })
+      }
     },
   })
 
@@ -117,22 +120,7 @@ export default function AddStoresDialog({ list, onClose }: { list: ServingListRo
           </div>
         </div>
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('addStores.note.label')}
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            dir="auto"
-            maxLength={NOTE_MAX}
-            disabled={busy}
-            className={FIELD + ' py-1.5 font-normal'}
-            data-add-stores-note=""
-          />
-          <span className="self-end font-mono text-[11px] font-normal text-muted-foreground">
-            <Ltr>{formatCount(note.length, NOTE_MAX)}</Ltr>
-          </span>
-        </label>
+        <NoteField label={t('addStores.note.label')} value={note} onChange={setNote} disabled={busy} hook="add-stores-note" rows={2} />
 
         {refusal?.kind === 'notGranted' && (
           <ErrorBanner className="p-2" title={t('addStores.refusal.title')} message={t('addStores.refusal.notGranted')}>
@@ -189,6 +177,8 @@ function StoreSearch({ servingListId, basket, onBasket, disabled }: { servingLis
   // A blank search is allowed: the door answers its first page, by code.
   const hits = useQuery(storesQuery(servingListId, q))
   const rows = hits.data ?? []
+  // While a new search reads, `rows` are the previous search's (keepPreviousData): not what "shown" will mean.
+  const stale = hits.isPlaceholderData
   const pickableCount = rows.filter((r) => pickable(r) && !inBasket(basket, r.storeCode)).length
 
   return (
@@ -243,7 +233,7 @@ function StoreSearch({ servingListId, basket, onBasket, disabled }: { servingLis
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outlined" disabled={disabled || pickableCount === 0} onClick={() => onBasket(addHits(basket, rows))} data-add-stores-pick-all="">
+        <Button variant="outlined" disabled={disabled || stale || pickableCount === 0} onClick={() => !stale && onBasket(addHits(basket, rows))} data-add-stores-pick-all="">
           {t('addStores.search.pickAll')}
         </Button>
         {rows.length >= STORE_SEARCH_TAKE && (

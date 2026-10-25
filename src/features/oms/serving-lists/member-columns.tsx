@@ -3,7 +3,7 @@ import type { ComponentType } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
-import type { ServingListMemberRow, ServingListRow } from '@/core/models/serving-list'
+import type { ServingListMemberRow } from '@/core/models/serving-list'
 import { pinEnd, pinStart } from '@/core/theme/direction'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Ltr from '@/core/ui/Ltr'
@@ -11,7 +11,8 @@ import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
-import { dutyCell } from './duty-cell'
+import { dutyCell, type DutyCellState } from './duty-cell'
+import type { MemberWriteRequest } from './MemberActions'
 
 /**
  * The Members grid's columns (oms ticket 568, BackOffice spec 3042). Read-only here; per-row actions
@@ -32,11 +33,10 @@ export const MEMBERS_DEFAULT_COL_DEF: ColDef = {
  * needs beyond the row itself.
  */
 export interface MembersGridContext {
-  servingListId: string
-  /** The list's row from `GET ServingListWeb/Lists`; undefined while it loads or when the id is unknown. */
-  list: ServingListRow | undefined
   /** `canEditServingLists` — every edit control reads it. */
   canEdit: boolean
+  /** Ask the tab to open a member write's dialog (570); stable for the grid's life. */
+  onWrite: (request: MemberWriteRequest) => void
 }
 
 export type MemberCellParams = ICellRendererParams<ServingListMemberRow, unknown, MembersGridContext>
@@ -99,7 +99,7 @@ const AddedCell = stampCell('addedAt', 'addedBy', 'added')
 const UpdatedCell = stampCell('updatedAt', 'updatedBy', 'updated')
 
 /** Duty sorts worst first: no roster, then off duty / closed today, then on duty. */
-const DUTY_ORDER: Record<string, number> = { noRoster: 0, unknown: 1, closedToday: 2, offDuty: 3, onDuty: 4 }
+const DUTY_ORDER: Record<DutyCellState, number> = { noRoster: 0, unknown: 1, closedToday: 2, offDuty: 3, onDuty: 4 }
 
 export function buildMemberColumns(
   t: TFunction,

@@ -7,10 +7,8 @@ import { ApiError } from '@/core/api'
 import { SERVING_LIST_ERRORS as E } from '@/core/models/serving-list'
 import en from '@/locales/en/serving-lists.json'
 import ar from '@/locales/ar/serving-lists.json'
+import { hasLocaleKey as has } from '@/core/test/locale'
 import { addStoresRefusal } from './add-stores-refusal'
-
-const has = (locale: unknown, key: string) =>
-  key.split('.').reduce<unknown>((n, part) => (n as Record<string, unknown> | undefined)?.[part], locale) !== undefined
 
 const refused = (code: string, data: unknown = null) => new ApiError('business', 'x', 400, [{ errorCode: code, errorMessage: 'x', internalErrorCode: '' }], data)
 

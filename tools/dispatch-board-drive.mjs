@@ -376,7 +376,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. lost and expired stay distinct, expired shows its ignore reason`, (await insp.locator('[data-bid-status="LOST"]').count()) === 1 && (await insp.locator('[data-bid="P030"] [data-ignore-reason="ShownNotOpened"]').count()) === 1)
     check(
       `${dir} 3. 572 the serving list by name, not a link, removed by duty 3`,
-      strip(await insp.locator('[data-inspector-serving]').innerText()) === 'Serving list Riyadh north · removed by duty 3' &&
+      strip(await insp.locator('[data-inspector-serving]').innerText()) === 'Serving list Riyadh north removed by duty 3' &&
         (await insp.locator('[data-inspector-serving] [data-serving-list="SL7"] > bdi').innerText()) === 'Riyadh north' &&
         (await insp.locator('[data-serving-list-link]').count()) === 0 &&
         (await insp.locator('[data-duty-removed="3"] bdi[dir="ltr"]').innerText()) === '3',
@@ -397,7 +397,7 @@ for (const dir of ['ltr', 'rtl']) {
     // 572: the two new not-competed reasons, in words, with the serving list and the duty count
     for (const [no, reason, words, serving] of [
       ['D8005', 'ServingListInactive', 'serving list inactive or empty', 'Serving list SL9'],
-      ['D8006', 'DutyLeftFewerThanTwo', 'fewer than two stores on duty', 'Serving list Riyadh north · removed by duty 4'],
+      ['D8006', 'DutyLeftFewerThanTwo', 'fewer than two stores on duty', 'Serving list Riyadh north removed by duty 4'],
     ]) {
       await rowOf(page, 'closed', no).click()
       await page.locator(`[data-inspector="C-${no}"]`).waitFor()

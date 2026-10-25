@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 
+import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { canEditServingLists, canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { listsQuery } from './api'
 import ListHeader from './ListHeader'
@@ -37,6 +39,12 @@ function Detail() {
   // No single-list door: the header's facts come from the (cached) Lists read.
   const lists = useQuery(listsQuery())
   const list = lists.data?.find((r) => r.servingListId === servingListId)
+  // Without the Lists read the header cannot say the list's names (and its edit controls stay hidden): say so.
+  const listsFailed = lists.isError
+    ? isBareDenial(lists.error)
+      ? t('access.deniedHint')
+      : apiErrorMessage(lists.error, t('failed'))
+    : null
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-serving-list={servingListId}>
@@ -45,6 +53,11 @@ function Detail() {
         {t('detail.back')}
       </Link>
       <ListHeader servingListId={servingListId} list={list} canEdit={canEdit} />
+      {listsFailed !== null && (
+        <ErrorBanner className="p-3" title={t('detail.listFailed')} message={listsFailed}>
+          <span data-lists-failed="" />
+        </ErrorBanner>
+      )}
       {/* Keyed on the list, so following a link to another list resets each tab's own state. */}
       <ListTabs key={servingListId} servingListId={servingListId} list={list} canEdit={canEdit} />
     </div>

@@ -7,7 +7,6 @@ import Button from '@/core/ui/Button'
 import AddStoresDialog from './AddStoresDialog'
 
 export interface MembersToolbarProps {
-  servingListId: string
   /** The list's row; undefined while it loads or when the id is unknown. */
   list: ServingListRow | undefined
   /** `canEditServingLists`. */

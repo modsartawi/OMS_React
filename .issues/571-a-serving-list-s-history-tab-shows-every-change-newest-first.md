@@ -75,3 +75,6 @@ when, newest first.
     1000 can be shown;
   - names read as words ("From EN (AR) to EN (AR)", "Named EN (AR)"), each name its own `<bdi>`, not an arrow;
   - action labels are past-tense phrases ("Store removed", "Renamed").
+- **Review fixes (2026-10-25, branch ticket/3042-review):** denied / not-found cards come from the shared
+  `StateCards.tsx` with neutral `notFound.*` keys (no longer borrowing `members.notFound*`); the unused
+  `HistoryTabProps.list` is gone.

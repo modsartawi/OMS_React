@@ -1,7 +1,7 @@
 /**
  * Ticket 569 — what a refused batch add reads as in the add-stores dialog. `SVL-00002` / `SVL-00003` carry
  * `data.badStoreCodes` (the request's spelling, trimmed); a `data` missing or of the wrong shape falls back to the
- * server's message. Pure.
+ * server's message. `stale` — the list gone, or a code already on it — means the dialog re-reads the list. Pure.
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
@@ -19,12 +19,13 @@ describe('addStoresRefusal', () => {
       labelKey: 'addStores.refusal.unknownStores',
       codes: ['X1', 'x2'],
       message: 'No such store: X1, x2. Nothing was added. / …',
+      stale: false,
     })
   })
 
   it('SVL-00003 with badStoreCodes marks exactly those codes as already on the list', () => {
     const err = refused('SVL-00003', 'Already on serving list 01J…: 1001. Nothing was added.', { badStoreCodes: ['1001'] })
-    expect(addStoresRefusal(err)).toMatchObject({ kind: 'badCodes', code: 'SVL-00003', labelKey: 'addStores.refusal.alreadyMembers', codes: ['1001'] })
+    expect(addStoresRefusal(err)).toMatchObject({ kind: 'badCodes', code: 'SVL-00003', labelKey: 'addStores.refusal.alreadyMembers', codes: ['1001'], stale: true })
   })
 
   it.each([
@@ -41,6 +42,7 @@ describe('addStoresRefusal', () => {
       code: 'SVL-00002',
       labelKey: 'addStores.refusal.unknownStores',
       message: 'No such store: X1. Nothing was added.',
+      stale: false,
     })
   })
 
@@ -49,6 +51,7 @@ describe('addStoresRefusal', () => {
       kind: 'refused',
       code: 'SVL-00001',
       labelKey: 'addStores.refusal.unknownList',
+      stale: true,
     })
   })
 
@@ -60,7 +63,7 @@ describe('addStoresRefusal', () => {
   })
 
   it('an unknown code keeps its code and the server text, no label', () => {
-    expect(addStoresRefusal(refused('SVL-00042', 'Something new.'))).toEqual({ kind: 'refused', code: 'SVL-00042', labelKey: null, message: 'Something new.' })
+    expect(addStoresRefusal(refused('SVL-00042', 'Something new.'))).toEqual({ kind: 'refused', code: 'SVL-00042', labelKey: null, message: 'Something new.', stale: false })
   })
 
   it('a bare 403 is the Execute grant not held', () => {

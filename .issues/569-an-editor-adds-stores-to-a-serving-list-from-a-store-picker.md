@@ -92,3 +92,9 @@ column of codes, and adds them in one call, and a bad code is pointed out rather
   - a pasted code is not checked against `onList` client-side (only search hits know it); the door's SVL-00003 names it;
   - picking a picked hit again takes it back out; confirm stays enabled after a refusal (re-sends the same basket);
   - the SVL-00001 refusal also re-reads the Lists query.
+- **Review fixes (2026-10-25, branch ticket/3042-review):** a successful add (and a stale refusal — SVL-00001 /
+  SVL-00003) now runs 570's `useRefreshList()`, so the History tab's Changes are re-read too; "Pick all shown" is
+  disabled while the hits are the previous search's placeholder; the refusal map sits on the shared
+  `./refusal` skeleton (now with `stale`); the note is 570's `NoteField` (one `NOTE_MAX`); the list name uses
+  `servingListName` (falls back to the other language). The refusal banners stay the dialog's own (badCodes +
+  their drive hooks don't fit `WriteDialog`'s banner without contortion).

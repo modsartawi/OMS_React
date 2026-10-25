@@ -6,11 +6,9 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/serving-lists.json'
 import ar from '@/locales/ar/serving-lists.json'
+import { hasLocaleKey as has } from '@/core/test/locale'
 import { SERVING_LIST_CHANGE_ACTIONS } from '@/core/models/serving-list'
 import { changeActionKey } from './change-row'
-
-const has = (locale: unknown, key: string) =>
-  key.split('.').reduce<unknown>((n, part) => (n as Record<string, unknown> | undefined)?.[part], locale) !== undefined
 
 describe('serving-lists History — the keys the code builds exist', () => {
   it.each([en, ar])('every change action has words', (locale) => {

@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { GridApi } from 'ag-grid-community'
-import { Download, Loader2, SearchX, ShieldAlert } from 'lucide-react'
+import { Download, Loader2 } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { SERVING_LIST_ERRORS, type ServingListChangeRow, type ServingListRow } from '@/core/models/serving-list'
+import { SERVING_LIST_ERRORS, type ServingListChangeRow } from '@/core/models/serving-list'
 import { notify } from '@/core/services/notify'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
@@ -31,11 +31,10 @@ import {
   nextTake,
   type ChangesFilter,
 } from './history-filter'
+import { DeniedCard, NotFoundCard } from './StateCards'
 
 export interface HistoryTabProps {
   servingListId: string
-  /** The list's row; undefined while it loads or when the id is unknown. */
-  list: ServingListRow | undefined
 }
 
 /** A long log is one read (no cursor), paged by the grid. */
@@ -82,23 +81,9 @@ export default function HistoryTab({ servingListId }: HistoryTabProps) {
 
   let body: ReactNode
   if (unknownList) {
-    body = (
-      <div className="mx-auto my-6 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-list-not-found="">
-        <SearchX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('members.notFoundTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <Trans t={t} i18nKey="members.notFoundHint" values={{ id: servingListId }} components={{ v: <Ltr /> }} />
-        </p>
-      </div>
-    )
+    body = <NotFoundCard servingListId={servingListId} />
   } else if (refused) {
-    body = (
-      <div className="mx-auto my-6 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-history-denied="">
-        <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
-      </div>
-    )
+    body = <DeniedCard hook="history-denied" />
   } else if (changes.isError) {
     body = <ErrorBanner className="p-3" message={apiErrorMessage(changes.error, t('history.failed'))} />
   } else if (!all) {

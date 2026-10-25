@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2, SearchX, ShieldAlert } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -26,8 +26,9 @@ import {
   membersFilterToParams,
   type MembersFilter,
 } from './members-filter'
-import { MemberActionsCell } from './MemberActions'
+import { MemberActionsCell, MemberWriteDialog, type MemberWriteRequest } from './MemberActions'
 import MembersToolbar from './MembersToolbar'
+import { DeniedCard, NotFoundCard } from './StateCards'
 
 /** The door has no paging; a 500-store list is one read, paged by the grid. */
 const MEMBERS_PAGE_SIZE = 50
@@ -38,38 +39,36 @@ const MEMBERS_PAGE_SIZE = 50
  * is edited elsewhere. A deactivated list still lists its members. An unknown id (`SVL-00001`) reads "This
  * serving list does not exist" in place of the grid; a bare 403 reads "You do not have access".
  *
- * Seams: `MembersToolbar` at the filter bar's end (569), `MemberActionsCell` as the grid's actions column
- * (570), both handed `{ servingListId, list, canEdit }`.
+ * Seams: `MembersToolbar` at the filter bar's end (569, handed `{ list, canEdit }`), `MemberActionsCell` as the
+ * grid's actions column (570) — it asks for a write and this tab renders that write's dialog.
  */
 export default function MembersTab({ servingListId, list, canEdit }: { servingListId: string; list: ServingListRow | undefined; canEdit: boolean }) {
   const { t } = useTranslation('serving-lists')
+  // The open member write (570). Held here, outside the grid: the row it was asked from may vanish (SVL-00004).
+  const [writing, setWriting] = useState<MemberWriteRequest | null>(null)
   const { query: filter, update, changedFromOutside } = useUrlQuery(membersFilterFromParams, membersFilterToParams)
   const members = useQuery(membersQuery(servingListId, membersDoorFilter(filter)))
   // No actions column at all without Execute (570).
   const columns = useMemo(() => buildMemberColumns(t, { actions: canEdit ? MemberActionsCell : null }), [t, canEdit])
-  const context = useMemo<MembersGridContext>(() => ({ servingListId, list, canEdit }), [servingListId, list, canEdit])
+  const context = useMemo<MembersGridContext>(() => ({ canEdit, onWrite: setWriting }), [canEdit])
 
   const unknownList = members.isError && apiErrorCode(members.error) === SERVING_LIST_ERRORS.UnknownList
   const refused = members.isError && isBareDenial(members.error)
+  const unknownDuty = members.isError && apiErrorCode(members.error) === SERVING_LIST_ERRORS.UnknownDutyFilter
 
   let body: ReactNode
   if (unknownList) {
-    body = (
-      <div className="mx-auto my-6 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-list-not-found="">
-        <SearchX className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('members.notFoundTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <Trans t={t} i18nKey="members.notFoundHint" values={{ id: servingListId }} components={{ v: <Ltr /> }} />
-        </p>
-      </div>
-    )
+    body = <NotFoundCard servingListId={servingListId} />
   } else if (refused) {
+    body = <DeniedCard hook="members-denied" />
+  } else if (unknownDuty) {
+    // A duty filter the door does not know (a hand-edited URL): our words, the code beside them.
     body = (
-      <div className="mx-auto my-6 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-members-denied="">
-        <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
-      </div>
+      <ErrorBanner className="p-3" title={t('members.failed')} message={t('members.unknownDuty')}>
+        <span className="font-mono text-xs" data-members-refusal={SERVING_LIST_ERRORS.UnknownDutyFilter}>
+          <Ltr>{SERVING_LIST_ERRORS.UnknownDutyFilter}</Ltr>
+        </span>
+      </ErrorBanner>
     )
   } else if (members.isError) {
     body = <ErrorBanner className="p-3" message={apiErrorMessage(members.error, t('members.failed'))} />
@@ -122,10 +121,11 @@ export default function MembersTab({ servingListId, list, canEdit }: { servingLi
       <div className="flex flex-wrap items-end gap-2">
         <Filters filter={filter} onApply={(f) => update(() => f)} resetFromOutside={changedFromOutside} />
         <div className="ms-auto flex items-center gap-2" data-members-toolbar="">
-          <MembersToolbar servingListId={servingListId} list={list} canEdit={canEdit} />
+          <MembersToolbar list={list} canEdit={canEdit} />
         </div>
       </div>
       {body}
+      {writing && <MemberWriteDialog servingListId={servingListId} {...writing} onClose={() => setWriting(null)} />}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3042-serving-lists-and-store-duty-for-callouts-spec.md
 blocked-by: — (live: BackOffice 3045 deployed)
 ---
@@ -48,11 +48,11 @@ i18n EN + AR · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] row view: the members label; competed vs non-competed chips; the flag on an active list with competed pointers
+- [x] row view: the members label; competed vs non-competed chips; the flag on an active list with competed pointers
       and no enabled member; an unknown action / duty value still parses (vitest)
-- [ ] drive script, LTR and RTL, against a stub serving Lists (active, deactivated, shared by three types, empty),
+- [x] drive script, LTR and RTL, against a stub serving Lists (active, deactivated, shared by three types, empty),
       Access (both flags, and neither) and a bare 403
-- [ ] `npm run typecheck`, `npm run lint`, `npm test` green
+- [x] `npm run typecheck`, `npm run lint`, `npm test` green
 
 ## Boundaries
 
@@ -75,3 +75,21 @@ it governs, and a non-holder never sees the screen.
 ## Open questions
 
 —
+
+## Comments
+
+### Built (2026-10-25, stubbed)
+
+- Model `src/core/models/serving-list.ts` (every type 568-571 need, plus `ServingListAccess`, `ServingListMembersFilter`,
+  `ServingListStoreSearch`, `ServingListBatchRefusal`, `isServingListDutyState` / `isServingListChangeAction`).
+- Probe `src/core/serving-list/access.ts` — `SERVING_LIST_ACCESS_KEY`, `servingListAccessQuery()`, `canViewServingLists`,
+  `canEditServingLists`, `servingListAccessApi`. In `core/` so the Dispatch board (572) can link to
+  `/oms/serving-lists/:id` behind the same predicate.
+- Feature `src/features/oms/serving-lists/`: `api.ts` (every `ServingListWeb/*` door; 567 calls `lists()` only),
+  `list-view.ts` (members label, chips, flag), `columns.tsx`, `ServingListsPage.tsx`. Namespace `serving-lists` EN + AR.
+- Proof: vitest `list-view.test.ts` + `access.test.ts` + menu leaf tests (6281 total green); typecheck + lint green;
+  `tools/serving-lists-drive.mjs` **49/49 stubbed**, LTR + RTL.
+- Decisions (overrulable): the flag also marks a **deactivated** list a competed type still points at
+  (`deactivatedCompeted`, same `ServingListInactive` outcome), and an empty list with no competed pointer gets a
+  quiet "No members" badge. The row click navigates to `/oms/serving-lists/:id`, which 568 routes.
+

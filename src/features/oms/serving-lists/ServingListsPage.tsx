@@ -3,19 +3,21 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2, ShieldAlert } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
-import { ApiError, apiErrorMessage } from '@/core/api'
+import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { ServingListRow } from '@/core/models/serving-list'
 import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
+import { servingListHref } from '@/core/serving-list/view'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { listsQuery } from './api'
 import { LISTS_DEFAULT_COL_DEF, buildListColumns } from './columns'
 import NewListButton from './NewListButton'
+import { DeniedCard } from './StateCards'
 
 /**
  * Serving lists — `/oms/serving-lists` (BackOffice spec 3042, oms ticket 567). Every serving list, with its
@@ -41,18 +43,8 @@ function Lists() {
   const navigate = useNavigate()
   const lists = useQuery(listsQuery())
   const columns = useMemo(() => buildListColumns(t), [t])
-  // A bare 403 on the read is a refusal, never an empty grid.
-  const refused = lists.error instanceof ApiError && lists.error.statusCode === 403
-
-  if (refused) {
-    return (
-      <div className="mx-auto mt-8 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-lists-denied="">
-        <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
-      </div>
-    )
-  }
+  // A bare 403 on the read is a refusal, never an empty grid; a coded 403 is a business refusal, its message shown.
+  if (lists.isError && isBareDenial(lists.error)) return <DeniedCard hook="lists-denied" />
   if (lists.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(lists.error, t('failed'))} />
   if (!lists.data) {
     return (
@@ -84,7 +76,7 @@ function Lists() {
           animateRows={false}
           suppressColumnVirtualisation
           rowClass="cursor-pointer"
-          onRowClicked={(e) => e.data && navigate(`/oms/serving-lists/${encodeURIComponent(e.data.servingListId)}`)}
+          onRowClicked={(e) => e.data && navigate(servingListHref(e.data.servingListId))}
         />
       </div>
       <p className="text-xs text-muted-foreground">{t('readOnlyPointing')}</p>

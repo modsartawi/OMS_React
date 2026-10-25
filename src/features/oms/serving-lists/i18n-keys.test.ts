@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/serving-lists.json'
 import ar from '@/locales/ar/serving-lists.json'
+import { hasLocaleKey as has } from '@/core/test/locale'
 import { dutyCell } from './duty-cell'
 import { MEMBER_DUTY_OPTIONS, MEMBER_ENABLED_OPTIONS } from './members-filter'
 import { LIST_TABS } from './tab'
@@ -31,9 +32,6 @@ function shape(keys: string[], forms: string[]) {
   }
   return { plain, plurals }
 }
-
-const has = (locale: unknown, key: string) =>
-  key.split('.').reduce<unknown>((n, part) => (n as Record<string, unknown> | undefined)?.[part], locale) !== undefined
 
 describe('serving-lists — en and ar mirror each other', () => {
   const enShape = shape(leaves(en), EN_PLURAL)

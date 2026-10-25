@@ -93,3 +93,6 @@ it governs, and a non-holder never sees the screen.
   (`deactivatedCompeted`, same `ServingListInactive` outcome), and an empty list with no competed pointer gets a
   quiet "No members" badge. The row click navigates to `/oms/serving-lists/:id`, which 568 routes.
 
+- **Review fixes (2026-10-25, branch ticket/3042-review):** the Lists read's denial check is now `isBareDenial`
+  (a coded 403 business refusal shows its message instead of "no access"; drive check 8); the denied card is the
+  shared `StateCards.tsx`; the row click uses `servingListHref` from `core/serving-list/view`.

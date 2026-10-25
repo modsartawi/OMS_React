@@ -2,8 +2,9 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
 
-import ServingListName from '@/core/dispatch/ServingListName'
-import { bidRow, dutyRemovedView, formatClock, outcomeView, servingListView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import ServingListName from '@/core/serving-list/ServingListName'
+import { servingListView } from '@/core/serving-list/view'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -92,13 +93,15 @@ export default function Inspector({
         )}
         {endReason && <> · {endReason}</>}
       </p>
-      {/* Beside the candidate count: did a serving list or the duty check narrow the race (spec 3042)? */}
-      <p className="text-xs text-muted-foreground" data-inspector-serving="">
-        {t('inspector.servingList')}{' '}
-        <ServingListName view={servingListView(c, i18n.language)} dash={t('inspector.noServingList')} canLink={canLinkServingList} />
+      {/* Beside the candidate count: did a serving list or the duty check narrow the race (spec 3042)? Two facts,
+          laid out apart (no glyph between them). */}
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground" data-inspector-serving="">
+        <span>
+          {t('inspector.servingList')}{' '}
+          <ServingListName view={servingListView(c, i18n.language)} dash={t('inspector.noServingList')} canLink={canLinkServingList} />
+        </span>
         {dutyRemoved != null && (
           <span data-duty-removed={dutyRemoved}>
-            {' · '}
             <Trans t={t} i18nKey="inspector.dutyRemoved" values={{ n: String(dutyRemoved) }} components={{ n: <Ltr /> }} />
           </span>
         )}

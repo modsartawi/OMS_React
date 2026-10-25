@@ -93,6 +93,7 @@ async function open(dir, { access = { canViewServingLists: true, canEditServingL
     if (p === 'ServingListWeb/Lists') {
       reads.lists++
       if (listsStatus === 403) return route.fulfill({ status: 403, body: '' })
+      if (listsStatus === 'coded403') return route.fulfill(envelope(null, { status: 403, success: false, message: 'Lists are closed for audit. / القوائم مغلقة للتدقيق.', errorCode: 'SVL-00042' }))
       return route.fulfill(envelope(LISTS))
     }
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
@@ -191,6 +192,15 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(URL_)
     await page.locator('[data-lists-denied]').waitFor({ timeout: 20000 }).catch(() => {})
     check(`${dir} 7. a bare 403 on Lists → "You do not have access", never an empty grid`, (await page.locator('[data-lists-denied]').count()) === 1 && strip(await page.locator('[data-lists-denied]').innerText()).startsWith('You do not have access') && (await page.locator('[data-lists-grid], [data-lists-empty]').count()) === 0)
+    await context.close()
+  }
+
+  // ── 8. a CODED 403 on Lists is a business refusal: its message, not the denial card (review fix) ──
+  {
+    const { context, page } = await open(dir, { listsStatus: 'coded403' })
+    await page.goto(URL_)
+    await page.locator('[role="alert"]').filter({ hasText: 'closed for audit' }).first().waitFor({ timeout: 20000 }).catch(() => {})
+    check(`${dir} 8. a coded 403 on Lists shows its message, not "no access"`, (await page.locator('[data-lists-denied]').count()) === 0 && (await page.locator('[role="alert"]').filter({ hasText: 'closed for audit' }).count()) === 1)
     await context.close()
   }
 }

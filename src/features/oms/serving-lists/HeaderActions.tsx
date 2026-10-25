@@ -5,6 +5,7 @@ import { Pencil, Power, PowerOff, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { ServingListRow } from '@/core/models/serving-list'
+import { servingListName } from '@/core/serving-list/view'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
@@ -13,7 +14,7 @@ import { servingListsApi } from './api'
 import { deactivateWarning } from './deactivate-warning'
 import NameDialog from './NameDialog'
 import { noteBody } from './name-form'
-import WriteDialog, { listName, useRefreshList } from './WriteDialog'
+import WriteDialog, { useRefreshList } from './WriteDialog'
 import { writeRefusal } from './write-refusal'
 
 export interface HeaderActionsProps {
@@ -74,7 +75,7 @@ function StateDialog({ list, onClose }: { list: ServingListRow; onClose: () => v
     onSuccess: (row) => {
       onClose()
       refresh(list.servingListId)
-      toast.success(t(`writes.${mode}.done`, { name: fsi(listName(row, i18n.language)) }))
+      toast.success(t(`writes.${mode}.done`, { name: fsi(servingListName(row, i18n.language)) }))
       // Server text ("English / Arabic"), passed through as data.
       if (deactivating && row.warning) notify.warn(t('writes.deactivate.warned'), row.warning)
     },
@@ -99,7 +100,7 @@ function StateDialog({ list, onClose }: { list: ServingListRow; onClose: () => v
       onClose={onClose}
     >
       <p className="text-sm" data-state-subject="">
-        <Trans t={t} i18nKey={`writes.${mode}.subject`} values={{ name: listName(list, i18n.language) }} components={{ b: <bdi className="font-semibold" /> }} />
+        <Trans t={t} i18nKey={`writes.${mode}.subject`} values={{ name: servingListName(list, i18n.language) }} components={{ b: <bdi className="font-semibold" /> }} />
       </p>
       <p className="text-sm text-muted-foreground">{t(`writes.${mode}.effect`)}</p>
       {competed && (

@@ -94,3 +94,8 @@ enabled state and duty, and sees which stores have no roster.
     `SVL-00001` is what says "This serving list does not exist";
   - filters apply on Apply / Enter (the Dispatch board's draft pattern), not on each change; a no-match reads its own
     sentence apart from an empty list.
+- **Review fixes (2026-10-25, branch ticket/3042-review):** a failed Lists read now shows an error under the
+  header (`detail.listFailed`; edit controls stay hidden); `SVL-00009` on Members has screen words EN + AR
+  (`members.unknownDuty`) with its code; denied / not-found cards shared (`StateCards.tsx`, neutral
+  `notFound.title|hint` keys replace `members.notFound*`); `DUTY_ORDER` typed `Record<DutyCellState, number>`;
+  the grid context is `{ canEdit, onWrite }` (no `servingListId` / `list`). Drive checks 9-10 added.

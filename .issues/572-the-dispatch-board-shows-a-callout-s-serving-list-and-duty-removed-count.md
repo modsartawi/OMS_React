@@ -78,3 +78,7 @@ the serving list and the duty-removed count, and the two new not-competed reason
   "fewer than two stores on duty"), shown mid-sentence; the duty count reads "removed by duty n"; AR wording
   ("قائمة الخدمة", "استبعدتهم المناوبة") wants an Arabic sign-off.
 - Live walk rides BackOffice 3047 deployed + `Callouts/Sql/002`, `003`.
+- **Review fixes (2026-10-25, branch ticket/3042-review):** `servingListView`, `servingListHref` and
+  `ServingListName` moved to `core/serving-list/` (`view.ts`, `ServingListName.tsx`) with one
+  `servingListName` helper the Serving lists screen shares; the inspector lays the serving list and the duty
+  count out as two elements (no literal ` · `).

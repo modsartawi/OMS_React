@@ -68,28 +68,53 @@ export default function WriteDialog({
       <div className="flex flex-col gap-3" data-write-dialog={hook}>
         {children}
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('writes.note')}
-            <span className="font-mono font-normal text-muted-foreground tabular-nums">
-              <Ltr>{formatCount(note.length, NOTE_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={note}
-            onChange={(e) => onNote(e.target.value)}
-            rows={3}
-            dir="auto"
-            maxLength={NOTE_MAX}
-            disabled={busy}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-write-note=""
-          />
-        </label>
+        <NoteField label={t('writes.note')} value={note} onChange={onNote} disabled={busy} hook="write-note" />
 
         <RefusalBanner refusal={refusal} />
       </div>
     </Modal>
+  )
+}
+
+/**
+ * A write's optional note (every serving-list write takes one): free text in either script, at most `NOTE_MAX`
+ * (the door clamps it), with its count. Shared by `WriteDialog` and the add-stores dialog (569). `hook` names
+ * the textarea's `data-*` attribute, for the drives.
+ */
+export function NoteField({
+  label,
+  value,
+  onChange,
+  disabled,
+  hook,
+  rows = 3,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled: boolean
+  hook: string
+  rows?: number
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium">
+      <span className="flex items-baseline justify-between gap-2">
+        {label}
+        <span className="font-mono font-normal text-muted-foreground tabular-nums">
+          <Ltr>{formatCount(value.length, NOTE_MAX)}</Ltr>
+        </span>
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        dir="auto"
+        maxLength={NOTE_MAX}
+        disabled={disabled}
+        className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60"
+        {...{ [`data-${hook}`]: '' }}
+      />
+    </label>
   )
 }
 
@@ -134,6 +159,3 @@ export function useRefreshList() {
     void qc.invalidateQueries({ queryKey: [...SERVING_LIST_CHANGES_KEY, servingListId] })
   }
 }
-
-/** The list's name in the reader's language (the AR name once Arabic is switched on). */
-export const listName = (row: { nameEn: string; nameAr: string }, lang: string) => (lang.startsWith('ar') ? row.nameAr || row.nameEn : row.nameEn)

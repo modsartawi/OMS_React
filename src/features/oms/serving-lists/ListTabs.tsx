@@ -44,7 +44,7 @@ export default function ListTabs({ servingListId, list, canEdit }: { servingList
       </div>
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`serving-list-tab-${open}`} className="p-3" data-tab-panel={open}>
         {open === 'history' ? (
-          <HistoryTab servingListId={servingListId} list={list} />
+          <HistoryTab servingListId={servingListId} />
         ) : (
           <MembersTab servingListId={servingListId} list={list} canEdit={canEdit} />
         )}

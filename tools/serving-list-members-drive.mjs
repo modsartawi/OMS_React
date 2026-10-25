@@ -62,6 +62,8 @@ const HD = { documentType: 'HD', description: 'Home delivery', isCompeted: false
 const A = '01JB8Z3K4M5N6P7Q8R9S0T1V2W'
 const D = '01JB8Z3K4M5N6P7Q8R9S0T1V2X'
 const NOPE = '01JB8ZZZZZZZZZZZZZZZZZZZZZ'
+/** A list whose Members door answers SVL-00009 whatever is asked (server and screen disagreeing on duty states). */
+const DUTY9 = '01JB8Z9999999999999999999D'
 const LISTS = [
   list(D, 'Jeddah (old)', 'جدة (قديمة)', { isActive: false, memberCount: 1, enabledMemberCount: 1, pointingTypes: [HD] }),
   list(A, 'Riyadh north', 'شمال الرياض', { pointingTypes: [QC, HD] }),
@@ -109,7 +111,7 @@ function membersAnswer(qs) {
 
 const browser = await chromium.launch()
 
-async function open(dir) {
+async function open(dir, { listsFail = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 } })
   const page = await context.newPage()
   const errors = []
@@ -125,7 +127,10 @@ async function open(dir) {
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
     if (p === 'ServingListWeb/Access') return route.fulfill(envelope({ canViewServingLists: true, canEditServingLists: true }))
-    if (p === 'ServingListWeb/Lists') return route.fulfill(envelope(LISTS))
+    if (p === 'ServingListWeb/Lists') {
+      if (listsFail) return route.fulfill(envelope(null, { status: 500, success: false, message: '' }))
+      return route.fulfill(envelope(LISTS))
+    }
     let m
     if ((m = p.match(/^ServingListWeb\/Lists\/([^/]+)\/Members$/))) {
       const id = decodeURIComponent(m[1])
@@ -133,6 +138,7 @@ async function open(dir) {
       if (id === NOPE)
         return route.fulfill(envelope(null, { status: 400, success: false, message: `Serving list ${id} does not exist. / قائمة الخدمة ${id} غير موجودة.`, errorCode: 'SVL-00001' }))
       if (id === D) return route.fulfill(envelope([MEMBERS[0]]))
+      if (id === DUTY9) return route.fulfill(envelope(null, { status: 400, success: false, message: 'Unknown duty filter. / مرشّح غير معروف.', errorCode: 'SVL-00009' }))
       const rows = membersAnswer(url.searchParams)
       if (!rows) return route.fulfill(envelope(null, { status: 400, success: false, message: 'Unknown duty filter', errorCode: 'SVL-00009' }))
       return route.fulfill(envelope(rows))
@@ -310,6 +316,32 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 8. …with the id as an ltr isolate`, (await nf.locator('bdi[dir="ltr"]').innerText()) === NOPE)
     check(`${dir} 8. …in place of the grid`, (await grid(page).count()) === 0 && (await page.locator('[data-list-header][data-list-known="false"]').count()) === 1)
     check(`${dir} 8. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 9. SVL-00009 has the screen's own words, with the code (review fix)
+  {
+    const { context, page, errors } = await open(dir)
+    await page.goto(`${BASE}/oms/serving-lists/${DUTY9}`)
+    const refusal = page.locator('[data-members-tab] [data-members-refusal="SVL-00009"]')
+    await refusal.waitFor({ timeout: 20000 }).catch(() => {})
+    const text = strip(await page.locator('[data-members-tab] [role="alert"]').first().innerText().catch(() => ''))
+    check(`${dir} 9. SVL-00009 reads the screen's words + its code`, (await refusal.count()) === 1 && /duty filter is not one the server knows|مرشّح المناوبة/.test(text) && !/Unknown duty filter/.test(text), text)
+    check(`${dir} 9. no raw keys`, !/members\.unknownDuty/.test(text))
+    check(`${dir} 9. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // 10. the Lists read fails: the header says so instead of silently degrading (review fix)
+  {
+    const { context, page, errors } = await open(dir, { listsFail: true })
+    await page.goto(`${BASE}/oms/serving-lists/${A}`)
+    await page.locator('[data-lists-failed]').waitFor({ timeout: 20000 }).catch(() => {})
+    check(`${dir} 10. a failed Lists read shows an error under the header`, (await page.locator('[data-lists-failed]').count()) === 1 && (await page.locator('[data-list-header][data-list-known="false"]').count()) === 1)
+    check(`${dir} 10. …and the edit controls stay hidden`, (await page.locator('[data-header-actions], [data-add-stores]').count()) === 0)
+    await grid(page).locator('[data-duty]').first().waitFor({ timeout: 20000 }).catch(() => {})
+    check(`${dir} 10. …while Members still reads`, (await grid(page).count()) === 1)
+    check(`${dir} 10. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

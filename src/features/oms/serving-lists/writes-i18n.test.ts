@@ -6,10 +6,8 @@
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/serving-lists.json'
 import ar from '@/locales/ar/serving-lists.json'
+import { hasLocaleKey as has } from '@/core/test/locale'
 import { WRITE_REFUSAL_KEYS } from './write-refusal'
-
-const has = (locale: unknown, key: string) =>
-  typeof key.split('.').reduce<unknown>((n, part) => (n as Record<string, unknown> | undefined)?.[part], locale) === 'string'
 
 const BUILT = [
   ...WRITE_REFUSAL_KEYS,

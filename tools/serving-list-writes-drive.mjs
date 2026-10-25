@@ -294,7 +294,7 @@ for (const dir of ['ltr', 'rtl']) {
 
   // 5. members: disable → enable → remove
   {
-    const { context, page, errors, calls, force } = await open(dir)
+    const { context, page, errors, calls, force, state } = await open(dir)
     await page.goto(`${BASE}/oms/serving-lists/${A}`)
     await page.locator('[data-members-grid] .ag-row').first().waitFor({ timeout: 20000 })
     const r = rowOf(page, '1001')
@@ -329,15 +329,20 @@ for (const dir of ['ltr', 'rtl']) {
     const del = calls.filter((c) => c.method === 'DELETE').at(-1)
     check(`${dir} 5. remove is DELETE …/Stores/1001?note=`, del?.p === `ServingListWeb/Lists/${A}/Stores/1001` && new URLSearchParams(del.qs).get('note') === 'closed for works' && del.body === null, JSON.stringify(del))
     check(`${dir} 5. the row leaves the grid`, (await r.count()) === 0)
-    // SVL-00004 on another member: stale.
+    // SVL-00004 on another member: someone else removed it meanwhile — stale. The refetch drops its row; the
+    // dialog (banner + typed note) must outlive it (review fix: the dialog no longer lives in the grid cell).
     const membersBefore = count(calls, 'GET', /\/Members$/)
-    force.set('/Stores/1002', refuse('SVL-00004', `Store 1002 is not on serving list ${A}. / الفرع 1002 ليس في القائمة.`))
     await rowOf(page, '1002').locator('[data-member-action="remove"]').click()
+    await dialog(page, 'member-remove').waitFor({ timeout: 5000 })
+    await page.locator('[data-write-note]').fill('typed before the refusal')
+    state.members[A] = state.members[A].filter((x) => x.storeCode !== '1002')
+    force.set('/Stores/1002', refuse('SVL-00004', `Store 1002 is not on serving list ${A}. / الفرع 1002 ليس في القائمة.`))
     await confirmBtn(page).click()
     await page.locator('[data-write-refusal="SVL-00004"]').waitFor({ timeout: 5000 }).catch(() => {})
+    await rowOf(page, '1002').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
     check(`${dir} 5. SVL-00004 reads "no longer on the list" + refreshed`, /This store is no longer on the list\./.test(strip(await dialog(page, 'member-remove').innerText())) && (await page.locator('[data-write-refreshed]').count()) === 1)
-    await page.waitForTimeout(300)
     check(`${dir} 5. …and Members is re-read`, count(calls, 'GET', /\/Members$/) > membersBefore)
+    check(`${dir} 5. …the row leaves the grid, the dialog stays with its note`, (await rowOf(page, '1002').count()) === 0 && (await dialog(page, 'member-remove').count()) === 1 && (await page.locator('[data-write-note]').inputValue()) === 'typed before the refusal')
     await page.locator('dialog[open] [data-write-cancel]').click()
     check(`${dir} 6. no raw keys`, !RAW.test(await page.locator('main').innerText()))
     check(`${dir} 5. no page errors`, errors.length === 0, errors.join(' | '))

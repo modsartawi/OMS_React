@@ -11,6 +11,10 @@
     "unreachableTitle": "Access could not be checked",
     "unreachableHint": "Try again in a moment."
   },
+  "notFound": {
+    "title": "This serving list does not exist",
+    "hint": "No serving list has the id <v>{{id}}</v>."
+  },
   "loading": "Loading serving lists…",
   "failed": "The serving lists could not be loaded.",
   "empty": "There are no serving lists yet.",
@@ -44,6 +48,7 @@
     "title": "Serving list",
     "subtitle": "The stores on this list, with their duty today, and the list's history.",
     "back": "All serving lists",
+    "listFailed": "The list's details could not be loaded.",
     "members": "Enabled members",
     "deactivatedNote": "This list is deactivated: the deliveries of the types pointing at it are not competed. It still lists its members."
   },
@@ -71,8 +76,7 @@
     "failed": "The members could not be loaded.",
     "empty": "No store is on this list yet.",
     "noMatch": "No member matches these filters.",
-    "notFoundTitle": "This serving list does not exist",
-    "notFoundHint": "No serving list has the id <v>{{id}}</v>.",
+    "unknownDuty": "That duty filter is not one the server knows. Clear the duty filter and try again.",
     "count_one": "<v>{{n}}</v> member",
     "count_other": "<v>{{n}}</v> members",
     "dutyReadOnly": "Duty is read from the store's roster, which is edited elsewhere.",

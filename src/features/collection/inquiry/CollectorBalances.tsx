@@ -50,7 +50,7 @@ export default function CollectorBalances({
           )}
           {t('deposits.balances.title')}
           {/* The scope, on the panel's face rather than in a tooltip. */}
-          <span className="rounded-full border border-border/60 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {t('deposits.balances.postedOnly')}
           </span>
         </button>

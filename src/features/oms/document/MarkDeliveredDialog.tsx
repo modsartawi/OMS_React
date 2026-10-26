@@ -6,6 +6,9 @@ import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import { revokeMarkDelivered } from '@/core/oms/api'
 import { notify } from '@/core/services/notify'
@@ -153,17 +156,13 @@ export default function MarkDeliveredDialog({
           </p>
         )}
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-muted-foreground" htmlFor="mark-delivered-reason">
-            {t('markDelivered.reason.label')}
-          </label>
-          <select
-            id="mark-delivered-reason"
+        <Field id="mark-delivered-reason" label={t('markDelivered.reason.label')}>
+          <Select
             value={reasonCode}
             onChange={(e) => setReasonCode(e.target.value)}
             disabled={mark.isPending || !reasons.isSuccess}
             required
-            className="h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]"
+            className="w-full"
           >
             <option value="">
               {reasons.isPending ? t('markDelivered.reason.loading') : t('markDelivered.reason.placeholder')}
@@ -174,21 +173,27 @@ export default function MarkDeliveredDialog({
                 {t(reasonLabelKey(r.code), { defaultValue: r.description })}
               </option>
             ))}
-          </select>
+          </Select>
           {reasons.isError && !reasonsRefused && (
             <ErrorBanner
               className="p-2"
               message={apiErrorMessage(reasons.error, t('markDelivered.reason.loadFailed'))}
             />
           )}
-        </div>
+        </Field>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-muted-foreground" htmlFor="mark-delivered-note">
-            {commit.noteRequired ? t('markDelivered.note.labelRequired') : t('markDelivered.note.label')}
-          </label>
-          <textarea
-            id="mark-delivered-note"
+        <Field
+          id="mark-delivered-note"
+          label={commit.noteRequired ? t('markDelivered.note.labelRequired') : t('markDelivered.note.label')}
+          hint={
+            (commit.noteRequired && !note.trim()) || commit.noteTooLong
+              ? commit.noteTooLong
+                ? t('markDelivered.note.tooLong', { max: MARK_DELIVERED_NOTE_MAX })
+                : t('markDelivered.note.required')
+              : undefined
+          }
+        >
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             disabled={mark.isPending}
@@ -198,17 +203,9 @@ export default function MarkDeliveredDialog({
             maxLength={MARK_DELIVERED_NOTE_MAX}
             rows={3}
             placeholder={t('markDelivered.note.placeholder')}
-            aria-describedby="mark-delivered-note-hint"
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-[0.8125rem]"
+            className="w-full"
           />
-          {(commit.noteRequired && !note.trim()) || commit.noteTooLong ? (
-            <p id="mark-delivered-note-hint" className="text-xs text-muted-foreground">
-              {commit.noteTooLong
-                ? t('markDelivered.note.tooLong', { max: MARK_DELIVERED_NOTE_MAX })
-                : t('markDelivered.note.required')}
-            </p>
-          ) : null}
-        </div>
+        </Field>
 
         {refusal && (
           <ErrorBanner

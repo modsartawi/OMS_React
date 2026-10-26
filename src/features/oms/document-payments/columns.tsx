@@ -33,7 +33,7 @@ export function paymentColumns(t: TFunction, onOpen: (to: string) => void): ColD
   const code = 'font-mono text-[12px]'
   const when = ({ value }: ValueFormatterParams<Row, string>) => formatDateTime(value)
   const action =
-    'inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted'
+    'inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted'
 
   return [
     { field: 'documentNo', headerName: t('columns.documentNo'), width: 130, cellClass: code },

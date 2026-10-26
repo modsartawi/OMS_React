@@ -32,6 +32,9 @@ import {
 } from './double-send-helpers'
 import type { DoubleSendFlag } from './fleet-helpers'
 import { figure } from './storeday-helpers'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The double-send list — `/reports/sap-export/double-sends?code=&flag=X1|X1p&page=` (BackOffice spec
@@ -100,7 +103,7 @@ function DoubleSends() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2" data-double-sends-filters="">
-        <select
+        <Select
           value={query.flag ?? ''}
           // The flag alone changes: a half-typed store code is not a filter until it is submitted.
           // The box drops it, so the box never shows a store the list is not filtered on.
@@ -109,7 +112,6 @@ function DoubleSends() {
             setDraft(query.code)
           }}
           aria-label={t('doubleSends.flag')}
-          className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
           data-double-sends-flag=""
         >
           <option value="">{t('doubleSends.flagBoth')}</option>
@@ -118,7 +120,7 @@ function DoubleSends() {
               {t(`flags.${f}`)}
             </option>
           ))}
-        </select>
+        </Select>
         <form
           className="flex items-center gap-1.5"
           onSubmit={(e) => {
@@ -126,22 +128,18 @@ function DoubleSends() {
             update((q) => withDoubleSendFilter(q, { code: draft }))
           }}
         >
-          <input
+          <Input
             type="search"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('doubleSends.storePlaceholder')}
             aria-label={t('doubleSends.store')}
-            className="h-8 w-40 rounded-md border border-border/60 bg-background px-2.5 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-40 font-mono"
             data-double-sends-store=""
           />
-          <button
-            type="submit"
-            className="h-8 rounded-md border border-border/60 bg-background px-3 text-sm font-medium hover:bg-accent"
-            data-double-sends-apply=""
-          >
+          <Button type="submit" variant="outlined" data-double-sends-apply="">
             {t('doubleSends.apply')}
-          </button>
+          </Button>
         </form>
         {filtered && (
           <button

@@ -5,6 +5,11 @@ import type { NphiesProvider } from '@/core/models/nphies'
 import { AUTH_VERDICTS, REQUEST_STATES } from '@/core/nphies/status'
 import { isDefaultWindow, setWindowBound } from '@/core/nphies/list-window'
 import type { AuthListCriteria } from './list-params'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The authorization list's filter panel and its **window chip** — the same shape
@@ -69,15 +74,9 @@ export default function ListFilters({
                 to: appliedWindow.toDate || t('list.window.openEnd'),
               },
             )}
-            <button
-              type="button"
-              onClick={onRemoveWindow}
-              aria-label={t('list.window.remove')}
-              title={t('list.window.remove')}
-              className="rounded-full p-0.5 transition-colors hover:bg-primary/20"
-            >
+            <IconButton variant="danger" size="compact" label={t('list.window.remove')} onClick={onRemoveWindow}>
               <X className="h-3 w-3" aria-hidden />
-            </button>
+            </IconButton>
           </span>
         ) : (
           // Removed, and saying so. Silence here would put the screen straight
@@ -100,40 +99,36 @@ export default function ListFilters({
         }}
       >
         <Field label={t('list.filters.patientId')}>
-          <input
+          <Input
             type="text"
             value={draft.patientId}
             onChange={(e) => onChange({ patientId: e.target.value })}
-            aria-label={t('list.filters.patientId')}
-            className={`w-40 ${CONTROL}`}
+            className="w-40"
           />
         </Field>
         {/* The one filter the eligibility list cannot offer: an eligibility check
             has no preauthorization reference, because none has been raised yet. */}
         <Field label={t('list.filters.preAuthRef')}>
-          <input
+          <Input
             type="text"
             value={draft.preAuthRef}
             onChange={(e) => onChange({ preAuthRef: e.target.value })}
-            aria-label={t('list.filters.preAuthRef')}
-            className={`w-44 ${CONTROL}`}
+            className="w-44"
           />
         </Field>
         <Field label={t('list.filters.payerCode')}>
-          <input
+          <Input
             type="text"
             value={draft.payerCode}
             onChange={(e) => onChange({ payerCode: e.target.value })}
-            aria-label={t('list.filters.payerCode')}
-            className={`w-32 ${CONTROL}`}
+            className="w-32"
           />
         </Field>
         <Field label={t('list.filters.providerCode')}>
-          <select
+          <Select
             value={draft.providerCode}
             onChange={(e) => onChange({ providerCode: e.target.value })}
-            aria-label={t('list.filters.providerCode')}
-            className={`w-48 ${CONTROL}`}
+            className="w-48"
           >
             {/* 🚩 ALL providers is the default and the first option — the
                 opposite of the till, which is pinned to its own store. */}
@@ -143,17 +138,16 @@ export default function ListFilters({
                 {t('list.filters.providerOption', { code: p.providerCode, license: p.license })}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         {/* The two axes, filtering independently — either alone is a legal
             question, so neither select gates the other. */}
         <Field label={t('list.filters.request')}>
-          <select
+          <Select
             value={draft.request}
             onChange={(e) => onChange({ request: e.target.value })}
-            aria-label={t('list.filters.request')}
-            className={`w-36 ${CONTROL}`}
+            className="w-36"
           >
             <option value="">{t('list.filters.anyRequest')}</option>
             {/* All FOUR, unlike the eligibility list's two: `Cancelled` is a real
@@ -165,14 +159,13 @@ export default function ListFilters({
                 {t(`request.${state}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('list.filters.verdict')}>
-          <select
+          <Select
             value={draft.verdict}
             onChange={(e) => onChange({ verdict: e.target.value })}
-            aria-label={t('list.filters.verdict')}
-            className={`w-40 ${CONTROL}`}
+            className="w-40"
           >
             <option value="">{t('list.filters.anyVerdict')}</option>
             {AUTH_VERDICTS.map((verdict) => (
@@ -180,58 +173,36 @@ export default function ListFilters({
                 {t(`verdict.${verdict}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         {/* The window's own controls — how it is widened rather than removed. */}
         <Field label={t('list.filters.fromDate')}>
-          <input
+          <Input
             type="date"
             value={draft.window?.fromDate ?? ''}
             onChange={(e) => onChange({ window: setWindowBound(draft.window, 'fromDate', e.target.value) })}
-            aria-label={t('list.filters.fromDate')}
-            className={`w-40 ${CONTROL}`}
+            className="w-40"
           />
         </Field>
         <Field label={t('list.filters.toDate')}>
-          <input
+          <Input
             type="date"
             value={draft.window?.toDate ?? ''}
             onChange={(e) => onChange({ window: setWindowBound(draft.window, 'toDate', e.target.value) })}
-            aria-label={t('list.filters.toDate')}
-            className={`w-40 ${CONTROL}`}
+            className="w-40"
           />
         </Field>
 
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button type="submit" variant="primary">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('list.filters.search')}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
-        >
+        </Button>
+        <Button type="button" variant="outlined" onClick={onReset}>
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('list.filters.reset')}
-        </button>
+        </Button>
       </form>
     </div>
-  )
-}
-
-/** Same control chrome as the eligibility screens — one height, one border. */
-const CONTROL =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      {children}
-    </label>
   )
 }

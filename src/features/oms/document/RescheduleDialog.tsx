@@ -10,6 +10,8 @@ import { lookupQueries } from '@/core/services/lookups'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
 import { buildRescheduleModel, selectableDays, selectableTimes } from './reschedule'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 /**
  * Screen 2 — Reschedule slot picker.
@@ -75,9 +77,6 @@ export default function RescheduleDialog({
     onClose()
   }
 
-  const SELECT = 'h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]'
-  const LABEL = 'text-xs font-semibold text-muted-foreground'
-
   return (
     <Modal
       open={open}
@@ -116,13 +115,9 @@ export default function RescheduleDialog({
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-1">
-              <label className={LABEL} htmlFor="reschedule-day">
-                {t('reschedule.day')}
-              </label>
-              <select
-                id="reschedule-day"
-                className={SELECT}
+            <Field id="reschedule-day" label={t('reschedule.day')}>
+              <Select
+                className="w-full"
                 value={dayIndex}
                 onChange={(e) => setDayIndex(e.target.value)}
               >
@@ -131,15 +126,11 @@ export default function RescheduleDialog({
                     {day.fullDay || `${day.date} ${day.day}`}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={LABEL} htmlFor="reschedule-time">
-                {t('reschedule.time')}
-              </label>
-              <select
-                id="reschedule-time"
-                className={SELECT}
+              </Select>
+            </Field>
+            <Field id="reschedule-time" label={t('reschedule.time')}>
+              <Select
+                className="w-full"
                 value={slotId}
                 onChange={(e) => setSlotId(e.target.value)}
               >
@@ -149,15 +140,11 @@ export default function RescheduleDialog({
                     {window.time}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={LABEL} htmlFor="reschedule-reason">
-                {t('reschedule.reason')}
-              </label>
-              <select
-                id="reschedule-reason"
-                className={SELECT}
+              </Select>
+            </Field>
+            <Field id="reschedule-reason" label={t('reschedule.reason')}>
+              <Select
+                className="w-full"
                 value={reasonCode}
                 onChange={(e) => setReasonCode(e.target.value)}
               >
@@ -166,8 +153,8 @@ export default function RescheduleDialog({
                     {reason.reasonDescription}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </>
         )}
       </div>

@@ -16,6 +16,8 @@ import { DELIVERY_ACTS, type DeliveryAct } from './acts'
 import { inspectorView, type InspectorView, type IsolatedValue } from './inspector-model'
 import { NEXT_ROW_KEYS, PREVIOUS_ROW_KEYS } from './inspector-pane'
 import { STATUS_TONE } from './status-tone'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
 
 /** The pane's id, for the separator's and the grid bar toggle's `aria-controls`. */
 export const INSPECTOR_ID = 'delivery-inspector'
@@ -349,18 +351,18 @@ function Body({
             ))}
           </div>
         )}
-        <button
-          type="button"
+        <Button
+          variant="primary"
           data-inspector-open=""
           disabled={!openTo}
           title={openTo ? undefined : t('inspector.noDeliveryNo')}
           onClick={() => openTo && onOpen(openTo)}
-          className="flex h-8 items-center justify-center gap-2 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 disabled:hover:bg-primary"
+          className="w-full"
         >
           <ExternalLink className="size-3.5" aria-hidden />
           {t('inspector.open')}
           <Kbd>{t('common:keys.enter')}</Kbd>
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -435,17 +437,10 @@ export default function DeliveryInspector({
         onWidth={(next) => onWidth(clampInspectorWidth(next, viewport))}
       />
       <div className="flex h-8 shrink-0 items-center justify-end border-b border-divider px-2">
-        <button
-          type="button"
-          onClick={onCollapse}
-          aria-label={t('inspector.hide')}
-          title={t('inspector.hide')}
-          data-inspector-collapse=""
-          className="rounded p-1 text-muted-foreground hover:bg-accent"
-        >
+        <IconButton onClick={onCollapse} label={t('inspector.hide')} data-inspector-collapse="">
           {/* Points toward the inline end, where the pane folds away. */}
           <ChevronsRight className="size-4 rtl:rotate-180" aria-hidden />
-        </button>
+        </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
         {row ? <Body view={inspectorView(row)} onOpen={onOpen} onAct={onAct} /> : <Empty />}

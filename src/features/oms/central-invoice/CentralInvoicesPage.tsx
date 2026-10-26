@@ -33,6 +33,9 @@ import {
 import { listColumns } from './list-columns'
 import { serialLines } from './list-rows'
 import SerialsDialog from './SerialsDialog'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The raised central invoices (ticket 333, BackOffice spec 2094 / ticket 2100) — the read
@@ -67,10 +70,6 @@ const DEFAULT_COL_DEF: ColDef<CentralInvoiceListRow> = {
   filter: true,
   suppressHeaderMenuButton: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 function CentralInvoiceList() {
   const { t } = useTranslation('central-invoice')
@@ -160,41 +159,36 @@ function CentralInvoiceList() {
           search()
         }}
       >
-        <label className={FIELD}>
-          {t('list.filters.dateBasis')}
-          <select
+        <Field label={t('list.filters.dateBasis')}>
+          <Select
             value={draft.dateBasis}
             onChange={(e) => patch({ dateBasis: e.target.value as CentralInvoiceDateBasis })}
-            className={`${INPUT} w-36`}
+            className="w-36"
           >
             <option value="requested">{t('list.filters.basis.requested')}</option>
             <option value="billed">{t('list.filters.basis.billed')}</option>
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('list.filters.from')}
-          <input type="date" value={draft.from} onChange={(e) => patch({ from: e.target.value })} className={`${INPUT} w-40`} />
-        </label>
-        <label className={FIELD}>
-          {t('list.filters.to')}
-          <input type="date" value={draft.to} onChange={(e) => patch({ to: e.target.value })} className={`${INPUT} w-40`} />
-        </label>
-        <label className={FIELD}>
-          {t('list.filters.store')}
-          <input
+          </Select>
+        </Field>
+        <Field label={t('list.filters.from')}>
+          <Input type="date" value={draft.from} onChange={(e) => patch({ from: e.target.value })} className="w-40" />
+        </Field>
+        <Field label={t('list.filters.to')}>
+          <Input type="date" value={draft.to} onChange={(e) => patch({ to: e.target.value })} className="w-40" />
+        </Field>
+        <Field label={t('list.filters.store')}>
+          <Input
             type="text"
             value={draft.store}
             onChange={(e) => patch({ store: e.target.value })}
             placeholder={t('list.filters.storePlaceholder')}
-            className={`${INPUT} w-32`}
+            className="w-32"
           />
-        </label>
-        <label className={FIELD}>
-          {t('list.filters.status')}
-          <select
+        </Field>
+        <Field label={t('list.filters.status')}>
+          <Select
             value={draft.status}
             onChange={(e) => patch({ status: e.target.value as CentralInvoiceStatus | '' })}
-            className={`${INPUT} w-36`}
+            className="w-36"
           >
             <option value="">{t('list.filters.anyStatus')}</option>
             {CENTRAL_INVOICE_STATUSES.map((s) => (
@@ -202,8 +196,8 @@ function CentralInvoiceList() {
                 {t(`list.status.${s}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={problem !== null || list.isFetching}>
             <Search className="h-3.5 w-3.5" aria-hidden />

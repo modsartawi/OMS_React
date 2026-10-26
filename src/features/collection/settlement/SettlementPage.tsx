@@ -3,6 +3,7 @@ import { Link, Navigate, Outlet, useLocation, useNavigate, useSearchParams } fro
 import { ArrowLeft } from 'lucide-react'
 import type { SettlementScope } from '@/core/models/settlement'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Chip from '@/core/ui/Chip'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
 import {
@@ -179,24 +180,12 @@ function ScopeControl({
         role="group"
         aria-label={t('scope.label')}
         data-region="settlement-scope"
-        className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-0.5"
+        className="inline-flex items-center gap-1"
       >
         {SCOPES.map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onScope(key)}
-            aria-pressed={scope === key}
-            data-scope={key}
-            className={
-              'h-6 rounded-full px-3 text-xs font-medium transition-colors ' +
-              (scope === key
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted')
-            }
-          >
+          <Chip key={key} on={scope === key} onClick={() => onScope(key)} data-scope={key}>
             {t(`scope.${key}`)}
-          </button>
+          </Chip>
         ))}
       </div>
     </div>

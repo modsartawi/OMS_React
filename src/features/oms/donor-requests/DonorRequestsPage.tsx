@@ -42,6 +42,8 @@ import { donorColumns, type DonorRequestRow } from './columns'
 import { donorRow } from './donor-row'
 import DonorInspector from './DonorInspector'
 import { deliveryPath } from './inspector'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * Donor requests (ticket 431, spec 430 D9): every store's donor asks, opening on today's. The
@@ -83,9 +85,6 @@ const ROW_SELECTION: RowSelectionOptions<DonorRequestRow> = {
 /** Identities the export writes as text, so Excel never totals or reshapes a number or a code. */
 const EXPORT_AS_TEXT: ReadonlySet<string> = new Set(['requestNo', 'deliveryNo', 'donorStore', 'orderStore'])
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** The current time, ticking each minute, so a waiting row counts up while the page is open. */
 function useMinuteClock(): number {
@@ -215,9 +214,9 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
         }}
         data-donor-filters=""
       >
-        <fieldset className={FIELD}>
+        <fieldset className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           <legend className="mb-1">{t('filters.state')}</legend>
-          <div className="flex h-9 flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex h-7 flex-wrap items-center gap-x-3 gap-y-1">
             {DONOR_REQUEST_STATES.map((s) => (
               <label key={s} className="inline-flex items-center gap-1.5 text-sm text-foreground">
                 <input
@@ -231,48 +230,44 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
             ))}
           </div>
         </fieldset>
-        <label className={FIELD}>
-          {t('filters.donorStore')}
-          <input
+        <Field label={t('filters.donorStore')}>
+          <Input
             type="text"
             value={draft.donorStore}
             onChange={(e) => patch({ donorStore: e.target.value })}
             placeholder={t('filters.storePlaceholder')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-donor-filter="donorStore"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.orderStore')}
-          <input
+        </Field>
+        <Field label={t('filters.orderStore')}>
+          <Input
             type="text"
             value={draft.orderStore}
             onChange={(e) => patch({ orderStore: e.target.value })}
             placeholder={t('filters.storePlaceholder')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-donor-filter="orderStore"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.from')}
-          <input
+        </Field>
+        <Field label={t('filters.from')}>
+          <Input
             type="date"
             value={draft.from}
             onChange={(e) => patch({ from: e.target.value })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-donor-filter="from"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.to')}
-          <input
+        </Field>
+        <Field label={t('filters.to')}>
+          <Input
             type="date"
             value={draft.to}
             onChange={(e) => patch({ to: e.target.value })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-donor-filter="to"
           />
-        </label>
+        </Field>
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={problem !== null || list.isFetching} data-donor-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
@@ -286,14 +281,10 @@ function DonorRequestList({ requestParam }: { requestParam: string | null }) {
         {draft.requestNo && (
           <p className="flex basis-full items-center gap-2 text-xs text-muted-foreground" data-donor-request-seed="">
             <Trans t={t} i18nKey="filters.requestOnly" values={{ requestNo: draft.requestNo }} components={{ no: <Ltr /> }} />
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 font-medium text-foreground hover:bg-muted"
-            >
+            <Button variant="outlined" onClick={reset}>
               <X className="h-3 w-3" aria-hidden />
               {t('filters.requestClear')}
-            </button>
+            </Button>
           </p>
         )}
         {problem && (

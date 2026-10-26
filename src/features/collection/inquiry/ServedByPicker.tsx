@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { assignmentOptionsQuery } from './api'
 import {
@@ -52,9 +55,6 @@ const SEP = ':'
 /** The option that swaps the dropdown for a typed id. It carries no SEP, so it can
  *  never collide with a `KIND:id` value — nor with `''`, the estate. */
 const TYPE_ID = 'TYPE_ID'
-
-const FIELD_CLASS =
-  'h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
 
 export default function ServedByPicker({
   screen,
@@ -120,9 +120,8 @@ export default function ServedByPicker({
   }
 
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {t('servedBy.label')}
-      <select
+    <Field label={t('servedBy.label')}>
+      <Select
         disabled={disabled}
         value={selected}
         title={collected ? t('servedBy.collected.hint') : undefined}
@@ -140,7 +139,7 @@ export default function ServedByPicker({
           const kind = raw.slice(0, cut) as ServedByKind
           onChange({ kind, id: raw.slice(cut + 1) })
         }}
-        className={FIELD_CLASS}
+        className="w-56"
       >
         {/* Nothing picked is the estate, and it is always reachable — the scope is a
             finding aid, never a permission. Anyone who can open this screen may look
@@ -196,8 +195,8 @@ export default function ServedByPicker({
         )}
 
         {contract.freeText && <option value={TYPE_ID}>{t('servedBy.collected.typeId')}</option>}
-      </select>
-    </label>
+      </Select>
+    </Field>
   )
 }
 
@@ -245,9 +244,8 @@ function ServedByIdInput({
   }
 
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {t('servedBy.label')}
-      <input
+    <Field label={t('servedBy.label')}>
+      <Input
         type="text"
         role="combobox"
         list={listId}
@@ -266,14 +264,14 @@ function ServedByIdInput({
             onCommit(null)
           }
         }}
-        className={FIELD_CLASS}
+        className="w-56"
       />
       <datalist id={listId}>
         {entries.map((entry) => (
           <option key={`${entry.kind}:${entry.id}`} value={entry.label} />
         ))}
       </datalist>
-    </label>
+    </Field>
   )
 }
 

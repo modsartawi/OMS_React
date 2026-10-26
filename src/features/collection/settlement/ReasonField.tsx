@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
+import Textarea from '@/core/ui/Textarea'
 import { CHANGE_REQUEST_HISTORY_KEY } from './api'
 import { CHANGE_QUEUE_KEY, OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
@@ -79,7 +80,7 @@ export default function ReasonField({
           </span>
         )}
       </span>
-      <textarea
+      <Textarea
         value={value}
         onChange={(e) => onValue(e.target.value)}
         maxLength={maxLength}
@@ -89,10 +90,6 @@ export default function ReasonField({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         data-testid={testId}
-        className={
-          'rounded-md border bg-card p-2 text-sm outline-none focus:border-primary/60 ' +
-          (error ? 'border-attention-border' : 'border-border')
-        }
       />
       {error && (
         <span id={errorId} className="whitespace-pre-line text-xs text-attention-800" data-testid={`${testId}-error`}>

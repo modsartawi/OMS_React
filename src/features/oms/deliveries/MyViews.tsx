@@ -6,6 +6,7 @@ import { POPOVER } from '@/core/ui/overlay'
 import { fsi } from '@/core/util/bidi'
 import type { SavedView } from './saved-views'
 import { CursorBar, RAIL_FOCUS, RAIL_HEADING, railRowTone } from './ViewsRail'
+import IconButton from '@/core/ui/IconButton'
 
 /** The ⋯ menu's five acts (366, 368 §1). */
 export type ViewAction = 'update' | 'saveAs' | 'rename' | 'toggleDefault' | 'delete'
@@ -156,22 +157,21 @@ function ViewRow({
         )}
         {modified && <ModifiedDot />}
       </button>
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
-        aria-label={t('views.menu.label', { name: fsi(view.name) })}
+        size="compact"
+        label={t('views.menu.label', { name: fsi(view.name) })}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         data-view-menu-trigger=""
         onClick={() => setMenuOpen((open) => !open)}
         className={
-          'me-1 grid size-5 shrink-0 place-items-center rounded hover:bg-card ' +
-          'focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring ' +
+          'me-1 shrink-0 focus-visible:opacity-100 ' +
           (menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100')
         }
       >
         <MoreHorizontal className="size-3.5" aria-hidden />
-      </button>
+      </IconButton>
       {menuOpen && (
         <ViewMenu
           rowRef={rowRef}
@@ -291,7 +291,7 @@ function MenuItem({
       data-view-action={action}
       onClick={() => onAction(action)}
       className={
-        'flex h-7 w-full items-center gap-2 rounded px-2 text-start text-xs hover:bg-accent ' +
+        'flex h-7 w-full items-center gap-2 rounded-md px-2 text-start text-xs hover:bg-accent ' +
         'focus-visible:bg-accent focus-visible:outline-none disabled:opacity-50 disabled:hover:bg-transparent ' +
         (danger ? 'text-danger-800' : '')
       }

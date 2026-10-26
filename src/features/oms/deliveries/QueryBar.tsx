@@ -264,7 +264,7 @@ function PendingNote({ count, onDiscard }: { count: number; onDiscard: () => voi
           <button
             type="button"
             onClick={onDiscard}
-            className="inline-flex items-center gap-0.5 rounded px-1 text-muted-foreground underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-0.5 rounded-md px-1 text-muted-foreground underline-offset-2 hover:underline"
             data-query-discard=""
           >
             <RotateCcw className="size-3" aria-hidden />

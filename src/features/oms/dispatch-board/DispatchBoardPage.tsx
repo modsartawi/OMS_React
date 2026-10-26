@@ -25,6 +25,8 @@ import { BOARD_KEY, boardQuery } from './api'
 import { EMPTY_BOARD_FILTER, boardFilterFromParams, boardFilterToParams, boardTiles, isFilteredBoard, type BoardTile } from './board-view'
 import { BOARD_DEFAULT_COL_DEF, buildClosedColumns, buildOpenColumns, type BoardRow } from './columns'
 import Inspector from './Inspector'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The Dispatch board — `/oms/dispatch-board` (BackOffice spec 2952, oms ticket 541; the fleet board,
@@ -266,17 +268,16 @@ function Filters({
     if (resetFromOutside()) setDraft(filter)
   }, [filter, resetFromOutside])
   const field = (name: keyof DispatchBoardFilter) => (
-    <label className="flex flex-col gap-0.5 text-xs font-medium text-muted-foreground">
-      {t(`filters.${name}`)}
-      <input
+    <Field label={t(`filters.${name}`)}>
+      <Input
         value={draft[name]}
         onChange={(e) => setDraft((d) => ({ ...d, [name]: e.target.value }))}
         placeholder={t('filters.any')}
         dir="auto"
-        className="h-8 w-40 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+        className="w-40"
         data-filter={name}
       />
-    </label>
+    </Field>
   )
   return (
     <form

@@ -1168,18 +1168,13 @@ export default function AuthorizationFormPage() {
               <h2 className="text-sm font-semibold tracking-tight">
                 {t('form.lines.title', { count: liveLineCount(lines) })}
               </h2>
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                disabled={busy}
-                className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <Button type="button" variant="outlined" onClick={() => void refresh()} disabled={busy}>
                 <RefreshCw
                   className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')}
                   aria-hidden
                 />
                 {t('form.refresh')}
-              </button>
+              </Button>
             </div>
 
             <AddItemRow

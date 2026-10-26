@@ -13,6 +13,8 @@ import {
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import type { AuthListRow } from '@/core/models/nphies'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 /**
  * The cancel act's one question (ticket 215): **which reason**.
@@ -117,13 +119,11 @@ export default function CancelDialog({ row, busy, error, onClose, onConfirm }: C
           />
         )}
 
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{t('cancel.reason')}</span>
-          <select
+        <Field label={t('cancel.reason')}>
+          <Select
             value={reasonCode}
             onChange={(e) => setReasonCode(e.target.value)}
             disabled={reasons.isPending || options.length === 0}
-            className="h-9 rounded-md border border-border bg-card px-2 text-sm"
           >
             {/* No default pick: the code reaches the payer, so it is chosen or the
                 act does not fire. */}
@@ -133,8 +133,8 @@ export default function CancelDialog({ row, busy, error, onClose, onConfirm }: C
                 {r.display || r.code}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
         {!reasons.isPending && !reasons.isError && options.length === 0 && (
           <p className="text-xs text-muted-foreground">{t('cancel.noReasons')}</p>

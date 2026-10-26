@@ -367,7 +367,7 @@ export default function QueryToken({
             </span>
             <button
               type="button"
-              className="rounded px-1.5 py-0.5 hover:bg-accent"
+              className="rounded-md px-1.5 py-0.5 hover:bg-accent"
               onClick={() => {
                 onClose()
                 button.current?.focus()

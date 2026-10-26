@@ -19,6 +19,9 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { censusQuery, pageFromParams, pageToParams, type CensusFilter, type PageQuery, type PickSupportTab } from './census-view'
 import { openable, resolveView } from './resolve-view'
 import StuckNowTab from './StuckNowTab'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
+import Field from '@/core/ui/Field'
 
 /**
  * **Pick support** (ticket 496, BackOffice brief 2691; spec 2685, ADR 0085) — HQ support types any
@@ -48,9 +51,6 @@ function reask(queryClient: QueryClient, key: string) {
 }
 
 type UrlState = ReturnType<typeof useUrlQuery<PageQuery>>
-
-const TAB =
-  '-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm font-medium aria-selected:border-primary aria-selected:text-foreground'
 
 /**
  * The tab strip and its panel. The whole page's state is ONE URL reading (`pageFromParams`), so a
@@ -101,21 +101,20 @@ function PickSupportTabs() {
   ]
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border pb-2">
         {tabs.map((tab) => (
-          <button
+          <Chip
             key={tab.id}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={query.tab === tab.id}
             id={`pick-support-tab-${tab.id}`}
-            aria-selected={query.tab === tab.id}
             aria-controls="pick-support-panel"
             tabIndex={query.tab === tab.id ? 0 : -1}
             ref={(el) => {
               tabRefs.current[tab.id] = el
             }}
             onKeyDown={(e) => onTabKey(e, tab.id)}
-            className={`${TAB} ${query.tab === tab.id ? '' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            className="gap-1.5"
             onClick={() => select(tab.id)}
             data-ps-tab={tab.id}
           >
@@ -131,7 +130,7 @@ function PickSupportTabs() {
                 <span className="sr-only">{t('tabs.stuckTotal', { total: fsi(String(total)) })}</span>
               </span>
             )}
-          </button>
+          </Chip>
         ))}
       </div>
       <div role="tabpanel" id="pick-support-panel" aria-labelledby={`pick-support-tab-${query.tab}`}>
@@ -144,9 +143,6 @@ function PickSupportTabs() {
     </div>
   )
 }
-
-const INPUT =
-  'h-9 w-full max-w-xl rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /**
  * Search: one input, Enter calls Resolve. The key lives in the URL (`?key=`), so a link to a case
@@ -198,18 +194,17 @@ function SearchTab({ url }: { url: UrlState }) {
         }}
         data-ps-search=""
       >
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('search.label')}
-          <input
+        <Field label={t('search.label')} className="flex-1">
+          <Input
             type="text"
+            className="w-full max-w-xl"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t(seesSerials ? 'search.placeholder' : 'search.placeholderNoSerial')}
-            className={INPUT}
             autoFocus
             data-ps-key=""
           />
-        </label>
+        </Field>
         <Button type="submit" disabled={draft.trim() === '' || resolve.isFetching} data-ps-find="">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('search.submit')}

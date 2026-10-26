@@ -14,6 +14,7 @@ import type {
 } from '@/core/models/settlement'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -767,17 +768,14 @@ function ChangeForm({
     <div className="flex flex-col gap-3" data-testid="change-request-form" data-mode={mode}>
       <label className="flex flex-col gap-1">
         <span className="text-xs font-medium">{t('changeRequest.form.amount.label')}</span>
-        <input
+        <Input
           value={draft.amount}
           onChange={(e) => onDraft({ ...draft, amount: e.target.value })}
           inputMode="decimal"
           autoComplete="off"
           aria-invalid={amountError ? true : undefined}
           data-testid="change-request-amount"
-          className={
-            'h-9 max-w-xs rounded-md border bg-card px-2 text-sm tabular-nums outline-none focus:border-primary/60 ' +
-            (amountError ? 'border-attention-border' : 'border-border')
-          }
+          className="max-w-xs tabular-nums"
         />
         {amountError && (
           <span className="text-xs text-attention-800" data-testid="change-request-amount-error">

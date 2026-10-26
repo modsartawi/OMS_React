@@ -1581,6 +1581,580 @@ SCREENS.push({
   },
 })
 
+// --- 602: the collection screens on the shared controls ----------------------
+// Self-contained: its stubs and its screens. Two screens, light / dark / RTL:
+//   - `collection-assignment` — the area's heaviest page (Branches: the filter bar,
+//     the bulk bar with its pasted-list Textarea, the grid's slot Selects; People:
+//     the roster form), then the Cash Collections filter strip and the ACRs strip
+//     (the inquiry toolbar shape: Field-labelled Inputs, the Served-by Select, the
+//     grid toggle Chips, the Status radios restyled in place);
+//   - `collection-settlement` — the door (search Input, scope Chips), the post
+//     dialog (Inputs, the reason Textarea, the kind tiles restyled in place), the
+//     ledger's criteria (Chips, date / text Inputs, the Posted-by Select) and the
+//     open lane's tab Chips.
+// Every field labelled, every icon button named, every field on the shared look,
+// the role tokens resolved. Data is the area drives' own shapes, trimmed.
+
+const COLLECTION_ACCESS = {
+  canOpenCollections: true,
+  canOpenAcrs: true,
+  canOpenDeposits: true,
+  canOpenAttempts: true,
+  canOpenAssignment: true,
+  canOpenSettlement: true,
+  canSuperviseSettlement: true,
+  canOpenReady: true,
+}
+const COLLECTION_ROSTER = {
+  accountants: [{ staffId: '4466', displayName: 'ضحى' }],
+  collectors: [{ staffId: 'COLL-9', displayName: 'فهد القحطاني' }],
+  supervisors: [],
+  defaultScope: null,
+}
+const COLLECTION_PEOPLE = [
+  { staffId: '4466', displayName: 'ضحى', role: 'ACCOUNTANT', supervisorId: '', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+  { staffId: '5120', displayName: 'فهد القحطاني', role: 'COLLECTOR', supervisorId: '4466', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+]
+const COLLECTION_BRANCHES = ['P019', 'P020', 'P021'].map((storeCode, i) => ({
+  storeCode,
+  storeName: `Al-Dawaa ${storeCode}`,
+  city: 'Riyadh',
+  area: 'Central',
+  accountantId: i < 2 ? '4466' : '',
+  collectorId: i < 1 ? '5120' : '',
+  updatedBy: 'seed',
+  updatedAt: '2026-09-01T00:00:00',
+}))
+const SETTLEMENT_BRANCHES = [
+  { storeId: '0719', storeName: 'Al-Dawaa 0719', city: 'Riyadh', area: 'Central', servedBy: 'ضحى', isMine: true },
+]
+const COLLECTION_STUBS = [
+  [/^CollectionWeb\/Access$/, COLLECTION_ACCESS],
+  [/^CollectionWeb\/AssignmentOptions$/, COLLECTION_ROSTER],
+  [/^CollectionWeb\/Assignment\/People$/, COLLECTION_PEOPLE],
+  [/^CollectionWeb\/Assignment\/Branches$/, COLLECTION_BRANCHES],
+  [/^Settlement\/Branches$/, SETTLEMENT_BRANCHES],
+  // Fleet, orphans, ledger, open lane, change queue, the inquiry lists: an empty
+  // estate still draws every control.
+  [/^Settlement\//, []],
+  [/^CollectionWeb\//, []],
+]
+
+/** The text-like fields inside `scope` (checkboxes and radios stay native). */
+const fieldsIn = (scope) =>
+  `${scope} input:not([type=checkbox]):not([type=radio]):not([type=hidden]), ${scope} select, ${scope} textarea`
+
+SCREENS.push({
+  key: 'collection-assignment',
+  path: '/collection/assignment',
+  stubs: COLLECTION_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/collection/assignment', '[data-assignment-bar="filter"]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The tab bar: two tab Chips, the look follows aria-selected.
+    const tabs = '[data-assignment-tabs] [role="tab"]'
+    await expectAllPills(ctx, 'assignment tabs', tabs)
+    await expectChipLook(ctx, 'Branches tab', `${tabs}:nth-child(1)`, true)
+    await expectChipLook(ctx, 'People tab', `${tabs}:nth-child(2)`, false)
+
+    // ── Branches: the filter bar and the bulk bar.
+    const filter = '[data-assignment-bar="filter"]'
+    const bulk = '[data-assignment-bar="bulk"]'
+    await page.waitForSelector('.ag-row select', { timeout: 10000 })
+    await expectLabelled(ctx, 'filter bar', fieldsIn(filter))
+    await expectAllFieldsShared(ctx, 'filter bar', filter)
+    await expectFieldLook(ctx, 'branch search (Input)', `${filter} input`)
+    await expectFocusRing(ctx, 'branch search (Input)', `${filter} input`)
+    await expectLabelled(ctx, 'bulk bar', fieldsIn(bulk))
+    await expectAllFieldsShared(ctx, 'bulk bar', bulk)
+    await expectFieldLook(ctx, 'bulk target (Select)', `${bulk} select`)
+    await expectAllPills(ctx, 'bulk bar buttons', `${bulk} button`)
+    // The grid's slot Selects: named by their column, on the shared look.
+    await expectLabelled(ctx, 'grid slot selects', '.ag-row select')
+    await expectAllFieldsShared(ctx, 'grid', '.ag-root-wrapper')
+    // The pasted-list flow brings a Textarea into the bulk bar.
+    await page.locator(`${bulk} select`).first().selectOption('pasted')
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'pasted list', `${bulk} textarea`)
+    await expectAllFieldsShared(ctx, 'bulk bar with the pasted list', bulk)
+    await shot('branches')
+
+    // ── People: the roster form, and the row Edit actions.
+    await page.locator(`${tabs}:nth-child(2)`).click()
+    await page.waitForSelector('[data-people-form]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    await expectChipLook(ctx, 'People tab after click', `${tabs}:nth-child(2)`, true)
+    const form = '[data-people-form]'
+    await expectLabelled(ctx, 'people form', fieldsIn(form))
+    await expectAllFieldsShared(ctx, 'people form', form)
+    await expectFieldLook(ctx, 'staff id (Input)', `${form} input:not([type=checkbox])`)
+    await expectFieldLook(ctx, 'role (Select)', `${form} select`)
+    await expectAllPills(ctx, 'people form buttons', `${form} button`)
+    await expectAllPills(ctx, 'people row Edit', '[data-people-edit]')
+    await shot('people')
+
+    // ── Cash Collections' filter strip: Field-labelled Inputs, the Served-by
+    //    Select, Search / Reset Buttons, the grid toggle Chips.
+    await openWorkspacePage(page, '/collection/collections', '[data-filter-strip]')
+    const strip = '[data-filter-strip]'
+    await expectLabelled(ctx, 'collections strip', fieldsIn(strip))
+    await expectAllFieldsShared(ctx, 'collections strip', strip)
+    await expectFieldLook(ctx, 'business date from (date Input)', `${strip} input[type=date]`)
+    await expectFocusRing(ctx, 'business date from (date Input)', `${strip} input[type=date]`)
+    await expectFieldLook(ctx, 'served by (Select)', `${strip} select`)
+    await expectAllPills(ctx, 'collections strip buttons', `${strip} button`)
+    const toggle = 'main button[aria-pressed]'
+    await expectAllPills(ctx, 'grid toggles', toggle)
+    const on = (await page.locator(toggle).first().getAttribute('aria-pressed')) === 'true'
+    await expectChipLook(ctx, 'grid toggle chip', toggle, on)
+    await shot('collections')
+
+    // ── ACRs: the Status radios restyled in place, and the Filtered chip's clear.
+    await openWorkspacePage(page, '/collection/acrs', '[data-filter-strip]')
+    await expectLabelled(ctx, 'acrs strip', fieldsIn(strip))
+    await expectAllFieldsShared(ctx, 'acrs strip', strip)
+    await expectAllPills(ctx, 'acrs status radios', `${strip} [role="radio"]`)
+    const radios = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-filter-strip] [role="radio"]')].map((b) => b.getAttribute('aria-checked')),
+    )
+    check(
+      `${tag} acrs status: radios keep aria-checked, one checked`,
+      radios.length === 3 && radios.filter((r) => r === 'true').length === 1,
+      radios.join(','),
+    )
+    await page.locator(`${strip} [data-status][aria-checked="false"]`).first().click()
+    await page.locator(`${strip} button[type="submit"]`).click()
+    await page.waitForSelector(`${strip} button[aria-label]`, { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectIconButtonsNamed(ctx, 'acrs Filtered chip', strip, 1)
+    await shot('acrs')
+  },
+})
+
+SCREENS.push({
+  key: 'collection-settlement',
+  path: '/collection/settlement',
+  stubs: COLLECTION_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/collection/settlement', '[data-testid="settlement-search"]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The door: the search Input, the scope Chips.
+    const search = '[data-testid="settlement-search"]'
+    await expectLabelled(ctx, 'settlement search', search)
+    await expectFieldLook(ctx, 'settlement search (search Input)', search)
+    await expectFocusRing(ctx, 'settlement search (search Input)', search)
+    const scopes = '[data-region="settlement-scope"] [data-scope]'
+    await expectAllPills(ctx, 'scope chips', scopes)
+    const pressed = await page.evaluate(
+      (sel) => [...document.querySelectorAll(sel)].map((b) => b.getAttribute('aria-pressed')),
+      scopes,
+    )
+    check(
+      `${tag} scope chips: each exposes aria-pressed, one pressed`,
+      pressed.length === 3 && pressed.filter((p) => p === 'true').length === 1,
+      pressed.join(','),
+    )
+    await expectChipLook(ctx, 'scope chip', `${scopes}[aria-pressed="true"]`, true)
+    await expectChipLook(ctx, 'scope chip', `${scopes}[aria-pressed="false"]`, false)
+    await shot('door')
+
+    // ── The post dialog: branch + amount Inputs, the reason Textarea, the kind tiles.
+    await page.locator('[data-testid="post-open"]').click()
+    await page.waitForSelector('[data-region="post-entry"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    const post = '[data-region="post-entry"]'
+    await expectLabelled(ctx, 'post form', fieldsIn(post))
+    await expectAllFieldsShared(ctx, 'post form', post)
+    await expectFieldLook(ctx, 'post branch (Input)', '[data-testid="post-branch"]')
+    await expectFocusRing(ctx, 'post branch (Input)', '[data-testid="post-branch"]')
+    await expectRole(ctx, 'post kind tile (restyled in place, chosen)', `${post} [data-kind][aria-pressed="true"]`, 'border-top-color', '--primary')
+    await expectRole(ctx, 'post kind tile (restyled in place, idle)', `${post} [data-kind][aria-pressed="false"]`, 'border-top-color', '--border')
+    // A Review with nothing typed marks the form: invalid is aria-invalid + the danger edge.
+    await page.locator('[data-testid="post-review"]').click({ force: true }) // aria-disabled until ready: a click marks the form
+    await page.mouse.move(0, 0)
+    const invalid = `${post} [aria-invalid="true"]`
+    if (await page.locator(invalid).count()) await expectInvalid(ctx, 'post form, blank on Review', invalid)
+    else skip(`${tag} post form: Review marked no field invalid`)
+    await shot('post')
+    await page.keyboard.press('Escape')
+
+    // ── The ledger's criteria: Chips, date / text Inputs, the Posted-by Select.
+    await openWorkspacePage(page, '/collection/settlement/ledger', '[data-region="ledger-criteria"]')
+    const crit = '[data-region="ledger-criteria"]'
+    await expectLabelled(ctx, 'ledger criteria', fieldsIn(crit))
+    await expectAllFieldsShared(ctx, 'ledger criteria', crit)
+    await expectFieldLook(ctx, 'posted by (Select)', '[data-testid="ledger-posted-by"]')
+    await expectFieldLook(ctx, 'amount from (Input)', '[data-testid="ledger-amount-from"]')
+    await expectFocusRing(ctx, 'amount from (Input)', '[data-testid="ledger-amount-from"]')
+    const chip = `${crit} [data-chip]`
+    await expectAllPills(ctx, 'ledger chips', chip)
+    await expectChipLook(ctx, 'ledger chip', chip, false)
+    await page.locator(chip).first().click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'ledger chip after click', `${chip}[aria-pressed="true"]`, true)
+    await shot('ledger')
+
+    // ── The open lane's tabs: tab Chips inside the tablist.
+    await openWorkspacePage(page, '/collection/settlement/open', '[role="tablist"] [data-tab]')
+    const tab = '[role="tablist"] [data-tab]'
+    await expectAllPills(ctx, 'open lane tabs', tab)
+    await expectChipLook(ctx, 'open lane tab', `${tab}[aria-selected="true"]`, true)
+    await expectChipLook(ctx, 'open lane tab', `${tab}[aria-selected="false"]`, false)
+    await shot('open')
+  },
+})
+
+// --- 604: the Nphies and reports screens on the shared controls ----------------
+// The nphies + reports area sweep (spec 590 §Shared controls). Self-contained: its stubs,
+// its helpers and its screens. Light, dark and RTL over the area's heaviest screens —
+// the authorization form (add-row, deductible boxes, line cells, diagnoses, attachments)
+// and its list filters (window chip ✕), the eligibility check form, and the reports
+// toolbars (SAP export fleet, IDoc inspector, Invoices) — proving every field labelled and
+// on the shared look, every icon button named, the buttons pills and the role tokens resolved.
+
+const NPHIES_REFERENCE = {
+  eligibilityId: 'ELG-1', memberId: 'MEM-4477', patientId: '0000000003', patientName: 'Ahmad Ali',
+  patientGender: 'male', patientBirthDate: '1988-04-02', patientIdType: 'NI', payerCode: 'PAY-9',
+  providerCode: 'P001', policyNumber: 'POL-77', policyStartDate: '2026-01-01', policyEndDate: '2026-12-31',
+  policyHolder: 'ACME INSURANCE',
+}
+const NPHIES_LINE = (sequence, itemNumber, itemDescription, group) => ({
+  lineId: `L${sequence}`, sequence, voided: false, itemNumber, itemDescription, quantity: 2,
+  unitPrice: 12.5, extendedPrice: 25, amount: 25, netAmount: 25, vat: 0, discountPercentage: 0, discountAmount: 0,
+  actualPatientShare: 5, deductibleG: 5, deductibleGroupName: group, maxCoverage: 0, daysSupply: 30,
+  selectionReason: '', selectionReasonEditable: group !== 'Generic', pricing: 'settled',
+})
+const NPHIES_STATE = {
+  contractVersion: '1.0', transactionId: '01JC8ABCDEFGHJKMNPQRSTVWXY', version: 2, etag: 'E2', status: 'open', plant: '1001',
+  reference: NPHIES_REFERENCE,
+  header: {
+    serviceDate: '2026-08-02', exceptionPrescription: false, daysSupplyDefault: 30, reasonForVisit: '',
+    diagnoses: [{ code: 'J20.9', type: 'principal', description: 'Acute bronchitis, unspecified', morphology: '' }],
+  },
+  insurance: { g1: { rate: 20, max: 500, paid: 0 }, g2: { rate: 30, max: 500, paid: 200 }, g3: { rate: 100, max: 0, paid: 0 } },
+  lines: [NPHIES_LINE(1, '100001', 'PANADOL 500MG', 'Brand-IR'), NPHIES_LINE(2, '100002', 'AMOXICILLIN 250MG', 'Generic')],
+  submitBlockers: [], replayed: false,
+}
+const NPHIES_ELIGIBILITY = {
+  id: 'ELG-1', eligibilityPurpose: 'benefits', providerCode: 'P001', payerCode: 'PAY-9', patientId: '0000000003',
+  patientIdType: 'NI', patientGender: 'male', patientName: 'Ahmad Ali', patientBirthDate: '1988-04-02',
+  actionDateTime: '2026-08-02T09:15:00', errorMessage: '', inforce: true, outcome: 'complete', disposition: 'Eligible',
+  notInForceReason: '', success: true, coverage: true, coverageId: 'COV-1', network: 'GOLD', class: 'A', statusCode: 200,
+  isEligible: true, siteEligibility: 'eligible', transfer: false, newborn: false, occupation: '', maritalStatus: '',
+  coverages: [{
+    id: 'COV-1', sequence: 1, coverageId: 'COV-1', memberId: 'MEM-4477', subscriberId: 'SUB-1', network: 'GOLD',
+    coveragePlan: 'PLAN-A', coverageClass: 'A', coverageGroup: 'G1', policyHolderName: 'ACME INSURANCE', inForce: true,
+    benefitStart: '2026-01-01', benefitEnd: '2026-12-31', periodStart: '2026-01-01', periodEnd: '2026-12-31',
+  }],
+}
+const NPHIES_LOOKUP = (items) => ({ contractVersion: '1.0', items })
+const NPHIES_STUBS = [
+  [/^Nphies\/Access$/, { canOpenNphies: true }],
+  [/^Nphies\/EligibilityResponse\/ELG-1$/, NPHIES_ELIGIBILITY],
+  [/^Nphies\/Session\/Open$/, { outcome: 'opened', state: NPHIES_STATE }],
+  [/^Nphies\/Session\/(State|SetHeader|SetInsurance|UpdateLineMeta|UpdateLineInsurance|ChangeQty)$/, NPHIES_STATE],
+  [/^Nphies\/Session\/Abandon$/, { outcome: 'abandoned' }],
+  [/^Nphies\/(AuthResponses|EligibilityResponses)$/, { rows: [], total: 0, page: 1, pageSize: 50 }],
+  [/^Nphies\/Providers$/, NPHIES_LOOKUP([{ providerCode: 'P001', license: 'LIC-1' }])],
+  [/^Nphies\/Payers$/, NPHIES_LOOKUP([{ payerCode: 'PAY-9', payerName: 'Bupa' }])],
+  [/^Nphies\/CodeSystem$/, (path, req) =>
+    NPHIES_LOOKUP(new URL(req.url()).searchParams.get('valueSet') === 'SelectionReason'
+      ? [{ code: 'patient-request', display: 'Patient request', blocked: 'false', valueSetName: 'SelectionReason' }]
+      : [])],
+  [/^Nphies\/(Diagnoses|Morphs)$/, NPHIES_LOOKUP([])],
+]
+
+const REPORTS_SAP_STORE = (i) => ({
+  code: `P${String(i).padStart(3, '0')}`, description: `Store ${i}`, total: 500,
+  labels: { exported: 480, byDesign: 10, waiting: 10, heldForInventory: 0, behind: 0, stuck: 0 },
+  states: { N5: 480, L3: 10, N7: 10, N1: 1 }, flags: { X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 },
+  railMix: { legacy: 0, new: 500 }, oldestBehindHours: null, breakDays: 0, legacyStalled: false, legacyInventoryGated: false,
+  computedAt: '2026-10-11T08:00:00',
+})
+const REPORTS_STUBS = [
+  [/^SapExport\/Access$/, { screenAllowed: true }],
+  [/^SapExport\/Fleet\/Summary$/, {
+    windowDays: 30, computedAt: '2026-10-11T08:00:00', stores: 3,
+    tiles: { storesBehind: 1, storesStuck: 1, storesHeldForInventory: 0, doubleSent: 2, doubleSendPending: 1, accountingBreaks: 0, legacyStalled: 0 },
+  }],
+  [/^SapExport\/Fleet$/, { items: [1, 2, 3].map(REPORTS_SAP_STORE), total: 3, page: 1, pageSize: 50 }],
+  [/^SapExport\/Runners$/, { items: [] }],
+  [/^SapExport\/DoubleSends$/, { items: [], total: 0, page: 1, pageSize: 50 }],
+  [/^(IDocInspector|RetailInvoice)\/Access$/, { screenAllowed: true, canOpen: true, allowed: true }],
+]
+
+/** Goes to an area page and waits for its own hook; fonts settled, mouse parked. */
+async function openAreaPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** Marks the control a visible label names with `data-probe-<name>`, so the CSS-selector
+ *  helpers can address it (the swept screens carry few data-* hooks of their own). */
+async function tagByLabel(page, label, name) {
+  await page.getByLabel(label, { exact: true }).first().evaluate((el, n) => el.setAttribute(`data-probe-${n}`, ''), name)
+  return `[data-probe-${name}]`
+}
+
+/** Every text button inside `scope` is a 28px full pill (Button / Chip) — a hand pill at
+ *  h-9 / rounded-md would fail here. Icon-only buttons are `expectIconButtonsNamed`'s. */
+async function expectAllButtonsShared(ctx, label, scope, min) {
+  const out = await ctx.page.evaluate((sc) => {
+    const els = [...document.querySelectorAll(`${sc} button`)].filter((b) => b.getBoundingClientRect().height > 0 && b.textContent.trim())
+    const bad = els.filter((b) => {
+      const r = b.getBoundingClientRect()
+      const cs = getComputedStyle(b)
+      const radius = Math.min(parseFloat(cs.borderStartStartRadius), parseFloat(cs.borderEndEndRadius))
+      return Math.round(r.height) !== 28 || radius < r.height / 2 - 0.5
+    })
+    return { n: els.length, bad: bad.map((b) => `${b.textContent.trim().slice(0, 20) || b.getAttribute('aria-label')}@${Math.round(b.getBoundingClientRect().height)}`) }
+  }, scope)
+  check(`${ctx.tag} ${label}: all ${out.n} buttons are 28px pills`, out.n >= min && out.bad.length === 0, out.bad.join(' | '))
+}
+
+SCREENS.push({
+  key: 'nphies-authorization',
+  path: '/nphies/authorizations/new?from=ELG-1&coverage=MEM-4477',
+  stubs: NPHIES_STUBS,
+  modes: lightDarkRtl,
+  viewport: { width: 1700, height: 1000 },
+  ready: (page) => openAreaPage(page, '/nphies/authorizations/new?from=ELG-1&coverage=MEM-4477', 'main table tbody tr'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png`, fullPage: true })
+    const main = 'main'
+
+    // ── The form: add-row, deductible boxes, line cells, diagnoses, attachments.
+    await expectLabelled(ctx, 'authorization form', FIELDS(main))
+    await expectAllFieldsShared(ctx, 'authorization form', main)
+    const item = await tagByLabel(page, 'Item number', 'item')
+    await expectFieldLook(ctx, 'item number (Input in a Field)', item)
+    await expectFocusRing(ctx, 'item number (Input in a Field)', item)
+    await expectFieldLook(ctx, 'diagnosis type (Select in a Field)', await tagByLabel(page, 'Type', 'dx-type'))
+    await expectFieldLook(ctx, 'attachment document (Select in a Field)', await tagByLabel(page, 'Document', 'doc'))
+    await expectFieldLook(ctx, 'a table number cell (number Input)', 'main table tbody tr input[type="number"]')
+    await expectAllButtonsShared(ctx, 'form buttons', main, 5)
+    await expectRole(ctx, 'Void (danger-outlined Button)', 'main table tbody tr button[title]', 'border-top-color', '--danger-border')
+    await shot('form')
+
+    // ── The list: its filter Fields and the window chip's ✕ IconButton.
+    await openAreaPage(page, '/nphies/authorizations', 'main form')
+    await expectLabelled(ctx, 'list filters', FIELDS('main form'))
+    await expectAllFieldsShared(ctx, 'list filters', main)
+    await expectFieldLook(ctx, 'from date (date Input)', await tagByLabel(page, 'From', 'from'))
+    await expectFieldLook(ctx, 'provider (Select)', await tagByLabel(page, 'Provider', 'provider'))
+    await expectIconButtonsNamed(ctx, 'window chip (remove)', main, 1)
+    await expectAllButtonsShared(ctx, 'list buttons', main, 3)
+    await shot('list')
+  },
+})
+
+SCREENS.push({
+  key: 'nphies-eligibility',
+  path: '/nphies/eligibility/new',
+  stubs: NPHIES_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAreaPage(page, '/nphies/eligibility/new', 'main form'),
+  assert: async (ctx) => {
+    const main = 'main'
+    await expectLabelled(ctx, 'eligibility check form', FIELDS('main form'))
+    await expectAllFieldsShared(ctx, 'eligibility check form', main)
+    const patient = await tagByLabel(ctx.page, 'Patient ID', 'patient')
+    await expectFieldLook(ctx, 'patient id (Input in a Field)', patient)
+    await expectFocusRing(ctx, 'patient id (Input in a Field)', patient)
+    await expectFieldLook(ctx, 'provider (Select in a Field)', await tagByLabel(ctx.page, 'Provider', 'provider'))
+    await expectFieldLook(ctx, 'date of birth (date Input)', await tagByLabel(ctx.page, 'Date of birth', 'dob'))
+    await expectAllButtonsShared(ctx, 'Fill / Check eligibility', 'main form', 2)
+    await expectRole(ctx, 'Check eligibility (primary Button)', 'main form button[type="submit"]', 'background-color', '--primary')
+  },
+})
+
+SCREENS.push({
+  key: 'reports-toolbars',
+  path: '/reports/sap-export?state=N1',
+  stubs: REPORTS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAreaPage(page, '/reports/sap-export?state=N1', '[data-fleet-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── SAP export fleet: the search Input, the two Selects, the chosen-state Chip.
+    const toolbar = '[data-fleet-search], [data-fleet-rail], [data-fleet-sort]'
+    await expectLabelled(ctx, 'fleet toolbar', toolbar)
+    await expectAllFieldsShared(ctx, 'fleet toolbar', '[data-fleet-list]')
+    await expectFieldLook(ctx, 'fleet search (search Input)', '[data-fleet-search]')
+    await expectFieldLook(ctx, 'fleet rail (Select)', '[data-fleet-rail]')
+    await expectFocusRing(ctx, 'fleet sort (Select)', '[data-fleet-sort]')
+    await expectChipLook(ctx, 'chosen state', '[data-state-chosen]', true)
+    await expectAllPills(ctx, 'label chips + chosen state', '[data-label-chip], [data-state-chosen]')
+    await shot('sap-fleet')
+
+    // ── Double sends: flag Select, store search Input, Apply Button.
+    await openAreaPage(page, '/reports/sap-export/double-sends', '[data-double-sends-filters]')
+    await expectLabelled(ctx, 'double-sends filters', '[data-double-sends-flag], [data-double-sends-store]')
+    await expectFieldLook(ctx, 'double-sends store (search Input)', '[data-double-sends-store]')
+    await expectAllButtonsShared(ctx, 'double-sends Apply', '[data-double-sends-filters] form', 1)
+
+    // ── IDoc inspector + Invoices: the two lookup toolbars (Fields, Search / Reset Buttons).
+    for (const [path, part, label] of [['/reports/idoc-inspector', 'idoc', /^Store/], ['/reports/invoice', 'invoice', 'Store code']]) {
+      await openAreaPage(page, path, 'main form')
+      await expectLabelled(ctx, `${part} toolbar`, FIELDS('main form'))
+      await expectAllFieldsShared(ctx, `${part} toolbar`, 'main form')
+      await expectFieldLook(ctx, `${part} ${label} (Input in a Field)`, await tagByLabel(page, label, `${part}-store`))
+      await expectAllButtonsShared(ctx, `${part} Search / Reset`, 'main form', 2)
+      await expectRole(ctx, `${part} Search (primary Button)`, 'main form button[type="submit"]', 'background-color', '--primary')
+      await shot(part)
+    }
+  },
+})
+
+// --- 599: the OMS screens on the shared controls ------------------------------
+// The oms area sweep (spec 590 §Shared controls). Self-contained: its stubs, its helper and
+// its screens. Light, dark and RTL over the area's heaviest screens — Delivery details (the
+// note composer's Textarea, then the Mark delivered and Request cancellation dialogs, whose
+// Selects and Textarea sit in Fields) and Prescription sessions (the HQ tab Chips, the view
+// and flag Chips, the Open and Ended filter Fields) — proving every field labelled and on the
+// shared look, the chips' looks by state, and the role tokens resolved.
+// Fixtures: the 078 captured delivery (8000000253) and the HQ list's own shape.
+
+const OMS_DOCUMENT_COPY = JSON.parse(readFileSync('src/locales/en/document.json', 'utf8'))
+const OMS_DELIVERY = (() => {
+  const doc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/8000000253-delivery.json', 'utf8')).data
+  // Out for delivery, so Mark delivered and Request cancellation are both takeable.
+  return { ...doc, status: { ...doc.status, deliveryStatus: 'O', closeStatus: '' } }
+})()
+const OMS_STUBS = [
+  [/^SdDocumentWeb\/Access$/, { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }],
+  [/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/, OMS_DELIVERY],
+  [/^SdDocumentWeb\/MarkDeliveredReasons$/, [
+    { code: 'CARR', description: 'Carrier did not update the status' },
+    { code: 'OTHR', description: 'Other (note required)' },
+  ]],
+  [/^PrescriptionSessionWeb\/Sessions(\/Owed)?$/, { rows: [], total: 0, stalled: 3, aboutToLapse: 1, owed: 2, isTruncated: false }],
+  [/^PrescriptionSessionWeb\/(Ended|ToOpen)/, []],
+  // Every other door of these screens answers an empty list (logs, jobs, donors, callouts, …).
+  [/^(SdDocument|PrescriptionSession)(?!.*Access$)/, []],
+]
+
+/** Goes to an oms page and waits for its own hook; fonts settled, mouse parked. */
+async function openOmsPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** Opens a command's dialog from Delivery details' command panel and waits for `hook` inside it. */
+async function openOmsDialog(page, command, hook) {
+  await page.locator(`[data-command="${command}"]`).click()
+  await page.waitForSelector(`dialog[open] ${hook}`, { timeout: 5000 })
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+SCREENS.push({
+  key: 'oms-document',
+  path: '/oms/delivery/8000000253',
+  stubs: OMS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openOmsPage(page, '/oms/delivery/8000000253', '#note-composer'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The note composer: a Textarea under its own label.
+    await expectLabelled(ctx, 'note composer', '#note-composer')
+    await expectRole(ctx, 'note composer (Textarea)', '#note-composer', 'border-top-color', '--input')
+    await expectRole(ctx, 'note composer (Textarea)', '#note-composer', 'background-color', '--card')
+    await expectFocusRing(ctx, 'note composer (Textarea)', '#note-composer')
+    await expectAllFieldsShared(ctx, 'composer form', '[data-composer]')
+    await expectIconButtonsNamed(ctx, 'delivery details', 'main', 1)
+    await shot('details')
+
+    // ── Mark delivered: the reason Select and the note Textarea, each in a Field.
+    await openOmsDialog(page, 'mark-delivered', '#mark-delivered-reason')
+    await expectLabelled(ctx, 'Mark delivered dialog', FIELDS('dialog[open]'))
+    await expectAllFieldsShared(ctx, 'Mark delivered dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'reason (Select)', '#mark-delivered-reason')
+    await expectFocusRing(ctx, 'reason (Select)', '#mark-delivered-reason')
+    await page.locator('#mark-delivered-reason').selectOption('OTHR')
+    await expectDescribed(ctx, 'note (Textarea), Other picked', '#mark-delivered-note', OMS_DOCUMENT_COPY.markDelivered.note.required)
+    await shot('mark-delivered')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('dialog[open]', { state: 'detached', timeout: 5000 }).catch(() => {})
+
+    // ── Request cancellation: its reason Select in a Field.
+    await openOmsDialog(page, 'request-close', '#request-close-reason')
+    await expectLabelled(ctx, 'Request cancellation dialog', FIELDS('dialog[open]'))
+    await expectFieldLook(ctx, 'cancellation reason (Select)', '#request-close-reason')
+    await shot('request-close')
+  },
+})
+
+SCREENS.push({
+  key: 'oms-prescriptions',
+  path: '/oms/prescription-sessions',
+  stubs: OMS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openOmsPage(page, '/oms/prescription-sessions', '[data-ps-filters]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The HQ tabs: tab Chips inside the tablist.
+    await expectTabChips(ctx, 'HQ tabs', '[role="tablist"]:has([data-ps-tab-button])', 3)
+
+    // ── Open: the view Chips (All open on), the flag Chips (off until pressed).
+    await expectChipLook(ctx, 'All open view', '[data-ps-view-button="all"]', true)
+    await expectChipLook(ctx, 'Owed view', '[data-ps-view-button="owed"]', false)
+    const flag = '[data-ps-chip]:first-child'
+    await expectChipLook(ctx, 'flag chip', flag, false)
+    await page.locator(flag).click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    const pressed = await page.locator(flag).getAttribute('aria-pressed')
+    check(`${tag} flag chip: a click presses it`, pressed === 'true', String(pressed))
+    await expectChipLook(ctx, 'flag chip', flag, true)
+    await expectAllPills(ctx, 'view and flag chips', '[data-ps-view-button], [data-ps-chip]')
+
+    // ── Open: the filter Fields (an Input with its hint, three Selects, two number Inputs).
+    const filters = '[data-ps-filters]'
+    await expectLabelled(ctx, 'open filters', FIELDS(filters))
+    await expectAllFieldsShared(ctx, 'open filters', filters)
+    await expectFieldLook(ctx, 'store (Input)', '[data-ps-filter="store"]')
+    await expectDescribed(ctx, 'store (Input)', '[data-ps-filter="store"]', await page.locator('[data-ps-store-hint]').textContent())
+    await expectFieldLook(ctx, 'state (Select)', '[data-ps-filter="state"]')
+    await expectFocusRing(ctx, 'state (Select)', '[data-ps-filter="state"]')
+    await expectAllPills(ctx, 'Search / Reset', '[data-ps-search], [data-ps-reset]')
+    await shot('open')
+
+    // ── Ended: date Inputs, a store Input with its hint, a state Select — each in a Field.
+    await page.locator('[data-ps-tab-button="ended"]').click()
+    await page.waitForSelector('[data-ps-ended-filter="store"]', { timeout: 10000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Ended tab after click', '[data-ps-tab-button="ended"]', true)
+    const ended = 'form:has([data-ps-ended-filter])'
+    await expectLabelled(ctx, 'ended filters', FIELDS(ended))
+    await expectAllFieldsShared(ctx, 'ended filters', ended)
+    await expectFieldLook(ctx, 'ended from (date Input)', '[data-ps-ended-filter="from"]')
+    await shot('ended')
+  },
+})
+
 // --- 605: the remaining areas on the shared controls --------------------------
 // The last area sweep (spec 590 §Shared controls): Deliverect, HungerStation, Materials, Loy
 // and the auth chrome. Self-contained: its stubs, its helper and its screens. Light, dark and

@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 
 /**
  * The note a command posts, captured inside the command's own dialog (spec 083
@@ -40,18 +42,14 @@ export default function NoteField({
 }) {
   const { t } = useTranslation('document')
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-muted-foreground" htmlFor={id}>
-        {label ?? t('note.labelOptional')}
-      </label>
-      <textarea
-        id={id}
+    <Field id={id} label={label ?? t('note.labelOptional')}>
+      <Textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? t('note.placeholder')}
-        className="w-full resize-y rounded-md border border-input bg-background px-2 py-1 text-[0.8125rem]"
+        className="w-full resize-y"
       />
-    </div>
+    </Field>
   )
 }

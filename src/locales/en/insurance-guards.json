@@ -1,0 +1,44 @@
+{
+  "list": {
+    "title": "Guards",
+    "lede": "Guards are checked before an insurance request is sent. Folders only organize them; they never change what a rule does.",
+    "loading": "Loading the guard rules…",
+    "failed": "The guard rules could not be loaded.",
+    "empty": "No guard rule is in this folder.",
+    "shown": "Rules shown",
+    "never": "Never"
+  },
+  "folders": {
+    "label": "Folders",
+    "all": "All rules"
+  },
+  "columns": {
+    "id": "Rule",
+    "name": "Name",
+    "state": "State",
+    "severity": "Severity",
+    "folder": "Folder",
+    "lastFired": "Last fired",
+    "flags": "Flags"
+  },
+  "rule": {
+    "back": "Back to the guards",
+    "loading": "Loading the rule…",
+    "failed": "The rule could not be loaded.",
+    "notFound": "No guard rule has this id:",
+    "folder": "Folder:",
+    "noFolder": "None",
+    "shadowSince": "In shadow since",
+    "when": "WHEN",
+    "whenHint": "which requests it checks",
+    "if": "IF",
+    "ifHint": "what makes it fire",
+    "then": "THEN",
+    "thenHint": "what the pharmacist sees",
+    "message": "Message"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission."
+  }
+}

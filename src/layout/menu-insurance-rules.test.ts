@@ -1,0 +1,38 @@
+/**
+ * The Insurance rules nav group (oms 607, BackOffice spec 3126). Read out of the REAL `MENU`. UNGATED until
+ * 618 adds the probes: a leaf that grows one before then fails here.
+ */
+import { describe, expect, it } from 'vitest'
+import { MENU, markedLeaf, type ShellMenuItem } from './menu-model'
+import { resolveMenu } from './useVisibleMenu'
+import { deriveCrumb } from './crumb'
+
+const group = MENU.find((g) => g.labelKey === 'insurance-rules:menu.group')
+const leaves = (items: ShellMenuItem[]): ShellMenuItem[] => items.flatMap((i) => (i.items ? leaves(i.items) : [i]))
+
+describe('the Insurance rules nav group', () => {
+  it('is ONE group of its own, the LAST, right after HungerStation', () => {
+    expect(MENU.filter((g) => g.labelKey === 'insurance-rules:menu.group')).toHaveLength(1)
+    expect(MENU.at(-1)).toBe(group)
+    expect(MENU.at(-2)?.labelKey).toBe('hungerstation-stores:menu.hungerstation')
+  })
+
+  it('607 ships Guards first, at /insurance-rules/guards', () => {
+    expect(leaves([group!])[0]).toMatchObject({ labelKey: 'insurance-rules:menu.guards', routerLink: '/insurance-rules/guards' })
+  })
+
+  it('a rule’s page lights Guards and puts the rule id in the crumb', () => {
+    expect(markedLeaf(MENU, '/insurance-rules/guards/G-007')?.labelKey).toBe('insurance-rules:menu.guards')
+    expect(deriveCrumb(MENU, '/insurance-rules/guards/G-007', { ruleId: 'G-007' })).toEqual({
+      trail: ['insurance-rules:menu.group', 'insurance-rules:menu.guards'],
+      scope: null,
+      record: 'G-007',
+    })
+  })
+
+  it('🚩 no leaf carries a probe until 618 — the group shows for every user', () => {
+    for (const leaf of leaves([group!])) expect(leaf.access).toBeUndefined()
+    expect(group!.access).toBeUndefined()
+    expect(resolveMenu([group!], []).items).toHaveLength(1)
+  })
+})

@@ -1,0 +1,171 @@
+{
+  "menu": {
+    "group": "قواعد التأمين",
+    "guards": "قواعد الحماية"
+  },
+  "state": {
+    "draft": "مسودة",
+    "waiting": "بانتظار الموافقة",
+    "shadow": "ظل",
+    "live": "فعّالة",
+    "disabled": "معطّلة"
+  },
+  "severity": {
+    "REFUSE": "رفض",
+    "OVERRIDE": "تجاوز",
+    "WARN": "تنبيه"
+  },
+  "flag": {
+    "noisy": "كثيرة التفعيل",
+    "silent": "صامتة",
+    "jump": "قفزة",
+    "noisyHint": "تتفعّل أكثر بكثير مما تتوقعه قاعدتها.",
+    "silentHint": "لم تتفعّل منذ مدة طويلة.",
+    "jumpHint": "قفز عدد تفعيلاتها فجأة.",
+    "since": "منذ {{since}}"
+  },
+  "sentence": {
+    "unit": {
+      "percent": "{{n}}%"
+    },
+    "match": {
+      "sameItem": "الصنف نفسه",
+      "sameKind": "النوع نفسه من الدواء",
+      "sameClass": "الفئة العلاجية نفسها",
+      "sameClassOtherKind": "دواء آخر من الفئة العلاجية نفسها",
+      "list": "صنفاً من <list>{{list}}</list>"
+    },
+    "lineScope": {
+      "include": "مع احتساب هذا السطر",
+      "exclude": "دون احتساب هذا السطر"
+    },
+    "history": {
+      "dispenses_zero": "صُرف للمريض <match>{{match}}</match> <atleast>{{atLeast}}</atleast> مرة على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "dispenses_one": "صُرف للمريض <match>{{match}}</match> مرة واحدة على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "dispenses_two": "صُرف للمريض <match>{{match}}</match> مرتين على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "dispenses_few": "صُرف للمريض <match>{{match}}</match> <atleast>{{atLeast}}</atleast> مرات على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "dispenses_many": "صُرف للمريض <match>{{match}}</match> <atleast>{{atLeast}}</atleast> مرة على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "dispenses_other": "صُرف للمريض <match>{{match}}</match> <atleast>{{atLeast}}</atleast> مرة على الأقل خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_zero": "استلم المريض <atleast>{{atLeast}}</atleast> وحدة على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_one": "استلم المريض وحدة واحدة على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_two": "استلم المريض وحدتين على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_few": "استلم المريض <atleast>{{atLeast}}</atleast> وحدات على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_many": "استلم المريض <atleast>{{atLeast}}</atleast> وحدة على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "quantity_other": "استلم المريض <atleast>{{atLeast}}</atleast> وحدة على الأقل من <match>{{match}}</match> خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_zero": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_one": "صُرف <match>{{match}}</match> في فرع واحد أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_two": "صُرف <match>{{match}}</match> في فرعين أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_few": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فروع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_many": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرعاً أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "distinctStores_other": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>"
+    },
+    "supply": {
+      "daysBeforeDue_zero": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> يوم",
+      "daysBeforeDue_one": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من يوم واحد",
+      "daysBeforeDue_two": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من يومين",
+      "daysBeforeDue_few": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> أيام",
+      "daysBeforeDue_many": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> يوماً",
+      "daysBeforeDue_other": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> يوم",
+      "consumedBelow": "استُهلك أقل من <pct>{{pct}}</pct> من آخر كمية من <match>{{match}}</match>",
+      "daysFor": "<days>{{days}}</days> يوماً لـ <list>{{list}}</list>",
+      "accumulate": "الصرف المبكر يتراكم حتى <surplusdays>{{surplusDays}}</surplusdays> يوماً فائضاً خلال <overdays>{{overDays}}</overdays> يوماً",
+      "unknownSupply": "الكمية غير معروفة المدة تُحسب <assumedays>{{assumeDays}}</assumedays> يوماً"
+    },
+    "line": {
+      "inList": "الصنف ضمن <list>{{list}}</list>",
+      "above": "<field>{{field}}</field> في السطر أعلى من <value>{{value}}</value>",
+      "below": "<field>{{field}}</field> في السطر أقل من <value>{{value}}</value>",
+      "after": "<field>{{field}}</field> في السطر بعد <value>{{value}}</value>",
+      "any": "<field>{{field}}</field> في السطر محدد"
+    },
+    "field": {
+      "daysSupply": "أيام الكمية",
+      "supplyEndsOn": "تاريخ نفاد الكمية",
+      "qty": "الكمية",
+      "price": "السعر"
+    },
+    "path": {
+      "coveragePeriodEnd": "تاريخ انتهاء الوثيقة"
+    },
+    "volume": {
+      "pharmacist_zero": "قدّم الصيدلي <atleast>{{atLeast}}</atleast> طلب على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "pharmacist_one": "قدّم الصيدلي طلباً واحداً على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "pharmacist_two": "قدّم الصيدلي طلبين على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "pharmacist_few": "قدّم الصيدلي <atleast>{{atLeast}}</atleast> طلبات على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "pharmacist_many": "قدّم الصيدلي <atleast>{{atLeast}}</atleast> طلباً على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "pharmacist_other": "قدّم الصيدلي <atleast>{{atLeast}}</atleast> طلب على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_zero": "أرسل الفرع <atleast>{{atLeast}}</atleast> طلب على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_one": "أرسل الفرع طلباً واحداً على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_two": "أرسل الفرع طلبين على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_few": "أرسل الفرع <atleast>{{atLeast}}</atleast> طلبات على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_many": "أرسل الفرع <atleast>{{atLeast}}</atleast> طلباً على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "store_other": "أرسل الفرع <atleast>{{atLeast}}</atleast> طلب على الأقل لـ <match>{{match}}</match> <window>{{window}}</window>، <linescope>{{lineScope}}</linescope>",
+      "window": {
+        "day": "اليوم",
+        "week": "هذا الأسبوع",
+        "month": "هذا الشهر"
+      }
+    },
+    "sfda": {
+      "notMarketed": "الصنف غير مسجّل أو غير مسوّق لدى الهيئة العامة للغذاء والدواء",
+      "priceAbove": "السعر أعلى من سعر الهيئة للعموم بأكثر من <amount>{{amount}}</amount>",
+      "packMismatch": "العبوة أو رمز GTIN لا يطابق سجل الهيئة",
+      "any": "يُفحص سجل الصنف لدى الهيئة"
+    },
+    "formulary": {
+      "listed": "تشخيص السطر مدرج في الدليل الدوائي لهذا الصنف",
+      "notListed": "تشخيص السطر غير مدرج في الدليل الدوائي لهذا الصنف",
+      "QL": "الكمية أعلى من حد الكمية في الدليل الدوائي",
+      "PA": "يطلب الدليل الدوائي موافقة مسبقة",
+      "AGE": "عمر المريض خارج قيد الدليل الدوائي",
+      "G": "جنس المريض خارج قيد الدليل الدوائي",
+      "any": "يُفحص إدراج الصنف في الدليل الدوائي"
+    },
+    "patient": {
+      "inList": "المريض ضمن قائمة المرضى <list>{{list}}</list>"
+    },
+    "policy": {
+      "inList": "الوثيقة ضمن قائمة الوثائق <list>{{list}}</list>"
+    },
+    "group": {
+      "all": "كل ما يلي صحيح",
+      "any": "أيٌّ مما يلي صحيح",
+      "notAll": "ليس كل ما يلي صحيحاً",
+      "notAny": "لا شيء مما يلي صحيح"
+    },
+    "not": "ليس صحيحاً أن <inner>{{inner}}</inner>",
+    "unknownBlock": "شرط لا تستطيع هذه الشاشة قراءته بعد: <check>{{check}}</check>",
+    "channel": {
+      "nphies": "نفيس",
+      "waseel": "وصيل",
+      "oms": "OMS",
+      "bupa": "بوبا"
+    },
+    "when": {
+      "audience": "تُفحص قبل إرسال الطلب عبر <channels>{{channels}}</channels>، <stores>{{stores}}</stores>",
+      "allStores": "في كل الفروع",
+      "stores": "في الفروع <stores>{{stores}}</stores>",
+      "noChannel": "على لا قناة",
+      "from": "من <from>{{from}}</from>، بلا نهاية",
+      "fromUntil": "من <from>{{from}}</from> حتى <until>{{until}}</until>",
+      "until": "حتى <until>{{until}}</until>",
+      "always": "بلا حد زمني"
+    },
+    "then": {
+      "REFUSE": "رفض السطر",
+      "OVERRIDE": "السماح للصيدلي بالمتابعة مع ذكر السبب",
+      "WARN": "تنبيه الصيدلي",
+      "conflict": "رمز التعارض <code>{{code}}</code>",
+      "nphies": "رمز نفيس <code>{{code}}</code>",
+      "suggest": {
+        "maxQuantity": "اقتراح <value>{{value}}</value> وحدة كحد أقصى",
+        "maxDaysSupply": "اقتراح <value>{{value}}</value> يوماً كحد أقصى للكمية",
+        "other": "اقتراح <key>{{key}}</key>: <value>{{value}}</value>"
+      }
+    },
+    "onUnknown": {
+      "none": "إذا كانت معلومة غير معروفة، لا تتفعّل القاعدة.",
+      "warn": "إذا كانت معلومة غير معروفة، يُنبَّه الصيدلي."
+    }
+  }
+}

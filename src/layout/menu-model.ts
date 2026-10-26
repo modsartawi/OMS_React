@@ -45,6 +45,7 @@ import {
   serialRefusalAccessApi,
 } from '@/features/oms/serial-refusals/access'
 import { ListTree, ShieldAlert, Trophy } from 'lucide-react'
+import { INSURANCE_RULES_MENU } from './menu-insurance-rules'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -1122,6 +1123,9 @@ export const MENU: ShellMenuItem[] = [
       },
     ],
   },
+  // Insurance rules (BackOffice spec 3126, oms 607), LAST: declared in `./menu-insurance-rules`, where 608–617
+  // add their leaves without touching this file.
+  INSURANCE_RULES_MENU,
 ]
 
 /**

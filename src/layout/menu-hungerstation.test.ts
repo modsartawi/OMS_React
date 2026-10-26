@@ -27,10 +27,10 @@ const each = (state: ProbeState): ProbeState[] => gatedLeaves([hungerstation!]).
 const visible = (state: ProbeState) => labels(resolveMenu([hungerstation!], each(state)).items)
 
 describe('the HungerStation nav group', () => {
-  it('is ONE group of its own, the LAST, right after Deliverect', () => {
+  it('is ONE group of its own, right after Deliverect (607 put Insurance rules after it, last)', () => {
     expect(MENU.filter((g) => g.labelKey === 'hungerstation-stores:menu.hungerstation')).toHaveLength(1)
-    expect(MENU.at(-1)).toBe(hungerstation)
-    expect(MENU.at(-2)?.labelKey).toBe('deliverect-stores:menu.deliverect')
+    expect(MENU.at(-2)).toBe(hungerstation)
+    expect(MENU.at(-3)?.labelKey).toBe('deliverect-stores:menu.deliverect')
   })
 
   it('one probe call: every leaf rides the ONE shared key, on HungerStationWeb/Access', () => {

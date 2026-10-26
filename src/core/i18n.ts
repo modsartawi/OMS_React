@@ -138,6 +138,9 @@ import pickSupportAr from '@/locales/ar/pick-support.json'
 // Serial refusals (BackOffice spec 3049 / ticket 3065, ticket 573). Namespace == feature name, English and Arabic together.
 import serialRefusals from '@/locales/en/serial-refusals.json'
 import serialRefusalsAr from '@/locales/ar/serial-refusals.json'
+// The insurance-rules area (BackOffice spec 3126, oms 607): every one of its namespaces, English and Arabic,
+// is registered in `@/core/insurance-rules/locales` — a later slice edits THAT file, never this one.
+import { INSURANCE_RULES_AR, INSURANCE_RULES_EN, INSURANCE_RULES_NS } from '@/core/insurance-rules/locales'
 // Rule campaigns (BackOffice spec 2737, ticket 501) — the Campaigns area's list and workspace. ENGLISH
 // ONLY by ruling for this wave: the UI's Arabic chrome is a later pass, so there is no `ar` bundle.
 // (A campaign's own names and messages ARE bilingual — they are data the marketer enters, not keys.)
@@ -184,7 +187,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -248,6 +251,7 @@ i18n.use(initReactI18next).init({
       'prescription-sessions': prescriptionSessions,
       'serving-lists': servingLists,
       'serial-refusals': serialRefusals,
+      ...INSURANCE_RULES_EN,
     },
     ar: {
       document: documentAr,
@@ -277,6 +281,7 @@ i18n.use(initReactI18next).init({
       'serving-lists': servingListsAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
+      ...INSURANCE_RULES_AR,
     },
   },
   interpolation: { escapeValue: false },

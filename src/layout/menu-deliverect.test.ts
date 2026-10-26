@@ -26,9 +26,9 @@ const ALL = { canManageStores: true, canManageCatalog: true, canViewOrders: true
 const each = (state: ProbeState): ProbeState[] => gatedLeaves([deliverect!]).map(() => state)
 
 describe('the Deliverect nav group', () => {
-  it('comes right after Materials (551 put the HungerStation group after it, last)', () => {
-    expect(MENU.at(-2)).toBe(deliverect)
-    expect(MENU.at(-3)?.labelKey).toBe('materials-search:menu.materials')
+  it('comes right after Materials (551 put the HungerStation group after it; 607 Insurance rules after that, last)', () => {
+    expect(MENU.at(-3)).toBe(deliverect)
+    expect(MENU.at(-4)?.labelKey).toBe('materials-search:menu.materials')
   })
 
   it('every leaf rides the ONE shared key; 477 shipped Stores, 478 appends Orders, 479 Catalog, 482 Terms', () => {

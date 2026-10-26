@@ -3,6 +3,7 @@ import { setNavigator } from '@/core/nav'
 import ProtectedLayout from '@/features/auth/ProtectedLayout'
 import type { PaletteRouteHandle } from '@/core/commands/palette-model'
 import type { ShellRouteHandle } from '@/layout/shell-route'
+import { insuranceRulesRoute } from './insurance-rules-routes'
 
 // The palette's one opt-out (spec 380 K7, 375 R4), as an explicit route flag. The print
 // routes are chromeless and have no palette.
@@ -890,6 +891,9 @@ export const router = createBrowserRouter([
           },
         ],
       },
+      // Insurance rules (BackOffice spec 3126, oms 607): the whole area at `/insurance-rules/*` — its leaves
+      // live in `./insurance-rules-routes`, so 608–617 add their pages there, never here.
+      insuranceRulesRoute,
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

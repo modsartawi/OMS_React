@@ -1,0 +1,147 @@
+{
+  "menu": {
+    "group": "Insurance rules",
+    "guards": "Guards"
+  },
+  "state": {
+    "draft": "Draft",
+    "waiting": "Waiting for approval",
+    "shadow": "Shadow",
+    "live": "Live",
+    "disabled": "Disabled"
+  },
+  "severity": {
+    "REFUSE": "Refuse",
+    "OVERRIDE": "Override",
+    "WARN": "Warn"
+  },
+  "flag": {
+    "noisy": "Noisy",
+    "silent": "Silent",
+    "jump": "Jump",
+    "noisyHint": "Fires far more often than its rule expects.",
+    "silentHint": "Has not fired for a long time.",
+    "jumpHint": "Its fires jumped suddenly.",
+    "since": "Since {{since}}"
+  },
+  "sentence": {
+    "unit": {
+      "percent": "{{n}}%"
+    },
+    "match": {
+      "sameItem": "the same item",
+      "sameKind": "the same kind of medicine",
+      "sameClass": "the same therapeutic class",
+      "sameClassOtherKind": "another medicine of the same therapeutic class",
+      "list": "an item in <list>{{list}}</list>"
+    },
+    "lineScope": {
+      "include": "counting this line",
+      "exclude": "not counting this line"
+    },
+    "history": {
+      "dispenses_one": "the patient was dispensed <match>{{match}}</match> at least once in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "dispenses_other": "the patient was dispensed <match>{{match}}</match> at least <atleast>{{atLeast}}</atleast> times in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "quantity_one": "the patient received at least <atleast>{{atLeast}}</atleast> unit of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "quantity_other": "the patient received at least <atleast>{{atLeast}}</atleast> units of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "distinctStores_one": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more store in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "distinctStores_other": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more stores in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>"
+    },
+    "supply": {
+      "daysBeforeDue_one": "the patient asks for <match>{{match}}</match> more than <days>{{days}}</days> day before the last supply runs out",
+      "daysBeforeDue_other": "the patient asks for <match>{{match}}</match> more than <days>{{days}}</days> days before the last supply runs out",
+      "consumedBelow": "less than <pct>{{pct}}</pct> of the last supply of <match>{{match}}</match> is used",
+      "daysFor": "<days>{{days}}</days> days for <list>{{list}}</list>",
+      "accumulate": "early refills add up to <surplusdays>{{surplusDays}}</surplusdays> spare days over <overdays>{{overDays}}</overdays> days",
+      "unknownSupply": "a supply of unknown length counts as <assumedays>{{assumeDays}}</assumedays> days"
+    },
+    "line": {
+      "inList": "the item is in <list>{{list}}</list>",
+      "above": "the line's <field>{{field}}</field> is above <value>{{value}}</value>",
+      "below": "the line's <field>{{field}}</field> is below <value>{{value}}</value>",
+      "after": "the line's <field>{{field}}</field> is after <value>{{value}}</value>",
+      "any": "the line's <field>{{field}}</field> is set"
+    },
+    "field": {
+      "daysSupply": "days' supply",
+      "supplyEndsOn": "supply end date",
+      "qty": "quantity",
+      "price": "price"
+    },
+    "path": {
+      "coveragePeriodEnd": "the policy's end date"
+    },
+    "volume": {
+      "pharmacist_one": "the pharmacist made at least <atleast>{{atLeast}}</atleast> request for <match>{{match}}</match> <window>{{window}}</window>, <linescope>{{lineScope}}</linescope>",
+      "pharmacist_other": "the pharmacist made at least <atleast>{{atLeast}}</atleast> requests for <match>{{match}}</match> <window>{{window}}</window>, <linescope>{{lineScope}}</linescope>",
+      "store_one": "the store sent at least <atleast>{{atLeast}}</atleast> request for <match>{{match}}</match> <window>{{window}}</window>, <linescope>{{lineScope}}</linescope>",
+      "store_other": "the store sent at least <atleast>{{atLeast}}</atleast> requests for <match>{{match}}</match> <window>{{window}}</window>, <linescope>{{lineScope}}</linescope>",
+      "window": {
+        "day": "today",
+        "week": "this week",
+        "month": "this month"
+      }
+    },
+    "sfda": {
+      "notMarketed": "the item is not registered or not marketed with SFDA",
+      "priceAbove": "the price is more than <amount>{{amount}}</amount> above the SFDA public price",
+      "packMismatch": "the pack or GTIN does not match the SFDA record",
+      "any": "the item's SFDA record is checked"
+    },
+    "formulary": {
+      "listed": "the line's diagnosis is on the formulary for the item",
+      "notListed": "the line's diagnosis is not on the formulary for the item",
+      "QL": "the quantity is above the formulary's quantity limit",
+      "PA": "the formulary asks for prior approval",
+      "AGE": "the patient's age is outside the formulary's edit",
+      "G": "the patient's gender is outside the formulary's edit",
+      "any": "the item's formulary entry is checked"
+    },
+    "patient": {
+      "inList": "the patient is on the patient list <list>{{list}}</list>"
+    },
+    "policy": {
+      "inList": "the policy is on the policy list <list>{{list}}</list>"
+    },
+    "group": {
+      "all": "all of these are true",
+      "any": "any of these is true",
+      "notAll": "not all of these are true",
+      "notAny": "none of these is true"
+    },
+    "not": "it is not true that <inner>{{inner}}</inner>",
+    "unknownBlock": "a block this screen cannot read yet: <check>{{check}}</check>",
+    "channel": {
+      "nphies": "NPHIES",
+      "waseel": "Waseel",
+      "oms": "OMS",
+      "bupa": "Bupa"
+    },
+    "when": {
+      "audience": "Checked before a request is sent on <channels>{{channels}}</channels>, <stores>{{stores}}</stores>",
+      "allStores": "at every store",
+      "stores": "at stores <stores>{{stores}}</stores>",
+      "noChannel": "on no channel",
+      "from": "From <from>{{from}}</from>, with no end",
+      "fromUntil": "From <from>{{from}}</from> until <until>{{until}}</until>",
+      "until": "Until <until>{{until}}</until>",
+      "always": "With no time limit"
+    },
+    "then": {
+      "REFUSE": "refuse the line",
+      "OVERRIDE": "let the pharmacist go on with a reason",
+      "WARN": "warn the pharmacist",
+      "conflict": "conflict code <code>{{code}}</code>",
+      "nphies": "NPHIES code <code>{{code}}</code>",
+      "suggest": {
+        "maxQuantity": "suggest at most <value>{{value}}</value> units",
+        "maxDaysSupply": "suggest at most <value>{{value}}</value> days' supply",
+        "other": "suggest <key>{{key}}</key>: <value>{{value}}</value>"
+      }
+    },
+    "onUnknown": {
+      "none": "If a fact is unknown, the rule does not fire.",
+      "warn": "If a fact is unknown, the pharmacist is warned."
+    }
+  }
+}

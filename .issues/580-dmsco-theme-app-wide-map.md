@@ -65,6 +65,10 @@ skills (`figma-design-to-code`) for any Figma read.
 - [How much of the HR site's scale reaches the working screens?](584-how-much-of-the-hr-sites-scale-reaches-the-working-screens.md):
   **none** — working screens keep today's compact sizes (19 rows vs 10 on staging) and take only
   the DMSCO colours, shapes, logo and type style; the design's scale and the glass stay on the login.
+- [Capture the remaining Figma frames](581-capture-the-remaining-figma-frames.md): Reports and
+  Profile in full, Homepage structure only; **no data table exists in the design** (the grid's look
+  is derived), the shell is a **top bar** (our rail stays and takes its look), a white-on-dark DMSCO
+  lockup is filed, and the full palette, shapes and type scale are in its notes.
 
 ## Not yet specified
 
@@ -75,10 +79,12 @@ skills (`figma-design-to-code`) for any Figma read.
   colour assertions in favour of the contrast gate? Hangs on the sweep strategy (588).
 - **Rollout.** One switch for the whole app or screen by screen, and whether the two looks can
   coexist for a while (they share one token table, so probably not). Hangs on 585 and 588.
-- **Empty, loading and error states.** The Figma has an empty Team Dashboard frame; whether it
-  sets an empty-state style worth adopting is unclear until 581 lands.
-- **Icons.** The design's icons look like Feather/Lucide (the eye-off matched); whether anything
-  beyond Lucide is needed is unknown until 581.
+- **Empty, loading and error states.** Not in the three frames read. The Figma's empty Team
+  Dashboard frame (`212:27215`) might set an empty-state style; reading it costs a Figma call, so
+  it waits until a ticket needs it.
+- **The illustrated service icons.** The design's line icons are Lucide shapes (no change needed),
+  but its tiles use illustrated PNG icons. Whether the app wants illustrations anywhere (the home
+  page, empty states) is open; it is not part of a compact working screen.
 
 ## Out of scope
 

@@ -1051,12 +1051,12 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 ## DMSCO theme, app-wide (Figma HR-Portal_Website, login done d689a2f7, charted 2026-10-26)
 
 - [580](580-dmsco-theme-app-wide-map.md) — The DMSCO theme, app-wide · *(wayfinder map)* · **open** · blocked by: — · dest = one ready spec; visual language only, keep our UX
-- [581](581-capture-the-remaining-figma-frames.md) — Capture the remaining Figma frames · *(wayfinder · task)* · **open** · blocked by: — · 3 calls: Homepage 430:5164, Reports 224:31368, My Profile 430:7247
+- [581](581-capture-the-remaining-figma-frames.md) — Capture the remaining Figma frames · *(wayfinder · task)* · **done 2026-10-26** · blocked by: — · Reports + Profile full, Homepage structure only; no data table in the design; shell is a top bar; white lockup filed
 - [582](582-can-we-licence-chalet-for-the-web.md) — Can we licence Chalet for the web? · *(wayfinder · research)* · **done 2026-10-26** · blocked by: — · yes (House, ~$50 one-time, quote needed); no Arabic; internal-host scope unconfirmed; note on branch research/582-chalet-web-licence
 - [583](583-inventory-the-hand-styled-controls.md) — Inventory the hand-styled controls · *(wayfinder · task)* · **open** · blocked by: — · 422 buttons, 550 fields
 - [584](584-how-much-of-the-hr-sites-scale-reaches-the-working-screens.md) — How much of the HR site's scale reaches the working screens? · *(wayfinder · prototype)* · **done 2026-10-26** · blocked by: — · none: today's compact sizes stay, DMSCO look only; design scale + glass login-only (prototype/dmsco-density 808be58e)
-- [585](585-how-the-dmsco-palette-maps-onto-our-tokens.md) — How the DMSCO palette maps onto our tokens · *(wayfinder · grilling)* · **open** · blocked by: 581
+- [585](585-how-the-dmsco-palette-maps-onto-our-tokens.md) — How the DMSCO palette maps onto our tokens · *(wayfinder · grilling)* · **open** · blocked by: — (581 done)
 - [586](586-how-dark-mode-is-derived-without-a-dark-design.md) — How dark mode is derived without a dark design · *(wayfinder · prototype)* · **open** · blocked by: 585
-- [587](587-the-shell-and-which-mark-it-carries.md) — The shell, and which mark it carries · *(wayfinder · prototype)* · **open** · blocked by: 581, 584
-- [588](588-how-the-screens-move-onto-the-shared-controls.md) — How the screens move onto the shared controls · *(wayfinder · grilling)* · **open** · blocked by: 583, 584
+- [587](587-the-shell-and-which-mark-it-carries.md) — The shell, and which mark it carries · *(wayfinder · prototype)* · **open** · blocked by: — (581, 584 done)
+- [588](588-how-the-screens-move-onto-the-shared-controls.md) — How the screens move onto the shared controls · *(wayfinder · grilling)* · **open** · blocked by: 583 (584 done)
 - [589](589-which-type-family-the-app-sets-type-in.md) — Which type family the app sets type in · *(wayfinder · grilling)* · **open** · blocked by: 582

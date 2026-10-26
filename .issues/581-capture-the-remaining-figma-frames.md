@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: task
 map: 580
-status: open
+status: done
 blocked-by: —
 ---
 
@@ -32,3 +32,26 @@ the nav logo) from the returned URLs, which expire after 7 days. Do not implemen
 
 Resolved when the three frames are filed and their notes list every distinct colour, type style
 and radius they use.
+
+## Answer
+
+Resolved 2026-10-26 (AFK, 3 Figma calls). Notes, screenshots and assets:
+[`assets/581-figma-frames/notes.md`](assets/581-figma-frames/notes.md).
+
+- **Reports and My Profile came back in full**; **Homepage came back as structure only** (too
+  large). No fourth call was spent: Homepage's top bar is the same component as the other two
+  frames' and is fully captured there. The returned code was transcribed into the notes, not filed.
+- **The design has no data table anywhere.** Reports is a card index and Profile is label/value
+  pairs, so the grid's look must be derived from the palette and shapes (585).
+- **The shell is a horizontal top bar** (88px dark radial navy, white DMSCO lockup, pill nav with a
+  filled `#182F4A` active pill, white search pill, bell, avatar), not a rail. Keep-our-UX means the
+  rail stays and takes this look (587).
+- **The white-on-dark DMSCO lockup exists** in the frame; it is filed as
+  `assets/581-figma-frames/assets/dmsco-logo-on-dark.svg`, composed from the frame's own vectors.
+- **New colours beyond the login's:** `primary-blue-60` #747983, `primary-blue-20` #D1D2D6,
+  `neutrals-50` #8F8F8F, page ground #E5E5E6 under a 20% photo, avatar green #0C9D61, alert red
+  #DE2C3B. Full table in the notes.
+- **Shapes:** 32px panels, full-pill controls, 44px control heights, soft shadows only.
+- **Type:** ChaletBook throughout, **Avenir Arabic** for Arabic; 13/15/17/24/32/40 scale.
+- **Icons:** the line icons are Feather/Lucide shapes (already covered by `lucide-react`); the
+  service icons are illustrated PNG sprites.

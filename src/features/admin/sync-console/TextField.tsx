@@ -1,3 +1,6 @@
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+
 /**
  * One labelled text box of the onboarding forms (ticket 449): the New store wizard and
  * the Edit location / Edit store dialogs. A machine value (a code, an IP, a phone) is
@@ -27,9 +30,8 @@ export function TextField({
   data: string
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium">
-      {label}
-      <input
+    <Field label={label} hint={hint || undefined}>
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -37,13 +39,9 @@ export function TextField({
         onBlur={onCommit}
         disabled={disabled}
         dir={ltr ? 'ltr' : 'auto'}
-        className={
-          'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60' +
-          (ltr ? ' font-mono' : '')
-        }
+        className={ltr ? 'font-mono' : undefined}
         data-field={data}
       />
-      {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
-    </label>
+    </Field>
   )
 }

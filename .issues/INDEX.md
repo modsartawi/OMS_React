@@ -1071,7 +1071,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [598](598-the-rest-of-campaigns-runs-on-the-shared-controls.md) — The rest of campaigns runs on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 64 controls; AFK after 597
 - [599](599-the-oms-screens-run-on-the-shared-controls.md) — The OMS screens run on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 143 controls; AFK after 597
 - [600](600-the-pricing-screens-run-on-the-shared-controls.md) — The pricing screens run on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 106 controls; AFK after 597
-- [601](601-the-admin-screens-run-on-the-shared-controls.md) — The admin screens run on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 103 controls; AFK after 597
+- [601](601-the-admin-screens-run-on-the-shared-controls.md) — The admin screens run on the shared controls · *(ticket · spec 590)* · **done** · blocked by: 597 · 103 controls; AFK after 597
 - [602](602-the-collection-screens-run-on-the-shared-controls.md) — The collection screens run on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 100 controls; AFK after 597
 - [603](603-the-call-center-console-runs-on-the-shared-controls.md) — The call-center console runs on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 70 controls; AFK after 597
 - [604](604-the-nphies-and-reports-screens-run-on-the-shared-controls.md) — The Nphies and reports screens run on the shared controls · *(ticket · spec 590)* · **open** · blocked by: 597 · 93 controls; AFK after 597

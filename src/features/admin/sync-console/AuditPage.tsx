@@ -1,6 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { canOpenSyncConsole, syncConsoleAccessQuery } from './api'
 import { EMPTY_AUDIT_FILTER, auditQuery, auditRangeValid, type AuditFilter } from './control-helpers'
@@ -28,9 +30,6 @@ export default function AuditPage() {
   )
 }
 
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
-
 function Audit() {
   const { t } = useTranslation('sync-console')
   const [draft, setDraft] = useState<AuditFilter>(EMPTY_AUDIT_FILTER)
@@ -53,30 +52,30 @@ function Audit() {
         data-audit-filters=""
       >
         <Field label={t('audit.from')}>
-          <input type="date" value={draft.from} max={draft.to || undefined} onChange={(e) => set('from')(e.target.value)} className={INPUT} data-audit-from="" />
+          <Input type="date" value={draft.from} max={draft.to || undefined} onChange={(e) => set('from')(e.target.value)} data-audit-from="" />
         </Field>
         <Field label={t('audit.to')}>
-          <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => set('to')(e.target.value)} className={INPUT} data-audit-to="" />
+          <Input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => set('to')(e.target.value)} data-audit-to="" />
         </Field>
         <Field label={t('audit.who')}>
-          <input type="text" value={draft.who} onChange={(e) => set('who')(e.target.value)} className={INPUT + ' w-40'} data-audit-who="" />
+          <Input type="text" value={draft.who} onChange={(e) => set('who')(e.target.value)} className="w-40" data-audit-who="" />
         </Field>
         <Field label={t('audit.code')}>
-          <input
+          <Input
             type="text"
             value={draft.code}
             onChange={(e) => set('code')(e.target.value)}
-            className={INPUT + ' w-28 font-mono'}
+            className="w-28 font-mono"
             dir="ltr"
             data-audit-code=""
           />
         </Field>
-        <Button type="submit" disabled={badRange} className="h-8" data-audit-apply="">
+        <Button type="submit" disabled={badRange} data-audit-apply="">
           {t('audit.apply')}
         </Button>
         <Button
           variant="text"
-          className="h-8"
+         
           onClick={() => {
             setDraft(EMPTY_AUDIT_FILTER)
             setFilter(EMPTY_AUDIT_FILTER)
@@ -94,14 +93,5 @@ function Audit() {
       {/* Keyed on what is asked, so a new filter starts again at page 1. */}
       <AuditFeed key={JSON.stringify(auditQuery(filter, 1))} filter={filter} empty={t('audit.empty')} />
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {label}
-      {children}
-    </label>
   )
 }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Chip from '@/core/ui/Chip'
 import { authzAdminApi } from './api'
 import UsersWorkspace from './UsersWorkspace'
 import RolesWorkspace from './RolesWorkspace'
@@ -61,24 +62,11 @@ export default function AuthzAdminPage() {
       </div>
 
       {/* Users | Roles workspace switch (Roles workspace lands in a later slice). */}
-      <div
-        className="inline-flex gap-1 self-start rounded-lg border border-border/60 bg-muted/40 p-1"
-        role="tablist"
-        aria-label={t('workspace.ariaLabel')}
-      >
+      <div className="inline-flex gap-1 self-start" role="tablist" aria-label={t('workspace.ariaLabel')}>
         {(['users', 'roles'] as Workspace[]).map((id) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={ws === id}
-            onClick={() => switchWs(id)}
-            className={
-              'rounded-md px-4 py-1.5 text-sm font-semibold ' +
-              (ws === id ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={id} variant="tab" on={ws === id} onClick={() => switchWs(id)} data-authz-workspace={id}>
             {t(`workspace.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

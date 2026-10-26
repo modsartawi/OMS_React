@@ -8,6 +8,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import GridPager from '@/core/ui/GridPager'
 import Ltr from '@/core/ui/Ltr'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import {
   COUNTER_FLAGS,
   TX_KIND_FILTERS,
@@ -40,9 +42,6 @@ import TabGrid from './TabGrid'
 
 /** A receipt's row id: the door's transaction id, unique within the store. */
 const transactionId = (r: StoreTransaction) => r.transactionId
-
-const SELECT =
-  'h-7 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60'
 
 /**
  * The Transactions tab (spec 444 amended by BackOffice spec 2586, ticket 467), from
@@ -161,21 +160,20 @@ function TransactionsList({ code }: { code: string }) {
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('transactionsTab.day.label')}
-          <select value={day} onChange={(e) => pick(e.target.value)} className={SELECT} data-transactions-day="">
+          <Select value={day} onChange={(e) => pick(e.target.value)} data-transactions-day="">
             {days.map((d, i) => (
               <option key={d} value={d}>
                 {/* A native option is a string-only sink: the day isolated once. */}
                 {i === 0 ? t('transactionsTab.day.today', { day: fsi(d) }) : fsi(d)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('transactionsTab.filters.status')}
-          <select
+          <Select
             value={filter.status}
             onChange={(e) => change({ status: e.target.value as TxStatusFilter })}
-            className={SELECT}
             data-transactions-status=""
           >
             {TX_STATUS_FILTERS.map((s) => (
@@ -183,14 +181,13 @@ function TransactionsList({ code }: { code: string }) {
                 {t(`transactionsTab.filters.statuses.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('transactionsTab.filters.kind')}
-          <select
+          <Select
             value={filter.kind}
             onChange={(e) => change({ kind: e.target.value as TxKindFilter })}
-            className={SELECT}
             data-transactions-kind=""
           >
             {TX_KIND_FILTERS.map((k) => (
@@ -198,14 +195,13 @@ function TransactionsList({ code }: { code: string }) {
                 {t(`transactionsTab.filters.kinds.${k}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('transactionsTab.filters.counter')}
-          <select
+          <Select
             value={filter.counter ?? ''}
             onChange={(e) => change({ counter: (e.target.value || null) as CounterFlag | null })}
-            className={SELECT}
             data-transactions-counter=""
           >
             <option value="">{t('transactionsTab.filters.allFlags')}</option>
@@ -214,7 +210,7 @@ function TransactionsList({ code }: { code: string }) {
                 {t(`transactionsTab.counter.flags.${f}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <form
           className="flex items-center gap-1.5"
@@ -224,14 +220,14 @@ function TransactionsList({ code }: { code: string }) {
             search()
           }}
         >
-          <input
+          <Input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             dir="ltr"
             aria-label={t('transactionsTab.filters.receipt')}
             placeholder={t('transactionsTab.filters.receiptPlaceholder')}
-            className={`${SELECT} w-48 font-mono`}
+            className="w-48 font-mono"
             data-transactions-receipt=""
           />
           <Button type="submit" variant="secondary" data-transactions-search="">

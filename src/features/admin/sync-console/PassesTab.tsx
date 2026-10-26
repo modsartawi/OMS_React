@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import GridPager from '@/core/ui/GridPager'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+import Input from '@/core/ui/Input'
 import type { StorePass } from '@/core/models/sync-console'
 import { storePassesQuery } from './api'
 import { PASSES_PAGE_SIZE, clampPassesFrom, passesFromBound } from './store-helpers'
@@ -63,7 +64,7 @@ export default function PassesTab({ code }: { code: string }) {
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {t('passes.from')}
-          <input
+          <Input
             type="date"
             value={draft}
             min={bound.min}
@@ -77,7 +78,6 @@ export default function PassesTab({ code }: { code: string }) {
               else setDraft(typed)
             }}
             onBlur={() => ask(clampPassesFrom(draft, new Date()))}
-            className="h-7 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60"
             data-passes-from=""
           />
         </label>

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import type { UaEmployeeGridRow } from '@/core/models/ua-user'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
@@ -113,10 +115,12 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
   return (
     <div className="flex flex-col gap-3">
       {/* toolbar: search is the primary affordance */}
-      <div className="flex items-center gap-2 rounded-full border border-input bg-background px-3">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-        <input
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
+      <div className="flex items-center gap-2">
+        <Input
+          type="search"
+          className="min-w-0 flex-1"
+          aria-label={t('search.placeholder')}
+          data-authz-users-search=""
           placeholder={t('search.placeholder')}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
@@ -125,12 +129,9 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
           }}
           autoFocus
         />
-        <button
-          className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/85"
-          onClick={runSearch}
-        >
+        <Button variant="primary" onClick={runSearch} data-authz-users-run="">
           {t('search.button')}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">{showMinCharsHint ? t('search.minChars') : t('search.hint')}</p>
 
@@ -142,7 +143,7 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
             onClick={() => setCard(k)}
             className={
               'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
-              (card === k ? 'border-primary bg-accent' : 'border-border/60')
+              (card === k ? 'border-primary bg-accent' : 'border-border')
             }
           >
             <span

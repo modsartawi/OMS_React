@@ -6,8 +6,11 @@ import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import type { LocationRowInput, StoreInput, SyncCommand } from '@/core/models/sync-console'
 import {
@@ -131,9 +134,6 @@ interface Answer {
   summary: ResultSummary
   sentence: string
 }
-
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 function Wizard({
   start,
@@ -412,18 +412,16 @@ function Wizard({
               <li>{t('onboard.notes.credentials')}</li>
               <li>{t('onboard.notes.test')}</li>
             </ul>
-            <label className="flex flex-col gap-1 text-xs font-medium">
-              {t('dialog.reason')}
-              <textarea
+            <Field label={t('dialog.reason')}>
+              <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
                 required
                 disabled={busy}
-                className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
                 data-reason-input=""
               />
-            </label>
+            </Field>
 
             {preview && (
               <div className="flex flex-col gap-2" data-wizard-preview={fresh ? 'fresh' : 'stale'}>
@@ -556,9 +554,19 @@ function CodeField({ value, onChange, readOnly = false }: { value: string; onCha
   const problem = codeProblem(value)
   const verdict = problem ?? 'ok'
   return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {t('onboard.fields.code')}
-      <input
+    <Field
+      label={t('onboard.fields.code')}
+      hint={
+        <span
+          className={'text-xs ' + (problem === null ? 'text-success-800' : problem === 'empty' ? 'text-muted-foreground' : 'text-danger-800')}
+          role={problem && problem !== 'empty' ? 'alert' : undefined}
+          data-code-check={verdict}
+        >
+          {t(`onboard.code.${verdict}`)}
+        </span>
+      }
+    >
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -569,17 +577,10 @@ function CodeField({ value, onChange, readOnly = false }: { value: string; onCha
         autoComplete="off"
         spellCheck={false}
         aria-invalid={problem !== null && problem !== 'empty'}
-        className={INPUT + ' w-32 font-mono' + (problem && problem !== 'empty' ? ' border-danger' : '')}
+        className="w-32 font-mono"
         data-field="code"
       />
-      <span
-        className={'text-xs ' + (problem === null ? 'text-success-800' : problem === 'empty' ? 'text-muted-foreground' : 'text-danger-800')}
-        role={problem && problem !== 'empty' ? 'alert' : undefined}
-        data-code-check={verdict}
-      >
-        {t(`onboard.code.${verdict}`)}
-      </span>
-    </label>
+    </Field>
   )
 }
 
@@ -634,18 +635,17 @@ function PasteBox({
   const tooMany = parsed.rows.length > PASTE_CAP
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('onboard.paste.label', { columns: columns.map((c) => t(`onboard.fields.${c}`)).join(t('list.separator')) })}
-        <textarea
+      <Field label={t('onboard.paste.label', { columns: columns.map((c) => t(`onboard.fields.${c}`)).join(t('list.separator')) })}>
+        <Textarea
           value={text}
           onChange={(e) => onChange(e.target.value)}
           rows={6}
           dir="ltr"
           spellCheck={false}
-          className="rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary/60"
+          className="font-mono"
           data-paste=""
         />
-      </label>
+      </Field>
       {parsed.rows.length > 0 && (
         <>
           <p className="text-xs" data-paste-tally={`${parsed.rows.length} ${marked}`}>

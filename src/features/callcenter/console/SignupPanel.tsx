@@ -41,6 +41,9 @@ import {
   SIGNUP_LANGUAGES,
   type SignupState,
 } from './signup-view'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 export interface SignupActions {
   onChange: (next: SignupState) => void
@@ -94,7 +97,7 @@ export default function SignupPanel({
               and a modal takes the basket away for the length of a conversation
               the agent is having anyway. Stacking costs one line of height. */}
           <div className="space-y-1.5">
-            <select
+            <Select
               value={state.countryCode}
               onChange={(e) => onChange({ ...state, countryCode: e.target.value })}
               disabled={busy}
@@ -103,15 +106,15 @@ export default function SignupPanel({
               // `w-full` + `min-w-0`: a select's intrinsic width is its longest
               // option, and without both it grows past its column rather than
               // truncating inside it.
-              className="w-full min-w-0 rounded-md border border-input bg-card px-2 py-2 text-sm outline-none focus:border-ring"
+              className="w-full min-w-0"
             >
               {SIGNUP_COUNTRIES.map((country) => (
                 <option key={country.code} value={country.code}>
                   {t(`signup.countryName.${country.code}`)} +{country.diallingCode}
                 </option>
               ))}
-            </select>
-            <input
+            </Select>
+            <Input
               value={state.mobile}
               onChange={(e) => onChange({ ...state, mobile: e.target.value })}
               inputMode="tel"
@@ -121,7 +124,7 @@ export default function SignupPanel({
               placeholder={t('signup.mobilePlaceholder')}
               data-numeric
               data-cc-signup-mobile
-              className="w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
+              className="w-full min-w-0"
             />
           </div>
 
@@ -177,24 +180,17 @@ export default function SignupPanel({
           )}
 
           <div className="flex gap-1.5">
-            <button
-              type="button"
+            <Button
               onClick={onSendCode}
               disabled={!canSendCode(state) || busy}
               data-cc-signup-send
-              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              className="flex-1 justify-center"
             >
               {sending ? t('signup.sending') : t('signup.sendCode')}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={busy}
-              data-cc-signup-cancel
-              className="rounded-md border border-input px-3 py-1.5 text-xs disabled:opacity-40"
-            >
+            </Button>
+            <Button variant="outlined" onClick={onCancel} disabled={busy} data-cc-signup-cancel>
               {t('signup.cancel')}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -207,7 +203,7 @@ export default function SignupPanel({
           <p className="text-[11px] text-muted-foreground" data-cc-signup-spoken>
             {t('signup.spokenWait')}
           </p>
-          <input
+          <Input
             value={state.otp}
             onChange={(e) => onChange({ ...state, otp: e.target.value })}
             inputMode="numeric"
@@ -220,27 +216,20 @@ export default function SignupPanel({
             placeholder={t('signup.otpPlaceholder')}
             data-numeric
             data-cc-signup-otp
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm tracking-[0.3em] outline-none focus:border-ring"
+            className="w-full tracking-[0.3em]"
           />
           <div className="flex gap-1.5">
-            <button
-              type="button"
+            <Button
               onClick={onConfirm}
               disabled={!canConfirmOtp(state) || confirming}
               data-cc-signup-confirm
-              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              className="flex-1 justify-center"
             >
               {confirming ? t('signup.confirming') : t('signup.confirm')}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={confirming}
-              data-cc-signup-cancel
-              className="rounded-md border border-input px-3 py-1.5 text-xs disabled:opacity-40"
-            >
+            </Button>
+            <Button variant="outlined" onClick={onCancel} disabled={confirming} data-cc-signup-cancel>
               {t('signup.cancel')}
-            </button>
+            </Button>
           </div>
           {/* 🚩 No resend, and no countdown. CC2 has neither, and a countdown the
               console invented would promise an expiry only the loyalty service
@@ -256,15 +245,14 @@ export default function SignupPanel({
             <Ltr>{state.created.mobile}</Ltr>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">{t('signup.createdHint')}</p>
-          <button
-            type="button"
+          <Button
             onClick={() => onAttach(state.created!)}
             disabled={attaching}
             data-cc-signup-attach
-            className="mt-2 w-full rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+            className="mt-2 w-full justify-center"
           >
             {attaching ? t('callerBar.attaching') : t('callerBar.attach')}
-          </button>
+          </Button>
         </div>
       )}
 

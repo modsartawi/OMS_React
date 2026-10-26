@@ -10,6 +10,7 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Select from '@/core/ui/Select'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -117,8 +118,6 @@ function ChangesView() {
   // 🚩 A failed read draws no rows: a kept previous answer belongs to the filter before it.
   const shown: ChangeManifestRow[] | undefined = rowsRead.isError ? undefined : rowsRead.data
   const rows = shown ?? []
-  const select = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm'
-
   return (
     <div className="flex min-w-0 flex-col gap-4" data-changes-page={jobId}>
       <ServiceBannerView />
@@ -147,11 +146,10 @@ function ChangesView() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           value={view.table ?? ''}
           onChange={(e) => update((v) => ({ ...v, table: e.target.value || null, page: 1 }))}
           aria-label={t('changes.table')}
-          className={select}
           data-changes-table-filter=""
         >
           <option value="">{t('changes.tableAny')}</option>
@@ -161,12 +159,11 @@ function ChangesView() {
               {fsi(task.table)}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={view.kind ?? ''}
           onChange={(e) => update((v) => ({ ...v, kind: (e.target.value || null) as ChangeKind | null, page: 1 }))}
           aria-label={t('changes.kind')}
-          className={select}
           data-changes-kind-filter=""
         >
           <option value="">{t('changes.kindAny')}</option>
@@ -175,7 +172,7 @@ function ChangesView() {
               {t(`kind.${k}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {pruned ? (

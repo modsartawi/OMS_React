@@ -4,6 +4,9 @@ import { Lock } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
@@ -87,47 +90,51 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
       }
     >
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold text-muted-foreground">{t('newRole.kind')}</span>
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
-            value={kind}
-            onChange={(e) => setKind(e.target.value as Kind)}
-          >
+        <Field label={t('newRole.kind')}>
+          <Select className="w-full" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
             <option value="single">{t('newRole.kindSingle')}</option>
             <option value="composite">{t('newRole.kindComposite')}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold text-muted-foreground">
-            {t('newRole.name')} <span className="text-danger-800">•</span>
-          </span>
-          <input
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm uppercase outline-none"
+        <Field
+          label={
+            <>
+              {t('newRole.name')} <span className="text-danger-800">•</span>
+            </>
+          }
+          hint={
+            <span className="flex items-start gap-1.5">
+              <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+              {t('newRole.nameLock')}
+            </span>
+          }
+          error={
+            duplicate || tooLong ? (
+              <>
+                {duplicate && <span className="block">{t('newRole.duplicate')}</span>}
+                {tooLong && <span className="block">{t('newRole.tooLong')}</span>}
+              </>
+            ) : undefined
+          }
+        >
+          <Input
+            className="uppercase"
             placeholder={t('newRole.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
             autoFocus
           />
-          <span className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-            {t('newRole.nameLock')}
-          </span>
-          {duplicate && <span className="text-[11px] text-danger-800">{t('newRole.duplicate')}</span>}
-          {tooLong && <span className="text-[11px] text-danger-800">{t('newRole.tooLong')}</span>}
-        </label>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold text-muted-foreground">{t('newRole.description')}</span>
-          <input
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
+        <Field label={t('newRole.description')}>
+          <Input
             placeholder={t('newRole.descriptionPlaceholder')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-        </label>
+        </Field>
 
         {kind === 'composite' && (
           <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">

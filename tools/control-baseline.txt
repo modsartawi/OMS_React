@@ -11,37 +11,80 @@
 # Lowering: `node tools/check-controls.mjs --lower <feature>` after a sweep; then, for what stays,
 # replace the count with the allowlist (`--list <feature>` prints file:line for each).
 
-admin/active-sessions 7
+admin/active-sessions 1
+  src/features/admin/active-sessions/ActiveSessionsPage.tsx button: a session row's Revoke inside the table cell: a grid-cell action (spec 590: restyled in place)
 
-admin/authz-admin 22
+admin/authz-admin 6
+  src/features/admin/authz-admin/DeleteBlockedModal.tsx button: a blocker-count tile that jumps to its list: a tile picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RoleDetailPane.tsx button: a grant row's Unbind, a danger-ink text button that does not navigate: restyled in place
+  src/features/admin/authz-admin/RoleDetailPane.tsx button: a holder row that jumps to the user: a row picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RolesWorkspace.tsx button: a worklist count card that filters the catalogue: a tile picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RolesWorkspace.tsx button: a catalogue role row that opens its detail: a row picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/UsersWorkspace.tsx button: a worklist count card that filters the result: a tile picker (spec 590: restyled in place)
 
-admin/broadcast 6
+admin/broadcast 0
 
-admin/data-sync 13
+admin/data-sync 1
+  src/features/admin/data-sync/job-columns.tsx button: the store cell that opens the job drawer: a grid-cell action (spec 590: restyled in place)
 
-admin/engine-switch 4
+admin/engine-switch 0
 
-admin/sync-console 44
+admin/sync-console 7
+  src/features/admin/sync-console/AgreementTab.tsx button: day row picker (aria-pressed, picks the day in-page; spec 590: pickers restyle in place)
+  src/features/admin/sync-console/FleetPage.tsx button: fleet state tile picker (aria-pressed, severity top border; spec 590: tile pickers restyle in place)
+  src/features/admin/sync-console/RecentPassesPage.tsx button: pass-kind tile picker (aria-pressed, severity top border; spec 590: tile pickers restyle in place)
+  src/features/admin/sync-console/ViewJsonButton.tsx button: grid-cell action (Transactions View JSON; spec 590: restyled in place)
+  src/features/admin/sync-console/mirror-columns.tsx button: grid-cell action (dead letter Show error; spec 590: restyled in place)
+  src/features/admin/sync-console/recent-passes-columns.tsx button: grid-cell action (opens a pass from its start time; spec 590: restyled in place)
+  src/features/admin/sync-console/store-columns.tsx button: grid-cell action (opens a pass from its start time; spec 590: restyled in place)
 
-admin/ua-admin 15
+admin/ua-admin 2
+  src/features/admin/ua-admin/UaAdminUsersPage.tsx button: a report card that opens its worklist: a tile picker (spec 590: restyled in place)
+  src/features/admin/ua-admin/UserDetailPane.tsx button: a session row's Revoke, a danger-ink text button that does not navigate: restyled in place
 
 auth 24
 
-callcenter/console 69
+callcenter/console 20
+  src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
+  src/features/callcenter/console/AddressForm.tsx button: city option: a row picker in the city listbox (spec 590: pickers restyle in place)
+  src/features/callcenter/console/AddressForm.tsx button: district option: a row picker in the district listbox (spec 590: pickers restyle in place)
+  src/features/callcenter/console/AddressPicker.tsx button: address row: a row picker, one click applies (spec 590: pickers restyle in place)
+  src/features/callcenter/console/CallerBar.tsx button: linked-request chip: a disclosure (aria-expanded) - Chip would add aria-pressed (597 Q2)
+  src/features/callcenter/console/CallerBar.tsx button: open-requests offer: one-off, attention-toned pill (no Button variant carries the tone)
+  src/features/callcenter/console/ConsoleShell.tsx button: skipped-line *Add anyway*: one-off, attention-toned row action inside the banner
+  src/features/callcenter/console/FulfilmentPicker.tsx button: fulfilment mode: a tile picker (spec 590: pickers restyle in place)
+  src/features/callcenter/console/GuidanceStrip.tsx button: *N unavailable* toggle: a disclosure (aria-expanded), text look (597 Q2)
+  src/features/callcenter/console/GuidanceStrip.tsx button: reward-arm open/close: a disclosure (aria-expanded), text look (597 Q2)
+  src/features/callcenter/console/GuidanceStrip.tsx button: offer card header: the card itself is the disclosure (aria-expanded) - a row picker
+  src/features/callcenter/console/GuidanceStrip.tsx button: *Search the other N*: a text button that hands off in-page, does not navigate
+  src/features/callcenter/console/GuidanceStrip.tsx button: qualifying-product *Add*: a row action on a product row (spec 590: row actions restyle in place)
+  src/features/callcenter/console/HeaderSentence.tsx button: sentence word: a word of the order sentence that opens its section - a picker
+  src/features/callcenter/console/HeaderSentence.tsx button: ledger field: a ledger cell that opens its section - a picker
+  src/features/callcenter/console/ItemSearchPanel.tsx button: scope *Show all*: an underlined text button that does not navigate
+  src/features/callcenter/console/PaymentPicker.tsx button: payment type: a tile picker (spec 590: pickers restyle in place)
+  src/features/callcenter/console/SlotPicker.tsx button: day tab: a two-line tab (weekday over date) a 28px Chip cannot hold; on Chip tokens
+  src/features/callcenter/console/SlotPicker.tsx button: slot window: a tile picker, a full one aria-disabled (spec 590: pickers restyle in place)
+  src/features/callcenter/console/StorePicker.tsx button: store row: a row picker (spec 590: pickers restyle in place)
 
-campaigns/coupon-finder 1
+campaigns/coupon-finder 0
 
-campaigns/customers 3
+campaigns/customers 1
+  src/features/campaigns/customers/CustomersPage.tsx button: a member of a shared mobile is picked by its row: a row picker (spec 590: restyled in place)
 
-campaigns/priority 5
+campaigns/priority 0
 
-campaigns/promotions 11
+campaigns/promotions 1
+  src/features/campaigns/promotions/FromTemplate.tsx button: a template is picked by its tile (aria-pressed): a tile picker (spec 590: restyled in place)
 
-campaigns/sessions 7
+campaigns/sessions 0
 
-campaigns/simulator 17
+campaigns/simulator 1
+  src/features/campaigns/simulator/SimulatorPage.tsx button: Drop draft clears the draft from the run in place (X + text, inside the draft note): a non-navigating text button, one-off
 
-campaigns/uploads 7
+campaigns/uploads 3
+  src/features/campaigns/uploads/ReadReport.tsx button: View in a campaign row opens its JSON drawer: a grid-cell action (spec 590)
+  src/features/campaigns/uploads/UploadPage.tsx button: Compare in a campaign row opens its JSON drawer: a grid-cell action (spec 590)
+  src/features/campaigns/uploads/UploadPage.tsx button: View on a disabling line opens its JSON drawer: a non-navigating text button inside the danger panel
 
 campaigns/workspace 13
   src/features/campaigns/workspace/BudgetsSettings.tsx button: a budget's sentence opens its drawer: a row picker (spec 590: restyled in place)
@@ -134,15 +177,22 @@ oms/serial-refusals 6
 
 oms/serving-lists 12
 
-pricing/bonus-buy-download 6
+pricing/bonus-buy-download 0
 
-pricing/bonus-buy-inquiry 10
+pricing/bonus-buy-inquiry 1
+  src/features/pricing/bonus-buy-inquiry/columns.tsx button: grid-cell action (row Details), spec 590: restyled in place
 
-pricing/bonus-buy-maintenance 35
+pricing/bonus-buy-maintenance 1
+  src/features/pricing/bonus-buy-maintenance/PromotionPage.tsx button: overview Clear filters, a non-navigating text button (594: not link)
 
-pricing/coupons 18
+pricing/coupons 0
 
-pricing/simulation 23
+pricing/simulation 5
+  src/features/pricing/simulation/SimBbyDetailsButton.tsx button: one-off: full-width card-footer action that opens the BBY details modal
+  src/features/pricing/simulation/SimManualConditions.tsx button: disclosure (aria-expanded) - Chip would add aria-pressed (597 Q2)
+  src/features/pricing/simulation/SimMissedPromotions.tsx button: disclosure (aria-expanded) - missed-promotion card header, a row picker
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - Done collapses the run form (597 Q2)
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - the run chip set opens the run form (597 Q2)
 
 reports/idoc-inspector 8
 

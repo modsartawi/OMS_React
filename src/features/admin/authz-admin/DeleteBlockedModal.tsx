@@ -72,7 +72,7 @@ export default function DeleteBlockedModal({
                 'flex flex-col items-start rounded-lg border p-2.5 text-start transition-colors ' +
                 (tile.n > 0
                   ? 'border-border hover:border-primary hover:bg-accent'
-                  : 'border-border/40 opacity-50')
+                  : 'border-border opacity-50')
               }
             >
               <span className="text-xl font-bold tabular-nums">{tile.n}</span>

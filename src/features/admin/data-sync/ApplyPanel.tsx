@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import { actionSyncAccessQuery, actionSyncFleetQuery, canOperateActionSync } from './api'
 import {
@@ -84,35 +86,35 @@ export default function ApplyPanel({ split, reason, onReason, targets, check, pa
       </div>
 
       {/* ── Reason ── */}
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        {t('apply.reason')}
-        <textarea
+      <Field
+        label={t('apply.reason')}
+        hint={<Trans t={t} i18nKey="apply.reasonHint" values={{ min: MIN_APPLY_REASON }} components={{ n: <Ltr /> }} />}
+        error={
+          problem ? (
+            <span data-apply-reason-problem={problem}>
+              {problem === 'required' ? (
+                t('apply.reasonRequired')
+              ) : (
+                <Trans
+                  t={t}
+                  i18nKey="apply.reasonTooShort"
+                  values={{ min: MIN_APPLY_REASON, have: reason.trim().length }}
+                  components={{ n: <Ltr /> }}
+                />
+              )}
+            </span>
+          ) : undefined
+        }
+      >
+        <Textarea
           value={reason}
           onChange={(e) => onReason(e.target.value)}
           rows={2}
           disabled={busy}
           maxLength={500}
-          className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
           data-apply-reason=""
         />
-      </label>
-      <p className="-mt-3 text-xs text-muted-foreground">
-        <Trans t={t} i18nKey="apply.reasonHint" values={{ min: MIN_APPLY_REASON }} components={{ n: <Ltr /> }} />
-      </p>
-      {problem && (
-        <p className="-mt-3 text-xs text-danger-800" data-apply-reason-problem={problem}>
-          {problem === 'required' ? (
-            t('apply.reasonRequired')
-          ) : (
-            <Trans
-              t={t}
-              i18nKey="apply.reasonTooShort"
-              values={{ min: MIN_APPLY_REASON, have: reason.trim().length }}
-              components={{ n: <Ltr /> }}
-            />
-          )}
-        </p>
-      )}
+      </Field>
 
       {/* ── Store readiness on ActionSync ── */}
       <div className="flex flex-col gap-1 text-xs" data-apply-readiness="">

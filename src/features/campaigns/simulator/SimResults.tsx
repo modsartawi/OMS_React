@@ -11,6 +11,7 @@ import { RULE_TRACE_CODES, RULE_TRACE_STATUSES, type RuleNearMiss, type RuleSimu
 import type { RulePointsEffect } from '@/core/models/rule-session'
 import { moneyText } from '@/core/rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
+import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
@@ -117,19 +118,11 @@ export default function SimResults({
         {session.length === 0 ? <p className="text-xs text-muted-foreground">{t('result.session.none')}</p> : <ul className="flex flex-col gap-2">{session}</ul>}
       </section>
 
-      <div role="tablist" aria-label={t('result.tabs.label')} className="flex gap-1 border-b border-border">
+      <div role="tablist" aria-label={t('result.tabs.label')} className="flex gap-1">
         {(['lines', 'trace'] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium ${tab === k ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setTab(k)}
-            data-sim-tab={k}
-          >
+          <Chip key={k} variant="tab" on={tab === k} onClick={() => setTab(k)} data-sim-tab={k}>
             {t(`result.tabs.${k}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       {tab === 'lines' ? (

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Modal from '@/core/ui/Modal'
+import Button from '@/core/ui/Button'
 import type { StorePass } from '@/core/models/sync-console'
 import { fsi } from '@/core/util/bidi'
 import { passDetailQuery } from './api'
@@ -22,14 +23,9 @@ export default function PassDetailModal({ pass, onClose }: { pass: StorePass | n
       title={pass ? t('passDetail.title', { id: fsi(pass.processId) }) : ''}
       width="72rem"
       footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-border/60 px-4 py-1.5 text-sm hover:bg-accent"
-          data-pass-detail-close=""
-        >
+        <Button variant="outlined" onClick={onClose} data-pass-detail-close="">
           {t('passDetail.close')}
-        </button>
+        </Button>
       }
     >
       {pass && <Detail processId={pass.processId} />}

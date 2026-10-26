@@ -9,6 +9,8 @@ import { Download, Filter, Loader2, PackageSearch, TriangleAlert } from 'lucide-
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -160,28 +162,14 @@ export default function BonusBuyInquiryPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={rows.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <Button variant="outlined" onClick={onExport} disabled={rows.length === 0}>
             <Download className="h-3.5 w-3.5" aria-hidden />
             {t('export.button')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            aria-pressed={showFilters}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-              showFilters
-                ? 'border-primary/40 bg-primary/10 text-primary'
-                : 'border-border/60 text-muted-foreground hover:bg-muted'
-            }`}
-          >
+          </Button>
+          <Chip on={showFilters} onClick={() => setShowFilters((v) => !v)}>
             <Filter className="h-3.5 w-3.5" aria-hidden />
             {t('toolbar.filterRow')}
-          </button>
+          </Chip>
         </div>
       </header>
 

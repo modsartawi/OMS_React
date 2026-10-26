@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react'
 import { apiErrorCode } from '@/core/api'
 import Button, { type ButtonVariant } from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import { controlRefusalWords } from './control-helpers'
 import RefusalBanner from './RefusalBanner'
 
@@ -88,18 +90,16 @@ export default function ControlDialog({
         )}
         {children}
         {takesNote && (
-          <label className="flex flex-col gap-1 text-xs font-medium">
-            {t('controls.reason')}
-            <textarea
+          <Field label={t('controls.reason')}>
+            <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={3}
               autoFocus
               disabled={busy}
-              className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
               data-control-note=""
             />
-          </label>
+          </Field>
         )}
         {error != null && (
           <RefusalBanner error={error} title={t('controls.failed')} fallback={t('controls.failedHint')} words={wordsKey && t(wordsKey)} hook="control" />

@@ -180,9 +180,11 @@ export default function SlotPicker({
                   aria-selected={index === dayIndex}
                   data-cc-slot-day={index}
                   {...(index === dayIndex ? { 'data-cc-slot-day-chosen': index } : {})}
-                  className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-center leading-tight disabled:cursor-not-allowed disabled:opacity-60 ${
+                  // A two-line tab (weekday over date) the 28px Chip cannot hold: restyled in
+                  // place on the Chip's tokens — on = primary-050 / primary-800 / primary edge.
+                  className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-center leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     index === dayIndex
-                      ? 'border-primary bg-primary/10 text-foreground'
+                      ? 'border-primary bg-primary-050 text-primary-800'
                       : 'border-border bg-card text-muted-foreground hover:bg-accent'
                   }`}
                 >

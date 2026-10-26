@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, FilterChangedEvent, GridApi, ICellRendererParams, IRowNode, RowSelectionOptions } from 'ag-grid-community'
-import { ArrowLeft, Filter, Loader2, Search } from 'lucide-react'
+import { ArrowLeft, Filter, Loader2 } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
@@ -17,11 +17,15 @@ import { confirmAction } from '@/core/services/confirm'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
+import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
@@ -125,9 +129,6 @@ const OVERVIEW_SELECTION: RowSelectionOptions<BbyOverviewRow> = {
 const BAR = 'flex flex-wrap items-center gap-2 border-b border-border-strong bg-card-2 px-3 py-2'
 const SEP = 'h-5 w-px bg-border-strong'
 /** A status chip and the column-filter toggle: pressed reads as a state, not an action. */
-const CHIP = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium'
-const CHIP_ON = 'border-primary/40 bg-primary/10 text-primary'
-const CHIP_IDLE = 'border-border bg-card text-foreground hover:bg-accent'
 
 /** What the grid shows when the filter leaves no row (an empty promotion never mounts the grid). */
 function NoMatch() {
@@ -499,7 +500,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
           <TextInput label={t('promotion.name')} value={name} maxLength={PROMOTION_NAME_MAX} onChange={setName} />
           <div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             {t('promotion.type')}
-            <div className="flex h-8 items-center gap-2 text-sm text-foreground">
+            <div className="flex h-7 items-center gap-2 text-sm text-foreground">
               <span className="rounded-md border border-border/60 px-2 py-1 font-mono">
                 <Ltr>SACH</Ltr>
               </span>
@@ -639,48 +640,40 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2" data-testid="bby-overview-filters">
-                  <label className="relative w-72 max-w-full">
+                  <label className="w-72 max-w-full">
                     <span className="sr-only">{t('overview.filter.searchLabel')}</span>
-                    <Search
-                      className="pointer-events-none absolute start-2.5 top-2 h-4 w-4 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <input
+                    <Input
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={t('overview.filter.search')}
-                      className="h-8 w-full rounded-full border border-border bg-background ps-8 pe-3 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+                      className="w-full"
                       data-testid="bby-overview-search"
                     />
                   </label>
                   <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('overview.filter.statusGroup')}>
                     {overviewChips(counts).map((c) => (
-                      <button
+                      <Chip
                         key={c}
-                        type="button"
-                        aria-pressed={chip === c}
+                        on={chip === c}
                         onClick={() => setChip(c)}
-                        className={`${CHIP} ${chip === c ? CHIP_ON : CHIP_IDLE}`}
                         data-testid={`bby-overview-chip-${c}`}
                       >
                         {t(c === 'all' ? 'overview.filter.all' : `overview.status.${c}`)}
                         <span className="font-mono text-[11px] opacity-75">
                           <Ltr>{c === 'all' ? promo.bonusBuys.length : counts[c]}</Ltr>
                         </span>
-                      </button>
+                      </Chip>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    aria-pressed={showFilters}
+                  <Chip
+                    on={showFilters}
                     onClick={toggleColumnFilters}
-                    className={`${CHIP} ${showFilters ? CHIP_ON : CHIP_IDLE}`}
                     data-testid="bby-overview-column-filters"
                   >
                     <Filter className="h-3.5 w-3.5" aria-hidden />
                     {t('overview.filter.columns')}
-                  </button>
+                  </Chip>
                   {filtered && (
                     <button
                       type="button"
@@ -818,19 +811,17 @@ function MarkSelectedTestedDialog({
       <div className="flex flex-col gap-3">
         <p className="text-sm">{t('overview.testBody', { count })}</p>
         {skipped > 0 && <p className="text-xs text-muted-foreground">{t('overview.testSkipped', { count: skipped })}</p>}
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('test.note')}
-          <textarea
+        <Field label={t('test.note')}>
+          <Textarea
             value={note}
             maxLength={TEST_NOTE_MAX}
             rows={3}
             placeholder={t('test.notePlaceholder')}
             onChange={(e) => setNote(e.target.value)}
-            className="rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
             data-testid="bby-overview-test-note"
             autoFocus
           />
-        </label>
+        </Field>
       </div>
     </Modal>
   )

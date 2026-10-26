@@ -7,6 +7,8 @@ import { apiErrorMessage } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import { deriveStatus, formatStamp } from './helpers'
 import { visibleCards } from './cards'
 import { buildUaUsersCsv, csvFileName } from './csv'
@@ -253,9 +255,11 @@ export default function UaAdminUsersPage() {
     <section className="flex flex-col gap-3">
       {/* toolbar: search is the primary affordance */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 overflow-hidden rounded-full border border-input bg-background">
-          <input
-            className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm outline-none"
+        <div className="flex flex-1 items-center gap-2">
+          <Input
+            className="min-w-0 flex-1"
+            aria-label={t('search.placeholderNoCount')}
+            data-ua-search=""
             placeholder={
               countsData
                 ? t('search.placeholder', { count: countsData.allPeople.toLocaleString() })
@@ -268,41 +272,32 @@ export default function UaAdminUsersPage() {
             }}
             autoFocus
           />
-          <button
-            className="bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
-            onClick={runSearch}
-          >
+          <Button variant="primary" onClick={runSearch}>
             {t('search.button')}
-          </button>
+          </Button>
         </div>
         {/* Carries NO permission check of its own — it renders whenever the
             screen renders, behind the existing access probe (ticket 146). It is
             dead only when there is nothing to export yet. */}
-        <button
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
+        <Button
+          variant="outlined"
           onClick={() => void exportCsv()}
           // Dead until a count has landed: how many people this exports is what
           // decides whether it asks first, so exporting before the first read
           // settles would silently skip the confirm (ticket 151).
           disabled={query === null || exporting || list.data === undefined}
         >
-          {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
           {t('export.button')}
-        </button>
+        </Button>
         {/* Same stance as the export: no permission check of its own. The server
             gates the create door on UaUsers and the role doors on AuthzAdmin. */}
-        <button
-          className="inline-flex h-9 items-center rounded-full border border-input px-4 text-sm font-medium hover:bg-accent"
-          onClick={() => setBulkOpen(true)}
-        >
+        <Button variant="outlined" onClick={() => setBulkOpen(true)}>
           {t('bulkCreate')}
-        </button>
-        <button
-          className="inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
-          onClick={() => setNewOpen(true)}
-        >
+        </Button>
+        <Button variant="primary" onClick={() => setNewOpen(true)}>
           {t('newIdentity')}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">{showMinCharsHint ? t('search.minChars') : t('search.hint')}</p>
 
@@ -327,7 +322,7 @@ export default function UaAdminUsersPage() {
             onClick={() => openCard(c.card)}
             className={
               'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
-              (activeCard === c.card ? 'border-primary bg-accent' : 'border-border/60')
+              (activeCard === c.card ? 'border-primary bg-accent' : 'border-border')
             }
           >
             {/* `null` is the read still in flight; a real 0 prints as 0. */}

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { apiErrorMessage } from '@/core/api'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { faultRoute } from './fault-route'
 
@@ -40,14 +41,9 @@ export default function SimFailureBanner({ error, onOpenSettings }: Props) {
           </p>
         ) : null}
         {route === 'settings' ? (
-          <button
-            type="button"
-            data-fault-route="settings"
-            onClick={onOpenSettings}
-            className="mt-1.5 rounded-md border border-danger-border px-3 py-1 text-xs font-medium hover:bg-danger-border/40"
-          >
+          <Button variant="danger-outlined" data-fault-route="settings" onClick={onOpenSettings} className="mt-1.5">
             {t('banner.routeSettings')}
-          </button>
+          </Button>
         ) : null}
       </ErrorBanner>
     </div>

@@ -7,10 +7,13 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleFromTemplateBody, RuleTemplate, RuleTemplatePlaceholder } from '@/core/models/rule-campaign'
 import { rememberNewDraft, ruleCampaignApi, ruleTemplatesQuery } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
-import LookupPicks, { RULE_INPUT } from '@/core/rules/LookupPicks'
+import LookupPicks from '@/core/rules/LookupPicks'
 import { saysIn } from '@/core/rules/sentence'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import { listText } from '@/core/util/list-format'
@@ -132,7 +135,7 @@ export default function FromTemplate({ formId, onCreated }: { formId: string; on
                 data-template={x.code}
                 className={
                   'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-70 ' +
-                  (picked?.code === x.code ? 'border-primary bg-primary-050/60' : 'border-border/60 hover:bg-accent')
+                  (picked?.code === x.code ? 'border-primary bg-primary-050/60' : 'border-border hover:bg-accent')
                 }
               >
                 <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
@@ -226,26 +229,9 @@ function TextField({
   problem: string | null
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <input
-        id={id}
-        dir={dir}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-invalid={problem ? true : undefined}
-        aria-describedby={problem ? `${id}-problem` : undefined}
-        data-template-field-name={data}
-        className={`${RULE_INPUT} w-full ` + (problem ? 'border-danger-border' : '')}
-      />
-      {problem && (
-        <p id={`${id}-problem`} className="text-xs text-danger-800" data-template-name-problem={data}>
-          {problem}
-        </p>
-      )}
-    </div>
+    <Field id={id} label={label} error={problem ? <span data-template-name-problem={data}>{problem}</span> : undefined}>
+      <Input dir={dir} value={value} onChange={(e) => onChange(e.target.value)} data-template-field-name={data} className="w-full" />
+    </Field>
   )
 }
 
@@ -302,38 +288,31 @@ function Placeholder({
 
   return (
     <div className="flex flex-col gap-1" data-template-field={p.name}>
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      {kind === 'json' ? (
-        <textarea
-          id={id}
-          dir="ltr"
-          rows={3}
-          className={`${RULE_INPUT} h-auto w-full py-1.5 font-mono text-xs`}
-          value={typed}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={problem ? true : undefined}
-          aria-describedby={problem ? problemId : undefined}
-          data-template-input={p.name}
-        />
-      ) : (
-        <input
-          id={id}
-          dir={kind === 'text' ? 'auto' : 'ltr'}
-          inputMode={kind === 'number' ? 'decimal' : undefined}
-          className={`${RULE_INPUT} ` + (kind === 'number' ? 'w-32 text-end tabular-nums' : 'w-full')}
-          value={typed}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={problem ? true : undefined}
-          aria-describedby={problem ? problemId : undefined}
-          data-template-input={p.name}
-        />
-      )}
-      {kind === 'json' && <p className="text-xs text-muted-foreground">{t('template.jsonHint')}</p>}
-      {kind === 'codes' && <p className="text-xs text-muted-foreground">{t('template.codesHint')}</p>}
-      {path}
-      {error}
+      {/* The kind's hint and the path stay lines of their own above the error, as before the restyle. */}
+      <Field id={id} label={label} error={problem ? <span data-template-problem={p.name}>{t(`template.problem.${problem}`)}</span> : undefined}>
+        {kind === 'json' ? (
+          <Textarea
+            dir="ltr"
+            rows={3}
+            className="w-full font-mono"
+            value={typed}
+            onChange={(e) => onChange(e.target.value)}
+            data-template-input={p.name}
+          />
+        ) : (
+          <Input
+            dir={kind === 'text' ? 'auto' : 'ltr'}
+            inputMode={kind === 'number' ? 'decimal' : undefined}
+            className={kind === 'number' ? 'w-32 text-end tabular-nums' : 'w-full'}
+            value={typed}
+            onChange={(e) => onChange(e.target.value)}
+            data-template-input={p.name}
+          />
+        )}
+        {kind === 'json' && <p className="text-xs text-muted-foreground">{t('template.jsonHint')}</p>}
+        {kind === 'codes' && <p className="text-xs text-muted-foreground">{t('template.codesHint')}</p>}
+        {path}
+      </Field>
     </div>
   )
 }

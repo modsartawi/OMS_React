@@ -8,6 +8,7 @@ import type { RuleSessionLookup, RuleSupportCancelReply } from '@/core/models/ru
 import { ruleSessionQuery } from '@/core/rules/api'
 import { moneyText } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -88,19 +89,11 @@ export default function SessionPage() {
           {cancelled?.saleId === saleId && <RollbackPanel result={cancelled.result} session={s} />}
           <Header session={s} />
 
-          <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border">
+          <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1">
             {TABS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium ${tab === k ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setTab(k)}
-                data-session-tab={k}
-              >
+              <Chip key={k} variant="tab" on={tab === k} onClick={() => setTab(k)} data-session-tab={k}>
                 {t(`tabs.${k}`)}
-              </button>
+              </Chip>
             ))}
           </div>
           <div role="tabpanel">

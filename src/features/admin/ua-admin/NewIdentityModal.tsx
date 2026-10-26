@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import { uaAdminApi } from './api'
@@ -15,10 +17,6 @@ interface Props {
   onClose: () => void
   onCreated: (employeeId: string) => void
 }
-
-const FIELD =
-  'h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const LABEL = 'mb-1 block text-xs font-semibold text-muted-foreground'
 
 /**
  * Create a Ua identity only — no credential. An absent credential is exactly what
@@ -103,50 +101,29 @@ export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
       }
     >
       <p className="mb-3 text-sm text-muted-foreground">{t('new.body')}</p>
-      <div className="mb-3">
-        <label className={LABEL} htmlFor="ni-id">
-          {t('new.employeeId')}
-        </label>
-        <input id="ni-id" className={FIELD} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} autoFocus />
-      </div>
-      <div className="mb-3">
-        <label className={LABEL} htmlFor="ni-name">
-          {t('new.displayName')}
-        </label>
-        <input id="ni-name" className={FIELD} value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-      </div>
-      <div className="mb-3">
-        <label className={LABEL} htmlFor="ni-phone">
-          {t('new.phone')}
-        </label>
-        <input id="ni-phone" className={FIELD} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
-      </div>
-      <div className="mb-3">
-        <label className={LABEL} htmlFor="ni-email">
-          {t('new.email')}
-        </label>
-        <input
-          id="ni-email"
-          className={FIELD}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          inputMode="email"
-        />
-      </div>
-      <div className="mb-1">
-        <label className={LABEL} htmlFor="ni-channel">
-          {t('delivery.label')}
-        </label>
+      <Field id="ni-id" label={t('new.employeeId')} className="mb-3">
+        <Input className="w-full" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} autoFocus />
+      </Field>
+      <Field id="ni-name" label={t('new.displayName')} className="mb-3">
+        <Input className="w-full" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+      </Field>
+      <Field id="ni-phone" label={t('new.phone')} className="mb-3">
+        <Input className="w-full" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
+      </Field>
+      <Field id="ni-email" label={t('new.email')} className="mb-3">
+        <Input className="w-full" value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" />
+      </Field>
+      <Field id="ni-channel" label={t('delivery.label')} className="mb-1">
         <ChannelSelect
           id="ni-channel"
-          className={FIELD}
+          className="w-full"
           value={channel}
           onChange={(c) => {
             setChannel(c)
             setChannelChosen(true)
           }}
         />
-      </div>
+      </Field>
       {/* Armed by the same condition as the Create button: an empty form is not
           yet a person about to be created unreachable, so it gets no alarm. */}
       {employeeId.trim() === '' ? null : (

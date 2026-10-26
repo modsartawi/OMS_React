@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Loader2, Search } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import type { GrantCatalogEntry } from '@/core/models/authz-admin'
@@ -121,15 +122,14 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">{t('bindGrant.intro')}</p>
-          <div className="flex items-center gap-2 rounded-full border border-input bg-background px-3">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <input
-              className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
-              placeholder={t('bindGrant.searchPlaceholder')}
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-            />
-          </div>
+          <Input
+            type="search"
+            className="w-full"
+            aria-label={t('bindGrant.searchPlaceholder')}
+            placeholder={t('bindGrant.searchPlaceholder')}
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+          />
 
           {catalog.isPending ? (
             <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground" role="status">
@@ -139,7 +139,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
           ) : catalog.isError ? (
             <ErrorBanner message={apiErrorMessage(catalog.error, t('toast.failed'))} className="p-4" />
           ) : choices.length === 0 ? (
-            <p className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
+            <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
               {t('bindGrant.empty')}
             </p>
           ) : (
@@ -149,7 +149,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
                 return (
                   <div
                     key={g.authorizationId}
-                    className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2"
+                    className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
                   >
                     <span className="min-w-0 flex-1 font-mono text-xs tabular-nums">{text}</span>
                     {wildcard && (

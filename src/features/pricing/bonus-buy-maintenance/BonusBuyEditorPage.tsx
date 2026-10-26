@@ -12,11 +12,16 @@ import type {
   BbyTestMark,
 } from '@/core/models/bonus-buy-maintenance'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
+import Textarea from '@/core/ui/Textarea'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import {
@@ -31,7 +36,7 @@ import {
 import ActReport, { type Report } from './ActReport'
 import { BuyPanel, type CouponMaterialAction, GetPanel } from './BuyGetPanels'
 import EngineRulesTab from './EngineRulesTab'
-import { DateInput, INPUT, TextInput } from './fields'
+import { DateInput, TextInput } from './fields'
 import GroupingDialog from './GroupingDialog'
 import {
   BBY_ORG,
@@ -466,23 +471,11 @@ function EditorBody({
 
       {/* ── the tabs ── */}
       <div className="flex flex-col">
-        <div role="tablist" className="flex flex-wrap">
+        <div role="tablist" className="flex flex-wrap gap-1 pb-2">
           {TABS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={
-                'rounded-t-md border border-b-0 px-3 py-1 text-sm ' +
-                (tab === id
-                  ? 'border-border/60 bg-card font-semibold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground')
-              }
-            >
+            <Chip key={id} variant="tab" on={tab === id} onClick={() => setTab(id)}>
               {t(`editor.tab.${id}`)}
-            </button>
+            </Chip>
           ))}
         </div>
 
@@ -490,7 +483,7 @@ function EditorBody({
         <fieldset
           disabled={access.readOnly}
           data-readonly={access.readOnly ? 'true' : undefined}
-          className="flex min-w-0 flex-col gap-3 rounded-e-lg rounded-b-lg border border-border/60 bg-card p-3"
+          className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-card p-3"
         >
           {tab === 'header' && (
             <HeaderTab
@@ -569,17 +562,16 @@ function CouponMaterialDialog({
     >
       <div className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">{t('couponMaterial.hint')}</p>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('couponMaterial.description')}
-          <input
+        <Field label={t('couponMaterial.description')}>
+          <Input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className={`${INPUT} w-full`}
+            className="w-full"
             data-testid="bby-coupon-material-description"
             autoFocus
           />
-        </label>
+        </Field>
       </div>
     </Modal>
   )
@@ -627,19 +619,17 @@ function MarkTestedDialog({
     >
       <div className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">{t('test.hint')}</p>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('test.note')}
-          <textarea
+        <Field label={t('test.note')}>
+          <Textarea
             value={note}
             maxLength={TEST_NOTE_MAX}
             rows={3}
             placeholder={t('test.notePlaceholder')}
             onChange={(e) => setNote(e.target.value)}
-            className="rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
             data-testid="bby-test-note"
             autoFocus
           />
-        </label>
+        </Field>
       </div>
     </Modal>
   )
@@ -674,11 +664,12 @@ function TestMark({ mark }: { mark: BbyTestMark | null }) {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** A read-only value under its label, at the shared field height so it lines up with the fields beside it. */
+function ReadField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
       {label}
-      <div className="flex h-8 items-center gap-2 text-sm text-foreground">{children}</div>
+      <div className="flex h-7 items-center gap-2 text-sm text-foreground">{children}</div>
     </div>
   )
 }
@@ -707,7 +698,7 @@ function HeaderTab({
     <>
       {/* ── the header block ── */}
       <div className="flex flex-wrap items-end gap-3">
-        <Field label={t('editor.header.number')}>
+        <ReadField label={t('editor.header.number')}>
           {state.bbyNumber ? (
             <span className="font-mono">
               <Ltr>{state.bbyNumber}</Ltr>
@@ -715,7 +706,7 @@ function HeaderTab({
           ) : (
             <span className="text-muted-foreground">{t('editor.header.minted')}</span>
           )}
-        </Field>
+        </ReadField>
         <TextInput
           label={t('editor.header.text')}
           value={state.description}
@@ -723,47 +714,45 @@ function HeaderTab({
           onChange={(description) => update({ description })}
           className="w-96"
         />
-        <Field label={t('editor.header.status')}>
+        <ReadField label={t('editor.header.status')}>
           <StatusBadge sev={overviewSeverity(status)}>{t(`overview.status.${status}`)}</StatusBadge>
-        </Field>
-        <Field label={t('editor.header.profile')}>
+        </ReadField>
+        <ReadField label={t('editor.header.profile')}>
           <span className="rounded-md border border-border/60 px-2 py-1 font-mono">
             <Ltr>BBCH</Ltr>
           </span>
           {t('editor.header.profileName')}
-        </Field>
+        </ReadField>
       </div>
       <TestMark mark={mark} />
       <div className="flex flex-wrap items-end gap-3">
         <DateInput label={t('editor.header.validFrom')} value={state.validFrom} onChange={(validFrom) => update({ validFrom })} />
         <DateInput label={t('editor.header.validTo')} value={state.validTo} onChange={(validTo) => update({ validTo })} />
-        <Field label={t('editor.header.currency')}>
+        <ReadField label={t('editor.header.currency')}>
           <span className="font-mono">
             <Ltr>{currency}</Ltr>
           </span>
-        </Field>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('editor.header.limit')}
-          <input
+        </ReadField>
+        <Field label={t('editor.header.limit')}>
+          <Input
             type="number"
             min={0}
             step={1}
             value={state.limitNumber}
             onChange={(e) => update({ limitNumber: e.target.value })}
-            className={`${INPUT} w-28`}
+            className="w-28"
           />
-        </label>
+        </Field>
       </div>
 
       {/* ── Organizational Data: the one scope the copy offers, read-only ── */}
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">{t('editor.org.title')}</h2>
-        <label className="flex w-fit flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('editor.org.type')}
-          <select disabled className={`${INPUT} w-56`} value="01">
+        <Field label={t('editor.org.type')} className="w-fit">
+          <Select disabled className="w-56" value="01">
             <option value="01">{t('editor.org.type01')}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
         <table className="w-fit text-sm">
           <thead>
             <tr className="text-xs text-muted-foreground">

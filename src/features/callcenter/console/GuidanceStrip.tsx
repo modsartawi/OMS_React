@@ -42,6 +42,7 @@ import { NOTE } from './console-notes'
 import type { GuidanceCard, GuidanceView, RewardArm } from './guidance-view'
 import type { SearchRowView } from './item-search'
 import { prereqRows, restOfSet, rewardResolutionView } from './prereq-view'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * The half of the guidance surface that DOES something (ticket 172) — the add,
@@ -847,16 +848,9 @@ function Outcome({ outcome, onDismiss }: { outcome: AddOutcome | null; onDismiss
           <Ltr>{outcome.offerDescription}</Ltr>
         </span>
       </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        data-cc-outcome-dismiss
-        aria-label={t('guidance.outcome.dismiss')}
-        title={t('guidance.outcome.dismiss')}
-        className="shrink-0 rounded-full p-0.5 hover:opacity-70"
-      >
+      <IconButton size="compact" onClick={onDismiss} data-cc-outcome-dismiss label={t('guidance.outcome.dismiss')}>
         <X className="h-3 w-3" aria-hidden />
-      </button>
+      </IconButton>
     </div>
   )
 }

@@ -86,6 +86,8 @@ import {
   type StripView,
 } from './location-link-view'
 import ResendButton from './ResendButton'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /** The link this order holds: the latest Send's answer, and the body that sent it (Resend
  *  re-sends that body, to the same number, without the dialog). */
@@ -553,9 +555,17 @@ export default function LocationLinkPanel({
       >
         <div className="space-y-3 text-sm" data-cc-location-dialog>
           <p className="text-muted-foreground">{t('location.send.body')}</p>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium">{t('location.send.mobile')}</span>
-            <input
+          <Field
+            label={t('location.send.mobile')}
+            error={
+              refusal?.at === 'mobile' ? (
+                <span data-cc-location-mobile-error>
+                  <bdi>{refusalText(refusal, t)}</bdi>
+                </span>
+              ) : undefined
+            }
+          >
+            <Input
               type="tel"
               dir="ltr"
               inputMode="tel"
@@ -565,16 +575,10 @@ export default function LocationLinkPanel({
                 setMobile(e.target.value)
                 if (refusal?.at === 'mobile') setRefusal(null)
               }}
-              aria-invalid={refusal?.at === 'mobile'}
-              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-start aria-invalid:border-danger-border"
+              className="w-full text-start"
               data-cc-location-mobile
             />
-          </label>
-          {refusal?.at === 'mobile' && (
-            <p className="text-xs text-danger-800" data-cc-location-mobile-error>
-              <bdi>{refusalText(refusal, t)}</bdi>
-            </p>
-          )}
+          </Field>
           {refusal?.at === 'dialog' && (
             <p
               className="rounded-md border border-danger-border bg-danger-050 p-2 text-danger-800"

@@ -1137,21 +1137,22 @@ export const callCenterApi = {
   },
 
   /**
-   * `POST CallCenterWeb/LocationLinks/{token}/Discarded` → `{ stamp, stampedAt }` (§2, 576) —
-   * the card's Discard. A LINK call, not a session verb: no `requestId`, no `runGuarded`.
-   * Leaves a record (`DiscardedAt`/`DiscardedBy`). Refuses with a `CCL-` code:
-   * `CCL-00031` already stamped, `CCL-00006` no such link for this agent.
-   */
-  /**
    * `GET CallCenterWeb/NationalAddress/{code}?language=A|E` → `{ outcome, parts }` (579,
    * BackOffice 3074 — 🚩 **not built yet**, so proved against stubs). Read only. The server
-   * normalises the code as the submit does and refuses a malformed one `CCL-00014`; every
-   * other failure is read as *unavailable* (`short-address-check.ts`), never as unknown.
+   * normalises the code as the submit does and refuses a malformed one `CCL-00014`; any other
+   * refusal is shown in the server's words, and only a fault of the call reads as
+   * *unavailable* (`short-address-check.ts`), never as unknown.
    */
   checkShortAddress(code: string, language: 'A' | 'E'): Promise<ShortAddressCheck> {
     return api.get<ShortAddressCheck>(`CallCenterWeb/NationalAddress/${encodeURIComponent(code)}`, { language })
   },
 
+  /**
+   * `POST CallCenterWeb/LocationLinks/{token}/Discarded` → `{ stamp, stampedAt }` (§2, 576) —
+   * the card's Discard. A LINK call, not a session verb: no `requestId`, no `runGuarded`.
+   * Leaves a record (`DiscardedAt`/`DiscardedBy`). Refuses with a `CCL-` code:
+   * `CCL-00031` already stamped, `CCL-00006` no such link for this agent.
+   */
   discardLocation(token: string): Promise<LocationLinkDiscarded> {
     return api.post<LocationLinkDiscarded>(`CallCenterWeb/LocationLinks/${encodeURIComponent(token)}/Discarded`, undefined)
   },

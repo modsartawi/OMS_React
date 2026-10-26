@@ -49,10 +49,11 @@ import { callCenterApi } from './api'
 import {
   checkCode,
   checkLanguage,
+  checkPressable,
   checkResult,
   checkView,
   cityNamesOf,
-  isCheckable,
+  type CheckKey,
   type CheckResult,
   type CheckView,
 } from './short-address-check'
@@ -115,23 +116,37 @@ export default function AddressForm({
 
   /**
    * 579 — Check. A mutation, not a cached query: each press is the agent asking now. The
-   * answer is kept with the code it was asked for, so editing the box drops it
-   * (`checkView`), and nothing here reaches `addressFormIsSendable`.
+   * answer is kept with the code AND language it was asked for, so editing the box drops it
+   * (`checkView`), and nothing here reaches `addressFormIsSendable`. The picker re-keys this
+   * form whenever it loads another address, so a held answer never outlives its address.
    */
   const { i18n } = useTranslation()
-  const districtList = useQuery(lookupQueries.districts())
-  const [checked, setChecked] = useState<{ code: string; result: CheckResult } | null>(null)
+  const language = checkLanguage(i18n.language)
+  // Joins DistrictField's cached read; only read here at all while Check is offered.
+  const districtList = useQuery({ ...lookupQueries.districts(), enabled: canCheckShortAddress })
+  const [checked, setChecked] = useState<(CheckKey & { result: CheckResult }) | null>(null)
+  /** The last key asked. An older call still in flight when the agent re-pressed for a new
+   *  code lands later and is dropped here, so it never overwrites the newer answer. */
+  const lastAsked = useRef<CheckKey | null>(null)
+  const settle = (key: CheckKey, result: CheckResult) => {
+    const last = lastAsked.current
+    if (last?.code === key.code && last.language === key.language) setChecked({ ...key, result })
+  }
   const checkCall = useMutation({
-    mutationFn: (code: string) => callCenterApi.checkShortAddress(code, checkLanguage(i18n.language)),
-    onSuccess: (answer, code) => setChecked({ code, result: checkResult(answer, null) }),
-    onError: (err, code) => setChecked({ code, result: checkResult(null, err) }),
+    mutationFn: (key: CheckKey) => callCenterApi.checkShortAddress(key.code, key.language),
+    onMutate: (key) => {
+      lastAsked.current = key
+    },
+    onSuccess: (answer, key) => settle(key, checkResult(answer, null)),
+    onError: (err, key) => settle(key, checkResult(null, err)),
   })
-  const checking = checkCall.isPending
+  const pending = checkCall.isPending ? (checkCall.variables ?? null) : null
   const check: CheckView = canCheckShortAddress
     ? checkView({
         code: values.shortAddress,
+        language,
         checked,
-        pending: checking ? (checkCall.variables ?? null) : null,
+        pending,
         formCity: values.cityName,
         formCityNames: cityNamesOf(districtList.data, values.cityCode, values.cityName),
       })
@@ -241,10 +256,13 @@ export default function AddressForm({
           {canCheckShortAddress && (
             <Button
               variant="outlined"
-              onClick={() => checkCall.mutate(checkCode(values.shortAddress))}
+              onClick={() => checkCall.mutate({ code: checkCode(values.shortAddress), language })}
               // Never gated by the save: checking reads, and a blank or
-              // already-malformed box has nothing to ask SPL about.
-              disabled={busy || checking || !isCheckable(values.shortAddress)}
+              // already-malformed box has nothing to ask SPL about. Held only while
+              // THIS code's call is in flight (the line under the box says
+              // "Checking…"); a new code can be checked at once, and the older
+              // answer is dropped by its key when it lands.
+              disabled={busy || !checkPressable({ code: values.shortAddress, language, pending })}
               data-cc-address-check
               className="shrink-0"
             >
@@ -277,10 +295,12 @@ export default function AddressForm({
 }
 
 /**
- * The inline answer under the box (579). SPL's free text (street, district, city) is
- * isolated whole as one `<bdi>`, so the line reads in its own script's direction; the
- * additional number is a machine value (`Ltr`). Every answer is drawn quiet — a check is
- * information, not a verdict — and only the city warning takes attention.
+ * The inline answer under the box (579). The parts line is isolated whole, once: led by the
+ * building number it is a pair led by a machine value (`Ltr`), otherwise SPL's free text
+ * (`<bdi>`). The additional number is a machine value (`Ltr`). A refusal is the server's own
+ * words in a `<bdi>` with its code as `Ltr`. Every answer is drawn quiet — a check is
+ * information, not a verdict — and only the city warning (attention) and a refusal (danger,
+ * the console's tone for "did not happen") stand out.
  */
 function CheckLine({ view }: { view: Exclude<CheckView, { kind: 'idle' } | { kind: 'malformed' }> }) {
   const { t } = useTranslation('callcenter')
@@ -303,6 +323,20 @@ function CheckLine({ view }: { view: Exclude<CheckView, { kind: 'idle' } | { kin
         {t('location.shortAddressCheck.unavailable')}
       </p>
     )
+  if (view.kind === 'refused')
+    return (
+      <p className={NOTE.danger} data-cc-address-check-state="refused">
+        <bdi data-cc-address-check-refusal>{view.message ?? t('location.shortAddressCheck.refused')}</bdi>
+        {view.code && (
+          <>
+            {' '}
+            <span data-cc-address-check-refusal-code>
+              <Ltr>{view.code}</Ltr>
+            </span>
+          </>
+        )}
+      </p>
+    )
   return (
     <div className={`${NOTE.quiet} space-y-1`} data-cc-address-check-state="found">
       <p className="flex items-center gap-1.5">
@@ -310,7 +344,7 @@ function CheckLine({ view }: { view: Exclude<CheckView, { kind: 'idle' } | { kin
         <span className="font-semibold">{t('location.shortAddressCheck.confirmed')}</span>
       </p>
       <p className="text-foreground" data-cc-address-check-line>
-        <bdi>{view.line}</bdi>
+        {view.ledByNumber ? <Ltr>{view.line}</Ltr> : <bdi>{view.line}</bdi>}
       </p>
       {view.additionalNumber && (
         <p data-cc-address-check-additional>

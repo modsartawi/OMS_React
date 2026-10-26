@@ -812,6 +812,7 @@
       "cityWarning": "SPL says {{spl}}, the form's city is {{form}}",
       "unknown": "Not known to SPL",
       "unavailable": "SPL is unavailable, not checked",
+      "refused": "The server refused the check.",
       "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
     }
   }

@@ -1287,8 +1287,6 @@ export const CCL = {
   nothingCaptured: 'CCL-00030',
   /** Already applied or discarded — refresh the session. */
   alreadyStamped: 'CCL-00031',
-  /** 579 — a malformed Short Address on `NationalAddress/{code}`: the field's own error. */
-  shortAddressMalformed: 'CCL-00014',
 } as const
 
 export type CclCode = (typeof CCL)[keyof typeof CCL]
@@ -1297,6 +1295,17 @@ export type CclCode = (typeof CCL)[keyof typeof CCL]
 export interface LocationLinkRefusalDetail {
   code: CclCode | (string & {})
 }
+
+/**
+ * The `CCL-` codes `NationalAddress/{code}` answers (579, BackOffice 3074) — kept apart from
+ * the location link's `CCL` so a link refusal's `code` never types as a Short Address one.
+ */
+export const NATIONAL_ADDRESS_CCL = {
+  /** A malformed Short Address: the field's own error. */
+  shortAddressMalformed: 'CCL-00014',
+} as const
+
+export type NationalAddressCclCode = (typeof NATIONAL_ADDRESS_CCL)[keyof typeof NATIONAL_ADDRESS_CCL]
 
 /**
  * 579 (BackOffice 3074, spec 3072 "Check a typed Short Address") — the parts SPL resolved a

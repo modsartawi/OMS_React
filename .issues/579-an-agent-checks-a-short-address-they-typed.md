@@ -86,3 +86,14 @@ casing (camelCase, nullable) in the contract asset `assets/2482-location-link-we
 If either differs, only `core/models/callcenter.ts`, `short-address-check.ts` and the drive's stub move.
 
 Owner sign-off wanted: the Arabic wording (SPL rendered "سبل").
+
+**2026-10-26 — code-review fixes (`579 review fixes`).** A business refusal other than `CCL-00014`
+now shows the server's message + code (`apiErrorMessage`/`apiErrorCode`, fixed key only when the
+message is blank); only server/network/unknown faults, an all-blank `FOUND` and no parts read
+*unavailable* (supersedes decision 6). The held answer is keyed by code **and** language, a late
+answer for an older code is dropped, and Check is held only while *this* code's call is in flight
+(supersedes 5's "disabled while checking"). The picker re-keys `AddressForm` on every address load.
+The FOUND line is isolated once with `Ltr` when led by the building number (supersedes 8's `<bdi>`),
+joined by the new `formatParts` (`@/core/util/bidi`). `CCL-00014` moved out of the location-link
+`CCL` into `NATIONAL_ADDRESS_CCL`; the districts read is gated on the capability; the api JSDoc is
+back on its own functions. Gates green; drive 363/363 stubbed (LTR + RTL).

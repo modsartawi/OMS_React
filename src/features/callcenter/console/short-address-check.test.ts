@@ -9,7 +9,16 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
-import { checkLanguage, checkResult, cityNamesOf, checkView, isCheckable, showsCheck, type CheckViewInput } from './short-address-check'
+import {
+  checkLanguage,
+  checkPressable,
+  checkResult,
+  cityNamesOf,
+  checkView,
+  isCheckable,
+  showsCheck,
+  type CheckViewInput,
+} from './short-address-check'
 
 describe('showsCheck', () => {
   it('shows Check only while the session says SPL is configured', () => {
@@ -73,12 +82,33 @@ describe('checkResult', () => {
     expect(checkResult(null, refusal('CCL-00014', 'The Short Address is malformed.'))).toEqual({ outcome: 'malformed' })
   })
 
-  it('any other failure is unavailable — never unknown', () => {
-    expect(checkResult(null, refusal('CCL-00005'))).toEqual({ outcome: 'unavailable' })
+  it('a business refusal other than CCL-00014 is the server’s own words and code — not an outage', () => {
+    expect(checkResult(null, refusal('CCL-00005', 'Caller unknown.'))).toEqual({
+      outcome: 'refused',
+      message: 'Caller unknown.',
+      code: 'CCL-00005',
+    })
+    // A refusal with no code still says what the server said.
+    expect(checkResult(null, new ApiError('business', 'Not allowed here.', 409))).toEqual({
+      outcome: 'refused',
+      message: 'Not allowed here.',
+      code: null,
+    })
+  })
+
+  it('a refusal with no message carries none, so the form falls back to its own words', () => {
+    const silent = new ApiError('business', '', 409, [{ errorCode: 'X-1', internalErrorCode: '', errorMessage: '' }])
+    expect(checkResult(null, silent)).toEqual({ outcome: 'refused', message: null, code: 'X-1' })
+  })
+
+  it('only a fault — server, network, unknown, or not an ApiError at all — is unavailable, never unknown', () => {
     expect(checkResult(null, new ApiError('server', 'Unexpected API error (HTTP 500)', 500))).toEqual({
       outcome: 'unavailable',
     })
     expect(checkResult(null, new ApiError('network', 'Failed to fetch', 0))).toEqual({ outcome: 'unavailable' })
+    expect(checkResult(null, new ApiError('unknown', 'Unexpected API error (HTTP 403)', 403))).toEqual({
+      outcome: 'unavailable',
+    })
     expect(checkResult(null, new Error('boom'))).toEqual({ outcome: 'unavailable' })
   })
 
@@ -87,10 +117,20 @@ describe('checkResult', () => {
     expect(checkResult({ outcome: 'FOUND', parts: null }, null)).toEqual({ outcome: 'unavailable' })
     expect(checkResult(null, null)).toEqual({ outcome: 'unavailable' })
   })
+
+  it('FOUND whose parts are all blank or null is unavailable, the same as no parts', () => {
+    const blank = { buildingNumber: null, street: '  ', district: '', city: null, postCode: null, additionalNumber: ' ' }
+    expect(checkResult({ outcome: 'FOUND', parts: blank }, null)).toEqual({ outcome: 'unavailable' })
+    // One part is enough to be an answer.
+    expect(checkResult({ outcome: 'FOUND', parts: { ...blank, additionalNumber: '2834' } }, null)).toMatchObject({
+      outcome: 'found',
+    })
+  })
 })
 
 const input = (over: Partial<CheckViewInput> = {}): CheckViewInput => ({
   code: 'RIMA6904',
+  language: 'E',
   checked: null,
   pending: null,
   formCity: 'Riyadh',
@@ -104,13 +144,14 @@ describe('checkView', () => {
   })
 
   it('is checking while the call for this code is in flight', () => {
-    expect(checkView(input({ pending: 'RIMA6904' }))).toEqual({ kind: 'checking' })
+    expect(checkView(input({ pending: { code: 'RIMA6904', language: 'E' } }))).toEqual({ kind: 'checking' })
   })
 
   it('FOUND: the parts on one line, the additional number apart, no warning when the city agrees', () => {
-    expect(checkView(input({ checked: { code: 'RIMA6904', result: { outcome: 'found', parts: PARTS } } }))).toEqual({
+    expect(checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts: PARTS } } }))).toEqual({
       kind: 'found',
       line: '6904 · Anas Ibn Malik · Al Malqa · Riyadh · 13521',
+      ledByNumber: true,
       additionalNumber: '2834',
       cityWarning: null,
     })
@@ -118,17 +159,26 @@ describe('checkView', () => {
 
   it('FOUND: blank parts drop out of the line, and a blank additional number is null', () => {
     const parts = { ...PARTS, street: null, postCode: '  ', additionalNumber: null }
-    expect(checkView(input({ checked: { code: 'RIMA6904', result: { outcome: 'found', parts } } }))).toEqual({
+    expect(checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts } } }))).toEqual({
       kind: 'found',
       line: '6904 · Al Malqa · Riyadh',
+      ledByNumber: true,
       additionalNumber: null,
       cityWarning: null,
     })
   })
 
+  it('FOUND: the line is led by the building number (a machine value) only when SPL gave one', () => {
+    const parts = { ...PARTS, buildingNumber: null }
+    expect(checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts } } }))).toMatchObject({
+      line: 'Anas Ibn Malik · Al Malqa · Riyadh · 13521',
+      ledByNumber: false,
+    })
+  })
+
   it("compares the city trimmed and case-insensitive, against either of the form city's names", () => {
     const found = (city: string) =>
-      checkView(input({ checked: { code: 'RIMA6904', result: { outcome: 'found', parts: { ...PARTS, city } } } }))
+      checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts: { ...PARTS, city } } } }))
     expect(found('  RIYADH ')).toMatchObject({ cityWarning: null })
     expect(found('الرياض')).toMatchObject({ cityWarning: null })
     expect(found('Jeddah')).toMatchObject({ cityWarning: { spl: 'Jeddah', form: 'Riyadh' } })
@@ -137,30 +187,65 @@ describe('checkView', () => {
   it('no warning while the form has no city yet, or SPL gave none', () => {
     const parts = { ...PARTS, city: 'Jeddah' }
     expect(
-      checkView(input({ formCity: '', formCityNames: [], checked: { code: 'RIMA6904', result: { outcome: 'found', parts } } })),
+      checkView(input({ formCity: '', formCityNames: [], checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts } } })),
     ).toMatchObject({ cityWarning: null })
     expect(
-      checkView(input({ checked: { code: 'RIMA6904', result: { outcome: 'found', parts: { ...PARTS, city: null } } } })),
+      checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome: 'found', parts: { ...PARTS, city: null } } } })),
     ).toMatchObject({ cityWarning: null })
   })
 
   it('UNKNOWN, UNAVAILABLE and the malformed refusal each have their own state', () => {
     const view = (outcome: 'unknown' | 'unavailable' | 'malformed') =>
-      checkView(input({ checked: { code: 'RIMA6904', result: { outcome } } }))
+      checkView(input({ checked: { code: 'RIMA6904', language: 'E', result: { outcome } } }))
     expect(view('unknown')).toEqual({ kind: 'unknown' })
     expect(view('unavailable')).toEqual({ kind: 'unavailable' })
     expect(view('malformed')).toEqual({ kind: 'malformed' })
   })
 
   it('an answer about another code says nothing: editing the box drops it', () => {
-    const checked = { code: 'RIMA6904', result: { outcome: 'unknown' as const } }
+    const checked = { code: 'RIMA6904', language: 'E' as const, result: { outcome: 'unknown' as const } }
     expect(checkView(input({ code: 'RIMA6905', checked }))).toEqual({ kind: 'idle' })
-    expect(checkView(input({ code: 'RIMA6905', pending: 'RIMA6904' }))).toEqual({ kind: 'idle' })
+    expect(checkView(input({ code: 'RIMA6905', pending: { code: 'RIMA6904', language: 'E' } }))).toEqual({ kind: 'idle' })
   })
 
   it('matches the code as the wire carries it: trimmed and upper-case', () => {
-    const checked = { code: 'RIMA6904', result: { outcome: 'unknown' as const } }
+    const checked = { code: 'RIMA6904', language: 'E' as const, result: { outcome: 'unknown' as const } }
     expect(checkView(input({ code: ' rima6904 ', checked }))).toEqual({ kind: 'unknown' })
+  })
+
+  it('an answer asked in the other language says nothing either: it is keyed by code AND language', () => {
+    const checked = { code: 'RIMA6904', language: 'E' as const, result: { outcome: 'unknown' as const } }
+    expect(checkView(input({ language: 'A', checked }))).toEqual({ kind: 'idle' })
+    expect(checkView(input({ language: 'A', pending: { code: 'RIMA6904', language: 'E' } }))).toEqual({ kind: 'idle' })
+  })
+
+  it('a refusal carries the server’s message and code to the form', () => {
+    const result = { outcome: 'refused' as const, message: 'Caller unknown.', code: 'CCL-00005' }
+    expect(checkView(input({ checked: { code: 'RIMA6904', language: 'E', result } }))).toEqual({
+      kind: 'refused',
+      message: 'Caller unknown.',
+      code: 'CCL-00005',
+    })
+  })
+})
+
+describe('checkPressable', () => {
+  it('offers Check for a well-formed box with no call in flight', () => {
+    expect(checkPressable({ code: 'RIMA6904', language: 'E', pending: null })).toBe(true)
+  })
+
+  it('not for a blank or malformed box', () => {
+    expect(checkPressable({ code: '', language: 'E', pending: null })).toBe(false)
+    expect(checkPressable({ code: 'RIMA69', language: 'E', pending: null })).toBe(false)
+  })
+
+  it('not while the call for this very code is in flight', () => {
+    expect(checkPressable({ code: ' rima6904 ', language: 'E', pending: { code: 'RIMA6904', language: 'E' } })).toBe(false)
+  })
+
+  it('again as soon as the box holds another code (or the language moved): the older answer is ignored by its key', () => {
+    expect(checkPressable({ code: 'RIMA6905', language: 'E', pending: { code: 'RIMA6904', language: 'E' } })).toBe(true)
+    expect(checkPressable({ code: 'RIMA6904', language: 'A', pending: { code: 'RIMA6904', language: 'E' } })).toBe(true)
   })
 })
 

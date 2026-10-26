@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { GridApi } from 'ag-grid-community'
 
 import { formatDateTime } from './date-format'
-import { FSI, PDI, formatCount, formatPair, formatRange, fsi, stripIsolates } from './bidi'
+import { FSI, PDI, formatCount, formatPair, formatParts, formatRange, fsi, stripIsolates } from './bidi'
 import { gridSheet } from './grid-xlsx'
 
 const ISOLATES = /[⁦-⁩]/
@@ -39,6 +39,16 @@ describe('formatPair', () => {
     expect(formatPair('', 'Riyadh')).toBe('Riyadh')
     expect(formatPair('1001', null)).toBe('1001')
     expect(formatPair(null, undefined)).toBe('')
+  })
+})
+
+describe('formatParts', () => {
+  it('is the parts in order on one line, joined by the pair’s ` · `, blanks dropped', () => {
+    expect(formatParts(['6904', 'Anas Ibn Malik', 'Al Malqa', 'Riyadh', '13521'])).toBe(
+      '6904 · Anas Ibn Malik · Al Malqa · Riyadh · 13521',
+    )
+    expect(formatParts(['6904', null, ' ', 'الرياض', undefined])).toBe('6904 · الرياض')
+    expect(formatParts([null, ''])).toBe('')
   })
 })
 

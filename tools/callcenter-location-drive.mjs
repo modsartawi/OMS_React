@@ -65,8 +65,10 @@
 // answers `{ outcome, parts }` in the envelope; a malformed code is HTTP 400 `CCL-00014`):
 //   13. Check beside the address form's Short Address, hidden while canCheckShortAddress is false or
 //       absent; FOUND → the parts on one line + the additional number (+ the city warning when SPL's
-//       city is neither of the form city's names); UNKNOWN; UNAVAILABLE / 500 / network → unavailable;
-//       CCL-00014 → the field's error; editing drops the answer; never blocks Save, writes nothing.
+//       city is neither of the form city's names, the line Ltr-isolated); UNKNOWN; UNAVAILABLE / 500 / network
+//       / an all-blank FOUND → unavailable; another business refusal → its own message + code;
+//       CCL-00014 → the field's error; editing drops the answer; a slow call for an older code never
+//       holds Check nor lands on the new code; never blocks Save, writes nothing.
 // Screenshots → tools/.callcenter-location-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -290,7 +292,7 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     discardNext: [],
     book: BOOK.map((row) => ({ ...row })),
     /** Queued NationalAddress answers (579): `{ outcome, parts }`, `['refuse', code, message]`,
-     *  `'500'` or `'network'`. */
+     *  `'500'`, `'network'`, or `{ delayMs, answer }` for one that lands late. */
     checkNext: [],
     state: stateOf(TX1, canSendLocationLink, { address, customer, canCheckShortAddress }),
   }
@@ -370,7 +372,12 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     // 579 — `GET CallCenterWeb/NationalAddress/{code}?language=A|E` (BackOffice 3074, unbuilt):
     // `{ outcome, parts }` in the envelope; a malformed code is the link calls' HTTP 400 CCL-.
     if (/^CallCenterWeb\/NationalAddress\/[^/]+$/.test(p)) {
-      const queued = srv.checkNext.shift() ?? { outcome: 'UNAVAILABLE', parts: null }
+      let queued = srv.checkNext.shift() ?? { outcome: 'UNAVAILABLE', parts: null }
+      // `{ delayMs, answer }`: the answer lands that many REAL ms later (a slow SPL).
+      if (queued && typeof queued === 'object' && 'delayMs' in queued) {
+        await new Promise((resolve) => setTimeout(resolve, queued.delayMs))
+        queued = queued.answer
+      }
       if (queued === 'network') return route.abort('failed')
       if (queued === '500')
         return route.fulfill({
@@ -1507,8 +1514,9 @@ for (const mode of MODES) {
     )
     ok(
       (await page.locator('[data-cc-address-check-additional] bdi[dir="ltr"]').innerText()) === '2834' &&
-        (await page.locator('[data-cc-address-check-line] bdi').count()) === 1,
-      `${at}: the line isolated whole once, the additional number as a machine value`,
+        (await page.locator('[data-cc-address-check-line] bdi').count()) === 1 &&
+        (await page.locator('[data-cc-address-check-line] bdi[dir="ltr"]').count()) === 1,
+      `${at}: the line, led by the building number, isolated whole once as a machine value (Ltr); the additional number too`,
     )
     ok(
       (await page.locator('[data-cc-address-check-city-warning]').count()) === 0,
@@ -1547,7 +1555,27 @@ for (const mode of MODES) {
         `${at}: ${name} → "${words.unavailable}"`,
       )
     }
+    // a FOUND whose parts are all blank is no answer either
+    await press(page, srv, {
+      outcome: 'FOUND',
+      parts: { buildingNumber: null, street: ' ', district: '', city: null, postCode: null, additionalNumber: null },
+    })
+    ok((await checkState(page)) === 'unavailable', `${at}: FOUND with every part blank → "${words.unavailable}"`)
     await page.screenshot({ path: `${SHOTS}/check-unavailable-${at}.png` })
+
+    // a business refusal other than CCL-00014 is not an outage: the server's words and code
+    await press(page, srv, ['refuse', 'CCL-00005', 'Caller unknown.'])
+    const refusedLine = page.locator('[data-cc-address-check-state="refused"]')
+    ok(
+      (await checkState(page)) === 'refused' &&
+        (await refusedLine.locator('[data-cc-address-check-refusal]').innerText()).trim() === 'Caller unknown.' &&
+        (await refusedLine.locator('[data-cc-address-check-refusal-code] bdi[dir="ltr"]').innerText()).trim() ===
+          'CCL-00005' &&
+        !(await refusedLine.innerText()).includes(words.unavailable),
+      `${at}: a CCL-00005 refusal → the server's own message + its code, never "unavailable"`,
+      await refusedLine.innerText().catch(() => ''),
+    )
+    await page.screenshot({ path: `${SHOTS}/check-refused-${at}.png` })
 
     // CCL-00014 → the field's own error
     await press(page, srv, ['refuse', 'CCL-00014', 'The Short Address is malformed.'])
@@ -1570,6 +1598,39 @@ for (const mode of MODES) {
     ok(!(await page.locator('[data-cc-address-check]').isEnabled()), `${at}: a malformed box disables Check (no call)`)
     await page.locator('[data-cc-address-field="shortAddress"]').fill('')
     ok(!(await page.locator('[data-cc-address-check]').isEnabled()), `${at}: …and so does a blank one`)
+
+    // a slow call for an older code never holds Check, and its late answer never lands on the new code
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6904')
+    srv.checkNext.push({ delayMs: 2_500, answer: { outcome: 'FOUND', parts: PARTS } })
+    {
+      const before = calls(srv, /NationalAddress/).length
+      await page.locator('[data-cc-address-check]').click()
+      while (calls(srv, /NationalAddress/).length === before) await page.waitForTimeout(25)
+      await run(page, 200)
+    }
+    ok(
+      (await checkState(page)) === 'checking' && !(await page.locator('[data-cc-address-check]').isEnabled()),
+      `${at}: while RIMA6904's call is in flight, it reads "checking" and Check is held for that code`,
+    )
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6905')
+    ok(
+      await page.locator('[data-cc-address-check]').isEnabled(),
+      `${at}: …editing to RIMA6905 frees Check at once, though the older call has not landed`,
+    )
+    await press(page, srv, { outcome: 'UNKNOWN', parts: null })
+    ok(
+      (await checkState(page)) === 'unknown' && calls(srv, /NationalAddress/).at(-1)?.path.endsWith('/RIMA6905'),
+      `${at}: …RIMA6905 is checked and answered`,
+    )
+    // let the slow RIMA6904 answer land
+    await page.waitForTimeout(2_800)
+    await run(page, 1_000)
+    ok((await checkState(page)) === 'unknown', `${at}: …the older RIMA6904 answer lands late and changes nothing`)
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6904')
+    ok(
+      (await page.locator('[data-cc-address-check-state]').count()) === 0,
+      `${at}: …and is not held for RIMA6904 either (dropped, not stored)`,
+    )
 
     // never blocks saving: UNKNOWN, then Save goes through
     await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6904')

@@ -157,6 +157,10 @@ export default function AddressPicker({
 
   const [view, setView] = useState<View>({ kind: 'list' })
   const [form, setForm] = useState<AddressFormValues>(emptyAddressForm)
+  /** Bumped each time the form is LOADED with an address (create, edit, prefill), not as the
+   *  agent types. It keys `AddressForm`, so what the form holds about the last address (579's
+   *  Check answer) never carries over to the next one. */
+  const [formLoad, setFormLoad] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
   /**
@@ -205,6 +209,7 @@ export default function AddressPicker({
   useEffect(() => {
     if (!open || !prefill) return
     setForm(prefill)
+    setFormLoad((n) => n + 1)
     setSaveError(null)
     setSavedNotMoved(null)
     setView({ kind: 'create' })
@@ -225,6 +230,7 @@ export default function AddressPicker({
 
   const startCreate = () => {
     setForm(emptyAddressForm())
+    setFormLoad((n) => n + 1)
     setSaveError(null)
     setSavedNotMoved(null)
     setView({ kind: 'create' })
@@ -232,6 +238,7 @@ export default function AddressPicker({
 
   const startEdit = (entry: CustomerAddressBookEntry) => {
     setForm(addressFormOf(entry))
+    setFormLoad((n) => n + 1)
     setSaveError(null)
     setSavedNotMoved(null)
     setView({ kind: 'edit', addressNumber: entry.addressNumber })
@@ -336,6 +343,7 @@ export default function AddressPicker({
     >
       {!listing ? (
         <AddressForm
+          key={formLoad}
           values={form}
           onChange={setForm}
           busy={saving}

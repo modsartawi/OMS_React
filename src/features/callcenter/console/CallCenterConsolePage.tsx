@@ -120,6 +120,7 @@ import AbandonConfirm from './AbandonConfirm'
 import { rePinAfterEdit } from './address-book'
 import type { AddressFormValues } from './address-capture'
 import AddressPicker from './AddressPicker'
+import { showsCheck } from './short-address-check'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
@@ -2674,6 +2675,7 @@ function ConsoleSession() {
           }}
           onClose={closeAddressBook}
           prefill={addressPrefill}
+          canCheckShortAddress={showsCheck(session.data.capabilities)}
         />
       )}
       {/* The caller's open request, and what linking it will copy (194). 🚩 It is

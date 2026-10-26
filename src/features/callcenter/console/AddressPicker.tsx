@@ -120,6 +120,7 @@ export default function AddressPicker({
   write,
   onClose,
   prefill = null,
+  canCheckShortAddress = false,
 }: {
   open: boolean
   /** Whose book this is. The read itself is session-scoped server-side; this is
@@ -136,6 +137,8 @@ export default function AddressPicker({
    * create, so it auto-applies like any other.
    */
   prefill?: AddressFormValues | null
+  /** 579 — the session's `canCheckShortAddress`, handed to the form's **Check**. */
+  canCheckShortAddress?: boolean
 }) {
   const { t } = useTranslation('callcenter')
   const { pending, error: applyError, onPick } = apply
@@ -336,6 +339,7 @@ export default function AddressPicker({
           values={form}
           onChange={setForm}
           busy={saving}
+          canCheckShortAddress={canCheckShortAddress}
           error={
             saveError !== null && saveError !== undefined ? (
               <Refusal

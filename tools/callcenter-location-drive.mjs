@@ -61,6 +61,12 @@
 //   R5. CCL-00005 reads the generic line, not the server's sentence;
 //   R6. a Send that fails on the network may have sent: "wait, then send again", and the
 //       dialog's Send counts down 30 s.
+// …and ticket 579's (BackOffice 3074, UNBUILT — `GET CallCenterWeb/NationalAddress/{code}?language=A|E`
+// answers `{ outcome, parts }` in the envelope; a malformed code is HTTP 400 `CCL-00014`):
+//   13. Check beside the address form's Short Address, hidden while canCheckShortAddress is false or
+//       absent; FOUND → the parts on one line + the additional number (+ the city warning when SPL's
+//       city is neither of the form city's names); UNKNOWN; UNAVAILABLE / 500 / network → unavailable;
+//       CCL-00014 → the field's error; editing drops the answer; never blocks Save, writes nothing.
 // Screenshots → tools/.callcenter-location-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -102,7 +108,7 @@ const ok = (c, m, detail = '') =>
 const PRICED = fixture('02-two-lines-priced')
 const MOBILE = '0551234567'
 const MASKED = '055•••4567'
-const stateOf = (transactionId, canSendLocationLink, { address = {}, customer = 'attached' } = {}) => ({
+const stateOf = (transactionId, canSendLocationLink, { address = {}, customer = 'attached', canCheckShortAddress } = {}) => ({
   ...PRICED,
   contractVersion: '1.12',
   transactionId,
@@ -130,6 +136,7 @@ const stateOf = (transactionId, canSendLocationLink, { address = {}, customer = 
   capabilities: (() => {
     const caps = { ...PRICED.capabilities, canSubmit: true, submitBlockers: [] }
     if (canSendLocationLink !== undefined) caps.canSendLocationLink = canSendLocationLink
+    if (canCheckShortAddress !== undefined) caps.canCheckShortAddress = canCheckShortAddress
     return caps
   })(),
 })
@@ -218,10 +225,10 @@ const onOrder = (row) => ({
   gpsLat: row.address.gpsLat || null,
   gpsLon: row.address.gpsLon || null,
 })
-const district = (districtCode, districtNameEn, cityCode, cityNameEn, storeCode) => ({
+const district = (districtCode, districtNameEn, cityCode, cityNameEn, storeCode, cityNameAr = cityNameEn) => ({
   districtCode,
   cityCode,
-  cityNameAr: cityNameEn,
+  cityNameAr,
   cityNameEn,
   magentoCityEn: '',
   magentoCityAr: '',
@@ -237,7 +244,8 @@ const district = (districtCode, districtNameEn, cityCode, cityNameEn, storeCode)
   latitude: 0,
   longitude: 0,
 })
-const DISTRICTS = [district('R-114', 'Al Malqa', '0021', 'Riyadh', '1101')]
+// The Arabic city name is real so 579's city comparison meets an Arabic SPL answer.
+const DISTRICTS = [district('R-114', 'Al Malqa', '0021', 'Riyadh', '1101', 'الرياض')]
 const LABELS = [{ labelCode: 'HOME', labelNameAr: 'المنزل', labelNameEn: 'Home' }]
 
 const MODES = [{ dir: 'ltr' }, { dir: 'rtl' }]
@@ -248,7 +256,7 @@ const allErrors = []
  * One console, with its own stub server. `wire` is every call the page made; `link` is the
  * server's view of each token, and `next` queues the answer the next Send gets.
  */
-async function open({ dir }, { canSendLocationLink = true, address, customer, capture = CAPTURE } = {}) {
+async function open({ dir }, { canSendLocationLink = true, address, customer, capture = CAPTURE, canCheckShortAddress } = {}) {
   if (canSendLocationLink === 'absent') canSendLocationLink = undefined
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
@@ -281,13 +289,16 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     /** Queued Discarded answers: a refusal `[code, message]`, else success (576). */
     discardNext: [],
     book: BOOK.map((row) => ({ ...row })),
-    state: stateOf(TX1, canSendLocationLink, { address, customer }),
+    /** Queued NationalAddress answers (579): `{ outcome, parts }`, `['refuse', code, message]`,
+     *  `'500'` or `'network'`. */
+    checkNext: [],
+    state: stateOf(TX1, canSendLocationLink, { address, customer, canCheckShortAddress }),
   }
   await page.route('**/api/**', async (route) => {
     const req = route.request()
     const p = req.url().split('/api/')[1].split('?')[0]
     const body = req.postData() ? JSON.parse(req.postData()) : null
-    srv.wire.push({ path: p, body, method: req.method() })
+    srv.wire.push({ path: p, body, method: req.method(), query: new URL(req.url()).searchParams })
     if (p === 'Auth/Me')
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
@@ -295,7 +306,7 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
     if (p === 'CallCenterWeb/Open') {
       srv.opens++
-      if (srv.opens > 1) srv.state = stateOf(TX2, canSendLocationLink, { address, customer })
+      if (srv.opens > 1) srv.state = stateOf(TX2, canSendLocationLink, { address, customer, canCheckShortAddress })
       return route.fulfill(envelope({ outcome: 'opened', state: srv.state, existing: null }))
     }
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(srv.state))
@@ -355,6 +366,20 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
       const row = srv.book.find((r) => r.addressNumber === body.addressNumber)
       srv.state = { ...srv.state, version: srv.state.version + 1, header: { ...srv.state.header, address: onOrder(row) } }
       return route.fulfill(envelope(srv.state))
+    }
+    // 579 — `GET CallCenterWeb/NationalAddress/{code}?language=A|E` (BackOffice 3074, unbuilt):
+    // `{ outcome, parts }` in the envelope; a malformed code is the link calls' HTTP 400 CCL-.
+    if (/^CallCenterWeb\/NationalAddress\/[^/]+$/.test(p)) {
+      const queued = srv.checkNext.shift() ?? { outcome: 'UNAVAILABLE', parts: null }
+      if (queued === 'network') return route.abort('failed')
+      if (queued === '500')
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ statusCode: 500, success: false, message: 'Unexpected error.', errors: [], data: null }),
+        })
+      if (Array.isArray(queued)) return route.fulfill(refusal(queued[1], queued[2]))
+      return route.fulfill(envelope(queued))
     }
     if (p === 'SdDocument/Districts') return route.fulfill(envelope(DISTRICTS))
     if (p === 'SdDocument/AddressLabels') return route.fulfill(envelope(LABELS))
@@ -1384,6 +1409,182 @@ for (const mode of MODES) {
       (await page.locator('[data-cc-location-again]').count()) === 0 &&
         (await page.locator('[data-cc-location-resend]').count()) === 0,
       `${at}: …and the discarded strip has no Send again`,
+    )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- 13. 579: an agent checks a Short Address they typed (BackOffice 3074, stubbed) ----
+  const AR = JSON.parse(readFileSync(new URL('../src/locales/ar/callcenter.json', import.meta.url), 'utf8'))
+  const EN = JSON.parse(readFileSync(new URL('../src/locales/en/callcenter.json', import.meta.url), 'utf8'))
+  // The app's language stays `en` under RTL (core/i18n.ts, this drive's header), so the console
+  // asks in English (`language=E`) and words in English both ways; the `ar` bundle ships beside
+  // them and is checked for parity. RTL answers in Arabic script to exercise the isolation and
+  // the city comparison against the district list's Arabic name.
+  const words = EN.location.shortAddressCheck
+  ok(
+    Object.keys(AR.location.shortAddressCheck).join() === Object.keys(words).join(),
+    `${at}: the Check's words ship in Arabic too, key for key`,
+  )
+  const unisolate = (text) => text.replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim()
+  const PARTS_E = {
+    buildingNumber: '6904',
+    street: 'Anas Ibn Malik',
+    district: 'Al Malqa',
+    city: 'Riyadh',
+    postCode: '13521',
+    additionalNumber: '2834',
+  }
+  const PARTS_A = { ...PARTS_E, street: 'أنس بن مالك', district: 'الملقا', city: 'الرياض' }
+  const PARTS = at === 'rtl' ? PARTS_A : PARTS_E
+  const toForm = async (page) => {
+    await page.locator('[data-cc-chip-open="address"]').click()
+    await page.locator('[data-cc-address-edit="77120"]').click()
+    await page.locator('[data-cc-address-form]').waitFor({ timeout: 5_000 })
+  }
+  const checkState = (page) =>
+    page
+      .locator('[data-cc-address-check-state]')
+      .getAttribute('data-cc-address-check-state', { timeout: 3_000 })
+      .catch(() => null)
+  const press = async (page, srv, answer) => {
+    srv.checkNext.push(answer)
+    const before = calls(srv, /NationalAddress/).length
+    await page.locator('[data-cc-address-check]').click()
+    // The old answer is still on screen until this call lands, so wait for the call first.
+    while (calls(srv, /NationalAddress/).length === before) await page.waitForTimeout(25)
+    // The page's timers are Playwright's fake clock, and react-query schedules its renders on
+    // them: advance it (in real time too) so the answer lands and is drawn.
+    await run(page, 1_000)
+  }
+
+  // 13a. hidden while SPL is not configured — absent or false, never a dead control
+  for (const canCheckShortAddress of ['absent', false]) {
+    const { context, page, errors, srv } = await open(mode, {
+      canCheckShortAddress: canCheckShortAddress === 'absent' ? undefined : canCheckShortAddress,
+    })
+    await toForm(page)
+    ok(
+      (await page.locator('[data-cc-address-check]').count()) === 0 && calls(srv, /NationalAddress/).length === 0,
+      `${at}: canCheckShortAddress ${canCheckShortAddress} → no Check beside the Short Address`,
+    )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // 13b–f. each outcome, inline, in the console's language
+  {
+    const { context, page, errors, srv } = await open(mode, { canCheckShortAddress: true })
+    await toForm(page)
+    ok(await page.locator('[data-cc-address-check]').isVisible(), `${at}: canCheckShortAddress true → Check is offered`)
+    ok(
+      (await page.locator('[data-cc-address-field="shortAddress"]').inputValue()) === 'RIMA6904',
+      `${at}: the form holds the typed code`,
+    )
+
+    // FOUND, the city agreeing (by name, in the answer's own language)
+    await press(page, srv, { outcome: 'FOUND', parts: PARTS })
+    const asked = calls(srv, /NationalAddress/).at(-1)
+    const language = 'E'
+    ok(
+      asked?.path === 'CallCenterWeb/NationalAddress/RIMA6904' &&
+        asked.method === 'GET' &&
+        asked.query.get('language') === language,
+      `${at}: GET CallCenterWeb/NationalAddress/RIMA6904?language=${language}`,
+      `${asked?.path}?${asked?.query}`,
+    )
+    const line = unisolate(await page.locator('[data-cc-address-check-line]').innerText())
+    const expectLine = [PARTS.buildingNumber, PARTS.street, PARTS.district, PARTS.city, PARTS.postCode].join(' · ')
+    ok((await checkState(page)) === 'found' && line === expectLine, `${at}: FOUND → the parts on one line`, line)
+    const additional = unisolate(await page.locator('[data-cc-address-check-additional]').innerText())
+    ok(
+      (await page.locator('[data-cc-address-check-state="found"]').innerText()).includes(words.confirmed) &&
+        additional === `${words.additionalNumber} 2834`,
+      `${at}: …plus the additional number`,
+      additional,
+    )
+    ok(
+      (await page.locator('[data-cc-address-check-additional] bdi[dir="ltr"]').innerText()) === '2834' &&
+        (await page.locator('[data-cc-address-check-line] bdi').count()) === 1,
+      `${at}: the line isolated whole once, the additional number as a machine value`,
+    )
+    ok(
+      (await page.locator('[data-cc-address-check-city-warning]').count()) === 0,
+      `${at}: SPL's city is the form's city → no warning`,
+    )
+    await page.screenshot({ path: `${SHOTS}/check-found-${at}.png` })
+
+    // FOUND, another city → the warning
+    const otherCity = at === 'rtl' ? 'جدة' : 'Jeddah'
+    await press(page, srv, { outcome: 'FOUND', parts: { ...PARTS, city: otherCity } })
+    const warning = unisolate(await page.locator('[data-cc-address-check-city-warning]').innerText())
+    const expectWarning = words.cityWarning.replace('{{spl}}', otherCity).replace('{{form}}', 'Riyadh')
+    ok(warning === expectWarning, `${at}: SPL's city is not the form's → "${expectWarning}"`, warning)
+    ok(await page.locator('[data-cc-address-save]').isEnabled(), `${at}: …and Save stays open`)
+    await page.screenshot({ path: `${SHOTS}/check-city-warning-${at}.png` })
+
+    // UNKNOWN
+    await press(page, srv, { outcome: 'UNKNOWN', parts: null })
+    ok(
+      (await checkState(page)) === 'unknown' &&
+        (await page.locator('[data-cc-address-check-state]').innerText()).trim() === words.unknown,
+      `${at}: UNKNOWN → "${words.unknown}"`,
+    )
+    await page.screenshot({ path: `${SHOTS}/check-unknown-${at}.png` })
+
+    // UNAVAILABLE, a 500 and a network fault all read the same — never "unknown"
+    for (const [answer, name] of [
+      [{ outcome: 'UNAVAILABLE', parts: null }, 'UNAVAILABLE'],
+      ['500', 'an HTTP 500'],
+      ['network', 'a network fault'],
+    ]) {
+      await press(page, srv, answer)
+      ok(
+        (await checkState(page)) === 'unavailable' &&
+          (await page.locator('[data-cc-address-check-state]').innerText()).trim() === words.unavailable,
+        `${at}: ${name} → "${words.unavailable}"`,
+      )
+    }
+    await page.screenshot({ path: `${SHOTS}/check-unavailable-${at}.png` })
+
+    // CCL-00014 → the field's own error
+    await press(page, srv, ['refuse', 'CCL-00014', 'The Short Address is malformed.'])
+    const fieldError = page.locator('[data-cc-address-field-error="shortAddress"]')
+    ok(
+      (await fieldError.getAttribute('data-cc-address-check-state')) === 'malformed' &&
+        (await fieldError.innerText()).trim() === words.malformed,
+      `${at}: CCL-00014 → the field's own error, in the console's words`,
+    )
+    await page.screenshot({ path: `${SHOTS}/check-malformed-${at}.png` })
+
+    // editing the box drops the answer; a blank or malformed box has nothing to check
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6905')
+    ok(
+      (await page.locator('[data-cc-address-check-state]').count()) === 0 &&
+        (await page.locator('[data-cc-address-check]').isEnabled()),
+      `${at}: editing the code drops the previous answer`,
+    )
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA69')
+    ok(!(await page.locator('[data-cc-address-check]').isEnabled()), `${at}: a malformed box disables Check (no call)`)
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('')
+    ok(!(await page.locator('[data-cc-address-check]').isEnabled()), `${at}: …and so does a blank one`)
+
+    // never blocks saving: UNKNOWN, then Save goes through
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('RIMA6904')
+    await press(page, srv, { outcome: 'UNKNOWN', parts: null })
+    const puts = () => srv.wire.filter((w) => w.path === 'CallCenterWeb/CustomerAddresses' && w.method === 'PUT')
+    const putsBefore = puts().length
+    await page.locator('[data-cc-address-save]').click()
+    await page.waitForTimeout(600)
+    const put = puts()
+    ok(
+      put.length === putsBefore + 1 &&
+        put.at(-1).body.address.shortAddress === 'RIMA6904' &&
+        !JSON.stringify(put.at(-1).body).includes('Anas'),
+      `${at}: an UNKNOWN never blocks Save, and nothing from SPL is written`,
+      JSON.stringify(put.at(-1)?.body ?? null),
     )
     ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
     allErrors.push(...errors)

@@ -664,6 +664,13 @@ export interface SessionCapabilities {
    */
   canSendLocationLink?: boolean
   /**
+   * 579 (BackOffice 3074, spec 3072) — SPL is configured on this SIS.Api, so the address
+   * form offers **Check** beside the Short Address. 🚩 **Name and casing PROPOSED here**:
+   * 3074 says the capabilities carry it but has not named it (BO ask in ticket 579). Read
+   * strictly: absent ⇒ hidden, never a dead control. Dormant without SPL's key.
+   */
+  canCheckShortAddress?: boolean
+  /**
    * 🚩 **PROPOSED, ticket 176 — not on the frozen contract.** Why a `can*` above
    * is false, keyed by its own name (`canChangeFulfilment`), valued as a typed
    * code the client words. [153](.issues/153-console-keyboard-grammar.md) named
@@ -1280,6 +1287,8 @@ export const CCL = {
   nothingCaptured: 'CCL-00030',
   /** Already applied or discarded — refresh the session. */
   alreadyStamped: 'CCL-00031',
+  /** 579 — a malformed Short Address on `NationalAddress/{code}`: the field's own error. */
+  shortAddressMalformed: 'CCL-00014',
 } as const
 
 export type CclCode = (typeof CCL)[keyof typeof CCL]
@@ -1287,4 +1296,29 @@ export type CclCode = (typeof CCL)[keyof typeof CCL]
 /** `LOCATION_LINK_REFUSED`'s `detail` (§3): the link's own `CCL-` code. */
 export interface LocationLinkRefusalDetail {
   code: CclCode | (string & {})
+}
+
+/**
+ * 579 (BackOffice 3074, spec 3072 "Check a typed Short Address") — the parts SPL resolved a
+ * Short Address into. 🚩 camelCase and nullable as PROPOSED by ticket 579 (spec 3072 names
+ * them PascalCase off SPL's own body: `BuildingNumber`, `Street`, `District`, `City`,
+ * `PostCode`, `AdditionalNumber`); confirmed in the contract asset is a BO ask.
+ */
+export interface ShortAddressParts {
+  buildingNumber: string | null
+  street: string | null
+  district: string | null
+  city: string | null
+  postCode: string | null
+  additionalNumber: string | null
+}
+
+/** The three outcomes SPL resolution has, and never more (spec 3072). */
+export type ShortAddressOutcome = 'FOUND' | 'UNKNOWN' | 'UNAVAILABLE'
+
+/** `GET CallCenterWeb/NationalAddress/{code}?language=A|E` → `{ outcome, parts }`. `parts`
+ *  only on `FOUND`. No coordinates. */
+export interface ShortAddressCheck {
+  outcome: ShortAddressOutcome | (string & {})
+  parts: ShortAddressParts | null
 }

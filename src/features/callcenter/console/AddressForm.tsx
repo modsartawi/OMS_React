@@ -24,11 +24,12 @@
  *    `NO_DELIVERY_STORE_FOR_DISTRICT` on `setAddress` stays the authority. The
  *    greying steers the caller before the order refuses; it does not replace the
  *    refusal.
- * 3. 🚩 **The national address is format-checked and never verified.** CC2's
- *    live SPL integration is unwired ("a separate integration that needs an API
- *    contract / credentials") and the web inherits its absence knowingly — so
- *    there is **no tick, no *verified* affordance and no green state** here. The
- *    field reads as a code the agent typed.
+ * 3. 🚩 **The national address is format-checked, and checked with SPL only on
+ *    request.** 579 (BackOffice 3074) adds **Check** beside the box while the
+ *    session's `canCheckShortAddress` says SPL is configured — read only, answered
+ *    inline (`short-address-check.ts`), and **never a gate on Save**. Without the
+ *    capability the field is what it always was: a code the agent typed, with no
+ *    tick and no *verified* state.
  *
  * The current pick is **pinned above the results** rather than force-kept inside
  * the filtered array — the web has no WPF `SelectedItem`/`ItemsSource` coupling
@@ -36,12 +37,25 @@
  * the current pick must not clear it*.
  */
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2, Search } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, Search } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
+import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
+import { callCenterApi } from './api'
+import {
+  checkCode,
+  checkLanguage,
+  checkResult,
+  checkView,
+  cityNamesOf,
+  isCheckable,
+  type CheckResult,
+  type CheckView,
+} from './short-address-check'
 import { addressFormErrors, type AddressFormValues } from './address-capture'
 import { cityChoices, districtChoices, type CityChoice, type DistrictChoice } from './district-choice'
 import { NOTE } from './console-notes'
@@ -63,10 +77,14 @@ export default function AddressForm({
   onChange,
   busy,
   error,
+  canCheckShortAddress = false,
 }: {
   values: AddressFormValues
   onChange: (values: AddressFormValues) => void
   busy: boolean
+  /** 579 — the session's `canCheckShortAddress` (`showsCheck`): SPL is configured, so
+   *  **Check** is offered. False hides it — never a dead control. */
+  canCheckShortAddress?: boolean
   /** The write's refusal, raw — worded by the picker, which explains the two
    *  codes the address door has of its own. */
   error: React.ReactNode
@@ -94,6 +112,30 @@ export default function AddressForm({
    * this form's layout, not the picker's business.
    */
   const street1Box = useRef<HTMLInputElement | null>(null)
+
+  /**
+   * 579 — Check. A mutation, not a cached query: each press is the agent asking now. The
+   * answer is kept with the code it was asked for, so editing the box drops it
+   * (`checkView`), and nothing here reaches `addressFormIsSendable`.
+   */
+  const { i18n } = useTranslation()
+  const districtList = useQuery(lookupQueries.districts())
+  const [checked, setChecked] = useState<{ code: string; result: CheckResult } | null>(null)
+  const checkCall = useMutation({
+    mutationFn: (code: string) => callCenterApi.checkShortAddress(code, checkLanguage(i18n.language)),
+    onSuccess: (answer, code) => setChecked({ code, result: checkResult(answer, null) }),
+    onError: (err, code) => setChecked({ code, result: checkResult(null, err) }),
+  })
+  const checking = checkCall.isPending
+  const check: CheckView = canCheckShortAddress
+    ? checkView({
+        code: values.shortAddress,
+        checked,
+        pending: checking ? (checkCall.variables ?? null) : null,
+        formCity: values.cityName,
+        formCityNames: cityNamesOf(districtList.data, values.cityCode, values.cityName),
+      })
+    : { kind: 'idle' }
 
   return (
     <div className="space-y-3 text-sm" data-cc-address-form>
@@ -183,30 +225,109 @@ export default function AddressForm({
         <label className={LABEL} htmlFor="cc-address-shortAddress">
           {t('address.form.shortAddress')}
         </label>
-        <input
-          id="cc-address-shortAddress"
-          value={values.shortAddress}
-          // Upper-cased **on set**, CC2's own normalisation — so the box shows
-          // the agent the same code the wire will carry.
-          onChange={(e) => set({ shortAddress: e.target.value.toUpperCase() })}
-          disabled={busy}
-          autoComplete="off"
-          placeholder={t('address.form.shortAddressPlaceholder')}
-          data-cc-address-field="shortAddress"
-          className={FIELD}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            id="cc-address-shortAddress"
+            value={values.shortAddress}
+            // Upper-cased **on set**, CC2's own normalisation — so the box shows
+            // the agent the same code the wire will carry.
+            onChange={(e) => set({ shortAddress: e.target.value.toUpperCase() })}
+            disabled={busy}
+            autoComplete="off"
+            placeholder={t('address.form.shortAddressPlaceholder')}
+            data-cc-address-field="shortAddress"
+            className={FIELD}
+          />
+          {canCheckShortAddress && (
+            <Button
+              variant="outlined"
+              onClick={() => checkCall.mutate(checkCode(values.shortAddress))}
+              // Never gated by the save: checking reads, and a blank or
+              // already-malformed box has nothing to ask SPL about.
+              disabled={busy || checking || !isCheckable(values.shortAddress)}
+              data-cc-address-check
+              className="shrink-0"
+            >
+              {t('location.shortAddressCheck.action')}
+            </Button>
+          )}
+        </div>
         {errors.shortAddress ? (
           <p className={NOTE.danger} data-cc-address-field-error="shortAddress">
             {t('address.form.errors.shortAddress')}
           </p>
+        ) : check.kind === 'malformed' ? (
+          // 🚩 CCL-00014 is the FIELD's own error, drawn where the offline one is.
+          <p className={NOTE.danger} data-cc-address-field-error="shortAddress" data-cc-address-check-state="malformed">
+            {t('location.shortAddressCheck.malformed')}
+          </p>
+        ) : check.kind === 'idle' ? (
+          // Says what the format is. Without Check there is no confirmed state to draw.
+          <p className="text-[11px] text-muted-foreground">
+            {canCheckShortAddress ? t('location.shortAddressCheck.hint') : t('address.form.shortAddressHint')}
+          </p>
         ) : (
-          // Says what the format is and nothing about whether it is real. There
-          // is deliberately no confirmed/verified state to draw.
-          <p className="text-[11px] text-muted-foreground">{t('address.form.shortAddressHint')}</p>
+          <CheckLine view={check} />
         )}
       </div>
 
       {error}
+    </div>
+  )
+}
+
+/**
+ * The inline answer under the box (579). SPL's free text (street, district, city) is
+ * isolated whole as one `<bdi>`, so the line reads in its own script's direction; the
+ * additional number is a machine value (`Ltr`). Every answer is drawn quiet — a check is
+ * information, not a verdict — and only the city warning takes attention.
+ */
+function CheckLine({ view }: { view: Exclude<CheckView, { kind: 'idle' } | { kind: 'malformed' }> }) {
+  const { t } = useTranslation('callcenter')
+  if (view.kind === 'checking')
+    return (
+      <p className="flex items-center gap-2 text-[11px] text-muted-foreground" data-cc-address-check-state="checking">
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+        {t('location.shortAddressCheck.checking')}
+      </p>
+    )
+  if (view.kind === 'unknown')
+    return (
+      <p className={NOTE.quiet} data-cc-address-check-state="unknown">
+        {t('location.shortAddressCheck.unknown')}
+      </p>
+    )
+  if (view.kind === 'unavailable')
+    return (
+      <p className={NOTE.quiet} data-cc-address-check-state="unavailable">
+        {t('location.shortAddressCheck.unavailable')}
+      </p>
+    )
+  return (
+    <div className={`${NOTE.quiet} space-y-1`} data-cc-address-check-state="found">
+      <p className="flex items-center gap-1.5">
+        <Check className="h-3 w-3 shrink-0 text-success-800" aria-hidden />
+        <span className="font-semibold">{t('location.shortAddressCheck.confirmed')}</span>
+      </p>
+      <p className="text-foreground" data-cc-address-check-line>
+        <bdi>{view.line}</bdi>
+      </p>
+      {view.additionalNumber && (
+        <p data-cc-address-check-additional>
+          {t('location.shortAddressCheck.additionalNumber')} <Ltr>{view.additionalNumber}</Ltr>
+        </p>
+      )}
+      {view.cityWarning && (
+        <p className={`${NOTE.attention} flex items-start gap-1.5`} data-cc-address-check-city-warning>
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+          <span>
+            {t('location.shortAddressCheck.cityWarning', {
+              spl: fsi(view.cityWarning.spl),
+              form: fsi(view.cityWarning.form),
+            })}
+          </span>
+        </p>
+      )}
     </div>
   )
 }

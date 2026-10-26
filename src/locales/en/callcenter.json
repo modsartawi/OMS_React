@@ -802,6 +802,17 @@
       "body": "Discard the received location and send a new link?",
       "keep": "Keep it",
       "yes": "Discard and send"
+    },
+    "shortAddressCheck": {
+      "action": "Check",
+      "checking": "Checking with SPL…",
+      "hint": "Optional. Four letters then four digits. Check asks SPL whether it exists — it never stops a save.",
+      "confirmed": "Confirmed by SPL",
+      "additionalNumber": "Additional number",
+      "cityWarning": "SPL says {{spl}}, the form's city is {{form}}",
+      "unknown": "Not known to SPL",
+      "unavailable": "SPL is unavailable, not checked",
+      "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
     }
   }
 }

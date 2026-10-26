@@ -38,18 +38,28 @@ import { bootDirection } from './direction'
  * evidence for why `::before` and not `::after`, and why it stacks at 3.
  */
 /** Compact row height (px) for every grid (spec 380 F8). */
-export const OMS_GRID_ROW_HEIGHT = 26
+// PROTOTYPE (map 580 / 584): the design-scale skin sizes the grid like the
+// Figma (15px text, ~40px rows), read once at load — reload after switching.
+const PROTO_SCALE = (() => {
+  try {
+    return localStorage.getItem('proto.skin') === 'dmsco-scale'
+  } catch {
+    return false
+  }
+})()
+
+export const OMS_GRID_ROW_HEIGHT = PROTO_SCALE ? 40 : 26
 
 export const omsGridTheme = themeQuartz
   .withParams({
     // Density (spec 380 F8). Spacing is unchanged since 403; Plex at 12px in a
     // 26px row is the legibility check 362 §6 passed in both modes.
-    spacing: 4,
-    fontSize: 12,
+    spacing: PROTO_SCALE ? 7 : 4,
+    fontSize: PROTO_SCALE ? 15 : 12,
     // The app's own face stack (Plex Sans + Plex Sans Arabic, spec 380 F1), so
     // the grid can never name a font the stylesheet no longer ships.
     fontFamily: 'var(--font-sans)',
-    headerFontSize: 11.5,
+    headerFontSize: PROTO_SCALE ? 14 : 11.5,
     headerFontWeight: 600,
     // `--radius-lg`: cards, menus and the grid wrapper are 8px (F7).
     wrapperBorderRadius: 8,
@@ -101,7 +111,7 @@ export const omsGridTheme = themeQuartz
   .withParams({ browserColorScheme: 'dark' }, 'dark')
 
 /** Compact header height (px) for every grid (spec 380 F8). */
-export const OMS_GRID_HEADER_HEIGHT = 28
+export const OMS_GRID_HEADER_HEIGHT = PROTO_SCALE ? 44 : 28
 
 /**
  * The app's grid-wide options, given to every grid through AG Grid's global hook so no grid

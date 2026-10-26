@@ -3,6 +3,7 @@ import Rail from './Rail'
 import TopBar from './TopBar'
 import { useRailMode } from './rail-mode'
 import { fillsContent } from './shell-route'
+import SkinSwitcherPrototype from './__prototype__/SkinSwitcherPrototype'
 
 // The Ops Console shell (spec 380 F10–F13): the navy rail on the inline-start side
 // (ticket 385), and beside it the 44px top bar over the screen (ticket 386). The account
@@ -18,6 +19,7 @@ export default function AppShell() {
   const fill = fillsContent(useMatches().map((m) => m.handle))
   return (
     <div className={'flex ' + (fill ? 'h-screen' : 'min-h-screen')}>
+      <SkinSwitcherPrototype />
       {mode !== 'drawer' && <Rail mode={mode} />}
 
       <div className="flex min-w-0 flex-1 flex-col">

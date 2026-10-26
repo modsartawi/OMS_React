@@ -58,6 +58,9 @@ function versionAsset(): Plugin {
 // Staging/production are same-origin under IIS — no proxy, no CORS anywhere; the
 // prod client uses base `/` (see src/core/api.ts, issue 435).
 export default defineConfig({
+  // PROTOTYPE worktree: its own dep cache, so it doesn't fight the main checkout's
+  // dev server over the shared (junctioned) node_modules/.vite.
+  cacheDir: '.vite-proto',
   plugins: [react(), tailwindcss(), versionAsset()],
   define: {
     __APP_VERSION__: JSON.stringify(VERSION),

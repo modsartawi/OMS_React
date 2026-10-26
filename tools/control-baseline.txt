@@ -1,0 +1,124 @@
+# The control ratchet's baseline (ticket 596, spec 590). Checked by `npm run lint`
+# (tools/check-controls.mjs). One block per feature, sorted, a blank line between blocks.
+#
+# `<area>/<feature> <ceiling>` — the most hand-written <button>/<input>/<select>/<textarea> the
+# feature may hold (checkbox/radio/hidden/file inputs and __prototype__ folders are not counted).
+# A ceiling only ever falls. An indented line under a feature allowlists ONE control:
+#   `  <repo path> <button|input|select|textarea>: <one-line reason>`
+# A feature with an allowlist is SWEPT: its ceiling equals its allowlist's length and each file
+# may hold only the controls its lines name.
+#
+# Lowering: `node tools/check-controls.mjs --lower <feature>` after a sweep; then, for what stays,
+# replace the count with the allowlist (`--list <feature>` prints file:line for each).
+
+admin/active-sessions 7
+
+admin/authz-admin 22
+
+admin/broadcast 6
+
+admin/data-sync 13
+
+admin/engine-switch 4
+
+admin/sync-console 44
+
+admin/ua-admin 15
+
+auth 24
+
+callcenter/console 69
+
+campaigns/coupon-finder 1
+
+campaigns/customers 3
+
+campaigns/priority 5
+
+campaigns/promotions 11
+
+campaigns/sessions 7
+
+campaigns/simulator 17
+
+campaigns/uploads 7
+
+campaigns/workspace 82
+
+collection/inquiry 67
+
+collection/settlement 24
+
+deliverect/catalog 5
+
+deliverect/orders 8
+
+deliverect/stores 12
+
+deliverect/terms 6
+
+hungerstation/materials 3
+
+hungerstation/orders 8
+
+hungerstation/stores 10
+
+loy/member 26
+
+materials/detail 1
+
+materials/gs1-check 2
+
+materials/search 6
+
+materials/stock-check 6
+
+nphies/authorizations 31
+
+nphies/eligibility 22
+
+oms/central-invoice 7
+
+oms/deliveries 18
+
+oms/delivery-statistics 8
+
+oms/dispatch-board 1
+
+oms/dispatch-scorecard 8
+
+oms/document 18
+
+oms/document-payments 10
+
+oms/document-source-users 1
+
+oms/donor-requests 6
+
+oms/failed-donor-transfers 6
+
+oms/geography 1
+
+oms/pick-support 4
+
+oms/prescription-sessions 14
+
+oms/serial-refusals 6
+
+oms/serving-lists 12
+
+pricing/bonus-buy-download 6
+
+pricing/bonus-buy-inquiry 10
+
+pricing/bonus-buy-maintenance 35
+
+pricing/coupons 18
+
+pricing/simulation 23
+
+reports/idoc-inspector 8
+
+reports/retail-invoice 5
+
+reports/sap-export-console 14

@@ -7,7 +7,8 @@ import path from 'node:path'
 // stamp that shells out to git and a dev proxy, neither of which a pure unit run
 // needs. Vitest prefers this file when it exists, so the two stay independent.
 //
-// Scope is `environment: 'node'` and `*.test.ts` only — no jsdom, no React
+// Scope is `environment: 'node'`, `src/**/*.test.ts` plus the lint gates' own pure cores
+// (`tools/**/*.test.mjs`, ticket 596) — no jsdom, no React
 // Testing Library (spec 083: the pure modules are where regression is silent;
 // the components are thin renderers verified by driving the app). The `@` alias
 // is repeated here because this config does not read `vite.config.ts`.
@@ -17,6 +18,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tools/**/*.test.mjs'],
   },
 })

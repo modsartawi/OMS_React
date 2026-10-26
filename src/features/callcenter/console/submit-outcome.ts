@@ -26,7 +26,7 @@
  * has just said no to. The frozen contract is conformance-tested on the server
  * side (`CcContractFixtureTests`, §9); this console renders it.
  */
-import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import type { SubmitResult } from '@/core/models/callcenter'
 import type { HeaderChip } from './header-chips'
 
@@ -92,7 +92,7 @@ export function readSubmitFailure(err: unknown, fallback: string): SubmitFailure
  *  MEANS is the refusing feature's to know), and a body that does not carry a
  *  usable field must not stop the refusal being drawn. */
 function refusedField(err: unknown): string | null {
-  const data = err instanceof ApiError ? err.data : null
+  const data = apiErrorData(err)
   if (!data || typeof data !== 'object') return null
   const field = (data as { field?: unknown }).field
   return typeof field === 'string' && field.trim() ? field.trim() : null

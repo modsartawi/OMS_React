@@ -11,9 +11,10 @@
  *    **never** `null`, and the tidying reflex is what this suite fails on.
  */
 import { describe, expect, it } from 'vitest'
-import type { CustomerAddressBookEntry } from '@/core/models/callcenter'
+import type { CustomerAddressBookEntry, LocationCapture } from '@/core/models/callcenter'
 import {
   addressFormErrors,
+  addressFormFromCapture,
   addressFormOf,
   addressPayload,
   emptyAddressForm,
@@ -202,5 +203,56 @@ describe('addressFormErrors', () => {
       form({ street1: '', street2: '', buildingNumber: '', phone1: '', phone2: '', shortAddress: '' }),
     )
     expect(errors).toEqual({})
+  })
+})
+
+describe('576 — addressFormFromCapture: Create address from this location', () => {
+  const CAPTURE: LocationCapture = {
+    gpsLat: 24.774265,
+    gpsLon: 46.738586,
+    pinSource: 'DEVICE',
+    accuracyMeters: 12,
+    shortAddress: 'RIMA6904',
+    addressDetails: 'Villa 4, second gate',
+    capturedAt: '2026-10-26T10:14:03',
+    appliedAt: '0001-01-01T00:00:00',
+    appliedBy: '',
+    discardedAt: '0001-01-01T00:00:00',
+    discardedBy: '',
+  }
+
+  it('pre-fills the pin, the Short Address and the details (line 2), leaving city, district and line to the agent', () => {
+    expect(addressFormFromCapture(CAPTURE)).toEqual({
+      labelCode: 'HOME',
+      cityCode: '',
+      cityName: '',
+      districtCode: '',
+      districtName: '',
+      street1: '',
+      street2: 'Villa 4, second gate',
+      buildingNumber: '',
+      phone1: '',
+      phone2: '',
+      shortAddress: 'RIMA6904',
+      gpsLat: 24.774265,
+      gpsLon: 46.738586,
+    })
+  })
+
+  it('leaves the boxes empty when the customer skipped the Short Address or the details', () => {
+    const values = addressFormFromCapture({ ...CAPTURE, shortAddress: '  ', addressDetails: '' })
+    expect(values.shortAddress).toBe('')
+    expect(values.street2).toBe('')
+  })
+
+  it('trims what the customer typed and carries the pin to the create body', () => {
+    const values = addressFormFromCapture({ ...CAPTURE, shortAddress: ' rima6904 ', addressDetails: '  Villa 4 ' })
+    expect(values.street2).toBe('Villa 4')
+    expect(addressPayload(values).address).toMatchObject({
+      shortAddress: 'RIMA6904',
+      street2: 'Villa 4',
+      gpsLat: 24.774265,
+      gpsLon: 46.738586,
+    })
   })
 })

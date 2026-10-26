@@ -118,6 +118,18 @@ export function inSearch(query: QueryCriteria, field: QueryField): boolean {
   return value !== null && value !== undefined && !blankText(value)
 }
 
+/** The largest Limit the Limit field accepts. */
+export const LIMIT_MAX = 20000
+
+/**
+ * Whether a typed Limit is one the search would not take as typed (ticket 595): not a whole
+ * number from 1 to {@link LIMIT_MAX}. A cleared Limit is not invalid — it is the default.
+ */
+export function limitIsInvalid(limit: number | null): boolean {
+  if (limit === null) return false
+  return !Number.isInteger(limit) || limit < 1 || limit > LIMIT_MAX
+}
+
 /** One token: the entry and its value as the model holds it. */
 export interface CriterionToken {
   field: QueryField

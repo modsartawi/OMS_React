@@ -24,7 +24,7 @@ has a dark twin.
 
 ## Prototype
 
-Built 2026-10-26 on `prototype/dmsco-density` (commit below, worktree
+Built 2026-10-26 on `prototype/dmsco-density` (commit `95400ce1`, worktree
 `C:\Playground\oms-react-proto-dmsco`, :5251 against staging), with 587's shell. The floating
 bar's ← / → switches Light / Dark A / Dark B on the real Deliveries list and Delivery details.
 

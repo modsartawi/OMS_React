@@ -31,7 +31,7 @@ component (shared UI: Input, Select, Textarea, Field) · component/route (Delive
 ## Proof (→ `tdd` red-green cycles)
 
 - [x] `dmsco-theme-drive` on the Deliveries filter: every field labelled and described; focus ring is --ring; invalid state announced · flow (Playwright)
-- [ ] Deliveries list drives green unchanged · flow (Playwright)
+- [x] Deliveries list drives green unchanged · flow (Playwright)
 
 React Testing Library is still not installed (spec 083), so shared controls are proven through the
 drive; verify via typecheck + drive.
@@ -78,3 +78,9 @@ The Deliveries filter runs on the shared field controls, RULE_INPUT callers rend
   timeout); a baseline run of the untouched tip could not even load the page. **None of the failures was in
   the query bar** (setCriterion / tokens / popover checks all passed). Needs one run on a quiet machine.
 
+**2026-10-26 — Deliveries list drive green (run from 596's branch `impl/590-596`, on the integration
+tip `abbdbca7` + 596's tooling-only commit).** `npx vite --port 5296` + `DRIVE_PORT=5296 node
+tools/deliveries-list-drive.mjs`, unchanged: **362/362 checks passed**. A first attempt died at check
+~181 (`light/rtl: no page errors` — `net::ERR_NETWORK_CHANGED` ×3, then "Execution context was
+destroyed" in `inspectorChecks`): a host network blip, not the app; the retry was clean end to end
+(light/dark × ltr/rtl). The Proof box is ticked on that run.

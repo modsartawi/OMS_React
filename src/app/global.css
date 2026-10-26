@@ -240,12 +240,24 @@
      `--sidebar*` with the rail shell (spec 380 F5, ticket 385). */
   --rail: #172031;
   --rail-foreground: #d1d2d6;
-  --rail-accent: #26324a; /* hover / active ground */
+  --rail-accent: #26324a; /* hover ground, and an open group's icon */
   /* The active row's ink, and the hover ink: white on navy in both themes,
      because the rail never themes (ticket 385 — "white ink"). */
   --rail-accent-foreground: #ffffff;
-  --rail-active: #fec33b; /* the rail's active marker — gold on navy */
+  --rail-active: #fec33b; /* the active item's icon — gold on navy */
   --rail-muted: #8d96a8;
+
+  /* The DMSCO shell (spec 590; 587, ticket 592). The rail and every panel that
+     opens from it (`RAIL_POPOVER`) paint a radial deep navy from the inline-start
+     top corner, `--rail-gradient-from` → `--rail-gradient-to` (the
+     `bg-rail-gradient` utility below). The active item is a filled pill,
+     `--rail-pill`, with white ink and a gold icon. 587's faint white hairline on
+     it measured 1.63:1 on the rail, under the non-text 3:1, so it was dropped
+     and the pill lifted from `#182f4a` on its own hue instead (the contrast gate
+     holds the lift). The rail never themes: no dark twin. */
+  --rail-gradient-from: #111a1e;
+  --rail-gradient-to: #172031;
+  --rail-pill: #234670;
 
   /* Gold is a SIGNAL, never text on a light surface: 1.56:1 on white. It is
      allowed on navy (the rail marker and ring, the mark), as a fill carrying
@@ -496,6 +508,9 @@
   --color-rail-accent-foreground: var(--rail-accent-foreground);
   --color-rail-active: var(--rail-active);
   --color-rail-muted: var(--rail-muted);
+  --color-rail-gradient-from: var(--rail-gradient-from);
+  --color-rail-gradient-to: var(--rail-gradient-to);
+  --color-rail-pill: var(--rail-pill);
 
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
@@ -538,6 +553,18 @@
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+/* The rail ground (spec 590; 587, ticket 592): the radial deep navy, lit from the
+   inline-start top corner — so it mirrors under RTL. The rail, its flyout, the
+   overlaid tree, the drawer and the user menu take it (`RAIL_POPOVER`). The flat
+   `--rail-gradient-to` under it is what shows if the gradient ever does not paint. */
+@utility bg-rail-gradient {
+  background-color: var(--rail-gradient-to);
+  background-image: radial-gradient(140% 70% at 0% 0%, var(--rail-gradient-from) 0%, var(--rail-gradient-to) 65%);
+  &:where(:dir(rtl)) {
+    background-image: radial-gradient(140% 70% at 100% 0%, var(--rail-gradient-from) 0%, var(--rail-gradient-to) 65%);
+  }
 }
 
 /* One focus language everywhere: a 2px `--ring` outline with a 2px offset —

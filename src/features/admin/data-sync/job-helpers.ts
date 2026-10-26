@@ -42,7 +42,10 @@ export interface JobStateWords {
   sev: Severity
   /** `jobPhase.*` — only while Running. */
   phaseKey: string | null
-  /** Why it waits (`waitReason.*`, Queued only) or who holds it (`holdReason.*`, Paused only). */
+  /**
+   * Why it waits (`waitReason.*`, Queued only), who holds it (`holdReason.*`, Paused only), or that
+   * a failed job can be retried (`retry.job`, when the door marks it `retryable`).
+   */
   reasonKey: string | null
   /** With `waitReason.BackingOff`: the time it will be retried (UTC, drawn local). */
   notBefore: string | null
@@ -53,9 +56,12 @@ export interface JobStateWords {
  * Running, a wait reason only while Queued and a hold reason only while Paused; a reason sent
  * outside its status is ignored rather than shown against the wrong state. A queued job with a
  * reason is waiting on something outside the slot pool — ActionSync's pause, or a back-off after
- * a fault — so it reads as needing attention.
+ * a fault — so it reads as needing attention. A failed job the door marks `retryable` says it can
+ * be retried; it stays a failure (the badge does not soften), the sentence only points at Retry.
  */
-export function jobStateWords(job: Pick<Job, 'status' | 'phase' | 'waitReason' | 'holdReason' | 'notBefore'>): JobStateWords {
+export function jobStateWords(
+  job: Pick<Job, 'status' | 'phase' | 'waitReason' | 'holdReason' | 'notBefore'> & Partial<Pick<Job, 'retryable'>>,
+): JobStateWords {
   const badge = codeBadge(JOB_STATUS_SEVERITY, 'jobStatus', job.status)
   const out: JobStateWords = { labelKey: badge.labelKey, sev: badge.sev, phaseKey: null, reasonKey: null, notBefore: null }
   if (job.status === 'Running' && job.phase) out.phaseKey = `jobPhase.${job.phase}`
@@ -67,6 +73,7 @@ export function jobStateWords(job: Pick<Job, 'status' | 'phase' | 'waitReason' |
     } else out.reasonKey = `waitReason.${job.waitReason}`
   }
   if (job.status === 'Paused' && job.holdReason) out.reasonKey = `holdReason.${job.holdReason}`
+  if (job.status === 'Failed' && job.retryable === true) out.reasonKey = 'retry.job'
   return out
 }
 

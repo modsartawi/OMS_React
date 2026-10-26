@@ -33,6 +33,19 @@ describe('campaignControls', () => {
     expect(campaignControls('Archived', true)).toEqual([])
     expect(campaignControls('toString', true)).toEqual([])
   })
+
+  it('adds Retry before Cancel only while the door counts retryable jobs', () => {
+    expect(campaignControls('Running', true, 2)).toEqual(['Pause', 'Retry', 'Cancel'])
+    expect(campaignControls('Paused', true, 1)).toEqual(['Resume', 'Retry', 'Cancel'])
+    // A Completed campaign with retryable failures offers Retry alone (it goes back to Running).
+    expect(campaignControls('Completed', true, 3)).toEqual(['Retry'])
+    expect(campaignControls('Completed', true, 0)).toEqual([])
+    expect(campaignControls('Running', true)).toEqual(['Pause', 'Cancel'])
+  })
+
+  it('offers no Retry without canOperate', () => {
+    for (const s of CAMPAIGN_STATUSES) expect(campaignControls(s, false, 5)).toEqual([])
+  })
 })
 
 describe('jobControls', () => {
@@ -60,6 +73,18 @@ describe('jobControls', () => {
   it('offers nothing for a status this bundle does not know', () => {
     expect(jobControls('Skipped', true)).toEqual([])
   })
+
+  it('offers Retry only when the door marks the job retryable', () => {
+    expect(jobControls('Failed', true, true)).toEqual(['Retry'])
+    expect(jobControls('Failed', true, false)).toEqual([])
+    expect(jobControls('Failed', true)).toEqual([])
+    // The flag is the door's: the page does not second-guess it against the status.
+    expect(jobControls('Paused', true, true)).toEqual(['Resume', 'Retry', 'Cancel'])
+  })
+
+  it('offers no Retry without canOperate', () => {
+    for (const s of JOB_STATUSES) expect(jobControls(s, false, true)).toEqual([])
+  })
 })
 
 describe('controlRefusalWords', () => {
@@ -78,6 +103,21 @@ describe('controlRefusalWords', () => {
     // Three different sentences: busy says pause ActionSync, WPF says never.
     expect(word(keys.DATASYNC_STORE_BUSY)).toMatch(/ActionSync/)
     expect(word(keys.DATASYNC_STORE_WPF_HOSTED)).toMatch(/never/)
+  })
+
+  it('gives Retry its own sentence where the shared one would mislead, and the shared one otherwise', () => {
+    for (const code of ['DATASYNC_INVALID_STATE', 'DATASYNC_STORE_BUSY', 'DATASYNC_STORE_WPF_HOSTED']) {
+      const key = controlRefusalWords(code, 'Retry')
+      expect(key).toBe(`controls.refusal.Retry.${code}`)
+      expect(typeof word(key as string)).toBe('string')
+    }
+    expect(word('controls.refusal.Retry.DATASYNC_STORE_BUSY')).toMatch(/ActionSync/)
+    expect(word('controls.refusal.Retry.DATASYNC_STORE_BUSY')).toMatch(/retry/)
+    expect(controlRefusalWords('DATASYNC_JOB_NOT_FOUND', 'Retry')).toBe('controls.refusal.DATASYNC_JOB_NOT_FOUND')
+    expect(controlRefusalWords('DATASYNC_CAMPAIGN_NOT_FOUND', 'Retry')).toBe('controls.refusal.DATASYNC_CAMPAIGN_NOT_FOUND')
+    // Every other control keeps the shared words.
+    expect(controlRefusalWords('DATASYNC_STORE_BUSY', 'Resume')).toBe('controls.refusal.DATASYNC_STORE_BUSY')
+    expect(controlRefusalWords('DATASYNC_REASON_REQUIRED', 'Retry')).toBeNull()
   })
 
   it('has no words for a code it does not handle, or none', () => {
@@ -99,9 +139,10 @@ describe('isOperateDenied', () => {
 })
 
 describe('controlBody', () => {
-  it('takes a note on Pause and Cancel only', () => {
+  it('takes a note on Pause, Cancel and Retry only', () => {
     expect(controlTakesNote('Pause')).toBe(true)
     expect(controlTakesNote('Cancel')).toBe(true)
+    expect(controlTakesNote('Retry')).toBe(true)
     expect(controlTakesNote('Resume')).toBe(false)
   })
 
@@ -110,6 +151,29 @@ describe('controlBody', () => {
     expect(controlBody('Cancel', '   ')).toEqual({})
     expect(controlBody('Cancel', '')).toEqual({})
     expect(controlBody('Resume', 'ignored')).toEqual({})
+    expect(controlBody('Retry', ' store back online ')).toEqual({ reason: 'store back online' })
+    expect(controlBody('Retry', '')).toEqual({})
+  })
+
+  it('has every word a Retry control draws', () => {
+    for (const key of [
+      'controls.action.Retry',
+      'controls.retryFailed_one',
+      'controls.retryFailed_other',
+      'controls.title.campaign.Retry',
+      'controls.title.job.Retry',
+      'controls.note.campaign.Retry',
+      'controls.note.job.Retry',
+      'controls.done.campaignRetry',
+    ])
+      expect(typeof word(key)).toBe('string')
+    // The semantics the dialog must state: checkpoint, a fresh 3 attempts, the apply store's pause.
+    for (const scope of ['campaign', 'job']) {
+      const note = word(`controls.note.${scope}.Retry`) as string
+      expect(note).toMatch(/checkpoint/)
+      expect(note).toMatch(/3 automatic attempts/)
+      expect(note).toMatch(/paused on ActionSync/)
+    }
   })
 })
 
@@ -135,6 +199,11 @@ describe('the control doors', () => {
     })
     expect((await sent(() => dataSyncApi.controlCampaign('C1', 'Resume', {}))).path).toBe('DataSync/Campaigns/C1/Resume')
     expect((await sent(() => dataSyncApi.controlCampaign('C1', 'Cancel', {}))).path).toBe('DataSync/Campaigns/C1/Cancel')
+    expect(await sent(() => dataSyncApi.controlCampaign('C1', 'Retry', { reason: 'VPN back' }))).toEqual({
+      path: 'DataSync/Campaigns/C1/Retry',
+      method: 'POST',
+      body: { reason: 'VPN back' },
+    })
   })
 
   it('posts a job control to Jobs/{id}/{action} with the note', async () => {
@@ -145,5 +214,6 @@ describe('the control doors', () => {
     })
     expect((await sent(() => dataSyncApi.controlJob('J1', 'Resume', {}))).body).toEqual({})
     expect((await sent(() => dataSyncApi.controlJob('J1', 'Pause', {}))).path).toBe('DataSync/Jobs/J1/Pause')
+    expect(await sent(() => dataSyncApi.controlJob('J1', 'Retry', {}))).toEqual({ path: 'DataSync/Jobs/J1/Retry', method: 'POST', body: {} })
   })
 })

@@ -19,6 +19,7 @@ const job = (code: string, status: JobStatus, actionSyncResumable = false): Job 
   notBefore: null,
   holdReason: null,
   actionSyncResumable,
+  retryable: false,
 })
 
 describe('handBackSplit', () => {

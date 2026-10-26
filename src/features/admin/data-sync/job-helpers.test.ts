@@ -92,6 +92,17 @@ describe('jobStateWords', () => {
     ).toMatchObject({ reasonKey: null, notBefore: null, sev: 'go' })
   })
 
+  it('says a failed job the door marks retryable can be retried, and stays a failure', () => {
+    const base = { phase: null, waitReason: null, holdReason: null, notBefore: null } as const
+    const w = jobStateWords({ status: 'Failed', ...base, retryable: true })
+    expect(w).toMatchObject({ reasonKey: 'retry.job', sev: 'bad' })
+    expect(word('retry.job')).toBeTruthy()
+    // Only the door's flag decides: a failed job without it, or a flag outside Failed, says nothing.
+    expect(jobStateWords({ status: 'Failed', ...base, retryable: false }).reasonKey).toBeNull()
+    expect(jobStateWords({ status: 'Failed', ...base }).reasonKey).toBeNull()
+    expect(jobStateWords({ status: 'Queued', ...base, retryable: true }).reasonKey).toBeNull()
+  })
+
   it('reads ends: Succeeded done, Failed and Cancelled ended badly; in-flight in motion', () => {
     const sev = (status: JobStatus) => jobStateWords({ status, phase: null, waitReason: null, holdReason: null, notBefore: null }).sev
     expect(sev('Succeeded')).toBe('ok')
@@ -177,6 +188,7 @@ const campaign = (over: Partial<Campaign> = {}): Campaign => ({
   startedAt: null,
   finishedAt: null,
   asOf: '2026-10-24T09:00:00Z',
+  retryableJobs: 0,
   ...over,
 })
 const job = (status: JobStatus): Pick<Job, 'status'> => ({ status })

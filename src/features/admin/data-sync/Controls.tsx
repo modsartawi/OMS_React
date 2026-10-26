@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { notify } from '@/core/services/notify'
@@ -10,6 +10,7 @@ import { DATA_SYNC_ACCESS_KEY, campaignKey, campaignSummaryKey, canOperateDataSy
 import {
   campaignControls,
   controlBody,
+  controlRefusalWords,
   controlTakesNote,
   isOperateDenied,
   jobControls,
@@ -18,12 +19,15 @@ import {
 import ControlDialog from './ControlDialog'
 import { storeLabel } from './job-helpers'
 import { codeValue } from './code-words'
+import { groupDigits } from './helpers'
 
 /**
  * The campaign page's Pause / Resume / Cancel (spec 558, ticket 563): a campaign's in the header,
  * a job's in its row and in its drawer. Each set offers only the moves its status allows
  * (`campaignControls` / `jobControls`) and nothing without `DataSync.Operate`; each opens the
- * shared `ControlDialog`.
+ * shared `ControlDialog`. Retry (retry from checkpoint) rides the same doors and dialog, offered
+ * only where the door says so: a job's `retryable`, a campaign's `retryableJobs` ("Retry failed
+ * jobs (N)").
  *
  * After a control the door's answer is written straight into the page's cache (the new state shows
  * at once), and the campaign's reads are invalidated so the rollup follows; the page's poll (560)
@@ -36,8 +40,8 @@ export function useCanOperateDataSync(): boolean {
   return canOperateDataSync(useQuery(dataSyncAccessQuery()).data)
 }
 
-const VARIANT = { Pause: 'secondary', Resume: 'secondary', Cancel: 'danger-outlined' } as const
-const CONFIRM_VARIANT = { Pause: 'primary', Resume: 'primary', Cancel: 'danger' } as const
+const VARIANT = { Pause: 'secondary', Resume: 'secondary', Cancel: 'danger-outlined', Retry: 'secondary' } as const
+const CONFIRM_VARIANT = { Pause: 'primary', Resume: 'primary', Cancel: 'danger', Retry: 'primary' } as const
 
 /** A bare 403: hide every Operate control on the page, and say why once. */
 function dropOperate(qc: QueryClient, words: string) {
@@ -56,10 +60,11 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
   const send = useMutation({
     mutationFn: ({ action, note }: { action: ControlAction; note: string }) =>
       dataSyncApi.controlCampaign(id, action, controlBody(action, note)),
-    onSuccess: (next) => {
+    onSuccess: (next, sent) => {
       qc.setQueryData(campaignSummaryKey(id), next)
       void qc.invalidateQueries({ queryKey: campaignKey(id) })
-      notify.success(t('controls.done.campaign', { status: codeValue(t, 'campaignStatus', next.status) }))
+      const status = codeValue(t, 'campaignStatus', next.status)
+      notify.success(t(sent.action === 'Retry' ? 'controls.done.campaignRetry' : 'controls.done.campaign', { status }))
       close()
     },
     onError: (err) => {
@@ -76,13 +81,18 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
     setAction(null)
   }
 
-  const moves = campaignControls(campaign.status, canOperate)
+  const retryable = campaign.retryableJobs
+  const moves = campaignControls(campaign.status, canOperate, retryable)
   if (moves.length === 0 && !action) return null
   return (
     <>
       {moves.map((a) => (
         <Button key={a} variant={VARIANT[a]} onClick={() => setAction(a)} data-control={a} data-control-scope="campaign">
-          {t(`controls.action.${a}`)}
+          {a === 'Retry' ? (
+            <Trans t={t} i18nKey="controls.retryFailed" count={retryable} values={{ figure: groupDigits(retryable) }} components={{ n: <Ltr /> }} />
+          ) : (
+            t(`controls.action.${a}`)
+          )}
         </Button>
       ))}
       {action && (
@@ -101,6 +111,7 @@ export function CampaignControls({ campaign }: { campaign: Campaign }) {
           }
           note={t(`controls.note.campaign.${action}`)}
           takesNote={controlTakesNote(action)}
+          refusalWords={(code) => controlRefusalWords(code, action)}
           confirmLabel={t(`controls.action.${action}`)}
           confirmVariant={CONFIRM_VARIANT[action]}
           busy={send.isPending}
@@ -151,7 +162,7 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
     setAction(null)
   }
 
-  const moves = jobControls(job.status, canOperate)
+  const moves = jobControls(job.status, canOperate, job.retryable)
   if (moves.length === 0 && !action) return null
   return (
     <span className="inline-flex h-full items-center gap-1.5" data-job-controls={job.jobId}>
@@ -181,6 +192,7 @@ export function JobControls({ job, compact = false }: { job: Job; compact?: bool
           }
           note={t(`controls.note.job.${action}`)}
           takesNote={controlTakesNote(action)}
+          refusalWords={(code) => controlRefusalWords(code, action)}
           confirmLabel={t(`controls.action.${action}`)}
           confirmVariant={CONFIRM_VARIANT[action]}
           busy={send.isPending}

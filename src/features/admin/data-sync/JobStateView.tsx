@@ -2,11 +2,10 @@ import { Trans, useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
-import type { Job } from '@/core/models/data-sync'
 import { failureWords, jobStateWords, type JobStateWords } from './job-helpers'
 
 /** A job's status badge, with its phase while Running (`Running · Comparing`). */
-export function JobStatusView({ job }: { job: Pick<Job, 'status' | 'phase' | 'waitReason' | 'holdReason' | 'notBefore'> }) {
+export function JobStatusView({ job }: { job: Parameters<typeof jobStateWords>[0] }) {
   const { t } = useTranslation('data-sync')
   const w = jobStateWords(job)
   return (
@@ -21,7 +20,7 @@ export function JobStatusView({ job }: { job: Pick<Job, 'status' | 'phase' | 'wa
   )
 }
 
-/** Why a job waits or who holds it, in words; nothing when the door gave no reason. */
+/** Why a job waits, who holds it, or that it can be retried, in words; nothing when there is nothing to say. */
 export function JobReasonView({ words }: { words: JobStateWords }) {
   const { t } = useTranslation('data-sync')
   if (!words.reasonKey) return null

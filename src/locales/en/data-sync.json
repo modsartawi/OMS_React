@@ -183,18 +183,23 @@
     "action": {
       "Pause": "Pause",
       "Resume": "Resume",
-      "Cancel": "Cancel"
+      "Cancel": "Cancel",
+      "Retry": "Retry"
     },
+    "retryFailed_one": "Retry failed job (<n>{{figure}}</n>)",
+    "retryFailed_other": "Retry failed jobs (<n>{{figure}}</n>)",
     "title": {
       "campaign": {
         "Pause": "Pause the campaign",
         "Resume": "Resume the campaign",
-        "Cancel": "Cancel the campaign"
+        "Cancel": "Cancel the campaign",
+        "Retry": "Retry the campaign's failed jobs"
       },
       "job": {
         "Pause": "Pause the job for store {{store}}",
         "Resume": "Resume the job for store {{store}}",
-        "Cancel": "Cancel the job for store {{store}}"
+        "Cancel": "Cancel the job for store {{store}}",
+        "Retry": "Retry the job for store {{store}}"
       }
     },
     "actsOnCampaign": "Campaign",
@@ -203,12 +208,14 @@
       "campaign": {
         "Pause": "Pause takes effect at the next chunk boundary: running jobs show Pausing until they reach it, then Paused. Queued jobs are simply not started.",
         "Resume": "Resume re-queues the jobs a person paused. Jobs held because their store became busy resume on their own once it is safe.",
-        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back."
+        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back.",
+        "Retry": "Retry re-queues every job that failed because its store could not be reached or its database could not be resolved. Each continues from its last saved checkpoint: chunks already written stay, and only what is left is compared or applied again. Each gets a fresh set of 3 automatic attempts. A completed campaign goes back to Running. An apply job's store must still be paused on ActionSync."
       },
       "job": {
         "Pause": "Pause takes effect at the next chunk boundary: a running job shows Pausing until it reaches it, then Paused. A queued job is paused at once.",
         "Resume": "Resume puts the job back in the queue. An apply job checks again that its store is safe to write to.",
-        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back."
+        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back.",
+        "Retry": "Retry puts the job back in the queue to continue from its last saved checkpoint: chunks already written stay, and only what is left is compared or applied again. It gets a fresh set of 3 automatic attempts. An apply job's store must still be paused on ActionSync."
       }
     },
     "reason": "Note (optional)",
@@ -218,7 +225,8 @@
     "failedHint": "The control could not be sent.",
     "done": {
       "campaign": "The campaign is now {{status}}.",
-      "job": "The job for store {{store}} is now {{status}}."
+      "job": "The job for store {{store}} is now {{status}}.",
+      "campaignRetry": "The failed jobs are queued again. The campaign is now {{status}}."
     },
     "denied": "Your account does not hold the grant to operate data sync, so the controls are hidden.",
     "refusal": {
@@ -226,8 +234,16 @@
       "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then resume this job.",
       "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to. Cancel this job instead.",
       "DATASYNC_CAMPAIGN_NOT_FOUND": "DataSync no longer knows this campaign.",
-      "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job."
+      "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job.",
+      "Retry": {
+        "DATASYNC_INVALID_STATE": "There is nothing to retry any more: the job is no longer failed for a retryable reason, or its campaign is being cancelled. The page now shows the current state.",
+        "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then retry this job.",
+        "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to, so this job cannot be retried."
+      }
     }
+  },
+  "retry": {
+    "job": "Can be retried from its last checkpoint"
   },
   "tableStatus": {
     "Pending": "Pending",

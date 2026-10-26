@@ -186,6 +186,11 @@ export interface Campaign {
   startedAt: string | null
   finishedAt: string | null
   asOf: string
+  /**
+   * How many of its jobs are `retryable` (the door's count, across every page). Drives "Retry
+   * failed jobs (N)" (`POST Campaigns/{id}/Retry`). [CONTRACT] retry-from-checkpoint addition.
+   */
+  retryableJobs: number
 }
 
 export interface TableTask {
@@ -230,6 +235,12 @@ export interface Job {
   holdReason: HoldReason | null
   /** Apply jobs only; false for report-only. */
   actionSyncResumable: boolean
+  /**
+   * The door's verdict that `POST Jobs/{id}/Retry` would take it: `Failed` with `StoreUnreachable`
+   * or `TargetUnresolved`, and its campaign is not Cancelling / Cancelled. Never re-derived here.
+   * [CONTRACT] retry-from-checkpoint addition.
+   */
+  retryable: boolean
 }
 
 /** A JSON scalar as a manifest carries it. `null` and `""` are different values. */
@@ -289,7 +300,7 @@ export interface CreateCampaignRequest {
   reason?: string | null
 }
 
-/** The optional note on a control; blank is sent as nothing. */
+/** The optional note on a control (Pause, Cancel, Retry); blank is sent as nothing. */
 export interface ControlRequest {
   reason?: string | null
 }

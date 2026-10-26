@@ -40,7 +40,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "terms": "Terms",
-    "edit": "Edit"
+    "edit": "Edit",
+    "add": "Add platform"
   },
   "edit": {
     "title": "Edit the delivery platform",
@@ -58,6 +59,18 @@
       "required": "Enter a display name.",
       "wholeNumber": "Enter a whole number.",
       "noCreditCustomer": "Untick Active, or enter a credit customer."
+    }
+  },
+  "addPlatform": {
+    "title": "Add a delivery platform",
+    "platformKey": "Platform key",
+    "platformKeyHint": "Letters, digits, _ or -, at most 26 (for example JAHEZ). It cannot change once added.",
+    "confirm": "Add the platform",
+    "done": "Delivery platform added",
+    "doneDetail": "{{platform}} is added.",
+    "problems": {
+      "required": "Enter a platform key.",
+      "keyFormat": "Use letters, digits, _ or -, at most 26."
     }
   },
   "timeline": {

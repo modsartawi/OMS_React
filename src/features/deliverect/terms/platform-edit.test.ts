@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DeliverectPlatform } from '@/core/models/deliverect'
-import { parsePlatformDraft, platformDraftOf, samePlatform } from './platform-edit'
+import { EMPTY_PLATFORM_DRAFT, parsePlatformDraft, parsePlatformKey, platformDraftOf, samePlatform } from './platform-edit'
 
 const JAHEZ: DeliverectPlatform = { platformKey: 'JAHEZ', displayName: 'Jahez', channelId: 0, creditCustomer: '0001100001', active: true }
 
@@ -60,5 +60,33 @@ describe('samePlatform — Save waits for a change', () => {
   it('any field changed is a change', () => {
     for (const over of [{ displayName: 'Jahez 2' }, { channelId: '3' }, { creditCustomer: '9' }, { active: false }])
       expect(samePlatform(parsePlatformDraft({ ...platformDraftOf(JAHEZ), ...over }).value!, JAHEZ)).toBe(false)
+  })
+})
+
+describe('parsePlatformKey — a new platform’s key', () => {
+  it('trims and upper-cases', () => {
+    expect(parsePlatformKey('  jahez ')).toEqual({ value: 'JAHEZ', problem: null })
+    expect(parsePlatformKey('Keeta_KSA-2')).toEqual({ value: 'KEETA_KSA-2', problem: null })
+  })
+
+  it('a blank key is required', () => {
+    expect(parsePlatformKey('   ')).toEqual({ value: null, problem: 'required' })
+  })
+
+  it('refuses spaces, other characters, and more than 26 (the column’s width)', () => {
+    expect(parsePlatformKey('JAHEZ KSA').problem).toBe('keyFormat')
+    expect(parsePlatformKey('جاهز').problem).toBe('keyFormat')
+    expect(parsePlatformKey('A'.repeat(26)).value).toBe('A'.repeat(26))
+    expect(parsePlatformKey('A'.repeat(27)).problem).toBe('keyFormat')
+  })
+})
+
+describe('EMPTY_PLATFORM_DRAFT — the Add dialog starts empty and inactive', () => {
+  it('needs a display name and a channel id before it can be sent', () => {
+    expect(parsePlatformDraft(EMPTY_PLATFORM_DRAFT)).toMatchObject({
+      value: null,
+      problems: { displayName: 'required', channelId: 'wholeNumber' },
+      activeBlocked: true,
+    })
   })
 })

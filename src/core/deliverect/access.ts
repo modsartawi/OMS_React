@@ -36,3 +36,11 @@ export const canViewOrders = (r: DeliverectAccessResult | null | undefined): boo
 /** Accounts, delivery platforms and their terms (482). */
 export const canManageTerms = (r: DeliverectAccessResult | null | undefined): boolean =>
   deliverectGrants(r).canManageTerms
+
+/**
+ * Adding a delivery platform (`POST Platforms`, its own grant). Not one of the menu's four flags:
+ * it only shows the page's "Add platform" button. 🚩 Fails closed exactly as the four do — only an
+ * explicit `true` grants; the server re-checks the grant on the door.
+ */
+export const canAddPlatform = (r: DeliverectAccessResult | null | undefined): boolean =>
+  typeof r === 'object' && r !== null && (r as { canAddPlatform?: unknown }).canAddPlatform === true

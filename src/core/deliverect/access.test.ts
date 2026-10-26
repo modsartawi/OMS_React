@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
 import {
   DELIVERECT_FLAGS,
+  canAddPlatform,
   canManageCatalog,
   canManageStores,
   canManageTerms,
@@ -53,5 +54,23 @@ describe('the per-leaf predicates', () => {
     expect(can({ ...all(false), [flag]: true })).toBe(true)
     expect(can({ ...all(true), [flag]: false })).toBe(false)
     expect(can(undefined)).toBe(false)
+  })
+})
+
+describe('canAddPlatform — the Add platform button', () => {
+  it('only an explicit true grants it', () => {
+    expect(canAddPlatform({ ...all(true), canAddPlatform: true })).toBe(true)
+  })
+
+  it('🚩 fails closed — absent (an older SIS.Api), false, a string "true", a null answer', () => {
+    expect(canAddPlatform(all(true))).toBe(false)
+    expect(canAddPlatform({ ...all(true), canAddPlatform: false })).toBe(false)
+    expect(canAddPlatform({ ...all(true), canAddPlatform: 'true' } as unknown as DeliverectAccessResult)).toBe(false)
+    expect(canAddPlatform(null)).toBe(false)
+  })
+
+  it('is not one of the menu flags, and the Terms grant does not imply it', () => {
+    expect(DELIVERECT_FLAGS).not.toContain('canAddPlatform')
+    expect(canAddPlatform({ ...all(false), canManageTerms: true })).toBe(false)
   })
 })

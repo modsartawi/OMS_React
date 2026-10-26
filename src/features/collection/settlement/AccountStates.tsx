@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { TriangleAlert } from 'lucide-react'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The three small presentational pieces the branch account wears (ticket 269).
@@ -35,13 +36,6 @@ export function AccountShimmer({ label }: { label: string }) {
   )
 }
 
-/** The pill shape every control above the grid wears — shape, spacing and type
- *  only, no colour; each control still says its own border and ink. */
-const PILL =
-  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
-
-const PILL_IDLE = 'border-border/60 text-muted-foreground hover:bg-muted'
-
 /**
  * The **Filter row** toggle above the entries grid.
  *
@@ -62,15 +56,10 @@ export function ToggleChip({
   onToggle: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={pressed}
-      className={`${PILL} ${pressed ? 'border-primary/40 bg-primary/10 text-primary' : PILL_IDLE}`}
-    >
+    <Chip on={pressed} onClick={onToggle}>
       {icon}
       {label}
-    </button>
+    </Chip>
   )
 }
 

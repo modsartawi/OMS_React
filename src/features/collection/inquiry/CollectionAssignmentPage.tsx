@@ -70,6 +70,12 @@ import type { PeopleUploadCommit } from './people-upload'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 import type { AssignmentPerson } from './served-by'
 
 /**
@@ -146,23 +152,11 @@ function AssignmentBody() {
 
   return (
     <>
-      <div className="flex gap-1 border-b border-border/60" role="tablist">
+      <div className="flex gap-1" role="tablist" data-assignment-tabs>
         {(['branches', 'people'] as const).map((name) => (
-          <button
-            key={name}
-            type="button"
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={
-              'rounded-t-md px-4 py-2 text-sm ' +
-              (tab === name
-                ? 'border border-b-0 border-border/60 bg-background font-medium'
-                : 'text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={name} variant="tab" on={tab === name} onClick={() => setTab(name)}>
             {t('assignment.tabs.' + name)}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -454,6 +448,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
           <SlotSelect
             row={p.data!}
             slot="accountantId"
+            label={t('assignment.columns.accountant')}
             people={accountants}
             busy={saving[p.data!.storeCode] === true}
             nobodyLabel={t('assignment.nobodyOption')}
@@ -469,6 +464,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
           <SlotSelect
             row={p.data!}
             slot="collectorId"
+            label={t('assignment.columns.collector')}
             people={collectors}
             busy={saving[p.data!.storeCode] === true}
             nobodyLabel={t('assignment.nobodyOption')}
@@ -494,21 +490,18 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.search.label')}</span>
-          <input
-            className="h-9 w-72 rounded-md border border-border/60 bg-background px-3 text-sm"
+      <div className="flex flex-wrap items-end gap-3" data-assignment-bar="filter">
+        <Field label={t('assignment.search.label')}>
+          <Input
+            className="w-72"
             value={filter.search}
             placeholder={t('assignment.search.placeholder')}
             onChange={(e) => setFilter((f) => ({ ...f, search: e.target.value }))}
           />
-        </label>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.search.status')}</span>
-          <select
-            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+        <Field label={t('assignment.search.status')}>
+          <Select
             value={filter.status}
             onChange={(e) =>
               setFilter((f) => ({ ...f, status: e.target.value as AssignmentStatusFilter }))
@@ -523,8 +516,8 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
                 </option>
               ),
             )}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
         <div className="ms-auto text-sm text-muted-foreground">
           {t('assignment.counts', {
@@ -540,13 +533,11 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
            Assigning 1255 unserved branches one row at a time is not a screen, it is
            a week. The three targets are three ways of arriving at a set — and they
            all end at the same dialog below. */}
-      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3">
-        <span className="pb-2 text-sm font-medium">{t('assignment.bulk.heading')}</span>
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3" data-assignment-bar="bulk">
+        <span className="pb-1 text-sm font-medium">{t('assignment.bulk.heading')}</span>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.bulk.target')}</span>
-          <select
-            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+        <Field label={t('assignment.bulk.target')}>
+          <Select
             value={flow}
             onChange={(e) => setFlow(e.target.value as BulkFlow)}
           >
@@ -557,12 +548,14 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
               {t('assignment.bulk.targets.filter', { count: matching.storeCodes.length })}
             </option>
             <option value="pasted">{t('assignment.bulk.targets.pasted')}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
 
         {flow === 'pasted' && (
-          <textarea
-            className="h-16 w-72 rounded-md border border-border/60 bg-background px-3 py-1 text-sm"
+          <Textarea
+            className="w-72"
+            // No visible label of its own: it is the list the target above names.
+            aria-label={t('assignment.bulk.targets.pasted')}
             value={pasted}
             placeholder={t('assignment.bulk.pastePlaceholder')}
             onChange={(e) => setPasted(e.target.value)}
@@ -570,37 +563,26 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         )}
 
         {flow === 'ticked' && (
-          <div className="flex items-center gap-2 pb-1 text-sm">
-            <button
-              type="button"
-              className="h-9 rounded-md border border-border/60 px-3"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outlined"
               onClick={() => setTicked(new Set(pageCodes(visible, pageIndex, GRID_PAGE_SIZE)))}
             >
               {t('assignment.bulk.selectPage')}
-            </button>
-            <button
-              type="button"
-              className="h-9 rounded-md border border-border/60 px-3"
-              onClick={() => setTicked(new Set(matching.storeCodes))}
-            >
+            </Button>
+            <Button variant="outlined" onClick={() => setTicked(new Set(matching.storeCodes))}>
               {t('assignment.bulk.selectMatching')}
-            </button>
-            <button
-              type="button"
-              className="h-9 rounded-md px-2 text-muted-foreground"
-              onClick={() => setTicked(new Set())}
-            >
+            </Button>
+            <Button variant="text" onClick={() => setTicked(new Set())}>
               {t('assignment.bulk.clearTicks')}
-            </button>
+            </Button>
           </div>
         )}
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.bulk.slot')}</span>
+        <Field label={t('assignment.bulk.slot')}>
           {/* ⚠️ ONE slot travels. Applying collectors to a city leaves every branch's
               accountant exactly as finance set it, branch by branch. */}
-          <select
-            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+          <Select
             value={bulkSlot}
             onChange={(e) => {
               setBulkSlot(e.target.value as Slot)
@@ -614,13 +596,12 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
                 {t('assignment.bulk.slots.' + slot)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.bulk.person')}</span>
-          <select
-            className="h-9 w-56 rounded-md border border-border/60 bg-background px-2 text-sm"
+        <Field label={t('assignment.bulk.person')}>
+          <Select
+            className="w-56"
             value={bulkStaffId}
             onChange={(e) => setBulkStaffId(e.target.value)}
           >
@@ -632,30 +613,29 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
                 {fsi(person.displayName)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
         {/* 🔑 It says *Review*, not *Apply*: the button opens the confirmation, and
             the confirmation is the guard. */}
-        <button
-          type="button"
-          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
+        <Button
+          variant="outlined"
           disabled={selection.storeCodes.length === 0 || preview.isPending}
           onClick={() => preview.mutate()}
         >
           {t('assignment.bulk.review')}
-        </button>
+        </Button>
 
         {/* 318: finance's own sheet, both slots per branch, previewed before it is
             applied. A fourth way of arriving at many branches, with its own review. */}
-        <button
-          type="button"
-          className="ms-auto h-9 rounded-md border border-border/60 px-4 text-sm font-medium"
+        <Button
+          variant="outlined"
+          className="ms-auto"
           onClick={() => setUploadOpen(true)}
           data-testid="assignment-upload-open"
         >
           {t('assignment.upload.open')}
-        </button>
+        </Button>
       </div>
 
       <AssignmentUploadDialog
@@ -677,16 +657,16 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
               </span>
               {/* Releasing the pin is the user's gesture — the rows leave the filter
                   when they say so, not when the server answers. */}
-              <button
-                type="button"
-                className="ms-auto h-8 rounded-md border border-border/60 px-3"
+              <Button
+                variant="outlined"
+                className="ms-auto"
                 onClick={() => {
                   setPins(new Set())
                   setBulkNotice('')
                 }}
               >
                 {t('assignment.bulk.unpin')}
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -812,21 +792,12 @@ function BulkConfirmDialog({
       {!applicable && <p className="mt-2 text-sm">{t('assignment.bulk.confirm.nothing')}</p>}
 
       <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
-          disabled={!applicable || busy}
-          onClick={onApply}
-        >
+        <Button variant="outlined" disabled={!applicable || busy} onClick={onApply}>
           {t('assignment.bulk.confirm.apply')}
-        </button>
-        <button
-          type="button"
-          className="h-9 rounded-md px-3 text-sm text-muted-foreground"
-          onClick={onCancel}
-        >
+        </Button>
+        <Button variant="text" onClick={onCancel}>
           {t('assignment.bulk.confirm.cancel')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -843,6 +814,7 @@ function BulkConfirmDialog({
 function SlotSelect({
   row,
   slot,
+  label,
   people,
   busy,
   nobodyLabel,
@@ -850,6 +822,8 @@ function SlotSelect({
 }: {
   row: AssignmentBranch
   slot: Slot
+  /** The column's own name — the cell has no visible label of its own. */
+  label: string
   people: AssignmentPerson[]
   busy: boolean
   nobodyLabel: string
@@ -861,8 +835,9 @@ function SlotSelect({
   const orphan = value !== '' && !people.some((p) => p.staffId === value)
 
   return (
-    <select
-      className="h-7 w-full rounded border border-border/60 bg-background px-1 text-sm"
+    <Select
+      className="w-full"
+      aria-label={label}
       value={value}
       disabled={busy}
       onChange={(e) => onChange(row, slot, e.target.value)}
@@ -876,7 +851,7 @@ function SlotSelect({
           {fsi(person.displayName)}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }
 
@@ -984,24 +959,22 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
   return (
     <>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.people.search')}</span>
-          <input
-            className="h-9 w-72 rounded-md border border-border/60 bg-background px-3 text-sm"
+        <Field label={t('assignment.people.search')}>
+          <Input
+            className="w-72"
             value={search}
             placeholder={t('assignment.people.searchPlaceholder')}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </label>
+        </Field>
         <div className="ms-auto text-sm text-muted-foreground">
           {t('assignment.people.counts', { total: people.length, supervisors: supervisors.size })}
         </div>
         {/* 337: finance's people sheet, previewed before it is applied — the same
             door shape as the Branches tab's assignment file. */}
         {!uploadForbidden && (
-          <button
-            type="button"
-            className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium"
+          <Button
+            variant="outlined"
             onClick={() => {
               setUploadNotice('')
               setUploadOpen(true)
@@ -1009,7 +982,7 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
             data-testid="people-upload-open"
           >
             {t('assignment.people.upload')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1028,32 +1001,28 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
       )}
 
       {/* ---- the form: add, or edit the row that was clicked ---- */}
-      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.people.staffId')}</span>
-          <input
-            className="h-9 w-36 rounded-md border border-border/60 bg-background px-3 text-sm disabled:opacity-60"
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3" data-people-form>
+        <Field label={t('assignment.people.staffId')}>
+          <Input
+            className="w-36"
             value={form.staffId}
             // The primary key. Renaming a person is a save; re-keying one would be a
             // second row with the first still assigned to branches.
             disabled={editing !== ''}
             onChange={(e) => setForm((f) => ({ ...f, staffId: e.target.value }))}
           />
-        </label>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.people.displayName')}</span>
-          <input
-            className="h-9 w-64 rounded-md border border-border/60 bg-background px-3 text-sm"
+        <Field label={t('assignment.people.displayName')}>
+          <Input
+            className="w-64"
             value={form.displayName}
             onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
           />
-        </label>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.people.role')}</span>
-          <select
-            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+        <Field label={t('assignment.people.role')}>
+          <Select
             value={form.role}
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
           >
@@ -1065,17 +1034,16 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
                 {t(roleLabelKey(role))}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{t('assignment.people.supervisor')}</span>
+        <Field label={t('assignment.people.supervisor')}>
           {/* 🚩 THE WHOLE ROSTER, unfiltered by Role. Anyone may supervise anyone,
               because supervising is not a role — and naming somebody here is what
               makes the Supervisors group appear in the Served by control on four
               screens. */}
-          <select
-            className="h-9 w-56 rounded-md border border-border/60 bg-background px-2 text-sm"
+          <Select
+            className="w-56"
             value={form.supervisorId}
             onChange={(e) => setForm((f) => ({ ...f, supervisorId: e.target.value }))}
           >
@@ -1085,10 +1053,10 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
                 {person.displayName}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex items-center gap-2 pb-2 text-sm">
+        <label className="flex items-center gap-2 pb-1 text-sm">
           <input
             type="checkbox"
             checked={form.isActive}
@@ -1097,28 +1065,26 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
           <span className="text-muted-foreground">{t('assignment.people.isActive')}</span>
         </label>
 
-        <button
-          type="button"
-          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
+        <Button
+          variant="outlined"
           disabled={invalid !== null || save.isPending}
           onClick={() => save.mutate(form)}
         >
           {editing === '' ? t('assignment.people.add') : t('assignment.people.update')}
-        </button>
+        </Button>
 
         {/* Which field is missing, not merely THAT one is — a disabled button with
             no reason beside it is the same dead end on a two-field form as on a
             twenty-field one. */}
         {invalid !== null && (
-          <span className="pb-2 text-sm text-muted-foreground">
+          <span className="pb-1 text-sm text-muted-foreground">
             {t('assignment.people.required', { field: t('assignment.people.' + invalid) })}
           </span>
         )}
 
         {editing !== '' && (
-          <button
-            type="button"
-            className="h-9 rounded-md px-3 text-sm text-muted-foreground"
+          <Button
+            variant="text"
             onClick={() => {
               setForm(blankPerson())
               setEditing('')
@@ -1126,7 +1092,7 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
             }}
           >
             {t('assignment.people.cancel')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -1170,7 +1136,8 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
                   <td className="p-2 text-end">
                     <button
                       type="button"
-                      className="rounded border border-border/60 px-2 py-1 text-xs"
+                      className="h-6 rounded-full border border-border px-2.5 text-xs hover:bg-accent"
+                      data-people-edit
                       onClick={() => {
                         setForm(personToBody(person))
                         setEditing(person.staffId)

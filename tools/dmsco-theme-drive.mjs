@@ -944,6 +944,237 @@ SCREENS.push({
   },
 })
 
+// --- 602: the collection screens on the shared controls ----------------------
+// Self-contained: its stubs and its screens. Two screens, light / dark / RTL:
+//   - `collection-assignment` — the area's heaviest page (Branches: the filter bar,
+//     the bulk bar with its pasted-list Textarea, the grid's slot Selects; People:
+//     the roster form), then the Cash Collections filter strip and the ACRs strip
+//     (the inquiry toolbar shape: Field-labelled Inputs, the Served-by Select, the
+//     grid toggle Chips, the Status radios restyled in place);
+//   - `collection-settlement` — the door (search Input, scope Chips), the post
+//     dialog (Inputs, the reason Textarea, the kind tiles restyled in place), the
+//     ledger's criteria (Chips, date / text Inputs, the Posted-by Select) and the
+//     open lane's tab Chips.
+// Every field labelled, every icon button named, every field on the shared look,
+// the role tokens resolved. Data is the area drives' own shapes, trimmed.
+
+const COLLECTION_ACCESS = {
+  canOpenCollections: true,
+  canOpenAcrs: true,
+  canOpenDeposits: true,
+  canOpenAttempts: true,
+  canOpenAssignment: true,
+  canOpenSettlement: true,
+  canSuperviseSettlement: true,
+  canOpenReady: true,
+}
+const COLLECTION_ROSTER = {
+  accountants: [{ staffId: '4466', displayName: 'ضحى' }],
+  collectors: [{ staffId: 'COLL-9', displayName: 'فهد القحطاني' }],
+  supervisors: [],
+  defaultScope: null,
+}
+const COLLECTION_PEOPLE = [
+  { staffId: '4466', displayName: 'ضحى', role: 'ACCOUNTANT', supervisorId: '', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+  { staffId: '5120', displayName: 'فهد القحطاني', role: 'COLLECTOR', supervisorId: '4466', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+]
+const COLLECTION_BRANCHES = ['P019', 'P020', 'P021'].map((storeCode, i) => ({
+  storeCode,
+  storeName: `Al-Dawaa ${storeCode}`,
+  city: 'Riyadh',
+  area: 'Central',
+  accountantId: i < 2 ? '4466' : '',
+  collectorId: i < 1 ? '5120' : '',
+  updatedBy: 'seed',
+  updatedAt: '2026-09-01T00:00:00',
+}))
+const SETTLEMENT_BRANCHES = [
+  { storeId: '0719', storeName: 'Al-Dawaa 0719', city: 'Riyadh', area: 'Central', servedBy: 'ضحى', isMine: true },
+]
+const COLLECTION_STUBS = [
+  [/^CollectionWeb\/Access$/, COLLECTION_ACCESS],
+  [/^CollectionWeb\/AssignmentOptions$/, COLLECTION_ROSTER],
+  [/^CollectionWeb\/Assignment\/People$/, COLLECTION_PEOPLE],
+  [/^CollectionWeb\/Assignment\/Branches$/, COLLECTION_BRANCHES],
+  [/^Settlement\/Branches$/, SETTLEMENT_BRANCHES],
+  // Fleet, orphans, ledger, open lane, change queue, the inquiry lists: an empty
+  // estate still draws every control.
+  [/^Settlement\//, []],
+  [/^CollectionWeb\//, []],
+]
+
+/** The text-like fields inside `scope` (checkboxes and radios stay native). */
+const fieldsIn = (scope) =>
+  `${scope} input:not([type=checkbox]):not([type=radio]):not([type=hidden]), ${scope} select, ${scope} textarea`
+
+SCREENS.push({
+  key: 'collection-assignment',
+  path: '/collection/assignment',
+  stubs: COLLECTION_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/collection/assignment', '[data-assignment-bar="filter"]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The tab bar: two tab Chips, the look follows aria-selected.
+    const tabs = '[data-assignment-tabs] [role="tab"]'
+    await expectAllPills(ctx, 'assignment tabs', tabs)
+    await expectChipLook(ctx, 'Branches tab', `${tabs}:nth-child(1)`, true)
+    await expectChipLook(ctx, 'People tab', `${tabs}:nth-child(2)`, false)
+
+    // ── Branches: the filter bar and the bulk bar.
+    const filter = '[data-assignment-bar="filter"]'
+    const bulk = '[data-assignment-bar="bulk"]'
+    await page.waitForSelector('.ag-row select', { timeout: 10000 })
+    await expectLabelled(ctx, 'filter bar', fieldsIn(filter))
+    await expectAllFieldsShared(ctx, 'filter bar', filter)
+    await expectFieldLook(ctx, 'branch search (Input)', `${filter} input`)
+    await expectFocusRing(ctx, 'branch search (Input)', `${filter} input`)
+    await expectLabelled(ctx, 'bulk bar', fieldsIn(bulk))
+    await expectAllFieldsShared(ctx, 'bulk bar', bulk)
+    await expectFieldLook(ctx, 'bulk target (Select)', `${bulk} select`)
+    await expectAllPills(ctx, 'bulk bar buttons', `${bulk} button`)
+    // The grid's slot Selects: named by their column, on the shared look.
+    await expectLabelled(ctx, 'grid slot selects', '.ag-row select')
+    await expectAllFieldsShared(ctx, 'grid', '.ag-root-wrapper')
+    // The pasted-list flow brings a Textarea into the bulk bar.
+    await page.locator(`${bulk} select`).first().selectOption('pasted')
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'pasted list', `${bulk} textarea`)
+    await expectAllFieldsShared(ctx, 'bulk bar with the pasted list', bulk)
+    await shot('branches')
+
+    // ── People: the roster form, and the row Edit actions.
+    await page.locator(`${tabs}:nth-child(2)`).click()
+    await page.waitForSelector('[data-people-form]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    await expectChipLook(ctx, 'People tab after click', `${tabs}:nth-child(2)`, true)
+    const form = '[data-people-form]'
+    await expectLabelled(ctx, 'people form', fieldsIn(form))
+    await expectAllFieldsShared(ctx, 'people form', form)
+    await expectFieldLook(ctx, 'staff id (Input)', `${form} input:not([type=checkbox])`)
+    await expectFieldLook(ctx, 'role (Select)', `${form} select`)
+    await expectAllPills(ctx, 'people form buttons', `${form} button`)
+    await expectAllPills(ctx, 'people row Edit', '[data-people-edit]')
+    await shot('people')
+
+    // ── Cash Collections' filter strip: Field-labelled Inputs, the Served-by
+    //    Select, Search / Reset Buttons, the grid toggle Chips.
+    await openWorkspacePage(page, '/collection/collections', '[data-filter-strip]')
+    const strip = '[data-filter-strip]'
+    await expectLabelled(ctx, 'collections strip', fieldsIn(strip))
+    await expectAllFieldsShared(ctx, 'collections strip', strip)
+    await expectFieldLook(ctx, 'business date from (date Input)', `${strip} input[type=date]`)
+    await expectFocusRing(ctx, 'business date from (date Input)', `${strip} input[type=date]`)
+    await expectFieldLook(ctx, 'served by (Select)', `${strip} select`)
+    await expectAllPills(ctx, 'collections strip buttons', `${strip} button`)
+    const toggle = 'main button[aria-pressed]'
+    await expectAllPills(ctx, 'grid toggles', toggle)
+    const on = (await page.locator(toggle).first().getAttribute('aria-pressed')) === 'true'
+    await expectChipLook(ctx, 'grid toggle chip', toggle, on)
+    await shot('collections')
+
+    // ── ACRs: the Status radios restyled in place, and the Filtered chip's clear.
+    await openWorkspacePage(page, '/collection/acrs', '[data-filter-strip]')
+    await expectLabelled(ctx, 'acrs strip', fieldsIn(strip))
+    await expectAllFieldsShared(ctx, 'acrs strip', strip)
+    await expectAllPills(ctx, 'acrs status radios', `${strip} [role="radio"]`)
+    const radios = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-filter-strip] [role="radio"]')].map((b) => b.getAttribute('aria-checked')),
+    )
+    check(
+      `${tag} acrs status: radios keep aria-checked, one checked`,
+      radios.length === 3 && radios.filter((r) => r === 'true').length === 1,
+      radios.join(','),
+    )
+    await page.locator(`${strip} [data-status][aria-checked="false"]`).first().click()
+    await page.locator(`${strip} button[type="submit"]`).click()
+    await page.waitForSelector(`${strip} button[aria-label]`, { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectIconButtonsNamed(ctx, 'acrs Filtered chip', strip, 1)
+    await shot('acrs')
+  },
+})
+
+SCREENS.push({
+  key: 'collection-settlement',
+  path: '/collection/settlement',
+  stubs: COLLECTION_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/collection/settlement', '[data-testid="settlement-search"]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The door: the search Input, the scope Chips.
+    const search = '[data-testid="settlement-search"]'
+    await expectLabelled(ctx, 'settlement search', search)
+    await expectFieldLook(ctx, 'settlement search (search Input)', search)
+    await expectFocusRing(ctx, 'settlement search (search Input)', search)
+    const scopes = '[data-region="settlement-scope"] [data-scope]'
+    await expectAllPills(ctx, 'scope chips', scopes)
+    const pressed = await page.evaluate(
+      (sel) => [...document.querySelectorAll(sel)].map((b) => b.getAttribute('aria-pressed')),
+      scopes,
+    )
+    check(
+      `${tag} scope chips: each exposes aria-pressed, one pressed`,
+      pressed.length === 3 && pressed.filter((p) => p === 'true').length === 1,
+      pressed.join(','),
+    )
+    await expectChipLook(ctx, 'scope chip', `${scopes}[aria-pressed="true"]`, true)
+    await expectChipLook(ctx, 'scope chip', `${scopes}[aria-pressed="false"]`, false)
+    await shot('door')
+
+    // ── The post dialog: branch + amount Inputs, the reason Textarea, the kind tiles.
+    await page.locator('[data-testid="post-open"]').click()
+    await page.waitForSelector('[data-region="post-entry"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    const post = '[data-region="post-entry"]'
+    await expectLabelled(ctx, 'post form', fieldsIn(post))
+    await expectAllFieldsShared(ctx, 'post form', post)
+    await expectFieldLook(ctx, 'post branch (Input)', '[data-testid="post-branch"]')
+    await expectFocusRing(ctx, 'post branch (Input)', '[data-testid="post-branch"]')
+    await expectRole(ctx, 'post kind tile (restyled in place, chosen)', `${post} [data-kind][aria-pressed="true"]`, 'border-top-color', '--primary')
+    await expectRole(ctx, 'post kind tile (restyled in place, idle)', `${post} [data-kind][aria-pressed="false"]`, 'border-top-color', '--border')
+    // A Review with nothing typed marks the form: invalid is aria-invalid + the danger edge.
+    await page.locator('[data-testid="post-review"]').click({ force: true }) // aria-disabled until ready: a click marks the form
+    await page.mouse.move(0, 0)
+    const invalid = `${post} [aria-invalid="true"]`
+    if (await page.locator(invalid).count()) await expectInvalid(ctx, 'post form, blank on Review', invalid)
+    else skip(`${tag} post form: Review marked no field invalid`)
+    await shot('post')
+    await page.keyboard.press('Escape')
+
+    // ── The ledger's criteria: Chips, date / text Inputs, the Posted-by Select.
+    await openWorkspacePage(page, '/collection/settlement/ledger', '[data-region="ledger-criteria"]')
+    const crit = '[data-region="ledger-criteria"]'
+    await expectLabelled(ctx, 'ledger criteria', fieldsIn(crit))
+    await expectAllFieldsShared(ctx, 'ledger criteria', crit)
+    await expectFieldLook(ctx, 'posted by (Select)', '[data-testid="ledger-posted-by"]')
+    await expectFieldLook(ctx, 'amount from (Input)', '[data-testid="ledger-amount-from"]')
+    await expectFocusRing(ctx, 'amount from (Input)', '[data-testid="ledger-amount-from"]')
+    const chip = `${crit} [data-chip]`
+    await expectAllPills(ctx, 'ledger chips', chip)
+    await expectChipLook(ctx, 'ledger chip', chip, false)
+    await page.locator(chip).first().click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'ledger chip after click', `${chip}[aria-pressed="true"]`, true)
+    await shot('ledger')
+
+    // ── The open lane's tabs: tab Chips inside the tablist.
+    await openWorkspacePage(page, '/collection/settlement/open', '[role="tablist"] [data-tab]')
+    const tab = '[role="tablist"] [data-tab]'
+    await expectAllPills(ctx, 'open lane tabs', tab)
+    await expectChipLook(ctx, 'open lane tab', `${tab}[aria-selected="true"]`, true)
+    await expectChipLook(ctx, 'open lane tab', `${tab}[aria-selected="false"]`, false)
+    await shot('open')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

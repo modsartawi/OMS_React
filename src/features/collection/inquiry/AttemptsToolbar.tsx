@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { RotateCcw, Search, X } from 'lucide-react'
 import type { AttemptsCriteria } from './attempts-criteria'
 import DateField from './DateField'
@@ -39,6 +43,7 @@ export default function AttemptsToolbar({
 
   return (
     <form
+      data-filter-strip
       className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
       onSubmit={(e) => {
         e.preventDefault()
@@ -70,37 +75,34 @@ export default function AttemptsToolbar({
         onChange={(collectionDateTo) => onChange({ collectionDateTo })}
       />
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('attempts.search.store')}
-        <input
+      <Field label={t('attempts.search.store')}>
+        <Input
           type="text"
           inputMode="numeric"
           value={criteria.storeCode}
           onChange={(e) => onChange({ storeCode: e.target.value })}
           placeholder={t('attempts.search.storePlaceholder')}
-          className="h-9 w-36 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-36"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('attempts.search.collector')}
-        <input
+      </Field>
+      <Field label={t('attempts.search.collector')}>
+        <Input
           type="text"
           value={criteria.collectorStaffId}
           onChange={(e) => onChange({ collectorStaffId: e.target.value })}
           placeholder={t('attempts.search.collectorPlaceholder')}
-          className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('attempts.search.reason')}
-        <input
+      </Field>
+      <Field label={t('attempts.search.reason')}>
+        <Input
           type="text"
           value={criteria.reasonCode}
           onChange={(e) => onChange({ reasonCode: e.target.value })}
           placeholder={t('attempts.search.reasonPlaceholder')}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-44"
         />
-      </label>
+      </Field>
 
       {/* 🚩 **The shared control, on the ASSIGNMENT reading** (ticket 316, BackOffice
           1993): the accountant responsible for the store, by its CURRENT pairing —
@@ -114,34 +116,33 @@ export default function AttemptsToolbar({
       />
 
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          variant="primary"
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('attempts.search.search')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('attempts.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('attempts.search.filtered')}
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onReset}
-            aria-label={t('attempts.search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('attempts.search.clearFilter')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
     </form>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowRight, ListTree, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
+import { ArrowRight, ListTree, RefreshCw, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import { fsi } from '@/core/util/bidi'
@@ -13,6 +13,7 @@ import type {
   SettlementScope,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { branchSearch, readQuery, uploadSearch, writeQuery } from './addresses'
 import { settlementMoney } from './money-display'
@@ -157,23 +158,17 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   return (
     <div className="flex flex-col gap-4" data-region="settlement-door">
       <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2" role="search">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label={t('search.label')}
-            // The screen starts with typing: focused on landing.
-            autoFocus
-            placeholder={t('search.placeholder')}
-            data-testid="settlement-search"
-            className="h-9 w-full rounded-full border border-border bg-card ps-9 pe-3 text-sm outline-none focus:border-primary/60"
-          />
-        </div>
+        <Input
+          type="search"
+          className="min-w-0 flex-1"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={t('search.label')}
+          // The screen starts with typing: focused on landing.
+          autoFocus
+          placeholder={t('search.placeholder')}
+          data-testid="settlement-search"
+        />
         <Button type="submit" variant="secondary">
           {t('search.submit')}
         </Button>

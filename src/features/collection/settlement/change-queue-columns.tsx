@@ -205,7 +205,7 @@ export function buildChangeQueueColumns(
                 data-testid="change-queue-reject"
                 aria-disabled={busy || undefined}
                 onClick={() => !busy && onReject(row)}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary aria-disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary aria-disabled:opacity-50"
               >
                 <X className="h-3 w-3" aria-hidden />
                 {t('changeRequest.card.reject')}

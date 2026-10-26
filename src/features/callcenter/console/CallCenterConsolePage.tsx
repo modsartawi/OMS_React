@@ -118,6 +118,7 @@ import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submi
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
+import type { AddressFormValues } from './address-capture'
 import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
@@ -270,6 +271,13 @@ function ConsoleSession() {
    * moment it has answered.
    */
   const [pickingAddress, setPickingAddress] = useState(false)
+  /**
+   * 576 — *Create address from this location*: the capture's pre-fill the book opens on, and
+   * the location card's wait for the create (resolved with the new `addressNumber`, or `null`
+   * when the book closes without one).
+   */
+  const [addressPrefill, setAddressPrefill] = useState<AddressFormValues | null>(null)
+  const createdFromLocation = useRef<((addressNumber: string | null) => void) | null>(null)
 
   /** The store override, open or not (167) — the other way into the same rebind. */
   const [pickingStore, setPickingStore] = useState(false)
@@ -1816,9 +1824,31 @@ function ConsoleSession() {
             ? [...current.filter((row) => row.addressNumber !== entry.addressNumber), entry]
             : current,
         )
+      // 576 — a create the location card opened: the card stamps its capture once the order
+      // holds this address (the rebind below may still preview a store move first).
+      createdFromLocation.current?.(entry.addressNumber)
+      createdFromLocation.current = null
       rebind.mutate(beginStoreMove('address', entry.addressNumber))
     },
   })
+
+  /** 576 — the location card's *Create address from this location*. */
+  const createAddressFromLocation = (prefill: AddressFormValues) =>
+    new Promise<string | null>((resolve) => {
+      createdFromLocation.current?.(null)
+      createdFromLocation.current = resolve
+      setAddressPrefill(prefill)
+      setPickingAddress(true)
+    })
+
+  // The book closed, by any road (a pick, a create's apply, the agent's own close): the
+  // pre-fill is spent, and a card still waiting on a create learns there was none.
+  useEffect(() => {
+    if (pickingAddress) return
+    setAddressPrefill(null)
+    createdFromLocation.current?.(null)
+    createdFromLocation.current = null
+  }, [pickingAddress])
 
   const updateAddress = useMutation({
     mutationFn: ({
@@ -2348,6 +2378,11 @@ function ConsoleSession() {
             onSent={() => linkSentOn.current.add(session.data!.transactionId)}
             onApply={applyLocation}
             onRefresh={refreshSession}
+            onCreateAddress={
+              session.data.header.customer && session.data.capabilities.canOpenAddressBook
+                ? createAddressFromLocation
+                : undefined
+            }
           />
         }
         // One open at a time (`openSection`), so this is the whole question the
@@ -2628,6 +2663,7 @@ function ConsoleSession() {
               deleteAddress.mutateAsync(addressNumber).then(() => undefined),
           }}
           onClose={closeAddressBook}
+          prefill={addressPrefill}
         />
       )}
       {/* The caller's open request, and what linking it will copy (194). 🚩 It is

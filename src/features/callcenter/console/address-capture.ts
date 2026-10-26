@@ -32,7 +32,7 @@
  * field reads as a code the agent typed, never as an address the system
  * confirmed.
  */
-import type { CustomerAddressBookEntry, CustomerAddressCapture } from '@/core/models/callcenter'
+import type { CustomerAddressBookEntry, CustomerAddressCapture, LocationCapture } from '@/core/models/callcenter'
 
 /** What the form holds while the agent types. Strings throughout — a text box
  *  that has been emptied holds `''`, and that is the value that must reach the
@@ -105,6 +105,25 @@ export function addressFormOf(entry: CustomerAddressBookEntry): AddressFormValue
     shortAddress: text(a?.shortAddress),
     gpsLat: a?.gpsLat ?? 0,
     gpsLon: a?.gpsLon ?? 0,
+  }
+}
+
+/**
+ * 576 — *Create address from this location*: a NEW address's seed (`emptyAddressForm`, so
+ * `HOME`), pre-filled with what the customer sent — the pin, the Short Address and the details
+ * (into line 2). The city, district and line are the agent's to fill.
+ *
+ * ⚠️ This is the one create that carries a REAL pin rather than the zeroes: the GPS pair is
+ * still not a form field, it rides the form untouched into `addressPayload`, so the book row is
+ * born holding the captured pin and `setAddress` (861) refills the order's pin from it.
+ */
+export function addressFormFromCapture(capture: LocationCapture): AddressFormValues {
+  return {
+    ...emptyAddressForm(),
+    street2: text(capture.addressDetails),
+    shortAddress: text(capture.shortAddress).toUpperCase(),
+    gpsLat: capture.gpsLat,
+    gpsLon: capture.gpsLon,
   }
 }
 

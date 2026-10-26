@@ -66,8 +66,12 @@ export interface LocationCard {
   shortAddress: LocationCardShortAddress
   details: LocationCardDetails
   /** Whether *Also save to this customer address* is drawn: a customer is attached AND the
-   *  order has an address (576 adds *Create address from this location* in its place). */
+   *  order has an address. */
   saveToCustomer: boolean
+  /** Whether *Create address from this location* is drawn in the save row's place (576): a
+   *  customer is attached (their book is where the address goes) and the order has NO address.
+   *  With no customer, neither is drawn. */
+  createAddress: boolean
   /** The default ticks: the pin, the Short Address and the details ticked where they can be;
    *  save to customer never. */
   ticks: LocationTicks
@@ -123,6 +127,7 @@ export function locationCard(
     },
     details: { text, mode: detailsMode },
     saveToCustomer: customerAttached && address !== null,
+    createAddress: customerAttached && address === null,
     ticks: {
       pin: true,
       shortAddress: code !== null,
@@ -153,6 +158,28 @@ export function applyBody(
     applyShortAddress: card.shortAddress.tickable && ticks.shortAddress,
     applyDetails: card.details.mode === 'tick' && ticks.details,
     saveToCustomer: card.saveToCustomer && ticks.saveToCustomer,
+  }
+}
+
+/**
+ * The stamp after *Create address from this location* (576, open question 1 — the
+ * recommended option, an overrulable ruling): once the created address is on the order, the
+ * capture is applied with the pin, the Short Address and the details ticked and
+ * `saveToCustomer: false`. It is idempotent against the values the create just wrote (the
+ * server's rules: a blank never wipes, details only into an EMPTY line 2), and stamps Applied
+ * in the same transaction — so the trail says what happened to the capture. The ticks are sent
+ * raw, not ANDed with the card: the card now compares against the address the capture itself
+ * filled, and the server decides every rule again.
+ */
+export function stampAfterCreate(transactionId: string, requestId: string, token: string): ApplyLocationRequest {
+  return {
+    transactionId,
+    requestId,
+    token,
+    applyPin: true,
+    applyShortAddress: true,
+    applyDetails: true,
+    saveToCustomer: false,
   }
 }
 

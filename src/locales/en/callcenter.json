@@ -782,13 +782,24 @@
       "applying": "Applying…",
       "failed": "The location couldn't be applied. Nothing changed - try again.",
       "notYet": "The server has no location for this link yet - try Apply again in a moment.",
+      "discard": "Discard",
+      "discarding": "Discarding…",
+      "discardFailed": "The location couldn't be discarded. Nothing changed - try again.",
+      "createAddress": "Create address from this location",
       "refused": {
         "noCustomer": "There is no customer on this order to save the address to - untick it and Apply again.",
         "notTheirs": "This order's address is not in this customer's address book - untick it and Apply again."
       }
     },
     "chip": {
-      "applied": "Location applied <time>{{time}}</time> · <map>Open in Google Maps</map>"
+      "applied": "Location applied <time>{{time}}</time> · <map>Open in Google Maps</map>",
+      "cleared": "Location cleared - address changed"
+    },
+    "resendConfirm": {
+      "title": "Resend location link",
+      "body": "Discard the received location and send a new link?",
+      "keep": "Keep it",
+      "yes": "Discard and send"
     }
   }
 }

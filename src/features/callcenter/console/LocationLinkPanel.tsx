@@ -25,7 +25,16 @@
  *   (`onApply`, through `runGuarded`); the panel only builds its body — the ticks, never the
  *   values — and words its refusals (`applyRefusal`).
  * - **The chip** (575) — *Location applied hh:mm · Open in Google Maps* — stays until the
- *   order in progress ends, which is when this panel is unmounted.
+ *   order in progress ends, which is when this panel is unmounted. 576: when the order's
+ *   address changes after it (`chipAfter`, by `addressNumber`), it reads *Location cleared -
+ *   address changed* — `setAddress` refilled the pin from the new book row (861).
+ * - **Discard** (576) stamps the capture with no confirmation; the strip then reads *Location
+ *   discarded* with Send again. **Never two cards**: Resend over an unapplied card asks first,
+ *   then discards, then sends (`resendSteps`) — the send's success resets every card state, so
+ *   the discard must land before it. Resend over the chip is free.
+ * - **Create address from this location** (576): the page opens `AddressPicker` on a create
+ *   pre-filled from the capture (`onCreateAddress`); once the created address is on the order,
+ *   the capture is stamped through `ApplyLocation` (`stampAfterCreate`).
  */
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -44,15 +53,31 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { useSecondClock } from '@/core/ui/second-clock'
 import { callCenterApi, locationLinkKey } from './api'
-import { applyBody, applyRefusal, captureStamp, locationCard, mapsUrl, type LocationTicks } from './location-card'
+import { addressFormFromCapture, type AddressFormValues } from './address-capture'
+import {
+  applyBody,
+  applyRefusal,
+  captureStamp,
+  locationCard,
+  mapsUrl,
+  stampAfterCreate,
+  type LocationTicks,
+} from './location-card'
 import LocationCardView from './LocationCardView'
 import {
+  chipAfter,
+  discardRefusal,
   LOCATION_POLL_MS,
   pollRefusal,
+  resendCooldownSeconds,
+  resendSteps,
   sendBody,
   sendRefusal,
   showsSendAction,
+  stripAct,
   stripView,
+  type AppliedChip,
+  type LocationFace,
   type SendRefusal,
   type StripView,
 } from './location-link-view'
@@ -70,7 +95,7 @@ interface HeldLink {
 /**
  * What became of the held link, when the panel learned it from something other than the
  * status: `applied` (this press's Apply landed — `at` is the console's clock), `gone`
- * (`CCL-00006`: no such link for this agent), or `discarded` (576 stamps it).
+ * (`CCL-00006`: no such link for this agent), or `discarded` (this press's Discard landed).
  */
 type LinkOutcome = { kind: 'applied'; at: string } | { kind: 'gone' } | { kind: 'discarded' }
 
@@ -82,6 +107,7 @@ export default function LocationLinkPanel({
   onSent,
   onApply,
   onRefresh,
+  onCreateAddress,
 }: {
   state: SessionState
   /** Told after every successful Send, so the page knows this order has a link to Retire. */
@@ -91,6 +117,10 @@ export default function LocationLinkPanel({
   onApply: (body: ApplyLocationRequest) => Promise<SessionState>
   /** Re-read the order (`CCL-00031`: the capture was already stamped). */
   onRefresh: () => void
+  /** 576 — open the address book on a create pre-filled from the capture. Resolves with the
+   *  created `addressNumber` once the create lands, or `null` when the book closes without
+   *  one. Absent when the book cannot be opened on this order. */
+  onCreateAddress?: (prefill: AddressFormValues) => Promise<string | null>
 }) {
   const { t } = useTranslation('callcenter')
   const now = useSecondClock()
@@ -112,6 +142,12 @@ export default function LocationLinkPanel({
   /** `CCL-00030`'s one retry: the body waiting for the next poll, and whether it was spent. */
   const [retryBody, setRetryBody] = useState<ApplyLocationRequest | null>(null)
   const [retried, setRetried] = useState(false)
+  /** 576 — Resend over an unapplied card is asking *Discard … and send a new link?* */
+  const [confirmingResend, setConfirmingResend] = useState(false)
+  /** 576 — the chip's memory (the address it was first shown on), for the token it is about. */
+  const [chip, setChip] = useState<{ token: string; chip: AppliedChip } | null>(null)
+  /** 576 — a create from this capture landed: stamp it once the order holds that address. */
+  const [stampOn, setStampOn] = useState<{ token: string; addressNumber: string } | null>(null)
 
   const open = state.status === 'open'
   const customerMobile = state.header.customer?.mobile ?? null
@@ -134,6 +170,7 @@ export default function LocationLinkPanel({
       setSaveError(null)
       setRetryBody(null)
       setRetried(false)
+      setStampOn(null)
       setDialogOpen(false)
       onSent?.()
     },
@@ -202,6 +239,9 @@ export default function LocationLinkPanel({
       ? locationCard(capture, state.header.address, state.header.customer !== null)
       : null
   const ticks = card ? (ticked && ticked.token === token ? ticked.ticks : card.ticks) : null
+  const face: LocationFace = applied && capture ? 'chip' : card ? 'card' : 'strip'
+  const addressNumber = state.header.address?.addressNumber ?? null
+  const shownChip = chip && chip.token === token ? chip.chip : null
 
   const apply = useMutation({
     mutationFn: (body: ApplyLocationRequest) => onApply(body),
@@ -247,6 +287,72 @@ export default function LocationLinkPanel({
     retry: false,
   })
 
+  /**
+   * 576 — Discard, and (`thenSend`) Resend's send after it. The send waits for the discard to
+   * LAND: a refused discard is drawn like any other and nothing is sent, so a capture is never
+   * left unstamped behind a new link.
+   */
+  const discard = useMutation({
+    mutationFn: ({ token: tok }: { token: string; thenSend?: LocationLinkSendRequest }) =>
+      callCenterApi.discardLocation(tok),
+    onMutate: () => {
+      setCardError(null)
+      setSaveError(null)
+    },
+    onSuccess: (_stamped, { thenSend }) => {
+      setRetryBody(null)
+      setStampOn(null)
+      setOutcome({ kind: 'discarded' })
+      if (thenSend) send.mutate(thenSend)
+    },
+    onError: (err) => {
+      const placed = discardRefusal(err)
+      switch (placed.at) {
+        case 'refetch':
+          onRefresh()
+          void status.refetch()
+          return
+        case 'gone':
+          setOutcome({ kind: 'gone' })
+          return
+        case 'hide':
+          setHidden(true)
+          setHeld(null)
+          return
+        case 'card':
+          setCardError('key' in placed ? { key: placed.key } : { text: placed.text })
+      }
+    },
+    retry: false,
+  })
+
+  // 576 — the chip remembers the address it was first shown on; a different one clears it.
+  useEffect(() => {
+    if (face !== 'chip' || !token) return
+    setChip((cur) => {
+      const prev = cur && cur.token === token ? cur.chip : null
+      const next = chipAfter(prev, addressNumber)
+      return prev && prev.addressNumber === next.addressNumber && prev.cleared === next.cleared
+        ? cur
+        : { token, chip: next }
+    })
+  }, [face, token, addressNumber])
+
+  // 576 — Create address from this location: once the order holds the created address, the
+  // capture is stamped (open question 1's recommended option, an overrulable ruling).
+  const { mutate: applyNow } = apply
+  const transactionId = state.transactionId
+  useEffect(() => {
+    if (!stampOn || !transactionId) return
+    if (stampOn.token !== token) {
+      setStampOn(null)
+      return
+    }
+    if (addressNumber !== stampOn.addressNumber) return
+    setStampOn(null)
+    applyNow(stampAfterCreate(transactionId, newRequestId(), stampOn.token))
+  }, [stampOn, token, addressNumber, transactionId, applyNow])
+
   // `CCL-00030`'s retry, one poll interval on — the same press (the same `requestId`: it
   // was refused, so nothing was recorded against it). An unmount (the order ended) clears it.
   const { mutate: applyMutate } = apply
@@ -268,7 +374,26 @@ export default function LocationLinkPanel({
     send.reset()
     setDialogOpen(true)
   }
-  const resend = () => held && send.mutate(held.body)
+  /** Resend from whichever face is showing (`resendSteps`): over an unapplied card it asks. */
+  const resend = () => {
+    if (!held) return
+    if (resendSteps(face)[0] === 'confirm') setConfirmingResend(true)
+    else send.mutate(held.body)
+  }
+  const confirmResend = () => {
+    setConfirmingResend(false)
+    if (held && token) discard.mutate({ token, thenSend: held.body })
+  }
+  const createAddress =
+    onCreateAddress && capture && token
+      ? () => {
+          const tok = token
+          void onCreateAddress(addressFormFromCapture(capture)).then((created) => {
+            if (created) setStampOn({ token: tok, addressNumber: created })
+          })
+        }
+      : undefined
+  const resendIn = held ? resendCooldownSeconds(held.sentAt, now) : 0
 
   return (
     <div className="flex shrink-0 flex-col gap-1 border-b border-divider bg-card px-4 py-1.5" data-cc-location>
@@ -281,32 +406,66 @@ export default function LocationLinkPanel({
         </div>
       )}
       {held && applied && capture && (
-        <div
-          className="flex flex-wrap items-center gap-x-2 gap-y-1 self-start rounded-full border border-border bg-muted px-3 py-1 text-[12.5px]"
-          role="status"
-          data-cc-location-chip
-        >
-          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span dir="auto">
-            <Trans
-              t={t}
-              ns="callcenter"
-              i18nKey="location.chip.applied"
-              values={{ time: formatTimeOfDay(applied) }}
-              components={{
-                time: <Ltr />,
-                map: (
-                  <a
-                    href={mapsUrl(capture.gpsLat, capture.gpsLon)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                    data-cc-location-maps
-                  />
-                ),
-              }}
-            />
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 self-start rounded-full border border-border bg-muted px-3 py-1 text-[12.5px]"
+            role="status"
+            data-cc-location-chip={shownChip?.cleared ? 'cleared' : 'applied'}
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {shownChip?.cleared ? (
+              <span dir="auto">{t('location.chip.cleared')}</span>
+            ) : (
+              <span dir="auto">
+                <Trans
+                  t={t}
+                  ns="callcenter"
+                  i18nKey="location.chip.applied"
+                  values={{ time: formatTimeOfDay(applied) }}
+                  components={{
+                    time: <Ltr />,
+                    map: (
+                      <a
+                        href={mapsUrl(capture.gpsLat, capture.gpsLon)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                        data-cc-location-maps
+                      />
+                    ),
+                  }}
+                />
+              </span>
+            )}
+          </div>
+          {/* Resend after Apply is free (2468): the new card compares against the order's
+              current values, which already hold this capture. */}
+          <Button
+            variant="text"
+            onClick={resend}
+            disabled={send.isPending || resendIn > 0}
+            data-cc-location-resend
+            data-cc-location-resend-in={resendIn}
+          >
+            {resendIn > 0 ? (
+              <span dir="auto">
+                <Trans
+                  t={t}
+                  ns="callcenter"
+                  i18nKey="location.strip.resendIn"
+                  values={{ seconds: resendIn }}
+                  components={{ seconds: <Ltr /> }}
+                />
+              </span>
+            ) : (
+              t('location.strip.resend')
+            )}
+          </Button>
+          {refusal && !dialogOpen && (
+            <p className="basis-full text-[12.5px] text-danger-800" data-cc-location-strip-error>
+              <bdi>{refusalText(refusal, t)}</bdi>
+            </p>
+          )}
         </div>
       )}
       {held && card && ticks && token && (
@@ -317,13 +476,24 @@ export default function LocationLinkPanel({
             setTicked({ token, ticks: next })
             if (!next.saveToCustomer) setSaveError(null)
           }}
-          applying={apply.isPending || retryBody !== null}
+          applying={apply.isPending || retryBody !== null || stampOn !== null}
           onApply={() =>
             state.transactionId && apply.mutate(applyBody(state.transactionId, newRequestId(), token, card, ticks))
           }
           error={cardError ? ('key' in cardError ? t(cardError.key) : cardError.text) : null}
           saveError={saveError ? t(saveError) : null}
+          onDiscard={() => discard.mutate({ token })}
+          discarding={discard.isPending}
+          onResend={resend}
+          resendIn={resendIn}
+          resending={send.isPending}
+          onCreateAddress={createAddress}
         />
+      )}
+      {held && card && refusal && !dialogOpen && (
+        <p className="text-[12.5px] text-danger-800" data-cc-location-strip-error>
+          <bdi>{refusalText(refusal, t)}</bdi>
+        </p>
       )}
       {held && view && !applied && !card && (
         <LocationStrip
@@ -335,6 +505,26 @@ export default function LocationLinkPanel({
           error={!dialogOpen && refusal ? refusalText(refusal, t) : null}
         />
       )}
+      <Modal
+        open={confirmingResend}
+        onClose={() => setConfirmingResend(false)}
+        title={t('location.resendConfirm.title')}
+        width="26rem"
+        footer={
+          <>
+            <Button variant="text" onClick={() => setConfirmingResend(false)} data-cc-location-resend-keep>
+              {t('location.resendConfirm.keep')}
+            </Button>
+            <Button variant="primary" onClick={confirmResend} data-cc-location-resend-yes>
+              {t('location.resendConfirm.yes')}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm" data-cc-location-resend-confirm>
+          {t('location.resendConfirm.body')}
+        </p>
+      </Modal>
       <Modal
         open={dialogOpen}
         onClose={() => !send.isPending && setDialogOpen(false)}
@@ -418,9 +608,10 @@ function LocationStrip({
   error: string | null
 }) {
   const { t } = useTranslation('callcenter')
-  const live = view.kind === 'waiting' || view.kind === 'unreachable'
+  const act = stripAct(view.kind)
+  const live = act === 'resend'
   /** A link that can no longer bring a location: Send again is the one act left. */
-  const dead = view.kind === 'expired' || view.kind === 'replaced' || view.kind === 'gone' || view.kind === 'discarded'
+  const dead = act === 'sendAgain'
   const tone = dead
       ? 'border-attention-border bg-attention-050 text-attention-800'
       : 'border-border bg-muted text-foreground'

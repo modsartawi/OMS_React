@@ -34,6 +34,7 @@ import type {
   DeliveryType,
   ItemSearchResult,
   LinkRequestResult,
+  LocationLinkDiscarded,
   LocationLinkRetired,
   LocationLinkRetireRequest,
   LocationLinkSendRequest,
@@ -1132,6 +1133,16 @@ export const callCenterApi = {
    */
   applyLocation(body: ApplyLocationRequest): Promise<SessionState> {
     return api.post<SessionState>('CallCenterWeb/ApplyLocation', body)
+  },
+
+  /**
+   * `POST CallCenterWeb/LocationLinks/{token}/Discarded` → `{ stamp, stampedAt }` (§2, 576) —
+   * the card's Discard. A LINK call, not a session verb: no `requestId`, no `runGuarded`.
+   * Leaves a record (`DiscardedAt`/`DiscardedBy`). Refuses with a `CCL-` code:
+   * `CCL-00031` already stamped, `CCL-00006` no such link for this agent.
+   */
+  discardLocation(token: string): Promise<LocationLinkDiscarded> {
+    return api.post<LocationLinkDiscarded>(`CallCenterWeb/LocationLinks/${encodeURIComponent(token)}/Discarded`, undefined)
   },
 }
 

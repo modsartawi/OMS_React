@@ -196,3 +196,80 @@ export function pollRefusal(err: unknown): 'gone' | 'hide' | 'failed' {
   if (code === CCL.notConfigured) return 'hide'
   return 'failed'
 }
+
+/**
+ * The one act a strip offers (2468): **Resend** while the link is live, **Send again** once it
+ * can no longer bring a location — lapsed, replaced, gone, or discarded (576) — and none on
+ * `received`, which the card replaces.
+ */
+export function stripAct(kind: StripKind): 'resend' | 'sendAgain' | null {
+  if (kind === 'waiting' || kind === 'unreachable') return 'resend'
+  if (kind === 'received') return null
+  return 'sendAgain'
+}
+
+/**
+ * Where a **Discard** refusal is drawn (576; §2 — a link call, so a 400 whose
+ * `errors[0].errorCode` is the `CCL-` code itself, not the verbs' `detail.code`).
+ * - `refetch`: `CCL-00031`, already applied or discarded — re-read the order and the link;
+ *   the capture's own stamp then draws the chip or the strip;
+ * - `gone`: `CCL-00006`, no such link for this agent — drop the card, offer Send again;
+ * - `hide`: `CCL-00001`, not configured;
+ * - `card`: anything else, on the card, in the server's words where it gave any.
+ */
+export type DiscardRefusal =
+  | { at: 'refetch' }
+  | { at: 'gone' }
+  | { at: 'hide' }
+  | { at: 'card'; text: string }
+  | { at: 'card'; key: string }
+
+export function discardRefusal(err: unknown): DiscardRefusal {
+  switch (apiErrorCode(err)) {
+    case CCL.alreadyStamped:
+      return { at: 'refetch' }
+    case CCL.noSuchLink:
+      return { at: 'gone' }
+    case CCL.notConfigured:
+      return { at: 'hide' }
+  }
+  const text = apiErrorMessage(err, '')
+  return text ? { at: 'card', text } : { at: 'card', key: 'location.card.discardFailed' }
+}
+
+/** What the panel is showing for the held link: the strip, the card (an unapplied capture), or
+ *  the chip (applied). */
+export type LocationFace = 'strip' | 'card' | 'chip'
+export type ResendStep = 'confirm' | 'discard' | 'send'
+
+/**
+ * Resend's steps from each face (2468: **there is never more than one card**). Over an unapplied
+ * card it asks *"Discard the received location and send a new link?"*; yes stamps the discard,
+ * then sends — the send only after the discard lands. Over the chip it is free: the new
+ * capture's card compares against the order's current values, which already hold the first.
+ */
+export function resendSteps(face: LocationFace): ResendStep[] {
+  return face === 'card' ? ['confirm', 'discard', 'send'] : ['send']
+}
+
+/** The applied chip's memory: the order's `addressNumber` when the chip was first shown, and
+ *  whether the order has since left it. */
+export interface AppliedChip {
+  addressNumber: string | null
+  cleared: boolean
+}
+
+/**
+ * The chip, after the order's address reads `addressNumber` (576). On this seat `setAddress`
+ * refills the session's pin from the newly picked book row (BackOffice 861), so the applied pin
+ * goes with the old address and the chip reads *"Location cleared - address changed"*.
+ *
+ * 🚩 **Detected by the `addressNumber`, never by the pin**: the new book row may carry a pin
+ * of its own. Once cleared it stays cleared — going back to the first address refills THAT
+ * row's own pin, not the capture (unless it was saved to the customer, which the chip cannot
+ * tell).
+ */
+export function chipAfter(chip: AppliedChip | null, addressNumber: string | null): AppliedChip {
+  if (chip === null) return { addressNumber, cleared: false }
+  return { addressNumber: chip.addressNumber, cleared: chip.cleared || chip.addressNumber !== addressNumber }
+}

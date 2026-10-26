@@ -11,12 +11,16 @@ import { ApiError } from '@/core/api'
 import {
   formatClock,
   mobileWasTyped,
+  chipAfter,
+  discardRefusal,
+  resendSteps,
   pollRefusal,
   resendCooldownSeconds,
   sendBody,
   sendRefusal,
   shouldRetire,
   showsSendAction,
+  stripAct,
   stripView,
   type StripInput,
 } from './location-link-view'
@@ -261,5 +265,73 @@ describe('pollRefusal — a status poll that answered, but with a refusal', () =
     expect(pollRefusal(refused('CCL-00005'))).toBe('failed')
     expect(pollRefusal(new ApiError('network', 'offline', 0))).toBe('failed')
     expect(pollRefusal(new Error('boom'))).toBe('failed')
+  })
+})
+
+describe('576 — card → discarded → Send again', () => {
+  const refused = (code: string, message = 'Refused.') =>
+    new ApiError('business', message, 400, [{ errorCode: code, internalErrorCode: '', errorMessage: message }])
+
+  it('offers Send again, and only Send again, on a discarded strip', () => {
+    expect(stripAct('discarded')).toBe('sendAgain')
+  })
+
+  it('offers Resend on a live strip and Send again on every dead one', () => {
+    expect(stripAct('waiting')).toBe('resend')
+    expect(stripAct('unreachable')).toBe('resend')
+    expect(stripAct('expired')).toBe('sendAgain')
+    expect(stripAct('replaced')).toBe('sendAgain')
+    expect(stripAct('gone')).toBe('sendAgain')
+    expect(stripAct('received')).toBeNull()
+  })
+
+  it('re-reads the session when the capture was already stamped (CCL-00031)', () => {
+    expect(discardRefusal(refused('CCL-00031'))).toEqual({ at: 'refetch' })
+  })
+
+  it("drops the card for a link that is no longer the agent's, and hides on not configured", () => {
+    expect(discardRefusal(refused('CCL-00006'))).toEqual({ at: 'gone' })
+    expect(discardRefusal(refused('CCL-00001'))).toEqual({ at: 'hide' })
+  })
+
+  it("keeps the card and says the server's sentence on anything else, the console's when it gave none", () => {
+    expect(discardRefusal(refused('CCL-00005', 'Caller unknown.'))).toEqual({ at: 'card', text: 'Caller unknown.' })
+    expect(discardRefusal(new ApiError('network', '', 0))).toEqual({ at: 'card', key: 'location.card.discardFailed' })
+  })
+})
+
+describe('576 — never two cards: what Resend does from each face', () => {
+  it('asks first, then stamps the discard, then sends — over an unapplied card', () => {
+    expect(resendSteps('card')).toEqual(['confirm', 'discard', 'send'])
+  })
+
+  it('sends at once over the chip: the new card compares against values that include the first capture', () => {
+    expect(resendSteps('chip')).toEqual(['send'])
+  })
+
+  it('sends at once from a live strip, where there is no capture to lose', () => {
+    expect(resendSteps('strip')).toEqual(['send'])
+  })
+})
+
+describe('576 — chip + address change → cleared', () => {
+  it('remembers the address the chip was first shown on', () => {
+    expect(chipAfter(null, '77120')).toEqual({ addressNumber: '77120', cleared: false })
+  })
+
+  it('stays applied while the order keeps that address, whatever its pin now reads', () => {
+    expect(chipAfter({ addressNumber: '77120', cleared: false }, '77120')).toEqual({ addressNumber: '77120', cleared: false })
+  })
+
+  it('reads cleared once the order is on another address — the pin went with the old one', () => {
+    expect(chipAfter({ addressNumber: '77120', cleared: false }, '77121')).toEqual({ addressNumber: '77120', cleared: true })
+  })
+
+  it('stays cleared when the agent goes back: the book row refills its own pin, not the capture', () => {
+    expect(chipAfter({ addressNumber: '77120', cleared: true }, '77120')).toEqual({ addressNumber: '77120', cleared: true })
+  })
+
+  it('reads cleared when the address is taken off the order', () => {
+    expect(chipAfter({ addressNumber: '77120', cleared: false }, null)).toEqual({ addressNumber: '77120', cleared: true })
   })
 })

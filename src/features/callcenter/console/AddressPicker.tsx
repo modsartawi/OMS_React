@@ -119,6 +119,7 @@ export default function AddressPicker({
   apply,
   write,
   onClose,
+  prefill = null,
 }: {
   open: boolean
   /** Whose book this is. The read itself is session-scoped server-side; this is
@@ -129,6 +130,12 @@ export default function AddressPicker({
   apply: AddressApply
   write: AddressWrite
   onClose: () => void
+  /**
+   * 576 — *Create address from this location*: the dialog opens straight on the create
+   * view, pre-filled from the capture (`addressFormFromCapture`). The save is the ordinary
+   * create, so it auto-applies like any other.
+   */
+  prefill?: AddressFormValues | null
 }) {
   const { t } = useTranslation('callcenter')
   const { pending, error: applyError, onPick } = apply
@@ -190,6 +197,15 @@ export default function AddressPicker({
     setDeleteError(null)
     setSavedNotMoved(null)
   }, [open])
+
+  // 576 — opened from the location card: straight to the create, pre-filled.
+  useEffect(() => {
+    if (!open || !prefill) return
+    setForm(prefill)
+    setSaveError(null)
+    setSavedNotMoved(null)
+    setView({ kind: 'create' })
+  }, [open, prefill])
 
   const choices = addressChoices(book.data, currentAddressNumber)
   const busy = pending !== null

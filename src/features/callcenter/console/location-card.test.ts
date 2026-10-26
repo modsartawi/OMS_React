@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LocationCapture, SessionAddress } from '@/core/models/callcenter'
 import { ApiError } from '@/core/api'
-import { applyBody, applyRefusal, captureStamp, locationCard } from './location-card'
+import { applyBody, applyRefusal, captureStamp, locationCard, stampAfterCreate } from './location-card'
 
 const CAPTURE: LocationCapture = {
   gpsLat: 24.774265,
@@ -262,6 +262,39 @@ describe('captureStamp — has the capture already been applied or discarded?', 
     expect(captureStamp(capture({ discardedAt: '2026-10-26T10:16:40' }))).toEqual({
       kind: 'discarded',
       at: '2026-10-26T10:16:40',
+    })
+  })
+})
+
+describe('576 — Create address from this location, in the save row\'s place', () => {
+  it('is offered when a customer is attached and the order has no address', () => {
+    const card = locationCard(capture(), null, true)
+    expect(card.createAddress).toBe(true)
+    expect(card.saveToCustomer).toBe(false)
+  })
+
+  it('is not offered with no customer: there is no book to create the address in', () => {
+    const card = locationCard(capture(), null, false)
+    expect(card.createAddress).toBe(false)
+    expect(card.saveToCustomer).toBe(false)
+  })
+
+  it('is not offered once the order has an address — the save tick is', () => {
+    expect(locationCard(capture(), address(), true).createAddress).toBe(false)
+    expect(locationCard(capture(), address(), false).createAddress).toBe(false)
+  })
+})
+
+describe('576 — stampAfterCreate: the capture is stamped once the created address is on the order', () => {
+  it('applies the pin, the Short Address and the details, never saving to the customer', () => {
+    expect(stampAfterCreate('TX1', 'REQ9', 'Tok000000001')).toEqual({
+      transactionId: 'TX1',
+      requestId: 'REQ9',
+      token: 'Tok000000001',
+      applyPin: true,
+      applyShortAddress: true,
+      applyDetails: true,
+      saveToCustomer: false,
     })
   })
 })

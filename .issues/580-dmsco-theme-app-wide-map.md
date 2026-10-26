@@ -89,11 +89,14 @@ skills (`figma-design-to-code`) for any Figma read.
   buckets, the look-alikes fold into Button, the long tail is restyled in place; **colours first,
   shapes follow** (owner): one release turns the app DMSCO, then the sweep lands area by area.
   Drives, slicing, proof and empty states are settled there as recommendations.
+- [Which type family the app sets type in](589-which-type-family-the-app-sets-type-in.md): **keep
+  IBM Plex** (owner); ADR 0003 stands, Chalet is not bought (no Arabic, unproven at 12px).
 
 ## Not yet specified
 
 <!-- Everything that was here graduated into 588's answer (drives, rollout, empty/loading/error
-     states) or out of scope (illustrations). Only 589 stands between the map and the spec. -->
+     states) or out of scope (illustrations). All tickets are closed: the way is clear, and the
+     next step is `/to-spec`. -->
 
 ## Out of scope
 

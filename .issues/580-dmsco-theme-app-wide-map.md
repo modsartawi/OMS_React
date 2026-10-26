@@ -69,12 +69,13 @@ skills (`figma-design-to-code`) for any Figma read.
   Profile in full, Homepage structure only; **no data table exists in the design** (the grid's look
   is derived), the shell is a **top bar** (our rail stays and takes its look), a white-on-dark DMSCO
   lockup is filed, and the full palette, shapes and type scale are in its notes.
+- [How the DMSCO palette maps onto our tokens](585-how-the-dmsco-palette-maps-onto-our-tokens.md):
+  `--primary` is the navy `#172031` everywhere and **links are underlined** (owner); hueless
+  neutrals, one gold `#FEC33B`, status families unchanged, login block stays separate; all 184
+  contrast pairs pass.
 
 ## Not yet specified
 
-- **The AG Grid theme.** Sizes are settled (584: unchanged). What's left is header ground,
-  selection and the wrapper radius under the new palette; likely folds into 585 rather than its own
-  ticket.
 - **The 37 drives that assert colours.** Update in place with the token change, or retire their
   colour assertions in favour of the contrast gate? Hangs on the sweep strategy (588).
 - **Rollout.** One switch for the whole app or screen by screen, and whether the two looks can

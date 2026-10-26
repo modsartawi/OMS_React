@@ -110,7 +110,7 @@ export function scanColumns(t: TFunction, language: string): ColDef<Row>[] {
             aria-expanded={can ? open : undefined}
             aria-label={label}
             title={label}
-            className="inline-flex items-center rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+            className="inline-flex items-center rounded-md p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
             data-expand={data.id}
           >
             {/* Logical: rtl:rotate-180 mirrors the closed chevron with the text direction. */}

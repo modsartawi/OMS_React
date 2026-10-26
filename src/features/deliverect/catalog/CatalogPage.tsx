@@ -22,6 +22,9 @@ import { WHITELIST_KEY, catalogApi } from './api'
 import { ExclusionsDialog, ImportDialog, ImportResultDialog, PushDialog, RowActionDialog } from './CatalogDialogs'
 import { whitelistColumns } from './columns'
 import { WHITELIST_STATES, figure, whitelistFromParams, whitelistToParams, type WhitelistAction } from './whitelist-state'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The Deliverect catalog (ticket 479, BackOffice spec 2615): the ONE whitelist of materials pushed
@@ -52,11 +55,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   suppressHeaderMenuButton: true,
 }
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const CHIP =
-  'h-7 rounded-full border px-2.5 text-xs font-medium transition-colors aria-pressed:border-primary aria-pressed:bg-primary-050 aria-pressed:text-primary-800'
 
 /** The row write open, if any. */
 type Acting = { row: Row; action: WhitelistAction } | null
@@ -123,24 +121,21 @@ function Catalog() {
         data-catalog-filters=""
       >
         <div className="flex flex-wrap items-end gap-2">
-          <label className={`${FIELD} min-w-[18rem] flex-1`}>
-            {t('filters.q')}
-            <input
+          <Field label={t('filters.q')} className="min-w-[18rem] flex-1">
+            <Input
               type="search"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t('filters.qPlaceholder')}
-              className={INPUT}
               data-filter-q=""
             />
-          </label>
-          <Button type="submit" className="h-9" disabled={list.isFetching} data-catalog-search="">
+          </Field>
+          <Button type="submit" disabled={list.isFetching} data-catalog-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('filters.search')}
           </Button>
           <Button
             variant="outlined"
-            className="h-9"
             onClick={() => {
               setText('')
               setParams(new URLSearchParams(), { replace: true })
@@ -151,11 +146,11 @@ function Catalog() {
             {t('filters.clear')}
           </Button>
           <span className="ms-auto flex items-end gap-2">
-            <Button variant="outlined" className="h-9" onClick={() => setPushing(true)} data-catalog-push="">
+            <Button variant="outlined" onClick={() => setPushing(true)} data-catalog-push="">
               <Send className="h-3.5 w-3.5" aria-hidden />
               {t('push.button')}
             </Button>
-            <Button className="h-9" onClick={() => setImporting(true)} data-catalog-import="">
+            <Button onClick={() => setImporting(true)} data-catalog-import="">
               <Upload className="h-3.5 w-3.5" aria-hidden />
               {t('import.button')}
             </Button>
@@ -164,16 +159,9 @@ function Catalog() {
         <div role="group" aria-label={t('filters.state')} className="flex flex-wrap items-center gap-1.5" data-filter-states="">
           <span className="text-xs font-medium text-muted-foreground">{t('filters.state')}</span>
           {WHITELIST_STATES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={query.state === s}
-              onClick={() => update({ state: s })}
-              className={CHIP + ' border-border/60 text-foreground'}
-              data-filter-state={s}
-            >
+            <Chip key={s} on={query.state === s} onClick={() => update({ state: s })} data-filter-state={s}>
               {t(`states.${s}`)}
-            </button>
+            </Chip>
           ))}
         </div>
       </form>

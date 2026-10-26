@@ -16,10 +16,8 @@ import { formatFigure as figure } from '@/core/util/number-format'
 import { storesApi, syncLinesKey } from './api'
 import { LineCells, PushStatus, PushType } from './PushCells'
 import { LINES_TAKE, type LinesFilter, expiredNotice, historyRefusal, linesNotice, linesQuery } from './sync-history'
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-8 w-44 rounded-md border border-border/60 bg-background px-2 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 const NO_FILTER: LinesFilter = { material: '', page: 1 }
 
@@ -81,24 +79,22 @@ export default function PushLines({ storeCode, push, onBack }: { storeCode: stri
             }}
             data-lines-filters=""
           >
-            <label className={FIELD}>
-              {t('lines.filters.material')}
-              <input
+            <Field label={t('lines.filters.material')}>
+              <Input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={t('lines.filters.materialPlaceholder')}
-                className={INPUT}
                 dir="ltr"
+                className="w-44 font-mono"
                 data-lines-material=""
               />
-            </label>
-            <Button type="submit" className="h-8" disabled={lines.isFetching} data-lines-apply="">
+            </Field>
+            <Button type="submit" disabled={lines.isFetching} data-lines-apply="">
               <Search className="h-3.5 w-3.5" aria-hidden />
               {t('lines.filters.apply')}
             </Button>
             <Button
               variant="outlined"
-              className="h-8"
               onClick={() => {
                 setDraft('')
                 setFilter(NO_FILTER)

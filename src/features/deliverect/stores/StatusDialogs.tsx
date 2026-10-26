@@ -19,10 +19,8 @@ import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, statusHistoryKey, storesApi } from './api'
 import { STATUS_ACTIONS, actionOffered, dayKey, hoursLabel, parseDelay, statusBody } from './store-status'
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium'
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /** The two store-status refusals the contract names, each shown inline with its own lead sentence. */
 const STATUS_REFUSALS = [DELIVERECT_ERRORS.notLinked, DELIVERECT_ERRORS.deliverectFailed] as const
@@ -120,9 +118,11 @@ export function StatusActionDialog({ row, onClose, onDone }: { row: DeliverectSt
       </fieldset>
       {action === 'busy' && (
         <div className="flex flex-col gap-1">
-          <label className={FIELD}>
-            {t('statusAction.delay')}
-            <input
+          <Field
+            label={t('statusAction.delay')}
+            error={delayBad ? <span data-status-delay-invalid="">{t('statusAction.delayInvalid')}</span> : undefined}
+          >
+            <Input
               type="text"
               inputMode="numeric"
               value={delay}
@@ -134,15 +134,10 @@ export function StatusActionDialog({ row, onClose, onDone }: { row: DeliverectSt
               dir="ltr"
               placeholder={t('statusAction.delayPlaceholder')}
               aria-invalid={delayBad || undefined}
-              className={INPUT + ' w-32 font-mono'}
+              className="w-32 font-mono"
               data-status-delay=""
             />
-          </label>
-          {delayBad && (
-            <span className="text-xs text-danger-800" data-status-delay-invalid="">
-              {t('statusAction.delayInvalid')}
-            </span>
-          )}
+          </Field>
         </div>
       )}
       <StatusRefusal error={send.error} />

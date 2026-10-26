@@ -14,7 +14,9 @@ import {
   memberCommandKey,
 } from './api'
 import { commandRefusalText } from './member-commands'
-import { PRIMARY_BUTTON, QUIET_BUTTON } from './profile-controls'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import {
   PROFILE_FIELDS,
   type ProfileDraft,
@@ -305,23 +307,28 @@ export default function ProfileForm({
           const changed = dirty.includes(key)
           const problem = problemFor(key)
           return (
-            <div key={key} className="min-w-0">
-              <label
-                htmlFor={id}
-                className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-              >
-                {t(labelKey)}
-                {/* 🚩 The changed fields are visible BEFORE saving — a stray
-                    keystroke in a field nobody meant to touch is seen rather
-                    than silently written (spec 301 #15). */}
-                {changed && (
-                  <span className="rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-semibold tracking-wide text-primary">
-                    {t('profile.changed')}
-                  </span>
-                )}
-              </label>
-              <input
-                id={id}
+            <Field
+              key={key}
+              id={id}
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  {t(labelKey)}
+                  {/* 🚩 The changed fields are visible BEFORE saving — a stray
+                      keystroke in a field nobody meant to touch is seen rather
+                      than silently written (spec 301 #15). */}
+                  {changed && (
+                    <span className="rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-semibold tracking-wide text-primary">
+                      {t('profile.changed')}
+                    </span>
+                  )}
+                </span>
+              }
+              // Named against the field that caused it, beside that field. `role="alert"`
+              // because this IS the refusal now — a door-named one is drawn here and in no
+              // banner, so without it a screen reader would be told nothing at all happened.
+              error={problem ? <span role="alert">{problem}</span> : undefined}
+            >
+              <Input
                 type="text"
                 value={draft[key]}
                 disabled={busy}
@@ -329,26 +336,9 @@ export default function ProfileForm({
                   setDraft((current) => ({ ...current, [key]: event.target.value }))
                 }
                 autoComplete="off"
-                aria-invalid={problem ? true : undefined}
-                aria-describedby={problem ? `${id}-problem` : undefined}
-                className={
-                  'h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none disabled:opacity-50 ' +
-                  (problem
-                    ? 'border-danger-border focus:border-danger-border '
-                    : 'border-border/60 focus:border-primary/50 ') +
-                  (mono ? 'font-mono text-[13px]' : '')
-                }
+                className={mono ? 'w-full font-mono' : 'w-full'}
               />
-              {/* Named against the field that caused it, beside that field. */}
-              {problem && (
-                // `role="alert"` because this IS the refusal now — a door-named
-                // one is drawn here and in no banner, so without it a screen
-                // reader would be told nothing at all happened.
-                <p id={`${id}-problem`} role="alert" className="mt-1 text-[11px] text-danger-800">
-                  {problem}
-                </p>
-              )}
-            </div>
+            </Field>
           )
         })}
       </div>
@@ -362,19 +352,14 @@ export default function ProfileForm({
           message={t('profile.staleNote')}
           className="p-2.5"
         >
-          <button
-            type="button"
-            onClick={reload}
-            disabled={reloading || busy}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
-          >
+          <Button variant="danger-outlined" className="mt-2" onClick={reload} disabled={reloading || busy}>
             {reloading ? (
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             ) : (
               <RotateCw className="h-3 w-3" aria-hidden />
             )}
             {t('profile.reload')}
-          </button>
+          </Button>
           {reloadFailed && <p className="mt-2 font-semibold">{t('profile.reloadFailed')}</p>}
         </ErrorBanner>
       )}
@@ -390,28 +375,25 @@ export default function ProfileForm({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <Button
           // 🚩 Dead until something has actually changed — a command that
           // records no change must not be writable — and dead while a write is
           // in flight, which is the whole double-submit guard.
           disabled={!canSave}
           onClick={submit}
-          className={PRIMARY_BUTTON}
           data-testid="loy-profile-save"
         >
-          {busy && <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />}
+          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
           {t('profile.save')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="outlined"
           disabled={dirty.length === 0 || busy}
           onClick={onReseed}
-          className={QUIET_BUTTON}
           data-testid="loy-profile-discard"
         >
           {t('profile.discard')}
-        </button>
+        </Button>
         <span className="text-xs text-muted-foreground" role="status">
           {dirty.length === 0
             ? t('profile.noChanges')

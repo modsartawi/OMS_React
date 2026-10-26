@@ -12,6 +12,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -189,24 +190,19 @@ function Tabs({ detail, access }: { detail: Detail; access: MaterialAccessResult
 
   return (
     <div className={`${PANEL} overflow-hidden`}>
-      <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 overflow-x-auto border-b border-border/60 px-3">
+      <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2">
         {tabs.map((tab) => (
-          <button
+          <Chip
             key={tab}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={open === tab}
             id={`material-tab-${tab}`}
-            aria-selected={open === tab}
             aria-controls={TAB_PANEL_ID}
             onClick={() => select(tab)}
-            className={
-              'border-b-2 px-3 py-2 text-sm transition-colors ' +
-              (open === tab ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
             data-material-tab={tab}
           >
             {t(`tabs.label.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`material-tab-${open}`} className="p-3" data-material-panel={open}>

@@ -16,7 +16,9 @@ import MemberCommandDialog from './MemberCommandDialog'
 import MemberFact from './MemberFact'
 import { commandRefusalText } from './member-commands'
 import { mobileChangeVerdict, mobileProblemKey } from './mobile-command'
-import { PRIMARY_BUTTON } from './profile-controls'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The mobile **member command** (ticket 305, spec 301) — the number the member
@@ -149,15 +151,8 @@ export default function MobileCommand({ member }: { member: LoyMember }) {
       <p className="text-xs text-muted-foreground">{t('profile.mobile.note')}</p>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-0">
-          <label
-            htmlFor={MOBILE_ID}
-            className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-          >
-            {t('profile.mobile.label')}
-          </label>
-          <input
-            id={MOBILE_ID}
+        <Field id={MOBILE_ID} label={t('profile.mobile.label')}>
+          <Input
             type="text"
             value={typed}
             disabled={busy}
@@ -166,32 +161,25 @@ export default function MobileCommand({ member }: { member: LoyMember }) {
             inputMode="tel"
             aria-invalid={problemKey ? true : undefined}
             aria-describedby={problemKey ? `${MOBILE_ID}-problem` : undefined}
-            className={
-              'h-8 w-56 rounded-md border bg-background px-2 font-mono text-[13px] text-foreground focus:outline-none disabled:opacity-50 ' +
-              (problemKey
-                ? 'border-danger-border focus:border-danger-border'
-                : 'border-border/60 focus:border-primary/50')
-            }
+            className="w-56 font-mono"
             data-testid="loy-mobile-input"
           />
-        </div>
-        <button
-          type="button"
+        </Field>
+        <Button
           // Dead until the screen has a number it can honestly send, and dead
           // while a write is in flight — the confirmation cannot be reopened
           // over an unfinished one.
           disabled={!writable || busy}
           onClick={() => setDialogOpen(true)}
-          className={PRIMARY_BUTTON}
           data-testid="loy-mobile-command"
         >
           {busy ? (
-            <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
-            <Smartphone className="me-1.5 h-3.5 w-3.5" aria-hidden />
+            <Smartphone className="h-3.5 w-3.5" aria-hidden />
           )}
           {t('profile.mobile.change')}
-        </button>
+        </Button>
       </div>
 
       {/* Said against the field that caused it — each problem as itself, and

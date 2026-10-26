@@ -1,8 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Loader2 } from 'lucide-react'
+import Chip from '@/core/ui/Chip'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import Input from '@/core/ui/Input'
 
 /**
  * One value a picker offers. `text` is built WHOLE by the caller — a level's `code · description`
@@ -114,8 +116,9 @@ export default function FilterPicker({
         aria-haspopup="dialog"
         onClick={() => onOpenChange(!open)}
         className={
-          'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium ' +
-          (selected.length > 0 ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 bg-background text-foreground')
+          // A disclosure (aria-expanded), restyled in place on the Chip's tokens (597 Q2).
+          'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors ' +
+          (selected.length > 0 ? 'border-primary bg-primary-050 text-primary-800' : 'border-border bg-card text-foreground hover:bg-accent')
         }
         data-picker-trigger=""
       >
@@ -134,7 +137,7 @@ export default function FilterPicker({
           className="absolute start-0 top-full z-30 mt-1 flex w-80 flex-col gap-1.5 rounded-md border border-border bg-card p-2 shadow-pop"
           data-picker-panel=""
         >
-          <input
+          <Input
             type="text"
             autoFocus
             value={query}
@@ -150,7 +153,7 @@ export default function FilterPicker({
               if (value !== null) onQuery('')
             }}
             placeholder={placeholder ?? t('picker.find')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs focus:border-primary/50 focus:outline-none"
+            aria-label={placeholder ?? t('picker.find')}
             data-picker-query=""
           />
           <ul className="max-h-64 overflow-auto" aria-label={label} data-picker-options="">
@@ -173,7 +176,7 @@ export default function FilterPicker({
             <button
               type="button"
               onClick={() => onChange(() => [])}
-              className="self-end rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+              className="self-end rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
               data-picker-clear=""
             >
               {t('picker.clear')}
@@ -201,18 +204,11 @@ export function TriStateFilter({
   return (
     <div role="group" aria-label={label} className="inline-flex items-center gap-1.5 text-xs" data-material-filter={name}>
       <span className="font-medium text-muted-foreground">{label}</span>
-      <span className="inline-flex overflow-hidden rounded-md border border-border/60">
+      <span className="inline-flex gap-1">
         {(['any', 'yes', 'no'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={value === v}
-            onClick={() => onChange(v)}
-            className={'h-8 px-2.5 ' + (value === v ? 'bg-primary-050 font-medium text-primary-800' : 'bg-background hover:bg-muted')}
-            data-tri={v}
-          >
+          <Chip key={v} on={value === v} onClick={() => onChange(v)} data-tri={v}>
             {t(`tri.${v}`)}
-          </button>
+          </Chip>
         ))}
       </span>
     </div>

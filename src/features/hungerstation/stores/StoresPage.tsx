@@ -35,6 +35,9 @@ import SyncLogsDrawer from './SyncLogsDrawer'
 import { syncNowResult } from './sync'
 import { sheetFromParams, withSheet, type SheetTarget } from './sync-history'
 import { HEALTH_FILTERS, SYNC_FILTERS, healthLabel, storesFromParams, storesToParams } from './store-state'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * HungerStation stores (ticket 551, BackOffice spec 3028): every store onboarded on the DIRECT
@@ -66,10 +69,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   filter: true,
   suppressHeaderMenuButton: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 const SYNC_KEY: Record<HungerStationSyncFilter, string> = { any: 'filters.syncAny', active: 'filters.syncActive', paused: 'filters.syncPaused' }
 const HEALTH_KEY: Record<HungerStationHealthFilter, string> = {
@@ -171,23 +170,20 @@ function Stores() {
         }}
         data-stores-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.chain')}
-          <select value={query.chain ?? ''} onChange={(e) => update({ chain: e.target.value || null })} className={INPUT} data-filter-chain="">
+        <Field label={t('filters.chain')}>
+          <Select value={query.chain ?? ''} onChange={(e) => update({ chain: e.target.value || null })} data-filter-chain="">
             <option value="">{t('filters.anyChain')}</option>
             {filterChains.map((k) => (
               <option key={k} value={k}>
                 {fsi(k)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('filters.sync')}
-          <select
+          </Select>
+        </Field>
+        <Field label={t('filters.sync')}>
+          <Select
             value={query.sync}
             onChange={(e) => update({ sync: e.target.value as HungerStationSyncFilter })}
-            className={INPUT}
             data-filter-sync=""
           >
             {SYNC_FILTERS.map((s) => (
@@ -195,14 +191,12 @@ function Stores() {
                 {t(SYNC_KEY[s])}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('filters.health')}
-          <select
+          </Select>
+        </Field>
+        <Field label={t('filters.health')}>
+          <Select
             value={query.health}
             onChange={(e) => update({ health: e.target.value as HungerStationHealthFilter })}
-            className={INPUT}
             data-filter-health=""
           >
             {HEALTH_FILTERS.map((h) => (
@@ -210,26 +204,23 @@ function Stores() {
                 {t(HEALTH_KEY[h])}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={`${FIELD} min-w-[16rem] flex-1`}>
-          {t('filters.q')}
-          <input
+          </Select>
+        </Field>
+        <Field label={t('filters.q')} className="min-w-[16rem] flex-1">
+          <Input
             type="search"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('filters.qPlaceholder')}
-            className={INPUT}
             data-filter-q=""
           />
-        </label>
-        <Button type="submit" className="h-9" disabled={stores.isFetching} data-stores-search="">
+        </Field>
+        <Button type="submit" disabled={stores.isFetching} data-stores-search="">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('filters.search')}
         </Button>
         <Button
           variant="outlined"
-          className="h-9"
           onClick={() => {
             setDraft('')
             setParams(new URLSearchParams(), { replace: true })

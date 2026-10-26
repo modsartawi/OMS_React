@@ -21,6 +21,8 @@ import { xlsxRows } from '@/core/util/xlsx-read'
 import { MATERIALS_KEY, materialsApi } from './api'
 import { MATERIAL_IMPORT_MAX, parseMaterialImport } from './material-import'
 import { withRow } from './materials-query'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 
 /** How many problem rows the preview lists; the count says how many there are in all. */
 const PROBLEMS_SHOWN = 50
@@ -191,9 +193,8 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       onClose={onClose}
     >
       <div className="flex flex-col gap-1.5" data-import-dialog="">
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('import.list')}
-          <textarea
+        <Field label={t('import.list')} hint={t('import.format')}>
+          <Textarea
             value={text}
             onChange={(e) => {
               setText(e.target.value)
@@ -206,11 +207,10 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
             dir="ltr"
             autoFocus
             placeholder={t('import.placeholder')}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-sm font-normal text-foreground outline-none focus:border-primary/60"
+            className="font-mono"
             data-import-text=""
           />
-        </label>
-        <span className="text-xs text-muted-foreground">{t('import.format')}</span>
+        </Field>
         <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileInput}

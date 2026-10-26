@@ -1581,6 +1581,222 @@ SCREENS.push({
   },
 })
 
+// --- 605: the remaining areas on the shared controls --------------------------
+// The last area sweep (spec 590 §Shared controls): Deliverect, HungerStation, Materials, Loy
+// and the auth chrome. Self-contained: its stubs, its helper and its screens. Light, dark and
+// RTL over each area's heaviest screens — Deliverect orders + stores filters (date / search /
+// select Fields, outcome and platform Chips), HungerStation orders + stores filters, Materials
+// stock check (Textarea, search + set Selects, a chosen store's remove IconButton) + material
+// search (tri-state Chips, a filter picker's query Input), the Loy member's Profile tab (tab
+// Chips, the profile Fields, the command Buttons) and the auth chrome (the top bar's store
+// switcher Select) — proving every field labelled and on the shared look, every icon button
+// named, the role tokens resolved. Plus the login's short-window fix (584): no page scroll in a
+// 744px window. Reuses 597's `openWorkspacePage`, `expectAllFieldsShared`, `lightDarkRtl` and
+// 601's `expectTabChips`, `FIELDS`.
+
+const R605_STORES = [
+  { storeCode: '1001', city: 'RIYADH', region: 'CENTRAL', storeAddress: 'Riyadh - Olaya' },
+  { storeCode: '1002', city: 'RIYADH', region: 'CENTRAL', storeAddress: 'Riyadh - Malaz' },
+  { storeCode: '2001', city: 'JEDDAH', region: 'WESTERN', storeAddress: 'جدة - التحلية' },
+]
+const R605_STUBS = [
+  [/^SdDocument\/StoreDetails$/, R605_STORES],
+  // Deliverect
+  [/^DeliverectWeb\/Access$/, { canManageStores: true, canManageCatalog: true, canViewOrders: true, canManageTerms: true }],
+  [/^DeliverectWeb\/Platforms$/, [
+    { platformKey: 'JAHEZ', displayName: 'Jahez', channelId: 0, creditCustomer: '0001100001', active: true },
+    { platformKey: 'KEETA', displayName: 'Keeta', channelId: 7, creditCustomer: '0001100002', active: true },
+  ]],
+  [/^DeliverectWeb\/Orders$/, { total: 0, rows: [] }],
+  [/^DeliverectWeb\/(Stores|Accounts)$/, []],
+  // HungerStation
+  [/^HungerStationWeb\/Access$/, { canManageStores: true, canManageCatalog: true, canViewOrders: true }],
+  [/^HungerStationWeb\/Chains$/, ['OlaCare', 'AlDawaa']],
+  [/^HungerStationWeb\/Orders$/, { total: 0, rows: [] }],
+  [/^HungerStationWeb\/Stores$/, []],
+  // Materials
+  [/^MaterialWeb\/Access$/, { canSearchMaterials: true, canCheckStock: true, canCheckGs1: true }],
+  [/^MaterialWeb\/StoreSets$/, [{ value: 'RUH', label: 'Riyadh', storeCount: 2 }]],
+  [/^MaterialWeb\/(Levels|Facets)$/, []],
+  [/^MaterialWeb\/Search$/, { resolvedAs: 'text', resolvedFrom: null, limited: false, rows: [] }],
+  // Loy: an editor who may also remove a mobile, on one member.
+  [/^LoyWeb\/Access$/, { canOpenLoyMember: true, canEditLoyMember: true, canRemoveLoyMemberMobile: true }],
+  [/^LoyWeb\/BlockedReasons$/, [{ code: 'IA', description: 'Inactive', systemReason: false }]],
+  [/^LoyWeb\/(Member|MemberByMobile)\//, {
+    loyId: '100001293', mobileCountry: 'SA', mobile: '966555000111', fullName: 'Nouf Al-Harbi',
+    birthDate: '1990-11-08T00:00:00', gender: 'F', email: 'nouf.h@example.com', nationality: 'SA',
+    nationalId: '1098443217', insuranceCompany: null, cityCode: 'RUH', preferredLanguage: 'AR',
+    joinDate: '2021-03-14T00:00:00', lastUpdate: '2026-07-31T09:12:00', tier: 'G', tierPointsBalance: 8940,
+    pendingPoints: 320, pointsBalance: 12480, pointsBalanceAmount: 561, pointsBalanceAmountCurrency: 'SAR',
+    pointsExpireSoon: 1200, memberType: 'M', blockedReason: null,
+  }],
+  [/^LoyWeb\/Reports\//, []],
+]
+
+/** One toggle Chip off, pressed (its on look), and the set it sits in all pills. */
+async function expectToggleChip(ctx, label, one, all) {
+  const { page } = ctx
+  await expectChipLook(ctx, label, one, false)
+  await page.locator(one).click()
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(400) // transition-colors (591's gotcha)
+  const pressed = await page.locator(one).getAttribute('aria-pressed')
+  check(`${ctx.tag} ${label}: a click presses it`, pressed === 'true', String(pressed))
+  await expectChipLook(ctx, label, one, true)
+  await expectAllPills(ctx, `${label} set`, all)
+}
+
+/** A filter bar swept: every field labelled and on the shared look, one field's look and ring. */
+async function expectFilterBar(ctx, label, scope, one) {
+  await expectLabelled(ctx, label, FIELDS(scope))
+  await expectAllFieldsShared(ctx, label, scope)
+  await expectFieldLook(ctx, `${label} (${one})`, one)
+  await expectFocusRing(ctx, `${label} (${one})`, one)
+}
+
+const shot605 = (ctx, part) => ctx.page.screenshot({ path: `${SHOTS}/${ctx.screen.key}-${part}-${ctx.mode.key}.png` })
+
+SCREENS.push({
+  key: 'remaining-delivery-rails',
+  path: '/deliverect/orders',
+  stubs: R605_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/deliverect/orders', '[data-filter-platform="KEETA"]'),
+  assert: async (ctx) => {
+    const { page } = ctx
+    // ── Deliverect orders: date / search Fields, outcome + platform Chips.
+    await expectFilterBar(ctx, 'deliverect orders filters', '[data-orders-filters]', '[data-filter-from]')
+    await expectFieldLook(ctx, 'deliverect store (search Input)', '[data-filter-store]')
+    await expectToggleChip(ctx, 'deliverect outcome chip', '[data-filter-outcome]:first-of-type', '[data-filter-outcomes] button')
+    await expectAllPills(ctx, 'deliverect platform chips', '[data-filter-platform]')
+    await shot605(ctx, 'deliverect-orders')
+
+    // ── Deliverect stores: account / linked Selects, the search Input.
+    await openWorkspacePage(page, '/deliverect/stores', '[data-stores-filters]')
+    await expectFilterBar(ctx, 'deliverect stores filters', '[data-stores-filters]', '[data-filter-account]')
+    await expectAllPills(ctx, 'deliverect stores buttons', '[data-stores-filters] button')
+    await shot605(ctx, 'deliverect-stores')
+
+    // ── HungerStation orders: date / search / chain Fields, outcome Chips.
+    await openWorkspacePage(page, '/hungerstation/orders', '[data-filter-outcomes]')
+    await expectFilterBar(ctx, 'hungerstation orders filters', '[data-orders-filters]', '[data-filter-chain]')
+    await expectToggleChip(ctx, 'hungerstation outcome chip', '[data-filter-outcome]:first-of-type', '[data-filter-outcomes] button')
+    await shot605(ctx, 'hungerstation-orders')
+
+    // ── HungerStation stores: chain / sync / health Selects, the search Input.
+    await openWorkspacePage(page, '/hungerstation/stores', '[data-stores-filters]')
+    await expectFilterBar(ctx, 'hungerstation stores filters', '[data-stores-filters]', '[data-filter-q]')
+    await shot605(ctx, 'hungerstation-stores')
+  },
+})
+
+SCREENS.push({
+  key: 'remaining-materials',
+  path: '/materials/stock',
+  stubs: R605_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/materials/stock', '[data-stock-materials]'),
+  assert: async (ctx) => {
+    const { page } = ctx
+    // ── Stock check: the materials Textarea, the store finder, the set Selects.
+    await expectLabelled(ctx, 'stock check', FIELDS('main'))
+    await expectAllFieldsShared(ctx, 'stock check', 'main')
+    await expectRole(ctx, 'materials (Textarea)', '[data-stock-materials]', 'border-top-color', '--input')
+    await expectRole(ctx, 'materials (Textarea)', '[data-stock-materials]', 'background-color', '--card')
+    await expectFieldLook(ctx, 'set kind (Select in a Field)', '[data-stock-set-kind]')
+    await expectFocusRing(ctx, 'store finder (search Input)', '[data-stock-store-find]')
+    // Choose one store through the finder: its chip carries the danger compact remove IconButton.
+    await page.locator('[data-stock-store-find]').fill('olaya')
+    await page.locator('[data-stock-store-option="1001"]').click()
+    await page.locator('[data-stock-store-find]').fill('')
+    await page.waitForSelector('[data-stock-chip="1001"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectIconButtonsNamed(ctx, 'chosen stores', '[data-stock-chips]', 1)
+    await shot605(ctx, 'stock')
+
+    // ── Material search: the smart box, the tri-state Chips, a filter picker's query Input.
+    await openWorkspacePage(page, '/materials', '[data-material-q]')
+    await expectLabelled(ctx, 'material search', FIELDS('[data-material-box]'))
+    await expectFieldLook(ctx, 'smart box (search Input)', '[data-material-q]')
+    await expectFieldLook(ctx, 'take (Select)', '[data-material-take]')
+    await expectToggleChip(ctx, 'blocked tri-state chip', '[data-material-filter="blocked"] [data-tri="yes"]', '[data-material-filter="blocked"] button')
+    await expectAllPills(ctx, 'filter picker triggers', '[data-picker-trigger]')
+    await page.locator('[data-picker-trigger]').first().click()
+    await page.waitForSelector('[data-picker-query]', { timeout: 5000 })
+    await expectLabelled(ctx, 'filter picker query', '[data-picker-query]')
+    await expectFieldLook(ctx, 'filter picker query (Input)', '[data-picker-query]')
+    await shot605(ctx, 'search')
+  },
+})
+
+SCREENS.push({
+  key: 'remaining-loy',
+  path: '/loy/members/100001293?tab=profile',
+  stubs: R605_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/loy/members/100001293?tab=profile', '#loy-profile-fullName'),
+  assert: async (ctx) => {
+    const { page } = ctx
+    const panel = '#loy-tab-panel'
+    await expectTabChips(ctx, 'member tabs', '[role="tablist"]', 5)
+    await expectLabelled(ctx, 'profile', FIELDS(panel))
+    await expectAllFieldsShared(ctx, 'profile', panel)
+    await expectFieldLook(ctx, 'full name (Input in a Field)', '#loy-profile-fullName')
+    await expectFocusRing(ctx, 'full name (Input in a Field)', '#loy-profile-fullName')
+    await expectAllPills(ctx, 'profile commands', `${panel} button`)
+    await shot605(ctx, 'profile')
+    // The block dialog: the reason Select in a Field.
+    await page.locator('[data-testid="loy-status-command"]').click()
+    await page.waitForSelector('#loy-block-reason', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'block reason', '#loy-block-reason')
+    await expectFieldLook(ctx, 'block reason (Select in a Field)', '#loy-block-reason')
+    await shot605(ctx, 'block')
+  },
+})
+
+SCREENS.push({
+  key: 'remaining-auth',
+  path: '/',
+  stubs: R605_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/', '[data-store-chip]'),
+  assert: async (ctx) => {
+    const { page, tag, mode } = ctx
+    // ── The store switcher: the shared Select in the top bar's store panel.
+    await page.locator('[data-store-chip]').click()
+    await page.waitForSelector('#layout-store-panel select', { timeout: 5000 })
+    await page.waitForFunction(() => !document.querySelector('#layout-store-panel select')?.disabled, null, { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'store switcher', '#layout-store-panel select')
+    await expectFieldLook(ctx, 'store switcher (Select)', '#layout-store-panel select')
+    await shot605(ctx, 'store-switcher')
+
+    // ── The login at 1568×744 (584): the card yields, the page does not scroll.
+    const context = await browser.newContext({ viewport: VIEWPORT })
+    const login = await context.newPage()
+    await login.addInitScript(
+      ([t, d]) => {
+        localStorage.setItem('oms.darkMode', String(t === 'dark'))
+        localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+      },
+      [mode.theme, mode.dir],
+    )
+    await login.route('**/api/**', (r) => r.fulfill({ status: 401, contentType: 'application/json', body: '{}' }))
+    try {
+      await login.goto(BASE + '/login')
+      await login.waitForSelector('#userId', { timeout: 20000 })
+      await login.evaluate(() => document.fonts.ready)
+      await login.waitForTimeout(300)
+      const m = await login.evaluate(() => ({ scroll: document.documentElement.scrollHeight, client: document.documentElement.clientHeight }))
+      check(`${tag} login at ${VIEWPORT.width}×${VIEWPORT.height}: no page scroll`, m.scroll <= m.client, `${m.scroll} > ${m.client}?`)
+      await login.screenshot({ path: `${SHOTS}/${ctx.screen.key}-login-${mode.key}.png` })
+    } finally {
+      await context.close()
+    }
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

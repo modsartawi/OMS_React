@@ -7,6 +7,7 @@ import { Loader2, RotateCw } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -94,18 +95,13 @@ export default function ActivitiesTab({ loyId }: { loyId: string }) {
           message={apiErrorMessage(activities.error, t('common:errors.server'))}
           className="p-3"
         >
-          <button
-            type="button"
-            onClick={() => activities.refetch()}
-            disabled={activities.isFetching}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
-          >
+          <Button variant="danger-outlined" className="mt-2" onClick={() => activities.refetch()} disabled={activities.isFetching}>
             <RotateCw
               className={'h-3 w-3 ' + (activities.isFetching ? 'animate-spin' : '')}
               aria-hidden
             />
             {t('tabs.retry')}
-          </button>
+          </Button>
         </ErrorBanner>
       ) : rows.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">

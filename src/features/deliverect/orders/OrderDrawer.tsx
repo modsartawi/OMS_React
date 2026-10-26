@@ -6,6 +6,7 @@ import { AlertOctagon, FileJson, Loader2, RotateCw, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { DeliverectOrderDetail, DeliverectOrderLine, DeliverectOrderRow, DeliverectOrderStatusSent } from '@/core/models/deliverect'
 import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -73,16 +74,9 @@ export default function OrderDrawer({
               {t('actions.retry')}
             </Button>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('detail.close')}
-            title={t('detail.close')}
-            data-order-close=""
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-          >
+          <IconButton label={t('detail.close')} onClick={onClose} data-order-close="">
             <X className="h-4 w-4" aria-hidden />
-          </button>
+          </IconButton>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">

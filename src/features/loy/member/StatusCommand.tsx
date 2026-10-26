@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { ApiError, apiErrorMessage } from '@/core/api'
 import type { LoyMember } from '@/core/models/loy'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   BLOCKED_REASONS_KEY,
@@ -17,7 +18,8 @@ import {
 import { blockedReasonKey, codeWords } from './codes'
 import MemberCommandDialog from './MemberCommandDialog'
 import { commandRefusalText, selectableBlockedReasons, statusCommand } from './member-commands'
-import { QUIET_BUTTON } from './profile-controls'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 /**
  * The Status **member command** (ticket 303, spec 301) — the first write on this
@@ -170,8 +172,8 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <Button
+          variant="outlined"
           // 🚩 The in-flight disable. It is the whole double-submit guard, for
           // both commands: the block opens a dialog rather than writing, but the
           // button still goes dead the moment the write leaves, so the dialog
@@ -180,18 +182,17 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
           onClick={() =>
             command === 'block' ? setDialogOpen(true) : run.mutate({ kind: 'unblock' })
           }
-          className={QUIET_BUTTON}
           data-testid="loy-status-command"
         >
           {busy ? (
-            <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : command === 'unblock' ? (
-            <ShieldCheck className="me-1.5 h-3.5 w-3.5" aria-hidden />
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
           ) : (
-            <Ban className="me-1.5 h-3.5 w-3.5" aria-hidden />
+            <Ban className="h-3.5 w-3.5" aria-hidden />
           )}
           {command === 'unblock' ? t('profile.status.unblock') : t('profile.status.block')}
-        </button>
+        </Button>
         <span className="text-xs text-muted-foreground">
           {command === 'unblock'
             ? t('profile.status.blockedAs', { reason: codeWords(member.blockedReasonCode, blockedReasonKey, t) ?? '' })
@@ -217,13 +218,7 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
         >
         <p className="text-muted-foreground">{t('profile.status.dialogNote')}</p>
 
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor={REASON_ID}
-            className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-          >
-            {t('profile.status.reasonLabel')}
-          </label>
+        <Field id={REASON_ID} label={t('profile.status.reasonLabel')}>
           {reasons.isPending ? (
             <span
               className="flex items-center gap-2 text-xs text-muted-foreground"
@@ -238,15 +233,10 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
               message={apiErrorMessage(reasons.error, t('common:errors.server'))}
               className="p-2.5"
             >
-              <button
-                type="button"
-                onClick={() => reasons.refetch()}
-                disabled={reasons.isFetching}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
-              >
+              <Button variant="danger-outlined" className="mt-2" onClick={() => reasons.refetch()} disabled={reasons.isFetching}>
                 <RotateCw className="h-3 w-3" aria-hidden />
                 {t('profile.status.reasonsRetry')}
-              </button>
+              </Button>
             </ErrorBanner>
           ) : offered.length === 0 ? (
             // 🚩 An empty list renders as an empty LIST. Nothing is offerable,
@@ -256,12 +246,11 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
               {t('profile.status.reasonsEmpty')}
             </p>
           ) : (
-            <select
-              id={REASON_ID}
+            <Select
               value={reason}
               disabled={busy}
               onChange={(event) => setReason(event.target.value)}
-              className="h-8 w-full rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:opacity-50"
+              className="w-full"
             >
               <option value="">{t('profile.status.reasonPlaceholder')}</option>
               {offered.map((option) => (
@@ -271,9 +260,9 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
                   {option.description ?? option.code}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
-        </div>
+        </Field>
 
         {/* The refusal is drawn by the shell, last in the body — it keeps the
             analyst HERE, with the reason still chosen (ticket 220's rule).

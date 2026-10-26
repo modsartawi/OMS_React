@@ -28,6 +28,9 @@ import { MATERIALS_KEY, materialsApi } from './api'
 import { materialColumns } from './columns'
 import { ChangeDialog, ImportDialog, ImportResultDialog } from './MaterialDialogs'
 import { MATERIAL_STATES, materialsFromParams, materialsPage, materialsToParams } from './materials-query'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * HungerStation materials (ticket 555, BackOffice spec 3028): the list of materials offered to
@@ -56,10 +59,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   resizable: true,
   suppressHeaderMenuButton: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 const STATE_KEY: Record<HungerStationMaterialState, string> = {
   active: 'filters.stateActive',
@@ -109,12 +108,10 @@ function Materials() {
         }}
         data-materials-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.state')}
-          <select
+        <Field label={t('filters.state')}>
+          <Select
             value={query.state}
             onChange={(e) => update({ state: e.target.value as HungerStationMaterialState })}
-            className={INPUT}
             data-filter-state=""
           >
             {MATERIAL_STATES.map((s) => (
@@ -122,26 +119,23 @@ function Materials() {
                 {t(STATE_KEY[s])}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={`${FIELD} min-w-[16rem] flex-1`}>
-          {t('filters.q')}
-          <input
+          </Select>
+        </Field>
+        <Field label={t('filters.q')} className="min-w-[16rem] flex-1">
+          <Input
             type="search"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('filters.qPlaceholder')}
-            className={INPUT}
             data-filter-q=""
           />
-        </label>
-        <Button type="submit" className="h-9" disabled={materials.isFetching} data-materials-search="">
+        </Field>
+        <Button type="submit" disabled={materials.isFetching} data-materials-search="">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('filters.search')}
         </Button>
         <Button
           variant="outlined"
-          className="h-9"
           onClick={() => {
             setDraft('')
             setParams(new URLSearchParams(), { replace: true })

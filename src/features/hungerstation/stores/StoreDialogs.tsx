@@ -13,10 +13,9 @@ import { keyChoices } from '@/core/util/filter-choices'
 import { STORES_KEY, storesApi, syncNowKey } from './api'
 import { REMOVE_CONSEQUENCES } from './remove'
 import { SYNC_NOW_CODES, applyPush, replaceRow, syncNowRefusal } from './sync'
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium'
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 const E = HUNGERSTATION_ERRORS
 
@@ -51,11 +50,13 @@ function ChainField({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className={FIELD}>
-        {t('filters.chain')}
+      <Field
+        label={t('filters.chain')}
+        hint={chains.isError ? <span data-chain-fallback="">{t('chain.fallbackHint')}</span> : undefined}
+      >
         {chains.isError ? (
           <>
-            <input
+            <Input
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
@@ -63,7 +64,7 @@ function ChainField({
               dir="ltr"
               list={listId}
               placeholder={t('chain.typePlaceholder')}
-              className={INPUT + ' font-mono'}
+              className="font-mono"
               data-chain-input=""
             />
             <datalist id={listId}>
@@ -73,11 +74,10 @@ function ChainField({
             </datalist>
           </>
         ) : (
-          <select
+          <Select
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled || chains.isPending}
-            className={INPUT}
             data-chain-select=""
           >
             <option value="">{chains.isPending ? t('chain.loading') : t('chain.choose')}</option>
@@ -86,14 +86,9 @@ function ChainField({
                 {fsi(k)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
-      </label>
-      {chains.isError && (
-        <span className="text-xs text-muted-foreground" data-chain-fallback="">
-          {t('chain.fallbackHint')}
-        </span>
-      )}
+      </Field>
       {refusal && <InlineRefusal message={refusal.message} code={refusal.code} />}
     </div>
   )
@@ -121,9 +116,8 @@ function CodeField({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className={FIELD}>
-        {label}
-        <input
+      <Field label={label}>
+        <Input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -131,10 +125,10 @@ function CodeField({
           dir="ltr"
           autoFocus={autoFocus}
           placeholder={placeholder}
-          className={INPUT + ' font-mono'}
+          className="font-mono"
           {...{ [data]: '' }}
         />
-      </label>
+      </Field>
       {refusal && <InlineRefusal message={refusal.message} code={refusal.code} />}
     </div>
   )

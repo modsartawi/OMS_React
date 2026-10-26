@@ -9,6 +9,7 @@ import ProfileTab from './ProfileTab'
 import SalesTab from './SalesTab'
 import type { MemberAuthority } from './api'
 import { MEMBER_TABS, resolveTab, type MemberTab } from './tab-volume'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The member's tab shell (ticket 236) — the strip Activities lands in and the two
@@ -64,26 +65,19 @@ export default function MemberTabs({
       <div
         role="tablist"
         aria-label={t('tabs.ariaLabel')}
-        className="flex gap-1 overflow-x-auto border-b border-border/60 px-3"
+        className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2"
       >
         {MEMBER_TABS.map((tab) => (
-          <button
+          <Chip
             key={tab}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={open === tab}
             id={`loy-tab-${tab}`}
-            aria-selected={open === tab}
             aria-controls={TAB_PANEL_ID}
             onClick={() => select(tab)}
-            className={
-              'border-b-2 px-3 py-2 text-sm transition-colors ' +
-              (open === tab
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
           >
             {t(`tabs.label.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

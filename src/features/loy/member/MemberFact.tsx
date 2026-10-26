@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next'
 /**
  * One read-only fact about the member on screen.
  *
- * It lives in its own module for the reason `profile-controls.ts` does: the
- * Profile tab's field list and the mobile command's confirmation both draw a
- * label-above-value pair, inches apart, and one copy of the class string in each
- * would look identical today and drift the first time the type scale moves.
+ * It lives in its own module because the Profile tab's field list and the
+ * mobile command's confirmation both draw a label-above-value pair, inches
+ * apart, and one copy of the class string in each would look identical today
+ * and drift the first time the type scale moves.
  *
  * 🚩 **An absent value reads as absent, not as a gap** — and that rule lives
  * here, once, rather than at each call site. A blank cell is a screen that has

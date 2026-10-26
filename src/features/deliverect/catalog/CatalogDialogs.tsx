@@ -25,10 +25,11 @@ import { exclusionEditor, exclusionSet, sameExclusions } from './exclusion-set'
 import ImportAnswerDialog from '@/core/import/ImportAnswerDialog'
 import { WHITELIST_IMPORT_MAX, parseMaterialList, type MaterialList } from '@/core/import/material-list'
 import { figure, updateBody, type WhitelistAction } from './whitelist-state'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium'
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 
 /** What the last picked file did, said under the list. */
@@ -132,9 +133,8 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       onClose={onClose}
     >
       <div className="flex flex-col gap-1.5" data-import-dialog="">
-        <label className={FIELD}>
-          {t('import.list')}
-          <textarea
+        <Field label={t('import.list')}>
+          <Textarea
             value={text}
             onChange={(e) => {
               setText(e.target.value)
@@ -148,10 +148,10 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
             dir="ltr"
             autoFocus
             placeholder={t('import.placeholder')}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-sm font-normal text-foreground outline-none focus:border-primary/60"
+            className="font-mono"
             data-import-text=""
           />
-        </label>
+        </Field>
         <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileInput}
@@ -462,10 +462,9 @@ export function PushDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="flex flex-col gap-3" data-push-dialog="">
         <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{t('push.note')}</p>
-        <label className={FIELD}>
-          {t('push.account')}
+        <Field label={t('push.account')}>
           {typed ? (
-            <input
+            <Input
               type="text"
               value={account}
               onChange={(e) => {
@@ -475,18 +474,17 @@ export function PushDialog({ onClose }: { onClose: () => void }) {
               disabled={send.isPending}
               dir="ltr"
               placeholder={t('push.typePlaceholder')}
-              className={INPUT + ' font-mono'}
+              className="font-mono"
               data-push-account-input=""
             />
           ) : (
-            <select
+            <Select
               value={account}
               onChange={(e) => {
                 setAccount(e.target.value)
                 send.reset()
               }}
               disabled={send.isPending || accounts.isPending}
-              className={INPUT}
               data-push-account-select=""
             >
               <option value="">{accounts.isPending ? t('push.loading') : t('push.choose')}</option>
@@ -495,9 +493,9 @@ export function PushDialog({ onClose }: { onClose: () => void }) {
                   {a.active ? fsi(a.accountKey) : t('push.inactive', { key: fsi(a.accountKey) })}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
-        </label>
+        </Field>
         {typed && (
           <span className="text-xs text-muted-foreground" data-push-account-fallback="">
             {t('push.fallbackHint')}

@@ -42,7 +42,29 @@ admin/ua-admin 2
   src/features/admin/ua-admin/UaAdminUsersPage.tsx button: a report card that opens its worklist: a tile picker (spec 590: restyled in place)
   src/features/admin/ua-admin/UserDetailPane.tsx button: a session row's Revoke, a danger-ink text button that does not navigate: restyled in place
 
-auth 24
+auth 22
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx input: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
+  src/features/auth/LoginPage.tsx button: the login page is out of scope of spec 590 (584 keeps the design's scale there)
 
 callcenter/console 20
   src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
@@ -105,29 +127,37 @@ collection/inquiry 67
 
 collection/settlement 24
 
-deliverect/catalog 5
+deliverect/catalog 0
 
-deliverect/orders 8
+deliverect/orders 0
 
-deliverect/stores 12
+deliverect/stores 1
+  src/features/deliverect/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 
-deliverect/terms 6
+deliverect/terms 0
 
-hungerstation/materials 3
+hungerstation/materials 0
 
-hungerstation/orders 8
+hungerstation/orders 0
 
-hungerstation/stores 10
+hungerstation/stores 1
+  src/features/hungerstation/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 
-loy/member 26
+loy/member 2
+  src/features/loy/member/InvoicesTab.tsx button: grid-cell action (the invoice row's Resend), restyled in place
+  src/features/loy/member/MemberHeader.tsx button: disclosure (aria-expanded, Show/Hide details), restyled in place (597 Q2)
 
-materials/detail 1
+materials/detail 0
 
-materials/gs1-check 2
+materials/gs1-check 1
+  src/features/materials/gs1-check/columns.tsx button: grid-cell action (a scan row's expand disclosure), restyled in place
 
-materials/search 6
+materials/search 2
+  src/features/materials/search/FilterPicker.tsx button: disclosure (aria-expanded) opening a filter's multi-select panel, restyled in place on the Chip tokens (597 Q2)
+  src/features/materials/search/FilterPicker.tsx button: non-navigating text button (the panel's Clear), restyled in place
 
-materials/stock-check 6
+materials/stock-check 1
+  src/features/materials/stock-check/StockCheckPage.tsx button: row picker (a store match in the finder's list), restyled in place
 
 nphies/authorizations 31
 

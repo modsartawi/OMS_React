@@ -6,6 +6,7 @@ import { useSession } from '@/core/session'
 import { useStoreLock } from '@/core/engine-session/store-lock'
 import { lookupQueries } from '@/core/services/lookups'
 import { formatPair, fsi } from '@/core/util/bidi'
+import Select from '@/core/ui/Select'
 import { authApi } from './api'
 
 /**
@@ -69,13 +70,13 @@ export default function StoreSwitcher() {
         {t('storeSwitcher.lockedByEngineSession')}
       </p>
     )}
-    <select
+    <Select
       aria-label={t('storeSwitcher.ariaLabel')}
       disabled={switching || stores.isPending || lockedByEngineSession}
       title={lockedByEngineSession ? t('storeSwitcher.lockedByEngineSession') : undefined}
       value={currentStoreCode ?? ''}
       onChange={(e) => void pick(e.target.value)}
-      className="mt-1 h-7 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-60"
+      className="mt-1 w-full"
     >
       {/* 🚩 UNSET IS A STATE, and a select cannot show it without an option to
           land on: with `value=""` and no match, the browser renders the FIRST
@@ -95,7 +96,7 @@ export default function StoreSwitcher() {
           {fsi(formatPair(store.code, store.city))}
         </option>
       ))}
-    </select>
+    </Select>
     </>
   )
 }

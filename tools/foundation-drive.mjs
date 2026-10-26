@@ -3222,6 +3222,8 @@ async function routeScreens(route) {
     if (status !== 'OPEN') return route.fulfill(envelope([]))
     return route.fulfill(envelope(url.searchParams.get('sort') ? SETTLEMENT?.lane ?? [] : SETTLEMENT?.ledger ?? []))
   }
+  // Priority reads the live order's tree (`{ tree, … }`); a bare `[]` crashed the leaf (ticket 597's note).
+  if (path === 'Rules/Authoring/Order') return route.fulfill(envelope({ versionNo: 0, tree: { groups: [], order: [] }, campaigns: [] }))
   if (path in SCREEN_DATA) return route.fulfill(envelope(SCREEN_DATA[path]))
   return route.fulfill(envelope([]))
 }

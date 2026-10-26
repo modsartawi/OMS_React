@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import type { RulePromotionRecord } from '@/core/models/rule-promotion'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { promotionWriteApi, refreshPromotions } from './api'
 import { PROMOTION_NAME_MAX, promotionFormProblems, toPromotionBody, type PromotionForm, type PromotionFormProblem } from './promotion-write'
 import WriteRefusal from './WriteRefusal'
@@ -101,7 +104,7 @@ export default function PromotionFormDialog({
             <span className="text-xs text-muted-foreground">{t('form.codeFixed')}</span>
           </div>
         ) : (
-          <Field
+          <PromotionField
             id="promotion-code"
             label={t('form.code')}
             placeholder={t('form.codePlaceholder')}
@@ -114,7 +117,7 @@ export default function PromotionFormDialog({
             data="promotionCode"
           />
         )}
-        <Field
+        <PromotionField
           id="promotion-name-en"
           label={t('form.nameEn')}
           placeholder={t('form.nameEnPlaceholder')}
@@ -126,7 +129,7 @@ export default function PromotionFormDialog({
           required
           data="nameEn"
         />
-        <Field
+        <PromotionField
           id="promotion-name-ar"
           label={t('form.nameAr')}
           placeholder={t('form.nameArPlaceholder')}
@@ -137,28 +140,24 @@ export default function PromotionFormDialog({
           maxLength={PROMOTION_NAME_MAX}
           data="nameAr"
         />
-        <div className="flex flex-col gap-1">
-          <label htmlFor="promotion-note" className="text-xs font-medium text-muted-foreground">
-            {t('form.note')}
-          </label>
-          <textarea
-            id="promotion-note"
+        <Field id="promotion-note" label={t('form.note')}>
+          <Textarea
             dir="auto"
             rows={3}
             value={form.note}
             placeholder={t('form.notePlaceholder')}
             onChange={(e) => set({ note: e.target.value })}
-            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full"
             data-promotion-field="note"
           />
-        </div>
+        </Field>
         {save.isError && <WriteRefusal title={t(`${keys}.refusedTitle`)} error={save.error} />}
       </form>
     </Modal>
   )
 }
 
-function Field({
+function PromotionField({
   id,
   label,
   placeholder,
@@ -184,38 +183,18 @@ function Field({
   required?: boolean
   data: string
 }) {
-  const described = [hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ')
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <input
-        id={id}
+    <Field id={id} label={label} hint={hint || undefined} error={error ? <span data-promotion-problem={data}>{error}</span> : undefined}>
+      <Input
         dir={dir}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
         required={required}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={described || undefined}
         data-promotion-field={data}
-        className={
-          'h-9 w-full rounded-md border bg-background px-2.5 text-sm text-foreground focus:outline-none ' +
-          (error ? 'border-danger-border focus:border-danger' : 'border-border/60 focus:border-primary/50')
-        }
+        className="w-full"
       />
-      {hint && (
-        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-danger-800" data-promotion-problem={data}>
-          {error}
-        </p>
-      )}
-    </div>
+    </Field>
   )
 }

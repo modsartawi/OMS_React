@@ -1,4 +1,4 @@
-import { useId, type FormEvent } from 'react'
+import { type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -7,10 +7,12 @@ import { apiErrorMessage } from '@/core/api'
 import type { RuleMember, RuleMemberKey } from '@/core/models/rule-campaign'
 import { ruleMembersQuery } from '@/core/rules/api'
 import { ruleCustomerPath } from '@/core/rules/campaign-state'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair } from '@/core/util/bidi'
 import MemberView from './MemberView'
@@ -30,7 +32,6 @@ export default function CustomersPage() {
   const navigate = useNavigate()
   const { query, update } = useUrlQuery(memberQueryFromParams, memberQueryToParams)
   const members = useQuery(ruleMembersQuery(query.by, query.value))
-  const ids = { by: useId(), value: useId() }
 
   const find = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -56,32 +57,25 @@ export default function CustomersPage() {
 
       {/* Keyed by the look-up asked, so Back or a coupon's member link refills the form. */}
       <form key={`${query.by}:${query.value}`} className="flex flex-wrap items-end gap-2" onSubmit={find} data-customers-form="">
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.by} className="text-xs font-medium text-muted-foreground">
-            {t('form.by')}
-          </label>
-          <select id={ids.by} name="by" className={RULE_INPUT} defaultValue={query.by} data-customers-by="">
+        <Field label={t('form.by')}>
+          <Select name="by" defaultValue={query.by} data-customers-by="">
             {MEMBER_KEYS.map((k) => (
               <option key={k} value={k}>
                 {t(`form.key.${k}`)}
               </option>
             ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.value} className="text-xs font-medium text-muted-foreground">
-            {t('form.value')}
-          </label>
-          <input
-            id={ids.value}
+          </Select>
+        </Field>
+        <Field label={t('form.value')}>
+          <Input
             name="value"
             dir="ltr"
             autoComplete="off"
-            className={`${RULE_INPUT} w-56 font-mono`}
+            className="w-56 font-mono"
             defaultValue={query.value}
             data-customers-value=""
           />
-        </div>
+        </Field>
         <Button type="submit" variant="secondary" data-customers-find="">
           <Search className="size-3.5" aria-hidden />
           {t('form.find')}

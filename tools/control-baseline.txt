@@ -66,19 +66,25 @@ callcenter/console 20
   src/features/callcenter/console/SlotPicker.tsx button: slot window: a tile picker, a full one aria-disabled (spec 590: pickers restyle in place)
   src/features/callcenter/console/StorePicker.tsx button: store row: a row picker (spec 590: pickers restyle in place)
 
-campaigns/coupon-finder 1
+campaigns/coupon-finder 0
 
-campaigns/customers 3
+campaigns/customers 1
+  src/features/campaigns/customers/CustomersPage.tsx button: a member of a shared mobile is picked by its row: a row picker (spec 590: restyled in place)
 
-campaigns/priority 5
+campaigns/priority 0
 
-campaigns/promotions 11
+campaigns/promotions 1
+  src/features/campaigns/promotions/FromTemplate.tsx button: a template is picked by its tile (aria-pressed): a tile picker (spec 590: restyled in place)
 
-campaigns/sessions 7
+campaigns/sessions 0
 
-campaigns/simulator 17
+campaigns/simulator 1
+  src/features/campaigns/simulator/SimulatorPage.tsx button: Drop draft clears the draft from the run in place (X + text, inside the draft note): a non-navigating text button, one-off
 
-campaigns/uploads 7
+campaigns/uploads 3
+  src/features/campaigns/uploads/ReadReport.tsx button: View in a campaign row opens its JSON drawer: a grid-cell action (spec 590)
+  src/features/campaigns/uploads/UploadPage.tsx button: Compare in a campaign row opens its JSON drawer: a grid-cell action (spec 590)
+  src/features/campaigns/uploads/UploadPage.tsx button: View on a disabling line opens its JSON drawer: a non-navigating text button inside the danger panel
 
 campaigns/workspace 13
   src/features/campaigns/workspace/BudgetsSettings.tsx button: a budget's sentence opens its drawer: a row picker (spec 590: restyled in place)

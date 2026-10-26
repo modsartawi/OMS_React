@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import type { TFunction } from 'i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, ICellRendererParams, RowClickedEvent, RowSelectionOptions } from 'ag-grid-community'
-import { Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -19,8 +18,11 @@ import {
   withPromotionFilter,
   type PromotionQuery,
 } from '@/core/rules/promotion-query'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { showsPager } from '@/core/ui/pager'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -102,26 +104,22 @@ export default function PromotionCampaigns({
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-label={t('promotion.campaigns')} data-promotion-campaigns="">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <label className="flex w-full max-w-md flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('promotion.search.label')}
-          <span className="relative">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-hidden />
-            <input
-              type="search"
-              dir="auto"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder={t('promotion.search.placeholder')}
-              className="h-9 w-full rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-              data-promotion-search=""
-            />
-          </span>
-        </label>
+        <Field label={t('promotion.search.label')} className="w-full max-w-md">
+          <Input
+            type="search"
+            dir="auto"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={t('promotion.search.placeholder')}
+            className="w-full"
+            data-promotion-search=""
+          />
+        </Field>
         <div className="flex flex-col gap-1" role="group" aria-label={t('promotion.status.label')} data-status-filter="">
           <span className="text-xs font-medium text-muted-foreground">{t('promotion.status.label')}</span>
           <div className="flex flex-wrap gap-1">
             {(['', ...PROMOTION_CAMPAIGN_STATUSES] as const).map((s) => (
-              <Chip key={s || 'all'} on={query.status === s} onClick={() => update((prev) => withPromotionFilter(prev, { status: s }))} data={{ 'data-status-chip': s }}>
+              <Chip key={s || 'all'} on={query.status === s} onClick={() => update((prev) => withPromotionFilter(prev, { status: s }))} data-status-chip={s}>
                 {t(`promotion.status.${s || 'all'}`)}
               </Chip>
             ))}
@@ -132,7 +130,7 @@ export default function PromotionCampaigns({
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1" role="group" aria-label={t('promotion.mechanic.label')} data-mechanic-chips="">
           {chips.map((c) => (
-            <Chip key={c.mechanic || ' all'} on={query.mechanic === c.mechanic} onClick={() => update((prev) => withPromotionFilter(prev, { mechanic: c.mechanic }))} data={{ 'data-mechanic-chip': c.mechanic }}>
+            <Chip key={c.mechanic || ' all'} on={query.mechanic === c.mechanic} onClick={() => update((prev) => withPromotionFilter(prev, { mechanic: c.mechanic }))} data-mechanic-chip={c.mechanic}>
               {/* A mechanic is HQ's key, shown as sent: a machine value, like its count. */}
               {c.mechanic ? <Ltr>{c.mechanic}</Ltr> : t('promotion.mechanic.all')}
               <span className="text-muted-foreground" data-chip-count="">
@@ -199,23 +197,6 @@ export default function PromotionCampaigns({
         </div>
       )}
     </section>
-  )
-}
-
-function Chip({ on, onClick, data, children }: { on: boolean; onClick: () => void; data: Record<string, string>; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      {...data}
-      className={
-        'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ' +
-        (on ? 'border-primary bg-primary-050 text-primary' : 'border-border/60 bg-card text-foreground hover:bg-accent')
-      }
-    >
-      {children}
-    </button>
   )
 }
 

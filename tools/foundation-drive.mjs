@@ -41,8 +41,8 @@
 // 385: navigation lives in an expanding navy rail, collapsed by default. In the same four modes,
 // with only OMS and Collections granted:
 //  17. the collapsed rail shows only the granted groups, its tooltip the group's label;
-//  18. the gold marker is a `::before` at inset-inline-start 0, painted flush on the rail's
-//      inline-start edge (a screen pixel) in both directions;
+//  18. the active group is the filled pill (592): `--rail-pill` ground, a `--rail-active` icon,
+//      no `::before` bar, and the pill is what the screen paints there (a screen pixel);
 //  19. clicking a group opens its 240px flyout (a dialog labelled by the group) with focus on the
 //      first link; hover switches the group; the Settlement sub-group is a header link plus
 //      indented leaves; Esc closes and returns focus; an outside click and navigation close it;
@@ -347,7 +347,7 @@ async function driveOneMode({ theme, dir }) {
 
   const g = await grounds()
   check(`${label}: Deliveries — page ground is B's --background`, g.body === (await tok(page, '--background')), g.body)
-  check(`${label}: Deliveries — the rail is the brand navy in both themes`, g.rail === (await tok(page, '--rail')), g.rail)
+  check(`${label}: Deliveries — the rail is the brand navy in both themes`, g.rail === (await tok(page, '--rail-gradient-to')), g.rail)
   const card = await page.evaluate(() => getComputedStyle(document.querySelector('.ag-root-wrapper')).backgroundColor)
   check(`${label}: Deliveries — the grid card is B's --card`, card === (await tok(page, '--card')), card)
 
@@ -992,8 +992,10 @@ async function driveRanges({ theme, dir }) {
 // The session is granted OMS and Collections only; every other probe answers a denial (each
 // predicate reads `=== true`, so `{}` is a no), and the rail must draw exactly two groups.
 
-// The rail's roles (ticket 593): the active marker, the active ink, the resting group ink.
+// The rail's roles (ticket 593): the active pill's ground and icon, the active ink, the resting
+// group ink. Since 592 the active item is a filled pill, not a gold `::before` bar.
 const railRoles = async (page) => ({
+  PILL: await tok(page, '--rail-pill'),
   GOLD: await tok(page, '--rail-active'),
   WHITE: await tok(page, '--rail-accent-foreground'),
   RAIL_MUTED: await tok(page, '--rail-muted'),
@@ -1066,8 +1068,9 @@ async function driveRail({ theme, dir }) {
   const linkLook = (loc) =>
     loc.evaluate((el) => ({
       current: el.getAttribute('aria-current'),
-      marker: getComputedStyle(el, '::before').backgroundColor,
+      ground: getComputedStyle(el).backgroundColor,
       ink: getComputedStyle(el).color,
+      bar: getComputedStyle(el, '::before').content !== 'none' && parseFloat(getComputedStyle(el, '::before').width) > 0,
     }))
 
   // ---- A malformed stored preference boots collapsed ----
@@ -1076,7 +1079,7 @@ async function driveRail({ theme, dir }) {
   await page.reload()
   await page.locator('#layout-rail [data-rail-group]').first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
-  const { GOLD, WHITE, RAIL_MUTED } = await railRoles(page)
+  const { PILL, GOLD, WHITE, RAIL_MUTED } = await railRoles(page)
   const r0 = await box(rail)
   check(
     `${label}: a malformed stored preference boots the rail COLLAPSED at 56px`,
@@ -1101,36 +1104,39 @@ async function driveRail({ theme, dir }) {
   )
   check(`${label}: the brand mark at the top links /`, (await rail.locator('a').first().getAttribute('href')) === '/')
 
-  // ---- The active marker: gold, flush on the inline-start edge ----
+  // ---- The active group: the filled pill (592), not a gold edge bar ----
   const activeRow = rail.locator('[data-active]')
   check(
     `${label}: exactly one group is marked active (OMS, on Deliveries)`,
     (await activeRow.count()) === 1 && (await activeRow.locator('[data-rail-group]').getAttribute('aria-label')) === 'OMS',
   )
   const marker = await activeRow.evaluate((el) => {
-    const b = getComputedStyle(el, '::before')
+    const icon = el.firstElementChild
+    const bar = (e) => getComputedStyle(e, '::before').content !== 'none' && parseFloat(getComputedStyle(e, '::before').width) > 0
+    const r = icon.getBoundingClientRect()
+    const svg = icon.querySelector('svg')
     return {
-      insetInlineStart: b.insetInlineStart,
-      width: b.width,
-      bg: b.backgroundColor,
+      ground: getComputedStyle(icon).backgroundColor,
+      icon: svg ? getComputedStyle(svg).color : null,
+      bars: [el, ...el.querySelectorAll('*')].filter(bar).length,
       shadows: [el, ...el.querySelectorAll('*')].map((e) => getComputedStyle(e).boxShadow).filter((s) => s !== 'none'),
+      box: { left: r.left, top: r.top, width: r.width, height: r.height },
     }
   })
   check(
-    `${label}: the marker is a 3px gold ::before at inset-inline-start 0, not an inset shadow`,
-    marker.insetInlineStart === '0px' && marker.width === '3px' && marker.bg === GOLD && marker.shadows.length === 0,
+    `${label}: the active group is the --rail-pill with a --rail-active icon, no ::before bar, no inset shadow`,
+    marker.ground === PILL && marker.icon === GOLD && marker.bars === 0 && marker.shadows.length === 0,
     JSON.stringify(marker),
   )
-  const row = await box(activeRow)
-  const y = Math.round(row.top + row.height / 2)
+  // As painted: the pill's ground just inside its inline-start curve, and no gold left on the rail's edge.
+  const y = Math.round(marker.box.top + marker.box.height / 2)
   const px = {
+    pill: await pixelAt(page, Math.round(rtl ? marker.box.left + marker.box.width - 4 : marker.box.left + 4), y),
     edge: await pixelAt(page, rtl ? Math.floor(r0.right) - 1 : Math.ceil(r0.left), y),
-    inside: await pixelAt(page, rtl ? Math.floor(r0.right) - 5 : Math.ceil(r0.left) + 4, y),
-    far: await pixelAt(page, rtl ? Math.ceil(r0.left) + 1 : Math.floor(r0.right) - 2, y),
   }
   check(
-    `${label}: the gold marker is painted FLUSH on the rail's ${rtl ? 'right' : 'left'} edge, and only there`,
-    near(px.edge, GOLD) && !near(px.inside, GOLD) && !near(px.far, GOLD),
+    `${label}: the screen paints the pill's ground there, and no gold bar on the rail's ${rtl ? 'right' : 'left'} edge`,
+    near(px.pill, PILL) && !near(px.edge, GOLD),
     JSON.stringify(px),
   )
   await page.screenshot({ path: `${SHOTS}/rail-collapsed-${theme}-${dir}.png` })
@@ -1157,8 +1163,8 @@ async function driveRail({ theme, dir }) {
   )
   const flyLeaf = await linkLook(flyout.getByRole('link', { name: 'Delivery Documents' }))
   check(
-    `${label}: the flyout's active leaf is current, gold-marked, in white ink`,
-    flyLeaf.current === 'page' && flyLeaf.marker === GOLD && flyLeaf.ink === WHITE,
+    `${label}: the flyout's active leaf is current, on the pill, in white ink`,
+    flyLeaf.current === 'page' && flyLeaf.ground === PILL && flyLeaf.ink === WHITE && !flyLeaf.bar,
     JSON.stringify(flyLeaf),
   )
 
@@ -1245,8 +1251,8 @@ async function driveRail({ theme, dir }) {
   )
   const treeLeaf = await linkLook(rail.getByRole('link', { name: 'Raise central invoices' }))
   check(
-    `${label}: the tree's active leaf is current, gold-marked, in white ink`,
-    treeLeaf.current === 'page' && treeLeaf.marker === GOLD && treeLeaf.ink === WHITE,
+    `${label}: the tree's active leaf is current, on the pill, in white ink`,
+    treeLeaf.current === 'page' && treeLeaf.ground === PILL && treeLeaf.ink === WHITE && !treeLeaf.bar,
     JSON.stringify(treeLeaf),
   )
   // The header's LAST icon: the first is the group's own.
@@ -1525,7 +1531,7 @@ async function driveTopbar({ theme, dir }) {
     JSON.stringify({ panel: [panelBox.left, panelBox.right, panelBox.bottom], rail: [r0.left, r0.right] }),
   )
   const menuBg = await page.locator('[data-user-menu]').evaluate((el) => getComputedStyle(el).backgroundColor)
-  check(`${label}: it opens from the rail, so it is navy`, menuBg === (await tok(page, '--rail')), menuBg)
+  check(`${label}: it opens from the rail, so it is navy`, menuBg === (await tok(page, '--rail-gradient-to')), menuBg)
   check(
     `${label}: focus lands on the first item, the theme toggle, checked as the theme is`,
     (await focused()).role === 'menuitemcheckbox' &&
@@ -1842,7 +1848,7 @@ async function driveNarrow({ theme, dir }) {
   check(
     `${label}: the hamburger opens a navy drawer (a dialog named Menu) from the inline start, over the --backdrop scrim`,
     (await page.getByRole('dialog', { name: 'Menu' }).count()) === 1 &&
-      drawerBg === (await tok(page, '--rail')) &&
+      drawerBg === (await tok(page, '--rail-gradient-to')) &&
       drawerScrim === (await tok(page, '--backdrop')) &&
       (rtl ? Math.round(d0.right) === 390 : Math.round(d0.left) === 0) &&
       (await burger.getAttribute('aria-expanded')) === 'true',
@@ -2257,7 +2263,7 @@ async function driveOverlays({ theme, dir }) {
   })
   check(
     `${label}: the user menu is navy with the rail's white 12% edge and --shadow-pop`,
-    um.bg === (await tok(page, '--rail')) && um.edge === WHITE_12 && isPop(um.shadow),
+    um.bg === (await tok(page, '--rail-gradient-to')) && um.edge === WHITE_12 && isPop(um.shadow),
     JSON.stringify({ um, WHITE_12 }),
   )
   check(
@@ -2274,7 +2280,7 @@ async function driveOverlays({ theme, dir }) {
   const fs = await surface(fly)
   check(
     `${label}: the rail flyout is navy, its inline-end edge white 12%, with --shadow-pop`,
-    fs.bg === (await tok(page, '--rail')) && fs.endEdge === WHITE_12 && isPop(fs.shadow),
+    fs.bg === (await tok(page, '--rail-gradient-to')) && fs.endEdge === WHITE_12 && isPop(fs.shadow),
     JSON.stringify(fs),
   )
   await page.keyboard.press('Escape')
@@ -2928,7 +2934,7 @@ async function driveDialogs({ theme, dir }) {
 //      list visited IS the granted menu, not a copy of it;
 //  40. each leaf boots with no page error, and no grid header on it is clipped: every header
 //      label sits inside its row and every header row is 382's 28px;
-//  41. the expanded rail marks exactly that leaf: `aria-current="page"` and the gold marker;
+//  41. the expanded rail marks exactly that leaf: `aria-current="page"` and the active pill;
 //  42. a toast raised through the app's own `notify` lands at the bottom inline-END corner;
 //  43. each leaf is captured to .issues/assets/391-shots/ for the owner's S1 sign-off;
 //  44. Raise central invoices' textareas compute a 6px radius — the control shape the sweep gave
@@ -3315,25 +3321,26 @@ async function driveScreens({ theme, dir }) {
       for (const radius of await page.locator('main textarea').evaluateAll((els) => els.map((el) => getComputedStyle(el).borderRadius)))
         check(`${at}: a textarea is a 6px control`, radius === '6px', radius)
 
-    // The rail marks exactly this leaf: one link that is `aria-current` OR paints a marker.
+    // The rail marks exactly this leaf: one link that is `aria-current` OR sits on the active pill.
     // The call center too, since 407 joined it to the shell.
     {
+      const pill = await tok(page, '--rail-pill')
       const marked = (
         await nav.locator('a[href]').evaluateAll((as) =>
           as.map((a) => ({
             path: new URL(a.href).pathname,
             current: a.getAttribute('aria-current'),
-            marker: getComputedStyle(a, '::before').backgroundColor,
+            ground: getComputedStyle(a).backgroundColor,
           })),
         )
-      ).filter((a) => a.current || a.marker !== 'rgba(0, 0, 0, 0)')
+      ).filter((a) => a.current || a.ground === pill)
       check(
         path === '/'
           ? `${at}: no leaf is marked on Home`
-          : `${at}: the rail's gold marker sits on this leaf, and only this one`,
+          : `${at}: the rail's active pill sits on this leaf, and only this one`,
         path === '/'
           ? marked.length === 0
-          : marked.length === 1 && marked[0].path === path && marked[0].current === 'page' && marked[0].marker === (await tok(page, '--rail-active')),
+          : marked.length === 1 && marked[0].path === path && marked[0].current === 'page' && marked[0].ground === pill,
         JSON.stringify(marked),
       )
     }

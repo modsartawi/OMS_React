@@ -9,6 +9,9 @@ import { takesEscape } from '@/core/commands/key-layer'
 import { fromListState } from '@/core/oms/open-intent'
 import { useKeyHint } from '@/core/commands/key-hint'
 import { pinStart } from '@/core/theme/direction'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { INSPECTOR_ID } from './DeliveryInspector'
@@ -24,10 +27,6 @@ interface ColumnToggle {
   visible: boolean
   pinned: boolean
 }
-
-const BTN =
-  'inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs ' +
-  'hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent'
 
 /**
  * Screen 1 results-grid toolbar.
@@ -54,6 +53,10 @@ export default function GridToolbar({
 
   const documentNo = selectedRow?.documentNo?.trim()
   const deliveryNo = selectedRow?.deliveryNo?.trim()
+  // Open Order / Open Delivery are disabled WITH A REASON (594): `aria-disabled` keeps
+  // them focusable, so the keyboard reaches them and hears why. Their clicks guard on
+  // the number themselves.
+  const noRowReason = selectedRow ? undefined : t('inspector.act.noRow')
 
   useEffect(() => {
     if (!columnsOpen) return
@@ -132,37 +135,39 @@ export default function GridToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label={t('toolbar.ariaLabel')}>
-      <button
-        type="button"
-        className={BTN}
-        disabled={!documentNo}
+      <Button
+        variant="outlined"
+        aria-disabled={!documentNo || undefined}
+        title={noRowReason}
+        data-toolbar-open-order=""
         onClick={() => documentNo && navigate(`/oms/document/${documentNo}`, { state: fromListState() })}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.openOrder')}
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={!deliveryNo}
+      </Button>
+      <Button
+        variant="outlined"
+        aria-disabled={!deliveryNo || undefined}
+        title={noRowReason ?? (deliveryNo ? undefined : t('inspector.noDeliveryNo'))}
+        data-toolbar-open-delivery=""
         onClick={() => deliveryNo && navigate(`/oms/delivery/${deliveryNo}`, { state: fromListState() })}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.openDelivery')}
-      </button>
+      </Button>
       <div className="relative" ref={popoverRef}>
-        <button
-          type="button"
-          className={BTN}
+        <Button
+          variant="outlined"
           disabled={!gridApi}
           aria-expanded={columnsOpen}
+          data-toolbar-columns=""
           onClick={openColumns}
         >
           <Table2 className="h-3.5 w-3.5" aria-hidden />
           {t('toolbar.columns')}
-        </button>
+        </Button>
         {columnsOpen && (
-          <div className={'absolute start-0 top-full z-50 mt-1 w-72 p-2 ' + POPOVER}>
+          <div className={'absolute start-0 top-full z-50 mt-1 w-72 p-2 ' + POPOVER} data-columns-chooser="">
             <div className="flex items-center gap-2 border-b border-border pb-2">
               <span className="flex-1 text-xs font-semibold">{t('columnsChooser.title')}</span>
               <button type="button" className="text-xs text-primary underline" onClick={showAll}>
@@ -179,20 +184,16 @@ export default function GridToolbar({
                     <input type="checkbox" checked={column.visible} onChange={() => toggleColumn(column)} />
                     <span className="truncate">{column.header}</span>
                   </label>
-                  <button
-                    type="button"
+                  <IconButton
+                    size="compact"
                     aria-pressed={column.pinned}
-                    aria-label={t(column.pinned ? 'columnsChooser.unpin' : 'columnsChooser.pin', {
+                    label={t(column.pinned ? 'columnsChooser.unpin' : 'columnsChooser.pin', {
                       column: column.header,
                     })}
                     onClick={() => togglePin(column)}
-                    className={
-                      'rounded p-1 hover:bg-accent ' +
-                      (column.pinned ? 'text-primary' : 'text-muted-foreground')
-                    }
                   >
                     <Pin className="h-3.5 w-3.5" aria-hidden />
-                  </button>
+                  </IconButton>
                 </li>
               ))}
             </ul>
@@ -200,10 +201,10 @@ export default function GridToolbar({
         )}
       </div>
 
-      <button type="button" className={BTN} disabled={!hasRows} onClick={exportExcel}>
+      <Button variant="outlined" disabled={!hasRows} data-toolbar-export="" onClick={exportExcel}>
         <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.export')}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -217,10 +218,8 @@ export function InspectorToggle({ open, onToggle }: { open: boolean; onToggle: (
   const { t } = useTranslation('deliveries')
   const hint = useKeyHint(INSPECTOR_KEYS)
   return (
-    <button
-      type="button"
-      className={BTN}
-      aria-pressed={open}
+    <Chip
+      on={open}
       aria-controls={open ? INSPECTOR_ID : undefined}
       aria-keyshortcuts={hint.ariaKeyShortcuts}
       title={hint.title(t('inspector.toggle'))}
@@ -230,7 +229,7 @@ export function InspectorToggle({ open, onToggle }: { open: boolean; onToggle: (
       {/* The pane sits at the inline end: the icon's panel follows it under RTL. */}
       <PanelRight className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
       {t('inspector.toggle')}
-    </button>
+    </Chip>
   )
 }
 

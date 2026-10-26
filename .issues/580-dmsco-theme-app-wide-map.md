@@ -84,19 +84,16 @@ skills (`figma-design-to-code`) for any Figma read.
   (88 carry a Button variant's colours, none its shape; 72 chips/tabs, 59 icon, 41 outlined
   look-alikes, 42 one-offs) and 543 fields on 224 class strings; 302 fields but only 80 buttons
   already use a named constant; five features hold 37%.
+- [How the screens move onto the shared controls](588-how-the-screens-move-onto-the-shared-controls.md):
+  **mixed** (owner): new `core/ui` Input/Select/Textarea/Field, IconButton and Chip take the big
+  buckets, the look-alikes fold into Button, the long tail is restyled in place; **colours first,
+  shapes follow** (owner): one release turns the app DMSCO, then the sweep lands area by area.
+  Drives, slicing, proof and empty states are settled there as recommendations.
 
 ## Not yet specified
 
-- **The 37 drives that assert colours.** Update in place with the token change, or retire their
-  colour assertions in favour of the contrast gate? Hangs on the sweep strategy (588).
-- **Rollout.** One switch for the whole app or screen by screen, and whether the two looks can
-  coexist for a while (they share one token table, so probably not). Hangs on 585 and 588.
-- **Empty, loading and error states.** Not in the three frames read. The Figma's empty Team
-  Dashboard frame (`212:27215`) might set an empty-state style; reading it costs a Figma call, so
-  it waits until a ticket needs it.
-- **The illustrated service icons.** The design's line icons are Lucide shapes (no change needed),
-  but its tiles use illustrated PNG icons. Whether the app wants illustrations anywhere (the home
-  page, empty states) is open; it is not part of a compact working screen.
+<!-- Everything that was here graduated into 588's answer (drives, rollout, empty/loading/error
+     states) or out of scope (illustrations). Only 589 stands between the map and the spec. -->
 
 ## Out of scope
 
@@ -107,5 +104,8 @@ skills (`figma-design-to-code`) for any Figma read.
   exception); only the chrome around them follows the theme.
 - **A language switch** on the login or in the shell. Not part of this theme; would be its own
   effort.
+- **The illustrated service icons** (the design's PNG tile sprites). Compact working screens
+  have no tiles, and empty states keep their line icons (588). A home-page illustration would be its
+  own small effort.
 - **The login page** — already built (`d689a2f7`). It may be touched again only if 585 folds its
   `--login-*` tokens into the main table.

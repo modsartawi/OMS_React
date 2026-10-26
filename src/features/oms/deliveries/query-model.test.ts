@@ -10,6 +10,7 @@ import {
   BLANK_QUERY,
   discardedDraft,
   inSearch,
+  limitIsInvalid,
   pendingDiff,
   QUERY_FIELDS,
   QUERY_GROUPS,
@@ -252,5 +253,19 @@ describe('pendingDiffFlagsEditsAndRemovals', () => {
     expect(pendingDiff(back, RAN).count).toBe(0)
     // Before any search there is nothing to go back to but the blank query.
     expect(discardedDraft(null)).toEqual(BLANK_QUERY)
+  })
+})
+
+describe('limitIsInvalidOutsideOneToTwentyThousandWholeRows', () => {
+  it('flags a Limit the search would not take as typed, and never a cleared one', () => {
+    // Cleared is not invalid: the search falls back to the default and says so in the hint.
+    expect(limitIsInvalid(null)).toBe(false)
+    expect(limitIsInvalid(1)).toBe(false)
+    expect(limitIsInvalid(20000)).toBe(false)
+    expect(limitIsInvalid(0)).toBe(true)
+    expect(limitIsInvalid(-5)).toBe(true)
+    expect(limitIsInvalid(20001)).toBe(true)
+    expect(limitIsInvalid(2.5)).toBe(true)
+    expect(limitIsInvalid(Number.NaN)).toBe(true)
   })
 })

@@ -549,6 +549,143 @@ const SCREENS = [
   },
 ]
 
+// --- 595: the shared field controls (Input / Select / Textarea / Field) -------
+// Self-contained: its helpers and its screen. The Deliveries query bar's token
+// popovers (its filter panel) are the form 595 moved onto the shared controls.
+
+// Every control matching `selector` has a name a screen reader reads: a linked
+// <label> (htmlFor/id), or failing that an aria-label/-labelledby.
+async function expectLabelled(ctx, label, selector) {
+  const out = await ctx.page.evaluate((sel) => {
+    const els = [...document.querySelectorAll(sel)]
+    const nameOf = (el) =>
+      [...(el.labels || [])].map((l) => l.textContent.trim()).join(' ') ||
+      el.getAttribute('aria-label') ||
+      (el.getAttribute('aria-labelledby') || '')
+        .split(' ')
+        .map((id) => document.getElementById(id)?.textContent.trim() ?? '')
+        .join(' ')
+        .trim()
+    return {
+      count: els.length,
+      linked: els.filter((el) => el.labels?.length).length,
+      bare: els.filter((el) => !nameOf(el)).map((el) => el.outerHTML.slice(0, 60)),
+    }
+  }, selector)
+  check(
+    `${ctx.tag} ${label}: every field labelled`,
+    out.count > 0 && out.bare.length === 0,
+    `${out.count} field(s), ${out.linked} by <label for>${out.bare.length ? '; bare: ' + out.bare.join(' | ') : ''}`,
+  )
+}
+
+// The control's aria-describedby resolves to an element whose text contains `fragment`.
+async function expectDescribed(ctx, label, selector, fragment) {
+  const text = await ctx.page.evaluate((sel) => {
+    const el = document.querySelector(sel)
+    return (el?.getAttribute('aria-describedby') || '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent ?? '')
+      .join(' ')
+  }, selector)
+  check(`${ctx.tag} ${label}: described by its hint`, text.includes(fragment), JSON.stringify(text.slice(0, 80)))
+}
+
+// The control states invalid (aria-invalid=true, what a screen reader
+// announces) and paints the danger edge.
+async function expectInvalid(ctx, label, selector) {
+  const aria = await ctx.page.evaluate((sel) => document.querySelector(sel)?.getAttribute('aria-invalid') ?? null, selector)
+  check(`${ctx.tag} ${label}: announced invalid`, aria === 'true', `aria-invalid=${aria}`)
+  await ctx.page.waitForTimeout(300) // transition-colors animates the edge
+  await expectRole(ctx, `${label} invalid`, selector, 'border-top-color', '--danger')
+}
+
+// The shared field look: the --input edge on --card, a full pill at 28px.
+async function expectFieldLook(ctx, label, selector) {
+  await expectRole(ctx, label, selector, 'border-top-color', '--input')
+  await expectRole(ctx, label, selector, 'background-color', '--card')
+  const got = await styleOf(ctx.page, selector, [])
+  check(`${ctx.tag} ${label}: 28px high`, !!got && Math.round(got.rect.h) === 28, got ? `${got.rect.h}px` : 'absent')
+  await expectPill(ctx, label, selector)
+}
+
+// Opens a criterion's token popover — from + Filter when it is not in the bar yet.
+async function openCriterion(page, field) {
+  const token = page.locator(`[data-query-token="${field}"] button[aria-haspopup]`)
+  if (await token.count()) await token.click()
+  else {
+    await page.locator('[data-query-add]').click()
+    await page.locator(`[data-query-entry="${field}"]`).click()
+  }
+  await page.waitForSelector(`[data-token-popover="${field}"]`, { timeout: 5000 })
+  await page.mouse.move(0, 0)
+}
+const closeCriterion = (page, field) => page.locator(`[data-token-popover="${field}"] [data-token-done]`).click()
+
+SCREENS.push({
+  key: 'deliveries-filter',
+  path: '/oms/deliveries',
+  ready: loadDeliveries,
+  assert: async (ctx) => {
+    const { page } = ctx
+    const pop = (f) => `[data-token-popover="${f}"]`
+
+    // Limit: a number Input in a Field with a hint.
+    await openCriterion(page, 'limit')
+    const limit = `${pop('limit')} input`
+    await expectLabelled(ctx, 'Limit', limit)
+    await expectDescribed(ctx, 'Limit', limit, 'rows load')
+    await expectFieldLook(ctx, 'Limit (Input)', limit)
+    await expectFocusRing(ctx, 'Limit (Input)', limit)
+    await page.locator(limit).fill('0')
+    await expectInvalid(ctx, 'Limit 0', limit)
+    await page.screenshot({ path: `${SHOTS}/${ctx.screen.key}-limit-${ctx.mode.key}.png` })
+    await page.locator(limit).fill('')
+    await closeCriterion(page, 'limit')
+
+    // Date: a Select, then a Custom range of two date Inputs, each its own Field.
+    await openCriterion(page, 'date')
+    const dateSel = `${pop('date')} select`
+    await expectFieldLook(ctx, 'Date (Select)', dateSel)
+    await expectFocusRing(ctx, 'Date (Select)', dateSel)
+    await page.locator(dateSel).selectOption('custom')
+    await expectLabelled(ctx, 'Date, Custom', `${pop('date')} input, ${pop('date')} select`)
+    const toEnd = `${pop('date')} input[data-date-end="to"]`
+    await page.locator(toEnd).fill('')
+    await expectInvalid(ctx, 'Date, Custom with To cleared', toEnd)
+    await page.screenshot({ path: `${SHOTS}/${ctx.screen.key}-date-${ctx.mode.key}.png` })
+    await closeCriterion(page, 'date')
+
+    // A text criterion and a select criterion.
+    await openCriterion(page, 'deliveryNo')
+    await expectLabelled(ctx, 'Delivery no.', `${pop('deliveryNo')} input`)
+    await expectFieldLook(ctx, 'Delivery no. (Input)', `${pop('deliveryNo')} input`)
+    await closeCriterion(page, 'deliveryNo')
+    await openCriterion(page, 'isExpress')
+    await expectLabelled(ctx, 'Dawaa Now', `${pop('isExpress')} select`)
+    await expectFieldLook(ctx, 'Dawaa Now (Select)', `${pop('isExpress')} select`)
+    await closeCriterion(page, 'isExpress')
+  },
+})
+
+// Core's RULE_INPUT (51 uses) is re-pointed at the shared field look (595):
+// one of its callers, the Coupon finder's code box, proves its callers restyled.
+SCREENS.push({
+  key: 'rule-input',
+  path: '/campaigns/coupon-finder',
+  ready: async (page) => {
+    await page.goto(BASE + '/campaigns/coupon-finder')
+    await page.waitForSelector('[data-finder-code]', { timeout: 20000 }).catch(() => {})
+    await page.evaluate(() => document.fonts.ready)
+    await page.waitForTimeout(300)
+  },
+  assert: async (ctx) => {
+    await expectLabelled(ctx, 'Coupon code (RULE_INPUT)', '[data-finder-code]')
+    await expectFieldLook(ctx, 'Coupon code (RULE_INPUT)', '[data-finder-code]')
+    await expectFocusRing(ctx, 'Coupon code (RULE_INPUT)', '[data-finder-code]')
+  },
+})
+
 // --- 594: Button / IconButton / Chip on the Deliveries list -------------------
 // Self-contained: its helpers and its screen live in this block and the screen
 // is pushed onto SCREENS, so sibling tickets' blocks merge beside it.

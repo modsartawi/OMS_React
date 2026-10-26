@@ -944,6 +944,194 @@ SCREENS.push({
   },
 })
 
+// --- 601: the admin screens on the shared controls -----------------------------
+// The admin area sweep (spec 590 §Shared controls). Self-contained: its stubs, its
+// helpers and its screens. Light, dark and RTL over the area's heaviest screens — Sync console
+// (the Fleet toolbar, the Audit filter Fields),
+// Authz admin (users + roles workspaces: search Inputs, tab Chips, danger IconButtons,
+// the New role dialog's Fields) and UA admin (the search Input, the toolbar Buttons,
+// the New identity dialog's Fields) — proving every field labelled and on the shared
+// look, every icon button named, and the role tokens resolved.
+
+const AUTHZ_ROLES = [
+  { roleName: 'OMS_ADMIN', description: 'OMS administration', isComposite: false, directHolderCount: 2, isProtected: true },
+  { roleName: 'OMS_VIEWER', description: 'Read the OMS screens', isComposite: false, directHolderCount: 5, isProtected: false },
+  { roleName: 'CC_AGENT', description: 'Call-center agent', isComposite: true, directHolderCount: 3, isProtected: false },
+]
+const AUTHZ_PEOPLE = [
+  { employeeId: '100201', displayName: 'Ahmad Saleh', phone: '0501112222', phoneClass: 'usable', email: '', deliveryChannel: 'sms', isActive: true, isSeeded: true, credentialState: 'active', isTotpEnrolled: true, lastLoginAt: '2026-10-20T08:00:00' },
+  { employeeId: '100202', displayName: 'أحمد علي', phone: '0503334444', phoneClass: 'usable', email: '', deliveryChannel: 'sms', isActive: true, isSeeded: true, credentialState: 'active', isTotpEnrolled: false, lastLoginAt: null },
+]
+const ADMIN_STUBS = [
+  // Authz admin
+  [/^AuthzAdminWeb\/Access$/, { screenAllowed: true, canManageRoles: true, canManageUsers: true, assignableRoles: ['*'], revocableRoles: ['*'] }],
+  [/^AuthzAdminWeb\/Employees$/, { rows: AUTHZ_PEOPLE, totalMatches: 2, rowCap: 50, isCapped: false }],
+  [/^AuthzAdminWeb\/Users\/[^/]+\/Roles$/, ['OMS_VIEWER', 'CC_AGENT']],
+  [/^AuthzAdminWeb\/Users\/[^/]+\/EffectiveAuthorizations$/, []],
+  [/^AuthzAdminWeb\/Audit$/, []],
+  [/^AuthzAdminWeb\/Grants$/, []],
+  [/^AuthzAdminWeb\/Roles$/, AUTHZ_ROLES],
+  [/^AuthzAdminWeb\/Roles\/[^/]+\/Holders$/, [{ userId: '100201', displayName: 'Ahmad Saleh', isActive: true }]],
+  [/^AuthzAdminWeb\/Roles\/[^/]+$/, (path) => {
+    const name = decodeURIComponent(path.split('/').pop())
+    const r = AUTHZ_ROLES.find((x) => x.roleName === name) ?? AUTHZ_ROLES[1]
+    return { ...r, memberSingleRoleNames: r.isComposite ? ['OMS_VIEWER'] : [], boundGrants: [] }
+  }],
+  // UA admin
+  [/^UaAdminWeb\/Access$/, { canOpen: true }],
+  [/^UaAdminWeb\/ReportCounts$/, { allPeople: 1200, notSeeded: 4, phoneGap: 12, awaitingActivation: 30, mustChangePassword: 7, disabled: 9, completedActivation: 1100 }],
+  [/^UaAdminWeb\/(Employees|ReportCards\/[^/]+)$/, { rows: AUTHZ_PEOPLE, totalMatches: 2, rowCap: 50, isCapped: false }],
+]
+
+/** Goes to an admin page and waits for its own hook; fonts settled, mouse parked. */
+async function openAdminPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** A tab Chip: role=tab with aria-selected; the look follows the selection. */
+async function expectTabChips(ctx, label, tablist, min) {
+  const tabs = await ctx.page.evaluate((sel) =>
+    [...document.querySelectorAll(`${sel} [role="tab"]`)].map((b) => b.getAttribute('aria-selected')), tablist)
+  check(
+    `${ctx.tag} ${label}: ${tabs.length} tab chips, each exposes aria-selected, exactly one selected`,
+    tabs.length >= min && tabs.every((s) => s === 'true' || s === 'false') && tabs.filter((s) => s === 'true').length === 1,
+    tabs.join(','),
+  )
+  await expectAllPills(ctx, `${label} tabs`, `${tablist} [role="tab"]`)
+  await expectChipLook(ctx, `${label} selected tab`, `${tablist} [role="tab"][aria-selected="true"]`, true)
+  await expectChipLook(ctx, `${label} unselected tab`, `${tablist} [role="tab"][aria-selected="false"]`, false)
+}
+
+const FIELDS = (scope) => `${scope} input:not([type=checkbox]):not([type=radio]):not([type=file]), ${scope} select, ${scope} textarea`
+
+SCREENS.push({
+  key: 'admin-authz',
+  path: '/admin/authz',
+  stubs: ADMIN_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAdminPage(page, '/admin/authz', '[data-authz-users-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const main = 'main'
+
+    // ── Users workspace: the workspace tabs, the search Input, the search Button.
+    await expectTabChips(ctx, 'workspace switch', '[role="tablist"]:has([data-authz-workspace])', 2)
+    const search = '[data-authz-users-search]'
+    await expectLabelled(ctx, 'people search', search)
+    await expectFieldLook(ctx, 'people search (search Input)', search)
+    await expectFocusRing(ctx, 'people search (search Input)', search)
+    await expectAllPills(ctx, 'Search button', '[data-authz-users-run]')
+    await page.locator(search).fill('ahmad')
+    await page.locator('[data-authz-users-run]').click()
+    await page.locator(`${main} tbody tr`).first().click()
+    await page.waitForSelector('[data-authz-user-tab]', { timeout: 10000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectTabChips(ctx, 'person tabs', '[role="tablist"]:has([data-authz-user-tab])', 3)
+    await expectIconButtonsNamed(ctx, 'person roles (remove)', main, 2)
+    await expectAllFieldsShared(ctx, 'users workspace', main)
+    await shot('users')
+
+    // ── Roles workspace: its search Input + New role Button, a role's detail tabs and Held-by revoke.
+    await page.locator('[data-authz-workspace="roles"]').click()
+    await page.waitForSelector('[data-authz-roles-search]', { timeout: 10000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Roles workspace tab after click', '[data-authz-workspace="roles"]', true)
+    await expectLabelled(ctx, 'role search', '[data-authz-roles-search]')
+    await expectFieldLook(ctx, 'role search (search Input)', '[data-authz-roles-search]')
+    await page.getByRole('button', { name: 'CC_AGENT' }).first().click()
+    await page.waitForTimeout(400)
+    await expectIconButtonsNamed(ctx, 'composite members (remove)', main, 1)
+    await shot('roles')
+
+    // ── New role: a Select and two Inputs, each in a Field.
+    await page.locator('[data-authz-new-role]').click()
+    await page.waitForSelector('dialog[open]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(300)
+    await expectLabelled(ctx, 'New role dialog', FIELDS('dialog[open]'))
+    await expectAllFieldsShared(ctx, 'New role dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'role kind (Select)', 'dialog[open] select')
+    await shot('new-role')
+  },
+})
+
+SCREENS.push({
+  key: 'admin-ua-users',
+  path: '/admin/ua-users',
+  stubs: ADMIN_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAdminPage(page, '/admin/ua-users', '[data-ua-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const search = '[data-ua-search]'
+    await expectLabelled(ctx, 'people search', search)
+    await expectFieldLook(ctx, 'people search (Input)', search)
+    await expectFocusRing(ctx, 'people search (Input)', search)
+    // The toolbar row: Search, Export, Bulk create, New identity — every one a Button pill.
+    await expectAllPills(ctx, 'toolbar buttons', `section > div:has(${search}) button`)
+    await expectRole(ctx, 'Bulk create (outlined Button)', `section > div:has(${search}) > button:nth-last-child(2)`, 'border-top-color', '--border')
+    await shot('list')
+
+    // New identity: five Fields (four Inputs, the channel Select).
+    await page.locator(`section > div:has(${search}) > button:last-child`).click()
+    await page.waitForSelector('dialog[open] #ni-id', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(300)
+    await expectLabelled(ctx, 'New identity dialog', FIELDS('dialog[open]'))
+    await expectAllFieldsShared(ctx, 'New identity dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'employee id (Input)', 'dialog[open] #ni-id')
+    await expectFieldLook(ctx, 'channel (Select)', 'dialog[open] #ni-channel')
+    await shot('new-identity')
+  },
+})
+
+// Sync console: the Fleet page's toolbar (a search Input and two Selects named by aria-label)
+// and the Audit page's filter form (four Inputs, each in a Field).
+const SYNC_PAGED = { items: [], total: 0, page: 1, pageSize: 50 }
+const SYNC_HOUR = (hour, n) => ({ hour, pushPasses: 11820 * n, pullPasses: 23400 * n, connectFailures: 312 * n, chunksPushed: 40 * n, actionsPushed: 4912 * n, trxPulled: 18230 * n, errors: 9 * n })
+const SYNC_STUBS = [
+  [/^ActionSync\/Access$/, { screenAllowed: true, canOperate: true, canOnboard: true, canReplay: true }],
+  [/^ActionSync\/Workers$/, { items: [] }],
+  [/^ActionSync\/Fleet\/Summary$/, { asOf: '2026-10-09T12:04:31', total: 120, counts: { all: 120, onWorker: 119, onWpf: 1, paused: 0, offline: 1, behind: 7, erroring: 2, controlPending: 1 } }],
+  [/^ActionSync\/Fleet\/LastHour$/, { current: SYNC_HOUR('2026-10-09T12:00:00', 1), previous: SYNC_HOUR('2026-10-09T11:00:00', 2) }],
+  [/^ActionSync\/(Fleet|Audit|Commands)$/, SYNC_PAGED],
+]
+
+SCREENS.push({
+  key: 'admin-sync',
+  path: '/admin/sync',
+  stubs: SYNC_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAdminPage(page, '/admin/sync', '[data-fleet-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const toolbar = '[data-fleet-search], [data-fleet-host], [data-fleet-sort]'
+    await expectLabelled(ctx, 'fleet toolbar', toolbar)
+    await expectAllFieldsShared(ctx, 'fleet page', 'main')
+    await expectFieldLook(ctx, 'fleet search (search Input)', '[data-fleet-search]')
+    await expectFieldLook(ctx, 'fleet host (Select)', '[data-fleet-host]')
+    await expectFocusRing(ctx, 'fleet host (Select)', '[data-fleet-host]')
+    await shot('fleet')
+
+    await openAdminPage(page, '/admin/sync/audit', '[data-audit-filters]')
+    await expectLabelled(ctx, 'audit filters', FIELDS('[data-audit-filters]'))
+    await expectAllFieldsShared(ctx, 'audit filters', '[data-audit-filters]')
+    await expectFieldLook(ctx, 'audit from (date Input)', '[data-audit-from]')
+    await expectFieldLook(ctx, 'audit who (Input)', '[data-audit-who]')
+    await expectAllPills(ctx, 'audit Apply / Clear', '[data-audit-apply], [data-audit-clear]')
+    await shot('audit')
+  },
+})
+
 // --- 603: the call-center console on the shared controls ----------------------
 // Self-contained: its stubs, its helpers and its screen. The console is the area's heaviest
 // screen; one run walks it three ways in light, dark and RTL — the console with no caller

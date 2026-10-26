@@ -1,6 +1,9 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { COMMAND_KINDS, COMMAND_STATUSES } from '@/core/models/sync-console'
 import { canOpenSyncConsole, syncConsoleAccessQuery } from './api'
@@ -29,9 +32,6 @@ export default function CommandsPage() {
   )
 }
 
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
-
 function Commands() {
   const { t } = useTranslation('sync-console')
   const [draft, setDraft] = useState<CommandsFilter>(EMPTY_COMMANDS_FILTER)
@@ -49,10 +49,10 @@ function Commands() {
       <ConsoleNav />
       <form onSubmit={submit} aria-label={t('commands.filters')} className="flex flex-wrap items-end gap-2" data-commands-filters="">
         <Field label={t('commands.status')}>
-          <select
+          <Select
             value={draft.status}
             onChange={(e) => set('status')(e.target.value as CommandsFilter['status'])}
-            className={INPUT}
+           
             data-commands-status=""
           >
             <option value="">{t('commands.statusAny')}</option>
@@ -61,13 +61,13 @@ function Commands() {
                 {t(`commandStatus.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('commands.kind')}>
-          <select
+          <Select
             value={draft.kind}
             onChange={(e) => set('kind')(e.target.value as CommandsFilter['kind'])}
-            className={INPUT}
+           
             data-commands-kind=""
           >
             <option value="">{t('commands.kindAny')}</option>
@@ -76,34 +76,34 @@ function Commands() {
                 {t(`commandKinds.${k}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('commands.batch')}>
-          <input
+          <Input
             type="text"
             value={draft.batch}
             onChange={(e) => set('batch')(e.target.value)}
-            className={INPUT + ' w-32 font-mono'}
+            className="w-32 font-mono"
             dir="ltr"
             data-commands-batch=""
           />
         </Field>
         <Field label={t('commands.code')}>
-          <input
+          <Input
             type="text"
             value={draft.code}
             onChange={(e) => set('code')(e.target.value)}
-            className={INPUT + ' w-28 font-mono'}
+            className="w-28 font-mono"
             dir="ltr"
             data-commands-code=""
           />
         </Field>
-        <Button type="submit" className="h-8" data-commands-apply="">
+        <Button type="submit" data-commands-apply="">
           {t('commands.apply')}
         </Button>
         <Button
           variant="text"
-          className="h-8"
+         
           onClick={() => {
             setDraft(EMPTY_COMMANDS_FILTER)
             setFilter(EMPTY_COMMANDS_FILTER)
@@ -116,14 +116,5 @@ function Commands() {
       {/* Keyed on what is asked, so a new filter starts again at page 1. */}
       <CommandsFeed key={JSON.stringify(commandsQuery(filter, 1))} filter={filter} empty={t('commands.empty')} />
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {label}
-      {children}
-    </label>
   )
 }

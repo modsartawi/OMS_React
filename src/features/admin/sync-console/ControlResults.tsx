@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import Ltr from '@/core/ui/Ltr'
+import IconButton from '@/core/ui/IconButton'
 import type { ControlOutcome, OutcomeAction } from './ControlDialog'
 
 /** The list's title says what its rows are: stores, commands (448) or dead letters (458). */
@@ -38,16 +39,9 @@ export default function ControlResults({
           {t(refusedTitleKey(outcome.action), { action: t(`auditActions.${outcome.action}`) })}
         </span>
         {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded p-0.5 hover:opacity-70"
-          aria-label={t('results.dismiss')}
-          title={t('results.dismiss')}
-          data-control-failures-dismiss=""
-        >
+        <IconButton size="compact" label={t('results.dismiss')} onClick={onDismiss} data-control-failures-dismiss="">
           <X className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        </IconButton>
         )}
       </div>
       <ul className="flex flex-col gap-0.5">

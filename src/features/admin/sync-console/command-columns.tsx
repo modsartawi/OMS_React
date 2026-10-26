@@ -91,7 +91,7 @@ export function buildCommandColumns(
       width: 100,
       cellRenderer: (p: ICellRendererParams<SyncCommand>) =>
         p.data && canCancel(p.data) ? (
-          <Button variant="text" className="h-6 px-2 text-xs" onClick={() => onCancel(p.data!)} data-command-cancel={p.data.id}>
+          <Button variant="text" onClick={() => onCancel(p.data!)} data-command-cancel={p.data.id}>
             {t('commands.cancel')}
           </Button>
         ) : null,

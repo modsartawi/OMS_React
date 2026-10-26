@@ -11,19 +11,36 @@
 # Lowering: `node tools/check-controls.mjs --lower <feature>` after a sweep; then, for what stays,
 # replace the count with the allowlist (`--list <feature>` prints file:line for each).
 
-admin/active-sessions 7
+admin/active-sessions 1
+  src/features/admin/active-sessions/ActiveSessionsPage.tsx button: a session row's Revoke inside the table cell: a grid-cell action (spec 590: restyled in place)
 
-admin/authz-admin 22
+admin/authz-admin 6
+  src/features/admin/authz-admin/DeleteBlockedModal.tsx button: a blocker-count tile that jumps to its list: a tile picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RoleDetailPane.tsx button: a grant row's Unbind, a danger-ink text button that does not navigate: restyled in place
+  src/features/admin/authz-admin/RoleDetailPane.tsx button: a holder row that jumps to the user: a row picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RolesWorkspace.tsx button: a worklist count card that filters the catalogue: a tile picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/RolesWorkspace.tsx button: a catalogue role row that opens its detail: a row picker (spec 590: restyled in place)
+  src/features/admin/authz-admin/UsersWorkspace.tsx button: a worklist count card that filters the result: a tile picker (spec 590: restyled in place)
 
-admin/broadcast 6
+admin/broadcast 0
 
-admin/data-sync 13
+admin/data-sync 1
+  src/features/admin/data-sync/job-columns.tsx button: the store cell that opens the job drawer: a grid-cell action (spec 590: restyled in place)
 
-admin/engine-switch 4
+admin/engine-switch 0
 
-admin/sync-console 44
+admin/sync-console 7
+  src/features/admin/sync-console/AgreementTab.tsx button: day row picker (aria-pressed, picks the day in-page; spec 590: pickers restyle in place)
+  src/features/admin/sync-console/FleetPage.tsx button: fleet state tile picker (aria-pressed, severity top border; spec 590: tile pickers restyle in place)
+  src/features/admin/sync-console/RecentPassesPage.tsx button: pass-kind tile picker (aria-pressed, severity top border; spec 590: tile pickers restyle in place)
+  src/features/admin/sync-console/ViewJsonButton.tsx button: grid-cell action (Transactions View JSON; spec 590: restyled in place)
+  src/features/admin/sync-console/mirror-columns.tsx button: grid-cell action (dead letter Show error; spec 590: restyled in place)
+  src/features/admin/sync-console/recent-passes-columns.tsx button: grid-cell action (opens a pass from its start time; spec 590: restyled in place)
+  src/features/admin/sync-console/store-columns.tsx button: grid-cell action (opens a pass from its start time; spec 590: restyled in place)
 
-admin/ua-admin 15
+admin/ua-admin 2
+  src/features/admin/ua-admin/UaAdminUsersPage.tsx button: a report card that opens its worklist: a tile picker (spec 590: restyled in place)
+  src/features/admin/ua-admin/UserDetailPane.tsx button: a session row's Revoke, a danger-ink text button that does not navigate: restyled in place
 
 auth 24
 

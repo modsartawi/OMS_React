@@ -14,6 +14,8 @@ import MirrorTab from './MirrorTab'
 import PassesTab from './PassesTab'
 import ScriptsTab from './ScriptsTab'
 import TransactionsTab from './TransactionsTab'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The store page's tabs (ticket 446): Counters, Passes, Commands, Scripts, Audit and
@@ -49,37 +51,30 @@ export default function StoreTabs({ row }: { row: StoreDetail }) {
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card" data-store-tabs={tabs.join(' ')}>
       <div className="flex items-center gap-2 border-b border-border/60 pe-3">
-        <div role="tablist" aria-label={t('tabs.label')} className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-3">
+        <div role="tablist" aria-label={t('tabs.label')} className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-3 py-1.5">
           {tabs.map((tab) => (
-            <button
+            <Chip
               key={tab}
-              type="button"
-              role="tab"
+              variant="tab"
+              on={open === tab}
               id={`sync-store-tab-${tab}`}
-              aria-selected={open === tab}
               aria-controls={TAB_PANEL_ID}
               onClick={() => select(tab)}
               data-tab={tab}
-              className={
-                'border-b-2 px-3 py-2 text-sm transition-colors ' +
-                (open === tab
-                  ? 'border-primary font-semibold text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground')
-              }
             >
               {t(`tabs.${tab}`)}
-            </button>
+            </Chip>
           ))}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="outlined"
           onClick={() => void qc.invalidateQueries({ queryKey: tabKey })}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="shrink-0"
           data-tab-refresh={open}
         >
           <RefreshCw className={'h-3.5 w-3.5 ' + (reading ? 'animate-spin' : '')} aria-hidden />
           {t('tabs.refresh')}
-        </button>
+        </Button>
       </div>
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`sync-store-tab-${open}`} className="p-3" data-tab-panel={open}>
         {open === 'counters' ? (

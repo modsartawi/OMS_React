@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Input from '@/core/ui/Input'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import type { UaEmployeeStatusResult } from '@/core/models/ua-user'
@@ -20,8 +22,6 @@ import ChannelSelect from './ChannelSelect'
 import ChannelWarning from './ChannelWarning'
 import SetPasswordModal from './SetPasswordModal'
 
-const FIELD =
-  'h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 type Tab = 'sessions' | 'audit'
 
@@ -196,9 +196,9 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
           {/* Frozen while a save is in flight: the post-save re-read mirrors the
               stored record back into these boxes, which would silently swallow
               anything typed in between. */}
-          <input
+          <Input
             id="ud-phone"
-            className={FIELD}
+            className="flex-1"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             inputMode="tel"
@@ -208,9 +208,9 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
 
         <dt className="text-muted-foreground">{t('detail.email')}</dt>
         <dd>
-          <input
+          <Input
             id="ud-email"
-            className={FIELD}
+            className="flex-1"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             inputMode="email"
@@ -220,7 +220,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
 
         <dt className="text-muted-foreground">{t('delivery.label')}</dt>
         <dd className="flex items-center gap-2">
-          <ChannelSelect id="ud-channel" className={FIELD} value={channel} onChange={setChannel} disabled={acting} />
+          <ChannelSelect id="ud-channel" className="flex-1" value={channel} onChange={setChannel} disabled={acting} />
           <Button variant="secondary" onClick={saveContact} disabled={acting || !contactDirty}>
             {t('detail.save')}
           </Button>
@@ -273,22 +273,11 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
         </Button>
       </div>
 
-      <div className="flex gap-1 border-b border-border" role="tablist" aria-label={t('tabs.ariaLabel')}>
+      <div className="flex gap-1 border-b border-border pb-2" role="tablist" aria-label={t('tabs.ariaLabel')}>
         {(['sessions', 'audit'] as Tab[]).map((id) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={
-              'border-b-2 px-3 py-1.5 text-sm ' +
-              (tab === id
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={id} variant="tab" on={tab === id} onClick={() => setTab(id)}>
             {t(`tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -302,7 +291,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
             sessions.data.map((s) => (
               <div
                 key={s.sessionId}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 px-2.5 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5"
               >
                 <span className="min-w-0 truncate">
                   <b>{t(`channel.${s.channel}`, { defaultValue: s.channel })}</b> · {t('sessions.started')}{' '}
@@ -311,7 +300,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
                   <span className="tabular-nums text-muted-foreground">{s.ipAddress}</span>
                 </span>
                 <button
-                  className="shrink-0 rounded-full text-xs font-medium text-danger-800 hover:underline"
+                  className="shrink-0 rounded-full px-1 text-xs font-medium text-danger-800 hover:underline disabled:opacity-50"
                   onClick={() => revoke(s.sessionId)}
                   disabled={acting}
                 >

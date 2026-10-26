@@ -6,6 +6,8 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import { fsi } from '@/core/util/bidi'
 import type { RePushResponse } from '@/core/models/sync-console'
 import { AUDIT_KEY, COMMANDS_KEY, FLEET_KEY, storeCountersQuery, storeKey, syncConsoleApi } from './api'
@@ -179,9 +181,8 @@ function RePush({
             </label>
           ))}
         </fieldset>
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('rePush.from')}
-          <input
+        <Field label={t('rePush.from')}>
+          <Input
             type="date"
             value={draft}
             min={bound.min}
@@ -195,10 +196,9 @@ function RePush({
             }}
             onBlur={() => askFrom(draft)}
             disabled={send.isPending}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60"
             data-repush-from=""
           />
-        </label>
+        </Field>
       </div>
 
       {scope === 'chosen' && (

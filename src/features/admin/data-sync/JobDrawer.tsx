@@ -9,6 +9,7 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { SHEET } from '@/core/ui/overlay'
 import { formatPair } from '@/core/util/bidi'
@@ -96,15 +97,9 @@ export default function JobDrawer({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('drawer.close')}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent"
-            data-job-drawer-close=""
-          >
+          <IconButton label={t('drawer.close')} onClick={onClose} data-job-drawer-close="">
             <X className="h-4 w-4" aria-hidden />
-          </button>
+          </IconButton>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 py-3">

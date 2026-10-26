@@ -9,6 +9,7 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { CAMPAIGN_STATUSES, DATA_SYNC_PAGE_SIZE, type Campaign, type CampaignStatus } from '@/core/models/data-sync'
@@ -69,11 +70,10 @@ function Campaigns() {
             </span>
           )}
           <NewCampaignButton />
-          <select
+          <Select
             value={filter.status ?? ''}
             onChange={(e) => update(() => ({ status: (e.target.value || null) as CampaignStatus | null, page: 1 }))}
             aria-label={t('campaigns.status')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-status-filter=""
           >
             <option value="">{t('campaigns.statusAny')}</option>
@@ -82,7 +82,7 @@ function Campaigns() {
                 {t(`campaignStatus.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {campaigns.isError && <ErrorBanner className="p-3" message={apiErrorMessage(campaigns.error, t('campaigns.failed'))} />}

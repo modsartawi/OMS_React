@@ -5,6 +5,8 @@ import { Loader2, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
@@ -90,22 +92,11 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-border" role="tablist" aria-label={t('tabs.ariaLabel')}>
+      <div className="flex gap-1 border-b border-border pb-2" role="tablist" aria-label={t('tabs.ariaLabel')}>
         {(['roles', 'effective', 'audit'] as Tab[]).map((id) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={
-              'border-b-2 px-3 py-1.5 text-sm ' +
-              (tab === id
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={id} variant="tab" on={tab === id} onClick={() => setTab(id)} data-authz-user-tab={id}>
             {t(`tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -144,14 +135,15 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                           </span>
                         )}
                         {removable ? (
-                          <button
-                            className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
-                            title={t('roles.remove')}
+                          <IconButton
+                            variant="danger"
+                            size="compact"
+                            label={t('roles.remove')}
                             onClick={() => removeRole(rn)}
                             disabled={acting}
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                            <X className="h-3.5 w-3.5" aria-hidden />
+                          </IconButton>
                         ) : (
                           <span
                             className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"

@@ -1047,3 +1047,16 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [577](577-the-location-card-runs-against-the-live-doors-on-staging.md) — The location card runs against the live doors on staging · *(ticket · BO spec 2482, HITL)* · **open** · blocked by: 574, 575, 576 · live drive + real-phone walk; the web half of BO 2492
 - [578](578-the-location-card-shows-what-spl-said-and-whether-the-pin-agrees.md) — The location card shows what SPL said and whether the pin agrees · *(ticket · BO spec 3072)* · **open** · blocked by: 575 · SPL status, parts + additional number, pin check, city warning; live: BO 3075
 - [579](579-an-agent-checks-a-short-address-they-typed.md) — An agent checks a Short Address they typed on the web seat · *(ticket · BO spec 3072)* · **open** · blocked by: — · Check beside the Short Address in `AddressForm`; live: BO 3074
+
+## DMSCO theme, app-wide (Figma HR-Portal_Website, login done d689a2f7, charted 2026-10-26)
+
+- [580](580-dmsco-theme-app-wide-map.md) — The DMSCO theme, app-wide · *(wayfinder map)* · **open** · blocked by: — · dest = one ready spec; visual language only, keep our UX
+- [581](581-capture-the-remaining-figma-frames.md) — Capture the remaining Figma frames · *(wayfinder · task)* · **open** · blocked by: — · 3 calls: Homepage 430:5164, Reports 224:31368, My Profile 430:7247
+- [582](582-can-we-licence-chalet-for-the-web.md) — Can we licence Chalet for the web? · *(wayfinder · research)* · **done 2026-10-26** · blocked by: — · yes (House, ~$50 one-time, quote needed); no Arabic; internal-host scope unconfirmed; note on branch research/582-chalet-web-licence
+- [583](583-inventory-the-hand-styled-controls.md) — Inventory the hand-styled controls · *(wayfinder · task)* · **open** · blocked by: — · 422 buttons, 550 fields
+- [584](584-how-much-of-the-hr-sites-scale-reaches-the-working-screens.md) — How much of the HR site's scale reaches the working screens? · *(wayfinder · prototype)* · **done 2026-10-26** · blocked by: — · none: today's compact sizes stay, DMSCO look only; design scale + glass login-only (prototype/dmsco-density 808be58e)
+- [585](585-how-the-dmsco-palette-maps-onto-our-tokens.md) — How the DMSCO palette maps onto our tokens · *(wayfinder · grilling)* · **open** · blocked by: 581
+- [586](586-how-dark-mode-is-derived-without-a-dark-design.md) — How dark mode is derived without a dark design · *(wayfinder · prototype)* · **open** · blocked by: 585
+- [587](587-the-shell-and-which-mark-it-carries.md) — The shell, and which mark it carries · *(wayfinder · prototype)* · **open** · blocked by: 581, 584
+- [588](588-how-the-screens-move-onto-the-shared-controls.md) — How the screens move onto the shared controls · *(wayfinder · grilling)* · **open** · blocked by: 583, 584
+- [589](589-which-type-family-the-app-sets-type-in.md) — Which type family the app sets type in · *(wayfinder · grilling)* · **open** · blocked by: 582

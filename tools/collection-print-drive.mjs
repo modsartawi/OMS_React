@@ -496,9 +496,11 @@ async function run() {
     )
     check(
       `${label} → red, like the rest of the box, and NOT bold — the WPF's own line`,
+      // The box's own red is its border: the line takes the same ink (ticket 593 — no hex).
       await desc.evaluate((el) => {
         const cs = getComputedStyle(el)
-        return cs.color === 'rgb(192, 0, 0)' && Number(cs.fontWeight) < 600
+        const box = getComputedStyle(el.closest('.cv-overage-box'))
+        return cs.color === box.borderTopColor && Number(cs.fontWeight) < 600
       }),
     )
   }
@@ -742,19 +744,26 @@ async function run() {
         scheme: root.colorScheme,
       }
     })
+  // Ticket 593: the light paint is read off the same route in light mode, not pinned as a hex.
+  await page.evaluate(() => localStorage.setItem('oms.darkMode', 'false'))
+  await goto('no-such-receipt')
+  const lightScreen = await resolvedPaint()
   await page.evaluate(() => localStorage.setItem('oms.darkMode', 'true'))
   await goto('no-such-receipt')
   const darkScreen = await resolvedPaint()
   check(
     '381 — dark mode, on screen, the print route IS dark (the control for the print case)',
-    darkScreen.dark && darkScreen.body === 'rgb(10, 17, 29)' && darkScreen.foreground === '#e6ebf2',
-    JSON.stringify(darkScreen),
+    darkScreen.dark &&
+      !lightScreen.dark &&
+      darkScreen.body !== lightScreen.body &&
+      darkScreen.foreground !== lightScreen.foreground,
+    JSON.stringify({ lightScreen, darkScreen }),
   )
   await page.emulateMedia({ media: 'print' })
   const darkPrint = await resolvedPaint()
   check(
-    '381 — dark mode, printed: the class is still on <html>, but the tokens resolve LIGHT palette B',
-    darkPrint.dark && darkPrint.body === 'rgb(242, 244, 248)' && darkPrint.foreground === '#0f1b2d',
+    '381 — dark mode, printed: the class is still on <html>, but the tokens resolve the LIGHT table',
+    darkPrint.dark && darkPrint.body === lightScreen.body && darkPrint.foreground === lightScreen.foreground,
     JSON.stringify(darkPrint),
   )
   check('381 — and paper declares color-scheme: light', darkPrint.scheme === 'light', darkPrint.scheme)
@@ -943,7 +952,13 @@ async function run() {
   )
   check(
     'acr → a shortfall carries the mismatch-red warning style',
-    (await shortfall.evaluate((el) => getComputedStyle(el).color)) === 'rgb(176, 0, 32)',
+    // Ticket 593: red by role, not by hex — a red-dominant ink, unlike the sheet's plain figures.
+    await shortfall.evaluate((el) => {
+      const ink = (e) => (getComputedStyle(e).color.match(/\d+/g) || []).map(Number)
+      const plain = document.querySelector('.acr-money:not(.acr-mark)')
+      const [r, g, b] = ink(el)
+      return !!plain && r > 2 * g && r > 2 * b && ink(plain).join() !== ink(el).join()
+    }),
   )
   // ⚠ مطابقة is GONE (2026-08-15) — head, cells, and the marks it printed. Proved by
   // ABSENCE over the whole document, because a stale column lays out perfectly.

@@ -212,6 +212,33 @@ const positives = [
   ['--login-cta', '--login-glass-floor', UI],
 ]
 
+// --- the DMSCO shell (spec 590; map 580's 587, ticket 592) --------------------
+//
+// The rail ground is a radial deep navy, `--rail-gradient-from` → `--rail-gradient-to`,
+// on the rail and every panel that opens from it. Every rail ink is measured on BOTH
+// stops: the gradient paints each one somewhere under a label.
+//
+// The active item is a filled pill (`--rail-pill`) with white ink and a gold icon. 587
+// drew it with a faint white inset hairline (white 10% over `#182f4a`, i.e. `#2f445c`),
+// which measures 1.63:1 on `--rail` and 1.77:1 on the deep stop: it cannot meet the
+// non-text 3:1, so per spec 590 it is DROPPED and the pill ground is LIFTED instead,
+// from `#182f4a` to `#234670` on the same hue. `RAIL_PILL_LIFT` holds the lift to at
+// least the separation the hairline used to give (it is not a WCAG floor: the active
+// state is carried by the gold icon and `aria-current`, the pill is its shape).
+const RAIL_STOPS = ['--rail-gradient-from', '--rail-gradient-to']
+positives.push(
+  ...RAIL_STOPS.flatMap((stop) => [
+    ['--rail-foreground', stop, BODY],
+    ['--rail-muted', stop, BODY],
+    ['--rail-active', stop, BODY],
+    ['--rail-accent-foreground', stop, BODY],
+  ]),
+  ['--rail-accent-foreground', '--rail-pill', BODY],
+  ['--rail-active', '--rail-pill', UI],
+)
+const RAIL_PILL_LIFT = 1.6
+const railPillLift = RAIL_STOPS.map((stop) => ['--rail-pill', stop, RAIL_PILL_LIFT])
+
 // Pairs that exist in dark only. D-4 rules `--attention` out as a fill ground in
 // LIGHT ("the hue sits at the luminance where no ink clears AA") but measures the
 // lifted dark twin as fine — "Dark is unaffected (the lifted #E4A249 carries dark
@@ -317,6 +344,16 @@ const EXPECTED = {
   },
 }
 
+// The shell's tokens (ticket 592): the two gradient stops are 587's, the pill is
+// the lifted ground (see the shell block above). The rail never themes.
+for (const theme of ['light', 'dark']) {
+  Object.assign(EXPECTED[theme], {
+    '--rail-gradient-from': '#111a1e',
+    '--rail-gradient-to': '#172031',
+    '--rail-pill': '#234670',
+  })
+}
+
 // --- the `@theme inline` bridge is complete ----------------------------------
 //
 // Declaring `--success-050` in `:root` is NOT enough to make `bg-success-050`
@@ -404,6 +441,23 @@ for (const [inkName, groundName, ceiling] of lightBelow) {
         `meaningful line on a light surface (spec 380 F5); a gold that clears 3:1 on a light ` +
         `card has stopped being the brand gold.`,
     })
+  }
+}
+
+// The active pill stands off the rail ground at least as far as 587's hairline did.
+for (const theme of ['light', 'dark']) {
+  for (const [pillName, groundName, floor] of railPillLift) {
+    const pill = resolve(theme, pillName)
+    const ground = resolve(theme, groundName)
+    const r = ratio(pill.hex, ground.hex)
+    checked++
+    if (r < floor) {
+      failures.push({
+        line: pill.line,
+        what: `${theme}: ${pillName} on ${groundName}`,
+        detail: `${r.toFixed(2)}:1 — below the ${floor}:1 lift that replaces 587's dropped hairline`,
+      })
+    }
   }
 }
 

@@ -13,7 +13,7 @@
  * mid-call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, api, apiErrorAttemptId, apiErrorCode } from './api'
+import { ApiError, api, apiErrorAttemptId, apiErrorCode, apiErrorData } from './api'
 
 /** One `fetch` answer — the SIS.Api envelope verbatim, at whatever status. */
 const answer = (status: number, body: unknown) =>
@@ -92,6 +92,19 @@ describe('apiErrorAttemptId', () => {
     expect(apiErrorAttemptId(await failing(503, envelope(503, 'RENDERER_UNAVAILABLE')))).toBeNull()
     expect(apiErrorAttemptId(new Error('a plain bug'))).toBeNull()
     expect(apiErrorAttemptId(null)).toBeNull()
+  })
+})
+
+/** `apiErrorData` — a refusal's own `data`, for the feature that knows what it means. */
+describe('apiErrorData', () => {
+  it('reads the envelope’s data off a refusal that carried one', async () => {
+    expect(apiErrorData(await failing(400, envelope(400, 'SUBMIT_REFUSED')))).toEqual({ field: 'slot' })
+  })
+
+  it('is null for a refusal without data, and for a value that is not an ApiError', async () => {
+    expect(apiErrorData(await failing(400, { ...envelope(400, 'X'), data: null }))).toBeNull()
+    expect(apiErrorData(new Error('a plain bug'))).toBeNull()
+    expect(apiErrorData(undefined)).toBeNull()
   })
 })
 

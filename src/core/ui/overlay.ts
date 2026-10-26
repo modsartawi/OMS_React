@@ -4,7 +4,7 @@
  *
  * - **From the rail → navy** ({@link RAIL_POPOVER}): the group flyout, the user menu at
  *   the rail foot, and the narrow rail's overlaid tree and drawer. It continues the rail:
- *   `--rail` ground and ink, `--rail-muted` secondary text, `--rail-accent` hover with
+ *   its radial gradient ground (`bg-rail-gradient`, 592) and `--rail-foreground` ink, `--rail-muted` secondary text, `--rail-accent` hover with
  *   white ink, a white 12% edge and dividers ({@link RAIL_EDGE}), and a GOLD focus
  *   ring — the navy ring would vanish on navy.
  * - **Everything else → the card recipe**: the store chip's panel, the bell panel, the
@@ -50,10 +50,11 @@ const MENU_ITEM = 'flex h-7 w-full items-center gap-2 rounded-md px-2 text-start
 export const RAIL_EDGE = 'border-rail-accent-foreground/12'
 
 /**
- * A panel that opens from the rail: navy, a white 12% edge, and a gold focus ring. The
- * caller draws the edges it has: `border` floating, `border-e` flush against the rail.
+ * A panel that opens from the rail: the rail's radial deep navy (`bg-rail-gradient`,
+ * ticket 592), a white 12% edge, and a gold focus ring. The caller draws the edges it
+ * has: `border` floating, `border-e` flush against the rail.
  */
-export const RAIL_POPOVER = `${RAIL_EDGE} bg-rail text-rail-foreground ${OVERLAY_SHADOW} [--ring:var(--gold)]`
+export const RAIL_POPOVER = `${RAIL_EDGE} bg-rail-gradient text-rail-foreground ${OVERLAY_SHADOW} [--ring:var(--gold)]`
 
 /** A menu item on a rail panel: `--rail-accent` hover and focus, with white ink. */
 export const RAIL_MENU_ITEM = `${MENU_ITEM} hover:bg-rail-accent hover:text-rail-accent-foreground focus:bg-rail-accent focus:text-rail-accent-foreground`

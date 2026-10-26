@@ -725,5 +725,95 @@
       "raisedAt": "Raised at store",
       "note": "Pharmacist's note"
     }
+  },
+  "location": {
+    "send": {
+      "action": "Send location link",
+      "title": "Send location link",
+      "body": "The customer gets a text with a link that works for 15 minutes. They drop a pin on their door, and it appears here.",
+      "mobile": "Mobile number",
+      "cancel": "Cancel",
+      "confirm": "Send link",
+      "sending": "Sending…",
+      "failed": "The link couldn't be sent. Nothing reached the customer — try again.",
+      "mayHaveSent": "Sending failed, but the text may still reach the customer. Wait for the countdown, then send again — the new link replaces this one.",
+      "confirmIn": "Send link (<seconds>{{seconds}}</seconds> s)"
+    },
+    "refused": {
+      "orderLimit": "No more links for this order",
+      "mobileDailyLimit": "This number has had 10 links today"
+    },
+    "strip": {
+      "waiting": "Location link sent to <mobile>{{mobile}}</mobile> - waiting (<clock>{{clock}}</clock>)",
+      "unreachable": "Location link sent to <mobile>{{mobile}}</mobile> - Can't reach the server - still trying",
+      "expired": "Link expired - the customer didn't send a location",
+      "replaced": "This link was replaced - send a new one",
+      "received": "Location received",
+      "resend": "Resend",
+      "resendIn": "Resend (<seconds>{{seconds}}</seconds> s)",
+      "sendAgain": "Send again",
+      "gone": "This link is no longer available - send a new one",
+      "discarded": "Location discarded"
+    },
+    "card": {
+      "title": "Location received",
+      "row": {
+        "pin": "Pin",
+        "shortAddress": "Short Address",
+        "details": "Details",
+        "detailsInto": "Details into Address line 2"
+      },
+      "pin": {
+        "device": "Pinned by the customer's phone (<accuracy>±{{meters}} m</accuracy>)",
+        "manual": "Placed by hand on the map",
+        "replaces": "Replaces the earlier pin"
+      },
+      "openMaps": "Open in Google Maps",
+      "shortAddress": {
+        "orderHas": "Order has: <code>{{code}}</code>",
+        "notGiven": "Not given - the order's Short Address is kept"
+      },
+      "details": {
+        "filled": "Address line 2 is already filled - copy by hand",
+        "none": "No details given",
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "saveToCustomer": "Also save to this customer address",
+      "apply": "Apply",
+      "applying": "Applying…",
+      "failed": "The location couldn't be applied. Nothing changed - try again.",
+      "notYet": "The server has no location for this link yet - try Apply again in a moment.",
+      "discard": "Discard",
+      "discarding": "Discarding…",
+      "discardFailed": "The location couldn't be discarded. Nothing changed - try again.",
+      "createAddress": "Create address from this location",
+      "refused": {
+        "noCustomer": "There is no customer on this order to save the address to - untick it and Apply again.",
+        "notTheirs": "This order's address is not in this customer's address book - untick it and Apply again."
+      }
+    },
+    "chip": {
+      "applied": "Location applied <time>{{time}}</time> · <map>Open in Google Maps</map>",
+      "cleared": "Location cleared - address changed"
+    },
+    "resendConfirm": {
+      "title": "Resend location link",
+      "body": "Discard the received location and send a new link?",
+      "keep": "Keep it",
+      "yes": "Discard and send"
+    },
+    "shortAddressCheck": {
+      "action": "Check",
+      "checking": "Checking with SPL…",
+      "hint": "Optional. Four letters then four digits. Check asks SPL whether it exists — it never stops a save.",
+      "confirmed": "Confirmed by SPL",
+      "additionalNumber": "Additional number",
+      "cityWarning": "SPL says {{spl}}, the form's city is {{form}}",
+      "unknown": "Not known to SPL",
+      "unavailable": "SPL is unavailable, not checked",
+      "refused": "The server refused the check.",
+      "malformed": "SPL refused this as malformed. A Short Address is four letters followed by four digits, e.g. RIMA6904."
+    }
   }
 }

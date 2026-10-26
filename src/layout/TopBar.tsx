@@ -160,7 +160,7 @@ function StoreChip() {
         aria-controls={open ? 'layout-store-panel' : undefined}
         data-store-chip={store ? 'set' : 'unset'}
         className={
-          'flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs ' +
+          'flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs ' +
           (store
             ? 'border-border text-muted-foreground hover:bg-accent'
             : 'border-attention-border bg-attention-050 font-medium text-attention-800')
@@ -220,7 +220,7 @@ function PaletteField() {
       aria-haspopup="dialog"
       aria-keyshortcuts="Control+K"
       data-palette-field
-      className="flex h-7 w-full max-w-[540px] min-w-0 cursor-text items-center gap-2 rounded-md border border-border-strong bg-card-2 px-2.5 text-start text-[12.5px] text-muted-foreground hover:border-ink-3"
+      className="flex h-7 w-full max-w-[540px] min-w-0 cursor-text items-center gap-2 rounded-full border border-border-strong bg-card px-3 text-start text-[12.5px] text-muted-foreground hover:border-ink-3"
     >
       <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{t('palette.field')}</span>

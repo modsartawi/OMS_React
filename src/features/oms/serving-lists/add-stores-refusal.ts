@@ -7,7 +7,7 @@
  * unknown codes first, so a basket with both kinds takes two rounds. `data` is read defensively: missing or of
  * the wrong shape, the dialog shows the server's message instead of highlights.
  */
-import { ApiError } from '@/core/api'
+import { apiErrorData } from '@/core/api'
 import { SERVING_LIST_ERRORS as E } from '@/core/models/serving-list'
 import { refusalOf, type Refusal, type RefusalMap } from './refusal'
 
@@ -32,7 +32,7 @@ export type AddStoresRefusal =
 
 /** `data.badStoreCodes` when it is a non-empty list of strings, else null. */
 function badStoreCodes(err: unknown): string[] | null {
-  const data = err instanceof ApiError ? err.data : null
+  const data = apiErrorData(err)
   if (!data || typeof data !== 'object') return null
   const codes = (data as { badStoreCodes?: unknown }).badStoreCodes
   return Array.isArray(codes) && codes.length > 0 && codes.every((c) => typeof c === 'string') ? codes : null

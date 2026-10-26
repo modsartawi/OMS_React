@@ -137,6 +137,7 @@ export default function ConsoleShell({
   submit,
   headerSection = null,
   headerSectionOpen = false,
+  locationLink = null,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -250,6 +251,9 @@ export default function ConsoleShell({
    *  down while it is, so a chip's section is never drawn under a card telling
    *  the agent to open it. */
   headerSectionOpen?: boolean
+  /** The location link (574): the page's panel, which owns its own calls. The shell owns
+   *  only where it lands — the address's row, under the header sentence. */
+  locationLink?: ReactNode
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -379,6 +383,10 @@ export default function ConsoleShell({
               note: onChangeNote,
             }}
           />
+          {/* 574 — the delivery address's own row: *Send location link* beside the
+              address word (the console's Change address), and the waiting strip in
+              the same place. Empty while the order cannot send one. */}
+          {locationLink}
           {/* 🚩 175 §9, the half that was owed: **the section a word opens, in
               the flow, immediately under the sentence that opened it.** The
               sentence stays visible above it — a word is a place, and a place

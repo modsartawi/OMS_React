@@ -47,8 +47,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import type {
+  ApplyLocationRequest,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
   DeliveryType,
@@ -117,7 +118,9 @@ import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submi
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
 import { rePinAfterEdit } from './address-book'
+import type { AddressFormValues } from './address-capture'
 import AddressPicker from './AddressPicker'
+import { showsCheck } from './short-address-check'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
@@ -126,6 +129,8 @@ import CouponPicker from './CouponPicker'
 import { couponRemoveFailure, couponSurface } from './coupon-view'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
+import LocationLinkPanel from './LocationLinkPanel'
+import { shouldRetire } from './location-link-view'
 import NoteForm from './NoteForm'
 import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
 import {
@@ -267,6 +272,13 @@ function ConsoleSession() {
    * moment it has answered.
    */
   const [pickingAddress, setPickingAddress] = useState(false)
+  /**
+   * 576 — *Create address from this location*: the capture's pre-fill the book opens on, and
+   * the location card's wait for the create (resolved with the new `addressNumber`, or `null`
+   * when the book closes without one).
+   */
+  const [addressPrefill, setAddressPrefill] = useState<AddressFormValues | null>(null)
+  const createdFromLocation = useRef<((created: CustomerAddressBookEntry | null) => void) | null>(null)
 
   /** The store override, open or not (167) — the other way into the same rebind. */
   const [pickingStore, setPickingStore] = useState(false)
@@ -455,6 +467,10 @@ function ConsoleSession() {
         // Nothing may keep pointing at the dead order — including a confirmation
         // asking whether to void something that is already gone.
         setAbandoning(null)
+        // 574 (amended by the 2482 review) — the order died under the tab, so its location
+        // link goes with it, now: the agent may never press "Start again". Fire and forget,
+        // as on every other ending; the cache still holds the order's last state.
+        if (transactionId) retireLocationLink(transactionId)
         setFault({
           ...dead,
           message: apiErrorMessage(err, t(dead.kind === 'closed' ? 'fault.closedHint' : 'fault.notYoursHint')),
@@ -546,6 +562,49 @@ function ConsoleSession() {
     retry: false,
   })
 
+  /** The orders this tab sent a location link on (574) — so an order that has since
+   *  flipped to collection, and lost `canSendLocationLink`, is still retired. */
+  const linkSentOn = useRef(new Set<string>())
+  /** The orders already retired — the dead-order fault retires at once, and its *Start
+   *  again* then funnels through `startFresh`, which must not ask twice. */
+  const retiredOrders = useRef(new Set<string>())
+
+  /**
+   * 574 — the order in progress has ended (submitted, abandoned, left for a fresh one, or
+   * died under the tab — the session fault): kill its live location link. 🚩 **The server
+   * does not retire for us.** Fire and forget: a failure is logged, never shown — the link
+   * lapses on its own at 15 minutes. Once per order. Read off the cache BEFORE the caller
+   * replaces or drops the order's state.
+   */
+  const retireLocationLink = useCallback(
+    (endedId: string) => {
+      if (retiredOrders.current.has(endedId)) return
+      const ended = queryClient.getQueryData<SessionState>(sessionKey(endedId))
+      if (!shouldRetire(ended, linkSentOn.current.has(endedId))) return
+      linkSentOn.current.delete(endedId)
+      retiredOrders.current.add(endedId)
+      callCenterApi
+        .retireLocationLink(endedId)
+        .catch((error: unknown) => console.warn('location link retire failed', endedId, error))
+    },
+    [queryClient],
+  )
+
+  /**
+   * 575 — `ApplyLocation`, the location card's Apply. A SESSION VERB, so it rides this
+   * page's verb path like every other: `runGuarded` (the busy strip, the `SESSION_BUSY`
+   * schedule, the dead-order faults), and its `SessionState` through `applyState`. The
+   * `requestId` is the card's, minted once per press in the body, so a busy retry replays
+   * the same act. No `again`: the card draws this call's own failure (164's ruling).
+   */
+  const applyLocation = async (body: ApplyLocationRequest): Promise<SessionState> => {
+    const fresh = await runGuarded(() => callCenterApi.applyLocation(body))
+    queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+      applyState(current, fresh),
+    )
+    return fresh
+  }
+
   /**
    * Abandon, then open — **in that order** (163), and only ever as a pair. The
    * verb returns no state (§8.2), so the landing is this callback's whole job:
@@ -555,6 +614,8 @@ function ConsoleSession() {
    */
   const startFresh = useCallback(
     (voidedId: string) => {
+      // 574 — the order is over however it ended; its location link goes with it.
+      retireLocationLink(voidedId)
       // An abandoned order must not be renderable from cache — the stale-tab
       // harm (127) starts with a basket that is still on screen.
       queryClient.removeQueries({ queryKey: sessionKey(voidedId) })
@@ -604,7 +665,7 @@ function ConsoleSession() {
       setFault(null)
       setRequestId(newRequestId())
     },
-    [queryClient],
+    [queryClient, retireLocationLink],
   )
 
   /**
@@ -1191,6 +1252,9 @@ function ConsoleSession() {
     // The last attempt's news belongs to the last attempt.
     onMutate: () => setPlaced(null),
     onSuccess: (result) => {
+      // 574 — a placed order's location link is retired, read off the state as it was
+      // BEFORE the submitted one replaces it (which can no longer send one).
+      retireLocationLink(transactionId!)
       // Law 2, as everywhere: the whole returned state goes through the one
       // write path. It is what closes the order on screen — the corrections, the
       // abandon and the header sections all read `status` and stand down.
@@ -1700,7 +1764,7 @@ function ConsoleSession() {
           rebindRefusal(
             // The server's own sentence (§7) — it names the store and the count.
             apiErrorMessage(err, t('rebind.refusedFallback')),
-            err instanceof ApiError ? err.data : null,
+            apiErrorData(err),
             preview,
           ),
         )
@@ -1771,9 +1835,31 @@ function ConsoleSession() {
             ? [...current.filter((row) => row.addressNumber !== entry.addressNumber), entry]
             : current,
         )
+      // 576 — a create the location card opened: the card stamps its capture once the order
+      // holds this address (the rebind below may still preview a store move first).
+      createdFromLocation.current?.(entry)
+      createdFromLocation.current = null
       rebind.mutate(beginStoreMove('address', entry.addressNumber))
     },
   })
+
+  /** 576 — the location card's *Create address from this location*. */
+  const createAddressFromLocation = (prefill: AddressFormValues) =>
+    new Promise<CustomerAddressBookEntry | null>((resolve) => {
+      createdFromLocation.current?.(null)
+      createdFromLocation.current = resolve
+      setAddressPrefill(prefill)
+      setPickingAddress(true)
+    })
+
+  // The book closed, by any road (a pick, a create's apply, the agent's own close): the
+  // pre-fill is spent, and a card still waiting on a create learns there was none.
+  useEffect(() => {
+    if (pickingAddress) return
+    setAddressPrefill(null)
+    createdFromLocation.current?.(null)
+    createdFromLocation.current = null
+  }, [pickingAddress])
 
   const updateAddress = useMutation({
     mutationFn: ({
@@ -2295,6 +2381,21 @@ function ConsoleSession() {
         // 🚩 175 §9 — the chips' sections land IN the centre column, under the row
         // they collapsed. The shell owns the place; this page owns the verbs.
         headerSection={headerSection}
+        // 574 — keyed by the order, so a new order starts holding no link.
+        locationLink={
+          <LocationLinkPanel
+            key={session.data.transactionId}
+            state={session.data}
+            onSent={() => linkSentOn.current.add(session.data!.transactionId)}
+            onApply={applyLocation}
+            onRefresh={refreshSession}
+            onCreateAddress={
+              session.data.header.customer && session.data.capabilities.canOpenAddressBook
+                ? createAddressFromLocation
+                : undefined
+            }
+          />
+        }
         // One open at a time (`openSection`), so this is the whole question the
         // sequence card needs answered before it stands down.
         headerSectionOpen={
@@ -2573,6 +2674,8 @@ function ConsoleSession() {
               deleteAddress.mutateAsync(addressNumber).then(() => undefined),
           }}
           onClose={closeAddressBook}
+          prefill={addressPrefill}
+          canCheckShortAddress={showsCheck(session.data.capabilities)}
         />
       )}
       {/* The caller's open request, and what linking it will copy (194). 🚩 It is

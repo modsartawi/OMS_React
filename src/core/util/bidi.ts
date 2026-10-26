@@ -53,6 +53,19 @@ export function formatPair(code: Part, name: Part): string {
   return [text(code), text(name)].filter((side) => side !== '').join(' · ')
 }
 
+/**
+ * Any number of parts as one string, in order, joined by the pair's middle dot: an
+ * address's parts on one line (`6904 · Anas Ibn Malik · Al Malqa · Riyadh · 13521`). Each
+ * part is trimmed and a blank one is dropped. When the first part is a machine value the
+ * whole line is isolated once with `Ltr`, the same as a pair.
+ */
+export function formatParts(parts: readonly Part[]): string {
+  return parts
+    .map((part) => text(part).trim())
+    .filter((part) => part !== '')
+    .join(' · ')
+}
+
 /** `n / m` as one string: `40 / 200`. */
 export function formatCount(count: Part, of: Part): string {
   return `${text(count)} / ${text(of)}`

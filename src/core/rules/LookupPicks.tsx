@@ -6,6 +6,7 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { RULE_MATERIAL_SEARCH_MIN, type RuleLookupItem, type RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
+import { LINE_CONTROL } from '@/core/ui/field-control'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
@@ -15,9 +16,12 @@ import { useDebounced } from '@/core/util/use-debounced'
 // placeholders (the list) all pick codes with it, and a feature may not import another. Its words
 // stay in the `campaign-workspace` namespace, where 506 put them.
 
-/** The rule screens' input, select and textarea look. */
-export const RULE_INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none'
+/**
+ * The rule screens' input, select and textarea look — re-pointed at the shared field look in
+ * ticket 595, so its callers wear the DMSCO field at once. New code uses `Input` / `Select` /
+ * `Textarea` from `@/core/ui`; this constant goes in ticket 606.
+ */
+export const RULE_INPUT = `${LINE_CONTROL} px-3`
 
 /** A label and its controls on the editor's grid. */
 function Step({ id, label, children }: { id: string; label: ReactNode; children: ReactNode }) {

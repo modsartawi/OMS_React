@@ -157,15 +157,22 @@ oms/serial-refusals 6
 
 oms/serving-lists 12
 
-pricing/bonus-buy-download 6
+pricing/bonus-buy-download 0
 
-pricing/bonus-buy-inquiry 10
+pricing/bonus-buy-inquiry 1
+  src/features/pricing/bonus-buy-inquiry/columns.tsx button: grid-cell action (row Details), spec 590: restyled in place
 
-pricing/bonus-buy-maintenance 35
+pricing/bonus-buy-maintenance 1
+  src/features/pricing/bonus-buy-maintenance/PromotionPage.tsx button: overview Clear filters, a non-navigating text button (594: not link)
 
-pricing/coupons 18
+pricing/coupons 0
 
-pricing/simulation 23
+pricing/simulation 5
+  src/features/pricing/simulation/SimBbyDetailsButton.tsx button: one-off: full-width card-footer action that opens the BBY details modal
+  src/features/pricing/simulation/SimManualConditions.tsx button: disclosure (aria-expanded) - Chip would add aria-pressed (597 Q2)
+  src/features/pricing/simulation/SimMissedPromotions.tsx button: disclosure (aria-expanded) - missed-promotion card header, a row picker
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - Done collapses the run form (597 Q2)
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - the run chip set opens the run form (597 Q2)
 
 reports/idoc-inspector 8
 

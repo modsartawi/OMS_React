@@ -1283,6 +1283,189 @@ SCREENS.push({
   },
 })
 
+// --- 600: the pricing screens on the shared controls ---------------------------
+// The pricing area sweep (spec 590 §Shared controls). Self-contained: its stubs and its
+// screens. Light, dark and RTL over the area's three heaviest screens — Bonus Buy
+// maintenance (the editor's header Fields, Buy/Get grid Inputs + Selects, danger
+// IconButtons, the tab Chips, Engine Rules' Textareas; the promotion overview's search
+// Input and status Chips), Simulation (the open run form, the items grid's named cell
+// Inputs and remove IconButtons, the run Buttons) and Coupons (the tab Chips, the
+// template form's Fields) — proving every field labelled and on the shared look, every
+// icon button named, and the role tokens resolved. Fixture shapes follow
+// tools/bby-maintenance-drive.mjs and tools/coupon-template-limits-drive.mjs.
+
+const BBY_PROMO = {
+  status: 'found',
+  promoNumber: 'P000000001',
+  name: 'Test By Sartawi',
+  salesFrom: '2026-10-05T00:00:00',
+  salesTo: '2026-10-31T00:00:00',
+  bonusBuys: [
+    { bbyNumber: 'OMS000000001', description: '1 + 1', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '1' },
+    { bbyNumber: 'OMS000000002', description: '10% - Coupon', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '' },
+    { bbyNumber: 'OMS000000003', description: 'OR rewards', validFrom: '2026-10-05', validTo: '2026-10-31', bbyStatus: '2' },
+  ],
+}
+const BBY_DOC = {
+  status: 'found',
+  number: 'OMS000000124',
+  bbyStatus: '1',
+  readOnly: false,
+  version: '2026-10-05T09:14:03.117',
+  changedBy: 'msartawi',
+  changedAt: '2026-10-05T09:14:03',
+  bonusBuy: {
+    bbyNumber: 'OMS000000124',
+    version: '2026-10-05T09:14:03.117',
+    promoNumber: 'P000000001',
+    description: 'OR when apply discount',
+    validFrom: '2026-10-05T00:00:00',
+    validTo: '2026-10-31T00:00:00',
+    limitNumber: 0,
+    minValue: 100,
+    linkCategoryBuy: 'A',
+    linkCategoryGet: 'O',
+    engineRules: { includes: null, excludes: null, originFilter: null, stackingExcludes: null, loyGroups: null, loyTiers: null, isStackable: false, maxValue: 0, score: 0, validFromTime: null, validToTime: null },
+    totalDiscount: null,
+    plants: [],
+    customerCard: null,
+    buy: [
+      { material: '200033', grouping: null, quantity: 2, uom: 'EA', discountType: null },
+      { material: null, grouping: 'GROUP1', quantity: 1, uom: 'EA', discountType: null },
+    ],
+    get: [
+      { condNumber: 'OMS0000101', material: '200044', grouping: null, quantity: 3, uom: 'EA', scaleType: 'C', discountType: 'P', value: 15, requirement: null, scales: [] },
+    ],
+    groupings: [{ id: 'GROUP1', materials: ['200011', '200012'] }],
+  },
+}
+const PRICING_STUBS = [
+  [/^BbyMaintainWeb\/Access$/, { screenAllowed: true, canTest: true }],
+  [/^BbyMaintainWeb\/Promotion\/List$/, [BBY_PROMO]],
+  [/^BbyMaintainWeb\/Promotion\/P000000001$/, BBY_PROMO],
+  [/^BbyMaintainWeb\/BonusBuy\/OMS000000124$/, BBY_DOC],
+  [/^Pricing\/Access$/, { canOpen: true }],
+  [/^Pricing\/CacheAccess$/, { canClear: true }],
+  [/^CouponsAdminWeb\/Access$/, { canAdmin: true, canSupport: true }],
+  [/^CouponsAdminWeb\//, []],
+]
+
+/** Goes to a pricing page and waits for its own hook; fonts settled, mouse parked. */
+async function openPricingPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+const BBY_EDITOR = '/pricing/bonus-buy-maintenance/P000000001/bonus-buy/OMS000000124'
+
+SCREENS.push({
+  key: 'pricing-bby',
+  path: BBY_EDITOR,
+  stubs: PRICING_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openPricingPage(page, BBY_EDITOR, 'table[data-grid="buy"]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The editor's Header tab: header Fields, the Buy/Get grids, the tab Chips.
+    await expectTabChips(ctx, 'editor tabs', '[role="tablist"]', 4)
+    await expectLabelled(ctx, 'editor header tab', FIELDS('fieldset'))
+    await expectAllFieldsShared(ctx, 'editor header tab', 'fieldset')
+    await expectFieldLook(ctx, 'bonus buy text (Input in a Field)', 'input[maxlength="60"]')
+    await expectFocusRing(ctx, 'bonus buy text (Input in a Field)', 'input[maxlength="60"]')
+    await expectFieldLook(ctx, 'buy line type (cell Select)', 'table[data-grid="buy"] select')
+    await expectIconButtonsNamed(ctx, 'Buy grid (remove)', 'table[data-grid="buy"]', 2)
+    await expectIconButtonsNamed(ctx, 'Get grid (remove)', 'table[data-grid="get"]', 1)
+    await expectRole(ctx, 'remove line (danger IconButton) ink', 'table[data-grid="buy"] tbody tr:first-child td:last-child button', 'color', '--muted-foreground')
+    await shot('editor')
+
+    // ── Engine Rules: four Textareas and four Inputs, each in a Field.
+    await page.locator('[role="tab"]').nth(1).click()
+    await page.waitForSelector('[data-testid="bby-engine-maxValue"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Engine Rules tab after click', '[role="tab"]:nth-child(2)', true)
+    await expectLabelled(ctx, 'engine rules', FIELDS('fieldset'))
+    await expectAllFieldsShared(ctx, 'engine rules', 'fieldset')
+    await expectFieldLook(ctx, 'max value (number Input)', '[data-testid="bby-engine-maxValue"]')
+    await shot('engine')
+
+    // ── The promotion overview: the search Input and the status Chips.
+    await openPricingPage(page, '/pricing/bonus-buy-maintenance/P000000001', '[data-testid="bby-overview-search"]')
+    await expectLabelled(ctx, 'overview search', '[data-testid="bby-overview-search"]')
+    await expectFieldLook(ctx, 'overview search (search Input)', '[data-testid="bby-overview-search"]')
+    await expectAllFieldsShared(ctx, 'promotion page', 'main')
+    await expectAllPills(ctx, 'status chips', '[data-testid^="bby-overview-chip-"]')
+    await expectChipLook(ctx, 'All chip', '[data-testid="bby-overview-chip-all"]', true)
+    await expectChipLook(ctx, 'Column filters chip', '[data-testid="bby-overview-column-filters"]', false)
+    await page.locator('[data-testid="bby-overview-column-filters"]').click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Column filters chip', '[data-testid="bby-overview-column-filters"]', true)
+    await shot('promotion')
+  },
+})
+
+SCREENS.push({
+  key: 'pricing-simulation',
+  path: '/pricing/simulation',
+  stubs: PRICING_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openPricingPage(page, '/pricing/simulation', '[data-run-strip="expanded"]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const strip = '[data-run-strip="expanded"]'
+    // The open run form: seven header Inputs and the tier Select, every one named.
+    await expectLabelled(ctx, 'run form', FIELDS(strip))
+    await expectAllFieldsShared(ctx, 'run form', strip)
+    await expectFieldLook(ctx, 'plant (Input)', `${strip} input[type="text"]`)
+    await expectFieldLook(ctx, 'loyalty tier (Select)', `${strip} select`)
+    await expectFocusRing(ctx, 'loyalty tier (Select)', `${strip} select`)
+    await expectAllPills(ctx, 'run controls (Buttons)', `${strip} > div:last-of-type > button`)
+    await expectRole(ctx, 'Process (primary Button)', `${strip} > div:last-of-type > button:first-child`, 'background-color', '--primary')
+    // The items grid: its cells are named by their column, its remove is a named IconButton.
+    await expectLabelled(ctx, 'items grid', 'main table input')
+    await expectAllFieldsShared(ctx, 'simulation page', 'main')
+    await expectIconButtonsNamed(ctx, 'items grid (remove)', 'main table', 1)
+    await shot('form')
+  },
+})
+
+SCREENS.push({
+  key: 'pricing-coupons',
+  path: '/pricing/coupons',
+  stubs: PRICING_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openPricingPage(page, '/pricing/coupons', '[data-testid="coupon-template-max-total"]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const panel = '[role="tabpanel"]:not([hidden])'
+    await expectTabChips(ctx, 'coupon workspaces', '[role="tablist"]', 3)
+    // Templates: the load Input and the template form's Fields (Inputs, a Textarea).
+    await expectLabelled(ctx, 'templates workspace', FIELDS(panel))
+    await expectAllFieldsShared(ctx, 'templates workspace', panel)
+    await expectFieldLook(ctx, 'max total (number Input)', '[data-testid="coupon-template-max-total"]')
+    await expectFocusRing(ctx, 'max total (number Input)', '[data-testid="coupon-template-max-total"]')
+    await expectDescribed(ctx, 'max total', '[data-testid="coupon-template-max-total"]', '0')
+    await shot('templates')
+
+    // Inquiry: the code search Input in a Field.
+    await page.locator('[role="tab"]').nth(1).click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Inquiry tab after click', '[role="tab"]:nth-child(2)', true)
+    await expectLabelled(ctx, 'inquiry workspace', FIELDS(panel))
+    await expectAllFieldsShared(ctx, 'inquiry workspace', panel)
+    await shot('inquiry')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

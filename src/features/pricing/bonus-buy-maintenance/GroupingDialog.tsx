@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ClipboardPaste, Plus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { INPUT } from './fields'
 import PasteMaterialsDialog from './PasteMaterialsDialog'
 import {
   DEFAULT_UOM,
@@ -73,26 +76,24 @@ function GroupingForm({
   return (
     <div className="flex flex-col gap-3">
       {state.groupings.length > 0 && (
-        <label className="flex w-fit flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('grouping.existing')}
-          <select className={`${INPUT} w-56`} value={state.groupings.some((g) => g.id === id) ? id : ''} onChange={(e) => pick(e.target.value)}>
+        <Field label={t('grouping.existing')} className="w-fit">
+          <Select className="w-56" value={state.groupings.some((g) => g.id === id) ? id : ''} onChange={(e) => pick(e.target.value)}>
             <option value="">{t('grouping.new')}</option>
             {state.groupings.map((g) => (
               <option key={g.id} value={g.id}>
                 {fsi(g.id)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       )}
 
       <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('grouping.id')}
-            <input
+          <Field label={t('grouping.id')}>
+            <Input
               dir="ltr"
-              className={`${INPUT} w-48 font-mono uppercase`}
+              className="w-48 font-mono uppercase"
               value={id}
               maxLength={GROUPING_ID_MAX}
               onChange={(e) => {
@@ -103,10 +104,10 @@ function GroupingForm({
                 else setId(next)
               }}
             />
-          </label>
+          </Field>
           <div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             {t('grouping.status')}
-            <div className="flex h-8 items-center gap-2 text-sm text-foreground">
+            <div className="flex h-7 items-center gap-2 text-sm text-foreground">
               <span className="font-mono">
                 <Ltr>3</Ltr>
               </span>
@@ -130,10 +131,10 @@ function GroupingForm({
               {materials.map((m, i) => (
                 <tr key={i}>
                   <td className="w-44 px-1 py-0.5">
-                    <input
+                    <Input
                       aria-label={t('grouping.col.material')}
                       dir="ltr"
-                      className={`${INPUT} h-7 w-full font-mono`}
+                      className="w-full font-mono"
                       value={m}
                       onChange={(e) => setMaterials((ms) => ms.map((x, j) => (j === i ? e.target.value.trim() : x)))}
                     />
@@ -145,14 +146,14 @@ function GroupingForm({
                   </td>
                   <td className="px-1 py-0.5">
                     {!readOnly && (
-                      <button
-                        type="button"
-                        aria-label={t('editor.line.remove', { n: fsi(String(i + 1)) })}
+                      <IconButton
+                        variant="danger"
+                        size="compact"
+                        label={t('editor.line.remove', { n: fsi(String(i + 1)) })}
                         onClick={() => setMaterials((ms) => ms.filter((_, j) => j !== i))}
-                        className="rounded p-1 text-muted-foreground hover:text-danger-800"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                      </button>
+                      </IconButton>
                     )}
                   </td>
                 </tr>

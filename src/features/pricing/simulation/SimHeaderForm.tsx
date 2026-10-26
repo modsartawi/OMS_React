@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 // The header inputs feeding SimulateRequest.header. Owner layout (488): a dense
 // 4-column grid (NOT the WPF's 2-column) — determination fields on row 1, procedure
@@ -80,9 +82,11 @@ export default function SimHeaderForm({
     label: string,
     opts?: { type?: string; hint?: string; placeholder?: string; autoFocus?: boolean },
   ) => (
+    // The label wraps its control (an implicit label): the shared Input inside, the arrangement
+    // as it was — the run strip's drive reads a focused field's name off its enclosing label.
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <input
+      <Input
         type={opts?.type ?? 'text'}
         value={value[key]}
         placeholder={opts?.placeholder}
@@ -92,7 +96,6 @@ export default function SimHeaderForm({
         // own choreography, not a page-load focus steal.
         autoFocus={opts?.autoFocus}
         onChange={(e) => onChange({ [key]: e.target.value })}
-        className="rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-60"
       />
       {opts?.hint ? <span className="text-[0.7rem] text-muted-foreground">{opts.hint}</span> : null}
     </label>
@@ -101,19 +104,14 @@ export default function SimHeaderForm({
   const loyTierField = (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-muted-foreground">{t('header.loyTier')}</span>
-      <select
-        value={value.loyTier}
-        disabled={disabled}
-        onChange={(e) => onChange({ loyTier: e.target.value })}
-        className="rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-60"
-      >
+      <Select value={value.loyTier} disabled={disabled} onChange={(e) => onChange({ loyTier: e.target.value })}>
         <option value="">{t('header.loyTierNone')}</option>
         {LOY_TIERS.map((tier) => (
           <option key={tier} value={tier}>
             {t(`header.loyTierOptions.${tier}`)}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 

@@ -20,8 +20,11 @@ import { campaignPath, campaignState } from '@/core/rules/campaign-state'
 import CampaignStateBadge from '@/core/rules/CampaignStateBadge'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { priorityCampaignsQuery } from './api'
 import CarrierDialog from './CarrierDialog'
@@ -248,18 +251,15 @@ function UpDown({ pos, count, label, onMove }: { pos: number; count: number; lab
   const { t } = useTranslation('campaign-priority')
   return (
     <span className="flex items-center gap-0.5">
-      <Button variant="ghost" className="px-1.5" disabled={pos === 1} onClick={() => onMove(-1)} aria-label={t('move.up', { what: label })} data-move-up="">
+      <IconButton disabled={pos === 1} onClick={() => onMove(-1)} label={t('move.up', { what: label })} data-move-up="">
         <ArrowUp className="size-3.5" aria-hidden />
-      </Button>
-      <Button variant="ghost" className="px-1.5" disabled={pos === count} onClick={() => onMove(1)} aria-label={t('move.down', { what: label })} data-move-down="">
+      </IconButton>
+      <IconButton disabled={pos === count} onClick={() => onMove(1)} label={t('move.down', { what: label })} data-move-down="">
         <ArrowDown className="size-3.5" aria-hidden />
-      </Button>
+      </IconButton>
     </span>
   )
 }
-
-const SELECT =
-  'h-7 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground focus:border-primary/50 focus:outline-none'
 
 function CampaignRow({
   id,
@@ -322,14 +322,14 @@ function CampaignRow({
       <UpDown pos={pos} count={count} label={fsi(code)} onMove={onMove} />
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {t('row.moveTo')}
-        <select className={SELECT} value={place} onChange={(e) => onMoveTo(e.target.value)} data-move-to="">
+        <Select value={place} onChange={(e) => onMoveTo(e.target.value)} data-move-to="">
           <option value="base">{t('row.base')}</option>
           {places.map((g) => (
             <option key={g.id} value={g.id}>
               {groupLabel(g.name, t, i18n.language)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
     </li>
   )
@@ -363,50 +363,49 @@ function GroupBlock({
         <span className="w-6 text-xs text-muted-foreground tabular-nums">
           <Ltr>{pos}</Ltr>
         </span>
-        <input
+        <Input
           value={group.name.en}
           onChange={(e) => onSet({ name: { ...group.name, en: e.target.value } })}
           dir="ltr"
           aria-label={t('group.name')}
           aria-invalid={blank || undefined}
-          className={`h-7 w-48 rounded-md border bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none ${blank ? 'border-danger-border' : 'border-border/60'}`}
+          className="w-48"
           data-group-name=""
         />
-        <input
+        <Input
           value={group.name.ar}
           onChange={(e) => onSet({ name: { ...group.name, ar: e.target.value } })}
           dir="rtl"
           aria-label={t('group.nameAr')}
-          className="h-7 w-48 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-48"
           data-group-name-ar=""
         />
-        <select className={SELECT} value={group.mode} onChange={(e) => onSet({ mode: e.target.value as RuleOrderGroupMode })} aria-label={t('group.mode')} data-group-mode="">
+        <Select value={group.mode} onChange={(e) => onSet({ mode: e.target.value as RuleOrderGroupMode })} aria-label={t('group.mode')} data-group-mode="">
           {MODES.map((m) => (
             <option key={m} value={m}>
               {t(`modes.${m}`)}
             </option>
           ))}
-        </select>
-        <select className={SELECT} value={group.scope} onChange={(e) => onSet({ scope: e.target.value as RuleOrderGroupScope })} aria-label={t('group.scope')} data-group-scope="">
+        </Select>
+        <Select value={group.scope} onChange={(e) => onSet({ scope: e.target.value as RuleOrderGroupScope })} aria-label={t('group.scope')} data-group-scope="">
           {SCOPES.map((s) => (
             <option key={s} value={s}>
               {t(`scopes.${s}`)}
             </option>
           ))}
-        </select>
+        </Select>
         <span className="grow" />
         <UpDown pos={pos} count={count} label={label} onMove={onMove} />
-        <Button
-          variant="ghost"
-          className="px-1.5"
+        <IconButton
+          variant="danger"
           aria-disabled={held || undefined}
           onClick={() => !held && onRemove()}
-          aria-label={t('group.delete', { what: label })}
-          title={held ? t('group.deleteHeld') : t('group.delete', { what: label })}
+          label={t('group.delete', { what: label })}
+          title={held ? t('group.deleteHeld') : undefined}
           data-delete-group=""
         >
           <Trash2 className="size-3.5" aria-hidden />
-        </Button>
+        </IconButton>
       </div>
       {group.campaigns.length === 0 ? (
         <p className="ps-8 text-xs text-muted-foreground" data-group-empty="">

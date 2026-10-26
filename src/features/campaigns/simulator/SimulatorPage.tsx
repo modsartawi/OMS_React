@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
@@ -8,10 +8,12 @@ import type { RuleSimulateRequest } from '@/core/models/rule-campaign'
 import { ruleCampaignApi, ruleCampaignQuery, ruleDraftsQuery, ruleLookupQuery, ruleOrderQuery } from '@/core/rules/api'
 import { campaignPath, simulatorPath } from '@/core/rules/campaign-state'
 import { AUDIENCE_CHANNELS, AUDIENCE_COUNTRIES, lookupName } from '@/core/rules/lookups'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
 import type { BasketLine } from './basket'
@@ -99,58 +101,48 @@ export default function SimulatorPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Field label={t('sale.store')}>
-                  {(id) => (
-                    <>
-                      <select id={id} className={`${RULE_INPUT} w-full`} value={store} onChange={(e) => setStore(e.target.value)} data-sim-field="store">
-                        <option value="">{t('sale.chooseStore')}</option>
-                        {(stores.data ?? []).map((x) => (
-                          <option key={x.code} value={x.code}>
-                            {fsi(formatPair(x.code, lookupName(x, i18n.language)))}
-                          </option>
-                        ))}
-                      </select>
-                      {stores.isError && (
-                        <span className="text-[11px] text-danger-800">
-                          <bdi>{isBareDenial(stores.error) ? t('run.denied') : apiErrorMessage(stores.error, t('sale.storesFailed'))}</bdi>
-                        </span>
-                      )}
-                    </>
+                  <Select className="w-full" value={store} onChange={(e) => setStore(e.target.value)} data-sim-field="store">
+                    <option value="">{t('sale.chooseStore')}</option>
+                    {(stores.data ?? []).map((x) => (
+                      <option key={x.code} value={x.code}>
+                        {fsi(formatPair(x.code, lookupName(x, i18n.language)))}
+                      </option>
+                    ))}
+                  </Select>
+                  {stores.isError && (
+                    <span className="text-[11px] text-danger-800">
+                      <bdi>{isBareDenial(stores.error) ? t('run.denied') : apiErrorMessage(stores.error, t('sale.storesFailed'))}</bdi>
+                    </span>
                   )}
                 </Field>
               </div>
               <Field label={t('sale.country')}>
-                {(id) => (
-                  <select id={id} className={RULE_INPUT} value={country} onChange={(e) => setCountry(e.target.value)} data-sim-field="country">
-                    {AUDIENCE_COUNTRIES.map((c) => (
-                      <option key={c} value={c}>
-                        {fsi(formatPair(c, saleMoney(c)?.currency ?? ''))}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <Select value={country} onChange={(e) => setCountry(e.target.value)} data-sim-field="country">
+                  {AUDIENCE_COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {fsi(formatPair(c, saleMoney(c)?.currency ?? ''))}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field label={t('sale.channel')}>
-                {(id) => (
-                  <select id={id} className={RULE_INPUT} value={channel} onChange={(e) => setChannel(e.target.value)} data-sim-field="channel">
-                    {AUDIENCE_CHANNELS.map((c) => (
-                      <option key={c} value={c}>
-                        {fsi(c)}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <Select value={channel} onChange={(e) => setChannel(e.target.value)} data-sim-field="channel">
+                  {AUDIENCE_CHANNELS.map((c) => (
+                    <option key={c} value={c}>
+                      {fsi(c)}
+                    </option>
+                  ))}
+                </Select>
               </Field>
               <Field label={t('sale.date')}>
-                {(id) => <input id={id} type="date" className={RULE_INPUT} value={date} onChange={(e) => setDate(e.target.value)} data-sim-field="date" />}
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} data-sim-field="date" />
               </Field>
               <Field label={t('sale.time')}>
-                {(id) => <input id={id} type="time" className={RULE_INPUT} value={time} onChange={(e) => setTime(e.target.value)} data-sim-field="time" />}
+                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} data-sim-field="time" />
               </Field>
               <div className="col-span-2">
                 <Field label={t('sale.member')} hint={t('sale.memberHint')}>
-                  {(id) => (
-                    <input id={id} dir="ltr" className={`${RULE_INPUT} w-full font-mono`} value={memberId} onChange={(e) => setMemberId(e.target.value)} data-sim-field="member" />
-                  )}
+                  <Input dir="ltr" className="w-full font-mono" value={memberId} onChange={(e) => setMemberId(e.target.value)} data-sim-field="member" />
                 </Field>
               </div>
               <label className="col-span-2 inline-flex items-center gap-2 text-xs">
@@ -162,29 +154,25 @@ export default function SimulatorPage() {
                 {t('sale.firstPurchase')}
               </label>
               <Field label={t('sale.coupons')} hint={t('sale.couponsHint')}>
-                {(id) => <input id={id} dir="ltr" className={`${RULE_INPUT} font-mono`} value={coupons} onChange={(e) => setCoupons(e.target.value)} data-sim-field="coupons" />}
+                <Input dir="ltr" className="font-mono" value={coupons} onChange={(e) => setCoupons(e.target.value)} data-sim-field="coupons" />
               </Field>
               <Field label={t('sale.points')} hint={parsePoints(points) === null ? t('sale.pointsBad') : t('sale.pointsHint')}>
-                {(id) => (
-                  <input
-                    id={id}
-                    dir="ltr"
-                    inputMode="numeric"
-                    className={RULE_INPUT}
-                    aria-invalid={parsePoints(points) === null}
-                    value={points}
-                    onChange={(e) => setPoints(e.target.value)}
-                    data-sim-field="points"
-                  />
-                )}
+                <Input
+                  dir="ltr"
+                  inputMode="numeric"
+                  aria-invalid={parsePoints(points) === null}
+                  value={points}
+                  onChange={(e) => setPoints(e.target.value)}
+                  data-sim-field="points"
+                />
               </Field>
             </div>
             {noLive && (
               <div className="flex flex-col gap-1.5 rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-xs text-attention-800" data-sim-no-live="">
                 <span>{t('sale.nothingLive')}</span>
-                <select
+                <Select
                   aria-label={t('sale.pickDraft')}
-                  className={`${RULE_INPUT} w-full`}
+                  className="w-full"
                   value=""
                   onChange={(e) => e.target.value && navigate(simulatorPath(e.target.value), { replace: true })}
                   disabled={!drafts.data?.length}
@@ -196,7 +184,7 @@ export default function SimulatorPage() {
                       {fsi(formatPair(x.campaign, (i18n.language === 'ar' && x.name.ar) || x.name.en))}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
             {draftId && (
@@ -208,7 +196,7 @@ export default function SimulatorPage() {
                   </Link>
                   <button
                     type="button"
-                    className="ms-auto inline-flex items-center gap-1 rounded px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="ms-auto inline-flex items-center gap-1 rounded-md px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                     onClick={() => navigate(simulatorPath(), { replace: true })}
                     data-sim-drop-draft=""
                   >
@@ -317,15 +305,3 @@ function RunRefusal({ error, draft }: { error: unknown; draft: string | null }) 
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: (id: string) => ReactNode }) {
-  const id = useId()
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      {children(id)}
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
-    </div>
-  )
-}

@@ -7,7 +7,10 @@ import { apiErrorMessage } from '@/core/api'
 import { rememberNewDraft, ruleCampaignApi } from '@/core/rules/api'
 import { campaignPath } from '@/core/rules/campaign-state'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import FromTemplate, { TEMPLATE_CREATE_KEY } from './FromTemplate'
@@ -113,25 +116,20 @@ export default function CreateCampaignDialog({ open, onClose, startOn = 'blank' 
         </>
       }
     >
-      <div role="tablist" aria-label={t('create.tabs.label')} className="mb-3 flex gap-1 border-b border-border/60" data-create-tabs="">
+      <div role="tablist" aria-label={t('create.tabs.label')} className="mb-3 flex gap-1" data-create-tabs="">
         {TABS.map((x) => (
-          <button
+          <Chip
             key={x}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={tab === x}
             id={`create-tab-${x}`}
-            aria-selected={tab === x}
             aria-controls={`create-panel-${x}`}
             disabled={pending}
             onClick={() => setTab(x)}
             data-create-tab={x}
-            className={
-              '-mb-px border-b-2 px-3 py-2 text-sm transition-colors ' +
-              (tab === x ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
           >
             {t(`create.tabs.${x}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       {tab === 'template' ? (
@@ -229,31 +227,17 @@ function NameField({
   data: string
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <input
-        id={id}
+    <Field id={id} label={label} error={error ? <span data-create-problem={data}>{error}</span> : undefined}>
+      <Input
         dir={dir}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
         data-create-field={data}
-        className={
-          'h-9 w-full rounded-md border bg-background px-2.5 text-sm text-foreground focus:outline-none ' +
-          (error ? 'border-danger-border focus:border-danger' : 'border-border/60 focus:border-primary/50')
-        }
+        className="w-full"
       />
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-danger-800" data-create-problem={data}>
-          {error}
-        </p>
-      )}
-    </div>
+    </Field>
   )
 }
 

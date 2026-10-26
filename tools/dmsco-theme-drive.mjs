@@ -944,6 +944,121 @@ SCREENS.push({
   },
 })
 
+// --- 598: the rest of campaigns on the shared controls ------------------------
+// The area sweep for every campaigns feature but the workspace (spec 590 §Shared
+// controls). Self-contained: its fixtures (imported here, not at the top, so sibling
+// blocks merge beside it), its stubs and its screen. It walks the area's three
+// heaviest pages in light, dark and RTL — the Simulator (Fields with Select / Input,
+// a basket line's Inputs and remove IconButton, the hit Buttons, the result's tab
+// Chips), the no-promotion page (the search Input in a Field, status Chips) with its
+// Create dialog open (tab Chips, name Fields), and Priority (Select / Input in a group
+// row, move and delete IconButtons) — and proves every field labelled, every icon
+// button named, the role tokens resolved.
+// Reuses 597's `openWorkspacePage`, `expectAllFieldsShared`, `bodyOf`, `lightDarkRtl`.
+
+const F598 = await import('./campaigns-fixtures.mjs')
+const S598 = await import('./simulator-fixtures.mjs')
+/** Each run its own copy of HQ's drafts. */
+const REST_STORE = structuredClone(F598.CAMPAIGNS)
+const REST_VERSION = { versionNo: F598.LIVE_VERSION, campaign: 'NATDAY-15', action: 'publish', schemaVersion: 1, publishedAt: '2026-10-12T10:00:00', publishedBy: 'Reem (approver)', requestedBy: 'Omar (marketing)', note: '' }
+const REST_STUBS = [
+  [/^Rules\/Authoring\/Lookups\/(\w+)$/, (p, req) => F598.lookup(p.split('/').pop(), bodyOf(req).q ?? '').hits ?? []],
+  [/^Rules\/Authoring\/Simulate$/, (_, req) => S598.simulate(bodyOf(req)).sim ?? null],
+  [/^Rules\/Authoring\/Drafts\/List$/, () => F598.draftsList(REST_STORE)],
+  [/^Rules\/Authoring\/Order$/, () => F598.orderOf(REST_STORE)],
+  [/^Rules\/Authoring\/Versions\/Load$/, () => ({ version: REST_VERSION, ruleset: F598.rulesetOf(REST_STORE), campaign: null })],
+  [/^Rules\/Authoring\/Catalogue$/, (_, req) => F598.catalogueFor(bodyOf(req).features ?? [])],
+  [/^Rules\/Authoring\/Promotions\/List$/, () => F598.promotionListOf(REST_STORE)],
+  [/^Rules\/Authoring\/Promotions\/Campaigns$/, (_, req) => F598.promotionCampaignsOf(REST_STORE, bodyOf(req)).page ?? null],
+  [/^Rules\/Authoring\/Templates\/List$/, F598.TEMPLATES],
+]
+
+SCREENS.push({
+  key: 'campaigns-rest',
+  path: '/campaigns/simulator',
+  stubs: REST_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/campaigns/simulator', '[data-sim-sale]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── Simulator: the sale's Fields, a basket line, a run's tab Chips.
+    const sale = '[data-sim-sale]'
+    await expectLabelled(ctx, 'sale', `${sale} input:not([type=checkbox]), ${sale} select`)
+    await expectAllFieldsShared(ctx, 'sale', sale)
+    await expectFieldLook(ctx, 'store (Select in a Field)', '[data-sim-field="store"]')
+    await expectFocusRing(ctx, 'store (Select in a Field)', '[data-sim-field="store"]')
+    await expectFieldLook(ctx, 'date (date Input in a Field)', '[data-sim-field="date"]')
+    await page.locator('[data-basket-find]').fill('sha-400')
+    await page.waitForSelector('[data-basket-hit="SHA-400"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'item search', '[data-basket-find]')
+    await expectFieldLook(ctx, 'item search (search Input)', '[data-basket-find]')
+    await expectAllPills(ctx, 'item hits (outlined Buttons)', '[data-basket-hit]')
+    await expectRole(ctx, 'item hit edge', '[data-basket-hit]', 'border-top-color', '--border')
+    await page.locator('[data-basket-hit="SHA-400"]').click()
+    await page.waitForSelector('[data-basket-line="SHA-400"]', { timeout: 5000 })
+    await page.locator('[data-basket-price="SHA-400"]').fill('12.5')
+    await page.locator('[data-basket-price="SHA-400"]').press('Enter')
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // a priced line is no longer invalid: its edge animates back
+    const basket = '[data-sim-basket]'
+    await expectLabelled(ctx, 'basket line', `${basket} [data-basket-qty], ${basket} [data-basket-price]`)
+    await expectAllFieldsShared(ctx, 'basket', basket)
+    await expectIconButtonsNamed(ctx, 'basket line', '[data-basket-line="SHA-400"]', 1)
+    await page.locator('[data-sim-field="store"]').selectOption('R101')
+    await page.locator('[data-sim-run]').click()
+    await page.waitForSelector('[data-sim-tab]', { timeout: 10000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    const tabs = await page.$$eval('[data-sim-tab]', (els) => els.map((e) => `${e.getAttribute('role')}:${e.getAttribute('aria-selected')}`))
+    check(`${tag} result tabs: role=tab with aria-selected`, JSON.stringify(tabs) === '["tab:true","tab:false"]', tabs.join(','))
+    await expectChipLook(ctx, 'result tab', '[data-sim-tab="lines"]', true)
+    await expectChipLook(ctx, 'result tab', '[data-sim-tab="trace"]', false)
+    await expectAllPills(ctx, 'result tabs', '[data-sim-tab]')
+    await shot('simulator')
+
+    // ── The no-promotion page: the search Input in a Field, the status Chips.
+    await openWorkspacePage(page, '/campaigns/no-promotion', '[data-promotion-search]')
+    await expectLabelled(ctx, 'campaign search', '[data-promotion-search]')
+    await expectFieldLook(ctx, 'campaign search (search Input)', '[data-promotion-search]')
+    await expectFocusRing(ctx, 'campaign search (search Input)', '[data-promotion-search]')
+    await expectChipLook(ctx, 'status chip All', '[data-status-chip=""]', true)
+    await expectChipLook(ctx, 'status chip', '[data-status-chip="Published"]', false)
+    await expectAllPills(ctx, 'status chips', '[data-status-chip]')
+    await shot('no-promotion')
+
+    // ── Its Create dialog: tab Chips in the tablist, the name Fields.
+    await page.locator('[data-new-campaign]').click()
+    await page.waitForSelector('[data-create-tabs]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'create tab (blank)', '[data-create-tab="blank"]', true)
+    await expectChipLook(ctx, 'create tab (template)', '[data-create-tab="template"]', false)
+    await expectAllPills(ctx, 'create tabs', '[data-create-tab]')
+    await expectLabelled(ctx, 'create dialog', '[data-create-field]')
+    await expectAllFieldsShared(ctx, 'create dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'English name (Input in a Field)', '[data-create-field="nameEn"]')
+    await shot('create')
+    await page.keyboard.press('Escape')
+
+    // ── Priority: a group row's Input / Select, the move and delete IconButtons.
+    await openWorkspacePage(page, '/campaigns/priority', '[data-order-row]')
+    await page.locator('[data-add-group]').click()
+    await page.waitForSelector('[data-order-group]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    const group = '[data-order-group]'
+    await expectLabelled(ctx, 'group row', `${group} [data-group-name], ${group} [data-group-name-ar], ${group} select`)
+    await expectAllFieldsShared(ctx, 'group row', group)
+    await expectFieldLook(ctx, 'group mode (Select)', `${group} [data-group-mode]`)
+    await expectIconButtonsNamed(ctx, 'group row', `${group} > div`, 3)
+    await expectIconButtonsNamed(ctx, 'campaign row', '[data-order-row]', 2)
+    await expectFieldLook(ctx, 'move to (Select)', '[data-order-row] [data-move-to]')
+    await shot('priority')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

@@ -51,6 +51,16 @@
 //        order holds the new address the capture is stamped through ApplyLocation (pin, Short
 //        Address, details ticked, saveToCustomer false) → the chip. No customer → neither the
 //        save tick nor the create.
+// …and the 2482 review fixes (2026-10-26):
+//   R1. the mm:ss clock is isolated whole (Ltr), tabular;
+//   R2. a create whose form the agent edited stamps only what the row still holds as captured
+//       (BO 2468 story 19: nothing typed is overwritten);
+//   R3. canSendLocationLink false while a link is held → no Resend on the card or the chip,
+//       no Send again on the strip (hidden, never disabled);
+//   R4. the order dies under the tab (SESSION_CLOSED) → Retire at once, and only once;
+//   R5. CCL-00005 reads the generic line, not the server's sentence;
+//   R6. a Send that fails on the network may have sent: "wait, then send again", and the
+//       dialog's Send counts down 30 s.
 // Screenshots → tools/.callcenter-location-shots/.
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -291,6 +301,8 @@ async function open({ dir }, { canSendLocationLink = true, address, customer, ca
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(srv.state))
     if (p === 'CallCenterWeb/LocationLinks/Send') {
       const queued = srv.next.shift()
+      // 'network': the request never answers (the text may still have been committed).
+      if (queued === 'network') return route.abort('failed')
       if (queued) return route.fulfill(refusal(...queued))
       const token = `Tok${String(++srv.tokens).padStart(9, '0')}`
       for (const live of srv.link.values()) if (live.status === 'Live') live.status = 'Superseded'
@@ -471,6 +483,46 @@ for (const mode of MODES) {
     ok(said.includes(words), `${at}: ${code} reads "${words}" in the dialog`, said)
   }
 
+  // ---- R5. CCL-00005: the generic line, never the server's sentence (§4) ----
+  srv.next.push(['CCL-00005', 'Caller 4471 not found in seat registry.'])
+  await sendFromDialog(page)
+  await page.waitForTimeout(250)
+  {
+    const said = await page.locator('[data-cc-location-send-error]').innerText()
+    ok(
+      said.includes("The link couldn't be sent") && !said.includes('4471'),
+      `${at}: CCL-00005 reads the generic line, not the server's sentence`,
+      said,
+    )
+  }
+
+  // ---- R6. a Send that never answered may have sent: wait, then send again ----
+  srv.next.push('network')
+  await sendFromDialog(page)
+  await page.waitForTimeout(300)
+  {
+    const said = await page.locator('[data-cc-location-send-error]').innerText()
+    ok(
+      said.includes('may still reach the customer') && said.includes('Wait for the countdown'),
+      `${at}: a network failure says the text may have gone — wait, then send again`,
+      said,
+    )
+    const submit = page.locator('[data-cc-location-submit]')
+    const left = Number(await submit.getAttribute('data-cc-location-submit-in'))
+    ok(
+      (await submit.isDisabled()) && left >= 29 && left <= 31 && /Send link \(\d+ s\)/.test(await submit.innerText()),
+      `${at}: and the dialog's Send counts down the 30 s cooldown, showing the seconds`,
+      `${left} · ${await submit.innerText()}`,
+    )
+    ok((await submit.locator('bdi[dir="ltr"]').count()) === 1, `${at}: the seconds are isolated (Ltr)`)
+    await run(page, 31_000)
+    ok(
+      !(await submit.isDisabled()) && (await submit.innerText()).trim() === 'Send link',
+      `${at}: after 30 s Send is offered again`,
+      await submit.innerText(),
+    )
+  }
+
   // The customer's own number, re-spelled, is not "typed".
   const before = calls(srv, /LocationLinks\/Send$/).length
   await sendFromDialog(page, '+966 55 123 4567')
@@ -493,6 +545,10 @@ for (const mode of MODES) {
     (await page.locator('[data-cc-location-line] bdi[dir="ltr"]').first().innerText()) === MASKED,
     `${at}: the masked number is isolated whole (Ltr)`,
   )
+  ok(
+    (await page.locator('[data-cc-location-line] bdi[dir="ltr"] > [data-cc-location-clock].tabular-nums').count()) === 1,
+    `${at}: the mm:ss clock is isolated whole (Ltr), in tabular figures`,
+  )
   ok(/Location link sent to .* - waiting \(\d\d:\d\d\)/.test(line), `${at}: the strip reads the ticket's sentence`, line)
   const c0 = secondsOf(await clockOf(page))
   ok(c0 >= 898 && c0 <= 900, `${at}: the countdown starts at the link's 15 minutes`, String(c0))
@@ -513,8 +569,10 @@ for (const mode of MODES) {
   // 11 s have passed since the send: 19 s of cooldown are left.
   const resend = page.locator('[data-cc-location-resend]')
   ok(await resend.isDisabled(), `${at}: Resend is disabled inside 30 s of the send`)
-  const left = Number(await resend.getAttribute('data-cc-location-resend-in'))
-  ok(left >= 18 && left <= 20 && (await resend.innerText()).includes(String(left)), `${at}: and shows the seconds left (${left})`)
+  // One read of both, so a re-render between two reads cannot split them.
+  const [leftAttr, leftText] = await resend.evaluate((b) => [b.getAttribute('data-cc-location-resend-in'), b.innerText])
+  const left = Number(leftAttr)
+  ok(left >= 18 && left <= 20 && leftText.includes(String(left)), `${at}: and shows the seconds left (${left})`, leftText)
   await run(page, 20_000)
   ok(await resend.isEnabled(), `${at}: Resend opens once 30 s have passed`)
   await resend.click()
@@ -772,6 +830,27 @@ for (const mode of MODES) {
       `${at}: a failed Retire is logged, never shown`,
     )
     ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- R4. the order dies under the tab: Retire at once, and only once ----
+  {
+    const { context, page, errors, srv } = await open(mode)
+    await toCard(page, srv)
+    srv.applyNext.push(['SESSION_CLOSED', 409, 'This order was submitted from another tab.', { reason: 'submitted' }])
+    await page.locator('[data-cc-location-apply]').click()
+    await page.locator('[data-cc-notice="sessionClosed"]').waitFor({ timeout: 5_000 })
+    await page.waitForTimeout(300)
+    const retired = calls(srv, /LocationLinks\/Retire$/)
+    ok(
+      retired.length === 1 && JSON.stringify(retired[0].body) === JSON.stringify({ orderContextId: TX1 }),
+      `${at}: a session fault retires the dead order's link at once`,
+      JSON.stringify(retired.map((w) => w.body)),
+    )
+    await page.locator('[data-cc-retry]').click()
+    await page.waitForTimeout(500)
+    ok(calls(srv, /LocationLinks\/Retire$/).length === 1, `${at}: and "Start again" does not retire it a second time`)
     allErrors.push(...errors)
     await context.close()
   }
@@ -1222,6 +1301,90 @@ for (const mode of MODES) {
       `${at}: the capture is stamped Applied, on the new address, and the card is the chip`,
     )
     await page.screenshot({ path: `${SHOTS}/create-chip-${at}.png` })
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- R2. the agent edits the pre-filled form: nothing they typed is overwritten ----
+  {
+    const { context, page, errors, srv } = await open(mode, { address: null })
+    await toCard(page, srv)
+    await page.locator('[data-cc-location-create-address]').click()
+    await page.locator('[data-cc-address-form]').waitFor({ timeout: 5_000 })
+    await page.locator('[data-cc-city-search]').fill('riy')
+    await page.locator('[data-cc-city-option="0021"]').click()
+    await page.locator('[data-cc-district-search]').fill('malqa')
+    await page.locator('[data-cc-district-option="R-114"]').click()
+    await page.locator('[data-cc-address-field="street1"]').fill('Al Malqa St 12')
+    await page.locator('[data-cc-address-field="shortAddress"]').fill('OLAY1234')
+    await page.locator('[data-cc-address-field="street2"]').fill('Villa 4, gate 2 (blue door)')
+    await page.locator('[data-cc-address-save]').click()
+    await page.locator('[data-cc-location-chip="applied"]').waitFor({ timeout: 10_000 })
+    const stamp = lastApply(srv)
+    ok(
+      stamp &&
+        stamp.applyPin === true &&
+        stamp.applyShortAddress === false &&
+        stamp.applyDetails === false &&
+        stamp.saveToCustomer === false,
+      `${at}: an edited Short Address and line 2 are sent unticked — only the untouched pin is applied`,
+      JSON.stringify(stamp),
+    )
+    ok(
+      srv.state.header.address.shortAddress === 'OLAY1234' &&
+        srv.state.header.address.line2 === 'Villa 4, gate 2 (blue door)',
+      `${at}: the order keeps what the agent typed`,
+      JSON.stringify(srv.state.header.address),
+    )
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+
+  // ---- R3. canSendLocationLink turns false while a link is held: hidden, never disabled ----
+  const dropCapability = (srv) => {
+    srv.state = {
+      ...srv.state,
+      version: srv.state.version + 1,
+      capabilities: { ...srv.state.capabilities, canSendLocationLink: false },
+    }
+  }
+  {
+    const { context, page, errors, srv } = await open(mode)
+    await toCard(page, srv)
+    ok(await page.locator('[data-cc-location-resend]').isVisible(), `${at}: the card offers Resend while the order may send`)
+    dropCapability(srv)
+    // CCL-00031 re-reads the order, which no longer may send; the capture is still unstamped.
+    srv.applyNext.push(APPLY_REFUSALS.stamped)
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(600)
+    ok(
+      (await page.locator('[data-cc-location-card]').isVisible()) &&
+        (await page.locator('[data-cc-location-resend]').count()) === 0,
+      `${at}: canSendLocationLink false → the card has no Resend`,
+    )
+    await page.locator('[data-cc-location-apply]').click()
+    await page.locator('[data-cc-location-chip="applied"]').waitFor({ timeout: 5_000 })
+    ok((await page.locator('[data-cc-location-resend]').count()) === 0, `${at}: …nor the chip`)
+    ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
+    allErrors.push(...errors)
+    await context.close()
+  }
+  {
+    const { context, page, errors, srv } = await open(mode)
+    await toCard(page, srv)
+    dropCapability(srv)
+    srv.applyNext.push(APPLY_REFUSALS.stamped)
+    await page.locator('[data-cc-location-apply]').click()
+    await page.waitForTimeout(600)
+    await page.locator('[data-cc-location-discard]').click()
+    await page.locator('[data-cc-location-strip="discarded"]').waitFor({ timeout: 5_000 })
+    ok(
+      (await page.locator('[data-cc-location-again]').count()) === 0 &&
+        (await page.locator('[data-cc-location-resend]').count()) === 0,
+      `${at}: …and the discarded strip has no Send again`,
+    )
     ok(errors.length === 0, `${at}: no console errors`, errors[0] ?? '')
     allErrors.push(...errors)
     await context.close()

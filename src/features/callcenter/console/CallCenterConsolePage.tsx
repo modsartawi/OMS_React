@@ -47,7 +47,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import type {
   ApplyLocationRequest,
   CustomerAddressBookEntry,
@@ -277,7 +277,7 @@ function ConsoleSession() {
    * when the book closes without one).
    */
   const [addressPrefill, setAddressPrefill] = useState<AddressFormValues | null>(null)
-  const createdFromLocation = useRef<((addressNumber: string | null) => void) | null>(null)
+  const createdFromLocation = useRef<((created: CustomerAddressBookEntry | null) => void) | null>(null)
 
   /** The store override, open or not (167) — the other way into the same rebind. */
   const [pickingStore, setPickingStore] = useState(false)
@@ -466,6 +466,10 @@ function ConsoleSession() {
         // Nothing may keep pointing at the dead order — including a confirmation
         // asking whether to void something that is already gone.
         setAbandoning(null)
+        // 574 (amended by the 2482 review) — the order died under the tab, so its location
+        // link goes with it, now: the agent may never press "Start again". Fire and forget,
+        // as on every other ending; the cache still holds the order's last state.
+        if (transactionId) retireLocationLink(transactionId)
         setFault({
           ...dead,
           message: apiErrorMessage(err, t(dead.kind === 'closed' ? 'fault.closedHint' : 'fault.notYoursHint')),
@@ -560,18 +564,24 @@ function ConsoleSession() {
   /** The orders this tab sent a location link on (574) — so an order that has since
    *  flipped to collection, and lost `canSendLocationLink`, is still retired. */
   const linkSentOn = useRef(new Set<string>())
+  /** The orders already retired — the dead-order fault retires at once, and its *Start
+   *  again* then funnels through `startFresh`, which must not ask twice. */
+  const retiredOrders = useRef(new Set<string>())
 
   /**
-   * 574 — the order in progress has ended (submitted, abandoned, or left for a fresh
-   * one): kill its live location link. 🚩 **The server does not retire for us.** Fire and
-   * forget: a failure is logged, never shown — the link lapses on its own at 15 minutes.
-   * Read off the cache BEFORE the caller replaces or drops the order's state.
+   * 574 — the order in progress has ended (submitted, abandoned, left for a fresh one, or
+   * died under the tab — the session fault): kill its live location link. 🚩 **The server
+   * does not retire for us.** Fire and forget: a failure is logged, never shown — the link
+   * lapses on its own at 15 minutes. Once per order. Read off the cache BEFORE the caller
+   * replaces or drops the order's state.
    */
   const retireLocationLink = useCallback(
     (endedId: string) => {
+      if (retiredOrders.current.has(endedId)) return
       const ended = queryClient.getQueryData<SessionState>(sessionKey(endedId))
       if (!shouldRetire(ended, linkSentOn.current.has(endedId))) return
       linkSentOn.current.delete(endedId)
+      retiredOrders.current.add(endedId)
       callCenterApi
         .retireLocationLink(endedId)
         .catch((error: unknown) => console.warn('location link retire failed', endedId, error))
@@ -1753,7 +1763,7 @@ function ConsoleSession() {
           rebindRefusal(
             // The server's own sentence (§7) — it names the store and the count.
             apiErrorMessage(err, t('rebind.refusedFallback')),
-            err instanceof ApiError ? err.data : null,
+            apiErrorData(err),
             preview,
           ),
         )
@@ -1826,7 +1836,7 @@ function ConsoleSession() {
         )
       // 576 — a create the location card opened: the card stamps its capture once the order
       // holds this address (the rebind below may still preview a store move first).
-      createdFromLocation.current?.(entry.addressNumber)
+      createdFromLocation.current?.(entry)
       createdFromLocation.current = null
       rebind.mutate(beginStoreMove('address', entry.addressNumber))
     },
@@ -1834,7 +1844,7 @@ function ConsoleSession() {
 
   /** 576 — the location card's *Create address from this location*. */
   const createAddressFromLocation = (prefill: AddressFormValues) =>
-    new Promise<string | null>((resolve) => {
+    new Promise<CustomerAddressBookEntry | null>((resolve) => {
       createdFromLocation.current?.(null)
       createdFromLocation.current = resolve
       setAddressPrefill(prefill)

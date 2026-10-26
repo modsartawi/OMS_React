@@ -102,6 +102,15 @@ export function apiErrorAttemptId(err: unknown): string | null {
 }
 
 /**
+ * A refusal's own `data` (see `ApiError.data`), or null when it carried none or the
+ * value is not an `ApiError` at all. `unknown` on purpose: what it means is the
+ * refusing feature's to read, defensively.
+ */
+export function apiErrorData(err: unknown): unknown {
+  return err instanceof ApiError ? (err.data ?? null) : null
+}
+
+/**
  * Which arm of the taxonomy a failure is, or `null` when it is not an `ApiError`
  * at all (a bug in feature code, say — which is emphatically not a business
  * outcome).

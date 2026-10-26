@@ -36,12 +36,14 @@
  *   pre-filled from the capture (`onCreateAddress`); once the created address is on the order,
  *   the capture is stamped through `ApplyLocation` (`stampAfterCreate`).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { MapPin } from 'lucide-react'
 import type {
+  AddressBookAddress,
   ApplyLocationRequest,
+  CustomerAddressBookEntry,
   LocationCapture,
   LocationLinkSendRequest,
   SessionState,
@@ -61,6 +63,7 @@ import {
   locationCard,
   mapsUrl,
   stampAfterCreate,
+  type ApplyRefusal,
   type LocationTicks,
 } from './location-card'
 import LocationCardView from './LocationCardView'
@@ -77,10 +80,12 @@ import {
   stripAct,
   stripView,
   type AppliedChip,
+  type DiscardRefusal,
   type LocationFace,
   type SendRefusal,
   type StripView,
 } from './location-link-view'
+import ResendButton from './ResendButton'
 
 /** The link this order holds: the latest Send's answer, and the body that sent it (Resend
  *  re-sends that body, to the same number, without the dialog). */
@@ -118,9 +123,9 @@ export default function LocationLinkPanel({
   /** Re-read the order (`CCL-00031`: the capture was already stamped). */
   onRefresh: () => void
   /** 576 — open the address book on a create pre-filled from the capture. Resolves with the
-   *  created `addressNumber` once the create lands, or `null` when the book closes without
-   *  one. Absent when the book cannot be opened on this order. */
-  onCreateAddress?: (prefill: AddressFormValues) => Promise<string | null>
+   *  created book row once the create lands, or `null` when the book closes without one.
+   *  Absent when the book cannot be opened on this order. */
+  onCreateAddress?: (prefill: AddressFormValues) => Promise<CustomerAddressBookEntry | null>
 }) {
   const { t } = useTranslation('callcenter')
   const now = useSecondClock()
@@ -146,8 +151,17 @@ export default function LocationLinkPanel({
   const [confirmingResend, setConfirmingResend] = useState(false)
   /** 576 — the chip's memory (the address it was first shown on), for the token it is about. */
   const [chip, setChip] = useState<{ token: string; chip: AppliedChip } | null>(null)
-  /** 576 — a create from this capture landed: stamp it once the order holds that address. */
-  const [stampOn, setStampOn] = useState<{ token: string; addressNumber: string } | null>(null)
+  /** 576 — a create from this capture landed: stamp it once the order holds that address,
+   *  ticking only what the created row still holds as captured (`stampAfterCreate`). */
+  const [stampOn, setStampOn] = useState<{
+    token: string
+    capture: LocationCapture
+    addressNumber: string
+    created: AddressBookAddress | null
+  } | null>(null)
+  /** When a Send failed in a way that may still have sent the text (a server or network
+   *  error): the 30 s cooldown runs from here too, on the dialog's Send and on Resend. */
+  const [maySentAt, setMaySentAt] = useState<number | null>(null)
 
   const open = state.status === 'open'
   const customerMobile = state.header.customer?.mobile ?? null
@@ -171,6 +185,7 @@ export default function LocationLinkPanel({
       setRetryBody(null)
       setRetried(false)
       setStampOn(null)
+      setMaySentAt(null)
       setDialogOpen(false)
       onSent?.()
     },
@@ -182,6 +197,9 @@ export default function LocationLinkPanel({
         setDialogOpen(false)
         return
       }
+      // The text may already be on its way (spec 2482): wait the cooldown out before the
+      // next send, which then supersedes the orphan link.
+      if ('cooldown' in placed && placed.cooldown) setMaySentAt(Date.now())
       setRefusal(placed)
     },
     retry: false,
@@ -243,6 +261,27 @@ export default function LocationLinkPanel({
   const addressNumber = state.header.address?.addressNumber ?? null
   const shownChip = chip && chip.token === token ? chip.chip : null
 
+  /** A card act's refusal (Apply's or Discard's), placed: the shared link fates, or the card. */
+  const placeCardRefusal = (placed: DiscardRefusal) => {
+    switch (placed.at) {
+      case 'refetch':
+        // Already applied or discarded (another press, another tab): the order and the
+        // capture are re-read, and the capture's own stamp draws the chip or the strip.
+        onRefresh()
+        void status.refetch()
+        return
+      case 'gone':
+        setOutcome({ kind: 'gone' })
+        return
+      case 'hide':
+        setHidden(true)
+        setHeld(null)
+        return
+      case 'card':
+        setCardError('key' in placed ? { key: placed.key } : { text: placed.text })
+    }
+  }
+
   const apply = useMutation({
     mutationFn: (body: ApplyLocationRequest) => onApply(body),
     onMutate: () => {
@@ -254,35 +293,21 @@ export default function LocationLinkPanel({
       setOutcome({ kind: 'applied', at: new Date().toISOString() })
     },
     onError: (err, body) => {
-      const placed = applyRefusal(err)
-      switch (placed.at) {
-        case 'refetch':
-          // Already applied or discarded (another press, another tab): the order and the
-          // capture are re-read, and the capture's own stamp draws the chip or the strip.
-          onRefresh()
-          void status.refetch()
-          return
-        case 'retry':
-          // Nothing captured yet: the card stays, and the same press is tried once more on
-          // the next poll. A second "not yet" is said on the card.
-          if (!retried) {
-            setRetried(true)
-            setRetryBody(body)
-          } else setCardError({ key: 'location.card.notYet' })
-          return
-        case 'gone':
-          setOutcome({ kind: 'gone' })
-          return
-        case 'hide':
-          setHidden(true)
-          setHeld(null)
-          return
-        case 'save':
-          setSaveError(placed.key)
-          return
-        case 'card':
-          setCardError('key' in placed ? { key: placed.key } : { text: placed.text })
+      const placed: ApplyRefusal = applyRefusal(err)
+      if (placed.at === 'retry') {
+        // Nothing captured yet: the card stays, and the same press is tried once more on
+        // the next poll. A second "not yet" is said on the card.
+        if (!retried) {
+          setRetried(true)
+          setRetryBody(body)
+        } else setCardError({ key: 'location.card.notYet' })
+        return
       }
+      if (placed.at === 'save') {
+        setSaveError(placed.key)
+        return
+      }
+      placeCardRefusal(placed)
     },
     retry: false,
   })
@@ -305,24 +330,7 @@ export default function LocationLinkPanel({
       setOutcome({ kind: 'discarded' })
       if (thenSend) send.mutate(thenSend)
     },
-    onError: (err) => {
-      const placed = discardRefusal(err)
-      switch (placed.at) {
-        case 'refetch':
-          onRefresh()
-          void status.refetch()
-          return
-        case 'gone':
-          setOutcome({ kind: 'gone' })
-          return
-        case 'hide':
-          setHidden(true)
-          setHeld(null)
-          return
-        case 'card':
-          setCardError('key' in placed ? { key: placed.key } : { text: placed.text })
-      }
-    },
+    onError: (err) => placeCardRefusal(discardRefusal(err)),
     retry: false,
   })
 
@@ -350,7 +358,7 @@ export default function LocationLinkPanel({
     }
     if (addressNumber !== stampOn.addressNumber) return
     setStampOn(null)
-    applyNow(stampAfterCreate(transactionId, newRequestId(), stampOn.token))
+    applyNow(stampAfterCreate(transactionId, newRequestId(), stampOn.token, stampOn.capture, stampOn.created))
   }, [stampOn, token, addressNumber, transactionId, applyNow])
 
   // `CCL-00030`'s retry, one poll interval on — the same press (the same `requestId`: it
@@ -389,11 +397,19 @@ export default function LocationLinkPanel({
       ? () => {
           const tok = token
           void onCreateAddress(addressFormFromCapture(capture)).then((created) => {
-            if (created) setStampOn({ token: tok, addressNumber: created })
+            if (created)
+              setStampOn({ token: tok, capture, addressNumber: created.addressNumber, created: created.address })
           })
         }
       : undefined
-  const resendIn = held ? resendCooldownSeconds(held.sentAt, now) : 0
+  /** The dialog's wait: the 30 s cooldown from a failed send that may still have sent. */
+  const sendIn = maySentAt !== null ? resendCooldownSeconds(maySentAt, now) : 0
+  /** Resend's: from the latest send, or from such a failed one, whichever is later. */
+  const resendIn = Math.max(held ? resendCooldownSeconds(held.sentAt, now) : 0, sendIn)
+  /** Resend and Send again are drawn only while the order may send a link (§1): hidden,
+   *  never disabled — an order that flipped to collection keeps its strip but loses them. */
+  const canSend = showsSendAction(state.capabilities)
+  const strayRefusal = refusal && !dialogOpen ? refusalText(refusal, t) : null
 
   return (
     <div className="flex shrink-0 flex-col gap-1 border-b border-divider bg-card px-4 py-1.5" data-cc-location>
@@ -440,32 +456,8 @@ export default function LocationLinkPanel({
           </div>
           {/* Resend after Apply is free (2468): the new card compares against the order's
               current values, which already hold this capture. */}
-          <Button
-            variant="text"
-            onClick={resend}
-            disabled={send.isPending || resendIn > 0}
-            data-cc-location-resend
-            data-cc-location-resend-in={resendIn}
-          >
-            {resendIn > 0 ? (
-              <span dir="auto">
-                <Trans
-                  t={t}
-                  ns="callcenter"
-                  i18nKey="location.strip.resendIn"
-                  values={{ seconds: resendIn }}
-                  components={{ seconds: <Ltr /> }}
-                />
-              </span>
-            ) : (
-              t('location.strip.resend')
-            )}
-          </Button>
-          {refusal && !dialogOpen && (
-            <p className="basis-full text-[12.5px] text-danger-800" data-cc-location-strip-error>
-              <bdi>{refusalText(refusal, t)}</bdi>
-            </p>
-          )}
+          {canSend && <ResendButton variant="text" onClick={resend} resendIn={resendIn} disabled={send.isPending} />}
+          <StripError text={strayRefusal} className="basis-full text-[12.5px]" />
         </div>
       )}
       {held && card && ticks && token && (
@@ -484,25 +476,22 @@ export default function LocationLinkPanel({
           saveError={saveError ? t(saveError) : null}
           onDiscard={() => discard.mutate({ token })}
           discarding={discard.isPending}
-          onResend={resend}
+          onResend={canSend ? resend : undefined}
           resendIn={resendIn}
           resending={send.isPending}
           onCreateAddress={createAddress}
         />
       )}
-      {held && card && refusal && !dialogOpen && (
-        <p className="text-[12.5px] text-danger-800" data-cc-location-strip-error>
-          <bdi>{refusalText(refusal, t)}</bdi>
-        </p>
-      )}
+      {held && card && <StripError text={strayRefusal} className="text-[12.5px]" />}
       {held && view && !applied && !card && (
         <LocationStrip
           view={view}
           maskedMobile={held.maskedMobile}
+          resendIn={resendIn}
           resending={send.isPending}
-          onResend={resend}
-          onSendAgain={openDialog}
-          error={!dialogOpen && refusal ? refusalText(refusal, t) : null}
+          onResend={canSend ? resend : undefined}
+          onSendAgain={canSend ? openDialog : undefined}
+          error={strayRefusal}
         />
       )}
       <Modal
@@ -538,10 +527,26 @@ export default function LocationLinkPanel({
             <Button
               variant="primary"
               onClick={() => state.transactionId && send.mutate(sendBody(state.transactionId, customerMobile, mobile))}
-              disabled={send.isPending || mobile.trim() === ''}
+              disabled={send.isPending || mobile.trim() === '' || sendIn > 0}
               data-cc-location-submit
+              data-cc-location-submit-in={sendIn}
             >
-              {send.isPending ? t('location.send.sending') : t('location.send.confirm')}
+              {send.isPending ? (
+                t('location.send.sending')
+              ) : sendIn > 0 ? (
+                // The cooldown after a send that may have gone (or a link sent seconds ago).
+                <span dir="auto">
+                  <Trans
+                    t={t}
+                    ns="callcenter"
+                    i18nKey="location.send.confirmIn"
+                    values={{ seconds: sendIn }}
+                    components={{ seconds: <Ltr /> }}
+                  />
+                </span>
+              ) : (
+                t('location.send.confirm')
+              )}
             </Button>
           </>
         }
@@ -591,10 +596,34 @@ function refusalText(refusal: SendRefusal, t: (key: string) => string): string {
   return refusal.text || t('location.send.failed')
 }
 
-/** The waiting strip (2468): one line, its state, and the one act that state offers. */
+/** A refusal drawn outside the dialog (a Resend's, under the strip, card or chip). */
+function StripError({ text, className = '' }: { text: string | null; className?: string }) {
+  if (!text) return null
+  return (
+    <p className={`text-danger-800 ${className}`} data-cc-location-strip-error>
+      <bdi>{text}</bdi>
+    </p>
+  )
+}
+
+/** The countdown's slot: a machine value (`mm:ss`), isolated whole (bidi rule), in tabular
+ *  figures so the line does not jitter as it ticks. */
+function Clock({ children }: { children?: ReactNode }) {
+  return (
+    <Ltr>
+      <span data-cc-location-clock className="tabular-nums">
+        {children}
+      </span>
+    </Ltr>
+  )
+}
+
+/** The waiting strip (2468): one line, its state, and the one act that state offers — none
+ *  when the order may no longer send a link (`onResend` / `onSendAgain` absent). */
 function LocationStrip({
   view,
   maskedMobile,
+  resendIn,
   resending,
   onResend,
   onSendAgain,
@@ -602,9 +631,11 @@ function LocationStrip({
 }: {
   view: StripView
   maskedMobile: string
+  /** Seconds left on the Resend cooldown. */
+  resendIn: number
   resending: boolean
-  onResend: () => void
-  onSendAgain: () => void
+  onResend?: () => void
+  onSendAgain?: () => void
   error: string | null
 }) {
   const { t } = useTranslation('callcenter')
@@ -631,7 +662,7 @@ function LocationStrip({
             ns="callcenter"
             i18nKey="location.strip.waiting"
             values={{ mobile: maskedMobile, clock: view.clock }}
-            components={{ mobile: <Ltr />, clock: <span data-cc-location-clock className="tabular-nums" /> }}
+            components={{ mobile: <Ltr />, clock: <Clock /> }}
           />
         )}
         {view.kind === 'unreachable' && (
@@ -651,39 +682,13 @@ function LocationStrip({
         {view.kind === 'gone' && t('location.strip.gone')}
         {view.kind === 'discarded' && t('location.strip.discarded')}
       </span>
-      {live && (
-        <Button
-          variant="outlined"
-          onClick={onResend}
-          disabled={resending || view.resendIn > 0}
-          data-cc-location-resend
-          data-cc-location-resend-in={view.resendIn}
-        >
-          {view.resendIn > 0 ? (
-            <span dir="auto">
-              <Trans
-                t={t}
-                ns="callcenter"
-                i18nKey="location.strip.resendIn"
-                values={{ seconds: view.resendIn }}
-                components={{ seconds: <Ltr /> }}
-              />
-            </span>
-          ) : (
-            t('location.strip.resend')
-          )}
-        </Button>
-      )}
-      {dead && (
+      {live && onResend && <ResendButton variant="outlined" onClick={onResend} resendIn={resendIn} disabled={resending} />}
+      {dead && onSendAgain && (
         <Button variant="secondary" onClick={onSendAgain} data-cc-location-again>
           {t('location.strip.sendAgain')}
         </Button>
       )}
-      {error && (
-        <p className="basis-full text-danger-800" data-cc-location-strip-error>
-          <bdi>{error}</bdi>
-        </p>
-      )}
+      <StripError text={error} className="basis-full" />
     </div>
   )
 }

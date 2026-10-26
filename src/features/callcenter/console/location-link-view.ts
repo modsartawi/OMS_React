@@ -13,7 +13,7 @@
  * poll; between reads the console only counts it down. It never decides a link has lapsed by
  * its own arithmetic — at 00:00 it keeps waiting until the server says `Lapsed`.
  */
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorKind, apiErrorMessage } from '@/core/api'
 import {
   CCL,
   type LocationLinkSendRequest,
@@ -138,32 +138,62 @@ export function showsSendAction(capabilities: SessionCapabilities): boolean {
 }
 
 /**
+ * What a `CCL-` code means for the HELD link, whichever link call answered it (§4) — the one
+ * table the Send, poll, Discard and Apply placements share:
+ * - `hide`: `CCL-00001`, not configured — the action (and any card) goes for the order;
+ * - `gone`: `CCL-00006`, no such link for this agent — drop it, offer Send again;
+ * - `refetch`: `CCL-00031`, already applied or discarded — re-read the order and the link;
+ * - `retry`: `CCL-00030`, nothing captured yet — keep waiting.
+ * Each caller takes the fates its call can meet; anything else is that call's own to word.
+ */
+export type LinkFate = 'hide' | 'gone' | 'refetch' | 'retry'
+
+const LINK_FATE: Readonly<Record<string, LinkFate>> = {
+  [CCL.notConfigured]: 'hide',
+  [CCL.noSuchLink]: 'gone',
+  [CCL.alreadyStamped]: 'refetch',
+  [CCL.nothingCaptured]: 'retry',
+}
+
+export function linkFate(code: string | null): LinkFate | null {
+  return (code && LINK_FATE[code]) || null
+}
+
+/**
  * Where a Send refusal is drawn (§4).
  * - `mobile`: inline at the number (an invalid mobile, in the validator's words);
  * - `dialog`: in the dialog, the server's sentence (`text`) or the console's own (`key`);
+ *   `cooldown` when the text may already have gone (below);
  * - `hide`: not configured — the action goes and the dialog closes.
  */
 export type SendRefusal =
   | { at: 'mobile'; text: string }
   | { at: 'dialog'; text: string }
-  | { at: 'dialog'; key: string }
+  | { at: 'dialog'; key: string; cooldown?: true }
   | { at: 'hide' }
+
+/** The send's own codes, worded by the console. An unknown caller (`CCL-00005`) is the
+ *  generic line, never the server's sentence (§4). */
+const SEND_KEYS: Readonly<Record<string, string>> = {
+  [CCL.orderLimit]: 'location.refused.orderLimit',
+  [CCL.mobileDailyLimit]: 'location.refused.mobileDailyLimit',
+  [CCL.callerUnknown]: 'location.send.failed',
+}
 
 export function sendRefusal(err: unknown): SendRefusal {
   const code = apiErrorCode(err)
   const text = apiErrorMessage(err, '')
-  switch (code) {
-    case CCL.notConfigured:
-      return { at: 'hide' }
-    case CCL.mobileInvalid:
-      return { at: 'mobile', text }
-    case CCL.orderLimit:
-      return { at: 'dialog', key: 'location.refused.orderLimit' }
-    case CCL.mobileDailyLimit:
-      return { at: 'dialog', key: 'location.refused.mobileDailyLimit' }
-  }
-  // The cooldown (its message holds the seconds left), an unknown caller, and anything
-  // else coded keep the server's own sentence (api-envelope rule).
+  if (linkFate(code) === 'hide') return { at: 'hide' }
+  if (code === CCL.mobileInvalid) return { at: 'mobile', text }
+  if (code && SEND_KEYS[code]) return { at: 'dialog', key: SEND_KEYS[code] }
+  // 🚩 A server or network failure may land AFTER the server committed the link and queued the
+  // text (spec 2482: "the seat sees the error; Resend then supersedes the orphan link"). An
+  // immediate retry would meet the 30 s cooldown (`CCL-00008`), so the console words it as
+  // "wait, then send again" and runs the same cooldown on its own clock.
+  const kind = apiErrorKind(err)
+  if (kind === 'server' || kind === 'network') return { at: 'dialog', key: 'location.send.mayHaveSent', cooldown: true }
+  // The cooldown (its message holds the seconds left) and anything else coded keep the
+  // server's own sentence (api-envelope rule).
   return text ? { at: 'dialog', text } : { at: 'dialog', key: 'location.send.failed' }
 }
 
@@ -191,10 +221,8 @@ export function shouldRetire(
  * - `failed`: anything else, retried quietly at the same pace.
  */
 export function pollRefusal(err: unknown): 'gone' | 'hide' | 'failed' {
-  const code = apiErrorCode(err)
-  if (code === CCL.noSuchLink) return 'gone'
-  if (code === CCL.notConfigured) return 'hide'
-  return 'failed'
+  const fate = linkFate(apiErrorCode(err))
+  return fate === 'gone' || fate === 'hide' ? fate : 'failed'
 }
 
 /**
@@ -225,14 +253,8 @@ export type DiscardRefusal =
   | { at: 'card'; key: string }
 
 export function discardRefusal(err: unknown): DiscardRefusal {
-  switch (apiErrorCode(err)) {
-    case CCL.alreadyStamped:
-      return { at: 'refetch' }
-    case CCL.noSuchLink:
-      return { at: 'gone' }
-    case CCL.notConfigured:
-      return { at: 'hide' }
-  }
+  const fate = linkFate(apiErrorCode(err))
+  if (fate === 'refetch' || fate === 'gone' || fate === 'hide') return { at: fate }
   const text = apiErrorMessage(err, '')
   return text ? { at: 'card', text } : { at: 'card', key: 'location.card.discardFailed' }
 }

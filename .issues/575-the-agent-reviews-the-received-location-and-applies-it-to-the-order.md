@@ -92,3 +92,8 @@ The card and chip run end to end against stubs, and the pure modules and the dri
 ## Blocked by
 
 574.
+
+## Review fixes 2026-10-26
+
+- `applyRefusal` reads its `CCL-` fate from the shared `linkFate` table and `detail.code` through core's new
+  `apiErrorData`; no behaviour change. The card's Resend is hidden when `canSendLocationLink` is false (576).

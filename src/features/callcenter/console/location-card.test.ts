@@ -8,7 +8,7 @@
  * way the module computes it.
  */
 import { describe, expect, it } from 'vitest'
-import type { LocationCapture, SessionAddress } from '@/core/models/callcenter'
+import type { AddressBookAddress, LocationCapture, SessionAddress } from '@/core/models/callcenter'
 import { ApiError } from '@/core/api'
 import { applyBody, applyRefusal, captureStamp, locationCard, stampAfterCreate } from './location-card'
 
@@ -286,14 +286,70 @@ describe('576 — Create address from this location, in the save row\'s place', 
 })
 
 describe('576 — stampAfterCreate: the capture is stamped once the created address is on the order', () => {
-  it('applies the pin, the Short Address and the details, never saving to the customer', () => {
-    expect(stampAfterCreate('TX1', 'REQ9', 'Tok000000001')).toEqual({
+  /** The book row the create answered, holding exactly what the form pre-filled. */
+  const CREATED: AddressBookAddress = {
+    cityCode: '0021',
+    cityName: 'Riyadh',
+    districtCode: 'R-114',
+    districtName: 'Al Malqa',
+    street1: 'Al Malqa St 12',
+    street2: 'Villa 4, second gate',
+    buildingNumber: '',
+    phone1: '',
+    phone2: '',
+    shortAddress: 'RIMA6904',
+    gpsLat: 24.774265,
+    gpsLon: 46.738586,
+  }
+  const stamp = (created: AddressBookAddress | null) =>
+    stampAfterCreate('TX1', 'REQ9', 'Tok000000001', CAPTURE, created)
+
+  it('ticks every field the created address still holds as captured, never saving to the customer', () => {
+    expect(stamp(CREATED)).toEqual({
       transactionId: 'TX1',
       requestId: 'REQ9',
       token: 'Tok000000001',
       applyPin: true,
       applyShortAddress: true,
       applyDetails: true,
+      saveToCustomer: false,
+    })
+  })
+
+  it('never overwrites a Short Address the agent retyped in the form (BO 2468 story 19)', () => {
+    expect(stamp({ ...CREATED, shortAddress: 'OLAY1234' })).toMatchObject({
+      applyPin: true,
+      applyShortAddress: false,
+      applyDetails: true,
+    })
+  })
+
+  it('never overwrites details the agent edited, or cleared, in line 2', () => {
+    expect(stamp({ ...CREATED, street2: 'Villa 4, gate 2 (blue door)' })).toMatchObject({ applyDetails: false })
+    expect(stamp({ ...CREATED, street2: '' })).toMatchObject({ applyDetails: false })
+  })
+
+  it('applies the pin only when the created row holds the captured coordinates (six decimals)', () => {
+    expect(stamp({ ...CREATED, gpsLat: 24.7742651 })).toMatchObject({ applyPin: true })
+    expect(stamp({ ...CREATED, gpsLat: 0, gpsLon: 0 })).toMatchObject({ applyPin: false })
+    expect(stamp({ ...CREATED, gpsLat: null, gpsLon: null })).toMatchObject({ applyPin: false })
+  })
+
+  it('ticks nothing the customer skipped — a blank capture field matches no row', () => {
+    const skipped = { ...CAPTURE, shortAddress: '', addressDetails: '' }
+    expect(
+      stampAfterCreate('TX1', 'REQ9', 'Tok000000001', skipped, { ...CREATED, shortAddress: '', street2: '' }),
+    ).toMatchObject({ applyPin: true, applyShortAddress: false, applyDetails: false })
+  })
+
+  it('ticks nothing at all when the create answered no address, but still stamps the review', () => {
+    expect(stamp(null)).toEqual({
+      transactionId: 'TX1',
+      requestId: 'REQ9',
+      token: 'Tok000000001',
+      applyPin: false,
+      applyShortAddress: false,
+      applyDetails: false,
       saveToCustomer: false,
     })
   })

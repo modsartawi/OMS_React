@@ -735,7 +735,9 @@
       "cancel": "Cancel",
       "confirm": "Send link",
       "sending": "Sending…",
-      "failed": "The link couldn't be sent. Nothing reached the customer — try again."
+      "failed": "The link couldn't be sent. Nothing reached the customer — try again.",
+      "mayHaveSent": "Sending failed, but the text may still reach the customer. Wait for the countdown, then send again — the new link replaces this one.",
+      "confirmIn": "Send link (<seconds>{{seconds}}</seconds> s)"
     },
     "refused": {
       "orderLimit": "No more links for this order",

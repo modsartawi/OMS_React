@@ -12,15 +12,16 @@
  * wipes, details only into an EMPTY line 2. The card mirrors those rules so the agent is not
  * offered a tick the server would ignore; it is never the only guard.
  */
-import { apiErrorCode, apiErrorMessage, ApiError } from '@/core/api'
+import { apiErrorCode, apiErrorData, apiErrorMessage } from '@/core/api'
 import {
-  CCL,
   LOCATION_LINK_REFUSED,
+  type AddressBookAddress,
   type ApplyLocationRequest,
   type LocationCapture,
   type LocationPinSource,
   type SessionAddress,
 } from '@/core/models/callcenter'
+import { linkFate } from './location-link-view'
 
 export interface LocationCardPin {
   source: LocationPinSource
@@ -82,6 +83,17 @@ const blank = (text: string | null | undefined) => !text || text.trim() === ''
 /** Six decimals — the server's `DECIMAL(9,6)`, so the card reads what is stored. */
 const coord = (value: number) => value.toFixed(6)
 
+/**
+ * Whether the order's line 2 is KNOWN to be empty: no address at all, or a `line2` that is
+ * null or blank. A `line2` that is absent (a pre-1.12 server) cannot be shown to be empty, so
+ * it reads as filled — offering a tick the server might ignore is worse than offering Copy.
+ */
+function line2IsEmpty(address: SessionAddress | null): boolean {
+  if (address === null) return true
+  if (address.line2 === undefined) return false
+  return blank(address.line2)
+}
+
 /** Google Maps' search URL for a pin (2468). */
 export function mapsUrl(lat: number, lon: number): string {
   return `https://www.google.com/maps/search/?api=1&query=${coord(lat)},${coord(lon)}`
@@ -107,10 +119,7 @@ export function locationCard(
   const orderCode = blank(address?.shortAddress) ? null : address!.shortAddress!.trim()
 
   const text = blank(capture.addressDetails) ? null : capture.addressDetails.trim()
-  // `line2` absent (a pre-1.12 server) cannot be shown to be empty, so it reads as filled:
-  // offering a tick the server might ignore is worse than offering Copy.
-  const line2Empty = address === null || address.line2 === null || (address.line2 !== undefined && blank(address.line2))
-  const detailsMode: LocationCardDetails['mode'] = text === null ? 'none' : line2Empty ? 'tick' : 'copy'
+  const detailsMode: LocationCardDetails['mode'] = text === null ? 'none' : line2IsEmpty(address) ? 'tick' : 'copy'
 
   return {
     pin: {
@@ -164,21 +173,36 @@ export function applyBody(
 /**
  * The stamp after *Create address from this location* (576, open question 1 — the
  * recommended option, an overrulable ruling): once the created address is on the order, the
- * capture is applied with the pin, the Short Address and the details ticked and
- * `saveToCustomer: false`. It is idempotent against the values the create just wrote (the
- * server's rules: a blank never wipes, details only into an EMPTY line 2), and stamps Applied
- * in the same transaction — so the trail says what happened to the capture. The ticks are sent
- * raw, not ANDed with the card: the card now compares against the address the capture itself
- * filled, and the server decides every rule again.
+ * capture is applied with `saveToCustomer: false`, and stamps Applied in the same transaction —
+ * so the trail says what happened to the capture.
+ *
+ * 🚩 **Nothing the agent typed is overwritten** (BackOffice 2468 story 19). The form opened
+ * pre-filled, but every field was the agent's to change before Save. So a field is ticked only
+ * where the CREATED row (`created`, the create's answer) still holds the captured value: the
+ * same Short Address, line 2 equal to the captured details, the same pin at six decimals. A
+ * field the agent changed or cleared, or the customer skipped, is sent `false`. A create that
+ * answered no address ticks nothing — the stamp still records the review.
  */
-export function stampAfterCreate(transactionId: string, requestId: string, token: string): ApplyLocationRequest {
+export function stampAfterCreate(
+  transactionId: string,
+  requestId: string,
+  token: string,
+  capture: LocationCapture,
+  created: AddressBookAddress | null,
+): ApplyLocationRequest {
+  const holds = (captured: string, saved: string | null | undefined) =>
+    !blank(captured) && !blank(saved) && captured.trim() === saved!.trim()
   return {
     transactionId,
     requestId,
     token,
-    applyPin: true,
-    applyShortAddress: true,
-    applyDetails: true,
+    applyPin:
+      created?.gpsLat != null &&
+      created.gpsLon != null &&
+      coord(created.gpsLat) === coord(capture.gpsLat) &&
+      coord(created.gpsLon) === coord(capture.gpsLon),
+    applyShortAddress: holds(capture.shortAddress, created?.shortAddress),
+    applyDetails: holds(capture.addressDetails, created?.street2),
     saveToCustomer: false,
   }
 }
@@ -212,25 +236,16 @@ const SAVE_REFUSALS: Record<string, string> = {
 /** `LOCATION_LINK_REFUSED`'s `detail.code` — on the envelope's `data`, where the door puts
  *  every refusal's extras. */
 function linkCode(err: unknown): string | null {
-  const data = err instanceof ApiError ? err.data : null
+  const data = apiErrorData(err)
   const code = data && typeof data === 'object' ? (data as { code?: unknown }).code : null
   return typeof code === 'string' ? code : null
 }
 
 export function applyRefusal(err: unknown): ApplyRefusal {
   const code = apiErrorCode(err)
-  if (code === LOCATION_LINK_REFUSED) {
-    switch (linkCode(err)) {
-      case CCL.alreadyStamped:
-        return { at: 'refetch' }
-      case CCL.nothingCaptured:
-        return { at: 'retry' }
-      case CCL.noSuchLink:
-        return { at: 'gone' }
-      case CCL.notConfigured:
-        return { at: 'hide' }
-    }
-  }
+  // Every link fate is an Apply outcome: the shared table (`linkFate`), read off `detail.code`.
+  const fate = code === LOCATION_LINK_REFUSED ? linkFate(linkCode(err)) : null
+  if (fate) return { at: fate }
   if (code && SAVE_REFUSALS[code]) return { at: 'save', key: SAVE_REFUSALS[code] }
   const text = apiErrorMessage(err, '')
   return text ? { at: 'card', text } : { at: 'card', key: 'location.card.failed' }

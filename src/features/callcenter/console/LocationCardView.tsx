@@ -18,6 +18,7 @@ import { MapPin, Plus } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import type { LocationCard, LocationTicks } from './location-card'
+import ResendButton from './ResendButton'
 
 export default function LocationCardView({
   card,
@@ -42,8 +43,9 @@ export default function LocationCardView({
   /** Stamps the capture Discarded — no confirmation (2468). */
   onDiscard: () => void
   discarding: boolean
-  /** Resend over this card — the panel asks before it discards and sends. */
-  onResend: () => void
+  /** Resend over this card — the panel asks before it discards and sends. Absent when the
+   *  order may no longer send a link (`canSendLocationLink` false): hidden, never disabled. */
+  onResend?: () => void
   /** Seconds left on the Resend cooldown. */
   resendIn: number
   resending: boolean
@@ -203,27 +205,9 @@ export default function LocationCardView({
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button
-          variant="text"
-          onClick={onResend}
-          disabled={busy || resending || resendIn > 0}
-          data-cc-location-resend
-          data-cc-location-resend-in={resendIn}
-        >
-          {resendIn > 0 ? (
-            <span dir="auto">
-              <Trans
-                t={t}
-                ns="callcenter"
-                i18nKey="location.strip.resendIn"
-                values={{ seconds: resendIn }}
-                components={{ seconds: <Ltr /> }}
-              />
-            </span>
-          ) : (
-            t('location.strip.resend')
-          )}
-        </Button>
+        {onResend && (
+          <ResendButton variant="text" onClick={onResend} resendIn={resendIn} disabled={busy || resending} />
+        )}
         <Button variant="outlined" onClick={onDiscard} disabled={busy} data-cc-location-discard>
           {discarding ? t('location.card.discarding') : t('location.card.discard')}
         </Button>

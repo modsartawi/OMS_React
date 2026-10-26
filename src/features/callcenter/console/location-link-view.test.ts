@@ -223,9 +223,22 @@ describe('sendRefusal', () => {
     expect(sendRefusal(refused('CCL-00001', 'Not configured.'))).toEqual({ at: 'hide' })
   })
 
-  it('keeps the server’s sentence for anything else, and a generic line when there is none', () => {
-    expect(sendRefusal(refused('CCL-00005', 'Unknown caller.'))).toEqual({ at: 'dialog', text: 'Unknown caller.' })
+  it('keeps the server’s sentence for any other coded refusal, and a generic line when there is none', () => {
+    expect(sendRefusal(refused('CCL-00099', 'Something new.'))).toEqual({ at: 'dialog', text: 'Something new.' })
     expect(sendRefusal(new Error('boom'))).toEqual({ at: 'dialog', key: 'location.send.failed' })
+  })
+
+  it('shows an unknown caller (CCL-00005) in the generic words, not the server’s sentence (contract §4)', () => {
+    expect(sendRefusal(refused('CCL-00005', 'Caller 4471 not found in seat registry.'))).toEqual({
+      at: 'dialog',
+      key: 'location.send.failed',
+    })
+  })
+
+  it('a server or network failure may have sent the text: wait out the cooldown, then send again', () => {
+    const waits = { at: 'dialog', key: 'location.send.mayHaveSent', cooldown: true }
+    expect(sendRefusal(new ApiError('server', 'Unexpected API error (HTTP 500)', 500))).toEqual(waits)
+    expect(sendRefusal(new ApiError('network', 'Failed to fetch', 0))).toEqual(waits)
   })
 })
 

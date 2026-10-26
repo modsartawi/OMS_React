@@ -78,7 +78,7 @@ the drive 111/111 **stubbed** (LTR + RTL, Playwright's fake clock; the existing 
 3. **Retire's trigger** (`shouldRetire`): any order that could send a link, any order this tab sent one
    on, or an order the tab never read. Only an order known never to have been able to send one is
    skipped, so an unconfigured SIS.Api is not asked on every submit. Fired on submit success and in
-   `startFresh` (abandon, abandon-and-start-fresh, *New order*). Not on the dead-order (`fault`) path.
+   `startFresh` (abandon, abandon-and-start-fresh, *New order*). **Amended 2026-10-26 (2482 review):** also on the dead-order (`fault`) path, at once, with the same fire-and-forget rule — and once per order, so the fault's *Start again* does not retire twice.
 4. **The Arabic bundle is partial.** `src/locales/ar/callcenter.json` holds only the `location.*` keys
    (registered in `core/i18n.ts`); the app's `lng` stays `en`, so RTL reads English mirrored (the
    dispatch-board precedent). Strip prose takes `dir="auto"`, the header sentence's rule.
@@ -101,3 +101,17 @@ The pure modules and the drive are green, and the strip runs end to end against 
 ## Blocked by
 
 None. It can start immediately (live: BackOffice 2483–2491).
+
+## Review fixes 2026-10-26
+
+- **Retire on the fault path** (ruling 3 amended above): a `SESSION_CLOSED` / `NOT_YOUR_SESSION` from any
+  verb retires the dead order's link at once; a per-order guard stops *Start again* retiring it twice.
+- **The `mm:ss` clock is isolated** (`Ltr`, bidi rule), keeping `data-cc-location-clock` and `tabular-nums`.
+- **Resend and Send again are hidden while `canSendLocationLink` is false**, on the strip, the card and the
+  chip — hidden, never disabled (one `ResendButton` now serves all three).
+- **`CCL-00005` reads the generic line** (`location.send.failed`), not the server's sentence (§4).
+- **A Send that fails on a server or network error may have sent the text** (spec: "Resend then supersedes
+  the orphan link"): the dialog says *wait for the countdown, then send again* (`location.send.mayHaveSent`)
+  and its Send counts down the client's 30 s cooldown (`location.send.confirmIn`); Resend honours the same
+  wait. EN + AR.
+- The four `CCL-` placements share one code → fate table (`linkFate`). Drive: R1, R3–R6.

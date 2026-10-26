@@ -102,3 +102,15 @@ Every rule above runs against stubs, and the pure modules and the drive are gree
      in the same transaction.
    - **Alternative:** stamp Discarded, which reads wrong in the trail.
    - This is the owner's call at implement time.
+
+## Review fixes 2026-10-26
+
+- **Ruling 1 amended — the stamp after a create no longer overwrites what the agent typed** (BackOffice
+  2468 story 19). `stampAfterCreate` compares the capture with the CREATED row (the create's answer, now
+  handed back through `onCreateAddress`): `applyShortAddress` only when the row holds the same Short
+  Address, `applyDetails` only when its Street2 equals the captured details, `applyPin` only when its pin
+  equals the capture's at six decimals. Anything the agent changed or cleared, or the customer skipped, is
+  sent `false`; the stamp still records the review. Vitest + drive R2.
+- **Resend on the card and beside the chip, and Send again on a dead strip, are hidden while
+  `canSendLocationLink` is false** (drive R3).
+- Apply's and Discard's refusal placement is one helper (`placeCardRefusal`).

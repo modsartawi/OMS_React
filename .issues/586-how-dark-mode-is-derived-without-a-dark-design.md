@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: prototype
 map: 580
-status: open
+status: done
 blocked-by: 585
 ---
 
@@ -43,3 +43,26 @@ the deep-navy gradient in both themes, and status families keep palette B's dark
 Recommended: **A**. It is the only one R1 allows once light is hueless, and the navy rail stands
 apart from a graphite page where it merges into a navy one. The login stays identical in both
 themes, as built (its ground is a dark photograph either way).
+
+## Answer
+
+Resolved 2026-10-26 by the owner, by eye on the prototype: **Dark B, navy night**. The
+recommendation was A.
+
+- **Neutrals in dark keep palette B's navy-tinted ladder:** `--background` `#0a111d`, `--card`
+  `#111a28`, `--card-2` `#162131`, `--muted` `#1b2536`, `--accent` `#222e41`, `--foreground`
+  `#e6ebf2`, `--muted-foreground` `#a3afc0`, `--ink-3` `#788599`, `--border` `#212c3d`,
+  `--border-strong` `#2e3b4f`, `--divider` `#1a2433`, `--input` `#5a6780`, `--secondary`
+  `#8794a8` / `-press` `#98a4b6`, `--grid-head` `#162131` / `-foreground` `#a3afc0`, and dark
+  fill ink `#0a111d`.
+- **So the two themes differ in temperature on purpose:** light is hueless (585) and dark is
+  navy. R1 still holds within each theme, with one temperature per theme. The spec states this
+  so nobody "fixes" one theme to match the other.
+- **Interactive family:** 586's lift of the navy (R2, H 262.6 held): `--primary` `#9db2d8`,
+  `-050` `#232e42`, `-border` `#3e4d69`, `-800` `#c3d2ec`. It replaces palette B's `#79a7ec`.
+  Links are underlined (585).
+- **`--ring` and `--cursor`** are 585's one gold, `#fec33b`, which replaces `#fdc801`.
+- **Unchanged:** the rail keeps its deep-navy gradient in both themes (587), the status and
+  command families keep palette B's dark values, and the login stays identical in both themes.
+- **Measured:** with these values in `.dark` on the prototype branch (`a9755710`), the gate
+  passes all 184 pairs in both themes.

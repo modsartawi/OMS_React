@@ -77,6 +77,9 @@ skills (`figma-design-to-code`) for any Figma read.
   **DMSCO lockup** (dotted-D symbol when collapsed) and the **Figma top bar's look** on our rail:
   radial deep navy, a filled `#182F4A` pill with a gold icon for the active item, pill rows and a
   white pill search field; sizes and page titles unchanged (owner).
+- [How dark mode is derived without a dark design](586-how-dark-mode-is-derived-without-a-dark-design.md):
+  **navy night** (owner): dark keeps palette B's navy-tinted ladder while light stays hueless; the
+  navy lifted to `#9db2d8` for the interactive family, gold `#fec33b` ring and cursor; gate 184/184.
 - [Inventory the hand-styled controls](583-inventory-the-hand-styled-controls.md): 435 buttons
   (88 carry a Button variant's colours, none its shape; 72 chips/tabs, 59 icon, 41 outlined
   look-alikes, 42 one-offs) and 543 fields on 224 class strings; 302 fields but only 80 buttons

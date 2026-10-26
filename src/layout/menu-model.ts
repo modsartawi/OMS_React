@@ -108,6 +108,9 @@ import {
   canOpenSyncConsole,
   syncConsoleApi,
 } from '@/features/admin/sync-console/api'
+// Data sync (spec 558, ticket 559): the same shape — the leaf and the page's gate share one key.
+import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/admin/data-sync/api'
+import { DatabaseZap } from 'lucide-react'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
 // The Deliverect probe lives in `@/core/` (ticket 477) for the Materials reason: four features (stores,
@@ -531,6 +534,21 @@ export const MENU: ShellMenuItem[] = [
           key: SYNC_CONSOLE_ACCESS_KEY,
           run: () => syncConsoleApi.access(),
           visible: canOpenSyncConsole,
+        }),
+      },
+      {
+        // Data sync (spec 558, ticket 559) — DataSync's campaigns and profiles, on `DataSync.View`
+        // read off `GET DataSync/Access`. The SAME key, call and predicate as the page's own gate.
+        // 🚩 FAILS CLOSED: a pending, errored or malformed probe hides the leaf (DataSync is a
+        // separate service that may not be deployed behind this host).
+        labelKey: 'data-sync:menu.dataSync',
+        icon: DatabaseZap,
+        routerLink: '/admin/data-sync',
+        activePrefix: '/admin/data-sync',
+        access: accessProbe({
+          key: DATA_SYNC_ACCESS_KEY,
+          run: () => dataSyncApi.access(),
+          visible: canOpenDataSync,
         }),
       },
       {

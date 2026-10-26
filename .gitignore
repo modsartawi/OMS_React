@@ -139,3 +139,5 @@ tsconfig.tsbuildinfo
 tools/.dispatch-scorecard-shots/
 # Prescription sessions drive screenshots (tools/prescription-sessions-drive.mjs, ticket 544)
 tools/.prescription-sessions-shots/
+# Data sync drive screenshots (tools/data-sync-*-drive.mjs, spec 558)
+tools/.data-sync-*-shots/

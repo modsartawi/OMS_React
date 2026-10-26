@@ -303,6 +303,44 @@
   --brand-panel-foreground: #ffffff;
 }
 
+/* The DMSCO sign-in theme (Figma "HR-Portal_Website" › Login_Filled data,
+   node 84:4419): the company's new visual language, landing on the login page
+   first. Like the brand panel above it has NO dark counterpart — the page is a
+   fixed brand surface (a frosted card over a dark photographic ground), the
+   same in both themes.
+
+   The values are the Figma file's own variables with two measured deviations,
+   because the gate below holds them to AA on the glass:
+     - `--login-body` / `--login-label` are the design's `neutrals-80` #4C4C4C and
+       `neutrals-70` #626262 stepped darker: on the composited glass they measured
+       4.23:1 and 3.01:1.
+     - `--login-field-border` is `neutrals-30` #BCBCBC stepped darker: a field
+       edge must clear 3:1 on its white field (WCAG 1.4.11); #BCBCBC is 1.90:1.
+
+   `--login-glass` is painted at 70% (`bg-login-glass/70`, the design's
+   `fill-opacity`), so it is not a measurable ground on its own.
+   `--login-glass-floor` is: the darkest the glass composites to over the
+   background image under the form column (sampled from the asset). It is
+   measured, never painted. */
+:root {
+  --login-ground: #182f4a; /* behind the background image, before it loads */
+  --login-glass: #f1f1f1;
+  --login-glass-floor: #b9b6ac;
+  --login-ink: #182f4a; /* headings, links — `primary-blue-light` */
+  --login-body: #3d3d3d;
+  --login-label: #454545;
+  --login-field: #ffffff;
+  --login-field-ink: #1f1f1f;
+  --login-field-border: #8c8c8c;
+  --login-field-focus: #1f1f1f;
+  --login-chip: #e9e9e9; /* the reveal-password chip inside a field */
+  --login-cta: #172031; /* `primary-blue` */
+  --login-cta-foreground: #ffffff;
+  --login-gold: #fec33b; /* `primary-yellow` — on the photo only */
+  --login-photo-border: #eaeaea;
+  --login-greeting: #ffffff33; /* decorative, 20% white on the dark ground */
+}
+
 /* Dark is screen-only (F19): on paper the `.dark` class still sits on <html>,
    but this block does not apply, so print resolves the light table above. The
    rail ground, gold and brand tokens are the same in both themes and are not
@@ -467,6 +505,23 @@
 
   --color-brand-panel: var(--brand-panel);
   --color-brand-panel-foreground: var(--brand-panel-foreground);
+
+  --color-login-ground: var(--login-ground);
+  --color-login-glass: var(--login-glass);
+  --color-login-glass-floor: var(--login-glass-floor); /* measured, never painted */
+  --color-login-ink: var(--login-ink);
+  --color-login-body: var(--login-body);
+  --color-login-label: var(--login-label);
+  --color-login-field: var(--login-field);
+  --color-login-field-ink: var(--login-field-ink);
+  --color-login-field-border: var(--login-field-border);
+  --color-login-field-focus: var(--login-field-focus);
+  --color-login-chip: var(--login-chip);
+  --color-login-cta: var(--login-cta);
+  --color-login-cta-foreground: var(--login-cta-foreground);
+  --color-login-gold: var(--login-gold);
+  --color-login-photo-border: var(--login-photo-border);
+  --color-login-greeting: var(--login-greeting);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

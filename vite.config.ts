@@ -69,6 +69,15 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // DataSync (spec 558, ticket 559) is its own service. Listed BEFORE '/api': the first
+      // matching key wins. Production is unchanged — IIS on the SIS.Api host proxies /DataSync/*.
+      // DATASYNC_API points it elsewhere; only that run loosens TLS and rewrites the cookie.
+      '/api/DataSync': {
+        target: process.env.DATASYNC_API || 'http://127.0.0.1:5280',
+        changeOrigin: true,
+        ...(process.env.DATASYNC_API ? { secure: false, cookieDomainRewrite: '' } : {}),
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
       '/api': {
         // SIS_API points the proxy at another SIS.Api (staging, for a live drive — ticket 455).
         // Only that run loosens TLS and rewrites the session cookie onto localhost.

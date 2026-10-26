@@ -203,6 +203,13 @@ const positives = [
   ['--ring', '--card', UI],
   // D-9's brand panel — one pair, no dark counterpart, white ink fixed.
   ['--brand-panel-foreground', '--brand-panel', BODY],
+  // The DMSCO sign-in theme — fixed in both themes. Inks on the glass measure
+  // against its composited floor; field inks against the white field.
+  ...['--login-ink', '--login-body', '--login-label'].map((t) => [t, '--login-glass-floor', BODY]),
+  ['--login-field-ink', '--login-field', BODY],
+  ['--login-field-border', '--login-field', UI],
+  ['--login-cta-foreground', '--login-cta', BODY],
+  ['--login-cta', '--login-glass-floor', UI],
 ]
 
 // Pairs that exist in dark only. D-4 rules `--attention` out as a fill ground in

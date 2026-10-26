@@ -11,7 +11,7 @@ blocked-by: — (live: BackOffice 3074)
 The web seat's half of BackOffice [3078](C:\Work\DMSCO\BackOffice\.issues\3078-a-cc-v1-agent-checks-a-short-address-they-typed.md).
 
 - A **Check** button beside the Short Address field in the call-centre address form (`AddressForm`).
-- It calls `GET CallCenterWeb/NationalAddress/{code}?language=A|E` (BackOffice 3074) in the console's
+- It calls `GET NationalAddress/ShortAddress/{code}?language=A|E` (BackOffice 3074) in the console's
   language and shows the answer inline:
   - `FOUND`: the parts on one line, plus the additional number, and the city warning when SPL's city is
     not the form's;

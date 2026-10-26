@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 558
 blocked-by: —
 ---
@@ -37,10 +37,10 @@ model/api · store/logic · component/route · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `campaignStatusBadge`: every `CampaignStatus` maps to a label key and severity; an unknown status is neutral · pure
-- [ ] `campaignsQuery`: status filter and page build the exact query string through `dataSyncApi.campaigns` with `fetch` stubbed · pure
-- [ ] `serviceBanner`: healthy → none; worker off, stale tick, 503 → the right banner · pure
-- [ ] `tools/data-sync-campaigns-drive.mjs`: with stubs, the grid renders, the status filter reaches the request, Next pages and disables on a short page, the banner shows, the leaf is hidden and the page guarded when `screenAllowed` is false
+- [x] `campaignStatusBadge`: every `CampaignStatus` maps to a label key and severity; an unknown status is neutral · pure
+- [x] `campaignsQuery`: status filter and page build the exact query string through `dataSyncApi.campaigns` with `fetch` stubbed · pure
+- [x] `serviceBanner`: healthy → none; worker off, stale tick, 503 → the right banner · pure
+- [x] `tools/data-sync-campaigns-drive.mjs`: with stubs, the grid renders, the status filter reaches the request, Next pages and disables on a short page, the banner shows, the leaf is hidden and the page guarded when `screenAllowed` is false
 
 ## Boundaries
 
@@ -56,3 +56,29 @@ and `test` green.
 ## Blocked by
 
 None — can start immediately
+
+## Comments
+
+**2026-10-24 — built (ticket/559).** Helpers red-green in `features/admin/data-sync/helpers.test.ts`
+(18 tests; also the URL filter reader/writer and `nextEnabledOnFullPage`). Drive 55/55 green against
+a worktree `npx vite` with stubs (it flaked once when run right after an edit, while Vite
+re-transformed; a re-run is green). typecheck, lint, test green. Nothing driven against a live DataSync
+(566).
+
+For later slices: `core/models/data-sync.ts` holds every read model, request, enum (+ `*_VALUES`
+arrays), the error-code union and `JobsQuery`/`ChangesQuery`. Reuse `Pager.tsx` (no-total pager),
+`CodeBadgeView.tsx` + `codeBadge()`, `ServiceBannerView.tsx`, `DATA_SYNC_DEFAULT_COL_DEF` / `MONO` /
+`formatTime` / `campaignPath()` from `campaign-columns.tsx`, `figure()`, and `DATA_SYNC_ACCESS_KEY` /
+`dataSyncAccessQuery()` / `canOperateDataSync`. `CampaignPage.tsx` is a placeholder for 560.
+
+Overrulable:
+- The health banner polls with the list (30 s) and has `retry: false`; a non-503 failure of
+  `DataSync/Health` (network, 500, IIS 502) shows **no** banner — the helper does not guess. An
+  "DataSync unreachable" banner for those is a one-line addition if wanted.
+- An enabled worker that has **never** ticked (`lastWorkerTick: null`) reads as stale.
+- A `stateDb: 'Unreachable'` on a 200 reads like the 503.
+- The Pager draws on page 1 only when it is full; a full last page offers one Next onto an empty
+  page ("No more campaigns on this page"), the price of a door with no total.
+- A campaign whose profile is not in `Profiles` (disabled) shows the raw profile id.
+- The dev proxy targets `127.0.0.1:5280` by default; a real DataSync answered there on this machine
+  during the build (the drive stubs every call, so it was never used).

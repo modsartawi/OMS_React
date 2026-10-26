@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 558
 blocked-by: 560
 ---
@@ -31,9 +31,9 @@ model/api · store/logic · component/route · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `changesQuery`: table, kind and page build the exact query through `dataSyncApi.changes` with `fetch` stubbed · pure
-- [ ] `changeCells`: Different → both sides for the differing columns; SourceOnly / TargetOnly → one side; NULL vs `''` stay distinct · pure
-- [ ] `tools/data-sync-changes-drive.mjs`: with stubs, the filters reach the request, rows render for each kind, the truncated and pruned notices show, and no link without `canOperate`
+- [x] `changesQuery`: table, kind and page build the exact query through `dataSyncApi.changes` with `fetch` stubbed · pure
+- [x] `changeCells`: Different → both sides for the differing columns; SourceOnly / TargetOnly → one side; NULL vs `''` stay distinct · pure
+- [x] `tools/data-sync-changes-drive.mjs`: with stubs, the filters reach the request, rows render for each kind, the truncated and pruned notices show, and no link without `canOperate`
 
 ## Boundaries
 
@@ -47,3 +47,33 @@ drive are green.
 ## Blocked by
 
 [560](560-a-technician-follows-a-campaign-s-jobs-and-each-store-s-tables-as-they-run.md)
+
+## Comments
+
+**2026-10-24 — built (stubbed).** `changes-helpers.ts` (+ 12 vitest cases), `ChangesPage.tsx` at
+`/admin/data-sync/jobs/:jobId/changes`, `change-columns.tsx`, `ChangesLink.tsx`
+(`useChangesLinkFooter(mode)` fills 560's `jobDrawerFooter` seam), `dataSyncApi.changes`,
+`changesJobQuery`, `changesListQuery`. Drive `tools/data-sync-changes-drive.mjs` 50/50 against stubs;
+560's campaign drive still 60/60. No live DataSync (566 owns the walk).
+
+Decisions an owner may overrule:
+- **Report-only is read from the campaign's `mode`**, not inferred from the job's table
+  dispositions (an Apply campaign can hold ReportedOnly tables, and its manifest is always `[]`).
+  An unknown mode hides the link.
+- **The footer seam returns `undefined` when the link would not show**, so a viewer / Apply job
+  gets no empty footer (560's drive asserts that). 563 composing on the same seam needs to merge two
+  possibly-undefined footers.
+- **The view's own gate is `canOperate`** (`ScreenGate` with `keyPrefix="changes.access"`, its own
+  "No access to changes" sentence); a viewer on the address never calls the Changes door. A bare 403
+  from the door itself shows the same denial.
+- **Markers:** NULL → a boxed `NULL`; `""` → `(empty)`; a side the row does not have → "not at
+  source" / "not at store". A Different column the door sent on one side only reads NULL on the
+  other; a column whose two sides are equal is dropped (safeguard — the door already sends only
+  differing columns).
+- **Key** drawn as `column · value` (`formatPair`, one `Ltr` per pair); a NULL key value as the
+  column then `NULL`.
+- **The truncated notice** names the capped tables, narrowed to the filtered table; hidden while the
+  pruned notice shows.
+- 🚩 **Personal data:** no export, no copy affordance, nothing logged; the rows query is `gcTime: 0`
+  (memory only while shown). The drive asserts no row value reaches the console, localStorage or
+  sessionStorage. Table/kind/page are the only things in the URL.

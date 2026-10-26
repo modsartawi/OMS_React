@@ -3,9 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import QRCode from 'react-qr-code'
+import { Eye, EyeOff } from 'lucide-react'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import { useSession } from '@/core/session'
-import BrandMark from '@/core/ui/BrandMark'
+import logoUrl from '@/assets/login/dmsco-logo.svg'
+import backgroundUrl from '@/assets/login/login-background.webp'
+import photoUrl from '@/assets/login/login-photo.webp'
+import arrowUrl from '@/assets/login/next-arrow.svg'
 import { authApi } from './api'
 
 // Post-login lands on the BackOffice home (map 478), not a specific module.
@@ -54,17 +58,51 @@ type Step = 'password' | 'change' | 'totp' | 'otp' | 'setPassword' | 'activateQr
 // which is shared too (the purpose is stamped at the request step).
 type Flow = 'reset' | 'activate'
 
+/** The greeting above the card follows the local clock. */
+function greetingKey(hour: number): 'morning' | 'afternoon' | 'evening' {
+  if (hour < 12) return 'morning'
+  if (hour < 17) return 'afternoon'
+  return 'evening'
+}
+
+// The DMSCO sign-in theme (Figma Login_Filled data, 84:4419): pill fields and
+// buttons on a frosted card. Every colour is a fixed `--login-*` token.
+const titleClass = 'text-[40px] font-bold leading-none text-login-ink'
+
+const subtitleClass = 'mt-4 mb-10 text-[15px] text-login-body'
+
+const labelClass = 'mb-2 block text-[15px] text-login-label'
+
 const inputClass =
-  'w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'h-11 w-full rounded-full border border-login-field-border bg-login-field px-4 text-[15px] text-login-field-ink outline-none focus:border-login-field-focus'
+
+const hintClass = 'mb-6 ps-4 text-[13px] text-login-label'
 
 const submitClass =
-  'w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50'
+  'relative flex h-[52px] w-full items-center justify-center rounded-full bg-login-cta px-8 text-[17px] font-bold text-login-cta-foreground hover:bg-login-cta/90 disabled:opacity-50'
 
 const backClass =
-  'mt-2 w-full rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted'
+  'mt-3 h-11 w-full rounded-full text-[15px] font-bold text-login-ink hover:bg-login-field/50'
 
 const linkClass =
-  'mt-3 block w-full text-center text-sm font-medium text-primary hover:underline disabled:opacity-50'
+  'mt-8 block text-start text-[15px] font-bold text-login-ink underline decoration-1 underline-offset-4 hover:decoration-2 disabled:opacity-50'
+
+/** The primary button's label, with the design's long arrow at the reading end. */
+function SubmitLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {children}
+      {/* The arrow points along the reading direction, so it mirrors in RTL. */}
+      <img
+        src={arrowUrl}
+        width={38}
+        height={16}
+        alt=""
+        className="pointer-events-none absolute end-4 rtl:-scale-x-100"
+      />
+    </>
+  )
+}
 
 export default function LoginPage() {
   const { t } = useTranslation('auth')
@@ -86,6 +124,9 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('')
   // The otpauth URI the activation step renders as a QR (issue 477).
   const [qrCodeUri, setQrCodeUri] = useState('')
+
+  const [showPassword, setShowPassword] = useState(false)
+  const [greeting] = useState(() => greetingKey(new Date().getHours()))
 
   const [busy, setBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -127,6 +168,7 @@ export default function LoginPage() {
     setResetId('')
     setOtpCode('')
     setQrCodeUri('')
+    setShowPassword(false)
     setErrorMessage(message)
   }
 
@@ -430,52 +472,36 @@ export default function LoginPage() {
   const otpSubtitle = flow === 'activate' ? t('otpSubtitleActivate') : t('otpSubtitleReset')
 
   return (
-    <div className="flex min-h-screen">
-      {/* ===== Editorial Split brand panel (map 478) — the al-dawaa mark as an
-          oversized watermark on the brand slab, with the lockup + tagline. The
-          ground is `--brand-panel` (D-9): the navy retired, brand colour now
-          carried only by the marks. Desktop only; the sign-in panel carries a
-          compact lockup on small screens. ===== */}
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-panel p-10 text-brand-panel-foreground lg:flex">
-        {/* Watermark — clipped by the panel, bled off the start edge. Stays gold. */}
-        <BrandMark
-          size={560}
-          className="pointer-events-none absolute -bottom-24 -start-24 opacity-[0.12]"
-        />
-        <div className="relative flex items-center gap-3">
-          <BrandMark size={40} />
-          <div className="flex flex-col leading-none">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-              {t('common:brandKicker')}
-            </span>
-            <span className="text-xl font-semibold tracking-tight">{t('common:brandName')}</span>
-          </div>
-        </div>
-        <div className="relative">
-          <p className="text-2xl font-semibold tracking-tight">{t('brandPanel.tagline')}</p>
-          <p className="mt-2 max-w-sm text-sm text-brand-panel-foreground/70">
-            {t('brandPanel.blurb')}
-          </p>
-        </div>
-      </div>
+    // The DMSCO sign-in theme: a frosted card over the photographic ground. The
+    // page is a fixed brand surface in both themes, so the focus ring is the
+    // login ink here rather than the app's (gold in dark) `--ring`.
+    <div
+      className="flex min-h-screen flex-col items-center justify-center bg-login-ground bg-cover bg-center p-4 [--ring:var(--login-ink)] lg:p-10"
+      style={{ backgroundImage: `url(${backgroundUrl})` }}
+    >
+      {/* Decorative (20% white on the ground), so it stays out of the a11y tree. */}
+      <p
+        aria-hidden="true"
+        className="mb-6 hidden w-full max-w-[1142px] text-[32px] font-bold leading-none text-login-greeting lg:block"
+      >
+        {t(`greeting.${greeting}`)}
+      </p>
 
-      {/* ===== Sign-in panel ===== */}
-      <div className="flex w-full items-center justify-center bg-background p-4 lg:w-1/2">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
-        {/* Compact lockup for small screens, where the brand panel is hidden. */}
-        <div className="mb-5 flex items-center gap-2 lg:hidden">
-          <BrandMark size={26} />
-          <span className="text-sm font-semibold tracking-tight">{t('common:brandName')}</span>
-        </div>
+      <div className="grid w-full max-w-[1142px] gap-6 rounded-[32px] bg-login-glass/70 p-6 backdrop-blur-xl lg:min-h-[776px] lg:grid-cols-[minmax(0,1fr)_656px]">
+      {/* ===== Sign-in column ===== */}
+      <div className="flex flex-col px-2 py-2 lg:ps-4 lg:pe-0 lg:py-4">
+        <img src={logoUrl} width={262} height={140} alt={t('logoAlt')} className="max-w-full" />
+
+        <div className="mt-12 w-full max-w-[382px] lg:mt-auto">
         {sessionExpired && step === 'password' && (
-          <div className="mb-3 rounded-md border border-border bg-muted px-3 py-2 text-sm">
+          <div className="mb-6 rounded-2xl border border-login-field-border bg-login-field px-4 py-2 text-sm text-login-field-ink">
             {t('sessionExpired')}
           </div>
         )}
         {errorMessage && (
           <div
             aria-live="polite"
-            className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            className="mb-6 rounded-2xl border border-danger-border bg-danger-050 px-4 py-2 text-sm text-danger-800"
           >
             {errorMessage}
           </div>
@@ -483,9 +509,10 @@ export default function LoginPage() {
 
         {step === 'password' && (
           <form onSubmit={onPasswordSubmit}>
-            <h1 className="mb-4 text-base font-semibold tracking-tight">{t('title')}</h1>
+            <h1 className={titleClass}>{t('welcomeTitle')}</h1>
+            <p className={subtitleClass}>{t('welcomeSubtitle')}</p>
 
-            <label className="mb-1 block text-sm font-medium" htmlFor="userId">
+            <label className={labelClass} htmlFor="userId">
               {t('userId')}
             </label>
             <input
@@ -494,25 +521,36 @@ export default function LoginPage() {
               autoComplete="username"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              className={`mb-3 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
-            <label className="mb-1 block text-sm font-medium" htmlFor="password">
+            <label className={labelClass} htmlFor="password">
               {t('password')}
             </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`mb-4 ${inputClass}`}
-            />
+            <div className="relative mb-6">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`pe-12 ${inputClass}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+                aria-pressed={showPassword}
+                className="absolute end-3 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-login-chip text-login-cta"
+              >
+                {showPassword ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+              </button>
+            </div>
             <button
               type="submit"
               disabled={busy || userId.trim() === '' || password === ''}
               className={submitClass}
             >
-              {busy ? t('signingIn') : t('signIn')}
+              <SubmitLabel>{busy ? t('signingIn') : t('signIn')}</SubmitLabel>
             </button>
             <button type="button" onClick={onForgotPassword} disabled={busy} className={linkClass}>
               {t('forgotPassword')}
@@ -522,10 +560,10 @@ export default function LoginPage() {
 
         {step === 'change' && (
           <form onSubmit={onChangeSubmit}>
-            <h1 className="text-base font-semibold tracking-tight">{t('changeTitle')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{t('changeSubtitle')}</p>
+            <h1 className={titleClass}>{t('changeTitle')}</h1>
+            <p className={subtitleClass}>{t('changeSubtitle')}</p>
 
-            <label className="mb-1 block text-sm font-medium" htmlFor="newPassword">
+            <label className={labelClass}htmlFor="newPassword">
               {t('newPassword')}
             </label>
             <input
@@ -535,9 +573,9 @@ export default function LoginPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className={`mb-3 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
-            <label className="mb-1 block text-sm font-medium" htmlFor="confirmPassword">
+            <label className={labelClass}htmlFor="confirmPassword">
               {t('confirmPassword')}
             </label>
             <input
@@ -546,14 +584,14 @@ export default function LoginPage() {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`mb-4 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
             <button
               type="submit"
               disabled={busy || newPassword === '' || confirmPassword === ''}
               className={submitClass}
             >
-              {busy ? t('settingPassword') : t('setPassword')}
+              <SubmitLabel>{busy ? t('settingPassword') : t('setPassword')}</SubmitLabel>
             </button>
             <button type="button" onClick={goBackToPassword} className={backClass}>
               {t('back')}
@@ -563,10 +601,10 @@ export default function LoginPage() {
 
         {step === 'totp' && (
           <form onSubmit={onTotpSubmit}>
-            <h1 className="text-base font-semibold tracking-tight">{t('totpTitle')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{t('totpSubtitle')}</p>
+            <h1 className={titleClass}>{t('totpTitle')}</h1>
+            <p className={subtitleClass}>{t('totpSubtitle')}</p>
 
-            <label className="mb-1 block text-sm font-medium" htmlFor="totpCode">
+            <label className={labelClass}htmlFor="totpCode">
               {t('totpCode')}
             </label>
             <input
@@ -576,14 +614,14 @@ export default function LoginPage() {
               autoComplete="one-time-code"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
-              className={`mb-4 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
             <button
               type="submit"
               disabled={busy || totpCode.trim() === ''}
               className={submitClass}
             >
-              {busy ? t('verifying') : t('verify')}
+              <SubmitLabel>{busy ? t('verifying') : t('verify')}</SubmitLabel>
             </button>
             <button type="button" onClick={goBackToPassword} className={backClass}>
               {t('back')}
@@ -601,10 +639,10 @@ export default function LoginPage() {
 
         {step === 'otp' && (
           <form onSubmit={onOtpSubmit}>
-            <h1 className="text-base font-semibold tracking-tight">{t('otpTitle')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{otpSubtitle}</p>
+            <h1 className={titleClass}>{t('otpTitle')}</h1>
+            <p className={subtitleClass}>{otpSubtitle}</p>
 
-            <label className="mb-1 block text-sm font-medium" htmlFor="otpCode">
+            <label className={labelClass}htmlFor="otpCode">
               {t('otpCode')}
             </label>
             <input
@@ -616,9 +654,9 @@ export default function LoginPage() {
               onChange={(e) => setOtpCode(e.target.value)}
               className={`mb-2 ${inputClass}`}
             />
-            <p className="mb-4 text-xs text-muted-foreground">{t('otpNoCode')}</p>
+            <p className={hintClass}>{t('otpNoCode')}</p>
             <button type="submit" disabled={busy || otpCode.trim() === ''} className={submitClass}>
-              {busy ? t('verifying') : t('verify')}
+              <SubmitLabel>{busy ? t('verifying') : t('verify')}</SubmitLabel>
             </button>
             <button type="button" onClick={goBackToPassword} className={backClass}>
               {t('back')}
@@ -628,10 +666,10 @@ export default function LoginPage() {
 
         {step === 'setPassword' && (
           <form onSubmit={onSetPasswordSubmit}>
-            <h1 className="text-base font-semibold tracking-tight">{t('setPwTitle')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{t('setPwSubtitle')}</p>
+            <h1 className={titleClass}>{t('setPwTitle')}</h1>
+            <p className={subtitleClass}>{t('setPwSubtitle')}</p>
 
-            <label className="mb-1 block text-sm font-medium" htmlFor="setPwNew">
+            <label className={labelClass}htmlFor="setPwNew">
               {t('newPassword')}
             </label>
             <input
@@ -641,9 +679,9 @@ export default function LoginPage() {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className={`mb-3 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
-            <label className="mb-1 block text-sm font-medium" htmlFor="setPwConfirm">
+            <label className={labelClass}htmlFor="setPwConfirm">
               {t('confirmPassword')}
             </label>
             <input
@@ -652,14 +690,14 @@ export default function LoginPage() {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`mb-4 ${inputClass}`}
+              className={`mb-6 ${inputClass}`}
             />
             <button
               type="submit"
               disabled={busy || newPassword === '' || confirmPassword === ''}
               className={submitClass}
             >
-              {busy ? t('settingPassword') : t('setPassword')}
+              <SubmitLabel>{busy ? t('settingPassword') : t('setPassword')}</SubmitLabel>
             </button>
             <button type="button" onClick={goBackToPassword} className={backClass}>
               {t('back')}
@@ -669,8 +707,8 @@ export default function LoginPage() {
 
         {step === 'activateQr' && (
           <div>
-            <h1 className="text-base font-semibold tracking-tight">{t('activateTitle')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{t('activateScanHint')}</p>
+            <h1 className={titleClass}>{t('activateTitle')}</h1>
+            <p className={subtitleClass}>{t('activateScanHint')}</p>
 
             {/* Inline SVG QR — no external image service, no canvas, CSP-safe. */}
             <div className="mb-4 flex justify-center">
@@ -680,8 +718,8 @@ export default function LoginPage() {
             </div>
 
             {/* Base32 fallback — always shown, so a render failure still enrolls. */}
-            <p className="mb-1 text-sm font-medium">{t('activateCantScan')}</p>
-            <p className="mb-4 break-all rounded-lg border border-input bg-muted px-3 py-2 font-mono text-sm">
+            <p className={labelClass}>{t('activateCantScan')}</p>
+            <p className="mb-6 break-all rounded-2xl border border-login-field-border bg-login-field px-4 py-2 font-mono text-sm text-login-field-ink">
               {secretFromOtpauth(qrCodeUri)}
             </p>
 
@@ -691,13 +729,31 @@ export default function LoginPage() {
               disabled={busy}
               className={submitClass}
             >
-              {busy ? t('signingIn') : t('activateAdded')}
+              <SubmitLabel>{busy ? t('signingIn') : t('activateAdded')}</SubmitLabel>
             </button>
             <button type="button" onClick={goBackToPassword} disabled={busy} className={backClass}>
               {t('back')}
             </button>
           </div>
         )}
+        </div>
+      </div>
+
+      {/* ===== Photo panel — desktop only. The object position keeps the
+          design's crop (the counter scene) as the panel's height follows the
+          column. ===== */}
+      <div className="relative hidden overflow-hidden rounded-[26px] border border-login-photo-border lg:block">
+        <img
+          src={photoUrl}
+          alt=""
+          className="absolute inset-0 size-full object-cover object-[44%_0%]"
+        />
+        <div className="absolute inset-x-0 bottom-12 flex flex-col items-center gap-2 px-6 text-center">
+          <p className="text-[48px] font-bold leading-none text-login-gold">
+            {t('common:brandName')}
+          </p>
+          <p className="text-[28px] leading-9 text-login-cta-foreground">{t('brandPanel.tagline')}</p>
+        </div>
       </div>
       </div>
     </div>

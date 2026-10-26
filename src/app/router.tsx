@@ -325,6 +325,27 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/sync-console/ReplayPage')).default,
         }),
       },
+      // Data sync (spec 558): the campaigns + profiles page (559) and one campaign's page (560;
+      // a placeholder until then).
+      {
+        path: 'admin/data-sync',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/data-sync/DataSyncPage')).default,
+        }),
+      },
+      {
+        path: 'admin/data-sync/campaigns/:campaignId',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/data-sync/CampaignPage')).default,
+        }),
+      },
+      // Data sync (spec 558, ticket 562): a report-only job's row-level changes (Operate).
+      {
+        path: 'admin/data-sync/jobs/:jobId/changes',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/data-sync/ChangesPage')).default,
+        }),
+      },
       // The store engine switch (BackOffice spec 2737, ticket 517): HQ flips a store's promotion engine.
       {
         path: 'admin/engine-switch',

@@ -1,0 +1,472 @@
+{
+  "menu": {
+    "dataSync": "Data sync"
+  },
+  "title": "Data sync",
+  "subtitle": "Compare a store's data to HQ and reconcile it: campaigns of per-store jobs, run from pre-configured profiles.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to data sync",
+    "deniedHint": "Your account does not hold the grant to view data sync. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "refreshing": "Refreshing…",
+  "kind": {
+    "SourceOnly": "Only at source",
+    "Different": "Different",
+    "TargetOnly": "Only at store"
+  },
+  "changes": {
+    "title": "Changes",
+    "subtitle": "A report-only job's row-level differences, source against store.",
+    "access": {
+      "checking": "Checking your access…",
+      "deniedTitle": "No access to changes",
+      "deniedHint": "Row-level changes need the grant to operate data sync. Ask an administrator if you need it.",
+      "unreachableTitle": "This screen is unavailable",
+      "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+    },
+    "link": "Review changes",
+    "back": "Back to the campaign",
+    "eyebrow": "Job",
+    "table": "Table",
+    "tableAny": "All tables",
+    "kind": "Kind",
+    "kindAny": "All kinds",
+    "loading": "Loading the changes…",
+    "failed": "The changes could not be loaded.",
+    "jobFailed": "The job could not be loaded.",
+    "notFoundTitle": "Job not found",
+    "notFoundHint": "No job has this id. It may have been mistyped, or it belongs to another DataSync.",
+    "empty": "This job found no differences.",
+    "emptyFiltered": "No differences match these filters.",
+    "emptyPage": "No more differences on this page.",
+    "truncated": "The counts are exact, but the rows stop at the cap for:",
+    "pruned": "The row-level changes were pruned after the retention window. The counts remain on the job.",
+    "nullValue": "NULL",
+    "emptyValue": "(empty)",
+    "column": "Column",
+    "source": "Source",
+    "store": "Store",
+    "notAtSource": "not at source",
+    "notAtStore": "not at store",
+    "columns": {
+      "table": "Table",
+      "kind": "Kind",
+      "key": "Key",
+      "values": "Differences (source → store)",
+      "capturedAt": "Captured"
+    }
+  },
+  "campaignStatus": {
+    "Ready": "Ready",
+    "Running": "Running",
+    "Pausing": "Pausing",
+    "Paused": "Paused",
+    "Cancelling": "Cancelling",
+    "Cancelled": "Cancelled",
+    "Completed": "Completed"
+  },
+  "mode": {
+    "ReportOnly": "Report only",
+    "Apply": "Apply"
+  },
+  "strategy": {
+    "Reconcile": "Reconcile",
+    "Seed": "Seed"
+  },
+  "jobsByState": {
+    "queued": "Queued",
+    "running": "Running",
+    "paused": "Paused",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "banner": {
+    "stateDbUnreachable": "DataSync's state database is unreachable. Campaigns cannot be read or advanced until it is back.",
+    "workerDisabled": "DataSync's worker is turned off. Campaigns will not advance until it is turned on.",
+    "workerStale": "DataSync's worker has not ticked since <at>{{at}}</at>. Running campaigns may be stalled, not slow.",
+    "workerNeverTicked": "DataSync's worker has not ticked yet. Running campaigns may be stalled, not slow."
+  },
+  "campaigns": {
+    "heading": "Campaigns",
+    "status": "Status",
+    "statusAny": "Any status",
+    "failed": "The campaigns could not be loaded.",
+    "loading": "Loading campaigns…",
+    "empty": "No campaigns yet.",
+    "emptyFiltered": "No campaigns with this status.",
+    "emptyPage": "No more campaigns on this page.",
+    "unnamed": "(unnamed)",
+    "columns": {
+      "name": "Name",
+      "profile": "Profile",
+      "mode": "Mode",
+      "status": "Status",
+      "jobsByState": "Jobs by state",
+      "totalJobs": "Jobs",
+      "createdAt": "Created"
+    }
+  },
+  "pager": {
+    "readout": "Page <n>{{page}}</n>"
+  },
+  "profiles": {
+    "heading": "Profiles",
+    "hint": "The profiles DataSync can run. Read-only: an administrator maintains them.",
+    "failed": "The profiles could not be loaded.",
+    "loading": "Loading profiles…",
+    "empty": "No profile is enabled.",
+    "source": "Source",
+    "applyAllowed": "May be applied",
+    "reportOnly": "Report only",
+    "wholeTable": "Whole table",
+    "noApply": "No table of this profile may be applied; it runs report-only.",
+    "columns": {
+      "table": "Table",
+      "strategy": "Strategy",
+      "where": "Compare window",
+      "apply": "Apply"
+    }
+  },
+  "campaign": {
+    "placeholderTitle": "Campaign",
+    "back": "Back to campaigns",
+    "loading": "Loading the campaign…",
+    "failed": "The campaign could not be loaded.",
+    "notFoundTitle": "Campaign not found",
+    "notFoundHint": "No campaign has this id. It may have been mistyped, or the link belongs to another DataSync.",
+    "unnamed": "Unnamed campaign",
+    "profile": "Profile",
+    "mode": "Mode",
+    "status": "Status",
+    "reason": "Reason",
+    "source": "Source",
+    "createdAt": "Created",
+    "startedAt": "Started",
+    "finishedAt": "Finished",
+    "notYet": "—",
+    "rollup": "Jobs by state",
+    "asOf": "As of <at>{{at}}</at>",
+    "totalJobs": "Jobs",
+    "createWarnings": {
+      "title": "DataSync warned about these stores when the campaign was created:",
+      "note": "Carried over from the New campaign dialog; it is not kept if the page is reloaded."
+    }
+  },
+  "jobStatus": {
+    "Queued": "Queued",
+    "Running": "Running",
+    "Pausing": "Pausing",
+    "Paused": "Paused",
+    "Cancelling": "Cancelling",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed",
+    "Cancelled": "Cancelled"
+  },
+  "jobPhase": {
+    "Comparing": "Comparing",
+    "Reconciling": "Reconciling"
+  },
+  "waitReason": {
+    "WaitingForPause": "Waiting for ActionSync to pause this store",
+    "BackingOff": "Backing off after a fault, until <at>{{at}}</at>",
+    "BackingOffNoTime": "Backing off after a fault"
+  },
+  "holdReason": {
+    "Operator": "Paused by a person",
+    "StoreBusy": "Held: ActionSync is working this store"
+  },
+  "controls": {
+    "action": {
+      "Pause": "Pause",
+      "Resume": "Resume",
+      "Cancel": "Cancel"
+    },
+    "title": {
+      "campaign": {
+        "Pause": "Pause the campaign",
+        "Resume": "Resume the campaign",
+        "Cancel": "Cancel the campaign"
+      },
+      "job": {
+        "Pause": "Pause the job for store {{store}}",
+        "Resume": "Resume the job for store {{store}}",
+        "Cancel": "Cancel the job for store {{store}}"
+      }
+    },
+    "actsOnCampaign": "Campaign",
+    "actsOnJob": "Job",
+    "note": {
+      "campaign": {
+        "Pause": "Pause takes effect at the next chunk boundary: running jobs show Pausing until they reach it, then Paused. Queued jobs are simply not started.",
+        "Resume": "Resume re-queues the jobs a person paused. Jobs held because their store became busy resume on their own once it is safe.",
+        "Cancel": "Cancel stops every job that has not finished. Running jobs stop at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to a store are never rolled back."
+      },
+      "job": {
+        "Pause": "Pause takes effect at the next chunk boundary: a running job shows Pausing until it reaches it, then Paused. A queued job is paused at once.",
+        "Resume": "Resume puts the job back in the queue. An apply job checks again that its store is safe to write to.",
+        "Cancel": "Cancel stops the job. A running job stops at the next chunk boundary (Cancelling, then Cancelled). Chunks already applied to the store are never rolled back."
+      }
+    },
+    "reason": "Note (optional)",
+    "close": "Close",
+    "sending": "Sending…",
+    "failed": "DataSync refused this control.",
+    "failedHint": "The control could not be sent.",
+    "done": {
+      "campaign": "The campaign is now {{status}}.",
+      "job": "The job for store {{store}} is now {{status}}."
+    },
+    "denied": "Your account does not hold the grant to operate data sync, so the controls are hidden.",
+    "refusal": {
+      "DATASYNC_INVALID_STATE": "This move is no longer allowed from its current status. The page now shows the current state.",
+      "DATASYNC_STORE_BUSY": "The live ActionSync worker is still driving this store. Pause the store on ActionSync first, then resume this job.",
+      "DATASYNC_STORE_WPF_HOSTED": "This store is synced by the WPF host and can never be applied to. Cancel this job instead.",
+      "DATASYNC_CAMPAIGN_NOT_FOUND": "DataSync no longer knows this campaign.",
+      "DATASYNC_JOB_NOT_FOUND": "DataSync no longer knows this job."
+    }
+  },
+  "tableStatus": {
+    "Pending": "Pending",
+    "Running": "Running",
+    "Paused": "Paused",
+    "Succeeded": "Succeeded",
+    "Failed": "Failed"
+  },
+  "disposition": {
+    "Applied": "Applied",
+    "ReportedOnly": "Reported only"
+  },
+  "failure": {
+    "job": {
+      "TableFailures": "One or more tables failed.",
+      "StoreUnreachable": "The store could not be reached after three attempts.",
+      "StoreWpfHosted": "The store is synced by the WPF host and can never be applied to.",
+      "TargetUnresolved": "The store's database could not be resolved from HQ.",
+      "Error": "The job stopped on an unexpected error."
+    },
+    "table": {
+      "SchemaMismatch": "The table's columns differ between HQ and the store.",
+      "InvalidKey": "The table has no usable match key.",
+      "ConstraintViolation": "A constraint check failed after the apply (for example a child row without its parent).",
+      "Error": "The table stopped on an unexpected error."
+    }
+  },
+  "jobs": {
+    "heading": "Jobs",
+    "status": "Job status",
+    "statusAny": "Any status",
+    "failed": "The jobs could not be loaded.",
+    "loading": "Loading jobs…",
+    "empty": "This campaign has no jobs.",
+    "emptyFiltered": "No jobs with this status.",
+    "emptyPage": "No more jobs on this page.",
+    "columns": {
+      "store": "Store",
+      "status": "Status",
+      "why": "Waiting or held",
+      "attempts": "Attempts",
+      "startedAt": "Started",
+      "finishedAt": "Finished",
+      "failure": "Failure",
+      "actions": "Actions"
+    }
+  },
+  "drawer": {
+    "eyebrow": "Job",
+    "close": "Close",
+    "loading": "Loading the job…",
+    "failed": "The job could not be loaded.",
+    "notFoundTitle": "Job not found",
+    "notFoundHint": "No job has this id. It may have been mistyped, or it belongs to another DataSync.",
+    "target": "Target",
+    "targetUnresolved": "Not resolved",
+    "attempts": "Attempts",
+    "tables": "Tables",
+    "noTables": "This job has no tables.",
+    "truncated": "Manifest truncated",
+    "truncatedHint": "The counts are exact, but the row-level changes stop at the cap.",
+    "progressIndeterminate": "Sizing the table…",
+    "columns": {
+      "table": "Table",
+      "status": "Status",
+      "disposition": "Disposition",
+      "strategy": "Strategy",
+      "progress": "Chunks",
+      "rowsCompared": "Compared",
+      "toInsert": "To insert",
+      "toUpdate": "To update",
+      "toDelete": "To delete",
+      "rowsApplied": "Applied",
+      "failure": "Failure",
+      "flags": "Manifest"
+    }
+  },
+  "create": {
+    "open": "New campaign",
+    "title": "New campaign",
+    "profile": "Profile",
+    "profilePick": "Choose a profile…",
+    "profilesLoading": "Loading profiles…",
+    "profilesFailed": "The profiles could not be loaded.",
+    "noProfiles": "No profile is enabled, so no campaign can be created.",
+    "tables": "Tables",
+    "tablesHint": "Every table is run unless you untick some.",
+    "tablesNone": "Tick at least one table.",
+    "targets": "Target stores",
+    "fleet": "The whole fleet",
+    "fleetHint": "Every store in HQ's store list.",
+    "stores": "Stores by code",
+    "codes": "Store codes",
+    "codesHint": "Paste or type them: one per line, or separated by commas or tabs.",
+    "codesCount_one": "<n>{{figure}}</n> store",
+    "codesCount_other": "<n>{{figure}}</n> stores",
+    "codesNone": "Enter at least one store code.",
+    "duplicates_one": "<n>{{figure}}</n> repeated code was dropped.",
+    "duplicates_other": "<n>{{figure}}</n> repeated codes were dropped.",
+    "malformedTitle": "These are not store codes. Fix or remove them before creating:",
+    "malformedLine": "Line <line>{{line}}</line>: <code>{{value}}</code>",
+    "name": "Name (optional)",
+    "mode": "Mode",
+    "reportOnlyNote": "Report only: each store is compared to HQ and nothing is written to it.",
+    "readyNote": "The campaign is created Ready. Nothing runs until you press Start on its page.",
+    "cancel": "Cancel",
+    "submit": "Create",
+    "submitting": "Creating…",
+    "failed": "The campaign was not created.",
+    "failedHint": "The campaign could not be created. Try again in a moment.",
+    "created": "Campaign created. Review it, then press Start.",
+    "refusal": {
+      "DATASYNC_PROFILE_NOT_FOUND": "This profile no longer exists or has been disabled. Choose another profile.",
+      "DATASYNC_TABLE_NOT_IN_PROFILE": "The table <v>{{table}}</v> is not in this profile. Reopen the dialog to see the profile's current tables.",
+      "DATASYNC_UNKNOWN_STORE": "The store <v>{{store}}</v> is not in HQ's store list. Remove it and create again.",
+      "DATASYNC_SOURCE_UNAVAILABLE": "This profile's HQ source is not available to DataSync. Ask an administrator to configure it.",
+      "DATASYNC_INVALID_REQUEST": "DataSync could not read this request. Check the stores and tables and try again.",
+      "DATASYNC_REASON_REQUIRED": "An Apply campaign needs a reason of at least 10 characters.",
+      "DATASYNC_PROFILE_NO_APPLY_TABLES": "None of the chosen tables may be applied. Run it as report only.",
+      "DATASYNC_STORE_BUSY": "No target store is safe to apply yet. Pause them on ActionSync first.",
+      "someStore": "one of the stores",
+      "someTable": "one of the tables"
+    }
+  },
+  "apply": {
+    "reportOnly": "Report only",
+    "reportOnlyHint": "Compare and report. Nothing is written to the stores.",
+    "apply": "Apply",
+    "applyHint": "Write HQ's data to the stores, for the tables that allow it.",
+    "noApplyTables": "None of the ticked tables may be applied, so this can only run as report only.",
+    "tables": "What gets written",
+    "written": "Written",
+    "reported": "Only reported",
+    "reason": "Reason",
+    "reasonHint": "Why these stores are being written to. At least <n>{{min}}</n> characters; kept with the campaign.",
+    "reasonRequired": "An Apply campaign needs a reason.",
+    "reasonTooShort": "At least <n>{{min}}</n> characters, <n>{{have}}</n> so far.",
+    "readiness": {
+      "title": "The stores on ActionSync",
+      "loading": "Reading the stores on ActionSync…",
+      "failed": "The stores could not be read from ActionSync.",
+      "ready_one": "<n>{{figure}}</n> store is paused and acknowledged: ready.",
+      "ready_other": "<n>{{figure}}</n> stores are paused and acknowledged: ready.",
+      "willPause_one": "<n>{{figure}}</n> store is still worked by ActionSync: it will be paused.",
+      "willPause_other": "<n>{{figure}}</n> stores are still worked by ActionSync: they will be paused.",
+      "readyKept": "Stores already paused keep that pause: DataSync does not pause them again, so they stay paused afterwards for whoever paused them and are not offered for hand-back.",
+      "neverTitle": "Never appliable, so DataSync will not write to these:",
+      "wpf": "synced by the WPF host",
+      "notFound": "not on ActionSync",
+      "drop": "Drop them",
+      "fleetNever": "They are part of the whole fleet: DataSync skips them and warns on the campaign."
+    },
+    "pauseFirst": "Pause ActionSync first",
+    "pauseFirstHint": "Pauses the stores ActionSync still works and waits until ActionSync acknowledges, then tags the pause with the campaign before it starts, so the live worker never writes to them at the same time.",
+    "pauseOff": "Unpaused stores will wait until someone pauses them on ActionSync. The campaign is created Ready; press Start on its page.",
+    "pauseNeedsGrant": "Pausing stores on ActionSync needs ActionSync Operate, which you do not hold. Someone who holds it must pause the stores; until then their jobs wait.",
+    "pauseNoFleet": "Without the stores' ActionSync readiness the pause cannot be sent.",
+    "flowNote": "Create pauses the stores still worked on ActionSync, waits for ActionSync to acknowledge, creates the campaign, tags the pause with it and starts it.",
+    "step": {
+      "holding": "Pausing the stores on ActionSync…",
+      "waiting": "Waiting for ActionSync to acknowledge the pause…",
+      "waitingCount_one": "Waiting for <n>{{figure}}</n> store to acknowledge…",
+      "waitingCount_other": "Waiting for <n>{{figure}}</n> stores to acknowledge…",
+      "creating": "Creating the campaign…",
+      "tagging": "Tagging the pause with the campaign…",
+      "starting": "Starting the campaign…"
+    },
+    "holdFailed": "Pausing the stores on ActionSync failed, so no campaign was created.",
+    "ackStopped": "ActionSync did not acknowledge the pause of any store in time, so no campaign was created.",
+    "stillPausedTitle": "These stores were paused on ActionSync and are still paused:",
+    "stillPausedHint": "Nothing was resumed. Create again, or resume them in the sync console.",
+    "refusedTitle": "ActionSync did not pause these stores:",
+    "refused": {
+      "NOT_ON_WORKER": "not on the ActionSync worker",
+      "NO_STORE": "not on ActionSync"
+    },
+    "outcome": {
+      "title": "Apply campaign created",
+      "created": "Campaign <id>{{id}}</id> was created.",
+      "started": "It has started. Each store's job runs once ActionSync has acknowledged its pause.",
+      "notStarted": "It was created Ready but did not start. Press Start on its page.",
+      "readyNoPause": "It is Ready. Press Start on its page.",
+      "paused_one": "<n>{{figure}}</n> store paused on ActionSync, tagged with this campaign.",
+      "paused_other": "<n>{{figure}}</n> stores paused on ActionSync, tagged with this campaign.",
+      "untaggedTitle": "Paused, but the campaign tag did not reach these stores, so their jobs will not be offered for hand-back:",
+      "tagFailed": "Tagging the pause stopped part-way.",
+      "tagFailedHint": "ActionSync could not be reached.",
+      "warningsTitle": "DataSync warned about these stores:",
+      "warning": {
+        "DATASYNC_STORE_BUSY": "still worked by ActionSync; its job waits until the store is paused",
+        "DATASYNC_STORE_WPF_HOSTED": "synced by the WPF host; it will never be applied to"
+      },
+      "someStore": "a store",
+      "open": "Open the campaign",
+      "close": "Close"
+    }
+  },
+  "start": {
+    "button": "Start",
+    "starting": "Starting…",
+    "failed": "The campaign did not start.",
+    "failedHint": "The campaign could not be started. Try again in a moment.",
+    "started": "Campaign started.",
+    "refusal": {
+      "DATASYNC_INVALID_STATE": "The campaign is no longer Ready, so it cannot be started. The page shows its current status.",
+      "DATASYNC_CAMPAIGN_NOT_FOUND": "This campaign no longer exists."
+    }
+  },
+  "handBack": {
+    "button": "Hand back to ActionSync",
+    "title": "Hand back to ActionSync",
+    "note": "Resumes ActionSync on the stores whose apply succeeded and that DataSync marks resumable. Nothing is resumed until you confirm.",
+    "tag": "Sent with the reason <tag>{{tag}}</tag>",
+    "loading": "Reading every job of the campaign…",
+    "failed": "The campaign's jobs could not be read, so nothing can be handed back yet.",
+    "inFlight_one": "<n>{{figure}}</n> job is still in flight. Its store stays paused; open this again when it finishes.",
+    "inFlight_other": "<n>{{figure}}</n> jobs are still in flight. Their stores stay paused; open this again when they finish.",
+    "readyTitle_one": "<n>{{figure}}</n> store can go back to ActionSync:",
+    "readyTitle_other": "<n>{{figure}}</n> stores can go back to ActionSync:",
+    "none": "No store is ready to hand back yet.",
+    "stayTitle_one": "<n>{{figure}}</n> store stays paused for a person:",
+    "stayTitle_other": "<n>{{figure}}</n> stores stay paused for a person:",
+    "stayHint": "Check these in the sync console before they sync again.",
+    "why": {
+      "failed": "its job failed",
+      "cancelled": "its job was cancelled",
+      "inFlight": "its job has not finished",
+      "notResumable": "not resumable: it was already paused before the campaign, ActionSync's control changed since the job began, or its last ActionSync control was not this campaign's"
+    },
+    "confirm_one": "Hand back <n>{{figure}}</n> store",
+    "confirm_other": "Hand back <n>{{figure}}</n> stores",
+    "sending": "Handing back…",
+    "close": "Close",
+    "done_one": "<n>{{figure}}</n> store is back with ActionSync:",
+    "done_other": "<n>{{figure}}</n> stores are back with ActionSync:",
+    "refusedTitle": "ActionSync did not resume these stores; they stay paused:",
+    "stopped": "The hand-back stopped part-way.",
+    "stoppedHint": "ActionSync could not be reached.",
+    "denied": "Resuming stores on ActionSync needs ActionSync Operate.",
+    "unsentTitle": "Not sent, so still paused:"
+  }
+}

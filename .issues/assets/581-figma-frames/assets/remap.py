@@ -1,0 +1,10 @@
+import re,sys
+login="9b97f 5a7dc 45b8c ad836 333ca 76f6d 4312c 31687 af0a9 792cc 3702e 703b7 8dee6 c2ee8 21803 6dd7d de4df 691cc d4134 cf38b e9ce9 b60de 013af 71e02 9e64f 0e4bf 3225f 0e425 c7459 b72aa ecfb6 7dfee 87f24 253bc 4434a 8012e 82233 f3ac6 65b43 baaaf 24ef1 d8994 104cb 35717 d55a9 c7489 65c10 6bb2c 1b292 d1fe4 a5906 97f76 3910f 9132f 47583 6c9ea 6414a 58813 46e9b b0543 88356".split()
+dark="d4d39 bf180 3da8c 79076 cb530 84133 750d6 743cd f0c07 c53f8 97166 2f70e 18206 30b9b d259d a0873 998f6 6ee65 79065 183b4 a0495 de598 83647 984d9 be6fe 1c62e f9858 fc4d1 ca76f 3ebc6 89b5a 1b339 16adb 20584 10b06 15be9 2233a ff882 cdffb ddd86 c0001 f8f16 769ab 875cf c6d57 23966 732a2 c3117 40363 04c9d b1b29 ba085 b632a e6729 2c77e b9a94 1f80d a8e10 7696b 9ae36 a60fe".split()
+assert len(login)==len(dark)==61, (len(login),len(dark))
+m=dict(zip(login,dark))
+src=open('build_logo.py',encoding='utf-8').read()
+src=re.sub(r"(\d )([0-9a-f]{5})(?=\n|''')",lambda x:x.group(1)+m[x.group(2)],src)
+src=src.replace("load('b0a40','m_')","load('fa47e','m_')").replace("load('74a48','g_')","load('55268','g_')")
+open('build_logo_dark.py','w',encoding='utf-8').write(src)
+print('ok')

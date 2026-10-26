@@ -643,3 +643,40 @@ sale has its own new receipt number at the target store, is marked as a replay o
 receipt, never reaches HQ's sales or SAP, and carries no link to a payment provider, loyalty member
 or insurer claim. A return of a replayed sale is a replay too.
 _Avoid_: re-send, re-pull, force a shadow (none of these create a new sale), import, clone.
+
+**Sync profile** (DataSync):
+A named, admin-kept recipe for comparing HQ's data with a store's: the HQ source database and the
+tables to compare, each with its match key, an optional compare window (`where`), and whether it may
+ever be written to a store (`applyAllowed`). A technician picks one; the screen never edits it.
+_Avoid_: template, mapping, job definition.
+
+**Data-sync campaign**:
+One run of a **sync profile** against chosen stores (or the whole fleet), in one **mode** — created
+Ready, started by a person, and made of one **job** per store. Always qualified: a bare "campaign" in
+this glossary is a rule-engine campaign (Campaigns ▸ Promotions), a different thing entirely.
+_Avoid_: campaign (unqualified), sync run, batch.
+
+**Job** (of a data-sync campaign):
+One store's part of a **data-sync campaign**: queued, running, paused, then succeeded, failed or
+cancelled, with one **table task** per table. A job waits rather than fails while its store is not
+yet safe to apply.
+_Avoid_: task (that's the table's), run, worker job.
+
+**Table task**:
+One table's part of a **job**: the counts to insert, update and delete, the rows applied, and its
+own outcome. A failed table does not stop the job's other tables.
+_Avoid_: step, sub-job.
+
+**Report-only** vs **Apply** (mode of a data-sync campaign):
+**Report-only** compares and records the differences row by row (the Changes view) and writes
+nothing to the store. **Apply** writes HQ's data to the store, only for tables that allow it, and
+needs a reason; its stores must be paused on ActionSync (and the pause acknowledged) before their
+jobs run.
+_Avoid_: dry run / live run, preview, sync.
+
+**Hand-back** (to ActionSync):
+A person resuming ActionSync on the stores of an Apply **data-sync campaign** whose jobs succeeded
+and that DataSync marks resumable — only stores the campaign itself paused. Never automatic; every
+other store stays paused for a person, including stores that were already paused by someone else
+before the campaign.
+_Avoid_: resume all, release, unpause (the hand-back resumes a chosen set, tagged with the campaign).

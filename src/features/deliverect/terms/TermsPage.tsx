@@ -2,10 +2,10 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
-import { CalendarPlus, ListOrdered, Pencil } from 'lucide-react'
+import { CalendarPlus, ListOrdered, Pencil, Plus } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { deliverectAccessQuery, deliverectAccountsQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
-import { canManageTerms } from '@/core/deliverect/access'
+import { canAddPlatform, canManageTerms } from '@/core/deliverect/access'
 import type { DeliverectPlatform } from '@/core/models/deliverect'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -25,7 +25,8 @@ import { money, termsTimeline } from './terms-timeline'
  * starts; rows are never edited or deleted, so there is no edit or delete affordance on a row.
  *
  * Behind `canManageTerms` on the ONE Deliverect probe, the same predicate the menu leaf reads. Its
- * doors are BackOffice 2627.
+ * doors are BackOffice 2627. **Add platform** shows only with the probe's `canAddPlatform` — its
+ * own grant, since a platform is a new SAP credit-customer route; the door re-checks it.
  */
 export default function TermsPage() {
   const { t } = useTranslation('deliverect-terms')
@@ -51,11 +52,26 @@ function Terms() {
   const picked = params.get('platform')
   const selected = list.find((p) => p.platformKey === picked) ?? (picked === null ? list[0] : undefined) ?? null
   const [editing, setEditing] = useState<DeliverectPlatform | null>(null)
+  const [adding, setAdding] = useState(false)
+  // The same probe ScreenGate read (cached); only an explicit grant shows the button.
+  const access = useQuery(deliverectAccessQuery())
+  const mayAdd = canAddPlatform(access.data)
 
   return (
     <div className="flex flex-col gap-4">
       <Accounts />
-      <Section title={t('platforms.title')} data="platforms">
+      <Section
+        title={t('platforms.title')}
+        data="platforms"
+        action={
+          mayAdd && (
+            <Button onClick={() => setAdding(true)} disabled={!platforms.isSuccess} data-platform-add="">
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('platforms.add')}
+            </Button>
+          )
+        }
+      >
         <Loaded query={platforms} what="platforms" empty={list.length === 0}>
           <table className={TABLE} data-platforms-table="">
             <thead className={HEAD}>
@@ -79,6 +95,7 @@ function Terms() {
       </Section>
       {selected ? <Timeline key={selected.platformKey} platform={selected} /> : platforms.isSuccess && list.length > 0 && <PickHint />}
       {editing && <PlatformDialog platform={editing} onClose={() => setEditing(null)} />}
+      {adding && mayAdd && <PlatformDialog platform={null} onClose={() => setAdding(false)} />}
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { Lock } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import { authzAdminApi } from './api'
@@ -72,28 +74,21 @@ export default function EditRoleModal({ open, onClose, roleName, isProtected, de
       }
     >
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold text-muted-foreground">{t('newRole.name')}</span>
-          <input
-            className="rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground outline-none"
-            value={roleName}
-            disabled
-          />
-          <span className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-            {t('editRole.nameLock')}
-          </span>
-        </label>
+        <Field
+          label={t('newRole.name')}
+          hint={
+            <span className="flex items-start gap-1.5">
+              <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+              {t('editRole.nameLock')}
+            </span>
+          }
+        >
+          <Input value={roleName} disabled />
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold text-muted-foreground">{t('newRole.description')}</span>
-          <input
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            autoFocus
-          />
-        </label>
+        <Field label={t('newRole.description')}>
+          <Input value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+        </Field>
 
         {isProtected && (
           <p className="rounded-lg border border-attention-border bg-attention-050 p-2.5 text-xs text-attention-800">

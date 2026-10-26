@@ -8,6 +8,7 @@ import GridPager from '@/core/ui/GridPager'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+import Select from '@/core/ui/Select'
 import {
   DEAD_LETTER_REASONS,
   DEAD_LETTER_STAGES,
@@ -67,9 +68,6 @@ const DEAD_LETTER_ACTION = {
 } as const
 
 const DEAD_LETTER_ACTIONS: readonly DeadLetterAction[] = ['retry', 'acknowledge']
-
-const SELECT =
-  'h-7 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground outline-none focus:border-primary/60'
 
 /**
  * The Mirror tab (spec 2563, ticket 457), from `Store/Mirror`: the store's mirror inbox
@@ -208,10 +206,10 @@ function MirrorLists({ code }: { code: string }) {
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {t('mirrorTab.stage')}
-            <select
+            <Select
               value={filter.stage ?? ''}
               onChange={(e) => change({ stage: (e.target.value || null) as DeadLetterStage | null })}
-              className={SELECT}
+             
               data-mirror-stage=""
             >
               <option value="">{t('mirrorTab.allStages')}</option>
@@ -220,14 +218,14 @@ function MirrorLists({ code }: { code: string }) {
                   {t(deadLetterStageLabel(s).labelKey as string)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {t('mirrorTab.reason')}
-            <select
+            <Select
               value={filter.reason ?? ''}
               onChange={(e) => change({ reason: (e.target.value || null) as DeadLetterReason | null })}
-              className={SELECT}
+             
               data-mirror-reason=""
             >
               <option value="">{t('mirrorTab.allReasons')}</option>
@@ -236,7 +234,7 @@ function MirrorLists({ code }: { code: string }) {
                   {t(deadLetterReasonLabel(r).labelKey as string)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <input
@@ -352,14 +350,9 @@ function DeadLetterErrorModal({ row, onClose }: { row: DeadLetter | null; onClos
       title={row ? t('mirrorTab.errorTitle', { id: fsi(row.id) }) : ''}
       width="48rem"
       footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-border/60 px-4 py-1.5 text-sm hover:bg-accent"
-          data-dead-letter-error-close=""
-        >
+        <Button variant="outlined" onClick={onClose} data-dead-letter-error-close="">
           {t('mirrorTab.close')}
-        </button>
+        </Button>
       }
     >
       {row && (

@@ -5,6 +5,8 @@ import { Loader2, Lock, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
@@ -252,24 +254,13 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
       )}
 
       {/* tabs */}
-      <div className="flex gap-1 border-b border-border" role="tablist" aria-label={t('roleDetail.tabsAria')}>
+      <div className="flex gap-1 border-b border-border pb-2" role="tablist" aria-label={t('roleDetail.tabsAria')}>
         {(['grants', 'heldby', 'audit'] as Tab[]).map((id) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={
-              'border-b-2 px-3 py-1.5 text-sm ' +
-              (tab === id
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={id} variant="tab" on={tab === id} onClick={() => setTab(id)}>
             {id === 'grants'
               ? t(d.isComposite ? 'roleDetail.tabs.members' : 'roleDetail.tabs.grants')
               : t(`roleDetail.tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -294,14 +285,16 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                     {catalog.find((r) => r.roleName === m)?.description ?? ''}
                   </span>
                   {canManage && (
-                    <button
-                      className="ms-auto grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
-                      title={t('roleDetail.removeMember')}
+                    <IconButton
+                      variant="danger"
+                      size="compact"
+                      className="ms-auto shrink-0"
+                      label={t('roleDetail.removeMember')}
                       onClick={() => removeMember(m)}
                       disabled={acting}
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                      <X className="h-3.5 w-3.5" aria-hidden />
+                    </IconButton>
                   )}
                 </div>
               ))
@@ -407,14 +400,16 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                       </span>
                     </button>
                     {revocable && (
-                      <button
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
-                        title={t('roleDetail.revoke')}
+                      <IconButton
+                        variant="danger"
+                        size="compact"
+                        className="shrink-0"
+                        label={t('roleDetail.revoke')}
                         onClick={() => revokeHolder(h.userId, h.displayName)}
                         disabled={acting}
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                      </IconButton>
                     )}
                   </div>
                 )

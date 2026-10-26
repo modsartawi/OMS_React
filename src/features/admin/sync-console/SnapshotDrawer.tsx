@@ -9,6 +9,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { SHEET } from '@/core/ui/overlay'
+import IconButton from '@/core/ui/IconButton'
 import { copyText, type CopyOutcome } from '@/core/util/copy-text'
 import { formatDateTime } from '@/core/util/date-format'
 import { AUDIT_KEY, storeTransactionSnapshotQuery } from './api'
@@ -146,16 +147,9 @@ export default function SnapshotDrawer({
                 {t('transactionsTab.snapshot.replay')}
               </Button>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('transactionsTab.snapshot.close')}
-              title={t('transactionsTab.snapshot.close')}
-              data-snapshot-close=""
-              className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-            >
+            <IconButton label={t('transactionsTab.snapshot.close')} onClick={onClose} data-snapshot-close="">
               <X className="h-4 w-4" aria-hidden />
-            </button>
+            </IconButton>
           </div>
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">

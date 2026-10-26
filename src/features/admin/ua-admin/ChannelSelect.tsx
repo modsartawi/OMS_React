@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Select from '@/core/ui/Select'
 import { DELIVERY_CHANNELS, type DeliveryChannel } from './helpers'
 
 /**
@@ -12,18 +13,19 @@ export default function ChannelSelect({
   id,
   value,
   onChange,
-  className,
+  className = '',
   disabled,
 }: {
   id: string
   value: DeliveryChannel
   onChange: (value: DeliveryChannel) => void
-  className: string
+  /** Layout only (`w-full`, `flex-1`): the shared Select owns the look. */
+  className?: string
   disabled?: boolean
 }) {
   const { t } = useTranslation('ua-admin')
   return (
-    <select
+    <Select
       id={id}
       className={className}
       value={value}
@@ -36,6 +38,6 @@ export default function ChannelSelect({
           {t(`delivery.${c}`)}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }

@@ -3,9 +3,12 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
+import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { PASS_KINDS, type FleetPass, type PassKind, type RecentPassesSummary, type SyncLoop } from '@/core/models/sync-console'
@@ -51,9 +54,6 @@ export default function RecentPassesPage() {
     </ScreenGate>
   )
 }
-
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
 
 /** A severity as a solid fill (the mix bar) and as a tile's top border, from the app tokens. */
 const FILL: Record<Severity, string> = {
@@ -115,10 +115,9 @@ function RecentPasses() {
 
       <div className="flex flex-wrap items-end gap-2" role="group" aria-label={t('recentPasses.filters')} data-recent-filters="">
         <Field label={t('recentPasses.window')}>
-          <select
+          <Select
             value={filter.minutes}
             onChange={(e) => setFilter((f) => ({ ...f, minutes: Number(e.target.value) as RecentWindow, page: 1 }))}
-            className={INPUT}
             data-recent-window=""
           >
             {RECENT_WINDOWS.map((m) => (
@@ -126,27 +125,26 @@ function RecentPasses() {
                 {t(`recentPasses.windows.${m}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('recentPasses.loop')}>
-          <select
+          <Select
             value={filter.loop ?? ''}
             onChange={(e) => setFilter((f) => ({ ...f, loop: (e.target.value || null) as SyncLoop | null, page: 1 }))}
-            className={INPUT}
             data-recent-loop=""
           >
             <option value="">{t('recentPasses.loopAny')}</option>
             <option value="push">{t('loops.push')}</option>
             <option value="pull">{t('loops.pull')}</option>
-          </select>
+          </Select>
         </Field>
         <Field label={t('recentPasses.code')}>
-          <input
+          <Input
             type="search"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder={t('recentPasses.codeHint')}
-            className={INPUT + ' w-28 font-mono'}
+            className="w-28 font-mono"
             dir="ltr"
             data-recent-code=""
           />
@@ -291,7 +289,7 @@ function Overview({
               aria-pressed={on}
               data-recent-kind={k}
               className={
-                'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border/60 px-3 py-2 text-start transition-colors hover:bg-accent ' +
+                'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border px-3 py-2 text-start transition-colors hover:bg-accent ' +
                 ACCENT[sev] +
                 (on ? ' bg-muted ring-2 ring-primary/60' : ' bg-card')
               }
@@ -333,14 +331,5 @@ function Headline({
       </span>
       <span className="text-xs text-muted-foreground">{hint}</span>
     </div>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {label}
-      {children}
-    </label>
   )
 }

@@ -6,6 +6,7 @@ import type { SyncCommand } from '@/core/models/sync-console'
 import { AUDIT_KEY, COMMANDS_KEY, FLEET_KEY, storeKey, syncConsoleApi } from './api'
 import { pollUntilTerminal, runVerdict, type RunVerdict } from './command-helpers'
 import type { QueuedCommand } from './CommandDialog'
+import IconButton from '@/core/ui/IconButton'
 
 /** One command being followed on a store's page. */
 export interface CommandRunState {
@@ -93,16 +94,9 @@ export function CommandRunLine({ run, onDismiss }: { run: CommandRunState | null
         )}
       </div>
       {verdict !== 'running' && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded p-0.5 hover:opacity-70"
-          aria-label={t('run.dismiss')}
-          title={t('run.dismiss')}
-          data-run-dismiss=""
-        >
+        <IconButton size="compact" label={t('run.dismiss')} onClick={onDismiss} data-run-dismiss="">
           <X className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        </IconButton>
       )}
     </div>
   )

@@ -11,6 +11,9 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { copyText, type CopyOutcome } from '@/core/util/copy-text'
 import { formatDateTime } from '@/core/util/date-format'
@@ -86,8 +89,6 @@ export default function ReplayPage() {
 /** How long the JSON must stand still before the preflight reads it. */
 const PREFLIGHT_DEBOUNCE_MS = 250
 
-const SELECT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 function Replay() {
   const { t } = useTranslation('sync-console')
@@ -189,30 +190,35 @@ function Replay() {
       <ConsoleNav />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('replay.json.label')}
-          <textarea
+        <Field
+          label={t('replay.json.label')}
+          hint={
+            <>
+              <span className="block">{t('replay.json.hint')}</span>
+              {source && (
+                <span className="block" data-replay-source={source.receiptNumber}>
+                  <Trans
+                    t={t}
+                    i18nKey="replay.json.from"
+                    values={{ receipt: source.receiptNumber, store: source.storeCode }}
+                    components={{ v: <Ltr /> }}
+                  />
+                </span>
+              )}
+            </>
+          }
+        >
+          <Textarea
             value={text}
             onChange={(e) => editText(e.target.value)}
             dir="ltr"
             spellCheck={false}
             autoComplete="off"
             rows={20}
-            className="min-h-[20rem] rounded-md border border-border/60 bg-background p-2 font-mono text-xs font-normal text-foreground outline-none focus:border-primary/60"
+            className="min-h-[20rem] font-mono"
             data-replay-json=""
           />
-          <span className="font-normal text-muted-foreground">{t('replay.json.hint')}</span>
-          {source && (
-            <span className="font-normal text-muted-foreground" data-replay-source={source.receiptNumber}>
-              <Trans
-                t={t}
-                i18nKey="replay.json.from"
-                values={{ receipt: source.receiptNumber, store: source.storeCode }}
-                components={{ v: <Ltr /> }}
-              />
-            </span>
-          )}
-        </label>
+        </Field>
 
         <div className="flex flex-col gap-4">
           <section className="flex flex-col gap-2" aria-label={t('replay.preflight.title')}>
@@ -232,13 +238,11 @@ function Replay() {
                 ltr
                 data="replay-store"
               />
-              <label className="flex flex-col gap-1 text-xs font-medium">
-                {t('replay.target.register')}
-                <select
+              <Field label={t('replay.target.register')}>
+                <Select
                   value={register ? registerId : ''}
                   onChange={(e) => pickRegister(e.target.value)}
                   disabled={!registers.data || registers.isError || registers.data.registers.length === 0}
-                  className={SELECT}
                   data-replay-register=""
                 >
                   <option value="">{t('replay.target.pickRegister')}</option>
@@ -248,8 +252,8 @@ function Replay() {
                       {fsi(formatPair(r.registerId, r.name))}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
             </div>
             {store !== '' && registers.isPending && <Loading label={t('replay.target.loading')} />}
             {registers.isError && <Refusal error={registers.error} failedKey="replay.target.failed" data="registers" />}

@@ -1,5 +1,6 @@
 import { Trans, useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { groupDigits, nextEnabledOnFullPage } from './helpers'
 
@@ -27,31 +28,28 @@ export default function Pager({
 }) {
   const { t } = useTranslation('data-sync')
   const { t: tc } = useTranslation('common')
-  const btn =
-    'inline-flex items-center gap-1 rounded-md border border-border/60 px-3 py-1 text-xs font-medium ' +
-    'transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
   return (
     <nav
       aria-label={tc('pager.ariaLabel')}
-      className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-1.5"
+      className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5"
       data-ds-pager={page}
     >
-      <button className={btn} disabled={page <= 1 || busy} onClick={() => onPage(page - 1)} data-ds-prev="">
+      <Button variant="outlined" disabled={page <= 1 || busy} onClick={() => onPage(page - 1)} data-ds-prev="">
         <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
         {tc('pager.previous')}
-      </button>
+      </Button>
       <span className="text-xs text-muted-foreground tabular-nums" data-ds-page="">
         <Trans t={t} i18nKey="pager.readout" values={{ page: groupDigits(page) }} components={{ n: <Ltr /> }} />
       </span>
-      <button
-        className={btn}
+      <Button
+        variant="outlined"
         disabled={!nextEnabledOnFullPage(rowCount, pageSize) || busy}
         onClick={() => onPage(page + 1)}
         data-ds-next=""
       >
         {tc('pager.next')}
         <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
-      </button>
+      </Button>
     </nav>
   )
 }

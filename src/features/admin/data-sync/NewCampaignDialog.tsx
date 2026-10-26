@@ -8,6 +8,10 @@ import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import type { Mode, SyncProfile } from '@/core/models/data-sync'
@@ -265,11 +269,11 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
               {t('create.profilesLoading')}
             </span>
           ) : (
-            <select
+            <Select
               value={profileId}
               onChange={(e) => pickProfile(e.target.value)}
               disabled={busy}
-              className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal"
+              className="font-normal"
               data-create-profile=""
             >
               <option value="">{t('create.profilePick')}</option>
@@ -279,7 +283,7 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
                   {fsi(p.name)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </label>
         {profiles.isError && <ErrorBanner className="p-2" message={apiErrorMessage(profiles.error, t('create.profilesFailed'))} />}
@@ -379,19 +383,17 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
           </label>
           {targetKind === 'stores' && (
             <div className="flex flex-col gap-1 ps-6">
-              <label className="flex flex-col gap-1 text-xs font-medium">
-                {t('create.codes')}
-                <textarea
+              <Field label={t('create.codes')} hint={t('create.codesHint')}>
+                <Textarea
                   value={codesText}
                   onChange={(e) => setCodesText(e.target.value)}
                   rows={5}
                   disabled={busy}
                   dir="ltr"
-                  className="rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-sm font-normal text-foreground outline-none focus:border-primary/60"
+                  className="font-mono"
                   data-create-codes=""
                 />
-              </label>
-              <p className="text-xs text-muted-foreground">{t('create.codesHint')}</p>
+              </Field>
               <p className="text-xs" data-create-codes-count={parsed.codes.length}>
                 {parsed.codes.length === 0 ? (
                   <span className="text-muted-foreground">{t('create.codesNone')}</span>
@@ -440,18 +442,16 @@ function NewCampaignDialog({ onClose, onDenied }: { onClose: () => void; onDenie
         )}
 
         {/* ── Name ── */}
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('create.name')}
-          <input
+        <Field label={t('create.name')}>
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={busy}
             maxLength={200}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal"
             data-create-name=""
           />
-        </label>
+        </Field>
 
         <p className="text-xs text-muted-foreground">{pausing ? t('apply.flowNote') : t('create.readyNote')}</p>
 

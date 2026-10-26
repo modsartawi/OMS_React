@@ -73,6 +73,10 @@ skills (`figma-design-to-code`) for any Figma read.
   `--primary` is the navy `#172031` everywhere and **links are underlined** (owner); hueless
   neutrals, one gold `#FEC33B`, status families unchanged, login block stays separate; all 184
   contrast pairs pass.
+- [The shell, and which mark it carries](587-the-shell-and-which-mark-it-carries.md): the
+  **DMSCO lockup** (dotted-D symbol when collapsed) and the **Figma top bar's look** on our rail:
+  radial deep navy, a filled `#182F4A` pill with a gold icon for the active item, pill rows and a
+  white pill search field; sizes and page titles unchanged (owner).
 
 ## Not yet specified
 

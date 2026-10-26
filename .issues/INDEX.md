@@ -1050,7 +1050,7 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 
 ## DMSCO theme, app-wide (Figma HR-Portal_Website, login done d689a2f7, charted 2026-10-26)
 
-- [580](580-dmsco-theme-app-wide-map.md) — The DMSCO theme, app-wide · *(wayfinder map)* · **open** · blocked by: — · dest = one ready spec; visual language only, keep our UX
+- [580](580-dmsco-theme-app-wide-map.md) — The DMSCO theme, app-wide · *(wayfinder map)* · **done 2026-10-26** · blocked by: — · dest reached: spec 590 ready; visual language only, keep our UX
 - [581](581-capture-the-remaining-figma-frames.md) — Capture the remaining Figma frames · *(wayfinder · task)* · **done 2026-10-26** · blocked by: — · Reports + Profile full, Homepage structure only; no data table in the design; shell is a top bar; white lockup filed
 - [582](582-can-we-licence-chalet-for-the-web.md) — Can we licence Chalet for the web? · *(wayfinder · research)* · **done 2026-10-26** · blocked by: — · yes (House, ~$50 one-time, quote needed); no Arabic; internal-host scope unconfirmed; note on branch research/582-chalet-web-licence
 - [583](583-inventory-the-hand-styled-controls.md) — Inventory the hand-styled controls · *(wayfinder · task)* · **done 2026-10-26** · blocked by: — · 435 buttons (88 on a Button variant's colours, 0 on its shape) + 543 fields (224 class strings), 0 unclassified; heaviest campaigns/workspace
@@ -1060,3 +1060,4 @@ Contract: `C:\Work\DMSCO\BackOffice\.issues\assets\2482-location-link-web-seat-c
 - [587](587-the-shell-and-which-mark-it-carries.md) — The shell, and which mark it carries · *(wayfinder · prototype)* · **done 2026-10-26** · blocked by: — (581, 584 done) · DMSCO lockup + the Figma top bar look on the rail (owner)
 - [588](588-how-the-screens-move-onto-the-shared-controls.md) — How the screens move onto the shared controls · *(wayfinder · grilling)* · **done 2026-10-26** · blocked by: 583, 584 (both done) · mixed extract + colours-first rollout (owner)
 - [589](589-which-type-family-the-app-sets-type-in.md) — Which type family the app sets type in · *(wayfinder · grilling)* · **done 2026-10-26** · blocked by: 582 (done) · keep IBM Plex, ADR 0003 stands (owner)
+- [590](590-the-back-office-wears-the-dmsco-theme-spec.md) — The back office wears the DMSCO theme · *(spec · map 580)* · **ready** · blocked by: — · colours first (tokens, shell, Button pill, 6 new core/ui controls, ratchet + theme drive), then area sweep heaviest-first; compact; navy night dark; Plex

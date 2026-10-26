@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
 
 # 580 — The DMSCO theme, app-wide

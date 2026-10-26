@@ -1,6 +1,11 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { BBY_STATUS_WORDS, searchOverrides, type BbyListCriteria, type BbyStatusWord } from './list-params'
 
 // The BBY search toolbar (spec 061, ticket 064; reshaped by spec 441, ticket 443): exact
@@ -64,9 +69,8 @@ export default function SearchToolbar({
       }}
     >
       {/* Exact BBY number */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('search.bbyNumber')}
-        <input
+      <Field label={t('search.bbyNumber')}>
+        <Input
           type="text"
           inputMode="numeric"
           value={criteria.bbyNumber}
@@ -74,9 +78,9 @@ export default function SearchToolbar({
           placeholder={t('search.bbyNumberPlaceholder')}
           // The screen starts with typing: focused on landing.
           autoFocus
-          className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-40"
         />
-      </label>
+      </Field>
 
       {/* Status chips — none pressed means every status. Overridden by a number search. */}
       <div
@@ -86,51 +90,43 @@ export default function SearchToolbar({
         title={hasNumber ? t('search.overriddenByNumber') : undefined}
       >
         <span id={statusLabelId}>{t('search.status')}</span>
-        <div className="flex h-9 items-center gap-1.5">
+        <div className="flex h-7 items-center gap-1.5">
           {BBY_STATUS_WORDS.map((word) => {
             // Overridden chips read as off, like the overridden Valid-today checkbox: a number
             // search sends no status, so none is "on".
             const pressed = !hasNumber && criteria.statuses.includes(word)
             return (
-              <button
+              <Chip
                 key={word}
-                type="button"
-                aria-pressed={pressed}
+                on={pressed}
                 disabled={hasNumber}
                 title={hasNumber ? t('search.overriddenByNumber') : undefined}
                 onClick={() => toggleStatus(word)}
-                className={`inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  pressed
-                    ? 'border-primary/40 bg-primary/10 text-primary'
-                    : 'border-border/60 text-muted-foreground hover:bg-muted'
-                }`}
               >
                 {t(`status.${word}`)}
-              </button>
+              </Chip>
             )
           })}
         </div>
       </div>
 
       {/* "Valid during" range */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('search.validFrom')}
-        <input
+      <Field label={t('search.validFrom')}>
+        <Input
           type="date"
           value={ymdToInput(criteria.validFrom)}
           onChange={(e) => onChange({ validFrom: inputToYmd(e.target.value) })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-44"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('search.validTo')}
-        <input
+      </Field>
+      <Field label={t('search.validTo')}>
+        <Input
           type="date"
           value={ymdToInput(criteria.validTo)}
           onChange={(e) => onChange({ validTo: inputToYmd(e.target.value) })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-44"
         />
-      </label>
+      </Field>
 
       {/* Valid-today checkbox + sublabel. Overridden (disabled, shown off) by a number,
           which reaches any window, or by a date range, which replaces "today". */}
@@ -160,21 +156,14 @@ export default function SearchToolbar({
       </label>
 
       <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button type="submit" variant="primary">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('search.search')}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
-        >
+        </Button>
+        <Button variant="outlined" onClick={onReset}>
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('search.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* Dismissable "filtered" chip — present whenever the applied query is not the
@@ -182,14 +171,9 @@ export default function SearchToolbar({
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('search.filtered')}
-          <button
-            type="button"
-            onClick={onReset}
-            aria-label={t('search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
-          >
+          <IconButton size="compact" label={t('search.clearFilter')} onClick={onReset}>
             <X className="h-3 w-3" aria-hidden />
-          </button>
+          </IconButton>
         </span>
       )}
     </form>

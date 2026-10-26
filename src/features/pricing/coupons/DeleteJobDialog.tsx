@@ -5,6 +5,8 @@ import { Loader2, Trash2 } from 'lucide-react'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import type { ImportJob } from '@/core/models/coupons'
@@ -134,17 +136,15 @@ export default function DeleteJobDialog({ job, onClose, onSettled }: Props) {
             />
           ) : null}
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('import.delete.reason')}
-            <input
+          <Field label={t('import.delete.reason')}>
+            <Input
               type="text"
-              className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
               value={reason}
               maxLength={REASON_MAX}
               disabled={busy || data?.canDelete !== true}
               onChange={(e) => setReason(e.target.value)}
             />
-          </label>
+          </Field>
           {error !== null && (
             <ErrorBanner
               title={t('import.delete.failed')}

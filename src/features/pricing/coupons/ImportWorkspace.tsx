@@ -5,6 +5,8 @@ import { Download, Loader2, RotateCw, Trash2, Upload } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import { type ImportJob, type ImportJobStatus, isTerminalJob } from '@/core/models/coupons'
@@ -180,28 +182,26 @@ export default function ImportWorkspace() {
     <div className="flex flex-col gap-4">
       {/* Target template + optional customer + file picker */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card p-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('import.templateId')}
-          <input
+        <Field label={t('import.templateId')}>
+          <Input
             type="text"
-            className={inputCls}
+            className="w-56"
             value={templateId}
             placeholder={t('import.templatePlaceholder')}
             maxLength={26}
             onChange={(e) => setTemplateId(e.target.value)}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('import.customerId')}
-          <input
+        </Field>
+        <Field label={t('import.customerId')}>
+          <Input
             type="text"
-            className={inputCls}
+            className="w-56"
             value={customerId}
             placeholder={t('import.customerPlaceholder')}
             maxLength={26}
             onChange={(e) => setCustomerId(e.target.value)}
           />
-        </label>
+        </Field>
         <input
           ref={fileRef}
           type="file"
@@ -395,9 +395,6 @@ export default function ImportWorkspace() {
     </div>
   )
 }
-
-const inputCls =
-  'w-56 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary'
 
 function Th({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <th className={`px-3 py-2 font-medium ${className}`}>{children}</th>

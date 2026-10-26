@@ -5,6 +5,8 @@ import { Loader2, Search } from 'lucide-react'
 import { ApiError } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import { couponsApi } from './api'
 import CouponDetailPane from './CouponDetailPane'
 
@@ -70,11 +72,10 @@ export default function CouponSupportPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('inquiry.searchLabel')}
-          <input
+        <Field label={t('inquiry.searchLabel')}>
+          <Input
             type="text"
-            className="w-64 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
+            className="w-64"
             value={codeInput}
             placeholder={t('inquiry.searchPlaceholder')}
             onChange={(e) => setCodeInput(e.target.value)}
@@ -82,7 +83,7 @@ export default function CouponSupportPage() {
             // The screen starts with typing: focused on landing.
             autoFocus
           />
-        </label>
+        </Field>
         <Button variant="primary" onClick={search} disabled={!codeInput.trim() || details.isFetching}>
           {details.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
           {t('inquiry.search')}

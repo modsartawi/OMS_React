@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { Download, PackageSearch, TriangleAlert } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The small presentational pieces every Collections grid wears (ticket 255).
@@ -33,18 +35,6 @@ export function ListShimmer({ label }: { label: string }) {
 }
 
 /**
- * The pill every control above a Collections grid wears — shape, spacing and type
- * only, no colour. Shared so the toggles and the Export button cannot drift apart
- * in padding while claiming to read as one cluster; each control still says its
- * own border and text colour, because that is where they legitimately differ.
- */
-const PILL =
-  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
-
-/** The resting colours: a control that is not doing anything right now. */
-const PILL_IDLE = 'border-border/60 text-muted-foreground hover:bg-muted'
-
-/**
  * One of the two pill toggles that sit above every Collections grid — **More
  * columns** and **Filter row**.
  *
@@ -65,15 +55,10 @@ export function ToggleChip({
   onToggle: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={pressed}
-      className={`${PILL} ${pressed ? 'border-primary/40 bg-primary/10 text-primary' : PILL_IDLE}`}
-    >
+    <Chip on={pressed} onClick={onToggle}>
       {icon}
       {label}
-    </button>
+    </Chip>
   )
 }
 
@@ -102,15 +87,10 @@ export function ExportButton({
   disabled: boolean
 }) {
   return (
-    <button
-      type="button"
-      onClick={onExport}
-      disabled={disabled}
-      className={`${PILL} ${PILL_IDLE} disabled:pointer-events-none disabled:opacity-50`}
-    >
+    <Button variant="outlined" onClick={onExport} disabled={disabled}>
       <Download className="h-3.5 w-3.5" aria-hidden />
       {label}
-    </button>
+    </Button>
   )
 }
 

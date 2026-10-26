@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { DatabaseZap, Loader2, Play } from 'lucide-react'
 
 import { useKeyHint } from '@/core/commands/key-hint'
+import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import SimHeaderForm, { type SimHeaderState } from './SimHeaderForm'
@@ -171,13 +172,13 @@ export default function SimRunStrip({
   // every width; what narrows is padding. Arrangement, never disclosure.
   const runControls = (
     <>
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={onProcess}
         disabled={processReason !== null}
         aria-keyshortcuts={processHint.ariaKeyShortcuts}
         title={processReason !== null ? t(processReason) : processHint.title(t('actions.process'))}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 @[900px]/work:px-4"
+        className="@[900px]/work:px-4"
       >
         {/* The icon swaps on the SHARED 150 ms flag, not on `pending` — a spinner
             that flashed here while the slot held still would be two answers to
@@ -200,21 +201,16 @@ export default function SimRunStrip({
         <span aria-hidden className="rounded-sm bg-primary-foreground/20 px-1 text-[10px]">
           ⌃⏎
         </span>
-      </button>
-      <button
-        type="button"
-        onClick={onClear}
-        disabled={pending}
-        className="inline-flex h-8 items-center rounded-md border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
-      >
+      </Button>
+      <Button variant="outlined" onClick={onClear} disabled={pending} className="@[900px]/work:px-3.5">
         {t('actions.clear')}
-      </button>
+      </Button>
       {canClearCache ? (
-        <button
-          type="button"
+        <Button
+          variant="outlined"
           onClick={onClearCache}
           disabled={pending || clearCachePending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
+          className="@[900px]/work:px-3.5"
         >
           {clearCachePending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -222,7 +218,7 @@ export default function SimRunStrip({
             <DatabaseZap className="h-4 w-4" aria-hidden />
           )}
           {t('clearCache.button')}
-        </button>
+        </Button>
       ) : null}
     </>
   )
@@ -262,7 +258,7 @@ export default function SimRunStrip({
             data-chip-set
             aria-expanded
             onClick={collapse}
-            className="rounded-full px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="h-7 rounded-full px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             {t('strip.done')}
           </button>

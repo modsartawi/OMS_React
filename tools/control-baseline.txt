@@ -101,9 +101,23 @@ campaigns/workspace 13
   src/features/campaigns/workspace/RuleFilters.tsx button: a filter's chain opens its editor: a row picker
   src/features/campaigns/workspace/coupon-columns.tsx button: batch id in a grid cell opens the batch: grid-cell action
 
-collection/inquiry 67
+collection/inquiry 5
+  src/features/collection/inquiry/AcrsToolbar.tsx button: a Status segment, role="radio" in a radiogroup: restyled in place (597 Q2)
+  src/features/collection/inquiry/CollectionAssignmentPage.tsx button: a roster row's Edit, a table-row action (spec 590: grid-cell actions restyle in place)
+  src/features/collection/inquiry/CollectorBalances.tsx button: the balances panel's disclosure header (aria-expanded): restyled in place (597 Q2)
+  src/features/collection/inquiry/DepositsToolbar.tsx button: a Status segment, role="radio" in a radiogroup: restyled in place (597 Q2)
+  src/features/collection/inquiry/SlipCountColumn.tsx button: the slip count in a grid cell opens the drawer: grid-cell action
 
-collection/settlement 24
+collection/settlement 9
+  src/features/collection/settlement/BulkUploadDialog.tsx button: a consumable kind tile: a tile picker
+  src/features/collection/settlement/OpenSettlements.tsx button: Clear the filter: a text button that does not navigate (spec 590: restyled in place)
+  src/features/collection/settlement/PostEntryDialog.tsx button: an entry kind tile: a tile picker
+  src/features/collection/settlement/PostEntryDialog.tsx button: an ambiguous branch match: a row picker
+  src/features/collection/settlement/change-queue-columns.tsx button: Approve in a grid cell: grid-cell action
+  src/features/collection/settlement/change-queue-columns.tsx button: Reject in a grid cell: grid-cell action
+  src/features/collection/settlement/open-columns.tsx button: Approve in a grid cell: grid-cell action
+  src/features/collection/settlement/open-columns.tsx button: Reject in a grid cell: grid-cell action
+  src/features/collection/settlement/open-columns.tsx button: Record a chase in a grid cell: grid-cell action
 
 deliverect/catalog 5
 
@@ -163,15 +177,22 @@ oms/serial-refusals 6
 
 oms/serving-lists 12
 
-pricing/bonus-buy-download 6
+pricing/bonus-buy-download 0
 
-pricing/bonus-buy-inquiry 10
+pricing/bonus-buy-inquiry 1
+  src/features/pricing/bonus-buy-inquiry/columns.tsx button: grid-cell action (row Details), spec 590: restyled in place
 
-pricing/bonus-buy-maintenance 35
+pricing/bonus-buy-maintenance 1
+  src/features/pricing/bonus-buy-maintenance/PromotionPage.tsx button: overview Clear filters, a non-navigating text button (594: not link)
 
-pricing/coupons 18
+pricing/coupons 0
 
-pricing/simulation 23
+pricing/simulation 5
+  src/features/pricing/simulation/SimBbyDetailsButton.tsx button: one-off: full-width card-footer action that opens the BBY details modal
+  src/features/pricing/simulation/SimManualConditions.tsx button: disclosure (aria-expanded) - Chip would add aria-pressed (597 Q2)
+  src/features/pricing/simulation/SimMissedPromotions.tsx button: disclosure (aria-expanded) - missed-promotion card header, a row picker
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - Done collapses the run form (597 Q2)
+  src/features/pricing/simulation/SimRunStrip.tsx button: disclosure (aria-expanded) - the run chip set opens the run form (597 Q2)
 
 reports/idoc-inspector 1
   src/features/reports/idoc-inspector/DocumentRail.tsx button: document card rail is a tile picker (spec 590: restyled in place)

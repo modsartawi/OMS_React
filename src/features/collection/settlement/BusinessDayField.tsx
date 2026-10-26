@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
+import Input from '@/core/ui/Input'
 
 /**
  * **The business day a theft names** (ticket 339) — required, and a closed day of the
@@ -38,7 +39,7 @@ export default function BusinessDayField({
         {label}
         <span className="ms-1.5 font-normal text-muted-foreground">{t('reasonField.required')}</span>
       </span>
-      <input
+      <Input
         type="date"
         value={value}
         onChange={(e) => onValue(e.target.value)}
@@ -46,10 +47,7 @@ export default function BusinessDayField({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         data-testid={testId}
-        className={
-          'h-9 rounded-md border bg-card px-2 text-sm tabular-nums outline-none focus:border-primary/60 ' +
-          (error ? 'border-attention-border' : 'border-border')
-        }
+        className="tabular-nums"
       />
       {error && (
         <span

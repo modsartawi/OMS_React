@@ -4,6 +4,9 @@ import { Loader2 } from 'lucide-react'
 import { ApiError } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Textarea from '@/core/ui/Textarea'
 import { notify } from '@/core/services/notify'
 import { confirmAction } from '@/core/services/confirm'
 import { formatCount, fsi } from '@/core/util/bidi'
@@ -187,17 +190,16 @@ export default function TemplatesWorkspace() {
     <div className="flex flex-col gap-4">
       {/* Load bar */}
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-card p-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('templates.loadLabel')}
-          <input
+        <Field label={t('templates.loadLabel')}>
+          <Input
             type="text"
-            className="w-56 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
+            className="w-56"
             value={loadId}
             placeholder={t('templates.loadPlaceholder')}
             onChange={(e) => setLoadId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void load()}
           />
-        </label>
+        </Field>
         <Button variant="secondary" onClick={() => void load()} disabled={!loadId.trim() || loading}>
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {t('templates.load')}
@@ -214,74 +216,70 @@ export default function TemplatesWorkspace() {
 
       {/* Edit form */}
       <fieldset className="grid grid-cols-1 gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2" disabled={saving}>
-        <Field label={t('templates.fields.templateId')}>
-          <input
+        <TemplateField label={t('templates.fields.templateId')}>
+          <Input
             type="text"
-            className={inputCls}
             value={form.templateId}
             disabled={isEdit}
             maxLength={26}
             onChange={(e) => set('templateId', e.target.value)}
           />
-        </Field>
-        <Field label={t('templates.fields.materialNumber')} hint={t('templates.materialHint')}>
-          <input
+        </TemplateField>
+        <TemplateField label={t('templates.fields.materialNumber')} hint={t('templates.materialHint')}>
+          <Input
             type="text"
-            className={`${inputCls} font-mono`}
+            className="font-mono"
             value={form.materialNumber}
             maxLength={26}
             placeholder="COUP01"
             onChange={(e) => set('materialNumber', e.target.value.toUpperCase())}
           />
-        </Field>
+        </TemplateField>
 
-        <Field label={t('templates.fields.description')} className="sm:col-span-2">
-          <input type="text" className={inputCls} value={form.description} onChange={(e) => set('description', e.target.value)} />
-        </Field>
+        <TemplateField label={t('templates.fields.description')} className="sm:col-span-2">
+          <Input type="text" value={form.description} onChange={(e) => set('description', e.target.value)} />
+        </TemplateField>
 
-        <Field label={t('templates.fields.maxPerCode')} hint={t('templates.unlimitedHint')}>
-          <input
+        <TemplateField label={t('templates.fields.maxPerCode')} hint={t('templates.unlimitedHint')}>
+          <Input
             type="number"
             inputMode="numeric"
             min={0}
-            className={inputCls}
             value={form.maxRedemptionsPerCode}
             data-testid="coupon-template-max-per-code"
             onChange={(e) => set('maxRedemptionsPerCode', e.target.value)}
           />
-        </Field>
-        <Field label={t('templates.fields.maxTotal')} hint={t('templates.unlimitedHint')}>
-          <input
+        </TemplateField>
+        <TemplateField label={t('templates.fields.maxTotal')} hint={t('templates.unlimitedHint')}>
+          <Input
             type="number"
             inputMode="numeric"
             min={0}
-            className={inputCls}
             value={form.maxRedemptionsTotal}
             data-testid="coupon-template-max-total"
             onChange={(e) => set('maxRedemptionsTotal', e.target.value)}
           />
-        </Field>
+        </TemplateField>
 
-        <Field label={t('templates.fields.codePrefix')}>
-          <input
+        <TemplateField label={t('templates.fields.codePrefix')}>
+          <Input
             type="text"
-            className={inputCls}
             value={form.codePrefix}
             disabled={isEdit}
             onChange={(e) => set('codePrefix', e.target.value)}
           />
-        </Field>
-        <Field label={t('templates.fields.originFilter')} hint={t('templates.originFilterHint')}>
-          <textarea
+        </TemplateField>
+        <TemplateField label={t('templates.fields.originFilter')} hint={t('templates.originFilterHint')}>
+          <Textarea
             dir="ltr"
             rows={3}
-            className={`${inputCls} resize-y font-mono`}
+            className="resize-y font-mono"
             value={form.originFilter}
             data-testid="coupon-template-origin-filter"
             onChange={(e) => set('originFilter', e.target.value)}
           />
           <span
-            className={`flex flex-wrap gap-x-3 font-normal ${originMeter.over ? 'text-danger' : ''}`}
+            className={`flex flex-wrap gap-x-3 text-xs ${originMeter.over ? 'text-danger' : 'text-muted-foreground'}`}
             data-testid="coupon-template-origin-meter"
             data-over={originMeter.over}
           >
@@ -289,19 +287,19 @@ export default function TemplatesWorkspace() {
             <span>{t('templates.originFilterLength', { used: fsi(formatCount(originMeter.length, originMeter.max)) })}</span>
             {originMeter.over && <span>{t('templates.originFilterOverCap', { max: fsi(String(originMeter.max)) })}</span>}
           </span>
-        </Field>
+        </TemplateField>
 
-        <Field label={t('templates.fields.validFrom')}>
-          <input type="date" className={inputCls} value={form.validFrom} onChange={(e) => set('validFrom', e.target.value)} />
-        </Field>
-        <Field label={t('templates.fields.validTo')}>
-          <input type="date" className={inputCls} value={form.validTo} onChange={(e) => set('validTo', e.target.value)} />
-        </Field>
+        <TemplateField label={t('templates.fields.validFrom')}>
+          <Input type="date" value={form.validFrom} onChange={(e) => set('validFrom', e.target.value)} />
+        </TemplateField>
+        <TemplateField label={t('templates.fields.validTo')}>
+          <Input type="date" value={form.validTo} onChange={(e) => set('validTo', e.target.value)} />
+        </TemplateField>
 
         {isEdit && (
           <>
             <label className="flex items-center gap-2 self-end text-sm font-medium">
-              <input
+              <Input
                 type="checkbox"
                 className="h-4 w-4 accent-primary"
                 checked={form.isDisabled}
@@ -329,10 +327,8 @@ export default function TemplatesWorkspace() {
   )
 }
 
-const inputCls =
-  'rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary disabled:opacity-60'
-
-function Field({
+/** A template form field: the shared `Field` (label above, hint under) around one control. */
+function TemplateField({
   label,
   hint,
   className = '',
@@ -344,10 +340,8 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <label className={`flex flex-col gap-1 text-xs font-medium text-muted-foreground ${className}`}>
-      {label}
+    <Field label={label} hint={hint || undefined} className={className}>
       {children}
-      {hint && <span className="font-normal">{hint}</span>}
-    </label>
+    </Field>
   )
 }

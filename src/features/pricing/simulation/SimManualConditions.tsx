@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 // Ticket 016's manual-conditions grid — operator-entered conditions that ride the
 // SimulateRequest alongside the basket. Each row is a (item number, condition type,
@@ -52,8 +55,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
   const addRow = () => onChange([...rows, emptyManualConditionRow()])
   const removeRow = (id: string) => onChange(rows.filter((r) => r.id !== id))
 
-  const cellInput =
-    'w-full rounded-md border border-input bg-background px-2 py-1 text-sm outline-none focus:border-primary disabled:opacity-60'
+  // The cells wear the shared Input; a cell only fills its column.
+  const cellInput = 'w-full'
   // Numeric cells: drop the native spinner arrows — in this narrow grid they overlap
   // the first digit and add nothing (values are typed, not stepped).
   const numInput =
@@ -107,15 +110,10 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
             {label}
           </button>
         )}
-        <button
-          type="button"
-          onClick={addRow}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent disabled:opacity-60"
-        >
+        <Button variant="outlined" onClick={addRow} disabled={disabled}>
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('manual.addRow')}
-        </button>
+        </Button>
       </div>
 
       {!open ? null : rows.length === 0 ? (
@@ -135,7 +133,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
             {rows.map((row) => (
               <tr key={row.id}>
                 <td className="border-b border-border px-2 py-1">
-                  <input
+                  <Input
+                    aria-label={t('manual.item')}
                     className={numInput}
                     type="number"
                     min="0"
@@ -145,7 +144,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
                   />
                 </td>
                 <td className="border-b border-border px-2 py-1">
-                  <input
+                  <Input
+                    aria-label={t('manual.type')}
                     className={cellInput}
                     value={row.conditionType}
                     disabled={disabled}
@@ -153,7 +153,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
                   />
                 </td>
                 <td className="border-b border-border px-2 py-1">
-                  <input
+                  <Input
+                    aria-label={t('manual.rate')}
                     className={numInput}
                     type="number"
                     value={row.rate}
@@ -162,7 +163,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
                   />
                 </td>
                 <td className="border-b border-border px-2 py-1">
-                  <input
+                  <Input
+                    aria-label={t('manual.unit')}
                     className={cellInput}
                     value={row.rateUnit}
                     disabled={disabled}
@@ -170,16 +172,15 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
                   />
                 </td>
                 <td className="border-b border-border px-2 py-1 text-center">
-                  <button
-                    type="button"
+                  <IconButton
+                    variant="danger"
+                    size="compact"
+                    label={t('manual.removeRow')}
                     onClick={() => removeRow(row.id)}
                     disabled={disabled}
-                    title={t('manual.removeRow')}
-                    aria-label={t('manual.removeRow')}
-                    className="text-muted-foreground hover:text-destructive disabled:opacity-30"
                   >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  </IconButton>
                 </td>
               </tr>
             ))}

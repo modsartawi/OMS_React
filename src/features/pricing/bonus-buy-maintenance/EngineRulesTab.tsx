@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { formatCount, fsi } from '@/core/util/bidi'
-import { INPUT } from './fields'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Textarea from '@/core/ui/Textarea'
 import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter } from './editor'
 
 /**
@@ -14,14 +16,9 @@ import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter } f
  * against the cap, both read from the list as the server stores it. No `maxLength`: a browser cap
  * would silently cut a pasted column, which is the loss this box exists to stop.
  */
-const LIST_BOX =
-  'w-full resize-y rounded-md border border-border/60 bg-background px-2.5 py-1.5 font-mono text-sm text-foreground ' +
-  'focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
-
 export default function EngineRulesTab({ engine, onChange }: { engine: EngineRules; onChange: (e: EngineRules) => void }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   const set = (patch: Partial<EngineRules>) => onChange({ ...engine, ...patch })
-  const label = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
 
   return (
     <div className="flex flex-col gap-3">
@@ -29,71 +26,64 @@ export default function EngineRulesTab({ engine, onChange }: { engine: EngineRul
       <p className="text-xs text-muted-foreground">{t('engine.listHint')}</p>
       <div className="grid gap-3 md:grid-cols-2">
         {ENGINE_LISTS.map((k) => (
-          <label key={k} className={label}>
-            {t(`engine.${k}`)}
-            <textarea
+          <Field key={k} label={t(`engine.${k}`)} hint={<ListMeter list={k} value={engine[k]} />}>
+            <Textarea
               dir="ltr"
               rows={3}
-              className={LIST_BOX}
+              className="w-full resize-y font-mono"
               value={engine[k]}
               data-testid={`bby-engine-${k}`}
               onChange={(e) => set({ [k]: e.target.value } as Partial<EngineRules>)}
             />
-            <ListMeter list={k} value={engine[k]} />
-          </label>
+          </Field>
         ))}
       </div>
       <div className="flex flex-wrap items-end gap-4">
-        <label className="flex h-8 items-center gap-2 text-sm">
+        <label className="flex h-7 items-center gap-2 text-sm">
           <input type="checkbox" checked={engine.isStackable} onChange={(e) => set({ isStackable: e.target.checked })} />
           {t('engine.isStackable')}
         </label>
-        <label className={label}>
-          {t('engine.score')}
-          <input
+        <Field label={t('engine.score')}>
+          <Input
             type="number"
             min={0}
             step={1}
-            className={`${INPUT} w-28 text-end`}
+            className="w-28 text-end"
             value={engine.score}
             onChange={(e) => set({ score: e.target.value })}
           />
-        </label>
-        <label className={label}>
-          {t('engine.maxValue')}
-          <input
+        </Field>
+        <Field label={t('engine.maxValue')} hint={t('engine.maxValueHint')}>
+          <Input
             type="number"
             min={0}
             step={0.001}
-            className={`${INPUT} w-28 text-end`}
+            className="w-28 text-end"
             value={engine.maxValue}
             data-testid="bby-engine-maxValue"
             onChange={(e) => set({ maxValue: e.target.value })}
           />
-          <span className="font-normal">{t('engine.maxValueHint')}</span>
-        </label>
+        </Field>
       </div>
       <div className="flex flex-wrap items-end gap-4">
-        <label className={label}>
-          {t('engine.timeFrom')}
-          <input
+        <Field label={t('engine.timeFrom')}>
+          <Input
             type="time"
             step={1}
-            className={`${INPUT} w-36`}
+            className="w-36"
             value={engine.validFromTime}
             onChange={(e) => set({ validFromTime: e.target.value })}
           />
-        </label>
-        <label className={label}>
-          {t('engine.timeTo')}
-          <input
+        </Field>
+        <Field label={t('engine.timeTo')}>
+          <Input
             type="time"
             step={1}
-            className={`${INPUT} w-36`}
+            className="w-36"
             value={engine.validToTime}
             onChange={(e) => set({ validToTime: e.target.value })}
           />
-        </label>
+        </Field>
         <p className="pb-2 text-xs text-muted-foreground">{t('engine.timeHint')}</p>
       </div>
     </div>

@@ -944,6 +944,157 @@ SCREENS.push({
   },
 })
 
+// --- 603: the call-center console on the shared controls ----------------------
+// Self-contained: its stubs, its helpers and its screen. The console is the area's heaviest
+// screen; one run walks it three ways in light, dark and RTL — the console with no caller
+// (the caller lookup Input, the item search Input, the basket's qty Input and void
+// IconButtons), the sign-up under the bar after a miss (a Select, two Inputs, the Buttons),
+// and the address book ▸ edit (the address form: a Select in a Field, the Text Fields, the
+// city/district combobox Inputs, the edit/delete IconButtons). Session state is the
+// contract's own capture 02 (`.issues/assets/136-cc-contract/`), lifted the way the location
+// drive lifts it (an attached caller with an address, Short Address check offered).
+
+const CC_FIXTURE = JSON.parse(readFileSync('.issues/assets/136-cc-contract/02-two-lines-priced.json', 'utf8')).response
+  .body.data
+/** Which caller the next Open answers with: none (the lookup bar) or attached (the address chip). */
+const CC_SESSION = { caller: false }
+const ccState = () => ({
+  ...CC_FIXTURE,
+  contractVersion: '1.12',
+  header: {
+    ...CC_FIXTURE.header,
+    customer: CC_SESSION.caller ? { ...CC_FIXTURE.header.customer, mobile: '0551234567' } : null,
+    address: CC_SESSION.caller
+      ? {
+          addressNumber: '77120',
+          label: 'Home',
+          cityCode: '0021',
+          cityName: 'Riyadh',
+          districtCode: 'R-114',
+          districtName: 'Al Malqa',
+          line: 'King Abdulaziz Rd 4',
+          line2: null,
+          shortAddress: 'RIMA6904',
+          gpsLat: null,
+          gpsLon: null,
+        }
+      : null,
+  },
+  capabilities: { ...CC_FIXTURE.capabilities, canCheckShortAddress: true },
+})
+const CC_BOOK = ['77120', '77121'].map((addressNumber, i) => ({
+  addressNumber,
+  labelCode: 'HOME',
+  labelNameEn: 'Home',
+  isDefault: i === 0,
+  address: {
+    cityCode: '0021',
+    cityName: 'Riyadh',
+    districtCode: 'R-114',
+    districtName: 'Al Malqa',
+    street1: i === 0 ? 'King Abdulaziz Rd 4' : 'Olaya St 9',
+    street2: null,
+    buildingNumber: '4',
+    phone1: '0551234567',
+    phone2: null,
+    shortAddress: 'RIMA6904',
+    gpsLat: 0,
+    gpsLon: 0,
+  },
+}))
+const CC_DISTRICT = {
+  districtCode: 'R-114',
+  cityCode: '0021',
+  cityNameAr: 'الرياض',
+  cityNameEn: 'Riyadh',
+  districtNameAr: 'الملقا',
+  districtNameEn: 'Al Malqa',
+  storeCode: '1101',
+}
+const CALLCENTER_STUBS = [
+  [/^CallCenterWeb\/Access$/, { canOpenConsole: true }],
+  [/^CallCenterWeb\/Open$/, () => ({ outcome: 'opened', state: ccState(), existing: null })],
+  [/^CallCenterWeb\/State$/, () => ccState()],
+  [/^CallCenterWeb\/MemberByMobile\//, null],
+  [/^CallCenterWeb\/CustomerAddresses$/, CC_BOOK],
+  [/^CallCenterWeb\/(CustomerRequests|MyDocumentSources)$/, []],
+  [/^SdDocument\/Districts$/, [CC_DISTRICT]],
+  [/^SdDocument\/AddressLabels$/, [{ labelCode: 'HOME', labelNameAr: 'المنزل', labelNameEn: 'Home' }]],
+]
+
+/** Opens the console on a fresh session, with or without a caller, and waits for it to settle. */
+async function openConsole(page, caller) {
+  CC_SESSION.caller = caller
+  await page.goto(BASE + '/callcenter')
+  await page.waitForSelector('[data-cc-console]', { timeout: 20000 })
+  await page.waitForLoadState('networkidle')
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** The text-like fields of `scope`, as one selector (checkboxes/radios stay native). */
+const textFieldsOf = (scope) =>
+  ['input:not([type=checkbox]):not([type=radio]):not([type=hidden])', 'select', 'textarea']
+    .map((f) => `${scope} ${f}`)
+    .join(', ')
+
+SCREENS.push({
+  key: 'callcenter-console',
+  path: '/callcenter',
+  stubs: CALLCENTER_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openConsole(page, false),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+    const cc = '[data-cc-console]'
+
+    // ── The console, no caller yet: the lookup bar, the item search, the basket.
+    await expectLabelled(ctx, 'console', textFieldsOf(cc))
+    await expectAllFieldsShared(ctx, 'console', cc)
+    await expectFieldLook(ctx, 'caller lookup (Input)', '#cc-phone')
+    await expectFocusRing(ctx, 'caller lookup (Input)', '#cc-phone')
+    await expectFieldLook(ctx, 'item search (Input)', '[data-cc-search-input]')
+    await expectFieldLook(ctx, 'basket qty (Input)', '[data-cc-line-qty]')
+    await expectIconButtonsNamed(ctx, 'console', cc, 3)
+    await expectAllPills(ctx, 'caller bar buttons', '[data-cc-caller-lookup] button')
+    await shot('console')
+
+    // ── A miss → the sign-up, in the flow under the bar.
+    await page.locator('#cc-phone').fill('0559876543')
+    await page.locator('[data-cc-find]').click()
+    await page.locator('[data-cc-signup-open]').click()
+    await page.waitForSelector('[data-cc-signup-country]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'sign-up', '[data-cc-signup-country], [data-cc-signup-mobile]')
+    await expectFieldLook(ctx, 'sign-up country (Select)', '[data-cc-signup-country]')
+    await expectFieldLook(ctx, 'sign-up mobile (Input)', '[data-cc-signup-mobile]')
+    await expectAllPills(ctx, 'sign-up buttons', '[data-cc-signup-send], [data-cc-signup-cancel]')
+    await expectRole(ctx, 'send code (primary Button)', '[data-cc-signup-send]', 'background-color', '--primary')
+    await shot('signup')
+
+    // ── The address book ▸ edit: the address form.
+    await openConsole(page, true)
+    await page.locator('[data-cc-chip-open="address"]').click()
+    await page.waitForSelector('[data-cc-address-edit="77120"]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectIconButtonsNamed(ctx, 'address book row', '[data-cc-address-row="77121"]', 2)
+    await page.locator('[data-cc-address-edit="77120"]').click()
+    const form = '[data-cc-address-form]'
+    await page.waitForSelector(form, { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await expectLabelled(ctx, 'address form', textFieldsOf(form))
+    await expectAllFieldsShared(ctx, 'address form', form)
+    await expectFieldLook(ctx, 'address label (Select)', '#cc-address-label')
+    await expectFieldLook(ctx, 'street (Input)', '#cc-address-street1')
+    await expectFieldLook(ctx, 'city (combobox Input)', '#cc-address-city')
+    await expectFocusRing(ctx, 'street (Input)', '#cc-address-street1')
+    await expectAllPills(ctx, 'short-address check (Button)', '[data-cc-address-check]')
+    await shot('address')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

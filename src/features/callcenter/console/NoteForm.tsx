@@ -28,6 +28,8 @@ import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
 import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 
 export interface NoteApply {
   busy: boolean
@@ -115,20 +117,17 @@ export default function NoteForm({
       }
     >
       <div className="space-y-2 text-sm" data-cc-note-form>
-        <label className="text-xs font-semibold text-muted-foreground" htmlFor="cc-order-note">
-          {t('note.field')}
-        </label>
-        <textarea
-          id="cc-order-note"
-          value={text}
+        <Field id="cc-order-note" label={t('note.field')} hint={t('note.hint')}>
+          <Textarea
+            value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={apply.busy}
           rows={4}
           placeholder={t('note.placeholder')}
-          data-cc-note-text
-          className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
-        />
-        <p className="text-[11px] text-muted-foreground">{t('note.hint')}</p>
+            data-cc-note-text
+            className="w-full"
+          />
+        </Field>
         {apply.error && (
           <p className={NOTE.danger} data-cc-note-error>
             {apply.error}

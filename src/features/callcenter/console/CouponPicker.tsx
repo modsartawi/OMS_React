@@ -37,6 +37,8 @@ import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 import type { CouponSurface } from './coupon-view'
 import Money from './Money'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 export default function CouponPicker({
   open,
@@ -134,7 +136,7 @@ export default function CouponPicker({
               {t('coupon.codeLabel')}
             </label>
             <div className="flex gap-1.5">
-              <input
+              <Input
                 id="cc-coupon-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -144,7 +146,7 @@ export default function CouponPicker({
                 aria-label={t('coupon.codeLabel')}
                 disabled={busy}
                 data-cc-coupon-input
-                className="min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring disabled:opacity-50"
+                className="min-w-0 flex-1"
               />
               <Button type="submit" disabled={!code.trim() || busy} data-cc-coupon-apply>
                 {pendingApply ? (
@@ -217,21 +219,19 @@ function AppliedRow({
       {/* Engine money, in the one place a coupon's amount is drawn. */}
       <Money value={coupon.amount} />
       {canRemove && (
-        <button
-          type="button"
+        <IconButton
+          variant="danger"
           onClick={onRemove}
           disabled={busy}
           data-cc-coupon-remove={coupon.code}
-          aria-label={t('coupon.remove')}
-          title={t('coupon.remove')}
-          className="rounded-md border border-input p-1.5 hover:bg-accent disabled:opacity-40"
+          label={t('coupon.remove')}
         >
           {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
-            <X className="h-4 w-4" aria-hidden />
+            <X className="h-3.5 w-3.5" aria-hidden />
           )}
-        </button>
+        </IconButton>
       )}
     </li>
   )

@@ -27,7 +27,27 @@ admin/ua-admin 15
 
 auth 24
 
-callcenter/console 69
+callcenter/console 20
+  src/features/callcenter/console/AddressForm.tsx button: city step *Change*: a text button inside the city box that does not navigate (restyled in place)
+  src/features/callcenter/console/AddressForm.tsx button: city option: a row picker in the city listbox (spec 590: pickers restyle in place)
+  src/features/callcenter/console/AddressForm.tsx button: district option: a row picker in the district listbox (spec 590: pickers restyle in place)
+  src/features/callcenter/console/AddressPicker.tsx button: address row: a row picker, one click applies (spec 590: pickers restyle in place)
+  src/features/callcenter/console/CallerBar.tsx button: linked-request chip: a disclosure (aria-expanded) - Chip would add aria-pressed (597 Q2)
+  src/features/callcenter/console/CallerBar.tsx button: open-requests offer: one-off, attention-toned pill (no Button variant carries the tone)
+  src/features/callcenter/console/ConsoleShell.tsx button: skipped-line *Add anyway*: one-off, attention-toned row action inside the banner
+  src/features/callcenter/console/FulfilmentPicker.tsx button: fulfilment mode: a tile picker (spec 590: pickers restyle in place)
+  src/features/callcenter/console/GuidanceStrip.tsx button: *N unavailable* toggle: a disclosure (aria-expanded), text look (597 Q2)
+  src/features/callcenter/console/GuidanceStrip.tsx button: reward-arm open/close: a disclosure (aria-expanded), text look (597 Q2)
+  src/features/callcenter/console/GuidanceStrip.tsx button: offer card header: the card itself is the disclosure (aria-expanded) - a row picker
+  src/features/callcenter/console/GuidanceStrip.tsx button: *Search the other N*: a text button that hands off in-page, does not navigate
+  src/features/callcenter/console/GuidanceStrip.tsx button: qualifying-product *Add*: a row action on a product row (spec 590: row actions restyle in place)
+  src/features/callcenter/console/HeaderSentence.tsx button: sentence word: a word of the order sentence that opens its section - a picker
+  src/features/callcenter/console/HeaderSentence.tsx button: ledger field: a ledger cell that opens its section - a picker
+  src/features/callcenter/console/ItemSearchPanel.tsx button: scope *Show all*: an underlined text button that does not navigate
+  src/features/callcenter/console/PaymentPicker.tsx button: payment type: a tile picker (spec 590: pickers restyle in place)
+  src/features/callcenter/console/SlotPicker.tsx button: day tab: a two-line tab (weekday over date) a 28px Chip cannot hold; on Chip tokens
+  src/features/callcenter/console/SlotPicker.tsx button: slot window: a tile picker, a full one aria-disabled (spec 590: pickers restyle in place)
+  src/features/callcenter/console/StorePicker.tsx button: store row: a row picker (spec 590: pickers restyle in place)
 
 campaigns/coupon-finder 1
 

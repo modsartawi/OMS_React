@@ -45,6 +45,8 @@ import { openingSteps } from './opening-steps'
 import type { RebindRefusal } from './store-move'
 import { submitBlockers } from './submit-blockers'
 import { submitRefusalChip, type SubmitFailure, type SubmitOutcome } from './submit-outcome'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * *Place order* and everything it can answer (174). The call itself is the
@@ -488,31 +490,25 @@ function TopBar({
           // universal recovery action after any conflict*) and this is the
           // agent's hand on it — after a collision, a second tab, or simply a
           // doubt. It is a pure read, so pressing it twice costs nothing.
-          <button
-            type="button"
+          <IconButton
+            variant="outlined"
             onClick={onRefresh}
             disabled={refreshing}
             data-cc-refresh
-            aria-label={t('console.refresh')}
-            title={t('console.refresh')}
-            className="ms-2 rounded-full border border-input px-2 py-1 hover:bg-accent disabled:opacity-50"
+            label={t('console.refresh')}
+            className="ms-2"
           >
             <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
-          </button>
+          </IconButton>
         )}
         {onAbandon && (
           // Quiet by design and set apart from the receipt's *Place order*: the
           // two terminal acts of a call must not sit side by side. It is the
           // only destructive control on the screen, and it never voids anything
           // on its own — the confirmation names what is thrown away first (US6).
-          <button
-            type="button"
-            onClick={onAbandon}
-            data-cc-abandon
-            className="ms-2 rounded-full border border-danger-border px-2.5 py-0.5 text-[11px] font-medium text-danger-800 hover:bg-danger-050"
-          >
+          <Button variant="danger-outlined" onClick={onAbandon} data-cc-abandon className="ms-2">
             {t('abandon.action')}
-          </button>
+          </Button>
         )}
       </div>
     </header>
@@ -617,7 +613,7 @@ function RequestReportBanner({ actions }: { actions: RequestReportActions | null
                 type="button"
                 onClick={() => actions.onAddAnyway?.(row)}
                 data-cc-request-add-anyway={row.itemNumber}
-                className="shrink-0 rounded-md border border-attention-border px-2 py-0.5 font-semibold hover:opacity-80"
+                className="shrink-0 rounded-full border border-attention-border px-2 py-0.5 font-semibold hover:opacity-80"
               >
                 {t('request.report.addAnyway')}
               </button>
@@ -664,19 +660,16 @@ function ConsoleBanner({
     <div className={`flex shrink-0 items-start gap-3 border-b px-4 py-2 ${edge}`} role="alert" {...marker}>
       <div className="min-w-0 flex-1">{children}</div>
       {onDismiss && (
-        <button
-          type="button"
+        <IconButton
+          size="compact"
           onClick={onDismiss}
           data-cc-banner-dismiss
           {...dismissMarker}
-          aria-label={t('rebind.dismiss')}
-          title={t('rebind.dismiss')}
-          className={`shrink-0 rounded-full border p-1 hover:opacity-80 ${ink} ${
-            tone === 'danger' ? 'border-danger-border' : 'border-attention-border'
-          }`}
+          label={t('rebind.dismiss')}
         >
-          <X className="h-3 w-3" aria-hidden />
-        </button>
+          {/* The banner's own ink on the glyph, so the ✕ reads as part of its banner. */}
+          <X className={`h-3 w-3 ${ink}`} aria-hidden />
+        </IconButton>
       )}
     </div>
   )
@@ -782,8 +775,7 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
                 {t('receipt.needed', { list: blockers.map((blocker) => t(blocker.key)).join(' · ') })}
               </div>
             )}
-            <button
-              type="button"
+            <Button
               onClick={submit.onPlace}
               // 🚩 Dead unless the page passed a handler — which it does only on
               // the door's own `canSubmit` — and dead while it is running: a
@@ -794,7 +786,7 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
               // The handle the drive asserts *the receipt holds* through: the
               // button says what it is doing and nothing else on screen moves.
               {...(submit.placing ? { 'data-cc-submit-placing': '' } : {})}
-              className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+              className="w-full justify-center"
             >
               {submit.placing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
               {/* 🚩 The retryable outage is the ONE case where this button
@@ -806,7 +798,7 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
                 : submit.failure?.retryable
                   ? t('submit.tryAgain')
                   : t('receipt.placeOrder')}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -926,15 +918,10 @@ function OrderPlaced({
         // In the place *Place order* just left, and shaped like it: after a
         // placement this is the only live control on the screen, so it is the
         // one the agent's hand is already over.
-        <button
-          type="button"
-          onClick={onNewOrder}
-          data-cc-new-order
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
-        >
+        <Button onClick={onNewOrder} data-cc-new-order className="w-full justify-center">
           <PhoneCall className="h-3.5 w-3.5" aria-hidden />
           {t('submit.newOrder')}
-        </button>
+        </Button>
       )}
     </>
   )
@@ -1014,14 +1001,9 @@ function SubmitFailureNote({
             {t('submit.requestGone', { documentNo: requestGone.documentNo })}
           </p>
           {onUnlink && (
-            <button
-              type="button"
-              onClick={onUnlink}
-              data-cc-submit-unlink
-              className="mt-1 rounded-md border border-danger-border px-2.5 py-1 text-[11px] font-semibold text-danger-800 hover:opacity-80"
-            >
+            <Button variant="danger-outlined" onClick={onUnlink} data-cc-submit-unlink className="mt-1">
               {t('request.unlink.action')}
-            </button>
+            </Button>
           )}
         </div>
       )}

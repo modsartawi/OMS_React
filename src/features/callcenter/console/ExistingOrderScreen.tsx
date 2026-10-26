@@ -25,6 +25,7 @@ import type { ExistingOrder } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import ConsoleCard from './ConsoleCard'
 import { openedAtLabel } from './open-outcome'
+import Button from '@/core/ui/Button'
 
 export default function ExistingOrderScreen({
   existing,
@@ -67,24 +68,12 @@ export default function ExistingOrderScreen({
         // resuming is one deliberate click, abandoning is a click plus the
         // confirmation that names what it voids.
         <>
-          <button
-            type="button"
-            onClick={onResume}
-            disabled={resuming}
-            data-cc-resume
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
+          <Button onClick={onResume} disabled={resuming} data-cc-resume>
             {resuming ? t('existing.resuming') : t('existing.resume')}
-          </button>
-          <button
-            type="button"
-            onClick={onStartFresh}
-            disabled={resuming}
-            data-cc-start-fresh
-            className="rounded-md border border-danger-border px-4 py-2 text-sm font-medium text-danger-800 hover:bg-danger-050 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="danger-outlined" onClick={onStartFresh} disabled={resuming} data-cc-start-fresh>
             {t('existing.startFresh')}
-          </button>
+          </Button>
         </>
       }
     >

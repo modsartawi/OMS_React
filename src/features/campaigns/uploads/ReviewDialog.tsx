@@ -6,8 +6,10 @@ import { apiErrorCode, apiErrorDetails, apiErrorMessage, isBareDenial } from '@/
 import type { RuleUploadActivation, RuleUploadDetail, RuleUploadSummary } from '@/core/models/rule-upload'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { campaignUploadApi } from './api'
 import { campaignChanges, uploadRefusalView, type ReviewAction } from './review'
 
@@ -45,7 +47,6 @@ export default function ReviewDialog({
 }) {
   const { t } = useTranslation('campaign-uploads')
   const noteId = useId()
-  const hintId = useId()
   const [note, setNote] = useState('')
   const { upload, campaigns, disabling } = detail
   const body = { promotionCode: upload.promotionCode, revision: upload.revision, note }
@@ -116,32 +117,26 @@ export default function ReviewDialog({
           </>
         )}
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={noteId} className="text-xs font-medium text-muted-foreground">
-            {t(`review.dialog.${action}.note`)}
-          </label>
-          <textarea
-            id={noteId}
+        <Field
+          id={noteId}
+          label={t(`review.dialog.${action}.note`)}
+          hint={action === 'sendBack' ? <span data-review-note-required="">{t('review.dialog.sendBack.required')}</span> : undefined}
+        >
+          <Textarea
             dir="auto"
             rows={3}
             maxLength={NOTE_MAX}
             value={note}
             required={action === 'sendBack'}
-            aria-describedby={action === 'sendBack' ? hintId : undefined}
             onChange={(e) => {
               setNote(e.target.value)
               if (run.isError) run.reset()
             }}
             disabled={run.isPending}
-            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full"
             data-review-note=""
           />
-          {action === 'sendBack' && (
-            <p id={hintId} className="text-xs text-muted-foreground" data-review-note-required="">
-              {t('review.dialog.sendBack.required')}
-            </p>
-          )}
-        </div>
+        </Field>
 
         {run.isError && <Refusal action={action} error={run.error} onReload={onReload} onSendBack={onSendBack} onList={onList} />}
       </div>

@@ -68,6 +68,7 @@ import {
 } from './address-capture'
 import AddressForm from './AddressForm'
 import { NOTE } from './console-notes'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * `setAddress` and everything it is currently saying, as one prop — they are one
@@ -456,8 +457,8 @@ export default function AddressPicker({
                   included. Correcting that one re-pins the store and the page
                   does exactly that, so what the agent meets is §5.1's preview,
                   never a silently moved plant. */}
-              <button
-                type="button"
+              <IconButton
+                variant="outlined"
                 onClick={() => {
                   const entry = (book.data ?? []).find(
                     (e) => e.addressNumber === choice.addressNumber,
@@ -465,32 +466,30 @@ export default function AddressPicker({
                   if (entry) startEdit(entry)
                 }}
                 disabled={busy || removing}
-                aria-label={t('address.form.edit')}
-                title={t('address.form.edit')}
+                label={t('address.form.edit')}
                 data-cc-address-edit={choice.addressNumber}
-                className="flex shrink-0 items-center rounded-md border border-border bg-card px-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                className="self-center"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
-              </button>
+              </IconButton>
               {/* ⚠️ Absent — not disabled — on the address the order is using:
                   the server refuses that delete (`ADDRESS_IN_USE_BY_ORDER`), and
                   a control whose only possible answer is a refusal is worse than
                   no control (165). */}
               {!choice.isCurrent && (
-                <button
-                  type="button"
+                <IconButton
+                  variant="danger"
                   onClick={() => {
                     setDeleteError(null)
                     setConfirmingDelete(choice.addressNumber)
                   }}
                   disabled={busy || removing}
-                  aria-label={t('address.delete')}
-                  title={t('address.delete')}
+                  label={t('address.delete')}
                   data-cc-address-delete={choice.addressNumber}
-                  className="flex shrink-0 items-center rounded-md border border-border bg-card px-2 text-muted-foreground hover:bg-accent hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="self-center"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                </button>
+                </IconButton>
               )}
              </div>
              {/* The second press, in place. A dialog here would be the

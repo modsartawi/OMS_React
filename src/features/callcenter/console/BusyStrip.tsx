@@ -26,6 +26,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { RotateCw } from 'lucide-react'
+import Button from '@/core/ui/Button'
 
 export type BusyPhase =
   /** Riding out the collision — the schedule is running on its own. */
@@ -55,15 +56,10 @@ export default function BusyStrip({ busy }: { busy: BusyPhase | null }) {
           {retrying ? t('busy.keepTyping') : t('busy.nothingLost')}
         </span>
         {!retrying && (
-          <button
-            type="button"
-            onClick={busy.again}
-            data-cc-busy-retry
-            className="ms-auto inline-flex items-center gap-1.5 rounded-full border border-primary-border bg-card px-3 py-0.5 font-medium text-primary-800 hover:opacity-90"
-          >
+          <Button variant="secondary" onClick={busy.again} data-cc-busy-retry className="ms-auto">
             <RotateCw className="h-3 w-3" aria-hidden />
             {t('actions.retry')}
-          </button>
+          </Button>
         )}
       </div>
       {retrying && (

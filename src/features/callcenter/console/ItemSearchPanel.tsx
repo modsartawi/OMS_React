@@ -50,6 +50,9 @@ import {
   type MetaPart,
   type SearchRowView,
 } from './item-search'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 /**
  * `addItem` and everything it is currently saying, as one prop — the shape the
@@ -309,10 +312,12 @@ export default function ItemSearchPanel({
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Search
-            className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <input
+          {/* A combobox with its own clear ✕: kept a text Input with the hand icon
+              (`type="search"` would add the browser's own clear button beside it). */}
+          <Input
             id="cc-item-search"
             ref={box}
             value={query}
@@ -332,23 +337,22 @@ export default function ItemSearchPanel({
             // Room at the end edge for the clear button, always — a padding that
             // changed with the button's presence would shift the text under the
             // caret as the agent types the third character.
-            className="w-full rounded-md border border-input bg-card py-2 pe-8 ps-8 text-sm outline-none focus:border-primary"
+            className="w-full pe-8 ps-8"
           />
           {/* 🚩 The visible way out, for the hand that is on the mouse. Present
               from the first character rather than from the third: a one- or
               two-character term draws no rows but is still text the agent has to
               get rid of before the next item. */}
           {query !== '' && (
-            <button
-              type="button"
+            <IconButton
+              size="compact"
               onClick={clear}
-              aria-label={t('search.clear')}
-              title={t('search.clear')}
+              label={t('search.clear')}
               data-cc-search-clear
-              className="absolute end-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="absolute end-1.5 top-1/2 -translate-y-1/2"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
+            </IconButton>
           )}
         </div>
         {search.isFetching && (
@@ -435,15 +439,14 @@ export default function ItemSearchPanel({
                 {apiErrorMessage(search.error, t('search.failed'))}
               </p>
               {/* The read is pure, so trying it again costs the order nothing. */}
-              <button
-                type="button"
+              <Button
+                variant="outlined"
                 onClick={() => void search.refetch()}
                 disabled={search.isFetching}
                 data-cc-search-retry
-                className="rounded-md border border-input px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-50"
               >
                 {t('actions.retry')}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -554,21 +557,18 @@ function Row({
           inside the panel, never on the row, so no row changes shape mid-list
           (168). */}
       {onExpand && (
-        <button
-          type="button"
+        <IconButton
+          variant="outlined"
           onClick={onExpand}
           aria-expanded={expanded}
-          aria-label={t('panel.expand')}
-          title={t('panel.expand')}
+          label={t('panel.expand')}
           data-cc-item-expand={row.itemNumber}
-          className="shrink-0 rounded-full border border-input px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
-        </button>
+        </IconButton>
       )}
       {add.onAdd && (
-        <button
-          type="button"
+        <Button
           // The name travels with the press so a below-availability acceptance
           // (169) can say what the agent just read out, rather than an item
           // number. It is display only — the wire carries neither (law 1).
@@ -580,10 +580,10 @@ function Row({
           // is one round trip, not a step: *one action adds it* is intact.
           disabled={add.pending !== null}
           data-cc-search-add={row.itemNumber}
-          className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          className="shrink-0"
         >
           {adding ? t('search.adding') : t('search.add')}
-        </button>
+        </Button>
       )}
     </div>
   )

@@ -80,7 +80,7 @@ function DownloadCell({
       onClick={() => state.onDownload(row)}
       // `ms/me` and never `ml/mr`: the app renders RTL and a physical utility is
       // silently wrong in Arabic while looking perfect in English.
-      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
       aria-label={t('invoice.download.actionAria', { trxNumber: row.trxNumber })}
     >
       {pending ? (

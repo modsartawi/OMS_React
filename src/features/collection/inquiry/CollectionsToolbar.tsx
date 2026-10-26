@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { isAcrScoped } from './acr-scope'
 import {
@@ -105,24 +109,19 @@ function AmountField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type="text"
         dir="ltr"
         inputMode="decimal"
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${TEXT_INPUT_CLASS} w-32 text-end tabular-nums ${DISABLED_CLASS}`}
+        className="w-32 text-end tabular-nums"
       />
-    </label>
+    </Field>
   )
 }
-
-/** What an overridden control looks like: visibly out of play, and unfocusable —
- *  `disabled` is what makes the honesty real rather than only visual. */
-const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
 
 /**
  * What an overridden input SHOWS: nothing.
@@ -135,9 +134,6 @@ const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
  * clearing the chip put them straight back.
  */
 const overridden = (scoped: boolean, value: string) => (scoped ? '' : value)
-
-const TEXT_INPUT_CLASS =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 export default function CollectionsToolbar({
   criteria,
@@ -154,6 +150,7 @@ export default function CollectionsToolbar({
 
   return (
     <form
+      data-filter-strip
       className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
       onSubmit={(e) => {
         e.preventDefault()
@@ -194,18 +191,17 @@ export default function CollectionsToolbar({
           codes, not pickers: neither the door nor this wave carries a store or
           staff list, and inventing one would be a screen's worth of work to
           narrow a result the per-column filter row already narrows. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.store')}
-        <input
+      <Field label={t('collections.search.store')}>
+        <Input
           type="text"
           inputMode="numeric"
           disabled={scoped}
           value={overridden(scoped, criteria.storeId)}
           onChange={(e) => onChange({ storeId: e.target.value })}
           placeholder={t('collections.search.storePlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-36 ${DISABLED_CLASS}`}
+          className="w-36"
         />
-      </label>
+      </Field>
       {/* 🚩 **"Collected by", not "Collector"** (BackOffice 1166). Same box, same
           `CollectorOperatorId` parameter, same free-text behaviour — the label is
           the whole change, and it is what stops the two people-filters on this one
@@ -214,17 +210,16 @@ export default function CollectionsToolbar({
           beside it asks *who is assigned to the branch*. A stand-in covering
           somebody's route is exactly when the two disagree, which is why both
           survive rather than one replacing the other. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.collectedBy')}
-        <input
+      <Field label={t('collections.search.collectedBy')}>
+        <Input
           type="text"
           disabled={scoped}
           value={overridden(scoped, criteria.collectorOperatorId)}
           onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
           placeholder={t('collections.search.collectedByPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-40 ${DISABLED_CLASS}`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
       {/* The shared *Served by* control (BackOffice tracer 1163).
           ⚠️ It sits BESIDE the collector box, it does not replace it: that box is
@@ -248,7 +243,7 @@ export default function CollectionsToolbar({
           Nothing ticked is any type, and sends nothing. */}
       <fieldset className="flex flex-col gap-1" data-region="collection-type">
         <legend className="mb-1 text-xs font-medium text-muted-foreground">{t('collections.search.type')}</legend>
-        <div className="flex h-9 flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex h-7 flex-wrap items-center gap-x-3 gap-y-1">
           {COLLECTION_TYPE_FILTERS.map((type) => (
             <Tick
               key={type}
@@ -303,18 +298,17 @@ export default function CollectionsToolbar({
 
       {/* Profit center (BackOffice 2424): a contains match on the server, so `019`
           finds `PH-019` without the prefix. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.profitCenter')}
-        <input
+      <Field label={t('collections.search.profitCenter')}>
+        <Input
           type="text"
           dir="ltr"
           disabled={scoped}
           value={overridden(scoped, criteria.profitCenter)}
           onChange={(e) => onChange({ profitCenter: e.target.value })}
           placeholder={t('collections.search.profitCenterPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-36 ${DISABLED_CLASS}`}
+          className="w-36"
         />
-      </label>
+      </Field>
 
       {/* "No slip" (ticket 320) — drawn only when the slip probe admits. It stays live under the
           `?acr=` scope: it narrows the rows already here and sends nothing. */}
@@ -324,22 +318,21 @@ export default function CollectionsToolbar({
         {/* Search goes with them. With every criterion overridden there is
             nothing left to promote, and a button that re-issues the identical
             scoped query would be the same lie the live inputs would tell. */}
-        <button
+        <Button
           type="submit"
           disabled={scoped}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 ${DISABLED_CLASS}`}
+          variant="primary"
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('collections.search.search')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('collections.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* The `?acr=` chip (ticket 257). It names the ACR the view is scoped to and
@@ -351,14 +344,14 @@ export default function CollectionsToolbar({
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('collections.acrScope.label')}
           <span className="font-mono text-[11px]">{scopedAcrId}</span>
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onClearScope}
-            aria-label={t('collections.acrScope.clear')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('collections.acrScope.clear')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
 
@@ -367,14 +360,14 @@ export default function CollectionsToolbar({
       {!scoped && isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('collections.search.filtered')}
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onReset}
-            aria-label={t('collections.search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('collections.search.clearFilter')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
     </form>

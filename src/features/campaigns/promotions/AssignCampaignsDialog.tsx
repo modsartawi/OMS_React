@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RulePromotionAssignment } from '@/core/models/rule-promotion'
 import { rulePromotionCampaignsQuery } from '@/core/rules/promotion-api'
 import { PROMOTION_PAGE_SIZE } from '@/core/rules/promotion-query'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -91,21 +93,17 @@ export default function AssignCampaignsDialog({
     >
       <div className="flex flex-col gap-3" data-assign-dialog={promotionCode}>
         <p className="text-sm text-muted-foreground">{t('assign.lede')}</p>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('assign.search')}
-          <span className="relative">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-hidden />
-            <input
-              type="search"
-              dir="auto"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder={t('assign.placeholder')}
-              className="h-9 w-full rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-              data-assign-search=""
-            />
-          </span>
-        </label>
+        <Field label={t('assign.search')}>
+          <Input
+            type="search"
+            dir="auto"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={t('assign.placeholder')}
+            className="w-full"
+            data-assign-search=""
+          />
+        </Field>
 
         {hits.isError ? (
           <div data-assign-failed="" data-denied={denied ? '' : undefined}>

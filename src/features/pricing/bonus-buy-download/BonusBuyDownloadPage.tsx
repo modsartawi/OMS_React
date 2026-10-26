@@ -5,7 +5,10 @@ import { AlertTriangle, Ban, Check, Loader2, X } from 'lucide-react'
 import { ApiError } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { formatCount } from '@/core/util/bidi'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { BbyOverrides } from '@/core/models/bonus-buy-download'
@@ -211,13 +214,19 @@ export default function BonusBuyDownloadPage() {
       </header>
 
       {/* BBY numbers */}
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="bby-numbers" className="text-sm font-medium">
-          {t('numbers.label')}
-        </label>
-        <textarea
-          id="bby-numbers"
-          className="min-h-[8rem] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
+      <Field
+        id="bby-numbers"
+        label={t('numbers.label')}
+        hint={
+          <span className="flex items-center justify-between">
+            <span>{t('numbers.hint')}</span>
+            <span className="tabular-nums">{t('numbers.counted', { count: numbers.length })}</span>
+          </span>
+        }
+      >
+        <Textarea
+          rows={7}
+          className="w-full font-mono"
           placeholder={t('numbers.placeholder')}
           value={numbersText}
           onChange={(e) => setNumbersText(e.target.value)}
@@ -226,11 +235,7 @@ export default function BonusBuyDownloadPage() {
           autoFocus
           spellCheck={false}
         />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{t('numbers.hint')}</span>
-          <span className="tabular-nums">{t('numbers.counted', { count: numbers.length })}</span>
-        </div>
-      </div>
+      </Field>
 
       {/* Attributes (overrides) — always fully visible */}
       <fieldset className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" disabled={running}>
@@ -245,16 +250,14 @@ export default function BonusBuyDownloadPage() {
         {/* six free-text fields */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {TEXT_FIELDS.map((f) => (
-            <label key={f.key} className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t(f.labelKey)}
-              <input
+            <Field key={f.key} label={t(f.labelKey)}>
+              <Input
                 type="text"
-                className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
                 value={text[f.key as string]}
                 maxLength={f.maxLength}
                 onChange={(e) => setText((s) => ({ ...s, [f.key]: e.target.value }))}
               />
-            </label>
+            </Field>
           ))}
         </div>
 
@@ -285,45 +288,37 @@ export default function BonusBuyDownloadPage() {
 
         {/* numeric + boolean + times */}
         <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('attributes.maxValue')}
-            <input
+          <Field label={t('attributes.maxValue')}>
+            <Input
               type="number"
               inputMode="decimal"
-              className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
               value={maxValue}
               onChange={(e) => setMaxValue(e.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('attributes.score')}
-            <input
+          </Field>
+          <Field label={t('attributes.score')}>
+            <Input
               type="number"
               inputMode="numeric"
-              className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
               value={score}
               onChange={(e) => setScore(e.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('attributes.validFromTime')}
-            <input
+          </Field>
+          <Field label={t('attributes.validFromTime')}>
+            <Input
               type="time"
-              className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
               value={validFromTime}
               onChange={(e) => setValidFromTime(e.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('attributes.validToTime')}
-            <input
+          </Field>
+          <Field label={t('attributes.validToTime')}>
+            <Input
               type="time"
-              className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary"
               value={validToTime}
               onChange={(e) => setValidToTime(e.target.value)}
             />
-          </label>
-          <label className="flex h-8 items-center gap-2 text-sm font-medium">
+          </Field>
+          <label className="flex h-7 items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
               className="h-4 w-4 accent-primary"

@@ -149,6 +149,7 @@ import type { PreviewReissue } from './ConfirmSheet'
 import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
 import UnlinkConfirm from './UnlinkConfirm'
+import Button from '@/core/ui/Button'
 
 /**
  * The refusals this page answers ITSELF — with a fresh preview, or with the
@@ -2810,14 +2811,9 @@ function ConsoleNotice({
         <h1 className="text-base font-semibold tracking-tight">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         {retry && (
-          <button
-            type="button"
-            onClick={retry}
-            data-cc-retry
-            className="mt-5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
+          <Button onClick={retry} data-cc-retry className="mt-5">
             {retryLabel ?? t('actions.retry')}
-          </button>
+          </Button>
         )}
       </div>
     </ConsoleCard>

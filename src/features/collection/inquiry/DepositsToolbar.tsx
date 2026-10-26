@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { RotateCcw, Search, X } from 'lucide-react'
 import {
   DEPOSIT_STATUSES,
@@ -47,6 +51,7 @@ export default function DepositsToolbar({
 
   return (
     <form
+      data-filter-strip
       className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
       onSubmit={(e) => {
         e.preventDefault()
@@ -82,9 +87,8 @@ export default function DepositsToolbar({
           for why it travels as `DepositNumber` and never as `DepositId`. ⚠️
           `pattern` is digits only: the door binds an `int`, so anything else is a
           400 before the handler, and the form refuses it at Search instead. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('deposits.search.depositNumber')}
-        <input
+      <Field label={t('deposits.search.depositNumber')}>
+        <Input
           type="text"
           inputMode="numeric"
           pattern="\s*[0-9]+\s*"
@@ -92,9 +96,9 @@ export default function DepositsToolbar({
           value={criteria.depositNumber}
           onChange={(e) => onChange({ depositNumber: e.target.value })}
           placeholder={t('deposits.search.depositNumberPlaceholder')}
-          className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-32"
         />
-      </label>
+      </Field>
       {/* 🚩 **The collector box, as the shared control** (BackOffice 1168) — the same
           replacement the ACRs toolbar made in 1167, and for the same reason: on this
           screen *Served by* IS the collector filter, same column and same predicate
@@ -110,16 +114,15 @@ export default function DepositsToolbar({
         value={criteria.servedBy}
         onChange={(servedBy) => onChange({ servedBy })}
       />
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('deposits.search.bank')}
-        <input
+      <Field label={t('deposits.search.bank')}>
+        <Input
           type="text"
           value={criteria.bankCode}
           onChange={(e) => onChange({ bankCode: e.target.value })}
           placeholder={t('deposits.search.bankPlaceholder')}
-          className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-32"
         />
-      </label>
+      </Field>
 
       {/* The WPF's radio group, as a segmented control — the same shape the ACRs
           screen gives its OPEN/CLOSED one. `radiogroup`/`radio` roles rather than
@@ -129,7 +132,7 @@ export default function DepositsToolbar({
         <div
           role="radiogroup"
           aria-label={t('deposits.search.status')}
-          className="inline-flex h-9 items-center rounded-full border border-border/60 bg-background p-0.5"
+          className="inline-flex h-7 items-center rounded-full border border-border bg-card p-0.5"
         >
           {DEPOSIT_STATUSES.map((status) => (
             <StatusOption
@@ -144,21 +147,20 @@ export default function DepositsToolbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          variant="primary"
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('deposits.search.search')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('deposits.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* The chip says the screen is no longer showing today. Dismissing it is
@@ -166,14 +168,14 @@ export default function DepositsToolbar({
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('deposits.search.filtered')}
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onReset}
-            aria-label={t('deposits.search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('deposits.search.clearFilter')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
     </form>
@@ -206,8 +208,8 @@ function StatusOption({
       aria-checked={selected}
       data-status={status}
       onClick={onSelect}
-      className={`h-8 rounded-full px-3 text-sm font-medium transition-colors ${
-        selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+      className={`h-6 rounded-full px-3 text-xs font-medium transition-colors ${
+        selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
       }`}
     >
       {label}

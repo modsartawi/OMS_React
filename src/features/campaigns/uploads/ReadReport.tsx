@@ -8,6 +8,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { RuleUploadCampaign, RuleUploadReport } from '@/core/models/rule-upload'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { fsi } from '@/core/util/bidi'
@@ -161,20 +162,14 @@ function Issues({ report }: { report: RuleUploadReport }) {
         {rows.length > 0 && (
           <label htmlFor={selectId} className="flex items-center gap-2 text-xs text-muted-foreground">
             {t('issues.sheet')}
-            <select
-              id={selectId}
-              value={sheet}
-              onChange={(e) => setSheet(e.target.value)}
-              className="rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
-              data-upload-sheet-filter=""
-            >
+            <Select id={selectId} value={sheet} onChange={(e) => setSheet(e.target.value)} data-upload-sheet-filter="">
               <option value="">{t('issues.allSheets')}</option>
               {sheets.map((s) => (
                 <option key={s} value={s}>
                   {fsi(s)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
       </div>

@@ -11,6 +11,7 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY, collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Chip from '@/core/ui/Chip'
 import {
   OMS_GRID_HEADER_HEIGHT,
   omsGridTheme,
@@ -575,35 +576,22 @@ function Tabs({
   const { t } = useTranslation('settlement')
 
   return (
-    <div role="tablist" aria-label={t('open.title')} className="flex gap-1 border-b border-border">
+    <div role="tablist" aria-label={t('open.title')} className="flex gap-1">
       {tabs.map((key) => {
         const selected = key === tab
         return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            data-tab={key}
-            onClick={() => onTab(key)}
-            className={
-              '-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors ' +
-              (selected
-                ? 'border-primary font-semibold text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={key} variant="tab" on={selected} data-tab={key} onClick={() => onTab(key)}>
             {t(`open.tabs.${key}`)}
             <span
               data-testid={`open-count-${key}`}
               className={
-                'min-w-7 rounded-full px-2 py-0.5 text-center text-xs tabular-nums ' +
+                'min-w-7 rounded-full px-2 text-center text-xs tabular-nums ' +
                 (selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')
               }
             >
               {counts[key] === null ? t('open.tabs.noCount') : counts[key].toLocaleString('en-US')}
             </span>
-          </button>
+          </Chip>
         )
       })}
     </div>

@@ -10,6 +10,9 @@
  * open-ended range is a real question, and asking by one range alone means leaving
  * the other empty.
  */
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+
 export default function DateField({
   label,
   value,
@@ -22,15 +25,14 @@ export default function DateField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type="date"
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-40"
       />
-    </label>
+    </Field>
   )
 }

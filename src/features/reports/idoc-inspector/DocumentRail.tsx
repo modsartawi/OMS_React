@@ -63,8 +63,8 @@ export default function DocumentRail({
             onClick={() => onSelect(index)}
             className={`flex min-w-[11.5rem] shrink-0 flex-col gap-1 rounded-lg border border-s-[3px] p-2.5 text-start transition-colors ${
               index === selected
-                ? 'border-primary-border border-s-primary bg-primary-050'
-                : 'border-border/60 border-s-transparent bg-card-2 hover:bg-accent/60'
+                ? 'border-primary border-s-primary bg-primary-050'
+                : 'border-border border-s-transparent bg-card-2 hover:bg-accent/60'
             }`}
           >
             <span className="flex items-center gap-1.5">

@@ -31,6 +31,7 @@ import type { StoreDetailModel } from '@/core/models/lookups'
 import Button from '@/core/ui/Button'
 import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
+import Input from '@/core/ui/Input'
 
 /** How many rows are drawn at once. The estate runs to hundreds and a modal is
  *  not a grid; the count of what is NOT drawn is stated rather than silently
@@ -77,7 +78,7 @@ export default function StorePicker({
       }
     >
       <div className="space-y-2 text-sm" data-cc-store-picker>
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={busy}
@@ -85,7 +86,7 @@ export default function StorePicker({
           placeholder={t('store.searchPlaceholder')}
           aria-label={t('store.search')}
           data-cc-store-search
-          className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
+          className="w-full"
         />
 
         {stores.isPending && (

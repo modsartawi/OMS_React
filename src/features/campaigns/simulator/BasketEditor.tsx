@@ -1,13 +1,15 @@
-import { useId, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, Upload, X } from 'lucide-react'
+import { Plus, Upload, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { RULE_MATERIAL_SEARCH_MIN } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatMoneyIn } from '@/core/money'
@@ -94,15 +96,15 @@ export default function BasketEditor({
                     <PriceInput line={l} decimals={decimals} onCommit={(p) => onChange(setPrice(basket, l.sku, p))} />
                   </td>
                   <td className="py-1 text-end">
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-danger-800"
-                      aria-label={t('basket.remove', { sku: fsi(l.sku) })}
+                    <IconButton
+                      variant="danger"
+                      size="compact"
+                      label={t('basket.remove', { sku: fsi(l.sku) })}
                       onClick={() => onChange(removeLine(basket, l.sku))}
                       data-basket-remove={l.sku}
                     >
                       <X className="size-3.5" aria-hidden />
-                    </button>
+                    </IconButton>
                   </td>
                 </tr>
               ))}
@@ -205,13 +207,13 @@ function QtyInput({ line, onCommit }: { line: BasketLine; onCommit: (n: number) 
     setText(null)
   }
   return (
-    <input
+    <Input
       type="number"
       min={1}
       max={MAX_QTY}
       step={1}
       dir="ltr"
-      className={`${RULE_INPUT} w-16`}
+      className="w-16"
       aria-label={t('basket.qtyLabel', { sku: fsi(line.sku) })}
       value={text ?? String(line.qty)}
       onChange={(e) => setText(e.target.value)}
@@ -237,10 +239,10 @@ function PriceInput({ line, decimals, onCommit }: { line: BasketLine; decimals: 
     setText(null)
   }
   return (
-    <input
+    <Input
       inputMode="decimal"
       dir="ltr"
-      className={`${RULE_INPUT} w-24`}
+      className="w-24"
       aria-label={t('basket.priceLabel', { sku: fsi(line.sku) })}
       aria-invalid={!priceFits(line.price, decimals)}
       placeholder={t('basket.pricePlaceholder')}
@@ -261,7 +263,6 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string, category: 
   const q = useDebounced(find.trim(), 250)
   const searchable = q.length >= RULE_MATERIAL_SEARCH_MIN
   const hits = useQuery({ ...ruleLookupQuery('materials', q), enabled: searchable })
-  const id = useId()
   const settled = searchable && q === find.trim()
   const found = (hits.data ?? []).map((m) => ({ code: m.code, name: lookupName(m, i18n.language), category: categoryOf(m.detail) }))
   const pick = (m: (typeof found)[number]) => {
@@ -271,15 +272,10 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string, category: 
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {t('basket.find')}
-      </label>
-      <span className="relative flex items-center">
-        <Search className="pointer-events-none absolute start-2 size-3.5 text-muted-foreground" aria-hidden />
-        <input
-          id={id}
+      <Field label={t('basket.find')}>
+        <Input
           type="search"
-          className={`${RULE_INPUT} w-full ps-7`}
+          className="w-full"
           placeholder={t('basket.findPlaceholder')}
           value={find}
           onChange={(e) => setFind(e.target.value)}
@@ -291,7 +287,7 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string, category: 
           }}
           data-basket-find=""
         />
-      </span>
+      </Field>
       {settled && (
         <div className="flex flex-col gap-1" data-basket-hits="">
           {hits.isPending ? (
@@ -306,16 +302,15 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string, category: 
             <ul className="flex flex-wrap gap-1.5">
               {found.map((m) => (
                 <li key={m.code}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-0.5 text-xs hover:bg-accent"
+                  <Button
+                    variant="outlined"
                     aria-label={t('basket.add', { item: fsi(formatPair(m.code, m.name)) })}
                     onClick={() => pick(m)}
                     data-basket-hit={m.code}
                   >
                     <Plus className="size-3" aria-hidden />
                     <Ltr>{formatPair(m.code, m.name)}</Ltr>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

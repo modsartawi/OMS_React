@@ -13,6 +13,7 @@ import type {
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
 import { formatDay } from '@/core/util/date-format'
 import { isStamped } from './approval'
@@ -476,13 +477,12 @@ function BranchField({
   return (
     <label className="flex flex-col gap-1" data-region="post-branch">
       <span className="text-xs font-medium">{t('post.branch.label')}</span>
-      <input
+      <Input
         value={query}
         onChange={(e) => onQuery(e.target.value)}
         placeholder={t('post.branch.placeholder')}
         data-testid="post-branch"
         autoComplete="off"
-        className="h-9 rounded-md border border-border bg-card px-2 text-sm outline-none focus:border-primary/60"
       />
 
       {loading && <span className="text-xs text-muted-foreground">{t('post.branch.loading')}</span>}
@@ -667,13 +667,13 @@ function AmountField({
   return (
     <label className="flex flex-col gap-1" data-region="post-amount">
       <span className="text-xs font-medium">{t('post.amount.label')}</span>
-      <input
+      <Input
         value={value}
         onChange={(e) => onValue(e.target.value)}
         inputMode="decimal"
         data-testid="post-amount"
         autoComplete="off"
-        className="h-9 rounded-md border border-border bg-card px-2 text-sm tabular-nums outline-none focus:border-primary/60"
+        className="tabular-nums"
       />
       {hasBranch ? (
         amount === null ? (

@@ -8,6 +8,8 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import type { CouponDetails, CouponInstance, CouponTemplate, CouponTransaction, EarlierUpload } from '@/core/models/coupons'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import { couponsApi } from './api'
 import { couponHistorySections, formatStamp, groupCount } from './helpers'
 
@@ -332,16 +334,9 @@ function CurrentCoupon({ instance, template, transactions, mode, onChanged }: Cu
             <Ban className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
             <span>{t('inquiry.resetModal.body', { count: instance.redeemCount })}</span>
           </p>
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('inquiry.resetModal.retype', { code: instance.couponCode })}
-            <input
-              type="text"
-              className={inputCls}
-              value={retype}
-              autoComplete="off"
-              onChange={(e) => setRetype(e.target.value)}
-            />
-          </label>
+          <Field label={t('inquiry.resetModal.retype', { code: instance.couponCode })}>
+            <Input type="text" value={retype} autoComplete="off" onChange={(e) => setRetype(e.target.value)} />
+          </Field>
           <ReasonField t={t} value={reason} onChange={setReason} required />
           {failureBanner}
         </div>
@@ -349,9 +344,6 @@ function CurrentCoupon({ instance, template, transactions, mode, onChanged }: Cu
     </div>
   )
 }
-
-const inputCls =
-  'rounded-md border border-input bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary'
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -374,10 +366,9 @@ function ReasonField({
   required?: boolean
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {required ? t('inquiry.modal.reasonRequired') : t('inquiry.modal.reason')}
-      <input type="text" className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} />
-    </label>
+    <Field label={required ? t('inquiry.modal.reasonRequired') : t('inquiry.modal.reason')}>
+      <Input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+    </Field>
   )
 }
 

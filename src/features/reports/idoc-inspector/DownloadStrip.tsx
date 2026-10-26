@@ -9,6 +9,7 @@ import { useCodeLabel } from './CodeValue'
 import { fallbackFileName, idocTypesPresent } from './download'
 import { downloadFailure, type DownloadOutcome } from './download-outcome'
 import type { LookupKey } from './lookup-key'
+import Button from '@/core/ui/Button'
 
 /**
  * Taking the XML away — **one button per IDoc type present**, on the verdict
@@ -168,13 +169,13 @@ function DownloadButton({
   const { label } = useCodeLabel('iDocType', idocType)
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outlined"
       data-download-type={idocType}
       disabled={pending}
       onClick={() => onDownload(idocType)}
       // Only its OWN button is disabled while it runs; the other types stay live.
-      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 px-3 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
       // ⚠️ The label is the legend's when it has one and nothing is invented when
       // it does not — a `title` echoing the code back promises an explanation and
       // delivers the thing being explained.
@@ -188,6 +189,6 @@ function DownloadButton({
       )}
       <span className="font-mono tracking-wide">{idocType}</span>
       <span className="font-sans font-medium">{t('idocInspector.download.xml')}</span>
-    </button>
+    </Button>
   )
 }

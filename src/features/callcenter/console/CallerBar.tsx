@@ -38,6 +38,9 @@ import type { LinkedCard, RequestOffer } from './linked-request'
 import type { RailField } from './rail-view'
 import SignupPanel, { type SignupActions } from './SignupPanel'
 import { beginSignup, type SignupState } from './signup-view'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 /**
  * The two customer verbs and their one shared outcome, as one prop. They travel
@@ -199,7 +202,7 @@ export default function CallerBar({
             {t('callerBar.caller')}
           </label>
           <form onSubmit={search} className="flex w-56 shrink-0 gap-1.5">
-            <input
+            <Input
               id="cc-phone"
               // 🚩 US9. Put here by the effect above rather than by `autoFocus`,
               // because the second call of a shift mounts no new input.
@@ -211,22 +214,21 @@ export default function CallerBar({
               placeholder={t('callerBar.mobilePlaceholder')}
               aria-label={t('callerBar.mobile')}
               data-numeric
-              className="min-w-0 flex-1 rounded-md border border-input bg-card px-2.5 py-1.5 font-mono text-sm outline-none focus:border-ring"
+              className="min-w-0 flex-1 font-mono"
             />
-            <button
+            <IconButton
+              variant="outlined"
               type="submit"
               disabled={!mobile.trim() || lookup.isPending}
               data-cc-find
-              aria-label={t('callerBar.find')}
-              title={t('callerBar.find')}
-              className="shrink-0 rounded-md border border-input px-2 hover:bg-accent disabled:opacity-40"
+              label={t('callerBar.find')}
             >
               {lookup.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               ) : (
-                <Search className="h-4 w-4" aria-hidden />
+                <Search className="h-3.5 w-3.5" aria-hidden />
               )}
-            </button>
+            </IconButton>
           </form>
 
           {lookup.isError && (
@@ -249,14 +251,14 @@ export default function CallerBar({
               </span>
               {/* 🚩 Absent, not disabled: a bar with no signup wired offers no control. */}
               {signup && signup.state.step === 'closed' && (
-                <button
-                  type="button"
+                <Button
+                  variant="outlined"
                   onClick={() => signup.actions.onChange(beginSignup(mobile.trim()))}
                   data-cc-signup-open
-                  className="shrink-0 rounded-md border border-input px-2.5 py-1 text-xs font-medium hover:bg-accent"
+                  className="shrink-0"
                 >
                   {t('callerBar.signUp')}
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -312,15 +314,9 @@ function Found({ member, actions: { onAttach, busy } }: { member: LoyaltyMember;
       <span className="shrink-0 font-mono text-xs text-muted-foreground" data-numeric>
         <Ltr>{member.mobile}</Ltr>
       </span>
-      <button
-        type="button"
-        onClick={() => onAttach(member)}
-        disabled={busy}
-        data-cc-attach
-        className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-      >
+      <Button onClick={() => onAttach(member)} disabled={busy} data-cc-attach className="shrink-0">
         {busy ? t('callerBar.attaching') : t('callerBar.attach')}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -372,7 +368,7 @@ function Attached({
               aria-expanded={showingRequest}
               title={t('linkedRequest.show')}
               data-cc-request-chip
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 hover:bg-accent"
+              className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 hover:bg-accent"
             >
               <span className="text-muted-foreground">{t('linkedRequest.chip')}</span>
               <span className="font-mono font-semibold">
@@ -396,7 +392,7 @@ function Attached({
             // an Arabic locale falls back to keeps its count at its start (408's ruling
             // for the sentence).
             dir="auto"
-            className="shrink-0 rounded-md border border-attention-border bg-attention-050 px-2 py-0.5 text-xs font-medium text-attention-800 hover:opacity-80"
+            className="shrink-0 rounded-full border border-attention-border bg-attention-050 px-2 py-0.5 text-xs font-medium text-attention-800 hover:opacity-80"
           >
             <Trans t={t} ns="callcenter" i18nKey={OPEN_REQUESTS_SHORT} count={openCount} components={{ n: <Ltr /> }} />
           </button>
@@ -404,17 +400,16 @@ function Attached({
       </div>
       {/* 🚩 Removing the caller clears the address and KEEPS the derived store — both
           the server's doing (§6.3), arriving in the projection. */}
-      <button
-        type="button"
+      <IconButton
+        variant="danger"
+        size="compact"
         onClick={onRemove}
         disabled={busy}
         data-cc-remove-caller
-        aria-label={t('callerBar.remove')}
-        title={t('callerBar.remove')}
-        className="shrink-0 rounded-full border border-input p-1 text-muted-foreground hover:bg-accent disabled:opacity-50"
+        label={t('callerBar.remove')}
       >
         {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <X className="h-3 w-3" aria-hidden />}
-      </button>
+      </IconButton>
     </div>
   )
 }
@@ -562,14 +557,9 @@ function LinkedRequestDetail({
           {/* 🚩 The way back out, and the only one: one order converts at most one
               request. It asks before it empties anything (195). */}
           {onUnlink && (
-            <button
-              type="button"
-              onClick={onUnlink}
-              data-cc-request-unlink
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
+            <Button variant="outlined" onClick={onUnlink} data-cc-request-unlink>
               {t('request.unlink.action')}
-            </button>
+            </Button>
           )}
         </>
       }

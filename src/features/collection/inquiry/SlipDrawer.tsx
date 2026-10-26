@@ -7,6 +7,7 @@ import { X } from 'lucide-react'
 import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
 import { READ_ON_EVERY_OPENING, attachmentAccessQuery } from '@/core/attachments/api'
 import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
+import IconButton from '@/core/ui/IconButton'
 import { SHEET } from '@/core/ui/overlay'
 import { uploadInFlight, uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
 import { slipDayPanelOwner } from './api'
@@ -119,17 +120,15 @@ function DrawerFrame({
           <h2 id={titleId} className="text-sm font-semibold tracking-tight">
             {title}
           </h2>
-          <button
-            type="button"
+          <IconButton
             onClick={onClose}
             disabled={busy}
-            aria-label={t('slips.drawer.close')}
-            title={busy ? t('slips.add.busy') : t('slips.drawer.close')}
+            label={t('slips.drawer.close')}
+            title={busy ? t('slips.add.busy') : undefined}
             data-testid="slip-drawer-close"
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-4 w-4" aria-hidden />
-          </button>
+          </IconButton>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
       </div>

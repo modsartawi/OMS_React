@@ -41,8 +41,37 @@ html[data-shell='pill'] #layout-rail [data-active]::before {
 /* Top bar: the design's white search pill and pill chips, at today's 28px. */
 html[data-shell='pill'] [data-palette-field] {
   border-radius: 9999px;
-  background: #fff;
+  background: var(--card);
 }
 html[data-shell='pill'] [data-store-chip] {
   border-radius: 9999px;
+}
+
+/* 586 — Dark B, "navy night": palette B's dark ladder (navy temperature) kept,
+   with 586's lifted navy for the interactive family. Dark A, "graphite", is
+   the `.dark` block in global.css itself (hueless, gated 184/184). */
+@media screen {
+  html.dark[data-dark='navy'] {
+    --background: #0a111d;
+    --foreground: #e6ebf2;
+    --card: #111a28;
+    --card-foreground: #e6ebf2;
+    --card-2: #162131;
+    --muted: #1b2536;
+    --muted-foreground: #a3afc0;
+    --ink-3: #788599;
+    --accent: #222e41;
+    --accent-foreground: #e6ebf2;
+    --border: #212c3d;
+    --border-strong: #2e3b4f;
+    --divider: #1a2433;
+    --input: #5a6780;
+    --primary-foreground: #0a111d;
+    --secondary: #8794a8;
+    --secondary-press: #98a4b6;
+    --secondary-foreground: #0a111d;
+    --destructive-foreground: #0a111d;
+    --grid-head: #162131;
+    --grid-head-foreground: #a3afc0;
+  }
 }

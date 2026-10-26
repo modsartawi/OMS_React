@@ -1,39 +1,54 @@
-/* PROTOTYPE — throwaway (map 580, ticket 587). Never merge to main.
- * ← / → the rail's look, ↑ / ↓ the mark it carries. Dev chrome, so no t().
+/* PROTOTYPE — throwaway (map 580, tickets 587 + 586). Never merge to main.
+ * 587 is settled (DMSCO lockup + look B), so the bar now switches 586's dark candidates:
+ * ← / → the theme. Dev chrome, so no t().
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import PrototypeSwitcher from '@/core/ui/PrototypeSwitcher'
-import { useShellProto, type ShellLook, type ShellMark } from './shell-proto'
+import { useTheme } from '../theme'
 import '@/app/prototype-dmsco-shell.css'
 
-const LOOKS = [
-  { key: 'flat', name: 'A — today’s rail, DMSCO palette (gold bar marker)' },
-  { key: 'pill', name: 'B — the design’s top-bar treatment (deep navy, filled pill, gold icon)' },
+const THEMES = [
+  { key: 'light', name: 'Light (585, for reference)' },
+  { key: 'graphite', name: 'Dark A — graphite: hueless greys, like light (R1)' },
+  { key: 'navy', name: 'Dark B — navy night: today’s navy-tinted ladder' },
 ]
-const MARKS = [
-  { key: 'dmsco', label: 'DMSCO lockup', proves: 'the company mark, white twin; the dotted D when collapsed' },
-  { key: 'aldawaa', label: 'al-dawaa mark', proves: 'today’s gold glyph + BackOffice' },
-  { key: 'both', label: 'Both', proves: 'DMSCO at the head, al-dawaa · BackOffice under it' },
-]
+const SCENARIOS = [{ key: 'live', label: 'Live staging data', proves: 'real rows, real density' }]
+
+function read(): string {
+  try {
+    return localStorage.getItem('proto.dark') ?? 'graphite'
+  } catch {
+    return 'graphite'
+  }
+}
 
 export default function ShellSwitcherPrototype() {
-  const { look, mark, setLook, setMark } = useShellProto()
+  const [theme, setTheme] = useState(read)
+  const dark = useTheme((s) => s.dark)
+  const toggle = useTheme((s) => s.toggle)
 
   useEffect(() => {
     const root = document.documentElement
-    root.dataset.shell = look
-    // 584's compact skin set only the radius beyond what 585 moved into global.css.
+    root.dataset.shell = 'pill'
     delete root.dataset.skin
-  }, [look])
+    root.dataset.dark = theme
+    if ((theme !== 'light') !== dark) toggle()
+    try {
+      localStorage.setItem('proto.dark', theme)
+      localStorage.setItem('proto.shell.mark', 'dmsco')
+    } catch {
+      /* private window */
+    }
+  }, [theme, dark, toggle])
 
   return (
     <PrototypeSwitcher
-      variants={LOOKS}
-      variant={look}
-      onVariant={(k) => setLook(k as ShellLook)}
-      scenarios={MARKS}
-      scenario={mark}
-      onScenario={(k) => setMark(k as ShellMark)}
+      variants={THEMES}
+      variant={theme}
+      onVariant={setTheme}
+      scenarios={SCENARIOS}
+      scenario="live"
+      onScenario={() => {}}
     />
   )
 }

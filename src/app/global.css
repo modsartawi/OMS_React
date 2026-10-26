@@ -348,32 +348,32 @@
 @media screen {
   .dark {
     /* R1 — the ladder holds; the temperature is the navy's. */
-    --background: #0a111d;
-    --foreground: #e6ebf2; /* off-white; pure white haloes on a dark panel */
-    --card: #111a28;
-    --card-foreground: #e6ebf2;
-    --card-2: #162131;
-    --muted: #1b2536;
-    --muted-foreground: #a3afc0;
-    --ink-3: #788599; /* tertiary — held to the UI floor only, in both themes */
-    --accent: #222e41; /* R3 — hover moves UP in dark */
-    --accent-foreground: #e6ebf2;
-    --border: #212c3d;
-    --border-strong: #2e3b4f;
-    --divider: #1a2433;
-    --input: #5a6780; /* 3:1 on card, as in light */
-    --ring: #fdc801; /* gold — 11.18 on card (F6) */
+    --background: #111111;
+    --foreground: #eaeaea; /* off-white; pure white haloes on a dark panel */
+    --card: #1a1a1a;
+    --card-foreground: #eaeaea;
+    --card-2: #202020;
+    --muted: #252525;
+    --muted-foreground: #aeaeae;
+    --ink-3: #848484; /* tertiary — held to the UI floor only, in both themes */
+    --accent: #2e2e2e; /* R3 — hover moves UP in dark */
+    --accent-foreground: #eaeaea;
+    --border: #2b2b2b;
+    --border-strong: #3a3a3a;
+    --divider: #232323;
+    --input: #707070; /* 3:1 on card, as in light */
+    --ring: #fec33b; /* gold — 11.18 on card (F6) */
 
     /* R2 — the navy lifted, hue held. */
-    --primary: #79a7ec;
-    --primary-050: #1a2b45; /* R4 */
-    --primary-border: #2c4469; /* R4 */
-    --primary-800: #bcd4f6; /* R4 */
-    --primary-foreground: #0a111d; /* R2 consequence — NOT white. See the gate's negative assertion. */
+    --primary: #9db2d8;
+    --primary-050: #232e42; /* R4 */
+    --primary-border: #3e4d69; /* R4 */
+    --primary-800: #c3d2ec; /* R4 */
+    --primary-foreground: #111111; /* R2 consequence — NOT white. See the gate's negative assertion. */
 
-    --secondary: #8794a8;
-    --secondary-press: #98a4b6; /* R3 */
-    --secondary-foreground: #0a111d;
+    --secondary: #939393;
+    --secondary-press: #a3a3a3; /* R3 */
+    --secondary-foreground: #111111;
 
     /* The status families below are 082's dark values, byte for byte (F3). */
     --success: #55b577; /* R2, H 152.8 held */
@@ -395,13 +395,13 @@
     --post-800: #d3c7f4;
 
     --destructive: var(--danger);
-    --destructive-foreground: #0a111d;
+    --destructive-foreground: #111111;
 
     --rail-foreground: #c7d2e3; /* the rail stays navy; only its ink steps down */
 
-    --cursor: #fdc801; /* gold on dark — 11.18 on card */
-    --grid-head: #162131;
-    --grid-head-foreground: #a3afc0;
+    --cursor: #fec33b; /* gold on dark — 11.18 on card */
+    --grid-head: #202020;
+    --grid-head-foreground: #aeaeae;
     --shadow-pop: 0 12px 34px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
     --backdrop: rgb(0 0 0 / 0.5);
 

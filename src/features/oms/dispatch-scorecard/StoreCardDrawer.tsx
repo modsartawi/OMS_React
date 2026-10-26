@@ -224,7 +224,7 @@ function MeasureTile({ m, dash, onOpen }: { m: DispatchScorecardCardMeasure; das
     <button
       type="button"
       onClick={onOpen}
-      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-border/60 bg-card p-3 text-start hover:border-primary/50"
+      className="flex cursor-pointer flex-col items-start gap-1 rounded-lg border border-border bg-card p-3 text-start hover:border-primary"
       data-sc-card-measure={m.measure}
     >
       <span className="text-xs text-muted-foreground">{t(`measure.${m.measure}`)}</span>

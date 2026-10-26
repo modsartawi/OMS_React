@@ -1132,6 +1132,141 @@ SCREENS.push({
   },
 })
 
+// --- 599: the OMS screens on the shared controls ------------------------------
+// The oms area sweep (spec 590 §Shared controls). Self-contained: its stubs, its helper and
+// its screens. Light, dark and RTL over the area's heaviest screens — Delivery details (the
+// note composer's Textarea, then the Mark delivered and Request cancellation dialogs, whose
+// Selects and Textarea sit in Fields) and Prescription sessions (the HQ tab Chips, the view
+// and flag Chips, the Open and Ended filter Fields) — proving every field labelled and on the
+// shared look, the chips' looks by state, and the role tokens resolved.
+// Fixtures: the 078 captured delivery (8000000253) and the HQ list's own shape.
+
+const OMS_DOCUMENT_COPY = JSON.parse(readFileSync('src/locales/en/document.json', 'utf8'))
+const OMS_DELIVERY = (() => {
+  const doc = JSON.parse(readFileSync('.issues/assets/078-document-payloads/8000000253-delivery.json', 'utf8')).data
+  // Out for delivery, so Mark delivered and Request cancellation are both takeable.
+  return { ...doc, status: { ...doc.status, deliveryStatus: 'O', closeStatus: '' } }
+})()
+const OMS_STUBS = [
+  [/^SdDocumentWeb\/Access$/, { canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, canMarkDelivered: true }],
+  [/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/, OMS_DELIVERY],
+  [/^SdDocumentWeb\/MarkDeliveredReasons$/, [
+    { code: 'CARR', description: 'Carrier did not update the status' },
+    { code: 'OTHR', description: 'Other (note required)' },
+  ]],
+  [/^PrescriptionSessionWeb\/Sessions(\/Owed)?$/, { rows: [], total: 0, stalled: 3, aboutToLapse: 1, owed: 2, isTruncated: false }],
+  [/^PrescriptionSessionWeb\/(Ended|ToOpen)/, []],
+  // Every other door of these screens answers an empty list (logs, jobs, donors, callouts, …).
+  [/^(SdDocument|PrescriptionSession)(?!.*Access$)/, []],
+]
+
+/** Goes to an oms page and waits for its own hook; fonts settled, mouse parked. */
+async function openOmsPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** Opens a command's dialog from Delivery details' command panel and waits for `hook` inside it. */
+async function openOmsDialog(page, command, hook) {
+  await page.locator(`[data-command="${command}"]`).click()
+  await page.waitForSelector(`dialog[open] ${hook}`, { timeout: 5000 })
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+SCREENS.push({
+  key: 'oms-document',
+  path: '/oms/delivery/8000000253',
+  stubs: OMS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openOmsPage(page, '/oms/delivery/8000000253', '#note-composer'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The note composer: a Textarea under its own label.
+    await expectLabelled(ctx, 'note composer', '#note-composer')
+    await expectRole(ctx, 'note composer (Textarea)', '#note-composer', 'border-top-color', '--input')
+    await expectRole(ctx, 'note composer (Textarea)', '#note-composer', 'background-color', '--card')
+    await expectFocusRing(ctx, 'note composer (Textarea)', '#note-composer')
+    await expectAllFieldsShared(ctx, 'composer form', '[data-composer]')
+    await expectIconButtonsNamed(ctx, 'delivery details', 'main', 1)
+    await shot('details')
+
+    // ── Mark delivered: the reason Select and the note Textarea, each in a Field.
+    await openOmsDialog(page, 'mark-delivered', '#mark-delivered-reason')
+    await expectLabelled(ctx, 'Mark delivered dialog', FIELDS('dialog[open]'))
+    await expectAllFieldsShared(ctx, 'Mark delivered dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'reason (Select)', '#mark-delivered-reason')
+    await expectFocusRing(ctx, 'reason (Select)', '#mark-delivered-reason')
+    await page.locator('#mark-delivered-reason').selectOption('OTHR')
+    await expectDescribed(ctx, 'note (Textarea), Other picked', '#mark-delivered-note', OMS_DOCUMENT_COPY.markDelivered.note.required)
+    await shot('mark-delivered')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('dialog[open]', { state: 'detached', timeout: 5000 }).catch(() => {})
+
+    // ── Request cancellation: its reason Select in a Field.
+    await openOmsDialog(page, 'request-close', '#request-close-reason')
+    await expectLabelled(ctx, 'Request cancellation dialog', FIELDS('dialog[open]'))
+    await expectFieldLook(ctx, 'cancellation reason (Select)', '#request-close-reason')
+    await shot('request-close')
+  },
+})
+
+SCREENS.push({
+  key: 'oms-prescriptions',
+  path: '/oms/prescription-sessions',
+  stubs: OMS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openOmsPage(page, '/oms/prescription-sessions', '[data-ps-filters]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The HQ tabs: tab Chips inside the tablist.
+    await expectTabChips(ctx, 'HQ tabs', '[role="tablist"]:has([data-ps-tab-button])', 3)
+
+    // ── Open: the view Chips (All open on), the flag Chips (off until pressed).
+    await expectChipLook(ctx, 'All open view', '[data-ps-view-button="all"]', true)
+    await expectChipLook(ctx, 'Owed view', '[data-ps-view-button="owed"]', false)
+    const flag = '[data-ps-chip]:first-child'
+    await expectChipLook(ctx, 'flag chip', flag, false)
+    await page.locator(flag).click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    const pressed = await page.locator(flag).getAttribute('aria-pressed')
+    check(`${tag} flag chip: a click presses it`, pressed === 'true', String(pressed))
+    await expectChipLook(ctx, 'flag chip', flag, true)
+    await expectAllPills(ctx, 'view and flag chips', '[data-ps-view-button], [data-ps-chip]')
+
+    // ── Open: the filter Fields (an Input with its hint, three Selects, two number Inputs).
+    const filters = '[data-ps-filters]'
+    await expectLabelled(ctx, 'open filters', FIELDS(filters))
+    await expectAllFieldsShared(ctx, 'open filters', filters)
+    await expectFieldLook(ctx, 'store (Input)', '[data-ps-filter="store"]')
+    await expectDescribed(ctx, 'store (Input)', '[data-ps-filter="store"]', await page.locator('[data-ps-store-hint]').textContent())
+    await expectFieldLook(ctx, 'state (Select)', '[data-ps-filter="state"]')
+    await expectFocusRing(ctx, 'state (Select)', '[data-ps-filter="state"]')
+    await expectAllPills(ctx, 'Search / Reset', '[data-ps-search], [data-ps-reset]')
+    await shot('open')
+
+    // ── Ended: date Inputs, a store Input with its hint, a state Select — each in a Field.
+    await page.locator('[data-ps-tab-button="ended"]').click()
+    await page.waitForSelector('[data-ps-ended-filter="store"]', { timeout: 10000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400)
+    await expectChipLook(ctx, 'Ended tab after click', '[data-ps-tab-button="ended"]', true)
+    const ended = 'form:has([data-ps-ended-filter])'
+    await expectLabelled(ctx, 'ended filters', FIELDS(ended))
+    await expectAllFieldsShared(ctx, 'ended filters', ended)
+    await expectFieldLook(ctx, 'ended from (date Input)', '[data-ps-ended-filter="from"]')
+    await shot('ended')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

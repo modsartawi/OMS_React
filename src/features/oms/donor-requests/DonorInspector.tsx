@@ -10,6 +10,7 @@ import { clampInspectorWidth } from '@/core/ui/inspector-pane'
 import { formatDateTime } from '@/core/util/date-format'
 import { pickTimeText } from './columns'
 import { donorInspector, type DonorInspectorMoment, type DonorInspectorView } from './inspector'
+import Button from '@/core/ui/Button'
 
 /** The pane's id, for the separator's `aria-controls`. */
 export const DONOR_INSPECTOR_ID = 'donor-inspector'
@@ -180,18 +181,18 @@ function Body({ view, onOpen }: { view: DonorInspectorView; onOpen: (to: string)
       </Section>
 
       {/* Read-only (D9): the request's delivery is where anything is done. */}
-      <button
-        type="button"
+      <Button
+        variant="primary"
         data-donor-open=""
         disabled={!openTo}
         title={openTo ? undefined : t('inspector.noDelivery')}
         onClick={() => openTo && onOpen(openTo)}
-        className="flex h-8 items-center justify-center gap-2 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 disabled:hover:bg-primary"
+        className="w-full"
       >
         <ExternalLink className="size-3.5" aria-hidden />
         {t('inspector.open')}
         <Kbd>{t('common:keys.enter')}</Kbd>
-      </button>
+      </Button>
     </div>
   )
 }

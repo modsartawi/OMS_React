@@ -32,6 +32,9 @@ import {
   type ChangesFilter,
 } from './history-filter'
 import { DeniedCard, NotFoundCard } from './StateCards'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 export interface HistoryTabProps {
   servingListId: string
@@ -173,17 +176,13 @@ export default function HistoryTab({ servingListId }: HistoryTabProps) {
   )
 }
 
-const FIELD = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
 /** Client-side, so each change applies at once (no Apply): the rows are already read. */
 function Filters({ filter, options, onChange }: { filter: ChangesFilter; options: string[]; onChange: (f: ChangesFilter) => void }) {
   const { t } = useTranslation('serving-lists')
-  const label = 'flex flex-col gap-0.5 text-xs font-medium text-muted-foreground'
   return (
     <div className="flex flex-wrap items-end gap-2" data-history-filters="">
-      <label className={label}>
-        {t('history.filters.action')}
-        <select value={filter.action} onChange={(e) => onChange({ ...filter, action: e.target.value })} className={FIELD} data-filter="action">
+      <Field label={t('history.filters.action')}>
+        <Select value={filter.action} onChange={(e) => onChange({ ...filter, action: e.target.value })} data-filter="action">
           <option value="">{t('history.filters.any')}</option>
           {options.map((a) => {
             const key = changeActionKey(a)
@@ -194,20 +193,19 @@ function Filters({ filter, options, onChange }: { filter: ChangesFilter; options
               </option>
             )
           })}
-        </select>
-      </label>
-      <label className={label}>
-        {t('history.filters.store')}
-        <input
+        </Select>
+      </Field>
+      <Field label={t('history.filters.store')}>
+        <Input
           type="search"
           value={filter.store}
           onChange={(e) => onChange({ ...filter, store: e.target.value })}
           placeholder={t('history.filters.storePlaceholder')}
           dir="ltr"
-          className={FIELD + ' w-36 font-mono'}
+          className="w-36 font-mono"
           data-filter="store"
         />
-      </label>
+      </Field>
       {isFilteredChanges(filter) && (
         <Button type="button" variant="text" onClick={() => onChange(EMPTY_CHANGES_FILTER)} data-filter-clear="">
           {t('history.filters.clear')}

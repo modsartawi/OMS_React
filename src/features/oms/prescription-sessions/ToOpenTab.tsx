@@ -14,10 +14,9 @@ import { formatDateTime } from '@/core/util/date-format'
 import { prescriptionSessionsApi } from './api'
 import Denied from './Denied'
 import { toOpenFilterFromParams, toOpenFilterToParams, toOpenGroups, toOpenRequest, type ToOpenGroup } from './to-open'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 const CODE = 'font-mono text-[12px]'
 const TH = 'px-3 py-2 text-start text-xs font-medium text-muted-foreground'
 const TD = 'px-3 py-2 align-top'
@@ -76,17 +75,16 @@ export default function ToOpenTab() {
         }}
         data-ps-to-open-filters=""
       >
-        <label className={FIELD}>
-          {t('toOpen.store')}
-          <input
+        <Field label={t('toOpen.store')}>
+          <Input
             type="text"
             value={store}
             onChange={(e) => setStore(e.target.value)}
             placeholder={t('filters.storePlaceholder')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-ps-to-open-store=""
           />
-        </label>
+        </Field>
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={list.isFetching} data-ps-to-open-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />

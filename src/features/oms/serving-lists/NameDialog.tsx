@@ -12,8 +12,8 @@ import { servingListsApi } from './api'
 import { NAME_MAX, nameBody, nameCheck, type NameForm, type NameProblem } from './name-form'
 import WriteDialog, { useRefreshList } from './WriteDialog'
 import { writeRefusal } from './write-refusal'
-
-const FIELD = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * Create a list (`POST ServingListWeb/Lists`) or rename one (`PUT …/Lists/{id}/Name`) — oms ticket 570. Both
@@ -121,28 +121,31 @@ function NameField({
   // "Required" only once the field was typed in; "too long" as soon as it is.
   const shown = problem === 'tooLong' || (problem === 'required' && touched) ? problem : null
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium">
-      <span className="flex items-baseline justify-between gap-2">
-        {label}
-        <span className={'font-mono font-normal tabular-nums ' + (problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}>
-          <Ltr>{formatCount(value.trim().length, NAME_MAX)}</Ltr>
+    <Field
+      label={
+        <span className="flex items-baseline justify-between gap-2">
+          {label}
+          <span className={'font-mono font-normal tabular-nums ' + (problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}>
+            <Ltr>{formatCount(value.trim().length, NAME_MAX)}</Ltr>
+          </span>
         </span>
-      </span>
-      <input
+      }
+      error={
+        shown ? (
+          <span role="alert" data-name-problem={`${hook}:${shown}`}>
+            {t(`writes.name.${shown}`)}
+          </span>
+        ) : undefined
+      }
+    >
+      <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         dir={dir}
         lang={lang}
         disabled={disabled}
-        aria-invalid={shown !== null}
-        className={FIELD}
         data-name-field={hook}
       />
-      {shown && (
-        <span role="alert" className="font-normal text-danger-800" data-name-problem={`${hook}:${shown}`}>
-          {t(`writes.name.${shown}`)}
-        </span>
-      )}
-    </label>
+    </Field>
   )
 }

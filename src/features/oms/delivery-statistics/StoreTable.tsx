@@ -9,7 +9,6 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { pinStart } from '@/core/theme/direction'
 import type { DeliveryStatisticsStore } from '@/core/models/delivery-statistics'
-import { PILL, PILL_GROUP, PILL_OFF, PILL_ON } from './controls'
 import { readAverage, readFigure } from './figures'
 import { compareFigures } from '@/core/util/compare-figures'
 import {
@@ -22,6 +21,7 @@ import {
   type StoreRow,
   type TableTrack,
 } from './store-rows'
+import Chip from '@/core/ui/Chip'
 
 const DEFAULT_COL_DEF: ColDef<StoreRow> = {
   ...OMS_GRID_BASE_COL_DEF,
@@ -113,18 +113,11 @@ export default function StoreTable({
     <section className="flex flex-col gap-2" data-statistics-band="stores">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t('band.stores')}</h2>
-        <div role="group" aria-label={t('table.track.label')} className={PILL_GROUP} data-statistics-track-switch="">
+        <div role="group" aria-label={t('table.track.label')} className="inline-flex items-center gap-1" data-statistics-track-switch="">
           {TABLE_TRACKS.map((view) => (
-            <button
-              key={view}
-              type="button"
-              aria-pressed={track === view}
-              onClick={() => onTrack(view)}
-              className={`${PILL} ${track === view ? PILL_ON : PILL_OFF}`}
-              data-statistics-track={view}
-            >
+            <Chip key={view} on={track === view} onClick={() => onTrack(view)} data-statistics-track={view}>
               {t(TRACK_CAPTION[view])}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>

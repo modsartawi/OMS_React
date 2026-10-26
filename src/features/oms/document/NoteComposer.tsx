@@ -7,6 +7,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { canPost, type ComposerState } from './composer'
+import Textarea from '@/core/ui/Textarea'
 
 /** The composer form's own submit: from the box only, never a page key (K5). */
 const POST_KEYS = 'Ctrl+Enter'
@@ -80,7 +81,7 @@ export default function NoteComposer({
         {t('composer.label')}
         {focusHint.ariaKeyShortcuts && focusKeys && <KeyChord keys={focusKeys} />}
       </label>
-      <textarea
+      <Textarea
         id="note-composer"
         ref={textareaRef}
         rows={2}
@@ -92,7 +93,7 @@ export default function NoteComposer({
         aria-keyshortcuts={focusHint.ariaKeyShortcuts}
         aria-describedby={failure ? 'note-composer-failure' : undefined}
         placeholder={t('composer.placeholder')}
-        className="min-h-14 w-full resize-y rounded-md border border-input bg-card px-2 py-1.5 text-[0.8125rem]"
+        className="min-h-14 w-full resize-y"
       />
       <div className="flex items-center gap-2 text-[0.6875rem] text-muted-foreground">
         <span data-composer-hint="">

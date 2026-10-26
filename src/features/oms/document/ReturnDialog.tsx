@@ -27,6 +27,8 @@ import {
   type ReturnLineSelection,
   type ReturnReason,
 } from './return-order'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 /** The two reasons, in the order the build target draws them. */
 const REASONS: ReturnReason[] = ['RTRF', 'RF']
@@ -536,20 +538,20 @@ export default function ReturnDialog({
                         refused after the fact.
                       */}
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded-md border border-border disabled:opacity-40"
+                        <IconButton
+                          variant="outlined"
+                          size="compact"
                           disabled={!state.picked || (state.quantity ?? 0) <= 1}
                           onClick={() => step(row, -1)}
-                          aria-label={t('returnDocument.lines.decrease', {
+                          label={t('returnDocument.lines.decrease', {
                             lineNumber: row.lineNumber,
                           })}
                           data-return-step={`${row.lineNumber}:-1`}
                         >
                           <Minus className="h-3 w-3" aria-hidden />
-                        </button>
-                        <input
-                          className="h-6 w-12 rounded-md border border-border bg-card px-1 text-center tabular-nums disabled:opacity-40"
+                        </IconButton>
+                        <Input
+                          className="w-12 text-center tabular-nums"
                           inputMode="numeric"
                           disabled={!state.picked}
                           value={state.draft}
@@ -560,18 +562,18 @@ export default function ReturnDialog({
                           })}
                           data-return-qty={row.lineNumber}
                         />
-                        <button
-                          type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded-md border border-border disabled:opacity-40"
+                        <IconButton
+                          variant="outlined"
+                          size="compact"
                           disabled={!state.picked || (state.quantity ?? 0) >= row.remaining}
                           onClick={() => step(row, 1)}
-                          aria-label={t('returnDocument.lines.increase', {
+                          label={t('returnDocument.lines.increase', {
                             lineNumber: row.lineNumber,
                           })}
                           data-return-step={`${row.lineNumber}:1`}
                         >
                           <Plus className="h-3 w-3" aria-hidden />
-                        </button>
+                        </IconButton>
                       </div>
                       {/*
                         Two different facts, phrased differently: a line something

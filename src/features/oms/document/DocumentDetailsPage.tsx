@@ -65,6 +65,7 @@ import ReturnDialog from './ReturnDialog'
 import MarkDeliveredDialog from './MarkDeliveredDialog'
 import { markDeliveredGate } from './mark-delivered'
 import { useOrderAttachments } from './use-order-attachments'
+import Chip from '@/core/ui/Chip'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
 function numericAsc(a: string, b: string): number {
@@ -773,19 +774,15 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 {hasCallout && (
                   <div role="tablist" aria-label={t('callout.tabs.label')} className="flex gap-1" data-activity-tabs="">
                     {(['activity', 'callout'] as const).map((view) => (
-                      <button
+                      <Chip
                         key={view}
-                        type="button"
-                        role="tab"
-                        aria-selected={activityView === view}
+                        variant="tab"
+                        on={activityView === view}
                         onClick={() => setActivityView(view)}
                         data-activity-tab={view}
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          activityView === view ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                        }`}
                       >
                         {t(`callout.tabs.${view}`)}
-                      </button>
+                      </Chip>
                     ))}
                   </div>
                 )}

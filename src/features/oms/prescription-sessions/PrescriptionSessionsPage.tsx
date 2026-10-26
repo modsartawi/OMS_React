@@ -4,6 +4,7 @@ import EndedTab from './EndedTab'
 import OpenTab from './OpenTab'
 import { HQ_TABS, tabFromParams, tabParams, type HqTab } from './tab'
 import ToOpenTab from './ToOpenTab'
+import Chip from '@/core/ui/Chip'
 
 const PANEL_ID = 'ps-hq-tab-panel'
 
@@ -31,24 +32,19 @@ export default function PrescriptionSessionsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
 
-      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border pb-2">
         {HQ_TABS.map((id) => (
-          <button
+          <Chip
             key={id}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={tab === id}
             id={`ps-hq-tab-${id}`}
-            aria-selected={tab === id}
             aria-controls={PANEL_ID}
             onClick={() => select(id)}
             data-ps-tab-button={id}
-            className={
-              'border-b-2 px-3 py-2 text-sm transition-colors ' +
-              (tab === id ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
           >
             {t(`tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

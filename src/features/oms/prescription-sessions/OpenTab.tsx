@@ -39,6 +39,10 @@ import {
 import { flagChips, openRow, type OpenGridRow } from './open-row'
 import WriteOffDialog from './WriteOffDialog'
 import { useWriteOffGrant } from './write-off-grant'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Chip from '@/core/ui/Chip'
 
 /** The bad-filter refusal (`PrescriptionSessionHqErrorCodes.BadFilter`): said beside the filters. */
 const BAD_FILTER = 'PSES-00223'
@@ -51,9 +55,6 @@ const DEFAULT_COL_DEF: ColDef<OpenGridRow> = {
   suppressHeaderMenuButton: true,
 }
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** What the filter bar edits before Search promotes it to the address. */
 type Draft = Pick<OpenFilter, 'store' | 'state' | 'owner' | 'source' | 'minAge' | 'maxAge'>
@@ -125,12 +126,11 @@ export default function OpenTab() {
   }
 
   const select = (key: keyof Draft, label: string, codes: readonly string[], word: (c: string) => ReturnType<typeof stateWord>) => (
-    <label className={FIELD}>
-      {label}
-      <select
+    <Field label={label}>
+      <Select
         value={draft[key]}
         onChange={(e) => patch({ [key]: e.target.value })}
-        className={`${INPUT} w-44`}
+        className="w-44"
         data-ps-filter={key}
       >
         <option value="">{t('filters.any')}</option>
@@ -139,26 +139,17 @@ export default function OpenTab() {
             {wordText(tw, word(c))}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Field>
   )
 
   return (
     <div className="flex flex-col gap-3" data-ps-open="" data-ps-view={filter.view}>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('views.label')}>
         {(['all', 'owed'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={filter.view === v}
-            onClick={() => setView(v)}
-            className={`rounded-full border px-3 py-1 text-sm font-medium ${
-              filter.view === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border/60 text-foreground hover:bg-muted'
-            }`}
-            data-ps-view-button={v}
-          >
+          <Chip key={v} on={filter.view === v} onClick={() => setView(v)} data-ps-view-button={v}>
             {t(`views.${v}`)}
-          </button>
+          </Chip>
         ))}
         {owedView && <span className="text-xs text-muted-foreground">{t('views.owedHint')}</span>}
       </div>
@@ -171,52 +162,45 @@ export default function OpenTab() {
         }}
         data-ps-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.store')}
-          <input
+        <Field label={t('filters.store')} hint={<span data-ps-store-hint="">{t('filters.storeHint')}</span>}>
+          <Input
             type="text"
             value={draft.store}
             onChange={(e) => patch({ store: e.target.value })}
             placeholder={t('filters.storePlaceholder')}
-            aria-describedby="ps-store-hint"
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-ps-filter="store"
           />
-          <span id="ps-store-hint" className="font-normal" data-ps-store-hint="">
-            {t('filters.storeHint')}
-          </span>
-        </label>
+        </Field>
         {!owedView && (
           <>
             {select('state', t('filters.state'), OPEN_STATES, stateWord)}
             {select('owner', t('filters.owner'), PRESCRIPTION_STEP_OWNERS, ownerWord)}
             {select('source', t('filters.source'), PRESCRIPTION_SOURCE_KINDS, sourceWord)}
-            <label className={FIELD}>
-              {t('filters.minAge')}
-              <input
+            <Field label={t('filters.minAge')}>
+              <Input
                 type="number"
                 min={0}
                 step={1}
                 inputMode="numeric"
                 value={draft.minAge}
                 onChange={(e) => patch({ minAge: e.target.value })}
-                className={`${INPUT} w-24`}
+                className="w-24"
                 data-ps-filter="minAge"
               />
-            </label>
-            <label className={FIELD}>
-              {t('filters.maxAge')}
-              <input
+            </Field>
+            <Field label={t('filters.maxAge')}>
+              <Input
                 type="number"
                 min={0}
                 step={1}
                 inputMode="numeric"
                 value={draft.maxAge}
                 onChange={(e) => patch({ maxAge: e.target.value })}
-                className={`${INPUT} w-24`}
+                className="w-24"
                 data-ps-filter="maxAge"
               />
-            </label>
+            </Field>
           </>
         )}
         <div className="flex items-center gap-2 self-start pt-5">
@@ -238,15 +222,12 @@ export default function OpenTab() {
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('flags.label')} data-ps-chips="">
         {chips.map((chip) => (
-          <button
+          <Chip
             key={chip.flag}
-            type="button"
-            aria-pressed={chip.pressed}
+            on={chip.pressed}
             disabled={owedView}
             onClick={() => update((prev) => withFlag(prev, chip.flag))}
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium disabled:opacity-60 ${
-              chip.pressed ? 'border-primary bg-primary text-primary-foreground' : 'border-border/60 text-foreground hover:bg-muted'
-            }`}
+            className="gap-2"
             data-ps-chip={chip.flag}
           >
             {wordText(tw, flagWord(chip.flag))}
@@ -256,7 +237,7 @@ export default function OpenTab() {
                 <Ltr>{chip.count}</Ltr>
               </span>
             )}
-          </button>
+          </Chip>
         ))}
       </div>
 

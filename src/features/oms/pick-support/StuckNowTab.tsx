@@ -14,9 +14,9 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { censusQuery, compareSince, sortSince, type CensusFilter } from './census-view'
-
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Field from '@/core/ui/Field'
 
 const DEFAULT_COL_DEF: ColDef<PickSupportCensusRow> = { ...OMS_GRID_BASE_COL_DEF, sortable: true, resizable: true }
 
@@ -101,23 +101,21 @@ export default function StuckNowTab({
         }}
         data-ps-census-filters=""
       >
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('stuck.store')}
-          <input
+        <Field label={t('stuck.store')}>
+          <Input
             type="text"
             value={store}
             onChange={(e) => setStore(e.target.value)}
             placeholder={t('stuck.storePlaceholder')}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-ps-census-store=""
           />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('stuck.shape')}
-          <select
+        </Field>
+        <Field label={t('stuck.shape')}>
+          <Select
             value={filter.shape}
             onChange={(e) => onFilter({ shape: e.target.value, store: store.trim() })}
-            className={`${INPUT} w-72 font-mono`}
+            className="w-72 font-mono"
             data-ps-census-shape=""
           >
             <option value="">{t('stuck.allShapes')}</option>
@@ -126,8 +124,8 @@ export default function StuckNowTab({
                 {fsi(s)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button type="submit" variant="secondary" data-ps-census-apply="">
           {t('stuck.apply')}
         </Button>

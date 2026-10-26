@@ -34,6 +34,10 @@ import {
 } from './criteria'
 import { ACTIONS_COL_ID, EXPORT_AS_TEXT, paymentColumns } from './columns'
 import { paymentRowOffers } from './row-offers'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 
 /**
  * Document payments (ticket 433, spec 430 D4/D10/D11): the WPF Document Payment Inquiry on the web.
@@ -61,11 +65,6 @@ const DEFAULT_COL_DEF: ColDef<DocumentPaymentModel> = {
   suppressHeaderMenuButton: true,
 }
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const NUMBERS =
-  'h-[3.75rem] w-48 resize-y rounded-md border border-border/60 bg-background px-2.5 py-1.5 font-mono text-[12px] text-foreground focus:border-primary/50 focus:outline-none'
 
 /** The number the guard names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
@@ -165,31 +164,27 @@ function DocumentPaymentList() {
         }}
         data-payment-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.from')}
-          <input type="date" value={draft.from} onChange={(e) => patch({ from: e.target.value })} className={`${INPUT} w-40`} data-payment-filter="from" />
-        </label>
-        <label className={FIELD}>
-          {t('filters.to')}
-          <input type="date" value={draft.to} onChange={(e) => patch({ to: e.target.value })} className={`${INPUT} w-40`} data-payment-filter="to" />
-        </label>
-        <label className={FIELD}>
-          {t('filters.store')}
-          <input
+        <Field label={t('filters.from')}>
+          <Input type="date" value={draft.from} onChange={(e) => patch({ from: e.target.value })} className="w-40" data-payment-filter="from" />
+        </Field>
+        <Field label={t('filters.to')}>
+          <Input type="date" value={draft.to} onChange={(e) => patch({ to: e.target.value })} className="w-40" data-payment-filter="to" />
+        </Field>
+        <Field label={t('filters.store')}>
+          <Input
             type="text"
             value={draft.storeCode}
             onChange={(e) => patch({ storeCode: e.target.value })}
             placeholder={t('filters.storePlaceholder')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-payment-filter="storeCode"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.documentType')}
-          <select
+        </Field>
+        <Field label={t('filters.documentType')}>
+          <Select
             value={draft.documentType}
             onChange={(e) => patch({ documentType: e.target.value })}
-            className={`${INPUT} w-44`}
+            className="w-44"
             data-payment-filter="documentType"
           >
             <option value="">{t('filters.anyType')}</option>
@@ -198,56 +193,52 @@ function DocumentPaymentList() {
                 {fsi(o.label)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('filters.customerPhone')}
-          <input
+          </Select>
+        </Field>
+        <Field label={t('filters.customerPhone')}>
+          <Input
             type="text"
             inputMode="tel"
             dir="ltr"
             value={draft.customerPhone}
             onChange={(e) => patch({ customerPhone: e.target.value })}
-            className={`${INPUT} w-40 text-start`}
+            className="w-40 text-start"
             data-payment-filter="customerPhone"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.documentNos')}
-          <textarea
+        </Field>
+        <Field label={t('filters.documentNos')}>
+          <Textarea
             value={draft.documentNos}
             onChange={(e) => patch({ documentNos: e.target.value })}
             placeholder={t('filters.numbersPlaceholder')}
             title={t('filters.numbersHint')}
             dir="ltr"
-            className={NUMBERS}
+            className="w-48 resize-y font-mono"
             data-payment-filter="documentNos"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.orderNos')}
-          <textarea
+        </Field>
+        <Field label={t('filters.orderNos')}>
+          <Textarea
             value={draft.orderNos}
             onChange={(e) => patch({ orderNos: e.target.value })}
             placeholder={t('filters.numbersPlaceholder')}
             title={t('filters.numbersHint')}
             dir="ltr"
-            className={NUMBERS}
+            className="w-48 resize-y font-mono"
             data-payment-filter="orderNos"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.limit')}
-          <input
+        </Field>
+        <Field label={t('filters.limit')}>
+          <Input
             type="text"
             inputMode="numeric"
             dir="ltr"
             value={draft.limit}
             onChange={(e) => patch({ limit: e.target.value })}
-            className={`${INPUT} w-20 text-end`}
+            className="w-20 text-end"
             data-payment-filter="limit"
           />
-        </label>
+        </Field>
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={problem !== null || list.isFetching} data-payment-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />

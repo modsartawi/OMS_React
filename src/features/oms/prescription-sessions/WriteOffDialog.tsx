@@ -18,6 +18,8 @@ import { prescriptionSessionsApi } from './api'
 import type { OpenGridRow } from './open-row'
 import { writeOffBlock, writeOffBody, writeOffRefusal, type WriteOffForm } from './write-off'
 import { useWriteOffGrant } from './write-off-grant'
+import Textarea from '@/core/ui/Textarea'
+import Field from '@/core/ui/Field'
 
 /** `PrescriptionSessionWidths.EndNote`: the server clamps the note to this. */
 const NOTE_MAX = 400
@@ -106,9 +108,13 @@ export default function WriteOffDialog({ row, onClose }: { row: OpenGridRow; onC
           ))}
         </fieldset>
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {form.reason === 'OTHER' ? t('writeOff.noteRequired') : t('writeOff.noteOptional')}
-          <textarea
+        <Field
+          label={form.reason === 'OTHER' ? t('writeOff.noteRequired') : t('writeOff.noteOptional')}
+          hint={
+            block === 'noteRequired' ? <span data-ps-write-off-note-hint="">{t('writeOff.noteHint')}</span> : undefined
+          }
+        >
+          <Textarea
             value={form.note}
             onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
             rows={3}
@@ -116,16 +122,9 @@ export default function WriteOffDialog({ row, onClose }: { row: OpenGridRow; onC
             maxLength={NOTE_MAX}
             required={form.reason === 'OTHER'}
             disabled={busy}
-            aria-describedby="ps-write-off-note-hint"
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
             data-ps-write-off-note=""
           />
-          {block === 'noteRequired' && (
-            <span id="ps-write-off-note-hint" className="font-normal text-muted-foreground" data-ps-write-off-note-hint="">
-              {t('writeOff.noteHint')}
-            </span>
-          )}
-        </label>
+        </Field>
 
         {refusal?.kind === 'notGranted' && (
           <ErrorBanner className="p-2" title={t('writeOff.notGrantedTitle')} message={t('writeOff.notGranted')}>

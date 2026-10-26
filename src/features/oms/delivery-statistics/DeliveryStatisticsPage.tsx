@@ -21,7 +21,9 @@ import { buildStatisticsQuery, statisticsFromParams, statisticsToParams, type St
 import ScopeControls from './ScopeControls'
 import SeriesChart from './SeriesChart'
 import StoreTable from './StoreTable'
-import { FIELD, INPUT, PILL, PILL_GROUP, PILL_OFF, PILL_ON } from './controls'
+import Chip from '@/core/ui/Chip'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * Delivery statistics (ticket 484, BackOffice brief 2641, ADR 0081): the till's POS Statistics view,
@@ -227,35 +229,31 @@ function PeriodBar({
   const picks: RangePick[] = [...QUICK_PICKS, 'custom']
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3" data-statistics-controls="">
-      <div role="group" aria-label={t('period.label')} className={PILL_GROUP}>
+      <div role="group" aria-label={t('period.label')} className="inline-flex items-center gap-1">
         {PERIOD_TABS.map((tab) => (
-          <button
+          <Chip
             key={tab}
-            type="button"
-            aria-pressed={query.tab === tab}
+            on={query.tab === tab}
             onClick={() => onChange((q) => withTab(q, tab))}
-            className={`${PILL} ${query.tab === tab ? PILL_ON : PILL_OFF}`}
             data-period-tab={tab}
           >
             {t(`period.tab.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 
       {query.tab === 'range' && (
         <>
-          <fieldset className={FIELD}>
+          <fieldset className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             <legend className="mb-1">
               <Trans t={t} i18nKey="period.rangeCaption" values={{ max: String(MAX_RANGE_DAYS) }} components={{ v: <Ltr /> }} />
             </legend>
-            <div className={PILL_GROUP}>
+            <div className="inline-flex items-center gap-1">
               {picks.map((pick) => (
-                <button
+                <Chip
                   key={pick}
-                  type="button"
-                  aria-pressed={query.pick === pick}
+                  on={query.pick === pick}
                   onClick={() => onChange((q) => withPick(q, pick, now))}
-                  className={`${PILL} ${query.pick === pick ? PILL_ON : PILL_OFF}`}
                   data-range-pick={pick}
                 >
                   {pick === 'custom' ? (
@@ -263,15 +261,14 @@ function PeriodBar({
                   ) : (
                     <Trans t={t} i18nKey="period.days" count={pick} values={{ n: String(pick) }} components={{ v: <Ltr /> }} />
                   )}
-                </button>
+                </Chip>
               ))}
             </div>
           </fieldset>
           {query.pick === 'custom' && (
             <>
-              <label className={FIELD}>
-                {t('period.from')}
-                <input
+              <Field label={t('period.from')}>
+                <Input
                   type="date"
                   value={query.from}
                   max={today}
@@ -279,13 +276,12 @@ function PeriodBar({
                     const from = e.target.value
                     onChange((q) => ({ ...q, from }))
                   }}
-                  className={`${INPUT} w-40`}
+                  className="w-40"
                   data-range-from=""
                 />
-              </label>
-              <label className={FIELD}>
-                {t('period.to')}
-                <input
+              </Field>
+              <Field label={t('period.to')}>
+                <Input
                   type="date"
                   value={query.to}
                   max={today}
@@ -293,10 +289,10 @@ function PeriodBar({
                     const to = e.target.value
                     onChange((q) => ({ ...q, to }))
                   }}
-                  className={`${INPUT} w-40`}
+                  className="w-40"
                   data-range-to=""
                 />
-              </label>
+              </Field>
             </>
           )}
         </>

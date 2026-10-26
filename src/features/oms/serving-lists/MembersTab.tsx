@@ -29,6 +29,9 @@ import {
 import { MemberActionsCell, MemberWriteDialog, type MemberWriteRequest } from './MemberActions'
 import MembersToolbar from './MembersToolbar'
 import { DeniedCard, NotFoundCard } from './StateCards'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /** The door has no paging; a 500-store list is one read, paged by the grid. */
 const MEMBERS_PAGE_SIZE = 50
@@ -130,15 +133,12 @@ export default function MembersTab({ servingListId, list, canEdit }: { servingLi
   )
 }
 
-const FIELD = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
 function Filters({ filter, onApply, resetFromOutside }: { filter: MembersFilter; onApply: (f: MembersFilter) => void; resetFromOutside: () => boolean }) {
   const { t } = useTranslation('serving-lists')
   const [draft, setDraft] = useState(filter)
   useEffect(() => {
     if (resetFromOutside()) setDraft(filter)
   }, [filter, resetFromOutside])
-  const label = 'flex flex-col gap-0.5 text-xs font-medium text-muted-foreground'
 
   return (
     <form
@@ -149,23 +149,20 @@ function Filters({ filter, onApply, resetFromOutside }: { filter: MembersFilter;
       }}
       data-members-filters=""
     >
-      <label className={label}>
-        {t('members.filters.city')}
-        <input
+      <Field label={t('members.filters.city')}>
+        <Input
           value={draft.city}
           onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
           placeholder={t('members.filters.any')}
           dir="auto"
-          className={FIELD + ' w-40'}
+          className="w-40"
           data-filter="city"
         />
-      </label>
-      <label className={label}>
-        {t('members.filters.enabled')}
-        <select
+      </Field>
+      <Field label={t('members.filters.enabled')}>
+        <Select
           value={draft.enabled}
           onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.value as MembersFilter['enabled'] }))}
-          className={FIELD}
           data-filter="enabled"
         >
           <option value="">{t('members.filters.any')}</option>
@@ -174,14 +171,12 @@ function Filters({ filter, onApply, resetFromOutside }: { filter: MembersFilter;
               {t(`member.${o}`)}
             </option>
           ))}
-        </select>
-      </label>
-      <label className={label}>
-        {t('members.filters.duty')}
-        <select
+        </Select>
+      </Field>
+      <Field label={t('members.filters.duty')}>
+        <Select
           value={draft.duty}
           onChange={(e) => setDraft((d) => ({ ...d, duty: e.target.value as MembersFilter['duty'] }))}
-          className={FIELD}
           data-filter="duty"
         >
           <option value="">{t('members.filters.any')}</option>
@@ -190,8 +185,8 @@ function Filters({ filter, onApply, resetFromOutside }: { filter: MembersFilter;
               {t(`members.filters.dutyOption.${o}`)}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
       <Button type="submit" variant="secondary" data-filter-apply="">
         {t('members.filters.apply')}
       </Button>

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { SHEET } from '@/core/ui/overlay'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * The scorecard's side sheet — the house pattern (`sync-console`'s `SnapshotDrawer`; a feature never
@@ -64,16 +65,9 @@ export default function Sheet({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {actions}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('sheet.close')}
-              title={t('sheet.close')}
-              data-sc-close=""
-              className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-            >
+            <IconButton onClick={onClose} label={t('sheet.close')} data-sc-close="">
               <X className="h-4 w-4" aria-hidden />
-            </button>
+            </IconButton>
           </div>
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">{children}</div>

@@ -61,6 +61,10 @@ import {
   type ReportTab,
   type StatusFilter,
 } from './filters'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The serial refusal report (ticket 573, BackOffice 3065, spec 3049): every time head office told a till a serial
@@ -97,11 +101,6 @@ const DEFAULT_COL_DEF: ColDef = {
   wrapHeaderText: true,
   autoHeaderHeight: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const TAB = 'rounded-full px-3 py-1 text-sm transition-colors'
 
 /** The totals tiles, in reading order: the answer split, then whose sale it was, then who asked. */
 const TILES: readonly (keyof SerialRefusalTotals)[] = [
@@ -182,43 +181,39 @@ function Report() {
         }}
         data-sr-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.from')}
-          <input
+        <Field label={t('filters.from')}>
+          <Input
             type="date"
             value={filters.from || (range.ok ? range.from : '')}
             onChange={(e) => patch({ from: e.target.value, to: filters.to || (range.ok ? range.to : '') })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-sr-filter="from"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.to')}
-          <input
+        </Field>
+        <Field label={t('filters.to')}>
+          <Input
             type="date"
             value={filters.to || (range.ok ? range.to : '')}
             onChange={(e) => patch({ to: e.target.value, from: filters.from || (range.ok ? range.from : '') })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-sr-filter="to"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.stores')}
-          <input
+        </Field>
+        <Field label={t('filters.stores')}>
+          <Input
             type="text"
             value={storesDraft}
             onChange={(e) => setStoresDraft(e.target.value)}
             placeholder={t('filters.storesPlaceholder')}
-            className={`${INPUT} w-56`}
+            className="w-56"
             data-sr-filter="stores"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.status')}
-          <select
+        </Field>
+        <Field label={t('filters.status')}>
+          <Select
             value={filters.status}
             onChange={(e) => patch({ status: e.target.value as StatusFilter })}
-            className={`${INPUT} w-32`}
+            className="w-32"
             data-sr-filter="status"
           >
             {STATUSES.map((s) => (
@@ -226,8 +221,8 @@ function Report() {
                 {s ? t(`status.${s}`) : t('filters.anyStatus')}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button type="submit" variant="secondary" data-sr-apply="">
           {t('filters.apply')}
         </Button>
@@ -266,19 +261,11 @@ function Report() {
       <Tiles totals={data?.totals} loading={reportRead.isFetching && !data} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label={t('tabs.label')} className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-card-2 p-0.5">
+        <div role="tablist" aria-label={t('tabs.label')} className="flex flex-wrap gap-1">
           {REPORT_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={filters.tab === tab}
-              onClick={() => patch({ tab })}
-              className={`${TAB} ${filters.tab === tab ? 'bg-card font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              data-sr-tab={tab}
-            >
+            <Chip key={tab} variant="tab" on={filters.tab === tab} onClick={() => patch({ tab })} data-sr-tab={tab}>
               {t(`tabs.${tab}`)}
-            </button>
+            </Chip>
           ))}
         </div>
         <div className="flex items-center gap-3">
@@ -352,7 +339,7 @@ function DrillLine({ drill, onClear }: { drill: Drill; onClear: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs" data-sr-drill="">
       <span className="text-muted-foreground">{t('drill.label')}</span>
-      <span className="rounded-full border border-border/60 bg-card px-2 py-0.5">{parts.join(' · ')}</span>
+      <span className="rounded-full border border-border bg-card px-2 py-0.5">{parts.join(' · ')}</span>
       <button
         type="button"
         onClick={onClear}

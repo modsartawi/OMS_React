@@ -126,22 +126,29 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Design tokens — palette B, "Navy-led" (spec 380 F2–F5, ticket 362's
-   Answer §1–§3). Supersedes the POS steel values of spec 082; 082's token
-   NAMES, its structure and its four rules below all stand, so no call site
-   changed. The neutrals take the al-dawaa navy's temperature (H≈218), and the
-   interactive blue is the navy LIFTED (`#0F4C9C` / `#79A7EC`), not a third
-   blue beside the rail. The status families (success, attention, danger, post,
-   prescription, fam-*) are 082's byte for byte.
+   Design tokens — the DMSCO theme (spec 590; map 580's tickets 585 for
+   light and 586 for dark). Supersedes palette B, "Navy-led" (spec 380); 082's
+   token NAMES, its structure and its four rules below all stand, so no call
+   site changed. DMSCO navy `#172031` is the interactive colour (primary, ring
+   and cursor in light), and there is ONE gold, `#FEC33B`, in every role.
+   Because `--primary` is nearly the body ink, a navigating link carries an
+   underline (the shared link rule in `@layer base` below). The status families
+   (success, attention, danger, post, prescription, fam-*) are 082's byte for
+   byte, in both themes.
+
+   LIGHT IS HUELESS AND DARK IS NAVY-TINTED — ON PURPOSE (586). Each theme
+   takes ONE temperature: light neutrals carry no hue (585 retired palette B's
+   navy-tinted greys), dark is "navy night". Do not "fix" one theme to match
+   the other; the contrast gate holds both tables byte for byte.
 
    This block is the ONLY place a colour is written in this application.
    Values are hex, not oklch (D-1): one notation for the app and the AG Grid
-   theme, and byte-verifiable against 362's table.
+   theme, and byte-verifiable against spec 590's tables.
 
    Dark follows 082's four rules (D-3) — read them before adding a token:
 
-     R1  Neutrals hold a lightness ladder and take ONE temperature (now the
-         navy's). Nothing else moves between the neutral tiers.
+     R1  Neutrals hold a lightness ladder and take ONE temperature (hueless in
+         light, navy in dark). Nothing else moves between the neutral tiers.
      R2  Chromatics lift to the L .66–.76 band, hold their hue, and FLIP their
          ink. Consequence, stated once: in dark, every filled chromatic control
          is a light tonal fill with DARK ink. White on these fills measures
@@ -159,28 +166,28 @@
    pairs below on every run — a value nudged under AA fails the build.
    --------------------------------------------------------------------------- */
 :root {
-  --background: #f2f4f8;
-  --foreground: #0f1b2d;
+  --background: #f4f4f4;
+  --foreground: #1f1f1f;
   --card: #ffffff;
-  --card-foreground: #0f1b2d;
-  --card-2: #f7f9fc; /* second panel tier; grid row hover */
-  --muted: #ebeff5;
-  --muted-foreground: #46546a;
-  --ink-3: #6f7c91; /* tertiary ink — replaces the `text-muted-foreground/60` idiom */
-  --accent: #e3e8f0; /* a hover GROUND for controls, not an accent colour */
-  --accent-foreground: #0f1b2d;
-  --border: #dfe4ec;
-  --border-strong: #c6cedb; /* table-head rule, action-bar rule */
-  --divider: #e8ecf2; /* row rules inside a table */
+  --card-foreground: #1f1f1f;
+  --card-2: #f7f7f7; /* second panel tier; grid row hover */
+  --muted: #efefef;
+  --muted-foreground: #4c4c4c;
+  --ink-3: #747983; /* tertiary ink — replaces the `text-muted-foreground/60` idiom */
+  --accent: #e9e9e9; /* a hover GROUND for controls, not an accent colour */
+  --accent-foreground: #1f1f1f;
+  --border: #e2e2e2;
+  --border-strong: #bcbcbc; /* table-head rule, action-bar rule */
+  --divider: #ededed; /* row rules inside a table */
   /* The field edge clears 3:1 on card (WCAG 1.4.11). Before B it measured
      1.47:1; the heavier edge is the owner's pick (362 §1). */
-  --input: #8590a3;
-  --ring: #0f4c9c; /* navy in light, GOLD in dark (F6) */
+  --input: #8f8f8f;
+  --ring: #172031; /* navy in light, GOLD in dark (F6) */
 
-  --primary: #0f4c9c;
-  --primary-050: #e7eef8;
-  --primary-border: #bcd0ec;
-  --primary-800: #0b3a78;
+  --primary: #172031;
+  --primary-050: #e8ebf0;
+  --primary-border: #c3cad6;
+  --primary-800: #182f4a;
   --primary-foreground: #ffffff;
 
   /* Revived from the dead (both were at zero uses) to carry POS `--key`: the
@@ -188,8 +195,8 @@
      `secondary` variant is an outline (`border-border bg-card`) and stays that
      way until the app actually needs a neutral filled button. The gap is
      deliberate (ticket 084, Open questions); do not wire it up unasked. */
-  --secondary: #46546a;
-  --secondary-press: #38455a;
+  --secondary: #4c4c4c;
+  --secondary-press: #3d3d3d;
   --secondary-foreground: #ffffff;
 
   /* Severity — four families, four tiers each (D-5). `--primary` above is the
@@ -231,29 +238,29 @@
      it: the rail has its own ink, its own hover ground and its own muted ink
      for group labels (`--muted-foreground` is ~2:1 on navy). Renamed from
      `--sidebar*` with the rail shell (spec 380 F5, ticket 385). */
-  --rail: #002554;
-  --rail-foreground: #d3dbe8;
-  --rail-accent: #143662; /* hover / active ground */
+  --rail: #172031;
+  --rail-foreground: #d1d2d6;
+  --rail-accent: #26324a; /* hover / active ground */
   /* The active row's ink, and the hover ink: white on navy in both themes,
      because the rail never themes (ticket 385 — "white ink"). */
   --rail-accent-foreground: #ffffff;
-  --rail-active: #fdc801; /* the rail's active marker — gold on navy */
-  --rail-muted: #8fa0bd;
+  --rail-active: #fec33b; /* the rail's active marker — gold on navy */
+  --rail-muted: #8d96a8;
 
   /* Gold is a SIGNAL, never text on a light surface: 1.56:1 on white. It is
      allowed on navy (the rail marker and ring, the mark), as a fill carrying
      navy ink (the Ctrl+K key cap, S2), and on dark surfaces (the dark ring and
      cursor). The contrast gate asserts it stays BELOW 3:1 on a light card. */
-  --gold: #fdc801;
-  --gold-foreground: #002554;
+  --gold: #fec33b;
+  --gold-foreground: #172031;
 
   /* The selected-row / keyboard cursor bar: navy in light, gold in dark —
      gold would fail 3:1 against the light row it marks. */
-  --cursor: #002554;
+  --cursor: #172031;
 
   /* The AG Grid header ground and its labels. */
-  --grid-head: #f2f4f8;
-  --grid-head-foreground: #46546a;
+  --grid-head: #f4f4f4;
+  --grid-head-foreground: #4c4c4c;
 
   /* The overlay recipe's two tokens (spec 380 F15, 377 §1). Neither is a text
      pair, so the contrast gate does not measure them.
@@ -277,10 +284,11 @@
   --prescription-050: #e3f0f2;
   --prescription-800: #085c68;
 
-  /* 6px controls (`rounded-md`), 8px cards and menus (`rounded-lg`) — F7.
+  /* DMSCO shape (spec 590; 584, 585): 1rem makes an h-7 (28px) control a full
+     pill at `rounded-md` (14px), and cards and panels take `rounded-lg` (16px).
      The grid wrapper's 8px is its own theme param (382); dialogs' 10px is
      the overlay recipe's (`@/core/ui/overlay`, 388). */
-  --radius: 0.5rem;
+  --radius: 1rem;
 }
 
 /* Brand panel (D-9). The login slab, untouched by palette B (362 §2 — the
@@ -362,13 +370,13 @@
     --border-strong: #2e3b4f;
     --divider: #1a2433;
     --input: #5a6780; /* 3:1 on card, as in light */
-    --ring: #fdc801; /* gold — 11.18 on card (F6) */
+    --ring: #fec33b; /* gold — 11.18 on card (F6) */
 
     /* R2 — the navy lifted, hue held. */
-    --primary: #79a7ec;
-    --primary-050: #1a2b45; /* R4 */
-    --primary-border: #2c4469; /* R4 */
-    --primary-800: #bcd4f6; /* R4 */
+    --primary: #9db2d8;
+    --primary-050: #232e42; /* R4 */
+    --primary-border: #3e4d69; /* R4 */
+    --primary-800: #c3d2ec; /* R4 */
     --primary-foreground: #0a111d; /* R2 consequence — NOT white. See the gate's negative assertion. */
 
     --secondary: #8794a8;
@@ -399,7 +407,7 @@
 
     --rail-foreground: #c7d2e3; /* the rail stays navy; only its ink steps down */
 
-    --cursor: #fdc801; /* gold on dark — 11.18 on card */
+    --cursor: #fec33b; /* gold on dark — 11.18 on card */
     --grid-head: #162131;
     --grid-head-foreground: #a3afc0;
     --shadow-pop: 0 12px 34px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
@@ -539,10 +547,19 @@ body {
    focus (e.g. inputs with focus:ring) opt out via focus:outline-none.
 
    `accent-color` tints the native checkbox, radio and range with the primary
-   blue instead of the browser's own (F7, 377). */
+   blue instead of the browser's own (F7, 377).
+
+   Links are underlined (spec 590, 585): DMSCO `--primary` is nearly the body
+   ink, so colour alone no longer marks a link. Every navigating link in primary
+   ink carries an underline from here — no screen spells it. It sits in the
+   base layer, so a link that genuinely must not underline says `no-underline`. */
 @layer base {
   :root {
     accent-color: var(--primary);
+  }
+  a[href]:is(.text-primary, .text-primary-800) {
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
   }
   :focus-visible {
     outline: 2px solid var(--ring);

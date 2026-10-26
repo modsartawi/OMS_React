@@ -243,6 +243,80 @@ const negatives = [
 // signal and started inviting someone to use it as ink.
 const lightBelow = [['--gold', '--card', UI]]
 
+// --- the DMSCO tables, byte for byte (spec 590; map 580's 585 + 586) ---------
+//
+// The gate OWNS every colour value (spec 590, Testing Decisions §1): the drives
+// read roles through computed style and never pin a hex, so this is the one
+// place the owner-approved tables are held to. A value edited off the table
+// fails here, even when its pairs still clear AA. Light is hueless and dark is
+// navy-tinted ON PURPOSE (586) — a "fix" that matches one theme to the other
+// fails here too. One gold, `#fec33b`, in every role.
+const EXPECTED = {
+  light: {
+    '--background': '#f4f4f4',
+    '--foreground': '#1f1f1f',
+    '--card-foreground': '#1f1f1f',
+    '--accent-foreground': '#1f1f1f',
+    '--card': '#ffffff',
+    '--card-2': '#f7f7f7',
+    '--muted': '#efefef',
+    '--muted-foreground': '#4c4c4c',
+    '--ink-3': '#747983',
+    '--accent': '#e9e9e9',
+    '--border': '#e2e2e2',
+    '--border-strong': '#bcbcbc',
+    '--divider': '#ededed',
+    '--input': '#8f8f8f',
+    '--primary': '#172031',
+    '--ring': '#172031',
+    '--cursor': '#172031',
+    '--primary-050': '#e8ebf0',
+    '--primary-border': '#c3cad6',
+    '--primary-800': '#182f4a',
+    '--secondary': '#4c4c4c',
+    '--secondary-press': '#3d3d3d',
+    '--rail': '#172031',
+    '--rail-foreground': '#d1d2d6',
+    '--rail-accent': '#26324a',
+    '--rail-muted': '#8d96a8',
+    '--rail-active': '#fec33b',
+    '--gold': '#fec33b',
+    '--gold-foreground': '#172031',
+    '--grid-head': '#f4f4f4',
+    '--grid-head-foreground': '#4c4c4c',
+  },
+  dark: {
+    '--background': '#0a111d',
+    '--foreground': '#e6ebf2',
+    '--card': '#111a28',
+    '--card-2': '#162131',
+    '--muted': '#1b2536',
+    '--muted-foreground': '#a3afc0',
+    '--ink-3': '#788599',
+    '--accent': '#222e41',
+    '--border': '#212c3d',
+    '--border-strong': '#2e3b4f',
+    '--divider': '#1a2433',
+    '--input': '#5a6780',
+    '--primary': '#9db2d8',
+    '--primary-050': '#232e42',
+    '--primary-border': '#3e4d69',
+    '--primary-800': '#c3d2ec',
+    '--primary-foreground': '#0a111d',
+    '--secondary-foreground': '#0a111d',
+    '--destructive-foreground': '#0a111d',
+    '--secondary': '#8794a8',
+    '--secondary-press': '#98a4b6',
+    '--ring': '#fec33b',
+    '--cursor': '#fec33b',
+    '--gold': '#fec33b',
+    '--rail-active': '#fec33b',
+    '--rail-foreground': '#c7d2e3',
+    '--grid-head': '#162131',
+    '--grid-head-foreground': '#a3afc0',
+  },
+}
+
 // --- the `@theme inline` bridge is complete ----------------------------------
 //
 // Declaring `--success-050` in `:root` is NOT enough to make `bg-success-050`
@@ -330,6 +404,20 @@ for (const [inkName, groundName, ceiling] of lightBelow) {
         `meaningful line on a light surface (spec 380 F5); a gold that clears 3:1 on a light ` +
         `card has stopped being the brand gold.`,
     })
+  }
+}
+
+for (const [theme, table] of Object.entries(EXPECTED)) {
+  for (const [name, want] of Object.entries(table)) {
+    const got = resolve(theme, name)
+    checked++
+    if (got.hex !== want) {
+      failures.push({
+        line: got.line,
+        what: `${theme}: ${name} is off spec 590's table`,
+        detail: `${got.hex} — the DMSCO table (585 light / 586 dark) says ${want}`,
+      })
+    }
   }
 }
 

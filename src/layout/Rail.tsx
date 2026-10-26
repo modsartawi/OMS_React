@@ -8,9 +8,9 @@ import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import { railExpanded, type RailMode } from './rail-mode'
 import { takesEscape } from '@/core/commands/key-layer'
-import BrandMark from '@/core/ui/BrandMark'
 import { RAIL_EDGE, RAIL_POPOVER } from '@/core/ui/overlay'
 import UserMenu from './UserMenu'
+import ShellMarkPrototype from './__prototype__/ShellMarkPrototype'
 
 // The navy rail (spec 380 F10, ticket 385; the owner's shell D, 363 §"The frame").
 // Collapsed (56px, the default) it is one icon per visible group, each opening a
@@ -399,16 +399,11 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
           aria-label={t('brand')}
           title={t('brand')}
           className={
-            'mb-2 flex h-9 shrink-0 items-center gap-2 rounded-md hover:bg-rail-accent ' +
+            'mb-2 flex min-h-9 shrink-0 items-center gap-2 rounded-md hover:bg-rail-accent ' +
             (expanded ? 'mx-2.5 px-1.5' : 'mx-auto w-9 justify-center')
           }
         >
-          <BrandMark size={26} />
-          {expanded && (
-            <span className="truncate text-sm font-semibold tracking-tight text-rail-accent-foreground">
-              {t('brandName')}
-            </span>
-          )}
+          <ShellMarkPrototype expanded={expanded} />
         </Link>
 
         {/* The scroll lives here, not on the `aside`: the flyout is the aside's
@@ -615,17 +610,14 @@ export function RailDrawer() {
               // The rail's own ground, ink and gold ring, at the inline start in either direction.
               className={'fixed inset-y-0 start-0 z-50 flex w-72 max-w-[calc(100vw-3rem)] flex-col border-e print:hidden ' + RAIL_POPOVER}
             >
-              <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+              <div className="flex min-h-12 shrink-0 items-center gap-2 px-3">
                 <Link
                   to="/"
                   onClick={close}
                   aria-label={t('brand')}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 hover:bg-rail-accent"
                 >
-                  <BrandMark size={24} />
-                  <span className="truncate text-sm font-semibold tracking-tight text-rail-accent-foreground">
-                    {t('brandName')}
-                  </span>
+                  <ShellMarkPrototype expanded />
                 </Link>
                 <button
                   type="button"

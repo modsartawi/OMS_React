@@ -1,0 +1,48 @@
+/* PROTOTYPE — throwaway (map 580, ticket 587). Never merge to main.
+ *
+ * Question: what does the shell look like in the DMSCO language?
+ *   html[data-shell='flat'] — today's rail on 585's palette, gold 3px marker
+ *   html[data-shell='pill'] — the Figma top bar's treatment moved onto the rail:
+ *     the radial deep navy (#111A1E → #172031), a filled #182F4A pill for the
+ *     active item with a gold icon, pill-shaped rows, a white pill search field.
+ * Sizes are today's (584): 56/240px rail, 32px rows, 44px top bar.
+ */
+
+/* 584's approved compact skin: the pill radius on controls and cards. */
+html[data-shell] {
+  --radius: 1rem;
+}
+
+html[data-shell='pill'] :is(#layout-rail, [data-rail-flyout], [data-rail-drawer]) {
+  background: radial-gradient(140% 70% at 0% 0%, #111a1e 0%, #172031 65%);
+}
+
+/* Every row and icon in the rail is a full pill. */
+html[data-shell='pill'] :is(#layout-rail, [data-rail-flyout], [data-rail-drawer]) :is(a, button).rounded-md {
+  border-radius: 9999px;
+}
+
+/* The active item: the design's filled pill, a hairline lift, and a gold icon in place of the bar. */
+html[data-shell='pill'] :is(#layout-rail, [data-rail-flyout], [data-rail-drawer]) a[aria-current='page'],
+html[data-shell='pill'] #layout-rail [data-active] > :is(a, button) {
+  background: #182f4a;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  color: #fff;
+}
+html[data-shell='pill'] :is(#layout-rail, [data-rail-flyout], [data-rail-drawer]) a[aria-current='page'] svg,
+html[data-shell='pill'] #layout-rail [data-active] > :is(a, button) svg {
+  color: #fec33b;
+}
+html[data-shell='pill'] :is(#layout-rail, [data-rail-flyout], [data-rail-drawer]) a[aria-current='page']::before,
+html[data-shell='pill'] #layout-rail [data-active]::before {
+  display: none;
+}
+
+/* Top bar: the design's white search pill and pill chips, at today's 28px. */
+html[data-shell='pill'] [data-palette-field] {
+  border-radius: 9999px;
+  background: #fff;
+}
+html[data-shell='pill'] [data-store-chip] {
+  border-radius: 9999px;
+}

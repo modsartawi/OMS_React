@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3028-hungerstation-follow-up-on-oms-react-spec.md
 blocked-by: 551 (live: BackOffice 3031)
 ---
@@ -30,12 +30,12 @@ UI → app (BackOffice doors, stubbed until 557)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] helper: the remove confirmation text and the reason in the query string, URL-encoded with unicode kept (vitest)
-- [ ] `tools/hungerstation-stores-drive.mjs`: new sections, against stubs, LTR and RTL:
+- [x] helper: the remove confirmation text and the reason in the query string, URL-encoded with unicode kept (vitest)
+- [x] `tools/hungerstation-stores-drive.mjs`: new sections, against stubs, LTR and RTL:
   - remove with a reason, and the row leaves the list;
   - DHS-00007 inline;
   - onboarding the removed code again brings it back.
-- [ ] typecheck, lint, test green
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -50,3 +50,39 @@ The helpers and the drive are green; the live check rides 557.
 - [551](551-an-hq-user-lists-onboards-and-edits-hungerstation-stores-with-a-reason.md)
 
 (live: BackOffice 3031)
+
+## Comments
+
+**Done 2026-10-24** (branch `ticket/552`). Proof: vitest `features/hungerstation/stores/remove.test.ts`
+(the path, the reason in the query string — Arabic, a line break, an emoji, `&`/`#`/`%` kept as ONE
+reason, nothing raw on the wire — and the four consequence sentences in en + ar), typecheck + lint
+(4 gates) + `npm test` (6107) green, and `tools/hungerstation-stores-drive.mjs` **124/124 against STUBS**
+(551's 84 plus sections 9–11, LTR and RTL). 🚩 Not driven against a live SIS.Api — the live check is 557.
+
+What landed:
+- `stores/remove.ts` — `removePath(storeCode, reason)` (the door's path, the reason via
+  `URLSearchParams`) and `REMOVE_CONSEQUENCES`; `storesApi.remove` calls `api.del` on it.
+- `RemoveDialog` in `StoreDialogs.tsx` (danger confirm); the actions cell's `act` gains `onRemove`.
+- The drive's stubs now keep a per-context copy of the stores: DELETE takes one off, POST of a removed
+  code revives it on the body's chain and vendor id. 551's sections are unchanged and still pass.
+
+Judgement calls (overrulable):
+1. **The confirmation is a list, not one sentence.** The four consequences are separate bullets in the
+  dialog body (the note is a `<p>`, so a list can't live there); the note names the store, isolated. A
+  line under them says how to bring it back (onboard the same code) — the ticket asked only for the
+  onboard dialog's help text, which 551 already wrote.
+2. **The row leaves at once.** On success the row is filtered out of every cached Stores list, then the
+  list is read again — so it is gone even before the refetch answers.
+3. **DHS-00007** shows "no longer onboarded" with the server's sentence and code inside the dialog (not
+  the generic banner), refreshes the list and turns Remove off; the dialog stays open until cancelled,
+  as 551's edit does.
+4. **`removePath` spells the path segment itself** rather than importing `storePath` from `./api`, so
+  the pure module (and its test) never loads `@/core/api`. One line duplicated.
+5. **No confirm-by-typing.** The mandatory reason is the friction; no second "type the store code" step.
+
+Open for the owner: none blocking. The Arabic copy is unread by a native eye (the drive's RTL pass is
+direction only).
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The DHS-00007 ("no longer onboarded") alert block was copied in Edit, Remove and Pause/Resume. It is now one `GoneAlert` in `StoreDialogs.tsx`. Its data hooks and copy are unchanged.

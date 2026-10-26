@@ -14,8 +14,9 @@
 
 /** A local wall-clock time, `yyyy-MM-ddTHH:mm:ss`, no offset. Never append a `Z`. */
 export type LocalDateTime = string
-/** A date-only value, `yyyy-MM-dd`. */
-export type LocalDate = string
+/** A date-only value, `yyyy-MM-dd` — declared once, in `@/core/util/date-window`. */
+import type { LocalDate } from '@/core/util/date-window'
+export type { LocalDate }
 
 // ── Errors ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -45,24 +46,29 @@ export const DELIVERECT_ERRORS = {
   deliverectFailed: 'DLV-00011',
   /** 400 — whitelist import: no rows, more than 5000 rows, or a row that is not a material number. */
   importInvalid: 'DLV-00012',
+  /** 409 — add platform: a platform with this key already exists. */
+  platformExists: 'DLV-00014',
 } as const
 
 // ── GET DeliverectWeb/Access ─────────────────────────────────────────────────────────────────────
 
 /**
- * Exactly the four keys the probe returns. Cookie-gated, not grant-gated. Each flag is one
+ * The keys the probe returns. Cookie-gated, not grant-gated. Each flag is one
  * `BackOfficeScreen[…,03]` grant:
  *
  * - `canManageStores` ← `DeliverectStores`: Stores/*, Sync/*, StoreStatus/*.
  * - `canManageCatalog` ← `DeliverectCatalog`: Whitelist/*, Exclusions/*.
  * - `canViewOrders` ← `DeliverectOrders`: Orders/*.
- * - `canManageTerms` ← `DeliverectTerms`: Accounts, Platforms/*, Terms/*.
+ * - `canManageTerms` ← `DeliverectTerms`: Accounts, `GET`/`PUT` Platforms, Terms/*.
+ * - `canAddPlatform` ← `DeliverectPlatformAdd`: `POST` Platforms. Not a menu flag — it shows the
+ *   "Add platform" button only. Optional: an older SIS.Api does not send it, which reads as `false`.
  */
 export interface DeliverectAccessResult {
   canManageStores: boolean
   canManageCatalog: boolean
   canViewOrders: boolean
   canManageTerms: boolean
+  canAddPlatform?: boolean
 }
 
 // ── Stores (2616; sync by 2624, status by 2625) ──────────────────────────────────────────────────
@@ -432,6 +438,11 @@ export interface DeliverectPlatformBody {
   creditCustomer: string | null
   active: boolean
   reason: string
+}
+
+/** The body of `POST DeliverectWeb/Platforms`: the PUT body plus the new platform's key. */
+export interface DeliverectPlatformAddBody extends DeliverectPlatformBody {
+  platformKey: string
 }
 
 /** The query of `GET DeliverectWeb/Terms?platform=`. */

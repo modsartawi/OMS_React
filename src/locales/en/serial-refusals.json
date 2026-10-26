@@ -1,0 +1,143 @@
+{
+  "menu": {
+    "serialRefusals": "Serial refusals"
+  },
+  "title": "Serial refusals",
+  "subtitle": "Every time head office told a till a scanned pack was already sold or held: who asked, where, and what it collided with.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to serial refusals",
+    "deniedHint": "Your account does not hold the serial refusal report grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "dash": "—",
+  "unknownStaff": "Unknown staff",
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "stores": "Asking stores",
+    "storesPlaceholder": "Every store, or e.g. P001, P002",
+    "status": "Answer",
+    "anyStatus": "Sold or held",
+    "apply": "Apply",
+    "reset": "Last 30 days"
+  },
+  "status": {
+    "SOLD": "Sold",
+    "HELD": "Held"
+  },
+  "problem": {
+    "incomplete": "Pick both ends of the range.",
+    "reversed": "The range ends before it starts.",
+    "tooLong": "A range is at most <max>{{max}}</max> days."
+  },
+  "refusal": {
+    "rangeTooLong": "The server refused the range: it is longer than 92 days.",
+    "rangeReversed": "The server refused the range: it ends before it starts.",
+    "unknownStatus": "The server does not know that answer. Choose sold, held, or both."
+  },
+  "list": {
+    "failedTitle": "The serial refusals could not be loaded",
+    "failed": "Something went wrong reading the serial refusals. Try again in a moment.",
+    "empty": "No serial refusals in this range.",
+    "truncated": "Only the newest 2,000 refusals are shown. Narrow the range or the stores to see the rest."
+  },
+  "tabs": {
+    "label": "Section",
+    "staff": "Staff",
+    "offenders": "Repeat offenders",
+    "serials": "Serials",
+    "stores": "Stores",
+    "articles": "Articles",
+    "heldBy": "Held by",
+    "days": "Per day",
+    "refusals": "Refusals"
+  },
+  "asOf": "As of <at>{{at}}</at>",
+  "export": {
+    "button": "Export .xlsx",
+    "fileName": "serial-refusals",
+    "done": "Exported",
+    "doneDetail_one": "{{n}} row was written to the workbook.",
+    "doneDetail_other": "{{n}} rows were written to the workbook.",
+    "failed": "Export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
+  "note": {
+    "sections": "Click a row to see the refusals behind it. “Unknown staff” is a till on an older build that sent no staff id: many people, never one, so it is never a repeat offender.",
+    "refusals": "Newest first. The receipt number is the basket the till was ringing up; an older till build sends none."
+  },
+  "tile": {
+    "refusals": "Refusals",
+    "sold": "Already sold",
+    "held": "Held",
+    "crossStore": "Sold at another store",
+    "sameStore": "Sold at the same store",
+    "unknownSale": "Sale not named",
+    "staff": "Staff",
+    "unknownStaff": "Unknown staff",
+    "serials": "Serials",
+    "stores": "Asking stores"
+  },
+  "tileHint": {
+    "refusals": "Every refusal in scope: one per refused pack per answer.",
+    "sold": "The pack had already been sold.",
+    "held": "A picking document holds the pack.",
+    "crossStore": "Sold refusals where another store sold the pack.",
+    "sameStore": "Sold refusals where the asking store itself sold the pack.",
+    "unknownSale": "Sold refusals where the sales ledger named no sale.",
+    "staff": "Distinct staff ids that were refused.",
+    "unknownStaff": "Refusals from tills that sent no staff id.",
+    "serials": "Distinct packs (GTIN and serial) refused.",
+    "stores": "Distinct stores that asked."
+  },
+  "drill": {
+    "label": "Showing refusals for",
+    "noStaff": "unknown staff",
+    "staff": "staff {{value}}",
+    "serial": "serial {{value}}",
+    "gtin": "GTIN {{value}}",
+    "item": "article {{value}}",
+    "heldStore": "held at {{value}}",
+    "clear": "Show all"
+  },
+  "column": {
+    "staff": "Staff",
+    "refusals": "Refusals",
+    "sold": "Sold",
+    "held": "Held",
+    "serials": "Serials",
+    "stores": "Stores",
+    "storeCount": "Stores",
+    "staffCount": "Staff",
+    "lastRefusedAt": "Last refused",
+    "firstRefusedAt": "First refused",
+    "serial": "Serial",
+    "gtin": "GTIN",
+    "itemNumber": "Article",
+    "times": "Times",
+    "baskets": "Baskets",
+    "lastBasket": "Latest basket",
+    "store": "Store",
+    "crossStore": "Sold elsewhere",
+    "unknownStaff": "Unknown staff",
+    "heldStore": "Holding store",
+    "documents": "Documents",
+    "askingStores": "Asking stores",
+    "day": "Day",
+    "refusedAt": "Refused at",
+    "status": "Answer",
+    "till": "Till",
+    "trxNumber": "Receipt",
+    "collision": "Sold by / held by",
+    "tillVersion": "Till build"
+  },
+  "columnHint": {
+    "baskets": "Distinct baskets (store, till and receipt) that asked. A till on an older build names none.",
+    "lastBasket": "Store · till · receipt of the newest refusal.",
+    "crossStore": "Sold refusals where another store sold the pack.",
+    "trxNumber": "The receipt number of the basket being rung up. Blank from an older till build.",
+    "collision": "Sold: store · till · receipt of the sale. Held: picking document · its store."
+  }
+}

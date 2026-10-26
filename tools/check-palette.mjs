@@ -35,6 +35,10 @@ const COLOUR_SOURCES = new Map([
     'src/assets/Al-Dawaa-Pharmacies-01.svg',
     'the al-dawaa mark — brand gold and navy live only here (ticket 087)',
   ],
+  [
+    'src/assets/login/dmsco-logo.svg',
+    'the DMSCO lockup from the Figma login — the logo’s own artwork colours',
+  ],
   // The printed facsimiles (spec 249's documented three-rule exception, established by ticket
   // 251 and extended to the ACR by 252). These are not screens: they reproduce a paper form
   // the WPF also prints, and the

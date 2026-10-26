@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\3028-hungerstation-follow-up-on-oms-react-spec.md
 blocked-by: 551 (live: BackOffice 3033)
 ---
@@ -33,13 +33,13 @@ UI → app (BackOffice doors, stubbed until 557)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] helpers: the line labels (null vs zero, inactive marked), the 15-day wording, the 200-cap notice (vitest)
-- [ ] `tools/hungerstation-stores-drive.mjs`: new sections, against stubs emitting **exactly** the contract's
+- [x] helpers: the line labels (null vs zero, inactive marked), the 15-day wording, the 200-cap notice (vitest)
+- [x] `tools/hungerstation-stores-drive.mjs`: new sections, against stubs emitting **exactly** the contract's
   fields, LTR and RTL:
   - open the logs, open a push's lines, filter by material, page;
   - DHS-00015's wording;
   - material history from a store row, including the cap notice.
-- [ ] typecheck, lint, test green
+- [x] typecheck, lint, test green
 
 ## Boundaries
 
@@ -65,3 +65,51 @@ The helpers and the drive are green; the live check rides 557.
   - rely on BackOffice refusing the door while the index is missing (a BackOffice change, not yet made).
 
   Build the entry point either way; the owner's answer decides only whether it shows.
+
+## Comments
+
+**Done 2026-10-24** (branch `ticket/554`). Proof: vitest `features/hungerstation/stores/sync-history.test.ts`
+(the three door paths; `linesQuery`; `readLine` — every value sent, a `null` stays blank, a sent 0 stays 0,
+inactive marked, the price at 3 decimals with `currencyKey`; `pushReading`; `linesNotice`; DHS-00015 /
+DHS-00007 mapped; the 15-day wording and the 200-cap notice in en + ar; the drawer ⇄ URL mapping) and
+`i18n-keys.test.ts`; typecheck + lint (4 gates) + `npm test` (6255) green; `tools/hungerstation-stores-drive.mjs`
+**302/302 against STUBS** (553's 216 plus sections 15–18, LTR and RTL; every fixture emits exactly the
+contract's fields); `tools/deliverect-stores-drive.mjs` **230/230** after the re-point. 🚩 Not driven against a
+live SIS.Api — the live check is 557.
+
+What landed:
+- `stores/sync-history.ts` (pure) + `storesApi.syncLogs` / `syncLines` / `materialLines` and their query keys.
+- `SyncLogsDrawer`, `PushLines` (opens in place, Back returns focus), `MaterialHistoryDrawer`, and `PushCells`
+  (push type, push status, the four line value cells) shared by the three tables. Row actions Logs and Material
+  history (`act.onLogs` / `act.onMaterial`).
+- Core: the drawers sit on 556's `core/ui/SideSheet`. Their header (eyebrow, title, hint, close) graduated to
+  `core/ui/SideSheetHeader.tsx`, and the plain-table cell classes plus the body class to `core/ui/sheet-table.ts`.
+  Deliverect's three stores drawers (logs, material history, status history) are re-pointed at all three, and
+  `deliverect/stores/table-cells.ts` is gone.
+- As the wave's last landing, `src/app/HungerStationPlaceholderPage.tsx` and its `placeholder.*` keys (en + ar)
+  are deleted, with the i18n check for them; drive section 1 now opens the real Materials and Orders pages.
+
+Judgement calls (overrulable):
+1. **The drawers live in the URL** (`?logs=<code>`, `?history=<code>`). This is how a removed store's history
+   stays readable "from wherever the store code is known": the orders monitor (or any link) can point at
+   `/hungerstation/stores?logs=1234`. The drawer takes a store code, not a row; off the list, its title is the
+   code alone. Opening and closing replaces the history entry, as the filters do.
+2. **The logs read asks `take=500`** (the door's max), not the default 50: 15 days of half-hourly deltas is
+   ~720 pushes, and the drawer should reach as far back as the door allows.
+3. **A value not sent is an empty cell with a title** ("Not sent by this push"), never a dash or a 0.
+4. **The price is one machine value** — `18.950 SAR`, isolated once — rather than a separate currency column.
+5. **DHS-00007 and DHS-00015 read in words** (`role="status"`, no danger banner); any other refusal shows the
+   generic banner with the server's message and code.
+6. **A failed push's line is red in the material history; an inactive line is amber** in both line tables.
+7. **The header is a separate core component**, not a second frame: 556's `SideSheet` stays the only frame, and
+   a drawer with more in its header (the raw views) keeps drawing its own.
+
+Open for the owner:
+- 🚩 **Material history before its index (BackOffice 3028), still open.** The entry point is built and shown.
+  No per-environment switch exists in this repo and none was added: hiding it until index script 007 part 2 is
+  in (or BackOffice refusing the door while the index is missing) is the owner's call.
+- The Arabic copy is unread by a native eye (the drive's RTL pass is direction only).
+
+### Review fixes (branch ticket/3028-review, 2026-10-24)
+
+- The 554 deep link is now reachable from where the store code is known: in the orders monitor, the store cell and the order drawer's store field link to `/hungerstation/stores?logs=<code>`, only when the user has `canManageStores` (otherwise plain isolated text). The orders drive follows the drawer link into the logs drawer of a store the Stores list does not hold.

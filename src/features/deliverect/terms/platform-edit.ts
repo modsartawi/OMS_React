@@ -21,6 +21,25 @@ export type PlatformProblem = 'required' | 'wholeNumber' | 'noCreditCustomer'
 /** The PUT body without its reason. */
 export type PlatformValue = Omit<DeliverectPlatformBody, 'reason'>
 
+/** A new platform's fields: empty, and not active (it has no credit customer yet). */
+export const EMPTY_PLATFORM_DRAFT: PlatformDraft = { displayName: '', channelId: '', creditCustomer: '', active: false }
+
+/** `DlvPlatform.PlatformKey`'s width (VARCHAR(26)). */
+export const PLATFORM_KEY_MAX = 26
+
+export type PlatformKeyProblem = 'required' | 'keyFormat'
+
+/**
+ * A new platform's key, as typed: trimmed and upper-cased (`JAHEZ`, `KEETA`, `HUNGERSTATION`). A
+ * machine value — letters, digits, `_` and `-`, at most 26 — never edited once added.
+ */
+export function parsePlatformKey(raw: string): { value: string | null; problem: PlatformKeyProblem | null } {
+  const key = raw.trim().toUpperCase()
+  if (key === '') return { value: null, problem: 'required' }
+  if (key.length > PLATFORM_KEY_MAX || !/^[A-Z0-9_-]+$/.test(key)) return { value: null, problem: 'keyFormat' }
+  return { value: key, problem: null }
+}
+
 /** The fields as the row has them; a null credit customer is an empty field. */
 export function platformDraftOf(p: DeliverectPlatform): PlatformDraft {
   return { displayName: p.displayName, channelId: String(p.channelId), creditCustomer: p.creditCustomer ?? '', active: p.active }

@@ -352,3 +352,47 @@ describe('the Dispatch scorecard leaf (ticket 543)', () => {
     expect(leaf.access?.visible(null)).toBe(false)
   })
 })
+
+describe('the Serial refusals leaf (ticket 573)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'serial-refusals:menu.serialRefusals')!
+
+  it('sits in the OMS group right after the scorecard, lit alone on its own screen', () => {
+    const keys = (oms.items ?? []).map((i) => i.labelKey)
+    expect(keys.indexOf('serial-refusals:menu.serialRefusals')).toBe(keys.indexOf('dispatch-scorecard:menu.dispatchScorecard') + 1)
+    expect(leaf.routerLink).toBe('/oms/serial-refusals')
+    expect((oms.items ?? []).filter((i) => isActive(i, '/oms/serial-refusals')).map((i) => i.labelKey)).toEqual([
+      'serial-refusals:menu.serialRefusals',
+    ])
+  })
+
+  it('🚩 reads its OWN probe (SerialRefusal/Access), and fails closed on anything but screenAllowed true', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'serial-refusals', 'access'])
+    expect(leaf.access?.visible({ screenAllowed: true })).toBe(true)
+    expect(leaf.access?.visible({ screenAllowed: false })).toBe(false)
+    expect(leaf.access?.visible({ screenAllowed: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})
+
+describe('the Serving lists leaf (ticket 567)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const keys = (oms.items ?? []).map((i) => i.labelKey)
+  const leaf = (oms.items ?? []).find((i) => i.labelKey === 'serving-lists:menu.servingLists')!
+
+  it('sits in the OMS group right after the Dispatch board, lit alone on its screen and its detail', () => {
+    expect(keys.indexOf('serving-lists:menu.servingLists')).toBe(keys.indexOf('dispatch-board:menu.dispatchBoard') + 1)
+    expect(leaf.routerLink).toBe('/oms/serving-lists')
+    for (const path of ['/oms/serving-lists', '/oms/serving-lists/SVL-1']) {
+      expect((oms.items ?? []).filter((i) => isActive(i, path)).map((i) => i.labelKey)).toEqual(['serving-lists:menu.servingLists'])
+    }
+  })
+
+  it('🚩 reads canViewServingLists off ServingListWeb/Access, and fails closed on anything else', () => {
+    expect(leaf.access?.key).toEqual(['oms', 'serving-lists', 'access'])
+    expect(leaf.access?.visible({ canViewServingLists: true, canEditServingLists: false })).toBe(true)
+    expect(leaf.access?.visible({ canViewServingLists: false, canEditServingLists: true })).toBe(false)
+    expect(leaf.access?.visible({ canViewServingLists: 'true' })).toBe(false)
+    expect(leaf.access?.visible(null)).toBe(false)
+  })
+})

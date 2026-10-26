@@ -38,7 +38,13 @@ import {
   canOpenDispatchScorecard,
   dispatchScorecardAccessApi,
 } from '@/features/oms/dispatch-scorecard/access'
-import { Trophy } from 'lucide-react'
+// The serial refusal report's probe stays with its feature (ticket 573): it is its only consumer.
+import {
+  SERIAL_REFUSAL_ACCESS_KEY,
+  canOpenSerialRefusals,
+  serialRefusalAccessApi,
+} from '@/features/oms/serial-refusals/access'
+import { ListTree, ShieldAlert, Trophy } from 'lucide-react'
 // The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
 // only consumer today — the leaf below and that screen's own guard — which is the
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
@@ -78,6 +84,9 @@ import { SAP_EXPORT_ACCESS_KEY, canOpenSapExport, sapExportAccessApi } from '@/f
 // The Dispatch board's probe lives in `@/core/` (ticket 541): Delivery details (542) reads its Execute
 // flag for the same Release lock, and a feature may not import another.
 import { DISPATCH_ACCESS_KEY, canOpenDispatchBoard, dispatchApi } from '@/core/dispatch/access'
+// The serving-list probe lives in `@/core/` (ticket 567): the Dispatch board (572) links a callout's
+// serving list only for a View holder, and a feature may not import another.
+import { SERVING_LIST_ACCESS_KEY, canViewServingLists, servingListAccessApi } from '@/core/serving-list/access'
 // Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
 // delivery page's action (`features/oms/document`) and the bulk screen
 // (`features/oms/central-invoice`) both read it, and neither may import the other.
@@ -109,7 +118,16 @@ import type { MaterialAccessResult } from '@/core/models/materials'
 import { DELIVERECT_ACCESS_KEY, deliverectApi } from '@/core/deliverect/api'
 import { canManageCatalog, canManageStores, canManageTerms, canViewOrders } from '@/core/deliverect/access'
 import type { DeliverectAccessResult } from '@/core/models/deliverect'
-import { BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
+// The HungerStation probe lives in `@/core/` (ticket 551) for the same reason: three features
+// (stores, materials, orders) read it. ONE key; each leaf reads its own flag.
+import { HUNGERSTATION_ACCESS_KEY, hungerStationApi } from '@/core/hungerstation/api'
+import {
+  canManageCatalog as canManageHsCatalog,
+  canManageStores as canManageHsStores,
+  canViewOrders as canViewHsOrders,
+} from '@/core/hungerstation/access'
+import type { HungerStationAccessResult } from '@/core/models/hungerstation'
+import { Bike, BookCheck, FlaskConical, Handshake, ListOrdered, Megaphone, ShoppingBag, Store, Truck } from 'lucide-react'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -215,6 +233,13 @@ const materialProbe = (visible: (r: MaterialAccessResult) => boolean): AccessPro
  */
 const deliverectProbe = (visible: (r: DeliverectAccessResult) => boolean): AccessProbe =>
   accessProbe({ key: DELIVERECT_ACCESS_KEY, run: () => deliverectApi.access(), visible })
+
+/**
+ * The HungerStation area's leaves share ONE probe on ONE key (ticket 551), the Deliverect shape:
+ * each leaf passes its own flag's predicate. 🚩 FAILS CLOSED — see `@/core/hungerstation/api`.
+ */
+const hungerStationProbe = (visible: (r: HungerStationAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: HUNGERSTATION_ACCESS_KEY, run: () => hungerStationApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -362,6 +387,20 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // Serving lists (ticket 567, BackOffice spec 3042) — `BackOfficeScreen[ServingList]` Display 03 read off
+        // `GET ServingListWeb/Access`. The SAME key, call and predicate as the screen's own `ScreenGate`.
+        // 🚩 FAILS CLOSED: a pending, errored, 403 or malformed probe hides the leaf. Beside the Dispatch board.
+        labelKey: 'serving-lists:menu.servingLists',
+        icon: ListTree,
+        routerLink: '/oms/serving-lists',
+        activePrefix: '/oms/serving-lists',
+        access: accessProbe({
+          key: SERVING_LIST_ACCESS_KEY,
+          run: () => servingListAccessApi.access(),
+          visible: canViewServingLists,
+        }),
+      },
+      {
         // Dispatch scorecard (ticket 543, BackOffice spec 2952) — its own grant,
         // `BackOfficeScreen[DispatchScorecard, 03]`, on its own probe; the leaf and the page's gate
         // share the one predicate and fail closed (ruling 2950 point 5). After the board and before
@@ -374,6 +413,20 @@ export const MENU: ShellMenuItem[] = [
           key: DISPATCH_SCORECARD_ACCESS_KEY,
           run: () => dispatchScorecardAccessApi.access(),
           visible: canOpenDispatchScorecard,
+        }),
+      },
+      {
+        // Serial refusals (ticket 573, BackOffice 3065) — its own grant, `BackOfficeScreen[SerialRefusal, 03]`, on its own
+        // probe; the leaf and the page's gate share the one predicate and fail closed. After the scorecard and before
+        // Pick support, so Pick support and Delivery statistics keep the last two places their tests pin.
+        labelKey: 'serial-refusals:menu.serialRefusals',
+        icon: ShieldAlert,
+        routerLink: '/oms/serial-refusals',
+        activePrefix: '/oms/serial-refusals',
+        access: accessProbe({
+          key: SERIAL_REFUSAL_ACCESS_KEY,
+          run: () => serialRefusalAccessApi.access(),
+          visible: canOpenSerialRefusals,
         }),
       },
       {
@@ -1034,6 +1087,38 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/deliverect/terms',
         activePrefix: '/deliverect/terms',
         access: deliverectProbe(canManageTerms),
+      },
+    ],
+  },
+  {
+    // Its own top-level group, LAST, right after Deliverect (BackOffice spec 3028, ticket 551):
+    // `/hungerstation/*` is a new URL prefix and a new nav group — the DIRECT HungerStation rail,
+    // not HungerStation through Deliverect. All leaf labels live in `hungerstation-stores` (the
+    // area's first namespace). 551 shipped every leaf, one per probe flag; Materials (555) and Orders
+    // (556) now route to their own pages.
+    labelKey: 'hungerstation-stores:menu.hungerstation',
+    icon: Bike,
+    items: [
+      {
+        labelKey: 'hungerstation-stores:menu.stores',
+        icon: Store,
+        routerLink: '/hungerstation/stores',
+        activePrefix: '/hungerstation/stores',
+        access: hungerStationProbe(canManageHsStores),
+      },
+      {
+        labelKey: 'hungerstation-stores:menu.materials',
+        icon: PackageSearch,
+        routerLink: '/hungerstation/materials',
+        activePrefix: '/hungerstation/materials',
+        access: hungerStationProbe(canManageHsCatalog),
+      },
+      {
+        labelKey: 'hungerstation-stores:menu.orders',
+        icon: ShoppingBag,
+        routerLink: '/hungerstation/orders',
+        activePrefix: '/hungerstation/orders',
+        access: hungerStationProbe(canViewHsOrders),
       },
     ],
   },

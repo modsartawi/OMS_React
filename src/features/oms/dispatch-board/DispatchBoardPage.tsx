@@ -12,6 +12,7 @@ import { ApiError, apiErrorMessage } from '@/core/api'
 import { canOpenDispatchBoard, canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
 import type { DispatchBoardFilter } from '@/core/models/dispatch-board'
+import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -49,6 +50,9 @@ function Board() {
   const { query: filter, update, changedFromOutside } = useUrlQuery(boardFilterFromParams, boardFilterToParams)
   const access = useQuery(dispatchAccessQuery())
   const canRelease = canReleaseLock(access.data)
+  // A callout's serving list links to its screen only for a View holder (572; 567's probe, the menu leaf's key).
+  const servingListAccess = useQuery(servingListAccessQuery())
+  const canLinkServingList = canViewServingLists(servingListAccess.data)
   const board = useQuery(boardQuery(filter))
   const queryClient = useQueryClient()
 
@@ -202,6 +206,7 @@ function Board() {
               canRelease={canRelease}
               justReleased={selected ? released.has(selected.calloutId) : false}
               onRelease={() => selected && setReleasing(selected)}
+              canLinkServingList={canLinkServingList}
             />
           </div>
         </>

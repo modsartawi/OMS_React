@@ -18,6 +18,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { STORES_KEY, storesApi } from './api'
 import { storeColumns } from './columns'
 import { MoveDialog, OnboardDialog, RemoveDialog, SyncActiveDialog } from './StoreDialogs'
@@ -63,9 +64,6 @@ const INPUT =
   'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 const LINKED_KEY: Record<DeliverectLinkedFilter, string> = { any: 'filters.linkedAny', yes: 'filters.linkedYes', no: 'filters.linkedNo' }
-
-/** The number a sentence names, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
 
 type Dialog =
   | { kind: 'onboard' }

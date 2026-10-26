@@ -1,0 +1,164 @@
+{
+  "title": "HungerStation orders",
+  "subtitle": "Every order HungerStation sent us directly: what became of it on our side, and the failures to retry.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to HungerStation orders",
+    "deniedHint": "Your account does not hold the HungerStation orders grant. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "filters": {
+    "from": "Received from",
+    "to": "Received to",
+    "today": "Today",
+    "store": "Store",
+    "storePlaceholder": "Store code",
+    "chain": "Chain",
+    "chainAll": "All chains",
+    "q": "Order",
+    "qPlaceholder": "HungerStation order id, order code or our document number",
+    "search": "Search",
+    "clear": "Clear",
+    "outcome": "Outcome",
+    "windowInvalid": "Enter a valid start and end date.",
+    "windowReversed": "The end date is before the start date.",
+    "windowTooLong_one": "The window is at most {{max}} day. Narrow the dates to search.",
+    "windowTooLong_other": "The window is at most {{max}} days. Narrow the dates to search.",
+    "windowOutOfBounds": "Dates run from {{earliest}} to {{latest}} (tomorrow). Move the window inside them."
+  },
+  "outcomeFilters": {
+    "created": "Created",
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "pending": "Pending",
+    "replacedLines": "Replaced lines",
+    "unmatched": "Store not onboarded"
+  },
+  "outcomes": {
+    "created": "Created",
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "pending": "Pending"
+  },
+  "columns": {
+    "receivedAt": "Received at",
+    "orderCode": "Order code",
+    "orderId": "Order id",
+    "chain": "Chain",
+    "vendorId": "Vendor id",
+    "store": "Store",
+    "hsStatus": "HungerStation status",
+    "document": "Document",
+    "outcome": "Outcome",
+    "reason": "Reason",
+    "replacedLines": "Replaced lines",
+    "deliveries": "Deliveries",
+    "total": "Total",
+    "alert": "Alert",
+    "actions": "Actions"
+  },
+  "alert": {
+    "unmatched": {
+      "badge": "Store not onboarded",
+      "title": "The vendor id belongs to no onboarded store",
+      "hint": "Onboard the store with this vendor id, or revive it if it was removed. A retry cannot help until then.",
+      "action": "Open HungerStation stores"
+    },
+    "other": {
+      "badge": "Needs a person",
+      "title": "This order needs a person",
+      "hint": "The server flagged this order for a person to look at."
+    }
+  },
+  "runs": {
+    "done": "Done",
+    "waiting": "Waiting",
+    "stopped": "Stopped",
+    "none": "Intake failed before a run was written"
+  },
+  "results": {
+    "loading": "Loading orders…",
+    "failedTitle": "The orders could not be loaded",
+    "failed": "Try again in a moment.",
+    "windowRefused": "The server refused the window",
+    "empty": "No HungerStation order matches.",
+    "count_one": "<n>{{n}}</n> order",
+    "count_other": "<n>{{n}}</n> orders",
+    "page": "Showing <range>{{range}}</range> of <total>{{total}}</total>",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "actions": {
+    "details": "Details",
+    "retry": "Retry",
+    "raw": "Raw body"
+  },
+  "detail": {
+    "eyebrow": "HungerStation order",
+    "close": "Close",
+    "loading": "Loading the order…",
+    "failed": "The order could not be loaded",
+    "orderId": "Order id",
+    "orderCode": "Order code",
+    "chain": "Chain",
+    "vendorId": "Vendor id",
+    "store": "Store",
+    "receivedAt": "Received at",
+    "hsStatus": "HungerStation status",
+    "outcome": "Outcome",
+    "reason": "Reason",
+    "document": "Document",
+    "replacedLines": "Replaced lines",
+    "total": "Total",
+    "lines": "Lines",
+    "noLines": "The order carries no lines.",
+    "lineColumns": {
+      "sku": "SKU",
+      "name": "Name",
+      "status": "HungerStation status",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "totalPrice": "Total price",
+      "discount": "Discount",
+      "material": "Material"
+    },
+    "replaces": "Replaces <sku>{{sku}}</sku>",
+    "deliveries": "Deliveries",
+    "noDeliveries": "No delivery is recorded for this order.",
+    "deliveryColumns": {
+      "receivedAt": "Received at",
+      "run": "Run",
+      "attempts": "Attempts",
+      "lastAttemptAt": "Last attempt",
+      "nextAttemptAt": "Next attempt",
+      "error": "Error",
+      "body": "Body"
+    }
+  },
+  "raw": {
+    "eyebrow": "Raw delivery, as HungerStation sent it",
+    "close": "Close",
+    "loading": "Loading the raw body…",
+    "failed": "The raw body could not be loaded",
+    "receivedAt": "Received <t>{{at}}</t>",
+    "readOnly": "Read only. Shown as received; the layout below only adds line breaks and indents.",
+    "notJson": "The body is not valid JSON, so it is shown exactly as received.",
+    "formatted": "Formatted",
+    "asReceived": "As received",
+    "copy": "Copy",
+    "copied": "Raw body copied",
+    "copyFailed": "The raw body could not be copied"
+  },
+  "retry": {
+    "title": "Retry this order",
+    "note": "Retrying re-runs order <order>{{order}}</order>'s latest run only. Its row reads Pending until the worker has run it.",
+    "confirm": "Retry",
+    "done": "Retry queued",
+    "doneDetail": "Order {{order}} is back on the queue. Its row reads Pending until the worker runs it.",
+    "notRequeued": "Nothing was put back",
+    "notRequeuedDetail": "Order {{order}} was not re-queued. Its row shows where it stands.",
+    "notFailed": "This order is no longer failed — it is done, waiting, cancelled or already has its document. Its row has been refreshed.",
+    "noSuchOrder": "There is no such HungerStation order."
+  }
+}

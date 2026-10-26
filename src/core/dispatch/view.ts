@@ -1,4 +1,4 @@
-import type { DispatchBid, LocalDateTime } from '@/core/models/dispatch-board'
+import type { DispatchBid, DispatchCallout, LocalDateTime } from '@/core/models/dispatch-board'
 import type { Severity } from '@/core/ui/severity'
 
 // A callout's view logic (BackOffice spec 2952, oms ticket 541): the countdown, an outcome's and a bid
@@ -135,4 +135,10 @@ export function bidRow(bid: DispatchBid): BidRowView {
     status: bidStatusView(bid.status),
     ignoreReason: bid.ignoreReason ?? '',
   }
+}
+
+/** Removed by duty: the count, or `null` (not shown) at 0 or when the callout predates the duty check. */
+export function dutyRemovedView(c: Partial<Pick<DispatchCallout, 'dutyRemovedCount'>>): number | null {
+  const n = c.dutyRemovedCount ?? 0
+  return n > 0 ? n : null
 }

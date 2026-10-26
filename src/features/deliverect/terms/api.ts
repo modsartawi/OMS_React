@@ -1,5 +1,5 @@
 import { api } from '@/core/api'
-import type { DeliverectPlatformBody, DeliverectTermsBody, DeliverectTermsRow } from '@/core/models/deliverect'
+import type { DeliverectPlatformAddBody, DeliverectPlatformBody, DeliverectTermsBody, DeliverectTermsRow } from '@/core/models/deliverect'
 
 // The delivery platforms and terms doors (BackOffice 2627; contract § Platforms and terms). The
 // Accounts and Platforms reads are shared with the stores and catalog pages, so they live in
@@ -27,9 +27,17 @@ export const termsApi = {
 
   /**
    * PUT DeliverectWeb/Platforms/{platformKey} — `{ displayName, channelId, creditCustomer, active,
-   * reason }`. Its answer is unspecified (the list is refetched); the contract lists no refusal.
+   * reason }`, an existing platform only. Its answer is unspecified (the list is refetched).
    */
   updatePlatform(platformKey: string, body: DeliverectPlatformBody): Promise<unknown> {
     return api.put<unknown>(`DeliverectWeb/Platforms/${encodeURIComponent(platformKey)}`, body)
+  },
+
+  /**
+   * POST DeliverectWeb/Platforms — the PUT body plus `platformKey`; behind `canAddPlatform`. The
+   * list is refetched. Refusal: DLV-00014 (the key exists).
+   */
+  addPlatform(body: DeliverectPlatformAddBody): Promise<unknown> {
+    return api.post<unknown>('DeliverectWeb/Platforms', body)
   },
 }

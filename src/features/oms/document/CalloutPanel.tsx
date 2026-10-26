@@ -1,6 +1,8 @@
 import { Trans, useTranslation } from 'react-i18next'
 import { Lock, MoonStar, Unlock } from 'lucide-react'
-import { bidRow, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import { bidRow, dutyRemovedView, formatClock, outcomeView, type BidMoment, type BidRowView } from '@/core/dispatch/view'
+import ServingListName from '@/core/serving-list/ServingListName'
+import { servingListView } from '@/core/serving-list/view'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutLog } from '@/core/oms/callout-moments'
 import Ltr from '@/core/ui/Ltr'
@@ -16,11 +18,18 @@ import ReasonText from './CalloutReason'
  * and register, the bid's outcome), and the raw `CalloutEvent` log in server order, for disputes.
  * Read-only. Only drawn when the delivery has a callout.
  */
-export default function CalloutPanel({ callouts }: { callouts: readonly DeliveryCalloutRecord[] }) {
+export default function CalloutPanel({
+  callouts,
+  canLinkServingList = false,
+}: {
+  callouts: readonly DeliveryCalloutRecord[]
+  /** 567's `canViewServingLists`: the serving list links to its screen. */
+  canLinkServingList?: boolean
+}) {
   return (
     <div className="flex min-w-0 flex-col gap-3" data-callout-panel="">
       {callouts.map((callout) => (
-        <CalloutSection key={callout.calloutId} callout={callout} />
+        <CalloutSection key={callout.calloutId} callout={callout} canLinkServingList={canLinkServingList} />
       ))}
     </div>
   )
@@ -29,8 +38,9 @@ export default function CalloutPanel({ callouts }: { callouts: readonly Delivery
 const TH = 'py-1 pe-3 text-start font-medium whitespace-nowrap'
 const TD = 'py-1 pe-3 align-top'
 
-function CalloutSection({ callout: c }: { callout: DeliveryCalloutRecord }) {
-  const { t } = useTranslation('document')
+function CalloutSection({ callout: c, canLinkServingList }: { callout: DeliveryCalloutRecord; canLinkServingList: boolean }) {
+  const { t, i18n } = useTranslation('document')
+  const dutyRemoved = dutyRemovedView(c)
   const outcome = outcomeView(c.outcome)
   const notCompeted = c.status === 'NOT_OPENED'
   const heldAt = c.awardedParty || c.fallbackParty
@@ -65,6 +75,16 @@ function CalloutSection({ callout: c }: { callout: DeliveryCalloutRecord }) {
             components={{ n: <Ltr /> }}
           />
         </span>
+        {/* Beside the candidate count: did a serving list or the duty check narrow the race (spec 3042)? */}
+        <span className="text-xs text-muted-foreground" data-callout-serving="">
+          {t('callout.panel.servingList')}{' '}
+          <ServingListName view={servingListView(c, i18n.language)} dash={t('callout.panel.noServingList')} canLink={canLinkServingList} />
+        </span>
+        {dutyRemoved != null && (
+          <span className="text-xs text-muted-foreground" data-duty-removed={dutyRemoved}>
+            <Trans t={t} i18nKey="callout.panel.dutyRemoved" values={{ n: String(dutyRemoved) }} components={{ n: <Ltr /> }} />
+          </span>
+        )}
         {c.fallbackParty && (
           <span className="text-xs text-muted-foreground">
             <Trans

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, formatMoney3 } from './number-format'
+import { formatFigure, formatMoney, formatMoney3 } from './number-format'
 
 describe('formatMoney3', () => {
   it('shows exactly 3 decimals', () => {
@@ -16,5 +16,13 @@ describe('formatMoney3', () => {
 
   it('leaves formatMoney at its 2 decimals', () => {
     expect(formatMoney(12.5)).toBe('12.50')
+  })
+})
+
+describe('formatFigure', () => {
+  it('groups a count as figures are drawn across the app, in Latin digits', () => {
+    expect(formatFigure(0)).toBe('0')
+    expect(formatFigure(250)).toBe('250')
+    expect(formatFigure(1234567)).toBe('1,234,567')
   })
 })

@@ -5,6 +5,7 @@ import type { DeliverectStoreRow, DeliverectStoreState } from '@/core/models/del
 import { pinStart } from '@/core/theme/direction'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
+import LtrCell from '@/core/ui/LtrCell'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { fsi } from '@/core/util/bidi'
@@ -24,12 +25,6 @@ function statusLabel(t: TFunction, state: string): { text: string; sev: Severity
   return state in STATUS_SEV
     ? { text: t(`status.${state}`), sev: STATUS_SEV[state as DeliverectStoreState], raw: false }
     : { text: state, sev: 'mute', raw: true }
-}
-
-/** A machine value (a code, a key, a time) isolated left-to-right once, as the formatter shaped it. */
-function LtrCell({ value, valueFormatted }: ICellRendererParams) {
-  const text = valueFormatted ?? (value == null ? '' : String(value))
-  return text === '' ? null : <Ltr>{text}</Ltr>
 }
 
 /** The hour the full run is due, as the overdue sentence names it. */

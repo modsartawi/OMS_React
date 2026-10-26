@@ -19,6 +19,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { formatRange, fsi } from '@/core/util/bidi'
+import { formatFigure as figure } from '@/core/util/number-format'
 import { gridSheet, writeWorkbook, xlsxFileName } from '@/core/util/grid-xlsx'
 import { ORDERS_KEY, ordersApi } from './api'
 import { orderColumns } from './columns'
@@ -75,9 +76,6 @@ const CHIP =
 
 /** A 126 row — a cancel after invoicing — is painted on the danger ground (the 480 row recipe). */
 const ROW_ALERT = '[--ag-data-background-color:var(--danger-050)]'
-
-/** The number a sentence names, grouped as figures are drawn across the app. */
-const figure = (n: number) => n.toLocaleString('en-US')
 
 /** The detail, raw and retry overlays are independent: the raw body and the retry stack over the drawer. */
 type Selected = Row | null

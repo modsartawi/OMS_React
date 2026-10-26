@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { AlertTriangle, ClipboardCopy, FileSpreadsheet, Loader2, Send } from 'lucide-react'
+import { AlertTriangle, FileSpreadsheet, Loader2, Send } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { deliverectAccountsQuery, deliverectPlatformsQuery } from '@/core/deliverect/api'
 import ReasonDialog, { InlineRefusal } from '@/core/deliverect/ReasonDialog'
@@ -22,7 +22,8 @@ import { xlsxRows } from '@/core/util/xlsx-read'
 import { WHITELIST_KEY, catalogApi } from './api'
 import PlatformChip from './PlatformChip'
 import { exclusionEditor, exclusionSet, sameExclusions } from './exclusion-set'
-import { WHITELIST_IMPORT_MAX, parseMaterialList, type MaterialList } from './material-list'
+import ImportAnswerDialog from '@/core/import/ImportAnswerDialog'
+import { WHITELIST_IMPORT_MAX, parseMaterialList, type MaterialList } from '@/core/import/material-list'
 import { figure, updateBody, type WhitelistAction } from './whitelist-state'
 
 const FIELD = 'flex flex-col gap-1 text-xs font-medium'
@@ -222,81 +223,20 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
 
 /**
  * The import's answer (ticket 479): how many were added, how many re-activated, and the material
- * numbers the server did not know — listed, with a Copy that puts them on the clipboard one per
- * line.
+ * numbers the server did not know, with a Copy — the core answer dialog (graduated by ticket 555).
  */
 export function ImportResultDialog({ result, onClose }: { result: DeliverectWhitelistImportResult; onClose: () => void }) {
   const { t } = useTranslation('deliverect-catalog')
-  const unknown = result.unknown ?? []
-  // Inside the promise, so a page with no clipboard (plain http) says it could not copy rather than throwing.
-  const copy = () =>
-    void Promise.resolve()
-      .then(() => navigator.clipboard.writeText(unknown.join('\n')))
-      .then(
-        () =>
-          notify.success(
-            t('result.copied'),
-            t('result.copiedDetail', {
-              count: unknown.length,
-              n: fsi(figure(unknown.length)),
-            }),
-          ),
-        () => notify.error(t('result.copyFailed')),
-      )
-
   return (
-    <Modal
-      open
+    <ImportAnswerDialog
+      ns="deliverect-catalog"
+      counts={[
+        { label: t('result.added'), value: result.added, attr: 'added' },
+        { label: t('result.reactivated'), value: result.reactivated, attr: 'reactivated' },
+      ]}
+      unknown={result.unknown ?? []}
       onClose={onClose}
-      title={t('result.title')}
-      width="32rem"
-      footer={
-        <Button variant="primary" onClick={onClose} data-result-close="">
-          {t('result.close')}
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-3" data-import-result="">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">{t('result.added')}</dt>
-          <dd className="tabular-nums" data-result-added={result.added}>
-            <Ltr>{figure(result.added)}</Ltr>
-          </dd>
-          <dt className="text-muted-foreground">{t('result.reactivated')}</dt>
-          <dd className="tabular-nums" data-result-reactivated={result.reactivated}>
-            <Ltr>{figure(result.reactivated)}</Ltr>
-          </dd>
-          <dt className="text-muted-foreground">{t('result.unknown')}</dt>
-          <dd className="tabular-nums" data-result-unknown-count={unknown.length}>
-            <Ltr>{figure(unknown.length)}</Ltr>
-          </dd>
-        </dl>
-        {unknown.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">{t('result.unknownHint')}</span>
-              <Button variant="secondary" onClick={copy} data-result-copy="">
-                <ClipboardCopy className="h-3.5 w-3.5" aria-hidden />
-                {t('result.copy')}
-              </Button>
-            </div>
-            <ul
-              dir="ltr"
-              className="max-h-48 overflow-auto rounded-md border border-border/60 bg-muted/40 px-2 py-1 font-mono text-xs"
-              data-result-unknown=""
-            >
-              {unknown.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground" data-result-none-unknown="">
-            {t('result.noneUnknown')}
-          </p>
-        )}
-      </div>
-    </Modal>
+    />
   )
 }
 

@@ -10,7 +10,14 @@ import { notify } from '@/core/services/notify'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { TERMS_KEY, termsApi } from './api'
-import { parsePlatformDraft, platformDraftOf, samePlatform, type PlatformDraft } from './platform-edit'
+import {
+  EMPTY_PLATFORM_DRAFT,
+  parsePlatformDraft,
+  parsePlatformKey,
+  platformDraftOf,
+  samePlatform,
+  type PlatformDraft,
+} from './platform-edit'
 import {
   TERMS_NUMBER_FIELDS,
   currentRow,
@@ -54,22 +61,33 @@ function Problem({ text, data }: { text: string; data: string }) {
  * id, credit customer and active, with a reason. 🚩 With no credit customer the Active box cannot be
  * ticked, and the dialog says why — its orders would be refused. An already-ticked box stays
  * untickable, so the user can clear it; it is never flipped for them. Save waits for a change.
+ *
+ * With `platform` null it **adds** one (`POST Platforms`, behind `canAddPlatform`): the same fields
+ * plus the new key, which is never edited afterwards. A key that exists (DLV-00014) shows inline.
  */
-export function PlatformDialog({ platform, onClose }: { platform: DeliverectPlatform; onClose: () => void }) {
+export function PlatformDialog({ platform, onClose }: { platform: DeliverectPlatform | null; onClose: () => void }) {
   const { t } = useTranslation('deliverect-terms')
   const qc = useQueryClient()
-  const [draft, setDraft] = useState<PlatformDraft>(() => platformDraftOf(platform))
+  const adding = platform === null
+  const [draft, setDraft] = useState<PlatformDraft>(() => (platform ? platformDraftOf(platform) : EMPTY_PLATFORM_DRAFT))
+  const [keyText, setKeyText] = useState('')
+  const key = parsePlatformKey(keyText)
   const parsed = parsePlatformDraft(draft)
-  const unchanged = parsed.value !== null && samePlatform(parsed.value, platform)
+  const unchanged = platform !== null && parsed.value !== null && samePlatform(parsed.value, platform)
 
   const send = useMutation({
-    mutationFn: (reason: string) => termsApi.updatePlatform(platform.platformKey, { ...parsed.value!, reason }),
+    mutationFn: (reason: string) =>
+      platform
+        ? termsApi.updatePlatform(platform.platformKey, { ...parsed.value!, reason })
+        : termsApi.addPlatform({ platformKey: key.value!, ...parsed.value!, reason }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: DELIVERECT_PLATFORMS_KEY })
-      notify.success(t('edit.done'), t('edit.doneDetail', { platform: fsi(platform.platformKey) }))
+      const which = fsi(platform?.platformKey ?? key.value!)
+      notify.success(t(adding ? 'addPlatform.done' : 'edit.done'), t(adding ? 'addPlatform.doneDetail' : 'edit.doneDetail', { platform: which }))
       onClose()
     },
   })
+  const exists = fieldRefusal(send.error, [DELIVERECT_ERRORS.platformExists], t('failedHint'))
   const set = <K extends keyof PlatformDraft>(key: K, value: PlatformDraft[K]) => {
     send.reset()
     setDraft((d) => ({ ...d, [key]: value }))
@@ -80,18 +98,40 @@ export function PlatformDialog({ platform, onClose }: { platform: DeliverectPlat
   return (
     <ReasonDialog
       open
-      title={t('edit.title')}
+      title={t(adding ? 'addPlatform.title' : 'edit.title')}
       note={t('edit.note')}
       busy={send.isPending}
       error={send.error}
-      confirmLabel={t('edit.confirm')}
-      confirmDisabled={parsed.value === null || unchanged}
+      handledCodes={adding ? [DELIVERECT_ERRORS.platformExists] : undefined}
+      confirmLabel={t(adding ? 'addPlatform.confirm' : 'edit.confirm')}
+      confirmDisabled={parsed.value === null || unchanged || (adding && key.value === null)}
       onEdit={() => send.reset()}
       onConfirm={(reason) => send.mutate(reason)}
       onClose={onClose}
     >
-      <PlatformLine platform={platform} />
-      <div className="grid grid-cols-2 gap-3" data-platform-dialog="">
+      {platform && <PlatformLine platform={platform} />}
+      <div className="grid grid-cols-2 gap-3" data-platform-dialog={adding ? 'add' : 'edit'}>
+        {adding && (
+          <label className={FIELD + ' col-span-2'}>
+            {t('addPlatform.platformKey')}
+            <input
+              value={keyText}
+              onChange={(e) => {
+                send.reset()
+                setKeyText(e.target.value)
+              }}
+              disabled={send.isPending}
+              autoFocus
+              dir="ltr"
+              className={INPUT + ' font-mono uppercase'}
+              aria-invalid={exists !== null || undefined}
+              data-add-platform-key=""
+            />
+            {keyText !== '' && key.problem && <Problem text={t(`addPlatform.problems.${key.problem}`)} data="platformKey" />}
+            <span className="font-normal text-muted-foreground">{t('addPlatform.platformKeyHint')}</span>
+            {exists && <InlineRefusal message={exists.message} code={exists.code} />}
+          </label>
+        )}
         <label className={FIELD + ' col-span-2'}>
           {t('edit.displayName')}
           <input

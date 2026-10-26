@@ -159,6 +159,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/dispatch-scorecard/DispatchScorecardPage')).default,
         }),
       },
+      // Serial refusals (ticket 573, BackOffice spec 3049 / 3065) — every SOLD / HELD answer head office gave a till's
+      // serial check, by staff, serial, store and article, behind its own `SerialRefusal/Access` probe. Filters in the URL.
+      {
+        path: 'oms/serial-refusals',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serial-refusals/SerialRefusalsPage')).default,
+        }),
+      },
       // The Dispatch board (ticket 541, BackOffice spec 2952) — HQ watches competed deliveries on callout
       // and releases a locked one, behind `canOpenDispatchBoard` on `GET DispatchBoard/Access`. Filters
       // `?channel=&city=&store=` live in the URL.
@@ -166,6 +174,21 @@ export const router = createBrowserRouter([
         path: 'oms/dispatch-board',
         lazy: async () => ({
           Component: (await import('@/features/oms/dispatch-board/DispatchBoardPage')).default,
+        }),
+      },
+      // Serving lists (ticket 567, BackOffice spec 3042) — every list and the delivery types pointing at it,
+      // behind `canViewServingLists` on `GET ServingListWeb/Access`. A row opens `/oms/serving-lists/:id` (568).
+      {
+        path: 'oms/serving-lists',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serving-lists/ServingListsPage')).default,
+        }),
+      },
+      // A serving list's detail (ticket 568): the header, then Members (568) and History (571) tabs, `?tab=`.
+      {
+        path: 'oms/serving-lists/:servingListId',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/serving-lists/ServingListPage')).default,
         }),
       },
       // Pick support (ticket 496, BackOffice brief 2691) — HQ support finds a delivery from any number
@@ -709,6 +732,26 @@ export const router = createBrowserRouter([
         path: 'deliverect/terms',
         lazy: async () => ({
           Component: (await import('@/features/deliverect/terms/TermsPage')).default,
+        }),
+      },
+      // The HungerStation area (BackOffice spec 3028, ticket 551) — the DIRECT rail: Stores (551),
+      // Materials (555) and Orders (556), each its own page.
+      {
+        path: 'hungerstation/stores',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/stores/StoresPage')).default,
+        }),
+      },
+      {
+        path: 'hungerstation/materials',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/materials/MaterialsPage')).default,
+        }),
+      },
+      {
+        path: 'hungerstation/orders',
+        lazy: async () => ({
+          Component: (await import('@/features/hungerstation/orders/OrdersPage')).default,
         }),
       },
       // Rule campaigns (BackOffice spec 2737, ticket 501) — a new area at `/campaigns/*`. The

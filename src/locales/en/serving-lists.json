@@ -1,0 +1,286 @@
+{
+  "menu": {
+    "servingLists": "Serving lists"
+  },
+  "title": "Serving lists",
+  "subtitle": "The stores each list lets a delivery type's competed deliveries be bid to, and the types pointing at it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the Serving lists grant.",
+    "unreachableTitle": "Access could not be checked",
+    "unreachableHint": "Try again in a moment."
+  },
+  "notFound": {
+    "title": "This serving list does not exist",
+    "hint": "No serving list has the id <v>{{id}}</v>."
+  },
+  "loading": "Loading serving lists…",
+  "failed": "The serving lists could not be loaded.",
+  "empty": "There are no serving lists yet.",
+  "readOnlyPointing": "A delivery type is pointed at a list by an HQ script; this screen shows the pointing types read-only.",
+  "columns": {
+    "nameEn": "English name",
+    "nameAr": "Arabic name",
+    "status": "Status",
+    "members": "Members",
+    "membersTooltip": "Enabled members / all members",
+    "pointingTypes": "Pointing types",
+    "updated": "Updated"
+  },
+  "status": {
+    "active": "Active",
+    "deactivated": "Deactivated"
+  },
+  "pointing": {
+    "none": "None",
+    "competed": "Competed"
+  },
+  "flag": {
+    "noEnabledMember": "No enabled member",
+    "noEnabledMemberHint": "A competed delivery type points at this list, but no member is enabled: its deliveries record ServingListInactive and are not competed.",
+    "deactivatedCompeted": "Deactivated, still pointed at",
+    "deactivatedCompetedHint": "A competed delivery type still points at this deactivated list: its deliveries record ServingListInactive and are not competed.",
+    "empty": "No members",
+    "emptyHint": "No store is on this list yet."
+  },
+  "detail": {
+    "title": "Serving list",
+    "subtitle": "The stores on this list, with their duty today, and the list's history.",
+    "back": "All serving lists",
+    "listFailed": "The list's details could not be loaded.",
+    "members": "Enabled members",
+    "deactivatedNote": "This list is deactivated: the deliveries of the types pointing at it are not competed. It still lists its members."
+  },
+  "tabs": {
+    "label": "Serving list sections",
+    "members": "Members",
+    "history": "History"
+  },
+  "duty": {
+    "onDuty": "On duty now",
+    "offDuty": "Off duty now",
+    "closedToday": "Closed today",
+    "noRoster": "No roster",
+    "noRosterHint": "No roster holds today: a delivery type that checks duty never bids this store.",
+    "nextMorning": "next morning"
+  },
+  "member": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "storeClosed": "Closed",
+    "storeOpen": "Open"
+  },
+  "members": {
+    "loading": "Loading members…",
+    "failed": "The members could not be loaded.",
+    "empty": "No store is on this list yet.",
+    "noMatch": "No member matches these filters.",
+    "unknownDuty": "That duty filter is not one the server knows. Clear the duty filter and try again.",
+    "count_one": "<v>{{n}}</v> member",
+    "count_other": "<v>{{n}}</v> members",
+    "dutyReadOnly": "Duty is read from the store's roster, which is edited elsewhere.",
+    "columns": {
+      "storeCode": "Store",
+      "storeName": "Store name",
+      "city": "City",
+      "duty": "Duty today",
+      "dutyTooltip": "Whether a callout opening now would bid the store, and today's hours",
+      "storeClosed": "Store status",
+      "enabled": "On the list",
+      "added": "Added",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "filters": {
+      "city": "City",
+      "enabled": "On the list",
+      "duty": "Duty",
+      "any": "Any",
+      "apply": "Apply",
+      "clear": "Clear",
+      "dutyOption": {
+        "OnDuty": "On duty now",
+        "OffDuty": "Off duty now",
+        "NoRoster": "No roster"
+      }
+    }
+  },
+  "history": {
+    "loading": "Loading the list's history…",
+    "failed": "The list's history could not be loaded.",
+    "empty": "Nothing has been recorded for this list yet.",
+    "noMatch": "No change matches these filters.",
+    "readOnly": "The history is a record: it cannot be edited or undone.",
+    "count_one": "<v>{{n}}</v> change, newest first",
+    "count_other": "<v>{{n}}</v> changes, newest first",
+    "matching_one": "<v>{{n}}</v> of <v>{{total}}</v> change matches",
+    "matching_other": "<v>{{n}}</v> of <v>{{total}}</v> changes match",
+    "showMore": "Show more",
+    "atMax": "Only the newest <v>{{n}}</v> changes can be shown.",
+    "columns": {
+      "changedAt": "When",
+      "changedBy": "Who",
+      "action": "Action",
+      "storeCode": "Store",
+      "names": "Names",
+      "note": "Note"
+    },
+    "action": {
+      "Create": "Created",
+      "Rename": "Renamed",
+      "Deactivate": "Deactivated",
+      "Reactivate": "Reactivated",
+      "AddStore": "Store added",
+      "RemoveStore": "Store removed",
+      "EnableStore": "Store enabled",
+      "DisableStore": "Store disabled"
+    },
+    "names": {
+      "create": "Named <v>{{en}}</v> (<v>{{ar}}</v>)",
+      "rename": "From <v>{{fromEn}}</v> (<v>{{fromAr}}</v>) to <v>{{toEn}}</v> (<v>{{toAr}}</v>)"
+    },
+    "filters": {
+      "action": "Action",
+      "store": "Store code",
+      "storePlaceholder": "Any store",
+      "any": "Any",
+      "clear": "Clear"
+    },
+    "export": {
+      "button": "Export to Excel",
+      "sheet": "History",
+      "fileName": "serving-list-history",
+      "done": "History exported",
+      "doneDetail_one": "{{n}} change written.",
+      "doneDetail_other": "{{n}} changes written.",
+      "failed": "The export failed",
+      "failedDetail": "The workbook could not be written. Try again."
+    }
+  },
+  "addStores": {
+    "button": "Add stores",
+    "title": "Add stores to {{list}}",
+    "intro": "Search by code, name or city and pick stores, or paste a column of codes. They are added in one go, enabled; one bad code refuses the whole batch.",
+    "search": {
+      "label": "Search stores",
+      "placeholder": "Code, name or city",
+      "searching": "Searching…",
+      "noHits": "No store matches.",
+      "failed": "The stores could not be searched.",
+      "more": "Showing the first <v>{{n}}</v> stores: narrow the search to see others.",
+      "pickAll": "Pick all shown",
+      "onList": "On the list",
+      "closed": "Closed",
+      "closedHint": "This store is closed: it is never bid while it is closed."
+    },
+    "paste": {
+      "label": "Paste codes",
+      "hint": "One per line, or separated by commas or spaces.",
+      "add": "Add to basket",
+      "result": "Added to the basket: <v>{{added}}</v>. Already in it: <v>{{skipped}}</v>."
+    },
+    "basket": {
+      "title": "Basket",
+      "count_one": "<v>{{n}}</v> store in the basket",
+      "count_other": "<v>{{n}}</v> stores in the basket",
+      "empty": "The basket is empty. Pick stores or paste codes.",
+      "clear": "Clear",
+      "remove": "Remove {{code}}",
+      "closed": "Closed",
+      "refused": "Refused"
+    },
+    "note": {
+      "label": "Note (optional)"
+    },
+    "cancel": "Cancel",
+    "confirm": "Add to the list",
+    "sending": "Adding…",
+    "done_one": "Added {{n}} store to {{list}}.",
+    "done_other": "Added {{n}} stores to {{list}}.",
+    "refusal": {
+      "title": "Nothing was added",
+      "unknownList": "This serving list no longer exists.",
+      "unknownStores": "These codes are not stores:",
+      "alreadyMembers": "These stores are already on the list:",
+      "noCodes": "Name at least one store to add.",
+      "notGranted": "You may not edit serving lists.",
+      "failed": "The stores could not be added.",
+      "removeAndRetry": "Remove these and retry"
+    }
+  },
+  "writes": {
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "note": "Note (optional)",
+    "refusedTitle": "The change was refused",
+    "failed": "The change could not be saved.",
+    "notGrantedTitle": "Not allowed",
+    "notGranted": "You do not have the right to edit serving lists.",
+    "refreshed": "The screen was behind and has been refreshed.",
+    "openBids": "A bid already offered is never withdrawn: the change applies from the next callout.",
+    "refusal": {
+      "unknownList": "This serving list no longer exists.",
+      "notMember": "This store is no longer on the list.",
+      "nameRequired": "A serving list needs a name in English and in Arabic.",
+      "nameTooLong": "A name is longer than 100 characters.",
+      "alreadyInState": "This change has already been made."
+    },
+    "name": {
+      "en": "English name",
+      "ar": "Arabic name",
+      "required": "Required.",
+      "tooLong": "At most 100 characters.",
+      "unchanged": "Change a name to save."
+    },
+    "create": {
+      "button": "New list",
+      "title": "New serving list",
+      "confirm": "Create",
+      "done": "Serving list {{name}} created.",
+      "hint": "A new list is active and has no members: add stores to it next."
+    },
+    "rename": {
+      "button": "Rename",
+      "title": "Rename serving list",
+      "confirm": "Save",
+      "done": "Serving list renamed to {{name}}."
+    },
+    "deactivate": {
+      "button": "Deactivate",
+      "title": "Deactivate serving list",
+      "confirm": "Deactivate",
+      "done": "Serving list {{name}} deactivated.",
+      "subject": "Deactivate <b>{{name}}</b>?",
+      "effect": "No delivery is competed through a deactivated list. Its members stay, and it can be reactivated.",
+      "competed": "The deliveries of {{types}} will stop being competed; they go to their fallback store.",
+      "noCompeted": "No competed delivery type points at this list.",
+      "warned": "Deliveries are no longer competed"
+    },
+    "reactivate": {
+      "button": "Reactivate",
+      "title": "Reactivate serving list",
+      "confirm": "Reactivate",
+      "done": "Serving list {{name}} reactivated.",
+      "subject": "Reactivate <b>{{name}}</b>?",
+      "effect": "Its enabled members are bid again from the next callout."
+    },
+    "member": {
+      "disable": "Disable",
+      "enable": "Enable",
+      "remove": "Remove",
+      "disableAria": "Disable store {{store}} on this list",
+      "enableAria": "Enable store {{store}} on this list",
+      "removeAria": "Remove store {{store}} from this list",
+      "disableTitle": "Disable member",
+      "enableTitle": "Enable member",
+      "removeTitle": "Remove member",
+      "disableEffect": "The store keeps its place and its history on the list, but is not bid.",
+      "enableEffect": "The store is bid again from the next callout.",
+      "removeEffect": "The store is no longer bid from the next callout. The list's history keeps it.",
+      "disableDone": "Store {{store}} disabled.",
+      "enableDone": "Store {{store}} enabled.",
+      "removeDone": "Store {{store}} removed from the list."
+    }
+  }
+}

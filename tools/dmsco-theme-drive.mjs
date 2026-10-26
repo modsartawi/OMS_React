@@ -606,6 +606,8 @@ async function expectChipLook(ctx, label, selector, on) {
 SCREENS.push({
   key: 'deliveries-controls',
   path: '/oms/deliveries',
+  // A full-width toolbar: the pinned modes only (592's overlay/drawer modes are shell checks).
+  modes: pinned,
   ready: loadDeliveries,
   assert: async (ctx) => {
     const { page, tag } = ctx

@@ -129,9 +129,9 @@ materials/search 6
 
 materials/stock-check 6
 
-nphies/authorizations 31
+nphies/authorizations 0
 
-nphies/eligibility 22
+nphies/eligibility 0
 
 oms/central-invoice 7
 
@@ -173,8 +173,16 @@ pricing/coupons 18
 
 pricing/simulation 23
 
-reports/idoc-inspector 8
+reports/idoc-inspector 1
+  src/features/reports/idoc-inspector/DocumentRail.tsx button: document card rail is a tile picker (spec 590: restyled in place)
 
-reports/retail-invoice 5
+reports/retail-invoice 1
+  src/features/reports/retail-invoice/DownloadAction.tsx button: per-row Download is a grid-cell action (spec 590: restyled in place)
 
-reports/sap-export-console 14
+reports/sap-export-console 6
+  src/features/reports/sap-export-console/DoubleSendsPage.tsx button: Clear filters is a non-navigating text button (594: not link)
+  src/features/reports/sap-export-console/SapExportPage.tsx button: export-label filter chips carry a severity tone, one-off (h-7 pill)
+  src/features/reports/sap-export-console/SapExportPage.tsx button: Clear filters is a non-navigating text button (594: not link)
+  src/features/reports/sap-export-console/SapExportPage.tsx button: fleet count tiles are a tile picker (spec 590: restyled in place)
+  src/features/reports/sap-export-console/StoreDayPage.tsx button: export-label filter chips carry a severity tone, one-off (h-7 pill)
+  src/features/reports/sap-export-console/StoreDayPage.tsx button: Clear filters is a non-navigating text button (594: not link)

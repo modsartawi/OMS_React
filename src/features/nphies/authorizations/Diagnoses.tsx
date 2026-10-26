@@ -17,6 +17,9 @@ import {
   setMorphology,
   type DiagnosisRefusal,
 } from './diagnosis-form'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /** How long a keystroke waits before it becomes a search. The door answers a
  *  `Take(500)` scan per call, so a request per character would ask it to do that
@@ -141,26 +144,19 @@ export default function Diagnoses({
           add()
         }}
       >
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.diagnoses.search')}
-          <input
+        <Field label={t('form.diagnoses.search')} className="min-w-[12rem] flex-1">
+          <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             disabled={disabled}
             placeholder={t('form.diagnoses.searchPlaceholder')}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           />
-        </label>
-        <label className="flex min-w-[16rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.diagnoses.match')}
-          <select
+        </Field>
+        <Field label={t('form.diagnoses.match')} className="min-w-[16rem] flex-1">
+          <Select
             value={picked}
-            // Named explicitly: a wrapping label leaves a select's accessible
-            // name carrying its option list, which is not a name.
-            aria-label={t('form.diagnoses.match')}
             onChange={(event) => setPicked(event.target.value)}
             disabled={disabled || (matches.data ?? []).length === 0}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           >
             <option value="">
               {matches.isFetching
@@ -179,16 +175,13 @@ export default function Diagnoses({
                 })}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex w-40 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.diagnoses.type')}
-          <select
+          </Select>
+        </Field>
+        <Field label={t('form.diagnoses.type')} className="w-40">
+          <Select
             value={type}
-            aria-label={t('form.diagnoses.type')}
             onChange={(event) => setType(event.target.value)}
             disabled={disabled}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           >
             {/* 🚩 Principal is deliberately NOT here — it is the radio below. */}
             {DIAGNOSIS_TYPES_OFFERED.map((offered) => (
@@ -196,9 +189,9 @@ export default function Diagnoses({
                 {t(`form.diagnoses.types.${offered}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <Button type="submit" variant="secondary" className="h-8" disabled={disabled || picked === ''}>
+          </Select>
+        </Field>
+        <Button type="submit" variant="secondary" disabled={disabled || picked === ''}>
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('form.diagnoses.add')}
         </Button>
@@ -263,14 +256,14 @@ export default function Diagnoses({
                   <td className="px-2 py-2 font-medium tabular-nums">{diagnosis.code}</td>
                   <td className="px-2 py-2 text-muted-foreground">{diagnosis.description}</td>
                   <td className="px-2 py-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="outlined"
                       disabled={disabled || busy}
                       onClick={() => onCommit(removeDiagnosis(diagnoses, diagnosis.code))}
-                      className="inline-flex h-7 items-center rounded-full border border-border px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {t('form.diagnoses.remove')}
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -354,24 +347,19 @@ function MorphologyPicker({
     <div className="flex flex-col gap-2 rounded-lg border border-attention-border bg-attention-050 p-3">
       <p className="text-xs font-medium text-attention-800">{because}</p>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-attention-800">
-          {t('form.diagnoses.morphology.search')}
-          <input
+        <Field label={t('form.diagnoses.morphology.search')} className="min-w-[12rem] flex-1">
+          <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             disabled={disabled}
             placeholder={t('form.diagnoses.morphology.searchPlaceholder')}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           />
-        </label>
-        <label className="flex min-w-[16rem] flex-1 flex-col gap-1 text-xs font-medium text-attention-800">
-          {t('form.diagnoses.morphology.label')}
-          <select
+        </Field>
+        <Field label={t('form.diagnoses.morphology.label')} className="min-w-[16rem] flex-1">
+          <Select
             value={value}
             disabled={disabled}
-            aria-label={t('form.diagnoses.morphology.label')}
             onChange={(event) => onPick(event.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           >
             {/* The chosen code stays selectable after the search that found it has
                 been cleared — otherwise the box would empty itself on a re-render. */}
@@ -387,8 +375,8 @@ function MorphologyPicker({
                 })}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       </div>
       {matches.isError && (
         <p className="text-xs text-attention-800">

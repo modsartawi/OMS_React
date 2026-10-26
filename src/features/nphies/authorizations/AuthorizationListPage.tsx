@@ -31,6 +31,7 @@ import { AUTH_LIST_DEFAULT_COL_DEF, buildAuthListColumns } from './list-columns'
 import ListFilters from './ListFilters'
 import CancelDialog from './CancelDialog'
 import type { AuthAct } from './row-acts'
+import Button from '@/core/ui/Button'
 
 /**
  * The authorizations list (ticket 214, spec 209 §6 stories 66–70 and 76) — the
@@ -391,18 +392,13 @@ export default function AuthorizationListPage() {
                   {t('list.loadedAt', { at: loadedAt })}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => void list.refetch()}
-                disabled={refreshing}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1 font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <Button type="button" variant="outlined" onClick={() => void list.refetch()} disabled={refreshing}>
                 <RefreshCw
                   className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')}
                   aria-hidden
                 />
                 {t('list.refresh')}
-              </button>
+              </Button>
             </span>
           </div>
 

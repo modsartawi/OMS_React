@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search } from 'lucide-react'
 import type { LookupCriteria, MissingParts } from './lookup-key'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The IDoc Inspector's lookup bar (ticket 296) — **two required fields**, and
@@ -54,17 +57,20 @@ export default function LookupToolbar({
         onLookup()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        <span>
-          {t('idocInspector.lookup.store')}{' '}
-          {/* Marked before it is refused rather than after — a glyph, not a
-              sentence, so it needs no key (`NewRoleModal`'s precedent), and
-              `aria-required` says the same thing to a screen reader. */}
-          <span className="text-danger-800" aria-hidden>
-            *
-          </span>
-        </span>
-        <input
+      <Field
+        label={
+          <>
+            {t('idocInspector.lookup.store')}{' '}
+            {/* Marked before it is refused rather than after — a glyph, not a
+                sentence, so it needs no key (`NewRoleModal`'s precedent), and
+                `aria-required` says the same thing to a screen reader. */}
+            <span className="text-danger-800" aria-hidden>
+              *
+            </span>
+          </>
+        }
+      >
+        <Input
           ref={storeRef}
           aria-required
           type="text"
@@ -76,20 +82,21 @@ export default function LookupToolbar({
           // field announced with the transaction number's error is worse than
           // silence, because a screen-reader user cannot see which is marked.
           aria-describedby={invalid?.store ? 'idoc-lookup-error' : undefined}
-          className={`h-9 w-32 rounded-md border bg-background px-2.5 font-mono text-sm text-foreground focus:outline-none ${
-            invalid?.store ? 'border-danger-border' : 'border-border/60 focus:border-primary/50'
-          }`}
+          className="w-32 font-mono"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        <span>
-          {t('idocInspector.lookup.trxNumber')}{' '}
-          <span className="text-danger-800" aria-hidden>
-            *
-          </span>
-        </span>
-        <input
+      <Field
+        label={
+          <>
+            {t('idocInspector.lookup.trxNumber')}{' '}
+            <span className="text-danger-800" aria-hidden>
+              *
+            </span>
+          </>
+        }
+      >
+        <Input
           aria-required
           type="text"
           inputMode="numeric"
@@ -98,28 +105,19 @@ export default function LookupToolbar({
           placeholder={t('idocInspector.lookup.trxNumberPlaceholder')}
           aria-invalid={invalid?.trxNumber || undefined}
           aria-describedby={invalid?.trxNumber ? 'idoc-lookup-error' : undefined}
-          className={`h-9 w-56 rounded-md border bg-background px-2.5 font-mono text-sm text-foreground focus:outline-none ${
-            invalid?.trxNumber ? 'border-danger-border' : 'border-border/60 focus:border-primary/50'
-          }`}
+          className="w-56 font-mono"
         />
-      </label>
+      </Field>
 
       <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button type="submit" variant="primary">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('idocInspector.lookup.submit')}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
-        >
+        </Button>
+        <Button type="button" variant="outlined" onClick={onReset}>
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('idocInspector.lookup.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* The local refusal, said beside the fields it is about rather than as a

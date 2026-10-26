@@ -1398,6 +1398,214 @@ SCREENS.push({
   },
 })
 
+// --- 604: the Nphies and reports screens on the shared controls ----------------
+// The nphies + reports area sweep (spec 590 §Shared controls). Self-contained: its stubs,
+// its helpers and its screens. Light, dark and RTL over the area's heaviest screens —
+// the authorization form (add-row, deductible boxes, line cells, diagnoses, attachments)
+// and its list filters (window chip ✕), the eligibility check form, and the reports
+// toolbars (SAP export fleet, IDoc inspector, Invoices) — proving every field labelled and
+// on the shared look, every icon button named, the buttons pills and the role tokens resolved.
+
+const NPHIES_REFERENCE = {
+  eligibilityId: 'ELG-1', memberId: 'MEM-4477', patientId: '0000000003', patientName: 'Ahmad Ali',
+  patientGender: 'male', patientBirthDate: '1988-04-02', patientIdType: 'NI', payerCode: 'PAY-9',
+  providerCode: 'P001', policyNumber: 'POL-77', policyStartDate: '2026-01-01', policyEndDate: '2026-12-31',
+  policyHolder: 'ACME INSURANCE',
+}
+const NPHIES_LINE = (sequence, itemNumber, itemDescription, group) => ({
+  lineId: `L${sequence}`, sequence, voided: false, itemNumber, itemDescription, quantity: 2,
+  unitPrice: 12.5, extendedPrice: 25, amount: 25, netAmount: 25, vat: 0, discountPercentage: 0, discountAmount: 0,
+  actualPatientShare: 5, deductibleG: 5, deductibleGroupName: group, maxCoverage: 0, daysSupply: 30,
+  selectionReason: '', selectionReasonEditable: group !== 'Generic', pricing: 'settled',
+})
+const NPHIES_STATE = {
+  contractVersion: '1.0', transactionId: '01JC8ABCDEFGHJKMNPQRSTVWXY', version: 2, etag: 'E2', status: 'open', plant: '1001',
+  reference: NPHIES_REFERENCE,
+  header: {
+    serviceDate: '2026-08-02', exceptionPrescription: false, daysSupplyDefault: 30, reasonForVisit: '',
+    diagnoses: [{ code: 'J20.9', type: 'principal', description: 'Acute bronchitis, unspecified', morphology: '' }],
+  },
+  insurance: { g1: { rate: 20, max: 500, paid: 0 }, g2: { rate: 30, max: 500, paid: 200 }, g3: { rate: 100, max: 0, paid: 0 } },
+  lines: [NPHIES_LINE(1, '100001', 'PANADOL 500MG', 'Brand-IR'), NPHIES_LINE(2, '100002', 'AMOXICILLIN 250MG', 'Generic')],
+  submitBlockers: [], replayed: false,
+}
+const NPHIES_ELIGIBILITY = {
+  id: 'ELG-1', eligibilityPurpose: 'benefits', providerCode: 'P001', payerCode: 'PAY-9', patientId: '0000000003',
+  patientIdType: 'NI', patientGender: 'male', patientName: 'Ahmad Ali', patientBirthDate: '1988-04-02',
+  actionDateTime: '2026-08-02T09:15:00', errorMessage: '', inforce: true, outcome: 'complete', disposition: 'Eligible',
+  notInForceReason: '', success: true, coverage: true, coverageId: 'COV-1', network: 'GOLD', class: 'A', statusCode: 200,
+  isEligible: true, siteEligibility: 'eligible', transfer: false, newborn: false, occupation: '', maritalStatus: '',
+  coverages: [{
+    id: 'COV-1', sequence: 1, coverageId: 'COV-1', memberId: 'MEM-4477', subscriberId: 'SUB-1', network: 'GOLD',
+    coveragePlan: 'PLAN-A', coverageClass: 'A', coverageGroup: 'G1', policyHolderName: 'ACME INSURANCE', inForce: true,
+    benefitStart: '2026-01-01', benefitEnd: '2026-12-31', periodStart: '2026-01-01', periodEnd: '2026-12-31',
+  }],
+}
+const NPHIES_LOOKUP = (items) => ({ contractVersion: '1.0', items })
+const NPHIES_STUBS = [
+  [/^Nphies\/Access$/, { canOpenNphies: true }],
+  [/^Nphies\/EligibilityResponse\/ELG-1$/, NPHIES_ELIGIBILITY],
+  [/^Nphies\/Session\/Open$/, { outcome: 'opened', state: NPHIES_STATE }],
+  [/^Nphies\/Session\/(State|SetHeader|SetInsurance|UpdateLineMeta|UpdateLineInsurance|ChangeQty)$/, NPHIES_STATE],
+  [/^Nphies\/Session\/Abandon$/, { outcome: 'abandoned' }],
+  [/^Nphies\/(AuthResponses|EligibilityResponses)$/, { rows: [], total: 0, page: 1, pageSize: 50 }],
+  [/^Nphies\/Providers$/, NPHIES_LOOKUP([{ providerCode: 'P001', license: 'LIC-1' }])],
+  [/^Nphies\/Payers$/, NPHIES_LOOKUP([{ payerCode: 'PAY-9', payerName: 'Bupa' }])],
+  [/^Nphies\/CodeSystem$/, (path, req) =>
+    NPHIES_LOOKUP(new URL(req.url()).searchParams.get('valueSet') === 'SelectionReason'
+      ? [{ code: 'patient-request', display: 'Patient request', blocked: 'false', valueSetName: 'SelectionReason' }]
+      : [])],
+  [/^Nphies\/(Diagnoses|Morphs)$/, NPHIES_LOOKUP([])],
+]
+
+const REPORTS_SAP_STORE = (i) => ({
+  code: `P${String(i).padStart(3, '0')}`, description: `Store ${i}`, total: 500,
+  labels: { exported: 480, byDesign: 10, waiting: 10, heldForInventory: 0, behind: 0, stuck: 0 },
+  states: { N5: 480, L3: 10, N7: 10, N1: 1 }, flags: { X1: 0, X1p: 0, X2: 0, X3: 0, X4: 0, legacyResend: 0, failClosedNoDetail: 0 },
+  railMix: { legacy: 0, new: 500 }, oldestBehindHours: null, breakDays: 0, legacyStalled: false, legacyInventoryGated: false,
+  computedAt: '2026-10-11T08:00:00',
+})
+const REPORTS_STUBS = [
+  [/^SapExport\/Access$/, { screenAllowed: true }],
+  [/^SapExport\/Fleet\/Summary$/, {
+    windowDays: 30, computedAt: '2026-10-11T08:00:00', stores: 3,
+    tiles: { storesBehind: 1, storesStuck: 1, storesHeldForInventory: 0, doubleSent: 2, doubleSendPending: 1, accountingBreaks: 0, legacyStalled: 0 },
+  }],
+  [/^SapExport\/Fleet$/, { items: [1, 2, 3].map(REPORTS_SAP_STORE), total: 3, page: 1, pageSize: 50 }],
+  [/^SapExport\/Runners$/, { items: [] }],
+  [/^SapExport\/DoubleSends$/, { items: [], total: 0, page: 1, pageSize: 50 }],
+  [/^(IDocInspector|RetailInvoice)\/Access$/, { screenAllowed: true, canOpen: true, allowed: true }],
+]
+
+/** Goes to an area page and waits for its own hook; fonts settled, mouse parked. */
+async function openAreaPage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+/** Marks the control a visible label names with `data-probe-<name>`, so the CSS-selector
+ *  helpers can address it (the swept screens carry few data-* hooks of their own). */
+async function tagByLabel(page, label, name) {
+  await page.getByLabel(label, { exact: true }).first().evaluate((el, n) => el.setAttribute(`data-probe-${n}`, ''), name)
+  return `[data-probe-${name}]`
+}
+
+/** Every text button inside `scope` is a 28px full pill (Button / Chip) — a hand pill at
+ *  h-9 / rounded-md would fail here. Icon-only buttons are `expectIconButtonsNamed`'s. */
+async function expectAllButtonsShared(ctx, label, scope, min) {
+  const out = await ctx.page.evaluate((sc) => {
+    const els = [...document.querySelectorAll(`${sc} button`)].filter((b) => b.getBoundingClientRect().height > 0 && b.textContent.trim())
+    const bad = els.filter((b) => {
+      const r = b.getBoundingClientRect()
+      const cs = getComputedStyle(b)
+      const radius = Math.min(parseFloat(cs.borderStartStartRadius), parseFloat(cs.borderEndEndRadius))
+      return Math.round(r.height) !== 28 || radius < r.height / 2 - 0.5
+    })
+    return { n: els.length, bad: bad.map((b) => `${b.textContent.trim().slice(0, 20) || b.getAttribute('aria-label')}@${Math.round(b.getBoundingClientRect().height)}`) }
+  }, scope)
+  check(`${ctx.tag} ${label}: all ${out.n} buttons are 28px pills`, out.n >= min && out.bad.length === 0, out.bad.join(' | '))
+}
+
+SCREENS.push({
+  key: 'nphies-authorization',
+  path: '/nphies/authorizations/new?from=ELG-1&coverage=MEM-4477',
+  stubs: NPHIES_STUBS,
+  modes: lightDarkRtl,
+  viewport: { width: 1700, height: 1000 },
+  ready: (page) => openAreaPage(page, '/nphies/authorizations/new?from=ELG-1&coverage=MEM-4477', 'main table tbody tr'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png`, fullPage: true })
+    const main = 'main'
+
+    // ── The form: add-row, deductible boxes, line cells, diagnoses, attachments.
+    await expectLabelled(ctx, 'authorization form', FIELDS(main))
+    await expectAllFieldsShared(ctx, 'authorization form', main)
+    const item = await tagByLabel(page, 'Item number', 'item')
+    await expectFieldLook(ctx, 'item number (Input in a Field)', item)
+    await expectFocusRing(ctx, 'item number (Input in a Field)', item)
+    await expectFieldLook(ctx, 'diagnosis type (Select in a Field)', await tagByLabel(page, 'Type', 'dx-type'))
+    await expectFieldLook(ctx, 'attachment document (Select in a Field)', await tagByLabel(page, 'Document', 'doc'))
+    await expectFieldLook(ctx, 'a table number cell (number Input)', 'main table tbody tr input[type="number"]')
+    await expectAllButtonsShared(ctx, 'form buttons', main, 5)
+    await expectRole(ctx, 'Void (danger-outlined Button)', 'main table tbody tr button[title]', 'border-top-color', '--danger-border')
+    await shot('form')
+
+    // ── The list: its filter Fields and the window chip's ✕ IconButton.
+    await openAreaPage(page, '/nphies/authorizations', 'main form')
+    await expectLabelled(ctx, 'list filters', FIELDS('main form'))
+    await expectAllFieldsShared(ctx, 'list filters', main)
+    await expectFieldLook(ctx, 'from date (date Input)', await tagByLabel(page, 'From', 'from'))
+    await expectFieldLook(ctx, 'provider (Select)', await tagByLabel(page, 'Provider', 'provider'))
+    await expectIconButtonsNamed(ctx, 'window chip (remove)', main, 1)
+    await expectAllButtonsShared(ctx, 'list buttons', main, 3)
+    await shot('list')
+  },
+})
+
+SCREENS.push({
+  key: 'nphies-eligibility',
+  path: '/nphies/eligibility/new',
+  stubs: NPHIES_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAreaPage(page, '/nphies/eligibility/new', 'main form'),
+  assert: async (ctx) => {
+    const main = 'main'
+    await expectLabelled(ctx, 'eligibility check form', FIELDS('main form'))
+    await expectAllFieldsShared(ctx, 'eligibility check form', main)
+    const patient = await tagByLabel(ctx.page, 'Patient ID', 'patient')
+    await expectFieldLook(ctx, 'patient id (Input in a Field)', patient)
+    await expectFocusRing(ctx, 'patient id (Input in a Field)', patient)
+    await expectFieldLook(ctx, 'provider (Select in a Field)', await tagByLabel(ctx.page, 'Provider', 'provider'))
+    await expectFieldLook(ctx, 'date of birth (date Input)', await tagByLabel(ctx.page, 'Date of birth', 'dob'))
+    await expectAllButtonsShared(ctx, 'Fill / Check eligibility', 'main form', 2)
+    await expectRole(ctx, 'Check eligibility (primary Button)', 'main form button[type="submit"]', 'background-color', '--primary')
+  },
+})
+
+SCREENS.push({
+  key: 'reports-toolbars',
+  path: '/reports/sap-export?state=N1',
+  stubs: REPORTS_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAreaPage(page, '/reports/sap-export?state=N1', '[data-fleet-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── SAP export fleet: the search Input, the two Selects, the chosen-state Chip.
+    const toolbar = '[data-fleet-search], [data-fleet-rail], [data-fleet-sort]'
+    await expectLabelled(ctx, 'fleet toolbar', toolbar)
+    await expectAllFieldsShared(ctx, 'fleet toolbar', '[data-fleet-list]')
+    await expectFieldLook(ctx, 'fleet search (search Input)', '[data-fleet-search]')
+    await expectFieldLook(ctx, 'fleet rail (Select)', '[data-fleet-rail]')
+    await expectFocusRing(ctx, 'fleet sort (Select)', '[data-fleet-sort]')
+    await expectChipLook(ctx, 'chosen state', '[data-state-chosen]', true)
+    await expectAllPills(ctx, 'label chips + chosen state', '[data-label-chip], [data-state-chosen]')
+    await shot('sap-fleet')
+
+    // ── Double sends: flag Select, store search Input, Apply Button.
+    await openAreaPage(page, '/reports/sap-export/double-sends', '[data-double-sends-filters]')
+    await expectLabelled(ctx, 'double-sends filters', '[data-double-sends-flag], [data-double-sends-store]')
+    await expectFieldLook(ctx, 'double-sends store (search Input)', '[data-double-sends-store]')
+    await expectAllButtonsShared(ctx, 'double-sends Apply', '[data-double-sends-filters] form', 1)
+
+    // ── IDoc inspector + Invoices: the two lookup toolbars (Fields, Search / Reset Buttons).
+    for (const [path, part, label] of [['/reports/idoc-inspector', 'idoc', /^Store/], ['/reports/invoice', 'invoice', 'Store code']]) {
+      await openAreaPage(page, path, 'main form')
+      await expectLabelled(ctx, `${part} toolbar`, FIELDS('main form'))
+      await expectAllFieldsShared(ctx, `${part} toolbar`, 'main form')
+      await expectFieldLook(ctx, `${part} ${label} (Input in a Field)`, await tagByLabel(page, label, `${part}-store`))
+      await expectAllButtonsShared(ctx, `${part} Search / Reset`, 'main form', 2)
+      await expectRole(ctx, `${part} Search (primary Button)`, 'main form button[type="submit"]', 'background-color', '--primary')
+      await shot(part)
+    }
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

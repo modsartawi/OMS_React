@@ -13,6 +13,9 @@ import {
   selectionReasonEnabled,
   type CellVerdict,
 } from './line-rules'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The request's lines (tickets 217 · 218, spec 209 stories 27 · 29–37).
@@ -217,12 +220,12 @@ export default function RequestLines({
               </Td>
               <Td>
                 {line.editable && (
-                  <button
+                  <Button
                     type="button"
+                    variant="danger-outlined"
                     onClick={() => onVoid(line.lineId)}
                     disabled={disabled || busyLineId === line.lineId}
                     title={t('form.lines.voidHint')}
-                    className="inline-flex h-7 items-center gap-1 rounded-full border border-danger-border px-2 text-xs text-danger-800 hover:bg-danger-050 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busyLineId === line.lineId ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -230,7 +233,7 @@ export default function RequestLines({
                       <Trash2 className="h-3.5 w-3.5" aria-hidden />
                     )}
                     {t('form.lines.void')}
-                  </button>
+                  </Button>
                 )}
               </Td>
             </tr>
@@ -304,7 +307,7 @@ function QuantityCell({
   }
 
   return (
-    <input
+    <Input
       type="number"
       min={1}
       step={1}
@@ -319,7 +322,7 @@ function QuantityCell({
           commit()
         }
       }}
-      className="h-7 w-20 rounded-md border border-input bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50"
+      className="w-20 tabular-nums"
     />
   )
 }
@@ -379,7 +382,7 @@ function MaxCoverageCell({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <input
+      <Input
         type="number"
         min={0}
         step="any"
@@ -398,10 +401,7 @@ function MaxCoverageCell({
             commit()
           }
         }}
-        className={
-          'h-7 w-24 rounded-md border bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50 ' +
-          (refusal ? 'border-danger-border' : 'border-input')
-        }
+        className="w-24 tabular-nums"
       />
       {refusal && (
         <span role="alert" className="text-[0.6875rem] text-attention-800 no-underline">
@@ -461,7 +461,7 @@ function DaysSupplyCell({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <input
+      <Input
         type="number"
         min={DAYS_SUPPLY_MIN}
         max={DAYS_SUPPLY_MAX}
@@ -478,10 +478,7 @@ function DaysSupplyCell({
             commit()
           }
         }}
-        className={
-          'h-7 w-20 rounded-md border bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50 ' +
-          (refusal ? 'border-danger-border' : 'border-input')
-        }
+        className="w-20 tabular-nums"
       />
       {refusal && (
         <span role="alert" className="text-[0.6875rem] text-attention-800 no-underline">
@@ -538,12 +535,12 @@ function SelectionReasonCell({
   }
 
   return (
-    <select
+    <Select
       value={value}
       aria-label={label}
       disabled={disabled || options.length === 0}
       onChange={(e) => onCommit(e.target.value)}
-      className="h-7 w-40 rounded-md border border-input bg-background px-1.5 text-xs text-foreground disabled:opacity-50"
+      className="w-40"
     >
       {/* The engine derives one; an empty value is a real state and stays
           selectable, because clearing a reason is the agent's to do. */}
@@ -563,7 +560,7 @@ function SelectionReasonCell({
       {value !== '' && !options.some((r) => r.code === value) && (
         <option value={value}>{value}</option>
       )}
-    </select>
+    </Select>
   )
 }
 

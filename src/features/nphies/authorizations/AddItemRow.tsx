@@ -4,6 +4,8 @@ import { Loader2, Plus, TriangleAlert } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
 import type { AddItemRefusal } from './auth-session'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The inline add-row above the grid (ticket 217, spec 209 story 26).
@@ -96,21 +98,18 @@ export default function AddItemRow({
           submit()
         }}
       >
-        <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.add.itemNumber')}
-          <input
+        <Field label={t('form.add.itemNumber')} className="min-w-[14rem] flex-1">
+          <Input
             ref={itemInput}
             value={itemNumber}
             onChange={(e) => setItemNumber(e.target.value)}
             disabled={disabled}
             placeholder={t('form.add.itemNumberPlaceholder')}
             aria-describedby={refusal ? 'nphies-add-refusal' : undefined}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           />
-        </label>
-        <label className="flex w-24 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.add.quantity')}
-          <input
+        </Field>
+        <Field label={t('form.add.quantity')} className="w-24">
+          <Input
             ref={qtyInput}
             type="number"
             min={1}
@@ -119,14 +118,14 @@ export default function AddItemRow({
             onChange={(e) => setQty(e.target.value)}
             disabled={disabled}
             aria-describedby={refusal ? 'nphies-add-refusal' : undefined}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            className="tabular-nums"
           />
-        </label>
+        </Field>
         {/* 🚩 `type="submit"` and NOTHING else. An `onClick` beside it would fire
             alongside the form's own submit, and two adds one keystroke apart put
             the second on the wire before the first has answered — where the door
             refuses it as a duplicate of the line the agent just added. */}
-        <Button type="submit" variant="primary" className="h-8" disabled={disabled || busy}>
+        <Button type="submit" variant="primary" disabled={disabled || busy}>
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (

@@ -15,6 +15,8 @@ import {
   type PreparedAttachment,
 } from './attachment-prepare'
 import { prepareAttachment } from './attachment-file'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 /**
  * **The files that evidence the request** (ticket 219, spec 209 stories 47–55,
@@ -109,14 +111,11 @@ export default function Attachments({
       )}
 
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex w-56 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('form.attachments.document')}
-          <select
+        <Field label={t('form.attachments.document')} className="w-56">
+          <Select
             value={title}
             disabled={disabled || preparing}
-            aria-label={t('form.attachments.document')}
             onChange={(event) => setTitle(event.target.value as AttachmentTitle)}
-            className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
           >
             {/* A closed list. There is no "other", and no box to type into. */}
             {ATTACHMENT_TITLES.map((value) => (
@@ -124,12 +123,11 @@ export default function Attachments({
                 {t(`form.attachments.titles.${value}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button
           type="button"
           variant="secondary"
-          className="h-8"
           disabled={disabled || preparing}
           onClick={() => fileInput.current?.click()}
         >
@@ -210,15 +208,12 @@ export default function Attachments({
                   })}
                 </span>
               </span>
-              <button
-                type="button"
-                onClick={() => setPreviewing(attachment)}
-                className="inline-flex h-7 items-center rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
-              >
+              <Button type="button" variant="outlined" onClick={() => setPreviewing(attachment)}>
                 {t('form.attachments.view')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger-outlined"
                 disabled={disabled}
                 onClick={() => {
                   // A preview of a row that is being removed closes with it —
@@ -227,10 +222,9 @@ export default function Attachments({
                   if (previewing?.id === attachment.id) setPreviewing(null)
                   onRemove(attachment.id)
                 }}
-                className="inline-flex h-7 items-center rounded-full border border-danger-border px-3 text-xs font-medium text-danger-800 hover:bg-danger-050 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('form.attachments.remove')}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -293,7 +287,7 @@ function Lightbox({
               fileName: attachment.fileName,
             })}
           </span>
-          <Button type="button" variant="secondary" className="h-7" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             {t('form.attachments.close')}
           </Button>
         </header>

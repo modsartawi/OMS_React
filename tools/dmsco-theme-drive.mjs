@@ -549,6 +549,138 @@ const SCREENS = [
   },
 ]
 
+// --- 594: Button / IconButton / Chip on the Deliveries list -------------------
+// Self-contained: its helpers and its screen live in this block and the screen
+// is pushed onto SCREENS, so sibling tickets' blocks merge beside it.
+
+// Every element matching `selector` is a full pill (radius ≥ half its height).
+// Reports the count so a vacuous pass is visible.
+async function expectAllPills(ctx, label, selector) {
+  const out = await ctx.page.evaluate((sel) => {
+    const els = [...document.querySelectorAll(sel)].filter((e) => e.getBoundingClientRect().height > 0)
+    const bad = els.filter((e) => {
+      const cs = getComputedStyle(e)
+      const r = Math.min(parseFloat(cs.borderStartStartRadius), parseFloat(cs.borderEndEndRadius))
+      return r < e.getBoundingClientRect().height / 2 - 0.5
+    })
+    return { n: els.length, bad: bad.map((e) => e.textContent.trim().slice(0, 20) || e.outerHTML.slice(0, 60)) }
+  }, selector)
+  check(`${ctx.tag} ${label}: all ${out.n} are full pills`, out.n > 0 && out.bad.length === 0, out.bad.join(' | '))
+}
+
+// Every icon-only button (no text of its own) inside `scope` has an accessible
+// name, and each is the square IconButton. `min` guards a vacuous pass.
+async function expectIconButtonsNamed(ctx, label, scope, min = 1) {
+  const out = await ctx.page.evaluate((sc) => {
+    const root = document.querySelector(sc)
+    const icons = [...(root?.querySelectorAll('button') ?? [])].filter((b) => !b.textContent.trim())
+    return {
+      n: icons.length,
+      unnamed: icons.filter((b) => !(b.getAttribute('aria-label') || '').trim() && !b.getAttribute('aria-labelledby')).length,
+      notSquare: icons.filter((b) => {
+        const r = b.getBoundingClientRect()
+        return Math.abs(r.width - r.height) > 0.5
+      }).length,
+    }
+  }, scope)
+  check(
+    `${ctx.tag} ${label}: ${out.n} icon button(s), every one named and square`,
+    out.n >= min && out.unnamed === 0 && out.notSquare === 0,
+    JSON.stringify(out),
+  )
+}
+
+// A chip's look follows the state it exposes: on = primary-050 / primary-800 /
+// primary border; off = card ground with the border.
+async function expectChipLook(ctx, label, selector, on) {
+  if (on) {
+    await expectRole(ctx, `${label} (on)`, selector, 'background-color', '--primary-050')
+    await expectRole(ctx, `${label} (on)`, selector, 'color', '--primary-800')
+    await expectRole(ctx, `${label} (on)`, selector, 'border-top-color', '--primary')
+  } else {
+    await expectRole(ctx, `${label} (off)`, selector, 'background-color', '--card')
+    await expectRole(ctx, `${label} (off)`, selector, 'border-top-color', '--border')
+  }
+}
+
+SCREENS.push({
+  key: 'deliveries-controls',
+  path: '/oms/deliveries',
+  ready: loadDeliveries,
+  assert: async (ctx) => {
+    const { page, tag } = ctx
+    const toolbar = '[role="toolbar"]'
+
+    // Toolbar buttons and the grid bar's Inspector chip are pills, on Button's outlined look.
+    await expectAllPills(ctx, 'toolbar buttons', `${toolbar} button`)
+    await expectAllPills(ctx, 'Inspector toggle', '[data-inspector-toggle]')
+    await expectRole(ctx, 'toolbar Export (outlined Button)', `${toolbar} [data-toolbar-export]`, 'border-top-color', '--border')
+
+    // Disabled with a reason: no row is selected after a search, so Open Order is
+    // aria-disabled, keeps a reason, is reachable by Tab and does nothing on click.
+    const openOrder = `${toolbar} [data-toolbar-open-order]`
+    const idle = await page.evaluate((sel) => {
+      const b = document.querySelector(sel)
+      b?.focus()
+      return {
+        ariaDisabled: b?.getAttribute('aria-disabled'),
+        nativeDisabled: b?.disabled,
+        reason: b?.getAttribute('title') ?? '',
+        focused: document.activeElement === b,
+      }
+    }, openOrder)
+    check(
+      `${tag} Open Order with no row: aria-disabled, focusable, states a reason`,
+      idle.ariaDisabled === 'true' && idle.nativeDisabled === false && idle.focused && idle.reason.trim().length > 0,
+      JSON.stringify(idle),
+    )
+    await expectFocusRing(ctx, 'disabled-with-reason Open Order', openOrder)
+    const urlBefore = page.url()
+    await page.locator(openOrder).click({ force: true })
+    await page.waitForTimeout(200)
+    check(`${tag} Open Order with no row: a click goes nowhere`, page.url() === urlBefore, page.url())
+
+    // Icon buttons carry names: the Columns chooser's pin buttons.
+    await page.locator(`${toolbar} [data-toolbar-columns]`).click()
+    await page.waitForTimeout(200)
+    await expectIconButtonsNamed(ctx, 'Columns chooser', `${toolbar} [data-columns-chooser]`, 3)
+    await page.keyboard.press('Escape')
+    await page.mouse.move(0, 0)
+
+    // Lens chips expose pressed state; the look follows it. The active lens also
+    // keeps aria-current (the Deliveries list drive reads it).
+    const lenses = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-views-rail] [data-lens]')].map((b) => ({
+        id: b.getAttribute('data-lens'),
+        pressed: b.getAttribute('aria-pressed'),
+        current: b.getAttribute('aria-current'),
+      })),
+    )
+    const pressed = lenses.filter((l) => l.pressed === 'true')
+    check(
+      `${tag} lens chips: each exposes aria-pressed, exactly one pressed and it is the current lens`,
+      lenses.length === 5 && lenses.every((l) => l.pressed === 'true' || l.pressed === 'false') &&
+        pressed.length === 1 && pressed[0].current === 'true',
+      JSON.stringify(lenses),
+    )
+    await expectChipLook(ctx, 'lens chip', '[data-lens="all"]', true)
+    await expectChipLook(ctx, 'lens chip', '[data-lens="attention"]', false)
+    await expectPill(ctx, 'lens chip', '[data-lens="all"]')
+    await page.locator('[data-lens="attention"]').click()
+    // transition-colors: read the on look after it settles (591's gotcha).
+    await page.waitForTimeout(400)
+    const after = await page.evaluate(() => document.querySelector('[data-lens="attention"]')?.getAttribute('aria-pressed'))
+    check(`${tag} lens chip: clicking a lens presses it`, after === 'true', String(after))
+    await expectChipLook(ctx, 'lens chip after click', '[data-lens="attention"]', true)
+    await page.locator('[data-lens="all"]').click()
+    await page.mouse.move(0, 0)
+
+    // The Inspector toggle is a Chip: its look follows its aria-pressed.
+    const inspectorOn = (await page.locator('[data-inspector-toggle]').getAttribute('aria-pressed')) === 'true'
+    await expectChipLook(ctx, 'Inspector chip', '[data-inspector-toggle]', inspectorOn)
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

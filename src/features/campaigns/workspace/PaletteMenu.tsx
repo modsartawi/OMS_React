@@ -5,6 +5,7 @@ import type { RuleBlockCatalogue, RuleBlockKind, RuleCatalogueBlock } from '@/co
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import { paletteFor } from './palette'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * "+ Condition" / "+ Effect" (ticket 505): a button that opens the palette in place, the catalogue's
@@ -81,9 +82,9 @@ export default function PaletteMenu({
           <Plus className="h-4 w-4" aria-hidden />
           {title}
         </span>
-        <button type="button" className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t('palette.close')} onClick={close} data-palette-close="">
+        <IconButton label={t('palette.close')} onClick={close} data-palette-close="">
           <X className="h-4 w-4" aria-hidden />
-        </button>
+        </IconButton>
       </div>
       <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         {palette.groups.map((g, gi) => (

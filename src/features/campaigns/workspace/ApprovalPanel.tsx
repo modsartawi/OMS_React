@@ -29,6 +29,8 @@ import {
   type ChecksGate,
 } from './approval'
 import { useWorkspace } from './context'
+import Textarea from '@/core/ui/Textarea'
+import Field from '@/core/ui/Field'
 
 /** The acts taken in a dialog (asking for approval is inline, under the State). */
 type DialogAction = Exclude<ApprovalAction, 'askForApproval'>
@@ -80,7 +82,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
           <label htmlFor="approval-note" className="text-xs font-medium text-muted-foreground">
             {t('approval.askNote')}
           </label>
-          <textarea
+          <Textarea
             id="approval-note"
             dir="auto"
             rows={2}
@@ -94,7 +96,7 @@ export default function ApprovalPanel({ draft: d, gate }: { draft: RuleDraft; ga
             placeholder={t('approval.askNotePlaceholder')}
             disabled={ask.isPending}
             aria-describedby="approval-note-hint"
-            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full"
             data-ask-note=""
           />
           <p id="approval-note-hint" className="text-xs text-muted-foreground" data-ask-note-hint="">
@@ -371,12 +373,8 @@ function ActionDialog({
           </p>
         )}
         {wants && (
-          <div className="flex flex-col gap-1">
-            <label htmlFor="approval-dialog-note" className="text-xs font-medium text-muted-foreground">
-              {t(`approval.dialog.${action}.note`)}
-            </label>
-            <textarea
-              id="approval-dialog-note"
+          <Field id="approval-dialog-note" label={t(`approval.dialog.${action}.note`)}>
+            <Textarea
               dir="auto"
               rows={3}
               maxLength={APPROVAL_NOTE_MAX}
@@ -384,10 +382,10 @@ function ActionDialog({
               required={wants === 'required'}
               onChange={(e) => setNote(e.target.value)}
               disabled={run.isPending}
-              className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className="w-full"
               data-approval-dialog-note=""
             />
-          </div>
+          </Field>
         )}
         {gate && (
           <p className="text-xs text-muted-foreground" data-approval-dialog-gate={gate}>

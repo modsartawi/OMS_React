@@ -19,6 +19,7 @@ import { useWorkspace } from './context'
 import { draftSave } from './settings-form'
 import SentenceView from './SentenceView'
 import { Refusal, SettingsFrame } from './settings-ui'
+import IconButton from '@/core/ui/IconButton'
 
 const SCOPE_ICON: Record<RuleBudgetScope, LucideIcon> = { campaign: Coins, profile: User, coupon: Ticket, store: Store, session: Receipt }
 
@@ -157,15 +158,10 @@ export default function BudgetsSettings() {
                 ))}
               </ul>
             )}
-            <button
-              type="button"
-              onClick={() => add(scope)}
-              className="flex items-center gap-2 rounded-md border border-dashed border-border-strong px-3 py-2 text-start text-sm text-foreground transition-colors hover:border-primary/50 hover:bg-accent"
-              data-budget-add-scope={scope}
-            >
-              <Plus className="size-4" aria-hidden />
+            <Button variant="outlined" onClick={() => add(scope)} data-budget-add-scope={scope}>
+              <Plus className="size-3.5" aria-hidden />
               {t(`settings.budgets.scopes.${scope}.add`)}
-            </button>
+            </Button>
           </section>
         )
       })}
@@ -264,26 +260,12 @@ function BudgetLine({
               while the draft still counts what the live version counts. */}
           <SentenceView s={budgetSentence(usage && sameCount(b, usage) ? { ...b, value: usage.limitValue } : b, currency)} />
         </button>
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label={t('settings.budgets.edit')}
-          title={t('settings.budgets.edit')}
-          className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          data-budget-edit={b.id}
-        >
+        <IconButton size="compact" label={t('settings.budgets.edit')} onClick={onEdit} data-budget-edit={b.id}>
           <Pencil className="size-3.5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={t('settings.budgets.delete.action')}
-          title={t('settings.budgets.delete.action')}
-          className="rounded-md p-1 text-muted-foreground hover:bg-danger-050 hover:text-danger-800"
-          data-budget-delete={b.id}
-        >
+        </IconButton>
+        <IconButton variant="danger" size="compact" label={t('settings.budgets.delete.action')} onClick={onDelete} data-budget-delete={b.id}>
           <Trash2 className="size-3.5" aria-hidden />
-        </button>
+        </IconButton>
       </div>
       {(b.name?.en || b.name?.ar) && (
         <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground" data-budget-name="">

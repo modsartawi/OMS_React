@@ -8,7 +8,9 @@ import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
 import { useWorkspace } from './context'
 import { draftSave } from './settings-form'
-import { Refusal, SaveRow, SETTINGS_CONTROL, SETTINGS_INPUT, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import { Refusal, SaveRow, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 const MEANINGS: readonly RuleValueMapMeaning[] = ['targetPrice', 'percentOff', 'amountOff']
 
@@ -50,9 +52,9 @@ export default function ValueMapSettings() {
   return (
     <SettingsFrame page="valueMap">
       <SettingsField id="settings-valuemap-means" label={t('settings.valueMap.means')}>
-        <select
+        <Select
           id="settings-valuemap-means"
-          className={`${SETTINGS_CONTROL} w-full max-w-md`}
+          className="w-full max-w-md"
           value={draft.means}
           onChange={(e) => set({ means: e.target.value as RuleValueMapMeaning })}
           data-settings-field="means"
@@ -62,13 +64,13 @@ export default function ValueMapSettings() {
               {t(`settings.valueMap.meaning.${m}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </SettingsField>
       <SettingsField id="settings-valuemap-unit" label={t('settings.valueMap.unit')} hint={t('settings.valueMap.unitHint')}>
-        <input
+        <Input
           id="settings-valuemap-unit"
           dir="ltr"
-          className={`${SETTINGS_INPUT} border-border/60 font-mono`}
+          className="w-full max-w-md font-mono"
           value={draft.unit}
           onChange={(e) => set({ unit: e.target.value })}
           data-settings-field="unit"

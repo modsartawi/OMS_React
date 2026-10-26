@@ -29,6 +29,7 @@
 //   2. node tools/dmsco-theme-drive.mjs        (DRIVE_PORT=… for another port)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
+import { BATCHES, CAMPAIGNS, budgetsOf, catalogueFor, listBatches, loadDraft, promotionCampaignsOf, validationOf } from './campaigns-fixtures.mjs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -84,7 +85,7 @@ const DELIVERY = (i) => ({
 })
 
 // Shared stubs every screen gets: [pathRegex, data]. A screen adds its own in
-// `stubs` (same shape, checked first). `data` may be a function of the path.
+// `stubs` (same shape, checked first). `data` may be a function of the path (and the request).
 const COMMON_STUBS = [
   [/^Auth\/Me$/, { authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }],
   // Every screen-open probe answers yes so every menu entry and screen is reachable.
@@ -99,7 +100,7 @@ const COMMON_STUBS = [
 const routeApi = (screenStubs) => async (route) => {
   const path = route.request().url().split('/api/')[1].split('?')[0]
   for (const [re, data] of [...screenStubs, ...COMMON_STUBS]) {
-    if (re.test(path)) return route.fulfill(envelope(typeof data === 'function' ? data(path) : data))
+    if (re.test(path)) return route.fulfill(envelope(typeof data === 'function' ? data(path, route.request()) : data))
   }
   // Anything else (notifications, slots, …) → benign empty success.
   return route.fulfill(envelope({}))
@@ -817,6 +818,129 @@ SCREENS.push({
     // The Inspector toggle is a Chip: its look follows its aria-pressed.
     const inspectorOn = (await page.locator('[data-inspector-toggle]').getAttribute('aria-pressed')) === 'true'
     await expectChipLook(ctx, 'Inspector chip', '[data-inspector-toggle]', inspectorOn)
+  },
+})
+
+// --- 597: the campaign workspace on the shared controls -----------------------
+// The first area sweep (spec 590 §Shared controls). Self-contained: its stubs, its
+// helper and its screen. It walks three workspace pages in light, dark and RTL —
+// the rule builder with a block panel open (Input / Select fields, IconButtons),
+// Settings ▸ Schedule (day Chips, date Inputs, a clear IconButton) and Coupons
+// (the search Input in a Field) — and proves every field labelled, every icon
+// button named, and the role tokens resolved. Fixtures: tools/campaigns-fixtures.mjs.
+
+/** Each run its own copy of HQ's drafts and batches. */
+const WORKSPACE_STORE = structuredClone(CAMPAIGNS)
+const WORKSPACE_BATCHES = structuredClone(BATCHES)
+const bodyOf = (req) => {
+  try {
+    return req.postDataJSON() ?? {}
+  } catch {
+    return {}
+  }
+}
+const WORKSPACE_STUBS = [
+  [/^Rules\/Authoring\/Drafts\/Load$/, (_, req) => loadDraft(WORKSPACE_STORE, bodyOf(req).campaign).draft ?? null],
+  [/^Rules\/Authoring\/Catalogue$/, (_, req) => catalogueFor(bodyOf(req).features ?? [])],
+  [/^Rules\/Authoring\/Validate$/, (_, req) => validationOf(bodyOf(req).campaign)],
+  [/^Rules\/Authoring\/Budgets$/, (_, req) => budgetsOf(WORKSPACE_STORE, bodyOf(req).campaign)],
+  [/^Rules\/Authoring\/CouponBatches\/List$/, (_, req) => listBatches(WORKSPACE_BATCHES, bodyOf(req).campaign).list ?? []],
+  [/^Rules\/Authoring\/Promotions\/Campaigns$/, (_, req) => promotionCampaignsOf(WORKSPACE_STORE, bodyOf(req)).page ?? null],
+  [/^Rules\/Authoring\/Lookups\//, []],
+]
+
+/** The three pinned modes the ticket names: light, dark, RTL. */
+const lightDarkRtl = (m) => ['light', 'dark', 'rtl'].includes(m.key)
+
+/** Goes to a workspace page and waits for its own hook; fonts settled, mouse parked. */
+async function openWorkspacePage(page, path, hook) {
+  await page.goto(BASE + path)
+  await page.waitForSelector(hook, { timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(300)
+}
+
+// Every field (text-like input, select, textarea) inside `scope` wears the shared
+// look: none is left on a local constant (the swept area's whole point).
+async function expectAllFieldsShared(ctx, label, scope) {
+  const out = await ctx.page.evaluate((sc) => {
+    const root = document.querySelector(sc)
+    const els = [...(root?.querySelectorAll('input, select, textarea') ?? [])].filter(
+      (e) => !['checkbox', 'radio', 'hidden', 'file'].includes(e.type) && e.getBoundingClientRect().height > 0,
+    )
+    const probe = document.createElement('div')
+    probe.style.color = 'var(--input)'
+    document.body.appendChild(probe)
+    const input = getComputedStyle(probe).color
+    probe.style.color = 'var(--card)'
+    const card = getComputedStyle(probe).color
+    probe.remove()
+    const bad = els.filter((e) => {
+      const cs = getComputedStyle(e)
+      return (cs.borderTopColor !== input && e.getAttribute('aria-invalid') !== 'true') || cs.backgroundColor !== card
+    })
+    return { n: els.length, bad: bad.map((e) => e.outerHTML.slice(0, 70)) }
+  }, scope)
+  check(`${ctx.tag} ${label}: all ${out.n} fields on the shared look`, out.n > 0 && out.bad.length === 0, out.bad.join(' | '))
+}
+
+SCREENS.push({
+  key: 'campaign-workspace',
+  path: '/campaigns/SUN-3FOR2/rules',
+  stubs: WORKSPACE_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openWorkspacePage(page, '/campaigns/SUN-3FOR2/rules', '[data-rule-card]'),
+  assert: async (ctx) => {
+    const { page, tag, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── The rule builder: a block panel open on the first card's effect.
+    const card = '[data-rule-card]'
+    await page.locator(`${card} [data-effect]`).first().locator('[data-block-edit]').click()
+    await page.waitForSelector(`${card} [data-block-panel]`, { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    const panel = `${card} [data-block-panel]`
+    const panelFields = `${panel} input:not([type=checkbox]):not([type=radio]), ${panel} select, ${panel} textarea`
+    await expectLabelled(ctx, 'block panel', panelFields)
+    await expectAllFieldsShared(ctx, 'block panel', panel)
+    await expectFieldLook(ctx, 'block panel first field', `${panel} :is(input:not([type=checkbox]), select)`)
+    await expectFocusRing(ctx, 'block panel first field', `${panel} :is(input:not([type=checkbox]), select)`)
+    await expectIconButtonsNamed(ctx, 'rule card', card, 4)
+    await expectLabelled(ctx, 'rule name', `${card} [data-rule-name]`)
+    await expectAllFieldsShared(ctx, 'rule card', card)
+    await shot('rules')
+
+    // ── Settings ▸ Schedule: day chips, date inputs, a clear icon button.
+    await openWorkspacePage(page, '/campaigns/NATDAY-15/settings/schedule', '[data-settings="schedule"]')
+    const sched = '[data-settings="schedule"]'
+    await expectLabelled(ctx, 'schedule', `${sched} input, ${sched} select`)
+    await expectAllFieldsShared(ctx, 'schedule', sched)
+    await expectFieldLook(ctx, 'start day (date Input)', '[data-settings-field="from"]')
+    await expectIconButtonsNamed(ctx, 'schedule', sched, 1)
+    const days = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-settings-day]')].map((b) => b.getAttribute('aria-pressed')),
+    )
+    check(`${tag} day chips: each exposes aria-pressed`, days.length === 7 && days.every((d) => d === 'true' || d === 'false'), days.join(','))
+    // NATDAY-15 runs every day (no day pressed): press Sunday, read both looks, then unpress it.
+    const sun = '[data-settings-day]:nth-child(1)'
+    await expectChipLook(ctx, 'day chip', sun, false)
+    await page.locator(sun).click()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(400) // transition-colors (591's gotcha)
+    const pressed = await page.locator(sun).getAttribute('aria-pressed')
+    check(`${tag} day chip: a click presses it`, pressed === 'true', String(pressed))
+    await expectChipLook(ctx, 'day chip', sun, true)
+    await page.locator(sun).click()
+    await expectAllPills(ctx, 'day chips', '[data-settings-day]')
+    await shot('schedule')
+
+    // ── Coupons: the search box in a Field, the shared search Input.
+    await openWorkspacePage(page, '/campaigns/WKND20/coupons', '[data-coupons-search]')
+    await expectLabelled(ctx, 'coupon search', '[data-coupons-search]')
+    await expectFieldLook(ctx, 'coupon search (search Input)', '[data-coupons-search]')
+    await expectFocusRing(ctx, 'coupon search (search Input)', '[data-coupons-search]')
+    await shot('coupons')
   },
 })
 

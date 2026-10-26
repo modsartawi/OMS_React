@@ -5,7 +5,6 @@ import type { CampaignRule, RuleNamedValue } from '@/core/models/rule-campaign'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { INPUT } from './builder-ui'
 import CheckNotes from './CheckNotes'
 import { BLOCK_KEY, keyOf } from './block-keys'
 import { NO_BLOCK_CHECKS } from './checks'
@@ -13,6 +12,8 @@ import { FORMULA_GUIDE } from '@/core/rules/formula-guide'
 import FormulaBox from './FormulaBox'
 import type { Builder } from './RuleCard'
 import { addValue, deleteValue, moveValue, newValue, nextValueName, renameValue, setValueExpr, valueNameProblem, valueUses } from './value-edit'
+import Input from '@/core/ui/Input'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * A rule's named values (ticket 507): each a name, "=", and its formula, written only through the
@@ -39,7 +40,6 @@ export default function RuleValues({ rule, b }: { rule: CampaignRule; b: Builder
             const k = keyOf(v)
             const uses = valueUses(rule, k, b.catalogue)
             const notes = (b.checks.blocks.get(k) ?? NO_BLOCK_CHECKS).all
-            const btn = 'rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent'
             return (
               <li key={k} className="flex flex-col gap-1 rounded-md border border-border/60 p-2" data-value-id={k} data-value-index={i}>
                 <div className="flex flex-wrap items-start gap-2">
@@ -60,30 +60,29 @@ export default function RuleValues({ rule, b }: { rule: CampaignRule; b: Builder
                     />
                   </div>
                   <span className="flex shrink-0 items-center gap-0.5">
-                    <button type="button" className={btn} aria-label={t('values.moveUp')} disabled={i === 0} onClick={() => b.edit((rs) => moveValue(rs, rule.id, k, -1))} data-value-up="">
+                    <IconButton size="compact" label={t('values.moveUp')} disabled={i === 0} onClick={() => b.edit((rs) => moveValue(rs, rule.id, k, -1))} data-value-up="">
                       <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className={btn}
-                      aria-label={t('values.moveDown')}
+                    </IconButton>
+                    <IconButton
+                      size="compact"
+                      label={t('values.moveDown')}
                       disabled={i === count - 1}
                       onClick={() => b.edit((rs) => moveValue(rs, rule.id, k, 1))}
                       data-value-down=""
                     >
                       <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className={`${btn} hover:text-danger-800`}
-                      aria-label={t('values.delete')}
+                    </IconButton>
+                    <IconButton
+                      variant="danger"
+                      size="compact"
+                      label={t('values.delete')}
                       title={uses > 0 ? t('values.inUse', { count: uses, n: fsi(uses) }) : undefined}
                       disabled={uses > 0}
                       onClick={() => b.edit((rs) => deleteValue(rs, rule.id, k, b.catalogue))}
                       data-value-delete=""
                     >
                       <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    </button>
+                    </IconButton>
                   </span>
                 </div>
                 {uses > 0 && (
@@ -124,11 +123,11 @@ function ValueName({ rule, value: v, b }: { rule: CampaignRule; value: RuleNamed
   useEffect(() => setTyped((cur) => (cur !== null && cur.trim() !== v.name && valueNameProblem(rule, cur, k, FORMULA_GUIDE.fields) === null ? null : cur)), [v.name]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex flex-col gap-0.5">
-      <input
+      <Input
         id={`value-name-${k}`}
         dir="ltr"
         spellCheck={false}
-        className={`${INPUT} w-36 font-mono font-semibold ${problem ? 'border-danger-border' : ''}`}
+        className="w-36 font-mono font-semibold"
         value={text}
         aria-label={t('values.name')}
         aria-invalid={problem !== null || undefined}

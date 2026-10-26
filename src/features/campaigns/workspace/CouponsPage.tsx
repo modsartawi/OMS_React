@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
-import { ArrowLeft, Download, Layers, Loader2, Plus, Search, Ticket, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Download, Layers, Loader2, Plus, Ticket, Trash2, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -29,7 +29,10 @@ import CreateCouponsDialog from './CreateCouponsDialog'
 import DeleteUnusedDialog from './DeleteUnusedDialog'
 import ImportCouponsDialog from './ImportCouponsDialog'
 import { draftSave } from './settings-form'
-import { Refusal, SETTINGS_CONTROL } from './settings-ui'
+import { Refusal } from './settings-ui'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Field from '@/core/ui/Field'
 
 /** The batch just created or imported, for the success modal: HQ's answer, the rows an import left
  *  out, and the budgets the page adds to the draft from it. */
@@ -201,49 +204,44 @@ export default function CouponsPage() {
 
       <div className="flex flex-wrap items-end gap-3" data-coupons-filters="">
         {batch && (
-          <Button variant="text" className="h-9" onClick={() => openBatch('')} data-coupons-back="">
+          <Button variant="text" onClick={() => openBatch('')} data-coupons-back="">
             <ArrowLeft className="size-3.5 rtl:rotate-180" aria-hidden />
             {t('coupons.back')}
           </Button>
         )}
         {batch && (
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary-border bg-primary-050 px-3 text-sm text-primary-800" data-coupons-batch-chip={batch}>
+          <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-primary-border bg-primary-050 px-3 text-xs text-primary-800" data-coupons-batch-chip={batch}>
             <Layers className="h-3.5 w-3.5" aria-hidden />
             <span>
               <Trans t={t} i18nKey="coupons.batchChip" values={{ batch }} components={{ batch: <bdi dir="ltr" className="font-mono" /> }} />
             </span>
           </span>
         )}
-        <label className="flex min-w-60 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('coupons.search.label')}
-          <span className="relative">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-hidden />
-            <input
-              type="search"
-              dir="ltr"
-              value={q}
-              onChange={(e) => set({ q: e.target.value })}
-              placeholder={t(batch ? 'coupons.search.codePlaceholder' : 'coupons.search.batchPlaceholder')}
-              className="h-9 w-full rounded-md border border-border/60 bg-background ps-8 pe-2.5 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none"
-              data-coupons-search=""
-            />
-          </span>
-        </label>
+        <Field label={t('coupons.search.label')} className="min-w-60">
+          <Input
+            type="search"
+            dir="ltr"
+            value={q}
+            onChange={(e) => set({ q: e.target.value })}
+            placeholder={t(batch ? 'coupons.search.codePlaceholder' : 'coupons.search.batchPlaceholder')}
+            className="w-full font-mono"
+            data-coupons-search=""
+          />
+        </Field>
         {batch && (
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('coupons.statusFilter')}
-            <select value={status} onChange={(e) => set({ status: e.target.value as CouponStatusFilter })} className={SETTINGS_CONTROL} data-coupons-status="">
+          <Field label={t('coupons.statusFilter')}>
+            <Select value={status} onChange={(e) => set({ status: e.target.value as CouponStatusFilter })} data-coupons-status="">
               <option value="all">{t('coupons.anyStatus')}</option>
               {BATCH_CODE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {t(`coupons.status.${s}`)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
         {batch && (
-          <Button variant="outlined" className="h-9" onClick={() => download.mutate(batch)} disabled={download.isPending} data-coupons-export="">
+          <Button variant="outlined" onClick={() => download.mutate(batch)} disabled={download.isPending} data-coupons-export="">
             {download.isPending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Download className="size-3.5" aria-hidden />}
             {t('coupons.export.open')}
           </Button>
@@ -251,7 +249,6 @@ export default function CouponsPage() {
         {batch && (
           <Button
             variant="danger-outlined"
-            className="h-9"
             onClick={() => setDeleting(true)}
             disabled={!opened || !unusedOf(opened)}
             title={opened && !unusedOf(opened) ? t('coupons.deleteUnused.none') : undefined}

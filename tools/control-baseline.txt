@@ -43,7 +43,20 @@ campaigns/simulator 17
 
 campaigns/uploads 7
 
-campaigns/workspace 82
+campaigns/workspace 13
+  src/features/campaigns/workspace/BudgetsSettings.tsx button: a budget's sentence opens its drawer: a row picker (spec 590: restyled in place)
+  src/features/campaigns/workspace/CampaignActionsMenu.tsx button: actions menu item on the overlay recipe (spec 590: menu items restyled in place)
+  src/features/campaigns/workspace/CampaignWorkspacePage.tsx button: Settings entry of the workspace menu, a disclosure among NavLinks: one-off
+  src/features/campaigns/workspace/ChecksPill.tsx button: HQ checks status pill wearing its severity tone, not a Button variant: one-off
+  src/features/campaigns/workspace/ChecksPill.tsx button: a check row that goes to its place: a row picker
+  src/features/campaigns/workspace/CreateCouponsDialog.tsx button: coupon kind as role=radio tiles; Chip would add aria-pressed to a radio: tile picker
+  src/features/campaigns/workspace/FormulaBox.tsx button: fx helper disclosure (aria-expanded) with an open look; Chip would add aria-pressed: one-off
+  src/features/campaigns/workspace/FxHelper.tsx button: a field row that inserts it into the formula: a row picker
+  src/features/campaigns/workspace/PaletteMenu.tsx button: a block in the add-block palette: a tile picker
+  src/features/campaigns/workspace/RuleCard.tsx button: a block's sentence opens its panel: a row picker
+  src/features/campaigns/workspace/RuleCard.tsx button: Add list: a text button that does not navigate (spec 590: restyled in place)
+  src/features/campaigns/workspace/RuleFilters.tsx button: a filter's chain opens its editor: a row picker
+  src/features/campaigns/workspace/coupon-columns.tsx button: batch id in a grid cell opens the batch: grid-cell action
 
 collection/inquiry 67
 

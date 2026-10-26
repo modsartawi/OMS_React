@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
 import { useWorkspace } from './context'
 import { detailsProblems, draftSave, toDetailsName, type DetailsForm, type DetailsProblem } from './settings-form'
-import { SETTINGS_INPUT, SaveRow, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import { SaveRow, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import Input from '@/core/ui/Input'
 
 /**
  * Settings ▸ Details (ticket 509): the name in English and in Arabic — both required, the Arabic one
@@ -74,7 +75,7 @@ function NameInput({
   const { t } = useTranslation('campaign-workspace')
   return (
     <SettingsField id={id} label={label}>
-      <input
+      <Input
         id={id}
         dir={dir}
         value={value}
@@ -82,7 +83,7 @@ function NameInput({
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={problem ? true : undefined}
         aria-describedby={problem ? `${id}-problem` : undefined}
-        className={`${SETTINGS_INPUT} ${problem ? 'border-danger-border focus:border-danger' : 'border-border/60 focus:border-primary/50'}`}
+        className="w-full max-w-md"
         data-settings-field={data}
       />
       {problem && (

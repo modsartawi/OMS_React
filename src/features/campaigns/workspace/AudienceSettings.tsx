@@ -6,7 +6,9 @@ import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { useWorkspace } from './context'
 import { draftSave } from './settings-form'
-import { SETTINGS_CONTROL, SaveRow, togglePill, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import { SaveRow, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import Select from '@/core/ui/Select'
+import Chip from '@/core/ui/Chip'
 
 const MEMBERS: readonly RuleAudienceMembers[] = ['any', 'identified', 'earning']
 
@@ -56,9 +58,9 @@ export default function AudienceSettings() {
         />
       </div>
       <SettingsField id="settings-members" label={t('settings.audience.members')}>
-        <select
+        <Select
           id="settings-members"
-          className={`${SETTINGS_CONTROL} w-full max-w-md`}
+          className="w-full max-w-md"
           value={draft.members}
           onChange={(e) => set({ members: e.target.value as RuleAudienceMembers })}
           data-settings-field="members"
@@ -68,7 +70,7 @@ export default function AudienceSettings() {
               {t(`settings.audience.member.${m}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </SettingsField>
       <SaveRow
         page="audience"
@@ -116,16 +118,14 @@ function Toggles({
       {[...offered, ...stale].map((o) => {
         const on = value.includes(o.code)
         return (
-          <button
+          <Chip
             key={o.code}
-            type="button"
-            aria-pressed={on}
+            on={on}
             onClick={() => onChange(on ? value.filter((x) => x !== o.code) : [...value, o.code])}
-            className={togglePill(on)}
             data-settings-toggle={o.code}
           >
             <Ltr>{o.label}</Ltr>
-          </button>
+          </Chip>
         )
       })}
     </span>

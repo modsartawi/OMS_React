@@ -8,7 +8,11 @@ import Ltr from '@/core/ui/Ltr'
 import { SHEET } from '@/core/ui/overlay'
 import { budgetProblem, sameBudget, type BudgetForm } from './budget-form'
 import SentenceView from './SentenceView'
-import { Refusal, SETTINGS_CONTROL, SETTINGS_INPUT } from './settings-ui'
+import { Refusal } from './settings-ui'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import IconButton from '@/core/ui/IconButton'
+import Field from '@/core/ui/Field'
 
 /**
  * The Budgets drawer (ticket 510; the prototype's `BudgetDrawer`): "Limit the … to … per … (per
@@ -104,16 +108,9 @@ export default function BudgetDrawer({
           <h2 id={titleId} className="text-sm font-semibold tracking-tight">
             {t(`settings.budgets.drawer.title.${mode}`)}
           </h2>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={t('settings.budgets.drawer.close')}
-            title={t('settings.budgets.drawer.close')}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            data-budget-drawer-close=""
-          >
+          <IconButton label={t('settings.budgets.drawer.close')} onClick={close} data-budget-drawer-close="">
             <X className="size-4" aria-hidden />
-          </button>
+          </IconButton>
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
           {liveLimit && (
@@ -122,25 +119,27 @@ export default function BudgetDrawer({
             </p>
           )}
           <Question id={id('limit')} label={t('settings.budgets.drawer.limit')}>
-            <select id={id('limit')} className={SETTINGS_CONTROL} value={form.limit} disabled={liveLimit} onChange={(e) => set({ limit: e.target.value as BudgetForm['limit'] })} data-budget-field="limit">
+            <Select id={id('limit')} value={form.limit} disabled={liveLimit} onChange={(e) => set({ limit: e.target.value as BudgetForm['limit'] })} data-budget-field="limit">
               {BUDGET_LIMITS.map((l) => (
                 <option key={l} value={l}>
                   {t(`settings.budgets.drawer.limits.${l}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Question>
-          <Question id={id('value')} label={t('settings.budgets.drawer.value')}>
+          <Question
+            id={id('value')}
+            label={t('settings.budgets.drawer.value')}
+            error={shown ? <span data-budget-problem={shown}>{t(`settings.budgets.drawer.problem.${shown}`)}</span> : undefined}
+          >
             <span className="flex items-center gap-2">
-              <input
+              <Input
                 id={id('value')}
                 dir="ltr"
                 inputMode="decimal"
-                className={`h-9 w-40 rounded-md border bg-background px-2.5 text-sm text-foreground focus:outline-none ${shown ? 'border-danger-border focus:border-danger' : 'border-border/60 focus:border-primary/50'}`}
+                className="w-40"
                 value={form.value}
                 onChange={(e) => set({ value: e.target.value })}
-                aria-invalid={shown ? true : undefined}
-                aria-describedby={shown ? id('problem') : undefined}
                 data-budget-field="value"
               />
               {money && currency && (
@@ -149,36 +148,31 @@ export default function BudgetDrawer({
                 </span>
               )}
             </span>
-            {shown && (
-              <p id={id('problem')} className="text-xs text-danger-800" data-budget-problem={shown}>
-                {t(`settings.budgets.drawer.problem.${shown}`)}
-              </p>
-            )}
           </Question>
           <Question id={id('scope')} label={t('settings.budgets.drawer.scope')}>
-            <select id={id('scope')} className={SETTINGS_CONTROL} value={form.scope} disabled={liveLimit} onChange={(e) => set({ scope: e.target.value as BudgetForm['scope'] })} data-budget-field="scope">
+            <Select id={id('scope')} value={form.scope} disabled={liveLimit} onChange={(e) => set({ scope: e.target.value as BudgetForm['scope'] })} data-budget-field="scope">
               {scopes.map((s) => (
                 <option key={s} value={s}>
                   {t(`settings.budgets.drawer.scopes.${s}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Question>
           <Question id={id('period')} label={t('settings.budgets.drawer.period')}>
-            <select id={id('period')} className={SETTINGS_CONTROL} value={form.period} disabled={liveLimit} onChange={(e) => set({ period: e.target.value as BudgetForm['period'] })} data-budget-field="period">
+            <Select id={id('period')} value={form.period} disabled={liveLimit} onChange={(e) => set({ period: e.target.value as BudgetForm['period'] })} data-budget-field="period">
               {BUDGET_PERIODS.map((p) => (
                 <option key={p} value={p}>
                   {t(`settings.budgets.drawer.periods.${p}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </Question>
           {(['nameEn', 'nameAr'] as const).map((k) => (
             <Question key={k} id={id(k)} label={t(`settings.budgets.drawer.${k}`)}>
-              <input
+              <Input
                 id={id(k)}
                 dir={k === 'nameAr' ? 'rtl' : 'ltr'}
-                className={`${SETTINGS_INPUT} border-border/60 focus:border-primary/50`}
+                className="w-full max-w-md"
                 value={form[k]}
                 disabled={liveLimit}
                 placeholder={t('settings.budgets.drawer.namePlaceholder')}
@@ -215,13 +209,10 @@ export default function BudgetDrawer({
 }
 
 /** One of the drawer's questions, its words above its answer. */
-function Question({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+function Question({ id, label, error, children }: { id: string; label: string; error?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+    <Field id={id} label={label} error={error}>
       {children}
-    </div>
+    </Field>
   )
 }

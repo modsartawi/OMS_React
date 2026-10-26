@@ -23,6 +23,7 @@ import Ltr from '@/core/ui/Ltr'
 import { Pill, Says, Section } from './RuleCard'
 import { RxFlag } from './RuleFilters'
 import SentenceView from './SentenceView'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * One rule of a published version, read-only (ticket 512) — 504's reading of a rule: a collapsible
@@ -54,17 +55,9 @@ export default function VersionRuleCard({
   return (
     <article className="rounded-lg border border-border/60 bg-card" data-version-rule={rule.id}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          aria-label={t(open ? 'rules.collapse' : 'rules.expand')}
-          className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          data-rule-toggle=""
-        >
+        <IconButton label={t(open ? 'rules.collapse' : 'rules.expand')} onClick={onToggle} aria-expanded={open} aria-controls={bodyId} data-rule-toggle="">
           <Chevron className={'h-4 w-4' + (open ? '' : ' rtl:rotate-180')} aria-hidden />
-        </button>
+        </IconButton>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-xs text-muted-foreground">
             <Trans t={t} i18nKey="rules.ruleNumber" values={{ n: index + 1 }} components={{ n: <Ltr /> }} />

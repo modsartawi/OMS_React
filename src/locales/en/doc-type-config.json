@@ -1,7 +1,8 @@
 {
   "menu": {
     "documentTypes": "Document types",
-    "configChanges": "Config changes"
+    "configChanges": "Config changes",
+    "actionTypes": "Action types"
   },
   "title": "Document types",
   "subtitle": "Every OMS document type and its settings. A saved change is live from the next order act and is logged with its reason.",
@@ -82,7 +83,13 @@
     "approvalProcess": "Approval process",
     "acceptanceRequired": "Acceptance required",
     "isQuantityAllocation": "Hold stock as allocated quantity",
-    "notifyOnCancellation": "Notify on cancellation"
+    "notifyOnCancellation": "Notify on cancellation",
+    "actionType": "Action code",
+    "updateLastAction": "Updates last action",
+    "deactivateDocument": "Deactivates document",
+    "activateDocument": "Activates document",
+    "completeDocument": "Completes document",
+    "allowedWhenCompleted": "Allowed when completed"
   },
   "value": {
     "yes": "Yes",
@@ -212,6 +219,55 @@
       "failed": "The export failed",
       "failedHint": "The server did not answer. Try again in a moment.",
       "fileName": "config-changes"
+    }
+  },
+  "actionTypes": {
+    "title": "Action types",
+    "subtitle": "How each action treats a document, per document category. A saved change reaches every document type and delivery type in the category from its next act, and is logged with its reason.",
+    "loading": "Loading the action types…",
+    "failed": "The action types could not be loaded.",
+    "category": "Document category",
+    "pickCategory": "Choose a category",
+    "pickHint": "Choose a document category to see its action types.",
+    "empty": "This category has no action types.",
+    "options": "Options",
+    "categories": {
+      "O": "O — orders",
+      "R": "R — order returns",
+      "X": "X — e-prescriptions",
+      "E": "E — e-prescription returns",
+      "D": "D — deliveries",
+      "T": "T — delivery returns",
+      "Q": "Q — requests",
+      "B": "B — billing"
+    },
+    "tabs": {
+      "label": "Action type sections",
+      "actionTypes": "Action types",
+      "history": "History"
+    },
+    "affected": {
+      "title": "Types an edit here reaches: {{n}}",
+      "hint": {
+        "page": "Every document type and delivery type in this category reads these action types: a change applies to all of them.",
+        "dialog": "Saving changes this action for every one of these types. There is no per-type override."
+      },
+      "none": "No document type or delivery type is in this category yet.",
+      "kinds": {
+        "DocumentType": "Document types",
+        "DeliveryDocumentType": "Delivery types"
+      }
+    },
+    "edit": {
+      "title": "Edit action type {{code}}",
+      "note": "Only the description and the options change. The code and its category are fixed: each code belongs to one category, and no new code is created here.",
+      "saved": "Action type {{code}} saved",
+      "stale": "Someone else changed this action type since you opened it. It has been refreshed: close this dialog and make your change again.",
+      "description": {
+        "empty": "A description is required.",
+        "tooLong": "A description is at most {{max}} characters.",
+        "notPlainText": "A description may hold English letters, digits and punctuation only."
+      }
     }
   }
 }

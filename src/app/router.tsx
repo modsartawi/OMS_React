@@ -360,6 +360,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/doc-type-config/ConfigChangesPage')).default,
         }),
       },
+      // Action types per document category (ticket 3155): `?category=` picks it, `?tab=history` its History.
+      {
+        path: 'admin/action-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/ActionTypesPage')).default,
+        }),
+      },
       {
         path: 'admin/doc-types/:documentType',
         lazy: async () => ({

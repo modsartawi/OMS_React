@@ -8,12 +8,12 @@ import type { SimulateBody } from './simulate'
 // newest published one. Pure.
 
 export interface CategorySimulateBody {
-  request: Omit<SimulateBody['request'], 'lines'> & { lines: (SimulateBody['request']['lines'][number] & { line: number })[] }
+  request: SimulateBody['request']
 }
 
-/** The guard Simulate's request, each line numbered from 1 (the patient key is not the category's business). */
+/** The guard Simulate's request as typed (its lines already numbered); the patient key is not the category's business. */
 export function categorySimulateBody(body: SimulateBody): CategorySimulateBody {
-  return { request: { ...body.request, lines: body.request.lines.map((l, i) => ({ line: i + 1, ...l })) } }
+  return { request: body.request }
 }
 
 export interface LineCategory {

@@ -32,6 +32,7 @@ describe('insurance-approvals — the keys the code builds exist', () => {
       ...['noBacktest', 'backtestRunning', 'backtestFailed', 'backtestStale', 'checking', 'checks', 'ownSubmission'].map((w) => `why.${w}`),
       ...['none', 'running', 'failed', 'stale', 'current'].map((s) => `backtest.${s}`),
       ...['notShadow', 'notApprover', 'reason'].map((w) => `shadow.why.${w}`),
+      'refused.backtestMissing',
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })

@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
-import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
-import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktestQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
+import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktest, draftBacktestsQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
 import { INSURANCE_RULES_PATH, guardRulePath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
@@ -30,6 +30,8 @@ import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 const NS = 'insurance-approvals'
 /** 612's simulator, where the back-test is run (`app/insurance-rules-routes`). */
 const SIMULATOR_PATH = `${INSURANCE_RULES_PATH}/simulator`
+/** Submit's refusal while no back-test of the draft's current revision is done (BackOffice 3140). */
+const BACKTEST_MISSING = 'GUARDS_BACKTEST_MISSING'
 
 /**
  * Insurance rules ▸ Approvals — `/insurance-rules/approvals` (oms ticket 611; doors 3139, back-test 3140). The
@@ -77,7 +79,9 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   const { t } = useTranslation(NS)
   const queryClient = useQueryClient()
   const userId = useSession((s) => s.userId)
-  const backtest = useQuery(draftBacktestQuery(approval.backtestId))
+  // The draft's back-tests, newest first (`GET …/Backtests`); the one that counts is this revision's.
+  const backtests = useQuery(draftBacktestsQuery())
+  const bt = draftBacktest(backtests.data, approval.revision)
   // HQ's checks of THIS revision; asked once per revision.
   const checks = useQuery({
     queryKey: [...INSURANCE_RULES_KEY, 'guards', 'checks', doc.revision],
@@ -85,7 +89,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
     retry: false,
   })
   const verdict = checks.data ? checksVerdict(checks.data) : null
-  const actions = actionsFor({ approval, userId, backtest: approval.backtestId ? backtest.data : null, checks: verdict })
+  const actions = actionsFor({ approval, userId, backtest: bt, checks: verdict })
   const [note, setNote] = useState('')
 
   const act = useMutation({
@@ -100,13 +104,17 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
       await queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'list'] })
       await queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'versions'] })
     },
+    // HQ found no finished back-test of this revision (409 GUARDS_BACKTEST_MISSING): read them again.
+    onError: (err) => {
+      if (apiErrorCode(err) === BACKTEST_MISSING) void queryClient.invalidateQueries({ queryKey: GUARD_BACKTESTS_KEY })
+    },
   })
   const run = (a: ApprovalAction) => {
     if (!a.enabled || act.isPending) return
     act.mutate(a.kind)
   }
 
-  const standing = backtestStanding(approval.backtestId ? backtest.data : null, approval.revision)
+  const standing = backtestStanding(bt, approval.revision)
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-approval-panel={approval.state}>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -141,7 +149,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
       <dl className="grid gap-1 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
         <dt className="text-muted-foreground">{t('backtest.label')}</dt>
         <dd data-backtest-standing={standing}>
-          <BacktestLine standing={standing} bt={approval.backtestId ? (backtest.data ?? null) : null} loading={!!approval.backtestId && backtest.isPending} />
+          <BacktestLine standing={standing} bt={bt} loading={backtests.isPending} />
         </dd>
         <dt className="text-muted-foreground">{t('checks.label')}</dt>
         <dd data-checks={checks.isPending ? 'checking' : checks.isError ? 'failed' : verdict?.blocked ? 'errors' : 'pass'}>
@@ -195,8 +203,16 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
             )}
           </div>
           {act.isError && (
-            <div data-action-refused="">
-              <ErrorBanner message={apiErrorMessage(act.error, t('failedAction'))} />
+            <div data-action-refused={apiErrorCode(act.error) ?? ''}>
+              {apiErrorCode(act.error) === BACKTEST_MISSING ? (
+                <ErrorBanner title={t('failedAction')} message={t('refused.backtestMissing')}>
+                  <Link to={SIMULATOR_PATH} className="underline" data-refused-run="">
+                    {t('backtest.open')}
+                  </Link>
+                </ErrorBanner>
+              ) : (
+                <ErrorBanner message={apiErrorMessage(act.error, t('failedAction'))} />
+              )}
             </div>
           )}
         </div>

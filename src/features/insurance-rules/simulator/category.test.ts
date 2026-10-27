@@ -13,9 +13,9 @@ const ANSWER: CategorySimulateResult = {
 }
 
 describe('the simulator’s per-line category', () => {
-  it('categorySimulateBody_numbersTheLines — the guard request as typed, each line numbered from 1, no patient key', () => {
+  it('categorySimulateBody_sendsTheRequestOnly — the guard request as typed, its numbered lines, no patient key', () => {
     const body = categorySimulateBody({
-      request: { channel: 'nphies', store: 'P001', payer: 'BUPA', policy: null, class: null, lines: [{ item: '100245', qty: 1, unit: 'PC', icd: [], price: 12 }] },
+      request: { channel: 'nphies', store: 'P001', payer: 'BUPA', policy: null, class: null, lines: [{ line: 1, item: '100245', qty: 1, unit: 'PC', icd: [], price: 12 }] },
       patientKey: '1023456783',
     })
     expect(body).toEqual({ request: { channel: 'nphies', store: 'P001', payer: 'BUPA', policy: null, class: null, lines: [{ line: 1, item: '100245', qty: 1, unit: 'PC', icd: [], price: 12 }] } })

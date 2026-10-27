@@ -4,7 +4,8 @@ import { conditionSentence, type GuardSentenceContext } from '@/core/insurance-r
 import type { SimFired, SimLineResult, SimTrace, TraceValue } from './simulate'
 
 // A simulated line's condition trace laid onto each rule's own IF tree (ticket 612). HQ answers the trace flat —
-// `{ ruleId, blockPath, value, why }` — and the rule lives in the guard DRAFT; the tree reads each condition as
+// `{ ruleId, blockPath, value, why }`, per rule first `when` (the whole condition) then every block in order, a
+// group's blocks as `when[i].conditions[j]` — and the rule lives in the guard DRAFT; the tree reads each condition as
 // the rule page does (607's sentences) with HQ's value beside it. A condition HQ did not read (a group that
 // short-circuits) shows no value; an entry whose block is not in the draft (a rule edited since, or not in it)
 // is kept aside, never dropped. Pure.
@@ -27,10 +28,15 @@ export interface TracedRule {
   rule: GuardRule | null
   /** The rule's fire on this line, or null when it was only read. */
   fired: SimFired | null
+  /** HQ's value of the rule's WHOLE condition (`blockPath: "when"`), or null when it sent none. */
+  whole: { value: TraceValue; why: Says | string | null } | null
   nodes: TraceNode[]
   /** Trace entries whose block is not in the rule. */
   loose: SimTrace[]
 }
+
+/** The trace's path of a rule's whole condition. */
+const WHOLE = 'when'
 
 function treeOf(conditions: readonly GuardCondition[], prefix: string, ctx: GuardSentenceContext, byPath: Map<string, SimTrace>, used: Set<string>): TraceNode[] {
   return conditions.map((c, i) => {
@@ -53,10 +59,13 @@ export function lineRules(line: SimLineResult, draft: Pick<GuardRuleset, 'rules'
     const entries = line.trace.filter((t) => t.ruleId === ruleId)
     const rule = draft?.rules.find((r) => r.id === ruleId) ?? null
     const f = line.fired.find((x) => x.ruleId === ruleId) ?? null
-    if (!rule) return { ruleId, rule, fired: f, nodes: [], loose: entries }
-    const byPath = new Map(entries.map((t) => [t.blockPath, t]))
+    const w = entries.find((t) => t.blockPath === WHOLE)
+    const whole = w ? { value: w.value, why: w.why ?? null } : null
+    const blocks = entries.filter((t) => t.blockPath !== WHOLE)
+    if (!rule) return { ruleId, rule, fired: f, whole, nodes: [], loose: blocks }
+    const byPath = new Map(blocks.map((t) => [t.blockPath, t]))
     const used = new Set<string>()
     const nodes = treeOf(rule.when, '', { rule, lists: draft?.lists ?? [] }, byPath, used)
-    return { ruleId, rule, fired: f, nodes, loose: entries.filter((t) => !used.has(t.blockPath)) }
+    return { ruleId, rule, fired: f, whole, nodes, loose: blocks.filter((t) => !used.has(t.blockPath)) }
   })
 }

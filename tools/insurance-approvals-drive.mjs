@@ -3,7 +3,8 @@
 // Drives the REAL app in Chromium against STUBS, on the REAL envelope. Fixtures and handlers are
 // `tools/insurance-rules-stubs.mjs` (`// --- 611 ---`, `approvalStub`, then 615's metrics for the shadow figures and
 // 607's reads). ONE HQ store per direction, shared by the author (nalharbi) and the approver (falotaibi).
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3139 / 3140 are unbuilt. Ticket 618 swaps the doors.
+// 🚩 NOTHING here is driven against a live SIS.Api (3139 / 3140 are built, not yet met live). The draft's back-test
+// is found through `GET …/Backtests` (3140). Ticket 618 swaps the doors.
 //
 // It verifies, in LTR and RTL:
 //   1. the Approvals leaf; the draft, its revision; Ask for approval waits for a back-test (none, of an older
@@ -18,6 +19,7 @@
 //   6. versions: who · when (one ltr isolate), the note (an Arabic one rtl), "No note"; restore asks first, makes
 //      a NEW draft revision, and its back-test is now out of date;
 // The UI language stays English in both passes (`lng` is `en`, 607); RTL flips the direction only.
+//   1b. HQ refusing Submit 409 GUARDS_BACKTEST_MISSING is shown in words, with a link to run one;
 //   7. a bare 403 is "You do not have access"; no raw keys; no page errors.
 //
 //   1. run the app:  npx vite --port 5208 --strictPort
@@ -92,6 +94,28 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-action="submit"]').click({ force: true })
     await page.waitForTimeout(300)
     check(`${dir} 1. ${label}: clicking it writes nothing`, writesTo(store, '/Submit').length === 0)
+    await context.close()
+  }
+
+  // ── 1b. HQ refuses Submit 409 GUARDS_BACKTEST_MISSING (3140): the words, a link to run one, the back-tests re-read ──
+  {
+    const store409 = newApprovalStore()
+    const { context, page, errors } = await open(dir, store409, AUTHOR)
+    await ready(page)
+    await page.locator('[data-backtest-standing="current"]').waitFor({ timeout: 10000 }).catch(() => {})
+    await page.locator('[data-checks="pass"]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 1b. the draft's back-test is found through GET …/Backtests (no id anywhere)`, (await page.locator('[data-backtest-standing="current"]').count()) === 1)
+    // Behind the screen, HQ no longer holds a finished back-test of revision 12.
+    store409.backtests[BACKTEST_DONE_ID].revision = 11
+    await page.locator('[data-action="submit"]').click()
+    await page.locator('[data-action-refused="GUARDS_BACKTEST_MISSING"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const refused = page.locator('[data-action-refused="GUARDS_BACKTEST_MISSING"]')
+    check(`${dir} 1b. GUARDS_BACKTEST_MISSING is shown in words`, strip(await refused.innerText().catch(() => '')).includes('HQ found no finished back-test of this revision of the draft. Run one, then ask again.'), strip(await refused.innerText().catch(() => '')))
+    check(`${dir} 1b. with a link to run one`, (await refused.locator('a[href="/insurance-rules/simulator"]').count()) === 1)
+    await page.locator('[data-backtest-standing="stale"]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 1b. the back-tests are read again: now out of date, Ask waits`, (await page.locator('[data-backtest-standing="stale"]').count()) === 1 && (await page.locator('[data-why="backtestStale"]').count()) === 1)
+    check(`${dir} 1b. no raw keys`, await noRawKeys(page))
+    check(`${dir} 1b. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

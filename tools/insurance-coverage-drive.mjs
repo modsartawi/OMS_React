@@ -323,6 +323,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/categories`)
     await page.locator('[data-ruleset-approval="editing"] [data-action="submit"]').waitFor({ timeout: 60000 })
     const submit = page.locator('[data-action="submit"]')
+    await page.waitForFunction(() => !document.querySelector('[data-action="submit"]')?.hasAttribute('disabled'), null, { timeout: 10000 }).catch(() => {})
     check(`${dir} 7. an author may ask for approval of the saved draft once HQ's checks pass (no back-test)`, !(await submit.isDisabled()))
     await page.locator('[data-ruleset-approval] [data-note]').fill('Tawuniya statins')
     await submit.click()

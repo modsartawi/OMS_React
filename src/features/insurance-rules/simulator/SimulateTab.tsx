@@ -26,6 +26,7 @@ import {
   SIM_CHANNELS,
   emptyLine,
   emptySimForm,
+  lineUnknowns,
   problemOf,
   simulateBody,
   type SimField,
@@ -218,9 +219,10 @@ function Result({ result, asked, draft }: { result: SimulateResult; asked: Simul
   return (
     <section className="flex flex-col gap-3" data-sim-result="">
       <h2 className="text-base font-semibold tracking-tight">{t('result.title')}</h2>
-      {result.lines.map((line, i) => (
-        <LineResult key={i} n={i + 1} item={asked.request.lines[i]?.item ?? ''} line={line} draft={draft} asked={asked} />
-      ))}
+      {result.lines.map((line, i) => {
+        const n = line.line ?? i + 1
+        return <LineResult key={n} n={n} item={asked.request.lines.find((l) => l.line === n)?.item ?? ''} line={line} draft={draft} asked={asked} />
+      })}
     </section>
   )
 }
@@ -228,6 +230,7 @@ function Result({ result, asked, draft }: { result: SimulateResult; asked: Simul
 function LineResult({ n, item, line, draft, asked }: { n: number; item: string; line: SimLineResult; draft: Parameters<typeof lineRules>[1]; asked: SimulateBody }) {
   const { t } = useTranslation('insurance-simulator')
   const rules = lineRules(line, draft)
+  const unknowns = lineUnknowns(line)
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-result-line={n}>
       <header className="flex flex-wrap items-center gap-2">
@@ -242,6 +245,16 @@ function LineResult({ n, item, line, draft, asked }: { n: number; item: string; 
         <p className="text-sm text-muted-foreground" data-none-fired="">
           {t('result.noneFired')}
         </p>
+      )}
+      {unknowns.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-attention-border bg-attention-050 px-3 py-2 text-sm text-attention-800" data-unknowns="">
+          <span>{t('result.unknowns')}</span>
+          {unknowns.map((id) => (
+            <Link key={id} to={guardRulePath(id)} className="hover:underline" data-unknown-rule={id}>
+              <RuleId id={id} />
+            </Link>
+          ))}
+        </div>
       )}
       {rules.map((r) => (
         <RuleTrace key={r.ruleId} r={r} />
@@ -299,9 +312,22 @@ function RuleTrace({ r }: { r: TracedRule }) {
           </dl>
         </div>
       )}
-      {r.nodes.length > 0 && (
+      {(r.nodes.length > 0 || r.whole) && (
         <div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">{t('trace.title')}</div>
+          <div className="mb-1 flex flex-wrap items-baseline gap-2 text-xs font-medium text-muted-foreground" data-trace-whole={r.whole ? String(r.whole.value) : ''}>
+            <span>{t('trace.title')}</span>
+            {r.whole && (
+              <>
+                <span>{t('trace.whole')}</span>
+                <TraceValueBadge value={r.whole.value} />
+                {r.whole.why && (
+                  <span className="font-normal" data-why="">
+                    <Why why={r.whole.why} />
+                  </span>
+                )}
+              </>
+            )}
+          </div>
           <TraceTree nodes={r.nodes} />
         </div>
       )}

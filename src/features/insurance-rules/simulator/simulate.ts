@@ -4,13 +4,15 @@ import type { GuardChannel, GuardSeverity, Says } from '@/core/insurance-rules/m
 // The simulator's request and answer (BackOffice spec 3126, door 3140; oms ticket 612). An author types one request
 // — channel, store, payer, policy, class, the lines — and a patient key; HQ runs the guard DRAFT over it and answers
 // each line's outcome, the rules that fired, and the trace of every condition it read (true / false / unknown).
-// Shapes from the brief's "HQ contract: simulate and back-test (3140)"; fields marked GUESS are 612's. Pure.
+// Shapes from the brief's "HQ contract: simulate and back-test (3140)" as BUILT; fields marked GUESS are 612's. Pure.
 
 export const SIM_CHANNELS: readonly GuardChannel[] = ['nphies', 'waseel', 'oms', 'bupa']
 
 // ── The request ───────────────────────────────────────────────────────────────────────────
 
 export interface SimLineBody {
+  /** The line's number in the request, from 1. */
+  line: number
   item: string
   qty: number
   unit: string
@@ -27,9 +29,18 @@ export interface SimulateBody {
     payer: string | null
     policy: string | null
     class: string | null
+    /** Not typed on this screen (3140 takes them optional): `user`, `dob`, `gender`. */
+    user?: string
+    dob?: string
+    gender?: string
     lines: SimLineBody[]
   }
   patientKey: string
+  /**
+   * An unsaved edit to run instead of the saved draft. Never sent from this screen: the guard editor (608) keeps its
+   * unsaved document in its own page state, which the simulator cannot reach, so HQ runs the SAVED draft.
+   */
+  document?: unknown
 }
 
 /** One line as typed: every value a string, read by `simulateBody`. */
@@ -99,8 +110,8 @@ export function simulateBody(form: SimForm): { body: SimulateBody | null; proble
     if (!unit) problems.push({ field: 'unit', line, problem: 'required' })
     if (days && !WHOLE.test(days)) problems.push({ field: 'daysSupply', line, problem: 'wholeNumber' })
     if (!AMOUNT.test(price)) problems.push({ field: 'price', line, problem: 'amount' })
-    // The brief's key order: item, qty, unit, daysSupply (only when typed), icd, price.
-    return { item, qty: Number(qty), unit, ...(days ? { daysSupply: Number(days) } : {}), icd: parseCodes(l.icd), price: Number(price) }
+    // The brief's key order: line, item, qty, unit, daysSupply (only when typed), icd, price.
+    return { line, item, qty: Number(qty), unit, ...(days ? { daysSupply: Number(days) } : {}), icd: parseCodes(l.icd), price: Number(price) }
   })
   if (problems.length) return { body: null, problems }
   return {
@@ -139,6 +150,8 @@ export interface SimTrace {
 
 export interface SimFired {
   ruleId: string
+  /** The published version the rule answered from (null for a draft-only rule). */
+  version?: number | null
   severity: GuardSeverity
   en: string
   ar: string
@@ -148,9 +161,23 @@ export interface SimFired {
 
 /** A line's category is not the guard Simulate's: it comes from `Categories/Simulate` (`./category`, 617). */
 export interface SimLineResult {
+  /** The request line it answers (the body's `line`). */
+  line: number
   outcome: GuardLineOutcome
   fired: SimFired[]
+  /** GUESS (612): the rules that could not decide on this line (a fact unknown), read as their ids. */
+  unknowns: string[]
   trace: SimTrace[]
+}
+
+/** The rule ids a line could not decide, whatever spelling HQ used (`"G-007"` or `{ ruleId }`). */
+export function lineUnknowns(line: Pick<SimLineResult, 'unknowns'>): string[] {
+  const out: string[] = []
+  for (const u of (line.unknowns ?? []) as unknown[]) {
+    const id = typeof u === 'string' ? u : u && typeof u === 'object' && 'ruleId' in u ? String((u as { ruleId: unknown }).ruleId) : ''
+    if (id && !out.includes(id)) out.push(id)
+  }
+  return out
 }
 
 export interface SimulateResult {

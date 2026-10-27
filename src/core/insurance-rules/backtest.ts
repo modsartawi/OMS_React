@@ -3,50 +3,70 @@ import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { GuardSeverity } from './model'
 
 // A back-test of the guard draft (BackOffice spec 3126, door 3140; oms ticket 612). HQ replays the last 30 / 90 /
-// 180 days of real requests through the DRAFT and answers what it would have done. Shapes from the brief's
-// "HQ contract: simulate and back-test (3140)". In core, not in the simulator feature, because 611's Submit is
-// gated on "a back-test of the current revision" (`backtestIsCurrent`) and a feature may not import another.
-//
-// ⚠️ Named `GuardBacktest` (612). 611 builds in parallel and may add its own minimal back-test status shape here;
-// the merger keeps ONE. Fields marked GUESS are not spelled by the brief; 618 reconciles them.
-// Pure.
+// 180 days of real requests through the saved DRAFT at its current revision and answers what it would have done.
+// Shapes from the brief's "HQ contract: simulate and back-test (3140)" as BUILT. In core, not in the simulator
+// feature, because 611's Submit is gated on "a back-test of the current revision" (`backtestIsCurrent`,
+// `draftBacktest`) and a feature may not import another. Pure, but for the two query factories at the end.
 
-/** The windows a back-test replays, in local days back from today. */
+/** The windows a back-test replays, in local days back from today (HQ's default is 90). */
 export const BACKTEST_DAYS = [30, 90, 180] as const
 export type BacktestDays = (typeof BACKTEST_DAYS)[number]
 
-/** GUESS (612): the brief names `status`, not its values. An unknown value reads as finished (no endless poll). */
+/** An unknown value reads as finished (no endless poll). */
 export const BACKTEST_STATUSES = ['queued', 'running', 'done', 'failed'] as const
 export type BacktestStatus = (typeof BACKTEST_STATUSES)[number]
 
-/** A request the draft would have stopped. `on` is a local day or moment; the patient key comes masked. */
+/** A request line the draft would have refused or held for an override. */
 export interface BacktestStopped {
+  /** Local day, `yyyy-MM-dd`. */
   on: string
   store: string
   item: string
+  /** The patient key as HQ masks it: the first digit and the last two (`1*******01`). */
   maskedKey: string
+  /** Quantity × today's master unit price — an estimate (the history holds no amount). */
   sar: number
+  /** The draft rules that stopped it. */
+  rules: string[]
 }
 
-/** `GET InsuranceRules/Guards/Backtests/{id}`. */
+/** One draft rule's share of the back-test. */
+export interface BacktestRule {
+  ruleId: string
+  fires: number
+  stopped: number
+}
+
+/** `GET InsuranceRules/Guards/Backtests/{id}` (and each row of `GET …/Backtests`; the answer of `POST …/Backtests`). */
 export interface GuardBacktest {
+  id: string
   status: BacktestStatus
-  /** GUESS (612): a fraction 0–1. */
+  /** A fraction 0–1 (read defensively: held inside 0–100 %). */
   progress: number
   /** The draft revision it replayed — ties it to Submit (611). */
   revision: number
+  days: number
+  requestedBy: string | null
+  requestedAt: string | null
+  finishedAt: string | null
+  /** HQ's words when it failed. */
+  error: string | null
+  /** The first local day replayed. */
+  since: string | null
+  /** Past requests replayed, and their lines. */
+  requests: number
+  lines: number
   fires: { refuse: number; override: number; warn: number }
+  /** The first 500 stopped lines; `stoppedTotal` counts them all. */
   stopped: BacktestStopped[]
-  /** SAR of the stopped requests. */
+  stoppedTotal: number
+  /** SAR of the stopped lines (an estimate). */
   sar: number
+  /** Over the requests the draft fired on. */
   distinct: { patients: number; stores: number; pharmacists: number }
-  /** GUESS (612): how many of its fires a LIVE guard fires on too (a count). */
+  /** Fired lines where a LIVE guard fired too. */
   overlap: number
-}
-
-/** `POST InsuranceRules/Guards/Backtests` → the job's id. */
-export interface BacktestStarted {
-  id: string
+  rules: BacktestRule[]
 }
 
 export const backtestRunning = (bt: Pick<GuardBacktest, 'status'>): boolean => bt.status === 'queued' || bt.status === 'running'
@@ -60,6 +80,23 @@ export function backtestProgressPct(bt: Pick<GuardBacktest, 'progress'>): number
 export const backtestIsCurrent = (bt: Pick<GuardBacktest, 'status' | 'revision'> | null | undefined, revision: number): boolean =>
   !!bt && bt.status === 'done' && bt.revision === revision
 
+/**
+ * The draft's back-test to show beside revision `revision`, from `GET …/Backtests` (newest first): a finished one of
+ * this revision, else the newest of this revision (running / failed), else the newest at all (it is then out of date).
+ */
+export function draftBacktest<T extends Pick<GuardBacktest, 'status' | 'revision'>>(list: readonly T[] | null | undefined, revision: number): T | null {
+  if (!list?.length) return null
+  const mine = list.filter((b) => b.revision === revision)
+  return mine.find((b) => b.status === 'done') ?? mine.find((b) => b.status !== 'failed') ?? mine[0] ?? list[0]
+}
+
+/** How many stopped lines arrived and how many there are: HQ sends the first 500. */
+export function stoppedShown(bt: Pick<GuardBacktest, 'stopped' | 'stoppedTotal'>): { shown: number; total: number; truncated: boolean } {
+  const shown = bt.stopped.length
+  const total = Math.max(shown, bt.stoppedTotal ?? shown)
+  return { shown, total, truncated: total > shown }
+}
+
 /** Its fires by severity, heaviest first (REFUSE > OVERRIDE > WARN), and their total. */
 export function backtestFires(bt: Pick<GuardBacktest, 'fires'>): { rows: [GuardSeverity, number][]; total: number } {
   const rows: [GuardSeverity, number][] = [
@@ -70,24 +107,19 @@ export function backtestFires(bt: Pick<GuardBacktest, 'fires'>): { rows: [GuardS
   return { rows, total: rows.reduce((n, [, v]) => n + v, 0) }
 }
 
-const MASK = '•'
+const MASK = '*'
 
 /**
- * A patient key as a back-test may show it: HQ masks it (`10••••••83`); one that arrives whole is masked here,
- * two digits kept at each end, so a slip on the wire never puts a National ID / Iqama on screen.
+ * A patient key as a back-test may show it: HQ masks it (`1*******01`, the first digit and the last two); one that
+ * arrives whole is masked here the same way, so a slip on the wire never puts a National ID / Iqama on screen.
  */
 export function maskedKey(key: string): string {
-  if (!key || key.includes(MASK)) return key
-  if (key.length <= 4) return MASK.repeat(key.length)
-  return key.slice(0, 2) + MASK.repeat(key.length - 4) + key.slice(-2)
+  if (!key || /[*•]/.test(key)) return key
+  if (key.length <= 3) return MASK.repeat(key.length)
+  return key.slice(0, 1) + MASK.repeat(key.length - 3) + key.slice(-2)
 }
 
 // ── 611 · the draft's back-test, as the approval panel reads it ─────────────────────────────────
-//
-// ⚠️ PROVISIONAL (611), 618 reconciles: no door LISTS back-tests, so the approval read
-// (`GET InsuranceRules/Guards/Approval`, itself a guess) is read as carrying `backtestId` — the draft's latest
-// back-test, which HQ records when `POST …/Backtests` starts one — and the panel reads it through 612's door
-// (`GET …/Backtests/{id}`, same query key as the simulator's, so both share one cache entry).
 
 /** Where a draft revision stands with its back-test; `current` is `backtestIsCurrent`. */
 export type BacktestStanding = 'none' | 'running' | 'failed' | 'stale' | 'current'
@@ -100,16 +132,27 @@ export function backtestStanding(bt: Pick<GuardBacktest, 'status' | 'revision'> 
   return backtestIsCurrent(bt, revision) ? 'current' : 'running'
 }
 
-/** The simulator's key root (`features/insurance-rules/simulator/api`): a restore or a new job invalidates it. */
+/** The key root of every back-test read: a restore or a new job invalidates it. */
 export const GUARD_BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
+/** How often a running back-test is read again. */
+export const BACKTEST_POLL_MS = 1000
 
-/** `GET InsuranceRules/Guards/Backtests/{id}`, polled every 2 s while it runs; nothing to read without an id. */
-export function draftBacktestQuery(id: string | null | undefined) {
+/** `GET InsuranceRules/Guards/Backtests` — the current draft's back-tests, newest first; polled while one runs. */
+export function draftBacktestsQuery() {
   return {
-    queryKey: [...GUARD_BACKTESTS_KEY, id ?? ''],
-    queryFn: () => api.get<GuardBacktest>(`${INSURANCE_RULES_BASE}/Guards/Backtests/${encodeURIComponent(id ?? '')}`),
-    enabled: !!id,
+    queryKey: [...GUARD_BACKTESTS_KEY, 'list'],
+    queryFn: async () => (await api.get<GuardBacktest[] | null>(`${INSURANCE_RULES_BASE}/Guards/Backtests`)) ?? [],
     retry: false,
-    refetchInterval: (q: { state: { data?: GuardBacktest } }) => (q.state.data && backtestRunning(q.state.data) ? 2000 : false),
+    refetchInterval: (q: { state: { data?: GuardBacktest[] } }) => (q.state.data?.some(backtestRunning) ? BACKTEST_POLL_MS : false),
+  } as const
+}
+
+/** `GET InsuranceRules/Guards/Backtests/{id}` — one back-test, polled while it runs. */
+export function backtestByIdQuery(id: string) {
+  return {
+    queryKey: [...GUARD_BACKTESTS_KEY, 'id', id],
+    queryFn: () => api.get<GuardBacktest>(`${INSURANCE_RULES_BASE}/Guards/Backtests/${encodeURIComponent(id)}`),
+    retry: false,
+    refetchInterval: (q: { state: { data?: GuardBacktest } }) => (q.state.data && !backtestRunning(q.state.data) ? false : BACKTEST_POLL_MS),
   } as const
 }

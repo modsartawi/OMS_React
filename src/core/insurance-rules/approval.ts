@@ -7,7 +7,8 @@
 //
 // PROVISIONAL (611), 618 reconciles: the brief has no door that says where the draft stands nor who the viewer is.
 // Guessed `GET InsuranceRules/{Guards|Categories|Coverage}/Approval` -> `DraftApproval` below; `viewer` stands in for
-// the authoring / approving grants until 618's access probe, and `backtestId` names the guard draft's latest back-test.
+// the authoring / approving grants until 618's access probe. The guard draft's back-test is found through
+// `GET …/Guards/Backtests` (3140, `draftBacktest`).
 import { backtestStanding, type GuardBacktest } from './backtest'
 
 export interface DraftApproval {
@@ -22,8 +23,6 @@ export interface DraftApproval {
   note: string | null
   /** The approver's last send-back, shown to the author. */
   sentBack: { by: string; at: string; note: string } | null
-  /** The draft's latest back-test (612's job id), or null when it was never back-tested. ⚠️ GUESSED field. */
-  backtestId: string | null
   /** What the session may do — the authoring and approving grants. */
   viewer: { author: boolean; approver: boolean }
 }

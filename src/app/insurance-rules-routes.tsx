@@ -48,8 +48,20 @@ export const insuranceRulesRoute: RouteObject = {
     // 613 · editions (e.g. `editions`, `editions/:id`)
 
     // 614 · review and exceptions (e.g. `review`, `exceptions`)
+    {
+      path: 'review',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/review/ReviewPage')).default }),
+    },
+    {
+      path: 'exceptions',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/review/ExceptionsPage')).default }),
+    },
 
     // 615 · metrics, flags, rejections (e.g. `metrics`)
+    {
+      path: 'metrics',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/metrics/MetricsPage')).default }),
+    },
 
     // 617 · insurer settings, category and coverage rules (e.g. `insurers`, `categories`, `coverage`)
   ],

@@ -1,11 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import LoyGroupPicker from '@/core/loy-groups/LoyGroupPicker'
+import { canViewLoyGroups, loyGroupsAccessQuery } from '@/core/loy-groups/api'
+import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 
 // The header inputs feeding SimulateRequest.header. Owner layout (488): a dense
 // 4-column grid (NOT the WPF's 2-column) — determination fields on row 1, procedure
 // key + loyalty on row 2 — with the Promotion / Pricing Elements checkboxes beneath.
-// Empty loyalty fields are coerced to null at the Page on submit.
+// Empty loyalty fields are coerced to null when the request is built (request.ts).
 //
 // Ticket 113 turned this from a framed card into **the run strip's expansion**: it
 // draws no border and no heading of its own, mounts only while the strip is open,
@@ -76,6 +80,11 @@ export default function SimHeaderForm({
   autoFocusFirstField,
 }: Props) {
   const { t } = useTranslation('simulation')
+  // Ticket 637: the basket's loyalty groups are picked from the defined groups — but only under the
+  // view grant. Without it, and while the probe is out or has failed, the field stays today's free
+  // text (D3: a simulation is a test, not a write), never the picker's read-only fallback.
+  const loyAccess = useQuery(loyGroupsAccessQuery())
+  const pickLoyGroups = canViewLoyGroups(loyAccess.data)
 
   const field = (
     key: keyof SimHeaderState,
@@ -99,6 +108,20 @@ export default function SimHeaderForm({
       />
       {opts?.hint ? <span className="text-[0.7rem] text-muted-foreground">{opts.hint}</span> : null}
     </label>
+  )
+
+  const loyGroupsField = pickLoyGroups ? (
+    <Field label={t('header.loyGroup')}>
+      <LoyGroupPicker
+        label={t('header.loyGroup')}
+        value={value.loyGroups}
+        disabled={disabled}
+        data-testid="sim-header-loyGroups"
+        onChange={(loyGroups) => onChange({ loyGroups })}
+      />
+    </Field>
+  ) : (
+    field('loyGroups', t('header.loyGroup'))
   )
 
   const loyTierField = (
@@ -131,7 +154,7 @@ export default function SimHeaderForm({
         {field('documentPricingProcedureKey', t('header.procedureKey'), {
           hint: t('header.procedureKeyHint'),
         })}
-        {field('loyGroups', t('header.loyGroup'))}
+        {loyGroupsField}
         {loyTierField}
       </div>
 

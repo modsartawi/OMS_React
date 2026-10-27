@@ -29,6 +29,7 @@ import { SimStaleResultsNote } from './SimStatusSlot'
 import { processCommand, processRefusal } from './process-command'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
+import { buildSimulateRequest } from './request'
 import { isStaleRun } from './staleness'
 import { simulationMaterialParam } from './material-param'
 
@@ -196,45 +197,10 @@ export default function SimulationPage() {
   // The request the inputs on screen currently describe. Built once and read
   // twice: Process posts it, and the run strip's chip set reads its determination
   // off it (ticket 113 — the chips are the request, not a second spelling of it).
-  const request = useMemo<SimulateRequest>(() => {
-    const built: SimulateRequest = {
-      header: {
-        plant: header.plant.trim(),
-        salesOrganization: header.salesOrganization.trim(),
-        distributionChannel: header.distributionChannel.trim(),
-        // A blank date lets the engine use "now"; a set date goes as midnight ISO.
-        pricingDate: header.pricingDate ? `${header.pricingDate}T00:00:00` : '',
-        documentPricingProcedureKey: header.documentPricingProcedureKey.trim(),
-        loyGroups: header.loyGroups.trim() || null,
-        loyTier: header.loyTier.trim() || null,
-        isPromotionApplicable: promotion,
-        skipBonusBuyActivationCheck: unactivated,
-      },
-      items: validItems.map((r) => ({
-        materialNumber: r.materialNumber.trim(),
-        quantity: Number(r.quantity) || 0,
-        qtyUnit: r.qtyUnit.trim(),
-        itemConditionControl: r.itemConditionControl.trim() || null,
-      })),
-      includeConditions: true,
-      includePricingElements: pricingElements,
-    }
-    // Only rows carrying a condition type ride the request; item number defaults to
-    // 0 (a header condition) when blank or non-numeric.
-    const validManual = manualConditions.filter((c) => c.conditionType.trim() !== '')
-    if (validManual.length > 0) {
-      built.manualConditions = validManual.map((c) => ({
-        itemNumber: Number(c.itemNumber) || 0,
-        conditionType: c.conditionType.trim(),
-        rate: Number(c.rate) || 0,
-        rateUnit: c.rateUnit.trim(),
-      }))
-    }
-    return built
-    // `validItems` is derived from `items` on every render, so the item rows are
-    // the dependency, not the filtered array.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [header, promotion, unactivated, pricingElements, items, manualConditions])
+  const request = useMemo<SimulateRequest>(
+    () => buildSimulateRequest({ header, promotion, unactivated, pricingElements, items, manualConditions }),
+    [header, promotion, unactivated, pricingElements, items, manualConditions],
+  )
 
   const chips = useMemo(() => runChips(request), [request])
 

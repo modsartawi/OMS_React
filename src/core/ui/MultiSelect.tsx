@@ -74,7 +74,10 @@ export default function MultiSelect({
       if (root.current && !root.current.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      // Handled: an Escape that closes this panel closes nothing else (a run strip's form, ticket 637).
+      e.preventDefault()
+      setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)

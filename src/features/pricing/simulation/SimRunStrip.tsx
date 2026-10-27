@@ -154,7 +154,9 @@ export default function SimRunStrip({
   useEffect(() => {
     if (!expanded) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') collapse()
+      // An Escape a control inside already handled (the loyalty-group picker's panel, ticket 637)
+      // closed that control, not the form.
+      if (e.key === 'Escape' && !e.defaultPrevented) collapse()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

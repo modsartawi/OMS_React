@@ -145,3 +145,5 @@ tools/.data-sync-*-shots/
 tools/.dmsco-theme-shots/
 # Bonus-buy loyalty-group picker drive screenshots (tools/bby-loy-groups-drive.mjs, ticket 636)
 tools/.bby-loy-groups-shots/
+# Simulation loyalty-group picker drive screenshots (tools/sim-loy-groups-drive.mjs, ticket 637)
+tools/.sim-loy-groups-shots/

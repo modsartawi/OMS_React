@@ -11,6 +11,7 @@ import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { rowTimelineNow } from '@/core/oms/timeline'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
+import { GuardStateCell } from '@/core/insurance-rules/GuardStateCell'
 import { FailedJobsCell } from './FailedJobsCell'
 import { StatusCell } from './StatusCell'
 
@@ -146,6 +147,16 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
       type: 'numericColumn',
       filter: 'agNumberColumnFilter',
       cellRenderer: FailedJobsCell,
+    },
+    {
+      // The insured order's guard check (BackOffice 3142, ticket 616): "Guard check: action needed",
+      // "Guard check pending" as a pill; blank for an order with none. The value is the word.
+      headerName: t('insurance-order-guards:column.header'),
+      colId: 'guardState',
+      width: 190,
+      valueGetter: (p: GetterParams) =>
+        p.data?.guardState && p.data.guardState !== 'none' ? t(`insurance-order-guards:state.${p.data.guardState}`) : '',
+      cellRenderer: GuardStateCell,
     },
     trimmedCol('documentType', 'documentType', 130),
     trimmedCol('deliveryType', 'deliveryType', 120),

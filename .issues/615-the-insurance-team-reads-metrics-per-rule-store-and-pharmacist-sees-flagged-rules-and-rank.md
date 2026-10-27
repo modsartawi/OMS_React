@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3126 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3126-oms-react-insurance-rules-brief.md)
 blocked-by: 607
 ---
@@ -23,7 +23,7 @@ components · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] drive (stubbed)
+- [x] drive (stubbed) — `tools/insurance-metrics-drive.mjs` 100/100 STUBBED (LTR + RTL)
 
 ## Boundaries
 
@@ -36,3 +36,26 @@ Gates green; drive passes.
 ## Blocked by
 
 [607](607-the-insurance-rules-area-lists-guard-rules-by-folder-with-their-flags-and-opens-a-rule-rea.md)
+
+## Comments
+
+**2026-10-27 — built on `impl/3126-615`.** `/insurance-rules/metrics` (`src/features/insurance-rules/metrics/`), three
+tabs on one local window (`?tab&by&from&to&payer`, last 30 local days by default): Metrics per rule / store /
+pharmacist / day (tiles, fires bar by severity, outcome mix, override rate, SAR protected labelled "estimate",
+rejections after a pass, median time added; per day a hand-rolled SVG chart, the app has no chart library), Flags
+(noisy / silent / jump with the numbers behind each, thresholds from `Settings/Flags`), Rejections (ranked by SAR,
+live-guard mark, totals with the SAR no live guard covers, payer filter). Proof: `model.test.ts`, `query.test.ts`,
+`i18n-keys.test.ts` (en/ar mirror); drive `tools/insurance-metrics-drive.mjs` 100/100 STUBBED (LTR + RTL). Typecheck,
+lint, vitest green. Stubs: section `// --- 615 ---` in `tools/insurance-rules-stubs.mjs` (`insuranceMetricsStub`).
+
+**Guesses where the brief is silent (618 reconciles):**
+- Metrics row: `{ key, name: {en,ar}|null, fires: { refuse, override, warn }, shadowFires, outcomes: { removed, changed,
+  overridden, acknowledged, exception }, overrideRate (0–1 of OVERRIDE fires)|null, sarProtectedEstimate,
+  rejectionsAfterPass, timeAddedMedianMs|null }`. `key` = rule id / store code / pharmacist id / local day.
+- `by=day` added (story 31); the brief spells only `rule|store|pharmacist`.
+- Flag row: `{ ruleId, name, kind, since, fires, overridden, previousAverage|null, lastFired|null }`; flag settings
+  `{ noisyOverrideRate, noisyMinFires, windowDays, silentDays, jumpFactor }`. Settings are read-only here (no PUT
+  screen built; the brief's `PUT …/Settings/Flags` is left for a later ticket).
+- Rejection row taken literally from the brief, with `code` and `words` as two nullable fields.
+- Window cap 366 days (brief names none); the Flags tab is not windowed (the flag job keeps its own).
+- No access probe; a bare 403 on any read shows "You do not have access".

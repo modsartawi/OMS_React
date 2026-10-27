@@ -155,3 +155,33 @@ Not touched (owner rulings pending): the rail head's aria-label, the link-underl
   retry; bby-maintenance's 5c failed only against a Vite server that had served for hours and
   passed on a fresh one.
 - Screenshot assets the foundation drive rewrote (`.issues/assets/391-shots/`) were checked back out.
+
+### 2026-10-27 — Doc-type config sweep (after main merge) (branch `impl/590-doctype`)
+
+`admin/doc-type-config` (spec 3148) reached the integration branch with the main merge `a65dfa69`,
+after the area sweep; the ratchet listed 22 hand-styled controls.
+
+- **Count (583 inventory):** before 25 (2 buttons, 23 fields) → after 4 (1 button, 3 checkboxes).
+  Ratchet: 22 → `admin/doc-type-config 1`.
+- **Fields:** every select/input → `Select`/`Input`; the local `INPUT` constant and the local
+  `Field` wrapper of Config changes are gone (now the core `Field`; the Buttons' `h-8` overrides
+  dropped). The two label-above category pickers (Document types, Action types) → `Field`. The
+  Document types search → `<Input type="search" wrapperClassName="min-w-64">`.
+- **Label-beside rows kept** (597 Q1): the edit / copy dialogs' `<label>text<control/></label>`
+  rows (EditDocumentType, DeliveryType, EditActionType, SourceFormFields, CopyDocumentSource,
+  ChildRowTables, CodeChoiceSelect) keep their wrapping label; only the control is swapped.
+- **`ReasonField`** (the area's shared reason) → core `Field` + `Textarea`: the counter rides in the
+  label, the hint is linked through `aria-describedby`, "too long" is the Field's error (a
+  `role="alert"` span), `SDC-00002` sets `invalid`. Its label now reads in `FIELD_LABEL`'s muted ink.
+- **`TabStrip`** → `Chip variant="tab"` (tablist, ids, `aria-controls`, `data-tab` kept); the
+  underline tabs become pills like 601's tab chips.
+- **Allowlist (1):** `DocumentSourcesPage.tsx` button — the source code in its table cell that
+  selects the source in-page: a row picker in a grid cell, restyled in place (already on tokens).
+- **Theme drive:** block `admin-doc-type-config` (list, a type's tabs + edit dialog, Config changes,
+  Action types), light/dark/RTL **174/174**. Red first against the unswept source (11/58 light).
+  The list's search box is added to `ARIA_LABEL_ONLY` as a `SEARCH_BOX` (placeholder-named, like 601's).
+- **Gates:** typecheck clean; lint 5/5 (40 features / 149 controls); `npm test` 450 files / 6892
+  tests. Feature drives: doc-type-config 70/70, doc-type-child-rows 42/42, doc-type-copy 40/40,
+  action-types 62/62, config-changes 40/40, delivery-types 54/54, document-sources 70/70.
+- **Open question:** the Document types search has no visible label — same owner ruling as 601's
+  search boxes.

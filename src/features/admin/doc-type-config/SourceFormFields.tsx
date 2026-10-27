@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { ACTION_DESCRIPTION_MAX, type DescriptionProblem } from './action-type-edit'
 import { SOURCE_CATEGORIES } from './document-source-edit'
@@ -28,7 +30,7 @@ export default function SourceFormFields({
       <div className="flex flex-col gap-1" data-source-field="description">
         <label className="flex items-center justify-between gap-2 text-sm">
           <span>{t('fields.description')}</span>
-          <input
+          <Input
             type="text"
             value={draft.description}
             maxLength={ACTION_DESCRIPTION_MAX}
@@ -36,7 +38,7 @@ export default function SourceFormFields({
             dir="ltr"
             aria-invalid={description !== null || invalidDescription || undefined}
             onChange={(e) => onChange('description', e.target.value)}
-            className="w-72 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+            className="w-72"
             data-source-description=""
           />
         </label>
@@ -49,12 +51,12 @@ export default function SourceFormFields({
       </div>
       <label className="flex items-center justify-between gap-2 text-sm" data-source-field="documentSourceCategory">
         <span>{t('fields.documentSourceCategory')}</span>
-        <select
+        <Select
           value={draft.documentSourceCategory}
           disabled={disabled}
           aria-invalid={invalidCategory || undefined}
           onChange={(e) => onChange('documentSourceCategory', e.target.value)}
-          className="w-72 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+          className="w-72"
           data-source-category=""
         >
           {SOURCE_CATEGORIES.map((c) => (
@@ -62,7 +64,7 @@ export default function SourceFormFields({
               {t(`documentSources.categories.${c || '_blank'}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <p className="text-xs text-muted-foreground">{t('documentSources.categoryHint')}</p>
     </>

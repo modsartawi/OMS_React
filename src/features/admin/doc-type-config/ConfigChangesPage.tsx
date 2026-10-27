@@ -7,9 +7,12 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import { saveBlob } from '@/core/util/download-file'
 import { formatFigure } from '@/core/util/number-format'
 import { canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
@@ -39,7 +42,6 @@ export default function ConfigChangesPage() {
   )
 }
 
-const INPUT = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
 
 function ConfigChanges() {
   const { t } = useTranslation('doc-type-config')
@@ -116,33 +118,32 @@ function ConfigChanges() {
     <div className="flex min-w-0 flex-col gap-3" data-config-changes="">
       <form onSubmit={submit} aria-label={t('changes.filters')} className="flex flex-wrap items-end gap-2" data-changes-filters="">
         <Field label={t('changes.entityType')}>
-          <select value={draft.entityType} onChange={(e) => set('entityType')(e.target.value)} className={INPUT} data-filter="entityType">
+          <Select value={draft.entityType} onChange={(e) => set('entityType')(e.target.value)} data-filter="entityType">
             <option value="">{t('changes.anyEntityType')}</option>
             {CONFIG_ENTITY_TYPES.map((kind) => (
               <option key={kind} value={kind}>
                 {t(`entityTypes.${kind}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label={t('changes.entityKey')}>
-          <input type="search" value={draft.entityKey} onChange={(e) => set('entityKey')(e.target.value)} dir="ltr" className={INPUT + ' w-32 font-mono'} data-filter="entityKey" />
+          <Input type="search" value={draft.entityKey} onChange={(e) => set('entityKey')(e.target.value)} dir="ltr" wrapperClassName="w-32" className="font-mono" data-filter="entityKey" />
         </Field>
         <Field label={t('changes.user')}>
-          <input type="search" value={draft.user} onChange={(e) => set('user')(e.target.value)} dir="ltr" className={INPUT + ' w-36'} data-filter="user" />
+          <Input type="search" value={draft.user} onChange={(e) => set('user')(e.target.value)} dir="ltr" wrapperClassName="w-36" data-filter="user" />
         </Field>
         <Field label={t('changes.from')}>
-          <input type="date" value={draft.from} max={draft.to || undefined} onChange={(e) => set('from')(e.target.value)} className={INPUT} data-filter="from" />
+          <Input type="date" value={draft.from} max={draft.to || undefined} onChange={(e) => set('from')(e.target.value)} data-filter="from" />
         </Field>
         <Field label={t('changes.to')}>
-          <input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => set('to')(e.target.value)} className={INPUT} data-filter="to" />
+          <Input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => set('to')(e.target.value)} data-filter="to" />
         </Field>
-        <Button type="submit" disabled={badRange} className="h-8" data-changes-apply="">
+        <Button type="submit" disabled={badRange} data-changes-apply="">
           {t('changes.apply')}
         </Button>
         <Button
           variant="text"
-          className="h-8"
           onClick={() => {
             setDraft(EMPTY_CONFIG_CHANGE_FILTER)
             setFilter(EMPTY_CONFIG_CHANGE_FILTER)
@@ -154,7 +155,7 @@ function ConfigChanges() {
         </Button>
         <Button
           variant="ghost"
-          className="ms-auto h-8"
+          className="ms-auto"
           disabled={exporting || !changes.data || changes.data.total === 0}
           onClick={() => void exportXlsx()}
           data-changes-export=""
@@ -173,11 +174,3 @@ function ConfigChanges() {
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {label}
-      {children}
-    </label>
-  )
-}

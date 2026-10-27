@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import type { CodeChoice } from './delivery-type-form'
 
@@ -22,12 +23,12 @@ export default function CodeChoiceSelect({
 }) {
   const { t } = useTranslation('doc-type-config')
   return (
-    <select
+    <Select
       value={value.trim()}
       disabled={disabled}
       aria-invalid={invalid || undefined}
       onChange={(e) => onChange(e.target.value)}
-      className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+      className="w-48"
       data-code-choice=""
     >
       {choices.map((c) => (
@@ -35,6 +36,6 @@ export default function CodeChoiceSelect({
           {c.value === '' ? t('value.blank') : fsi(formatPair(c.value, c.description))}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }

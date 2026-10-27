@@ -29,6 +29,9 @@ admin/broadcast 0
 admin/data-sync 1
   src/features/admin/data-sync/job-columns.tsx button: the store cell that opens the job drawer: a grid-cell action (spec 590: restyled in place)
 
+admin/doc-type-config 1
+  src/features/admin/doc-type-config/DocumentSourcesPage.tsx button: a source code in its table cell that selects the source (in-page, URL params): a row picker in a grid cell (spec 590: restyled in place)
+
 admin/engine-switch 0
 
 admin/sync-console 7

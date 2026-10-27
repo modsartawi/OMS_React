@@ -7,6 +7,7 @@ import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
@@ -109,7 +110,7 @@ export default function EditActionTypeDialog({
         <div className="flex flex-col gap-1" data-action-edit-field="description">
           <label className="flex items-center justify-between gap-2 text-sm">
             <span>{t('fields.description')}</span>
-            <input
+            <Input
               type="text"
               value={draft.description}
               maxLength={ACTION_DESCRIPTION_MAX}
@@ -117,7 +118,7 @@ export default function EditActionTypeDialog({
               dir="ltr"
               aria-invalid={state.description !== null || errorCode === ACTION_TYPE_ERRORS.descriptionInvalid || undefined}
               onChange={(e) => change('description', e.target.value)}
-              className="w-72 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+              className="w-72"
               data-action-edit-description=""
             />
           </label>

@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 
 import { REASON_MAX, type ReasonCheck } from '@/core/reason/reason'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { DOC_TYPE_CONFIG_ERRORS } from './api'
 
@@ -32,8 +34,8 @@ export default function ReasonField({
   const { t } = useTranslation('doc-type-config')
   const invalid = reason.problem === 'tooLong' || errorCode === DOC_TYPE_CONFIG_ERRORS.reasonRequired
   return (
-    <>
-      <label className="flex flex-col gap-1 text-xs font-medium">
+    <Field
+      label={
         <span className="flex items-baseline justify-between gap-2">
           {t('reason.label')}
           <span
@@ -43,25 +45,27 @@ export default function ReasonField({
             <Ltr>{formatCount(reason.length, REASON_MAX)}</Ltr>
           </span>
         </span>
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={rows}
-          required
-          disabled={disabled}
-          dir="auto"
-          aria-invalid={invalid || undefined}
-          className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-          {...{ [`data-${attr}`]: '' }}
-        />
-        <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-      </label>
-      {reason.problem === 'tooLong' && (
-        <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
-        </p>
-      )}
-    </>
+      }
+      hint={t('reason.hint')}
+      invalid={invalid}
+      error={
+        reason.problem === 'tooLong' ? (
+          <span role="alert" className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
+          </span>
+        ) : undefined
+      }
+    >
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        required
+        disabled={disabled}
+        dir="auto"
+        {...{ [`data-${attr}`]: '' }}
+      />
+    </Field>
   )
 }

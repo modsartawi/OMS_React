@@ -7,8 +7,10 @@ import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { DOCUMENT_TYPES_KEY, DOC_TYPE_CONFIG_ERRORS, docTypeConfigApi, documentTypeFieldsQuery } from './api'
 import { CHANGE_LOG_KEY } from './change-log-api'
@@ -296,12 +298,12 @@ export function FieldInput({
       <div className="flex flex-col gap-1" data-edit-field={def.field} data-edit-coded="">
         <label className="flex items-center justify-between gap-2 text-sm">
           <span>{label}</span>
-          <select
+          <Select
             value={String(value ?? '').trim()}
             disabled={disabled}
             aria-invalid={refusal ? true : undefined}
             onChange={(e) => onChange(e.target.value)}
-            className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+            className="w-48"
           >
             {options.map((o) => {
               const key = optionLabelKey(def.field, o)
@@ -312,7 +314,7 @@ export function FieldInput({
                 </option>
               )
             })}
-          </select>
+          </Select>
         </label>
         {refused}
       </div>
@@ -322,7 +324,7 @@ export function FieldInput({
     <div className="flex flex-col gap-1" data-edit-field={def.field}>
       <label className="flex items-center justify-between gap-2 text-sm">
         <span>{label}</span>
-        <input
+        <Input
           type={def.kind === 'amount' ? 'number' : 'text'}
           step={def.kind === 'amount' ? '0.01' : undefined}
           min={def.kind === 'amount' ? 0 : undefined}
@@ -332,7 +334,7 @@ export function FieldInput({
           dir={def.freeText ? 'auto' : 'ltr'}
           aria-invalid={refusal ? true : undefined}
           onChange={(e) => onChange(def.kind === 'amount' ? Number(e.target.value) : e.target.value)}
-          className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+          className="w-48"
         />
       </label>
       {refused}

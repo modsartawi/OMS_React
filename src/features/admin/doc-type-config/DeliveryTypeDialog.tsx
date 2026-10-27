@@ -8,8 +8,10 @@ import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { DOC_TYPE_CONFIG_ERRORS, documentTypesQuery } from './api'
 import { CHANGE_LOG_KEY } from './change-log-api'
@@ -305,26 +307,26 @@ function DeliveryFieldInput({
       ? [...DELIVERY_CATEGORIES]
       : [...DELIVERY_CATEGORIES, text.trim()]
     input = (
-      <select
+      <Select
         value={text.trim()}
         disabled={disabled}
         aria-invalid={refusal ? true : undefined}
         onChange={(e) => onChange(e.target.value)}
-        className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+        className="w-48"
       >
         {options.map((o) => (
           <option key={o} value={o}>
             {t(`deliveryTypes.categories.${o}`, { defaultValue: o })}
           </option>
         ))}
-      </select>
+      </Select>
     )
   } else if (def.choice === 'documentType' && docTypeChoices) {
     input = <CodeChoiceSelect choices={docTypeChoices} value={text} disabled={disabled} invalid={!!refusal} onChange={onChange} />
   } else {
     const numeric = def.kind === 'number'
     input = (
-      <input
+      <Input
         type={numeric ? 'number' : 'text'}
         step={numeric ? (def.integer ? '1' : '0.01') : undefined}
         min={numeric ? 0 : undefined}
@@ -334,7 +336,7 @@ function DeliveryFieldInput({
         dir={def.freeText ? 'auto' : 'ltr'}
         aria-invalid={refusal ? true : undefined}
         onChange={(e) => onChange(numeric ? Number(e.target.value) : e.target.value)}
-        className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+        className="w-48"
       />
     )
   }

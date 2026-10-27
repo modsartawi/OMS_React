@@ -2438,6 +2438,135 @@ SCREENS.push({
   },
 })
 
+// --- doc-type config: the area's own screens on the shared controls ------------
+// `admin/doc-type-config` (BackOffice spec 3148) reached main after the 590 area sweep; this
+// block is its sweep's proof. Self-contained: its stubs and its screen. Light, dark and RTL
+// over the heaviest pages — the Document types list (category Field + search Input), one
+// type's tabs and edit dialog (label-beside Selects/Inputs, the shared ReasonField's Field +
+// Textarea), Config changes (the filter Fields) and Action types (the TabStrip as tab Chips) —
+// proving every field labelled and on the shared look, and the tabs on the chip look.
+
+const DOCTYPE_SETTINGS = {
+  documentType: 'BUPA', description: 'Bupa insurance', documentCategory: 'O', referenceDocumentCategory: '',
+  numberRangeNumber: '01', customerDeterminationType: 'C', defaultCustomer: '3795407', isReceivableCustomer: true,
+  receivableCustomer: 'NOT-SET-UP', insurancePayerCode: 'BUPA', engineType: 'SISPRICING', documentPricingProcedure: '1',
+  promotionDetermination: false, isAlternativePriceCapped: true, defaultDeliveryType: 'DL', createDeliveryImmediately: '',
+  plantDeterminationType: '', isCalculateDeliveryFees: false, deliveryFees: 0, orderRelatedBillingType: '',
+  deliveryRelatedBillingType: '', createBillingImmediately: '', isPickedOnOrder: true, isDeterminePickingFees: false,
+  notifyOnCreation: 'X', notifyOnCancellation: 'X', isQuantityAllocation: true, controlType: '', validateItem: false,
+  preOrderMaterialOnly: false, checkOrderNo: false, canChangeItems: true, autoClose: false, diagnosisRequired: false,
+  approvalProcess: false, acceptanceRequired: false,
+}
+// `GET SdDocTypeConfigWeb/DocumentTypeFields`, as tools/doc-type-config-drive.mjs stubs it.
+const DOCTYPE_FIELDS = [
+  ['DocumentType', 'N'], ['Description', 'O'], ['DocumentCategory', 'O', ['O', 'R', 'X', 'E', 'Q']], ['ReferenceDocumentCategory', 'N', ['', 'O', 'R', 'X', 'E', 'Q', 'D', 'T']],
+  ['NumberRangeNumber', 'N'], ['CustomerDeterminationType', 'N', ['', 'A', 'B', 'C', 'D']], ['DefaultCustomer', 'N'],
+  ['IsReceivableCustomer', 'N'], ['ReceivableCustomer', 'N'], ['InsurancePayerCode', 'N'], ['EngineType', 'N', ['', 'LEGACY', 'SISPRICING']],
+  ['DocumentPricingProcedure', 'O'], ['PromotionDetermination', 'O'], ['IsAlternativePriceCapped', 'O'], ['DefaultDeliveryType', 'O'],
+  ['CreateDeliveryImmediately', 'O', ['', 'X']], ['PlantDeterminationType', 'N', ['', 'R']], ['IsCalculateDeliveryFees', 'O'],
+  ['DeliveryFees', 'N'], ['OrderRelatedBillingType', 'O', null, true], ['DeliveryRelatedBillingType', 'O', null, true],
+  ['CreateBillingImmediately', 'O', ['', 'X'], true], ['IsPickedOnOrder', 'O'], ['IsDeterminePickingFees', 'O'], ['IsQuantityAllocation', 'O'],
+  ['NotifyOnCreation', 'N', ['', 'X']], ['NotifyOnCancellation', 'O', ['', 'X', 'O', 'D']], ['ControlType', 'O', ['', 'W', 'N']],
+  ['ValidateItem', 'O'], ['PreOrderMaterialOnly', 'N'], ['CheckOrderNo', 'N'], ['CanChangeItems', 'O'], ['AutoClose', 'O'],
+  ['DiagnosisRequired', 'N'], ['ApprovalProcess', 'O'], ['AcceptanceRequired', 'O'],
+].map(([field, e, options = null, notReadByOrderProcessing = false]) => ({
+  field, effect: e === 'O' ? 'OpenOrders' : 'NewOrdersOnly', options, notReadByOrderProcessing,
+}))
+const DOCTYPE_CHANGE = {
+  changeId: '01', entityType: 'DocumentType', entityKey: 'BUPA', documentType: 'BUPA', action: 'Update', copiedFrom: '',
+  reason: 'سبب التغيير', changedBy: 'msartawi', changedAt: '2026-10-27T10:15:00',
+  beforeJson: JSON.stringify({ DocumentType: 'BUPA', Description: 'Bupa insurance' }),
+  afterJson: JSON.stringify({ DocumentType: 'BUPA', Description: 'Bupa insurance B' }),
+}
+const doctypeAction = (code, description) => ({
+  actionType: code, description, documentCategory: 'O', updateLastAction: false, deactivateDocument: false,
+  activateDocument: false, completeDocument: false, allowedWhenCompleted: false,
+})
+const DOCTYPE_STUBS = [
+  [/^SdDocTypeConfigWeb\/Access$/, { canViewDocTypeConfig: true, canEditDocTypeConfig: true }],
+  [/^SdDocTypeConfigWeb\/DocumentTypes$/, [
+    { documentType: 'BUPA', description: 'Bupa insurance', documentCategory: 'O', engineType: 'SISPRICING' },
+    { documentType: 'CASH', description: 'Cash order', documentCategory: 'O', engineType: '' },
+    { documentType: 'ORRT', description: 'Order return', documentCategory: 'R', engineType: '' },
+  ]],
+  [/^SdDocTypeConfigWeb\/DocumentTypeFields$/, DOCTYPE_FIELDS],
+  [/^SdDocTypeConfigWeb\/DocumentTypes\/BUPA$/, DOCTYPE_SETTINGS],
+  [/^SdDocTypeConfigWeb\/DeliveryDocumentTypes$/, [{ documentType: 'DL', description: 'Delivery', documentCategory: 'D', isCompeted: false }]],
+  [/^SdDocTypeConfigWeb\/ConfigChanges$/, { rows: [DOCTYPE_CHANGE], total: 1, page: 1, pageSize: 50 }],
+  [/^SdDocTypeConfigWeb\/ActionTypeCategories$/, ['D', 'O', 'T', 'X']],
+  [/^SdDocTypeConfigWeb\/ActionTypeCategories\/O$/, {
+    category: 'O',
+    actionTypes: [doctypeAction('OADN', 'Order Add Note'), doctypeAction('OCAN', 'Order cancel')],
+    affectedTypes: [{ documentType: 'BUPA', description: 'بوبا للتأمين', kind: 'DocumentType' }],
+  }],
+  [/^SdDocTypeConfigWeb\/.*\/History$/, [DOCTYPE_CHANGE]],
+  [/^SdDocTypeConfigWeb\/(ItemCategories|PlantNetworkIds)$/, []],
+  [/^SdDocTypeConfigWeb\/DocumentTypes\/BUPA\//, []],
+]
+
+// The list's search box keeps its placeholder + aria-label and no visible label, like 601's.
+ARIA_LABEL_ONLY['admin-doc-type-config'] = [{ sel: '[data-doc-types-search]', why: SEARCH_BOX }]
+
+SCREENS.push({
+  key: 'admin-doc-type-config',
+  path: '/admin/doc-types',
+  stubs: DOCTYPE_STUBS,
+  modes: lightDarkRtl,
+  ready: (page) => openAdminPage(page, '/admin/doc-types', '[data-doc-types-search]'),
+  assert: async (ctx) => {
+    const { page, mode, screen } = ctx
+    const shot = (part) => page.screenshot({ path: `${SHOTS}/${screen.key}-${part}-${mode.key}.png` })
+
+    // ── Document types: the category Select in a Field, the search Input.
+    const toolbar = '[data-doc-types-toolbar]'
+    await expectLabelled(ctx, 'list toolbar', FIELDS(toolbar))
+    await expectAllFieldsShared(ctx, 'list toolbar', toolbar)
+    await expectFieldLook(ctx, 'category (Select)', '[data-doc-types-category]')
+    await expectFieldLook(ctx, 'search (search Input)', '[data-doc-types-search]')
+    await expectFocusRing(ctx, 'search (search Input)', '[data-doc-types-search]')
+    await shot('list')
+
+    // ── One type: its tabs, then the edit dialog (label-beside fields + the reason Field).
+    await openAdminPage(page, '/admin/doc-types/BUPA', '[data-doc-type-edit]')
+    await expectTabChips(ctx, 'type tabs', '[data-doc-type-tabs] [role="tablist"]', 2)
+    await page.locator('[data-doc-type-edit]').click()
+    await page.waitForSelector('dialog[open] [data-edit-dialog]', { timeout: 5000 })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(300)
+    await expectLabelled(ctx, 'edit dialog', FIELDS('dialog[open]'))
+    await expectAllFieldsShared(ctx, 'edit dialog', 'dialog[open]')
+    await expectFieldLook(ctx, 'a coded setting (Select)', 'dialog[open] [data-edit-coded] select')
+    await expectFieldLook(ctx, 'fee (Input)', 'dialog[open] [data-edit-field="deliveryFees"] input')
+    await expectFocusRing(ctx, 'reason (Textarea)', '[data-edit-reason]')
+    // The reason's hint is linked to it (the Field wires aria-describedby).
+    const described = await page.evaluate(() => {
+      const el = document.querySelector('[data-edit-reason]')
+      return (el?.getAttribute('aria-describedby') || '').split(' ').filter(Boolean).map((id) => document.getElementById(id)?.textContent.trim() ?? '').join(' ')
+    })
+    check(`${ctx.tag} reason (Textarea): described by its hint`, described.length > 0, JSON.stringify(described))
+    await shot('edit')
+    await page.keyboard.press('Escape')
+
+    // ── Config changes: five filter Fields (Select, two search Inputs, two dates).
+    await openAdminPage(page, '/admin/config-changes', '[data-changes-filters]')
+    const filters = '[data-changes-filters]'
+    await expectLabelled(ctx, 'change filters', FIELDS(filters))
+    await expectAllFieldsShared(ctx, 'change filters', filters)
+    await expectFieldLook(ctx, 'entity type (Select)', '[data-filter="entityType"]')
+    await expectFieldLook(ctx, 'entity key (search Input)', '[data-filter="entityKey"]')
+    await expectFieldLook(ctx, 'from (date Input)', '[data-filter="from"]')
+    await expectAllPills(ctx, 'filter buttons', `${filters} button`)
+    await shot('changes')
+
+    // ── Action types: the category Field, the TabStrip as tab Chips.
+    await openAdminPage(page, '/admin/action-types?category=O', '[data-action-types] [role="tablist"]')
+    await expectLabelled(ctx, 'action category', '[data-action-types-category]')
+    await expectFieldLook(ctx, 'action category (Select)', '[data-action-types-category]')
+    await expectTabChips(ctx, 'action tabs', '[data-action-types] [role="tablist"]', 2)
+    await shot('action-types')
+  },
+})
+
 // --- run ---------------------------------------------------------------------
 
 const onlyScreens = process.env.SCREENS?.split(',')

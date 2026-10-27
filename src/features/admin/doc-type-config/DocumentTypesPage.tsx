@@ -12,7 +12,10 @@ import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import { canViewDocTypeConfig, docTypeConfigAccessQuery, documentTypesQuery } from './api'
 import { categoriesOf, filterDocumentTypes } from './list-filter'
 import type { DocumentTypeListRow } from './types'
@@ -65,12 +68,10 @@ function DocumentTypes() {
   return (
     <div className="flex min-w-0 flex-col gap-2" data-doc-types="">
       <div className="flex flex-wrap items-end gap-3" data-doc-types-toolbar="">
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('list.category')}
-          <select
+        <Field label={t('list.category')}>
+          <Select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal"
             data-doc-types-category=""
           >
             <option value="">{t('list.allCategories')}</option>
@@ -79,16 +80,16 @@ function DocumentTypes() {
                 {c}
               </option>
             ))}
-          </select>
-        </label>
-        <input
+          </Select>
+        </Field>
+        <Input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('list.search')}
           aria-label={t('list.search')}
           dir="auto"
-          className="min-w-64 rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm"
+          wrapperClassName="min-w-64"
           data-doc-types-search=""
         />
       </div>

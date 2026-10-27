@@ -7,8 +7,10 @@ import { Check, Loader2, Minus, Pencil } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import { canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
 import { affectedTypesView } from './action-type-edit'
 import { ACTION_TYPE_OPTIONS, type ActionTypeCategory, type ActionTypeSettings } from './action-type-types'
@@ -53,12 +55,10 @@ function ActionTypes() {
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-action-types="">
-      <label className="flex w-fit flex-col gap-1 text-xs font-medium">
-        {t('actionTypes.category')}
-        <select
+      <Field label={t('actionTypes.category')} className="w-fit">
+        <Select
           value={view.category}
           onChange={(e) => go(e.target.value, view.tab)}
-          className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal"
           data-action-types-category=""
         >
           <option value="">{t('actionTypes.pickCategory')}</option>
@@ -67,8 +67,8 @@ function ActionTypes() {
               {t(`actionTypes.categories.${c}`, { defaultValue: c })}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
       {view.category === '' ? (
         <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-action-types-pick="">
           {t('actionTypes.pickHint')}

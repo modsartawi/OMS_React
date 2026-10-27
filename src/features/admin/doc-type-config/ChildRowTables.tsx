@@ -7,8 +7,10 @@ import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import {
   CHILD_ROW_STALE_CODES,
@@ -356,11 +358,11 @@ function ChildFieldInput<R extends Row>({
     <label className="flex items-center justify-between gap-2 text-sm" data-child-field={column.field}>
       <span>{label}</span>
       {options ? (
-        <select
+        <Select
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="w-56 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+          className="w-56"
         >
           <option value="">{t('childRows.none')}</option>
           {options.map((o) => (
@@ -368,16 +370,16 @@ function ChildFieldInput<R extends Row>({
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
-        <input
+        <Input
           type="text"
           value={value}
           maxLength={column.maxLength}
           disabled={disabled}
           dir="ltr"
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="w-56 rounded-md border border-border/60 bg-background px-2 py-1 text-sm uppercase"
+          className="w-56 uppercase"
         />
       )}
     </label>

@@ -1,4 +1,4 @@
-import { ChartColumn, ShieldAlert, ShieldPlus } from 'lucide-react'
+import { ChartColumn, FileSpreadsheet, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
 import type { ShellMenuItem } from './menu-model'
 
@@ -32,6 +32,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 612 · Simulator
 
     // 613 · Editions
+    {
+      // 613 — the SFDA list and CHI formulary editions; an edition's page (`/insurance-rules/editions/:list/:id`) lights it too.
+      labelKey: 'insurance-rules:menu.editions',
+      icon: FileSpreadsheet,
+      routerLink: '/insurance-rules/editions',
+    },
 
     // 614 · Review, Exceptions
     {

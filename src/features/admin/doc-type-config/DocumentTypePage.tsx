@@ -17,6 +17,7 @@ import {
   docTypeConfigAccessQuery,
   documentTypeQuery,
 } from './api'
+import DocumentTypeTabs from './DocumentTypeTabs'
 import EditDocumentTypeDialog from './EditDocumentTypeDialog'
 import FieldValueText from './FieldValueText'
 import { FIELD_GROUPS, isLocked } from './fields'
@@ -82,7 +83,7 @@ function DocumentType({ code }: { code: string }) {
           </Button>
         )}
       </div>
-      <SettingsGroups settings={settings} />
+      <DocumentTypeTabs code={settings.documentType} settings={<SettingsGroups settings={settings} />} />
       {canEdit && <EditDocumentTypeDialog open={editing} loaded={settings} onClose={() => setEditing(false)} />}
     </div>
   )

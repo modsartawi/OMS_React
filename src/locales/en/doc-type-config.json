@@ -1,6 +1,7 @@
 {
   "menu": {
-    "documentTypes": "Document types"
+    "documentTypes": "Document types",
+    "configChanges": "Config changes"
   },
   "title": "Document types",
   "subtitle": "Every OMS document type and its settings. A saved change is live from the next order act and is logged with its reason.",
@@ -109,5 +110,67 @@
     "sending": "Saving…",
     "failed": "The change was not saved.",
     "failedHint": "The server did not answer. Try again in a moment."
+  },
+  "tabs": {
+    "label": "Document type sections",
+    "settings": "Settings",
+    "history": "History"
+  },
+  "entityTypes": {
+    "DocumentType": "Document type",
+    "DeliveryDocumentType": "Delivery type",
+    "ItemCategoryAssignment": "Item category",
+    "PlantNetwork": "Plant network",
+    "ActionType": "Action type",
+    "DocumentSource": "Document source"
+  },
+  "actions": {
+    "Create": "Created",
+    "Copy": "Copied",
+    "Update": "Changed",
+    "Delete": "Deleted"
+  },
+  "change": {
+    "field": "Field",
+    "before": "Before",
+    "after": "After",
+    "reason": "Reason",
+    "copiedFrom": "Copied from",
+    "openType": "Open the type",
+    "noFields": "No field changed.",
+    "unreadable": "This change's before or after cannot be read."
+  },
+  "history": {
+    "loading": "Loading the history…",
+    "failed": "The history could not be loaded.",
+    "denied": "You do not have access to the change log.",
+    "empty": "No change has been logged yet.",
+    "newestFirst": "Newest first."
+  },
+  "changes": {
+    "title": "Config changes",
+    "subtitle": "Every change to the document configuration — who, when, why, and what changed. Newest first.",
+    "filters": "Filter the change log",
+    "entityType": "Kind",
+    "anyEntityType": "Every kind",
+    "entityKey": "Key",
+    "user": "Changed by",
+    "from": "From",
+    "to": "To",
+    "apply": "Search",
+    "clear": "Clear",
+    "badRange": "From is after To.",
+    "loading": "Loading the changes…",
+    "failed": "The changes could not be loaded.",
+    "empty": "No change has been logged yet.",
+    "noMatch": "No change matches the filter.",
+    "total": "Matching changes:",
+    "export": {
+      "button": "Export to Excel",
+      "done": "The export is ready",
+      "failed": "The export failed",
+      "failedHint": "The server did not answer. Try again in a moment.",
+      "fileName": "config-changes"
+    }
   }
 }

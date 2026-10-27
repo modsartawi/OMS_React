@@ -353,6 +353,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/doc-type-config/DocumentTypesPage')).default,
         }),
       },
+      // Config changes (ticket 3152): the whole change log, filtered, paged, exported.
+      {
+        path: 'admin/config-changes',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/ConfigChangesPage')).default,
+        }),
+      },
       {
         path: 'admin/doc-types/:documentType',
         lazy: async () => ({

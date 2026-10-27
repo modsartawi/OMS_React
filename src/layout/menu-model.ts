@@ -555,6 +555,20 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // Config changes (BackOffice spec 3148, ticket 3152) — the document configuration's change log, read on the
+        // existing OMS access: the SAME probe key, call and View predicate as Document types. Placed BEFORE that leaf
+        // so 3149's pinned order (Document types, then the engine switch, last) holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.configChanges',
+        icon: History,
+        routerLink: '/admin/config-changes',
+        activePrefix: '/admin/config-changes',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
         // Document types (BackOffice spec 3148, ticket 3149) — the OMS document configuration, read on the existing
         // OMS access (`canViewDocTypeConfig` off `GET SdDocTypeConfigWeb/Access`), the SAME key, call and predicate
         // as the pages' own gate. Editing is a second flag on the same probe. 🚩 Fails closed.

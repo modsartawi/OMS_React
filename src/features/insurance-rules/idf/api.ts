@@ -20,6 +20,7 @@ import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
 import { uploadForm, type IdfUploadReport } from './upload' // 622
+import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
 import { filterDoorParams, type IdfEventsFilter } from './events-filter' // 627
 import type { IdfSwapReportRow } from './report' // 627
@@ -70,6 +71,16 @@ export function storeListsQuery() {
 }
 
 // 621 · master form — `idfMasterFormApi` (POST / PUT masters, 3161)
+export const idfMasterFormApi = {
+  /** `POST IdfPriority/masters` → the new master. Refused on an overlapping scope (3162), naming the clash. */
+  create(body: IdfMasterBody): Promise<IdfMaster> {
+    return api.post<IdfMaster>(`${IDF_BASE}/masters`, body)
+  },
+  /** `PUT IdfPriority/masters/{id}` → the master. Kind is fixed after create; the body still carries it. */
+  edit(id: string, body: IdfMasterBody): Promise<IdfMaster> {
+    return api.put<IdfMaster>(`${IDF_BASE}/masters/${encodeURIComponent(id)}`, body)
+  },
+}
 
 // 622 · upload and publish — `idfUploadApi` (3161)
 export const idfUploadApi = {

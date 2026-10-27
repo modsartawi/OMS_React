@@ -114,6 +114,46 @@ export function idfStoreListsStub(method, path, body, opts = {}) {
 }
 
 // --- 621 --- create / edit a master (door 3161).
+// `POST IdfPriority/masters`, `PUT …/{id}` on `state.masters`. An overlapping scope — another master of the same
+// kind for the same payer and store list (insurer), or another store master on the same store list (store; the
+// stub reads "share a store" as "the same list") — is refused `OVERLAPPING_SCOPE`, the message naming the clash
+// and `data.clashingMasterId` carrying it. Kind is kept on PUT whatever the body says. `opts.sent` collects writes.
+export function idfMasterFormStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), sent = [] } = opts
+  const edit = /^IdfPriority\/masters\/([^/]+)$/.exec(path)
+  if (!((method === 'POST' && path === 'IdfPriority/masters') || (method === 'PUT' && edit))) return null
+  sent.push({ method, path, body })
+  const id = edit ? decodeURIComponent(edit[1]) : null
+  const current = id ? state.masters.find((m) => m.masterId === id) : null
+  if (id && !current) return envelope(null, { status: 404, success: false, message: 'No such master.', errorCode: 'NOT_FOUND' })
+  const kind = current?.kind ?? body.kind
+  const clash = state.masters.find(
+    (m) =>
+      m.masterId !== id &&
+      m.kind === kind &&
+      (kind === 'store' ? m.storeListId === body.storeListId : m.payerCode === body.payerCode && (m.storeListId ?? null) === (body.storeListId ?? null)),
+  )
+  if (clash)
+    return {
+      status: 409,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        statusCode: 409,
+        success: false,
+        message: `This scope overlaps the master "${clash.nameEn}" (${clash.masterId}).`,
+        data: { clashingMasterId: clash.masterId },
+        errors: [{ errorCode: 'OVERLAPPING_SCOPE', errorMessage: `This scope overlaps the master "${clash.nameEn}" (${clash.masterId}).` }],
+      }),
+    }
+  const fields = { payerCode: body.payerCode, storeListId: body.storeListId, nameEn: body.nameEn, nameAr: body.nameAr, hardThreshold: body.hardThreshold, reminderThreshold: body.reminderThreshold }
+  if (current) {
+    Object.assign(current, fields)
+    return envelope(current)
+  }
+  const master = { masterId: `M-NEW-${state.masters.length + 1}`, kind, ...fields, liveVersion: null }
+  state.masters.push(master)
+  return envelope(master)
+}
 
 // --- 622 --- upload, row report, publish (door 3161).
 // The report depends on the file's NAME: one containing `dirty` fails three rows (in the server's order), one
@@ -398,6 +438,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 620 · store lists
     idfStoreListsStub(method, bare, body, opts) ??
     // 621 · master form
+    idfMasterFormStub(method, bare, body, opts) ??
     // 622 · upload
     idfUploadStub(method, bare, body, opts) ??
     // 623 · versions

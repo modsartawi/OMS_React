@@ -1,4 +1,3 @@
-import { CATEGORY_GROUPS, type CategoryGroup } from '@/core/insurance-rules/coverage-model'
 import type { GuardLineOutcome, GuardSuggestion } from '@/core/insurance-rules/guard-check'
 import type { GuardChannel, GuardSeverity, Says } from '@/core/insurance-rules/model'
 
@@ -160,16 +159,7 @@ export interface SimFired {
   suggestion?: GuardSuggestion | null
 }
 
-/**
- * The line's insurance category as the category rules set it (story 61; 617). GUESS (review 3126 P6a): the brief's
- * Simulate answer names no category; read as `{ group, ruleId }`, `ruleId` null when no category rule matched and the
- * item master's category stands.
- */
-export interface SimLineCategory {
-  group: CategoryGroup
-  ruleId: string | null
-}
-
+/** A line's category is not the guard Simulate's: it comes from `Categories/Simulate` (`./category`, 617). */
 export interface SimLineResult {
   /** The request line it answers (the body's `line`). */
   line: number
@@ -178,7 +168,6 @@ export interface SimLineResult {
   /** GUESS (612): the rules that could not decide on this line (a fact unknown), read as their ids. */
   unknowns: string[]
   trace: SimTrace[]
-  category?: SimLineCategory | null
 }
 
 /** The rule ids a line could not decide, whatever spelling HQ used (`"G-007"` or `{ ruleId }`). */
@@ -189,13 +178,6 @@ export function lineUnknowns(line: Pick<SimLineResult, 'unknowns'>): string[] {
     if (id && !out.includes(id)) out.push(id)
   }
   return out
-}
-
-/** The category a line was given and by which rule, or null when the answer names none (or a group this build does not know). */
-export function lineCategory(line: SimLineResult): SimLineCategory | null {
-  const c = line.category
-  if (!c || !(CATEGORY_GROUPS as readonly string[]).includes(c.group)) return null
-  return { group: c.group, ruleId: c.ruleId ?? null }
 }
 
 export interface SimulateResult {

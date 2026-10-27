@@ -8,6 +8,8 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
 import type { BacktestDays, GuardBacktest } from '@/core/insurance-rules/backtest'
+import type { CategorySimulateResult } from '@/core/insurance-rules/coverage-model'
+import type { CategorySimulateBody } from './category'
 import type { SimulateBody, SimulateResult } from './simulate'
 
 const GUARDS = `${INSURANCE_RULES_BASE}/Guards`
@@ -21,4 +23,9 @@ export const simulatorApi = {
   startBacktest(days: BacktestDays): Promise<GuardBacktest> {
     return api.post<GuardBacktest>(`${GUARDS}/Backtests`, { days })
   },
+}
+
+/** `POST InsuranceRules/Categories/Simulate { request }` (3145) → which category each line got and who set it. Writes nothing. */
+export async function simulateCategories(body: CategorySimulateBody): Promise<CategorySimulateResult> {
+  return (await api.post<CategorySimulateResult | null>(`${INSURANCE_RULES_BASE}/Categories/Simulate`, body)) ?? { version: null, lines: [] }
 }

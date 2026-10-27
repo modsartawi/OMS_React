@@ -109,3 +109,46 @@ different user, versions, restore).
 **Guesses:** the same `GET …/Approval` read 611 guessed; no back-test is asked for a category / coverage draft;
 approval is asked for the SAVED revision (unsaved edits disable it); rule states (draft → waiting → shadow → live) are
 NOT moved for these rulesets and they have no Promote — left for 618 to settle with BackOffice 3145 / 3146.
+
+**2026-10-28 — realigned to the BUILT BackOffice 3144 / 3145 / 3146 shapes (branch `impl/3126r-617`).** The brief's
+section "HQ contract: coverage (3144, 3145, 3146)" plus the 3144 / 3145 / 3146 / 3147 Changes lines.
+- **Coverage effects** (core `coverage-model.ts`): `covered | priorApproval | exceptionPrescriptions { value }`,
+  `priceCap | quantityCap | daysSupplyCap { value }`, `deductible { percent?, max? }`, `segment { value: ELITE|SABIC|
+  ARAMCO }`, optional `overridesPayer: true` (the key is left out, never sent false). ONE effect per rule: the editor
+  offers one "Sets" pick (line values, then invoice values) instead of a set; `coverageRuleProblems` refuses in words a
+  rule with no effect / more than one / an invoice value (segment, exception prescriptions) whose conditions read a line
+  (`readsLine`: `line` / `sfda` / `formulary` / `supply` / `volume` / `history` blocks or `$item.` / `$line.` facts).
+  Documents carry `lists?`, rules `folder?` (dropped when blank), `window?`, `audience?`; category rules one `setCategory`.
+  `CategoryRow` (GET rows with `group`) and `ResolvedValue { value, source: payer|rule|ruleOverridesPayer|none, ruleId,
+  version }` + `resolvedMark` are modelled; Coverage Simulate / Resolve is not surfaced on any screen, so no UI reads them.
+- **Category Simulate**: the simulator's per-line category (612 P6a guess `simulate.ts` `lineCategory` / `category` on the
+  guard Simulate line) is gone; `simulator/category.ts` + `CategoryNote.tsx` call `POST InsuranceRules/Categories/Simulate
+  { request }` (the guard request, lines numbered, no patient key) beside the guard Simulate and read `source`: rule →
+  linked rule id, default → "from the item master" + the default's own spelling (`Brand-IR`) isolated, none → "No
+  category". Stub `categorySimulateStub`; drive step 5b.
+- **Approval** (core `ruleset-draft.ts`, `RulesetApproval.tsx` rewritten): the guard doors as built — `GET …/Draft` →
+  `{ revision, state: none|editing|pending|sentBack, origin, baseVersionNo, updatedBy, …, requestNote, reviewedBy,
+  reviewNote, document }`, PUT the document (409 `GUARDS_DRAFT_STALE` → reload banner, `GUARDS_DRAFT_PENDING` → save
+  locked while pending), Submit `{ revision, note }`, Approve `{ revision, note }` → version row, SendBack `{ note }`,
+  Versions `[{ versionNo, publishedAt, publishedBy, requestedBy, action, note }]`, Restore → new draft. The guessed
+  `GET …/Approval`, `viewer` grants, back-test whys and per-rule shadow are gone for these rulesets; the panel says an
+  approved draft publishes live (no back-test, shadow or promote). `rulesetActions`: whoever requested or last edited
+  never approves (403 `GUARDS_SELF_APPROVAL` again at HQ).
+- **Insurer settings** (`coverage/settings.ts`, `InsurersPage.tsx`): `GET InsuranceRules/Insurers` lists every insurer's
+  settings, the estate default `*` first; the 3144 body (`hasFixedDiscount`, `fixedDiscountPct`, `receivableCustomer`,
+  `createsInsuranceCoupon`, `memberId { minLength, maxLength, pattern }`, `daysSupply { min, max, default }`,
+  `directDispense`, `fullQuantityReturnsOnly`, `brandMaxWhenZero`, `benefitCategories [{ source: benefit|tob, code,
+  meaning }]` incl. `nonMedCopayPct|Max`, `payerPins [string]`, `note`, stamp); 0 / empty inherits `*` (said on screen);
+  the PUT carries a note; 404 `INSURER_SETTINGS_NOT_FOUND` opens a blank row and Create PUTs it; a 400 shows each error.
+  Log rows `{ changeId, changedBy, changedAt, note, before, after }`, the changes diffed client-side (`settingsChanges`).
+- Stubs `// --- 617 ---` and `tools/insurance-coverage-drive.mjs` rewritten to these shapes (payers are SAP customer ids;
+  K-001 and "no deductible for these policies" = `deductible { percent: 0, overridesPayer: true }` still the story).
+- Proof: vitest `coverage-model.test.ts`, `ruleset-draft.test.ts`, `ruleset-edit.test.ts`
+  (coverageRuleProblems_refusesAnInvoiceRuleThatReadsTheLine), `settings.test.ts` (settingsChanges), `simulator/category.test.ts`;
+  `npm test` 492 files / 7133 tests green; typecheck + lint green. Drives (stubbed, LTR + RTL): coverage 164/164,
+  simulator 98/98, 607's insurance-rules 86/86, 608's guard editor 104/104.
+- **Left for 618:** condition blocks are still the client's `fact` / `policy` grammar (`$request.payer`), not 3145's
+  `line` / `request` / `eligibility` blocks — that rides 608's realignment; rule ids `K-nnn` / `C-nnn` minted client-side
+  (seeded ids are words, `C-ELITE`); no access probe (actions follow the draft state; a reader / non-approver is refused
+  by HQ); Categories `unknowns` not shown; Coverage Simulate / Resolve not surfaced; the 400 `INSURER_SETTINGS_BAD_REQUEST`
+  error shape (read as envelope `errors[]`) and the Validate body for these documents are unconfirmed against a live SIS.Api.

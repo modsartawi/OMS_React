@@ -17,13 +17,17 @@ const KEYED_LIST_DOOR: Record<KeyedListKind, string> = { patient: 'PatientLists'
 export const keyedListsPath = (kind: KeyedListKind): string => `${INSURANCE_RULES_BASE}/${KEYED_LIST_DOOR[kind]}`
 
 /**
- * An insurer, as a class-list entry names one by its SAP customer id (`payer`). ⚠️ PROVISIONAL door
- * `GET InsuranceRules/Insurers` → `[{ payer, name }]` (617's guess; the brief spells no list door).
+ * An insurer, as a class-list entry names one by its SAP customer id (`payer`). `GET InsuranceRules/Insurers` is
+ * 3144's door as BUILT: every insurer's settings row (617's `InsurerSettings`), the estate default `*` among them,
+ * and no name — so `name` is read only when HQ ever sends one, and the payer alone is shown otherwise.
  */
 export interface Insurer {
   payer: string
-  name: Says
+  name?: Says | null
 }
+
+/** The estate default's `{payer}` (3144) — a settings row, not an insurer a class-list entry can name. */
+export const ESTATE_DEFAULT_PAYER = '*'
 
 export const registryApi = {
   /** `GET InsuranceRules/Fields` — every field, retired ones included (flagged). */
@@ -38,7 +42,7 @@ export const registryApi = {
   async keyedLists(kind: KeyedListKind): Promise<KeyedList[]> {
     return (await api.get<KeyedList[] | null>(keyedListsPath(kind))) ?? []
   },
-  /** `GET InsuranceRules/Insurers` — the insurers a class-list entry may name. */
+  /** `GET InsuranceRules/Insurers` — every insurer's row, the estate default `*` among them (`insurersQuery` drops it). */
   async insurers(): Promise<Insurer[]> {
     return (await api.get<Insurer[] | null>(`${INSURANCE_RULES_BASE}/Insurers`)) ?? []
   },
@@ -47,7 +51,8 @@ export const registryApi = {
 export const FIELDS_KEY = [...INSURANCE_RULES_KEY, 'fields'] as const
 export const fieldValuesKey = (key: string, q: string) => [...FIELDS_KEY, key, 'values', q] as const
 export const keyedListsKey = (kind: KeyedListKind) => [...INSURANCE_RULES_KEY, 'keyed-lists', kind] as const
-/** The same key 617's Insurers page reads the same door under, so the two share one cache entry. */
+/** The same key 617's Insurers page reads the same door under, so the two share one cache entry (raw rows; the
+ * picker's `select` drops `*`). */
 export const insurersKey = [...INSURANCE_RULES_KEY, 'insurers'] as const
 
 export function fieldsQuery() {
@@ -63,5 +68,12 @@ export function keyedListsQuery(kind: KeyedListKind) {
 }
 
 export function insurersQuery() {
-  return { queryKey: insurersKey, queryFn: () => registryApi.insurers(), retry: false, staleTime: 60_000 } as const
+  return {
+    queryKey: insurersKey,
+    queryFn: () => registryApi.insurers(),
+    // The insurers a class-list entry may name: never the estate default.
+    select: (rows: Insurer[]) => rows.filter((i) => i.payer !== ESTATE_DEFAULT_PAYER),
+    retry: false,
+    staleTime: 60_000,
+  } as const
 }

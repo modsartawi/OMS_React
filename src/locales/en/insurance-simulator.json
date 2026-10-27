@@ -57,6 +57,8 @@
       "label": "Category",
       "setBy": "set by",
       "itemDefault": "from the item master (no category rule matched)",
+      "none": "No category: no rule matched and the item has none.",
+      "failed": "The category could not be read.",
       "group": {
         "G1": "Generic",
         "G2": "Brand",

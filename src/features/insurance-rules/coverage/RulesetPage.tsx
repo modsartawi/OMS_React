@@ -5,12 +5,12 @@ import { useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, CircleCheck, Loader2, Plus, Redo2, Undo2 } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { STALE_REVISION } from '@/core/insurance-rules/api'
 import { GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict, type GuardIssue } from '@/core/insurance-rules/checks'
 import type { CategoryRule, CoverageRule, InsuranceRule, InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorAction, type EditorHistory } from '@/core/insurance-rules/editor-history'
 import RulesetApproval from '@/core/insurance-rules/RulesetApproval'
+import { DRAFT_PENDING, DRAFT_STALE, draftDocument, type RulesetDraft } from '@/core/insurance-rules/ruleset-draft'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
@@ -24,8 +24,8 @@ import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { rulesetDoors, rulesetDraftKey, rulesetDraftQuery } from './api'
-import { CategoryEffectEditor, CoverageEffectLine, CoverageEffectsEditor, GroupName } from './Effects'
+import { doorKind, rulesetDoors, rulesetDraftKey, rulesetDraftQuery } from './api'
+import { CategoryEffectEditor, CoverageEffectEditor, CoverageEffectLine, GroupName } from './Effects'
 import RuleConditions from './RuleConditions'
 import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
@@ -48,7 +48,7 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
   if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard ns="insurance-coverage" hook="ruleset-denied" />
   else if (draft.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(draft.error, t('ruleset.failed'))} />
   else if (!draft.data) body = <Loading text={t('loading')} />
-  else body = <Editor kind={kind} doc={draft.data} refetch={async () => (await draft.refetch()).data} />
+  else body = <Editor kind={kind} draft={draft.data} refetch={async () => (await draft.refetch()).data} />
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-ruleset-page={kind}>
       <header>
@@ -64,10 +64,11 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
 
 type Checks = { issues: GuardIssue[]; against: InsuranceRuleset } | null
 
-function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: InsuranceRuleset; refetch: () => Promise<InsuranceRuleset | undefined> }) {
+function Editor({ kind, draft, refetch }: { kind: InsuranceRuleKind; draft: RulesetDraft<InsuranceRuleset>; refetch: () => Promise<RulesetDraft<InsuranceRuleset> | undefined> }) {
   const { t, i18n } = useTranslation('insurance-coverage')
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
+  const doc = useMemo(() => draftDocument(draft), [draft])
   const [h, dispatch] = useReducer(
     editorHistory as (h: EditorHistory<InsuranceRuleset>, a: EditorAction<InsuranceRuleset>) => EditorHistory<InsuranceRuleset>,
     doc,
@@ -106,15 +107,17 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
   })
   const save = useMutation({
     mutationFn: (d: InsuranceRuleset) => rulesetDoors(kind).save(d),
-    onSuccess: (saved) => {
+    onSuccess: (next) => {
+      const saved = draftDocument(next)
       setStale(null)
       dispatch({ type: 'saved', doc: saved })
-      queryClient.setQueryData(rulesetDraftKey(kind), saved)
+      queryClient.setQueryData(rulesetDraftKey(kind), next)
       notify.success(t('ruleset.saved'))
       validate.mutate(saved)
     },
     onError: (err) => {
-      if ((err instanceof ApiError && err.statusCode === 409) || apiErrorCode(err) === STALE_REVISION) setStale(apiErrorMessage(err, t('ruleset.stale')))
+      const code = apiErrorCode(err)
+      if (code === DRAFT_STALE || (err instanceof ApiError && err.statusCode === 409 && code !== DRAFT_PENDING)) setStale(apiErrorMessage(err, t('ruleset.stale')))
       else notify.apiError(t('ruleset.saveFailed'), err, t('ruleset.saveFailed'))
     },
   })
@@ -123,7 +126,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
     if (!fresh) return
     setStale(null)
     setChecks(null)
-    dispatch({ type: 'saved', doc: fresh })
+    dispatch({ type: 'saved', doc: draftDocument(fresh) })
   }
   const addNew = () => {
     const id = nextRuleId(rules, kind)
@@ -135,11 +138,12 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
   const checksStale = checks !== null && !sameDoc(checks.against, h.present)
   const verdict = checks ? checksVerdict(checks.issues) : null
   const busy = save.isPending
+  const locked = draft.state === 'pending'
 
   return (
     <>
       <LeaveGuard dirty={dirty} words={{ title: t('leave.title'), body: t('leave.body'), stay: t('leave.stay'), go: t('leave.go') }} />
-      <RulesetApproval kind={kind === 'category' ? 'Categories' : 'Coverage'} doc={h.saved} dirty={dirty} draftKey={rulesetDraftKey(kind)} />
+      <RulesetApproval kind={doorKind(kind)} draft={draft} dirty={dirty} draftKey={rulesetDraftKey(kind)} />
       <div className="flex flex-wrap items-center gap-2" data-toolbar="">
         <Button variant="secondary" onClick={addNew} disabled={busy} data-new-rule="">
           <Plus className="h-3.5 w-3.5" aria-hidden />
@@ -148,6 +152,11 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
         {dirty && (
           <span className="text-xs text-attention-800" data-unsaved="">
             {t('ruleset.unsaved')}
+          </span>
+        )}
+        {locked && (
+          <span className="text-xs text-muted-foreground" data-draft-locked="">
+            {t('ruleset.pendingLocked')}
           </span>
         )}
         <div className="ms-auto flex flex-wrap items-center gap-2">
@@ -181,7 +190,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
                   ? t('checks.found', { errors: fsi(String(verdict.errors)), warnings: fsi(String(verdict.warnings)) })
                   : t('checks.pass')}
           </button>
-          <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy} data-save="">
+          <Button variant="primary" onClick={() => save.mutate(h.present)} disabled={!dirty || busy || locked} title={locked ? t('ruleset.pendingLocked') : undefined} data-save="">
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
             {t(busy ? 'ruleset.saving' : 'ruleset.save')}
           </Button>
@@ -321,7 +330,7 @@ function RuleEditor({
             <Input dir="rtl" lang="ar" value={rule.name.ar} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }), 'name.ar')} data-input="name.ar" />
           </Field>
           <Field label={t('rule.folder')}>
-            <Input value={rule.folder} onChange={(e) => edit((r) => ({ ...r, folder: e.target.value }), 'folder')} data-input="folder" />
+            <Input value={rule.folder ?? ''} onChange={(e) => edit((r) => withFolder(r, e.target.value), 'folder')} data-input="folder" />
           </Field>
         </div>
         <Issues issues={issues} hook="rule" />
@@ -338,7 +347,7 @@ function RuleEditor({
               onChange={(e) => edit((r) => ({ ...(r as CategoryRule), then: [e] }))}
             />
           ) : (
-            <CoverageEffectsEditor effects={(rule as CoverageRule).then} onChange={(then, coalesce) => edit((r) => ({ ...(r as CoverageRule), then }), coalesce)} />
+            <CoverageEffectEditor rule={rule as CoverageRule} onChange={(then, coalesce) => edit((r) => ({ ...(r as CoverageRule), then }), coalesce)} />
           )}
         </Block>
       </div>
@@ -363,4 +372,11 @@ function Block({ kw, hint, hook, children }: { kw: string; hint: string; hook: s
       <div className="p-3 text-sm">{children}</div>
     </section>
   )
+}
+
+/** The rule moved to a folder; a blank folder drops the key (`folder` is optional in the document). */
+function withFolder(r: InsuranceRule, folder: string): InsuranceRule {
+  const next: InsuranceRule = { ...r, folder }
+  if (!folder) delete next.folder
+  return next
 }

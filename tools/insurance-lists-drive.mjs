@@ -16,7 +16,7 @@
 //   4. Patients: the VIP list's entries (key `Ltr`, Arabic reason `<bdi>`, expiry or none) and its change log;
 //      a bad key is refused in words; a VIP entry is added (POST body), shows, and is logged; Remove asks for a
 //      reason and DELETEs with a body `{ key, reason }`, and logs; Policies keys by SubscriberId;
-//   4b. Classes (3172): entries for one insurer ("BUPA · Bupa Arabia", one ltr isolate) and for any insurer, and
+//   4b. Classes (3172): entries for one insurer (its SAP customer id, one ltr isolate) and for any insurer, and
 //      the split between them; a class with `|` is refused; a class is added for one insurer and the same class
 //      for any insurer (two entries, upper-cased, `payer` only when picked); an entry whose expiry has passed
 //      reads expired; Remove sends the entry's payer; a new class list is made with a reason;
@@ -29,7 +29,7 @@
 //   1. run the app:  npx vite --port 5202 --strictPort
 //   2. node tools/insurance-lists-drive.mjs        (DRIVE_PORT overrides 5202)
 import { createRequire } from 'node:module'
-import { envelope, insuranceListsStub, insuranceRulesStub, newListsState } from './insurance-rules-stubs.mjs'
+import { BUPA, MEDGULF, TAWUNIYA, envelope, insuranceListsStub, insuranceRulesStub, newListsState } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -264,12 +264,12 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-entry]').first().waitFor({ timeout: 30000 })
     check(`${dir} 4b. ?tab=classes opens Policy classes on the class list`, (await page.locator('[data-lists-tab="classes"]').getAttribute('aria-selected')) === 'true' && (await page.locator('[data-keyed-panel="CL-GOLD"]').count()) === 1)
     const rows = await page.locator('[data-entry]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entry')))
-    check(`${dir} 4b. the entries, each a class and its insurer`, JSON.stringify(rows) === JSON.stringify(['GOLD|BUPA', 'VIP|']), JSON.stringify(rows))
-    check(`${dir} 4b. one insurer: "BUPA · Bupa Arabia", one ltr isolate`, strip(await page.locator('[data-entry="GOLD|BUPA"] [data-entry-insurer="BUPA"] bdi[dir="ltr"]').innerText()) === 'BUPA · Bupa Arabia')
+    check(`${dir} 4b. the entries, each a class and its insurer`, JSON.stringify(rows) === JSON.stringify([`GOLD|${BUPA}`, 'VIP|']), JSON.stringify(rows))
+    check(`${dir} 4b. one insurer: its SAP customer id (3144 names none), one ltr isolate`, strip(await page.locator(`[data-entry="GOLD|${BUPA}"] [data-entry-insurer="${BUPA}"] bdi[dir="ltr"]`).innerText()) === BUPA)
     check(`${dir} 4b. any insurer says so`, (await page.locator('[data-entry="VIP|"] [data-entry-insurer=""] bdi').count()) === 0 && strip(await page.locator('[data-entry="VIP|"] [data-entry-insurer=""]').innerText()).length > 0)
     check(`${dir} 4b. the list shows how many are for one insurer and how many for any`, (await page.locator('[data-class-split]').getAttribute('data-class-split')) === '1/1')
     const payers = await page.locator('[data-entry-payer] option').evaluateAll((els) => els.map((e) => e.value))
-    check(`${dir} 4b. the insurer picker: any insurer, then the insurers`, JSON.stringify(payers) === JSON.stringify(['', 'BUPA', 'TAWUNIYA', 'MEDGULF']), JSON.stringify(payers))
+    check(`${dir} 4b. the insurer picker: any insurer, then the insurers (never the estate default `*`)`, JSON.stringify(payers) === JSON.stringify(['', BUPA, TAWUNIYA, MEDGULF]), JSON.stringify(payers))
 
     await page.locator('[data-entry-key]').fill('VIP|A')
     await page.locator('[data-entry-reason]').fill('x')
@@ -280,13 +280,13 @@ for (const dir of ['ltr', 'rtl']) {
 
     // one insurer
     await page.locator('[data-entry-key]').fill('silver')
-    await page.locator('[data-entry-payer]').selectOption('TAWUNIYA')
+    await page.locator('[data-entry-payer]').selectOption(TAWUNIYA)
     await page.locator('[data-entry-reason]').fill('Tawuniya silver tier')
     await page.locator('[data-entry-add]').click()
-    await page.locator('[data-entry="SILVER|TAWUNIYA"]').waitFor({ timeout: 5000 }).catch(() => {})
+    await page.locator(`[data-entry="SILVER|${TAWUNIYA}"]`).waitFor({ timeout: 5000 }).catch(() => {})
     let add = writesOf(state, 'addEntry')
-    check(`${dir} 4b. a class for one insurer is POSTed upper case, with its payer`, add.length === 1 && JSON.stringify(add[0].body) === JSON.stringify({ key: 'SILVER', payer: 'TAWUNIYA', reason: 'Tawuniya silver tier' }), JSON.stringify(add[0]?.body))
-    check(`${dir} 4b. …shows with its insurer`, strip(await page.locator('[data-entry="SILVER|TAWUNIYA"] [data-entry-insurer] bdi[dir="ltr"]').innerText()) === 'TAWUNIYA · Tawuniya')
+    check(`${dir} 4b. a class for one insurer is POSTed upper case, with its payer`, add.length === 1 && JSON.stringify(add[0].body) === JSON.stringify({ key: 'SILVER', payer: TAWUNIYA, reason: 'Tawuniya silver tier' }), JSON.stringify(add[0]?.body))
+    check(`${dir} 4b. …shows with its insurer`, strip(await page.locator(`[data-entry="SILVER|${TAWUNIYA}"] [data-entry-insurer] bdi[dir="ltr"]`).innerText()) === TAWUNIYA)
     check(`${dir} 4b. …the insurer is back to any after the add`, (await page.locator('[data-entry-payer]').inputValue()) === '')
 
     // the same class for any insurer, expiring today
@@ -297,7 +297,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-entry-add]').click()
     await page.locator('[data-entry="GOLD|"]').waitFor({ timeout: 5000 }).catch(() => {})
     add = writesOf(state, 'addEntry')
-    check(`${dir} 4b. the same class for any insurer is a second entry (no payer sent), expiring today`, add.length === 2 && JSON.stringify(add[1].body) === JSON.stringify({ key: 'GOLD', reason: 'Gold with every insurer this week', expiresOn: today }) && (await page.locator('[data-entry="GOLD|BUPA"]').count()) === 1 && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(add[1]?.body))
+    check(`${dir} 4b. the same class for any insurer is a second entry (no payer sent), expiring today`, add.length === 2 && JSON.stringify(add[1].body) === JSON.stringify({ key: 'GOLD', reason: 'Gold with every insurer this week', expiresOn: today }) && (await page.locator(`[data-entry="GOLD|${BUPA}"]`).count()) === 1 && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(add[1]?.body))
     await page.waitForFunction(() => document.querySelector('[data-class-split]')?.getAttribute('data-class-split') === '2/2', null, { timeout: 5000 }).catch(() => {})
     check(`${dir} 4b. …the split follows`, (await page.locator('[data-class-split]').getAttribute('data-class-split')) === '2/2')
     check(`${dir} 4b. …and it counts today: not expired`, (await page.locator('[data-entry="GOLD|"]').getAttribute('data-expired')) === 'false')
@@ -309,16 +309,16 @@ for (const dir of ['ltr', 'rtl']) {
     await page.reload()
     await page.locator('[data-entry="GOLD|"]').waitFor({ timeout: 30000 })
     check(`${dir} 4b. a day on, the entry whose expiry has passed reads expired, still listed`, (await page.locator('[data-entry="GOLD|"]').getAttribute('data-expired')) === 'true' && (await page.locator('[data-entry="GOLD|"] [data-entry-expired]').count()) === 1)
-    check(`${dir} 4b. …the Bupa GOLD entry, with no expiry, does not`, (await page.locator('[data-entry="GOLD|BUPA"]').getAttribute('data-expired')) === 'false' && (await page.locator('[data-entry-expired]').count()) === 1)
+    check(`${dir} 4b. …the Bupa GOLD entry, with no expiry, does not`, (await page.locator(`[data-entry="GOLD|${BUPA}"]`).getAttribute('data-expired')) === 'false' && (await page.locator('[data-entry-expired]').count()) === 1)
 
     // Remove sends the entry's payer
-    await page.locator('[data-entry-remove="GOLD|BUPA"]').click()
+    await page.locator(`[data-entry-remove="GOLD|${BUPA}"]`).click()
     await withReason(page, 'Bupa ended the gold tier')
-    await page.locator('[data-entry="GOLD|BUPA"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    await page.locator(`[data-entry="GOLD|${BUPA}"]`).waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
     const rm = writesOf(state, 'removeEntry')
-    check(`${dir} 4b. Remove DELETEs { key, payer, reason }; the any-insurer GOLD stays`, rm.length === 1 && JSON.stringify(rm[0].body) === JSON.stringify({ key: 'GOLD', payer: 'BUPA', reason: 'Bupa ended the gold tier' }) && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(rm[0]?.body))
+    check(`${dir} 4b. Remove DELETEs { key, payer, reason }; the any-insurer GOLD stays`, rm.length === 1 && JSON.stringify(rm[0].body) === JSON.stringify({ key: 'GOLD', payer: BUPA, reason: 'Bupa ended the gold tier' }) && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(rm[0]?.body))
     await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'remove', null, { timeout: 5000 }).catch(() => {})
-    check(`${dir} 4b. …logged with its insurer`, strip(await page.locator('[data-keyed-log] [data-log-row]').first().locator('[data-log-insurer="BUPA"] bdi[dir="ltr"]').innerText()) === 'BUPA · Bupa Arabia')
+    check(`${dir} 4b. …logged with its insurer`, strip(await page.locator('[data-keyed-log] [data-log-row]').first().locator(`[data-log-insurer="${BUPA}"] bdi[dir="ltr"]`).innerText()) === BUPA)
     check(`${dir} 4b. no raw keys on Classes`, await noRawKeys(page))
 
     // a new class list

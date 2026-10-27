@@ -39,10 +39,10 @@ function ReasonDialog(props: Omit<Parameters<typeof CoreReasonDialog>[0], 'ns' |
   return <CoreReasonDialog {...props} ns="insurance-lists" reasonRefusal={reasonRefusal} />
 }
 
-/** "payer · name" for an insurer the list names; the payer alone when it is not among the insurers. */
+/** "payer · name" for an insurer the list names; the payer alone when it has no name (3144's rows carry none). */
 function insurerText(payer: string, insurers: readonly Insurer[], lang: string): string {
-  const ins = insurers.find((i) => i.payer === payer)
-  return ins ? formatPair(payer, saysIn(ins.name, lang)) : payer
+  const name = insurers.find((i) => i.payer === payer)?.name
+  return name ? formatPair(payer, saysIn(name, lang)) : payer
 }
 
 /**
@@ -230,7 +230,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
               <option value="">{t('keyed.anyInsurer')}</option>
               {insurers.map((ins) => (
                 <option key={ins.payer} value={ins.payer}>
-                  {fsi(formatPair(ins.payer, saysIn(ins.name, lang)))}
+                  {fsi(insurerText(ins.payer, insurers, lang))}
                 </option>
               ))}
             </Select>

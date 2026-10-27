@@ -210,7 +210,7 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
 // request's URLSearchParams (the `Values?q=`). The keyed lists answer 3133's BUILT shapes: `GET …Lists` →
 // `[{ id, name, entries, createdBy, createdAt }]`, entries `{ key, addedBy, addedAt, reason, expiresOn, expired,
 // payer }` (`expired` against `state.today`, which a drive may move on), DELETE with a body `{ key, payer?, reason }`,
-// log `createList | add | change | remove`. `GET Insurers` is served here too (617's coverageStub answers it first).
+// log `createList | add | change | remove`. `GET Insurers` is served here only, on `state.settings` (617's 3144 rows).
 // Shapes ⚠️ PROVISIONAL where the brief does not spell them (see 610).
 
 /** `GET InsuranceRules/Fields` — every scope, one retired. */
@@ -260,6 +260,11 @@ export const PATIENT_LISTS = [
   { id: 'PL-STAFF', name: says('Staff and family', 'الموظفون وذووهم'), entries: 0, createdBy: 'nalharbi', createdAt: '2026-09-15T08:05:00' },
 ]
 export const POLICY_LISTS = [{ id: POLICY_LIST_EXTENDED, name: says('Extended cover policies', 'وثائق التغطية الممتدة'), entries: 1, createdBy: 'falotaibi', createdAt: '2026-09-01T11:50:00' }]
+/** The insurers' SAP customer ids (3144: `{payer}` is the customer id, or `*`). */
+export const BUPA = '0001100041'
+export const TAWUNIYA = '0001100052'
+export const MEDGULF = '0001100063'
+
 /** 3172 — a class list: Bupa's GOLD class for Bupa only, and VIP for any insurer. */
 export const CLASS_LIST_GOLD = 'CL-GOLD'
 export const CLASS_LISTS = [{ id: CLASS_LIST_GOLD, name: says('Gold and VIP classes', 'الفئات الذهبية وكبار الشخصيات'), entries: 2, createdBy: 'falotaibi', createdAt: '2026-10-27T09:00:00' }]
@@ -272,7 +277,7 @@ const ENTRIES = {
   'patient:PL-STAFF': [],
   [`policy:${POLICY_LIST_EXTENDED}`]: [{ key: 'SUB-778812', addedBy: 'falotaibi', addedAt: '2026-09-01T12:00:00', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31', payer: null }],
   [`class:${CLASS_LIST_GOLD}`]: [
-    { key: 'GOLD', addedBy: 'falotaibi', addedAt: '2026-10-27T09:10:00', reason: 'Bupa gold tier', expiresOn: null, payer: 'BUPA' },
+    { key: 'GOLD', addedBy: 'falotaibi', addedAt: '2026-10-27T09:10:00', reason: 'Bupa gold tier', expiresOn: null, payer: BUPA },
     { key: 'VIP', addedBy: 'falotaibi', addedAt: '2026-10-27T09:12:00', reason: 'VIP class with every insurer', expiresOn: null, payer: null },
   ],
 }
@@ -286,7 +291,7 @@ const LOG = {
   [`policy:${POLICY_LIST_EXTENDED}`]: [{ at: '2026-09-01T12:00:00', by: 'falotaibi', action: 'add', key: 'SUB-778812', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31', payer: null }],
   [`class:${CLASS_LIST_GOLD}`]: [
     { at: '2026-10-27T09:12:00', by: 'falotaibi', action: 'add', key: 'VIP', reason: 'VIP class with every insurer', expiresOn: null, payer: null },
-    { at: '2026-10-27T09:10:00', by: 'falotaibi', action: 'add', key: 'GOLD', reason: 'Bupa gold tier', expiresOn: null, payer: 'BUPA' },
+    { at: '2026-10-27T09:10:00', by: 'falotaibi', action: 'add', key: 'GOLD', reason: 'Bupa gold tier', expiresOn: null, payer: BUPA },
     { at: '2026-10-27T09:00:00', by: 'falotaibi', action: 'createList', key: null, reason: 'Bupa gold tier', expiresOn: null, payer: null },
   ],
 }
@@ -307,7 +312,8 @@ export function newListsState() {
     entries: copy(ENTRIES),
     log: copy(LOG),
     lists: { patient: copy(PATIENT_LISTS), policy: copy(POLICY_LISTS), class: copy(CLASS_LISTS) },
-    insurers: copy(INSURERS),
+    /** 3144's insurer settings, the estate default `*` among them — `GET Insurers` serves their rows (617's shape). */
+    settings: copy(INSURER_SETTINGS),
     today: localDay(),
     writes: [],
   }
@@ -390,7 +396,8 @@ export function insuranceListsStub(method, path, body, opts = {}) {
       return envelope({ count: items.length, items: items.slice(0, pageSize).map(({ article, name }) => ({ article, name })), matchesNothing: items.length === 0 })
     })
 
-  if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(state.insurers ?? INSURERS))
+  // The ONE `GET Insurers` handler: 3144's settings rows as built (`[{ payer, …settings }]`, `*` among them, no name).
+  if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(Object.values(state.settings)))
 
   m = /^(PatientLists|PolicyLists|ClassLists)(?:\/([^/]+)\/(Entries|Log))?$/.exec(p)
   if (!m) return null
@@ -1507,17 +1514,24 @@ export function templatesStub(method, path, body, opts = {}) {
   return guardEditorStub(method, path, body, { store: state.store, deny, reads })
 }
 
-// --- 617 --- insurer settings (BackOffice 3144), the category and coverage rulesets (3145 / 3146), and the
-// eligibility facts the Fields registry offers every palette. Shapes ⚠️ PROVISIONAL where the brief does not spell
-// them (see ticket 617's comments). Stateful: one `newCoverageState()` per browser context, passed as `opts.state`.
-//   GET  InsuranceRules/Insurers                       → INSURERS
-//   GET  InsuranceRules/Insurers/{payer}/Settings      → the insurer's settings
-//   PUT  InsuranceRules/Insurers/{payer}/Settings      → the saved settings; a log row of what changed
+// --- 617 --- insurer settings (BackOffice 3144), the category and coverage rulesets (3145 / 3146), as BUILT, and the
+// eligibility facts the Fields registry offers every palette. Stateful: one `newCoverageState()` per browser context,
+// passed as `opts.state`.
+//   GET  InsuranceRules/Insurers                       → every insurer's settings, the estate default `*` among them
+//   GET  InsuranceRules/Insurers/{payer}/Settings      → the row; 404 INSURER_SETTINGS_NOT_FOUND
+//   PUT  InsuranceRules/Insurers/{payer}/Settings      → the saved row (creates it); 400 INSURER_SETTINGS_BAD_REQUEST
+//                                                        one error per problem; a log row { changeId, changedBy,
+//                                                        changedAt, note, before, after }
 //   GET  InsuranceRules/Insurers/{payer}/Settings/Log  → newest first
-//   GET / PUT InsuranceRules/{Categories|Coverage}/Draft (stale `revision` → 409 STALE_REVISION), POST …/Validate
+//   GET / PUT InsuranceRules/{Categories|Coverage}/Draft → the draft { revision, state, …, document } (stale `revision`
+//        → 409 GUARDS_DRAFT_STALE, while pending → 409 GUARDS_DRAFT_PENDING), POST …/Validate, …/Submit { revision,
+//        note }, …/Approve { revision, note } → the version (publishes LIVE; 403 GUARDS_SELF_APPROVAL), …/SendBack
+//        { note }, GET …/Versions, POST …/Versions/{v}/Restore (409 GUARDS_DRAFT_EXISTS over a draft)
+//   POST InsuranceRules/Categories/Simulate { request } → { version, lines } (`categorySimulateStub`, for 612's drive)
 // Anything else falls through to 610's `insuranceListsStub` on `state.lists` (Fields, patient / policy lists, the
 // guard draft), then to null. `opts.deny` door names: insurers · settings · saveSettings · log · categories ·
-// coverage · saveCategories · saveCoverage · validateCategories · validateCoverage (and 610's).
+// coverage · saveCategories · saveCoverage · validateCategories · validateCoverage (and 610's). `opts.user` is the
+// session's user id; `opts.viewer.approver` stands in for the approver grant (06).
 
 /** Fields 617's rules read beside 610's FIELDS (which keep their own counts): request, patient, item and eligibility facts. */
 export const COVERAGE_FIELDS = [
@@ -1535,53 +1549,65 @@ export const COVERAGE_FIELDS = [
 
 export const POLICY_LIST_SASREF = 'PO-SASREF'
 
-export const INSURERS = [
-  { payer: 'BUPA', name: says('Bupa Arabia', 'بوبا العربية') },
-  { payer: 'TAWUNIYA', name: says('Tawuniya', 'التعاونية') },
-  { payer: 'MEDGULF', name: says('MedGulf', 'ميدغلف') },
-]
+/** The insurers' SAP customer ids (BUPA / TAWUNIYA / MEDGULF) are declared in section 610, which names them first. */
+
+const settingsRow = (payer, over) => ({
+  payer,
+  hasFixedDiscount: false,
+  fixedDiscountPct: 0,
+  receivableCustomer: null,
+  createsInsuranceCoupon: false,
+  memberId: { minLength: 0, maxLength: 0, pattern: null },
+  daysSupply: { min: 0, max: 0, default: 0 },
+  directDispense: false,
+  fullQuantityReturnsOnly: false,
+  brandMaxWhenZero: false,
+  benefitCategories: [],
+  payerPins: [],
+  updatedBy: 'ins.huda',
+  updatedAt: '2026-10-20T09:30:00',
+  ...over,
+})
 
 export const INSURER_SETTINGS = {
-  BUPA: {
-    payer: 'BUPA',
-    fixedDiscountPct: 15,
-    receivableCustomer: '1000123',
-    memberId: { length: 8, format: '^\\d{8}$' },
+  '*': settingsRow('*', {
+    memberId: { minLength: 6, maxLength: 20, pattern: null },
+    daysSupply: { min: 1, max: 90, default: 30 },
     benefitCategories: [
-      { code: '66', meaning: 'genericCopay' },
-      { code: '57', meaning: 'brandCopay' },
-      { code: '13', meaning: 'dayBenefit' },
+      { source: 'benefit', code: '66', meaning: 'genericCopay' },
+      { source: 'benefit', code: '57', meaning: 'brandCopay' },
+      { source: 'benefit', code: '13', meaning: 'dayBenefit' },
     ],
-    daysSupply: { min: 1, max: 180 },
-    directDispense: { allowed: true, defaultDayBenefit: 500 },
-    payerPins: [{ documentType: 'ZINV', payer: 'BUPA-01' }],
-  },
-  TAWUNIYA: {
-    payer: 'TAWUNIYA',
-    fixedDiscountPct: 9.5,
-    receivableCustomer: '1000456',
-    memberId: { length: 15, format: null },
-    benefitCategories: [{ code: '66', meaning: 'genericCopay' }],
-    daysSupply: { min: 1, max: 100 },
-    directDispense: { allowed: false, defaultDayBenefit: null },
-    payerPins: [],
-  },
-  MEDGULF: {
-    payer: 'MEDGULF',
-    fixedDiscountPct: null,
-    receivableCustomer: null,
-    memberId: { length: null, format: null },
-    benefitCategories: [],
-    daysSupply: { min: null, max: null },
-    directDispense: { allowed: false, defaultDayBenefit: null },
-    payerPins: [],
-  },
+  }),
+  [BUPA]: settingsRow(BUPA, {
+    hasFixedDiscount: true,
+    fixedDiscountPct: 15,
+    receivableCustomer: BUPA,
+    memberId: { minLength: 8, maxLength: 8, pattern: '^\\d{8}$' },
+    daysSupply: { min: 1, max: 180, default: 30 },
+    directDispense: true,
+    benefitCategories: [
+      { source: 'benefit', code: '66', meaning: 'genericCopay' },
+      { source: 'benefit', code: '57', meaning: 'brandCopay' },
+      { source: 'tob', code: 'maxcopay', meaning: 'nonMedCopayMax' },
+    ],
+    payerPins: ['Vitality'],
+  }),
+  [TAWUNIYA]: settingsRow(TAWUNIYA, { hasFixedDiscount: true, fixedDiscountPct: 9.5, receivableCustomer: TAWUNIYA, memberId: { minLength: 15, maxLength: 15, pattern: null } }),
+  [MEDGULF]: settingsRow(MEDGULF, {}),
 }
 
 export const SETTINGS_LOG = {
-  BUPA: [{ at: '2026-10-20T09:30:00', by: 'ins.huda', changes: [{ field: 'fixedDiscountPct', from: '14', to: '15' }] }],
-  TAWUNIYA: [],
-  MEDGULF: [],
+  [BUPA]: [
+    {
+      changeId: 41,
+      changedBy: 'ins.huda',
+      changedAt: '2026-10-20T09:30:00',
+      note: 'Contract 2026',
+      before: { ...INSURER_SETTINGS[BUPA], fixedDiscountPct: 14 },
+      after: INSURER_SETTINGS[BUPA],
+    },
+  ],
 }
 
 const fact = (path, value, op = 'anyOf') => ({ check: 'fact', path, op, value })
@@ -1593,7 +1619,7 @@ export const CATEGORY_RULESET = {
   revision: 4,
   rules: [
     covRule('K-002', 'Tawuniya: Example Pharma statins are Generic', 'التعاونية: أدوية الستاتين من Example Pharma جنيسة', 'Tawuniya contract', 'live',
-      [fact('$request.payer', ['TAWUNIYA']), fact('$item.ATC', ['C10AA'])], [{ effect: 'setCategory', group: 'G1' }]),
+      [fact('$request.payer', [TAWUNIYA]), fact('$item.ATC', ['C10AA'])], [{ effect: 'setCategory', group: 'G1' }]),
   ],
 }
 
@@ -1603,9 +1629,9 @@ export const COVERAGE_RULESET = {
   revision: 7,
   rules: [
     covRule('C-002', 'Bupa: cosmetics not covered', 'بوبا: مستحضرات التجميل غير مغطاة', 'Bupa contract', 'live',
-      [fact('$request.payer', ['BUPA']), fact('$item.DosageForm', ['COSM'])], [{ effect: 'covered', covered: false, overridesPayer: true }]),
-    covRule('C-003', 'MedGulf class C: 20% capped at SAR 50', 'ميدغلف الفئة C: 20% بحد أقصى 50 ريال', 'MedGulf contract', 'shadow',
-      [fact('$request.payer', ['MEDGULF']), fact('$request.class', ['C'])], [{ effect: 'deductible', pct: 20, max: 50, overridesPayer: false }]),
+      [fact('$request.payer', [BUPA]), fact('$item.DosageForm', ['COSM'])], [{ effect: 'covered', value: false, overridesPayer: true }]),
+    covRule('C-003', 'MedGulf class C: 20% capped at SAR 50', 'ميدغلف الفئة C: 20% بحد أقصى 50 ريال', 'MedGulf contract', 'live',
+      [fact('$request.payer', [MEDGULF]), fact('$request.class', ['C'])], [{ effect: 'deductible', percent: 20, max: 50 }]),
   ],
 }
 
@@ -1613,7 +1639,7 @@ export const COVERAGE_RULESET = {
 export const K_001 = {
   name: says('Bupa: Glucophage XR is Brand', 'بوبا: جلوكوفاج إكس آر علامة تجارية'),
   folder: 'Bupa contract',
-  when: [fact('$request.payer', ['BUPA']), fact('$item.ItemCode', ['100245'])],
+  when: [fact('$request.payer', [BUPA]), fact('$item.ItemCode', ['100245'])],
   then: [{ effect: 'setCategory', group: 'G2' }],
 }
 
@@ -1622,8 +1648,10 @@ export const NO_DEDUCTIBLE = {
   name: says('SASREF: no deductible for these policies', 'ساسرف: لا تحمّل لهذه الوثائق'),
   folder: 'Bupa contract',
   when: [{ check: 'policy', inList: POLICY_LIST_SASREF }],
-  then: [{ effect: 'deductible', pct: 0, max: null, overridesPayer: true }],
+  then: [{ effect: 'deductible', percent: 0, overridesPayer: true }],
 }
+
+const draftMeta = (over = {}) => ({ state: 'editing', origin: null, baseVersionNo: 1, updatedBy: 'ins.huda', updatedAt: '2026-10-26T15:00:00', requestedBy: null, requestedAt: null, requestNote: null, reviewedBy: null, reviewNote: null, ...over })
 
 /** A drive's state: 610's lists state with 617's fields and the SASREF policy list, and 617's own documents. */
 export function newCoverageState() {
@@ -1633,41 +1661,52 @@ export function newCoverageState() {
   lists.lists.policy.push({ id: POLICY_LIST_SASREF, name: says('SASREF policies', 'وثائق ساسرف'), entries: 1 })
   return {
     lists,
-    insurers: copy(INSURERS),
-    settings: copy(INSURER_SETTINGS),
+    settings: lists.settings,
     log: copy(SETTINGS_LOG),
+    nextChange: 42,
     categories: copy(CATEGORY_RULESET),
     coverage: copy(COVERAGE_RULESET),
+    meta: { categories: draftMeta(), coverage: draftMeta() },
+    versions: {
+      categories: [{ versionNo: 1, publishedAt: '2026-10-01T09:00:00', publishedBy: 'rev.salem', requestedBy: 'ins.huda', action: 'approve', note: 'First contract rules' }],
+      coverage: [{ versionNo: 1, publishedAt: '2026-10-01T09:00:00', publishedBy: 'rev.salem', requestedBy: 'ins.huda', action: 'approve', note: 'Seeded C-ELITE, C-SABIC, C-ARAMCO, C-EXCEPTION' }],
+    },
+    versionDocs: { categories: { 1: copy(CATEGORY_RULESET) }, coverage: { 1: copy(COVERAGE_RULESET) } },
     writes: [],
   }
 }
 
-/** The leaves of a JSON value by path (`benefitCategories[3].code`), as strings — what the settings log compares. */
-function leavesOf(v, at = '', out = {}) {
-  if (Array.isArray(v)) v.forEach((x, i) => leavesOf(x, `${at}[${i}]`, out))
-  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) leavesOf(x, at ? `${at}.${k}` : k, out)
-  else out[at] = v === null || v === undefined ? null : String(v)
+/** HQ's settings checks as the stub reads them: one error per problem (3144). */
+function settingsErrors(s) {
+  const out = []
+  if (!(s?.fixedDiscountPct >= 0 && s?.fixedDiscountPct <= 100)) out.push('fixedDiscountPct must be between 0 and 100.')
+  const ds = s?.daysSupply ?? {}
+  if (ds.min > 0 && ds.max > 0 && ds.min > ds.max) out.push('daysSupply.min must not exceed daysSupply.max.')
   return out
 }
 
-/** HQ's checks of a category / coverage draft, as the stub reads them: names, no condition, a value outside its range. */
+const isLine = (c) => (c.check === 'group' ? c.conditions.some(isLine) : ['line', 'sfda', 'formulary'].includes(c.check) || (c.check === 'fact' && /^\$(item|line)\./.test(c.path)))
+
+/** HQ's checks of a category / coverage draft, as the stub reads them: names, no condition, one effect, an invoice rule on a line, a range. */
 export function validateRuleset(doc) {
   const out = []
   for (const r of doc.rules ?? []) {
     if (!r.name?.en?.trim()) out.push(issue(r.id, null, 'name.en', 'The rule needs a name in English.', 'تحتاج القاعدة إلى اسم بالإنجليزية.'))
     if (!r.name?.ar?.trim()) out.push(issue(r.id, null, 'name.ar', 'The rule needs a name in Arabic.', 'تحتاج القاعدة إلى اسم بالعربية.'))
     if (!(r.when ?? []).length) out.push(issue(r.id, null, 'when', 'The rule has no condition: it matches every line.', 'لا شرط في القاعدة: تنطبق على كل سطر.', 'warning'))
-    ;(r.then ?? []).forEach((e, i) => {
-      if (e.effect === 'deductible' && !(e.pct >= 0 && e.pct <= 100)) out.push(issue(r.id, `then[${i}]`, 'pct', 'The deductible is between 0 and 100 %.', 'نسبة التحمّل بين 0 و100 %.'))
+    const then = r.then ?? []
+    if (then.length !== 1) out.push(issue(r.id, 'then', 'then', 'A rule sets exactly one effect.', 'تحدد القاعدة أثراً واحداً بالضبط.'))
+    then.forEach((e, i) => {
+      if (e.effect === 'deductible' && e.percent !== undefined && !(e.percent >= 0 && e.percent <= 100)) out.push(issue(r.id, `then[${i}]`, 'percent', 'The deductible is between 0 and 100 %.', 'نسبة التحمّل بين 0 و100 %.'))
+      if (['segment', 'exceptionPrescriptions'].includes(e.effect) && (r.when ?? []).some(isLine)) out.push(issue(r.id, `then[${i}]`, 'effect', 'An invoice effect cannot read a line block.', 'أثر الفاتورة لا يقرأ كتلة سطر.'))
     })
-    if (doc.kind === 'coverage' && !(r.then ?? []).length) out.push(issue(r.id, null, 'then', 'The rule sets no coverage value.', 'لا تحدد القاعدة أي قيمة تغطية.'))
   }
   return out
 }
 
 /** 617's doors on a drive's `state`; anything else to 610's lists stub on `state.lists`; null when neither. */
 export function coverageStub(method, path, body, opts = {}) {
-  const { state, deny = [], reads = {}, query } = opts
+  const { state, deny = [], reads = {}, query, user = 'msartawi', viewer = { author: true, approver: false } } = opts
   if (!state || !path.startsWith('InsuranceRules/')) return null
   const p = path.slice('InsuranceRules/'.length)
   const door = (name, fn) => {
@@ -1676,89 +1715,109 @@ export function coverageStub(method, path, body, opts = {}) {
     if (method !== 'GET') state.writes.push({ door: name, method, path, body })
     return fn()
   }
+  const refuse = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
 
-  if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(state.insurers))
+  // `GET Insurers` falls through to 610's lists stub, which serves `state.lists.settings` (the same object as `state.settings`).
   let m = /^Insurers\/([^/]+)\/Settings(\/Log)?$/.exec(p)
   if (m) {
     const payer = decodeURIComponent(m[1])
     if (m[2]) return method === 'GET' ? door('log', () => envelope(state.log[payer] ?? [])) : null
     if (method === 'GET')
-      return door('settings', () => (state.settings[payer] ? envelope(state.settings[payer]) : envelope(null, { status: 404, success: false, message: 'No such insurer.' })))
+      return door('settings', () => (state.settings[payer] ? envelope(state.settings[payer]) : refuse(404, 'INSURER_SETTINGS_NOT_FOUND', 'No settings for this insurer.')))
     if (method === 'PUT')
       return door('saveSettings', () => {
-        const before = leavesOf(state.settings[payer] ?? {})
-        const after = leavesOf(body)
-        const changes = [...new Set([...Object.keys(before), ...Object.keys(after)])]
-          .filter((k) => before[k] !== after[k])
-          .map((field) => ({ field, from: before[field] ?? null, to: after[field] ?? null }))
-        state.settings[payer] = structuredClone(body)
-        ;(state.log[payer] ??= []).unshift({ at: localNow(), by: 'msartawi', changes })
-        return envelope(state.settings[payer])
+        const errors = settingsErrors(body)
+        if (errors.length)
+          return {
+            status: 400,
+            contentType: 'application/json',
+            body: JSON.stringify({ statusCode: 400, success: false, message: errors[0], errors: errors.map((e) => ({ errorCode: 'INSURER_SETTINGS_BAD_REQUEST', errorMessage: e, internalErrorCode: '' })), data: null }),
+          }
+        const before = state.settings[payer] ?? null
+        const after = { ...structuredClone(body), payer, updatedBy: user, updatedAt: localNow() }
+        delete after.note
+        state.settings[payer] = after
+        ;(state.log[payer] ??= []).unshift({ changeId: state.nextChange++, changedBy: user, changedAt: after.updatedAt, note: body?.note ?? null, before, after })
+        return envelope(after)
       })
     return null
   }
 
-  // Review 3126 P6b: Submit / Approve / SendBack / Versions / Restore on the category and coverage rulesets, the same
-  // doors as 611's guards (no back-test to wait for). `state.approvals[key]`, `state.versions[key]`; `opts.user` is
-  // the session's user id and `opts.viewer` its roles `{ author, approver }`.
-  m = /^(Categories|Coverage)\/(Approval|Submit|Approve|SendBack|Versions|Versions\/(\d+)\/Restore)$/.exec(p)
+  m = /^(Categories|Coverage)\/(Draft|Validate|Submit|Approve|SendBack|Versions|Versions\/(\d+)\/Restore)$/.exec(p)
   if (m) {
     const key = m[1] === 'Categories' ? 'categories' : 'coverage'
-    const { user = 'msartawi', viewer = { author: true, approver: false } } = opts
-    state.approvals ??= {}
-    state.versions ??= {}
-    state.versionDocs ??= {}
-    const ap = (state.approvals[key] ??= { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null, backtestId: null })
-    const vs = (state.versions[key] ??= [{ version: 1, by: 'ins.huda', at: '2026-10-01T09:00:00', note: 'First contract rules' }])
-    const docs = (state.versionDocs[key] ??= { 1: structuredClone(state[key]) })
-    const view = () => envelope({ ...state.approvals[key], revision: state[key].revision, viewer })
-    const refuse = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
-    const clear = { submittedBy: null, submittedAt: null, note: null }
-    if (m[2] === 'Approval') return method === 'GET' ? door(`approval${m[1]}`, view) : null
-    if (m[2] === 'Versions') return method === 'GET' ? door(`versions${m[1]}`, () => envelope(vs)) : null
-    if (method !== 'POST') return null
-    if (m[3])
-      return door(`restore${m[1]}`, () => {
-        const doc = docs[m[3]]
-        if (!doc) return refuse(404, 'NO_VERSION', 'No such version.')
-        state[key] = { ...structuredClone(doc), revision: state[key].revision + 1 }
-        state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: null }
-        return envelope(state[key])
+    const meta = () => state.meta[key]
+    const view = () => envelope({ revision: state[key].revision, ...meta(), document: state[key] })
+    const what = m[2].startsWith('Versions/') ? 'restore' : m[2]
+    if (what === 'Validate') return method === 'POST' ? door(`validate${m[1]}`, () => envelope(validateRuleset(body))) : null
+    if (what === 'Draft') {
+      if (method === 'GET') return door(key, view)
+      if (method !== 'PUT') return null
+      return door(`save${m[1]}`, () => {
+        if (meta().state === 'pending') return refuse(409, 'GUARDS_DRAFT_PENDING', 'The draft is waiting for approval.')
+        if (body?.revision !== state[key].revision) return refuse(409, 'GUARDS_DRAFT_STALE', 'Someone saved the draft since you read it.')
+        state[key] = { ...structuredClone(body), revision: state[key].revision + 1 }
+        state.meta[key] = { ...meta(), state: 'editing', updatedBy: user, updatedAt: localNow() }
+        return view()
       })
-    return door(`${m[2].toLowerCase()}${m[1]}`, () => {
-      if (m[2] === 'Submit') {
-        if (ap.state !== 'draft') return refuse(409, 'NOT_DRAFT', 'The draft is already waiting for approval.')
-        state.approvals[key] = { ...ap, state: 'waiting', submittedBy: user, submittedAt: localNow(), note: body?.note || null, sentBack: null }
+    }
+    if (what === 'Versions') return method === 'GET' ? door(`versions${m[1]}`, () => envelope(state.versions[key])) : null
+    if (method !== 'POST') return null
+    if (what === 'restore')
+      return door(`restore${m[1]}`, () => {
+        if (meta().state !== 'none') return refuse(409, 'GUARDS_DRAFT_EXISTS', 'A draft exists; restore replaces none.')
+        const doc = state.versionDocs[key][m[3]]
+        if (!doc) return refuse(404, 'GUARDS_NOT_FOUND', 'No such version.')
+        state[key] = { ...structuredClone(doc), revision: 1 }
+        state.meta[key] = draftMeta({ origin: `restore:${m[3]}`, baseVersionNo: Number(m[3]), updatedBy: user, updatedAt: localNow() })
+        return view()
+      })
+    return door(`${what.toLowerCase()}${m[1]}`, () => {
+      if (what === 'Submit') {
+        if (!['editing', 'sentBack'].includes(meta().state)) return refuse(409, 'GUARDS_DRAFT_NOT_EDITING', 'There is no draft to submit.')
+        state.meta[key] = { ...meta(), state: 'pending', requestedBy: user, requestedAt: localNow(), requestNote: body?.note || null }
         return view()
       }
-      if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver approves the draft.')
-      if (ap.state !== 'waiting') return refuse(409, 'NOT_WAITING', 'The draft is not waiting for approval.')
-      if (user.toLowerCase() === (ap.submittedBy ?? '').toLowerCase()) return refuse(409, 'OWN_SUBMISSION', 'You asked for this approval; a different user approves it.')
-      if (m[2] === 'Approve') {
-        const version = Math.max(0, ...vs.map((v) => v.version)) + 1
-        docs[version] = structuredClone(state[key])
-        vs.unshift({ version, by: user, at: localNow(), note: body?.note || ap.note })
-        state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: null }
-      } else state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: { by: user, at: localNow(), note: body?.note ?? '' } }
+      if (!viewer.approver) return refuse(403, 'GUARDS_NOT_APPROVER', 'Only an approver approves the draft.')
+      if (meta().state !== 'pending') return refuse(409, 'GUARDS_DRAFT_NOT_PENDING', 'The draft is not waiting for approval.')
+      const own = [meta().requestedBy, meta().updatedBy].some((u) => u && u.toLowerCase() === user.toLowerCase())
+      if (own) return refuse(403, 'GUARDS_SELF_APPROVAL', 'You asked for or last edited this draft; a different user approves it.')
+      if (what === 'Approve') {
+        // An approved category / coverage document publishes LIVE: every rule live, no shadow, no promote.
+        const versionNo = Math.max(0, ...state.versions[key].map((v) => v.versionNo)) + 1
+        const published = { ...structuredClone(state[key]), rules: state[key].rules.map((r) => ({ ...r, state: r.state === 'disabled' ? 'disabled' : 'live' })) }
+        state.versionDocs[key][versionNo] = published
+        const version = { versionNo, publishedAt: localNow(), publishedBy: user, requestedBy: meta().requestedBy, action: 'approve', note: body?.note || meta().requestNote }
+        state.versions[key].unshift(version)
+        state[key] = { ...structuredClone(published), revision: 0 }
+        state.meta[key] = draftMeta({ state: 'none', baseVersionNo: versionNo, updatedBy: null, updatedAt: null })
+        return envelope(version)
+      }
+      state.meta[key] = { ...meta(), state: 'sentBack', reviewedBy: user, reviewNote: body?.note ?? '' }
       return view()
     })
   }
-
-  m = /^(Categories|Coverage)\/(Draft|Validate)$/.exec(p)
-  if (m) {
-    const key = m[1] === 'Categories' ? 'categories' : 'coverage'
-    if (m[2] === 'Validate') return method === 'POST' ? door(`validate${m[1]}`, () => envelope(validateRuleset(body))) : null
-    if (method === 'GET') return door(key, () => envelope(state[key]))
-    if (method === 'PUT')
-      return door(`save${m[1]}`, () => {
-        if (body?.revision !== state[key].revision)
-          return envelope(null, { status: 409, success: false, message: 'Someone saved the draft since you read it.', errorCode: 'STALE_REVISION' })
-        state[key] = { ...structuredClone(body), revision: state[key].revision + 1 }
-        return envelope(state[key])
-      })
-    return null
-  }
   return insuranceListsStub(method, path, body, { state: state.lists, query, deny, reads })
+}
+
+/**
+ * `POST InsuranceRules/Categories/Simulate` (3145) for 612's drive: the stub does not run the category rules; item
+ * 200101 is set by K-002 (Generic), an item starting 9 has no category, every other line keeps its default (Brand-IR).
+ * `opts.store.categorySimulates` records the bodies; `opts.deny` may name `simulateCategories`.
+ */
+export function categorySimulateStub(method, path, body, opts = {}) {
+  if (method !== 'POST' || path !== 'InsuranceRules/Categories/Simulate') return null
+  const { store, deny = [] } = opts
+  ;(store ? (store.categorySimulates ??= []) : []).push(body)
+  if (deny.includes('simulateCategories')) return { status: 403, body: '' }
+  const lines = (body?.request?.lines ?? []).map((l) =>
+    l.item === '200101'
+      ? { line: l.line, item: l.item, insuranceItemCategory: 'Generic', group: 'G1', source: 'rule', ruleId: 'K-002', version: 1, defaultCategory: 'Brand', unknowns: [] }
+      : /^9/.test(l.item)
+        ? { line: l.line, item: l.item, insuranceItemCategory: null, group: null, source: 'none', ruleId: null, version: null, defaultCategory: null, unknowns: [] }
+        : { line: l.line, item: l.item, insuranceItemCategory: 'Brand-IR', group: 'G2', source: 'default', ruleId: null, version: null, defaultCategory: 'Brand-IR', unknowns: [] },
+  )
+  return envelope({ version: 1, lines })
 }
 
 // --- 612 --- the simulator and the back-test (BackOffice 3140). Both run the guard DRAFT (`RULESET`, revision 12).
@@ -1817,10 +1876,8 @@ function simulateLine(l) {
     fired.push({ ruleId: 'G-004', version: 4, severity: 'REFUSE', en: `${l.daysSupply} days in one request; the maximum is 90`, ar: `${l.daysSupply} يوماً في طلب واحد؛ الحد الأقصى 90`, codes: { conflict: 'MX', nphies: 'CV-4-2' }, suggestion: { maxDaysSupply: 90 } })
   } else trace.push(g4('when', false), g4('when[0]', false))
   const heaviest = ['REFUSE', 'OVERRIDE', 'WARN'].find((s) => fired.some((f) => f.severity === s))
-  // Review 3126 P6a (guessed `category`): the stub does not run the category rules; it names K-002 on item 200101
-  // so the drive sees a rule-set line, and leaves the item master's category on every other line.
-  const category = l.item === '200101' ? { group: 'G1', ruleId: 'K-002' } : { group: 'G2', ruleId: null }
-  return { line: l.line, outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, unknowns, trace, category }
+  // A line's category is Categories/Simulate's (617's `categorySimulateStub`), not the guard Simulate's.
+  return { line: l.line, outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, unknowns, trace }
 }
 
 /** `POST InsuranceRules/Guards/Simulate` — deterministic over the request's lines. */

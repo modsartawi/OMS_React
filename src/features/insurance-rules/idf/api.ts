@@ -14,6 +14,7 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster } from './masters'
+import type { IdfException, IdfExceptionBody } from './exceptions' // 624
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -41,6 +42,28 @@ export function mastersQuery() {
 // 623 · versions and restore — `idfVersionsApi` (3161)
 
 // 624 · exceptions — `idfExceptionsApi` (3166)
+export const IDF_EXCEPTIONS_KEY = [...IDF_KEY, 'exceptions'] as const
+/**
+ * 624 · `IdfPriority/exceptions` (3166). The brief gives DELETE a `{ reason }`; `api.del` takes no body (the estate's
+ * DELETEs name their target on the query string), so the reason rides as `?reason=` — 628 reconciles with 3166.
+ */
+export const idfExceptionsApi = {
+  async list(): Promise<IdfException[]> {
+    return (await api.get<IdfException[] | null>(`${IDF_BASE}/exceptions`)) ?? []
+  },
+  add(body: IdfExceptionBody): Promise<IdfException> {
+    return api.post<IdfException>(`${IDF_BASE}/exceptions`, body)
+  },
+  edit(id: string, body: IdfExceptionBody): Promise<IdfException> {
+    return api.put<IdfException>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, body)
+  },
+  remove(id: string, reason: string): Promise<unknown> {
+    return api.del<unknown>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, { reason })
+  },
+}
+export function exceptionsQuery() {
+  return { queryKey: IDF_EXCEPTIONS_KEY, queryFn: () => idfExceptionsApi.list(), retry: false } as const
+}
 
 // 625 · lookup — `idfLookupApi` (3168)
 

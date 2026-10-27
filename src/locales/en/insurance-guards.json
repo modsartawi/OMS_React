@@ -215,18 +215,6 @@
       "AGE": "age edit (AGE)",
       "G": "gender edit (G)"
     },
-    "fact": {
-      "age": "Patient age",
-      "gender": "Patient gender",
-      "idType": "Patient ID type",
-      "icd": "Line diagnosis (ICD-10-AM)",
-      "payer": "Payer",
-      "policy": "Policy",
-      "class": "Policy class",
-      "channel": "Channel",
-      "store": "Store",
-      "pharmacist": "Pharmacist"
-    },
     "factScope": {
       "patient": "Patient",
       "request": "Request",

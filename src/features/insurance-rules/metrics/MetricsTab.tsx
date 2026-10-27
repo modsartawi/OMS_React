@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -144,7 +144,7 @@ function MetricsTable({ rows, by, max }: { rows: MetricsRow[]; by: MetricsBy; ma
                 {r.timeAddedMedianMs === null ? (
                   <span className="text-muted-foreground">{t('dash')}</span>
                 ) : (
-                  <Ltr>{t('unit.seconds', { n: (r.timeAddedMedianMs / 1000).toFixed(1) })}</Ltr>
+                  <Trans t={t} i18nKey="unit.seconds" values={{ n: formatFigure(Math.round(r.timeAddedMedianMs / 100) / 10) }} components={{ v: <Ltr /> }} />
                 )}
               </td>
             </tr>

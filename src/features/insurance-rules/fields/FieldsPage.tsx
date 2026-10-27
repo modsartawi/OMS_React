@@ -11,6 +11,7 @@ import { FIELDS_KEY, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import SaysBoth from '@/core/rules/SaysBoth'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -79,7 +80,7 @@ function fieldUsers(draft: GuardRuleset | undefined, key: string): string[] {
 }
 
 function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: RegistryField[]; draft: GuardRuleset | undefined }) {
-  const { t } = useTranslation('insurance-fields')
+  const { t, i18n } = useTranslation('insurance-fields')
   const qc = useQueryClient()
   const retire = useMutation({
     mutationFn: (key: string) => fieldsApi.retire(key),
@@ -90,7 +91,7 @@ function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: Regis
     onError: (err) => (isBareDenial(err) ? notify.error(t('retire.failed'), t('access.masterData')) : notify.apiError(t('retire.failed'), err, t('retire.failed'))),
   })
   const askRetire = async (f: RegistryField, users: number) => {
-    const message = users ? t('retire.confirmUsed', { field: fsi(f.label.en), count: users, n: fsi(users) }) : t('retire.confirm', { field: fsi(f.label.en) })
+    const message = users ? t('retire.confirmUsed', { field: fsi(saysIn(f.label, i18n.language)), count: users, n: fsi(users) }) : t('retire.confirm', { field: fsi(saysIn(f.label, i18n.language)) })
     if (await confirmAction(message, t('retire.title'))) retire.mutate(f.key)
   }
 
@@ -168,7 +169,7 @@ function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: Regis
 }
 
 function AddField({ existing }: { existing: RegistryField[] }) {
-  const { t } = useTranslation('insurance-fields')
+  const { t, i18n } = useTranslation('insurance-fields')
   const qc = useQueryClient()
   const [form, setForm] = useState<FieldForm>(BLANK)
   const [keyEdited, setKeyEdited] = useState(false)
@@ -177,7 +178,7 @@ function AddField({ existing }: { existing: RegistryField[] }) {
   const add = useMutation({
     mutationFn: () => fieldsApi.add(fieldBody(form)),
     onSuccess: (f) => {
-      notify.success(t('add.done'), fsi(f.label.en))
+      notify.success(t('add.done'), fsi(saysIn(f.label, i18n.language)))
       setForm(BLANK)
       setKeyEdited(false)
       setTried(false)

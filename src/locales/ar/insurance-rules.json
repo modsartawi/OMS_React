@@ -180,18 +180,6 @@
       "warn": "إذا كانت معلومة غير معروفة، يُنبَّه الصيدلي."
     },
     "fact": {
-      "name": {
-        "age": "عمر المريض",
-        "gender": "جنس المريض",
-        "idType": "نوع هوية المريض",
-        "icd": "تشخيص السطر (ICD-10-AM)",
-        "payer": "الجهة الدافعة",
-        "policy": "الوثيقة",
-        "class": "فئة الوثيقة",
-        "channel": "القناة",
-        "store": "الفرع",
-        "pharmacist": "الصيدلي"
-      },
       "atLeast": "<fact>{{fact}}</fact> لا يقل عن <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> أقل من <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> أيٌّ من <codes>{{codes}}</codes>",

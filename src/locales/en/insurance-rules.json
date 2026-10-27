@@ -156,18 +156,6 @@
       "warn": "If a fact is unknown, the pharmacist is warned."
     },
     "fact": {
-      "name": {
-        "age": "the patient's age",
-        "gender": "the patient's gender",
-        "idType": "the patient's ID type",
-        "icd": "the line's diagnosis (ICD-10-AM)",
-        "payer": "the payer",
-        "policy": "the policy",
-        "class": "the policy class",
-        "channel": "the channel",
-        "store": "the store",
-        "pharmacist": "the pharmacist"
-      },
       "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> is any of <codes>{{codes}}</codes>",

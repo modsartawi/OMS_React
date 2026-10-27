@@ -9,6 +9,7 @@ import type { GuardList, GuardListAttribute, GuardListFilter, GuardRuleset } fro
 import { liveFields, type RegistryField } from '@/core/insurance-rules/registry'
 import { fieldValuesQuery } from '@/core/insurance-rules/registry-api'
 import { notify } from '@/core/services/notify'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -34,7 +35,7 @@ interface Props {
  * none does. Save PUTs the whole draft at the revision it was read; a 409 says someone saved first.
  */
 export default function ListEditor({ initial, isNew, draft, fields, onDone }: Props) {
-  const { t } = useTranslation('insurance-lists')
+  const { t, i18n } = useTranslation('insurance-lists')
   const qc = useQueryClient()
   const [list, setList] = useState<GuardList>(() => structuredClone(initial))
   const others = draft.lists.filter((l) => isNew || l.id !== initial.id)
@@ -53,7 +54,7 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
     mutationFn: () => listsApi.saveDraft({ ...draft, lists: withList(draft.lists, list, isNew ? null : initial.id) }),
     onSuccess: (saved) => {
       qc.setQueryData(GUARD_DRAFT_KEY, saved)
-      notify.success(t('editor.saved'), fsi(list.name.en))
+      notify.success(t('editor.saved'), fsi(saysIn(list.name, i18n.language)))
       onDone()
     },
     onError: (err) => {

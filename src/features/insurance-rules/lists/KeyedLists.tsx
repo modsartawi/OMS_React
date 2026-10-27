@@ -9,6 +9,7 @@ import type { KeyedList, KeyedListKind } from '@/core/insurance-rules/registry'
 import { keyedListsKey, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -82,7 +83,7 @@ function Loading() {
 }
 
 function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }) {
-  const { t } = useTranslation('insurance-lists')
+  const { t, i18n } = useTranslation('insurance-lists')
   const qc = useQueryClient()
   const entries = useQuery(entriesQuery(kind, list.id))
   const log = useQuery(logQuery(kind, list.id))
@@ -115,7 +116,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
     if (problems.length === 0 && !add.isPending) add.mutate()
   }
   const askRemove = async (key: string) => {
-    if (await confirmAction(t('keyed.removeConfirm', { key: fsi(key), list: fsi(list.name.en) }), t('keyed.removeTitle'))) remove.mutate(key)
+    if (await confirmAction(t('keyed.removeConfirm', { key: fsi(key), list: fsi(saysIn(list.name, i18n.language)) }), t('keyed.removeTitle'))) remove.mutate(key)
   }
   const shown = tried ? problems : []
 

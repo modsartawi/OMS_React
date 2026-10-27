@@ -7,14 +7,14 @@
  *   POST InsuranceRules/Exceptions                { patientKey, ruleId|null, scope, validUntil, reason, note } → GuardException
  *   POST InsuranceRules/Exceptions/{id}/Revoke    {}                   (🚩 guessed empty body)
  *   GET  InsuranceRules/Exceptions/{id}/Log       → ExceptionLogEntry[]
- *   GET  Guards/Reasons                           → GuardReasons        (the reason codes, 3134; 616 reads it too)
+ *   (the reason codes, `GET Guards/Reasons`, are read through core `guardReasonsQuery` — 616 reads them too)
  *
  * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 614): no door here has met a real SIS.Api.
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IssueExceptionBody } from './exception'
-import type { ExceptionLogEntry, GuardException, GuardReasons, ReviewMark, ReviewRow } from './model'
+import type { ExceptionLogEntry, GuardException, ReviewMark, ReviewRow } from './model'
 import type { ReviewQuery } from './review-query'
 
 export const reviewApi = {
@@ -44,15 +44,7 @@ export const reviewApi = {
   async log(id: string): Promise<ExceptionLogEntry[]> {
     return (await api.get<ExceptionLogEntry[] | null>(`${INSURANCE_RULES_BASE}/Exceptions/${encodeURIComponent(id)}/Log`)) ?? []
   },
-  reasons(): Promise<GuardReasons> {
-    return api.get<GuardReasons>('Guards/Reasons')
-  },
 }
 
 export const REVIEW_KEY = [...INSURANCE_RULES_KEY, 'review'] as const
 export const EXCEPTIONS_KEY = [...INSURANCE_RULES_KEY, 'exceptions'] as const
-export const REASONS_KEY = [...INSURANCE_RULES_KEY, 'guard-reasons'] as const
-
-export function reasonsQuery() {
-  return { queryKey: REASONS_KEY, queryFn: () => reviewApi.reasons(), staleTime: 5 * 60_000, retry: false } as const
-}

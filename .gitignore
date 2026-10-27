@@ -147,3 +147,4 @@ tools/.dmsco-theme-shots/
 tools/.bby-loy-groups-shots/
 # Simulation loyalty-group picker drive screenshots (tools/sim-loy-groups-drive.mjs, ticket 637)
 tools/.sim-loy-groups-shots/
+tools/.loy-groups-shots/

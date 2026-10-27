@@ -17,7 +17,7 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
-import { formatNumber } from '@/core/util/number-format'
+import { formatFigure } from '@/core/util/number-format'
 import { xlsxRows } from '@/core/util/xlsx-read'
 import { membersApi } from './api'
 import { bulkOutcome, type BulkOutcome, type BulkRejectedLine } from './bulk-outcome'
@@ -59,7 +59,7 @@ export default function BulkLoadDialog({ groupId, onClose, onLoaded }: { groupId
   const fileId = useId()
 
   const read = useMemo(() => mobileLines(source), [source])
-  const n = (x: number) => fsi(formatNumber(x))
+  const n = (x: number) => fsi(formatFigure(x))
 
   const load = useMutation({
     mutationFn: (lines: string[]) => membersApi.bulk({ groupId, lines }),
@@ -213,7 +213,7 @@ export default function BulkLoadDialog({ groupId, onClose, onLoaded }: { groupId
                 <div key={c.key} className="contents" data-members-bulk-count={c.key} data-count={String(c.count)}>
                   <dt className="text-muted-foreground">{t(`members.bulk.outcome.${c.key}`)}</dt>
                   <dd className="text-end tabular-nums">
-                    <Ltr>{formatNumber(c.count)}</Ltr>
+                    <Ltr>{formatFigure(c.count)}</Ltr>
                   </dd>
                 </div>
               ))}

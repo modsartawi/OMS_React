@@ -128,6 +128,10 @@ export const insuranceRulesRoute: RouteObject = {
     // 623 · versions and restore (on 622's page; a route only if it is its own)
 
     // 624 · IDF exceptions (e.g. `idf/exceptions`)
+    {
+      path: 'idf/exceptions',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/ExceptionsPage')).default }),
+    },
 
     // 625 · IDF lookup (e.g. `idf/lookup`)
 

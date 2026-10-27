@@ -17,6 +17,7 @@ import {
   docTypeConfigAccessQuery,
   documentTypeQuery,
 } from './api'
+import ChildRowTables from './ChildRowTables'
 import EditDocumentTypeDialog from './EditDocumentTypeDialog'
 import FieldValueText from './FieldValueText'
 import { FIELD_GROUPS, isLocked } from './fields'
@@ -83,6 +84,7 @@ function DocumentType({ code }: { code: string }) {
         )}
       </div>
       <SettingsGroups settings={settings} />
+      <ChildRowTables code={settings.documentType} canEdit={canEdit} />
       {canEdit && <EditDocumentTypeDialog open={editing} loaded={settings} onClose={() => setEditing(false)} />}
     </div>
   )

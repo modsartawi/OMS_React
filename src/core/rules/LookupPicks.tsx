@@ -1,12 +1,12 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, Search, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { RULE_MATERIAL_SEARCH_MIN, type RuleLookupItem, type RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
-import { LINE_CONTROL } from '@/core/ui/field-control'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
@@ -15,13 +15,6 @@ import { useDebounced } from '@/core/util/use-debounced'
 // "Certain items…" and Settings ▸ Audience (the workspace) and the Create dialog's template
 // placeholders (the list) all pick codes with it, and a feature may not import another. Its words
 // stay in the `campaign-workspace` namespace, where 506 put them.
-
-/**
- * The rule screens' input, select and textarea look — re-pointed at the shared field look in
- * ticket 595, so its callers wear the DMSCO field at once. New code uses `Input` / `Select` /
- * `Textarea` from `@/core/ui`; this constant goes in ticket 606.
- */
-export const RULE_INPUT = `${LINE_CONTROL} px-3`
 
 /** A label and its controls on the editor's grid. */
 function Step({ id, label, children }: { id: string; label: ReactNode; children: ReactNode }) {
@@ -97,31 +90,28 @@ export default function LookupPicks({
           </span>
         ))}
       </span>
-      <span className="relative flex max-w-md items-center">
-        <Search className="pointer-events-none absolute start-2 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <input
-          id={id}
-          type="search"
-          dir="auto"
-          className={`${RULE_INPUT} w-full ps-7`}
-          value={find}
-          placeholder={t(`filters.search.${kind}`)}
-          aria-controls={searching ? listId : undefined}
-          onChange={(e) => setFind(e.target.value)}
-          onKeyDown={(e) => {
-            // Escape clears a search, and only that: no enclosing dialog closes (the keydown's
-            // default is a native <dialog>'s cancel). Enter never submits an enclosing form (503's
-            // template placeholders sit in one): a code is picked by its hit.
-            if (e.key === 'Escape' && find) {
-              e.preventDefault()
-              e.stopPropagation()
-              setFind('')
-            }
-            if (e.key === 'Enter') e.preventDefault()
-          }}
-          data-lookup={data}
-        />
-      </span>
+      <Input
+        id={id}
+        type="search"
+        dir="auto"
+        className="w-full max-w-md"
+        value={find}
+        placeholder={t(`filters.search.${kind}`)}
+        aria-controls={searching ? listId : undefined}
+        onChange={(e) => setFind(e.target.value)}
+        onKeyDown={(e) => {
+          // Escape clears a search, and only that: no enclosing dialog closes (the keydown's
+          // default is a native <dialog>'s cancel). Enter never submits an enclosing form (503's
+          // template placeholders sit in one): a code is picked by its hit.
+          if (e.key === 'Escape' && find) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFind('')
+          }
+          if (e.key === 'Enter') e.preventDefault()
+        }}
+        data-lookup={data}
+      />
       {tooShort && q === find.trim() && (
         <p className="text-xs text-muted-foreground" data-lookup-short={data}>
           {t('filters.searchTooShort')}

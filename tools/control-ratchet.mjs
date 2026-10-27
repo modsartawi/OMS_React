@@ -106,9 +106,11 @@ export function scanSource(text, fileName) {
 //     src/features/oms/deliveries/QueryBar.tsx input: <one-line reason>
 //
 // `<feature> <ceiling>` at column 0. Indented lines under it are the feature's ALLOWLIST, one line
-// per allowed control: `<repo path> <tag>[: reason]`. A feature with an allowlist is SWEPT: its
-// ceiling must equal its allowlist's length, and each (file, tag) may hold no more controls than
-// the allowlist names for it. `#` lines are comments.
+// per allowed control: `<repo path> <tag>: <reason>` — the reason is required (606). A feature
+// with an allowlist is SWEPT: its ceiling must equal its allowlist's length, and each (file, tag)
+// holds exactly the controls the allowlist names for it — no more (a rise) and no fewer (a stale
+// line). Since 606 every feature is swept: a non-zero ceiling without an allowlist is a baseline
+// error, so a feature holds a hand-styled control only by name. `#` lines are comments.
 
 const FEATURE_LINE = /^(\S+)\s+(\d+)\s*$/
 const ALLOW_LINE = /^\s+(\S+)\s+(button|input|select|textarea)\s*(?::\s*(.*?))?\s*$/
@@ -124,6 +126,13 @@ export function parseBaseline(text) {
         message: `${current.feature}: ceiling ${current.ceiling} but its allowlist names ${current.allow.length} controls — a swept feature's ceiling is its allowlist`,
       })
     }
+    // 606: the ratchet equals the allowlist everywhere — a feature may hold a control only by name.
+    if (current && !current.allow.length && current.ceiling > 0) {
+      errors.push({
+        line: current.line,
+        message: `${current.feature}: ceiling ${current.ceiling} with no allowlist — name each control it may hold (\`  <path> <tag>: <reason>\`), or lower it to 0`,
+      })
+    }
   }
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = i + 1
@@ -132,7 +141,8 @@ export function parseBaseline(text) {
       const m = ALLOW_LINE.exec(raw)
       if (!m) errors.push({ line, message: `not an allowlist line (\`  <path> <button|input|select|textarea>[: reason]\`): ${raw.trim()}` })
       else if (!current) errors.push({ line, message: `allowlist line outside a feature block: ${raw.trim()}` })
-      else current.allow.push({ file: m[1], tag: m[2], reason: m[3] ?? '' })
+      else if (!m[3]) errors.push({ line, message: `an allowlisted control needs its reason (\`  <path> <tag>: <reason>\`): ${raw.trim()}` })
+      else current.allow.push({ file: m[1], tag: m[2], reason: m[3] })
       return
     }
     close()
@@ -153,8 +163,9 @@ export function parseBaseline(text) {
 
 /**
  * rowsByFeature: Map<feature, [{ file, tag, kind, line }]>; baseline: parseBaseline(...).entries.
- * → { failures: string[], lowerable: [{ feature, from, to }] }. A rise fails; a fall is only
- * reported (the ticket that made it lowers the baseline, `check-controls.mjs --lower`).
+ * → { failures: string[], lowerable: [{ feature, from, to }] }. A rise fails. In a swept feature a
+ * fall fails too (606: the allowlist line naming a control that is gone is stale). An unswept
+ * ceiling that fell (only a baseline that already errors can hold one) is reported as lowerable.
  */
 export function checkRatchet(rowsByFeature, baseline) {
   const failures = []
@@ -172,6 +183,17 @@ export function checkRatchet(rowsByFeature, baseline) {
         const k = r.file + ' ' + r.tag
         if (!actual.has(k)) actual.set(k, [])
         actual.get(k).push(r)
+      }
+      // 606: a swept feature holds exactly what its allowlist names — a line naming a control
+      // that is gone is stale, and is deleted in the change that removed the control.
+      for (const [k, may] of [...allowed].sort(([a], [b]) => a.localeCompare(b))) {
+        const has = actual.get(k)?.length ?? 0
+        if (has < may) {
+          const [file, tag] = k.split(' ')
+          failures.push(
+            `${feature}: its allowlist names ${may} <${tag}> in ${file} but the file holds ${has} — delete the stale allowlist line(s) and lower the ceiling`,
+          )
+        }
       }
       for (const [k, rs] of [...actual].sort(([a], [b]) => a.localeCompare(b))) {
         const may = allowed.get(k) ?? 0

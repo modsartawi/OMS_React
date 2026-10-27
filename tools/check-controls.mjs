@@ -63,9 +63,10 @@ const HEADER = `# The control ratchet's baseline (ticket 596, spec 590). Checked
 # \`<area>/<feature> <ceiling>\` — the most hand-written <button>/<input>/<select>/<textarea> the
 # feature may hold (checkbox/radio/hidden/file inputs and __prototype__ folders are not counted).
 # A ceiling only ever falls. An indented line under a feature allowlists ONE control:
-#   \`  <repo path> <button|input|select|textarea>: <one-line reason>\`
+#   \`  <repo path> <button|input|select|textarea>: <one-line reason>\`  (the reason is required)
 # A feature with an allowlist is SWEPT: its ceiling equals its allowlist's length and each file
-# may hold only the controls its lines name.
+# holds exactly the controls its lines name. Every feature is swept (606): a non-zero ceiling
+# without an allowlist is an error, so a hand-styled control is allowed only by name, with why.
 #
 # Lowering: \`node tools/check-controls.mjs --lower <feature>\` after a sweep; then, for what stays,
 # replace the count with the allowlist (\`--list <feature>\` prints file:line for each).`
@@ -109,7 +110,7 @@ for (const l of lowerable)
   console.log(`note: ${l.feature} fell ${l.from} → ${l.to}; lower it: node tools/check-controls.mjs --lower ${l.feature}`)
 
 if (errors.length || failures.length) {
-  console.error(`\ncontrol ratchet: ${failures.length} feature(s) above the baseline, ${errors.length} baseline error(s)`)
+  console.error(`\ncontrol ratchet: ${failures.length} feature(s) off the baseline, ${errors.length} baseline error(s)`)
   process.exit(1)
 }
-console.log(`control ratchet: ${counts.size} features, ${total} hand-styled controls, none above the baseline`)
+console.log(`control ratchet: ${counts.size} features, ${total} hand-styled controls, each one allowlisted with its reason`)

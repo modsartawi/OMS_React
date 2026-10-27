@@ -5,14 +5,15 @@ import { CheckCircle2, Copy, RefreshCw } from 'lucide-react'
 import type { PickSupportFixRequest, PickSupportShapeMatch } from '@/core/models/pick-support'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { copyText } from '@/core/util/copy-text'
 import { pickSupportApi, pickSupportKeys } from './api'
 import { Code, PickSupportFailureBanner } from './bits'
 import { FIX_REASON_MAX, FIX_REFERENCE_MAX, canConfirmFix, fixBody, fixOutcome, type FixOutcome } from './fix'
 import ShapeBody from './ShapeBody'
 
-const FIELD = 'w-full rounded-md border border-border/60 bg-background px-2 py-1 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /**
  * **Apply fix** (ticket 497, brief 2691 "The fix dialog"): a stuck shape's ONE fix, for one
@@ -180,7 +181,7 @@ export default function FixDialog({
               <label htmlFor={reasonId} className="text-xs font-medium text-muted-foreground">
                 {t('fix.reason')}
               </label>
-              <textarea
+              <Textarea
                 id={reasonId}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -189,7 +190,7 @@ export default function FixDialog({
                 required
                 dir="auto"
                 rows={3}
-                className={FIELD}
+                className="w-full"
                 data-ps-fix-reason=""
               />
               <span className="text-xs text-muted-foreground" data-ps-fix-reason-hint="">
@@ -200,7 +201,7 @@ export default function FixDialog({
               <label htmlFor={referenceId} className="text-xs font-medium text-muted-foreground">
                 {t('fix.reference')}
               </label>
-              <input
+              <Input
                 id={referenceId}
                 type="text"
                 value={reference}
@@ -209,7 +210,7 @@ export default function FixDialog({
                 disabled={pending}
                 required
                 dir="auto"
-                className={`${FIELD} max-w-sm`}
+                className="w-full max-w-sm"
                 data-ps-fix-reference=""
               />
             </div>

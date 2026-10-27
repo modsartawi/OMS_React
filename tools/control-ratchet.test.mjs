@@ -66,30 +66,45 @@ describe('featureOf', () => {
 
 const BASELINE = `# header comment
 
-campaigns/workspace 3
+campaigns/workspace 0
 
 oms/deliveries 2
   src/features/oms/deliveries/ViewsRail.tsx button: my-views rows are a row picker
-  src/features/oms/deliveries/QueryBar.tsx input
+  src/features/oms/deliveries/QueryBar.tsx input: the query bar's one-off field
 `
 
 const row = (file, tag, line = 1) => ({ file, tag, kind: tag, line })
 const byFeature = (obj) => new Map(Object.entries(obj))
 
 describe('parseBaseline', () => {
-  it('reads one ceiling per feature and the allowlisted controls under it, reason optional', () => {
+  it('reads one ceiling per feature and the allowlisted controls under it, each with its reason', () => {
     const { entries, errors } = parseBaseline(BASELINE)
     expect(errors).toEqual([])
-    expect(entries.get('campaigns/workspace')).toMatchObject({ ceiling: 3, allow: [] })
+    expect(entries.get('campaigns/workspace')).toMatchObject({ ceiling: 0, allow: [] })
     expect(entries.get('oms/deliveries').allow).toEqual([
       { file: 'src/features/oms/deliveries/ViewsRail.tsx', tag: 'button', reason: 'my-views rows are a row picker' },
-      { file: 'src/features/oms/deliveries/QueryBar.tsx', tag: 'input', reason: '' },
+      { file: 'src/features/oms/deliveries/QueryBar.tsx', tag: 'input', reason: "the query bar's one-off field" },
     ])
   })
 
   it('reports a malformed line, a duplicate feature, and an allowlist that disagrees with its ceiling', () => {
-    const { errors } = parseBaseline('a/b 2\n\na/b 1\n\nc/d x\n\ne/f 3\n  src/features/e/f/X.tsx button: one\n')
+    const { errors } = parseBaseline('a/b 0\n\na/b 0\n\nc/d x\n\ne/f 3\n  src/features/e/f/X.tsx button: one\n')
     expect(errors.map((e) => e.line)).toEqual([3, 5, 7])
+  })
+
+  // Ticket 606: the ratchet equals the allowlist everywhere, and every allowlisted control says why.
+  it('reports an allowlisted control that gives no reason', () => {
+    const { errors } = parseBaseline('a/b 1\n  src/features/a/b/X.tsx button: a row picker\n  src/features/a/b/X.tsx input\n')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].line).toBe(3)
+    expect(errors[0].message).toContain('reason')
+  })
+
+  it('reports a feature that may hold controls without an allowlist naming them', () => {
+    const { errors } = parseBaseline('a/b 2\n\nc/d 0\n')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].line).toBe(1)
+    expect(errors[0].message).toContain('a/b')
   })
 })
 
@@ -101,43 +116,43 @@ describe('checkRatchet', () => {
 
   it('passes at the baseline', () => {
     const r = checkRatchet(byFeature({
-      'campaigns/workspace': [row(ws, 'button'), row(ws, 'input'), row(ws, 'select')],
       'oms/deliveries': [row(views, 'button'), row(query, 'input')],
     }), baseline)
     expect(r.failures).toEqual([])
-    expect(r.lowerable).toEqual([])
   })
 
   it('fails when a feature rises above its ceiling, naming the feature', () => {
     const r = checkRatchet(byFeature({
-      'campaigns/workspace': [row(ws, 'button'), row(ws, 'input'), row(ws, 'select'), row(ws, 'input', 40)],
+      'oms/deliveries': [row(views, 'button'), row(query, 'input')],
+      'campaigns/workspace': [row(ws, 'input', 40)],
     }), baseline)
     expect(r.failures).toHaveLength(1)
     expect(r.failures[0]).toContain('campaigns/workspace')
-    expect(r.failures[0]).toContain('4 > 3')
+    expect(r.failures[0]).toContain('1 > 0')
   })
 
   it('fails a swept feature on a control its allowlist does not name, even at the same total', () => {
     const r = checkRatchet(byFeature({
-      'oms/deliveries': [row(views, 'button'), row(views, 'input', 12)],
+      'oms/deliveries': [row(views, 'button'), row(views, 'input', 12), row(query, 'input')],
     }), baseline)
     expect(r.failures).toHaveLength(1)
     expect(r.failures[0]).toContain(`${views}:12`)
   })
 
-  it('fails a feature missing from the baseline that carries any control (ceiling 0)', () => {
-    const r = checkRatchet(byFeature({ 'reports/new': [row('src/features/reports/new/P.tsx', 'button', 7)] }), baseline)
+  it('fails a swept feature that holds fewer controls than its allowlist names, naming the stale line', () => {
+    const r = checkRatchet(byFeature({ 'oms/deliveries': [row(views, 'button')] }), baseline)
     expect(r.failures).toHaveLength(1)
-    expect(r.failures[0]).toContain('reports/new')
+    expect(r.failures[0]).toContain(query)
+    expect(r.failures[0]).toContain('<input>')
   })
 
-  it('lists a feature that fell below its ceiling as lowerable, without failing', () => {
-    const r = checkRatchet(byFeature({ 'campaigns/workspace': [row(ws, 'button')] }), baseline)
-    expect(r.failures).toEqual([])
-    expect(r.lowerable).toEqual([
-      { feature: 'campaigns/workspace', from: 3, to: 1 },
-      { feature: 'oms/deliveries', from: 2, to: 0 },
-    ])
+  it('fails a feature missing from the baseline that carries any control (ceiling 0)', () => {
+    const r = checkRatchet(byFeature({
+      'oms/deliveries': [row(views, 'button'), row(query, 'input')],
+      'reports/new': [row('src/features/reports/new/P.tsx', 'button', 7)],
+    }), baseline)
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0]).toContain('reports/new')
   })
 })
 

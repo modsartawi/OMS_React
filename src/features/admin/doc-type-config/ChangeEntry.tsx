@@ -9,6 +9,8 @@ const KNOWN_ACTIONS = new Set<string>(CONFIG_CHANGE_ACTIONS)
 const KNOWN_KINDS = new Set<string>(CONFIG_ENTITY_TYPES)
 /** The kinds whose `documentType` names a document type (its own row and its child rows): they link to its page. */
 const DOCUMENT_TYPE_KINDS = new Set(['DocumentType', 'ItemCategoryAssignment', 'PlantNetwork'])
+/** 3154: the kinds whose `documentType` names a delivery type (its own row and its courier rows). */
+const DELIVERY_TYPE_KINDS = new Set(['DeliveryDocumentType', 'CourierAssignment'])
 
 /**
  * One change-log row (ticket 3152) — on a History tab and on the Config changes page: what changed (kind, key, action,
@@ -21,6 +23,11 @@ export default function ChangeEntry({ row, linkType = false }: { row: ConfigChan
   const action = KNOWN_ACTIONS.has(row.action) ? t(`actions.${row.action}`) : <Ltr>{row.action}</Ltr>
   const kind = KNOWN_KINDS.has(row.entityType) ? t(`entityTypes.${row.entityType}`) : <Ltr>{row.entityType}</Ltr>
   const reason = row.reason.trim()
+  const typePage = DOCUMENT_TYPE_KINDS.has(row.entityType)
+    ? '/admin/doc-types/'
+    : DELIVERY_TYPE_KINDS.has(row.entityType)
+      ? '/admin/delivery-types/'
+      : null
 
   return (
     <article className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-card p-3" data-change={row.changeId} data-change-action={row.action}>
@@ -32,8 +39,8 @@ export default function ChangeEntry({ row, linkType = false }: { row: ConfigChan
         <span className="font-mono" data-change-key="">
           <Ltr>{row.entityKey}</Ltr>
         </span>
-        {linkType && row.documentType && DOCUMENT_TYPE_KINDS.has(row.entityType) && (
-          <Link to={`/admin/doc-types/${encodeURIComponent(row.documentType)}?tab=history`} className="text-xs text-primary hover:underline" data-change-open="">
+        {linkType && row.documentType && typePage && (
+          <Link to={`${typePage}${encodeURIComponent(row.documentType)}?tab=history`} className="text-xs text-primary hover:underline" data-change-open="">
             {t('change.openType')}
           </Link>
         )}

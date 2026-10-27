@@ -10,6 +10,8 @@ export const CONFIG_ENTITY_TYPES = [
   'PlantNetwork',
   'ActionType',
   'DocumentSource',
+  /** 3154: a delivery type's courier assignment, logged under the owning delivery type (only a copy writes one). */
+  'CourierAssignment',
 ] as const
 export type ConfigEntityType = (typeof CONFIG_ENTITY_TYPES)[number]
 

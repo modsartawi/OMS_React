@@ -2,7 +2,8 @@
   "menu": {
     "documentTypes": "Document types",
     "configChanges": "Config changes",
-    "actionTypes": "Action types"
+    "actionTypes": "Action types",
+    "deliveryTypes": "Delivery types"
   },
   "title": "Document types",
   "subtitle": "Every OMS document type and its settings. A saved change is live from the next order act and is logged with its reason.",
@@ -90,7 +91,17 @@
     "deactivateDocument": "Deactivates document",
     "activateDocument": "Activates document",
     "completeDocument": "Completes document",
-    "allowedWhenCompleted": "Allowed when completed"
+    "allowedWhenCompleted": "Allowed when completed",
+    "defaultDocumentType": "Default document type",
+    "isCompeted": "Competed (callouts)",
+    "calloutRadiusKm": "Callout radius (km)",
+    "calloutStockCheck": "Callout stock check",
+    "calloutLocksDelivery": "Callout locks the delivery",
+    "calloutLifetimeMinutes": "Callout lifetime (minutes)",
+    "calloutDutyCheck": "Callout duty check",
+    "servingListId": "Serving list",
+    "deliveringPlant": "Delivering plant",
+    "courierCode": "Courier"
   },
   "value": {
     "yes": "Yes",
@@ -171,7 +182,8 @@
     "ItemCategoryAssignment": "Item category",
     "PlantNetwork": "Plant network",
     "ActionType": "Action type",
-    "DocumentSource": "Document source"
+    "DocumentSource": "Document source",
+    "CourierAssignment": "Courier assignment"
   },
   "actions": {
     "Create": "Created",
@@ -327,6 +339,57 @@
         "empty": "A description is required.",
         "tooLong": "A description is at most {{max}} characters.",
         "notPlainText": "A description may hold English letters, digits and punctuation only."
+      }
+    }
+  },
+  "deliveryTypes": {
+    "title": "Delivery types",
+    "subtitle": "Every delivery document type and its settings. A saved change is live from the next delivery and is logged with its reason.",
+    "loading": "Loading delivery types…",
+    "failed": "The delivery types could not be loaded.",
+    "empty": "No delivery types.",
+    "back": "Delivery types",
+    "notFoundTitle": "No such delivery type",
+    "detailLoading": "Loading the delivery type…",
+    "detailFailed": "The delivery type could not be loaded.",
+    "columns": {
+      "documentType": "Code",
+      "description": "Description",
+      "documentCategory": "Category",
+      "isCompeted": "Competed"
+    },
+    "categories": {
+      "D": "Delivery",
+      "T": "Delivery return"
+    },
+    "groups": {
+      "identity": "Identity",
+      "callouts": "Callouts"
+    },
+    "couriers": {
+      "title": "Courier assignments",
+      "hint": "Read-only here. A copy of this delivery type carries them.",
+      "loading": "Loading courier assignments…",
+      "failed": "The courier assignments could not be loaded.",
+      "empty": "No courier assignments.",
+      "everyPlant": "Every plant"
+    },
+    "edit": {
+      "title": "Edit delivery type {{code}}",
+      "note": "Code and category are locked. The default document type, serving list and number range must exist. The change is logged with your reason.",
+      "saved": "Delivery type {{code}} saved",
+      "stale": "Someone else changed this delivery type since you opened it. It has been reloaded: close this and make your change again."
+    },
+    "copy": {
+      "title": "Copy delivery type {{code}}",
+      "note": "The new delivery type starts with every setting of the source and its courier assignments. Every setting can be changed here — category included; once saved, code and category are locked. The copy is logged with your reason.",
+      "saved": "Delivery type {{code}} created",
+      "failed": "The copy was not created.",
+      "blockers": {
+        "codeRequired": "Enter the new delivery type's code.",
+        "codeTooLong": "A code is at most {{max}} characters.",
+        "codeExists": "{{code}} is already a delivery type; choose another code.",
+        "descriptionRequired": "Enter the new delivery type's description."
       }
     }
   }

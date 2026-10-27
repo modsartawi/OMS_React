@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
-import { documentTypeHistoryQuery } from './change-log-api'
+import { documentTypeHistoryQuery, type HistoryQuery } from './change-log-api'
 import { DOC_TYPE_TABS, docTypeTabFromParams, docTypeTabParams, type DocTypeTab } from './doc-type-tab'
 import HistoryTab from './HistoryTab'
 
@@ -10,9 +10,18 @@ const TAB_PANEL_ID = 'doc-type-tab-panel'
 /**
  * The document type page's tabs (ticket 3152): Settings (the grouped detail, the default) and History. `?tab=` is the
  * open tab; a switch REPLACES the history entry. Only the open tab is mounted, so History reads its door only when
- * opened (and afresh each time, so a save just made shows). The serving-list `ListTabs` shape.
+ * opened (and afresh each time, so a save just made shows). The serving-list `ListTabs` shape. A delivery type (3154)
+ * mounts the same tabs with its own `historyQuery`.
  */
-export default function DocumentTypeTabs({ code, settings }: { code: string; settings: ReactNode }) {
+export default function DocumentTypeTabs({
+  code,
+  settings,
+  historyQuery,
+}: {
+  code: string
+  settings: ReactNode
+  historyQuery?: HistoryQuery
+}) {
   const { t } = useTranslation('doc-type-config')
   const [params, setParams] = useSearchParams()
   const open = docTypeTabFromParams(params)
@@ -43,7 +52,7 @@ export default function DocumentTypeTabs({ code, settings }: { code: string; set
         ))}
       </div>
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`doc-type-tab-${open}`} data-tab-panel={open}>
-        {open === 'history' ? <HistoryTab query={documentTypeHistoryQuery(code)} /> : settings}
+        {open === 'history' ? <HistoryTab query={historyQuery ?? documentTypeHistoryQuery(code)} /> : settings}
       </div>
     </div>
   )

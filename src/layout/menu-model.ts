@@ -556,6 +556,20 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
+        // Delivery types (BackOffice spec 3148, ticket 3154) — delivery document types, read on the existing OMS access:
+        // the SAME probe key, call and View predicate as Document types. Placed BEFORE Action types so 3155's, 3152's
+        // and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.deliveryTypes',
+        icon: Truck,
+        routerLink: '/admin/delivery-types',
+        activePrefix: '/admin/delivery-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
         // Action types (BackOffice spec 3148, ticket 3155) — per document category, read on the existing OMS access:
         // the SAME probe key, call and View predicate as Document types (editing is the probe's second flag). Placed
         // BEFORE Config changes so 3152's and 3149's pinned order holds. 🚩 Fails closed.

@@ -15,7 +15,7 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import { DOCUMENT_TYPES_KEY, documentTypeFieldsQuery, documentTypesQuery } from './api'
 import { codeOnlyBehaviourQuery, copyApi } from './copy-api'
 import { CODE_MAX, copyDraft, copyRequest, copyState, copyWarning, setCopyField } from './copy-form'
-import { FieldInput } from './EditDocumentTypeDialog'
+import { FieldInput, useDefaultDeliveryTypeChoices } from './EditDocumentTypeDialog'
 import { fieldMetaIndex } from './field-meta'
 import { FIELD_GROUPS } from './fields'
 import { settingsRefusals } from './settings-refusal'
@@ -54,6 +54,7 @@ export default function CopyDocumentTypeDialog({
   const types = useQuery(documentTypesQuery())
   const fieldMetas = useQuery(documentTypeFieldsQuery())
   const metaIndex = fieldMetaIndex(fieldMetas.data)
+  const deliveryTypeChoices = useDefaultDeliveryTypeChoices(open, draft.defaultDeliveryType)
   const behaviour = useQuery({ ...codeOnlyBehaviourQuery('DocumentType', source.documentType), enabled: open })
   const warning = copyWarning(behaviour.data)
 
@@ -135,6 +136,7 @@ export default function CopyDocumentTypeDialog({
                     metaIndex={metaIndex}
                     refusal={refusals[def.field]}
                     locked={false}
+                    choices={def.field === 'defaultDeliveryType' ? deliveryTypeChoices : null}
                     onChange={(v) => {
                       setDraft((d) => setCopyField(d, def.field, v))
                       save.reset()

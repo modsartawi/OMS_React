@@ -12,6 +12,9 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { DOCUMENT_TYPES_KEY, DOC_TYPE_CONFIG_ERRORS, docTypeConfigApi, documentTypeFieldsQuery } from './api'
+import CodeChoiceSelect from './CodeChoiceSelect'
+import { codeChoices, type CodeChoice } from './delivery-type-form'
+import { deliveryTypesQuery } from './delivery-types-api'
 import { editState, saveRequest, setField } from './edit-form'
 import { changeLabels, fieldMetaIndex, optionsFor, type FieldMetaIndex } from './field-meta'
 import FieldValueText from './FieldValueText'
@@ -66,6 +69,7 @@ export default function EditDocumentTypeDialog({
   // (or if it failed) the coded fields are text boxes and the diff carries no label; the server refuses regardless.
   const fieldMetas = useQuery(documentTypeFieldsQuery())
   const metaIndex = fieldMetaIndex(fieldMetas.data)
+  const deliveryTypeChoices = useDefaultDeliveryTypeChoices(open, draft.defaultDeliveryType)
 
   const state = editState(loaded, draft, reasonText)
   const labels = changeLabels(state.changes, metaIndex)
@@ -111,6 +115,7 @@ export default function EditDocumentTypeDialog({
                     disabled={busy}
                     metaIndex={metaIndex}
                     refusal={refusals[def.field]}
+                    choices={def.field === 'defaultDeliveryType' ? deliveryTypeChoices : null}
                     onChange={(v) => {
                       setDraft((d) => setField(d, def.field, v))
                       save.reset()
@@ -227,9 +232,20 @@ export default function EditDocumentTypeDialog({
   )
 }
 
-/** One setting's input: a checkbox for a flag, a number for an amount, a text box clamped to the column's width;
- *  a locked field is shown, never editable. `locked` defaults to the saved type's lock (`isLocked`); the copy dialog
- *  (3153) passes `false` — nothing is locked before the first save. */
+/** Ticket 3154 (story 36): the default delivery type is chosen from the delivery types, never typed. Null while the
+ *  list loads or if it failed — the field is then a text box, and the server checks the code regardless (SDC-00013). */
+export function useDefaultDeliveryTypeChoices(open: boolean, current: string): CodeChoice[] | null {
+  const deliveryTypes = useQuery({ ...deliveryTypesQuery(), enabled: open })
+  return codeChoices(
+    deliveryTypes.data?.map((r) => ({ code: r.documentType, description: r.description })),
+    current,
+  )
+}
+
+/** One setting's input: a checkbox for a flag, a number for an amount, a dropdown for a coded setting or a code picked
+ *  from a list (`choices`, 3154), a text box clamped to the column's width; a locked field is shown, never editable.
+ *  `locked` defaults to the saved type's lock (`isLocked`); the copy dialog (3153) passes `false` — nothing is locked
+ *  before the first save. */
 export function FieldInput({
   def,
   value,
@@ -238,6 +254,7 @@ export function FieldInput({
   refusal,
   onChange,
   locked = isLocked(def.field),
+  choices = null,
 }: {
   def: FieldDef
   value: string | number | boolean
@@ -246,6 +263,7 @@ export function FieldInput({
   refusal: FieldRefusal | undefined
   onChange: (value: string | number | boolean) => void
   locked?: boolean
+  choices?: readonly CodeChoice[] | null
 }) {
   const { t } = useTranslation('doc-type-config')
   const label = t(`fields.${def.field}`)
@@ -276,6 +294,17 @@ export function FieldInput({
       <bdi>{refusal.message}</bdi>
     </p>
   )
+  if (choices) {
+    return (
+      <div className="flex flex-col gap-1" data-edit-field={def.field} data-edit-choice="">
+        <label className="flex items-center justify-between gap-2 text-sm">
+          <span>{label}</span>
+          <CodeChoiceSelect choices={choices} value={String(value ?? '')} disabled={disabled} invalid={!!refusal} onChange={onChange} />
+        </label>
+        {refused}
+      </div>
+    )
+  }
   if (options) {
     return (
       <div className="flex flex-col gap-1" data-edit-field={def.field} data-edit-coded="">

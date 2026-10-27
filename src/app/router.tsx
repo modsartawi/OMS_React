@@ -367,6 +367,19 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/doc-type-config/ActionTypesPage')).default,
         }),
       },
+      // Delivery document types (ticket 3154): the list and one delivery type (`?tab=history` its History).
+      {
+        path: 'admin/delivery-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DeliveryTypesPage')).default,
+        }),
+      },
+      {
+        path: 'admin/delivery-types/:deliveryType',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DeliveryTypePage')).default,
+        }),
+      },
       {
         path: 'admin/doc-types/:documentType',
         lazy: async () => ({

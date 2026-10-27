@@ -14,6 +14,7 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster } from './masters'
+import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -43,6 +44,17 @@ export function mastersQuery() {
 // 624 · exceptions — `idfExceptionsApi` (3166)
 
 // 625 · lookup — `idfLookupApi` (3168)
+export const IDF_LOOKUP_KEY = [...IDF_KEY, 'lookup'] as const
+export const idfLookupApi = {
+  /** `GET IdfPriority/lookup?item=&store=&payer=&documentType=` (3168) — "why this priority". `buildQuery` drops a blank document type. */
+  lookup(q: IdfLookupQuery): Promise<IdfLookupAnswer> {
+    return api.get<IdfLookupAnswer>(`${IDF_BASE}/lookup`, { item: q.item, store: q.store, payer: q.payer, documentType: q.documentType })
+  },
+}
+
+export function lookupQuery(q: IdfLookupQuery) {
+  return { queryKey: [...IDF_LOOKUP_KEY, q], queryFn: () => idfLookupApi.lookup(q), retry: false } as const
+}
 
 // 626 · events — `idfEventsApi` (3167)
 

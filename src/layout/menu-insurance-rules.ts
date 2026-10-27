@@ -7,7 +7,7 @@ import { Building2, Tags, Umbrella } from 'lucide-react' // 617
 import { ListOrdered } from 'lucide-react' // 619
 // 620 · icons
 // 624 · icons
-// 625 · icons
+import { SearchCheck } from 'lucide-react' // 625
 // 626 · icons
 import type { ShellMenuItem } from './menu-model'
 
@@ -133,6 +133,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 624 · IDF exceptions (`menu.idfExceptions`, `/insurance-rules/idf/exceptions`)
 
     // 625 · IDF lookup (`menu.idfLookup`, `/insurance-rules/idf/lookup`)
+    {
+      // 625 — "why this priority" for an item, store and payer; the search rides the URL (`?item=&store=&payer=`).
+      labelKey: 'insurance-rules:menu.idfLookup',
+      icon: SearchCheck,
+      routerLink: '/insurance-rules/idf/lookup',
+    },
 
     // 626 · IDF events (`menu.idfEvents`, `/insurance-rules/idf/events`; 627's swap report is its tab)
   ],

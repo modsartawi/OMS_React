@@ -126,6 +126,10 @@ export const insuranceRulesRoute: RouteObject = {
     // 624 · IDF exceptions (e.g. `idf/exceptions`)
 
     // 625 · IDF lookup (e.g. `idf/lookup`)
+    {
+      path: 'idf/lookup',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/LookupPage')).default }),
+    },
 
     // 626 · IDF events (e.g. `idf/events`)
 

@@ -13,6 +13,7 @@ import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { IDF_MASTER_KINDS } from './masters'
+import { IDF_TIERS } from './lookup' // 625
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -67,5 +68,24 @@ describe('insurance-idf — the keys the masters list builds exist', () => {
   it.each([areaEn, areaAr])('the IDF menu labels in the area namespace', (locale) => {
     for (const key of ['menu.idfMasters', 'menu.idfStoreLists', 'menu.idfExceptions', 'menu.idfLookup', 'menu.idfEvents'])
       expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+})
+
+// 625 · the keys the lookup builds
+describe('insurance-idf — the keys the lookup builds exist (625)', () => {
+  it.each([en, ar])('every tier word, field, column and sentence', (locale) => {
+    const keys = [
+      ...IDF_TIERS.map((k) => `lookup.tier.${k}`),
+      ...(['item', 'store', 'payer', 'documentType'] as const).map((f) => `lookup.fields.${f}`),
+      ...['item', 'description', 'priority', 'sourceTier'].map((c) => `lookup.columns.${c}`),
+      ...['title', 'lede', 'submit', 'hint', 'loading', 'failed', 'decidedBy', 'generalMaster', 'version', 'priority', 'cash'].map((k) => `lookup.${k}`),
+      ...['skippedTitle', 'skippedNone', 'groupTitle', 'lookedUp'].map((k) => `lookup.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('version and priority isolate their value as a tag', (locale) => {
+    const l = locale.lookup as Record<string, unknown>
+    expect(String(l.version)).toContain('<v>{{version}}</v>')
+    expect(String(l.priority)).toContain('<v>{{priority}}</v>')
   })
 })

@@ -31,7 +31,41 @@
   "upload": {},
   "versions": {},
   "exceptions": {},
-  "lookup": {},
+  "lookup": {
+    "title": "IDF lookup",
+    "lede": "Why this priority: for an item, a store and a payer, the master that decided, the tiers skipped before it and the ranked IDF group.",
+    "fields": {
+      "item": "Item",
+      "store": "Store",
+      "payer": "Payer",
+      "documentType": "Document type (optional)"
+    },
+    "submit": "Look up",
+    "hint": "Enter an item, a store and a payer to see why the item has its priority.",
+    "loading": "Looking up the priority…",
+    "failed": "The lookup could not be answered.",
+    "decidedBy": "Decided by",
+    "generalMaster": "The item's own priority (general master)",
+    "version": "version <v>{{version}}</v>",
+    "priority": "Priority <v>{{priority}}</v>",
+    "cash": "Cash never forces a pick: on a cash invoice the till only reminds.",
+    "skippedTitle": "Tiers skipped before it",
+    "skippedNone": "No tier was skipped: the most specific tier decided.",
+    "groupTitle": "The ranked IDF group",
+    "columns": {
+      "item": "Item",
+      "description": "Description",
+      "priority": "Priority",
+      "sourceTier": "Source tier"
+    },
+    "lookedUp": "Looked up",
+    "tier": {
+      "insurerStoreList": "Insurer on a store list",
+      "insurer": "Insurer",
+      "operationPharmacy": "Operation pharmacy",
+      "general": "General"
+    }
+  },
   "events": {},
   "report": {}
 }

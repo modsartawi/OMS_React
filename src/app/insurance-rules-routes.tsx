@@ -50,6 +50,10 @@ export const insuranceRulesRoute: RouteObject = {
     // 614 · review and exceptions (e.g. `review`, `exceptions`)
 
     // 615 · metrics, flags, rejections (e.g. `metrics`)
+    {
+      path: 'metrics',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/metrics/MetricsPage')).default }),
+    },
 
     // 617 · insurer settings, category and coverage rules (e.g. `insurers`, `categories`, `coverage`)
   ],

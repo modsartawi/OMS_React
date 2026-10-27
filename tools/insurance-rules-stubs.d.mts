@@ -47,3 +47,16 @@ export declare function editionsStub(
     refusePublish?: { status: number; message: string; errorCode: string } | null
   },
 ): (FulfillArg & { headers?: Record<string, string> }) | null
+
+// --- 615 ---
+import type { FlagRow, FlagSettings, MetricsBy, MetricsRow, RejectionRow } from '../src/features/insurance-rules/metrics/model'
+export declare const METRICS: Record<MetricsBy, MetricsRow[]>
+export declare const FLAGS: FlagRow[]
+export declare const FLAG_SETTINGS: FlagSettings
+export declare const REJECTIONS: RejectionRow[]
+export declare function insuranceMetricsStub(
+  method: string,
+  path: string,
+  query: URLSearchParams,
+  opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[] },
+): FulfillArg | null

@@ -32,3 +32,38 @@ export interface LoyGroup {
   /** 🚩 May be absent from an older door; read through `liveBonusBuysOf`, never directly. */
   liveBonusBuys: LoyGroupBonusBuy[]
 }
+
+// ── Group editor (oms ticket 630; door BackOffice 3174) ──────────────────────────────────────
+
+/** `GET LoyGroupWeb/Groups/{groupId}`: a list row plus who made and last changed it (local, no `Z`). */
+export interface LoyGroupDetail extends LoyGroup {
+  createdBy: string
+  createdAt: string
+  updatedBy: string | null
+  updatedAt: string | null
+}
+
+/** `POST LoyGroupWeb/Groups/Create` — answers the new group. */
+export interface LoyGroupCreateRequest {
+  code: string
+  nameEn: string
+  nameAr: string
+}
+
+/** `POST LoyGroupWeb/Groups/Rename`. 🚩 No `code`: a group's code never changes after create. */
+export interface LoyGroupRenameRequest {
+  groupId: string
+  nameEn: string
+  nameAr: string
+}
+
+/** One row of `GET LoyGroupWeb/Mobile/{mobile}/Groups` (BackOffice 3176): every group the mobile is in. */
+export interface LoyMobileGroup {
+  groupId: string
+  code: string
+  nameEn: string
+  /** Shown as stored — Arabic-Indic digits included. */
+  nameAr: string
+  /** Inactive groups are listed too, marked — "why did this customer get that offer". */
+  isActive: boolean
+}

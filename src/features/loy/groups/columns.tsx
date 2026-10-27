@@ -1,6 +1,7 @@
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { liveBonusBuysOf, loyGroupName } from '@/core/loy-groups/api'
 import type { LoyGroup } from '@/core/models/loy-groups'
@@ -17,6 +18,16 @@ export const GROUPS_DEFAULT_COL_DEF: ColDef = {
   filter: false,
   resizable: true,
   cellDataType: false,
+}
+
+/** The code opens the group's page (ticket 630); isolated whole, like every machine value. */
+function CodeCell(p: ICellRendererParams<LoyGroup>) {
+  if (!p.data) return null
+  return (
+    <Link to={`/loy/groups/${encodeURIComponent(p.data.groupId)}`} className="text-primary hover:underline" data-group-open={p.data.groupId}>
+      <Ltr>{p.data.code}</Ltr>
+    </Link>
+  )
 }
 
 function ActiveCell(p: ICellRendererParams<LoyGroup>) {
@@ -60,7 +71,7 @@ function BonusBuysCell(p: ICellRendererParams<LoyGroup>) {
 
 export function buildGroupColumns(t: TFunction, lang: string): ColDef<LoyGroup>[] {
   return [
-    { colId: 'code', field: 'code', headerName: t('columns.code'), width: 160, cellClass: 'font-mono' },
+    { colId: 'code', field: 'code', headerName: t('columns.code'), width: 160, cellClass: 'font-mono', cellRenderer: CodeCell },
     {
       colId: 'name',
       headerName: t('columns.name'),

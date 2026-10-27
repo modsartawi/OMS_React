@@ -1,20 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { canViewLoyGroups, loyGroupsAccessQuery, loyGroupsQuery } from '@/core/loy-groups/api'
+import { canMaintainLoyGroups, canViewLoyGroups, loyGroupsAccessQuery, loyGroupsQuery } from '@/core/loy-groups/api'
 import type { LoyGroup } from '@/core/models/loy-groups'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import Button from '@/core/ui/Button'
 import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { GROUPS_DEFAULT_COL_DEF, buildGroupColumns } from './columns'
+import CreateGroupDialog from './CreateGroupDialog'
+import MobileLookup from './MobileLookup'
 
 /**
  * Loyalty groups — `/loy/groups` (BackOffice spec 3173, oms ticket 629). Every loyalty group: code, name in
@@ -50,18 +53,31 @@ function Groups() {
   }
 
   const groups = useQuery(loyGroupsQuery(scope === 'all'))
+  // Create is a write: absent on a view-only grant (ticket 630).
+  const canMaintain = canMaintainLoyGroups(useQuery(loyGroupsAccessQuery()).data)
+  const [creating, setCreating] = useState(false)
   const lang = i18n.language
   const columns = useMemo(() => buildGroupColumns(t, lang), [t, lang])
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-loy-groups="">
-      <div role="group" aria-label={t('scope.label')} className="flex gap-1" data-loy-groups-scope={scope}>
-        {SCOPES.map((s) => (
-          <Chip key={s} on={scope === s} onClick={() => select(s)} data-scope={s}>
-            {t(`scope.${s}`)}
-          </Chip>
-        ))}
+      <MobileLookup />
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label={t('scope.label')} className="flex gap-1" data-loy-groups-scope={scope}>
+          {SCOPES.map((s) => (
+            <Chip key={s} on={scope === s} onClick={() => select(s)} data-scope={s}>
+              {t(`scope.${s}`)}
+            </Chip>
+          ))}
+        </div>
+        {canMaintain && (
+          <Button variant="primary" className="ms-auto" onClick={() => setCreating(true)} data-loy-groups-create="">
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            {t('create.open')}
+          </Button>
+        )}
       </div>
+      {canMaintain && <CreateGroupDialog open={creating} onClose={() => setCreating(false)} />}
       {groups.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(groups.error, t('failed'))} />
       ) : !groups.data ? (

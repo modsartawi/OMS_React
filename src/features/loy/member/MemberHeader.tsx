@@ -1,13 +1,17 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import type { LoyMember } from '@/core/models/loy'
+import { canViewLoyGroups, loyGroupsAccessQuery, loyGroupsQuery } from '@/core/loy-groups/api'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { fsi } from '@/core/util/bidi'
 import { formatShortDate } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 import { memberBirthDate, memberChips, type MemberChip } from './member-header'
+import { memberGroups } from './member-groups'
 
 /**
  * The member header (ticket 235, drawn by [227's prototype], variant B).
@@ -29,7 +33,7 @@ import { memberBirthDate, memberChips, type MemberChip } from './member-header'
  * shape.
  */
 export default function MemberHeader({ member }: { member: LoyMember }) {
-  const { t } = useTranslation('loy')
+  const { t, i18n } = useTranslation('loy')
   // 🚩 Shut by default, confirmed at the prototype review against open-by-default
   // and promote-some-fields-up: a screen opened forty times a day should not be
   // forty screens of PII nobody asked for.
@@ -37,6 +41,17 @@ export default function MemberHeader({ member }: { member: LoyMember }) {
 
   const chips = memberChips(member)
   const birthDate = memberBirthDate(member.birthDate)
+
+  // Loyalty groups (ticket 635). The probe is the one shared cache entry the menu leaf reads, so this
+  // costs no extra call once the shell has asked. The list is read only when there is something to
+  // name, and with inactive groups too, so a code is named whenever the server knows it.
+  const groupsAccess = useQuery(loyGroupsAccessQuery())
+  const canViewGroups = canViewLoyGroups(groupsAccess.data)
+  const groupList = useQuery({
+    ...loyGroupsQuery(true),
+    enabled: canViewGroups && Array.isArray(member.groups) && member.groups.length > 0,
+  })
+  const groups = memberGroups(member.groups, canViewGroups, groupList.data, i18n.language)
 
   return (
     <div className="overflow-hidden rounded-lg border border-border/60 bg-card">
@@ -62,6 +77,26 @@ export default function MemberHeader({ member }: { member: LoyMember }) {
                   {chipLabel(chip, t)}
                 </StatusBadge>
               ))}
+            </div>
+          )}
+          {/* 🚩 Drawn only under the view grant AND with the field present — absent is "not shown",
+              never "in no group" (ticket 635). */}
+          {groups.show && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5" data-loy-member-groups>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {t('member.groups.label')}
+              </span>
+              {groups.chips.length === 0 ? (
+                <span className="text-xs text-muted-foreground">{t('member.groups.none')}</span>
+              ) : (
+                groups.chips.map((g) => (
+                  <span key={g.code} title={fsi(g.code)} data-loy-member-group={g.code}>
+                    <StatusBadge sev="go">
+                      <bdi>{g.name}</bdi>
+                    </StatusBadge>
+                  </span>
+                ))
+              )}
             </div>
           )}
         </div>

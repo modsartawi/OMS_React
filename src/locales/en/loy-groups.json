@@ -34,6 +34,53 @@
   "bonusBuys": {
     "none": "None"
   },
+  "create": {
+    "open": "New group",
+    "title": "New loyalty group",
+    "cancel": "Cancel",
+    "submit": "Create group",
+    "saving": "Creating…",
+    "failed": "The group could not be created.",
+    "refused": "The group was not created",
+    "code": {
+      "label": "Code",
+      "hint": "Capital letters, digits, _ and -, up to {{max}} characters. It can never be changed.",
+      "required": "Enter a code.",
+      "tooLong": "The code is longer than 20 characters.",
+      "badChar": "Use only capital letters A–Z, digits, _ and -."
+    }
+  },
+  "fields": {
+    "code": "Code",
+    "nameEn": "English name",
+    "nameAr": "Arabic name"
+  },
+  "group": {
+    "back": "All loyalty groups",
+    "loading": "Loading the group…",
+    "failed": "The group could not be loaded.",
+    "save": "Save names",
+    "saving": "Saving…",
+    "saved": "Names saved.",
+    "saveFailed": "The names could not be saved.",
+    "refused": "The names were not saved",
+    "created": "Created",
+    "updated": "Last changed",
+    "never": "Never"
+  },
+  "refusal": {
+    "code": "Code"
+  },
+  "lookup": {
+    "label": "Find a mobile",
+    "placeholder": "Mobile, any spelling",
+    "submit": "Find",
+    "clear": "Clear",
+    "loading": "Looking up the mobile…",
+    "failed": "The mobile could not be looked up.",
+    "none": "{{mobile}} is in no group.",
+    "found": "Groups {{mobile}} is in, active and inactive:"
+  },
   "picker": {
     "inactive": "Inactive",
     "unknown": "Not a defined group",

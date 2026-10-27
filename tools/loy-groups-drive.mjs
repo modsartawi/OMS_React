@@ -10,7 +10,11 @@
 //   3. each row shows its code, its name in the UI language (the Arabic name as stored, Arabic-Indic digits
 //      included, falling back to English when blank), the mobile count, and its live bonus-buys — "None"
 //      for `[]` and for a row whose door omitted the field;
-//   4. no page errors.
+//   4. Find a mobile (ticket 634; `LoyGroupWeb/Mobile/{mobile}/Groups`, BackOffice 3176): the typed mobile
+//      is path-encoded and sits in `?mobile=`; a mobile in an active and an inactive group lists both,
+//      the inactive one marked, each linking to `/loy/groups/:groupId`; a refresh repeats it; none → the
+//      empty sentence; a not-a-mobile refusal shows the server's message;
+//   5. no page errors.
 //
 // 🚩 The app's language stays `en` under RTL (`core/i18n.ts`: only `<html dir>` follows `oms.locale`), so
 // RTL words in English too and the `ar` bundle is checked for key parity instead. The Arabic-as-stored
@@ -60,6 +64,26 @@ const ARABIC = { groupId: 'g-4', code: 'JEDDAH_100', nameEn: '', nameAr: 'عمل
 /** Inactive, and an older door that omitted `liveBonusBuys` altogether. */
 const OLD = { groupId: 'g-3', code: 'PILOT-01', nameEn: 'Pilot 2025', nameAr: 'تجربة ٢٠٢٥', isActive: false, mobileCount: 0 }
 
+/** `Mobile/{mobile}/Groups` rows (ticket 634): one active, one inactive. */
+const LOOKUP_VIP = { groupId: VIP.groupId, code: VIP.code, nameEn: VIP.nameEn, nameAr: VIP.nameAr, isActive: true }
+const LOOKUP_OLD = { groupId: OLD.groupId, code: OLD.code, nameEn: OLD.nameEn, nameAr: OLD.nameAr, isActive: false }
+
+/** A Loy refusal: `success:false`, the server's sentence and a stable code (brief: every refusal). */
+const refusal = (message, errorCode) => ({
+  status: 400,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: 400,
+    success: false,
+    message,
+    messageEn: message,
+    messageAr: 'ليس رقم جوال.',
+    errors: [{ errorCode, errorMessage: message }],
+    serverTime: '2026-10-27 09:41:07',
+    data: null,
+  }),
+})
+
 // ── The harness ──────────────────────────────────────────────────────────────────────────────
 
 const browser = await chromium.launch()
@@ -71,6 +95,7 @@ async function open(dir, access) {
   page.setDefaultNavigationTimeout(180000)
   const errors = []
   const asked = []
+  const looked = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of 4\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -88,10 +113,20 @@ async function open(dir, access) {
       asked.push(inactive)
       return answer(inactive === 'true' ? [VIP, STAFF, ARABIC, OLD] : [VIP, STAFF, ARABIC])
     }
+    // ── Mobile → groups (ticket 634; door BackOffice 3176) ──
+    const lookup = /^LoyGroupWeb\/Mobile\/([^/]+)\/Groups$/.exec(p)
+    if (lookup) {
+      looked.push(lookup[1])
+      const typed = decodeURIComponent(lookup[1])
+      if (!/^[+\d\s]+$/.test(typed)) return route.fulfill(refusal('Not a mobile number.', 'LOY_NOT_A_MOBILE'))
+      const digits = typed.replace(/\D/g, '')
+      if (digits.endsWith('501234567')) return answer([LOOKUP_VIP, LOOKUP_OLD])
+      return answer([])
+    }
     if (/Access$/.test(p)) return answer({ canOpen: false, screenAllowed: false, allowed: false, canAdmin: false, canOpenLoyMember: false })
     return answer([])
   })
-  return { context, page, errors, asked }
+  return { context, page, errors, asked, looked }
 }
 
 const strip = (s) => s.replace(/[⁦-⁩]/g, '').replace(/\s+/g, ' ').trim()
@@ -123,7 +158,7 @@ async function drive(dir) {
   }
 
   // ── A view grant ──
-  const { context, page, errors, asked } = await open(dir, { canView: true, canMaintain: false })
+  const { context, page, errors, asked, looked } = await open(dir, { canView: true, canMaintain: false })
   await page.goto(`${BASE}/loy/groups`)
   await page.locator('[data-loy-groups-grid]').waitFor({ timeout: 10000 })
   await leaf(page).first().waitFor({ timeout: 10000 })
@@ -160,6 +195,56 @@ async function drive(dir) {
   await page.locator('[data-scope="active"]').click()
   await row(page, 'g-3').waitFor({ state: 'detached', timeout: 10000 })
   check(`${dir} back to Active drops the inactive row`, (await row(page, 'g-3').count()) === 0)
+
+  // ── Find a mobile (ticket 634) ──
+  const lp = page
+  const found = lp.locator('[data-lookup-results]')
+  await lp.locator('[data-lookup-input]').fill('+966 50 123 4567')
+  await lp.locator('[data-lookup-submit]').click()
+  await found.waitFor({ timeout: 10000 })
+  check(`${dir} lookup: the typed mobile is path-encoded`, looked.at(-1) === '%2B966%2050%20123%204567', JSON.stringify(looked))
+  check(`${dir} lookup: the mobile sits in the URL`, new URL(lp.url()).searchParams.get('mobile') === '+966 50 123 4567', lp.url())
+  const listed = await found.locator('[data-lookup-group]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-lookup-group')}:${e.getAttribute('data-lookup-active')}`))
+  check(`${dir} lookup: an active and an inactive group both listed`, listed.join() === 'g-1:true,g-3:false', listed.join())
+  const oldText = strip(await found.locator('[data-lookup-group="g-3"]').innerText())
+  const vipText = strip(await found.locator('[data-lookup-group="g-1"]').innerText())
+  check(`${dir} lookup: the inactive group is marked Inactive, the active one is not`, oldText.includes('Inactive') && !vipText.includes('Inactive'), `${vipText} | ${oldText}`)
+  check(`${dir} lookup: each row shows its code and name`, vipText.includes('RAMADAN_VIP') && vipText.includes('Ramadan VIP'), vipText)
+  const href = await found.locator('[data-lookup-group="g-3"] a').getAttribute('href')
+  check(`${dir} lookup: each group opens its group page`, href === '/loy/groups/g-3', href)
+  await lp.screenshot({ path: `${SHOTS}/${dir}-lookup-found.png`, fullPage: true })
+
+  // A refresh repeats the search.
+  const before = looked.length
+  await lp.reload()
+  await found.waitFor({ timeout: 10000 })
+  check(`${dir} lookup: a refresh repeats the search`, looked.length > before && (await found.locator('[data-lookup-group]').count()) === 2 && (await lp.locator('[data-lookup-input]').inputValue()) === '+966 50 123 4567')
+
+  // In no group → said plainly.
+  await lp.locator('[data-lookup-input]').fill('0559999999')
+  await lp.locator('[data-lookup-submit]').click()
+  await lp.locator('[data-lookup-empty]').waitFor({ timeout: 10000 })
+  const emptyText = strip(await lp.locator('[data-lookup-empty]').innerText())
+  check(`${dir} lookup: no group reads the empty sentence`, emptyText === '0559999999 is in no group.' && (await found.count()) === 0, emptyText)
+
+  // Not a mobile → the server's message.
+  await lp.locator('[data-lookup-input]').fill('abc')
+  await lp.locator('[data-lookup-submit]').click()
+  await lp.locator('[data-lookup-refused]').waitFor({ timeout: 10000 })
+  const refusedText = strip(await lp.locator('[data-lookup-refused]').innerText())
+  check(`${dir} lookup: a not-a-mobile refusal shows the server's message`, refusedText === 'Not a mobile number.', refusedText)
+  check(`${dir} lookup: a refusal is asked once, not retried`, looked.filter((m) => m === 'abc').length === 1, JSON.stringify(looked))
+  await lp.screenshot({ path: `${SHOTS}/${dir}-lookup-refused.png`, fullPage: true })
+
+  // Scope and lookup share the URL without trampling each other; Clear drops only the mobile.
+  await lp.locator('[data-scope="all"]').click()
+  await row(lp, 'g-3').waitFor({ timeout: 10000 })
+  check(`${dir} lookup: switching scope keeps the mobile in the URL`, new URL(lp.url()).searchParams.get('mobile') === 'abc', lp.url())
+  await lp.locator('[data-lookup-clear]').click()
+  await lp.locator('[data-lookup-refused]').waitFor({ state: 'detached', timeout: 10000 })
+  const cleared = new URL(lp.url()).searchParams
+  check(`${dir} lookup: Clear drops the mobile and keeps the scope`, !cleared.has('mobile') && cleared.get('scope') === 'all', lp.url())
+
   check(`${dir} granted: no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
 }

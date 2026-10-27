@@ -3,6 +3,7 @@
     "documentTypes": "Document types",
     "configChanges": "Config changes",
     "actionTypes": "Action types",
+    "documentSources": "Document sources",
     "deliveryTypes": "Delivery types"
   },
   "title": "Document types",
@@ -92,6 +93,8 @@
     "activateDocument": "Activates document",
     "completeDocument": "Completes document",
     "allowedWhenCompleted": "Allowed when completed",
+    "documentSource": "Source",
+    "documentSourceCategory": "Category",
     "defaultDocumentType": "Default document type",
     "isCompeted": "Competed (callouts)",
     "calloutRadiusKm": "Callout radius (km)",
@@ -339,6 +342,42 @@
         "empty": "A description is required.",
         "tooLong": "A description is at most {{max}} characters.",
         "notPlainText": "A description may hold English letters, digits and punctuation only."
+      }
+    }
+  },
+  "documentSources": {
+    "title": "Document sources",
+    "subtitle": "The channels an order can come from. Category C puts a source on every call-centre agent's source list. Each change is logged with its reason.",
+    "loading": "Loading the document sources…",
+    "failed": "The document sources could not be loaded.",
+    "notFound": "No such document source.",
+    "categoryHint": "C lists the source for every call-centre agent; blank keeps it for its own entry point. An agent's own default source is not changed here.",
+    "categories": {
+      "_blank": "— (other entry points)",
+      "C": "C — call centre"
+    },
+    "tabs": {
+      "label": "Document source sections",
+      "source": "Source",
+      "history": "History"
+    },
+    "edit": {
+      "title": "Edit document source {{code}}",
+      "note": "Only the description and the category change; the code is fixed, and a source is never deleted. The change is live for new orders and logged with your reason.",
+      "saved": "Document source {{code}} saved",
+      "stale": "Someone else changed this source since you opened it. It has been refreshed: close this dialog and make your change again."
+    },
+    "copy": {
+      "title": "Copy document source {{code}}",
+      "note": "The new source starts as a copy of every column of the source; enter its code, description and category. The copy is logged with your reason.",
+      "newCode": "New code",
+      "warningTitle": "{{code}} has behaviour tied to its code that the copy will not inherit",
+      "saved": "Document source {{code}} created",
+      "blockers": {
+        "codeRequired": "Enter the new source's code.",
+        "codeTooLong": "A code is at most {{max}} characters.",
+        "codeExists": "{{code}} is already a document source; choose another code.",
+        "description": "Enter a description the source can hold."
       }
     }
   },

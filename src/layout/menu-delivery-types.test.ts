@@ -1,6 +1,6 @@
 /**
- * The Delivery types leaf (BackOffice spec 3148, ticket 3154) — in the Admin group just before Action types (whose place
- * before Config changes 3155 pins), riding the ONE configuration probe key with its View predicate.
+ * The Delivery types leaf (BackOffice spec 3148, ticket 3154) — in the Admin group just before Document sources (which
+ * 3156 pins just before Action types), riding the ONE configuration probe key with its View predicate.
  */
 import { describe, expect, it } from 'vitest'
 import { DOC_TYPE_CONFIG_ACCESS_KEY } from '@/features/admin/doc-type-config/api'
@@ -15,9 +15,9 @@ const errored: ProbeState = { isPending: false, isSuccess: false, data: undefine
 const labels = (items: ShellMenuItem[]): string[] => items.flatMap((i) => [i.labelKey, ...labels(i.items ?? [])])
 
 describe('the Delivery types leaf', () => {
-  it('sits in the Admin group, just before Action types', () => {
+  it('sits in the Admin group, just before Document sources', () => {
     const keys = admin.items!.map((i) => i.labelKey)
-    expect(keys.indexOf('doc-type-config:menu.deliveryTypes')).toBe(keys.indexOf('doc-type-config:menu.actionTypes') - 1)
+    expect(keys.indexOf('doc-type-config:menu.deliveryTypes')).toBe(keys.indexOf('doc-type-config:menu.documentSources') - 1)
     expect(leaf.routerLink).toBe('/admin/delivery-types')
   })
 

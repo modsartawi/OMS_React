@@ -213,5 +213,49 @@
       "failedHint": "The server did not answer. Try again in a moment.",
       "fileName": "config-changes"
     }
+  },
+  "childRows": {
+    "add": "Add",
+    "edit": "Edit",
+    "remove": "Remove",
+    "actions": "Actions",
+    "loading": "Loading…",
+    "failed": "The rows could not be loaded.",
+    "none": "— none —",
+    "saved": "{{what}}: row saved",
+    "removed": "{{what}}: row removed",
+    "confirmRemove": "Remove",
+    "removeNote": "This row is removed from the type now, and the change log keeps what it held.",
+    "keyLockedHint": "The key columns identify the row and cannot change: remove it and add a new one instead.",
+    "missing": "Fill in {{fields}}.",
+    "itemCategoryAssignments": {
+      "title": "Item-category assignment",
+      "empty": "No item-category assignment rows.",
+      "duplicate": "This type already has a row for this item-category group and usage.",
+      "addTitle": "Add an item-category assignment to {{code}}",
+      "editTitle": "Change an item-category assignment of {{code}}",
+      "removeTitle": "Remove an item-category assignment from {{code}}",
+      "columns": {
+        "itemCategoryGroup": "Item-category group",
+        "itemUsage": "Usage",
+        "defaultItemCategory": "Default item category",
+        "manualItemCategory1": "Manual item category 1",
+        "manualItemCategory2": "Manual item category 2",
+        "manualItemCategory3": "Manual item category 3",
+        "manualItemCategory4": "Manual item category 4"
+      }
+    },
+    "plantNetworks": {
+      "title": "Plant networks",
+      "empty": "No plant network rows.",
+      "duplicate": "This type already has a row for this plant network.",
+      "addTitle": "Add a plant network to {{code}}",
+      "editTitle": "Change a plant network of {{code}}",
+      "removeTitle": "Remove a plant network from {{code}}",
+      "columns": {
+        "plantNetworkId": "Plant network",
+        "plantCode": "Plant"
+      }
+    }
   }
 }

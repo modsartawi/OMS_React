@@ -7,7 +7,8 @@ import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
 import { flagSettingsQuery, flagsQuery } from './api'
 import { flagReason, type FlagRow } from './model'
-import { DeniedCard, Loading, RuleName, TD, TH } from './parts'
+import { RuleName, TD } from './parts'
+import { DeniedCard, Loading, TH } from '@/core/insurance-rules/parts'
 
 /**
  * The current flags with their reason (ticket 615; `GET InsuranceRules/Flags`, thresholds from
@@ -19,9 +20,9 @@ export default function FlagsTab() {
   const settings = useQuery(flagSettingsQuery())
   const s = settings.data
 
-  if (flags.isError && isBareDenial(flags.error)) return <DeniedCard hook="flags-denied" />
+  if (flags.isError && isBareDenial(flags.error)) return <DeniedCard ns="insurance-metrics" hook="flags-denied" />
   if (flags.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(flags.error, t('flags.failed'))} />
-  if (!flags.data) return <Loading>{t('flags.loading')}</Loading>
+  if (!flags.data) return <Loading text={t('flags.loading')} />
   return (
     <div className="flex flex-col gap-3" data-flags-tab="">
       <p className="text-sm text-muted-foreground" data-flag-thresholds={s ? '' : undefined}>

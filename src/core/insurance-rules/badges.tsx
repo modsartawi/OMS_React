@@ -1,24 +1,17 @@
 import { useTranslation } from 'react-i18next'
-import { SEVERITY_BADGE, type Severity } from '@/core/ui/severity'
+import type { Severity } from '@/core/ui/severity'
 import StatusBadge from '@/core/ui/StatusBadge'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
 import type { GuardFlag, GuardSeverity, GuardState } from './model'
+import { guardSeverityTone } from './tones'
 
 // The insurance rules' state, severity and flag pills (ticket 607) — one look for the Guards list, the rule
 // page and every later screen that names a rule (608–617). Words from the `insurance-rules` namespace.
 
 const STATE_SEV: Record<GuardState, Severity> = { draft: 'mute', waiting: 'warn', shadow: 'go', live: 'ok', disabled: 'mute' }
-/**
- * REFUSE > OVERRIDE > WARN: danger, violet, attention. OVERRIDE takes the `post` family (the prototype's violet;
- * `StatusBadge` has no violet severity), so the pill is drawn here in StatusBadge's own shape.
- */
-const SEVERITY_CLASS: Record<GuardSeverity, string> = {
-  REFUSE: SEVERITY_BADGE.bad,
-  OVERRIDE: 'bg-post-050 text-post-800',
-  WARN: SEVERITY_BADGE.warn,
-}
+// The severity pill is drawn here in StatusBadge's own shape: its OVERRIDE tone (violet) is not a StatusBadge severity.
 
 export function GuardStateBadge({ state }: { state: GuardState }) {
   const { t } = useTranslation('insurance-rules')
@@ -33,7 +26,7 @@ export function GuardSeverityBadge({ severity }: { severity: GuardSeverity }) {
   const { t } = useTranslation('insurance-rules')
   return (
     <span data-severity={severity}>
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${SEVERITY_CLASS[severity] ?? SEVERITY_BADGE.mute}`}>
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${guardSeverityTone(severity).badge}`}>
         {t(`severity.${severity}`, { defaultValue: severity })}
       </span>
     </span>

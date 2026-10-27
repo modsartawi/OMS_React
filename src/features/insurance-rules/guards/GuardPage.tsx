@@ -14,8 +14,8 @@ import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
-import DeniedCard from './DeniedCard'
 import OrganizeCard from './OrganizeCard' // 609
+import { DeniedCard } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Guards ▸ one rule — `/insurance-rules/guards/:ruleId` (oms ticket 607). The rule read-only,
@@ -31,7 +31,7 @@ export default function GuardPage() {
   const rule = draft.data?.rules.find((r) => r.id === ruleId)
 
   let body: ReactNode
-  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard hook="rule-denied" />
+  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard ns="insurance-guards" hook="rule-denied" />
   else if (draft.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(draft.error, t('rule.failed'))} />
   else if (!draft.data)
     body = (

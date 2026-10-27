@@ -14,8 +14,9 @@ import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
 import { insurersApi, INSURERS_KEY, settingsKey, settingsLogKey } from './api'
-import { CodeInput, DeniedCard, Loading, NumberInput, Select } from './parts'
 import { BENEFIT_MEANINGS, settingsProblems, type InsurerSettings, type SettingsIssue } from './settings'
+import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { CodeInput, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Insurers (oms ticket 617; BackOffice 3144). Each insurer's settings — contract discount,
@@ -33,9 +34,9 @@ export default function InsurersPage() {
   const payer = params.get('payer') ?? insurers.data?.[0]?.payer ?? null
 
   let body: ReactNode
-  if (insurers.isError && isBareDenial(insurers.error)) body = <DeniedCard hook="insurers-denied" />
+  if (insurers.isError && isBareDenial(insurers.error)) body = <DeniedCard ns="insurance-coverage" hook="insurers-denied" />
   else if (insurers.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(insurers.error, t('insurers.failed'))} />
-  else if (!insurers.data) body = <Loading />
+  else if (!insurers.data) body = <Loading text={t('loading')} />
   else
     body = (
       <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
@@ -74,9 +75,9 @@ export default function InsurersPage() {
 function Settings({ payer }: { payer: string }) {
   const { t } = useTranslation('insurance-coverage')
   const settings = useQuery({ queryKey: settingsKey(payer), queryFn: () => insurersApi.settings(payer), retry: false })
-  if (settings.isError && isBareDenial(settings.error)) return <DeniedCard hook="settings-denied" />
+  if (settings.isError && isBareDenial(settings.error)) return <DeniedCard ns="insurance-coverage" hook="settings-denied" />
   if (settings.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(settings.error, t('insurers.failed'))} />
-  if (!settings.data) return <Loading />
+  if (!settings.data) return <Loading text={t('loading')} />
   return <SettingsForm saved={settings.data} />
 }
 
@@ -295,7 +296,7 @@ function SettingsLog({ payer }: { payer: string }) {
           <ErrorBanner className="p-2" message={apiErrorMessage(log.error, t('log.failed'))} />
         )
       ) : !log.data ? (
-        <Loading />
+        <Loading text={t('loading')} />
       ) : log.data.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-log-empty="">
           {t('log.empty')}

@@ -9,7 +9,7 @@ import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import { fsi } from '@/core/util/bidi'
 import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi } from './api'
-import { CONTROL } from './editor-ui'
+import { CONTROL } from '@/core/insurance-rules/controls'
 
 type Mode = { kind: 'new'; parent: string } | { kind: 'rename'; path: string } | null
 

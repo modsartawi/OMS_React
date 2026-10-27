@@ -5,7 +5,7 @@ import { GUARD_PLACEHOLDERS, SUGGESTIONS, codesAreDefault, defaultCodes, insertP
 import { GUARD_SEVERITIES, type GuardEffect, type GuardRule } from '@/core/insurance-rules/model'
 import { fsi } from '@/core/util/bidi'
 import type { RuleEdit } from './ConditionEditor'
-import { CONTROL, CodeInput, Field, Issues, Select } from './editor-ui'
+import { CodeInput, CONTROL, Field, Issues, Select } from '@/core/insurance-rules/controls'
 
 // The THEN of the guard editor (ticket 608): per effect, the severity (REFUSE > OVERRIDE > WARN), the EN and
 // AR message with placeholder chips (never `{lastStore}`), the codes (defaulted from the first block until

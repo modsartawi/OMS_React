@@ -1,9 +1,7 @@
 import type { ICellRendererParams } from 'ag-grid-community'
 import StatusBadge from '@/core/ui/StatusBadge'
-import type { Severity } from '@/core/ui/severity'
 import type { OrderGuardState } from './guard-check'
-
-const SEV: Record<OrderGuardState, Severity> = { none: 'mute', actionNeeded: 'warn', pending: 'go', unchecked: 'mute' }
+import { ORDER_GUARD_STATE_SEV } from './tones'
 
 /**
  * The order list's Guard check cell (BackOffice 3142, oms ticket 616): the state's word as a pill, nothing
@@ -16,7 +14,7 @@ export function GuardStateCell(params: ICellRendererParams<{ guardState?: OrderG
   if (!state || state === 'none' || !params.value) return null
   return (
     <span data-guard-state={state}>
-      <StatusBadge sev={SEV[state] ?? 'mute'}>
+      <StatusBadge sev={ORDER_GUARD_STATE_SEV[state] ?? 'mute'}>
         <bdi>{String(params.value)}</bdi>
       </StatusBadge>
     </span>

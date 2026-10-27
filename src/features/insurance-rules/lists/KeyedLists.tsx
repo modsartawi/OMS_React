@@ -17,9 +17,9 @@ import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localToday } from '@/core/util/date-window'
 import { entriesQuery, keyedListKey, listsApi, logQuery } from './api'
-import DeniedCard from './DeniedCard'
 import { entryBody, entryProblems, type EntryForm } from './entry-form'
 import { CARD, FIELD, INPUT } from './ui'
+import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 const BLANK: EntryForm = { key: '', reason: '', expiresOn: '' }
 
@@ -33,9 +33,9 @@ export default function KeyedLists({ kind }: { kind: KeyedListKind }) {
   const [params, setParams] = useSearchParams()
   const lists = useQuery(keyedListsQuery(kind))
 
-  if (lists.isError && isBareDenial(lists.error)) return <DeniedCard hook="keyed-denied" />
+  if (lists.isError && isBareDenial(lists.error)) return <DeniedCard ns="insurance-lists" hook="keyed-denied" />
   if (lists.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(lists.error, t('keyed.failed'))} />
-  if (!lists.data) return <Loading />
+  if (!lists.data) return <Loading text={t('keyed.loading')} />
   if (lists.data.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">{t(`keyed.${kind}.none`)}</p>
 
   const picked = lists.data.find((l) => l.id === params.get('list')) ?? lists.data[0]
@@ -68,16 +68,6 @@ export default function KeyedLists({ kind }: { kind: KeyedListKind }) {
         </ul>
       </aside>
       <KeyedListPanel key={picked.id} kind={kind} list={picked} />
-    </div>
-  )
-}
-
-function Loading() {
-  const { t } = useTranslation('insurance-lists')
-  return (
-    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {t('keyed.loading')}
     </div>
   )
 }
@@ -171,7 +161,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
         {entries.isError ? (
           <ErrorBanner className="p-2" message={apiErrorMessage(entries.error, t('keyed.failed'))} />
         ) : !entries.data ? (
-          <Loading />
+          <Loading text={t('keyed.loading')} />
         ) : entries.data.length === 0 ? (
           <p className="rounded-md border border-border/60 py-4 text-center text-sm text-muted-foreground" data-entries-empty="">
             {t('keyed.noEntry')}
@@ -219,7 +209,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
         {log.isError ? (
           <ErrorBanner className="p-2" message={apiErrorMessage(log.error, t('keyed.logFailed'))} />
         ) : !log.data ? (
-          <Loading />
+          <Loading text={t('keyed.loading')} />
         ) : log.data.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('keyed.noLog')}</p>
         ) : (

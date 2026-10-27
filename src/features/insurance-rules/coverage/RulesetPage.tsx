@@ -22,9 +22,10 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { rulesetDoors, rulesetDraftKey, rulesetDraftQuery } from './api'
 import { CategoryEffectEditor, CoverageEffectLine, CoverageEffectsEditor, GroupName } from './Effects'
-import { CONTROL, DeniedCard, Issues, Loading } from './parts'
 import RuleConditions from './RuleConditions'
 import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
+import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { CONTROL, Issues } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Categories and ▸ Coverage (oms ticket 617; BackOffice 3145 / 3146). One ORDERED ruleset per
@@ -40,9 +41,9 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
   const { t } = useTranslation('insurance-coverage')
   const draft = useQuery(rulesetDraftQuery(kind))
   let body: ReactNode
-  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard hook="ruleset-denied" />
+  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard ns="insurance-coverage" hook="ruleset-denied" />
   else if (draft.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(draft.error, t('ruleset.failed'))} />
-  else if (!draft.data) body = <Loading />
+  else if (!draft.data) body = <Loading text={t('loading')} />
   else body = <Editor kind={kind} doc={draft.data} refetch={async () => (await draft.refetch()).data} />
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-ruleset-page={kind}>

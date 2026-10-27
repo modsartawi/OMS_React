@@ -4,8 +4,8 @@ import FlagsTab from './FlagsTab'
 import MetricsTab from './MetricsTab'
 import { METRICS_TABS, metricsFromParams, metricsToParams, windowOf, type MetricsQuery } from './query'
 import RejectionsTab from './RejectionsTab'
+import { INPUT } from '@/core/insurance-rules/parts'
 
-const INPUT = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
 const PANEL_ID = 'insurance-metrics-panel'
 
 /**

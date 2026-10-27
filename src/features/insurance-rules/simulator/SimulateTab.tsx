@@ -16,7 +16,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { simulatorApi } from './api'
-import { DeniedCard, INPUT, Loading, OutcomeBadge, TD, TH, TraceValueBadge } from './parts'
+import { INPUT, OutcomeBadge, TraceValueBadge } from './parts'
 import {
   SIM_CHANNELS,
   emptyLine,
@@ -32,6 +32,7 @@ import {
   type SimulateResult,
 } from './simulate'
 import { lineRules, type TracedRule, type TraceNode } from './trace'
+import { DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
 
 type RequestField = 'store' | 'payer' | 'policy' | 'class' | 'patientKey'
 const REQUEST_FIELDS: readonly RequestField[] = ['store', 'payer', 'policy', 'class', 'patientKey']
@@ -177,11 +178,11 @@ export default function SimulateTab() {
       </form>
 
       {run.isError && isBareDenial(run.error) ? (
-        <DeniedCard hook="sim-denied" />
+        <DeniedCard ns="insurance-simulator" hook="sim-denied" />
       ) : run.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(run.error, t('result.failed'))} />
       ) : run.isPending ? (
-        <Loading>{t('form.running')}</Loading>
+        <Loading text={t('form.running')} />
       ) : run.data && asked ? (
         <Result result={run.data} asked={asked} draft={draft.data ?? null} />
       ) : (

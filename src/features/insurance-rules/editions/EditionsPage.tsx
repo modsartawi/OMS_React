@@ -14,7 +14,8 @@ import { formatFigure } from '@/core/util/number-format'
 import { fsi } from '@/core/util/bidi'
 import { EDITIONS_KEY, editionsApi, historyQuery } from './api'
 import { EDITION_LISTS, editionPath, editionsFromParams, editionsToParams, liveEdition, type EditionList } from './editions'
-import { ByAt, DeniedCard, EditionStateBadge } from './parts'
+import { EditionStateBadge } from './parts'
+import { ByAt, DeniedCard } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Editions — `/insurance-rules/editions` (BackOffice 3138, oms ticket 613). The SFDA Human
@@ -108,7 +109,7 @@ function UploadCard({ list }: { list: EditionList }) {
 function History({ list }: { list: EditionList }) {
   const { t } = useTranslation('insurance-editions')
   const history = useQuery(historyQuery(list))
-  if (history.isError && isBareDenial(history.error)) return <DeniedCard hook="editions-denied" />
+  if (history.isError && isBareDenial(history.error)) return <DeniedCard ns="insurance-editions" hook="editions-denied" />
   if (history.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(history.error, t('list.failed'))} />
   if (!history.data) {
     return (

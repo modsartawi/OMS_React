@@ -18,12 +18,9 @@ import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
-import DeniedCard from './DeniedCard'
 import { fieldBody, fieldProblems, suggestKey, type FieldForm } from './field-form'
+import { DeniedCard, FORM_FIELD as FIELD, FORM_INPUT as INPUT } from '@/core/insurance-rules/parts'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'code', unit: '' }
 
 /**
@@ -39,7 +36,7 @@ export default function FieldsPage() {
   const draft = useQuery(guardDraftQuery())
 
   let body
-  if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard hook="fields-denied" />
+  if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard ns="insurance-fields" hook="fields-denied" />
   else if (fields.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(fields.error, t('page.failed'))} />
   else if (!fields.data)
     body = (

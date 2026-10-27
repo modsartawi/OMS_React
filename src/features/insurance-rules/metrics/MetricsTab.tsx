@@ -10,8 +10,9 @@ import { metricsQuery } from './api'
 import { FiresBar, Legend, OutcomeBar } from './bars'
 import DayChart from './DayChart'
 import { METRICS_BY, metricsTotals, sortMetricsRows, totalFires, type MetricsBy, type MetricsRow } from './model'
-import { DeniedCard, Loading, NUM, Pct, RuleName, TD, TH, Tile } from './parts'
+import { NUM, Pct, RuleName, TD, Tile } from './parts'
 import type { MetricsQuery } from './query'
+import { DeniedCard, Loading, TH } from '@/core/insurance-rules/parts'
 
 /** Metrics per rule, store, pharmacist or day over the window (ticket 615; `GET InsuranceRules/Metrics`). */
 export default function MetricsTab({ query, onBy }: { query: MetricsQuery; onBy: (by: MetricsBy) => void }) {
@@ -40,11 +41,11 @@ export default function MetricsTab({ query, onBy }: { query: MetricsQuery; onBy:
       </div>
 
       {metrics.isError && isBareDenial(metrics.error) ? (
-        <DeniedCard hook="metrics-denied" />
+        <DeniedCard ns="insurance-metrics" hook="metrics-denied" />
       ) : metrics.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(metrics.error, t('metrics.failed'))} />
       ) : !metrics.data ? (
-        <Loading>{t('metrics.loading')}</Loading>
+        <Loading text={t('metrics.loading')} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-5" data-tiles="">

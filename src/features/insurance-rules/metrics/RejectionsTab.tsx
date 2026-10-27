@@ -9,10 +9,10 @@ import { fsi } from '@/core/util/bidi'
 import { formatFigure, formatMoney } from '@/core/util/number-format'
 import { rejectionsQuery } from './api'
 import { rankRejections, type RejectionRow } from './model'
-import { DeniedCard, Loading, NUM, TD, TH } from './parts'
+import { NUM, TD } from './parts'
 import type { MetricsQuery } from './query'
+import { DeniedCard, INPUT, Loading, TH } from '@/core/insurance-rules/parts'
 
-const INPUT = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
 
 /**
  * The payers' rejections over the window by code (or the payer's words), payer and same kind, ranked by SAR,
@@ -27,7 +27,7 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
   const payers = useMemo(() => [...new Set([...(all.data ?? []).map((r) => r.payer), ...(query.payer ? [query.payer] : [])])].sort(), [all.data, query.payer])
   const ranked = useMemo(() => rankRejections(read.data ?? []), [read.data])
 
-  if (read.isError && isBareDenial(read.error)) return <DeniedCard hook="rejections-denied" />
+  if (read.isError && isBareDenial(read.error)) return <DeniedCard ns="insurance-metrics" hook="rejections-denied" />
   return (
     <div className="flex flex-col gap-3" data-rejections-tab="">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -47,7 +47,7 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
       {read.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(read.error, t('rejections.failed'))} />
       ) : !read.data ? (
-        <Loading>{t('rejections.loading')}</Loading>
+        <Loading text={t('rejections.loading')} />
       ) : ranked.length === 0 ? (
         <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-rejections-empty="">
           {t('rejections.empty')}

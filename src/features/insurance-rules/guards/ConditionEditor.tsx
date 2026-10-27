@@ -21,7 +21,7 @@ import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-ap
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
 import { fsi } from '@/core/util/bidi'
-import { CodeInput, Field, Issues, NumberInput, Select } from './editor-ui'
+import { CodeInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
 // to three levels, NOT on any condition — and a palette at the foot of every list to add a block. The pure

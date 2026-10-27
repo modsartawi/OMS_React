@@ -14,7 +14,7 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi, guardFoldersQuery } from './api'
-import { CONTROL } from './editor-ui'
+import { CONTROL } from '@/core/insurance-rules/controls'
 
 /**
  * The rule page's Organize card (609): move the rule to a folder (`PUT …/Folders { rules, to }`, authoring

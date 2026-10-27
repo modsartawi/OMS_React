@@ -30,7 +30,8 @@ import {
   type ExceptionForm,
   type ExceptionStatus,
 } from './exception'
-import { Code, DeniedCard, INPUT, ReasonText, TD, TH } from './shared'
+import { Code, ReasonText } from './shared'
+import { DeniedCard, INPUT, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Exceptions — `/insurance-rules/exceptions` (BackOffice 3135, oms ticket 614). An
@@ -81,7 +82,7 @@ function Exceptions() {
   })
   const listName = (id: string) => draft.data?.lists.find((l) => l.id === id)?.name
 
-  if (list.isError && isBareDenial(list.error)) return <DeniedCard hook="exceptions-denied" />
+  if (list.isError && isBareDenial(list.error)) return <DeniedCard ns="insurance-review" hook="exceptions-denied" />
   if (list.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(list.error, t('exceptions.failed'))} />
   if (!list.data) {
     return (

@@ -7,15 +7,14 @@ import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
-import type { Severity } from '@/core/ui/severity'
 import { fsi } from '@/core/util/bidi'
 import GuardDialog, { type GuardLineItem } from './GuardDialog'
 import { guardAnswer } from './guard-answer'
 import type { OrderGuards, OrderGuardState } from './guard-check'
 import { guardHeld } from './order-guards'
 import { orderGuardsApi } from './order-guards-api'
+import { ORDER_GUARD_STATE_SEV } from './tones'
 
-const STATE_SEV: Record<OrderGuardState, Severity> = { none: 'mute', actionNeeded: 'warn', pending: 'go', unchecked: 'mute' }
 
 /** An order's guard state as a pill ("Guard check: action needed"); nothing for `none` or absent. */
 export function OrderGuardStateBadge({ state }: { state: OrderGuardState | null | undefined }) {
@@ -23,7 +22,7 @@ export function OrderGuardStateBadge({ state }: { state: OrderGuardState | null 
   if (!state || state === 'none') return null
   return (
     <span data-guard-state={state}>
-      <StatusBadge sev={STATE_SEV[state] ?? 'mute'}>{t(`state.${state}`)}</StatusBadge>
+      <StatusBadge sev={ORDER_GUARD_STATE_SEV[state] ?? 'mute'}>{t(`state.${state}`)}</StatusBadge>
     </span>
   )
 }

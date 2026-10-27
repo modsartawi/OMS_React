@@ -20,10 +20,11 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
+import { GUARD_SEVERITY_TONE } from '@/core/insurance-rules/tones'
 import { backtestQuery, simulatorApi } from './api'
-import { DeniedCard, Loading, NUM, TD, TH, Tile } from './parts'
+import { Tile } from './parts'
+import { DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 
-const SEVERITY_TONE = { REFUSE: 'text-danger-800', OVERRIDE: 'text-post-800', WARN: 'text-attention-800' } as const
 
 /**
  * Back-test (ticket 612): replay the last 30 / 90 / 180 days of real requests through the guard DRAFT
@@ -62,7 +63,7 @@ export default function BacktestTab({ days, id, onDays, onStarted }: { days: Bac
       </div>
 
       {start.isError && isBareDenial(start.error) ? (
-        <DeniedCard hook="backtest-denied" />
+        <DeniedCard ns="insurance-simulator" hook="backtest-denied" />
       ) : start.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(start.error, t('backtest.startFailed'))} />
       ) : id ? (
@@ -81,9 +82,9 @@ function Report({ id }: { id: string }) {
   const bt = useQuery(backtestQuery(id))
   const draft = useQuery(guardDraftQuery())
 
-  if (bt.isError && isBareDenial(bt.error)) return <DeniedCard hook="backtest-denied" />
+  if (bt.isError && isBareDenial(bt.error)) return <DeniedCard ns="insurance-simulator" hook="backtest-denied" />
   if (bt.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(bt.error, t('backtest.failed'))} />
-  if (!bt.data) return <Loading>{t('backtest.loading')}</Loading>
+  if (!bt.data) return <Loading text={t('backtest.loading')} />
   const b = bt.data
   if (backtestRunning(b)) {
     const pct = backtestProgressPct(b)
@@ -127,7 +128,7 @@ function Done({ b, id, draftRevision }: { b: GuardBacktest; id: string; draftRev
           <Ltr>{formatNumber(fires.total)}</Ltr>
         </Tile>
         {fires.rows.map(([sev, n]) => (
-          <Tile key={sev} label={t(`insurance-rules:severity.${sev}`)} hook={sev} tone={SEVERITY_TONE[sev]}>
+          <Tile key={sev} label={t(`insurance-rules:severity.${sev}`)} hook={sev} tone={GUARD_SEVERITY_TONE[sev].text}>
             <Ltr>{formatNumber(n)}</Ltr>
           </Tile>
         ))}

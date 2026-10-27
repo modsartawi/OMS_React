@@ -20,7 +20,8 @@ import { formatDateTime } from '@/core/util/date-format'
 import { REVIEW_KEY, reviewApi } from './api'
 import { REVIEW_KINDS, type ReviewMark, type ReviewRow } from './model'
 import { EMPTY_REVIEW_QUERY, reviewFromParams, reviewToParams, type ReviewQuery } from './review-query'
-import { Code, DeniedCard, INPUT, ReasonText, TD, TH } from './shared'
+import { Code, ReasonText } from './shared'
+import { DeniedCard, INPUT, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Review — `/insurance-rules/review` (BackOffice 3141, oms ticket 614). Overrides, HQ
@@ -128,7 +129,7 @@ function Review() {
       </form>
 
       {rows.isError && isBareDenial(rows.error) ? (
-        <DeniedCard hook="review-denied" />
+        <DeniedCard ns="insurance-review" hook="review-denied" />
       ) : rows.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(rows.error, t('review.failed'))} />
       ) : !rows.data ? (

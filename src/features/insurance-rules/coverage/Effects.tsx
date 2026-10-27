@@ -11,8 +11,9 @@ import {
 } from '@/core/insurance-rules/coverage-model'
 import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
-import { Field, NumberInput, PayerMark, Select } from './parts'
+import { PayerMark } from './parts'
 import { newCoverageEffect } from './ruleset-edit'
+import { Field, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 // What a category or coverage rule does (oms 617): a category rule sets ONE group (G1 Generic · G2 Brand ·
 // G3 NonMed); a coverage rule sets any of its values, each marked as filling the payer's gap or overriding

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { Loader2, ShieldAlert } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
@@ -17,10 +17,11 @@ import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import { formatPair, fsi } from '@/core/util/bidi'
-import { formatDateTime, formatDay, toIsoDate } from '@/core/util/date-format'
+import { fsi } from '@/core/util/bidi'
+import { formatDay, toIsoDate } from '@/core/util/date-format'
 import { actionsFor, promoteGate, type ApprovalAction, type DraftApproval } from './approval'
 import { APPROVALS_KEY, approvalQuery, approvalsApi, shadowFiguresQuery, versionsQuery, type GuardVersion } from './api'
+import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 const NS = 'insurance-approvals'
 /** 612's simulator, where the back-test is run (`app/insurance-rules-routes`). */
@@ -44,7 +45,7 @@ export default function ApprovalsPage() {
 
   const error = draft.error ?? approval.error
   let body: ReactNode
-  if (error && isBareDenial(error)) body = <Denied />
+  if (error && isBareDenial(error)) body = <DeniedCard ns="insurance-approvals" hook="approvals-denied" />
   else if (error) body = <ErrorBanner className="p-3" message={apiErrorMessage(error, t('failed'))} />
   else if (!draft.data || !approval.data) body = <Loading text={t('loading')} />
   else
@@ -350,7 +351,7 @@ function VersionsSection({ author }: { author: boolean }) {
       </div>
       {versions.isError ? (
         isBareDenial(versions.error) ? (
-          <Denied />
+          <DeniedCard ns="insurance-approvals" hook="approvals-denied" />
         ) : (
           <ErrorBanner message={apiErrorMessage(versions.error, t('versions.failed'))} />
         )
@@ -423,30 +424,4 @@ function VersionRow({ v, author }: { v: GuardVersion; author: boolean }) {
 }
 
 // ── small parts ────────────────────────────────────────────────────────────────────────────────
-
-/** Who and when, one machine pair: `nalharbi · 2026-10-27 10:30`. */
-function ByAt({ by, at }: { by: string | null | undefined; at: string | null | undefined }) {
-  if (!by) return null
-  return <Ltr>{at ? formatPair(by, formatDateTime(at)) : by}</Ltr>
-}
-
-function Loading({ text }: { text: string }) {
-  return (
-    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {text}
-    </div>
-  )
-}
-
-function Denied() {
-  const { t } = useTranslation(NS)
-  return (
-    <div className="mx-auto my-6 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert" data-approvals-denied="">
-      <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-      <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
-      <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
-    </div>
-  )
-}
 

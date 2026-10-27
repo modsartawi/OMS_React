@@ -17,10 +17,10 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatCount } from '@/core/util/bidi'
 import { guardFoldersQuery, guardsQuery } from './api'
 import { GUARDS_DEFAULT_COL_DEF, buildGuardColumns } from './columns'
-import DeniedCard from './DeniedCard'
 import FolderActions from './FolderActions' // 609
 import FolderTree from './FolderTree'
 import { folderFromParams, folderToParams } from './folder-query'
+import { DeniedCard } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Guards — `/insurance-rules/guards` (BackOffice spec 3126, oms ticket 607). Every guard
@@ -61,7 +61,7 @@ function Guards() {
   const tree = useMemo(() => folderTree(all ?? [], kept ?? []), [all, kept])
   const rows = useMemo(() => (all ?? []).filter((r) => inFolder(r.folder, folder)), [all, folder])
 
-  if (guards.isError && isBareDenial(guards.error)) return <DeniedCard hook="guards-denied" />
+  if (guards.isError && isBareDenial(guards.error)) return <DeniedCard ns="insurance-guards" hook="guards-denied" />
   if (guards.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(guards.error, t('list.failed'))} />
   if (!all) {
     return (

@@ -69,4 +69,10 @@ export interface OmsAccessResult {
   canChangeDetail?: boolean
   /** `BackOfficeScreen[OmsCreateReturn,01]` — `CreateReturn`. Neither grant implies the other. */
   canCreateReturn?: boolean
+  // ── Guards on an insured order (BackOffice spec 3126, 3142/3143; client ticket 616). GUESSED flag
+  // names — the brief names the grants but no probe; 618 reconciles. Absent reads as denied.
+  /** `INS_GUARD` — answer an OVERRIDE (`@/core/insurance-rules/order-guards`). */
+  canOverrideGuard?: boolean
+  /** The release grant — release an order held for a guard check. */
+  canReleaseGuardHold?: boolean
 }

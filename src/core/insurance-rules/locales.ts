@@ -22,7 +22,9 @@ import insuranceGuardsAr from '@/locales/ar/insurance-guards.json'
 
 // 615 · imports
 
-// 616 · imports
+// 616 · imports — the guard dialog on an OMS order (core, no feature folder: `core/insurance-rules/GuardDialog`)
+import insuranceOrderGuardsEn from '@/locales/en/insurance-order-guards.json'
+import insuranceOrderGuardsAr from '@/locales/ar/insurance-order-guards.json'
 
 // 617 · imports
 
@@ -39,6 +41,7 @@ export const INSURANCE_RULES_NS = [
   // 615 · ns
 
   // 616 · ns
+  'insurance-order-guards',
 
   // 617 · ns
 ]
@@ -56,6 +59,7 @@ export const INSURANCE_RULES_EN = {
   // 615 · en
 
   // 616 · en
+  'insurance-order-guards': insuranceOrderGuardsEn,
 
   // 617 · en
 }
@@ -73,6 +77,7 @@ export const INSURANCE_RULES_AR = {
   // 615 · ar
 
   // 616 · ar
+  'insurance-order-guards': insuranceOrderGuardsAr,
 
   // 617 · ar
 }

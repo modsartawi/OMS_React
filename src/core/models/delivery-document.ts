@@ -1,3 +1,5 @@
+import type { OrderGuardState } from '@/core/insurance-rules/guard-check'
+
 /**
  * A single row of the Screen 1 results grid.
  * Returned in the `data` array of `GET SdDocumentWeb/DeliveryDocumentList`.
@@ -53,4 +55,9 @@ export interface DeliveryDocumentModel {
   documentReason: string // coded
   /** Count of this delivery's outbox jobs with `OutboxStatus = 'F'` — the triage signal. */
   failedJobsCount: number
+  /**
+   * Where the order's insurance guard check stands (BackOffice 3142, client ticket 616). Optional: an
+   * order with no guard check, or an older SIS.Api, omits it; absent reads as `none`.
+   */
+  guardState?: OrderGuardState
 }

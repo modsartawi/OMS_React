@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3126 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3126-oms-react-insurance-rules-brief.md)
 blocked-by: 607
 ---
@@ -24,8 +24,8 @@ components (in the existing orders area via a shared core piece) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `guardAnswer_requiresTriadForOverride` — pure
-- [ ] drive (stubbed)
+- [x] `guardAnswer_requiresTriadForOverride` — pure (`src/core/insurance-rules/guard-answer.test.ts`)
+- [x] drive (stubbed) — `tools/insurance-order-guards-drive.mjs` 96/96, LTR + RTL
 
 ## Boundaries
 
@@ -38,3 +38,30 @@ Gates green; drive passes.
 ## Blocked by
 
 [607](607-the-insurance-rules-area-lists-guard-rules-by-folder-with-their-flags-and-opens-a-rule-rea.md)
+
+## Comments
+
+**2026-10-27 — built on `impl/3126-616`.** Proof: `src/core/insurance-rules/guard-answer.test.ts`
+(guardAnswer_requiresTriadForOverride + REFUSE/WARN/exception/no-grant/cap cases), `order-guards.test.ts` (grants,
+held), `order-guards-i18n.test.ts` (en/ar mirror, six Arabic plural forms, every built key); drive
+`tools/insurance-order-guards-drive.mjs` 96/96 STUBBED (LTR + RTL). Typecheck, lint, vitest green.
+
+**Where it lives (no feature imports a feature):** `core/insurance-rules/guard-check.ts` (check / reasons / answer
+shapes), `guard-answer.ts` (pure form rules), `GuardDialog.tsx`, `OrderGuardPanel.tsx` (state pill, Answer, Check
+again, Release), `GuardStateCell.tsx` (list cell), `order-guards-api.ts` (doors), `order-guards.ts` (grants).
+Hooks into the OMS features: a "Guard check" column in `features/oms/deliveries/columns.ts` and the panel on
+`features/oms/document/DocumentDetailsPage.tsx`. Namespace `insurance-order-guards`. Stubs: `orderGuardsStub`,
+`GUARD_REASONS`, `ORDER_GUARDS_HELD` / `_RECHECKED`, `ORDER_GUARD_LINES` in the `// --- 616 ---` section.
+
+**Guesses where the brief is silent (618 reconciles):**
+- Order doors spelled `SdDocumentWeb/Document/{no}/Guards/Recheck|Release` to fit the existing OMS doors; the brief
+  writes `Oms/Orders/{id}/Guards/…`. Recheck is read to answer the new `guards`.
+- Grants read as two more optional flags of `GET SdDocumentWeb/Access`: `canOverrideGuard` (`INS_GUARD`) and
+  `canReleaseGuardHold`. Absent reads as denied. The brief names the grants but no probe.
+- The order DETAIL carries `guardState` and `guards` (the brief gives `guardState` to list/find-by-id rows only).
+- `GET Guards/Reasons` `accepts` is keyed by RULE id → reason codes it takes (a rule absent asks no reason); `caps`
+  keyed by reason code → uses left. A capped code is greyed once other lines' picks use it up.
+- A fired rule's `suggestion` takes the template's `suggest` shape (`maxQuantity` / `maxDaysSupply`).
+- Release body `{ reason }`, reason required (core `ReasonDialog`). Order states: `none | actionNeeded | pending |
+  unchecked`; `unchecked` shown as "Guard check: not checked".
+- Without `INS_GUARD` an OVERRIDE reads like a REFUSE ("remove or change this line"); Send stays off.

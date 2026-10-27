@@ -14,6 +14,8 @@ import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { canReleaseLock, dispatchAccessQuery } from '@/core/dispatch/access'
 import ReleaseLockDialog from '@/core/dispatch/ReleaseLockDialog'
+import OrderGuardPanel from '@/core/insurance-rules/OrderGuardPanel'
+import { canOverrideGuard, canReleaseGuardHold } from '@/core/insurance-rules/order-guards'
 import { canViewServingLists, servingListAccessQuery } from '@/core/serving-list/access'
 import type { DeliveryCalloutRecord } from '@/core/models/delivery-callout'
 import { calloutsOf, lockedCallout } from '@/core/oms/callout-moments'
@@ -753,6 +755,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 }
               />
             )}
+
+            {/*
+              The insured order's guard check (BackOffice 3142/3143, ticket 616): drawn only for an order
+              that has one. Its dialog and doors live in core; every act reads the order again.
+            */}
+            <OrderGuardPanel
+              documentNo={document.documentNo}
+              state={document.guardState}
+              guards={document.guards}
+              lineItem={(n) => {
+                const line = (document.lines ?? []).find((l) => l.lineNumber === n)
+                return line ? { code: line.itemNumber, name: line.itemDescription } : null
+              }}
+              canOverride={canOverrideGuard(access.data)}
+              canRelease={canReleaseGuardHold(access.data)}
+              onChanged={() => void reload()}
+            />
 
             {/*
               Two columns (spec 380 D4): the activity spine (ticket 403) on the start

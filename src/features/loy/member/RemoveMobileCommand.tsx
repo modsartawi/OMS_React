@@ -21,8 +21,10 @@ import CaseReferenceField from './CaseReferenceField'
 import MemberCommandDialog from './MemberCommandDialog'
 import MemberFact from './MemberFact'
 import { commandRefusalText } from './member-commands'
-import { QUIET_BUTTON, removalFieldClass } from './profile-controls'
 import { forgetRemovedMobileInSession } from './recent-searches'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The mobile **contact removal** (ticket 307, spec 301) — the command this whole
@@ -158,20 +160,19 @@ export default function RemoveMobileCommand({ member }: { member: LoyMember }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
+      <Button
+        variant="outlined"
         disabled={busy || !number}
         onClick={() => setDialogOpen(true)}
-        className={QUIET_BUTTON}
         data-testid="loy-remove-mobile"
       >
         {busy ? (
-          <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         ) : (
-          <PhoneOff className="me-1.5 h-3.5 w-3.5" aria-hidden />
+          <PhoneOff className="h-3.5 w-3.5" aria-hidden />
         )}
         {t('profile.removeMobile.action')}
-      </button>
+      </Button>
       {!number && (
         <span className="text-xs text-muted-foreground">{t('profile.removeMobile.none')}</span>
       )}
@@ -231,40 +232,28 @@ export default function RemoveMobileCommand({ member }: { member: LoyMember }) {
             testId="loy-mobile-case-reference"
           />
 
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor={LOYID_ID}
-              className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-            >
-              {t('profile.removeMobile.idLabel')}
-            </label>
-            <input
-              id={LOYID_ID}
+          <Field
+            id={LOYID_ID}
+            label={t('profile.removeMobile.idLabel')}
+            hint={t('profile.removeMobile.idHint', { loyId: member.loyId })}
+            // 🚩 Said under the field that caused it, and only once the
+            // analyst has typed something — an id half-entered is not a wrong
+            // id. Which field a problem belongs under is `removalProblem`'s to
+            // say: an over-long case reference reported here would have an
+            // analyst hunting the wrong input.
+            error={idProblem ? <span role="alert">{t(idProblem.key)}</span> : undefined}
+          >
+            <Input
               type="text"
               value={typedLoyId}
               disabled={busy}
               onChange={(event) => setTypedLoyId(event.target.value)}
               autoComplete="off"
-              aria-invalid={idProblem ? true : undefined}
-              aria-describedby={`${LOYID_ID}-hint`}
               placeholder={t('profile.removeMobile.idPlaceholder')}
-              className={removalFieldClass(!!idProblem)}
+              className="w-full"
               data-testid="loy-retyped-loyid"
             />
-            <p id={`${LOYID_ID}-hint`} className="text-[11px] text-muted-foreground">
-              {t('profile.removeMobile.idHint', { loyId: member.loyId })}
-            </p>
-            {/* 🚩 Said under the field that caused it, and only once the
-                analyst has typed something — an id half-entered is not a wrong
-                id. Which field a problem belongs under is `removalProblem`'s to
-                say: an over-long case reference reported here would have an
-                analyst hunting the wrong input. */}
-            {idProblem && (
-              <p role="alert" className="text-[11px] text-danger-800">
-                {t(idProblem.key)}
-              </p>
-            )}
-          </div>
+          </Field>
 
           {/* Why the control is dead, named for whichever half is still missing —
               the analyst is looking at a button that will not press. */}

@@ -12,6 +12,8 @@ import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
+import Input from '@/core/ui/Input'
+import Field from '@/core/ui/Field'
 
 const FORM_ID = 'copy-campaign-form'
 
@@ -84,10 +86,10 @@ export default function CopyCampaignDialog({ source, onClose }: { source: RuleDr
         }}
       >
         <p className="text-sm text-muted-foreground">{t('copy.intro')}</p>
-        <Field id="copy-id" label={t('copy.id')} value={id} dir="ltr" data="id" onChange={(v) => { setId(v); copy.reset() }} problem={idProblem && (tried || idProblem !== 'idRequired') ? t(`copy.problem.${idProblem}`) : null} />
+        <CopyField id="copy-id" label={t('copy.id')} value={id} dir="ltr" data="id" onChange={(v) => { setId(v); copy.reset() }} problem={idProblem && (tried || idProblem !== 'idRequired') ? t(`copy.problem.${idProblem}`) : null} />
         <p className="-mt-2 text-xs text-muted-foreground">{t('copy.idHint')}</p>
-        <Field id="copy-name-en" label={t('copy.nameEn')} value={nameEn} dir="ltr" data="nameEn" onChange={(v) => { setNameEn(v); copy.reset() }} problem={tried && enMissing ? t('copy.problem.nameEnRequired') : null} />
-        <Field id="copy-name-ar" label={t('copy.nameAr')} value={nameAr} dir="rtl" data="nameAr" onChange={(v) => { setNameAr(v); copy.reset() }} problem={tried && arMissing ? t('copy.problem.nameArRequired') : null} />
+        <CopyField id="copy-name-en" label={t('copy.nameEn')} value={nameEn} dir="ltr" data="nameEn" onChange={(v) => { setNameEn(v); copy.reset() }} problem={tried && enMissing ? t('copy.problem.nameEnRequired') : null} />
+        <CopyField id="copy-name-ar" label={t('copy.nameAr')} value={nameAr} dir="rtl" data="nameAr" onChange={(v) => { setNameAr(v); copy.reset() }} problem={tried && arMissing ? t('copy.problem.nameArRequired') : null} />
         {copy.isError && (
           <div data-copy-refusal="">
             <ErrorBanner className="p-2.5" title={t('actions.copyFailed')} message={isBareDenial(copy.error) ? t('copy.denied') : apiErrorMessage(copy.error, t('actions.tryAgain'))} />
@@ -98,7 +100,7 @@ export default function CopyCampaignDialog({ source, onClose }: { source: RuleDr
   )
 }
 
-function Field({
+function CopyField({
   id,
   label,
   value,
@@ -116,29 +118,8 @@ function Field({
   problem: string | null
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
-      <input
-        id={id}
-        dir={dir}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        aria-invalid={problem ? true : undefined}
-        aria-describedby={problem ? `${id}-problem` : undefined}
-        data-copy-field={data}
-        className={
-          'h-9 w-full rounded-md border bg-background px-2.5 text-sm text-foreground focus:outline-none ' +
-          (problem ? 'border-danger-border focus:border-danger' : 'border-border/60 focus:border-primary/50')
-        }
-      />
-      {problem && (
-        <p id={`${id}-problem`} className="text-xs text-danger-800" data-copy-problem={data}>
-          {problem}
-        </p>
-      )}
-    </div>
+    <Field id={id} label={label} error={problem ? <span data-copy-problem={data}>{problem}</span> : undefined}>
+      <Input dir={dir} value={value} onChange={(e) => onChange(e.target.value)} required data-copy-field={data} className="w-full" />
+    </Field>
   )
 }

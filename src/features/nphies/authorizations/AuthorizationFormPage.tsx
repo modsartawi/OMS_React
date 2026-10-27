@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, RefreshCw, ShieldAlert, TriangleAlert } from 'lucid
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { useSession } from '@/core/session'
 import { useStoreLock } from '@/core/engine-session/store-lock'
@@ -1011,7 +1012,7 @@ export default function AuthorizationFormPage() {
         >
           <Link
             to="/nphies/authorizations"
-            className="mt-2 inline-flex h-7 items-center rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+            className={buttonClass('outlined', 'mt-2')}
           >
             {t('form.fault.backToList')}
           </Link>
@@ -1168,18 +1169,13 @@ export default function AuthorizationFormPage() {
               <h2 className="text-sm font-semibold tracking-tight">
                 {t('form.lines.title', { count: liveLineCount(lines) })}
               </h2>
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                disabled={busy}
-                className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <Button type="button" variant="outlined" onClick={() => void refresh()} disabled={busy}>
                 <RefreshCw
                   className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')}
                   aria-hidden
                 />
                 {t('form.refresh')}
-              </button>
+              </Button>
             </div>
 
             <AddItemRow

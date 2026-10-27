@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation, useMatches } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/core/session'
 import { paletteOptedOut } from '@/core/commands/palette-model'
+import Button from '@/core/ui/Button'
 import { authApi } from './api'
 import AppShell from '@/layout/AppShell'
 import CommandPaletteHost from '@/layout/CommandPaletteHost'
@@ -62,13 +63,7 @@ export default function ProtectedLayout({ chromeless = false }: { chromeless?: b
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-4 text-center">
         <div className="text-base font-medium">{t('bootstrap.failedTitle')}</div>
         <p className="max-w-sm text-sm text-muted-foreground">{t('bootstrap.failedHint')}</p>
-        <button
-          type="button"
-          onClick={() => me.refetch()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          {t('actions.retry')}
-        </button>
+        <Button onClick={() => me.refetch()}>{t('actions.retry')}</Button>
       </div>
     )
   }

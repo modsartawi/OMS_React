@@ -30,6 +30,9 @@ import Button from '@/core/ui/Button'
 import ChipSection from './ChipSection'
 import { callCenterApi, MY_SOURCES_KEY } from './api'
 import { NOTE } from './console-notes'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 export interface SourceApply {
   busy: boolean
@@ -151,17 +154,13 @@ export default function SourceForm({
           </p>
         )}
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-muted-foreground" htmlFor="cc-source">
-            {t('source.field')}
-          </label>
-          <select
-            id="cc-source"
+        <Field id="cc-source" label={t('source.field')}>
+          <Select
             value={source}
             onChange={(e) => setSource(e.target.value)}
             disabled={apply.busy || options.length === 0}
             data-cc-source-select
-            className="h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]"
+            className="w-full"
           >
             <option value="">{t('source.choose')}</option>
             {options.map((option) => (
@@ -170,25 +169,20 @@ export default function SourceForm({
                 {[option.documentSource, option.description].filter(Boolean).join(' · ')}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-muted-foreground" htmlFor="cc-source-reference">
-            {t('source.reference')}
-          </label>
-          <input
-            id="cc-source-reference"
+        <Field id="cc-source-reference" label={t('source.reference')} hint={t('source.referenceHint')}>
+          <Input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             disabled={apply.busy}
             autoComplete="off"
             placeholder={t('source.referencePlaceholder')}
             data-cc-source-reference
-            className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
+            className="w-full"
           />
-          <p className="text-[11px] text-muted-foreground">{t('source.referenceHint')}</p>
-        </div>
+        </Field>
 
         {apply.error && (
           <p className={NOTE.danger} data-cc-source-error>

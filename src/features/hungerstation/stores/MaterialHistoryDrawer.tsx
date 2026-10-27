@@ -16,9 +16,8 @@ import { formatFigure as figure } from '@/core/util/number-format'
 import { materialLinesKey, storesApi } from './api'
 import { LineCells, PushStatus, PushType } from './PushCells'
 import { cappedNotice, historyRefusal, pushReading } from './sync-history'
-
-const INPUT =
-  'h-8 w-48 rounded-md border border-border/60 bg-background px-2 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * **A material's history at one HungerStation store** (ticket 554; contract `GET Sync/{store}/Lines?material=`)
@@ -71,18 +70,17 @@ export default function MaterialHistoryDrawer({ storeCode, storeName, onClose }:
             else setMaterial(next)
           }}
         >
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('material.material')}
-            <input
+          <Field label={t('material.material')}>
+            <Input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={t('material.materialPlaceholder')}
-              className={INPUT}
               dir="ltr"
+              className="w-48 font-mono"
               data-hs-material-input=""
             />
-          </label>
-          <Button type="submit" className="h-8" disabled={draft.trim() === '' || history.isFetching} data-hs-material-search="">
+          </Field>
+          <Button type="submit" disabled={draft.trim() === '' || history.isFetching} data-hs-material-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('material.search')}
           </Button>

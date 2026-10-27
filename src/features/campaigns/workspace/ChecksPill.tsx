@@ -117,7 +117,7 @@ export default function ChecksPill({
     >
       <button
         type="button"
-        className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium ${tone}`}
+        className={`inline-flex h-7 items-center gap-2 rounded-full border px-3 text-xs font-medium ${tone}`}
         aria-expanded={showList}
         aria-controls={showList ? listId : undefined}
         disabled={!failed && !verdict}

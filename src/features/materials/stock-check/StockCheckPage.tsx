@@ -11,6 +11,7 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
@@ -45,6 +46,10 @@ import {
   setAllStores,
   type StoreSelection,
 } from './store-selection'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 
 /**
  * Stock check (ticket 453, BackOffice spec 2544 stories 24–33): up to 50 materials × a store choice
@@ -74,9 +79,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
 }
 
 const PANEL = 'flex flex-col gap-2 rounded-lg border border-border/60 bg-card/40 p-3'
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 const TOGGLE = 'inline-flex items-center gap-1.5 text-xs font-medium text-foreground'
 
 /** How many store matches the finder draws at once; the rest are reached by typing more. */
@@ -160,9 +162,8 @@ function StockCheck() {
       <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_2fr]">
         {/* ── Materials ── */}
         <div className={PANEL} data-stock-materials-panel="">
-          <label className={FIELD}>
-            {t('materials.label')}
-            <textarea
+          <Field label={t('materials.label')}>
+            <Textarea
               value={draft}
               onChange={(e) => {
                 setDraft(e.target.value)
@@ -176,10 +177,10 @@ function StockCheck() {
               spellCheck={false}
               aria-invalid={list.refused.length > 0 || materialsRefused || undefined}
               aria-describedby="stock-materials-note"
-              className="min-h-40 rounded-md border border-border/60 bg-background px-2.5 py-2 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className="min-h-40 font-mono"
               data-stock-materials=""
             />
-          </label>
+          </Field>
           <div id="stock-materials-note" className="flex flex-col gap-1 text-xs">
             <span className="text-muted-foreground" data-stock-material-count={list.materials.length}>
               <Trans
@@ -384,18 +385,16 @@ function StoresPanel({
       <div className="flex flex-wrap items-end gap-2">
         {/* By code or name */}
         <div className="relative min-w-[16rem] flex-1">
-          <label className={FIELD}>
-            {t('stores.find')}
-            <input
+          <Field label={t('stores.find')}>
+            <Input
               type="search"
               value={find}
               onChange={(e) => setFind(e.target.value)}
               placeholder={t('stores.findPlaceholder')}
               autoComplete="off"
-              className={INPUT}
               data-stock-store-find=""
             />
-          </label>
+          </Field>
           {find.trim() !== '' && (
             <div
               className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-md border border-border bg-card p-1 shadow-pop"
@@ -417,7 +416,7 @@ function StoresPanel({
                       type="button"
                       disabled={chosen.has(store.storeCode)}
                       onClick={() => onSelection((s) => addStores(s, [store]))}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-start text-sm hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
                       data-stock-store-option={store.storeCode}
                     >
                       <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -443,16 +442,14 @@ function StoresPanel({
         </div>
 
         {/* A whole set */}
-        <label className={FIELD}>
-          {t('sets.kind')}
-          <select
+        <Field label={t('sets.kind')}>
+          <Select
             value={kind}
             onChange={(e) => {
               setKind(e.target.value as MaterialStoreSetKind | '')
               setSetValue('')
               addSet.reset()
             }}
-            className={INPUT}
             data-stock-set-kind=""
           >
             <option value="">{t('sets.chooseKind')}</option>
@@ -461,18 +458,17 @@ function StoresPanel({
                 {t(`sets.kinds.${k}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('sets.value')}
-          <select
+          </Select>
+        </Field>
+        <Field label={t('sets.value')}>
+          <Select
             value={setValue}
             onChange={(e) => {
               setSetValue(e.target.value)
               addSet.reset()
             }}
             disabled={kind === '' || !sets.data}
-            className={`${INPUT} min-w-[12rem]`}
+            className="min-w-[12rem]"
             data-stock-set-value=""
           >
             <option value="">{sets.isFetching ? t('sets.loading') : t('sets.chooseValue')}</option>
@@ -481,11 +477,10 @@ function StoresPanel({
                 {t('sets.option', { count: set.storeCount, label: fsi(set.label || set.value), n: fsi(figure(set.storeCount)) })}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button
           variant="outlined"
-          className="h-9"
           disabled={kind === '' || setValue === '' || addSet.isPending}
           onClick={() => addSet.mutate()}
           data-stock-set-add=""
@@ -510,7 +505,7 @@ function StoresPanel({
           )}
         </span>
         {count > 0 && !selection.all && (
-          <Button variant="text" className="h-6 px-1.5 text-xs" onClick={() => onSelection(clearStores)} data-stock-stores-clear="">
+          <Button variant="text" onClick={() => onSelection(clearStores)} data-stock-stores-clear="">
             {t('stores.clear')}
           </Button>
         )}
@@ -524,16 +519,15 @@ function StoresPanel({
               data-stock-chip={store.storeCode}
             >
               <Ltr>{formatPair(store.storeCode, store.storeName)}</Ltr>
-              <button
-                type="button"
+              <IconButton
+                variant="danger"
+                size="compact"
+                label={t('stores.remove', { store: fsi(store.storeCode) })}
                 onClick={() => onSelection((s) => removeStore(s, store.storeCode))}
-                aria-label={t('stores.remove', { store: fsi(store.storeCode) })}
-                title={t('stores.remove', { store: fsi(store.storeCode) })}
-                className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 data-stock-chip-remove=""
               >
                 <X className="h-3 w-3" aria-hidden />
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>

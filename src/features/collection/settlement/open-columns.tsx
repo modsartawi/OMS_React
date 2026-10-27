@@ -657,7 +657,7 @@ function chaseWords(t: TFunction, cell: ChaseCell): string {
 /** The quiet pill a row carries for an act of its own — *Record a chase* (287) and
  *  *Reject* (309) — one spelling so the two row actions cannot drift apart. */
 const ROW_ACTION_CLASS =
-  'shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary'
+  'shrink-0 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary'
 
 /** The bare number — the cash tab's, whose row is a receipt and carries no mark. */
 const ENTRY_NUMBER_SHAPE = {

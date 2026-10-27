@@ -41,6 +41,10 @@ import {
 } from './orders-query'
 import RawDrawer, { type RawTarget } from './RawDrawer'
 import RetryDialog, { type RetryTarget } from './RetryDialog'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
+import Select from '@/core/ui/Select'
 
 /**
  * The HungerStation orders monitor (ticket 556, BackOffice spec 3028) — the DIRECT rail's orders,
@@ -70,12 +74,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   filter: true,
   suppressHeaderMenuButton: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const CHIP =
-  'h-7 rounded-full border px-2.5 text-xs font-medium transition-colors aria-pressed:border-primary aria-pressed:bg-primary-050 aria-pressed:text-primary-800'
 
 /** An alert row — the vendor id resolves to no onboarded store — on the attention ground. */
 const ROW_ALERT = '[--ag-data-background-color:var(--attention-050)]'
@@ -151,59 +149,52 @@ function Orders() {
         data-orders-filters=""
       >
         <div className="flex flex-wrap items-end gap-2">
-          <label className={FIELD}>
-            {t('filters.from')}
-            <input type="date" value={query.from} onChange={(e) => update({ from: e.target.value })} className={INPUT} data-filter-from="" />
-          </label>
-          <label className={FIELD}>
-            {t('filters.to')}
-            <input type="date" value={query.to} onChange={(e) => update({ to: e.target.value })} className={INPUT} data-filter-to="" />
-          </label>
-          <Button variant="outlined" className="h-9" onClick={() => update({ from: today, to: today })} data-filter-today="">
+          <Field label={t('filters.from')}>
+            <Input type="date" value={query.from} onChange={(e) => update({ from: e.target.value })} data-filter-from="" />
+          </Field>
+          <Field label={t('filters.to')}>
+            <Input type="date" value={query.to} onChange={(e) => update({ to: e.target.value })} data-filter-to="" />
+          </Field>
+          <Button variant="outlined" onClick={() => update({ from: today, to: today })} data-filter-today="">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden />
             {t('filters.today')}
           </Button>
-          <label className={FIELD}>
-            {t('filters.store')}
-            <input
+          <Field label={t('filters.store')}>
+            <Input
               type="search"
               value={store}
               onChange={(e) => setStore(e.target.value)}
               placeholder={t('filters.storePlaceholder')}
               dir="ltr"
-              className={INPUT + ' w-32 font-mono'}
+              wrapperClassName="w-32 font-mono"
               data-filter-store=""
             />
-          </label>
-          <label className={FIELD}>
-            {t('filters.chain')}
-            <select value={query.chain ?? ''} onChange={(e) => update({ chain: e.target.value || null })} className={INPUT} data-filter-chain="">
+          </Field>
+          <Field label={t('filters.chain')}>
+            <Select value={query.chain ?? ''} onChange={(e) => update({ chain: e.target.value || null })} data-filter-chain="">
               <option value="">{t('filters.chainAll')}</option>
               {chainKeys.map((c) => (
                 <option key={c} value={c}>
                   {fsi(c)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className={`${FIELD} min-w-[18rem] flex-1`}>
-            {t('filters.q')}
-            <input
+            </Select>
+          </Field>
+          <Field label={t('filters.q')} className="min-w-[18rem] flex-1">
+            <Input
               type="search"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t('filters.qPlaceholder')}
-              className={INPUT}
               data-filter-q=""
             />
-          </label>
-          <Button type="submit" className="h-9" disabled={orders.isFetching || problem !== null} data-orders-search="">
+          </Field>
+          <Button type="submit" disabled={orders.isFetching || problem !== null} data-orders-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('filters.search')}
           </Button>
           <Button
             variant="outlined"
-            className="h-9"
             onClick={() => {
               setStore('')
               setText('')
@@ -219,16 +210,14 @@ function Orders() {
         <div role="group" aria-label={t('filters.outcome')} className="flex flex-wrap items-center gap-1.5" data-filter-outcomes="">
           <span className="text-xs font-medium text-muted-foreground">{t('filters.outcome')}</span>
           {ORDER_OUTCOME_FILTERS.map((o) => (
-            <button
+            <Chip
               key={o}
-              type="button"
-              aria-pressed={query.outcome.includes(o)}
+              on={query.outcome.includes(o)}
               onClick={() => update({ outcome: toggled<HungerStationOutcomeFilter>(query.outcome, o) })}
-              className={CHIP + ' border-border/60 text-foreground'}
               data-filter-outcome={o}
             >
               {t(`outcomeFilters.${o}`)}
-            </button>
+            </Chip>
           ))}
         </div>
 

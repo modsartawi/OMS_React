@@ -34,6 +34,7 @@ import {
 } from './storeday-helpers'
 import RecomputeControl from './RecomputeControl'
 import TokenBadgeView from './TokenBadgeView'
+import Chip from '@/core/ui/Chip'
 
 /**
  * One store-day (BackOffice spec 2579, ticket 461) — `/reports/sap-export/store/:code/day/:day`,
@@ -232,7 +233,7 @@ function Header({
                 data-label-chip={label}
                 data-token={token.token}
                 className={
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-shadow ' +
+                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-shadow ' +
                   LABEL_TOKEN_CLASS[token.token] +
                   (on ? ' ring-2 ring-primary/70' : ' hover:ring-1 hover:ring-primary/40')
                 }
@@ -270,18 +271,13 @@ function Header({
               const key = stateMeaningKey(code)
               const on = (filter.states as string[]).includes(code)
               return (
-                <button
+                <Chip
                   key={code}
-                  type="button"
+                  on={on}
                   // An unknown code is shown, but cannot filter: the door would refuse it.
                   disabled={!key}
                   onClick={() => onFilter((f) => toggleState(f, code))}
-                  aria-pressed={on}
                   data-state-chip={code}
-                  className={
-                    'inline-flex items-baseline gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors disabled:cursor-default ' +
-                    (on ? 'border-primary bg-primary-050 text-primary-800' : 'border-border/60 bg-card hover:bg-accent')
-                  }
                 >
                   <span className="font-mono font-medium">
                     <Ltr>{code}</Ltr>
@@ -290,7 +286,7 @@ function Header({
                   <span className="font-mono tabular-nums text-muted-foreground">
                     <Ltr>{figure(count)}</Ltr>
                   </span>
-                </button>
+                </Chip>
               )
             })}
           </div>

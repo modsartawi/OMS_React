@@ -6,8 +6,10 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { RELEASE_REASONS, type ReleaseLockResult } from '@/core/models/dispatch-board'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { dispatchApi } from './access'
 import { releaseForm, releaseRefusal } from './release'
 
@@ -104,9 +106,8 @@ export default function ReleaseLockDialog({
             </label>
           ))}
         </fieldset>
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {reason === 'Other' ? t('release.noteRequired') : t('release.noteOptional')}
-          <textarea
+        <Field label={reason === 'Other' ? t('release.noteRequired') : t('release.noteOptional')}>
+          <Textarea
             value={note}
             onChange={(e) => {
               setNote(e.target.value)
@@ -116,10 +117,10 @@ export default function ReleaseLockDialog({
             dir="auto"
             disabled={busy}
             aria-invalid={form.problem === 'noteMissing' && reason === 'Other' ? true : undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
+            className="w-full"
             data-release-note=""
           />
-        </label>
+        </Field>
         {!release.isError && form.problem && (
           <p className="text-xs text-muted-foreground" data-release-blocked={form.problem}>
             {t(`release.blocked.${form.problem}`)}

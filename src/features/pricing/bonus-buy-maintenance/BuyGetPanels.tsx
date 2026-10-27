@@ -2,10 +2,13 @@ import { type Dispatch, type ReactNode, type SetStateAction, useState } from 're
 import { useTranslation } from 'react-i18next'
 import { ClipboardPaste, Plus, TicketPlus, Trash2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import type { BbyGroupingWire } from '@/core/models/bonus-buy-maintenance'
-import { INPUT } from './fields'
 import PasteMaterialsDialog from './PasteMaterialsDialog'
 import {
   type BuyLine,
@@ -36,7 +39,8 @@ import {
 
 type SetState = Dispatch<SetStateAction<EditorState>>
 
-const CELL = `${INPUT} h-7 w-full min-w-0`
+/** A table cell's field fills its column. */
+const CELL = 'w-full min-w-0'
 
 /**
  * Buy and Get each carry their own tint so the two panels never read as one grid: Buy (what the
@@ -60,16 +64,15 @@ function Panel({ title, tone, children }: { title: string; tone: keyof typeof PA
 function LinkSelect({ label, value, onChange }: { label: string; value: LinkCategory; onChange: (v: LinkCategory) => void }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   return (
-    <label className="flex w-fit flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <select className={`${INPUT} w-44`} value={value} onChange={(e) => onChange(e.target.value as LinkCategory)}>
+    <Field label={label} className="w-fit">
+      <Select className="w-44" value={value} onChange={(e) => onChange(e.target.value as LinkCategory)}>
         {LINK_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {t(`editor.link.${c}`)}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Field>
   )
 }
 
@@ -91,7 +94,7 @@ function IdentifierCell({
   const { t } = useTranslation('bonus-buy-maintenance')
   if (type === 'grouping')
     return (
-      <select aria-label={label} className={CELL} value={value} onChange={(e) => onChange(e.target.value)}>
+      <Select aria-label={label} className={CELL} value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">{t('editor.line.pickGrouping')}</option>
         {/* A grouping the read named but the list lacks still shows, so nothing is silently re-pointed. */}
         {value && !groupings.some((g) => g.id === value) && <option value={value}>{fsi(value)}</option>}
@@ -100,10 +103,10 @@ function IdentifierCell({
             {fsi(g.id)}
           </option>
         ))}
-      </select>
+      </Select>
     )
   return (
-    <input
+    <Input
       aria-label={label}
       dir="ltr"
       className={`${CELL} font-mono`}
@@ -133,16 +136,16 @@ function DescriptionCell({ type, identifier, groupings }: { type: LineItemType; 
 function TypeCell({ value, onChange, label }: { value: LineItemType; onChange: (v: LineItemType) => void; label: string }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   return (
-    <select aria-label={label} className={CELL} value={value} onChange={(e) => onChange(e.target.value as LineItemType)}>
+    <Select aria-label={label} className={CELL} value={value} onChange={(e) => onChange(e.target.value as LineItemType)}>
       <option value="material">{t('editor.line.type.material')}</option>
       <option value="grouping">{t('editor.line.type.grouping')}</option>
-    </select>
+    </Select>
   )
 }
 
 function QuantityCell({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
-    <input
+    <Input
       aria-label={label}
       type="number"
       min={1}
@@ -164,15 +167,10 @@ function UnitCell({ uom }: { uom: string }) {
 
 function RemoveCell({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="rounded p-1 text-muted-foreground hover:text-danger-800 disabled:hidden"
-    >
+    // Hidden, not dimmed, under the page's disabled fieldset (display mode).
+    <IconButton variant="danger" size="compact" label={label} onClick={onClick} className="disabled:hidden">
       <Trash2 className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    </IconButton>
   )
 }
 
@@ -183,17 +181,16 @@ function RemoveCell({ onClick, label }: { onClick: () => void; label: string }) 
 function CouponMaterialButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   return (
-    <button
-      type="button"
-      aria-label={t('couponMaterial.action')}
-      title={t('couponMaterial.action')}
+    <IconButton
+      size="compact"
+      label={t('couponMaterial.action')}
       data-testid="bby-coupon-material"
       disabled={disabled}
       onClick={onClick}
-      className="shrink-0 rounded p-1 text-muted-foreground hover:text-primary disabled:opacity-50"
+      className="shrink-0"
     >
       <TicketPlus className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    </IconButton>
   )
 }
 
@@ -233,7 +230,7 @@ export function BuyPanel({
           value={state.linkBuy}
           onChange={(linkBuy) => setState((s) => ({ ...s, linkBuy }))}
         />
-        <label className="flex h-8 items-center gap-2 text-sm">
+        <label className="flex h-7 items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={state.minValueOn}
@@ -242,13 +239,14 @@ export function BuyPanel({
           {t('editor.buy.minValue')}
         </label>
         <div className="flex items-center gap-2">
-          <input
+          <Input
             aria-label={t('editor.buy.minAmount')}
+            data-bby-min-amount=""
             type="number"
             min={0}
             step="0.001"
             disabled={!minAmountEnabled}
-            className={`${INPUT} w-32 text-end`}
+            className="w-32 text-end"
             value={state.minValue}
             onChange={(e) => setState((s) => ({ ...s, minValue: e.target.value }))}
           />
@@ -310,9 +308,9 @@ export function BuyPanel({
                 </td>
                 <td className={`${TD} w-28`}>
                   {/* SAP defaults the buy side to Equal; the engine reads no buy-side scale. */}
-                  <select aria-label={t('editor.col.scaleType')} className={CELL} value="C" disabled>
+                  <Select aria-label={t('editor.col.scaleType')} className={CELL} value="C" disabled>
                     <option value="C">{t('editor.scale.C')}</option>
-                  </select>
+                  </Select>
                 </td>
                 <td className={TD}>
                   <RemoveCell
@@ -395,7 +393,7 @@ export function GetPanel({
         return <DescriptionCell type={l.type} identifier={l.identifier} groupings={state.groupings} />
       case 'scaleType':
         return (
-          <select
+          <Select
             aria-label={t('editor.col.scaleType')}
             className={CELL}
             value={l.scaleType}
@@ -406,7 +404,7 @@ export function GetPanel({
                 {t(`editor.scale.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
         )
       case 'quantity':
         return (
@@ -424,7 +422,7 @@ export function GetPanel({
         )
       case 'value':
         return (
-          <input
+          <Input
             aria-label={t('editor.col.value')}
             type="number"
             min={0}
@@ -447,7 +445,7 @@ export function GetPanel({
           value={state.linkGet}
           onChange={(linkGet) => setState((s) => ({ ...s, linkGet }))}
         />
-        <label className="flex h-8 items-center gap-2 text-sm">
+        <label className="flex h-7 items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={state.totalDiscountOn}
@@ -511,20 +509,19 @@ export function GetPanel({
               onChange={(discountType) => setState((s) => ({ ...s, total: { ...s.total, discountType } }))}
               withLabel
             />
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              {t('editor.total.value')}
+            <Field label={t('editor.total.value')}>
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   type="number"
                   min={0}
                   step="0.001"
-                  className={`${INPUT} w-32 text-end`}
+                  className="w-32 text-end"
                   value={state.total.value}
                   onChange={(e) => setState((s) => ({ ...s, total: { ...s.total, value: e.target.value } }))}
                 />
                 <CurrPeCell discountType={state.total.discountType} currency={currency} />
               </div>
-            </label>
+            </Field>
             <p className="text-xs text-muted-foreground">{t('editor.total.hint')}</p>
           </aside>
         )}
@@ -585,9 +582,9 @@ function DiscountTypeSelect({
 }) {
   const { t } = useTranslation('bonus-buy-maintenance')
   const select = (
-    <select
+    <Select
       aria-label={withLabel ? undefined : label}
-      className={withLabel ? `${INPUT} w-full` : CELL}
+      className={withLabel ? 'w-full' : CELL}
       value={value}
       onChange={(e) => onChange(e.target.value as DiscountType)}
     >
@@ -596,13 +593,10 @@ function DiscountTypeSelect({
           {t(`editor.discount.${d === '%' ? 'percent' : d}`)}
         </option>
       ))}
-    </select>
+    </Select>
   )
   return withLabel ? (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      {select}
-    </label>
+    <Field label={label}>{select}</Field>
   ) : (
     select
   )

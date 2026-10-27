@@ -37,6 +37,9 @@ import {
 } from './orders-query'
 import RawDrawer from './RawDrawer'
 import RetryDialog from './RetryDialog'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The Deliverect orders monitor (ticket 478, BackOffice spec 2615): every order Deliverect sent us,
@@ -68,11 +71,6 @@ const DEFAULT_COL_DEF: ColDef<Row> = {
   suppressHeaderMenuButton: true,
 }
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const CHIP =
-  'h-7 rounded-full border px-2.5 text-xs font-medium transition-colors aria-pressed:border-primary aria-pressed:bg-primary-050 aria-pressed:text-primary-800'
 
 /** A 126 row — a cancel after invoicing — is painted on the danger ground (the 480 row recipe). */
 const ROW_ALERT = '[--ag-data-background-color:var(--danger-050)]'
@@ -172,54 +170,47 @@ function Orders() {
         data-orders-filters=""
       >
         <div className="flex flex-wrap items-end gap-2">
-          <label className={FIELD}>
-            {t('filters.from')}
-            <input
+          <Field label={t('filters.from')}>
+            <Input
               type="date"
               value={query.from}
               onChange={(e) => update({ from: e.target.value })}
-              className={INPUT}
               data-filter-from=""
             />
-          </label>
-          <label className={FIELD}>
-            {t('filters.to')}
-            <input type="date" value={query.to} onChange={(e) => update({ to: e.target.value })} className={INPUT} data-filter-to="" />
-          </label>
-          <Button variant="outlined" className="h-9" onClick={() => update({ from: today, to: today })} data-filter-today="">
+          </Field>
+          <Field label={t('filters.to')}>
+            <Input type="date" value={query.to} onChange={(e) => update({ to: e.target.value })} data-filter-to="" />
+          </Field>
+          <Button variant="outlined" onClick={() => update({ from: today, to: today })} data-filter-today="">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden />
             {t('filters.today')}
           </Button>
-          <label className={FIELD}>
-            {t('filters.store')}
-            <input
+          <Field label={t('filters.store')}>
+            <Input
               type="search"
               value={store}
               onChange={(e) => setStore(e.target.value)}
               placeholder={t('filters.storePlaceholder')}
               dir="ltr"
-              className={INPUT + ' w-32 font-mono'}
+              wrapperClassName="w-32 font-mono"
               data-filter-store=""
             />
-          </label>
-          <label className={`${FIELD} min-w-[18rem] flex-1`}>
-            {t('filters.q')}
-            <input
+          </Field>
+          <Field label={t('filters.q')} className="min-w-[18rem] flex-1">
+            <Input
               type="search"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t('filters.qPlaceholder')}
-              className={INPUT}
               data-filter-q=""
             />
-          </label>
-          <Button type="submit" className="h-9" disabled={orders.isFetching || problem !== null} data-orders-search="">
+          </Field>
+          <Button type="submit" disabled={orders.isFetching || problem !== null} data-orders-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('filters.search')}
           </Button>
           <Button
             variant="outlined"
-            className="h-9"
             onClick={() => {
               setStore('')
               setText('')
@@ -236,16 +227,14 @@ function Orders() {
           <div role="group" aria-label={t('filters.outcome')} className="flex flex-wrap items-center gap-1.5" data-filter-outcomes="">
             <span className="text-xs font-medium text-muted-foreground">{t('filters.outcome')}</span>
             {ORDER_OUTCOMES.map((o) => (
-              <button
+              <Chip
                 key={o}
-                type="button"
-                aria-pressed={query.outcome.includes(o)}
+                on={query.outcome.includes(o)}
                 onClick={() => update({ outcome: toggled<DeliverectOrderOutcome>(query.outcome, o) })}
-                className={CHIP + ' border-border/60 text-foreground'}
                 data-filter-outcome={o}
               >
                 {t(`outcomes.${o}`)}
-              </button>
+              </Chip>
             ))}
           </div>
           <div role="group" aria-label={t('filters.platform')} className="flex flex-wrap items-center gap-1.5" data-filter-platforms="">
@@ -256,16 +245,15 @@ function Orders() {
               </span>
             ) : (
               platformKeys.map((p) => (
-                <button
+                <Chip
                   key={p}
-                  type="button"
-                  aria-pressed={query.platform.includes(p)}
+                  on={query.platform.includes(p)}
                   onClick={() => update({ platform: toggled(query.platform, p) })}
-                  className={CHIP + ' border-border/60 font-mono text-foreground'}
+                  className="font-mono"
                   data-filter-platform={p}
                 >
                   <Ltr>{p}</Ltr>
-                </button>
+                </Chip>
               ))
             )}
           </div>

@@ -1,13 +1,15 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
 import type { CampaignRule } from '@/core/models/rule-campaign'
 import type { RuleFormulaExpect, RuleFormulaGuide, RuleFormulaType } from '@/core/rules/formula-guide'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi, stripIsolates } from '@/core/util/bidi'
-import { INPUT, useHas } from './builder-ui'
+import { useHas } from './builder-ui'
 import { fxFields, operatorChip, recipeFormula, recipeNeedsCurrent, recipeNeedsFilter, TEXT_CHIP, type Chip, type FxField } from './fx'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import UiChip from '@/core/ui/Chip'
 
 type Tab = 'fields' | 'functions' | 'recipes'
 const TABS: Tab[] = ['fields', 'functions', 'recipes']
@@ -46,18 +48,11 @@ export default function FxHelper({
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-background p-2" data-fx-helper="">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-md border border-border/60 p-0.5" role="group" aria-label={t('fx.tabs')}>
+        <div className="inline-flex gap-1" role="group" aria-label={t('fx.tabs')}>
           {TABS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={tab === k}
-              className={'rounded px-2.5 py-1 text-xs font-medium ' + (tab === k ? 'bg-primary-050 text-primary-800' : 'text-muted-foreground hover:text-foreground')}
-              onClick={() => setTab(k)}
-              data-fx-tab={k}
-            >
+            <UiChip key={k} on={tab === k} onClick={() => setTab(k)} data-fx-tab={k}>
               {t(`fx.tab.${k}`)}
-            </button>
+            </UiChip>
           ))}
         </div>
         <Button variant="ghost" onClick={onDone} data-fx-done="">
@@ -70,30 +65,25 @@ export default function FxHelper({
       <div className="flex flex-wrap items-center gap-1" data-fx-operators="">
         <span className="me-1 text-xs text-muted-foreground">{t('fx.operators')}</span>
         {guide.operators.map((op) => (
-          <Chip key={op} onClick={() => onInsert(operatorChip(op))} label={t('fx.insertOperator', { op: fsi(op) })} data={op}>
+          <OperatorKey key={op} onClick={() => onInsert(operatorChip(op))} label={t('fx.insertOperator', { op: fsi(op) })} data={op}>
             {op}
-          </Chip>
+          </OperatorKey>
         ))}
-        <Chip onClick={() => onInsert(TEXT_CHIP)} label={t('fx.insertText')} data="text">
+        <OperatorKey onClick={() => onInsert(TEXT_CHIP)} label={t('fx.insertText')} data="text">
           {t('fx.textChip')}
-        </Chip>
+        </OperatorKey>
       </div>
       <p className="text-xs text-muted-foreground">{t('fx.hint')}</p>
     </div>
   )
 }
 
-function Chip({ onClick, label, data, children }: { onClick: () => void; label: string; data: string; children: ReactNode }) {
+/** An operator key: its glyph is the face, its accessible name says what it inserts. */
+function OperatorKey({ onClick, label, data, children }: { onClick: () => void; label: string; data: string; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      className="min-w-7 rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs hover:bg-accent"
-      aria-label={label}
-      onClick={onClick}
-      data-fx-op={data}
-    >
+    <Button variant="outlined" className="font-mono" aria-label={label} onClick={onClick} data-fx-op={data}>
       <Ltr>{children}</Ltr>
-    </button>
+    </Button>
   )
 }
 
@@ -119,10 +109,7 @@ function FieldsTab({ guide, rule, valueKey, onInsert }: { guide: RuleFormulaGuid
   const groups = [...new Set(items.map((f) => f.group))]
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="relative block">
-        <Search className="pointer-events-none absolute start-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <input className={`${INPUT} w-full ps-7`} value={find} placeholder={t('fx.search')} aria-label={t('fx.search')} onChange={(e) => setFind(e.target.value)} data-fx-search="" />
-      </label>
+      <Input type="search" wrapperClassName="w-full" value={find} placeholder={t('fx.search')} aria-label={t('fx.search')} onChange={(e) => setFind(e.target.value)} data-fx-search="" />
       <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
         {groups.map((g) => (
           <div key={g} data-fx-group={g}>
@@ -134,7 +121,7 @@ function FieldsTab({ guide, rule, valueKey, onInsert }: { guide: RuleFormulaGuid
                   <li key={f.key}>
                     <button
                       type="button"
-                      className="flex w-full items-start gap-2 rounded px-1.5 py-1 text-start hover:bg-accent"
+                      className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-start hover:bg-accent"
                       onClick={() => onInsert({ text: f.insert })}
                       data-fx-item={f.key}
                     >
@@ -212,13 +199,13 @@ function RecipesTab({
       {rule.filters.length > 0 && (
         <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {t('fx.recipeFilter')}
-          <select className={`${INPUT} h-7 text-xs`} value={filter?.id ?? ''} onChange={(e) => setFilterId(e.target.value)} data-fx-recipe-filter="">
+          <Select value={filter?.id ?? ''} onChange={(e) => setFilterId(e.target.value)} data-fx-recipe-filter="">
             {rule.filters.map((f) => (
               <option key={f.id} value={f.id}>
                 {fsi(f.name)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">

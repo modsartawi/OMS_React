@@ -31,10 +31,10 @@ import {
   readLine,
 } from "./sync-lines";
 import { TD, TH } from "@/core/ui/sheet-table";
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
-const FIELD = "flex flex-col gap-1 text-xs font-medium text-muted-foreground";
-const INPUT =
-  "h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none";
 
 const NO_FILTER: LinesFilter = { plu: "", platform: "", page: 1 };
 const NO_DRAFT = { plu: "", scope: "all" as PlatformScope, name: "" };
@@ -161,22 +161,20 @@ export default function PushLines({
             }}
             data-lines-filters=""
           >
-            <label className={FIELD}>
-              {t("lines.filters.plu")}
-              <input
+            <Field label={t("lines.filters.plu")}>
+              <Input
                 value={draft.plu}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, plu: e.target.value }))
                 }
                 placeholder={t("lines.filters.pluPlaceholder")}
-                className={INPUT + " w-40 font-mono"}
+                className="w-40 font-mono"
                 dir="ltr"
                 data-lines-plu=""
               />
-            </label>
-            <label className={FIELD}>
-              {t("lines.filters.platform")}
-              <select
+            </Field>
+            <Field label={t("lines.filters.platform")}>
+              <Select
                 value={draft.scope}
                 onChange={(e) =>
                   setDraft((d) => ({
@@ -184,7 +182,6 @@ export default function PushLines({
                     scope: e.target.value as PlatformScope,
                   }))
                 }
-                className={INPUT}
                 data-lines-platform=""
               >
                 <option value="all">{t("lines.filters.allRows")}</option>
@@ -192,21 +189,20 @@ export default function PushLines({
                 <option value="platform">
                   {t("lines.filters.onePlatform")}
                 </option>
-              </select>
-            </label>
+              </Select>
+            </Field>
             {draft.scope === "platform" && (
               // Typed, not picked: a platform first carried on page 15 can still be asked for. The
               // names the pages read so far carried are offered as suggestions.
-              <label className={FIELD}>
-                {t("lines.filters.platformName")}
-                <input
+              <Field label={t("lines.filters.platformName")}>
+                <Input
                   value={draft.name}
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, name: e.target.value }))
                   }
                   placeholder={t("lines.filters.platformNamePlaceholder")}
                   list={nameList}
-                  className={INPUT + " w-44"}
+                  className="w-44"
                   data-lines-platform-name=""
                 />
                 <datalist id={nameList}>
@@ -214,11 +210,10 @@ export default function PushLines({
                     <option key={name} value={name} />
                   ))}
                 </datalist>
-              </label>
+              </Field>
             )}
             <Button
               type="submit"
-              className="h-8"
               disabled={lines.isFetching}
               data-lines-apply=""
             >
@@ -227,7 +222,6 @@ export default function PushLines({
             </Button>
             <Button
               variant="outlined"
-              className="h-8"
               onClick={() => {
                 setDraft(NO_DRAFT);
                 setFilter(NO_FILTER);

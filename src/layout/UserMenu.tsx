@@ -122,7 +122,7 @@ export default function UserMenu({
         aria-controls={open ? MENU_ID : undefined}
         data-user-menu-button
         className={
-          'flex items-center gap-2 rounded-md text-start hover:bg-rail-accent ' +
+          'flex items-center gap-2 rounded-full text-start hover:bg-rail-accent ' +
           (expanded ? 'h-10 w-full px-1.5' : 'h-9 w-9 justify-center') +
           (open ? ' bg-rail-accent' : '')
         }

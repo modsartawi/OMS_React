@@ -5,6 +5,12 @@ import { AlertTriangle, Loader2, Lock, Send } from 'lucide-react'
 import { notify } from '@/core/services/notify'
 import { confirmAction } from '@/core/services/confirm'
 import Ltr from '@/core/ui/Ltr'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import Textarea from '@/core/ui/Textarea'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { lookupQueries } from '@/core/services/lookups'
 import { broadcastApi } from './api'
@@ -124,13 +130,12 @@ function ComposeCard() {
               <Ltr>{formatCount(form.title.length, TITLE_MAX)}</Ltr>
             </span>
           </div>
-          <input
+          <Input
             id="bc-title"
             type="text"
             value={form.title}
             onChange={(e) => set('title', e.target.value)}
             placeholder={t('placeholder.title')}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
@@ -144,42 +149,32 @@ function ComposeCard() {
               <Ltr>{formatCount(form.body.length, BODY_MAX)}</Ltr>
             </span>
           </div>
-          <textarea
+          <Textarea
             id="bc-body"
             value={form.body}
             onChange={(e) => set('body', e.target.value)}
             placeholder={t('placeholder.message')}
-            className="min-h-[88px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            className="min-h-[88px] resize-y"
           />
         </div>
 
         {/* Channel */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold">{t('field.sendTo')}</label>
-          <div className="inline-flex w-fit gap-1 rounded-full bg-muted p-1" role="tablist">
+          <div className="inline-flex w-fit gap-1" role="tablist">
             {(['all', 'store'] as BroadcastChannel[]).map((ch) => (
-              <button
-                key={ch}
-                type="button"
-                role="tab"
-                aria-selected={form.channel === ch}
-                onClick={() => set('channel', ch)}
-                className={
-                  'rounded-full px-4 py-1.5 text-sm font-medium transition-colors ' +
-                  (form.channel === ch ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')
-                }
-              >
+              <Chip key={ch} variant="tab" on={form.channel === ch} onClick={() => set('channel', ch)}>
                 {t(ch === 'all' ? 'channel.fleet' : 'channel.store')}
-              </button>
+              </Chip>
             ))}
           </div>
           {form.channel === 'store' && (
-            <select
+            <Select
               aria-label={t('storePicker.label')}
               value={form.storeCode}
               onChange={(e) => set('storeCode', e.target.value)}
               disabled={stores.isPending}
-              className="mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+              className="mt-1"
             >
               <option value="">{t('storePicker.placeholder')}</option>
               {storeOptions.map((s) => (
@@ -188,23 +183,21 @@ function ComposeCard() {
                   {fsi(formatPair(s.code, s.city))}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 
         {/* Expiry */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="bc-expires" className="text-xs font-semibold">
-            {t('field.expires')} <span className="font-normal text-muted-foreground">{t('field.expiresHint')}</span>
-          </label>
-          <input
-            id="bc-expires"
-            type="date"
-            value={form.expires}
-            onChange={(e) => set('expires', e.target.value)}
-            className="w-fit rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
+        <Field
+          id="bc-expires"
+          label={
+            <>
+              {t('field.expires')} <span className="font-normal">{t('field.expiresHint')}</span>
+            </>
+          }
+        >
+          <Input type="date" value={form.expires} onChange={(e) => set('expires', e.target.value)} className="w-fit" />
+        </Field>
 
         {/* Whole-fleet blast-radius warning (037) — shown while composing an All send. */}
         {form.channel === 'all' && (
@@ -216,15 +209,10 @@ function ComposeCard() {
 
         {/* Send */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={!validation.valid || send.isPending}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/85 disabled:pointer-events-none disabled:opacity-45"
-          >
+          <Button variant="primary" onClick={onSend} disabled={!validation.valid || send.isPending}>
             <Send className="h-4 w-4" aria-hidden />
             {t('send')}
-          </button>
+          </Button>
           <span className="text-xs text-muted-foreground">{t(`hint.${validation.hint}`)}</span>
         </div>
       </div>

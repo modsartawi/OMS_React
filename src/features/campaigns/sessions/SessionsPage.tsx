@@ -14,10 +14,12 @@ import { RULE_SESSION_STATES, type RuleSessionState, type RuleSessionSummary } f
 import { ruleLookupQuery, ruleSessionsQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
 import { ruleSessionPath } from '@/core/rules/campaign-state'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
@@ -85,15 +87,11 @@ export default function SessionsPage() {
 
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
         <div className="flex flex-wrap items-end gap-3" data-sessions-filter="">
-          <div className="flex flex-col gap-1">
-            <label htmlFor={ids.store} className="text-xs font-medium text-muted-foreground">
-              {t('filter.store')}
-            </label>
+          <Field id={ids.store} label={t('filter.store')}>
             {typeStore ? (
-              <input
-                id={ids.store}
+              <Input
                 dir="ltr"
-                className={`${RULE_INPUT} w-32 font-mono`}
+                className="w-32 font-mono"
                 value={typed ?? query.store}
                 maxLength={20}
                 onChange={(e) => setTyped(e.target.value)}
@@ -104,9 +102,7 @@ export default function SessionsPage() {
                 data-sessions-field="storeCode"
               />
             ) : (
-              <select
-                id={ids.store}
-                className={RULE_INPUT}
+              <Select
                 value={query.store}
                 onChange={(e) => update((q) => ({ ...q, store: e.target.value }))}
                 data-sessions-field="store"
@@ -119,29 +115,19 @@ export default function SessionsPage() {
                     {fsi(formatPair(s.code, lookupName(s, i18n.language)))}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={ids.date} className="text-xs font-medium text-muted-foreground">
-              {t('filter.date')}
-            </label>
-            <input
-              id={ids.date}
+          </Field>
+          <Field id={ids.date} label={t('filter.date')}>
+            <Input
               type="date"
-              className={RULE_INPUT}
               value={asked.from}
               onChange={(e) => update((q) => ({ ...q, date: e.target.value }))}
               data-sessions-field="date"
             />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={ids.status} className="text-xs font-medium text-muted-foreground">
-              {t('filter.status')}
-            </label>
-            <select
-              id={ids.status}
-              className={RULE_INPUT}
+          </Field>
+          <Field id={ids.status} label={t('filter.status')}>
+            <Select
               value={query.status ?? ''}
               onChange={(e) => update((q) => ({ ...q, status: (e.target.value || null) as RuleSessionState | null }))}
               data-sessions-field="status"
@@ -152,24 +138,20 @@ export default function SessionsPage() {
                   {t(`status.${s}`)}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
 
         <form className="flex items-end gap-2" onSubmit={lookUp} data-sessions-lookup="">
-          <div className="flex flex-col gap-1">
-            <label htmlFor={ids.sale} className="text-xs font-medium text-muted-foreground">
-              {t('lookup.label')}
-            </label>
-            <input
-              id={ids.sale}
+          <Field id={ids.sale} label={t('lookup.label')}>
+            <Input
               dir="ltr"
-              className={`${RULE_INPUT} w-56 font-mono`}
+              className="w-56 font-mono"
               value={saleId}
               onChange={(e) => setSaleId(e.target.value)}
               data-sessions-field="saleId"
             />
-          </div>
+          </Field>
           <Button type="submit" variant="secondary" disabled={!saleId.trim()} data-sessions-open="">
             <ArrowRight className="size-3.5 rtl:-scale-x-100" aria-hidden />
             {t('lookup.open')}

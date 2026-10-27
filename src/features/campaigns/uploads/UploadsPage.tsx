@@ -12,7 +12,9 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { RuleUploadSummary } from '@/core/models/rule-upload'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { windowDays } from '@/core/rules/wire-days'
 import { formatDateTime } from '@/core/util/date-format'
@@ -52,22 +54,15 @@ export default function UploadsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('uploads.lede')}</p>
       </header>
 
-      <label htmlFor={filterId} className="flex w-fit flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('uploads.filter')}
-        <select
-          id={filterId}
-          value={filter}
-          onChange={(e) => update(() => e.target.value as typeof filter)}
-          className="rounded-md border border-border bg-card px-2 py-1.5 text-sm text-foreground"
-          data-uploads-filter=""
-        >
+      <Field id={filterId} label={t('uploads.filter')} className="w-fit">
+        <Select value={filter} onChange={(e) => update(() => e.target.value as typeof filter)} data-uploads-filter="">
           {UPLOAD_STATE_FILTERS.map((s) => (
             <option key={s} value={s}>
               {s === 'all' ? t('uploads.allStates') : t(`state.${s}`)}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {/* A failed refetch keeps the rows already shown; only a list never read is replaced by the refusal. */}
       {uploads.isError && !uploads.data ? (

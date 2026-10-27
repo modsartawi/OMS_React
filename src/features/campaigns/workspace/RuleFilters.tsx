@@ -16,12 +16,12 @@ import { filterChain } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { INPUT } from './builder-ui'
 import CheckNotes from './CheckNotes'
 import { NO_BLOCK_CHECKS } from './checks'
 import FilterEditor from './FilterEditor'
 import type { Builder } from './RuleCard'
 import SentenceView from './SentenceView'
+import Select from '@/core/ui/Select'
 
 /**
  * A rule's named cart-item filters (tickets 504, 506): each a chain — its name, what it looks at,
@@ -136,8 +136,7 @@ export default function RuleFilters({ rule, rules, b }: { rule: CampaignRule; ru
           {t('filters.add')}
         </Button>
         {others.length > 0 && (
-          <select
-            className={INPUT}
+          <Select
             value=""
             aria-label={t('filters.copyFrom')}
             onChange={(e) => {
@@ -157,7 +156,7 @@ export default function RuleFilters({ rule, rules, b }: { rule: CampaignRule; ru
                 ))}
               </optgroup>
             ))}
-          </select>
+          </Select>
         )}
       </div>
     </div>

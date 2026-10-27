@@ -36,6 +36,9 @@ import {
   type ScorecardFilters,
 } from './range'
 import StoreCardDrawer from './StoreCardDrawer'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
 
 /**
  * The dispatch scorecard (ticket 543, BackOffice spec 2952; rulings 2948, 2950 point 3 — variant A with
@@ -70,11 +73,6 @@ const DEFAULT_COL_DEF: ColDef = {
   wrapHeaderText: true,
   autoHeaderHeight: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-const TAB = 'rounded-full px-3 py-1 text-sm transition-colors'
 
 const FILTER_INPUTS = ['type', 'channel', 'city', 'region', 'store'] as const
 type TextFilters = Pick<ScorecardFilters, (typeof FILTER_INPUTS)[number]>
@@ -152,38 +150,35 @@ function Scorecard() {
         }}
         data-sc-filters=""
       >
-        <label className={FIELD}>
-          {t('filters.from')}
-          <input
+        <Field label={t('filters.from')}>
+          <Input
             type="date"
             value={filters.from || (range.ok ? range.from : '')}
             onChange={(e) => patch({ from: e.target.value, to: filters.to || (range.ok ? range.to : '') })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-sc-filter="from"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.to')}
-          <input
+        </Field>
+        <Field label={t('filters.to')}>
+          <Input
             type="date"
             value={filters.to || (range.ok ? range.to : '')}
             onChange={(e) => patch({ to: e.target.value, from: filters.from || (range.ok ? range.from : '') })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-sc-filter="to"
           />
-        </label>
+        </Field>
         {FILTER_INPUTS.map((key) => (
-          <label key={key} className={FIELD}>
-            {t(`filters.${key}`)}
-            <input
+          <Field key={key} label={t(`filters.${key}`)}>
+            <Input
               type="text"
               value={draft[key]}
               onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
               placeholder={t('filters.any')}
-              className={`${INPUT} w-28`}
+              className="w-28"
               data-sc-filter={key}
             />
-          </label>
+          </Field>
         ))}
         <Button type="submit" variant="secondary" data-sc-apply="">
           {t('filters.apply')}
@@ -221,19 +216,11 @@ function Scorecard() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 rounded-full border border-border/60 bg-card-2 p-0.5">
+        <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1">
           {SCORECARD_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={filters.tab === tab}
-              onClick={() => patch({ tab })}
-              className={`${TAB} ${filters.tab === tab ? 'bg-card font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              data-sc-tab={tab}
-            >
+            <Chip key={tab} variant="tab" on={filters.tab === tab} onClick={() => patch({ tab })} data-sc-tab={tab}>
               {t(`tabs.${tab}`)}
-            </button>
+            </Chip>
           ))}
         </div>
         <div className="flex items-center gap-3">

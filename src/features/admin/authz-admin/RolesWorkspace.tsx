@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { roleKind } from './helpers'
 import RoleDetailPane from './RoleDetailPane'
@@ -63,23 +65,22 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
   return (
     <div className="flex flex-col gap-3">
       {/* toolbar: filter-as-you-type over the loaded catalog */}
-      <div className="flex items-center gap-2 rounded-full border border-input bg-background px-3">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-        <input
-          className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none"
+      <div className="flex items-center gap-2">
+        <Input
+          type="search"
+          wrapperClassName="min-w-0 flex-1"
+          aria-label={t('rolesWs.searchPlaceholder')}
           placeholder={t('rolesWs.searchPlaceholder')}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           autoFocus
+          data-authz-roles-search=""
         />
         {access.canManageRoles && (
-          <button
-            className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/85"
-            onClick={() => setNewOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
+          <Button variant="primary" onClick={() => setNewOpen(true)} data-authz-new-role="">
+            <Plus className="h-4 w-4" aria-hidden />
             {t('rolesWs.newRole')}
-          </button>
+          </Button>
         )}
       </div>
       <p className="text-xs text-muted-foreground">{t('rolesWs.hint')}</p>
@@ -92,7 +93,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
             onClick={() => setCard(k)}
             className={
               'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
-              (card === k ? 'border-primary bg-accent' : 'border-border/60')
+              (card === k ? 'border-primary bg-accent' : 'border-border')
             }
           >
             <span

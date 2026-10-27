@@ -9,9 +9,11 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import type { PromotionEngine } from '@/core/models/rule-campaign'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair } from '@/core/util/bidi'
@@ -77,14 +79,10 @@ export default function EngineSwitchPage() {
       </header>
 
       <div className="flex flex-wrap items-end gap-3" data-engine-filter="">
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.search} className="text-xs font-medium text-muted-foreground">
-            {t('filter.search')}
-          </label>
-          <input
-            id={ids.search}
+        <Field id={ids.search} label={t('filter.search')}>
+          <Input
             type="search"
-            className={`${RULE_INPUT} w-64`}
+            wrapperClassName="w-64"
             value={search}
             onChange={(e) => {
               const value = e.target.value
@@ -93,14 +91,9 @@ export default function EngineSwitchPage() {
             }}
             data-engine-field="search"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor={ids.engine} className="text-xs font-medium text-muted-foreground">
-            {t('filter.engine')}
-          </label>
-          <select
-            id={ids.engine}
-            className={RULE_INPUT}
+        </Field>
+        <Field id={ids.engine} label={t('filter.engine')}>
+          <Select
             value={query.engine ?? ''}
             onChange={(e) => update((q) => ({ ...q, engine: (e.target.value || null) as PromotionEngine | null }))}
             data-engine-field="engine"
@@ -111,8 +104,8 @@ export default function EngineSwitchPage() {
                 {t(`engine.${e}`)}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
 
       {stores.isError && (

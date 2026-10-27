@@ -18,6 +18,7 @@ import { retryList, verdictTally } from '@/core/central-invoice/verdicts'
 import { xlsxRows } from '@/core/util/xlsx-read'
 import { csvRows, deliveryColumn, fileKind, parseDeliveryList } from './delivery-list'
 import ResultGrid from './ResultGrid'
+import Textarea from '@/core/ui/Textarea'
 
 /**
  * Raise central invoices in bulk (ticket 332, BackOffice spec 2094 story 2).
@@ -117,7 +118,7 @@ function BulkRaise() {
           <label className="text-xs font-semibold text-muted-foreground" htmlFor="central-invoice-list">
             {t('bulk.list.label')}
           </label>
-          <textarea
+          <Textarea
             id="central-invoice-list"
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -127,7 +128,7 @@ function BulkRaise() {
             rows={8}
             spellCheck={false}
             aria-describedby="central-invoice-list-hint central-invoice-list-count"
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-[0.8125rem]"
+            className="w-full font-mono"
           />
           <p id="central-invoice-list-hint" className="text-xs text-muted-foreground">
             {t('bulk.list.hint')}

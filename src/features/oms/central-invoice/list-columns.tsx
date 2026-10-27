@@ -104,7 +104,7 @@ export function listColumns(t: TFunction, onOpenSerials: (row: Row) => void): Co
             type="button"
             data-central-invoice-serials={data.deliveryNo}
             onClick={() => onOpenSerials(data)}
-            className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted"
           >
             <ListTree className="h-3 w-3" aria-hidden />
             {t('list.serials.open', { count: data.serials.length })}

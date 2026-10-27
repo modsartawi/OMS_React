@@ -35,6 +35,8 @@ import {
   trxTypeView,
   wellFormedView,
 } from './verdict-view'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * GS1 check (ticket 454, BackOffice spec 2544 stories 34–43): scan a DataMatrix — or paste codes
@@ -64,8 +66,6 @@ const DEFAULT_COL_DEF: ColDef<ScanRow> = {
 }
 
 const PANEL = 'flex flex-col gap-2 rounded-lg border border-border/60 bg-card/40 p-3'
-const INPUT =
-  'h-10 rounded-md border border-border/60 bg-background px-2.5 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** The number a sentence names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
@@ -199,9 +199,8 @@ function Gs1Check() {
       <div className="grid gap-3 lg:grid-cols-[minmax(20rem,2fr)_3fr]">
         {/* ── The scan box ── */}
         <div className={PANEL} data-gs1-scan-panel="">
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t('scan.label')}
-            <input
+          <Field label={t('scan.label')}>
+            <Input
               ref={box}
               // Always ready for the next scan: focused on landing, and again after every action.
               autoFocus
@@ -225,10 +224,10 @@ function Gs1Check() {
               autoComplete="off"
               spellCheck={false}
               aria-describedby="gs1-scan-note"
-              className={INPUT}
+              className="font-mono"
               data-gs1-scan=""
             />
-          </label>
+          </Field>
           <div id="gs1-scan-note" className="flex flex-col gap-1 text-xs">
             <span className="text-muted-foreground">{t('scan.hint')}</span>
             <span className="text-muted-foreground" data-gs1-count={rows.length}>
@@ -339,7 +338,7 @@ function NoScans() {
 }
 
 /** A label above a value, the card's one shape. */
-function Field({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+function ReadField({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? 'col-span-2' : ''}`}>
       <dt className="text-[11px] font-medium text-muted-foreground">{label}</dt>
@@ -382,7 +381,7 @@ function VerdictCard({ row, onShowHistory }: { row: ScanRow | null; onShowHistor
             <p className="py-2 text-sm text-muted-foreground">{row.failed ? t('card.failed') : t('card.pending')}</p>
           ) : (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-              <Field label={t('card.wellFormed')} wide>
+              <ReadField label={t('card.wellFormed')} wide>
                 <div className="flex flex-col gap-1" data-gs1-card-well-formed={a.parse.valid}>
                   <span className="inline-flex items-center gap-1">
                     {a.parse.valid && <Check className="h-3.5 w-3.5 text-success-800" aria-hidden />}
@@ -399,8 +398,8 @@ function VerdictCard({ row, onShowHistory }: { row: ScanRow | null; onShowHistor
                     </ul>
                   )}
                 </div>
-              </Field>
-              <Field label={t('card.status')} wide>
+              </ReadField>
+              <ReadField label={t('card.status')} wide>
                 <div className="flex flex-col gap-1" data-gs1-card-status={a.status ?? ''}>
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {status && <StatusBadge sev={status.sev}>{t(status.key)}</StatusBadge>}
@@ -432,12 +431,12 @@ function VerdictCard({ row, onShowHistory }: { row: ScanRow | null; onShowHistor
                     </span>
                   )}
                 </div>
-              </Field>
-              <Field label={t('card.gtin')}>{machine(a.parse.gtin)}</Field>
-              <Field label={t('card.expiry')}>{machine(a.parse.expiry)}</Field>
-              <Field label={t('card.lot')}>{machine(a.parse.lot)}</Field>
-              <Field label={t('card.serial')}>{machine(a.parse.serial)}</Field>
-              <Field label={t('card.material')} wide>
+              </ReadField>
+              <ReadField label={t('card.gtin')}>{machine(a.parse.gtin)}</ReadField>
+              <ReadField label={t('card.expiry')}>{machine(a.parse.expiry)}</ReadField>
+              <ReadField label={t('card.lot')}>{machine(a.parse.lot)}</ReadField>
+              <ReadField label={t('card.serial')}>{machine(a.parse.serial)}</ReadField>
+              <ReadField label={t('card.material')} wide>
                 {a.material ? (
                   <div className="flex flex-col" data-gs1-card-material={a.material.materialNumber}>
                     <span className="font-mono text-[12px]">
@@ -462,15 +461,15 @@ function VerdictCard({ row, onShowHistory }: { row: ScanRow | null; onShowHistor
                 ) : (
                   blank
                 )}
-              </Field>
-              <Field label={t('card.batch')}>
+              </ReadField>
+              <ReadField label={t('card.batch')}>
                 {batch && (
                   <span data-gs1-card-batch={a.batch}>
                     <StatusBadge sev={batch.sev}>{t(batch.key)}</StatusBadge>
                   </span>
                 )}
-              </Field>
-              <Field label={t('columns.historyCount')}>
+              </ReadField>
+              <ReadField label={t('columns.historyCount')}>
                 <div className="flex flex-col items-start gap-1">
                   <span className="text-xs text-muted-foreground" data-gs1-card-history-count={a.historyCount}>
                     <Trans t={t} i18nKey="card.historyCount" count={a.historyCount} values={{ n: figure(a.historyCount) }} components={{ n: <Ltr /> }} />
@@ -482,7 +481,7 @@ function VerdictCard({ row, onShowHistory }: { row: ScanRow | null; onShowHistor
                     </Button>
                   )}
                 </div>
-              </Field>
+              </ReadField>
             </dl>
           )}
         </>

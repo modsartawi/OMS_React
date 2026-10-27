@@ -618,7 +618,8 @@ async function run() {
   /** The row's own Download button, named by its transaction number. */
   const downloadButton = (trxNumber) =>
     page.getByRole('button', {
-      name: new RegExp(`Download the receipt for transaction ${trxNumber}`),
+      // The number is isolated whole in the aria-label (fsi, bidi rule): FSI…PDI around it.
+      name: new RegExp(`Download the receipt for transaction \u2068?${trxNumber}\u2069?`),
     })
 
   /**
@@ -858,7 +859,7 @@ async function run() {
   const pendingSave = page.waitForEvent('download', { timeout: 12000 }).catch(() => null)
   await downloadButton('00114600051247').click()
   const pendingSeen = await page
-    .getByRole('button', { name: /Download the receipt for transaction 00114600051247/ })
+    .getByRole('button', { name: /Download the receipt for transaction \u2068?00114600051247\u2069?/ })
     .filter({ hasText: /Preparing/ })
     .waitFor({ timeout: 5000 })
     .then(() => true)
@@ -870,7 +871,7 @@ async function run() {
   )
   await pendingSave
   const cleared = await page
-    .getByRole('button', { name: /Download the receipt for transaction 00114600051247/ })
+    .getByRole('button', { name: /Download the receipt for transaction \u2068?00114600051247\u2069?/ })
     .filter({ hasText: /^Download$/ })
     .waitFor({ timeout: 5000 })
     .then(() => true)

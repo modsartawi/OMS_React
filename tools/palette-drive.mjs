@@ -1,6 +1,6 @@
 // Palette drive (ticket 084) — renders a page from every area in BOTH themes and
 // asserts the palette tokens actually resolved on the real, painted DOM. Since
-// ticket 381 the expected values are palette B, "Navy-led" (spec 380 F2–F5);
+// ticket 593 it pins no value: the contrast gate owns the table (spec 590);
 // tools/foundation-drive.mjs is S1's own, stubbed drive for the same claim.
 //
 // The contrast gate (`tools/check-contrast.mjs`) proves the TABLE is sound; it
@@ -32,33 +32,21 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-// Expected resolved values, straight from ticket 362's Answer §1–§3 (palette B).
-const EXPECT = {
-  light: {
-    '--background': 'rgb(242, 244, 248)',
-    '--card': 'rgb(255, 255, 255)',
-    '--foreground': 'rgb(15, 27, 45)',
-    '--muted-foreground': 'rgb(70, 84, 106)',
-    '--primary': 'rgb(15, 76, 156)',
-    '--primary-foreground': 'rgb(255, 255, 255)',
-    '--border': 'rgb(223, 228, 236)',
-    '--rail': 'rgb(0, 37, 84)', // the brand navy, in both themes
-    '--danger-050': 'rgb(251, 236, 236)',
-    '--brand-panel': 'rgb(32, 42, 52)',
-  },
-  dark: {
-    '--background': 'rgb(10, 17, 29)',
-    '--card': 'rgb(17, 26, 40)',
-    '--foreground': 'rgb(230, 235, 242)',
-    '--muted-foreground': 'rgb(163, 175, 192)',
-    '--primary': 'rgb(121, 167, 236)',
-    '--primary-foreground': 'rgb(10, 17, 29)', // R2 — dark ink on a lifted fill
-    '--border': 'rgb(33, 44, 61)',
-    '--rail': 'rgb(0, 37, 84)',
-    '--danger-050': 'rgb(76, 38, 37)', // R4 — the role holds, the lightness swaps
-    '--brand-panel': 'rgb(32, 42, 52)', // no dark counterpart, by design
-  },
-}
+// The tokens this drive reads back. Their VALUES are the contrast gate's business
+// (`tools/check-contrast.mjs` pins spec 590's tables); this drive only proves each one
+// reaches the painted page (ticket 593: drives check colours by role, not by hex).
+const TOKENS = [
+  '--background',
+  '--card',
+  '--foreground',
+  '--muted-foreground',
+  '--primary',
+  '--primary-foreground',
+  '--border',
+  '--rail',
+  '--danger-050',
+  '--brand-panel',
+]
 
 // Utilities that only compile if the token has its `@theme inline` bridge line —
 // the half of the change "most easily left half-done" (ticket 084).
@@ -183,13 +171,17 @@ check('session established via Auth/Login', authBody?.data?.success === true, au
 
 // --- token resolution + bridge lines, per theme ------------------------------
 
+const resolved = { light: {}, dark: {} }
 for (const theme of ['light', 'dark']) {
   await setTheme(theme)
   await page.waitForTimeout(200)
 
-  for (const [token, expected] of Object.entries(EXPECT[theme])) {
+  for (const token of TOKENS) {
     const actual = await tokenValue(token)
-    check(`${theme}: ${token} resolves`, actual === expected, `${actual} (want ${expected})`)
+    resolved[theme][token] = actual
+    // An undeclared token leaves `color: var(--x)` at its inherited value; an empty one is
+    // `rgba(0, 0, 0, 0)` — either way not a value of its own.
+    check(`${theme}: ${token} resolves to a colour`, /^rgb/.test(actual) && actual !== 'rgba(0, 0, 0, 0)', actual)
   }
 
   const missing = await page.evaluate((utils) => {
@@ -211,6 +203,15 @@ for (const theme of ['light', 'dark']) {
     missing.length ? `uncompiled: ${missing.join(', ')}` : '',
   )
 }
+
+// The roles the old literal table carried, as relations between the two themes:
+// the theme really swaps the ground, and the brand panel has no dark counterpart.
+check('dark swaps the page ground', resolved.dark['--background'] !== resolved.light['--background'])
+check(
+  '--brand-panel is the same in both themes (no dark counterpart, by design)',
+  resolved.dark['--brand-panel'] === resolved.light['--brand-panel'],
+  `${resolved.light['--brand-panel']} / ${resolved.dark['--brand-panel']}`,
+)
 
 // --- a page from every area, both themes -------------------------------------
 

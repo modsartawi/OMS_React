@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search } from 'lucide-react'
 import type { InvoiceCriteria } from './invoice-criteria'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The Invoices toolbar (ticket 264) — **one required field and one optional
@@ -53,18 +56,21 @@ export default function SearchToolbar({
         onSearch()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        <span>
-          {t('invoice.search.trxNumber')}{' '}
-          {/* The one required field, marked before it is refused rather than
-              after — the `*` follows `NewRoleModal`'s precedent and is a glyph,
-              not a sentence, so it needs no key. `aria-required` on the input
-              below says the same thing to a screen reader. */}
-          <span className="text-danger-800" aria-hidden>
-            *
-          </span>
-        </span>
-        <input
+      <Field
+        label={
+          <>
+            {t('invoice.search.trxNumber')}{' '}
+            {/* The one required field, marked before it is refused rather than
+                after — the `*` follows `NewRoleModal`'s precedent and is a glyph,
+                not a sentence, so it needs no key. `aria-required` on the input
+                below says the same thing to a screen reader. */}
+            <span className="text-danger-800" aria-hidden>
+              *
+            </span>
+          </>
+        }
+      >
+        <Input
           ref={numberRef}
           aria-required
           type="text"
@@ -74,39 +80,29 @@ export default function SearchToolbar({
           placeholder={t('invoice.search.trxNumberPlaceholder')}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? 'invoice-trx-number-error' : undefined}
-          className={`h-9 w-56 rounded-md border bg-background px-2.5 font-mono text-sm text-foreground focus:outline-none ${
-            invalid ? 'border-danger-border' : 'border-border/60 focus:border-primary/50'
-          }`}
+          className="w-56 font-mono"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('invoice.search.storeCode')}
-        <input
+      <Field label={t('invoice.search.storeCode')}>
+        <Input
           type="text"
           value={criteria.storeCode}
           onChange={(e) => onChange({ storeCode: e.target.value })}
           placeholder={t('invoice.search.storeCodePlaceholder')}
-          className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-32"
         />
-      </label>
+      </Field>
 
       <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button type="submit" variant="primary">
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('invoice.search.submit')}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
-        >
+        </Button>
+        <Button type="button" variant="outlined" onClick={onReset}>
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('invoice.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* The local refusal, said beside the field it is about rather than as a

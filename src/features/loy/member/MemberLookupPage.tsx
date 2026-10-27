@@ -13,6 +13,8 @@ import MemberTabs from './MemberTabs'
 import RecentSearches from './RecentSearches'
 import { pushRecent, readRecents, saveRecents, subscribeRecents } from './recent-searches'
 import { resolveMember } from './resolve-member'
+import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 
 /**
  * The Loy member lookup (ticket 233, spec 231) — slice 0 of the Loyalty area and
@@ -219,7 +221,7 @@ export default function MemberLookupPage() {
         {t('search.label')}
       </label>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           id={FIELD_ID}
           type="text"
           value={typed}
@@ -229,20 +231,16 @@ export default function MemberLookupPage() {
           autoFocus
           aria-label={t('search.label')}
           autoComplete="off"
-          className="h-9 w-72 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className="w-72"
         />
-        <button
-          type="submit"
-          disabled={lookup.isPending}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button type="submit" disabled={lookup.isPending}>
           {lookup.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
             <Search className="h-3.5 w-3.5" aria-hidden />
           )}
           {t('search.submit')}
-        </button>
+        </Button>
       </div>
       {/* 🚩 The hint says what the field TAKES, not what it does with it. The
           two-call order is deliberately invisible to the agent (spec 231, story
@@ -253,13 +251,9 @@ export default function MemberLookupPage() {
           field are a successful lookup and New lookup — and New lookup is the
           bar's, which is the thing the field replaced. */}
       {onCancel && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
-        >
+        <Button variant="text" onClick={onCancel}>
           {t('search.cancel')}
-        </button>
+        </Button>
       )}
     </form>
   )
@@ -376,16 +370,12 @@ export default function MemberLookupPage() {
               {searchedKey}
             </span>
             <div className="ms-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className={BAR_BUTTON}
-              >
+              <Button variant="outlined" onClick={() => setEditing(true)}>
                 {t('search.change')}
-              </button>
-              <button type="button" onClick={newLookup} className={BAR_BUTTON}>
+              </Button>
+              <Button variant="outlined" onClick={newLookup}>
                 {t('search.newLookup')}
-              </button>
+              </Button>
             </div>
           </div>
           {outcome}
@@ -435,7 +425,3 @@ export default function MemberLookupPage() {
 }
 
 const FIELD_ID = 'loy-member-lookup'
-
-/** The bar's two affordances are the same button in two words. */
-const BAR_BUTTON =
-  'inline-flex h-8 items-center rounded-full border border-border/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted'

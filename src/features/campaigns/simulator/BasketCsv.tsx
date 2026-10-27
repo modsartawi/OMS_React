@@ -7,9 +7,10 @@ import type { TFunction } from 'i18next'
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { fileUsable, readBasketFile, type BasketFileRow } from './basket'
@@ -60,21 +61,17 @@ export default function BasketCsv({ onUse, onCancel }: { onUse: (text: string) =
         />
         {fileFailed && <ErrorBanner message={t('csv.fileFailed')} className="px-3 py-2" />}
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={pasteId} className="text-xs font-medium text-muted-foreground">
-          {t('csv.paste')}
-        </label>
-        <textarea
-          id={pasteId}
+      <Field id={pasteId} label={t('csv.paste')}>
+        <Textarea
           dir="ltr"
           rows={5}
-          className={`${RULE_INPUT} h-auto py-1.5 font-mono text-xs`}
+          className="font-mono"
           placeholder={t('csv.pastePlaceholder')}
           value={text}
           onChange={(e) => setText(e.target.value)}
           data-csv-text=""
         />
-      </div>
+      </Field>
 
       {text.trim() !== '' && file.problem && (
         <p className="text-xs text-danger-800" data-csv-problem={file.problem}>

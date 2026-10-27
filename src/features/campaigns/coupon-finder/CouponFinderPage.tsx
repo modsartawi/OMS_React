@@ -1,4 +1,4 @@
-import { useId, useMemo, type FormEvent, type ReactNode } from 'react'
+import { useMemo, type FormEvent, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -14,10 +14,11 @@ import type { RuleCouponFound, RuleCouponUse } from '@/core/models/rule-campaign
 import { ruleCouponFindQuery } from '@/core/rules/api'
 import { campaignCouponsPath, ruleCustomerPath, ruleSessionPath } from '@/core/rules/campaign-state'
 import { COUPON_STATUS_SEV, cleanCode } from '@/core/rules/coupon'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -37,7 +38,6 @@ export default function CouponFinderPage() {
   const { t } = useTranslation('coupon-finder')
   const { query: code, update } = useUrlQuery(codeFromParams, codeToParams)
   const found = useQuery(ruleCouponFindQuery(code))
-  const inputId = useId()
 
   const find = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -57,20 +57,16 @@ export default function CouponFinderPage() {
 
       {/* Keyed by the code asked, so Back or a wallet's code link refills the box. */}
       <form key={code} className="flex items-end gap-2" onSubmit={find} data-finder-form="">
-        <div className="flex flex-col gap-1">
-          <label htmlFor={inputId} className="text-xs font-medium text-muted-foreground">
-            {t('form.code')}
-          </label>
-          <input
-            id={inputId}
+        <Field label={t('form.code')}>
+          <Input
             name="code"
             dir="ltr"
             autoComplete="off"
-            className={`${RULE_INPUT} w-64 font-mono`}
+            className="w-64 font-mono"
             defaultValue={code}
             data-finder-code=""
           />
-        </div>
+        </Field>
         <Button type="submit" variant="secondary" data-finder-find="">
           <Search className="size-3.5" aria-hidden />
           {t('form.find')}

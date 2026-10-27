@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
+import Chip from '@/core/ui/Chip'
 import { couponsApi } from './api'
 import TemplatesWorkspace from './TemplatesWorkspace'
 import InquiryWorkspace from './InquiryWorkspace'
@@ -52,23 +53,14 @@ export default function CouponsAdminPage() {
       </div>
 
       <div
-        className="inline-flex gap-1 self-start rounded-lg border border-border/60 bg-muted/40 p-1"
+        className="inline-flex gap-1 self-start"
         role="tablist"
         aria-label={t('tabs.ariaLabel')}
       >
         {TABS.map((id) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={
-              'rounded-md px-4 py-1.5 text-sm font-semibold ' +
-              (tab === id ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')
-            }
-          >
+          <Chip key={id} variant="tab" on={tab === id} onClick={() => setTab(id)}>
             {t(`tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

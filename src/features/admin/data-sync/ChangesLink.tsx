@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { ListTree } from 'lucide-react'
 
 import type { Job, Mode } from '@/core/models/data-sync'
+import { buttonClass } from '@/core/ui/control-classes'
 import { canOperateDataSync, dataSyncAccessQuery } from './api'
 import { changesPath, showChangesLink } from './changes-helpers'
 
@@ -26,10 +27,11 @@ function ChangesLink({ jobId }: { jobId: string }) {
   return (
     <Link
       to={changesPath(jobId)}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent"
+      // A footer action that navigates: the outlined Button's look (594), on a router `<Link>`.
+      className={buttonClass('outlined')}
       data-changes-link={jobId}
     >
-      <ListTree className="h-4 w-4" aria-hidden />
+      <ListTree className="h-3.5 w-3.5" aria-hidden />
       {t('changes.link')}
     </Link>
   )

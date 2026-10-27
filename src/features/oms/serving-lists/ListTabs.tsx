@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
 import type { ServingListRow } from '@/core/models/serving-list'
+import Chip from '@/core/ui/Chip'
 import HistoryTab from './HistoryTab'
 import MembersTab from './MembersTab'
 import { LIST_TABS, tabFromParams, tabParams, type ListTab } from './tab'
@@ -22,24 +23,19 @@ export default function ListTabs({ servingListId, list, canEdit }: { servingList
 
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card" data-list-tabs="">
-      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60 px-3">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border px-3 py-2">
         {LIST_TABS.map((tab) => (
-          <button
+          <Chip
             key={tab}
-            type="button"
-            role="tab"
+            variant="tab"
+            on={open === tab}
             id={`serving-list-tab-${tab}`}
-            aria-selected={open === tab}
             aria-controls={TAB_PANEL_ID}
             onClick={() => select(tab)}
             data-tab={tab}
-            className={
-              'border-b-2 px-3 py-2 text-sm transition-colors ' +
-              (open === tab ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
           >
             {t(`tabs.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`serving-list-tab-${open}`} className="p-3" data-tab-panel={open}>

@@ -10,10 +10,10 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { STORES_KEY, storesApi, syncLogsKey } from './api'
 import { accountChoices } from './store-state'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium'
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 /**
  * The account a write names. With the `Accounts` read it is a list (an inactive account shown but
@@ -46,11 +46,15 @@ function AccountField({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className={FIELD}>
-        {label}
+      <Field
+        label={label}
+        hint={
+          accounts.isError ? <span data-account-fallback="">{t('account.fallbackHint')}</span> : undefined
+        }
+      >
         {accounts.isError ? (
           <>
-            <input
+            <Input
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
@@ -58,7 +62,7 @@ function AccountField({
               dir="ltr"
               list={listId}
               placeholder={t('account.typePlaceholder')}
-              className={INPUT + ' font-mono'}
+              className="font-mono"
               data-account-input=""
             />
             <datalist id={listId}>
@@ -68,11 +72,10 @@ function AccountField({
             </datalist>
           </>
         ) : (
-          <select
+          <Select
             value={value}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled || accounts.isPending}
-            className={INPUT}
             data-account-select=""
           >
             <option value="">{accounts.isPending ? t('account.loading') : t('account.choose')}</option>
@@ -83,14 +86,9 @@ function AccountField({
                   {a.active ? fsi(a.accountKey) : t('account.inactive', { key: fsi(a.accountKey) })}
                 </option>
               ))}
-          </select>
+          </Select>
         )}
-      </label>
-      {accounts.isError && (
-        <span className="text-xs text-muted-foreground" data-account-fallback="">
-          {t('account.fallbackHint')}
-        </span>
-      )}
+      </Field>
       {refusal && <InlineRefusal message={refusal.message} code={refusal.code} />}
     </div>
   )
@@ -141,9 +139,8 @@ export function OnboardDialog({
       onClose={onClose}
     >
       <div className="flex flex-col gap-1" data-onboard-dialog="">
-        <label className={FIELD}>
-          {t('onboard.store')}
-          <input
+        <Field label={t('onboard.store')}>
+          <Input
             type="text"
             value={storeCode}
             onChange={(e) => {
@@ -154,10 +151,10 @@ export function OnboardDialog({
             dir="ltr"
             autoFocus
             placeholder={t('onboard.storePlaceholder')}
-            className={INPUT + ' font-mono'}
+            className="font-mono"
             data-onboard-store=""
           />
-        </label>
+        </Field>
         {storeRefusal && <InlineRefusal {...storeRefusal} />}
       </div>
       <AccountField

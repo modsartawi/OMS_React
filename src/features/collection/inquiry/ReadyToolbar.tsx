@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { READY_KIND_FILTERS, type ReadyCriteria, type ReadyKindFilter } from './ready-criteria'
 import DateField from './DateField'
@@ -34,9 +38,6 @@ const KIND_LABEL: Record<ReadyKindFilter, string> = {
   SETTLEMENT: 'ready.search.kindSettlement',
 }
 
-const TEXT_INPUT_CLASS =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
 /** One end of the Amount range: a decimal typed as text and sent as typed. */
 function AmountField({
   label,
@@ -48,17 +49,16 @@ function AmountField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type="text"
         dir="ltr"
         inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${TEXT_INPUT_CLASS} w-32 text-end tabular-nums`}
+        className="w-32 text-end tabular-nums"
       />
-    </label>
+    </Field>
   )
 }
 
@@ -74,6 +74,7 @@ export default function ReadyToolbar({
 
   return (
     <form
+      data-filter-strip
       className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
       onSubmit={(e) => {
         e.preventDefault()
@@ -96,16 +97,15 @@ export default function ReadyToolbar({
 
       {/* The collector ASSIGNED to the store (`CollectorId`) — whose round it is on.
           Free text, as the Attempts screen's Collector box. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('ready.search.collector')}
-        <input
+      <Field label={t('ready.search.collector')}>
+        <Input
           type="text"
           value={criteria.collectorId}
           onChange={(e) => onChange({ collectorId: e.target.value })}
           placeholder={t('ready.search.collectorPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
       {/* 🚩 The shared control on the ASSIGNMENT reading (`SERVED_BY_SCREENS.ready`):
           the store's CURRENT pairing. ACCOUNTANT + id is this screen's accountant
@@ -116,7 +116,7 @@ export default function ReadyToolbar({
           and sends nothing. */}
       <fieldset className="flex flex-col gap-1" data-region="ready-kind">
         <legend className="mb-1 text-xs font-medium text-muted-foreground">{t('ready.search.kind')}</legend>
-        <div className="flex h-9 flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex h-7 flex-wrap items-center gap-x-3 gap-y-1">
           {READY_KIND_FILTERS.map((kind) => (
             <label key={kind} className="inline-flex items-center gap-1.5 text-sm text-foreground">
               <input
@@ -156,50 +156,48 @@ export default function ReadyToolbar({
 
       {/* Profit center (BackOffice 2425): a contains match on the server, so `019`
           finds `PH-019` without the prefix. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('ready.search.profitCenter')}
-        <input
+      <Field label={t('ready.search.profitCenter')}>
+        <Input
           type="text"
           dir="ltr"
           value={criteria.profitCenter}
           onChange={(e) => onChange({ profitCenter: e.target.value })}
           placeholder={t('ready.search.profitCenterPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-36`}
+          className="w-36"
         />
-      </label>
+      </Field>
 
       {/* "No slip" (ticket 320) — drawn only when the slip probe admits. */}
       <NoSlipChip toggle={noSlip} />
 
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          variant="primary"
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('ready.search.search')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('ready.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('ready.search.filtered')}
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onReset}
-            aria-label={t('ready.search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('ready.search.clearFilter')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
     </form>

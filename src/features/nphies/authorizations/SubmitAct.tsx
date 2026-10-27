@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Clock, Loader2, ShieldAlert, TriangleAlert } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   SUBMIT_TIMEOUT_SECONDS,
@@ -92,7 +93,7 @@ export default function SubmitAct({
         <div>
           <Link
             to={`/nphies/authorizations/${encodeURIComponent(landing.authId)}`}
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-accent"
+            className={buttonClass('secondary')}
           >
             {t('form.submit.lodged.openDetail')}
           </Link>
@@ -125,7 +126,7 @@ export default function SubmitAct({
         <div>
           <Link
             to="/nphies/authorizations"
-            className="inline-flex h-8 items-center rounded-full border border-border bg-background px-3 text-xs font-medium hover:bg-accent"
+            className={buttonClass('secondary')}
           >
             {t('form.submit.inFlight.statusCheck')}
           </Link>

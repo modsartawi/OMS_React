@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { RowSelectionOptions } from 'ag-grid-community'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -12,8 +12,10 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import GridPager from '@/core/ui/GridPager'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
+import Select from '@/core/ui/Select'
 import type { Severity } from '@/core/ui/severity'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
 import { CONTROL_ACTIONS, type StoreRow } from '@/core/models/sync-console'
@@ -178,36 +180,31 @@ function Fleet() {
 
       <section className="flex min-w-0 flex-col gap-2" data-fleet-table="">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="relative flex items-center">
-            <Search className="pointer-events-none absolute start-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('table.search')}
-              aria-label={t('table.search')}
-              className="h-8 w-64 rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-              data-fleet-search=""
-            />
-          </label>
-          <select
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('table.search')}
+            aria-label={t('table.search')}
+            wrapperClassName="w-64"
+            data-fleet-search=""
+          />
+          <Select
             value={filter.host ?? ''}
             onChange={(e) =>
               setFilter((f) => ({ ...f, host: (e.target.value || null) as FleetHostFilter, page: 1 }))
             }
             aria-label={t('table.host')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-fleet-host=""
           >
             <option value="">{t('table.hostAny')}</option>
             <option value="Worker">{t('hosts.Worker')}</option>
             <option value="Wpf">{t('hosts.Wpf')}</option>
-          </select>
-          <select
+          </Select>
+          <Select
             value={filter.sort}
             onChange={(e) => setFilter((f) => ({ ...f, sort: e.target.value as FleetFilter['sort'], page: 1 }))}
             aria-label={t('table.sort')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-fleet-sort=""
           >
             {FLEET_SORTS.map((s) => (
@@ -215,7 +212,7 @@ function Fleet() {
                 {t(`table.sorts.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
           {shown && (
             <span className="text-xs text-muted-foreground" data-fleet-count="">
               <Trans t={t} i18nKey="table.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
@@ -358,7 +355,7 @@ function Tile({
       aria-pressed={on}
       data-tile={tile}
       className={
-        'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border/60 px-3 py-2 text-start transition-colors hover:bg-accent ' +
+        'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border px-3 py-2 text-start transition-colors hover:bg-accent ' +
         accent +
         (on ? ' bg-muted ring-2 ring-primary/60' : ' bg-card')
       }

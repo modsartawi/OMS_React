@@ -180,6 +180,9 @@ import prescriptionSessionsAr from '@/locales/ar/prescription-sessions.json'
 // Serving lists (BackOffice spec 3042, tickets 567-571). Namespace == feature name, English and Arabic.
 import servingLists from '@/locales/en/serving-lists.json'
 import servingListsAr from '@/locales/ar/serving-lists.json'
+// Document-type configuration (BackOffice spec 3148, ticket 3149). Namespace == feature name, English and Arabic.
+import docTypeConfig from '@/locales/en/doc-type-config.json'
+import docTypeConfigAr from '@/locales/ar/doc-type-config.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -187,7 +190,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', ...INSURANCE_RULES_NS],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'bonus-buy-maintenance', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice', 'donor-requests', 'document-payments', 'failed-donor-transfers', 'geography', 'document-source-users', 'materials-search', 'materials-stock-check', 'materials-gs1-check', 'materials-detail', 'sync-console', 'data-sync', 'sap-export-console', 'deliverect-stores', 'deliverect-orders', 'deliverect-catalog', 'deliverect-terms', 'hungerstation-stores', 'hungerstation-materials', 'hungerstation-orders', 'delivery-statistics', 'pick-support', 'campaigns', 'campaign-workspace', 'campaign-priority', 'rule-simulator', 'rule-sessions', 'coupon-finder', 'rule-customers', 'engine-switch', 'campaign-uploads', 'campaign-promotions', 'dispatch-board', 'dispatch-scorecard', 'prescription-session', 'prescription-sessions', 'serving-lists', 'serial-refusals', 'doc-type-config', ...INSURANCE_RULES_NS],
   resources: {
     en: {
       common,
@@ -250,6 +253,7 @@ i18n.use(initReactI18next).init({
       'prescription-session': prescriptionSession,
       'prescription-sessions': prescriptionSessions,
       'serving-lists': servingLists,
+      'doc-type-config': docTypeConfig,
       'serial-refusals': serialRefusals,
       ...INSURANCE_RULES_EN,
     },
@@ -279,6 +283,7 @@ i18n.use(initReactI18next).init({
       'prescription-session': prescriptionSessionAr,
       'prescription-sessions': prescriptionSessionsAr,
       'serving-lists': servingListsAr,
+      'doc-type-config': docTypeConfigAr,
       'serial-refusals': serialRefusalsAr,
       callcenter: callcenterAr,
       ...INSURANCE_RULES_AR,

@@ -1,0 +1,41 @@
+import { useTranslation } from 'react-i18next'
+import Select from '@/core/ui/Select'
+import { formatPair, fsi } from '@/core/util/bidi'
+import type { CodeChoice } from './delivery-type-form'
+
+/**
+ * A code dropdown (ticket 3154): blank (no reference) first, then each code with its description — the document type
+ * form's default delivery type and the delivery type form's default document type. `<option>` is a string sink, so
+ * the WHOLE pair is isolated with one `fsi` (bidi rule: the value, never its parts).
+ */
+export default function CodeChoiceSelect({
+  choices,
+  value,
+  disabled,
+  invalid,
+  onChange,
+}: {
+  choices: readonly CodeChoice[]
+  value: string
+  disabled: boolean
+  invalid?: boolean
+  onChange: (value: string) => void
+}) {
+  const { t } = useTranslation('doc-type-config')
+  return (
+    <Select
+      value={value.trim()}
+      disabled={disabled}
+      aria-invalid={invalid || undefined}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-48"
+      data-code-choice=""
+    >
+      {choices.map((c) => (
+        <option key={c.value} value={c.value}>
+          {c.value === '' ? t('value.blank') : fsi(formatPair(c.value, c.description))}
+        </option>
+      ))}
+    </Select>
+  )
+}

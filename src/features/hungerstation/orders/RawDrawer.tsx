@@ -5,6 +5,8 @@ import { Copy, Loader2, X } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import SideSheet from '@/core/ui/SideSheet'
@@ -62,28 +64,21 @@ export default function RawDrawer({ target, onClose }: { target: RawTarget; onCl
         <div className="flex shrink-0 items-center gap-2">
           {view?.pretty && (
             <span className="flex items-center gap-1" role="group">
-              <Button variant={verbatim ? 'text' : 'secondary'} aria-pressed={!verbatim} onClick={() => setVerbatim(false)} data-raw-formatted="">
+              <Chip on={!verbatim} onClick={() => setVerbatim(false)} data-raw-formatted="">
                 {t('raw.formatted')}
-              </Button>
-              <Button variant={verbatim ? 'secondary' : 'text'} aria-pressed={verbatim} onClick={() => setVerbatim(true)} data-raw-verbatim="">
+              </Chip>
+              <Chip on={verbatim} onClick={() => setVerbatim(true)} data-raw-verbatim="">
                 {t('raw.asReceived')}
-              </Button>
+              </Chip>
             </span>
           )}
           <Button variant="secondary" onClick={copy} disabled={!raw.isSuccess} data-raw-copy="">
             <Copy className="h-3.5 w-3.5" aria-hidden />
             {t('raw.copy')}
           </Button>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('raw.close')}
-            title={t('raw.close')}
-            data-raw-close=""
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-          >
+          <IconButton label={t('raw.close')} onClick={onClose} data-raw-close="">
             <X className="h-4 w-4" aria-hidden />
-          </button>
+          </IconButton>
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">

@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { ACR_STATUSES, type AcrStatusFilter, type AcrsCriteria } from './acr-criteria'
 import DateField from './DateField'
@@ -30,9 +34,6 @@ export interface AcrsToolbarProps {
   isFiltered: boolean
 }
 
-const TEXT_INPUT_CLASS =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
 /** One end of the Amount range: a decimal typed as text and sent as typed. */
 function AmountField({
   label,
@@ -46,18 +47,17 @@ function AmountField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
+    <Field label={label}>
+      <Input
         type="text"
         dir="ltr"
         inputMode="decimal"
         title={hint}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${TEXT_INPUT_CLASS} w-32 text-end tabular-nums`}
+        className="w-32 text-end tabular-nums"
       />
-    </label>
+    </Field>
   )
 }
 
@@ -72,6 +72,7 @@ export default function AcrsToolbar({
 
   return (
     <form
+      data-filter-strip
       className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3"
       onSubmit={(e) => {
         e.preventDefault()
@@ -108,31 +109,29 @@ export default function AcrsToolbar({
           spec 2423 (ADR 0066): `6498-2610-0001`, `2610-0001` or `0001`, sent as
           typed. No `pattern`, no parsing here — the server reads every form and
           refuses a malformed one, shown in the error banner. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.acrNumber')}
-        <input
+      <Field label={t('acrs.search.acrNumber')}>
+        <Input
           type="text"
           dir="ltr"
           title={t('acrs.search.acrNumberHint')}
           value={criteria.acrNumber}
           onChange={(e) => onChange({ acrNumber: e.target.value })}
           placeholder={t('acrs.search.acrNumberPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-40 font-mono`}
+          className="w-40 font-mono"
         />
-      </label>
+      </Field>
       {/* Collector (BackOffice 2426): a contains match on the collector's id OR
           name. It ANDs with Served by — the picker asks whose scope, this box asks
           whose name — and it narrows a bare `0001` to one collector's month. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.collectorText')}
-        <input
+      <Field label={t('acrs.search.collectorText')}>
+        <Input
           type="text"
           value={criteria.collectorText}
           onChange={(e) => onChange({ collectorText: e.target.value })}
           placeholder={t('acrs.search.collectorTextPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
       {/* 🚩 **The collector box, as the shared control** (BackOffice 1167). It is a
           replacement rather than an addition: on this screen *Served by* IS the
           collector filter — same column, same predicate for a plain pick — so
@@ -163,7 +162,7 @@ export default function AcrsToolbar({
         <div
           role="radiogroup"
           aria-label={t('acrs.search.status')}
-          className="inline-flex h-9 items-center rounded-full border border-border/60 bg-background p-0.5"
+          className="inline-flex h-7 items-center rounded-full border border-border bg-card p-0.5"
         >
           {ACR_STATUSES.map((status) => (
             <StatusOption
@@ -199,34 +198,32 @@ export default function AcrsToolbar({
       {/* Profit center (BackOffice 2426): a contains match, so `019` finds `PH-019`.
           An ACR carries no store: it matches when ANY linked collection's branch
           does. */}
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.profitCenter')}
-        <input
+      <Field label={t('acrs.search.profitCenter')}>
+        <Input
           type="text"
           dir="ltr"
           value={criteria.profitCenter}
           onChange={(e) => onChange({ profitCenter: e.target.value })}
           placeholder={t('acrs.search.profitCenterPlaceholder')}
-          className={`${TEXT_INPUT_CLASS} w-36`}
+          className="w-36"
         />
-      </label>
+      </Field>
 
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          variant="primary"
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('acrs.search.search')}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           {t('acrs.search.reset')}
-        </button>
+        </Button>
       </div>
 
       {/* The chip says the last Search asked more than the empty landing does.
@@ -234,14 +231,14 @@ export default function AcrsToolbar({
       {isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('acrs.search.filtered')}
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={onReset}
-            aria-label={t('acrs.search.clearFilter')}
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+            label={t('acrs.search.clearFilter')}
           >
-            <X className="h-3 w-3" aria-hidden />
-          </button>
+            <X className="size-3" aria-hidden />
+          </IconButton>
         </span>
       )}
     </form>
@@ -274,8 +271,8 @@ function StatusOption({
       aria-checked={selected}
       data-status={status}
       onClick={onSelect}
-      className={`h-8 rounded-full px-3 text-sm font-medium transition-colors ${
-        selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+      className={`h-6 rounded-full px-3 text-xs font-medium transition-colors ${
+        selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
       }`}
     >
       {label}

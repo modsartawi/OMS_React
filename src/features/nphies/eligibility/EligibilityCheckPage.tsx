@@ -24,6 +24,10 @@ import {
   toCheckRequest,
   type CheckDraft,
 } from './check-form'
+import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The eligibility check form (ticket 211, spec 209) — slice 0 of the Nphies area
@@ -186,11 +190,10 @@ export default function EligibilityCheckPage() {
         {/* Who we are asking as, and who we are asking. */}
         <div className="flex flex-wrap items-end gap-3">
           <Field label={t('form.provider')}>
-            <select
+            <Select
               value={draft.providerCode}
               onChange={(e) => patch({ providerCode: e.target.value })}
-              aria-label={t('form.provider')}
-              className={`w-56 ${CONTROL}`}
+              className="w-56"
             >
               {/* No default and no memory: the empty option is the state the form
                   opens in and the one the gate below refuses to submit from. */}
@@ -200,14 +203,13 @@ export default function EligibilityCheckPage() {
                   {t('form.providerOption', { code: p.providerCode, license: p.license })}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('form.payer')}>
-            <select
+            <Select
               value={draft.payerCode}
               onChange={(e) => patch({ payerCode: e.target.value })}
-              aria-label={t('form.payer')}
-              className={`w-56 ${CONTROL}`}
+              className="w-56"
             >
               {/* Unchosen like the provider, and refused by the same gate. The
                   option carries the payer's NAME and submits its CODE — §3.1 puts
@@ -218,7 +220,7 @@ export default function EligibilityCheckPage() {
                   {t('form.payerOption', { name: p.payerName, code: p.payerCode })}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
         </div>
 
@@ -245,18 +247,17 @@ export default function EligibilityCheckPage() {
         <div className="flex flex-wrap items-end gap-3">
           <Field label={t('form.patientId')}>
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type="text"
                 value={draft.patientId}
                 onChange={(e) => patch({ patientId: e.target.value })}
-                aria-label={t('form.patientId')}
-                className={`w-44 ${CONTROL}`}
+                className="w-44"
               />
-              <button
+              <Button
                 type="button"
+                variant="outlined"
                 onClick={() => fill.mutate(draft.patientId.trim())}
                 disabled={draft.patientId.trim() === '' || fill.isPending}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {fill.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -264,15 +265,14 @@ export default function EligibilityCheckPage() {
                   <Search className="h-3.5 w-3.5" aria-hidden />
                 )}
                 {t('form.fill')}
-              </button>
+              </Button>
             </div>
           </Field>
           <Field label={t('form.patientIdType')}>
-            <select
+            <Select
               value={draft.patientIdType}
               onChange={(e) => patch({ patientIdType: e.target.value })}
-              aria-label={t('form.patientIdType')}
-              className={`w-44 ${CONTROL}`}
+              className="w-44"
             >
               {/* Unchosen, like the provider: an ID type nobody picked still
                   reaches the exchange inside the FHIR Patient. */}
@@ -281,56 +281,51 @@ export default function EligibilityCheckPage() {
               <option value="PRC">{t('idType.PRC')}</option>
               <option value="PN">{t('idType.PN')}</option>
               <option value="Other">{t('idType.Other')}</option>
-            </select>
+            </Select>
           </Field>
           <Field label={t('form.patientName')}>
-            <input
+            <Input
               type="text"
               value={draft.patientName}
               onChange={(e) => patch({ patientName: e.target.value })}
-              aria-label={t('form.patientName')}
-              className={`w-64 ${CONTROL}`}
+              className="w-64"
             />
           </Field>
           <Field label={t('form.patientGender')}>
-            <select
+            <Select
               value={draft.patientGender}
               onChange={(e) => patch({ patientGender: e.target.value })}
-              aria-label={t('form.patientGender')}
-              className={`w-32 ${CONTROL}`}
+              className="w-32"
             >
               <option value="">{t('form.unchosen')}</option>
               <option value="male">{t('gender.male')}</option>
               <option value="female">{t('gender.female')}</option>
-            </select>
+            </Select>
           </Field>
           <Field label={t('form.patientBirthDate')}>
-            <input
+            <Input
               type="date"
               value={draft.patientBirthDate}
               onChange={(e) => patch({ patientBirthDate: e.target.value })}
-              aria-label={t('form.patientBirthDate')}
-              className={`w-44 ${CONTROL}`}
+              className="w-44"
             />
           </Field>
           <Field label={t('form.memberId')}>
-            <input
+            <Input
               type="text"
               value={draft.memberId}
               onChange={(e) => patch({ memberId: e.target.value })}
-              aria-label={t('form.memberId')}
-              className={`w-40 ${CONTROL}`}
+              className="w-40"
             />
           </Field>
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
           <Field label={t('form.occupation')}>
-            <select
+            <Select
               value={draft.occupation}
               onChange={(e) => patch({ occupation: e.target.value })}
-              aria-label={t('form.occupation')}
-              className={`w-48 ${CONTROL}`}
+              className="w-48"
             >
               {/* Optional, unlike the provider — `Occupation` and `MaritalStatus`
                   are nullable upstream and usually empty (see
@@ -342,14 +337,13 @@ export default function EligibilityCheckPage() {
                   {c.display}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('form.maritalStatus')}>
-            <select
+            <Select
               value={draft.maritalStatus}
               onChange={(e) => patch({ maritalStatus: e.target.value })}
-              aria-label={t('form.maritalStatus')}
-              className={`w-48 ${CONTROL}`}
+              className="w-48"
             >
               <option value="">{t('form.unstated')}</option>
               {(maritalStatuses.data ?? []).map((c) => (
@@ -357,10 +351,10 @@ export default function EligibilityCheckPage() {
                   {c.display}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <label className="flex select-none items-center gap-1.5 pb-2 text-xs font-medium text-muted-foreground">
-            <input
+            <Input
               type="checkbox"
               checked={draft.transfer}
               onChange={(e) => patch({ transfer: e.target.checked })}
@@ -369,7 +363,7 @@ export default function EligibilityCheckPage() {
             {t('form.transfer')}
           </label>
           <label className="flex select-none items-center gap-1.5 pb-2 text-xs font-medium text-muted-foreground">
-            <input
+            <Input
               type="checkbox"
               checked={draft.newborn}
               onChange={(e) => patch({ newborn: e.target.checked })}
@@ -411,16 +405,16 @@ export default function EligibilityCheckPage() {
               (`@/core/ui/Button`'s own note). The form's `onSubmit` is the
               enforcement; this is only how it reads. `disabled` is honest for
               the in-flight case, where the reason is visible as a spinner. */}
-          <button
+          <Button
             type="submit"
-            aria-disabled={blockers.length > 0}
+            variant="primary"
+            aria-disabled={blockers.length > 0 || undefined}
             disabled={check.isPending}
             title={blockers.length > 0 ? blockerSentence : undefined}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
           >
             {check.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
             {t('form.submit')}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -468,16 +462,3 @@ const remedyKey = (code: string | null) => (code ? (REMEDY_KEYS[code] ?? null) :
  * same height, border and focus ring and differs only in width — so the string
  * lives here rather than eight times, where one edit would drift.
  */
-const CONTROL =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
-/** A labelled control. One shape for every field on the form. */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      {children}
-    </label>
-  )
-}
-

@@ -25,8 +25,11 @@ import {
   type CouponCreateForm,
   type CouponField,
 } from './coupon-form'
-import { Refusal, SETTINGS_CONTROL, SETTINGS_INPUT } from './settings-ui'
+import { Refusal } from './settings-ui'
 import { useWorkspace } from './context'
+import Input from '@/core/ui/Input'
+import Textarea from '@/core/ui/Textarea'
+import Field from '@/core/ui/Field'
 
 const FORM_ID = 'create-coupons-form'
 
@@ -142,8 +145,8 @@ export default function CreateCouponsDialog({
               onClick={() => set({ kind })}
               data-coupon-kind={kind}
               className={
-                'rounded-md border px-3 py-1.5 text-sm transition-colors ' +
-                (form.kind === kind ? 'border-primary-border bg-primary-050 font-medium text-primary-800' : 'border-border/60 text-foreground hover:bg-accent')
+                'inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium transition-colors ' +
+                (form.kind === kind ? 'border-primary bg-primary-050 text-primary-800' : 'border-border bg-card text-foreground hover:bg-accent')
               }
             >
               {t(`coupons.create.kinds.${kind}.label`)}
@@ -154,46 +157,46 @@ export default function CreateCouponsDialog({
           {t(`coupons.create.kinds.${form.kind}.intro`)}
         </p>
 
-        <Field id="coupon-template" label={t('coupons.create.template')} problem={problem('templateId')} values={{ max: MAX_TEMPLATE }} hint={t('coupons.create.templateHint')}>
-          <input
+        <CouponField id="coupon-template" label={t('coupons.create.template')} problem={problem('templateId')} values={{ max: MAX_TEMPLATE }} hint={t('coupons.create.templateHint')}>
+          <Input
             id="coupon-template"
             dir="ltr"
             value={form.templateId}
             onChange={(e) => set({ templateId: e.target.value })}
-            className={`${SETTINGS_INPUT} max-w-xs font-mono ${problem('templateId') ? 'border-danger' : 'border-border/60'}`}
+            className="w-full max-w-xs font-mono"
             data-coupon-field="templateId"
           />
-        </Field>
+        </CouponField>
 
         {form.kind === 'random' && (
-          <Field id="coupon-count" label={t('coupons.create.count')} problem={problem('count')} values={{ max: MAX_BATCH }}>
-            <input
+          <CouponField id="coupon-count" label={t('coupons.create.count')} problem={problem('count')} values={{ max: MAX_BATCH }}>
+            <Input
               id="coupon-count"
               inputMode="numeric"
               value={form.count}
               onChange={(e) => set({ count: e.target.value })}
-              className={`${SETTINGS_INPUT} max-w-[10rem] ${problem('count') ? 'border-danger' : 'border-border/60'}`}
+              className="w-full max-w-[10rem]"
               data-coupon-field="count"
             />
-          </Field>
+          </CouponField>
         )}
 
         {form.kind === 'universal' && (
-          <Field id="coupon-code" label={t('coupons.create.code')} problem={problem('code')} values={{ max: MAX_CODE }} hint={form.code ? undefined : t('coupons.create.codeHint')}>
-            <input
+          <CouponField id="coupon-code" label={t('coupons.create.code')} problem={problem('code')} values={{ max: MAX_CODE }} hint={form.code ? undefined : t('coupons.create.codeHint')}>
+            <Input
               id="coupon-code"
               dir="ltr"
               value={form.code}
               onChange={(e) => set({ code: cleanCode(e.target.value) })}
               placeholder={t('coupons.create.codePlaceholder')}
-              className={`${SETTINGS_INPUT} font-mono ${problem('code') ? 'border-danger' : 'border-border/60'}`}
+              className="w-full max-w-md font-mono"
               data-coupon-field="code"
             />
-          </Field>
+          </CouponField>
         )}
 
         {form.kind === 'personal' && (
-          <Field
+          <CouponField
             id="coupon-members"
             label={t('coupons.create.members')}
             problem={problem('members')}
@@ -212,42 +215,40 @@ export default function CreateCouponsDialog({
               )
             }
           >
-            <textarea
+            <Textarea
               id="coupon-members"
               dir="ltr"
               rows={4}
               value={form.members}
               onChange={(e) => set({ members: e.target.value })}
               placeholder={t('coupons.create.membersPlaceholder')}
-              className={`w-full max-w-md rounded-md border bg-background px-2.5 py-1.5 font-mono text-sm text-foreground focus:outline-none ${problem('members') ? 'border-danger' : 'border-border/60'}`}
+              className="w-full max-w-md font-mono"
               data-coupon-field="members"
             />
-          </Field>
+          </CouponField>
         )}
 
         <fieldset className="flex flex-col gap-3" data-coupon-validity="">
           <legend className="mb-2 text-sm font-semibold">{t('coupons.create.validity')}</legend>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="coupon-from" label={t('coupons.create.from')} problem={problem('from')} hint={form.from ? undefined : t('coupons.create.fromHint')}>
-              <input
+            <CouponField id="coupon-from" label={t('coupons.create.from')} problem={problem('from')} hint={form.from ? undefined : t('coupons.create.fromHint')}>
+              <Input
                 id="coupon-from"
                 type="date"
                 value={form.from}
                 onChange={(e) => set({ from: e.target.value })}
-                className={SETTINGS_CONTROL}
                 data-coupon-field="from"
               />
-            </Field>
-            <Field id="coupon-until" label={t('coupons.create.until')} problem={problem('until')} hint={form.until ? undefined : t('coupons.create.untilHint')}>
-              <input
+            </CouponField>
+            <CouponField id="coupon-until" label={t('coupons.create.until')} problem={problem('until')} hint={form.until ? undefined : t('coupons.create.untilHint')}>
+              <Input
                 id="coupon-until"
                 type="date"
                 value={form.until}
                 onChange={(e) => set({ until: e.target.value })}
-                className={SETTINGS_CONTROL}
                 data-coupon-field="until"
               />
-            </Field>
+            </CouponField>
           </div>
           <p className="text-xs text-muted-foreground">{t('coupons.create.validityNote')}</p>
         </fieldset>
@@ -328,8 +329,8 @@ function Limit({
   )
 }
 
-/** A label above its control; below it, the field's problem once Create was tried, else its hint. */
-function Field({
+/** A label above its control (the shared `Field`); below it, the field's problem once Create was tried, else its hint. */
+function CouponField({
   id,
   label,
   problem,
@@ -347,19 +348,20 @@ function Field({
 }) {
   const { t } = useTranslation('campaign-workspace')
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
-        {label}
-      </label>
+    <Field
+      id={id}
+      label={label}
+      error={
+        problem ? (
+          <span role="alert" data-coupon-problem={problem}>
+            {/* Each bound is a machine value inside a sentence: isolated whole (bidi rule). */}
+            {t(`coupons.create.problems.${problem}`, Object.fromEntries(Object.entries(values ?? {}).map(([k, v]) => [k, fsi(v)])))}
+          </span>
+        ) : undefined
+      }
+      hint={problem ? undefined : hint || undefined}
+    >
       {children}
-      {problem ? (
-        <p className="text-xs text-danger" role="alert" data-coupon-problem={problem}>
-          {/* Each bound is a machine value inside a sentence: isolated whole (bidi rule). */}
-          {t(`coupons.create.problems.${problem}`, Object.fromEntries(Object.entries(values ?? {}).map(([k, v]) => [k, fsi(v)])))}
-        </p>
-      ) : (
-        hint && <p className="text-xs text-muted-foreground">{hint}</p>
-      )}
-    </div>
+    </Field>
   )
 }

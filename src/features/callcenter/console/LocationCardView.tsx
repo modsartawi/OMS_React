@@ -178,6 +178,7 @@ export default function LocationCardView({
               onChange={(e) => tick('saveToCustomer')(e.target.checked)}
               aria-invalid={saveError !== null}
               data-cc-location-tick="saveToCustomer"
+              className="accent-primary"
             />
             <span dir="auto">{t('location.card.saveToCustomer')}</span>
           </label>
@@ -248,6 +249,7 @@ function Row({
               checked={checked}
               onChange={(e) => onChange(e.target.checked)}
               data-cc-location-tick={field}
+              className="accent-primary"
             />
           ) : (
             // Keeps the label in line with the ticked rows'.

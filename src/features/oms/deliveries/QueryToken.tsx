@@ -1,15 +1,20 @@
-import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { RotateCcw, X } from 'lucide-react'
 import { takesEscape } from '@/core/commands/key-layer'
 import KeyChord from '@/core/commands/KeyChord'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { POPOVER } from '@/core/ui/overlay'
 import { formatRange, fsi } from '@/core/util/bidi'
 import { toIsoDate } from '@/core/util/date-format'
 import {
   DATE_PRESETS,
   fieldDef,
+  LIMIT_MAX,
+  limitIsInvalid,
   limitOf,
   withField,
   type DateEntry,
@@ -18,11 +23,6 @@ import {
   type QueryField,
   type TokenState,
 } from './query-model'
-
-/** A popover's control: 26px, the 3:1 field edge, the focus ring. */
-const CONTROL =
-  'h-[26px] w-full rounded-md border border-input bg-card px-2 text-xs ' +
-  'focus:outline-2 focus:outline-offset-1 focus:outline-ring'
 
 /** The dashed amber of an edit that has not been searched (368 §1; amber is attention). */
 const STATE_CHIP: Record<TokenState, string> = {
@@ -95,13 +95,11 @@ function TokenValue({ field, value }: { field: QueryField; value: QueryCriteria[
 
 /** A select whose blank option means "no filter". */
 function AnySelect({
-  id,
   value,
   options,
   onChange,
   autoFocus,
 }: {
-  id: string
   value: string
   options: readonly (readonly [string, string])[]
   onChange: (value: string) => void
@@ -109,26 +107,27 @@ function AnySelect({
 }) {
   const { t } = useTranslation('deliveries')
   return (
-    <select id={id} autoFocus={autoFocus} className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)}>
+    <Select autoFocus={autoFocus} className="w-full" value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{t('query.any')}</option>
       {options.map(([v, label]) => (
         <option key={v} value={v}>
           {label}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }
 
-/** The field's own control, by kind. */
+/**
+ * The field's own control, by kind (ticket 595: on the shared controls). It sits in the
+ * popover's `Field`, which names it; the Custom range's two ends are Fields of their own.
+ */
 function FieldEditor({
-  id,
   field,
   draft,
   lookups,
   onChange,
 }: {
-  id: string
   field: QueryField
   draft: QueryCriteria
   lookups: LookupOptions
@@ -143,10 +142,9 @@ function FieldEditor({
       const date = draft.date
       return (
         <div className="flex flex-col gap-1.5">
-          <select
-            id={id}
+          <Select
             autoFocus
-            className={CONTROL}
+            className="w-full"
             value={date?.preset ?? 'today'}
             onChange={(e) => {
               const preset = e.target.value as DateEntry['preset']
@@ -159,23 +157,28 @@ function FieldEditor({
                 {t(`query.date.${preset}`)}
               </option>
             ))}
-          </select>
+          </Select>
           {date?.preset === 'custom' && (
+            // A Custom range needs both ends: an empty one is invalid (`inSearch` drops the Date).
             <div className="grid grid-cols-2 gap-1.5">
-              <input
-                type="date"
-                aria-label={t('query.date.from')}
-                className={CONTROL}
-                value={date.from ?? ''}
-                onChange={(e) => set({ ...date, from: e.target.value || null })}
-              />
-              <input
-                type="date"
-                aria-label={t('query.date.to')}
-                className={CONTROL}
-                value={date.to ?? ''}
-                onChange={(e) => set({ ...date, to: e.target.value || null })}
-              />
+              <Field label={t('query.date.from')} invalid={!date.from}>
+                <Input
+                  type="date"
+                  className="w-full"
+                  value={date.from ?? ''}
+                  onChange={(e) => set({ ...date, from: e.target.value || null })}
+                  data-date-end="from"
+                />
+              </Field>
+              <Field label={t('query.date.to')} invalid={!date.to}>
+                <Input
+                  type="date"
+                  className="w-full"
+                  value={date.to ?? ''}
+                  onChange={(e) => set({ ...date, to: e.target.value || null })}
+                  data-date-end="to"
+                />
+              </Field>
             </div>
           )}
         </div>
@@ -186,7 +189,6 @@ function FieldEditor({
       const options = control.kind === 'lookup' ? lookups[control.lookup] : control.options
       return (
         <AnySelect
-          id={id}
           autoFocus
           value={(draft[field] as string | null) ?? ''}
           // A native <option> takes only a string: the server's description is isolated whole.
@@ -198,7 +200,6 @@ function FieldEditor({
     case 'yesNo':
       return (
         <AnySelect
-          id={id}
           autoFocus
           // Tri-state: Any omits the param entirely (it is not "No").
           value={draft.isExpress === null ? '' : String(draft.isExpress)}
@@ -211,25 +212,24 @@ function FieldEditor({
       )
     case 'limit':
       return (
-        <input
-          id={id}
+        <Input
           autoFocus
           type="number"
           min={1}
-          max={20000}
-          className={CONTROL}
+          max={LIMIT_MAX}
+          className="w-full"
+          aria-invalid={limitIsInvalid(draft.limit)}
           value={draft.limit ?? ''}
           onChange={(e) => set(e.target.value === '' ? null : Number(e.target.value))}
         />
       )
     case 'text':
       return (
-        <input
-          id={id}
+        <Input
           autoFocus
           type={control.type}
           autoComplete="off"
-          className={CONTROL}
+          className="w-full"
           value={(draft[field] as string | null) ?? ''}
           onChange={(e) => set(e.target.value)}
         />
@@ -277,7 +277,6 @@ export default function QueryToken({
   const { t } = useTranslation('deliveries')
   const wrapper = useRef<HTMLSpanElement>(null)
   const button = useRef<HTMLButtonElement>(null)
-  const controlId = useId()
   const label = t(`query.field.${field}`)
   const ghost = state === 'ghost'
 
@@ -352,27 +351,23 @@ export default function QueryToken({
           className={`${POPOVER} absolute top-full z-50 mt-1 w-60 p-2 ${align === 'end' ? 'end-0' : 'start-0'}`}
           data-token-popover={field}
         >
-          <label htmlFor={controlId} className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            {label}
-          </label>
-          <FieldEditor id={controlId} field={field} draft={draft} lookups={lookups} onChange={onDraft} />
-          {field === 'limit' && (
-            <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-              <Trans
-                t={t}
-                i18nKey="query.limitHint"
-                values={{ n: String(limitOf(draft)) }}
-                components={{ n: <Ltr /> }}
-              />
-            </p>
-          )}
+          <Field
+            label={label}
+            hint={
+              field === 'limit' ? (
+                <Trans t={t} i18nKey="query.limitHint" values={{ n: String(limitOf(draft)) }} components={{ n: <Ltr /> }} />
+              ) : undefined
+            }
+          >
+            <FieldEditor field={field} draft={draft} lookups={lookups} onChange={onDraft} />
+          </Field>
           <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Trans t={t} i18nKey="query.enterSearches" components={{ keys: <KeyChord keys="Enter" /> }} />
             </span>
             <button
               type="button"
-              className="rounded px-1.5 py-0.5 hover:bg-accent"
+              className="rounded-md px-1.5 py-0.5 hover:bg-accent"
               onClick={() => {
                 onClose()
                 button.current?.focus()

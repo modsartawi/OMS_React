@@ -7,6 +7,7 @@ import { simulatorPath } from '@/core/rules/campaign-state'
 import { takesEscape } from '@/core/commands/key-layer'
 import { POPOVER } from '@/core/ui/overlay'
 import CopyCampaignDialog from './CopyCampaignDialog'
+import IconButton from '@/core/ui/IconButton'
 
 /**
  * The dashboard's **⋯** menu (the prototype's State-cell menu). Ticket 502 gives it **Copy
@@ -30,18 +31,17 @@ export default function CampaignActionsMenu({ draft }: { draft: RuleDraft }) {
 
   return (
     <div ref={wrapRef} className="relative">
-      <button
+      <IconButton
         ref={buttonRef}
-        type="button"
-        aria-label={t('actions.label')}
+        variant="outlined"
+        label={t('actions.label')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         data-campaign-actions=""
-        className="inline-flex h-7 items-center justify-center rounded-md border border-border-strong px-2 text-muted-foreground hover:bg-accent disabled:opacity-50"
       >
         <MoreHorizontal className="size-3.5" aria-hidden />
-      </button>
+      </IconButton>
       {open && (
         <ActionsPopover wrapRef={wrapRef} onClose={close}>
           <MenuItem
@@ -136,7 +136,7 @@ function MenuItem({ icon: Icon, data, onClick, children }: { icon: LucideIcon; d
       role="menuitem"
       onClick={onClick}
       data-campaign-action={data}
-      className="flex h-7 w-full items-center gap-2 rounded px-2 text-start text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+      className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-start text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
     >
       <Icon className="size-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{children}</span>

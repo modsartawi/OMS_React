@@ -6,6 +6,8 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import { cleanReason, reasonReady } from './control-helpers'
 
 /**
@@ -107,19 +109,17 @@ export default function ReasonDialog({
         )}
         {note && <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{note}</p>}
         {children}
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          {t('dialog.reason')}
-          <textarea
+        <Field label={t('dialog.reason')}>
+          <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             autoFocus
             required
             disabled={busy}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
             data-reason-input=""
           />
-        </label>
+        </Field>
         {error != null && (
           <ErrorBanner className="p-2" title={t('dialog.failed')} message={apiErrorMessage(error, t('dialog.failedHint'))}>
             {codeKey && (

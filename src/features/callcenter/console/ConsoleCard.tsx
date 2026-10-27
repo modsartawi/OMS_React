@@ -17,6 +17,8 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { signOut } from '@/core/auth/sign-out'
+import Button from '@/core/ui/Button'
+import { buttonClass, type ButtonVariant } from '@/core/ui/control-classes'
 
 export default function ConsoleCard({
   tone,
@@ -40,11 +42,10 @@ export default function ConsoleCard({
   const edge = tone === 'attention' ? 'border-attention-border' : 'border-border'
   const quiet = actions !== undefined
 
-  // Two presentations of the same two exits — buttons when they are the only
-  // way forward, a footer row when the card already has its own actions.
-  const wayHome = quiet
-    ? 'text-xs text-muted-foreground underline-offset-2 hover:underline'
-    : 'rounded-md border border-input bg-card px-4 py-2 text-sm font-medium hover:bg-accent'
+  // Two presentations of the same two exits — outlined buttons when they are the
+  // only way forward, links when the card already has its own actions. Both exits
+  // leave the console, so the quiet pair takes the shared link look (594).
+  const wayHome: ButtonVariant = quiet ? 'link' : 'outlined'
 
   return (
     // The shell's content area, filled (407): centred by the card's own auto
@@ -65,12 +66,12 @@ export default function ConsoleCard({
           {/* An in-app link rather than a silent redirect — 125's
               explain-don't-redirect ruling: an agent teleported away never
               learns whether they were refused or the check merely failed. */}
-          <Link to="/" data-cc-home className={wayHome}>
+          <Link to="/" data-cc-home className={buttonClass(wayHome)}>
             {t('actions.backToPortal')}
           </Link>
-          <button type="button" onClick={() => void signOut()} data-cc-signout className={wayHome}>
+          <Button variant={wayHome} onClick={() => void signOut()} data-cc-signout>
             {t('actions.signOut')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

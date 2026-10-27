@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
@@ -31,16 +32,9 @@ export default function HistoryPane({ storeCode, storeName, onClose }: { storeCo
             <Ltr>{formatPair(storeCode, storeName)}</Ltr>
           </p>
         </div>
-        <button
-          type="button"
-          className="rounded p-1 text-muted-foreground hover:bg-muted"
-          onClick={onClose}
-          aria-label={t('history.close')}
-          title={t('history.close')}
-          data-history-close=""
-        >
+        <IconButton label={t('history.close')} onClick={onClose} data-history-close="">
           <X className="size-4" aria-hidden />
-        </button>
+        </IconButton>
       </header>
       {history.isPending ? (
         <p className="text-xs text-muted-foreground">{t('history.loading')}</p>

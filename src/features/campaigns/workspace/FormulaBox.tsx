@@ -4,10 +4,10 @@ import { Check, TriangleAlert, X } from 'lucide-react'
 import type { CampaignRule, RuleExpr, RuleIssue } from '@/core/models/rule-campaign'
 import type { RuleFormulaExpect, RuleFormulaGuide } from '@/core/rules/formula-guide'
 import Ltr from '@/core/ui/Ltr'
-import { INPUT } from './builder-ui'
 import { severityOf } from './checks'
 import FxHelper from './FxHelper'
 import { boxOf, insertAtCursor, readBox, type Chip, type Selection } from './fx'
+import Input from '@/core/ui/Input'
 
 export interface FormulaBoxProps {
   id: string
@@ -106,13 +106,13 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
   return (
     <div className="flex w-full min-w-0 flex-col gap-1" data-fx-box={data} data-fx-json={stored.json ? '' : undefined}>
       <div className="flex items-center gap-1.5">
-        <input
+        <Input
           ref={input}
           id={id}
           dir="ltr"
           spellCheck={false}
           autoComplete="off"
-          className={`${INPUT} min-w-0 flex-1 font-mono ${bad ? 'border-danger-border' : ''}`}
+          className="min-w-0 flex-1 font-mono"
           value={text}
           placeholder={t(`fx.placeholder.${expect}`)}
           aria-label={label}
@@ -132,8 +132,8 @@ export default function FormulaBox({ id, value, onChange, expect, rule, valueKey
           <button
             type="button"
             className={
-              'h-8 shrink-0 rounded-md border px-2.5 font-serif text-sm font-semibold italic ' +
-              (open ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground')
+              'inline-grid h-7 min-w-7 shrink-0 place-items-center rounded-full border px-2 font-serif text-sm font-semibold italic transition-colors ' +
+              (open ? 'border-primary bg-primary-050 text-primary-800' : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground')
             }
             aria-expanded={open}
             aria-label={t('fx.toggle')}

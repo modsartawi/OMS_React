@@ -347,6 +347,53 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/data-sync/ChangesPage')).default,
         }),
       },
+      // Document-type configuration (BackOffice spec 3148, ticket 3149): the list and one type's grouped settings.
+      {
+        path: 'admin/doc-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentTypesPage')).default,
+        }),
+      },
+      // Config changes (ticket 3152): the whole change log, filtered, paged, exported.
+      {
+        path: 'admin/config-changes',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/ConfigChangesPage')).default,
+        }),
+      },
+      // Document sources (ticket 3156): `?source=` picks one, `?tab=history` its History.
+      {
+        path: 'admin/document-sources',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentSourcesPage')).default,
+        }),
+      },
+      // Action types per document category (ticket 3155): `?category=` picks it, `?tab=history` its History.
+      {
+        path: 'admin/action-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/ActionTypesPage')).default,
+        }),
+      },
+      // Delivery document types (ticket 3154): the list and one delivery type (`?tab=history` its History).
+      {
+        path: 'admin/delivery-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DeliveryTypesPage')).default,
+        }),
+      },
+      {
+        path: 'admin/delivery-types/:deliveryType',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DeliveryTypePage')).default,
+        }),
+      },
+      {
+        path: 'admin/doc-types/:documentType',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentTypePage')).default,
+        }),
+      },
       // The store engine switch (BackOffice spec 2737, ticket 517): HQ flips a store's promotion engine.
       {
         path: 'admin/engine-switch',

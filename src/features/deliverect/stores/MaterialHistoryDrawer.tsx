@@ -26,9 +26,9 @@ import {
   readLine,
 } from "./sync-lines";
 import { SHEET_BODY, TD, TH } from "@/core/ui/sheet-table";
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
-const INPUT =
-  "h-8 w-48 rounded-md border border-border/60 bg-background px-2 font-mono text-sm text-foreground focus:border-primary/50 focus:outline-none";
 
 /**
  * **A material's sync history at one store** (ticket 550; BackOffice 3026, `GET Sync/{store}/Lines?plu=`)
@@ -80,20 +80,18 @@ export default function MaterialHistoryDrawer({
             else setPlu(next);
           }}
         >
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            {t("material.plu")}
-            <input
+          <Field label={t("material.plu")}>
+            <Input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={t("material.pluPlaceholder")}
-              className={INPUT}
               dir="ltr"
+              className="w-48 font-mono"
               data-material-plu=""
             />
-          </label>
+          </Field>
           <Button
             type="submit"
-            className="h-8"
             disabled={draft.trim() === "" || history.isFetching}
             data-material-search=""
           >

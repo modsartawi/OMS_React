@@ -30,10 +30,9 @@ import {
   type TermsEntry,
   type TermsField,
 } from './terms-timeline'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium'
-const INPUT =
-  'h-8 rounded-md border border-border/60 bg-background px-2 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 /** A platform as `display name` (free text) beside its key (a machine value), each isolated. */
 function PlatformLine({ platform }: { platform: DeliverectPlatform }) {
@@ -112,9 +111,13 @@ export function PlatformDialog({ platform, onClose }: { platform: DeliverectPlat
       {platform && <PlatformLine platform={platform} />}
       <div className="grid grid-cols-2 gap-3" data-platform-dialog={adding ? 'add' : 'edit'}>
         {adding && (
-          <label className={FIELD + ' col-span-2'}>
-            {t('addPlatform.platformKey')}
-            <input
+          <Field
+            label={t('addPlatform.platformKey')}
+            className="col-span-2"
+            hint={t('addPlatform.platformKeyHint')}
+            error={keyText !== '' && key.problem ? <Problem text={t(`addPlatform.problems.${key.problem}`)} data="platformKey" /> : undefined}
+          >
+            <Input
               value={keyText}
               onChange={(e) => {
                 send.reset()
@@ -123,52 +126,43 @@ export function PlatformDialog({ platform, onClose }: { platform: DeliverectPlat
               disabled={send.isPending}
               autoFocus
               dir="ltr"
-              className={INPUT + ' font-mono uppercase'}
+              className="font-mono uppercase"
               aria-invalid={exists !== null || undefined}
               data-add-platform-key=""
             />
-            {keyText !== '' && key.problem && <Problem text={t(`addPlatform.problems.${key.problem}`)} data="platformKey" />}
-            <span className="font-normal text-muted-foreground">{t('addPlatform.platformKeyHint')}</span>
             {exists && <InlineRefusal message={exists.message} code={exists.code} />}
-          </label>
+          </Field>
         )}
-        <label className={FIELD + ' col-span-2'}>
-          {t('edit.displayName')}
-          <input
+        <Field label={t('edit.displayName')} className="col-span-2" error={problem('displayName')}>
+          <Input
             value={draft.displayName}
             onChange={(e) => set('displayName', e.target.value)}
             disabled={send.isPending}
             dir="auto"
-            className={INPUT}
             data-edit-display-name=""
           />
-          {problem('displayName')}
-        </label>
-        <label className={FIELD}>
-          {t('edit.channelId')}
-          <input
+        </Field>
+        <Field label={t('edit.channelId')} error={problem('channelId')}>
+          <Input
             value={draft.channelId}
             onChange={(e) => set('channelId', e.target.value)}
             disabled={send.isPending}
             dir="ltr"
             inputMode="numeric"
-            className={INPUT + ' font-mono'}
+            className="font-mono"
             data-edit-channel-id=""
           />
-          {problem('channelId')}
-        </label>
-        <label className={FIELD}>
-          {t('edit.creditCustomer')}
-          <input
+        </Field>
+        <Field label={t('edit.creditCustomer')} hint={t('edit.creditCustomerHint')}>
+          <Input
             value={draft.creditCustomer}
             onChange={(e) => set('creditCustomer', e.target.value)}
             disabled={send.isPending}
             dir="ltr"
-            className={INPUT + ' font-mono'}
+            className="font-mono"
             data-edit-credit-customer=""
           />
-          <span className="font-normal text-muted-foreground">{t('edit.creditCustomerHint')}</span>
-        </label>
+        </Field>
         <div className="col-span-2 flex flex-col gap-1 text-xs">
           <label className="flex items-center gap-2 font-medium">
             <input
@@ -272,19 +266,17 @@ export function AddTermsDialog({ platform, timeline, onClose }: { platform: Deli
     >
       <PlatformLine platform={platform} />
       <div className="grid grid-cols-2 gap-3" data-terms-dialog="">
-        <label className={FIELD + ' col-span-2'}>
-          {t('add.validFrom')}
-          <input
+        <Field label={t('add.validFrom')} className="col-span-2" error={problem('validFrom')}>
+          <Input
             type="date"
             value={draft.validFrom}
             onChange={(e) => set('validFrom', e.target.value)}
             disabled={send.isPending}
             autoFocus
-            className={INPUT + ' w-48'}
+            className="w-48"
             aria-invalid={overlap !== null || undefined}
             data-terms-valid-from=""
           />
-          {problem('validFrom')}
           {conflict && (
             <span role="note" className="flex items-start gap-1 font-normal text-attention-800" data-terms-conflict={conflict.kind}>
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
@@ -299,21 +291,19 @@ export function AddTermsDialog({ platform, timeline, onClose }: { platform: Deli
             </span>
           )}
           {overlap && <InlineRefusal message={overlap.message} code={overlap.code} />}
-        </label>
+        </Field>
         {TERMS_NUMBER_FIELDS.map((field) => (
-          <label key={field} className={FIELD}>
-            {t(`add.${field}`)}
-            <input
+          <Field key={field} label={t(`add.${field}`)} error={problem(field)}>
+            <Input
               value={draft[field]}
               onChange={(e) => set(field, e.target.value)}
               disabled={send.isPending}
               dir="ltr"
               inputMode="decimal"
-              className={INPUT + ' tabular-nums'}
+              className="tabular-nums"
               data-terms-field={field}
             />
-            {problem(field)}
-          </label>
+          </Field>
         ))}
         <p className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground" data-terms-currency="">
           {t('add.currency')}

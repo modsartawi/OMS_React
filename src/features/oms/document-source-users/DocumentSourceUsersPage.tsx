@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, GetRowIdFunc, GridApi } from 'ag-grid-community'
-import { FileSpreadsheet, Search, Upload } from 'lucide-react'
+import { FileSpreadsheet, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -30,6 +30,7 @@ import {
   type SourceUserImportColumn,
 } from './document-source-users'
 import { EXPORT_AS_TEXT, sourceUserColumns } from './columns'
+import Input from '@/core/ui/Input'
 
 /**
  * Document source users (ticket 438, spec 430 D7/D16/D20): the WPF Document source users inquiry —
@@ -116,19 +117,16 @@ function DocumentSourceUsers() {
     <section className="flex min-w-0 flex-col gap-1.5" data-dsu-pane="">
       <div className="flex flex-wrap items-center gap-3">
         <div className="ms-auto flex items-center gap-2">
-          <label className="relative flex items-center">
-            <Search className="pointer-events-none absolute start-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <input
-              type="search"
-              value={quick}
-              onChange={(e) => setQuick(e.target.value)}
-              placeholder={t('filter')}
-              aria-label={t('filter')}
-              disabled={rows === undefined}
-              className="h-8 w-64 rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:opacity-50"
-              data-dsu-filter=""
-            />
-          </label>
+          <Input
+            type="search"
+            wrapperClassName="w-64"
+            value={quick}
+            onChange={(e) => setQuick(e.target.value)}
+            placeholder={t('filter')}
+            aria-label={t('filter')}
+            disabled={rows === undefined}
+            data-dsu-filter=""
+          />
           <Button variant="outlined" disabled={rows === undefined || loading || !shown} onClick={() => void exportXlsx()} data-dsu-export="">
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
             {t('export.button')}

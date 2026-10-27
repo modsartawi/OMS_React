@@ -4,8 +4,10 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { formatCount, fsi } from '@/core/util/bidi'
 import { REASON_MAX, reasonField } from './reason'
 
@@ -140,8 +142,10 @@ export default function ReasonDialog({
           </p>
         )}
         {children}
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
+        <Field
+          hint={t('reason.hint')}
+          label={
+            <span className="flex items-baseline justify-between gap-2">
             {t('reason.label')}
             <span
               className={'font-normal tabular-nums ' + (check.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}
@@ -149,8 +153,10 @@ export default function ReasonDialog({
             >
               <Ltr>{formatCount(check.length, REASON_MAX)}</Ltr>
             </span>
-          </span>
-          <textarea
+            </span>
+          }
+        >
+          <Textarea
             value={text}
             onChange={(e) => {
               setText(e.target.value)
@@ -162,11 +168,10 @@ export default function ReasonDialog({
             disabled={busy}
             dir="auto"
             aria-invalid={check.problem === 'tooLong' || reasonServer !== null || undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
+            className="w-full"
             data-reason-input=""
           />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
+        </Field>
         {check.problem === 'tooLong' && (
           <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800" data-reason-too-long="">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />

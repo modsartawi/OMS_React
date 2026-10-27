@@ -7,9 +7,10 @@ import { lookupQueries } from '@/core/services/lookups'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { fsi } from '@/core/util/bidi'
-import { FIELD, INPUT } from './controls'
 import { withLeaveOutType, type StatisticsQuery } from './query'
 import { orderTypeOptions, storeOptions, type ScopeOption } from './scope-options'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 type Change = (change: (prev: StatisticsQuery) => StatisticsQuery) => void
 
@@ -31,15 +32,19 @@ export default function ScopeControls({ query, onChange }: { query: StatisticsQu
 
   return (
     <>
-      <label className={FIELD}>
-        {t('scope.store')}
-        <select
+      <Field
+        label={t('scope.store')}
+        error={
+          stores.isError ? <span data-statistics-stores-failed="">{t('scope.storesFailed')}</span> : undefined
+        }
+      >
+        <Select
           value={query.store}
           onChange={(e) => {
             const store = e.target.value
             onChange((q) => ({ ...q, store }))
           }}
-          className={`${INPUT} w-56`}
+          className="w-56"
           data-statistics-store=""
         >
           <option value="">{t('scope.allStores')}</option>
@@ -49,17 +54,12 @@ export default function ScopeControls({ query, onChange }: { query: StatisticsQu
               {fsi(o.text)}
             </option>
           ))}
-        </select>
-        {stores.isError && (
-          <span className="text-[11px] font-normal text-danger-800" data-statistics-stores-failed="">
-            {t('scope.storesFailed')}
-          </span>
-        )}
-      </label>
+        </Select>
+      </Field>
 
-      <fieldset className={FIELD} data-statistics-leave-out="">
+      <fieldset className="flex flex-col gap-1 text-xs font-medium text-muted-foreground" data-statistics-leave-out="">
         <legend className="mb-1">{t('leaveOut.label')}</legend>
-        <div className="flex h-9 items-center gap-3">
+        <div className="flex h-7 items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-normal text-foreground">
             <input
               type="checkbox"
@@ -132,8 +132,8 @@ function OrderTypesPicker({ chosen, onChange }: { chosen: readonly string[]; onC
         aria-haspopup="dialog"
         onClick={() => setOpen(!open)}
         className={
-          'inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-sm font-normal ' +
-          (chosen.length > 0 ? 'border-primary/50 bg-primary-050 text-primary-800' : 'border-border/60 bg-background text-foreground')
+          'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-normal ' +
+          (chosen.length > 0 ? 'border-primary bg-primary-050 text-primary-800' : 'border-border bg-card text-foreground')
         }
         data-leave-out-types-trigger=""
       >
@@ -183,7 +183,7 @@ function OrderTypesPicker({ chosen, onChange }: { chosen: readonly string[]; onC
             <button
               type="button"
               onClick={() => onChange((q) => ({ ...q, leaveOutTypes: [] }))}
-              className="self-end rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+              className="self-end rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
               data-leave-out-types-clear=""
             >
               {t('leaveOut.clear')}

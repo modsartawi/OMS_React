@@ -475,8 +475,10 @@ export default function LoginPage() {
     // The DMSCO sign-in theme: a frosted card over the photographic ground. The
     // page is a fixed brand surface in both themes, so the focus ring is the
     // login ink here rather than the app's (gold in dark) `--ring`.
+    // Short windows (584, ticket 605): below 912px tall the page's block padding drops to
+    // 1rem and the card's 776px minimum yields to the window, so a 744px window no longer scrolls.
     <div
-      className="flex min-h-screen flex-col items-center justify-center bg-login-ground bg-cover bg-center p-4 [--ring:var(--login-ink)] lg:p-10"
+      className="flex min-h-screen flex-col items-center justify-center bg-login-ground bg-cover bg-center p-4 [--ring:var(--login-ink)] lg:p-10 [@media(min-width:64rem)_and_(max-height:57rem)]:py-4"
       style={{ backgroundImage: `url(${backgroundUrl})` }}
     >
       {/* Decorative (20% white on the ground), so it stays out of the a11y tree. */}
@@ -487,7 +489,7 @@ export default function LoginPage() {
         {t(`greeting.${greeting}`)}
       </p>
 
-      <div className="grid w-full max-w-[1142px] gap-6 rounded-[32px] bg-login-glass/70 p-6 backdrop-blur-xl lg:min-h-[776px] lg:grid-cols-[minmax(0,1fr)_656px]">
+      <div className="grid w-full max-w-[1142px] gap-6 rounded-[32px] bg-login-glass/70 p-6 backdrop-blur-xl lg:min-h-[min(776px,calc(100dvh-5.5rem))] lg:grid-cols-[minmax(0,1fr)_656px]">
       {/* ===== Sign-in column ===== */}
       <div className="flex flex-col px-2 py-2 lg:ps-4 lg:pe-0 lg:py-4">
         <img src={logoUrl} width={262} height={140} alt={t('logoAlt')} className="max-w-full" />

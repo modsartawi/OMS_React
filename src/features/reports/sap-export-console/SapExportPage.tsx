@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import { AlertTriangle, ChevronDown, Loader2, Search, X } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Loader2, X } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -37,6 +37,9 @@ import {
 import { LABEL_TOKEN_CLASS, WORST_FIRST, labelToken, type LabelToken } from './label-helpers'
 import RunnerCard, { RunnerBanner } from './RunnerCard'
 import { figure, storeHref } from './storeday-helpers'
+import Chip from '@/core/ui/Chip'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The SAP export console's fleet page — `/reports/sap-export` (BackOffice spec 2579, ticket 463).
@@ -179,23 +182,19 @@ function Fleet() {
 
       <section className="flex min-w-0 flex-col gap-2" data-fleet-list="">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="relative flex items-center">
-            <Search className="pointer-events-none absolute start-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <input
-              type="search"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t('fleet.search')}
-              aria-label={t('fleet.search')}
-              className="h-8 w-64 rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-              data-fleet-search=""
-            />
-          </label>
-          <select
+          <Input
+            type="search"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t('fleet.search')}
+            aria-label={t('fleet.search')}
+            wrapperClassName="w-64"
+            data-fleet-search=""
+          />
+          <Select
             value={query.rail ?? ''}
             onChange={(e) => update((q) => withFleetFilter(q, { rail: (e.target.value || null) as Rail | null }))}
             aria-label={t('fleet.rail')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-fleet-rail=""
           >
             <option value="">{t('fleet.railAny')}</option>
@@ -204,13 +203,12 @@ function Fleet() {
                 {t(`rails.${r}`)}
               </option>
             ))}
-          </select>
+          </Select>
           <StatePicker chosen={query.states} onToggle={(s) => update((q) => toggleFleetState(q, s))} />
-          <select
+          <Select
             value={query.sort}
             onChange={(e) => update((q) => withFleetFilter(q, { sort: e.target.value as FleetQuery['sort'] }))}
             aria-label={t('fleet.sort')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-fleet-sort=""
           >
             {FLEET_SORTS.map((s) => (
@@ -218,7 +216,7 @@ function Fleet() {
                 {t(`fleet.sorts.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
           {shown && (
             <span className="text-xs text-muted-foreground" data-fleet-count={total}>
               <Trans t={t} i18nKey="fleet.count" count={total} values={{ n: figure(total) }} components={{ n: <Ltr /> }} />
@@ -245,7 +243,7 @@ function Fleet() {
                 data-label-chip={label}
                 data-token={token.token}
                 className={
-                  'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-shadow ' +
+                  'inline-flex h-7 items-center rounded-full px-3 text-xs font-medium transition-shadow ' +
                   LABEL_TOKEN_CLASS[token.token] +
                   (on ? ' ring-2 ring-primary/70' : ' hover:ring-1 hover:ring-primary/40')
                 }
@@ -255,11 +253,10 @@ function Fleet() {
             )
           })}
           {query.states.map((code) => (
-            <button
+            <Chip
               key={code}
-              type="button"
+              on
               onClick={() => update((q) => toggleFleetState(q, code))}
-              className="inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary-050 px-2 py-1 text-xs text-primary-800"
               data-state-chosen={code}
             >
               <span className="font-mono font-medium">
@@ -267,7 +264,7 @@ function Fleet() {
               </span>
               {t(`states.${code}`)}
               <X className="h-3 w-3" aria-hidden />
-            </button>
+            </Chip>
           ))}
           {filtered && (
             <button
@@ -356,7 +353,7 @@ function Tile({ tile, on, onLabel }: { tile: FleetTile; on: boolean; onLabel: (l
       <span className="text-xs text-muted-foreground">{t(tile.labelKey)}</span>
     </>
   )
-  const shape = 'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border/60 px-3 py-2 text-start ' + accent
+  const shape = 'flex flex-col items-start gap-0.5 rounded-lg border border-t-4 border-border px-3 py-2 text-start ' + accent
   const action = tile.action
   if (action.kind === 'label')
     return (

@@ -15,6 +15,7 @@ import {
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { buttonClass } from '@/core/ui/control-classes'
 import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 import { formatAmount, formatStamp } from '@/core/nphies/format'
 import { authVerdictSeverity, deriveAuthAxes, requestSeverity } from '@/core/nphies/status'
@@ -238,7 +239,7 @@ export default function AuthorizationDetailPage() {
               <div>
                 <Link
                   to={`/nphies/authorizations/new?copyOf=${encodeURIComponent(response.id)}`}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                  className={buttonClass('outlined')}
                 >
                   <FileSearch className="h-3.5 w-3.5" aria-hidden />
                   {t('acts.openRefusal')}

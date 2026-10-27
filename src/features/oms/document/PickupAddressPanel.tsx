@@ -13,6 +13,9 @@ import {
   restorePickupDistrict,
   type PickupAddress,
 } from './return-order'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * A district's identity for the picker.
@@ -184,10 +187,16 @@ export default function PickupAddressPanel({
               is a collection that fails. The city beside it is derived and
               read-only, so the pair can never disagree.
             */}
-            <label className="flex flex-col gap-1 text-[0.6875rem] text-muted-foreground">
-              {t('returnDocument.address.district')}
-              <select
-                className="h-7 rounded-md border border-border bg-card px-1 text-[0.8125rem] text-foreground"
+            <Field
+              label={t('returnDocument.address.district')}
+              hint={districts.isPending ? t('grid.loading') : undefined}
+              error={
+                districts.error
+                  ? apiErrorMessage(districts.error, t('returnDocument.address.districtsFailed'))
+                  : undefined
+              }
+            >
+              <Select
                 value={selectedKey}
                 onChange={(e) => chooseDistrict(e.target.value)}
                 data-return-district
@@ -200,42 +209,26 @@ export default function PickupAddressPanel({
                     {row.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               {/*
-                A picker with nothing in it must SAY why: a list that is merely
-                loading, or one whose read was refused, otherwise reads as *this
-                address has no districts to choose*. The server's own sentence,
-                through `apiErrorMessage`.
+                A picker with nothing in it must SAY why (the Field's hint / error above):
+                a list that is merely loading, or one whose read was refused, otherwise
+                reads as *this address has no districts to choose*. The server's own
+                sentence, through `apiErrorMessage`.
               */}
-              {districts.isPending && <span>{t('grid.loading')}</span>}
-              {districts.error && (
-                <span className="text-danger-800">
-                  {apiErrorMessage(districts.error, t('returnDocument.address.districtsFailed'))}
-                </span>
-              )}
-            </label>
-            <label className="flex flex-col gap-1 text-[0.6875rem] text-muted-foreground">
-              {t('returnDocument.address.city')}
-              <input
-                className="h-7 rounded-md border border-border bg-muted px-1.5 text-[0.8125rem] text-foreground"
-                value={address.cityName}
-                readOnly
-                data-return-city
-              />
-            </label>
+            </Field>
+            <Field label={t('returnDocument.address.city')}>
+              <Input value={address.cityName} readOnly data-return-city />
+            </Field>
             {ADDRESS_FIELDS.map((field) => (
-              <label
+              <Field
                 key={field}
-                className={
-                  'flex flex-col gap-1 text-[0.6875rem] text-muted-foreground ' +
-                  // The street is the wide field in 1270's build target, and it
-                  // is the longest thing the carrier reads.
-                  (field === 'street1' ? 'sm:col-span-2' : '')
-                }
+                label={t(`returnDocument.address.${field}`)}
+                // The street is the wide field in 1270's build target, and it
+                // is the longest thing the carrier reads.
+                className={field === 'street1' ? 'sm:col-span-2' : ''}
               >
-                {t(`returnDocument.address.${field}`)}
-                <input
-                  className="h-7 rounded-md border border-border bg-card px-1.5 text-[0.8125rem] text-foreground"
+                <Input
                   value={address[field]}
                   onChange={(e) => {
                     const typed = e.target.value
@@ -243,7 +236,7 @@ export default function PickupAddressPanel({
                   }}
                   data-return-addr={field}
                 />
-              </label>
+              </Field>
             ))}
           </div>
           {/*

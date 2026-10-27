@@ -4,7 +4,10 @@ import { RULE_WEEKDAYS, type RuleWeekday } from '@/core/models/rule-campaign'
 import { formToWindow, scheduleProblems, windowToForm, type ScheduleForm } from '@/core/rules/schedule'
 import { useWorkspace } from './context'
 import { draftSave } from './settings-form'
-import { SETTINGS_CONTROL, SaveRow, togglePill, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import { SaveRow, SettingsField, SettingsFrame, useSettingsDraft, useSettingsSave } from './settings-ui'
+import Input from '@/core/ui/Input'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 
 
 /**
@@ -47,35 +50,26 @@ export default function ScheduleSettings() {
           {RULE_WEEKDAYS.map((day, i) => {
             const on = draft.days.includes(day)
             return (
-              <button
-                key={day}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleDay(day)}
-                className={togglePill(on)}
-                data-settings-day={day}
-              >
+              <Chip key={day} on={on} onClick={() => toggleDay(day)} data-settings-day={day}>
                 {t(`weekdays.${i}`)}
-              </button>
+              </Chip>
             )
           })}
         </span>
       </SettingsField>
       <SettingsField id="settings-hours-from" label={t('settings.schedule.hours')} hint={t('settings.schedule.hoursHint')}>
         <span className="flex flex-wrap items-center gap-2">
-          <input
+          <Input
             id="settings-hours-from"
             type="time"
-            className={SETTINGS_CONTROL}
             value={draft.hoursFrom}
             aria-label={t('settings.schedule.hoursFrom')}
             onChange={(e) => set({ hoursFrom: e.target.value })}
             data-settings-field="hoursFrom"
           />
           <span className="text-xs text-muted-foreground">{t('settings.schedule.hoursTo')}</span>
-          <input
+          <Input
             type="time"
-            className={SETTINGS_CONTROL}
             value={draft.hoursTo}
             aria-label={t('settings.schedule.hoursToLabel')}
             onChange={(e) => set({ hoursTo: e.target.value })}
@@ -122,7 +116,7 @@ export default function ScheduleSettings() {
 function DayInput({ id, value, onChange, clearLabel, data }: { id: string; value: string; onChange: (value: string) => void; clearLabel: string; data: string }) {
   return (
     <span className="flex items-center gap-2">
-      <input id={id} type="date" className={SETTINGS_CONTROL} value={value} onChange={(e) => onChange(e.target.value)} data-settings-field={data} />
+      <Input id={id} type="date" value={value} onChange={(e) => onChange(e.target.value)} data-settings-field={data} />
       {value && <ClearButton label={clearLabel} onClick={() => onChange('')} data={data} />}
     </span>
   )
@@ -130,15 +124,8 @@ function DayInput({ id, value, onChange, clearLabel, data }: { id: string; value
 
 function ClearButton({ label, onClick, data }: { label: string; onClick: () => void; data: string }) {
   return (
-    <button
-      type="button"
-      className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      data-settings-clear={data}
-    >
+    <IconButton label={label} onClick={onClick} data-settings-clear={data}>
       <X className="size-4" aria-hidden />
-    </button>
+    </IconButton>
   )
 }

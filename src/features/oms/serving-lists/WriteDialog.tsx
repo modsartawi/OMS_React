@@ -11,6 +11,8 @@ import { formatCount } from '@/core/util/bidi'
 import { SERVING_LISTS_KEY, SERVING_LIST_CHANGES_KEY, SERVING_LIST_MEMBERS_KEY } from './api'
 import { NOTE_MAX } from './name-form'
 import type { WriteRefusal } from './write-refusal'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 
 /**
  * The shell every serving-list write dialog shares (oms ticket 570): the body, the optional note (at most 500,
@@ -97,24 +99,26 @@ export function NoteField({
   rows?: number
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium">
-      <span className="flex items-baseline justify-between gap-2">
-        {label}
-        <span className="font-mono font-normal text-muted-foreground tabular-nums">
-          <Ltr>{formatCount(value.length, NOTE_MAX)}</Ltr>
+    <Field
+      label={
+        <span className="flex items-baseline justify-between gap-2">
+          {label}
+          <span className="font-mono font-normal text-muted-foreground tabular-nums">
+            <Ltr>{formatCount(value.length, NOTE_MAX)}</Ltr>
+          </span>
         </span>
-      </span>
-      <textarea
+      }
+    >
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         dir="auto"
         maxLength={NOTE_MAX}
         disabled={disabled}
-        className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60 disabled:opacity-60"
         {...{ [`data-${hook}`]: '' }}
       />
-    </label>
+    </Field>
   )
 }
 

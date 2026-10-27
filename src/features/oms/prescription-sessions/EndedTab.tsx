@@ -27,13 +27,13 @@ import {
   type EndedRangeProblem,
 } from './ended-filter'
 import { endedRow, type EndedRowView } from './ended-row'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /** The bad-filter refusal (`PrescriptionSessionHqErrorCodes.BadFilter`): said beside the filters. */
 const BAD_FILTER = 'PSES-00223'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 const TH = 'px-3 py-2 text-start text-xs font-semibold whitespace-nowrap text-muted-foreground'
 const TD = 'px-3 py-2 align-top'
 
@@ -115,47 +115,39 @@ export default function EndedTab() {
         noValidate
         data-ps-ended-filters=""
       >
-        <label className={FIELD}>
-          {t('ended.filters.from')}
-          <input
+        <Field label={t('ended.filters.from')}>
+          <Input
             type="date"
             value={draft.from}
             onChange={(e) => patch({ from: e.target.value })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-ps-ended-filter="from"
           />
-        </label>
-        <label className={FIELD}>
-          {t('ended.filters.to')}
-          <input
+        </Field>
+        <Field label={t('ended.filters.to')}>
+          <Input
             type="date"
             value={draft.to}
             onChange={(e) => patch({ to: e.target.value })}
-            className={`${INPUT} w-40`}
+            className="w-40"
             data-ps-ended-filter="to"
           />
-        </label>
-        <label className={FIELD}>
-          {t('ended.filters.store')}
-          <input
+        </Field>
+        <Field label={t('ended.filters.store')} hint={t('ended.filters.storeHint')}>
+          <Input
             type="text"
             value={draft.store}
             onChange={(e) => patch({ store: e.target.value })}
             placeholder={t('filters.storePlaceholder')}
-            aria-describedby="ps-ended-store-hint"
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-ps-ended-filter="store"
           />
-          <span id="ps-ended-store-hint" className="font-normal">
-            {t('ended.filters.storeHint')}
-          </span>
-        </label>
-        <label className={FIELD}>
-          {t('ended.filters.state')}
-          <select
+        </Field>
+        <Field label={t('ended.filters.state')}>
+          <Select
             value={draft.state}
             onChange={(e) => patch({ state: e.target.value })}
-            className={`${INPUT} w-44`}
+            className="w-44"
             data-ps-ended-filter="state"
           >
             <option value="">{t('ended.filters.anyEnd')}</option>
@@ -164,8 +156,8 @@ export default function EndedTab() {
                 {wordText(tw, stateWord(c))}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <div className="flex items-center gap-2 self-start pt-5">
           <Button type="submit" disabled={list.isFetching} data-ps-ended-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />

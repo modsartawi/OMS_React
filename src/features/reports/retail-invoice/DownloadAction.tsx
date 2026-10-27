@@ -4,6 +4,8 @@ import { Download, Loader2 } from 'lucide-react'
 
 import type { InvoiceCandidate } from '@/core/models/retail-invoice'
 import { pinEnd } from '@/core/theme/direction'
+import Button from '@/core/ui/Button'
+import { fsi } from '@/core/util/bidi'
 
 import { invoiceRowKey } from './invoice-key'
 
@@ -74,14 +76,12 @@ function DownloadCell({
   const pending = state.pendingKey === invoiceRowKey(row)
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outlined"
       disabled={pending}
       onClick={() => state.onDownload(row)}
-      // `ms/me` and never `ml/mr`: the app renders RTL and a physical utility is
-      // silently wrong in Arabic while looking perfect in English.
-      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
-      aria-label={t('invoice.download.actionAria', { trxNumber: row.trxNumber })}
+      // A machine value in a string-only sink (an aria-label): isolated whole (bidi rule).
+      aria-label={t('invoice.download.actionAria', { trxNumber: fsi(row.trxNumber) })}
     >
       {pending ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -89,6 +89,6 @@ function DownloadCell({
         <Download className="h-3.5 w-3.5" aria-hidden />
       )}
       {pending ? t('invoice.download.pending') : t('invoice.download.action')}
-    </button>
+    </Button>
   )
 }

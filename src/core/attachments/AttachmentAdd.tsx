@@ -4,6 +4,8 @@ import { RotateCw, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import type { AttachmentsPanelWords } from './panel-words'
 import {
   ATTACHMENT_ACCEPT,
@@ -69,21 +71,15 @@ export default function AttachmentAdd({
   return (
     <section className="flex flex-col gap-2" data-region="slip-add" aria-label={words.addRegion}>
       {captioned && (
-        <div className="flex max-w-xl flex-col gap-1">
-          <label htmlFor={captionId} className="text-xs font-medium text-muted-foreground">
-            {words.addCaptionLabel}
-          </label>
-          <input
-            id={captionId}
-            type="text"
+        <Field id={captionId} label={words.addCaptionLabel} hint={words.addCaptionHint} className="max-w-xl">
+          <Input
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             dir="auto"
-            className="rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+            className="w-full"
             data-testid="slip-add-caption"
           />
-          <span className="text-xs text-muted-foreground">{words.addCaptionHint}</span>
-        </div>
+        </Field>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" onClick={() => input.current?.click()} data-testid="slip-add">

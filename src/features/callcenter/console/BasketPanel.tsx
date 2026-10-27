@@ -30,6 +30,9 @@ import Conditions from './Conditions'
 import { NOTE } from './console-notes'
 import { nextQty, nextUom, type LineEdit } from './line-edit'
 import Money from './Money'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * The three corrections and what they are currently saying, as one prop — the
@@ -171,21 +174,20 @@ function Line({
           // agent can undo by adding it again, and §5's "are you sure" is
           // reserved for what re-prices the whole basket. The act that throws a
           // basket away — abandon — keeps its dialog (163).
-          <button
-            type="button"
+          <IconButton
+            variant="danger"
+            size="compact"
             onClick={() => actions.onVoid(line)}
             disabled={anyPending}
             data-cc-line-void={line.lineId}
-            aria-label={t('line.void', { item: line.description })}
-            title={t('line.void', { item: line.description })}
-            className="shrink-0 rounded-full border border-input p-1 text-muted-foreground hover:border-danger-border hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
+            label={t('line.void', { item: line.description })}
           >
             {mine?.kind === 'void' ? (
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
             ) : (
               <X className="h-3 w-3" aria-hidden />
             )}
-          </button>
+          </IconButton>
         )}
       </div>
 
@@ -290,7 +292,7 @@ function QtyField({
   }
 
   return (
-    <input
+    <Input
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
@@ -308,7 +310,7 @@ function QtyField({
       aria-label={t('line.qty', { item: line.description })}
       data-numeric
       data-cc-line-qty={line.lineId}
-      className="w-12 shrink-0 rounded-md border border-input bg-card px-1.5 py-1 text-center text-xs outline-none focus:border-primary disabled:opacity-40"
+      className="w-12 shrink-0 text-center"
     />
   )
 }
@@ -337,7 +339,7 @@ function UomControl({
       </span>
     )
   return (
-    <select
+    <Select
       value={line.uom}
       onChange={(event) => {
         const uom = nextUom(line, event.target.value)
@@ -346,13 +348,13 @@ function UomControl({
       disabled={disabled}
       aria-label={t('line.uom', { item: line.description })}
       data-cc-line-uom={line.lineId}
-      className="w-16 shrink-0 rounded-md border border-input bg-card px-1 py-1 text-xs outline-none focus:border-primary disabled:opacity-40"
+      className="w-16 shrink-0"
     >
       {line.uomOptions.map((option) => (
         <option key={option} value={option}>
           {option}
         </option>
       ))}
-    </select>
+    </Select>
   )
 }

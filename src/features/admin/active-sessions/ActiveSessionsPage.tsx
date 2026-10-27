@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, RefreshCw, Search } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
@@ -219,12 +222,11 @@ export default function ActiveSessionsPage() {
       <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
 
       {/* search box — the primary affordance */}
-      <div className="flex overflow-hidden rounded-full border border-input bg-background">
-        <span className="flex items-center ps-4 text-muted-foreground">
-          <Search className="h-4 w-4" />
-        </span>
-        <input
-          className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+      <div className="flex items-center gap-2">
+        <Input
+          type="search"
+          wrapperClassName="min-w-0 flex-1"
+          aria-label={t('search.placeholder')}
           placeholder={t('search.placeholder')}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
@@ -233,48 +235,25 @@ export default function ActiveSessionsPage() {
           }}
           autoFocus
         />
-        <button
-          className="bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
-          onClick={runSearch}
-        >
+        <Button variant="primary" onClick={runSearch}>
           {t('search.button')}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-muted-foreground">{t('search.hint')}</p>
 
       {/* filter chips — server-counted channel filters + the Idle chip */}
       <div className="flex flex-wrap gap-2">
         {CHANNEL_CHIPS.map((c) => (
-          <button
-            key={c.chip}
-            onClick={() => selectChip(c.chip)}
-            aria-pressed={activeChip === c.chip}
-            className={
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ' +
-              (activeChip === c.chip
-                ? 'border-primary bg-accent font-medium'
-                : 'border-border/60 hover:bg-muted/50')
-            }
-          >
+          <Chip key={c.chip} on={activeChip === c.chip} onClick={() => selectChip(c.chip)} className="gap-2">
             <span>{t(`chips.${c.chip}`)}</span>
-            <span className="tabular-nums text-xs text-muted-foreground">
+            <span className="tabular-nums text-muted-foreground">
               {countsData ? c.count(countsData).toLocaleString() : '—'}
             </span>
-          </button>
+          </Chip>
         ))}
-        <button
-          onClick={() => selectChip('idle')}
-          aria-pressed={activeChip === 'idle'}
-          title={t('chips.idleTooltip')}
-          className={
-            'inline-flex items-center rounded-full border px-3 py-1 text-sm transition-colors ' +
-            (activeChip === 'idle'
-              ? 'border-primary bg-accent font-medium'
-              : 'border-border/60 hover:bg-muted/50')
-          }
-        >
+        <Chip on={activeChip === 'idle'} onClick={() => selectChip('idle')} title={t('chips.idleTooltip')}>
           {t('chips.idle')}
-        </button>
+        </Chip>
       </div>
 
       {/* revoke-all context bar — only for a single-distinct-user result */}
@@ -286,12 +265,9 @@ export default function ActiveSessionsPage() {
               count: soleUser.count,
             })}
           </span>
-          <button
-            className="shrink-0 rounded-full border border-danger-border px-3 py-1 text-xs font-medium text-danger-800 hover:bg-danger-050"
-            onClick={() => revokeAll(soleUser)}
-          >
+          <Button variant="danger-outlined" className="shrink-0" onClick={() => revokeAll(soleUser)}>
             {t('revokeAll.button')}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -318,17 +294,12 @@ export default function ActiveSessionsPage() {
               </span>
             )}
             {query !== null && (
-              <button
-                onClick={() => void list.refetch()}
-                aria-label={t('freshness.refresh')}
-                title={t('freshness.refresh')}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 font-medium transition-colors hover:bg-muted/50"
-              >
+              <Button variant="outlined" onClick={() => void list.refetch()} title={t('freshness.refresh')}>
                 {/* Spins on any fetch (manual or the 30s poll) as live-monitor
                     feedback; not disabled — TanStack dedups a concurrent refetch. */}
-                <RefreshCw className={'h-3.5 w-3.5 ' + (list.isFetching ? 'animate-spin' : '')} />
+                <RefreshCw className={'h-3.5 w-3.5 ' + (list.isFetching ? 'animate-spin' : '')} aria-hidden />
                 {t('freshness.refresh')}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -428,7 +399,7 @@ function SessionsTable({
                 </td>
                 <td className="border-b border-border px-3 py-1.5 text-end">
                   <button
-                    className="shrink-0 rounded-full text-xs font-medium text-danger-800 hover:underline"
+                    className="shrink-0 rounded-full px-1 text-xs font-medium text-danger-800 hover:underline"
                     onClick={() => onRevoke(r)}
                   >
                     {t('grid.revoke')}

@@ -4,6 +4,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { VIEW_NAME_MAX, type NameRefusal, type SavedView } from './saved-views'
+import Input from '@/core/ui/Input'
 
 /** Save current view / Save as new (a new view), or Rename (an existing one). */
 export type ViewNameMode = { kind: 'save' } | { kind: 'rename'; view: SavedView }
@@ -78,14 +79,14 @@ export default function ViewNameDialog({
         <label htmlFor="view-name" className="text-xs font-medium text-muted-foreground">
           {t('views.dialog.nameLabel')}
         </label>
-        <input
+        <Input
           id="view-name"
           autoFocus
           autoComplete="off"
           maxLength={VIEW_NAME_MAX}
           aria-invalid={shown !== null}
           aria-describedby={shown ? 'view-name-refusal' : undefined}
-          className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring aria-invalid:border-danger-border"
+          className="w-full"
           placeholder={t('views.dialog.namePlaceholder')}
           value={name}
           onChange={(e) => {

@@ -10,6 +10,7 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Select from '@/core/ui/Select'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { DATA_SYNC_PAGE_SIZE, JOB_STATUSES, type Campaign, type Job, type JobStatus } from '@/core/models/data-sync'
@@ -177,11 +178,10 @@ function CampaignView() {
           <h2 id="ds-jobs-heading" className="me-auto text-sm font-semibold">
             {t('jobs.heading')}
           </h2>
-          <select
+          <Select
             value={view.status ?? ''}
             onChange={(e) => update((v) => ({ ...v, status: (e.target.value || null) as JobStatus | null, page: 1 }))}
             aria-label={t('jobs.status')}
-            className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             data-job-status-filter=""
           >
             <option value="">{t('jobs.statusAny')}</option>
@@ -190,7 +190,7 @@ function CampaignView() {
                 {t(`jobStatus.${s}`)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {jobsRead.isError && <ErrorBanner className="p-3" message={apiErrorMessage(jobsRead.error, t('jobs.failed'))} />}

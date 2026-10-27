@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
-import { Check, ClipboardPaste, Loader2, Search, X } from 'lucide-react'
+import { Check, ClipboardPaste, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
@@ -19,6 +19,10 @@ import { servingListsApi } from './api'
 import { addStoresRefusal, isBadCode } from './add-stores-refusal'
 import { EMPTY_BASKET, addHits, addPasted, basketBody, inBasket, pickable, removeCodes, toggleHit, type Basket } from './basket'
 import { NoteField, useRefreshList } from './WriteDialog'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
+import Textarea from '@/core/ui/Textarea'
 
 /** The search door's page: its default, said aloud when the answer fills it. */
 const STORE_SEARCH_TAKE = 50
@@ -33,9 +37,6 @@ function storesQuery(servingListId: string, search: string) {
     retry: false,
   }
 }
-
-const FIELD =
-  'rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60 disabled:opacity-60'
 
 /**
  * "Add stores" (oms ticket 569; BackOffice spec 3042 stories 31, 41): onboarding a contract's ~500 stores in
@@ -183,31 +184,27 @@ function StoreSearch({ servingListId, basket, onBasket, disabled }: { servingLis
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-add-stores-search="">
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        {t('addStores.search.label')}
-        <span className="relative flex items-center">
-          <Search className="pointer-events-none absolute start-2 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-          <input
-            type="search"
-            dir="auto"
-            value={find}
-            disabled={disabled}
-            placeholder={t('addStores.search.placeholder')}
-            onChange={(e) => setFind(e.target.value)}
-            onKeyDown={(e) => {
-              // Escape clears the search only — the native <dialog> does not close; Enter submits nothing.
-              if (e.key === 'Escape' && find) {
-                e.preventDefault()
-                e.stopPropagation()
-                setFind('')
-              }
-              if (e.key === 'Enter') e.preventDefault()
-            }}
-            className={FIELD + ' h-8 w-full ps-7 font-normal'}
-            data-add-stores-find=""
-          />
-        </span>
-      </label>
+      <Field label={t('addStores.search.label')}>
+        <Input
+          type="search"
+          wrapperClassName="w-full"
+          dir="auto"
+          value={find}
+          disabled={disabled}
+          placeholder={t('addStores.search.placeholder')}
+          onChange={(e) => setFind(e.target.value)}
+          onKeyDown={(e) => {
+            // Escape clears the search only — the native <dialog> does not close; Enter submits nothing.
+            if (e.key === 'Escape' && find) {
+              e.preventDefault()
+              e.stopPropagation()
+              setFind('')
+            }
+            if (e.key === 'Enter') e.preventDefault()
+          }}
+          data-add-stores-find=""
+        />
+      </Field>
 
       <div className="rounded-md border border-border/60 bg-card" aria-live="polite" aria-busy={hits.isFetching} data-add-stores-hits="">
         {hits.isPending ? (
@@ -302,19 +299,17 @@ function PasteCodes({ basket, onBasket, disabled }: { basket: Basket; onBasket: 
   const [result, setResult] = useState<{ added: number; skipped: number } | null>(null)
   return (
     <div className="flex flex-col gap-1.5" data-add-stores-paste="">
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        {t('addStores.paste.label')}
-        <textarea
+      <Field label={t('addStores.paste.label')} hint={t('addStores.paste.hint')}>
+        <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
           dir="ltr"
           disabled={disabled}
-          className={FIELD + ' py-1.5 font-mono font-normal'}
+          className="font-mono"
           data-add-stores-paste-text=""
         />
-        <span className="font-normal text-muted-foreground">{t('addStores.paste.hint')}</span>
-      </label>
+      </Field>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outlined"
@@ -380,16 +375,16 @@ function BasketView({ basket, badCodes, onBasket, disabled }: { basket: Basket; 
                 </code>
                 {bad && <span className="sr-only">{t('addStores.basket.refused')}</span>}
                 {item.closed && <span className="text-[10px] text-warn-800">{t('addStores.basket.closed')}</span>}
-                <button
-                  type="button"
-                  className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-danger-800"
-                  aria-label={t('addStores.basket.remove', { code: fsi(item.storeCode) })}
+                <IconButton
+                  variant="danger"
+                  size="compact"
+                  label={t('addStores.basket.remove', { code: fsi(item.storeCode) })}
                   disabled={disabled}
                   onClick={() => onBasket(removeCodes(basket, [item.storeCode]))}
                   data-basket-remove={item.storeCode}
                 >
                   <X className="h-3 w-3" aria-hidden />
-                </button>
+                </IconButton>
               </li>
             )
           })}

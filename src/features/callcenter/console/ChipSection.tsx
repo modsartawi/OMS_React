@@ -34,6 +34,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
+import Button from '@/core/ui/Button'
 
 export interface ChipSectionProps {
   open: boolean
@@ -122,17 +123,17 @@ export default function ChipSection({
         <h2 id={headingId} className="text-sm font-semibold tracking-tight">
           {title}
         </h2>
-        <button
-          type="button"
+        <Button
+          variant="text"
           onClick={onClose}
           data-cc-section-close
           aria-label={t('section.close')}
           title={t('section.close')}
-          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="shrink-0"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
           {t('section.closeHint')}
-        </button>
+        </Button>
       </div>
       {/* Capped so the basket underneath never leaves the screen — the whole
           reason this is a section and not a dialog. */}

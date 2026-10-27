@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
+import Button from '@/core/ui/Button'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 
 // The items entry grid (ticket 013 → 016): add rows (material, qty, UoM, condition
 // control) and Process. `itemConditionControl` is an optional per-line override the
@@ -43,8 +46,8 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
   const addRow = () => onChange([...rows, emptyItemRow()])
   const removeRow = (id: string) => onChange(rows.filter((r) => r.id !== id))
 
-  const cellInput =
-    'w-full rounded-md border border-input bg-background px-2 py-1 text-sm outline-none focus:border-primary disabled:opacity-60'
+  // The cells wear the shared Input; a cell only fills its column.
+  const cellInput = 'w-full'
   // Numeric cells: drop the native spinner arrows — in this narrow grid they overlap
   // the first digit and add nothing (values are typed, not stepped).
   const numInput =
@@ -55,15 +58,10 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
     <div className="rounded-lg border border-border/60 bg-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold tracking-tight">{t('items.title')}</h2>
-        <button
-          type="button"
-          onClick={addRow}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1 text-xs font-medium hover:bg-accent disabled:opacity-60"
-        >
+        <Button variant="outlined" onClick={addRow} disabled={disabled}>
           <Plus className="h-3.5 w-3.5" aria-hidden />
           {t('items.addRow')}
-        </button>
+        </Button>
       </div>
 
       <table className="w-full border-collapse text-sm">
@@ -80,7 +78,8 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="border-b border-border px-2 py-1">
-                <input
+                <Input
+                  aria-label={t('items.material')}
                   className={cellInput}
                   value={row.materialNumber}
                   disabled={disabled}
@@ -88,7 +87,8 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
                 />
               </td>
               <td className="border-b border-border px-2 py-1">
-                <input
+                <Input
+                  aria-label={t('items.quantity')}
                   className={numInput}
                   type="number"
                   min="0"
@@ -98,7 +98,8 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
                 />
               </td>
               <td className="border-b border-border px-2 py-1">
-                <input
+                <Input
+                  aria-label={t('items.uom')}
                   className={cellInput}
                   value={row.qtyUnit}
                   disabled={disabled}
@@ -106,7 +107,8 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
                 />
               </td>
               <td className="border-b border-border px-2 py-1">
-                <input
+                <Input
+                  aria-label={t('items.control')}
                   className={cellInput}
                   value={row.itemConditionControl}
                   disabled={disabled}
@@ -114,16 +116,15 @@ export default function SimItemsEntry({ rows, onChange, disabled, children }: Pr
                 />
               </td>
               <td className="border-b border-border px-2 py-1 text-center">
-                <button
-                  type="button"
+                <IconButton
+                  variant="danger"
+                  size="compact"
+                  label={t('items.removeRow')}
                   onClick={() => removeRow(row.id)}
                   disabled={disabled || rows.length === 1}
-                  title={t('items.removeRow')}
-                  aria-label={t('items.removeRow')}
-                  className="text-muted-foreground hover:text-destructive disabled:opacity-30"
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                </button>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                </IconButton>
               </td>
             </tr>
           ))}

@@ -39,10 +39,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Check, Loader2, Search } from 'lucide-react'
+import { AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { callCenterApi } from './api'
@@ -68,10 +71,6 @@ import {
   type HighlightList,
   type HighlightState,
 } from '@/core/commands/highlight'
-
-const FIELD =
-  'w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring disabled:opacity-60'
-const LABEL = 'text-xs font-semibold text-muted-foreground'
 
 export default function AddressForm({
   values,
@@ -154,17 +153,13 @@ export default function AddressForm({
 
   return (
     <div className="space-y-3 text-sm" data-cc-address-form>
-      <div className="flex flex-col gap-1">
-        <label className={LABEL} htmlFor="cc-address-label">
-          {t('address.form.label')}
-        </label>
-        <select
-          id="cc-address-label"
+      <Field id="cc-address-label" label={t('address.form.label')}>
+        <Select
           value={values.labelCode}
           onChange={(e) => set({ labelCode: e.target.value })}
           disabled={busy}
           data-cc-address-field="labelCode"
-          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          className="w-full"
         >
           {/* The form's own value first when the catalogue does not carry it —
               an edit of a row labelled by SAP must not silently relabel it, and
@@ -181,8 +176,8 @@ export default function AddressForm({
               {option.labelNameEn?.trim() || option.labelCode}
             </option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Field>
 
       <DistrictField
         values={values}
@@ -236,13 +231,12 @@ export default function AddressForm({
           number the caller has already been reached on. */}
       <p className="text-[11px] text-muted-foreground">{t('address.form.phoneHint')}</p>
 
-      <div className="flex flex-col gap-1">
-        <label className={LABEL} htmlFor="cc-address-shortAddress">
-          {t('address.form.shortAddress')}
-        </label>
+      {/* The label over the box and its Check, then the line under both — the status lines
+          are siblings of the row, not the Field's hint/error, because a found answer is
+          several lines of its own (CheckLine). */}
+      <Field id="cc-address-shortAddress" label={t('address.form.shortAddress')}>
         <div className="flex items-center gap-2">
-          <input
-            id="cc-address-shortAddress"
+          <Input
             value={values.shortAddress}
             // Upper-cased **on set**, CC2's own normalisation — so the box shows
             // the agent the same code the wire will carry.
@@ -251,7 +245,7 @@ export default function AddressForm({
             autoComplete="off"
             placeholder={t('address.form.shortAddressPlaceholder')}
             data-cc-address-field="shortAddress"
-            className={FIELD}
+            className="w-full"
           />
           {canCheckShortAddress && (
             <Button
@@ -287,7 +281,7 @@ export default function AddressForm({
         ) : (
           <CheckLine view={check} />
         )}
-      </div>
+      </Field>
 
       {error}
     </div>
@@ -384,12 +378,8 @@ function Text({
   inputRef?: React.RefObject<HTMLInputElement | null>
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className={LABEL} htmlFor={`cc-address-${id}`}>
-        {label}
-      </label>
-      <input
-        id={`cc-address-${id}`}
+    <Field id={`cc-address-${id}`} label={label}>
+      <Input
         ref={inputRef}
         value={value}
         // 🚩 What the box holds is what is sent — an emptied box sends `""`, and
@@ -399,9 +389,9 @@ function Text({
         disabled={busy}
         autoComplete="off"
         data-cc-address-field={id}
-        className={FIELD}
+        className="w-full"
       />
-    </div>
+    </Field>
   )
 }
 
@@ -591,16 +581,17 @@ function DistrictField({
 
   return (
     <div className="flex flex-col gap-1" data-cc-district-field>
-      <label className={LABEL} htmlFor="cc-address-city">
+      {/* A hand label in the core Field's look: the city box is not alone in its box. */}
+      <label className={FIELD_LABEL} htmlFor="cc-address-city">
         {t('address.form.city')}
       </label>
 
       <div className="relative">
-        <Search
-          className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <input
+        {/* A combobox with its own trailing *Change*: kept a text Input with the search icon
+            (`type="search"` would add the browser's own clear button and Esc-clears). */}
+        <Input
+          searchIcon
+          wrapperClassName="w-full"
           id="cc-address-city"
           ref={cityBox}
           value={cityCode ? (cities.pinned?.cityName ?? '') : cityQuery}
@@ -633,7 +624,7 @@ function DistrictField({
           aria-activedescendant={cityAim === null ? undefined : `cc-city-option-${cities.rows[cityAim].cityCode}`}
           data-cc-city-search
           data-cc-city-current={cityCode ?? undefined}
-          className={`${FIELD} ps-8 ${cityCode ? 'pe-20' : ''}`}
+          className={cityCode ? 'pe-20' : ''}
         />
         {cityCode && (
           <button
@@ -651,7 +642,7 @@ function DistrictField({
             }}
             disabled={busy}
             data-cc-city-change
-            className="absolute end-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            className="absolute end-2 top-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
           >
             {t('address.form.cityChange')}
           </button>
@@ -737,7 +728,7 @@ function DistrictField({
       {/* THE DISTRICT STEP — within the named city, and only there. */}
       {districts.isSuccess && cityCode && (
         <>
-          <label className={`${LABEL} mt-2`} htmlFor="cc-address-district">
+          <label className={`${FIELD_LABEL} mt-2`} htmlFor="cc-address-district">
             {t('address.form.district')}
           </label>
 
@@ -756,11 +747,9 @@ function DistrictField({
           )}
 
           <div className="relative">
-            <Search
-              className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <input
+            <Input
+              searchIcon
+              wrapperClassName="w-full"
               id="cc-address-district"
               ref={districtBox}
               value={query}
@@ -789,7 +778,6 @@ function DistrictField({
                 districtAim === null ? undefined : `cc-district-option-${rows[districtAim].districtCode}`
               }
               data-cc-district-search
-              className={`${FIELD} ps-8`}
             />
           </div>
 

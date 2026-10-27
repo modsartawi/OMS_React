@@ -9,6 +9,7 @@ import { Loader2, MailPlus, RotateCw } from 'lucide-react'
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import type { LoyInvoiceRow } from '@/core/models/loy'
+import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -78,15 +79,10 @@ export default function InvoicesTab({ loyId, mayEdit }: { loyId: string; mayEdit
           message={apiErrorMessage(invoices.error, t('common:errors.server'))}
           className="p-3"
         >
-          <button
-            type="button"
-            onClick={() => invoices.refetch()}
-            disabled={invoices.isFetching}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
-          >
+          <Button variant="danger-outlined" className="mt-2" onClick={() => invoices.refetch()} disabled={invoices.isFetching}>
             <RotateCw className={'h-3 w-3 ' + (invoices.isFetching ? 'animate-spin' : '')} aria-hidden />
             {t('tabs.retry')}
-          </button>
+          </Button>
         </ErrorBanner>
       ) : rows.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">{t('tabs.invoices.empty')}</p>
@@ -132,15 +128,9 @@ function ResendCell(p: ICellRendererParams<LoyInvoiceRow>) {
   if (!p.data || !resendOffered(p.data, true)) return null
   const row = p.data
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => ctx.onResend(row)}
-      data-testid="loy-invoice-resend"
-      className="inline-flex h-7 items-center gap-1 rounded-full border border-border/60 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-    >
+    <Button variant="outlined" disabled={busy} onClick={() => ctx.onResend(row)} data-testid="loy-invoice-resend">
       <MailPlus className="h-3.5 w-3.5" aria-hidden />
       {t('tabs.invoices.resend.action')}
-    </button>
+    </Button>
   )
 }

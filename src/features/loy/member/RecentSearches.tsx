@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
+import Button from '@/core/ui/Button'
 
 /**
  * The recent-search chips under the empty lookup field (ticket 239).
@@ -40,14 +41,9 @@ export default function RecentSearches({
       <ul className="flex flex-wrap items-center gap-1.5" aria-label={t('recent.ariaLabel')}>
         {keys.map((key) => (
           <li key={key}>
-            <button
-              type="button"
-              onClick={() => onPick(key)}
-              disabled={disabled}
-              className="rounded-full border border-border/60 bg-background px-3 py-1 text-xs font-medium tabular-nums text-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button variant="outlined" onClick={() => onPick(key)} disabled={disabled} className="tabular-nums">
               {key}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

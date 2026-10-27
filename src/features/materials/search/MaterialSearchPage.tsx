@@ -45,6 +45,9 @@ import {
   searchToParams,
   type MaterialSearchState,
 } from './search-query'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * Material search (ticket 451, BackOffice spec 2544): one smart box, the A → E level cascade, the
@@ -79,10 +82,6 @@ const ROW_SELECTION: RowSelectionOptions<Row> = {
   headerCheckbox: false,
   enableClickSelection: false,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** The number a sentence names, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
@@ -270,9 +269,8 @@ function MaterialSearch() {
         data-material-box=""
       >
         <div className="flex flex-wrap items-end gap-2">
-          <label className={`${FIELD} min-w-[22rem] flex-1`}>
-            {t('box.label')}
-            <input
+          <Field label={t('box.label')} className="min-w-[22rem] flex-1">
+            <Input
               type="search"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -281,15 +279,14 @@ function MaterialSearch() {
               autoFocus
               aria-invalid={tooShort || undefined}
               aria-describedby={tooShort ? 'material-search-too-short' : undefined}
-              className={INPUT}
               data-material-q=""
             />
-          </label>
-          <Button type="submit" className="h-9" disabled={search.isFetching} data-material-search="">
+          </Field>
+          <Button type="submit" disabled={search.isFetching} data-material-search="">
             <Search className="h-3.5 w-3.5" aria-hidden />
             {t('box.search')}
           </Button>
-          <Button variant="outlined" className="h-9" onClick={clearAll} data-material-clear="">
+          <Button variant="outlined" onClick={clearAll} data-material-clear="">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             {t('box.clear')}
           </Button>
@@ -383,13 +380,12 @@ function MaterialSearch() {
           />
           <label className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             {t('filters.take')}
-            <select
+            <Select
               value={String(state.take ?? TAKE_CHOICES[0])}
               onChange={(e) => {
                 const n = Number(e.target.value)
                 update((s) => ({ ...s, take: n === TAKE_CHOICES[0] ? null : n }))
               }}
-              className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs text-foreground"
               data-material-take=""
             >
               {[...new Set([...TAKE_CHOICES, state.take ?? TAKE_CHOICES[0]])].map((n) => (
@@ -397,7 +393,7 @@ function MaterialSearch() {
                   {fsi(figure(n))}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
       </form>

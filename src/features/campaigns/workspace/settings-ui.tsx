@@ -222,15 +222,3 @@ export function SaveRow({
     </>
   )
 }
-
-/** A toggle pill (a weekday, a country, a channel): pressed or not. */
-export const togglePill = (on: boolean) =>
-  'rounded-full border px-2.5 py-1 text-xs transition-colors ' +
-  (on ? 'border-primary-border bg-primary-050 font-medium text-primary-800' : 'border-border/60 text-foreground hover:bg-accent')
-
-/** A date, time or select control in the settings' look. */
-export const SETTINGS_CONTROL =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
-
-/** A text input in the settings' look; the caller adds its border colour (a problem paints it). */
-export const SETTINGS_INPUT = 'h-9 w-full max-w-md rounded-md border bg-background px-2.5 text-sm text-foreground focus:outline-none'

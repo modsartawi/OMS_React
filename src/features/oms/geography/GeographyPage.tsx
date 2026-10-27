@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef, GetRowIdFunc, GridApi, RowSelectionOptions } from 'ag-grid-community'
-import { FileSpreadsheet, Search, Upload } from 'lucide-react'
+import { FileSpreadsheet, Upload } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
@@ -32,6 +32,7 @@ import {
   type ImportKind,
 } from './geography'
 import { EXPORT_AS_TEXT, cityColumns, districtColumns, importHeader } from './columns'
+import Input from '@/core/ui/Input'
 
 /**
  * Cities & districts (ticket 436, spec 430 D6/D13): the WPF City and District inquiries on one
@@ -209,19 +210,16 @@ function GridPane<T>({ kind, title, rows, loading, error, columns, getRowId, row
           {title}
         </h2>
         <div className="ms-auto flex items-center gap-2">
-          <label className="relative flex items-center">
-            <Search className="pointer-events-none absolute start-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-            <input
-              type="search"
-              value={quick}
-              onChange={(e) => setQuick(e.target.value)}
-              placeholder={t(`${kind}.filter`)}
-              aria-label={t(`${kind}.filter`)}
-              disabled={rows === undefined}
-              className="h-8 w-56 rounded-md border border-border/60 bg-background ps-8 pe-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:opacity-50"
-              data-geo-filter=""
-            />
-          </label>
+          <Input
+            type="search"
+            wrapperClassName="w-56"
+            value={quick}
+            onChange={(e) => setQuick(e.target.value)}
+            placeholder={t(`${kind}.filter`)}
+            aria-label={t(`${kind}.filter`)}
+            disabled={rows === undefined}
+            data-geo-filter=""
+          />
           <Button variant="outlined" disabled={rows === undefined || loading || !shown} onClick={() => void exportXlsx()} data-geo-export="">
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
             {t('export.button')}

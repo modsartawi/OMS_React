@@ -8,6 +8,7 @@ import type { RulePromotionSummary } from '@/core/models/rule-promotion'
 import { CAMPAIGN_UPLOAD_PATH, PROMOTIONS_PATH, campaignUploadPath } from '@/core/rules/campaign-state'
 import { EMPTY_PROMOTION_QUERY, findRulePromotion, promotionCampaignsBody, promotionQueryFromUrl, urlFromPromotionQuery } from '@/core/rules/promotion-query'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { rulePromotionCampaignsQuery, rulePromotionsQuery } from '@/core/rules/promotion-api'
@@ -215,7 +216,8 @@ function Tile({ k, label, value, children }: { k: string; label: string; value: 
   )
 }
 
-const LINK = 'inline-flex h-7 items-center gap-1.5 rounded-md border border-border/60 px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent'
+/** A link that sits among the page's outlined actions: the outlined Button's look (594), on a router `<Link>`. */
+const LINK = buttonClass('outlined')
 
 /** What the last write on this page did, said under the actions until the next one. */
 type WriteDone = { kind: 'assigned'; summary: AssignmentSummary } | { kind: 'unassigned'; count: number } | { kind: 'renamed' }

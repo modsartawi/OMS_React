@@ -17,7 +17,7 @@ import CaseReferenceField from './CaseReferenceField'
 import MemberCommandDialog from './MemberCommandDialog'
 import MemberFact from './MemberFact'
 import { commandRefusalText } from './member-commands'
-import { QUIET_BUTTON } from './profile-controls'
+import Button from '@/core/ui/Button'
 
 /**
  * The email **contact removal** (ticket 306, spec 301) — the first of the two
@@ -147,24 +147,23 @@ export default function RemoveEmailCommand({ member }: { member: LoyMember }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
+      <Button
+        variant="outlined"
         // Dead while a write is in flight, so the confirmation cannot be
         // reopened over an unfinished one — and dead when there is no address,
         // because a removal of nothing is a trail row saying a customer asked
         // for something that had already happened.
         disabled={busy || !address}
         onClick={() => setDialogOpen(true)}
-        className={QUIET_BUTTON}
         data-testid="loy-remove-email"
       >
         {busy ? (
-          <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
         ) : (
-          <MailX className="me-1.5 h-3.5 w-3.5" aria-hidden />
+          <MailX className="h-3.5 w-3.5" aria-hidden />
         )}
         {t('profile.removeEmail.action')}
-      </button>
+      </Button>
       {!address && (
         <span className="text-xs text-muted-foreground">{t('profile.removeEmail.none')}</span>
       )}

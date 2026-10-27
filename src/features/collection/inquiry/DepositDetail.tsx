@@ -3,6 +3,7 @@ import { ExternalLink, TriangleAlert } from 'lucide-react'
 
 import type { DepositInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
+import { buttonClass } from '@/core/ui/control-classes'
 import Ltr from '@/core/ui/Ltr'
 import { acrNoText } from './acr-number'
 import { lineHasDrift } from './deposit-drift'
@@ -168,7 +169,7 @@ export default function DepositDetail({ deposit }: { deposit: DepositInquiryRow 
                   href={slip.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
+                  className={buttonClass('outlined')}
                 >
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                   {slip.fileName || t('deposits.detail.unnamedSlip')}

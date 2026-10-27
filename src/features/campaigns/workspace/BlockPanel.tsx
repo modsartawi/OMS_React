@@ -20,12 +20,14 @@ import { blockFields, campaignCurrency, exprText, saysRoleOf, unitOf } from '@/c
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { INPUT, labelText, useHas } from './builder-ui'
+import { labelText, useHas } from './builder-ui'
 import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
 import { NO_BLOCK_CHECKS, type BlockChecks } from './checks'
 import FilterEditor from './FilterEditor'
 import FormulaBox from './FormulaBox'
 import { fieldLabelKey, optionLabelKey, timingNoneKey } from './panel-keys'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 
 /**
  * A block's panel (ticket 505): one typed control per catalogue field, by its kind and unit, and
@@ -219,10 +221,10 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
     case 'code':
     case 'time':
       return (
-        <input
+        <Input
           id={id}
           dir="ltr"
-          className={`${INPUT} w-48 font-mono`}
+          className="w-48 font-mono"
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => put(e.target.value, true)}
           {...data}
@@ -253,7 +255,7 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
       // Unset: HQ applies the catalogue's default, so the empty choice names it.
       const fallback = field.default != null && options.includes(String(field.default)) ? String(field.default) : null
       return (
-        <select id={id} className={INPUT} value={current} onChange={(e) => put(e.target.value)} {...data}>
+        <Select id={id} value={current} onChange={(e) => put(e.target.value)} {...data}>
           {!options.includes(current) && (
             <option value={current}>{current === '' && fallback ? t('panel.defaultChoice', { option: optionText(fallback) }) : fsi(current)}</option>
           )}
@@ -262,23 +264,23 @@ function FieldControl({ id, field, entry, raw, rule, campaign, guide, set, withF
               {optionText(o)}
             </option>
           ))}
-        </select>
+        </Select>
       )
     }
     case 'pointsDate':
       return <TimingInput id={id} field={field.name} value={value} onChange={put} />
     case 'date':
-      return <input id={id} type="date" className={INPUT} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value || undefined, true)} {...data} />
+      return <Input id={id} type="date" value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value || undefined, true)} {...data} />
     case 'budget':
       return campaign.budgets?.length ? (
-        <select id={id} className={INPUT} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value)} {...data}>
+        <Select id={id} value={typeof value === 'string' ? value : ''} onChange={(e) => put(e.target.value)} {...data}>
           <option value="">{t('panel.pickBudget')}</option>
           {(campaign.budgets ?? []).map((b) => (
             <option key={b.id} value={b.id}>
               {fsi(b.name.en || b.id)}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <span id={id} className="text-sm text-muted-foreground">
           {t('panel.noBudgets')}
@@ -310,13 +312,13 @@ function NumberInput({
   [data: `data-${string}`]: string
 }) {
   return (
-    <input
+    <Input
       id={id}
       type="number"
       dir="ltr"
       min={0}
       step={step ?? 'any'}
-      className={`${INPUT} w-28`}
+      className="w-28"
       value={isNumber(value) ? value : ''}
       onChange={(e) => {
         const n = e.target.value === '' ? null : Number(e.target.value)
@@ -362,10 +364,9 @@ function ItemsChoice({
   const problem = draft ? filterNameProblem(rule.filters, draft.name, undefined, rule.values) : null
   return (
     <>
-      <select
+      <Select
         id={id}
         aria-label={ariaLabel}
-        className={INPUT}
         value={draft ? CERTAIN : value}
         onChange={(e) => {
           if (e.target.value === CERTAIN) setDraft(newFilter(newId(), nextFilterName(rule.filters, t('filters.defaultName'))))
@@ -384,7 +385,7 @@ function ItemsChoice({
         ))}
         {!known && <option value={value}>{t('panel.missing')}</option>}
         <option value={CERTAIN}>{t('filters.certainItems')}</option>
-      </select>
+      </Select>
       {draft && (
         <div className="basis-full">
           <FilterEditor
@@ -463,9 +464,8 @@ function NumberOrValue({
   const picked = expr !== null ? EXPR : ref !== null ? String(value) : ''
   return (
     <>
-      <select
+      <Select
         id={id}
-        className={INPUT}
         value={picked}
         onChange={(e) => {
           if (e.target.value !== EXPR) onChange(e.target.value === '' ? undefined : e.target.value)
@@ -480,7 +480,7 @@ function NumberOrValue({
         ))}
         {missing && <option value={String(value)}>{t('panel.missing')}</option>}
         {expr !== null && <option value={EXPR}>{t('panel.anExpression')}</option>}
-      </select>
+      </Select>
       {picked === '' && number}
       {expr !== null && (
         <code className="font-mono text-xs" data-panel-expr={data}>
@@ -504,10 +504,10 @@ function CodesInput({ id, value, onChange, data }: { id: string; value: string[]
   const hintId = `${id}-hint`
   return (
     <span className="flex flex-col gap-1">
-      <input
+      <Input
         id={id}
         dir="ltr"
-        className={`${INPUT} w-64 font-mono`}
+        className="w-64 font-mono"
         value={text}
         aria-describedby={hintId}
         onChange={(e) => {
@@ -541,9 +541,8 @@ function TimingInput({ id, field, value, onChange }: { id: string; field: string
   const mode = typeof v.on === 'string' ? 'on' : 'afterDays' in v ? 'afterDays' : 'none'
   return (
     <>
-      <select
+      <Select
         id={id}
-        className={INPUT}
         value={mode}
         onChange={(e) => onChange(e.target.value === 'on' ? { on: '' } : e.target.value === 'afterDays' ? { afterDays: null } : undefined)}
         data-panel-field={field}
@@ -553,11 +552,10 @@ function TimingInput({ id, field, value, onChange }: { id: string; field: string
             {m === 'none' ? t(timingNoneKey(field, has)) : t(`panel.timing.${m}`)}
           </option>
         ))}
-      </select>
+      </Select>
       {mode === 'on' && (
-        <input
+        <Input
           type="date"
-          className={INPUT}
           value={typeof v.on === 'string' ? v.on : ''}
           aria-label={t('panel.timing.on')}
           onChange={(e) => onChange({ on: e.target.value }, true)}
@@ -598,22 +596,22 @@ function SaysInput({
       <span className={'text-xs font-medium ' + (checkTone(notes ?? []) === 'error' ? SEVERITY_LOOK.error.ink : 'text-muted-foreground')} aria-hidden>
         {label}
       </span>
-      <input
+      <Input
         id={`${id}-en`}
         dir="ltr"
         lang="en"
-        className={`${INPUT} w-full`}
+        className="w-full"
         value={en}
         placeholder={t('panel.english')}
         aria-label={t('panel.saysEnglish', { label })}
         onChange={(e) => onChange({ en: e.target.value, ar })}
         data-panel-says-en=""
       />
-      <input
+      <Input
         id={`${id}-ar`}
         dir="rtl"
         lang="ar"
-        className={`${INPUT} w-full`}
+        className="w-full"
         value={ar}
         placeholder={t('panel.arabic')}
         aria-label={t('panel.saysArabic', { label })}

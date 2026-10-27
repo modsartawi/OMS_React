@@ -26,6 +26,8 @@ import { EMPTY_FILTER, isFiltering, isReversed, keepsLine, type LineFilter } fro
 import { lineColumns } from './columns'
 import { runOutcome, type RunOutcome } from './run-outcome'
 import ReRunConfirm from './ReRunConfirm'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * Failed donor transfers (ticket 434, spec 430 D5/D12): HQ inventory's work queue on the web — the
@@ -55,10 +57,6 @@ const DEFAULT_COL_DEF: ColDef<FailedLine> = {
   filter: true,
   suppressHeaderMenuButton: true,
 }
-
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** A count, grouped as figures are drawn across the app. */
 const figure = (n: number) => n.toLocaleString('en-US')
@@ -129,36 +127,32 @@ function FailedTransferQueue() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3" data-line-filters="">
-        <label className={FIELD}>
-          {t('filters.donorStore')}
-          <input
+        <Field label={t('filters.donorStore')}>
+          <Input
             type="text"
             value={filter.donorStore}
             onChange={(e) => patch({ donorStore: e.target.value })}
             placeholder={t('filters.anyStore')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-line-filter="donorStore"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.orderStore')}
-          <input
+        </Field>
+        <Field label={t('filters.orderStore')}>
+          <Input
             type="text"
             value={filter.orderStore}
             onChange={(e) => patch({ orderStore: e.target.value })}
             placeholder={t('filters.anyStore')}
-            className={`${INPUT} w-28`}
+            className="w-28"
             data-line-filter="orderStore"
           />
-        </label>
-        <label className={FIELD}>
-          {t('filters.from')}
-          <input type="date" value={filter.from} onChange={(e) => patch({ from: e.target.value })} className={`${INPUT} w-40`} data-line-filter="from" />
-        </label>
-        <label className={FIELD}>
-          {t('filters.to')}
-          <input type="date" value={filter.to} onChange={(e) => patch({ to: e.target.value })} className={`${INPUT} w-40`} data-line-filter="to" />
-        </label>
+        </Field>
+        <Field label={t('filters.from')}>
+          <Input type="date" value={filter.from} onChange={(e) => patch({ from: e.target.value })} className="w-40" data-line-filter="from" />
+        </Field>
+        <Field label={t('filters.to')}>
+          <Input type="date" value={filter.to} onChange={(e) => patch({ to: e.target.value })} className="w-40" data-line-filter="to" />
+        </Field>
         <div className="flex items-center gap-2">
           <Button variant="outlined" disabled={!isFiltering(filter)} onClick={() => setFilter(EMPTY_FILTER)} data-line-clear="">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />

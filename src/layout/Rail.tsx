@@ -8,7 +8,7 @@ import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import { railExpanded, type RailMode } from './rail-mode'
 import { takesEscape } from '@/core/commands/key-layer'
-import BrandMark from '@/core/ui/BrandMark'
+import DmscoLockup from '@/core/ui/DmscoLockup'
 import { RAIL_EDGE, RAIL_POPOVER } from '@/core/ui/overlay'
 import UserMenu from './UserMenu'
 
@@ -32,12 +32,19 @@ const DRAWER_ID = 'layout-rail-drawer'
 const inUserMenu = (e: KeyboardEvent) => e.target instanceof Element && !!e.target.closest('[data-user-menu]')
 
 /**
- * The active marker: a 3px gold bar drawn by `::before` on the inline-start edge
- * of the row it marks — `start-0`, so it mirrors under RTL by itself, and never an
- * inset shadow, which has no logical form.
+ * The active item (spec 590; 587, ticket 592): the design's filled pill — `--rail-pill`
+ * ground, white ink and a gold icon. It replaced the 3px gold `::before` bar in the
+ * tree, the collapsed icons, the flyout and the drawer. 587's faint white hairline on
+ * it measured 1.63:1 on the rail, under the non-text 3:1, so it was dropped and the
+ * fill lifted instead (`global.css`; the contrast gate holds the lift).
  */
-const MARKER =
-  'before:absolute before:inset-y-1.5 before:start-0 before:w-[3px] before:rounded-full before:bg-rail-active'
+const ACTIVE_PILL = 'bg-rail-pill text-rail-accent-foreground [&_svg]:text-rail-active'
+
+/** Pointing at a rail row: the lifted `--rail-accent` ground with white ink (587). */
+const RAIL_HOVER = 'hover:bg-rail-accent hover:text-rail-accent-foreground'
+
+/** Every rail row and icon ground: a full pill that lifts under the pointer (587). */
+const RAIL_ROW = 'rounded-full ' + RAIL_HOVER
 
 /** A group's label, wherever it heads its leaves: the tree, the flyout and the drawer. */
 const GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-wide'
@@ -94,10 +101,8 @@ function RailLeaf({ item, onNavigate }: RowProps) {
       aria-current={active ? 'page' : undefined}
       onClick={onNavigate}
       className={
-        'relative flex h-8 items-center gap-2 rounded-md ps-3 pe-2 text-[13px] ' +
-        (active
-          ? 'bg-rail-accent font-medium text-rail-accent-foreground ' + MARKER
-          : 'hover:bg-rail-accent hover:text-rail-accent-foreground')
+        'flex h-8 items-center gap-2 rounded-full ps-3 pe-2 text-[13px] ' +
+        (active ? 'font-medium ' + ACTIVE_PILL : RAIL_HOVER)
       }
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
@@ -126,7 +131,7 @@ function SubGroupLink({ item, onNavigate, hasActiveChild }: RowProps & { hasActi
       to={item.routerLink!}
       onClick={onNavigate}
       className={
-        'flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md ps-3 pe-2 text-[13px] hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+        'flex h-8 min-w-0 flex-1 items-center gap-2 ps-3 pe-2 text-[13px] ' + RAIL_ROW + ' ' +
         (hasActiveChild ? 'font-medium text-rail-accent-foreground' : '')
       }
     >
@@ -169,7 +174,7 @@ function TreeSubGroup({ item, onNavigate }: RowProps) {
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={t('rail.toggleSection', { label: t(item.labelKey) })}
-          className="rounded-md p-1.5 text-rail-muted hover:bg-rail-accent hover:text-rail-accent-foreground"
+          className={'p-1.5 text-rail-muted ' + RAIL_ROW}
         >
           <RowChevron open={expanded} />
         </button>
@@ -231,7 +236,7 @@ function TreeGroup({ item, onNavigate }: RowProps) {
         onClick={toggle}
         aria-expanded={expanded}
         className={
-          'flex h-8 items-center gap-2 rounded-md ps-3 pe-2 ' + GROUP_LABEL + ' hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+          'flex h-8 items-center gap-2 ps-3 pe-2 ' + GROUP_LABEL + ' ' + RAIL_ROW + ' ' +
           (hasActiveChild ? 'text-rail-accent-foreground' : 'text-rail-muted')
         }
       >
@@ -248,11 +253,15 @@ function TreeGroup({ item, onNavigate }: RowProps) {
   )
 }
 
-/** The ground of a collapsed rail's icon: lit while active or while its flyout is open. */
-function iconClass(lit: boolean): string {
+/** A collapsed rail's icon: the active pill while active, lit while its flyout is open. */
+function iconClass(active: boolean, open = false): string {
   return (
-    'grid h-9 w-9 place-items-center rounded-md ' +
-    (lit ? 'bg-rail-accent text-rail-accent-foreground' : 'hover:bg-rail-accent hover:text-rail-accent-foreground')
+    'grid h-9 w-9 place-items-center rounded-full ' +
+    (active
+      ? ACTIVE_PILL
+      : open
+        ? 'bg-rail-accent text-rail-accent-foreground'
+        : RAIL_HOVER)
   )
 }
 
@@ -288,7 +297,7 @@ function Flyout({ group, onClose }: { group: ShellMenuItem; onClose: (restoreFoc
           onClick={() => onClose(true)}
           aria-label={t('rail.close')}
           title={t('rail.close')}
-          className="rounded-md p-1 hover:bg-rail-accent hover:text-rail-accent-foreground"
+          className={'p-1 ' + RAIL_ROW}
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -382,7 +391,7 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
       // Overlaid, the aside keeps its 56px footprint, so the page does not move, and
       // the `nav` stretches over the page from it.
       className={
-        'sticky top-0 z-40 h-screen shrink-0 bg-rail text-rail-foreground [--ring:var(--gold)] print:hidden ' +
+        'sticky top-0 z-40 h-screen shrink-0 bg-rail-gradient text-rail-foreground [--ring:var(--gold)] print:hidden ' +
         (expanded && !overlaid ? 'w-60' : 'w-14')
       }
     >
@@ -399,16 +408,12 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
           aria-label={t('brand')}
           title={t('brand')}
           className={
-            'mb-2 flex h-9 shrink-0 items-center gap-2 rounded-md hover:bg-rail-accent ' +
-            (expanded ? 'mx-2.5 px-1.5' : 'mx-auto w-9 justify-center')
+            // The DMSCO lockup grows the head past 36px when expanded (587).
+            'mb-2 flex min-h-9 shrink-0 items-center rounded-full hover:bg-rail-accent ' +
+            (expanded ? 'mx-2.5 px-3' : 'mx-auto w-9 justify-center')
           }
         >
-          <BrandMark size={26} />
-          {expanded && (
-            <span className="truncate text-sm font-semibold tracking-tight text-rail-accent-foreground">
-              {t('brandName')}
-            </span>
-          )}
+          <DmscoLockup collapsed={!expanded} />
         </Link>
 
         {/* The scroll lives here, not on the `aside`: the flyout is the aside's
@@ -426,9 +431,8 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
                 const label = t(item.labelKey)
                 const Icon = item.icon ?? Folder
                 const active = item.items ? holdsActive(item, pathname) : markedLeaf(MENU, pathname) === item
-                // The row spans the rail, so the marker on its start edge sits flush
-                // on the rail's own edge.
-                const row = 'relative flex justify-center ' + (active ? MARKER : '')
+                // `data-active` marks the row for the drives; the icon draws the pill.
+                const row = 'flex justify-center'
                 if (!item.items)
                   return (
                     <div key={item.labelKey} className={row} data-active={active || undefined}>
@@ -460,7 +464,7 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
                       aria-haspopup="dialog"
                       aria-expanded={isOpen}
                       aria-controls={isOpen ? FLYOUT_ID : undefined}
-                      className={iconClass(active || isOpen)}
+                      className={iconClass(active, isOpen)}
                     >
                       <Icon className="h-[18px] w-[18px]" aria-hidden />
                     </button>
@@ -482,7 +486,7 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
           aria-label={expanded ? undefined : t('rail.expand')}
           title={expanded ? undefined : t('rail.expand')}
           className={
-            'mt-1 flex h-8 shrink-0 items-center gap-2 rounded-md text-xs hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+            'mt-1 flex h-8 shrink-0 items-center gap-2 text-xs ' + RAIL_ROW + ' ' +
             (expanded ? 'mx-2.5 px-3' : 'mx-auto w-9 justify-center')
           }
         >
@@ -615,24 +619,21 @@ export function RailDrawer() {
               // The rail's own ground, ink and gold ring, at the inline start in either direction.
               className={'fixed inset-y-0 start-0 z-50 flex w-72 max-w-[calc(100vw-3rem)] flex-col border-e print:hidden ' + RAIL_POPOVER}
             >
-              <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+              <div className="flex min-h-12 shrink-0 items-center gap-2 px-3 py-1">
                 <Link
                   to="/"
                   onClick={close}
                   aria-label={t('brand')}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 hover:bg-rail-accent"
+                  className="flex min-w-0 flex-1 items-center rounded-full px-2 hover:bg-rail-accent"
                 >
-                  <BrandMark size={24} />
-                  <span className="truncate text-sm font-semibold tracking-tight text-rail-accent-foreground">
-                    {t('brandName')}
-                  </span>
+                  <DmscoLockup />
                 </Link>
                 <button
                   type="button"
                   onClick={close}
                   aria-label={t('rail.close')}
                   title={t('rail.close')}
-                  className="rounded-md p-1 hover:bg-rail-accent hover:text-rail-accent-foreground"
+                  className={'p-1 ' + RAIL_ROW}
                 >
                   <X className="h-4 w-4" aria-hidden />
                 </button>

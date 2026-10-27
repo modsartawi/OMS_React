@@ -4,11 +4,12 @@ import { Trans, useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
 import type { PromotionEngine, RuleEngineInFlight, StoreEngineChange } from '@/core/models/rule-campaign'
-import { RULE_INPUT } from '@/core/rules/LookupPicks'
 import SaysBoth from '@/core/rules/SaysBoth'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatPair, fsi } from '@/core/util/bidi'
@@ -98,13 +99,13 @@ export default function FlipDialog({
           <>
             <p data-flip-shift-open="">{t('flip.shiftOpen')}</p>
             {target === 'BonusBuy' && <p className="text-muted-foreground" data-flip-in-flight-after="">{t('flip.inFlightAfter')}</p>}
-            <div className="flex flex-col gap-1">
-              <label htmlFor={reasonId} className="text-xs font-medium text-muted-foreground">
-                {t('flip.reason')}
-              </label>
-              <textarea
-                id={reasonId}
-                className={`${RULE_INPUT} h-auto min-h-20 py-1.5`}
+            <Field
+              id={reasonId}
+              label={t('flip.reason')}
+              error={missing ? <span data-flip-reason-required="">{t('flip.reasonRequired')}</span> : undefined}
+            >
+              <Textarea
+                className="min-h-20"
                 value={reason}
                 onChange={(e) => {
                   setReason(e.target.value)
@@ -113,15 +114,9 @@ export default function FlipDialog({
                 }}
                 required
                 aria-invalid={missing}
-                aria-describedby={missing ? `${reasonId}-error` : undefined}
                 data-flip-reason=""
               />
-              {missing && (
-                <p id={`${reasonId}-error`} className="text-xs text-danger-800" data-flip-reason-required="">
-                  {t('flip.reasonRequired')}
-                </p>
-              )}
-            </div>
+            </Field>
             {flip.isError && (
               <div data-flip-refusal="">
                 <ErrorBanner

@@ -1,0 +1,170 @@
+// Ticket 596 — the fifth lint gate's pure core (spec 590, Testing Decisions §3).
+import { describe, expect, it } from 'vitest'
+
+import { checkRatchet, featureOf, parseBaseline, scanSource } from './control-ratchet.mjs'
+
+const FILE = 'src/features/oms/deliveries/Panel.tsx'
+
+describe('scanSource', () => {
+  it('counts hand-written button, input, select and textarea, never the shared controls', () => {
+    const src = `
+      export function Panel() {
+        return (
+          <div>
+            <button className="h-7 rounded-md px-3">x</button>
+            <input className="border" />
+            <select><option>a</option></select>
+            <textarea rows={2} />
+            <Button variant="outlined">y</Button>
+            <Input type="search" />
+            <Select />
+            <Textarea />
+            <IconButton label="z" />
+          </div>
+        )
+      }`
+    const rows = scanSource(src, FILE)
+    expect(rows.map((r) => [r.tag, r.line])).toEqual([
+      ['button', 5],
+      ['input', 6],
+      ['select', 7],
+      ['textarea', 8],
+    ])
+  })
+
+  it('leaves out the inputs spec 590 keeps native: checkbox, radio, hidden and file', () => {
+    const src = `const A = () => <>
+      <input type="checkbox" />
+      <input type="radio" />
+      <input type="hidden" />
+      <input type="file" className="hidden" />
+      <input type="number" />
+      <input type={kind} />
+    </>`
+    expect(scanSource(src, FILE).map((r) => r.kind)).toEqual(['number', 'dynamic type'])
+  })
+
+  it('refuses a file it cannot parse, naming it, rather than counting it as clean', () => {
+    expect(() => scanSource('const A = () => <div><input /></div><p/>', FILE)).toThrow(FILE)
+  })
+
+  it('reports the line of a control after non-ASCII text', () => {
+    const src = "const s = 'عربي 😀'\nconst A = () => <button>x</button>"
+    expect(scanSource(src, FILE)).toEqual([{ tag: 'button', kind: 'button', line: 2 }])
+  })
+})
+
+describe('featureOf', () => {
+  it('reads area/feature, a file directly under an area as the area, and skips prototypes', () => {
+    expect(featureOf('src/features/oms/deliveries/grid/Toolbar.tsx')).toBe('oms/deliveries')
+    expect(featureOf('src/features/auth/LoginPage.tsx')).toBe('auth')
+    expect(featureOf('src/features/campaigns/workspace/__prototype__/Try.tsx')).toBeNull()
+    expect(featureOf('src/core/ui/Button.tsx')).toBeNull()
+    expect(featureOf('src/features/oms/deliveries/api.ts')).toBeNull()
+  })
+
+  // Code review of spec 590 (P1): core's own screens and dialogs are held to the same rule; only
+  // the shared controls themselves (core/ui) are the place a control may be hand-written.
+  it('reads core/<module> for shared screen code, a file directly under core as core, and skips core/ui', () => {
+    expect(featureOf('src/core/reason/ReasonDialog.tsx')).toBe('core/reason')
+    expect(featureOf('src/core/pick-support/sections/Timeline.tsx')).toBe('core/pick-support')
+    expect(featureOf('src/core/Thing.tsx')).toBe('core')
+    expect(featureOf('src/core/ui/Input.tsx')).toBeNull()
+    expect(featureOf('src/core/ui/deep/Thing.tsx')).toBeNull()
+    expect(featureOf('src/core/rules/__prototype__/Try.tsx')).toBeNull()
+    expect(featureOf('src/core/reason/reason.ts')).toBeNull()
+    expect(featureOf('src/layout/Rail.tsx')).toBeNull()
+  })
+})
+
+const BASELINE = `# header comment
+
+campaigns/workspace 0
+
+oms/deliveries 2
+  src/features/oms/deliveries/ViewsRail.tsx button: my-views rows are a row picker
+  src/features/oms/deliveries/QueryBar.tsx input: the query bar's one-off field
+`
+
+const row = (file, tag, line = 1) => ({ file, tag, kind: tag, line })
+const byFeature = (obj) => new Map(Object.entries(obj))
+
+describe('parseBaseline', () => {
+  it('reads one ceiling per feature and the allowlisted controls under it, each with its reason', () => {
+    const { entries, errors } = parseBaseline(BASELINE)
+    expect(errors).toEqual([])
+    expect(entries.get('campaigns/workspace')).toMatchObject({ ceiling: 0, allow: [] })
+    expect(entries.get('oms/deliveries').allow).toEqual([
+      { file: 'src/features/oms/deliveries/ViewsRail.tsx', tag: 'button', reason: 'my-views rows are a row picker' },
+      { file: 'src/features/oms/deliveries/QueryBar.tsx', tag: 'input', reason: "the query bar's one-off field" },
+    ])
+  })
+
+  it('reports a malformed line, a duplicate feature, and an allowlist that disagrees with its ceiling', () => {
+    const { errors } = parseBaseline('a/b 0\n\na/b 0\n\nc/d x\n\ne/f 3\n  src/features/e/f/X.tsx button: one\n')
+    expect(errors.map((e) => e.line)).toEqual([3, 5, 7])
+  })
+
+  // Ticket 606: the ratchet equals the allowlist everywhere, and every allowlisted control says why.
+  it('reports an allowlisted control that gives no reason', () => {
+    const { errors } = parseBaseline('a/b 1\n  src/features/a/b/X.tsx button: a row picker\n  src/features/a/b/X.tsx input\n')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].line).toBe(3)
+    expect(errors[0].message).toContain('reason')
+  })
+
+  it('reports a feature that may hold controls without an allowlist naming them', () => {
+    const { errors } = parseBaseline('a/b 2\n\nc/d 0\n')
+    expect(errors).toHaveLength(1)
+    expect(errors[0].line).toBe(1)
+    expect(errors[0].message).toContain('a/b')
+  })
+})
+
+describe('checkRatchet', () => {
+  const baseline = parseBaseline(BASELINE).entries
+  const ws = 'src/features/campaigns/workspace/W.tsx'
+  const views = 'src/features/oms/deliveries/ViewsRail.tsx'
+  const query = 'src/features/oms/deliveries/QueryBar.tsx'
+
+  it('passes at the baseline', () => {
+    const r = checkRatchet(byFeature({
+      'oms/deliveries': [row(views, 'button'), row(query, 'input')],
+    }), baseline)
+    expect(r.failures).toEqual([])
+  })
+
+  it('fails when a feature rises above its ceiling, naming the feature', () => {
+    const r = checkRatchet(byFeature({
+      'oms/deliveries': [row(views, 'button'), row(query, 'input')],
+      'campaigns/workspace': [row(ws, 'input', 40)],
+    }), baseline)
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0]).toContain('campaigns/workspace')
+    expect(r.failures[0]).toContain(`${ws}:40`)
+  })
+
+  it('fails a swept feature on a control its allowlist does not name, even at the same total', () => {
+    const r = checkRatchet(byFeature({
+      'oms/deliveries': [row(views, 'button'), row(views, 'input', 12), row(query, 'input')],
+    }), baseline)
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0]).toContain(`${views}:12`)
+  })
+
+  it('fails a swept feature that holds fewer controls than its allowlist names, naming the stale line', () => {
+    const r = checkRatchet(byFeature({ 'oms/deliveries': [row(views, 'button')] }), baseline)
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0]).toContain(query)
+    expect(r.failures[0]).toContain('<input>')
+  })
+
+  it('fails a feature missing from the baseline that carries any control (ceiling 0)', () => {
+    const r = checkRatchet(byFeature({
+      'oms/deliveries': [row(views, 'button'), row(query, 'input')],
+      'reports/new': [row('src/features/reports/new/P.tsx', 'button', 7)],
+    }), baseline)
+    expect(r.failures).toHaveLength(1)
+    expect(r.failures[0]).toContain('reports/new')
+  })
+})

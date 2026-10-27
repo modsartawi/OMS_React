@@ -33,7 +33,6 @@ import Ltr from '@/core/ui/Ltr'
 import BlockPanel from './BlockPanel'
 import CheckNotes, { checkTone, SEVERITY_LOOK } from './CheckNotes'
 import { NO_BLOCK_CHECKS, type ChecksIndex } from './checks'
-import { INPUT } from './builder-ui'
 import PaletteMenu from './PaletteMenu'
 import { BLOCK_KEY, keyOf } from './block-keys'
 import { BUNDLE_EFFECTS, newBlock, newBundleList } from './palette'
@@ -52,6 +51,9 @@ import {
   setPartial,
 } from './rule-edit'
 import SentenceView from './SentenceView'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import IconButton from '@/core/ui/IconButton'
 
 /** What the builder page hands each card: the edit door into its history, and the open panel. */
 export interface Builder {
@@ -125,25 +127,17 @@ export default function RuleCard({
   return (
     <article className="rounded-lg border border-border/60 bg-card" data-rule-card={rule.id}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          aria-label={t(open ? 'rules.collapse' : 'rules.expand')}
-          className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          data-rule-toggle=""
-        >
+        <IconButton label={t(open ? 'rules.collapse' : 'rules.expand')} onClick={onToggle} aria-expanded={open} aria-controls={bodyId} data-rule-toggle="">
           <Chevron className={'h-4 w-4' + (open ? '' : ' rtl:rotate-180')} aria-hidden />
-        </button>
+        </IconButton>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <label htmlFor={nameId} className="text-xs text-muted-foreground">
             <Trans t={t} i18nKey="rules.ruleNumber" values={{ n: index + 1 }} components={{ n: <Ltr /> }} />
           </label>
-          <input
+          <Input
             id={nameId}
             dir="auto"
-            className={`${INPUT} max-w-xl font-semibold`}
+            className="w-full max-w-xl font-semibold"
             value={rule.name}
             placeholder={t('builder.ruleNamePlaceholder')}
             onChange={(e) => edit((rules) => renameRule(rules, rule.id, e.target.value), `name:${rule.id}`)}
@@ -217,15 +211,14 @@ export default function RuleCard({
                 {rule.then.some((e) => e.effect === RULE_BURN_POINTS) && (
                   <label className="flex flex-wrap items-center gap-2 text-sm" data-partial="">
                     <span className="text-muted-foreground">{t('builder.partial')}</span>
-                    <select
-                      className={INPUT}
+                    <Select
                       value={rule.partial ?? 'refuse'}
                       onChange={(e) => edit((rules) => setPartial(rules, rule.id, e.target.value === 'scale' ? 'scale' : 'refuse'))}
                       data-partial-select=""
                     >
                       <option value="refuse">{t('builder.partialOption.refuse')}</option>
                       <option value="scale">{t('builder.partialOption.scale')}</option>
-                    </select>
+                    </Select>
                   </label>
                 )}
               </>
@@ -454,19 +447,18 @@ function BundleEditor({ rule, b }: { rule: CampaignRule; b: Builder }) {
       <ul className="flex flex-col gap-1.5">
         {lists.map((l, i) => (
           <li key={`${i}/${lists.length}`} className="flex flex-wrap items-center gap-2" data-bundle-list={i}>
-            <input
+            <Input
               type="number"
               dir="ltr"
               min={1}
               step={1}
-              className={`${INPUT} w-20`}
+              className="w-20"
               aria-label={t('rules.bundleCount')}
               value={Number.isFinite(l.count) ? l.count : ''}
               onChange={(e) => put({ ...bundle, lists: lists.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x)) })}
               data-bundle-count=""
             />
-            <select
-              className={INPUT}
+            <Select
               aria-label={t('rules.bundleFilter')}
               value={l.filter}
               onChange={(e) => put({ ...bundle, lists: lists.map((x, j) => (j === i ? { ...x, filter: e.target.value } : x)) })}
@@ -478,16 +470,16 @@ function BundleEditor({ rule, b }: { rule: CampaignRule; b: Builder }) {
                   {fsi(f.name)}
                 </option>
               ))}
-            </select>
-            <button
-              type="button"
-              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-danger-800"
-              aria-label={t('rules.bundleRemove')}
+            </Select>
+            <IconButton
+              variant="danger"
+              size="compact"
+              label={t('rules.bundleRemove')}
               onClick={() => put(lists.length > 1 ? { ...bundle, lists: lists.filter((_, j) => j !== i) } : null)}
               data-bundle-remove=""
             >
               <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
+            </IconButton>
           </li>
         ))}
       </ul>
@@ -498,12 +490,12 @@ function BundleEditor({ rule, b }: { rule: CampaignRule; b: Builder }) {
         </button>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           {t('rules.bundleMax')}
-          <input
+          <Input
             type="number"
             dir="ltr"
             min={1}
             step={1}
-            className={`${INPUT} w-20`}
+            className="w-20"
             value={bundle.max ?? ''}
             onChange={(e) => {
               const { max: _old, ...rest } = bundle
@@ -548,18 +540,17 @@ function Tools({
   labels: { up: string; down: string; remove: string }
   data: string
 }) {
-  const btn = 'rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent'
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      <button type="button" className={btn} aria-label={labels.up} disabled={!up} onClick={() => up?.()} data-move-up={data}>
+      <IconButton size="compact" label={labels.up} disabled={!up} onClick={() => up?.()} data-move-up={data}>
         <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-      </button>
-      <button type="button" className={btn} aria-label={labels.down} disabled={!down} onClick={() => down?.()} data-move-down={data}>
+      </IconButton>
+      <IconButton size="compact" label={labels.down} disabled={!down} onClick={() => down?.()} data-move-down={data}>
         <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-      </button>
-      <button type="button" className={`${btn} hover:text-danger-800`} aria-label={labels.remove} onClick={remove} data-delete={data}>
+      </IconButton>
+      <IconButton variant="danger" size="compact" label={labels.remove} onClick={remove} data-delete={data}>
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
-      </button>
+      </IconButton>
     </span>
   )
 }
@@ -567,8 +558,7 @@ function Tools({
 function MatchSelect({ value, onChange, data }: { value: 'all' | 'any'; onChange: (mode: 'all' | 'any') => void; data: string }) {
   const { t } = useTranslation('campaign-workspace')
   return (
-    <select
-      className={`${INPUT} h-7 text-xs`}
+    <Select
       aria-label={t('builder.match')}
       value={value}
       onChange={(e) => onChange(e.target.value === 'any' ? 'any' : 'all')}
@@ -576,7 +566,7 @@ function MatchSelect({ value, onChange, data }: { value: 'all' | 'any'; onChange
     >
       <option value="all">{t('builder.matchAll')}</option>
       <option value="any">{t('builder.matchAny')}</option>
-    </select>
+    </Select>
   )
 }
 

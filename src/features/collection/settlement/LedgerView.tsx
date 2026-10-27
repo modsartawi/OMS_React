@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
-import { Filter, Search } from 'lucide-react'
+import { Filter, X } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -17,6 +17,10 @@ import type {
   SettlementLedgerRow,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
+import Select from '@/core/ui/Select'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { fsi } from '@/core/util/bidi'
 import {
@@ -268,23 +272,17 @@ function Criteria({
   return (
     <div className="flex flex-col gap-2" data-region="ledger-criteria">
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2" role="search">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <input
-            type="search"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            aria-label={t('ledger.entry.label')}
-            // The screen starts with typing: focused on landing.
-            autoFocus
-            placeholder={t('ledger.entry.placeholder')}
-            data-testid="ledger-entry"
-            className="h-9 w-full rounded-full border border-border bg-card ps-9 pe-3 text-sm outline-none focus:border-primary/60"
-          />
-        </div>
+        <Input
+          type="search"
+          wrapperClassName="min-w-0 flex-1"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          aria-label={t('ledger.entry.label')}
+          // The screen starts with typing: focused on landing.
+          autoFocus
+          placeholder={t('ledger.entry.placeholder')}
+          data-testid="ledger-entry"
+        />
         <Button type="submit" variant="secondary">
           {t('ledger.entry.submit')}
         </Button>
@@ -429,24 +427,17 @@ function ChipRow({
         role="group"
         aria-label={label}
         data-region={`ledger-${testGroup}`}
-        className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-0.5"
+        className="inline-flex items-center gap-1"
       >
         {values.map((value) => (
-          <button
+          <Chip
             key={value}
-            type="button"
+            on={active === value}
             onClick={() => onPick(active === value ? undefined : value)}
-            aria-pressed={active === value}
             data-chip={value}
-            className={
-              'h-6 rounded-full px-3 text-xs font-medium transition-colors ' +
-              (active === value
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted')
-            }
           >
             {render(value)}
-          </button>
+          </Chip>
         ))}
       </div>
     </div>
@@ -469,13 +460,7 @@ function DateBox({
   return (
     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
       {label}
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onValue(e.target.value)}
-        data-testid={testId}
-        className="h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60"
-      />
+      <Input type="date" value={value} onChange={(e) => onValue(e.target.value)} data-testid={testId} />
     </label>
   )
 }
@@ -534,7 +519,7 @@ function CommitInput({ label, hint, value, read, onCommit, amount = false, testI
   return (
     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
       {label}
-      <input
+      <Input
         type="text"
         // Amounts are machine values — LTR, whichever way the page runs.
         dir={amount ? 'ltr' : undefined}
@@ -550,10 +535,7 @@ function CommitInput({ label, hint, value, read, onCommit, amount = false, testI
           }
         }}
         data-testid={testId}
-        className={
-          'h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60 ' +
-          (amount ? 'w-28 text-end tabular-nums' : 'w-36')
-        }
+        className={amount ? 'w-28 text-end tabular-nums' : 'w-36'}
       />
     </label>
   )
@@ -587,12 +569,11 @@ function PostedByPicker({
   return (
     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
       {t('ledger.filters.postedBy')}
-      <select
+      <Select
         value={value}
         onChange={(e) => onPick(e.target.value)}
         title={unavailable ? t('ledger.filters.postedByUnavailable') : t('ledger.filters.postedByHint')}
         data-testid="ledger-posted-by"
-        className="h-7 rounded-full border border-border bg-card px-3 text-xs text-foreground outline-none focus:border-primary/60"
       >
         <option value="">{t('ledger.filters.postedByAny')}</option>
         {accountants.map((a) => (
@@ -601,7 +582,7 @@ function PostedByPicker({
           </option>
         ))}
         {value && !known && <option value={value}>{fsi(value)}</option>}
-      </select>
+      </Select>
     </label>
   )
 }
@@ -624,14 +605,14 @@ function Pill({
       data-testid={testId}
     >
       {label}
-      <button
-        type="button"
+      <IconButton
+        variant="danger"
+        size="compact"
         onClick={onClear}
-        aria-label={t('ledger.filters.remove', { criterion: label })}
-        className="text-muted-foreground hover:text-foreground"
+        label={t('ledger.filters.remove', { criterion: label })}
       >
-        ×
-      </button>
+        <X className="size-3" aria-hidden />
+      </IconButton>
     </span>
   )
 }

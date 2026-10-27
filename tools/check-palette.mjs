@@ -39,6 +39,10 @@ const COLOUR_SOURCES = new Map([
     'src/assets/login/dmsco-logo.svg',
     'the DMSCO lockup from the Figma login — the logo’s own artwork colours',
   ],
+  // The shell's white DMSCO lockup and its dotted-D crop (spec 590; 587, ticket 592),
+  // from `.issues/assets/581-figma-frames/assets/dmsco-logo-on-dark.svg`.
+  ['src/assets/dmsco/dmsco-lockup-on-dark.svg', 'the white DMSCO lockup — the logo’s own artwork colours'],
+  ['src/assets/dmsco/dmsco-symbol-on-dark.svg', 'the dotted-D symbol, the same artwork cropped — its own colours'],
   // The printed facsimiles (spec 249's documented three-rule exception, established by ticket
   // 251 and extended to the ACR by 252). These are not screens: they reproduce a paper form
   // the WPF also prints, and the

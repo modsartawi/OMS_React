@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
-import { removalFieldClass } from './profile-controls'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 /**
  * The **case reference** field, as both **contact removals** ask for it (tickets
@@ -37,37 +38,25 @@ export default function CaseReferenceField({
   const { t } = useTranslation('loy')
 
   return (
-    <div className="flex flex-col gap-1">
-      <label
-        htmlFor={id}
-        className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-      >
-        {t('profile.caseReference.label')}
-      </label>
-      <input
-        id={id}
+    <Field
+      id={id}
+      label={t('profile.caseReference.label')}
+      hint={t('profile.caseReference.hint')}
+      // 🚩 Said against the field that caused it — which is the half of the
+      // message `removalProblem` carries as data, so the placement is a rule
+      // under vitest rather than a JSX branch nothing can reach.
+      error={problem ? <span role="alert">{problem}</span> : undefined}
+    >
+      <Input
         type="text"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         autoComplete="off"
         placeholder={t('profile.caseReference.placeholder')}
-        aria-invalid={problem ? true : undefined}
-        aria-describedby={`${id}-hint`}
-        className={removalFieldClass(!!problem)}
+        className="w-full"
         data-testid={testId}
       />
-      <p id={`${id}-hint`} className="text-[11px] text-muted-foreground">
-        {t('profile.caseReference.hint')}
-      </p>
-      {/* 🚩 Said against the field that caused it — which is the half of the
-          message `removalProblem` carries as data, so the placement is a rule
-          under vitest rather than a JSX branch nothing can reach. */}
-      {problem && (
-        <p role="alert" className="text-[11px] text-danger-800">
-          {problem}
-        </p>
-      )}
-    </div>
+    </Field>
   )
 }

@@ -141,3 +141,5 @@ tools/.dispatch-scorecard-shots/
 tools/.prescription-sessions-shots/
 # Data sync drive screenshots (tools/data-sync-*-drive.mjs, spec 558)
 tools/.data-sync-*-shots/
+# DMSCO theme drive screenshots (tools/dmsco-theme-drive.mjs, spec 590 / ticket 591)
+tools/.dmsco-theme-shots/

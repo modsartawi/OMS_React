@@ -7,7 +7,7 @@ import LookupPicks from '@/core/rules/LookupPicks'
 import { RX_CATEGORY } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import Ltr from '@/core/ui/Ltr'
-import { INPUT } from './builder-ui'
+import Input from '@/core/ui/Input'
 
 /**
  * A named cart-item filter as an editable chain (ticket 506; schema 1 in 522): the categories and
@@ -83,10 +83,10 @@ export default function FilterEditor({
           {t('filters.name')}
         </label>
         <span className="flex flex-col gap-1">
-          <input
+          <Input
             id={nameId}
             dir="auto"
-            className={`${INPUT} w-56 font-mono`}
+            className="w-56 font-mono"
             value={filter.name}
             aria-invalid={nameProblem ? true : undefined}
             aria-describedby={nameProblem ? problemId : undefined}

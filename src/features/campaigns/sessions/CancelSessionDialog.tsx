@@ -7,8 +7,10 @@ import type { RuleSessionLookup, RuleSessionState, RuleSupportCancelReply } from
 import { RULE_SESSIONS_KEY, rememberCancelledSession, ruleCampaignApi } from '@/core/rules/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { formatNumber } from '@/core/util/number-format'
 import { CANCEL_REASON_MAX, cancelBody, cancelFailure, isStaleRefusal, mayHaveLanded, pressRequestId, reasonProblem, type PreviousPress } from './cancel'
 import { BudgetEventText, MovementText } from './session-ui'
@@ -69,6 +71,24 @@ export default function CancelSessionDialog({
   const message = failure === 'denied' ? t('cancel.denied') : apiErrorMessage(cancel.error, t('cancel.refused'))
   const returns = state === 'closed' || state === 'partiallyReturned'
 
+  const bad = tried && !!problem
+  const reasonNote = (
+    <>
+      {retrying ? (
+        t('cancel.reasonKept')
+      ) : tried && problem === 'required' ? (
+        t('cancel.reasonRequired')
+      ) : (
+        <Trans
+          t={t}
+          i18nKey={problem === 'tooLong' ? 'cancel.reasonTooLong' : 'cancel.reasonHint'}
+          values={{ n: formatNumber(reason.trim().length), max: formatNumber(CANCEL_REASON_MAX) }}
+          components={{ v: <bdi dir="ltr" /> }}
+        />
+      )}
+    </>
+  )
+
   return (
     <Modal
       open
@@ -91,38 +111,24 @@ export default function CancelSessionDialog({
         <p>
           <Trans t={t} i18nKey={returns ? 'cancel.bodyReturn' : 'cancel.bodyPaying'} values={{ saleId }} components={{ v: <bdi dir="ltr" className="font-mono" /> }} />
         </p>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={reasonId} className="text-xs font-medium text-muted-foreground">
-            {t('cancel.reason')}
-          </label>
-          <textarea
-            id={reasonId}
+        {/* The reason's counter line turns into its error once Confirm has been tried: one line, one hook. */}
+        <Field
+          id={reasonId}
+          label={t('cancel.reason')}
+          hint={bad ? undefined : <span data-session-cancel-reason-hint="">{reasonNote}</span>}
+          error={bad ? <span data-session-cancel-reason-hint={problem}>{reasonNote}</span> : undefined}
+        >
+          <Textarea
             dir="auto"
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             disabled={cancel.isPending}
             readOnly={retrying}
-            aria-invalid={tried && !!problem}
-            aria-describedby={`${reasonId}-hint`}
-            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full"
             data-session-cancel-reason=""
           />
-          <p id={`${reasonId}-hint`} className={`text-xs ${tried && problem ? 'text-danger-800' : 'text-muted-foreground'}`} data-session-cancel-reason-hint={tried && problem ? problem : ''}>
-            {retrying ? (
-              t('cancel.reasonKept')
-            ) : tried && problem === 'required' ? (
-              t('cancel.reasonRequired')
-            ) : (
-              <Trans
-                t={t}
-                i18nKey={problem === 'tooLong' ? 'cancel.reasonTooLong' : 'cancel.reasonHint'}
-                values={{ n: formatNumber(reason.trim().length), max: formatNumber(CANCEL_REASON_MAX) }}
-                components={{ v: <bdi dir="ltr" /> }}
-              />
-            )}
-          </p>
-        </div>
+        </Field>
         {cancel.isError && (
           <div data-session-cancel-refusal="">
             <ErrorBanner className="p-2.5" title={t('cancel.refusedTitle')} message={message}>

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { codeListCount, normaliseCodeList } from '@/core/util/code-list'
 import { fsi } from '@/core/util/bidi'
 import { pastedMaterials } from './editor'
@@ -12,10 +14,6 @@ import { pastedMaterials } from './editor'
  * grouping rows. The box says how many materials it will add, and how many it skips because the
  * target already holds them or the paste repeats them.
  */
-const PASTE_BOX =
-  'w-full resize-y rounded-md border border-border/60 bg-background px-2.5 py-1.5 font-mono text-sm text-foreground ' +
-  'focus:border-primary/50 focus:outline-none'
-
 export default function PasteMaterialsDialog({
   open,
   title,
@@ -54,18 +52,17 @@ function PasteForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('paste.hint')}
-        <textarea
+      <Field label={t('paste.hint')}>
+        <Textarea
           dir="ltr"
           rows={10}
           autoFocus
-          className={PASTE_BOX}
+          className="w-full resize-y font-mono"
           value={text}
           data-testid="bby-paste-box"
           onChange={(e) => setText(e.target.value)}
         />
-      </label>
+      </Field>
       <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground" data-testid="bby-paste-meter">
         <span>{t('paste.added', { count: added, n: fsi(String(added)) })}</span>
         {skipped > 0 && <span>{t('paste.skipped', { count: skipped, n: fsi(String(skipped)) })}</span>}

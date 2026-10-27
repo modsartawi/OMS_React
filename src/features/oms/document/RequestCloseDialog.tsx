@@ -4,6 +4,8 @@ import { Flag } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import { CANCEL_REASONS } from '@/core/constants/cancel-reasons'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 
 /**
  * Screen 2 — Request Close cancellation-reason picker.
@@ -56,24 +58,16 @@ export default function RequestCloseDialog({
     >
       <div className="flex flex-col gap-2.5">
         <p className="text-[0.8125rem] text-muted-foreground">{t('requestClose.hint')}</p>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-muted-foreground" htmlFor="request-close-reason">
-            {t('requestClose.label')}
-          </label>
-          <select
-            id="request-close-reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]"
-          >
+        <Field id="request-close-reason" label={t('requestClose.label')}>
+          <Select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full">
             <option value="">{t('requestClose.placeholder')}</option>
             {CANCEL_REASONS.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
     </Modal>
   )

@@ -12,6 +12,7 @@ import {
   type InsuranceDraft,
   type InsuranceRefusal,
 } from './line-rules'
+import Input from '@/core/ui/Input'
 
 /**
  * **The header deductible block** — two of the agent's five inputs (ticket 218,
@@ -177,7 +178,7 @@ function TermBox({
   onCommit: () => void
 }) {
   return (
-    <input
+    <Input
       type="number"
       min={0}
       step="any"
@@ -193,10 +194,7 @@ function TermBox({
           onCommit()
         }
       }}
-      className={
-        'h-7 w-24 rounded-md border bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50 ' +
-        (refusal ? 'border-danger-border' : 'border-input')
-      }
+      className="w-24 tabular-nums"
     />
   )
 }

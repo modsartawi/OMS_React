@@ -19,7 +19,10 @@ import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import { MAX_BATCH, MAX_CODE, MAX_MEMBER, MAX_TEMPLATE, couponImportBody, templateProblem } from './coupon-form'
 import { importCsv, importTally, readCouponCsv, type CouponCsvRow } from './coupon-csv'
-import { Refusal, SETTINGS_INPUT } from './settings-ui'
+import { Refusal } from './settings-ui'
+import Input from '@/core/ui/Input'
+import Textarea from '@/core/ui/Textarea'
+import Field from '@/core/ui/Field'
 
 /**
  * Import coupons (tickets 516, 526; the prototype's coupon Uploader): codes from a CSV file — chosen
@@ -123,29 +126,29 @@ export default function ImportCouponsDialog({
       <div className="flex flex-col gap-3" data-coupons-import="">
         <p className="text-sm text-muted-foreground">{t('coupons.import.intro', { max: n(MAX_BATCH) })}</p>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={templateFieldId} className="text-xs font-medium text-muted-foreground">
-            {t('coupons.create.template')}
-          </label>
-          <input
-            id={templateFieldId}
+        <Field
+          id={templateFieldId}
+          label={t('coupons.create.template')}
+          error={
+            tried && template ? (
+              <span role="alert" data-coupon-problem={template}>
+                {t(`coupons.create.problems.${template}`, { max: fsi(MAX_TEMPLATE) })}
+              </span>
+            ) : undefined
+          }
+          hint={tried && template ? undefined : t('coupons.create.templateHint')}
+        >
+          <Input
             dir="ltr"
             value={templateId}
             onChange={(e) => {
               setTemplateId(e.target.value)
               if (send.isError) send.reset()
             }}
-            className={`${SETTINGS_INPUT} max-w-xs font-mono ${tried && template ? 'border-danger' : 'border-border/60'}`}
+            className="w-full max-w-xs font-mono"
             data-coupons-import-template=""
           />
-          {tried && template ? (
-            <p className="text-xs text-danger" role="alert" data-coupon-problem={template}>
-              {t(`coupons.create.problems.${template}`, { max: fsi(MAX_TEMPLATE) })}
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t('coupons.create.templateHint')}</p>
-          )}
-        </div>
+        </Field>
 
         <label
           htmlFor={fileId}
@@ -183,22 +186,17 @@ export default function ImportCouponsDialog({
         </label>
         {fileFailed && <ErrorBanner message={t('coupons.import.fileFailed')} className="px-3 py-2" />}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={pasteId} className="text-xs font-medium text-muted-foreground">
-            {t('coupons.import.paste')}
-          </label>
-          <textarea
-            id={pasteId}
+        <Field id={pasteId} label={t('coupons.import.paste')} hint={t('coupons.import.format')}>
+          <Textarea
             dir="ltr"
             rows={5}
             value={text}
             onChange={(e) => edit(e.target.value)}
             placeholder={t('coupons.import.pastePlaceholder')}
-            className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 font-mono text-xs text-foreground focus:border-primary/50 focus:outline-none"
+            className="w-full font-mono"
             data-coupons-import-text=""
           />
-          <p className="text-xs text-muted-foreground">{t('coupons.import.format')}</p>
-        </div>
+        </Field>
 
         {read.noCodeColumn && (
           <p className="text-sm text-danger-800" data-coupons-import-no-code="">

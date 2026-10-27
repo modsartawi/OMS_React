@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import MultiSelect, { type MultiSelectOption } from '@/core/ui/MultiSelect'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { formatPair } from '@/core/util/bidi'
 import { canViewLoyGroups, loyGroupName, loyGroupsAccessQuery, loyGroupsQuery } from './api'
 import { readLoyGroupSelection, writeLoyGroupSelection } from './selection'
@@ -26,7 +27,9 @@ export interface LoyGroupPickerProps {
  * - Options are `LoyGroupWeb/Groups?includeInactive=true`: `code · name` in the UI language, an
  *   inactive group greyed and marked (the server warns, and still saves).
  * - A chosen code that is not a defined group is KEPT as a flagged chip (D2), never dropped.
- * - Without the view grant (or while the probe is out) the field is read-only text of the codes.
+ * - The probe answered without the view grant: read-only text of the codes.
+ * - The probe pending, failed or 404 (the door is deployed nowhere yet): the pre-636 editable free-text
+ *   box, so a maintainer never loses the field to a missing door.
  */
 export default function LoyGroupPicker({ value, onChange, id, disabled, label, 'data-testid': testId }: LoyGroupPickerProps) {
   const { t, i18n } = useTranslation('loy-groups')
@@ -34,6 +37,25 @@ export default function LoyGroupPicker({ value, onChange, id, disabled, label, '
   const canView = canViewLoyGroups(access.data)
   const groups = useQuery({ ...loyGroupsQuery(true), enabled: canView })
   const selection = readLoyGroupSelection(value, groups.data)
+
+  if (!canView && !access.isSuccess) {
+    // OWNER DECISION (review of 636): while the probe is pending, errored or 404, keep today's
+    // editable free-text box — the pre-636 behaviour. Read-only text is ONLY for a probe that
+    // answered and said `canView: false`. (Simulation, D3, never mounts the picker without the grant.)
+    return (
+      <Textarea
+        id={id}
+        dir="ltr"
+        rows={3}
+        className="w-full resize-y font-mono"
+        value={value}
+        disabled={disabled}
+        data-testid={testId}
+        data-loy-groups-freetext=""
+        onChange={(e) => onChange(e.target.value)}
+      />
+    )
+  }
 
   if (!canView) {
     return (

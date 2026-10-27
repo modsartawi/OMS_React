@@ -38,6 +38,7 @@ import {
   toRequest,
   upsertGrouping,
   loyGroupFindings,
+  loyFindingsAfterEdit,
 } from './editor'
 import { writeLoyGroupSelection } from '@/core/loy-groups/selection'
 
@@ -724,5 +725,16 @@ describe('loyalty groups picked from the defined groups', () => {
     const saved = readEditorOutcome({ status: 'saved', number: 'OMS000000124', refusals: [], warnings: [inactive] })
     expect(loyGroupFindings(saved)).toEqual({ refusals: [], warnings: [inactive] })
     expect(loyGroupFindings(readEditorOutcome({ status: 'valid', number: null, refusals: [], warnings: [] }))).toEqual({ refusals: [], warnings: [] })
+  })
+})
+
+// Review fix 7: the field's findings belong to the value that was checked.
+describe('loyalty-group findings clear once the field moves off the checked value', () => {
+  const f = { refusals: [{ code: 'BBY-LOY-GROUP-UNKNOWN', english: 'x', arabic: 'y' }], warnings: [] }
+  it('keeps them while the value is the one checked', () => {
+    expect(loyFindingsAfterEdit(f, 'GOLD,STAFF_X', 'GOLD,STAFF_X')).toBe(f)
+  })
+  it('clears them once the value changes', () => {
+    expect(loyFindingsAfterEdit(f, 'GOLD,STAFF_X', 'GOLD')).toEqual({ refusals: [], warnings: [] })
   })
 })

@@ -47,7 +47,10 @@ export default function CreateGroupDialog({ open, onClose }: { open: boolean; on
     setTouched(false)
     create.reset()
   }
+  // While the create is in flight the dialog cannot be dismissed (Cancel disabled, Escape and the
+  // backdrop ignored): a create that lands after a cancel would still navigate to the new group.
   const close = () => {
+    if (create.isPending) return
     reset()
     onClose()
   }
@@ -68,7 +71,7 @@ export default function CreateGroupDialog({ open, onClose }: { open: boolean; on
       width="30rem"
       footer={
         <>
-          <Button variant="text" onClick={close}>
+          <Button variant="text" onClick={close} disabled={create.isPending}>
             {t('create.cancel')}
           </Button>
           <Button variant="primary" onClick={submit} disabled={create.isPending} data-loy-group-create-submit="">

@@ -36,3 +36,14 @@ export interface GroupNamesForm {
 export function renameRequest(groupId: string, form: GroupNamesForm): LoyGroupRenameRequest {
   return { groupId, nameEn: form.nameEn, nameAr: form.nameAr }
 }
+
+/**
+ * The name form after the server's copy of the group moves (review fix 1). The page is never
+ * remounted by a refetch, so this is the one place the form re-seeds: it takes the server's names
+ * only while it still holds the names it was seeded from (`base`) — names typed and not saved are
+ * kept, whatever the server now says.
+ */
+export function reseedGroupNames(form: GroupNamesForm, base: GroupNamesForm, server: GroupNamesForm): GroupNamesForm {
+  const dirty = form.nameEn !== base.nameEn || form.nameAr !== base.nameAr
+  return dirty ? form : { nameEn: server.nameEn, nameAr: server.nameAr }
+}

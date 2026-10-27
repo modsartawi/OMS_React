@@ -129,3 +129,11 @@ export const groupActiveApi = {
     return api.post<unknown>('LoyGroupWeb/Groups/SetActive', body)
   },
 }
+
+/**
+ * What a member write (add, remove, bulk load) re-reads (review fix 6): that group's member pages,
+ * that group's detail (its mobile count) and the lists. Never the whole `['loy', 'groups']` prefix:
+ * that would re-run the access probe and every other group's pages.
+ */
+export const memberWriteKeys = (groupId: string) =>
+  [loyGroupMembersScopeKey(groupId), loyGroupKey(groupId), ['loy', 'groups', 'list']] as const

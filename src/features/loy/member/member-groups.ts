@@ -32,11 +32,12 @@ export function memberGroups(
   lang: string,
 ): MemberGroupsView {
   if (!canView || !Array.isArray(codes)) return { show: false }
-  const byCode = new Map((list ?? []).map((g) => [g.code, g]))
+  // Case-insensitive, as the picker's selection reads codes (`@/core/loy-groups/selection`).
+  const byCode = new Map((list ?? []).map((g) => [g.code.toUpperCase(), g]))
   return {
     show: true,
     chips: codes.map((code) => {
-      const g = byCode.get(code)
+      const g = byCode.get(code.toUpperCase())
       const name = g ? loyGroupName(g, lang) : ''
       return { code, name: name.trim() === '' ? code : name }
     }),

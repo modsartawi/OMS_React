@@ -4,7 +4,7 @@
  * still the authority — and a rename never carries a code: the code never changes after create.
  */
 import { describe, expect, it } from 'vitest'
-import { checkGroupCode, normaliseGroupCode, renameRequest } from './group-form'
+import { checkGroupCode, normaliseGroupCode, renameRequest, reseedGroupNames } from './group-form'
 
 describe('group code is upper-cased and checked against the pattern', () => {
   it('upper-cases the code as typed', () => {
@@ -34,5 +34,22 @@ describe('rename request never carries a code', () => {
       nameEn: 'Ramadan VIP',
       nameAr: ' كبار رمضان ٢٠٢٦ ',
     })
+  })
+})
+
+// Review fix 1: a refetch never remounts the page; the name form re-seeds only when it is not dirty.
+describe('the name form re-seeds from the server only when it is not dirty', () => {
+  const base = { nameEn: 'Ramadan VIP', nameAr: 'كبار رمضان' }
+  it('takes the server names when the form still holds the names it was seeded from', () => {
+    const server = { nameEn: 'Ramadan VIP 2', nameAr: 'كبار رمضان ٢' }
+    expect(reseedGroupNames(base, base, server)).toEqual(server)
+  })
+  it('keeps names the user typed and has not saved when the server copy moves', () => {
+    const typed = { nameEn: 'Typed', nameAr: 'كبار رمضان' }
+    expect(reseedGroupNames(typed, base, { nameEn: 'Elsewhere', nameAr: 'x' })).toEqual(typed)
+  })
+  it('keeps the form when the server names did not change (a member write refetched the group)', () => {
+    const typed = { nameEn: 'Typed', nameAr: 'كبار رمضان' }
+    expect(reseedGroupNames(typed, base, { ...base })).toEqual(typed)
   })
 })

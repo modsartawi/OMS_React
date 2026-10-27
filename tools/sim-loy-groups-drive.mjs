@@ -43,7 +43,11 @@ const GROUPS = [
   { groupId: 'g3', code: 'RAMADAN_24', nameEn: 'Ramadan 2024', nameAr: 'رمضان ٢٠٢٤', isActive: false, mobileCount: 40, liveBonusBuys: [] },
 ]
 
-/** probe: 'granted' | 'denied' | 'pending' | 'failed' */
+/** Answers the 'late' probe (granted) once the drive releases it. */
+let releaseLate = () => {}
+let lateGate = Promise.resolve()
+
+/** probe: 'granted' | 'denied' | 'pending' | 'failed' | 'late' */
 async function open(dir, probe) {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } })
@@ -62,6 +66,7 @@ async function open(dir, probe) {
     if (path === 'LoyGroupWeb/Access') {
       if (probe === 'pending') return new Promise(() => {}) // never answers
       if (probe === 'failed') return route.fulfill(envelope(null, { status: 500 }))
+      if (probe === 'late') return lateGate.then(() => route.fulfill(envelope({ canView: true, canMaintain: false })))
       return route.fulfill(envelope({ canView: probe === 'granted', canMaintain: false }))
     }
     if (path === 'LoyGroupWeb/Groups') {
@@ -158,6 +163,24 @@ async function freeText(dir, probe) {
   await browser.close()
 }
 
+/** Review fix 9: the probe answers after free text was typed — the form takes the picker's normalised codes. */
+async function lateProbe(dir) {
+  lateGate = new Promise((r) => (releaseLate = r))
+  const { browser, page, errors, posted } = await open(dir, 'late')
+  const box = textBox(page)
+  await box.waitFor({ timeout: 10000 })
+  await box.locator('input').fill(' gold; silver ,gold')
+  releaseLate()
+  const picker = page.locator('[data-testid="sim-header-loyGroups"]')
+  await picker.locator('[data-multi-select-trigger]').waitFor({ timeout: 10000 })
+  const chips = await picker.locator('[data-chip]').evaluateAll((els) => els.map((e) => e.getAttribute('data-chip')))
+  check(`${dir} 6. late probe: the picker shows the typed codes normalised`, JSON.stringify(chips) === '["GOLD","SILVER"]', JSON.stringify(chips))
+  const body = await processRun(page, posted)
+  check(`${dir} 6. late probe: Process posts what the picker shows`, body?.header?.loyGroups === 'GOLD,SILVER', JSON.stringify(body?.header?.loyGroups))
+  check(`${dir} 6. late probe: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await browser.close()
+}
+
 async function run() {
   for (const dir of ['ltr', 'rtl']) {
     await granted(dir)
@@ -165,6 +188,7 @@ async function run() {
   }
   await freeText('ltr', 'pending')
   await freeText('ltr', 'failed')
+  await lateProbe('ltr')
   const failed = results.filter((r) => !r.pass).length
   console.log(`\n${results.length - failed}/${results.length} passed`)
   process.exit(failed ? 1 : 0)

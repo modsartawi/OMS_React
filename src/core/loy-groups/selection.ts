@@ -48,3 +48,12 @@ function splitCodes(value: string | null | undefined): string[] {
   const list = normaliseCodeList(value, { upper: true })
   return list === '' ? [] : list.split(',')
 }
+
+/**
+ * A free-text value as the picker shows it (review fix 9): upper-case, any separator, trimmed, each
+ * code once. The simulation writes it back when its field turns into the picker, so the request
+ * carries what the user sees.
+ */
+export function normaliseLoyGroupValue(value: string | null | undefined): string {
+  return writeLoyGroupSelection(readLoyGroupSelection(value, undefined).codes)
+}

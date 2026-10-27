@@ -66,3 +66,11 @@ describe('member group chips: absent hides, empty under grant says none, codes r
     })
   })
 })
+
+// Review fix 8: codes match case-insensitively, as the picker's selection does.
+describe('member group codes match the list case-insensitively', () => {
+  it('names a lower-case code from an upper-case list entry, keeping the code as sent', () => {
+    expect(memberGroups(['vip'], true, LIST, 'en')).toEqual({ show: true, chips: [{ code: 'vip', name: 'Ramadan VIP' }] })
+    expect(memberGroups(['STAFF'], true, [group('staff', 'Staff', '')], 'en')).toEqual({ show: true, chips: [{ code: 'STAFF', name: 'Staff' }] })
+  })
+})

@@ -2,7 +2,8 @@
  * A list of mobiles to load into a group (oms ticket 633; door BackOffice 3175
  * `POST LoyGroupWeb/Groups/Members/Bulk`) — pure.
  *
- * The maintainer pastes mobiles (one per line, or comma-separated), or picks a `.csv` (its first column)
+ * The maintainer pastes mobiles (one per line, or comma-separated; a pasted row's first field across `;`
+ * and tab, as a CSV's), or picks a `.csv` (its first column)
  * or an `.xlsx` (the first column of its first sheet, read by `@/core/util/xlsx-read`). This one parser
  * turns any of them into the `lines` the request carries. It decides the SHAPE only — split, trim, drop
  * blanks, skip a header, count against the cap — and never judges a mobile: a line that is not one, or
@@ -56,7 +57,9 @@ function firstField(line: string): string {
 function values(source: MobileSource): string[] {
   switch (source.kind) {
     case 'paste':
-      return source.text.replace(BOM, '').split(LINE_BREAK).flatMap((l) => l.split(','))
+      // A line's first field across `;` and tab, as a CSV's (two pasted Excel columns keep the first), then
+      // split on commas, so `0501234567, 0551234567` on one line is still two mobiles.
+      return source.text.replace(BOM, '').split(LINE_BREAK).flatMap((l) => l.split(/[;\t]/, 1)[0].split(','))
     case 'csv':
       return source.text.replace(BOM, '').split(LINE_BREAK).map(firstField)
     case 'sheet':

@@ -21,13 +21,11 @@ import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
 import BulkLoadDialog from './BulkLoadDialog'
-import { LOY_GROUP_MEMBERS_PAGE_SIZE, loyGroupMembersKey, membersApi } from './api'
+import { LOY_GROUP_MEMBERS_PAGE_SIZE, loyGroupMembersKey, memberWriteKeys, membersApi } from './api'
 import { MEMBERS_DEFAULT_COL_DEF, buildMemberColumns } from './members-columns'
 import { membersQueryFromParams, membersQueryToParams } from './members-query'
 import RefusalLine from './RefusalLine'
 
-/** Every `['loy', 'groups', …]` read — the members pages, the group (its mobile count) and the list. */
-const GROUPS_PREFIX = ['loy', 'groups'] as const
 
 /**
  * A group's Members tab (oms ticket 632; doors BackOffice 3174 `Groups/{groupId}/Members`,
@@ -38,12 +36,16 @@ const GROUPS_PREFIX = ['loy', 'groups'] as const
  * 🚩 Mobiles are shown exactly as the server returns them (canonical `9665…`), never reformatted.
  *
  * Add one and remove one (after a confirm naming the mobile) are writes: absent on a view-only grant.
- * After either, every `['loy', 'groups']` read refetches, so the group's mobile count follows.
+ * After either, this group's members and detail and the lists refetch (`memberWriteKeys`), so the
+ * group's mobile count follows — never the access probe or another group's pages.
  */
 export default function MembersTab({ groupId, mobileCount, canMaintain }: { groupId: string; mobileCount: number; canMaintain: boolean }) {
   const { t, i18n } = useTranslation('loy-groups')
   const queryClient = useQueryClient()
   const { query, update } = useUrlQuery(membersQueryFromParams, membersQueryToParams)
+  const refetchAfterWrite = () => {
+    for (const queryKey of memberWriteKeys(groupId)) void queryClient.invalidateQueries({ queryKey })
+  }
   const [typed, setTyped] = useState(query.search)
   // Back, or a pasted link, moves the URL under the field: follow it.
   useEffect(() => setTyped(query.search), [query.search])
@@ -81,7 +83,7 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
     mutationFn: (mobile: string) => membersApi.add({ groupId, mobile }),
     onSuccess: () => {
       setAdding('')
-      void queryClient.invalidateQueries({ queryKey: GROUPS_PREFIX })
+      refetchAfterWrite()
       notify.success(t('members.add.done'))
     },
   })
@@ -99,7 +101,7 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
     mutationFn: (mobile: string) => membersApi.remove({ groupId, mobile }),
     onSuccess: () => {
       setRemoving(null)
-      void queryClient.invalidateQueries({ queryKey: GROUPS_PREFIX })
+      refetchAfterWrite()
       notify.success(t('members.remove.done'))
     },
   })
@@ -226,7 +228,7 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
         <BulkLoadDialog
           groupId={groupId}
           onClose={() => setBulkOpen(false)}
-          onLoaded={() => void queryClient.invalidateQueries({ queryKey: GROUPS_PREFIX })}
+          onLoaded={refetchAfterWrite}
         />
       )}
 

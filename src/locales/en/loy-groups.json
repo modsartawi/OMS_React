@@ -81,6 +81,7 @@
       "title": "Deactivate this group?",
       "stops": "These live bonus-buys use this group and stop applying to its mobiles:",
       "stopsNone": "No live bonus-buy uses this group, so deactivating it stops no live offer.",
+      "stopsUnknown": "The live bonus-buys that use this group could not be read. Deactivating it stops any that do.",
       "after": "The members are kept. Reactivate the group to bring it back.",
       "cancel": "Cancel",
       "submit": "Deactivate"

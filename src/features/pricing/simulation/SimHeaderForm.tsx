@@ -1,7 +1,9 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import LoyGroupPicker from '@/core/loy-groups/LoyGroupPicker'
 import { canViewLoyGroups, loyGroupsAccessQuery } from '@/core/loy-groups/api'
+import { normaliseLoyGroupValue } from '@/core/loy-groups/selection'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
@@ -85,6 +87,13 @@ export default function SimHeaderForm({
   // text (D3: a simulation is a test, not a write), never the picker's read-only fallback.
   const loyAccess = useQuery(loyGroupsAccessQuery())
   const pickLoyGroups = canViewLoyGroups(loyAccess.data)
+  // When the field turns into the picker (the probe answered after the user typed free text), the
+  // picker shows the normalised codes: write them back, so the request carries what is shown.
+  useEffect(() => {
+    if (!pickLoyGroups) return
+    const normalised = normaliseLoyGroupValue(value.loyGroups)
+    if (normalised !== value.loyGroups) onChange({ loyGroups: normalised })
+  }, [pickLoyGroups, value.loyGroups, onChange])
 
   const field = (
     key: keyof SimHeaderState,

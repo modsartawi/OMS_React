@@ -458,6 +458,16 @@ export interface LoyGroupFindings {
   warnings: BbyRefusal[]
 }
 
+export const NO_LOY_FINDINGS: LoyGroupFindings = { refusals: [], warnings: [] }
+
+/**
+ * The findings still shown on the field (review fix 7): a Check or Save answered one value; once the
+ * field moves off it, its findings (and the field's invalid state) are gone.
+ */
+export function loyFindingsAfterEdit(findings: LoyGroupFindings, checked: string, current: string): LoyGroupFindings {
+  return current === checked ? findings : NO_LOY_FINDINGS
+}
+
 export function loyGroupFindings(o: EditorOutcome): LoyGroupFindings {
   const mine = (r: BbyRefusal) => LOY_GROUP_FINDING_CODES.has(r.code)
   return { refusals: o.refusals.filter(mine), warnings: o.warnings.filter(mine) }

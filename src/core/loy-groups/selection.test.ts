@@ -3,7 +3,7 @@
  * upper-case code string, read into chosen codes, and written back.
  */
 import { describe, expect, it } from 'vitest'
-import { readLoyGroupSelection, writeLoyGroupSelection } from './selection'
+import { normaliseLoyGroupValue, readLoyGroupSelection, writeLoyGroupSelection } from './selection'
 
 const GROUPS = [
   { code: 'GOLD', isActive: true },
@@ -42,5 +42,14 @@ describe('picker selection round-trips the comma code list', () => {
 
   it('without the groups list nothing is called unknown: the codes are only shown, never judged', () => {
     expect(readLoyGroupSelection('GOLD,STAFF_X', undefined)).toEqual({ codes: ['GOLD', 'STAFF_X'], unknown: [], inactive: [] })
+  })
+})
+
+// Review fix 9: the simulation writes the picker's normalised value back into its form.
+describe('a free-text value normalises to what the picker shows', () => {
+  it('upper-cases, splits any separator, trims and drops repeats', () => {
+    expect(normaliseLoyGroupValue(' gold; vip ,gold\nsilver')).toBe('GOLD,VIP,SILVER')
+    expect(normaliseLoyGroupValue('')).toBe('')
+    expect(normaliseLoyGroupValue('GOLD,VIP')).toBe('GOLD,VIP')
   })
 })

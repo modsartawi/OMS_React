@@ -73,3 +73,16 @@ describe('over 50,000 lines is refused before sending with the cap', () => {
     expect(read.overBy).toBe(2)
   })
 })
+
+// Review fix 5: a paste of two Excel columns (tab) or a `;` CSV line keeps its first field, as a CSV does.
+describe('a paste takes the first field across ; and tab', () => {
+  it('reads the first column of a two-column Excel paste', () => {
+    expect(mobileLines({ kind: 'paste', text: 'Mobile\tName\n0501234567\tAhmed\n966561234567\tSara Ali' })).toMatchObject({
+      lines: ['0501234567', '966561234567'],
+      header: 'Mobile',
+    })
+  })
+  it('cuts at ; and still splits a line on commas', () => {
+    expect(mobileLines({ kind: 'paste', text: '0501234567;Ahmed\n0551234567, 0561234567' }).lines).toEqual(['0501234567', '0551234567', '0561234567'])
+  })
+})

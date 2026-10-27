@@ -843,6 +843,143 @@ async function drive633(dir) {
   await viewer.context.close()
 }
 
+// ── Code review of 3173 (branch t/3173-review): what the review fixes change on screen. ──
+// 1. A member write refetches the group with a NEW updatedAt: the page is not remounted, so the bulk
+//    results stay open and a name typed but not saved survives.
+// 3. A create in flight cannot be cancelled (Cancel disabled, Escape ignored); it lands on the new group.
+// 4. A detail that omits `liveBonusBuys` borrows the list entry's; with neither, the confirm says it does
+//    not know — never "stops no live offer".
+// 5. A paste of two Excel columns (tab-separated) sends the first column only.
+// 6. A member write never re-asks the access probe.
+
+const gReview = { on: false, writes: 0, members: [], probes: 0, bulk: [], createGate: null }
+const REVIEW_GROUP = { groupId: 'g-r', code: 'REVIEW_1', nameEn: 'Review group', nameAr: 'مجموعة المراجعة', isActive: true, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null }
+const BBY_LINE = { promoNumber: '100077', description: 'Review offer' }
+/** Active, detail omits the field, the list entry names one live bonus-buy. */
+const BORROWS = { groupId: 'g-r2', code: 'BORROWS', nameEn: 'Borrows', nameAr: 'يستعير', isActive: true, mobileCount: 1, createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null, updatedAt: null }
+/** Active, neither the detail nor the list sends the field. */
+const UNKNOWN_BBYS = { groupId: 'g-r3', code: 'NO_FIELD', nameEn: 'No field', nameAr: 'بلا حقل', isActive: true, mobileCount: 1, createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null, updatedAt: null }
+ROUTES.unshift((route, url, p) => {
+  if (!gReview.on) return undefined
+  const body = () => JSON.parse(route.request().postData() || '{}')
+  const stamped = () => ({ ...REVIEW_GROUP, mobileCount: gReview.members.length, updatedAt: gReview.writes ? `2026-10-28T10:00:0${gReview.writes % 10}` : null })
+  if (p === 'LoyGroupWeb/Access') {
+    gReview.probes++
+    return undefined
+  }
+  if (p === 'LoyGroupWeb/Groups') {
+    const { liveBonusBuys: _, ...noField } = UNKNOWN_BBYS
+    return route.fulfill(envelope([{ ...stamped() }, { ...BORROWS, liveBonusBuys: [BBY_LINE] }, noField]))
+  }
+  if (p === 'LoyGroupWeb/Groups/g-r') return route.fulfill(envelope(stamped()))
+  if (p === 'LoyGroupWeb/Groups/g-r2') return route.fulfill(envelope(BORROWS))
+  if (p === 'LoyGroupWeb/Groups/g-r3') return route.fulfill(envelope(UNKNOWN_BBYS))
+  if (p === 'LoyGroupWeb/Groups/g-r/Members') return route.fulfill(envelope({ total: gReview.members.length, rows: gReview.members.slice(0, 50) }))
+  const member = (mobile) => ({ mobile, isEnrolled: false, loyId: null, addedBy: 'marketing01', addedAt: '2026-10-28T10:00:00' })
+  if (p === 'LoyGroupWeb/Groups/Members/Add') {
+    gReview.writes++
+    gReview.members.unshift(member(`966${canonicalTail(body().mobile)}`))
+    return route.fulfill(envelope({ outcome: 'Added' }))
+  }
+  if (p === 'LoyGroupWeb/Groups/Members/Bulk') {
+    const b = body()
+    gReview.bulk.push(b)
+    gReview.writes++
+    for (const line of b.lines) gReview.members.unshift(member(`966${canonicalTail(line)}`))
+    return route.fulfill(envelope({ added: b.lines.length, alreadyInGroup: 0, duplicateInBatch: 0, notAMobile: 0, placeholder: 0, rejected: [] }))
+  }
+  if (p === 'LoyGroupWeb/Groups/Create') {
+    const b = body()
+    const made = { groupId: 'g-r9', ...b, isActive: true, mobileCount: 0, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-28T10:00:00', updatedBy: null, updatedAt: null }
+    return gReview.createGate.then(() => route.fulfill(envelope(made)))
+  }
+  if (p === 'LoyGroupWeb/Groups/g-r9') return route.fulfill(envelope({ groupId: 'g-r9', code: 'SLOW_1', nameEn: 'Slow', nameAr: '', isActive: true, mobileCount: 0, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-28T10:00:00', updatedBy: null, updatedAt: null }))
+  if (p === 'LoyGroupWeb/Groups/g-r9/Members') return route.fulfill(envelope({ total: 0, rows: [] }))
+  return undefined
+})
+
+async function driveReview(dir) {
+  gReview.on = true
+  gReview.writes = 0
+  gReview.members = Array.from({ length: 3 }, (_, i) => ({ mobile: `96655000000${i}`, isEnrolled: true, loyId: null, addedBy: 'marketing01', addedAt: '2026-10-02T09:30:00' }))
+  gReview.bulk = []
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  const dialog = page.locator('dialog[open]')
+  const countIs = (n) =>
+    page.waitForFunction((v) => document.querySelector('[data-loy-group-mobile-count]')?.getAttribute('data-loy-group-mobile-count') === v, String(n), { timeout: 10000 })
+
+  // ── 1 + 6: a member write keeps the page, and never re-asks the probe ──
+  await page.goto(`${BASE}/loy/groups/g-r`)
+  await page.locator('[data-loy-group-members-grid] .ag-row').first().waitFor({ timeout: 10000 })
+  const nameEn = page.locator('[data-loy-group-field="nameEn"]')
+  await nameEn.fill('Typed, not saved')
+  const probesBefore = gReview.probes
+  await page.locator('[data-members-add-input]').fill('0551230001')
+  await page.locator('[data-members-add-submit]').click()
+  await countIs(4)
+  await page.locator('[data-loy-group-stamp="updated"] [data-stamp-at]').waitFor({ timeout: 10000 })
+  check(`${dir} review 1: a name typed but not saved survives a member add's refetch`, (await nameEn.inputValue()) === 'Typed, not saved', await nameEn.inputValue())
+  check(`${dir} review 1: …and Save still offers it`, !(await page.locator('[data-loy-group-save]').isDisabled()))
+  check(`${dir} review 6: a member add never re-asks the access probe`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
+
+  // ── 1 + 5: the bulk results stay open across the refetch; two pasted Excel columns send the first ──
+  await page.locator('[data-members-bulk-open]').click()
+  await page.locator('dialog[open] [data-members-bulk-dialog]').waitFor({ timeout: 10000 })
+  await dialog.locator('[data-members-bulk-text]').fill('Mobile\tName\n0551230002\tAhmed\n0551230003\tSara Ali')
+  check(`${dir} review 5: a two-column paste previews its first column (2 lines)`, (await dialog.locator('[data-members-bulk-preview]').getAttribute('data-members-bulk-preview')) === '2')
+  await dialog.locator('[data-members-bulk-submit]').click()
+  await dialog.locator('[data-members-bulk-result]').waitFor({ timeout: 10000 })
+  check(`${dir} review 5: sends the first column only`, JSON.stringify(gReview.bulk.at(-1)?.lines) === JSON.stringify(['0551230002', '0551230003']), JSON.stringify(gReview.bulk.at(-1)))
+  await countIs(6)
+  await page.waitForTimeout(300)
+  check(`${dir} review 1: the bulk results are still open after the group refetched`, (await dialog.locator('[data-members-bulk-result]').count()) === 1)
+  check(`${dir} review 1: …and the typed name is still there`, (await nameEn.inputValue()) === 'Typed, not saved')
+  check(`${dir} review 6: a bulk load never re-asks the access probe`, gReview.probes === probesBefore, `${probesBefore} → ${gReview.probes}`)
+  await dialog.locator('[data-members-bulk-done]').click()
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+
+  // ── 4: the deactivate confirm borrows the list's bonus-buys, else says it does not know ──
+  await page.goto(`${BASE}/loy/groups/g-r2`)
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  await dialog.locator('[data-loy-group-deactivate-bby="100077"]').waitFor({ timeout: 10000 }).catch(() => {})
+  check(`${dir} review 4: a detail without liveBonusBuys names the list entry's`,
+    (await dialog.locator('[data-loy-group-deactivate-sentence="stops"]').count()) === 1 && (await dialog.locator('[data-loy-group-deactivate-bby="100077"]').count()) === 1)
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  await page.goto(`${BASE}/loy/groups/g-r3`)
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  await dialog.locator('[data-loy-group-deactivate-sentence="unknown"]').waitFor({ timeout: 10000 }).catch(() => {})
+  const unknown = strip(await dialog.locator('[data-loy-group-deactivate-sentence]').innerText())
+  check(`${dir} review 4: with neither, the confirm says it does not know — never "stops no live offer"`,
+    (await dialog.locator('[data-loy-group-deactivate-sentence="unknown"]').count()) === 1 && !unknown.includes('stops no live offer'), unknown)
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+
+  // ── 3: a create in flight cannot be dismissed, and lands on the new group ──
+  let release
+  gReview.createGate = new Promise((r) => (release = r))
+  await page.goto(`${BASE}/loy/groups`)
+  await page.locator('[data-loy-groups-create]').click()
+  await dialog.locator('[data-loy-group-field="code"]').fill('SLOW_1')
+  await dialog.locator('[data-loy-group-field="nameEn"]').fill('Slow')
+  await dialog.locator('[data-loy-group-create-submit]').click()
+  await dialog.locator('[data-loy-group-create-submit]:disabled').waitFor({ timeout: 10000 })
+  const cancel = dialog.locator('button:not([data-loy-group-create-submit])').first()
+  check(`${dir} review 3: Cancel is disabled while the create is in flight`, await cancel.isDisabled())
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  check(`${dir} review 3: Escape does not close the dialog while the create is in flight`, (await dialog.count()) === 1)
+  release()
+  await page.locator('[data-loy-group="g-r9"]').waitFor({ timeout: 10000 })
+  check(`${dir} review 3: the create lands on the new group`, page.url().endsWith('/loy/groups/g-r9'), page.url())
+
+  check(`${dir} review: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+  gReview.on = false
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
@@ -854,6 +991,8 @@ try {
   await drive632('rtl')
   await drive633('ltr')
   await drive633('rtl')
+  await driveReview('ltr')
+  await driveReview('rtl')
 } finally {
   await browser.close()
 }

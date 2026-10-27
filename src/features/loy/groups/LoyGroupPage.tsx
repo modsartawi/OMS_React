@@ -18,7 +18,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { groupsApi, loyGroupKey } from './api'
-import { renameRequest } from './group-form'
+import { renameRequest, reseedGroupNames, type GroupNamesForm } from './group-form'
 import MembersTab from './MembersTab'
 import RefusalLine from './RefusalLine'
 import ActiveToggle from './ActiveToggle'
@@ -61,8 +61,10 @@ function Group() {
           {t('group.loading')}
         </div>
       ) : (
-        // Re-seeded whenever the server's copy changes (a save, a refetch), never while the user types.
-        <GroupBody key={`${group.data.groupId}:${group.data.updatedAt ?? ''}`} group={group.data} canMaintain={canMaintain} />
+        // Keyed by the group alone: a refetch (after a member write, a save) never remounts the body, so
+        // the Members tab, its bulk results and names typed but not saved all survive it. The name form
+        // re-seeds itself (`reseedGroupNames`).
+        <GroupBody key={group.data.groupId} group={group.data} canMaintain={canMaintain} />
       )}
     </div>
   )
@@ -71,8 +73,18 @@ function Group() {
 function GroupBody({ group, canMaintain }: { group: LoyGroupDetail; canMaintain: boolean }) {
   const { t, i18n } = useTranslation('loy-groups')
   const queryClient = useQueryClient()
-  const [nameEn, setNameEn] = useState(group.nameEn)
-  const [nameAr, setNameAr] = useState(group.nameAr)
+  // The names the form was last seeded from. When the server's copy moves (a rename elsewhere, a
+  // refetch), the form follows it only if the user has not typed since — never mid-edit.
+  const [base, setBase] = useState<GroupNamesForm>({ nameEn: group.nameEn, nameAr: group.nameAr })
+  const [form, setForm] = useState<GroupNamesForm>(base)
+  if (group.nameEn !== base.nameEn || group.nameAr !== base.nameAr) {
+    const server = { nameEn: group.nameEn, nameAr: group.nameAr }
+    setBase(server)
+    setForm(reseedGroupNames(form, base, server))
+  }
+  const { nameEn, nameAr } = form
+  const setNameEn = (v: string) => setForm((f) => ({ ...f, nameEn: v }))
+  const setNameAr = (v: string) => setForm((f) => ({ ...f, nameAr: v }))
   const dirty = nameEn !== group.nameEn || nameAr !== group.nameAr
 
   const rename = useMutation({

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
+import { loyGroupsQuery } from '@/core/loy-groups/api'
 import { loyGroupRefusal } from '@/core/loy-groups/refusal'
 import type { LoyGroupDetail } from '@/core/models/loy-groups'
 import { notify } from '@/core/services/notify'
@@ -9,7 +10,7 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { deactivateConfirm, setActiveRequest } from './activate'
+import { deactivateConfirm, setActiveRequest, type DeactivateConfirm } from './activate'
 import { groupActiveApi, loyGroupKey } from './api'
 import RefusalLine from './RefusalLine'
 
@@ -25,6 +26,10 @@ export default function ActiveToggle({ group }: { group: LoyGroupDetail }) {
   const { t, i18n } = useTranslation('loy-groups')
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
+  // An older detail door may omit `liveBonusBuys`: the groups list answers for the same group then.
+  const detailKnows = Array.isArray(group.liveBonusBuys)
+  const list = useQuery({ ...loyGroupsQuery(true), enabled: confirming && !detailKnows })
+  const listEntry = detailKnows ? undefined : list.data?.find((g) => g.groupId === group.groupId)
 
   const setActive = useMutation({
     mutationFn: (isActive: boolean) => groupActiveApi.setActive(setActiveRequest(group.groupId, isActive)),
@@ -55,7 +60,7 @@ export default function ActiveToggle({ group }: { group: LoyGroupDetail }) {
     )
   }
 
-  const confirm = deactivateConfirm(group)
+  const confirm = deactivateConfirm(group, listEntry)
   const close = () => {
     if (setActive.isPending) return
     setConfirming(false)
@@ -89,7 +94,7 @@ export default function ActiveToggle({ group }: { group: LoyGroupDetail }) {
         }
       >
         <div className="flex flex-col gap-3 text-sm" data-loy-group-deactivate-dialog="">
-          <p data-loy-group-deactivate-sentence={confirm.lines.length > 0 ? 'stops' : 'none'}>{t(confirm.sentence)}</p>
+          <p data-loy-group-deactivate-sentence={SENTENCE_MARK[confirm.sentence]}>{t(confirm.sentence)}</p>
           {confirm.lines.length > 0 && (
             <ul className="flex flex-col gap-1.5">
               {confirm.lines.map((b) => (
@@ -108,4 +113,11 @@ export default function ActiveToggle({ group }: { group: LoyGroupDetail }) {
       </Modal>
     </>
   )
+}
+
+/** The drive's handle on which sentence the confirm shows. */
+const SENTENCE_MARK: Record<DeactivateConfirm['sentence'], string> = {
+  'activate.confirm.stops': 'stops',
+  'activate.confirm.stopsNone': 'none',
+  'activate.confirm.stopsUnknown': 'unknown',
 }

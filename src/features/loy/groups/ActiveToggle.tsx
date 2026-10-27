@@ -98,9 +98,9 @@ export default function ActiveToggle({ group }: { group: LoyGroupDetail }) {
           {confirm.lines.length > 0 && (
             <ul className="flex flex-col gap-1.5">
               {confirm.lines.map((b) => (
-                <li key={b.promoNumber} className="flex flex-wrap items-baseline gap-x-2" data-loy-group-deactivate-bby={b.promoNumber}>
+                <li key={b.bbyNumber} className="flex flex-wrap items-baseline gap-x-2" data-loy-group-deactivate-bby={b.bbyNumber}>
                   <span className="font-mono tabular-nums">
-                    <Ltr>{b.promoNumber}</Ltr>
+                    <Ltr>{b.bbyNumber}</Ltr>
                   </span>
                   <bdi>{b.description}</bdi>
                 </li>

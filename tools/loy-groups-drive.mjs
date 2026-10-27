@@ -53,8 +53,8 @@ const VIP = {
   isActive: true,
   mobileCount: 1250,
   liveBonusBuys: [
-    { promoNumber: '100045', description: 'Buy 2 vitamins get 1' },
-    { promoNumber: '100046', description: 'Baby care bundle' },
+    { bbyNumber: '100045', description: 'Buy 2 vitamins get 1' },
+    { bbyNumber: '100046', description: 'Baby care bundle' },
   ],
 }
 /** Arabic name blank → the English name under Arabic. `liveBonusBuys: []` (3179 not shipped). */
@@ -854,7 +854,7 @@ async function drive633(dir) {
 
 const gReview = { on: false, writes: 0, members: [], probes: 0, bulk: [], createGate: null }
 const REVIEW_GROUP = { groupId: 'g-r', code: 'REVIEW_1', nameEn: 'Review group', nameAr: 'مجموعة المراجعة', isActive: true, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null }
-const BBY_LINE = { promoNumber: '100077', description: 'Review offer' }
+const BBY_LINE = { bbyNumber: '100077', description: 'Review offer' }
 /** Active, detail omits the field, the list entry names one live bonus-buy. */
 const BORROWS = { groupId: 'g-r2', code: 'BORROWS', nameEn: 'Borrows', nameAr: 'يستعير', isActive: true, mobileCount: 1, createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null, updatedAt: null }
 /** Active, neither the detail nor the list sends the field. */

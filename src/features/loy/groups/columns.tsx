@@ -57,12 +57,12 @@ function BonusBuysCell(p: ICellRendererParams<LoyGroup>) {
     <span className="inline-flex flex-wrap gap-1" data-group-bby={String(buys.length)}>
       {buys.map((b) => (
         <span
-          key={b.promoNumber}
+          key={b.bbyNumber}
           title={fsi(b.description)}
           className="rounded-sm border border-border/60 px-1.5 font-mono text-[12px] tabular-nums"
-          data-group-bby-promo={b.promoNumber}
+          data-group-bby-promo={b.bbyNumber}
         >
-          <Ltr>{b.promoNumber}</Ltr>
+          <Ltr>{b.bbyNumber}</Ltr>
         </span>
       ))}
     </span>

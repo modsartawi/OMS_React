@@ -15,7 +15,7 @@ export interface LoyGroupAccess {
 
 /** A live bonus-buy that names the group (BackOffice 3179; `[]` until it ships). */
 export interface LoyGroupBonusBuy {
-  promoNumber: string
+  bbyNumber: string
   description: string
 }
 

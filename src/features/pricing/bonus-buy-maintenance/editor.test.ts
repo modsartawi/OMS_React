@@ -717,8 +717,8 @@ describe('loyalty groups picked from the defined groups', () => {
   })
 
   it('the unknown-group refusal and the inactive-group warning are the field findings; others are not', () => {
-    const unknown = { code: 'BBY-LOY-GROUP-UNKNOWN', english: 'Loyalty groups: STAFF_X is not a defined group.', arabic: 'مجموعات الولاء' }
-    const inactive = { code: 'BBY-LOY-GROUP-INACTIVE', english: 'Loyalty groups: OLD_PROMO is inactive.', arabic: 'غير نشطة' }
+    const unknown = { code: 'BBY-LOYGROUP-UNKNOWN', english: 'Loyalty groups: STAFF_X is not a defined group.', arabic: 'مجموعات الولاء' }
+    const inactive = { code: 'BBY-LOYGROUP-INACTIVE', english: 'Loyalty groups: OLD_PROMO is inactive.', arabic: 'غير نشطة' }
     const other = { code: 'BBY-BUY-EMPTY', english: 'Buy is empty.', arabic: 'فارغ' }
     const refused = readEditorOutcome({ status: 'refused', number: null, refusals: [other, unknown], warnings: [inactive] })
     expect(loyGroupFindings(refused)).toEqual({ refusals: [unknown], warnings: [inactive] })
@@ -730,7 +730,7 @@ describe('loyalty groups picked from the defined groups', () => {
 
 // Review fix 7: the field's findings belong to the value that was checked.
 describe('loyalty-group findings clear once the field moves off the checked value', () => {
-  const f = { refusals: [{ code: 'BBY-LOY-GROUP-UNKNOWN', english: 'x', arabic: 'y' }], warnings: [] }
+  const f = { refusals: [{ code: 'BBY-LOYGROUP-UNKNOWN', english: 'x', arabic: 'y' }], warnings: [] }
   it('keeps them while the value is the one checked', () => {
     expect(loyFindingsAfterEdit(f, 'GOLD,STAFF_X', 'GOLD,STAFF_X')).toBe(f)
   })

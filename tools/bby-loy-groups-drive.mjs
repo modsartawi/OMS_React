@@ -11,7 +11,7 @@
 //   4. without the grant the field is read-only text of the current codes, and no groups list is asked;
 //   5. under RTL the picker still draws; no raw keys, no page errors.
 //
-// 🚩 The two finding codes are GUESSED (`BBY-LOY-GROUP-UNKNOWN` / `-INACTIVE`): 3179 names none.
+// The two finding codes are as 3179 shipped them (brief Changes 2026-10-28): `BBY-LOYGROUP-UNKNOWN` / `-INACTIVE`.
 //
 //   1. run the app:  npx vite --port 5206 --strictPort
 //   2. DRIVE_PORT=5206 node tools/bby-loy-groups-drive.mjs
@@ -64,8 +64,8 @@ const GROUPS = [
   { groupId: 'g2', code: 'SILVER', nameEn: 'Silver members', nameAr: 'الفضي', isActive: true, mobileCount: 80, liveBonusBuys: [] },
   { groupId: 'g3', code: 'RAMADAN_24', nameEn: 'Ramadan 2024', nameAr: 'رمضان ٢٠٢٤', isActive: false, mobileCount: 40, liveBonusBuys: [] },
 ]
-const UNKNOWN = refusal('BBY-LOY-GROUP-UNKNOWN', 'Loyalty groups: STAFF_X is not a defined loyalty group.', 'مجموعات الولاء: STAFF_X ليست مجموعة ولاء معرّفة.')
-const INACTIVE = refusal('BBY-LOY-GROUP-INACTIVE', 'Loyalty groups: RAMADAN_24 is inactive.', 'مجموعات الولاء: RAMADAN_24 غير نشطة.')
+const UNKNOWN = refusal('BBY-LOYGROUP-UNKNOWN', 'Loyalty groups: STAFF_X is not a defined loyalty group.', 'مجموعات الولاء: STAFF_X ليست مجموعة ولاء معرّفة.')
+const INACTIVE = refusal('BBY-LOYGROUP-INACTIVE', 'Loyalty groups: RAMADAN_24 is inactive.', 'مجموعات الولاء: RAMADAN_24 غير نشطة.')
 const OTHER = refusal('BBY-QUANTITY', 'Buy line 1: the quantity must be more than 0.', 'سطر الشراء ١: يجب أن تكون الكمية أكبر من ٠.')
 
 async function open(dir, { canView, probe404 = false }) {
@@ -153,12 +153,12 @@ async function granted(dir) {
   const refused = (await findings.locator('[data-finding="refused"]').innerText().catch(() => '')).replace(/\s+/g, ' ')
   const warned = (await findings.locator('[data-finding="warned"]').innerText().catch(() => '')).replace(/\s+/g, ' ')
   check(`${dir} 3. the unknown-group refusal is listed on the field, EN + AR`,
-    refused.includes('BBY-LOY-GROUP-UNKNOWN') && refused.includes('STAFF_X is not a defined') && refused.includes('ليست مجموعة'), refused)
-  check(`${dir} 3. the inactive-group warning is listed on the field`, warned.includes('BBY-LOY-GROUP-INACTIVE') && warned.includes('RAMADAN_24'), warned)
+    refused.includes('BBY-LOYGROUP-UNKNOWN') && refused.includes('STAFF_X is not a defined') && refused.includes('ليست مجموعة'), refused)
+  check(`${dir} 3. the inactive-group warning is listed on the field`, warned.includes('BBY-LOYGROUP-INACTIVE') && warned.includes('RAMADAN_24'), warned)
   check(`${dir} 3. another field's refusal is not listed on it`, !refused.includes('BBY-QUANTITY') && !warned.includes('BBY-QUANTITY'))
   check(`${dir} 3. the trigger is announced invalid`, (await picker.locator('[data-multi-select-trigger]').getAttribute('aria-invalid')) === 'true')
   const report = await page.locator('[role="status"]').first().innerText().catch(() => '')
-  check(`${dir} 3. the act report still lists all three`, ['BBY-QUANTITY', 'BBY-LOY-GROUP-UNKNOWN', 'BBY-LOY-GROUP-INACTIVE'].every((c) => report.includes(c)))
+  check(`${dir} 3. the act report still lists all three`, ['BBY-QUANTITY', 'BBY-LOYGROUP-UNKNOWN', 'BBY-LOYGROUP-INACTIVE'].every((c) => report.includes(c)))
   await page.screenshot({ path: `${SHOTS}/${dir}-findings.png`, fullPage: true }).catch(() => {})
 
   // ── 3b. review fix 7: once the field moves off the checked value, its findings and invalid state clear ──

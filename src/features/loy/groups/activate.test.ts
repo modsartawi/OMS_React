@@ -10,15 +10,15 @@ describe('deactivate confirm names the live bonus-buys', () => {
   it('n bonus-buys give n named lines, promo number and description, in the order sent', () => {
     const confirm = deactivateConfirm({
       liveBonusBuys: [
-        { promoNumber: '100045', description: 'Buy 2 vitamins get 1' },
-        { promoNumber: '100046', description: 'Baby care bundle' },
+        { bbyNumber: '100045', description: 'Buy 2 vitamins get 1' },
+        { bbyNumber: '100046', description: 'Baby care bundle' },
       ],
     })
     expect(confirm).toStrictEqual({
       sentence: 'activate.confirm.stops',
       lines: [
-        { promoNumber: '100045', description: 'Buy 2 vitamins get 1' },
-        { promoNumber: '100046', description: 'Baby care bundle' },
+        { bbyNumber: '100045', description: 'Buy 2 vitamins get 1' },
+        { bbyNumber: '100046', description: 'Baby care bundle' },
       ],
     })
   })
@@ -43,7 +43,7 @@ describe('set-active request', () => {
 // Review fix 4: the detail door may omit liveBonusBuys; the list entry answers, else the confirm says it does not know.
 describe('deactivate confirm never claims "stops no live offer" without knowing', () => {
   it('falls back to the groups-list entry when the detail omits the field', () => {
-    const line = { promoNumber: '100045', description: 'Buy 2 vitamins get 1' }
+    const line = { bbyNumber: '100045', description: 'Buy 2 vitamins get 1' }
     expect(deactivateConfirm({}, { liveBonusBuys: [line] })).toStrictEqual({ sentence: 'activate.confirm.stops', lines: [line] })
     expect(deactivateConfirm({}, { liveBonusBuys: [] })).toStrictEqual({ sentence: 'activate.confirm.stopsNone', lines: [] })
   })
@@ -52,6 +52,6 @@ describe('deactivate confirm never claims "stops no live offer" without knowing'
     expect(deactivateConfirm({}, {})).toStrictEqual({ sentence: 'activate.confirm.stopsUnknown', lines: [] })
   })
   it("the detail's own [] wins over the list", () => {
-    expect(deactivateConfirm({ liveBonusBuys: [] }, { liveBonusBuys: [{ promoNumber: '1', description: 'x' }] }).sentence).toBe('activate.confirm.stopsNone')
+    expect(deactivateConfirm({ liveBonusBuys: [] }, { liveBonusBuys: [{ bbyNumber: '1', description: 'x' }] }).sentence).toBe('activate.confirm.stopsNone')
   })
 })

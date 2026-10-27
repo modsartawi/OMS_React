@@ -9,6 +9,7 @@ import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import IconButton from '@/core/ui/IconButton'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
@@ -47,7 +48,7 @@ export default function InsurersPage() {
               type="button"
               aria-current={ins.payer === payer || undefined}
               onClick={() => setParams({ payer: ins.payer }, { replace: true })}
-              className={`flex flex-col items-start rounded-md border px-3 py-2 text-start text-sm ${ins.payer === payer ? 'border-primary bg-primary-050' : 'border-border/60 bg-card hover:bg-accent'}`}
+              className={`flex flex-col items-start rounded-md border px-3 py-2 text-start text-sm ${ins.payer === payer ? 'border-primary bg-primary-050' : 'border-border bg-card hover:bg-accent'}`}
               data-insurer={ins.payer}
             >
               <bdi className="font-medium">{saysIn(ins.name, i18n.language)}</bdi>
@@ -368,8 +369,8 @@ function Row({ label, unit, children }: { label: string; unit?: string; children
 
 function RemoveRow({ label, hook, onClick }: { label: string; hook: string; onClick: () => void }) {
   return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent" data-remove-row={hook}>
+    <IconButton label={label} variant="danger" size="compact" onClick={onClick} data-remove-row={hook}>
       <X className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    </IconButton>
   )
 }

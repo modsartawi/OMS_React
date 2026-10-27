@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
+import Chip from '@/core/ui/Chip'
 import ItemLists from './ItemLists'
 import KeyedLists from './KeyedLists'
 
@@ -30,20 +31,11 @@ export default function ListsPage() {
         <h1 className="text-lg font-semibold tracking-tight">{t('page.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('page.lede')}</p>
       </header>
-      <div role="tablist" aria-label={t('page.tabs')} className="flex gap-1 border-b border-border/60">
+      <div role="tablist" aria-label={t('page.tabs')} className="flex gap-1">
         {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={open === tab}
-            aria-controls={PANEL_ID}
-            onClick={() => select(tab)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${open === tab ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            data-lists-tab={tab}
-          >
+          <Chip key={tab} variant="tab" on={open === tab} aria-controls={PANEL_ID} onClick={() => select(tab)} data-lists-tab={tab}>
             {t(`tab.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       <div id={PANEL_ID} role="tabpanel">

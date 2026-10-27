@@ -7,9 +7,10 @@ import { GUARD_DRAFT_KEY } from '@/core/insurance-rules/api'
 import { childPath, folderNameProblem, renamedPath, type FolderNode } from '@/core/insurance-rules/folders'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import { fsi } from '@/core/util/bidi'
 import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi } from './api'
-import { CONTROL } from '@/core/insurance-rules/controls'
 
 type Mode = { kind: 'new'; parent: string } | { kind: 'rename'; path: string } | null
 
@@ -90,22 +91,18 @@ export default function FolderActions({ tree, picked, onPick }: { tree: readonly
       }}
       data-folder-form={mode.kind}
     >
-      <label className="flex flex-col gap-1 text-muted-foreground">
-        {mode.kind === 'new' ? (parent ? t('folders.newUnder', { folder: fsi(parent) }) : t('folders.newTop')) : t('folders.renameLabel')}
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-invalid={(problem !== null && name !== '') || undefined}
-          className={CONTROL}
-          data-input="folder-name"
-        />
-      </label>
-      {problem && name !== '' && (
-        <p className="text-danger-800" role="alert" data-folder-problem={problem}>
-          {t(`folders.problem.${problem}`)}
-        </p>
-      )}
+      <Field
+        label={mode.kind === 'new' ? (parent ? t('folders.newUnder', { folder: fsi(parent) }) : t('folders.newTop')) : t('folders.renameLabel')}
+        error={
+          problem && name !== '' ? (
+            <span role="alert" data-folder-problem={problem}>
+              {t(`folders.problem.${problem}`)}
+            </span>
+          ) : undefined
+        }
+      >
+        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} data-input="folder-name" />
+      </Field>
       <div className="flex gap-1">
         <Button type="submit" variant="primary" disabled={problem !== null || busy} data-folder-save="">
           {t(mode.kind === 'new' ? 'folders.create' : 'folders.save')}

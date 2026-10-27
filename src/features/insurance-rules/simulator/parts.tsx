@@ -4,7 +4,6 @@ import type { GuardLineOutcome } from '@/core/insurance-rules/guard-check'
 import { SEVERITY_BADGE, type Severity } from '@/core/ui/severity'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { TraceValue } from './simulate'
-import { INPUT as BOX } from '@/core/insurance-rules/parts'
 
 // Small pieces the Simulate and Back-test tabs share (ticket 612).
 
@@ -55,5 +54,3 @@ export function TraceValueBadge({ value }: { value: TraceValue | null }) {
     </span>
   )
 }
-
-export const INPUT = `${BOX} w-full aria-[invalid=true]:border-danger`

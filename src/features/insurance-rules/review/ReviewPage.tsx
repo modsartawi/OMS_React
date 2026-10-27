@@ -9,10 +9,15 @@ import { saysIn } from '@/core/rules/sentence'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
+import Textarea from '@/core/ui/Textarea'
 import type { Severity } from '@/core/ui/severity'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatPair, fsi } from '@/core/util/bidi'
@@ -21,7 +26,7 @@ import { REVIEW_KEY, reviewApi } from './api'
 import { REVIEW_KINDS, type ReviewMark, type ReviewRow } from './model'
 import { EMPTY_REVIEW_QUERY, reviewFromParams, reviewToParams, type ReviewQuery } from './review-query'
 import { Code, ReasonText } from './shared'
-import { DeniedCard, INPUT, TD, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Review — `/insurance-rules/review` (BackOffice 3141, oms ticket 614). Overrides, HQ
@@ -75,51 +80,40 @@ function Review() {
       >
         <div className="flex flex-col gap-1">
           <span className="text-xs text-muted-foreground">{t('filter.kind')}</span>
-          <div className="inline-flex rounded-md border border-border/60 p-0.5" role="group" aria-label={t('filter.kind')}>
+          <div className="inline-flex gap-1" role="group" aria-label={t('filter.kind')}>
             {(['', ...REVIEW_KINDS] as const).map((k) => (
-              <button
-                key={k || 'all'}
-                type="button"
-                data-kind-filter={k}
-                aria-pressed={query.kind === k}
-                onClick={() => apply({ ...draft, kind: k })}
-                className={`rounded px-2.5 py-1 text-xs ${query.kind === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
-              >
+              <Chip key={k || 'all'} data-kind-filter={k} on={query.kind === k} onClick={() => apply({ ...draft, kind: k })}>
                 {k ? t(`kind.${k}`) : t('filter.allKinds')}
-              </button>
+              </Chip>
             ))}
           </div>
         </div>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('filter.pharmacist')}</span>
-          <input className={INPUT} dir="ltr" value={draft.pharmacist} onChange={(e) => setDraft({ ...draft, pharmacist: e.target.value })} data-filter="pharmacist" />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('filter.store')}</span>
-          <input className={INPUT} dir="ltr" value={draft.store} onChange={(e) => setDraft({ ...draft, store: e.target.value })} data-filter="store" />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('filter.rule')}</span>
-          <select className={INPUT} value={draft.rule} onChange={(e) => apply({ ...draft, rule: e.target.value })} data-filter="rule">
+        <Field label={t('filter.pharmacist')}>
+          <Input dir="ltr" value={draft.pharmacist} onChange={(e) => setDraft({ ...draft, pharmacist: e.target.value })} data-filter="pharmacist" />
+        </Field>
+        <Field label={t('filter.store')}>
+          <Input dir="ltr" value={draft.store} onChange={(e) => setDraft({ ...draft, store: e.target.value })} data-filter="store" />
+        </Field>
+        <Field label={t('filter.rule')}>
+          <Select value={draft.rule} onChange={(e) => apply({ ...draft, rule: e.target.value })} data-filter="rule">
             <option value="">{t('filter.allRules')}</option>
             {(draftDoc.data?.rules ?? []).map((r) => (
               <option key={r.id} value={r.id}>
                 {fsi(formatPair(r.id, saysIn(r.name, i18n.language)))}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('filter.reason')}</span>
-          <select className={INPUT} value={draft.reason} onChange={(e) => apply({ ...draft, reason: e.target.value })} data-filter="reason">
+          </Select>
+        </Field>
+        <Field label={t('filter.reason')}>
+          <Select value={draft.reason} onChange={(e) => apply({ ...draft, reason: e.target.value })} data-filter="reason">
             <option value="">{t('filter.allReasons')}</option>
             {reasonList.map((r) => (
               <option key={r.code} value={r.code}>
                 {fsi(formatPair(r.code, saysIn(r, i18n.language)))}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button type="submit" variant="primary" data-review-search="">
           {t('filter.search')}
         </Button>
@@ -281,15 +275,18 @@ function MarkDialog({ row, mark, onClose }: { row: ReviewRow; mark: ReviewMark; 
         <p className="text-xs text-muted-foreground">
           {t(`kind.${row.kind}`)} <Ltr>{formatPair(row.ruleId ?? '', formatDateTime(row.at))}</Ltr>
         </p>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">{t('mark.note')}</span>
-          <textarea className={`${INPUT} h-20 py-1`} value={note} onChange={(e) => setNote(e.target.value)} data-mark-note-input="" dir="auto" />
-        </label>
-        {tried && needsNote && (
-          <p className="text-xs text-danger-800" role="alert" data-mark-problem="">
-            {t('mark.noteRequired')}
-          </p>
-        )}
+        <Field
+          label={t('mark.note')}
+          error={
+            tried && needsNote ? (
+              <span role="alert" data-mark-problem="">
+                {t('mark.noteRequired')}
+              </span>
+            ) : undefined
+          }
+        >
+          <Textarea className="h-20" value={note} onChange={(e) => setNote(e.target.value)} data-mark-note-input="" dir="auto" />
+        </Field>
       </div>
     </Modal>
   )

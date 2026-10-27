@@ -2,14 +2,12 @@ import { useEffect, useState, type InputHTMLAttributes, type ReactNode, type Sel
 import { useTranslation } from 'react-i18next'
 import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { saysIn } from '@/core/rules/sentence'
+import Input from '@/core/ui/Input'
+import UiSelect from '@/core/ui/Select'
 import { isError, type GuardIssue } from './checks'
 
 // The rule editors' small controls (the guard editor, 608, and the coverage rulesets, 617): one look for every
 // field, a labelled field with its unit, and the issues HQ's Validate pinned on a block or a field.
-
-export const CONTROL =
-  'h-7 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none ' +
-  'aria-[invalid=true]:border-danger-border aria-[invalid=true]:bg-danger-050'
 
 /** A labelled control, its unit after it. */
 export function Field({ label, unit, children, hook }: { label: string; unit?: ReactNode; children: ReactNode; hook?: string }) {
@@ -23,7 +21,7 @@ export function Field({ label, unit, children, hook }: { label: string; unit?: R
 }
 
 export function Select({ invalid, className = '', ...rest }: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
-  return <select {...rest} aria-invalid={invalid || undefined} className={`${CONTROL} ${className}`} />
+  return <UiSelect {...rest} aria-invalid={invalid || undefined} className={className} />
 }
 
 type NumberValue =
@@ -41,14 +39,14 @@ export function NumberInput({
 }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & NumberValue & { invalid?: boolean }) {
   const emit = onValue as (n: number | null) => void
   return (
-    <input
+    <Input
       {...rest}
       type="number"
       dir="ltr"
       value={value === null || !Number.isFinite(value) ? '' : value}
       onChange={(e) => emit(e.target.value === '' ? (nullable ? null : 0) : Number(e.target.value))}
       aria-invalid={invalid || undefined}
-      className={`${CONTROL} text-end ${className}`}
+      className={`text-end ${className}`}
     />
   )
 }
@@ -62,13 +60,13 @@ export function CodeInput({
   ...rest
 }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { value: string; onValue: (s: string) => void; invalid?: boolean }) {
   return (
-    <input
+    <Input
       {...rest}
       dir="ltr"
       value={value}
       onChange={(e) => onValue(e.target.value)}
       aria-invalid={invalid || undefined}
-      className={`${CONTROL} font-mono ${className}`}
+      className={`font-mono ${className}`}
     />
   )
 }

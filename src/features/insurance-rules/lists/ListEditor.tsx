@@ -11,13 +11,17 @@ import { fieldValuesQuery } from '@/core/insurance-rules/registry-api'
 import { notify } from '@/core/services/notify'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi, formatPair } from '@/core/util/bidi'
 import { useDebounced } from '@/core/util/use-debounced'
 import { listsApi, type ListPreview } from './api'
 import { attributeCodes, attributeMode, listProblems, withList, type ListProblem } from './list-graph'
-import { CARD, CHIP, FIELD, INPUT } from './ui'
+import { CARD, CHIP } from './ui'
 
 interface Props {
   initial: GuardList
@@ -86,20 +90,16 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
 
       <div className={`${CARD} grid gap-3 md:grid-cols-3`}>
         {isNew && (
-          <label className={FIELD}>
-            {t('editor.id')}
-            <input className={INPUT} dir="ltr" value={list.id} onChange={(e) => setList({ ...list, id: e.target.value.trim() })} data-list-id-input="" />
-            <span className="font-normal">{t('editor.idHint')}</span>
-          </label>
+          <Field label={t('editor.id')} hint={t('editor.idHint')}>
+            <Input dir="ltr" value={list.id} onChange={(e) => setList({ ...list, id: e.target.value.trim() })} data-list-id-input="" />
+          </Field>
         )}
-        <label className={FIELD}>
-          {t('editor.nameEn')}
-          <input className={INPUT} lang="en" dir="ltr" value={list.name.en} onChange={(e) => setList({ ...list, name: { ...list.name, en: e.target.value } })} data-list-name-en="" />
-        </label>
-        <label className={FIELD}>
-          {t('editor.nameAr')}
-          <input className={INPUT} lang="ar" dir="rtl" value={list.name.ar} onChange={(e) => setList({ ...list, name: { ...list.name, ar: e.target.value } })} data-list-name-ar="" />
-        </label>
+        <Field label={t('editor.nameEn')}>
+          <Input lang="en" dir="ltr" value={list.name.en} onChange={(e) => setList({ ...list, name: { ...list.name, en: e.target.value } })} data-list-name-en="" />
+        </Field>
+        <Field label={t('editor.nameAr')}>
+          <Input lang="ar" dir="rtl" value={list.name.ar} onChange={(e) => setList({ ...list, name: { ...list.name, ar: e.target.value } })} data-list-name-ar="" />
+        </Field>
       </div>
 
       <section className="flex flex-col gap-2" data-editor-filters="">
@@ -125,9 +125,9 @@ export default function ListEditor({ initial, isNew, draft, fields, onDone }: Pr
                     {f[k].map((v) => (
                       <span key={v} className={CHIP}>
                         <Ltr>{v}</Ltr>
-                        <button type="button" aria-label={t('editor.removeCode', { code: fsi(v) })} onClick={() => setFilter(fi, { ...f, [k]: f[k].filter((x) => x !== v) })}>
+                        <IconButton variant="danger" size="compact" label={t('editor.removeCode', { code: fsi(v) })} onClick={() => setFilter(fi, { ...f, [k]: f[k].filter((x) => x !== v) })}>
                           <X className="h-3 w-3" aria-hidden />
-                        </button>
+                        </IconButton>
                       </span>
                     ))}
                   </div>
@@ -249,23 +249,21 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2" data-attribute-row={attr.field}>
       <div className="flex flex-wrap items-end gap-2">
-        <label className={FIELD}>
-          {t('editor.field')}
-          <select className={INPUT} value={attr.field} onChange={(e) => onChange(make(e.target.value, mode, []))} data-attribute-field="">
+        <Field label={t('editor.field')}>
+          <Select value={attr.field} onChange={(e) => onChange(make(e.target.value, mode, []))} data-attribute-field="">
             {fields.map((f) => (
               <option key={f.key} value={f.key}>
                 {fsi(f.label.en)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('editor.mode')}
-          <select className={INPUT} value={mode} onChange={(e) => onChange(make(attr.field, e.target.value as 'anyOf' | 'noneOf', codes))} data-attribute-mode="">
+          </Select>
+        </Field>
+        <Field label={t('editor.mode')}>
+          <Select value={mode} onChange={(e) => onChange(make(attr.field, e.target.value as 'anyOf' | 'noneOf', codes))} data-attribute-mode="">
             <option value="anyOf">{t('mode.anyOf')}</option>
             <option value="noneOf">{t('mode.noneOf')}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button variant="text" onClick={onRemove} data-attribute-remove="">
           {t('editor.removeField')}
         </Button>
@@ -275,15 +273,15 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
         {codes.map((c) => (
           <span key={c} className={CHIP} data-code-chip={c}>
             <Ltr>{formatPair(c, describe(c))}</Ltr>
-            <button type="button" aria-label={t('editor.removeCode', { code: fsi(c) })} onClick={() => onChange(make(attr.field, mode, codes.filter((x) => x !== c)))}>
+            <IconButton variant="danger" size="compact" label={t('editor.removeCode', { code: fsi(c) })} onClick={() => onChange(make(attr.field, mode, codes.filter((x) => x !== c)))}>
               <X className="h-3 w-3" aria-hidden />
-            </button>
+            </IconButton>
           </span>
         ))}
       </div>
       <div className="flex flex-col gap-1">
-        <input
-          className={`${INPUT} max-w-sm`}
+        <Input
+          className="max-w-sm"
           placeholder={t('editor.searchValues')}
           aria-label={t('editor.searchValues')}
           value={q}
@@ -292,15 +290,14 @@ function AttributeRow({ attr, fields, onChange, onRemove }: { attr: GuardListAtt
         />
         <div className="flex flex-wrap gap-1" data-value-options="">
           {options.map((v) => (
-            <button
+            <Button
               key={v.code}
-              type="button"
-              className="rounded-md border border-border/60 px-2 py-0.5 text-xs hover:bg-accent"
+              variant="outlined"
               onClick={() => onChange(make(attr.field, mode, [...codes, v.code]))}
               data-value-option={v.code}
             >
               <Ltr>{formatPair(v.code, v.description)}</Ltr>
-            </button>
+            </Button>
           ))}
           {settled && found.data && options.length === 0 && <span className="text-xs text-muted-foreground">{t('editor.noValue')}</span>}
         </div>

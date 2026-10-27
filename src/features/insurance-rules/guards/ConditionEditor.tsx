@@ -23,6 +23,8 @@ import type { RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
 import { CodeInput, CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 
@@ -120,8 +122,8 @@ function NotToggle({ ctx, c, path }: { ctx: Ctx; c: GuardCondition; path: Condit
       title={t('editor.group.notHint')}
       data-not-toggle={pathKey(path)}
       onClick={() => ctx.edit((r) => ({ ...r, when: toggleNot(r.when, path) }))}
-      className={`h-6 rounded-md border px-2 font-mono text-[11px] font-semibold ${
-        c.not ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 text-muted-foreground hover:bg-accent'
+      className={`h-7 rounded-full border px-3 font-mono text-[11px] font-semibold ${
+        c.not ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border bg-card text-muted-foreground hover:bg-accent'
       }`}
     >
       {t('editor.group.not')}
@@ -131,16 +133,15 @@ function NotToggle({ ctx, c, path }: { ctx: Ctx; c: GuardCondition; path: Condit
 
 function RemoveButton({ ctx, path, label }: { ctx: Ctx; path: ConditionPath; label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
+    <IconButton
+      variant="danger"
+      size="compact"
+      label={label}
       data-remove={pathKey(path)}
       onClick={() => ctx.edit((r) => ({ ...r, when: removeCondition(r.when, path) }))}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
     >
       <X className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    </IconButton>
   )
 }
 
@@ -157,18 +158,16 @@ function GroupBox({ ctx, c, path }: { ctx: Ctx; c: Extract<GuardCondition, { che
     >
       <div className="flex flex-wrap items-center gap-2">
         <NotToggle ctx={ctx} c={c} path={path} />
-        <div className="inline-flex rounded-md border border-border/60" role="group" aria-label={t('editor.group.mode')}>
+        <div className="inline-flex gap-1" role="group" aria-label={t('editor.group.mode')}>
           {(['all', 'any'] as const).map((m) => (
-            <button
+            <Chip
               key={m}
-              type="button"
-              aria-pressed={c.mode === m}
+              on={c.mode === m}
               data-mode-pick={m}
               onClick={() => ctx.edit((r) => ({ ...r, when: updateCondition(r.when, path, (g) => (g.check === 'group' && g.mode !== m ? { ...g, mode: m } : g)) }))}
-              className={`h-6 px-2 text-xs ${c.mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
             >
               {t(`editor.group.${m}`)}
-            </button>
+            </Chip>
           ))}
         </div>
         <span className="text-xs text-muted-foreground">{t(`editor.group.${c.mode}Hint`)}</span>
@@ -367,9 +366,9 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
                       </option>
                     ))}
                   </Select>
-                  <button type="button" className="text-muted-foreground hover:text-danger-800" aria-label={t('editor.daysFor.remove')} data-days-for-remove={i} onClick={() => set((x: SupplyCondition) => removeDaysFor(x, i))}>
+                  <IconButton variant="danger" size="compact" label={t('editor.daysFor.remove')} data-days-for-remove={i} onClick={() => set((x: SupplyCondition) => removeDaysFor(x, i))}>
                     <X className="h-3.5 w-3.5" aria-hidden />
-                  </button>
+                  </IconButton>
                 </span>
               ))}
               {ctx.lists.length > 0 && (

@@ -4,6 +4,8 @@ import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Select from '@/core/ui/Select'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure, formatMoney } from '@/core/util/number-format'
@@ -11,7 +13,7 @@ import { rejectionsQuery } from './api'
 import { rankRejections, type RejectionRow } from './model'
 import { NUM, TD } from './parts'
 import type { MetricsQuery } from './query'
-import { DeniedCard, INPUT, Loading, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, Loading, TH } from '@/core/insurance-rules/parts'
 
 
 /**
@@ -32,17 +34,16 @@ export default function RejectionsTab({ query, onPayer }: { query: MetricsQuery;
     <div className="flex flex-col gap-3" data-rejections-tab="">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <p className="max-w-2xl text-sm text-muted-foreground">{t('rejections.lede')}</p>
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {t('rejections.payer')}
-          <select value={query.payer} onChange={(e) => onPayer(e.target.value)} className={INPUT} data-payer="">
+        <Field label={t('rejections.payer')}>
+          <Select value={query.payer} onChange={(e) => onPayer(e.target.value)} data-payer="">
             <option value="">{t('rejections.allPayers')}</option>
             {payers.map((p) => (
               <option key={p} value={p}>
                 {fsi(p)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       </div>
       {read.isError ? (
         <ErrorBanner className="p-3" message={apiErrorMessage(read.error, t('rejections.failed'))} />

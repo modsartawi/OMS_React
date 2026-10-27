@@ -11,6 +11,9 @@ import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -18,7 +21,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localToday } from '@/core/util/date-window'
 import { entriesQuery, keyedListKey, listsApi, logQuery } from './api'
 import { entryBody, entryProblems, type EntryForm } from './entry-form'
-import { CARD, FIELD, INPUT } from './ui'
+import { CARD } from './ui'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 const BLANK: EntryForm = { key: '', reason: '', expiresOn: '' }
@@ -129,19 +132,16 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
         }}
         data-entry-form=""
       >
-        <label className={FIELD}>
-          {t(`keyed.${kind}.key`)}
-          <input className={INPUT} dir="ltr" inputMode={kind === 'patient' ? 'numeric' : 'text'} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} data-entry-key="" />
-        </label>
-        <label className={FIELD}>
-          {t('keyed.reason')}
-          <input className={INPUT} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} data-entry-reason="" />
-        </label>
-        <label className={FIELD}>
-          {t('keyed.expiresOn')}
-          <input type="date" className={INPUT} value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} data-entry-expires="" />
-        </label>
-        <Button type="submit" variant="primary" className="h-9" aria-disabled={add.isPending} data-entry-add="">
+        <Field label={t(`keyed.${kind}.key`)}>
+          <Input dir="ltr" inputMode={kind === 'patient' ? 'numeric' : 'text'} value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} data-entry-key="" />
+        </Field>
+        <Field label={t('keyed.reason')}>
+          <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} data-entry-reason="" />
+        </Field>
+        <Field label={t('keyed.expiresOn')}>
+          <Input type="date" value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} data-entry-expires="" />
+        </Field>
+        <Button type="submit" variant="primary" aria-disabled={add.isPending} data-entry-add="">
           {add.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
           {t('keyed.add')}
         </Button>
@@ -193,9 +193,9 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
                     {e.expiresOn ? <Ltr>{formatDay(e.expiresOn)}</Ltr> : <span className="text-muted-foreground">{t('keyed.noExpiry')}</span>}
                   </td>
                   <td className="py-1.5 text-end">
-                    <Button variant="text" aria-label={t('keyed.removeLabel', { key: fsi(e.key) })} onClick={() => askRemove(e.key)} data-entry-remove={e.key}>
+                    <IconButton variant="danger" label={t('keyed.removeLabel', { key: fsi(e.key) })} onClick={() => askRemove(e.key)} data-entry-remove={e.key}>
                       <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
+                    </IconButton>
                   </td>
                 </tr>
               ))}

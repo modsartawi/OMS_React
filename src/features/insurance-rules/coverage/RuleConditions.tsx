@@ -7,6 +7,8 @@ import type { RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
+import Chip from '@/core/ui/Chip'
+import IconButton from '@/core/ui/IconButton'
 import { fsi } from '@/core/util/bidi'
 import { CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
 
@@ -35,7 +37,7 @@ export default function RuleConditions({ when, edit }: { when: GuardCondition[];
     <div className="flex flex-col gap-2" data-conditions-editor="">
       <p className="text-xs text-muted-foreground">{t('conditions.top')}</p>
       {when.length === 0 && (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground" data-conditions-empty="">
+        <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-conditions-empty="">
           {t('conditions.empty')}
         </p>
       )}
@@ -96,8 +98,8 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
         title={t('conditions.notHint')}
         data-not-toggle={pathKey(path)}
         onClick={() => edit((w) => toggleNot(w, path))}
-        className={`h-6 rounded-md border px-2 font-mono text-[11px] font-semibold ${
-          c.not ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border/60 text-muted-foreground hover:bg-accent'
+        className={`h-7 rounded-full border px-3 font-mono text-[11px] font-semibold ${
+          c.not ? 'border-danger-border bg-danger-050 text-danger-800' : 'border-border bg-card text-muted-foreground hover:bg-accent'
         }`}
       >
         {t('conditions.not')}
@@ -105,34 +107,25 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
     </>
   )
   const remove = (
-    <button
-      type="button"
-      aria-label={t('conditions.remove')}
-      title={t('conditions.remove')}
-      data-remove={pathKey(path)}
-      onClick={() => edit((w) => removeCondition(w, path))}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-    >
+    <IconButton label={t('conditions.remove')} variant="danger" size="compact" data-remove={pathKey(path)} onClick={() => edit((w) => removeCondition(w, path))}>
       <X className="h-3.5 w-3.5" aria-hidden />
-    </button>
+    </IconButton>
   )
   if (c.check === 'group')
     return (
       <div className="flex flex-col gap-2 rounded-e-md border-s-[3px] border-primary bg-muted/40 p-2" data-group={pathKey(path)} data-mode={c.mode} data-not={c.not ? 'true' : 'false'}>
         <div className="flex flex-wrap items-center gap-2">
           {head}
-          <div className="inline-flex rounded-md border border-border/60" role="group" aria-label={t('conditions.mode')}>
+          <div className="inline-flex gap-1" role="group" aria-label={t('conditions.mode')}>
             {(['all', 'any'] as const).map((m) => (
-              <button
+              <Chip
                 key={m}
-                type="button"
-                aria-pressed={c.mode === m}
+                on={c.mode === m}
                 data-mode-pick={m}
                 onClick={() => edit((w) => updateCondition(w, path, (g) => (g.check === 'group' && g.mode !== m ? { ...g, mode: m } : g)))}
-                className={`h-6 px-2 text-xs ${c.mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
               >
                 {t(`conditions.${m}`)}
-              </button>
+              </Chip>
             ))}
           </div>
           <span className="ms-auto">{remove}</span>
@@ -143,7 +136,7 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
       </div>
     )
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-card p-2" data-block={pathKey(path)} data-check={c.check} data-not={c.not ? 'true' : 'false'}>
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2" data-block={pathKey(path)} data-check={c.check} data-not={c.not ? 'true' : 'false'}>
       {head}
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <Leaf c={c} path={path} edit={edit} />

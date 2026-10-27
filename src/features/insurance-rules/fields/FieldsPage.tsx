@@ -19,7 +19,10 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
 import { fieldBody, fieldProblems, suggestKey, type FieldForm } from './field-form'
-import { DeniedCard, FORM_FIELD as FIELD, FORM_INPUT as INPUT } from '@/core/insurance-rules/parts'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
+import Select from '@/core/ui/Select'
+import { DeniedCard } from '@/core/insurance-rules/parts'
 
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'code', unit: '' }
 
@@ -200,21 +203,19 @@ function AddField({ existing }: { existing: RegistryField[] }) {
         <p className="text-xs text-muted-foreground">{t('add.hint')}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
-        <label className={FIELD}>
-          {t('add.source')}
-          <input
-            className={INPUT}
+        <Field label={t('add.source')}>
+          <Input
+           
             dir="ltr"
             placeholder={t('add.sourcePlaceholder')}
             value={form.source}
             onChange={(e) => set({ source: e.target.value, ...(keyEdited ? {} : { key: suggestKey(e.target.value) }) })}
             data-add-source=""
           />
-        </label>
-        <label className={FIELD}>
-          {t('add.key')}
-          <input
-            className={INPUT}
+        </Field>
+        <Field label={t('add.key')}>
+          <Input
+           
             dir="ltr"
             value={form.key}
             onChange={(e) => {
@@ -223,40 +224,35 @@ function AddField({ existing }: { existing: RegistryField[] }) {
             }}
             data-add-key=""
           />
-        </label>
-        <label className={FIELD}>
-          {t('add.scope')}
-          <select className={INPUT} value={form.scope} onChange={(e) => set({ scope: e.target.value as FieldScope })} data-add-scope="">
+        </Field>
+        <Field label={t('add.scope')}>
+          <Select value={form.scope} onChange={(e) => set({ scope: e.target.value as FieldScope })} data-add-scope="">
             {FIELD_SCOPES.map((s) => (
               <option key={s} value={s}>
                 {t(`scope.${s}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={FIELD}>
-          {t('add.labelEn')}
-          <input className={INPUT} lang="en" dir="ltr" value={form.labelEn} onChange={(e) => set({ labelEn: e.target.value })} data-add-label-en="" />
-        </label>
-        <label className={FIELD}>
-          {t('add.labelAr')}
-          <input className={INPUT} lang="ar" dir="rtl" value={form.labelAr} onChange={(e) => set({ labelAr: e.target.value })} data-add-label-ar="" />
-        </label>
+          </Select>
+        </Field>
+        <Field label={t('add.labelEn')}>
+          <Input lang="en" dir="ltr" value={form.labelEn} onChange={(e) => set({ labelEn: e.target.value })} data-add-label-en="" />
+        </Field>
+        <Field label={t('add.labelAr')}>
+          <Input lang="ar" dir="rtl" value={form.labelAr} onChange={(e) => set({ labelAr: e.target.value })} data-add-label-ar="" />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <label className={FIELD}>
-            {t('add.type')}
-            <select className={INPUT} value={form.type} onChange={(e) => set({ type: e.target.value as FieldForm['type'] })} data-add-type="">
+          <Field label={t('add.type')}>
+            <Select value={form.type} onChange={(e) => set({ type: e.target.value as FieldForm['type'] })} data-add-type="">
               {FIELD_TYPES.map((ty) => (
                 <option key={ty} value={ty}>
                   {t(`type.${ty}`)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className={FIELD}>
-            {t('add.unit')}
-            <input className={INPUT} dir="ltr" value={form.unit} onChange={(e) => set({ unit: e.target.value })} data-add-unit="" />
-          </label>
+            </Select>
+          </Field>
+          <Field label={t('add.unit')}>
+            <Input dir="ltr" value={form.unit} onChange={(e) => set({ unit: e.target.value })} data-add-unit="" />
+          </Field>
         </div>
       </div>
       {tried && problems.length > 0 && (

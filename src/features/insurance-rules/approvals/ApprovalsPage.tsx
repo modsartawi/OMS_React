@@ -16,7 +16,10 @@ import { notify } from '@/core/services/notify'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { formatDay, toIsoDate } from '@/core/util/date-format'
 import { actionsFor, type ApprovalAction, type DraftApproval } from '@/core/insurance-rules/approval'
@@ -27,7 +30,6 @@ import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 const NS = 'insurance-approvals'
 /** 612's simulator, where the back-test is run (`app/insurance-rules-routes`). */
 const SIMULATOR_PATH = `${INSURANCE_RULES_PATH}/simulator`
-const NOTE = 'w-full rounded-md border border-border/60 bg-background px-2 py-1 text-sm focus:border-primary/50 focus:outline-none'
 
 /**
  * Insurance rules ▸ Approvals — `/insurance-rules/approvals` (oms ticket 611; doors 3139, back-test 3140). The
@@ -169,10 +171,9 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
 
       {actions.length > 0 && (
         <div className="flex flex-col gap-2" data-approval-actions="">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t(approval.state === 'draft' ? 'note.toApprover' : 'note.toAuthor')}
-            <textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} className={NOTE} data-note="" />
-          </label>
+          <Field label={t(approval.state === 'draft' ? 'note.toApprover' : 'note.toAuthor')}>
+            <Textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} className="w-full" data-note="" />
+          </Field>
           <div className="flex flex-wrap items-center gap-2">
             {actions.map((a) => (
               <Button
@@ -312,10 +313,9 @@ function ShadowRow({ rule, approver }: { rule: GuardRule; approver: boolean }) {
       {approver && (
         <div className="flex flex-col gap-1.5" data-promote-panel="">
           {gate.needsReason && (
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {t('shadow.skipReason')}
-              <input dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} className={`h-7 ${NOTE}`} data-skip-reason="" />
-            </label>
+            <Field label={t('shadow.skipReason')}>
+              <Input dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full" data-skip-reason="" />
+            </Field>
           )}
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" aria-disabled={!gate.can || promote.isPending} onClick={onPromote} data-promote={rule.id}>

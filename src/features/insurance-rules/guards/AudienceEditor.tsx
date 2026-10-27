@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
-import { CONTROL, CodesInput, Field } from '@/core/insurance-rules/controls'
+import { CodesInput, Field } from '@/core/insurance-rules/controls'
 import { setAudienceStores, setWindow, toggleAudienceExclude, toggleChannel } from '@/core/insurance-rules/guard-edit'
 import { GUARD_CHANNELS, type GuardRule } from '@/core/insurance-rules/model'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import type { RuleEdit } from './ConditionEditor'
@@ -44,14 +46,14 @@ export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: 
             {ids.map((id) => (
               <span key={id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5" data-excluded={id}>
                 <Ltr>{id}</Ltr>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-danger-800"
-                  aria-label={t('editor.audience.removeExclude', { list: fsi(id) })}
+                <IconButton
+                  variant="danger"
+                  size="compact"
+                  label={t('editor.audience.removeExclude', { list: fsi(id) })}
                   onClick={() => edit((r) => toggleAudienceExclude(r, kind, id))}
                 >
                   <X className="h-3 w-3" aria-hidden />
-                </button>
+                </IconButton>
               </span>
             ))}
             <KeyedListSelect kind={kind} value="" invalid={false} onPick={(id) => id && !ids.includes(id) && edit((r) => toggleAudienceExclude(r, kind, id))} />
@@ -60,23 +62,21 @@ export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: 
       })}
       <div className="flex flex-wrap items-center gap-3">
         <Field label={t('editor.audience.from')}>
-          <input
+          <Input
             type="date"
             dir="ltr"
             value={rule.window?.from ?? ''}
             onChange={(e) => edit((r) => setWindow(r, { from: e.target.value }))}
-            className={CONTROL}
             data-input="window.from"
           />
         </Field>
         <Field label={t('editor.audience.until')}>
-          <input
+          <Input
             type="date"
             dir="ltr"
             value={rule.window?.until ?? ''}
             title={t('editor.audience.untilOpen')}
             onChange={(e) => edit((r) => setWindow(r, { until: e.target.value }))}
-            className={CONTROL}
             data-input="window.until"
           />
         </Field>

@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
+import Chip from '@/core/ui/Chip'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import FlagsTab from './FlagsTab'
 import MetricsTab from './MetricsTab'
 import { METRICS_TABS, metricsFromParams, metricsToParams, windowOf, type MetricsQuery } from './query'
 import RejectionsTab from './RejectionsTab'
-import { INPUT } from '@/core/insurance-rules/parts'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 
 const PANEL_ID = 'insurance-metrics-panel'
 
@@ -35,31 +37,20 @@ export default function MetricsPage() {
         </div>
         <fieldset className="flex flex-wrap items-end gap-2" data-window="">
           <legend className="sr-only">{t('window.label')}</legend>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('window.from')}
-            <input type="date" value={query.from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={INPUT} data-window-from="" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('window.to')}
-            <input type="date" value={query.to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={INPUT} data-window-to="" />
-          </label>
+          <Field label={t('window.from')}>
+            <Input type="date" value={query.from} onChange={(e) => e.target.value && set({ from: e.target.value })} data-window-from="" />
+          </Field>
+          <Field label={t('window.to')}>
+            <Input type="date" value={query.to} onChange={(e) => e.target.value && set({ to: e.target.value })} data-window-to="" />
+          </Field>
         </fieldset>
       </header>
 
-      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60" data-metrics-tabs="">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1" data-metrics-tabs="">
         {METRICS_TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={query.tab === tab}
-            aria-controls={PANEL_ID}
-            onClick={() => set({ tab })}
-            className={`-mb-px border-b-2 px-3 py-1.5 text-sm ${query.tab === tab ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            data-tab={tab}
-          >
+          <Chip key={tab} variant="tab" on={query.tab === tab} aria-controls={PANEL_ID} onClick={() => set({ tab })} data-tab={tab}>
             {t(`tabs.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

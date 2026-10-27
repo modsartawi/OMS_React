@@ -15,6 +15,7 @@ import {
   type GuardBacktest,
 } from '@/core/insurance-rules/backtest'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -44,16 +45,9 @@ export default function BacktestTab({ days, id, onDays, onStarted }: { days: Bac
         <fieldset className="flex flex-wrap items-center gap-2">
           <legend className="mb-1 text-xs text-muted-foreground">{t('backtest.days')}</legend>
           {BACKTEST_DAYS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={days === d}
-              onClick={() => onDays(d)}
-              className={`h-8 rounded-md border px-3 text-sm ${days === d ? 'border-primary bg-primary-050 font-medium text-foreground' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
-              data-days={d}
-            >
+            <Chip key={d} on={days === d} onClick={() => onDays(d)} data-days={d}>
               {t('backtest.daysOption', { n: fsi(d) })}
-            </button>
+            </Chip>
           ))}
         </fieldset>
         <Button type="button" variant="primary" className="ms-auto" disabled={start.isPending} onClick={() => start.mutate(days)} data-start-backtest="">

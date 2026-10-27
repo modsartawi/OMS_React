@@ -17,13 +17,15 @@ import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import { fsi } from '@/core/util/bidi'
 import ConditionEditor, { type RuleEdit } from './ConditionEditor'
 import AudienceEditor from './AudienceEditor'
 import EffectEditor from './EffectEditor'
 import { DeniedCard } from '@/core/insurance-rules/parts'
-import { CONTROL, Issues } from '@/core/insurance-rules/controls'
+import { Issues } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Guards ▸ edit a guard (oms ticket 608; doors 3130 / 3131 shapes, Validate 3139). The rule's
@@ -220,30 +222,26 @@ function Editor({
           </ErrorBanner>
         )}
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('editor.nameEn')}
-            <input
+          <Field label={t('editor.nameEn')}>
+            <Input
               dir="ltr"
               lang="en"
               value={rule.name.en}
               aria-invalid={index.rule.some((i) => i.field === 'name.en') || undefined}
               onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, en: e.target.value } }), 'name.en')}
-              className={CONTROL}
               data-input="name.en"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('editor.nameAr')}
-            <input
+          </Field>
+          <Field label={t('editor.nameAr')}>
+            <Input
               dir="rtl"
               lang="ar"
               value={rule.name.ar}
               aria-invalid={index.rule.some((i) => i.field === 'name.ar') || undefined}
               onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }), 'name.ar')}
-              className={CONTROL}
               data-input="name.ar"
             />
-          </label>
+          </Field>
         </div>
         <Issues issues={index.rule} hook="rule" />
       </header>

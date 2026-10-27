@@ -7,8 +7,11 @@ import SaysBoth from '@/core/rules/SaysBoth'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { GuardSeverityBadge, RuleId } from './badges'
 import { guardAnswer, hasSuggestion, reasonChoices, type GuardAnswerDraft, type GuardDrafts, type GuardItem } from './guard-answer'
@@ -21,8 +24,6 @@ export interface GuardLineItem {
   code: string
   name: string
 }
-
-const FIELD = 'rounded-md border border-border/60 bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary/60'
 
 /**
  * The guard dialog on an insured OMS order (BackOffice 3142/3143, oms ticket 616) — the till's per-line
@@ -273,18 +274,16 @@ function FiredRule({
               onChange={(v) => onEdit({ reason: v })}
             />
           )}
-          <label className="flex flex-col gap-1 text-xs font-medium">
-            {t('guard.note')}
-            <input
+          <Field label={t('guard.note')}>
+            <Input
               value={draft.note ?? ''}
               onChange={(e) => onEdit({ note: e.target.value })}
               dir="auto"
               maxLength={200}
               disabled={disabled}
-              className={FIELD}
               data-guard-note=""
             />
-          </label>
+          </Field>
         </div>
       )}
       {shownProblem && (
@@ -316,13 +315,11 @@ function CodeSelect({
 }) {
   const { t } = useTranslation('insurance-order-guards')
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium">
-      {label}
-      <select
+    <Field label={label}>
+      <Select
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={FIELD}
         {...{ [`data-guard-${hook}`]: '' }}
       >
         <option value="">{t('guard.choose')}</option>
@@ -335,7 +332,7 @@ function CodeSelect({
             </option>
           )
         })}
-      </select>
-    </label>
+      </Select>
+    </Field>
   )
 }

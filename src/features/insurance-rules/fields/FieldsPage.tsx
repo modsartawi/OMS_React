@@ -11,18 +11,16 @@ import { FIELDS_KEY, fieldsQuery } from '@/core/insurance-rules/registry-api'
 import SaysBoth from '@/core/rules/SaysBoth'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
+import { saysIn } from '@/core/rules/sentence'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { fieldsApi } from './api'
-import DeniedCard from './DeniedCard'
 import { fieldBody, fieldProblems, suggestKey, type FieldForm } from './field-form'
+import { DeniedCard, FORM_FIELD as FIELD, FORM_INPUT as INPUT } from '@/core/insurance-rules/parts'
 
-const FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-const INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 const BLANK: FieldForm = { source: '', key: '', labelEn: '', labelAr: '', scope: 'item', type: 'code', unit: '' }
 
 /**
@@ -38,7 +36,7 @@ export default function FieldsPage() {
   const draft = useQuery(guardDraftQuery())
 
   let body
-  if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard hook="fields-denied" />
+  if (fields.isError && isBareDenial(fields.error)) body = <DeniedCard ns="insurance-fields" hook="fields-denied" />
   else if (fields.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(fields.error, t('page.failed'))} />
   else if (!fields.data)
     body = (
@@ -79,7 +77,7 @@ function fieldUsers(draft: GuardRuleset | undefined, key: string): string[] {
 }
 
 function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: RegistryField[]; draft: GuardRuleset | undefined }) {
-  const { t } = useTranslation('insurance-fields')
+  const { t, i18n } = useTranslation('insurance-fields')
   const qc = useQueryClient()
   const retire = useMutation({
     mutationFn: (key: string) => fieldsApi.retire(key),
@@ -90,7 +88,7 @@ function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: Regis
     onError: (err) => (isBareDenial(err) ? notify.error(t('retire.failed'), t('access.masterData')) : notify.apiError(t('retire.failed'), err, t('retire.failed'))),
   })
   const askRetire = async (f: RegistryField, users: number) => {
-    const message = users ? t('retire.confirmUsed', { field: fsi(f.label.en), count: users, n: fsi(users) }) : t('retire.confirm', { field: fsi(f.label.en) })
+    const message = users ? t('retire.confirmUsed', { field: fsi(saysIn(f.label, i18n.language)), count: users, n: fsi(users) }) : t('retire.confirm', { field: fsi(saysIn(f.label, i18n.language)) })
     if (await confirmAction(message, t('retire.title'))) retire.mutate(f.key)
   }
 
@@ -168,7 +166,7 @@ function ScopeTable({ scope, fields, draft }: { scope: FieldScope; fields: Regis
 }
 
 function AddField({ existing }: { existing: RegistryField[] }) {
-  const { t } = useTranslation('insurance-fields')
+  const { t, i18n } = useTranslation('insurance-fields')
   const qc = useQueryClient()
   const [form, setForm] = useState<FieldForm>(BLANK)
   const [keyEdited, setKeyEdited] = useState(false)
@@ -177,7 +175,7 @@ function AddField({ existing }: { existing: RegistryField[] }) {
   const add = useMutation({
     mutationFn: () => fieldsApi.add(fieldBody(form)),
     onSuccess: (f) => {
-      notify.success(t('add.done'), fsi(f.label.en))
+      notify.success(t('add.done'), fsi(saysIn(f.label, i18n.language)))
       setForm(BLANK)
       setKeyEdited(false)
       setTried(false)

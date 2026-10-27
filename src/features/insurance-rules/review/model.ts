@@ -14,21 +14,6 @@ export type ReviewKind = (typeof REVIEW_KINDS)[number]
 export const REVIEW_MARKS = ['ok', 'questioned'] as const
 export type ReviewMark = (typeof REVIEW_MARKS)[number]
 
-/** A coded word with its EN/AR twins (`GET Guards/Reasons` entries). */
-export interface CodedWord {
-  code: string
-  en: string
-  ar: string
-  active: boolean
-}
-
-/** `GET Guards/Reasons` (3134). Only `reason` is read here. */
-export interface GuardReasons {
-  intervention: CodedWord[]
-  outcome: CodedWord[]
-  reason: CodedWord[]
-}
-
 /** One row of `GET InsuranceRules/Review`. */
 export interface ReviewRow {
   /** The decision row's id — `POST InsuranceRules/Review/{id}` marks it. */

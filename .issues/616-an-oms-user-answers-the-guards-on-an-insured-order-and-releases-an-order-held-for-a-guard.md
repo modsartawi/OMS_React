@@ -54,8 +54,9 @@ Hooks into the OMS features: a "Guard check" column in `features/oms/deliveries/
 `GUARD_REASONS`, `ORDER_GUARDS_HELD` / `_RECHECKED`, `ORDER_GUARD_LINES` in the `// --- 616 ---` section.
 
 **Guesses where the brief is silent (618 reconciles):**
-- Order doors spelled `SdDocumentWeb/Document/{no}/Guards/Recheck|Release` to fit the existing OMS doors; the brief
-  writes `Oms/Orders/{id}/Guards/…`. Recheck is read to answer the new `guards`.
+- ~~Order doors spelled `SdDocumentWeb/Document/{no}/Guards/Recheck|Release`~~ — amended by the 3126 review (P1):
+  the doors take the brief's spelling `Oms/Orders/{id}/Guards/Recheck|Release`; GUESS: `{id}` is the document
+  number. Recheck is read to answer the new `guards`.
 - Grants read as two more optional flags of `GET SdDocumentWeb/Access`: `canOverrideGuard` (`INS_GUARD`) and
   `canReleaseGuardHold`. Absent reads as denied. The brief names the grants but no probe.
 - The order DETAIL carries `guardState` and `guards` (the brief gives `guardState` to list/find-by-id rows only).
@@ -65,3 +66,15 @@ Hooks into the OMS features: a "Guard check" column in `features/oms/deliveries/
 - Release body `{ reason }`, reason required (core `ReasonDialog`). Order states: `none | actionNeeded | pending |
   unchecked`; `unchecked` shown as "Guard check: not checked".
 - Without `INS_GUARD` an OVERRIDE reads like a REFUSE ("remove or change this line"); Send stays off.
+
+
+**2026-10-27 — 3126 review (P1, P2).** Order doors now take the brief's spelling `POST Oms/Orders/{id}/Guards/Recheck`
+and `…/Guards/Release` (GUESS: `{id}` is the document number). The guard dialog offers **Apply** on a fired rule
+with a suggestion (stories 6 / 35): applied, the rule is answered as a CHANGE — GUESS `{ line, ruleId, change: {
+maxQuantity | maxDaysSupply } }`, the fired rule's `suggestion` as sent — with no triad and no `INS_GUARD` (the line is
+changed, not overridden); Undo takes it back. Proof: `guard-answer.test.ts`
+(guardAnswer_appliedSuggestion_isAChangeAnswer), drive step 7.
+**Owner ruling needed:** a REFUSE line still disables Send for the WHOLE order (`guard-answer.ts`: a REFUSE item keeps
+the problem `remove`, and `ready` needs no open item), where stories 36 / 49 say "the rest of the request still
+going". Left as built (applying a suggestion on a refused line now lets it go on); the owner rules whether the other
+lines may be answered and sent while a line is refused.

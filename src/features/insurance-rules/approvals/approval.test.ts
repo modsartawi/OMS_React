@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { GuardBacktest } from '@/core/insurance-rules/backtest'
-import { actionsFor, daysInShadow, promoteGate, PROMOTE_AFTER_DAYS, type DraftApproval } from './approval'
+import { actionsFor, type DraftApproval } from '@/core/insurance-rules/approval'
+import { daysInShadow, promoteGate, PROMOTE_AFTER_DAYS } from './approval'
 
 const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
   revision: 12,

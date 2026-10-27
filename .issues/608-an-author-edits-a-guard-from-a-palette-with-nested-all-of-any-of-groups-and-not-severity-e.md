@@ -97,3 +97,15 @@ the fact list should read the registry instead (whoever merges 610 after 608, or
 `guardSentence` takes the registry fields as an optional third argument. This drive serves 610's stubs and picks the
 lists from a select (88/88). Detail on ticket 617.
 
+
+**2026-10-27 — 3126 review (P3, P4).** The editor now sets the rule's WHEN (`guards/AudienceEditor.tsx`): channels,
+stores (none = every store), patient / policy lists left out of the audience, and the window; `newGuardRule` only
+seeds the defaults. The `supply` block edits `eligibleDaysBeforeDueFor` (a list's own days, the SFDA 7 for controlled
+drugs; read as "7 days for Controlled drugs"); the `history` block narrows to the same payer / policy / channel /
+store (read as "counting only dispenses with the same payer and store"). Pure edits in `guard-edit.ts`
+(`toggleNarrow`, `addDaysFor` / `setDaysFor` / `removeDaysFor`, `toggleChannel`, `setAudienceStores`,
+`toggleAudienceExclude`, `setWindow`), proven by `core/insurance-rules/rule-scope.test.ts`.
+**Guesses (618 reconciles):** history narrowing spelled `narrowTo: ('payer'|'policy'|'channel'|'store')[]` (absent =
+estate-wide); audience exclusions spelled `audience.excludePatientLists` / `audience.excludePolicyLists` (ids of
+610's lists); a per-list refill value names a RULESET list id directly (no rule filter alias); a new per-list row
+starts at 7 days.

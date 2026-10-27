@@ -20,9 +20,10 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import { fsi } from '@/core/util/bidi'
 import ConditionEditor, { type RuleEdit } from './ConditionEditor'
-import DeniedCard from './DeniedCard'
-import { CONTROL, Issues } from './editor-ui'
+import AudienceEditor from './AudienceEditor'
 import EffectEditor from './EffectEditor'
+import { DeniedCard } from '@/core/insurance-rules/parts'
+import { CONTROL, Issues } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Guards ▸ edit a guard (oms ticket 608; doors 3130 / 3131 shapes, Validate 3139). The rule's
@@ -45,7 +46,7 @@ export default function GuardEditorPage() {
   const editorKey = ruleId && ruleId !== created ? ruleId : 'new'
 
   let body: ReactNode
-  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard hook="editor-denied" />
+  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard ns="insurance-guards" hook="editor-denied" />
   else if (draft.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(draft.error, t('rule.failed'))} />
   else if (!draft.data)
     body = (
@@ -249,6 +250,9 @@ function Editor({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" onBlur={() => dispatch({ type: 'seal' })}>
         <div className="flex flex-col gap-4">
+          <Block kw={t('rule.when')} hint={t('rule.whenHint')} hook="when">
+            <AudienceEditor rule={rule} edit={edit} />
+          </Block>
           <Block kw={t('rule.if')} hint={t('rule.ifHint')} hook="if">
             <ConditionEditor rule={rule} lists={h.present.lists} edit={edit} checks={index} />
             <fieldset className="mt-3 flex flex-wrap items-center gap-3 text-xs" data-on-unknown-editor="">

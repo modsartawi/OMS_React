@@ -66,7 +66,7 @@
   },
   "unit": {
     "pct": "{{n}}%",
-    "seconds": "{{n}} s"
+    "seconds": "<v>{{n}}</v> s"
   },
   "chart": {
     "caption": "Fires per day",
@@ -84,6 +84,26 @@
       "flag": "Flag",
       "reason": "Why",
       "since": "Since"
+    },
+    "settings": {
+      "edit": "Edit the thresholds",
+      "save": "Save the thresholds",
+      "cancel": "Cancel",
+      "saved": "The flag thresholds are saved.",
+      "failed": "The thresholds could not be saved.",
+      "invalid": "A rate is 1–100%, a count or a number of days is a whole number from 1, and a jump is more than 1 time.",
+      "field": {
+        "noisyPct": "Noisy above",
+        "noisyMinFires": "Of at least (fires)",
+        "windowDays": "Within",
+        "silentDays": "Silent after",
+        "jumpFactor": "Jumps at"
+      },
+      "unit": {
+        "pct": "%",
+        "days": "days",
+        "times": "times its average"
+      }
     }
   },
   "reason": {

@@ -95,3 +95,17 @@ and 618). Stubs `// --- 617 ---`: `COVERAGE_FIELDS` (request / patient / item / 
 - Not built here: Submit / Approve / Versions for these rulesets (611 builds them for guards on the same doors), and
   "which rule set each line" in the simulator (612's screen). No access probe: a bare 403 reads "You do not have access".
 - Layout follows the prototype (ordered list + editor + reads-as); the insurance team's walk (BackOffice 3096) is open.
+
+
+**2026-10-27 — 3126 review (P6).** (a) The simulator names each line's category and the category rule that set it,
+linked to `/insurance-rules/categories?rule=…`, or "from the item master" (GUESS: Simulate's line answers
+`category: { group: G1|G2|G3, ruleId|null }`; `simulate.ts` `lineCategory`, drive step 5b). (b) Category and coverage
+rulesets get Submit / Approve / Send back and Versions / Restore on "the same authoring doors"
+(`InsuranceRules/{Categories|Coverage}/Approval|Submit|Approve|SendBack|Versions|Versions/{v}/Restore`): 611's pure
+`actionsFor` / `DraftApproval` moved to `core/insurance-rules/approval.ts` (with `needsBacktest: false` and `dirty`),
+the doors are core `rulesetApprovalDoors` (611 uses them too), and the panel is core `RulesetApproval.tsx` (area
+namespace `insurance-rules:approval.*`) on `RulesetPage`. Drive step 7 (submit, own-submission refusal, approve by a
+different user, versions, restore).
+**Guesses:** the same `GET …/Approval` read 611 guessed; no back-test is asked for a category / coverage draft;
+approval is asked for the SAVED revision (unsaved edits disable it); rule states (draft → waiting → shadow → live) are
+NOT moved for these rulesets and they have no Promote — left for 618 to settle with BackOffice 3145 / 3146.

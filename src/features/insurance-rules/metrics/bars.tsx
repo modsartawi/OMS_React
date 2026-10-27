@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { guardSeverityTone } from '@/core/insurance-rules/tones'
 import { fsi } from '@/core/util/bidi'
 import { METRICS_OUTCOMES, outcomeShares, totalFires, type FiresBySeverity, type MetricsOutcome, type OutcomeMix } from './model'
 
@@ -6,8 +7,6 @@ import { METRICS_OUTCOMES, outcomeShares, totalFires, type FiresBySeverity, type
 // flex row of blocks sized by `inlineSize` follows the text direction by itself (under RTL it grows from the
 // right). Each bar is a picture of numbers the row also writes out, so the bar itself is `aria-hidden`.
 
-/** REFUSE > OVERRIDE > WARN: danger, violet (`post`), attention — the pills' families. */
-export const SEVERITY_FILL = { refuse: 'bg-danger', override: 'bg-post', warn: 'bg-attention' } as const
 export const OUTCOME_FILL: Record<MetricsOutcome, string> = {
   removed: 'bg-danger',
   changed: 'bg-attention',
@@ -24,7 +23,7 @@ export function FiresBar({ fires, max }: { fires: FiresBySeverity; max: number }
     <span className="flex h-2.5 w-full overflow-hidden rounded-sm bg-muted" aria-hidden data-fires-bar={String(total)}>
       <span className="flex h-full" style={{ inlineSize: `${share * 100}%` }}>
         {(['refuse', 'override', 'warn'] as const).map((s) =>
-          fires[s] > 0 ? <span key={s} className={`h-full ${SEVERITY_FILL[s]}`} style={{ inlineSize: `${(fires[s] / total) * 100}%` }} data-segment={s} /> : null,
+          fires[s] > 0 ? <span key={s} className={`h-full ${guardSeverityTone(s).fill}`} style={{ inlineSize: `${(fires[s] / total) * 100}%` }} data-segment={s} /> : null,
         )}
       </span>
     </span>
@@ -54,7 +53,7 @@ export function Legend({ kind }: { kind: 'severity' | 'outcome' }) {
   const { t } = useTranslation(['insurance-metrics', 'insurance-rules'])
   const items =
     kind === 'severity'
-      ? (['refuse', 'override', 'warn'] as const).map((s) => ({ key: s, fill: SEVERITY_FILL[s], label: t(`insurance-rules:severity.${s.toUpperCase()}`) }))
+      ? (['refuse', 'override', 'warn'] as const).map((s) => ({ key: s, fill: guardSeverityTone(s).fill, label: t(`insurance-rules:severity.${s.toUpperCase()}`) }))
       : METRICS_OUTCOMES.map((o) => ({ key: o, fill: OUTCOME_FILL[o], label: t(`insurance-metrics:outcome.${o}`) }))
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground" data-legend={kind}>

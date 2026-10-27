@@ -86,6 +86,12 @@ export interface GuardAnswer {
   outcome?: string
   reason?: string
   note?: string
+  /**
+   * The rule's suggestion applied to the line (stories 6 / 35, "a suggestion with Apply"): a CHANGE answer — the line
+   * goes on with the suggested quantity or days-supply. GUESS (review 3126 P2): the brief's answer spells no change;
+   * this takes the fired rule's `suggestion` as sent.
+   */
+  change?: GuardSuggestion
 }
 
 export interface GuardAnswerBody {

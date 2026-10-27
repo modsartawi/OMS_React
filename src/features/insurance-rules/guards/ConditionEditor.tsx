@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
@@ -6,22 +5,26 @@ import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/
 import {
   PALETTE,
   addCondition,
+  addDaysFor,
   canAddGroup,
   listOfAlias,
   newCondition,
   removeCondition,
+  removeDaysFor,
+  setDaysFor,
+  toggleNarrow,
   toggleNot,
   updateCondition,
   withListFilter,
   type ConditionPath,
 } from '@/core/insurance-rules/guard-edit'
-import type { GuardCheck, GuardCondition, GuardList, GuardMatch, GuardRule, LineCondition, SupplyCondition } from '@/core/insurance-rules/model'
+import { HISTORY_NARROWS, type GuardCheck, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
 import type { RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
 import { fsi } from '@/core/util/bidi'
-import { CodeInput, Field, Issues, NumberInput, Select } from './editor-ui'
+import { CodeInput, CodesInput, Field, Issues, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 // The IF of the guard editor (ticket 608): the rule's conditions as a tree — All of / Any of groups nested up
 // to three levels, NOT on any condition — and a palette at the foot of every list to add a block. The pure
@@ -293,6 +296,15 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
           </Field>
           {checkbox('includeThisLine', c.includeThisLine, (v) => set((x) => ({ ...x, includeThisLine: v })))}
           {c.match === 'sameClass' && checkbox('excludeSameKind', c.excludeSameKind === true, (v) => set((x) => ({ ...x, excludeSameKind: v })))}
+          <span className="inline-flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-narrow-to={(c.narrowTo ?? []).join(',')}>
+            {t('editor.field.narrowTo')}
+            {HISTORY_NARROWS.map((s) => (
+              <label key={s} className="inline-flex items-center gap-1">
+                <input type="checkbox" checked={(c.narrowTo ?? []).includes(s)} data-narrow={s} onChange={() => set((x: HistoryCondition) => toggleNarrow(x, s))} />
+                {t(`editor.narrow.${s}`)}
+              </label>
+            ))}
+          </span>
         </>
       )
     case 'supply': {
@@ -335,6 +347,38 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             />
           )}
           <span className="text-xs text-muted-foreground">{unit(mode === 'daysBeforeDue' ? 'days' : 'percent')}</span>
+          {mode === 'daysBeforeDue' && (
+            <span className="inline-flex flex-wrap items-center gap-2" data-days-for="">
+              {(c.eligibleDaysBeforeDueFor ?? []).map((f, i) => (
+                <span key={i} className="inline-flex items-center gap-1 text-xs text-muted-foreground" data-days-for-row={i}>
+                  <NumberInput
+                    value={f.value}
+                    invalid={bad(`eligibleDaysBeforeDueFor.${i}`)}
+                    aria-label={t('editor.daysFor.days')}
+                    data-input={`daysFor.${i}.value`}
+                    onValue={(n) => set((x: SupplyCondition) => setDaysFor(x, i, { value: n }), `daysFor.${i}`)}
+                  />
+                  {t('editor.daysFor.for')}
+                  <Select value={f.list} aria-label={t('editor.daysFor.list')} data-input={`daysFor.${i}.list`} onChange={(e) => set((x: SupplyCondition) => setDaysFor(x, i, { list: e.target.value }))}>
+                    {!ctx.lists.some((l) => l.id === f.list) && <option value={f.list}>{fsi(f.list)}</option>}
+                    {ctx.lists.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {listName(l)}
+                      </option>
+                    ))}
+                  </Select>
+                  <button type="button" className="text-muted-foreground hover:text-danger-800" aria-label={t('editor.daysFor.remove')} data-days-for-remove={i} onClick={() => set((x: SupplyCondition) => removeDaysFor(x, i))}>
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </span>
+              ))}
+              {ctx.lists.length > 0 && (
+                <button type="button" className="text-xs text-primary hover:underline" data-days-for-add="" onClick={() => set((x: SupplyCondition) => addDaysFor(x, ctx.lists[0].id))}>
+                  {t('editor.daysFor.add')}
+                </button>
+              )}
+            </span>
+          )}
           <Field label={t('editor.field.surplusDays')} unit={unit('days')}>
             <NumberInput
               value={c.accumulate?.surplusDays ?? 0}
@@ -570,6 +614,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
                 invalid={bad('value')}
                 title={t('editor.codesHint')}
                 placeholder="E11*"
+                data-input="codes"
                 onCodes={(codes) => set((x) => ({ ...x, value: codes }), 'value')}
               />
             </Field>
@@ -596,7 +641,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
 }
 
 /** A patient or policy list, picked by id from the lists (610's doors); a list not among them stays named by its id. */
-function KeyedListSelect({ kind, value, invalid, onPick }: { kind: 'patient' | 'policy'; value: string; invalid: boolean; onPick: (id: string) => void }) {
+export function KeyedListSelect({ kind, value, invalid, onPick }: { kind: 'patient' | 'policy'; value: string; invalid: boolean; onPick: (id: string) => void }) {
   const { t, i18n } = useTranslation('insurance-guards')
   const lists = useQuery(keyedListsQuery(kind)).data ?? []
   return (
@@ -611,44 +656,3 @@ function KeyedListSelect({ kind, value, invalid, onPick }: { kind: 'patient' | '
   )
 }
 
-const parseCodes = (text: string): string[] =>
-  text
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean)
-
-/** Codes typed comma-separated: the text is kept as typed, the block gets the codes. */
-function CodesInput({
-  value,
-  onCodes,
-  invalid,
-  title,
-  placeholder,
-}: {
-  value: string[]
-  onCodes: (codes: string[]) => void
-  invalid: boolean
-  title: string
-  placeholder: string
-}) {
-  const [text, setText] = useState(value.join(', '))
-  // An undo / redo changes the codes under the box: the box follows.
-  useEffect(() => {
-    if (parseCodes(text).join(',') !== value.join(',')) setText(value.join(', '))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value.join(',')])
-  return (
-    <CodeInput
-      value={text}
-      invalid={invalid}
-      title={title}
-      placeholder={placeholder}
-      data-input="codes"
-      onValue={(s) => {
-        setText(s)
-        const codes = parseCodes(s)
-        if (codes.join(',') !== value.join(',')) onCodes(codes)
-      }}
-    />
-  )
-}

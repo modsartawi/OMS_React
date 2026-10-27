@@ -32,7 +32,8 @@ import {
   type EditionDiff,
   type GapKind,
 } from './editions'
-import { ByAt, DeniedCard, EditionStateBadge } from './parts'
+import { EditionStateBadge } from './parts'
+import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Editions ▸ one edition — `/insurance-rules/editions/:list/:id` (BackOffice 3138, oms 613).
@@ -52,7 +53,7 @@ export default function EditionPage() {
   const edition = history.data?.find((e) => e.id === id)
 
   let body
-  if (history.isError && isBareDenial(history.error)) body = <DeniedCard hook="edition-denied" />
+  if (history.isError && isBareDenial(history.error)) body = <DeniedCard ns="insurance-editions" hook="edition-denied" />
   else if (history.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(history.error, t('edition.failed'))} />
   else if (!history.data) body = <Loading text={t('edition.loading')} />
   else if (!isEditionList(list) || !edition)
@@ -71,15 +72,6 @@ export default function EditionPage() {
       </Link>
       {body}
     </section>
-  )
-}
-
-function Loading({ text }: { text: string }) {
-  return (
-    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {text}
-    </div>
   )
 }
 
@@ -187,7 +179,7 @@ function DiffSection({ edition, live }: { edition: Edition; live: Edition | null
       </div>
       {diff.isError ? (
         isBareDenial(diff.error) ? (
-          <DeniedCard hook="diff-denied" />
+          <DeniedCard ns="insurance-editions" hook="diff-denied" />
         ) : (
           <ErrorBanner message={apiErrorMessage(diff.error, t('diff.failed'))} />
         )
@@ -317,7 +309,7 @@ function GapsSection({ edition }: { edition: Edition }) {
       </div>
       {gaps.isError ? (
         isBareDenial(gaps.error) ? (
-          <DeniedCard hook="gaps-denied" />
+          <DeniedCard ns="insurance-editions" hook="gaps-denied" />
         ) : (
           <ErrorBanner message={apiErrorMessage(gaps.error, t('gaps.failed'))} />
         )

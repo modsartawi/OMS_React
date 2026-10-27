@@ -13,10 +13,10 @@ import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
-import DeniedCard from './DeniedCard'
 import ListEditor from './ListEditor'
 import { attributeCodes, attributeMode, listUsers } from './list-graph'
 import { CARD, CHIP } from './ui'
+import { DeniedCard } from '@/core/insurance-rules/parts'
 
 const NEW_LIST: GuardList = {
   id: '',
@@ -38,7 +38,7 @@ export default function ItemLists() {
   const [editing, setEditing] = useState<{ list: GuardList; isNew: boolean } | null>(null)
 
   const failed = draft.error ?? fields.error
-  if (failed && isBareDenial(failed)) return <DeniedCard hook="lists-denied" />
+  if (failed && isBareDenial(failed)) return <DeniedCard ns="insurance-lists" hook="lists-denied" />
   if (failed) return <ErrorBanner className="p-3" message={apiErrorMessage(failed, t('items.failed'))} />
   if (!draft.data || !fields.data)
     return (

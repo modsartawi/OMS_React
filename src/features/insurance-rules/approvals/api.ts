@@ -9,20 +9,15 @@
  * are recorded under 611's ## Comments for 618.
  */
 import { api } from '@/core/api'
-import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
+import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY, rulesetApprovalDoors, type RulesetVersion } from '@/core/insurance-rules/api'
+import type { DraftApproval } from '@/core/insurance-rules/approval'
 import type { GuardRuleset } from '@/core/insurance-rules/model'
-import type { DraftApproval } from './approval'
 
 const GUARDS = `${INSURANCE_RULES_BASE}/Guards`
 
-/** One published version of the guard ruleset: who, when, note. ⚠️ field spellings GUESSED. */
-export interface GuardVersion {
-  version: number
-  by: string
-  /** Local moment. */
-  at: string
-  note: string | null
-}
+export type { RulesetVersion }
+
+const doors = rulesetApprovalDoors<GuardRuleset>('Guards')
 
 /** A shadow rule's figures since it went into shadow (`GET InsuranceRules/Metrics?by=rule`, 3141). */
 export interface ShadowFigures {
@@ -33,31 +28,31 @@ export interface ShadowFigures {
 export const approvalsApi = {
   /** `GET InsuranceRules/Guards/Approval` (⚠️ GUESSED door) — where the draft stands, and what the viewer may do. */
   approval(): Promise<DraftApproval> {
-    return api.get<DraftApproval>(`${GUARDS}/Approval`)
+    return doors.approval()
   },
   /** `POST …/Submit { note }` — refused without a back-test of this revision. */
   submit(note: string): Promise<DraftApproval> {
-    return api.post<DraftApproval>(`${GUARDS}/Submit`, { note })
+    return doors.submit(note)
   },
   /** `POST …/Approve` — approver only, not the author. */
   approve(note: string): Promise<DraftApproval> {
-    return api.post<DraftApproval>(`${GUARDS}/Approve`, { note })
+    return doors.approve(note)
   },
   /** `POST …/SendBack` — approver only, not the author. */
   sendBack(note: string): Promise<DraftApproval> {
-    return api.post<DraftApproval>(`${GUARDS}/SendBack`, { note })
+    return doors.sendBack(note)
   },
   /** `POST …/Rules/{id}/Promote { skipReason? }` — refused under 14 days without a reason. */
   promote(ruleId: string, skipReason: string | null): Promise<unknown> {
     return api.post<unknown>(`${GUARDS}/Rules/${encodeURIComponent(ruleId)}/Promote`, skipReason ? { skipReason } : {})
   },
   /** `GET …/Versions` — newest first. */
-  async versions(): Promise<GuardVersion[]> {
-    return (await api.get<GuardVersion[] | null>(`${GUARDS}/Versions`)) ?? []
+  versions(): Promise<RulesetVersion[]> {
+    return doors.versions()
   },
   /** `POST …/Versions/{v}/Restore` — the version becomes a NEW draft (answered whole, its new revision). */
   restore(version: number): Promise<GuardRuleset> {
-    return api.post<GuardRuleset>(`${GUARDS}/Versions/${version}/Restore`, {})
+    return doors.restore(version)
   },
   /** The rule's row of `GET InsuranceRules/Metrics?by=rule&from&to`, or null when it has not fired. */
   async shadowFigures(ruleId: string, from: string, to: string): Promise<ShadowFigures | null> {

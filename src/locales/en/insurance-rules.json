@@ -57,7 +57,14 @@
       "quantity_one": "the patient received at least <atleast>{{atLeast}}</atleast> unit of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
       "quantity_other": "the patient received at least <atleast>{{atLeast}}</atleast> units of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
       "distinctStores_one": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more store in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
-      "distinctStores_other": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more stores in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>"
+      "distinctStores_other": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more stores in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "narrowTo": "counting only dispenses with the same <scopes>{{scopes}}</scopes>",
+      "scope": {
+        "payer": "payer",
+        "policy": "policy",
+        "channel": "channel",
+        "store": "store"
+      }
     },
     "supply": {
       "daysBeforeDue_one": "the patient asks for <match>{{match}}</match> more than <days>{{days}}</days> day before the last supply runs out",
@@ -137,7 +144,9 @@
       "from": "From <from>{{from}}</from>, with no end",
       "fromUntil": "From <from>{{from}}</from> until <until>{{until}}</until>",
       "until": "Until <until>{{until}}</until>",
-      "always": "With no time limit"
+      "always": "With no time limit",
+      "excludePatients": "except patients on <lists>{{lists}}</lists>",
+      "excludePolicies": "except policies on <lists>{{lists}}</lists>"
     },
     "then": {
       "REFUSE": "refuse the line",
@@ -156,18 +165,6 @@
       "warn": "If a fact is unknown, the pharmacist is warned."
     },
     "fact": {
-      "name": {
-        "age": "the patient's age",
-        "gender": "the patient's gender",
-        "idType": "the patient's ID type",
-        "icd": "the line's diagnosis (ICD-10-AM)",
-        "payer": "the payer",
-        "policy": "the policy",
-        "class": "the policy class",
-        "channel": "the channel",
-        "store": "the store",
-        "pharmacist": "the pharmacist"
-      },
       "atLeast": "<fact>{{fact}}</fact> is at least <value>{{value}}</value> <unit>{{unit}}</unit>",
       "below": "<fact>{{fact}}</fact> is below <value>{{value}}</value> <unit>{{unit}}</unit>",
       "anyOf": "<fact>{{fact}}</fact> is any of <codes>{{codes}}</codes>",
@@ -202,6 +199,53 @@
       "priceAbove": "Tolerance (SAR)",
       "consumedBelow": "Share consumed",
       "other": "Value"
+    }
+  },
+  "approval": {
+    "title": "Approval",
+    "failed": "Where the draft stands could not be read.",
+    "failedAction": "HQ refused this.",
+    "state": {
+      "draft": "Draft — not asked for approval",
+      "waiting": "Waiting for approval"
+    },
+    "submittedBy": "Asked by",
+    "sentBackBy": "Sent back by",
+    "noteToApprover": "Note to the approver",
+    "noteToAuthor": "Note to the author",
+    "action": {
+      "submit": "Ask for approval",
+      "approve": "Approve",
+      "sendBack": "Send back"
+    },
+    "done": {
+      "submit": "Asked for approval.",
+      "approve": "Approved: a new version is published.",
+      "sendBack": "Sent back to the author."
+    },
+    "why": {
+      "unsaved": "Save the draft first: approval is asked for the saved revision.",
+      "noBacktest": "Run a back-test of this revision first.",
+      "backtestRunning": "Wait for the back-test to finish.",
+      "backtestFailed": "The back-test failed; run it again.",
+      "backtestStale": "The draft changed since its back-test; run it again.",
+      "checking": "Wait for HQ's checks.",
+      "checks": "Fix the errors HQ's checks found first.",
+      "ownSubmission": "You asked for this approval, so a different user approves it."
+    },
+    "versions": {
+      "title": "Versions",
+      "failed": "The versions could not be loaded.",
+      "empty": "No version has been published yet.",
+      "version": "Version",
+      "byAt": "By, when",
+      "note": "Note",
+      "noNote": "No note",
+      "restore": "Restore as a draft",
+      "confirmTitle": "Restore as a new draft",
+      "confirmBody": "Version {{version}} replaces the current draft as a new draft. Unsaved edits are lost.",
+      "restored": "Version {{version}} restored as draft revision {{revision}}.",
+      "restoreFailed": "The version could not be restored."
     }
   }
 }

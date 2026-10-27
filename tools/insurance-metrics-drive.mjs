@@ -4,6 +4,7 @@
 //   GET InsuranceRules/Metrics?by=rule|store|pharmacist|day&from&to → METRICS[by]
 //   GET InsuranceRules/Flags                                      → FLAGS
 //   GET InsuranceRules/Settings/Flags                             → FLAG_SETTINGS
+//   PUT InsuranceRules/Settings/Flags                             → the thresholds edited (review 3126 P5)
 //   GET InsuranceRules/Rejections?payer&from&to                   → REJECTIONS (filtered by payer)
 // 🚩 NOTHING here is driven against a live SIS.Api: 3141 is unbuilt. Ticket 618 swaps in the live doors.
 //
@@ -39,6 +40,8 @@ const check = (name, pass, detail = '') => {
 const browser = await chromium.launch()
 
 async function open(dir, { deny = [] } = {}) {
+  const writes = []
+  const stubOpts = { deny, writes }
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   page.setDefaultNavigationTimeout(120000)
@@ -55,12 +58,14 @@ async function open(dir, { deny = [] } = {}) {
     const url = new URL(req.url())
     const p = url.pathname.replace(/^\/api\//, '')
     if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    const hit = insuranceMetricsStub(req.method(), p, url.searchParams, { deny, asked })
+    stubOpts.asked = asked
+    stubOpts.body = req.method() === 'PUT' ? JSON.parse(req.postData() || 'null') : null
+    const hit = insuranceMetricsStub(req.method(), p, url.searchParams, stubOpts)
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, asked }
+  return { context, page, errors, asked, writes }
 }
 
 const strip = (s) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
@@ -165,6 +170,31 @@ for (const dir of ['ltr', 'rtl']) {
     )
     check(`${dir} 6. no raw keys`, await noRawKeys(page))
     check(`${dir} 9. no page errors (flags)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 6b: the thresholds are edited (review 3126 P5, PUT …/Settings/Flags) ─────────────────────────
+  {
+    const { context, page, errors, writes } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/metrics?tab=flags`)
+    await page.locator('[data-flag-settings-edit]').waitFor({ timeout: 30000 })
+    await page.locator('[data-flag-settings-edit]').click()
+    const form = page.locator('[data-flag-settings-form]')
+    check(`${dir} 6b. the form reads the current thresholds, the rate as a percent`, (await form.locator('[data-input="noisyPct"]').inputValue()) === '80' && (await form.locator('[data-input="silentDays"]').inputValue()) === '60')
+    await form.locator('[data-input="jumpFactor"]').fill('1')
+    check(`${dir} 6b. a jump of 1 is refused, Save off`, (await form.locator('[data-flag-settings-problems="jumpFactor"]').count()) === 1 && (await form.locator('[data-flag-settings-save]').isDisabled()))
+    await form.locator('[data-input="jumpFactor"]').fill('8')
+    await form.locator('[data-input="noisyPct"]').fill('75')
+    await form.locator('[data-flag-settings-save]').click()
+    await page.locator('[data-flag-settings-form]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => {})
+    const put = writes.find((w) => w.door === 'saveFlagSettings')
+    check(`${dir} 6b. the exact PUT body`, JSON.stringify(put?.body) === JSON.stringify({ noisyOverrideRate: 0.75, noisyMinFires: 30, windowDays: 30, silentDays: 60, jumpFactor: 8 }), JSON.stringify(put))
+    check(
+      `${dir} 6b. the sentence reads the saved thresholds`,
+      strip(await page.locator('[data-flag-thresholds]').innerText()).startsWith('A rule is noisy when more than 75% of at least 30 fires') &&
+        strip(await page.locator('[data-flag-thresholds]').innerText()).includes('fires 8 times'),
+    )
+    check(`${dir} 6b. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

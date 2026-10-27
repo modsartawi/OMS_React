@@ -65,7 +65,10 @@
     "sent": "Guard answers saved",
     "sentDetail": "Decision {{id}}",
     "failed": "The answers were not saved",
-    "failedHint": "Something went wrong. Try again."
+    "failedHint": "Something went wrong. Try again.",
+    "apply": "Apply the suggestion",
+    "unapply": "Undo the suggestion",
+    "applied": "The line will go on changed as suggested."
   },
   "release": {
     "title": "Release the order",

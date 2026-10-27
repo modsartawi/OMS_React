@@ -59,3 +59,11 @@ lint, vitest green. Stubs: section `// --- 615 ---` in `tools/insurance-rules-st
 - Rejection row taken literally from the brief, with `code` and `words` as two nullable fields.
 - Window cap 366 days (brief names none); the Flags tab is not windowed (the flag job keeps its own).
 - No access probe; a bare 403 on any read shows "You do not have access".
+
+
+**2026-10-27 — 3126 review (P5).** The Flags tab now edits the thresholds: "Edit the thresholds" → a form (noisy rate
+as a whole percent, counts / days whole from 1, jump factor above 1, `metrics/flag-settings.ts` + its test) → `PUT
+InsuranceRules/Settings/Flags` with the whole settings (GUESS: answered with the settings as saved). Stub + drive
+step 6b. **Owner ruling needed:** 615 draws its own `metrics/DayChart.tsx` beside the OMS
+`features/oms/delivery-statistics/SeriesChart.tsx` (a feature may not import another; the OMS chart was not moved to
+core). Rule whether to lift one shared chart to core or keep both.

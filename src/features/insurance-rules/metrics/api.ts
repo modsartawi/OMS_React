@@ -1,5 +1,6 @@
 /**
- * The Metrics screen's doors (BackOffice spec 3126; door ticket 3141, oms ticket 615). All reads.
+ * The Metrics screen's doors (BackOffice spec 3126; door ticket 3141, oms ticket 615). All reads but the flag
+ * thresholds' `PUT` (review 3126 P5).
  *
  * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 615): no door here has met a real SIS.Api.
  * The brief names the data, not every field; the guessed spellings sit in `./model` and 615's ## Comments.
@@ -23,6 +24,10 @@ export const metricsApi = {
   flagSettings(): Promise<FlagSettings | null> {
     return api.get<FlagSettings | null>(`${INSURANCE_RULES_BASE}/Settings/Flags`)
   },
+  /** `PUT InsuranceRules/Settings/Flags` — sets the thresholds. GUESS: answers the settings as saved. */
+  saveFlagSettings(s: FlagSettings): Promise<FlagSettings | null> {
+    return api.put<FlagSettings | null>(`${INSURANCE_RULES_BASE}/Settings/Flags`, s)
+  },
   /** `GET InsuranceRules/Rejections?payer&from&to` — payer rejections by code (or words), payer and same kind. */
   async rejections(q: MetricsQuery): Promise<RejectionRow[]> {
     return (await api.get<RejectionRow[] | null>(`${INSURANCE_RULES_BASE}/Rejections`, metricsParams(q, true))) ?? []
@@ -40,8 +45,10 @@ export function flagsQuery() {
   return { queryKey: [...METRICS_KEY, 'flags'], queryFn: () => metricsApi.flags(), retry: false } as const
 }
 
+export const FLAG_SETTINGS_KEY = [...METRICS_KEY, 'flag-settings'] as const
+
 export function flagSettingsQuery() {
-  return { queryKey: [...METRICS_KEY, 'flag-settings'], queryFn: () => metricsApi.flagSettings(), retry: false } as const
+  return { queryKey: FLAG_SETTINGS_KEY, queryFn: () => metricsApi.flagSettings(), retry: false } as const
 }
 
 export function rejectionsQuery(q: MetricsQuery) {

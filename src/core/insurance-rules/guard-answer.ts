@@ -6,7 +6,9 @@ import type { GuardAnswer, GuardAnswerBody, GuardFired, GuardReasonCode, GuardRe
 // - WARN → ticked ("I have checked") → `ack: true`;
 // - OVERRIDE → the triad: intervention + outcome + reason (where the rule asks one) + an optional note,
 //   and only with `INS_GUARD`; without it the line, too, can only be removed or changed;
-// - a rule an HQ exception passed needs nothing.
+// - a rule an HQ exception passed needs nothing;
+// - any rule with a suggestion may instead APPLY it: a CHANGE answer `{ line, ruleId, change }` (review 3126 P2).
+//   It needs no grant and no triad: the line is changed, not overridden.
 
 /** What a fired rule asks of the user. */
 export type GuardNeed = 'refuse' | 'override' | 'warn' | 'exception'
@@ -23,6 +25,8 @@ export type GuardItemProblem =
 
 /** What the user has picked for one fired rule, before it is sent. */
 export interface GuardAnswerDraft {
+  /** The fired rule's suggestion applied to the line (a CHANGE answer). */
+  apply?: boolean
   ack?: boolean
   intervention?: string
   outcome?: string
@@ -89,7 +93,9 @@ export function guardAnswer(input: {
       const asksReason = need === 'override' && accepts.length > 0
       let problem: GuardItemProblem | null = null
 
-      if (need === 'refuse') problem = 'remove'
+      const suggestion = hasSuggestion(fired) ? fired.suggestion! : null
+      if (need !== 'exception' && suggestion && draft.apply === true) answers.push({ line: l.line, ruleId: fired.ruleId, change: { ...suggestion } })
+      else if (need === 'refuse') problem = 'remove'
       else if (need === 'warn') {
         if (draft.ack === true) answers.push({ line: l.line, ruleId: fired.ruleId, ack: true })
         else problem = 'ackMissing'
@@ -120,6 +126,10 @@ export function guardAnswer(input: {
   const ready = open === 0 && answers.length > 0
   return { items, open, ready, body: ready ? { lineHash: guards.lineHash, user, answers } : null }
 }
+
+/** Whether a fired rule carries a suggestion the pharmacist can apply. */
+export const hasSuggestion = (fired: GuardFired): boolean =>
+  !!fired.suggestion && Object.values(fired.suggestion).some((v) => v !== undefined && v !== null && String(v) !== '')
 
 /** Counts a use of a capped reason; true when this use is past its cap. */
 function overCap(reasons: GuardReasons | null, code: string, used: Record<string, number>): boolean {

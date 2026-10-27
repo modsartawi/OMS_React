@@ -219,6 +219,44 @@ for (const dir of ['ltr', 'rtl']) {
 
   check(`${dir} 8. no page errors`, errors.length === 0, errors.join(' | '))
   await context.close()
+
+  // ── 9: WHEN, history narrowing, refill days per list (review 3126 P3/P4; stories 8, 11, 16) ────────
+  {
+    const { context, page, errors, store } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/guards/new`)
+    await page.locator('[data-audience-editor]').waitFor({ timeout: 30000 })
+    check(`${dir} 9. a new rule starts on every channel`, JSON.stringify(await page.locator('[data-audience-editor] [data-channel]').evaluateAll((els) => els.filter((e) => e.checked).map((e) => e.getAttribute('data-channel')))) === JSON.stringify(['nphies', 'waseel', 'oms', 'bupa']))
+    await input(page, 'name.en').fill('Refill too soon, Bupa only')
+    await input(page, 'name.ar').fill('صرف مبكر، بوبا فقط')
+    await page.locator('[data-audience-editor] [data-channel="bupa"]').uncheck()
+    await input(page, 'stores').fill('P001, P019')
+    await page.locator('[data-exclude="patient"] [data-input="inList"]').selectOption('PL-VIP')
+    await input(page, 'window.from').fill('2026-11-01')
+    check(`${dir} 9. the excluded list shows as a chip, an ltr isolate`, (await page.locator('[data-exclude="patient"] [data-excluded="PL-VIP"] bdi[dir="ltr"]').count()) === 1)
+    await add(page, '', 'history')
+    await block(page, '0').waitFor()
+    await block(page, '0').locator('[data-narrow="payer"]').check()
+    await block(page, '0').locator('[data-narrow="store"]').check()
+    await add(page, '', 'supply')
+    await block(page, '1').waitFor()
+    await block(page, '1').locator('[data-days-for-add]').click()
+    await input(block(page, '1'), 'daysFor.0.value').fill('7')
+    const readsAs = strip(await page.locator('[data-reads-as]').innerText())
+    check(`${dir} 9. Reads as names the narrowing and the list's days`, dir === 'rtl' || (readsAs.includes('counting only dispenses with the same payer and store') && readsAs.includes('7 days for GLP-1')), readsAs)
+    await page.locator('[data-save]').click()
+    await page.waitForFunction(() => /\/guards\/G-\d+\/edit$/.test(location.pathname), null, { timeout: 15000 }).catch(() => {})
+    const saved = store.puts[0]?.rules.find((r) => r.name.en === 'Refill too soon, Bupa only')
+    check(
+      `${dir} 9. the saved WHEN: channels, stores, the excluded patient list, the window`,
+      saved && canon(saved.audience) === canon({ channels: ['nphies', 'waseel', 'oms'], stores: ['P001', 'P019'], excludePatientLists: ['PL-VIP'] }) && canon(saved.window) === canon({ from: '2026-11-01', until: null }),
+      canon({ a: saved?.audience, w: saved?.window }),
+    )
+    check(`${dir} 9. the saved history narrows to payer and store`, saved && canon(saved.when[0].narrowTo) === canon(['payer', 'store']), canon(saved?.when[0]))
+    check(`${dir} 9. the saved supply carries the list's own days`, saved && canon(saved.when[1].eligibleDaysBeforeDueFor) === canon([{ list: 'glp1', value: 7 }]), canon(saved?.when[1]))
+    check(`${dir} 9. no raw keys`, await noRawKeys(page))
+    check(`${dir} 9. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 }
 
 await browser.close()

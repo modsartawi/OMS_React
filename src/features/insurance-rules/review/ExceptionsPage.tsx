@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Plus } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
+import { guardReasonsQuery } from '@/core/insurance-rules/order-guards-api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { saysIn } from '@/core/rules/sentence'
@@ -17,7 +18,7 @@ import type { Severity } from '@/core/ui/severity'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localToday } from '@/core/util/date-window'
-import { EXCEPTIONS_KEY, reasonsQuery, reviewApi } from './api'
+import { EXCEPTIONS_KEY, reviewApi } from './api'
 import {
   EMPTY_EXCEPTION_FORM,
   EXCEPTION_SCOPE_KINDS,
@@ -29,7 +30,8 @@ import {
   type ExceptionForm,
   type ExceptionStatus,
 } from './exception'
-import { Code, DeniedCard, INPUT, ReasonText, TD, TH } from './shared'
+import { Code, ReasonText } from './shared'
+import { DeniedCard, INPUT, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Exceptions — `/insurance-rules/exceptions` (BackOffice 3135, oms ticket 614). An
@@ -66,7 +68,7 @@ function Exceptions() {
   const { t, i18n } = useTranslation('insurance-review')
   const qc = useQueryClient()
   const list = useQuery({ queryKey: EXCEPTIONS_KEY, queryFn: () => reviewApi.exceptions(), retry: false })
-  const reasons = useQuery(reasonsQuery())
+  const reasons = useQuery(guardReasonsQuery())
   const draft = useQuery(guardDraftQuery())
   const [logOf, setLogOf] = useState<string | null>(null)
   const today = localToday()
@@ -80,7 +82,7 @@ function Exceptions() {
   })
   const listName = (id: string) => draft.data?.lists.find((l) => l.id === id)?.name
 
-  if (list.isError && isBareDenial(list.error)) return <DeniedCard hook="exceptions-denied" />
+  if (list.isError && isBareDenial(list.error)) return <DeniedCard ns="insurance-review" hook="exceptions-denied" />
   if (list.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(list.error, t('exceptions.failed'))} />
   if (!list.data) {
     return (
@@ -243,7 +245,7 @@ function LogDialog({ id, onClose }: { id: string; onClose: () => void }) {
 function IssueDialog({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation('insurance-review')
   const qc = useQueryClient()
-  const reasons = useQuery(reasonsQuery())
+  const reasons = useQuery(guardReasonsQuery())
   const draft = useQuery(guardDraftQuery())
   const [form, setForm] = useState<ExceptionForm>(EMPTY_EXCEPTION_FORM)
   const [tried, setTried] = useState(false)

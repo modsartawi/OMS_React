@@ -164,7 +164,8 @@
       "fact": "Fact",
       "op": "Is",
       "codes": "Codes",
-      "formula": "Formula"
+      "formula": "Formula",
+      "narrowTo": "Only with the same"
     },
     "match": {
       "sameItem": "the same item",
@@ -215,18 +216,6 @@
       "AGE": "age edit (AGE)",
       "G": "gender edit (G)"
     },
-    "fact": {
-      "age": "Patient age",
-      "gender": "Patient gender",
-      "idType": "Patient ID type",
-      "icd": "Line diagnosis (ICD-10-AM)",
-      "payer": "Payer",
-      "policy": "Policy",
-      "class": "Policy class",
-      "channel": "Channel",
-      "store": "Store",
-      "pharmacist": "Pharmacist"
-    },
     "factScope": {
       "patient": "Patient",
       "request": "Request",
@@ -267,6 +256,32 @@
       "value": "Value",
       "maxQuantity": "Largest quantity",
       "maxDaysSupply": "Largest days supply"
+    },
+    "narrow": {
+      "payer": "payer",
+      "policy": "policy",
+      "channel": "channel",
+      "store": "store"
+    },
+    "daysFor": {
+      "days": "Days before due for the list",
+      "for": "days for",
+      "list": "The list these days are for",
+      "remove": "Remove this list value",
+      "add": "+ Days for a list"
+    },
+    "audience": {
+      "channels": "Checked on",
+      "stores": "Stores",
+      "storesHint": "Store codes, comma-separated; none = every store",
+      "allStores": "every store",
+      "excludePatients": "Leave out patients on",
+      "excludePolicies": "Leave out policies on",
+      "addExclude": "Pick a list…",
+      "removeExclude": "Put {{list}} back in the audience",
+      "from": "From",
+      "until": "Until",
+      "untilOpen": "No end"
     }
   },
   "access": {

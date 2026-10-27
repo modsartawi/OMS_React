@@ -1,5 +1,19 @@
 import { bracedFields } from '@/core/rules/sentence'
-import type { GuardCheck, GuardCondition, GuardEffect, GuardRule, GuardRuleset, Says } from './model'
+import {
+  GUARD_CHANNELS,
+  HISTORY_NARROWS,
+  type GuardAudience,
+  type GuardChannel,
+  type GuardCheck,
+  type GuardCondition,
+  type GuardEffect,
+  type GuardRule,
+  type GuardRuleset,
+  type HistoryCondition,
+  type HistoryNarrow,
+  type Says,
+  type SupplyCondition,
+} from './model'
 
 // The guard editor's pure edits (oms ticket 608; 609 templates, 611 approval, 612 simulator and 617's
 // category / coverage editors build on them, so they live in core). A condition is found by its PATH: the
@@ -295,12 +309,73 @@ export function newGuardRule(id: string, folder = ''): GuardRule {
     folder,
     state: 'draft',
     window: { from: null, until: null },
-    audience: { channels: ['nphies', 'waseel', 'oms', 'bupa'], stores: [] },
+    audience: { channels: [...GUARD_CHANNELS], stores: [] },
     filters: [],
     when: [],
     onUnknown: 'none',
     then: [{ effect: 'guard', severity: 'OVERRIDE', says: { en: '', ar: '' }, codes: { ...NO_CODES }, suggest: null }],
   }
+}
+
+// ── Audience, window, narrowing (review 3126 P3/P4; stories 8, 11, 16) ─────────────────────────────
+
+const toggled = <T,>(xs: readonly T[], x: T): T[] => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x])
+
+const audienceOf = (r: GuardRule): GuardAudience => r.audience ?? { channels: [], stores: [] }
+
+/** A history guard narrowed to (or widened from) one scope, kept in the fixed order; none left = estate-wide. */
+export function toggleNarrow(c: HistoryCondition, scope: HistoryNarrow): HistoryCondition {
+  const next = toggled(c.narrowTo ?? [], scope)
+  const { narrowTo: _n, ...rest } = c
+  void _n
+  const ordered = HISTORY_NARROWS.filter((s) => next.includes(s))
+  return ordered.length ? { ...rest, narrowTo: ordered } : rest
+}
+
+/** A list's own refill days (the SFDA 7 for controlled drugs): a new row starts at 7. */
+export function addDaysFor(c: SupplyCondition, list: string, value = 7): SupplyCondition {
+  return { ...c, eligibleDaysBeforeDueFor: [...(c.eligibleDaysBeforeDueFor ?? []), { list, value }] }
+}
+
+export function setDaysFor(c: SupplyCondition, i: number, patch: Partial<{ list: string; value: number }>): SupplyCondition {
+  return { ...c, eligibleDaysBeforeDueFor: (c.eligibleDaysBeforeDueFor ?? []).map((f, k) => (k === i ? { ...f, ...patch } : f)) }
+}
+
+export function removeDaysFor(c: SupplyCondition, i: number): SupplyCondition {
+  const left = (c.eligibleDaysBeforeDueFor ?? []).filter((_, k) => k !== i)
+  const { eligibleDaysBeforeDueFor: _f, ...rest } = c
+  void _f
+  return left.length ? { ...rest, eligibleDaysBeforeDueFor: left } : rest
+}
+
+/** A channel on or off the rule's audience, kept in the fixed channel order. */
+export function toggleChannel(r: GuardRule, ch: GuardChannel): GuardRule {
+  const a = audienceOf(r)
+  const next = toggled(a.channels, ch)
+  return { ...r, audience: { ...a, channels: GUARD_CHANNELS.filter((c) => next.includes(c)) } }
+}
+
+/** The stores a rule checks; none = every store. */
+export function setAudienceStores(r: GuardRule, stores: string[]): GuardRule {
+  return { ...r, audience: { ...audienceOf(r), stores } }
+}
+
+/** A patient or policy list left out of the rule's audience, or put back. */
+export function toggleAudienceExclude(r: GuardRule, kind: 'patient' | 'policy', id: string): GuardRule {
+  const a = audienceOf(r)
+  const field = kind === 'patient' ? 'excludePatientLists' : 'excludePolicyLists'
+  const next = toggled(a[field] ?? [], id)
+  const rest: GuardAudience = { ...a }
+  delete rest[field]
+  return { ...r, audience: next.length ? { ...rest, [field]: next } : rest }
+}
+
+/** The rule's window: an empty day is open (`null`). */
+export function setWindow(r: GuardRule, patch: { from?: string; until?: string }): GuardRule {
+  const w = { from: r.window?.from ?? null, until: r.window?.until ?? null }
+  if (patch.from !== undefined) w.from = patch.from || null
+  if (patch.until !== undefined) w.until = patch.until || null
+  return { ...r, window: w }
 }
 
 // ── Message placeholders ───────────────────────────────────────────────────────────────────

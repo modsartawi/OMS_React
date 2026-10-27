@@ -10,6 +10,7 @@ import { GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict, type GuardIssue } from '@/core/insurance-rules/checks'
 import type { CategoryRule, CoverageRule, InsuranceRule, InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorAction, type EditorHistory } from '@/core/insurance-rules/editor-history'
+import RulesetApproval from '@/core/insurance-rules/RulesetApproval'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
@@ -22,9 +23,10 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { rulesetDoors, rulesetDraftKey, rulesetDraftQuery } from './api'
 import { CategoryEffectEditor, CoverageEffectLine, CoverageEffectsEditor, GroupName } from './Effects'
-import { CONTROL, DeniedCard, Issues, Loading } from './parts'
 import RuleConditions from './RuleConditions'
 import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
+import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
+import { CONTROL, Issues } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Categories and ▸ Coverage (oms ticket 617; BackOffice 3145 / 3146). One ORDERED ruleset per
@@ -40,9 +42,9 @@ export default function RulesetPage({ kind }: { kind: InsuranceRuleKind }) {
   const { t } = useTranslation('insurance-coverage')
   const draft = useQuery(rulesetDraftQuery(kind))
   let body: ReactNode
-  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard hook="ruleset-denied" />
+  if (draft.isError && isBareDenial(draft.error)) body = <DeniedCard ns="insurance-coverage" hook="ruleset-denied" />
   else if (draft.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(draft.error, t('ruleset.failed'))} />
-  else if (!draft.data) body = <Loading />
+  else if (!draft.data) body = <Loading text={t('loading')} />
   else body = <Editor kind={kind} doc={draft.data} refetch={async () => (await draft.refetch()).data} />
   return (
     <section className="flex w-full max-w-7xl flex-col gap-4" data-ruleset-page={kind}>
@@ -134,6 +136,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
   return (
     <>
       <LeaveGuard dirty={dirty} words={{ title: t('leave.title'), body: t('leave.body'), stay: t('leave.stay'), go: t('leave.go') }} />
+      <RulesetApproval kind={kind === 'category' ? 'Categories' : 'Coverage'} doc={h.saved} dirty={dirty} draftKey={rulesetDraftKey(kind)} />
       <div className="flex flex-wrap items-center gap-2" data-toolbar="">
         <Button variant="secondary" onClick={addNew} disabled={busy} data-new-rule="">
           <Plus className="h-3.5 w-3.5" aria-hidden />

@@ -17,8 +17,8 @@ import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
 import { templatesQuery } from './api'
-import DeniedCard from './DeniedCard'
 import FillDialog from './FillDialog'
+import { DeniedCard } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Templates — `/insurance-rules/templates` (BackOffice spec 3126, door 3139, oms ticket 609).
@@ -51,7 +51,7 @@ function Gallery() {
   const [using, setUsing] = useState<GuardTemplate | null>(null)
   const lists = draft.data?.lists ?? []
 
-  if (templates.isError && isBareDenial(templates.error)) return <DeniedCard hook="templates-denied" />
+  if (templates.isError && isBareDenial(templates.error)) return <DeniedCard ns="insurance-templates" hook="templates-denied" />
   if (templates.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(templates.error, t('failed'))} />
   if (!templates.data)
     return (

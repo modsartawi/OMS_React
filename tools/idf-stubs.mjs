@@ -73,6 +73,47 @@ export function idfMastersStub(method, path, opts = {}) {
 // --- 623 --- versions and restore (door 3161).
 
 // --- 624 --- exceptions (door 3166).
+// The seed shapes of spec 3157 (SABIC skips; TCS offline, GOSI and delivery insurance skip) — server data the screen
+// shows as it comes. `writes` records every POST / PUT / DELETE with its body (DELETE's reason is `?reason=`).
+export const IDF_EXCEPTIONS = [
+  { exceptionId: 'X-1', keyKind: 'documentType', key: 'SABIC', handling: 'skip', masterId: null, reason: 'SABIC contract orders', by: 'nalharbi', at: '2026-10-10T08:30:00' },
+  { exceptionId: 'X-2', keyKind: 'subDocumentType', key: 'TCS-OFFLINE', handling: 'skip', masterId: null, reason: 'TCS offline', by: 'nalharbi', at: '2026-10-10T08:31:00' },
+  { exceptionId: 'X-3', keyKind: 'nphiesClaimType', key: 'GOSI', handling: 'skip', masterId: null, reason: 'GOSI claims', by: 'falotaibi', at: '2026-10-11T12:00:00' },
+  { exceptionId: 'X-4', keyKind: 'nphiesClaimType', key: 'DELIVERY', handling: 'master', masterId: 'M-OPS', reason: 'Delivery insurance uses the operation pharmacies', by: 'falotaibi', at: '2026-10-12T16:45:00' },
+]
+
+export function idfExceptionsStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], reads = {}, writes = [] } = opts
+  state.exceptions ??= structuredClone(IDF_EXCEPTIONS)
+  const [bare, query = ''] = path.split('?')
+  if (method === 'GET' && bare === 'IdfPriority/exceptions') {
+    reads.exceptions = (reads.exceptions ?? 0) + 1
+    if (deny.includes('exceptions')) return bare403()
+    return envelope(state.exceptions)
+  }
+  const stamp = { by: 'msartawi', at: '2026-10-27T10:00:00' }
+  if (method === 'POST' && bare === 'IdfPriority/exceptions') {
+    writes.push({ method, path: bare, body })
+    const row = { exceptionId: `X-${state.exceptions.length + 100}`, ...body, ...stamp }
+    state.exceptions.push(row)
+    return envelope(row)
+  }
+  const m = /^IdfPriority\/exceptions\/([^/]+)$/.exec(bare)
+  if (m && method === 'PUT') {
+    writes.push({ method, path: bare, body })
+    const i = state.exceptions.findIndex((e) => e.exceptionId === decodeURIComponent(m[1]))
+    state.exceptions[i] = { ...state.exceptions[i], ...body, ...stamp }
+    return envelope(state.exceptions[i])
+  }
+  if (m && method === 'DELETE') {
+    const reason = new URLSearchParams(query).get('reason')
+    writes.push({ method, path: bare, reason })
+    if (!reason) return envelope(null, { status: 400, success: false, message: 'A reason is required.', errorCode: 'REASON_REQUIRED' })
+    state.exceptions = state.exceptions.filter((e) => e.exceptionId !== decodeURIComponent(m[1]))
+    return envelope(null)
+  }
+  return null
+}
 
 // --- 625 --- lookup (door 3168).
 // `GET IdfPriority/lookup?item=&store=&payer=&documentType=`. Keyed by `item|store|payer`; an unknown item is a
@@ -151,6 +192,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 622 · upload
     // 623 · versions
     // 624 · exceptions
+    idfExceptionsStub(method, path, body, opts) ??
     // 625 · lookup
     idfLookupStub(method, path, opts) ??
     // 626 · events

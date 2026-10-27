@@ -1,0 +1,220 @@
+{
+  "loading": "Loading…",
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Insurer settings and coverage rules need the insurance grant. Ask the insurance team's administrator."
+  },
+  "payerMark": {
+    "fills": "Fills the payer's gap",
+    "fillsHint": "Used only when the insurer did not send this value.",
+    "overrides": "Overrides the payer",
+    "overridesHint": "Replaces the value the insurer sent. Shown on the invoice and recorded."
+  },
+  "unit": {
+    "days": "days",
+    "years": "years",
+    "units": "units",
+    "sar": "SAR",
+    "percent": "%",
+    "characters": "characters"
+  },
+  "group": {
+    "G1": "Generic",
+    "G2": "Brand",
+    "G3": "NonMed"
+  },
+  "category": {
+    "title": "Insurance categories",
+    "order": "The first rule that matches a line sets its category; with none, the item master's category stands. Pricing then picks the deductible group from it.",
+    "ifHint": "the line, the insurer and the patient",
+    "thenHint": "the category this sets"
+  },
+  "coverage": {
+    "title": "Coverage rules",
+    "order": "Rules run in this order, after the categories; a later rule sees what an earlier one changed.",
+    "ifHint": "the line, the policy and the insurer's answer",
+    "thenHint": "what the insurer covers"
+  },
+  "ruleset": {
+    "failed": "The rules could not be read.",
+    "saved": "Draft saved",
+    "saveFailed": "The draft could not be saved",
+    "staleTitle": "Someone saved the draft first",
+    "stale": "Reload the draft to see their changes. Your unsaved changes will be lost.",
+    "reload": "Reload the draft",
+    "new": "New rule",
+    "unsaved": "Unsaved changes",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cancel": "Cancel",
+    "save": "Save draft",
+    "saving": "Saving…",
+    "empty": "No rules yet.",
+    "unnamed": "No name yet",
+    "moveUp": "Move up (checked earlier)",
+    "moveDown": "Move down (checked later)",
+    "pick": "Pick a rule to edit it."
+  },
+  "checks": {
+    "validate": "Check the draft",
+    "again": "Changed since checked — check again",
+    "pass": "No issues",
+    "found": "Errors {{errors}}, warnings {{warnings}}",
+    "onRule": "Issues: {{n}}",
+    "failed": "The draft could not be checked"
+  },
+  "leave": {
+    "title": "Leave without saving?",
+    "body": "The draft has changes that are not saved.",
+    "settingsBody": "The insurer's settings have changes that are not saved.",
+    "stay": "Stay",
+    "go": "Leave"
+  },
+  "rule": {
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "folder": "Folder",
+    "if": "IF",
+    "then": "THEN",
+    "readsAs": "Reads as",
+    "everyLine": "Every line (no condition yet)."
+  },
+  "conditions": {
+    "top": "All of these must hold:",
+    "empty": "No condition: the rule matches every line.",
+    "add": "+ Add a condition…",
+    "tooDeep": "Group (three levels at most)",
+    "block": {
+      "fact": "A field or fact",
+      "policy": "Policy on a list",
+      "patient": "Patient on a list",
+      "group": "Group (All of / Any of)"
+    },
+    "not": "NOT",
+    "notHint": "Turn the condition around: it holds when this does not.",
+    "remove": "Remove the condition",
+    "mode": "Group mode",
+    "all": "All of",
+    "any": "Any of",
+    "fact": "Field",
+    "scope": {
+      "request": "Request",
+      "item": "Item",
+      "eligibility": "Eligibility (insurer's answer)",
+      "patient": "Patient"
+    },
+    "op": "Comparison",
+    "opName": {
+      "atLeast": "is at least",
+      "below": "is below",
+      "anyOf": "is any of",
+      "noneOf": "is none of"
+    },
+    "value": "Value",
+    "codes": "Codes",
+    "codesHint": "Codes separated by commas; end one with * to match a prefix (E11*).",
+    "pickList": "Pick a list"
+  },
+  "effect": {
+    "setCategory": "Category",
+    "none": "Sets nothing yet.",
+    "add": "+ Add a coverage value…",
+    "remove": "Remove the value",
+    "overridesPayer": "Overrides the payer",
+    "covered": "Covered",
+    "coveredYes": "covered",
+    "coveredNo": "not covered",
+    "priorApproval": "Prior approval",
+    "approvalYes": "needed",
+    "approvalNo": "not needed",
+    "deductible": "Deductible",
+    "pct": "Share",
+    "max": "At most",
+    "noCap": "no cap",
+    "priceCap": "Price cap",
+    "qtyCap": "Quantity cap",
+    "maxQuantity": "Quantity",
+    "maxDaysSupply": "Days supply",
+    "segment": "Segment"
+  },
+  "reads": {
+    "setsCategory": "Sets the category to",
+    "covered": "Covered",
+    "notCovered": "Not covered",
+    "approval": "Needs prior approval",
+    "noApproval": "No prior approval",
+    "deductible": "Deductible",
+    "capped": "at most",
+    "priceCap": "The insurer pays at most",
+    "qtyCap": "At most",
+    "segment": "Invoice segment"
+  },
+  "insurers": {
+    "title": "Insurer settings",
+    "hint": "One table per insurer. Changes are not versioned or approved; every save is logged.",
+    "pick": "Insurers",
+    "none": "No insurer yet.",
+    "failed": "The insurers could not be read."
+  },
+  "settings": {
+    "contract": "Contract",
+    "discount": "Fixed discount",
+    "receivable": "Receivable customer",
+    "memberId": "Membership id",
+    "memberIdLength": "Length",
+    "memberIdFormat": "Format (pattern)",
+    "memberIdFormatHint": "A pattern the id must match, for example ^\\d{15}$. Leave empty for any.",
+    "daysSupply": "Days of supply",
+    "daysMin": "At least",
+    "daysMax": "At most",
+    "directDispense": "Direct dispense",
+    "directDispenseAllowed": "Allowed without a prior request",
+    "defaultDayBenefit": "Day benefit when the insurer sends none",
+    "benefits": "Benefit categories",
+    "benefitsHint": "What each benefit code in the eligibility answer means to pricing.",
+    "benefitCode": "Benefit code",
+    "benefitMeaning": "Means",
+    "addBenefit": "Add a benefit code",
+    "pins": "Payer pins",
+    "pinsHint": "The payer code used per SAP document type.",
+    "documentType": "Document type",
+    "pinPayer": "Payer code",
+    "addPin": "Add a pin",
+    "removeRow": "Remove the row",
+    "cancel": "Cancel",
+    "save": "Save settings",
+    "fixFirst": "Fix the problems first",
+    "notVersioned": "Takes effect when saved.",
+    "saved": "Settings saved",
+    "saveFailed": "The settings could not be saved"
+  },
+  "meaning": {
+    "genericCopay": "Generic copay",
+    "brandCopay": "Brand copay",
+    "dayBenefit": "Day benefit"
+  },
+  "problem": {
+    "discountRange": "The discount is between 0 and 100 %.",
+    "memberIdLength": "The membership id length is a whole number above 0.",
+    "memberIdFormat": "The membership id format is not a valid pattern.",
+    "daysSupplyRange": "Days of supply start at 1, and the least is not above the most.",
+    "dayBenefitNegative": "The day benefit is not below 0.",
+    "benefitCodeMissing": "A benefit code is empty.",
+    "benefitCodeTwice": "This benefit code is already mapped.",
+    "pinDocumentTypeMissing": "A pin has no document type.",
+    "pinDocumentTypeTwice": "This document type is already pinned.",
+    "pinPayerMissing": "A pin has no payer code.",
+    "onRow": "Row {{row}}: {{problem}}"
+  },
+  "log": {
+    "title": "Change log",
+    "failed": "The log could not be read.",
+    "empty": "No changes yet.",
+    "none": "(empty)",
+    "at": "When",
+    "by": "Who",
+    "changes": "What changed",
+    "from": "from",
+    "to": "to"
+  }
+}

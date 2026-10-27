@@ -92,5 +92,17 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 617 · insurer settings, category and coverage rules (e.g. `insurers`, `categories`, `coverage`)
+    {
+      path: 'insurers',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/coverage/InsurersPage')).default }),
+    },
+    {
+      path: 'categories',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/coverage/CategoriesPage')).default }),
+    },
+    {
+      path: 'coverage',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/coverage/CoveragePage')).default }),
+    },
   ],
 }

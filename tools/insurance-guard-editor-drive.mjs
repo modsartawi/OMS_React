@@ -24,7 +24,7 @@
 //   1. run the app:  npx vite --port 5201 --strictPort
 //   2. node tools/insurance-guard-editor-drive.mjs        (DRIVE_PORT overrides 5201)
 import { createRequire } from 'node:module'
-import { RULES, envelope, guardEditorStub, insuranceRulesStub, newGuardStore } from './insurance-rules-stubs.mjs'
+import { RULES, envelope, guardEditorStub, insuranceListsStub, insuranceRulesStub, newGuardStore, newListsState } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -45,6 +45,8 @@ async function open(dir) {
   const errors = []
   const reads = {}
   const store = newGuardStore()
+  // 617: the palette reads the Fields registry and the patient / policy lists (610's doors).
+  const registry = newListsState()
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -61,7 +63,10 @@ async function open(dir) {
     } catch {
       body = null
     }
-    const hit = guardEditorStub(req.method(), p, body, { store, reads }) ?? insuranceRulesStub(req.method(), p, body, { reads })
+    const hit =
+      guardEditorStub(req.method(), p, body, { store, reads }) ??
+      insuranceListsStub(req.method(), p, body, { state: registry, query: new URL(req.url()).searchParams }) ??
+      insuranceRulesStub(req.method(), p, body, { reads })
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
@@ -131,9 +136,9 @@ for (const dir of ['ltr', 'rtl']) {
   await page.locator('[data-not-toggle="0.2"]').click()
   check(`${dir} 2. a nested NOT Any of, level 2`, (await group(page, '0.2').getAttribute('data-mode')) === 'any' && (await group(page, '0.2').getAttribute('data-not')) === 'true' && (await group(page, '0.2').getAttribute('data-level')) === '2')
   await add(page, '0.2', 'patient')
-  await input(block(page, '0.2.0'), 'inList').fill('PL-VIP')
+  await input(block(page, '0.2.0'), 'inList').selectOption('PL-VIP')
   await add(page, '0.2', 'policy')
-  await input(block(page, '0.2.1'), 'inList').fill('PO-EXT')
+  await input(block(page, '0.2.1'), 'inList').selectOption('PO-EXT')
 
   // ── 3: a 4th level ──────────────────────────────────────────────────────────────────────────
   await add(page, '0.2', 'group')

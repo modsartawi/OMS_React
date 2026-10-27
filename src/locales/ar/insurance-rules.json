@@ -10,7 +10,10 @@
     "editions": "الإصدارات",
     "metrics": "المؤشرات",
     "templates": "القوالب",
-    "simulator": "المحاكي"
+    "simulator": "المحاكي",
+    "insurers": "شركات التأمين",
+    "categories": "الفئات",
+    "coverage": "التغطية"
   },
   "state": {
     "draft": "مسودة",
@@ -197,7 +200,8 @@
         "years": "سنة",
         "days": "يوم",
         "units": "وحدة",
-        "sar": "ريال"
+        "sar": "ريال",
+        "percent": "%"
       }
     },
     "formula": "تتحقق المعادلة <formula>{{formula}}</formula>"

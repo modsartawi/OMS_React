@@ -239,6 +239,12 @@
       "store": "الفرع",
       "pharmacist": "الصيدلي"
     },
+    "factScope": {
+      "patient": "المريض",
+      "request": "الطلب",
+      "eligibility": "الأهلية (رد شركة التأمين)",
+      "item": "الصنف"
+    },
     "factOp": {
       "atLeast": "لا يقل عن",
       "below": "أقل من",

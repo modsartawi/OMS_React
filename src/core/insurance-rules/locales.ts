@@ -48,7 +48,9 @@ import insuranceMetricsAr from '@/locales/ar/insurance-metrics.json'
 import insuranceOrderGuardsEn from '@/locales/en/insurance-order-guards.json'
 import insuranceOrderGuardsAr from '@/locales/ar/insurance-order-guards.json'
 
-// 617 · imports
+// 617 · imports — insurer settings, category and coverage rules (`features/insurance-rules/coverage`)
+import insuranceCoverageEn from '@/locales/en/insurance-coverage.json'
+import insuranceCoverageAr from '@/locales/ar/insurance-coverage.json'
 
 export const INSURANCE_RULES_NS = [
   'insurance-rules',
@@ -80,6 +82,7 @@ export const INSURANCE_RULES_NS = [
   'insurance-order-guards',
 
   // 617 · ns
+  'insurance-coverage',
 ]
 
 export const INSURANCE_RULES_EN = {
@@ -112,6 +115,7 @@ export const INSURANCE_RULES_EN = {
   'insurance-order-guards': insuranceOrderGuardsEn,
 
   // 617 · en
+  'insurance-coverage': insuranceCoverageEn,
 }
 
 export const INSURANCE_RULES_AR = {
@@ -144,4 +148,5 @@ export const INSURANCE_RULES_AR = {
   'insurance-order-guards': insuranceOrderGuardsAr,
 
   // 617 · ar
+  'insurance-coverage': insuranceCoverageAr,
 }

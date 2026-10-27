@@ -52,6 +52,14 @@ describe('the Insurance rules nav group', () => {
     expect(markedLeaf(MENU, '/insurance-rules/simulator')?.labelKey).toBe('insurance-rules:menu.simulator')
   })
 
+  it('617 ships Insurers, Categories and Coverage', () => {
+    const links = leaves([group!]).map((l) => l.routerLink)
+    for (const leaf of ['insurers', 'categories', 'coverage']) {
+      expect(links).toContain(`/insurance-rules/${leaf}`)
+      expect(markedLeaf(MENU, `/insurance-rules/${leaf}`)?.labelKey).toBe(`insurance-rules:menu.${leaf}`)
+    }
+  })
+
   it('🚩 no leaf carries a probe until 618 — the group shows for every user', () => {
     for (const leaf of leaves([group!])) expect(leaf.access).toBeUndefined()
     expect(group!.access).toBeUndefined()

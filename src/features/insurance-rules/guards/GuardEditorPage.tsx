@@ -13,6 +13,7 @@ import { editGuard, newGuardRule, nextGuardId } from '@/core/insurance-rules/gua
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { guardEditPath, guardRulePath, guardsPath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
+import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -283,7 +284,9 @@ function Editor({
 /** The rule on screen, read as sentences (the rule page's words). */
 function ReadsAs({ rule, doc }: { rule: GuardRule; doc: GuardRuleset }) {
   const { t } = useTranslation('insurance-guards')
-  const s = guardSentence(rule, doc.lists)
+  // 617: a fact reads by its registry label (610's Fields).
+  const fields = useQuery(fieldsQuery()).data
+  const s = guardSentence(rule, doc.lists, fields)
   return (
     <section className="rounded-lg border border-border/60 bg-card p-3 text-sm" data-reads-as="">
       <h2 className="mb-2 text-xs font-semibold text-muted-foreground">{t('editor.readsAs')}</h2>

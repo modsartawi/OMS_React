@@ -91,3 +91,9 @@ drive still 86/86. Typecheck, lint and vitest green.
 (`CodeInput`) and its `FACTS` / `LINE_FIELDS` are local constants; once 610 is in, the patient / policy pickers and
 the fact list should read the registry instead (whoever merges 610 after 608, or 617 / 618).
 
+**2026-10-27 — the 610 follow-up is done in 617** (`impl/3126-617`): the palette's facts, the line block's numbers and
+"after" day, and the patient / policy list pickers now read 610's registry (`core/insurance-rules/registry-facts.ts`,
+`fieldsQuery`, `keyedListsQuery`); `FACTS` / `LINE_FIELDS` / `factOf` are removed from `guard-edit.ts`;
+`guardSentence` takes the registry fields as an optional third argument. This drive serves 610's stubs and picks the
+lists from a select (88/88). Detail on ticket 617.
+

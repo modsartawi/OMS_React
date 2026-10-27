@@ -10,7 +10,10 @@
     "editions": "Editions",
     "metrics": "Metrics",
     "templates": "Templates",
-    "simulator": "Simulator"
+    "simulator": "Simulator",
+    "insurers": "Insurers",
+    "categories": "Categories",
+    "coverage": "Coverage"
   },
   "state": {
     "draft": "Draft",
@@ -173,7 +176,8 @@
         "years": "years",
         "days": "days",
         "units": "units",
-        "sar": "SAR"
+        "sar": "SAR",
+        "percent": "%"
       }
     },
     "formula": "the formula <formula>{{formula}}</formula> holds"

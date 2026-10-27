@@ -10,7 +10,8 @@ import {
   type GuardSeverity,
   type Says,
 } from './model'
-import { factOf } from './guard-edit'
+import type { RegistryField } from './registry'
+import { fieldOfPath, unitKey } from './registry-facts'
 
 // A guard rule read as sentences (ticket 607): WHEN (channels, stores, window), IF (the conditions, a
 // tree for All of / Any of, NOT on any node), THEN (what each severity does, its codes, its suggestion,
@@ -24,6 +25,8 @@ import { factOf } from './guard-edit'
 export interface GuardSentenceContext {
   rule: Pick<GuardRule, 'filters'>
   lists: readonly GuardList[]
+  /** The Fields registry (610), so a fact reads by its label; without it a fact reads as its `$`-path (617). */
+  fields?: readonly RegistryField[]
 }
 
 /** One node of the IF tree: the sentence (NOT already folded in), its clauses, and a group's children. */
@@ -148,10 +151,14 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
     case 'policy':
       return { sentence: S('policy.inList', { list: code(c.inList) }), clauses }
     case 'fact': {
-      const def = factOf(c.path)
-      const fact = def ? phrase(`fact.name.${def.id}`) : code(c.path)
+      const field = fieldOfPath(ctx.fields ?? [], c.path)
+      const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.path)
+      const unit = unitKey(field?.unit)
       if (c.op === 'atLeast' || c.op === 'below')
-        return { sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)), unit: phrase(`fact.unit.${def?.unit ?? 'units'}`) }), clauses }
+        return {
+          sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)), unit: unit ? phrase(`fact.unit.${unit}`) : field?.unit ? code(field.unit) : phrase('fact.unit.units') }),
+          clauses,
+        }
       const codes = Array.isArray(c.value) ? c.value : [String(c.value)]
       return { sentence: S(`fact.${c.op}`, { fact, codes: { kind: 'list', join: 'or', items: codes.map(code) } }), clauses }
     }
@@ -197,8 +204,8 @@ function effectSentence(e: GuardEffect): EffectSentence {
 }
 
 /** A whole guard rule read as sentences; its effects heaviest first (the most severe decides the line). */
-export function guardSentence(rule: GuardRule, lists: readonly GuardList[]): GuardSentences {
-  const ctx: GuardSentenceContext = { rule, lists }
+export function guardSentence(rule: GuardRule, lists: readonly GuardList[], fields?: readonly RegistryField[]): GuardSentences {
+  const ctx: GuardSentenceContext = { rule, lists, fields }
   const then = rule.then
     .map((e, i) => ({ e, i }))
     .sort((a, b) => severityRank(a.e.severity) - severityRank(b.e.severity) || a.i - b.i)

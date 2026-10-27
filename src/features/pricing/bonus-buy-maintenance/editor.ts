@@ -444,6 +444,25 @@ export function readEditorOutcome(o: BbyMaintainOutcome): EditorOutcome {
   return { kind: 'saved', number, refusals: [], warnings }
 }
 
+/**
+ * The codes of BackOffice 3179's two loyalty-group findings: a code that is not a defined group
+ * (refused) and a defined but inactive one (warned; the save goes through).
+ * ⚠ Guessed in the catalogue's `BBY-<FIELD>-<WHAT>` shape: 3179 names no code. Confirm against
+ * `BbyMaintainRefusals` once it ships.
+ */
+export const LOY_GROUP_FINDING_CODES: ReadonlySet<string> = new Set(['BBY-LOY-GROUP-UNKNOWN', 'BBY-LOY-GROUP-INACTIVE'])
+
+/** The Loyalty groups field's own findings from a Check or Save, listed under the field (636). */
+export interface LoyGroupFindings {
+  refusals: BbyRefusal[]
+  warnings: BbyRefusal[]
+}
+
+export function loyGroupFindings(o: EditorOutcome): LoyGroupFindings {
+  const mine = (r: BbyRefusal) => LOY_GROUP_FINDING_CODES.has(r.code)
+  return { refusals: o.refusals.filter(mine), warnings: o.warnings.filter(mine) }
+}
+
 // ── who may type ──────────────────────────────────────────────────────────────────────
 
 export interface EditorAccess {

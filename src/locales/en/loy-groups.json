@@ -33,5 +33,10 @@
   },
   "bonusBuys": {
     "none": "None"
+  },
+  "picker": {
+    "inactive": "Inactive",
+    "unknown": "Not a defined group",
+    "noneChosen": "No loyalty groups"
   }
 }

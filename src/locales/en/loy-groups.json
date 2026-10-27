@@ -80,5 +80,10 @@
     "failed": "The mobile could not be looked up.",
     "none": "{{mobile}} is in no group.",
     "found": "Groups {{mobile}} is in, active and inactive:"
+  },
+  "picker": {
+    "inactive": "Inactive",
+    "unknown": "Not a defined group",
+    "noneChosen": "No loyalty groups"
   }
 }

@@ -37,7 +37,9 @@ import {
   timeToWire,
   toRequest,
   upsertGrouping,
+  loyGroupFindings,
 } from './editor'
+import { writeLoyGroupSelection } from '@/core/loy-groups/selection'
 
 const PROMO = { promoNumber: 'P000000001', salesFrom: '2026-10-05T00:00:00', salesTo: '2026-10-31T00:00:00' }
 
@@ -698,5 +700,29 @@ describe('pasting materials', () => {
 
   it('joins a grouping paste after the typed materials with one blank row to keep typing', () => {
     expect(pasteGroupingMaterials(['100', '', ' '], '100\n200')).toEqual(['100', '200', ''])
+  })
+})
+
+// Ticket 636 (BackOffice 3179): the Loyalty groups field is a picker of defined groups. Its value is
+// still the one comma string the wire carries, and the save's group findings are listed on the field.
+describe('loyalty groups picked from the defined groups', () => {
+  it('editor save body carries the picked groups as one comma string', () => {
+    const opened = fromDocument(doc({ bonusBuy: { ...WIRE, engineRules: { ...WIRE.engineRules!, loyGroups: 'GOLD,STAFF_X' } } }))
+    // What the picker hands back after SILVER is ticked: the unknown STAFF_X kept (D2), order kept.
+    const picked = { ...opened, engine: { ...opened.engine, loyGroups: writeLoyGroupSelection(['GOLD', 'STAFF_X', 'SILVER']) } }
+    expect(toRequest(picked).engineRules.loyGroups).toBe('GOLD,STAFF_X,SILVER')
+    // Every group taken off is no restriction, as a blank box was.
+    expect(toRequest({ ...opened, engine: { ...opened.engine, loyGroups: writeLoyGroupSelection([]) } }).engineRules.loyGroups).toBeNull()
+  })
+
+  it('the unknown-group refusal and the inactive-group warning are the field findings; others are not', () => {
+    const unknown = { code: 'BBY-LOY-GROUP-UNKNOWN', english: 'Loyalty groups: STAFF_X is not a defined group.', arabic: 'مجموعات الولاء' }
+    const inactive = { code: 'BBY-LOY-GROUP-INACTIVE', english: 'Loyalty groups: OLD_PROMO is inactive.', arabic: 'غير نشطة' }
+    const other = { code: 'BBY-BUY-EMPTY', english: 'Buy is empty.', arabic: 'فارغ' }
+    const refused = readEditorOutcome({ status: 'refused', number: null, refusals: [other, unknown], warnings: [inactive] })
+    expect(loyGroupFindings(refused)).toEqual({ refusals: [unknown], warnings: [inactive] })
+    const saved = readEditorOutcome({ status: 'saved', number: 'OMS000000124', refusals: [], warnings: [inactive] })
+    expect(loyGroupFindings(saved)).toEqual({ refusals: [], warnings: [inactive] })
+    expect(loyGroupFindings(readEditorOutcome({ status: 'valid', number: null, refusals: [], warnings: [] }))).toEqual({ refusals: [], warnings: [] })
   })
 })

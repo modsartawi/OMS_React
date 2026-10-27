@@ -50,6 +50,8 @@ import {
   fillCouponMaterial,
   formChanged,
   fromDocument,
+  loyGroupFindings,
+  type LoyGroupFindings,
   newEditor,
   orgCurrency,
   readEditorOutcome,
@@ -206,6 +208,8 @@ function EditorBody({
   const [busy, setBusy] = useState(false)
   const [groupingOpen, setGroupingOpen] = useState(false)
   const [markOpen, setMarkOpen] = useState(false)
+  // The last Check or Save's loyalty-group findings, listed under that field (636).
+  const [loyFindings, setLoyFindings] = useState<LoyGroupFindings>({ refusals: [], warnings: [] })
   // The Buy line New coupon material was pressed on, while its prompt is open.
   const [couponLineKey, setCouponLineKey] = useState<string | null>(null)
   // The ONE access answer the screen gate already read (same key): the tester grant rides on it.
@@ -232,6 +236,7 @@ function EditorBody({
 
   /** Check and Save answer alike: every refusal and warning, each with its code and both languages. */
   function show(kind: 'check' | 'save', outcome: ReturnType<typeof readEditorOutcome>): Report {
+    setLoyFindings(loyGroupFindings(outcome))
     const rows = [
       ...(outcome.refusals.length ? [{ refusals: outcome.refusals }] : []),
       ...(outcome.warnings.length ? [{ outcome: t('editor.warnings'), refusals: outcome.warnings }] : []),
@@ -497,7 +502,9 @@ function EditorBody({
               couponMaterial={couponMaterial}
             />
           )}
-          {tab === 'engine' && <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} />}
+          {tab === 'engine' && (
+            <EngineRulesTab engine={state.engine} onChange={(engine) => update({ engine })} loyFindings={loyFindings} />
+          )}
           {tab === 'promotion' && <PromotionTab promo={promo} />}
           {tab === 'history' && <HistoryTab doc={doc} />}
         </fieldset>

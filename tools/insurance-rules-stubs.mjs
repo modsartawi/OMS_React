@@ -402,3 +402,142 @@ export function insuranceMetricsStub(method, path, query, opts = {}) {
   const payer = query.get('payer')
   return envelope(payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS)
 }
+
+// --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134). Order-door
+// spelling is a GUESS fitted to the existing OMS doors: `SdDocumentWeb/Document/{no}/Guards/Recheck|Release`
+// (the brief writes `Oms/Orders/{id}/Guards/…`); 618 reconciles.
+
+const reasonCode = (code, en, ar, active = true) => ({ code, en, ar, active })
+
+/** `GET Guards/Reasons` — the seeded NCPDP codes; G-002 asks a reason, `04` is capped at one use. */
+export const ORDER_GUARD_REASONS = {
+  intervention: [
+    reasonCode('M0', 'Prescriber consulted', 'تمت استشارة الطبيب'),
+    reasonCode('P0', 'Patient consulted', 'تمت استشارة المريض'),
+    reasonCode('R0', 'Pharmacist consulted other source', 'استشار الصيدلي مصدراً آخر'),
+    reasonCode('MR', 'Medication review', 'مراجعة الدواء', false),
+  ],
+  outcome: [
+    reasonCode('1A', 'Filled as is, false positive', 'صُرف كما هو، إنذار خاطئ'),
+    reasonCode('1B', 'Filled prescription as is', 'صُرفت الوصفة كما هي'),
+    reasonCode('1C', 'Filled with different dose', 'صُرف بجرعة مختلفة'),
+    reasonCode('2A', 'Prescription not filled', 'لم تُصرف الوصفة'),
+  ],
+  reason: [
+    reasonCode('03', 'Vacation supply', 'كمية للسفر'),
+    reasonCode('04', 'Lost prescription', 'وصفة مفقودة'),
+    reasonCode('05', 'Therapy change', 'تغيير العلاج'),
+    reasonCode('07', 'Medically necessary', 'ضرورة طبية'),
+    reasonCode('13', 'Payer-recognized emergency', 'حالة طارئة معترف بها'),
+  ],
+  accepts: { 'G-002': ['03', '04', '05', '07'] },
+  caps: { '04': 1 },
+}
+
+const guardFired = (ruleId, severity, en, ar, over = {}) => ({
+  ruleId,
+  version: 3,
+  severity,
+  en,
+  ar,
+  codes: { conflict: 'ER', nphies: 'MN-1-1' },
+  suggestion: null,
+  exceptionId: null,
+  ...over,
+})
+
+const LINE_20 = {
+  line: 20,
+  outcome: 'override',
+  fired: [
+    guardFired('G-002', 'OVERRIDE', '6 units in 28 days; the limit is 5', '6 وحدة خلال 28 يوماً؛ الحد 5', { suggestion: { maxQuantity: '4' } }),
+    guardFired('G-003', 'WARN', 'Patient already has Rosuvastatin in the same class', 'لدى المريض روسوفاستاتين من نفس الفئة العلاجية', { codes: { conflict: 'TD', nphies: 'MN-1-2' } }),
+  ],
+  unknowns: [],
+}
+const LINE_30 = {
+  line: 30,
+  outcome: 'override',
+  fired: [
+    guardFired('G-005', 'OVERRIDE', 'Supply runs to 2026-12-30; the policy ends 2026-11-30', 'تمتد الكمية حتى 2026-12-30؛ وتنتهي الوثيقة في 2026-11-30', {
+      suggestion: { maxDaysSupply: '34' },
+    }),
+  ],
+  unknowns: [],
+}
+const LINE_40 = {
+  line: 40,
+  outcome: 'exception',
+  fired: [guardFired('G-004', 'REFUSE', 'Not covered for this diagnosis', 'غير مغطى لهذا التشخيص', { exceptionId: 'EX-41' })],
+  unknowns: [],
+}
+const LINE_50 = { line: 50, outcome: 'pass', fired: [], unknowns: [] }
+
+/** Order detail's `guards` before the order changed: line 10 is REFUSED (180 days in one request). */
+export const ORDER_GUARDS_HELD = {
+  checkId: 'CHK-7001',
+  lineHash: 'h-7001-a',
+  lines: [
+    {
+      line: 10,
+      outcome: 'refuse',
+      fired: [guardFired('G-001', 'REFUSE', '180 days in one request; the maximum is 90', '180 يوماً في طلب واحد؛ الحد الأقصى 90', { codes: { conflict: 'MX', nphies: 'CV-4-2' } })],
+      unknowns: ['daysSupply'],
+    },
+    LINE_20,
+    LINE_30,
+    LINE_40,
+    LINE_50,
+  ],
+}
+
+/** …and after line 10 was changed and the check run again: no refusal, a new check and line hash. */
+export const ORDER_GUARDS_RECHECKED = {
+  checkId: 'CHK-7002',
+  lineHash: 'h-7002-a',
+  lines: [{ line: 10, outcome: 'pass', fired: [], unknowns: [] }, LINE_20, LINE_30, LINE_40, LINE_50],
+}
+
+/** The order lines the guards name (`SdDocumentLineModel` fields the dialog reads). */
+export const ORDER_GUARD_LINES = [
+  [10, '100245', 'Metformin 500mg 60s'],
+  [20, '102200', 'Atorvastatin 20mg 30s'],
+  [30, '108800', 'Ozempic 1mg pen'],
+  [40, '109900', 'Vitamin D3 50000 IU 4s'],
+  [50, '238202', 'Nivea Day Cream 50ml'],
+].map(([lineNumber, itemNumber, itemDescription]) => ({ lineNumber, itemNumber, itemDescription }))
+
+/**
+ * 616's doors. `order` is the order's mutable guard state `{ guardState, guards }` — Recheck moves it to
+ * `ORDER_GUARDS_RECHECKED`, an accepted Answer and a Release move it to `none`. `writes` collects every POST.
+ * `opts.answerRefusal` answers the next Answer with that refusal once (`{ status, message, errorCode }`).
+ */
+export function orderGuardsStub(method, path, body, order, opts = {}) {
+  const { writes = [] } = opts
+  if (method === 'GET' && path === 'Guards/Reasons') return envelope(ORDER_GUARD_REASONS)
+  const answer = method === 'POST' && path.match(/^Guards\/([^/]+)\/Answer$/)
+  if (answer) {
+    writes.push({ door: 'answer', checkId: decodeURIComponent(answer[1]), body })
+    if (opts.answerRefusal) {
+      const r = opts.answerRefusal
+      opts.answerRefusal = null
+      return envelope(null, { status: r.status ?? 400, success: false, message: r.message, errorCode: r.errorCode })
+    }
+    if (body?.lineHash !== order.guards?.lineHash)
+      return envelope(null, { status: 409, success: false, message: 'The order lines changed since the check.', errorCode: 'GUARD-LINES-CHANGED' })
+    order.guardState = 'none'
+    return envelope({ decisionId: 'DEC-9001' })
+  }
+  const door = method === 'POST' && path.match(/^SdDocumentWeb\/Document\/([^/]+)\/Guards\/(Recheck|Release)$/)
+  if (door) {
+    writes.push({ door: door[2].toLowerCase(), documentNo: decodeURIComponent(door[1]), body })
+    if (door[2] === 'Recheck') {
+      order.guards = ORDER_GUARDS_RECHECKED
+      order.guardState = 'actionNeeded'
+      return envelope(ORDER_GUARDS_RECHECKED)
+    }
+    order.guardState = 'none'
+    return envelope({ released: true })
+  }
+  return null
+}

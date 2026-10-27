@@ -1,3 +1,5 @@
+import type { OrderGuards, OrderGuardState } from '@/core/insurance-rules/guard-check'
+
 /**
  * Screen 2 — Document Details models.
  *
@@ -296,6 +298,13 @@ export interface SdDocumentHeaderModel {
    * the tab fails closed. Nothing on the client stands in for it.
    */
   attachmentCategory?: string
+  /**
+   * The insured order's guard check (BackOffice 3142/3143, client ticket 616): where it stands, and the
+   * last check's lines. Optional: an order with no guard check, or an older SIS.Api, omits both.
+   * GUESS: the brief gives `guardState` to list and find-by-id rows only; the detail is read to carry it too.
+   */
+  guardState?: OrderGuardState
+  guards?: OrderGuards | null
 }
 
 /** An audit-log entry — the Log tab. */

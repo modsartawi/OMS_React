@@ -1,0 +1,88 @@
+{
+  "state": {
+    "none": "",
+    "actionNeeded": "Guard check: action needed",
+    "pending": "Guard check pending",
+    "unchecked": "Guard check: not checked"
+  },
+  "column": {
+    "header": "Guard check"
+  },
+  "panel": {
+    "title": "Insurance guard check",
+    "hint": {
+      "actionNeeded": "The order waits until every line below is answered, removed or changed.",
+      "pending": "The order waits for its guard check.",
+      "unchecked": "This insured order has not been checked against the guards."
+    },
+    "lines_one": "{{count}} line needs an answer",
+    "lines_other": "{{count}} lines need an answer",
+    "answer": "Answer the guards",
+    "recheck": "Check again",
+    "rechecking": "Checking…",
+    "recheckDone": "Guard check run again",
+    "recheckFailed": "Could not run the guard check again",
+    "release": "Release the order"
+  },
+  "guard": {
+    "title": "Answer the guards",
+    "intro": "Each line shows the rules that fired on it. Answer every rule, then send the answers.",
+    "line": "Line {{line}}",
+    "passed": "No rule fired",
+    "exception": "Passed by HQ exception <x>{{id}}</x>",
+    "conflict": "Conflict code",
+    "nphies": "Nphies code",
+    "unknowns": "Not known to the check:",
+    "suggestion": {
+      "maxQuantity": "Suggested: at most <n>{{value}}</n> units",
+      "maxDaysSupply": "Suggested: at most <n>{{value}}</n> days' supply"
+    },
+    "refuse": "Remove or change this line on the order, then check again.",
+    "noGrant": "Only a user with the guard override grant can override this. Remove or change this line on the order.",
+    "ack": "I have checked, continue",
+    "intervention": "Intervention",
+    "outcome": "Outcome",
+    "reason": "Reason",
+    "note": "Note (optional)",
+    "choose": "Choose…",
+    "usedUp": "{{label}} (used up)",
+    "problem": {
+      "interventionMissing": "Choose an intervention.",
+      "outcomeMissing": "Choose an outcome.",
+      "reasonMissing": "Choose a reason.",
+      "reasonCapped": "This reason is used up. Choose another.",
+      "ackMissing": "Tick to confirm you have checked."
+    },
+    "open_one": "{{count}} answer still needed",
+    "open_other": "{{count}} answers still needed",
+    "blockedRefuse": "A refused line must be removed or changed on the order before the answers are sent.",
+    "nothing": "Nothing to answer.",
+    "ready": "Every rule is answered.",
+    "reasonsFailed": "Could not read the reason codes",
+    "cancel": "Close",
+    "send": "Send answers",
+    "sending": "Sending…",
+    "sent": "Guard answers saved",
+    "sentDetail": "Decision {{id}}",
+    "failed": "The answers were not saved",
+    "failedHint": "Something went wrong. Try again."
+  },
+  "release": {
+    "title": "Release the order",
+    "note": "Order <d>{{order}}</d> goes on without its guard check. The reason is saved with the order and appears in the insurance team's review.",
+    "confirm": "Release",
+    "done": "Order released",
+    "doneDetail": "{{order}} goes on without its guard check."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "Not done",
+    "failedHint": "Something went wrong. Try again."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. Up to 200 characters.",
+    "tooLong": "The reason is longer than {{max}} characters."
+  }
+}

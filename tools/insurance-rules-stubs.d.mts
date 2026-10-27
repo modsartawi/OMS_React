@@ -48,3 +48,17 @@ export declare function insuranceMetricsStub(
   query: URLSearchParams,
   opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[] },
 ): FulfillArg | null
+
+// --- 616 ---
+import type { GuardReasons, OrderGuards, OrderGuardState } from '../src/core/insurance-rules/guard-check'
+export declare const ORDER_GUARD_REASONS: GuardReasons
+export declare const ORDER_GUARDS_HELD: OrderGuards
+export declare const ORDER_GUARDS_RECHECKED: OrderGuards
+export declare const ORDER_GUARD_LINES: Array<{ lineNumber: number; itemNumber: string; itemDescription: string }>
+export declare function orderGuardsStub(
+  method: string,
+  path: string,
+  body: unknown,
+  order: { guardState: OrderGuardState; guards: OrderGuards | null },
+  opts?: { writes?: unknown[]; answerRefusal?: { status?: number; message: string; errorCode?: string } | null },
+): FulfillArg | null

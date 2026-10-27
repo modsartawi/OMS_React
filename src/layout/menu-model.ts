@@ -113,6 +113,7 @@ import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/a
 // The document-type configuration's probe stays with its feature (BackOffice ticket 3149): its only consumer.
 import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
 import { FileCog } from 'lucide-react'
+import { Workflow } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
@@ -552,6 +553,20 @@ export const MENU: ShellMenuItem[] = [
           key: DATA_SYNC_ACCESS_KEY,
           run: () => dataSyncApi.access(),
           visible: canOpenDataSync,
+        }),
+      },
+      {
+        // Action types (BackOffice spec 3148, ticket 3155) — per document category, read on the existing OMS access:
+        // the SAME probe key, call and View predicate as Document types (editing is the probe's second flag). Placed
+        // BEFORE Config changes so 3152's and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.actionTypes',
+        icon: Workflow,
+        routerLink: '/admin/action-types',
+        activePrefix: '/admin/action-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
         }),
       },
       {

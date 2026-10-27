@@ -57,6 +57,12 @@ export interface LoyGroupRenameRequest {
   nameAr: string
 }
 
+/** `POST LoyGroupWeb/Groups/SetActive` (oms ticket 631). There is no delete door. */
+export interface LoyGroupSetActiveRequest {
+  groupId: string
+  isActive: boolean
+}
+
 /** One row of `GET LoyGroupWeb/Mobile/{mobile}/Groups` (BackOffice 3176): every group the mobile is in. */
 export interface LoyMobileGroup {
   groupId: string

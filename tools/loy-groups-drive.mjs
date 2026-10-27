@@ -397,11 +397,120 @@ async function drive630(dir) {
   await viewer.context.close()
 }
 
+// ── 631: deactivate / reactivate (door `POST Groups/SetActive`, BackOffice 3174; `liveBonusBuys` 3179 —
+// stubbed non-empty). Deactivate opens a confirm naming every live bonus-buy (promo number + description),
+// or the "stops no live offer" sentence when none; Cancel sends nothing; confirm sends `{ groupId, isActive }`
+// only and flips the badge and the list; Reactivate flips it back with no list; no delete control exists;
+// view-only shows neither button.
+//
+// Its handler is put FIRST (`unshift`) and answers only while `g631.groups` is filled, so the 630 stub of
+// `Groups/{id}` cannot shadow the state this section flips.
+
+const g631 = { groups: new Map(), sent: [] }
+ROUTES.unshift((route, url, p) => {
+  if (g631.groups.size === 0) return undefined
+  if (p === 'LoyGroupWeb/Groups/SetActive') {
+    const b = JSON.parse(route.request().postData() || '{}')
+    g631.sent.push(b)
+    const was = g631.groups.get(b.groupId)
+    g631.groups.set(b.groupId, { ...was, isActive: b.isActive, updatedBy: 'marketing01', updatedAt: `2026-10-27T11:0${g631.sent.length}:00` })
+    return route.fulfill(envelope(null))
+  }
+  if (p === 'LoyGroupWeb/Groups') {
+    const all = [...g631.groups.values()]
+    return route.fulfill(envelope(url.searchParams.get('includeInactive') === 'true' ? all : all.filter((g) => g.isActive)))
+  }
+  const one = /^LoyGroupWeb\/Groups\/([^/]+)$/.exec(p)
+  if (one && g631.groups.has(one[1])) return route.fulfill(envelope(g631.groups.get(one[1])))
+  return undefined
+})
+
+async function drive631(dir) {
+  const stamp = { createdBy: 'marketing01', createdAt: '2026-10-20T08:15:00', updatedBy: null, updatedAt: null }
+  g631.groups = new Map([
+    ['g-1', { ...VIP, ...stamp }],
+    ['g-2', { ...STAFF, ...stamp }],
+    ['g-3', { ...OLD, ...stamp }],
+  ])
+  g631.sent = []
+
+  // ── A maintain grant ──
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  const badge = (id) => page.locator(`[data-loy-group="${id}"] [data-loy-group-active]`)
+  const dialog = page.locator('dialog[open]')
+  await page.goto(`${BASE}/loy/groups/g-1`)
+  await badge('g-1').waitFor({ timeout: 10000 })
+  check(`${dir} activate: an active group shows Active and a Deactivate button`, (await badge('g-1').getAttribute('data-loy-group-active')) === 'true' && (await page.locator('[data-loy-group-deactivate]').count()) === 1)
+  const deleteControls = await page.locator('button, a, [role="menuitem"]').evaluateAll((els) => els.filter((e) => /delete|remove group|حذف/i.test(e.textContent || '') || e.matches('[data-loy-group-delete]')).length)
+  check(`${dir} activate: no delete control exists`, deleteControls === 0, String(deleteControls))
+
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  const bbys = await dialog.locator('[data-loy-group-deactivate-bby]').evaluateAll((els) => els.map((e) => e.getAttribute('data-loy-group-deactivate-bby')))
+  const text = strip(await dialog.innerText())
+  check(`${dir} activate: the confirm names each live bonus-buy, number and description`, bbys.join() === '100045,100046' && text.includes('Buy 2 vitamins get 1') && text.includes('Baby care bundle'), `${bbys} / ${text.slice(0, 200)}`)
+  check(`${dir} activate: the confirm says the bonus-buys stop`, (await dialog.locator('[data-loy-group-deactivate-sentence="stops"]').count()) === 1)
+  check(`${dir} activate: the promo number is isolated LTR`, (await dialog.locator('[data-loy-group-deactivate-bby="100045"] bdi[dir="ltr"]').count()) === 1)
+  check(`${dir} activate: opening the confirm sends nothing`, g631.sent.length === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-631-confirm.png`, fullPage: true })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  check(`${dir} activate: Cancel closes and sends nothing`, g631.sent.length === 0 && (await badge('g-1').getAttribute('data-loy-group-active')) === 'true')
+
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.locator('[data-loy-group-deactivate-confirm]').click()
+  await page.locator('[data-loy-group="g-1"] [data-loy-group-active="false"]').waitFor({ timeout: 10000 })
+  const off = g631.sent.at(-1)
+  check(`${dir} activate: deactivate sends { groupId, isActive: false } only`, JSON.stringify(off) === '{"groupId":"g-1","isActive":false}', JSON.stringify(off))
+  check(`${dir} activate: deactivate flips the badge to Inactive and closes the confirm`, strip(await badge('g-1').innerText()) === 'Inactive' && (await dialog.count()) === 0)
+  check(`${dir} activate: an inactive group offers Reactivate, not Deactivate`, (await page.locator('[data-loy-group-reactivate]').count()) === 1 && (await page.locator('[data-loy-group-deactivate]').count()) === 0)
+
+  await page.locator('[data-loy-group="g-1"] a[href="/loy/groups"]').click()
+  await page.locator('[data-loy-groups-grid]').waitFor({ timeout: 10000 })
+  await page.locator('[data-loy-groups-grid] .ag-row').first().waitFor({ timeout: 10000 })
+  check(`${dir} activate: the Active list no longer shows the group`, (await row(page, 'g-1').count()) === 0 && (await row(page, 'g-2').count()) === 1)
+  await page.goto(`${BASE}/loy/groups?scope=all`)
+  await cell(page, 'g-1', 'active').waitFor({ timeout: 10000 })
+  check(`${dir} activate: All lists it flagged inactive`, (await cell(page, 'g-1', 'active').locator('[data-group-active="false"]').count()) === 1)
+
+  await page.goto(`${BASE}/loy/groups/g-1`)
+  await page.locator('[data-loy-group-reactivate]').click()
+  await page.locator('[data-loy-group="g-1"] [data-loy-group-active="true"]').waitFor({ timeout: 10000 })
+  const on = g631.sent.at(-1)
+  check(`${dir} activate: reactivate sends { groupId, isActive: true } with no confirm`, JSON.stringify(on) === '{"groupId":"g-1","isActive":true}' && (await dialog.count()) === 0, JSON.stringify(on))
+  check(`${dir} activate: reactivate flips the badge back to Active`, strip(await badge('g-1').innerText()) === 'Active' && (await page.locator('[data-loy-group-deactivate]').count()) === 1)
+
+  await page.goto(`${BASE}/loy/groups/g-2`)
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  const none = strip(await dialog.locator('[data-loy-group-deactivate-sentence]').innerText())
+  check(`${dir} activate: no live bonus-buy reads the "stops no live offer" sentence`, (await dialog.locator('[data-loy-group-deactivate-sentence="none"]').count()) === 1 && (await dialog.locator('[data-loy-group-deactivate-bby]').count()) === 0 && none.includes('stops no live offer'), none)
+  await page.screenshot({ path: `${SHOTS}/${dir}-631-none.png`, fullPage: true })
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  check(`${dir} activate: Escape closes and sends nothing`, g631.sent.length === 2)
+  check(`${dir} activate: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // ── A view-only grant ──
+  const viewer = await open(dir, { canView: true, canMaintain: false })
+  for (const id of ['g-1', 'g-3']) {
+    await viewer.page.goto(`${BASE}/loy/groups/${id}`)
+    await viewer.page.locator(`[data-loy-group="${id}"] [data-loy-group-active]`).waitFor({ timeout: 10000 })
+    check(`${dir} view-only ${id}: no Deactivate and no Reactivate`, (await viewer.page.locator('[data-loy-group-deactivate], [data-loy-group-reactivate]').count()) === 0)
+  }
+  check(`${dir} view-only activate: no page errors`, viewer.errors.length === 0, viewer.errors.join(' | '))
+  await viewer.context.close()
+  g631.groups = new Map()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
   await drive630('ltr')
   await drive630('rtl')
+  await drive631('ltr')
+  await drive631('rtl')
 } finally {
   await browser.close()
 }

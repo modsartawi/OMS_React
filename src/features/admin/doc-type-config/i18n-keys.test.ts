@@ -7,6 +7,8 @@ import en from '@/locales/en/doc-type-config.json'
 import ar from '@/locales/ar/doc-type-config.json'
 import { hasLocaleKey as has } from '@/core/test/locale'
 import { ALL_FIELDS, FIELD_GROUPS } from './fields'
+import { optionLabelKey } from './option-label'
+import { fieldMetas } from './test-fixtures'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -31,6 +33,16 @@ describe('doc-type-config — the keys the code builds exist', () => {
       ...['label', 'hint', 'tooLong'].map((k) => `reason.${k}`),
       ...['cancel', 'sending', 'failed', 'failedHint'].map((k) => `dialog.${k}`),
     ]
+    for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
+  })
+
+  it.each([en, ar])('3150: both effect labels, the not-read label and every coded option have words', (locale) => {
+    const keys = ['effect.OpenOrders', 'effect.NewOrdersOnly', 'edit.notRead', 'edit.effect', 'edit.refusedOnFields']
+    for (const m of fieldMetas())
+      for (const o of m.options ?? []) {
+        const key = optionLabelKey(m.field, o)
+        if (key) keys.push(key)
+      }
     for (const key of keys) expect([key, has(locale, key)]).toEqual([key, true])
   })
 })

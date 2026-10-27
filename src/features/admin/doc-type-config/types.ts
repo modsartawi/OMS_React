@@ -56,8 +56,12 @@ export interface DocumentTypeSettings {
   // picking
   isPickedOnOrder: boolean
   isDeterminePickingFees: boolean
+  /** 3150: open orders and deliveries of the type hold stock as allocated quantity (read live by stock). */
+  isQuantityAllocation: boolean
   // notifications
   notifyOnCreation: string
+  /** 3150: '' none, X all, O source only, D delivery only. */
+  notifyOnCancellation: string
   // controls
   controlType: string
   validateItem: boolean
@@ -111,4 +115,20 @@ export interface ChildRowChangeRequest<R> {
 export interface ItemCategoryOption {
   itemCategory: string
   description: string
+}
+
+// ── Ticket 3150: field metadata and the settings refusal ─────────────────────────────────────────
+
+/** Does a change to the setting reach orders already open? (`SdDocTypeFieldEffects`) */
+export type FieldEffect = 'OpenOrders' | 'NewOrdersOnly'
+
+/** `GET SdDocTypeConfigWeb/DocumentTypeFields` — one row per setting (`SdDocumentTypeFieldMeta`). */
+export interface DocumentTypeFieldMeta {
+  /** The server's column name (PascalCase), e.g. `CustomerDeterminationType` — `wireField` gives the settings key. */
+  field: string
+  effect: FieldEffect
+  /** A coded setting's allowed values, blank first when allowed; null for a free or referenced value. */
+  options: string[] | null
+  /** No runtime code reads it today (the three billing settings). */
+  notReadByOrderProcessing: boolean
 }

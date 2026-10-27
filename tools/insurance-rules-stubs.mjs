@@ -1637,6 +1637,52 @@ export function coverageStub(method, path, body, opts = {}) {
     return null
   }
 
+  // Review 3126 P6b: Submit / Approve / SendBack / Versions / Restore on the category and coverage rulesets, the same
+  // doors as 611's guards (no back-test to wait for). `state.approvals[key]`, `state.versions[key]`; `opts.user` is
+  // the session's user id and `opts.viewer` its roles `{ author, approver }`.
+  m = /^(Categories|Coverage)\/(Approval|Submit|Approve|SendBack|Versions|Versions\/(\d+)\/Restore)$/.exec(p)
+  if (m) {
+    const key = m[1] === 'Categories' ? 'categories' : 'coverage'
+    const { user = 'msartawi', viewer = { author: true, approver: false } } = opts
+    state.approvals ??= {}
+    state.versions ??= {}
+    state.versionDocs ??= {}
+    const ap = (state.approvals[key] ??= { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null, backtestId: null })
+    const vs = (state.versions[key] ??= [{ version: 1, by: 'ins.huda', at: '2026-10-01T09:00:00', note: 'First contract rules' }])
+    const docs = (state.versionDocs[key] ??= { 1: structuredClone(state[key]) })
+    const view = () => envelope({ ...state.approvals[key], revision: state[key].revision, viewer })
+    const refuse = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
+    const clear = { submittedBy: null, submittedAt: null, note: null }
+    if (m[2] === 'Approval') return method === 'GET' ? door(`approval${m[1]}`, view) : null
+    if (m[2] === 'Versions') return method === 'GET' ? door(`versions${m[1]}`, () => envelope(vs)) : null
+    if (method !== 'POST') return null
+    if (m[3])
+      return door(`restore${m[1]}`, () => {
+        const doc = docs[m[3]]
+        if (!doc) return refuse(404, 'NO_VERSION', 'No such version.')
+        state[key] = { ...structuredClone(doc), revision: state[key].revision + 1 }
+        state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: null }
+        return envelope(state[key])
+      })
+    return door(`${m[2].toLowerCase()}${m[1]}`, () => {
+      if (m[2] === 'Submit') {
+        if (ap.state !== 'draft') return refuse(409, 'NOT_DRAFT', 'The draft is already waiting for approval.')
+        state.approvals[key] = { ...ap, state: 'waiting', submittedBy: user, submittedAt: localNow(), note: body?.note || null, sentBack: null }
+        return view()
+      }
+      if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver approves the draft.')
+      if (ap.state !== 'waiting') return refuse(409, 'NOT_WAITING', 'The draft is not waiting for approval.')
+      if (user.toLowerCase() === (ap.submittedBy ?? '').toLowerCase()) return refuse(409, 'OWN_SUBMISSION', 'You asked for this approval; a different user approves it.')
+      if (m[2] === 'Approve') {
+        const version = Math.max(0, ...vs.map((v) => v.version)) + 1
+        docs[version] = structuredClone(state[key])
+        vs.unshift({ version, by: user, at: localNow(), note: body?.note || ap.note })
+        state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: null }
+      } else state.approvals[key] = { ...ap, state: 'draft', ...clear, sentBack: { by: user, at: localNow(), note: body?.note ?? '' } }
+      return view()
+    })
+  }
+
   m = /^(Categories|Coverage)\/(Draft|Validate)$/.exec(p)
   if (m) {
     const key = m[1] === 'Categories' ? 'categories' : 'coverage'
@@ -1705,7 +1751,10 @@ function simulateLine(l) {
     fired.push({ ruleId: 'G-004', severity: 'REFUSE', en: `${l.daysSupply} days in one request; the maximum is 90`, ar: `${l.daysSupply} يوماً في طلب واحد؛ الحد الأقصى 90`, codes: { conflict: 'MX', nphies: 'CV-4-2' }, suggestion: { maxDaysSupply: 90 } })
   } else trace.push(g4('when[0]', false))
   const heaviest = ['REFUSE', 'OVERRIDE', 'WARN'].find((s) => fired.some((f) => f.severity === s))
-  return { outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, trace }
+  // Review 3126 P6a (guessed `category`): the stub does not run the category rules; it names K-002 on item 200101
+  // so the drive sees a rule-set line, and leaves the item master's category on every other line.
+  const category = l.item === '200101' ? { group: 'G1', ruleId: 'K-002' } : { group: 'G2', ruleId: null }
+  return { outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, trace, category }
 }
 
 /** `POST InsuranceRules/Guards/Simulate` — deterministic over the request's lines. */

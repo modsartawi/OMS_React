@@ -10,6 +10,7 @@
  * No access probe yet — the doors answer a session without the grant a bare 403 (618 adds the probe).
  */
 import { api } from '@/core/api'
+import type { DraftApproval } from './approval'
 import type { GuardIssue } from './checks'
 import type { GuardRuleset } from './model'
 
@@ -49,6 +50,32 @@ export function rulesetDraftDoors<T extends { revision: number }>(kind: 'Guards'
     read: (): Promise<T> => api.get<T>(`${base}/Draft`),
     save: (doc: T): Promise<T> => api.put<T>(`${base}/Draft`, doc),
     validate: async (doc: T): Promise<GuardIssue[]> => (await api.post<GuardIssue[] | null>(`${base}/Validate`, doc)) ?? [],
+  }
+}
+
+/** One published version of a ruleset: who, when, note. PROVISIONAL field spellings (611). */
+export interface RulesetVersion {
+  version: number
+  by: string
+  /** Local moment. */
+  at: string
+  note: string | null
+}
+
+/**
+ * The approval doors every insurance ruleset shares (611 for the guards; review 3126 P6b for the category and
+ * coverage rulesets on "the same authoring doors"): where the draft stands (PROVISIONAL `GET …/Approval`), Submit /
+ * Approve / SendBack `{ note }` answering it again, the versions newest first, and Restore making a NEW draft.
+ */
+export function rulesetApprovalDoors<T extends { revision: number }>(kind: 'Guards' | 'Categories' | 'Coverage') {
+  const base = `${INSURANCE_RULES_BASE}/${kind}`
+  return {
+    approval: (): Promise<DraftApproval> => api.get<DraftApproval>(`${base}/Approval`),
+    submit: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/Submit`, { note }),
+    approve: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/Approve`, { note }),
+    sendBack: (note: string): Promise<DraftApproval> => api.post<DraftApproval>(`${base}/SendBack`, { note }),
+    versions: async (): Promise<RulesetVersion[]> => (await api.get<RulesetVersion[] | null>(`${base}/Versions`)) ?? [],
+    restore: (version: number): Promise<T> => api.post<T>(`${base}/Versions/${version}/Restore`, {}),
   }
 }
 

@@ -161,6 +161,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. G-004's suggestion is an ltr value`, (await l2.locator('[data-traced-rule="G-004"] [data-suggestion="maxDaysSupply"] bdi[dir="ltr"]').innerText()) === '90')
     const t72 = await traceOf(page, 2, 'G-007')
     check(`${dir} 5. G-007 short-circuits: the rest is "Not read"`, JSON.stringify(t72.slice(0, 3)) === JSON.stringify(['when[0] = false', 'when[0].conditions[0] = false', 'when[0].conditions[1] NOT = unread']), JSON.stringify(t72))
+    check(`${dir} 5b. line 1 keeps the item master's category`, (await l1.locator('[data-line-category="G2"][data-category-rule=""]').count()) === 1 && ['Category Brand from the item master (no category rule matched)', 'الفئة تجاري من بيانات الصنف (لم تنطبق قاعدة فئة)'].includes(strip(await l1.locator('[data-line-category]').innerText())), strip(await l1.locator('[data-line-category]').innerText()))
+    check(`${dir} 5b. line 2 names the category rule that set it, linked`, (await l2.locator('[data-line-category="G1"]').count()) === 1 && (await l2.locator('a[data-category-link="K-002"]').getAttribute('href')) === '/insurance-rules/categories?rule=K-002')
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
     await page.screenshot({ path: `tools/.insurance-simulator-shots/${dir}-simulate.png`, fullPage: true }).catch(() => {})
 

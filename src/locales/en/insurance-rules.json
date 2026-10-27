@@ -200,5 +200,52 @@
       "consumedBelow": "Share consumed",
       "other": "Value"
     }
+  },
+  "approval": {
+    "title": "Approval",
+    "failed": "Where the draft stands could not be read.",
+    "failedAction": "HQ refused this.",
+    "state": {
+      "draft": "Draft — not asked for approval",
+      "waiting": "Waiting for approval"
+    },
+    "submittedBy": "Asked by",
+    "sentBackBy": "Sent back by",
+    "noteToApprover": "Note to the approver",
+    "noteToAuthor": "Note to the author",
+    "action": {
+      "submit": "Ask for approval",
+      "approve": "Approve",
+      "sendBack": "Send back"
+    },
+    "done": {
+      "submit": "Asked for approval.",
+      "approve": "Approved: a new version is published.",
+      "sendBack": "Sent back to the author."
+    },
+    "why": {
+      "unsaved": "Save the draft first: approval is asked for the saved revision.",
+      "noBacktest": "Run a back-test of this revision first.",
+      "backtestRunning": "Wait for the back-test to finish.",
+      "backtestFailed": "The back-test failed; run it again.",
+      "backtestStale": "The draft changed since its back-test; run it again.",
+      "checking": "Wait for HQ's checks.",
+      "checks": "Fix the errors HQ's checks found first.",
+      "ownSubmission": "You asked for this approval, so a different user approves it."
+    },
+    "versions": {
+      "title": "Versions",
+      "failed": "The versions could not be loaded.",
+      "empty": "No version has been published yet.",
+      "version": "Version",
+      "byAt": "By, when",
+      "note": "Note",
+      "noNote": "No note",
+      "restore": "Restore as a draft",
+      "confirmTitle": "Restore as a new draft",
+      "confirmBody": "Version {{version}} replaces the current draft as a new draft. Unsaved edits are lost.",
+      "restored": "Version {{version}} restored as draft revision {{revision}}.",
+      "restoreFailed": "The version could not be restored."
+    }
   }
 }

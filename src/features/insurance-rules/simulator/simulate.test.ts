@@ -3,7 +3,7 @@
  * brief's body, or says what is missing, field by field and line by line.
  */
 import { describe, expect, it } from 'vitest'
-import { emptyLine, emptySimForm, parseCodes, simulateBody, type SimForm } from './simulate'
+import { emptyLine, emptySimForm, lineCategory, parseCodes, simulateBody, type SimForm } from './simulate'
 
 const form = (o: Partial<SimForm> = {}): SimForm => ({
   ...emptySimForm(),
@@ -74,5 +74,16 @@ describe('parseCodes', () => {
   it('splits on commas and spaces, upper-cases and drops repeats', () => {
     expect(parseCodes(' e11.9,E11.9  e66 ;z71')).toEqual(['E11.9', 'E66', 'Z71'])
     expect(parseCodes('')).toEqual([])
+  })
+})
+
+describe('lineCategory (review 3126 P6a, story 61: "the simulator shows which rule set it")', () => {
+  it('lineCategory_namesTheGroupAndTheCategoryRule_orTheItemDefault', () => {
+    expect(lineCategory({ outcome: 'pass', fired: [], trace: [], category: { group: 'G1', ruleId: 'K-002' } })).toEqual({ group: 'G1', ruleId: 'K-002' })
+    expect(lineCategory({ outcome: 'pass', fired: [], trace: [], category: { group: 'G2', ruleId: null } })).toEqual({ group: 'G2', ruleId: null })
+  })
+  it('an answer without a category, or with an unknown group, shows none', () => {
+    expect(lineCategory({ outcome: 'pass', fired: [], trace: [] })).toBeNull()
+    expect(lineCategory({ outcome: 'pass', fired: [], trace: [], category: { group: 'G9' as 'G1', ruleId: 'K-1' } })).toBeNull()
   })
 })

@@ -19,8 +19,9 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatDay, toIsoDate } from '@/core/util/date-format'
-import { actionsFor, promoteGate, type ApprovalAction, type DraftApproval } from './approval'
-import { APPROVALS_KEY, approvalQuery, approvalsApi, shadowFiguresQuery, versionsQuery, type GuardVersion } from './api'
+import { actionsFor, type ApprovalAction, type DraftApproval } from '@/core/insurance-rules/approval'
+import { promoteGate } from './approval'
+import { APPROVALS_KEY, approvalQuery, approvalsApi, shadowFiguresQuery, versionsQuery, type RulesetVersion } from './api'
 import { ByAt, DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
 const NS = 'insurance-approvals'
@@ -382,7 +383,7 @@ function VersionsSection({ author }: { author: boolean }) {
   )
 }
 
-function VersionRow({ v, author }: { v: GuardVersion; author: boolean }) {
+function VersionRow({ v, author }: { v: RulesetVersion; author: boolean }) {
   const { t } = useTranslation(NS)
   const queryClient = useQueryClient()
   const restore = useMutation({

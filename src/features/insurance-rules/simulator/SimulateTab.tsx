@@ -8,7 +8,7 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView from '@/core/insurance-rules/GuardSentenceView'
-import { guardRulePath, type Says } from '@/core/insurance-rules/model'
+import { INSURANCE_RULES_PATH, guardRulePath, type Says } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
@@ -21,6 +21,7 @@ import {
   SIM_CHANNELS,
   emptyLine,
   emptySimForm,
+  lineCategory,
   problemOf,
   simulateBody,
   type SimField,
@@ -236,6 +237,7 @@ function LineResult({ n, item, line, draft }: { n: number; item: string; line: S
           <Ltr>{item}</Ltr>
         </code>
         <OutcomeBadge outcome={line.outcome} />
+        <CategoryNote line={line} />
       </header>
       {line.fired.length === 0 && (
         <p className="text-sm text-muted-foreground" data-none-fired="">
@@ -246,6 +248,28 @@ function LineResult({ n, item, line, draft }: { n: number; item: string; line: S
         <RuleTrace key={r.ruleId} r={r} />
       ))}
     </article>
+  )
+}
+
+/** Which category rule set the line's category (story 61), or that the item master's category stands. */
+function CategoryNote({ line }: { line: SimLineResult }) {
+  const { t } = useTranslation('insurance-simulator')
+  const c = lineCategory(line)
+  if (!c) return null
+  return (
+    <span className="ms-auto text-xs text-muted-foreground" data-line-category={c.group} data-category-rule={c.ruleId ?? ''}>
+      {t('result.category.label')} <span className="font-medium text-foreground">{t(`result.category.group.${c.group}`)}</span>{' '}
+      {c.ruleId ? (
+        <>
+          {t('result.category.setBy')}{' '}
+          <Link to={`${INSURANCE_RULES_PATH}/categories?rule=${encodeURIComponent(c.ruleId)}`} className="text-primary hover:underline" data-category-link={c.ruleId}>
+            <RuleId id={c.ruleId} />
+          </Link>
+        </>
+      ) : (
+        t('result.category.itemDefault')
+      )}
+    </span>
   )
 }
 

@@ -10,6 +10,7 @@ import { GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict, type GuardIssue } from '@/core/insurance-rules/checks'
 import type { CategoryRule, CoverageRule, InsuranceRule, InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
 import { canRedo, canUndo, editorHistory, initialEditorHistory, isDirty, sameDoc, type EditorAction, type EditorHistory } from '@/core/insurance-rules/editor-history'
+import RulesetApproval from '@/core/insurance-rules/RulesetApproval'
 import { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
 import { fieldsQuery } from '@/core/insurance-rules/registry-api'
 import { conditionSentence } from '@/core/insurance-rules/sentence'
@@ -135,6 +136,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
   return (
     <>
       <LeaveGuard dirty={dirty} words={{ title: t('leave.title'), body: t('leave.body'), stay: t('leave.stay'), go: t('leave.go') }} />
+      <RulesetApproval kind={kind === 'category' ? 'Categories' : 'Coverage'} doc={h.saved} dirty={dirty} draftKey={rulesetDraftKey(kind)} />
       <div className="flex flex-wrap items-center gap-2" data-toolbar="">
         <Button variant="secondary" onClick={addNew} disabled={busy} data-new-rule="">
           <Plus className="h-3.5 w-3.5" aria-hidden />

@@ -83,3 +83,14 @@ group is last).
 - Arabic UI strings ship and are mirror-tested; `lng` stays `en`.
 - The tree beside the grid replaces the prototype's folder chips (the ticket asks for a tree); the insurance team's
   walk (3096) is still open.
+
+
+**2026-10-27 — 3126 review (branch `impl/3126-review`).** **Owner ruling needed:** the area keeps its own side
+registration files — `core/insurance-rules/locales.ts`, `app/insurance-rules-routes.tsx`,
+`layout/menu-insurance-rules.ts` — and one namespace per feature named `insurance-<feature>`, where
+`.claude/rules/feature-structure.md` asks for registration in `core/i18n.ts`, `app/router.tsx` and
+`layout/menu-model.ts` and namespace == feature name. Left as built (it kept twelve parallel tickets merge-clean);
+the owner rules whether to fold them back or amend the rule. Also from the review: the area's shared page pieces now
+live in core — `core/insurance-rules/parts.tsx` (`DeniedCard` taking the feature's `ns`, `Loading`, `ByAt`, the table
+and form class recipes), `controls.tsx` (`CONTROL`, `Field`, `Select`, `NumberInput`, `CodeInput`, `CodesInput`,
+`Issues`) and `tones.ts` (one order-state severity map, one guard-severity tone map).

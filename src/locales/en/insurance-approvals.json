@@ -59,7 +59,8 @@
     "backtestStale": "The draft changed since its back-test; run it again.",
     "checking": "Wait for HQ's checks.",
     "checks": "Fix the errors HQ's checks found first.",
-    "ownSubmission": "You asked for this approval, so a different user approves it."
+    "ownSubmission": "You asked for this approval, so a different user approves it.",
+    "unsaved": "Save the draft first: approval is asked for the saved revision."
   },
   "shadow": {
     "title": "In shadow",

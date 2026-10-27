@@ -52,6 +52,16 @@
     "suggestion": {
       "maxQuantity": "Suggested quantity at most",
       "maxDaysSupply": "Suggested days' supply at most"
+    },
+    "category": {
+      "label": "Category",
+      "setBy": "set by",
+      "itemDefault": "from the item master (no category rule matched)",
+      "group": {
+        "G1": "Generic",
+        "G2": "Brand",
+        "G3": "NonMed"
+      }
     }
   },
   "outcome": {

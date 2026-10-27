@@ -40,13 +40,13 @@ const check = (name, pass, detail = '') => {
 
 const browser = await chromium.launch()
 
-async function open(dir, { deny = [] } = {}) {
+async function open(dir, { deny = [], user = 'msartawi', viewer, state: shared } = {}) {
   const context = await browser.newContext({ viewport: { width: 1700, height: 1100 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   page.setDefaultNavigationTimeout(120000)
   const errors = []
   const reads = {}
-  const state = newCoverageState()
+  const state = shared ?? newCoverageState()
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -57,14 +57,14 @@ async function open(dir, { deny = [] } = {}) {
     const req = route.request()
     const url = new URL(req.url())
     const p = url.pathname.replace(/^\/api\//, '')
-    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
+    if (p === 'Auth/Me') return route.fulfill(envelope({ authenticated: true, userId: user, currentStoreCode: 'P001' }))
     let body = null
     try {
       body = req.postDataJSON()
     } catch {
       body = null
     }
-    const hit = coverageStub(req.method(), p, body, { state, deny, reads, query: url.searchParams }) ?? insuranceRulesStub(req.method(), p, body, { reads })
+    const hit = coverageStub(req.method(), p, body, { state, deny, reads, query: url.searchParams, user, viewer }) ?? insuranceRulesStub(req.method(), p, body, { reads })
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
@@ -185,9 +185,11 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-redo]').click()
     check(`${dir} 2. Redo moves it first again`, JSON.stringify(await positions(page)) === JSON.stringify(['1:K-003', '2:K-002']))
 
+    // The approval panel (review 3126 P6b) asks HQ's checks of the SAVED revision on its own; the pill adds one.
+    const validatesBefore = reads.validateCategories ?? 0
     await page.locator('[data-checks-pill]').click()
     await page.waitForFunction(() => document.querySelector('[data-checks-pill]')?.getAttribute('data-checks-pill') === 'pass', null, { timeout: 10000 }).catch(() => {})
-    check(`${dir} 2. HQ's checks pass`, (await page.locator('[data-checks-pill]').getAttribute('data-checks-pill')) === 'pass' && reads.validateCategories === 1)
+    check(`${dir} 2. HQ's checks pass`, (await page.locator('[data-checks-pill]').getAttribute('data-checks-pill')) === 'pass' && reads.validateCategories === validatesBefore + 1, `${validatesBefore} → ${reads.validateCategories}`)
     check(`${dir} 2. unsaved is flagged`, (await page.locator('[data-unsaved]').count()) === 1)
     await page.locator('[data-save]').click()
     await page.waitForFunction(() => !document.querySelector('[data-unsaved]'), null, { timeout: 10000 }).catch(() => {})
@@ -281,6 +283,51 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. a patient list is picked from the lists`, JSON.stringify(pl) === JSON.stringify(['', 'PL-VIP', 'PL-STAFF']), JSON.stringify(pl))
     check(`${dir} 6. no page errors (guard palette)`, errors.length === 0, errors.join(' | '))
     await context.close()
+  }
+
+  // ── 7: Submit / Approve / Versions on the category ruleset (review 3126 P6b, 611's doors) ──────────
+  {
+    const author = await open(dir)
+    const { page, errors, state } = author
+    await page.goto(`${BASE}/insurance-rules/categories`)
+    await page.locator('[data-ruleset-approval="draft"] [data-action="submit"]').waitFor({ timeout: 60000 })
+    const submit = page.locator('[data-action="submit"]')
+    check(`${dir} 7. an author may ask for approval of the saved draft once HQ's checks pass`, !(await submit.isDisabled()))
+    await page.locator('[data-ruleset-approval] [data-note]').fill('Tawuniya statins')
+    await submit.click()
+    await page.locator('[data-ruleset-approval="waiting"]').waitFor({ timeout: 10000 }).catch(() => {})
+    const sub = writesOf(state, 'submitCategories')[0]
+    check(`${dir} 7. Submit posts { note } to the Categories doors`, sub?.path === 'InsuranceRules/Categories/Submit' && JSON.stringify(sub.body) === JSON.stringify({ note: 'Tawuniya statins' }), JSON.stringify(sub))
+    check(`${dir} 7. waiting: the author has nothing more to do`, (await page.locator('[data-ruleset-approval="waiting"]').count()) === 1 && (await page.locator('[data-approval-actions]').count()) === 0)
+    check(`${dir} 7. no page errors (author)`, errors.length === 0, errors.join(' | '))
+    await author.context.close()
+
+    const own = await open(dir, { state, viewer: { author: true, approver: true } })
+    await own.page.goto(`${BASE}/insurance-rules/categories`)
+    await own.page.locator('[data-action="approve"]').waitFor({ timeout: 60000 })
+    check(`${dir} 7. an approver never approves their own submission`, (await own.page.locator('[data-action="approve"]').isDisabled()) && (await own.page.locator('[data-why="ownSubmission"]').count()) === 1)
+    await own.context.close()
+
+    const approver = await open(dir, { state, user: 'rev.salem', viewer: { author: false, approver: true } })
+    const ap = approver.page
+    await ap.goto(`${BASE}/insurance-rules/categories`)
+    await ap.locator('[data-action="approve"]').waitFor({ timeout: 60000 })
+    await ap.locator('[data-action="approve"]').click()
+    await ap.locator('[data-ruleset-approval="draft"]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 7. a different user approves: a new version is published`, writesOf(state, 'approveCategories').length === 1 && state.versions.categories[0].version === 2 && state.versions.categories[0].by === 'rev.salem')
+    await ap.locator('[data-ruleset-versions] summary').click()
+    await ap.locator('[data-version="2"]').waitFor({ timeout: 10000 })
+    check(`${dir} 7. the versions list, newest first, who · when isolated`, JSON.stringify(await ap.locator('[data-version]').evaluateAll((els) => els.map((e) => e.getAttribute('data-version')))) === JSON.stringify(['2', '1']) && (await ap.locator('[data-version="2"] bdi[dir="ltr"]').count()) >= 2)
+    const before = state.categories.revision
+    await ap.locator('[data-restore="1"]').click()
+    await ap.locator('dialog[open]').waitFor({ timeout: 5000 }).catch(() => {})
+    await ap.locator('dialog[open] button').last().click()
+    await ap.waitForTimeout(800)
+    check(`${dir} 7. Restore makes version 1 a new draft revision`, writesOf(state, 'restoreCategories')[0]?.path === 'InsuranceRules/Categories/Versions/1/Restore' && state.categories.revision === before + 1, `${before} → ${state.categories.revision}`)
+    check(`${dir} 7. no raw keys`, await noRawKeys(ap))
+    check(`${dir} 7. no page errors (approver)`, approver.errors.length === 0, approver.errors.join(' | '))
+    await ap.screenshot({ path: `tools/.insurance-coverage-shots/${dir}-7-approval.png`, fullPage: true }).catch(() => {})
+    await approver.context.close()
   }
 
   // ── 5: a bare 403 ────────────────────────────────────────────────────────────────────────────

@@ -114,6 +114,7 @@ import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/a
 import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
 import { FileCog } from 'lucide-react'
 import { Workflow } from 'lucide-react'
+import { Radio } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
@@ -553,6 +554,20 @@ export const MENU: ShellMenuItem[] = [
           key: DATA_SYNC_ACCESS_KEY,
           run: () => dataSyncApi.access(),
           visible: canOpenDataSync,
+        }),
+      },
+      {
+        // Document sources (BackOffice spec 3148, ticket 3156) — read on the existing OMS access: the SAME probe key,
+        // call and View predicate as Document types (editing and copying are the probe's second flag). Placed BEFORE
+        // Action types so 3155's, 3152's and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.documentSources',
+        icon: Radio,
+        routerLink: '/admin/document-sources',
+        activePrefix: '/admin/document-sources',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
         }),
       },
       {

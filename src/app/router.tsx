@@ -360,6 +360,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/doc-type-config/ConfigChangesPage')).default,
         }),
       },
+      // Document sources (ticket 3156): `?source=` picks one, `?tab=history` its History.
+      {
+        path: 'admin/document-sources',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentSourcesPage')).default,
+        }),
+      },
       // Action types per document category (ticket 3155): `?category=` picks it, `?tab=history` its History.
       {
         path: 'admin/action-types',

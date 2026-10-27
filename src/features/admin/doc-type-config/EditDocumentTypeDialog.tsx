@@ -228,14 +228,16 @@ export default function EditDocumentTypeDialog({
 }
 
 /** One setting's input: a checkbox for a flag, a number for an amount, a text box clamped to the column's width;
- *  a locked field is shown, never editable. */
-function FieldInput({
+ *  a locked field is shown, never editable. `locked` defaults to the saved type's lock (`isLocked`); the copy dialog
+ *  (3153) passes `false` — nothing is locked before the first save. */
+export function FieldInput({
   def,
   value,
   disabled,
   metaIndex,
   refusal,
   onChange,
+  locked = isLocked(def.field),
 }: {
   def: FieldDef
   value: string | number | boolean
@@ -243,11 +245,12 @@ function FieldInput({
   metaIndex: FieldMetaIndex
   refusal: FieldRefusal | undefined
   onChange: (value: string | number | boolean) => void
+  locked?: boolean
 }) {
   const { t } = useTranslation('doc-type-config')
   const label = t(`fields.${def.field}`)
   const options = optionsFor(metaIndex, def.field, value)
-  if (isLocked(def.field)) {
+  if (locked) {
     return (
       <div className="flex items-center justify-between gap-2 text-sm" data-edit-field={def.field} data-edit-locked="">
         <span className="flex items-center gap-1 text-muted-foreground">

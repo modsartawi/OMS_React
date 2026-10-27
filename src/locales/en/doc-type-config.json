@@ -33,7 +33,8 @@
     "failed": "The document type could not be loaded.",
     "notFoundTitle": "No such document type",
     "edit": "Edit",
-    "locked": "Locked"
+    "locked": "Locked",
+    "copy": "Copy"
   },
   "groups": {
     "identity": "Identity",
@@ -256,6 +257,21 @@
         "plantNetworkId": "Plant network",
         "plantCode": "Plant"
       }
+    }
+  },
+  "copy": {
+    "title": "Copy document type {{code}}",
+    "confirm": "Create copy",
+    "note": "The new type starts with every setting of the source, its item-category assignments and its plant networks. Every setting can be changed here — category and engine included; once saved, code, category and engine are locked. The copy is logged with your reason.",
+    "warningTitle": "{{code}} has behaviour tied to its code that the copy will not inherit",
+    "warningNote": "This is a warning only: the copy can still be saved.",
+    "saved": "Document type {{code}} created",
+    "failed": "The copy was not created.",
+    "blockers": {
+      "codeRequired": "Enter the new type's code.",
+      "codeTooLong": "A code is at most {{max}} characters.",
+      "codeExists": "{{code}} is already a document type; choose another code.",
+      "descriptionRequired": "Enter the new type's description."
     }
   }
 }

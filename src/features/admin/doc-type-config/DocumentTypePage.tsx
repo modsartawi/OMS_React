@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, Loader2, Lock, Pencil } from 'lucide-react'
+import { ArrowLeft, Copy, Loader2, Lock, Pencil } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
@@ -18,6 +18,7 @@ import {
   documentTypeQuery,
 } from './api'
 import ChildRowTables from './ChildRowTables'
+import CopyDocumentTypeDialog from './CopyDocumentTypeDialog'
 import DocumentTypeTabs from './DocumentTypeTabs'
 import EditDocumentTypeDialog from './EditDocumentTypeDialog'
 import FieldValueText from './FieldValueText'
@@ -27,7 +28,7 @@ import type { DocumentTypeSettings } from './types'
 /**
  * One document type — `/admin/doc-types/:documentType` (BackOffice spec 3148 stories 7, 9-10, ticket 3149): every
  * setting, grouped (identity, customer, credit customer, pricing, delivery, billing, picking, notifications,
- * controls). Edit — shown only with the configuration grant — opens the edit dialog. Code, category and engine are
+ * controls). Edit — shown only with the configuration grant — opens the edit dialog; Copy (3153) opens the copy dialog. Code, category and engine are
  * marked locked.
  */
 export default function DocumentTypePage() {
@@ -50,6 +51,7 @@ function DocumentType({ code }: { code: string }) {
   const access = useQuery(docTypeConfigAccessQuery())
   const canEdit = canEditDocTypeConfig(access.data)
   const [editing, setEditing] = useState(false)
+  const [copying, setCopying] = useState(false)
 
   if (detail.isError) {
     const notFound = apiErrorCode(detail.error) === DOC_TYPE_CONFIG_ERRORS.unknownDocumentType
@@ -78,10 +80,16 @@ function DocumentType({ code }: { code: string }) {
           <Ltr>{formatPair(settings.documentType, settings.description)}</Ltr>
         </h2>
         {canEdit && (
-          <Button variant="outlined" onClick={() => setEditing(true)} data-doc-type-edit="">
-            <Pencil className="h-3.5 w-3.5" aria-hidden />
-            {t('detail.edit')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outlined" onClick={() => setCopying(true)} data-doc-type-copy="">
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              {t('detail.copy')}
+            </Button>
+            <Button variant="outlined" onClick={() => setEditing(true)} data-doc-type-edit="">
+              <Pencil className="h-3.5 w-3.5" aria-hidden />
+              {t('detail.edit')}
+            </Button>
+          </div>
         )}
       </div>
       <DocumentTypeTabs
@@ -94,6 +102,7 @@ function DocumentType({ code }: { code: string }) {
         }
       />
       {canEdit && <EditDocumentTypeDialog open={editing} loaded={settings} onClose={() => setEditing(false)} />}
+      {canEdit && <CopyDocumentTypeDialog open={copying} source={settings} onClose={() => setCopying(false)} />}
     </div>
   )
 }

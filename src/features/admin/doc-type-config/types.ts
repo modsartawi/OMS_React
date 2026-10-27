@@ -132,3 +132,22 @@ export interface DocumentTypeFieldMeta {
   /** No runtime code reads it today (the three billing settings). */
   notReadByOrderProcessing: boolean
 }
+
+// ── Ticket 3153: copying a document type ─────────────────────────────────────────────────────────
+
+/** `POST SdDocTypeConfigWeb/DocumentTypes/{source}/Copy` — the new code is `after.documentType`; answers the saved
+ *  `DocumentTypeSettings` of the new type. */
+export interface DocumentTypeCopyRequest {
+  after: DocumentTypeSettings
+  reason: string
+}
+
+/** `GET SdDocTypeConfigWeb/CodeOnlyBehaviour?entityType&code` — behaviour tied to the code itself that a copy will
+ *  NOT inherit, one line each in both languages (`SdCodeOnlyBehaviourLine`). */
+export interface CodeOnlyBehaviourLine {
+  /** `DocumentType` or `DocumentSource`. */
+  entityType: string
+  code: string
+  english: string
+  arabic: string
+}

@@ -1,5 +1,6 @@
 import { ChartColumn, FileSpreadsheet, ListChecks, ListTree, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
+import { LayoutTemplate } from 'lucide-react' // 609
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -24,6 +25,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 609 · Templates
+    {
+      // 609 — the template gallery: phase-1 templates and team templates; a template's blanks make a draft rule.
+      labelKey: 'insurance-rules:menu.templates',
+      icon: LayoutTemplate,
+      routerLink: '/insurance-rules/templates',
+    },
 
     // 610 · Lists, Fields
     {

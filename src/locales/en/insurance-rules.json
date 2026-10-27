@@ -7,7 +7,8 @@
     "review": "Review",
     "exceptions": "Exceptions",
     "editions": "Editions",
-    "metrics": "Metrics"
+    "metrics": "Metrics",
+    "templates": "Templates"
   },
   "state": {
     "draft": "Draft",
@@ -174,5 +175,27 @@
       }
     },
     "formula": "the formula <formula>{{formula}}</formula> holds"
+  },
+  "template": {
+    "blank": {
+      "name": "Rule name",
+      "list": "Item list",
+      "says": "Message",
+      "windowDays": "Days back",
+      "atLeast": "Fires at",
+      "above": "Above",
+      "below": "Below",
+      "value": "Value",
+      "inList": "List",
+      "after": "After",
+      "formula": "Formula",
+      "eligibleDaysBeforeDue": "Days before due",
+      "surplusDays": "Surplus days",
+      "overDays": "Over days",
+      "assumeDays": "Assumed days of supply",
+      "priceAbove": "Tolerance (SAR)",
+      "consumedBelow": "Share consumed",
+      "other": "Value"
+    }
   }
 }

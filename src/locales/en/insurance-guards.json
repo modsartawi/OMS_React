@@ -11,7 +11,24 @@
   },
   "folders": {
     "label": "Folders",
-    "all": "All rules"
+    "all": "All rules",
+    "new": "New folder",
+    "newInside": "New folder inside",
+    "newTop": "New folder at the top",
+    "newUnder": "New folder inside {{folder}}",
+    "rename": "Rename",
+    "renameLabel": "Folder name",
+    "create": "Create",
+    "save": "Rename",
+    "created": "Folder {{folder}} was created.",
+    "createFailed": "The folder could not be created.",
+    "renamed": "The folder is now {{folder}}.",
+    "renameFailed": "The folder could not be renamed.",
+    "problem": {
+      "empty": "A folder needs a name.",
+      "slash": "A folder name cannot hold a slash (/).",
+      "taken": "A folder here already has this name."
+    }
   },
   "columns": {
     "id": "Rule",
@@ -249,5 +266,27 @@
   "access": {
     "deniedTitle": "You do not have access",
     "deniedHint": "Ask an administrator for the insurance rules permission."
+  },
+  "organize": {
+    "title": "Organize",
+    "folder": "Folder",
+    "noFolder": "No folder",
+    "move": "Move",
+    "moved": "The rule moved to {{folder}}.",
+    "movedOut": "The rule is in no folder now.",
+    "moveFailed": "The rule could not be moved.",
+    "saveTemplate": "Save as template"
+  },
+  "saveTemplate": {
+    "title": "Save the rule as a template",
+    "lede": "Tick the values the next author fills in. A ticked word or list starts empty; a ticked number keeps this rule’s as its default.",
+    "nameEn": "Template name (English)",
+    "nameAr": "Template name (Arabic)",
+    "blanks": "Values that become blanks",
+    "chosen_one": "{{n}} blank chosen",
+    "chosen_other": "{{n}} blanks chosen",
+    "save": "Save template",
+    "saved": "Template {{name}} was saved for the team.",
+    "failed": "The template could not be saved."
   }
 }

@@ -126,3 +126,21 @@ export declare function orderGuardsStub(
   order: { guardState: OrderGuardState; guards: OrderGuards | null },
   opts?: { writes?: unknown[]; answerRefusal?: { status?: number; message: string; errorCode?: string } | null },
 ): FulfillArg | null
+
+// --- 609 ---
+import type { GuardTemplate } from '../src/core/insurance-rules/templates'
+export declare const TEMPLATES: GuardTemplate[]
+export declare const EMPTY_FOLDERS: string[]
+export interface TemplatesState {
+  store: GuardStore
+  templates: GuardTemplate[]
+  folders: string[]
+  writes: { door: string; body: unknown }[]
+}
+export declare function newTemplatesState(): TemplatesState
+export declare function templatesStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { state?: TemplatesState; deny?: string[]; reads?: Record<string, number>; user?: string; now?: string },
+): FulfillArg | null

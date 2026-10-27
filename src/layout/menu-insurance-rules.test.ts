@@ -42,6 +42,11 @@ describe('the Insurance rules nav group', () => {
     expect(markedLeaf(MENU, '/insurance-rules/metrics')?.labelKey).toBe('insurance-rules:menu.metrics')
   })
 
+  it('609 ships Templates at /insurance-rules/templates', () => {
+    expect(leaves([group!]).find((l) => l.labelKey === 'insurance-rules:menu.templates')).toMatchObject({ routerLink: '/insurance-rules/templates' })
+    expect(markedLeaf(MENU, '/insurance-rules/templates')?.labelKey).toBe('insurance-rules:menu.templates')
+  })
+
   it('🚩 no leaf carries a probe until 618 — the group shows for every user', () => {
     for (const leaf of leaves([group!])) expect(leaf.access).toBeUndefined()
     expect(group!.access).toBeUndefined()

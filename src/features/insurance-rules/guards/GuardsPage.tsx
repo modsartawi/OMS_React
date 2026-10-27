@@ -15,9 +15,10 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatCount } from '@/core/util/bidi'
-import { guardsQuery } from './api'
+import { guardFoldersQuery, guardsQuery } from './api'
 import { GUARDS_DEFAULT_COL_DEF, buildGuardColumns } from './columns'
 import DeniedCard from './DeniedCard'
+import FolderActions from './FolderActions' // 609
 import FolderTree from './FolderTree'
 import { folderFromParams, folderToParams } from './folder-query'
 
@@ -51,10 +52,13 @@ function Guards() {
   const { t } = useTranslation('insurance-guards')
   const navigate = useNavigate()
   const guards = useQuery(guardsQuery())
+  // 609 — the folders HQ keeps, an empty one included; without them (a denial) the tree is the rules' folders.
+  const folders = useQuery(guardFoldersQuery())
+  const kept = folders.data
   const { query: folder, update } = useUrlQuery(folderFromParams, folderToParams)
   const columns = useMemo(() => buildGuardColumns(t), [t])
   const all = guards.data
-  const tree = useMemo(() => folderTree(all ?? []), [all])
+  const tree = useMemo(() => folderTree(all ?? [], kept ?? []), [all, kept])
   const rows = useMemo(() => (all ?? []).filter((r) => inFolder(r.folder, folder)), [all, folder])
 
   if (guards.isError && isBareDenial(guards.error)) return <DeniedCard hook="guards-denied" />
@@ -71,6 +75,7 @@ function Guards() {
     <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
       <aside className="w-full shrink-0 md:w-64">
         <FolderTree nodes={tree} total={all.length} picked={folder} onPick={(p) => update(() => p)} />
+        <FolderActions tree={tree} picked={folder} onPick={(p) => update(() => p)} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <p className="text-xs text-muted-foreground" data-shown="">

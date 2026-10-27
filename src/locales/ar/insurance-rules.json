@@ -7,7 +7,8 @@
     "review": "المراجعة",
     "exceptions": "الاستثناءات",
     "editions": "الإصدارات",
-    "metrics": "المؤشرات"
+    "metrics": "المؤشرات",
+    "templates": "القوالب"
   },
   "state": {
     "draft": "مسودة",
@@ -198,5 +199,27 @@
       }
     },
     "formula": "تتحقق المعادلة <formula>{{formula}}</formula>"
+  },
+  "template": {
+    "blank": {
+      "name": "اسم القاعدة",
+      "list": "قائمة الأصناف",
+      "says": "الرسالة",
+      "windowDays": "عدد الأيام السابقة",
+      "atLeast": "تُطلق عند",
+      "above": "أعلى من",
+      "below": "أقل من",
+      "value": "القيمة",
+      "inList": "القائمة",
+      "after": "بعد",
+      "formula": "المعادلة",
+      "eligibleDaysBeforeDue": "أيام قبل الاستحقاق",
+      "surplusDays": "أيام الفائض",
+      "overDays": "خلال أيام",
+      "assumeDays": "أيام الكمية المفترضة",
+      "priceAbove": "الهامش (ريال)",
+      "consumedBelow": "نسبة الاستهلاك",
+      "other": "القيمة"
+    }
   }
 }

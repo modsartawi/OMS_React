@@ -924,3 +924,383 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
   }
   return null
 }
+
+// --- 609 --- guard templates and folders (BackOffice 3139). ⚠️ Shapes beyond the brief are 609's guesses
+// (`src/core/insurance-rules/templates.ts`), 618 reconciles:
+//   GET  InsuranceRules/Guards                      → rows from `state.store.draft` (moves and new rules show)
+//   GET  InsuranceRules/Guards/Folders              → every folder path (kept empty ones + the rules'), sorted
+//   POST InsuranceRules/Guards/Folders              → body `{ path }`; a taken path → 409 FOLDER_EXISTS
+//   PUT  InsuranceRules/Guards/Folders              → `{ from, to }` renames a folder (its rules and sub-folders
+//                                                     follow); `{ rules: [id], to }` moves rules. No approval.
+//   GET  InsuranceRules/Guards/Templates            → phase-1 (3093, with conflict code) + team templates
+//   POST InsuranceRules/Guards/Templates            → body `{ ruleId, name, blanks: [path] }` → the template
+//   POST InsuranceRules/Guards/Templates/{id}/Create → body `{ values: { [path]: value }, folder }` → the new
+//                                                     draft rule (HQ mints `G-nnn`, adds it to the draft)
+// Draft GET / PUT / Validate fall through to 608's `guardEditorStub` on the SAME `state.store`.
+
+const blank = (path, en, ar) => ({ path, label: says(en, ar) })
+const NAME_BLANK = blank('name', 'Rule name', 'اسم القاعدة')
+const LIST_BLANK = blank('filters[0].list', 'Item list', 'قائمة الأصناف')
+const DAYS_BLANK = blank('when[0].windowDays', 'Days back', 'عدد الأيام السابقة')
+const tplRule = (o) => ({
+  id: '',
+  name: says('', ''),
+  folder: '',
+  state: 'draft',
+  window: { from: null, until: null },
+  audience: { channels: ALL_CHANNELS, stores: [] },
+  filters: [],
+  onUnknown: 'none',
+  ...o,
+})
+const tpl = (id, en, ar, conflictCode, rule, blanks) => ({ id, source: 'phase1', name: says(en, ar), conflictCode, rule: tplRule(rule), blanks: [NAME_BLANK, ...blanks] })
+const tplCodes = (conflict, nphies) => ({ conflict, nphies })
+const tplItems = () => [{ id: 'items', list: '' }]
+
+/** HQ's phase-1 templates, copied from `BackOffice/.issues/assets/3093-guard-templates.md` (`says` verbatim). */
+export const TEMPLATES = [
+  tpl(
+    'T-RTS',
+    'Refill too soon',
+    'صرف مبكر',
+    'ER',
+    {
+      when: [
+        {
+          check: 'supply',
+          match: 'sameKind',
+          eligibleDaysBeforeDue: 10,
+          eligibleDaysBeforeDueFor: [{ list: '', value: 7 }],
+          accumulate: { surplusDays: 10, overDays: 90 },
+          unknownSupply: { assumeDays: 30 },
+        },
+      ],
+      then: [
+        guard('OVERRIDE', 'Refill too soon: {consumedPct}% used, eligible from {eligibleOn}', 'صرف مبكر: استُهلك {consumedPct}%، يحق الصرف من {eligibleOn}', {
+          codes: tplCodes('ER', 'CV-4-8'),
+        }),
+      ],
+    },
+    [
+      blank('when[0].eligibleDaysBeforeDue', 'Days before due', 'أيام قبل الاستحقاق'),
+      blank('when[0].eligibleDaysBeforeDueFor[0].list', 'Controlled drugs list', 'قائمة الأدوية الخاضعة للرقابة'),
+      blank('when[0].eligibleDaysBeforeDueFor[0].value', 'Days before due for that list', 'أيام قبل الاستحقاق لهذه القائمة'),
+    ],
+  ),
+  tpl(
+    'T-DUP',
+    'Duplicate dispense',
+    'صرف مكرر',
+    '83',
+    {
+      when: [{ check: 'history', match: 'sameItem', windowDays: 3, measure: 'dispenses', atLeast: 1, includeThisLine: false }],
+      then: [guard('REFUSE', 'Already dispensed on {lastDispensedOn}', 'صُرف مسبقاً بتاريخ {lastDispensedOn}', { codes: tplCodes('83', null) })],
+    },
+    [DAYS_BLANK],
+  ),
+  tpl(
+    'T-QTY',
+    'Quantity cap per period',
+    'حد الكمية لكل فترة',
+    'HD',
+    {
+      filters: tplItems(),
+      when: [{ check: 'history', match: 'list:items', windowDays: 28, measure: 'quantity', atLeast: 5, includeThisLine: true }],
+      then: [
+        guard('OVERRIDE', '{count} units in {windowDays} days; the limit is {limit}', '{count} وحدة خلال {windowDays} يوماً؛ الحد {limit}', {
+          codes: tplCodes('HD', null),
+          suggest: { maxQuantity: '{remaining}' },
+        }),
+      ],
+    },
+    [LIST_BLANK, DAYS_BLANK, blank('when[0].atLeast', 'Units that fire it', 'الوحدات التي تطلقها')],
+  ),
+  tpl(
+    'T-TD',
+    'Therapeutic duplication',
+    'ازدواجية علاجية',
+    'TD',
+    {
+      when: [{ check: 'history', match: 'sameClass', windowDays: 30, measure: 'dispenses', atLeast: 1, includeThisLine: false, excludeSameKind: true }],
+      then: [guard('WARN', 'Patient already has {otherItem} in the same class', 'لدى المريض {otherItem} من نفس الفئة العلاجية', { codes: tplCodes('TD', null) })],
+    },
+    [DAYS_BLANK],
+  ),
+  tpl(
+    'T-HOP',
+    'Store-hopping',
+    'التنقل بين الفروع',
+    null,
+    {
+      when: [{ check: 'history', match: 'sameKind', windowDays: 30, measure: 'distinctStores', atLeast: 3, includeThisLine: true }],
+      then: [guard('WARN', 'Dispensed at {count} stores in {windowDays} days', 'صُرف في {count} فروع خلال {windowDays} يوماً')],
+    },
+    [DAYS_BLANK, blank('when[0].atLeast', 'Stores that fire it', 'الفروع التي تطلقها')],
+  ),
+  tpl(
+    'T-MX',
+    'Supply longer than allowed',
+    'كمية أطول من المسموح',
+    'MX',
+    {
+      when: [{ check: 'line', field: 'daysSupply', above: 90 }],
+      then: [guard('REFUSE', '{daysSupply} days in one request; the maximum is {limit}', '{daysSupply} يوماً في طلب واحد؛ الحد الأقصى {limit}', { codes: tplCodes('MX', 'CV-4-2') })],
+    },
+    [blank('when[0].above', 'Most days in one request', 'أقصى أيام في طلب واحد')],
+  ),
+  tpl(
+    'T-COV',
+    'Supply past coverage end',
+    'كمية بعد انتهاء التغطية',
+    null,
+    {
+      when: [{ check: 'line', field: 'supplyEndsOn', after: '$eligibility.coverage.periodEnd' }],
+      then: [
+        guard('OVERRIDE', 'Supply runs to {supplyEndsOn}; the policy ends {periodEnd}', 'تمتد الكمية حتى {supplyEndsOn}؛ وتنتهي الوثيقة في {periodEnd}', {
+          suggest: { maxDaysSupply: '{daysToPeriodEnd}' },
+        }),
+      ],
+    },
+    [],
+  ),
+  tpl(
+    'T-RSN',
+    'Item needs a reason',
+    'صنف يتطلب سبباً',
+    null,
+    {
+      filters: tplItems(),
+      when: [{ check: 'line', inList: 'items' }],
+      then: [guard('OVERRIDE', 'This item needs a reason before it is sent', 'يتطلب هذا الصنف سبباً قبل الإرسال')],
+    },
+    [LIST_BLANK],
+  ),
+  tpl(
+    'T-VOL',
+    'Requests per pharmacist',
+    'الطلبات لكل صيدلي',
+    null,
+    {
+      filters: tplItems(),
+      when: [{ check: 'volume', by: 'pharmacist', match: 'list:items', window: 'day', atLeast: 20, includeThisLine: true }],
+      then: [guard('WARN', '{count} requests for these items by you today', '{count} طلباً لهذه الأصناف من قبلك اليوم')],
+    },
+    [LIST_BLANK, blank('when[0].atLeast', 'Requests that fire it', 'الطلبات التي تطلقها')],
+  ),
+  tpl(
+    'T-SFDA',
+    'SFDA not registered / not marketed',
+    'غير مسجل أو غير مسوّق لدى الهيئة',
+    null,
+    {
+      when: [{ check: 'sfda', status: 'notMarketed' }],
+      then: [guard('REFUSE', 'This item is not marketed with SFDA', 'هذا الصنف غير مسوّق لدى الهيئة', { codes: tplCodes(null, 'CV-4-10') })],
+    },
+    [],
+  ),
+  tpl(
+    'T-PRICE',
+    'Price above SFDA public price',
+    'السعر أعلى من سعر الهيئة',
+    null,
+    {
+      when: [{ check: 'sfda', priceAbove: 0 }],
+      then: [guard('WARN', 'The price is above the SFDA public price', 'السعر أعلى من سعر الهيئة للعموم', { codes: tplCodes(null, 'BE-1-6') })],
+    },
+    [blank('when[0].priceAbove', 'Tolerance (SAR)', 'الهامش (ريال)')],
+  ),
+  tpl(
+    'T-PACK',
+    'Pack / GTIN mismatch',
+    'عدم تطابق العبوة أو GTIN',
+    null,
+    {
+      when: [{ check: 'sfda', packMismatch: true }],
+      then: [guard('WARN', 'The pack does not match the SFDA record', 'العبوة لا تطابق سجل الهيئة')],
+    },
+    [],
+  ),
+  tpl(
+    'T-IND',
+    'Indication not on formulary',
+    'الداعي غير مدرج في الدليل',
+    null,
+    {
+      when: [{ check: 'formulary', indication: 'notListed' }],
+      then: [guard('OVERRIDE', 'The diagnosis is not an indication on the formulary', 'التشخيص ليس من دواعي الاستعمال في الدليل', { codes: tplCodes(null, 'CV-4-5') })],
+    },
+    [],
+  ),
+  tpl(
+    'T-QL',
+    'Quantity above formulary QL',
+    'الكمية أعلى من حد الدليل',
+    null,
+    {
+      when: [{ check: 'formulary', edit: 'QL' }],
+      then: [guard('OVERRIDE', 'The quantity is above the formulary limit', 'الكمية أعلى من حد الدليل الدوائي', { codes: tplCodes(null, 'SE-1-9') })],
+    },
+    [],
+  ),
+  tpl(
+    'T-PA',
+    'PA required',
+    'يتطلب موافقة مسبقة',
+    null,
+    {
+      when: [{ check: 'formulary', edit: 'PA' }],
+      then: [guard('WARN', 'This item needs prior approval', 'يتطلب هذا الصنف موافقة مسبقة', { codes: tplCodes(null, 'BE-1-4') })],
+    },
+    [],
+  ),
+  tpl(
+    'T-AGE',
+    'Age outside the edit',
+    'العمر خارج حد الدليل',
+    null,
+    {
+      when: [{ check: 'formulary', edit: 'AGE' }],
+      then: [guard('OVERRIDE', 'The age of the patient is outside the formulary edit', 'عمر المريض خارج حد الدليل', { codes: tplCodes(null, 'AD-3-7') })],
+    },
+    [],
+  ),
+]
+
+/** A folder HQ keeps with no rule in it yet (made through `POST …/Folders`). */
+export const EMPTY_FOLDERS = ['Specialty medicines/Biologics']
+
+/** A drive's stateful templates + folders, on 608's guard store (so a create or a move reads back). */
+export function newTemplatesState() {
+  return { store: newGuardStore(), templates: structuredClone(TEMPLATES), folders: [...EMPTY_FOLDERS], writes: [] }
+}
+
+const pathSteps = (path) =>
+  String(path)
+    .split('.')
+    .flatMap((p) => {
+      const m = /^([^[]+)((?:\[\d+\])*)$/.exec(p)
+      return m ? [m[1], ...[...m[2].matchAll(/\[(\d+)\]/g)].map((x) => Number(x[1]))] : [p]
+    })
+const getPath = (o, path) => pathSteps(path).reduce((a, s) => (a == null ? undefined : a[s]), o)
+function setPath(o, path, v) {
+  const steps = pathSteps(path)
+  const parent = steps.slice(0, -1).reduce((a, s) => (a == null ? undefined : a[s]), o)
+  if (parent && typeof parent === 'object') parent[steps[steps.length - 1]] = v
+}
+const segs = (f) =>
+  String(f ?? '')
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean)
+const under = (folder, root) => {
+  const a = segs(folder)
+  const b = segs(root)
+  return b.length > 0 && b.length <= a.length && b.every((s, i) => s === a[i])
+}
+const rebase = (folder, from, to) => [...segs(to), ...segs(folder).slice(segs(from).length)].join('/')
+const allFolders = (state) => {
+  const out = new Set()
+  for (const f of [...state.folders, ...state.store.draft.rules.map((r) => r.folder)]) {
+    const s = segs(f)
+    for (let i = 1; i <= s.length; i++) out.add(s.slice(0, i).join('/'))
+  }
+  return [...out].sort((a, b) => a.localeCompare(b))
+}
+const nextRuleId = (rules) => `G-${String(Math.max(0, ...rules.map((r) => Number(/^G-(\d+)$/.exec(r.id)?.[1] ?? 0))) + 1).padStart(3, '0')}`
+const emptyOf = (v) => (typeof v === 'number' ? v : typeof v === 'object' && v !== null ? says('', '') : '')
+
+/** The templates and folders doors on a drive's `state`; null when not one of them. */
+export function templatesStub(method, path, body, opts = {}) {
+  const { state, deny = [], reads = {}, user = 'msartawi', now = '2026-10-27T10:00:00' } = opts
+  if (!state) return null
+  const denied = (name) => {
+    reads[name] = (reads[name] ?? 0) + 1
+    return deny.includes(name)
+  }
+  const write = (name) => state.writes.push({ door: name, body })
+  const bump = () => (state.store.draft = { ...state.store.draft, revision: state.store.draft.revision + 1 })
+  const fail = (status, message, errorCode) => envelope(null, { status, success: false, message, errorCode })
+
+  if (method === 'GET' && path === 'InsuranceRules/Guards') {
+    if (denied('guards')) return { status: 403, body: '' }
+    const activity = Object.fromEntries(GUARD_ROWS.map((r) => [r.id, r]))
+    return envelope(
+      state.store.draft.rules.map((r) => ({
+        id: r.id,
+        name: r.name,
+        folder: r.folder,
+        state: r.state,
+        severity: severityOf(r) ?? 'WARN',
+        lastFired: activity[r.id]?.lastFired ?? null,
+        flags: activity[r.id]?.flags ?? [],
+      })),
+    )
+  }
+  if (path === 'InsuranceRules/Guards/Folders') {
+    if (denied(`folders.${method}`)) return { status: 403, body: '' }
+    if (method === 'POST') {
+      write('folders.create')
+      const p = segs(body?.path).join('/')
+      if (!p) return fail(400, 'A folder needs a name.', 'FOLDER_NAME')
+      if (allFolders(state).some((f) => f.toLowerCase() === p.toLowerCase())) return fail(409, 'That folder already exists.', 'FOLDER_EXISTS')
+      state.folders.push(p)
+    } else if (method === 'PUT' && Array.isArray(body?.rules)) {
+      write('folders.move')
+      const to = segs(body.to).join('/')
+      state.store.draft = { ...state.store.draft, rules: state.store.draft.rules.map((r) => (body.rules.includes(r.id) ? { ...r, folder: to } : r)) }
+      bump()
+    } else if (method === 'PUT') {
+      write('folders.rename')
+      const { from, to } = body ?? {}
+      state.folders = state.folders.map((f) => (under(f, from) ? rebase(f, from, to) : f))
+      state.store.draft = {
+        ...state.store.draft,
+        rules: state.store.draft.rules.map((r) => (under(r.folder, from) ? { ...r, folder: rebase(r.folder, from, to) } : r)),
+      }
+      bump()
+    }
+    return envelope(allFolders(state))
+  }
+  if (method === 'GET' && path === 'InsuranceRules/Guards/Templates') {
+    if (denied('templates')) return { status: 403, body: '' }
+    return envelope(state.templates)
+  }
+  if (method === 'POST' && path === 'InsuranceRules/Guards/Templates') {
+    if (denied('templates.save')) return { status: 403, body: '' }
+    write('templates.save')
+    const r = state.store.draft.rules.find((x) => x.id === body?.ruleId)
+    if (!r) return fail(404, 'No rule has this id.', 'NOT_FOUND')
+    if (!body?.name?.en?.trim() || !body?.name?.ar?.trim()) return fail(400, 'The template needs a name in English and Arabic.', 'TEMPLATE_NAME')
+    const rule = { ...structuredClone(r), id: '', state: 'draft' }
+    delete rule.shadowSince
+    // A text or message blank starts empty (the author fills it); a number keeps the rule's as its default.
+    for (const p of body.blanks ?? []) setPath(rule, p, emptyOf(getPath(rule, p)))
+    const t = {
+      id: `TT-${state.templates.length + 1}`,
+      source: 'team',
+      name: body.name,
+      conflictCode: r.then[0]?.codes?.conflict ?? null,
+      rule,
+      blanks: (body.blanks ?? []).map((p) => ({ path: p, label: null })),
+      createdBy: user,
+      createdAt: now,
+    }
+    state.templates.push(t)
+    return envelope(t)
+  }
+  const create = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Templates\/([^/]+)\/Create$/)
+  if (create) {
+    if (denied('templates.create')) return { status: 403, body: '' }
+    write('templates.create')
+    const t = state.templates.find((x) => x.id === decodeURIComponent(create[1]))
+    if (!t) return fail(404, 'No template has this id.', 'NOT_FOUND')
+    const rule = structuredClone(t.rule)
+    for (const b of t.blanks) if (b.path in (body?.values ?? {})) setPath(rule, b.path, structuredClone(body.values[b.path]))
+    const created = { ...rule, id: nextRuleId(state.store.draft.rules), folder: body?.folder ?? rule.folder, state: 'draft' }
+    delete created.shadowSince
+    state.store.draft = { ...state.store.draft, rules: [...state.store.draft.rules, created] }
+    bump()
+    return envelope(created)
+  }
+  return guardEditorStub(method, path, body, { store: state.store, deny, reads })
+}

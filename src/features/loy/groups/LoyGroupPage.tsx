@@ -21,6 +21,7 @@ import { groupsApi, loyGroupKey } from './api'
 import { renameRequest } from './group-form'
 import MembersTab from './MembersTab'
 import RefusalLine from './RefusalLine'
+import ActiveToggle from './ActiveToggle'
 
 /**
  * One loyalty group — `/loy/groups/:groupId` (oms ticket 630; door `GET LoyGroupWeb/Groups/{groupId}`).
@@ -90,7 +91,10 @@ function GroupBody({ group, canMaintain }: { group: LoyGroupDetail; canMaintain:
         <h2 className="text-lg font-semibold tracking-tight">
           <bdi>{loyGroupName(group, i18n.language) || group.code}</bdi>
         </h2>
-        <StatusBadge sev={group.isActive ? 'ok' : 'mute'}>{t(group.isActive ? 'status.active' : 'status.inactive')}</StatusBadge>
+        <span data-loy-group-active={String(group.isActive)}>
+          <StatusBadge sev={group.isActive ? 'ok' : 'mute'}>{t(group.isActive ? 'status.active' : 'status.inactive')}</StatusBadge>
+        </span>
+        {canMaintain && <ActiveToggle group={group} />}
       </header>
 
       <section className="grid max-w-3xl gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2">

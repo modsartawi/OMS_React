@@ -68,6 +68,24 @@
     "updated": "Last changed",
     "never": "Never"
   },
+  "activate": {
+    "deactivate": "Deactivate",
+    "deactivating": "Deactivating…",
+    "deactivated": "Group deactivated.",
+    "reactivate": "Reactivate",
+    "reactivating": "Reactivating…",
+    "reactivated": "Group reactivated.",
+    "failed": "The group's status could not be changed.",
+    "refused": "The status was not changed",
+    "confirm": {
+      "title": "Deactivate this group?",
+      "stops": "These live bonus-buys use this group and stop applying to its mobiles:",
+      "stopsNone": "No live bonus-buy uses this group, so deactivating it stops no live offer.",
+      "after": "The members are kept. Reactivate the group to bring it back.",
+      "cancel": "Cancel",
+      "submit": "Deactivate"
+    }
+  },
   "refusal": {
     "code": "Code"
   },
@@ -80,6 +98,11 @@
     "failed": "The mobile could not be looked up.",
     "none": "{{mobile}} is in no group.",
     "found": "Groups {{mobile}} is in, active and inactive:"
+  },
+  "picker": {
+    "inactive": "Inactive",
+    "unknown": "Not a defined group",
+    "noneChosen": "No loyalty groups"
   },
   "members": {
     "title": "Members",

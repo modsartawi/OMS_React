@@ -143,3 +143,5 @@ tools/.prescription-sessions-shots/
 tools/.data-sync-*-shots/
 # DMSCO theme drive screenshots (tools/dmsco-theme-drive.mjs, spec 590 / ticket 591)
 tools/.dmsco-theme-shots/
+# Bonus-buy loyalty-group picker drive screenshots (tools/bby-loy-groups-drive.mjs, ticket 636)
+tools/.bby-loy-groups-shots/

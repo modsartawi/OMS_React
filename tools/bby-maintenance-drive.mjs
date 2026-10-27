@@ -1038,13 +1038,13 @@ async function run() {
     await page.waitForSelector('h1:has-text("Change Bonus Buy")')
     await page.getByRole('tab', { name: 'Engine Rules' }).click()
 
-    // ── 37. six textareas, no maxlength ──
+    // ── 37. five textareas, no maxlength (Loyalty groups became a picker in 636: bby-loy-groups-drive) ──
     let shape = 0
-    for (const k of ['includes', 'excludes', 'originFilter', 'stackingExcludes', 'loyGroups', 'loyTiers']) {
+    for (const k of ['includes', 'excludes', 'originFilter', 'stackingExcludes', 'loyTiers']) {
       const box = page.locator(`[data-testid="bby-engine-${k}"]`)
       if ((await box.evaluate((el) => el.tagName)) === 'TEXTAREA' && (await box.getAttribute('maxlength')) === null) shape++
     }
-    check('37. the six Engine Rules lists are textareas with no maxlength', shape === 6, `${shape}/6`)
+    check('37. the five paste lists are textareas with no maxlength', shape === 5, `${shape}/5`)
 
     // ── 38. a 500-row column lands whole ──
     const origin = page.locator('[data-testid="bby-engine-originFilter"]')

@@ -8,7 +8,9 @@ import { notify } from '@/core/services/notify'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
 import { INSURANCE_RULES_KEY, rulesetApprovalDoors, rulesetDraftDoors } from './api'
 import { actionsFor, type ApprovalAction } from './approval'
@@ -84,10 +86,9 @@ export default function RulesetApproval({ kind, doc, dirty, draftKey }: { kind: 
       )}
       {actions.length > 0 && (
         <div className="flex flex-col gap-2" data-approval-actions="">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t(a.state === 'draft' ? 'approval.noteToApprover' : 'approval.noteToAuthor')}
-            <textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} className="rounded-md border border-border/60 bg-background px-2 py-1 text-sm text-foreground" data-note="" />
-          </label>
+          <Field label={t(a.state === 'draft' ? 'approval.noteToApprover' : 'approval.noteToAuthor')}>
+            <Textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} data-note="" />
+          </Field>
           <div className="flex flex-wrap items-center gap-2">
             {actions.map((x) => (
               <Button

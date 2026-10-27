@@ -13,10 +13,14 @@ import { saysIn } from '@/core/rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import UiField from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { simulatorApi } from './api'
-import { INPUT, OutcomeBadge, TraceValueBadge } from './parts'
+import { OutcomeBadge, TraceValueBadge } from './parts'
 import {
   SIM_CHANNELS,
   emptyLine,
@@ -76,29 +80,27 @@ export default function SimulateTab() {
         data-sim-form=""
       >
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('form.channel')}
-            <select className={INPUT} value={form.channel} onChange={(e) => set({ channel: e.target.value as SimForm['channel'] })} data-field="channel">
+          <UiField label={t('form.channel')}>
+            <Select className="w-full" value={form.channel} onChange={(e) => set({ channel: e.target.value as SimForm['channel'] })} data-field="channel">
               {SIM_CHANNELS.map((c) => (
                 <option key={c} value={c}>
                   {t(`insurance-rules:sentence.channel.${c}`)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </UiField>
           {REQUEST_FIELDS.map((f) => (
-            <Field key={f} label={t(`form.${f}`)} problem={problemOf(problems, f as SimField)}>
-              <input
-                className={`${INPUT} font-mono`}
+            <FormField key={f} label={t(`form.${f}`)} problem={problemOf(problems, f as SimField)}>
+              <Input
+                className="w-full font-mono"
                 dir="ltr"
                 value={form[f]}
                 onChange={(e) => set({ [f]: e.target.value })}
                 placeholder={f === 'patientKey' ? t('form.patientKeyHint') : undefined}
                 autoComplete="off"
-                aria-invalid={!!problemOf(problems, f as SimField)}
                 data-field={f}
               />
-            </Field>
+            </FormField>
           ))}
         </div>
 
@@ -129,15 +131,15 @@ export default function SimulateTab() {
                     const p = f === 'icd' ? undefined : problemOf(problems, f as SimField, i + 1)
                     return (
                       <td key={f} className={TD}>
-                        <input
-                          className={`${INPUT} font-mono`}
+                        <Input
+                          className="w-full font-mono"
                           dir="ltr"
                           value={l[f]}
                           onChange={(e) => setLine(i, { [f]: e.target.value })}
                           aria-label={t(`form.${f}`)}
                           placeholder={f === 'icd' ? t('form.icdHint') : undefined}
                           inputMode={f === 'qty' || f === 'daysSupply' ? 'numeric' : f === 'price' ? 'decimal' : undefined}
-                          aria-invalid={!!p}
+                          aria-invalid={p ? true : undefined}
                           data-field={f}
                         />
                         {p && <Problem p={p} />}
@@ -145,16 +147,14 @@ export default function SimulateTab() {
                     )
                   })}
                   <td className={TD}>
-                    <Button
-                      type="button"
-                      variant="ghost"
+                    <IconButton
+                      variant="danger"
                       onClick={() => setForm((f) => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }))}
-                      aria-label={t('form.removeLine')}
-                      title={t('form.removeLine')}
+                      label={t('form.removeLine')}
                       data-remove-line=""
                     >
                       <Trash2 className="h-4 w-4" aria-hidden />
-                    </Button>
+                    </IconButton>
                   </td>
                 </tr>
               ))}
@@ -195,13 +195,12 @@ export default function SimulateTab() {
   )
 }
 
-function Field({ label, problem, children }: { label: string; problem?: SimProblem; children: ReactNode }) {
+/** A request field: the core Field, its problem (with the drive's `data-problem` hook) as the error line. */
+function FormField({ label, problem, children }: { label: string; problem?: SimProblem; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {label}
+    <UiField label={label} error={problem ? <Problem p={problem} /> : undefined}>
       {children}
-      {problem && <Problem p={problem} />}
-    </label>
+    </UiField>
   )
 }
 

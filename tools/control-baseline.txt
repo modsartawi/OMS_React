@@ -187,6 +187,23 @@ hungerstation/orders 0
 hungerstation/stores 1
   src/features/hungerstation/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 
+insurance-rules/coverage 5
+  src/features/insurance-rules/coverage/Effects.tsx button: tile picker, the category group pick G1/G2/G3 is role="radio" in a radiogroup; Chip would add aria-pressed to a radio, restyled in place
+  src/features/insurance-rules/coverage/InsurersPage.tsx button: row picker, the insurer in the side nav selects the payer in-page, restyled in place
+  src/features/insurance-rules/coverage/RuleConditions.tsx button: one-off, the NOT toggle's on state is danger-toned (negated); Chip only lights primary, restyled in place
+  src/features/insurance-rules/coverage/RulesetPage.tsx button: one-off, the Checks pill is a severity-toned validate status, restyled in place
+  src/features/insurance-rules/coverage/RulesetPage.tsx button: row picker, a rule row opens its editor in-page, restyled in place
+
+insurance-rules/guards 5
+  src/features/insurance-rules/guards/ConditionEditor.tsx button: one-off, the NOT toggle's on state is danger-toned (negated); Chip only lights primary, restyled in place
+  src/features/insurance-rules/guards/ConditionEditor.tsx button: text button that does not navigate (days-for list "Add"), restyled in place
+  src/features/insurance-rules/guards/EffectEditor.tsx button: text button that does not navigate (codes "Reset to default"), restyled in place
+  src/features/insurance-rules/guards/FolderTree.tsx button: row picker, a folder tree row picks the folder that filters the grid (aria-pressed), restyled in place
+  src/features/insurance-rules/guards/GuardEditorPage.tsx button: one-off, the Checks pill is coloured by errors/warnings/pass/stale, restyled in place
+
+insurance-rules/lists 1
+  src/features/insurance-rules/lists/KeyedLists.tsx button: row picker, picks a keyed list in the side list (aria-current, ?list= in-page), restyled in place
+
 loy/member 1
   src/features/loy/member/MemberHeader.tsx button: disclosure (aria-expanded, Show/Hide details), restyled in place (597 Q2)
 

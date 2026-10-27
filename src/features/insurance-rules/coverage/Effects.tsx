@@ -9,6 +9,7 @@ import {
   type CoverageEffect,
   type CoverageEffectKind,
 } from '@/core/insurance-rules/coverage-model'
+import IconButton from '@/core/ui/IconButton'
 import Ltr from '@/core/ui/Ltr'
 import { formatNumber } from '@/core/util/number-format'
 import { PayerMark } from './parts'
@@ -32,7 +33,7 @@ export function GroupName({ group }: { group: CategoryGroup }) {
 export function CategoryEffectEditor({ effect, onChange }: { effect: CategoryEffect; onChange: (e: CategoryEffect) => void }) {
   const { t } = useTranslation('insurance-coverage')
   return (
-    <div className="inline-flex rounded-md border border-border/60" role="radiogroup" aria-label={t('effect.setCategory')} data-category-pick="">
+    <div className="inline-flex gap-1" role="radiogroup" aria-label={t('effect.setCategory')} data-category-pick="">
       {CATEGORY_GROUPS.map((g) => (
         <button
           key={g}
@@ -41,7 +42,7 @@ export function CategoryEffectEditor({ effect, onChange }: { effect: CategoryEff
           aria-checked={effect.group === g}
           data-group-pick={g}
           onClick={() => effect.group !== g && onChange({ ...effect, group: g })}
-          className={`h-7 px-3 text-xs ${effect.group === g ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+          className={`h-7 rounded-full border px-3 text-xs font-medium ${effect.group === g ? 'border-primary bg-primary-050 text-primary-800' : 'border-border bg-card text-muted-foreground hover:bg-accent'}`}
         >
           {t(`group.${g}`)}
         </button>
@@ -58,7 +59,7 @@ export function CoverageEffectsEditor({ effects, onChange }: { effects: Coverage
     <div className="flex flex-col gap-2" data-coverage-effects="">
       {effects.length === 0 && <p className="text-xs text-muted-foreground" data-effects-empty="">{t('effect.none')}</p>}
       {effects.map((e, i) => (
-        <div key={e.effect} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border/60 bg-card p-2" data-effect={e.effect}>
+        <div key={e.effect} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-card p-2" data-effect={e.effect}>
           <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{t(`effect.${e.effect}`)}</span>
           <EffectFields e={e} set={(x, c) => set(i, x, c)} />
           <label className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={t('payerMark.overridesHint')}>
@@ -66,16 +67,16 @@ export function CoverageEffectsEditor({ effects, onChange }: { effects: Coverage
             {t('effect.overridesPayer')}
           </label>
           <PayerMark effect={e} />
-          <button
-            type="button"
-            aria-label={t('effect.remove')}
-            title={t('effect.remove')}
+          <IconButton
+            label={t('effect.remove')}
+            variant="danger"
+            size="compact"
             data-effect-remove={e.effect}
             onClick={() => onChange(effects.filter((_, j) => j !== i))}
-            className="ms-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+            className="ms-auto"
           >
             <X className="h-3.5 w-3.5" aria-hidden />
-          </button>
+          </IconButton>
         </div>
       ))}
       {unused.length > 0 && (

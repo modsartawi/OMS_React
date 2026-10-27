@@ -11,9 +11,13 @@ import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
+import Textarea from '@/core/ui/Textarea'
 import type { Severity } from '@/core/ui/severity'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -31,7 +35,7 @@ import {
   type ExceptionStatus,
 } from './exception'
 import { Code, ReasonText } from './shared'
-import { DeniedCard, INPUT, TD, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, TD, TH } from '@/core/insurance-rules/parts'
 
 /**
  * Insurance rules ▸ Exceptions — `/insurance-rules/exceptions` (BackOffice 3135, oms ticket 614). An
@@ -264,11 +268,10 @@ function IssueDialog({ onClose }: { onClose: () => void }) {
   })
   const problem = (field: keyof typeof problems) =>
     tried && problems[field] ? (
-      <span className="text-xs text-danger-800" role="alert" data-problem={field}>
+      <span role="alert" data-problem={field}>
         {t(`problem.${problems[field]}`)}
       </span>
-    ) : null
-  const label = 'text-xs text-muted-foreground'
+    ) : undefined
 
   return (
     <Modal
@@ -296,24 +299,21 @@ function IssueDialog({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="flex flex-col gap-3" data-issue-dialog="">
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t('issue.patientKey')}</span>
-          <input className={INPUT} dir="ltr" inputMode="numeric" placeholder={t('issue.patientKeyHint')} value={form.patientKey} onChange={(e) => set('patientKey', e.target.value)} data-field="patientKey" />
-          {problem('patientKey')}
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t('issue.rule')}</span>
-          <select className={INPUT} value={form.ruleId} onChange={(e) => set('ruleId', e.target.value)} data-field="ruleId">
+        <Field label={t('issue.patientKey')} error={problem('patientKey')}>
+          <Input dir="ltr" inputMode="numeric" placeholder={t('issue.patientKeyHint')} value={form.patientKey} onChange={(e) => set('patientKey', e.target.value)} data-field="patientKey" />
+        </Field>
+        <Field label={t('issue.rule')}>
+          <Select value={form.ruleId} onChange={(e) => set('ruleId', e.target.value)} data-field="ruleId">
             <option value="">{t('exceptions.allGuards')}</option>
             {(draft.data?.rules ?? []).map((r) => (
               <option key={r.id} value={r.id}>
                 {fsi(formatPair(r.id, saysIn(r.name, i18n.language)))}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <fieldset className="flex flex-col gap-1">
-          <legend className={label}>{t('issue.scope')}</legend>
+          <legend className={FIELD_LABEL}>{t('issue.scope')}</legend>
           <div className="flex flex-wrap gap-3" role="radiogroup">
             {EXCEPTION_SCOPE_KINDS.map((k) => (
               <label key={k} className="inline-flex items-center gap-1.5 text-sm">
@@ -330,33 +330,29 @@ function IssueDialog({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </fieldset>
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t(form.scopeKind === 'item' ? 'issue.item' : form.scopeKind === 'sameKind' ? 'issue.sameKindItem' : 'issue.list')}</span>
+        <Field label={t(form.scopeKind === 'item' ? 'issue.item' : form.scopeKind === 'sameKind' ? 'issue.sameKindItem' : 'issue.list')} error={problem('scopeValue')}>
           {form.scopeKind === 'list' ? (
-            <select className={INPUT} value={form.scopeValue} onChange={(e) => set('scopeValue', e.target.value)} data-field="scopeValue">
+            <Select value={form.scopeValue} onChange={(e) => set('scopeValue', e.target.value)} data-field="scopeValue">
               <option value="">{t('issue.pickList')}</option>
               {(draft.data?.lists ?? []).map((l) => (
                 <option key={l.id} value={l.id}>
                   {fsi(formatPair(l.id, saysIn(l.name, i18n.language)))}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
-            <input className={INPUT} dir="ltr" value={form.scopeValue} onChange={(e) => set('scopeValue', e.target.value)} data-field="scopeValue" />
+            <Input dir="ltr" value={form.scopeValue} onChange={(e) => set('scopeValue', e.target.value)} data-field="scopeValue" />
           )}
-          {problem('scopeValue')}
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t('issue.validUntil')}</span>
-          <input type="date" className={INPUT} min={today} max={max} value={form.validUntil} onChange={(e) => set('validUntil', e.target.value)} data-field="validUntil" />
-          <span className="text-xs text-muted-foreground" data-valid-until-hint="">
-            {t('issue.validUntilHint', { max: fsi(formatDay(max)) })}
-          </span>
-          {problem('validUntil')}
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t('issue.reason')}</span>
-          <select className={INPUT} value={form.reason} onChange={(e) => set('reason', e.target.value)} data-field="reason">
+        </Field>
+        <Field
+          label={t('issue.validUntil')}
+          hint={<span data-valid-until-hint="">{t('issue.validUntilHint', { max: fsi(formatDay(max)) })}</span>}
+          error={problem('validUntil')}
+        >
+          <Input type="date" min={today} max={max} value={form.validUntil} onChange={(e) => set('validUntil', e.target.value)} data-field="validUntil" />
+        </Field>
+        <Field label={t('issue.reason')} error={problem('reason')}>
+          <Select value={form.reason} onChange={(e) => set('reason', e.target.value)} data-field="reason">
             <option value="">{t('issue.pickReason')}</option>
             {(reasons.data?.reason ?? [])
               .filter((r) => r.active)
@@ -365,13 +361,11 @@ function IssueDialog({ onClose }: { onClose: () => void }) {
                   {fsi(formatPair(r.code, saysIn(r, i18n.language)))}
                 </option>
               ))}
-          </select>
-          {problem('reason')}
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={label}>{t('issue.note')}</span>
-          <textarea className={`${INPUT} h-20 py-1`} dir="auto" value={form.note} onChange={(e) => set('note', e.target.value)} data-field="note" />
-        </label>
+          </Select>
+        </Field>
+        <Field label={t('issue.note')}>
+          <Textarea className="h-20" dir="auto" value={form.note} onChange={(e) => set('note', e.target.value)} data-field="note" />
+        </Field>
       </div>
     </Modal>
   )

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
@@ -27,16 +28,9 @@ export default function MetricsTab({ query, onBy }: { query: MetricsQuery; onBy:
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('by.label')} data-by-switch="">
         <span className="text-xs text-muted-foreground">{t('by.label')}</span>
         {METRICS_BY.map((by) => (
-          <button
-            key={by}
-            type="button"
-            aria-pressed={query.by === by}
-            onClick={() => onBy(by)}
-            className={`rounded-full border px-3 py-0.5 text-sm ${query.by === by ? 'border-primary bg-primary-050 text-primary-800' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
-            data-by={by}
-          >
+          <Chip key={by} on={query.by === by} onClick={() => onBy(by)} data-by={by}>
             {t(`by.${by}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

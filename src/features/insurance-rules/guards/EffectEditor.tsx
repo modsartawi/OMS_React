@@ -5,7 +5,11 @@ import { GUARD_PLACEHOLDERS, SUGGESTIONS, codesAreDefault, defaultCodes, insertP
 import { GUARD_SEVERITIES, type GuardEffect, type GuardRule } from '@/core/insurance-rules/model'
 import { fsi } from '@/core/util/bidi'
 import type { RuleEdit } from './ConditionEditor'
-import { CodeInput, CONTROL, Field, Issues, Select } from '@/core/insurance-rules/controls'
+import { CodeInput, Field, Issues, Select } from '@/core/insurance-rules/controls'
+import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
+import UiField from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 
 // The THEN of the guard editor (ticket 608): per effect, the severity (REFUSE > OVERRIDE > WARN), the EN and
 // AR message with placeholder chips (never `{lastStore}`), the codes (defaulted from the first block until
@@ -34,18 +38,16 @@ function OneEffect({ rule, e, index, edit, checks }: { rule: GuardRule; e: Guard
     <div className="flex flex-col gap-3" data-effect-editor={index}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">{t('editor.severity')}</span>
-        <div className="inline-flex rounded-md border border-border/60" role="group" aria-label={t('editor.severity')}>
+        <div className="inline-flex gap-1" role="group" aria-label={t('editor.severity')}>
           {GUARD_SEVERITIES.map((s) => (
-            <button
+            <Chip
               key={s}
-              type="button"
-              aria-pressed={e.severity === s}
+              on={e.severity === s}
               data-severity-pick={s}
               onClick={() => setEffect((x) => (x.severity === s ? x : { ...x, severity: s }))}
-              className={`h-7 px-3 text-xs ${e.severity === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
             >
               {t(`insurance-rules:severity.${s}`)}
-            </button>
+            </Chip>
           ))}
         </div>
         <span className="text-xs text-muted-foreground">{t(`insurance-rules:sentence.then.${e.severity}`)}</span>
@@ -154,33 +156,24 @@ function MessageBox({ lang, value, invalid, onValue }: { lang: 'en' | 'ar'; valu
   }
   return (
     <div className="flex flex-col gap-1" data-message-editor={lang}>
-      <label className="text-xs text-muted-foreground" htmlFor={`guard-message-${lang}`}>
-        {t(`editor.message.${lang}`)}
-      </label>
-      <textarea
-        id={`guard-message-${lang}`}
-        ref={ref}
-        rows={2}
-        dir={lang === 'ar' ? 'rtl' : 'ltr'}
-        lang={lang}
-        value={value}
-        aria-invalid={invalid || undefined}
-        onChange={(e) => onValue(e.target.value)}
-        className={`${CONTROL} h-auto py-1`}
-        data-input={`says.${lang}`}
-      />
+      <UiField label={t(`editor.message.${lang}`)} invalid={invalid}>
+        <Textarea
+          id={`guard-message-${lang}`}
+          ref={ref}
+          rows={2}
+          dir={lang === 'ar' ? 'rtl' : 'ltr'}
+          lang={lang}
+          value={value}
+          onChange={(e) => onValue(e.target.value)}
+          data-input={`says.${lang}`}
+        />
+      </UiField>
       <div className="flex flex-wrap items-center gap-1" data-placeholders={lang} title={t('editor.message.placeholdersHint')}>
         <span className="text-xs text-muted-foreground">{t('editor.message.placeholders')}</span>
         {GUARD_PLACEHOLDERS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            data-placeholder={p}
-            onClick={() => insert(p)}
-            className="rounded-full border border-border/60 px-1.5 font-mono text-[11px] text-muted-foreground hover:bg-accent"
-          >
+          <Button key={p} variant="outlined" data-placeholder={p} onClick={() => insert(p)} className="font-mono">
             <bdi dir="ltr">{`{${p}}`}</bdi>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

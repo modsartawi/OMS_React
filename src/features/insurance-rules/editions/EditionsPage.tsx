@@ -7,6 +7,7 @@ import { Loader2, Upload } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
@@ -34,19 +35,11 @@ export default function EditionsPage() {
         <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
       </header>
-      <div role="tablist" aria-label={t('list.tabs')} className="flex gap-1 border-b border-border/60">
+      <div role="tablist" aria-label={t('list.tabs')} className="flex gap-1">
         {EDITION_LISTS.map((l) => (
-          <button
-            key={l}
-            type="button"
-            role="tab"
-            aria-selected={query.list === l}
-            data-list-tab={l}
-            onClick={() => update(() => ({ list: l }))}
-            className={`-mb-px border-b-2 px-3 py-1.5 text-sm ${query.list === l ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
+          <Chip key={l} variant="tab" on={query.list === l} data-list-tab={l} onClick={() => update(() => ({ list: l }))}>
             {t(`listName.${l}`)}
-          </button>
+          </Chip>
         ))}
       </div>
       <UploadCard list={query.list} />

@@ -18,6 +18,9 @@ import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
@@ -26,7 +29,7 @@ import { CategoryEffectEditor, CoverageEffectLine, CoverageEffectsEditor, GroupN
 import RuleConditions from './RuleConditions'
 import { addRule, editRuleIn, moveRule, newRule, nextRuleId } from './ruleset-edit'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
-import { CONTROL, Issues } from '@/core/insurance-rules/controls'
+import { Issues } from '@/core/insurance-rules/controls'
 
 /**
  * Insurance rules ▸ Categories and ▸ Coverage (oms ticket 617; BackOffice 3145 / 3146). One ORDERED ruleset per
@@ -196,7 +199,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
       <div className="grid gap-4 lg:grid-cols-[24rem_minmax(0,1fr)]" onBlur={() => dispatch({ type: 'seal' })}>
         <div className="flex flex-col gap-2">
           {rules.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground" data-rules-empty="">
+            <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground" data-rules-empty="">
               {t('ruleset.empty')}
             </p>
           ) : (
@@ -204,7 +207,7 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
               {rules.map((r, i) => (
                 <li
                   key={r.id}
-                  className={`flex items-start gap-2 rounded-md border p-2 ${r.id === openId ? 'border-primary bg-primary-050' : 'border-border/60 bg-card'}`}
+                  className={`flex items-start gap-2 rounded-md border p-2 ${r.id === openId ? 'border-primary bg-primary-050' : 'border-border bg-card'}`}
                   data-rule-row={r.id}
                   data-position={i + 1}
                 >
@@ -229,28 +232,24 @@ function Editor({ kind, doc, refetch }: { kind: InsuranceRuleKind; doc: Insuranc
                     </span>
                   </button>
                   <span className="flex flex-col gap-0.5">
-                    <button
-                      type="button"
-                      aria-label={t('ruleset.moveUp')}
-                      title={t('ruleset.moveUp')}
+                    <IconButton
+                      label={t('ruleset.moveUp')}
+                      size="compact"
                       disabled={i === 0 || busy}
                       onClick={() => editDoc((d) => moveRule(d, r.id, -1))}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent disabled:opacity-40"
                       data-move-up={r.id}
                     >
                       <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t('ruleset.moveDown')}
-                      title={t('ruleset.moveDown')}
+                    </IconButton>
+                    <IconButton
+                      label={t('ruleset.moveDown')}
+                      size="compact"
                       disabled={i === rules.length - 1 || busy}
                       onClick={() => editDoc((d) => moveRule(d, r.id, 1))}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent disabled:opacity-40"
                       data-move-down={r.id}
                     >
                       <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-                    </button>
+                    </IconButton>
                   </span>
                 </li>
               ))}
@@ -315,18 +314,15 @@ function RuleEditor({
           <GuardStateBadge state={rule.state} />
         </div>
         <div className="grid gap-2 md:grid-cols-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('rule.nameEn')}
-            <input dir="ltr" lang="en" value={rule.name.en} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, en: e.target.value } }), 'name.en')} className={CONTROL} data-input="name.en" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('rule.nameAr')}
-            <input dir="rtl" lang="ar" value={rule.name.ar} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }), 'name.ar')} className={CONTROL} data-input="name.ar" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('rule.folder')}
-            <input value={rule.folder} onChange={(e) => edit((r) => ({ ...r, folder: e.target.value }), 'folder')} className={CONTROL} data-input="folder" />
-          </label>
+          <Field label={t('rule.nameEn')}>
+            <Input dir="ltr" lang="en" value={rule.name.en} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, en: e.target.value } }), 'name.en')} data-input="name.en" />
+          </Field>
+          <Field label={t('rule.nameAr')}>
+            <Input dir="rtl" lang="ar" value={rule.name.ar} onChange={(e) => edit((r) => ({ ...r, name: { ...r.name, ar: e.target.value } }), 'name.ar')} data-input="name.ar" />
+          </Field>
+          <Field label={t('rule.folder')}>
+            <Input value={rule.folder} onChange={(e) => edit((r) => ({ ...r, folder: e.target.value }), 'folder')} data-input="folder" />
+          </Field>
         </div>
         <Issues issues={issues} hook="rule" />
         <Block kw={t('rule.if')} hint={t(`${kind}.ifHint`)} hook="if">

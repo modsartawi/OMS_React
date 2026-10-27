@@ -42,11 +42,3 @@ export function ByAt({ by, at }: { by?: string | null; at?: string | null }) {
 export const TH = 'px-2 py-1.5 text-start text-xs font-medium text-muted-foreground'
 export const TD = 'px-2 py-1.5 align-top'
 export const NUM = 'px-2 py-1.5 text-end align-top tabular-nums'
-
-/** A filter bar's box (h-8). */
-export const INPUT = 'h-8 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground outline-none focus:border-primary/60'
-
-/** A form's labelled column and its box (h-9). */
-export const FORM_FIELD = 'flex flex-col gap-1 text-xs font-medium text-muted-foreground'
-export const FORM_INPUT =
-  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'

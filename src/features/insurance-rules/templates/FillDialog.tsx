@@ -13,13 +13,12 @@ import { blankKind, fillTemplate, missingBlanks, valueAt, type BlankValue, type 
 import { saysIn } from '@/core/rules/sentence'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { templatesApi } from './api'
-
-const CONTROL =
-  'h-7 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none ' +
-  'aria-[invalid=true]:border-danger-border aria-[invalid=true]:bg-danger-050'
 
 /**
  * "Use this template" (609): the template's blanks, typed by their value (words in English and Arabic, an item
@@ -82,59 +81,63 @@ export default function FillDialog({ template, draft, onClose }: { template: Gua
           const empty = missing.includes(b.path)
           return (
             <div key={b.path} className="flex flex-col gap-1 text-xs" data-blank={b.path} data-blank-kind={kind}>
-              <span className="font-medium">
-                <BlankLabel blank={b} />
-              </span>
               {kind === 'says' ? (
-                <div className="grid gap-2 md:grid-cols-2">
-                  {(['en', 'ar'] as const).map((lang) => (
-                    <input
-                      key={lang}
-                      dir={lang === 'ar' ? 'rtl' : 'ltr'}
-                      lang={lang}
-                      placeholder={t(`fill.${lang}`)}
-                      value={(v as Says)[lang]}
-                      onChange={(e) => set(b.path, { ...(v as Says), [lang]: e.target.value })}
-                      aria-invalid={(empty && !(v as Says)[lang].trim()) || undefined}
-                      className={CONTROL}
-                      data-input={`${b.path}.${lang}`}
-                    />
-                  ))}
-                </div>
-              ) : kind === 'list' ? (
-                <select value={String(v ?? '')} onChange={(e) => set(b.path, e.target.value)} aria-invalid={empty || undefined} className={`${CONTROL} w-64`} data-input={b.path}>
-                  <option value="">{t('fill.pickList')}</option>
-                  {draft.lists.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {fsi(saysIn(l.name, i18n.language))}
-                    </option>
-                  ))}
-                </select>
-              ) : kind === 'number' ? (
-                <input
-                  type="number"
-                  dir="ltr"
-                  value={Number.isFinite(v as number) ? (v as number) : ''}
-                  onChange={(e) => set(b.path, e.target.value === '' ? Number.NaN : Number(e.target.value))}
-                  aria-invalid={empty || undefined}
-                  className={`${CONTROL} w-28 text-end`}
-                  data-input={b.path}
-                />
+                <>
+                  <span className={FIELD_LABEL}>
+                    <BlankLabel blank={b} />
+                  </span>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {(['en', 'ar'] as const).map((lang) => (
+                      <Input
+                        key={lang}
+                        dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                        lang={lang}
+                        placeholder={t(`fill.${lang}`)}
+                        value={(v as Says)[lang]}
+                        onChange={(e) => set(b.path, { ...(v as Says), [lang]: e.target.value })}
+                        aria-invalid={(empty && !(v as Says)[lang].trim()) || undefined}
+                        data-input={`${b.path}.${lang}`}
+                      />
+                    ))}
+                  </div>
+                </>
               ) : (
-                <input dir="ltr" value={String(v ?? '')} onChange={(e) => set(b.path, e.target.value)} aria-invalid={empty || undefined} className={`${CONTROL} w-64 font-mono`} data-input={b.path} />
+                <Field label={<BlankLabel blank={b} />}>
+                  {kind === 'list' ? (
+                    <Select value={String(v ?? '')} onChange={(e) => set(b.path, e.target.value)} aria-invalid={empty || undefined} className="w-64" data-input={b.path}>
+                      <option value="">{t('fill.pickList')}</option>
+                      {draft.lists.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {fsi(saysIn(l.name, i18n.language))}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : kind === 'number' ? (
+                    <Input
+                      type="number"
+                      dir="ltr"
+                      value={Number.isFinite(v as number) ? (v as number) : ''}
+                      onChange={(e) => set(b.path, e.target.value === '' ? Number.NaN : Number(e.target.value))}
+                      aria-invalid={empty || undefined}
+                      className="w-28 text-end"
+                      data-input={b.path}
+                    />
+                  ) : (
+                    <Input dir="ltr" value={String(v ?? '')} onChange={(e) => set(b.path, e.target.value)} aria-invalid={empty || undefined} className="w-64 font-mono" data-input={b.path} />
+                  )}
+                </Field>
               )}
             </div>
           )
         })}
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="font-medium">{t('fill.folder')}</span>
-          <input list="template-folders" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={t('fill.noFolder')} className={`${CONTROL} w-80`} data-input="folder" />
-          <datalist id="template-folders">
-            {folders.map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist>
-        </label>
+        <Field label={t('fill.folder')}>
+          <Input list="template-folders" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={t('fill.noFolder')} className="w-80" data-input="folder" />
+        </Field>
+        <datalist id="template-folders">
+          {folders.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
         <section className="rounded-md border border-border/60 bg-muted/40 p-2 text-xs" data-fill-preview="">
           <h3 className="mb-1 font-semibold text-muted-foreground">{t('fill.readsAs')}</h3>
           <ConditionTree nodes={preview.conditions} />

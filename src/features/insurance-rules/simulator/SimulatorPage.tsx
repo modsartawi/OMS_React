@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Chip from '@/core/ui/Chip'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import BacktestTab from './BacktestTab'
 import { SIMULATOR_TABS, simulatorFromParams, simulatorToParams, type SimulatorQuery } from './query'
@@ -28,20 +29,11 @@ export default function SimulatorPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('lede')}</p>
       </header>
 
-      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1 border-b border-border/60" data-simulator-tabs="">
+      <div role="tablist" aria-label={t('tabs.label')} className="flex gap-1" data-simulator-tabs="">
         {SIMULATOR_TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={query.tab === tab}
-            aria-controls={PANEL_ID}
-            onClick={() => set({ tab })}
-            className={`-mb-px border-b-2 px-3 py-1.5 text-sm ${query.tab === tab ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-            data-tab={tab}
-          >
+          <Chip key={tab} variant="tab" on={query.tab === tab} aria-controls={PANEL_ID} onClick={() => set({ tab })} data-tab={tab}>
             {t(`tabs.${tab}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 

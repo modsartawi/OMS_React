@@ -10,11 +10,13 @@ import type { GuardRule } from '@/core/insurance-rules/model'
 import { GUARD_TEMPLATES_KEY, blankCandidates, type BlankValue } from '@/core/insurance-rules/templates'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { GUARDS_KEY, GUARD_FOLDERS_KEY, guardFoldersApi, guardFoldersQuery } from './api'
-import { CONTROL } from '@/core/insurance-rules/controls'
 
 /**
  * The rule page's Organize card (609): move the rule to a folder (`PUT …/Folders { rules, to }`, authoring
@@ -41,17 +43,16 @@ export default function OrganizeCard({ rule, rules }: { rule: GuardRule; rules: 
   return (
     <section className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card p-3 text-sm" data-organize="">
       <h2 className="w-full text-xs font-semibold text-muted-foreground">{t('organize.title')}</h2>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('organize.folder')}
-        <select value={to} onChange={(e) => setTo(e.target.value)} className={`${CONTROL} min-w-56`} data-input="move-to">
+      <Field label={t('organize.folder')}>
+        <Select value={to} onChange={(e) => setTo(e.target.value)} className="min-w-56" data-input="move-to">
           <option value="">{t('organize.noFolder')}</option>
           {paths.map((p) => (
             <option key={p} value={p}>
               {fsi(p)}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
       <Button variant="secondary" onClick={() => move.mutate(to)} disabled={to === rule.folder || move.isPending} data-move="">
         <FolderInput className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
         {t('organize.move')}
@@ -128,14 +129,12 @@ function SaveTemplateDialog({ rule, onClose, onSaved }: { rule: GuardRule; onClo
       <div className="flex flex-col gap-3 text-sm" data-save-template-dialog="">
         <p className="text-xs text-muted-foreground">{t('saveTemplate.lede')}</p>
         <div className="grid gap-2 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('saveTemplate.nameEn')}
-            <input dir="ltr" lang="en" value={name.en} onChange={(e) => setName({ ...name, en: e.target.value })} className={CONTROL} data-input="template-name.en" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('saveTemplate.nameAr')}
-            <input dir="rtl" lang="ar" value={name.ar} onChange={(e) => setName({ ...name, ar: e.target.value })} className={CONTROL} data-input="template-name.ar" />
-          </label>
+          <Field label={t('saveTemplate.nameEn')}>
+            <Input dir="ltr" lang="en" value={name.en} onChange={(e) => setName({ ...name, en: e.target.value })} data-input="template-name.en" />
+          </Field>
+          <Field label={t('saveTemplate.nameAr')}>
+            <Input dir="rtl" lang="ar" value={name.ar} onChange={(e) => setName({ ...name, ar: e.target.value })} data-input="template-name.ar" />
+          </Field>
         </div>
         <fieldset className="flex flex-col gap-1" data-blank-candidates="">
           <legend className="mb-1 text-xs font-semibold text-muted-foreground">{t('saveTemplate.blanks')}</legend>

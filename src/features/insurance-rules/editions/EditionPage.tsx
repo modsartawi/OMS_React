@@ -11,6 +11,7 @@ import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { saveBlob } from '@/core/util/download-file'
@@ -369,17 +370,11 @@ function GapsSection({ edition }: { edition: Edition }) {
 
 function KindChip({ label, count, pressed, hook, onClick }: { label: string; count: number; pressed: boolean; hook: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      data-gap-kind={hook}
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${pressed ? 'border-primary bg-primary-050 text-foreground' : 'border-border/60 text-muted-foreground hover:text-foreground'}`}
-    >
+    <Chip on={pressed} data-gap-kind={hook} onClick={onClick}>
       {label}
       <span data-count="">
         <Ltr>{formatFigure(count)}</Ltr>
       </span>
-    </button>
+    </Chip>
   )
 }

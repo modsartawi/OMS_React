@@ -80,7 +80,9 @@
     "autoClose": "Auto close",
     "diagnosisRequired": "Diagnosis required",
     "approvalProcess": "Approval process",
-    "acceptanceRequired": "Acceptance required"
+    "acceptanceRequired": "Acceptance required",
+    "isQuantityAllocation": "Hold stock as allocated quantity",
+    "notifyOnCancellation": "Notify on cancellation"
   },
   "value": {
     "yes": "Yes",
@@ -98,7 +100,10 @@
     "after": "After",
     "saved": "Document type {{code}} saved",
     "stale": "Someone else changed this type since you opened it. It has been refreshed: close this dialog and make your change again.",
-    "notGranted": "You are not allowed to change the document configuration."
+    "notGranted": "You are not allowed to change the document configuration.",
+    "notRead": "Not read by order processing",
+    "effect": "Reaches",
+    "refusedOnFields": "Some settings were refused — each is explained under its field. Nothing was saved."
   },
   "reason": {
     "label": "Reason",
@@ -110,6 +115,42 @@
     "sending": "Saving…",
     "failed": "The change was not saved.",
     "failedHint": "The server did not answer. Try again in a moment."
+  },
+  "effect": {
+    "OpenOrders": "Affects open orders",
+    "NewOrdersOnly": "New orders only"
+  },
+  "options": {
+    "customerDeterminationType": {
+      "_blank": "No determination",
+      "A": "A - default customer",
+      "B": "B - by mobile number",
+      "C": "C - by mobile, else default customer",
+      "D": "D - by mobile, else create the customer"
+    },
+    "plantDeterminationType": {
+      "_blank": "Order plant",
+      "R": "R - re-determine using the plant network"
+    },
+    "controlType": {
+      "_blank": "None",
+      "W": "W - Wasfaty",
+      "N": "N - Nphies"
+    },
+    "notifyOnCreation": {
+      "_blank": "Do not notify",
+      "X": "X - notify"
+    },
+    "notifyOnCancellation": {
+      "_blank": "Do not notify",
+      "X": "X - notify all",
+      "O": "O - the source only",
+      "D": "D - the delivery only"
+    },
+    "createDeliveryImmediately": {
+      "_blank": "No",
+      "X": "X - immediately"
+    }
   },
   "tabs": {
     "label": "Document type sections",

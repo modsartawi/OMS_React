@@ -69,8 +69,8 @@ export const FIELD_GROUPS: readonly FieldGroup[] = [
     group: 'billing',
     fields: [text('orderRelatedBillingType', 4), text('deliveryRelatedBillingType', 4), text('createBillingImmediately', 1)],
   },
-  { group: 'picking', fields: [flag('isPickedOnOrder'), flag('isDeterminePickingFees')] },
-  { group: 'notifications', fields: [text('notifyOnCreation', 1)] },
+  { group: 'picking', fields: [flag('isPickedOnOrder'), flag('isDeterminePickingFees'), flag('isQuantityAllocation')] },
+  { group: 'notifications', fields: [text('notifyOnCreation', 1), text('notifyOnCancellation', 1)] },
   {
     group: 'controls',
     fields: [

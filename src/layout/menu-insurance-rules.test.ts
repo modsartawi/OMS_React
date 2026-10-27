@@ -42,6 +42,11 @@ describe('the Insurance rules nav group', () => {
     expect(markedLeaf(MENU, '/insurance-rules/metrics')?.labelKey).toBe('insurance-rules:menu.metrics')
   })
 
+  it('612 ships Simulator at /insurance-rules/simulator', () => {
+    expect(leaves([group!]).find((l) => l.labelKey === 'insurance-rules:menu.simulator')).toMatchObject({ routerLink: '/insurance-rules/simulator' })
+    expect(markedLeaf(MENU, '/insurance-rules/simulator')?.labelKey).toBe('insurance-rules:menu.simulator')
+  })
+
   it('617 ships Insurers, Categories and Coverage', () => {
     const links = leaves([group!]).map((l) => l.routerLink)
     for (const leaf of ['insurers', 'categories', 'coverage']) {

@@ -1,5 +1,6 @@
 import { ChartColumn, FileSpreadsheet, ListChecks, ListTree, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
+import { FlaskConical } from 'lucide-react' // 612
 import { Building2, Tags, Umbrella } from 'lucide-react' // 617
 import type { ShellMenuItem } from './menu-model'
 
@@ -43,6 +44,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 611 · Approvals
 
     // 612 · Simulator
+    {
+      // 612 — simulate a request on a patient, and back-test the draft (`?tab=backtest&id=` keeps the leaf lit).
+      labelKey: 'insurance-rules:menu.simulator',
+      icon: FlaskConical,
+      routerLink: '/insurance-rules/simulator',
+    },
 
     // 613 · Editions
     {

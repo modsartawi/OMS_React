@@ -97,5 +97,8 @@
     "confirmBody": "Version {{version}} replaces the current draft as a new draft. Unsaved edits in an open editor are lost.",
     "restored": "Version {{version}} restored as draft revision {{revision}}.",
     "restoreFailed": "The version could not be restored."
+  },
+  "refused": {
+    "backtestMissing": "HQ found no finished back-test of this revision of the draft. Run one, then ask again."
   }
 }

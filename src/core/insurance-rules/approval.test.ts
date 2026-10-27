@@ -13,7 +13,6 @@ const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
   submittedAt: null,
   note: null,
   sentBack: null,
-  backtestId: null,
   viewer: { author: true, approver: false },
   ...o,
 })

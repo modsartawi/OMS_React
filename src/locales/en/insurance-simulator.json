@@ -62,7 +62,8 @@
         "G2": "Brand",
         "G3": "NonMed"
       }
-    }
+    },
+    "unknowns": "Could not decide (a fact is unknown):"
   },
   "outcome": {
     "pass": "Passes",
@@ -81,7 +82,8 @@
       "false": "False",
       "unknown": "Unknown",
       "unread": "Not read"
-    }
+    },
+    "whole": "Whole condition"
   },
   "backtest": {
     "days": "Replay the last",
@@ -102,7 +104,9 @@
     },
     "revision": "Back-test of draft revision {{revision}}.",
     "current": "It is the draft's current revision.",
-    "stale": "The draft has changed since (now revision {{revision}}): run it again before asking for approval."
+    "stale": "The draft has changed since (now revision {{revision}}): run it again before asking for approval.",
+    "window": "Replayed {{days}} days from {{since}}.",
+    "requestedBy": "Requested by"
   },
   "tiles": {
     "fires": "Would fire",
@@ -110,7 +114,9 @@
     "patients": "Patients",
     "stores": "Stores",
     "pharmacists": "Pharmacists",
-    "overlap": "{{n}} of {{total}} fires are on requests a live guard already fires on."
+    "overlap": "On {{n}} of the lines it fired on, a live guard fired too.",
+    "requests": "Requests replayed",
+    "lines": "Lines replayed"
   },
   "stopped": {
     "title": "Requests it would have stopped",
@@ -120,6 +126,15 @@
     "patient": "Patient",
     "store": "Store",
     "item": "Item",
-    "sar": "SAR"
+    "sar": "SAR",
+    "rules": "Rules",
+    "firstOf": "Showing the first {{shown}} of {{total}}."
+  },
+  "byRule": {
+    "title": "By rule",
+    "none": "No draft rule fired.",
+    "rule": "Rule",
+    "fires": "Fires",
+    "stopped": "Lines stopped"
   }
 }

@@ -11,7 +11,9 @@ import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
+import Textarea from '@/core/ui/Textarea'
 import { apiErrorKind, apiErrorMessage } from '@/core/api'
 import type { ImportResultModel } from '@/core/models/import-result'
 import { decodeImportFile, importTally, parseImport, sendableLines, type ImportLine, type ImportOkLine } from './parse-import'
@@ -187,9 +189,8 @@ export default function ImportDialog<K extends string>({
                   </span>
                 )}
               </label>
-              <label className="flex min-w-72 flex-1 flex-col gap-1">
-                <span className="text-xs font-medium">{t('import.paste')}</span>
-                <textarea
+              <Field label={t('import.paste')} className="min-w-72 flex-1">
+                <Textarea
                   value={text}
                   onChange={(e) => {
                     setText(e.target.value)
@@ -200,10 +201,10 @@ export default function ImportDialog<K extends string>({
                   spellCheck={false}
                   // The rows are tab-separated machine text: they read left to right in either UI.
                   dir="ltr"
-                  className="rounded-md border border-border/60 bg-background p-2 font-mono text-xs text-foreground focus:border-primary/50 focus:outline-none"
+                  className="w-full font-mono"
                   data-import-text=""
                 />
-              </label>
+              </Field>
             </div>
 
             {readError && <ErrorBanner className="p-2.5" message={t('import.readFailed')} />}

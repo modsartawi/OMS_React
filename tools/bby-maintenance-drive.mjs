@@ -34,7 +34,8 @@
 //  17. Save refused as stale → the reload prompt; Reload reads the bonus buy again.
 //  18. Create: dates from the promotion; Save posts no number and opens Change on the minted one.
 //  19. Local Material Grouping: an upper-cased id, Confirm, then a line picks it.
-//  20. Engine Rules (Max value unavailable), Promotion Data and History of Changes tabs.
+//  20. Engine Rules (Max value an ordinary editable field with its hint — 120b8f1e, before spec 590),
+//      Promotion Data and History of Changes tabs.
 //  21. A SAP bonus buy opened for Change is read-only, with the SAP notice.
 //
 // Ticket 418 — the upload dialog (BbyMaintainWeb/Upload, BackOffice 2381/2382; the stub answers
@@ -662,7 +663,12 @@ async function run() {
 
   // ── 20. the other tabs ──
   await page.getByRole('tab', { name: 'Engine Rules' }).click()
-  check('20. Engine Rules: Max value unavailable', (await page.getByLabel('Max value').isDisabled()) && (await text()).includes('Unavailable until the engine update.'))
+  // 120b8f1e (main, 2026-10-19): the engine caps per application, so Max value is editable and only
+  // locks with the rest of the form; its hint says what the cap does.
+  check(
+    '20. Engine Rules: Max value is editable, with its hint',
+    (await page.getByLabel('Max value').isEnabled()) && (await text()).includes('Caps a % discount each time it applies.'),
+  )
   check('20. Engine Rules: time of day boxes', (await page.locator('fieldset input[type="time"]').count()) === 2)
   await page.getByRole('tab', { name: 'Promotion Data' }).click()
   check('20. Promotion Data shows the promotion', (await text()).includes('Test By Sartawi'))

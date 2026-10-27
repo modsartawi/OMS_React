@@ -241,6 +241,7 @@ export function BuyPanel({
         <div className="flex items-center gap-2">
           <Input
             aria-label={t('editor.buy.minAmount')}
+            data-bby-min-amount=""
             type="number"
             min={0}
             step="0.001"

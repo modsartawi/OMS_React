@@ -36,9 +36,10 @@ is lost. Correctness judgements, rules compliance and diff review stay yours.
 - `npm run typecheck` — `tsc --noEmit`. Run this regularly; it is the fast feedback loop.
 - `npm run build` — typecheck + static `dist/`.
 - `npm run lint` — five gates: import boundaries, the grid base (every `<AgGridReact` spreads
-  `OMS_GRID_BASE_COL_DEF`), token contrast, colour literals, and the control ratchet (no feature's
-  hand-written `<button>`/`<input>`/`<select>`/`<textarea>` count may rise above
-  `tools/control-baseline.txt`; `node tools/check-controls.mjs --list <feature>` / `--lower`).
+  `OMS_GRID_BASE_COL_DEF`), token contrast, colour literals, and the control ratchet (each feature,
+  and each `src/core/<module>` outside `core/ui`, holds exactly the hand-written
+  `<button>`/`<input>`/`<select>`/`<textarea>` its allowlist in `tools/control-baseline.txt` names,
+  each with its reason; `node tools/check-controls.mjs --list <feature>` lists them).
 - `npm test` — **vitest** (`vitest run`, `src/**/*.test.ts` + `tools/**/*.test.mjs`, node environment). Bootstrapped by
   ticket 090; config in `vitest.config.ts`, deliberately separate from `vite.config.ts`.
   **React Testing Library is still not installed** (spec 083's ruling: the pure modules are where

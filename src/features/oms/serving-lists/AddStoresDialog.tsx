@@ -187,7 +187,7 @@ function StoreSearch({ servingListId, basket, onBasket, disabled }: { servingLis
       <Field label={t('addStores.search.label')}>
         <Input
           type="search"
-          className="w-full"
+          wrapperClassName="w-full"
           dir="auto"
           value={find}
           disabled={disabled}

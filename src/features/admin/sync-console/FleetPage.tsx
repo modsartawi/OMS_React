@@ -186,7 +186,7 @@ function Fleet() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('table.search')}
             aria-label={t('table.search')}
-            className="w-64"
+            wrapperClassName="w-64"
             data-fleet-search=""
           />
           <Select

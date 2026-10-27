@@ -10,7 +10,7 @@
 //   3. an Arabic string renders in IBM Plex Sans Arabic, and that face carries 115% size-adjust;
 //   4. a `font-mono` code renders in IBM Plex Mono;
 //   5. a keyboard-focused button shows the 2px ring at a 2px offset — navy in light, GOLD in dark;
-//   6. `core/ui/Button` is a 6px control, not a pill, and still 28px tall.
+//   6. `core/ui/Button` is a full pill (spec 590, 594), and still 28px tall.
 //   7. inside the navy rail the focus ring is gold in both themes — the navy ring would vanish on
 //      navy.
 //
@@ -187,6 +187,23 @@ const DOCUMENT = {
 // colour. Ticket 593: drives check colours by ROLE — the values are the contrast gate's
 // (`tools/check-contrast.mjs`), so a palette change never breaks this drive. `theme` reads the
 // token as that theme's table holds it (the `.dark` class is flipped for the read and put back).
+// A radius by role, never a pinned px (code review of spec 590): resolves a CSS length (`var(--radius-lg)`,
+// `calc(var(--radius) + 2px)`) the way the page does, so a `--radius` change moves the expectation with it.
+async function rad(page, expr) {
+  return page.evaluate((e) => {
+    const probe = document.createElement('div')
+    probe.style.cssText = 'position:absolute;width:200px;height:200px'
+    probe.style.borderTopLeftRadius = e
+    document.body.appendChild(probe)
+    const v = getComputedStyle(probe).borderTopLeftRadius
+    probe.remove()
+    return v
+  }, expr)
+}
+
+// A full pill: a corner radius at least half the height (`rounded-full` computes a huge px).
+const isPill = (radius, height) => parseFloat(radius) >= height / 2 - 0.5
+
 async function tok(page, name, theme) {
   return page.evaluate(
     ([n, t]) => {
@@ -442,8 +459,8 @@ async function driveOneMode({ theme, dir }) {
       els.map((el) => ({ radius: getComputedStyle(el).borderRadius, height: el.getBoundingClientRect().height })),
     )
   check(
-    `${label}: Details — core/ui/Button is a 6px control, not a pill, and still 28px tall`,
-    shapes.length > 0 && shapes.every((s) => s.radius === '6px' && Math.round(s.height) === 28),
+    `${label}: Details — core/ui/Button is a full pill, still 28px tall`,
+    shapes.length > 0 && shapes.every((s) => isPill(s.radius, s.height) && Math.round(s.height) === 28),
     JSON.stringify(shapes.slice(0, 3)) + ` (${shapes.length} buttons)`,
   )
   const commandRing = await ring(actions.locator('button').first())
@@ -2071,9 +2088,9 @@ async function driveOverlays({ theme, dir }) {
       }
     })
     check(
-      `${label}: the ${type} toast is 340px, 8px, --shadow-pop, a 12.5px/600 title and a 12px description in its ink`,
+      `${label}: the ${type} toast is 340px, --radius, --shadow-pop, a 12.5px/600 title and a 12px description in its ink`,
       Math.round(geo.width) === 340 &&
-        s.radius === '8px' &&
+        s.radius === (await rad(page, 'var(--radius)')) &&
         isPop(s.shadow) &&
         geo.title[0] === '12.5px' &&
         geo.title[1] === '600' &&
@@ -2154,8 +2171,8 @@ async function driveOverlays({ theme, dir }) {
   )
   const ps = await surface(panel)
   check(
-    `${label}: the bell panel is the card recipe — --card, --border-strong, 8px, --shadow-pop`,
-    ps.bg === CARD && ps.edge === STRONG && ps.radius === '8px' && isPop(ps.shadow),
+    `${label}: the bell panel is the card recipe — --card, --border-strong, --radius-lg, --shadow-pop`,
+    ps.bg === CARD && ps.edge === STRONG && ps.radius === (await rad(page, 'var(--radius-lg)')) && isPop(ps.shadow),
     JSON.stringify(ps),
   )
   await page.screenshot({ path: `${SHOTS}/overlays-toasts-${theme}-${dir}.png` })
@@ -2168,7 +2185,7 @@ async function driveOverlays({ theme, dir }) {
   const ss = await surface(store)
   check(
     `${label}: the store chip's panel is the card recipe`,
-    ss.bg === CARD && ss.edge === STRONG && ss.radius === '8px' && isPop(ss.shadow),
+    ss.bg === CARD && ss.edge === STRONG && ss.radius === (await rad(page, 'var(--radius-lg)')) && isPop(ss.shadow),
     JSON.stringify(ss),
   )
   await page.keyboard.press('Escape')
@@ -2181,7 +2198,7 @@ async function driveOverlays({ theme, dir }) {
   const cs = await surface(chooser)
   check(
     `${label}: the column chooser is the card recipe`,
-    cs.bg === CARD && cs.edge === STRONG && cs.radius === '8px' && isPop(cs.shadow),
+    cs.bg === CARD && cs.edge === STRONG && cs.radius === (await rad(page, 'var(--radius-lg)')) && isPop(cs.shadow),
     JSON.stringify(cs),
   )
   await page.getByRole('button', { name: 'Columns' }).click()
@@ -2194,8 +2211,8 @@ async function driveOverlays({ theme, dir }) {
   const sd = await surface(saveDialog)
   const scrimBg = await saveDialog.evaluate((el) => getComputedStyle(el, '::backdrop').backgroundColor)
   check(
-    `${label}: the Save-view dialog is the dialog recipe (10px, --border-strong) over the --backdrop scrim`,
-    sd.radius === '10px' && sd.edge === STRONG && isPop(sd.shadow) && scrimBg === (await tok(page, '--backdrop')),
+    `${label}: the Save-view dialog is the dialog recipe (--radius + 2px, --border-strong) over the --backdrop scrim`,
+    sd.radius === (await rad(page, 'calc(var(--radius) + 2px)')) && sd.edge === STRONG && isPop(sd.shadow) && scrimBg === (await tok(page, '--backdrop')),
     JSON.stringify({ sd, scrimBg }),
   )
   await page.getByLabel('View name').fill('Failed jobs')
@@ -2237,8 +2254,8 @@ async function driveOverlays({ theme, dir }) {
     return { backdrop: getComputedStyle(el, '::backdrop').backgroundColor, title: [title.fontSize, title.fontWeight] }
   })
   check(
-    `${label}: a Modal computes --card, --border-strong, the 10px radius, --shadow-pop and the --backdrop scrim`,
-    m.bg === CARD && m.edge === STRONG && m.radius === '10px' && isPop(m.shadow) && mod.backdrop === (await tok(page, '--backdrop')),
+    `${label}: a Modal computes --card, --border-strong, the dialog radius (--radius + 2px), --shadow-pop and the --backdrop scrim`,
+    m.bg === CARD && m.edge === STRONG && m.radius === (await rad(page, 'calc(var(--radius) + 2px)')) && isPop(m.shadow) && mod.backdrop === (await tok(page, '--backdrop')),
     JSON.stringify({ m, mod }),
   )
   check(`${label}: the Modal's title is 13px semibold`, mod.title[0] === '13px' && mod.title[1] === '600', JSON.stringify(mod.title))
@@ -2346,11 +2363,11 @@ async function driveOverlays({ theme, dir }) {
   const action = buttons.find((b) => !b.cancel)
   const cancel = buttons.find((b) => b.cancel)
   check(
-    `${label}: its action is a 6px --primary control and its cancel a 6px --muted one`,
+    `${label}: its action is a --radius-md --primary control and its cancel a --radius-md --muted one`,
     !!action && !!cancel &&
       action.bg === (await resolve2('--primary')) && action.ink === (await resolve2('--primary-foreground', 'color')) &&
       cancel.bg === (await resolve2('--muted')) && cancel.ink === (await resolve2('--foreground', 'color')) &&
-      action.radius === '6px' && cancel.radius === '6px',
+      action.radius === (await rad(p2, 'var(--radius-md)')) && cancel.radius === (await rad(p2, 'var(--radius-md)')),
     JSON.stringify(buttons),
   )
   await p2.screenshot({ path: `${SHOTS}/overlays-neutral-toast-${theme}-${dir}.png` })
@@ -2480,13 +2497,13 @@ async function driveBell({ theme, dir }) {
   const pb = await box(panel)
   const ps = await style(panel, 'maxHeight', 'backgroundColor', 'borderTopColor', 'borderTopLeftRadius')
   check(
-    `${label}: the panel is 360px wide, max 440px tall, on the 8px card recipe`,
+    `${label}: the panel is 360px wide, max 440px tall, on the card recipe (--radius-lg)`,
     Math.round(pb.width) === 360 &&
       ps.maxHeight === '440px' &&
       pb.height <= 440 &&
       ps.backgroundColor === card &&
       ps.borderTopColor === (await resolve('--border-strong', 'borderTopColor')) &&
-      ps.borderTopLeftRadius === '8px',
+      ps.borderTopLeftRadius === (await rad(page, 'var(--radius-lg)')),
     JSON.stringify({ w: pb.width, h: pb.height, ...ps }),
   )
   const bb = await box(bell)
@@ -2605,8 +2622,8 @@ async function driveBell({ theme, dir }) {
     ts.backgroundColor !== (await resolve('--attention-050')) && ts.color !== (await resolve('--attention-800', 'color')),
   )
   check(
-    `${label}: the tag is squared (4px), 10px uppercase`,
-    ts.borderTopLeftRadius === '4px' && ts.fontSize === '10px' && ts.textTransform === 'uppercase',
+    `${label}: the tag takes --radius-sm, 10px uppercase`,
+    ts.borderTopLeftRadius === (await rad(page, 'var(--radius-sm)')) && ts.fontSize === '10px' && ts.textTransform === 'uppercase',
     JSON.stringify(ts),
   )
   check(`${label}: a JOB tag stays --muted`, (await style(job, 'backgroundColor')).backgroundColor === (await resolve('--muted')))
@@ -2937,8 +2954,8 @@ async function driveDialogs({ theme, dir }) {
 //  41. the expanded rail marks exactly that leaf: `aria-current="page"` and the active pill;
 //  42. a toast raised through the app's own `notify` lands at the bottom inline-END corner;
 //  43. each leaf is captured to .issues/assets/391-shots/ for the owner's S1 sign-off;
-//  44. Raise central invoices' textareas compute a 6px radius — the control shape the sweep gave
-//      `NoteField` and its siblings (377).
+//  44. Raise central invoices' textareas compute the shared Textarea's radius (--radius-lg, 595) —
+//      a rounded rectangle, never a pill.
 // It also PRINTS (never fails on) what the sweep looks for and the eye can miss: a control whose
 // text overflows its box, and a grid header label cut short along its width.
 
@@ -3224,6 +3241,16 @@ async function routeScreens(route) {
   }
   // Priority reads the live order's tree (`{ tree, … }`); a bare `[]` crashed the leaf (ticket 597's note).
   if (path === 'Rules/Authoring/Order') return route.fulfill(envelope({ versionNo: 0, tree: { groups: [], order: [] }, campaigns: [] }))
+  // The sync console reads objects, not lists: a bare `[]` crashed /admin/sync in the ErrorBoundary
+  // (593's note; shapes as dmsco-theme-drive's SYNC_STUBS, from core/models/sync-console.ts).
+  if (path === 'ActionSync/Workers') return route.fulfill(envelope({ items: [] }))
+  if (path === 'ActionSync/Fleet/Summary')
+    return route.fulfill(envelope({ asOf: '2026-10-09T12:04:31', total: 0, counts: { all: 0, onWorker: 0, onWpf: 0, paused: 0, offline: 0, behind: 0, erroring: 0, controlPending: 0 } }))
+  if (path === 'ActionSync/Fleet/LastHour') {
+    const hour = (h) => ({ hour: h, pushPasses: 0, pullPasses: 0, connectFailures: 0, chunksPushed: 0, actionsPushed: 0, trxPulled: 0, errors: 0 })
+    return route.fulfill(envelope({ current: hour('2026-10-09T12:00:00'), previous: hour('2026-10-09T11:00:00') }))
+  }
+  if (/^ActionSync\/(Fleet|Audit|Commands)$/.test(path)) return route.fulfill(envelope({ items: [], total: 0, page: 1, pageSize: 50 }))
   if (path in SCREEN_DATA) return route.fulfill(envelope(SCREEN_DATA[path]))
   return route.fulfill(envelope([]))
 }
@@ -3317,11 +3344,13 @@ async function driveScreens({ theme, dir }) {
       JSON.stringify(heads.filter((h) => h.height !== 28 || h.cut.length)),
     )
 
-    // A form control is a 6px control (F7, 377): the textareas the sweep moved off `rounded-lg`
-    // — `NoteField`'s shape — measured where one is on a menu leaf.
-    if (path === '/oms/central-invoice')
-      for (const radius of await page.locator('main textarea').evaluateAll((els) => els.map((el) => getComputedStyle(el).borderRadius)))
-        check(`${at}: a textarea is a 6px control`, radius === '6px', radius)
+    // A textarea is the shared Textarea (595): `rounded-lg`, a rounded rectangle at --radius-lg,
+    // never a pill — measured where one is on a menu leaf.
+    if (path === '/oms/central-invoice') {
+      const want = await rad(page, 'var(--radius-lg)')
+      for (const radius of await page.locator('main textarea').evaluateAll((els) => els.map((el) => getComputedStyle(el).borderTopLeftRadius)))
+        check(`${at}: a textarea takes the shared Textarea's --radius-lg`, radius === want, `${radius} vs ${want}`)
+    }
 
     // The rail marks exactly this leaf: one link that is `aria-current` OR sits on the active pill.
     // The call center too, since 407 joined it to the shell.

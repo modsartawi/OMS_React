@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import Button from '@/core/ui/Button'
 import { pagerEnablement } from './list-window'
 
 /**
@@ -45,25 +46,21 @@ export default function ListPager({
 }) {
   const { previous, next } = pagerEnablement({ page, pages })
 
-  const btn =
-    'inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-xs font-medium ' +
-    'transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
-
   return (
     <nav
       aria-label={labels.ariaLabel}
       className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-1.5"
     >
-      <button className={btn} disabled={!previous || busy} onClick={() => onPage(page - 1)}>
+      <Button variant="outlined" disabled={!previous || busy} onClick={() => onPage(page - 1)}>
         {/* Chevrons are logical: rtl:rotate-180 mirrors them with the text direction. */}
         <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
         {labels.previous}
-      </button>
+      </Button>
       <span className="tabular-nums text-xs text-muted-foreground">{labels.readout}</span>
-      <button className={btn} disabled={!next || busy} onClick={() => onPage(page + 1)}>
+      <Button variant="outlined" disabled={!next || busy} onClick={() => onPage(page + 1)}>
         {labels.next}
         <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
-      </button>
+      </Button>
     </nav>
   )
 }

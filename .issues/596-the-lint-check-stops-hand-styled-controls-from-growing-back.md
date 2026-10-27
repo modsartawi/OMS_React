@@ -102,3 +102,5 @@ resolvable) and `NODE_PATH` empty, `node tools/check-controls.mjs` → `control 
 fallback (583's inventory still does — it is a ticket asset, untouched).
 
 Gates: `typecheck` clean, `lint` 5/5, `npm test` 424 files / 6728 tests.
+
+**2026-10-27 — superseded in part (code review of spec 590, S5/P1, see 606 Comments).** `--init`, `--lower`, `lowerBaseline` and `formatBaseline` are removed: since 606 every ceiling equals its allowlist, so a baseline is edited by hand. The ratchet now also scans `src/core/**` outside `core/ui` (`core/<module>` blocks).

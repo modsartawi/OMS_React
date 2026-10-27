@@ -111,7 +111,7 @@ export default function PromotionCampaigns({
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             placeholder={t('promotion.search.placeholder')}
-            className="w-full"
+            wrapperClassName="w-full"
             data-promotion-search=""
           />
         </Field>

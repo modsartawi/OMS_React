@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { TEXTAREA_CONTROL, controlWiring, useFieldWiring } from './field-control'
+import { TEXTAREA_CONTROL, useControlWiring } from './field-control'
 
 export type TextareaProps = ComponentProps<'textarea'>
 
@@ -11,10 +11,6 @@ export type TextareaProps = ComponentProps<'textarea'>
  * `className` lands on the `<textarea>`; a `ref` reaches it.
  */
 export default function Textarea({ className = '', id, ...rest }: TextareaProps) {
-  const wiring = controlWiring(useFieldWiring(), {
-    id,
-    'aria-describedby': rest['aria-describedby'],
-    'aria-invalid': rest['aria-invalid'],
-  })
+  const wiring = useControlWiring({ id, 'aria-describedby': rest['aria-describedby'], 'aria-invalid': rest['aria-invalid'] })
   return <textarea className={`${TEXTAREA_CONTROL} ${className}`} {...rest} {...wiring} />
 }

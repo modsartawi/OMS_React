@@ -39,11 +39,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Check, Loader2, Search } from 'lucide-react'
+import { AlertTriangle, Check, Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
-import Field from '@/core/ui/Field'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Select from '@/core/ui/Select'
 import Ltr from '@/core/ui/Ltr'
@@ -71,10 +71,6 @@ import {
   type HighlightList,
   type HighlightState,
 } from '@/core/commands/highlight'
-
-/** A hand label over a control that is not alone in its box (the city/district steps):
- *  the core `Field`'s label look, so it reads like its Field neighbours. */
-const LABEL = 'text-xs font-medium text-muted-foreground'
 
 export default function AddressForm({
   values,
@@ -585,18 +581,17 @@ function DistrictField({
 
   return (
     <div className="flex flex-col gap-1" data-cc-district-field>
-      <label className={LABEL} htmlFor="cc-address-city">
+      {/* A hand label in the core Field's look: the city box is not alone in its box. */}
+      <label className={FIELD_LABEL} htmlFor="cc-address-city">
         {t('address.form.city')}
       </label>
 
       <div className="relative">
-        <Search
-          className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        {/* A combobox with its own trailing *Change*: kept a text Input with the hand icon
+        {/* A combobox with its own trailing *Change*: kept a text Input with the search icon
             (`type="search"` would add the browser's own clear button and Esc-clears). */}
         <Input
+          searchIcon
+          wrapperClassName="w-full"
           id="cc-address-city"
           ref={cityBox}
           value={cityCode ? (cities.pinned?.cityName ?? '') : cityQuery}
@@ -629,7 +624,7 @@ function DistrictField({
           aria-activedescendant={cityAim === null ? undefined : `cc-city-option-${cities.rows[cityAim].cityCode}`}
           data-cc-city-search
           data-cc-city-current={cityCode ?? undefined}
-          className={`w-full ps-8 ${cityCode ? 'pe-20' : ''}`}
+          className={cityCode ? 'pe-20' : ''}
         />
         {cityCode && (
           <button
@@ -733,7 +728,7 @@ function DistrictField({
       {/* THE DISTRICT STEP — within the named city, and only there. */}
       {districts.isSuccess && cityCode && (
         <>
-          <label className={`${LABEL} mt-2`} htmlFor="cc-address-district">
+          <label className={`${FIELD_LABEL} mt-2`} htmlFor="cc-address-district">
             {t('address.form.district')}
           </label>
 
@@ -752,11 +747,9 @@ function DistrictField({
           )}
 
           <div className="relative">
-            <Search
-              className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
             <Input
+              searchIcon
+              wrapperClassName="w-full"
               id="cc-address-district"
               ref={districtBox}
               value={query}
@@ -785,7 +778,6 @@ function DistrictField({
                 districtAim === null ? undefined : `cc-district-option-${rows[districtAim].districtCode}`
               }
               data-cc-district-search
-              className="w-full ps-8"
             />
           </div>
 

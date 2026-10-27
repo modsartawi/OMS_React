@@ -224,7 +224,7 @@ export default function CouponsPage() {
             value={q}
             onChange={(e) => set({ q: e.target.value })}
             placeholder={t(batch ? 'coupons.search.codePlaceholder' : 'coupons.search.batchPlaceholder')}
-            className="w-full font-mono"
+            wrapperClassName="w-full font-mono"
             data-coupons-search=""
           />
         </Field>

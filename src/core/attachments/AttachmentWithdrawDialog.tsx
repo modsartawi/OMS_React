@@ -7,7 +7,9 @@ import { apiErrorMessage } from '@/core/api'
 import type { StoredAttachment } from '@/core/models/attachment'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import Modal from '@/core/ui/Modal'
+import Textarea from '@/core/ui/Textarea'
 import { attachmentsApi } from './api'
 import AttachmentSourceText from './AttachmentSourceText'
 import type { AttachmentsPanelWords } from './panel-words'
@@ -180,12 +182,17 @@ export default function AttachmentWithdrawDialog({
           ))}
         </fieldset>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor={noteId} className="text-xs font-medium text-muted-foreground">
-            {t('withdraw.note')}
-          </label>
-          <textarea
-            id={noteId}
+        <Field
+          id={noteId}
+          label={t('withdraw.note')}
+          hint={
+            <>
+              {noteNeeded ? words.withdrawNoteRequired : t('withdraw.noteOptional')}{' '}
+              {t('withdraw.noteLimit', { max: WITHDRAW_NOTE_MAX })}
+            </>
+          }
+        >
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={WITHDRAW_NOTE_MAX}
@@ -193,14 +200,10 @@ export default function AttachmentWithdrawDialog({
             required={noteNeeded}
             dir="auto"
             rows={3}
-            className="rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+            className="w-full"
             data-testid="slip-withdraw-note"
           />
-          <span className="text-xs text-muted-foreground">
-            {noteNeeded ? words.withdrawNoteRequired : t('withdraw.noteOptional')}{' '}
-            {t('withdraw.noteLimit', { max: WITHDRAW_NOTE_MAX })}
-          </span>
-        </div>
+        </Field>
 
         {refusal && (
           // The server's words as sent: English, then Arabic, on their own lines.

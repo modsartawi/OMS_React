@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { Check, ChevronLeft, CircleDot, Flag, XCircle, Zap, type LucideIcon } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import type { TimelineStepKey } from '@/core/oms/timeline'
+import { iconButtonClass } from '@/core/ui/control-classes'
 import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { documentProvenanceRows, statusBreakdownRows, type FieldRow, type HeaderSubId } from './fields'
@@ -70,7 +71,7 @@ export default function DocumentHeader({
           to="/oms/deliveries"
           aria-label={t('back')}
           title={t('back')}
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-border hover:bg-accent"
+          className={iconButtonClass('outlined')}
         >
           {/* Mirrors under RTL: an explicit SVG flip, never a glyph standing in for an icon. */}
           <ChevronLeft className="size-4 rtl:-scale-x-100" aria-hidden />

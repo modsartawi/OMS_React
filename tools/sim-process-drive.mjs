@@ -19,7 +19,7 @@
 //      on it runs one simulation once the palette has closed;
 //   8. the shortcuts sheet lists Process alone on this screen — Simulation has no single keys,
 //      and a letter pressed on the page does nothing;
-//   9. the retheme holds: Plex on the page, the run controls drop the pill (6px), and the chip
+//   9. the retheme holds: Plex on the page, the run controls are full pills (spec 590's Button), and the chip
 //      strip, Items, a line's expansion with its money foot and rule cards render — captured
 //      to screenshots for the eye.
 // No page errors anywhere (the key registry's dev refusals are console errors, so a refused
@@ -248,13 +248,14 @@ async function drive(browser, { theme, dir }) {
       items: document.querySelector('table')?.querySelectorAll('tbody input').length ?? 0,
       buttons: [...(strip?.querySelectorAll('button') ?? [])]
         .filter((b) => /Process|Clear/.test(b.textContent))
-        .map((b) => [b.textContent.trim().slice(0, 12), radius(b)]),
+        .map((b) => [b.textContent.trim().slice(0, 12), radius(b), b.getBoundingClientRect().height]),
     }
   })
   check(`${label}: the page is set in IBM Plex Sans`, /IBM Plex Sans/.test(look.font), look.font)
   check(
-    `${label}: the run controls drop the pill — 6px controls`,
-    look.buttons.length >= 3 && look.buttons.every(([, r]) => r === '6px'),
+    // 380 dropped the pill (6px); spec 590 made every Button a full pill at h-7 (owner).
+    `${label}: the run controls are full pills (radius at least half the height)`,
+    look.buttons.length >= 3 && look.buttons.every(([, r, h]) => parseFloat(r) >= h / 2 - 0.5),
     JSON.stringify(look.buttons),
   )
   check(

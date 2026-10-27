@@ -554,29 +554,96 @@ const SCREENS = [
 // Self-contained: its helpers and its screen. The Deliveries query bar's token
 // popovers (its filter panel) are the form 595 moved onto the shared controls.
 
-// Every control matching `selector` has a name a screen reader reads: a linked
-// <label> (htmlFor/id), or failing that an aria-label/-labelledby.
+// Fields with NO visible label, named by an aria-label alone — spec 590: "every field's
+// label is linked to it", so each one is listed here, per screen, with why it has none
+// (code review P3). An aria-label-only field not listed here fails `expectLabelled`.
+// `sel` is matched against the field itself.
+// Selectors are structural (data hooks, scopes), never aria-label text: the RTL mode runs in Arabic.
+const SEARCH_BOX = 'a search box named by its placeholder and an aria-label, no visible label (601: search buttons/labels pending the owner)'
+const TABLE_CELL = "a field in a table cell: its column header is the visible label, the aria-label names column + row"
+const ARIA_LABEL_ONLY = {
+  'campaign-workspace': [
+    { sel: '[data-panel-says-en], [data-panel-says-ar]', why: 'a bilingual pair under ONE visible caption (fieldset, sr-only legend); each box is "<caption> in English/Arabic"' },
+    { sel: '[data-settings-field="hoursTo"]', why: 'the second half of a time range, after the visible word "to" (From/To labels pending the owner)' },
+  ],
+  'campaigns-rest': [
+    { sel: '[data-basket-qty], [data-basket-price]', why: 'a basket line\'s quantity and price, under the basket\'s column heads' },
+    { sel: '[data-group-name], [data-group-name-ar], [data-group-mode], [data-group-scope]', why: 'one row of the priority group list, repeated per group under the list\'s heads' },
+  ],
+  'admin-authz': [{ sel: '[data-authz-users-search], [data-authz-roles-search]', why: SEARCH_BOX }],
+  'admin-ua-users': [{ sel: '[data-ua-search]', why: SEARCH_BOX }],
+  'admin-sync': [
+    { sel: '[data-fleet-search]', why: SEARCH_BOX },
+    { sel: '[data-fleet-host], [data-fleet-sort]', why: 'toolbar selects beside the search, named by aria-label (601)' },
+  ],
+  'reports-toolbars': [
+    { sel: '[data-fleet-search]', why: SEARCH_BOX },
+    { sel: '[data-fleet-rail], [data-fleet-sort], [data-double-sends-flag], [data-double-sends-store]', why: 'toolbar filters named by aria-label, their option text says what they hold (604)' },
+  ],
+  'callcenter-console': [
+    { sel: '[data-cc-search-input]', why: SEARCH_BOX },
+    { sel: '[data-numeric]', why: 'a number box inside a composite row (the caller bar\'s mobile after its country code, a basket line\'s quantity, the OTP) — the row is the visible context (603)' },
+    { sel: '[data-cc-signup-country]', why: 'the country-code picker that leads the mobile number: one visible "Mobile" pair (603)' },
+  ],
+  'pricing-bby': [
+    { sel: '[data-bby-min-amount]', why: 'the amount the "Total Minimum Value" checkbox label enables, beside it (600)' },
+    { sel: 'td input, td select', why: TABLE_CELL },
+  ],
+  'pricing-simulation': [{ sel: 'td input', why: TABLE_CELL }],
+  'collection-assignment': [
+    { sel: '.ag-row select', why: 'a grid cell\'s slot picker: the column header is its label (602)' },
+    { sel: '[data-assignment-bar="bulk"] textarea', why: 'the bulk bar\'s paste box, under the bar\'s own visible instruction (602)' },
+  ],
+  'collection-settlement': [{ sel: '[data-testid="settlement-search"], [data-testid="ledger-entry"]', why: SEARCH_BOX }],
+  'nphies-authorization': [{ sel: 'td input, td select', why: TABLE_CELL }],
+  'remaining-materials': [{ sel: '[data-picker-query]', why: SEARCH_BOX }],
+  'remaining-auth': [{ sel: '#layout-store-panel select', why: 'the store panel\'s one select, named by the panel\'s own title "Acting store" (a dialog)' }],
+}
+// The drive prints the total so the review can see the list's size.
+console.log(
+  `P3: ${Object.values(ARIA_LABEL_ONLY).flat().length} aria-label-only exemptions on ${Object.keys(ARIA_LABEL_ONLY).length} screens`,
+)
+
+// Every control matching `selector` has a visible label LINKED to it: `el.labels` (a
+// <label for> or a wrapping <label>) or an aria-labelledby that resolves to text. A field
+// named only by aria-label passes only when ARIA_LABEL_ONLY lists it for this screen.
 async function expectLabelled(ctx, label, selector) {
-  const out = await ctx.page.evaluate((sel) => {
-    const els = [...document.querySelectorAll(sel)]
-    const nameOf = (el) =>
-      [...(el.labels || [])].map((l) => l.textContent.trim()).join(' ') ||
-      el.getAttribute('aria-label') ||
-      (el.getAttribute('aria-labelledby') || '')
-        .split(' ')
-        .map((id) => document.getElementById(id)?.textContent.trim() ?? '')
-        .join(' ')
-        .trim()
-    return {
-      count: els.length,
-      linked: els.filter((el) => el.labels?.length).length,
-      bare: els.filter((el) => !nameOf(el)).map((el) => el.outerHTML.slice(0, 60)),
-    }
-  }, selector)
+  const exempt = (ARIA_LABEL_ONLY[ctx.screen?.key] ?? []).map((e) => e.sel)
+  const out = await ctx.page.evaluate(
+    ({ sel, exempt }) => {
+      const els = [...document.querySelectorAll(sel)]
+      const text = (el) => el?.textContent.trim() ?? ''
+      const linked = (el) =>
+        [...(el.labels || [])].some((l) => text(l)) ||
+        (el.getAttribute('aria-labelledby') || '')
+          .split(' ')
+          .filter(Boolean)
+          .some((id) => text(document.getElementById(id)))
+      const ariaOnly = els.filter((el) => !linked(el) && el.getAttribute('aria-label'))
+      // Name a field by what finds it: a data-* hook, else its id, else tag + aria-label.
+      const describe = (el) => {
+        const hook = [...el.attributes].find((a) => a.name.startsWith('data-'))
+        if (hook) return hook.value ? `[${hook.name}="${hook.value}"]` : `[${hook.name}]`
+        if (el.id) return `#${el.id}`
+        const name = el.getAttribute('aria-label')
+        return name ? `${el.tagName.toLowerCase()}[aria-label="${name}"]` : el.outerHTML.slice(0, 90)
+      }
+      return {
+        count: els.length,
+        linked: els.filter(linked).length,
+        exempted: ariaOnly.filter((el) => exempt.some((x) => el.matches(x))).length,
+        ariaOnly: ariaOnly.filter((el) => !exempt.some((x) => el.matches(x))).map(describe),
+        bare: els.filter((el) => !linked(el) && !el.getAttribute('aria-label')).map(describe),
+      }
+    },
+    { sel: selector, exempt },
+  )
   check(
-    `${ctx.tag} ${label}: every field labelled`,
-    out.count > 0 && out.bare.length === 0,
-    `${out.count} field(s), ${out.linked} by <label for>${out.bare.length ? '; bare: ' + out.bare.join(' | ') : ''}`,
+    `${ctx.tag} ${label}: every field's label linked to it`,
+    out.count > 0 && out.bare.length === 0 && out.ariaOnly.length === 0,
+    `${out.count} field(s), ${out.linked} linked, ${out.exempted} aria-label-only by exemption` +
+      (out.ariaOnly.length ? '; aria-label only, not exempt: ' + out.ariaOnly.join(' | ') : '') +
+      (out.bare.length ? '; bare: ' + out.bare.join(' | ') : ''),
   )
 }
 

@@ -40,6 +40,12 @@ const inUserMenu = (e: KeyboardEvent) => e.target instanceof Element && !!e.targ
  */
 const ACTIVE_PILL = 'bg-rail-pill text-rail-accent-foreground [&_svg]:text-rail-active'
 
+/** Pointing at a rail row: the lifted `--rail-accent` ground with white ink (587). */
+const RAIL_HOVER = 'hover:bg-rail-accent hover:text-rail-accent-foreground'
+
+/** Every rail row and icon ground: a full pill that lifts under the pointer (587). */
+const RAIL_ROW = 'rounded-full ' + RAIL_HOVER
+
 /** A group's label, wherever it heads its leaves: the tree, the flyout and the drawer. */
 const GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-wide'
 
@@ -96,7 +102,7 @@ function RailLeaf({ item, onNavigate }: RowProps) {
       onClick={onNavigate}
       className={
         'flex h-8 items-center gap-2 rounded-full ps-3 pe-2 text-[13px] ' +
-        (active ? 'font-medium ' + ACTIVE_PILL : 'hover:bg-rail-accent hover:text-rail-accent-foreground')
+        (active ? 'font-medium ' + ACTIVE_PILL : RAIL_HOVER)
       }
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
@@ -125,7 +131,7 @@ function SubGroupLink({ item, onNavigate, hasActiveChild }: RowProps & { hasActi
       to={item.routerLink!}
       onClick={onNavigate}
       className={
-        'flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full ps-3 pe-2 text-[13px] hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+        'flex h-8 min-w-0 flex-1 items-center gap-2 ps-3 pe-2 text-[13px] ' + RAIL_ROW + ' ' +
         (hasActiveChild ? 'font-medium text-rail-accent-foreground' : '')
       }
     >
@@ -168,7 +174,7 @@ function TreeSubGroup({ item, onNavigate }: RowProps) {
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={t('rail.toggleSection', { label: t(item.labelKey) })}
-          className="rounded-full p-1.5 text-rail-muted hover:bg-rail-accent hover:text-rail-accent-foreground"
+          className={'p-1.5 text-rail-muted ' + RAIL_ROW}
         >
           <RowChevron open={expanded} />
         </button>
@@ -230,7 +236,7 @@ function TreeGroup({ item, onNavigate }: RowProps) {
         onClick={toggle}
         aria-expanded={expanded}
         className={
-          'flex h-8 items-center gap-2 rounded-full ps-3 pe-2 ' + GROUP_LABEL + ' hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+          'flex h-8 items-center gap-2 ps-3 pe-2 ' + GROUP_LABEL + ' ' + RAIL_ROW + ' ' +
           (hasActiveChild ? 'text-rail-accent-foreground' : 'text-rail-muted')
         }
       >
@@ -255,7 +261,7 @@ function iconClass(active: boolean, open = false): string {
       ? ACTIVE_PILL
       : open
         ? 'bg-rail-accent text-rail-accent-foreground'
-        : 'hover:bg-rail-accent hover:text-rail-accent-foreground')
+        : RAIL_HOVER)
   )
 }
 
@@ -291,7 +297,7 @@ function Flyout({ group, onClose }: { group: ShellMenuItem; onClose: (restoreFoc
           onClick={() => onClose(true)}
           aria-label={t('rail.close')}
           title={t('rail.close')}
-          className="rounded-full p-1 hover:bg-rail-accent hover:text-rail-accent-foreground"
+          className={'p-1 ' + RAIL_ROW}
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -480,7 +486,7 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
           aria-label={expanded ? undefined : t('rail.expand')}
           title={expanded ? undefined : t('rail.expand')}
           className={
-            'mt-1 flex h-8 shrink-0 items-center gap-2 rounded-full text-xs hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+            'mt-1 flex h-8 shrink-0 items-center gap-2 text-xs ' + RAIL_ROW + ' ' +
             (expanded ? 'mx-2.5 px-3' : 'mx-auto w-9 justify-center')
           }
         >
@@ -627,7 +633,7 @@ export function RailDrawer() {
                   onClick={close}
                   aria-label={t('rail.close')}
                   title={t('rail.close')}
-                  className="rounded-full p-1 hover:bg-rail-accent hover:text-rail-accent-foreground"
+                  className={'p-1 ' + RAIL_ROW}
                 >
                   <X className="h-4 w-4" aria-hidden />
                 </button>

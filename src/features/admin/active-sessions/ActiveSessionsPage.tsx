@@ -225,7 +225,7 @@ export default function ActiveSessionsPage() {
       <div className="flex items-center gap-2">
         <Input
           type="search"
-          className="min-w-0 flex-1"
+          wrapperClassName="min-w-0 flex-1"
           aria-label={t('search.placeholder')}
           placeholder={t('search.placeholder')}
           value={term}

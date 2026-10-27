@@ -68,7 +68,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
       <div className="flex items-center gap-2">
         <Input
           type="search"
-          className="min-w-0 flex-1"
+          wrapperClassName="min-w-0 flex-1"
           aria-label={t('rolesWs.searchPlaceholder')}
           placeholder={t('rolesWs.searchPlaceholder')}
           value={term}

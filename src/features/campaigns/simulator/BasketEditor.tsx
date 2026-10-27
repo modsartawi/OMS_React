@@ -275,7 +275,7 @@ function ItemSearch({ onPick }: { onPick: (sku: string, name: string, category: 
       <Field label={t('basket.find')}>
         <Input
           type="search"
-          className="w-full"
+          wrapperClassName="w-full"
           placeholder={t('basket.findPlaceholder')}
           value={find}
           onChange={(e) => setFind(e.target.value)}

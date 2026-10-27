@@ -6,6 +6,7 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { RULE_MATERIAL_SEARCH_MIN, type RuleLookupItem, type RuleLookupKind } from '@/core/models/rule-campaign'
 import { ruleLookupQuery } from '@/core/rules/api'
 import { lookupName } from '@/core/rules/lookups'
+import IconButton from '@/core/ui/IconButton'
 import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { formatPair, fsi } from '@/core/util/bidi'
@@ -78,15 +79,15 @@ export default function LookupPicks({
             <code className="font-mono">
               <Ltr>{code}</Ltr>
             </code>
-            <button
-              type="button"
-              className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-danger-800"
-              aria-label={t('filters.remove', { code: fsi(code) })}
+            <IconButton
+              variant="danger"
+              size="compact"
+              label={t('filters.remove', { code: fsi(code) })}
               onClick={() => onChange(value.filter((c) => c !== code))}
               data-pick-remove={code}
             >
               <X className="h-3 w-3" aria-hidden />
-            </button>
+            </IconButton>
           </span>
         ))}
       </span>
@@ -94,7 +95,7 @@ export default function LookupPicks({
         id={id}
         type="search"
         dir="auto"
-        className="w-full max-w-md"
+        wrapperClassName="w-full max-w-md"
         value={find}
         placeholder={t(`filters.search.${kind}`)}
         aria-controls={searching ? listId : undefined}

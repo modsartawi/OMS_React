@@ -20,20 +20,33 @@
 //   - every `<input>`/`<select>`/`<textarea>` EXCEPT the inputs spec 590 keeps native:
 //     `checkbox` and `radio` (native + accent-color), `hidden`, and `file` (a hidden picker that a
 //     Button opens);
-//   - only `src/features/**/*.tsx`, outside any `__prototype__` folder (spec 590 story 47).
+//   - only `src/features/**/*.tsx` and `src/core/**/*.tsx` minus `src/core/ui/**` (the shared
+//     controls themselves, where a control IS hand-written once), outside any `__prototype__`
+//     folder (spec 590 story 47). Core joined in the code review of spec 590 (P1).
 
 import { parseSync } from 'vite'
 
 export const CONTROL_TAGS = ['button', 'input', 'select', 'textarea']
 const NATIVE_KINDS = new Set(['checkbox', 'radio', 'hidden', 'file'])
 
-/** `src/features/<area>/<feature>/…tsx` → `<area>/<feature>`; a file directly under an area → `<area>`. */
+/**
+ * The ratchet's unit for a scanned file, or null when the file is not scanned:
+ * `src/features/<area>/<feature>/…tsx` → `<area>/<feature>` (a file directly under an area → `<area>`);
+ * `src/core/<module>/…tsx` → `core/<module>` (a file directly under core → `core`), except `core/ui`.
+ */
 export function featureOf(relPath) {
   const p = relPath.split('\\').join('/')
-  if (!p.startsWith('src/features/') || !p.endsWith('.tsx')) return null
-  const parts = p.slice('src/features/'.length).split('/')
-  if (parts.includes('__prototype__')) return null
-  return parts.length >= 3 ? `${parts[0]}/${parts[1]}` : parts[0]
+  if (!p.endsWith('.tsx') || p.split('/').includes('__prototype__')) return null
+  if (p.startsWith('src/features/')) {
+    const parts = p.slice('src/features/'.length).split('/')
+    return parts.length >= 3 ? `${parts[0]}/${parts[1]}` : parts[0]
+  }
+  if (p.startsWith('src/core/')) {
+    const parts = p.slice('src/core/'.length).split('/')
+    if (parts.length === 1) return 'core'
+    return parts[0] === 'ui' ? null : `core/${parts[0]}`
+  }
+  return null
 }
 
 /** A JSX attribute's value as text: a literal as itself, an expression as `{…}`, a bare flag as `true`. */
@@ -163,18 +176,17 @@ export function parseBaseline(text) {
 
 /**
  * rowsByFeature: Map<feature, [{ file, tag, kind, line }]>; baseline: parseBaseline(...).entries.
- * → { failures: string[], lowerable: [{ feature, from, to }] }. A rise fails. In a swept feature a
- * fall fails too (606: the allowlist line naming a control that is gone is stale). An unswept
- * ceiling that fell (only a baseline that already errors can hold one) is reported as lowerable.
+ * → { failures: string[] }. A feature holds exactly the controls its allowlist names: one it does
+ * not name fails, and so does a line naming a control that is gone (606: stale). A feature with no
+ * allowlist (ceiling 0, or missing from the baseline) may hold none — parseBaseline already refuses
+ * a non-zero ceiling without one.
  */
 export function checkRatchet(rowsByFeature, baseline) {
   const failures = []
-  const lowerable = []
   const features = [...new Set([...rowsByFeature.keys(), ...baseline.keys()])].sort()
   for (const feature of features) {
     const rows = rowsByFeature.get(feature) ?? []
     const entry = baseline.get(feature)
-    const ceiling = entry?.ceiling ?? 0
     if (entry?.allow.length) {
       const allowed = new Map()
       for (const a of entry.allow) allowed.set(a.file + ' ' + a.tag, (allowed.get(a.file + ' ' + a.tag) ?? 0) + 1)
@@ -205,50 +217,13 @@ export function checkRatchet(rowsByFeature, baseline) {
           )
         }
       }
-    } else if (rows.length > ceiling) {
+    } else if (rows.length) {
       failures.push(
-        `${feature}: ${rows.length} > ${ceiling} hand-styled controls` +
-          (entry ? '' : ' (not in the baseline, so its ceiling is 0)') +
-          ` — use the shared controls in @/core/ui; \`node tools/check-controls.mjs --list ${feature}\` lists them`,
+        `${feature}: ${rows.length} hand-styled control(s), and ${entry ? 'its allowlist names none' : 'it is not in the baseline'}` +
+          ` — use the shared controls in @/core/ui, or allowlist a one-off with its reason: ` +
+          rows.map((r) => `${r.file}:${r.line}`).join(', '),
       )
     }
-    if (rows.length < ceiling) lowerable.push({ feature, from: ceiling, to: rows.length })
   }
-  return { failures, lowerable }
-}
-
-// ---------------------------------------------------------------- writing the baseline
-
-/** A fresh baseline: `header`, then one `<feature> <count>` block per feature, sorted. */
-export function formatBaseline(counts, header) {
-  const blocks = [...counts.keys()].sort().map((f) => `${f} ${counts.get(f)}`)
-  return [header, ...blocks].join('\n\n') + '\n'
-}
-
-/**
- * Lower each unswept feature's ceiling to its count (never up), in place, touching nothing else —
- * so the edit is one line and merges beside any other feature's. A feature swept to nothing stays
- * as `<feature> 0` (deleting its block would touch its neighbours' lines). A swept feature (one
- * with an allowlist) is only reported in `skipped`: its ceiling IS its allowlist, edited by hand.
- * `only`: limit to these features (an area ticket lowers its own).
- */
-export function lowerBaseline(text, counts, only) {
-  const eol = text.includes('\r\n') ? '\r\n' : '\n'
-  const lines = text.split(/\r?\n/)
-  const { entries } = parseBaseline(text)
-  const lowered = []
-  const skipped = []
-  lines.forEach((raw, i) => {
-    const m = FEATURE_LINE.exec(raw)
-    if (!m) return
-    const [, feature, ceilingText] = m
-    if (only && !only.includes(feature)) return
-    const ceiling = Number(ceilingText)
-    const count = counts.get(feature) ?? 0
-    if (count >= ceiling) return
-    if (entries.get(feature)?.allow.length) return void skipped.push(feature)
-    lines[i] = `${feature} ${count}`
-    lowered.push(`${feature} ${ceiling} → ${count}`)
-  })
-  return { text: lines.join(eol), lowered, skipped }
+  return { failures }
 }

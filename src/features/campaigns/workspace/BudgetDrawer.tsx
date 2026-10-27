@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, X } from 'lucide-react'
 import type { RuleBudgetScope } from '@/core/models/rule-campaign'
@@ -118,7 +118,7 @@ export default function BudgetDrawer({
               {t('settings.budgets.drawer.liveNote')}
             </p>
           )}
-          <Question id={id('limit')} label={t('settings.budgets.drawer.limit')}>
+          <Field id={id('limit')} label={t('settings.budgets.drawer.limit')}>
             <Select id={id('limit')} value={form.limit} disabled={liveLimit} onChange={(e) => set({ limit: e.target.value as BudgetForm['limit'] })} data-budget-field="limit">
               {BUDGET_LIMITS.map((l) => (
                 <option key={l} value={l}>
@@ -126,8 +126,8 @@ export default function BudgetDrawer({
                 </option>
               ))}
             </Select>
-          </Question>
-          <Question
+          </Field>
+          <Field
             id={id('value')}
             label={t('settings.budgets.drawer.value')}
             error={shown ? <span data-budget-problem={shown}>{t(`settings.budgets.drawer.problem.${shown}`)}</span> : undefined}
@@ -148,8 +148,8 @@ export default function BudgetDrawer({
                 </span>
               )}
             </span>
-          </Question>
-          <Question id={id('scope')} label={t('settings.budgets.drawer.scope')}>
+          </Field>
+          <Field id={id('scope')} label={t('settings.budgets.drawer.scope')}>
             <Select id={id('scope')} value={form.scope} disabled={liveLimit} onChange={(e) => set({ scope: e.target.value as BudgetForm['scope'] })} data-budget-field="scope">
               {scopes.map((s) => (
                 <option key={s} value={s}>
@@ -157,8 +157,8 @@ export default function BudgetDrawer({
                 </option>
               ))}
             </Select>
-          </Question>
-          <Question id={id('period')} label={t('settings.budgets.drawer.period')}>
+          </Field>
+          <Field id={id('period')} label={t('settings.budgets.drawer.period')}>
             <Select id={id('period')} value={form.period} disabled={liveLimit} onChange={(e) => set({ period: e.target.value as BudgetForm['period'] })} data-budget-field="period">
               {BUDGET_PERIODS.map((p) => (
                 <option key={p} value={p}>
@@ -166,9 +166,9 @@ export default function BudgetDrawer({
                 </option>
               ))}
             </Select>
-          </Question>
+          </Field>
           {(['nameEn', 'nameAr'] as const).map((k) => (
-            <Question key={k} id={id(k)} label={t(`settings.budgets.drawer.${k}`)}>
+            <Field key={k} id={id(k)} label={t(`settings.budgets.drawer.${k}`)}>
               <Input
                 id={id(k)}
                 dir={k === 'nameAr' ? 'rtl' : 'ltr'}
@@ -179,7 +179,7 @@ export default function BudgetDrawer({
                 onChange={(e) => set({ [k]: e.target.value })}
                 data-budget-field={k}
               />
-            </Question>
+            </Field>
           ))}
           <div className="rounded-md border border-border/60 bg-muted/40 p-2.5 text-sm" data-budget-preview="">
             {problem ? (
@@ -205,14 +205,5 @@ export default function BudgetDrawer({
         </footer>
       </form>
     </dialog>
-  )
-}
-
-/** One of the drawer's questions, its words above its answer. */
-function Question({ id, label, error, children }: { id: string; label: string; error?: ReactNode; children: ReactNode }) {
-  return (
-    <Field id={id} label={label} error={error}>
-      {children}
-    </Field>
   )
 }

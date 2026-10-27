@@ -82,7 +82,7 @@ export default function EngineSwitchPage() {
         <Field id={ids.search} label={t('filter.search')}>
           <Input
             type="search"
-            className="w-64"
+            wrapperClassName="w-64"
             value={search}
             onChange={(e) => {
               const value = e.target.value

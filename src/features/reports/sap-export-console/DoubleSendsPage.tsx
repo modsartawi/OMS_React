@@ -134,7 +134,7 @@ function DoubleSends() {
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t('doubleSends.storePlaceholder')}
             aria-label={t('doubleSends.store')}
-            className="w-40 font-mono"
+            wrapperClassName="w-40 font-mono"
             data-double-sends-store=""
           />
           <Button type="submit" variant="outlined" data-double-sends-apply="">

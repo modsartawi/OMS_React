@@ -5,9 +5,10 @@
  * Kept pure (no React) so the composition is unit-tested; the components in this
  * folder only spread it onto a `<button>`.
  *
- * Shape: every control is a full pill at h-7 (28px, spec 590 "sizes stay compact").
- * `rounded-full` is spelt out rather than read from `--radius`, so a later radius
- * change cannot un-pill a control.
+ * Shape: every one-line control — these three and the fields of `./field-control` —
+ * is a full pill at h-7 (28px, spec 590 "sizes stay compact"). `rounded-full` is
+ * spelt out rather than read from `--radius`, so a later radius change cannot
+ * un-pill a control; `--radius` shapes cards and panels, not controls.
  *
  * Disabled: `aria-disabled` is styled alongside `disabled` because a command that is
  * disabled *with a reason* must stay focusable to be able to state it — a real
@@ -16,7 +17,8 @@
  * guards its own `onClick` when it uses `aria-disabled`.
  */
 
-const DISABLED =
+/** The one disabled look, shared with the fields (`./field-control`). */
+export const DISABLED =
   'disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
 
 const PILL = 'h-7 rounded-full px-3'

@@ -212,7 +212,7 @@ function GridPane<T>({ kind, title, rows, loading, error, columns, getRowId, row
         <div className="ms-auto flex items-center gap-2">
           <Input
             type="search"
-            className="w-56"
+            wrapperClassName="w-56"
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
             placeholder={t(`${kind}.filter`)}

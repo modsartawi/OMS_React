@@ -647,7 +647,7 @@ function PromotionBody({ promo }: { promo: BbyPromotion }) {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={t('overview.filter.search')}
-                      className="w-full"
+                      wrapperClassName="w-full"
                       data-testid="bby-overview-search"
                     />
                   </label>

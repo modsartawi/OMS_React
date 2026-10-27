@@ -16,6 +16,7 @@ import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { buttonClass } from '@/core/ui/control-classes'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { fsi } from '@/core/util/bidi'
@@ -158,7 +159,7 @@ function Header({ master }: { master: MaterialMaster }) {
       </div>
       <Link
         to={simulatorHref(master.materialNumber)}
-        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent"
+        className={buttonClass('secondary')}
         data-material-simulator=""
       >
         <Tag className="h-3.5 w-3.5" aria-hidden />

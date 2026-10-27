@@ -119,7 +119,7 @@ function DocumentSourceUsers() {
         <div className="ms-auto flex items-center gap-2">
           <Input
             type="search"
-            className="w-64"
+            wrapperClassName="w-64"
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
             placeholder={t('filter')}

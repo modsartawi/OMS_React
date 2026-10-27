@@ -192,7 +192,7 @@ function Orders() {
               onChange={(e) => setStore(e.target.value)}
               placeholder={t('filters.storePlaceholder')}
               dir="ltr"
-              className="w-32 font-mono"
+              wrapperClassName="w-32 font-mono"
               data-filter-store=""
             />
           </Field>

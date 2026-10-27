@@ -1,5 +1,8 @@
-import { useId, useMemo, type ReactNode } from 'react'
-import { FieldContext, fieldIds } from './field-control'
+import { useId, useMemo, useState, type ReactNode } from 'react'
+import { FieldContext, fieldControlId, fieldIds } from './field-control'
+
+/** The label look of a Field — exported for a label-beside layout that keeps its own `<label htmlFor>`. */
+export const FIELD_LABEL = 'text-xs font-medium text-muted-foreground'
 
 export interface FieldProps {
   /** The visible label, from the caller's `t()` key. Linked to the control by `htmlFor` / `id`. */
@@ -13,7 +16,10 @@ export interface FieldProps {
   error?: ReactNode
   /** Invalid without an error line (the control is still announced invalid). */
   invalid?: boolean
-  /** The control's id, when the caller needs to know it; otherwise one is made. */
+  /**
+   * The control's id, when the caller needs to know it; otherwise one is made. An `id` stated on
+   * the control inside wins over both, and the label follows it.
+   */
   id?: string
   /** Hide the label visually; it still names the control. */
   hideLabel?: boolean
@@ -28,24 +34,26 @@ export interface FieldProps {
  * the one layout every form uses, so an operator always finds them in the same place.
  *
  * The wiring is by context: the shared control inside takes the Field's id (the label's
- * `htmlFor`), its `aria-describedby` (hint, then error) and its validity. A nested Field
- * re-wires its own control, so a range is two Fields side by side, each with its own label.
- * A native control that is not one of the shared three is not wired — use the shared ones.
+ * `htmlFor`) — or, when it states its own id, the Field adopts that one — its `aria-describedby`
+ * (hint, then error) and its validity. A nested Field re-wires its own control, so a range is two
+ * Fields side by side, each with its own label. A native control that is not one of the shared
+ * three is not wired — use the shared ones.
  */
 export default function Field({ label, hint, error, invalid = false, id, hideLabel, className = '', children }: FieldProps) {
   const made = useId()
+  const [claimed, claimId] = useState<string | undefined>(undefined)
   const hasError = error !== undefined && error !== null && error !== false && error !== ''
-  const ids = fieldIds(id ?? made, { hint: hint !== undefined && hint !== null, error: hasError })
+  const ids = fieldIds(fieldControlId({ claimed, id, made }), {
+    hint: hint !== undefined && hint !== null,
+    error: hasError,
+  })
   const wiring = useMemo(
-    () => ({ controlId: ids.controlId, describedBy: ids.describedBy, invalid: invalid || hasError }),
+    () => ({ controlId: ids.controlId, describedBy: ids.describedBy, invalid: invalid || hasError, claimId }),
     [ids.controlId, ids.describedBy, invalid, hasError],
   )
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${className}`}>
-      <label
-        htmlFor={ids.controlId}
-        className={hideLabel ? 'sr-only' : 'text-xs font-medium text-muted-foreground'}
-      >
+      <label htmlFor={ids.controlId} className={hideLabel ? 'sr-only' : FIELD_LABEL}>
         {label}
       </label>
       <FieldContext.Provider value={wiring}>{children}</FieldContext.Provider>

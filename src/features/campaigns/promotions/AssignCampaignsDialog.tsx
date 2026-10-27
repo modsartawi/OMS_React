@@ -100,7 +100,7 @@ export default function AssignCampaignsDialog({
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             placeholder={t('assign.placeholder')}
-            className="w-full"
+            wrapperClassName="w-full"
             data-assign-search=""
           />
         </Field>

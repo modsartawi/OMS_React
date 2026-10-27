@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, RefreshCw, ShieldAlert, TriangleAlert } from 'lucid
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
+import { buttonClass } from '@/core/ui/control-classes'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { useSession } from '@/core/session'
 import { useStoreLock } from '@/core/engine-session/store-lock'
@@ -1011,7 +1012,7 @@ export default function AuthorizationFormPage() {
         >
           <Link
             to="/nphies/authorizations"
-            className="mt-2 inline-flex h-7 items-center rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+            className={buttonClass('outlined', 'mt-2')}
           >
             {t('form.fault.backToList')}
           </Link>

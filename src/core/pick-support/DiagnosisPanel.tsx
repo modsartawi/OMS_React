@@ -10,7 +10,9 @@ import type {
   PickSupportTimelineEntry,
 } from '@/core/models/pick-support'
 import Button from '@/core/ui/Button'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
+import Select from '@/core/ui/Select'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatCount, formatPair, fsi } from '@/core/util/bidi'
@@ -509,28 +511,22 @@ function Timeline({ entries }: { entries: PickSupportTimelineEntry[] }) {
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <label className="inline-flex items-center gap-1 text-muted-foreground">
         {t('timeline.source')}
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="h-7 rounded-md border border-border/60 bg-background px-1.5 text-xs text-foreground"
-          data-ps-timeline-source=""
-        >
+        <Select value={source} onChange={(e) => setSource(e.target.value)} data-ps-timeline-source="">
           <option value="">{t('timeline.allSources')}</option>
           {sources.map((s) => (
             <option key={s} value={s}>
               {fsi(s)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label className="inline-flex items-center gap-1 text-muted-foreground">
         {t('timeline.key')}
-        <input
-          type="text"
+        <Input
           value={key}
           onChange={(e) => setKey(e.target.value)}
           placeholder={t('timeline.keyPlaceholder')}
-          className="h-7 w-40 rounded-md border border-border/60 bg-background px-1.5 text-xs text-foreground"
+          className="w-40"
           data-ps-timeline-key=""
         />
       </label>

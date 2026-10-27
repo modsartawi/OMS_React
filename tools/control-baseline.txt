@@ -1,16 +1,17 @@
 # The control ratchet's baseline (ticket 596, spec 590). Checked by `npm run lint`
 # (tools/check-controls.mjs). One block per feature, sorted, a blank line between blocks.
 #
-# `<area>/<feature> <ceiling>` — the most hand-written <button>/<input>/<select>/<textarea> the
-# feature may hold (checkbox/radio/hidden/file inputs and __prototype__ folders are not counted).
+# `<area>/<feature> <ceiling>` (or `core/<module>` for src/core outside core/ui, since the code
+# review of spec 590) — the most hand-written <button>/<input>/<select>/<textarea> the feature may
+# hold (checkbox/radio/hidden/file inputs and __prototype__ folders are not counted).
 # A ceiling only ever falls. An indented line under a feature allowlists ONE control:
 #   `  <repo path> <button|input|select|textarea>: <one-line reason>`  (the reason is required)
 # A feature with an allowlist is SWEPT: its ceiling equals its allowlist's length and each file
 # holds exactly the controls its lines name. Every feature is swept (606): a non-zero ceiling
 # without an allowlist is an error, so a hand-styled control is allowed only by name, with why.
 #
-# Lowering: `node tools/check-controls.mjs --lower <feature>` after a sweep; then, for what stays,
-# replace the count with the allowlist (`--list <feature>` prints file:line for each).
+# Removing a control: delete its allowlist line and lower the count by one, in the same change.
+# `node tools/check-controls.mjs --list <feature>` prints file:line for each control.
 
 admin/active-sessions 1
   src/features/admin/active-sessions/ActiveSessionsPage.tsx button: a session row's Revoke inside the table cell: a grid-cell action (spec 590: restyled in place)
@@ -142,6 +143,31 @@ collection/settlement 9
   src/features/collection/settlement/open-columns.tsx button: Reject in a grid cell: grid-cell action
   src/features/collection/settlement/open-columns.tsx button: Record a chase in a grid cell: grid-cell action
 
+core/attachments 1
+  src/core/attachments/AttachmentsPanel.tsx button: a slip row's file name that selects it for the preview (aria-pressed): a row picker (spec 590: restyled in place)
+
+core/bonus-buy 2
+  src/core/bonus-buy/DetailModal.tsx button: the members count pill under a group identifier that drills down: a one-off (spec 590: restyled in place)
+  src/core/bonus-buy/DetailModal.tsx button: a collapsible section's heading (aria-expanded): a disclosure (597 Q2: restyled in place)
+
+core/central-invoice 0
+
+core/commands 1
+  src/core/commands/CommandPalette.tsx input: the command palette's borderless 15px query line inside its card: a deliberate one-off (spec 590: the field look would draw a box inside the box)
+
+core/dispatch 0
+
+core/import 0
+
+core/nphies 0
+
+core/pick-support 0
+
+core/reason 0
+
+core/rules 1
+  src/core/rules/LookupPicks.tsx button: a lookup hit in the result list under the search: a row picker (spec 590: restyled in place)
+
 deliverect/catalog 0
 
 deliverect/orders 0
@@ -158,8 +184,7 @@ hungerstation/orders 0
 hungerstation/stores 1
   src/features/hungerstation/stores/SyncLogsDrawer.tsx button: grid-cell action (a sync log row's Open lines), restyled in place
 
-loy/member 2
-  src/features/loy/member/InvoicesTab.tsx button: grid-cell action (the invoice row's Resend), restyled in place
+loy/member 1
   src/features/loy/member/MemberHeader.tsx button: disclosure (aria-expanded, Show/Hide details), restyled in place (597 Q2)
 
 materials/detail 0
@@ -258,8 +283,7 @@ pricing/simulation 5
 reports/idoc-inspector 1
   src/features/reports/idoc-inspector/DocumentRail.tsx button: document card rail is a tile picker (spec 590: restyled in place)
 
-reports/retail-invoice 1
-  src/features/reports/retail-invoice/DownloadAction.tsx button: per-row Download is a grid-cell action (spec 590: restyled in place)
+reports/retail-invoice 0
 
 reports/sap-export-console 6
   src/features/reports/sap-export-console/DoubleSendsPage.tsx button: Clear filters is a non-navigating text button (594: not link)

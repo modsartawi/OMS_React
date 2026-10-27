@@ -124,7 +124,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
           <p className="text-sm text-muted-foreground">{t('bindGrant.intro')}</p>
           <Input
             type="search"
-            className="w-full"
+            wrapperClassName="w-full"
             aria-label={t('bindGrant.searchPlaceholder')}
             placeholder={t('bindGrant.searchPlaceholder')}
             value={term}

@@ -144,7 +144,7 @@ function RecentPasses() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder={t('recentPasses.codeHint')}
-            className="w-28 font-mono"
+            wrapperClassName="w-28 font-mono"
             dir="ltr"
             data-recent-code=""
           />

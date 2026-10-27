@@ -160,7 +160,7 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
       <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2" role="search">
         <Input
           type="search"
-          className="min-w-0 flex-1"
+          wrapperClassName="min-w-0 flex-1"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label={t('search.label')}

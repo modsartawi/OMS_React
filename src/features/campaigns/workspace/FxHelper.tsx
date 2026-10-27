@@ -109,7 +109,7 @@ function FieldsTab({ guide, rule, valueKey, onInsert }: { guide: RuleFormulaGuid
   const groups = [...new Set(items.map((f) => f.group))]
   return (
     <div className="flex flex-col gap-1.5">
-      <Input type="search" className="w-full" value={find} placeholder={t('fx.search')} aria-label={t('fx.search')} onChange={(e) => setFind(e.target.value)} data-fx-search="" />
+      <Input type="search" wrapperClassName="w-full" value={find} placeholder={t('fx.search')} aria-label={t('fx.search')} onChange={(e) => setFind(e.target.value)} data-fx-search="" />
       <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
         {groups.map((g) => (
           <div key={g} data-fx-group={g}>

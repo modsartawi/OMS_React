@@ -128,15 +128,9 @@ function ResendCell(p: ICellRendererParams<LoyInvoiceRow>) {
   if (!p.data || !resendOffered(p.data, true)) return null
   const row = p.data
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => ctx.onResend(row)}
-      data-testid="loy-invoice-resend"
-      className="inline-flex h-7 items-center gap-1 rounded-full border border-border px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-    >
+    <Button variant="outlined" disabled={busy} onClick={() => ctx.onResend(row)} data-testid="loy-invoice-resend">
       <MailPlus className="h-3.5 w-3.5" aria-hidden />
       {t('tabs.invoices.resend.action')}
-    </button>
+    </Button>
   )
 }

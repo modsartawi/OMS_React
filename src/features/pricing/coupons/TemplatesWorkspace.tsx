@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { ApiError } from '@/core/api'
@@ -216,7 +216,7 @@ export default function TemplatesWorkspace() {
 
       {/* Edit form */}
       <fieldset className="grid grid-cols-1 gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2" disabled={saving}>
-        <TemplateField label={t('templates.fields.templateId')}>
+        <Field label={t('templates.fields.templateId')}>
           <Input
             type="text"
             value={form.templateId}
@@ -224,8 +224,8 @@ export default function TemplatesWorkspace() {
             maxLength={26}
             onChange={(e) => set('templateId', e.target.value)}
           />
-        </TemplateField>
-        <TemplateField label={t('templates.fields.materialNumber')} hint={t('templates.materialHint')}>
+        </Field>
+        <Field label={t('templates.fields.materialNumber')} hint={t('templates.materialHint')}>
           <Input
             type="text"
             className="font-mono"
@@ -234,13 +234,13 @@ export default function TemplatesWorkspace() {
             placeholder="COUP01"
             onChange={(e) => set('materialNumber', e.target.value.toUpperCase())}
           />
-        </TemplateField>
+        </Field>
 
-        <TemplateField label={t('templates.fields.description')} className="sm:col-span-2">
+        <Field label={t('templates.fields.description')} className="sm:col-span-2">
           <Input type="text" value={form.description} onChange={(e) => set('description', e.target.value)} />
-        </TemplateField>
+        </Field>
 
-        <TemplateField label={t('templates.fields.maxPerCode')} hint={t('templates.unlimitedHint')}>
+        <Field label={t('templates.fields.maxPerCode')} hint={t('templates.unlimitedHint')}>
           <Input
             type="number"
             inputMode="numeric"
@@ -249,8 +249,8 @@ export default function TemplatesWorkspace() {
             data-testid="coupon-template-max-per-code"
             onChange={(e) => set('maxRedemptionsPerCode', e.target.value)}
           />
-        </TemplateField>
-        <TemplateField label={t('templates.fields.maxTotal')} hint={t('templates.unlimitedHint')}>
+        </Field>
+        <Field label={t('templates.fields.maxTotal')} hint={t('templates.unlimitedHint')}>
           <Input
             type="number"
             inputMode="numeric"
@@ -259,17 +259,17 @@ export default function TemplatesWorkspace() {
             data-testid="coupon-template-max-total"
             onChange={(e) => set('maxRedemptionsTotal', e.target.value)}
           />
-        </TemplateField>
+        </Field>
 
-        <TemplateField label={t('templates.fields.codePrefix')}>
+        <Field label={t('templates.fields.codePrefix')}>
           <Input
             type="text"
             value={form.codePrefix}
             disabled={isEdit}
             onChange={(e) => set('codePrefix', e.target.value)}
           />
-        </TemplateField>
-        <TemplateField label={t('templates.fields.originFilter')} hint={t('templates.originFilterHint')}>
+        </Field>
+        <Field label={t('templates.fields.originFilter')} hint={t('templates.originFilterHint')}>
           <Textarea
             dir="ltr"
             rows={3}
@@ -287,14 +287,14 @@ export default function TemplatesWorkspace() {
             <span>{t('templates.originFilterLength', { used: fsi(formatCount(originMeter.length, originMeter.max)) })}</span>
             {originMeter.over && <span>{t('templates.originFilterOverCap', { max: fsi(String(originMeter.max)) })}</span>}
           </span>
-        </TemplateField>
+        </Field>
 
-        <TemplateField label={t('templates.fields.validFrom')}>
+        <Field label={t('templates.fields.validFrom')}>
           <Input type="date" value={form.validFrom} onChange={(e) => set('validFrom', e.target.value)} />
-        </TemplateField>
-        <TemplateField label={t('templates.fields.validTo')}>
+        </Field>
+        <Field label={t('templates.fields.validTo')}>
           <Input type="date" value={form.validTo} onChange={(e) => set('validTo', e.target.value)} />
-        </TemplateField>
+        </Field>
 
         {isEdit && (
           <>
@@ -324,24 +324,5 @@ export default function TemplatesWorkspace() {
         </span>
       </div>
     </div>
-  )
-}
-
-/** A template form field: the shared `Field` (label above, hint under) around one control. */
-function TemplateField({
-  label,
-  hint,
-  className = '',
-  children,
-}: {
-  label: string
-  hint?: string
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <Field label={label} hint={hint || undefined} className={className}>
-      {children}
-    </Field>
   )
 }

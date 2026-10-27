@@ -2,7 +2,7 @@
 // its label, hint and error to the one control inside it. Pure, so it is proven here; the
 // painted look is proven by tools/dmsco-theme-drive.mjs (no React Testing Library, spec 083).
 import { describe, expect, it } from 'vitest'
-import { describedBy, fieldIds, controlWiring } from './field-control'
+import { describedBy, fieldIds, controlWiring, fieldControlId } from './field-control'
 
 describe('describedBy', () => {
   it('joins the ids that are present, in order', () => {
@@ -60,11 +60,40 @@ describe('controlWiring', () => {
     expect(controlWiring(field, { 'aria-invalid': false })['aria-invalid']).toBeUndefined()
   })
 
+  // Code review of spec 590 (S8): the doc says a control's own aria-invalid wins — including an
+  // explicit `false`, which a caller states when it knows better than the Field (a field that is
+  // part of an invalid pair but itself fine).
+  it("lets the control's explicit aria-invalid={false} win over an invalid Field", () => {
+    expect(controlWiring({ ...field, invalid: true }, { 'aria-invalid': false })['aria-invalid']).toBeUndefined()
+    expect(controlWiring({ ...field, invalid: true }, { 'aria-invalid': 'false' })['aria-invalid']).toBeUndefined()
+  })
+
   it('passes a lone control (no Field around it) through unchanged', () => {
     expect(controlWiring(null, { id: 'x', 'aria-describedby': 'd' })).toEqual({
       id: 'x',
       'aria-describedby': 'd',
       'aria-invalid': undefined,
     })
+  })
+})
+
+// Code review of spec 590 (P4): a control inside a Field that states its own id must still be the
+// control the Field's label points at — the label follows the control, never the other way round.
+describe('fieldControlId', () => {
+  it("is the id the control inside claimed, before the Field's own id or the made one", () => {
+    expect(fieldControlId({ claimed: 'own', id: 'field', made: ':r1:' })).toBe('own')
+  })
+
+  it("is the Field's id when the control states none", () => {
+    expect(fieldControlId({ claimed: undefined, id: 'field', made: ':r1:' })).toBe('field')
+  })
+
+  it('is the made id when neither states one', () => {
+    expect(fieldControlId({ claimed: undefined, id: undefined, made: ':r1:' })).toBe(':r1:')
+  })
+
+  it("names the hint and error after the claimed id, so the control's description still resolves", () => {
+    const controlId = fieldControlId({ claimed: 'own', id: undefined, made: ':r1:' })
+    expect(fieldIds(controlId, { hint: true, error: false }).describedBy).toBe('own-hint')
   })
 })

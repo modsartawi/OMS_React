@@ -2,14 +2,13 @@
 //
 //   node tools/check-controls.mjs                  check every feature against the baseline
 //   node tools/check-controls.mjs --list <feature> list the feature's hand-styled controls (file:line)
-//   node tools/check-controls.mjs --lower [<feature> …]
-//                                                  lower ceilings to today's counts (never up)
-//   node tools/check-controls.mjs --init           write the first baseline (refuses if one exists)
 //
 // Counts the hand-written <button>/<input>/<select>/<textarea> of every feature under
-// `src/features/` (outside `__prototype__`) and holds each feature to `tools/control-baseline.txt`:
-// no feature may rise, a feature missing from the baseline may hold none, and a SWEPT feature (one
-// with an allowlist) may hold only the controls its allowlist names. The rules and the file format
+// `src/features/` and every core module under `src/core/` except `core/ui` (outside
+// `__prototype__`), and holds each to `tools/control-baseline.txt`: a feature holds exactly the
+// controls its allowlist names, each with its reason, and one missing from the baseline holds none.
+// (`--init` and `--lower` served the sweep, 596–605; since 606 every ceiling IS its allowlist, edited
+// by hand, so they were removed in the code review of spec 590.) The rules and the file format
 // live in `tools/control-ratchet.mjs`; vitest proves them (`tools/control-ratchet.test.mjs`).
 //
 // Parser: oxc, via `parseSync` from `vite` (already a pinned dev dependency) — no global install,
@@ -17,10 +16,10 @@
 //
 // Same shape as `tools/check-boundaries.mjs`: a plain node script, `file:line` hits, exit non-zero.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
-import { checkRatchet, featureOf, formatBaseline, lowerBaseline, parseBaseline, scanSource } from './control-ratchet.mjs'
+import { checkRatchet, featureOf, parseBaseline, scanSource } from './control-ratchet.mjs'
 
 const BASELINE = 'tools/control-baseline.txt'
 const toPosix = (p) => p.split(path.sep).join('/')
@@ -35,7 +34,7 @@ function walk(dir, out = []) {
 }
 
 const rowsByFeature = new Map()
-for (const file of walk('src/features').sort()) {
+for (const file of [...walk('src/features'), ...walk('src/core')].sort()) {
   const feature = featureOf(file)
   if (!feature) continue
   const rows = scanSource(readFileSync(file, 'utf8'), file).map((r) => ({ ...r, file }))
@@ -57,57 +56,21 @@ if (mode === '--list') {
   process.exit(0)
 }
 
-const HEADER = `# The control ratchet's baseline (ticket 596, spec 590). Checked by \`npm run lint\`
-# (tools/check-controls.mjs). One block per feature, sorted, a blank line between blocks.
-#
-# \`<area>/<feature> <ceiling>\` — the most hand-written <button>/<input>/<select>/<textarea> the
-# feature may hold (checkbox/radio/hidden/file inputs and __prototype__ folders are not counted).
-# A ceiling only ever falls. An indented line under a feature allowlists ONE control:
-#   \`  <repo path> <button|input|select|textarea>: <one-line reason>\`  (the reason is required)
-# A feature with an allowlist is SWEPT: its ceiling equals its allowlist's length and each file
-# holds exactly the controls its lines name. Every feature is swept (606): a non-zero ceiling
-# without an allowlist is an error, so a hand-styled control is allowed only by name, with why.
-#
-# Lowering: \`node tools/check-controls.mjs --lower <feature>\` after a sweep; then, for what stays,
-# replace the count with the allowlist (\`--list <feature>\` prints file:line for each).`
-
-if (mode === '--init') {
-  if (existsSync(BASELINE)) {
-    console.error(`${BASELINE} already exists — lower it with --lower; a baseline is never regenerated`)
-    process.exit(1)
-  }
-  writeFileSync(BASELINE, formatBaseline(counts, HEADER))
-  console.log(`wrote ${BASELINE}: ${counts.size} features, ${total} controls`)
-  process.exit(0)
-}
-
 if (!existsSync(BASELINE)) {
-  console.error(`${BASELINE} is missing (node tools/check-controls.mjs --init writes the first one)`)
+  console.error(`${BASELINE} is missing`)
   process.exit(1)
 }
 const text = readFileSync(BASELINE, 'utf8')
 
-if (mode === '--lower') {
-  const out = lowerBaseline(text, counts, args.length ? args : undefined)
-  if (out.text !== text) writeFileSync(BASELINE, out.text)
-  for (const l of out.lowered) console.log(`lowered ${l}`)
-  for (const f of out.skipped)
-    console.log(`${f} is swept: edit its allowlist by hand (${counts.get(f) ?? 0} controls today)`)
-  if (!out.lowered.length && !out.skipped.length) console.log('nothing to lower')
-  process.exit(0)
-}
-
 if (mode) {
-  console.error(`unknown option ${mode} (--list, --lower, --init)`)
+  console.error(`unknown option ${mode} (--list)`)
   process.exit(2)
 }
 
 const { entries, errors } = parseBaseline(text)
 for (const e of errors) console.error(`${BASELINE}:${e.line}: ${e.message}`)
-const { failures, lowerable } = checkRatchet(rowsByFeature, entries)
+const { failures } = checkRatchet(rowsByFeature, entries)
 for (const f of failures) console.error(f)
-for (const l of lowerable)
-  console.log(`note: ${l.feature} fell ${l.from} → ${l.to}; lower it: node tools/check-controls.mjs --lower ${l.feature}`)
 
 if (errors.length || failures.length) {
   console.error(`\ncontrol ratchet: ${failures.length} feature(s) off the baseline, ${errors.length} baseline error(s)`)

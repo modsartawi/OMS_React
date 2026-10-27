@@ -202,7 +202,7 @@ function Filters({ filter, options, onChange }: { filter: ChangesFilter; options
           onChange={(e) => onChange({ ...filter, store: e.target.value })}
           placeholder={t('history.filters.storePlaceholder')}
           dir="ltr"
-          className="w-36 font-mono"
+          wrapperClassName="w-36 font-mono"
           data-filter="store"
         />
       </Field>

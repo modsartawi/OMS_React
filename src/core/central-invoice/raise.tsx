@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, ReceiptText } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import Field from '@/core/ui/Field'
+import Textarea from '@/core/ui/Textarea'
 import type { CentralInvoiceRaiseRequest } from '@/core/models/central-invoice'
 import { centralInvoiceApi, isGrantRefused, revokeCentralInvoiceAccess } from './api'
 
@@ -56,25 +58,17 @@ export function ReasonField({
 }) {
   const { t } = useTranslation('central-invoice')
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-muted-foreground" htmlFor={id}>
-        {t('reason.label')}
-      </label>
-      <textarea
-        id={id}
+    <Field id={id} label={t('reason.label')} hint={t('reason.hint')}>
+      <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         required
         rows={rows}
         placeholder={t('reason.placeholder')}
-        aria-describedby={`${id}-hint`}
-        className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-[0.8125rem]"
+        className="w-full"
       />
-      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-        {t('reason.hint')}
-      </p>
-    </div>
+    </Field>
   )
 }
 

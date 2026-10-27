@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { LINE_CONTROL, controlWiring, useFieldWiring } from './field-control'
+import { LINE_CONTROL, useControlWiring } from './field-control'
 
 export type SelectProps = ComponentProps<'select'>
 
@@ -12,11 +12,7 @@ export type SelectProps = ComponentProps<'select'>
  * `className` lands on the `<select>`; a `ref` reaches it.
  */
 export default function Select({ className = '', id, children, ...rest }: SelectProps) {
-  const wiring = controlWiring(useFieldWiring(), {
-    id,
-    'aria-describedby': rest['aria-describedby'],
-    'aria-invalid': rest['aria-invalid'],
-  })
+  const wiring = useControlWiring({ id, 'aria-describedby': rest['aria-describedby'], 'aria-invalid': rest['aria-invalid'] })
   return (
     <select className={`${LINE_CONTROL} ps-2.5 pe-1.5 ${className}`} {...rest} {...wiring}>
       {children}

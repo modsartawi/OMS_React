@@ -274,7 +274,7 @@ function Criteria({
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2" role="search">
         <Input
           type="search"
-          className="min-w-0 flex-1"
+          wrapperClassName="min-w-0 flex-1"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           aria-label={t('ledger.entry.label')}

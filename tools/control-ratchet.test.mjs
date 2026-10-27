@@ -1,7 +1,7 @@
 // Ticket 596 — the fifth lint gate's pure core (spec 590, Testing Decisions §3).
 import { describe, expect, it } from 'vitest'
 
-import { checkRatchet, featureOf, formatBaseline, lowerBaseline, parseBaseline, scanSource } from './control-ratchet.mjs'
+import { checkRatchet, featureOf, parseBaseline, scanSource } from './control-ratchet.mjs'
 
 const FILE = 'src/features/oms/deliveries/Panel.tsx'
 
@@ -61,6 +61,19 @@ describe('featureOf', () => {
     expect(featureOf('src/features/campaigns/workspace/__prototype__/Try.tsx')).toBeNull()
     expect(featureOf('src/core/ui/Button.tsx')).toBeNull()
     expect(featureOf('src/features/oms/deliveries/api.ts')).toBeNull()
+  })
+
+  // Code review of spec 590 (P1): core's own screens and dialogs are held to the same rule; only
+  // the shared controls themselves (core/ui) are the place a control may be hand-written.
+  it('reads core/<module> for shared screen code, a file directly under core as core, and skips core/ui', () => {
+    expect(featureOf('src/core/reason/ReasonDialog.tsx')).toBe('core/reason')
+    expect(featureOf('src/core/pick-support/sections/Timeline.tsx')).toBe('core/pick-support')
+    expect(featureOf('src/core/Thing.tsx')).toBe('core')
+    expect(featureOf('src/core/ui/Input.tsx')).toBeNull()
+    expect(featureOf('src/core/ui/deep/Thing.tsx')).toBeNull()
+    expect(featureOf('src/core/rules/__prototype__/Try.tsx')).toBeNull()
+    expect(featureOf('src/core/reason/reason.ts')).toBeNull()
+    expect(featureOf('src/layout/Rail.tsx')).toBeNull()
   })
 })
 
@@ -128,7 +141,7 @@ describe('checkRatchet', () => {
     }), baseline)
     expect(r.failures).toHaveLength(1)
     expect(r.failures[0]).toContain('campaigns/workspace')
-    expect(r.failures[0]).toContain('1 > 0')
+    expect(r.failures[0]).toContain(`${ws}:40`)
   })
 
   it('fails a swept feature on a control its allowlist does not name, even at the same total', () => {
@@ -153,36 +166,5 @@ describe('checkRatchet', () => {
     }), baseline)
     expect(r.failures).toHaveLength(1)
     expect(r.failures[0]).toContain('reports/new')
-  })
-})
-
-describe('formatBaseline', () => {
-  it('writes one block per feature, sorted, a blank line between blocks', () => {
-    const text = formatBaseline(new Map([['oms/deliveries', 4], ['admin/data-sync', 12]]), '# head')
-    expect(text).toBe('# head\n\nadmin/data-sync 12\n\noms/deliveries 4\n')
-    expect(parseBaseline(text).entries.get('admin/data-sync').ceiling).toBe(12)
-  })
-})
-
-describe('lowerBaseline', () => {
-  const counts = new Map([['campaigns/workspace', 1], ['oms/deliveries', 0]])
-
-  it('lowers an unswept ceiling to the count, keeping a swept-to-zero feature as `0`', () => {
-    const text = 'campaigns/workspace 3\n\nreports/x 5\n'
-    const out = lowerBaseline(text, new Map([['campaigns/workspace', 1], ['reports/x', 0]]))
-    expect(out.text).toBe('campaigns/workspace 1\n\nreports/x 0\n')
-    expect(out.lowered).toEqual(['campaigns/workspace 3 → 1', 'reports/x 5 → 0'])
-  })
-
-  it('never raises a ceiling, and only touches the features it is asked to', () => {
-    const text = 'a/b 2\n\nc/d 5\n'
-    const out = lowerBaseline(text, new Map([['a/b', 9], ['c/d', 1]]), ['a/b'])
-    expect(out.text).toBe(text)
-  })
-
-  it('leaves a swept feature for its allowlist to be edited by hand', () => {
-    const out = lowerBaseline(BASELINE, counts, ['oms/deliveries'])
-    expect(out.text).toBe(BASELINE)
-    expect(out.skipped).toEqual(['oms/deliveries'])
   })
 })

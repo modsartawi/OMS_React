@@ -22,13 +22,13 @@
   "backtest": {
     "label": "Back-test",
     "loading": "Looking for a back-test…",
-    "none": "No back-test of this draft yet. Run one from the back-test page.",
+    "none": "No back-test of this draft yet.",
     "current": "Done",
     "running": "Running",
     "failed": "Failed, run it again",
     "stale": "Out of date: the draft changed since",
     "ofRevision": "of revision",
-    "days": "over days:"
+    "open": "Run a back-test"
   },
   "checks": {
     "label": "HQ's checks",

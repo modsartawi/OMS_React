@@ -6,10 +6,10 @@ import { Loader2, ShieldAlert } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { GUARD_DRAFT_KEY, INSURANCE_RULES_KEY, guardDraftQuery, insuranceRulesApi } from '@/core/insurance-rules/api'
-import { BACKTESTS_KEY, backtestStanding, latestBacktestQuery, type BacktestStatus } from '@/core/insurance-rules/backtest'
+import { GUARD_BACKTESTS_KEY, backtestProgressPct, backtestStanding, draftBacktestQuery, type GuardBacktest } from '@/core/insurance-rules/backtest'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import { checksVerdict } from '@/core/insurance-rules/checks'
-import { guardRulePath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
+import { INSURANCE_RULES_PATH, guardRulePath, ruleSeverity, type GuardRule, type GuardRuleset } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
@@ -23,6 +23,8 @@ import { actionsFor, promoteGate, type ApprovalAction, type DraftApproval } from
 import { APPROVALS_KEY, approvalQuery, approvalsApi, shadowFiguresQuery, versionsQuery, type GuardVersion } from './api'
 
 const NS = 'insurance-approvals'
+/** 612's simulator, where the back-test is run (`app/insurance-rules-routes`). */
+const SIMULATOR_PATH = `${INSURANCE_RULES_PATH}/simulator`
 const NOTE = 'w-full rounded-md border border-border/60 bg-background px-2 py-1 text-sm focus:border-primary/50 focus:outline-none'
 
 /**
@@ -71,7 +73,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   const { t } = useTranslation(NS)
   const queryClient = useQueryClient()
   const userId = useSession((s) => s.userId)
-  const backtest = useQuery(latestBacktestQuery())
+  const backtest = useQuery(draftBacktestQuery(approval.backtestId))
   // HQ's checks of THIS revision; asked once per revision.
   const checks = useQuery({
     queryKey: [...INSURANCE_RULES_KEY, 'guards', 'checks', doc.revision],
@@ -79,7 +81,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
     retry: false,
   })
   const verdict = checks.data ? checksVerdict(checks.data) : null
-  const actions = actionsFor({ approval, userId, backtest: backtest.data, checks: verdict })
+  const actions = actionsFor({ approval, userId, backtest: approval.backtestId ? backtest.data : null, checks: verdict })
   const [note, setNote] = useState('')
 
   const act = useMutation({
@@ -100,7 +102,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
     act.mutate(a.kind)
   }
 
-  const standing = backtestStanding(backtest.data, approval.revision)
+  const standing = backtestStanding(approval.backtestId ? backtest.data : null, approval.revision)
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-approval-panel={approval.state}>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -135,7 +137,7 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
       <dl className="grid gap-1 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
         <dt className="text-muted-foreground">{t('backtest.label')}</dt>
         <dd data-backtest-standing={standing}>
-          <BacktestLine standing={standing} bt={backtest.data ?? null} loading={backtest.isPending} />
+          <BacktestLine standing={standing} bt={approval.backtestId ? (backtest.data ?? null) : null} loading={!!approval.backtestId && backtest.isPending} />
         </dd>
         <dt className="text-muted-foreground">{t('checks.label')}</dt>
         <dd data-checks={checks.isPending ? 'checking' : checks.isError ? 'failed' : verdict?.blocked ? 'errors' : 'pass'}>
@@ -200,21 +202,27 @@ function DraftPanel({ doc, approval }: { doc: GuardRuleset; approval: DraftAppro
   )
 }
 
-function BacktestLine({ standing, bt, loading }: { standing: ReturnType<typeof backtestStanding>; bt: BacktestStatus | null; loading: boolean }) {
+function BacktestLine({ standing, bt, loading }: { standing: ReturnType<typeof backtestStanding>; bt: GuardBacktest | null; loading: boolean }) {
   const { t } = useTranslation(NS)
+  const run = (
+    <Link to={SIMULATOR_PATH} className="text-primary hover:underline">
+      {t('backtest.open')}
+    </Link>
+  )
   if (loading) return <>{t('backtest.loading')}</>
-  if (!bt) return <>{t('backtest.none')}</>
+  if (!bt)
+    return (
+      <span className="inline-flex flex-wrap items-baseline gap-1">
+        {t('backtest.none')} {run}
+      </span>
+    )
   return (
     <span className="inline-flex flex-wrap items-baseline gap-1">
       <span>{t(`backtest.${standing}`)}</span>
-      {standing === 'running' && <Ltr>{`${Math.round(bt.progress * 100)}%`}</Ltr>}
+      {standing === 'running' && <Ltr>{`${backtestProgressPct(bt)}%`}</Ltr>}
       <span className="text-muted-foreground">{t('backtest.ofRevision')}</span>
       <Ltr>{bt.revision}</Ltr>
-      {bt.days && (
-        <span className="text-muted-foreground">
-          {t('backtest.days')} <Ltr>{bt.days}</Ltr>
-        </span>
-      )}
+      {standing !== 'current' && standing !== 'running' && run}
     </span>
   )
 }
@@ -382,7 +390,7 @@ function VersionRow({ v, author }: { v: GuardVersion; author: boolean }) {
       queryClient.setQueryData(GUARD_DRAFT_KEY, doc)
       notify.success(t('versions.restored', { version: fsi(v.version), revision: fsi(doc.revision) }))
       await queryClient.invalidateQueries({ queryKey: APPROVALS_KEY })
-      await queryClient.invalidateQueries({ queryKey: BACKTESTS_KEY })
+      await queryClient.invalidateQueries({ queryKey: GUARD_BACKTESTS_KEY })
       await queryClient.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, 'guards', 'list'] })
     },
     onError: (err) => notify.apiError(t('versions.restoreFailed'), err, t('versions.restoreFailed')),

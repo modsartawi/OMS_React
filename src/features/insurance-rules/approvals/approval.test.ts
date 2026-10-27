@@ -4,7 +4,7 @@
  * their own submission. A shadow rule is promoted after 14 local days, or sooner with a reason.
  */
 import { describe, expect, it } from 'vitest'
-import type { BacktestStatus } from '@/core/insurance-rules/backtest'
+import type { GuardBacktest } from '@/core/insurance-rules/backtest'
 import { actionsFor, daysInShadow, promoteGate, PROMOTE_AFTER_DAYS, type DraftApproval } from './approval'
 
 const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
@@ -14,10 +14,11 @@ const approval = (o: Partial<DraftApproval> = {}): DraftApproval => ({
   submittedAt: null,
   note: null,
   sentBack: null,
+  backtestId: 'BT-41',
   viewer: { author: true, approver: false },
   ...o,
 })
-const bt = (o: Partial<BacktestStatus> = {}): BacktestStatus => ({ id: 'BT-1', status: 'done', progress: 1, revision: 12, days: 30, ...o })
+const bt = (o: Partial<Pick<GuardBacktest, 'status' | 'revision'>> = {}) => ({ status: 'done' as GuardBacktest['status'], revision: 12, ...o })
 const pass = { errors: 0, warnings: 0, blocked: false }
 
 describe('actionsFor_roleStateAndBacktest', () => {
@@ -31,8 +32,8 @@ describe('actionsFor_roleStateAndBacktest', () => {
 
   it.each([
     ['no back-test', null, 'noBacktest'],
-    ['a running back-test', bt({ status: 'running', progress: 0.4 }), 'backtestRunning'],
-    ['a queued back-test', bt({ status: 'queued', progress: 0 }), 'backtestRunning'],
+    ['a running back-test', bt({ status: 'running' }), 'backtestRunning'],
+    ['a queued back-test', bt({ status: 'queued' }), 'backtestRunning'],
     ['a failed back-test', bt({ status: 'failed' }), 'backtestFailed'],
     ['a back-test of an older revision', bt({ revision: 11 }), 'backtestStale'],
   ] as const)('submit is disabled with %s', (_, backtest, why) => {

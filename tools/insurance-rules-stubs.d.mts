@@ -128,7 +128,6 @@ export declare function orderGuardsStub(
 ): FulfillArg | null
 
 // --- 611 ---
-import type { BacktestStatus } from '../src/core/insurance-rules/backtest'
 export interface GuardVersionRow {
   version: number
   by: string
@@ -136,7 +135,8 @@ export interface GuardVersionRow {
   note: string | null
 }
 export declare const GUARD_VERSIONS: GuardVersionRow[]
-export declare const BACKTEST_DONE: BacktestStatus
+export declare const BACKTEST_DONE_ID: string
+export declare const BACKTEST_DONE: import('../src/core/insurance-rules/backtest').GuardBacktest
 export interface ApprovalStore {
   draft: GuardRuleset
   approval: {
@@ -145,16 +145,37 @@ export interface ApprovalStore {
     submittedAt: string | null
     note: string | null
     sentBack: { by: string; at: string; note: string } | null
+    backtestId: string | null
   }
-  backtest: BacktestStatus | null
+  backtests: Record<string, import('../src/core/insurance-rules/backtest').GuardBacktest>
   versions: GuardVersionRow[]
   versionDocs: Record<number, GuardRuleset>
   writes: { method: string; path: string; body: unknown; user: string }[]
 }
-export declare function newApprovalStore(o?: { backtest?: BacktestStatus | null }): ApprovalStore
+export declare function newApprovalStore(o?: { backtest?: import('../src/core/insurance-rules/backtest').GuardBacktest | null }): ApprovalStore
 export declare function approvalStub(
   method: string,
   path: string,
   body: unknown,
   opts?: { store?: ApprovalStore; user?: string; viewer?: { author: boolean; approver: boolean }; now?: string; deny?: string[] },
+): FulfillArg | null
+
+// --- 612 ---
+import type { SimulateBody, SimulateResult } from '../src/features/insurance-rules/simulator/simulate'
+import type { GuardBacktest } from '../src/core/insurance-rules/backtest'
+export declare const SIM_PATIENT: string
+export declare function simulateGuards(body: SimulateBody): SimulateResult
+export declare function backtestReport(days: number, revision?: number): GuardBacktest
+export interface BacktestStore {
+  next: number
+  jobs: Record<string, { days: number; reads: number; revision: number }>
+  starts: unknown[]
+  simulates: unknown[]
+}
+export declare function newBacktestStore(): BacktestStore
+export declare function simulatorStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: BacktestStore; deny?: string[] },
 ): FulfillArg | null

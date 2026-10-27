@@ -23,7 +23,7 @@
 //   1. run the app:  npx vite --port 5208 --strictPort
 //   2. node tools/insurance-approvals-drive.mjs        (DRIVE_PORT overrides 5208)
 import { createRequire } from 'node:module'
-import { BACKTEST_DONE, approvalStub, envelope, insuranceMetricsStub, insuranceRulesStub, newApprovalStore } from './insurance-rules-stubs.mjs'
+import { BACKTEST_DONE, BACKTEST_DONE_ID, approvalStub, envelope, insuranceMetricsStub, insuranceRulesStub, newApprovalStore } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -88,6 +88,7 @@ for (const dir of ['ltr', 'rtl']) {
     await ready(page)
     await page.locator('[data-checks="pass"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 1. ${label}: Ask for approval is disabled with its reason`, (await isDisabled(page.locator('[data-action="submit"]'))) && (await page.locator(`[data-why="${why}"]`).count()) === 1)
+    check(`${dir} 1. ${label}: a link to run one`, (await page.locator('[data-backtest-standing] a[href="/insurance-rules/simulator"]').count()) === 1)
     await page.locator('[data-action="submit"]').click({ force: true })
     await page.waitForTimeout(300)
     check(`${dir} 1. ${label}: clicking it writes nothing`, writesTo(store, '/Submit').length === 0)
@@ -109,7 +110,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. its reason in words`, strip(await page.locator('[data-why]').innerText()) === 'Wait for the back-test to finish.')
 
     // 2. the back-test finishes; the page polls it
-    store.backtest = structuredClone(BACKTEST_DONE)
+    store.backtests[BACKTEST_DONE_ID] = structuredClone(BACKTEST_DONE)
     await page.locator('[data-backtest-standing="current"]').waitFor({ timeout: 10000 }).catch(() => {})
     check(`${dir} 2. the finished back-test is read by polling`, (await page.locator('[data-backtest-standing="current"]').count()) === 1)
     check(`${dir} 2. HQ's checks pass`, (await page.locator('[data-checks="pass"]').count()) === 1)

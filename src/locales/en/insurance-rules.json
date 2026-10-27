@@ -8,7 +8,8 @@
     "review": "Review",
     "exceptions": "Exceptions",
     "editions": "Editions",
-    "metrics": "Metrics"
+    "metrics": "Metrics",
+    "simulator": "Simulator"
   },
   "state": {
     "draft": "Draft",

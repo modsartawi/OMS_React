@@ -492,6 +492,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/loy/groups/LoyGroupsPage')).default,
         }),
       },
+      // One loyalty group (oms ticket 630): code read-only, names renamed; 631/632 add to it.
+      {
+        path: 'loy/groups/:groupId',
+        lazy: async () => ({
+          Component: (await import('@/features/loy/groups/LoyGroupPage')).default,
+        }),
+      },
       // The Collections area (spec 249, ticket 253) — a new top-level area at
       // `/collection/*`, one feature behind ONE `CollectionWeb/Access` probe.
       // Four routes now; the two document routes

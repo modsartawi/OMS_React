@@ -64,6 +64,12 @@ const OLD = { groupId: 'g-3', code: 'PILOT-01', nameEn: 'Pilot 2025', nameAr: '�
 
 const browser = await chromium.launch()
 
+/**
+ * Each later ticket's doors, as `(route, url, p) => Promise | undefined` — consulted before the 629 doors.
+ * A ticket pushes its own handler in its own section, so the harness stays the same for everyone.
+ */
+const ROUTES = []
+
 async function open(dir, access) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
   const page = await context.newPage()
@@ -81,6 +87,10 @@ async function open(dir, access) {
     const url = new URL(route.request().url())
     const p = url.pathname.split('/api/')[1]
     const answer = (data) => route.fulfill(envelope(data))
+    for (const handle of ROUTES) {
+      const handled = handle(route, url, p)
+      if (handled) return handled
+    }
     if (p === 'Auth/Me') return answer({ authenticated: true, userId: 'hq01', currentStoreCode: 'P001' })
     if (p === 'LoyGroupWeb/Access') return answer(access)
     if (p === 'LoyGroupWeb/Groups') {
@@ -164,9 +174,149 @@ async function drive(dir) {
   await context.close()
 }
 
+// ── 630: create + rename (doors `GET Groups/{id}`, `POST Groups/Create`, `POST Groups/Rename`, BackOffice
+// 3174 — stubbed). Create upper-cases and checks the code before the round trip; a duplicate is refused
+// with the envelope's sentence in the active locale and its Loy code; success lands on the group's page;
+// the code has no input anywhere; Rename sends `{ groupId, nameEn, nameAr }` only, the Arabic as typed;
+// Create and Save are absent on a view-only grant.
+//
+// 🚩 The UI language stays `en` under RTL (see the header), so the Arabic sentence is proven through a
+// refusal that carries `messageAr` only — the reader falls back to the other language, as the names do.
+// The `ar`-locale pick itself is the pure test `src/core/loy-groups/refusal.test.ts`.
+
+const DUP_EN = 'Group code RAMADAN_VIP already exists.'
+const DUP_AR = 'رمز المجموعة STAFF موجود مسبقاً.'
+const VIP_DETAIL = { ...VIP, createdBy: 'marketing01', createdAt: '2026-10-20T08:15:00', updatedBy: null, updatedAt: null }
+const g630 = { groups: new Map(), created: [], renamed: [] }
+const refusal630 = (code, messageEn, messageAr) => ({
+  status: 409,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: 409,
+    success: false,
+    message: messageEn || messageAr,
+    errors: [{ errorCode: code, internalErrorCode: '', errorMessage: messageEn || messageAr }],
+    serverTime: '2026-10-27 09:41:07',
+    data: { messageEn, messageAr },
+  }),
+})
+ROUTES.push((route, url, p) => {
+  const body = () => JSON.parse(route.request().postData() || '{}')
+  const one = /^LoyGroupWeb\/Groups\/([^/]+)$/.exec(p)
+  if (p === 'LoyGroupWeb/Groups/Create') {
+    const b = body()
+    g630.created.push(b)
+    if (b.code === 'RAMADAN_VIP') return route.fulfill(refusal630('LOY-00601', DUP_EN, 'رمز المجموعة RAMADAN_VIP موجود مسبقاً.'))
+    if (b.code === 'STAFF') return route.fulfill(refusal630('LOY-00601', '', DUP_AR))
+    const made = { groupId: 'g-9', ...b, isActive: true, mobileCount: 0, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-27T09:41:07', updatedBy: null, updatedAt: null }
+    g630.groups.set('g-9', made)
+    return route.fulfill(envelope(made))
+  }
+  if (p === 'LoyGroupWeb/Groups/Rename') {
+    const b = body()
+    g630.renamed.push(b)
+    const was = g630.groups.get(b.groupId)
+    const saved = { ...was, nameEn: b.nameEn, nameAr: b.nameAr, updatedBy: 'marketing01', updatedAt: '2026-10-27T10:05:00' }
+    g630.groups.set(b.groupId, saved)
+    return route.fulfill(envelope(saved))
+  }
+  if (one && g630.groups.has(one[1])) return route.fulfill(envelope(g630.groups.get(one[1])))
+  return undefined
+})
+
+async function drive630(dir) {
+  g630.groups = new Map([['g-1', VIP_DETAIL]])
+  g630.created = []
+  g630.renamed = []
+
+  // ── A maintain grant ──
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  await page.goto(`${BASE}/loy/groups`)
+  await page.locator('[data-loy-groups-grid]').waitFor({ timeout: 10000 })
+  await page.locator('[data-loy-groups-create]').click()
+  const dialog = page.locator('dialog[open]')
+  const codeInput = dialog.locator('[data-loy-group-field="code"]')
+  const submit = dialog.locator('[data-loy-group-create-submit]')
+  const banner = dialog.locator('[role="alert"]')
+
+  await codeInput.pressSequentially('vip 1')
+  await submit.click()
+  const fieldError = strip(await dialog.innerText())
+  check(`${dir} create: a space is refused before the round trip`, g630.created.length === 0 && fieldError.includes('Use only capital letters'), fieldError.slice(0, 160))
+
+  await codeInput.fill('')
+  await codeInput.pressSequentially('ramadan_vip')
+  check(`${dir} create: the code is upper-cased as typed`, (await codeInput.inputValue()) === 'RAMADAN_VIP', await codeInput.inputValue())
+  await dialog.locator('[data-loy-group-field="nameEn"]').fill('Ramadan again')
+  await submit.click()
+  await banner.waitFor({ timeout: 10000 })
+  const dupEn = strip(await banner.innerText())
+  check(`${dir} create: a duplicate is refused with the English sentence and its Loy code`, dupEn.includes(DUP_EN) && (await banner.locator('[data-loy-group-refusal-code="LOY-00601"]').count()) === 1, dupEn)
+  check(`${dir} create: the refusal keeps the dialog open`, (await dialog.count()) === 1 && new URL(page.url()).pathname === '/loy/groups')
+
+  await codeInput.fill('')
+  await codeInput.pressSequentially('staff')
+  await submit.click()
+  await banner.filter({ hasText: DUP_AR }).waitFor({ timeout: 10000 })
+  const dupAr = strip(await banner.innerText())
+  check(`${dir} create: a duplicate refused in Arabic shows the Arabic sentence and its code`, dupAr.includes(DUP_AR) && dupAr.includes('LOY-00601'), dupAr)
+  await page.screenshot({ path: `${SHOTS}/${dir}-630-duplicate.png`, fullPage: true })
+
+  await codeInput.fill('')
+  await codeInput.pressSequentially('eid-26')
+  await dialog.locator('[data-loy-group-field="nameEn"]').fill('Eid 2026')
+  await dialog.locator('[data-loy-group-field="nameAr"]').fill('عيد ٢٠٢٦')
+  await submit.click()
+  await page.waitForURL('**/loy/groups/g-9', { timeout: 10000 })
+  const sent = g630.created.at(-1)
+  check(`${dir} create: sends the upper-cased code and both names`, sent.code === 'EID-26' && sent.nameEn === 'Eid 2026' && sent.nameAr === 'عيد ٢٠٢٦', JSON.stringify(sent))
+  check(`${dir} create: lands on the new group's page`, new URL(page.url()).pathname === '/loy/groups/g-9', page.url())
+
+  const groupPage = page.locator('[data-loy-group="g-9"]')
+  await groupPage.locator('[data-loy-group-code]').waitFor({ timeout: 10000 })
+  check(`${dir} page: the code is shown as text`, strip(await groupPage.locator('[data-loy-group-code]').innerText()) === 'EID-26')
+  const inputValues = await page.locator('input').evaluateAll((els) => els.map((e) => e.value))
+  check(`${dir} page: the code has no input`, (await page.locator('[data-loy-group-field="code"]').count()) === 0 && !inputValues.includes('EID-26'), JSON.stringify(inputValues))
+  const created = strip(await groupPage.locator('[data-loy-group-stamp="created"]').innerText())
+  check(`${dir} page: created by/at in local wall-clock`, created.includes('marketing01') && created.includes('2026-10-27 09:41'), created)
+  check(`${dir} page: never-changed reads Never`, strip(await groupPage.locator('[data-loy-group-stamp="updated"]').innerText()) === 'Never')
+
+  const save = groupPage.locator('[data-loy-group-save]')
+  check(`${dir} page: Save waits for a change`, await save.isDisabled())
+  await groupPage.locator('[data-loy-group-field="nameEn"]').fill('Eid al-Fitr 2026')
+  await groupPage.locator('[data-loy-group-field="nameAr"]').fill(' عيد الفطر ٢٠٢٦ ')
+  await save.click()
+  await groupPage.locator('[data-loy-group-stamp="updated"] [data-stamp-at]').waitFor({ timeout: 10000 })
+  const renamed = g630.renamed.at(-1)
+  check(`${dir} rename: the request is { groupId, nameEn, nameAr } only`, JSON.stringify(Object.keys(renamed).sort()) === '["groupId","nameAr","nameEn"]' && renamed.groupId === 'g-9', JSON.stringify(renamed))
+  check(`${dir} rename: the Arabic name is sent exactly as typed`, renamed.nameAr === ' عيد الفطر ٢٠٢٦ ', JSON.stringify(renamed.nameAr))
+  const updated = strip(await groupPage.locator('[data-loy-group-stamp="updated"]').innerText())
+  check(`${dir} rename: updated by/at follows the save`, updated.includes('marketing01') && updated.includes('2026-10-27 10:05'), updated)
+  check(`${dir} rename: the code is unchanged`, strip(await groupPage.locator('[data-loy-group-code]').innerText()) === 'EID-26')
+  await page.screenshot({ path: `${SHOTS}/${dir}-630-page.png`, fullPage: true })
+  check(`${dir} create + rename: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // ── A view-only grant ──
+  const viewer = await open(dir, { canView: true, canMaintain: false })
+  await viewer.page.goto(`${BASE}/loy/groups`)
+  await viewer.page.locator('[data-loy-groups-grid]').waitFor({ timeout: 10000 })
+  check(`${dir} view-only: no Create button`, (await viewer.page.locator('[data-loy-groups-create]').count()) === 0)
+  await viewer.page.locator('[data-group-open="g-1"]').click()
+  await viewer.page.locator('[data-loy-group="g-1"] [data-loy-group-code]').waitFor({ timeout: 10000 })
+  check(`${dir} view-only: the code links from the list to the page`, new URL(viewer.page.url()).pathname === '/loy/groups/g-1', viewer.page.url())
+  check(`${dir} view-only: no Save and no name inputs`, (await viewer.page.locator('[data-loy-group-save]').count()) === 0 && (await viewer.page.locator('[data-loy-group-field]').count()) === 0)
+  const arName = strip(await viewer.page.locator('[data-loy-group-name="ar"]').innerText())
+  check(`${dir} view-only: the Arabic name shows as stored`, arName === 'كبار رمضان ٢٠٢٦', arName)
+  check(`${dir} view-only: no page errors`, viewer.errors.length === 0, viewer.errors.join(' | '))
+  await viewer.context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
+  await drive630('ltr')
+  await drive630('rtl')
 } finally {
   await browser.close()
 }

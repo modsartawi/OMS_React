@@ -69,3 +69,20 @@ describe('insurance-idf — the keys the masters list builds exist', () => {
       expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })
+
+// 622 · upload and publish
+describe('insurance-idf — the keys the master page and its upload build exist', () => {
+  it.each([en, ar])('header, upload, report columns, rules, publish', (locale) => {
+    const keys = [
+      ...['back', 'loading', 'failed', 'notFound', 'live', 'title', 'hint', 'file', 'submit', 'uploadFailed', 'clean', 'notOk'].map((k) => `upload.${k}`),
+      ...['line', 'item', 'rule', 'message'].map((c) => `upload.columns.${c}`),
+      ...['unknownItem', 'notInItemCustomer', 'unknownGroup', 'badPriority', 'duplicateItem'].map((r) => `upload.rule.${r}`),
+      ...['note', 'notePlaceholder', 'publish', 'publishHint', 'published', 'publishedDetail', 'publishFailed'].map((k) => `upload.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the failed-rows sentence isolates its count as a tag', (locale) => {
+    const up = locale.upload as Record<string, unknown>
+    for (const [k, v] of Object.entries(up)) if (k.startsWith('rowsFailed_')) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+  })
+})

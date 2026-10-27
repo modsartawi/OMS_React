@@ -13,7 +13,8 @@
  */
 import { api } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
-import type { IdfMaster } from './masters'
+import type { IdfMaster, IdfMasterVersion } from './masters'
+import { uploadForm, type IdfUploadReport } from './upload'
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -37,6 +38,19 @@ export function mastersQuery() {
 // 621 · master form — `idfMasterFormApi` (POST / PUT masters, 3161)
 
 // 622 · upload and publish — `idfUploadApi` (3161)
+export const idfUploadApi = {
+  /** `POST IdfPriority/masters/{id}/uploads` multipart `{ file }` → the row report. Publishes nothing. */
+  upload(masterId: string, file: File): Promise<IdfUploadReport> {
+    return api.upload<IdfUploadReport>(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/uploads`, uploadForm(file))
+  },
+  /** `POST …/uploads/{uploadId}/publish { note }` → the new live version. Refused unless the upload's `ok`. */
+  publish(masterId: string, uploadId: string, note: string): Promise<IdfMasterVersion> {
+    return api.post<IdfMasterVersion>(
+      `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/uploads/${encodeURIComponent(uploadId)}/publish`,
+      { note },
+    )
+  },
+}
 
 // 623 · versions and restore — `idfVersionsApi` (3161)
 

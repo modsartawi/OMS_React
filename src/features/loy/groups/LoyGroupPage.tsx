@@ -19,7 +19,9 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { groupsApi, loyGroupKey } from './api'
 import { renameRequest } from './group-form'
+import MembersTab from './MembersTab'
 import RefusalLine from './RefusalLine'
+import ActiveToggle from './ActiveToggle'
 
 /**
  * One loyalty group — `/loy/groups/:groupId` (oms ticket 630; door `GET LoyGroupWeb/Groups/{groupId}`).
@@ -89,7 +91,10 @@ function GroupBody({ group, canMaintain }: { group: LoyGroupDetail; canMaintain:
         <h2 className="text-lg font-semibold tracking-tight">
           <bdi>{loyGroupName(group, i18n.language) || group.code}</bdi>
         </h2>
-        <StatusBadge sev={group.isActive ? 'ok' : 'mute'}>{t(group.isActive ? 'status.active' : 'status.inactive')}</StatusBadge>
+        <span data-loy-group-active={String(group.isActive)}>
+          <StatusBadge sev={group.isActive ? 'ok' : 'mute'}>{t(group.isActive ? 'status.active' : 'status.inactive')}</StatusBadge>
+        </span>
+        {canMaintain && <ActiveToggle group={group} />}
       </header>
 
       <section className="grid max-w-3xl gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2">
@@ -147,6 +152,9 @@ function GroupBody({ group, canMaintain }: { group: LoyGroupDetail; canMaintain:
           <Stamp by={group.updatedBy} at={group.updatedAt} name="updated" />
         </Fact>
       </section>
+
+      {/* Ticket 632: the group's members — paged, searched, added and removed one at a time. */}
+      <MembersTab groupId={group.groupId} mobileCount={group.mobileCount} canMaintain={canMaintain} />
     </>
   )
 }

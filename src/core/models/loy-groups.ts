@@ -57,6 +57,12 @@ export interface LoyGroupRenameRequest {
   nameAr: string
 }
 
+/** `POST LoyGroupWeb/Groups/SetActive` (oms ticket 631). There is no delete door. */
+export interface LoyGroupSetActiveRequest {
+  groupId: string
+  isActive: boolean
+}
+
 /** One row of `GET LoyGroupWeb/Mobile/{mobile}/Groups` (BackOffice 3176): every group the mobile is in. */
 export interface LoyMobileGroup {
   groupId: string
@@ -66,4 +72,34 @@ export interface LoyMobileGroup {
   nameAr: string
   /** Inactive groups are listed too, marked — "why did this customer get that offer". */
   isActive: boolean
+}
+
+// ── Group members (oms ticket 632; door BackOffice 3174) ─────────────────────────────────────
+
+/** One row of `GET LoyGroupWeb/Groups/{groupId}/Members`. */
+export interface LoyGroupMember {
+  /** Canonical `9665XXXXXXXX`, as the server returns it — never reformatted on the client. */
+  mobile: string
+  isEnrolled: boolean
+  loyId?: string | null
+  addedBy: string
+  /** Local wall-clock, no `Z`. */
+  addedAt: string
+}
+
+/** One page of a group's members. `total` is the real count of the (searched) members. */
+export interface LoyGroupMembersPage {
+  total: number
+  rows: LoyGroupMember[]
+}
+
+/** `POST LoyGroupWeb/Groups/Members/Add` and `…/Remove` — the mobile in any spelling. */
+export interface LoyGroupMemberRequest {
+  groupId: string
+  mobile: string
+}
+
+/** `POST LoyGroupWeb/Groups/Members/Add` answers `{ outcome }`. */
+export interface LoyGroupMemberAddResult {
+  outcome: string
 }

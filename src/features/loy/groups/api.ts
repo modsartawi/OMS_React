@@ -6,7 +6,15 @@
  * ⚠️ No door is deployed yet — every envelope is stubbed (`tools/loy-groups-drive.mjs`).
  */
 import { api } from '@/core/api'
-import type { LoyGroupCreateRequest, LoyGroupDetail, LoyGroupRenameRequest, LoyMobileGroup } from '@/core/models/loy-groups'
+import type {
+  LoyGroupCreateRequest,
+  LoyGroupDetail,
+  LoyGroupRenameRequest,
+  LoyGroupSetActiveRequest,
+  LoyMobileGroup,
+} from '@/core/models/loy-groups'
+import type { LoyGroupMemberAddResult, LoyGroupMemberRequest, LoyGroupMembersPage } from '@/core/models/loy-groups'
+import type { MembersQuery } from './members-query'
 
 // ── Mobile → groups lookup (oms ticket 634; door BackOffice 3176) ───────────────────────────────
 
@@ -57,5 +65,54 @@ export const groupsApi = {
   /** `POST LoyGroupWeb/Groups/Rename` — names only; the code never changes. */
   rename(body: LoyGroupRenameRequest): Promise<LoyGroupDetail> {
     return api.post<LoyGroupDetail>('LoyGroupWeb/Groups/Rename', body)
+  },
+}
+
+// ── Group members (oms ticket 632; doors BackOffice 3174) ─────────────────────────────────────
+
+/**
+ * Rows a page on the Members tab. ⚠️ GUESS: the brief names no server default; 50 matches the other
+ * paged list of people (Ua Users).
+ */
+export const LOY_GROUP_MEMBERS_PAGE_SIZE = 50
+
+/** Every page and search of one group's members, as a prefix — what Add and Remove invalidate. */
+export const loyGroupMembersScopeKey = (groupId: string) => ['loy', 'groups', 'members', groupId] as const
+
+export const loyGroupMembersKey = (groupId: string, q: MembersQuery) =>
+  [...loyGroupMembersScopeKey(groupId), q.search, q.page] as const
+
+export const membersApi = {
+  /**
+   * `GET LoyGroupWeb/Groups/{groupId}/Members?search=&page=&pageSize=`. 🚩 The search goes out exactly as
+   * typed (the server takes any spelling); a blank one is not sent at all.
+   */
+  async members(groupId: string, q: MembersQuery): Promise<LoyGroupMembersPage> {
+    const page = await api.get<LoyGroupMembersPage | null>(`LoyGroupWeb/Groups/${encodeURIComponent(groupId)}/Members`, {
+      search: q.search.trim() === '' ? undefined : q.search,
+      page: Math.max(1, Math.floor(q.page)),
+      pageSize: LOY_GROUP_MEMBERS_PAGE_SIZE,
+    })
+    return { total: page?.total ?? 0, rows: Array.isArray(page?.rows) ? page.rows : [] }
+  },
+  /** `POST LoyGroupWeb/Groups/Members/Add` → `{ outcome }`. Refuses not-a-mobile, placeholder, already-in-group. */
+  add(body: LoyGroupMemberRequest): Promise<LoyGroupMemberAddResult> {
+    return api.post<LoyGroupMemberAddResult>('LoyGroupWeb/Groups/Members/Add', body)
+  },
+  /** `POST LoyGroupWeb/Groups/Members/Remove`. */
+  remove(body: LoyGroupMemberRequest): Promise<unknown> {
+    return api.post<unknown>('LoyGroupWeb/Groups/Members/Remove', body)
+  },
+}
+
+// ── Deactivate / reactivate (oms ticket 631; door BackOffice 3174) ───────────────────────────
+
+export const groupActiveApi = {
+  /**
+   * `POST LoyGroupWeb/Groups/SetActive` `{ groupId, isActive }`. The answer is not read: the page and the
+   * list re-fetch (the brief sketches no response shape). 🚩 There is no delete door.
+   */
+  setActive(body: LoyGroupSetActiveRequest): Promise<unknown> {
+    return api.post<unknown>('LoyGroupWeb/Groups/SetActive', body)
   },
 }

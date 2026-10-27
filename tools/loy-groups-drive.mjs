@@ -397,11 +397,279 @@ async function drive630(dir) {
   await viewer.context.close()
 }
 
+// ── 631: deactivate / reactivate (door `POST Groups/SetActive`, BackOffice 3174; `liveBonusBuys` 3179 —
+// stubbed non-empty). Deactivate opens a confirm naming every live bonus-buy (promo number + description),
+// or the "stops no live offer" sentence when none; Cancel sends nothing; confirm sends `{ groupId, isActive }`
+// only and flips the badge and the list; Reactivate flips it back with no list; no delete control exists;
+// view-only shows neither button.
+//
+// Its handler is put FIRST (`unshift`) and answers only while `g631.groups` is filled, so the 630 stub of
+// `Groups/{id}` cannot shadow the state this section flips.
+
+const g631 = { groups: new Map(), sent: [] }
+ROUTES.unshift((route, url, p) => {
+  if (g631.groups.size === 0) return undefined
+  if (p === 'LoyGroupWeb/Groups/SetActive') {
+    const b = JSON.parse(route.request().postData() || '{}')
+    g631.sent.push(b)
+    const was = g631.groups.get(b.groupId)
+    g631.groups.set(b.groupId, { ...was, isActive: b.isActive, updatedBy: 'marketing01', updatedAt: `2026-10-27T11:0${g631.sent.length}:00` })
+    return route.fulfill(envelope(null))
+  }
+  if (p === 'LoyGroupWeb/Groups') {
+    const all = [...g631.groups.values()]
+    return route.fulfill(envelope(url.searchParams.get('includeInactive') === 'true' ? all : all.filter((g) => g.isActive)))
+  }
+  const one = /^LoyGroupWeb\/Groups\/([^/]+)$/.exec(p)
+  if (one && g631.groups.has(one[1])) return route.fulfill(envelope(g631.groups.get(one[1])))
+  return undefined
+})
+
+async function drive631(dir) {
+  const stamp = { createdBy: 'marketing01', createdAt: '2026-10-20T08:15:00', updatedBy: null, updatedAt: null }
+  g631.groups = new Map([
+    ['g-1', { ...VIP, ...stamp }],
+    ['g-2', { ...STAFF, ...stamp }],
+    ['g-3', { ...OLD, ...stamp }],
+  ])
+  g631.sent = []
+
+  // ── A maintain grant ──
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  const badge = (id) => page.locator(`[data-loy-group="${id}"] [data-loy-group-active]`)
+  const dialog = page.locator('dialog[open]')
+  await page.goto(`${BASE}/loy/groups/g-1`)
+  await badge('g-1').waitFor({ timeout: 10000 })
+  check(`${dir} activate: an active group shows Active and a Deactivate button`, (await badge('g-1').getAttribute('data-loy-group-active')) === 'true' && (await page.locator('[data-loy-group-deactivate]').count()) === 1)
+  const deleteControls = await page.locator('button, a, [role="menuitem"]').evaluateAll((els) => els.filter((e) => /delete|remove group|حذف/i.test(e.textContent || '') || e.matches('[data-loy-group-delete]')).length)
+  check(`${dir} activate: no delete control exists`, deleteControls === 0, String(deleteControls))
+
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  const bbys = await dialog.locator('[data-loy-group-deactivate-bby]').evaluateAll((els) => els.map((e) => e.getAttribute('data-loy-group-deactivate-bby')))
+  const text = strip(await dialog.innerText())
+  check(`${dir} activate: the confirm names each live bonus-buy, number and description`, bbys.join() === '100045,100046' && text.includes('Buy 2 vitamins get 1') && text.includes('Baby care bundle'), `${bbys} / ${text.slice(0, 200)}`)
+  check(`${dir} activate: the confirm says the bonus-buys stop`, (await dialog.locator('[data-loy-group-deactivate-sentence="stops"]').count()) === 1)
+  check(`${dir} activate: the promo number is isolated LTR`, (await dialog.locator('[data-loy-group-deactivate-bby="100045"] bdi[dir="ltr"]').count()) === 1)
+  check(`${dir} activate: opening the confirm sends nothing`, g631.sent.length === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-631-confirm.png`, fullPage: true })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  check(`${dir} activate: Cancel closes and sends nothing`, g631.sent.length === 0 && (await badge('g-1').getAttribute('data-loy-group-active')) === 'true')
+
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.locator('[data-loy-group-deactivate-confirm]').click()
+  await page.locator('[data-loy-group="g-1"] [data-loy-group-active="false"]').waitFor({ timeout: 10000 })
+  const off = g631.sent.at(-1)
+  check(`${dir} activate: deactivate sends { groupId, isActive: false } only`, JSON.stringify(off) === '{"groupId":"g-1","isActive":false}', JSON.stringify(off))
+  check(`${dir} activate: deactivate flips the badge to Inactive and closes the confirm`, strip(await badge('g-1').innerText()) === 'Inactive' && (await dialog.count()) === 0)
+  check(`${dir} activate: an inactive group offers Reactivate, not Deactivate`, (await page.locator('[data-loy-group-reactivate]').count()) === 1 && (await page.locator('[data-loy-group-deactivate]').count()) === 0)
+
+  await page.locator('[data-loy-group="g-1"] a[href="/loy/groups"]').click()
+  await page.locator('[data-loy-groups-grid]').waitFor({ timeout: 10000 })
+  await page.locator('[data-loy-groups-grid] .ag-row').first().waitFor({ timeout: 10000 })
+  check(`${dir} activate: the Active list no longer shows the group`, (await row(page, 'g-1').count()) === 0 && (await row(page, 'g-2').count()) === 1)
+  await page.goto(`${BASE}/loy/groups?scope=all`)
+  await cell(page, 'g-1', 'active').waitFor({ timeout: 10000 })
+  check(`${dir} activate: All lists it flagged inactive`, (await cell(page, 'g-1', 'active').locator('[data-group-active="false"]').count()) === 1)
+
+  await page.goto(`${BASE}/loy/groups/g-1`)
+  await page.locator('[data-loy-group-reactivate]').click()
+  await page.locator('[data-loy-group="g-1"] [data-loy-group-active="true"]').waitFor({ timeout: 10000 })
+  const on = g631.sent.at(-1)
+  check(`${dir} activate: reactivate sends { groupId, isActive: true } with no confirm`, JSON.stringify(on) === '{"groupId":"g-1","isActive":true}' && (await dialog.count()) === 0, JSON.stringify(on))
+  check(`${dir} activate: reactivate flips the badge back to Active`, strip(await badge('g-1').innerText()) === 'Active' && (await page.locator('[data-loy-group-deactivate]').count()) === 1)
+
+  await page.goto(`${BASE}/loy/groups/g-2`)
+  await page.locator('[data-loy-group-deactivate]').click()
+  await dialog.waitFor({ timeout: 10000 })
+  const none = strip(await dialog.locator('[data-loy-group-deactivate-sentence]').innerText())
+  check(`${dir} activate: no live bonus-buy reads the "stops no live offer" sentence`, (await dialog.locator('[data-loy-group-deactivate-sentence="none"]').count()) === 1 && (await dialog.locator('[data-loy-group-deactivate-bby]').count()) === 0 && none.includes('stops no live offer'), none)
+  await page.screenshot({ path: `${SHOTS}/${dir}-631-none.png`, fullPage: true })
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  check(`${dir} activate: Escape closes and sends nothing`, g631.sent.length === 2)
+  check(`${dir} activate: no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // ── A view-only grant ──
+  const viewer = await open(dir, { canView: true, canMaintain: false })
+  for (const id of ['g-1', 'g-3']) {
+    await viewer.page.goto(`${BASE}/loy/groups/${id}`)
+    await viewer.page.locator(`[data-loy-group="${id}"] [data-loy-group-active]`).waitFor({ timeout: 10000 })
+    check(`${dir} view-only ${id}: no Deactivate and no Reactivate`, (await viewer.page.locator('[data-loy-group-deactivate], [data-loy-group-reactivate]').count()) === 0)
+  }
+  check(`${dir} view-only activate: no page errors`, viewer.errors.length === 0, viewer.errors.join(' | '))
+  await viewer.context.close()
+  g631.groups = new Map()
+}
+
+// ── 632: members (doors `GET Groups/{id}/Members`, `POST Groups/Members/Add`, `POST Groups/Members/Remove`,
+// BackOffice 3174 — stubbed). Paged 50 at a time with the page in the URL; the search goes out exactly as
+// typed and the stub canonicalises it as the server would; mobiles show exactly as returned; add refused as
+// a placeholder shows the server's sentence and code; add and remove (after a confirm naming the mobile)
+// refresh the group's mobile count; add and remove are absent on a view-only grant.
+
+const g632 = { members: [], searches: [], added: [], removed: [] }
+const MEMBERS_GROUP = { groupId: 'g-5', code: 'WINTER_25', nameEn: 'Winter 2025', nameAr: 'شتاء ٢٠٢٥', isActive: true, liveBonusBuys: [], createdBy: 'marketing01', createdAt: '2026-10-01T08:00:00', updatedBy: null, updatedAt: null }
+const seedMembers = () =>
+  Array.from({ length: 60 }, (_, i) => ({
+    mobile: `9665000000${String(i + 1).padStart(2, '0')}`,
+    isEnrolled: i % 3 !== 0,
+    loyId: i % 3 !== 0 ? `10000${i + 1}` : null,
+    addedBy: 'marketing01',
+    addedAt: '2026-10-02T09:30:00',
+  }))
+/** What the server does with any spelling: digits only, then the `00966` / `966` / `0` prefix dropped. */
+const canonicalTail = (typed) => typed.replace(/\D/g, '').replace(/^(00)?966/, '').replace(/^0/, '')
+ROUTES.push((route, url, p) => {
+  const body = () => JSON.parse(route.request().postData() || '{}')
+  if (p === `LoyGroupWeb/Groups/${MEMBERS_GROUP.groupId}`) return route.fulfill(envelope({ ...MEMBERS_GROUP, mobileCount: g632.members.length }))
+  if (p === `LoyGroupWeb/Groups/${MEMBERS_GROUP.groupId}/Members`) {
+    const search = url.searchParams.get('search')
+    const page = Number(url.searchParams.get('page'))
+    const pageSize = Number(url.searchParams.get('pageSize'))
+    g632.searches.push({ search, page, pageSize })
+    const tail = search === null ? '' : canonicalTail(search)
+    const hits = g632.members.filter((m) => m.mobile.slice(3).startsWith(tail))
+    return route.fulfill(envelope({ total: hits.length, rows: hits.slice((page - 1) * pageSize, page * pageSize) }))
+  }
+  if (p === 'LoyGroupWeb/Groups/Members/Add') {
+    const b = body()
+    g632.added.push(b)
+    if (canonicalTail(b.mobile) === '500000000') return route.fulfill(refusal630('LOY-00612', 'This is a placeholder mobile and cannot join a group.', 'هذا رقم جوال افتراضي ولا يمكن إضافته إلى مجموعة.'))
+    const mobile = `966${canonicalTail(b.mobile)}`
+    g632.members.unshift({ mobile, isEnrolled: false, loyId: null, addedBy: 'marketing01', addedAt: '2026-10-27T11:00:00' })
+    return route.fulfill(envelope({ outcome: 'Added' }))
+  }
+  if (p === 'LoyGroupWeb/Groups/Members/Remove') {
+    const b = body()
+    g632.removed.push(b)
+    g632.members = g632.members.filter((m) => m.mobile !== b.mobile)
+    return route.fulfill(envelope({ outcome: 'Removed' }))
+  }
+  return undefined
+})
+
+async function drive632(dir) {
+  g632.members = seedMembers()
+  g632.searches = []
+  g632.added = []
+  g632.removed = []
+  const memberRow = (page, mobile) => page.locator(`[data-loy-group-members-grid] .ag-row[row-id="${mobile}"]`)
+  const memberRows = (page) => page.locator('[data-loy-group-members-grid] .ag-row')
+  const countOf = async (page) => page.locator('[data-loy-group-mobile-count]').getAttribute('data-loy-group-mobile-count')
+
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  await page.goto(`${BASE}/loy/groups/g-5`)
+  const grid = page.locator('[data-loy-group-members-grid]')
+  await grid.waitFor({ timeout: 10000 })
+  await memberRow(page, '966500000001').waitFor({ timeout: 10000 })
+
+  // ── Paging ──
+  const first = g632.searches[0]
+  check(`${dir} members: page 1 asks page=1 pageSize=50 and no search`, first && first.page === 1 && first.pageSize === 50 && first.search === null, JSON.stringify(first))
+  check(`${dir} members: page 1 shows 50 rows`, (await memberRows(page).count()) === 50, String(await memberRows(page).count()))
+  const mobileText = strip(await memberRow(page, '966500000001').locator('[col-id="mobile"]').innerText())
+  check(`${dir} members: the mobile shows exactly as the server returned it`, mobileText === '966500000001', mobileText)
+  check(`${dir} members: the enrolled flag renders, both ways`,
+    (await memberRow(page, '966500000001').locator('[data-member-enrolled="false"]').count()) === 1 &&
+    (await memberRow(page, '966500000002').locator('[data-member-enrolled="true"]').count()) === 1)
+  const added = strip(await memberRow(page, '966500000002').locator('[col-id="addedAt"]').innerText())
+  check(`${dir} members: added by and at render`, added.includes('2026-10-02 09:30') && strip(await memberRow(page, '966500000002').locator('[col-id="addedBy"]').innerText()) === 'marketing01', added)
+  check(`${dir} members: the group's mobile count shows`, (await countOf(page)) === '60')
+  await page.screenshot({ path: `${SHOTS}/${dir}-632-page1.png`, fullPage: true })
+
+  await page.locator('[data-members-pager] button').last().click()
+  await memberRow(page, '966500000060').waitFor({ timeout: 10000 })
+  check(`${dir} members: Next asks page=2`, g632.searches.at(-1).page === 2, JSON.stringify(g632.searches.at(-1)))
+  check(`${dir} members: page 2 shows the last 10`, (await memberRows(page).count()) === 10)
+  check(`${dir} members: the page sits in the URL`, new URL(page.url()).searchParams.get('page') === '2', page.url())
+
+  // ── Search, any spelling, sent untouched ──
+  await page.locator('[data-members-search]').fill('+966 50 000 0007')
+  await page.locator('[data-members-search-submit]').click()
+  await memberRow(page, '966500000007').waitFor({ timeout: 10000 })
+  await page.waitForFunction(() => document.querySelectorAll('[data-loy-group-members-grid] .ag-row').length === 1, null, { timeout: 10000 })
+  const searched = g632.searches.at(-1)
+  check(`${dir} members: the typed search goes out untouched`, searched.search === '+966 50 000 0007' && searched.page === 1, JSON.stringify(searched))
+  const sp = new URL(page.url()).searchParams
+  check(`${dir} members: the search sits in the URL and the page resets`, sp.get('search') === '+966 50 000 0007' && !sp.has('page'), page.url())
+  await page.reload()
+  await memberRow(page, '966500000007').waitFor({ timeout: 10000 })
+  check(`${dir} members: a refresh repeats the search`, g632.searches.at(-1).search === '+966 50 000 0007' && (await page.locator('[data-members-search]').inputValue()) === '+966 50 000 0007')
+  for (const spelling of ['0500000007', '500000007', '966500000007']) {
+    await page.locator('[data-members-search]').fill(spelling)
+    // The previous spelling's row is the same member, so wait for THIS spelling's answer, not the row.
+    const answered = page.waitForResponse((r) => r.url().includes('/Members?') && new URL(r.url()).searchParams.get('search') === spelling, { timeout: 10000 })
+    await page.locator('[data-members-search-submit]').click()
+    await answered
+    await memberRow(page, '966500000007').waitFor({ timeout: 10000 })
+    check(`${dir} members: the spelling ${spelling} goes out as typed and finds the member`, g632.searches.at(-1).search === spelling && (await memberRows(page).count()) === 1)
+  }
+  await page.locator('[data-members-search-clear]').click()
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has('search'), null, { timeout: 10000 })
+  await page.waitForFunction(() => document.querySelectorAll('[data-loy-group-members-grid] .ag-row').length === 50, null, { timeout: 10000 })
+  check(`${dir} members: Clear drops the search`, g632.searches.at(-1).search === null)
+
+  // ── Add one, refused as a placeholder ──
+  const addInput = page.locator('[data-members-add-input]')
+  await addInput.fill('0500000000')
+  await page.locator('[data-members-add-submit]').click()
+  const refused = page.locator('[data-members-add-refused]')
+  await refused.waitFor({ timeout: 10000 })
+  const refusedText = strip(await refused.innerText())
+  check(`${dir} add: a placeholder is refused with the server's sentence and its code`,
+    refusedText.includes('This is a placeholder mobile and cannot join a group.') && (await refused.locator('[data-loy-group-refusal-code="LOY-00612"]').count()) === 1, refusedText)
+  check(`${dir} add: the refused mobile stays in the field, the count unchanged`, (await addInput.inputValue()) === '0500000000' && (await countOf(page)) === '60')
+  await page.screenshot({ path: `${SHOTS}/${dir}-632-add-refused.png`, fullPage: true })
+
+  // ── Add one ──
+  await addInput.fill('055 123 4567')
+  await page.locator('[data-members-add-submit]').click()
+  await page.waitForFunction(() => document.querySelector('[data-loy-group-mobile-count]')?.getAttribute('data-loy-group-mobile-count') === '61', null, { timeout: 10000 })
+  check(`${dir} add: sends { groupId, mobile } with the mobile as typed`, JSON.stringify(g632.added.at(-1)) === JSON.stringify({ groupId: 'g-5', mobile: '055 123 4567' }), JSON.stringify(g632.added.at(-1)))
+  await memberRow(page, '966551234567').waitFor({ timeout: 10000 })
+  check(`${dir} add: the new member lists canonical, the count follows, the field clears`,
+    (await countOf(page)) === '61' && (await addInput.inputValue()) === '' && (await refused.count()) === 0)
+
+  // ── Remove one, after a confirm naming the mobile ──
+  await memberRow(page, '966500000001').locator('[data-member-remove]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor({ timeout: 10000 })
+  const raw = await dialog.locator('[data-members-remove-dialog] p').first().innerText()
+  check(`${dir} remove: the confirm names the mobile, isolated whole`, strip(raw).startsWith('Remove 966500000001 from this group?') && raw.includes('⁨966500000001⁩'), JSON.stringify(raw))
+  check(`${dir} remove: nothing is removed before the confirm`, g632.removed.length === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-632-remove-confirm.png`, fullPage: true })
+  await dialog.locator('[data-members-remove-confirm]').click()
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  await memberRow(page, '966500000001').waitFor({ state: 'detached', timeout: 10000 })
+  check(`${dir} remove: sends { groupId, mobile } with the canonical mobile`, JSON.stringify(g632.removed.at(-1)) === JSON.stringify({ groupId: 'g-5', mobile: '966500000001' }), JSON.stringify(g632.removed.at(-1)))
+  await page.waitForFunction(() => document.querySelector('[data-loy-group-mobile-count]')?.getAttribute('data-loy-group-mobile-count') === '60', null, { timeout: 10000 })
+  check(`${dir} remove: the row goes and the count follows`, (await countOf(page)) === '60')
+  check(`${dir} members (maintain): no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // ── A view-only grant ──
+  const viewer = await open(dir, { canView: true, canMaintain: false })
+  await viewer.page.goto(`${BASE}/loy/groups/g-5`)
+  await memberRow(viewer.page, '966500000002').waitFor({ timeout: 10000 })
+  check(`${dir} view-only: the members list, with no add and no remove`,
+    (await viewer.page.locator('[data-members-add-form]').count()) === 0 && (await viewer.page.locator('[data-member-remove]').count()) === 0 && (await viewer.page.locator('[col-id="remove"]').count()) === 0)
+  check(`${dir} view-only: search still works`, (await viewer.page.locator('[data-members-search]').count()) === 1)
+  check(`${dir} members (view-only): no page errors`, viewer.errors.length === 0, viewer.errors.join(' | '))
+  await viewer.context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
   await drive630('ltr')
   await drive630('rtl')
+  await drive631('ltr')
+  await drive631('rtl')
+  await drive632('ltr')
+  await drive632('rtl')
 } finally {
   await browser.close()
 }

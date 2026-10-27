@@ -68,6 +68,24 @@
     "updated": "Last changed",
     "never": "Never"
   },
+  "activate": {
+    "deactivate": "Deactivate",
+    "deactivating": "Deactivating…",
+    "deactivated": "Group deactivated.",
+    "reactivate": "Reactivate",
+    "reactivating": "Reactivating…",
+    "reactivated": "Group reactivated.",
+    "failed": "The group's status could not be changed.",
+    "refused": "The status was not changed",
+    "confirm": {
+      "title": "Deactivate this group?",
+      "stops": "These live bonus-buys use this group and stop applying to its mobiles:",
+      "stopsNone": "No live bonus-buy uses this group, so deactivating it stops no live offer.",
+      "after": "The members are kept. Reactivate the group to bring it back.",
+      "cancel": "Cancel",
+      "submit": "Deactivate"
+    }
+  },
   "refusal": {
     "code": "Code"
   },
@@ -85,5 +103,50 @@
     "inactive": "Inactive",
     "unknown": "Not a defined group",
     "noneChosen": "No loyalty groups"
+  },
+  "members": {
+    "title": "Members",
+    "count": "Mobiles in this group: {{total}}",
+    "loading": "Loading the members…",
+    "failed": "The members could not be loaded.",
+    "empty": "This group has no mobiles yet.",
+    "emptyPage": "This page has no mobiles.",
+    "emptySearch": "No mobile in this group matches {{search}}.",
+    "columns": {
+      "mobile": "Mobile",
+      "enrolled": "Enrolled",
+      "addedBy": "Added by",
+      "addedAt": "Added at"
+    },
+    "enrolled": {
+      "yes": "Enrolled",
+      "no": "Not enrolled"
+    },
+    "search": {
+      "label": "Search the members by mobile",
+      "placeholder": "Mobile, any spelling",
+      "submit": "Search",
+      "clear": "Clear"
+    },
+    "add": {
+      "label": "Mobile to add",
+      "placeholder": "Add a mobile, any spelling",
+      "submit": "Add",
+      "saving": "Adding…",
+      "done": "Mobile added.",
+      "failed": "The mobile could not be added.",
+      "refused": "The mobile was not added"
+    },
+    "remove": {
+      "open": "Remove",
+      "title": "Remove a mobile",
+      "confirm": "Remove {{mobile}} from this group? Bonus-buys for this group stop applying to it.",
+      "cancel": "Cancel",
+      "submit": "Remove",
+      "saving": "Removing…",
+      "done": "Mobile removed.",
+      "failed": "The mobile could not be removed.",
+      "refused": "The mobile was not removed"
+    }
   }
 }

@@ -1,0 +1,116 @@
+{
+  "title": "Metrics",
+  "lede": "How the guards behave at the till: what they fire, what the pharmacists do with it, the money they protect, and where the payers still reject. Read-only.",
+  "dash": "—",
+  "estimate": "estimate",
+  "estimateParen": "(estimate)",
+  "listSeparator": "; ",
+  "outcomeShare": "{{outcome}}: {{n}} ({{pct}}%)",
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask for the insurance rules grant to read the metrics."
+  },
+  "window": {
+    "label": "Window",
+    "from": "From",
+    "to": "To",
+    "invalid": "Pick a real start and end date.",
+    "reversed": "The end date is before the start date.",
+    "tooLong": "Pick a window of a year or less.",
+    "outOfBounds": "The window is outside the days the metrics keep."
+  },
+  "tabs": {
+    "label": "Metrics views",
+    "metrics": "Metrics",
+    "flags": "Flags",
+    "rejections": "Rejections"
+  },
+  "by": {
+    "label": "Per",
+    "rule": "Rule",
+    "store": "Store",
+    "pharmacist": "Pharmacist",
+    "day": "Day"
+  },
+  "metrics": {
+    "loading": "Loading the metrics…",
+    "failed": "The metrics could not be loaded.",
+    "empty": "No guard fired in this window."
+  },
+  "tiles": {
+    "fires": "Fires",
+    "shadowFires": "Shadow fires",
+    "overrideRate": "Override rate",
+    "sarProtected": "SAR protected",
+    "rejectionsAfterPass": "Rejections after a pass"
+  },
+  "columns": {
+    "rule": "Rule",
+    "store": "Store",
+    "pharmacist": "Pharmacist",
+    "day": "Day",
+    "fires": "Fires",
+    "shadowFires": "Shadow",
+    "outcomes": "Outcome mix",
+    "overrideRate": "Override rate",
+    "sarProtected": "SAR protected",
+    "rejectionsAfterPass": "Rejected after a pass",
+    "timeAdded": "Time added (median)"
+  },
+  "outcome": {
+    "removed": "Removed",
+    "changed": "Changed",
+    "overridden": "Overridden",
+    "acknowledged": "Acknowledged",
+    "exception": "HQ exception"
+  },
+  "unit": {
+    "pct": "{{n}}%",
+    "seconds": "{{n}} s"
+  },
+  "chart": {
+    "caption": "Fires per day",
+    "hint": "Point at a day to read its fires.",
+    "readout": "<v>{{day}}</v>: <v>{{refuse}}</v> refused, <v>{{override}}</v> overridable, <v>{{warn}}</v> warned"
+  },
+  "flags": {
+    "loading": "Loading the flags…",
+    "failed": "The flags could not be loaded.",
+    "empty": "No rule is flagged.",
+    "neverPause": "A flag never pauses a rule; it asks someone to look at it.",
+    "thresholds": "A rule is noisy when more than <v>{{noisyPct}}%</v> of at least <v>{{noisyMinFires}}</v> fires in <v>{{windowDays}}</v> days were overridden, silent after <v>{{silentDays}}</v> days with no fire, and jumps when it fires <v>{{jumpFactor}}</v> times its previous average. A flag never pauses a rule.",
+    "columns": {
+      "rule": "Rule",
+      "flag": "Flag",
+      "reason": "Why",
+      "since": "Since"
+    }
+  },
+  "reason": {
+    "noisy": "<v>{{overridden}}</v> of <v>{{fires}}</v> fires overridden (<v>{{pct}}%</v>)",
+    "silent": "No fire since <v>{{lastFired}}</v>",
+    "silentNever": "It has never fired",
+    "jump": "<v>{{fires}}</v> fires against a previous average of <v>{{previous}}</v> (<v>×{{factor}}</v>)",
+    "jumpFromNone": "<v>{{fires}}</v> fires where it used to fire none"
+  },
+  "rejections": {
+    "lede": "The payers' rejections by code, payer and kind of medicine, ranked by SAR. A kind with no live guard is where a new guard would earn most.",
+    "payer": "Payer",
+    "allPayers": "Every payer",
+    "loading": "Loading the rejections…",
+    "failed": "The rejections could not be loaded.",
+    "empty": "No rejection in this window.",
+    "totals": "<v>{{n}}</v> rejections worth <v>{{sar}}</v> SAR; <b><v>{{unguardedSar}}</v> SAR</b> of it on <v>{{unguardedRows}}</v> rows with no live guard.",
+    "liveGuard": "Live guard",
+    "noGuard": "No live guard",
+    "columns": {
+      "rank": "#",
+      "code": "Code or words",
+      "payer": "Payer",
+      "sameKind": "Kind",
+      "count": "Rejections",
+      "sar": "SAR",
+      "liveGuard": "Guard"
+    }
+  }
+}

@@ -11,13 +11,15 @@
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
  * `masters.ts` (e.g. `store-lists.ts`, `upload.ts`) and import them here.
  */
-import { api } from '@/core/api'
+import { api, type FileResponse } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster } from './masters'
 import type { IdfException, IdfExceptionBody } from './exceptions' // 624
 import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
+import { filterDoorParams, type IdfEventsFilter } from './events-filter' // 627
+import type { IdfSwapReportRow } from './report' // 627
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -95,3 +97,18 @@ export function eventsQuery(q: IdfEventsQuery) {
 }
 
 // 627 · swap report and export — `idfReportApi` (3169)
+export const IDF_REPORT_KEY = [...IDF_KEY, 'swap-report'] as const
+/** Both doors take the event log's SHARED filter (window, store, payer, master) — never its outcome or page. */
+export const idfReportApi = {
+  /** `GET IdfPriority/swap-report?from&to&store&payer&masterId` (3169) — rows grouped master × store × payer. */
+  async report(f: IdfEventsFilter): Promise<IdfSwapReportRow[]> {
+    return (await api.get<IdfSwapReportRow[] | null>(`${IDF_BASE}/swap-report`, filterDoorParams(f))) ?? []
+  },
+  /** `GET IdfPriority/swap-report/export` (3169) — the server's `.xlsx` for the same filter. */
+  export(f: IdfEventsFilter): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/swap-report/export`, filterDoorParams(f))
+  },
+}
+export function swapReportQuery(f: IdfEventsFilter) {
+  return { queryKey: [...IDF_REPORT_KEY, filterDoorParams(f)] as const, queryFn: () => idfReportApi.report(f), retry: false } as const
+}

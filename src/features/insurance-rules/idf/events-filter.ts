@@ -4,9 +4,8 @@ import { IDF_EVENT_FILTER_OUTCOMES, type IdfEventFilterOutcome } from './events'
 // The IDF events address (ticket 626): `?from&to&store&payer&master&outcome&page`. Pure; the page reads it through
 // `useUrlQuery(idfEventsFromParams, idfEventsToParams)`.
 //
-// 🧭 627: the swap report shares the FILTER (`IdfEventsFilter`, `filterDoorParams`) — the window, store, payer and
-// master — but not the outcome or the page. Add the report's tab here (e.g. a `tab` field, `events` by default) and
-// keep the shared part as it is.
+// 627: the swap report (`?tab=report`, `events` by default) shares the FILTER (`IdfEventsFilter`, `filterDoorParams`)
+// — the window, store, payer and master — but not the outcome or the page.
 
 export interface IdfEventsFilter {
   /** Local days, both ends counted. */
@@ -25,7 +24,13 @@ export interface IdfEventsQuery extends IdfEventsFilter {
   outcome: IdfEventFilterOutcome | ''
   /** 1-based. */
   page: number
+  /** 627 · which tab: the log (default) or the swap report (`?tab=report`). The filter is shared by both. */
+  tab: IdfEventsTab
 }
+
+/** 627 · the page's tabs. */
+export const IDF_EVENTS_TABS = ['events', 'report'] as const
+export type IdfEventsTab = (typeof IDF_EVENTS_TABS)[number]
 
 /** The default window: the last 7 local days to today. */
 export const DEFAULT_WINDOW_DAYS = 7
@@ -33,7 +38,7 @@ export const DEFAULT_WINDOW_DAYS = 7
 export const MAX_WINDOW_DAYS = 366
 
 function defaults(today: LocalDate): IdfEventsQuery {
-  return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, store: '', payer: '', masterId: '', outcome: '', page: 1 }
+  return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, store: '', payer: '', masterId: '', outcome: '', page: 1, tab: 'events' }
 }
 
 function readPage(value: string | null): number {
@@ -52,6 +57,7 @@ export function readIdfEventsQuery(params: URLSearchParams, today: LocalDate): I
     masterId: params.get('master')?.trim() ?? '',
     outcome: (IDF_EVENT_FILTER_OUTCOMES as readonly string[]).includes(outcome) ? (outcome as IdfEventFilterOutcome) : '',
     page: readPage(params.get('page')),
+    tab: (IDF_EVENTS_TABS as readonly string[]).includes(params.get('tab') ?? '') ? (params.get('tab') as IdfEventsTab) : d.tab,
   }
 }
 
@@ -66,6 +72,7 @@ export function writeIdfEventsQuery(q: IdfEventsQuery, today: LocalDate): URLSea
   put('master', q.masterId, d.masterId)
   put('outcome', q.outcome, d.outcome)
   put('page', String(q.page), String(d.page))
+  put('tab', q.tab, d.tab)
   return out
 }
 

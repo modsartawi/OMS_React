@@ -10,7 +10,7 @@ const read = (qs: string) => readIdfEventsQuery(new URLSearchParams(qs), TODAY)
 
 describe('events filter builds the query and drops empty fields', () => {
   it('defaults_theLast7LocalDays_page1_noOtherFilter', () => {
-    expect(read('')).toEqual({ from: '2026-10-21', to: '2026-10-27', store: '', payer: '', masterId: '', outcome: '', page: 1 })
+    expect(read('')).toEqual({ from: '2026-10-21', to: '2026-10-27', store: '', payer: '', masterId: '', outcome: '', page: 1, tab: 'events' })
   })
 
   it('readsEveryField_andIgnoresAnUnknownOutcomeOrABadPage', () => {
@@ -22,6 +22,7 @@ describe('events filter builds the query and drops empty fields', () => {
       masterId: 'M-OPS',
       outcome: 'forcedPickTaken',
       page: 3,
+      tab: 'events',
     })
     expect(read('outcome=nope&page=0')).toMatchObject({ outcome: '', page: 1 })
     expect(read('page=x')).toMatchObject({ page: 1 })

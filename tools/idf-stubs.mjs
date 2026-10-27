@@ -224,6 +224,41 @@ export function idfEventsStub(method, path, opts = {}) {
 }
 
 // --- 627 --- swap report and export (door 3169).
+// `GET IdfPriority/swap-report?from&to&store&payer&masterId` → rows master × store × payer; `…/export` → an `.xlsx`
+// (fake bytes, the server's name in `Content-Disposition`). The window is recorded, not applied: every row is in it.
+export const IDF_SWAP_REPORT = [
+  { masterId: 'M-BUPA', storeCode: 'P001', payerCode: 'BUPA', counts: { reminder: 4, forcedPickTaken: 6, pickCancelled: 1 }, priceDifference: 182.5, averageTimeSeconds: 14 },
+  { masterId: 'M-BUPA', storeCode: 'P019', payerCode: 'BUPA', counts: { forcedPickTaken: 2, lineAbandoned: 1 }, priceDifference: -12.25, averageTimeSeconds: 71 },
+  { masterId: 'M-OPS', storeCode: 'P019', payerCode: 'TAWUNIYA', counts: { reminder: 3, skippedByException: 2, refusedPreAuth: 1 }, priceDifference: null, averageTimeSeconds: 9.4 },
+  { masterId: 'M-GONE', storeCode: 'P001', payerCode: null, counts: { pickCancelled: 2 }, priceDifference: 0, averageTimeSeconds: null },
+]
+export const IDF_SWAP_EXPORT_NAME = 'idf-swap-report.xlsx'
+
+export function idfReportStub(method, path, opts = {}) {
+  const { deny = [], reads = {} } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (method !== 'GET' || (bare !== 'IdfPriority/swap-report' && bare !== 'IdfPriority/swap-report/export')) return null
+  const isExport = bare.endsWith('/export')
+  ;(reads[isExport ? 'export' : 'report'] ??= []).push(qs)
+  if (deny.includes('report')) return bare403()
+  if (isExport)
+    return {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${IDF_SWAP_EXPORT_NAME}"`,
+      },
+      body: Buffer.from('PK stub xlsx'),
+    }
+  const q = new URLSearchParams(qs)
+  const rows = IDF_SWAP_REPORT.filter(
+    (r) =>
+      (!q.get('store') || r.storeCode === q.get('store')) &&
+      (!q.get('payer') || r.payerCode === q.get('payer')) &&
+      (!q.get('masterId') || r.masterId === q.get('masterId')),
+  )
+  return envelope(rows)
+}
 
 /**
  * Every IDF door the drives stub: each slice's handler in turn, the first answer wins (null when none matched).
@@ -244,6 +279,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 626 · events
     idfEventsStub(method, path, opts) ??
     // 627 · swap report
+    idfReportStub(method, path, opts) ??
     null
   )
 }

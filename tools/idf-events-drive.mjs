@@ -13,8 +13,13 @@
 //   3. outcome AND master → nothing matches → the empty state; clearing the outcome lists the master's events;
 //   4. page 2 holds the last 5; a filter change goes back to page 1;
 //   5. a bare 403 is "You do not have access"; no raw keys; no page errors.
+//   6. (627) the Swap report tab: the address says `tab=report`, the outcome filter is hidden, the door asked the
+//      SHARED filter only (no outcome, no page); grouped rows master × store × payer with a count per outcome, the
+//      money and the average time as `bdi[dir=ltr]`; Export asks `…/swap-report/export` with the same query and
+//      saves the server's file; a master change re-asks both; back to the log; a bare 403 → no access.
+// Stubs: `idfReportStub` (`// --- 627 ---`) — GET IdfPriority/swap-report and …/swap-report/export.
 //
-//   1. run the app:  npx vite --port 5206 --strictPort
+//   1. run the app:  npx vite --port 5206 --strictPort   (627 drove it on 5207: DRIVE_PORT=5207)
 //   2. node tools/idf-events-drive.mjs        (DRIVE_PORT overrides 5206)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
@@ -59,7 +64,7 @@ async function open(dir, { deny = [] } = {}) {
 }
 
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
-const noRawKeys = async (page) => !/insurance-(rules|idf):|events\.|menu\.idf|access\./.test(await page.locator('main').innerText())
+const noRawKeys = async (page) => !/insurance-(rules|idf):|events\.|report\.|menu\.idf|access\./.test(await page.locator('main').innerText())
 const ltr = (row, col) => row.locator(`[data-col="${col}"] bdi[dir="ltr"]`).evaluateAll((els) => els.map((e) => e.textContent))
 const rows = (page) => page.locator('[data-idf-events] tbody tr')
 const ids = (page) => rows(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-event')))
@@ -152,6 +157,65 @@ for (const dir of ['ltr', 'rtl']) {
 
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
     check(`${dir} 5. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 6. (627) the swap report tab
+    const { context, page, errors, reads } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/events?${WINDOW}&store=P019&outcome=pickCancelled`)
+    await page.locator('[data-idf-events] tbody tr, [data-idf-events-empty]').first().waitFor({ timeout: 60000 })
+    const tabs = await page.locator('[data-idf-events-tabs] [role="tab"]').evaluateAll((els) => els.map((e) => e.textContent))
+    check(`${dir} 6. two tabs: Event log, Swap report`, JSON.stringify(tabs) === JSON.stringify(['Event log', 'Swap report']), JSON.stringify(tabs))
+    await page.locator('[data-tab="report"]').click()
+    await page.locator('[data-idf-report] tbody tr').first().waitFor({ timeout: 30000 })
+    const rRows = page.locator('[data-idf-report] tbody tr')
+    const lastQ = (k) => Object.fromEntries(new URLSearchParams(reads[k]?.at(-1) ?? ''))
+    check(`${dir} 6. the address says tab=report; the report tab is selected`, param(page, 'tab') === 'report' && (await page.locator('[data-tab="report"]').getAttribute('aria-selected')) === 'true')
+    check(`${dir} 6. the outcome filter is hidden on the report`, (await page.locator('[data-filter="outcome"]').count()) === 0 && (await page.locator('[data-filter="store"]').count()) === 1)
+    check(`${dir} 6. the report door asked the shared filter only`, JSON.stringify(lastQ('report')) === JSON.stringify({ from: '2026-10-20', to: '2026-10-27', store: 'P019' }), JSON.stringify(lastQ('report')))
+    const keys = await rRows.evaluateAll((els) => els.map((e) => e.getAttribute('data-row')))
+    check(`${dir} 6. grouped rows master × store × payer`, JSON.stringify(keys) === JSON.stringify(['M-BUPA|P019|BUPA', 'M-OPS|P019|TAWUNIYA']), JSON.stringify(keys))
+    const heads = await page.locator('[data-idf-report] thead th').evaluateAll((els) => els.map((e) => e.textContent))
+    check(`${dir} 6. columns: master, store, payer, the six outcomes, price difference, average time`,
+      JSON.stringify(heads) === JSON.stringify(['Master', 'Store', 'Payer', ...OUTCOME_WORDS, 'Price difference (picks taken)', 'Average time']), JSON.stringify(heads))
+    const r1 = page.locator('[data-row="M-BUPA|P019|BUPA"]')
+    const cells = async (row) => JSON.stringify(await row.locator('td').evaluateAll((els) => els.slice(1).map((e) => e.querySelector('bdi[dir="ltr"]')?.textContent ?? '')))
+    check(`${dir} 6. a row: master by name in a bdi`, strip(await r1.locator('[data-col="master"] bdi').innerText()) === 'Bupa general' && (await r1.locator('[data-col="master"] bdi[dir="ltr"]').count()) === 0)
+    check(`${dir} 6. a row: store, payer, counts (0 when none), money, average m:ss — each isolated LTR`,
+      (await cells(r1)) === JSON.stringify(['P019', 'BUPA', '0', '2', '0', '1', '0', '0', '-12.25', '1:11']), await cells(r1))
+    const total = strip(await page.locator('[data-idf-report-total]').innerText())
+    check(`${dir} 6. the group count`, total === 'Groups: 2', total)
+
+    // Export: the same query, the server's file saved under its own name
+    const [download] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator('[data-idf-report-export]').click()])
+    check(`${dir} 6. export asked …/swap-report/export with the report's query`, (reads.export?.length ?? 0) === 1 && reads.export.at(-1) === reads.report.at(-1), JSON.stringify(reads.export))
+    const saved = await download.path().catch(() => null)
+    check(`${dir} 6. export saved the server's file under its name`, download.suggestedFilename() === 'idf-swap-report.xlsx' && !!saved, download.suggestedFilename())
+
+    // a filter change re-asks the report; the export follows it
+    await page.locator('[data-filter="master"]').selectOption('M-OPS')
+    await page.waitForFunction(() => document.querySelectorAll('[data-idf-report] tbody tr').length === 1, null, { timeout: 30000 }).catch(() => {})
+    check(`${dir} 6. master filter: the door carries masterId; one group`, lastQ('report').masterId === 'M-OPS' && (await rRows.count()) === 1 && param(page, 'tab') === 'report')
+    const r2 = page.locator('[data-row="M-OPS|P019|TAWUNIYA"]')
+    check(`${dir} 6. no pick taken → blank money; 9.4 s → 0:09`, (await cells(r2)) === JSON.stringify(['P019', 'TAWUNIYA', '3', '0', '0', '0', '2', '1', '', '0:09']), await cells(r2))
+    await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator('[data-idf-report-export]').click()])
+    check(`${dir} 6. the second export carries the new filter`, lastQ('export').masterId === 'M-OPS' && reads.export.at(-1) === reads.report.at(-1), JSON.stringify(lastQ('export')))
+
+    // back to the log: the outcome filter returns, still set from the address
+    await page.locator('[data-tab="events"]').click()
+    await rows(page).first().waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 6. back to the log: tab leaves the address, the outcome filter is back`,
+      param(page, 'tab') === null && (await page.locator('[data-filter="outcome"]').inputValue()) === 'pickCancelled' && (await page.locator('[data-idf-report]').count()) === 0)
+    check(`${dir} 6. no raw keys (report)`, await noRawKeys(page))
+    check(`${dir} 6. no page errors (report)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open(dir, { deny: ['report'] })
+    await page.goto(`${BASE}/insurance-rules/idf/events?tab=report`)
+    await page.locator('[data-idf-report-denied]').waitFor({ timeout: 60000 }).catch(() => {})
+    check(`${dir} 6. report: a bare 403 → "You do not have access"`, (await page.locator('[data-idf-report-denied]').count()) === 1 && (await page.locator('[data-idf-report]').count()) === 0)
+    check(`${dir} 6. no page errors (report denied)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
   {

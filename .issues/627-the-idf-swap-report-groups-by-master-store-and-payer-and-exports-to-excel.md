@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3157 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3157-oms-react-idf-brief.md)
 blocked-by: 626
 ---
@@ -20,8 +20,8 @@ model/api (download) · logic (shared filter) · component · i18n (EN+AR) · te
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `swap report and export take the same query as the event filter` · pure
-- [ ] drive `tools/idf-events-drive.mjs` (extend) — report tab rows; export requests the same filters and saves a file · flow
+- [x] `swap report and export take the same query as the event filter` · pure — `idf/report.test.ts` 5/5
+- [x] drive `tools/idf-events-drive.mjs` (extend) — 86/86 STUBBED (LTR + RTL; 38 new) — report tab rows; export requests the same filters and saves a file · flow
 
 ## Boundaries
 
@@ -35,3 +35,23 @@ The stubbed report renders grouped rows and the export downloads with the same f
 ## Blocked by
 
 [626](626-idf-events-a-paged-log-filtered-by-store-payer-master-outcome-and-dates.md)
+
+## Comments
+
+**2026-10-27 — built (impl/3157-627).** `idf/report.ts` (row type, `swapRowKey`, `swapReportFileName`),
+`idf/SwapReport.tsx` (the tab: grouped table + Export), `idfReportApi` / `swapReportQuery` under 627's slot in `api.ts`
+(`report` via `api.get`, `export` via `api.blob` + core `saveBlob`, both sending `filterDoorParams`), a `tab` on
+`IdfEventsQuery` (`?tab=report`, `events` by default), the tab bar in 626's slot of `EventsPage.tsx`, the `report`
+object in `insurance-idf.json` (EN + AR), `idfReportStub` in `tools/idf-stubs.mjs`. Proof: `report.test.ts` 5/5 (both
+doors called with the same literal filter, never outcome / page), drive 86/86 STUBBED; typecheck, test, lint green.
+
+Decisions (overrulable; 3169 finalises the wire):
+- **Row shape ASSUMED:** `{ masterId, storeCode, payerCode, counts: { <outcome>: n }, priceDifference, averageTimeSeconds }`;
+  a missing count shows 0, a null price difference shows blank (no pick taken), average time as `m:ss` like the log.
+  Money is `formatMoney` (2 dp, sign kept) in `Ltr`; no `fsi` anywhere.
+- **One column per filterable outcome** (the six live ones, the log's words); reserved outcomes are not columns.
+- **The outcome filter is hidden on the report tab** (the report does not take it); it stays in the address, so
+  going back to the log restores it. Switching tab resets the page to 1.
+- **Export** is enabled only when the report has rows; the file keeps the server's `Content-Disposition` name, else
+  `idf-swap-report-<from>-<to>.xlsx`. A failure toasts through `notify.apiError`.
+- **Not paged:** the report is read whole (grouped rows are few); 3169 may add paging.

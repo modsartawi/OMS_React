@@ -12,15 +12,17 @@ import { formatDateTime } from '@/core/util/date-format'
 import { formatFigure } from '@/core/util/number-format'
 import { eventsQuery, mastersQuery } from './api'
 import { formatTimeSpent, IDF_EVENT_FILTER_OUTCOMES, outcomeWordKey, type IdfEvent } from './events'
-import { idfEventsFromParams, idfEventsToParams, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
+import { IDF_EVENTS_TABS, idfEventsFromParams, idfEventsToParams, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
 import { masterName } from './masters'
+import SwapReport from './SwapReport' // 627
 
 /**
  * Insurance rules ▸ IDF events — `/insurance-rules/idf/events` (BackOffice spec 3157, door 3167; oms ticket 626).
  * A paged log of every IDF moment at the till, filtered by a local window, store, payer, master (619's list) and
  * outcome. The address is the state (`useUrlQuery`); a filter change goes back to page 1. Read-only.
  *
- * 🧭 627 adds the swap report as a tab of this page, sharing the filter bar (`IdfEventsFilter` in `events-filter.ts`).
+ * 627 adds the swap report as a tab of this page (`?tab=report`), sharing the filter bar (`IdfEventsFilter` in
+ * `events-filter.ts`); the outcome filter belongs to the log alone and is hidden on the report.
  *
  * 🚩 UNGATED until 628: a bare 403 on the read is "You do not have access".
  */
@@ -40,11 +42,28 @@ export default function EventsPage() {
       <FilterBar query={query} set={set} />
 
       {/* 627 · Swap report tab */}
+      <div className="flex gap-1 border-b border-border" role="tablist" aria-label={t('report.tabs.label')} data-idf-events-tabs="">
+        {IDF_EVENTS_TABS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={query.tab === id}
+            data-tab={id}
+            onClick={() => update((q) => ({ ...q, tab: id, page: 1 }))}
+            className={`border-b-2 px-3 py-1.5 text-sm ${query.tab === id ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            {t(`report.tabs.${id}`)}
+          </button>
+        ))}
+      </div>
 
       {problem ? (
         <p className="rounded-md border border-attention-border bg-attention-050 p-3 text-sm text-attention-800" role="alert" data-window-problem={problem}>
           {t(`events.filter.${problem}`)}
         </p>
+      ) : query.tab === 'report' ? (
+        <SwapReport filter={query} />
       ) : (
         <EventsLog query={query} onPage={(page) => update((q) => ({ ...q, page }))} />
       )}
@@ -96,7 +115,9 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
           {query.masterId && masters.data && !masters.data.some((m) => m.masterId === query.masterId) && <option value={query.masterId}>{query.masterId}</option>}
         </select>
       </label>
-      <label className={label}>
+      {/* 627: the outcome is the log's own filter, not the report's. */}
+      {query.tab === 'events' && (
+        <label className={label}>
         {t('events.filter.outcome')}
         <select value={query.outcome} onChange={(e) => set({ outcome: e.target.value as IdfEventsQuery['outcome'] })} className={INPUT} data-filter="outcome">
           <option value="">{t('events.anyOutcome')}</option>
@@ -106,7 +127,8 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
             </option>
           ))}
         </select>
-      </label>
+        </label>
+      )}
     </fieldset>
   )
 }

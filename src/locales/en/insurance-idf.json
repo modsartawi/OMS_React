@@ -157,5 +157,24 @@
       "autoApproved": "Auto-approved"
     }
   },
-  "report": {}
+  "report": {
+    "tabs": {
+      "label": "IDF events views",
+      "events": "Event log",
+      "report": "Swap report"
+    },
+    "loading": "Loading the swap report…",
+    "failed": "The swap report could not be loaded.",
+    "empty": "No IDF swaps match these filters.",
+    "total": "Groups: <v>{{total}}</v>",
+    "export": "Export to Excel",
+    "exportFailed": "The swap report could not be exported.",
+    "columns": {
+      "master": "Master",
+      "store": "Store",
+      "payer": "Payer",
+      "priceDifference": "Price difference (picks taken)",
+      "averageTime": "Average time"
+    }
+  }
 }

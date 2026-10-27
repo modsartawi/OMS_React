@@ -15,6 +15,7 @@ import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { GROUPS_DEFAULT_COL_DEF, buildGroupColumns } from './columns'
+import MobileLookup from './MobileLookup'
 
 /**
  * Loyalty groups — `/loy/groups` (BackOffice spec 3173, oms ticket 629). Every loyalty group: code, name in
@@ -55,6 +56,7 @@ function Groups() {
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-loy-groups="">
+      <MobileLookup />
       <div role="group" aria-label={t('scope.label')} className="flex gap-1" data-loy-groups-scope={scope}>
         {SCOPES.map((s) => (
           <Chip key={s} on={scope === s} onClick={() => select(s)} data-scope={s}>

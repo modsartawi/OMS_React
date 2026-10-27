@@ -1,0 +1,34 @@
+/**
+ * Loyalty groups (BackOffice spec 3173; brief `3173-oms-react-loyalty-groups-brief.md`). A named set of
+ * mobiles a bonus-buy can be offered to. The shapes are the brief's door sketches — the BackOffice ticket
+ * that builds each door (3174 list, 3179 `liveBonusBuys`) owns the final spelling and edits the brief.
+ *
+ * In `@/core/` because the Loyalty groups screen (629+), bonus-buy maintenance (636), simulation (637)
+ * and the member screen (635) all read them, and a feature may never import another.
+ */
+
+/** `GET LoyGroupWeb/Access`. Reads need `canView`; writes need `canMaintain` ON TOP of it. */
+export interface LoyGroupAccess {
+  canView: boolean
+  canMaintain: boolean
+}
+
+/** A live bonus-buy that names the group (BackOffice 3179; `[]` until it ships). */
+export interface LoyGroupBonusBuy {
+  promoNumber: string
+  description: string
+}
+
+/** One row of `GET LoyGroupWeb/Groups?includeInactive=bool`. */
+export interface LoyGroup {
+  groupId: string
+  /** Upper-case `[A-Z0-9_-]{1,20}`, set at create and never changed. */
+  code: string
+  nameEn: string
+  /** Shown as stored — Arabic-Indic digits included. */
+  nameAr: string
+  isActive: boolean
+  mobileCount: number
+  /** 🚩 May be absent from an older door; read through `liveBonusBuysOf`, never directly. */
+  liveBonusBuys: LoyGroupBonusBuy[]
+}

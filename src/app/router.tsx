@@ -485,6 +485,13 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/loy/member/MemberLookupPage')).default,
         }),
       },
+      // Loyalty groups (BackOffice spec 3173, oms ticket 629) — HQ-only, behind `LoyGroupWeb/Access`.
+      {
+        path: 'loy/groups',
+        lazy: async () => ({
+          Component: (await import('@/features/loy/groups/LoyGroupsPage')).default,
+        }),
+      },
       // The Collections area (spec 249, ticket 253) — a new top-level area at
       // `/collection/*`, one feature behind ONE `CollectionWeb/Access` probe.
       // Four routes now; the two document routes

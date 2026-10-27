@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "groups": "Loyalty groups"
+  },
+  "title": "Loyalty groups",
+  "subtitle": "Named sets of mobiles a bonus-buy can be offered to, and the live bonus-buys that name each one.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to loyalty groups",
+    "deniedHint": "Your account does not hold the view loyalty groups grant. Ask an administrator if you need it.",
+    "unreachableTitle": "Loyalty groups are unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "scope": {
+    "label": "Which groups to show",
+    "active": "Active",
+    "all": "All"
+  },
+  "loading": "Loading loyalty groups…",
+  "failed": "The loyalty groups could not be loaded.",
+  "emptyActive": "There are no active loyalty groups.",
+  "emptyAll": "There are no loyalty groups yet.",
+  "columns": {
+    "code": "Code",
+    "name": "Name",
+    "active": "Active",
+    "mobileCount": "Mobiles",
+    "liveBonusBuys": "Live bonus-buys"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "bonusBuys": {
+    "none": "None"
+  }
+}

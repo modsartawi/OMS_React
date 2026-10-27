@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -69,7 +70,10 @@ function MastersTable({ rows }: { rows: IdfMasterRow[] }) {
           {rows.map((r) => (
             <tr key={r.masterId} className="border-t border-border/60" data-master={r.masterId} data-kind={r.kind}>
               <td className={`${TD} font-medium`} data-col="name">
-                <bdi>{r.name}</bdi>
+                {/* 622 · the name opens the master's page */}
+                <Link to={`/insurance-rules/idf/masters/${encodeURIComponent(r.masterId)}`} className="hover:underline" data-idf-open-master="">
+                  <bdi>{r.name}</bdi>
+                </Link>
               </td>
               <td className={TD} data-col="kind">
                 {t(`masters.kind.${r.kind}`, { defaultValue: r.kind })}

@@ -28,7 +28,42 @@
   },
   "storeLists": {},
   "masterForm": {},
-  "upload": {},
+  "upload": {
+    "back": "All IDF masters",
+    "loading": "Loading the master…",
+    "failed": "The master could not be loaded.",
+    "notFound": "There is no IDF master {{id}}.",
+    "live": "Live version",
+    "title": "Upload a new version",
+    "hint": "A file with three columns: item, IDF group, priority. Uploading checks every row and publishes nothing.",
+    "file": "File to upload",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. You can publish this upload.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing can be published until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing can be published until every row passes.",
+    "notOk": "The server did not pass this upload. Upload the file again.",
+    "columns": {
+      "line": "Line",
+      "item": "Item",
+      "rule": "Rule broken",
+      "message": "Message"
+    },
+    "rule": {
+      "unknownItem": "Unknown item",
+      "notInItemCustomer": "Item not in the insurer's items",
+      "unknownGroup": "Unknown IDF group",
+      "badPriority": "Priority not a whole number of 1 or more",
+      "duplicateItem": "Item listed twice"
+    },
+    "note": "Note for this version",
+    "notePlaceholder": "What changed and why",
+    "publish": "Publish",
+    "publishHint": "Publish stays off until the report is clean and a note is written.",
+    "published": "Published",
+    "publishedDetail": "Version {{n}} is live now.",
+    "publishFailed": "The upload could not be published."
+  },
   "versions": {},
   "exceptions": {
     "title": "IDF exceptions",

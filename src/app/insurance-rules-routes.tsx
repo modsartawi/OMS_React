@@ -38,6 +38,10 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 609 · templates (e.g. `templates`)
+    {
+      path: 'templates',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/templates/TemplatesPage')).default }),
+    },
 
     // 610 · lists, fields, patient and policy lists (e.g. `lists`, `fields`)
     {

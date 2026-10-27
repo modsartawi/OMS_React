@@ -1,0 +1,40 @@
+{
+  "title": "Templates",
+  "lede": "Start a guard from a template: fill its blanks and it becomes a draft rule of its own. Editing the rule never changes the template.",
+  "loading": "Loading the templates…",
+  "failed": "The templates could not be loaded.",
+  "source": {
+    "phase1": "Phase-1 templates",
+    "phase1Hint": "The guards HQ ships, each with its DUR conflict code.",
+    "phase1Empty": "No phase-1 template is available.",
+    "team": "Team templates",
+    "teamHint": "Saved by the team from a rule, with the values chosen as blanks.",
+    "teamEmpty": "No team template yet. Save any rule as a template from its page."
+  },
+  "conflictCode": "DUR conflict",
+  "savedBy": "Saved by",
+  "blanks_one": "{{n}} blank",
+  "blanks_other": "{{n}} blanks",
+  "use": "Use this template",
+  "fill": {
+    "title": "New guard from {{name}}",
+    "lede": "Fill the blanks. The new rule is a draft; you can change anything in the editor.",
+    "noBlanks": "This template has no blanks.",
+    "en": "English",
+    "ar": "Arabic",
+    "pickList": "Pick a list…",
+    "folder": "Folder",
+    "noFolder": "No folder",
+    "readsAs": "Reads as",
+    "missing_one": "{{n}} blank is still empty",
+    "missing_other": "{{n}} blanks are still empty",
+    "cancel": "Cancel",
+    "create": "Create draft rule",
+    "created": "Draft rule {{id}} was created.",
+    "failed": "The rule could not be created from the template."
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for access to the insurance rules."
+  }
+}

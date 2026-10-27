@@ -14,6 +14,10 @@ import insuranceRulesAr from '@/locales/ar/insurance-rules.json'
 import insuranceGuardsEn from '@/locales/en/insurance-guards.json'
 import insuranceGuardsAr from '@/locales/ar/insurance-guards.json'
 
+// 609 · imports — the Templates gallery (`features/insurance-rules/templates`)
+import insuranceTemplatesEn from '@/locales/en/insurance-templates.json'
+import insuranceTemplatesAr from '@/locales/ar/insurance-templates.json'
+
 // 610 · imports
 import insuranceListsEn from '@/locales/en/insurance-lists.json'
 import insuranceListsAr from '@/locales/ar/insurance-lists.json'
@@ -50,6 +54,9 @@ export const INSURANCE_RULES_NS = [
   'insurance-rules',
   'insurance-guards',
 
+  // 609 · ns
+  'insurance-templates',
+
   // 610 · ns
   'insurance-lists',
   'insurance-fields',
@@ -79,6 +86,9 @@ export const INSURANCE_RULES_EN = {
   'insurance-rules': insuranceRulesEn,
   'insurance-guards': insuranceGuardsEn,
 
+  // 609 · en
+  'insurance-templates': insuranceTemplatesEn,
+
   // 610 · en
   'insurance-lists': insuranceListsEn,
   'insurance-fields': insuranceFieldsEn,
@@ -107,6 +117,9 @@ export const INSURANCE_RULES_EN = {
 export const INSURANCE_RULES_AR = {
   'insurance-rules': insuranceRulesAr,
   'insurance-guards': insuranceGuardsAr,
+
+  // 609 · ar
+  'insurance-templates': insuranceTemplatesAr,
 
   // 610 · ar
   'insurance-lists': insuranceListsAr,

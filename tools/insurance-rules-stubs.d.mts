@@ -160,6 +160,24 @@ export declare function approvalStub(
   opts?: { store?: ApprovalStore; user?: string; viewer?: { author: boolean; approver: boolean }; now?: string; deny?: string[] },
 ): FulfillArg | null
 
+// --- 609 ---
+import type { GuardTemplate } from '../src/core/insurance-rules/templates'
+export declare const TEMPLATES: GuardTemplate[]
+export declare const EMPTY_FOLDERS: string[]
+export interface TemplatesState {
+  store: GuardStore
+  templates: GuardTemplate[]
+  folders: string[]
+  writes: { door: string; body: unknown }[]
+}
+export declare function newTemplatesState(): TemplatesState
+export declare function templatesStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { state?: TemplatesState; deny?: string[]; reads?: Record<string, number>; user?: string; now?: string },
+): FulfillArg | null
+
 // --- 612 ---
 import type { SimulateBody, SimulateResult } from '../src/features/insurance-rules/simulator/simulate'
 import type { GuardBacktest } from '../src/core/insurance-rules/backtest'

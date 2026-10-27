@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { GUARD_ROWS } from '../../../tools/insurance-rules-stubs.mjs'
-import { folderTree, inFolder, type FolderNode } from './folders'
+import { childPath, folderNameProblem, folderTree, inFolder, renamedPath, type FolderNode } from './folders'
 
 const shape = (n: FolderNode): unknown => [n.path, n.name, n.count, n.children.map(shape)]
 
@@ -30,5 +30,35 @@ describe('inFolder', () => {
     expect(inFolder('Chronic carex', 'Chronic care')).toBe(false)
     expect(inFolder('', null)).toBe(true)
     expect(inFolder('Reference/SFDA', '')).toBe(true)
+  })
+})
+
+// ── 609: folders HQ keeps (`GET …/Folders`), new, rename, move ──────────────────────────────────
+
+describe('folderTree with the Folders door (609)', () => {
+  it('an empty folder HQ keeps shows with no rules, its parents made too', () => {
+    expect(folderTree([{ folder: 'A' }], ['A', 'B/C']).map(shape)).toEqual([
+      ['A', 'A', 1, []],
+      ['B', 'B', 0, [['B/C', 'C', 0, []]]],
+    ])
+  })
+})
+
+describe('folder names', () => {
+  it('childPath and renamedPath keep the parent', () => {
+    expect(childPath('', 'Chronic care')).toBe('Chronic care')
+    expect(childPath('Chronic care', ' Refills ')).toBe('Chronic care/Refills')
+    expect(renamedPath('Chronic care/Refills', 'Early refills')).toBe('Chronic care/Early refills')
+    expect(renamedPath('Chronic care', 'Chronic')).toBe('Chronic')
+  })
+
+  it('a name is refused empty, with a slash, or already a sibling (any case); renaming to itself is not a clash', () => {
+    const tree = folderTree([{ folder: 'Chronic care/Refills' }, { folder: 'Chronic care/Supply' }, { folder: 'Reference' }])
+    expect(folderNameProblem('  ', 'Chronic care', tree)).toBe('empty')
+    expect(folderNameProblem('a/b', '', tree)).toBe('slash')
+    expect(folderNameProblem('reference', '', tree)).toBe('taken')
+    expect(folderNameProblem('supply', 'Chronic care', tree)).toBe('taken')
+    expect(folderNameProblem('Supply', '', tree)).toBe(null)
+    expect(folderNameProblem('Refills', 'Chronic care', tree, 'Chronic care/Refills')).toBe(null)
   })
 })

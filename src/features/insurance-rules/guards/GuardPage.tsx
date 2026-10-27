@@ -15,6 +15,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { formatDay } from '@/core/util/date-format'
 import DeniedCard from './DeniedCard'
+import OrganizeCard from './OrganizeCard' // 609
 
 /**
  * Insurance rules ▸ Guards ▸ one rule — `/insurance-rules/guards/:ruleId` (oms ticket 607). The rule read-only,
@@ -45,7 +46,14 @@ export default function GuardPage() {
         {t('rule.notFound')} <RuleId id={ruleId} />
       </p>
     )
-  else body = <RuleRead rule={rule} lists={draft.data.lists} />
+  else
+    body = (
+      <>
+        <RuleRead rule={rule} lists={draft.data.lists} />
+        {/* 609 — move to a folder, save as a team template */}
+        <OrganizeCard key={rule.id} rule={rule} rules={draft.data.rules} />
+      </>
+    )
 
   return (
     <section className="flex w-full max-w-4xl flex-col gap-4" data-guard-page="">

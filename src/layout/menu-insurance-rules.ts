@@ -1,5 +1,6 @@
 import { ChartColumn, FileSpreadsheet, ListChecks, ListTree, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
+import { Building2, Tags, Umbrella } from 'lucide-react' // 617
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -72,5 +73,23 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 617 · Insurers, Categories, Coverage
+    {
+      // 617 — each insurer's settings and their change log (`?payer=`).
+      labelKey: 'insurance-rules:menu.insurers',
+      icon: Building2,
+      routerLink: '/insurance-rules/insurers',
+    },
+    {
+      // 617 — the insurance category rules, first match sets Generic / Brand / NonMed (`?rule=`).
+      labelKey: 'insurance-rules:menu.categories',
+      icon: Tags,
+      routerLink: '/insurance-rules/categories',
+    },
+    {
+      // 617 — the coverage rules, each value marked filled or overriding the payer (`?rule=`).
+      labelKey: 'insurance-rules:menu.coverage',
+      icon: Umbrella,
+      routerLink: '/insurance-rules/coverage',
+    },
   ],
 }

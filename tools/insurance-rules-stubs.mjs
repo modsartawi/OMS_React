@@ -924,3 +924,211 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
   }
   return null
 }
+
+// --- 617 --- insurer settings (BackOffice 3144), the category and coverage rulesets (3145 / 3146), and the
+// eligibility facts the Fields registry offers every palette. Shapes ⚠️ PROVISIONAL where the brief does not spell
+// them (see ticket 617's comments). Stateful: one `newCoverageState()` per browser context, passed as `opts.state`.
+//   GET  InsuranceRules/Insurers                       → INSURERS
+//   GET  InsuranceRules/Insurers/{payer}/Settings      → the insurer's settings
+//   PUT  InsuranceRules/Insurers/{payer}/Settings      → the saved settings; a log row of what changed
+//   GET  InsuranceRules/Insurers/{payer}/Settings/Log  → newest first
+//   GET / PUT InsuranceRules/{Categories|Coverage}/Draft (stale `revision` → 409 STALE_REVISION), POST …/Validate
+// Anything else falls through to 610's `insuranceListsStub` on `state.lists` (Fields, patient / policy lists, the
+// guard draft), then to null. `opts.deny` door names: insurers · settings · saveSettings · log · categories ·
+// coverage · saveCategories · saveCoverage · validateCategories · validateCoverage (and 610's).
+
+/** Fields 617's rules read beside 610's FIELDS (which keep their own counts): request, patient, item and eligibility facts. */
+export const COVERAGE_FIELDS = [
+  { key: 'payer', label: says('Insurer', 'شركة التأمين'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
+  { key: 'policy', label: says('Policy', 'الوثيقة'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
+  { key: 'class', label: says('Policy class', 'فئة الوثيقة'), scope: 'request', type: 'code', unit: null, source: 'Request', retired: false },
+  { key: 'qty', label: says('Quantity', 'الكمية'), scope: 'request', type: 'number', unit: 'units', source: 'Request line', retired: false },
+  { key: 'price', label: says('Line price', 'سعر السطر'), scope: 'request', type: 'number', unit: 'SAR', source: 'Request line', retired: false },
+  { key: 'gender', label: says('Gender', 'الجنس'), scope: 'patient', type: 'code', unit: null, source: 'Patient profile', retired: false },
+  { key: 'ItemCode', label: says('Item code', 'رمز الصنف'), scope: 'item', type: 'code', unit: null, source: 'ItemInfo.ItemCode', retired: false },
+  { key: 'coverage.class', label: says('Coverage class', 'فئة التغطية'), scope: 'eligibility', type: 'code', unit: null, source: 'Nphies eligibility answer', retired: false },
+  { key: 'benefit.dayBenefit', label: says('Day benefit', 'منفعة اليوم'), scope: 'eligibility', type: 'number', unit: 'SAR', source: 'Nphies eligibility answer', retired: false },
+  { key: 'benefit.genericCopayPct', label: says('Generic copay', 'تحمّل الجنيس'), scope: 'eligibility', type: 'number', unit: '%', source: 'Nphies eligibility answer', retired: false },
+]
+
+export const POLICY_LIST_SASREF = 'PO-SASREF'
+
+export const INSURERS = [
+  { payer: 'BUPA', name: says('Bupa Arabia', 'بوبا العربية') },
+  { payer: 'TAWUNIYA', name: says('Tawuniya', 'التعاونية') },
+  { payer: 'MEDGULF', name: says('MedGulf', 'ميدغلف') },
+]
+
+export const INSURER_SETTINGS = {
+  BUPA: {
+    payer: 'BUPA',
+    fixedDiscountPct: 15,
+    receivableCustomer: '1000123',
+    memberId: { length: 8, format: '^\\d{8}$' },
+    benefitCategories: [
+      { code: '66', meaning: 'genericCopay' },
+      { code: '57', meaning: 'brandCopay' },
+      { code: '13', meaning: 'dayBenefit' },
+    ],
+    daysSupply: { min: 1, max: 180 },
+    directDispense: { allowed: true, defaultDayBenefit: 500 },
+    payerPins: [{ documentType: 'ZINV', payer: 'BUPA-01' }],
+  },
+  TAWUNIYA: {
+    payer: 'TAWUNIYA',
+    fixedDiscountPct: 9.5,
+    receivableCustomer: '1000456',
+    memberId: { length: 15, format: null },
+    benefitCategories: [{ code: '66', meaning: 'genericCopay' }],
+    daysSupply: { min: 1, max: 100 },
+    directDispense: { allowed: false, defaultDayBenefit: null },
+    payerPins: [],
+  },
+  MEDGULF: {
+    payer: 'MEDGULF',
+    fixedDiscountPct: null,
+    receivableCustomer: null,
+    memberId: { length: null, format: null },
+    benefitCategories: [],
+    daysSupply: { min: null, max: null },
+    directDispense: { allowed: false, defaultDayBenefit: null },
+    payerPins: [],
+  },
+}
+
+export const SETTINGS_LOG = {
+  BUPA: [{ at: '2026-10-20T09:30:00', by: 'ins.huda', changes: [{ field: 'fixedDiscountPct', from: '14', to: '15' }] }],
+  TAWUNIYA: [],
+  MEDGULF: [],
+}
+
+const fact = (path, value, op = 'anyOf') => ({ check: 'fact', path, op, value })
+const covRule = (id, en, ar, folder, state, when, then) => ({ id, name: says(en, ar), folder, state, when, then })
+
+export const CATEGORY_RULESET = {
+  schema: 1,
+  kind: 'category',
+  revision: 4,
+  rules: [
+    covRule('K-002', 'Tawuniya: Example Pharma statins are Generic', 'التعاونية: أدوية الستاتين من Example Pharma جنيسة', 'Tawuniya contract', 'live',
+      [fact('$request.payer', ['TAWUNIYA']), fact('$item.ATC', ['C10AA'])], [{ effect: 'setCategory', group: 'G1' }]),
+  ],
+}
+
+export const COVERAGE_RULESET = {
+  schema: 1,
+  kind: 'coverage',
+  revision: 7,
+  rules: [
+    covRule('C-002', 'Bupa: cosmetics not covered', 'بوبا: مستحضرات التجميل غير مغطاة', 'Bupa contract', 'live',
+      [fact('$request.payer', ['BUPA']), fact('$item.DosageForm', ['COSM'])], [{ effect: 'covered', covered: false, overridesPayer: true }]),
+    covRule('C-003', 'MedGulf class C: 20% capped at SAR 50', 'ميدغلف الفئة C: 20% بحد أقصى 50 ريال', 'MedGulf contract', 'shadow',
+      [fact('$request.payer', ['MEDGULF']), fact('$request.class', ['C'])], [{ effect: 'deductible', pct: 20, max: 50, overridesPayer: false }]),
+  ],
+}
+
+/** K-001 "Bupa: Glucophage XR is Brand" as 617's drive builds it (under the next free id). */
+export const K_001 = {
+  name: says('Bupa: Glucophage XR is Brand', 'بوبا: جلوكوفاج إكس آر علامة تجارية'),
+  folder: 'Bupa contract',
+  when: [fact('$request.payer', ['BUPA']), fact('$item.ItemCode', ['100245'])],
+  then: [{ effect: 'setCategory', group: 'G2' }],
+}
+
+/** "No deductible for these policies" (the prototype's SASREF branch, POSController.cs:6146) as the drive builds it. */
+export const NO_DEDUCTIBLE = {
+  name: says('SASREF: no deductible for these policies', 'ساسرف: لا تحمّل لهذه الوثائق'),
+  folder: 'Bupa contract',
+  when: [{ check: 'policy', inList: POLICY_LIST_SASREF }],
+  then: [{ effect: 'deductible', pct: 0, max: null, overridesPayer: true }],
+}
+
+/** A drive's state: 610's lists state with 617's fields and the SASREF policy list, and 617's own documents. */
+export function newCoverageState() {
+  const copy = (x) => JSON.parse(JSON.stringify(x))
+  const lists = newListsState()
+  lists.fields.push(...copy(COVERAGE_FIELDS))
+  lists.lists.policy.push({ id: POLICY_LIST_SASREF, name: says('SASREF policies', 'وثائق ساسرف'), entries: 1 })
+  return {
+    lists,
+    insurers: copy(INSURERS),
+    settings: copy(INSURER_SETTINGS),
+    log: copy(SETTINGS_LOG),
+    categories: copy(CATEGORY_RULESET),
+    coverage: copy(COVERAGE_RULESET),
+    writes: [],
+  }
+}
+
+/** The leaves of a JSON value by path (`benefitCategories[3].code`), as strings — what the settings log compares. */
+function leavesOf(v, at = '', out = {}) {
+  if (Array.isArray(v)) v.forEach((x, i) => leavesOf(x, `${at}[${i}]`, out))
+  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) leavesOf(x, at ? `${at}.${k}` : k, out)
+  else out[at] = v === null || v === undefined ? null : String(v)
+  return out
+}
+
+/** HQ's checks of a category / coverage draft, as the stub reads them: names, no condition, a value outside its range. */
+export function validateRuleset(doc) {
+  const out = []
+  for (const r of doc.rules ?? []) {
+    if (!r.name?.en?.trim()) out.push(issue(r.id, null, 'name.en', 'The rule needs a name in English.', 'تحتاج القاعدة إلى اسم بالإنجليزية.'))
+    if (!r.name?.ar?.trim()) out.push(issue(r.id, null, 'name.ar', 'The rule needs a name in Arabic.', 'تحتاج القاعدة إلى اسم بالعربية.'))
+    if (!(r.when ?? []).length) out.push(issue(r.id, null, 'when', 'The rule has no condition: it matches every line.', 'لا شرط في القاعدة: تنطبق على كل سطر.', 'warning'))
+    ;(r.then ?? []).forEach((e, i) => {
+      if (e.effect === 'deductible' && !(e.pct >= 0 && e.pct <= 100)) out.push(issue(r.id, `then[${i}]`, 'pct', 'The deductible is between 0 and 100 %.', 'نسبة التحمّل بين 0 و100 %.'))
+    })
+    if (doc.kind === 'coverage' && !(r.then ?? []).length) out.push(issue(r.id, null, 'then', 'The rule sets no coverage value.', 'لا تحدد القاعدة أي قيمة تغطية.'))
+  }
+  return out
+}
+
+/** 617's doors on a drive's `state`; anything else to 610's lists stub on `state.lists`; null when neither. */
+export function coverageStub(method, path, body, opts = {}) {
+  const { state, deny = [], reads = {}, query } = opts
+  if (!state || !path.startsWith('InsuranceRules/')) return null
+  const p = path.slice('InsuranceRules/'.length)
+  const door = (name, fn) => {
+    reads[name] = (reads[name] ?? 0) + 1
+    if (deny.includes(name)) return { status: 403, body: '' }
+    if (method !== 'GET') state.writes.push({ door: name, method, path, body })
+    return fn()
+  }
+
+  if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(state.insurers))
+  let m = /^Insurers\/([^/]+)\/Settings(\/Log)?$/.exec(p)
+  if (m) {
+    const payer = decodeURIComponent(m[1])
+    if (m[2]) return method === 'GET' ? door('log', () => envelope(state.log[payer] ?? [])) : null
+    if (method === 'GET')
+      return door('settings', () => (state.settings[payer] ? envelope(state.settings[payer]) : envelope(null, { status: 404, success: false, message: 'No such insurer.' })))
+    if (method === 'PUT')
+      return door('saveSettings', () => {
+        const before = leavesOf(state.settings[payer] ?? {})
+        const after = leavesOf(body)
+        const changes = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+          .filter((k) => before[k] !== after[k])
+          .map((field) => ({ field, from: before[field] ?? null, to: after[field] ?? null }))
+        state.settings[payer] = structuredClone(body)
+        ;(state.log[payer] ??= []).unshift({ at: localNow(), by: 'msartawi', changes })
+        return envelope(state.settings[payer])
+      })
+    return null
+  }
+
+  m = /^(Categories|Coverage)\/(Draft|Validate)$/.exec(p)
+  if (m) {
+    const key = m[1] === 'Categories' ? 'categories' : 'coverage'
+    if (m[2] === 'Validate') return method === 'POST' ? door(`validate${m[1]}`, () => envelope(validateRuleset(body))) : null
+    if (method === 'GET') return door(key, () => envelope(state[key]))
+    if (method === 'PUT')
+      return door(`save${m[1]}`, () => {
+        if (body?.revision !== state[key].revision)
+          return envelope(null, { status: 409, success: false, message: 'Someone saved the draft since you read it.', errorCode: 'STALE_REVISION' })
+        state[key] = { ...structuredClone(body), revision: state[key].revision + 1 }
+        return envelope(state[key])
+      })
+    return null
+  }
+  return insuranceListsStub(method, path, body, { state: state.lists, query, deny, reads })
+}

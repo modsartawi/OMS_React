@@ -7,7 +7,10 @@
     "review": "المراجعة",
     "exceptions": "الاستثناءات",
     "editions": "الإصدارات",
-    "metrics": "المؤشرات"
+    "metrics": "المؤشرات",
+    "insurers": "شركات التأمين",
+    "categories": "الفئات",
+    "coverage": "التغطية"
   },
   "state": {
     "draft": "مسودة",
@@ -194,7 +197,8 @@
         "years": "سنة",
         "days": "يوم",
         "units": "وحدة",
-        "sar": "ريال"
+        "sar": "ريال",
+        "percent": "%"
       }
     },
     "formula": "تتحقق المعادلة <formula>{{formula}}</formula>"

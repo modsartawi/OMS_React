@@ -126,3 +126,33 @@ export declare function orderGuardsStub(
   order: { guardState: OrderGuardState; guards: OrderGuards | null },
   opts?: { writes?: unknown[]; answerRefusal?: { status?: number; message: string; errorCode?: string } | null },
 ): FulfillArg | null
+
+// --- 617 ---
+import type { CategoryRule, CategoryRuleset, CoverageRule, CoverageRuleset } from '../src/core/insurance-rules/coverage-model'
+import type { InsurerRow, InsurerSettings, SettingsLogRow } from '../src/features/insurance-rules/coverage/settings'
+export declare const COVERAGE_FIELDS: RegistryField[]
+export declare const POLICY_LIST_SASREF: string
+export declare const INSURERS: InsurerRow[]
+export declare const INSURER_SETTINGS: Record<string, InsurerSettings>
+export declare const SETTINGS_LOG: Record<string, SettingsLogRow[]>
+export declare const CATEGORY_RULESET: CategoryRuleset
+export declare const COVERAGE_RULESET: CoverageRuleset
+export declare const K_001: Pick<CategoryRule, 'name' | 'folder' | 'when' | 'then'>
+export declare const NO_DEDUCTIBLE: Pick<CoverageRule, 'name' | 'folder' | 'when' | 'then'>
+export interface CoverageState {
+  lists: ListsState
+  insurers: InsurerRow[]
+  settings: Record<string, InsurerSettings>
+  log: Record<string, SettingsLogRow[]>
+  categories: CategoryRuleset
+  coverage: CoverageRuleset
+  writes: { door: string; method: string; path: string; body: unknown }[]
+}
+export declare function newCoverageState(): CoverageState
+export declare function validateRuleset(doc: CategoryRuleset | CoverageRuleset): GuardIssue[]
+export declare function coverageStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { state?: CoverageState; deny?: string[]; reads?: Record<string, number>; query?: URLSearchParams },
+): FulfillArg | null

@@ -210,6 +210,12 @@
       "store": "Store",
       "pharmacist": "Pharmacist"
     },
+    "factScope": {
+      "patient": "Patient",
+      "request": "Request",
+      "eligibility": "Eligibility (insurer's answer)",
+      "item": "Item"
+    },
     "factOp": {
       "atLeast": "at least",
       "below": "below",

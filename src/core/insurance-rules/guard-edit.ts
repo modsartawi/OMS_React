@@ -156,7 +156,7 @@ export function newCondition(check: GuardCheck): GuardCondition {
     case 'policy':
       return { check, inList: '' }
     case 'fact':
-      return { check, path: FACTS[0].path, op: 'atLeast', value: 0 }
+      return { check, path: DEFAULT_FACT_PATH, op: 'atLeast', value: 0 }
     case 'formula':
       return { check, formula: '' }
     case 'group':
@@ -166,41 +166,12 @@ export function newCondition(check: GuardCheck): GuardCondition {
 
 // ── Typed facts (3131) ─────────────────────────────────────────────────────────────────────
 
-export type FactUnit = 'years' | 'days' | 'units' | 'sar'
-
-/** A fact the `fact` block reads: a number with its unit, or codes (an ICD-10-AM code may end in `*`). */
-export interface FactDef {
-  /** The locale id under `fact.*`. */
-  id: string
-  path: string
-  type: 'number' | 'codes'
-  unit?: FactUnit
-  /** Codes the picker offers; free entry when absent. */
-  options?: readonly string[]
-}
-
-/** ⚠️ PROVISIONAL `$`-paths (608): 3131 names the facts, not their paths; 618 reconciles. */
-export const FACTS: readonly FactDef[] = [
-  { id: 'age', path: '$patient.age', type: 'number', unit: 'years' },
-  { id: 'gender', path: '$patient.gender', type: 'codes', options: ['M', 'F'] },
-  { id: 'idType', path: '$patient.idType', type: 'codes' },
-  { id: 'icd', path: '$line.icd', type: 'codes' },
-  { id: 'payer', path: '$request.payer', type: 'codes' },
-  { id: 'policy', path: '$request.policy', type: 'codes' },
-  { id: 'class', path: '$request.class', type: 'codes' },
-  { id: 'channel', path: '$request.channel', type: 'codes', options: ['nphies', 'waseel', 'oms', 'bupa'] },
-  { id: 'store', path: '$request.store', type: 'codes' },
-  { id: 'pharmacist', path: '$request.pharmacist', type: 'codes' },
-]
-
-export const factOf = (path: string): FactDef | undefined => FACTS.find((f) => f.path === path)
-
-/** The `line` block's numeric fields and their units (3131: days-supply, quantity in base units, price). */
-export const LINE_FIELDS: readonly { field: string; unit: FactUnit }[] = [
-  { field: 'daysSupply', unit: 'days' },
-  { field: 'qty', unit: 'units' },
-  { field: 'price', unit: 'sar' },
-]
+/**
+ * The fact a new `fact` block starts on. The facts themselves (and the `line` block's numeric fields) are the
+ * Fields registry's — `./registry-facts` (oms 617 switched 608's local `FACTS` / `LINE_FIELDS` to it).
+ * ⚠️ PROVISIONAL `$`-path (`$<scope>.<key>`); 618 reconciles.
+ */
+export const DEFAULT_FACT_PATH = '$patient.age'
 
 // ── Codes (K11) ────────────────────────────────────────────────────────────────────────────
 

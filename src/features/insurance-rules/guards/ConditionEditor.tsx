@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { blockKey, fieldIssues, type ChecksIndex } from '@/core/insurance-rules/checks'
 import {
-  FACTS,
-  LINE_FIELDS,
   PALETTE,
   addCondition,
   canAddGroup,
-  factOf,
   listOfAlias,
   newCondition,
   removeCondition,
@@ -18,6 +16,9 @@ import {
   type ConditionPath,
 } from '@/core/insurance-rules/guard-edit'
 import type { GuardCheck, GuardCondition, GuardList, GuardMatch, GuardRule, LineCondition, SupplyCondition } from '@/core/insurance-rules/model'
+import type { RegistryField } from '@/core/insurance-rules/registry'
+import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
+import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
 import { fsi } from '@/core/util/bidi'
 import { CodeInput, Field, Issues, NumberInput, Select } from './editor-ui'
@@ -216,6 +217,14 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     ctx.edit((r) => ({ ...r, when: updateCondition(r.when, path, (x) => fn(x as C)) }), field ? key(field) : undefined)
   const listName = (l: GuardList) => fsi(saysIn(l.name, i18n.language))
   const unit = (u: string) => t(`editor.unit.${u}`)
+  // 617: the facts, the line's numbers and the days to compare with are the Fields registry's (610), so an
+  // eligibility fact the registry holds appears here at once.
+  const fields = useQuery(fieldsQuery()).data ?? []
+  const fieldName = (f: RegistryField) => fsi(saysIn(f.label, i18n.language))
+  const unitOf = (f: RegistryField | undefined) => {
+    const k = unitKey(f?.unit)
+    return k ? unit(k) : (f?.unit ?? undefined)
+  }
 
   /** Point the block at a ruleset list: the rule gains a filter for it, the block names the filter's id. */
   const pickList = (listId: string, write: (x: typeof c, alias: string) => GuardCondition) =>
@@ -373,7 +382,8 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
       )
     case 'line': {
       const mode = c.inList !== undefined ? 'inList' : c.after !== undefined ? 'after' : c.below !== undefined ? 'below' : 'above'
-      const fieldUnit = LINE_FIELDS.find((f) => f.field === c.field)?.unit
+      const numbers = lineFields(fields)
+      const fieldUnit = unitOf(numbers.find((f) => f.key === c.field))
       return (
         <>
           <Field label={t('editor.field.lineMode')}>
@@ -387,7 +397,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
                   if (first) pickList(first, (x, alias) => ({ check: 'line', ...(x.not ? { not: true } : {}), inList: alias }))
                   else set((x) => ({ check: 'line', ...(x.not ? { not: true } : {}), inList: '' }))
                 } else if (m === 'after') set((x) => ({ check: 'line', ...(x.not ? { not: true } : {}), field: 'supplyEndsOn', after: '$eligibility.coverage.periodEnd' }))
-                else set((x: LineCondition) => ({ check: 'line', ...(x.not ? { not: true } : {}), field: LINE_FIELDS.some((f) => f.field === x.field) ? x.field : 'daysSupply', [m]: 90 }))
+                else set((x: LineCondition) => ({ check: 'line', ...(x.not ? { not: true } : {}), field: numbers.some((f) => f.key === x.field) ? x.field : 'daysSupply', [m]: 90 }))
               }}
             >
               {(['above', 'below', 'after', 'inList'] as const).map((m) => (
@@ -415,20 +425,28 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             </Field>
           ) : mode === 'after' ? (
             <Field label={t('editor.lineField.supplyEndsOn')}>
-              <CodeInput value={c.after ?? ''} invalid={bad('after')} className="w-72" data-input="after" onValue={(s) => set((x) => ({ ...x, after: s }), 'after')} />
+              <Select value={c.after ?? ''} invalid={bad('after')} data-input="after" onChange={(e) => set((x) => ({ ...x, after: e.target.value }))}>
+                {!dateFields(fields).some((f) => factPath(f) === c.after) && <option value={c.after ?? ''}>{fsi(c.after ?? '')}</option>}
+                {dateFields(fields).map((f) => (
+                  <option key={f.key} value={factPath(f)} data-scope={f.scope}>
+                    {fieldName(f)}
+                  </option>
+                ))}
+              </Select>
             </Field>
           ) : (
             <>
               <Field label={t('editor.field.lineField')}>
                 <Select value={c.field ?? 'daysSupply'} invalid={bad('field')} data-input="field" onChange={(e) => set((x) => ({ ...x, field: e.target.value }))}>
-                  {LINE_FIELDS.map((f) => (
-                    <option key={f.field} value={f.field}>
-                      {t(`editor.lineField.${f.field}`)}
+                  {!numbers.some((f) => f.key === (c.field ?? 'daysSupply')) && <option value={c.field ?? 'daysSupply'}>{fsi(c.field ?? 'daysSupply')}</option>}
+                  {numbers.map((f) => (
+                    <option key={f.key} value={f.key}>
+                      {fieldName(f)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label={t('editor.field.value')} unit={fieldUnit ? unit(fieldUnit) : undefined}>
+              <Field label={t('editor.field.value')} unit={fieldUnit}>
                 <NumberInput
                   value={(mode === 'below' ? c.below : c.above) ?? 0}
                   invalid={bad(mode)}
@@ -499,12 +517,13 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     case 'policy':
       return (
         <Field label={t(`editor.field.${c.check}List`)}>
-          <CodeInput value={c.inList} invalid={bad('inList')} data-input="inList" onValue={(s) => set((x) => ({ ...x, inList: s.trim() }), 'inList')} />
+          <KeyedListSelect kind={c.check} value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }))} />
         </Field>
       )
     case 'fact': {
-      const def = factOf(c.path)
-      const isNumber = (def?.type ?? 'number') === 'number'
+      const def = fieldOfPath(fields, c.path)
+      const isNumber = def ? factKind(def) === 'number' : typeof c.value === 'number'
+      const offered = factFields(fields)
       return (
         <>
           <Field label={t('editor.field.fact')}>
@@ -512,15 +531,23 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
               value={c.path}
               data-input="fact"
               onChange={(e) => {
-                const next = factOf(e.target.value)
-                set((x) => ({ ...x, path: e.target.value, ...(next?.type === 'codes' ? { op: 'anyOf', value: [] } : { op: 'atLeast', value: 0 }) }))
+                const next = fieldOfPath(fields, e.target.value)
+                set((x) => ({ ...x, path: e.target.value, ...(next && factKind(next) === 'codes' ? { op: 'anyOf', value: [] } : { op: 'atLeast', value: 0 }) }))
               }}
             >
-              {FACTS.map((f) => (
-                <option key={f.path} value={f.path}>
-                  {t(`editor.fact.${f.id}`)}
-                </option>
-              ))}
+              {!offered.some((f) => factPath(f) === c.path) && <option value={c.path}>{fsi(c.path)}</option>}
+              {(['patient', 'request', 'eligibility', 'item'] as const).map((scope) => {
+                const inScope = offered.filter((f) => f.scope === scope)
+                return inScope.length ? (
+                  <optgroup key={scope} label={t(`editor.factScope.${scope}`)}>
+                    {inScope.map((f) => (
+                      <option key={f.key} value={factPath(f)} data-scope={scope}>
+                        {fieldName(f)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null
+              })}
             </Select>
           </Field>
           <Field label={t('editor.field.op')}>
@@ -533,7 +560,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
             </Select>
           </Field>
           {isNumber ? (
-            <Field label={t('editor.field.value')} unit={def?.unit ? unit(def.unit) : undefined}>
+            <Field label={t('editor.field.value')} unit={unitOf(def)}>
               <NumberInput value={Number(c.value)} invalid={bad('value')} data-input="value" onValue={(n) => set((x) => ({ ...x, value: n }), 'value')} />
             </Field>
           ) : (
@@ -542,7 +569,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
                 value={Array.isArray(c.value) ? c.value : [String(c.value)]}
                 invalid={bad('value')}
                 title={t('editor.codesHint')}
-                placeholder={def?.options ? def.options.join(', ') : 'E11*'}
+                placeholder="E11*"
                 onCodes={(codes) => set((x) => ({ ...x, value: codes }), 'value')}
               />
             </Field>
@@ -566,6 +593,22 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
     default:
       return null
   }
+}
+
+/** A patient or policy list, picked by id from the lists (610's doors); a list not among them stays named by its id. */
+function KeyedListSelect({ kind, value, invalid, onPick }: { kind: 'patient' | 'policy'; value: string; invalid: boolean; onPick: (id: string) => void }) {
+  const { t, i18n } = useTranslation('insurance-guards')
+  const lists = useQuery(keyedListsQuery(kind)).data ?? []
+  return (
+    <Select value={value} invalid={invalid} data-input="inList" onChange={(e) => onPick(e.target.value)}>
+      {!lists.some((l) => l.id === value) && <option value={value}>{value ? fsi(value) : t('editor.field.pickList')}</option>}
+      {lists.map((l) => (
+        <option key={l.id} value={l.id}>
+          {fsi(saysIn(l.name, i18n.language))}
+        </option>
+      ))}
+    </Select>
+  )
 }
 
 const parseCodes = (text: string): string[] =>

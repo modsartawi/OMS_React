@@ -13,7 +13,13 @@ import type {
   LoyGroupSetActiveRequest,
   LoyMobileGroup,
 } from '@/core/models/loy-groups'
-import type { LoyGroupMemberAddResult, LoyGroupMemberRequest, LoyGroupMembersPage } from '@/core/models/loy-groups'
+import type {
+  LoyGroupBulkRequest,
+  LoyGroupBulkResult,
+  LoyGroupMemberAddResult,
+  LoyGroupMemberRequest,
+  LoyGroupMembersPage,
+} from '@/core/models/loy-groups'
 import type { MembersQuery } from './members-query'
 
 // ── Mobile → groups lookup (oms ticket 634; door BackOffice 3176) ───────────────────────────────
@@ -102,6 +108,13 @@ export const membersApi = {
   /** `POST LoyGroupWeb/Groups/Members/Remove`. */
   remove(body: LoyGroupMemberRequest): Promise<unknown> {
     return api.post<unknown>('LoyGroupWeb/Groups/Members/Remove', body)
+  },
+  /**
+   * `POST LoyGroupWeb/Groups/Members/Bulk` (oms ticket 633; door BackOffice 3175) → a count per outcome and
+   * the lines not added. Valid lines are added even when others are not; over 50,000 lines is refused whole.
+   */
+  bulk(body: LoyGroupBulkRequest): Promise<LoyGroupBulkResult> {
+    return api.post<LoyGroupBulkResult>('LoyGroupWeb/Groups/Members/Bulk', body)
   },
 }
 

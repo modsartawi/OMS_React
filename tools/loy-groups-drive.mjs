@@ -661,6 +661,188 @@ async function drive632(dir) {
   await viewer.context.close()
 }
 
+// ── 633: load a list (door `POST Groups/Members/Bulk`, BackOffice 3175 — stubbed). A paste, a `.csv` and an
+// `.xlsx` (written here, at drive time, with the repo's write-excel-file) are each turned into lines in the
+// browser — first column, header skipped and said, trimmed, blanks dropped, repeats and bad lines KEPT —
+// and sent as `{ groupId, lines }`. The answer shows a count per outcome and every line not added with its
+// reason, an unknown outcome included; the member count follows. Over 50,000 lines is refused before
+// anything is sent; a whole-batch refusal shows the server's sentence and code; view-only has no action.
+//
+// The stub judges each line as the server would: digits/space/plus only and a 9-digit tail, else
+// NotAMobile; `…500000000` Placeholder; a repeat in this batch DuplicateInBatch; a member AlreadyInGroup;
+// `…599999999` answers an outcome this screen does not know (`Blocked`); the rest Added.
+
+const writeXlsxFile = (await import('write-excel-file/node')).default
+const g633 = { sent: [], refuseNext: false }
+ROUTES.push((route, url, p) => {
+  if (p !== 'LoyGroupWeb/Groups/Members/Bulk') return undefined
+  const b = JSON.parse(route.request().postData() || '{}')
+  g633.sent.push(b)
+  if (g633.refuseNext) {
+    g633.refuseNext = false
+    return route.fulfill(refusal630('LOY-00620', 'A load takes at most 50,000 lines.', 'الحد الأقصى للتحميل 50,000 سطر.'))
+  }
+  const out = { added: 0, alreadyInGroup: 0, duplicateInBatch: 0, notAMobile: 0, placeholder: 0, rejected: [] }
+  const seen = new Set()
+  for (const line of b.lines) {
+    const tail = canonicalTail(line)
+    let outcome = 'Added'
+    if (!/^[+\d\s]+$/.test(line) || tail.length !== 9) outcome = 'NotAMobile'
+    else if (tail === '500000000') outcome = 'Placeholder'
+    else if (tail === '599999999') outcome = 'Blocked'
+    else if (seen.has(tail)) outcome = 'DuplicateInBatch'
+    else if (g632.members.some((m) => m.mobile === `966${tail}`)) outcome = 'AlreadyInGroup'
+    if (/^[+\d\s]+$/.test(line)) seen.add(tail)
+    if (outcome === 'Added') {
+      out.added++
+      g632.members.unshift({ mobile: `966${tail}`, isEnrolled: false, loyId: null, addedBy: 'marketing01', addedAt: '2026-10-28T09:00:00' })
+      continue
+    }
+    const key = { NotAMobile: 'notAMobile', Placeholder: 'placeholder', DuplicateInBatch: 'duplicateInBatch', AlreadyInGroup: 'alreadyInGroup' }[outcome]
+    if (key) out[key]++
+    out.rejected.push({ line, outcome })
+  }
+  return route.fulfill(envelope(out))
+})
+
+async function drive633(dir) {
+  g632.members = seedMembers()
+  g633.sent = []
+  g633.refuseNext = false
+  const countOf = async (page) => page.locator('[data-loy-group-mobile-count]').getAttribute('data-loy-group-mobile-count')
+  const countIs = (page, n) =>
+    page.waitForFunction((v) => document.querySelector('[data-loy-group-mobile-count]')?.getAttribute('data-loy-group-mobile-count') === v, String(n), { timeout: 10000 })
+  const counts = async (page) =>
+    Object.fromEntries(await page.locator('[data-members-bulk-count]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-members-bulk-count'), Number(e.getAttribute('data-count'))])))
+  const rejectedRows = async (page) => {
+    await page.locator('[data-members-bulk-rejected] .ag-row').first().waitFor({ timeout: 10000 })
+    const rows = page.locator('[data-members-bulk-rejected] .ag-row')
+    const out = []
+    for (let i = 0; i < (await rows.count()); i++) {
+      const r = rows.nth(i)
+      out.push({ index: Number(await r.getAttribute('row-index')), line: strip(await r.locator('[col-id="line"]').innerText()), reason: strip(await r.locator('[col-id="reason"]').innerText()) })
+    }
+    return out.sort((a, b) => a.index - b.index).map(({ line, reason }) => `${line} → ${reason}`)
+  }
+  const openBulk = async (page) => {
+    await page.locator('[data-members-bulk-open]').click()
+    await page.locator('dialog[open] [data-members-bulk-dialog]').waitFor({ timeout: 10000 })
+    return page.locator('dialog[open]')
+  }
+  const finish = async (page, dialog) => {
+    await dialog.locator('[data-members-bulk-done]').click()
+    await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  }
+
+  const { context, page, errors } = await open(dir, { canView: true, canMaintain: true })
+  await page.goto(`${BASE}/loy/groups/g-5`)
+  await page.locator('[data-loy-group-members-grid] .ag-row').first().waitFor({ timeout: 10000 })
+  check(`${dir} bulk: the group starts at 60`, (await countOf(page)) === '60')
+
+  // ── Paste ──
+  let dialog = await openBulk(page)
+  const pasted = 'Mobile\n0551112222, 0551113333\n\n  0551112222  \nabc\n0500000000\n966500000001\n0599999999\n'
+  await dialog.locator('[data-members-bulk-text]').fill(pasted)
+  check(`${dir} bulk paste: the "Mobile" header is skipped and said`, strip(await dialog.locator('[data-members-bulk-header]').innerText()).includes('Mobile'))
+  check(`${dir} bulk paste: the preview counts 7 lines, repeats and bad ones kept`, (await dialog.locator('[data-members-bulk-preview]').getAttribute('data-members-bulk-preview')) === '7')
+  await page.screenshot({ path: `${SHOTS}/${dir}-633-paste-preview.png`, fullPage: true })
+  await dialog.locator('[data-members-bulk-submit]').click()
+  await dialog.locator('[data-members-bulk-result]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk paste: sends { groupId, lines } trimmed, blanks dropped, header skipped, as typed`,
+    JSON.stringify(g633.sent.at(-1)) === JSON.stringify({ groupId: 'g-5', lines: ['0551112222', '0551113333', '0551112222', 'abc', '0500000000', '966500000001', '0599999999'] }), JSON.stringify(g633.sent.at(-1)))
+  const c1 = await counts(page)
+  check(`${dir} bulk paste: a count per outcome, the unknown one under Other`,
+    JSON.stringify(c1) === JSON.stringify({ added: 2, alreadyInGroup: 1, duplicateInBatch: 1, notAMobile: 1, placeholder: 1, other: 1 }), JSON.stringify(c1))
+  const r1 = await rejectedRows(page)
+  check(`${dir} bulk paste: every rejected line with its reason, grouped, the unknown outcome in its own word`,
+    JSON.stringify(r1) === JSON.stringify([
+      '966500000001 → Already in the group',
+      '0551112222 → Repeated in the list',
+      'abc → Not a mobile',
+      '0500000000 → Placeholder mobile',
+      '0599999999 → Blocked',
+    ]), JSON.stringify(r1))
+  check(`${dir} bulk paste: the counts account for every line sent`, (await dialog.locator('[data-members-bulk-unaccounted]').count()) === 0)
+  await page.screenshot({ path: `${SHOTS}/${dir}-633-paste-result.png`, fullPage: true })
+  await countIs(page, 62)
+  check(`${dir} bulk paste: the member count follows (62)`, (await countOf(page)) === '62')
+  await finish(page, dialog)
+  await page.locator('[data-loy-group-members-grid] .ag-row[row-id="966551112222"]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk paste: the added mobiles list`, (await page.locator('[data-loy-group-members-grid] .ag-row[row-id="966551113333"]').count()) === 1)
+
+  // ── Excel (.xlsx, first sheet, first column) ──
+  const xlsx = await writeXlsxFile([
+    [{ value: 'الجوال' }, { value: 'الاسم' }],
+    [{ value: '0552220001' }, { value: 'Ahmed' }],
+    [{ value: '' }, { value: 'blank' }],
+    [{ value: ' 0552220002 ' }, { value: 'Sara' }],
+    [{ value: 'abc' }, { value: 'x' }],
+  ]).toBuffer()
+  dialog = await openBulk(page)
+  await dialog.locator('[data-members-bulk-file]').setInputFiles({ name: 'members.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: xlsx })
+  await dialog.locator('[data-members-bulk-preview]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk xlsx: the file is named, its Arabic header skipped`,
+    strip(await dialog.locator('[data-members-bulk-file-name]').innerText()).includes('members.xlsx') && strip(await dialog.locator('[data-members-bulk-header]').innerText()).includes('الجوال'))
+  check(`${dir} bulk xlsx: the first column's 3 non-blank lines`, (await dialog.locator('[data-members-bulk-preview]').getAttribute('data-members-bulk-preview')) === '3')
+  await dialog.locator('[data-members-bulk-submit]').click()
+  await dialog.locator('[data-members-bulk-result]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk xlsx: sends the first column, trimmed`, JSON.stringify(g633.sent.at(-1).lines) === JSON.stringify(['0552220001', '0552220002', 'abc']), JSON.stringify(g633.sent.at(-1)))
+  const c2 = await counts(page)
+  check(`${dir} bulk xlsx: added 2, not a mobile 1`, c2.added === 2 && c2.notAMobile === 1 && !('other' in c2), JSON.stringify(c2))
+  check(`${dir} bulk xlsx: the rejected line with its reason`, JSON.stringify(await rejectedRows(page)) === JSON.stringify(['abc → Not a mobile']))
+  await page.screenshot({ path: `${SHOTS}/${dir}-633-xlsx-result.png`, fullPage: true })
+  await countIs(page, 64)
+  await finish(page, dialog)
+
+  // ── CSV (first column, quoted field) ──
+  dialog = await openBulk(page)
+  await dialog.locator('[data-members-bulk-file]').setInputFiles({ name: 'members.csv', mimeType: 'text/csv', buffer: Buffer.from('﻿Mobile,Name\r\n0553330001,Ali\r\n"0553330002","Noor, Q"\r\n', 'utf8') })
+  await dialog.locator('[data-members-bulk-preview]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk csv: the first column's 2 lines`, (await dialog.locator('[data-members-bulk-preview]').getAttribute('data-members-bulk-preview')) === '2')
+  await dialog.locator('[data-members-bulk-submit]').click()
+  await dialog.locator('[data-members-bulk-result]').waitFor({ timeout: 10000 })
+  check(`${dir} bulk csv: sends the first column unquoted`, JSON.stringify(g633.sent.at(-1).lines) === JSON.stringify(['0553330001', '0553330002']), JSON.stringify(g633.sent.at(-1)))
+  const c3 = await counts(page)
+  check(`${dir} bulk csv: added 2, no table when nothing was rejected`, c3.added === 2 && (await dialog.locator('[data-members-bulk-rejected]').count()) === 0, JSON.stringify(c3))
+  await countIs(page, 66)
+  await finish(page, dialog)
+
+  // ── Over the cap: refused before sending ──
+  dialog = await openBulk(page)
+  const sentBefore = g633.sent.length
+  const many = Array.from({ length: 50001 }, (_, i) => `05${String(i).padStart(8, '0')}`).join('\n')
+  // `fill` types a 550 KB value too slowly: set it through the native setter, as a paste lands, in one input event.
+  await dialog.locator('[data-members-bulk-text]').evaluate((el, v) => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, v)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, many)
+  await dialog.locator('[data-members-bulk-over-cap]').waitFor({ timeout: 20000 })
+  const capText = strip(await dialog.locator('[data-members-bulk-over-cap]').innerText())
+  check(`${dir} bulk cap: 50,001 lines refused naming the cap`, capText.includes('50,001') && capText.includes('50,000'), capText)
+  check(`${dir} bulk cap: Load is off and nothing is sent`, (await dialog.locator('[data-members-bulk-submit]').isDisabled()) && g633.sent.length === sentBefore)
+  await page.screenshot({ path: `${SHOTS}/${dir}-633-over-cap.png`, fullPage: true })
+
+  // ── A whole-batch refusal from the server ──
+  await dialog.locator('[data-members-bulk-text]').fill('0554440001')
+  g633.refuseNext = true
+  await dialog.locator('[data-members-bulk-submit]').click()
+  const refused = dialog.locator('[data-members-bulk-refused]')
+  await refused.waitFor({ timeout: 10000 })
+  const refusedText = strip(await refused.innerText())
+  check(`${dir} bulk refused: the server's sentence and its code`,
+    refusedText.includes('A load takes at most 50,000 lines.') && (await refused.locator('[data-loy-group-refusal-code="LOY-00620"]').count()) === 1, refusedText)
+  check(`${dir} bulk refused: the list stays to fix, the count unchanged`, (await dialog.locator('[data-members-bulk-text]').inputValue()) === '0554440001' && (await countOf(page)) === '66')
+  check(`${dir} bulk (maintain): no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+
+  // ── A view-only grant ──
+  const viewer = await open(dir, { canView: true, canMaintain: false })
+  await viewer.page.goto(`${BASE}/loy/groups/g-5`)
+  await viewer.page.locator('[data-loy-group-members-grid] .ag-row').first().waitFor({ timeout: 10000 })
+  check(`${dir} bulk view-only: no Load a list`, (await viewer.page.locator('[data-members-bulk-open]').count()) === 0)
+  await viewer.context.close()
+}
+
 try {
   await drive('ltr')
   await drive('rtl')
@@ -670,6 +852,8 @@ try {
   await drive631('rtl')
   await drive632('ltr')
   await drive632('rtl')
+  await drive633('ltr')
+  await drive633('rtl')
 } finally {
   await browser.close()
 }

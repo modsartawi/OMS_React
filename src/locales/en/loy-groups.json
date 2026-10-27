@@ -147,6 +147,43 @@
       "done": "Mobile removed.",
       "failed": "The mobile could not be removed.",
       "refused": "The mobile was not removed"
+    },
+    "bulk": {
+      "open": "Load a list",
+      "title": "Load a list of mobiles",
+      "pick": "Choose a CSV or Excel file",
+      "pickHint": "The first column is read (the first sheet of a workbook).",
+      "fileRead": "Read from {{name}}.",
+      "fileFailed": "The file could not be read. Save it as .csv or .xlsx, or paste the mobiles instead.",
+      "paste": "Or paste mobiles",
+      "pasteHint": "One per line, or separated by commas. Any spelling; the server checks each one.",
+      "pastePlaceholder": "0501234567\n+966 55 123 4567",
+      "header": "The first line, {{header}}, is not a mobile and is skipped as a header.",
+      "preview": "Lines to load: {{lines}}",
+      "overCap": "This list has {{lines}} lines. One load takes at most {{max}}; split the list and load each part.",
+      "submit": "Load",
+      "saving": "Loading…",
+      "cancel": "Cancel",
+      "done": "Done",
+      "failed": "The list could not be loaded.",
+      "refused": "The list was not loaded",
+      "result": {
+        "sent": "Lines sent: {{lines}}",
+        "unaccounted": "The counts add up to {{total}}, not the {{lines}} lines sent."
+      },
+      "outcome": {
+        "added": "Added",
+        "alreadyInGroup": "Already in the group",
+        "duplicateInBatch": "Repeated in the list",
+        "notAMobile": "Not a mobile",
+        "placeholder": "Placeholder mobile",
+        "other": "Other"
+      },
+      "rejected": {
+        "title": "Lines not added",
+        "line": "Line",
+        "reason": "Reason"
+      }
     }
   }
 }

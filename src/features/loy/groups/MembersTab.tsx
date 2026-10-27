@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2, Plus, Search } from 'lucide-react'
+import { ListPlus, Loader2, Plus, Search } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -20,6 +20,7 @@ import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pag
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { fsi } from '@/core/util/bidi'
 import { formatNumber } from '@/core/util/number-format'
+import BulkLoadDialog from './BulkLoadDialog'
 import { LOY_GROUP_MEMBERS_PAGE_SIZE, loyGroupMembersKey, membersApi } from './api'
 import { MEMBERS_DEFAULT_COL_DEF, buildMemberColumns } from './members-columns'
 import { membersQueryFromParams, membersQueryToParams } from './members-query'
@@ -106,6 +107,9 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
   const askRemove = useMemo(() => (canMaintain ? (m: LoyGroupMember) => setRemoving(m) : null), [canMaintain])
   const columns = useMemo(() => buildMemberColumns(t, askRemove), [t, askRemove])
 
+  // ── Load a list (ticket 633) ──
+  const [bulkOpen, setBulkOpen] = useState(false)
+
   return (
     <section className="flex min-w-0 flex-col gap-2" data-loy-group-members="">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -139,7 +143,7 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
           )}
         </form>
 
-        {/* The maintainer's writes. Ticket 633 adds its "Load a list" action beside Add one, here. */}
+        {/* The maintainer's writes: Add one, and Load a list (ticket 633). */}
         {canMaintain && (
           <div className="ms-auto flex flex-wrap items-center gap-2" data-members-actions="">
             <form className="flex flex-wrap items-center gap-2" onSubmit={submitAdd} data-members-add-form="">
@@ -158,6 +162,10 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
                 {add.isPending ? t('members.add.saving') : t('members.add.submit')}
               </Button>
             </form>
+            <Button variant="secondary" onClick={() => setBulkOpen(true)} data-members-bulk-open="">
+              <ListPlus className="h-3.5 w-3.5" aria-hidden />
+              {t('members.bulk.open')}
+            </Button>
           </div>
         )}
       </div>
@@ -212,6 +220,14 @@ export default function MembersTab({ groupId, mobileCount, canMaintain }: { grou
             </div>
           )}
         </div>
+      )}
+
+      {canMaintain && bulkOpen && (
+        <BulkLoadDialog
+          groupId={groupId}
+          onClose={() => setBulkOpen(false)}
+          onLoaded={() => void queryClient.invalidateQueries({ queryKey: GROUPS_PREFIX })}
+        />
       )}
 
       {canMaintain && (

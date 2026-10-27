@@ -103,3 +103,27 @@ export interface LoyGroupMemberRequest {
 export interface LoyGroupMemberAddResult {
   outcome: string
 }
+
+// ── Bulk load (oms ticket 633; door BackOffice 3175) ─────────────────────────────────────────
+
+/** `POST LoyGroupWeb/Groups/Members/Bulk` — the lines as the browser read them (trimmed, blanks dropped). */
+export interface LoyGroupBulkRequest {
+  groupId: string
+  lines: string[]
+}
+
+/** One line the load did not add, with the server's outcome (`NotAMobile`, `Placeholder`, …). */
+export interface LoyGroupBulkRejected {
+  line: string
+  outcome: string
+}
+
+/** What a load did: a count per outcome, and every line not added. Valid lines are added even when others are not. */
+export interface LoyGroupBulkResult {
+  added: number
+  alreadyInGroup: number
+  duplicateInBatch: number
+  notAMobile: number
+  placeholder: number
+  rejected: LoyGroupBulkRejected[]
+}

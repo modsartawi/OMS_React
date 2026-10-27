@@ -73,7 +73,52 @@
       "done": "Stores saved"
     }
   },
-  "masterForm": {},
+  "masterForm": {
+    "newAction": "New master",
+    "edit": "Edit",
+    "editLabel": "Edit {{name}}",
+    "columnActions": "Actions",
+    "createTitle": "New IDF master",
+    "editTitle": "Edit IDF master",
+    "kind": "Kind",
+    "kindFixed": "The kind cannot be changed after the master is created.",
+    "payer": "Payer code",
+    "payerPlaceholder": "e.g. BUPA",
+    "storeList": "Store list",
+    "storeListOptional": "All stores (no store list)",
+    "pickStoreList": "Pick a store list",
+    "storeListsFailed": "The store lists could not be loaded.",
+    "nameEn": "Name in English",
+    "nameAr": "Name in Arabic",
+    "hard": "Hard above",
+    "reminder": "Reminder above",
+    "thresholdsHint": "A pick is forced above the hard threshold and only reminded above the reminder threshold. Whole numbers; the defaults are 4 and 1.",
+    "orderTitle": "Which master decides",
+    "orderHint": "For each item the first master that names it decides, most specific first:",
+    "order": {
+      "insurerStoreList": "Insurer master scoped to a store list",
+      "insurer": "Insurer master",
+      "store": "Operation pharmacy (store) master",
+      "general": "General master"
+    },
+    "thisOne": "This master",
+    "problem": {
+      "payerRequired": "Enter the payer code.",
+      "storeListRequired": "Pick a store list.",
+      "nameRequired": "Enter the name.",
+      "wholeNumber": "Enter a whole number of 0 or more.",
+      "reminderAboveHard": "The reminder threshold cannot be above the hard threshold."
+    },
+    "save": "Save",
+    "cancel": "Cancel",
+    "created": "Master created",
+    "saved": "Master saved",
+    "refused": "The master was not saved",
+    "refusedFallback": "The server refused the change.",
+    "refusalCode": "Code <v>{{code}}</v>",
+    "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
+    "denied": "You do not have access to change IDF masters."
+  },
   "upload": {
     "back": "All IDF masters",
     "loading": "Loading the master…",

@@ -139,3 +139,21 @@ describe('insurance-idf — the keys the IDF exceptions screen builds exist', ()
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })
+
+// 621 · the create / edit master form
+describe('insurance-idf — the keys the master form builds exist (621)', () => {
+  it.each([en, ar])('fields, resolution order, problems, refusal', (locale) => {
+    const keys = [
+      ...['newAction', 'edit', 'editLabel', 'columnActions', 'createTitle', 'editTitle', 'kind', 'kindFixed', 'payer', 'payerPlaceholder'].map((k) => `masterForm.${k}`),
+      ...['storeList', 'storeListOptional', 'pickStoreList', 'storeListsFailed', 'nameEn', 'nameAr', 'hard', 'reminder', 'thresholdsHint'].map((k) => `masterForm.${k}`),
+      ...['orderTitle', 'orderHint', 'thisOne', 'save', 'cancel', 'created', 'saved', 'refused', 'refusedFallback', 'refusalCode', 'clashesWith', 'denied'].map((k) => `masterForm.${k}`),
+      ...['insurerStoreList', 'insurer', 'store', 'general'].map((k) => `masterForm.order.${k}`),
+      ...['payerRequired', 'storeListRequired', 'nameRequired', 'wholeNumber', 'reminderAboveHard'].map((k) => `masterForm.problem.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const f = locale.masterForm as Record<string, unknown>
+    expect(String(f.refusalCode)).toContain('<v>{{code}}</v>')
+    expect(String(f.clashesWith)).toContain('<n>{{name}}</n>')
+    expect(String(f.clashesWith)).toContain('<v>{{id}}</v>')
+  })
+})

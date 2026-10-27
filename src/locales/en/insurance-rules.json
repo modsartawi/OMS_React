@@ -1,7 +1,8 @@
 {
   "menu": {
     "group": "Insurance rules",
-    "guards": "Guards"
+    "guards": "Guards",
+    "editions": "Editions"
   },
   "state": {
     "draft": "Draft",

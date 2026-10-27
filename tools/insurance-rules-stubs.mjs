@@ -203,3 +203,128 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
   if (method === 'GET' && path === 'InsuranceRules/Guards/Draft') return hit('draft', RULESET)
   return null
 }
+
+// --- 613 --- reference editions (BackOffice 3138): the SFDA Human Drug List and the CHI Drug Formulary.
+// Shapes beyond the brief's are GUESSES recorded on ticket 613 (618 reconciles): the history row
+// (`id, list, fileName, rows, uploadedBy, uploadedAt, state: pending|live|retired, publishedBy, publishedAt`),
+// `added / dropped / changed` as counts and `newlyUnmatched` as rows `{ item, itemName, sfdaCode }`,
+// `backtestFires` one number, the gap row `{ kind: noMatch|junk|gtinMismatch|withdrawn, item, itemName,
+// sfdaCode, gtin, detail }`, the export door `GET …/Editions/{id}/Gaps/Export` (an .xlsx), and the
+// uploader's refusal code `UPLOADER_CANNOT_PUBLISH`. Its own handler, `editionsStub`, so 607's stays untouched.
+
+const edition = (id, list, fileName, rows, uploadedBy, uploadedAt, state, publishedBy = null, publishedAt = null) => ({
+  id,
+  list,
+  fileName,
+  rows,
+  uploadedBy,
+  uploadedAt,
+  state,
+  publishedBy,
+  publishedAt,
+})
+
+/** `GET InsuranceRules/Editions?list=` — every edition of both lists, newest first. */
+export const EDITIONS = [
+  edition('ED-SFDA-58', 'sfda', 'SFDA Human Drug List 2026-09.xlsx', 9412, 'nalharbi', '2026-09-28T10:12:00', 'live', 'falotaibi', '2026-09-29T09:01:00'),
+  edition('ED-SFDA-57', 'sfda', 'SFDA Human Drug List 2026-08.xlsx', 9388, 'nalharbi', '2026-08-30T11:40:00', 'retired', 'msartawi', '2026-08-31T08:30:00'),
+  edition('ED-CHI-7', 'chi', 'CHI Drug Formulary v7.xlsx', 5120, 'falotaibi', '2026-10-01T13:05:00', 'live', 'nalharbi', '2026-10-02T09:15:00'),
+]
+
+/** The edition the drive uploads (its id is what `POST InsuranceRules/Editions` answers). */
+export const UPLOADED_EDITION_ID = 'ED-SFDA-59'
+export const UPLOADED_FILE_NAME = 'SFDA Human Drug List 2026-10.xlsx'
+
+const OZEMPIC = says('Ozempic 1 mg pen', 'أوزمبيك 1 ملغ قلم')
+const LIPITOR = says('Lipitor 20 mg tablets', 'ليبيتور 20 ملغ أقراص')
+const PANADOL = says('Panadol Extra 24s', 'بنادول إكسترا 24 قرص')
+
+/** `GET InsuranceRules/Editions/{id}/Diff`. */
+export const EDITION_DIFFS = {
+  [UPLOADED_EDITION_ID]: {
+    added: 31,
+    dropped: 4,
+    changed: 118,
+    newlyUnmatched: [
+      { item: '100234', itemName: OZEMPIC, sfdaCode: '2412246474' },
+      { item: '100871', itemName: LIPITOR, sfdaCode: '52-23-09' },
+    ],
+    rulesAffected: [
+      { ruleId: 'G-008', backtestFires: 41 },
+      { ruleId: 'G-009', backtestFires: 7 },
+    ],
+  },
+  'ED-SFDA-58': { added: 12, dropped: 2, changed: 64, newlyUnmatched: [], rulesAffected: [{ ruleId: 'G-008', backtestFires: 3 }] },
+  'ED-SFDA-57': { added: 0, dropped: 0, changed: 0, newlyUnmatched: [], rulesAffected: [] },
+  'ED-CHI-7': { added: 220, dropped: 15, changed: 9, newlyUnmatched: [], rulesAffected: [{ ruleId: 'G-011', backtestFires: 0 }] },
+}
+
+/** `GET InsuranceRules/Editions/{id}/Gaps`. */
+export const EDITION_GAPS = {
+  [UPLOADED_EDITION_ID]: [
+    { kind: 'noMatch', item: '100234', itemName: OZEMPIC, sfdaCode: '2412246474', gtin: '05701234567890', detail: null },
+    { kind: 'junk', item: '100512', itemName: PANADOL, sfdaCode: 'OLD DELISTED SFDA', gtin: null, detail: null },
+    { kind: 'junk', item: '100513', itemName: says('Brufen 400 mg', 'بروفين 400 ملغ'), sfdaCode: '0', gtin: null, detail: null },
+    { kind: 'gtinMismatch', item: '100871', itemName: LIPITOR, sfdaCode: '52-23-09', gtin: '06281234500017', detail: '06281234500024' },
+    { kind: 'withdrawn', item: '100940', itemName: says('Zantac 150 mg', 'زانتاك 150 ملغ'), sfdaCode: '1109876543', gtin: null, detail: null },
+  ],
+  'ED-SFDA-58': [{ kind: 'junk', item: '100512', itemName: PANADOL, sfdaCode: 'OLD DELISTED SFDA', gtin: null, detail: null }],
+  'ED-SFDA-57': [],
+  'ED-CHI-7': [],
+}
+
+/** A fresh, mutable editions store for one drive run (share it across contexts so two users see one HQ). */
+export function editionsState() {
+  return { editions: EDITIONS.map((e) => ({ ...e })) }
+}
+
+/**
+ * The 613 doors. `path` may carry its query (`InsuranceRules/Editions?list=sfda`). `opts.editions` is an
+ * `editionsState()` (writes land there); `opts.user` the session's user (uploader / publisher); `opts.upload`
+ * the `{ list, fileName }` a POST carried (the drive reads them off the multipart body); `opts.now` the local
+ * wall-clock of a write; `opts.refusePublish` answers a publish with that refusal `{ status, message, errorCode }`.
+ */
+export function editionsStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, user = 'msartawi', now = '2026-10-27T10:30:00', refusePublish = null, upload = null } = opts
+  const st = opts.editions ?? editionsState()
+  const hit = (door, data) => {
+    reads[door] = (reads[door] ?? 0) + 1
+    if (deny.includes(door)) return { status: 403, body: '' }
+    return envelope(data)
+  }
+  const [base, query] = path.split('?')
+  const list = new URLSearchParams(query ?? '').get('list')
+  if (method === 'GET' && base === 'InsuranceRules/Editions') return hit('editions', st.editions.filter((e) => !list || e.list === list))
+  if (method === 'POST' && base === 'InsuranceRules/Editions') {
+    if (deny.includes('upload')) return { status: 403, body: '' }
+    const u = upload ?? { list: 'sfda', fileName: UPLOADED_FILE_NAME }
+    st.editions = st.editions.filter((e) => e.id !== UPLOADED_EDITION_ID)
+    st.editions.unshift(edition(UPLOADED_EDITION_ID, u.list, u.fileName, 9439, user, now, 'pending'))
+    return envelope({ id: UPLOADED_EDITION_ID })
+  }
+  const m = /^InsuranceRules\/Editions\/([^/]+)\/(Diff|Gaps|Gaps\/Export|Publish)$/.exec(base)
+  if (!m) return null
+  const id = decodeURIComponent(m[1])
+  if (method === 'GET' && m[2] === 'Diff') return hit('diff', EDITION_DIFFS[id] ?? null)
+  if (method === 'GET' && m[2] === 'Gaps') return hit('gaps', EDITION_GAPS[id] ?? [])
+  if (method === 'GET' && m[2] === 'Gaps/Export') {
+    reads.export = (reads.export ?? 0) + 1
+    return {
+      status: 200,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      headers: { 'Content-Disposition': `attachment; filename="${id}-gaps.xlsx"` },
+      body: 'PK-stub-xlsx',
+    }
+  }
+  if (method === 'POST' && m[2] === 'Publish') {
+    if (refusePublish) return envelope(null, { success: false, ...refusePublish })
+    const ed = st.editions.find((e) => e.id === id)
+    if (!ed) return envelope(null, { status: 404, success: false, message: 'No edition has this id.', errorCode: 'NOT_FOUND' })
+    if (ed.uploadedBy.toLowerCase() === user.toLowerCase())
+      return envelope(null, { status: 409, success: false, message: 'The user who uploaded an edition cannot publish it.', errorCode: 'UPLOADER_CANNOT_PUBLISH' })
+    for (const e of st.editions) if (e.list === ed.list && e.state === 'live') e.state = 'retired'
+    Object.assign(ed, { state: 'live', publishedBy: user, publishedAt: now })
+    return envelope(ed)
+  }
+  return null
+}

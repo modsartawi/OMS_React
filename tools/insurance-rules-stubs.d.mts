@@ -23,3 +23,27 @@ export declare function insuranceRulesStub(
   body: unknown,
   opts?: { deny?: string[]; reads?: Record<string, number> },
 ): FulfillArg | null
+
+// --- 613 --- reference editions
+export declare const EDITIONS: import('../src/features/insurance-rules/editions/editions').Edition[]
+export declare const EDITION_DIFFS: Record<string, import('../src/features/insurance-rules/editions/editions').EditionDiff>
+export declare const EDITION_GAPS: Record<string, import('../src/features/insurance-rules/editions/editions').GapRow[]>
+export declare const UPLOADED_EDITION_ID: string
+export declare const UPLOADED_FILE_NAME: string
+export interface EditionsState {
+  editions: import('../src/features/insurance-rules/editions/editions').Edition[]
+}
+export declare function editionsState(): EditionsState
+export declare function editionsStub(
+  method: string,
+  path: string,
+  opts?: {
+    deny?: string[]
+    reads?: Record<string, number>
+    user?: string
+    now?: string
+    editions?: EditionsState
+    upload?: { list: string; fileName: string } | null
+    refusePublish?: { status: number; message: string; errorCode: string } | null
+  },
+): (FulfillArg & { headers?: Record<string, string> }) | null

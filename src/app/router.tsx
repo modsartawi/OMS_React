@@ -346,6 +346,19 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/data-sync/ChangesPage')).default,
         }),
       },
+      // Document-type configuration (BackOffice spec 3148, ticket 3149): the list and one type's grouped settings.
+      {
+        path: 'admin/doc-types',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentTypesPage')).default,
+        }),
+      },
+      {
+        path: 'admin/doc-types/:documentType',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/doc-type-config/DocumentTypePage')).default,
+        }),
+      },
       // The store engine switch (BackOffice spec 2737, ticket 517): HQ flips a store's promotion engine.
       {
         path: 'admin/engine-switch',

@@ -1,0 +1,113 @@
+{
+  "menu": {
+    "documentTypes": "Document types"
+  },
+  "title": "Document types",
+  "subtitle": "Every OMS document type and its settings. A saved change is live from the next order act and is logged with its reason.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the document configuration",
+    "deniedHint": "Reading the document configuration needs OMS access. Ask an administrator.",
+    "unreachableTitle": "Could not check your access",
+    "unreachableHint": "The server did not answer. Try again in a moment."
+  },
+  "list": {
+    "category": "Category",
+    "allCategories": "All categories",
+    "search": "Search code or description",
+    "loading": "Loading document types…",
+    "failed": "The document types could not be loaded.",
+    "empty": "No document types.",
+    "noMatch": "No document type matches the filter.",
+    "columns": {
+      "documentType": "Code",
+      "description": "Description",
+      "documentCategory": "Category",
+      "engineType": "Engine"
+    }
+  },
+  "detail": {
+    "back": "Document types",
+    "loading": "Loading the document type…",
+    "failed": "The document type could not be loaded.",
+    "notFoundTitle": "No such document type",
+    "edit": "Edit",
+    "locked": "Locked"
+  },
+  "groups": {
+    "identity": "Identity",
+    "customer": "Customer",
+    "creditCustomer": "Credit customer",
+    "pricing": "Pricing",
+    "delivery": "Delivery",
+    "billing": "Billing",
+    "picking": "Picking",
+    "notifications": "Notifications",
+    "controls": "Controls"
+  },
+  "fields": {
+    "documentType": "Code",
+    "description": "Description",
+    "documentCategory": "Category",
+    "referenceDocumentCategory": "Reference document category",
+    "numberRangeNumber": "Number range",
+    "customerDeterminationType": "Customer determination",
+    "defaultCustomer": "Default customer",
+    "isReceivableCustomer": "Receivable (billed to a credit customer)",
+    "receivableCustomer": "Credit customer",
+    "insurancePayerCode": "Insurance payer code",
+    "engineType": "Engine",
+    "documentPricingProcedure": "Pricing procedure",
+    "promotionDetermination": "Promotion determination",
+    "isAlternativePriceCapped": "Alternative price capped",
+    "defaultDeliveryType": "Default delivery type",
+    "createDeliveryImmediately": "Create delivery immediately",
+    "plantDeterminationType": "Plant determination",
+    "isCalculateDeliveryFees": "Calculate delivery fees",
+    "deliveryFees": "Delivery fees",
+    "orderRelatedBillingType": "Order-related billing type",
+    "deliveryRelatedBillingType": "Delivery-related billing type",
+    "createBillingImmediately": "Create billing immediately",
+    "isPickedOnOrder": "Picked on the order",
+    "isDeterminePickingFees": "Determine picking fees",
+    "notifyOnCreation": "Notify on creation",
+    "controlType": "Control type",
+    "validateItem": "Validate item",
+    "preOrderMaterialOnly": "Pre-order materials only",
+    "checkOrderNo": "Check order number",
+    "canChangeItems": "Items can be changed",
+    "autoClose": "Auto close",
+    "diagnosisRequired": "Diagnosis required",
+    "approvalProcess": "Approval process",
+    "acceptanceRequired": "Acceptance required"
+  },
+  "value": {
+    "yes": "Yes",
+    "no": "No",
+    "blank": "—"
+  },
+  "edit": {
+    "title": "Edit document type {{code}}",
+    "confirm": "Save",
+    "note": "The change is live from the next order act on this type, and it is logged with your reason.",
+    "lockedHint": "Code, category and engine cannot change once the type exists.",
+    "changesTitle": "What changes",
+    "noChanges": "Nothing changed yet.",
+    "before": "Before",
+    "after": "After",
+    "saved": "Document type {{code}} saved",
+    "stale": "Someone else changed this type since you opened it. It has been refreshed: close this dialog and make your change again.",
+    "notGranted": "You are not allowed to change the document configuration."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Why you are making this change. It is kept in the change log.",
+    "tooLong": "A reason is at most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Saving…",
+    "failed": "The change was not saved.",
+    "failedHint": "The server did not answer. Try again in a moment."
+  }
+}

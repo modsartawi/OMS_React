@@ -110,6 +110,9 @@ import {
 } from '@/features/admin/sync-console/api'
 // Data sync (spec 558, ticket 559): the same shape — the leaf and the page's gate share one key.
 import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/admin/data-sync/api'
+// The document-type configuration's probe stays with its feature (BackOffice ticket 3149): its only consumer.
+import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
+import { FileCog } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
@@ -549,6 +552,20 @@ export const MENU: ShellMenuItem[] = [
           key: DATA_SYNC_ACCESS_KEY,
           run: () => dataSyncApi.access(),
           visible: canOpenDataSync,
+        }),
+      },
+      {
+        // Document types (BackOffice spec 3148, ticket 3149) — the OMS document configuration, read on the existing
+        // OMS access (`canViewDocTypeConfig` off `GET SdDocTypeConfigWeb/Access`), the SAME key, call and predicate
+        // as the pages' own gate. Editing is a second flag on the same probe. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.documentTypes',
+        icon: FileCog,
+        routerLink: '/admin/doc-types',
+        activePrefix: '/admin/doc-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
         }),
       },
       {

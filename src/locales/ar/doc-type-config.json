@@ -1,0 +1,113 @@
+{
+  "menu": {
+    "documentTypes": "أنواع المستندات"
+  },
+  "title": "أنواع المستندات",
+  "subtitle": "جميع أنواع مستندات نظام إدارة الطلبات وإعداداتها. يسري التغيير المحفوظ من إجراء الطلب التالي ويُسجَّل مع سببه.",
+  "access": {
+    "checking": "جارٍ التحقق من صلاحياتك…",
+    "deniedTitle": "لا تملك صلاحية الوصول إلى إعدادات المستندات",
+    "deniedHint": "يتطلب عرض إعدادات المستندات صلاحية نظام إدارة الطلبات. تواصل مع مسؤول النظام.",
+    "unreachableTitle": "تعذّر التحقق من صلاحياتك",
+    "unreachableHint": "لم يستجب الخادم. حاول مرة أخرى بعد قليل."
+  },
+  "list": {
+    "category": "الفئة",
+    "allCategories": "جميع الفئات",
+    "search": "ابحث بالرمز أو الوصف",
+    "loading": "جارٍ تحميل أنواع المستندات…",
+    "failed": "تعذّر تحميل أنواع المستندات.",
+    "empty": "لا توجد أنواع مستندات.",
+    "noMatch": "لا يوجد نوع مستند يطابق عامل التصفية.",
+    "columns": {
+      "documentType": "الرمز",
+      "description": "الوصف",
+      "documentCategory": "الفئة",
+      "engineType": "المحرك"
+    }
+  },
+  "detail": {
+    "back": "أنواع المستندات",
+    "loading": "جارٍ تحميل نوع المستند…",
+    "failed": "تعذّر تحميل نوع المستند.",
+    "notFoundTitle": "نوع المستند غير موجود",
+    "edit": "تعديل",
+    "locked": "مقفل"
+  },
+  "groups": {
+    "identity": "التعريف",
+    "customer": "العميل",
+    "creditCustomer": "العميل الآجل",
+    "pricing": "التسعير",
+    "delivery": "التوصيل",
+    "billing": "الفوترة",
+    "picking": "التجهيز",
+    "notifications": "الإشعارات",
+    "controls": "الضوابط"
+  },
+  "fields": {
+    "documentType": "الرمز",
+    "description": "الوصف",
+    "documentCategory": "الفئة",
+    "referenceDocumentCategory": "فئة المستند المرجعي",
+    "numberRangeNumber": "نطاق الترقيم",
+    "customerDeterminationType": "تحديد العميل",
+    "defaultCustomer": "العميل الافتراضي",
+    "isReceivableCustomer": "آجل (يُفوتَر على عميل آجل)",
+    "receivableCustomer": "العميل الآجل",
+    "insurancePayerCode": "رمز جهة الدفع التأمينية",
+    "engineType": "المحرك",
+    "documentPricingProcedure": "إجراء التسعير",
+    "promotionDetermination": "تحديد العروض",
+    "isAlternativePriceCapped": "سقف لسعر البديل",
+    "defaultDeliveryType": "نوع التوصيل الافتراضي",
+    "createDeliveryImmediately": "إنشاء التوصيل فوراً",
+    "plantDeterminationType": "تحديد الفرع",
+    "isCalculateDeliveryFees": "احتساب رسوم التوصيل",
+    "deliveryFees": "رسوم التوصيل",
+    "orderRelatedBillingType": "نوع الفوترة المرتبط بالطلب",
+    "deliveryRelatedBillingType": "نوع الفوترة المرتبط بالتوصيل",
+    "createBillingImmediately": "إنشاء الفاتورة فوراً",
+    "isPickedOnOrder": "التجهيز على الطلب",
+    "isDeterminePickingFees": "تحديد رسوم التجهيز",
+    "notifyOnCreation": "الإشعار عند الإنشاء",
+    "controlType": "نوع الضبط",
+    "validateItem": "التحقق من الصنف",
+    "preOrderMaterialOnly": "أصناف الطلب المسبق فقط",
+    "checkOrderNo": "التحقق من رقم الطلب",
+    "canChangeItems": "يمكن تغيير الأصناف",
+    "autoClose": "إغلاق تلقائي",
+    "diagnosisRequired": "التشخيص مطلوب",
+    "approvalProcess": "إجراء الموافقة",
+    "acceptanceRequired": "القبول مطلوب"
+  },
+  "value": {
+    "yes": "نعم",
+    "no": "لا",
+    "blank": "—"
+  },
+  "edit": {
+    "title": "تعديل نوع المستند {{code}}",
+    "confirm": "حفظ",
+    "note": "يسري التغيير من إجراء الطلب التالي على هذا النوع، ويُسجَّل مع السبب الذي تدخله.",
+    "lockedHint": "لا يمكن تغيير الرمز والفئة والمحرك بعد إنشاء النوع.",
+    "changesTitle": "ما سيتغيّر",
+    "noChanges": "لم يتغيّر شيء بعد.",
+    "before": "قبل",
+    "after": "بعد",
+    "saved": "تم حفظ نوع المستند {{code}}",
+    "stale": "غيّر مستخدم آخر هذا النوع منذ فتحه. تم تحديثه: أغلق هذه النافذة وأجرِ التغيير مرة أخرى.",
+    "notGranted": "لا تملك صلاحية تغيير إعدادات المستندات."
+  },
+  "reason": {
+    "label": "السبب",
+    "hint": "سبب إجراء هذا التغيير. يُحفظ في سجل التغييرات.",
+    "tooLong": "الحد الأقصى للسبب {{max}} حرفاً."
+  },
+  "dialog": {
+    "cancel": "إلغاء",
+    "sending": "جارٍ الحفظ…",
+    "failed": "لم يتم حفظ التغيير.",
+    "failedHint": "لم يستجب الخادم. حاول مرة أخرى بعد قليل."
+  }
+}

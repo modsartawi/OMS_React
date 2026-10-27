@@ -18,9 +18,13 @@ import insuranceGuardsAr from '@/locales/ar/insurance-guards.json'
 
 // 613 · imports
 
-// 614 · imports
+// 614 · imports — the Review feature (`features/insurance-rules/review`: review list + HQ exceptions)
+import insuranceReviewEn from '@/locales/en/insurance-review.json'
+import insuranceReviewAr from '@/locales/ar/insurance-review.json'
 
 // 615 · imports
+import insuranceMetricsEn from '@/locales/en/insurance-metrics.json'
+import insuranceMetricsAr from '@/locales/ar/insurance-metrics.json'
 
 // 616 · imports — the guard dialog on an OMS order (core, no feature folder: `core/insurance-rules/GuardDialog`)
 import insuranceOrderGuardsEn from '@/locales/en/insurance-order-guards.json'
@@ -37,8 +41,10 @@ export const INSURANCE_RULES_NS = [
   // 613 · ns
 
   // 614 · ns
+  'insurance-review',
 
   // 615 · ns
+  'insurance-metrics',
 
   // 616 · ns
   'insurance-order-guards',
@@ -55,8 +61,10 @@ export const INSURANCE_RULES_EN = {
   // 613 · en
 
   // 614 · en
+  'insurance-review': insuranceReviewEn,
 
   // 615 · en
+  'insurance-metrics': insuranceMetricsEn,
 
   // 616 · en
   'insurance-order-guards': insuranceOrderGuardsEn,
@@ -73,8 +81,10 @@ export const INSURANCE_RULES_AR = {
   // 613 · ar
 
   // 614 · ar
+  'insurance-review': insuranceReviewAr,
 
   // 615 · ar
+  'insurance-metrics': insuranceMetricsAr,
 
   // 616 · ar
   'insurance-order-guards': insuranceOrderGuardsAr,

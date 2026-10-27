@@ -221,6 +221,50 @@
       "fileName": "config-changes"
     }
   },
+  "childRows": {
+    "add": "إضافة",
+    "edit": "تعديل",
+    "remove": "حذف",
+    "actions": "الإجراءات",
+    "loading": "جارٍ التحميل…",
+    "failed": "تعذّر تحميل السطور.",
+    "none": "— لا شيء —",
+    "saved": "{{what}}: تم حفظ السطر",
+    "removed": "{{what}}: تم حذف السطر",
+    "confirmRemove": "حذف",
+    "removeNote": "يُحذف هذا السطر من النوع الآن، ويحتفظ سجل التغييرات بما كان يحتويه.",
+    "keyLockedHint": "أعمدة المفتاح تحدد السطر ولا يمكن تغييرها: احذفه وأضف سطراً جديداً بدلاً من ذلك.",
+    "missing": "أدخل {{fields}}.",
+    "itemCategoryAssignments": {
+      "title": "تعيين فئة الصنف",
+      "empty": "لا توجد سطور لتعيين فئة الصنف.",
+      "duplicate": "لهذا النوع سطر لمجموعة فئة الصنف وهذا الاستخدام بالفعل.",
+      "addTitle": "إضافة تعيين فئة صنف إلى {{code}}",
+      "editTitle": "تعديل تعيين فئة صنف في {{code}}",
+      "removeTitle": "حذف تعيين فئة صنف من {{code}}",
+      "columns": {
+        "itemCategoryGroup": "مجموعة فئة الصنف",
+        "itemUsage": "الاستخدام",
+        "defaultItemCategory": "فئة الصنف الافتراضية",
+        "manualItemCategory1": "فئة الصنف اليدوية ١",
+        "manualItemCategory2": "فئة الصنف اليدوية ٢",
+        "manualItemCategory3": "فئة الصنف اليدوية ٣",
+        "manualItemCategory4": "فئة الصنف اليدوية ٤"
+      }
+    },
+    "plantNetworks": {
+      "title": "شبكات الفروع",
+      "empty": "لا توجد سطور لشبكات الفروع.",
+      "duplicate": "لهذا النوع سطر لشبكة الفروع هذه بالفعل.",
+      "addTitle": "إضافة شبكة فروع إلى {{code}}",
+      "editTitle": "تعديل شبكة فروع في {{code}}",
+      "removeTitle": "حذف شبكة فروع من {{code}}",
+      "columns": {
+        "plantNetworkId": "شبكة الفروع",
+        "plantCode": "الفرع"
+      }
+    }
+  },
   "actionTypes": {
     "title": "أنواع الإجراءات",
     "subtitle": "كيف يتعامل كل إجراء مع المستند، لكل فئة مستندات. يسري التغيير المحفوظ على كل أنواع المستندات وأنواع التوصيل في الفئة من الإجراء التالي، ويُسجَّل مع سببه.",

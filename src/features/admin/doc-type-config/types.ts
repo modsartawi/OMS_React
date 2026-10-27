@@ -83,6 +83,40 @@ export interface DocumentTypeUpdateRequest {
   reason: string
 }
 
+// ── 3151: a type's item-category assignment and plant network rows ─────────────────────────────────────────────
+
+/** `GET SdDocTypeConfigWeb/DocumentTypes/{code}/ItemCategoryAssignments` — key: type + group + usage. */
+export interface ItemCategoryAssignmentRow {
+  documentType: string
+  itemCategoryGroup: string
+  itemUsage: string
+  defaultItemCategory: string
+  manualItemCategory1: string
+  manualItemCategory2: string
+  manualItemCategory3: string
+  manualItemCategory4: string
+}
+
+/** `GET SdDocTypeConfigWeb/DocumentTypes/{code}/PlantNetworks` — key: type + network. */
+export interface PlantNetworkRow {
+  documentType: string
+  plantNetworkId: string
+  plantCode: string
+}
+
+/** An add (`after`), change (`before` + `after`) or remove (`before`) of a child row; every one carries a reason. */
+export interface ChildRowChangeRequest<R> {
+  before?: R
+  after?: R
+  reason: string
+}
+
+/** `GET SdDocTypeConfigWeb/ItemCategories` — the item categories an assignment may name. */
+export interface ItemCategoryOption {
+  itemCategory: string
+  description: string
+}
+
 // ── Ticket 3150: field metadata and the settings refusal ─────────────────────────────────────────
 
 /** Does a change to the setting reach orders already open? (`SdDocTypeFieldEffects`) */

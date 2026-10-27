@@ -17,6 +17,7 @@ import {
   docTypeConfigAccessQuery,
   documentTypeQuery,
 } from './api'
+import ChildRowTables from './ChildRowTables'
 import DocumentTypeTabs from './DocumentTypeTabs'
 import EditDocumentTypeDialog from './EditDocumentTypeDialog'
 import FieldValueText from './FieldValueText'
@@ -83,7 +84,15 @@ function DocumentType({ code }: { code: string }) {
           </Button>
         )}
       </div>
-      <DocumentTypeTabs code={settings.documentType} settings={<SettingsGroups settings={settings} />} />
+      <DocumentTypeTabs
+        code={settings.documentType}
+        settings={
+          <div className="flex min-w-0 flex-col gap-4">
+            <SettingsGroups settings={settings} />
+            <ChildRowTables code={settings.documentType} canEdit={canEdit} />
+          </div>
+        }
+      />
       {canEdit && <EditDocumentTypeDialog open={editing} loaded={settings} onClose={() => setEditing(false)} />}
     </div>
   )

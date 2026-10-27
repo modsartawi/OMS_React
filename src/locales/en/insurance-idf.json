@@ -110,7 +110,30 @@
     "publishedDetail": "Version {{n}} is live now.",
     "publishFailed": "The upload could not be published."
   },
-  "versions": {},
+  "versions": {
+    "title": "Versions",
+    "lede": "Every version of this master, newest first. Restoring an earlier version makes a new live version from it; nothing is overwritten.",
+    "loading": "Loading the versions…",
+    "failed": "The versions could not be loaded.",
+    "empty": "No version has been published yet.",
+    "live": "Live",
+    "columns": {
+      "number": "Version",
+      "byAt": "Published",
+      "note": "Note",
+      "actions": "Actions"
+    },
+    "restore": "Restore",
+    "restoreTitle": "Restore version <v>{{n}}</v>",
+    "restoreHint": "A new version is made from this one and becomes live. Version <v>{{n}}</v> stays in the history as it is.",
+    "note": "Note for the new version",
+    "notePlaceholder": "Why restore this version",
+    "confirm": "Restore as a new version",
+    "cancel": "Cancel",
+    "restored": "Restored",
+    "restoredDetail": "Version {{from}} is live again as version {{n}}.",
+    "restoreFailed": "The version could not be restored."
+  },
   "exceptions": {
     "title": "IDF exceptions",
     "lede": "Orders whose document type, sub-document type or Nphies claim type skip IDF priority, only remind, or use a named master. Every change records a reason.",

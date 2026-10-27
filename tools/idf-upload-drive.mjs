@@ -1,10 +1,13 @@
-// Insurance rules ▸ IDF master ▸ upload → row report → publish drive (BackOffice spec 3157 / door 3161; oms ticket 622).
+// Insurance rules ▸ IDF master ▸ upload → row report → publish, and the version history + restore drive (BackOffice
+// spec 3157 / door 3161; oms tickets 622 and 623).
 //
 // Drives the REAL app in Chromium against STUBS of the masters door and the two upload doors, on the REAL envelope.
 // Fixtures and handlers are `tools/idf-stubs.mjs` (`// --- 619 ---`, `// --- 622 ---`, `idfStub`):
 //   GET  IdfPriority/masters                                  → `IDF_MASTERS`
 //   POST IdfPriority/masters/{id}/uploads   (multipart file)  → a report by file name (`dirty` / `notok` / clean)
 //   POST IdfPriority/masters/{id}/uploads/{uploadId}/publish  → the new live version, or a business refusal
+//   GET  IdfPriority/masters/{id}/versions                    → the history (623, `IDF_VERSIONS`)
+//   POST IdfPriority/masters/{id}/versions/{vid}/restore      → a NEW live version (623)
 // 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3161 is unbuilt. Ticket 628 swaps in the doors.
 //
 // It verifies, in LTR and RTL:
@@ -15,9 +18,12 @@
 //   3. a new upload replaces the report; a clean file still needs a note; publishing sends the note, the live
 //      version moves on the page and on the list;
 //   4. a refused publish shows the server's message (a business outcome);
-//   5. an unknown master says so; no raw keys; no page errors.
+//   5. an unknown master says so; no raw keys; no page errors;
+//   6. (623) Versions lists the history newest first, the live one marked and without Restore; restoring v1 asks for
+//      a note, posts it, and makes v4 live at the top — v1 stays listed unchanged; a refused restore shows the
+//      server's message; a publish adds its version to the history.
 //
-//   1. run the app:  npx vite --port 5203 --strictPort
+//   1. run the app:  npx vite --port 5203 --strictPort   (623 ran it on 5209: DRIVE_PORT=5209)
 //   2. node tools/idf-upload-drive.mjs        (DRIVE_PORT overrides 5203)
 import { createRequire } from 'node:module'
 import { envelope, idfStub, newIdfState } from './idf-stubs.mjs'
@@ -34,7 +40,7 @@ const check = (name, pass, detail = '') => {
 
 const browser = await chromium.launch()
 
-async function open(dir, { refusePublish = false } = {}) {
+async function open(dir, { refusePublish = false, refuseRestore = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, timezoneId: 'Asia/Riyadh' })
   const page = await context.newPage()
   page.setDefaultNavigationTimeout(120000)
@@ -42,6 +48,7 @@ async function open(dir, { refusePublish = false } = {}) {
   const state = newIdfState()
   const uploads = {}
   const published = []
+  const restored = []
   const calls = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
@@ -64,17 +71,20 @@ async function open(dir, { refusePublish = false } = {}) {
     calls.push({ method: req.method(), path: p, multipart, body })
     if (refusePublish && /\/publish$/.test(p))
       return route.fulfill(envelope(null, { status: 409, success: false, message: 'Another version was published meanwhile; upload again.', errorCode: 'STALE_UPLOAD' }))
-    const hit = idfStub(req.method(), p + url.search, body, { state, uploads, published })
+    if (refuseRestore && /\/restore$/.test(p))
+      return route.fulfill(envelope(null, { status: 400, success: false, message: 'This master is locked while an upload is checked.', errorCode: 'MASTER_LOCKED' }))
+    const hit = idfStub(req.method(), p + url.search, body, { state, uploads, published, restored })
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
   })
-  return { context, page, errors, published, calls }
+  return { context, page, errors, published, restored, calls }
 }
 
 const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
-const noRawKeys = async (page) => !/insurance-(rules|idf):|upload\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
+const noRawKeys = async (page) => !/insurance-(rules|idf):|upload\.|versions\.|masters\.|menu\.idf|access\./.test(await page.locator('main').innerText())
 const ltr = (loc) => loc.locator('bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent))
+const vrows = (page) => page.locator('[data-idf-versions-rows] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-number')}:${e.getAttribute('data-live')}`))
 const file = (name) => ({ name, mimeType: 'text/csv', buffer: Buffer.from('item,group,priority\n100234,G1,1\n') })
 
 for (const dir of ['ltr', 'rtl']) {
@@ -132,6 +142,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. the consumed report and the note are cleared`, (await page.locator('[data-idf-report]').count()) === 0 && (await page.locator('[data-idf-publish-note]').inputValue()) === '' && (await publish.isDisabled()))
     check(`${dir} 3. a toast says the version is live`, strip(await page.locator('[data-sonner-toast]').first().innerText()).includes('Version 4 is live now.'))
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
+    check(`${dir} 6. the publish added its version to the history, live at the top`, JSON.stringify(await vrows(page)) === JSON.stringify(['4:true', '3:false', '2:false', '1:false']), JSON.stringify(await vrows(page)))
     await page.locator('[data-idf-back]').click()
     await page.locator('[data-master="M-BUPA"] [data-col="version"]').waitFor({ timeout: 30000 })
     check(`${dir} 3. the list shows the new live version`, JSON.stringify(await ltr(page.locator('[data-master="M-BUPA"] [data-col="version"]'))) === '["4"]')
@@ -151,6 +162,51 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. a refused publish shows the server's message`, strip(await page.locator('[data-idf-publish-refused]').innerText()).includes('Another version was published meanwhile; upload again.'))
     check(`${dir} 4. the live version did not move`, JSON.stringify(await ltr(page.locator('[data-idf-master="M-OPS"] [data-live-number]'))) === '["1"]')
     check(`${dir} 4. no page errors (refused)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 623 · versions and restore
+  {
+    const { context, page, errors, restored } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await page.locator('[data-idf-versions-rows]').waitFor({ timeout: 60000 })
+    check(`${dir} 6. the history newest first, only v3 live`, JSON.stringify(await vrows(page)) === JSON.stringify(['3:true', '2:false', '1:false']), JSON.stringify(await vrows(page)))
+    const row = (n) => page.locator(`[data-idf-versions-rows] tbody tr[data-number="${n}"]`)
+    check(`${dir} 6. the live one is marked and offers no Restore`, (await row(3).locator('[data-live-mark]').count()) === 1 && (await row(3).locator('[data-idf-restore]').count()) === 0)
+    check(`${dir} 6. every earlier version offers Restore`, (await row(2).locator('[data-idf-restore]').count()) === 1 && (await row(1).locator('[data-idf-restore]').count()) === 1 && (await page.locator('[data-live-mark]').count()) === 1)
+    check(`${dir} 6. number and by · at ltr, the note in a bdi`, JSON.stringify(await ltr(row(1).locator('[data-col="number"]'))) === '["1"]' && strip((await ltr(row(1).locator('[data-col="byAt"]'))).join('')) === 'falotaibi · 2026-09-01 08:00' && strip(await row(1).locator('[data-col="note"] bdi').innerText()) === 'First list')
+    await row(1).locator('[data-idf-restore]').click()
+    const panel = page.locator('[data-idf-restore-panel="V-2"]')
+    await panel.waitFor({ timeout: 30000 })
+    check(`${dir} 6. Restore opens a note panel for v1, its number ltr`, JSON.stringify(await ltr(panel.locator('[data-idf-restore-title]'))) === '["1"]')
+    const confirm = panel.locator('[data-idf-restore-confirm]')
+    check(`${dir} 6. confirm is off on a blank note`, await confirm.isDisabled())
+    await panel.locator('[data-idf-restore-note]').fill('  ')
+    check(`${dir} 6. confirm is off on a whitespace note`, await confirm.isDisabled())
+    await panel.locator('[data-idf-restore-note]').fill('Back to the first list')
+    await confirm.click()
+    await page.locator('[data-idf-versions-rows] tbody tr[data-number="4"]').waitFor({ timeout: 30000 })
+    check(`${dir} 6. restore posts v1 with the note`, JSON.stringify(restored) === JSON.stringify([{ masterId: 'M-BUPA', versionId: 'V-2', note: 'Back to the first list' }]), JSON.stringify(restored))
+    check(`${dir} 6. a new v4 is live at the top; v3, v2, v1 all still listed`, JSON.stringify(await vrows(page)) === JSON.stringify(['4:true', '3:false', '2:false', '1:false']), JSON.stringify(await vrows(page)))
+    check(`${dir} 6. v1 is unchanged (same by, at, note) and restorable again`, strip((await ltr(row(1).locator('[data-col="byAt"]'))).join('')) === 'falotaibi · 2026-09-01 08:00' && strip(await row(1).locator('[data-col="note"] bdi').innerText()) === 'First list' && (await row(1).locator('[data-idf-restore]').count()) === 1)
+    check(`${dir} 6. v4 carries the note and offers no Restore; v3 now does`, strip(await row(4).locator('[data-col="note"] bdi').innerText()) === 'Back to the first list' && (await row(4).locator('[data-idf-restore]').count()) === 0 && (await row(3).locator('[data-idf-restore]').count()) === 1)
+    check(`${dir} 6. the panel closed`, (await page.locator('[data-idf-restore-panel]').count()) === 0)
+    check(`${dir} 6. the header's live version moved to 4`, JSON.stringify(await ltr(page.locator('[data-idf-master="M-BUPA"] [data-live-number]'))) === '["4"]')
+    check(`${dir} 6. a toast names both versions`, strip(await page.locator('[data-sonner-toast]').first().innerText()).includes('Version 1 is live again as version 4.'))
+    check(`${dir} 6. no raw keys (versions)`, await noRawKeys(page))
+    check(`${dir} 6. no page errors (versions)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    const { context, page, errors } = await open(dir, { refuseRestore: true })
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await page.locator('[data-idf-versions-rows]').waitFor({ timeout: 60000 })
+    await page.locator('[data-idf-versions-rows] tbody tr[data-number="2"] [data-idf-restore]').click()
+    await page.locator('[data-idf-restore-note]').fill('Try')
+    await page.locator('[data-idf-restore-confirm]').click()
+    await page.locator('[data-idf-restore-refused]').waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 6. a refused restore shows the server's message`, strip(await page.locator('[data-idf-restore-refused]').innerText()).includes('This master is locked while an upload is checked.'))
+    check(`${dir} 6. nothing moved after a refusal`, JSON.stringify(await vrows(page)) === JSON.stringify(['3:true', '2:false', '1:false']))
+    check(`${dir} 6. no page errors (refused restore)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
   {

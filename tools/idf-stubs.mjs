@@ -153,6 +153,51 @@ export function idfUploadStub(method, path, body, opts = {}) {
 }
 
 // --- 623 --- versions and restore (door 3161).
+// `GET IdfPriority/masters/{id}/versions` → the history (unsorted, the live one `isLive`); `POST …/versions/{vid}/
+// restore { note }` → a NEW version (number = highest + 1) that becomes live on the master; the restored one stays as
+// it was. A blank note is refused `NOTE_REQUIRED`; restoring the live one is refused `ALREADY_LIVE`. History lives on
+// `state.versions[masterId]`, seeded from IDF_VERSIONS (or just the live version) on first use; `opts.restored`
+// collects each restore.
+export const IDF_VERSIONS = {
+  'M-BUPA': [
+    { versionId: 'V-2', number: 1, by: 'falotaibi', at: '2026-09-01T08:00:00', note: 'First list' },
+    { versionId: 'V-11', number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh' },
+    { versionId: 'V-7', number: 2, by: 'nalharbi', at: '2026-09-15T11:30:00', note: null },
+  ],
+}
+
+export function idfVersionsStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], reads = {}, restored = [] } = opts
+  const m = /^IdfPriority\/masters\/([^/]+)\/versions(?:\/([^/]+)\/restore)?$/.exec(path)
+  if (!m) return null
+  const masterId = decodeURIComponent(m[1])
+  const master = state.masters.find((x) => x.masterId === masterId)
+  state.versions ??= {}
+  state.versions[masterId] ??= structuredClone(IDF_VERSIONS[masterId] ?? (master?.liveVersion ? [master.liveVersion] : []))
+  const list = state.versions[masterId]
+  // The master's live version may have moved by a publish (622): keep it in the history.
+  if (master?.liveVersion && !list.some((v) => v.versionId === master.liveVersion.versionId)) list.push({ ...master.liveVersion })
+  const liveId = master?.liveVersion?.versionId ?? null
+  if (method === 'GET' && !m[2]) {
+    reads.versions = (reads.versions ?? 0) + 1
+    if (deny.includes('versions')) return bare403()
+    return envelope(list.map((v) => ({ ...v, isLive: v.versionId === liveId })))
+  }
+  if (method === 'POST' && m[2]) {
+    const versionId = decodeURIComponent(m[2])
+    restored.push({ masterId, versionId, note: body?.note })
+    const from = list.find((v) => v.versionId === versionId)
+    if (!from) return envelope(null, { status: 404, success: false, message: 'No such version.', errorCode: 'NOT_FOUND' })
+    if (!String(body?.note ?? '').trim()) return envelope(null, { status: 400, success: false, message: 'A note is required.', errorCode: 'NOTE_REQUIRED' })
+    if (versionId === liveId) return envelope(null, { status: 400, success: false, message: 'This version is already live.', errorCode: 'ALREADY_LIVE' })
+    const number = Math.max(0, ...list.map((v) => v.number)) + 1
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-27T11:00:00', note: body.note }
+    list.push(version)
+    if (master) master.liveVersion = version
+    return envelope(version)
+  }
+  return null
+}
 
 // --- 624 --- exceptions (door 3166).
 // The seed shapes of spec 3157 (SABIC skips; TCS offline, GOSI and delivery insurance skip) — server data the screen
@@ -321,6 +366,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 622 · upload
     idfUploadStub(method, bare, body, opts) ??
     // 623 · versions
+    idfVersionsStub(method, bare, body, opts) ??
     // 624 · exceptions
     idfExceptionsStub(method, path, body, opts) ??
     // 625 · lookup

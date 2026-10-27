@@ -139,3 +139,20 @@ describe('insurance-idf — the keys the IDF exceptions screen builds exist', ()
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })
+
+// 623 · versions and restore
+describe('insurance-idf — the keys the versions section builds exist (623)', () => {
+  it.each([en, ar])('title, columns, live mark, restore panel', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'loading', 'failed', 'empty', 'live', 'restore', 'restoreTitle', 'restoreHint'].map((k) => `versions.${k}`),
+      ...['note', 'notePlaceholder', 'confirm', 'cancel', 'restored', 'restoredDetail', 'restoreFailed'].map((k) => `versions.${k}`),
+      ...['number', 'byAt', 'note', 'actions'].map((c) => `versions.columns.${c}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the restore title and hint isolate the version number as a tag', (locale) => {
+    const v = locale.versions as Record<string, unknown>
+    expect(String(v.restoreTitle)).toContain('<v>{{n}}</v>')
+    expect(String(v.restoreHint)).toContain('<v>{{n}}</v>')
+  })
+})

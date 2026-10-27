@@ -1,15 +1,15 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { folderTree, inFolder } from '@/core/insurance-rules/folders'
-import { guardRulePath, type GuardRuleRow } from '@/core/insurance-rules/model'
+import { GUARD_NEW_PATH, guardRulePath, type GuardRuleRow } from '@/core/insurance-rules/model'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
@@ -32,9 +32,15 @@ export default function GuardsPage() {
   const { t } = useTranslation('insurance-guards')
   return (
     <section className="flex h-full w-full flex-col gap-4" data-guards-page="">
-      <header className="max-w-3xl">
-        <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
+      <header className="flex flex-wrap items-start gap-4">
+        <div className="max-w-3xl">
+          <h1 className="text-lg font-semibold tracking-tight">{t('list.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('list.lede')}</p>
+        </div>
+        <Link to={GUARD_NEW_PATH} className="ms-auto inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/85" data-new-guard="">
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+          {t('list.new')}
+        </Link>
       </header>
       <Guards />
     </section>

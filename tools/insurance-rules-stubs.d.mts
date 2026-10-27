@@ -23,3 +23,19 @@ export declare function insuranceRulesStub(
   body: unknown,
   opts?: { deny?: string[]; reads?: Record<string, number> },
 ): FulfillArg | null
+
+// --- 608 ---
+import type { GuardIssue } from '../src/core/insurance-rules/checks'
+export interface GuardStore {
+  draft: GuardRuleset
+  puts: unknown[]
+  validates: unknown[]
+}
+export declare function newGuardStore(): GuardStore
+export declare function validateGuards(doc: GuardRuleset): GuardIssue[]
+export declare function guardEditorStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: GuardStore; deny?: string[]; reads?: Record<string, number> },
+): FulfillArg | null

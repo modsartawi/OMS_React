@@ -2,13 +2,13 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Pencil } from 'lucide-react'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { GuardSeverityBadge, GuardStateBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView, { ConditionTree } from '@/core/insurance-rules/GuardSentenceView'
-import { guardsPath, ruleSeverity, type GuardList, type GuardRule } from '@/core/insurance-rules/model'
+import { guardEditPath, guardsPath, ruleSeverity, type GuardList, type GuardRule } from '@/core/insurance-rules/model'
 import { guardSentence } from '@/core/insurance-rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -69,6 +69,10 @@ function RuleRead({ rule, lists }: { rule: GuardRule; lists: GuardList[] }) {
           <RuleId id={rule.id} />
           <GuardStateBadge state={rule.state} />
           {severity && <GuardSeverityBadge severity={severity} />}
+          <Link to={guardEditPath(rule.id)} className="ms-auto inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium hover:bg-accent" data-edit-rule="">
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            {t('rule.edit')}
+          </Link>
         </div>
         <h1 className="text-lg font-semibold tracking-tight" data-rule-name="">
           <SaysBoth says={rule.name} />

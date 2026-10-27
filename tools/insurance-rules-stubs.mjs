@@ -203,3 +203,72 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
   if (method === 'GET' && path === 'InsuranceRules/Guards/Draft') return hit('draft', RULESET)
   return null
 }
+
+// --- 608 --- the guard editor's doors: the draft read and saved WHOLE, and HQ's checks of it.
+//   GET  InsuranceRules/Guards/Draft    → `opts.store.draft` (a copy of RULESET to start)
+//   PUT  InsuranceRules/Guards/Draft    → the saved document, `revision` + 1; a stale `revision` → 409
+//                                         `STALE_REVISION` (⚠️ provisional spelling; 3139 owns it)
+//   POST InsuranceRules/Guards/Validate → `[{ ruleId, blockPath, field, severity, en, ar }]` (validateGuards)
+// `opts.store` is the drive's own `{ draft, puts: [], validates: [] }` (newGuardStore()); without one, 607's
+// stateless handler answers. Call `guardEditorStub` first and fall through to `insuranceRulesStub`.
+
+/** A drive's stateful draft: a deep copy of RULESET, and every PUT / Validate body it was sent. */
+export const newGuardStore = () => ({ draft: structuredClone(RULESET), puts: [], validates: [] })
+
+const issue = (ruleId, blockPath, field, en, ar, severity = 'error') => ({ ruleId, blockPath, field, severity, en, ar })
+
+/** HQ's checks, as the stub reads them: names, empty lists, empty groups, a 4th level, messages, `{lastStore}`. */
+export function validateGuards(doc) {
+  const out = []
+  for (const r of doc.rules ?? []) {
+    if (!r.name?.en?.trim()) out.push(issue(r.id, null, 'name.en', 'The rule needs a name in English.', 'تحتاج القاعدة إلى اسم بالإنجليزية.'))
+    if (!r.name?.ar?.trim()) out.push(issue(r.id, null, 'name.ar', 'The rule needs a name in Arabic.', 'تحتاج القاعدة إلى اسم بالعربية.'))
+    if (!(r.when ?? []).length) out.push(issue(r.id, null, 'when', 'The rule has no condition.', 'لا شرط في القاعدة.'))
+    const walk = (list, prefix, level) =>
+      list.forEach((c, i) => {
+        const at = `${prefix}[${i}]`
+        if (c.check === 'group') {
+          if (level + 1 > 3) out.push(issue(r.id, at, null, 'Groups nest at most three levels.', 'لا تتداخل المجموعات أكثر من ثلاثة مستويات.'))
+          if (!c.conditions.length) out.push(issue(r.id, at, 'conditions', 'This group is empty.', 'هذه المجموعة فارغة.'))
+          walk(c.conditions, `${at}.conditions`, level + 1)
+        } else if (['patient', 'policy', 'line'].includes(c.check) && c.inList === '') {
+          out.push(issue(r.id, at, 'inList', 'Pick a list.', 'اختر قائمة.'))
+        }
+      })
+    walk(r.when ?? [], 'when', 0)
+    ;(r.then ?? []).forEach((e, i) => {
+      for (const lang of ['en', 'ar'])
+        if (!e.says?.[lang]?.trim())
+          out.push(issue(r.id, `then[${i}]`, `says.${lang}`, `The message in ${lang === 'en' ? 'English' : 'Arabic'} is empty.`, `الرسالة ${lang === 'en' ? 'بالإنجليزية' : 'بالعربية'} فارغة.`))
+      if (/\{lastStore\}/.test(`${e.says?.en} ${e.says?.ar}`))
+        out.push(issue(r.id, `then[${i}]`, 'says', '{lastStore} is not allowed in phase 1.', '{lastStore} غير مسموح في المرحلة الأولى.'))
+    })
+  }
+  return out
+}
+
+/** The editor's doors on a drive's `store`; null when not one of them (fall through to `insuranceRulesStub`). */
+export function guardEditorStub(method, path, body, opts = {}) {
+  const { store, deny = [], reads = {} } = opts
+  if (!store) return null
+  const count = (door) => (reads[door] = (reads[door] ?? 0) + 1)
+  if (path === 'InsuranceRules/Guards/Draft' && method === 'GET') {
+    count('draft')
+    if (deny.includes('draft')) return { status: 403, body: '' }
+    return envelope(store.draft)
+  }
+  if (path === 'InsuranceRules/Guards/Draft' && method === 'PUT') {
+    count('save')
+    store.puts.push(body)
+    if (body?.revision !== store.draft.revision)
+      return envelope(null, { status: 409, success: false, message: 'Someone saved the draft since you read it.', errorCode: 'STALE_REVISION' })
+    store.draft = { ...structuredClone(body), revision: store.draft.revision + 1 }
+    return envelope(store.draft)
+  }
+  if (path === 'InsuranceRules/Guards/Validate' && method === 'POST') {
+    count('validate')
+    store.validates.push(body)
+    return envelope(validateGuards(body))
+  }
+  return null
+}

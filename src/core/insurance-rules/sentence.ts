@@ -10,6 +10,7 @@ import {
   type GuardSeverity,
   type Says,
 } from './model'
+import { factOf } from './guard-edit'
 
 // A guard rule read as sentences (ticket 607): WHEN (channels, stores, window), IF (the conditions, a
 // tree for All of / Any of, NOT on any node), THEN (what each severity does, its codes, its suggestion,
@@ -146,6 +147,16 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       return { sentence: S('patient.inList', { list: code(c.inList) }), clauses }
     case 'policy':
       return { sentence: S('policy.inList', { list: code(c.inList) }), clauses }
+    case 'fact': {
+      const def = factOf(c.path)
+      const fact = def ? phrase(`fact.name.${def.id}`) : code(c.path)
+      if (c.op === 'atLeast' || c.op === 'below')
+        return { sentence: S(`fact.${c.op}`, { fact, value: num(Number(c.value)), unit: phrase(`fact.unit.${def?.unit ?? 'units'}`) }), clauses }
+      const codes = Array.isArray(c.value) ? c.value : [String(c.value)]
+      return { sentence: S(`fact.${c.op}`, { fact, codes: { kind: 'list', join: 'or', items: codes.map(code) } }), clauses }
+    }
+    case 'formula':
+      return { sentence: S('formula', { formula: { kind: 'formula', formula: c.formula } }), clauses }
     default:
       // A block this build does not know (a newer schema): its check id, never a blank line.
       return { sentence: S('unknownBlock', { check: code(String((c as { check?: unknown }).check ?? '')) }), clauses }

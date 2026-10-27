@@ -2,6 +2,8 @@
   "menu": {
     "group": "Insurance rules",
     "guards": "Guards",
+    "lists": "Lists",
+    "fields": "Fields",
     "review": "Review",
     "exceptions": "Exceptions",
     "editions": "Editions",

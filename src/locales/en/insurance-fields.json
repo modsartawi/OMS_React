@@ -1,0 +1,67 @@
+{
+  "page": {
+    "title": "Fields",
+    "lede": "The item, request, patient and eligibility facts a rule or an item list can test. A field added here appears at once in every condition picker and list; rules name it by its key, so a field is retired, never deleted.",
+    "failed": "The fields could not be loaded.",
+    "loading": "Loading the fields…",
+    "noField": "No field in this scope.",
+    "unused": "Unused"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission.",
+    "masterData": "Only a user with the master-data permission can add or retire a field."
+  },
+  "scope": {
+    "item": "Item fields",
+    "request": "Request facts",
+    "patient": "Patient facts",
+    "eligibility": "Eligibility facts"
+  },
+  "col": {
+    "field": "Field",
+    "key": "Key",
+    "type": "Type",
+    "source": "Comes from",
+    "usedBy": "Used by"
+  },
+  "type": {
+    "code": "Code",
+    "text": "Text",
+    "number": "Number",
+    "date": "Date",
+    "bool": "Yes / no"
+  },
+  "retire": {
+    "done": "Field retired",
+    "failed": "The field could not be retired",
+    "confirm": "Retire {{field}}? It leaves every picker; nothing that names it breaks.",
+    "confirmUsed_one": "Retire {{field}}? {{n}} list or rule still names it and keeps reading it, but it leaves every picker.",
+    "confirmUsed_other": "Retire {{field}}? {{n}} lists or rules still name it and keep reading it, but it leaves every picker.",
+    "title": "Retire the field",
+    "badge": "Retired",
+    "action": "Retire"
+  },
+  "add": {
+    "done": "Field added",
+    "failed": "The field could not be added",
+    "title": "Add a field",
+    "hint": "Any column HQ receives can be offered here. The engine reads fields by name, so tills need no update.",
+    "source": "Comes from",
+    "sourcePlaceholder": "e.g. ItemInfo.HouseBrand",
+    "key": "Key",
+    "scope": "Scope",
+    "labelEn": "Label (English)",
+    "labelAr": "Label (Arabic)",
+    "type": "Type",
+    "unit": "Unit",
+    "submit": "Add field"
+  },
+  "problem": {
+    "sourceMissing": "Say where the field comes from.",
+    "keyMissing": "Enter a key.",
+    "keyInvalid": "A key starts with a letter and uses letters, digits, _ or . only.",
+    "keyTaken": "This key is in use (a retired field keeps its key).",
+    "labelMissing": "Give the field a label in English and in Arabic."
+  }
+}

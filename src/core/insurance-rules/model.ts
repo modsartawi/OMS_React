@@ -64,11 +64,11 @@ export interface GuardRuleRow {
 
 // ── The guard ruleset document (`GET / PUT InsuranceRules/Guards/Draft`, 3139) ──────────────
 
-/** An attribute filter of an item list: a registry field (`ECode`, …) by key, any of these codes. */
-export interface GuardListAttribute {
-  field: string
-  anyOf: string[]
-}
+/**
+ * An attribute filter of an item list: a registry field (`ECode`, …) by key, and ANY OF or NONE OF these codes
+ * (610; the brief spells `anyOf`, the spec "anyOf | noneOf" — exactly one of the two is present).
+ */
+export type GuardListAttribute = { field: string; anyOf: string[]; noneOf?: never } | { field: string; noneOf: string[]; anyOf?: never }
 
 export interface GuardListFilter {
   articles: string[]
@@ -81,7 +81,7 @@ export interface GuardList {
   id: string
   name: Says
   filters: GuardListFilter[]
-  /** Articles added to / removed from what the filters match. */
+  /** Other ruleset lists (by id) added to / taken from what the filters match — three lists deep, no cycle (610). */
   include: string[]
   exclude: string[]
 }

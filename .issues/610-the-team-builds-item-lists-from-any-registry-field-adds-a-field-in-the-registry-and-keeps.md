@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3126 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3126-oms-react-insurance-rules-brief.md)
 blocked-by: 607
 ---
@@ -26,8 +26,8 @@ components · logic · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `listCycle_isRefusedBeforeSave` — pure
-- [ ] drive (stubbed) — GLP-1 list from ECode values; add an ItemInfo field; add a VIP entry
+- [x] `listCycle_isRefusedBeforeSave` — pure
+- [x] drive `tools/insurance-lists-drive.mjs` (stubbed) — GLP-1 list from ECode values; add an ItemInfo field; add a VIP entry
 
 ## Boundaries
 
@@ -44,3 +44,35 @@ Gates green; drive passes.
 ## Open questions
 
 - **Layout follows the insurance team's walk** of the prototype (https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y, BackOffice map ticket 3096, still open). Reactions recorded there before this is built amend this ticket.
+
+## Comments
+
+**2026-10-27 — built on `impl/3126-610`.** Proof: `src/features/insurance-rules/lists/list-graph.test.ts`
+(listCycle_isRefusedBeforeSave + three deep / a fourth refused / unknown list / id + names), `entry-form.test.ts`,
+`fields/field-form.test.ts`, `lists/i18n-keys.test.ts` (en/ar mirror for `insurance-lists` + `insurance-fields`);
+drive `tools/insurance-lists-drive.mjs` 140/140 STUBBED (LTR + RTL): GLP-1 pens from ECode values (search, codes
+with descriptions, "matches no item", preview count + first page, PUT of the whole draft), a cycle refused with
+its path, a VIP entry added / logged / removed, an `ItemInfo.HouseBrand` field added and offered to the list
+editor, ATC retired, bare 403s. 607's drive still 86/86. Typecheck, lint and vitest green.
+
+Shared pieces: `src/core/insurance-rules/registry.ts` (RegistryField, FieldValue, KeyedList, entries, log,
+`liveFields`) + `registry-api.ts` (`fieldsQuery`, `fieldValuesQuery`, `keyedListsQuery`) — for 608's palette
+(patient / policy list pickers) and 617's eligibility facts. `GuardListAttribute` in `model.ts` is now
+`anyOf | noneOf` (exactly one). Stubs section `// --- 610 ---`: `insuranceListsStub` + `newListsState()`
+(stateful: a saved draft / added field / entry reads back; call it BEFORE `insuranceRulesStub`).
+
+**Guesses for 618 to reconcile** (each marked ⚠️ PROVISIONAL in code):
+- `include` / `exclude` read as **list ids** (contract.md + the spec's "3 deep, no cycle"); 607's stub `chronic`
+  has `include: ['100234']` (an article), which now reads as an unknown list id — left as 607 cut it.
+- `GET InsuranceRules/PatientLists` | `PolicyLists` → `[{ id, name, entries }]` — the brief spells only the
+  Entries and Log doors, so how the lists themselves are listed is guessed. No create/rename of a list.
+- Log row `{ at, by, action: added|removed|expired, key, reason?, expiresOn? }`.
+- `DELETE …/Entries?key=` (key as a query param — `api.del` takes params, no body).
+- `Lists/Preview` body `{ list, lists }` (the draft's other lists so includes resolve before the save) →
+  `{ count, items: [{ article, name }], matchesNothing }`.
+- Field `type` vocabulary `code | text | number | date | bool`; Values `{ code, description }`.
+- Patient key: 10 digits starting 1 (National ID) or 2 (Iqama); SubscriberId: no spaces, up to 40.
+- Field key never reused, even a retired one's, compared without case.
+- Item lists save through `PUT Guards/Draft` (they are versioned with the ruleset); a 409 says "someone saved first".
+- No access probe: Lists and Fields are ungated; a bare 403 reads "You do not have access" (master-data grant
+  for add / retire said in the toast).

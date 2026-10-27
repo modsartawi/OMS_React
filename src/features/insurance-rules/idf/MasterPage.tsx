@@ -15,6 +15,7 @@ import { ByAt, DeniedCard, FORM_FIELD, FORM_INPUT, Loading, TD, TH } from '@/cor
 import { IDF_KEY, idfUploadApi, mastersQuery } from './api'
 import { masterRow, type IdfMasterRow } from './masters'
 import { isPublishable, rowMessage, type IdfUploadReport } from './upload'
+import VersionsSection from './VersionsSection' // 623
 
 /**
  * Insurance rules ▸ IDF masters ▸ one master — `/insurance-rules/idf/masters/:masterId` (BackOffice spec 3157,
@@ -53,6 +54,7 @@ export default function MasterPage() {
           <MasterHeader row={masterRow(master, i18n.language)} />
           <UploadStep key={master.masterId} masterId={master.masterId} />
           {/* 623 · Versions */}
+          <VersionsSection key={`versions-${master.masterId}`} masterId={master.masterId} liveVersionId={master.liveVersion?.versionId ?? null} />
         </>
       )}
     </section>

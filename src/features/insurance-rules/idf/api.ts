@@ -21,6 +21,7 @@ import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
 import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
+import type { IdfVersion } from './versions' // 623
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -95,6 +96,23 @@ export const idfUploadApi = {
 }
 
 // 623 · versions and restore — `idfVersionsApi` (3161)
+export const IDF_VERSIONS_KEY = [...IDF_KEY, 'versions'] as const
+export const idfVersionsApi = {
+  /** `GET IdfPriority/masters/{id}/versions` — every version of the master, the live one marked. */
+  async versions(masterId: string): Promise<IdfVersion[]> {
+    return (await api.get<IdfVersion[] | null>(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions`)) ?? []
+  },
+  /** `POST …/versions/{versionId}/restore { note }` → the NEW live version; the restored one is left as it was. */
+  restore(masterId: string, versionId: string, note: string): Promise<IdfMasterVersion> {
+    return api.post<IdfMasterVersion>(
+      `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/restore`,
+      { note },
+    )
+  },
+}
+export function versionsQuery(masterId: string) {
+  return { queryKey: [...IDF_VERSIONS_KEY, masterId] as const, queryFn: () => idfVersionsApi.versions(masterId), retry: false } as const
+}
 
 // 624 · exceptions — `idfExceptionsApi` (3166)
 export const IDF_EXCEPTIONS_KEY = [...IDF_KEY, 'exceptions'] as const

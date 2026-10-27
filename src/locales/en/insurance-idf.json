@@ -30,7 +30,52 @@
   "masterForm": {},
   "upload": {},
   "versions": {},
-  "exceptions": {},
+  "exceptions": {
+    "title": "IDF exceptions",
+    "lede": "Orders whose document type, sub-document type or Nphies claim type skip IDF priority, only remind, or use a named master. Every change records a reason.",
+    "loading": "Loading the IDF exceptions…",
+    "failed": "The IDF exceptions could not be loaded.",
+    "empty": "There are no IDF exceptions.",
+    "columns": {
+      "keyKind": "Key kind",
+      "key": "Key",
+      "handling": "Handling",
+      "reason": "Reason",
+      "changed": "Changed",
+      "actions": "Actions"
+    },
+    "keyKind": {
+      "documentType": "Document type",
+      "subDocumentType": "Sub-document type",
+      "nphiesClaimType": "Nphies claim type"
+    },
+    "handling": {
+      "skip": "Skip",
+      "reminder": "Reminder",
+      "master": "Master"
+    },
+    "master": "Master",
+    "pickMaster": "Pick a master",
+    "reason": "Reason for this change",
+    "add": "New exception",
+    "addTitle": "New IDF exception",
+    "editTitle": "Edit IDF exception",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete the exception for {{key}}",
+    "cancel": "Cancel",
+    "save": "Save",
+    "added": "The exception was added.",
+    "saved": "The exception was saved.",
+    "deleted": "The exception was deleted.",
+    "saveFailed": "The exception could not be saved.",
+    "deleteFailed": "The exception could not be deleted.",
+    "problem": {
+      "keyRequired": "Enter the key.",
+      "masterRequired": "Pick the master to use.",
+      "reasonRequired": "Give a reason for this change."
+    }
+  },
   "lookup": {},
   "events": {
     "title": "IDF events",

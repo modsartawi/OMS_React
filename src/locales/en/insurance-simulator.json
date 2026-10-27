@@ -1,0 +1,115 @@
+{
+  "title": "Simulator",
+  "lede": "Try the guard draft before anyone is refused: run one request on a patient, or replay the last days of real requests through it.",
+  "tabs": {
+    "label": "Simulator views",
+    "simulate": "Simulate",
+    "backtest": "Back-test"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Simulating guards needs the authoring grant. Ask HQ to grant it."
+  },
+  "form": {
+    "channel": "Channel",
+    "store": "Store",
+    "payer": "Payer",
+    "policy": "Policy",
+    "class": "Class",
+    "patientKey": "Patient key",
+    "patientKeyHint": "National ID or Iqama",
+    "lines": "Lines",
+    "line": "Line",
+    "item": "Item",
+    "qty": "Quantity",
+    "unit": "Unit",
+    "daysSupply": "Days' supply",
+    "icd": "ICD-10-AM",
+    "icdHint": "E11.9, E66",
+    "price": "Price (SAR)",
+    "addLine": "Add a line",
+    "removeLine": "Remove this line",
+    "run": "Simulate",
+    "running": "Simulating…",
+    "draftRevision": "Runs the guard draft, revision {{revision}}.",
+    "problem": {
+      "required": "Required",
+      "positive": "Must be more than zero",
+      "wholeNumber": "A whole number",
+      "amount": "An amount, like 12.50"
+    }
+  },
+  "result": {
+    "title": "What the draft does",
+    "empty": "Type a request and a patient key, then Simulate.",
+    "failed": "The simulation failed.",
+    "line": "Line {{n}}",
+    "noneFired": "No guard fired on this line.",
+    "codes": {
+      "conflict": "Conflict code",
+      "nphies": "Nphies code"
+    },
+    "suggestion": {
+      "maxQuantity": "Suggested quantity at most",
+      "maxDaysSupply": "Suggested days' supply at most"
+    }
+  },
+  "outcome": {
+    "pass": "Passes",
+    "refuse": "Refused",
+    "override": "Refused unless overridden",
+    "warn": "Warns",
+    "exception": "Passed by HQ exception"
+  },
+  "trace": {
+    "title": "Condition trace",
+    "readOnly": "Read, did not fire",
+    "loose": "Blocks HQ read that are not in this rule of the draft",
+    "notInDraft": "This rule is not in the draft; its blocks as HQ sent them",
+    "value": {
+      "true": "True",
+      "false": "False",
+      "unknown": "Unknown",
+      "unread": "Not read"
+    }
+  },
+  "backtest": {
+    "days": "Replay the last",
+    "daysOption": "{{n}} days",
+    "start": "Start the back-test",
+    "starting": "Starting…",
+    "startFailed": "The back-test could not start.",
+    "none": "Start a back-test to see what the draft would have done.",
+    "loading": "Reading the back-test…",
+    "failed": "The back-test could not be read.",
+    "jobFailed": "HQ could not finish this back-test. Start it again.",
+    "progress": "{{pct}}% done",
+    "status": {
+      "queued": "Waiting to start",
+      "running": "Replaying the requests",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "revision": "Back-test of draft revision {{revision}}.",
+    "current": "It is the draft's current revision.",
+    "stale": "The draft has changed since (now revision {{revision}}): run it again before asking for approval."
+  },
+  "tiles": {
+    "fires": "Would fire",
+    "sar": "SAR on stopped requests",
+    "patients": "Patients",
+    "stores": "Stores",
+    "pharmacists": "Pharmacists",
+    "overlap": "{{n}} of {{total}} fires are on requests a live guard already fires on."
+  },
+  "stopped": {
+    "title": "Requests it would have stopped",
+    "masked": "Patient keys are masked.",
+    "none": "It would have stopped no request.",
+    "on": "On",
+    "patient": "Patient",
+    "store": "Store",
+    "item": "Item",
+    "sar": "SAR"
+  }
+}

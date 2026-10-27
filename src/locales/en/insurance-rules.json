@@ -8,7 +8,8 @@
     "exceptions": "Exceptions",
     "editions": "Editions",
     "metrics": "Metrics",
-    "templates": "Templates"
+    "templates": "Templates",
+    "simulator": "Simulator"
   },
   "state": {
     "draft": "Draft",

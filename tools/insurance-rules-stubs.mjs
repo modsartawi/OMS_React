@@ -1304,3 +1304,112 @@ export function templatesStub(method, path, body, opts = {}) {
   }
   return guardEditorStub(method, path, body, { store: state.store, deny, reads })
 }
+
+// --- 612 --- the simulator and the back-test (BackOffice 3140). Both run the guard DRAFT (`RULESET`, revision 12).
+// ⚠️ Shapes beyond the brief are 612's guesses (`src/features/insurance-rules/simulator/simulate.ts`,
+// `src/core/insurance-rules/backtest.ts`; recorded under 612's ## Comments for 618): the trace `value` is read
+// AFTER the block's NOT, `why` is EN + AR, back-test `status` is queued|running|done|failed, `progress` is 0–1,
+// `overlap` is a count of fires a live guard fires on too.
+
+/** The stub patient the drive simulates on (a National ID). On no patient list, so G-007's NOT any-group holds. */
+export const SIM_PATIENT = '1023456783'
+
+/** The GLP-1 articles of the `glp1` list (ECode E1497 / E1502, `PREVIEW_ITEMS`). */
+const GLP1_ARTICLES = ['100101', '100102', '100201']
+
+const traceOf = (ruleId) => (blockPath, value, why) => ({ ruleId, blockPath, value, ...(why === undefined ? {} : { why }) })
+
+/** One simulated line: G-007 (GLP-1 without a diabetes diagnosis) and G-004 (more than 90 days) as HQ would read them. */
+function simulateLine(l) {
+  const fired = []
+  const trace = []
+  const g7 = traceOf('G-007')
+  const glp1 = GLP1_ARTICLES.includes(l.item)
+  if (!glp1) {
+    trace.push(g7('when[0]', false), g7('when[0].conditions[0]', false, says('The item is not in GLP-1 and biologics', 'الصنف ليس في GLP-1 والأدوية الحيوية')))
+  } else {
+    const diabetes = (l.icd ?? []).some((c) => c.startsWith('E11'))
+    trace.push(
+      g7('when[0]', !diabetes),
+      g7('when[0].conditions[0]', true),
+      g7(
+        'when[0].conditions[1]',
+        !diabetes,
+        diabetes
+          ? says('E11 is a listed indication for this item', 'E11 دلالة مدرجة لهذا الصنف')
+          : says('No listed indication among the line’s ICD-10-AM codes', 'لا توجد دلالة مدرجة بين رموز ICD-10-AM للبند'),
+      ),
+    )
+    if (!diabetes) {
+      trace.push(
+        g7('when[0].conditions[2]', true),
+        g7('when[0].conditions[2].conditions[0]', false, says('Not on VIP patients', 'ليس في قائمة كبار الشخصيات')),
+        g7('when[0].conditions[2].conditions[1]', 'unknown', says('The policy is not known to HQ', 'الوثيقة غير معروفة للإدارة العامة')),
+      )
+      fired.push({ ruleId: 'G-007', severity: 'OVERRIDE', en: 'GLP-1 without a diabetes diagnosis', ar: 'GLP-1 بدون تشخيص سكري', codes: { conflict: 'DC', nphies: 'CV-4-5' }, suggestion: null })
+    }
+  }
+  const g4 = traceOf('G-004')
+  if (l.daysSupply === undefined) trace.push(g4('when[0]', 'unknown', says('No days’ supply on the line', 'لا توجد أيام إمداد على البند')))
+  else if (l.daysSupply > 90) {
+    trace.push(g4('when[0]', true))
+    fired.push({ ruleId: 'G-004', severity: 'REFUSE', en: `${l.daysSupply} days in one request; the maximum is 90`, ar: `${l.daysSupply} يوماً في طلب واحد؛ الحد الأقصى 90`, codes: { conflict: 'MX', nphies: 'CV-4-2' }, suggestion: { maxDaysSupply: 90 } })
+  } else trace.push(g4('when[0]', false))
+  const heaviest = ['REFUSE', 'OVERRIDE', 'WARN'].find((s) => fired.some((f) => f.severity === s))
+  return { outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, trace }
+}
+
+/** `POST InsuranceRules/Guards/Simulate` — deterministic over the request's lines. */
+export const simulateGuards = (body) => ({ lines: (body?.request?.lines ?? []).map(simulateLine) })
+
+/** A finished back-test's report over `days` (the fires grow with the window). One key arrives WHOLE: the screen masks it. */
+export function backtestReport(days, revision = RULESET.revision) {
+  const k = days / 30
+  return {
+    status: 'done',
+    progress: 1,
+    revision,
+    fires: { refuse: 4 * k, override: 30 * k, warn: 6 * k },
+    stopped: [
+      { on: '2026-10-26T18:42:10', store: 'P019', item: '100101', maskedKey: '10••••••83', sar: 450.5 },
+      { on: '2026-10-25', store: 'P001', item: '100201', maskedKey: '24••••••19', sar: 612 },
+      { on: '2026-10-21T09:05:00', store: 'P107', item: '100102', maskedKey: '1198765408', sar: 380.25 },
+    ],
+    sar: 1442.75,
+    distinct: { patients: 21 * k, stores: 7, pharmacists: 9 },
+    overlap: 12 * k,
+  }
+}
+
+/** The back-test jobs and what was asked of them. A job runs for its first read, then is done. */
+export const newBacktestStore = () => ({ next: 41, jobs: { 'BT-OLD': { days: 30, reads: 1, revision: 11 } }, starts: [], simulates: [] })
+
+/**
+ * 612's doors. `opts.store` is a `newBacktestStore()`; `opts.deny` names doors (`simulate`, `startBacktest`,
+ * `backtest`) answered with a bare 403. Call it before `insuranceRulesStub` (which serves the draft).
+ */
+export function simulatorStub(method, path, body, opts = {}) {
+  const { store = newBacktestStore(), deny = [] } = opts
+  if (method === 'POST' && path === 'InsuranceRules/Guards/Simulate') {
+    store.simulates.push(body)
+    if (deny.includes('simulate')) return { status: 403, body: '' }
+    return envelope(simulateGuards(body))
+  }
+  if (method === 'POST' && path === 'InsuranceRules/Guards/Backtests') {
+    store.starts.push(body)
+    if (deny.includes('startBacktest')) return { status: 403, body: '' }
+    const id = `BT-${store.next++}`
+    store.jobs[id] = { days: body?.days ?? 30, reads: 0, revision: RULESET.revision }
+    return envelope({ id })
+  }
+  const read = method === 'GET' && path.match(/^InsuranceRules\/Guards\/Backtests\/([^/]+)$/)
+  if (read) {
+    if (deny.includes('backtest')) return { status: 403, body: '' }
+    const job = store.jobs[decodeURIComponent(read[1])]
+    if (!job) return envelope(null, { status: 404, success: false, message: 'No such back-test.', errorCode: 'BACKTEST-NOT-FOUND' })
+    job.reads += 1
+    if (job.reads === 1) return envelope({ ...backtestReport(job.days, job.revision), status: 'running', progress: 0.4, fires: { refuse: 0, override: 0, warn: 0 }, stopped: [], sar: 0, distinct: { patients: 0, stores: 0, pharmacists: 0 }, overlap: 0 })
+    return envelope(backtestReport(job.days, job.revision))
+  }
+  return null
+}

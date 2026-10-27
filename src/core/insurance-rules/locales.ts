@@ -24,6 +24,10 @@ import insuranceListsAr from '@/locales/ar/insurance-lists.json'
 import insuranceFieldsEn from '@/locales/en/insurance-fields.json'
 import insuranceFieldsAr from '@/locales/ar/insurance-fields.json'
 
+// 612 · imports — the Simulator feature (`features/insurance-rules/simulator`: simulate + back-test)
+import insuranceSimulatorEn from '@/locales/en/insurance-simulator.json'
+import insuranceSimulatorAr from '@/locales/ar/insurance-simulator.json'
+
 // 613 · imports — the Editions feature (`features/insurance-rules/editions`)
 import insuranceEditionsEn from '@/locales/en/insurance-editions.json'
 import insuranceEditionsAr from '@/locales/ar/insurance-editions.json'
@@ -53,6 +57,9 @@ export const INSURANCE_RULES_NS = [
   'insurance-lists',
   'insurance-fields',
 
+  // 612 · ns
+  'insurance-simulator',
+
   // 613 · ns
   'insurance-editions',
 
@@ -79,6 +86,9 @@ export const INSURANCE_RULES_EN = {
   'insurance-lists': insuranceListsEn,
   'insurance-fields': insuranceFieldsEn,
 
+  // 612 · en
+  'insurance-simulator': insuranceSimulatorEn,
+
   // 613 · en
   'insurance-editions': insuranceEditionsEn,
 
@@ -104,6 +114,9 @@ export const INSURANCE_RULES_AR = {
   // 610 · ar
   'insurance-lists': insuranceListsAr,
   'insurance-fields': insuranceFieldsAr,
+
+  // 612 · ar
+  'insurance-simulator': insuranceSimulatorAr,
 
   // 613 · ar
   'insurance-editions': insuranceEditionsAr,

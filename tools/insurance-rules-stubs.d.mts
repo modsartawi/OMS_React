@@ -144,3 +144,23 @@ export declare function templatesStub(
   body: unknown,
   opts?: { state?: TemplatesState; deny?: string[]; reads?: Record<string, number>; user?: string; now?: string },
 ): FulfillArg | null
+
+// --- 612 ---
+import type { SimulateBody, SimulateResult } from '../src/features/insurance-rules/simulator/simulate'
+import type { GuardBacktest } from '../src/core/insurance-rules/backtest'
+export declare const SIM_PATIENT: string
+export declare function simulateGuards(body: SimulateBody): SimulateResult
+export declare function backtestReport(days: number, revision?: number): GuardBacktest
+export interface BacktestStore {
+  next: number
+  jobs: Record<string, { days: number; reads: number; revision: number }>
+  starts: unknown[]
+  simulates: unknown[]
+}
+export declare function newBacktestStore(): BacktestStore
+export declare function simulatorStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: BacktestStore; deny?: string[] },
+): FulfillArg | null

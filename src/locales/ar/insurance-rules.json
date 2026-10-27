@@ -8,7 +8,8 @@
     "exceptions": "الاستثناءات",
     "editions": "الإصدارات",
     "metrics": "المؤشرات",
-    "templates": "القوالب"
+    "templates": "القوالب",
+    "simulator": "المحاكي"
   },
   "state": {
     "draft": "مسودة",

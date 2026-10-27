@@ -338,7 +338,12 @@
     "maxValueHint": "Caps a % discount each time it applies. 0 means no cap.",
     "timeFrom": "Time of day from",
     "timeTo": "Time of day to",
-    "timeHint": "Set both or neither. A window past midnight is allowed."
+    "timeHint": "Set both or neither. A window past midnight is allowed.",
+    "loyGroupsHint": "Pick from the defined loyalty groups. A code that is not a defined group is kept and flagged, and the save refuses it.",
+    "loyFindings": {
+      "refused": "Refused",
+      "warned": "Warning"
+    }
   },
   "paste": {
     "action": "Paste materials",

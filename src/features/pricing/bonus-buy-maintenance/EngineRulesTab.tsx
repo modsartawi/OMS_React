@@ -3,7 +3,9 @@ import { formatCount, fsi } from '@/core/util/bidi'
 import Field from '@/core/ui/Field'
 import Input from '@/core/ui/Input'
 import Textarea from '@/core/ui/Textarea'
-import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter } from './editor'
+import LoyGroupPicker from '@/core/loy-groups/LoyGroupPicker'
+import { RefusalList } from './ActReport'
+import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter, type LoyGroupFindings } from './editor'
 
 /**
  * The Engine Rules tab (owner's verdict on 2335, option 1): the fields the engine reads and SAP's
@@ -16,7 +18,16 @@ import { ENGINE_LISTS, type EngineListKey, type EngineRules, engineListMeter } f
  * against the cap, both read from the list as the server stores it. No `maxLength`: a browser cap
  * would silently cut a pasted column, which is the loss this box exists to stop.
  */
-export default function EngineRulesTab({ engine, onChange }: { engine: EngineRules; onChange: (e: EngineRules) => void }) {
+export default function EngineRulesTab({
+  engine,
+  onChange,
+  loyFindings = NO_FINDINGS,
+}: {
+  engine: EngineRules
+  onChange: (e: EngineRules) => void
+  /** The last Check or Save's loyalty-group refusals and warnings (636), listed under that field. */
+  loyFindings?: LoyGroupFindings
+}) {
   const { t } = useTranslation('bonus-buy-maintenance')
   const set = (patch: Partial<EngineRules>) => onChange({ ...engine, ...patch })
 
@@ -25,7 +36,25 @@ export default function EngineRulesTab({ engine, onChange }: { engine: EngineRul
       <p className="text-xs text-muted-foreground">{t('engine.hint')}</p>
       <p className="text-xs text-muted-foreground">{t('engine.listHint')}</p>
       <div className="grid gap-3 md:grid-cols-2">
-        {ENGINE_LISTS.map((k) => (
+        {ENGINE_LISTS.map((k) =>
+          k === 'loyGroups' ? (
+            <div key={k} className="flex min-w-0 flex-col gap-1" data-testid="bby-engine-loyGroups-field">
+              <Field
+                label={t('engine.loyGroups')}
+                hint={<ListMeter list={k} value={engine.loyGroups} />}
+                invalid={loyFindings.refusals.length > 0}
+              >
+                <LoyGroupPicker
+                  label={t('engine.loyGroups')}
+                  value={engine.loyGroups}
+                  data-testid="bby-engine-loyGroups"
+                  onChange={(loyGroups) => set({ loyGroups })}
+                />
+              </Field>
+              <p className="text-[11px] leading-snug text-muted-foreground">{t('engine.loyGroupsHint')}</p>
+              <LoyFindings findings={loyFindings} />
+            </div>
+          ) : (
           <Field key={k} label={t(`engine.${k}`)} hint={<ListMeter list={k} value={engine[k]} />}>
             <Textarea
               dir="ltr"
@@ -36,7 +65,8 @@ export default function EngineRulesTab({ engine, onChange }: { engine: EngineRul
               onChange={(e) => set({ [k]: e.target.value } as Partial<EngineRules>)}
             />
           </Field>
-        ))}
+          ),
+        )}
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <label className="flex h-7 items-center gap-2 text-sm">
@@ -86,6 +116,30 @@ export default function EngineRulesTab({ engine, onChange }: { engine: EngineRul
         </Field>
         <p className="pb-2 text-xs text-muted-foreground">{t('engine.timeHint')}</p>
       </div>
+    </div>
+  )
+}
+
+const NO_FINDINGS: LoyGroupFindings = { refusals: [], warnings: [] }
+
+/** The Loyalty groups field's own findings (BackOffice 3179): the refusal in the danger tone, the warning beside it. */
+function LoyFindings({ findings }: { findings: LoyGroupFindings }) {
+  const { t } = useTranslation('bonus-buy-maintenance')
+  if (findings.refusals.length === 0 && findings.warnings.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1" data-testid="bby-engine-loyGroups-findings">
+      {findings.refusals.length > 0 && (
+        <div className="rounded-md border border-danger-border bg-danger-050 px-2 py-1 text-danger-800" data-finding="refused">
+          <span className="text-[11px] font-medium">{t('engine.loyFindings.refused')}</span>
+          <RefusalList refusals={findings.refusals} />
+        </div>
+      )}
+      {findings.warnings.length > 0 && (
+        <div className="rounded-md border border-border/60 bg-muted px-2 py-1" data-finding="warned">
+          <span className="text-[11px] font-medium">{t('engine.loyFindings.warned')}</span>
+          <RefusalList refusals={findings.warnings} />
+        </div>
+      )}
     </div>
   )
 }

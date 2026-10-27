@@ -12,6 +12,8 @@ const flat = (nodes: readonly TraceNode[]): string[] =>
   nodes.flatMap((n) => [`${n.path} ${n.check}${n.not ? ' NOT' : ''} = ${n.value === null ? '—' : String(n.value)}`, ...flat(n.children ?? [])])
 
 const line: SimLineResult = {
+  line: 1,
+  unknowns: ['G-007'],
   outcome: 'override',
   fired: [
     { ruleId: 'G-010', severity: 'WARN', en: 'Dispensed at 3 stores in 30 days', ar: 'صُرف في 3 فروع خلال 30 يوماً' },
@@ -19,6 +21,7 @@ const line: SimLineResult = {
   ],
   trace: [
     { ruleId: 'G-001', blockPath: 'when[0]', value: false, why: { en: 'Last dispensed 12 days ago', ar: 'آخر صرف قبل 12 يوماً' } },
+    { ruleId: 'G-007', blockPath: 'when', value: true, why: 'Every block holds' },
     { ruleId: 'G-007', blockPath: 'when[0]', value: true },
     { ruleId: 'G-007', blockPath: 'when[0].conditions[0]', value: true },
     { ruleId: 'G-007', blockPath: 'when[0].conditions[1]', value: true, why: 'No ICD-10-AM code on the line' },
@@ -54,6 +57,12 @@ describe('lineRules', () => {
     ])
     expect(rules[0].nodes[0].children?.[1].why).toBe('No ICD-10-AM code on the line')
     expect(rules[0].nodes[0].sentence.key).toBe('sentence.group.all')
+  })
+
+  it('reads `when` as the rule’s whole condition, above its tree — not as a block set aside', () => {
+    expect(rules[0].whole).toEqual({ value: true, why: 'Every block holds' })
+    expect(rules[2].whole).toBeNull()
+    expect(rules[0].loose.map((t) => t.blockPath)).not.toContain('when')
   })
 
   it('keeps a trace entry whose block is not in the rule aside', () => {

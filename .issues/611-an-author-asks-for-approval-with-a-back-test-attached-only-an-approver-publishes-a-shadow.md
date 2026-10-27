@@ -82,3 +82,9 @@ never do). Stubs `// --- 611 ---`: `newApprovalStore()`, `approvalStub(…, { st
   `NOT_WAITING`) are guessed spellings; the screen shows the server's message, it never branches on them.
 - Layout is a page of its own (draft panel, In shadow, Versions), not the prototype's Publish card in the editor;
   the insurance team's walk (BackOffice 3096) has not amended it.
+
+**2026-10-28 — 612's realignment changed the Submit gate's source.** The draft's back-test is now found through
+`GET InsuranceRules/Guards/Backtests` (3140, core `draftBacktestsQuery` + `draftBacktest`), not the guessed
+`backtestId` on the Approval read (removed from `DraftApproval`). Submit's 409 `GUARDS_BACKTEST_MISSING` is shown in
+words with a link to run one, and re-reads the back-tests. Stub code renamed from `BACKTEST_REQUIRED`. Approvals
+drive 126/126 (new step 1b). Details under 612.

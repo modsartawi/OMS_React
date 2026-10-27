@@ -4,17 +4,28 @@
  * key that is never shown whole.
  */
 import { describe, expect, it } from 'vitest'
-import { backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, maskedKey, type GuardBacktest } from './backtest'
+import { backtestFires, backtestIsCurrent, backtestProgressPct, backtestRunning, draftBacktest, maskedKey, stoppedShown, type GuardBacktest } from './backtest'
 
 const bt = (o: Partial<GuardBacktest> = {}): GuardBacktest => ({
+  id: 'BT-1',
   status: 'done',
   progress: 1,
   revision: 12,
+  days: 90,
+  requestedBy: 'nalharbi',
+  requestedAt: '2026-10-27T10:00:00',
+  finishedAt: '2026-10-27T10:02:00',
+  error: null,
+  since: '2026-07-29',
+  requests: 1200,
+  lines: 3400,
   fires: { refuse: 4, override: 30, warn: 6 },
   stopped: [],
+  stoppedTotal: 0,
   sar: 0,
   distinct: { patients: 0, stores: 0, pharmacists: 0 },
   overlap: 0,
+  rules: [],
   ...o,
 })
 
@@ -44,18 +55,42 @@ describe('a back-test', () => {
   })
 })
 
-describe('maskedKey', () => {
-  it('keeps a key HQ already masked as it came', () => {
-    expect(maskedKey('10••••••83')).toBe('10••••••83')
+describe('the draft’s back-test (GET …/Backtests, newest first)', () => {
+  it('draftBacktest_isTheFinishedOneOfTheCurrentRevision_elseItsNewest_elseTheNewest', () => {
+    // A finished back-test of the revision is what HQ's Submit accepts, so it wins over a newer running one.
+    const list = [bt({ id: 'BT-3', revision: 12, status: 'running' }), bt({ id: 'BT-2', revision: 12 }), bt({ id: 'BT-1', revision: 11 })]
+    expect(draftBacktest(list, 12)?.id).toBe('BT-2')
+    expect(draftBacktest([list[0], list[2]], 12)?.id).toBe('BT-3')
+    expect(draftBacktest([bt({ id: 'BT-1', revision: 11 })], 12)?.id).toBe('BT-1')
+    expect(draftBacktest([], 12)).toBeNull()
+    expect(draftBacktest(null, 12)).toBeNull()
   })
 
-  it('masks a whole National ID / Iqama that slipped through, keeping two digits each end', () => {
-    expect(maskedKey('1023456783')).toBe('10••••••83')
-    expect(maskedKey('2412345619')).toBe('24••••••19')
+  it('a finished one of the revision wins over a newer failed one', () => {
+    expect(draftBacktest([bt({ id: 'BT-3', status: 'failed' }), bt({ id: 'BT-2' })], 12)?.id).toBe('BT-2')
+  })
+})
+
+describe('stoppedShown', () => {
+  it('says when HQ sent only the first of the stopped requests', () => {
+    const rows = Array.from({ length: 500 }, () => ({ on: '2026-10-01', store: 'P001', item: '100101', maskedKey: '1*******01', sar: 1, rules: ['G-007'] }))
+    expect(stoppedShown(bt({ stopped: rows, stoppedTotal: 1830 }))).toEqual({ shown: 500, total: 1830, truncated: true })
+    expect(stoppedShown(bt({ stopped: rows.slice(0, 3), stoppedTotal: 3 }))).toEqual({ shown: 3, total: 3, truncated: false })
+  })
+})
+
+describe('maskedKey', () => {
+  it('keeps a key HQ already masked as it came (first digit and the last two)', () => {
+    expect(maskedKey('1*******01')).toBe('1*******01')
+  })
+
+  it('masks a whole National ID / Iqama that slipped through as HQ does: the first digit and the last two', () => {
+    expect(maskedKey('1023456783')).toBe('1*******83')
+    expect(maskedKey('2412345619')).toBe('2*******19')
   })
 
   it('never shows an empty or short key as data', () => {
     expect(maskedKey('')).toBe('')
-    expect(maskedKey('1234')).toBe('••••')
+    expect(maskedKey('123')).toBe('***')
   })
 })

@@ -934,10 +934,10 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
 
 // --- 611 --- approval by role, shadow promotion, versions (BackOffice 3139; the latest back-test 3140).
 //   GET  InsuranceRules/Guards/Approval            → where the draft stands + the viewer's roles (⚠️ guessed door)
-//   GET  InsuranceRules/Guards/Backtests/{id}      → `store.backtests[id]` for the id the Approval read names (the
-//                                                    draft's latest, ⚠️ guessed `backtestId`); 612's door and shape
-//   POST InsuranceRules/Guards/Submit { note }     → refused 409 BACKTEST_REQUIRED without a done back-test of
-//                                                    this revision; draft rules turn waiting
+//   GET  InsuranceRules/Guards/Backtests           → `store.backtests`, newest first (3140, 612's shape)
+//   GET  InsuranceRules/Guards/Backtests/{id}      → `store.backtests[id]`
+//   POST InsuranceRules/Guards/Submit { note }     → refused 409 GUARDS_BACKTEST_MISSING (3140) without a done
+//                                                    back-test of this revision; draft rules turn waiting
 //   POST InsuranceRules/Guards/Approve { note }    → approver only (403 NOT_APPROVER), never the author (409
 //                                                    OWN_SUBMISSION); waiting rules turn shadow today; a version
 //   POST InsuranceRules/Guards/SendBack { note }   → the same refusals; waiting rules back to draft
@@ -963,16 +963,16 @@ const VERSION_DOCS = {
 
 /** The draft's back-test of revision 12 (RULESET's), done — 612's report over 30 days. */
 export const BACKTEST_DONE_ID = 'BT-40'
-const backtestDone = () => ({ status: 'done', progress: 1, revision: 12, fires: { refuse: 4, override: 30, warn: 6 }, stopped: [], sar: 1442.75, distinct: { patients: 21, stores: 7, pharmacists: 9 }, overlap: 12 })
-export const BACKTEST_DONE = backtestDone()
+export const BACKTEST_DONE = backtestReport(30, 12, BACKTEST_DONE_ID)
 
 /** One HQ for a drive: the draft, its approval, the latest back-test, the versions, every write. */
-/** `backtest`: the draft's latest back-test (612's shape) under `BACKTEST_DONE_ID`, or null for none. */
+/** `backtest`: the draft's back-test (612's shape) under `BACKTEST_DONE_ID`, or null for none. `backtests` keeps
+ * insertion order (oldest first); the list door answers newest first. */
 export function newApprovalStore({ backtest = BACKTEST_DONE } = {}) {
   return {
     draft: structuredClone(RULESET),
-    approval: { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null, backtestId: backtest ? BACKTEST_DONE_ID : null },
-    backtests: backtest ? { [BACKTEST_DONE_ID]: structuredClone(backtest) } : {},
+    approval: { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null },
+    backtests: backtest ? { [BACKTEST_DONE_ID]: { ...structuredClone(backtest), id: BACKTEST_DONE_ID } } : {},
     versions: structuredClone(GUARD_VERSIONS),
     versionDocs: structuredClone(VERSION_DOCS),
     writes: [],
@@ -1012,13 +1012,13 @@ export function approvalStub(method, path, body, opts = {}) {
   if (method === 'GET' && path === `${G}/Approval`) return envelope(view())
   const btRead = method === 'GET' && path.match(/^InsuranceRules\/Guards\/Backtests\/([^/]+)$/)
   if (btRead && store.backtests[decodeURIComponent(btRead[1])]) return envelope(store.backtests[decodeURIComponent(btRead[1])])
+  if (method === 'GET' && path === `${G}/Backtests`) return envelope(Object.values(store.backtests).reverse())
   if (method === 'GET' && path === `${G}/Versions`) return envelope(store.versions)
 
   if (method === 'POST' && path === `${G}/Submit`) {
     write()
-    const bt = store.backtests[store.approval.backtestId]
-    if (!bt || bt.status !== 'done' || bt.revision !== store.draft.revision)
-      return refuse(409, 'BACKTEST_REQUIRED', 'Run a back-test of this revision before asking for approval.')
+    if (!Object.values(store.backtests).some((bt) => bt.status === 'done' && bt.revision === store.draft.revision))
+      return refuse(409, 'GUARDS_BACKTEST_MISSING', 'No finished back-test of the draft revision.')
     if (store.approval.state !== 'draft') return refuse(409, 'NOT_DRAFT', 'The draft is already waiting for approval.')
     store.approval = { ...store.approval, state: 'waiting', submittedBy: user, submittedAt: now, note: body?.note || null, sentBack: null }
     setStates('draft', 'waiting')
@@ -1701,10 +1701,11 @@ export function coverageStub(method, path, body, opts = {}) {
 }
 
 // --- 612 --- the simulator and the back-test (BackOffice 3140). Both run the guard DRAFT (`RULESET`, revision 12).
-// ⚠️ Shapes beyond the brief are 612's guesses (`src/features/insurance-rules/simulator/simulate.ts`,
-// `src/core/insurance-rules/backtest.ts`; recorded under 612's ## Comments for 618): the trace `value` is read
-// AFTER the block's NOT, `why` is EN + AR, back-test `status` is queued|running|done|failed, `progress` is 0–1,
-// `overlap` is a count of fires a live guard fires on too.
+// Shapes as BUILT in 3140 (the brief's section): Simulate `{ request: { …, lines: [{ line, … }] }, patientKey,
+// document? }` → `{ lines: [{ line, outcome, fired, unknowns, trace }] }`, each rule's trace led by `blockPath:
+// "when"`; `POST …/Backtests { days }` → the back-test; `GET …/Backtests` newest first; `GET …/Backtests/{id}`.
+// Still 612's guesses (618 reconciles): the trace `value` after the block's NOT, `why` EN + AR, `unknowns` as rule
+// ids, `category` (617 re-points it).
 
 /** The stub patient the drive simulates on (a National ID). On no patient list, so G-007's NOT any-group holds. */
 export const SIM_PATIENT = '1023456783'
@@ -1721,10 +1722,11 @@ function simulateLine(l) {
   const g7 = traceOf('G-007')
   const glp1 = GLP1_ARTICLES.includes(l.item)
   if (!glp1) {
-    trace.push(g7('when[0]', false), g7('when[0].conditions[0]', false, says('The item is not in GLP-1 and biologics', 'الصنف ليس في GLP-1 والأدوية الحيوية')))
+    trace.push(g7('when', false), g7('when[0]', false), g7('when[0].conditions[0]', false, says('The item is not in GLP-1 and biologics', 'الصنف ليس في GLP-1 والأدوية الحيوية')))
   } else {
     const diabetes = (l.icd ?? []).some((c) => c.startsWith('E11'))
     trace.push(
+      g7('when', !diabetes),
       g7('when[0]', !diabetes),
       g7('when[0].conditions[0]', true),
       g7(
@@ -1741,50 +1743,77 @@ function simulateLine(l) {
         g7('when[0].conditions[2].conditions[0]', false, says('Not on VIP patients', 'ليس في قائمة كبار الشخصيات')),
         g7('when[0].conditions[2].conditions[1]', 'unknown', says('The policy is not known to HQ', 'الوثيقة غير معروفة للإدارة العامة')),
       )
-      fired.push({ ruleId: 'G-007', severity: 'OVERRIDE', en: 'GLP-1 without a diabetes diagnosis', ar: 'GLP-1 بدون تشخيص سكري', codes: { conflict: 'DC', nphies: 'CV-4-5' }, suggestion: null })
+      fired.push({ ruleId: 'G-007', version: 4, severity: 'OVERRIDE', en: 'GLP-1 without a diabetes diagnosis', ar: 'GLP-1 بدون تشخيص سكري', codes: { conflict: 'DC', nphies: 'CV-4-5' }, suggestion: null })
     }
   }
   const g4 = traceOf('G-004')
-  if (l.daysSupply === undefined) trace.push(g4('when[0]', 'unknown', says('No days’ supply on the line', 'لا توجد أيام إمداد على البند')))
-  else if (l.daysSupply > 90) {
-    trace.push(g4('when[0]', true))
-    fired.push({ ruleId: 'G-004', severity: 'REFUSE', en: `${l.daysSupply} days in one request; the maximum is 90`, ar: `${l.daysSupply} يوماً في طلب واحد؛ الحد الأقصى 90`, codes: { conflict: 'MX', nphies: 'CV-4-2' }, suggestion: { maxDaysSupply: 90 } })
-  } else trace.push(g4('when[0]', false))
+  const unknowns = []
+  if (l.daysSupply === undefined) {
+    trace.push(g4('when', 'unknown'), g4('when[0]', 'unknown', says('No days’ supply on the line', 'لا توجد أيام إمداد على البند')))
+    unknowns.push('G-004')
+  } else if (l.daysSupply > 90) {
+    trace.push(g4('when', true), g4('when[0]', true))
+    fired.push({ ruleId: 'G-004', version: 4, severity: 'REFUSE', en: `${l.daysSupply} days in one request; the maximum is 90`, ar: `${l.daysSupply} يوماً في طلب واحد؛ الحد الأقصى 90`, codes: { conflict: 'MX', nphies: 'CV-4-2' }, suggestion: { maxDaysSupply: 90 } })
+  } else trace.push(g4('when', false), g4('when[0]', false))
   const heaviest = ['REFUSE', 'OVERRIDE', 'WARN'].find((s) => fired.some((f) => f.severity === s))
   // Review 3126 P6a (guessed `category`): the stub does not run the category rules; it names K-002 on item 200101
   // so the drive sees a rule-set line, and leaves the item master's category on every other line.
   const category = l.item === '200101' ? { group: 'G1', ruleId: 'K-002' } : { group: 'G2', ruleId: null }
-  return { outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, trace, category }
+  return { line: l.line, outcome: heaviest ? heaviest.toLowerCase() : 'pass', fired, unknowns, trace, category }
 }
 
 /** `POST InsuranceRules/Guards/Simulate` — deterministic over the request's lines. */
 export const simulateGuards = (body) => ({ lines: (body?.request?.lines ?? []).map(simulateLine) })
 
-/** A finished back-test's report over `days` (the fires grow with the window). One key arrives WHOLE: the screen masks it. */
-export function backtestReport(days, revision = RULESET.revision) {
+/** A finished back-test's report over `days` (the fires grow with the window). One key arrives WHOLE: the screen masks it.
+ * `stoppedTotal` is beyond the 3 rows sent, as HQ's first-500 cut is on a bigger history. */
+export function backtestReport(days, revision = RULESET.revision, id = 'BT-41') {
   const k = days / 30
   return {
+    id,
     status: 'done',
     progress: 1,
     revision,
+    days,
+    requestedBy: 'nalharbi',
+    requestedAt: '2026-10-27T10:00:00',
+    finishedAt: '2026-10-27T10:03:00',
+    error: null,
+    since: days === 90 ? '2026-07-29' : days === 180 ? '2026-04-30' : '2026-09-27',
+    requests: 1200 * k,
+    lines: 3400 * k,
     fires: { refuse: 4 * k, override: 30 * k, warn: 6 * k },
     stopped: [
-      { on: '2026-10-26T18:42:10', store: 'P019', item: '100101', maskedKey: '10••••••83', sar: 450.5 },
-      { on: '2026-10-25', store: 'P001', item: '100201', maskedKey: '24••••••19', sar: 612 },
-      { on: '2026-10-21T09:05:00', store: 'P107', item: '100102', maskedKey: '1198765408', sar: 380.25 },
+      { on: '2026-10-26', store: 'P019', item: '100101', maskedKey: '1*******83', sar: 450.5, rules: ['G-007'] },
+      { on: '2026-10-25', store: 'P001', item: '100201', maskedKey: '2*******19', sar: 612, rules: ['G-007', 'G-004'] },
+      { on: '2026-10-21', store: 'P107', item: '100102', maskedKey: '1198765408', sar: 380.25, rules: ['G-004'] },
     ],
+    stoppedTotal: 34 * k,
     sar: 1442.75,
     distinct: { patients: 21 * k, stores: 7, pharmacists: 9 },
     overlap: 12 * k,
+    rules: [
+      { ruleId: 'G-007', fires: 30 * k, stopped: 30 * k },
+      { ruleId: 'G-004', fires: 4 * k, stopped: 4 * k },
+      { ruleId: 'G-010', fires: 6 * k, stopped: 0 },
+    ],
   }
 }
 
-/** The back-test jobs and what was asked of them. A job runs for its first read, then is done. */
+/** The back-test jobs (oldest first) and what was asked of them. A job runs until it has been read once, then is done. */
 export const newBacktestStore = () => ({ next: 41, jobs: { 'BT-OLD': { days: 30, reads: 1, revision: 11 } }, starts: [], simulates: [] })
+
+/** A job as HQ answers it: running (40 %) on its first read, done after. */
+const jobView = (id, job) => {
+  job.reads += 1
+  if (job.reads === 1)
+    return { ...backtestReport(job.days, job.revision, id), status: 'running', progress: 0.4, finishedAt: null, requests: 0, lines: 0, fires: { refuse: 0, override: 0, warn: 0 }, stopped: [], stoppedTotal: 0, sar: 0, distinct: { patients: 0, stores: 0, pharmacists: 0 }, overlap: 0, rules: [] }
+  return backtestReport(job.days, job.revision, id)
+}
 
 /**
  * 612's doors. `opts.store` is a `newBacktestStore()`; `opts.deny` names doors (`simulate`, `startBacktest`,
- * `backtest`) answered with a bare 403. Call it before `insuranceRulesStub` (which serves the draft).
+ * `backtest`, `backtests`) answered with a bare 403. Call it before `insuranceRulesStub` (which serves the draft).
  */
 export function simulatorStub(method, path, body, opts = {}) {
   const { store = newBacktestStore(), deny = [] } = opts
@@ -1796,18 +1825,22 @@ export function simulatorStub(method, path, body, opts = {}) {
   if (method === 'POST' && path === 'InsuranceRules/Guards/Backtests') {
     store.starts.push(body)
     if (deny.includes('startBacktest')) return { status: 403, body: '' }
+    const days = body?.days ?? 90
     const id = `BT-${store.next++}`
-    store.jobs[id] = { days: body?.days ?? 30, reads: 0, revision: RULESET.revision }
-    return envelope({ id })
+    store.jobs[id] = { days, reads: 0, revision: RULESET.revision }
+    return envelope({ ...jobView(id, { ...store.jobs[id] }), status: 'queued', progress: 0 })
+  }
+  if (method === 'GET' && path === 'InsuranceRules/Guards/Backtests') {
+    if (deny.includes('backtests')) return { status: 403, body: '' }
+    return envelope(Object.entries(store.jobs).reverse().map(([id, job]) => jobView(id, job)))
   }
   const read = method === 'GET' && path.match(/^InsuranceRules\/Guards\/Backtests\/([^/]+)$/)
   if (read) {
     if (deny.includes('backtest')) return { status: 403, body: '' }
-    const job = store.jobs[decodeURIComponent(read[1])]
-    if (!job) return envelope(null, { status: 404, success: false, message: 'No such back-test.', errorCode: 'BACKTEST-NOT-FOUND' })
-    job.reads += 1
-    if (job.reads === 1) return envelope({ ...backtestReport(job.days, job.revision), status: 'running', progress: 0.4, fires: { refuse: 0, override: 0, warn: 0 }, stopped: [], sar: 0, distinct: { patients: 0, stores: 0, pharmacists: 0 }, overlap: 0 })
-    return envelope(backtestReport(job.days, job.revision))
+    const id = decodeURIComponent(read[1])
+    const job = store.jobs[id]
+    if (!job) return envelope(null, { status: 404, success: false, message: 'No such back-test.', errorCode: 'GUARDS_NOT_FOUND' })
+    return envelope(jobView(id, job))
   }
   return null
 }

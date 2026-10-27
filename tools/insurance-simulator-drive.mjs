@@ -2,10 +2,11 @@
 //
 // Drives the REAL app in Chromium against STUBS on the REAL envelope (`tools/insurance-rules-stubs.mjs`, section 612):
 //   POST InsuranceRules/Guards/Simulate   { request, patientKey } → simulateGuards(body) (G-007 + G-004 over each line)
-//   POST InsuranceRules/Guards/Backtests  { days }               → { id: BT-41, … }
+//   POST InsuranceRules/Guards/Backtests  { days }               → the back-test BT-41, queued
+//   GET  InsuranceRules/Guards/Backtests                         → the draft's back-tests, newest first
 //   GET  InsuranceRules/Guards/Backtests/{id}                    → running (first read), then backtestReport(days)
 //   GET  InsuranceRules/Guards/Draft                             → RULESET (revision 12; the trace's sentences)
-// 🚩 NOTHING here is driven against a live SIS.Api: 3140 is unbuilt. Ticket 618 swaps in the live doors.
+// Shapes as BUILT in BackOffice 3140; 🚩 still NOTHING here is driven against a live SIS.Api (ticket 618).
 //
 // It verifies, in LTR and RTL:
 //   1. the Simulator leaf is in the rail; /insurance-rules/simulator opens on Simulate;
@@ -14,9 +15,12 @@
 //   4. line 1 (a GLP-1 pen, no diabetes code): Refused unless overridden by G-007, its codes ltr, its EN + AR message,
 //      the trace laid on G-007's sentences (true / false / unknown, NOT on its node, why as <bdi>); G-004 read, false;
 //   5. line 2 (120 days): Refused by G-004 with its suggestion; G-007 short-circuits (a condition shows "Not read");
-//   6. back-test: pick 90 days, start, follow the progress, read fires by severity, SAR, distinct patients / stores /
-//      pharmacists, overlap; the stopped requests with every patient key masked (one sent whole is masked here);
+//   6. back-test: with no ?id= the tab shows the draft's own back-test (GET …/Backtests: none of revision 12 → the
+//      old one, out of date); pick 90 days, start, follow the progress, read requests / lines, fires by severity,
+//      SAR, distinct patients / stores / pharmacists, overlap, by rule; the stopped lines ("first 3 of 102") with
+//      every patient key masked (one sent whole is masked here: first digit + last two);
 //   7. the job is in the address: a reload reads it again; an old revision's back-test says the draft changed;
+//      without ?id= the draft's finished back-test of revision 12 is the one shown;
 //   8. a bare 403 on Simulate / Backtests is "You do not have access";
 //   9. no raw keys and no page errors.
 //
@@ -83,8 +87,8 @@ const EXPECTED_BODY = {
     policy: 'POL-77',
     class: 'A',
     lines: [
-      { item: '100101', qty: 2, unit: 'PEN', daysSupply: 28, icd: ['E66.9'], price: 450.5 },
-      { item: '200101', qty: 1, unit: 'TAB', daysSupply: 120, icd: ['E11.9', 'I10'], price: 35 },
+      { line: 1, item: '100101', qty: 2, unit: 'PEN', daysSupply: 28, icd: ['E66.9'], price: 450.5 },
+      { line: 2, item: '200101', qty: 1, unit: 'TAB', daysSupply: 120, icd: ['E11.9', 'I10'], price: 35 },
     ],
   },
   patientKey: SIM_PATIENT,
@@ -125,6 +129,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-result-line="2"]').waitFor({ timeout: 10000 })
     check(`${dir} 3. the body is the brief's, exactly`, JSON.stringify(store.simulates.at(-1)) === JSON.stringify(EXPECTED_BODY), JSON.stringify(store.simulates.at(-1)))
     check(`${dir} 3. the patient key never reaches the address`, !page.url().includes(SIM_PATIENT))
+    check(`${dir} 3. no document is sent: HQ runs the saved draft`, !('document' in (store.simulates.at(-1) ?? {})))
 
     // 4. line 1
     const l1 = page.locator('[data-result-line="1"]')
@@ -152,6 +157,8 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. the trace reads the rule's sentences`, strip(await g7.locator('li[data-trace-path="when[0].conditions[0]"] > div [data-sentence]').innerText()) === 'the item is in GLP-1 and biologics')
     check(`${dir} 4. why is free text in a <bdi>`, strip(await g7.locator('li[data-trace-path="when[0].conditions[2].conditions[1]"] [data-why] bdi').innerText()) === 'The policy is not known to HQ')
     check(`${dir} 4. G-004 read, false`, JSON.stringify(await traceOf(page, 1, 'G-004')) === JSON.stringify(['when[0] = false']))
+    check(`${dir} 4. the whole condition ("when") heads G-007's tree, not set aside`, (await g7.locator('[data-trace-whole="true"] [data-trace-value="true"]').count()) === 1 && (await g7.locator('[data-trace-loose]').count()) === 0)
+    check(`${dir} 4. a line every rule decided shows no unknowns`, (await l1.locator('[data-unknowns]').count()) === 0)
 
     // 5. line 2
     const l2 = page.locator('[data-result-line="2"]')
@@ -164,12 +171,22 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5b. line 1 keeps the item master's category`, (await l1.locator('[data-line-category="G2"][data-category-rule=""]').count()) === 1 && ['Category Brand from the item master (no category rule matched)', 'الفئة تجاري من بيانات الصنف (لم تنطبق قاعدة فئة)'].includes(strip(await l1.locator('[data-line-category]').innerText())), strip(await l1.locator('[data-line-category]').innerText()))
     check(`${dir} 5b. line 2 names the category rule that set it, linked`, (await l2.locator('[data-line-category="G1"]').count()) === 1 && (await l2.locator('a[data-category-link="K-002"]').getAttribute('href')) === '/insurance-rules/categories?rule=K-002')
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
+
+    // 5c. a line with no days' supply: G-004 cannot decide, named under the line
+    await page.locator('[data-line="2"] input[data-field="daysSupply"]').fill('')
+    await page.locator('[data-run]').click()
+    await page.locator('[data-result-line="2"] [data-unknowns]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 5c. the body leaves days' supply out of line 2`, !('daysSupply' in (store.simulates.at(-1)?.request?.lines?.[1] ?? { daysSupply: 0 })), JSON.stringify(store.simulates.at(-1)?.request?.lines?.[1]))
+    const unk = page.locator('[data-result-line="2"] [data-unknowns]')
+    check(`${dir} 5c. line 2 names G-004 as undecided, linked, ltr`, (await unk.locator('a[data-unknown-rule="G-004"]').getAttribute('href').catch(() => null)) === '/insurance-rules/guards/G-004' && (await unk.locator('bdi[dir="ltr"]').innerText().catch(() => '')) === 'G-004')
+    check(`${dir} 5c. G-004's whole condition reads Unknown`, (await page.locator('[data-result-line="2"] [data-traced-rule="G-004"] [data-trace-whole="unknown"]').count()) === 1)
     await page.screenshot({ path: `tools/.insurance-simulator-shots/${dir}-simulate.png`, fullPage: true }).catch(() => {})
 
     // ── 6: Back-test ──────────────────────────────────────────────────────────────────────────
     await page.locator('[data-tab="backtest"]').click()
-    await page.locator('[data-backtest-none]').waitFor({ timeout: 5000 }).catch(() => {})
-    check(`${dir} 6. Back-test tab in the address, none started yet`, new URL(page.url()).searchParams.get('tab') === 'backtest' && (await page.locator('[data-backtest-none]').isVisible()))
+    await page.locator('[data-backtest-report="BT-OLD"]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 6. Back-test tab in the address, no ?id=`, new URL(page.url()).searchParams.get('tab') === 'backtest' && !new URL(page.url()).searchParams.get('id'))
+    check(`${dir} 6. with none of revision 12, the draft's newest back-test shows, out of date`, (await page.locator('[data-backtest-report="BT-OLD"] [data-backtest-revision="stale"]').count()) === 1)
     await page.waitForURL(/tab=backtest/, { timeout: 5000 }).catch(() => {})
     await page.locator('[data-days="90"]').click()
     await page.waitForFunction(() => document.querySelector('[data-days="90"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 5000 }).catch(() => {})
@@ -178,22 +195,26 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-backtest-running]').waitFor({ timeout: 5000 }).catch(() => {})
     check(`${dir} 6. the start asks for 90 days`, JSON.stringify(store.starts) === JSON.stringify([{ days: 90 }]), JSON.stringify(store.starts))
     check(`${dir} 6. the job is in the address`, new URL(page.url()).searchParams.get('id') === 'BT-41')
-    check(`${dir} 6. its progress is followed`, (await page.locator('[data-backtest-running="running"] [data-progress="40"]').count()) === 1 && strip(await page.locator('[data-progress]').innerText()) === '40% done')
+    check(`${dir} 6. its progress is followed`, (await page.locator('[data-backtest-running] [data-progress]').count()) === 1 && /^(0|40)% done$/.test(strip(await page.locator('[data-progress]').innerText())), strip(await page.locator('[data-progress]').innerText().catch(() => '')))
     await page.locator('[data-backtest-report="BT-41"]').waitFor({ timeout: 10000 })
     check(`${dir} 6. it is read again until done`, store.jobs['BT-41'].reads >= 2)
     const tile = async (k) => strip(await page.locator(`[data-tile="${k}"] [data-figure]`).innerText())
-    const tiles = await Promise.all(['fires', 'REFUSE', 'OVERRIDE', 'WARN', 'sar', 'patients', 'stores', 'pharmacists'].map(tile))
-    check(`${dir} 6. tiles: 120 fires (12 / 90 / 18), 1442.75 SAR, 63 patients, 7 stores, 9 pharmacists`, JSON.stringify(tiles) === JSON.stringify(['120', '12', '90', '18', '1442.75', '63', '7', '9']), JSON.stringify(tiles))
-    check(`${dir} 6. every tile figure is an ltr isolate`, (await page.locator('[data-tile] [data-figure] bdi[dir="ltr"]').count()) === 8)
-    check(`${dir} 6. the severity tiles read heaviest first`, JSON.stringify(await page.locator('[data-tile]').evaluateAll((els) => els.slice(1, 4).map((e) => e.getAttribute('data-tile')))) === JSON.stringify(['REFUSE', 'OVERRIDE', 'WARN']))
-    check(`${dir} 6. the overlap with live guards`, strip(await page.locator('[data-overlap]').innerText()) === '36 of 120 fires are on requests a live guard already fires on.')
+    const tiles = await Promise.all(['requests', 'lines', 'fires', 'REFUSE', 'OVERRIDE', 'WARN', 'sar', 'patients', 'stores', 'pharmacists'].map(tile))
+    check(`${dir} 6. tiles: 3600 requests, 10200 lines, 120 fires (12 / 90 / 18), 1442.75 SAR, 63 patients, 7 stores, 9 pharmacists`, JSON.stringify(tiles) === JSON.stringify(['3600', '10200', '120', '12', '90', '18', '1442.75', '63', '7', '9']), JSON.stringify(tiles))
+    check(`${dir} 6. every tile figure is an ltr isolate`, (await page.locator('[data-tile] [data-figure] bdi[dir="ltr"]').count()) === 10)
+    check(`${dir} 6. the severity tiles read heaviest first`, JSON.stringify(await page.locator('[data-tile]').evaluateAll((els) => els.slice(3, 6).map((e) => e.getAttribute('data-tile')))) === JSON.stringify(['REFUSE', 'OVERRIDE', 'WARN']))
+    check(`${dir} 6. the overlap with live guards`, strip(await page.locator('[data-overlap]').innerText()) === 'On 36 of the lines it fired on, a live guard fired too.', strip(await page.locator('[data-overlap]').innerText()))
+    check(`${dir} 6. the window and who asked`, strip(await page.locator('[data-backtest-window]').innerText()) === 'Replayed 90 days from 2026-07-29. Requested by nalharbi · 2026-10-27 10:00', strip(await page.locator('[data-backtest-window]').innerText()))
+    const byRule = await page.locator('[data-by-rule] [data-rule-row]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-rule-row'), e.querySelector('[data-col="fires"]').textContent.replace(/[\u2066-\u2069]/g, ''), e.querySelector('[data-col="stopped"]').textContent.replace(/[\u2066-\u2069]/g, '')].join(':')))
+    check(`${dir} 6. by rule: fires and lines stopped`, JSON.stringify(byRule) === JSON.stringify(['G-007:90:90', 'G-004:12:12', 'G-010:18:0']), JSON.stringify(byRule))
+    check(`${dir} 6. the stopped list says it is the first of all`, (await page.locator('[data-stopped-truncated="102"]').count()) === 1 && strip(await page.locator('[data-stopped-truncated]').innerText()) === 'Showing the first 3 of 102.')
+    check(`${dir} 6. a stopped line names its rules, ltr`, JSON.stringify(await page.locator('[data-stopped-row="1"] [data-col="rules"] bdi[dir="ltr"]').allInnerTexts()) === JSON.stringify(['G-007', 'G-004']))
     check(`${dir} 6. it is the draft's current revision`, (await page.locator('[data-backtest-revision]').getAttribute('data-backtest-revision')) === 'current' && strip(await page.locator('[data-backtest-revision]').innerText()) === "Back-test of draft revision 12. It is the draft's current revision.")
     const keys = await page.locator('[data-stopped] [data-col="patient"] bdi[dir="ltr"]').allInnerTexts()
-    check(`${dir} 6. every patient key masked (one sent whole is masked here)`, JSON.stringify(keys) === JSON.stringify(['10••••••83', '24••••••19', '11••••••08']), JSON.stringify(keys))
+    check(`${dir} 6. every patient key masked (one sent whole is masked here, as HQ does)`, JSON.stringify(keys) === JSON.stringify(['1*******83', '2*******19', '1*******08']), JSON.stringify(keys))
     check(`${dir} 6. no whole patient key anywhere on screen`, !/\b[12]\d{9}\b/.test(await page.locator('[data-backtest-report]').innerText()))
     const row0 = await Promise.all(['on', 'store', 'item', 'sar'].map(async (c) => strip(await page.locator(`[data-stopped-row="0"] [data-col="${c}"] bdi[dir="ltr"]`).innerText())))
-    check(`${dir} 6. a stopped request: local moment, store, item, SAR — each ltr`, JSON.stringify(row0) === JSON.stringify(['2026-10-26 18:42', 'P019', '100101', '450.50']), JSON.stringify(row0))
-    check(`${dir} 6. a day-only stopped request reads as a day`, strip(await page.locator('[data-stopped-row="1"] [data-col="on"]').innerText()) === '2026-10-25')
+    check(`${dir} 6. a stopped line: local day, store, item, SAR — each ltr`, JSON.stringify(row0) === JSON.stringify(['2026-10-26', 'P019', '100101', '450.50']), JSON.stringify(row0))
     check(`${dir} 6. no raw keys`, await noRawKeys(page))
     await page.screenshot({ path: `tools/.insurance-simulator-shots/${dir}-backtest.png`, fullPage: true }).catch(() => {})
 
@@ -204,6 +225,9 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/simulator?tab=backtest&id=BT-OLD`)
     await page.locator('[data-backtest-report="BT-OLD"]').waitFor({ timeout: 30000 }).catch(() => {})
     check(`${dir} 7. an old revision's back-test says the draft changed`, (await page.locator('[data-backtest-revision="stale"]').count()) === 1 && strip(await page.locator('[data-backtest-revision]').innerText()) === 'Back-test of draft revision 11. The draft has changed since (now revision 12): run it again before asking for approval.', strip(await page.locator('[data-backtest-revision]').innerText().catch(() => '')))
+    await page.goto(`${BASE}/insurance-rules/simulator?tab=backtest`)
+    await page.locator('[data-backtest-report="BT-41"]').waitFor({ timeout: 30000 }).catch(() => {})
+    check(`${dir} 7. without ?id= the draft's finished back-test of revision 12 shows (GET …/Backtests)`, (await page.locator('[data-backtest-report="BT-41"] [data-backtest-revision="current"]').count()) === 1)
 
     check(`${dir} 9. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()

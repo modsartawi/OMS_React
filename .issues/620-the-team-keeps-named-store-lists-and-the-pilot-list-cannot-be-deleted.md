@@ -61,3 +61,6 @@ Decisions (overrulable; 628 reconciles against BackOffice 3162):
   success; a bare 403 on a write reads "You do not have access". Successes toast.
 - Stub state is `state.storeLists`, made lazily so `newIdfState` stays 619's. 621's store-list picker can read
   `storeListsQuery()` (and could show the name where 619 shows the id).
+- **Review fixes (2026-10-27):** the stores editor's dirty check compares sets (`sameStoreSet`, order-insensitive),
+  so removing a store and adding it back is not an edit; after a save the editor re-seeds from the server's
+  `storeCodes` (its order and spelling). Pure test + drive check (62/62).

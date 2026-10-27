@@ -20,7 +20,8 @@ export type IdfTier = (typeof IDF_TIERS)[number]
 /** `GET IdfPriority/lookup` (3168). */
 export interface IdfLookupAnswer {
   /** null when the general master (the item's own priority) decided. */
-  decidingMaster: { masterId: string; kind: IdfMasterKind; versionId?: string | null } | null
+  /** `tier`, when the answer carries it (not in the brief's sketch; 628 reconciles), is preferred if it fits the kind. */
+  decidingMaster: { masterId: string; kind: IdfMasterKind; versionId?: string | null; tier?: string | null } | null
   skippedTiers: { tier: string; reasonEn: string; reasonAr: string }[]
   priority: number | null
   hardThreshold?: number | null
@@ -75,13 +76,24 @@ const rank = (tier: string) => {
   return i < 0 ? IDF_TIERS.length : i
 }
 
+/**
+ * The tier that decided, read off the deciding master — never inferred from the skipped list, so it never contradicts
+ * the kind badge: none → general; a store master → operation pharmacy; an insurer master → insurer + store list when
+ * the answer says so or the masters list has it scoped to a store list, else insurer.
+ */
+export function decidingTierOf(d: IdfLookupAnswer['decidingMaster'], masters: IdfMaster[] = []): IdfTier {
+  if (!d) return 'general'
+  if (d.kind === 'store') return 'operationPharmacy'
+  if (d.tier === 'insurerStoreList' || d.tier === 'insurer') return d.tier
+  return masters.find((m) => m.masterId === d.masterId)?.storeListId ? 'insurerStoreList' : 'insurer'
+}
+
 export function lookupView(a: IdfLookupAnswer, q: IdfLookupQuery, lang: string, masters: IdfMaster[] = []): IdfLookupView {
   const skipped = [...a.skippedTiers]
     .map((s, i) => ({ s, i }))
     .sort((x, y) => rank(x.s.tier) - rank(y.s.tier) || x.i - y.i)
     .map(({ s }) => ({ tier: s.tier, reason: byLang(s.reasonEn, s.reasonAr, lang) }))
-  const skippedSet = new Set(skipped.map((s) => s.tier))
-  const decidingTier = a.decidingMaster ? (IDF_TIERS.find((t) => t !== 'general' && !skippedSet.has(t)) ?? 'general') : 'general'
+  const decidingTier = decidingTierOf(a.decidingMaster, masters)
 
   let master: IdfLookupView['master'] = null
   if (a.decidingMaster) {

@@ -66,3 +66,7 @@ Decisions (overrulable; 628 reconciles with 3168):
   checks whether 3168 sends it (or drop it).
 - **Search in the URL** via `useUrlQuery` (`item`, `store`, `payer`, `documentType`; blanks dropped); the door is
   asked only when item, store and payer are all given. Unknown item = business refusal shown via `apiErrorMessage`.
+- **Review fixes (2026-10-27):** the deciding tier is derived from the answer (`decidingTierOf`), never from the
+  skipped list: no deciding master → general; a store master → operationPharmacy; an insurer master → the answer's
+  own `tier` when it carries an insurer one (⚠️ not in the brief; 628 reconciles), else insurerStoreList when 619's
+  list has that master scoped to a store list, else insurer. It can no longer contradict the kind badge.

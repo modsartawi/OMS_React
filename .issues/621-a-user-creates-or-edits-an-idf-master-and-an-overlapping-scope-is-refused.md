@@ -67,3 +67,8 @@ Decisions (overrulable; 628 reconciles against BackOffice 3161/3162):
   while the lists load or when the list is unknown. 619's drive checks updated accordingly.
 - Refusals stay in the dialog with the input kept; a bare 403 on save reads "You do not have access to change IDF
   masters." (ungated until 628). Success toasts and invalidates every IDF query (`IDF_KEY`).
+- **Review fixes (2026-10-27):** switching kind on create goes through `withKind`, which clears the payer and the
+  store list (an insurer's scope never becomes a store master's list, nor the reverse), so `masterBody` only ever
+  sends a list picked under the current kind. The help's resolution order now reuses `IDF_TIERS` and the lookup's
+  tier words (`lookup.tier.*`); its own `ORDER` and the `masterForm.order.*` keys (EN + AR) are gone. A store master
+  sits on `operationPharmacy`. Drive updated (86/86).

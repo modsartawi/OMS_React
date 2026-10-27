@@ -12,14 +12,15 @@ import Ltr from '@/core/ui/Ltr'
 import { saveBlob } from '@/core/util/download-file'
 import { formatFigure, formatMoney } from '@/core/util/number-format'
 import { idfReportApi, mastersQuery, swapReportQuery } from './api'
-import { formatTimeSpent, IDF_EVENT_FILTER_OUTCOMES } from './events'
+import { formatTimeSpent } from './events'
 import type { IdfEventsFilter } from './events-filter'
 import { masterName } from './masters'
-import { swapReportFileName, swapRowKey, type IdfSwapReportRow } from './report'
+import { swapReportColumns, swapReportCount, swapReportFileName, swapRowKey, type IdfSwapReportRow, type SwapReportColumn } from './report'
 
 /**
  * Insurance rules ▸ IDF events ▸ Swap report (BackOffice spec 3157, door 3169; oms ticket 627). The event log's
- * filter (window, store, payer, master) grouped master × store × payer: a count per outcome, the summed price
+ * filter (window, store, payer, master) grouped master × store × payer: a count per outcome (a reserved outcome or an unknown code gets a column when a row carries it — 'other' for the
+ * unknown — so the totals match the server's), the summed price
  * difference on picks taken (money, a machine value) and the average time spent. **Export** saves the server's
  * `.xlsx` for the same filter through `api.blob` — never a client-built file.
  */
@@ -55,7 +56,8 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
         {t('report.empty')}
       </p>
     )
-  else
+  else {
+    const columns = swapReportColumns(report.data)
     body = (
       <div className="overflow-x-auto rounded-md border border-border/60">
         <table className="w-full text-sm" data-idf-report="">
@@ -64,9 +66,9 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
               <th className={TH}>{t('report.columns.master')}</th>
               <th className={TH}>{t('report.columns.store')}</th>
               <th className={TH}>{t('report.columns.payer')}</th>
-              {IDF_EVENT_FILTER_OUTCOMES.map((o) => (
+              {columns.map((o) => (
                 <th key={o} className={`${TH} text-end`} data-outcome-col={o}>
-                  {t(`events.outcome.${o}`)}
+                  {o === 'other' ? t('report.columns.otherOutcome') : t(`events.outcome.${o}`)}
                 </th>
               ))}
               <th className={`${TH} text-end`}>{t('report.columns.priceDifference')}</th>
@@ -75,12 +77,13 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
           </thead>
           <tbody>
             {report.data.map((r) => (
-              <ReportRow key={swapRowKey(r)} r={r} masterName={r.masterId ? nameOf(r.masterId) : null} />
+              <ReportRow key={swapRowKey(r)} r={r} columns={columns} masterName={r.masterId ? nameOf(r.masterId) : null} />
             ))}
           </tbody>
         </table>
       </div>
     )
+  }
 
   return (
     <div className="flex flex-col gap-2" data-idf-report-tab="">
@@ -98,7 +101,7 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
   )
 }
 
-function ReportRow({ r, masterName: name }: { r: IdfSwapReportRow; masterName: string | null }) {
+function ReportRow({ r, columns, masterName: name }: { r: IdfSwapReportRow; columns: SwapReportColumn[]; masterName: string | null }) {
   const { t } = useTranslation('insurance-idf')
   const avg = formatTimeSpent(r.averageTimeSeconds)
   const money = formatMoney(r.priceDifference)
@@ -113,9 +116,9 @@ function ReportRow({ r, masterName: name }: { r: IdfSwapReportRow; masterName: s
       <td className={TD} data-col="payer">
         {r.payerCode && <Ltr>{r.payerCode}</Ltr>}
       </td>
-      {IDF_EVENT_FILTER_OUTCOMES.map((o) => (
+      {columns.map((o) => (
         <td key={o} className={NUM} data-col={`count-${o}`}>
-          <Ltr>{formatFigure(r.counts[o] ?? 0)}</Ltr>
+          <Ltr>{formatFigure(swapReportCount(r, o))}</Ltr>
         </td>
       ))}
       <td className={NUM} data-col="priceDifference">

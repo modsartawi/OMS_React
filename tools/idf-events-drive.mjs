@@ -148,10 +148,22 @@ for (const dir of ['ltr', 'rtl']) {
       JSON.stringify(await ids(page)) === JSON.stringify(['E-026', 'E-027', 'E-028', 'E-029', 'E-030']) && param(page, 'page') === '2' && lastRead(reads).page === '2',
       JSON.stringify(await ids(page)))
     check(`${dir} 4. page 2 reads "Page 2 of 2"`, strip(await page.locator('nav[aria-label="Result pages"] span').innerText()) === 'Page 2 of 2')
+    // review fix: leaving an untouched store box (or pressing Enter in it) changes nothing — the page stays 2
+    const readsBefore = reads.events?.length ?? 0
+    await page.locator('[data-filter="store"]').focus()
+    await page.locator('[data-filter="store"]').press('Enter')
+    await page.locator('[data-filter="payer"]').focus()
+    await page.locator('[data-filter="payer"]').blur()
+    await page.waitForTimeout(400)
+    check(`${dir} 4. an untouched store or payer box keeps page 2, no new read`, param(page, 'page') === '2' && (reads.events?.length ?? 0) === readsBefore, `${page.url()} ${readsBefore}→${reads.events?.length}`)
     before = await firstId(page)
+    const urlWrites = []
+    page.on('framenavigated', (f) => f === page.mainFrame() && urlWrites.push(f.url()))
     await page.locator('[data-filter="store"]').fill('P019')
     await page.locator('[data-filter="store"]').press('Enter')
     await settle(page, before)
+    await page.waitForTimeout(300)
+    check(`${dir} 4. Enter writes the typed store to the address once`, urlWrites.filter((u) => u.includes('store=P019')).length <= 1 && param(page, 'store') === 'P019', JSON.stringify(urlWrites))
     const stores = await attrs(page, 'data-event')
     check(`${dir} 4. a typed store filters and goes back to page 1`, param(page, 'page') === null && param(page, 'store') === 'P019' && lastRead(reads).store === 'P019' && lastRead(reads).page === '1' && stores.length === 15, `${page.url()} ${stores.length}`)
 

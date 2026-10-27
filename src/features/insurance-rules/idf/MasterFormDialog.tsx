@@ -19,10 +19,10 @@ import {
   newMasterForm,
   type IdfMasterForm,
   type IdfMasterFormProblem,
+  withKind,
 } from './master-form'
+import { IDF_TIERS, type IdfTier } from './lookup'
 import { IDF_MASTER_KINDS, masterName, type IdfMaster } from './masters'
-
-const ORDER = ['insurerStoreList', 'insurer', 'store', 'general'] as const
 
 /**
  * Create or edit an IDF master (BackOffice spec 3157, doors 3161/3162; oms ticket 621). Kind is picked on create
@@ -50,7 +50,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
       onClose()
     },
   })
-  const tier = form.kind === 'store' ? 'store' : form.storeListId ? 'insurerStoreList' : 'insurer'
+  const tier: IdfTier = form.kind === 'store' ? 'operationPharmacy' : form.storeListId ? 'insurerStoreList' : 'insurer'
 
   return (
     <Modal
@@ -84,7 +84,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
           <div className="flex flex-wrap gap-3" role="radiogroup">
             {IDF_MASTER_KINDS.map((k) => (
               <label key={k} className="inline-flex items-center gap-1.5 text-sm text-foreground">
-                <input type="radio" name="kind" value={k} checked={form.kind === k} onChange={() => set('kind', k)} data-kind-option={k} />
+                <input type="radio" name="kind" value={k} checked={form.kind === k} onChange={() => setForm((f) => withKind(f, k))} data-kind-option={k} />
                 {t(`masters.kind.${k}`)}
               </label>
             ))}
@@ -151,9 +151,9 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
           <h3 className="font-semibold text-foreground">{t('masterForm.orderTitle')}</h3>
           <p className="mt-1 text-muted-foreground">{t('masterForm.orderHint')}</p>
           <ol className="mt-1 list-decimal ps-5">
-            {ORDER.map((o) => (
+            {IDF_TIERS.map((o) => (
               <li key={o} data-tier={o} data-this-one={o === tier ? '' : undefined} className={o === tier ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
-                {t(`masterForm.order.${o}`)}
+                {t(`lookup.tier.${o}`)}
                 {o === tier && <span className="ms-2 rounded-full bg-primary/10 px-2 py-0.5 text-primary">{t('masterForm.thisOne')}</span>}
               </li>
             ))}

@@ -64,3 +64,6 @@ Decisions (overrulable; 628 reconciles with 3166):
   `{ reason }`).
 - A row whose master is not in 619's list shows its `masterId` (Ltr) instead of a name.
 - No client-side duplicate-key check: a clash is the server's to refuse (its envelope message is toasted).
+- **Review fixes (2026-10-27):** the dialog's master `<select>` keeps a fallback `<option>` (in `fsi()`) for a
+  `masterId` the list does not hold, as the master form and the events filter do. Not drive-proven: the stub has
+  no exception naming an unknown master (typecheck + read).

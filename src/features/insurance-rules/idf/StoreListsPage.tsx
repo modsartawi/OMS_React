@@ -14,7 +14,7 @@ import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { DeniedCard, FORM_INPUT, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_STORE_LISTS_KEY, idfStoreListsApi, storeListsQuery } from './api'
-import { addStores, removeStore, type IdfStoreList } from './store-lists'
+import { addStores, removeStore, sameStoreSet, type IdfStoreList } from './store-lists'
 
 /**
  * Insurance rules ▸ IDF store lists — `/insurance-rules/idf/store-lists` (BackOffice spec 3157, door 3162; oms
@@ -220,11 +220,16 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
 /** One list's stores, edited as a set and saved whole. */
 function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClose: () => void; onRefused: OnRefused }) {
   const { t } = useTranslation('insurance-idf')
-  const saved = list.storeCodes ?? []
+  // The set as last saved: the list's codes, then the server's answer to each save (re-seeded, so the editor shows
+  // what the server kept — its order, its spelling — and nothing reads dirty before the list re-reads).
+  const [saved, setSaved] = useState<string[]>(list.storeCodes ?? [])
   const [set, setSet] = useState<string[]>(saved)
   const [typed, setTyped] = useState('')
-  const dirty = set.length !== saved.length || set.some((c, i) => c !== saved[i])
-  const save = useListWrite((codes: string[]) => idfStoreListsApi.saveStores(list.storeListId, codes), onRefused, () => {
+  const dirty = !sameStoreSet(set, saved)
+  const save = useListWrite((codes: string[]) => idfStoreListsApi.saveStores(list.storeListId, codes), onRefused, (r, codes) => {
+    const kept = r?.storeCodes ?? codes
+    setSaved(kept)
+    setSet(kept)
     notify.success(t('storeLists.stores.done'), fsi(list.name))
   })
   const add = () => {

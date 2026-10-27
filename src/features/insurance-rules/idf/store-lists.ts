@@ -34,3 +34,10 @@ export function removeStore(set: string[], code: string): string[] {
 export function storeSetBody(set: string[]): { storeCodes: string[] } {
   return { storeCodes: [...set] }
 }
+
+/** Whether two store sets hold the same codes, whatever their order (the editor's "is there anything to save"). */
+export function sameStoreSet(a: readonly string[], b: readonly string[]): boolean {
+  const right = new Set(b)
+  const left = new Set(a)
+  return left.size === right.size && [...left].every((c) => right.has(c))
+}

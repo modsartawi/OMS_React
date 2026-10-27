@@ -11,7 +11,7 @@ vi.mock('@/core/api', () => ({ api: { get, blob } }))
 
 const { idfReportApi } = await import('./api')
 const { readIdfEventsQuery, writeIdfEventsQuery, withFilter } = await import('./events-filter')
-const { swapReportFileName } = await import('./report')
+const { swapReportColumns, swapReportCount, swapReportFileName } = await import('./report')
 
 const TODAY = '2026-10-27'
 const read = (qs: string) => readIdfEventsQuery(new URLSearchParams(qs), TODAY)
@@ -31,13 +31,13 @@ describe('swap report and export take the same query as the event filter', () =>
     expect(blob).toHaveBeenCalledWith('IdfPriority/swap-report/export', filter)
   })
 
-  it('emptyFieldsNeverReachEitherDoor', async () => {
+  it('bothDoorsHandTheSameParams_toCoreBuildQuery_whichDropsTheBlankOnes', async () => {
     const q = read('tab=report')
     await idfReportApi.report(q)
     await idfReportApi.export(q)
-    const window = { from: '2026-10-21', to: '2026-10-27' }
-    expect(get).toHaveBeenCalledWith('IdfPriority/swap-report', window)
-    expect(blob).toHaveBeenCalledWith('IdfPriority/swap-report/export', window)
+    const params = { from: '2026-10-21', to: '2026-10-27', store: '', payer: '', masterId: '' }
+    expect(get).toHaveBeenCalledWith('IdfPriority/swap-report', params)
+    expect(blob).toHaveBeenCalledWith('IdfPriority/swap-report/export', params)
   })
 
   it('aMissingReportBody_isNoRows', async () => {
@@ -56,5 +56,33 @@ describe('swap report and export take the same query as the event filter', () =>
 
   it('theExportsFallbackName_namesTheWindow', () => {
     expect(swapReportFileName(read('from=2026-10-01&to=2026-10-15'))).toBe('idf-swap-report-2026-10-01-2026-10-15.xlsx')
+  })
+})
+
+describe('every count the server sends has a column', () => {
+  const OFFERED = ['reminder', 'forcedPickTaken', 'pickCancelled', 'lineAbandoned', 'skippedByException', 'refusedPreAuth']
+  const row = (counts: Record<string, number>) => ({ masterId: 'M-1', storeCode: 'P019', payerCode: 'BUPA', counts })
+
+  it('onlyTheOfferedOutcomes_whenNoRowCarriesAnythingElse', () => {
+    expect(swapReportColumns([row({ reminder: 3, forcedPickTaken: 1 })])).toEqual(OFFERED)
+  })
+
+  it('aReservedOutcomeGetsItsOwnColumn_onlyWhenARowCarriesIt', () => {
+    const rows = [row({ reminder: 1 }), row({ autoApproved: 2, requestRaised: 0 })]
+    expect(swapReportColumns(rows)).toEqual([...OFFERED, 'autoApproved'])
+    expect(swapReportCount(rows[1], 'autoApproved')).toBe(2)
+  })
+
+  it('anUnknownOutcomeCode_isCountedUnderOther_soTheRowTotalMatchesTheServer', () => {
+    const r = row({ reminder: 2, someNewOutcome: 4, another: 1 })
+    const columns = swapReportColumns([r])
+    expect(columns).toEqual([...OFFERED, 'other'])
+    expect(swapReportCount(r, 'other')).toBe(5)
+    expect(columns.reduce((sum, c) => sum + swapReportCount(r, c), 0)).toBe(7)
+  })
+
+  it('aMissingCountIsZero', () => {
+    expect(swapReportCount(row({}), 'reminder')).toBe(0)
+    expect(swapReportCount(row({}), 'other')).toBe(0)
   })
 })

@@ -9,10 +9,11 @@ import Ltr from '@/core/ui/Ltr'
 import { showsPager } from '@/core/ui/pager'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatDateTime } from '@/core/util/date-format'
+import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { eventsQuery, mastersQuery } from './api'
 import { formatTimeSpent, IDF_EVENT_FILTER_OUTCOMES, outcomeWordKey, type IdfEvent } from './events'
-import { IDF_EVENTS_TABS, idfEventsFromParams, idfEventsToParams, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
+import { IDF_EVENTS_TABS, idfEventsFromParams, idfEventsToParams, typedFilter, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
 import { masterName } from './masters'
 import SwapReport from './SwapReport' // 627
 
@@ -75,11 +76,16 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
   const { t, i18n } = useTranslation('insurance-idf')
   const masters = useQuery(mastersQuery())
   const label = 'flex flex-col gap-1 text-xs text-muted-foreground'
-  // Store and payer are typed: they apply on Enter or leaving the box. Keyed on the address (at the input) so Back resets them.
+  // Store and payer are typed: they apply on leaving the box, and Enter leaves it — one write path, so Enter never
+  // writes twice. Only a real change applies (an untouched box keeps the page). Keyed on the address (at the input)
+  // so Back resets them.
   const typed = (field: 'store' | 'payer') => ({
     defaultValue: query[field],
-    onBlur: (e: React.FocusEvent<HTMLInputElement>) => set({ [field]: e.target.value.trim() }),
-    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && set({ [field]: e.currentTarget.value.trim() }),
+    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+      const patch = typedFilter(query, field, e.target.value)
+      if (patch) set(patch)
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur(),
     className: `${INPUT} w-28`,
     dir: 'ltr' as const,
   })
@@ -108,11 +114,11 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
           <option value="">{t('events.anyMaster')}</option>
           {(masters.data ?? []).map((m) => (
             <option key={m.masterId} value={m.masterId}>
-              {masterName(m, i18n.language)}
+              {fsi(masterName(m, i18n.language))}
             </option>
           ))}
           {/* An address naming a master the list does not hold still shows it as chosen. */}
-          {query.masterId && masters.data && !masters.data.some((m) => m.masterId === query.masterId) && <option value={query.masterId}>{query.masterId}</option>}
+          {query.masterId && masters.data && !masters.data.some((m) => m.masterId === query.masterId) && <option value={query.masterId}>{fsi(query.masterId)}</option>}
         </select>
       </label>
       {/* 627: the outcome is the log's own filter, not the report's. */}

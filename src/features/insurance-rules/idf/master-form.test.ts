@@ -4,7 +4,7 @@
  * master needs a payer (a store list optional), a store master a store list; both names are required.
  */
 import { describe, expect, it } from 'vitest'
-import { clashingMasterId, masterBody, masterFormProblems, newMasterForm } from './master-form'
+import { clashingMasterId, masterBody, masterFormProblems, newMasterForm, withKind } from './master-form'
 
 describe('master form defaults thresholds to 4 and 1 and refuses reminder above hard', () => {
   it('a new form starts at hard 4, reminder 1', () => {
@@ -43,6 +43,19 @@ describe('master form requires a payer for insurer and a store list for store', 
     const store = { ...newMasterForm('store'), payerCode: 'LEFTOVER', storeListId: 'SL-OPS', nameEn: 'O', nameAr: 'ع' }
     expect(masterFormProblems(store)).toEqual({})
     expect([masterBody(store).payerCode, masterBody(store).storeListId]).toEqual([null, 'SL-OPS'])
+  })
+  it('switching kind on create clears what belongs to the other kind', () => {
+    const scoped = { ...newMasterForm('insurer'), payerCode: 'TAWUNIYA', storeListId: 'SL-PILOT', nameEn: 'T', nameAr: 'ت', hard: '5' }
+    // an insurer's scope never becomes a store master's list, and its payer goes
+    const store = withKind(scoped, 'store')
+    expect(store).toEqual({ ...scoped, kind: 'store', payerCode: '', storeListId: '' })
+    expect(masterFormProblems(store)).toEqual({ storeListId: 'storeListRequired' })
+    // a store master's list never becomes an insurer's scope
+    const picked = { ...store, storeListId: 'SL-OPS' }
+    expect(withKind(picked, 'insurer')).toEqual({ ...picked, kind: 'insurer', storeListId: '' })
+    expect(masterBody({ ...withKind(picked, 'insurer'), payerCode: 'BUPA' }).storeListId).toBeNull()
+    // picking the same kind again changes nothing
+    expect(withKind(scoped, 'insurer')).toBe(scoped)
   })
   it('blank-only names count as missing', () => {
     const f = { ...newMasterForm('insurer'), payerCode: 'BUPA', nameEn: '   ', nameAr: 'بوبا' }

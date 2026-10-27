@@ -1,7 +1,7 @@
 /**
  * Ticket 625 — "why this priority": the lookup reads the skipped tiers in the fixed order (insurer + store list →
- * insurer → operation pharmacy → general) whatever order the door sends, names the deciding tier as the first one
- * not skipped, reads reasons and descriptions in the reader's language, and marks the looked-up item's row in the
+ * insurer → operation pharmacy → general) whatever order the door sends, names the deciding tier from the deciding master
+ * (its kind, and for an insurer whether it is scoped to a store list), reads reasons and descriptions in the reader's language, and marks the looked-up item's row in the
  * ranked group. The search lives in the URL.
  */
 import { describe, expect, it } from 'vitest'
@@ -86,7 +86,27 @@ describe('lookup reads tiers in the fixed order and marks the looked-up item', (
   it('a master the list does not know is shown by its id and version id', () => {
     const v = lookupView({ ...insurerDecided, decidingMaster: { masterId: 'M-X', kind: 'store', versionId: 'V-99' } }, q, 'en', [])
     expect(v.master).toEqual({ masterId: 'M-X', kind: 'store', name: null, version: 'V-99' })
-    expect(v.decidingTier).toBe('insurer')
+    expect(v.decidingTier).toBe('operationPharmacy')
+  })
+
+  it('the deciding tier follows the deciding master, never the skipped list', () => {
+    const scoped: IdfMaster = { ...masters[0], masterId: 'M-TAW-PILOT', storeListId: 'SL-PILOT' }
+    const store: IdfMaster = { masterId: 'M-OPS', kind: 'store', storeListId: 'SL-OPS', nameEn: 'Ops', nameAr: 'تشغيل' }
+    const all = [...masters, scoped, store]
+    const decided = (masterId: string, kind: 'insurer' | 'store', tier?: string) =>
+      lookupView({ ...insurerDecided, skippedTiers: [], decidingMaster: { masterId, kind, versionId: null, ...(tier ? { tier } : {}) } }, q, 'en', all).decidingTier
+    // nothing skipped, yet a store master decided: the operation pharmacy tier, not the first tier in the order
+    expect(decided('M-OPS', 'store')).toBe('operationPharmacy')
+    // an insurer master scoped to a store list
+    expect(decided('M-TAW-PILOT', 'insurer')).toBe('insurerStoreList')
+    // an unscoped insurer master, even with nothing skipped
+    expect(decided('M-TAW', 'insurer')).toBe('insurer')
+    // an insurer master the list does not know reads as unscoped
+    expect(decided('M-NEW', 'insurer')).toBe('insurer')
+    // a tier the answer carries wins over the list
+    expect(decided('M-TAW', 'insurer', 'insurerStoreList')).toBe('insurerStoreList')
+    // ...but never one that contradicts the kind badge
+    expect(decided('M-OPS', 'store', 'insurer')).toBe('operationPharmacy')
   })
 
   it('the cash rule is shown only when the answer carries it', () => {

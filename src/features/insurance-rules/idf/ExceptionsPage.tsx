@@ -237,6 +237,8 @@ function ExceptionDialog({ row, masters, onClose }: { row: IdfException | null; 
                   {fsi(masterName(m, i18n.language))}
                 </option>
               ))}
+              {/* A row naming a master the list does not hold (or has not returned yet) still shows it as chosen. */}
+              {form.masterId && !masters.some((m) => m.masterId === form.masterId) && <option value={form.masterId}>{fsi(form.masterId)}</option>}
             </select>
             {tried && <Problem problem={problems.masterId} />}
           </label>

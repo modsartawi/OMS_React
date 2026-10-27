@@ -55,3 +55,7 @@ Decisions (overrulable; 3169 finalises the wire):
 - **Export** is enabled only when the report has rows; the file keeps the server's `Content-Disposition` name, else
   `idf-swap-report-<from>-<to>.xlsx`. A failure toasts through `notify.apiError`.
 - **Not paged:** the report is read whole (grouped rows are few); 3169 may add paging.
+- **Review fixes (2026-10-27):** no count vanishes: `swapReportColumns` adds a column for a reserved outcome
+  (`requestRaised`, `autoApproved`) when a row counts one, and an **Other outcomes** column
+  (`report.columns.otherOutcome`, EN + AR) summing any code this build does not know, so on-screen totals match the
+  server's. The report and its export share `filterDoorParams` and core `buildQuery` drops the blanks for both.

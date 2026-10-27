@@ -85,24 +85,29 @@ export function withFilter(q: IdfEventsQuery, patch: Partial<Omit<IdfEventsQuery
   return { ...q, ...patch, page: 1 }
 }
 
+/**
+ * A typed store or payer, as the box is left (or Enter pressed): the patch to apply, or null when the trimmed value
+ * is what the address already holds — so leaving an untouched box never sends the reader back to page 1.
+ */
+export function typedFilter(q: IdfEventsFilter, field: 'store' | 'payer', typed: string): Partial<IdfEventsFilter> | null {
+  const value = typed.trim()
+  return value === q[field] ? null : { [field]: value }
+}
+
 /** Why the window may not be read, or null when it may. */
 export function windowOf(q: Pick<IdfEventsFilter, 'from' | 'to'>): WindowProblem | null {
   return windowProblem(q.from, q.to, { maxDays: MAX_WINDOW_DAYS })
 }
 
-/** The shared filter's door params (626's log and 627's report): the window always, the rest only when filled. */
+/**
+ * The shared filter's door params (626's log and 627's report, and the report's export). Every field is named, a
+ * blank one as '': core `buildQuery` drops it (the api-envelope rule), so nothing is pre-dropped here.
+ */
 export function filterDoorParams(f: IdfEventsFilter): Record<string, string> {
-  const out: Record<string, string> = { from: f.from, to: f.to }
-  if (f.store) out.store = f.store
-  if (f.payer) out.payer = f.payer
-  if (f.masterId) out.masterId = f.masterId
-  return out
+  return { from: f.from, to: f.to, store: f.store, payer: f.payer, masterId: f.masterId }
 }
 
-/** `GET IdfPriority/events`'s params: the filter, the outcome when chosen, and the page. */
+/** `GET IdfPriority/events`'s params: the filter, the outcome ('' = every one, dropped by `buildQuery`), and the page. */
 export function eventsDoorParams(q: IdfEventsQuery): Record<string, string> {
-  const out = filterDoorParams(q)
-  if (q.outcome) out.outcome = q.outcome
-  out.page = String(q.page)
-  return out
+  return { ...filterDoorParams(q), outcome: q.outcome, page: String(q.page) }
 }

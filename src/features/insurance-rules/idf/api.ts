@@ -18,11 +18,10 @@ import { storeSetBody, type IdfStoreList } from './store-lists' // 620
 import type { IdfException, IdfExceptionBody } from './exceptions' // 624
 import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
-import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
+import { eventsDoorParams, filterDoorParams, type IdfEventsFilter, type IdfEventsQuery } from './events-filter' // 626, 627
 import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
-import { filterDoorParams, type IdfEventsFilter } from './events-filter' // 627
 import type { IdfSwapReportRow } from './report' // 627
 
 export const IDF_BASE = 'IdfPriority'

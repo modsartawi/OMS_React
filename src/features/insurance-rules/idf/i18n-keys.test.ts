@@ -15,6 +15,7 @@ import { hasLocaleKey } from '@/core/test/locale'
 import { IDF_MASTER_KINDS } from './masters'
 import { IDF_EXCEPTION_HANDLINGS, IDF_EXCEPTION_KEY_KINDS } from './exceptions' // 624
 import { IDF_TIERS } from './lookup' // 625
+import { IDF_EVENT_OUTCOMES } from './events' // 627
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -147,7 +148,7 @@ describe('insurance-idf — the keys the master form builds exist (621)', () => 
       ...['newAction', 'edit', 'editLabel', 'columnActions', 'createTitle', 'editTitle', 'kind', 'kindFixed', 'payer', 'payerPlaceholder'].map((k) => `masterForm.${k}`),
       ...['storeList', 'storeListOptional', 'pickStoreList', 'storeListsFailed', 'nameEn', 'nameAr', 'hard', 'reminder', 'thresholdsHint'].map((k) => `masterForm.${k}`),
       ...['orderTitle', 'orderHint', 'thisOne', 'save', 'cancel', 'created', 'saved', 'refused', 'refusedFallback', 'refusalCode', 'clashesWith', 'denied'].map((k) => `masterForm.${k}`),
-      ...['insurerStoreList', 'insurer', 'store', 'general'].map((k) => `masterForm.order.${k}`),
+      // the resolution order's words are the lookup's tier words (`lookup.tier.*`, checked under 625)
       ...['payerRequired', 'storeListRequired', 'nameRequired', 'wholeNumber', 'reminderAboveHard'].map((k) => `masterForm.problem.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
@@ -172,5 +173,13 @@ describe('insurance-idf — the keys the versions section builds exist (623)', (
     const v = locale.versions as Record<string, unknown>
     expect(String(v.restoreTitle)).toContain('<v>{{n}}</v>')
     expect(String(v.restoreHint)).toContain('<v>{{n}}</v>')
+  })
+})
+
+// 627 · the swap report's count columns: every outcome (the reserved two get a column when a row counts one) and `other`
+describe('insurance-idf — the keys the swap report columns build exist (627)', () => {
+  it.each([en, ar])('a word for every outcome column and for other outcomes', (locale) => {
+    const keys = [...IDF_EVENT_OUTCOMES.map((o) => `events.outcome.${o}`), 'report.columns.otherOutcome']
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })

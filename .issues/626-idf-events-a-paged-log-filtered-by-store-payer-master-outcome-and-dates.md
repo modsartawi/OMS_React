@@ -66,3 +66,8 @@ Decisions (overrulable; 3167 finalises the wire):
 - **Deciding master** shown by name from 619's `mastersQuery()` (same cache), its id when the list does not hold it,
   with "version N" under it. An outcome this build does not know shows its raw code (`Ltr`).
 - **Store and payer are typed** and apply on Enter / blur (not per keystroke).
+- **Review fixes (2026-10-27):** a typed store / payer applies only when it changed (`typedFilter`), so leaving an
+  untouched box keeps the page; Enter now just leaves the box (one write path, no double write). Master names and
+  the fallback id in the native `<option>`s are wrapped in `fsi()`. The door params no longer pre-drop blanks: every
+  field is handed to core `buildQuery`, which drops `''` (tests assert the full objects now; the wire is unchanged —
+  the drive still sees from / to / page only). Drive gains the "untouched box keeps page 2" check (90/90).

@@ -39,6 +39,15 @@ export function newMasterForm(kind: IdfMasterKind = 'insurer'): IdfMasterForm {
   return { kind, payerCode: '', storeListId: '', nameEn: '', nameAr: '', hard: String(DEFAULT_HARD_THRESHOLD), reminder: String(DEFAULT_REMINDER_THRESHOLD) }
 }
 
+/**
+ * Switching kind on create: the payer and the store list belong to the kind they were entered under, so both are
+ * cleared — an insurer's optional scope never silently becomes a store master's list, nor a store master's list an
+ * insurer's scope. The names and thresholds are kept. The same kind returns the form unchanged.
+ */
+export function withKind(form: IdfMasterForm, kind: IdfMasterKind): IdfMasterForm {
+  return form.kind === kind ? form : { ...form, kind, payerCode: '', storeListId: '' }
+}
+
 /** Editing starts from the master as it is; a threshold it never sent shows its default. */
 export function formFromMaster(m: IdfMaster): IdfMasterForm {
   return {
@@ -68,7 +77,10 @@ export function masterFormProblems(form: IdfMasterForm): IdfMasterFormProblems {
   return out
 }
 
-/** Only call on a form with no problems. A store master sends no payer; an unscoped insurer master no store list. */
+/**
+ * Only call on a form with no problems. A store master sends no payer; an unscoped insurer master no store list. The
+ * store list sent is always one picked under the current kind: `withKind` clears it on a kind switch.
+ */
 export function masterBody(form: IdfMasterForm): IdfMasterBody {
   return {
     kind: form.kind,

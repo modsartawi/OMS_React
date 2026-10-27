@@ -95,12 +95,6 @@
     "thresholdsHint": "A pick is forced above the hard threshold and only reminded above the reminder threshold. Whole numbers; the defaults are 4 and 1.",
     "orderTitle": "Which master decides",
     "orderHint": "For each item the first master that names it decides, most specific first:",
-    "order": {
-      "insurerStoreList": "Insurer master scoped to a store list",
-      "insurer": "Insurer master",
-      "store": "Operation pharmacy (store) master",
-      "general": "General master"
-    },
     "thisOne": "This master",
     "problem": {
       "payerRequired": "Enter the payer code.",
@@ -323,7 +317,8 @@
       "store": "Store",
       "payer": "Payer",
       "priceDifference": "Price difference (picks taken)",
-      "averageTime": "Average time"
+      "averageTime": "Average time",
+      "otherOutcome": "Other outcomes"
     }
   }
 }

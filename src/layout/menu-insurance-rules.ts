@@ -8,6 +8,7 @@ import { ListOrdered } from 'lucide-react' // 619
 // 620 · icons
 import { Store } from 'lucide-react' // 620
 // 624 · icons
+import { ListX } from 'lucide-react' // 624
 // 625 · icons
 // 626 · icons
 import type { ShellMenuItem } from './menu-model'
@@ -138,6 +139,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 624 · IDF exceptions (`menu.idfExceptions`, `/insurance-rules/idf/exceptions`)
+    {
+      // 624 — IDF exceptions by document type / sub-document type / Nphies claim type (not 614's guard exceptions).
+      labelKey: 'insurance-rules:menu.idfExceptions',
+      icon: ListX,
+      routerLink: '/insurance-rules/idf/exceptions',
+    },
 
     // 625 · IDF lookup (`menu.idfLookup`, `/insurance-rules/idf/lookup`)
 

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3157 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3157-oms-react-idf-brief.md)
 blocked-by: 619
 ---
@@ -24,8 +24,8 @@ model/api · logic (exception form) · component/route · i18n (EN+AR) · test +
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `exception form requires a reason, and a master only for master handling` · pure
-- [ ] drive `tools/idf-exceptions-drive.mjs` — list, add a reminder row, switch it to a master, delete with a reason · flow
+- [x] `exception form requires a reason, and a master only for master handling` · pure
+- [x] drive `tools/idf-exceptions-drive.mjs` — list, add a reminder row, switch it to a master, delete with a reason · flow
 
 ## Boundaries
 
@@ -44,3 +44,23 @@ Exceptions can be listed, added, edited and deleted with reasons against stubs, 
 
 - Spec 3157 OQ2 (what "dedicated handling" means per exception; how GOSI and delivery are recognised) may add key
   kinds or handlings. The screen follows the brief's three key kinds and three handlings until 3166 says otherwise.
+
+## Comments
+
+**2026-10-27 — built (impl/3157-624).** `idf/exceptions.ts` (types, `exceptionFormProblems`: key and reason always,
+a master only for "master"; `exceptionBody` sends `masterId: null` unless "master"; `formFromException` opens an
+edit with a BLANK reason, so every change records its own), `idfExceptionsApi` + `exceptionsQuery()` under the 624
+slot of `idf/api.ts` (key `IDF_EXCEPTIONS_KEY`), `ExceptionsPage.tsx` at `/insurance-rules/idf/exceptions` (plain
+table; add/edit dialog, delete dialog asking a reason; master picker = 619's `mastersQuery()`, names by language
+via `masterName`, `fsi` in the native `<option>`), menu leaf `menu.idfExceptions` (icon `ListX`), keys in
+`insurance-idf` → `exceptions` (EN + AR; Arabic "master" = 619's قائمة رئيسية). Proof: `exceptions.test.ts` 6/6,
+`i18n-keys.test.ts` +2, drive `tools/idf-exceptions-drive.mjs` 46/46 STUBBED (LTR + RTL; stubs `// --- 624 ---`
+in `tools/idf-stubs.mjs`); typecheck, test (6942), lint green.
+
+Decisions (overrulable; 628 reconciles with 3166):
+- **DELETE's reason rides as `?reason=`**: `api.del` takes no body (house rule in `core/api.ts`), so the brief's
+  `DELETE …/{id}` `{ reason }` is sent on the query string. 3166 must read it there, or 628 widens `core/api`.
+- **POST / PUT body** is the whole row: `{ keyKind, key, handling, masterId | null, reason }` (the brief names only
+  `{ reason }`).
+- A row whose master is not in 619's list shows its `masterId` (Ltr) instead of a name.
+- No client-side duplicate-key check: a clash is the server's to refuse (its envelope message is toasted).

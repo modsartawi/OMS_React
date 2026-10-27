@@ -13,6 +13,7 @@ import areaEn from '@/locales/en/insurance-rules.json'
 import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { IDF_MASTER_KINDS } from './masters'
+import { IDF_EXCEPTION_HANDLINGS, IDF_EXCEPTION_KEY_KINDS } from './exceptions' // 624
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -84,5 +85,19 @@ describe('insurance-idf — the keys the store lists build exist (620)', () => {
     const s = locale.storeLists as Record<string, Record<string, string> | string>
     expect(String(s.refusalCode)).toContain('<v>{{code}}</v>')
     expect(String((s.stores as Record<string, string>).title)).toContain('<n>{{name}}</n>')
+  })
+})
+
+// 624 · the keys the IDF exceptions screen builds
+describe('insurance-idf — the keys the IDF exceptions screen builds exist', () => {
+  it.each([en, ar])('key kinds, handlings, columns, problems', (locale) => {
+    const keys = [
+      ...IDF_EXCEPTION_KEY_KINDS.map((k) => `exceptions.keyKind.${k}`),
+      ...IDF_EXCEPTION_HANDLINGS.map((h) => `exceptions.handling.${h}`),
+      ...['keyKind', 'key', 'handling', 'reason', 'changed', 'actions'].map((c) => `exceptions.columns.${c}`),
+      ...['keyRequired', 'masterRequired', 'reasonRequired'].map((p) => `exceptions.problem.${p}`),
+      ...['title', 'add', 'addTitle', 'editTitle', 'deleteTitle', 'master', 'pickMaster', 'reason', 'saved', 'added', 'deleted'].map((k) => `exceptions.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
 })

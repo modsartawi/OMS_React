@@ -175,7 +175,53 @@ export function idfLookupStub(method, path, opts = {}) {
   return envelope(null, { status: 400, success: false, message: `Item ${p.get('item')} is not a known item.`, errorCode: 'UNKNOWN_ITEM' })
 }
 
-// --- 626 --- events (door 3167).
+// --- 626 --- events (door 3167: `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page`).
+// 30 events, newest first, 25 a page (so a second page of 5). Event 1 is a forced pick on M-BUPA; every 6th has no
+// item dispensed; the masters cycle M-BUPA, M-OPS, M-TAW-PILOT, and M-GONE (not in 619's list: shown by its id).
+const IDF_EVENT_OUTCOMES_CYCLE = ['forcedPickTaken', 'reminder', 'pickCancelled', 'lineAbandoned', 'skippedByException', 'refusedPreAuth']
+const IDF_EVENT_MASTERS_CYCLE = ['M-BUPA', 'M-OPS', 'M-TAW-PILOT', 'M-GONE']
+export const IDF_EVENTS_PAGE_SIZE = 25
+export const IDF_EVENTS = Array.from({ length: 30 }, (_, i) => {
+  const n = i + 1
+  const outcome = IDF_EVENT_OUTCOMES_CYCLE[i % 6]
+  const masterId = IDF_EVENT_MASTERS_CYCLE[i % 4]
+  return {
+    eventId: `E-${String(n).padStart(3, '0')}`,
+    at: `2026-10-${String(27 - Math.floor(i / 10)).padStart(2, '0')}T${String(20 - (i % 10)).padStart(2, '0')}:05:00`,
+    storeCode: i % 2 ? 'P019' : 'P001',
+    payerCode: i % 3 === 2 ? null : i % 3 ? 'TAWUNIYA' : 'BUPA',
+    documentType: 'ZINS',
+    itemScanned: String(100200 + n),
+    itemDispensed: outcome === 'forcedPickTaken' || outcome === 'reminder' || outcome === 'skippedByException' ? String(100900 + n) : null,
+    masterId,
+    masterVersion: masterId === 'M-OPS' ? 1 : 3,
+    outcome,
+    timeSpentSeconds: 5 + n * 4,
+  }
+})
+
+/** `deny` may name `'events'`; `reads.events` collects every query string asked. */
+export function idfEventsStub(method, path, opts = {}) {
+  const { deny = [], reads = {} } = opts
+  const [bare, qs = ''] = path.split('?')
+  if (method !== 'GET' || bare !== 'IdfPriority/events') return null
+  ;(reads.events ??= []).push(qs)
+  if (deny.includes('events')) return bare403()
+  const q = new URLSearchParams(qs)
+  const day = (at) => at.slice(0, 10)
+  const rows = IDF_EVENTS.filter(
+    (e) =>
+      (!q.get('from') || day(e.at) >= q.get('from')) &&
+      (!q.get('to') || day(e.at) <= q.get('to')) &&
+      (!q.get('store') || e.storeCode === q.get('store')) &&
+      (!q.get('payer') || e.payerCode === q.get('payer')) &&
+      (!q.get('masterId') || e.masterId === q.get('masterId')) &&
+      (!q.get('outcome') || e.outcome === q.get('outcome')),
+  )
+  const page = Number(q.get('page') || 1)
+  const items = rows.slice((page - 1) * IDF_EVENTS_PAGE_SIZE, page * IDF_EVENTS_PAGE_SIZE)
+  return envelope({ items, total: rows.length, page, pageSize: IDF_EVENTS_PAGE_SIZE })
+}
 
 // --- 627 --- swap report and export (door 3169).
 
@@ -196,6 +242,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 625 · lookup
     idfLookupStub(method, path, opts) ??
     // 626 · events
+    idfEventsStub(method, path, opts) ??
     // 627 · swap report
     null
   )

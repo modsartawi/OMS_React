@@ -111,6 +111,51 @@
       "general": "General"
     }
   },
-  "events": {},
+  "events": {
+    "title": "IDF events",
+    "lede": "Every IDF moment at the till: what was scanned, what was dispensed, which master decided and how it ended.",
+    "loading": "Loading the IDF events…",
+    "failed": "The IDF events could not be loaded.",
+    "empty": "No IDF events match these filters.",
+    "anyOutcome": "Any outcome",
+    "anyMaster": "Any master",
+    "unknownMaster": "Unknown master",
+    "version": "version <v>{{number}}</v>",
+    "total": "Events found: <v>{{total}}</v>",
+    "filter": {
+      "label": "Filter the events",
+      "from": "From",
+      "to": "To",
+      "store": "Store",
+      "payer": "Payer",
+      "master": "Master",
+      "outcome": "Outcome",
+      "invalid": "Pick a valid from and to date.",
+      "reversed": "The from date is after the to date.",
+      "tooLong": "Pick a window of a year or less.",
+      "outOfBounds": "The window is outside the dates that can be read."
+    },
+    "columns": {
+      "at": "When",
+      "store": "Store",
+      "payer": "Payer",
+      "documentType": "Document type",
+      "itemScanned": "Item scanned",
+      "itemDispensed": "Item dispensed",
+      "master": "Deciding master",
+      "outcome": "Outcome",
+      "timeSpent": "Time spent"
+    },
+    "outcome": {
+      "reminder": "Reminder",
+      "forcedPickTaken": "Forced pick taken",
+      "pickCancelled": "Pick cancelled",
+      "lineAbandoned": "Line abandoned",
+      "skippedByException": "Skipped by exception",
+      "refusedPreAuth": "Refused (pre-authorisation)",
+      "requestRaised": "Request raised",
+      "autoApproved": "Auto-approved"
+    }
+  },
   "report": {}
 }

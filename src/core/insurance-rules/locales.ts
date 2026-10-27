@@ -20,6 +20,10 @@ import insuranceListsAr from '@/locales/ar/insurance-lists.json'
 import insuranceFieldsEn from '@/locales/en/insurance-fields.json'
 import insuranceFieldsAr from '@/locales/ar/insurance-fields.json'
 
+// 611 · imports — the Approvals feature (`features/insurance-rules/approvals`: approval, shadow, versions)
+import insuranceApprovalsEn from '@/locales/en/insurance-approvals.json'
+import insuranceApprovalsAr from '@/locales/ar/insurance-approvals.json'
+
 // 613 · imports — the Editions feature (`features/insurance-rules/editions`)
 import insuranceEditionsEn from '@/locales/en/insurance-editions.json'
 import insuranceEditionsAr from '@/locales/ar/insurance-editions.json'
@@ -46,6 +50,9 @@ export const INSURANCE_RULES_NS = [
   'insurance-lists',
   'insurance-fields',
 
+  // 611 · ns
+  'insurance-approvals',
+
   // 613 · ns
   'insurance-editions',
 
@@ -69,6 +76,9 @@ export const INSURANCE_RULES_EN = {
   'insurance-lists': insuranceListsEn,
   'insurance-fields': insuranceFieldsEn,
 
+  // 611 · en
+  'insurance-approvals': insuranceApprovalsEn,
+
   // 613 · en
   'insurance-editions': insuranceEditionsEn,
 
@@ -91,6 +101,9 @@ export const INSURANCE_RULES_AR = {
   // 610 · ar
   'insurance-lists': insuranceListsAr,
   'insurance-fields': insuranceFieldsAr,
+
+  // 611 · ar
+  'insurance-approvals': insuranceApprovalsAr,
 
   // 613 · ar
   'insurance-editions': insuranceEditionsAr,

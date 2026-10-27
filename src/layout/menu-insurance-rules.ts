@@ -1,5 +1,6 @@
 import { ChartColumn, FileSpreadsheet, ListChecks, ListTree, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
+import { BadgeCheck } from 'lucide-react' // 611
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -40,6 +41,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 611 · Approvals
+    {
+      // 611 — the guard draft's approval by role, shadow promotion, versions.
+      labelKey: 'insurance-rules:menu.approvals',
+      icon: BadgeCheck,
+      routerLink: '/insurance-rules/approvals',
+    },
 
     // 612 · Simulator
 

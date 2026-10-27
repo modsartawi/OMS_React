@@ -924,3 +924,132 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
   }
   return null
 }
+
+// --- 611 --- approval by role, shadow promotion, versions (BackOffice 3139; the latest back-test 3140).
+//   GET  InsuranceRules/Guards/Approval            → where the draft stands + the viewer's roles (⚠️ guessed door)
+//   GET  InsuranceRules/Guards/Backtests/Latest    → `store.backtest` or null (⚠️ guessed door; 612 owns the report)
+//   POST InsuranceRules/Guards/Submit { note }     → refused 409 BACKTEST_REQUIRED without a done back-test of
+//                                                    this revision; draft rules turn waiting
+//   POST InsuranceRules/Guards/Approve { note }    → approver only (403 NOT_APPROVER), never the author (409
+//                                                    OWN_SUBMISSION); waiting rules turn shadow today; a version
+//   POST InsuranceRules/Guards/SendBack { note }   → the same refusals; waiting rules back to draft
+//   POST InsuranceRules/Guards/Rules/{id}/Promote  → `{ skipReason? }`; refused 409 SHADOW_TOO_SHORT under 14 local
+//                                                    days without a reason; the rule turns live
+//   GET  InsuranceRules/Guards/Versions            → newest first; POST …/Versions/{v}/Restore → a NEW draft
+//   GET / PUT Draft, POST Validate                 → on `store.draft` (608's `validateGuards`)
+// Error codes are ⚠️ guessed spellings (3139 owns them). Never a live SIS.Api.
+
+/** The published versions, newest first: who, when, note. */
+export const GUARD_VERSIONS = [
+  { version: 4, by: 'falotaibi', at: '2026-10-20T11:15:00', note: 'SFDA not-marketed guard into shadow.' },
+  { version: 3, by: 'falotaibi', at: '2026-10-15T09:30:00', note: 'أقلام GLP-1 كل 28 يوماً في وضع الظل' },
+  { version: 2, by: 'malqahtani', at: '2026-09-02T16:45:00', note: null },
+]
+
+/** What each version held: version 3 had neither of the draft rules (G-006, G-011) nor G-008. */
+const VERSION_DOCS = {
+  4: { ...RULESET, revision: 10, rules: RULES.filter((r) => !['G-006', 'G-011'].includes(r.id)) },
+  3: { ...RULESET, revision: 8, rules: RULES.filter((r) => !['G-006', 'G-008', 'G-011'].includes(r.id)) },
+  2: { ...RULESET, revision: 5, rules: RULES.filter((r) => ['G-001', 'G-002', 'G-004', 'G-010'].includes(r.id)) },
+}
+
+/** The back-test of revision 12 (RULESET's), done. */
+export const BACKTEST_DONE = { id: 'BT-0412', status: 'done', progress: 1, revision: 12, days: 30, finishedAt: '2026-10-27T09:40:00' }
+
+/** One HQ for a drive: the draft, its approval, the latest back-test, the versions, every write. */
+export function newApprovalStore({ backtest = BACKTEST_DONE } = {}) {
+  return {
+    draft: structuredClone(RULESET),
+    approval: { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null },
+    backtest: backtest ? structuredClone(backtest) : null,
+    versions: structuredClone(GUARD_VERSIONS),
+    versionDocs: structuredClone(VERSION_DOCS),
+    writes: [],
+  }
+}
+
+const localDays = (fromDay, now) => {
+  const [y, m, d] = fromDay.slice(0, 10).split('-').map(Number)
+  const [ny, nm, nd] = now.slice(0, 10).split('-').map(Number)
+  return Math.round((Date.UTC(ny, nm - 1, nd) - Date.UTC(y, m - 1, d)) / 86400000)
+}
+
+/**
+ * 611's doors on a drive's `store` (newApprovalStore()). `opts.user` is the session's user id, `opts.viewer` its
+ * roles `{ author, approver }`, `opts.now` the local moment HQ stamps. Null when not one of these.
+ */
+export function approvalStub(method, path, body, opts = {}) {
+  const { store, user = 'nalharbi', viewer = { author: true, approver: false }, now = '2026-10-27T10:30:00', deny = [] } = opts
+  if (!store) return null
+  const refuse = (status, errorCode, message) => envelope(null, { status, success: false, message, errorCode })
+  const view = () => ({ ...store.approval, revision: store.draft.revision, viewer })
+  const write = () => store.writes.push({ method, path, body, user })
+  const G = 'InsuranceRules/Guards'
+  const setStates = (from, to, extra = {}) => {
+    store.draft.rules = store.draft.rules.map((r) => (r.state === from ? { ...r, state: to, ...extra } : r))
+  }
+  if (deny.includes(path)) return { status: 403, body: '' }
+
+  if (method === 'GET' && path === `${G}/Draft`) return envelope(store.draft)
+  if (method === 'PUT' && path === `${G}/Draft`) {
+    write()
+    if (body?.revision !== store.draft.revision) return refuse(409, 'STALE_REVISION', 'Someone saved the draft since you read it.')
+    store.draft = { ...structuredClone(body), revision: store.draft.revision + 1 }
+    return envelope(store.draft)
+  }
+  if (method === 'POST' && path === `${G}/Validate`) return envelope(validateGuards(body ?? store.draft))
+  if (method === 'GET' && path === `${G}/Approval`) return envelope(view())
+  if (method === 'GET' && path === `${G}/Backtests/Latest`) return envelope(store.backtest)
+  if (method === 'GET' && path === `${G}/Versions`) return envelope(store.versions)
+
+  if (method === 'POST' && path === `${G}/Submit`) {
+    write()
+    const bt = store.backtest
+    if (!bt || bt.status !== 'done' || bt.revision !== store.draft.revision)
+      return refuse(409, 'BACKTEST_REQUIRED', 'Run a back-test of this revision before asking for approval.')
+    if (store.approval.state !== 'draft') return refuse(409, 'NOT_DRAFT', 'The draft is already waiting for approval.')
+    store.approval = { state: 'waiting', submittedBy: user, submittedAt: now, note: body?.note || null, sentBack: null }
+    setStates('draft', 'waiting')
+    return envelope(view())
+  }
+  if (method === 'POST' && (path === `${G}/Approve` || path === `${G}/SendBack`)) {
+    write()
+    if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver approves the guard draft.')
+    if (store.approval.state !== 'waiting') return refuse(409, 'NOT_WAITING', 'The draft is not waiting for approval.')
+    if (user.toLowerCase() === (store.approval.submittedBy ?? '').toLowerCase())
+      return refuse(409, 'OWN_SUBMISSION', 'You asked for this approval; a different user approves it.')
+    if (path.endsWith('/Approve')) {
+      setStates('waiting', 'shadow', { shadowSince: now.slice(0, 10) })
+      const version = Math.max(0, ...store.versions.map((v) => v.version)) + 1
+      store.versionDocs[version] = structuredClone(store.draft)
+      store.versions.unshift({ version, by: user, at: now, note: body?.note || store.approval.note })
+      store.approval = { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null }
+    } else {
+      setStates('waiting', 'draft')
+      store.approval = { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: { by: user, at: now, note: body?.note ?? '' } }
+    }
+    return envelope(view())
+  }
+  const promote = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Rules\/([^/]+)\/Promote$/)
+  if (promote) {
+    write()
+    const id = decodeURIComponent(promote[1])
+    const rule = store.draft.rules.find((r) => r.id === id)
+    if (!viewer.approver) return refuse(403, 'NOT_APPROVER', 'Only an approver promotes a shadow rule.')
+    if (!rule || rule.state !== 'shadow') return refuse(409, 'NOT_SHADOW', 'This rule is not in shadow.')
+    if ((!rule.shadowSince || localDays(rule.shadowSince, now) < 14) && !body?.skipReason?.trim())
+      return refuse(409, 'SHADOW_TOO_SHORT', 'Under 14 days in shadow: give a reason to skip the rest.')
+    store.draft.rules = store.draft.rules.map((r) => (r.id === id ? { ...r, state: 'live', shadowSince: null } : r))
+    return envelope({ ruleId: id, state: 'live' })
+  }
+  const restore = method === 'POST' && path.match(/^InsuranceRules\/Guards\/Versions\/(\d+)\/Restore$/)
+  if (restore) {
+    write()
+    const doc = store.versionDocs[restore[1]]
+    if (!doc) return refuse(404, 'NO_VERSION', 'No such version.')
+    store.draft = { ...structuredClone(doc), revision: store.draft.revision + 1 }
+    store.approval = { state: 'draft', submittedBy: null, submittedAt: null, note: null, sentBack: null }
+    return envelope(store.draft)
+  }
+  return null
+}

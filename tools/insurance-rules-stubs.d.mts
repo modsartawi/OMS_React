@@ -126,3 +126,35 @@ export declare function orderGuardsStub(
   order: { guardState: OrderGuardState; guards: OrderGuards | null },
   opts?: { writes?: unknown[]; answerRefusal?: { status?: number; message: string; errorCode?: string } | null },
 ): FulfillArg | null
+
+// --- 611 ---
+import type { BacktestStatus } from '../src/core/insurance-rules/backtest'
+export interface GuardVersionRow {
+  version: number
+  by: string
+  at: string
+  note: string | null
+}
+export declare const GUARD_VERSIONS: GuardVersionRow[]
+export declare const BACKTEST_DONE: BacktestStatus
+export interface ApprovalStore {
+  draft: GuardRuleset
+  approval: {
+    state: 'draft' | 'waiting'
+    submittedBy: string | null
+    submittedAt: string | null
+    note: string | null
+    sentBack: { by: string; at: string; note: string } | null
+  }
+  backtest: BacktestStatus | null
+  versions: GuardVersionRow[]
+  versionDocs: Record<number, GuardRuleset>
+  writes: { method: string; path: string; body: unknown; user: string }[]
+}
+export declare function newApprovalStore(o?: { backtest?: BacktestStatus | null }): ApprovalStore
+export declare function approvalStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: ApprovalStore; user?: string; viewer?: { author: boolean; approver: boolean }; now?: string; deny?: string[] },
+): FulfillArg | null

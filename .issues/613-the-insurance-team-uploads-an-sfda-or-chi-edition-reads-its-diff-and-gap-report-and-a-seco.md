@@ -15,7 +15,7 @@ withdrawn and exports for the master-file team; old editions read-only.
 **HQ contract:** the brief's sections for BackOffice 3138. Build against those shapes, stubbed in the drive; a shape the
 BackOffice ticket changes is recorded in the brief and reconciled in the live-doors ticket.
 
-Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y)
+Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS)
 (`C:\Work\DMSCO\BackOffice\.scratch\proto\3096-insurance-rules\index.html`).
 
 ## Spine reach

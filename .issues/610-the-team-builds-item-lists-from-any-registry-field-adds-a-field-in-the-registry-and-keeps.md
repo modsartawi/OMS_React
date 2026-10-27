@@ -1,5 +1,5 @@
 ---
-status: done
+status: open
 spec: BO 3126 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3126-oms-react-insurance-rules-brief.md)
 blocked-by: 607
 ---
@@ -11,13 +11,15 @@ blocked-by: 607
 **Item lists**: filters on registry fields (any of / none of, codes shown with their descriptions),
 included and excluded lists (3 deep), a preview of matched items, the "matches no item" warning. **Fields**: the
 registry page — add a field from a source, EN + AR label, type / unit; retire (never delete); visible to the
-master-data grant. **Patient lists** and **policy lists**: entries with added-by, reason, optional expiry, and the
-change log.
+master-data grant. **Patient lists**, **policy lists** and **class lists**: entries with added-by, reason, optional
+expiry, and the change log. A class list is a third tab beside the other two: an entry is a policy class code
+(upper case, up to 29 characters, no `|`) and an optional insurer (its SAP customer id, shown with its name; blank =
+any insurer), and the list shows which entries are for one insurer and which are for any.
 
-**HQ contract:** the brief's sections for BackOffice 3132, BackOffice 3133. Build against those shapes, stubbed in the drive; a shape the
+**HQ contract:** the brief's sections for BackOffice 3132, BackOffice 3133, BackOffice 3172 (class lists: `InsuranceRules/ClassLists`, the same doors as patient / policy lists with `payer` on entries). Build against those shapes, stubbed in the drive; a shape the
 BackOffice ticket changes is recorded in the brief and reconciled in the live-doors ticket.
 
-Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y)
+Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS)
 (`C:\Work\DMSCO\BackOffice\.scratch\proto\3096-insurance-rules\index.html`).
 
 ## Spine reach
@@ -28,6 +30,7 @@ components · logic · test
 
 - [x] `listCycle_isRefusedBeforeSave` — pure
 - [x] drive `tools/insurance-lists-drive.mjs` (stubbed) — GLP-1 list from ECode values; add an ItemInfo field; add a VIP entry
+- [ ] drive (stubbed) — add a class entry for one insurer and one for any insurer, then expire one
 
 ## Boundaries
 
@@ -43,7 +46,7 @@ Gates green; drive passes.
 
 ## Open questions
 
-- **Layout follows the insurance team's walk** of the prototype (https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y, BackOffice map ticket 3096, still open). Reactions recorded there before this is built amend this ticket.
+- **Layout follows the insurance team's walk** of the prototype (https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS, BackOffice map ticket 3096, still open). Reactions recorded there before this is built amend this ticket.
 
 ## Comments
 
@@ -76,3 +79,7 @@ Shared pieces: `src/core/insurance-rules/registry.ts` (RegistryField, FieldValue
 - Item lists save through `PUT Guards/Draft` (they are versioned with the ruleset); a 409 says "someone saved first".
 - No access probe: Lists and Fields are ungated; a bare 403 reads "You do not have access" (master-data grant
   for add / retire said in the toast).
+
+**2026-10-27 — reopened at the merge to main.** Main added class lists (BackOffice 3172: `InsuranceRules/ClassLists`,
+entries carry `payer`) to this ticket after it was built. Everything else stands as built above; the class-list tab
+and its drive leg are still to build.

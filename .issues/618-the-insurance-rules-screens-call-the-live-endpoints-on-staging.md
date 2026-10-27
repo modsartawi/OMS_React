@@ -15,7 +15,7 @@ grants (author, approver, exception, release, `INS_GUARD`, registry) and hides w
 **HQ contract:** the brief's sections for BackOffice 3139, BackOffice 3140, BackOffice 3141, BackOffice 3142, BackOffice 3143, BackOffice 3144, BackOffice 3145, BackOffice 3146. Build against those shapes, stubbed in the drive; a shape the
 BackOffice ticket changes is recorded in the brief and reconciled in the live-doors ticket.
 
-Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y)
+Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS)
 (`C:\Work\DMSCO\BackOffice\.scratch\proto\3096-insurance-rules\index.html`).
 
 ## Spine reach

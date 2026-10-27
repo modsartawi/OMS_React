@@ -16,7 +16,7 @@ patients / stores / pharmacists, and overlap with live guards.
 **HQ contract:** the brief's sections for BackOffice 3140. Build against those shapes, stubbed in the drive; a shape the
 BackOffice ticket changes is recorded in the brief and reconciled in the live-doors ticket.
 
-Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y)
+Reference look: [Insurance Rules Builder](https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS)
 (`C:\Work\DMSCO\BackOffice\.scratch\proto\3096-insurance-rules\index.html`).
 
 ## Spine reach
@@ -41,7 +41,7 @@ Gates green; drive passes.
 
 ## Open questions
 
-- **Layout follows the insurance team's walk** of the prototype (https://claude.ai/code/artifact/5qwrpEcu9o6ThdwsQphb4y, BackOffice map ticket 3096, still open). Reactions recorded there before this is built amend this ticket.
+- **Layout follows the insurance team's walk** of the prototype (https://claude.ai/code/artifact/91vLtKjq47zeaDritTwyJS, BackOffice map ticket 3096, still open). Reactions recorded there before this is built amend this ticket.
 
 ## Comments
 

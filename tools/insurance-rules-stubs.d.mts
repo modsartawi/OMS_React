@@ -179,24 +179,31 @@ export declare function templatesStub(
 ): FulfillArg | null
 
 // --- 617 ---
-import type { CategoryRule, CategoryRuleset, CoverageRule, CoverageRuleset } from '../src/core/insurance-rules/coverage-model'
-import type { InsurerRow, InsurerSettings, SettingsLogRow } from '../src/features/insurance-rules/coverage/settings'
+import type { CategoryRule, CategoryRuleset, CategorySimulateResult, CoverageRule, CoverageRuleset } from '../src/core/insurance-rules/coverage-model'
+import type { DraftState, RulesetVersionRow } from '../src/core/insurance-rules/ruleset-draft'
+import type { InsurerSettings, SettingsLogRow } from '../src/features/insurance-rules/coverage/settings'
 export declare const COVERAGE_FIELDS: RegistryField[]
 export declare const POLICY_LIST_SASREF: string
-export declare const INSURERS: InsurerRow[]
+export declare const BUPA: string
+export declare const TAWUNIYA: string
+export declare const MEDGULF: string
 export declare const INSURER_SETTINGS: Record<string, InsurerSettings>
 export declare const SETTINGS_LOG: Record<string, SettingsLogRow[]>
 export declare const CATEGORY_RULESET: CategoryRuleset
 export declare const COVERAGE_RULESET: CoverageRuleset
 export declare const K_001: Pick<CategoryRule, 'name' | 'folder' | 'when' | 'then'>
 export declare const NO_DEDUCTIBLE: Pick<CoverageRule, 'name' | 'folder' | 'when' | 'then'>
+type DraftMeta = { state: DraftState; origin: string | null; baseVersionNo: number | null; updatedBy: string | null; updatedAt: string | null; requestedBy: string | null; requestedAt: string | null; requestNote: string | null; reviewedBy: string | null; reviewNote: string | null }
 export interface CoverageState {
   lists: ListsState
-  insurers: InsurerRow[]
   settings: Record<string, InsurerSettings>
   log: Record<string, SettingsLogRow[]>
+  nextChange: number
   categories: CategoryRuleset
   coverage: CoverageRuleset
+  meta: { categories: DraftMeta; coverage: DraftMeta }
+  versions: { categories: RulesetVersionRow[]; coverage: RulesetVersionRow[] }
+  versionDocs: { categories: Record<number, CategoryRuleset>; coverage: Record<number, CoverageRuleset> }
   writes: { door: string; method: string; path: string; body: unknown }[]
 }
 export declare function newCoverageState(): CoverageState
@@ -205,8 +212,15 @@ export declare function coverageStub(
   method: string,
   path: string,
   body: unknown,
-  opts?: { state?: CoverageState; deny?: string[]; reads?: Record<string, number>; query?: URLSearchParams },
+  opts?: { state?: CoverageState; deny?: string[]; reads?: Record<string, number>; query?: URLSearchParams; user?: string; viewer?: { author: boolean; approver: boolean } },
 ): FulfillArg | null
+export declare function categorySimulateStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: { categorySimulates?: unknown[] }; deny?: string[] },
+): FulfillArg | null
+export type { CategorySimulateResult }
 
 // --- 612 ---
 import type { SimulateBody, SimulateResult } from '../src/features/insurance-rules/simulator/simulate'

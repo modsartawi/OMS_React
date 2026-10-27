@@ -205,10 +205,13 @@
     "title": "Approval",
     "failed": "Where the draft stands could not be read.",
     "failedAction": "HQ refused this.",
-    "state": {
-      "draft": "Draft — not asked for approval",
-      "waiting": "Waiting for approval"
+    "draftState": {
+      "none": "No draft — this is the published version",
+      "editing": "Draft — not asked for approval",
+      "pending": "Waiting for approval",
+      "sentBack": "Sent back to the author"
     },
+    "publishesLive": "An approved draft publishes live at once: no back-test, no shadow, no promote.",
     "submittedBy": "Asked by",
     "sentBackBy": "Sent back by",
     "noteToApprover": "Note to the approver",
@@ -220,15 +223,11 @@
     },
     "done": {
       "submit": "Asked for approval.",
-      "approve": "Approved: a new version is published.",
+      "approve": "Approved: a new version is published and live.",
       "sendBack": "Sent back to the author."
     },
     "why": {
       "unsaved": "Save the draft first: approval is asked for the saved revision.",
-      "noBacktest": "Run a back-test of this revision first.",
-      "backtestRunning": "Wait for the back-test to finish.",
-      "backtestFailed": "The back-test failed; run it again.",
-      "backtestStale": "The draft changed since its back-test; run it again.",
       "checking": "Wait for HQ's checks.",
       "checks": "Fix the errors HQ's checks found first.",
       "ownSubmission": "You asked for this approval, so a different user approves it."

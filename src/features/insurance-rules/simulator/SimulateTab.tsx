@@ -8,7 +8,7 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { guardDraftQuery } from '@/core/insurance-rules/api'
 import { GuardSeverityBadge, RuleId } from '@/core/insurance-rules/badges'
 import GuardSentenceView from '@/core/insurance-rules/GuardSentenceView'
-import { INSURANCE_RULES_PATH, guardRulePath, type Says } from '@/core/insurance-rules/model'
+import { guardRulePath, type Says } from '@/core/insurance-rules/model'
 import { saysIn } from '@/core/rules/sentence'
 import SaysBoth from '@/core/rules/SaysBoth'
 import Button from '@/core/ui/Button'
@@ -20,12 +20,12 @@ import Ltr from '@/core/ui/Ltr'
 import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { simulatorApi } from './api'
+import CategoryNote from './CategoryNote'
 import { OutcomeBadge, TraceValueBadge } from './parts'
 import {
   SIM_CHANNELS,
   emptyLine,
   emptySimForm,
-  lineCategory,
   problemOf,
   simulateBody,
   type SimField,
@@ -219,13 +219,13 @@ function Result({ result, asked, draft }: { result: SimulateResult; asked: Simul
     <section className="flex flex-col gap-3" data-sim-result="">
       <h2 className="text-base font-semibold tracking-tight">{t('result.title')}</h2>
       {result.lines.map((line, i) => (
-        <LineResult key={i} n={i + 1} item={asked.request.lines[i]?.item ?? ''} line={line} draft={draft} />
+        <LineResult key={i} n={i + 1} item={asked.request.lines[i]?.item ?? ''} line={line} draft={draft} asked={asked} />
       ))}
     </section>
   )
 }
 
-function LineResult({ n, item, line, draft }: { n: number; item: string; line: SimLineResult; draft: Parameters<typeof lineRules>[1] }) {
+function LineResult({ n, item, line, draft, asked }: { n: number; item: string; line: SimLineResult; draft: Parameters<typeof lineRules>[1]; asked: SimulateBody }) {
   const { t } = useTranslation('insurance-simulator')
   const rules = lineRules(line, draft)
   return (
@@ -236,7 +236,7 @@ function LineResult({ n, item, line, draft }: { n: number; item: string; line: S
           <Ltr>{item}</Ltr>
         </code>
         <OutcomeBadge outcome={line.outcome} />
-        <CategoryNote line={line} />
+        <CategoryNote asked={asked} line={n} />
       </header>
       {line.fired.length === 0 && (
         <p className="text-sm text-muted-foreground" data-none-fired="">
@@ -247,28 +247,6 @@ function LineResult({ n, item, line, draft }: { n: number; item: string; line: S
         <RuleTrace key={r.ruleId} r={r} />
       ))}
     </article>
-  )
-}
-
-/** Which category rule set the line's category (story 61), or that the item master's category stands. */
-function CategoryNote({ line }: { line: SimLineResult }) {
-  const { t } = useTranslation('insurance-simulator')
-  const c = lineCategory(line)
-  if (!c) return null
-  return (
-    <span className="ms-auto text-xs text-muted-foreground" data-line-category={c.group} data-category-rule={c.ruleId ?? ''}>
-      {t('result.category.label')} <span className="font-medium text-foreground">{t(`result.category.group.${c.group}`)}</span>{' '}
-      {c.ruleId ? (
-        <>
-          {t('result.category.setBy')}{' '}
-          <Link to={`${INSURANCE_RULES_PATH}/categories?rule=${encodeURIComponent(c.ruleId)}`} className="text-primary hover:underline" data-category-link={c.ruleId}>
-            <RuleId id={c.ruleId} />
-          </Link>
-        </>
-      ) : (
-        t('result.category.itemDefault')
-      )}
-    </span>
   )
 }
 

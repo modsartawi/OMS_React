@@ -1,16 +1,18 @@
-import type {
-  CategoryRule,
-  CoverageEffect,
-  CoverageEffectKind,
-  CoverageRule,
-  InsuranceRule,
-  InsuranceRuleKind,
-  InsuranceRuleset,
+import {
+  effectLevel,
+  type CategoryRule,
+  type CoverageEffect,
+  type CoverageEffectKind,
+  type CoverageRule,
+  type InsuranceRule,
+  type InsuranceRuleKind,
+  type InsuranceRuleset,
 } from '@/core/insurance-rules/coverage-model'
+import type { GuardCondition } from '@/core/insurance-rules/model'
 
 // The category and coverage editors' pure edits (oms 617). A ruleset's ORDER is part of its meaning: a category
-// is set by the first rule that matches, and a coverage rule sees what the rules before it changed — so moving a
-// rule is an edit like any other, saved with the whole draft. Every edit gives back the SAME document when
+// is set by the first rule that matches, and a coverage value by the first holding rule that may set it — so moving
+// a rule is an edit like any other, saved with the whole draft. Every edit gives back the SAME document when
 // nothing changed, so the history (`@/core/insurance-rules/editor-history`) pushes no step.
 
 /** The rule moved `delta` places (negative = earlier); the same document past either end or for an unknown id. */
@@ -42,7 +44,8 @@ const PREFIX: Record<InsuranceRuleKind, string> = { category: 'K', coverage: 'C'
 
 /**
  * The next free id: `K-` (category) or `C-` (coverage) and one past the highest, three digits.
- * ⚠️ PROVISIONAL (617, as 608's guard ids): the brief has no door that mints one.
+ * ⚠️ Still a guess (617, as 608's guard ids): no door mints one; HQ's seeded coverage ids are words (C-ELITE),
+ * which this skips.
  */
 export function nextRuleId(rules: readonly { id: string }[], kind: InsuranceRuleKind): string {
   const re = new RegExp(`^${PREFIX[kind]}-(\\d+)$`)
@@ -54,33 +57,67 @@ export function nextRuleId(rules: readonly { id: string }[], kind: InsuranceRule
   return `${PREFIX[kind]}-${String(high + 1).padStart(3, '0')}`
 }
 
-/** A blank draft rule: no condition (it would match every line); a category rule sets Brand (G2), the commonest case. */
+/** A blank draft rule: no condition (it would match every line), no folder; a category rule sets Brand (G2), the commonest case. */
 export function newRule(id: string, kind: 'category'): CategoryRule
 export function newRule(id: string, kind: 'coverage'): CoverageRule
 export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule
 export function newRule(id: string, kind: InsuranceRuleKind): InsuranceRule {
-  const base = { id, name: { en: '', ar: '' }, folder: '', state: 'draft' as const, when: [] }
+  const base = { id, name: { en: '', ar: '' }, state: 'draft' as const, when: [] }
   return kind === 'category' ? { ...base, then: [{ effect: 'setCategory', group: 'G2' }] } : { ...base, then: [] }
 }
 
-/** A coverage effect as the author adds it: it FILLS what the payer left out until marked to override the payer. */
+/**
+ * A coverage effect as the author picks it (3146's spelling). It applies only where the payer said nothing until
+ * marked `overridesPayer: true` (the key is left out, never sent false).
+ */
 export function newCoverageEffect(kind: CoverageEffectKind): CoverageEffect {
-  const o = { overridesPayer: false }
   switch (kind) {
     case 'covered':
-      return { effect: kind, covered: false, ...o }
+      return { effect: kind, value: false }
     case 'priorApproval':
-      return { effect: kind, required: true, ...o }
+    case 'exceptionPrescriptions':
+      return { effect: kind, value: true }
     case 'deductible':
-      return { effect: kind, pct: 0, max: null, ...o }
+      return { effect: kind, percent: 0 }
     case 'priceCap':
-      return { effect: kind, max: 0, ...o }
-    case 'qtyCap':
-      return { effect: kind, maxQuantity: null, maxDaysSupply: null, ...o }
+    case 'quantityCap':
+    case 'daysSupplyCap':
+      return { effect: kind, value: 0 }
     case 'segment':
-      return { effect: kind, segment: 'Elite', ...o }
+      return { effect: kind, value: 'ELITE' }
   }
 }
 
-/** Whether a coverage value only fills the payer's gap, or replaces what the payer sent. */
+/** The effect with its payer mark set, or cleared (the key gone). */
+export function withOverridesPayer(e: CoverageEffect, on: boolean): CoverageEffect {
+  if (on) return { ...e, overridesPayer: true }
+  const rest: CoverageEffect = { ...e }
+  delete rest.overridesPayer
+  return rest
+}
+
+/** Whether a coverage value applies only where the payer said nothing, or replaces what the payer stated. */
 export const payerMark = (e: Pick<CoverageEffect, 'overridesPayer'>): 'fills' | 'overrides' => (e.overridesPayer ? 'overrides' : 'fills')
+
+/** Line facts: the item's fields and the line's own (`$item.*`, `$line.*`). */
+const LINE_PATH = /^\$(item|line)\./
+/** Blocks that read a request line (3146: "an invoice rule reads no `line` block"). */
+const LINE_CHECKS: ReadonlySet<string> = new Set(['line', 'sfda', 'formulary', 'supply', 'volume', 'history'])
+
+/** Whether any condition, at any depth, reads a line. */
+export function readsLine(when: readonly GuardCondition[]): boolean {
+  return when.some((c) => (c.check === 'group' ? readsLine(c.conditions) : LINE_CHECKS.has(c.check) || (c.check === 'fact' && LINE_PATH.test(c.path))))
+}
+
+export type CoverageRuleProblem = 'noEffect' | 'oneEffect' | 'invoiceReadsLine'
+export const COVERAGE_RULE_PROBLEMS: readonly CoverageRuleProblem[] = ['noEffect', 'oneEffect', 'invoiceReadsLine']
+
+/**
+ * What the editor refuses in words on a coverage rule (3146): it sets ONE effect, and a rule setting an invoice
+ * value (segment, exception prescriptions) reads no line block. HQ's Validate refuses them again.
+ */
+export function coverageRuleProblems(rule: Pick<CoverageRule, 'when' | 'then'>): CoverageRuleProblem[] {
+  if (rule.then.length === 0) return ['noEffect']
+  if (rule.then.length > 1) return ['oneEffect']
+  return effectLevel(rule.then[0].effect) === 'invoice' && readsLine(rule.when) ? ['invoiceReadsLine'] : []
+}

@@ -31,9 +31,9 @@
   },
   "coverage": {
     "title": "Coverage rules",
-    "order": "Rules run in this order, after the categories; a later rule sees what an earlier one changed.",
+    "order": "For each value, the first rule (in this order) that holds and may set it wins: any rule where the insurer said nothing, only a rule marked to override where it did.",
     "ifHint": "the line, the policy and the insurer's answer",
-    "thenHint": "what the insurer covers"
+    "thenHint": "the one value this sets"
   },
   "ruleset": {
     "failed": "The rules could not be read.",
@@ -53,7 +53,8 @@
     "unnamed": "No name yet",
     "moveUp": "Move up (checked earlier)",
     "moveDown": "Move down (checked later)",
-    "pick": "Pick a rule to edit it."
+    "pick": "Pick a rule to edit it.",
+    "pendingLocked": "The draft is waiting for approval: it cannot be saved until it is approved or sent back."
   },
   "checks": {
     "validate": "Check the draft",
@@ -118,67 +119,87 @@
   "effect": {
     "setCategory": "Category",
     "none": "Sets nothing yet.",
-    "add": "+ Add a coverage value…",
-    "remove": "Remove the value",
     "overridesPayer": "Overrides the payer",
     "covered": "Covered",
-    "coveredYes": "covered",
-    "coveredNo": "not covered",
     "priorApproval": "Prior approval",
-    "approvalYes": "needed",
-    "approvalNo": "not needed",
     "deductible": "Deductible",
-    "pct": "Share",
     "max": "At most",
     "noCap": "no cap",
     "priceCap": "Price cap",
-    "qtyCap": "Quantity cap",
-    "maxQuantity": "Quantity",
-    "maxDaysSupply": "Days supply",
-    "segment": "Segment"
+    "segment": "Segment",
+    "sets": "Sets",
+    "pick": "Pick what this rule sets…",
+    "lineGroup": "On each line",
+    "invoiceGroup": "On the invoice",
+    "level": {
+      "line": "A line value: the rule may read the line.",
+      "invoice": "An invoice value: the rule may not read the line (item, quantity, list of items)."
+    },
+    "exceptionPrescriptions": "Exception prescriptions",
+    "percent": "Share",
+    "payerSays": "as the insurer says",
+    "quantityCap": "Quantity cap",
+    "daysSupplyCap": "Days-supply cap",
+    "yes": {
+      "covered": "covered",
+      "priorApproval": "needed",
+      "exceptionPrescriptions": "allowed"
+    },
+    "no": {
+      "covered": "not covered",
+      "priorApproval": "not needed",
+      "exceptionPrescriptions": "not allowed"
+    }
   },
   "reads": {
     "setsCategory": "Sets the category to",
-    "covered": "Covered",
-    "notCovered": "Not covered",
-    "approval": "Needs prior approval",
-    "noApproval": "No prior approval",
     "deductible": "Deductible",
     "capped": "at most",
     "priceCap": "The insurer pays at most",
-    "qtyCap": "At most",
-    "segment": "Invoice segment"
+    "segment": "Invoice segment",
+    "covered": {
+      "yes": "Covered",
+      "no": "Not covered"
+    },
+    "priorApproval": {
+      "yes": "Needs prior approval",
+      "no": "No prior approval"
+    },
+    "exceptionPrescriptions": {
+      "yes": "Exception prescriptions allowed",
+      "no": "No exception prescriptions"
+    },
+    "quantityCap": "At most",
+    "daysSupplyCap": "At most"
   },
   "insurers": {
     "title": "Insurer settings",
-    "hint": "One table per insurer. Changes are not versioned or approved; every save is logged.",
+    "hint": "One row per insurer (its SAP customer id) and the estate default every insurer inherits where its own value is 0 or empty. Changes are not versioned or approved; every save is logged.",
     "pick": "Insurers",
     "none": "No insurer yet.",
-    "failed": "The insurers could not be read."
+    "failed": "The insurers could not be read.",
+    "estateDefault": "Estate default (*)",
+    "discount": "Discount",
+    "openOther": "Another insurer",
+    "customerId": "SAP customer id",
+    "open": "Open"
   },
   "settings": {
     "contract": "Contract",
     "discount": "Fixed discount",
     "receivable": "Receivable customer",
     "memberId": "Membership id",
-    "memberIdLength": "Length",
-    "memberIdFormat": "Format (pattern)",
-    "memberIdFormatHint": "A pattern the id must match, for example ^\\d{15}$. Leave empty for any.",
     "daysSupply": "Days of supply",
     "daysMin": "At least",
     "daysMax": "At most",
-    "directDispense": "Direct dispense",
-    "directDispenseAllowed": "Allowed without a prior request",
-    "defaultDayBenefit": "Day benefit when the insurer sends none",
+    "directDispense": "Direct dispense (no prior request)",
     "benefits": "Benefit categories",
-    "benefitsHint": "What each benefit code in the eligibility answer means to pricing.",
+    "benefitsHint": "What each code in the eligibility answer means to pricing, and where it is read.",
     "benefitCode": "Benefit code",
     "benefitMeaning": "Means",
     "addBenefit": "Add a benefit code",
     "pins": "Payer pins",
-    "pinsHint": "The payer code used per SAP document type.",
-    "documentType": "Document type",
-    "pinPayer": "Payer code",
+    "pinsHint": "Payer names that always resolve to this insurer.",
     "addPin": "Add a pin",
     "removeRow": "Remove the row",
     "cancel": "Cancel",
@@ -186,35 +207,71 @@
     "fixFirst": "Fix the problems first",
     "notVersioned": "Takes effect when saved.",
     "saved": "Settings saved",
-    "saveFailed": "The settings could not be saved"
+    "saveFailed": "The settings could not be saved",
+    "updated": "Last changed by",
+    "isNew": "No settings for this insurer yet: it inherits the estate default. Fill in what differs and create its row.",
+    "inheritHint": "A 0 or an empty value inherits the estate default.",
+    "estateHint": "Every insurer inherits these values where its own is 0 or empty.",
+    "hasFixedDiscount": "Has a fixed discount",
+    "createsInsuranceCoupon": "Creates an insurance coupon",
+    "minLength": "At least",
+    "maxLength": "At most",
+    "pattern": "Pattern",
+    "patternHint": "A pattern the id must match, for example ^\\d{15}$. Leave empty to inherit.",
+    "daysDefault": "Default",
+    "dispensing": "Dispensing",
+    "fullQuantityReturnsOnly": "Returns only of the full quantity",
+    "brandMaxWhenZero": "Brand maximum when the benefit is zero",
+    "benefitSource": "Read from",
+    "pin": "Payer name",
+    "note": "Note for the log",
+    "notePlaceholder": "Why this change",
+    "create": "Create the insurer"
   },
   "meaning": {
     "genericCopay": "Generic copay",
     "brandCopay": "Brand copay",
-    "dayBenefit": "Day benefit"
-  },
-  "problem": {
-    "discountRange": "The discount is between 0 and 100 %.",
-    "memberIdLength": "The membership id length is a whole number above 0.",
-    "memberIdFormat": "The membership id format is not a valid pattern.",
-    "daysSupplyRange": "Days of supply start at 1, and the least is not above the most.",
-    "dayBenefitNegative": "The day benefit is not below 0.",
-    "benefitCodeMissing": "A benefit code is empty.",
-    "benefitCodeTwice": "This benefit code is already mapped.",
-    "pinDocumentTypeMissing": "A pin has no document type.",
-    "pinDocumentTypeTwice": "This document type is already pinned.",
-    "pinPayerMissing": "A pin has no payer code.",
-    "onRow": "Row {{row}}: {{problem}}"
+    "dayBenefit": "Day benefit",
+    "nonMedCopayPct": "NonMed copay %",
+    "nonMedCopayMax": "NonMed copay maximum"
   },
   "log": {
     "title": "Change log",
     "failed": "The log could not be read.",
     "empty": "No changes yet.",
     "none": "(empty)",
-    "at": "When",
-    "by": "Who",
     "changes": "What changed",
     "from": "from",
-    "to": "to"
+    "to": "to",
+    "byAt": "Who, when",
+    "note": "Note",
+    "noNote": "No note",
+    "created": "Created the insurer."
+  },
+  "source": {
+    "benefit": "Benefit",
+    "tob": "Table of benefits"
+  },
+  "problem": {
+    "discountRange": "The discount is between 0 and 100 %.",
+    "memberIdLength": "Membership id lengths are whole numbers, and the least is not above the most.",
+    "memberIdPattern": "The membership id pattern is not a valid pattern.",
+    "daysSupplyRange": "Days of supply are whole numbers, and the least is not above the most.",
+    "daysSupplyDefault": "The default days of supply is between the least and the most.",
+    "benefitCodeMissing": "A benefit code is empty.",
+    "benefitCodeTwice": "This code is already mapped from the same place.",
+    "pinMissing": "A payer pin is empty.",
+    "pinTwice": "This payer name is already pinned.",
+    "onRow": "Row {{row}}: {{problem}}"
+  },
+  "segment": {
+    "ELITE": "Elite",
+    "SABIC": "SABIC",
+    "ARAMCO": "ARAMCO"
+  },
+  "ruleProblem": {
+    "noEffect": "The rule sets nothing yet: pick one value.",
+    "oneEffect": "A rule sets one value only: split it into one rule per value.",
+    "invoiceReadsLine": "An invoice value cannot read the line: remove the item and line conditions, or set a line value."
   }
 }

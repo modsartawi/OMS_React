@@ -12,37 +12,53 @@ import Field from '@/core/ui/Field'
 import Ltr from '@/core/ui/Ltr'
 import Textarea from '@/core/ui/Textarea'
 import { fsi } from '@/core/util/bidi'
-import { INSURANCE_RULES_KEY, rulesetApprovalDoors, rulesetDraftDoors } from './api'
-import { actionsFor, type ApprovalAction } from './approval'
+import { INSURANCE_RULES_KEY } from './api'
 import { checksVerdict } from './checks'
 import { ByAt, TD, TH } from './parts'
-
-type Kind = 'Categories' | 'Coverage'
+import { draftDocument, rulesetActions, rulesetDoors, type RulesetAction, type RulesetDoorKind, type RulesetDraft } from './ruleset-draft'
 
 /**
- * Submit / Approve / Send back and the Versions of a category or coverage ruleset (review 3126 P6b; 617's rulesets on
- * "the same authoring doors" as 611's guards). An author asks for approval of the SAVED draft once HQ's checks of
- * that revision show no error (no back-test: that is the guards'); a different user approves or sends it back;
- * Restore makes a version the new draft. Speaks in the area namespace (`insurance-rules:approval.*`).
+ * Submit / Approve / Send back and the Versions of a category or coverage ruleset (617 on BackOffice 3145 / 3146, the
+ * guard doors as built). An author asks for approval of the SAVED draft once HQ's checks of that revision show no
+ * error — no back-test; a different user approves it or sends it back. An approved document publishes LIVE (no
+ * shadow, no promote). Restore makes a version the new draft. Speaks in the area namespace (`insurance-rules:approval.*`).
  */
-export default function RulesetApproval({ kind, doc, dirty, draftKey }: { kind: Kind; doc: { revision: number }; dirty: boolean; draftKey: readonly unknown[] }) {
+export default function RulesetApproval<T extends { revision: number }>({
+  kind,
+  draft,
+  dirty,
+  draftKey,
+}: {
+  kind: RulesetDoorKind
+  draft: RulesetDraft<T>
+  dirty: boolean
+  draftKey: readonly unknown[]
+}) {
   const { t } = useTranslation('insurance-rules')
   const qc = useQueryClient()
   const userId = useSession((s) => s.userId)
-  const doors = rulesetApprovalDoors<{ revision: number }>(kind)
-  const key = [...INSURANCE_RULES_KEY, kind, 'approval'] as const
-  const approval = useQuery({ queryKey: key, queryFn: () => doors.approval(), retry: false })
-  const checks = useQuery({ queryKey: [...INSURANCE_RULES_KEY, kind, 'checks', doc.revision], queryFn: () => rulesetDraftDoors(kind).validate(doc), retry: false })
-  const versions = useQuery({ queryKey: [...INSURANCE_RULES_KEY, kind, 'versions'], queryFn: () => doors.versions(), retry: false })
+  const doors = rulesetDoors<T>(kind)
+  const doc = draftDocument(draft)
+  const versionsKey = [...INSURANCE_RULES_KEY, kind, 'versions'] as const
+  const checks = useQuery({
+    queryKey: [...INSURANCE_RULES_KEY, kind, 'checks', draft.revision],
+    queryFn: () => doors.validate(doc),
+    retry: false,
+    enabled: draft.state !== 'none',
+  })
+  const versions = useQuery({ queryKey: versionsKey, queryFn: () => doors.versions(), retry: false })
   const [note, setNote] = useState('')
   const act = useMutation({
-    mutationFn: (a: ApprovalAction['kind']) => (a === 'submit' ? doors.submit(note.trim()) : a === 'approve' ? doors.approve(note.trim()) : doors.sendBack(note.trim())),
-    onSuccess: async (next, a) => {
+    mutationFn: async (a: RulesetAction['kind']) => {
+      if (a === 'submit') return doors.submit(draft.revision, note.trim())
+      if (a === 'approve') return doors.approve(draft.revision, note.trim())
+      return doors.sendBack(note.trim())
+    },
+    onSuccess: async (_next, a) => {
       setNote('')
-      qc.setQueryData(key, next)
       notify.success(t(`approval.done.${a}`))
       await qc.invalidateQueries({ queryKey: draftKey })
-      await qc.invalidateQueries({ queryKey: [...INSURANCE_RULES_KEY, kind, 'versions'] })
+      await qc.invalidateQueries({ queryKey: versionsKey })
     },
   })
   const restore = useMutation({
@@ -50,43 +66,41 @@ export default function RulesetApproval({ kind, doc, dirty, draftKey }: { kind: 
     onSuccess: async (d, v) => {
       qc.setQueryData(draftKey, d)
       notify.success(t('approval.versions.restored', { version: fsi(v), revision: fsi(d.revision) }))
-      await qc.invalidateQueries({ queryKey: key })
     },
     onError: (err) => notify.apiError(t('approval.versions.restoreFailed'), err, t('approval.versions.restoreFailed')),
   })
 
-  if (!approval.data) {
-    return approval.isError ? <ErrorBanner className="p-2" message={apiErrorMessage(approval.error, t('approval.failed'))} /> : null
-  }
-  const a = approval.data
   const verdict = checks.data ? checksVerdict(checks.data) : null
-  const actions = actionsFor({ approval: a, userId, backtest: null, checks: verdict, needsBacktest: false, dirty })
+  const actions = rulesetActions({ draft, userId, checks: verdict, dirty })
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 text-sm" data-ruleset-approval={a.state}>
+    <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 text-sm" data-ruleset-approval={draft.state}>
       <div className="flex flex-wrap items-baseline gap-2">
         <h2 className="text-sm font-semibold">{t('approval.title')}</h2>
-        <span className="text-xs text-muted-foreground" data-approval-state={a.state}>
-          {t(`approval.state.${a.state}`)}
+        <span className="text-xs text-muted-foreground" data-approval-state={draft.state}>
+          {t(`approval.draftState.${draft.state}`)}
         </span>
-        {a.submittedBy && (
+        {draft.requestedBy && draft.state === 'pending' && (
           <span className="text-xs text-muted-foreground">
-            {t('approval.submittedBy')} <ByAt by={a.submittedBy} at={a.submittedAt} />
+            {t('approval.submittedBy')} <ByAt by={draft.requestedBy} at={draft.requestedAt} />
           </span>
         )}
       </div>
-      {a.note && (
+      <p className="text-xs text-muted-foreground" data-publishes-live="">
+        {t('approval.publishesLive')}
+      </p>
+      {draft.requestNote && draft.state === 'pending' && (
         <p className="text-xs" data-approval-note="">
-          <bdi>{a.note}</bdi>
+          <bdi>{draft.requestNote}</bdi>
         </p>
       )}
-      {a.sentBack && (
+      {draft.state === 'sentBack' && draft.reviewedBy && (
         <p className="text-xs text-attention-800" data-sent-back="">
-          {t('approval.sentBackBy')} <ByAt by={a.sentBack.by} at={a.sentBack.at} /> <bdi>{a.sentBack.note}</bdi>
+          {t('approval.sentBackBy')} <Ltr>{draft.reviewedBy}</Ltr> {draft.reviewNote && <bdi>{draft.reviewNote}</bdi>}
         </p>
       )}
       {actions.length > 0 && (
         <div className="flex flex-col gap-2" data-approval-actions="">
-          <Field label={t(a.state === 'draft' ? 'approval.noteToApprover' : 'approval.noteToAuthor')}>
+          <Field label={t(draft.state === 'pending' ? 'approval.noteToAuthor' : 'approval.noteToApprover')}>
             <Textarea rows={2} dir="auto" value={note} onChange={(e) => setNote(e.target.value)} data-note="" />
           </Field>
           <div className="flex flex-wrap items-center gap-2">
@@ -136,21 +150,21 @@ export default function RulesetApproval({ kind, doc, dirty, draftKey }: { kind: 
             </thead>
             <tbody>
               {versions.data.map((v) => (
-                <tr key={v.version} className="border-t border-border/60" data-version={v.version}>
+                <tr key={v.versionNo} className="border-t border-border/60" data-version={v.versionNo}>
                   <td className={TD}>
-                    <Ltr>{v.version}</Ltr>
+                    <Ltr>{v.versionNo}</Ltr>
                   </td>
                   <td className={TD}>
-                    <ByAt by={v.by} at={v.at} />
+                    <ByAt by={v.publishedBy} at={v.publishedAt} />
                   </td>
                   <td className={TD}>{v.note ? <bdi>{v.note}</bdi> : <span className="text-muted-foreground">{t('approval.versions.noNote')}</span>}</td>
                   <td className={`${TD} text-end`}>
                     <Button
                       variant="text"
                       disabled={restore.isPending}
-                      data-restore={v.version}
+                      data-restore={v.versionNo}
                       onClick={async () => {
-                        if (await confirmAction(t('approval.versions.confirmBody', { version: fsi(v.version) }), t('approval.versions.confirmTitle'))) restore.mutate(v.version)
+                        if (await confirmAction(t('approval.versions.confirmBody', { version: fsi(v.versionNo) }), t('approval.versions.confirmTitle'))) restore.mutate(v.versionNo)
                       }}
                     >
                       {t('approval.versions.restore')}

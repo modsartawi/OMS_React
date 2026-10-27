@@ -23,7 +23,7 @@
 //   1. run the app:  npx vite --port 5209 --strictPort
 //   2. node tools/insurance-simulator-drive.mjs        (DRIVE_PORT overrides 5209)
 import { createRequire } from 'node:module'
-import { envelope, insuranceRulesStub, newBacktestStore, SIM_PATIENT, simulatorStub } from './insurance-rules-stubs.mjs'
+import { categorySimulateStub, envelope, insuranceRulesStub, newBacktestStore, SIM_PATIENT, simulatorStub } from './insurance-rules-stubs.mjs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -60,7 +60,7 @@ async function open(dir, { deny = [] } = {}) {
     } catch {
       body = null
     }
-    const hit = simulatorStub(req.method(), p, body, { store, deny }) ?? insuranceRulesStub(req.method(), p, body)
+    const hit = categorySimulateStub(req.method(), p, body, { store, deny }) ?? simulatorStub(req.method(), p, body, { store, deny }) ?? insuranceRulesStub(req.method(), p, body)
     if (hit) return route.fulfill(hit)
     if (/\/Access$/.test(p)) return route.fulfill(envelope({}))
     return route.fulfill(envelope([]))
@@ -161,7 +161,10 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. G-004's suggestion is an ltr value`, (await l2.locator('[data-traced-rule="G-004"] [data-suggestion="maxDaysSupply"] bdi[dir="ltr"]').innerText()) === '90')
     const t72 = await traceOf(page, 2, 'G-007')
     check(`${dir} 5. G-007 short-circuits: the rest is "Not read"`, JSON.stringify(t72.slice(0, 3)) === JSON.stringify(['when[0] = false', 'when[0].conditions[0] = false', 'when[0].conditions[1] NOT = unread']), JSON.stringify(t72))
-    check(`${dir} 5b. line 1 keeps the item master's category`, (await l1.locator('[data-line-category="G2"][data-category-rule=""]').count()) === 1 && ['Category Brand from the item master (no category rule matched)', 'الفئة تجاري من بيانات الصنف (لم تنطبق قاعدة فئة)'].includes(strip(await l1.locator('[data-line-category]').innerText())), strip(await l1.locator('[data-line-category]').innerText()))
+    await l1.locator('[data-line-category]').waitFor({ timeout: 10000 }).catch(() => {})
+    check(`${dir} 5b. line 1 keeps its default category (Categories/Simulate source: default), its own spelling isolated`, (await l1.locator('[data-line-category="G2"][data-category-source="default"][data-category-rule=""]').count()) === 1 && ['Category Brand from the item master (no category rule matched) Brand-IR', 'الفئة تجاري من بيانات الصنف (لم تنطبق قاعدة فئة) Brand-IR'].includes(strip(await l1.locator('[data-line-category]').innerText())) && (await l1.locator('[data-default-category] bdi[dir="ltr"]').innerText()) === 'Brand-IR', strip(await l1.locator('[data-line-category]').innerText()))
+    const cs = store.categorySimulates ?? []
+    check(`${dir} 5b. one Categories/Simulate per run: the same request, lines numbered, no patient key`, cs.length === 1 && JSON.stringify(cs[0].request.lines.map((l) => [l.line, l.item])) === JSON.stringify([[1, '100101'], [2, '200101']]) && !('patientKey' in cs[0]) && cs[0].request.store === store.simulates.at(-1)?.request?.store, JSON.stringify(cs))
     check(`${dir} 5b. line 2 names the category rule that set it, linked`, (await l2.locator('[data-line-category="G1"]').count()) === 1 && (await l2.locator('a[data-category-link="K-002"]').getAttribute('href')) === '/insurance-rules/categories?rule=K-002')
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
     await page.screenshot({ path: `tools/.insurance-simulator-shots/${dir}-simulate.png`, fullPage: true }).catch(() => {})

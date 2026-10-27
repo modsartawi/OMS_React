@@ -7,6 +7,8 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import { backtestRunning, type BacktestDays, type BacktestStarted, type GuardBacktest } from '@/core/insurance-rules/backtest'
+import type { CategorySimulateResult } from '@/core/insurance-rules/coverage-model'
+import type { CategorySimulateBody } from './category'
 import type { SimulateBody, SimulateResult } from './simulate'
 
 const GUARDS = `${INSURANCE_RULES_BASE}/Guards`
@@ -26,7 +28,12 @@ export const simulatorApi = {
   },
 }
 
-export const BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
+/** `POST InsuranceRules/Categories/Simulate { request }` (3145) → which category each line got and who set it. Writes nothing. */
+export async function simulateCategories(body: CategorySimulateBody): Promise<CategorySimulateResult> {
+  return (await api.post<CategorySimulateResult | null>(`${INSURANCE_RULES_BASE}/Categories/Simulate`, body)) ?? { version: null, lines: [] }
+}
+
+export const BACKTESTS_KEY =[...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
 /** How often a running back-test is read again. */
 export const BACKTEST_POLL_MS = 1000
 

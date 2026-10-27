@@ -1,4 +1,4 @@
-import { ShieldAlert, ShieldPlus } from 'lucide-react'
+import { ListChecks, ListTree, ShieldAlert, ShieldPlus } from 'lucide-react'
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -25,6 +25,18 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 609 · Templates
 
     // 610 · Lists, Fields
+    {
+      // 610 — item lists (from registry fields), patient and policy lists; `?tab=` keeps the leaf lit.
+      labelKey: 'insurance-rules:menu.lists',
+      icon: ListChecks,
+      routerLink: '/insurance-rules/lists',
+    },
+    {
+      // 610 — the Fields registry: add a field from a source, retire one (never delete).
+      labelKey: 'insurance-rules:menu.fields',
+      icon: ListTree,
+      routerLink: '/insurance-rules/fields',
+    },
 
     // 611 · Approvals
 

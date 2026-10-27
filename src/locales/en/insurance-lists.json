@@ -1,0 +1,140 @@
+{
+  "page": {
+    "title": "Lists",
+    "lede": "Name a set once and use it in any rule. Rules name a list by its id, so renaming a list never breaks a rule.",
+    "tabs": "List kinds"
+  },
+  "tab": {
+    "items": "Items",
+    "patients": "Patients",
+    "policies": "Policies"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission."
+  },
+  "items": {
+    "failed": "The item lists could not be loaded.",
+    "loading": "Loading the item lists…",
+    "lede": "An item list built from fields updates itself: a new item with a matching code joins it the day it is created, with no rule edit. Item lists are part of the guard draft and go through approval with it.",
+    "new": "New list",
+    "empty": "The draft has no item list yet.",
+    "fromFields": "From fields",
+    "edit": "Edit",
+    "usedBy": "Used by",
+    "unused": "No rule uses this list."
+  },
+  "def": {
+    "or": "or",
+    "include": "Also includes",
+    "exclude": "Takes out",
+    "articles": "Items",
+    "categories": "Categories"
+  },
+  "mode": {
+    "anyOf": "is any of",
+    "noneOf": "is none of"
+  },
+  "editor": {
+    "newTitle": "New item list",
+    "editTitle": "Edit item list",
+    "id": "Id",
+    "idHint": "Lower-case letters, digits and hyphens. It never changes.",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "filters": "Filters",
+    "filtersHint": "An item matches a filter when every field row holds. The list holds the items of any filter.",
+    "removeCode": "Remove {{code}}",
+    "addField": "Add a field",
+    "removeFilter": "Remove this filter",
+    "addFilter": "Add a filter (or)",
+    "include": "Also include these lists",
+    "exclude": "Take out these lists",
+    "includeHint": "Their items join this list.",
+    "excludeHint": "Their items leave this list.",
+    "noOtherList": "There is no other list.",
+    "saved": "The item list is saved in the draft",
+    "saveFailed": "The item list could not be saved",
+    "stale": "Someone saved the guard draft after you opened it. Reload it and make your change again.",
+    "reload": "Reload the draft",
+    "save": "Save to the draft",
+    "cancel": "Cancel",
+    "field": "Field",
+    "mode": "Match",
+    "removeField": "Remove this field",
+    "noCode": "No code picked yet.",
+    "searchValues": "Search the codes",
+    "noValue": "No code matches."
+  },
+  "problem": {
+    "cycle": "A list cannot include itself through other lists:",
+    "tooDeep": "Lists may be at most three deep:",
+    "unknownList": "This list is not in the draft:",
+    "idTaken": "Another list has this id.",
+    "idInvalid": "The id must start with a letter and use only lower-case letters, digits and hyphens.",
+    "nameMissing": "Give the list a name in English and in Arabic.",
+    "emptyAttribute": "Each field row needs at least one code.",
+    "emptyDefinition": "Add a field, an item or a list for this list to hold anything."
+  },
+  "preview": {
+    "title": "Items that match today",
+    "run": "Preview",
+    "failed": "The preview could not be loaded.",
+    "blocked": "Fix the problems above to preview the list.",
+    "hint": "Preview asks HQ which items this list matches today.",
+    "nothing": "This list matches no item.",
+    "count_one": "{{n}} item matches today.",
+    "count_other": "{{n}} items match today.",
+    "firstPage_one": "The first {{n}} is shown.",
+    "firstPage_other": "The first {{n}} are shown.",
+    "article": "Item",
+    "name": "Name"
+  },
+  "keyed": {
+    "failed": "The lists could not be loaded.",
+    "loading": "Loading…",
+    "patient": {
+      "none": "There is no patient list.",
+      "lede": "By National ID or Iqama. A rule can leave out the patients of a list (VIP).",
+      "key": "National ID / Iqama"
+    },
+    "policy": {
+      "none": "There is no policy list.",
+      "lede": "By SubscriberId. A rule can leave out the policies of a list.",
+      "key": "SubscriberId"
+    },
+    "added": "Entry added",
+    "addFailed": "The entry could not be added",
+    "removed": "Entry removed",
+    "removeFailed": "The entry could not be removed",
+    "removeConfirm": "Remove {{key}} from {{list}}? The change is logged.",
+    "removeTitle": "Remove the entry",
+    "removeLabel": "Remove {{key}}",
+    "reason": "Reason",
+    "expiresOn": "Expires on",
+    "add": "Add",
+    "entries": "Entries",
+    "noEntry": "The list has no entry.",
+    "addedBy": "Added by",
+    "noExpiry": "No expiry",
+    "log": "Change log",
+    "logFailed": "The change log could not be loaded.",
+    "noLog": "No change yet.",
+    "by": "by",
+    "until": "until"
+  },
+  "entryProblem": {
+    "keyMissing": "Enter the key.",
+    "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2; a SubscriberId has no spaces.",
+    "keyListed": "This key is already on the list.",
+    "reasonMissing": "Give a reason.",
+    "reasonTooLong": "The reason is longer than 200 characters.",
+    "expiryInvalid": "The expiry is not a date.",
+    "expiryPast": "The expiry must be after today."
+  },
+  "logAction": {
+    "added": "Added",
+    "removed": "Removed",
+    "expired": "Expired"
+  }
+}

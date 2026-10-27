@@ -30,6 +30,13 @@ describe('the Insurance rules nav group', () => {
     })
   })
 
+  it('614 ships Review and Exceptions, at /insurance-rules/review and /insurance-rules/exceptions', () => {
+    const links = leaves([group!]).map((l) => l.routerLink)
+    expect(links).toContain('/insurance-rules/review')
+    expect(links).toContain('/insurance-rules/exceptions')
+    expect(markedLeaf(MENU, '/insurance-rules/exceptions')?.labelKey).toBe('insurance-rules:menu.exceptions')
+  })
+
   it('615 ships Metrics at /insurance-rules/metrics', () => {
     expect(leaves([group!]).find((l) => l.labelKey === 'insurance-rules:menu.metrics')).toMatchObject({ routerLink: '/insurance-rules/metrics' })
     expect(markedLeaf(MENU, '/insurance-rules/metrics')?.labelKey).toBe('insurance-rules:menu.metrics')

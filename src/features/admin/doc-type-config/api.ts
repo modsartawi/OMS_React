@@ -12,7 +12,13 @@
  * (`@/core/services/lookups`) is a different, ungated door and stays as it is.
  */
 import { api } from '@/core/api'
-import type { DocTypeConfigAccess, DocumentTypeListRow, DocumentTypeSettings, DocumentTypeUpdateRequest } from './types'
+import type {
+  DocTypeConfigAccess,
+  DocumentTypeFieldMeta,
+  DocumentTypeListRow,
+  DocumentTypeSettings,
+  DocumentTypeUpdateRequest,
+} from './types'
 
 const BASE = 'SdDocTypeConfigWeb'
 const type = (code: string) => `${BASE}/DocumentTypes/${encodeURIComponent(code)}`
@@ -24,6 +30,8 @@ export const DOC_TYPE_CONFIG_ERRORS = {
   lockedField: 'SDC-00003',
   staleBeforeState: 'SDC-00004',
   settingsRequired: 'SDC-00005',
+  /** 3150: one or more settings refused; `data.fields` names each (`settingsRefusals`). */
+  settingsRefused: 'SDC-00010',
 } as const
 
 export const docTypeConfigApi = {
@@ -43,6 +51,11 @@ export const docTypeConfigApi = {
   /** `GET SdDocTypeConfigWeb/DocumentTypes/{code}` — every mapped setting; `SDC-00001` for an unknown code. */
   documentType(code: string): Promise<DocumentTypeSettings> {
     return api.get<DocumentTypeSettings>(type(code))
+  },
+
+  /** 3150: `GET SdDocTypeConfigWeb/DocumentTypeFields` — each setting's open/new-orders class and allowed values. */
+  documentTypeFields(): Promise<DocumentTypeFieldMeta[]> {
+    return api.get<DocumentTypeFieldMeta[]>(`${BASE}/DocumentTypeFields`)
   },
 
   /** `PUT SdDocTypeConfigWeb/DocumentTypes/{code}` `{ before, after, reason }` — answers the saved settings. */
@@ -88,6 +101,16 @@ export function documentTypeQuery(code: string) {
   return {
     queryKey: [...DOCUMENT_TYPES_KEY, code] as const,
     queryFn: () => docTypeConfigApi.documentType(code),
+    retry: false,
+  } as const
+}
+
+/** 3150: the settings' metadata is fixed server-side: read once per page life. */
+export function documentTypeFieldsQuery() {
+  return {
+    queryKey: [...DOC_TYPE_CONFIG_KEY, 'document-type-fields'] as const,
+    queryFn: () => docTypeConfigApi.documentTypeFields(),
+    staleTime: Infinity,
     retry: false,
   } as const
 }

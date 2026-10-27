@@ -1,5 +1,5 @@
 /** Test-only: a document type's settings (BUPA-like), any field overridden. Not imported by app code. */
-import type { DocumentTypeSettings } from './types'
+import type { DocumentTypeFieldMeta, DocumentTypeSettings } from './types'
 
 export const settings = (over: Partial<DocumentTypeSettings> = {}): DocumentTypeSettings => ({
   documentType: 'BUPA',
@@ -26,7 +26,9 @@ export const settings = (over: Partial<DocumentTypeSettings> = {}): DocumentType
   createBillingImmediately: '',
   isPickedOnOrder: false,
   isDeterminePickingFees: false,
+  isQuantityAllocation: true,
   notifyOnCreation: 'X',
+  notifyOnCancellation: 'X',
   controlType: '',
   validateItem: false,
   preOrderMaterialOnly: false,
@@ -38,3 +40,57 @@ export const settings = (over: Partial<DocumentTypeSettings> = {}): DocumentType
   acceptanceRequired: false,
   ...over,
 })
+
+/** Test-only: `GET SdDocTypeConfigWeb/DocumentTypeFields` as BackOffice `SdDocumentTypeFieldCatalog` answers it. */
+export const fieldMetas = (): DocumentTypeFieldMeta[] => {
+  const open = (field: string, options: string[] | null = null, notRead = false): DocumentTypeFieldMeta => ({
+    field,
+    effect: 'OpenOrders',
+    options,
+    notReadByOrderProcessing: notRead,
+  })
+  const neu = (field: string, options: string[] | null = null): DocumentTypeFieldMeta => ({
+    field,
+    effect: 'NewOrdersOnly',
+    options,
+    notReadByOrderProcessing: false,
+  })
+  return [
+    neu('DocumentType'),
+    open('Description'),
+    open('DocumentCategory', ['O', 'R', 'X', 'E', 'Q']),
+    neu('ReferenceDocumentCategory'),
+    neu('NumberRangeNumber'),
+    neu('CustomerDeterminationType', ['', 'A', 'B', 'C', 'D']),
+    neu('DefaultCustomer'),
+    neu('IsReceivableCustomer'),
+    neu('ReceivableCustomer'),
+    neu('InsurancePayerCode'),
+    neu('EngineType', ['', 'LEGACY', 'SISPRICING']),
+    open('DocumentPricingProcedure'),
+    open('PromotionDetermination'),
+    open('IsAlternativePriceCapped'),
+    open('DefaultDeliveryType'),
+    open('CreateDeliveryImmediately', ['', 'X']),
+    neu('PlantDeterminationType', ['', 'R']),
+    open('IsCalculateDeliveryFees'),
+    neu('DeliveryFees'),
+    open('OrderRelatedBillingType', null, true),
+    open('DeliveryRelatedBillingType', null, true),
+    open('CreateBillingImmediately', null, true),
+    open('IsPickedOnOrder'),
+    open('IsDeterminePickingFees'),
+    open('IsQuantityAllocation'),
+    neu('NotifyOnCreation', ['', 'X']),
+    open('NotifyOnCancellation', ['', 'X', 'O', 'D']),
+    open('ControlType', ['', 'W', 'N']),
+    open('ValidateItem'),
+    neu('PreOrderMaterialOnly'),
+    neu('CheckOrderNo'),
+    open('CanChangeItems'),
+    open('AutoClose'),
+    neu('DiagnosisRequired'),
+    open('ApprovalProcess'),
+    open('AcceptanceRequired'),
+  ]
+}

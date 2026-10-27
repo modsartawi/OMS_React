@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 
@@ -11,9 +11,12 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatCount, fsi } from '@/core/util/bidi'
-import { DOCUMENT_TYPES_KEY, DOC_TYPE_CONFIG_ERRORS, docTypeConfigApi } from './api'
+import { DOCUMENT_TYPES_KEY, DOC_TYPE_CONFIG_ERRORS, docTypeConfigApi, documentTypeFieldsQuery } from './api'
 import { editState, saveRequest, setField } from './edit-form'
+import { changeLabels, fieldMetaIndex, optionsFor, type FieldMetaIndex } from './field-meta'
 import FieldValueText from './FieldValueText'
+import { optionLabelKey } from './option-label'
+import { settingsRefusals, type FieldRefusal } from './settings-refusal'
 import { ALL_FIELDS, FIELD_GROUPS, isLocked, type FieldDef } from './fields'
 import type { DocumentTypeSettings } from './types'
 
@@ -59,7 +62,15 @@ export default function EditDocumentTypeDialog({
     },
   })
 
+  // 3150: the dropdowns and the diff's open/new-orders labels come from the server's field metadata. While it loads
+  // (or if it failed) the coded fields are text boxes and the diff carries no label; the server refuses regardless.
+  const fieldMetas = useQuery(documentTypeFieldsQuery())
+  const metaIndex = fieldMetaIndex(fieldMetas.data)
+
   const state = editState(loaded, draft, reasonText)
+  const labels = changeLabels(state.changes, metaIndex)
+  const refusals = save.error ? settingsRefusals(save.error) : {}
+  const refusedOnFields = Object.keys(refusals).length > 0
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
   const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState
@@ -98,6 +109,8 @@ export default function EditDocumentTypeDialog({
                     def={def}
                     value={draft[def.field]}
                     disabled={busy}
+                    metaIndex={metaIndex}
+                    refusal={refusals[def.field]}
                     onChange={(v) => {
                       setDraft((d) => setField(d, def.field, v))
                       save.reset()
@@ -122,19 +135,29 @@ export default function EditDocumentTypeDialog({
                   <th className="py-1 text-start font-medium" />
                   <th className="py-1 text-start font-medium">{t('edit.before')}</th>
                   <th className="py-1 text-start font-medium">{t('edit.after')}</th>
+                  <th className="py-1 text-start font-medium">{t('edit.effect')}</th>
                 </tr>
               </thead>
               <tbody>
-                {state.changes.map((c) => {
+                {state.changes.map((c, i) => {
                   const def = ALL_FIELDS.find((f) => f.field === c.field)!
+                  const label = labels[i]
                   return (
                     <tr key={c.field} className="border-t border-border/60" data-edit-change={c.field}>
                       <td className="py-1 pe-3">{t(`fields.${c.field}`)}</td>
                       <td className="py-1 pe-3" data-edit-before="">
                         <FieldValueText def={def} value={c.before} />
                       </td>
-                      <td className="py-1" data-edit-after="">
+                      <td className="py-1 pe-3" data-edit-after="">
                         <FieldValueText def={def} value={c.after} />
+                      </td>
+                      <td className="py-1 text-xs" data-edit-effect={label.effectKey ?? ''}>
+                        {label.effectKey && <span className="text-muted-foreground">{t(label.effectKey)}</span>}
+                        {label.notRead && (
+                          <span className="block text-warning-800" data-edit-not-read="">
+                            {t('edit.notRead')}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )
@@ -184,7 +207,13 @@ export default function EditDocumentTypeDialog({
             <ErrorBanner
               className="p-2"
               title={t('dialog.failed')}
-              message={stale ? t('edit.stale') : apiErrorMessage(save.error, t('dialog.failedHint'))}
+              message={
+                stale
+                  ? t('edit.stale')
+                  : refusedOnFields
+                    ? t('edit.refusedOnFields')
+                    : apiErrorMessage(save.error, t('dialog.failedHint'))
+              }
             >
               {errorCode && (
                 <span className="font-mono text-xs" data-edit-error={errorCode}>
@@ -204,15 +233,20 @@ function FieldInput({
   def,
   value,
   disabled,
+  metaIndex,
+  refusal,
   onChange,
 }: {
   def: FieldDef
   value: string | number | boolean
   disabled: boolean
+  metaIndex: FieldMetaIndex
+  refusal: FieldRefusal | undefined
   onChange: (value: string | number | boolean) => void
 }) {
   const { t } = useTranslation('doc-type-config')
   const label = t(`fields.${def.field}`)
+  const options = optionsFor(metaIndex, def.field, value)
   if (isLocked(def.field)) {
     return (
       <div className="flex items-center justify-between gap-2 text-sm" data-edit-field={def.field} data-edit-locked="">
@@ -232,20 +266,58 @@ function FieldInput({
       </label>
     )
   }
+  // 3150: the server's refusal of THIS field, under it.
+  const refused = refusal && (
+    <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800" data-edit-refusal={refusal.code}>
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <bdi>{refusal.message}</bdi>
+    </p>
+  )
+  if (options) {
+    return (
+      <div className="flex flex-col gap-1" data-edit-field={def.field} data-edit-coded="">
+        <label className="flex items-center justify-between gap-2 text-sm">
+          <span>{label}</span>
+          <select
+            value={String(value ?? '').trim()}
+            disabled={disabled}
+            aria-invalid={refusal ? true : undefined}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+          >
+            {options.map((o) => {
+              const key = optionLabelKey(def.field, o)
+              const bare = o === '' ? t('value.blank') : o
+              return (
+                <option key={o} value={o}>
+                  {key ? t(key, { defaultValue: bare }) : bare}
+                </option>
+              )
+            })}
+          </select>
+        </label>
+        {refused}
+      </div>
+    )
+  }
   return (
-    <label className="flex items-center justify-between gap-2 text-sm" data-edit-field={def.field}>
-      <span>{label}</span>
-      <input
-        type={def.kind === 'amount' ? 'number' : 'text'}
-        step={def.kind === 'amount' ? '0.01' : undefined}
-        min={def.kind === 'amount' ? 0 : undefined}
-        value={def.kind === 'amount' ? String(value) : String(value ?? '')}
-        maxLength={def.maxLength}
-        disabled={disabled}
-        dir={def.freeText ? 'auto' : 'ltr'}
-        onChange={(e) => onChange(def.kind === 'amount' ? Number(e.target.value) : e.target.value)}
-        className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
-      />
-    </label>
+    <div className="flex flex-col gap-1" data-edit-field={def.field}>
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>{label}</span>
+        <input
+          type={def.kind === 'amount' ? 'number' : 'text'}
+          step={def.kind === 'amount' ? '0.01' : undefined}
+          min={def.kind === 'amount' ? 0 : undefined}
+          value={def.kind === 'amount' ? String(value) : String(value ?? '')}
+          maxLength={def.maxLength}
+          disabled={disabled}
+          dir={def.freeText ? 'auto' : 'ltr'}
+          aria-invalid={refusal ? true : undefined}
+          onChange={(e) => onChange(def.kind === 'amount' ? Number(e.target.value) : e.target.value)}
+          className="w-48 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+        />
+      </label>
+      {refused}
+    </div>
   )
 }

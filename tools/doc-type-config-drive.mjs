@@ -12,7 +12,10 @@
 //      amount → the diff shows exactly those two; Save stays disabled without a reason; the PUT carries the loaded
 //      before-state, the edited after-state and the trimmed reason; the detail shows the saved value;
 //   5. a forced SDC-00004 (someone else saved) reads "changed by someone else", disables Save and re-reads the type;
-//   6. no raw keys; no page errors.
+//   6. no raw keys; no page errors;
+//   7. (3150) coded settings are dropdowns of `DocumentTypeFields`' values; each changed field in the diff says open
+//      orders / new orders only, the billing ones "not read by order processing"; a forced SDC-00010 shows each
+//      refused field's message under that field.
 //
 //   1. run the app:  npx vite --port 5212 --strictPort
 //   2. DRIVE_PORT=5212 node tools/doc-type-config-drive.mjs
@@ -21,7 +24,7 @@ const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5212}`
-const RAW = /\b(fields|groups|edit|list|detail|access|reason|dialog|value)\.[a-zA-Z]+\b/
+const RAW = /\b(fields|groups|edit|list|detail|access|reason|dialog|value|effect|options)\.[a-zA-Z_]+\b/
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -40,7 +43,7 @@ const envelope = (data, { status = 200, success = true, message = '', errorCode 
     data,
   }),
 })
-const refuse = (errorCode, message) => envelope(null, { status: 400, success: false, message, errorCode })
+const refuse = (errorCode, message, data = null) => envelope(data, { status: 400, success: false, message, errorCode })
 
 const settings = (over = {}) => ({
   documentType: 'BUPA', description: 'Bupa insurance', documentCategory: 'O', referenceDocumentCategory: '',
@@ -49,10 +52,24 @@ const settings = (over = {}) => ({
   promotionDetermination: false, isAlternativePriceCapped: true, defaultDeliveryType: 'DL', createDeliveryImmediately: '',
   plantDeterminationType: '', isCalculateDeliveryFees: false, deliveryFees: 0, orderRelatedBillingType: '',
   deliveryRelatedBillingType: '', createBillingImmediately: '', isPickedOnOrder: true, isDeterminePickingFees: false,
-  notifyOnCreation: 'X', controlType: '', validateItem: false, preOrderMaterialOnly: false, checkOrderNo: false,
+  notifyOnCreation: 'X', notifyOnCancellation: 'X', isQuantityAllocation: true, controlType: '', validateItem: false, preOrderMaterialOnly: false, checkOrderNo: false,
   canChangeItems: true, autoClose: false, diagnosisRequired: false, approvalProcess: false, acceptanceRequired: false,
   ...over,
 })
+// `GET SdDocTypeConfigWeb/DocumentTypeFields` as BackOffice `SdDocumentTypeFieldCatalog` answers it (3150).
+const meta = (field, effect, options = null, notReadByOrderProcessing = false) => ({ field, effect, options, notReadByOrderProcessing })
+const FIELDS = [
+  ['DocumentType', 'N'], ['Description', 'O'], ['DocumentCategory', 'O', ['O', 'R', 'X', 'E', 'Q']], ['ReferenceDocumentCategory', 'N'],
+  ['NumberRangeNumber', 'N'], ['CustomerDeterminationType', 'N', ['', 'A', 'B', 'C', 'D']], ['DefaultCustomer', 'N'],
+  ['IsReceivableCustomer', 'N'], ['ReceivableCustomer', 'N'], ['InsurancePayerCode', 'N'], ['EngineType', 'N', ['', 'LEGACY', 'SISPRICING']],
+  ['DocumentPricingProcedure', 'O'], ['PromotionDetermination', 'O'], ['IsAlternativePriceCapped', 'O'], ['DefaultDeliveryType', 'O'],
+  ['CreateDeliveryImmediately', 'O', ['', 'X']], ['PlantDeterminationType', 'N', ['', 'R']], ['IsCalculateDeliveryFees', 'O'],
+  ['DeliveryFees', 'N'], ['OrderRelatedBillingType', 'O', null, true], ['DeliveryRelatedBillingType', 'O', null, true],
+  ['CreateBillingImmediately', 'O', null, true], ['IsPickedOnOrder', 'O'], ['IsDeterminePickingFees', 'O'], ['IsQuantityAllocation', 'O'],
+  ['NotifyOnCreation', 'N', ['', 'X']], ['NotifyOnCancellation', 'O', ['', 'X', 'O', 'D']], ['ControlType', 'O', ['', 'W', 'N']],
+  ['ValidateItem', 'O'], ['PreOrderMaterialOnly', 'N'], ['CheckOrderNo', 'N'], ['CanChangeItems', 'O'], ['AutoClose', 'O'],
+  ['DiagnosisRequired', 'N'], ['ApprovalProcess', 'O'], ['AcceptanceRequired', 'O'],
+].map(([f, e, o = null, n = false]) => meta(f, e === 'O' ? 'OpenOrders' : 'NewOrdersOnly', o, n))
 const LIST = [
   { documentType: 'BUPA', description: 'Bupa insurance', documentCategory: 'O', engineType: 'SISPRICING' },
   { documentType: 'CASH', description: 'Cash order', documentCategory: 'O', engineType: '' },
@@ -97,6 +114,7 @@ async function open(dir, { canEdit = true } = {}) {
       return route.fulfill(forced)
     }
     if (p === 'SdDocTypeConfigWeb/DocumentTypes' && method === 'GET') return route.fulfill(envelope(LIST))
+    if (p === 'SdDocTypeConfigWeb/DocumentTypeFields' && method === 'GET') return route.fulfill(envelope(FIELDS))
     if (p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA' && method === 'GET') return route.fulfill(envelope(state.bupa))
     if (p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA' && method === 'PUT') {
       state.bupa = { ...body.after }
@@ -168,6 +186,28 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 5. …Save is disabled`, await page.locator('[data-edit-save]').isDisabled())
     await page.waitForTimeout(300)
     check(`${dir} 5. …and the type is re-read`, calls.filter((c) => c.method === 'GET' && c.p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA').length > getsBefore)
+    await page.locator('[data-edit-cancel]').click()
+
+    // 7. (3150) dropdowns, effect labels, a refusal on its field
+    await page.locator('[data-doc-type-edit]').click()
+    await dlg.waitFor({ timeout: 5000 })
+    const controlOptions = await page.locator('dialog[open] [data-edit-field="controlType"] select option').evaluateAll((els) => els.map((e) => e.value))
+    check(`${dir} 7. control type is a dropdown of its three values`, JSON.stringify(controlOptions) === JSON.stringify(['', 'W', 'N']), JSON.stringify(controlOptions))
+    check(`${dir} 7. customer determination is a dropdown`, (await page.locator('dialog[open] [data-edit-field="customerDeterminationType"] select option').count()) === 5)
+    check(`${dir} 7. a free field stays a text box`, (await page.locator('dialog[open] [data-edit-field="defaultCustomer"] select').count()) === 0)
+    await page.locator('dialog[open] [data-edit-field="controlType"] select').selectOption('W')
+    await page.locator('dialog[open] [data-edit-field="orderRelatedBillingType"] input').fill('ZZZ9')
+    check(`${dir} 7. control type is labelled affects open orders`, (await page.locator('[data-edit-change="controlType"] [data-edit-effect="effect.OpenOrders"]').count()) === 1)
+    check(`${dir} 7. the billing type is labelled not read by order processing`, (await page.locator('[data-edit-change="orderRelatedBillingType"] [data-edit-not-read]').count()) === 1)
+    await page.locator('[data-edit-reason]').fill('bad billing type')
+    force.set('PUT SdDocTypeConfigWeb/DocumentTypes/BUPA', refuse('SDC-00010', "OrderRelatedBillingType 'ZZZ9' is not a billing document type. / القيمة 'ZZZ9' ليست نوع مستند فوترة", {
+      fields: [{ field: 'OrderRelatedBillingType', errorCode: 'SDC-00014', message: "OrderRelatedBillingType 'ZZZ9' is not a billing document type. / القيمة 'ZZZ9' ليست نوع مستند فوترة" }],
+    }))
+    await page.locator('[data-edit-save]').click()
+    await page.locator('[data-edit-refusal="SDC-00014"]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 7. the refusal shows under its field`, (await page.locator('dialog[open] [data-edit-field="orderRelatedBillingType"] [data-edit-refusal="SDC-00014"]').count()) === 1)
+    check(`${dir} 7. …and only there`, (await page.locator('[data-edit-refusal]').count()) === 1)
+    force.delete('PUT SdDocTypeConfigWeb/DocumentTypes/BUPA')
     await page.locator('[data-edit-cancel]').click()
 
     // 4. the real save

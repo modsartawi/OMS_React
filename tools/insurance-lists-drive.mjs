@@ -1,4 +1,4 @@
-// Insurance rules ▸ Lists + Fields drive (BackOffice spec 3126, doors 3132 + 3133; oms ticket 610).
+// Insurance rules ▸ Lists + Fields drive (BackOffice spec 3126, doors 3132 + 3133 + 3172; oms ticket 610).
 //
 // Drives the REAL app in Chromium against STUBS of the doors, on the REAL envelope. Fixtures and the door handler
 // are `tools/insurance-rules-stubs.mjs` (section 610: `insuranceListsStub`, stateful per context — a saved draft,
@@ -14,8 +14,12 @@
 //   3. a cycle (controlled → glp1-pens → controlled) is refused before the save: the path is read out and Save
 //      sends nothing;
 //   4. Patients: the VIP list's entries (key `Ltr`, Arabic reason `<bdi>`, expiry or none) and its change log;
-//      a bad key is refused in words; a VIP entry is added (POST body), shows, and is logged; Remove asks first
-//      and logs; Policies keys by SubscriberId;
+//      a bad key is refused in words; a VIP entry is added (POST body), shows, and is logged; Remove asks for a
+//      reason and DELETEs with a body `{ key, reason }`, and logs; Policies keys by SubscriberId;
+//   4b. Classes (3172): entries for one insurer ("BUPA · Bupa Arabia", one ltr isolate) and for any insurer, and
+//      the split between them; a class with `|` is refused; a class is added for one insurer and the same class
+//      for any insurer (two entries, upper-cased, `payer` only when picked); an entry whose expiry has passed
+//      reads expired; Remove sends the entry's payer; a new class list is made with a reason;
 //   5. Fields: one table per scope, with what uses each field; a retired field is badged and has no Retire;
 //      a key in use is refused; an ItemInfo field is added (key suggested from the source), shows in the item
 //      table and in the list editor's field picker; Retire asks first;
@@ -46,6 +50,7 @@ async function open(dir, { deny = [] } = {}) {
   const errors = []
   const reads = {}
   const state = newListsState()
+  state.today = riyadhDay()
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
   await page.addInitScript((d) => {
@@ -83,6 +88,16 @@ const confirmYes = async (page) => {
   await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
 }
 const writesOf = (state, door) => state.writes.filter((w) => w.door === door)
+/** The reason dialog every keyed-list write goes through (3133): a reason, then Confirm. */
+const withReason = async (page, reason) => {
+  const dialog = page.locator('[data-reason-dialog]')
+  await dialog.waitFor({ timeout: 5000 })
+  await page.locator('[data-reason-input]').fill(reason)
+  await page.locator('[data-reason-confirm]').click()
+  await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+}
+/** The browser's local day (the drive runs it in Asia/Riyadh), and the day after. */
+const riyadhDay = (offset = 0) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date(Date.now() + offset * 86400000))
 
 for (const dir of ['ltr', 'rtl']) {
   // ── 1–3: item lists ──────────────────────────────────────────────────────────────────────────
@@ -191,7 +206,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. key and added-by ltr isolates; the Arabic reason a <bdi>`, (await e2.locator('td').first().locator('bdi[dir="ltr"]').innerText()) === '2087654321' && (await e2.locator('td').nth(1).locator('bdi[dir="ltr"]').innerText()) === 'nalharbi' && (await e2.locator('td').nth(2).locator('bdi:not([dir])').innerText()) === 'مريض كبار الشخصيات حتى نهاية العام')
     check(`${dir} 4. an expiry is a day; none says so`, strip(await e2.locator('[data-entry-expiry] bdi[dir="ltr"]').innerText()) === '2026-12-31' && (await page.locator('[data-entry="1012345678"] [data-entry-expiry] bdi').count()) === 0)
     const log = await page.locator('[data-keyed-log] [data-log-row]').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-log-row')}:${e.querySelector('[data-log-key]').textContent.replace(/[\u2066-\u2069]/g, '')}`))
-    check(`${dir} 4. the change log, newest first`, JSON.stringify(log) === JSON.stringify(['added:2087654321', 'removed:1099999999', 'added:1012345678']), JSON.stringify(log))
+    check(`${dir} 4. the change log, newest first`, JSON.stringify(log) === JSON.stringify(['add:2087654321', 'remove:1099999999', 'add:1012345678']), JSON.stringify(log))
     check(`${dir} 4. a log moment is local, an ltr isolate`, strip(await page.locator('[data-keyed-log] [data-log-row]').first().locator('bdi[dir="ltr"]').first().innerText()) === '2026-10-20 10:12')
 
     // a bad key, then the VIP entry
@@ -215,14 +230,16 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. …and the count follows`, strip(await page.locator('[data-keyed-pick="PL-VIP"] bdi[dir="ltr"]').innerText()) === '3')
     check(`${dir} 4. the form is cleared`, (await page.locator('[data-entry-key]').inputValue()) === '' && (await page.locator('[data-entry-problems]').count()) === 0)
 
-    // Remove asks first
+    // Remove asks for a reason
     await page.locator('[data-entry-remove="1012345678"]').click()
-    await confirmYes(page)
+    await page.locator('[data-reason-dialog]').waitFor({ timeout: 5000 })
+    check(`${dir} 4. Remove asks for a reason; Confirm waits for one`, (await page.locator('[data-reason-confirm]').isDisabled()) || (await page.locator('[data-reason-confirm]').getAttribute('aria-disabled')) === 'true')
+    await withReason(page, 'Left the board')
     await page.locator('[data-entry="1012345678"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
     const rm = writesOf(state, 'removeEntry')
-    check(`${dir} 4. Remove asks first, then removes`, rm.length === 1 && (await page.locator('[data-entry="1012345678"]').count()) === 0)
-    await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'removed', null, { timeout: 5000 }).catch(() => {})
-    check(`${dir} 4. …and logs it`, (await page.locator('[data-keyed-log] [data-log-row]').first().getAttribute('data-log-row')) === 'removed')
+    check(`${dir} 4. …then DELETEs with a body { key, reason }`, rm.length === 1 && JSON.stringify(rm[0].body) === JSON.stringify({ key: '1012345678', reason: 'Left the board' }) && (await page.locator('[data-entry="1012345678"]').count()) === 0, JSON.stringify(rm[0]?.body))
+    await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'remove', null, { timeout: 5000 }).catch(() => {})
+    check(`${dir} 4. …and logs it with the reason`, (await page.locator('[data-keyed-log] [data-log-row]').first().getAttribute('data-log-row')) === 'remove' && strip(await page.locator('[data-keyed-log] [data-log-row]').first().innerText()).includes('Left the board'))
 
     await page.locator('[data-keyed-pick="PL-STAFF"]').click()
     await page.locator('[data-entries-empty]').waitFor({ timeout: 5000 }).catch(() => {})
@@ -237,6 +254,88 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-entry-add]').click()
     check(`${dir} 4. a SubscriberId with a space is refused`, (await page.locator('[data-entry-problems] [data-problem="keyInvalid"]').count()) === 1)
     check(`${dir} 7. no page errors (keyed lists)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 4b: class lists (BackOffice 3172) ─────────────────────────────────────────────────────────
+  {
+    const { context, page, errors, state } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/lists?tab=classes`)
+    await page.locator('[data-entry]').first().waitFor({ timeout: 30000 })
+    check(`${dir} 4b. ?tab=classes opens Policy classes on the class list`, (await page.locator('[data-lists-tab="classes"]').getAttribute('aria-selected')) === 'true' && (await page.locator('[data-keyed-panel="CL-GOLD"]').count()) === 1)
+    const rows = await page.locator('[data-entry]').evaluateAll((els) => els.map((e) => e.getAttribute('data-entry')))
+    check(`${dir} 4b. the entries, each a class and its insurer`, JSON.stringify(rows) === JSON.stringify(['GOLD|BUPA', 'VIP|']), JSON.stringify(rows))
+    check(`${dir} 4b. one insurer: "BUPA · Bupa Arabia", one ltr isolate`, strip(await page.locator('[data-entry="GOLD|BUPA"] [data-entry-insurer="BUPA"] bdi[dir="ltr"]').innerText()) === 'BUPA · Bupa Arabia')
+    check(`${dir} 4b. any insurer says so`, (await page.locator('[data-entry="VIP|"] [data-entry-insurer=""] bdi').count()) === 0 && strip(await page.locator('[data-entry="VIP|"] [data-entry-insurer=""]').innerText()).length > 0)
+    check(`${dir} 4b. the list shows how many are for one insurer and how many for any`, (await page.locator('[data-class-split]').getAttribute('data-class-split')) === '1/1')
+    const payers = await page.locator('[data-entry-payer] option').evaluateAll((els) => els.map((e) => e.value))
+    check(`${dir} 4b. the insurer picker: any insurer, then the insurers`, JSON.stringify(payers) === JSON.stringify(['', 'BUPA', 'TAWUNIYA', 'MEDGULF']), JSON.stringify(payers))
+
+    await page.locator('[data-entry-key]').fill('VIP|A')
+    await page.locator('[data-entry-reason]').fill('x')
+    await page.locator('[data-entry-add]').click()
+    check(`${dir} 4b. a class with "|" is refused in words`, (await page.locator('[data-entry-problems] [data-problem="keyInvalid"]').count()) === 1 && writesOf(state, 'addEntry').length === 0)
+    await page.locator('[data-entry-key]').fill('vip')
+    check(`${dir} 4b. VIP for any insurer is already on the list`, (await page.locator('[data-entry-problems] [data-problem="keyListed"]').count()) === 1)
+
+    // one insurer
+    await page.locator('[data-entry-key]').fill('silver')
+    await page.locator('[data-entry-payer]').selectOption('TAWUNIYA')
+    await page.locator('[data-entry-reason]').fill('Tawuniya silver tier')
+    await page.locator('[data-entry-add]').click()
+    await page.locator('[data-entry="SILVER|TAWUNIYA"]').waitFor({ timeout: 5000 }).catch(() => {})
+    let add = writesOf(state, 'addEntry')
+    check(`${dir} 4b. a class for one insurer is POSTed upper case, with its payer`, add.length === 1 && JSON.stringify(add[0].body) === JSON.stringify({ key: 'SILVER', payer: 'TAWUNIYA', reason: 'Tawuniya silver tier' }), JSON.stringify(add[0]?.body))
+    check(`${dir} 4b. …shows with its insurer`, strip(await page.locator('[data-entry="SILVER|TAWUNIYA"] [data-entry-insurer] bdi[dir="ltr"]').innerText()) === 'TAWUNIYA · Tawuniya')
+    check(`${dir} 4b. …the insurer is back to any after the add`, (await page.locator('[data-entry-payer]').inputValue()) === '')
+
+    // the same class for any insurer, expiring today
+    const today = riyadhDay()
+    await page.locator('[data-entry-key]').fill('Gold')
+    await page.locator('[data-entry-reason]').fill('Gold with every insurer this week')
+    await page.locator('[data-entry-expires]').fill(today)
+    await page.locator('[data-entry-add]').click()
+    await page.locator('[data-entry="GOLD|"]').waitFor({ timeout: 5000 }).catch(() => {})
+    add = writesOf(state, 'addEntry')
+    check(`${dir} 4b. the same class for any insurer is a second entry (no payer sent), expiring today`, add.length === 2 && JSON.stringify(add[1].body) === JSON.stringify({ key: 'GOLD', reason: 'Gold with every insurer this week', expiresOn: today }) && (await page.locator('[data-entry="GOLD|BUPA"]').count()) === 1 && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(add[1]?.body))
+    await page.waitForFunction(() => document.querySelector('[data-class-split]')?.getAttribute('data-class-split') === '2/2', null, { timeout: 5000 }).catch(() => {})
+    check(`${dir} 4b. …the split follows`, (await page.locator('[data-class-split]').getAttribute('data-class-split')) === '2/2')
+    check(`${dir} 4b. …and it counts today: not expired`, (await page.locator('[data-entry="GOLD|"]').getAttribute('data-expired')) === 'false')
+    const logTop = page.locator('[data-keyed-log] [data-log-row]').first()
+    check(`${dir} 4b. …logged with "any insurer"`, (await logTop.getAttribute('data-log-row')) === 'add' && (await logTop.locator('[data-log-insurer=""]').count()) === 1)
+
+    // a day later it has expired
+    state.today = riyadhDay(1)
+    await page.reload()
+    await page.locator('[data-entry="GOLD|"]').waitFor({ timeout: 30000 })
+    check(`${dir} 4b. a day on, the entry whose expiry has passed reads expired, still listed`, (await page.locator('[data-entry="GOLD|"]').getAttribute('data-expired')) === 'true' && (await page.locator('[data-entry="GOLD|"] [data-entry-expired]').count()) === 1)
+    check(`${dir} 4b. …the Bupa GOLD entry, with no expiry, does not`, (await page.locator('[data-entry="GOLD|BUPA"]').getAttribute('data-expired')) === 'false' && (await page.locator('[data-entry-expired]').count()) === 1)
+
+    // Remove sends the entry's payer
+    await page.locator('[data-entry-remove="GOLD|BUPA"]').click()
+    await withReason(page, 'Bupa ended the gold tier')
+    await page.locator('[data-entry="GOLD|BUPA"]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    const rm = writesOf(state, 'removeEntry')
+    check(`${dir} 4b. Remove DELETEs { key, payer, reason }; the any-insurer GOLD stays`, rm.length === 1 && JSON.stringify(rm[0].body) === JSON.stringify({ key: 'GOLD', payer: 'BUPA', reason: 'Bupa ended the gold tier' }) && (await page.locator('[data-entry="GOLD|"]').count()) === 1, JSON.stringify(rm[0]?.body))
+    await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'remove', null, { timeout: 5000 }).catch(() => {})
+    check(`${dir} 4b. …logged with its insurer`, strip(await page.locator('[data-keyed-log] [data-log-row]').first().locator('[data-log-insurer="BUPA"] bdi[dir="ltr"]').innerText()) === 'BUPA · Bupa Arabia')
+    check(`${dir} 4b. no raw keys on Classes`, await noRawKeys(page))
+
+    // a new class list
+    await page.locator('[data-keyed-new]').click()
+    await page.locator('[data-new-list]').waitFor({ timeout: 5000 })
+    await page.locator('[data-new-list-id]').fill('CL GOLD')
+    check(`${dir} 4b. a bad list id is refused in words`, (await page.locator('[data-new-list] [data-problem="idInvalid"]').count()) === 1)
+    await page.locator('[data-new-list-id]').fill('CL-SILVER')
+    await page.locator('[data-new-list-en]').fill('Silver classes')
+    await page.locator('[data-new-list-ar]').fill('الفئات الفضية')
+    await withReason(page, 'Silver tier review')
+    await page.locator('[data-keyed-panel="CL-SILVER"]').waitFor({ timeout: 5000 }).catch(() => {})
+    const made = writesOf(state, 'createList')
+    check(`${dir} 4b. a new class list is POSTed { id, name, reason } and opened`, made.length === 1 && JSON.stringify(made[0].body) === JSON.stringify({ id: 'CL-SILVER', name: { en: 'Silver classes', ar: 'الفئات الفضية' }, reason: 'Silver tier review' }) && (await page.locator('[data-keyed-panel="CL-SILVER"] [data-entries-empty]').count()) === 1, JSON.stringify(made[0]?.body))
+    await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'createList', null, { timeout: 5000 }).catch(() => {})
+    check(`${dir} 4b. …its log opens with "List created"`, (await page.locator('[data-keyed-log] [data-log-row]').first().getAttribute('data-log-row')) === 'createList')
+    check(`${dir} 7. no page errors (class lists)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

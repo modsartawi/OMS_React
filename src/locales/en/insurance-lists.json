@@ -7,7 +7,8 @@
   "tab": {
     "items": "Items",
     "patients": "Patients",
-    "policies": "Policies"
+    "policies": "Policies",
+    "classes": "Policy classes"
   },
   "access": {
     "deniedTitle": "You do not have access",
@@ -96,18 +97,20 @@
     "patient": {
       "none": "There is no patient list.",
       "lede": "By National ID or Iqama. A rule can leave out the patients of a list (VIP).",
-      "key": "National ID / Iqama"
+      "key": "National ID / Iqama",
+      "newTitle": "New patient list"
     },
     "policy": {
       "none": "There is no policy list.",
       "lede": "By SubscriberId. A rule can leave out the policies of a list.",
-      "key": "SubscriberId"
+      "key": "SubscriberId",
+      "newTitle": "New policy list"
     },
     "added": "Entry added",
     "addFailed": "The entry could not be added",
     "removed": "Entry removed",
     "removeFailed": "The entry could not be removed",
-    "removeConfirm": "Remove {{key}} from {{list}}? The change is logged.",
+    "removeConfirm": "Remove {{key}} from {{list}}? The change is logged with your reason.",
     "removeTitle": "Remove the entry",
     "removeLabel": "Remove {{key}}",
     "reason": "Reason",
@@ -121,20 +124,57 @@
     "logFailed": "The change log could not be loaded.",
     "noLog": "No change yet.",
     "by": "by",
-    "until": "until"
+    "until": "until",
+    "class": {
+      "none": "There is no class list.",
+      "lede": "By policy class code, for one insurer or for any insurer. A rule can test a class against a list, or leave its classes out.",
+      "key": "Policy class",
+      "newTitle": "New class list",
+      "forOne_one": "{{n}} entry is for one insurer;",
+      "forOne_other": "{{n}} entries are for one insurer;",
+      "forAny_one": "{{n}} is for any insurer.",
+      "forAny_other": "{{n}} are for any insurer."
+    },
+    "insurer": "Insurer",
+    "anyInsurer": "Any insurer",
+    "expired": "Expired",
+    "remove": "Remove",
+    "newList": "New list",
+    "create": "Create the list",
+    "created": "List created",
+    "listId": "Id",
+    "listIdHint": "Letters, digits, dot, underscore and hyphen, up to 40. It never changes."
   },
   "entryProblem": {
     "keyMissing": "Enter the key.",
-    "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2; a SubscriberId has no spaces.",
+    "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2; a SubscriberId has no spaces; a policy class is up to 29 characters with no \"|\".",
     "keyListed": "This key is already on the list.",
     "reasonMissing": "Give a reason.",
     "reasonTooLong": "The reason is longer than 200 characters.",
     "expiryInvalid": "The expiry is not a date.",
-    "expiryPast": "The expiry must be after today."
+    "expiryPast": "The expiry cannot be before today.",
+    "payerInvalid": "The insurer's SAP customer id is up to 10 characters."
   },
   "logAction": {
-    "added": "Added",
-    "removed": "Removed",
-    "expired": "Expired"
+    "createList": "List created",
+    "add": "Added",
+    "change": "Changed",
+    "remove": "Removed"
+  },
+  "listProblem": {
+    "idInvalid": "The id uses letters, digits, dot, underscore and hyphen, up to 40 characters.",
+    "idTaken": "Another list has this id.",
+    "nameMissing": "Give the list a name in English and in Arabic."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Required. It is kept in the change log.",
+    "tooLong": "At most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "failed": "The change was refused",
+    "failedHint": "Try again in a moment."
   }
 }

@@ -204,10 +204,14 @@ export function insuranceRulesStub(method, path, _body, opts = {}) {
   return null
 }
 
-// --- 610 --- Fields registry, field values, list preview, patient and policy lists (BackOffice 3132 + 3133).
-// Stateful: a drive makes one state per browser context (`newListsState()`) and passes it as `opts.state`, so an
-// added field, a saved draft or an added entry is read back. `opts.query` is the request's URLSearchParams (the
-// `Values?q=` and the DELETE `?key=`). Shapes ⚠️ PROVISIONAL where the brief does not spell them (see 610).
+// --- 610 --- Fields registry, field values, list preview, patient, policy and class lists (BackOffice 3132 +
+// 3133 + 3172). Stateful: a drive makes one state per browser context (`newListsState()`) and passes it as
+// `opts.state`, so an added field, a saved draft, a new list or an added entry is read back. `opts.query` is the
+// request's URLSearchParams (the `Values?q=`). The keyed lists answer 3133's BUILT shapes: `GET …Lists` →
+// `[{ id, name, entries, createdBy, createdAt }]`, entries `{ key, addedBy, addedAt, reason, expiresOn, expired,
+// payer }` (`expired` against `state.today`, which a drive may move on), DELETE with a body `{ key, payer?, reason }`,
+// log `createList | add | change | remove`. `GET Insurers` is served here too (617's coverageStub answers it first).
+// Shapes ⚠️ PROVISIONAL where the brief does not spell them (see 610).
 
 /** `GET InsuranceRules/Fields` — every scope, one retired. */
 export const FIELDS = [
@@ -252,39 +256,61 @@ export const PREVIEW_ITEMS = [
 ]
 
 export const PATIENT_LISTS = [
-  { id: PATIENT_LIST_VIP, name: says('VIP patients', 'مرضى كبار الشخصيات'), entries: 2 },
-  { id: 'PL-STAFF', name: says('Staff and family', 'الموظفون وذووهم'), entries: 0 },
+  { id: PATIENT_LIST_VIP, name: says('VIP patients', 'مرضى كبار الشخصيات'), entries: 2, createdBy: 'nalharbi', createdAt: '2026-09-15T08:00:00' },
+  { id: 'PL-STAFF', name: says('Staff and family', 'الموظفون وذووهم'), entries: 0, createdBy: 'nalharbi', createdAt: '2026-09-15T08:05:00' },
 ]
-export const POLICY_LISTS = [{ id: POLICY_LIST_EXTENDED, name: says('Extended cover policies', 'وثائق التغطية الممتدة'), entries: 1 }]
+export const POLICY_LISTS = [{ id: POLICY_LIST_EXTENDED, name: says('Extended cover policies', 'وثائق التغطية الممتدة'), entries: 1, createdBy: 'falotaibi', createdAt: '2026-09-01T11:50:00' }]
+/** 3172 — a class list: Bupa's GOLD class for Bupa only, and VIP for any insurer. */
+export const CLASS_LIST_GOLD = 'CL-GOLD'
+export const CLASS_LISTS = [{ id: CLASS_LIST_GOLD, name: says('Gold and VIP classes', 'الفئات الذهبية وكبار الشخصيات'), entries: 2, createdBy: 'falotaibi', createdAt: '2026-10-27T09:00:00' }]
 
 const ENTRIES = {
   [`patient:${PATIENT_LIST_VIP}`]: [
-    { key: '1012345678', addedBy: 'nalharbi', reason: 'Board member', expiresOn: null },
-    { key: '2087654321', addedBy: 'nalharbi', reason: 'مريض كبار الشخصيات حتى نهاية العام', expiresOn: '2026-12-31' },
+    { key: '1012345678', addedBy: 'nalharbi', addedAt: '2026-09-15T08:30:00', reason: 'Board member', expiresOn: null, payer: null },
+    { key: '2087654321', addedBy: 'nalharbi', addedAt: '2026-10-20T10:12:00', reason: 'مريض كبار الشخصيات حتى نهاية العام', expiresOn: '2026-12-31', payer: null },
   ],
   'patient:PL-STAFF': [],
-  [`policy:${POLICY_LIST_EXTENDED}`]: [{ key: 'SUB-778812', addedBy: 'falotaibi', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31' }],
+  [`policy:${POLICY_LIST_EXTENDED}`]: [{ key: 'SUB-778812', addedBy: 'falotaibi', addedAt: '2026-09-01T12:00:00', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31', payer: null }],
+  [`class:${CLASS_LIST_GOLD}`]: [
+    { key: 'GOLD', addedBy: 'falotaibi', addedAt: '2026-10-27T09:10:00', reason: 'Bupa gold tier', expiresOn: null, payer: 'BUPA' },
+    { key: 'VIP', addedBy: 'falotaibi', addedAt: '2026-10-27T09:12:00', reason: 'VIP class with every insurer', expiresOn: null, payer: null },
+  ],
 }
 const LOG = {
   [`patient:${PATIENT_LIST_VIP}`]: [
-    { at: '2026-10-20T10:12:00', by: 'nalharbi', action: 'added', key: '2087654321', reason: 'مريض كبار الشخصيات حتى نهاية العام', expiresOn: '2026-12-31' },
-    { at: '2026-10-02T09:00:00', by: 'nalharbi', action: 'removed', key: '1099999999', reason: null, expiresOn: null },
-    { at: '2026-09-15T08:30:00', by: 'nalharbi', action: 'added', key: '1012345678', reason: 'Board member', expiresOn: null },
+    { at: '2026-10-20T10:12:00', by: 'nalharbi', action: 'add', key: '2087654321', reason: 'مريض كبار الشخصيات حتى نهاية العام', expiresOn: '2026-12-31', payer: null },
+    { at: '2026-10-02T09:00:00', by: 'nalharbi', action: 'remove', key: '1099999999', reason: 'Left the board', expiresOn: null, payer: null },
+    { at: '2026-09-15T08:30:00', by: 'nalharbi', action: 'add', key: '1012345678', reason: 'Board member', expiresOn: null, payer: null },
   ],
   'patient:PL-STAFF': [],
-  [`policy:${POLICY_LIST_EXTENDED}`]: [{ at: '2026-09-01T12:00:00', by: 'falotaibi', action: 'added', key: 'SUB-778812', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31' }],
-}
-
-/** A fresh, mutable copy of 610's fixtures — one per browser context. */
-export function newListsState() {
-  const copy = (x) => JSON.parse(JSON.stringify(x))
-  return { fields: copy(FIELDS), ruleset: copy(RULESET), entries: copy(ENTRIES), log: copy(LOG), lists: { patient: copy(PATIENT_LISTS), policy: copy(POLICY_LISTS) }, writes: [] }
+  [`policy:${POLICY_LIST_EXTENDED}`]: [{ at: '2026-09-01T12:00:00', by: 'falotaibi', action: 'add', key: 'SUB-778812', reason: 'Extended cover agreed with Bupa', expiresOn: '2027-03-31', payer: null }],
+  [`class:${CLASS_LIST_GOLD}`]: [
+    { at: '2026-10-27T09:12:00', by: 'falotaibi', action: 'add', key: 'VIP', reason: 'VIP class with every insurer', expiresOn: null, payer: null },
+    { at: '2026-10-27T09:10:00', by: 'falotaibi', action: 'add', key: 'GOLD', reason: 'Bupa gold tier', expiresOn: null, payer: 'BUPA' },
+    { at: '2026-10-27T09:00:00', by: 'falotaibi', action: 'createList', key: null, reason: 'Bupa gold tier', expiresOn: null, payer: null },
+  ],
 }
 
 const localNow = () => {
   const d = new Date()
   const p = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+const localDay = () => localNow().slice(0, 10)
+
+/** A fresh, mutable copy of 610's fixtures — one per browser context. `today` is the day `expired` is read against. */
+export function newListsState() {
+  const copy = (x) => JSON.parse(JSON.stringify(x))
+  return {
+    fields: copy(FIELDS),
+    ruleset: copy(RULESET),
+    entries: copy(ENTRIES),
+    log: copy(LOG),
+    lists: { patient: copy(PATIENT_LISTS), policy: copy(POLICY_LISTS), class: copy(CLASS_LISTS) },
+    insurers: copy(INSURERS),
+    today: localDay(),
+    writes: [],
+  }
 }
 
 /** The items a list matches: union of its filters, plus included lists, minus excluded ones (`lists` resolve ids). */
@@ -314,7 +340,7 @@ export function matchItems(list, lists, items = PREVIEW_ITEMS) {
  * 610's doors. Answers a `route.fulfill` argument, or null to fall through (to `insuranceRulesStub`). Call it
  * BEFORE `insuranceRulesStub`: with a state, `GET Guards/Draft` answers the state's (saved) ruleset.
  * `opts.deny` door names: draft · saveDraft · fields · addField · retire · values · preview · keyedLists ·
- * entries · addEntry · removeEntry · log.
+ * createList · entries · addEntry · removeEntry · log · insurers.
  */
 export function insuranceListsStub(method, path, body, opts = {}) {
   const { deny = [], reads = {}, state, query = new URLSearchParams(), pageSize = 3 } = opts
@@ -364,31 +390,66 @@ export function insuranceListsStub(method, path, body, opts = {}) {
       return envelope({ count: items.length, items: items.slice(0, pageSize).map(({ article, name }) => ({ article, name })), matchesNothing: items.length === 0 })
     })
 
-  m = /^(PatientLists|PolicyLists)(?:\/([^/]+)\/(Entries|Log))?$/.exec(p)
+  if (p === 'Insurers' && method === 'GET') return door('insurers', () => envelope(state.insurers ?? INSURERS))
+
+  m = /^(PatientLists|PolicyLists|ClassLists)(?:\/([^/]+)\/(Entries|Log))?$/.exec(p)
   if (!m) return null
-  const kind = m[1] === 'PatientLists' ? 'patient' : 'policy'
-  if (!m[2]) return method === 'GET' ? door('keyedLists', () => envelope(state.lists[kind])) : null
+  const kind = { PatientLists: 'patient', PolicyLists: 'policy', ClassLists: 'class' }[m[1]]
+  const lists = (state.lists[kind] ??= [])
+  const bad = (message) => envelope(null, { status: 400, success: false, message, errorCode: 'INSLISTS_BAD_REQUEST' })
+  const reasonOf = (b) => String(b?.reason ?? '').trim()
+  if (!m[2]) {
+    if (method === 'GET') return door('keyedLists', () => envelope(lists))
+    if (method === 'POST')
+      return door('createList', () => {
+        if (!reasonOf(body)) return bad('A reason is required.')
+        if (lists.some((l) => l.id === body.id)) return envelope(null, { status: 409, success: false, message: 'A list has this id.', errorCode: 'INSLISTS_EXISTS' })
+        const list = { id: body.id, name: body.name, entries: 0, createdBy: 'msartawi', createdAt: localNow() }
+        lists.push(list)
+        state.entries[`${kind}:${list.id}`] = []
+        state.log[`${kind}:${list.id}`] = [{ at: list.createdAt, by: 'msartawi', action: 'createList', key: null, reason: reasonOf(body), expiresOn: null, payer: null }]
+        return envelope(list)
+      })
+    return null
+  }
   const id = decodeURIComponent(m[2])
   const k = `${kind}:${id}`
-  const meta = state.lists[kind].find((l) => l.id === id)
+  const meta = lists.find((l) => l.id === id)
   const recount = () => meta && (meta.entries = state.entries[k].length)
+  // 3172: the class kept upper case; payer only on a class list (a 400 elsewhere); key + payer make one entry.
+  const keyOf = (b) => (kind === 'class' ? String(b?.key ?? '').trim().toUpperCase() : String(b?.key ?? '').trim())
+  const payerOf = (b) => (kind === 'class' && b?.payer ? String(b.payer).trim() || null : null)
+  const same = (e, key, payer) => e.key === key && (e.payer ?? null) === payer
+  const withExpiry = (e) => ({ ...e, expired: !!e.expiresOn && e.expiresOn < (state.today ?? localDay()) })
   if (m[3] === 'Log') return method === 'GET' ? door('log', () => envelope(state.log[k] ?? [])) : null
-  if (method === 'GET') return door('entries', () => envelope(state.entries[k] ?? []))
+  if (method === 'GET') return door('entries', () => envelope((state.entries[k] ?? []).map(withExpiry)))
   if (method === 'POST')
     return door('addEntry', () => {
-      const entry = { key: body.key, addedBy: 'msartawi', reason: body.reason, expiresOn: body.expiresOn ?? null }
-      ;(state.entries[k] ??= []).unshift(entry)
-      ;(state.log[k] ??= []).unshift({ at: localNow(), by: 'msartawi', action: 'added', key: entry.key, reason: entry.reason, expiresOn: entry.expiresOn })
+      if (!reasonOf(body)) return bad('A reason is required.')
+      if (kind !== 'class' && body?.payer != null) return bad('A payer is only for class lists.')
+      const key = keyOf(body)
+      const payer = payerOf(body)
+      const rows = (state.entries[k] ??= [])
+      const at = rows.findIndex((e) => same(e, key, payer))
+      const entry = { key, addedBy: 'msartawi', addedAt: localNow(), reason: reasonOf(body), expiresOn: body.expiresOn ?? null, payer }
+      if (at >= 0) rows[at] = entry
+      else rows.unshift(entry)
+      ;(state.log[k] ??= []).unshift({ at: entry.addedAt, by: 'msartawi', action: at >= 0 ? 'change' : 'add', key, reason: entry.reason, expiresOn: entry.expiresOn, payer })
       recount()
-      return envelope(entry)
+      return envelope(withExpiry(entry))
     })
   if (method === 'DELETE')
     return door('removeEntry', () => {
-      const key = query.get('key')
-      state.entries[k] = (state.entries[k] ?? []).filter((e) => e.key !== key)
-      ;(state.log[k] ??= []).unshift({ at: localNow(), by: 'msartawi', action: 'removed', key, reason: null, expiresOn: null })
+      if (!reasonOf(body)) return bad('A reason is required.')
+      if (kind !== 'class' && body?.payer != null) return bad('A payer is only for class lists.')
+      const key = keyOf(body)
+      const payer = payerOf(body)
+      const rows = state.entries[k] ?? []
+      if (!rows.some((e) => same(e, key, payer))) return envelope(null, { status: 404, success: false, message: 'No such entry.', errorCode: 'INSLISTS_NOT_FOUND' })
+      state.entries[k] = rows.filter((e) => !same(e, key, payer))
+      ;(state.log[k] ??= []).unshift({ at: localNow(), by: 'msartawi', action: 'remove', key, reason: reasonOf(body), expiresOn: null, payer })
       recount()
-      return envelope(null)
+      return envelope({ key, payer })
     })
   return null
 }

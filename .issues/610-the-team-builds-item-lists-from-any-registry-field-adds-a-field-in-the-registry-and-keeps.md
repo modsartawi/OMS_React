@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BO 3126 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3126-oms-react-insurance-rules-brief.md)
 blocked-by: 607
 ---
@@ -30,7 +30,7 @@ components · logic · test
 
 - [x] `listCycle_isRefusedBeforeSave` — pure
 - [x] drive `tools/insurance-lists-drive.mjs` (stubbed) — GLP-1 list from ECode values; add an ItemInfo field; add a VIP entry
-- [ ] drive (stubbed) — add a class entry for one insurer and one for any insurer, then expire one
+- [x] drive (stubbed) — add a class entry for one insurer and one for any insurer, then expire one
 
 ## Boundaries
 
@@ -83,3 +83,33 @@ Shared pieces: `src/core/insurance-rules/registry.ts` (RegistryField, FieldValue
 **2026-10-27 — reopened at the merge to main.** Main added class lists (BackOffice 3172: `InsuranceRules/ClassLists`,
 entries carry `payer`) to this ticket after it was built. Everything else stands as built above; the class-list tab
 and its drive leg are still to build.
+
+**2026-10-28 — class lists built on `impl/3126r-610` (from `spec/3126-reconcile`).** A **Policy classes** tab
+(`?tab=classes`) beside Patients and Policies on `InsuranceRules/ClassLists`: an entry is a class code (upper-cased,
+≤29, no `|`, refused in words before the POST) and an insurer picked from `GET InsuranceRules/Insurers` (shown
+"payer · name", one `Ltr`; blank = "Any insurer"); the list says how many entries are for one insurer and how many for
+any; the same class with and without a payer are two entries (`entryIdentity`). Expired entries stay listed, badged.
+Proof: `entry-form.test.ts` (class key, payer ≤10, two-entries identity, body upper-case + payer only when picked,
+new-list id/name), `api.test.ts` (`api.delWithBody`), `rule-scope.test.ts` (class `inList` sentence + NOT,
+`audience.excludeClassLists`), `lists/i18n-keys.test.ts`. Drive `tools/insurance-lists-drive.mjs` **190/190** STUBBED
+(LTR + RTL; new leg 4b: GOLD for Bupa + VIP for any, SILVER added for Tawuniya, GOLD added for any insurer expiring
+today then read expired a day on, Remove sends `{ key, payer, reason }`, a new class list with a reason). 607's drive
+86/86, 608's 104/104. Typecheck, lint, vitest green.
+
+Shared doors brought to the **built 3133 shapes** (PROVISIONAL marks removed): `GET …Lists` → `[{ id, name, entries,
+createdBy, createdAt }]`; `POST …Lists { id, name, reason }` (a "New list" dialog on all three tabs); entries `{ key,
+addedBy, addedAt, reason, expiresOn, expired, payer }`; `DELETE …/Entries` with a BODY `{ key, payer?, reason }`
+(new `api.delWithBody` in core); log `createList | add | change | remove`. Every write goes through the shared reason
+dialog (`INSLISTS_BAD_REQUEST` shown under the reason). Expiry is the last day it counts, so **today is now allowed**.
+
+Rule spelling: the guard palette and the coverage/category palette offer "Policy class in list"
+`{ check: "request", field: "class", inList }` (`ClassListCondition`), the audience editor `excludeClassLists`, and the
+sentence reads both.
+
+**Left for 618:**
+- ⚠️ The policy block is still `{ check: "policy", inList }`; the brief's section spells it `{ check: "request",
+  field: "policy", inList }`. Not moved here (kept minimal; stubs, templates and the 617 drive use the old spelling).
+- `GET InsuranceRules/Insurers` is still 617's guess; `registryApi.insurers` reads it under the same query key as
+  617's Insurers page.
+- The add form still refuses a key already listed (`keyListed`) — HQ would treat that POST as a `change`
+  (replace reason / expiry). No "change" UI; an expired entry is revived only by remove + add.

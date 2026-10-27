@@ -1,4 +1,4 @@
-// The Fields registry and the patient / policy lists (BackOffice spec 3126, doors 3132 + 3133; oms ticket 610).
+// The Fields registry and the patient / policy / class lists (BackOffice spec 3126, doors 3132 + 3133 + 3172; oms 610).
 // In core because more than one feature reads them: 610's Lists and Fields pages, the guard editor's palette
 // (608: a `patient` / `policy` condition picks a list by id) and 617, whose eligibility facts are Fields of
 // scope `eligibility`. Shapes are the brief's ("HQ contract: lists, fields, patient and policy lists"); a field
@@ -42,36 +42,47 @@ export interface FieldValue {
 export const liveFields = (fields: readonly RegistryField[], scope?: FieldScope): RegistryField[] =>
   fields.filter((f) => !f.retired && (scope === undefined || f.scope === scope))
 
-/** A patient list (keyed by National ID / Iqama) or a policy list (keyed by SubscriberId). */
-export type KeyedListKind = 'patient' | 'policy'
-
 /**
- * One patient or policy list. ⚠️ PROVISIONAL door and shape: the brief spells only the lists' Entries and Log
- * doors; `GET InsuranceRules/PatientLists` / `PolicyLists` → `[{ id, name, entries }]` is 610's guess.
+ * A patient list (keyed by National ID / Iqama), a policy list (keyed by SubscriberId) or a class list (keyed by
+ * policy class code, each entry for one insurer or any — BackOffice 3172).
  */
+export const KEYED_LIST_KINDS = ['patient', 'policy', 'class'] as const
+export type KeyedListKind = (typeof KEYED_LIST_KINDS)[number]
+
+/** `GET InsuranceRules/{Patient|Policy|Class}Lists` (3133 / 3172) — one list. */
 export interface KeyedList {
   id: string
   name: Says
   /** How many entries it holds now. */
   entries: number
+  createdBy: string
+  /** Local moment. */
+  createdAt: string
 }
 
-/** `GET …/{Patient|Policy}Lists/{id}/Entries` — one entry. */
+/** `GET …/{Patient|Policy|Class}Lists/{id}/Entries` — one entry (3133 / 3172). */
 export interface KeyedListEntry {
   key: string
   addedBy: string
+  /** Local moment. */
+  addedAt: string
   reason: string
-  /** Local day; absent or null = no expiry. */
-  expiresOn?: string | null
+  /** The last local day it counts (inclusive); null = no expiry. */
+  expiresOn: string | null
+  /** Listed still, but no longer matches. */
+  expired: boolean
+  /** A class list's insurer (SAP customer id); null = any insurer, and always null on patient / policy lists. */
+  payer?: string | null
 }
 
-/** `GET …/{Patient|Policy}Lists/{id}/Log` — one change. ⚠️ PROVISIONAL shape (the brief says "the change log"). */
+/** `GET …/{Patient|Policy|Class}Lists/{id}/Log` — one change, newest first (3133 / 3172). */
 export interface KeyedListLogRow {
   /** Local moment. */
   at: string
   by: string
-  action: 'added' | 'removed' | 'expired'
-  key: string
-  reason?: string | null
-  expiresOn?: string | null
+  action: 'createList' | 'add' | 'change' | 'remove'
+  key: string | null
+  reason: string | null
+  expiresOn: string | null
+  payer?: string | null
 }

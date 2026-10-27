@@ -11,7 +11,7 @@ import fieldsAr from '@/locales/ar/insurance-fields.json'
 import rulesEn from '@/locales/en/insurance-rules.json'
 import rulesAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
-import { FIELD_SCOPES, FIELD_TYPES } from '@/core/insurance-rules/registry'
+import { FIELD_SCOPES, FIELD_TYPES, KEYED_LIST_KINDS } from '@/core/insurance-rules/registry'
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -52,15 +52,16 @@ for (const [ns, en, ar] of [
 }
 
 const LIST_KEYS = [
-  ...['items', 'patients', 'policies'].map((t) => `tab.${t}`),
+  ...['items', 'patients', 'policies', 'classes'].map((t) => `tab.${t}`),
   'mode.anyOf',
   'mode.noneOf',
   ...['include', 'exclude', 'articles', 'categories'].map((k) => `def.${k}`),
   ...['include', 'exclude', 'includeHint', 'excludeHint'].map((k) => `editor.${k}`),
   ...['cycle', 'tooDeep', 'unknownList', 'idTaken', 'idInvalid', 'nameMissing', 'emptyAttribute', 'emptyDefinition'].map((k) => `problem.${k}`),
-  ...['keyMissing', 'keyInvalid', 'keyListed', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
-  ...['added', 'removed', 'expired'].map((k) => `logAction.${k}`),
-  ...['patient', 'policy'].flatMap((k) => ['none', 'lede', 'key'].map((x) => `keyed.${k}.${x}`)),
+  ...['keyMissing', 'keyInvalid', 'keyListed', 'payerInvalid', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
+  ...['createList', 'add', 'change', 'remove'].map((k) => `logAction.${k}`),
+  ...['idInvalid', 'idTaken', 'nameMissing'].map((k) => `listProblem.${k}`),
+  ...KEYED_LIST_KINDS.flatMap((k) => ['none', 'lede', 'key', 'newTitle'].map((x) => `keyed.${k}.${x}`)),
 ]
 const FIELD_KEYS = [
   ...FIELD_SCOPES.map((s) => `scope.${s}`),

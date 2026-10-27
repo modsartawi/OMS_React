@@ -1,7 +1,7 @@
 /**
  * The Lists screen's own doors (BackOffice spec 3126; doors 3132 + 3133, oms ticket 610). The item lists live
  * IN the guard ruleset (they are versioned with it), so saving one is a PUT of the whole draft; the patient and
- * policy lists are their own doors, edited without approval, every change logged. The reads two features need
+ * policy and class lists are their own doors (3133 / 3172), edited without approval, every change logged. The reads two features need
  * (the Fields, the patient / policy lists) are `@/core/insurance-rules/registry-api`.
  *
  * ⚠️ Stubbed until oms 618 (`tools/insurance-rules-stubs.mjs`, section 610): no door here has met a real SIS.Api.
@@ -9,9 +9,9 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE } from '@/core/insurance-rules/api'
 import type { GuardList, GuardRuleset } from '@/core/insurance-rules/model'
-import type { KeyedListEntry, KeyedListKind, KeyedListLogRow } from '@/core/insurance-rules/registry'
+import type { KeyedList, KeyedListEntry, KeyedListKind, KeyedListLogRow } from '@/core/insurance-rules/registry'
 import { keyedListsKey, keyedListsPath } from '@/core/insurance-rules/registry-api'
-import type { EntryBody } from './entry-form'
+import type { EntryBody, NewListBody } from './entry-form'
 
 /** One matched item of a preview. ⚠️ PROVISIONAL spelling (`article`, `name`). */
 export interface PreviewItem {
@@ -44,19 +44,30 @@ export const listsApi = {
   preview(list: GuardList, lists: GuardList[]): Promise<ListPreview> {
     return api.post<ListPreview>(`${INSURANCE_RULES_BASE}/Lists/Preview`, { list, lists })
   },
-  /** `GET InsuranceRules/{Patient|Policy}Lists/{id}/Entries`. */
+  /** `POST InsuranceRules/{Patient|Policy|Class}Lists` `{ id, name, reason }` — a new list (409 `INSLISTS_EXISTS`). */
+  createList(kind: KeyedListKind, body: NewListBody): Promise<KeyedList> {
+    return api.post<KeyedList>(keyedListsPath(kind), body)
+  },
+  /** `GET InsuranceRules/{Patient|Policy|Class}Lists/{id}/Entries` — expired entries included (`expired: true`). */
   async entries(kind: KeyedListKind, id: string): Promise<KeyedListEntry[]> {
     return (await api.get<KeyedListEntry[] | null>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`)) ?? []
   },
-  /** `POST InsuranceRules/{Patient|Policy}Lists/{id}/Entries` `{ key, reason, expiresOn? }` → the entry. */
+  /**
+   * `POST InsuranceRules/{Patient|Policy|Class}Lists/{id}/Entries` `{ key, payer?, reason, expiresOn? }` → the
+   * entry. A key already there has its reason and expiry replaced (logged `change`).
+   */
   addEntry(kind: KeyedListKind, id: string, body: EntryBody): Promise<KeyedListEntry> {
     return api.post<KeyedListEntry>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, body)
   },
-  /** `DELETE InsuranceRules/{Patient|Policy}Lists/{id}/Entries?key=` — ⚠️ PROVISIONAL: the key as a query param. */
-  removeEntry(kind: KeyedListKind, id: string, key: string): Promise<unknown> {
-    return api.del<unknown>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, { key })
+  /**
+   * `DELETE InsuranceRules/{Patient|Policy|Class}Lists/{id}/Entries` with a BODY `{ key, payer?, reason }` →
+   * `{ key, payer }`. `payer` only on a class list (on the others it is a 400).
+   */
+  removeEntry(kind: KeyedListKind, id: string, entry: { key: string; payer?: string | null }, reason: string): Promise<unknown> {
+    const body = kind === 'class' && entry.payer ? { key: entry.key, payer: entry.payer, reason } : { key: entry.key, reason }
+    return api.delWithBody<unknown>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Entries`, body)
   },
-  /** `GET InsuranceRules/{Patient|Policy}Lists/{id}/Log` — every change, newest first. */
+  /** `GET InsuranceRules/{Patient|Policy|Class}Lists/{id}/Log` — every change, newest first. */
   async log(kind: KeyedListKind, id: string): Promise<KeyedListLogRow[]> {
     return (await api.get<KeyedListLogRow[] | null>(`${keyedListsPath(kind)}/${encodeURIComponent(id)}/Log`)) ?? []
   },

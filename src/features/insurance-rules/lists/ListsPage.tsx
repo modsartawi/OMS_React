@@ -4,7 +4,7 @@ import Chip from '@/core/ui/Chip'
 import ItemLists from './ItemLists'
 import KeyedLists from './KeyedLists'
 
-const TABS = ['items', 'patients', 'policies'] as const
+const TABS = ['items', 'patients', 'policies', 'classes'] as const
 type Tab = (typeof TABS)[number]
 const PANEL_ID = 'insurance-lists-panel'
 
@@ -12,7 +12,8 @@ const PANEL_ID = 'insurance-lists-panel'
  * Insurance rules ▸ Lists — `/insurance-rules/lists` (BackOffice spec 3126, doors 3132 + 3133; oms ticket 610).
  * Three tabs (`?tab=`): **Items** — the ruleset's item lists, built from registry fields (any of / none of),
  * other lists included or taken out (three deep, no cycle), previewed before the save; **Patients** and
- * **Policies** — the keyed lists a rule excludes (VIP), with who added each entry, why, until when, and the log.
+ * **Policies** — the keyed lists a rule excludes (VIP), with who added each entry, why, until when, and the log;
+ * **Classes** (BackOffice 3172) — policy class codes, each for one insurer or any.
  *
  * 🚩 UNGATED: no access probe until 618; a bare 403 on a read is "You do not have access".
  */
@@ -42,6 +43,7 @@ export default function ListsPage() {
         {open === 'items' && <ItemLists />}
         {open === 'patients' && <KeyedLists key="patient" kind="patient" />}
         {open === 'policies' && <KeyedLists key="policy" kind="policy" />}
+        {open === 'classes' && <KeyedLists key="class" kind="class" />}
       </div>
     </section>
   )

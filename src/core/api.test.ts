@@ -361,6 +361,18 @@ describe('api.upload', () => {
     expect(init.body).toBe('{}')
   })
 
+  it('a DELETE may carry a JSON body (BackOffice 3133: `DELETE …/Entries { key, payer?, reason }`)', async () => {
+    const fetchStub = ok({ key: 'GOLD', payer: null })
+    vi.stubGlobal('fetch', fetchStub)
+    const data = await api.delWithBody('InsuranceRules/ClassLists/CL-1/Entries', { key: 'GOLD', reason: 'gone' })
+    expect(data).toEqual({ key: 'GOLD', payer: null })
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url.endsWith('InsuranceRules/ClassLists/CL-1/Entries')).toBe(true)
+    expect(init.method).toBe('DELETE')
+    expect(init.body).toBe('{"key":"GOLD","reason":"gone"}')
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
   it('maps a refused upload through the same taxonomy as every other call', async () => {
     vi.stubGlobal('fetch', answer(409, envelope(409, 'HASH_MISMATCH', 'The sheet changed.')))
     const err = await api

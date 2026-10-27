@@ -3,48 +3,105 @@ import type { LocalDate } from '@/core/util/date-window'
 import type { KeyedListKind } from '@/core/insurance-rules/registry'
 
 /**
- * Adding an entry to a patient list or a policy list (ticket 610; BackOffice 3133). A patient is keyed by
- * National ID (`1…`) or Iqama (`2…`), ten digits; a policy by its SubscriberId. Every entry carries a reason;
- * the expiry is optional and, when given, a LOCAL day after today. `addedBy` is the server's.
+ * Adding an entry to a patient, policy or class list (ticket 610; BackOffice 3133 + 3172). A patient is keyed by
+ * National ID (`1…`) or Iqama (`2…`), ten digits; a policy by its SubscriberId; a class by its policy class code
+ * (up to 29, no `|`, kept upper case), with an optional insurer (its SAP customer id, up to 10; blank = any
+ * insurer). Every entry carries a reason; the expiry is optional and, when given, the last LOCAL day it counts —
+ * today or later.
+ * `addedBy` is the server's.
  */
 export interface EntryForm {
   key: string
   reason: string
   /** `yyyy-MM-dd` from a date input, or '' for no expiry. */
   expiresOn: string
+  /** Class lists only: the insurer's SAP customer id, or '' for any insurer. Absent = ''. */
+  payer?: string
 }
 
-export type EntryProblem = 'keyMissing' | 'keyInvalid' | 'keyListed' | 'reasonMissing' | 'reasonTooLong' | 'expiryInvalid' | 'expiryPast'
+export type EntryProblem = 'keyMissing' | 'keyInvalid' | 'keyListed' | 'payerInvalid' | 'reasonMissing' | 'reasonTooLong' | 'expiryInvalid' | 'expiryPast'
 
 const PATIENT_KEY = /^[12]\d{9}$/
 const SUBSCRIBER_ID = /^\S{1,40}$/
+const CLASS_CODE = /^[^|]{1,29}$/
+const PAYER = /^\S{1,10}$/
 const DAY = /^\d{4}-\d{2}-\d{2}$/
+
+const KEY_RULE: Record<KeyedListKind, RegExp> = { patient: PATIENT_KEY, policy: SUBSCRIBER_ID, class: CLASS_CODE }
+
+/** The key as HQ keeps it: trimmed; a class code upper case. */
+const keyOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'class' ? form.key.trim().toUpperCase() : form.key.trim())
+const payerOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'class' ? (form.payer ?? '').trim() : '')
+
+/**
+ * What makes an entry one: its key, and on a class list its insurer too (the same class with and without a payer
+ * are two entries). `listed` passed to `entryProblems` holds these.
+ */
+export const entryIdentity = (key: string, payer?: string | null): string => `${key}|${payer ?? ''}`
 
 export function entryProblems(form: EntryForm, kind: KeyedListKind, listed: readonly string[], today: LocalDate): EntryProblem[] {
   const out: EntryProblem[] = []
-  const key = form.key.trim()
+  const key = keyOf(form, kind)
+  const payer = payerOf(form, kind)
   if (!key) out.push('keyMissing')
-  else if (!(kind === 'patient' ? PATIENT_KEY : SUBSCRIBER_ID).test(key)) out.push('keyInvalid')
-  else if (listed.includes(key)) out.push('keyListed')
+  else if (!KEY_RULE[kind].test(key)) out.push('keyInvalid')
+  else if (listed.includes(entryIdentity(key, payer))) out.push('keyListed')
+  if (payer && !PAYER.test(payer)) out.push('payerInvalid')
   const reason = form.reason.trim()
   if (!reason) out.push('reasonMissing')
   else if (reason.length > REASON_MAX) out.push('reasonTooLong')
   if (form.expiresOn) {
     if (!DAY.test(form.expiresOn)) out.push('expiryInvalid')
-    else if (form.expiresOn <= today) out.push('expiryPast')
+    // The last day it counts, inclusive: today is allowed (3133).
+    else if (form.expiresOn < today) out.push('expiryPast')
   }
   return out
 }
 
-/** `POST InsuranceRules/{Patient|Policy}Lists/{id}/Entries` body. */
+/** `POST InsuranceRules/{Patient|Policy|Class}Lists/{id}/Entries` body — `payer` on a class list only. */
 export interface EntryBody {
   key: string
+  payer?: string
   reason: string
   expiresOn?: string
 }
 
-export function entryBody(form: EntryForm): EntryBody {
-  const body: EntryBody = { key: form.key.trim(), reason: form.reason.trim() }
+export function entryBody(form: EntryForm, kind: KeyedListKind = 'patient'): EntryBody {
+  const payer = payerOf(form, kind)
+  const body: EntryBody = { key: keyOf(form, kind), ...(payer ? { payer } : {}), reason: form.reason.trim() }
   if (form.expiresOn) body.expiresOn = form.expiresOn
   return body
 }
+
+/** A new patient, policy or class list (3133 / 3172): its id and its name in both languages. */
+export interface NewListForm {
+  id: string
+  en: string
+  ar: string
+}
+
+export type NewListProblem = 'idInvalid' | 'idTaken' | 'nameMissing'
+
+const LIST_ID = /^[A-Za-z0-9._-]{1,40}$/
+
+export function newListProblems(form: NewListForm, taken: readonly string[]): NewListProblem[] {
+  const out: NewListProblem[] = []
+  const id = form.id.trim()
+  if (!LIST_ID.test(id)) out.push('idInvalid')
+  else if (taken.includes(id)) out.push('idTaken')
+  if (!form.en.trim() || !form.ar.trim()) out.push('nameMissing')
+  return out
+}
+
+/** `POST InsuranceRules/{Patient|Policy|Class}Lists` body. */
+export interface NewListBody {
+  id: string
+  name: { en: string; ar: string }
+  reason: string
+}
+
+export const newListBody = (form: NewListForm, reason: string): NewListBody => ({
+  id: form.id.trim(),
+  name: { en: form.en.trim(), ar: form.ar.trim() },
+  reason,
+})

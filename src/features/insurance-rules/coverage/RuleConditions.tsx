@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { addCondition, canAddGroup, removeCondition, toggleNot, updateCondition, type ConditionPath } from '@/core/insurance-rules/guard-edit'
 import type { GuardCondition } from '@/core/insurance-rules/model'
-import type { RegistryField } from '@/core/insurance-rules/registry'
+import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
@@ -15,17 +15,18 @@ import { CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/c
 // The conditions of a category or coverage rule (oms 617): the guard language's All of / Any of groups (three
 // levels at most), NOT on any condition, and the facts a coverage decision reads — item fields, the request's
 // payer / policy / class, the patient, the insurer's eligibility answer — all out of the Fields registry (610),
-// plus patient and policy lists by id. The pure edits are the guard editor's (`@/core/insurance-rules/guard-edit`).
+// plus patient, policy and class lists by id. The pure edits are the guard editor's (`@/core/insurance-rules/guard-edit`).
 
 type Edit = (fn: (when: GuardCondition[]) => GuardCondition[], coalesce?: string) => void
 
-const PALETTE = ['fact', 'policy', 'patient', 'group'] as const
+const PALETTE = ['fact', 'policy', 'class', 'patient', 'group'] as const
 const pathKey = (p: ConditionPath) => p.join('.')
 
 /** A palette block with its defaults: a fact starts on the payer, the commonest test of a contract rule. */
 function newBlock(kind: (typeof PALETTE)[number], fields: readonly RegistryField[]): GuardCondition {
   if (kind === 'group') return { check: 'group', mode: 'all', conditions: [] }
   if (kind === 'patient' || kind === 'policy') return { check: kind, inList: '' }
+  if (kind === 'class') return { check: 'request', field: 'class', inList: '' }
   const first = fieldOfPath(fields, '$request.payer') ?? factFields(fields)[0]
   if (!first) return { check: 'fact', path: '$request.payer', op: 'anyOf', value: [] }
   return factKind(first) === 'number' ? { check: 'fact', path: factPath(first), op: 'atLeast', value: 0 } : { check: 'fact', path: factPath(first), op: 'anyOf', value: [] }
@@ -158,6 +159,12 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
         <ListPick kind={c.check} value={c.inList} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
       </Field>
     )
+  if (c.check === 'request')
+    return (
+      <Field label={t('conditions.block.class')}>
+        <ListPick kind="class" value={c.inList} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
+      </Field>
+    )
   if (c.check !== 'fact')
     // A block the guard palette has (history, line, …) but a coverage rule does not offer: shown, kept, not edited.
     return <code className="font-mono text-xs text-muted-foreground">{c.check}</code>
@@ -217,7 +224,7 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
   )
 }
 
-function ListPick({ kind, value, onPick }: { kind: 'patient' | 'policy'; value: string; onPick: (id: string) => void }) {
+function ListPick({ kind, value, onPick }: { kind: KeyedListKind; value: string; onPick: (id: string) => void }) {
   const { t, i18n } = useTranslation('insurance-coverage')
   const lists = useQuery(keyedListsQuery(kind)).data ?? []
   return (

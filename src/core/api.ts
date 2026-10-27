@@ -488,4 +488,12 @@ export const api = {
   del<T>(path: string, params?: Record<string, unknown>): Promise<T> {
     return request<T>(path + buildQuery(params), { method: 'DELETE' })
   },
+  /**
+   * A DELETE whose door takes a JSON **body** (BackOffice 3133: the insurance team lists' `DELETE …/Entries
+   * { key, payer?, reason }` — the reason every change carries would not belong on a query string). Sent
+   * exactly as `post` sends one; use `del` for every door that names its target in params.
+   */
+  delWithBody<T>(path: string, body: unknown): Promise<T> {
+    return request<T>(path, { method: 'DELETE', body: JSON.stringify(body) })
+  },
 }

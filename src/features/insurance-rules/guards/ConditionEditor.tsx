@@ -19,7 +19,7 @@ import {
   type ConditionPath,
 } from '@/core/insurance-rules/guard-edit'
 import { HISTORY_NARROWS, type GuardCheck, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
-import type { RegistryField } from '@/core/insurance-rules/registry'
+import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
@@ -480,7 +480,7 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
           ) : (
             <>
               <Field label={t('editor.field.lineField')}>
-                <Select value={c.field ?? 'daysSupply'} invalid={bad('field')} data-input="field" onChange={(e) => set((x) => ({ ...x, field: e.target.value }))}>
+                <Select value={c.field ?? 'daysSupply'} invalid={bad('field')} data-input="field" onChange={(e) => set((x) => ({ ...x, field: e.target.value }) as GuardCondition)}>
                   {!numbers.some((f) => f.key === (c.field ?? 'daysSupply')) && <option value={c.field ?? 'daysSupply'}>{fsi(c.field ?? 'daysSupply')}</option>}
                   {numbers.map((f) => (
                     <option key={f.key} value={f.key}>
@@ -563,6 +563,12 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
           <KeyedListSelect kind={c.check} value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }))} />
         </Field>
       )
+    case 'request':
+      return (
+        <Field label={t('editor.field.classList')}>
+          <KeyedListSelect kind="class" value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
+        </Field>
+      )
     case 'fact': {
       const def = fieldOfPath(fields, c.path)
       const isNumber = def ? factKind(def) === 'number' : typeof c.value === 'number'
@@ -639,8 +645,8 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
   }
 }
 
-/** A patient or policy list, picked by id from the lists (610's doors); a list not among them stays named by its id. */
-export function KeyedListSelect({ kind, value, invalid, onPick }: { kind: 'patient' | 'policy'; value: string; invalid: boolean; onPick: (id: string) => void }) {
+/** A patient, policy or class list, picked by id from the lists (610's doors); a list not among them stays named by its id. */
+export function KeyedListSelect({ kind, value, invalid, onPick }: { kind: KeyedListKind; value: string; invalid: boolean; onPick: (id: string) => void }) {
   const { t, i18n } = useTranslation('insurance-guards')
   const lists = useQuery(keyedListsQuery(kind)).data ?? []
   return (

@@ -76,4 +76,15 @@ describe('audience and window (story 16)', () => {
       'With no time limit',
     ])
   })
+  it('a class list is left out as audience.excludeClassLists (BackOffice 3172), and WHEN reads it', () => {
+    const r = toggleAudienceExclude(base, 'class', 'CL-GOLD')
+    expect(r.audience?.excludeClassLists).toEqual(['CL-GOLD'])
+    expect(guardSentence(r, LISTS).when.map(text)).toContain('except policy classes on CL-GOLD')
+    expect(toggleAudienceExclude(r, 'class', 'CL-GOLD').audience?.excludeClassLists).toBeUndefined()
+  })
+  it('a class on a class list reads in words, and NOT works on it', () => {
+    const c = { check: 'request' as const, field: 'class' as const, inList: 'CL-GOLD' }
+    expect(text(conditionSentence(c, { rule: base, lists: LISTS }).sentence)).toBe("the policy's class is on the class list CL-GOLD")
+    expect(text(conditionSentence({ ...c, not: true }, { rule: base, lists: LISTS }).sentence)).toBe("it is not true that the policy's class is on the class list CL-GOLD")
+  })
 })

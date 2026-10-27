@@ -146,6 +146,9 @@
     "policy": {
       "inList": "الوثيقة ضمن قائمة الوثائق <list>{{list}}</list>"
     },
+    "class": {
+      "inList": "فئة الوثيقة ضمن قائمة الفئات <list>{{list}}</list>"
+    },
     "group": {
       "all": "كل ما يلي صحيح",
       "any": "أيٌّ مما يلي صحيح",
@@ -170,7 +173,8 @@
       "until": "حتى <until>{{until}}</until>",
       "always": "بلا حد زمني",
       "excludePatients": "عدا المرضى في <lists>{{lists}}</lists>",
-      "excludePolicies": "عدا الوثائق في <lists>{{lists}}</lists>"
+      "excludePolicies": "عدا الوثائق في <lists>{{lists}}</lists>",
+      "excludeClasses": "عدا فئات الوثائق في <lists>{{lists}}</lists>"
     },
     "then": {
       "REFUSE": "رفض السطر",

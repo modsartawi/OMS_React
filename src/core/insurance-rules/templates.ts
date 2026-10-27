@@ -138,7 +138,7 @@ function conditionCandidates(c: unknown, at: string, out: BlankCandidate[]) {
     const path = `${at}.${k}`
     if (k === 'conditions' && Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'number') out.push({ path, value: v })
-    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || o.check === 'policy')))) out.push({ path, value: v })
+    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || o.check === 'policy' || o.check === 'request')))) out.push({ path, value: v })
     else if (Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'object' && v !== null) conditionCandidates(v, path, out)
   }

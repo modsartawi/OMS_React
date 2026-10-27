@@ -87,6 +87,7 @@
     "block": {
       "fact": "A field or fact",
       "policy": "Policy on a list",
+      "class": "Policy class on a list",
       "patient": "Patient on a list",
       "group": "Group (All of / Any of)"
     },

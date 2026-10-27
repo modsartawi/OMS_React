@@ -14,6 +14,7 @@ import {
   type Says,
   type SupplyCondition,
 } from './model'
+import type { KeyedListKind } from './registry'
 
 // The guard editor's pure edits (oms ticket 608; 609 templates, 611 approval, 612 simulator and 617's
 // category / coverage editors build on them, so they live in core). A condition is found by its PATH: the
@@ -145,7 +146,7 @@ export const PALETTE: readonly { group: string; checks: readonly GuardCheck[] }[
   { group: 'volume', checks: ['volume'] },
   { group: 'line', checks: ['line'] },
   { group: 'reference', checks: ['sfda', 'formulary'] },
-  { group: 'patient', checks: ['patient', 'policy', 'fact'] },
+  { group: 'patient', checks: ['patient', 'policy', 'request', 'fact'] },
   { group: 'formula', checks: ['formula'] },
   { group: 'structure', checks: ['group'] },
 ]
@@ -169,6 +170,8 @@ export function newCondition(check: GuardCheck): GuardCondition {
       return { check, inList: '' }
     case 'policy':
       return { check, inList: '' }
+    case 'request':
+      return { check, field: 'class', inList: '' }
     case 'fact':
       return { check, path: DEFAULT_FACT_PATH, op: 'atLeast', value: 0 }
     case 'formula':
@@ -360,10 +363,12 @@ export function setAudienceStores(r: GuardRule, stores: string[]): GuardRule {
   return { ...r, audience: { ...audienceOf(r), stores } }
 }
 
-/** A patient or policy list left out of the rule's audience, or put back. */
-export function toggleAudienceExclude(r: GuardRule, kind: 'patient' | 'policy', id: string): GuardRule {
+const EXCLUDE_FIELD = { patient: 'excludePatientLists', policy: 'excludePolicyLists', class: 'excludeClassLists' } as const
+
+/** A patient, policy or class list left out of the rule's audience, or put back. */
+export function toggleAudienceExclude(r: GuardRule, kind: KeyedListKind, id: string): GuardRule {
   const a = audienceOf(r)
-  const field = kind === 'patient' ? 'excludePatientLists' : 'excludePolicyLists'
+  const field = EXCLUDE_FIELD[kind]
   const next = toggled(a[field] ?? [], id)
   const rest: GuardAudience = { ...a }
   delete rest[field]

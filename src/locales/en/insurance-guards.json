@@ -137,6 +137,7 @@
       "formulary": "Formulary",
       "patient": "Patient in list",
       "policy": "Policy in list",
+      "request": "Policy class in list",
       "fact": "Patient or request fact",
       "formula": "Formula",
       "group": "Group (All of / Any of)"
@@ -161,6 +162,7 @@
       "value": "Value",
       "patientList": "Patient list",
       "policyList": "Policy list",
+      "classList": "Class list",
       "fact": "Fact",
       "op": "Is",
       "codes": "Codes",
@@ -277,6 +279,7 @@
       "allStores": "every store",
       "excludePatients": "Leave out patients on",
       "excludePolicies": "Leave out policies on",
+      "excludeClasses": "Leave out policy classes on",
       "addExclude": "Pick a list…",
       "removeExclude": "Put {{list}} back in the audience",
       "from": "From",

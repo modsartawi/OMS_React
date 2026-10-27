@@ -9,9 +9,12 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import type { RuleEdit } from './ConditionEditor'
 import { KeyedListSelect } from './ConditionEditor'
+import { KEYED_LIST_KINDS } from '@/core/insurance-rules/registry'
+
+const EXCLUDE_LABEL = { patient: 'editor.audience.excludePatients', policy: 'editor.audience.excludePolicies', class: 'editor.audience.excludeClasses' } as const
 
 // The WHEN of the guard editor (review 3126 P4, story 16): the channels a rule is checked on, its stores (none =
-// every store), the patient / policy lists left out of its audience (a VIP list), and its window. A new rule
+// every store), the patient / policy / class lists left out of its audience (a VIP list), and its window. A new rule
 // starts on every channel at every store with no window (`newGuardRule`); everything here changes it.
 
 export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: RuleEdit }) {
@@ -38,11 +41,11 @@ export default function AudienceEditor({ rule, edit }: { rule: GuardRule; edit: 
           onCodes={(stores) => edit((r) => setAudienceStores(r, stores), 'audience.stores')}
         />
       </Field>
-      {(['patient', 'policy'] as const).map((kind) => {
-        const ids = (kind === 'patient' ? a.excludePatientLists : a.excludePolicyLists) ?? []
+      {KEYED_LIST_KINDS.map((kind) => {
+        const ids = { patient: a.excludePatientLists, policy: a.excludePolicyLists, class: a.excludeClassLists }[kind] ?? []
         return (
           <div key={kind} className="flex flex-wrap items-center gap-2" data-exclude={kind}>
-            <span className="text-muted-foreground">{t(kind === 'patient' ? 'editor.audience.excludePatients' : 'editor.audience.excludePolicies')}</span>
+            <span className="text-muted-foreground">{t(EXCLUDE_LABEL[kind])}</span>
             {ids.map((id) => (
               <span key={id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5" data-excluded={id}>
                 <Ltr>{id}</Ltr>

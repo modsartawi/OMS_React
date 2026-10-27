@@ -152,6 +152,8 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       return { sentence: S('patient.inList', { list: code(c.inList) }), clauses }
     case 'policy':
       return { sentence: S('policy.inList', { list: code(c.inList) }), clauses }
+    case 'request':
+      return { sentence: S('class.inList', { list: code(c.inList) }), clauses }
     case 'fact': {
       const field = fieldOfPath(ctx.fields ?? [], c.path)
       const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.path)
@@ -186,6 +188,8 @@ function whenSentences(rule: GuardRule): KeySentence[] {
   const policies = rule.audience?.excludePolicyLists ?? []
   if (patients.length) out.push(S('when.excludePatients', { lists: { kind: 'list', join: 'and', items: patients.map(code) } }))
   if (policies.length) out.push(S('when.excludePolicies', { lists: { kind: 'list', join: 'and', items: policies.map(code) } }))
+  const classes = rule.audience?.excludeClassLists ?? []
+  if (classes.length) out.push(S('when.excludeClasses', { lists: { kind: 'list', join: 'and', items: classes.map(code) } }))
   const from = rule.window?.from
   const until = rule.window?.until
   if (from && until) out.push(S('when.fromUntil', { from: { kind: 'day', day: from }, until: { kind: 'day', day: until } }))

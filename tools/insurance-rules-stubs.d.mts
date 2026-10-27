@@ -31,12 +31,17 @@ export declare const FIELD_VALUES: Record<string, FieldValue[]>
 export declare const PREVIEW_ITEMS: { article: string; name: string; [field: string]: string }[]
 export declare const PATIENT_LISTS: KeyedList[]
 export declare const POLICY_LISTS: KeyedList[]
+export declare const CLASS_LIST_GOLD: string
+export declare const CLASS_LISTS: KeyedList[]
 export interface ListsState {
   fields: RegistryField[]
   ruleset: GuardRuleset
-  entries: Record<string, KeyedListEntry[]>
+  entries: Record<string, Omit<KeyedListEntry, 'expired'>[]>
   log: Record<string, KeyedListLogRow[]>
-  lists: { patient: KeyedList[]; policy: KeyedList[] }
+  lists: { patient: KeyedList[]; policy: KeyedList[]; class: KeyedList[] }
+  insurers: { payer: string; name: { en: string; ar: string } }[]
+  /** The local day `expired` is read against; a drive may move it on. */
+  today: string
   writes: { door: string; body: unknown }[]
 }
 export declare function newListsState(): ListsState

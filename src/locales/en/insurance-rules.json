@@ -122,6 +122,9 @@
     "policy": {
       "inList": "the policy is on the policy list <list>{{list}}</list>"
     },
+    "class": {
+      "inList": "the policy's class is on the class list <list>{{list}}</list>"
+    },
     "group": {
       "all": "all of these are true",
       "any": "any of these is true",
@@ -146,7 +149,8 @@
       "until": "Until <until>{{until}}</until>",
       "always": "With no time limit",
       "excludePatients": "except patients on <lists>{{lists}}</lists>",
-      "excludePolicies": "except policies on <lists>{{lists}}</lists>"
+      "excludePolicies": "except policies on <lists>{{lists}}</lists>",
+      "excludeClasses": "except policy classes on <lists>{{lists}}</lists>"
     },
     "then": {
       "REFUSE": "refuse the line",

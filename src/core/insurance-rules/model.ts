@@ -176,9 +176,22 @@ export interface PatientCondition extends ConditionBase {
   inList: string
 }
 
-/** The policy is on a policy list (by id). */
+/**
+ * The policy is on a policy list (by id). ⚠️ Off the built contract (BackOffice 3133 spells it
+ * `{ check: "request", field: "policy", inList }`, as `ClassListCondition` below); 618 moves it over.
+ */
 export interface PolicyCondition extends ConditionBase {
   check: 'policy'
+  inList: string
+}
+
+/**
+ * The request's policy class is on a class list (by id) — BackOffice 3172's spelling. The class read is the
+ * request's `class`, else the eligibility answer's `coverage.class`; with no class anywhere it is unknown.
+ */
+export interface ClassListCondition extends ConditionBase {
+  check: 'request'
+  field: 'class'
   inList: string
 }
 
@@ -221,6 +234,7 @@ export type GuardCondition =
   | FormularyCondition
   | PatientCondition
   | PolicyCondition
+  | ClassListCondition
   | FactCondition
   | FormulaCondition
   | GroupCondition
@@ -255,6 +269,8 @@ export interface GuardAudience {
   stores: string[]
   excludePatientLists?: string[]
   excludePolicyLists?: string[]
+  /** Class lists left out (BackOffice 3172); a request with no class is never excluded by one. */
+  excludeClassLists?: string[]
 }
 
 export interface GuardRule {

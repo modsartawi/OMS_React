@@ -39,6 +39,12 @@
 //  18. Expiring is tinted only when it is non-zero;
 //  19. 🚩 an unset `0001-01-01` birth date renders as absent, not as a date.
 //
+// And ticket 635's (scenario 19b, BackOffice 3176 stubbed — no door is deployed):
+//  19b. 🚩 the member's group chips show ONLY under the groups view grant: named
+//       from the core groups list (a code the list lacks shows as its code), an
+//       empty field under the grant says "In no group", and absent / no grant /
+//       a probe that throws draws no groups row at all.
+//
 // And ticket 236's (scenarios 20–26):
 //  20. Activities is the landing tab and fetches ON LANDING — one call, and the
 //      caption names the ceiling with no warning below the cap;
@@ -359,7 +365,16 @@ let scenario = {
   activities: ACTIVITY_ROWS,
   sales: SALES_ROWS,
   actions: { total: 312 },
+  // Ticket 635: `LoyGroupWeb/Access` — null = the benign `{}` every other probe
+  // gets (no grant), 'view' = canView, 'throws' = a raw 500.
+  groupsAccess: null,
 }
+// The groups list (`LoyGroupWeb/Groups`), logged so "no grant ⇒ no list call" is counted.
+let groupListCalls = []
+const GROUP_LIST = [
+  { groupId: 'g1', code: 'STAFF', nameEn: 'Staff', nameAr: 'الموظفون', isActive: true, mobileCount: 40, liveBonusBuys: [] },
+  { groupId: 'g2', code: 'VIP', nameEn: 'Ramadan VIP', nameAr: 'كبار رمضان ٢', isActive: true, mobileCount: 12, liveBonusBuys: [] },
+]
 // The member reads only. The probe is logged apart so the "one call" / "two
 // calls" cascade assertions keep meaning what they said before the gate existed,
 // and the report calls are logged apart again so "a tab fetches only when it is
@@ -404,6 +419,18 @@ async function run() {
       // back as (224). A refusal, not an outage.
       if (scenario.access === 'refused') return route.fulfill({ status: 403, body: 'Forbidden' })
       return route.fulfill(envelope({ canOpenLoyMember: scenario.access === 'granted' }))
+    }
+
+    // Ticket 635 — the loyalty-groups probe and list (BackOffice 3174/3176, stubbed).
+    if (path === 'LoyGroupWeb/Access') {
+      if (scenario.groupsAccess === 'throws') return route.fulfill({ status: 500, body: 'boom' })
+      if (scenario.groupsAccess === 'view')
+        return route.fulfill(envelope({ canView: true, canMaintain: false }))
+      return route.fulfill(envelope({}))
+    }
+    if (path === 'LoyGroupWeb/Groups') {
+      groupListCalls.push(new URL(url).search)
+      return route.fulfill(envelope(GROUP_LIST))
     }
 
     if (path.startsWith('LoyWeb/MemberByMobile/')) {
@@ -926,6 +953,70 @@ async function run() {
     (await birthValue.textContent()) === '—',
     await birthValue.textContent(),
   )
+  scenario.memberOver = {}
+
+  // ---- Scenario 19b (ticket 635): group chips under the grant only --------
+  const groupsRow = page.locator('[data-loy-member-groups]')
+  const groupChip = (code) => page.locator(`[data-loy-member-group="${code}"]`)
+
+  scenario.groupsAccess = 'view'
+  groupListCalls = []
+  await showMember({ groups: ['GONE', 'STAFF', 'VIP'] })
+  await groupChip('VIP').getByText('Ramadan VIP').waitFor({ timeout: 10000 })
+  check('granted: the member header carries a Groups row', (await groupsRow.count()) === 1)
+  check(
+    'each code is named from the core groups list',
+    (await groupChip('STAFF').textContent()) === 'Staff' &&
+      (await groupChip('VIP').textContent()) === 'Ramadan VIP',
+  )
+  check(
+    'a code the list lacks shows as its code',
+    (await groupChip('GONE').textContent()) === 'GONE',
+  )
+  check(
+    'the chips keep the server order',
+    JSON.stringify(
+      await page.locator('[data-loy-member-group]').evaluateAll((els) => els.map((e) => e.dataset.loyMemberGroup)),
+    ) === JSON.stringify(['GONE', 'STAFF', 'VIP']),
+  )
+  check(
+    'the names come from ONE list read, inactive groups included',
+    groupListCalls.length === 1 && /includeInactive=true/.test(groupListCalls[0]),
+    JSON.stringify(groupListCalls),
+  )
+
+  await showMember({ groups: [] })
+  check(
+    'granted and present-but-empty says "In no group"',
+    (await groupsRow.count()) === 1 && /In no group/.test(await groupsRow.textContent()),
+  )
+
+  const absentGroups = await showMember({})
+  check(
+    '🚩 granted but the field absent draws NO groups row — absent is not "in no group"',
+    (await groupsRow.count()) === 0 && !/In no group/.test(absentGroups),
+  )
+
+  scenario.groupsAccess = null
+  groupListCalls = []
+  const ungranted = await showMember({ groups: ['VIP'] })
+  check(
+    '🚩 without the grant there is no groups row, even if the field arrives',
+    (await groupsRow.count()) === 0 && !/Ramadan VIP/.test(ungranted),
+  )
+  check('and the groups list is never read', groupListCalls.length === 0, JSON.stringify(groupListCalls))
+  const ungrantedEmpty = await showMember({ groups: [] })
+  check(
+    '🚩 without the grant `[]` is not "in no group" either',
+    (await groupsRow.count()) === 0 && !/In no group/.test(ungrantedEmpty),
+  )
+
+  scenario.groupsAccess = 'throws'
+  await showMember({ groups: ['VIP'] })
+  await page.waitForTimeout(300)
+  check('🚩 a groups probe that throws hides the row (fail-closed)', (await groupsRow.count()) === 0)
+  check('and the member header still renders', /Gold/.test(await page.textContent('body')))
+  scenario.groupsAccess = null
   scenario.memberOver = {}
 
   // ---- Ticket 236: the tab shell and the Activities tab -------------------

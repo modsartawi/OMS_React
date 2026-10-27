@@ -27,7 +27,15 @@ export const insuranceRulesRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/guards/GuardPage')).default }),
     },
 
-    // 608 · the guard editor (e.g. `guards/:ruleId/edit`)
+    // 608 · the guard editor — a new rule, and one rule of the draft.
+    {
+      path: 'guards/new',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/guards/GuardEditorPage')).default }),
+    },
+    {
+      path: 'guards/:ruleId/edit',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/guards/GuardEditorPage')).default }),
+    },
 
     // 609 · templates (e.g. `templates`)
 

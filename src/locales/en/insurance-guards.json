@@ -6,7 +6,8 @@
     "failed": "The guard rules could not be loaded.",
     "empty": "No guard rule is in this folder.",
     "shown": "Rules shown",
-    "never": "Never"
+    "never": "Never",
+    "new": "New guard"
   },
   "folders": {
     "label": "Folders",
@@ -35,7 +36,215 @@
     "ifHint": "what makes it fire",
     "then": "THEN",
     "thenHint": "what the pharmacist sees",
-    "message": "Message"
+    "message": "Message",
+    "edit": "Edit"
+  },
+  "editor": {
+    "titleNew": "New guard",
+    "titleEdit": "Edit guard",
+    "back": "Back to the rule",
+    "unsaved": "Unsaved changes",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cancel": "Cancel",
+    "save": "Save draft",
+    "saving": "Saving…",
+    "saved": "The draft was saved.",
+    "saveFailed": "The draft could not be saved.",
+    "stale": "Someone saved the draft since you opened it. Reload it to see their changes; your unsaved edits will be lost.",
+    "staleTitle": "The draft was saved by someone else",
+    "reload": "Reload the draft",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "readsAs": "Reads as",
+    "severity": "Severity",
+    "codesHint": "Codes separated by commas; end a code with * to match every code that starts with it.",
+    "formulaHint": "An expression over $-paths, operator first.",
+    "leave": {
+      "title": "Leave without saving?",
+      "body": "Your changes to the draft are not saved and will be lost.",
+      "stay": "Stay",
+      "go": "Leave"
+    },
+    "checks": {
+      "validate": "Check the draft",
+      "checking": "Checking…",
+      "pass": "All checks pass",
+      "failed": "The draft could not be checked.",
+      "stale": "The draft changed since it was checked.",
+      "again": "Check again",
+      "errors_one": "{{n}} error",
+      "errors_other": "{{n}} errors",
+      "warnings_one": "{{n}} warning",
+      "warnings_other": "{{n}} warnings",
+      "elsewhere_one": "{{n}} in another rule",
+      "elsewhere_other": "{{n}} in other rules"
+    },
+    "onUnknown": {
+      "label": "If a fact is unknown",
+      "none": "the rule does not fire",
+      "warn": "warn the pharmacist"
+    },
+    "group": {
+      "top": "All of these conditions:",
+      "empty": "No condition yet. Add one from the palette.",
+      "add": "+ Add a condition…",
+      "addAria": "Add a condition",
+      "mode": "Group mode",
+      "all": "All of",
+      "any": "Any of",
+      "allHint": "every condition holds",
+      "anyHint": "at least one condition holds",
+      "not": "NOT",
+      "notHint": "Turn this condition around: it holds when it would not.",
+      "remove": "Remove the condition",
+      "removeGroup": "Remove the group",
+      "tooDeep": "Group (no deeper than three levels)",
+      "tooDeepHint": "Groups nest at most three levels."
+    },
+    "palette": {
+      "history": "History and supply",
+      "volume": "Volume",
+      "line": "The line",
+      "reference": "Reference",
+      "patient": "Patient and request",
+      "formula": "Formula",
+      "structure": "Structure"
+    },
+    "block": {
+      "history": "Dispensed before",
+      "supply": "Supply left",
+      "volume": "Volume",
+      "line": "Line",
+      "sfda": "SFDA",
+      "formulary": "Formulary",
+      "patient": "Patient in list",
+      "policy": "Policy in list",
+      "fact": "Patient or request fact",
+      "formula": "Formula",
+      "group": "Group (All of / Any of)"
+    },
+    "field": {
+      "match": "Match",
+      "measure": "Count",
+      "atLeast": "At least",
+      "windowDays": "Within",
+      "includeThisLine": "Count this line",
+      "excludeSameKind": "Leave out the same kind",
+      "supplyMode": "Eligible",
+      "surplusDays": "Surplus over",
+      "overDays": "Accumulated over",
+      "assumeDays": "Unknown supply lasts",
+      "by": "By",
+      "window": "Per",
+      "lineMode": "When",
+      "list": "List",
+      "pickList": "Pick a list",
+      "lineField": "Field",
+      "value": "Value",
+      "patientList": "Patient list",
+      "policyList": "Policy list",
+      "fact": "Fact",
+      "op": "Is",
+      "codes": "Codes",
+      "formula": "Formula"
+    },
+    "match": {
+      "sameItem": "the same item",
+      "sameKind": "the same kind",
+      "sameClass": "the same class",
+      "list": "an item in {{list}}"
+    },
+    "measure": {
+      "dispenses": "dispenses",
+      "quantity": "quantity",
+      "distinctStores": "distinct stores"
+    },
+    "supplyMode": {
+      "daysBeforeDue": "days before due",
+      "consumedBelow": "when consumed below"
+    },
+    "by": {
+      "pharmacist": "pharmacist",
+      "store": "store"
+    },
+    "window": {
+      "day": "day",
+      "week": "week",
+      "month": "month"
+    },
+    "lineMode": {
+      "above": "is above",
+      "below": "is below",
+      "after": "ends after",
+      "inList": "the item is in a list"
+    },
+    "lineField": {
+      "daysSupply": "Days supply",
+      "qty": "Quantity",
+      "price": "Price",
+      "supplyEndsOn": "Supply ends after"
+    },
+    "sfda": {
+      "notMarketed": "not marketed",
+      "priceAbove": "price above SFDA's by",
+      "packMismatch": "pack does not match"
+    },
+    "formulary": {
+      "notListed": "indication not listed",
+      "listed": "indication listed",
+      "QL": "quantity limit (QL)",
+      "PA": "prior authorization (PA)",
+      "AGE": "age edit (AGE)",
+      "G": "gender edit (G)"
+    },
+    "fact": {
+      "age": "Patient age",
+      "gender": "Patient gender",
+      "idType": "Patient ID type",
+      "icd": "Line diagnosis (ICD-10-AM)",
+      "payer": "Payer",
+      "policy": "Policy",
+      "class": "Policy class",
+      "channel": "Channel",
+      "store": "Store",
+      "pharmacist": "Pharmacist"
+    },
+    "factOp": {
+      "atLeast": "at least",
+      "below": "below",
+      "anyOf": "any of",
+      "noneOf": "none of"
+    },
+    "unit": {
+      "days": "days",
+      "years": "years",
+      "units": "units",
+      "percent": "%",
+      "sar": "SAR"
+    },
+    "message": {
+      "en": "Message (English)",
+      "ar": "Message (Arabic)",
+      "placeholders": "Insert:",
+      "placeholdersHint": "Click a placeholder to type it at the cursor.",
+      "refused": "{{name}} is not allowed in phase 1; HQ refuses it at publish."
+    },
+    "codes": {
+      "label": "Codes",
+      "conflict": "Conflict",
+      "nphies": "NPHIES",
+      "default": "from the first condition",
+      "edited": "edited",
+      "reset": "Use the first condition's codes"
+    },
+    "suggest": {
+      "label": "Suggestion",
+      "none": "None",
+      "value": "Value",
+      "maxQuantity": "Largest quantity",
+      "maxDaysSupply": "Largest days supply"
+    }
   },
   "access": {
     "deniedTitle": "You do not have access",

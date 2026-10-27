@@ -173,6 +173,29 @@ export interface PolicyCondition extends ConditionBase {
   inList: string
 }
 
+/**
+ * A typed fact of the patient or the request (3131, 3102 F6), named by its `$`-path (`$patient.age`,
+ * `$request.payer`, `$line.icd`): a number compared with a unit, or codes matched any of / none of (an ICD-10-AM
+ * code may end in `*` for a prefix match). ⚠️ PROVISIONAL spelling (oms 608): the brief names the facts and the
+ * palette ("patient / request conditions"), not the block; 3131 owns it, 618 reconciles.
+ */
+export interface FactCondition extends ConditionBase {
+  check: 'fact'
+  path: string
+  op: 'atLeast' | 'below' | 'anyOf' | 'noneOf'
+  /** A number for `atLeast` / `below`; codes for `anyOf` / `noneOf`. */
+  value: number | string[]
+}
+
+/**
+ * An operator-first decimal expression over `$`-paths, the 2737 language (`@/core/rules/expr`), true when it
+ * holds. ⚠️ PROVISIONAL spelling (oms 608): `formula` holds the expression text; 3131 owns it.
+ */
+export interface FormulaCondition extends ConditionBase {
+  check: 'formula'
+  formula: string
+}
+
 /** All of / any of, nested up to three levels (K13). */
 export interface GroupCondition extends ConditionBase {
   check: 'group'
@@ -189,6 +212,8 @@ export type GuardCondition =
   | FormularyCondition
   | PatientCondition
   | PolicyCondition
+  | FactCondition
+  | FormulaCondition
   | GroupCondition
 
 export type GuardCheck = GuardCondition['check']
@@ -246,3 +271,6 @@ export const INSURANCE_RULES_PATH = '/insurance-rules'
 export const guardsPath = (folder?: string | null): string =>
   `${INSURANCE_RULES_PATH}/guards${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
 export const guardRulePath = (id: string): string => `${INSURANCE_RULES_PATH}/guards/${encodeURIComponent(id)}`
+/** 608 — the guard editor: one rule of the draft, and a new rule (`guards/new`). */
+export const guardEditPath = (id: string): string => `${guardRulePath(id)}/edit`
+export const GUARD_NEW_PATH = `${INSURANCE_RULES_PATH}/guards/new`

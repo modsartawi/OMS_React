@@ -84,3 +84,10 @@ drive still 86/86. Typecheck, lint and vitest green.
 - Codes table per block is 3093's (`blockCodes`); a block not in it defaults no codes.
 - Supply "consumed below" is typed as a percent and stored as a fraction (0.75).
 - Layout follows the prototype; the insurance team's walk (BackOffice 3096) has not amended it yet.
+
+**Follow-up after 610 lands (not yet on spec/3126-insurance-rules when 608 merged):** 610 adds
+`core/insurance-rules/registry.ts` + `registry-api.ts` (Fields, field values, patient / policy lists) and narrows
+`GuardListAttribute` to exactly one of `anyOf` / `noneOf`. 608's editor names patient / policy lists by a typed id
+(`CodeInput`) and its `FACTS` / `LINE_FIELDS` are local constants; once 610 is in, the patient / policy pickers and
+the fact list should read the registry instead (whoever merges 610 after 608, or 617 / 618).
+

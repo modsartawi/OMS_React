@@ -1,0 +1,37 @@
+{
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the IDF priority permission."
+  },
+  "masters": {
+    "title": "IDF masters",
+    "lede": "Every IDF priority master: whom it applies to, its thresholds and the version that is live now.",
+    "loading": "Loading the IDF masters…",
+    "failed": "The IDF masters could not be loaded.",
+    "empty": "There are no IDF masters yet.",
+    "columns": {
+      "name": "Name",
+      "kind": "Kind",
+      "payer": "Payer",
+      "storeList": "Store list",
+      "thresholds": "Thresholds",
+      "version": "Live version",
+      "published": "Published",
+      "note": "Note"
+    },
+    "kind": {
+      "insurer": "Insurer",
+      "store": "Store"
+    },
+    "thresholds": "Hard above <v>{{hard}}</v>, reminder above <v>{{reminder}}</v>",
+    "noLive": "No live version yet"
+  },
+  "storeLists": {},
+  "masterForm": {},
+  "upload": {},
+  "versions": {},
+  "exceptions": {},
+  "lookup": {},
+  "events": {},
+  "report": {}
+}

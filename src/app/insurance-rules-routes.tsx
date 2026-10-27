@@ -104,5 +104,31 @@ export const insuranceRulesRoute: RouteObject = {
       path: 'coverage',
       lazy: async () => ({ Component: (await import('@/features/insurance-rules/coverage/CoveragePage')).default }),
     },
+
+    // ── IDF priority (BackOffice spec 3157; oms 619–627) — every IDF leaf lives under `idf/*`, because
+    // `/insurance-rules/exceptions` is 614's guard exceptions. One feature folder: `features/insurance-rules/idf/`.
+
+    // 619 · IDF masters — the list (`idf` opens it).
+    { path: 'idf', element: <Navigate to="masters" replace /> },
+    {
+      path: 'idf/masters',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/MastersPage')).default }),
+    },
+
+    // 620 · IDF store lists (e.g. `idf/store-lists`)
+
+    // 621 · create / edit a master (opens from the list; a route only if it is a page, e.g. `idf/masters/new`)
+
+    // 622 · a master's page with its upload (e.g. `idf/masters/:masterId`)
+
+    // 623 · versions and restore (on 622's page; a route only if it is its own)
+
+    // 624 · IDF exceptions (e.g. `idf/exceptions`)
+
+    // 625 · IDF lookup (e.g. `idf/lookup`)
+
+    // 626 · IDF events (e.g. `idf/events`)
+
+    // 627 · swap report (a tab of 626's page; a route only if it is its own)
   ],
 }

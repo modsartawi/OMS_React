@@ -1,0 +1,37 @@
+{
+  "access": {
+    "deniedTitle": "ليس لديك صلاحية الوصول",
+    "deniedHint": "اطلب من المسؤول صلاحية أولوية IDF."
+  },
+  "masters": {
+    "title": "قوائم IDF الرئيسية",
+    "lede": "كل قائمة رئيسية لأولوية IDF: على من تنطبق، وحدودها، والإصدار الفعّال الآن.",
+    "loading": "جارٍ تحميل قوائم IDF الرئيسية…",
+    "failed": "تعذّر تحميل قوائم IDF الرئيسية.",
+    "empty": "لا توجد قوائم IDF رئيسية بعد.",
+    "columns": {
+      "name": "الاسم",
+      "kind": "النوع",
+      "payer": "الجهة الدافعة",
+      "storeList": "قائمة الصيدليات",
+      "thresholds": "الحدود",
+      "version": "الإصدار الفعّال",
+      "published": "النشر",
+      "note": "ملاحظة"
+    },
+    "kind": {
+      "insurer": "شركة تأمين",
+      "store": "صيدلية"
+    },
+    "thresholds": "إلزامي فوق <v>{{hard}}</v>، وتذكير فوق <v>{{reminder}}</v>",
+    "noLive": "لا يوجد إصدار فعّال بعد"
+  },
+  "storeLists": {},
+  "masterForm": {},
+  "upload": {},
+  "versions": {},
+  "exceptions": {},
+  "lookup": {},
+  "events": {},
+  "report": {}
+}

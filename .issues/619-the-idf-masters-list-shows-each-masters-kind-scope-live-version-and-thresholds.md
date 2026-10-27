@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3157 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3157-oms-react-idf-brief.md)
 blocked-by: 607
 ---
@@ -30,9 +30,9 @@ model/api · logic (name by language, threshold sentence) · component/route · 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `idf master row reads its scope and thresholds` — insurer / store / insurer+list rows, names by language, defaults 4 and 1 · pure
-- [ ] `insurance-idf keys mirror EN and AR` — the area's i18n-keys test pattern · pure
-- [ ] drive `tools/idf-masters-drive.mjs` — stubbed `IdfPriority/masters`: leaf lit, grid rows, AR render, a bare 403 shows "no access" · flow
+- [x] `idf master row reads its scope and thresholds` — insurer / store / insurer+list rows, names by language, defaults 4 and 1 · pure
+- [x] `insurance-idf keys mirror EN and AR` — the area's i18n-keys test pattern · pure
+- [x] drive `tools/idf-masters-drive.mjs` — stubbed `IdfPriority/masters`: leaf lit, grid rows, AR render, a bare 403 shows "no access" · flow
 
 ## Boundaries
 
@@ -51,3 +51,31 @@ above green, `npm run typecheck` + `npm run lint` clean.
 ## Blocked by
 
 [607](607-the-insurance-rules-area-lists-guard-rules-by-folder-with-their-flags-and-opens-a-rule-rea.md) (the area; done on `spec/3126-insurance-rules`)
+
+## Comments
+
+**2026-10-27 — built (impl/3157-619).** `features/insurance-rules/idf/`: `masters.ts` (types + `masterRow`: scope,
+name by language with an English fallback when `nameAr` is blank, thresholds defaulting 4 / 1, live version or
+null), `api.ts` (`IdfPriority/masters`, keys under `IDF_KEY = [...INSURANCE_RULES_KEY, 'idf']`), `MastersPage.tsx`
+(plain table like the area's other lists; payer, store list, version, thresholds and by · at in `Ltr`; name and note
+in `<bdi>`; a bare 403 → `DeniedCard`). Namespace `insurance-idf` (EN + AR) registered under a 619 slot in
+`core/insurance-rules/locales.ts`; route `idf` → `idf/masters`; menu leaf `menu.idfMasters`. Proof: `masters.test.ts`
+4/4, `i18n-keys.test.ts` 9/9, drive `tools/idf-masters-drive.mjs` 38/38 STUBBED (LTR + RTL); typecheck, test
+(6934), lint green.
+
+Decisions for 620–627 (overrulable):
+- **Slots.** Per-ticket slot comments in `app/insurance-rules-routes.tsx`, `layout/menu-insurance-rules.ts` (and its
+  icon imports), `features/insurance-rules/idf/api.ts` and `tools/idf-stubs.mjs` (`idfStub` chains each slice's
+  `…Stub`). ONE namespace `insurance-idf` with a top-level object per leaf: `masters`, `storeLists`, `masterForm`,
+  `upload`, `versions`, `exceptions`, `lookup`, `events`, `report` (empty until their ticket), plus `access`.
+- **Menu labels pre-laid** in `insurance-rules.json` (EN + AR): `menu.idfMasters`, `idfStoreLists`, `idfExceptions`,
+  `idfLookup`, `idfEvents`, so later leaves never touch the area bundle.
+- **One file per leaf** beside `masters.ts` for types/logic (`store-lists.ts`, `master-form.ts`, `upload.ts`,
+  `versions.ts`, `exceptions.ts`, `lookup.ts`, `events.ts`, `swap-report.ts`), each leaf its own page file.
+- **IDF stubs** live in their own `tools/idf-stubs.mjs` (re-exports `envelope`; `bare403` = empty-body 403 like the
+  area's), not in the large `insurance-rules-stubs.mjs`.
+- **Store list shown as its id** (`storeListId`, `Ltr`): the masters door sends no list name; 620's lists could name
+  it later.
+- **The RTL pass reads English words**: the app's `lng` stays `en` (Arabic not switched on), `oms.locale=ar` only
+  mirrors the page — the house pattern. The Arabic bundle and Arabic names are proven by the pure tests.
+

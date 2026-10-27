@@ -1,0 +1,49 @@
+/**
+ * The IDF priority screens' doors (BackOffice spec 3157; oms 619 lays the file out, 620–627 add theirs). SIS.Api
+ * `IdfPriority/…`, on the usual envelope; times are local wall-clock (no `Z`). Shapes are the brief's
+ * (`BackOffice/.issues/assets/3157-oms-react-idf-brief.md`); the BackOffice ticket that builds a door owns its
+ * final spelling and 628 reconciles.
+ *
+ * ⚠️ Stubbed until oms 628 (`tools/idf-stubs.mjs`): no door here has met a real SIS.Api. UNGATED like the rest of
+ * the group: a session without the IDF view grant is answered a bare 403 and each page says "no access".
+ *
+ * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
+ * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
+ * `masters.ts` (e.g. `store-lists.ts`, `upload.ts`) and import them here.
+ */
+import { api } from '@/core/api'
+import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
+import type { IdfMaster } from './masters'
+
+export const IDF_BASE = 'IdfPriority'
+/** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
+export const IDF_KEY = [...INSURANCE_RULES_KEY, 'idf'] as const
+export const IDF_MASTERS_KEY = [...IDF_KEY, 'masters'] as const
+
+// 619 · masters list
+export const idfApi = {
+  /** `GET IdfPriority/masters` (3161) — every master with its live version. */
+  async masters(): Promise<IdfMaster[]> {
+    return (await api.get<IdfMaster[] | null>(`${IDF_BASE}/masters`)) ?? []
+  },
+}
+
+export function mastersQuery() {
+  return { queryKey: IDF_MASTERS_KEY, queryFn: () => idfApi.masters(), retry: false } as const
+}
+
+// 620 · store lists — `idfStoreListsApi` (3162)
+
+// 621 · master form — `idfMasterFormApi` (POST / PUT masters, 3161)
+
+// 622 · upload and publish — `idfUploadApi` (3161)
+
+// 623 · versions and restore — `idfVersionsApi` (3161)
+
+// 624 · exceptions — `idfExceptionsApi` (3166)
+
+// 625 · lookup — `idfLookupApi` (3168)
+
+// 626 · events — `idfEventsApi` (3167)
+
+// 627 · swap report and export — `idfReportApi` (3169)

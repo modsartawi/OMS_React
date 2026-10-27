@@ -1,6 +1,6 @@
 ---
 type: spec
-status: ready
+status: done
 ---
 
 # 590 — The back office wears the DMSCO theme

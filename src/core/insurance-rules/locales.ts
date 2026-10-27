@@ -18,7 +18,9 @@ import insuranceGuardsAr from '@/locales/ar/insurance-guards.json'
 
 // 613 · imports
 
-// 614 · imports
+// 614 · imports — the Review feature (`features/insurance-rules/review`: review list + HQ exceptions)
+import insuranceReviewEn from '@/locales/en/insurance-review.json'
+import insuranceReviewAr from '@/locales/ar/insurance-review.json'
 
 // 615 · imports
 
@@ -35,6 +37,7 @@ export const INSURANCE_RULES_NS = [
   // 613 · ns
 
   // 614 · ns
+  'insurance-review',
 
   // 615 · ns
 
@@ -52,6 +55,7 @@ export const INSURANCE_RULES_EN = {
   // 613 · en
 
   // 614 · en
+  'insurance-review': insuranceReviewEn,
 
   // 615 · en
 
@@ -69,6 +73,7 @@ export const INSURANCE_RULES_AR = {
   // 613 · ar
 
   // 614 · ar
+  'insurance-review': insuranceReviewAr,
 
   // 615 · ar
 

@@ -1,4 +1,5 @@
 import { ShieldAlert, ShieldPlus } from 'lucide-react'
+import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -33,6 +34,16 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 613 · Editions
 
     // 614 · Review, Exceptions
+    {
+      labelKey: 'insurance-rules:menu.review',
+      icon: ClipboardCheck,
+      routerLink: '/insurance-rules/review',
+    },
+    {
+      labelKey: 'insurance-rules:menu.exceptions',
+      icon: ShieldCheck,
+      routerLink: '/insurance-rules/exceptions',
+    },
 
     // 615 · Metrics
 

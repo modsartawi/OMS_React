@@ -30,6 +30,13 @@ describe('the Insurance rules nav group', () => {
     })
   })
 
+  it('614 ships Review and Exceptions, at /insurance-rules/review and /insurance-rules/exceptions', () => {
+    const links = leaves([group!]).map((l) => l.routerLink)
+    expect(links).toContain('/insurance-rules/review')
+    expect(links).toContain('/insurance-rules/exceptions')
+    expect(markedLeaf(MENU, '/insurance-rules/exceptions')?.labelKey).toBe('insurance-rules:menu.exceptions')
+  })
+
   it('🚩 no leaf carries a probe until 618 — the group shows for every user', () => {
     for (const leaf of leaves([group!])) expect(leaf.access).toBeUndefined()
     expect(group!.access).toBeUndefined()

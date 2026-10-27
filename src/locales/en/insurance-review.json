@@ -1,0 +1,143 @@
+{
+  "review": {
+    "title": "Review",
+    "lede": "Overrides, HQ exceptions used and requests sent unchecked. Mark each one OK or Questioned, with a note.",
+    "loading": "Loading the review list…",
+    "failed": "The review list could not be loaded.",
+    "empty": "Nothing to review for these filters.",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows"
+  },
+  "filter": {
+    "kind": "Show",
+    "allKinds": "All",
+    "pharmacist": "Pharmacist",
+    "store": "Store",
+    "rule": "Rule",
+    "allRules": "All rules",
+    "reason": "Reason",
+    "allReasons": "All reasons",
+    "search": "Search",
+    "clear": "Clear"
+  },
+  "kind": {
+    "override": "Override",
+    "exception": "Exception used",
+    "unchecked": "Unchecked"
+  },
+  "columns": {
+    "at": "When",
+    "kind": "Kind",
+    "store": "Store",
+    "pharmacist": "Pharmacist",
+    "patient": "Patient",
+    "rule": "Rule",
+    "item": "Item",
+    "reason": "Reason",
+    "note": "Note",
+    "mark": "Review",
+    "actions": "Mark"
+  },
+  "mark": {
+    "ok": "OK",
+    "questioned": "Questioned",
+    "none": "Not reviewed",
+    "by": "by",
+    "noRule": "No rule ran",
+    "exception": "Exception",
+    "dialogTitle": "Mark this row",
+    "dialogOk": "Mark it OK",
+    "dialogQuestioned": "Mark it Questioned",
+    "note": "Note",
+    "noteRequired": "Say what is questioned.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "The row is marked.",
+    "failed": "The row could not be marked."
+  },
+  "exceptions": {
+    "title": "Exceptions",
+    "lede": "An HQ exception lets one patient's lines pass the guards in its scope, refuse and override alike, until it expires or is revoked.",
+    "issue": "Issue an exception",
+    "loading": "Loading the exceptions…",
+    "failed": "The exceptions could not be loaded.",
+    "empty": "No exception has been issued.",
+    "allGuards": "All guards",
+    "uses_one": "{{count}} use",
+    "uses_other": "{{count}} uses",
+    "log": "Log",
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke this exception?",
+    "revokeBody": "The patient's lines are checked by the guards again from now on.",
+    "revoked": "The exception is revoked.",
+    "revokeFailed": "The exception could not be revoked."
+  },
+  "exceptionColumns": {
+    "id": "Exception",
+    "patient": "Patient",
+    "rule": "Rule",
+    "scope": "Scope",
+    "validUntil": "Valid until",
+    "reason": "Reason",
+    "status": "Status",
+    "uses": "Uses",
+    "issued": "Issued",
+    "actions": "Actions"
+  },
+  "scope": {
+    "item": "This item",
+    "sameKind": "Same kind as",
+    "list": "Item list"
+  },
+  "status": {
+    "active": "Active",
+    "expired": "Expired",
+    "revoked": "Revoked"
+  },
+  "issue": {
+    "title": "Issue an exception",
+    "patientKey": "Patient key",
+    "patientKeyHint": "National ID or Iqama number",
+    "rule": "Guard",
+    "scope": "Covers",
+    "item": "Item code",
+    "sameKindItem": "Item code (its kind is covered)",
+    "list": "Item list",
+    "pickList": "Pick a list",
+    "validUntil": "Valid until",
+    "validUntilHint": "At most 90 days: until {{max}} at the latest.",
+    "reason": "Reason",
+    "pickReason": "Pick a reason",
+    "note": "Note",
+    "submit": "Issue",
+    "cancel": "Cancel",
+    "issued": "Exception {{id}} is issued.",
+    "failed": "The exception could not be issued."
+  },
+  "problem": {
+    "missing": "Required.",
+    "invalid": "Not a date.",
+    "past": "It cannot end before today.",
+    "tooLong": "At most 90 days from today."
+  },
+  "log": {
+    "title": "Log of exception {{id}}",
+    "loading": "Loading the log…",
+    "failed": "The log could not be loaded.",
+    "empty": "Nothing logged yet.",
+    "at": "When",
+    "kind": "What",
+    "by": "By",
+    "store": "Store",
+    "rule": "Rule",
+    "sourceRef": "Request",
+    "close": "Close",
+    "issue": "Issued",
+    "revoke": "Revoked",
+    "use": "Used"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance review or exceptions permission."
+  }
+}

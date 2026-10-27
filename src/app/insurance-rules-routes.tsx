@@ -46,6 +46,14 @@ export const insuranceRulesRoute: RouteObject = {
     // 612 · simulator and back-test (e.g. `simulator`, `backtests/:id`)
 
     // 613 · editions (e.g. `editions`, `editions/:id`)
+    {
+      path: 'editions',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/editions/EditionsPage')).default }),
+    },
+    {
+      path: 'editions/:list/:id',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/editions/EditionPage')).default }),
+    },
 
     // 614 · review and exceptions (e.g. `review`, `exceptions`)
     {

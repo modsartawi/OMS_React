@@ -1,0 +1,106 @@
+{
+  "list": {
+    "title": "Editions",
+    "lede": "The SFDA Human Drug List and the CHI Drug Formulary that the reference guards read. Upload a new edition, read what it changes, and a second user publishes it. Old editions are kept read-only.",
+    "tabs": "Reference lists",
+    "loading": "Loading the editions…",
+    "failed": "The editions could not be loaded.",
+    "empty": "No edition of this list has been uploaded yet.",
+    "live": "Live edition:",
+    "noLive": "none yet"
+  },
+  "listName": {
+    "sfda": "SFDA Human Drug List",
+    "chi": "CHI Drug Formulary"
+  },
+  "state": {
+    "pending": "Waiting to be published",
+    "live": "Live",
+    "retired": "Old"
+  },
+  "columns": {
+    "id": "Edition",
+    "file": "File",
+    "rows": "Rows",
+    "state": "State",
+    "uploaded": "Uploaded",
+    "published": "Published",
+    "item": "Item",
+    "itemName": "Item name",
+    "sfdaCode": "SFDA code",
+    "gtin": "GTIN",
+    "sfdaGtin": "SFDA GTIN",
+    "kind": "Gap",
+    "rule": "Rule",
+    "backtestFires": "Back-test fires"
+  },
+  "upload": {
+    "title": "Upload a new edition of the {{list}}",
+    "hint": "An Excel file. It is diffed against the live edition and waits for a second user to publish it.",
+    "file": "Edition file",
+    "submit": "Upload",
+    "failed": "The edition could not be uploaded.",
+    "done": "Edition uploaded",
+    "doneDetail": "Edition {{id}} waits for a second user to publish it."
+  },
+  "edition": {
+    "back": "Back to the editions",
+    "loading": "Loading the edition…",
+    "failed": "The edition could not be loaded.",
+    "notFound": "No edition has this id:",
+    "readOnly": {
+      "live": "This edition is live. A published edition is read-only.",
+      "retired": "This is an old edition, kept read-only."
+    }
+  },
+  "publish": {
+    "title": "Publish",
+    "hint": "Publishing makes this edition the one every reference guard reads. The user who uploaded it cannot publish it.",
+    "submit": "Publish this edition",
+    "why": {
+      "uploader": "You uploaded this edition, so a second user publishes it.",
+      "readOnly": "Only an edition waiting to be published can be published."
+    },
+    "confirmTitle": "Publish this edition?",
+    "confirmBody": "Edition {{id}} becomes the live {{list}}, and the live one becomes old.",
+    "failed": "The edition could not be published.",
+    "done": "Edition published",
+    "doneDetail": "Edition {{id}} is live."
+  },
+  "diff": {
+    "title": "What changes",
+    "against": "Against the live edition:",
+    "noLive": "there is no live edition yet",
+    "loading": "Loading the diff…",
+    "failed": "The diff could not be loaded.",
+    "added": "Rows added",
+    "dropped": "Rows dropped",
+    "changed": "Rows changed",
+    "newlyUnmatched": "Items newly unmatched",
+    "unmatchedTitle": "Items newly unmatched",
+    "rulesTitle": "Rules affected",
+    "rulesHint": "How often each rule would have fired on this edition in the back-test.",
+    "rulesNone": "No rule is affected."
+  },
+  "gaps": {
+    "title": "Gap report",
+    "hint": "Items the master-file team should correct in SAP. A guard never fires on an unmatched item.",
+    "loading": "Loading the gap report…",
+    "failed": "The gap report could not be loaded.",
+    "empty": "This edition has no gaps.",
+    "filter": "Gaps by kind",
+    "all": "All gaps",
+    "export": "Export for the master-file team",
+    "exportFailed": "The gap report could not be exported."
+  },
+  "gapKind": {
+    "noMatch": "No SFDA match",
+    "junk": "Junk code",
+    "gtinMismatch": "GTIN mismatch",
+    "withdrawn": "Withdrawn"
+  },
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask an administrator for the insurance rules permission."
+  }
+}

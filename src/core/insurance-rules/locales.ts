@@ -16,7 +16,9 @@ import insuranceGuardsAr from '@/locales/ar/insurance-guards.json'
 
 // 610 · imports
 
-// 613 · imports
+// 613 · imports — the Editions feature (`features/insurance-rules/editions`)
+import insuranceEditionsEn from '@/locales/en/insurance-editions.json'
+import insuranceEditionsAr from '@/locales/ar/insurance-editions.json'
 
 // 614 · imports — the Review feature (`features/insurance-rules/review`: review list + HQ exceptions)
 import insuranceReviewEn from '@/locales/en/insurance-review.json'
@@ -39,6 +41,7 @@ export const INSURANCE_RULES_NS = [
   // 610 · ns
 
   // 613 · ns
+  'insurance-editions',
 
   // 614 · ns
   'insurance-review',
@@ -59,6 +62,7 @@ export const INSURANCE_RULES_EN = {
   // 610 · en
 
   // 613 · en
+  'insurance-editions': insuranceEditionsEn,
 
   // 614 · en
   'insurance-review': insuranceReviewEn,
@@ -79,6 +83,7 @@ export const INSURANCE_RULES_AR = {
   // 610 · ar
 
   // 613 · ar
+  'insurance-editions': insuranceEditionsAr,
 
   // 614 · ar
   'insurance-review': insuranceReviewAr,

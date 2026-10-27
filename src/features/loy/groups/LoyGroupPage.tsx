@@ -19,6 +19,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { groupsApi, loyGroupKey } from './api'
 import { renameRequest } from './group-form'
+import MembersTab from './MembersTab'
 import RefusalLine from './RefusalLine'
 
 /**
@@ -147,6 +148,9 @@ function GroupBody({ group, canMaintain }: { group: LoyGroupDetail; canMaintain:
           <Stamp by={group.updatedBy} at={group.updatedAt} name="updated" />
         </Fact>
       </section>
+
+      {/* Ticket 632: the group's members — paged, searched, added and removed one at a time. */}
+      <MembersTab groupId={group.groupId} mobileCount={group.mobileCount} canMaintain={canMaintain} />
     </>
   )
 }

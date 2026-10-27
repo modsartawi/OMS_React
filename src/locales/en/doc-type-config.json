@@ -1,0 +1,440 @@
+{
+  "menu": {
+    "documentTypes": "Document types",
+    "configChanges": "Config changes",
+    "actionTypes": "Action types",
+    "documentSources": "Document sources",
+    "deliveryTypes": "Delivery types"
+  },
+  "title": "Document types",
+  "subtitle": "Every OMS document type and its settings. A saved change is live from the next order act and is logged with its reason.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to the document configuration",
+    "deniedHint": "Reading the document configuration needs OMS access. Ask an administrator.",
+    "unreachableTitle": "Could not check your access",
+    "unreachableHint": "The server did not answer. Try again in a moment."
+  },
+  "list": {
+    "category": "Category",
+    "allCategories": "All categories",
+    "search": "Search code or description",
+    "loading": "Loading document types…",
+    "failed": "The document types could not be loaded.",
+    "empty": "No document types.",
+    "noMatch": "No document type matches the filter.",
+    "columns": {
+      "documentType": "Code",
+      "description": "Description",
+      "documentCategory": "Category",
+      "engineType": "Engine"
+    }
+  },
+  "detail": {
+    "back": "Document types",
+    "loading": "Loading the document type…",
+    "failed": "The document type could not be loaded.",
+    "notFoundTitle": "No such document type",
+    "edit": "Edit",
+    "locked": "Locked",
+    "copy": "Copy"
+  },
+  "groups": {
+    "identity": "Identity",
+    "customer": "Customer",
+    "creditCustomer": "Credit customer",
+    "pricing": "Pricing",
+    "delivery": "Delivery",
+    "billing": "Billing",
+    "picking": "Picking",
+    "notifications": "Notifications",
+    "controls": "Controls"
+  },
+  "fields": {
+    "documentType": "Code",
+    "description": "Description",
+    "documentCategory": "Category",
+    "referenceDocumentCategory": "Reference document category",
+    "numberRangeNumber": "Number range",
+    "customerDeterminationType": "Customer determination",
+    "defaultCustomer": "Default customer",
+    "isReceivableCustomer": "Receivable (billed to a credit customer)",
+    "receivableCustomer": "Credit customer",
+    "insurancePayerCode": "Insurance payer code",
+    "engineType": "Engine",
+    "documentPricingProcedure": "Pricing procedure",
+    "promotionDetermination": "Promotion determination",
+    "isAlternativePriceCapped": "Alternative price capped",
+    "defaultDeliveryType": "Default delivery type",
+    "createDeliveryImmediately": "Create delivery immediately",
+    "plantDeterminationType": "Plant determination",
+    "isCalculateDeliveryFees": "Calculate delivery fees",
+    "deliveryFees": "Delivery fees",
+    "orderRelatedBillingType": "Order-related billing type",
+    "deliveryRelatedBillingType": "Delivery-related billing type",
+    "createBillingImmediately": "Create billing immediately",
+    "isPickedOnOrder": "Picked on the order",
+    "isDeterminePickingFees": "Determine picking fees",
+    "notifyOnCreation": "Notify on creation",
+    "controlType": "Control type",
+    "validateItem": "Validate item",
+    "preOrderMaterialOnly": "Pre-order materials only",
+    "checkOrderNo": "Check order number",
+    "canChangeItems": "Items can be changed",
+    "autoClose": "Auto close",
+    "diagnosisRequired": "Diagnosis required",
+    "approvalProcess": "Approval process",
+    "acceptanceRequired": "Acceptance required",
+    "isQuantityAllocation": "Hold stock as allocated quantity",
+    "notifyOnCancellation": "Notify on cancellation",
+    "actionType": "Action code",
+    "updateLastAction": "Updates last action",
+    "deactivateDocument": "Deactivates document",
+    "activateDocument": "Activates document",
+    "completeDocument": "Completes document",
+    "allowedWhenCompleted": "Allowed when completed",
+    "documentSource": "Source",
+    "documentSourceCategory": "Category",
+    "defaultDocumentType": "Default document type",
+    "isCompeted": "Competed (callouts)",
+    "calloutRadiusKm": "Callout radius (km)",
+    "calloutStockCheck": "Callout stock check",
+    "calloutLocksDelivery": "Callout locks the delivery",
+    "calloutLifetimeMinutes": "Callout lifetime (minutes)",
+    "calloutDutyCheck": "Callout duty check",
+    "servingListId": "Serving list",
+    "deliveringPlant": "Delivering plant",
+    "courierCode": "Courier"
+  },
+  "value": {
+    "yes": "Yes",
+    "no": "No",
+    "blank": "—"
+  },
+  "edit": {
+    "title": "Edit document type {{code}}",
+    "confirm": "Save",
+    "note": "The change is live from the next order act on this type, and it is logged with your reason.",
+    "lockedHint": "Code, category and engine cannot change once the type exists.",
+    "changesTitle": "What changes",
+    "noChanges": "Nothing changed yet.",
+    "before": "Before",
+    "after": "After",
+    "saved": "Document type {{code}} saved",
+    "stale": "Someone else changed this type since you opened it. It has been refreshed: close this dialog and make your change again.",
+    "notGranted": "You are not allowed to change the document configuration.",
+    "notRead": "Not read by order processing",
+    "effect": "Reaches",
+    "refusedOnFields": "Some settings were refused — each is explained under its field. Nothing was saved.",
+    "reread": "Someone else changed this since you opened it. It has been re-read and your edits were cleared: make your change again."
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Why you are making this change. It is kept in the change log.",
+    "tooLong": "A reason is at most {{max}} characters."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "sending": "Saving…",
+    "failed": "The change was not saved.",
+    "failedHint": "The server did not answer. Try again in a moment."
+  },
+  "effect": {
+    "OpenOrders": "Affects open orders",
+    "NewOrdersOnly": "New orders only"
+  },
+  "options": {
+    "customerDeterminationType": {
+      "_blank": "No determination",
+      "A": "A - default customer",
+      "B": "B - by mobile number",
+      "C": "C - by mobile, else default customer",
+      "D": "D - by mobile, else create the customer"
+    },
+    "plantDeterminationType": {
+      "_blank": "Order plant",
+      "R": "R - re-determine using the plant network"
+    },
+    "controlType": {
+      "_blank": "None",
+      "W": "W - Wasfaty",
+      "N": "N - Nphies"
+    },
+    "notifyOnCreation": {
+      "_blank": "Do not notify",
+      "X": "X - notify"
+    },
+    "notifyOnCancellation": {
+      "_blank": "Do not notify",
+      "X": "X - notify all",
+      "O": "O - the source only",
+      "D": "D - the delivery only"
+    },
+    "createDeliveryImmediately": {
+      "_blank": "No",
+      "X": "X - immediately"
+    },
+    "createBillingImmediately": {
+      "_blank": "No",
+      "X": "X - immediately"
+    }
+  },
+  "tabs": {
+    "label": "Document type sections",
+    "settings": "Settings",
+    "history": "History"
+  },
+  "entityTypes": {
+    "DocumentType": "Document type",
+    "DeliveryDocumentType": "Delivery type",
+    "ItemCategoryAssignment": "Item category",
+    "PlantNetwork": "Plant network",
+    "ActionType": "Action type",
+    "DocumentSource": "Document source",
+    "CourierAssignment": "Courier assignment"
+  },
+  "actions": {
+    "Create": "Created",
+    "Copy": "Copied",
+    "Update": "Changed",
+    "Delete": "Deleted"
+  },
+  "change": {
+    "field": "Field",
+    "before": "Before",
+    "after": "After",
+    "reason": "Reason",
+    "copiedFrom": "Copied from",
+    "openType": "Open the type",
+    "noFields": "No field changed.",
+    "unreadable": "This change's before or after cannot be read."
+  },
+  "history": {
+    "loading": "Loading the history…",
+    "failed": "The history could not be loaded.",
+    "denied": "You do not have access to the change log.",
+    "empty": "No change has been logged yet.",
+    "newestFirst": "Newest first."
+  },
+  "changes": {
+    "title": "Config changes",
+    "subtitle": "Every change to the document configuration — who, when, why, and what changed. Newest first.",
+    "filters": "Filter the change log",
+    "entityType": "Kind",
+    "anyEntityType": "Every kind",
+    "entityKey": "Key",
+    "user": "Changed by",
+    "from": "From",
+    "to": "To",
+    "apply": "Search",
+    "clear": "Clear",
+    "badRange": "From is after To.",
+    "loading": "Loading the changes…",
+    "failed": "The changes could not be loaded.",
+    "empty": "No change has been logged yet.",
+    "noMatch": "No change matches the filter.",
+    "total": "Matching changes:",
+    "export": {
+      "button": "Export to Excel",
+      "done": "The export is ready",
+      "failed": "The export failed",
+      "failedHint": "The server did not answer. Try again in a moment.",
+      "fileName": "config-changes"
+    }
+  },
+  "childRows": {
+    "add": "Add",
+    "edit": "Edit",
+    "remove": "Remove",
+    "actions": "Actions",
+    "loading": "Loading…",
+    "failed": "The rows could not be loaded.",
+    "none": "— none —",
+    "saved": "{{what}}: row saved",
+    "removed": "{{what}}: row removed",
+    "confirmRemove": "Remove",
+    "removeNote": "This row is removed from the type now, and the change log keeps what it held.",
+    "keyLockedHint": "The key columns identify the row and cannot change: remove it and add a new one instead.",
+    "missing": "Fill in {{fields}}.",
+    "itemCategoryAssignments": {
+      "title": "Item-category assignment",
+      "empty": "No item-category assignment rows.",
+      "duplicate": "This type already has a row for this item-category group and usage.",
+      "addTitle": "Add an item-category assignment to {{code}}",
+      "editTitle": "Change an item-category assignment of {{code}}",
+      "removeTitle": "Remove an item-category assignment from {{code}}",
+      "columns": {
+        "itemCategoryGroup": "Item-category group",
+        "itemUsage": "Usage",
+        "defaultItemCategory": "Default item category",
+        "manualItemCategory1": "Manual item category 1",
+        "manualItemCategory2": "Manual item category 2",
+        "manualItemCategory3": "Manual item category 3",
+        "manualItemCategory4": "Manual item category 4"
+      }
+    },
+    "plantNetworks": {
+      "title": "Plant networks",
+      "empty": "No plant network rows.",
+      "duplicate": "This type already has a row for this plant network.",
+      "addTitle": "Add a plant network to {{code}}",
+      "editTitle": "Change a plant network of {{code}}",
+      "removeTitle": "Remove a plant network from {{code}}",
+      "columns": {
+        "plantNetworkId": "Plant network",
+        "plantCode": "Plant"
+      }
+    }
+  },
+  "copy": {
+    "title": "Copy document type {{code}}",
+    "confirm": "Create copy",
+    "note": "The new type starts with every setting of the source, its item-category assignments and its plant networks. Every setting can be changed here — category and engine included; once saved, code, category and engine are locked. The copy is logged with your reason.",
+    "warningTitle": "{{code}} has behaviour tied to its code that the copy will not inherit",
+    "warningNote": "This is a warning only: the copy can still be saved.",
+    "saved": "Document type {{code}} created",
+    "failed": "The copy was not created.",
+    "blockers": {
+      "codeRequired": "Enter the new type's code.",
+      "codeTooLong": "A code is at most {{max}} characters.",
+      "codeExists": "{{code}} is already a document type; choose another code.",
+      "descriptionRequired": "Enter the new type's description."
+    }
+  },
+  "actionTypes": {
+    "title": "Action types",
+    "subtitle": "How each action treats a document, per document category. A saved change reaches every document type and delivery type in the category from its next act, and is logged with its reason.",
+    "loading": "Loading the action types…",
+    "failed": "The action types could not be loaded.",
+    "category": "Document category",
+    "pickCategory": "Choose a category",
+    "pickHint": "Choose a document category to see its action types.",
+    "empty": "This category has no action types.",
+    "options": "Options",
+    "categories": {
+      "O": "O — orders",
+      "R": "R — order returns",
+      "X": "X — e-prescriptions",
+      "E": "E — e-prescription returns",
+      "D": "D — deliveries",
+      "T": "T — delivery returns",
+      "Q": "Q — requests",
+      "B": "B — billing"
+    },
+    "tabs": {
+      "label": "Action type sections",
+      "actionTypes": "Action types",
+      "history": "History"
+    },
+    "affected": {
+      "title": "Types an edit here reaches: {{n}}",
+      "hint": {
+        "page": "Every document type and delivery type in this category reads these action types: a change applies to all of them.",
+        "dialog": "Saving changes this action for every one of these types. There is no per-type override."
+      },
+      "none": "No document type or delivery type is in this category yet.",
+      "kinds": {
+        "DocumentType": "Document types",
+        "DeliveryDocumentType": "Delivery types"
+      }
+    },
+    "edit": {
+      "title": "Edit action type {{code}}",
+      "note": "Only the description and the options change. The code and its category are fixed: each code belongs to one category, and no new code is created here.",
+      "saved": "Action type {{code}} saved",
+      "stale": "Someone else changed this action type since you opened it. It has been refreshed: close this dialog and make your change again.",
+      "description": {
+        "empty": "A description is required.",
+        "tooLong": "A description is at most {{max}} characters.",
+        "notPlainText": "A description may hold English letters, digits and punctuation only."
+      }
+    }
+  },
+  "documentSources": {
+    "title": "Document sources",
+    "subtitle": "The channels an order can come from. Category C puts a source on every call-centre agent's source list. Each change is logged with its reason.",
+    "loading": "Loading the document sources…",
+    "failed": "The document sources could not be loaded.",
+    "notFound": "No such document source.",
+    "categoryHint": "C lists the source for every call-centre agent; blank keeps it for its own entry point. An agent's own default source is not changed here.",
+    "categories": {
+      "_blank": "— (other entry points)",
+      "C": "C — call centre"
+    },
+    "tabs": {
+      "label": "Document source sections",
+      "source": "Source",
+      "history": "History"
+    },
+    "edit": {
+      "title": "Edit document source {{code}}",
+      "note": "Only the description and the category change; the code is fixed, and a source is never deleted. The change is live for new orders and logged with your reason.",
+      "saved": "Document source {{code}} saved",
+      "stale": "Someone else changed this source since you opened it. It has been refreshed: close this dialog and make your change again."
+    },
+    "copy": {
+      "title": "Copy document source {{code}}",
+      "note": "The new source starts as a copy of every column of the source; enter its code, description and category. The copy is logged with your reason.",
+      "newCode": "New code",
+      "warningTitle": "{{code}} has behaviour tied to its code that the copy will not inherit",
+      "saved": "Document source {{code}} created",
+      "blockers": {
+        "codeRequired": "Enter the new source's code.",
+        "codeTooLong": "A code is at most {{max}} characters.",
+        "codeExists": "{{code}} is already a document source; choose another code.",
+        "description": "Enter a description the source can hold."
+      }
+    }
+  },
+  "deliveryTypes": {
+    "title": "Delivery types",
+    "subtitle": "Every delivery document type and its settings. A saved change is live from the next delivery and is logged with its reason.",
+    "loading": "Loading delivery types…",
+    "failed": "The delivery types could not be loaded.",
+    "empty": "No delivery types.",
+    "back": "Delivery types",
+    "notFoundTitle": "No such delivery type",
+    "detailLoading": "Loading the delivery type…",
+    "detailFailed": "The delivery type could not be loaded.",
+    "columns": {
+      "documentType": "Code",
+      "description": "Description",
+      "documentCategory": "Category",
+      "isCompeted": "Competed"
+    },
+    "categories": {
+      "D": "Delivery",
+      "T": "Delivery return"
+    },
+    "groups": {
+      "identity": "Identity",
+      "callouts": "Callouts"
+    },
+    "couriers": {
+      "title": "Courier assignments",
+      "hint": "Read-only here. A copy of this delivery type carries them.",
+      "loading": "Loading courier assignments…",
+      "failed": "The courier assignments could not be loaded.",
+      "empty": "No courier assignments.",
+      "everyPlant": "Every plant"
+    },
+    "edit": {
+      "title": "Edit delivery type {{code}}",
+      "note": "Code and category are locked. The default document type, serving list and number range must exist. The change is logged with your reason.",
+      "saved": "Delivery type {{code}} saved",
+      "stale": "Someone else changed this delivery type since you opened it. It has been reloaded: close this and make your change again."
+    },
+    "copy": {
+      "title": "Copy delivery type {{code}}",
+      "note": "The new delivery type starts with every setting of the source and its courier assignments. Every setting can be changed here — category included; once saved, code and category are locked. The copy is logged with your reason.",
+      "saved": "Delivery type {{code}} created",
+      "failed": "The copy was not created.",
+      "blockers": {
+        "codeRequired": "Enter the new delivery type's code.",
+        "codeTooLong": "A code is at most {{max}} characters.",
+        "codeExists": "{{code}} is already a delivery type; choose another code.",
+        "descriptionRequired": "Enter the new delivery type's description."
+      }
+    }
+  }
+}

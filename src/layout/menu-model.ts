@@ -110,6 +110,11 @@ import {
 } from '@/features/admin/sync-console/api'
 // Data sync (spec 558, ticket 559): the same shape — the leaf and the page's gate share one key.
 import { DATA_SYNC_ACCESS_KEY, canOpenDataSync, dataSyncApi } from '@/features/admin/data-sync/api'
+// The document-type configuration's probe stays with its feature (BackOffice ticket 3149): its only consumer.
+import { DOC_TYPE_CONFIG_ACCESS_KEY, canViewDocTypeConfig, docTypeConfigApi } from '@/features/admin/doc-type-config/api'
+import { FileCog } from 'lucide-react'
+import { Workflow } from 'lucide-react'
+import { Radio } from 'lucide-react'
 import { DatabaseZap } from 'lucide-react'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type { MaterialAccessResult } from '@/core/models/materials'
@@ -549,6 +554,76 @@ export const MENU: ShellMenuItem[] = [
           key: DATA_SYNC_ACCESS_KEY,
           run: () => dataSyncApi.access(),
           visible: canOpenDataSync,
+        }),
+      },
+      {
+        // Delivery types (BackOffice spec 3148, ticket 3154) — delivery document types, read on the existing OMS access:
+        // the SAME probe key, call and View predicate as Document types. Placed BEFORE Document sources (which 3156 pins
+        // just before Action types) so 3155's, 3152's and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.deliveryTypes',
+        icon: Truck,
+        routerLink: '/admin/delivery-types',
+        activePrefix: '/admin/delivery-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
+        // Document sources (BackOffice spec 3148, ticket 3156) — read on the existing OMS access: the SAME probe key,
+        // call and View predicate as Document types (editing and copying are the probe's second flag). Placed BEFORE
+        // Action types so 3155's, 3152's and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.documentSources',
+        icon: Radio,
+        routerLink: '/admin/document-sources',
+        activePrefix: '/admin/document-sources',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
+        // Action types (BackOffice spec 3148, ticket 3155) — per document category, read on the existing OMS access:
+        // the SAME probe key, call and View predicate as Document types (editing is the probe's second flag). Placed
+        // BEFORE Config changes so 3152's and 3149's pinned order holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.actionTypes',
+        icon: Workflow,
+        routerLink: '/admin/action-types',
+        activePrefix: '/admin/action-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
+        // Config changes (BackOffice spec 3148, ticket 3152) — the document configuration's change log, read on the
+        // existing OMS access: the SAME probe key, call and View predicate as Document types. Placed BEFORE that leaf
+        // so 3149's pinned order (Document types, then the engine switch, last) holds. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.configChanges',
+        icon: History,
+        routerLink: '/admin/config-changes',
+        activePrefix: '/admin/config-changes',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
+        }),
+      },
+      {
+        // Document types (BackOffice spec 3148, ticket 3149) — the OMS document configuration, read on the existing
+        // OMS access (`canViewDocTypeConfig` off `GET SdDocTypeConfigWeb/Access`), the SAME key, call and predicate
+        // as the pages' own gate. Editing is a second flag on the same probe. 🚩 Fails closed.
+        labelKey: 'doc-type-config:menu.documentTypes',
+        icon: FileCog,
+        routerLink: '/admin/doc-types',
+        activePrefix: '/admin/doc-types',
+        access: accessProbe({
+          key: DOC_TYPE_CONFIG_ACCESS_KEY,
+          run: () => docTypeConfigApi.access(),
+          visible: canViewDocTypeConfig,
         }),
       },
       {

@@ -127,6 +127,39 @@ export declare function orderGuardsStub(
   opts?: { writes?: unknown[]; answerRefusal?: { status?: number; message: string; errorCode?: string } | null },
 ): FulfillArg | null
 
+// --- 611 ---
+export interface GuardVersionRow {
+  version: number
+  by: string
+  at: string
+  note: string | null
+}
+export declare const GUARD_VERSIONS: GuardVersionRow[]
+export declare const BACKTEST_DONE_ID: string
+export declare const BACKTEST_DONE: import('../src/core/insurance-rules/backtest').GuardBacktest
+export interface ApprovalStore {
+  draft: GuardRuleset
+  approval: {
+    state: 'draft' | 'waiting'
+    submittedBy: string | null
+    submittedAt: string | null
+    note: string | null
+    sentBack: { by: string; at: string; note: string } | null
+    backtestId: string | null
+  }
+  backtests: Record<string, import('../src/core/insurance-rules/backtest').GuardBacktest>
+  versions: GuardVersionRow[]
+  versionDocs: Record<number, GuardRuleset>
+  writes: { method: string; path: string; body: unknown; user: string }[]
+}
+export declare function newApprovalStore(o?: { backtest?: import('../src/core/insurance-rules/backtest').GuardBacktest | null }): ApprovalStore
+export declare function approvalStub(
+  method: string,
+  path: string,
+  body: unknown,
+  opts?: { store?: ApprovalStore; user?: string; viewer?: { author: boolean; approver: boolean }; now?: string; deny?: string[] },
+): FulfillArg | null
+
 // --- 612 ---
 import type { SimulateBody, SimulateResult } from '../src/features/insurance-rules/simulator/simulate'
 import type { GuardBacktest } from '../src/core/insurance-rules/backtest'

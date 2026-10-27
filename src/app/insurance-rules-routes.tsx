@@ -50,6 +50,10 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 611 · approval and versions (e.g. `approvals`, `guards/:ruleId/versions`)
+    {
+      path: 'approvals',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/approvals/ApprovalsPage')).default }),
+    },
 
     // 612 · simulator and back-test (e.g. `simulator`, `backtests/:id`)
     {

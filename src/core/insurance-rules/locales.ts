@@ -20,6 +20,10 @@ import insuranceListsAr from '@/locales/ar/insurance-lists.json'
 import insuranceFieldsEn from '@/locales/en/insurance-fields.json'
 import insuranceFieldsAr from '@/locales/ar/insurance-fields.json'
 
+// 611 · imports — the Approvals feature (`features/insurance-rules/approvals`: approval, shadow, versions)
+import insuranceApprovalsEn from '@/locales/en/insurance-approvals.json'
+import insuranceApprovalsAr from '@/locales/ar/insurance-approvals.json'
+
 // 612 · imports — the Simulator feature (`features/insurance-rules/simulator`: simulate + back-test)
 import insuranceSimulatorEn from '@/locales/en/insurance-simulator.json'
 import insuranceSimulatorAr from '@/locales/ar/insurance-simulator.json'
@@ -50,6 +54,9 @@ export const INSURANCE_RULES_NS = [
   'insurance-lists',
   'insurance-fields',
 
+  // 611 · ns
+  'insurance-approvals',
+
   // 612 · ns
   'insurance-simulator',
 
@@ -76,6 +83,9 @@ export const INSURANCE_RULES_EN = {
   'insurance-lists': insuranceListsEn,
   'insurance-fields': insuranceFieldsEn,
 
+  // 611 · en
+  'insurance-approvals': insuranceApprovalsEn,
+
   // 612 · en
   'insurance-simulator': insuranceSimulatorEn,
 
@@ -101,6 +111,9 @@ export const INSURANCE_RULES_AR = {
   // 610 · ar
   'insurance-lists': insuranceListsAr,
   'insurance-fields': insuranceFieldsAr,
+
+  // 611 · ar
+  'insurance-approvals': insuranceApprovalsAr,
 
   // 612 · ar
   'insurance-simulator': insuranceSimulatorAr,

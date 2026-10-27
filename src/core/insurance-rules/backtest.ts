@@ -1,3 +1,5 @@
+import { api } from '@/core/api'
+import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from './api'
 import type { GuardSeverity } from './model'
 
 // A back-test of the guard draft (BackOffice spec 3126, door 3140; oms ticket 612). HQ replays the last 30 / 90 /
@@ -78,4 +80,36 @@ export function maskedKey(key: string): string {
   if (!key || key.includes(MASK)) return key
   if (key.length <= 4) return MASK.repeat(key.length)
   return key.slice(0, 2) + MASK.repeat(key.length - 4) + key.slice(-2)
+}
+
+// ── 611 · the draft's back-test, as the approval panel reads it ─────────────────────────────────
+//
+// ⚠️ PROVISIONAL (611), 618 reconciles: no door LISTS back-tests, so the approval read
+// (`GET InsuranceRules/Guards/Approval`, itself a guess) is read as carrying `backtestId` — the draft's latest
+// back-test, which HQ records when `POST …/Backtests` starts one — and the panel reads it through 612's door
+// (`GET …/Backtests/{id}`, same query key as the simulator's, so both share one cache entry).
+
+/** Where a draft revision stands with its back-test; `current` is `backtestIsCurrent`. */
+export type BacktestStanding = 'none' | 'running' | 'failed' | 'stale' | 'current'
+
+export function backtestStanding(bt: Pick<GuardBacktest, 'status' | 'revision'> | null | undefined, revision: number): BacktestStanding {
+  if (!bt) return 'none'
+  if (bt.revision !== revision) return 'stale'
+  if (bt.status === 'failed') return 'failed'
+  if (backtestRunning(bt)) return 'running'
+  return backtestIsCurrent(bt, revision) ? 'current' : 'running'
+}
+
+/** The simulator's key root (`features/insurance-rules/simulator/api`): a restore or a new job invalidates it. */
+export const GUARD_BACKTESTS_KEY = [...INSURANCE_RULES_KEY, 'guards', 'backtests'] as const
+
+/** `GET InsuranceRules/Guards/Backtests/{id}`, polled every 2 s while it runs; nothing to read without an id. */
+export function draftBacktestQuery(id: string | null | undefined) {
+  return {
+    queryKey: [...GUARD_BACKTESTS_KEY, id ?? ''],
+    queryFn: () => api.get<GuardBacktest>(`${INSURANCE_RULES_BASE}/Guards/Backtests/${encodeURIComponent(id ?? '')}`),
+    enabled: !!id,
+    retry: false,
+    refetchInterval: (q: { state: { data?: GuardBacktest } }) => (q.state.data && backtestRunning(q.state.data) ? 2000 : false),
+  } as const
 }

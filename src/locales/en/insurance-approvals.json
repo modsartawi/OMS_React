@@ -1,0 +1,100 @@
+{
+  "title": "Approvals",
+  "lede": "An author asks for approval of the guard draft once a back-test of its current revision has run; a different user approves it or sends it back. New rules start in shadow until an approver promotes them.",
+  "loading": "Loading the draft…",
+  "failed": "The draft could not be loaded.",
+  "failedAction": "HQ refused this.",
+  "access": {
+    "deniedTitle": "You do not have access",
+    "deniedHint": "Ask for the insurance rules authoring or approving role."
+  },
+  "draft": {
+    "title": "The guard draft",
+    "revision": "Revision",
+    "state": {
+      "draft": "Being authored",
+      "waiting": "Waiting for approval"
+    },
+    "submittedBy": "Asked by",
+    "sentBackBy": "Sent back by",
+    "waitingForApprover": "A different user, an approver, approves it or sends it back."
+  },
+  "backtest": {
+    "label": "Back-test",
+    "loading": "Looking for a back-test…",
+    "none": "No back-test of this draft yet.",
+    "current": "Done",
+    "running": "Running",
+    "failed": "Failed, run it again",
+    "stale": "Out of date: the draft changed since",
+    "ofRevision": "of revision",
+    "open": "Run a back-test"
+  },
+  "checks": {
+    "label": "HQ's checks",
+    "checking": "Checking the draft…",
+    "failed": "The draft could not be checked.",
+    "pass": "No errors.",
+    "errors": "Errors to fix in the editor:",
+    "warnings": "No errors. Warnings, which never block:"
+  },
+  "note": {
+    "toApprover": "Note to the approver",
+    "toAuthor": "Note to the author"
+  },
+  "action": {
+    "submit": "Ask for approval",
+    "approve": "Approve",
+    "sendBack": "Send back"
+  },
+  "done": {
+    "submit": "Asked for approval.",
+    "approve": "Approved. New rules and raised severities start in shadow.",
+    "sendBack": "Sent back to the author."
+  },
+  "why": {
+    "noBacktest": "Run a back-test of this revision first.",
+    "backtestRunning": "Wait for the back-test to finish.",
+    "backtestFailed": "The back-test failed; run it again.",
+    "backtestStale": "The draft changed since its back-test; run it again.",
+    "checking": "Wait for HQ's checks.",
+    "checks": "Fix the errors HQ's checks found first.",
+    "ownSubmission": "You asked for this approval, so a different user approves it."
+  },
+  "shadow": {
+    "title": "In shadow",
+    "hint": "A shadow rule fires but stops nothing. An approver promotes it after 14 days, or sooner with a reason.",
+    "empty": "No rule is in shadow.",
+    "since": "In shadow since",
+    "days": "Days in shadow:",
+    "fires": "Would have fired:",
+    "loadingFigures": "Loading…",
+    "noFigures": "Not available",
+    "unknown": "Unknown",
+    "skipReason": "Reason to skip the rest of shadow",
+    "promote": "Promote",
+    "skip": "Skip shadow and promote",
+    "promoted": "{{id}} promoted.",
+    "why": {
+      "notShadow": "Only a shadow rule is promoted.",
+      "notApprover": "An approver promotes it.",
+      "reason": "Under 14 days in shadow: give a reason to skip the rest."
+    }
+  },
+  "versions": {
+    "title": "Versions",
+    "hint": "Each approval publishes a version. Restoring one makes it a new draft, which goes through back-test and approval again.",
+    "loading": "Loading the versions…",
+    "failed": "The versions could not be loaded.",
+    "empty": "No version has been published yet.",
+    "version": "Version",
+    "byAt": "By, when",
+    "note": "Note",
+    "noNote": "No note",
+    "restore": "Restore as a draft",
+    "confirmTitle": "Restore as a new draft",
+    "confirmBody": "Version {{version}} replaces the current draft as a new draft. Unsaved edits in an open editor are lost.",
+    "restored": "Version {{version}} restored as draft revision {{revision}}.",
+    "restoreFailed": "The version could not be restored."
+  }
+}

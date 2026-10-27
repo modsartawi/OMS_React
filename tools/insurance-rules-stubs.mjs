@@ -330,3 +330,75 @@ export function createReviewStubs(opts = {}) {
     return null
   }
 }
+
+// --- 615 --- metrics, flags, rejection report (BackOffice 3141). ⚠️ Field spellings beyond the brief are 615's
+// guesses (`src/features/insurance-rules/metrics/model.ts`; recorded under 615's ## Comments for 618).
+
+const fires = (refuse, override, warn) => ({ refuse, override, warn })
+const outcomes = (removed, changed, overridden, acknowledged, exception) => ({ removed, changed, overridden, acknowledged, exception })
+const mrow = (key, name, f, shadowFires, o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, timeAddedMedianMs) => ({
+  key, name, fires: f, shadowFires, outcomes: o, overrideRate, sarProtectedEstimate, rejectionsAfterPass, timeAddedMedianMs,
+})
+const nameOf = (id) => RULES.find((r) => r.id === id).name
+
+/** `GET InsuranceRules/Metrics?by=…` — one table per `by`, in no particular order (the screen sorts). */
+export const METRICS = {
+  rule: [
+    mrow('G-002', nameOf('G-002'), fires(0, 40, 0), 0, outcomes(2, 2, 36, 0, 0), 0.9, 845.5, 1, 12400),
+    mrow('G-001', nameOf('G-001'), fires(12, 0, 0), 0, outcomes(10, 2, 0, 0, 0), null, 1320, 0, 8000),
+    mrow('G-007', nameOf('G-007'), fires(0, 30, 0), 0, outcomes(3, 3, 24, 0, 0), 0.8, 2210, 2, null),
+    mrow('G-010', nameOf('G-010'), fires(0, 0, 18), 0, outcomes(0, 0, 0, 18, 0), null, 0, 0, 3100),
+    mrow('G-003', nameOf('G-003'), fires(0, 0, 0), 240, outcomes(0, 0, 0, 0, 0), null, 0, 0, null),
+  ],
+  store: [
+    mrow('P019', null, fires(4, 30, 6), 80, outcomes(5, 1, 28, 6, 0), 0.93, 1200, 2, 9800),
+    mrow('P001', null, fires(8, 40, 12), 160, outcomes(7, 4, 32, 12, 5), 0.8, 3175.5, 1, 11000),
+  ],
+  pharmacist: [mrow('AP-RIY-01', null, fires(2, 20, 4), 30, outcomes(2, 0, 18, 4, 2), 0.9, 410, 0, 15200)],
+  day: [
+    mrow('2026-10-26', null, fires(3, 9, 2), 20, outcomes(2, 1, 8, 2, 1), 0.89, 300, 0, 9000),
+    mrow('2026-10-24', null, fires(5, 12, 6), 40, outcomes(4, 1, 11, 6, 1), 0.92, 950, 1, 10000),
+    mrow('2026-10-25', null, fires(1, 4, 0), 10, outcomes(1, 0, 4, 0, 0), 1, 120, 0, 7000),
+  ],
+}
+
+/** `GET InsuranceRules/Flags` — the current flags with the numbers that raised them. */
+export const FLAGS = [
+  { ruleId: 'G-002', name: nameOf('G-002'), kind: 'noisy', since: '2026-10-20', fires: 40, overridden: 36, previousAverage: 38, lastFired: '2026-10-27T09:05:00' },
+  { ruleId: 'G-003', name: nameOf('G-003'), kind: 'jump', since: '2026-10-25', fires: 240, overridden: 0, previousAverage: 16, lastFired: '2026-10-24T11:30:00' },
+  { ruleId: 'G-004', name: nameOf('G-004'), kind: 'silent', since: '2026-10-01', fires: 0, overridden: 0, previousAverage: 0, lastFired: null },
+]
+
+/** `GET InsuranceRules/Settings/Flags` — the flag job's thresholds (3141's defaults). */
+export const FLAG_SETTINGS = { noisyOverrideRate: 0.8, noisyMinFires: 30, windowDays: 30, silentDays: 60, jumpFactor: 10 }
+
+/** `GET InsuranceRules/Rejections` — by code (or the payer's words), payer and same kind. */
+export const REJECTIONS = [
+  { code: 'CV-4-8', words: null, payer: 'BUPA', sameKind: 'E0101', count: 14, sar: 1820.5, liveGuard: true },
+  { code: 'CV-4-5', words: null, payer: 'TAWUNIYA', sameKind: 'E1497', count: 6, sar: 5400, liveGuard: false },
+  { code: null, words: 'الكمية تتجاوز الحد المسموح', payer: 'BUPA', sameKind: 'E1497', count: 3, sar: 2700, liveGuard: true },
+  { code: 'BE-1-4', words: null, payer: 'MEDGULF', sameKind: 'E0233', count: 9, sar: 640, liveGuard: false },
+]
+
+/**
+ * 615's doors. `query` is the request's URLSearchParams; `opts.asked` collects each read's params; `opts.deny`
+ * names doors (`metrics`, `flags`, `flagSettings`, `rejections`) answered with a bare 403.
+ */
+export function insuranceMetricsStub(method, path, query, opts = {}) {
+  const { deny = [], asked = [] } = opts
+  if (method !== 'GET') return null
+  const door =
+    path === 'InsuranceRules/Metrics' ? 'metrics'
+    : path === 'InsuranceRules/Flags' ? 'flags'
+    : path === 'InsuranceRules/Settings/Flags' ? 'flagSettings'
+    : path === 'InsuranceRules/Rejections' ? 'rejections'
+    : null
+  if (!door) return null
+  asked.push({ door, params: Object.fromEntries(query) })
+  if (deny.includes(door)) return { status: 403, body: '' }
+  if (door === 'metrics') return envelope(METRICS[query.get('by')] ?? [])
+  if (door === 'flags') return envelope(FLAGS)
+  if (door === 'flagSettings') return envelope(FLAG_SETTINGS)
+  const payer = query.get('payer')
+  return envelope(payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS)
+}

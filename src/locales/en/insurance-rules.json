@@ -3,7 +3,8 @@
     "group": "Insurance rules",
     "guards": "Guards",
     "review": "Review",
-    "exceptions": "Exceptions"
+    "exceptions": "Exceptions",
+    "metrics": "Metrics"
   },
   "state": {
     "draft": "Draft",

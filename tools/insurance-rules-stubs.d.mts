@@ -35,3 +35,16 @@ export declare function createReviewStubs(opts?: {
   refuse?: Record<string, { status?: number; message: string; errorCode?: string }>
   reads?: Record<string, number>
 }): (method: string, path: string, body: unknown, params?: URLSearchParams) => FulfillArg | null
+
+// --- 615 ---
+import type { FlagRow, FlagSettings, MetricsBy, MetricsRow, RejectionRow } from '../src/features/insurance-rules/metrics/model'
+export declare const METRICS: Record<MetricsBy, MetricsRow[]>
+export declare const FLAGS: FlagRow[]
+export declare const FLAG_SETTINGS: FlagSettings
+export declare const REJECTIONS: RejectionRow[]
+export declare function insuranceMetricsStub(
+  method: string,
+  path: string,
+  query: URLSearchParams,
+  opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[] },
+): FulfillArg | null

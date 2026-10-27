@@ -23,6 +23,8 @@ import insuranceReviewEn from '@/locales/en/insurance-review.json'
 import insuranceReviewAr from '@/locales/ar/insurance-review.json'
 
 // 615 · imports
+import insuranceMetricsEn from '@/locales/en/insurance-metrics.json'
+import insuranceMetricsAr from '@/locales/ar/insurance-metrics.json'
 
 // 616 · imports
 
@@ -40,6 +42,7 @@ export const INSURANCE_RULES_NS = [
   'insurance-review',
 
   // 615 · ns
+  'insurance-metrics',
 
   // 616 · ns
 
@@ -58,6 +61,7 @@ export const INSURANCE_RULES_EN = {
   'insurance-review': insuranceReviewEn,
 
   // 615 · en
+  'insurance-metrics': insuranceMetricsEn,
 
   // 616 · en
 
@@ -76,6 +80,7 @@ export const INSURANCE_RULES_AR = {
   'insurance-review': insuranceReviewAr,
 
   // 615 · ar
+  'insurance-metrics': insuranceMetricsAr,
 
   // 616 · ar
 

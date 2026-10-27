@@ -1,4 +1,4 @@
-import { ShieldAlert, ShieldPlus } from 'lucide-react'
+import { ChartColumn, ShieldAlert, ShieldPlus } from 'lucide-react'
 import { ClipboardCheck, ShieldCheck } from 'lucide-react' // 614
 import type { ShellMenuItem } from './menu-model'
 
@@ -46,6 +46,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 615 · Metrics
+    {
+      // 615 — metrics per rule / store / pharmacist / day, the flags, and the payers' rejections (`?tab=`).
+      labelKey: 'insurance-rules:menu.metrics',
+      icon: ChartColumn,
+      routerLink: '/insurance-rules/metrics',
+    },
 
     // 617 · Insurers, Categories, Coverage
   ],

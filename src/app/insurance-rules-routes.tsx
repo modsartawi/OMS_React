@@ -116,10 +116,18 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 620 · IDF store lists (e.g. `idf/store-lists`)
+    {
+      path: 'idf/store-lists',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/StoreListsPage')).default }),
+    },
 
     // 621 · create / edit a master (opens from the list; a route only if it is a page, e.g. `idf/masters/new`)
 
     // 622 · a master's page with its upload (e.g. `idf/masters/:masterId`)
+    {
+      path: 'idf/masters/:masterId',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/MasterPage')).default }),
+    },
 
     // 623 · versions and restore (on 622's page; a route only if it is its own)
 

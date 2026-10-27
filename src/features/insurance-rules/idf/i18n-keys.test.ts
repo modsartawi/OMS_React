@@ -91,6 +91,41 @@ describe('insurance-idf — the keys the lookup builds exist (625)', () => {
   })
 })
 
+// 622 · upload and publish
+describe('insurance-idf — the keys the master page and its upload build exist', () => {
+  it.each([en, ar])('header, upload, report columns, rules, publish', (locale) => {
+    const keys = [
+      ...['back', 'loading', 'failed', 'notFound', 'live', 'title', 'hint', 'file', 'submit', 'uploadFailed', 'clean', 'notOk'].map((k) => `upload.${k}`),
+      ...['line', 'item', 'rule', 'message'].map((c) => `upload.columns.${c}`),
+      ...['unknownItem', 'notInItemCustomer', 'unknownGroup', 'badPriority', 'duplicateItem'].map((r) => `upload.rule.${r}`),
+      ...['note', 'notePlaceholder', 'publish', 'publishHint', 'published', 'publishedDetail', 'publishFailed'].map((k) => `upload.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the failed-rows sentence isolates its count as a tag', (locale) => {
+    const up = locale.upload as Record<string, unknown>
+    for (const [k, v] of Object.entries(up)) if (k.startsWith('rowsFailed_')) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+  })
+})
+
+// 620 · store lists
+describe('insurance-idf — the keys the store lists build exist (620)', () => {
+  it.each([en, ar])('page, columns, pilot mark, refusal, create / rename / delete, the stores editor', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'loading', 'failed', 'empty', 'refused', 'refusedFallback', 'refusalCode', 'pilot', 'open', 'close', 'cancel'].map((k) => `storeLists.${k}`),
+      ...['name', 'id', 'stores'].map((c) => `storeLists.columns.${c}`),
+      ...['label', 'placeholder', 'action', 'done'].map((k) => `storeLists.create.${k}`),
+      ...['action', 'label', 'save', 'done'].map((k) => `storeLists.rename.${k}`),
+      ...['action', 'title', 'confirm', 'done'].map((k) => `storeLists.delete.${k}`),
+      ...['title', 'empty', 'addLabel', 'addPlaceholder', 'add', 'remove', 'save', 'done'].map((k) => `storeLists.stores.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const s = locale.storeLists as Record<string, Record<string, string> | string>
+    expect(String(s.refusalCode)).toContain('<v>{{code}}</v>')
+    expect(String((s.stores as Record<string, string>).title)).toContain('<n>{{name}}</n>')
+  })
+})
+
 // 624 · the keys the IDF exceptions screen builds
 describe('insurance-idf — the keys the IDF exceptions screen builds exist', () => {
   it.each([en, ar])('key kinds, handlings, columns, problems', (locale) => {
@@ -102,5 +137,22 @@ describe('insurance-idf — the keys the IDF exceptions screen builds exist', ()
       ...['title', 'add', 'addTitle', 'editTitle', 'deleteTitle', 'master', 'pickMaster', 'reason', 'saved', 'added', 'deleted'].map((k) => `exceptions.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+})
+
+// 623 · versions and restore
+describe('insurance-idf — the keys the versions section builds exist (623)', () => {
+  it.each([en, ar])('title, columns, live mark, restore panel', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'loading', 'failed', 'empty', 'live', 'restore', 'restoreTitle', 'restoreHint'].map((k) => `versions.${k}`),
+      ...['note', 'notePlaceholder', 'confirm', 'cancel', 'restored', 'restoredDetail', 'restoreFailed'].map((k) => `versions.${k}`),
+      ...['number', 'byAt', 'note', 'actions'].map((c) => `versions.columns.${c}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the restore title and hint isolate the version number as a tag', (locale) => {
+    const v = locale.versions as Record<string, unknown>
+    expect(String(v.restoreTitle)).toContain('<v>{{n}}</v>')
+    expect(String(v.restoreHint)).toContain('<v>{{n}}</v>')
   })
 })

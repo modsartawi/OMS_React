@@ -13,11 +13,14 @@
  */
 import { api, type FileResponse } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
-import type { IdfMaster } from './masters'
+import type { IdfMaster, IdfMasterVersion } from './masters'
+import { storeSetBody, type IdfStoreList } from './store-lists' // 620
 import type { IdfException, IdfExceptionBody } from './exceptions' // 624
 import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
+import { uploadForm, type IdfUploadReport } from './upload' // 622
+import type { IdfVersion } from './versions' // 623
 import { filterDoorParams, type IdfEventsFilter } from './events-filter' // 627
 import type { IdfSwapReportRow } from './report' // 627
 
@@ -39,12 +42,68 @@ export function mastersQuery() {
 }
 
 // 620 · store lists — `idfStoreListsApi` (3162)
+export const IDF_STORE_LISTS_KEY = [...IDF_KEY, 'store-lists'] as const
+export const idfStoreListsApi = {
+  /** `GET IdfPriority/store-lists` — every named list with its stores. */
+  async lists(): Promise<IdfStoreList[]> {
+    return (await api.get<IdfStoreList[] | null>(`${IDF_BASE}/store-lists`)) ?? []
+  },
+  /** `POST IdfPriority/store-lists` `{ name }` — a new, empty list. */
+  create(name: string): Promise<IdfStoreList> {
+    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, { name })
+  },
+  /** `PUT IdfPriority/store-lists/{id}` `{ name }` — rename. */
+  rename(id: string, name: string): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, { name })
+  },
+  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. */
+  saveStores(id: string, storeCodes: string[]): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}/stores`, storeSetBody(storeCodes))
+  },
+  /** `DELETE IdfPriority/store-lists/{id}` — never offered for the pilot list. ⚠️ Not in the brief's sketch: 628 confirms. */
+  remove(id: string): Promise<unknown> {
+    return api.del<unknown>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`)
+  },
+}
+export function storeListsQuery() {
+  return { queryKey: IDF_STORE_LISTS_KEY, queryFn: () => idfStoreListsApi.lists(), retry: false } as const
+}
 
 // 621 · master form — `idfMasterFormApi` (POST / PUT masters, 3161)
 
 // 622 · upload and publish — `idfUploadApi` (3161)
+export const idfUploadApi = {
+  /** `POST IdfPriority/masters/{id}/uploads` multipart `{ file }` → the row report. Publishes nothing. */
+  upload(masterId: string, file: File): Promise<IdfUploadReport> {
+    return api.upload<IdfUploadReport>(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/uploads`, uploadForm(file))
+  },
+  /** `POST …/uploads/{uploadId}/publish { note }` → the new live version. Refused unless the upload's `ok`. */
+  publish(masterId: string, uploadId: string, note: string): Promise<IdfMasterVersion> {
+    return api.post<IdfMasterVersion>(
+      `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/uploads/${encodeURIComponent(uploadId)}/publish`,
+      { note },
+    )
+  },
+}
 
 // 623 · versions and restore — `idfVersionsApi` (3161)
+export const IDF_VERSIONS_KEY = [...IDF_KEY, 'versions'] as const
+export const idfVersionsApi = {
+  /** `GET IdfPriority/masters/{id}/versions` — every version of the master, the live one marked. */
+  async versions(masterId: string): Promise<IdfVersion[]> {
+    return (await api.get<IdfVersion[] | null>(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions`)) ?? []
+  },
+  /** `POST …/versions/{versionId}/restore { note }` → the NEW live version; the restored one is left as it was. */
+  restore(masterId: string, versionId: string, note: string): Promise<IdfMasterVersion> {
+    return api.post<IdfMasterVersion>(
+      `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/restore`,
+      { note },
+    )
+  },
+}
+export function versionsQuery(masterId: string) {
+  return { queryKey: [...IDF_VERSIONS_KEY, masterId] as const, queryFn: () => idfVersionsApi.versions(masterId), retry: false } as const
+}
 
 // 624 · exceptions — `idfExceptionsApi` (3166)
 export const IDF_EXCEPTIONS_KEY = [...IDF_KEY, 'exceptions'] as const

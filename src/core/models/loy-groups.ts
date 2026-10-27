@@ -56,3 +56,14 @@ export interface LoyGroupRenameRequest {
   nameEn: string
   nameAr: string
 }
+
+/** One row of `GET LoyGroupWeb/Mobile/{mobile}/Groups` (BackOffice 3176): every group the mobile is in. */
+export interface LoyMobileGroup {
+  groupId: string
+  code: string
+  nameEn: string
+  /** Shown as stored — Arabic-Indic digits included. */
+  nameAr: string
+  /** Inactive groups are listed too, marked — "why did this customer get that offer". */
+  isActive: boolean
+}

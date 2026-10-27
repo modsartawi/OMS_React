@@ -70,5 +70,15 @@
   },
   "refusal": {
     "code": "Code"
+  },
+  "lookup": {
+    "label": "Find a mobile",
+    "placeholder": "Mobile, any spelling",
+    "submit": "Find",
+    "clear": "Clear",
+    "loading": "Looking up the mobile…",
+    "failed": "The mobile could not be looked up.",
+    "none": "{{mobile}} is in no group.",
+    "found": "Groups {{mobile}} is in, active and inactive:"
   }
 }

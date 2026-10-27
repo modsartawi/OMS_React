@@ -17,6 +17,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { GROUPS_DEFAULT_COL_DEF, buildGroupColumns } from './columns'
 import CreateGroupDialog from './CreateGroupDialog'
+import MobileLookup from './MobileLookup'
 
 /**
  * Loyalty groups — `/loy/groups` (BackOffice spec 3173, oms ticket 629). Every loyalty group: code, name in
@@ -60,6 +61,7 @@ function Groups() {
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-loy-groups="">
+      <MobileLookup />
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label={t('scope.label')} className="flex gap-1" data-loy-groups-scope={scope}>
           {SCOPES.map((s) => (

@@ -132,3 +132,33 @@ describe('guardAnswer', () => {
     expect(reasonChoices(REASONS, 'G-002', drafts, guardKey(20, 'G-002')).find((c) => c.code === '04')?.disabled).toBe(false)
   })
 })
+
+describe('guardAnswer — a suggestion applied (review 3126 P2, stories 6 and 35)', () => {
+  const SUGGESTED: OrderGuards = {
+    checkId: 'CHK-2',
+    lineHash: 'h-2',
+    lines: [
+      { line: 10, outcome: 'refuse', fired: [fired('G-009', 'REFUSE', { suggestion: { maxQuantity: 2 } })], unknowns: [] },
+      { line: 20, outcome: 'override', fired: [fired('G-002', 'OVERRIDE', { suggestion: { maxDaysSupply: 30 } })], unknowns: [] },
+    ],
+  }
+  it('guardAnswer_appliedSuggestion_isAChangeAnswer', () => {
+    const f = run({ '10:G-009': { apply: true }, '20:G-002': { apply: true } }, false, SUGGESTED)
+    expect(f.items.map((i) => [i.key, i.problem])).toEqual([
+      ['10:G-009', null],
+      ['20:G-002', null],
+    ])
+    expect(f.ready).toBe(true)
+    expect(f.body).toEqual({
+      lineHash: 'h-2',
+      user: 'msartawi',
+      answers: [
+        { line: 10, ruleId: 'G-009', change: { maxQuantity: 2 } },
+        { line: 20, ruleId: 'G-002', change: { maxDaysSupply: 30 } },
+      ],
+    })
+  })
+  it('a rule with no suggestion ignores apply', () => {
+    expect(run({ '20:G-002': { apply: true } }).items.find((i) => i.key === '20:G-002')?.problem).toBe('interventionMissing')
+  })
+})

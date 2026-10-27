@@ -109,7 +109,16 @@ export interface HistoryCondition extends ConditionBase {
   atLeast: number
   includeThisLine: boolean
   excludeSameKind?: boolean
+  /**
+   * Count only past dispenses with the same payer / policy / channel / store as this request (story 8); absent =
+   * estate-wide, the default. PROVISIONAL spelling (review 3126 P4): the spec names the narrowing, not the field.
+   */
+  narrowTo?: HistoryNarrow[]
 }
+
+/** What a history guard may narrow to (story 8). */
+export const HISTORY_NARROWS = ['payer', 'policy', 'channel', 'store'] as const
+export type HistoryNarrow = (typeof HISTORY_NARROWS)[number]
 
 /** Refill too soon: days before the last supply is due, or a share of it consumed. */
 export interface SupplyCondition extends ConditionBase {
@@ -234,7 +243,19 @@ export interface GuardEffect {
 }
 
 /** The channels a guard is checked on. */
-export type GuardChannel = 'nphies' | 'waseel' | 'oms' | 'bupa'
+export const GUARD_CHANNELS = ['nphies', 'waseel', 'oms', 'bupa'] as const
+export type GuardChannel = (typeof GUARD_CHANNELS)[number]
+
+/**
+ * Who a rule checks: channels, stores (none = every store), and patient / policy lists left out of it (story 16,
+ * "exclude a VIP patient list"). PROVISIONAL spelling of the two exclude fields (review 3126 P4); 3131 owns it.
+ */
+export interface GuardAudience {
+  channels: GuardChannel[]
+  stores: string[]
+  excludePatientLists?: string[]
+  excludePolicyLists?: string[]
+}
 
 export interface GuardRule {
   id: string
@@ -245,7 +266,7 @@ export interface GuardRule {
   shadowSince?: string | null
   /** `until` null = open-ended. */
   window?: { from?: string | null; until?: string | null } | null
-  audience?: { channels: GuardChannel[]; stores: string[] } | null
+  audience?: GuardAudience | null
   filters: GuardRuleFilter[]
   when: GuardCondition[]
   /** none = an unknown fact never fires the rule; warn = it warns (K10). */

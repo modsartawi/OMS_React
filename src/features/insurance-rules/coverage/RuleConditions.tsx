@@ -8,8 +8,7 @@ import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-ap
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
 import { saysIn } from '@/core/rules/sentence'
 import { fsi } from '@/core/util/bidi'
-import { CodesInput } from './parts'
-import { Field, NumberInput, Select } from '@/core/insurance-rules/controls'
+import { CodesInput, Field, NumberInput, Select } from '@/core/insurance-rules/controls'
 
 // The conditions of a category or coverage rule (oms 617): the guard language's All of / Any of groups (three
 // levels at most), NOT on any condition, and the facts a coverage decision reads — item fields, the request's

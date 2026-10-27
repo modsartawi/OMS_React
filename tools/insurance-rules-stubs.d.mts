@@ -110,7 +110,7 @@ export declare function insuranceMetricsStub(
   method: string,
   path: string,
   query: URLSearchParams,
-  opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[] },
+  opts?: { deny?: string[]; asked?: { door: string; params: Record<string, string> }[]; writes?: { door: string; body: unknown }[]; body?: unknown; settings?: FlagSettings },
 ): FulfillArg | null
 
 // --- 616 ---

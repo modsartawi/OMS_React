@@ -765,10 +765,18 @@ export const REJECTIONS = [
 
 /**
  * 615's doors. `query` is the request's URLSearchParams; `opts.asked` collects each read's params; `opts.deny`
- * names doors (`metrics`, `flags`, `flagSettings`, `rejections`) answered with a bare 403.
+ * names doors (`metrics`, `flags`, `flagSettings`, `saveFlagSettings`, `rejections`) answered with a bare 403.
+ * Review 3126 P5: `PUT InsuranceRules/Settings/Flags` (body = the settings) pushes `{ door, body }` to `opts.writes`,
+ * keeps the body in `opts.settings` (later GETs read it) and answers it back.
  */
 export function insuranceMetricsStub(method, path, query, opts = {}) {
-  const { deny = [], asked = [] } = opts
+  const { deny = [], asked = [], writes = [] } = opts
+  if (method === 'PUT' && path === 'InsuranceRules/Settings/Flags') {
+    writes.push({ door: 'saveFlagSettings', body: opts.body })
+    if (deny.includes('saveFlagSettings')) return { status: 403, body: '' }
+    opts.settings = opts.body
+    return envelope(opts.body)
+  }
   if (method !== 'GET') return null
   const door =
     path === 'InsuranceRules/Metrics' ? 'metrics'
@@ -781,14 +789,13 @@ export function insuranceMetricsStub(method, path, query, opts = {}) {
   if (deny.includes(door)) return { status: 403, body: '' }
   if (door === 'metrics') return envelope(METRICS[query.get('by')] ?? [])
   if (door === 'flags') return envelope(FLAGS)
-  if (door === 'flagSettings') return envelope(FLAG_SETTINGS)
+  if (door === 'flagSettings') return envelope(opts.settings ?? FLAG_SETTINGS)
   const payer = query.get('payer')
   return envelope(payer ? REJECTIONS.filter((r) => r.payer === payer) : REJECTIONS)
 }
 
-// --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134). Order-door
-// spelling is a GUESS fitted to the existing OMS doors: `SdDocumentWeb/Document/{no}/Guards/Recheck|Release`
-// (the brief writes `Oms/Orders/{id}/Guards/…`); 618 reconciles.
+// --- 616 --- guards on an OMS order (BackOffice 3142/3143; check doors 3127/3128/3134). Order doors in the
+// brief's spelling, `Oms/Orders/{id}/Guards/Recheck|Release` (review 3126 P1); `{id}` read as the document no.
 
 const reasonCode = (code, en, ar, active = true) => ({ code, en, ar, active })
 
@@ -911,7 +918,7 @@ export function orderGuardsStub(method, path, body, order, opts = {}) {
     order.guardState = 'none'
     return envelope({ decisionId: 'DEC-9001' })
   }
-  const door = method === 'POST' && path.match(/^SdDocumentWeb\/Document\/([^/]+)\/Guards\/(Recheck|Release)$/)
+  const door = method === 'POST' && path.match(/^Oms\/Orders\/([^/]+)\/Guards\/(Recheck|Release)$/)
   if (door) {
     writes.push({ door: door[2].toLowerCase(), documentNo: decodeURIComponent(door[1]), body })
     if (door[2] === 'Recheck') {

@@ -7,8 +7,8 @@
 //   GET  SdDocumentWeb/(Delivery|Document)/{no}    → the 078 capture 8000000121 + `guardState` + `guards`
 //   GET  Guards/Reasons                            → NCPDP intervention / outcome / reason, accepts, caps
 //   POST Guards/{checkId}/Answer                   → { decisionId } (409 GUARD-LINES-CHANGED on a stale lineHash)
-//   POST SdDocumentWeb/Document/{no}/Guards/Recheck → new guards (GUESSED spelling; the brief: Oms/Orders/{id}/…)
-//   POST SdDocumentWeb/Document/{no}/Guards/Release → { reason }
+//   POST Oms/Orders/{no}/Guards/Recheck → new guards (the brief's spelling; `{id}` read as the document no)
+//   POST Oms/Orders/{no}/Guards/Release → { reason }
 // In LTR and RTL it asserts:
 //   1. the order list shows "Guard check: action needed" / "Guard check pending" pills; none is blank;
 //   2. Delivery details of a held order: the panel, its state, "2 lines need an answer"… and the dialog:
@@ -122,7 +122,7 @@ async function open(dir, grants) {
       return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true, canChangeDetail: true, canCreateReturn: true, ...grants }))
     if (p === 'SdDocumentWeb/DeliveryDocumentList')
       return route.fulfill(envelope([ROW(HELD, 'actionNeeded'), ROW(PENDING, 'pending'), ROW('8000000123', 'none'), ROW('8000000124', 'unchecked'), ROW('8000000125')]))
-    const doorNo = p.match(/^SdDocumentWeb\/Document\/(\d+)\/Guards\//)?.[1]
+    const doorNo = p.match(/^Oms\/Orders\/(\d+)\/Guards\//)?.[1]
     const order = orders[doorNo] ?? orders[HELD]
     const body = method === 'POST' ? JSON.parse(req.postData() || 'null') : null
     const hit = orderGuardsStub(method, p, body, order, opts)
@@ -308,6 +308,42 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${L} 6: what was picked is kept`, (await item(page, '20:G-002').locator('select[data-guard-reason]').inputValue()) === '04')
     await page.screenshot({ path: `${SHOTS}/${dir}-6-refusal.png`, fullPage: true })
     check(`${L} 6: no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+
+  // ── 7: a suggestion applied (review 3126 P2, stories 6 / 35): a CHANGE answer, no grant, no triad ─────────────
+  {
+    const { context, page, errors, writes, orders } = await open(dir, { canOverrideGuard: false })
+    orders[HELD].guards = (await import('./insurance-rules-stubs.mjs')).ORDER_GUARDS_RECHECKED
+    await openDetail(page, HELD)
+    await page.locator('[data-order-guards-answer]').click()
+    await dialog(page).waitFor({ timeout: 10000 })
+    await page.waitForTimeout(300)
+    check(`${L} 7: a rule with a suggestion offers Apply; one without does not`, (await item(page, '20:G-002').locator('[data-guard-apply="offered"]').count()) === 1 && (await item(page, '20:G-003').locator('[data-guard-apply]').count()) === 0)
+    await item(page, '20:G-002').locator('[data-guard-apply]').click()
+    check(`${L} 7: applied → the no-grant instruction goes, the line says it goes on changed`, (await item(page, '20:G-002').getAttribute('data-applied')) === 'yes' && (await item(page, '20:G-002').locator('[data-guard-instruction]').count()) === 0 && (await item(page, '20:G-002').locator('[data-guard-applied]').count()) === 1)
+    await item(page, '30:G-005').locator('[data-guard-apply]').click()
+    await item(page, '20:G-003').locator('[data-guard-ack]').check()
+    check(`${L} 7: every rule answered → Send on without INS_GUARD`, !(await sendDisabled(page)))
+    await page.screenshot({ path: `${SHOTS}/${dir}-7-applied.png`, fullPage: true })
+    await page.locator('[data-guard-send]').click()
+    await page.waitForTimeout(800)
+    const ans = writes.find((w) => w.door === 'answer')
+    check(
+      `${L} 7: the exact Answer body carries the CHANGE answers`,
+      JSON.stringify(ans?.body) ===
+        JSON.stringify({
+          lineHash: 'h-7002-a',
+          user: 'msartawi',
+          answers: [
+            { line: 20, ruleId: 'G-002', change: { maxQuantity: '4' } },
+            { line: 20, ruleId: 'G-003', ack: true },
+            { line: 30, ruleId: 'G-005', change: { maxDaysSupply: '34' } },
+          ],
+        }),
+      JSON.stringify(ans),
+    )
+    check(`${L} 7: no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 

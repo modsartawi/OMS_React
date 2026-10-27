@@ -3,16 +3,14 @@
  * order; client ticket 616). In core because the guard dialog is drawn by the OMS document feature and the
  * list's guard state by the deliveries feature — a feature may not import another.
  *
- * ⚠️ Stubbed until oms 618. SPELLING GUESS: the brief writes the order doors `Oms/Orders/{id}/Guards/…`;
- * every existing OMS order door is `SdDocumentWeb/*` (`features/oms/document/api.ts`), with an order's own
- * reads under `SdDocumentWeb/Document/{no}/…` (a delivery number is read through its order). The doors are
- * spelled to fit those: `SdDocumentWeb/Document/{no}/Guards/Recheck|Release`. 618 reconciles.
+ * ⚠️ Stubbed until oms 618. The order doors take the brief's spelling, `Oms/Orders/{id}/Guards/Recheck|Release`
+ * (review 3126 P1). GUESS: `{id}` is the order's document number, the key every OMS order read already uses.
  */
 import { api } from '@/core/api'
 import type { GuardAnswerBody, GuardAnswerResult, GuardReasons, GuardReleaseBody, OrderGuards } from './guard-check'
 import { INSURANCE_RULES_KEY } from './api'
 
-const orderGuards = (documentNo: string) => `SdDocumentWeb/Document/${encodeURIComponent(documentNo.trim())}/Guards`
+const orderGuards = (documentNo: string) => `Oms/Orders/${encodeURIComponent(documentNo.trim())}/Guards`
 
 export const orderGuardsApi = {
   /** `GET Guards/Reasons` → the NCPDP intervention / outcome / reason codes, `accepts` and `caps`. */

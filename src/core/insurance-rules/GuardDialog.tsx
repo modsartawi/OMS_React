@@ -11,7 +11,7 @@ import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
 import { formatPair, fsi } from '@/core/util/bidi'
 import { GuardSeverityBadge, RuleId } from './badges'
-import { guardAnswer, reasonChoices, type GuardAnswerDraft, type GuardDrafts, type GuardItem } from './guard-answer'
+import { guardAnswer, hasSuggestion, reasonChoices, type GuardAnswerDraft, type GuardDrafts, type GuardItem } from './guard-answer'
 import type { GuardAnswerResult, GuardReasonCode, GuardReasons, OrderGuards } from './guard-check'
 import { PROBLEM_KEYS, suggestionsOf } from './guard-words'
 import { guardReasonsQuery, orderGuardsApi } from './order-guards-api'
@@ -172,9 +172,12 @@ function FiredRule({
   const { t } = useTranslation('insurance-order-guards')
   const { fired, need, problem } = item
   const draft = drafts[item.key] ?? {}
+  // Story 6 / 35: a suggestion is applied in one tap — the line goes on changed (a CHANGE answer), no triad needed.
+  const canApply = need !== 'exception' && hasSuggestion(fired)
+  const applied = canApply && draft.apply === true
   const shownProblem = problem && problem !== 'remove' && problem !== 'noGrant' ? problem : null
   return (
-    <div className="flex flex-col gap-2 px-3 py-2 text-sm" data-guard-item={item.key} data-need={need} data-problem={problem ?? ''}>
+    <div className="flex flex-col gap-2 px-3 py-2 text-sm" data-guard-item={item.key} data-need={need} data-problem={problem ?? ''} data-applied={applied ? 'yes' : 'no'}>
       <div className="flex flex-wrap items-center gap-2">
         <GuardSeverityBadge severity={fired.severity} />
         <RuleId id={fired.ruleId} />
@@ -197,6 +200,24 @@ function FiredRule({
           <Trans t={t} i18nKey={s.key} values={{ value: s.value }} components={{ n: <Ltr /> }} />
         </p>
       ))}
+      {canApply && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={applied ? 'secondary' : 'primary'}
+            disabled={disabled}
+            aria-pressed={applied}
+            onClick={() => onEdit({ apply: !applied })}
+            data-guard-apply={applied ? 'applied' : 'offered'}
+          >
+            {t(applied ? 'guard.unapply' : 'guard.apply')}
+          </Button>
+          {applied && (
+            <span className="text-xs text-success-800" data-guard-applied="">
+              {t('guard.applied')}
+            </span>
+          )}
+        </div>
+      )}
       {unknowns.length > 0 && need !== 'exception' && (
         <p className="text-xs text-muted-foreground" data-guard-unknowns="">
           {t('guard.unknowns')}{' '}
@@ -213,18 +234,18 @@ function FiredRule({
           <Trans t={t} i18nKey="guard.exception" values={{ id: fired.exceptionId ?? '' }} components={{ x: <Ltr /> }} />
         </p>
       )}
-      {(problem === 'remove' || problem === 'noGrant') && (
+      {!applied && (problem === 'remove' || problem === 'noGrant') && (
         <p className="text-xs font-medium text-danger-800" data-guard-instruction={problem}>
           {t(PROBLEM_KEYS[problem])}
         </p>
       )}
-      {need === 'warn' && (
+      {!applied && need === 'warn' && (
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={draft.ack === true} disabled={disabled} onChange={(e) => onEdit({ ack: e.target.checked })} data-guard-ack="" />
           {t('guard.ack')}
         </label>
       )}
-      {need === 'override' && problem !== 'noGrant' && (
+      {!applied && need === 'override' && problem !== 'noGrant' && (
         <div className="grid gap-2 sm:grid-cols-2">
           <CodeSelect
             label={t('guard.intervention')}

@@ -69,7 +69,14 @@
       "distinctStores_two": "صُرف <match>{{match}}</match> في فرعين أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
       "distinctStores_few": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فروع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
       "distinctStores_many": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرعاً أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
-      "distinctStores_other": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>"
+      "distinctStores_other": "صُرف <match>{{match}}</match> في <atleast>{{atLeast}}</atleast> فرع أو أكثر خلال آخر <windowdays>{{windowDays}}</windowdays> يوماً، <linescope>{{lineScope}}</linescope>",
+      "narrowTo": "مع احتساب الصرف لدى <scopes>{{scopes}}</scopes> نفسها فقط",
+      "scope": {
+        "payer": "الجهة الدافعة",
+        "policy": "الوثيقة",
+        "channel": "القناة",
+        "store": "الفرع"
+      }
     },
     "supply": {
       "daysBeforeDue_zero": "يطلب المريض <match>{{match}}</match> قبل نفاد آخر كمية بأكثر من <days>{{days}}</days> يوم",
@@ -161,7 +168,9 @@
       "from": "من <from>{{from}}</from>، بلا نهاية",
       "fromUntil": "من <from>{{from}}</from> حتى <until>{{until}}</until>",
       "until": "حتى <until>{{until}}</until>",
-      "always": "بلا حد زمني"
+      "always": "بلا حد زمني",
+      "excludePatients": "عدا المرضى في <lists>{{lists}}</lists>",
+      "excludePolicies": "عدا الوثائق في <lists>{{lists}}</lists>"
     },
     "then": {
       "REFUSE": "رفض السطر",

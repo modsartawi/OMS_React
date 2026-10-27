@@ -101,6 +101,8 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
   const clauses: KeySentence[] = []
   switch (c.check) {
     case 'history':
+      if (c.narrowTo?.length)
+        clauses.push(S('history.narrowTo', { scopes: { kind: 'list', join: 'and', items: c.narrowTo.map((s) => phrase(`history.scope.${s}`)) } }))
       return {
         sentence: S(
           `history.${c.measure}`,
@@ -180,6 +182,10 @@ function whenSentences(rule: GuardRule): KeySentence[] {
       stores: stores.length ? phrase('when.stores', { stores: { kind: 'list', join: 'and', items: stores.map(code) } }) : phrase('when.allStores'),
     }),
   ]
+  const patients = rule.audience?.excludePatientLists ?? []
+  const policies = rule.audience?.excludePolicyLists ?? []
+  if (patients.length) out.push(S('when.excludePatients', { lists: { kind: 'list', join: 'and', items: patients.map(code) } }))
+  if (policies.length) out.push(S('when.excludePolicies', { lists: { kind: 'list', join: 'and', items: policies.map(code) } }))
   const from = rule.window?.from
   const until = rule.window?.until
   if (from && until) out.push(S('when.fromUntil', { from: { kind: 'day', day: from }, until: { kind: 'day', day: until } }))

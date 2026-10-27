@@ -57,7 +57,14 @@
       "quantity_one": "the patient received at least <atleast>{{atLeast}}</atleast> unit of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
       "quantity_other": "the patient received at least <atleast>{{atLeast}}</atleast> units of <match>{{match}}</match> in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
       "distinctStores_one": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more store in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
-      "distinctStores_other": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more stores in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>"
+      "distinctStores_other": "<match>{{match}}</match> was dispensed at <atleast>{{atLeast}}</atleast> or more stores in the last <windowdays>{{windowDays}}</windowdays> days, <linescope>{{lineScope}}</linescope>",
+      "narrowTo": "counting only dispenses with the same <scopes>{{scopes}}</scopes>",
+      "scope": {
+        "payer": "payer",
+        "policy": "policy",
+        "channel": "channel",
+        "store": "store"
+      }
     },
     "supply": {
       "daysBeforeDue_one": "the patient asks for <match>{{match}}</match> more than <days>{{days}}</days> day before the last supply runs out",
@@ -137,7 +144,9 @@
       "from": "From <from>{{from}}</from>, with no end",
       "fromUntil": "From <from>{{from}}</from> until <until>{{until}}</until>",
       "until": "Until <until>{{until}}</until>",
-      "always": "With no time limit"
+      "always": "With no time limit",
+      "excludePatients": "except patients on <lists>{{lists}}</lists>",
+      "excludePolicies": "except policies on <lists>{{lists}}</lists>"
     },
     "then": {
       "REFUSE": "refuse the line",

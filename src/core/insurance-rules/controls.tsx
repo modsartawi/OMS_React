@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
+import { useEffect, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { saysIn } from '@/core/rules/sentence'
@@ -69,6 +69,36 @@ export function CodeInput({
       onChange={(e) => onValue(e.target.value)}
       aria-invalid={invalid || undefined}
       className={`${CONTROL} font-mono ${className}`}
+    />
+  )
+}
+
+const parseCodes = (text: string): string[] =>
+  text
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+
+/** Codes typed comma-separated: the text is kept as typed, the block gets the codes; an undo under the box is followed. */
+export function CodesInput({
+  value,
+  onCodes,
+  ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & { value: string[]; onCodes: (c: string[]) => void; invalid?: boolean }) {
+  const [text, setText] = useState(value.join(', '))
+  useEffect(() => {
+    if (parseCodes(text).join(',') !== value.join(',')) setText(value.join(', '))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.join(',')])
+  return (
+    <CodeInput
+      {...rest}
+      value={text}
+      onValue={(s) => {
+        setText(s)
+        const codes = parseCodes(s)
+        if (codes.join(',') !== value.join(',')) onCodes(codes)
+      }}
     />
   )
 }

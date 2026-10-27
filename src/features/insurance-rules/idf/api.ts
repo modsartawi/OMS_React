@@ -14,6 +14,7 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster } from './masters'
+import { storeSetBody, type IdfStoreList } from './store-lists' // 620
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -33,6 +34,32 @@ export function mastersQuery() {
 }
 
 // 620 · store lists — `idfStoreListsApi` (3162)
+export const IDF_STORE_LISTS_KEY = [...IDF_KEY, 'store-lists'] as const
+export const idfStoreListsApi = {
+  /** `GET IdfPriority/store-lists` — every named list with its stores. */
+  async lists(): Promise<IdfStoreList[]> {
+    return (await api.get<IdfStoreList[] | null>(`${IDF_BASE}/store-lists`)) ?? []
+  },
+  /** `POST IdfPriority/store-lists` `{ name }` — a new, empty list. */
+  create(name: string): Promise<IdfStoreList> {
+    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, { name })
+  },
+  /** `PUT IdfPriority/store-lists/{id}` `{ name }` — rename. */
+  rename(id: string, name: string): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, { name })
+  },
+  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. */
+  saveStores(id: string, storeCodes: string[]): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}/stores`, storeSetBody(storeCodes))
+  },
+  /** `DELETE IdfPriority/store-lists/{id}` — never offered for the pilot list. ⚠️ Not in the brief's sketch: 628 confirms. */
+  remove(id: string): Promise<unknown> {
+    return api.del<unknown>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`)
+  },
+}
+export function storeListsQuery() {
+  return { queryKey: IDF_STORE_LISTS_KEY, queryFn: () => idfStoreListsApi.lists(), retry: false } as const
+}
 
 // 621 · master form — `idfMasterFormApi` (POST / PUT masters, 3161)
 

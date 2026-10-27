@@ -26,7 +26,53 @@
     "thresholds": "Hard above <v>{{hard}}</v>, reminder above <v>{{reminder}}</v>",
     "noLive": "No live version yet"
   },
-  "storeLists": {},
+  "storeLists": {
+    "title": "IDF store lists",
+    "lede": "Named lists of stores that a store master or an insurer master can apply to: the operation pharmacies, the pilot rollout list.",
+    "loading": "Loading the store lists…",
+    "failed": "The store lists could not be loaded.",
+    "empty": "There are no store lists yet.",
+    "refused": "The change was refused",
+    "refusedFallback": "The server refused the change.",
+    "refusalCode": "Code <v>{{code}}</v>",
+    "pilot": "Pilot",
+    "open": "Open",
+    "close": "Close",
+    "cancel": "Cancel",
+    "columns": {
+      "name": "Name",
+      "id": "List",
+      "stores": "Stores"
+    },
+    "create": {
+      "label": "New list",
+      "placeholder": "Name of the list",
+      "action": "Create list",
+      "done": "Store list created"
+    },
+    "rename": {
+      "action": "Rename",
+      "label": "New name",
+      "save": "Save name",
+      "done": "Store list renamed"
+    },
+    "delete": {
+      "action": "Delete",
+      "title": "Delete store list",
+      "confirm": "Delete the store list {{name}}? Masters that point at it lose their stores.",
+      "done": "Store list deleted"
+    },
+    "stores": {
+      "title": "Stores in <n>{{name}}</n>",
+      "empty": "This list has no stores yet.",
+      "addLabel": "Add stores",
+      "addPlaceholder": "Store codes, separated by commas or spaces",
+      "add": "Add",
+      "remove": "Remove {{code}}",
+      "save": "Save stores",
+      "done": "Stores saved"
+    }
+  },
   "masterForm": {},
   "upload": {},
   "versions": {},

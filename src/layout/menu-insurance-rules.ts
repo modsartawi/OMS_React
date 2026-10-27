@@ -6,6 +6,7 @@ import { FlaskConical } from 'lucide-react' // 612
 import { Building2, Tags, Umbrella } from 'lucide-react' // 617
 import { ListOrdered } from 'lucide-react' // 619
 // 620 · icons
+import { Store } from 'lucide-react' // 620
 // 624 · icons
 // 625 · icons
 // 626 · icons
@@ -129,6 +130,12 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     },
 
     // 620 · IDF store lists (`menu.idfStoreLists`, `/insurance-rules/idf/store-lists`)
+    {
+      // 620 — the named store lists (operation pharmacies, the pilot list) and their stores.
+      labelKey: 'insurance-rules:menu.idfStoreLists',
+      icon: Store,
+      routerLink: '/insurance-rules/idf/store-lists',
+    },
 
     // 624 · IDF exceptions (`menu.idfExceptions`, `/insurance-rules/idf/exceptions`)
 

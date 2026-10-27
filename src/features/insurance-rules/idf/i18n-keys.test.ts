@@ -108,6 +108,24 @@ describe('insurance-idf — the keys the master page and its upload build exist'
   })
 })
 
+// 620 · store lists
+describe('insurance-idf — the keys the store lists build exist (620)', () => {
+  it.each([en, ar])('page, columns, pilot mark, refusal, create / rename / delete, the stores editor', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'loading', 'failed', 'empty', 'refused', 'refusedFallback', 'refusalCode', 'pilot', 'open', 'close', 'cancel'].map((k) => `storeLists.${k}`),
+      ...['name', 'id', 'stores'].map((c) => `storeLists.columns.${c}`),
+      ...['label', 'placeholder', 'action', 'done'].map((k) => `storeLists.create.${k}`),
+      ...['action', 'label', 'save', 'done'].map((k) => `storeLists.rename.${k}`),
+      ...['action', 'title', 'confirm', 'done'].map((k) => `storeLists.delete.${k}`),
+      ...['title', 'empty', 'addLabel', 'addPlaceholder', 'add', 'remove', 'save', 'done'].map((k) => `storeLists.stores.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const s = locale.storeLists as Record<string, Record<string, string> | string>
+    expect(String(s.refusalCode)).toContain('<v>{{code}}</v>')
+    expect(String((s.stores as Record<string, string>).title)).toContain('<n>{{name}}</n>')
+  })
+})
+
 // 624 · the keys the IDF exceptions screen builds
 describe('insurance-idf — the keys the IDF exceptions screen builds exist', () => {
   it.each([en, ar])('key kinds, handlings, columns, problems', (locale) => {

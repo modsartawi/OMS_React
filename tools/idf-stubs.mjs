@@ -65,6 +65,53 @@ export function idfMastersStub(method, path, opts = {}) {
 }
 
 // --- 620 --- store lists (door 3162).
+// `GET`, `POST`, `PUT …/{id}` (rename), `PUT …/{id}/stores { storeCodes }`, `DELETE …/{id}` (not in the brief's
+// sketch; 628 confirms). State lives on `state.storeLists`, made on first use so `newIdfState` stays 619's.
+// A name already taken is refused `NAME_TAKEN`; deleting the pilot list is refused `PILOT_LIST`.
+export const IDF_STORE_LISTS = [
+  { storeListId: 'SL-OPS', name: 'Operation pharmacies', isPilotList: false, storeCodes: ['P001', 'P002', 'P014'] },
+  { storeListId: 'SL-PILOT', name: 'Pilot rollout', isPilotList: true, storeCodes: ['P003', 'P007'] },
+]
+
+/** `deny` may name `'storeLists'` (the read answered a bare 403); `sent` collects each write's method, path and body. */
+export function idfStoreListsStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], reads = {}, sent = [] } = opts
+  if (!path.startsWith('IdfPriority/store-lists')) return null
+  state.storeLists ??= structuredClone(IDF_STORE_LISTS)
+  const lists = state.storeLists
+  const refuse = (message, errorCode) => envelope(null, { status: 400, success: false, message, errorCode })
+  const taken = (name, id) => lists.some((l) => l.storeListId !== id && l.name.toLowerCase() === String(name ?? '').trim().toLowerCase())
+  if (method !== 'GET') sent.push({ method, path, body })
+  if (method === 'GET' && path === 'IdfPriority/store-lists') {
+    reads.storeLists = (reads.storeLists ?? 0) + 1
+    if (deny.includes('storeLists')) return bare403()
+    return envelope(lists)
+  }
+  if (method === 'POST' && path === 'IdfPriority/store-lists') {
+    if (taken(body?.name)) return refuse('A store list with this name already exists.', 'NAME_TAKEN')
+    const list = { storeListId: `SL-${lists.length + 1}`, name: body.name, isPilotList: false, storeCodes: [] }
+    lists.push(list)
+    return envelope(list)
+  }
+  const m = /^IdfPriority\/store-lists\/([^/]+)(\/stores)?$/.exec(path)
+  const list = m && lists.find((l) => l.storeListId === decodeURIComponent(m[1]))
+  if (!list) return envelope(null, { status: 404, success: false, message: 'No such store list.', errorCode: 'NOT_FOUND' })
+  if (method === 'PUT' && m[2]) {
+    list.storeCodes = [...body.storeCodes]
+    return envelope(list)
+  }
+  if (method === 'PUT') {
+    if (taken(body?.name, list.storeListId)) return refuse('A store list with this name already exists.', 'NAME_TAKEN')
+    list.name = body.name
+    return envelope(list)
+  }
+  if (method === 'DELETE') {
+    if (list.isPilotList) return refuse('The pilot list cannot be deleted.', 'PILOT_LIST')
+    state.storeLists = lists.filter((l) => l !== list)
+    return envelope(null)
+  }
+  return null
+}
 
 // --- 621 --- create / edit a master (door 3161).
 
@@ -269,6 +316,7 @@ export function idfStub(method, path, body, opts = {}) {
   return (
     idfMastersStub(method, bare, opts) ??
     // 620 · store lists
+    idfStoreListsStub(method, bare, body, opts) ??
     // 621 · master form
     // 622 · upload
     idfUploadStub(method, bare, body, opts) ??

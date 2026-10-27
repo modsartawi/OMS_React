@@ -116,6 +116,10 @@ export const insuranceRulesRoute: RouteObject = {
     },
 
     // 620 · IDF store lists (e.g. `idf/store-lists`)
+    {
+      path: 'idf/store-lists',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/StoreListsPage')).default }),
+    },
 
     // 621 · create / edit a master (opens from the list; a route only if it is a page, e.g. `idf/masters/new`)
 

@@ -152,3 +152,25 @@ section "HQ contract: coverage (3144, 3145, 3146)" plus the 3144 / 3145 / 3146 /
   (seeded ids are words, `C-ELITE`); no access probe (actions follow the draft state; a reader / non-approver is refused
   by HQ); Categories `unknowns` not shown; Coverage Simulate / Resolve not surfaced; the 400 `INSURER_SETTINGS_BAD_REQUEST`
   error shape (read as envelope `errors[]`) and the Validate body for these documents are unconfirmed against a live SIS.Api.
+
+**2026-10-28 · review fixes (branch impl/3126r-fix).**
+- `coverageRuleProblems`: refuses MIXING effect kinds in one rule (`mixedEffects`, replaces `oneEffect`), not two
+  effects of one kind; still refuses no effect. A deductible's `percent` must be 0–100 (`deductiblePercent`) and it
+  states a percent and/or a max (`deductibleEmpty`) — refused in words before the save (the percent input marks
+  itself invalid too). Coverage drive checks both.
+- Insurers cache-key collision fixed: one core query (`insurerSettingsQuery`, the settings rows) under
+  `['insurance-rules','insurers']`; 610's picker derives its view by `select`; `*` defined once
+  (`ESTATE_DEFAULT`, core `insurer-settings.ts`); `ruleset-draft.ts` uses `INSURANCE_RULES_BASE`.
+- Request blocks in category / coverage rules switch on `field` (see 610's comment); the policy-list block is saved
+  as `{ check: "request", field: "policy", inList }` (drive checks the PUT).
+- Bidi / i18n: `%` sits inside the isolate (Insurers list discount, the deductible's reads-as) — value and unit
+  formatted as one string (`unit.percentOf`) then isolated; `CoverageEffectLine` is one `<Trans>` per effect with
+  named params (`reads.deductible.{both,percent,max,none}`, `reads.priceCap` …); the insurer log names each settings
+  field in words (`log.field.*`, en + ar; a list row by its number; an unknown path as written).
+- **Skipped → 618 follow-up:** `audience` (channels, stores, window, `excludePatientLists` / `excludePolicyLists` /
+  `excludeClassLists`) is still not editable on category / coverage rules (kept as read). Graduating the guard
+  `AudienceEditor` to `core/insurance-rules` is not cheap: its edits (`toggleChannel`, `setAudienceStores`,
+  `toggleAudienceExclude`, `setWindow`) are typed to `GuardRule`, its list picker (`KeyedListSelect`) lives in the
+  guard feature, and its copy is in the `insurance-guards` namespace — all three would move. 618 should do it.
+- Not built (as asked): a Coverage Simulate screen. The "New list" dialog stays.
+- Coverage drive 172/172 (stubbed).

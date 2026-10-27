@@ -62,6 +62,18 @@ describe('category and coverage rulesets', () => {
     expect(coverageRuleProblems(cov([{ effect: 'segment', value: 'SABIC' }], [{ check: 'group', mode: 'any', conditions: [itemFact] }]))).toEqual(['invoiceReadsLine'])
     expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 0 }], [itemFact]))).toEqual([])
     expect(coverageRuleProblems(cov([]))).toEqual(['noEffect'])
-    expect(coverageRuleProblems(cov([{ effect: 'covered', value: true }, { effect: 'priceCap', value: 5 }]))).toEqual(['oneEffect'])
+  })
+
+  it('coverageRuleProblems_refusesMixedEffectKinds — two effects of one kind are not refused', () => {
+    expect(coverageRuleProblems(cov([{ effect: 'covered', value: true }, { effect: 'priceCap', value: 5 }]))).toEqual(['mixedEffects'])
+    expect(coverageRuleProblems(cov([{ effect: 'priceCap', value: 5 }, { effect: 'priceCap', value: 7, overridesPayer: true }]))).toEqual([])
+  })
+
+  it('coverageRuleProblems_refusesADeductibleOutOfRangeOrEmpty', () => {
+    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 100 }]))).toEqual([])
+    expect(coverageRuleProblems(cov([{ effect: 'deductible', max: 50 }]))).toEqual([])
+    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: 101 }]))).toEqual(['deductiblePercent'])
+    expect(coverageRuleProblems(cov([{ effect: 'deductible', percent: -1, max: 5 }]))).toEqual(['deductiblePercent'])
+    expect(coverageRuleProblems(cov([{ effect: 'deductible' }]))).toEqual(['deductibleEmpty'])
   })
 })

@@ -173,6 +173,13 @@ for (const dir of ['ltr', 'rtl']) {
     const cs = store.categorySimulates ?? []
     check(`${dir} 5b. one Categories/Simulate per run: the same request, lines numbered, no patient key`, cs.length === 1 && JSON.stringify(cs[0].request.lines.map((l) => [l.line, l.item])) === JSON.stringify([[1, '100101'], [2, '200101']]) && !('patientKey' in cs[0]) && cs[0].request.store === store.simulates.at(-1)?.request?.store, JSON.stringify(cs))
     check(`${dir} 5b. line 2 names the category rule that set it, linked`, (await l2.locator('[data-line-category="G1"]').count()) === 1 && (await l2.locator('a[data-category-link="K-002"]').getAttribute('href')) === '/insurance-rules/categories?rule=K-002')
+    check(
+      `${dir} 5b. line 1 names the category rule that could not decide (unknowns) and the reply's version, ltr`,
+      (await l1.locator('[data-category-unknowns="K-002"] [data-rule-id] bdi[dir="ltr"]').innerText().catch(() => '')) === 'K-002' &&
+        (await l1.locator('[data-category-version="1"] bdi[dir="ltr"]').innerText().catch(() => '')) === '1' &&
+        (await l2.locator('[data-category-unknowns]').count()) === 0,
+      strip(await l1.locator('[data-category-meta]').innerText().catch(() => '')),
+    )
     check(`${dir} 5. no raw keys`, await noRawKeys(page))
 
     // 5c. a line with no days' supply: G-004 cannot decide, named under the line

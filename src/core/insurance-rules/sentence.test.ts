@@ -87,6 +87,16 @@ describe('guardSentence_rendersEachBlockKind', () => {
     ])
   })
 
+  it('request — switches on field: a policy list (the seeded C-SABIC spelling), a class list, a payer / class by codes', () => {
+    const read = (c: unknown) => node(conditionSentence(c as GuardRule['when'][number], { rule: rule('G-001'), lists: LISTS }))
+    expect(read({ check: 'request', field: 'policy', inList: 'sabic-policies' })).toBe('the policy is on the policy list sabic-policies')
+    expect(read({ check: 'request', field: 'class', inList: 'CL-GOLD' })).toBe("the policy's class is on the class list CL-GOLD")
+    expect(read({ check: 'request', field: 'payer', anyOf: ['0001100041', '0001100099'] })).toBe("the request's payer is any of 0001100041 or 0001100099")
+    expect(read({ check: 'request', field: 'class', anyOf: ['VIP'] })).toBe("the request's policy class is any of VIP")
+    expect(read({ check: 'request', field: 'channel', anyOf: ['bupa'], not: true })).toBe("it is not true that the request's channel is any of bupa")
+    expect(read({ check: 'request', field: 'shoeSize', anyOf: ['44'] })).toBe("the request's shoeSize is any of 44")
+  })
+
   it('a block this screen does not know reads as its check, never blank', () => {
     const c = { check: 'eligibility' } as unknown as GuardRule['when'][number]
     expect(node(conditionSentence(c, { rule: rule('G-001'), lists: LISTS }))).toBe('a block this screen cannot read yet: eligibility')

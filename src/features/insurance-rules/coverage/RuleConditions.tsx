@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { addCondition, canAddGroup, removeCondition, toggleNot, updateCondition, type ConditionPath } from '@/core/insurance-rules/guard-edit'
-import type { GuardCondition } from '@/core/insurance-rules/model'
+import { requestListField, type GuardCondition } from '@/core/insurance-rules/model'
 import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { factFields, factKind, factPath, fieldOfPath, unitKey } from '@/core/insurance-rules/registry-facts'
@@ -25,8 +25,8 @@ const pathKey = (p: ConditionPath) => p.join('.')
 /** A palette block with its defaults: a fact starts on the payer, the commonest test of a contract rule. */
 function newBlock(kind: (typeof PALETTE)[number], fields: readonly RegistryField[]): GuardCondition {
   if (kind === 'group') return { check: 'group', mode: 'all', conditions: [] }
-  if (kind === 'patient' || kind === 'policy') return { check: kind, inList: '' }
-  if (kind === 'class') return { check: 'request', field: 'class', inList: '' }
+  if (kind === 'patient') return { check: 'patient', inList: '' }
+  if (kind === 'policy' || kind === 'class') return { check: 'request', field: kind, inList: '' }
   const first = fieldOfPath(fields, '$request.payer') ?? factFields(fields)[0]
   if (!first) return { check: 'fact', path: '$request.payer', op: 'anyOf', value: [] }
   return factKind(first) === 'number' ? { check: 'fact', path: factPath(first), op: 'atLeast', value: 0 } : { check: 'fact', path: factPath(first), op: 'anyOf', value: [] }
@@ -137,7 +137,7 @@ function Node({ when, c, path, edit }: { when: GuardCondition[]; c: GuardConditi
       </div>
     )
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2" data-block={pathKey(path)} data-check={c.check} data-not={c.not ? 'true' : 'false'}>
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card p-2" data-block={pathKey(path)} data-check={requestListField(c) ?? c.check} data-not={c.not ? 'true' : 'false'}>
       {head}
       <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <Leaf c={c} path={path} edit={edit} />
@@ -153,18 +153,28 @@ function Leaf({ c, path, edit }: { c: Exclude<GuardCondition, { check: 'group' }
   const set = (fn: (x: GuardCondition) => GuardCondition, coalesce?: string) =>
     edit((w) => updateCondition(w, path, fn), coalesce ? `${pathKey(path)}:${coalesce}` : undefined)
 
-  if (c.check === 'patient' || c.check === 'policy')
+  if (c.check === 'patient')
     return (
-      <Field label={t(`conditions.block.${c.check}`)}>
-        <ListPick kind={c.check} value={c.inList} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
+      <Field label={t('conditions.block.patient')}>
+        <ListPick kind="patient" value={c.inList} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
       </Field>
     )
-  if (c.check === 'request')
+  if (c.check === 'request') {
+    // Switch on the field: `policy` / `class` with `inList` is a team list; any other request block (a payer or a
+    // class read by codes, a field this build does not know) shows its field and its codes, kept as written.
+    const listField = requestListField(c)
+    if (listField)
+      return (
+        <Field label={t(`conditions.block.${listField}`)}>
+          <ListPick kind={listField} value={c.inList ?? ''} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
+        </Field>
+      )
     return (
-      <Field label={t('conditions.block.class')}>
-        <ListPick kind="class" value={c.inList} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
-      </Field>
+      <span className="text-xs" data-request-field={c.field}>
+        {t('conditions.requestReads', { field: fsi(c.field), codes: fsi((c.anyOf ?? (c.inList !== undefined ? [c.inList] : [])).join(', ')) })}
+      </span>
     )
+  }
   if (c.check !== 'fact')
     // A block the guard palette has (history, line, …) but a coverage rule does not offer: shown, kept, not edited.
     return <code className="font-mono text-xs text-muted-foreground">{c.check}</code>

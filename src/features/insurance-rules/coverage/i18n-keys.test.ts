@@ -14,7 +14,7 @@ import { CATEGORY_GROUPS, COVERAGE_EFFECTS, COVERAGE_SEGMENTS } from '@/core/ins
 import { COVERAGE_RULE_PROBLEMS } from './ruleset-edit'
 import { FIELD_SCOPES } from '@/core/insurance-rules/registry'
 import { hasLocaleKey } from '@/core/test/locale'
-import { BENEFIT_MEANINGS, BENEFIT_SOURCES, SETTINGS_PROBLEMS } from './settings'
+import { BENEFIT_MEANINGS, BENEFIT_SOURCES, SETTINGS_FIELD_WORDS, SETTINGS_PROBLEMS } from './settings'
 
 function leaves(node: unknown, prefix = ''): string[] {
   if (typeof node !== 'object' || node === null) return [prefix]
@@ -34,13 +34,16 @@ describe('insurance-coverage — the keys the code builds exist', () => {
       ...CATEGORY_GROUPS.map((g) => `group.${g}`),
       ...COVERAGE_EFFECTS.map((e) => `effect.${e}`),
       ...['covered', 'priorApproval', 'exceptionPrescriptions'].flatMap((e) => [`effect.yes.${e}`, `effect.no.${e}`, `reads.${e}.yes`, `reads.${e}.no`]),
-      ...['priceCap', 'quantityCap', 'daysSupplyCap'].map((e) => `reads.${e}`),
+      ...['priceCap', 'quantityCap', 'daysSupplyCap', 'segment'].map((e) => `reads.${e}`),
+      ...['both', 'percent', 'max', 'none'].map((w) => `reads.deductible.${w}`),
+      'unit.percentOf',
       ...['line', 'invoice'].map((l) => `effect.level.${l}`),
       ...COVERAGE_SEGMENTS.map((s) => `segment.${s}`),
       ...COVERAGE_RULE_PROBLEMS.map((p) => `ruleProblem.${p}`),
       ...BENEFIT_SOURCES.map((s) => `source.${s}`),
       ...['fills', 'overrides'].flatMap((m) => [`payerMark.${m}`, `payerMark.${m}Hint`]),
       ...SETTINGS_PROBLEMS.map((p) => `problem.${p}`),
+      ...SETTINGS_FIELD_WORDS.map((f) => `log.field.${f}`),
       ...BENEFIT_MEANINGS.map((m) => `meaning.${m}`),
       ...FIELD_SCOPES.map((s) => `conditions.scope.${s}`),
       ...['category', 'coverage'].flatMap((k) => ['title', 'order', 'ifHint', 'thenHint'].map((w) => `${k}.${w}`)),

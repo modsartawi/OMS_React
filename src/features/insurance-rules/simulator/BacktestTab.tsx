@@ -158,7 +158,7 @@ function Done({ b, draftRevision }: { b: GuardBacktest; draftRevision: number | 
         {draftRevision === null ? null : current ? t('backtest.current') : t('backtest.stale', { revision: fsi(draftRevision) })}
       </p>
       <p className="text-xs text-muted-foreground" data-backtest-window="">
-        {t('backtest.window', { days: fsi(b.days), since: fsi(formatDay(b.since) || '') })}{' '}
+        {b.since ? t('backtest.window', { days: fsi(b.days), since: fsi(formatDay(b.since)) }) : t('backtest.windowNoSince', { days: fsi(b.days) })}{' '}
         {b.requestedBy && (
           <>
             {t('backtest.requestedBy')} <ByAt by={b.requestedBy} at={b.requestedAt} />

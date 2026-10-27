@@ -125,6 +125,18 @@
     "class": {
       "inList": "the policy's class is on the class list <list>{{list}}</list>"
     },
+    "request": {
+      "anyOf": "the request's <field>{{field}}</field> is any of <codes>{{codes}}</codes>",
+      "inList": "the request's <field>{{field}}</field> is on the list <list>{{list}}</list>",
+      "field": {
+        "payer": "payer",
+        "policy": "policy",
+        "class": "policy class",
+        "channel": "channel",
+        "store": "store",
+        "pharmacist": "pharmacist"
+      }
+    },
     "group": {
       "all": "all of these are true",
       "any": "any of these is true",

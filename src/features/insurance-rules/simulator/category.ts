@@ -1,5 +1,5 @@
 import type { CategoryGroup, CategorySimulateResult, CategorySource } from '@/core/insurance-rules/coverage-model'
-import type { SimulateBody } from './simulate'
+import { lineUnknowns, type SimulateBody } from './simulate'
 
 // Which category each simulated line got and who set it (story 61; review 3126 P6a), read from BackOffice 3145's
 // built `POST InsuranceRules/Categories/Simulate { request, document? }` → `{ version, lines: [{ line, item,
@@ -23,11 +23,22 @@ export interface LineCategory {
   ruleId: string | null
   /** The category as stamped: a rule's word, or the default's own spelling (Brand-IR …). */
   category: string | null
+  /** The category rules that could not decide on this line (a fact unknown), by id: an unknown never sets a category. */
+  unknowns: string[]
+  /** The category document's version HQ ran (the reply's `version`), or null for a draft. */
+  version: number | null
 }
 
 /** Line `line`'s category, or null when there is no answer or no row for it. */
 export function lineCategory(answer: CategorySimulateResult | undefined, line: number): LineCategory | null {
   const row = answer?.lines.find((l) => l.line === line)
   if (!row) return null
-  return { source: row.source, group: row.group ?? null, ruleId: row.source === 'rule' ? row.ruleId : null, category: row.insuranceItemCategory ?? row.defaultCategory ?? null }
+  return {
+    source: row.source,
+    group: row.group ?? null,
+    ruleId: row.source === 'rule' ? row.ruleId : null,
+    category: row.insuranceItemCategory ?? row.defaultCategory ?? null,
+    unknowns: lineUnknowns({ unknowns: (row.unknowns ?? []) as string[] }),
+    version: answer?.version ?? null,
+  }
 }

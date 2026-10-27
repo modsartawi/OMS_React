@@ -119,7 +119,7 @@ export const RULES = [
             not: true,
             conditions: [
               { check: 'patient', inList: PATIENT_LIST_VIP },
-              { check: 'policy', inList: POLICY_LIST_EXTENDED },
+              { check: 'request', field: 'policy', inList: POLICY_LIST_EXTENDED },
             ],
           },
         ],
@@ -488,7 +488,7 @@ export function validateGuards(doc) {
           if (level + 1 > 3) out.push(issue(r.id, at, null, 'Groups nest at most three levels.', 'لا تتداخل المجموعات أكثر من ثلاثة مستويات.'))
           if (!c.conditions.length) out.push(issue(r.id, at, 'conditions', 'This group is empty.', 'هذه المجموعة فارغة.'))
           walk(c.conditions, `${at}.conditions`, level + 1)
-        } else if (['patient', 'policy', 'line'].includes(c.check) && c.inList === '') {
+        } else if (['patient', 'request', 'line'].includes(c.check) && c.inList === '') {
           out.push(issue(r.id, at, 'inList', 'Pick a list.', 'اختر قائمة.'))
         }
       })
@@ -1647,7 +1647,7 @@ export const K_001 = {
 export const NO_DEDUCTIBLE = {
   name: says('SASREF: no deductible for these policies', 'ساسرف: لا تحمّل لهذه الوثائق'),
   folder: 'Bupa contract',
-  when: [{ check: 'policy', inList: POLICY_LIST_SASREF }],
+  when: [{ check: 'request', field: 'policy', inList: POLICY_LIST_SASREF }],
   then: [{ effect: 'deductible', percent: 0, overridesPayer: true }],
 }
 
@@ -1815,7 +1815,7 @@ export function categorySimulateStub(method, path, body, opts = {}) {
       ? { line: l.line, item: l.item, insuranceItemCategory: 'Generic', group: 'G1', source: 'rule', ruleId: 'K-002', version: 1, defaultCategory: 'Brand', unknowns: [] }
       : /^9/.test(l.item)
         ? { line: l.line, item: l.item, insuranceItemCategory: null, group: null, source: 'none', ruleId: null, version: null, defaultCategory: null, unknowns: [] }
-        : { line: l.line, item: l.item, insuranceItemCategory: 'Brand-IR', group: 'G2', source: 'default', ruleId: null, version: null, defaultCategory: 'Brand-IR', unknowns: [] },
+        : { line: l.line, item: l.item, insuranceItemCategory: 'Brand-IR', group: 'G2', source: 'default', ruleId: null, version: null, defaultCategory: 'Brand-IR', unknowns: l.item === '100101' ? ['K-002'] : [] },
   )
   return envelope({ version: 1, lines })
 }

@@ -137,7 +137,8 @@
       "formulary": "Formulary",
       "patient": "Patient in list",
       "policy": "Policy in list",
-      "request": "Policy class in list",
+      "class": "Policy class in list",
+      "request": "Request field",
       "fact": "Patient or request fact",
       "formula": "Formula",
       "group": "Group (All of / Any of)"
@@ -163,6 +164,7 @@
       "patientList": "Patient list",
       "policyList": "Policy list",
       "classList": "Class list",
+      "requestField": "Request field",
       "fact": "Fact",
       "op": "Is",
       "codes": "Codes",

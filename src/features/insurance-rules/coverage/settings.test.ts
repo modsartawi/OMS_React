@@ -1,6 +1,6 @@
 /** Ticket 617 (BackOffice 3144 as built) — an insurer's settings are refused in words before the PUT; the log reads what changed. */
 import { describe, expect, it } from 'vitest'
-import { blankSettings, settingsChanges, settingsProblems, type InsurerSettings } from './settings'
+import { blankSettings, settingsChanges, settingsFieldWord, settingsProblems, type InsurerSettings } from './settings'
 
 const BUPA: InsurerSettings = {
   payer: '0001100041',
@@ -59,5 +59,17 @@ describe('settingsChanges', () => {
     const created = settingsChanges(null, { ...blankSettings('0001100099'), fixedDiscountPct: 5 })
     expect(created).toContainEqual({ field: 'fixedDiscountPct', from: null, to: '5' })
     expect(created.some((c) => c.field === 'payer')).toBe(true)
+  })
+})
+
+describe('settingsFieldWord', () => {
+  it('names a log path by a locale key per settings field — a list row by its 1-based number — and leaves an unknown path as written', () => {
+    expect(settingsFieldWord('fixedDiscountPct')).toEqual({ key: 'log.field.fixedDiscountPct' })
+    expect(settingsFieldWord('memberId.minLength')).toEqual({ key: 'log.field.memberId.minLength' })
+    expect(settingsFieldWord('daysSupply.default')).toEqual({ key: 'log.field.daysSupply.default' })
+    expect(settingsFieldWord('benefitCategories[2].meaning')).toEqual({ key: 'log.field.benefitCategories.meaning', n: 3 })
+    expect(settingsFieldWord('payerPins[0]')).toEqual({ key: 'log.field.payerPins', n: 1 })
+    expect(settingsFieldWord('somethingNew')).toBeNull()
+    expect(settingsFieldWord('memberId.colour')).toBeNull()
   })
 })

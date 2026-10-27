@@ -19,7 +19,7 @@ export interface EntryForm {
   payer?: string
 }
 
-export type EntryProblem = 'keyMissing' | 'keyInvalid' | 'keyListed' | 'payerInvalid' | 'reasonMissing' | 'reasonTooLong' | 'expiryInvalid' | 'expiryPast'
+export type EntryProblem = 'keyMissing' | 'keyInvalid' | 'payerInvalid' | 'reasonMissing' | 'reasonTooLong' | 'expiryInvalid' | 'expiryPast'
 
 const PATIENT_KEY = /^[12]\d{9}$/
 const SUBSCRIBER_ID = /^\S{1,40}$/
@@ -35,17 +35,24 @@ const payerOf = (form: EntryForm, kind: KeyedListKind) => (kind === 'class' ? (f
 
 /**
  * What makes an entry one: its key, and on a class list its insurer too (the same class with and without a payer
- * are two entries). `listed` passed to `entryProblems` holds these.
+ * are two entries). `listed` passed to `entryAction` holds these.
  */
 export const entryIdentity = (key: string, payer?: string | null): string => `${key}|${payer ?? ''}`
 
-export function entryProblems(form: EntryForm, kind: KeyedListKind, listed: readonly string[], today: LocalDate): EntryProblem[] {
+/**
+ * What the POST does (3133, 3172): a key (+ insurer, on a class list) not on the list is added; one already there has
+ * its reason and expiry REPLACED (HQ logs it `change`, and `addedBy` becomes the session's user).
+ */
+export function entryAction(form: EntryForm, kind: KeyedListKind, listed: readonly string[]): 'add' | 'change' {
+  return listed.includes(entryIdentity(keyOf(form, kind), payerOf(form, kind))) ? 'change' : 'add'
+}
+
+export function entryProblems(form: EntryForm, kind: KeyedListKind, today: LocalDate): EntryProblem[] {
   const out: EntryProblem[] = []
   const key = keyOf(form, kind)
   const payer = payerOf(form, kind)
   if (!key) out.push('keyMissing')
   else if (!KEY_RULE[kind].test(key)) out.push('keyInvalid')
-  else if (listed.includes(entryIdentity(key, payer))) out.push('keyListed')
   if (payer && !PAYER.test(payer)) out.push('payerInvalid')
   const reason = form.reason.trim()
   if (!reason) out.push('reasonMissing')

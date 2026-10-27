@@ -149,6 +149,18 @@
     "class": {
       "inList": "فئة الوثيقة ضمن قائمة الفئات <list>{{list}}</list>"
     },
+    "request": {
+      "anyOf": "<field>{{field}}</field> في الطلب أحد <codes>{{codes}}</codes>",
+      "inList": "<field>{{field}}</field> في الطلب ضمن القائمة <list>{{list}}</list>",
+      "field": {
+        "payer": "الجهة الدافعة",
+        "policy": "الوثيقة",
+        "class": "فئة الوثيقة",
+        "channel": "القناة",
+        "store": "الفرع",
+        "pharmacist": "الصيدلي"
+      }
+    },
     "group": {
       "all": "كل ما يلي صحيح",
       "any": "أيٌّ مما يلي صحيح",

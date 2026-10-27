@@ -9,6 +9,7 @@ import {
   canAddGroup,
   listOfAlias,
   newCondition,
+  paletteBlockOf,
   removeCondition,
   removeDaysFor,
   setDaysFor,
@@ -17,8 +18,10 @@ import {
   updateCondition,
   withListFilter,
   type ConditionPath,
+  type PaletteBlock,
 } from '@/core/insurance-rules/guard-edit'
-import { HISTORY_NARROWS, type GuardCheck, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
+import Ltr from '@/core/ui/Ltr'
+import { HISTORY_NARROWS, requestListField, type RequestCondition, type GuardCondition, type GuardList, type GuardMatch, type GuardRule, type HistoryCondition, type LineCondition, type SupplyCondition } from '@/core/insurance-rules/model'
 import type { KeyedListKind, RegistryField } from '@/core/insurance-rules/registry'
 import { fieldsQuery, keyedListsQuery } from '@/core/insurance-rules/registry-api'
 import { dateFields, factFields, factKind, factPath, fieldOfPath, lineFields, unitKey } from '@/core/insurance-rules/registry-facts'
@@ -88,7 +91,7 @@ function AddCondition({ ctx, parent }: { ctx: Ctx; parent: ConditionPath }) {
         data-add-condition={pathKey(parent)}
         className="w-64"
         onChange={(e) => {
-          const check = e.target.value as GuardCheck
+          const check = e.target.value as PaletteBlock
           if (!check) return
           ctx.edit((r) => ({ ...r, when: addCondition(r.when, parent, newCondition(check)) }))
         }}
@@ -190,13 +193,13 @@ function BlockRow({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { che
     <div
       className={`flex flex-col gap-1.5 rounded-md border bg-card p-2 ${issues.length ? 'border-danger-border' : 'border-border/60'}`}
       data-block={pathKey(path)}
-      data-check={c.check}
+      data-check={paletteBlockOf(c)}
       data-not={c.not ? 'true' : 'false'}
     >
       <div className="flex flex-wrap items-center gap-2">
         <NotToggle ctx={ctx} c={c} path={path} />
         <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium" data-block-label="">
-          {t(`editor.block.${c.check}`)}
+          {t(`editor.block.${paletteBlockOf(c)}`)}
         </span>
         <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
           <BlockFields ctx={ctx} c={c} path={path} />
@@ -557,18 +560,46 @@ function BlockFields({ ctx, c, path }: { ctx: Ctx; c: Exclude<GuardCondition, { 
       )
     }
     case 'patient':
-    case 'policy':
       return (
-        <Field label={t(`editor.field.${c.check}List`)}>
-          <KeyedListSelect kind={c.check} value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }))} />
+        <Field label={t('editor.field.patientList')}>
+          <KeyedListSelect kind="patient" value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }))} />
         </Field>
       )
-    case 'request':
+    case 'request': {
+      // Switch on the field: `policy` / `class` with `inList` is a team list; any other request block (a payer or
+      // a class read by codes, a field this build does not know) shows its field and its codes.
+      const listField = requestListField(c)
+      if (listField)
+        return (
+          <Field label={t(`editor.field.${listField}List`)}>
+            <KeyedListSelect kind={listField} value={c.inList ?? ''} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
+          </Field>
+        )
       return (
-        <Field label={t('editor.field.classList')}>
-          <KeyedListSelect kind="class" value={c.inList} invalid={bad('inList')} onPick={(id) => set((x) => ({ ...x, inList: id }) as GuardCondition)} />
-        </Field>
+        <>
+          <Field label={t('editor.field.requestField')}>
+            <code className="font-mono text-xs" data-input="requestField">
+              <Ltr>{c.field}</Ltr>
+            </code>
+          </Field>
+          <Field label={t('editor.field.codes')}>
+            <CodesInput
+              value={c.anyOf ?? (c.inList !== undefined ? [c.inList] : [])}
+              invalid={bad('anyOf') || bad('inList')}
+              title={t('editor.codesHint')}
+              data-input="codes"
+              onCodes={(codes) =>
+                set((x) => {
+                  const { inList: _drop, ...rest } = x as RequestCondition
+                  void _drop
+                  return { ...rest, anyOf: codes }
+                }, 'anyOf')
+              }
+            />
+          </Field>
+        </>
       )
+    }
     case 'fact': {
       const def = fieldOfPath(fields, c.path)
       const isNumber = def ? factKind(def) === 'number' : typeof c.value === 'number'

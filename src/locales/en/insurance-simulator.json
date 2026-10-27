@@ -59,6 +59,8 @@
       "itemDefault": "from the item master (no category rule matched)",
       "none": "No category: no rule matched and the item has none.",
       "failed": "The category could not be read.",
+      "unknowns": "Category rules that could not decide:",
+      "version": "category rules version <v>{{version}}</v>",
       "group": {
         "G1": "Generic",
         "G2": "Brand",
@@ -108,6 +110,7 @@
     "current": "It is the draft's current revision.",
     "stale": "The draft has changed since (now revision {{revision}}): run it again before asking for approval.",
     "window": "Replayed {{days}} days from {{since}}.",
+    "windowNoSince": "Replays {{days}} days.",
     "requestedBy": "Requested by"
   },
   "tiles": {

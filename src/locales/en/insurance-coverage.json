@@ -16,6 +16,7 @@
     "units": "units",
     "sar": "SAR",
     "percent": "%",
+    "percentOf": "{{n}}%",
     "characters": "characters"
   },
   "group": {
@@ -94,6 +95,7 @@
     },
     "not": "NOT",
     "notHint": "Turn the condition around: it holds when this does not.",
+    "requestReads": "The request's {{field}} is any of {{codes}} (kept as written; this screen does not edit it)",
     "remove": "Remove the condition",
     "mode": "Group mode",
     "all": "All of",
@@ -154,10 +156,14 @@
   },
   "reads": {
     "setsCategory": "Sets the category to",
-    "deductible": "Deductible",
-    "capped": "at most",
-    "priceCap": "The insurer pays at most",
-    "segment": "Invoice segment",
+    "deductible": {
+      "both": "Deductible <v>{{percent}}</v> · at most <v>{{max}}</v> SAR",
+      "percent": "Deductible <v>{{percent}}</v> · no cap",
+      "max": "Deductible as the insurer says · at most <v>{{max}}</v> SAR",
+      "none": "Deductible as the insurer says · no cap"
+    },
+    "priceCap": "The insurer pays at most <v>{{value}}</v> SAR",
+    "segment": "Invoice segment <b>{{segment}}</b>",
     "covered": {
       "yes": "Covered",
       "no": "Not covered"
@@ -170,8 +176,8 @@
       "yes": "Exception prescriptions allowed",
       "no": "No exception prescriptions"
     },
-    "quantityCap": "At most",
-    "daysSupplyCap": "At most"
+    "quantityCap": "At most <v>{{value}}</v> units",
+    "daysSupplyCap": "At most <v>{{value}}</v> days"
   },
   "insurers": {
     "title": "Insurer settings",
@@ -247,7 +253,33 @@
     "byAt": "Who, when",
     "note": "Note",
     "noNote": "No note",
-    "created": "Created the insurer."
+    "created": "Created the insurer.",
+    "field": {
+      "payer": "Insurer",
+      "hasFixedDiscount": "Has a fixed discount",
+      "fixedDiscountPct": "Fixed discount (%)",
+      "receivableCustomer": "Receivable customer",
+      "createsInsuranceCoupon": "Creates an insurance coupon",
+      "memberId": {
+        "minLength": "Membership id: at least",
+        "maxLength": "Membership id: at most",
+        "pattern": "Membership id: pattern"
+      },
+      "daysSupply": {
+        "min": "Days of supply: at least",
+        "max": "Days of supply: at most",
+        "default": "Days of supply: default"
+      },
+      "directDispense": "Direct dispense",
+      "fullQuantityReturnsOnly": "Returns only of the full quantity",
+      "brandMaxWhenZero": "Brand maximum when the benefit is zero",
+      "benefitCategories": {
+        "source": "Benefit code {{n}}: read from",
+        "code": "Benefit code {{n}}: code",
+        "meaning": "Benefit code {{n}}: means"
+      },
+      "payerPins": "Payer pin {{n}}"
+    }
   },
   "source": {
     "benefit": "Benefit",
@@ -272,7 +304,9 @@
   },
   "ruleProblem": {
     "noEffect": "The rule sets nothing yet: pick one value.",
-    "oneEffect": "A rule sets one value only: split it into one rule per value.",
+    "mixedEffects": "A rule sets one kind of value only: split it into one rule per kind.",
+    "deductiblePercent": "The deductible percent must be between 0 and 100.",
+    "deductibleEmpty": "The deductible states nothing: give a percent, a maximum, or both.",
     "invoiceReadsLine": "An invoice value cannot read the line: remove the item and line conditions, or set a line value."
   }
 }

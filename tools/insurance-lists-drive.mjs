@@ -215,7 +215,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4. a bad key and no reason are refused in words`, (await page.locator('[data-entry-problems] [data-problem="keyInvalid"]').count()) === 1 && (await page.locator('[data-entry-problems] [data-problem="reasonMissing"]').count()) === 1 && writesOf(state, 'addEntry').length === 0)
     await page.locator('[data-entry-key]').fill('1012345678')
     await page.locator('[data-entry-reason]').fill('x')
-    check(`${dir} 4. a key already on the list is refused`, (await page.locator('[data-entry-problems] [data-problem="keyListed"]').count()) === 1)
+    check(`${dir} 4. a key already on the list is a change, not a refusal: the button and a hint say so`, (await page.locator('[data-entry-add="change"]').count()) === 1 && (await page.locator('[data-entry-change]').count()) === 1 && (await page.locator('[data-entry-problems] [data-problem]').count()) === 0)
     await page.locator('[data-entry-key]').fill('1055555555')
     await page.locator('[data-entry-reason]').fill("Minister's family")
     await page.locator('[data-entry-expires]').fill('2027-06-30')
@@ -276,7 +276,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-entry-add]').click()
     check(`${dir} 4b. a class with "|" is refused in words`, (await page.locator('[data-entry-problems] [data-problem="keyInvalid"]').count()) === 1 && writesOf(state, 'addEntry').length === 0)
     await page.locator('[data-entry-key]').fill('vip')
-    check(`${dir} 4b. VIP for any insurer is already on the list`, (await page.locator('[data-entry-problems] [data-problem="keyListed"]').count()) === 1)
+    check(`${dir} 4b. VIP for any insurer is already on the list: a change`, (await page.locator('[data-entry-add="change"]').count()) === 1 && (await page.locator('[data-entry-change]').count()) === 1)
 
     // one insurer
     await page.locator('[data-entry-key]').fill('silver')
@@ -303,6 +303,19 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 4b. …and it counts today: not expired`, (await page.locator('[data-entry="GOLD|"]').getAttribute('data-expired')) === 'false')
     const logTop = page.locator('[data-keyed-log] [data-log-row]').first()
     check(`${dir} 4b. …logged with "any insurer"`, (await logTop.getAttribute('data-log-row')) === 'add' && (await logTop.locator('[data-log-insurer=""]').count()) === 1)
+
+    // a change: VIP for any insurer is already listed, so the POST replaces its reason and expiry (HQ logs `change`)
+    await page.locator('[data-entry-key]').fill('vip')
+    await page.locator('[data-entry-reason]').fill('VIP renewed for next year')
+    await page.locator('[data-entry-expires]').fill('2027-12-31')
+    check(`${dir} 4b. a listed class reads as a change before the save`, (await page.locator('[data-entry-add="change"]').count()) === 1 && (await page.locator('[data-entry-change]').count()) === 1)
+    await page.locator('[data-entry-add]').click()
+    await page.waitForFunction(() => document.querySelector('[data-keyed-log] [data-log-row]')?.getAttribute('data-log-row') === 'change', null, { timeout: 5000 }).catch(() => {})
+    add = writesOf(state, 'addEntry')
+    check(`${dir} 4b. the change is the same POST: { key, reason, expiresOn }, no payer`, add.length === 3 && JSON.stringify(add[2].body) === JSON.stringify({ key: 'VIP', reason: 'VIP renewed for next year', expiresOn: '2027-12-31' }), JSON.stringify(add[2]?.body))
+    check(`${dir} 4b. …still one VIP entry, its reason and expiry replaced`, (await page.locator('[data-entry="VIP|"]').count()) === 1 && strip(await page.locator('[data-entry="VIP|"]').innerText()).includes('VIP renewed for next year') && strip(await page.locator('[data-entry="VIP|"] [data-entry-expiry]').innerText()) === '2027-12-31')
+    check(`${dir} 4b. …logged as a change; the split stays 2/2`, (await page.locator('[data-keyed-log] [data-log-row]').first().getAttribute('data-log-row')) === 'change' && (await page.locator('[data-class-split]').getAttribute('data-class-split')) === '2/2')
+    check(`${dir} 4b. …and the form is back to Add`, (await page.locator('[data-entry-add="add"]').count()) === 1 && (await page.locator('[data-entry-key]').inputValue()) === '')
 
     // a day later it has expired
     state.today = riyadhDay(1)

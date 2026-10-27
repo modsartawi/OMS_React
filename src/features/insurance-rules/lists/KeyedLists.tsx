@@ -22,7 +22,7 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { localToday } from '@/core/util/date-window'
 import { entriesQuery, keyedListKey, listsApi, logQuery } from './api'
-import { entryBody, entryIdentity, entryProblems, newListBody, newListProblems, type EntryForm, type NewListForm } from './entry-form'
+import { entryAction, entryBody, entryIdentity, entryProblems, newListBody, newListProblems, type EntryForm, type NewListForm } from './entry-form'
 import { CARD } from './ui'
 import { DeniedCard, Loading } from '@/core/insurance-rules/parts'
 
@@ -170,20 +170,25 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
   const [tried, setTried] = useState(false)
   const [removing, setRemoving] = useState<KeyedListEntry | null>(null)
   const listed = (entries.data ?? []).map((e) => entryIdentity(e.key, e.payer))
-  const problems = entryProblems(form, kind, listed, localToday())
+  const problems = entryProblems(form, kind, localToday())
+  // A key (+ insurer) already on the list is a CHANGE: HQ replaces its reason and expiry and logs `change`.
+  const action = entryAction(form, kind, listed)
   const isClass = kind === 'class'
   const lang = i18n.language
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: keyedListKey(kind, list.id) }), qc.invalidateQueries({ queryKey: keyedListsKey(kind), exact: true })])
   const add = useMutation({
-    mutationFn: () => listsApi.addEntry(kind, list.id, entryBody(form, kind)),
-    onSuccess: (entry) => {
-      notify.success(t('keyed.added'), fsi(entry?.key ?? entryBody(form, kind).key))
+    mutationFn: (_action: 'add' | 'change') => listsApi.addEntry(kind, list.id, entryBody(form, kind)),
+    onSuccess: (entry, done) => {
+      notify.success(t(done === 'change' ? 'keyed.changed' : 'keyed.added'), fsi(entry?.key ?? entryBody(form, kind).key))
       setForm(BLANK)
       setTried(false)
       return refresh()
     },
-    onError: (err) => notify.apiError(t('keyed.addFailed'), err, isBareDenial(err) ? t('access.deniedHint') : t('keyed.addFailed')),
+    onError: (err, done) => {
+      const failed = t(done === 'change' ? 'keyed.changeFailed' : 'keyed.addFailed')
+      notify.apiError(failed, err, isBareDenial(err) ? t('access.deniedHint') : failed)
+    },
   })
   const remove = useMutation({
     mutationFn: ({ entry, reason }: { entry: KeyedListEntry; reason: string }) => listsApi.removeEntry(kind, list.id, entry, reason),
@@ -195,7 +200,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
   })
   const submit = () => {
     setTried(true)
-    if (problems.length === 0 && !add.isPending) add.mutate()
+    if (problems.length === 0 && !add.isPending) add.mutate(action)
   }
   const shown = tried ? problems : []
   const forOne = (entries.data ?? []).filter((e) => !!e.payer).length
@@ -242,10 +247,15 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
         <Field label={t('keyed.expiresOn')}>
           <Input type="date" value={form.expiresOn} onChange={(e) => setForm({ ...form, expiresOn: e.target.value })} data-entry-expires="" />
         </Field>
-        <Button type="submit" variant="primary" aria-disabled={add.isPending} data-entry-add="">
+        <Button type="submit" variant="primary" aria-disabled={add.isPending} data-entry-add={action}>
           {add.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-          {t('keyed.add')}
+          {t(action === 'change' ? 'keyed.change' : 'keyed.add')}
         </Button>
+        {action === 'change' && (
+          <p className={`text-xs text-attention-800 ${isClass ? 'md:col-span-5' : 'md:col-span-4'}`} data-entry-change="">
+            {t('keyed.changeHint')}
+          </p>
+        )}
         {shown.length > 0 && (
           <ul className={`text-xs text-danger-800 ${isClass ? 'md:col-span-5' : 'md:col-span-4'}`} role="alert" data-entry-problems="">
             {shown.map((p) => (
@@ -261,7 +271,7 @@ function KeyedListPanel({ kind, list }: { kind: KeyedListKind; list: KeyedList }
         <h3 className="text-sm font-semibold">{t('keyed.entries')}</h3>
         {isClass && entries.data && entries.data.length > 0 && (
           <p className="text-xs text-muted-foreground" data-class-split={`${forOne}/${forAny}`}>
-            {t('keyed.class.forOne', { count: forOne, n: fsi(forOne) })} {t('keyed.class.forAny', { count: forAny, n: fsi(forAny) })}
+            {t('keyed.class.split', { forOne: fsi(forOne), forAny: fsi(forAny) })}
           </p>
         )}
         {entries.isError ? (

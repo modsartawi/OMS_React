@@ -1,5 +1,7 @@
 import type { KeySentence, SentenceValue } from '@/core/rules/sentence'
 import {
+  REQUEST_FIELDS,
+  requestListField,
   severityRank,
   type GuardCheck,
   type GuardCondition,
@@ -94,7 +96,8 @@ export function conditionSentence(c: GuardCondition, ctx: GuardSentenceContext):
     return { check: 'group', not, sentence: S(key), clauses: [], children: c.conditions.map((x) => conditionSentence(x, ctx)) }
   }
   const { sentence, clauses } = leafSentence(c, ctx)
-  return { check: c.check, not, sentence: not ? S('not', { inner: { kind: 'phrase', sentence } }) : sentence, clauses }
+  // A request list block is named by the list it matches on (`policy` / `class`), as the palette offers it.
+  return { check: requestListField(c) ?? c.check, not, sentence: not ? S('not', { inner: { kind: 'phrase', sentence } }) : sentence, clauses }
 }
 
 function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: GuardSentenceContext): { sentence: KeySentence; clauses: KeySentence[] } {
@@ -150,10 +153,16 @@ function leafSentence(c: Exclude<GuardCondition, { check: 'group' }>, ctx: Guard
       return { sentence: S('formulary.any'), clauses }
     case 'patient':
       return { sentence: S('patient.inList', { list: code(c.inList) }), clauses }
-    case 'policy':
-      return { sentence: S('policy.inList', { list: code(c.inList) }), clauses }
-    case 'request':
-      return { sentence: S('class.inList', { list: code(c.inList) }), clauses }
+    case 'request': {
+      // Switch on the field: only `policy` / `class` with `inList` is a list block (3133, 3172).
+      const listField = requestListField(c)
+      if (listField) return { sentence: S(`${listField}.inList`, { list: code(c.inList ?? '') }), clauses }
+      const field: SentenceValue = (REQUEST_FIELDS as readonly string[]).includes(c.field) ? phrase(`request.field.${c.field}`) : code(String(c.field ?? ''))
+      // `inList` on another field is refused by HQ at its blockPath; it still reads as what it says.
+      if (c.inList !== undefined) return { sentence: S('request.inList', { field, list: code(c.inList) }), clauses }
+      const codes = c.anyOf ?? []
+      return { sentence: S('request.anyOf', { field, codes: { kind: 'list', join: 'or', items: codes.map(code) } }), clauses }
+    }
     case 'fact': {
       const field = fieldOfPath(ctx.fields ?? [], c.path)
       const fact: SentenceValue = field ? { kind: 'says', says: field.label } : code(c.path)

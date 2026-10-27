@@ -113,3 +113,23 @@ sentence reads both.
   617's Insurers page.
 - The add form still refuses a key already listed (`keyListed`) — HQ would treat that POST as a `change`
   (replace reason / expiry). No "change" UI; an expired entry is revived only by remove + add.
+
+**2026-10-28 · review fixes (branch impl/3126r-fix, off spec/3126-reconcile).**
+- Request-block grammar: every `check: "request"` block is now read by its `field` (`requestListField` in core
+  `model.ts`). The policy-list block moved from `{ check: "policy", inList }` to the brief's
+  `{ check: "request", field: "policy", inList }` everywhere (model `RequestCondition`, guard palette, guard and
+  coverage editors, sentence, template blanks, stubs, drives). A request block on another field (`payer | channel |
+  store | pharmacist` with `anyOf`, `class` with `anyOf`, or a field this build does not know) reads as that
+  field and its codes, never as a list block. Test: the seeded C-SABIC block (`sabic-policies`) reads as a policy
+  list. This supersedes the "not moved here" note above.
+- Insurers: ONE query, `insurerSettingsQuery` in core `registry-api` (the settings rows, `InsurerSettings` now in
+  core `insurer-settings.ts`); the class-list picker's `insurersQuery` derives `Insurer[]` with `select` (drops
+  `*`, defined once as `ESTATE_DEFAULT`). No two types under one cache key any more.
+- Class-list (and patient / policy) entry change: a POST for a key (+ insurer) already listed is a **change** — the
+  button reads "Save change", a hint says the reason and expiry are replaced, the toast says "Entry changed"; the
+  `keyListed` refusal is gone (`entryAction`). The stub logs it `change`; the lists drive changes VIP for any
+  insurer and reads the change log.
+- `keyed.class.forOne` + `forAny` merged into one interpolated `keyed.class.split` (en + ar).
+- Proof boxes: all three were already ticked; status stays `done`.
+- Gates: typecheck, lint, `npm test` (7154) green; drives lists 200/200, coverage 172/172, simulator 122/122,
+  approvals 126/126, rules 86/86, guard-editor 106/106, templates 90/90 (all stubbed).

@@ -108,6 +108,8 @@
     },
     "added": "Entry added",
     "addFailed": "The entry could not be added",
+    "changed": "Entry changed",
+    "changeFailed": "The entry could not be changed",
     "removed": "Entry removed",
     "removeFailed": "The entry could not be removed",
     "removeConfirm": "Remove {{key}} from {{list}}? The change is logged with your reason.",
@@ -116,6 +118,8 @@
     "reason": "Reason",
     "expiresOn": "Expires on",
     "add": "Add",
+    "change": "Save change",
+    "changeHint": "This key is already on the list: saving replaces its reason and expiry (logged as a change).",
     "entries": "Entries",
     "noEntry": "The list has no entry.",
     "addedBy": "Added by",
@@ -130,10 +134,7 @@
       "lede": "By policy class code, for one insurer or for any insurer. A rule can test a class against a list, or leave its classes out.",
       "key": "Policy class",
       "newTitle": "New class list",
-      "forOne_one": "{{n}} entry is for one insurer;",
-      "forOne_other": "{{n}} entries are for one insurer;",
-      "forAny_one": "{{n}} is for any insurer.",
-      "forAny_other": "{{n}} are for any insurer."
+      "split": "For one insurer: {{forOne}} · for any insurer: {{forAny}}"
     },
     "insurer": "Insurer",
     "anyInsurer": "Any insurer",
@@ -148,7 +149,6 @@
   "entryProblem": {
     "keyMissing": "Enter the key.",
     "keyInvalid": "This key is not valid: a National ID or Iqama is 10 digits starting with 1 or 2; a SubscriberId has no spaces; a policy class is up to 29 characters with no \"|\".",
-    "keyListed": "This key is already on the list.",
     "reasonMissing": "Give a reason.",
     "reasonTooLong": "The reason is longer than 200 characters.",
     "expiryInvalid": "The expiry is not a date.",

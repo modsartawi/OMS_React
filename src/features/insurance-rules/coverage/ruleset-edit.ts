@@ -109,15 +109,23 @@ export function readsLine(when: readonly GuardCondition[]): boolean {
   return when.some((c) => (c.check === 'group' ? readsLine(c.conditions) : LINE_CHECKS.has(c.check) || (c.check === 'fact' && LINE_PATH.test(c.path))))
 }
 
-export type CoverageRuleProblem = 'noEffect' | 'oneEffect' | 'invoiceReadsLine'
-export const COVERAGE_RULE_PROBLEMS: readonly CoverageRuleProblem[] = ['noEffect', 'oneEffect', 'invoiceReadsLine']
+export type CoverageRuleProblem = 'noEffect' | 'mixedEffects' | 'invoiceReadsLine' | 'deductiblePercent' | 'deductibleEmpty'
+export const COVERAGE_RULE_PROBLEMS: readonly CoverageRuleProblem[] = ['noEffect', 'mixedEffects', 'invoiceReadsLine', 'deductiblePercent', 'deductibleEmpty']
 
 /**
- * What the editor refuses in words on a coverage rule (3146): it sets ONE effect, and a rule setting an invoice
- * value (segment, exception prescriptions) reads no line block. HQ's Validate refuses them again.
+ * What the editor refuses in words on a coverage rule (3146): it sets at least one effect and ONE effect KIND (two
+ * effects of one kind are not refused here), a rule setting an invoice value (segment, exception prescriptions) reads
+ * no line block, and a deductible states a `percent` in 0–100 and/or a `max`. HQ's Validate refuses them again.
  */
 export function coverageRuleProblems(rule: Pick<CoverageRule, 'when' | 'then'>): CoverageRuleProblem[] {
   if (rule.then.length === 0) return ['noEffect']
-  if (rule.then.length > 1) return ['oneEffect']
-  return effectLevel(rule.then[0].effect) === 'invoice' && readsLine(rule.when) ? ['invoiceReadsLine'] : []
+  if (new Set(rule.then.map((e) => e.effect)).size > 1) return ['mixedEffects']
+  const out: CoverageRuleProblem[] = []
+  if (effectLevel(rule.then[0].effect) === 'invoice' && readsLine(rule.when)) out.push('invoiceReadsLine')
+  for (const e of rule.then) {
+    if (e.effect !== 'deductible') continue
+    if (e.percent !== undefined && !(e.percent >= 0 && e.percent <= 100)) out.push('deductiblePercent')
+    else if (e.percent === undefined && e.max === undefined) out.push('deductibleEmpty')
+  }
+  return [...new Set(out)]
 }

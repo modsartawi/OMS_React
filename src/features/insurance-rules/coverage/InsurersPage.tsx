@@ -6,6 +6,8 @@ import { Loader2, Plus, X } from 'lucide-react'
 
 import { apiErrorCode, apiErrorDetails, apiErrorMessage, isBareDenial } from '@/core/api'
 import { ByAt } from '@/core/insurance-rules/parts'
+import { insurerSettingsQuery } from '@/core/insurance-rules/registry-api'
+import { percentOf } from './Effects'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -15,7 +17,6 @@ import Input from '@/core/ui/Input'
 import LeaveGuard from '@/core/ui/LeaveGuard'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
-import { formatNumber } from '@/core/util/number-format'
 import { INSURER_SETTINGS_NOT_FOUND, insurersApi, INSURERS_KEY, settingsKey, settingsLogKey } from './api'
 import {
   BENEFIT_MEANINGS,
@@ -23,6 +24,7 @@ import {
   ESTATE_DEFAULT,
   blankSettings,
   settingsChanges,
+  settingsFieldWord,
   settingsProblems,
   type BenefitSource,
   type InsurerSettings,
@@ -44,7 +46,7 @@ import { CodeInput, NumberInput, Select } from '@/core/insurance-rules/controls'
 export default function InsurersPage() {
   const { t } = useTranslation('insurance-coverage')
   const [params, setParams] = useSearchParams()
-  const insurers = useQuery({ queryKey: INSURERS_KEY, queryFn: () => insurersApi.list(), retry: false })
+  const insurers = useQuery(insurerSettingsQuery())
   const rows = [...(insurers.data ?? [])].sort((a, b) => (a.payer === ESTATE_DEFAULT ? -1 : b.payer === ESTATE_DEFAULT ? 1 : a.payer.localeCompare(b.payer)))
   const payer = params.get('payer') ?? rows[0]?.payer ?? null
   const [typed, setTyped] = useState('')
@@ -77,8 +79,7 @@ export default function InsurersPage() {
                 )}
                 {ins.payer !== ESTATE_DEFAULT && ins.hasFixedDiscount && (
                   <span className="text-xs text-muted-foreground">
-                    {t('insurers.discount')} <Ltr>{formatNumber(ins.fixedDiscountPct)}</Ltr>
-                    {t('unit.percent')}
+                    {t('insurers.discount')} <Ltr>{percentOf(t, ins.fixedDiscountPct)}</Ltr>
                   </span>
                 )}
               </button>
@@ -393,9 +394,7 @@ function SettingsLog({ payer }: { payer: string }) {
                   <ul className="flex flex-col gap-0.5">
                     {settingsChanges(row.before, row.after).map((c) => (
                       <li key={c.field} data-log-change={c.field}>
-                        <code className="font-mono text-xs">
-                          <Ltr>{c.field}</Ltr>
-                        </code>{' '}
+                        <FieldWord path={c.field} />{' '}
                         <span className="text-muted-foreground">{t('log.from')}</span> <LogValue v={c.from} /> <span className="text-muted-foreground">{t('log.to')}</span> <LogValue v={c.to} />
                       </li>
                     ))}
@@ -407,6 +406,23 @@ function SettingsLog({ payer }: { payer: string }) {
         </table>
       )}
     </Card>
+  )
+}
+
+/** A settings field in words (a list row by its number, isolated); a path this build does not know, as written. */
+function FieldWord({ path }: { path: string }) {
+  const { t } = useTranslation('insurance-coverage')
+  const w = settingsFieldWord(path)
+  if (!w)
+    return (
+      <code className="font-mono text-xs" data-log-field="">
+        <Ltr>{path}</Ltr>
+      </code>
+    )
+  return (
+    <span className="font-medium" data-log-field={w.key}>
+      {w.n === undefined ? t(w.key) : t(w.key, { n: fsi(w.n) })}
+    </span>
   )
 }
 

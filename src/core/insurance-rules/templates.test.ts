@@ -128,6 +128,21 @@ describe('blankCandidates', () => {
   })
 })
 
+describe('blankCandidates — request blocks switch on field', () => {
+  it('offers a policy / class list as a blank, never a payer read by codes or a list on a field that takes none', () => {
+    const r = {
+      ...DUPLICATE.rule,
+      when: [
+        { check: 'request' as const, field: 'policy', inList: 'sabic-policies' },
+        { check: 'request' as const, field: 'class', inList: 'CL-GOLD' },
+        { check: 'request' as const, field: 'payer', anyOf: ['0001100041'] },
+        { check: 'request' as const, field: 'channel', inList: 'nonsense' },
+      ],
+    }
+    expect(blankCandidates(r).map((c) => c.path).filter((p) => p.startsWith('when'))).toEqual(['when[0].inList', 'when[1].inList'])
+  })
+})
+
 describe("the drive's phase-1 templates (3093)", () => {
   it('every blank points at a value of its rule, and each template has a name blank', () => {
     for (const t of TEMPLATES) {

@@ -13,6 +13,7 @@
 // An approved category / coverage document publishes LIVE: no shadow state per rule, no promote, no back-test.
 // No access probe yet: actions follow the draft's state and the user; HQ refuses a missing grant.
 import { api } from '@/core/api'
+import { INSURANCE_RULES_BASE } from './api'
 import type { GuardIssue } from './checks'
 
 export type RulesetDoorKind = 'Categories' | 'Coverage'
@@ -54,7 +55,7 @@ export const DRAFT_PENDING = 'GUARDS_DRAFT_PENDING'
 export const draftDocument = <T extends { revision: number }>(d: RulesetDraft<T>): T => ({ ...d.document, revision: d.revision })
 
 export function rulesetDoors<T extends { revision: number }>(kind: RulesetDoorKind) {
-  const base = `InsuranceRules/${kind}`
+  const base = `${INSURANCE_RULES_BASE}/${kind}`
   return {
     draft: (): Promise<RulesetDraft<T>> => api.get<RulesetDraft<T>>(`${base}/Draft`),
     save: (doc: T): Promise<RulesetDraft<T>> => api.put<RulesetDraft<T>>(`${base}/Draft`, doc),

@@ -176,23 +176,33 @@ export interface PatientCondition extends ConditionBase {
   inList: string
 }
 
-/**
- * The policy is on a policy list (by id). ⚠️ Off the built contract (BackOffice 3133 spells it
- * `{ check: "request", field: "policy", inList }`, as `ClassListCondition` below); 618 moves it over.
- */
-export interface PolicyCondition extends ConditionBase {
-  check: 'policy'
-  inList: string
-}
+/** The request fields a team list can be matched on (3133 policy, 3172 class): `{ check: "request", field, inList }`. */
+export const REQUEST_LIST_FIELDS = ['policy', 'class'] as const
+export type RequestListField = (typeof REQUEST_LIST_FIELDS)[number]
+
+/** The request fields a `request` block reads (3131). */
+export const REQUEST_FIELDS = ['payer', 'policy', 'class', 'channel', 'store', 'pharmacist'] as const
+export type RequestField = (typeof REQUEST_FIELDS)[number]
 
 /**
- * The request's policy class is on a class list (by id) — BackOffice 3172's spelling. The class read is the
- * request's `class`, else the eligibility answer's `coverage.class`; with no class anywhere it is unknown.
+ * A fact of the request (3131, 3133, 3172), read by its `field`:
+ * - `{ field: "policy" | "class", inList }` — the policy (`SubscriberId`) / the policy class is on a team list (by
+ *   id). The class read is the request's `class`, else the eligibility answer's `coverage.class`; with no class
+ *   anywhere it is unknown;
+ * - `{ field, anyOf }` — the field is any of these codes (a `class` here reads only the request's own class).
+ * `field` stays open: a field this build does not know still reads as itself, never as a list block.
  */
-export interface ClassListCondition extends ConditionBase {
+export interface RequestCondition extends ConditionBase {
   check: 'request'
-  field: 'class'
-  inList: string
+  field: RequestField | (string & {})
+  inList?: string
+  anyOf?: string[]
+}
+
+/** The team list a request block matches on (`policy` / `class`), or null when it is not a list block. */
+export function requestListField(c: { check: string; field?: unknown; inList?: unknown }): RequestListField | null {
+  if (c.check !== 'request' || typeof c.inList !== 'string') return null
+  return (REQUEST_LIST_FIELDS as readonly unknown[]).includes(c.field) ? (c.field as RequestListField) : null
 }
 
 /**
@@ -233,8 +243,7 @@ export type GuardCondition =
   | SfdaCondition
   | FormularyCondition
   | PatientCondition
-  | PolicyCondition
-  | ClassListCondition
+  | RequestCondition
   | FactCondition
   | FormulaCondition
   | GroupCondition

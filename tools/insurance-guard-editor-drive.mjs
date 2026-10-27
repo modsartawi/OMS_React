@@ -189,6 +189,7 @@ for (const dir of ['ltr', 'rtl']) {
   check(`${dir} 7. one PUT of the whole draft at revision 12`, store.puts.length === 1 && store.puts[0].revision === 12 && store.puts[0].rules.length === RULES.length + 1, `${store.puts.length} / ${store.puts[0]?.revision}`)
   const saved = store.puts[0]?.rules.find((r) => r.id === NEXT_ID)
   check(`${dir} 7. the saved conditions ARE G-007's`, saved && canon(saved.when) === canon(G007.when), canon(saved?.when))
+  check(`${dir} 7. the policy-list block goes out as { check: "request", field: "policy", inList }`, canon(saved?.when?.[0]?.conditions?.[2]?.conditions?.[1]) === canon({ check: 'request', field: 'policy', inList: 'PO-EXT' }), canon(saved?.when?.[0]?.conditions?.[2]?.conditions?.[1]))
   check(`${dir} 7. its list filter is G-007's`, saved && canon(saved.filters) === canon(G007.filters), canon(saved?.filters))
   check(
     `${dir} 7. its name, onUnknown and THEN are G-007's`,

@@ -225,7 +225,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.goto(`${BASE}/insurance-rules/coverage`)
     await page.locator('[data-rule-row="C-002"]').waitFor({ timeout: 60000 })
     check(`${dir} 3. each value carries its payer mark`, (await page.locator('[data-rule-row="C-002"] [data-payer-mark]').getAttribute('data-payer-mark')) === 'overrides' && (await page.locator('[data-rule-row="C-003"] [data-payer-mark]').getAttribute('data-payer-mark')) === 'fills')
-    check(`${dir} 3. a deductible's numbers are ltr isolates`, (await page.locator('[data-rule-row="C-003"] [data-effect-line="deductible"] bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent))).join(',') === '20,50')
+    check(`${dir} 3. a deductible's numbers are ltr isolates`, (await page.locator('[data-rule-row="C-003"] [data-effect-line="deductible"] bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent))).join(',') === '20%,50')
     check(`${dir} 3. no rule is in shadow (an approved coverage document is live)`, (await page.locator('[data-rule-row] [data-state="shadow"]').count()) === 0)
     await page.locator('[data-new-rule]').click()
     const ed = page.locator('[data-rule-editor="C-004"]')
@@ -245,6 +245,15 @@ for (const dir of ['ltr', 'rtl']) {
     const d = ed.locator('[data-effect="deductible"]')
     await d.waitFor()
     check(`${dir} 3. a new value applies where the payer said nothing until marked`, (await d.locator('[data-payer-mark]').getAttribute('data-payer-mark')) === 'fills' && (await input(d, 'percent').inputValue()) === '0' && (await input(d, 'max').inputValue()) === '' && (await ed.locator('[data-rule-problems]').count()) === 0)
+    await input(d, 'percent').fill('150')
+    await ed.locator('[data-rule-problem="deductiblePercent"]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 3. a deductible percent over 100 is refused in words before the save`, (await ed.locator('[data-rule-problem="deductiblePercent"]').count()) === 1)
+    await input(d, 'percent').fill('')
+    await ed.locator('[data-rule-problem="deductibleEmpty"]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 3. a deductible with neither percent nor max is refused in words`, (await ed.locator('[data-rule-problem="deductibleEmpty"]').count()) === 1)
+    await input(d, 'percent').fill('0')
+    await page.waitForFunction(() => !document.querySelector('[data-rule-editor="C-004"] [data-rule-problems]'), null, { timeout: 5000 }).catch(() => {})
+    check(`${dir} 3. …0 % reads again`, (await ed.locator('[data-rule-problems]').count()) === 0)
     await input(d, 'overridesPayer').check()
     check(`${dir} 3. marked: it overrides the payer — on the value, the row and the reads-as`,
       (await d.locator('[data-payer-mark]').getAttribute('data-payer-mark')) === 'overrides' &&
@@ -259,6 +268,7 @@ for (const dir of ['ltr', 'rtl']) {
     const put = writesOf(state, 'saveCoverage')
     const c = put[0]?.body?.rules?.find((r) => r.id === 'C-004')
     check(`${dir} 3. one PUT at revision 7; C-004 is "no deductible for these policies": deductible { percent: 0, overridesPayer: true }`, put.length === 1 && put[0].body.revision === 7 && c && canon({ name: c.name, folder: c.folder, when: c.when, then: c.then }) === canon(NO_DEDUCTIBLE), canon(c))
+    check(`${dir} 3. the policy-list block is saved as the brief spells it: { check: "request", field: "policy", inList }`, canon(c?.when?.[0]) === canon({ check: 'request', field: 'policy', inList: 'PO-SASREF' }), canon(c?.when?.[0]))
     check(`${dir} 3. new rules go last`, JSON.stringify(put[0]?.body?.rules?.map((r) => r.id)) === JSON.stringify(['C-002', 'C-003', 'C-004']))
 
     // a stale revision: someone saved in between

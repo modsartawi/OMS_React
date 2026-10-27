@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import { RuleId } from '@/core/insurance-rules/badges'
 import { INSURANCE_RULES_PATH } from '@/core/insurance-rules/model'
 import Ltr from '@/core/ui/Ltr'
+import { formatNumber } from '@/core/util/number-format'
 import { simulateCategories } from './api'
-import { categorySimulateBody, lineCategory } from './category'
+import { categorySimulateBody, lineCategory, type LineCategory } from './category'
 import type { SimulateBody } from './simulate'
 
 /**
@@ -30,7 +31,33 @@ export default function CategoryNote({ asked, line }: { asked: SimulateBody; lin
   const c = lineCategory(answer.data, line)
   if (!c) return null
   return (
-    <span className="ms-auto text-xs text-muted-foreground" data-line-category={c.group ?? ''} data-category-source={c.source} data-category-rule={c.ruleId ?? ''}>
+    <span className="ms-auto flex flex-col items-end gap-0.5 text-xs text-muted-foreground">
+      <Note c={c} />
+      {(c.version !== null || c.unknowns.length > 0) && (
+        <span className="flex flex-wrap items-center justify-end gap-1.5" data-category-meta="">
+          {c.unknowns.length > 0 && (
+            <span className="inline-flex flex-wrap items-center gap-1 text-attention-800" data-category-unknowns={c.unknowns.join(' ')}>
+              {t('result.category.unknowns')}
+              {c.unknowns.map((id) => (
+                <RuleId key={id} id={id} />
+              ))}
+            </span>
+          )}
+          {c.version !== null && (
+            <span data-category-version={c.version}>
+              <Trans t={t} i18nKey="result.category.version" values={{ version: formatNumber(c.version) }} components={{ v: <Ltr /> }} />
+            </span>
+          )}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function Note({ c }: { c: LineCategory }) {
+  const { t } = useTranslation('insurance-simulator')
+  return (
+    <span data-line-category={c.group ?? ''} data-category-source={c.source} data-category-rule={c.ruleId ?? ''}>
       {c.source === 'none' ? (
         t('result.category.none')
       ) : (

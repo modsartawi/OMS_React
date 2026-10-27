@@ -110,3 +110,10 @@ Untouched: the per-line category (`lineCategory`, step 5b — 617 re-points it),
 **Guesses still open for 618:** `unknowns` read as rule ids (a `{ ruleId }` object also read); trace `value` read
 after the block's NOT; `why` as `{ en, ar }` or one text; back-test `progress` as a 0–1 fraction; the list rows assumed
 to carry the full back-test (the panel reads them without a per-id read); `since` / `stopped.on` as `yyyy-MM-dd`.
+
+**2026-10-28 · review fixes (branch impl/3126r-fix).**
+- The simulator's per-line category (`CategoryNote` / `simulator/category.ts`) now shows the line's category
+  `unknowns` (rule ids, linked style `RuleId`, ltr) and the reply's `version` (an ltr isolate) — "Categories
+  `unknowns` not shown" is closed. The stub gives line 1 an unknown (K-002); the simulator drive checks both.
+- Back-test: the window line no longer renders "from ." when `since` is null (`backtest.windowNoSince`).
+- Simulator drive 122/122 (stubbed).

@@ -10,6 +10,7 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_BASE, INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { InsuranceRuleKind, InsuranceRuleset } from '@/core/insurance-rules/coverage-model'
+import { insurersKey } from '@/core/insurance-rules/registry-api'
 import { rulesetDoors as coreRulesetDoors, type RulesetDraft } from '@/core/insurance-rules/ruleset-draft'
 import type { InsurerSettings, SettingsLogRow } from './settings'
 
@@ -18,11 +19,8 @@ const settingsPath = (payer: string) => `${INSURANCE_RULES_BASE}/Insurers/${enco
 /** Insurer-settings refusal codes (3144). */
 export const INSURER_SETTINGS_NOT_FOUND = 'INSURER_SETTINGS_NOT_FOUND'
 
+/** `GET InsuranceRules/Insurers` is core's `insurerSettingsQuery` (one cache entry with 610's class-list picker). */
 export const insurersApi = {
-  /** `GET InsuranceRules/Insurers` — every insurer's settings, the estate default `*` among them. */
-  async list(): Promise<InsurerSettings[]> {
-    return (await api.get<InsurerSettings[] | null>(`${INSURANCE_RULES_BASE}/Insurers`)) ?? []
-  },
   /** `GET InsuranceRules/Insurers/{payer}/Settings`; an unknown insurer is 404 `INSURER_SETTINGS_NOT_FOUND`. */
   settings(payer: string): Promise<InsurerSettings> {
     return api.get<InsurerSettings>(settingsPath(payer))
@@ -46,7 +44,7 @@ export const doorKind = (kind: InsuranceRuleKind) => DOORS[kind]
 /** The draft doors of a category or coverage ruleset. */
 export const rulesetDoors = (kind: InsuranceRuleKind) => coreRulesetDoors<InsuranceRuleset>(DOORS[kind])
 
-export const INSURERS_KEY = [...INSURANCE_RULES_KEY, 'insurers'] as const
+export const INSURERS_KEY = insurersKey
 export const settingsKey = (payer: string) => [...INSURERS_KEY, payer, 'settings'] as const
 export const settingsLogKey = (payer: string) => [...INSURERS_KEY, payer, 'log'] as const
 export const rulesetDraftKey = (kind: InsuranceRuleKind) => [...INSURANCE_RULES_KEY, kind, 'draft'] as const

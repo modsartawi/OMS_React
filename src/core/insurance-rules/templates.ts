@@ -1,4 +1,4 @@
-import type { GuardRule, Says } from './model'
+import { requestListField, type GuardRule, type Says } from './model'
 
 // Guard templates (BackOffice spec 3126, door 3139; oms ticket 609). The gallery holds HQ's phase-1 templates
 // (`assets/3093-guard-templates.md`, each with its DUR conflict code) and team templates saved from a rule.
@@ -138,7 +138,7 @@ function conditionCandidates(c: unknown, at: string, out: BlankCandidate[]) {
     const path = `${at}.${k}`
     if (k === 'conditions' && Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'number') out.push({ path, value: v })
-    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || o.check === 'policy' || o.check === 'request')))) out.push({ path, value: v })
+    else if (typeof v === 'string' && (TEXT_KEYS.has(k) || (k === 'inList' && (o.check === 'patient' || requestListField(o as { check: string }) !== null)))) out.push({ path, value: v })
     else if (Array.isArray(v)) v.forEach((x, i) => conditionCandidates(x, `${path}[${i}]`, out))
     else if (typeof v === 'object' && v !== null) conditionCandidates(v, path, out)
   }

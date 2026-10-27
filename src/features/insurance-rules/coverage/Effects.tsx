@@ -1,4 +1,5 @@
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   CATEGORY_GROUPS,
   COVERAGE_SEGMENTS,
@@ -135,7 +136,15 @@ function EffectFields({ e, set }: { e: CoverageEffect; set: (e: CoverageEffect, 
       return (
         <>
           <Field label={t('effect.percent')} unit={t('unit.percent')}>
-            <NumberInput value={e.percent ?? null} nullable placeholder={t('effect.payerSays')} className="w-24" data-input="percent" onValue={(n) => put('percent', n)} />
+            <NumberInput
+              value={e.percent ?? null}
+              nullable
+              invalid={e.percent !== undefined && !(e.percent >= 0 && e.percent <= 100)}
+              placeholder={t('effect.payerSays')}
+              className="w-24"
+              data-input="percent"
+              onValue={(n) => put('percent', n)}
+            />
           </Field>
           <Field label={t('effect.max')} unit={t('unit.sar')}>
             <NumberInput value={e.max ?? null} nullable placeholder={t('effect.noCap')} className="w-24" data-input="max" onValue={(n) => put('max', n)} />
@@ -166,10 +175,15 @@ function EffectFields({ e, set }: { e: CoverageEffect; set: (e: CoverageEffect, 
 
 const CAP_UNIT = { priceCap: 'sar', quantityCap: 'units', daysSupplyCap: 'days' } as const
 
+/** A percent as ONE string ("15%"), its sign inside the value, so the renderer isolates the whole (bidi.md). */
+export const percentOf = (t: TFunction<'insurance-coverage'>, n: number): string => t('unit.percentOf', { n: formatNumber(n) })
+
 /** One coverage value read as words, its numbers isolated, with its payer mark. */
 export function CoverageEffectLine({ e }: { e: CoverageEffect }) {
   const { t } = useTranslation('insurance-coverage')
-  const n = (v: number) => <Ltr>{formatNumber(v)}</Ltr>
+  // One sentence per effect, its values in named slots: a value and its unit are one string, isolated once.
+  const slots = { v: <Ltr />, b: <strong /> }
+  const say = (key: string, values: Record<string, string> = {}) => <Trans t={t} i18nKey={key} values={values} components={slots} />
   let what
   switch (e.effect) {
     case 'covered':
@@ -177,44 +191,21 @@ export function CoverageEffectLine({ e }: { e: CoverageEffect }) {
     case 'exceptionPrescriptions':
       what = t(`reads.${e.effect}.${e.value ? 'yes' : 'no'}`)
       break
-    case 'deductible':
-      what = (
-        <>
-          {t('reads.deductible')}{' '}
-          {e.percent === undefined ? (
-            t('effect.payerSays')
-          ) : (
-            <>
-              {n(e.percent)}
-              {t('unit.percent')}
-            </>
-          )}
-          {e.max === undefined ? (
-            <> · {t('effect.noCap')}</>
-          ) : (
-            <>
-              {' · '}
-              {t('reads.capped')} {n(e.max)} {t('unit.sar')}
-            </>
-          )}
-        </>
-      )
+    case 'deductible': {
+      const which = e.percent === undefined ? (e.max === undefined ? 'none' : 'max') : e.max === undefined ? 'percent' : 'both'
+      what = say(`reads.deductible.${which}`, {
+        ...(e.percent !== undefined ? { percent: percentOf(t, e.percent) } : {}),
+        ...(e.max !== undefined ? { max: formatNumber(e.max) } : {}),
+      })
       break
+    }
     case 'priceCap':
     case 'quantityCap':
     case 'daysSupplyCap':
-      what = (
-        <>
-          {t(`reads.${e.effect}`)} {n(e.value)} {t(`unit.${CAP_UNIT[e.effect]}`)}
-        </>
-      )
+      what = say(`reads.${e.effect}`, { value: formatNumber(e.value) })
       break
     case 'segment':
-      what = (
-        <>
-          {t('reads.segment')} <strong>{t(`segment.${e.value}`)}</strong>
-        </>
-      )
+      what = say('reads.segment', { segment: t(`segment.${e.value}`) })
       break
   }
   return (

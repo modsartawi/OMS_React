@@ -58,7 +58,7 @@ const LIST_KEYS = [
   ...['include', 'exclude', 'articles', 'categories'].map((k) => `def.${k}`),
   ...['include', 'exclude', 'includeHint', 'excludeHint'].map((k) => `editor.${k}`),
   ...['cycle', 'tooDeep', 'unknownList', 'idTaken', 'idInvalid', 'nameMissing', 'emptyAttribute', 'emptyDefinition'].map((k) => `problem.${k}`),
-  ...['keyMissing', 'keyInvalid', 'keyListed', 'payerInvalid', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
+  ...['keyMissing', 'keyInvalid', 'payerInvalid', 'reasonMissing', 'reasonTooLong', 'expiryInvalid', 'expiryPast'].map((k) => `entryProblem.${k}`),
   ...['createList', 'add', 'change', 'remove'].map((k) => `logAction.${k}`),
   ...['idInvalid', 'idTaken', 'nameMissing'].map((k) => `listProblem.${k}`),
   ...KEYED_LIST_KINDS.flatMap((k) => ['none', 'lede', 'key', 'newTitle'].map((x) => `keyed.${k}.${x}`)),

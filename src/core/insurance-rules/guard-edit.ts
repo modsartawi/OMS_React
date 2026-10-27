@@ -2,6 +2,8 @@ import { bracedFields } from '@/core/rules/sentence'
 import {
   GUARD_CHANNELS,
   HISTORY_NARROWS,
+  requestListField,
+  type RequestListField,
   type GuardAudience,
   type GuardChannel,
   type GuardCheck,
@@ -140,19 +142,28 @@ export function toggleNot(conditions: GuardCondition[], path: ConditionPath): Gu
 
 // ── The palette ────────────────────────────────────────────────────────────────────────────
 
+/**
+ * What the palette offers: every block kind, the `request` block split by the team list it matches on —
+ * `policy` (`{ check: "request", field: "policy", inList }`) and `class` (`field: "class"`).
+ */
+export type PaletteBlock = Exclude<GuardCheck, 'request'> | RequestListField
+
+/** The palette entry a block is, for its label: a request list block by its field; any other request block reads `request`. */
+export const paletteBlockOf = (c: GuardCondition): PaletteBlock | 'request' => requestListField(c) ?? c.check
+
 /** The palette's groups, in order; each names the blocks it offers (ticket 608). */
-export const PALETTE: readonly { group: string; checks: readonly GuardCheck[] }[] = [
+export const PALETTE: readonly { group: string; checks: readonly PaletteBlock[] }[] = [
   { group: 'history', checks: ['history', 'supply'] },
   { group: 'volume', checks: ['volume'] },
   { group: 'line', checks: ['line'] },
   { group: 'reference', checks: ['sfda', 'formulary'] },
-  { group: 'patient', checks: ['patient', 'policy', 'request', 'fact'] },
+  { group: 'patient', checks: ['patient', 'policy', 'class', 'fact'] },
   { group: 'formula', checks: ['formula'] },
   { group: 'structure', checks: ['group'] },
 ]
 
 /** A new block from the palette, with the templates' defaults (3093). */
-export function newCondition(check: GuardCheck): GuardCondition {
+export function newCondition(check: PaletteBlock): GuardCondition {
   switch (check) {
     case 'history':
       return { check, match: 'sameItem', windowDays: 30, measure: 'dispenses', atLeast: 1, includeThisLine: false }
@@ -169,9 +180,8 @@ export function newCondition(check: GuardCheck): GuardCondition {
     case 'patient':
       return { check, inList: '' }
     case 'policy':
-      return { check, inList: '' }
-    case 'request':
-      return { check, field: 'class', inList: '' }
+    case 'class':
+      return { check: 'request', field: check, inList: '' }
     case 'fact':
       return { check, path: DEFAULT_FACT_PATH, op: 'atLeast', value: 0 }
     case 'formula':

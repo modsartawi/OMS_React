@@ -32,6 +32,51 @@
   "versions": {},
   "exceptions": {},
   "lookup": {},
-  "events": {},
+  "events": {
+    "title": "أحداث IDF",
+    "lede": "كل لحظة IDF عند الكاشير: ما تم مسحه، وما تم صرفه، وأي قائمة رئيسية قررت، وكيف انتهت.",
+    "loading": "جارٍ تحميل أحداث IDF…",
+    "failed": "تعذّر تحميل أحداث IDF.",
+    "empty": "لا توجد أحداث IDF تطابق هذه المرشحات.",
+    "anyOutcome": "أي نتيجة",
+    "anyMaster": "أي قائمة رئيسية",
+    "unknownMaster": "قائمة رئيسية غير معروفة",
+    "version": "الإصدار <v>{{number}}</v>",
+    "total": "الأحداث الموجودة: <v>{{total}}</v>",
+    "filter": {
+      "label": "تصفية الأحداث",
+      "from": "من",
+      "to": "إلى",
+      "store": "الصيدلية",
+      "payer": "الجهة الدافعة",
+      "master": "القائمة الرئيسية",
+      "outcome": "النتيجة",
+      "invalid": "اختر تاريخي بداية ونهاية صحيحين.",
+      "reversed": "تاريخ البداية بعد تاريخ النهاية.",
+      "tooLong": "اختر فترة سنة أو أقل.",
+      "outOfBounds": "الفترة خارج التواريخ التي يمكن قراءتها."
+    },
+    "columns": {
+      "at": "الوقت",
+      "store": "الصيدلية",
+      "payer": "الجهة الدافعة",
+      "documentType": "نوع المستند",
+      "itemScanned": "الصنف الممسوح",
+      "itemDispensed": "الصنف المصروف",
+      "master": "القائمة الرئيسية المقررة",
+      "outcome": "النتيجة",
+      "timeSpent": "الوقت المستغرق"
+    },
+    "outcome": {
+      "reminder": "تذكير",
+      "forcedPickTaken": "تم أخذ الاختيار الإلزامي",
+      "pickCancelled": "أُلغي الاختيار",
+      "lineAbandoned": "تُرك السطر",
+      "skippedByException": "تم التخطي باستثناء",
+      "refusedPreAuth": "مرفوض (موافقة مسبقة)",
+      "requestRaised": "تم رفع طلب",
+      "autoApproved": "موافقة تلقائية"
+    }
+  },
   "report": {}
 }

@@ -14,6 +14,8 @@
 import { api } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster } from './masters'
+import type { IdfEventsPage } from './events' // 626
+import { eventsDoorParams, type IdfEventsQuery } from './events-filter' // 626
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -45,5 +47,16 @@ export function mastersQuery() {
 // 625 · lookup — `idfLookupApi` (3168)
 
 // 626 · events — `idfEventsApi` (3167)
+export const IDF_EVENTS_KEY = [...IDF_KEY, 'events'] as const
+export const idfEventsApi = {
+  /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log. */
+  async events(q: IdfEventsQuery): Promise<IdfEventsPage> {
+    const page = await api.get<IdfEventsPage | null>(`${IDF_BASE}/events`, eventsDoorParams(q))
+    return page ?? { items: [], total: 0, page: q.page, pageSize: 0 }
+  },
+}
+export function eventsQuery(q: IdfEventsQuery) {
+  return { queryKey: [...IDF_EVENTS_KEY, eventsDoorParams(q)] as const, queryFn: () => idfEventsApi.events(q), retry: false } as const
+}
 
 // 627 · swap report and export — `idfReportApi` (3169)

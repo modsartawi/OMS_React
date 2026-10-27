@@ -128,6 +128,10 @@ export const insuranceRulesRoute: RouteObject = {
     // 625 · IDF lookup (e.g. `idf/lookup`)
 
     // 626 · IDF events (e.g. `idf/events`)
+    {
+      path: 'idf/events',
+      lazy: async () => ({ Component: (await import('@/features/insurance-rules/idf/EventsPage')).default }),
+    },
 
     // 627 · swap report (a tab of 626's page; a route only if it is its own)
   ],

@@ -9,6 +9,7 @@ import { ListOrdered } from 'lucide-react' // 619
 // 624 · icons
 // 625 · icons
 // 626 · icons
+import { History } from 'lucide-react' // 626
 import type { ShellMenuItem } from './menu-model'
 
 /**
@@ -135,5 +136,11 @@ export const INSURANCE_RULES_MENU: ShellMenuItem = {
     // 625 · IDF lookup (`menu.idfLookup`, `/insurance-rules/idf/lookup`)
 
     // 626 · IDF events (`menu.idfEvents`, `/insurance-rules/idf/events`; 627's swap report is its tab)
+    {
+      // 626 — the IDF event log, filtered by window, store, payer, master and outcome; 627's swap report is its tab.
+      labelKey: 'insurance-rules:menu.idfEvents',
+      icon: History,
+      routerLink: '/insurance-rules/idf/events',
+    },
   ],
 }

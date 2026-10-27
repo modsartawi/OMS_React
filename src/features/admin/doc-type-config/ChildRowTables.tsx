@@ -4,13 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { REASON_MAX } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { formatCount, formatPair, fsi } from '@/core/util/bidi'
+import { formatPair, fsi } from '@/core/util/bidi'
 import {
   CHILD_ROW_STALE_CODES,
   CHILD_ROWS_KEY,
@@ -31,6 +30,11 @@ import {
   type ChildRowMode,
   type ChildRowSpec,
 } from './child-rows'
+import { DOC_TYPE_CONFIG_ERRORS } from './api'
+import { CHANGE_LOG_KEY } from './change-log-api'
+import ReasonField from './ReasonField'
+import RereadNotice from './RereadNotice'
+import { useReReadDraft } from './use-reread-draft'
 
 /**
  * A document type's item-category assignment rows and plant network rows (BackOffice spec 3148 stories 21-25, 58;
@@ -48,6 +52,7 @@ export default function ChildRowTables({ code, canEdit }: { code: string; canEdi
 }
 
 type Row = { documentType: string }
+// The dialog holds the row's KEY (and the row as clicked, should it vanish); it gets the live row from the re-read list.
 type Editing<R> = { mode: ChildRowMode; loaded: R | null } | null
 
 function ChildRowTable<R extends Row>({ spec, code, canEdit }: { spec: ChildRowSpec<R>; code: string; canEdit: boolean }) {
@@ -117,7 +122,14 @@ function ChildRowTable<R extends Row>({ spec, code, canEdit }: { spec: ChildRowS
         </div>
       )}
       {canEdit && editing && (
-        <ChildRowDialog spec={spec} code={code} mode={editing.mode} loaded={editing.loaded} existing={rows} onClose={() => setEditing(null)} />
+        <ChildRowDialog
+          spec={spec}
+          code={code}
+          mode={editing.mode}
+          loaded={editing.loaded && (rows.find((r) => childRowKey(spec, r) === childRowKey(spec, editing.loaded!)) ?? editing.loaded)}
+          existing={rows}
+          onClose={() => setEditing(null)}
+        />
       )}
     </section>
   )
@@ -147,19 +159,22 @@ function ChildRowDialog<R extends Row>({
 }) {
   const { t } = useTranslation('doc-type-config')
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<R>(loaded ?? emptyChildRow(spec, code))
+  // An edit or remove sends the row it was built on; a re-read that moved that row rebuilds the draft (an add has none).
+  const { base, draft, reread, setDraft } = useReReadDraft<R>(true, loaded ?? emptyChildRow(spec, code), { track: loaded !== null })
+  const before = loaded === null ? null : base
   const [reasonText, setReasonText] = useState('')
   const listKey = childRowsQuery<R>(spec.id, code).queryKey
 
   const save = useMutation({
     mutationFn: async () => {
-      const body = childRowRequest(mode, loaded, draft, reasonText)
+      const body = childRowRequest(mode, before, draft, reasonText)
       if (mode === 'add') await childRowsApi.add(spec.id, code, body)
       else if (mode === 'edit') await childRowsApi.update(spec.id, code, body)
       else await childRowsApi.remove(spec.id, code, body)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: listKey })
+      void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
       notify.success(t(mode === 'remove' ? 'childRows.removed' : 'childRows.saved', { what: t(`childRows.${spec.id}.title`) }))
       onClose()
     },
@@ -168,7 +183,7 @@ function ChildRowDialog<R extends Row>({
     },
   })
 
-  const state = childRowState(spec, mode, loaded, draft, existing, reasonText)
+  const state = childRowState(spec, mode, before, draft, existing, reasonText)
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
   const columns = [...spec.keyFields, ...spec.valueFields]
@@ -261,36 +276,23 @@ function ChildRowDialog<R extends Row>({
           </table>
         )}
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('reason.label')}
-            <span className={'font-normal tabular-nums ' + (state.reason.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}>
-              <Ltr>{formatCount(state.reason.length, REASON_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={reasonText}
-            onChange={(e) => {
-              setReasonText(e.target.value)
-              save.reset()
-            }}
-            rows={2}
-            required
-            disabled={busy}
-            dir="auto"
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-child-reason=""
-          />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
-        {state.reason.problem === 'tooLong' && (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
-          </p>
-        )}
+        {reread && !save.isSuccess && <RereadNotice />}
+
+        <ReasonField
+          value={reasonText}
+          reason={state.reason}
+          disabled={busy}
+          errorCode={errorCode}
+          attr="child-reason"
+          rows={2}
+          onChange={(text) => {
+            setReasonText(text)
+            save.reset()
+          }}
+        />
 
         {save.isError &&
+          !(reread && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState) &&
           (isBareDenial(save.error) ? (
             <ErrorBanner className="p-2" message={t('edit.notGranted')} />
           ) : (

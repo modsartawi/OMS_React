@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { columnField, fieldDiff } from './field-diff'
+import { wireField } from './field-meta'
 
 const row = (action: string, before: unknown, after: unknown) => ({
   action,
@@ -81,6 +82,10 @@ describe('fieldDiff', () => {
 })
 
 describe('columnField', () => {
+  it("is the field metadata's own wireField, not a copy of it (review G)", () => {
+    expect(columnField).toBe(wireField)
+  })
+
   it('maps a column name to the screen field it labels', () => {
     expect(columnField('IsPickedOnOrder')).toBe('isPickedOnOrder')
     expect(columnField('DocumentType')).toBe('documentType')

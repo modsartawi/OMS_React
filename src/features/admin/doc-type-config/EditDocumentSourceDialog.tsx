@@ -15,7 +15,10 @@ import { CHANGE_LOG_KEY } from './change-log-api'
 import { setSourceField, sourceEditState, sourceSaveRequest } from './document-source-edit'
 import type { DocumentSourceSettings } from './document-source-types'
 import { DOCUMENT_SOURCES_KEY, DOCUMENT_SOURCE_ERRORS, documentSourcesApi } from './document-sources-api'
-import SourceFormFields, { SourceReason } from './SourceFormFields'
+import ReasonField from './ReasonField'
+import RereadNotice from './RereadNotice'
+import SourceFormFields from './SourceFormFields'
+import { useReReadDraft } from './use-reread-draft'
 
 /**
  * Edit a document source (BackOffice spec 3148; ticket 3156): its description and category; the code shown locked. Below
@@ -33,17 +36,17 @@ export default function EditDocumentSourceDialog({
 }) {
   const { t } = useTranslation('doc-type-config')
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState(loaded)
+  // `loaded` is the live row: a re-read that moved it rebuilds the draft (never fresh before + stale after).
+  const { base, draft, reread, setDraft } = useReReadDraft(open, loaded)
   const [reasonText, setReasonText] = useState('')
-  const [shown, setShown] = useState({ open, loaded })
-  if (shown.open !== open || shown.loaded !== loaded) {
-    setShown({ open, loaded })
-    setDraft(loaded)
+  const [shownOpen, setShownOpen] = useState(open)
+  if (shownOpen !== open) {
+    setShownOpen(open)
     setReasonText('')
   }
 
   const save = useMutation({
-    mutationFn: () => documentSourcesApi.update(loaded.documentSource, sourceSaveRequest(loaded, draft, reasonText)),
+    mutationFn: () => documentSourcesApi.update(base.documentSource, sourceSaveRequest(base, draft, reasonText)),
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: DOCUMENT_SOURCES_KEY })
       void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
@@ -55,10 +58,10 @@ export default function EditDocumentSourceDialog({
     },
   })
 
-  const state = sourceEditState(loaded, draft, reasonText)
+  const state = sourceEditState(base, draft, reasonText)
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
-  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState
+  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState && !reread
   const category = (v: string) => t(`documentSources.categories.${v.trim() || '_blank'}`, { defaultValue: v })
 
   return (
@@ -132,11 +135,14 @@ export default function EditDocumentSourceDialog({
           )}
         </section>
 
-        <SourceReason
+        {reread && !save.isSuccess && <RereadNotice />}
+
+        <ReasonField
           value={reasonText}
           reason={state.reason}
           disabled={busy}
-          invalid={errorCode === DOC_TYPE_CONFIG_ERRORS.reasonRequired}
+          errorCode={errorCode}
+          attr="source-reason"
           onChange={(text) => {
             setReasonText(text)
             save.reset()
@@ -144,6 +150,7 @@ export default function EditDocumentSourceDialog({
         />
 
         {save.isError &&
+          !(reread && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState) &&
           (isBareDenial(save.error) ? (
             <ErrorBanner className="p-2" message={t('edit.notGranted')} />
           ) : (

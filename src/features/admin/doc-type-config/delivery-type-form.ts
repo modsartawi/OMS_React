@@ -7,6 +7,7 @@
  * Pure: no React, no `t`.
  */
 import { reasonField, type ReasonCheck } from '@/core/reason/reason'
+import { CODE_MAX, copyState, normaliseCode, type CopyBlocker, type CopyState } from './copy-form'
 import { settingsRefusals, type FieldRefusal } from './settings-refusal'
 import type { DeliveryTypeCopyRequest, DeliveryTypeField, DeliveryTypeSettings, DeliveryTypeUpdateRequest } from './delivery-type-types'
 
@@ -23,6 +24,8 @@ export interface DeliveryFieldDef {
   integer?: boolean
   /** Picked from a list: the delivery categories, or the OMS document types. */
   choice?: 'category' | 'documentType'
+  /** Editable, but nothing in order processing reads it (labelled like the document type's billing settings). */
+  notRead?: boolean
 }
 
 export type DeliveryGroupId = 'identity' | 'callouts'
@@ -42,7 +45,8 @@ export const DELIVERY_FIELD_GROUPS: readonly { group: DeliveryGroupId; fields: r
       text('documentType', 4),
       text('description', 40, { freeText: true }),
       text('documentCategory', 1, { choice: 'category' }),
-      text('numberRangeNumber', 2),
+      // Delivery numbering never reads it (review of spec 3148): the server no longer checks it against NumberRange.
+      text('numberRangeNumber', 2, { notRead: true }),
       text('defaultDocumentType', 4, { choice: 'documentType' }),
     ],
   },
@@ -65,8 +69,8 @@ export const DELIVERY_ALL_FIELDS: readonly DeliveryFieldDef[] = DELIVERY_FIELD_G
 /** `DocumentCategoryConstants` Delivery and DeliveryReturn — the only categories a delivery type takes. */
 export const DELIVERY_CATEGORIES = ['D', 'T'] as const
 
-/** `DeliveryDocumentType.DocumentType` is VARCHAR(4). */
-export const DELIVERY_CODE_MAX = 4
+/** `DeliveryDocumentType.DocumentType` is VARCHAR(4), like a document type's code. */
+export const DELIVERY_CODE_MAX = CODE_MAX
 
 const LOCKED: ReadonlySet<DeliveryTypeField> = new Set<DeliveryTypeField>(['documentType', 'documentCategory'])
 
@@ -120,38 +124,13 @@ export function deliverySaveRequest(before: DeliveryTypeSettings, draft: Deliver
 
 // ── copy ────────────────────────────────────────────────────────────────────────────────────────
 
-const normaliseCode = (code: string): string => code.trim().toUpperCase()
+/** The copy form's code rule and copy state — one rule for document and delivery types (both codes VARCHAR(4)). */
+export { normaliseCode as deliveryNormaliseCode, copyState as deliveryCopyState }
+export type DeliveryCopyBlocker = CopyBlocker
+export type DeliveryCopyState = CopyState
 
 export function deliveryCopyDraft(source: DeliveryTypeSettings): DeliveryTypeSettings {
   return { ...source, documentType: '', description: '' }
-}
-
-export type DeliveryCopyBlocker = 'codeRequired' | 'codeTooLong' | 'codeExists' | 'descriptionRequired' | 'reason'
-
-export interface DeliveryCopyState {
-  code: string
-  reason: ReasonCheck
-  canSave: boolean
-  blocker: DeliveryCopyBlocker | null
-}
-
-export function deliveryCopyState(draft: DeliveryTypeSettings, reasonText: string, existingCodes: readonly string[]): DeliveryCopyState {
-  const code = normaliseCode(draft.documentType)
-  const reason = reasonField(reasonText)
-  const existing = new Set(existingCodes.map(normaliseCode))
-  const blocker: DeliveryCopyBlocker | null =
-    code.length === 0
-      ? 'codeRequired'
-      : code.length > DELIVERY_CODE_MAX
-        ? 'codeTooLong'
-        : existing.has(code)
-          ? 'codeExists'
-          : draft.description.trim().length === 0
-            ? 'descriptionRequired'
-            : reason.problem !== null
-              ? 'reason'
-              : null
-  return { code, reason, canSave: blocker === null, blocker }
 }
 
 export function deliveryCopyRequest(draft: DeliveryTypeSettings, reasonText: string): DeliveryTypeCopyRequest {

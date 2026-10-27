@@ -5,14 +5,14 @@ import { useNavigate } from 'react-router'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { REASON_MAX } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { DOC_TYPE_CONFIG_ERRORS, documentTypesQuery } from './api'
+import { CHANGE_LOG_KEY } from './change-log-api'
 import CodeChoiceSelect from './CodeChoiceSelect'
 import {
   DELIVERY_ALL_FIELDS,
@@ -34,6 +34,9 @@ import {
 import type { DeliveryTypeSettings } from './delivery-type-types'
 import { DELIVERY_TYPES_KEY, deliveryTypesApi, deliveryTypesQuery } from './delivery-types-api'
 import DeliveryTypeValueText from './DeliveryTypeValueText'
+import ReasonField from './ReasonField'
+import RereadNotice from './RereadNotice'
+import { useReReadDraft } from './use-reread-draft'
 import type { FieldRefusal } from './settings-refusal'
 
 /**
@@ -59,14 +62,16 @@ export default function DeliveryTypeDialog({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const copying = mode === 'copy'
-  const start = () => (copying ? deliveryCopyDraft(loaded) : loaded)
-  const [draft, setDraft] = useState(start)
+  // A fresh opening starts from the loaded settings and an empty reason (adjusted while rendering, before paint). On an
+  // edit, a re-read that moved the type (a stale refusal's refetch) rebuilds the draft: never fresh before + stale after.
+  const { base, draft, reread, setDraft } = useReReadDraft(open, loaded, {
+    start: copying ? deliveryCopyDraft : undefined,
+    track: !copying,
+  })
   const [reasonText, setReasonText] = useState('')
-  // A fresh opening starts from the loaded settings and an empty reason (adjusted while rendering, before paint).
   const [shownOpen, setShownOpen] = useState(open)
   if (shownOpen !== open) {
     setShownOpen(open)
-    setDraft(start())
     setReasonText('')
   }
 
@@ -77,10 +82,11 @@ export default function DeliveryTypeDialog({
     mutationFn: () =>
       copying
         ? deliveryTypesApi.copy(loaded.documentType, deliveryCopyRequest(draft, reasonText))
-        : deliveryTypesApi.update(loaded.documentType, deliverySaveRequest(loaded, draft, reasonText)),
+        : deliveryTypesApi.update(base.documentType, deliverySaveRequest(base, draft, reasonText)),
     onSuccess: (saved) => {
       queryClient.setQueryData([...DELIVERY_TYPES_KEY, saved.documentType], saved)
       void queryClient.invalidateQueries({ queryKey: DELIVERY_TYPES_KEY, exact: true })
+      void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
       notify.success(t(copying ? 'deliveryTypes.copy.saved' : 'deliveryTypes.edit.saved', { code: fsi(saved.documentType) }))
       onClose()
       if (copying) navigate(`/admin/delivery-types/${encodeURIComponent(saved.documentType)}`)
@@ -91,7 +97,7 @@ export default function DeliveryTypeDialog({
     },
   })
 
-  const edit = deliveryEditState(loaded, draft, reasonText)
+  const edit = deliveryEditState(base, draft, reasonText)
   const copy = deliveryCopyState(
     draft,
     reasonText,
@@ -103,7 +109,7 @@ export default function DeliveryTypeDialog({
   const refusedOnFields = Object.keys(refusals).length > 0
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
-  const stale = !copying && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState
+  const stale = !copying && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState && !reread
   const docTypeChoices = codeChoices(
     documentTypes.data?.map((r) => ({ code: r.documentType, description: r.description })),
     draft.defaultDocumentType,
@@ -178,7 +184,10 @@ export default function DeliveryTypeDialog({
                     const def = DELIVERY_ALL_FIELDS.find((f) => f.field === c.field)!
                     return (
                       <tr key={c.field} className="border-t border-border/60" data-edit-change={c.field}>
-                        <td className="py-1 pe-3">{t(`fields.${c.field}`)}</td>
+                        <td className="py-1 pe-3">
+                          {t(`fields.${c.field}`)}
+                          {def.notRead && <NotRead />}
+                        </td>
                         <td className="py-1 pe-3" data-edit-before="">
                           <DeliveryTypeValueText def={def} value={c.before} />
                         </td>
@@ -201,37 +210,22 @@ export default function DeliveryTypeDialog({
           </p>
         )}
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('reason.label')}
-            <span className={'font-normal tabular-nums ' + (reason.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}>
-              <Ltr>{formatCount(reason.length, REASON_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={reasonText}
-            onChange={(e) => {
-              setReasonText(e.target.value)
-              save.reset()
-            }}
-            rows={3}
-            required
-            disabled={busy}
-            dir="auto"
-            aria-invalid={reason.problem === 'tooLong' || undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-delivery-reason=""
-          />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
-        {reason.problem === 'tooLong' && (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
-          </p>
-        )}
+        {reread && !save.isSuccess && <RereadNotice />}
+
+        <ReasonField
+          value={reasonText}
+          reason={reason}
+          disabled={busy}
+          errorCode={errorCode}
+          attr="delivery-reason"
+          onChange={(text) => {
+            setReasonText(text)
+            save.reset()
+          }}
+        />
 
         {save.isError &&
+          !(reread && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState) &&
           (isBareDenial(save.error) ? (
             <ErrorBanner className="p-2" message={t('edit.notGranted')} />
           ) : (
@@ -350,7 +344,18 @@ function DeliveryFieldInput({
         <span>{label}</span>
         {input}
       </label>
+      {def.notRead && <NotRead />}
       {refused}
     </div>
+  )
+}
+
+/** The billing settings' label (ticket 3150), for a delivery setting nothing in order processing reads. */
+function NotRead() {
+  const { t } = useTranslation('doc-type-config')
+  return (
+    <span className="block text-xs text-warning-800" data-edit-not-read="">
+      {t('edit.notRead')}
+    </span>
   )
 }

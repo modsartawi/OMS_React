@@ -11,6 +11,7 @@ import {
   SOURCE_CODE_MAX,
   documentSourcesParams,
   documentSourcesViewFromParams,
+  sameSource,
   setSourceField,
   sourceCopyDraft,
   sourceCopyRequest,
@@ -39,6 +40,15 @@ describe('the document sources address', () => {
     expect(documentSourcesParams({ source: 'CINB', tab: 'history' }).toString()).toBe('source=CINB&tab=history')
     expect(documentSourcesParams({ source: 'CINB', tab: 'source' }).toString()).toBe('source=CINB')
     expect(documentSourcesParams({ source: '', tab: 'source' }).toString()).toBe('')
+  })
+})
+
+describe('picking a source (review D)', () => {
+  it('matches a mixed-case code against the upper-cased address, case-blind and trimmed', () => {
+    const view = documentSourcesViewFromParams(new URLSearchParams('source=Cinb'))
+    expect(sameSource('Cinb', view.source)).toBe(true)
+    expect(sameSource(' cinb ', 'CINB')).toBe(true)
+    expect(sameSource('CINB', 'CIN')).toBe(false)
   })
 })
 

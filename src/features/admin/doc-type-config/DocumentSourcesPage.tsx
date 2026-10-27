@@ -11,13 +11,18 @@ import Ltr from '@/core/ui/Ltr'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { canEditDocTypeConfig, canViewDocTypeConfig, docTypeConfigAccessQuery } from './api'
 import CopyDocumentSourceDialog from './CopyDocumentSourceDialog'
-import { DOCUMENT_SOURCES_TABS, documentSourcesParams, documentSourcesViewFromParams, type DocumentSourcesTab } from './document-source-edit'
+import {
+  DOCUMENT_SOURCES_TABS,
+  documentSourcesParams,
+  documentSourcesViewFromParams,
+  sameSource,
+  type DocumentSourcesTab,
+} from './document-source-edit'
 import type { DocumentSourceSettings } from './document-source-types'
 import { documentSourceHistoryQuery, documentSourcesQuery } from './document-sources-api'
 import EditDocumentSourceDialog from './EditDocumentSourceDialog'
 import HistoryTab from './HistoryTab'
-
-const TAB_PANEL_ID = 'document-sources-tab-panel'
+import TabStrip from './TabStrip'
 
 /**
  * Document sources — `/admin/document-sources[?source=CINB&tab=history]` (BackOffice spec 3148; ticket 3156). Every
@@ -49,6 +54,7 @@ function DocumentSources() {
   const sources = useQuery(documentSourcesQuery())
   const access = useQuery(docTypeConfigAccessQuery())
   const canEdit = canEditDocTypeConfig(access.data)
+  // The dialogs hold the source's CODE; the row they get is the live one from the list, so a re-read reaches them.
   const [editing, setEditing] = useState<DocumentSourceSettings | null>(null)
   const [copying, setCopying] = useState<DocumentSourceSettings | null>(null)
   const go = (source: string, tab: DocumentSourcesTab) => setParams(documentSourcesParams({ source, tab }), { replace: true })
@@ -56,7 +62,10 @@ function DocumentSources() {
   if (sources.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(sources.error, t('documentSources.failed'))} />
   if (!sources.data) return <Loading text={t('documentSources.loading')} />
 
-  const selected = sources.data.find((s) => s.documentSource === view.source) ?? null
+  // `view.source` is upper-cased; a mixed-case code still selects (the server matches codes case-blind).
+  const selected = findSource(sources.data, view.source)
+  const editingRow = editing && (findSource(sources.data, editing.documentSource) ?? editing)
+  const copyingRow = copying && (findSource(sources.data, copying.documentSource) ?? copying)
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-document-sources="">
@@ -74,14 +83,14 @@ function DocumentSources() {
             {sources.data.map((s) => (
               <tr
                 key={s.documentSource}
-                className={'border-t border-border/60 ' + (s.documentSource === view.source ? 'bg-primary/5' : '')}
+                className={'border-t border-border/60 ' + (sameSource(s.documentSource, view.source) ? 'bg-primary/5' : '')}
                 data-document-source={s.documentSource}
               >
                 <td className="px-2 py-1 font-mono">
                   <button
                     type="button"
                     className="text-primary hover:underline"
-                    onClick={() => go(s.documentSource, view.source === s.documentSource ? view.tab : 'source')}
+                    onClick={() => go(s.documentSource, sameSource(s.documentSource, view.source) ? view.tab : 'source')}
                     data-document-source-open={s.documentSource}
                   >
                     <Ltr>{s.documentSource}</Ltr>
@@ -118,27 +127,14 @@ function DocumentSources() {
           </p>
         ) : (
           <section className="flex min-w-0 flex-col gap-2" data-document-source-detail={selected.documentSource}>
-            <div role="tablist" aria-label={t('documentSources.tabs.label')} className="flex gap-1 border-b border-border/60">
-              {DOCUMENT_SOURCES_TABS.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  id={`document-sources-tab-${tab}`}
-                  aria-selected={view.tab === tab}
-                  aria-controls={TAB_PANEL_ID}
-                  onClick={() => tab !== view.tab && go(view.source, tab)}
-                  data-tab={tab}
-                  className={
-                    'border-b-2 px-3 py-2 text-sm transition-colors ' +
-                    (view.tab === tab ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-                  }
-                >
-                  {t(`documentSources.tabs.${tab}`)}
-                </button>
-              ))}
-            </div>
-            <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`document-sources-tab-${view.tab}`} data-tab-panel={view.tab}>
+            <TabStrip
+              tabs={DOCUMENT_SOURCES_TABS}
+              open={view.tab}
+              onSelect={(tab) => go(view.source, tab)}
+              idPrefix="document-sources"
+              label={t('documentSources.tabs.label')}
+              tabLabel={(tab) => t(`documentSources.tabs.${tab}`)}
+            >
               {view.tab === 'history' ? (
                 <HistoryTab query={documentSourceHistoryQuery(selected.documentSource)} />
               ) : (
@@ -155,15 +151,15 @@ function DocumentSources() {
                   <dd>{t(`documentSources.categories.${selected.documentSourceCategory || '_blank'}`, { defaultValue: selected.documentSourceCategory })}</dd>
                 </dl>
               )}
-            </div>
+            </TabStrip>
           </section>
         ))}
 
-      {canEdit && editing && <EditDocumentSourceDialog open loaded={editing} onClose={() => setEditing(null)} />}
-      {canEdit && copying && (
+      {canEdit && editingRow && <EditDocumentSourceDialog open loaded={editingRow} onClose={() => setEditing(null)} />}
+      {canEdit && copyingRow && (
         <CopyDocumentSourceDialog
           open
-          source={copying}
+          source={copyingRow}
           existingCodes={sources.data.map((s) => s.documentSource)}
           onClose={() => setCopying(null)}
           onCopied={(code) => go(code, 'source')}
@@ -171,6 +167,10 @@ function DocumentSources() {
       )}
     </div>
   )
+}
+
+function findSource(rows: readonly DocumentSourceSettings[], code: string): DocumentSourceSettings | null {
+  return rows.find((s) => sameSource(s.documentSource, code)) ?? null
 }
 
 function Loading({ text }: { text: string }) {

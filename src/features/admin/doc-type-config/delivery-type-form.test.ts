@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
+import { copyState, normaliseCode } from './copy-form'
 import {
   DELIVERY_ALL_FIELDS,
   DELIVERY_CATEGORIES,
@@ -13,6 +14,7 @@ import {
   deliveryCopyDraft,
   deliveryCopyRequest,
   deliveryCopyState,
+  deliveryNormaliseCode,
   deliveryEditState,
   deliveryFieldRefusals,
   deliverySaveRequest,
@@ -124,5 +126,18 @@ describe('code dropdowns (default delivery type, default document type)', () => 
 
   it('is null while the list is not loaded (the form falls back to a text box)', () => {
     expect(codeChoices(undefined, 'DL')).toBeNull()
+  })
+})
+
+describe('one copy rule for document and delivery types (review G)', () => {
+  it("the delivery copy state and code normalisation ARE the copy form's", () => {
+    expect(deliveryCopyState).toBe(copyState)
+    expect(deliveryNormaliseCode).toBe(normaliseCode)
+  })
+})
+
+describe('the number range is not read by delivery numbering (review finding 3)', () => {
+  it('only numberRangeNumber carries the not-read label', () => {
+    expect(DELIVERY_ALL_FIELDS.filter((f) => f.notRead).map((f) => f.field)).toEqual(['numberRangeNumber'])
   })
 })

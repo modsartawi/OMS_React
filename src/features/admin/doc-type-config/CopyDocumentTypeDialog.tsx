@@ -5,18 +5,19 @@ import { useNavigate } from 'react-router'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { REASON_MAX } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { DOCUMENT_TYPES_KEY, documentTypeFieldsQuery, documentTypesQuery } from './api'
+import { CHANGE_LOG_KEY } from './change-log-api'
 import { codeOnlyBehaviourQuery, copyApi } from './copy-api'
 import { CODE_MAX, copyDraft, copyRequest, copyState, copyWarning, setCopyField } from './copy-form'
 import { FieldInput, useDefaultDeliveryTypeChoices } from './EditDocumentTypeDialog'
 import { fieldMetaIndex } from './field-meta'
+import ReasonField from './ReasonField'
 import { FIELD_GROUPS } from './fields'
 import { settingsRefusals } from './settings-refusal'
 import type { DocumentTypeSettings } from './types'
@@ -51,8 +52,8 @@ export default function CopyDocumentTypeDialog({
     setReasonText('')
   }
 
-  const types = useQuery(documentTypesQuery())
-  const fieldMetas = useQuery(documentTypeFieldsQuery())
+  const types = useQuery({ ...documentTypesQuery(), enabled: open })
+  const fieldMetas = useQuery({ ...documentTypeFieldsQuery(), enabled: open })
   const metaIndex = fieldMetaIndex(fieldMetas.data)
   const deliveryTypeChoices = useDefaultDeliveryTypeChoices(open, draft.defaultDeliveryType)
   const behaviour = useQuery({ ...codeOnlyBehaviourQuery('DocumentType', source.documentType), enabled: open })
@@ -63,6 +64,7 @@ export default function CopyDocumentTypeDialog({
     onSuccess: (saved) => {
       queryClient.setQueryData([...DOCUMENT_TYPES_KEY, saved.documentType], saved)
       void queryClient.invalidateQueries({ queryKey: DOCUMENT_TYPES_KEY, exact: true })
+      void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
       notify.success(t('copy.saved', { code: fsi(saved.documentType) }))
       onClose()
       navigate(`/admin/doc-types/${encodeURIComponent(saved.documentType)}`)
@@ -155,31 +157,17 @@ export default function CopyDocumentTypeDialog({
           </p>
         )}
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('reason.label')}
-            <span
-              className={'font-normal tabular-nums ' + (state.reason.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}
-            >
-              <Ltr>{formatCount(state.reason.length, REASON_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={reasonText}
-            onChange={(e) => {
-              setReasonText(e.target.value)
-              save.reset()
-            }}
-            rows={3}
-            required
-            disabled={busy}
-            dir="auto"
-            aria-invalid={state.reason.problem === 'tooLong' || undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-copy-reason=""
-          />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
+        <ReasonField
+          value={reasonText}
+          reason={state.reason}
+          disabled={busy}
+          errorCode={errorCode}
+          attr="copy-reason"
+          onChange={(text) => {
+            setReasonText(text)
+            save.reset()
+          }}
+        />
 
         {save.isError &&
           (isBareDenial(save.error) ? (

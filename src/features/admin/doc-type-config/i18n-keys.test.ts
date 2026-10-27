@@ -37,7 +37,7 @@ describe('doc-type-config — the keys the code builds exist', () => {
   })
 
   it.each([en, ar])('3150: both effect labels, the not-read label and every coded option have words', (locale) => {
-    const keys = ['effect.OpenOrders', 'effect.NewOrdersOnly', 'edit.notRead', 'edit.effect', 'edit.refusedOnFields']
+    const keys = ['effect.OpenOrders', 'effect.NewOrdersOnly', 'edit.notRead', 'edit.effect', 'edit.refusedOnFields', 'edit.reread']
     for (const m of fieldMetas())
       for (const o of m.options ?? []) {
         const key = optionLabelKey(m.field, o)

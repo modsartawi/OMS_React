@@ -35,7 +35,12 @@ export interface CopyState {
   blocker: CopyBlocker | null
 }
 
-export function copyState(draft: DocumentTypeSettings, reasonText: string, existingCodes: readonly string[]): CopyState {
+/** Takes any copy draft with a code and a description — a document type's or a delivery type's (both VARCHAR(4)). */
+export function copyState(
+  draft: Pick<DocumentTypeSettings, 'documentType' | 'description'>,
+  reasonText: string,
+  existingCodes: readonly string[],
+): CopyState {
   const code = normaliseCode(draft.documentType)
   const reason = reasonField(reasonText)
   const existing = new Set(existingCodes.map(normaliseCode))

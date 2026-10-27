@@ -4,20 +4,23 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { REASON_MAX } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { DOCUMENT_TYPES_KEY, DOC_TYPE_CONFIG_ERRORS, docTypeConfigApi, documentTypeFieldsQuery } from './api'
+import { CHANGE_LOG_KEY } from './change-log-api'
 import CodeChoiceSelect from './CodeChoiceSelect'
 import { codeChoices, type CodeChoice } from './delivery-type-form'
 import { deliveryTypesQuery } from './delivery-types-api'
 import { editState, saveRequest, setField } from './edit-form'
 import { changeLabels, fieldMetaIndex, optionsFor, type FieldMetaIndex } from './field-meta'
 import FieldValueText from './FieldValueText'
+import ReasonField from './ReasonField'
+import RereadNotice from './RereadNotice'
+import { useReReadDraft } from './use-reread-draft'
 import { optionLabelKey } from './option-label'
 import { settingsRefusals, type FieldRefusal } from './settings-refusal'
 import { ALL_FIELDS, FIELD_GROUPS, isLocked, type FieldDef } from './fields'
@@ -41,21 +44,22 @@ export default function EditDocumentTypeDialog({
 }) {
   const { t } = useTranslation('doc-type-config')
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState(loaded)
+  // A fresh opening starts from the loaded settings and an empty reason (adjusted while rendering, before paint). A
+  // re-read that moved the type (a stale refusal's refetch) rebuilds the draft: never fresh before + stale after.
+  const { base, draft, reread, setDraft } = useReReadDraft(open, loaded)
   const [reasonText, setReasonText] = useState('')
-  // A fresh opening starts from the loaded settings and an empty reason (adjusted while rendering, before paint).
   const [shownOpen, setShownOpen] = useState(open)
   if (shownOpen !== open) {
     setShownOpen(open)
-    setDraft(loaded)
     setReasonText('')
   }
 
   const save = useMutation({
-    mutationFn: () => docTypeConfigApi.updateDocumentType(loaded.documentType, saveRequest(loaded, draft, reasonText)),
+    mutationFn: () => docTypeConfigApi.updateDocumentType(base.documentType, saveRequest(base, draft, reasonText)),
     onSuccess: (saved) => {
       queryClient.setQueryData([...DOCUMENT_TYPES_KEY, loaded.documentType], saved)
       void queryClient.invalidateQueries({ queryKey: DOCUMENT_TYPES_KEY, exact: true })
+      void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
       notify.success(t('edit.saved', { code: fsi(saved.documentType) }))
       onClose()
     },
@@ -67,17 +71,17 @@ export default function EditDocumentTypeDialog({
 
   // 3150: the dropdowns and the diff's open/new-orders labels come from the server's field metadata. While it loads
   // (or if it failed) the coded fields are text boxes and the diff carries no label; the server refuses regardless.
-  const fieldMetas = useQuery(documentTypeFieldsQuery())
+  const fieldMetas = useQuery({ ...documentTypeFieldsQuery(), enabled: open })
   const metaIndex = fieldMetaIndex(fieldMetas.data)
   const deliveryTypeChoices = useDefaultDeliveryTypeChoices(open, draft.defaultDeliveryType)
 
-  const state = editState(loaded, draft, reasonText)
+  const state = editState(base, draft, reasonText)
   const labels = changeLabels(state.changes, metaIndex)
   const refusals = save.error ? settingsRefusals(save.error) : {}
   const refusedOnFields = Object.keys(refusals).length > 0
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
-  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState
+  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState && !reread
 
   return (
     <Modal
@@ -172,40 +176,22 @@ export default function EditDocumentTypeDialog({
           )}
         </section>
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('reason.label')}
-            <span
-              className={'font-normal tabular-nums ' + (state.reason.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}
-              data-edit-reason-count=""
-            >
-              <Ltr>{formatCount(state.reason.length, REASON_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={reasonText}
-            onChange={(e) => {
-              setReasonText(e.target.value)
-              save.reset()
-            }}
-            rows={3}
-            required
-            disabled={busy}
-            dir="auto"
-            aria-invalid={state.reason.problem === 'tooLong' || errorCode === DOC_TYPE_CONFIG_ERRORS.reasonRequired || undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-edit-reason=""
-          />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
-        {state.reason.problem === 'tooLong' && (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
-          </p>
-        )}
+        {reread && !save.isSuccess && <RereadNotice />}
+
+        <ReasonField
+          value={reasonText}
+          reason={state.reason}
+          disabled={busy}
+          errorCode={errorCode}
+          attr="edit-reason"
+          onChange={(text) => {
+            setReasonText(text)
+            save.reset()
+          }}
+        />
 
         {save.isError &&
+          !(reread && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState) &&
           (isBareDenial(save.error) ? (
             <ErrorBanner className="p-2" message={t('edit.notGranted')} />
           ) : (

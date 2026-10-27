@@ -30,6 +30,9 @@ export const DOC_TYPE_CONFIG_ERRORS = {
   lockedField: 'SDC-00003',
   staleBeforeState: 'SDC-00004',
   settingsRequired: 'SDC-00005',
+  /** Review of 3148: the save's after equals its before on every field; nothing is written or logged. The dialogs keep
+   *  Save disabled until something changed, so this reaches the screen only through a race; its message is shown. */
+  nothingChanged: 'SDC-00006',
   /** 3150: one or more settings refused; `data.fields` names each (`settingsRefusals`). */
   settingsRefused: 'SDC-00010',
 } as const

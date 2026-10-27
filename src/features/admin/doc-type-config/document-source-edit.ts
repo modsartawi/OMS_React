@@ -42,6 +42,9 @@ export function documentSourcesParams(view: DocumentSourcesView): URLSearchParam
   return params
 }
 
+/** Two source codes name the same source: the server matches codes case-blind, and the address upper-cases them. */
+export const sameSource = (a: string, b: string): boolean => normaliseCode(a) === normaliseCode(b)
+
 // ── The edit ────────────────────────────────────────────────────────────────────────────────────
 
 /** `SdDocumentSourceSettings.Categories`: blank (any other entry point) or `C` (call centre). */

@@ -12,6 +12,8 @@
  * set, a delete every field it removed.
  */
 
+import { wireField } from './field-meta'
+
 export type DiffValue = string | number | boolean | null
 
 export interface DiffLine {
@@ -68,5 +70,6 @@ export function fieldDiff(row: DiffSource): FieldDiff {
   return { kind: KINDS[row.action] ?? 'update', lines }
 }
 
-/** The screen field a column labels: `IsPickedOnOrder` → `isPickedOnOrder` (the camelCase the doors emit). */
-export const columnField = (column: string): string => (column ? column[0].toLowerCase() + column.slice(1) : '')
+/** The screen field a column labels: `IsPickedOnOrder` → `isPickedOnOrder` (the camelCase the doors emit) — the field
+ *  metadata's own `wireField`, one rule for both. */
+export const columnField = wireField

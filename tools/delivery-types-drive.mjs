@@ -183,6 +183,9 @@ for (const dir of ['ltr', 'rtl']) {
     const lockedRows = await page.locator('dialog[open] [data-delivery-dialog] [data-edit-locked]').evaluateAll((els) => els.map((e) => e.getAttribute('data-edit-field')).sort())
     check(`${dir} 3. code and category read-only`, JSON.stringify(lockedRows) === JSON.stringify(['documentCategory', 'documentType']), JSON.stringify(lockedRows))
     check(`${dir} 3. Save disabled with no change`, await saveDisabled(page))
+    check(`${dir} 3. the number range is labelled not read by order processing, and only it (review finding 3)`,
+      (await field(page, 'numberRangeNumber').locator('[data-edit-not-read]').count()) === 1 &&
+        (await page.locator('dialog[open] [data-delivery-dialog] [data-edit-not-read]').count()) === 1)
     await field(page, 'calloutRadiusKm').locator('input').fill('4.5')
     check(`${dir} 3. the diff names the changed field`, (await page.locator('[data-edit-change="calloutRadiusKm"]').count()) === 1)
     check(`${dir} 3. Save disabled with no reason`, await saveDisabled(page))
@@ -251,6 +254,9 @@ for (const dir of ['ltr', 'rtl']) {
     const ddt = page.locator('dialog[open] [data-edit-field="defaultDeliveryType"] select[data-code-choice]')
     await ddt.waitFor({ timeout: 5000 }).catch(() => {})
     const values = await ddt.locator('option').evaluateAll((els) => els.map((e) => e.value))
+    const labels = await ddt.locator('option').evaluateAll((els) => els.slice(1).map((e) => e.textContent))
+    check(`${dir} 7. each code choice is ONE isolate around the whole pair (review F)`,
+      labels.length > 0 && labels.every((l) => l.startsWith('⁨') && l.endsWith('⁩') && (l.match(/⁨/g) ?? []).length === 1), JSON.stringify(labels))
     check(`${dir} 7. default delivery type is a dropdown of the delivery types`,
       JSON.stringify(values) === JSON.stringify(['', 'DL', 'QC', 'QN']) && (await ddt.inputValue()) === 'DL', JSON.stringify(values))
     await page.locator('[data-edit-cancel]').click()

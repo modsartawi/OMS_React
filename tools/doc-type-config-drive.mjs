@@ -59,13 +59,13 @@ const settings = (over = {}) => ({
 // `GET SdDocTypeConfigWeb/DocumentTypeFields` as BackOffice `SdDocumentTypeFieldCatalog` answers it (3150).
 const meta = (field, effect, options = null, notReadByOrderProcessing = false) => ({ field, effect, options, notReadByOrderProcessing })
 const FIELDS = [
-  ['DocumentType', 'N'], ['Description', 'O'], ['DocumentCategory', 'O', ['O', 'R', 'X', 'E', 'Q']], ['ReferenceDocumentCategory', 'N'],
+  ['DocumentType', 'N'], ['Description', 'O'], ['DocumentCategory', 'O', ['O', 'R', 'X', 'E', 'Q']], ['ReferenceDocumentCategory', 'N', ['', 'O', 'R', 'X', 'E', 'Q', 'D', 'T']],
   ['NumberRangeNumber', 'N'], ['CustomerDeterminationType', 'N', ['', 'A', 'B', 'C', 'D']], ['DefaultCustomer', 'N'],
   ['IsReceivableCustomer', 'N'], ['ReceivableCustomer', 'N'], ['InsurancePayerCode', 'N'], ['EngineType', 'N', ['', 'LEGACY', 'SISPRICING']],
   ['DocumentPricingProcedure', 'O'], ['PromotionDetermination', 'O'], ['IsAlternativePriceCapped', 'O'], ['DefaultDeliveryType', 'O'],
   ['CreateDeliveryImmediately', 'O', ['', 'X']], ['PlantDeterminationType', 'N', ['', 'R']], ['IsCalculateDeliveryFees', 'O'],
   ['DeliveryFees', 'N'], ['OrderRelatedBillingType', 'O', null, true], ['DeliveryRelatedBillingType', 'O', null, true],
-  ['CreateBillingImmediately', 'O', null, true], ['IsPickedOnOrder', 'O'], ['IsDeterminePickingFees', 'O'], ['IsQuantityAllocation', 'O'],
+  ['CreateBillingImmediately', 'O', ['', 'X'], true], ['IsPickedOnOrder', 'O'], ['IsDeterminePickingFees', 'O'], ['IsQuantityAllocation', 'O'],
   ['NotifyOnCreation', 'N', ['', 'X']], ['NotifyOnCancellation', 'O', ['', 'X', 'O', 'D']], ['ControlType', 'O', ['', 'W', 'N']],
   ['ValidateItem', 'O'], ['PreOrderMaterialOnly', 'N'], ['CheckOrderNo', 'N'], ['CanChangeItems', 'O'], ['AutoClose', 'O'],
   ['DiagnosisRequired', 'N'], ['ApprovalProcess', 'O'], ['AcceptanceRequired', 'O'],
@@ -177,16 +177,31 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-edit-reason]').fill('  طلب العميل ١٢٣  ')
     check(`${dir} 4. Save enabled with a change and a reason`, !(await page.locator('[data-edit-save]').isDisabled()))
 
-    // 5. someone else saved first
+    // 5. someone else saved first: refused, re-read, and the draft REBUILT from the fresh row (review A)
+    const original = { ...state.bupa }
+    state.bupa = { ...state.bupa, description: 'Bupa other' }
     force.set('PUT SdDocTypeConfigWeb/DocumentTypes/BUPA', refuse('SDC-00004', 'Document type BUPA was changed by someone else since you opened it. / تم تغيير نوع المستند'))
     const getsBefore = calls.filter((c) => c.method === 'GET' && c.p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA').length
     await page.locator('[data-edit-save]').click()
-    await page.locator('[data-edit-error="SDC-00004"]').waitFor({ timeout: 5000 }).catch(() => {})
-    check(`${dir} 5. SDC-00004 shows with its code`, (await page.locator('[data-edit-error="SDC-00004"]').count()) === 1)
-    check(`${dir} 5. …Save is disabled`, await page.locator('[data-edit-save]').isDisabled())
-    await page.waitForTimeout(300)
-    check(`${dir} 5. …and the type is re-read`, calls.filter((c) => c.method === 'GET' && c.p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA').length > getsBefore)
-    await page.locator('[data-edit-cancel]').click()
+    await page.locator('dialog[open] [data-reread]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 5. …the type is re-read`, calls.filter((c) => c.method === 'GET' && c.p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA').length > getsBefore)
+    check(`${dir} 5. the dialog says it was re-read and the edits must be made again`, (await page.locator('dialog[open] [data-reread]').count()) === 1)
+    check(`${dir} 5. …the draft is the fresh row: the other user's description, my edits gone`,
+      (await page.locator('dialog[open] [data-edit-field="description"] input').inputValue()) === 'Bupa other' &&
+        !(await page.locator('dialog[open] [data-edit-field="autoClose"] input').isChecked()) &&
+        (await page.locator('[data-edit-no-changes]').count()) === 1)
+    check(`${dir} 5. …so Save is disabled until a change is made again`, await page.locator('[data-edit-save]').isDisabled())
+    await page.locator('dialog[open] [data-edit-field="autoClose"] input').check()
+    check(`${dir} 5. re-applying the edit clears the notice`, (await page.locator('dialog[open] [data-reread]').count()) === 0)
+    await page.locator('[data-edit-save]').click()
+    await page.locator('dialog[open] [data-edit-dialog]').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+    const rebuilt = calls.filter((c) => c.method === 'PUT' && c.p === 'SdDocTypeConfigWeb/DocumentTypes/BUPA').at(-1)
+    check(`${dir} 5. the next save sends the fresh before AND an after built on it`,
+      rebuilt?.body?.before?.description === 'Bupa other' && rebuilt?.body?.after?.description === 'Bupa other' && rebuilt?.body?.after?.autoClose === true,
+      JSON.stringify({ before: rebuilt?.body?.before?.description, after: rebuilt?.body?.after?.description }))
+    state.bupa = original
+    await page.reload()
+    await page.locator('[data-doc-type-edit]').waitFor({ timeout: 20000 })
 
     // 7. (3150) dropdowns, effect labels, a refusal on its field
     await page.locator('[data-doc-type-edit]').click()
@@ -194,6 +209,9 @@ for (const dir of ['ltr', 'rtl']) {
     const controlOptions = await page.locator('dialog[open] [data-edit-field="controlType"] select option').evaluateAll((els) => els.map((e) => e.value))
     check(`${dir} 7. control type is a dropdown of its three values`, JSON.stringify(controlOptions) === JSON.stringify(['', 'W', 'N']), JSON.stringify(controlOptions))
     check(`${dir} 7. customer determination is a dropdown`, (await page.locator('dialog[open] [data-edit-field="customerDeterminationType"] select option').count()) === 5)
+    check(`${dir} 7. create billing immediately and the reference category are dropdowns (review finding 2)`,
+      (await page.locator('dialog[open] [data-edit-field="createBillingImmediately"] select option').count()) === 2 &&
+        (await page.locator('dialog[open] [data-edit-field="referenceDocumentCategory"] select option').count()) === 8)
     check(`${dir} 7. a free field stays a text box`, (await page.locator('dialog[open] [data-edit-field="defaultCustomer"] select').count()) === 0)
     await page.locator('dialog[open] [data-edit-field="controlType"] select').selectOption('W')
     await page.locator('dialog[open] [data-edit-field="orderRelatedBillingType"] input').fill('ZZZ9')

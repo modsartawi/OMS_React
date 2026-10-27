@@ -16,7 +16,8 @@ import { copyWarning } from './copy-form'
 import { SOURCE_CODE_MAX, setSourceField, sourceCopyDraft, sourceCopyRequest, sourceCopyState } from './document-source-edit'
 import type { DocumentSourceSettings } from './document-source-types'
 import { DOCUMENT_SOURCES_KEY, DOCUMENT_SOURCE_ERRORS, documentSourcesApi } from './document-sources-api'
-import SourceFormFields, { SourceReason } from './SourceFormFields'
+import ReasonField from './ReasonField'
+import SourceFormFields from './SourceFormFields'
 
 /**
  * Copy a document source under a new code (BackOffice spec 3148; ticket 3156). The new code, its description and its
@@ -43,9 +44,10 @@ export default function CopyDocumentSourceDialog({
   const [draft, setDraft] = useState(() => sourceCopyDraft(source))
   const [code, setCode] = useState('')
   const [reasonText, setReasonText] = useState('')
-  const [shown, setShown] = useState({ open, source })
-  if (shown.open !== open || shown.source !== source) {
-    setShown({ open, source })
+  // Reset on a fresh opening only: `source` is the live row, and a refetch must not wipe a copy being typed.
+  const [shownOpen, setShownOpen] = useState(open)
+  if (shownOpen !== open) {
+    setShownOpen(open)
     setDraft(sourceCopyDraft(source))
     setCode('')
     setReasonText('')
@@ -150,10 +152,12 @@ export default function CopyDocumentSourceDialog({
           </p>
         )}
 
-        <SourceReason
+        <ReasonField
           value={reasonText}
           reason={state.reason}
           disabled={busy}
+          errorCode={errorCode}
+          attr="source-reason"
           onChange={(text) => {
             setReasonText(text)
             save.reset()

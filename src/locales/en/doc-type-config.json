@@ -125,7 +125,8 @@
     "notGranted": "You are not allowed to change the document configuration.",
     "notRead": "Not read by order processing",
     "effect": "Reaches",
-    "refusedOnFields": "Some settings were refused — each is explained under its field. Nothing was saved."
+    "refusedOnFields": "Some settings were refused — each is explained under its field. Nothing was saved.",
+    "reread": "Someone else changed this since you opened it. It has been re-read and your edits were cleared: make your change again."
   },
   "reason": {
     "label": "Reason",
@@ -170,6 +171,10 @@
       "D": "D - the delivery only"
     },
     "createDeliveryImmediately": {
+      "_blank": "No",
+      "X": "X - immediately"
+    },
+    "createBillingImmediately": {
       "_blank": "No",
       "X": "X - immediately"
     }

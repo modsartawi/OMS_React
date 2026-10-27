@@ -5,7 +5,7 @@ import type { CodeChoice } from './delivery-type-form'
 /**
  * A code dropdown (ticket 3154): blank (no reference) first, then each code with its description — the document type
  * form's default delivery type and the delivery type form's default document type. `<option>` is a string sink, so
- * each side is isolated with `fsi` (bidi rule).
+ * the WHOLE pair is isolated with one `fsi` (bidi rule: the value, never its parts).
  */
 export default function CodeChoiceSelect({
   choices,
@@ -32,7 +32,7 @@ export default function CodeChoiceSelect({
     >
       {choices.map((c) => (
         <option key={c.value} value={c.value}>
-          {c.value === '' ? t('value.blank') : formatPair(fsi(c.value), fsi(c.description))}
+          {c.value === '' ? t('value.blank') : fsi(formatPair(c.value, c.description))}
         </option>
       ))}
     </select>

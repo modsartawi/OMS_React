@@ -1,6 +1,6 @@
 /**
  * The server's refusal of a document type's settings (BackOffice ticket 3150): `SDC-00010` carries every refused field
- * in `data.fields` (`SdDocTypeSettingsRefusal`), each with its own code (`SDC-00011..17`) and a bilingual message. The
+ * in `data.fields` (`SdDocTypeSettingsRefusal`), each with its own code (`SDC-00011..19`) and a bilingual message. The
  * dialog shows each message on its field. Pure: no React, no `t`.
  */
 import { apiErrorCode, apiErrorData } from '@/core/api'

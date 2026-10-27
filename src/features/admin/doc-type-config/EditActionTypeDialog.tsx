@@ -4,19 +4,21 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { REASON_MAX } from '@/core/reason/reason'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
-import { formatCount, fsi } from '@/core/util/bidi'
+import { fsi } from '@/core/util/bidi'
 import { DOC_TYPE_CONFIG_ERRORS } from './api'
 import { ACTION_DESCRIPTION_MAX, actionTypeEditState, actionTypeSaveRequest, setActionTypeField } from './action-type-edit'
 import { ACTION_TYPE_OPTIONS, type ActionTypeSettings, type AffectedDocumentType } from './action-type-types'
 import { ACTION_TYPES_KEY, ACTION_TYPE_ERRORS, actionTypesApi } from './action-types-api'
 import AffectedTypesList from './AffectedTypesList'
 import { CHANGE_LOG_KEY } from './change-log-api'
+import ReasonField from './ReasonField'
+import RereadNotice from './RereadNotice'
+import { useReReadDraft } from './use-reread-draft'
 
 /**
  * Edit an action type (BackOffice spec 3148 stories 39-40, 43; ticket 3155): its description and five options; code and
@@ -37,17 +39,17 @@ export default function EditActionTypeDialog({
 }) {
   const { t } = useTranslation('doc-type-config')
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState(loaded)
+  // `loaded` is the live row: a re-read that moved it rebuilds the draft (never fresh before + stale after).
+  const { base, draft, reread, setDraft } = useReReadDraft(open, loaded)
   const [reasonText, setReasonText] = useState('')
-  const [shown, setShown] = useState({ open, loaded })
-  if (shown.open !== open || shown.loaded !== loaded) {
-    setShown({ open, loaded })
-    setDraft(loaded)
+  const [shownOpen, setShownOpen] = useState(open)
+  if (shownOpen !== open) {
+    setShownOpen(open)
     setReasonText('')
   }
 
   const save = useMutation({
-    mutationFn: () => actionTypesApi.update(loaded.actionType, actionTypeSaveRequest(loaded, draft, reasonText)),
+    mutationFn: () => actionTypesApi.update(base.actionType, actionTypeSaveRequest(base, draft, reasonText)),
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ACTION_TYPES_KEY })
       void queryClient.invalidateQueries({ queryKey: CHANGE_LOG_KEY })
@@ -59,10 +61,10 @@ export default function EditActionTypeDialog({
     },
   })
 
-  const state = actionTypeEditState(loaded, draft, reasonText, affectedTypes)
+  const state = actionTypeEditState(base, draft, reasonText, affectedTypes)
   const busy = save.isPending
   const errorCode = save.error ? apiErrorCode(save.error) : null
-  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState
+  const stale = errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState && !reread
   const change = <F extends Parameters<typeof setActionTypeField>[1]>(field: F, value: ActionTypeSettings[F]) => {
     setDraft((d) => setActionTypeField(d, field, value))
     save.reset()
@@ -169,40 +171,22 @@ export default function EditActionTypeDialog({
 
         <AffectedTypesList view={state.affected} where="dialog" />
 
-        <label className="flex flex-col gap-1 text-xs font-medium">
-          <span className="flex items-baseline justify-between gap-2">
-            {t('reason.label')}
-            <span
-              className={'font-normal tabular-nums ' + (state.reason.problem === 'tooLong' ? 'text-danger-800' : 'text-muted-foreground')}
-              data-action-edit-reason-count=""
-            >
-              <Ltr>{formatCount(state.reason.length, REASON_MAX)}</Ltr>
-            </span>
-          </span>
-          <textarea
-            value={reasonText}
-            onChange={(e) => {
-              setReasonText(e.target.value)
-              save.reset()
-            }}
-            rows={3}
-            required
-            disabled={busy}
-            dir="auto"
-            aria-invalid={state.reason.problem === 'tooLong' || errorCode === DOC_TYPE_CONFIG_ERRORS.reasonRequired || undefined}
-            className="rounded-md border border-border/60 bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:border-primary/60"
-            data-action-edit-reason=""
-          />
-          <span className="font-normal text-muted-foreground">{t('reason.hint')}</span>
-        </label>
-        {state.reason.problem === 'tooLong' && (
-          <p role="alert" className="flex items-center gap-1.5 text-xs text-danger-800">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {t('reason.tooLong', { max: fsi(String(REASON_MAX)) })}
-          </p>
-        )}
+        {reread && !save.isSuccess && <RereadNotice />}
+
+        <ReasonField
+          value={reasonText}
+          reason={state.reason}
+          disabled={busy}
+          errorCode={errorCode}
+          attr="action-edit-reason"
+          onChange={(text) => {
+            setReasonText(text)
+            save.reset()
+          }}
+        />
 
         {save.isError &&
+          !(reread && errorCode === DOC_TYPE_CONFIG_ERRORS.staleBeforeState) &&
           (isBareDenial(save.error) ? (
             <ErrorBanner className="p-2" message={t('edit.notGranted')} />
           ) : (

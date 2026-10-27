@@ -12,6 +12,7 @@ const LABELLED = new Set([
   'notifyOnCreation',
   'notifyOnCancellation',
   'createDeliveryImmediately',
+  'createBillingImmediately',
 ])
 
 /** The i18n key of one option's words, or null when the field shows the bare code. Takes either name spelling. */

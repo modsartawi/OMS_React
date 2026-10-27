@@ -61,7 +61,7 @@ const HISTORY = [
 
 const browser = await chromium.launch()
 
-async function open(dir, { canEdit = true, stale = false } = {}) {
+async function open(dir, { canEdit = true, stale = false, mixed = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } })
   const page = await context.newPage()
   const errors = []
@@ -70,6 +70,8 @@ async function open(dir, { canEdit = true, stale = false } = {}) {
     CINB: src('CINB', 'Call Center Inbound', 'C'),
     CLCN: src('CLCN', 'Call Center'),
     WSFD: src('WSFD', 'Wasfaty'),
+    // A legacy mixed-case code (the server matches codes case-blind; the address upper-cases them).
+    ...(mixed ? { Mx1: src('Mx1', 'Mixed case') } : {}),
   }
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && !/status of [45]\d\d/.test(m.text()) && errors.push(m.text()))
@@ -218,6 +220,16 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 2. without the grant there is no Edit and no Copy`,
       (await page.locator('[data-document-source-edit]').count()) === 0 && (await page.locator('[data-document-source-copy]').count()) === 0)
     check(`${dir} 5. no page errors (read-only)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 1. a mixed-case code still selects (review D)
+  {
+    const { context, page, errors } = await open(dir, { canEdit: false, mixed: true })
+    await page.goto(`${BASE}/admin/document-sources?source=Mx1`)
+    await page.locator('[data-document-source-detail="Mx1"]').waitFor({ timeout: 20000 }).catch(() => {})
+    check(`${dir} 1. a mixed-case code opens its source`,
+      (await page.locator('[data-document-source-detail="Mx1"]').count()) === 1 && (await page.locator('[data-document-source-missing]').count()) === 0)
+    check(`${dir} 5. no page errors (mixed case)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
   // 2. a stale save

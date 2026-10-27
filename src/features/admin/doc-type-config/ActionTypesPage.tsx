@@ -17,8 +17,7 @@ import { ACTION_TYPES_TABS, actionTypesParams, actionTypesViewFromParams, type A
 import AffectedTypesList from './AffectedTypesList'
 import EditActionTypeDialog from './EditActionTypeDialog'
 import HistoryTab from './HistoryTab'
-
-const TAB_PANEL_ID = 'action-types-tab-panel'
+import TabStrip from './TabStrip'
 
 /**
  * Action types — `/admin/action-types?category=O` (BackOffice spec 3148 stories 38-40, 43; ticket 3155). One document
@@ -76,33 +75,20 @@ function ActionTypes() {
         </p>
       ) : (
         <>
-          <div role="tablist" aria-label={t('actionTypes.tabs.label')} className="flex gap-1 border-b border-border/60">
-            {ACTION_TYPES_TABS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                id={`action-types-tab-${tab}`}
-                aria-selected={view.tab === tab}
-                aria-controls={TAB_PANEL_ID}
-                onClick={() => tab !== view.tab && go(view.category, tab)}
-                data-tab={tab}
-                className={
-                  'border-b-2 px-3 py-2 text-sm transition-colors ' +
-                  (view.tab === tab ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground')
-                }
-              >
-                {t(`actionTypes.tabs.${tab}`)}
-              </button>
-            ))}
-          </div>
-          <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`action-types-tab-${view.tab}`} data-tab-panel={view.tab}>
+          <TabStrip
+            tabs={ACTION_TYPES_TABS}
+            open={view.tab}
+            onSelect={(tab) => go(view.category, tab)}
+            idPrefix="action-types"
+            label={t('actionTypes.tabs.label')}
+            tabLabel={(tab) => t(`actionTypes.tabs.${tab}`)}
+          >
             {view.tab === 'history' ? (
               <HistoryTab query={actionTypeCategoryHistoryQuery(view.category)} />
             ) : (
               <Category code={view.category} />
             )}
-          </div>
+          </TabStrip>
         </>
       )}
     </div>
@@ -121,7 +107,9 @@ function CategoryBody({ data }: { data: ActionTypeCategory }) {
   const { t } = useTranslation('doc-type-config')
   const access = useQuery(docTypeConfigAccessQuery())
   const canEdit = canEditDocTypeConfig(access.data)
+  // The dialog holds the CODE; it gets the live row from the re-read category, so a stale refusal's re-read reaches it.
   const [editing, setEditing] = useState<ActionTypeSettings | null>(null)
+  const editingRow = editing && (data.actionTypes.find((a) => a.actionType === editing.actionType) ?? editing)
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-action-type-category={data.category}>
@@ -177,8 +165,8 @@ function CategoryBody({ data }: { data: ActionTypeCategory }) {
           </table>
         </div>
       )}
-      {canEdit && editing && (
-        <EditActionTypeDialog open loaded={editing} affectedTypes={data.affectedTypes} onClose={() => setEditing(null)} />
+      {canEdit && editingRow && (
+        <EditActionTypeDialog open loaded={editingRow} affectedTypes={data.affectedTypes} onClose={() => setEditing(null)} />
       )}
     </div>
   )

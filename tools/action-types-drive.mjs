@@ -61,7 +61,7 @@ const HISTORY = [
 
 const browser = await chromium.launch()
 
-async function open(dir, { canEdit = true, stale = false } = {}) {
+async function open(dir, { canEdit = true, stale = false, moved = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } })
   const page = await context.newPage()
   const errors = []
@@ -90,8 +90,11 @@ async function open(dir, { canEdit = true, stale = false } = {}) {
         affectedTypes: [{ documentType: 'DL', description: 'Delivery', kind: 'DeliveryDocumentType' }] }))
     if (p === 'SdDocTypeConfigWeb/ActionTypeCategories/O/History') return route.fulfill(envelope(HISTORY))
     if (req.method() === 'PUT' && p.startsWith('SdDocTypeConfigWeb/ActionTypes/')) {
-      if (stale)
+      if (stale) {
+        // `moved`: someone else's save landed first, so the category's re-read carries their description.
+        if (moved) rows.OADN = { ...rows.OADN, description: 'Changed elsewhere' }
         return route.fulfill(envelope(null, { status: 400, success: false, errorCode: 'SDC-00004', message: 'changed by someone else / تم التغيير' }))
+      }
       const code = decodeURIComponent(p.split('/').at(-1))
       rows[code] = { ...body.after }
       return route.fulfill(envelope(rows[code]))
@@ -209,6 +212,24 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 3. a stale save says so and stays open, Save disabled`,
       (await dialog.count()) === 1 && (await page.locator('[data-action-edit-save]').isDisabled()))
     check(`${dir} 5. no page errors (stale)`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  // 3. a stale save whose re-read MOVED the row: the live row reaches the open dialog and rebuilds its draft (review A/B)
+  {
+    const { context, page, errors } = await open(dir, { stale: true, moved: true })
+    await page.goto(`${BASE}/admin/action-types?category=O`)
+    await page.locator('[data-action-type-edit="OADN"]').click()
+    const dialog = page.locator('[data-action-edit-dialog]')
+    await dialog.locator('[data-action-edit-field="updateLastAction"] input').check()
+    await dialog.locator('[data-action-edit-reason]').fill('why')
+    await page.locator('[data-action-edit-save]').click()
+    await dialog.locator('[data-reread]').waitFor({ timeout: 5000 }).catch(() => {})
+    check(`${dir} 3. the re-read row reaches the dialog: notice shown, draft rebuilt from it`,
+      (await dialog.locator('[data-reread]').count()) === 1 &&
+        (await dialog.locator('[data-action-edit-description]').inputValue()) === 'Changed elsewhere' &&
+        !(await dialog.locator('[data-action-edit-field="updateLastAction"] input').isChecked()) &&
+        (await page.locator('[data-action-edit-save]').isDisabled()))
+    check(`${dir} 5. no page errors (stale, moved)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
 }

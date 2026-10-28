@@ -27,6 +27,7 @@ import { reportOrEmpty, type IdfSwapReport } from './report' // 627
 import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQuery } from './items' // 643, 645
 import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
+import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -200,7 +201,17 @@ export function entriesQuery(masterId: string, versionId: string, q: IdfItemsQue
   } as const
 }
 
-// 644 · master export + template (3188)
+// 644 · master export + template — `idfMasterFilesApi` (3188)
+export const idfMasterFilesApi = {
+  /** `GET IdfPriority/masters/{masterId}/versions/{versionId}/export` — that version (live or old) as `.xlsx` in the upload format. */
+  export(masterId: string, versionId: string): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/export`)
+  },
+  /** `GET IdfPriority/masters/template` — the upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/masters/template`)
+  },
+}
 
 // 645 · draft (3189) — `idfDraftApi`
 export const IDF_DRAFT_KEY = [...IDF_KEY, 'draft'] as const
@@ -304,4 +315,15 @@ export function groupsQuery(q: IdfGroupsQuery) {
   return { queryKey: [...IDF_GROUPS_KEY, groupsDoorParams(q)] as const, queryFn: () => idfGroupsApi.list(q), retry: false } as const
 }
 
-// 653 · IDF groups import (3197)
+// 653 · IDF groups import — `idfGroupsImportApi` (BackOffice 3197; spec 3185 sketch, 654 reconciles)
+export const idfGroupsImportApi = {
+  /** `POST IdfPriority/groups/uploads` multipart `{ file }` → every row with its action, failing rows with their rule. Writes nothing. */
+  async upload(file: File): Promise<IdfGroupsImportReport> {
+    const r = await api.upload<IdfGroupsImportReport | null>(`${IDF_BASE}/groups/uploads`, uploadForm(file))
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, rows: r?.rows ?? [] }
+  },
+  /** `POST …/groups/uploads/{uploadId}/apply` (no body stated; `{}`) → `{ added, updated }`. Refused unless the upload's `ok`. */
+  apply(uploadId: string): Promise<IdfGroupsImportResult> {
+    return api.post<IdfGroupsImportResult>(`${IDF_BASE}/groups/uploads/${encodeURIComponent(uploadId)}/apply`, {})
+  },
+}

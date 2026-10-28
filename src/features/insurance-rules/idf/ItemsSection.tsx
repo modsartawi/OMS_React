@@ -17,6 +17,9 @@ import { DraftMark, DraftRowActions } from './DraftPanel' // 645
 import { useDraft } from './useDraft' // 645
 import ItemsTable from './ItemsTable'
 import { versionRows } from './versions'
+import { idfMasterFilesApi } from './api' // 644
+import DownloadButton from './DownloadButton' // 644
+import { masterExportFileName } from './download' // 644
 
 /** Where the version id sits in an entries query key (`[...IDF_ENTRIES_KEY, masterId, versionId, params]`). */
 const VERSION_AT = IDF_ENTRIES_KEY.length + 1
@@ -87,6 +90,18 @@ export default function ItemsSection({ masterId, liveVersionId }: { masterId: st
               <Button variant="secondary" data-idf-items-show-live="" onClick={() => update((q) => pickShown(q, liveVersionId, liveVersionId, draftOpen))}>
                 {t('items.showLive')}
               </Button>
+            )}
+            {/* 644 · Export the version on show (645: none while the draft shows — no door exports a draft) */}
+            {versionId !== null && (
+              <div className="ms-auto">
+                <DownloadButton
+                  fetch={() => idfMasterFilesApi.export(masterId, versionId)}
+                  fallbackName={masterExportFileName(masterId, { versionId, number: shown?.number })}
+                  label={t('download.export')}
+                  failedLabel={t('download.exportFailed')}
+                  hook="data-idf-master-export"
+                />
+              </div>
             )}
           </div>
           {notLive && (

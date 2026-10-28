@@ -76,6 +76,7 @@ Against stubs, edits build a draft that publishes as exactly one version, proofs
 - Re-rank and Remove each open a dialog (Remove asks first); a refusal shows in the dialog / under the Add form with
   the rule's word (raw code when unknown) and the message in the reader's language; a refusal without a rule shows the
   envelope message. Never a toast. Publish/discard/start refusals show the envelope message inline.
+- After merging 644: its Export (version on show) is hidden while the draft shows — no door exports a draft.
 - Stubs: refusal codes `IDF-00028`..`IDF-00032` are invented (the brief names none); a published draft's rows are
   registered in `IDF_ENTRIES` so 643's door reads the new version.
 

@@ -84,6 +84,17 @@ describe('643 · the entries door', () => {
   })
 })
 
+// 644 · master export + template (3188)
+describe('644 · the master export and template doors', () => {
+  it('export reads the version as a file; template reads the blank file', async () => {
+    const { idfMasterFilesApi } = await import('./api')
+    await idfMasterFilesApi.export('M BUPA', 'V/11')
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/export')
+    await idfMasterFilesApi.template()
+    expect(api.blob).toHaveBeenCalledWith('IdfPriority/masters/template')
+  })
+})
+
 // 645 · a master's draft (3189)
 describe('645 · the draft doors', () => {
   it('reads, starts, edits, publishes and discards the draft at its paths', async () => {

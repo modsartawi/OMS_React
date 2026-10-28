@@ -435,6 +435,12 @@
       "descriptionRequired": "Enter a description."
     }
   },
+  "download": {
+    "export": "Export",
+    "exportFailed": "The file could not be exported",
+    "template": "Template",
+    "templateFailed": "The template could not be downloaded"
+  },
   "items": {
     "title": "Items",
     "lede": "The ranking this version holds: each item, its IDF group and its priority in the group.",
@@ -460,6 +466,45 @@
       "priority": "Priority",
       "mark": "Change",
       "actions": "Actions"
+    }
+  },
+  "groupsImport": {
+    "template": "Template",
+    "templateFailed": "The template could not be downloaded",
+    "open": "Import",
+    "title": "Import IDF groups",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: group number, description, dosage form (a header row is optional). Checking lists every row and writes nothing.",
+    "file": "Groups file",
+    "submit": "Upload and check",
+    "uploadFailed": "The file could not be uploaded.",
+    "clean": "Every row passed. You can apply this file.",
+    "rowsFailed_one": "<v>{{n}}</v> row failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "rowsFailed_other": "<v>{{n}}</v> rows failed. Fix the file and upload it again; nothing is applied until every row passes.",
+    "notOk": "The server did not pass this file. Upload it again.",
+    "counts": "Rows that would add a group: <v>{{add}}</v> · update one: <v>{{update}}</v>",
+    "close": "Close",
+    "apply": "Apply",
+    "applyHint": "Apply stays off until every row passes. It writes the whole file at once.",
+    "applied": "Groups imported",
+    "appliedDetail": "Added {{added}}, updated {{updated}}.",
+    "applyFailed": "The file could not be applied.",
+    "result": "Applied. Groups added: <v>{{added}}</v> · updated: <v>{{updated}}</v>",
+    "columns": {
+      "line": "Line",
+      "group": "Group",
+      "action": "Action",
+      "rule": "Rule broken",
+      "message": "Message"
+    },
+    "action": {
+      "add": "Add",
+      "update": "Update"
+    },
+    "rule": {
+      "missingNumber": "Group number missing",
+      "duplicateNumber": "Group number listed twice",
+      "numberTooLong": "Group number longer than 26 characters",
+      "missingDescription": "Description missing"
     }
   },
   "draft": {

@@ -18,6 +18,7 @@ import { groupsQuery, idfGroupsApi } from './api'
 import { groupsExportFileName } from './download'
 import DownloadButton from './DownloadButton'
 import { GroupDialog, RemoveGroupDialog } from './GroupDialog'
+import GroupsImport from './GroupsImport' // 653
 import { canRemoveGroup, readGroupsQuery, writeGroupsQuery, type IdfGroup, type IdfGroupsQuery } from './groups'
 
 /**
@@ -59,6 +60,7 @@ export default function GroupsPage() {
               hook="data-idf-groups-export"
             />
             {/* 653 · Template + Import */}
+            <GroupsImport />
             <Button variant="primary" onClick={() => setEditing('new')} data-idf-group-add="">
               <Plus className="h-3.5 w-3.5" aria-hidden />
               {t('groups.add')}

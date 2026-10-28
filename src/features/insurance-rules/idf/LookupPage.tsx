@@ -6,10 +6,12 @@ import { Search } from 'lucide-react'
 import { apiErrorMessage, isBareDenial } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatFigure } from '@/core/util/number-format'
-import { DeniedCard, FORM_FIELD, FORM_INPUT, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { lookupQuery, mastersQuery } from './api'
 import { isLookupReady, lookupFromParams, lookupToParams, lookupView, type IdfLookupQuery, type IdfLookupView } from './lookup'
 
@@ -42,17 +44,16 @@ export default function LookupPage() {
     update(() => ({ ...draft }))
   }
   const field = (k: keyof IdfLookupQuery, required: boolean) => (
-    <label className={FORM_FIELD}>
-      {t(`lookup.fields.${k}`)}
-      <input
-        className={`${FORM_INPUT} w-40`}
+    <Field label={t(`lookup.fields.${k}`)}>
+      <Input
+        className="w-40"
         dir="ltr"
         value={draft[k]}
         required={required}
         onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
         data-lookup-field={k}
       />
-    </label>
+    </Field>
   )
 
   return (

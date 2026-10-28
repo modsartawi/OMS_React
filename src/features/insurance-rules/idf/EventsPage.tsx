@@ -2,11 +2,15 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 
 import { apiErrorMessage, isBareDenial } from '@/core/api'
-import { DeniedCard, INPUT, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
+import Chip from '@/core/ui/Chip'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
 import GridPager from '@/core/ui/GridPager'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { showsPager } from '@/core/ui/pager'
+import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
@@ -43,19 +47,11 @@ export default function EventsPage() {
       <FilterBar query={query} set={set} />
 
       {/* 627 · Swap report tab */}
-      <div className="flex gap-1 border-b border-border" role="tablist" aria-label={t('report.tabs.label')} data-idf-events-tabs="">
+      <div className="flex gap-1" role="tablist" aria-label={t('report.tabs.label')} data-idf-events-tabs="">
         {IDF_EVENTS_TABS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={query.tab === id}
-            data-tab={id}
-            onClick={() => update((q) => ({ ...q, tab: id, page: 1 }))}
-            className={`border-b-2 px-3 py-1.5 text-sm ${query.tab === id ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
+          <Chip key={id} variant="tab" on={query.tab === id} data-tab={id} onClick={() => update((q) => ({ ...q, tab: id, page: 1 }))}>
             {t(`report.tabs.${id}`)}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -75,7 +71,6 @@ export default function EventsPage() {
 function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial<Omit<IdfEventsQuery, 'page'>>) => void }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const masters = useQuery(mastersQuery())
-  const label = 'flex flex-col gap-1 text-xs text-muted-foreground'
   // Store and payer are typed: they apply on leaving the box, and Enter leaves it — one write path, so Enter never
   // writes twice. Only a real change applies (an untouched box keeps the page). Keyed on the address (at the input)
   // so Back resets them.
@@ -86,31 +81,26 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
       if (patch) set(patch)
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur(),
-    className: `${INPUT} w-28`,
+    className: 'w-28',
     dir: 'ltr' as const,
   })
   return (
     <fieldset className="flex flex-wrap items-end gap-2" data-idf-events-filter="">
       <legend className="sr-only">{t('events.filter.label')}</legend>
-      <label className={label}>
-        {t('events.filter.from')}
-        <input type="date" value={query.from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={INPUT} data-filter="from" />
-      </label>
-      <label className={label}>
-        {t('events.filter.to')}
-        <input type="date" value={query.to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={INPUT} data-filter="to" />
-      </label>
-      <label className={label}>
-        {t('events.filter.store')}
-        <input key={`store:${query.store}`} {...typed('store')} data-filter="store" />
-      </label>
-      <label className={label}>
-        {t('events.filter.payer')}
-        <input key={`payer:${query.payer}`} {...typed('payer')} data-filter="payer" />
-      </label>
-      <label className={label}>
-        {t('events.filter.master')}
-        <select value={query.masterId} onChange={(e) => set({ masterId: e.target.value })} className={INPUT} data-filter="master">
+      <Field label={t('events.filter.from')}>
+        <Input type="date" value={query.from} onChange={(e) => e.target.value && set({ from: e.target.value })} data-filter="from" />
+      </Field>
+      <Field label={t('events.filter.to')}>
+        <Input type="date" value={query.to} onChange={(e) => e.target.value && set({ to: e.target.value })} data-filter="to" />
+      </Field>
+      <Field label={t('events.filter.store')}>
+        <Input key={`store:${query.store}`} {...typed('store')} data-filter="store" />
+      </Field>
+      <Field label={t('events.filter.payer')}>
+        <Input key={`payer:${query.payer}`} {...typed('payer')} data-filter="payer" />
+      </Field>
+      <Field label={t('events.filter.master')}>
+        <Select value={query.masterId} onChange={(e) => set({ masterId: e.target.value })} data-filter="master">
           <option value="">{t('events.anyMaster')}</option>
           {(masters.data ?? []).map((m) => (
             <option key={m.masterId} value={m.masterId}>
@@ -119,21 +109,20 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
           ))}
           {/* An address naming a master the list does not hold still shows it as chosen. */}
           {query.masterId && masters.data && !masters.data.some((m) => m.masterId === query.masterId) && <option value={query.masterId}>{fsi(query.masterId)}</option>}
-        </select>
-      </label>
+        </Select>
+      </Field>
       {/* 627: the outcome is the log's own filter, not the report's. */}
       {query.tab === 'events' && (
-        <label className={label}>
-        {t('events.filter.outcome')}
-        <select value={query.outcome} onChange={(e) => set({ outcome: e.target.value as IdfEventsQuery['outcome'] })} className={INPUT} data-filter="outcome">
-          <option value="">{t('events.anyOutcome')}</option>
-          {IDF_EVENT_FILTER_OUTCOMES.map((o) => (
-            <option key={o} value={o}>
-              {t(`events.outcome.${o}`)}
-            </option>
-          ))}
-        </select>
-        </label>
+        <Field label={t('events.filter.outcome')}>
+          <Select value={query.outcome} onChange={(e) => set({ outcome: e.target.value as IdfEventsQuery['outcome'] })} data-filter="outcome">
+            <option value="">{t('events.anyOutcome')}</option>
+            {IDF_EVENT_FILTER_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {t(`events.outcome.${o}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
       )}
     </fieldset>
   )

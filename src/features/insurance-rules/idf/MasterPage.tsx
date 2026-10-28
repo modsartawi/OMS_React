@@ -8,10 +8,12 @@ import { apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
-import { ByAt, DeniedCard, FORM_FIELD, FORM_INPUT, Loading, TD, TH } from '@/core/insurance-rules/parts'
+import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_KEY, idfUploadApi, mastersQuery } from './api'
 import { masterRow, type IdfMasterRow } from './masters'
 import { isPublishable, rowMessage, type IdfUploadReport } from './upload'
@@ -171,16 +173,9 @@ function UploadStep({ masterId }: { masterId: string }) {
       )}
       {report && <Report report={report} />}
       <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
-        <label className={`${FORM_FIELD} min-w-64 flex-1`}>
-          {t('upload.note')}
-          <input
-            className={FORM_INPUT}
-            value={note}
-            placeholder={t('upload.notePlaceholder')}
-            data-idf-publish-note=""
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </label>
+        <Field label={t('upload.note')} className="min-w-64 flex-1">
+          <Input value={note} placeholder={t('upload.notePlaceholder')} data-idf-publish-note="" onChange={(e) => setNote(e.target.value)} />
+        </Field>
         <Button variant="primary" data-idf-publish="" disabled={!canPublish} onClick={() => report && publish.mutate(report)}>
           {publish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
           {t('upload.publish')}

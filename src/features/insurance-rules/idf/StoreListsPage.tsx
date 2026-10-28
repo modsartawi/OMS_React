@@ -8,11 +8,14 @@ import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import IconButton from '@/core/ui/IconButton'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
-import { DeniedCard, FORM_INPUT, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
+import { DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_STORE_LISTS_KEY, idfStoreListsApi, storeListsQuery } from './api'
 import { addStores, removeStore, sameStoreSet, type IdfStoreList } from './store-lists'
 
@@ -111,10 +114,9 @@ function CreateList({ onRefused }: { onRefused: OnRefused }) {
         if (name.trim() && !create.isPending) create.mutate(name.trim())
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('storeLists.create.label')}
-        <input className={`${FORM_INPUT} w-72`} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('storeLists.create.placeholder')} data-create-name="" />
-      </label>
+      <Field label={t('storeLists.create.label')}>
+        <Input className="w-72" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('storeLists.create.placeholder')} data-create-name="" />
+      </Field>
       <Button type="submit" variant="primary" disabled={!name.trim() || create.isPending} data-create-submit="">
         {t('storeLists.create.action')}
       </Button>
@@ -171,7 +173,7 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
               if (renaming.trim() && !rename.isPending) rename.mutate(renaming.trim())
             }}
           >
-            <input className={`${FORM_INPUT} h-8 w-60`} value={renaming} onChange={(e) => setRenaming(e.target.value)} aria-label={t('storeLists.rename.label')} data-rename-input="" autoFocus />
+            <Input className="w-60" value={renaming} onChange={(e) => setRenaming(e.target.value)} aria-label={t('storeLists.rename.label')} data-rename-input="" autoFocus />
             <Button type="submit" variant="primary" disabled={!renaming.trim() || rename.isPending} data-rename-save="">
               {t('storeLists.rename.save')}
             </Button>
@@ -250,15 +252,9 @@ function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClos
           {set.map((code) => (
             <li key={code} className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/50 ps-2.5 pe-1 py-0.5 text-xs" data-store={code}>
               <Ltr>{code}</Ltr>
-              <button
-                type="button"
-                className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => setSet((s) => removeStore(s, code))}
-                aria-label={t('storeLists.stores.remove', { code: fsi(code) })}
-                data-remove={code}
-              >
+              <IconButton size="compact" label={t('storeLists.stores.remove', { code: fsi(code) })} onClick={() => setSet((s) => removeStore(s, code))} data-remove={code}>
                 <X className="h-3 w-3" aria-hidden />
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>
@@ -270,10 +266,9 @@ function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClos
           if (typed.trim()) add()
         }}
       >
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          {t('storeLists.stores.addLabel')}
-          <input className={`${FORM_INPUT} w-72`} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t('storeLists.stores.addPlaceholder')} data-add-input="" />
-        </label>
+        <Field label={t('storeLists.stores.addLabel')}>
+          <Input className="w-72" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t('storeLists.stores.addPlaceholder')} data-add-input="" />
+        </Field>
         <Button type="submit" variant="secondary" disabled={!typed.trim()} data-add="">
           {t('storeLists.stores.add')}
         </Button>

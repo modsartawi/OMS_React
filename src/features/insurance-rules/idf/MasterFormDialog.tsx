@@ -6,10 +6,12 @@ import { apiErrorCode, apiErrorData, apiErrorMessage, isBareDenial } from '@/cor
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field, { FIELD_LABEL } from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import Modal from '@/core/ui/Modal'
+import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
-import { FORM_FIELD, FORM_INPUT } from '@/core/insurance-rules/parts'
 import { IDF_KEY, idfMasterFormApi, storeListsQuery } from './api'
 import {
   clashingMasterId,
@@ -79,7 +81,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
     >
       <div className="flex flex-col gap-3" data-idf-master-dialog={master?.masterId ?? 'new'}>
         {save.isError && <Refusal err={save.error} masters={masters} />}
-        <fieldset className={FORM_FIELD} disabled={!!master}>
+        <fieldset className={`flex flex-col gap-1 ${FIELD_LABEL}`} disabled={!!master}>
           <legend className="mb-1">{t('masterForm.kind')}</legend>
           <div className="flex flex-wrap gap-3" role="radiogroup">
             {IDF_MASTER_KINDS.map((k) => (
@@ -96,22 +98,22 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
           )}
         </fieldset>
         {form.kind === 'insurer' && (
-          <label className={FORM_FIELD}>
-            {t('masterForm.payer')}
-            <input
-              className={FORM_INPUT}
+          <Field label={t('masterForm.payer')} error={problemOf(tried, problems.payerCode)}>
+            <Input
               dir="ltr"
               value={form.payerCode}
               placeholder={t('masterForm.payerPlaceholder')}
               onChange={(e) => set('payerCode', e.target.value)}
               data-field="payerCode"
             />
-            {tried && <Problem problem={problems.payerCode} />}
-          </label>
+          </Field>
         )}
-        <label className={FORM_FIELD}>
-          {t('masterForm.storeList')}
-          <select className={FORM_INPUT} value={form.storeListId} onChange={(e) => set('storeListId', e.target.value)} data-field="storeListId">
+        <Field
+          label={t('masterForm.storeList')}
+          hint={lists.isError ? <span className="text-danger-800">{t('masterForm.storeListsFailed')}</span> : undefined}
+          error={problemOf(tried, problems.storeListId)}
+        >
+          <Select value={form.storeListId} onChange={(e) => set('storeListId', e.target.value)} data-field="storeListId">
             <option value="">{t(form.kind === 'insurer' ? 'masterForm.storeListOptional' : 'masterForm.pickStoreList')}</option>
             {(lists.data ?? []).map((l) => (
               <option key={l.storeListId} value={l.storeListId}>
@@ -120,31 +122,21 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
             ))}
             {/* A list the read did not return (or has not returned yet) still shows as picked. */}
             {form.storeListId && !lists.data?.some((l) => l.storeListId === form.storeListId) && <option value={form.storeListId}>{fsi(form.storeListId)}</option>}
-          </select>
-          {lists.isError && <span className="text-xs text-danger-800">{t('masterForm.storeListsFailed')}</span>}
-          {tried && <Problem problem={problems.storeListId} />}
-        </label>
+          </Select>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <label className={FORM_FIELD}>
-            {t('masterForm.nameEn')}
-            <input className={FORM_INPUT} dir="ltr" value={form.nameEn} onChange={(e) => set('nameEn', e.target.value)} data-field="nameEn" />
-            {tried && <Problem problem={problems.nameEn} />}
-          </label>
-          <label className={FORM_FIELD}>
-            {t('masterForm.nameAr')}
-            <input className={FORM_INPUT} dir="rtl" lang="ar" value={form.nameAr} onChange={(e) => set('nameAr', e.target.value)} data-field="nameAr" />
-            {tried && <Problem problem={problems.nameAr} />}
-          </label>
-          <label className={FORM_FIELD}>
-            {t('masterForm.hard')}
-            <input className={FORM_INPUT} dir="ltr" inputMode="numeric" value={form.hard} onChange={(e) => set('hard', e.target.value)} data-field="hard" />
-            {tried && <Problem problem={problems.hard} />}
-          </label>
-          <label className={FORM_FIELD}>
-            {t('masterForm.reminder')}
-            <input className={FORM_INPUT} dir="ltr" inputMode="numeric" value={form.reminder} onChange={(e) => set('reminder', e.target.value)} data-field="reminder" />
-            {tried && <Problem problem={problems.reminder} />}
-          </label>
+          <Field label={t('masterForm.nameEn')} error={problemOf(tried, problems.nameEn)}>
+            <Input dir="ltr" value={form.nameEn} onChange={(e) => set('nameEn', e.target.value)} data-field="nameEn" />
+          </Field>
+          <Field label={t('masterForm.nameAr')} error={problemOf(tried, problems.nameAr)}>
+            <Input dir="rtl" lang="ar" value={form.nameAr} onChange={(e) => set('nameAr', e.target.value)} data-field="nameAr" />
+          </Field>
+          <Field label={t('masterForm.hard')} error={problemOf(tried, problems.hard)}>
+            <Input dir="ltr" inputMode="numeric" value={form.hard} onChange={(e) => set('hard', e.target.value)} data-field="hard" />
+          </Field>
+          <Field label={t('masterForm.reminder')} error={problemOf(tried, problems.reminder)}>
+            <Input dir="ltr" inputMode="numeric" value={form.reminder} onChange={(e) => set('reminder', e.target.value)} data-field="reminder" />
+          </Field>
         </div>
         <p className="text-xs text-muted-foreground">{t('masterForm.thresholdsHint')}</p>
         <section className="rounded-md border border-border/60 bg-muted/40 p-3 text-xs" data-idf-master-order="">
@@ -164,11 +156,15 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
   )
 }
 
-function Problem({ problem }: { problem: IdfMasterFormProblem | undefined }) {
+/** A Field's error once the operator has tried to save, or nothing (the Field styles and links it). */
+function problemOf(tried: boolean, problem: IdfMasterFormProblem | undefined) {
+  return tried && problem ? <Problem problem={problem} /> : undefined
+}
+
+function Problem({ problem }: { problem: IdfMasterFormProblem }) {
   const { t } = useTranslation('insurance-idf')
-  if (!problem) return null
   return (
-    <span className="text-xs text-danger-800" role="alert" data-problem={problem}>
+    <span role="alert" data-problem={problem}>
       {t(`masterForm.problem.${problem}`)}
     </span>
   )

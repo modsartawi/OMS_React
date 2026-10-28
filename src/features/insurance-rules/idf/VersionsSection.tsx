@@ -7,10 +7,12 @@ import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Field from '@/core/ui/Field'
+import Input from '@/core/ui/Input'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
-import { ByAt, FORM_FIELD, FORM_INPUT, Loading, TD, TH } from '@/core/insurance-rules/parts'
+import { ByAt, Loading, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_KEY, idfVersionsApi, versionsQuery } from './api'
 import { versionRows, type IdfVersionRow } from './versions'
 
@@ -111,16 +113,9 @@ function RestorePanel({ masterId, version, onDone }: { masterId: string; version
         <Trans t={t} i18nKey="versions.restoreHint" values={{ n }} components={{ v: <Ltr /> }} />
       </p>
       <div className="flex flex-wrap items-end gap-2">
-        <label className={`${FORM_FIELD} min-w-64 flex-1`}>
-          {t('versions.note')}
-          <input
-            className={FORM_INPUT}
-            value={note}
-            placeholder={t('versions.notePlaceholder')}
-            data-idf-restore-note=""
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </label>
+        <Field label={t('versions.note')} className="min-w-64 flex-1">
+          <Input value={note} placeholder={t('versions.notePlaceholder')} data-idf-restore-note="" onChange={(e) => setNote(e.target.value)} />
+        </Field>
         <Button variant="primary" data-idf-restore-confirm="" disabled={note.trim() === '' || restore.isPending} onClick={() => restore.mutate()}>
           {restore.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden />}
           {t('versions.confirm')}

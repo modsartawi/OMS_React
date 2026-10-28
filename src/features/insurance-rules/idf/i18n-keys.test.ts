@@ -308,3 +308,16 @@ describe('insurance-idf — the keys the General page builds exist (647)', () =>
     expect(String((locale as { general: { tier: string } }).general.tier)).toContain('<v>{{n}}</v>')
   })
 })
+
+// 648 · the keys the general item dialogs build
+describe('insurance-idf — the keys the general item dialogs build exist (648)', () => {
+  const PROBLEMS = ['itemRequired', 'groupRequired', 'priorityRequired', 'priorityWholeNumber', 'reasonRequired', 'reasonTooLong']
+  it.each([en, ar])('actions, titles, fields, outcomes and every problem', (locale) => {
+    const keys = [
+      ...['setItem', 'edit', 'clear', 'setTitle', 'editTitle', 'clearTitle', 'lede', 'clearHint', 'item', 'group', 'priority', 'reason', 'cancel', 'save'],
+      ...['saved', 'cleared', 'saveFailed', 'clearFailed'],
+      ...PROBLEMS.map((p) => `problem.${p}`),
+    ].map((k) => `generalEdit.${k}`)
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+})

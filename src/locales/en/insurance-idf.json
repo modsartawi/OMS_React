@@ -568,5 +568,33 @@
     },
     "itemsLede": "Each item the general master ranks, its IDF group and its priority in the group.",
     "empty": "The general master ranks no items yet."
+  },
+  "generalEdit": {
+    "setItem": "Set item",
+    "edit": "Edit",
+    "clear": "Clear",
+    "setTitle": "Set an item in the general master",
+    "editTitle": "Edit {{item}} in the general master",
+    "clearTitle": "Clear {{item}} from the general master",
+    "lede": "The change applies at once and is recorded with its reason.",
+    "clearHint": "The item leaves the general master at once; it keeps its rank in any insurer or store master.",
+    "item": "Item",
+    "group": "IDF group",
+    "priority": "Priority in the group",
+    "reason": "Reason for this change",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saved": "The general item was saved.",
+    "cleared": "The general item was cleared.",
+    "saveFailed": "The general item could not be saved.",
+    "clearFailed": "The general item could not be cleared.",
+    "problem": {
+      "itemRequired": "Enter the item number.",
+      "groupRequired": "Enter the IDF group.",
+      "priorityRequired": "Enter the priority.",
+      "priorityWholeNumber": "The priority is a whole number of 1 or more.",
+      "reasonRequired": "Give a reason for this change.",
+      "reasonTooLong": "Keep the reason to 400 characters."
+    }
   }
 }

@@ -147,3 +147,14 @@ describe('647 · the general items door', () => {
     expect(await idfGeneralApi.items({ q: '', idf: '', page: 2 })).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
   })
 })
+
+// 648 · set / clear one general item (3192)
+describe('648 · the general item edit doors', () => {
+  it('sets an item with PUT { idfNumber, priority, reason } and clears it with DELETE { reason } in the body', async () => {
+    const { idfGeneralEditApi } = await import('./api')
+    await idfGeneralEditApi.set('300 110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    expect(api.put).toHaveBeenCalledWith('IdfPriority/general/items/300%20110', { idfNumber: 'IDF-IBU', priority: 3, reason: 'Re-ranked' })
+    await idfGeneralEditApi.clear('300110', 'Withdrawn')
+    expect(api.delWithBody).toHaveBeenCalledWith('IdfPriority/general/items/300110', { reason: 'Withdrawn' })
+  })
+})

@@ -28,6 +28,7 @@ import { itemsDoorParams, type IdfEntriesPage, type IdfEntryRow, type IdfItemsQu
 import type { IdfDraft, IdfDraftAddBody } from './draft' // 645
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
+import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -291,7 +292,18 @@ export function generalItemsQuery(q: IdfItemsQuery) {
   } as const
 }
 
-// 648 · set / clear one general item (3192)
+// 648 · set / clear one general item (3192). Both apply at once; the caller invalidates `IDF_GENERAL_KEY`.
+export const idfGeneralEditApi = {
+  /** `PUT IdfPriority/general/items/{itemNumber} { idfNumber, priority, reason }` — set or re-rank one item. */
+  set(itemNumber: string, body: IdfGeneralSetBody): Promise<unknown> {
+    return api.put<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+  /** `DELETE IdfPriority/general/items/{itemNumber} { reason }` — the reason in the BODY. */
+  clear(itemNumber: string, reason: string): Promise<unknown> {
+    const body: IdfGeneralClearBody = { reason }
+    return api.delWithBody<unknown>(`${IDF_BASE}/general/items/${encodeURIComponent(itemNumber)}`, body)
+  },
+}
 
 // 649 · general upload → preview → apply (3193)
 

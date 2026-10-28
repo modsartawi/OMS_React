@@ -713,6 +713,35 @@ export function idfGeneralItemsStub(method, path, opts = {}) {
 }
 
 // --- 648 --- set / clear one general item (door 3192).
+// `PUT IdfPriority/general/items/{itemNumber} { idfNumber, priority, reason }` sets (or adds, at the end) one item in
+// `state.general`; `DELETE IdfPriority/general/items/{itemNumber} { reason }` (reason in the BODY) clears it. A blank
+// reason or a priority that is not a whole number ≥ 1 is refused `IDF-00080`; a group neither the general master nor
+// the IDF groups know is refused `IDF-00081` (its message names it); clearing an item the master does not hold is
+// refused `IDF-00082`. Each write lands in `opts.writes` as `{ method, path, body }`.
+export function idfGeneralEditStub(method, path, body, opts = {}) {
+  const { state = {}, writes = [] } = opts
+  const m = /^IdfPriority\/general\/items\/([^/?]+)$/.exec(path)
+  if (!m || (method !== 'PUT' && method !== 'DELETE')) return null
+  const itemNumber = decodeURIComponent(m[1])
+  writes.push({ method, path, body })
+  const refuse = (message, errorCode) => envelope(null, { status: 400, success: false, message, errorCode })
+  state.general ??= structuredClone(IDF_GENERAL_ITEMS)
+  if (!String(body?.reason ?? '').trim()) return refuse('A reason is required.', 'IDF-00080')
+  const at = state.general.findIndex((r) => r.itemNumber === itemNumber)
+  if (method === 'DELETE') {
+    if (at < 0) return refuse(`Item ${itemNumber} is not in the general master.`, 'IDF-00082')
+    state.general.splice(at, 1)
+    return envelope(null)
+  }
+  const { idfNumber, priority } = body
+  if (!Number.isInteger(priority) || priority < 1) return refuse('The priority is a whole number of 1 or more.', 'IDF-00080')
+  const known = new Set([...IDF_GENERAL_ITEMS.map((r) => r.idfNumber), ...(state.groups ?? IDF_GROUPS).map((g) => g.idfNumber)])
+  if (!known.has(idfNumber)) return refuse(`IDF group ${idfNumber} does not exist.`, 'IDF-00081')
+  const row = at < 0 ? { itemNumber, descriptionEn: `Item ${itemNumber}`, descriptionAr: `الصنف ${itemNumber}`, idfNumber, priority } : { ...state.general[at], idfNumber, priority }
+  if (at < 0) state.general.push(row)
+  else state.general[at] = row
+  return envelope(row)
+}
 
 // --- 649 --- general upload → preview → apply (door 3193).
 
@@ -888,6 +917,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 647 · general master items
     idfGeneralItemsStub(method, path, opts) ??
     // 648 · set / clear one general item
+    idfGeneralEditStub(method, bare, body, opts) ??
     // 649 · general upload
     // 650 · general change log
     // 651 · general export + template

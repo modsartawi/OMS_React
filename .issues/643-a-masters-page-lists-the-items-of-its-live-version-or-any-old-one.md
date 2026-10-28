@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: BackOffice 3185 (brief C:\Work\DMSCO\BackOffice\.issues\assets\3157-oms-react-idf-brief.md, section "Spec 3185")
 blocked-by: —
 ---
@@ -25,8 +25,8 @@ test + drive
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `entries query keeps search, group and page, and resets page on a new filter` · pure
-- [ ] drive `tools/idf-items-drive.mjs` — the live version's items show, filter and page; picking an old version shows
+- [x] `entries query keeps search, group and page, and resets page on a new filter` · pure
+- [x] drive `tools/idf-items-drive.mjs` — the live version's items show, filter and page; picking an old version shows
   its ranking marked not live (LTR + RTL) · flow
 
 ## Boundaries
@@ -41,3 +41,17 @@ Against stubs, the master page shows any version's items with filter, search and
 ## Blocked by
 
 None (can start immediately).
+
+## Done 2026-10-28
+
+- Pure: `items.ts` + `items.test.ts` (9 green — the proof is the `entries query keeps search, group and page, and
+  resets page on a new filter` describe), door shape in `doors.test.ts` (643), keys in `i18n-keys.test.ts` (643).
+- Drive: `tools/idf-items-drive.mjs` 60/60 (LTR + RTL) against stubs (`// --- 643 ---` in `tools/idf-stubs.mjs`);
+  `idf-upload-drive` 96/96 and `idf-masters-drive` 86/86 still green.
+- Shared seam for 645/647/648: `ItemsTable.tsx` takes `page, error, query, onQuery(updater), busy, mark?, actions?,
+  removed?`; `items.ts` holds `IdfEntryRow`, `IdfEntriesPage`, `IdfItemsQuery`, `read/writeItemsQuery`,
+  `withItemsFilter`, `typedItemsFilter`, `itemsDoorParams`. Slot comments for 644–653 laid in `api.ts` and
+  `idf-stubs.mjs`.
+- Settled myself (overrulable): the door is sent `page` always and no `pageSize` (the server's default; the stub's
+  is 25); the group filter is a typed box (no groups door until 652); the picked live version leaves the address
+  (`?version` only for an old one); switching version keeps the search and group and goes to page 1.

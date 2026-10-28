@@ -71,3 +71,15 @@ describe('the IDF doors send the shapes the BackOffice tickets built', () => {
     expect(await idfEventsApi.events(q)).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
   })
 })
+
+// 643 · a version's items (3187)
+describe('643 · the entries door', () => {
+  it('reads one page of a version, search and group as the door names them, and fills a null body', async () => {
+    const { idfEntriesApi } = await import('./api')
+    api.get.mockResolvedValueOnce({ page: 2, pageSize: 25, total: 60, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 1 }] })
+    const page = await idfEntriesApi.entries('M BUPA', 'V/11', { q: 'pan', idf: 'IDF-PARA-500', page: 2 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/entries', { search: 'pan', idf: 'IDF-PARA-500', page: '2' })
+    expect(page.total).toBe(60)
+    expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
+  })
+})

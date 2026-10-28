@@ -211,3 +211,20 @@ describe('insurance-idf — the keys the swap report columns build exist (627)',
     expect(c.priceDifference).toMatch(locale === en ? /per base unit/ : /وحدة أساسية/)
   })
 })
+
+// 643 · the keys the items section builds
+describe('insurance-idf — the keys the items section builds exist (643)', () => {
+  it.each([en, ar])('title, filters, version picker, states and columns', (locale) => {
+    const keys = [
+      ...['title', 'lede', 'version', 'versionOption', 'versionOptionLive', 'notLive', 'showLive', 'noLive', 'search', 'searchPlaceholder'].map((k) => `items.${k}`),
+      ...['group', 'groupPlaceholder', 'loading', 'failed', 'empty', 'noMatch', 'total'].map((k) => `items.${k}`),
+      ...['item', 'description', 'group', 'priority', 'mark', 'actions'].map((c) => `items.columns.${c}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('counts and version numbers are isolated as tags', (locale) => {
+    const items = locale.items as Record<string, unknown> | undefined
+    expect(String(items?.total)).toContain('<v>{{total}}</v>')
+    expect(String(items?.notLive)).toContain('<v>{{n}}</v>')
+  })
+})

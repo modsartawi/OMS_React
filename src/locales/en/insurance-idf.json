@@ -389,5 +389,32 @@
     },
     "totalRow": "Total",
     "general": "General"
+  },
+  "items": {
+    "title": "Items",
+    "lede": "The ranking this version holds: each item, its IDF group and its priority in the group.",
+    "version": "Version",
+    "versionOption": "Version {{n}}",
+    "versionOptionLive": "Version {{n}} (live)",
+    "notLive": "You are looking at version <v>{{n}}</v>. It is not live.",
+    "showLive": "Show the live version",
+    "noLive": "This master has no live version yet. Upload a file and publish it to see its items here.",
+    "search": "Item",
+    "searchPlaceholder": "Item number or description",
+    "group": "IDF group",
+    "groupPlaceholder": "Group number",
+    "loading": "Loading the items…",
+    "failed": "The items could not be loaded.",
+    "empty": "This version holds no items.",
+    "noMatch": "No items match this search.",
+    "total": "Items: <v>{{total}}</v>",
+    "columns": {
+      "item": "Item",
+      "description": "Description",
+      "group": "IDF group",
+      "priority": "Priority",
+      "mark": "Change",
+      "actions": "Actions"
+    }
   }
 }

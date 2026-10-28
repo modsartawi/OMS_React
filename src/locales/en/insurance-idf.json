@@ -564,9 +564,53 @@
     "help": "The general master has no versions: a change applies at once. The WPF IDF screens still write it too, unchecked, so it can change outside this screen.",
     "tabs": {
       "label": "General master views",
-      "items": "Items"
+      "items": "Items",
+      "changes": "Change log"
     },
     "itemsLede": "Each item the general master ranks, its IDF group and its priority in the group.",
     "empty": "The general master ranks no items yet."
+  },
+  "changes": {
+    "lede": "Every change to the general master and the IDF groups, newest first: who, when, what it was before and after, and why.",
+    "filter": {
+      "label": "Filter the change log",
+      "item": "Item",
+      "idf": "IDF group",
+      "user": "User",
+      "from": "From",
+      "to": "To",
+      "invalid": "Pick a valid date.",
+      "reversed": "The to date is before the from date."
+    },
+    "columns": {
+      "at": "When",
+      "by": "Who",
+      "entity": "What",
+      "key": "Item or group",
+      "action": "Change",
+      "before": "Before",
+      "after": "After",
+      "reason": "Reason",
+      "upload": "Upload"
+    },
+    "entity": {
+      "item": "Item",
+      "group": "IDF group"
+    },
+    "action": {
+      "set": "Set",
+      "clear": "Cleared",
+      "add": "Added",
+      "edit": "Edited",
+      "remove": "Removed"
+    },
+    "none": "None",
+    "total": "Changes: <v>{{total}}</v>",
+    "empty": "No change is logged yet.",
+    "noMatch": "No change matches this filter.",
+    "loading": "Loading the change log…",
+    "failed": "The change log could not be read",
+    "export": "Export",
+    "exportFailed": "The change log could not be exported"
   }
 }

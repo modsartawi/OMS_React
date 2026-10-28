@@ -12,7 +12,7 @@ import { generalFromParams, generalToParams, IDF_GENERAL_TABS, switchGeneralTab,
 import ItemsTable from './ItemsTable' // 643's table, shared
 // 648 · imports (GeneralItemDialog, the Clear modal)
 // 649 · imports (GeneralUpload)
-// 650 · imports (ChangeLog)
+import ChangeLog from './ChangeLog' // 650
 // 651 · imports (the download buttons)
 
 /** The general master's tier in the resolution order (insurer at a store list → insurer → store → general). */
@@ -69,7 +69,8 @@ export default function GeneralPage() {
       </div>
 
       {query.tab === 'items' && <GeneralItems query={query} update={update} />}
-      {/* 650 · Change log tab: {query.tab === 'changes' && <ChangeLog … />} */}
+      {/* 650 · Change log tab */}
+      {query.tab === 'changes' && <ChangeLog query={query.changes} onQuery={(change) => update((q) => ({ ...q, changes: change(q.changes) }))} />}
     </section>
   )
 }

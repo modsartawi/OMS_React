@@ -1957,7 +1957,8 @@ export const SIM_PATIENT = '1023456783'
 /** The GLP-1 articles of the `glp1` list (ECode E1497 / E1502, `PREVIEW_ITEMS`). */
 const GLP1_ARTICLES = ['100101', '100102', '100201']
 
-const traceOf = (ruleId) => (blockPath, value, why) => ({ ruleId, blockPath, value, ...(why === undefined ? {} : { why }) })
+// 3140 as built: `value` is the TEXT "true" | "false" | "unknown", `why` one plain English line.
+const traceOf = (ruleId) => (blockPath, value, why) => ({ ruleId, blockPath, value: String(value), ...(why === undefined ? {} : { why: why && typeof why === 'object' ? why.en : why }) })
 
 /** One simulated line: G-007 (GLP-1 without a diabetes diagnosis) and G-004 (more than 90 days) as HQ would read them. */
 function simulateLine(l) {

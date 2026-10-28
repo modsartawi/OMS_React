@@ -14,17 +14,18 @@ import Select from '@/core/ui/Select'
 import { useUrlQuery } from '@/core/ui/use-url-query'
 import { formatDateTime } from '@/core/util/date-format'
 import { fsi } from '@/core/util/bidi'
-import { formatFigure } from '@/core/util/number-format'
+import { formatFigure, formatMoney3 } from '@/core/util/number-format'
 import { eventsQuery, mastersQuery } from './api'
-import { formatTimeSpent, IDF_EVENT_FILTER_OUTCOMES, outcomeWordKey, type IdfEvent } from './events'
+import { decisionWordKey, formatDurationMs, IDF_EVENT_FILTER_OUTCOMES, outcomeWordKey, reasonWordKey, tierOfSource, type IdfEvent } from './events'
 import { IDF_EVENTS_TABS, idfEventsFromParams, idfEventsToParams, typedFilter, windowOf, withFilter, type IdfEventsQuery } from './events-filter'
+import { versionLabel } from './lookup'
 import { masterName } from './masters'
 import SwapReport from './SwapReport' // 627
 
 /**
  * Insurance rules ▸ IDF events — `/insurance-rules/idf/events` (BackOffice spec 3157, door 3167; oms ticket 626).
- * A paged log of every IDF moment at the till, filtered by a local window, store, payer, master (619's list) and
- * outcome. The address is the state (`useUrlQuery`); a filter change goes back to page 1. Read-only.
+ * A paged log of every IDF moment at the till, filtered by a local window, store, insurer (its customer id, 3167's
+ * `payer=`), master (619's list) and outcome (`alternativeTaken` included). Prices are per base unit. The address is the state (`useUrlQuery`); a filter change goes back to page 1. Read-only.
  *
  * 627 adds the swap report as a tab of this page (`?tab=report`), sharing the filter bar (`IdfEventsFilter` in
  * `events-filter.ts`); the outcome filter belongs to the log alone and is hidden on the report.
@@ -76,12 +77,13 @@ function FilterBar({ query, set }: { query: IdfEventsQuery; set: (patch: Partial
   // so Back resets them.
   const typed = (field: 'store' | 'payer') => ({
     defaultValue: query[field],
+    placeholder: field === 'payer' ? t('masterForm.payerPlaceholder') : undefined,
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
       const patch = typedFilter(query, field, e.target.value)
       if (patch) set(patch)
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur(),
-    className: 'w-28',
+    className: field === 'payer' ? 'w-36' : 'w-28',
     dir: 'ltr' as const,
   })
   return (
@@ -140,8 +142,8 @@ function EventsLog({ query, onPage }: { query: IdfEventsQuery; onPage: (page: nu
   if (events.isError && isBareDenial(events.error)) return <DeniedCard ns="insurance-idf" hook="idf-events-denied" />
   if (events.isError) return <ErrorBanner className="p-3" message={apiErrorMessage(events.error, t('events.failed'))} />
   if (!events.data) return <Loading text={t('events.loading')} />
-  const { items, total, pageSize } = events.data
-  if (items.length === 0)
+  const { rows, total, pageSize } = events.data
+  if (rows.length === 0)
     return (
       <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-idf-events-empty="">
         {t('events.empty')}
@@ -159,18 +161,28 @@ function EventsLog({ query, onPage }: { query: IdfEventsQuery; onPage: (page: nu
             <tr>
               <th className={TH}>{t('events.columns.at')}</th>
               <th className={TH}>{t('events.columns.store')}</th>
+              <th className={TH}>{t('events.columns.trx')}</th>
               <th className={TH}>{t('events.columns.payer')}</th>
               <th className={TH}>{t('events.columns.documentType')}</th>
               <th className={TH}>{t('events.columns.itemScanned')}</th>
               <th className={TH}>{t('events.columns.itemDispensed')}</th>
+              <th className={TH}>{t('events.columns.source')}</th>
               <th className={TH}>{t('events.columns.master')}</th>
+              <th className={TH}>{t('events.columns.decision')}</th>
               <th className={TH}>{t('events.columns.outcome')}</th>
+              <th className={`${TH} text-end`}>{t('events.columns.scannedPrice')}</th>
+              <th className={`${TH} text-end`}>{t('events.columns.dispensedPrice')}</th>
               <th className={`${TH} text-end`}>{t('events.columns.timeSpent')}</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((e) => (
-              <EventRow key={e.eventId} e={e} masterName={e.masterId ? nameOf(e.masterId) : null} />
+            {rows.map((e) => (
+              <EventRow
+                key={e.eventId}
+                e={e}
+                masterName={e.masterId ? nameOf(e.masterId) : null}
+                version={versionLabel(masters.data ?? [], e.masterId, e.masterVersionId)}
+              />
             ))}
           </tbody>
         </table>
@@ -182,46 +194,86 @@ function EventsLog({ query, onPage }: { query: IdfEventsQuery; onPage: (page: nu
   )
 }
 
-function EventRow({ e, masterName: name }: { e: IdfEvent; masterName: string | null }) {
+/**
+ * One event (3167). The master column is the general master when the event names none; the version reads as its
+ * number when it is the master's live one, else its id. Prices are per base unit (money, 3 decimals).
+ */
+function EventRow({ e, masterName: name, version }: { e: IdfEvent; masterName: string | null; version: string | null }) {
   const { t } = useTranslation('insurance-idf')
   const word = outcomeWordKey(e.outcome)
-  const spent = formatTimeSpent(e.timeSpentSeconds)
+  const decision = decisionWordKey(e.decision)
+  const reason = reasonWordKey(e.reason)
+  const tier = tierOfSource(e.source)
+  const spent = formatDurationMs(e.durationMs)
+  const dispensed = e.dispensedItemNumber || null
   return (
     <tr className="border-t border-border/60" data-event={e.eventId} data-outcome={e.outcome} data-master={e.masterId ?? ''}>
       <td className={`${TD} whitespace-nowrap`} data-col="at">
-        <Ltr>{formatDateTime(e.at)}</Ltr>
+        <Ltr>{formatDateTime(e.occurredAt)}</Ltr>
       </td>
       <td className={TD} data-col="store">
-        <Ltr>{e.storeCode}</Ltr>
+        <Ltr>{e.store}</Ltr>
+        {e.till && (
+          <span className="block text-xs text-muted-foreground" data-col="till">
+            {t('events.columns.till')} <Ltr>{e.till}</Ltr>
+          </span>
+        )}
+      </td>
+      <td className={TD} data-col="trx">
+        {e.trxNumber && <Ltr>{e.trxNumber}</Ltr>}
       </td>
       <td className={TD} data-col="payer">
-        {e.payerCode && <Ltr>{e.payerCode}</Ltr>}
+        {e.insurerCustomerId && <Ltr>{e.insurerCustomerId}</Ltr>}
       </td>
       <td className={TD} data-col="documentType">
         {e.documentType && <Ltr>{e.documentType}</Ltr>}
+        {e.subDocumentType && (
+          <span className="block text-xs text-muted-foreground">
+            <Ltr>{e.subDocumentType}</Ltr>
+          </span>
+        )}
       </td>
       <td className={TD} data-col="itemScanned">
-        <Ltr>{e.itemScanned}</Ltr>
+        <Ltr>{e.scannedItemNumber}</Ltr>
       </td>
       <td className={TD} data-col="itemDispensed">
-        {e.itemDispensed && <Ltr>{e.itemDispensed}</Ltr>}
+        {dispensed && <Ltr>{dispensed}</Ltr>}
+      </td>
+      <td className={TD} data-col="source">
+        {tier && t(`lookup.tier.${tier}`, { defaultValue: e.source ?? '' })}
       </td>
       <td className={TD} data-col="master">
         {e.masterId ? (
           <span className="flex flex-col">
             {name ? <bdi>{name}</bdi> : <Ltr>{e.masterId}</Ltr>}
-            {e.masterVersion != null && (
+            {version && (
               <span className="text-xs text-muted-foreground" data-version="">
-                <Trans t={t} i18nKey="events.version" values={{ number: formatFigure(e.masterVersion) }} components={{ v: <Ltr /> }} />
+                <Trans t={t} i18nKey="events.version" values={{ number: version }} components={{ v: <Ltr /> }} />
               </span>
             )}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">{t('events.unknownMaster')}</span>
+          <span className="text-xs text-muted-foreground" data-general-master="">
+            {t('report.general')}
+          </span>
         )}
+      </td>
+      <td className={TD} data-col="decision">
+        {decision ? t(decision) : e.decision && <Ltr>{e.decision}</Ltr>}
       </td>
       <td className={TD} data-col="outcome">
         {word ? t(word) : <Ltr>{e.outcome}</Ltr>}
+        {e.reason && (
+          <span className="block text-xs text-muted-foreground" data-reason={e.reason}>
+            {reason ? t(reason) : <Ltr>{e.reason}</Ltr>}
+          </span>
+        )}
+      </td>
+      <td className={NUM} data-col="scannedPrice">
+        {e.scannedUnitPrice != null && <Ltr>{formatMoney3(e.scannedUnitPrice)}</Ltr>}
+      </td>
+      <td className={NUM} data-col="dispensedPrice">
+        {dispensed && e.dispensedUnitPrice != null && <Ltr>{formatMoney3(e.dispensedUnitPrice)}</Ltr>}
       </td>
       <td className={NUM} data-col="timeSpent">
         {spent && <Ltr>{spent}</Ltr>}

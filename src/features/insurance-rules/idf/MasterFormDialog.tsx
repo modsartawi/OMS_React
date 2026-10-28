@@ -14,30 +14,32 @@ import Select from '@/core/ui/Select'
 import { fsi } from '@/core/util/bidi'
 import { IDF_KEY, idfMasterFormApi, storeListsQuery } from './api'
 import {
-  clashingMasterId,
   formFromMaster,
   masterBody,
   masterFormProblems,
   newMasterForm,
   type IdfMasterForm,
   type IdfMasterFormProblem,
+  scopeClash,
   withKind,
 } from './master-form'
-import { IDF_TIERS, type IdfTier } from './lookup'
+import { IDF_RESOLUTION_ORDER, type IdfTier } from './lookup'
 import { IDF_MASTER_KINDS, masterName, type IdfMaster } from './masters'
+import { storeListName } from './store-lists'
 
 /**
  * Create or edit an IDF master (BackOffice spec 3157, doors 3161/3162; oms ticket 621). Kind is picked on create
- * and fixed after. An insurer master names a payer and may be scoped to a store list (620's lists); a store master
+ * and fixed after. An insurer master names its insurer's customer id (`insurerCustomerId`, e.g. `0001100336`) and may be scoped to a store list (620's lists); a store master
  * picks a store list. Both names are required; the thresholds default to 4 and 1 and a reminder above the hard one
  * is refused before sending. The help lists the fixed resolution order and marks where this master sits.
  *
  * A refusal stays in the dialog with the input kept: an overlapping scope shows the server's message, its code and
- * the clashing master (from the refusal's `data.clashingMasterId`, named from the list). A bare 403 says "no
+ * the clashing master and the stores both cover (`IDF-00015`'s `data`: `clashingMasterId`, `clashingNameEn/Ar`,
+ * `sharedStores`). A bare 403 says "no
  * access" (🚩 UNGATED until 628).
  */
 export default function MasterFormDialog({ master, masters, onClose }: { master: IdfMaster | null; masters: IdfMaster[]; onClose: () => void }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
   const qc = useQueryClient()
   const lists = useQuery(storeListsQuery())
   const [form, setForm] = useState<IdfMasterForm>(master ? formFromMaster(master) : newMasterForm())
@@ -52,7 +54,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
       onClose()
     },
   })
-  const tier: IdfTier = form.kind === 'store' ? 'operationPharmacy' : form.storeListId ? 'insurerStoreList' : 'insurer'
+  const tier: IdfTier = form.kind === 'store' ? 'store' : form.storeListId ? 'insurerAtStoreList' : 'insurer'
 
   return (
     <Modal
@@ -98,13 +100,14 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
           )}
         </fieldset>
         {form.kind === 'insurer' && (
-          <Field label={t('masterForm.payer')} error={problemOf(tried, problems.payerCode)}>
+          <Field label={t('masterForm.payer')} hint={t('masterForm.payerHint')} error={problemOf(tried, problems.insurerCustomerId)}>
             <Input
               dir="ltr"
-              value={form.payerCode}
+              inputMode="numeric"
+              value={form.insurerCustomerId}
               placeholder={t('masterForm.payerPlaceholder')}
-              onChange={(e) => set('payerCode', e.target.value)}
-              data-field="payerCode"
+              onChange={(e) => set('insurerCustomerId', e.target.value)}
+              data-field="insurerCustomerId"
             />
           </Field>
         )}
@@ -117,7 +120,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
             <option value="">{t(form.kind === 'insurer' ? 'masterForm.storeListOptional' : 'masterForm.pickStoreList')}</option>
             {(lists.data ?? []).map((l) => (
               <option key={l.storeListId} value={l.storeListId}>
-                {fsi(l.name)}
+                {fsi(storeListName(l, i18n.language))}
               </option>
             ))}
             {/* A list the read did not return (or has not returned yet) still shows as picked. */}
@@ -143,7 +146,7 @@ export default function MasterFormDialog({ master, masters, onClose }: { master:
           <h3 className="font-semibold text-foreground">{t('masterForm.orderTitle')}</h3>
           <p className="mt-1 text-muted-foreground">{t('masterForm.orderHint')}</p>
           <ol className="mt-1 list-decimal ps-5">
-            {IDF_TIERS.map((o) => (
+            {IDF_RESOLUTION_ORDER.map((o) => (
               <li key={o} data-tier={o} data-this-one={o === tier ? '' : undefined} className={o === tier ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
                 {t(`lookup.tier.${o}`)}
                 {o === tier && <span className="ms-2 rounded-full bg-primary/10 px-2 py-0.5 text-primary">{t('masterForm.thisOne')}</span>}
@@ -174,14 +177,21 @@ function Problem({ problem }: { problem: IdfMasterFormProblem }) {
 function Refusal({ err, masters }: { err: unknown; masters: IdfMaster[] }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const code = apiErrorCode(err)
-  const clashId = clashingMasterId(apiErrorData(err))
-  const clash = clashId ? masters.find((m) => m.masterId === clashId) : undefined
+  const clash = scopeClash(apiErrorData(err))
+  const clashId = clash?.clashingMasterId ?? null
+  const known = clashId ? masters.find((m) => m.masterId === clashId) : undefined
+  const clashName = clash && (clash.clashingNameEn || clash.clashingNameAr) ? masterName({ nameEn: clash.clashingNameEn, nameAr: clash.clashingNameAr }, i18n.language) : known ? masterName(known, i18n.language) : clashId
   return (
     <div data-idf-master-refusal={code ?? ''}>
       <ErrorBanner className="p-3" title={t('masterForm.refused')} message={isBareDenial(err) ? t('masterForm.denied') : apiErrorMessage(err, t('masterForm.refusedFallback'))}>
         {clashId && (
           <div className="mt-1 text-xs" data-clashing-master={clashId}>
-            <Trans t={t} i18nKey="masterForm.clashesWith" values={{ name: clash ? masterName(clash, i18n.language) : clashId, id: clashId }} components={{ n: <bdi />, v: <Ltr /> }} />
+            <Trans t={t} i18nKey="masterForm.clashesWith" values={{ name: clashName, id: clashId }} components={{ n: <bdi />, v: <Ltr /> }} />
+          </div>
+        )}
+        {clash && clash.sharedStores.length > 0 && (
+          <div className="mt-1 text-xs" data-shared-stores="">
+            <Trans t={t} i18nKey="masterForm.sharedStores" values={{ stores: clash.sharedStores.join(', ') }} components={{ v: <Ltr /> }} />
           </div>
         )}
         {code && (

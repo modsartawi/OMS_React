@@ -12,7 +12,7 @@
     "columns": {
       "name": "Name",
       "kind": "Kind",
-      "payer": "Payer",
+      "payer": "Insurer customer id",
       "storeList": "Store list",
       "thresholds": "Thresholds",
       "version": "Live version",
@@ -41,26 +41,24 @@
     "cancel": "Cancel",
     "columns": {
       "name": "Name",
-      "id": "List",
+      "code": "Code",
       "stores": "Stores"
     },
     "create": {
       "label": "New list",
-      "placeholder": "Name of the list",
+      "code": "Code",
+      "codePlaceholder": "Plain letters, digits and dashes (26 at most)",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
       "action": "Create list",
       "done": "Store list created"
     },
     "rename": {
       "action": "Rename",
-      "label": "New name",
+      "nameEn": "Name in English",
+      "nameAr": "Name in Arabic",
       "save": "Save name",
       "done": "Store list renamed"
-    },
-    "delete": {
-      "action": "Delete",
-      "title": "Delete store list",
-      "confirm": "Delete the store list {{name}}? Masters that point at it lose their stores.",
-      "done": "Store list deleted"
     },
     "stores": {
       "title": "Stores in <n>{{name}}</n>",
@@ -71,7 +69,16 @@
       "remove": "Remove {{code}}",
       "save": "Save stores",
       "done": "Stores saved"
-    }
+    },
+    "problem": {
+      "codeRequired": "Enter the code.",
+      "codeAscii": "Use plain letters, digits and dashes only (no spaces or commas).",
+      "codeTooLong": "The code is longer than 26 characters.",
+      "nameRequired": "Enter the name."
+    },
+    "badStores": "Unknown store codes: <v>{{codes}}</v>",
+    "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
+    "sharedStores": "Stores both cover: <v>{{stores}}</v>"
   },
   "masterForm": {
     "newAction": "New master",
@@ -82,8 +89,8 @@
     "editTitle": "Edit IDF master",
     "kind": "Kind",
     "kindFixed": "The kind cannot be changed after the master is created.",
-    "payer": "Payer code",
-    "payerPlaceholder": "e.g. BUPA",
+    "payer": "Insurer customer id",
+    "payerPlaceholder": "e.g. 0001100336",
     "storeList": "Store list",
     "storeListOptional": "All stores (no store list)",
     "pickStoreList": "Pick a store list",
@@ -97,7 +104,7 @@
     "orderHint": "For each item the first master that names it decides, most specific first:",
     "thisOne": "This master",
     "problem": {
-      "payerRequired": "Enter the payer code.",
+      "insurerRequired": "Enter the insurer's customer id.",
       "storeListRequired": "Pick a store list.",
       "nameRequired": "Enter the name.",
       "wholeNumber": "Enter a whole number of 0 or more.",
@@ -111,7 +118,9 @@
     "refusedFallback": "The server refused the change.",
     "refusalCode": "Code <v>{{code}}</v>",
     "clashesWith": "Clashes with <n>{{name}}</n> (<v>{{id}}</v>)",
-    "denied": "You do not have access to change IDF masters."
+    "denied": "You do not have access to change IDF masters.",
+    "payerHint": "The insurer's customer id, as its ItemCustomer rows carry it.",
+    "sharedStores": "Stores both cover: <v>{{stores}}</v>"
   },
   "upload": {
     "back": "All IDF masters",
@@ -120,7 +129,7 @@
     "notFound": "There is no IDF master {{id}}.",
     "live": "Live version",
     "title": "Upload a new version",
-    "hint": "A file with three columns: item, IDF group, priority. Uploading checks every row and publishes nothing.",
+    "hint": "An .xlsx (first sheet), a tab-separated .txt or .tsv, or a .csv with three columns: item, IDF group, priority (a header row is optional). Uploading checks every row and publishes nothing.",
     "file": "File to upload",
     "submit": "Upload and check",
     "uploadFailed": "The file could not be uploaded.",
@@ -136,8 +145,9 @@
     },
     "rule": {
       "unknownItem": "Unknown item",
-      "notInItemCustomer": "Item not in the insurer's items",
+      "notInInsurerItems": "Item not in the insurer's items",
       "unknownGroup": "Unknown IDF group",
+      "itemNotInGroup": "Item not in the IDF group the line names",
       "badPriority": "Priority not a whole number of 1 or more",
       "duplicateItem": "Item listed twice"
     },
@@ -147,7 +157,8 @@
     "publishHint": "Publish stays off until the report is clean and a note is written.",
     "published": "Published",
     "publishedDetail": "Version {{n}} is live now.",
-    "publishFailed": "The upload could not be published."
+    "publishFailed": "The upload could not be published.",
+    "lineCount": "Lines in the file: <v>{{n}}</v>"
   },
   "versions": {
     "title": "Versions",
@@ -159,6 +170,7 @@
     "columns": {
       "number": "Version",
       "byAt": "Published",
+      "entries": "Items",
       "note": "Note",
       "actions": "Actions"
     },
@@ -183,6 +195,7 @@
       "keyKind": "Key kind",
       "key": "Key",
       "handling": "Handling",
+      "stores": "Stores",
       "reason": "Reason",
       "changed": "Changed",
       "actions": "Actions"
@@ -216,20 +229,35 @@
     "problem": {
       "keyRequired": "Enter the key.",
       "masterRequired": "Pick the master to use.",
-      "reasonRequired": "Give a reason for this change."
+      "reasonRequired": "Give a reason for this change.",
+      "keyWholeNumber": "A Nphies claim type is a whole number.",
+      "reasonTooLong": "Keep the reason to 400 characters."
+    },
+    "allStores": "Apply at every store",
+    "allStoresHint": "Off: the row applies at the IDF pilot stores only.",
+    "stores": {
+      "all": "Every store",
+      "pilot": "Pilot stores only"
+    },
+    "keyPlaceholder": {
+      "documentType": "A document type name, e.g. InsuranceOrder",
+      "subDocumentType": "Free text, matched ignoring case",
+      "nphiesClaimType": "A whole number"
     }
   },
   "lookup": {
     "title": "IDF lookup",
-    "lede": "Why this priority: for an item, a store and a payer, the master that decided, the tiers skipped before it and the ranked IDF group.",
+    "lede": "Why this priority: for an item and a store (and optionally an insurer and a document type), the master that decided, the tiers skipped before it and the ranked IDF group.",
     "fields": {
       "item": "Item",
       "store": "Store",
-      "payer": "Payer",
-      "documentType": "Document type (optional)"
+      "payer": "Insurer customer id (optional)",
+      "documentType": "Document type (optional)",
+      "subDocumentType": "Sub-document type (optional)",
+      "nphiesClaimType": "Nphies claim type (optional)"
     },
     "submit": "Look up",
-    "hint": "Enter an item, a store and a payer to see why the item has its priority.",
+    "hint": "Enter an item and a store (the insurer customer id is optional) to see why the item has its priority.",
     "loading": "Looking up the priority…",
     "failed": "The lookup could not be answered.",
     "decidedBy": "Decided by",
@@ -248,10 +276,26 @@
     },
     "lookedUp": "Looked up",
     "tier": {
-      "insurerStoreList": "Insurer on a store list",
+      "insurerAtStoreList": "Insurer on a store list",
       "insurer": "Insurer",
-      "operationPharmacy": "Operation pharmacy",
-      "general": "General"
+      "store": "Store (operation pharmacy)",
+      "general": "General",
+      "exceptionMaster": "Exception's master"
+    },
+    "payerPlaceholder": "e.g. 0001100336",
+    "itemTitle": "Item <v>{{item}}</v>",
+    "idfGroup": "IDF group <v>{{group}}</v>",
+    "insurer": "Insurer <v>{{insurer}}</v>",
+    "exceptionTitle": "Exception applied",
+    "skippedMaster": "master <v>{{id}}</v>",
+    "skipReason": {
+      "notOnPilotList": "The store is not on the pilot list",
+      "notAnIdfItem": "Not an IDF item",
+      "noPayer": "No insurer on the order",
+      "noMaster": "No master at this tier",
+      "masterDoesNotNameItem": "The master does not name the item",
+      "unreadable": "The master could not be read",
+      "exceptionRow": "An exception row applied"
     }
   },
   "events": {
@@ -270,7 +314,7 @@
       "from": "From",
       "to": "To",
       "store": "Store",
-      "payer": "Payer",
+      "payer": "Insurer customer id",
       "master": "Master",
       "outcome": "Outcome",
       "invalid": "Pick a valid from and to date.",
@@ -281,12 +325,18 @@
     "columns": {
       "at": "When",
       "store": "Store",
-      "payer": "Payer",
+      "till": "Till",
+      "trx": "Transaction",
+      "payer": "Insurer customer id",
       "documentType": "Document type",
       "itemScanned": "Item scanned",
       "itemDispensed": "Item dispensed",
+      "source": "Deciding tier",
       "master": "Deciding master",
+      "decision": "Decision",
       "outcome": "Outcome",
+      "scannedPrice": "Scanned price (per base unit)",
+      "dispensedPrice": "Dispensed price (per base unit)",
       "timeSpent": "Time spent"
     },
     "outcome": {
@@ -296,8 +346,17 @@
       "lineAbandoned": "Line abandoned",
       "skippedByException": "Skipped by exception",
       "refusedPreAuth": "Refused (pre-authorisation)",
+      "alternativeTaken": "Alternative taken",
       "requestRaised": "Request raised",
       "autoApproved": "Auto-approved"
+    },
+    "decision": {
+      "None": "None",
+      "Reminder": "Reminder",
+      "ForcedPick": "Forced pick"
+    },
+    "reason": {
+      "allCandidatesDearer": "every candidate was dearer"
     }
   },
   "report": {
@@ -315,10 +374,20 @@
     "columns": {
       "master": "Master",
       "store": "Store",
-      "payer": "Payer",
-      "priceDifference": "Price difference (picks taken)",
-      "averageTime": "Average time",
-      "otherOutcome": "Other outcomes"
-    }
+      "payer": "Insurer customer id",
+      "events": "Events",
+      "reminders": "Reminders",
+      "remindersAllCandidatesDearer": "Reminders: all candidates dearer",
+      "forcedPicksTaken": "Forced picks taken",
+      "alternativesTaken": "Alternatives taken",
+      "picksCancelled": "Picks cancelled",
+      "linesAbandoned": "Lines abandoned",
+      "skippedByException": "Skipped by exception",
+      "refusedPreAuth": "Refused (pre-authorisation)",
+      "priceDifference": "Price difference on picks taken (per base unit)",
+      "averageTime": "Average time"
+    },
+    "totalRow": "Total",
+    "general": "General"
   }
 }

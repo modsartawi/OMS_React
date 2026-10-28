@@ -8,10 +8,8 @@
  */
 import type { IdfMasterVersion } from './masters'
 
-/** A row of `GET …/versions`. `isLive` is optional — the brief only says the live one is marked. */
-export interface IdfVersion extends IdfMasterVersion {
-  isLive?: boolean | null
-}
+/** A row of `GET …/versions` (3161: newest first, `isLive` and `entryCount` on every row). */
+export type IdfVersion = IdfMasterVersion
 
 export interface IdfVersionRow extends IdfVersion {
   live: boolean

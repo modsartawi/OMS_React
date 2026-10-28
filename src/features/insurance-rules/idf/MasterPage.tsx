@@ -14,9 +14,10 @@ import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
-import { IDF_KEY, idfUploadApi, mastersQuery } from './api'
+import { IDF_KEY, idfUploadApi, mastersQuery, storeListsQuery } from './api'
+import { storeListName } from './store-lists'
 import { masterRow, type IdfMasterRow } from './masters'
-import { isPublishable, rowMessage, type IdfUploadReport } from './upload'
+import { IDF_UPLOAD_ACCEPT, isPublishable, ruleWordKey, rowMessage, type IdfUploadReport } from './upload'
 import VersionsSection from './VersionsSection' // 623
 
 /**
@@ -64,7 +65,9 @@ export default function MasterPage() {
 }
 
 function MasterHeader({ row }: { row: IdfMasterRow }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
+  const lists = useQuery(storeListsQuery())
+  const list = row.storeListId ? lists.data?.find((l) => l.storeListId === row.storeListId) : undefined
   return (
     <header className="flex max-w-3xl flex-col gap-2" data-idf-master={row.masterId} data-kind={row.kind}>
       <h1 className="text-lg font-semibold tracking-tight">
@@ -73,11 +76,11 @@ function MasterHeader({ row }: { row: IdfMasterRow }) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">{t('masters.columns.kind')}</dt>
         <dd data-col="kind">{t(`masters.kind.${row.kind}`, { defaultValue: row.kind })}</dd>
-        {row.payerCode && (
+        {row.insurerCustomerId && (
           <>
             <dt className="text-muted-foreground">{t('masters.columns.payer')}</dt>
             <dd data-col="payer">
-              <Ltr>{row.payerCode}</Ltr>
+              <Ltr>{row.insurerCustomerId}</Ltr>
             </dd>
           </>
         )}
@@ -85,7 +88,7 @@ function MasterHeader({ row }: { row: IdfMasterRow }) {
           <>
             <dt className="text-muted-foreground">{t('masters.columns.storeList')}</dt>
             <dd data-col="storeList">
-              <Ltr>{row.storeListId}</Ltr>
+              {list ? <bdi data-store-list-id={row.storeListId}>{storeListName(list, i18n.language)}</bdi> : <Ltr>{row.storeListId}</Ltr>}
             </dd>
           </>
         )}
@@ -142,7 +145,7 @@ function UploadStep({ masterId }: { masterId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="file"
-          accept=".xlsx,.xls,.csv"
+          accept={IDF_UPLOAD_ACCEPT}
           aria-label={t('upload.file')}
           data-idf-upload-file=""
           className="text-sm"
@@ -194,16 +197,26 @@ function UploadStep({ masterId }: { masterId: string }) {
 function Report({ report }: { report: IdfUploadReport }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const rows = report.rows ?? []
+  const lines =
+    report.lineCount != null ? (
+      <p className="text-xs text-muted-foreground" data-idf-report-lines="">
+        <Trans t={t} i18nKey="upload.lineCount" values={{ n: formatFigure(report.lineCount) }} components={{ v: <Ltr /> }} />
+      </p>
+    ) : null
   if (isPublishable(report)) {
     return (
-      <p className="flex items-center gap-2 text-sm" data-idf-report="clean">
-        <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
-        {t('upload.clean')}
-      </p>
+      <div className="flex flex-col gap-1">
+        <p className="flex items-center gap-2 text-sm" data-idf-report="clean">
+          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+          {t('upload.clean')}
+        </p>
+        {lines}
+      </div>
     )
   }
   return (
     <div className="flex flex-col gap-2" data-idf-report="failed" data-upload-id={report.uploadId}>
+      {lines}
       <p className="text-sm" data-idf-report-summary="">
         {rows.length === 0 ? (
           t('upload.notOk')
@@ -223,7 +236,9 @@ function Report({ report }: { report: IdfUploadReport }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {rows.map((r, i) => {
+                const word = ruleWordKey(r.rule)
+                return (
                 <tr key={`${r.line}-${i}`} className="border-t border-border/60" data-line={r.line} data-rule={r.rule}>
                   <td className={`${TD} text-end tabular-nums`} data-col="line">
                     <Ltr>{formatFigure(r.line)}</Ltr>
@@ -232,13 +247,14 @@ function Report({ report }: { report: IdfUploadReport }) {
                     {r.itemNumber && <Ltr>{r.itemNumber}</Ltr>}
                   </td>
                   <td className={TD} data-col="rule">
-                    {t(`upload.rule.${r.rule}`, { defaultValue: '' }) || <Ltr>{r.rule}</Ltr>}
+                    {word ? t(word) : <Ltr>{r.rule}</Ltr>}
                   </td>
                   <td className={TD} data-col="message">
                     <bdi>{rowMessage(r, i18n.language)}</bdi>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

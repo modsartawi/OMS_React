@@ -14,7 +14,9 @@ import areaAr from '@/locales/ar/insurance-rules.json'
 import { hasLocaleKey } from '@/core/test/locale'
 import { IDF_MASTER_KINDS } from './masters'
 import { IDF_EXCEPTION_HANDLINGS, IDF_EXCEPTION_KEY_KINDS } from './exceptions' // 624
-import { IDF_TIERS } from './lookup' // 625
+import { IDF_SKIP_REASONS, IDF_TIERS } from './lookup' // 625
+import { IDF_UPLOAD_RULES } from './upload' // 622
+import { SWAP_REPORT_COUNTS } from './report' // 627
 import { IDF_EVENT_OUTCOMES } from './events' // 627
 
 const EN_PLURAL = ['_one', '_other']
@@ -78,7 +80,9 @@ describe('insurance-idf — the keys the lookup builds exist (625)', () => {
   it.each([en, ar])('every tier word, field, column and sentence', (locale) => {
     const keys = [
       ...IDF_TIERS.map((k) => `lookup.tier.${k}`),
-      ...(['item', 'store', 'payer', 'documentType'] as const).map((f) => `lookup.fields.${f}`),
+      ...IDF_SKIP_REASONS.map((r) => `lookup.skipReason.${r}`),
+      ...(['item', 'store', 'payer', 'documentType', 'subDocumentType', 'nphiesClaimType'] as const).map((f) => `lookup.fields.${f}`),
+      ...['payerPlaceholder', 'itemTitle', 'idfGroup', 'insurer', 'exceptionTitle', 'skippedMaster'].map((k) => `lookup.${k}`),
       ...['item', 'description', 'priority', 'sourceTier'].map((c) => `lookup.columns.${c}`),
       ...['title', 'lede', 'submit', 'hint', 'loading', 'failed', 'decidedBy', 'generalMaster', 'version', 'priority', 'cash'].map((k) => `lookup.${k}`),
       ...['skippedTitle', 'skippedNone', 'groupTitle', 'lookedUp'].map((k) => `lookup.${k}`),
@@ -96,9 +100,9 @@ describe('insurance-idf — the keys the lookup builds exist (625)', () => {
 describe('insurance-idf — the keys the master page and its upload build exist', () => {
   it.each([en, ar])('header, upload, report columns, rules, publish', (locale) => {
     const keys = [
-      ...['back', 'loading', 'failed', 'notFound', 'live', 'title', 'hint', 'file', 'submit', 'uploadFailed', 'clean', 'notOk'].map((k) => `upload.${k}`),
+      ...['back', 'loading', 'failed', 'notFound', 'live', 'title', 'hint', 'file', 'submit', 'uploadFailed', 'clean', 'notOk', 'lineCount'].map((k) => `upload.${k}`),
       ...['line', 'item', 'rule', 'message'].map((c) => `upload.columns.${c}`),
-      ...['unknownItem', 'notInItemCustomer', 'unknownGroup', 'badPriority', 'duplicateItem'].map((r) => `upload.rule.${r}`),
+      ...IDF_UPLOAD_RULES.map((r) => `upload.rule.${r}`),
       ...['note', 'notePlaceholder', 'publish', 'publishHint', 'published', 'publishedDetail', 'publishFailed'].map((k) => `upload.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
@@ -114,16 +118,21 @@ describe('insurance-idf — the keys the store lists build exist (620)', () => {
   it.each([en, ar])('page, columns, pilot mark, refusal, create / rename / delete, the stores editor', (locale) => {
     const keys = [
       ...['title', 'lede', 'loading', 'failed', 'empty', 'refused', 'refusedFallback', 'refusalCode', 'pilot', 'open', 'close', 'cancel'].map((k) => `storeLists.${k}`),
-      ...['name', 'id', 'stores'].map((c) => `storeLists.columns.${c}`),
-      ...['label', 'placeholder', 'action', 'done'].map((k) => `storeLists.create.${k}`),
-      ...['action', 'label', 'save', 'done'].map((k) => `storeLists.rename.${k}`),
-      ...['action', 'title', 'confirm', 'done'].map((k) => `storeLists.delete.${k}`),
+      ...['name', 'code', 'stores'].map((c) => `storeLists.columns.${c}`),
+      ...['label', 'code', 'codePlaceholder', 'nameEn', 'nameAr', 'action', 'done'].map((k) => `storeLists.create.${k}`),
+      ...['action', 'nameEn', 'nameAr', 'save', 'done'].map((k) => `storeLists.rename.${k}`),
+      ...['codeRequired', 'codeAscii', 'codeTooLong', 'nameRequired'].map((k) => `storeLists.problem.${k}`),
+      ...['badStores', 'clashesWith', 'sharedStores'].map((k) => `storeLists.${k}`),
       ...['title', 'empty', 'addLabel', 'addPlaceholder', 'add', 'remove', 'save', 'done'].map((k) => `storeLists.stores.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
     const s = locale.storeLists as Record<string, Record<string, string> | string>
     expect(String(s.refusalCode)).toContain('<v>{{code}}</v>')
     expect(String((s.stores as Record<string, string>).title)).toContain('<n>{{name}}</n>')
+    expect(String(s.badStores)).toContain('<v>{{codes}}</v>')
+    expect(String(s.sharedStores)).toContain('<v>{{stores}}</v>')
+    // 3162 builds no delete door, so the screen offers none
+    expect(s.delete).toBeUndefined()
   })
 })
 
@@ -133,8 +142,10 @@ describe('insurance-idf — the keys the IDF exceptions screen builds exist', ()
     const keys = [
       ...IDF_EXCEPTION_KEY_KINDS.map((k) => `exceptions.keyKind.${k}`),
       ...IDF_EXCEPTION_HANDLINGS.map((h) => `exceptions.handling.${h}`),
-      ...['keyKind', 'key', 'handling', 'reason', 'changed', 'actions'].map((c) => `exceptions.columns.${c}`),
-      ...['keyRequired', 'masterRequired', 'reasonRequired'].map((p) => `exceptions.problem.${p}`),
+      ...['keyKind', 'key', 'handling', 'stores', 'reason', 'changed', 'actions'].map((c) => `exceptions.columns.${c}`),
+      ...['keyRequired', 'keyWholeNumber', 'masterRequired', 'reasonRequired', 'reasonTooLong'].map((p) => `exceptions.problem.${p}`),
+      ...IDF_EXCEPTION_KEY_KINDS.map((k) => `exceptions.keyPlaceholder.${k}`),
+      ...['allStores', 'allStoresHint', 'stores.all', 'stores.pilot'].map((k) => `exceptions.${k}`),
       ...['title', 'add', 'addTitle', 'editTitle', 'deleteTitle', 'master', 'pickMaster', 'reason', 'saved', 'added', 'deleted'].map((k) => `exceptions.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
@@ -145,17 +156,24 @@ describe('insurance-idf — the keys the IDF exceptions screen builds exist', ()
 describe('insurance-idf — the keys the master form builds exist (621)', () => {
   it.each([en, ar])('fields, resolution order, problems, refusal', (locale) => {
     const keys = [
-      ...['newAction', 'edit', 'editLabel', 'columnActions', 'createTitle', 'editTitle', 'kind', 'kindFixed', 'payer', 'payerPlaceholder'].map((k) => `masterForm.${k}`),
+      ...['newAction', 'edit', 'editLabel', 'columnActions', 'createTitle', 'editTitle', 'kind', 'kindFixed', 'payer', 'payerPlaceholder', 'payerHint', 'sharedStores'].map((k) => `masterForm.${k}`),
       ...['storeList', 'storeListOptional', 'pickStoreList', 'storeListsFailed', 'nameEn', 'nameAr', 'hard', 'reminder', 'thresholdsHint'].map((k) => `masterForm.${k}`),
       ...['orderTitle', 'orderHint', 'thisOne', 'save', 'cancel', 'created', 'saved', 'refused', 'refusedFallback', 'refusalCode', 'clashesWith', 'denied'].map((k) => `masterForm.${k}`),
       // the resolution order's words are the lookup's tier words (`lookup.tier.*`, checked under 625)
-      ...['payerRequired', 'storeListRequired', 'nameRequired', 'wholeNumber', 'reminderAboveHard'].map((k) => `masterForm.problem.${k}`),
+      ...['insurerRequired', 'storeListRequired', 'nameRequired', 'wholeNumber', 'reminderAboveHard'].map((k) => `masterForm.problem.${k}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
     const f = locale.masterForm as Record<string, unknown>
     expect(String(f.refusalCode)).toContain('<v>{{code}}</v>')
     expect(String(f.clashesWith)).toContain('<n>{{name}}</n>')
     expect(String(f.clashesWith)).toContain('<v>{{id}}</v>')
+    expect(String(f.sharedStores)).toContain('<v>{{stores}}</v>')
+  })
+  it.each([en, ar])('the insurer field says customer id, with a customer-id placeholder (628)', (locale) => {
+    const f = locale.masterForm as unknown as Record<string, string>
+    expect(f.payerPlaceholder).toContain('0001100336')
+    expect(f.payerPlaceholder).not.toContain('BUPA')
+    expect((locale.masters as { columns: Record<string, string> }).columns.payer).toBe(f.payer)
   })
 })
 
@@ -165,7 +183,7 @@ describe('insurance-idf — the keys the versions section builds exist (623)', (
     const keys = [
       ...['title', 'lede', 'loading', 'failed', 'empty', 'live', 'restore', 'restoreTitle', 'restoreHint'].map((k) => `versions.${k}`),
       ...['note', 'notePlaceholder', 'confirm', 'cancel', 'restored', 'restoredDetail', 'restoreFailed'].map((k) => `versions.${k}`),
-      ...['number', 'byAt', 'note', 'actions'].map((c) => `versions.columns.${c}`),
+      ...['number', 'byAt', 'entries', 'note', 'actions'].map((c) => `versions.columns.${c}`),
     ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
   })
@@ -176,10 +194,20 @@ describe('insurance-idf — the keys the versions section builds exist (623)', (
   })
 })
 
-// 627 · the swap report's count columns: every outcome (the reserved two get a column when a row counts one) and `other`
+// 627 · the swap report's fixed columns (3169) and every outcome's word
 describe('insurance-idf — the keys the swap report columns build exist (627)', () => {
-  it.each([en, ar])('a word for every outcome column and for other outcomes', (locale) => {
-    const keys = [...IDF_EVENT_OUTCOMES.map((o) => `events.outcome.${o}`), 'report.columns.otherOutcome']
+  it.each([en, ar])('a word for every count column, the money and time columns, the total and general rows', (locale) => {
+    const keys = [
+      ...IDF_EVENT_OUTCOMES.map((o) => `events.outcome.${o}`),
+      ...SWAP_REPORT_COUNTS.map((c) => `report.columns.${c}`),
+      ...['master', 'store', 'payer', 'priceDifference', 'averageTime'].map((c) => `report.columns.${c}`),
+      'report.totalRow',
+      'report.general',
+    ]
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+  it.each([en, ar])('the price difference says per base unit', (locale) => {
+    const c = (locale.report as { columns: Record<string, string> }).columns
+    expect(c.priceDifference).toMatch(locale === en ? /per base unit/ : /وحدة أساسية/)
   })
 })

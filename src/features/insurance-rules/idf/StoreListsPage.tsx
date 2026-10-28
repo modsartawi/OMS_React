@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 
-import { apiErrorCode, apiErrorMessage, isBareDenial } from '@/core/api'
-import { confirmAction } from '@/core/services/confirm'
+import { apiErrorCode, apiErrorData, apiErrorMessage, isBareDenial } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -17,14 +16,26 @@ import { fsi } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
 import { DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_STORE_LISTS_KEY, idfStoreListsApi, storeListsQuery } from './api'
-import { addStores, removeStore, sameStoreSet, type IdfStoreList } from './store-lists'
+import { badStoreCodes, scopeClash } from './master-form'
+import { masterName } from './masters'
+import {
+  addStores,
+  createListProblems,
+  removeStore,
+  sameStoreSet,
+  STORE_LIST_CODE_MAX,
+  storeListName,
+  type IdfStoreList,
+  type IdfStoreListCreateBody,
+  type IdfStoreListRenameBody,
+} from './store-lists'
 
 /**
  * Insurance rules ▸ IDF store lists — `/insurance-rules/idf/store-lists` (BackOffice spec 3157, door 3162; oms
  * ticket 620). The named store lists a store master or a scoped insurer master points at (the operation
- * pharmacies, the pilot rollout list), each with its store count. Create a list, rename it, open it to add or
- * remove stores — saved as the whole set — and delete it, except the pilot list (`isPilotList`), which is marked
- * "Pilot" and offers no delete.
+ * pharmacies, the pilot rollout list), each with its code and store count. Create a list (code + EN + AR names),
+ * rename it (both names; the code never changes), open it to add or remove stores — saved as the whole set. The
+ * pilot list (`isPilotList`, listed first) is marked "Pilot". There is no delete (3162 builds no delete door).
  *
  * A refusal (`success:false`) shows its message and its code above the lists; a bare 403 on the read is "You do
  * not have access". 🚩 UNGATED until 628.
@@ -66,13 +77,39 @@ export default function StoreListsPage() {
   )
 }
 
-/** A write's refusal: the server's message and, when it sent one, its code. A bare 403 says "no access". */
+/**
+ * A write's refusal: the server's message and, when it sent one, its code. An unknown store (`IDF-00016`) names the
+ * codes; an overlap (`IDF-00015`) names the clashing master and the stores both cover. A bare 403 says "no access".
+ */
 function Refusal({ err }: { err: unknown }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
   const code = apiErrorCode(err)
+  const data = apiErrorData(err)
+  const bad = badStoreCodes(data)
+  const clash = scopeClash(data)
   return (
     <div data-idf-store-lists-refusal={code ?? ''}>
       <ErrorBanner className="p-3" title={t('storeLists.refused')} message={isBareDenial(err) ? t('access.deniedTitle') : apiErrorMessage(err, t('storeLists.refusedFallback'))}>
+        {bad.length > 0 && (
+          <div className="mt-1 text-xs" data-bad-store-codes="">
+            <Trans t={t} i18nKey="storeLists.badStores" values={{ codes: bad.join(', ') }} components={{ v: <Ltr /> }} />
+          </div>
+        )}
+        {clash && (
+          <div className="mt-1 text-xs" data-clashing-master={clash.clashingMasterId}>
+            <Trans
+              t={t}
+              i18nKey="storeLists.clashesWith"
+              values={{ name: masterName({ nameEn: clash.clashingNameEn, nameAr: clash.clashingNameAr }, i18n.language) || clash.clashingMasterId, id: clash.clashingMasterId }}
+              components={{ n: <bdi />, v: <Ltr /> }}
+            />
+            {clash.sharedStores.length > 0 && (
+              <div data-shared-stores="">
+                <Trans t={t} i18nKey="storeLists.sharedStores" values={{ stores: clash.sharedStores.join(', ') }} components={{ v: <Ltr /> }} />
+              </div>
+            )}
+          </div>
+        )}
         {code && (
           <div className="mt-1 text-xs" data-refusal-code="">
             <Trans t={t} i18nKey="storeLists.refusalCode" values={{ code }} components={{ v: <Ltr /> }} />
@@ -98,26 +135,47 @@ function useListWrite<A, R>(fn: (a: A) => Promise<R>, onRefused: OnRefused, done
   })
 }
 
+const EMPTY_CREATE: IdfStoreListCreateBody = { code: '', nameEn: '', nameAr: '' }
+
+/** A new list: its code (plain ASCII, at most 26, never changes) and both names (3162). It starts with no stores. */
 function CreateList({ onRefused }: { onRefused: OnRefused }) {
-  const { t } = useTranslation('insurance-idf')
-  const [name, setName] = useState('')
-  const create = useListWrite((n: string) => idfStoreListsApi.create(n), onRefused, (_r, n) => {
-    notify.success(t('storeLists.create.done'), fsi(n))
-    setName('')
+  const { t, i18n } = useTranslation('insurance-idf')
+  const [draft, setDraft] = useState<IdfStoreListCreateBody>(EMPTY_CREATE)
+  const [tried, setTried] = useState(false)
+  const problems = createListProblems(draft)
+  const create = useListWrite((b: IdfStoreListCreateBody) => idfStoreListsApi.create(b), onRefused, (_r, b) => {
+    notify.success(t('storeLists.create.done'), fsi(storeListName(b, i18n.language)))
+    setDraft(EMPTY_CREATE)
+    setTried(false)
   })
+  const set = (k: keyof IdfStoreListCreateBody) => (e: React.ChangeEvent<HTMLInputElement>) => setDraft((d) => ({ ...d, [k]: e.target.value }))
+  const problem = (p: string | undefined) =>
+    tried && p ? (
+      <span role="alert" data-problem={p}>
+        {t(`storeLists.problem.${p}`)}
+      </span>
+    ) : undefined
   return (
     <form
-      className="flex flex-wrap items-end gap-2"
+      className="flex flex-wrap items-start gap-2"
       data-idf-store-list-create=""
       onSubmit={(e) => {
         e.preventDefault()
-        if (name.trim() && !create.isPending) create.mutate(name.trim())
+        setTried(true)
+        if (Object.keys(problems).length === 0 && !create.isPending)
+          create.mutate({ code: draft.code.trim(), nameEn: draft.nameEn.trim(), nameAr: draft.nameAr.trim() })
       }}
     >
-      <Field label={t('storeLists.create.label')}>
-        <Input className="w-72" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('storeLists.create.placeholder')} data-create-name="" />
+      <Field label={t('storeLists.create.code')} error={problem(problems.code)}>
+        <Input className="w-44" dir="ltr" maxLength={STORE_LIST_CODE_MAX} value={draft.code} onChange={set('code')} placeholder={t('storeLists.create.codePlaceholder')} data-create-code="" />
       </Field>
-      <Button type="submit" variant="primary" disabled={!name.trim() || create.isPending} data-create-submit="">
+      <Field label={t('storeLists.create.nameEn')} error={problem(problems.nameEn)}>
+        <Input className="w-56" dir="ltr" value={draft.nameEn} onChange={set('nameEn')} data-create-name-en="" />
+      </Field>
+      <Field label={t('storeLists.create.nameAr')} error={problem(problems.nameAr)}>
+        <Input className="w-56" dir="rtl" lang="ar" value={draft.nameAr} onChange={set('nameAr')} data-create-name-ar="" />
+      </Field>
+      <Button type="submit" variant="primary" className="mt-5" disabled={create.isPending} data-create-submit="">
         {t('storeLists.create.action')}
       </Button>
     </form>
@@ -132,7 +190,7 @@ function ListsTable({ lists, openId, onOpen, onRefused }: { lists: IdfStoreList[
         <thead className="bg-muted/50">
           <tr>
             <th className={TH}>{t('storeLists.columns.name')}</th>
-            <th className={TH}>{t('storeLists.columns.id')}</th>
+            <th className={TH}>{t('storeLists.columns.code')}</th>
             <th className={`${TH} text-end`}>{t('storeLists.columns.stores')}</th>
             <th className={TH} />
           </tr>
@@ -147,34 +205,31 @@ function ListsTable({ lists, openId, onOpen, onRefused }: { lists: IdfStoreList[
   )
 }
 
+/** One list. Rename changes both names together (the code never changes); 3162 has no delete door. */
 function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOpen: boolean; onOpen: (id: string | null) => void; onRefused: OnRefused }) {
-  const { t } = useTranslation('insurance-idf')
-  const [renaming, setRenaming] = useState<string | null>(null)
-  const rename = useListWrite((n: string) => idfStoreListsApi.rename(list.storeListId, n), onRefused, (_r, n) => {
-    notify.success(t('storeLists.rename.done'), fsi(n))
+  const { t, i18n } = useTranslation('insurance-idf')
+  const [renaming, setRenaming] = useState<IdfStoreListRenameBody | null>(null)
+  const rename = useListWrite((b: IdfStoreListRenameBody) => idfStoreListsApi.rename(list.storeListId, b), onRefused, (_r, b) => {
+    notify.success(t('storeLists.rename.done'), fsi(storeListName({ ...b, code: list.code }, i18n.language)))
     setRenaming(null)
   })
-  const remove = useListWrite(() => idfStoreListsApi.remove(list.storeListId), onRefused, () => {
-    notify.success(t('storeLists.delete.done'), fsi(list.name))
-    if (isOpen) onOpen(null)
-  })
-  const askDelete = async () => {
-    if (await confirmAction(t('storeLists.delete.confirm', { name: fsi(list.name) }), t('storeLists.delete.title'))) remove.mutate(undefined)
-  }
   const pilot = !!list.isPilotList
+  const name = storeListName(list, i18n.language)
+  const canRename = renaming != null && renaming.nameEn.trim() !== '' && renaming.nameAr.trim() !== ''
   return (
     <tr className={`border-t border-border/60 ${isOpen ? 'bg-accent/40' : ''}`} data-store-list={list.storeListId} data-pilot={pilot || undefined}>
       <td className={`${TD} font-medium`} data-col="name">
         {renaming != null ? (
           <form
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
             onSubmit={(e) => {
               e.preventDefault()
-              if (renaming.trim() && !rename.isPending) rename.mutate(renaming.trim())
+              if (canRename && !rename.isPending) rename.mutate({ nameEn: renaming.nameEn.trim(), nameAr: renaming.nameAr.trim() })
             }}
           >
-            <Input className="w-60" value={renaming} onChange={(e) => setRenaming(e.target.value)} aria-label={t('storeLists.rename.label')} data-rename-input="" autoFocus />
-            <Button type="submit" variant="primary" disabled={!renaming.trim() || rename.isPending} data-rename-save="">
+            <Input className="w-52" dir="ltr" value={renaming.nameEn} onChange={(e) => setRenaming((r) => r && { ...r, nameEn: e.target.value })} aria-label={t('storeLists.rename.nameEn')} data-rename-en="" autoFocus />
+            <Input className="w-52" dir="rtl" lang="ar" value={renaming.nameAr} onChange={(e) => setRenaming((r) => r && { ...r, nameAr: e.target.value })} aria-label={t('storeLists.rename.nameAr')} data-rename-ar="" />
+            <Button type="submit" variant="primary" disabled={!canRename || rename.isPending} data-rename-save="">
               {t('storeLists.rename.save')}
             </Button>
             <Button type="button" variant="text" onClick={() => setRenaming(null)}>
@@ -183,7 +238,7 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
           </form>
         ) : (
           <div className="flex items-center gap-2">
-            <bdi>{list.name}</bdi>
+            <bdi>{name}</bdi>
             {pilot && (
               <span data-pilot-mark="">
                 <StatusBadge sev="go">{t('storeLists.pilot')}</StatusBadge>
@@ -192,8 +247,8 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
           </div>
         )}
       </td>
-      <td className={`${TD} font-mono text-xs`} data-col="id">
-        <Ltr>{list.storeListId}</Ltr>
+      <td className={`${TD} font-mono text-xs`} data-col="code">
+        <Ltr>{list.code}</Ltr>
       </td>
       <td className={NUM} data-col="stores">
         <Ltr>{formatFigure(list.storeCodes?.length ?? 0)}</Ltr>
@@ -204,13 +259,8 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
             {isOpen ? t('storeLists.close') : t('storeLists.open')}
           </Button>
           {renaming == null && (
-            <Button variant="text" onClick={() => setRenaming(list.name)} data-rename={list.storeListId}>
+            <Button variant="text" onClick={() => setRenaming({ nameEn: list.nameEn ?? '', nameAr: list.nameAr ?? '' })} data-rename={list.storeListId}>
               {t('storeLists.rename.action')}
-            </Button>
-          )}
-          {!pilot && (
-            <Button variant="danger-outlined" onClick={askDelete} disabled={remove.isPending} data-delete={list.storeListId}>
-              {t('storeLists.delete.action')}
             </Button>
           )}
         </div>
@@ -221,7 +271,8 @@ function ListRow({ list, isOpen, onOpen, onRefused }: { list: IdfStoreList; isOp
 
 /** One list's stores, edited as a set and saved whole. */
 function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClose: () => void; onRefused: OnRefused }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
+  const name = storeListName(list, i18n.language)
   // The set as last saved: the list's codes, then the server's answer to each save (re-seeded, so the editor shows
   // what the server kept — its order, its spelling — and nothing reads dirty before the list re-reads).
   const [saved, setSaved] = useState<string[]>(list.storeCodes ?? [])
@@ -232,7 +283,7 @@ function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClos
     const kept = r?.storeCodes ?? codes
     setSaved(kept)
     setSet(kept)
-    notify.success(t('storeLists.stores.done'), fsi(list.name))
+    notify.success(t('storeLists.stores.done'), fsi(name))
   })
   const add = () => {
     setSet((s) => addStores(s, typed))
@@ -241,7 +292,7 @@ function StoresEditor({ list, onClose, onRefused }: { list: IdfStoreList; onClos
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" data-idf-store-list-editor={list.storeListId}>
       <h2 className="text-sm font-semibold">
-        <Trans t={t} i18nKey="storeLists.stores.title" values={{ name: list.name }} components={{ n: <bdi /> }} />
+        <Trans t={t} i18nKey="storeLists.stores.title" values={{ name }} components={{ n: <bdi /> }} />
       </h2>
       {set.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-stores-empty="">

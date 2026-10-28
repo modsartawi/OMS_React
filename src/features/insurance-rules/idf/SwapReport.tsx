@@ -10,27 +10,32 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Ltr from '@/core/ui/Ltr'
 import { saveBlob } from '@/core/util/download-file'
-import { formatFigure, formatMoney } from '@/core/util/number-format'
+import { formatFigure, formatMoney3 } from '@/core/util/number-format'
 import { idfReportApi, mastersQuery, swapReportQuery } from './api'
-import { formatTimeSpent } from './events'
+import { formatDurationMs } from './events'
 import type { IdfEventsFilter } from './events-filter'
 import { masterName } from './masters'
-import { swapReportColumns, swapReportCount, swapReportFileName, swapRowKey, type IdfSwapReportRow, type SwapReportColumn } from './report'
+import { SWAP_REPORT_COUNTS, swapReportFileName, swapRowKey, swapRowMasterName, type IdfSwapReportRow } from './report'
 
 /**
  * Insurance rules ▸ IDF events ▸ Swap report (BackOffice spec 3157, door 3169; oms ticket 627). The event log's
- * filter (window, store, payer, master) grouped master × store × payer: a count per outcome (a reserved outcome or an unknown code gets a column when a row carries it — 'other' for the
- * unknown — so the totals match the server's), the summed price
- * difference on picks taken (money, a machine value) and the average time spent. **Export** saves the server's
- * `.xlsx` for the same filter through `api.blob` — never a client-built file.
+ * filter (window, store, insurer, master) grouped master × store × payer, as the door builds it: the events, each
+ * outcome's count (reminders and, of those, the ones where every candidate was dearer; forced picks and alternatives
+ * taken; cancelled picks, abandoned lines, exception skips, pre-auth refusals), the summed price difference on the
+ * picks taken (per base unit; money at 3 decimals, a machine value) and the average time — then the door's `totals`.
+ * An empty master is the general master. **Export** saves the server's `.xlsx` for the same filter through `api.blob`
+ * — never a client-built file.
  */
 export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
   const { t, i18n } = useTranslation('insurance-idf')
   const report = useQuery(swapReportQuery(filter))
   const masters = useQuery(mastersQuery())
   const [exporting, setExporting] = useState(false)
-  const nameOf = (id: string) => {
-    const m = masters.data?.find((x) => x.masterId === id)
+  // The row names its master; the masters list is the fallback when it sends no name.
+  const nameOf = (r: IdfSwapReportRow) => {
+    const own = swapRowMasterName(r, i18n.language)
+    if (own || !r.masterId) return own
+    const m = masters.data?.find((x) => x.masterId === r.masterId)
     return m ? masterName(m, i18n.language) : null
   }
 
@@ -46,18 +51,19 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
     }
   }
 
+  const rows = report.data?.rows ?? []
   let body: React.ReactNode
   if (report.isError && isBareDenial(report.error)) body = <DeniedCard ns="insurance-idf" hook="idf-report-denied" />
   else if (report.isError) body = <ErrorBanner className="p-3" message={apiErrorMessage(report.error, t('report.failed'))} />
   else if (!report.data) body = <Loading text={t('report.loading')} />
-  else if (report.data.length === 0)
+  else if (rows.length === 0)
     body = (
       <p className="rounded-md border border-border/60 py-6 text-center text-sm text-muted-foreground" data-idf-report-empty="">
         {t('report.empty')}
       </p>
     )
   else {
-    const columns = swapReportColumns(report.data)
+    const totals = report.data.totals
     body = (
       <div className="overflow-x-auto rounded-md border border-border/60">
         <table className="w-full text-sm" data-idf-report="">
@@ -66,9 +72,9 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
               <th className={TH}>{t('report.columns.master')}</th>
               <th className={TH}>{t('report.columns.store')}</th>
               <th className={TH}>{t('report.columns.payer')}</th>
-              {columns.map((o) => (
-                <th key={o} className={`${TH} text-end`} data-outcome-col={o}>
-                  {o === 'other' ? t('report.columns.otherOutcome') : t(`events.outcome.${o}`)}
+              {SWAP_REPORT_COUNTS.map((c) => (
+                <th key={c} className={`${TH} text-end`} data-count-col={c}>
+                  {t(`report.columns.${c}`)}
                 </th>
               ))}
               <th className={`${TH} text-end`}>{t('report.columns.priceDifference')}</th>
@@ -76,10 +82,15 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
             </tr>
           </thead>
           <tbody>
-            {report.data.map((r) => (
-              <ReportRow key={swapRowKey(r)} r={r} columns={columns} masterName={r.masterId ? nameOf(r.masterId) : null} />
+            {rows.map((r) => (
+              <ReportRow key={swapRowKey(r)} r={r} masterName={nameOf(r)} />
             ))}
           </tbody>
+          {totals && (
+            <tfoot className="border-t-2 border-border font-semibold">
+              <ReportRow r={totals} masterName={null} isTotal />
+            </tfoot>
+          )}
         </table>
       </div>
     )
@@ -89,9 +100,9 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
     <div className="flex flex-col gap-2" data-idf-report-tab="">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <p className="text-xs text-muted-foreground" data-idf-report-total="">
-          {report.data && <Trans t={t} i18nKey="report.total" values={{ total: formatFigure(report.data.length) }} components={{ v: <Ltr /> }} />}
+          {report.data && <Trans t={t} i18nKey="report.total" values={{ total: formatFigure(rows.length) }} components={{ v: <Ltr /> }} />}
         </p>
-        <Button variant="outlined" data-idf-report-export="" disabled={exporting || !report.data || report.data.length === 0} onClick={onExport}>
+        <Button variant="outlined" data-idf-report-export="" disabled={exporting || rows.length === 0} onClick={onExport}>
           {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
           {t('report.export')}
         </Button>
@@ -101,24 +112,32 @@ export default function SwapReport({ filter }: { filter: IdfEventsFilter }) {
   )
 }
 
-function ReportRow({ r, columns, masterName: name }: { r: IdfSwapReportRow; columns: SwapReportColumn[]; masterName: string | null }) {
+function ReportRow({ r, masterName: name, isTotal = false }: { r: IdfSwapReportRow; masterName: string | null; isTotal?: boolean }) {
   const { t } = useTranslation('insurance-idf')
-  const avg = formatTimeSpent(r.averageTimeSeconds)
-  const money = formatMoney(r.priceDifference)
+  const avg = formatDurationMs(r.averageDurationMs)
+  const money = formatMoney3(r.priceDifference)
   return (
-    <tr className="border-t border-border/60" data-row={swapRowKey(r)} data-master={r.masterId ?? ''}>
+    <tr className="border-t border-border/60" data-row={isTotal ? 'total' : swapRowKey(r)} data-master={r.masterId ?? ''}>
       <td className={TD} data-col="master">
-        {r.masterId ? name ? <bdi>{name}</bdi> : <Ltr>{r.masterId}</Ltr> : <span className="text-xs text-muted-foreground">{t('events.unknownMaster')}</span>}
+        {isTotal ? (
+          t('report.totalRow')
+        ) : r.masterId ? (
+          name ? <bdi>{name}</bdi> : <Ltr>{r.masterId}</Ltr>
+        ) : (
+          <span className="text-muted-foreground" data-general-master="">
+            {t('report.general')}
+          </span>
+        )}
       </td>
       <td className={TD} data-col="store">
-        <Ltr>{r.storeCode}</Ltr>
+        {r.store && <Ltr>{r.store}</Ltr>}
       </td>
       <td className={TD} data-col="payer">
-        {r.payerCode && <Ltr>{r.payerCode}</Ltr>}
+        {r.insurerCustomerId && <Ltr>{r.insurerCustomerId}</Ltr>}
       </td>
-      {columns.map((o) => (
-        <td key={o} className={NUM} data-col={`count-${o}`}>
-          <Ltr>{formatFigure(swapReportCount(r, o))}</Ltr>
+      {SWAP_REPORT_COUNTS.map((c) => (
+        <td key={c} className={NUM} data-col={`count-${c}`}>
+          <Ltr>{formatFigure(r[c] ?? 0)}</Ltr>
         </td>
       ))}
       <td className={NUM} data-col="priceDifference">

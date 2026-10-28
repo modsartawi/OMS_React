@@ -18,7 +18,7 @@ import { versionRows, type IdfVersionRow } from './versions'
 
 /**
  * A master's **Versions** (BackOffice spec 3157, door 3161; oms ticket 623), on the master's page under Upload.
- * Number, by, at, note, the live one marked. Any earlier version offers **Restore**, which asks for a note and makes
+ * Number, by, at, how many items it holds (`entryCount`), note, the live one marked (`isLive`, 3161). Any earlier version offers **Restore**, which asks for a note and makes
  * a NEW live version from it — never an overwrite: the restored version stays in the list as it was. A restore
  * invalidates every IDF query, so the header, this list and the masters list all show the new live version.
  */
@@ -49,6 +49,7 @@ export default function VersionsSection({ masterId, liveVersionId }: { masterId:
               <tr>
                 <th className={`${TH} text-end`}>{t('versions.columns.number')}</th>
                 <th className={TH}>{t('versions.columns.byAt')}</th>
+                <th className={`${TH} text-end`}>{t('versions.columns.entries')}</th>
                 <th className={TH}>{t('versions.columns.note')}</th>
                 <th className={TH}>{t('versions.columns.actions')}</th>
               </tr>
@@ -68,6 +69,9 @@ export default function VersionsSection({ masterId, liveVersionId }: { masterId:
                   </td>
                   <td className={`${TD} text-xs`} data-col="byAt">
                     <ByAt by={v.by} at={v.at} />
+                  </td>
+                  <td className={`${TD} text-end tabular-nums`} data-col="entries">
+                    {v.entryCount != null && <Ltr>{formatFigure(v.entryCount)}</Ltr>}
                   </td>
                   <td className={`${TD} text-xs`} data-col="note">
                     {v.note && <bdi>{v.note}</bdi>}

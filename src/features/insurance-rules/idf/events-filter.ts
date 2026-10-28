@@ -13,7 +13,7 @@ export interface IdfEventsFilter {
   to: LocalDate
   /** A store code; '' = every store. */
   store: string
-  /** A payer code; '' = every payer. */
+  /** The insurer's customer id (3167 `payer=`, e.g. `0001100336`); '' = every payer. */
   payer: string
   /** A master id from 619's list (`?master=`); '' = every master. */
   masterId: string
@@ -34,7 +34,7 @@ export type IdfEventsTab = (typeof IDF_EVENTS_TABS)[number]
 
 /** The default window: the last 7 local days to today. */
 export const DEFAULT_WINDOW_DAYS = 7
-/** The longest window a read may ask for. ⚠️ GUESSED cap (the brief names none; 3167 may set one). */
+/** The longest window a read may ask for. The screen's own cap: 3167 / 3169 set none (only `to` before `from`, `IDF-00020`). */
 export const MAX_WINDOW_DAYS = 366
 
 function defaults(today: LocalDate): IdfEventsQuery {

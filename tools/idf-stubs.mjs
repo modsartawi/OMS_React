@@ -1,7 +1,7 @@
 // Stub fixtures for the IDF priority drives (BackOffice spec 3157; oms ticket 619 creates them, 620–627 EXTEND
-// them). Shapes are the brief's (`BackOffice/.issues/assets/3157-oms-react-idf-brief.md`); the BackOffice ticket
-// that builds a door owns its final spelling, and oms 628 reconciles. Every time is LOCAL (no `Z`). Never a live
-// SIS.Api.
+// them). Shapes are the doors AS BUILT — every dated line under `## Changes` in
+// `BackOffice/.issues/assets/3157-oms-react-idf-brief.md` (oms 628 reconciled them: the payer key is the insurer's
+// customer id, `insurerCustomerId`; refusals are `IDF-0000n`). Every time is LOCAL (no `Z`). Never a live SIS.Api.
 //
 // ⚠️ To keep parallel slices merge-clean: add your fixtures and your doors under YOUR ticket's slot only (the blank
 // lines between slots keep the hunks apart), and route them from `idfStub` through your own `…Stub` function.
@@ -19,22 +19,22 @@ export const IDF_MASTERS = [
   {
     masterId: 'M-BUPA',
     kind: 'insurer',
-    payerCode: 'BUPA',
+    insurerCustomerId: '0001100336',
     nameEn: 'Bupa general',
     nameAr: 'بوبا العام',
     hardThreshold: 5,
     reminderThreshold: 2,
-    liveVersion: { versionId: 'V-11', number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh' },
+    liveVersion: { versionId: 'V-11', number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh', entryCount: 412, isLive: true },
   },
   {
     masterId: 'M-TAW-PILOT',
     kind: 'insurer',
-    payerCode: 'TAWUNIYA',
+    insurerCustomerId: '0001100412',
     storeListId: 'SL-PILOT',
     nameEn: 'Tawuniya on the pilot stores',
     nameAr: 'التعاونية في صيدليات التجربة',
-    hardThreshold: null,
-    reminderThreshold: null,
+    hardThreshold: 4,
+    reminderThreshold: 1,
     liveVersion: null,
   },
   {
@@ -45,7 +45,7 @@ export const IDF_MASTERS = [
     nameAr: 'صيدليات التشغيل',
     hardThreshold: 4,
     reminderThreshold: 1,
-    liveVersion: { versionId: 'V-4', number: 1, by: 'falotaibi', at: '2026-10-01T14:02:00', note: null },
+    liveVersion: { versionId: 'V-4', number: 1, by: 'falotaibi', at: '2026-10-01T14:02:00', note: '', entryCount: 96, isLive: true },
   },
 ]
 
@@ -65,12 +65,13 @@ export function idfMastersStub(method, path, opts = {}) {
 }
 
 // --- 620 --- store lists (door 3162).
-// `GET`, `POST`, `PUT …/{id}` (rename), `PUT …/{id}/stores { storeCodes }`, `DELETE …/{id}` (not in the brief's
-// sketch; 628 confirms). State lives on `state.storeLists`, made on first use so `newIdfState` stays 619's.
-// A name already taken is refused `NAME_TAKEN`; deleting the pilot list is refused `PILOT_LIST`.
+// `GET` (the pilot list first), `POST { code, nameEn, nameAr, storeCodes? }`, `PUT …/{id} { nameEn, nameAr }` (rename;
+// the code never changes), `PUT …/{id}/stores { storeCodes }` (the whole set). No delete door. State lives on
+// `state.storeLists`, made on first use so `newIdfState` stays 619's. A bad or taken code is refused `IDF-00017`; a
+// blank name `IDF-00004`; a store code that is not P + digits is refused `IDF-00016` with `data.badStoreCodes`.
 export const IDF_STORE_LISTS = [
-  { storeListId: 'SL-OPS', name: 'Operation pharmacies', isPilotList: false, storeCodes: ['P001', 'P002', 'P014'] },
-  { storeListId: 'SL-PILOT', name: 'Pilot rollout', isPilotList: true, storeCodes: ['P003', 'P007'] },
+  { storeListId: 'SL-PILOT', code: 'TIERS-PILOT', nameEn: 'Pilot rollout', nameAr: 'قائمة التجربة', isPilotList: true, storeCodes: ['P003', 'P007'], addedTime: '2026-10-01T08:00:00' },
+  { storeListId: 'SL-OPS', code: 'OPS', nameEn: 'Operation pharmacies', nameAr: 'صيدليات التشغيل', isPilotList: false, storeCodes: ['P001', 'P002', 'P014'], addedTime: '2026-10-02T09:00:00' },
 ]
 
 /** `deny` may name `'storeLists'` (the read answered a bare 403); `sent` collects each write's method, path and body. */
@@ -79,8 +80,8 @@ export function idfStoreListsStub(method, path, body, opts = {}) {
   if (!path.startsWith('IdfPriority/store-lists')) return null
   state.storeLists ??= structuredClone(IDF_STORE_LISTS)
   const lists = state.storeLists
-  const refuse = (message, errorCode) => envelope(null, { status: 400, success: false, message, errorCode })
-  const taken = (name, id) => lists.some((l) => l.storeListId !== id && l.name.toLowerCase() === String(name ?? '').trim().toLowerCase())
+  const refuse = (message, errorCode, data) => envelope(data ?? null, { status: 400, success: false, message, errorCode })
+  const namesBlank = (b) => !String(b?.nameEn ?? '').trim() || !String(b?.nameAr ?? '').trim()
   if (method !== 'GET') sent.push({ method, path, body })
   if (method === 'GET' && path === 'IdfPriority/store-lists') {
     reads.storeLists = (reads.storeLists ?? 0) + 1
@@ -88,36 +89,39 @@ export function idfStoreListsStub(method, path, body, opts = {}) {
     return envelope(lists)
   }
   if (method === 'POST' && path === 'IdfPriority/store-lists') {
-    if (taken(body?.name)) return refuse('A store list with this name already exists.', 'NAME_TAKEN')
-    const list = { storeListId: `SL-${lists.length + 1}`, name: body.name, isPilotList: false, storeCodes: [] }
+    const code = String(body?.code ?? '').trim()
+    if (!code || /[^\x21-\x7E]|,/.test(code) || lists.some((l) => l.code === code))
+      return refuse('An IDF store list needs a code of plain letters, digits and dashes. / يجب إدخال رمز لقائمة الفروع بأحرف وأرقام إنجليزية فقط.', 'IDF-00017')
+    if (namesBlank(body)) return refuse('An IDF store list needs a name in English and in Arabic.', 'IDF-00004')
+    const list = { storeListId: `SL-${lists.length + 1}`, code, nameEn: body.nameEn, nameAr: body.nameAr, isPilotList: false, storeCodes: [...(body.storeCodes ?? [])], addedTime: '2026-10-27T10:00:00' }
     lists.push(list)
     return envelope(list)
   }
   const m = /^IdfPriority\/store-lists\/([^/]+)(\/stores)?$/.exec(path)
   const list = m && lists.find((l) => l.storeListId === decodeURIComponent(m[1]))
-  if (!list) return envelope(null, { status: 404, success: false, message: 'No such store list.', errorCode: 'NOT_FOUND' })
+  if (!list) return envelope(null, { status: 404, success: false, message: 'No such store list.', errorCode: 'IDF-00014' })
   if (method === 'PUT' && m[2]) {
+    const bad = (body.storeCodes ?? []).filter((c) => !/^P\d+$/.test(c))
+    if (bad.length) return refuse(`Unknown stores: ${bad.join(', ')}.`, 'IDF-00016', { badStoreCodes: bad })
     list.storeCodes = [...body.storeCodes]
     return envelope(list)
   }
   if (method === 'PUT') {
-    if (taken(body?.name, list.storeListId)) return refuse('A store list with this name already exists.', 'NAME_TAKEN')
-    list.name = body.name
+    if (namesBlank(body)) return refuse('An IDF store list needs a name in English and in Arabic.', 'IDF-00004')
+    list.nameEn = body.nameEn
+    list.nameAr = body.nameAr
     return envelope(list)
-  }
-  if (method === 'DELETE') {
-    if (list.isPilotList) return refuse('The pilot list cannot be deleted.', 'PILOT_LIST')
-    state.storeLists = lists.filter((l) => l !== list)
-    return envelope(null)
   }
   return null
 }
 
 // --- 621 --- create / edit a master (door 3161).
-// `POST IdfPriority/masters`, `PUT …/{id}` on `state.masters`. An overlapping scope — another master of the same
-// kind for the same payer and store list (insurer), or another store master on the same store list (store; the
-// stub reads "share a store" as "the same list") — is refused `OVERLAPPING_SCOPE`, the message naming the clash
-// and `data.clashingMasterId` carrying it. Kind is kept on PUT whatever the body says. `opts.sent` collects writes.
+// `POST IdfPriority/masters`, `PUT …/{id}` on `state.masters`, body `{ kind, insurerCustomerId, storeListId, nameEn,
+// nameAr, hardThreshold?, reminderThreshold? }`. An insurer master without an insurer is refused `IDF-00005`. An
+// overlapping scope — another master of the same kind for the same insurer and store list (insurer), or another store
+// master on the same store list (store; the stub reads "share a store" as "the same list") — is refused `IDF-00015`
+// (a 400) with `data { masterId, clashingMasterId, clashingNameEn, clashingNameAr, sharedStores }`. Kind is kept on
+// PUT whatever the body says. `opts.sent` collects writes.
 export function idfMasterFormStub(method, path, body, opts = {}) {
   const { state = newIdfState(), sent = [] } = opts
   const edit = /^IdfPriority\/masters\/([^/]+)$/.exec(path)
@@ -127,25 +131,22 @@ export function idfMasterFormStub(method, path, body, opts = {}) {
   const current = id ? state.masters.find((m) => m.masterId === id) : null
   if (id && !current) return envelope(null, { status: 404, success: false, message: 'No such master.', errorCode: 'NOT_FOUND' })
   const kind = current?.kind ?? body.kind
+  if (kind === 'insurer' && !String(body.insurerCustomerId ?? '').trim())
+    return envelope(null, { status: 400, success: false, message: "An insurer master needs the insurer's customer id.", errorCode: 'IDF-00005' })
   const clash = state.masters.find(
     (m) =>
       m.masterId !== id &&
       m.kind === kind &&
-      (kind === 'store' ? m.storeListId === body.storeListId : m.payerCode === body.payerCode && (m.storeListId ?? null) === (body.storeListId ?? null)),
+      (kind === 'store' ? m.storeListId === body.storeListId : m.insurerCustomerId === body.insurerCustomerId && (m.storeListId ?? null) === (body.storeListId ?? null)),
   )
-  if (clash)
-    return {
-      status: 409,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        statusCode: 409,
-        success: false,
-        message: `This scope overlaps the master "${clash.nameEn}" (${clash.masterId}).`,
-        data: { clashingMasterId: clash.masterId },
-        errors: [{ errorCode: 'OVERLAPPING_SCOPE', errorMessage: `This scope overlaps the master "${clash.nameEn}" (${clash.masterId}).` }],
-      }),
-    }
-  const fields = { payerCode: body.payerCode, storeListId: body.storeListId, nameEn: body.nameEn, nameAr: body.nameAr, hardThreshold: body.hardThreshold, reminderThreshold: body.reminderThreshold }
+  if (clash) {
+    const shared = (state.storeLists ?? IDF_STORE_LISTS).find((l) => l.storeListId === clash.storeListId)?.storeCodes ?? []
+    return envelope(
+      { masterId: id ?? '', clashingMasterId: clash.masterId, clashingNameEn: clash.nameEn, clashingNameAr: clash.nameAr, sharedStores: shared },
+      { status: 400, success: false, message: `This scope overlaps the master "${clash.nameEn}" (${clash.masterId}).`, errorCode: 'IDF-00015' },
+    )
+  }
+  const fields = { insurerCustomerId: kind === 'insurer' ? body.insurerCustomerId : '', storeListId: body.storeListId, nameEn: body.nameEn, nameAr: body.nameAr, hardThreshold: body.hardThreshold, reminderThreshold: body.reminderThreshold }
   if (current) {
     Object.assign(current, fields)
     return envelope(current)
@@ -156,12 +157,13 @@ export function idfMasterFormStub(method, path, body, opts = {}) {
 }
 
 // --- 622 --- upload, row report, publish (door 3161).
-// The report depends on the file's NAME: one containing `dirty` fails three rows (in the server's order), one
+// The report depends on the file's NAME: one containing `dirty` fails four rows (in the server's order), one
 // containing `notok` says `ok: false` with no rows, any other is clean. `body` is the raw multipart text (the
 // drive passes `postData()`); `opts.uploads` keeps what was uploaded, `opts.published` what was published.
 export const IDF_DIRTY_ROWS = [
   { line: 3, itemNumber: '100234', rule: 'unknownItem', messageEn: 'Item 100234 does not exist.', messageAr: 'الصنف 100234 غير موجود.' },
-  { line: 7, itemNumber: '100871', rule: 'notInItemCustomer', messageEn: 'Item 100871 is not one of Bupa\'s items.', messageAr: 'الصنف 100871 ليس من أصناف بوبا.' },
+  { line: 7, itemNumber: '100871', rule: 'notInInsurerItems', messageEn: 'Item 100871 is not one of Bupa\'s items.', messageAr: 'الصنف 100871 ليس من أصناف بوبا.' },
+  { line: 8, itemNumber: '100302', rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF group IDF-PARA-500.', messageAr: 'الصنف 100302 ليس في مجموعة IDF-PARA-500.' },
   { line: 9, itemNumber: '100555', rule: 'badPriority', messageEn: 'Priority "1.5" is not a whole number of 1 or more.', messageAr: 'الأولوية "1.5" ليست عددًا صحيحًا يساوي 1 أو أكثر.' },
 ]
 
@@ -172,7 +174,7 @@ export function idfUploadStub(method, path, body, opts = {}) {
     const name = /filename="([^"]*)"/.exec(String(body ?? ''))?.[1] ?? ''
     const uploadId = `U-${Object.keys(uploads).length + 1}`
     const dirty = /dirty/i.test(name)
-    const report = { uploadId, ok: !dirty && !/notok/i.test(name), rows: dirty ? IDF_DIRTY_ROWS : [] }
+    const report = { uploadId, ok: !dirty && !/notok/i.test(name), lineCount: 12, rows: dirty ? IDF_DIRTY_ROWS : [] }
     uploads[uploadId] = { masterId: decodeURIComponent(up[1]), name, report }
     return envelope(report)
   }
@@ -181,10 +183,10 @@ export function idfUploadStub(method, path, body, opts = {}) {
     const masterId = decodeURIComponent(pub[1])
     const u = uploads[decodeURIComponent(pub[2])]
     if (!u || !u.report.ok)
-      return envelope(null, { status: 400, success: false, message: 'This upload has failing rows and cannot be published.', errorCode: 'UPLOAD_NOT_CLEAN' })
+      return envelope(null, { status: 400, success: false, message: 'This upload has failing rows and cannot be published.', errorCode: 'IDF-00011' })
     const m = state.masters.find((x) => x.masterId === masterId)
     const number = (m?.liveVersion?.number ?? 0) + 1
-    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-27T10:30:00', note: body?.note ?? null }
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-27T10:30:00', note: body?.note ?? '', entryCount: 12, isLive: true }
     if (m) m.liveVersion = version
     published.push({ masterId, uploadId: pub[2], note: body?.note })
     return envelope(version)
@@ -200,9 +202,9 @@ export function idfUploadStub(method, path, body, opts = {}) {
 // collects each restore.
 export const IDF_VERSIONS = {
   'M-BUPA': [
-    { versionId: 'V-2', number: 1, by: 'falotaibi', at: '2026-09-01T08:00:00', note: 'First list' },
-    { versionId: 'V-11', number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh' },
-    { versionId: 'V-7', number: 2, by: 'nalharbi', at: '2026-09-15T11:30:00', note: null },
+    { versionId: 'V-2', number: 1, by: 'falotaibi', at: '2026-09-01T08:00:00', note: 'First list', entryCount: 380 },
+    { versionId: 'V-11', number: 3, by: 'nalharbi', at: '2026-10-20T09:15:00', note: 'October refresh', entryCount: 412 },
+    { versionId: 'V-7', number: 2, by: 'nalharbi', at: '2026-09-15T11:30:00', note: '', entryCount: 401 },
   ],
 }
 
@@ -231,7 +233,7 @@ export function idfVersionsStub(method, path, body, opts = {}) {
     if (!String(body?.note ?? '').trim()) return envelope(null, { status: 400, success: false, message: 'A note is required.', errorCode: 'NOTE_REQUIRED' })
     if (versionId === liveId) return envelope(null, { status: 400, success: false, message: 'This version is already live.', errorCode: 'ALREADY_LIVE' })
     const number = Math.max(0, ...list.map((v) => v.number)) + 1
-    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-27T11:00:00', note: body.note }
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-27T11:00:00', note: body.note, entryCount: from.entryCount ?? 0, isLive: true }
     list.push(version)
     if (master) master.liveVersion = version
     return envelope(version)
@@ -240,19 +242,21 @@ export function idfVersionsStub(method, path, body, opts = {}) {
 }
 
 // --- 624 --- exceptions (door 3166).
-// The seed shapes of spec 3157 (SABIC skips; TCS offline, GOSI and delivery insurance skip) — server data the screen
-// shows as it comes. `writes` records every POST / PUT / DELETE with its body (DELETE's reason is `?reason=`).
+// The seed shapes of spec 3157 (SABIC skips at every store; TCS offline, GOSI and delivery insurance) — server data the
+// screen shows as it comes. `writes` records every POST / PUT / DELETE with its body (DELETE's `{ reason }` is in the
+// BODY, as 3166 binds it). A blank reason is refused `IDF-00025`.
 export const IDF_EXCEPTIONS = [
-  { exceptionId: 'X-1', keyKind: 'documentType', key: 'SABIC', handling: 'skip', masterId: null, reason: 'SABIC contract orders', by: 'nalharbi', at: '2026-10-10T08:30:00' },
-  { exceptionId: 'X-2', keyKind: 'subDocumentType', key: 'TCS-OFFLINE', handling: 'skip', masterId: null, reason: 'TCS offline', by: 'nalharbi', at: '2026-10-10T08:31:00' },
-  { exceptionId: 'X-3', keyKind: 'nphiesClaimType', key: 'GOSI', handling: 'skip', masterId: null, reason: 'GOSI claims', by: 'falotaibi', at: '2026-10-11T12:00:00' },
-  { exceptionId: 'X-4', keyKind: 'nphiesClaimType', key: 'DELIVERY', handling: 'master', masterId: 'M-OPS', reason: 'Delivery insurance uses the operation pharmacies', by: 'falotaibi', at: '2026-10-12T16:45:00' },
+  { exceptionId: 'X-2', keyKind: 'subDocumentType', key: 'TCS-OFFLINE', handling: 'skip', masterId: '', allStores: false, reason: 'TCS offline', by: 'nalharbi', at: '2026-10-10T08:31:00' },
+  { exceptionId: 'X-3', keyKind: 'nphiesClaimType', key: '3', handling: 'skip', masterId: '', allStores: false, reason: 'GOSI claims', by: 'falotaibi', at: '2026-10-11T12:00:00' },
+  { exceptionId: 'X-4', keyKind: 'nphiesClaimType', key: '7', handling: 'master', masterId: 'M-OPS', allStores: false, reason: 'Delivery insurance uses the operation pharmacies', by: 'falotaibi', at: '2026-10-12T16:45:00' },
+  { exceptionId: 'X-1', keyKind: 'documentType', key: 'SABIC', handling: 'skip', masterId: '', allStores: true, reason: 'SABIC contract orders', by: 'nalharbi', at: '2026-10-10T08:30:00' },
 ]
 
 export function idfExceptionsStub(method, path, body, opts = {}) {
   const { state = newIdfState(), deny = [], reads = {}, writes = [] } = opts
   state.exceptions ??= structuredClone(IDF_EXCEPTIONS)
-  const [bare, query = ''] = path.split('?')
+  const bare = path.split('?')[0]
+  const refuseReason = () => envelope(null, { status: 400, success: false, message: 'A reason is required.', errorCode: 'IDF-00025' })
   if (method === 'GET' && bare === 'IdfPriority/exceptions') {
     reads.exceptions = (reads.exceptions ?? 0) + 1
     if (deny.includes('exceptions')) return bare403()
@@ -261,35 +265,49 @@ export function idfExceptionsStub(method, path, body, opts = {}) {
   const stamp = { by: 'msartawi', at: '2026-10-27T10:00:00' }
   if (method === 'POST' && bare === 'IdfPriority/exceptions') {
     writes.push({ method, path: bare, body })
-    const row = { exceptionId: `X-${state.exceptions.length + 100}`, ...body, ...stamp }
+    if (!String(body?.reason ?? '').trim()) return refuseReason()
+    const row = { exceptionId: `X-${state.exceptions.length + 100}`, ...body, masterId: body.masterId ?? '', allStores: body.allStores === true, ...stamp }
     state.exceptions.push(row)
     return envelope(row)
   }
   const m = /^IdfPriority\/exceptions\/([^/]+)$/.exec(bare)
   if (m && method === 'PUT') {
     writes.push({ method, path: bare, body })
+    if (!String(body?.reason ?? '').trim()) return refuseReason()
     const i = state.exceptions.findIndex((e) => e.exceptionId === decodeURIComponent(m[1]))
-    state.exceptions[i] = { ...state.exceptions[i], ...body, ...stamp }
+    state.exceptions[i] = { ...state.exceptions[i], ...body, masterId: body.masterId ?? '', allStores: body.allStores === true, ...stamp }
     return envelope(state.exceptions[i])
   }
   if (m && method === 'DELETE') {
-    const reason = new URLSearchParams(query).get('reason')
+    const reason = body?.reason ?? null
     writes.push({ method, path: bare, reason })
-    if (!reason) return envelope(null, { status: 400, success: false, message: 'A reason is required.', errorCode: 'REASON_REQUIRED' })
-    state.exceptions = state.exceptions.filter((e) => e.exceptionId !== decodeURIComponent(m[1]))
-    return envelope(null)
+    if (!String(reason ?? '').trim()) return refuseReason()
+    const exceptionId = decodeURIComponent(m[1])
+    state.exceptions = state.exceptions.filter((e) => e.exceptionId !== exceptionId)
+    return envelope({ exceptionId })
   }
   return null
 }
 
-// --- 625 --- lookup (door 3168).
-// `GET IdfPriority/lookup?item=&store=&payer=&documentType=`. Keyed by `item|store|payer`; an unknown item is a
-// business refusal (envelope `success:false`, `UNKNOWN_ITEM`). Tier spelling is 625's (`lookup.ts` IDF_TIERS).
+// --- 625 --- lookup (door 3168, 3166).
+// `GET IdfPriority/lookup?item=&store=&payer=&documentType=&subDocumentType=&nphiesClaimType=`. Keyed by
+// `item|store|payer` (payer = the insurer's customer id, '' for none); an unknown item is the business refusal
+// `IDF-00019`. Tiers are the door's (`insurerAtStoreList | insurer | store | general`, plus `exceptionMaster`).
 export const IDF_LOOKUPS = {
   // Tawuniya decides at a store off the pilot list: one tier skipped.
-  '100300|P019|TAWUNIYA': {
-    decidingMaster: { masterId: 'M-TAW', kind: 'insurer', versionId: 'V-7' },
-    skippedTiers: [{ tier: 'insurerStoreList', reasonEn: 'Store P019 is not on the pilot list', reasonAr: 'الصيدلية P019 ليست في قائمة التجربة' }],
+  '100300|P019|0001100412': {
+    itemNumber: '100300',
+    descriptionEn: 'Adol 500 mg',
+    descriptionAr: 'أدول ٥٠٠ مجم',
+    idfNumber: 'IDF-PARA-500',
+    storeCode: 'P019',
+    insurerCustomerId: '0001100412',
+    documentType: null,
+    documentTypeCanForcePick: null,
+    decidingMaster: { masterId: 'M-TAW', kind: 'insurer', versionId: 'V-7', nameEn: 'Tawuniya general', nameAr: 'التعاونية العام' },
+    exception: null,
+    sourceTier: 'insurer',
+    skippedTiers: [{ tier: 'insurerAtStoreList', reason: 'notOnPilotList', masterId: null, reasonEn: 'Store P019 is not on the pilot list', reasonAr: 'الصيدلية P019 ليست في قائمة التجربة' }],
     priority: 2,
     hardThreshold: 5,
     reminderThreshold: 2,
@@ -299,18 +317,27 @@ export const IDF_LOOKUPS = {
       { itemNumber: '100400', descriptionEn: 'Fevadol 500 mg', descriptionAr: 'فيفادول ٥٠٠ مجم', priority: 3, sourceTier: 'general' },
     ],
   },
-  // Nothing more specific decides: three tiers skipped, sent out of order; the cash rule carried.
-  '200100|P001|CASH': {
+  // No insurer, a cash document type: nothing more specific decides, three tiers skipped (sent out of order).
+  '200100|P001|': {
+    itemNumber: '200100',
+    descriptionEn: 'Brufen 400 mg',
+    descriptionAr: 'بروفين ٤٠٠ مجم',
+    idfNumber: 'IDF-IBU',
+    storeCode: 'P001',
+    insurerCustomerId: '',
+    documentType: 'Cash',
+    documentTypeCanForcePick: false,
     decidingMaster: null,
+    exception: null,
+    sourceTier: 'general',
     skippedTiers: [
-      { tier: 'operationPharmacy', reasonEn: 'The operation pharmacy master does not name the item', reasonAr: 'قائمة صيدليات التشغيل لا تذكر الصنف' },
-      { tier: 'insurerStoreList', reasonEn: 'Store P001 is not on the pilot list', reasonAr: 'الصيدلية P001 ليست في قائمة التجربة' },
-      { tier: 'insurer', reasonEn: 'No master for this payer', reasonAr: 'لا توجد قائمة لهذه الجهة الدافعة' },
+      { tier: 'store', reason: 'masterDoesNotNameItem', masterId: 'M-OPS', reasonEn: 'The operation pharmacy master does not name the item', reasonAr: 'قائمة صيدليات التشغيل لا تذكر الصنف' },
+      { tier: 'insurerAtStoreList', reason: 'noPayer', masterId: null, reasonEn: 'No insurer on the order', reasonAr: 'لا توجد شركة تأمين على الطلب' },
+      { tier: 'insurer', reason: 'noPayer', masterId: null, reasonEn: 'No insurer on the order', reasonAr: 'لا توجد شركة تأمين على الطلب' },
     ],
     priority: 3,
-    hardThreshold: null,
-    reminderThreshold: null,
-    cashNeverForces: true,
+    hardThreshold: 4,
+    reminderThreshold: 1,
     group: [
       { itemNumber: '200050', descriptionEn: 'Brufen 200 mg', descriptionAr: 'بروفين ٢٠٠ مجم', priority: 1, sourceTier: 'general' },
       { itemNumber: '200100', descriptionEn: 'Brufen 400 mg', descriptionAr: 'بروفين ٤٠٠ مجم', priority: 3, sourceTier: 'general' },
@@ -320,12 +347,12 @@ export const IDF_LOOKUPS = {
 export const IDF_MASTER_TAW = {
   masterId: 'M-TAW',
   kind: 'insurer',
-  payerCode: 'TAWUNIYA',
+  insurerCustomerId: '0001100412',
   nameEn: 'Tawuniya general',
   nameAr: 'التعاونية العام',
   hardThreshold: 5,
   reminderThreshold: 2,
-  liveVersion: { versionId: 'V-7', number: 2, by: 'nalharbi', at: '2026-10-22T10:00:00', note: null },
+  liveVersion: { versionId: 'V-7', number: 2, by: 'nalharbi', at: '2026-10-22T10:00:00', note: '', entryCount: 220, isLive: true },
 }
 
 /** `opts.lookups` collects each lookup's query string; `deny` may name `'lookup'`. */
@@ -337,33 +364,51 @@ export function idfLookupStub(method, path, opts = {}) {
   lookups.push(qs)
   if (deny.includes('lookup')) return bare403()
   const p = new URLSearchParams(qs)
-  const hit = IDF_LOOKUPS[`${p.get('item')}|${p.get('store')}|${p.get('payer')}`]
+  const hit = IDF_LOOKUPS[`${p.get('item')}|${p.get('store')}|${p.get('payer') ?? ''}`]
   if (hit) return envelope(hit)
-  return envelope(null, { status: 400, success: false, message: `Item ${p.get('item')} is not a known item.`, errorCode: 'UNKNOWN_ITEM' })
+  return envelope(null, { status: 400, success: false, message: `Item ${p.get('item')} is not a known item.`, errorCode: 'IDF-00019' })
 }
 
-// --- 626 --- events (door 3167: `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page`).
-// 30 events, newest first, 25 a page (so a second page of 5). Event 1 is a forced pick on M-BUPA; every 6th has no
-// item dispensed; the masters cycle M-BUPA, M-OPS, M-TAW-PILOT, and M-GONE (not in 619's list: shown by its id).
+// --- 626 --- events (door 3167: `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page&pageSize`).
+// 30 events, newest first, 25 a page (so a second page of 5). Event 1 is a forced pick on M-BUPA; event 13 is an
+// alternative taken (decision None); the outcomes otherwise cycle six (so no M-OPS event is a cancelled pick — the
+// drive's empty state); the masters cycle M-BUPA, M-OPS, M-TAW-PILOT, and M-GONE (not in 619's list: shown by its
+// id). Prices are per base unit; `durationMs` is decision to outcome.
 const IDF_EVENT_OUTCOMES_CYCLE = ['forcedPickTaken', 'reminder', 'pickCancelled', 'lineAbandoned', 'skippedByException', 'refusedPreAuth']
 const IDF_EVENT_MASTERS_CYCLE = ['M-BUPA', 'M-OPS', 'M-TAW-PILOT', 'M-GONE']
+const IDF_EVENT_SOURCES = { 'M-BUPA': 'Insurer', 'M-OPS': 'Store', 'M-TAW-PILOT': 'InsurerAtStoreList', 'M-GONE': 'Insurer' }
 export const IDF_EVENTS_PAGE_SIZE = 25
 export const IDF_EVENTS = Array.from({ length: 30 }, (_, i) => {
   const n = i + 1
-  const outcome = IDF_EVENT_OUTCOMES_CYCLE[i % 6]
+  const outcome = i === 12 ? 'alternativeTaken' : IDF_EVENT_OUTCOMES_CYCLE[i % 6]
   const masterId = IDF_EVENT_MASTERS_CYCLE[i % 4]
+  const swapped = outcome === 'forcedPickTaken' || outcome === 'alternativeTaken'
+  const at = `2026-10-${String(27 - Math.floor(i / 10)).padStart(2, '0')}T${String(20 - (i % 10)).padStart(2, '0')}:05:00`
   return {
     eventId: `E-${String(n).padStart(3, '0')}`,
-    at: `2026-10-${String(27 - Math.floor(i / 10)).padStart(2, '0')}T${String(20 - (i % 10)).padStart(2, '0')}:05:00`,
-    storeCode: i % 2 ? 'P019' : 'P001',
-    payerCode: i % 3 === 2 ? null : i % 3 ? 'TAWUNIYA' : 'BUPA',
-    documentType: 'ZINS',
-    itemScanned: String(100200 + n),
-    itemDispensed: outcome === 'forcedPickTaken' || outcome === 'reminder' || outcome === 'skippedByException' ? String(100900 + n) : null,
+    store: i % 2 ? 'P019' : 'P001',
+    till: `0${(i % 3) + 1}`,
+    trxNumber: String(5000100 + n),
+    documentType: 'InsuranceOrder',
+    subDocumentType: '',
+    insurerCustomerId: i % 3 === 2 ? '' : i % 3 ? '0001100412' : '0001100336',
+    idfNumber: 'IDF-PARA-500',
+    scannedItemNumber: String(100200 + n),
+    dispensedItemNumber: swapped ? String(100900 + n) : '',
+    source: IDF_EVENT_SOURCES[masterId],
     masterId,
-    masterVersion: masterId === 'M-OPS' ? 1 : 3,
+    masterVersionId: masterId === 'M-OPS' ? 'V-4' : 'V-11',
+    priority: 2,
+    hardThreshold: 4,
+    reminderThreshold: 1,
+    decision: outcome === 'forcedPickTaken' || outcome === 'pickCancelled' ? 'ForcedPick' : outcome === 'reminder' ? 'Reminder' : 'None',
     outcome,
-    timeSpentSeconds: 5 + n * 4,
+    reason: outcome === 'reminder' && n % 2 ? 'allCandidatesDearer' : '',
+    scannedUnitPrice: 12.5 + n,
+    dispensedUnitPrice: swapped ? 10.25 + n : 0,
+    decidedAt: at,
+    occurredAt: at,
+    durationMs: (5 + n * 4) * 1000,
   }
 })
 
@@ -378,26 +423,31 @@ export function idfEventsStub(method, path, opts = {}) {
   const day = (at) => at.slice(0, 10)
   const rows = IDF_EVENTS.filter(
     (e) =>
-      (!q.get('from') || day(e.at) >= q.get('from')) &&
-      (!q.get('to') || day(e.at) <= q.get('to')) &&
-      (!q.get('store') || e.storeCode === q.get('store')) &&
-      (!q.get('payer') || e.payerCode === q.get('payer')) &&
+      (!q.get('from') || day(e.occurredAt) >= q.get('from')) &&
+      (!q.get('to') || day(e.occurredAt) <= q.get('to')) &&
+      (!q.get('store') || e.store === q.get('store')) &&
+      (!q.get('payer') || e.insurerCustomerId === q.get('payer')) &&
       (!q.get('masterId') || e.masterId === q.get('masterId')) &&
       (!q.get('outcome') || e.outcome === q.get('outcome')),
   )
   const page = Number(q.get('page') || 1)
-  const items = rows.slice((page - 1) * IDF_EVENTS_PAGE_SIZE, page * IDF_EVENTS_PAGE_SIZE)
-  return envelope({ items, total: rows.length, page, pageSize: IDF_EVENTS_PAGE_SIZE })
+  const pageSize = Number(q.get('pageSize') || IDF_EVENTS_PAGE_SIZE)
+  return envelope({ page, pageSize, total: rows.length, rows: rows.slice((page - 1) * pageSize, page * pageSize) })
 }
 
 // --- 627 --- swap report and export (door 3169).
-// `GET IdfPriority/swap-report?from&to&store&payer&masterId` → rows master × store × payer; `…/export` → an `.xlsx`
-// (fake bytes, the server's name in `Content-Disposition`). The window is recorded, not applied: every row is in it.
+// `GET IdfPriority/swap-report?from&to&store&payer&masterId` → `{ from, to, rows, totals }`, rows master × store ×
+// payer with fixed counts; `…/export` → an `.xlsx` (fake bytes, the server's name in `Content-Disposition`). The
+// window is recorded, not applied: every row is in it. Prices per base unit.
+const swapRow = (r) => ({
+  events: 0, reminders: 0, remindersAllCandidatesDearer: 0, forcedPicksTaken: 0, alternativesTaken: 0, picksCancelled: 0,
+  linesAbandoned: 0, skippedByException: 0, refusedPreAuth: 0, priceDifference: 0, totalDurationMs: 0, averageDurationMs: 0, ...r,
+})
 export const IDF_SWAP_REPORT = [
-  { masterId: 'M-BUPA', storeCode: 'P001', payerCode: 'BUPA', counts: { reminder: 4, forcedPickTaken: 6, pickCancelled: 1 }, priceDifference: 182.5, averageTimeSeconds: 14 },
-  { masterId: 'M-BUPA', storeCode: 'P019', payerCode: 'BUPA', counts: { forcedPickTaken: 2, lineAbandoned: 1 }, priceDifference: -12.25, averageTimeSeconds: 71 },
-  { masterId: 'M-OPS', storeCode: 'P019', payerCode: 'TAWUNIYA', counts: { reminder: 3, skippedByException: 2, refusedPreAuth: 1 }, priceDifference: null, averageTimeSeconds: 9.4 },
-  { masterId: 'M-GONE', storeCode: 'P001', payerCode: null, counts: { pickCancelled: 2 }, priceDifference: 0, averageTimeSeconds: null },
+  swapRow({ masterId: 'M-BUPA', masterNameEn: 'Bupa general', masterNameAr: 'بوبا العام', store: 'P001', insurerCustomerId: '0001100336', events: 12, reminders: 4, remindersAllCandidatesDearer: 1, forcedPicksTaken: 6, alternativesTaken: 1, picksCancelled: 1, priceDifference: 182.5, totalDurationMs: 168000, averageDurationMs: 14000 }),
+  swapRow({ masterId: 'M-BUPA', masterNameEn: 'Bupa general', masterNameAr: 'بوبا العام', store: 'P019', insurerCustomerId: '0001100336', events: 3, forcedPicksTaken: 2, linesAbandoned: 1, priceDifference: -12.25, totalDurationMs: 213000, averageDurationMs: 71000 }),
+  swapRow({ masterId: 'M-OPS', masterNameEn: 'Operation pharmacies', masterNameAr: 'صيدليات التشغيل', store: 'P019', insurerCustomerId: '0001100412', events: 6, reminders: 3, skippedByException: 2, refusedPreAuth: 1, totalDurationMs: 56400, averageDurationMs: 9400 }),
+  swapRow({ masterId: '', masterNameEn: '', masterNameAr: '', store: 'P001', insurerCustomerId: '', events: 2, picksCancelled: 2 }),
 ]
 export const IDF_SWAP_EXPORT_NAME = 'idf-swap-report.xlsx'
 
@@ -415,16 +465,21 @@ export function idfReportStub(method, path, opts = {}) {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${IDF_SWAP_EXPORT_NAME}"`,
       },
-      body: Buffer.from('PK stub xlsx'),
+      body: Buffer.from('PK stub xlsx'),
     }
   const q = new URLSearchParams(qs)
   const rows = IDF_SWAP_REPORT.filter(
     (r) =>
-      (!q.get('store') || r.storeCode === q.get('store')) &&
-      (!q.get('payer') || r.payerCode === q.get('payer')) &&
+      (!q.get('store') || r.store === q.get('store')) &&
+      (!q.get('payer') || r.insurerCustomerId === q.get('payer')) &&
       (!q.get('masterId') || r.masterId === q.get('masterId')),
   )
-  return envelope(rows)
+  const sum = (k) => rows.reduce((t, r) => t + r[k], 0)
+  const totals = swapRow({ masterId: '', masterNameEn: '', masterNameAr: '', store: '', insurerCustomerId: '' })
+  for (const k of ['events', 'reminders', 'remindersAllCandidatesDearer', 'forcedPicksTaken', 'alternativesTaken', 'picksCancelled', 'linesAbandoned', 'skippedByException', 'refusedPreAuth', 'priceDifference', 'totalDurationMs'])
+    totals[k] = sum(k)
+  totals.averageDurationMs = totals.events ? Math.round(totals.totalDurationMs / totals.events) : 0
+  return envelope({ from: q.get('from') ? `${q.get('from')}T00:00:00` : null, to: q.get('to') ? `${q.get('to')}T00:00:00` : null, rows, totals })
 }
 
 /**

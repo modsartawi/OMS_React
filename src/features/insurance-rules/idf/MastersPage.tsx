@@ -13,10 +13,11 @@ import { ByAt, DeniedCard, Loading, NUM, TD, TH } from '@/core/insurance-rules/p
 import { mastersQuery, storeListsQuery } from './api'
 import { masterRow, type IdfMaster, type IdfMasterRow } from './masters'
 import MasterFormDialog from './MasterFormDialog' // 621
+import { storeListName } from './store-lists'
 
 /**
  * Insurance rules ▸ IDF masters — `/insurance-rules/idf/masters` (BackOffice spec 3157, door 3161; oms ticket 619).
- * Every IDF priority master: kind (insurer with its payer, store with its store list, or an insurer master scoped
+ * Every IDF priority master: kind (insurer with its customer id, store with its store list, or an insurer master scoped
  * to a store list showing both), the name in the reader's language, "hard above N, reminder above M", and the live
  * version (number, by, at, note) — or that there is none yet.
  *
@@ -70,7 +71,10 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
   const rows: IdfMasterRow[] = masters.map((m) => masterRow(m, lang))
   // 621 · the store list's name where 620's lists know it, else its id
   const lists = useQuery(storeListsQuery())
-  const listName = (id: string) => lists.data?.find((l) => l.storeListId === id)?.name ?? null
+  const listName = (id: string) => {
+    const l = lists.data?.find((x) => x.storeListId === id)
+    return l ? storeListName(l, lang) : null
+  }
   return (
     <div className="overflow-x-auto rounded-md border border-border/60">
       <table className="w-full text-sm" data-idf-masters="">
@@ -102,7 +106,7 @@ function MastersTable({ masters, lang, onEdit }: { masters: IdfMaster[]; lang: s
                 {t(`masters.kind.${r.kind}`, { defaultValue: r.kind })}
               </td>
               <td className={TD} data-col="payer">
-                {r.payerCode && <Ltr>{r.payerCode}</Ltr>}
+                {r.insurerCustomerId && <Ltr>{r.insurerCustomerId}</Ltr>}
               </td>
               <td className={TD} data-col="storeList">
                 {r.storeListId && (listName(r.storeListId) ? <bdi data-store-list-id={r.storeListId}>{listName(r.storeListId)}</bdi> : <Ltr>{r.storeListId}</Ltr>)}

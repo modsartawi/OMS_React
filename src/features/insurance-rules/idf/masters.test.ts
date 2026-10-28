@@ -1,5 +1,5 @@
 /**
- * Ticket 619 — an IDF master row reads its scope (insurer + payer, store + store list, or an insurer master scoped
+ * Ticket 619 (reconciled by 628) — an IDF master row reads its scope (insurer + its customer id, kept exactly as sent, store + store list, or an insurer master scoped
  * to a store list showing both), its name in the reader's language, and its thresholds ("hard above N, reminder
  * above M", defaulting to 4 and 1). A master with no live version yet says so (`live: null`).
  */
@@ -9,7 +9,7 @@ import { masterRow, type IdfMaster } from './masters'
 const insurer: IdfMaster = {
   masterId: 'M-1',
   kind: 'insurer',
-  payerCode: 'BUPA',
+  insurerCustomerId: '0001100336',
   nameEn: 'Bupa general',
   nameAr: 'بوبا العام',
   hardThreshold: 5,
@@ -29,7 +29,7 @@ const store: IdfMaster = {
 const insurerOnList: IdfMaster = {
   masterId: 'M-3',
   kind: 'insurer',
-  payerCode: 'TAWUNIYA',
+  insurerCustomerId: '0001100412',
   storeListId: 'SL-PILOT',
   nameEn: 'Tawuniya pilot',
   nameAr: '',
@@ -39,11 +39,11 @@ const insurerOnList: IdfMaster = {
 }
 
 describe('idf master row reads its scope and thresholds', () => {
-  it('an insurer master: its payer, no store list, its own thresholds and live version', () => {
+  it('an insurer master: its customer id (leading zeros kept), no store list, its own thresholds and live version', () => {
     expect(masterRow(insurer, 'en')).toEqual({
       masterId: 'M-1',
       kind: 'insurer',
-      payerCode: 'BUPA',
+      insurerCustomerId: '0001100336',
       storeListId: null,
       name: 'Bupa general',
       hard: 5,
@@ -52,11 +52,11 @@ describe('idf master row reads its scope and thresholds', () => {
     })
   })
 
-  it('a store master: its store list, no payer, thresholds default to 4 and 1, no live version', () => {
+  it('a store master: its store list, no insurer, thresholds default to 4 and 1, no live version', () => {
     expect(masterRow(store, 'en')).toEqual({
       masterId: 'M-2',
       kind: 'store',
-      payerCode: null,
+      insurerCustomerId: null,
       storeListId: 'SL-OPS',
       name: 'Operation pharmacies',
       hard: 4,
@@ -67,7 +67,7 @@ describe('idf master row reads its scope and thresholds', () => {
 
   it('an insurer master scoped to a store list shows both; a zero reminder threshold is kept', () => {
     const row = masterRow(insurerOnList, 'en')
-    expect([row.payerCode, row.storeListId, row.hard, row.reminder]).toEqual(['TAWUNIYA', 'SL-PILOT', 4, 0])
+    expect([row.insurerCustomerId, row.storeListId, row.hard, row.reminder]).toEqual(['0001100412', 'SL-PILOT', 4, 0])
   })
 
   it('the name in the reader\'s language, falling back to English when Arabic is blank', () => {

@@ -4,7 +4,7 @@
  * is blank.
  */
 import { describe, expect, it } from 'vitest'
-import { isPublishable, rowMessage, type IdfUploadReport } from './upload'
+import { IDF_UPLOAD_ACCEPT, IDF_UPLOAD_RULES, isPublishable, ruleWordKey, rowMessage, type IdfUploadReport } from './upload'
 
 const row = { line: 4, itemNumber: '100234', rule: 'unknownItem', messageEn: 'Unknown item', messageAr: 'صنف غير معروف' }
 
@@ -35,5 +35,23 @@ describe('a failing row reads its message in the reader\'s language', () => {
     expect(rowMessage(row, 'ar')).toBe('صنف غير معروف')
     expect(rowMessage(row, 'en')).toBe('Unknown item')
     expect(rowMessage({ ...row, messageAr: '' }, 'ar-SA')).toBe('Unknown item')
+  })
+})
+
+describe('the upload rules and files are as the door builds them (3161 + the 3157 review)', () => {
+  it('six rules in the order the server checks, itemNotInGroup after unknownGroup and before badPriority', () => {
+    expect([...IDF_UPLOAD_RULES]).toEqual(['unknownItem', 'notInInsurerItems', 'unknownGroup', 'itemNotInGroup', 'badPriority', 'duplicateItem'])
+  })
+  it('a known rule has a word key; an unknown one shows its code', () => {
+    expect(ruleWordKey('itemNotInGroup')).toBe('upload.rule.itemNotInGroup')
+    expect(ruleWordKey('notInInsurerItems')).toBe('upload.rule.notInInsurerItems')
+    expect(ruleWordKey('notInItemCustomer')).toBeNull()
+  })
+  it('accepts .xlsx, the tab-separated .txt / .tsv and .csv — not .xls', () => {
+    expect(IDF_UPLOAD_ACCEPT.split(',')).toEqual(['.xlsx', '.txt', '.tsv', '.csv'])
+  })
+  it('a report carrying lineCount still publishes only when clean', () => {
+    expect(isPublishable({ uploadId: 'U-6', ok: true, lineCount: 120, rows: [] })).toBe(true)
+    expect(isPublishable({ uploadId: 'U-7', ok: false, lineCount: 120, rows: [{ ...row, rule: 'itemNotInGroup' }] })).toBe(false)
   })
 })

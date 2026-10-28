@@ -1,6 +1,7 @@
 /**
- * IDF priority masters, pure (BackOffice spec 3157, door 3161; oms ticket 619). A master is an insurer's (by payer
- * code, optionally scoped to a store list) or a store master (a store list: the operation pharmacies). Its
+ * IDF priority masters, pure (BackOffice spec 3157, door 3161; oms ticket 619). A master is an insurer's (by the
+ * insurer's customer id — `insurerCustomerId`, the key `ItemCustomer` uses, e.g. `0001100336` — optionally scoped to a
+ * store list) or a store master (a store list: the operation pharmacies). Its
  * thresholds read "hard above N, reminder above M", defaulting to 4 and 1. The live version is the one in force; a
  * master may have none yet.
  *
@@ -20,20 +21,26 @@ export type IdfMasterKind = (typeof IDF_MASTER_KINDS)[number]
 export const DEFAULT_HARD_THRESHOLD = 4
 export const DEFAULT_REMINDER_THRESHOLD = 1
 
-/** A master's live version (the brief's `liveVersion`). `at` is local wall-clock, no `Z`. */
+/**
+ * A version row (3161: `{ versionId, number, by, at, note, entryCount, isLive }`), also a master's `liveVersion` and
+ * the answer to publish / restore. `at` is local wall-clock, no `Z`.
+ */
 export interface IdfMasterVersion {
   versionId: string
   number: number
   by: string
   at: string
   note?: string | null
+  entryCount?: number | null
+  isLive?: boolean | null
 }
 
 /** A row of `GET IdfPriority/masters`. */
 export interface IdfMaster {
   masterId: string
   kind: IdfMasterKind
-  payerCode?: string | null
+  /** The insurer's customer id (3161 D4), e.g. `0001100336`; empty on a store master. Never upper-cased or reshaped. */
+  insurerCustomerId?: string | null
   storeListId?: string | null
   nameEn: string
   nameAr: string
@@ -46,7 +53,7 @@ export interface IdfMaster {
 export interface IdfMasterRow {
   masterId: string
   kind: IdfMasterKind
-  payerCode: string | null
+  insurerCustomerId: string | null
   storeListId: string | null
   name: string
   hard: number
@@ -64,7 +71,7 @@ export function masterRow(m: IdfMaster, lang: string): IdfMasterRow {
   return {
     masterId: m.masterId,
     kind: m.kind,
-    payerCode: m.payerCode || null,
+    insurerCustomerId: m.insurerCustomerId || null,
     storeListId: m.storeListId || null,
     name: masterName(m, lang),
     hard: m.hardThreshold ?? DEFAULT_HARD_THRESHOLD,

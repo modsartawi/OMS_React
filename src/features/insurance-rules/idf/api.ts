@@ -4,8 +4,9 @@
  * (`BackOffice/.issues/assets/3157-oms-react-idf-brief.md`); the BackOffice ticket that builds a door owns its
  * final spelling and 628 reconciles.
  *
- * ⚠️ Stubbed until oms 628 (`tools/idf-stubs.mjs`): no door here has met a real SIS.Api. UNGATED like the rest of
- * the group: a session without the IDF view grant is answered a bare 403 and each page says "no access".
+ * 628 reconciled every door with the brief's `## Changes` (the doors as 3161–3169 built them; the payer key is the
+ * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. UNGATED like
+ * the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says "no access".
  *
  * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
@@ -14,15 +15,15 @@
 import { api, type FileResponse } from '@/core/api'
 import { INSURANCE_RULES_KEY } from '@/core/insurance-rules/api'
 import type { IdfMaster, IdfMasterVersion } from './masters'
-import { storeSetBody, type IdfStoreList } from './store-lists' // 620
+import { storeSetBody, type IdfStoreList, type IdfStoreListCreateBody, type IdfStoreListRenameBody } from './store-lists' // 620
 import type { IdfException, IdfExceptionBody } from './exceptions' // 624
-import type { IdfLookupAnswer, IdfLookupQuery } from './lookup' // 625
+import { lookupDoorParams, type IdfLookupAnswer, type IdfLookupQuery } from './lookup' // 625
 import type { IdfEventsPage } from './events' // 626
 import { eventsDoorParams, filterDoorParams, type IdfEventsFilter, type IdfEventsQuery } from './events-filter' // 626, 627
 import { uploadForm, type IdfUploadReport } from './upload' // 622
 import type { IdfMasterBody } from './master-form' // 621
 import type { IdfVersion } from './versions' // 623
-import type { IdfSwapReportRow } from './report' // 627
+import { reportOrEmpty, type IdfSwapReport } from './report' // 627
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -48,21 +49,17 @@ export const idfStoreListsApi = {
   async lists(): Promise<IdfStoreList[]> {
     return (await api.get<IdfStoreList[] | null>(`${IDF_BASE}/store-lists`)) ?? []
   },
-  /** `POST IdfPriority/store-lists` `{ name }` — a new, empty list. */
-  create(name: string): Promise<IdfStoreList> {
-    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, { name })
+  /** `POST IdfPriority/store-lists` `{ code, nameEn, nameAr, storeCodes? }` — a new list (code: plain ASCII, ≤ 26, unique). */
+  create(body: IdfStoreListCreateBody): Promise<IdfStoreList> {
+    return api.post<IdfStoreList>(`${IDF_BASE}/store-lists`, body)
   },
-  /** `PUT IdfPriority/store-lists/{id}` `{ name }` — rename. */
-  rename(id: string, name: string): Promise<IdfStoreList> {
-    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, { name })
+  /** `PUT IdfPriority/store-lists/{id}` `{ nameEn, nameAr }` — rename; the code never changes. */
+  rename(id: string, body: IdfStoreListRenameBody): Promise<IdfStoreList> {
+    return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`, body)
   },
-  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. */
+  /** `PUT IdfPriority/store-lists/{id}/stores` `{ storeCodes }` — the whole set, replacing the old one. 3162 has no delete door. */
   saveStores(id: string, storeCodes: string[]): Promise<IdfStoreList> {
     return api.put<IdfStoreList>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}/stores`, storeSetBody(storeCodes))
-  },
-  /** `DELETE IdfPriority/store-lists/{id}` — never offered for the pilot list. ⚠️ Not in the brief's sketch: 628 confirms. */
-  remove(id: string): Promise<unknown> {
-    return api.del<unknown>(`${IDF_BASE}/store-lists/${encodeURIComponent(id)}`)
   },
 }
 export function storeListsQuery() {
@@ -117,10 +114,7 @@ export function versionsQuery(masterId: string) {
 
 // 624 · exceptions — `idfExceptionsApi` (3166)
 export const IDF_EXCEPTIONS_KEY = [...IDF_KEY, 'exceptions'] as const
-/**
- * 624 · `IdfPriority/exceptions` (3166). The brief gives DELETE a `{ reason }`; `api.del` takes no body (the estate's
- * DELETEs name their target on the query string), so the reason rides as `?reason=` — 628 reconciles with 3166.
- */
+/** 624 · `IdfPriority/exceptions` (3166). DELETE takes a JSON body `{ reason }` (3166 binds it `[FromBody]`) and answers `{ exceptionId }`. */
 export const idfExceptionsApi = {
   async list(): Promise<IdfException[]> {
     return (await api.get<IdfException[] | null>(`${IDF_BASE}/exceptions`)) ?? []
@@ -131,8 +125,8 @@ export const idfExceptionsApi = {
   edit(id: string, body: IdfExceptionBody): Promise<IdfException> {
     return api.put<IdfException>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, body)
   },
-  remove(id: string, reason: string): Promise<unknown> {
-    return api.del<unknown>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, { reason })
+  remove(id: string, reason: string): Promise<{ exceptionId: string }> {
+    return api.delWithBody<{ exceptionId: string }>(`${IDF_BASE}/exceptions/${encodeURIComponent(id)}`, { reason })
   },
 }
 export function exceptionsQuery() {
@@ -142,9 +136,12 @@ export function exceptionsQuery() {
 // 625 · lookup — `idfLookupApi` (3168)
 export const IDF_LOOKUP_KEY = [...IDF_KEY, 'lookup'] as const
 export const idfLookupApi = {
-  /** `GET IdfPriority/lookup?item=&store=&payer=&documentType=` (3168) — "why this priority". `buildQuery` drops a blank document type. */
+  /**
+   * `GET IdfPriority/lookup?item=&store=&payer=&documentType=&subDocumentType=&nphiesClaimType=` (3168, 3166) — "why
+   * this priority". `payer` is the insurer's customer id; `buildQuery` drops every blank field.
+   */
   lookup(q: IdfLookupQuery): Promise<IdfLookupAnswer> {
-    return api.get<IdfLookupAnswer>(`${IDF_BASE}/lookup`, { item: q.item, store: q.store, payer: q.payer, documentType: q.documentType })
+    return api.get<IdfLookupAnswer>(`${IDF_BASE}/lookup`, lookupDoorParams(q))
   },
 }
 
@@ -155,10 +152,10 @@ export function lookupQuery(q: IdfLookupQuery) {
 // 626 · events — `idfEventsApi` (3167)
 export const IDF_EVENTS_KEY = [...IDF_KEY, 'events'] as const
 export const idfEventsApi = {
-  /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log. */
+  /** `GET IdfPriority/events?from&to&store&payer&masterId&outcome&page` (3167) — one page of the log, `{ page, pageSize, total, rows }`. */
   async events(q: IdfEventsQuery): Promise<IdfEventsPage> {
     const page = await api.get<IdfEventsPage | null>(`${IDF_BASE}/events`, eventsDoorParams(q))
-    return page ?? { items: [], total: 0, page: q.page, pageSize: 0 }
+    return { page: page?.page ?? q.page, pageSize: page?.pageSize ?? 0, total: page?.total ?? 0, rows: page?.rows ?? [] }
   },
 }
 export function eventsQuery(q: IdfEventsQuery) {
@@ -169,9 +166,9 @@ export function eventsQuery(q: IdfEventsQuery) {
 export const IDF_REPORT_KEY = [...IDF_KEY, 'swap-report'] as const
 /** Both doors take the event log's SHARED filter (window, store, payer, master) — never its outcome or page. */
 export const idfReportApi = {
-  /** `GET IdfPriority/swap-report?from&to&store&payer&masterId` (3169) — rows grouped master × store × payer. */
-  async report(f: IdfEventsFilter): Promise<IdfSwapReportRow[]> {
-    return (await api.get<IdfSwapReportRow[] | null>(`${IDF_BASE}/swap-report`, filterDoorParams(f))) ?? []
+  /** `GET IdfPriority/swap-report?from&to&store&payer&masterId` (3169) — `{ from, to, rows, totals }`, rows grouped master × store × payer. */
+  async report(f: IdfEventsFilter): Promise<IdfSwapReport> {
+    return reportOrEmpty(await api.get<IdfSwapReport | null>(`${IDF_BASE}/swap-report`, filterDoorParams(f)))
   },
   /** `GET IdfPriority/swap-report/export` (3169) — the server's `.xlsx` for the same filter. */
   export(f: IdfEventsFilter): Promise<FileResponse> {

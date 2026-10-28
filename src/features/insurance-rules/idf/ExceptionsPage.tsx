@@ -18,6 +18,7 @@ import { ByAt, DeniedCard, Loading, TD, TH } from '@/core/insurance-rules/parts'
 import { IDF_EXCEPTIONS_KEY, exceptionsQuery, idfExceptionsApi, mastersQuery } from './api'
 import {
   EMPTY_EXCEPTION_FORM,
+  EXCEPTION_REASON_MAX,
   IDF_EXCEPTION_HANDLINGS,
   IDF_EXCEPTION_KEY_KINDS,
   exceptionBody,
@@ -32,7 +33,8 @@ import { masterName, type IdfMaster } from './masters'
 /**
  * Insurance rules ▸ IDF exceptions — `/insurance-rules/idf/exceptions` (BackOffice spec 3157, door 3166; oms ticket
  * 624). Rows keyed by document type, sub-document type or Nphies claim type that skip IDF priority, only remind, or
- * use a named master (619's list, named in the reader's language). Add, edit and delete each ask for a reason.
+ * use a named master (619's list, named in the reader's language), at the IDF pilot stores only or — `allStores`
+ * (3166) — at every store. Add, edit and delete each ask for a reason (the delete's rides in its body).
  *
  * Not 614's guard exceptions (`/insurance-rules/exceptions`). The seed rows are server data: the screen shows
  * whatever comes.
@@ -102,7 +104,7 @@ function ExceptionsTable({
       <table className="w-full text-sm" data-idf-exceptions="">
         <thead className="bg-muted/50">
           <tr>
-            {(['keyKind', 'key', 'handling', 'reason', 'changed', 'actions'] as const).map((c) => (
+            {(['keyKind', 'key', 'handling', 'stores', 'reason', 'changed', 'actions'] as const).map((c) => (
               <th key={c} className={TH}>
                 {t(`exceptions.columns.${c}`)}
               </th>
@@ -127,6 +129,9 @@ function ExceptionsTable({
                       {name ? <bdi>{name}</bdi> : <Ltr>{r.masterId}</Ltr>}
                     </span>
                   )}
+                </td>
+                <td className={TD} data-col="stores" data-all-stores={r.allStores ? 'true' : 'false'}>
+                  {t(r.allStores ? 'exceptions.stores.all' : 'exceptions.stores.pilot')}
                 </td>
                 <td className={TD} data-col="reason">
                   <bdi>{r.reason}</bdi>
@@ -219,7 +224,14 @@ function ExceptionDialog({ row, masters, onClose }: { row: IdfException | null; 
           </Select>
         </Field>
         <Field label={t('exceptions.columns.key')} error={problemOf(tried, problems.key)}>
-          <Input dir="ltr" value={form.key} onChange={(e) => set('key', e.target.value)} data-field="key" />
+          <Input
+            dir="ltr"
+            inputMode={form.keyKind === 'nphiesClaimType' ? 'numeric' : undefined}
+            value={form.key}
+            placeholder={t(`exceptions.keyPlaceholder.${form.keyKind}`)}
+            onChange={(e) => set('key', e.target.value)}
+            data-field="key"
+          />
         </Field>
         <fieldset className="flex flex-col gap-1">
           <legend className={`mb-1 ${FIELD_LABEL}`}>{t('exceptions.columns.handling')}</legend>
@@ -246,8 +258,15 @@ function ExceptionDialog({ row, masters, onClose }: { row: IdfException | null; 
             </Select>
           </Field>
         )}
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" className="mt-0.5" checked={form.allStores} onChange={(e) => set('allStores', e.target.checked)} data-field="allStores" />
+          <span>
+            {t('exceptions.allStores')}
+            <span className="block text-xs text-muted-foreground">{t('exceptions.allStoresHint')}</span>
+          </span>
+        </label>
         <Field label={t('exceptions.reason')} error={problemOf(tried, problems.reason)}>
-          <Textarea className="h-20" dir="auto" value={form.reason} onChange={(e) => set('reason', e.target.value)} data-field="reason" />
+          <Textarea className="h-20" dir="auto" maxLength={EXCEPTION_REASON_MAX} value={form.reason} onChange={(e) => set('reason', e.target.value)} data-field="reason" />
         </Field>
       </div>
     </Modal>
@@ -296,7 +315,7 @@ function DeleteDialog({ row, onClose }: { row: IdfException; onClose: () => void
     >
       <div className="flex flex-col gap-3" data-idf-exception-delete-dialog={row.exceptionId}>
         <Field label={t('exceptions.reason')} error={problemOf(tried, problem)}>
-          <Textarea className="h-20" dir="auto" value={reason} onChange={(e) => setReason(e.target.value)} data-field="reason" />
+          <Textarea className="h-20" dir="auto" maxLength={EXCEPTION_REASON_MAX} value={reason} onChange={(e) => setReason(e.target.value)} data-field="reason" />
         </Field>
       </div>
     </Modal>

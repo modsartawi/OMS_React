@@ -1,7 +1,9 @@
 /**
- * Ticket 627 — the IDF swap report and its Excel export (door 3169). Both doors take the SAME query as the event
- * log's shared filter (window, store, payer, master) and never the log's own outcome or page. The tab is the
- * address's, `events` by default. The network is stubbed at the `@/core/api` boundary.
+ * Ticket 627 (reconciled by 628 with 3169) — the IDF swap report and its Excel export. Both doors take the SAME query
+ * as the event log's shared filter (window, store, payer = the insurer's customer id, master) and never the log's own
+ * outcome or page. The answer is `{ from, to, rows, totals }` with fixed counts per row (alternatives taken and the
+ * reminders where every candidate was dearer included). The tab is the address's, `events` by default. The network is
+ * stubbed at the `@/core/api` boundary.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -11,22 +13,22 @@ vi.mock('@/core/api', () => ({ api: { get, blob } }))
 
 const { idfReportApi } = await import('./api')
 const { readIdfEventsQuery, writeIdfEventsQuery, withFilter } = await import('./events-filter')
-const { swapReportColumns, swapReportCount, swapReportFileName } = await import('./report')
+const { SWAP_REPORT_COUNTS, swapReportFileName, swapRowKey, swapRowMasterName } = await import('./report')
 
 const TODAY = '2026-10-27'
 const read = (qs: string) => readIdfEventsQuery(new URLSearchParams(qs), TODAY)
 
 beforeEach(() => {
-  get.mockReset().mockResolvedValue([])
+  get.mockReset().mockResolvedValue({ from: null, to: null, rows: [], totals: null })
   blob.mockReset().mockResolvedValue({ blob: new Blob(['x']), filename: 'idf.xlsx' })
 })
 
 describe('swap report and export take the same query as the event filter', () => {
   it('theReportAndTheExport_sendTheSharedFilter_neverTheOutcomeOrThePage', async () => {
-    const q = read('tab=report&from=2026-10-01&to=2026-10-15&store=P019&payer=BUPA&master=M-OPS&outcome=reminder&page=3')
+    const q = read('tab=report&from=2026-10-01&to=2026-10-15&store=P019&payer=0001100336&master=M-OPS&outcome=reminder&page=3')
     await idfReportApi.report(q)
     await idfReportApi.export(q)
-    const filter = { from: '2026-10-01', to: '2026-10-15', store: 'P019', payer: 'BUPA', masterId: 'M-OPS' }
+    const filter = { from: '2026-10-01', to: '2026-10-15', store: 'P019', payer: '0001100336', masterId: 'M-OPS' }
     expect(get).toHaveBeenCalledWith('IdfPriority/swap-report', filter)
     expect(blob).toHaveBeenCalledWith('IdfPriority/swap-report/export', filter)
   })
@@ -40,9 +42,17 @@ describe('swap report and export take the same query as the event filter', () =>
     expect(blob).toHaveBeenCalledWith('IdfPriority/swap-report/export', params)
   })
 
-  it('aMissingReportBody_isNoRows', async () => {
+  it('aMissingReportBody_isAnEmptyReport', async () => {
     get.mockResolvedValue(null)
-    expect(await idfReportApi.report(read('tab=report'))).toEqual([])
+    expect(await idfReportApi.report(read('tab=report'))).toEqual({ from: null, to: null, rows: [], totals: null })
+  })
+
+  it('theReportBody_isPassedOn_rowsAndTotals', async () => {
+    const row = { masterId: 'M-1', masterNameEn: 'Bupa', masterNameAr: 'بوبا', store: 'P019', insurerCustomerId: '0001100336', events: 3 }
+    get.mockResolvedValue({ from: '2026-10-01T00:00:00', to: null, rows: [row], totals: { ...row, masterId: '', store: '', insurerCustomerId: '' } })
+    const r = await idfReportApi.report(read('tab=report'))
+    expect(r.rows).toEqual([row])
+    expect(r.totals?.events).toBe(3)
   })
 
   it('theTab_isTheAddresss_eventsByDefault_andKeptAcrossAFilterChange', () => {
@@ -50,39 +60,36 @@ describe('swap report and export take the same query as the event filter', () =>
     expect(read('tab=report')).toMatchObject({ tab: 'report' })
     expect(read('tab=nope')).toMatchObject({ tab: 'events' })
     expect(writeIdfEventsQuery(read(''), TODAY).toString()).toBe('')
-    expect(writeIdfEventsQuery(read('tab=report&payer=BUPA'), TODAY).toString()).toBe('payer=BUPA&tab=report')
+    expect(writeIdfEventsQuery(read('tab=report&payer=0001100336'), TODAY).toString()).toBe('payer=0001100336&tab=report')
     expect(withFilter(read('tab=report&page=2'), { store: 'P001' })).toMatchObject({ tab: 'report', store: 'P001', page: 1 })
   })
 
-  it('theExportsFallbackName_namesTheWindow', () => {
-    expect(swapReportFileName(read('from=2026-10-01&to=2026-10-15'))).toBe('idf-swap-report-2026-10-01-2026-10-15.xlsx')
+  it('theExportsFallbackName_isTheDoorsSpelling', () => {
+    expect(swapReportFileName(read('from=2026-10-01&to=2026-10-15'))).toBe('idf-swap-report-20261001-to-20261015.xlsx')
+    expect(swapReportFileName({ from: '', to: '' })).toBe('idf-swap-report.xlsx')
   })
 })
 
-describe('every count the server sends has a column', () => {
-  const OFFERED = ['reminder', 'forcedPickTaken', 'pickCancelled', 'lineAbandoned', 'skippedByException', 'refusedPreAuth']
-  const row = (counts: Record<string, number>) => ({ masterId: 'M-1', storeCode: 'P019', payerCode: 'BUPA', counts })
-
-  it('onlyTheOfferedOutcomes_whenNoRowCarriesAnythingElse', () => {
-    expect(swapReportColumns([row({ reminder: 3, forcedPickTaken: 1 })])).toEqual(OFFERED)
+describe('the report rows are the door\'s fixed columns', () => {
+  it('nine counts in the door\'s order, alternatives taken and all-candidates-dearer reminders included', () => {
+    expect([...SWAP_REPORT_COUNTS]).toEqual([
+      'events',
+      'reminders',
+      'remindersAllCandidatesDearer',
+      'forcedPicksTaken',
+      'alternativesTaken',
+      'picksCancelled',
+      'linesAbandoned',
+      'skippedByException',
+      'refusedPreAuth',
+    ])
   })
 
-  it('aReservedOutcomeGetsItsOwnColumn_onlyWhenARowCarriesIt', () => {
-    const rows = [row({ reminder: 1 }), row({ autoApproved: 2, requestRaised: 0 })]
-    expect(swapReportColumns(rows)).toEqual([...OFFERED, 'autoApproved'])
-    expect(swapReportCount(rows[1], 'autoApproved')).toBe(2)
-  })
-
-  it('anUnknownOutcomeCode_isCountedUnderOther_soTheRowTotalMatchesTheServer', () => {
-    const r = row({ reminder: 2, someNewOutcome: 4, another: 1 })
-    const columns = swapReportColumns([r])
-    expect(columns).toEqual([...OFFERED, 'other'])
-    expect(swapReportCount(r, 'other')).toBe(5)
-    expect(columns.reduce((sum, c) => sum + swapReportCount(r, c), 0)).toBe(7)
-  })
-
-  it('aMissingCountIsZero', () => {
-    expect(swapReportCount(row({}), 'reminder')).toBe(0)
-    expect(swapReportCount(row({}), 'other')).toBe(0)
+  it('a row is keyed master × store × payer; an empty master is the general master (no name)', () => {
+    expect(swapRowKey({ masterId: 'M-1', store: 'P019', insurerCustomerId: '0001100336' })).toBe('M-1|P019|0001100336')
+    expect(swapRowMasterName({ masterId: '', masterNameEn: '', masterNameAr: '' }, 'en')).toBeNull()
+    expect(swapRowMasterName({ masterId: 'M-1', masterNameEn: 'Bupa', masterNameAr: 'بوبا' }, 'ar')).toBe('بوبا')
+    expect(swapRowMasterName({ masterId: 'M-1', masterNameEn: 'Bupa', masterNameAr: '' }, 'ar')).toBe('Bupa')
+    expect(swapRowMasterName({ masterId: 'M-1', masterNameEn: '', masterNameAr: '' }, 'en')).toBeNull()
   })
 })

@@ -4,12 +4,13 @@
 // Fixtures and handlers are `tools/idf-stubs.mjs` (`// --- 626 ---`, `idfStub`):
 //   GET IdfPriority/events → `IDF_EVENTS` (30 events, 25 a page), filtered by the stub as the door would
 //   GET IdfPriority/masters → 619's `IDF_MASTERS` (the master filter's options and the rows' names)
-// 🚩 NOTHING here is driven against a live SIS.Api: BackOffice 3167 is unbuilt. Ticket 628 swaps in the doors.
+// The stubs carry the shapes 3167 / 3169 built (oms 628): `{ page, pageSize, total, rows }`, `insurerCustomerId`,
+// `alternativeTaken`, prices per base unit, the report's fixed counts and `totals`.
 //
 // It verifies, in LTR and RTL:
 //   1. the IDF events leaf is in the rail and lit; 25 rows of 30, the total, the pager; the door asked only
 //      from / to / page (empty fields dropped); machine values in `bdi[dir=ltr]`, master names in `bdi`;
-//   2. the outcome filter offers the six live outcomes (not the reserved two) and filters (address + door);
+//   2. the outcome filter offers the seven live outcomes (not the reserved two) and filters (address + door);
 //   3. outcome AND master → nothing matches → the empty state; clearing the outcome lists the master's events;
 //   4. page 2 holds the last 5; a filter change goes back to page 1;
 //   5. a bare 403 is "You do not have access"; no raw keys; no page errors.
@@ -83,7 +84,8 @@ const firstId = async (page) => ((await page.locator('[data-idf-events-empty]').
 
 // The app's `lng` stays `en` (Arabic not switched on); `oms.locale=ar` mirrors the page only — the house pattern.
 // The Arabic words are proven by `events.test.ts`.
-const OUTCOME_WORDS = ['Reminder', 'Forced pick taken', 'Pick cancelled', 'Line abandoned', 'Skipped by exception', 'Refused (pre-authorisation)']
+const OUTCOME_WORDS = ['Reminder', 'Forced pick taken', 'Pick cancelled', 'Line abandoned', 'Skipped by exception', 'Refused (pre-authorisation)', 'Alternative taken']
+const REPORT_COUNT_WORDS = ['Events', 'Reminders', 'Reminders: all candidates dearer', 'Forced picks taken', 'Alternatives taken', 'Picks cancelled', 'Lines abandoned', 'Skipped by exception', 'Refused (pre-authorisation)']
 
 for (const dir of ['ltr', 'rtl']) {
   {
@@ -100,22 +102,27 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the door asked from / to / page only`, JSON.stringify(lastRead(reads)) === JSON.stringify({ from: '2026-10-20', to: '2026-10-27', page: '1' }), JSON.stringify(lastRead(reads)))
 
     const e1 = page.locator('[data-event="E-001"]')
-    check(`${dir} 1. a row: when (local), store, payer, document type, items`,
+    check(`${dir} 1. a row: when (local), store + till, insurer customer id, document type, items`,
       JSON.stringify([...(await ltr(e1, 'at')), ...(await ltr(e1, 'store')), ...(await ltr(e1, 'payer')), ...(await ltr(e1, 'documentType')), ...(await ltr(e1, 'itemScanned')), ...(await ltr(e1, 'itemDispensed'))]) ===
-        JSON.stringify(['2026-10-27 20:05', 'P001', 'BUPA', 'ZINS', '100201', '100901']),
+        JSON.stringify(['2026-10-27 20:05', 'P001', '01', '0001100336', 'InsuranceOrder', '100201', '100901']),
       JSON.stringify(await ltr(e1, 'at')))
     check(`${dir} 1. a row: master by name in a bdi, its version, outcome word, time spent m:ss`,
       strip(await e1.locator('[data-col="master"] > span > bdi').first().innerText()) === 'Bupa general' &&
         strip(await e1.locator('[data-version]').innerText()) === 'version 3' &&
         strip(await e1.locator('[data-col="outcome"]').innerText()) === 'Forced pick taken' &&
-        JSON.stringify(await ltr(e1, 'timeSpent')) === '["0:09"]')
+        JSON.stringify(await ltr(e1, 'timeSpent')) === '["0:09"]' &&
+        strip(await e1.locator('[data-col="source"]').innerText()) === 'Insurer' &&
+        strip(await e1.locator('[data-col="decision"]').innerText()) === 'Forced pick' &&
+        JSON.stringify([...(await ltr(e1, 'scannedPrice')), ...(await ltr(e1, 'dispensedPrice'))]) === '["13.500","11.250"]')
+    const e13 = page.locator('[data-event="E-013"]')
+    check(`${dir} 1. an alternative taken: its word, decision None`, strip(await e13.locator('[data-col="outcome"]').innerText()) === 'Alternative taken' && strip(await e13.locator('[data-col="decision"]').innerText()) === 'None')
     const e4 = page.locator('[data-event="E-004"]')
     check(`${dir} 1. a master not in the list shows its id; nothing dispensed is blank`,
       JSON.stringify(await ltr(e4, 'master')).includes('M-GONE') && strip(await e4.locator('[data-col="itemDispensed"]').innerText()) === '')
 
     // 2. the outcome filter
     const opts = await page.locator('[data-filter="outcome"] option').evaluateAll((els) => els.map((e) => e.textContent))
-    check(`${dir} 2. outcome filter: any + the six live outcomes, no reserved`, JSON.stringify(opts) === JSON.stringify(['Any outcome', ...OUTCOME_WORDS]), JSON.stringify(opts))
+    check(`${dir} 2. outcome filter: any + the seven live outcomes, no reserved`, JSON.stringify(opts) === JSON.stringify(['Any outcome', ...OUTCOME_WORDS]), JSON.stringify(opts))
     const masterOpts = await page.locator('[data-filter="master"] option').evaluateAll((els) => els.map((e) => e.value))
     check(`${dir} 2. master filter: any + 619's masters`, JSON.stringify(masterOpts) === JSON.stringify(['', 'M-BUPA', 'M-TAW-PILOT', 'M-OPS']), JSON.stringify(masterOpts))
     let before = await firstId(page)
@@ -186,15 +193,17 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 6. the outcome filter is hidden on the report`, (await page.locator('[data-filter="outcome"]').count()) === 0 && (await page.locator('[data-filter="store"]').count()) === 1)
     check(`${dir} 6. the report door asked the shared filter only`, JSON.stringify(lastQ('report')) === JSON.stringify({ from: '2026-10-20', to: '2026-10-27', store: 'P019' }), JSON.stringify(lastQ('report')))
     const keys = await rRows.evaluateAll((els) => els.map((e) => e.getAttribute('data-row')))
-    check(`${dir} 6. grouped rows master × store × payer`, JSON.stringify(keys) === JSON.stringify(['M-BUPA|P019|BUPA', 'M-OPS|P019|TAWUNIYA']), JSON.stringify(keys))
+    check(`${dir} 6. grouped rows master × store × payer`, JSON.stringify(keys) === JSON.stringify(['M-BUPA|P019|0001100336', 'M-OPS|P019|0001100412']), JSON.stringify(keys))
     const heads = await page.locator('[data-idf-report] thead th').evaluateAll((els) => els.map((e) => e.textContent))
-    check(`${dir} 6. columns: master, store, payer, the six outcomes, price difference, average time`,
-      JSON.stringify(heads) === JSON.stringify(['Master', 'Store', 'Payer', ...OUTCOME_WORDS, 'Price difference (picks taken)', 'Average time']), JSON.stringify(heads))
-    const r1 = page.locator('[data-row="M-BUPA|P019|BUPA"]')
+    check(`${dir} 6. columns: master, store, insurer, the door's nine counts, price difference per base unit, average time`,
+      JSON.stringify(heads) === JSON.stringify(['Master', 'Store', 'Insurer customer id', ...REPORT_COUNT_WORDS, 'Price difference on picks taken (per base unit)', 'Average time']), JSON.stringify(heads))
+    const r1 = page.locator('[data-row="M-BUPA|P019|0001100336"]')
     const cells = async (row) => JSON.stringify(await row.locator('td').evaluateAll((els) => els.slice(1).map((e) => e.querySelector('bdi[dir="ltr"]')?.textContent ?? '')))
     check(`${dir} 6. a row: master by name in a bdi`, strip(await r1.locator('[data-col="master"] bdi').innerText()) === 'Bupa general' && (await r1.locator('[data-col="master"] bdi[dir="ltr"]').count()) === 0)
-    check(`${dir} 6. a row: store, payer, counts (0 when none), money, average m:ss — each isolated LTR`,
-      (await cells(r1)) === JSON.stringify(['P019', 'BUPA', '0', '2', '0', '1', '0', '0', '-12.25', '1:11']), await cells(r1))
+    check(`${dir} 6. a row: store, insurer, counts (0 when none), money (3 dp), average m:ss — each isolated LTR`,
+      (await cells(r1)) === JSON.stringify(['P019', '0001100336', '3', '0', '0', '2', '0', '0', '1', '0', '0', '-12.250', '1:11']), await cells(r1))
+    const tot = page.locator('[data-idf-report] tfoot [data-row="total"]')
+    check(`${dir} 6. the door's totals row`, strip(await tot.locator('[data-col="master"]').innerText()) === 'Total' && JSON.stringify(await ltr(tot, 'count-events')) === '["9"]', JSON.stringify(await ltr(tot, 'count-events')))
     const total = strip(await page.locator('[data-idf-report-total]').innerText())
     check(`${dir} 6. the group count`, total === 'Groups: 2', total)
 
@@ -208,8 +217,8 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-filter="master"]').selectOption('M-OPS')
     await page.waitForFunction(() => document.querySelectorAll('[data-idf-report] tbody tr').length === 1, null, { timeout: 30000 }).catch(() => {})
     check(`${dir} 6. master filter: the door carries masterId; one group`, lastQ('report').masterId === 'M-OPS' && (await rRows.count()) === 1 && param(page, 'tab') === 'report')
-    const r2 = page.locator('[data-row="M-OPS|P019|TAWUNIYA"]')
-    check(`${dir} 6. no pick taken → blank money; 9.4 s → 0:09`, (await cells(r2)) === JSON.stringify(['P019', 'TAWUNIYA', '3', '0', '0', '0', '2', '1', '', '0:09']), await cells(r2))
+    const r2 = page.locator('[data-row="M-OPS|P019|0001100412"]')
+    check(`${dir} 6. no pick taken → zero money; 9400 ms → 0:09`, (await cells(r2)) === JSON.stringify(['P019', '0001100412', '6', '3', '0', '0', '0', '0', '0', '2', '1', '0.000', '0:09']), await cells(r2))
     await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator('[data-idf-report-export]').click()])
     check(`${dir} 6. the second export carries the new filter`, lastQ('export').masterId === 'M-OPS' && reads.export.at(-1) === reads.report.at(-1), JSON.stringify(lastQ('export')))
 

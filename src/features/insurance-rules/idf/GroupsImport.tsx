@@ -25,9 +25,10 @@ import UploadRowReport from './UploadRowReport'
  * is clean (a bad groups file must never reach the tills); the result says how many groups were added and updated,
  * and the list re-reads.
  *
- * 🚩 UNGATED until 654 adds the general-edit probe.
+ * 654: Import needs `canEditGeneral` (`canEdit`); without it only the Template shows (a read, on the view grant). The
+ * result also says how many lines left their group unchanged.
  */
-export default function GroupsImport() {
+export default function GroupsImport({ canEdit }: { canEdit: boolean }) {
   const { t } = useTranslation('insurance-idf')
   const [open, setOpen] = useState(false)
   return (
@@ -39,11 +40,13 @@ export default function GroupsImport() {
         failedLabel={t('groupsImport.templateFailed')}
         hook="data-idf-groups-template"
       />
-      <Button variant="secondary" onClick={() => setOpen(true)} data-idf-groups-import="">
-        <FileUp className="h-3.5 w-3.5" aria-hidden />
-        {t('groupsImport.open')}
-      </Button>
-      {open && <ImportDialog onClose={() => setOpen(false)} />}
+      {canEdit && (
+        <Button variant="secondary" onClick={() => setOpen(true)} data-idf-groups-import="">
+          <FileUp className="h-3.5 w-3.5" aria-hidden />
+          {t('groupsImport.open')}
+        </Button>
+      )}
+      {canEdit && open && <ImportDialog onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -58,7 +61,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
   const apply = useMutation({
     mutationFn: (r: IdfGroupsImportReport) => idfGroupsImportApi.apply(r.uploadId),
     onSuccess: async (res) => {
-      notify.success(t('groupsImport.applied'), t('groupsImport.appliedDetail', { added: fsi(formatFigure(res.added)), updated: fsi(formatFigure(res.updated)) }))
+      notify.success(t('groupsImport.applied'), t('groupsImport.appliedDetail', { added: fsi(formatFigure(res.added)), updated: fsi(formatFigure(res.updated)), unchanged: fsi(formatFigure(res.unchanged)) }))
       setResult(res)
       upload.reset()
       await qc.invalidateQueries({ queryKey: IDF_GROUPS_KEY })
@@ -141,8 +144,13 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {result && (
-          <p className="text-sm" data-idf-groups-import-result="" data-added={result.added} data-updated={result.updated}>
-            <Trans t={t} i18nKey="groupsImport.result" values={{ added: formatFigure(result.added), updated: formatFigure(result.updated) }} components={{ v: <Ltr /> }} />
+          <p className="text-sm" data-idf-groups-import-result="" data-added={result.added} data-updated={result.updated} data-unchanged={result.unchanged}>
+            <Trans
+              t={t}
+              i18nKey="groupsImport.result"
+              values={{ added: formatFigure(result.added), updated: formatFigure(result.updated), unchanged: formatFigure(result.unchanged) }}
+              components={{ v: <Ltr /> }}
+            />
           </p>
         )}
       </div>

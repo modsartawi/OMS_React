@@ -4,7 +4,7 @@
  * Rebase on).
  */
 import { describe, expect, it } from 'vitest'
-import { draftEditable, draftPanelState, draftStartRefusal, groupAddResult, type IdfDraft } from './draft'
+import { draftBaseVersion, draftEditable, draftEditRefusal, draftPanelState, draftRuleWordKey, draftStartRefusal, groupAddResult, rebaseResult, type IdfDraft } from './draft'
 
 const draft = (by: string, isStale = false): IdfDraft => ({
   draftId: 'D-1',
@@ -43,8 +43,8 @@ describe('panel state from draft, user and staleness', () => {
 })
 
 describe("a refused Start names the open draft's owner and last change", () => {
-  it('reads by and changedAt from the refusal data', () => {
-    expect(draftStartRefusal({ by: 'nalharbi', changedAt: '2026-10-28T09:00:00' })).toEqual({ by: 'nalharbi', changedAt: '2026-10-28T09:00:00' })
+  it('reads by and changedAt from the refusal data (IDF-00034: data { draftId, by, startedAt, changedAt })', () => {
+    expect(draftStartRefusal({ draftId: 'D-9', by: 'nalharbi', startedAt: '2026-10-28T08:00:00', changedAt: '2026-10-28T09:00:00' })).toEqual({ by: 'nalharbi', changedAt: '2026-10-28T09:00:00' })
   })
   it('a refusal without an owner is no owner refusal', () => {
     expect(draftStartRefusal(null)).toBeNull()
@@ -53,21 +53,65 @@ describe("a refused Start names the open draft's owner and last change", () => {
   })
 })
 
-describe('a group add answers how many were added and the refused members', () => {
-  const refused = { itemNumber: '300130', rule: 'notInInsurerItems', messageEn: 'Not in the insurer items.', messageAr: 'ليس ضمن أصناف المؤمّن.' }
-  it('reads added and the refused rows, the message in the reader language', () => {
-    expect(groupAddResult({ added: 3, rows: [refused] }, 'en')).toEqual({
+describe('a group add answers { draft, added, rows } — the draft nested (BackOffice 3190 as built)', () => {
+  const refused = { itemNumber: '300130', edit: 'add', rule: 'notInInsurerItems', messageEn: 'Not in the insurer items.', messageAr: 'ليس ضمن أصناف المؤمّن.' }
+  it('reads the draft, added and the refused rows, the message in the reader language', () => {
+    expect(groupAddResult({ draft: draft('msartawi'), added: 3, rows: [refused] }, 'en')).toEqual({
+      draft: draft('msartawi'),
       added: 3,
-      refused: [{ itemNumber: '300130', rule: 'notInInsurerItems', wordKey: 'upload.rule.notInInsurerItems', message: 'Not in the insurer items.' }],
+      refused: [{ itemNumber: '300130', edit: 'add', rule: 'notInInsurerItems', wordKey: 'upload.rule.notInInsurerItems', message: 'Not in the insurer items.' }],
     })
-    expect(groupAddResult({ added: 3, rows: [refused] }, 'ar').refused[0].message).toBe('ليس ضمن أصناف المؤمّن.')
+    expect(groupAddResult({ draft: draft('msartawi'), added: 3, rows: [refused] }, 'ar').refused[0].message).toBe('ليس ضمن أصناف المؤمّن.')
   })
-  it('reads the same whether the draft is beside the counts or spread into the answer', () => {
-    expect(groupAddResult({ draft: draft('msartawi'), added: 2, rows: [] }, 'en')).toEqual({ added: 2, refused: [] })
-    expect(groupAddResult({ ...draft('msartawi'), added: 2, rows: [] }, 'en')).toEqual({ added: 2, refused: [] })
+  it('a draft spread into the answer is not read as one (only the nested shape is the door’s)', () => {
+    expect(groupAddResult({ ...draft('msartawi'), added: 2, rows: [] }, 'en')).toEqual({ draft: null, added: 2, refused: [] })
   })
   it('an unknown rule keeps its raw code; a missing answer is nothing added', () => {
     expect(groupAddResult({ added: 0, rows: [{ ...refused, rule: 'brandNew' }] }, 'en').refused[0].wordKey).toBeNull()
-    expect(groupAddResult(null, 'en')).toEqual({ added: 0, refused: [] })
+    expect(groupAddResult(null, 'en')).toEqual({ draft: null, added: 0, refused: [] })
+  })
+})
+
+describe('a rebase answers { draft, reapplied, rows } — rows the edits that could NOT be re-applied', () => {
+  const dropped = { itemNumber: '100110', edit: 'reRank', rule: 'notInDraft', messageEn: 'Item 100110 is no longer ranked by the live version.', messageAr: 'الصنف 100110 لم يعد ضمن الإصدار الحالي.' }
+  it('reads the draft, how many re-applied and each dropped edit with its edit, rule word and message', () => {
+    expect(rebaseResult({ draft: draft('msartawi'), reapplied: 4, rows: [dropped] }, 'en')).toEqual({
+      draft: draft('msartawi'),
+      reapplied: 4,
+      failed: [{ itemNumber: '100110', edit: 'reRank', rule: 'notInDraft', wordKey: 'draft.ruleWord.notInDraft', message: 'Item 100110 is no longer ranked by the live version.' }],
+    })
+  })
+  it('an add the new live version no longer allows keeps the upload rule word', () => {
+    const r = rebaseResult({ draft: null, reapplied: 0, rows: [{ ...dropped, edit: 'add', rule: 'itemNotInGroup' }] }, 'ar')
+    expect(r.failed[0]).toMatchObject({ edit: 'add', wordKey: 'upload.rule.itemNotInGroup', message: 'الصنف 100110 لم يعد ضمن الإصدار الحالي.' })
+  })
+  it('no answer is nothing re-applied and nothing dropped', () => {
+    expect(rebaseResult(undefined, 'en')).toEqual({ draft: null, reapplied: 0, failed: [] })
+  })
+})
+
+describe('the rule words a draft edit can name', () => {
+  it('every upload rule (itemNotInGroup included) and the draft’s own notInDraft; anything else has none', () => {
+    expect(draftRuleWordKey('itemNotInGroup')).toBe('upload.rule.itemNotInGroup')
+    expect(draftRuleWordKey('notInDraft')).toBe('draft.ruleWord.notInDraft')
+    expect(draftRuleWordKey('brandNew')).toBeNull()
+  })
+  it('a refused edit (IDF-00030) reads rule and message from data { rule, messageEn, messageAr }', () => {
+    expect(draftEditRefusal({ rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF-AMOX.', messageAr: 'الصنف 100302 ليس في IDF-AMOX.' }, 'en')).toEqual({
+      rule: 'itemNotInGroup',
+      wordKey: 'upload.rule.itemNotInGroup',
+      message: 'Item 100302 is not in IDF-AMOX.',
+    })
+  })
+})
+
+describe('the version a draft diffs against', () => {
+  it('a draft started on a master with nothing live has a blank base: there is none to read (every row is added)', () => {
+    expect(draftBaseVersion({ ...draft('msartawi'), baseVersionId: '' })).toBeNull()
+    expect(draftBaseVersion({ ...draft('msartawi'), baseVersionId: '  ' })).toBeNull()
+    expect(draftBaseVersion(null)).toBeNull()
+  })
+  it('otherwise the base version id', () => {
+    expect(draftBaseVersion(draft('msartawi'))).toBe('V-11')
   })
 })

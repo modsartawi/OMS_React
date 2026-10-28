@@ -90,7 +90,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 1. the total counts every item, its figure ltr`, (await total(page)) === 'Items: 60' && JSON.stringify(await ltr(section.locator('[data-idf-items-total]'))) === '["60"]', await total(page))
     check(`${dir} 1. a page of 25 rows`, (await itemRows(page)).length === 25)
     const r1 = page.locator('[data-idf-items] tbody tr[data-item="100110"]')
-    check(`${dir} 1. item, group, priority ltr; the description in a bdi`, JSON.stringify(await ltr(r1.locator('[data-col="item"]'))) === '["100110"]' && JSON.stringify(await ltr(r1.locator('[data-col="group"]'))) === '["IDF-PARA-500"]' && JSON.stringify(await ltr(r1.locator('[data-col="priority"]'))) === '["2"]' && strip(await r1.locator('[data-col="description"] bdi:not([dir])').innerText()) === 'Adol 110 mg')
+    check(`${dir} 1. item, group, priority ltr; the description in a bdi`, JSON.stringify(await ltr(r1.locator('[data-col="item"]'))) === '["100110"]' && JSON.stringify(await ltr(r1.locator('[data-col="group"]'))) === '["IDF-PARA"]' && JSON.stringify(await ltr(r1.locator('[data-col="priority"]'))) === '["2"]' && strip(await r1.locator('[data-col="description"] bdi:not([dir])').innerText()) === 'Adol 110 mg')
     check(`${dir} 1. no item column has a mark or actions column`, (await page.locator('[data-idf-items] [data-col="mark"], [data-idf-items] [data-col="actions"]').count()) === 0)
 
     // 2. paging
@@ -130,18 +130,18 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-items-total]').filter({ hasText: 'Items: 60' }).waitFor({ timeout: 30000 })
 
     // 4. an old version
-    await page.locator('[data-idf-items-filter] [data-filter="idf"]').fill('IDF-PARA-500')
+    await page.locator('[data-idf-items-filter] [data-filter="idf"]').fill('IDF-PARA')
     await page.locator('[data-idf-items-filter] [data-filter="idf"]').press('Enter')
-    await page.waitForURL((u) => u.search === '?idf=IDF-PARA-500', { timeout: 30000 })
+    await page.waitForURL((u) => u.search === '?idf=IDF-PARA', { timeout: 30000 })
     await page.locator('[data-idf-items-version]').selectOption('V-7')
     await page.locator('[data-idf-items-not-live="V-7"]').waitFor({ timeout: 30000 })
     await page.locator('[data-idf-items-total]').filter({ hasText: 'Items: 2' }).waitFor({ timeout: 30000 })
-    check(`${dir} 4. picking v2 reads V-7 and keeps the group, in the address`, lastRead(reads)?.versionId === 'V-7' && search(page) === '?version=V-7&idf=IDF-PARA-500', search(page))
+    check(`${dir} 4. picking v2 reads V-7 and keeps the group, in the address`, lastRead(reads)?.versionId === 'V-7' && search(page) === '?version=V-7&idf=IDF-PARA', search(page))
     check(`${dir} 4. its items show`, JSON.stringify(await itemRows(page)) === '["100200","100300"]', JSON.stringify(await itemRows(page)))
     const mark = page.locator('[data-idf-items-not-live]')
     check(`${dir} 4. it is marked not live, its number ltr`, strip(await mark.innerText()) === 'You are looking at version 2. It is not live.' && JSON.stringify(await ltr(mark)) === '["2"]', strip(await mark.innerText()))
     await page.locator('[data-idf-items-show-live]').click()
-    await page.waitForURL((u) => u.search === '?idf=IDF-PARA-500', { timeout: 30000 })
+    await page.waitForURL((u) => u.search === '?idf=IDF-PARA', { timeout: 30000 })
     await page.locator('[data-idf-items-total]').filter({ hasText: 'Items: 10' }).waitFor({ timeout: 30000 })
     check(`${dir} 4. "Show the live version" goes back to it`, lastRead(reads)?.versionId === 'V-11' && (await page.locator('[data-idf-items-not-live]').count()) === 0 && (await page.locator('[data-idf-items-version]').inputValue()) === 'V-11')
     check(`${dir} 6. no raw keys`, await noRawKeys(page))

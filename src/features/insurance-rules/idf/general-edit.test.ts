@@ -21,15 +21,20 @@ describe('648 · the general edit form', () => {
     expect(isGeneralEditValid(NEW_GENERAL_ITEM_FORM, 'set')).toBe(false)
   })
 
+  it('a group over 8 characters is refused here, as the door refuses it (IDF-00040, 654)', () => {
+    expect(generalEditProblems({ ...ok, idfNumber: 'IDF-PARA' }, 'edit')).toEqual({})
+    expect(generalEditProblems({ ...ok, idfNumber: ' IDF-PARA-500 ' }, 'edit')).toEqual({ idfNumber: 'groupTooLong' })
+  })
+
   it('Set item also needs the item number; an edit keeps the row its own', () => {
     expect(generalEditProblems({ ...ok, itemNumber: '' }, 'set')).toEqual({ itemNumber: 'itemRequired' })
     expect(generalEditProblems({ ...ok, itemNumber: '' }, 'edit')).toEqual({})
   })
 
   it('an edit starts from the row, with no reason', () => {
-    expect(generalFormFromRow({ itemNumber: '300110', descriptionEn: 'Adol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 2 })).toEqual({
+    expect(generalFormFromRow({ itemNumber: '300110', descriptionEn: 'Adol', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 2 })).toEqual({
       itemNumber: '300110',
-      idfNumber: 'IDF-PARA-500',
+      idfNumber: 'IDF-PARA',
       priority: '2',
       reason: '',
     })

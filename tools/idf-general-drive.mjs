@@ -25,11 +25,14 @@
 //
 // 649 / 650 / 651 extend this drive (their slots on the page).
 //
+// 654 (grants): 14. without `canEditGeneral` (`GET IdfPriority/Access`) no Set item, no row Edit / Clear and no Upload
+//     block shows; Export, the Template (moved into the action row) and the Change log tab still do.
+//
 // 651 (door 3195; `// --- 651 ---` in the stubs: GET IdfPriority/general/export · GET IdfPriority/general/template):
 //   7. Export sits in the General page's action row, Template beside 649's Upload (3185 review); each saves its file
 //      under the server's name;
 //   8. no server name → the client's fallback names (`idf-general.xlsx`, `idf-general-template.xlsx`);
-//   9. a refused export / template (JSON 400 envelope) toasts the server's message and saves nothing.
+//   9. a failed export / template (the real doors never refuse a read here: a 500) toasts and saves nothing.
 //
 //   1. run the app:  npx vite --port 5214 --strictPort
 //   2. node tools/idf-general-drive.mjs        (DRIVE_PORT overrides 5214)
@@ -150,7 +153,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(
       `${dir} 3. item, group, priority ltr; the description in a bdi`,
       JSON.stringify(await ltr(r.locator('[data-col="item"]'))) === '["300110"]' &&
-        JSON.stringify(await ltr(r.locator('[data-col="group"]'))) === '["IDF-PARA-500"]' &&
+        JSON.stringify(await ltr(r.locator('[data-col="group"]'))) === '["IDF-PARA"]' &&
         JSON.stringify(await ltr(r.locator('[data-col="priority"]'))) === '["2"]' &&
         strip(await r.locator('[data-col="description"] bdi:not([dir])').innerText()) === 'Adol general 11',
       strip(await r.locator('[data-col="description"]').innerText()),
@@ -231,7 +234,7 @@ for (const dir of ['ltr', 'rtl']) {
       `${dir} 11. Edit starts from the row (item fixed), Save off until a reason`,
       (await field('300110', 'itemNumber').inputValue()) === '300110' &&
         (await field('300110', 'itemNumber').isDisabled()) &&
-        (await field('300110', 'idfNumber').inputValue()) === 'IDF-PARA-500' &&
+        (await field('300110', 'idfNumber').inputValue()) === 'IDF-PARA' &&
         (await field('300110', 'priority').inputValue()) === '2' &&
         (await save.isDisabled()),
     )
@@ -242,7 +245,7 @@ for (const dir of ['ltr', 'rtl']) {
     check(
       `${dir} 11. a re-rank shows on the row, its priority ltr`,
       JSON.stringify(await ltr(page.locator('[data-idf-items] tbody tr[data-item="300110"] [data-col="priority"]'))) === '["9"]' &&
-        JSON.stringify(writes.at(-1)?.body) === '{"idfNumber":"IDF-PARA-500","priority":9,"reason":"Re-ranked after the recall"}',
+        JSON.stringify(writes.at(-1)?.body) === '{"idfNumber":"IDF-PARA","priority":9,"reason":"Re-ranked after the recall"}',
       JSON.stringify(writes.at(-1)),
     )
 
@@ -256,12 +259,12 @@ for (const dir of ['ltr', 'rtl']) {
     const refusal = strip(await page.locator('[data-idf-general-refusal]').innerText().catch(() => ''))
     check(
       `${dir} 12. a refused group shows its message in the dialog, which stays open`,
-      refusal.includes('IDF group IDF-NOPE does not exist.') && (await page.locator('[data-idf-general-dialog="300120"]').count()) === 1,
+      refusal.includes("'IDF-NOPE' is not an IDF group: add the group first.") && (await page.locator('[data-idf-general-dialog="300120"]').count()) === 1,
       refusal,
     )
     await page.locator('dialog button', { hasText: 'Cancel' }).click()
     await page.locator('[data-idf-general-dialog]').waitFor({ state: 'detached', timeout: 30000 })
-    check(`${dir} 12. the refused row is unchanged`, (await page.locator('[data-idf-items] tbody tr[data-item="300120"]').getAttribute('data-idf')) === 'IDF-PARA-500')
+    check(`${dir} 12. the refused row is unchanged`, (await page.locator('[data-idf-items] tbody tr[data-item="300120"]').getAttribute('data-idf')) === 'IDF-PARA')
 
     // 13. Clear
     await page.locator('[data-idf-general-clear="300110"]').click()
@@ -333,13 +336,13 @@ for (const dir of ['ltr', 'rtl']) {
     const exToast = page.locator('[data-sonner-toast]', { hasText: 'The file could not be exported' })
     await exToast.waitFor({ timeout: 10000 }).catch(() => {})
     check(
-      `${dir} 9. a refused export toasts the server's message, no file`,
-      (await exToast.count()) === 1 && /The general master could not be exported/.test(await exToast.innerText()) && !downloaded && reads.generalExport === 1,
+      `${dir} 9. a failed export toasts, no file`,
+      (await exToast.count()) === 1 && !downloaded && reads.generalExport === 1,
     )
     await page.locator(G_TEMPLATE).click()
     const tplToast = page.locator('[data-sonner-toast]', { hasText: 'The template could not be downloaded' })
     await tplToast.waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 9. a refused template toasts the server's message, no file`, (await tplToast.count()) === 1 && /The general template could not be built/.test(await tplToast.innerText()) && !downloaded)
+    check(`${dir} 9. a failed template toasts, no file`, (await tplToast.count()) === 1 && !downloaded)
     check(`${dir} 9. the buttons are usable again after a refusal`, (await page.locator(G_EXPORT).isEnabled()) && (await page.locator(G_TEMPLATE).isEnabled()))
     check(`${dir} 9. no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -366,6 +369,28 @@ for (const dir of ['ltr', 'rtl']) {
     `${page.url()} ${(await itemRows(page)).length}`,
   )
   check(`${dir} 14. no page errors`, errors.length === 0, errors.join(' | '))
+  await context.close()
+}
+
+// --- 654 --- without the general edit grant
+for (const dir of ['ltr', 'rtl']) {
+  const { context, page, errors, reads, state } = await open(dir)
+  state.access = { canEditGeneral: false }
+  await page.goto(`${BASE}/insurance-rules/idf/general`)
+  await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
+  await page.waitForTimeout(500)
+  check(`${dir} 14. the probe is read`, (reads.access ?? 0) >= 1)
+  check(
+    `${dir} 14. without canEditGeneral: no Set item, no row Edit / Clear, no Upload block`,
+    (await page.locator('[data-idf-general-set], [data-idf-general-edit], [data-idf-general-clear], [data-idf-general-upload]').count()) === 0,
+  )
+  check(
+    `${dir} 14. Export and Template still show, in the action row; the Change log tab too`,
+    (await page.locator(`[data-idf-general-actions] ${G_EXPORT}`).count()) === 1 &&
+      (await page.locator(`[data-idf-general-actions] ${G_TEMPLATE}`).count()) === 1 &&
+      (await page.locator('[data-idf-general-tabs] [data-tab="changes"]').count()) === 1,
+  )
+  check(`${dir} 14. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
   await context.close()
 }
 

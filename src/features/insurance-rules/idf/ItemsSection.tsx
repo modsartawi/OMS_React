@@ -15,7 +15,9 @@ import { masterItemsFromParams, masterItemsToParams } from './items'
 import { DRAFT_SHOWN, draftPage, itemsShown, pickShown, removedShown } from './draft' // 645
 import { DraftMark, DraftRowActions } from './DraftPanel' // 645
 import { useDraft } from './useDraft' // 645
-import { draftEditable, draftPanelState } from './draft' // 646
+import { draftPanelState } from './draft' // 646
+import { draftActions } from './access' // 654
+import { useIdfAccess } from './useIdfAccess' // 654
 import { useSession } from '@/core/session' // 646
 import ItemsTable from './ItemsTable'
 import { versionRows } from './versions'
@@ -47,7 +49,8 @@ export default function ItemsSection({ masterId, liveVersionId }: { masterId: st
   const { draft, diff } = useDraft(masterId) // 645
   const draftOpen = !!draft.data
   const userId = useSession((s) => s.userId) // 646
-  const editable = draftEditable(draftPanelState(draft.data, userId)) // 646: only my own draft takes edits
+  // 646: only my own draft takes edits; 654: and only with the IDF edit grant
+  const editable = draftActions(draftPanelState(draft.data, userId), useIdfAccess().canEditIdf).edit
   const showing = itemsShown(query, liveVersionId, draftOpen)
   const versionId = showing?.kind === 'version' ? showing.versionId : null
   const shown = rows.find((v) => v.versionId === versionId)

@@ -9,7 +9,8 @@
 //   1. Export by the Items section saves the LIVE version under the server's name; Template by Upload saves the blank;
 //   2. picking an old version exports THAT version; a link naming an old version exports it too;
 //   3. with no server name the fallback names the master and the version (and the template its own);
-//   4. a refused export / template (JSON 400 envelope) toasts its message and saves nothing;
+//   4. a refused export (the door's JSON 400 envelope: a version of another master, IDF-00013) toasts its message and
+//      saves nothing; a template that fails (the real door never refuses it: a 500) toasts and saves nothing;
 //   5. a master with no live version offers no Export, still the Template;
 //   6. no raw keys, no page errors.
 //
@@ -127,12 +128,12 @@ for (const dir of ['ltr', 'rtl']) {
     await exportToast.waitFor({ timeout: 10000 }).catch(() => {})
     check(
       `${dir} 4. a refused export toasts the server's message, no file`,
-      (await exportToast.count()) === 1 && /This version could not be exported/.test(await exportToast.innerText()) && !downloaded && reads.masterExport?.length === 1,
+      (await exportToast.count()) === 1 && /not a version of this master/.test(await exportToast.innerText()) && !downloaded && reads.masterExport?.length === 1,
     )
     await page.locator(TEMPLATE).click()
     const tplToast = page.locator('[data-sonner-toast]', { hasText: 'The template could not be downloaded' })
     await tplToast.waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 4. a refused template toasts the server's message, no file`, (await tplToast.count()) === 1 && /The template could not be built/.test(await tplToast.innerText()) && !downloaded)
+    check(`${dir} 4. a failed template toasts, no file`, (await tplToast.count()) === 1 && !downloaded)
     check(`${dir} 4. the buttons are usable again after a refusal`, (await page.locator(EXPORT).isEnabled()) && (await page.locator(TEMPLATE).isEnabled()))
     check(`${dir} 4. no page errors (refused)`, errors.length === 0, errors.join(' | '))
     await context.close()

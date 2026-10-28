@@ -22,6 +22,7 @@ import { generalTemplateFileName } from './download' // 651
 import { EXCEPTION_REASON_MAX, reasonProblem } from './exceptions'
 import {
   applyOutcome,
+  canConfirmApply,
   failedBatchLines,
   IDF_GENERAL_CHANGE_KINDS,
   isGeneralUploadApplicable,
@@ -42,10 +43,11 @@ import UploadRowReport from './UploadRowReport'
  * re-ranked / moved / unchanged, filterable, each change before → after. **Apply…** asks for a reason; the result
  * says how many items were written and lists any failed batch with its lines and message. The general items re-read.
  * 3185 review: only a full apply is a success (toast + the report clears); a partial one (a batch failed) or one that
- * wrote nothing warns, keeps the file's report on screen beside the result, and Apply stays off for that file.
- * 651's Template sits beside Upload.
+ * wrote nothing warns and keeps the file's report on screen beside the result. 654 (BackOffice 3193 as built): a
+ * failed batch releases the confirm, so Apply stays ON for that same file — a re-confirm re-checks each item and
+ * writes only what is still different (`canConfirmApply`). 651's Template sits beside Upload.
  *
- * 🚩 UNGATED until 654 adds the general-edit probe.
+ * 654: the whole block needs `canEditGeneral` — the page draws `GeneralTemplate` alone without it.
  */
 export default function GeneralUpload() {
   const { t } = useTranslation('insurance-idf')
@@ -56,6 +58,7 @@ export default function GeneralUpload() {
   const upload = useMutation({ mutationFn: (f: File) => idfGeneralUploadApi.upload(f) })
   const report = upload.data ?? null
   const applicable = isGeneralUploadApplicable(report)
+  const confirmable = canConfirmApply(report, result)
   return (
     <div className="flex max-w-5xl flex-col gap-3 rounded-md border border-border/60 bg-card p-3" data-idf-general-upload="">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -90,13 +93,7 @@ export default function GeneralUpload() {
           {t('generalUpload.submit')}
         </Button>
         {/* 651 · Template, beside Upload */}
-        <DownloadButton
-          fetch={() => idfGeneralFilesApi.template()}
-          fallbackName={generalTemplateFileName()}
-          label={t('download.template')}
-          failedLabel={t('download.templateFailed')}
-          hook="data-idf-general-template"
-        />
+        <GeneralTemplate />
       </div>
       {upload.isError && (
         <div data-idf-general-upload-refused="">
@@ -106,7 +103,7 @@ export default function GeneralUpload() {
       {report && <UploadRowReport report={report} kind="item" applicable={applicable} ruleWordKey={ruleWordKey} keyPrefix="generalUpload" />}
       {report && applicable && report.preview && <Preview preview={report.preview} />}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" disabled={!applicable || result !== null} data-idf-general-upload-apply="" onClick={() => setConfirming(true)}>
+        <Button variant="primary" disabled={!confirmable} data-idf-general-upload-apply="" onClick={() => setConfirming(true)}>
           <CheckCheck className="h-3.5 w-3.5" aria-hidden />
           {t('generalUpload.apply')}
         </Button>
@@ -127,6 +124,20 @@ export default function GeneralUpload() {
         />
       )}
     </div>
+  )
+}
+
+/** 651 · the blank general file — a read, on the view grant (the page shows it alone without `canEditGeneral`). */
+export function GeneralTemplate() {
+  const { t } = useTranslation('insurance-idf')
+  return (
+    <DownloadButton
+      fetch={() => idfGeneralFilesApi.template()}
+      fallbackName={generalTemplateFileName()}
+      label={t('download.template')}
+      failedLabel={t('download.templateFailed')}
+      hook="data-idf-general-template"
+    />
   )
 }
 
@@ -268,6 +279,11 @@ function Result({ result }: { result: IdfGeneralApplyResult }) {
       <p className={tone} role={outcome === 'applied' ? undefined : 'alert'} data-idf-general-upload-outcome="">
         <Trans t={t} i18nKey={key} values={{ n: formatFigure(result.applied) }} components={{ v: <Ltr /> }} />
       </p>
+      {outcome !== 'applied' && (
+        <p className="text-xs text-muted-foreground" data-idf-general-upload-apply-again="">
+          {t('generalUpload.applyAgain')}
+        </p>
+      )}
       {failed.length > 0 && (
         <>
           <p className="text-sm text-destructive" data-idf-general-upload-batches-summary="">

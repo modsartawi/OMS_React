@@ -5,9 +5,15 @@
  * or remove is checked as an upload line is and a failing one is refused (a 400 carrying `{ rule, messageEn,
  * messageAr }`) with the draft left as it was; publish with a note makes ONE new live version; discard closes it.
  *
- * The diff: the draft door carries no per-row change, so the screen compares the draft's rows with the rows of the
- * version the draft was copied from (`baseVersionId`, read whole — see `idfDraftApi.baseRows`). ⚠️ 654: if the built
- * door marks rows itself, prefer its marks and drop the base read.
+ * The diff: the draft door carries no per-row change (3189 as built: `rows` is the entries row shape, unmarked), so the
+ * screen compares the draft's rows with the rows of the version the draft was copied from (`baseVersionId`, read whole
+ * — see `idfDraftApi.baseRows`). A draft started on a master with nothing live has `baseVersionId ''`: there is no base
+ * to read, and every row is added (`draftBaseVersion`).
+ *
+ * 654 reconciled the refusals with the doors as built (BackOffice 3189/3190, `IdfPriorityErrorCodes`): `IDF-00029` no
+ * open draft · `IDF-00030` an edit failing an upload rule, `data { rule, messageEn, messageAr }` · `IDF-00031` the
+ * draft does not hold the item · `IDF-00033` an empty draft published · `IDF-00034` a second start, `data { draftId,
+ * by, startedAt, changedAt }` · `IDF-00035` a stale draft published · `IDF-00036` a group with no items added.
  */
 import { ruleWordKey, rowMessage } from './upload'
 import { wholePriority } from './general-edit'
@@ -20,7 +26,7 @@ export interface IdfDraft {
   by: string
   startedAt: string
   changedAt: string
-  /** The version the draft was copied from (the live one at the start, or at the last rebase). */
+  /** The version the draft was copied from (the live one at the start, or at the last rebase); `''` when nothing was live. */
   baseVersionId: string | null
   /** The live version has moved since — publish is refused until a rebase (646). */
   isStale: boolean
@@ -61,6 +67,23 @@ export function draftDiff(draftRows: readonly IdfEntryRow[], baseRows: readonly 
   return { mark: (itemNumber) => marks.get(itemNumber) ?? null, removed, counts }
 }
 
+/** The version a draft diffs against, or null when it has none (nothing was live when it started). */
+export function draftBaseVersion(draft: Pick<IdfDraft, 'baseVersionId'> | null | undefined): string | null {
+  const id = (draft?.baseVersionId ?? '').trim()
+  return id || null
+}
+
+/** The rules a draft edit names beyond the upload's: a rebased re-rank whose item the new live version no longer ranks. */
+export const IDF_DRAFT_RULES = ['notInDraft'] as const
+
+/** A draft rule's word key: an upload rule's (`upload.rule.*`), the draft's own (`draft.ruleWord.*`), or null. */
+export function draftRuleWordKey(rule: string): string | null {
+  return (IDF_DRAFT_RULES as readonly string[]).includes(rule) ? `draft.ruleWord.${rule}` : ruleWordKey(rule)
+}
+
+/** The edits a rebase replays or a group add makes (`IdfDraftItemProblem.Edit`). */
+export const IDF_DRAFT_EDITS = ['add', 'reRank'] as const
+
 /** A refused draft edit, ready to show: the rule's word key (null = show the raw `rule`) and the message. */
 export interface IdfDraftRefusal {
   rule: string
@@ -77,7 +100,7 @@ export function draftEditRefusal(data: unknown, lang: string): IdfDraftRefusal |
   const d = data as { rule?: unknown; messageEn?: unknown; messageAr?: unknown }
   if (typeof d.rule !== 'string' || !d.rule) return null
   const message = rowMessage({ messageEn: String(d.messageEn ?? ''), messageAr: String(d.messageAr ?? '') }, lang)
-  return { rule: d.rule, wordKey: ruleWordKey(d.rule), message }
+  return { rule: d.rule, wordKey: draftRuleWordKey(d.rule), message }
 }
 
 /** The draft door is not paged: the screen pages the draft's rows itself, at the entries door's page size. */
@@ -174,28 +197,45 @@ export interface IdfDraftGroupBody {
   priority: number
 }
 
-/** A member the group add refused, ready to show (as `IdfDraftRefusal`, with its item). */
-export interface IdfDraftGroupRefusal extends IdfDraftRefusal {
+/**
+ * One edit a group add refused or a rebase dropped (`IdfDraftItemProblem`: `{ itemNumber, edit, rule, messageEn,
+ * messageAr }`), ready to show: its edit (`add` | `reRank`), the rule's word key and the message.
+ */
+export interface IdfDraftProblem extends IdfDraftRefusal {
   itemNumber: string
+  edit: string
+}
+
+function problems(rows: unknown, lang: string): IdfDraftProblem[] {
+  const list = Array.isArray(rows) ? (rows as { itemNumber?: unknown; edit?: unknown; rule?: unknown; messageEn?: unknown; messageAr?: unknown }[]) : []
+  return list.map((r) => {
+    const rule = String(r.rule ?? '')
+    return {
+      itemNumber: String(r.itemNumber ?? ''),
+      edit: String(r.edit ?? ''),
+      rule,
+      wordKey: draftRuleWordKey(rule),
+      message: rowMessage({ messageEn: String(r.messageEn ?? ''), messageAr: String(r.messageAr ?? '') }, lang),
+    }
+  })
+}
+
+/** The draft an answer nests under `draft` (3190 as built), or null. */
+function nestedDraft(a: { draft?: unknown }): IdfDraft | null {
+  return a.draft && typeof a.draft === 'object' && !Array.isArray(a.draft) ? (a.draft as IdfDraft) : null
+}
+
+/** `POST …/draft/groups` → `{ draft, added, rows }`: the draft after the add, how many members went in, the refused ones. */
+export function groupAddResult(answer: unknown, lang: string): { draft: IdfDraft | null; added: number; refused: IdfDraftProblem[] } {
+  const a = (answer && typeof answer === 'object' ? answer : {}) as { draft?: unknown; added?: unknown; rows?: unknown }
+  return { draft: nestedDraft(a), added: typeof a.added === 'number' ? a.added : 0, refused: problems(a.rows, lang) }
 }
 
 /**
- * The group add's answer — the brief says "the draft plus `{ added, rows }`", so it is read the same whether the
- * draft sits beside the counts (`{ draft, added, rows }`) or is spread into them. ⚠️ 654: settle the shape.
+ * `POST …/draft/rebase` (no body) → `{ draft, reapplied, rows }`: the draft rebuilt on the live version, how many of its
+ * edits re-applied, and the edits that failed their re-check and were DROPPED from the draft (the screen lists them).
  */
-export function groupAddResult(answer: unknown, lang: string): { added: number; refused: IdfDraftGroupRefusal[] } {
-  const a = (answer && typeof answer === 'object' ? answer : {}) as { added?: unknown; rows?: unknown }
-  const rows = Array.isArray(a.rows) ? (a.rows as { itemNumber?: unknown; rule?: unknown; messageEn?: unknown; messageAr?: unknown }[]) : []
-  return {
-    added: typeof a.added === 'number' ? a.added : 0,
-    refused: rows.map((r) => {
-      const rule = String(r.rule ?? '')
-      return {
-        itemNumber: String(r.itemNumber ?? ''),
-        rule,
-        wordKey: ruleWordKey(rule),
-        message: rowMessage({ messageEn: String(r.messageEn ?? ''), messageAr: String(r.messageAr ?? '') }, lang),
-      }
-    }),
-  }
+export function rebaseResult(answer: unknown, lang: string): { draft: IdfDraft | null; reapplied: number; failed: IdfDraftProblem[] } {
+  const a = (answer && typeof answer === 'object' ? answer : {}) as { draft?: unknown; reapplied?: unknown; rows?: unknown }
+  return { draft: nestedDraft(a), reapplied: typeof a.reapplied === 'number' ? a.reapplied : 0, failed: problems(a.rows, lang) }
 }

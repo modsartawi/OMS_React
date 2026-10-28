@@ -20,7 +20,7 @@ import { IDF_SKIP_REASONS, IDF_TIERS } from './lookup' // 625
 import { IDF_UPLOAD_RULES } from './upload' // 622
 import { SWAP_REPORT_COUNTS } from './report' // 627
 import { IDF_EVENT_OUTCOMES } from './events' // 627
-import { IDF_DRAFT_MARKS } from './draft' // 645
+import { IDF_DRAFT_EDITS, IDF_DRAFT_MARKS, IDF_DRAFT_RULES } from './draft' // 645, 654
 import { IDF_GROUPS_IMPORT_RULES } from './groups-import' // 653
 import { IDF_GENERAL_CHANGE_KINDS } from './general-upload' // 649
 
@@ -377,6 +377,38 @@ describe('insurance-idf — the keys the general upload builds exist (649)', () 
     for (const prefix of ['rowsFailed_', 'batchesFailed_']) {
       expect([prefix, Object.keys(g).some((k) => k.startsWith(prefix))]).toEqual([prefix, true])
       for (const [k, v] of Object.entries(g)) if (k.startsWith(prefix)) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+    }
+  })
+})
+
+// 654 · the keys the reconcile with the doors as built adds
+describe('insurance-idf — the keys 654 adds (doors as built, grants)', () => {
+  const forms = (locale: unknown) => (locale === en ? ['_one', '_other'] : ['_zero', '_one', '_two', '_few', '_many', '_other'])
+  it.each([en, ar])('draft: the notInDraft rule word, the edit words, the rebase result and the view-only note', (locale) => {
+    const keys = [
+      ...IDF_DRAFT_RULES.map((r) => `draft.ruleWord.${r}`),
+      ...IDF_DRAFT_EDITS.map((e) => `draft.edit.${e}`),
+      ...['editColumn', 'rebaseDropped', 'viewOnly'].map((k) => `draft.${k}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const d = locale.draft as Record<string, unknown>
+    for (const f of forms(locale)) expect([f, String(d[`rebaseReapplied${f}`])]).toEqual([f, expect.stringContaining('<v>{{n}}</v>')])
+  })
+  it.each([en, ar])('groups: the length problems, a refusal naming live rankings, the import’s unchanged count', (locale) => {
+    for (const key of ['groups.problem.descriptionTooLong', 'groups.problem.dosageFormTooLong', 'generalEdit.problem.groupTooLong', 'generalUpload.applyAgain'])
+      expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const g = locale.groups as Record<string, unknown>
+    for (const f of forms(locale)) expect([f, String(g[`refusedEntries${f}`])]).toEqual([f, expect.stringContaining('<v>{{n}}</v>')])
+    const gi = locale.groupsImport as Record<string, unknown>
+    expect(String(gi.result)).toContain('<v>{{unchanged}}</v>')
+    expect(String(gi.appliedDetail)).toContain('{{unchanged}}')
+  })
+  it.each([en, ar])('the group number says at most 8, never the sketch’s 26', (locale) => {
+    const g = locale.groups as { problem: Record<string, string> }
+    const gi = locale.groupsImport as { rule: Record<string, string> }
+    for (const s of [g.problem.numberTooLong, gi.rule.numberTooLong]) {
+      expect(s).not.toMatch(/26|٢٦/)
+      expect(s).toMatch(/8|٨/)
     }
   })
 })

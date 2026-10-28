@@ -76,9 +76,9 @@ describe('the IDF doors send the shapes the BackOffice tickets built', () => {
 describe('643 · the entries door', () => {
   it('reads one page of a version, search and group as the door names them, and fills a null body', async () => {
     const { idfEntriesApi } = await import('./api')
-    api.get.mockResolvedValueOnce({ page: 2, pageSize: 25, total: 60, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 1 }] })
-    const page = await idfEntriesApi.entries('M BUPA', 'V/11', { q: 'pan', idf: 'IDF-PARA-500', page: 2 })
-    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/entries', { search: 'pan', idf: 'IDF-PARA-500', page: '2' })
+    api.get.mockResolvedValueOnce({ page: 2, pageSize: 25, total: 60, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 1 }] })
+    const page = await idfEntriesApi.entries('M BUPA', 'V/11', { q: 'pan', idf: 'IDF-PARA', page: 2 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/versions/V%2F11/entries', { search: 'pan', idf: 'IDF-PARA', page: '2' })
     expect(page.total).toBe(60)
     expect(await idfEntriesApi.entries('M-OPS', 'V-4', { q: '', idf: '', page: 3 })).toEqual({ page: 3, pageSize: 0, total: 0, rows: [] })
   })
@@ -103,8 +103,8 @@ describe('645 · the draft doors', () => {
     expect(api.get).toHaveBeenCalledWith('IdfPriority/masters/M%20BUPA/draft')
     await idfDraftApi.start('M-BUPA')
     expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft', {})
-    await idfDraftApi.add('M-BUPA', { itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
-    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items', { itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
+    await idfDraftApi.add('M-BUPA', { itemNumber: '100999', idfNumber: 'IDF-PARA', priority: 4 })
+    expect(api.post).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items', { itemNumber: '100999', idfNumber: 'IDF-PARA', priority: 4 })
     await idfDraftApi.reRank('M-BUPA', '100/300', 3)
     expect(api.put).toHaveBeenLastCalledWith('IdfPriority/masters/M-BUPA/draft/items/100%2F300', { priority: 3 })
     await idfDraftApi.remove('M-BUPA', '200100')
@@ -186,9 +186,9 @@ describe('646 · the rebase and add-a-group doors', () => {
 describe('647 · the general items door', () => {
   it('reads one page of the general items, search and group as the door names them, and fills a null body', async () => {
     const { idfGeneralApi } = await import('./api')
-    api.get.mockResolvedValueOnce({ page: 1, pageSize: 25, total: 2, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 1 }] })
-    const page = await idfGeneralApi.items({ q: 'pan', idf: 'IDF-PARA-500', page: 1 })
-    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/items', { search: 'pan', idf: 'IDF-PARA-500', page: '1' })
+    api.get.mockResolvedValueOnce({ page: 1, pageSize: 25, total: 2, rows: [{ itemNumber: '100200', descriptionEn: 'Panadol', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 1 }] })
+    const page = await idfGeneralApi.items({ q: 'pan', idf: 'IDF-PARA', page: 1 })
+    expect(api.get).toHaveBeenCalledWith('IdfPriority/general/items', { search: 'pan', idf: 'IDF-PARA', page: '1' })
     expect(page.rows).toHaveLength(1)
     expect(await idfGeneralApi.items({ q: '', idf: '', page: 2 })).toEqual({ page: 2, pageSize: 0, total: 0, rows: [] })
   })

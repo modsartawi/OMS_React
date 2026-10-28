@@ -36,14 +36,18 @@ describe('the add / update counts', () => {
   it('counts the passing rows by action and the failing rows apart', () => {
     expect(groupsImportCounts([add, upd, { ...upd, line: 5, idfNumber: 'IDF-0102' }, bad])).toEqual({ add: 1, update: 2, failed: 1 })
   })
+  it('a failing row with no action (a missing or too-long number) counts as failed only', () => {
+    expect(groupsImportCounts([{ ...bad, action: '' }, add])).toEqual({ add: 1, update: 0, failed: 1 })
+  })
   it('no rows is all zero', () => {
     expect(groupsImportCounts(null)).toEqual({ add: 0, update: 0, failed: 0 })
   })
 })
 
 describe('a rule has a word', () => {
-  it('the four rules the door names', () => {
-    expect([...IDF_GROUPS_IMPORT_RULES]).toEqual(['missingNumber', 'duplicateNumber', 'numberTooLong', 'missingDescription'])
+  it('the six rules the door names (3197 as built: the two length rules too), in its order', () => {
+    expect([...IDF_GROUPS_IMPORT_RULES]).toEqual(['missingNumber', 'numberTooLong', 'duplicateNumber', 'missingDescription', 'descriptionTooLong', 'dosageFormTooLong'])
+    expect(groupsImportRuleWordKey('dosageFormTooLong')).toBe('groupsImport.rule.dosageFormTooLong')
     expect(groupsImportRuleWordKey('duplicateNumber')).toBe('groupsImport.rule.duplicateNumber')
   })
   it('an unknown rule has none (the screen shows its code)', () => {

@@ -19,16 +19,20 @@ import {
   groupBody,
   groupEditBody,
   groupFormProblems,
-  refusedItemCount,
+  IDF_GROUP_DESCRIPTION_MAX,
+  IDF_GROUP_DOSAGE_FORM_MAX,
+  IDF_GROUP_NUMBER_MAX,
+  removeRefusal,
   removeRefusedForGood,
   type IdfGroup,
   type IdfGroupForm,
 } from './groups'
 
 /**
- * Add or edit one IDF group (BackOffice 3196; oms ticket 652). Add asks for the number (at most 26), the description
- * and the dosage form; Edit shows the number fixed and sends only the description and dosage form. A write refusal is
- * a toast carrying the server's message.
+ * Add or edit one IDF group (BackOffice 3196; oms ticket 652). Add asks for the number (at most 8 — 654, the door's
+ * `IdfGroupWidths`), the description (at most 300) and the dosage form (at most 50); Edit shows the number fixed and
+ * sends only the description and dosage form. Group writes take no reason. A write refusal (`IDF-00045` / `IDF-00046`)
+ * is a toast carrying the server's message.
  */
 export function GroupDialog({ row, onClose }: { row: IdfGroup | null; onClose: () => void }) {
   const { t } = useTranslation('insurance-idf')
@@ -80,13 +84,13 @@ export function GroupDialog({ row, onClose }: { row: IdfGroup | null; onClose: (
     >
       <div className="flex flex-col gap-3" data-idf-group-dialog={row?.idfNumber ?? 'new'}>
         <Field label={t('groups.number')} hint={row ? t('groups.numberFixed') : undefined} error={problem(problems.idfNumber)}>
-          <Input dir="ltr" value={form.idfNumber} onChange={set('idfNumber')} disabled={!!row} readOnly={!!row} data-field="idfNumber" />
+          <Input dir="ltr" value={form.idfNumber} onChange={set('idfNumber')} disabled={!!row} readOnly={!!row} data-field="idfNumber" maxLength={row ? undefined : IDF_GROUP_NUMBER_MAX + 1} />
         </Field>
         <Field label={t('groups.description')} error={problem(problems.description)}>
-          <Input dir="auto" value={form.description} onChange={set('description')} data-field="description" />
+          <Input dir="auto" value={form.description} onChange={set('description')} data-field="description" maxLength={IDF_GROUP_DESCRIPTION_MAX + 1} />
         </Field>
-        <Field label={t('groups.dosageForm')}>
-          <Input dir="auto" value={form.dosageForm} onChange={set('dosageForm')} data-field="dosageForm" />
+        <Field label={t('groups.dosageForm')} error={problem(problems.dosageForm)}>
+          <Input dir="auto" value={form.dosageForm} onChange={set('dosageForm')} data-field="dosageForm" maxLength={IDF_GROUP_DOSAGE_FORM_MAX + 1} />
         </Field>
       </div>
     </Modal>
@@ -94,9 +98,10 @@ export function GroupDialog({ row, onClose }: { row: IdfGroup | null; onClose: (
 }
 
 /**
- * Remove an empty group. The door refuses while items point at it (the WPF may have added members since the list
- * was read): the refusal stays in the dialog with its message and the count it carries, and the list re-reads so the
- * row shows its real count.
+ * Remove an empty group. The door refuses (`IDF-00047`, `data { idfNumber, itemCount, entryCount }`) while items point
+ * at it — the WPF may have added members since the list was read — or a master's live version still ranks it: the
+ * refusal stays in the dialog with its message and says which (items and/or live rankings, with their counts), Remove
+ * stays off, and the list re-reads so the row shows its real count. Any other failure may be retried.
  */
 export function RemoveGroupDialog({ row, onClose }: { row: IdfGroup; onClose: () => void }) {
   const { t } = useTranslation('insurance-idf')
@@ -111,7 +116,7 @@ export function RemoveGroupDialog({ row, onClose }: { row: IdfGroup; onClose: ()
     onError: () => void qc.invalidateQueries({ queryKey: IDF_GROUPS_KEY }),
   })
   const err = remove.error
-  const count = err ? refusedItemCount(apiErrorData(err)) : null
+  const held = err ? removeRefusal(apiErrorData(err)) : null
   return (
     <Modal
       open
@@ -133,9 +138,14 @@ export function RemoveGroupDialog({ row, onClose }: { row: IdfGroup; onClose: ()
         {err ? (
           <div data-idf-group-remove-refusal="">
             <ErrorBanner className="p-3" title={t('groups.removeFailed')} message={isBareDenial(err) ? t('access.deniedTitle') : apiErrorMessage(err, t('groups.removeFailed'))}>
-              {count != null && (
-                <div className="mt-1 text-xs" data-refused-count={count}>
-                  <Trans t={t} i18nKey="groups.refusedCount" count={count} values={{ n: formatFigure(count) }} components={{ v: <Ltr /> }} />
+              {held && held.itemCount > 0 && (
+                <div className="mt-1 text-xs" data-refused-count={held.itemCount}>
+                  <Trans t={t} i18nKey="groups.refusedCount" count={held.itemCount} values={{ n: formatFigure(held.itemCount) }} components={{ v: <Ltr /> }} />
+                </div>
+              )}
+              {held && held.entryCount > 0 && (
+                <div className="mt-1 text-xs" data-refused-entries={held.entryCount}>
+                  <Trans t={t} i18nKey="groups.refusedEntries" count={held.entryCount} values={{ n: formatFigure(held.entryCount) }} components={{ v: <Ltr /> }} />
                 </div>
               )}
             </ErrorBanner>

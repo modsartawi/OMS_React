@@ -393,7 +393,7 @@
   },
   "groups": {
     "title": "IDF groups",
-    "lede": "The groups of interchangeable items the IDF masters rank. Search by group number or description; a group can be removed only when no item points at it.",
+    "lede": "The groups of interchangeable items the IDF masters rank. Search by group number or description; a group can be removed only when no item points at it and no master’s live version ranks it.",
     "help": "The WPF IDF Import screen still writes groups, unchecked and unlogged — a change made there appears here on the next read.",
     "loading": "Loading IDF groups…",
     "failed": "The IDF groups could not be loaded.",
@@ -432,9 +432,13 @@
     },
     "problem": {
       "numberRequired": "Enter the group number.",
-      "numberTooLong": "At most 26 characters.",
-      "descriptionRequired": "Enter a description."
-    }
+      "numberTooLong": "At most 8 characters.",
+      "descriptionRequired": "Enter a description.",
+      "descriptionTooLong": "At most 300 characters.",
+      "dosageFormTooLong": "At most 50 characters."
+    },
+    "refusedEntries_one": "<v>{{n}}</v> entry of a master’s live version still ranks this group.",
+    "refusedEntries_other": "<v>{{n}}</v> entries of masters’ live versions still rank this group."
   },
   "download": {
     "export": "Export",
@@ -487,9 +491,9 @@
     "apply": "Apply",
     "applyHint": "Apply stays off until every row passes. It writes the whole file at once.",
     "applied": "Groups imported",
-    "appliedDetail": "Added {{added}}, updated {{updated}}.",
+    "appliedDetail": "Added {{added}}, updated {{updated}}, unchanged {{unchanged}}.",
     "applyFailed": "The file could not be applied.",
-    "result": "Applied. Groups added: <v>{{added}}</v> · updated: <v>{{updated}}</v>",
+    "result": "Applied. Groups added: <v>{{added}}</v> · updated: <v>{{updated}}</v> · unchanged: <v>{{unchanged}}</v>",
     "columns": {
       "line": "Line",
       "group": "Group",
@@ -504,8 +508,10 @@
     "rule": {
       "missingNumber": "Group number missing",
       "duplicateNumber": "Group number listed twice",
-      "numberTooLong": "Group number longer than 26 characters",
-      "missingDescription": "Description missing"
+      "numberTooLong": "Group number longer than 8 characters",
+      "missingDescription": "Description missing",
+      "descriptionTooLong": "Description longer than 300 characters",
+      "dosageFormTooLong": "Dosage form longer than 50 characters"
     }
   },
   "draft": {
@@ -580,7 +586,19 @@
       "removed": "Removed"
     },
     "baseFailed": "The version this draft was copied from could not be read, so its changes cannot be shown.",
-    "baseRetry": "Try again"
+    "baseRetry": "Try again",
+    "ruleWord": {
+      "notInDraft": "Item no longer ranked by the live version"
+    },
+    "edit": {
+      "add": "Add",
+      "reRank": "Re-rank"
+    },
+    "editColumn": "Edit",
+    "rebaseReapplied_one": "<v>{{n}}</v> edit re-applied on the live version.",
+    "rebaseReapplied_other": "<v>{{n}}</v> edits re-applied on the live version.",
+    "rebaseDropped": "Edits that could not be re-applied (left out of the draft)",
+    "viewOnly": "You can view this draft but not change it: editing a master needs the IDF edit permission."
   },
   "general": {
     "title": "General master",
@@ -662,7 +680,8 @@
       "priorityRequired": "Enter the priority.",
       "priorityWholeNumber": "The priority is a whole number of 1 or more.",
       "reasonRequired": "Give a reason for this change.",
-      "reasonTooLong": "Keep the reason to 400 characters."
+      "reasonTooLong": "Keep the reason to 400 characters.",
+      "groupTooLong": "An IDF group number has at most 8 characters."
     }
   },
   "generalUpload": {
@@ -722,6 +741,7 @@
     "appliedNone": "Nothing was applied",
     "appliedNoneDetail": "No item of the file was written to the general master.",
     "resultPartial": "Applied in part. Items written: <v>{{n}}</v>",
-    "resultNone": "Nothing was applied. Items written: <v>{{n}}</v>"
+    "resultNone": "Nothing was applied. Items written: <v>{{n}}</v>",
+    "applyAgain": "The items that went in stay. You can confirm the same file again: it re-checks each item and writes only what is still different."
   }
 }

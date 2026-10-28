@@ -109,7 +109,7 @@ for (const dir of ['ltr', 'rtl']) {
     )
     check(
       `${dir} 2. a first set: no before, the after one whole ltr value`,
-      strip(await cell(set, 'before').innerText()) === 'None' && (await cell(set, 'before').locator('[data-none]').count()) === 1 && JSON.stringify(await ltr(cell(set, 'after'))) === '["IDF-PARA-500 · 1"]',
+      strip(await cell(set, 'before').innerText()) === 'None' && (await cell(set, 'before').locator('[data-none]').count()) === 1 && JSON.stringify(await ltr(cell(set, 'after'))) === '["IDF-PARA · 1"]',
       strip(await cell(set, 'after').innerText()),
     )
     check(

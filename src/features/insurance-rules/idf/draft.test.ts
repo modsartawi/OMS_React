@@ -10,12 +10,12 @@ import { DRAFT_SHOWN, draftAddBody, draftDiff, draftEditRefusal, draftPage, item
 const row = (itemNumber: string, idfNumber: string, priority: number) => ({ itemNumber, descriptionEn: `Item ${itemNumber}`, descriptionAr: '', idfNumber, priority })
 
 describe('draft diff marks added, re-ranked, removed and unchanged rows against live', () => {
-  const live = [row('100200', 'IDF-PARA-500', 1), row('100300', 'IDF-PARA-500', 2), row('200100', 'IDF-IBU', 1), row('200200', 'IDF-IBU', 2)]
+  const live = [row('100200', 'IDF-PARA', 1), row('100300', 'IDF-PARA', 2), row('200100', 'IDF-IBU', 1), row('200200', 'IDF-IBU', 2)]
   const draft = [
-    row('100200', 'IDF-PARA-500', 1), // unchanged
-    row('100300', 'IDF-PARA-500', 3), // re-ranked 2 → 3
+    row('100200', 'IDF-PARA', 1), // unchanged
+    row('100300', 'IDF-PARA', 3), // re-ranked 2 → 3
     row('200200', 'IDF-AMOX', 2), // moved to another group
-    row('100999', 'IDF-PARA-500', 4), // added
+    row('100999', 'IDF-PARA', 4), // added
   ] // 200100 removed
 
   it('marks every draft row by its item number', () => {
@@ -45,11 +45,11 @@ describe('draft diff marks added, re-ranked, removed and unchanged rows against 
 })
 
 describe('an edit refusal maps its rule to a message, raw code as fallback', () => {
-  const data = { rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF group IDF-PARA-500.', messageAr: 'الصنف 100302 ليس في مجموعة IDF-PARA-500.' }
+  const data = { rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF group IDF-PARA.', messageAr: 'الصنف 100302 ليس في مجموعة IDF-PARA.' }
 
   it('a known rule reads its word key and the message in the reader language', () => {
-    expect(draftEditRefusal(data, 'en')).toEqual({ rule: 'itemNotInGroup', wordKey: 'upload.rule.itemNotInGroup', message: 'Item 100302 is not in IDF group IDF-PARA-500.' })
-    expect(draftEditRefusal(data, 'ar')?.message).toBe('الصنف 100302 ليس في مجموعة IDF-PARA-500.')
+    expect(draftEditRefusal(data, 'en')).toEqual({ rule: 'itemNotInGroup', wordKey: 'upload.rule.itemNotInGroup', message: 'Item 100302 is not in IDF group IDF-PARA.' })
+    expect(draftEditRefusal(data, 'ar')?.message).toBe('الصنف 100302 ليس في مجموعة IDF-PARA.')
   })
 
   it('a rule this build has no word for keeps its raw code', () => {
@@ -68,7 +68,7 @@ describe('an edit refusal maps its rule to a message, raw code as fallback', () 
 })
 
 describe('the items table shows the draft a page at a time, filtered as the door filters', () => {
-  const rows = Array.from({ length: 30 }, (_, i) => row(String(100100 + i), i < 20 ? 'IDF-PARA-500' : 'IDF-IBU', (i % 10) + 1))
+  const rows = Array.from({ length: 30 }, (_, i) => row(String(100100 + i), i < 20 ? 'IDF-PARA' : 'IDF-IBU', (i % 10) + 1))
   rows[3] = { ...rows[3], descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول' }
 
   it('pages the rows 25 at a time with the whole count', () => {
@@ -86,7 +86,7 @@ describe('the items table shows the draft a page at a time, filtered as the door
   })
 
   it('removed rows matching the filter show on the last page only', () => {
-    const removed = [row('900001', 'IDF-PARA-500', 1), row('900002', 'IDF-IBU', 2)]
+    const removed = [row('900001', 'IDF-PARA', 1), row('900002', 'IDF-IBU', 2)]
     expect(removedShown(removed, { q: '', idf: '', page: 1 }, 30)).toEqual([])
     expect(removedShown(removed, { q: '', idf: '', page: 2 }, 30).map((r) => r.itemNumber)).toEqual(['900001', '900002'])
     expect(removedShown(removed, { q: '', idf: 'IDF-IBU', page: 1 }, 10).map((r) => r.itemNumber)).toEqual(['900002'])
@@ -108,7 +108,7 @@ describe('an open draft is what the items show unless the address names a versio
   })
 
   it('picking keeps the filters and goes to page 1; the default (draft, else live) leaves the address', () => {
-    const q = { version: 'V-7', q: 'pan', idf: 'IDF-PARA-500', page: 3 }
+    const q = { version: 'V-7', q: 'pan', idf: 'IDF-PARA', page: 3 }
     expect(pickShown(q, DRAFT_SHOWN, 'V-11', true)).toEqual({ ...q, version: '', page: 1 })
     expect(pickShown(q, 'V-11', 'V-11', true)).toEqual({ ...q, version: 'V-11', page: 1 })
     expect(pickShown(q, 'V-11', 'V-11', false)).toEqual({ ...q, version: '', page: 1 })
@@ -117,7 +117,7 @@ describe('an open draft is what the items show unless the address names a versio
 
 describe('the add form sends a trimmed item, group and a whole priority of 1 or more', () => {
   it('a filled form is a body', () => {
-    expect(draftAddBody({ itemNumber: ' 100999 ', idfNumber: ' IDF-PARA-500', priority: ' 4 ' })).toEqual({ itemNumber: '100999', idfNumber: 'IDF-PARA-500', priority: 4 })
+    expect(draftAddBody({ itemNumber: ' 100999 ', idfNumber: ' IDF-PARA', priority: ' 4 ' })).toEqual({ itemNumber: '100999', idfNumber: 'IDF-PARA', priority: 4 })
   })
   it('a priority that is not a whole number of 1 or more (3185 review) is no body', () => {
     for (const priority of ['2.5', '0', '-1', '0x10', '1e1', ' + 3'])

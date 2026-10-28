@@ -47,12 +47,24 @@ export const IDF_MASTERS = [
     reminderThreshold: 1,
     liveVersion: { versionId: 'V-4', number: 1, by: 'falotaibi', at: '2026-10-01T14:02:00', note: '', entryCount: 96, isLive: true },
   },
-  // 647 · the general master (tier 4, door 3191): the real door always lists it, last, with no version or thresholds.
-  { masterId: 'general', kind: 'general', nameEn: 'General', nameAr: 'عام', liveVersion: null },
+  // 647 · the general master (tier 4, door 3191): the real door always lists it, last (`IdfGeneralMaster.Row()`, 654):
+  // no payer, no store list, no live version — but the till's general thresholds, which the list must NOT show.
+  { masterId: 'general', kind: 'general', insurerCustomerId: '', storeListId: '', nameEn: 'General', nameAr: 'عام', hardThreshold: 4, reminderThreshold: 1, liveVersion: null },
 ]
 
 export function newIdfState() {
   return { masters: structuredClone(IDF_MASTERS) }
+}
+
+// --- 654 --- the grant probe (`GET IdfPriority/Access`, 3191): `{ canViewIdf, canEditIdf, canEditGeneral }`, every flag
+// true unless `opts.access` / `state.access` overrides it (a drive sets `{ canEditIdf: false }` to see the draft
+// read-only, `{ canEditGeneral: false }` to see the general master and the groups without their writes).
+export const IDF_ALL_GRANTS = { canViewIdf: true, canEditIdf: true, canEditGeneral: true }
+export function idfAccessStub(method, path, opts = {}) {
+  if (method !== 'GET' || path !== 'IdfPriority/Access') return null
+  const reads = opts.reads ?? {}
+  reads.access = (reads.access ?? 0) + 1
+  return envelope({ ...IDF_ALL_GRANTS, ...(opts.state?.access ?? {}), ...(opts.access ?? {}) })
 }
 
 /** `deny` names the doors answered a bare 403 (`'masters'`). */
@@ -167,7 +179,7 @@ export function idfMasterFormStub(method, path, body, opts = {}) {
 export const IDF_DIRTY_ROWS = [
   { line: 3, itemNumber: '100234', rule: 'unknownItem', messageEn: 'Item 100234 does not exist.', messageAr: 'الصنف 100234 غير موجود.' },
   { line: 7, itemNumber: '100871', rule: 'notInInsurerItems', messageEn: 'Item 100871 is not one of Bupa\'s items.', messageAr: 'الصنف 100871 ليس من أصناف بوبا.' },
-  { line: 8, itemNumber: '100302', rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF group IDF-PARA-500.', messageAr: 'الصنف 100302 ليس في مجموعة IDF-PARA-500.' },
+  { line: 8, itemNumber: '100302', rule: 'itemNotInGroup', messageEn: 'Item 100302 is not in IDF group IDF-PARA.', messageAr: 'الصنف 100302 ليس في مجموعة IDF-PARA.' },
   { line: 9, itemNumber: '100555', rule: 'badPriority', messageEn: 'Priority "1.5" is not a whole number of 1 or more.', messageAr: 'الأولوية "1.5" ليست عددًا صحيحًا يساوي 1 أو أكثر.' },
 ]
 
@@ -303,7 +315,7 @@ export const IDF_LOOKUPS = {
     itemNumber: '100300',
     descriptionEn: 'Adol 500 mg',
     descriptionAr: 'أدول ٥٠٠ مجم',
-    idfNumber: 'IDF-PARA-500',
+    idfNumber: 'IDF-PARA',
     storeCode: 'P019',
     insurerCustomerId: '0001100412',
     documentType: null,
@@ -396,7 +408,7 @@ export const IDF_EVENTS = Array.from({ length: 30 }, (_, i) => {
     documentType: 'InsuranceOrder',
     subDocumentType: '',
     insurerCustomerId: i % 3 === 2 ? '' : i % 3 ? '0001100412' : '0001100336',
-    idfNumber: 'IDF-PARA-500',
+    idfNumber: 'IDF-PARA',
     scannedItemNumber: String(100200 + n),
     dispensedItemNumber: swapped ? String(100900 + n) : '',
     source: IDF_EVENT_SOURCES[masterId],
@@ -496,7 +508,7 @@ const IDF_GENERIC = [
   ['Panadol', 'بنادول'], ['Adol', 'أدول'], ['Fevadol', 'فيفادول'], ['Brufen', 'بروفين'], ['Augmentin', 'أوجمنتين'],
   ['Nexium', 'نيكسيوم'], ['Glucophage', 'جلوكوفاج'], ['Lipitor', 'ليبيتور'], ['Concor', 'كونكور'], ['Zyrtec', 'زيرتك'],
 ]
-const IDF_ENTRY_GROUPS = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI', 'IDF-MET', 'IDF-STAT']
+const IDF_ENTRY_GROUPS = ['IDF-PARA', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI', 'IDF-MET', 'IDF-STAT']
 export const IDF_ENTRIES = {
   'V-11': IDF_ENTRY_GROUPS.flatMap((idfNumber, g) =>
     IDF_GENERIC.map(([en, ar], i) => ({
@@ -508,17 +520,17 @@ export const IDF_ENTRIES = {
     })),
   ),
   'V-7': [
-    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 2 },
-    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: 'أدول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 2 },
+    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: 'أدول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 1 },
     { itemNumber: '200100', descriptionEn: 'Brufen 400 mg', descriptionAr: 'بروفين ٤٠٠ مجم', idfNumber: 'IDF-IBU', priority: 1 },
   ],
   'V-2': [
-    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
-    { itemNumber: '100400', descriptionEn: 'Fevadol 500 mg', descriptionAr: 'فيفادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 2 },
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 1 },
+    { itemNumber: '100400', descriptionEn: 'Fevadol 500 mg', descriptionAr: 'فيفادول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 2 },
   ],
   'V-4': [
-    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 },
-    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 2 },
+    { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 1 },
+    { itemNumber: '100300', descriptionEn: 'Adol 500 mg', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 2 },
     { itemNumber: '200050', descriptionEn: 'Brufen 200 mg', descriptionAr: 'بروفين ٢٠٠ مجم', idfNumber: 'IDF-IBU', priority: 1 },
     { itemNumber: '200100', descriptionEn: 'Brufen 400 mg', descriptionAr: 'بروفين ٤٠٠ مجم', idfNumber: 'IDF-IBU', priority: 2 },
   ],
@@ -537,7 +549,7 @@ export function idfEntriesStub(method, path, opts = {}) {
   // 3185 review: `state.entriesFailures` = n answers the next n reads a 500 envelope (a transient failure).
   if (opts.state?.entriesFailures > 0) {
     opts.state.entriesFailures -= 1
-    return envelope(null, { status: 500, success: false, message: 'The entries could not be read right now.', errorCode: 'IDF-00098' })
+    return envelope(null, { status: 500, success: false, message: 'The entries could not be read right now.' })
   }
   const q = new URLSearchParams(qs)
   const search = (q.get('search') ?? '').toLowerCase()
@@ -575,26 +587,31 @@ export function idfMasterFilesStub(method, path, opts = {}) {
   })
   if (!m) {
     reads.masterTemplate = (reads.masterTemplate ?? 0) + 1
-    if (deny.includes('masterTemplate')) return envelope(null, { status: 400, success: false, message: 'The template could not be built.', errorCode: 'IDF-00040' })
+    // The real template door never refuses: a deny here is a server fault (500, no domain code).
+    if (deny.includes('masterTemplate')) return envelope(null, { status: 500, success: false, message: 'The template could not be built.' })
     return file(IDF_MASTER_TEMPLATE_NAME)
   }
   const masterId = decodeURIComponent(m[1])
   const versionId = decodeURIComponent(m[2])
   ;(reads.masterExport ??= []).push({ masterId, versionId })
-  if (deny.includes('masterExport')) return envelope(null, { status: 400, success: false, message: 'This version could not be exported.', errorCode: 'IDF-00041' })
+  // The real export refuses a version of another master (IDF-00013) on the JSON 400 envelope.
+  if (deny.includes('masterExport')) return envelope(null, { status: 400, success: false, message: 'Version is not a version of this master.', errorCode: 'IDF-00013' })
   return file(IDF_MASTER_EXPORT_NAME(masterId, versionId))
 }
 
 // --- 645 --- draft (door 3189).
 // One open draft per master on `state.drafts[masterId]`. `GET …/draft` → it or null; `POST …/draft` copies the live
-// version's `IDF_ENTRIES` (refused while one is open, `data { by, changedAt }`); add / re-rank / remove re-check the
+// version's `IDF_ENTRIES` (refused while one is open: IDF-00034, `data { draftId, by, startedAt, changedAt }`; a master
+// with nothing live starts an EMPTY draft with `baseVersionId ''`); add / re-rank / remove re-check the
 // upload rules and a failing edit is a 400 carrying `data { rule, messageEn, messageAr }` with the draft untouched:
 // item `100234` → unknownItem, a group not in IDF_ENTRY_GROUPS → unknownGroup, item `100302` under any group but
 // IDF-IBU → itemNotInGroup, a priority not a whole number ≥ 1 → badPriority, an item already in the draft →
 // duplicateItem. Publish `{ note }` makes ONE new live version holding the draft's rows (registered in IDF_ENTRIES so
-// 643's door reads them) and closes the draft; refused while `isStale` or without a note. `DELETE …/draft` discards.
-// `opts.draftWrites` collects every write as `{ method, door, body }`.
-const IDF_DRAFT_REFUSAL = 'IDF-00028'
+// 643's door reads them) and closes the draft; refused while `isStale` (IDF-00035) or empty (IDF-00033) — the note
+// is optional, as the door's. `DELETE …/draft` discards. No open draft is IDF-00029; an item the draft does not hold
+// IDF-00031 (codes as built, `IdfPriorityErrorCodes`, 654). `opts.draftWrites` collects every write as `{ method, door, body }`.
+const IDF_DRAFT_REFUSAL = 'IDF-00030'
+const noOpenDraft = () => envelope(null, { status: 400, success: false, message: 'No draft of this master is open.', errorCode: 'IDF-00029' })
 function draftRuleRefusal(rule, messageEn, messageAr) {
   return envelope({ rule, messageEn, messageAr }, { status: 400, success: false, message: messageEn, errorCode: IDF_DRAFT_REFUSAL })
 }
@@ -624,8 +641,11 @@ export function idfDraftStub(method, path, body, opts = {}) {
   if (door === 'draft' && method === 'GET') return envelope(draft)
   if (door === 'draft' && method === 'POST') {
     if (draft)
-      return envelope({ by: draft.by, changedAt: draft.changedAt }, { status: 400, success: false, message: `A draft is already open by ${draft.by}.`, errorCode: 'IDF-00029' })
-    const baseVersionId = master?.liveVersion?.versionId ?? null
+      return envelope(
+        { draftId: draft.draftId, by: draft.by, startedAt: draft.startedAt, changedAt: draft.changedAt },
+        { status: 400, success: false, message: `${draft.by}'s draft of this master is open: publish or discard it first.`, errorCode: 'IDF-00034' },
+      )
+    const baseVersionId = master?.liveVersion?.versionId ?? ''
     state.drafts[masterId] = {
       draftId: `D-${masterId}`,
       by: 'msartawi',
@@ -638,11 +658,11 @@ export function idfDraftStub(method, path, body, opts = {}) {
     return envelope(state.drafts[masterId])
   }
   if (door === 'draft' && method === 'DELETE') {
-    if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+    if (!draft) return noOpenDraft()
     delete state.drafts[masterId]
-    return envelope({ draftId: draft.draftId })
+    return envelope({ draftId: draft.draftId, discardedBy: 'msartawi', discardedAt: '2026-10-28T10:40:00' })
   }
-  if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+  if (!draft) return noOpenDraft()
 
   if (door === 'items' && method === 'POST') {
     const { itemNumber: item = '', idfNumber = '', priority } = body ?? {}
@@ -658,7 +678,7 @@ export function idfDraftStub(method, path, body, opts = {}) {
   }
   if (door === 'items' && itemNumber && (method === 'PUT' || method === 'DELETE')) {
     const at = draft.rows.findIndex((r) => r.itemNumber === itemNumber)
-    if (at < 0) return envelope(null, { status: 404, success: false, message: `Item ${itemNumber} is not in the draft.`, errorCode: 'IDF-00031' })
+    if (at < 0) return envelope(null, { status: 400, success: false, message: `Item ${itemNumber} is not in the draft.`, errorCode: 'IDF-00031' })
     if (method === 'DELETE') draft.rows.splice(at, 1)
     else {
       const bad = draftPriorityProblem(body?.priority)
@@ -668,14 +688,14 @@ export function idfDraftStub(method, path, body, opts = {}) {
     return touch(draft)
   }
   if (door === 'publish' && method === 'POST') {
-    if (draft.isStale) return envelope(null, { status: 400, success: false, message: 'The live version has moved; rebase the draft first.', errorCode: 'IDF-00032' })
-    if (!String(body?.note ?? '').trim()) return envelope(null, { status: 400, success: false, message: 'A note is required.', errorCode: 'NOTE_REQUIRED' })
+    if (draft.isStale) return envelope(null, { status: 400, success: false, message: 'A newer version went live after this draft started: rebase the draft, check it, then publish.', errorCode: 'IDF-00035' })
+    if (draft.rows.length === 0) return envelope(null, { status: 400, success: false, message: 'The draft holds no item: there is nothing to publish.', errorCode: 'IDF-00033' })
     const number = (master?.liveVersion?.number ?? 0) + 1
-    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-28T10:30:00', note: body.note, entryCount: draft.rows.length, isLive: true }
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-28T10:30:00', note: String(body?.note ?? ''), entryCount: draft.rows.length, isLive: true }
     IDF_ENTRIES[version.versionId] = structuredClone(draft.rows)
     if (master) master.liveVersion = version
     delete state.drafts[masterId]
-    published.push({ masterId, draftId: draft.draftId, note: body.note })
+    published.push({ masterId, draftId: draft.draftId, note: String(body?.note ?? '') })
     // 3185 review: `state.publishAnswersNull` answers the publish with no body (the version is still made).
     return envelope(state.publishAnswersNull ? null : version)
   }
@@ -684,12 +704,14 @@ export function idfDraftStub(method, path, body, opts = {}) {
 
 // --- 646 --- draft owner, rebase, add a group (door 3190).
 // `POST …/draft/rebase` re-applies the draft's edits (its rows against `baseVersionId`'s: added / changed rows upserted,
-// removed rows dropped) on the master's current live version, then `baseVersionId` = live and `isStale` = false.
+// removed rows dropped) on the master's current live version, then `baseVersionId` = live and `isStale` = false; a
+// re-rank whose item the live version no longer holds is DROPPED (`notInDraft`). Answers `{ draft, reapplied, rows }`,
+// `rows` the dropped edits `{ itemNumber, edit, rule, messageEn, messageAr }` (3190 as built, the draft NESTED).
 // `POST …/draft/groups { idfNumber, priority }` adds every member of the group at that priority, each checked as an
 // add: a member already in the draft → duplicateItem; `IDF_GROUP_MEMBERS` fixture members flagged `rule` are refused
-// with it. Answers the draft spread with `{ added, rows }` (the brief's "the draft plus …"). An unknown group or a bad
-// priority refuses the whole call as a single add does (645's `draftRuleRefusal`). Refusal codes are invented
-// (IDF-00051+; the brief names none). Seed `state.drafts[masterId]` from the drive for someone else's / a stale draft.
+// with it. Answers `{ draft, added, rows }`. An unknown group or a bad priority refuses the whole call as a single add
+// does (IDF-00030, 645's `draftRuleRefusal`); a group with no items is IDF-00036 (`IDF-EMPTY`). No open draft is
+// IDF-00029. Seed `state.drafts[masterId]` from the drive for someone else's / a stale draft.
 export const IDF_GROUP_MEMBERS = {
   'IDF-CETI': [
     { itemNumber: '300100', descriptionEn: 'Zyrtec 10 mg', descriptionAr: 'زيرتك ١٠ مجم' },
@@ -698,6 +720,7 @@ export const IDF_GROUP_MEMBERS = {
     { itemNumber: '300130', descriptionEn: 'Cetal 10 mg', descriptionAr: 'سيتال ١٠ مجم', rule: 'notInInsurerItems', messageEn: 'Item 300130 is not on the insurer item list.', messageAr: 'الصنف 300130 ليس ضمن أصناف المؤمّن.' },
     { itemNumber: '300140', descriptionEn: 'Old cetirizine', descriptionAr: 'سيتريزين قديم', rule: 'unknownItem', messageEn: 'Item 300140 does not exist.', messageAr: 'الصنف 300140 غير موجود.' },
   ],
+  'IDF-EMPTY': [],
 }
 
 export function idfDraftOwnerStub(method, path, body, opts = {}) {
@@ -710,7 +733,7 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
   const draft = state.drafts[masterId] ?? null
   draftWrites.push({ method, door, body })
   if (deny.includes('draft')) return bare403()
-  if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00051' })
+  if (!draft) return noOpenDraft()
   draft.changedAt = '2026-10-28T10:20:00'
 
   if (door === 'rebase') {
@@ -721,14 +744,23 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
       const was = base.get(r.itemNumber)
       return !was || was.idfNumber !== r.idfNumber || was.priority !== r.priority
     })
-    const rows = (IDF_ENTRIES[live] ?? []).filter((r) => !(base.has(r.itemNumber) && !kept.has(r.itemNumber))).map((r) => structuredClone(r))
+    const liveRows = IDF_ENTRIES[live] ?? []
+    const rows = liveRows.filter((r) => !(base.has(r.itemNumber) && !kept.has(r.itemNumber))).map((r) => structuredClone(r))
+    const dropped = []
     for (const e of edits) {
+      const was = base.get(e.itemNumber)
+      const reRank = !!was && was.idfNumber === e.idfNumber
+      // A re-rank of an item the new live version no longer holds cannot be replayed: dropped, as the door does.
+      if (reRank && !liveRows.some((r) => r.itemNumber === e.itemNumber)) {
+        dropped.push({ itemNumber: e.itemNumber, edit: 'reRank', rule: 'notInDraft', messageEn: `Item ${e.itemNumber} is no longer in the live version: its re-rank was dropped.`, messageAr: `الصنف ${e.itemNumber} لم يعد في الإصدار الحالي: أُسقطت إعادة ترتيبه.` })
+        continue
+      }
       const at = rows.findIndex((r) => r.itemNumber === e.itemNumber)
       if (at < 0) rows.push(structuredClone(e))
       else rows[at] = structuredClone(e)
     }
-    Object.assign(draft, { rows, baseVersionId: live, isStale: false })
-    return envelope(draft)
+    Object.assign(draft, { rows, baseVersionId: live ?? '', isStale: false })
+    return envelope({ draft, reapplied: edits.length - dropped.length, rows: dropped })
   }
 
   const { idfNumber = '', priority } = body ?? {}
@@ -736,18 +768,19 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
   if (!members) return draftRuleRefusal('unknownGroup', `IDF group ${idfNumber} does not exist.`, `مجموعة IDF ${idfNumber} غير موجودة.`)
   const bad = draftPriorityProblem(priority)
   if (bad) return bad
+  if (members.length === 0) return envelope(null, { status: 400, success: false, message: `IDF group ${idfNumber} has no items.`, errorCode: 'IDF-00036' })
   const rows = []
   let added = 0
   for (const mem of members) {
-    if (mem.rule) rows.push({ itemNumber: mem.itemNumber, rule: mem.rule, messageEn: mem.messageEn, messageAr: mem.messageAr })
+    if (mem.rule) rows.push({ itemNumber: mem.itemNumber, edit: 'add', rule: mem.rule, messageEn: mem.messageEn, messageAr: mem.messageAr })
     else if (draft.rows.some((r) => r.itemNumber === mem.itemNumber))
-      rows.push({ itemNumber: mem.itemNumber, rule: 'duplicateItem', messageEn: `Item ${mem.itemNumber} is already in the draft.`, messageAr: `الصنف ${mem.itemNumber} موجود في المسودة.` })
+      rows.push({ itemNumber: mem.itemNumber, edit: 'add', rule: 'duplicateItem', messageEn: `Item ${mem.itemNumber} is already in the draft.`, messageAr: `الصنف ${mem.itemNumber} موجود في المسودة.` })
     else {
       draft.rows.push({ itemNumber: mem.itemNumber, descriptionEn: mem.descriptionEn, descriptionAr: mem.descriptionAr, idfNumber, priority })
       added += 1
     }
   }
-  return envelope({ ...draft, added, rows })
+  return envelope({ draft, added, rows })
 }
 
 // --- 647 --- general master items (door 3191).
@@ -755,7 +788,7 @@ export function idfDraftOwnerStub(method, path, body, opts = {}) {
 // filtered and paged like the entries. `IDF_GENERAL_ITEMS` = 40 items over 4 groups (two pages of 25). 648/649 edit a
 // copy in `state.general` (`state.general ??= structuredClone(IDF_GENERAL_ITEMS)`), which this read honours.
 // `opts.reads.generalItems` collects each read's query string; `deny: ['generalItems']` answers a bare 403.
-export const IDF_GENERAL_ITEMS = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI'].flatMap((idfNumber, g) =>
+export const IDF_GENERAL_ITEMS = ['IDF-PARA', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI'].flatMap((idfNumber, g) =>
   IDF_GENERIC.map(([en, ar], i) => ({
     itemNumber: String(300100 + g * 100 + i * 10),
     descriptionEn: `${en} general ${g + 1}${i}`,
@@ -786,10 +819,11 @@ export function idfGeneralItemsStub(method, path, opts = {}) {
 
 // --- 648 --- set / clear one general item (door 3192).
 // `PUT IdfPriority/general/items/{itemNumber} { idfNumber, priority, reason }` sets (or adds, at the end) one item in
-// `state.general`; `DELETE IdfPriority/general/items/{itemNumber} { reason }` (reason in the BODY) clears it. A blank
-// reason or a priority that is not a whole number ≥ 1 is refused `IDF-00080`; a group neither the general master nor
-// the IDF groups know is refused `IDF-00081` (its message names it); clearing an item the master does not hold is
-// refused `IDF-00082`. Each write lands in `opts.writes` as `{ method, path, body }`.
+// `state.general`; `DELETE IdfPriority/general/items/{itemNumber} { reason }` (reason in the BODY) clears it. Both answer
+// the item row (a clear: `idfNumber ''`, `priority 0`). Codes as built (3192, 654): item `999999` is not on the item
+// master → IDF-00039; a group neither the general master nor the IDF groups know (or over 8 characters), or a
+// priority that is not a whole number ≥ 1 → IDF-00040; no reason or one over 400 → IDF-00041. Each write lands in
+// `opts.writes` as `{ method, path, body }`.
 export function idfGeneralEditStub(method, path, body, opts = {}) {
   const { state = {}, writes = [] } = opts
   const m = /^IdfPriority\/general\/items\/([^/?]+)$/.exec(path)
@@ -798,17 +832,19 @@ export function idfGeneralEditStub(method, path, body, opts = {}) {
   writes.push({ method, path, body })
   const refuse = (message, errorCode) => envelope(null, { status: 400, success: false, message, errorCode })
   state.general ??= structuredClone(IDF_GENERAL_ITEMS)
-  if (!String(body?.reason ?? '').trim()) return refuse('A reason is required.', 'IDF-00080')
+  if (itemNumber === '999999') return refuse(`Item ${itemNumber} is not on the item master.`, 'IDF-00039')
+  const reason = String(body?.reason ?? '').trim()
+  if (!reason || reason.length > 400) return refuse('Every change to the general master needs a reason of at most 400 characters.', 'IDF-00041')
   const at = state.general.findIndex((r) => r.itemNumber === itemNumber)
   if (method === 'DELETE') {
-    if (at < 0) return refuse(`Item ${itemNumber} is not in the general master.`, 'IDF-00082')
-    state.general.splice(at, 1)
-    return envelope(null)
+    const was = at < 0 ? { itemNumber, descriptionEn: `Item ${itemNumber}`, descriptionAr: `الصنف ${itemNumber}` } : state.general[at]
+    if (at >= 0) state.general.splice(at, 1)
+    return envelope({ ...was, idfNumber: '', priority: 0 })
   }
   const { idfNumber, priority } = body
-  if (!Number.isInteger(priority) || priority < 1) return refuse('The priority is a whole number of 1 or more.', 'IDF-00080')
   const known = new Set([...IDF_GENERAL_ITEMS.map((r) => r.idfNumber), ...(state.groups ?? IDF_GROUPS).map((g) => g.idfNumber)])
-  if (!known.has(idfNumber)) return refuse(`IDF group ${idfNumber} does not exist.`, 'IDF-00081')
+  if (!known.has(idfNumber) || String(idfNumber).length > 8) return refuse(`'${idfNumber}' is not an IDF group: add the group first.`, 'IDF-00040')
+  if (!Number.isInteger(priority) || priority < 1) return refuse(`The priority must be a whole number of 1 or more; '${priority}' is not.`, 'IDF-00040')
   const row = at < 0 ? { itemNumber, descriptionEn: `Item ${itemNumber}`, descriptionAr: `الصنف ${itemNumber}`, idfNumber, priority } : { ...state.general[at], idfNumber, priority }
   if (at < 0) state.general.push(row)
   else state.general[at] = row
@@ -818,15 +854,17 @@ export function idfGeneralEditStub(method, path, body, opts = {}) {
 // --- 649 --- general upload → preview → apply (door 3193, the brief's "Spec 3185" sketch): `POST
 // IdfPriority/general/uploads` (multipart `file`) → 622's report + `preview` (computed against `state.general`, so a
 // re-check after an apply says unchanged); `POST …/general/uploads/{uploadId}/apply { reason }` → `{ applied,
-// failedBatches }`, refused unless `ok` (IDF-00085). The report depends on the file's NAME: `dirty` → two failing rows,
-// `ok: false`, no preview; `notok` → `ok: false`, no rows; `batch` → clean, but lines 3–4 fail on apply (not
-// written); any other → clean. `opts.generalUploads` keeps the uploads, `opts.writes` the applies,
-// `opts.refuseGeneralApply` refuses a clean apply (IDF-00086). Apply writes `state.general ??= structuredClone(IDF_GENERAL_ITEMS)`.
+// failedBatches }`, refused (IDF-00043) unless clean and not yet applied; an unknown upload is IDF-00042 (3193 as built,
+// 654). The report depends on the file's NAME: `dirty` → two failing rows, `ok: false`, no preview; `notok` →
+// `ok: false`, no rows; `batch` → clean, but lines 3–4 fail on the FIRST apply (not written; the upload stays
+// confirmable, as the door releases its claim — a re-confirm writes them); `nothing` → the first apply writes nothing;
+// any other → clean. `opts.generalUploads` keeps the uploads, `opts.writes` the applies, `opts.refuseGeneralApply`
+// refuses a clean apply (IDF-00043, a confirm still running). Apply writes `state.general ??= structuredClone(IDF_GENERAL_ITEMS)`.
 export const IDF_GENERAL_UPLOAD_LINES = [
   { line: 2, itemNumber: '300700', idfNumber: 'IDF-IBU', priority: 5 }, // added
-  { line: 3, itemNumber: '300110', idfNumber: 'IDF-PARA-500', priority: 1 }, // re-ranked (was 2)
+  { line: 3, itemNumber: '300110', idfNumber: 'IDF-PARA', priority: 1 }, // re-ranked (was 2)
   { line: 4, itemNumber: '300230', idfNumber: 'IDF-AMOX', priority: 1 }, // moved (was IDF-IBU 4)
-  { line: 5, itemNumber: '300120', idfNumber: 'IDF-PARA-500', priority: 3 }, // unchanged
+  { line: 5, itemNumber: '300120', idfNumber: 'IDF-PARA', priority: 3 }, // unchanged
 ]
 export const IDF_GENERAL_UPLOAD_DIRTY = [
   { line: 3, itemNumber: '999999', rule: 'unknownItem', messageEn: 'Item 999999 is not a known item.', messageAr: 'الصنف 999999 غير معروف.' },
@@ -864,40 +902,61 @@ export function idfGeneralUploadStub(method, path, body, opts = {}) {
   if (!m) return null
   writes.push({ method, path: bare, body })
   const u = generalUploads[decodeURIComponent(m[1])]
-  if (!u || !u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing rows and cannot be applied.', errorCode: 'IDF-00085' })
-  if (refuseGeneralApply) return envelope(null, { status: 409, success: false, message: 'The general master changed since this file was checked; upload it again.', errorCode: 'IDF-00086' })
-  // 3185 review: a file named `nothing` fails one batch over every line — nothing is written.
-  const failedBatches = /nothing/i.test(u.name) ? [IDF_GENERAL_NOTHING_BATCH] : u.batch ? [IDF_GENERAL_FAILED_BATCH] : []
+  if (!u) return envelope(null, { status: 400, success: false, message: 'No such general upload.', errorCode: 'IDF-00042' })
+  if (!u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing lines and cannot be applied.', errorCode: 'IDF-00043' })
+  if (u.applied) return envelope(null, { status: 400, success: false, message: 'This file is already applied.', errorCode: 'IDF-00043' })
+  if (refuseGeneralApply) return envelope(null, { status: 400, success: false, message: 'Another confirm of this file is still running.', errorCode: 'IDF-00043' })
+  u.confirms = (u.confirms ?? 0) + 1
+  // 3185 review: a file named `nothing` fails one batch over every line — nothing is written. Both fail only on the
+  // first confirm: the door releases the claim, and a re-confirm writes what is still different.
+  const first = u.confirms === 1
+  const failedBatches = !first ? [] : /nothing/i.test(u.name) ? [IDF_GENERAL_NOTHING_BATCH] : u.batch ? [IDF_GENERAL_FAILED_BATCH] : []
   let applied = 0
   for (const r of IDF_GENERAL_UPLOAD_LINES) {
     if (failedBatches.some((b) => r.line >= b.fromLine && r.line <= b.toLine)) continue
     const i = state.general.findIndex((g) => g.itemNumber === r.itemNumber)
+    // A re-confirm skips the items already as the file says (the door recomputes against Item as it stands).
+    if (i >= 0 && state.general[i].idfNumber === r.idfNumber && state.general[i].priority === r.priority) continue
     if (i < 0) state.general.push({ itemNumber: r.itemNumber, descriptionEn: `Item ${r.itemNumber}`, descriptionAr: `صنف ${r.itemNumber}`, idfNumber: r.idfNumber, priority: r.priority })
     else state.general[i] = { ...state.general[i], idfNumber: r.idfNumber, priority: r.priority }
     applied++
   }
-  u.applied = true
+  // Marked applied only when every batch went in; a failed batch leaves it confirmable again.
+  if (failedBatches.length === 0) u.applied = true
   return envelope({ applied, failedBatches })
 }
 
 // --- 650 --- general change log (door 3194).
 // `GET IdfPriority/general/changes?item&idf&user&from&to&page&pageSize` → one page `{ page, pageSize, total, rows }`,
 // newest first, 25 a page. `item` = an item row's key; `idf` = a group row's key or an item row's group before or after;
-// `user` = `by`; `from`/`to` local days, both counted (on `at`'s date). `to` before `from` is refused `IDF-00090` (an
-// invented sketch code — the screen refuses it before any read). `GET …/changes/export` (same filter) → `.xlsx`
-// named `IDF_CHANGES_EXPORT_NAME`; `opts.refuseChangesExport` answers the JSON 400 instead. `opts.reads.changes` /
+// `user` = `by`; `from`/`to` local days, both counted (on `at`'s date). `to` before `from` is refused `IDF-00044` (the
+// screen refuses it before any read). Rows are 3194's: `before` / `after` the logged snapshots (an item's `{ idfNumber,
+// priority }`, a group's `{ idfNumber, description, dosageForm }`, null where none) plus `idfNumberBefore` /
+// `idfNumberAfter`. `GET …/changes/export` (same filter) → `.xlsx` named `IDF_CHANGES_EXPORT_NAME`;
+// `opts.refuseChangesExport` answers the JSON 400 instead (IDF-00044, as a bad range would). `opts.reads.changes` /
 // `reads.changesExport` collect each query string; `deny: ['changes']` answers a bare 403 on the read.
-export const IDF_CHANGES_EXPORT_NAME = 'idf-general-changes-20261028.xlsx'
+export const IDF_CHANGES_EXPORT_NAME = 'idf-general-changes-20261001-to-20261028.xlsx'
 export const IDF_GENERAL_CHANGES = (() => {
   const users = ['msartawi', 'aali', 'hkhan']
-  const groups = ['IDF-PARA-500', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI']
+  const groups = ['IDF-PARA', 'IDF-IBU', 'IDF-AMOX', 'IDF-PPI']
   const rows = []
   for (let i = 0; i < 30; i++) {
     const day = String(27 - Math.floor(i / 2)).padStart(2, '0')
     const at = `2026-10-${day}T${i % 2 ? '09' : '15'}:${String(10 + i).padStart(2, '0')}:00`
-    const base = { changeId: `C-${30 - i}`, by: users[i % 3], at, uploadId: null }
+    const base = { changeId: `C-${30 - i}`, by: users[i % 3], at, uploadId: '' }
     if (i % 5 === 4) {
-      rows.push({ ...base, entity: 'group', key: 'IDF-0102', action: 'edit', before: { description: 'Ibuprofen 400 mg', dosageForm: '' }, after: { description: 'Ibuprofen 400 mg', dosageForm: 'Tablet' }, reason: 'Dosage form was missing' })
+      // Group writes take no reason (3196): the column is ''.
+      rows.push({
+        ...base,
+        entity: 'group',
+        key: 'IDF-0102',
+        action: 'edit',
+        idfNumberBefore: 'IDF-0102',
+        idfNumberAfter: 'IDF-0102',
+        before: { idfNumber: 'IDF-0102', description: 'Ibuprofen 400 mg', dosageForm: '' },
+        after: { idfNumber: 'IDF-0102', description: 'Ibuprofen 400 mg', dosageForm: 'Tablet' },
+        reason: '',
+      })
       continue
     }
     const g = groups[i % 4]
@@ -905,7 +964,18 @@ export const IDF_GENERAL_CHANGES = (() => {
     const action = i % 5 === 3 ? 'clear' : 'set'
     const before = i % 5 === 0 ? null : { idfNumber: g, priority: (i % 3) + 2 }
     const after = action === 'clear' ? null : { idfNumber: g, priority: (i % 3) + 1 }
-    rows.push({ ...base, entity: 'item', key: item, action, before, after, reason: i % 7 === 0 ? 'رفع الأولوية حسب المورد' : 'Supplier change', uploadId: i % 6 === 1 ? 'GU-3' : null })
+    rows.push({
+      ...base,
+      entity: 'item',
+      key: item,
+      action,
+      idfNumberBefore: before?.idfNumber ?? '',
+      idfNumberAfter: after?.idfNumber ?? '',
+      before,
+      after,
+      reason: i % 7 === 0 ? 'رفع الأولوية حسب المورد' : 'Supplier change',
+      uploadId: i % 6 === 1 ? 'GU-3' : '',
+    })
   }
   return rows
 })()
@@ -919,15 +989,15 @@ export function idfGeneralChangesStub(method, path, opts = {}) {
   if (!exporting && deny.includes('changes')) return bare403()
   const q = new URLSearchParams(qs)
   const [item, idf, user, from, to] = ['item', 'idf', 'user', 'from', 'to'].map((k) => q.get(k) ?? '')
-  if (from && to && to < from) return envelope(null, { status: 400, success: false, message: 'The to date is before the from date.', errorCode: 'IDF-00090' })
-  if (exporting && refuseChangesExport) return envelope(null, { status: 400, success: false, message: 'The change log export is not available right now.', errorCode: 'IDF-00091' })
+  if (from && to && to < from) return envelope(null, { status: 400, success: false, message: 'The range ends before it starts.', errorCode: 'IDF-00044' })
+  if (exporting && refuseChangesExport) return envelope(null, { status: 400, success: false, message: 'The change log export is not available right now.', errorCode: 'IDF-00044' })
   if (exporting) return xlsx(IDF_CHANGES_EXPORT_NAME)
   const all = IDF_GENERAL_CHANGES.filter((c) => {
     const day = c.at.slice(0, 10)
-    const groupOf = (side) => side?.idfNumber ?? ''
+    // The door's filter: `c.IdfNumberBefore = :idf OR c.IdfNumberAfter = :idf OR (a group row keyed :idf)`.
     return (
       (!item || (c.entity === 'item' && c.key === item)) &&
-      (!idf || (c.entity === 'group' ? c.key === idf : groupOf(c.before) === idf || groupOf(c.after) === idf)) &&
+      (!idf || c.idfNumberBefore === idf || c.idfNumberAfter === idf || (c.entity === 'group' && c.key === idf)) &&
       (!user || c.by === user) &&
       (!from || day >= from) &&
       (!to || day <= to)
@@ -953,8 +1023,8 @@ export function idfGeneralFilesStub(method, path, opts = {}) {
   reads[which] = (reads[which] ?? 0) + 1
   if (deny.includes(which)) {
     return which === 'generalExport'
-      ? envelope(null, { status: 400, success: false, message: 'The general master could not be exported.', errorCode: 'IDF-00095' })
-      : envelope(null, { status: 400, success: false, message: 'The general template could not be built.', errorCode: 'IDF-00096' })
+      ? envelope(null, { status: 500, success: false, message: 'The general master could not be exported.' })
+      : envelope(null, { status: 500, success: false, message: 'The general template could not be built.' })
   }
   const name = which === 'generalExport' ? IDF_GENERAL_EXPORT_NAME : IDF_GENERAL_TEMPLATE_NAME
   return {
@@ -969,9 +1039,12 @@ export function idfGeneralFilesStub(method, path, opts = {}) {
 
 // --- 652 --- IDF groups (door 3196, the brief's "Spec 3185" sketch): `GET IdfPriority/groups?search=&page=&pageSize=`
 // (paged, search on number or description, page size `opts.groupsPageSize` or 50), `POST`, `PUT …/{idfNumber}`,
-// `DELETE …/{idfNumber}` (refused while items point at it, `data.itemCount`), `GET …/export|template` → `.xlsx`.
+// `DELETE …/{idfNumber}` (refused IDF-00047, `data { idfNumber, itemCount, entryCount }`, while items point at it OR a
+// live version ranks it), `GET …/export|template` → `.xlsx`. Codes as built (3196, 654): a blank, over-8, or taken
+// number, a blank or over-300 description, an over-50 dosage form → IDF-00045; no such group → IDF-00046.
 // `state.groups` is made on first use. A row's `liveCount` is the server's real member count: the list shows
-// `itemCount` (as last counted — the WPF may have added members since) until a refused remove re-counts it.
+// `itemCount` (as last counted — the WPF may have added members since) until a refused remove re-counts it; its
+// `liveEntries` is how many entries of the masters' live versions rank it (none unless a drive sets it).
 export const IDF_GROUPS = [
   { idfNumber: 'IDF-0101', description: 'Paracetamol 500 mg', dosageForm: 'Tablet', itemCount: 6 },
   { idfNumber: 'IDF-0102', description: 'Ibuprofen 400 mg', dosageForm: 'Tablet', itemCount: 4 },
@@ -979,7 +1052,7 @@ export const IDF_GROUPS = [
   { idfNumber: 'IDF-0310', description: 'أوميبرازول 20 ملغ', dosageForm: 'Capsule', itemCount: 0 },
   { idfNumber: 'IDF-0399', description: 'Cetirizine 10 mg', dosageForm: '', itemCount: 0, liveCount: 2 },
 ]
-export const IDF_GROUPS_EXPORT_NAME = 'idf-groups-20261028.xlsx'
+export const IDF_GROUPS_EXPORT_NAME = 'idf-groups.xlsx'
 const xlsx = (name) => ({
   status: 200,
   headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${name}"` },
@@ -993,7 +1066,7 @@ export function idfGroupsStub(method, path, body, opts = {}) {
   if (bare !== 'IdfPriority/groups' && !bare.startsWith('IdfPriority/groups/')) return null
   if (bare.startsWith('IdfPriority/groups/uploads')) return null // 653
   state.groups ??= structuredClone(IDF_GROUPS)
-  const pub = ({ liveCount: _l, ...g }) => g
+  const pub = ({ liveCount: _l, liveEntries: _e, ...g }) => g
   if (method === 'GET' && bare === 'IdfPriority/groups') {
     ;(reads.groups ??= []).push(qs)
     if (deny.includes('groups')) return bare403()
@@ -1007,15 +1080,23 @@ export function idfGroupsStub(method, path, body, opts = {}) {
   if (method === 'GET' && (bare === 'IdfPriority/groups/export' || bare === 'IdfPriority/groups/template')) {
     const kind = bare.endsWith('/export') ? 'groupsExport' : 'groupsTemplate'
     reads[kind] = (reads[kind] ?? 0) + 1
-    if (deny.includes(kind)) return envelope(null, { status: 400, success: false, message: 'The groups file could not be built.', errorCode: 'IDF-00030' })
+    if (deny.includes(kind)) return envelope(null, { status: 500, success: false, message: 'The groups file could not be built.' })
     return xlsx(kind === 'groupsExport' ? IDF_GROUPS_EXPORT_NAME : 'idf-groups-template.xlsx')
   }
   const refuse = (message, errorCode, data = null) => envelope(data, { status: 400, success: false, message, errorCode })
+  const fieldsProblem = (b) => {
+    const d = String(b?.description ?? '').trim()
+    if (!d || d.length > 300) return refuse('An IDF group needs a description of at most 300 characters.', 'IDF-00045')
+    if (String(b?.dosageForm ?? '').trim().length > 50) return refuse('The dosage form is longer than 50 characters.', 'IDF-00045')
+    return null
+  }
   if (method === 'POST' && bare === 'IdfPriority/groups') {
     writes.push({ method, path: bare, body })
     const n = String(body?.idfNumber ?? '').trim()
-    if (!n || n.length > 26) return refuse('The group number is required, at most 26 characters.', 'IDF-00031')
-    if (state.groups.some((g) => g.idfNumber === n)) return refuse('That group number is taken.', 'IDF-00032')
+    if (!n || n.length > 8) return refuse('An IDF group needs a number of at most 8 characters.', 'IDF-00045')
+    if (state.groups.some((g) => g.idfNumber.toLowerCase() === n.toLowerCase())) return refuse(`IDF group ${n} already exists: edit that one.`, 'IDF-00045')
+    const bad = fieldsProblem(body)
+    if (bad) return bad
     const row = { idfNumber: n, description: body.description, dosageForm: body.dosageForm ?? '', itemCount: 0 }
     state.groups.push(row)
     return envelope(row)
@@ -1026,7 +1107,9 @@ export function idfGroupsStub(method, path, body, opts = {}) {
   const i = state.groups.findIndex((g) => g.idfNumber === idfNumber)
   if (method === 'PUT') {
     writes.push({ method, path: bare, body })
-    if (i < 0) return refuse('Unknown IDF group.', 'IDF-00033')
+    if (i < 0) return refuse(`IDF group ${idfNumber} does not exist.`, 'IDF-00046')
+    const bad = fieldsProblem(body)
+    if (bad) return bad
     state.groups[i] = { ...state.groups[i], description: body.description, dosageForm: body.dosageForm ?? '' }
     return envelope(pub(state.groups[i]))
   }
@@ -1035,14 +1118,16 @@ export function idfGroupsStub(method, path, body, opts = {}) {
     // 3185 review: `state.groupRemoveFailures` = n answers the next n removes a 500 (transient; no count).
     if (state.groupRemoveFailures > 0) {
       state.groupRemoveFailures -= 1
-      return envelope(null, { status: 500, success: false, message: 'The group could not be removed right now.', errorCode: 'IDF-00037' })
+      return envelope(null, { status: 500, success: false, message: 'The group could not be removed right now.' })
     }
-    if (i < 0) return refuse('Unknown IDF group.', 'IDF-00033')
+    if (i < 0) return refuse(`IDF group ${idfNumber} does not exist.`, 'IDF-00046')
     const g = state.groups[i]
     const count = g.liveCount ?? g.itemCount
-    if (count > 0) {
+    const entries = g.liveEntries ?? 0
+    if (count > 0 || entries > 0) {
       state.groups[i] = { ...g, itemCount: count }
-      return refuse('Items still point at this IDF group; it cannot be removed.', 'IDF-00034', { itemCount: count })
+      const why = [count > 0 ? `still has ${count} item(s)` : '', entries > 0 ? `is still ranked by ${entries} live entr(y/ies)` : ''].filter(Boolean).join(' and ')
+      return refuse(`IDF group ${g.idfNumber} ${why}: it cannot be removed.`, 'IDF-00047', { idfNumber: g.idfNumber, itemCount: count, entryCount: entries })
     }
     state.groups.splice(i, 1)
     return envelope({ idfNumber })
@@ -1051,21 +1136,24 @@ export function idfGroupsStub(method, path, body, opts = {}) {
 }
 
 // --- 653 --- IDF groups import (door 3197, the brief's "Spec 3185" sketch): `POST IdfPriority/groups/uploads`
-// (multipart `file`) → `{ uploadId, ok, rows }` listing EVERY row (`rule` empty on a passing one); `POST
-// IdfPriority/groups/uploads/{uploadId}/apply` → `{ added, updated }`, refused unless the upload was `ok`. The report
-// depends on the file's NAME: `dirty` → three failing rows among five; `notok` → `ok: false`, rows all passing; any
-// other → clean, adding `IDF-0600` and updating `IDF-0101`. `opts.groupUploads` keeps the uploads; `opts.writes` the
-// applies; `opts.refuseGroupsApply` refuses a clean apply (as if a concurrent change made it stale).
+// (multipart `file`) → `{ uploadId, ok, lineCount, rows }` listing EVERY row (`rule` empty on a passing one; `action`
+// '' on a row failed before its number was known); `POST IdfPriority/groups/uploads/{uploadId}/apply` (no body) →
+// `{ added, updated, unchanged }`, refused IDF-00049 unless clean and not yet applied, IDF-00048 for an unknown upload
+// (3197 as built, 654). The report depends on the file's NAME: `dirty` → three failing rows among five; `notok` →
+// `ok: false`, rows all passing; `same` → clean, one update that changes nothing (`unchanged: 1`); any other →
+// clean, adding `IDF-0600` and updating `IDF-0101`. `opts.groupUploads` keeps the uploads; `opts.writes` the applies;
+// `opts.refuseGroupsApply` refuses a clean apply (IDF-00049).
 const pass = (line, idfNumber, action) => ({ line, idfNumber, action, rule: '', messageEn: '', messageAr: '' })
 export const IDF_GROUPS_IMPORT_CLEAN = [pass(2, 'IDF-0600', 'add'), pass(3, 'IDF-0101', 'update')]
 export const IDF_GROUPS_IMPORT_CLEAN_WRITES = {
   'IDF-0600': { description: 'Loratadine 10 mg', dosageForm: 'Tablet' },
   'IDF-0101': { description: 'Paracetamol 500 mg (film-coated)', dosageForm: 'Tablet' },
 }
+export const IDF_GROUPS_IMPORT_SAME = [pass(2, 'IDF-0102', 'update')]
 export const IDF_GROUPS_IMPORT_DIRTY = [
   pass(2, 'IDF-0600', 'add'),
   pass(3, 'IDF-0101', 'update'),
-  { line: 4, idfNumber: '', action: 'add', rule: 'missingNumber', messageEn: 'Line 4 has no group number.', messageAr: 'السطر 4 بلا رقم مجموعة.' },
+  { line: 4, idfNumber: '', action: '', rule: 'missingNumber', messageEn: 'Line 4 has no group number.', messageAr: 'السطر 4 بلا رقم مجموعة.' },
   { line: 5, idfNumber: 'IDF-0101', action: 'update', rule: 'duplicateNumber', messageEn: 'Group IDF-0101 is listed twice (lines 3 and 5).', messageAr: 'المجموعة IDF-0101 مكررة (السطران 3 و5).' },
   { line: 6, idfNumber: 'IDF-0700', action: 'add', rule: 'missingDescription', messageEn: 'Group IDF-0700 has no description.', messageAr: 'المجموعة IDF-0700 بلا وصف.' },
 ]
@@ -1079,7 +1167,8 @@ export function idfGroupsImportStub(method, path, body, opts = {}) {
     const name = /filename="([^"]*)"/.exec(String(body ?? ''))?.[1] ?? ''
     const uploadId = `G-${Object.keys(groupUploads).length + 1}`
     const dirty = /dirty/i.test(name)
-    const report = { uploadId, ok: !dirty && !/notok/i.test(name), rows: dirty ? IDF_GROUPS_IMPORT_DIRTY : IDF_GROUPS_IMPORT_CLEAN }
+    const rows = dirty ? IDF_GROUPS_IMPORT_DIRTY : /same/i.test(name) ? IDF_GROUPS_IMPORT_SAME : IDF_GROUPS_IMPORT_CLEAN
+    const report = { uploadId, ok: !dirty && !/notok/i.test(name), lineCount: rows.length, rows }
     groupUploads[uploadId] = { name, report }
     return envelope(report)
   }
@@ -1088,23 +1177,28 @@ export function idfGroupsImportStub(method, path, body, opts = {}) {
   const uploadId = decodeURIComponent(m[1])
   writes.push({ method, path: bare, body })
   const u = groupUploads[uploadId]
-  if (!u || !u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing rows and cannot be applied.', errorCode: 'IDF-00035' })
-  if (refuseGroupsApply) return envelope(null, { status: 409, success: false, message: 'The groups changed since this file was checked; upload it again.', errorCode: 'IDF-00036' })
+  if (!u) return envelope(null, { status: 400, success: false, message: 'No such IDF groups upload.', errorCode: 'IDF-00048' })
+  if (!u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing lines and cannot be applied.', errorCode: 'IDF-00049' })
+  if (u.applied) return envelope(null, { status: 400, success: false, message: 'This file is already applied.', errorCode: 'IDF-00049' })
+  if (refuseGroupsApply) return envelope(null, { status: 400, success: false, message: 'This groups file can no longer be applied; upload it again.', errorCode: 'IDF-00049' })
   let added = 0
   let updated = 0
+  let unchanged = 0
   for (const r of u.report.rows) {
-    const w = IDF_GROUPS_IMPORT_CLEAN_WRITES[r.idfNumber] ?? { description: r.idfNumber, dosageForm: '' }
     const i = state.groups.findIndex((g) => g.idfNumber === r.idfNumber)
+    const w = IDF_GROUPS_IMPORT_CLEAN_WRITES[r.idfNumber] ?? (i >= 0 ? { description: state.groups[i].description, dosageForm: state.groups[i].dosageForm } : { description: r.idfNumber, dosageForm: '' })
     if (i < 0) {
       state.groups.push({ idfNumber: r.idfNumber, ...w, itemCount: 0 })
       added++
+    } else if (state.groups[i].description === w.description && (state.groups[i].dosageForm ?? '') === w.dosageForm) {
+      unchanged++
     } else {
       state.groups[i] = { ...state.groups[i], ...w }
       updated++
     }
   }
   u.applied = true
-  return envelope({ added, updated })
+  return envelope({ added, updated, unchanged })
 }
 
 /**
@@ -1114,6 +1208,8 @@ export function idfGroupsImportStub(method, path, body, opts = {}) {
 export function idfStub(method, path, body, opts = {}) {
   const bare = path.split('?')[0]
   return (
+    // 654 · the grant probe
+    idfAccessStub(method, bare, opts) ??
     idfMastersStub(method, bare, opts) ??
     // 620 · store lists
     idfStoreListsStub(method, bare, body, opts) ??

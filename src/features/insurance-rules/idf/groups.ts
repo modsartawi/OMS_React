@@ -1,10 +1,12 @@
 /**
  * IDF groups, pure (BackOffice spec 3185, door 3196; oms ticket 652). An IDF group is the set of interchangeable
  * items a master ranks; until 3185 the groups were kept only in the WPF (its IDF Import screen still writes them,
- * unchecked). A group has a number (at most 26, fixed once added), ONE description (no EN/AR pair) and a dosage form;
- * the list reads how many items point at it, and only an empty group can be removed.
+ * unchecked). A group has a number (at most 8 — `ItemIdf.IdfNumber`'s real width, `IdfGroupWidths.Number`, which
+ * overrode the sketch's 26 —, fixed once added), ONE description (at most 300, no EN/AR pair) and a dosage form (at
+ * most 50); the list reads how many items point at it. A remove is refused (`IDF-00047`) while items point at the
+ * group OR a master's LIVE version still ranks it.
  *
- * Shapes are the brief's sketch ("Spec 3185"); 654 reconciles them with the doors as built.
+ * 654 reconciled the shapes with the doors as built (BackOffice 3196: `IdfGroupWebEndpoints`, `IdfGroupAdminService`).
  */
 import { readPage } from './paging'
 
@@ -38,8 +40,10 @@ export type IdfGroupEditBody = Omit<IdfGroupBody, 'idfNumber'>
 export type IdfGroupForm = IdfGroupBody
 export type IdfGroupFormMode = 'add' | 'edit'
 
-/** The longest group number the doors accept. */
-export const IDF_GROUP_NUMBER_MAX = 26
+/** The longest group number, description and dosage form the doors accept (`IdfGroupWidths`; longer is `IDF-00045`). */
+export const IDF_GROUP_NUMBER_MAX = 8
+export const IDF_GROUP_DESCRIPTION_MAX = 300
+export const IDF_GROUP_DOSAGE_FORM_MAX = 50
 
 export const EMPTY_GROUP_FORM: IdfGroupForm = { idfNumber: '', description: '', dosageForm: '' }
 
@@ -47,17 +51,20 @@ export function formFromGroup(g: IdfGroup): IdfGroupForm {
   return { idfNumber: g.idfNumber, description: g.description ?? '', dosageForm: g.dosageForm ?? '' }
 }
 
-export type IdfGroupProblem = 'numberRequired' | 'numberTooLong' | 'descriptionRequired'
+export type IdfGroupProblem = 'numberRequired' | 'numberTooLong' | 'descriptionRequired' | 'descriptionTooLong' | 'dosageFormTooLong'
 
 /** Why the form may not be sent yet. On an edit the number is fixed, so it is never checked. */
-export function groupFormProblems(f: IdfGroupForm, mode: IdfGroupFormMode): Partial<Record<'idfNumber' | 'description', IdfGroupProblem>> {
-  const out: Partial<Record<'idfNumber' | 'description', IdfGroupProblem>> = {}
+export function groupFormProblems(f: IdfGroupForm, mode: IdfGroupFormMode): Partial<Record<keyof IdfGroupForm, IdfGroupProblem>> {
+  const out: Partial<Record<keyof IdfGroupForm, IdfGroupProblem>> = {}
   if (mode === 'add') {
     const n = f.idfNumber.trim()
     if (!n) out.idfNumber = 'numberRequired'
     else if (n.length > IDF_GROUP_NUMBER_MAX) out.idfNumber = 'numberTooLong'
   }
-  if (!f.description.trim()) out.description = 'descriptionRequired'
+  const description = f.description.trim()
+  if (!description) out.description = 'descriptionRequired'
+  else if (description.length > IDF_GROUP_DESCRIPTION_MAX) out.description = 'descriptionTooLong'
+  if (f.dosageForm.trim().length > IDF_GROUP_DOSAGE_FORM_MAX) out.dosageForm = 'dosageFormTooLong'
   return out
 }
 
@@ -74,18 +81,33 @@ export function canRemoveGroup(g: Pick<IdfGroup, 'itemCount'>): boolean {
   return g.itemCount === 0
 }
 
-/** The item count a remove refusal carries in `data.itemCount`, or null. */
-export function refusedItemCount(data: unknown): number | null {
-  const n = (data as { itemCount?: unknown } | null | undefined)?.itemCount
-  return typeof n === 'number' && Number.isFinite(n) ? n : null
+/** What still holds a group whose remove was refused: items pointing at it, and entries of the masters' live versions. */
+export interface IdfGroupRemoveRefusal {
+  itemCount: number
+  entryCount: number
+}
+
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0)
+
+/**
+ * The remove refusal's `data { idfNumber, itemCount, entryCount }` (`IDF-00047`, `IdfGroupHasItemsException`), or null
+ * when the data names neither count (a server or network failure).
+ */
+export function removeRefusal(data: unknown): IdfGroupRemoveRefusal | null {
+  if (!data || typeof data !== 'object') return null
+  const d = data as { itemCount?: unknown; entryCount?: unknown }
+  if (!('itemCount' in d) && !('entryCount' in d)) return null
+  return { itemCount: count(d.itemCount), entryCount: count(d.entryCount) }
 }
 
 /**
- * Whether a failed remove is final: only the door's "items still point at it" refusal (a count above 0 in its data)
- * keeps Remove off. Any other failure — a transient server or network error — may be retried.
+ * Whether a failed remove is final: only the door's "still held" refusal — items point at the group, or a live version
+ * ranks it (either count above 0) — keeps Remove off. Any other failure (a transient server or network error) may be
+ * retried.
  */
 export function removeRefusedForGood(data: unknown): boolean {
-  return (refusedItemCount(data) ?? 0) > 0
+  const r = removeRefusal(data)
+  return !!r && (r.itemCount > 0 || r.entryCount > 0)
 }
 
 // ── the address: `?q=&page=` (defaults omitted)

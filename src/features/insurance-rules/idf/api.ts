@@ -5,8 +5,9 @@
  * final spelling and 628 reconciles.
  *
  * 628 reconciled every door with the brief's `## Changes` (the doors as 3161–3169 built them; the payer key is the
- * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. UNGATED like
- * the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says "no access".
+ * insurer's customer id, `insurerCustomerId`). `tools/idf-stubs.mjs` mirrors those shapes for the drives. The reads are
+ * UNGATED like the rest of the group: a session without the IDF view grant is answered a bare 403 and each page says
+ * "no access". 654: the 3185 writes are gated on `GET IdfPriority/Access` (`idfAccessQuery`, fail closed).
  *
  * ⚠️ To keep parallel slices merge-clean: add your doors and query factories under YOUR ticket's slot comment only
  * (the blank lines between slots keep the hunks apart). Keep your types and logic in your own file beside
@@ -34,6 +35,7 @@ import type { IdfChangesPage } from './changes' // 650
 import { changesDoorParams, changesExportParams, type IdfChangesQuery } from './changes-filter' // 650
 import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
 import type { IdfGeneralApplyResult, IdfGeneralUploadReport } from './general-upload' // 649
+import { idfGrants, type IdfGrants } from './access' // 654
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -50,6 +52,18 @@ export const idfApi = {
 
 export function mastersQuery() {
   return { queryKey: IDF_MASTERS_KEY, queryFn: () => idfApi.masters(), retry: false } as const
+}
+
+// 654 · the grant probe — `GET IdfPriority/Access` (3191): `{ canViewIdf, canEditIdf, canEditGeneral }`, cookie-only, never
+// grant-gated. Fails closed: an absent, malformed or failed answer is no grant (`useIdfAccess` reads a pending one so).
+export const IDF_ACCESS_KEY = [...IDF_KEY, 'access'] as const
+export const idfAccessApi = {
+  async access(): Promise<IdfGrants> {
+    return idfGrants(await api.get<Partial<IdfGrants> | null>(`${IDF_BASE}/Access`))
+  },
+}
+export function idfAccessQuery() {
+  return { queryKey: IDF_ACCESS_KEY, queryFn: () => idfAccessApi.access(), retry: false, staleTime: 5 * 60_000 } as const
 }
 
 // 620 · store lists — `idfStoreListsApi` (3162)
@@ -229,7 +243,7 @@ export const idfDraftApi = {
   async draft(masterId: string): Promise<IdfDraft | null> {
     return (await api.get<IdfDraft | null>(draftPath(masterId))) ?? null
   },
-  /** `POST …/draft` — copies the live items into a new draft. Refused while one is open (`data { by, changedAt }`). */
+  /** `POST …/draft` — copies the live items into a new draft (none live: an empty draft, `baseVersionId ''`). Refused while one is open (`IDF-00034`, `data { draftId, by, startedAt, changedAt }`). */
   start(masterId: string): Promise<IdfDraft | null> {
     return api.post<IdfDraft | null>(draftPath(masterId), {})
   },
@@ -256,8 +270,8 @@ export const idfDraftApi = {
   /**
    * Every row of the version a draft was copied from, for the draft diff: the entries door (3187). Page 1 first; when it
    * states a `total`, the remaining pages are read at once (in page order); when it does not, page after page while a
-   * page comes back full. An empty page ends the rows either way. ⚠️ 654: replace with the draft door's own per-row
-   * marks if 3189 adds them.
+   * page comes back full. An empty page ends the rows either way. 654: 3189 as built marks no rows, so the base read
+   * stays; a draft with no base (`baseVersionId ''`) never calls it (`draftBaseVersion`). Pages of 500, the door's most.
    */
   async baseRows(masterId: string, versionId: string): Promise<IdfEntryRow[]> {
     const path = `${IDF_BASE}/masters/${encodeURIComponent(masterId)}/versions/${encodeURIComponent(versionId)}/entries`
@@ -295,13 +309,17 @@ export function draftBaseQuery(masterId: string, versionId: string) {
 
 // 646 · draft owner, rebase, add a group (3190) — `idfDraftOwnerApi`
 export const idfDraftOwnerApi = {
-  /** `POST …/draft/rebase` — re-applies the draft's edits on the current live version. The answer is not specced; refetch. */
+  /**
+   * `POST …/draft/rebase` (the door binds no body) — replays the draft's edits on the live version; answers `{ draft,
+   * reapplied, rows }`, `rows` the edits that failed their re-check and were dropped (read it with `rebaseResult`).
+   */
   rebase(masterId: string): Promise<unknown> {
     return api.post<unknown>(`${draftPath(masterId)}/rebase`, {})
   },
   /**
-   * `POST …/draft/groups { idfNumber, priority }` — every member of the group, each checked as an add; answers the draft
-   * plus `{ added, rows: [{ itemNumber, rule, messageEn, messageAr }] }` (read it with `groupAddResult`).
+   * `POST …/draft/groups { idfNumber, priority }` — every member of the group, each checked as an add; answers `{ draft,
+   * added, rows: [{ itemNumber, edit, rule, messageEn, messageAr }] }` (read it with `groupAddResult`). An unknown group or
+   * a bad priority is `IDF-00030`; a group with no items `IDF-00036`.
    */
   addGroup(masterId: string, body: IdfDraftGroupBody): Promise<unknown> {
     return api.post<unknown>(`${draftPath(masterId)}/groups`, body)
@@ -340,7 +358,7 @@ export const idfGeneralEditApi = {
   },
 }
 
-// 649 · general upload → preview → apply — `idfGeneralUploadApi` (3193; spec 3185 sketch, 654 reconciles). Apply
+// 649 · general upload → preview → apply — `idfGeneralUploadApi` (3193; 654 reconciled with the door as built). Apply
 // writes the general master: the page invalidates `IDF_GENERAL_KEY`.
 export const idfGeneralUploadApi = {
   /** `POST IdfPriority/general/uploads` multipart `{ file }` → the row report + change preview. Writes nothing. */
@@ -384,7 +402,7 @@ export const idfGeneralFilesApi = {
   },
 }
 
-// 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
+// 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; 654 reconciled with the door as built)
 export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const
 export const idfGroupsApi = {
   /** `GET IdfPriority/groups?search=&page=` — one page of groups, `{ page, pageSize, total, rows }`, each with its item count. */
@@ -400,7 +418,7 @@ export const idfGroupsApi = {
   edit(idfNumber: string, body: IdfGroupEditBody): Promise<IdfGroup> {
     return api.put<IdfGroup>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`, body)
   },
-  /** `DELETE IdfPriority/groups/{idfNumber}` — refused while items point at it (`data.itemCount`). */
+  /** `DELETE IdfPriority/groups/{idfNumber}` — refused (`IDF-00047`, `data { idfNumber, itemCount, entryCount }`) while items point at it or a live version ranks it. */
   remove(idfNumber: string): Promise<unknown> {
     return api.del<unknown>(`${IDF_BASE}/groups/${encodeURIComponent(idfNumber)}`)
   },
@@ -417,15 +435,19 @@ export function groupsQuery(q: IdfGroupsQuery) {
   return { queryKey: [...IDF_GROUPS_KEY, groupsDoorParams(q)] as const, queryFn: () => idfGroupsApi.list(q), retry: false } as const
 }
 
-// 653 · IDF groups import — `idfGroupsImportApi` (BackOffice 3197; spec 3185 sketch, 654 reconciles)
+// 653 · IDF groups import — `idfGroupsImportApi` (BackOffice 3197; 654 reconciled with the door as built)
 export const idfGroupsImportApi = {
   /** `POST IdfPriority/groups/uploads` multipart `{ file }` → every row with its action, failing rows with their rule. Writes nothing. */
   async upload(file: File): Promise<IdfGroupsImportReport> {
     const r = await api.upload<IdfGroupsImportReport | null>(`${IDF_BASE}/groups/uploads`, uploadForm(file))
-    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, rows: r?.rows ?? [] }
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, lineCount: r?.lineCount ?? null, rows: r?.rows ?? [] }
   },
-  /** `POST …/groups/uploads/{uploadId}/apply` (no body stated; `{}`) → `{ added, updated }`. Refused unless the upload's `ok`. */
-  apply(uploadId: string): Promise<IdfGroupsImportResult> {
-    return api.post<IdfGroupsImportResult>(`${IDF_BASE}/groups/uploads/${encodeURIComponent(uploadId)}/apply`, {})
+  /**
+   * `POST …/groups/uploads/{uploadId}/apply` (the door binds no body; `{}` is sent) → `{ added, updated, unchanged }`.
+   * Refused unless the upload is clean and not yet applied (`IDF-00049`).
+   */
+  async apply(uploadId: string): Promise<IdfGroupsImportResult> {
+    const r = await api.post<Partial<IdfGroupsImportResult> | null>(`${IDF_BASE}/groups/uploads/${encodeURIComponent(uploadId)}/apply`, {})
+    return { added: r?.added ?? 0, updated: r?.updated ?? 0, unchanged: r?.unchanged ?? 0 }
   },
 }

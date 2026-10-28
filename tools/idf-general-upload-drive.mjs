@@ -12,11 +12,14 @@
 //   2. a clean file: "every row passed", lines ltr; the preview counts per kind; the table lists each change, before →
 //      after as ONE ltr string per side (an added item "Not ranked"); a kind chip filters it;
 //   3. Apply asks for a reason (a blank one is refused in the dialog, nothing sent); with one it posts `{ reason }`,
-//      shows how many items were written, clears the report, and the general items re-read with the new ranks;
+//      shows how many items were written (the unchanged one is not: 3193 counts only the items it writes), clears the
+//      report, and the general items re-read with the new ranks;
 //   4. a file whose apply fails a batch: the result lists it, its lines as one ltr range and its message in a bdi;
 //      (3185 review) it is not a success: "Applied in part", a warning toast (no success toast), the file's report stays
-//      on screen and Apply stays off; a file that writes nothing says "Nothing was applied" with an error toast;
-//   5. a refused apply stays in the dialog as the server's message;
+//      on screen; (654, 3193 as built) Apply stays ON and says the same file can be confirmed again — a re-confirm
+//      posts for the SAME upload, writes the rest, and is then a full apply (Apply off); a file that writes nothing
+//      says "Nothing was applied" with an error toast, and can be confirmed again too;
+//   5. a refused apply (IDF-00043) stays in the dialog as the server's message;
 //   6. no raw keys; no page errors.
 //
 //   1. run the app:  npx vite --port 5215 --strictPort
@@ -79,7 +82,7 @@ const strip = (s) => (s ?? '').replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, '
 const noRawKeys = async (page) => !/insurance-(rules|idf):|generalUpload\.|general\.|items\.|upload\.|menu\.idf|access\./.test(await page.locator('main').innerText())
 const ltr = (loc) => loc.locator('bdi[dir="ltr"]').evaluateAll((els) => els.map((e) => e.textContent.replace(/[\u2066-\u2069]/g, '')))
 const attrs = (loc, a) => loc.evaluateAll((els, name) => els.map((e) => e.getAttribute(name)), a)
-const csv = 'item,group,priority\n300700,IDF-IBU,5\n300110,IDF-PARA-500,1\n300230,IDF-AMOX,1\n300120,IDF-PARA-500,3\n'
+const csv = 'item,group,priority\n300700,IDF-IBU,5\n300110,IDF-PARA,1\n300230,IDF-AMOX,1\n300120,IDF-PARA,3\n'
 const UP = '[data-idf-general-upload]'
 
 async function uploadFile(page, name) {
@@ -162,7 +165,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-general-upload-result]').waitFor({ timeout: 30000 })
     check(`${dir} 3. it posts { reason } for the upload`, writes.length === 1 && writes[0].path === 'IdfPriority/general/uploads/GU-1/apply' && JSON.stringify(writes[0].body) === '{"reason":"October price list"}', JSON.stringify(writes))
     const res = page.locator('[data-idf-general-upload-result]')
-    check(`${dir} 3. the result says four items written, ltr; no failed batch`, strip(await res.innerText()) === 'Applied. Items written: 4' && JSON.stringify(await ltr(res)) === '["4"]' && (await page.locator('[data-idf-general-upload-batches]').count()) === 0, strip(await res.innerText()))
+    check(`${dir} 3. the result says three items written (the unchanged one is not), ltr; no failed batch`, strip(await res.innerText()) === 'Applied. Items written: 3' && JSON.stringify(await ltr(res)) === '["3"]' && (await page.locator('[data-idf-general-upload-batches]').count()) === 0, strip(await res.innerText()))
     check(`${dir} 3. the dialog closes, the report clears, Apply off`, (await page.locator('[data-idf-general-upload-dialog]').count()) === 0 && (await page.locator(`${UP} [data-idf-report]`).count()) === 0 && (await applyOff(page)))
     await page.waitForFunction(() => document.querySelector('[data-idf-items] tbody tr[data-item="300230"]')?.getAttribute('data-idf') === 'IDF-AMOX', null, { timeout: 30000 }).catch(() => {})
     check(`${dir} 3. the general items re-read with the new ranks`, (reads.generalItems ?? []).length > before && (await page.locator('[data-idf-items] tbody tr[data-item="300230"]').getAttribute('data-idf')) === 'IDF-AMOX')
@@ -172,12 +175,12 @@ for (const dir of ['ltr', 'rtl']) {
   }
   // 4. a failed batch
   {
-    const { context, page, errors } = await open(dir)
+    const { context, page, errors, writes } = await open(dir)
     await uploadFile(page, 'general-batch.csv')
     await applyWith(page, 'Trial')
     await page.locator('[data-idf-general-upload-result]').waitFor({ timeout: 30000 })
     const res = page.locator('[data-idf-general-upload-result]')
-    check(`${dir} 4. two items written, one batch failed`, (await res.getAttribute('data-applied')) === '2' && strip(await page.locator('[data-idf-general-upload-batches-summary]').innerText()).startsWith('1 batch failed'), strip(await res.innerText()))
+    check(`${dir} 4. one item written, one batch failed`, (await res.getAttribute('data-applied')) === '1' && strip(await page.locator('[data-idf-general-upload-batches-summary]').innerText()).startsWith('1 batch failed'), strip(await res.innerText()))
     const b = page.locator('[data-idf-general-upload-batches] tbody tr')
     check(
       `${dir} 4. the batch's lines as ONE ltr range, its message in a bdi`,
@@ -189,12 +192,26 @@ for (const dir of ['ltr', 'rtl']) {
     check(
       `${dir} 4. a partial apply is not a success: its wording, a warning toast, no success toast`,
       (await res.getAttribute('data-outcome')) === 'partial' &&
-        strip(await res.locator('[data-idf-general-upload-outcome]').innerText()) === 'Applied in part. Items written: 2' &&
+        strip(await res.locator('[data-idf-general-upload-outcome]').innerText()) === 'Applied in part. Items written: 1' &&
         (await page.locator('[data-sonner-toast][data-type="warning"]', { hasText: 'General file applied in part' }).count()) === 1 &&
         (await page.locator('[data-sonner-toast][data-type="success"]').count()) === 0,
       strip(await res.innerText()),
     )
-    check(`${dir} 4. the file's report stays on screen; Apply stays off`, (await page.locator(`${UP} [data-idf-report="clean"]`).count()) === 1 && (await applyOff(page)))
+    check(
+      `${dir} 4. the file's report stays on screen; Apply stays ON and says the file can be confirmed again (654)`,
+      (await page.locator(`${UP} [data-idf-report="clean"]`).count()) === 1 && !(await applyOff(page)) && (await page.locator('[data-idf-general-upload-apply-again]').count()) === 1,
+    )
+    await applyWith(page, 'Trial, again')
+    await page.locator('[data-idf-general-upload-result][data-outcome="applied"]').waitFor({ timeout: 30000 })
+    check(
+      `${dir} 4. the re-confirm posts for the SAME upload and writes the rest: a full apply, Apply off`,
+      writes.length === 2 &&
+        writes[1].path === writes[0].path &&
+        (await page.locator('[data-idf-general-upload-result]').getAttribute('data-applied')) === '2' &&
+        (await page.locator('[data-idf-general-upload-batches]').count()) === 0 &&
+        (await applyOff(page)),
+      JSON.stringify(writes),
+    )
     check(`${dir} 6. no raw keys (batch)`, await noRawKeys(page))
     check(`${dir} 6. no page errors (batch)`, errors.length === 0, errors.join(' | '))
     await context.close()
@@ -213,7 +230,7 @@ for (const dir of ['ltr', 'rtl']) {
         (await page.locator('[data-sonner-toast][data-type="error"]', { hasText: 'Nothing was applied' }).count()) === 1 &&
         (await page.locator('[data-idf-general-upload-batches] tbody tr').count()) === 1 &&
         (await page.locator(`${UP} [data-idf-report="clean"]`).count()) === 1 &&
-        (await applyOff(page)),
+        !(await applyOff(page)),
       strip(await res.innerText()),
     )
     check(`${dir} 6. no page errors (nothing)`, errors.length === 0, errors.join(' | '))
@@ -229,7 +246,7 @@ for (const dir of ['ltr', 'rtl']) {
       `${dir} 5. a refused apply stays in the dialog as the server's message`,
       writes.length === 1 &&
         (await page.locator('[data-idf-general-upload-dialog]').count()) === 1 &&
-        /The general master changed since this file was checked/.test(await page.locator('[data-idf-general-upload-apply-refused]').innerText()) &&
+        /Another confirm of this file is still running/.test(await page.locator('[data-idf-general-upload-apply-refused]').innerText()) &&
         (await page.locator('[data-idf-general-upload-result]').count()) === 0,
     )
     check(`${dir} 6. no page errors (refused)`, errors.length === 0, errors.join(' | '))

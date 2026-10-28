@@ -9,7 +9,11 @@
  * A bad general file reaches every till: Apply is offered only on a clean report — the master upload's rule
  * (`isPublishable`: ok AND no failing row).
  *
- * Shapes are the brief's sketch ("Spec 3185"); 654 reconciles them with the door as built.
+ * 654 reconciled with the door as built (BackOffice 3193, `IdfGeneralUploadModels`): rules `unknownItem | unknownGroup |
+ * badPriority | duplicateItem`; `preview` null unless `ok`; apply `{ applied, failedBatches }` in 500-line batches, one
+ * transaction each. A failed batch releases the confirm's claim, so the SAME upload may be confirmed again (the
+ * re-confirm recomputes each item against Item as it stands and skips the unchanged ones). Refusals `IDF-00042` (no
+ * such upload), `IDF-00043` (failed lines, already applied, or a confirm still running), `IDF-00041` (reason).
  */
 import { formatPair, formatRange } from '@/core/util/bidi'
 import { formatFigure } from '@/core/util/number-format'
@@ -68,6 +72,14 @@ export type IdfGeneralApplyOutcome = 'applied' | 'partial' | 'failed'
 export function applyOutcome(r: IdfGeneralApplyResult): IdfGeneralApplyOutcome {
   if (r.applied <= 0) return 'failed'
   return r.failedBatches.length > 0 ? 'partial' : 'applied'
+}
+
+/**
+ * Whether Apply… may be offered: a clean report (`isGeneralUploadApplicable`) that has not been FULLY applied. After a
+ * partial apply, or one that wrote nothing, the same upload can be confirmed again.
+ */
+export function canConfirmApply(report: IdfGeneralUploadReport | null | undefined, last: IdfGeneralApplyResult | null | undefined): boolean {
+  return isGeneralUploadApplicable(report) && (!last || applyOutcome(last) !== 'applied')
 }
 
 /** Apply only a clean report: the server's `ok` and no failing row — 622's rule. */

@@ -36,7 +36,7 @@ const insurerDecided: IdfLookupAnswer = {
   itemNumber: '100300',
   descriptionEn: 'Adol 500',
   descriptionAr: 'أدول ٥٠٠',
-  idfNumber: 'IDF-PARA-500',
+  idfNumber: 'IDF-PARA',
   storeCode: 'P019',
   insurerCustomerId: '0001100412',
   documentType: null,
@@ -87,7 +87,7 @@ describe('lookup reads the answer and marks the looked-up item', () => {
     expect(v.master).toEqual({ masterId: 'M-TAW', kind: 'insurer', name: 'Tawuniya', version: '2' })
     expect([v.priority, v.hard, v.reminder]).toEqual([2, 5, 2])
     expect(v.skipped).toEqual([{ tier: 'insurerAtStoreList', reason: 'Store P019 is not on the pilot list', reasonCode: 'notOnPilotList', masterId: null }])
-    expect(v.item).toEqual({ itemNumber: '100300', description: 'Adol 500', idfNumber: 'IDF-PARA-500' })
+    expect(v.item).toEqual({ itemNumber: '100300', description: 'Adol 500', idfNumber: 'IDF-PARA' })
     expect(v.insurerCustomerId).toBe('0001100412')
   })
 

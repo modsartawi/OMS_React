@@ -31,6 +31,11 @@
 //   3185 review: 14. a remove that fails for a passing reason (a 500, no count) keeps Remove on, and a retry removes;
 //       removing the last group of the last page falls back to the new last page (never an empty page with no pager).
 //
+//   654 (doors as built): the number is at most 8; a remove refused because a master's LIVE version still ranks the
+//       group (IDF-00047, `entryCount`) says so and keeps Remove off (15); an import whose line matches the group as it
+//       stands reports it unchanged (16); without `canEditGeneral` no Add, Import, Edit or Remove shows — Export and
+//       Template still do (17).
+//
 //   1. run the app:  npx vite --port 5217 --strictPort
 //   2. node tools/idf-groups-drive.mjs        (DRIVE_PORT overrides 5217)
 import { createRequire } from 'node:module'
@@ -141,9 +146,9 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-group-save]').click()
     const probs = await dlg.locator('[data-problem]').evaluateAll((els) => els.map((e) => e.getAttribute('data-problem')).sort())
     check(`${dir} 3. a blank number and description are refused, nothing sent`, JSON.stringify(probs) === JSON.stringify(['descriptionRequired', 'numberRequired']) && writes.length === 0, JSON.stringify(probs))
-    await dlg.locator('[data-field="idfNumber"]').fill('X'.repeat(27))
+    await dlg.locator('[data-field="idfNumber"]').fill('X'.repeat(9))
     await dlg.locator('[data-field="description"]').fill('Loratadine 10 mg')
-    check(`${dir} 3. a 27-character number is too long`, (await dlg.locator('[data-problem="numberTooLong"]').count()) === 1 && writes.length === 0)
+    check(`${dir} 3. a 9-character number is too long (the door's 8)`, (await dlg.locator('[data-problem="numberTooLong"]').count()) === 1 && writes.length === 0)
     await dlg.locator('[data-field="idfNumber"]').fill('IDF-0500')
     await dlg.locator('[data-field="dosageForm"]').fill('Tablet')
     await page.locator('[data-group-save]').click()
@@ -181,7 +186,7 @@ for (const dir of ['ltr', 'rtl']) {
     const refusal = strip(await rm.locator('[data-idf-group-remove-refusal]').innerText())
     check(
       `${dir} 5. the refusal shows its message and the count (ltr)`,
-      /Items still point at this IDF group/.test(refusal) && (await rm.locator('[data-refused-count="2"] bdi[dir="ltr"]').innerText()) === '2' && /2 items still point at this group/.test(refusal),
+      /IDF-0399 still has 2 item\(s\)/.test(refusal) && (await rm.locator('[data-refused-count="2"] bdi[dir="ltr"]').innerText()) === '2' && /2 items still point at this group/.test(refusal) && (await rm.locator('[data-refused-entries]').count()) === 0,
       refusal,
     )
     check(`${dir} 5. the confirm is not offered again`, await page.locator('[data-group-remove-confirm]').isDisabled())
@@ -216,7 +221,7 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-groups-export]').click()
     const toast = page.locator('[data-sonner-toast]', { hasText: 'The groups could not be exported' })
     await toast.waitFor({ timeout: 10000 }).catch(() => {})
-    check(`${dir} 7. a refused export toasts the server's message, no file`, (await toast.count()) === 1 && /The groups file could not be built/.test(await toast.innerText()) && !downloaded)
+    check(`${dir} 7. a failed export (a 500: the real door never refuses it) toasts, no file`, (await toast.count()) === 1 && !downloaded)
     check(`${dir} 7. no page errors (refused export)`, errors.length === 0, errors.join(' | '))
     await context.close()
   }
@@ -245,7 +250,7 @@ for (const dir of ['ltr', 'rtl']) {
     const shape = await rows.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-line')}:${e.getAttribute('data-action')}:${e.getAttribute('data-rule')}`))
     check(
       `${dir} 10. every row is listed with its action, in the server's order`,
-      JSON.stringify(shape) === JSON.stringify(['2:add:', '3:update:', '4:add:missingNumber', '5:update:duplicateNumber', '6:add:missingDescription']),
+      JSON.stringify(shape) === JSON.stringify(['2:add:', '3:update:', '4::missingNumber', '5:update:duplicateNumber', '6:add:missingDescription']),
       JSON.stringify(shape),
     )
     check(`${dir} 10. the summary counts the failing rows`, strip(await dlg.locator('[data-idf-report-summary]').innerText()).startsWith('3 rows failed.'), strip(await dlg.locator('[data-idf-report-summary]').innerText()))
@@ -285,7 +290,7 @@ for (const dir of ['ltr', 'rtl']) {
     await result.waitFor({ timeout: 30000 })
     const applied = writes.filter((w) => /\/apply$/.test(w.path))
     check(`${dir} 12. one apply, under the clean upload's id`, applied.length === 1 && applied[0].path === 'IdfPriority/groups/uploads/G-3/apply', JSON.stringify(applied))
-    check(`${dir} 12. the result shows added and updated`, (await result.getAttribute('data-added')) === '1' && (await result.getAttribute('data-updated')) === '1' && /Groups added: 1 · updated: 1/.test(strip(await result.innerText())), strip(await result.innerText()))
+    check(`${dir} 12. the result shows added, updated and unchanged`, (await result.getAttribute('data-added')) === '1' && (await result.getAttribute('data-updated')) === '1' && /Groups added: 1 · updated: 1 · unchanged: 0/.test(strip(await result.innerText())), strip(await result.innerText()))
     check(`${dir} 12. the applied report is gone, Apply off again`, (await dlg.locator('[data-idf-report]').count()) === 0 && (await applyBtn.isDisabled()))
     await page.locator('[data-idf-groups-import-close]').click()
     await dlg.waitFor({ state: 'detached' })
@@ -314,7 +319,7 @@ for (const dir of ['ltr', 'rtl']) {
     await dlg.locator('[data-idf-groups-import-apply-refused]').waitFor({ timeout: 30000 })
     check(
       `${dir} 13. a refused apply shows the server's message; nothing written, no result`,
-      /The groups changed since this file was checked/.test(await dlg.locator('[data-idf-groups-import-apply-refused]').innerText()) &&
+      /can no longer be applied/.test(await dlg.locator('[data-idf-groups-import-apply-refused]').innerText()) &&
         (await dlg.locator('[data-idf-groups-import-result]').count()) === 0 && !state.groups.some((g) => g.idfNumber === 'IDF-0600'),
     )
     check(`${dir} 13. no page errors (refused apply)`, errors.length === 0, errors.join(' | '))
@@ -351,7 +356,7 @@ for (const dir of ['ltr', 'rtl']) {
   await rm.locator('[data-idf-group-remove-refusal]').waitFor({ timeout: 30000 })
   check(
     `${dir} 14. a passing failure shows its message and leaves Remove on`,
-    /could not be removed right now/.test(await rm.locator('[data-idf-group-remove-refusal]').innerText()) && (await page.locator('[data-group-remove-confirm]').isEnabled()),
+    (await rm.locator('[data-idf-group-remove-refusal]').count()) === 1 && (await rm.locator('[data-refused-count], [data-refused-entries]').count()) === 0 && (await page.locator('[data-group-remove-confirm]').isEnabled()),
   )
   await page.locator('[data-group-remove-confirm]').click()
   await rm.waitFor({ state: 'detached', timeout: 30000 })
@@ -367,6 +372,70 @@ for (const dir of ['ltr', 'rtl']) {
   )
   check(`${dir} 14. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
   await context.close()
+}
+
+// --- 654 --- doors as built: live rankings hold a group; an unchanged import line; the general edit grant
+for (const dir of ['ltr', 'rtl']) {
+  {
+    // 15. IDF-0310 has no item, but 3 entries of masters' live versions rank it
+    const { context, page, errors, state, writes } = await open(dir)
+    state.groups = structuredClone(IDF_GROUPS).map((g) => (g.idfNumber === 'IDF-0310' ? { ...g, liveEntries: 3 } : g))
+    await page.goto(`${BASE}/insurance-rules/idf/groups`)
+    await page.locator('[data-group-remove="IDF-0310"]').click()
+    const rm = page.locator('[data-idf-group-remove-dialog="IDF-0310"]')
+    await rm.waitFor()
+    await page.locator('[data-group-remove-confirm]').click()
+    await rm.locator('[data-idf-group-remove-refusal]').waitFor({ timeout: 30000 })
+    const refusal = strip(await rm.innerText())
+    check(
+      `${dir} 15. a group still ranked by live versions: the refusal says so with the count (ltr), not items`,
+      (await rm.locator('[data-refused-entries="3"] bdi[dir="ltr"]').innerText()) === '3' &&
+        /3 entries of masters’ live versions still rank this group/.test(refusal) &&
+        (await rm.locator('[data-refused-count]').count()) === 0,
+      refusal,
+    )
+    check(`${dir} 15. and Remove stays off`, (await page.locator('[data-group-remove-confirm]').isDisabled()) && writes.filter((w) => w.method === 'DELETE').length === 1)
+    check(`${dir} 15. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 16. an import line that matches the group as it stands
+    const { context, page, errors } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/groups`)
+    await page.locator('[data-idf-groups-import]').click()
+    const dlg = page.locator('[data-idf-groups-import-dialog]')
+    await dlg.waitFor()
+    await dlg.locator('[data-idf-groups-import-file]').setInputFiles({ name: 'groups-same.csv', mimeType: 'text/csv', buffer: Buffer.from('IDF-0102,Ibuprofen 400 mg,Tablet\n') })
+    await page.locator('[data-idf-groups-import-submit]').click()
+    await dlg.locator('[data-idf-report="clean"]').waitFor({ timeout: 30000 })
+    await page.locator('[data-idf-groups-import-apply]').click()
+    const result = dlg.locator('[data-idf-groups-import-result]')
+    await result.waitFor({ timeout: 30000 })
+    check(
+      `${dir} 16. the result counts the unchanged line (ltr)`,
+      (await result.getAttribute('data-unchanged')) === '1' && /Groups added: 0 · updated: 0 · unchanged: 1/.test(strip(await result.innerText())) && JSON.stringify(await result.locator('bdi[dir="ltr"]').allInnerTexts()) === '["0","0","1"]',
+      strip(await result.innerText()),
+    )
+    check(`${dir} 16. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 17. without the general edit grant
+    const { context, page, errors, reads, state } = await open(dir)
+    state.access = { canEditGeneral: false }
+    await page.goto(`${BASE}/insurance-rules/idf/groups`)
+    await page.locator('[data-idf-groups] tbody tr').first().waitFor({ timeout: 60000 })
+    await page.waitForTimeout(500)
+    check(`${dir} 17. the probe is read`, (reads.access ?? 0) >= 1)
+    check(
+      `${dir} 17. without canEditGeneral: no Add, Import, Edit or Remove, no actions column`,
+      (await page.locator('[data-idf-group-add], [data-idf-groups-import], [data-group-edit], [data-group-remove]').count()) === 0 &&
+        (await page.locator('[data-idf-groups] thead th').count()) === 4,
+    )
+    check(`${dir} 17. Export and Template still show (reads, on the view grant)`, (await page.locator('[data-idf-groups-export]').count()) === 1 && (await page.locator('[data-idf-groups-template]').count()) === 1)
+    check(`${dir} 17. no raw keys; no page errors`, (await noRawKeys(page)) && errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
 }
 
 await browser.close()

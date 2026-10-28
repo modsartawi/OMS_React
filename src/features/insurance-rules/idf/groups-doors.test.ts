@@ -45,16 +45,20 @@ describe('the IDF groups import doors', () => {
     const report = { uploadId: 'G-1', ok: true, rows: [{ line: 2, idfNumber: 'IDF-0600', action: 'add', rule: '', messageEn: '', messageAr: '' }] }
     api.upload.mockResolvedValue(report)
     const file = new File(['idf,description,dosage form'], 'groups.csv', { type: 'text/csv' })
-    expect(await idfGroupsImportApi.upload(file)).toEqual(report)
+    expect(await idfGroupsImportApi.upload(file)).toEqual({ ...report, lineCount: null })
+    api.upload.mockResolvedValue({ ...report, lineCount: 1 })
+    expect((await idfGroupsImportApi.upload(file)).lineCount).toBe(1)
     const [path, form] = api.upload.mock.calls[0]
     expect(path).toBe('IdfPriority/groups/uploads')
     expect((form as FormData).get('file')).toBeInstanceOf(File)
     api.upload.mockResolvedValue(null)
-    expect(await idfGroupsImportApi.upload(file)).toEqual({ uploadId: '', ok: false, rows: [] })
+    expect(await idfGroupsImportApi.upload(file)).toEqual({ uploadId: '', ok: false, lineCount: null, rows: [] })
   })
-  it('apply posts an empty body under the upload id and reads { added, updated }', async () => {
-    api.post.mockResolvedValue({ added: 2, updated: 1 })
-    expect(await idfGroupsImportApi.apply('G 1')).toEqual({ added: 2, updated: 1 })
+  it('apply posts under the upload id and reads { added, updated, unchanged } (a missing count is 0)', async () => {
+    api.post.mockResolvedValue({ added: 2, updated: 1, unchanged: 4 })
+    expect(await idfGroupsImportApi.apply('G 1')).toEqual({ added: 2, updated: 1, unchanged: 4 })
+    api.post.mockResolvedValue({ added: 2 })
+    expect(await idfGroupsImportApi.apply('G 1')).toEqual({ added: 2, updated: 0, unchanged: 0 })
     expect(api.post).toHaveBeenCalledWith('IdfPriority/groups/uploads/G%201/apply', {})
   })
 })

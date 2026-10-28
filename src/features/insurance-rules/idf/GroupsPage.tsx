@@ -21,6 +21,7 @@ import { GroupDialog, RemoveGroupDialog } from './GroupDialog'
 import GroupsImport from './GroupsImport' // 653
 import { canRemoveGroup, readGroupsQuery, writeGroupsQuery, type IdfGroup, type IdfGroupsQuery } from './groups'
 import { emptiedPageTarget } from './paging' // 3185 review
+import { useIdfAccess } from './useIdfAccess' // 654
 
 /**
  * Insurance rules ▸ IDF groups — `/insurance-rules/idf/groups` (BackOffice spec 3185, door 3196; oms ticket 652).
@@ -30,7 +31,8 @@ import { emptiedPageTarget } from './paging' // 3185 review
  * (the WPF may have added members since the list was read) shows its message and the count. Export saves the
  * server's `.xlsx`. The help text says the WPF IDF Import still writes groups, unchecked.
  *
- * 🚩 UNGATED until 654 adds the general-edit probe: a bare 403 on the read is "You do not have access".
+ * The read is ungated (a bare 403 on it is "You do not have access"); 654: every write — Add, Edit, Remove, Import —
+ * shows only with `canEditGeneral` (`GET IdfPriority/Access`). Export and Template stay on the view grant.
  */
 export default function GroupsPage() {
   const { t } = useTranslation('insurance-idf')
@@ -38,6 +40,7 @@ export default function GroupsPage() {
   const groups = useQuery({ ...groupsQuery(query), placeholderData: keepPreviousData })
   const [editing, setEditing] = useState<IdfGroup | 'new' | null>(null)
   const [removing, setRemoving] = useState<IdfGroup | null>(null)
+  const { canEditGeneral } = useIdfAccess() // 654
   const denied = groups.isError && isBareDenial(groups.error)
   // 3185 review: removing the last group of the last page falls back to the new last page, never an empty one.
   const clampTo = groups.data && !groups.isPlaceholderData ? emptiedPageTarget(groups.data, query.page) : null
@@ -66,11 +69,13 @@ export default function GroupsPage() {
               hook="data-idf-groups-export"
             />
             {/* 653 · Template + Import */}
-            <GroupsImport />
-            <Button variant="primary" onClick={() => setEditing('new')} data-idf-group-add="">
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              {t('groups.add')}
-            </Button>
+            <GroupsImport canEdit={canEditGeneral} />
+            {canEditGeneral && (
+              <Button variant="primary" onClick={() => setEditing('new')} data-idf-group-add="">
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('groups.add')}
+              </Button>
+            )}
           </div>
         )}
       </header>
@@ -91,13 +96,13 @@ export default function GroupsPage() {
           query={query}
           busy={groups.isFetching}
           onPage={(page) => update((q) => ({ ...q, page }))}
-          onEdit={setEditing}
-          onRemove={setRemoving}
+          onEdit={canEditGeneral ? setEditing : null}
+          onRemove={canEditGeneral ? setRemoving : null}
         />
       )}
 
-      {editing && <GroupDialog row={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
-      {removing && <RemoveGroupDialog row={removing} onClose={() => setRemoving(null)} />}
+      {canEditGeneral && editing && <GroupDialog row={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {canEditGeneral && removing && <RemoveGroupDialog row={removing} onClose={() => setRemoving(null)} />}
     </section>
   )
 }
@@ -136,8 +141,9 @@ function GroupsTable({
   query: IdfGroupsQuery
   busy: boolean
   onPage: (page: number) => void
-  onEdit: (g: IdfGroup) => void
-  onRemove: (g: IdfGroup) => void
+  /** null without the general edit grant: no Edit / Remove, and no actions column. */
+  onEdit: ((g: IdfGroup) => void) | null
+  onRemove: ((g: IdfGroup) => void) | null
 }) {
   const { t } = useTranslation('insurance-idf')
   if (rows.length === 0)
@@ -159,7 +165,7 @@ function GroupsTable({
               <th className={TH}>{t('groups.columns.description')}</th>
               <th className={TH}>{t('groups.columns.dosageForm')}</th>
               <th className={`${TH} text-end`}>{t('groups.columns.itemCount')}</th>
-              <th className={`${TH} text-end`}>{t('groups.columns.actions')}</th>
+              {(onEdit || onRemove) && <th className={`${TH} text-end`}>{t('groups.columns.actions')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -177,18 +183,22 @@ function GroupsTable({
                 <td className={NUM} data-col="itemCount">
                   <Ltr>{formatFigure(g.itemCount)}</Ltr>
                 </td>
-                <td className={`${TD} text-end`}>
-                  <div className="flex justify-end gap-1">
-                    <Button variant="text" onClick={() => onEdit(g)} data-group-edit={g.idfNumber}>
-                      {t('groups.edit')}
-                    </Button>
-                    {canRemoveGroup(g) && (
-                      <Button variant="text" onClick={() => onRemove(g)} data-group-remove={g.idfNumber}>
-                        {t('groups.remove')}
-                      </Button>
-                    )}
-                  </div>
-                </td>
+                {(onEdit || onRemove) && (
+                  <td className={`${TD} text-end`}>
+                    <div className="flex justify-end gap-1">
+                      {onEdit && (
+                        <Button variant="text" onClick={() => onEdit(g)} data-group-edit={g.idfNumber}>
+                          {t('groups.edit')}
+                        </Button>
+                      )}
+                      {onRemove && canRemoveGroup(g) && (
+                        <Button variant="text" onClick={() => onRemove(g)} data-group-remove={g.idfNumber}>
+                          {t('groups.remove')}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -5,9 +5,12 @@
  * `DELETE IdfPriority/general/items/{itemNumber} { reason }`. Both apply at once; a refusal carries the server's
  * message, which the dialog shows.
  *
- * Shapes are the brief's sketch ("Spec 3185"); 654 reconciles them with the doors as built.
+ * 654 reconciled with the doors as built (BackOffice 3192): each answers the item's row (a clear: `idfNumber ''`,
+ * `priority 0`); refusals `IDF-00039` (unknown item), `IDF-00040` (not an IDF group — at most 8 characters — or a
+ * priority that is not a whole number of 1 or more), `IDF-00041` (no reason, or one over 400 characters).
  */
 import { reasonProblem } from './exceptions'
+import { IDF_GROUP_NUMBER_MAX } from './groups'
 import type { IdfEntryRow } from './items'
 
 /** The body of `PUT IdfPriority/general/items/{itemNumber}`. */
@@ -35,7 +38,7 @@ export type IdfGeneralEditMode = 'set' | 'edit'
 
 export const NEW_GENERAL_ITEM_FORM: IdfGeneralEditForm = { itemNumber: '', idfNumber: '', priority: '', reason: '' }
 
-export type IdfGeneralEditProblem = 'itemRequired' | 'groupRequired' | 'priorityRequired' | 'priorityWholeNumber' | 'reasonRequired' | 'reasonTooLong'
+export type IdfGeneralEditProblem = 'itemRequired' | 'groupRequired' | 'groupTooLong' | 'priorityRequired' | 'priorityWholeNumber' | 'reasonRequired' | 'reasonTooLong'
 export type IdfGeneralEditProblems = Partial<Record<keyof IdfGeneralEditForm, IdfGeneralEditProblem>>
 
 /**
@@ -54,11 +57,13 @@ export function generalFormFromRow(row: IdfEntryRow): IdfGeneralEditForm {
   return { itemNumber: row.itemNumber, idfNumber: row.idfNumber, priority: String(row.priority), reason: '' }
 }
 
-/** Why the form may not be sent yet: a group, a whole priority of 1 or more, a reason (≤ 400, as exceptions keep). */
+/** Why the form may not be sent yet: a group (≤ 8, an IDF group's width), a whole priority of 1 or more, a reason (≤ 400). */
 export function generalEditProblems(f: IdfGeneralEditForm, mode: IdfGeneralEditMode): IdfGeneralEditProblems {
   const out: IdfGeneralEditProblems = {}
   if (mode === 'set' && !f.itemNumber.trim()) out.itemNumber = 'itemRequired'
-  if (!f.idfNumber.trim()) out.idfNumber = 'groupRequired'
+  const group = f.idfNumber.trim()
+  if (!group) out.idfNumber = 'groupRequired'
+  else if (group.length > IDF_GROUP_NUMBER_MAX) out.idfNumber = 'groupTooLong'
   if (!f.priority.trim()) out.priority = 'priorityRequired'
   else if (wholePriority(f.priority) === null) out.priority = 'priorityWholeNumber'
   const reason = reasonProblem(f.reason)

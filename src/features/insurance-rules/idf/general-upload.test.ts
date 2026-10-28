@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyOutcome,
+  canConfirmApply,
   failedBatchLines,
   IDF_GENERAL_CHANGE_KINDS,
   isGeneralUploadApplicable,
@@ -18,9 +19,9 @@ import {
 
 const preview = (changes: IdfGeneralChange[]) => ({ added: 1, reRanked: 1, moved: 1, unchanged: 1, changes })
 const added: IdfGeneralChange = { itemNumber: '300700', change: 'added', before: null, after: { idfNumber: 'IDF-IBU', priority: 5 } }
-const reRanked: IdfGeneralChange = { itemNumber: '300110', change: 'reRanked', before: { idfNumber: 'IDF-PARA-500', priority: 2 }, after: { idfNumber: 'IDF-PARA-500', priority: 1 } }
+const reRanked: IdfGeneralChange = { itemNumber: '300110', change: 'reRanked', before: { idfNumber: 'IDF-PARA', priority: 2 }, after: { idfNumber: 'IDF-PARA', priority: 1 } }
 const moved: IdfGeneralChange = { itemNumber: '300230', change: 'moved', before: { idfNumber: 'IDF-IBU', priority: 4 }, after: { idfNumber: 'IDF-AMOX', priority: 1 } }
-const same: IdfGeneralChange = { itemNumber: '300100', change: 'unchanged', before: { idfNumber: 'IDF-PARA-500', priority: 1 }, after: { idfNumber: 'IDF-PARA-500', priority: 1 } }
+const same: IdfGeneralChange = { itemNumber: '300100', change: 'unchanged', before: { idfNumber: 'IDF-PARA', priority: 1 }, after: { idfNumber: 'IDF-PARA', priority: 1 } }
 const all = [added, reRanked, moved, same]
 const failing = { line: 4, itemNumber: '999999', rule: 'unknownItem', messageEn: 'Unknown item 999999.', messageAr: 'صنف غير معروف 999999.' }
 const report = (r: Partial<IdfGeneralUploadReport>): IdfGeneralUploadReport => ({ uploadId: 'GU-1', ok: true, lineCount: 4, rows: [], preview: preview(all), ...r })
@@ -72,6 +73,24 @@ describe('one side of a change, and a failed batch, as one string each', () => {
   it("a batch's lines are one range; a one-line batch is its line", () => {
     expect(failedBatchLines({ fromLine: 201, toLine: 400, messageEn: '', messageAr: '' })).toBe('201–400')
     expect(failedBatchLines({ fromLine: 7, toLine: 7, messageEn: '', messageAr: '' })).toBe('7')
+  })
+})
+
+describe('the same clean upload can be confirmed again after a failed batch (654: BackOffice 3193 releases the claim)', () => {
+  const batch = { fromLine: 3, toLine: 4, messageEn: 'x', messageAr: 'x' }
+  it('a clean report not yet applied can be confirmed', () => {
+    expect(canConfirmApply(report({}), null)).toBe(true)
+  })
+  it('after a partial or an empty apply it can be confirmed again — the re-confirm skips what went in', () => {
+    expect(canConfirmApply(report({}), { applied: 2, failedBatches: [batch] })).toBe(true)
+    expect(canConfirmApply(report({}), { applied: 0, failedBatches: [batch] })).toBe(true)
+  })
+  it('after a full apply it cannot (the door answers IDF-00043: already applied)', () => {
+    expect(canConfirmApply(report({}), { applied: 4, failedBatches: [] })).toBe(false)
+  })
+  it('a failing or missing report never can', () => {
+    expect(canConfirmApply(report({ ok: false, rows: [failing], preview: null }), null)).toBe(false)
+    expect(canConfirmApply(null, { applied: 2, failedBatches: [batch] })).toBe(false)
   })
 })
 

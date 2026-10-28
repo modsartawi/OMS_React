@@ -22,7 +22,7 @@ describe('entries query keeps search, group and page, and resets page on a new f
   })
 
   it('readsEveryField_trimsTheTypedOnes_andIgnoresABadPage', () => {
-    expect(read('version=V-7&q=%20panadol%20&idf=%20IDF-PARA-500&page=3')).toEqual({ version: 'V-7', q: 'panadol', idf: 'IDF-PARA-500', page: 3 })
+    expect(read('version=V-7&q=%20panadol%20&idf=%20IDF-PARA&page=3')).toEqual({ version: 'V-7', q: 'panadol', idf: 'IDF-PARA', page: 3 })
     expect(read('page=0')).toMatchObject({ page: 1 })
     expect(read('page=2.5')).toMatchObject({ page: 1 })
   })
@@ -33,8 +33,8 @@ describe('entries query keeps search, group and page, and resets page on a new f
   })
 
   it('aNewSearchOrGroupGoesBackToPage1_andKeepsTheOtherFilterAndTheVersion', () => {
-    const q = { version: 'V-7', q: 'adol', idf: 'IDF-PARA-500', page: 4 }
-    expect(withItemsFilter(q, { q: 'brufen' })).toEqual({ version: 'V-7', q: 'brufen', idf: 'IDF-PARA-500', page: 1 })
+    const q = { version: 'V-7', q: 'adol', idf: 'IDF-PARA', page: 4 }
+    expect(withItemsFilter(q, { q: 'brufen' })).toEqual({ version: 'V-7', q: 'brufen', idf: 'IDF-PARA', page: 1 })
     expect(withItemsFilter(q, { idf: '' })).toEqual({ version: 'V-7', q: 'adol', idf: '', page: 1 })
   })
 
@@ -47,7 +47,7 @@ describe('entries query keeps search, group and page, and resets page on a new f
   })
 
   it('theDoorTakesSearchGroupAndPage_blanksLeftForBuildQueryToDrop', () => {
-    expect(itemsDoorParams({ q: 'panadol', idf: 'IDF-PARA-500', page: 2 })).toEqual({ search: 'panadol', idf: 'IDF-PARA-500', page: '2' })
+    expect(itemsDoorParams({ q: 'panadol', idf: 'IDF-PARA', page: 2 })).toEqual({ search: 'panadol', idf: 'IDF-PARA', page: '2' })
     expect(itemsDoorParams({ q: '', idf: '', page: 1 })).toEqual({ search: '', idf: '', page: '1' })
   })
 })
@@ -61,14 +61,14 @@ describe('the version shown', () => {
   })
 
   it('pickingAVersion_keepsTheFilters_goesToPage1_andPickingTheLiveOneClearsItFromTheAddress', () => {
-    const q = { version: '', q: 'adol', idf: 'IDF-PARA-500', page: 3 }
-    expect(pickVersion(q, 'V-7', 'V-11')).toEqual({ version: 'V-7', q: 'adol', idf: 'IDF-PARA-500', page: 1 })
-    expect(pickVersion({ ...q, version: 'V-7' }, 'V-11', 'V-11')).toEqual({ version: '', q: 'adol', idf: 'IDF-PARA-500', page: 1 })
+    const q = { version: '', q: 'adol', idf: 'IDF-PARA', page: 3 }
+    expect(pickVersion(q, 'V-7', 'V-11')).toEqual({ version: 'V-7', q: 'adol', idf: 'IDF-PARA', page: 1 })
+    expect(pickVersion({ ...q, version: 'V-7' }, 'V-11', 'V-11')).toEqual({ version: '', q: 'adol', idf: 'IDF-PARA', page: 1 })
   })
 })
 
 describe('an item reads in the reader’s language', () => {
-  const row = { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA-500', priority: 1 }
+  const row = { itemNumber: '100200', descriptionEn: 'Panadol 500 mg', descriptionAr: 'بنادول ٥٠٠ مجم', idfNumber: 'IDF-PARA', priority: 1 }
   it('arabicWhenTheReaderReadsArabic_englishOtherwise_eitherWhenTheOtherIsBlank', () => {
     expect(itemDescription(row, 'ar')).toBe('بنادول ٥٠٠ مجم')
     expect(itemDescription(row, 'en')).toBe('Panadol 500 mg')

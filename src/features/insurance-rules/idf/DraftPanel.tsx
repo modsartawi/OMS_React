@@ -19,7 +19,9 @@ import { formatFigure } from '@/core/util/number-format'
 import { IDF_DRAFT_KEY, IDF_KEY, idfDraftApi } from './api'
 import { idfDraftOwnerApi, versionsQuery } from './api' // 646
 import { draftAddBody, draftEditRefusal, EMPTY_DRAFT_ADD, type IdfDraft, type IdfDraftDiff, type IdfDraftMark, type IdfDraftAddForm } from './draft'
-import { draftPanelState, draftStartRefusal, groupAddResult, type IdfDraftPanelState } from './draft' // 646
+import { draftPanelState, draftStartRefusal, groupAddResult, rebaseResult, type IdfDraftPanelState, type IdfDraftProblem } from './draft' // 646, 654
+import { draftActions, type IdfDraftActions } from './access' // 654
+import { useIdfAccess } from './useIdfAccess' // 654
 import { wholePriority } from './general-edit' // 3185 review
 import type { IdfEntryRow } from './items'
 import { useDraft } from './useDraft'
@@ -37,13 +39,17 @@ import { useDraft } from './useDraft'
  * Discard with a confirm that says it is their work).
  * 3185 review: a refused Start re-reads the draft, so the open one (and its Discard) shows at once beside the refusal;
  * a base version that cannot be read says so with a retry instead of "comparing…" forever.
- * 🚩 UNGATED until 654 adds the edit-grant probe.
+ * 654: every draft action (start, add, re-rank, remove, add a group, rebase, publish, discard) shows only with
+ * `canEditIdf` (`GET IdfPriority/Access`, `draftActions`); without it the draft is read-only (its header and rows still
+ * show). A rebase answers `{ draft, reapplied, rows }`: the panel says how many edits re-applied and lists the ones that
+ * could not be (dropped from the draft), with their edit, rule and message.
  */
 export default function DraftPanel({ masterId }: { masterId: string }) {
   const { t } = useTranslation('insurance-idf')
   const { draft, base, diff } = useDraft(masterId)
   const userId = useSession((s) => s.userId)
   const view = draft.data === undefined ? null : draftPanelState(draft.data, userId)
+  const actions = draftActions(view ?? 'none', useIdfAccess().canEditIdf)
   const refresh = useDraftRefresh(masterId)
   // Start lives here, not in `NoDraft`: a refused Start re-reads the draft (someone opened one meanwhile), which swaps
   // `NoDraft` for their draft — the refusal naming them stays on show above it.
@@ -65,11 +71,11 @@ export default function DraftPanel({ masterId }: { masterId: string }) {
       ) : view === null ? (
         <Loading text={t('draft.loading')} />
       ) : view === 'none' ? (
-        <NoDraft start={start} />
+        <NoDraft start={start} canStart={actions.start} />
       ) : (
         <>
           {view === 'someoneElse' && namesOwner && <StartRefusal err={start.error} />}
-          {draft.data && <OpenDraft masterId={masterId} draft={draft.data} diff={diff} state={view} baseFailed={baseFailed} onRetryBase={() => void base.refetch()} />}
+          {draft.data && <OpenDraft masterId={masterId} draft={draft.data} diff={diff} state={view} actions={actions} baseFailed={baseFailed} onRetryBase={() => void base.refetch()} />}
         </>
       )}
     </div>
@@ -83,7 +89,7 @@ function useDraftRefresh(masterId: string) {
 }
 
 /** No draft: Start. A refusal that names no owner (nothing opened meanwhile) stays here as the envelope's message. */
-function NoDraft({ start }: { start: { isPending: boolean; isError: boolean; error: unknown; mutate: () => void } }) {
+function NoDraft({ start, canStart }: { start: { isPending: boolean; isError: boolean; error: unknown; mutate: () => void }; canStart: boolean }) {
   const { t } = useTranslation('insurance-idf')
   const namesOwner = start.isError && draftStartRefusal(apiErrorData(start.error)) !== null
   return (
@@ -91,14 +97,28 @@ function NoDraft({ start }: { start: { isPending: boolean; isError: boolean; err
       <p className="text-sm text-muted-foreground" data-idf-draft-none="">
         {t('draft.none')}
       </p>
-      <div>
-        <Button variant="secondary" data-idf-draft-start="" disabled={start.isPending} onClick={() => start.mutate()}>
-          {start.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FilePenLine className="h-3.5 w-3.5" aria-hidden />}
-          {t('draft.start')}
-        </Button>
-      </div>
+      {canStart ? (
+        <div>
+          <Button variant="secondary" data-idf-draft-start="" disabled={start.isPending} onClick={() => start.mutate()}>
+            {start.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <FilePenLine className="h-3.5 w-3.5" aria-hidden />}
+            {t('draft.start')}
+          </Button>
+        </div>
+      ) : (
+        <ViewOnly />
+      )}
       {start.isError && !namesOwner && <StartRefusal err={start.error} />}
     </>
+  )
+}
+
+/** Without the IDF edit grant the draft is shown, never changed. */
+function ViewOnly() {
+  const { t } = useTranslation('insurance-idf')
+  return (
+    <p className="text-xs text-muted-foreground" data-idf-draft-view-only="">
+      {t('draft.viewOnly')}
+    </p>
   )
 }
 
@@ -107,6 +127,7 @@ function OpenDraft({
   draft,
   diff,
   state,
+  actions,
   baseFailed,
   onRetryBase,
 }: {
@@ -114,12 +135,16 @@ function OpenDraft({
   draft: IdfDraft
   diff: IdfDraftDiff | null
   state: IdfDraftPanelState
+  actions: IdfDraftActions
   /** The base version's read failed (the diff cannot be drawn). */
   baseFailed: unknown
   onRetryBase: () => void
 }) {
-  const { t } = useTranslation('insurance-idf')
+  const { t, i18n } = useTranslation('insurance-idf')
   const [discarding, setDiscarding] = useState(false)
+  // 654 · the last rebase's answer, kept here and not in `Rebase`: a rebased draft is no longer stale, so `Rebase` unmounts.
+  const [rebased, setRebased] = useState<unknown>(null)
+  const rebase = rebased === null ? null : rebaseResult(rebased, i18n.language)
   return (
     <>
       {state === 'someoneElse' ? (
@@ -139,20 +164,31 @@ function OpenDraft({
           </ErrorBanner>
         </div>
       )}
-      {state === 'stale' && <Rebase masterId={masterId} />}
-      {state === 'someoneElse' ? (
-        <div className="border-t border-border/60 pt-3">
-          <Button variant="danger" data-idf-draft-discard="" onClick={() => setDiscarding(true)}>
-            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-            {t('draft.discard')}
-          </Button>
-          {discarding && <DiscardDialog masterId={masterId} owner={draft} onClose={() => setDiscarding(false)} />}
+      {state === 'stale' && actions.rebase && <Rebase masterId={masterId} onRebased={setRebased} />}
+      {rebase && (
+        <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2" role="status" data-idf-draft-rebase-result="" data-reapplied={rebase.reapplied} data-dropped={rebase.failed.length}>
+          <p className="text-sm" data-idf-draft-rebase-reapplied="">
+            <Trans t={t} i18nKey="draft.rebaseReapplied" count={rebase.reapplied} values={{ n: formatFigure(rebase.reapplied) }} components={{ v: <Ltr /> }} />
+          </p>
+          {rebase.failed.length > 0 && <ProblemsTable caption={t('draft.rebaseDropped')} rows={rebase.failed} withEdit hook="data-idf-draft-rebase-dropped" />}
         </div>
+      )}
+      {!actions.edit && !actions.discard && <ViewOnly />}
+      {state === 'someoneElse' ? (
+        actions.discard && (
+          <div className="border-t border-border/60 pt-3">
+            <Button variant="danger" data-idf-draft-discard="" onClick={() => setDiscarding(true)}>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              {t('draft.discard')}
+            </Button>
+            {discarding && <DiscardDialog masterId={masterId} owner={draft} onClose={() => setDiscarding(false)} />}
+          </div>
+        )
       ) : (
         <>
-          <AddItem masterId={masterId} />
-          <AddGroup masterId={masterId} />
-          <Publish masterId={masterId} draft={draft} />
+          {actions.edit && <AddItem masterId={masterId} />}
+          {actions.edit && <AddGroup masterId={masterId} />}
+          {actions.publish && <Publish masterId={masterId} draft={draft} />}
         </>
       )}
     </>
@@ -203,14 +239,18 @@ function DraftHeader({ masterId, draft, diff, mine, baseFailed }: { masterId: st
   )
 }
 
-/** A stale draft: Publish is off until the edits are re-applied on the current live version; the diff then refreshes. */
-function Rebase({ masterId }: { masterId: string }) {
+/**
+ * A stale draft: Publish is off until the edits are re-applied on the current live version; the diff then refreshes.
+ * The answer (`{ draft, reapplied, rows }`) goes up to `OpenDraft`, which shows what re-applied and what was dropped.
+ */
+function Rebase({ masterId, onRebased }: { masterId: string; onRebased: (answer: unknown) => void }) {
   const { t } = useTranslation('insurance-idf')
   const queryClient = useQueryClient()
   const rebase = useMutation({
     mutationFn: () => idfDraftOwnerApi.rebase(masterId),
-    onSuccess: async () => {
+    onSuccess: async (answer) => {
       notify.success(t('draft.rebased'))
+      onRebased(answer ?? {})
       // Every IDF read, as Publish does: the draft's new `baseVersionId` keys a new base read (the diff follows), and
       // the live version it was rebased onto is read into the masters list and the versions (the header's Base).
       await queryClient.invalidateQueries({ queryKey: IDF_KEY })
@@ -297,36 +337,48 @@ function AddGroup({ masterId }: { masterId: string }) {
           <p className="text-sm" data-idf-draft-group-added="">
             <Trans t={t} i18nKey="draft.groupAdded" count={result.added} values={{ n: formatFigure(result.added) }} components={{ v: <Ltr /> }} />
           </p>
-          {result.refused.length > 0 && (
-            <table className="w-full text-sm" data-idf-draft-group-refused="">
-              <caption className="pb-1 text-start text-xs font-medium text-muted-foreground">{t('draft.groupRefused')}</caption>
-              <thead>
-                <tr>
-                  <th className={TH}>{t('draft.item')}</th>
-                  <th className={TH}>{t('draft.rule')}</th>
-                  <th className={TH}>{t('draft.message')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.refused.map((r) => (
-                  <tr key={r.itemNumber} data-item={r.itemNumber} data-rule={r.rule} className="border-t border-border/60">
-                    <td className={TD} data-col="item">
-                      <Ltr>{r.itemNumber}</Ltr>
-                    </td>
-                    <td className={TD} data-col="rule">
-                      {r.wordKey ? t(r.wordKey) : <Ltr>{r.rule}</Ltr>}
-                    </td>
-                    <td className={TD} data-col="message">
-                      <bdi>{r.message}</bdi>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {result.refused.length > 0 && <ProblemsTable caption={t('draft.groupRefused')} rows={result.refused} hook="data-idf-draft-group-refused" />}
         </div>
       )}
     </fieldset>
+  )
+}
+
+/** Edits a group add refused or a rebase dropped: the item, (for a rebase) the edit, the rule's word and the message. */
+function ProblemsTable({ caption, rows, withEdit = false, hook }: { caption: string; rows: IdfDraftProblem[]; withEdit?: boolean; hook: string }) {
+  const { t } = useTranslation('insurance-idf')
+  return (
+    <table className="w-full text-sm" {...{ [hook]: '' }}>
+      <caption className="pb-1 text-start text-xs font-medium text-muted-foreground">{caption}</caption>
+      <thead>
+        <tr>
+          <th className={TH}>{t('draft.item')}</th>
+          {withEdit && <th className={TH}>{t('draft.editColumn')}</th>}
+          <th className={TH}>{t('draft.rule')}</th>
+          <th className={TH}>{t('draft.message')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={`${r.itemNumber}-${r.edit}`} data-item={r.itemNumber} data-edit={r.edit} data-rule={r.rule} className="border-t border-border/60">
+            <td className={TD} data-col="item">
+              <Ltr>{r.itemNumber}</Ltr>
+            </td>
+            {withEdit && (
+              <td className={TD} data-col="edit">
+                {r.edit === 'add' || r.edit === 'reRank' ? t(`draft.edit.${r.edit}`) : <Ltr>{r.edit}</Ltr>}
+              </td>
+            )}
+            <td className={TD} data-col="rule">
+              {r.wordKey ? t(r.wordKey) : <Ltr>{r.rule}</Ltr>}
+            </td>
+            <td className={TD} data-col="message">
+              <bdi>{r.message}</bdi>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -395,7 +447,7 @@ function Publish({ masterId, draft }: { masterId: string; draft: IdfDraft }) {
         <Field label={t('draft.note')} className="min-w-64 flex-1">
           <Input value={note} placeholder={t('draft.notePlaceholder')} data-idf-draft-note="" onChange={(e) => setNote(e.target.value)} />
         </Field>
-        <Button variant="primary" data-idf-draft-publish="" disabled={note.trim() === '' || publish.isPending || draft.isStale} onClick={() => publish.mutate()}>
+        <Button variant="primary" data-idf-draft-publish="" disabled={note.trim() === '' || publish.isPending || draft.isStale || draft.rows.length === 0} onClick={() => publish.mutate()}>
           {publish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="h-3.5 w-3.5" aria-hidden />}
           {t('draft.publish')}
         </Button>

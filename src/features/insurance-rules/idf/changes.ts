@@ -5,9 +5,12 @@ import { formatPair, formatParts } from '@/core/util/bidi'
  * item&idf&user&from&to&page&pageSize` answers one page `{ page, pageSize, total, rows }`, newest first. Every write to
  * the general master (648's set / clear, 649's applied upload — `uploadId` set) and to an IDF group (652 / 653) is a row.
  *
- * ⚠️ `before` / `after` are a sketch: the brief says "group and priority, or the group's fields" without a shape, so a
- * side is read defensively (`changeSide`) — an item's `{ idfNumber, priority }`, a group's `{ description, dosageForm }`,
- * a string as it is, anything else as none. 654 reconciles with the door as built.
+ * 654 reconciled with the door as built (BackOffice 3194, `IdfGeneralAdminService` / `IdfGroupAdminService`): `before`
+ * / `after` are the logged JSON snapshots as a flat object, or `null` where there was none. An item row (`set` /
+ * `clear`, by hand or from an upload) logs `{ idfNumber, priority }` — none on the side where the item was in no group;
+ * a group row (`add` / `edit` / `remove`) logs `{ idfNumber, description, dosageForm }` — none before an add or
+ * after a remove. Each row also carries `idfNumberBefore` / `idfNumberAfter` (`''` = none). A side is read by the
+ * row's `entity` (`changeSide`), never guessed from its keys: a group snapshot names its number too.
  */
 
 export const IDF_CHANGE_ENTITIES = ['item', 'group'] as const
@@ -28,6 +31,9 @@ export interface IdfChange {
   at: string
   /** Set when the change came from an applied bulk upload. */
   uploadId?: string | null
+  /** The IDF group before / after the change (`''` = none): an item's group, or the group row's own number. */
+  idfNumberBefore?: string | null
+  idfNumberAfter?: string | null
 }
 
 export interface IdfChangesPage {
@@ -45,24 +51,30 @@ export interface IdfChangeSide {
 
 const str = (v: unknown): string => (v == null ? '' : String(v).trim())
 
-/** A side of a change, or null when it has none (before a set or an add, after a clear or a remove). */
-export function changeSide(side: unknown): IdfChangeSide | null {
-  if (side == null) return null
-  if (typeof side === 'string' || typeof side === 'number') return str(side) ? { text: str(side), machine: false } : null
-  if (typeof side !== 'object') return null
+/**
+ * A side of a change for the row's entity, or null when it has none (before a first set or an add, after a clear or a
+ * remove, an empty snapshot, an entity this build does not know).
+ */
+export function changeSide(entity: string, side: unknown): IdfChangeSide | null {
+  if (side == null || typeof side !== 'object' || Array.isArray(side)) return null
   const s = side as Record<string, unknown>
-  // An item's ranking: its IDF group and priority, a machine pair.
-  if ('idfNumber' in s || 'priority' in s) {
-    const text = formatPair(str(s.idfNumber), str(s.priority))
-    return text ? { text, machine: true } : null
+  if (entity === 'item') {
+    // An item's ranking: its IDF group and priority, ONE machine pair. A group-less, priority-0 side is the cleared one.
+    const group = str(s.idfNumber)
+    const priority = str(s.priority)
+    if (!group && (!priority || priority === '0')) return null
+    return { text: formatPair(group, priority), machine: true }
   }
-  // A group's fields: free text.
-  const text = formatParts([str(s.description), str(s.dosageForm)])
-  return text ? { text, machine: false } : null
+  if (entity === 'group') {
+    // A group's fields, free text; its number is the row's key, so it is not repeated here.
+    const text = formatParts([str(s.description), str(s.dosageForm)])
+    return text ? { text, machine: false } : null
+  }
+  return null
 }
 
-export function changeSides(row: Pick<IdfChange, 'before' | 'after'>): { before: IdfChangeSide | null; after: IdfChangeSide | null } {
-  return { before: changeSide(row.before), after: changeSide(row.after) }
+export function changeSides(row: Pick<IdfChange, 'entity' | 'before' | 'after'>): { before: IdfChangeSide | null; after: IdfChangeSide | null } {
+  return { before: changeSide(row.entity, row.before), after: changeSide(row.entity, row.after) }
 }
 
 export function entityWordKey(entity: string): `changes.entity.${IdfChangeEntity}` | null {

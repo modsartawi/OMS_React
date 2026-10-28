@@ -31,6 +31,13 @@
 //      header's live version follows;
 //  14. a base version that cannot be read says so with Try again (no endless "comparing…"); the retry draws the diff;
 //  15. a publish answered with no body still closes the draft and re-reads the master (no page error).
+// 654 (doors as built):
+//  11. a rebase that cannot replay a re-rank (the live version no longer holds the item) drops it and LISTS it: how
+//      many edits re-applied, and the dropped edit's item, edit, rule word and message;
+//  16. Start on a master with nothing live: an empty draft (`baseVersionId ''`), every row it gets marked Added, and no
+//      entries read with an empty version id;
+//  17. without `canEditIdf`: no Start, no edits, no Publish, no Discard (not even of someone else's draft), no row
+//      Re-rank / Remove — the draft still reads, and the panel says it is view-only.
 //
 //   1. run the app:  npx vite --port 5213 --strictPort
 //   2. node tools/idf-draft-drive.mjs        (DRIVE_PORT overrides 5213)
@@ -123,12 +130,12 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 2. the header names the owner (me), free text, and the start, ltr`, strip(await page.locator('[data-idf-draft] [data-col="owner"] bdi').innerText()) === 'msartawi' && strip(await page.locator('[data-idf-draft] [data-col="owner"]').innerText()) .endsWith('(you)') && JSON.stringify(await ltr(page.locator('[data-idf-draft] [data-col="started"]'))) === '["2026-10-28 10:00"]')
     check(`${dir} 2. the header names the base version, its number ltr`, strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 3' && JSON.stringify(await ltr(page.locator('[data-idf-draft] [data-col="base"]'))) === '["3"]')
 
-    // 3. three edits, in group IDF-PARA-500 (one page)
-    await filterGroup(page, 'IDF-PARA-500')
-    await page.waitForURL((u) => u.search === '?idf=IDF-PARA-500', { timeout: 30000 })
+    // 3. three edits, in group IDF-PARA (one page)
+    await filterGroup(page, 'IDF-PARA')
+    await page.waitForURL((u) => u.search === '?idf=IDF-PARA', { timeout: 30000 })
     const add = page.locator('[data-idf-draft-add]')
     await add.locator('[data-field="itemNumber"]').fill('100999')
-    await add.locator('[data-field="idfNumber"]').fill('IDF-PARA-500')
+    await add.locator('[data-field="idfNumber"]').fill('IDF-PARA')
     await add.locator('[data-field="priority"]').fill('11')
     await add.locator('[data-idf-draft-add-submit]').click()
     await row(page, '100999').waitFor({ timeout: 30000 })
@@ -162,12 +169,12 @@ for (const dir of ['ltr', 'rtl']) {
     // 4. a refused add
     const before = JSON.stringify(await page.locator('[data-idf-items] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-item')}:${e.getAttribute('data-priority')}`)))
     await add.locator('[data-field="itemNumber"]').fill('100302')
-    await add.locator('[data-field="idfNumber"]').fill('IDF-PARA-500')
+    await add.locator('[data-field="idfNumber"]').fill('IDF-PARA')
     await add.locator('[data-field="priority"]').fill('3')
     await add.locator('[data-idf-draft-add-submit]').click()
     const refused = add.locator('[data-idf-draft-refused="itemNotInGroup"]')
     await refused.waitFor({ timeout: 30000 })
-    check(`${dir} 4. a refused add shows the rule's word and the message inline`, strip(await refused.locator('[data-col="rule"]').innerText()) === 'Item not in the IDF group the line names' && strip(await refused.locator('[data-col="message"] bdi').innerText()) === 'Item 100302 is not in IDF group IDF-PARA-500.')
+    check(`${dir} 4. a refused add shows the rule's word and the message inline`, strip(await refused.locator('[data-col="rule"]').innerText()) === 'Item not in the IDF group the line names' && strip(await refused.locator('[data-col="message"] bdi').innerText()) === 'Item 100302 is not in IDF group IDF-PARA.')
     check(`${dir} 4. a refusal is not an error toast`, (await errorToasts(page)) === 0)
     await page.waitForTimeout(300)
     const after = JSON.stringify(await page.locator('[data-idf-items] tbody tr').evaluateAll((els) => els.map((e) => `${e.getAttribute('data-item')}:${e.getAttribute('data-priority')}`)))
@@ -279,7 +286,7 @@ for (const dir of ['ltr', 'rtl']) {
     // 11. my stale draft (copied from version 2, V-7; live is version 3, V-11): re-rank 200100, add 100999
     const { context, page, errors, draftWrites, published, state } = await open(dir)
     const rows = structuredClone(IDF_ENTRIES['V-7']).map((r) => (r.itemNumber === '200100' ? { ...r, priority: 3 } : r))
-    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 11 })
+    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 11 })
     seed(state, { by: 'msartawi', baseVersionId: 'V-7', isStale: true, rows })
     await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
     await panel(page, 'stale')
@@ -291,8 +298,23 @@ for (const dir of ['ltr', 'rtl']) {
     await page.locator('[data-idf-draft-rebase]').click()
     await panel(page, 'mine')
     await page.locator('[data-idf-draft] [data-col="base"][data-base="V-11"]').waitFor({ timeout: 30000 })
-    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 2' }).waitFor({ timeout: 30000 })
-    check(`${dir} 11. Rebase posts once; the base and the diff refresh`, draftWrites.filter((w) => w.door === 'rebase').length === 1 && strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 3' && (await counts(page)) === 'Added 2, re-ranked 0, moved 0, removed 0' && (await page.locator('[data-idf-draft-stale]').count()) === 0, await counts(page))
+    // 654: V-11 does not hold 200100, so its re-rank cannot be replayed — the rebase drops it (notInDraft) and says so.
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 1, re-ranked 0' }).waitFor({ timeout: 30000 })
+    check(`${dir} 11. Rebase posts once (no body); the base and the diff refresh`, draftWrites.filter((w) => w.door === 'rebase').length === 1 && strip(await page.locator('[data-idf-draft] [data-col="base"]').innerText()) === 'Version 3' && (await counts(page)) === 'Added 1, re-ranked 0, moved 0, removed 0' && (await page.locator('[data-idf-draft-stale]').count()) === 0, await counts(page))
+    const rebased = page.locator('[data-idf-draft-rebase-result]')
+    const dropped = rebased.locator('[data-idf-draft-rebase-dropped] tbody tr')
+    check(
+      `${dir} 11. the rebase says how many edits re-applied (ltr) and lists the one it dropped: item, edit, rule word, message`,
+      (await rebased.getAttribute('data-reapplied')) === '1' &&
+        strip(await rebased.locator('[data-idf-draft-rebase-reapplied]').innerText()) === '1 edit re-applied on the live version.' &&
+        JSON.stringify(await ltr(rebased.locator('[data-idf-draft-rebase-reapplied]'))) === '["1"]' &&
+        (await dropped.count()) === 1 &&
+        (await dropped.getAttribute('data-item')) === '200100' &&
+        strip(await dropped.locator('[data-col="edit"]').innerText()) === 'Re-rank' &&
+        strip(await dropped.locator('[data-col="rule"]').innerText()) === 'Item no longer ranked by the live version' &&
+        /200100 is no longer in the live version/.test(await dropped.locator('[data-col="message"] bdi').innerText()),
+      strip(await rebased.innerText().catch(() => '')),
+    )
     await page.locator('[data-idf-draft-note]').fill('After rebase')
     await page.locator('[data-idf-draft-publish]').click()
     await panel(page, 'none')
@@ -338,7 +360,7 @@ for (const dir of ['ltr', 'rtl']) {
     // 13. the live version moves after the page was read; the stale draft rebases onto it
     const { context, page, errors, state } = await open(dir)
     const rows = structuredClone(IDF_ENTRIES['V-11'])
-    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA-500', priority: 11 })
+    rows.push({ itemNumber: '100999', descriptionEn: 'Item 100999', descriptionAr: '', idfNumber: 'IDF-PARA', priority: 11 })
     seed(state, { by: 'msartawi', baseVersionId: 'V-11', isStale: true, rows })
     await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
     await panel(page, 'stale')
@@ -367,7 +389,7 @@ for (const dir of ['ltr', 'rtl']) {
     await failedBase.waitFor({ timeout: 60000 }).catch(() => {})
     check(
       `${dir} 14. an unreadable base says so with Try again, and not "comparing…"`,
-      (await failedBase.count()) === 1 && /could not be read right now/.test(await failedBase.innerText()) && !/Comparing/.test(await page.locator('[data-idf-draft-counts]').innerText()),
+      (await failedBase.count()) === 1 && /could not be read/.test(await failedBase.innerText()) && !/Comparing/.test(await page.locator('[data-idf-draft-counts]').innerText()),
     )
     state.entriesFailures = 0
     await page.locator('[data-idf-draft-base-retry]').click()
@@ -391,6 +413,61 @@ for (const dir of ['ltr', 'rtl']) {
     check(`${dir} 15. the success toast shows, without a version number`, (await page.locator('[data-sonner-toast][data-type="success"]', { hasText: 'Draft published' }).count()) === 1)
     check(`${dir} 15. no page errors`, errors.length === 0, errors.join(' | '))
     await context.close()
+  }
+}
+
+// --- 654 ---
+for (const dir of ['ltr', 'rtl']) {
+  {
+    // 16. a master with nothing live (M-TAW-PILOT): Start makes an empty draft with no base
+    const { context, page, errors, reads } = await open(dir)
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-TAW-PILOT`)
+    await panel(page, 'none')
+    await page.locator('[data-idf-draft-start]').click()
+    await panel(page, 'mine')
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 0' }).waitFor({ timeout: 30000 })
+    check(`${dir} 16. the draft has no base: "No version", the diff drawn at once`, (await page.locator('[data-idf-draft] [data-col="base"][data-base=""]').count()) === 1 && (await counts(page)) === 'Added 0, re-ranked 0, moved 0, removed 0', await counts(page))
+    const add = page.locator('[data-idf-draft-add]')
+    await add.locator('[data-field="itemNumber"]').fill('100500')
+    await add.locator('[data-field="idfNumber"]').fill('IDF-IBU')
+    await add.locator('[data-field="priority"]').fill('1')
+    await add.locator('[data-idf-draft-add-submit]').click()
+    await page.locator('[data-idf-draft-counts]').filter({ hasText: 'Added 1' }).waitFor({ timeout: 30000 })
+    check(`${dir} 16. its first row is marked Added`, (await markOf(page, '100500')) === 'added')
+    check(`${dir} 16. no entries read with an empty version id`, !(reads.entries ?? []).some((r) => !r.versionId), JSON.stringify(reads.entries))
+    check(`${dir} 16. no page errors`, errors.length === 0, errors.join(' | '))
+    await context.close()
+  }
+  {
+    // 17. without the IDF edit grant: my own draft, read-only
+    const { context, page, errors, state, reads } = await open(dir)
+    state.access = { canEditIdf: false }
+    seed(state, { by: 'msartawi' })
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'mine')
+    await page.locator('[data-idf-items] tbody tr').first().waitFor({ timeout: 60000 })
+    await page.waitForTimeout(500)
+    check(`${dir} 17. the probe is read`, (reads.access ?? 0) >= 1)
+    check(`${dir} 17. my draft without canEditIdf: its header and rows show, no edits / Publish / Discard / row actions`, (await page.locator('[data-idf-draft]').count()) === 1 && (await editControls(page)) === 0 && (await page.locator('[data-idf-draft-discard]').count()) === 0)
+    check(`${dir} 17. the panel says it is view-only`, (await page.locator('[data-idf-draft-view-only]').count()) === 1)
+    await context.close()
+  }
+  {
+    // 17. without the grant: no Start; someone else's draft offers no Discard
+    const { context, page, errors, state } = await open(dir)
+    state.access = { canEditIdf: false }
+    await page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(page, 'none')
+    check(`${dir} 17. no draft and no grant: no Start, view-only`, (await page.locator('[data-idf-draft-start]').count()) === 0 && (await page.locator('[data-idf-draft-view-only]').count()) === 1)
+    await context.close()
+    const second = await open(dir)
+    second.state.access = { canEditIdf: false }
+    seed(second.state, { by: 'nalharbi' })
+    await second.page.goto(`${BASE}/insurance-rules/idf/masters/M-BUPA`)
+    await panel(second.page, 'someoneElse')
+    check(`${dir} 17. someone else's draft and no grant: no Discard`, (await second.page.locator('[data-idf-draft-discard]').count()) === 0 && (await editControls(second.page)) === 0)
+    check(`${dir} 17. no raw keys; no page errors`, (await noRawKeys(second.page)) && errors.length === 0 && second.errors.length === 0, [...errors, ...second.errors].join(' | '))
+    await second.context.close()
   }
 }
 

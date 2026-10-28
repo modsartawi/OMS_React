@@ -30,6 +30,7 @@ import type { IdfDraftGroupBody } from './draft' // 646
 import { groupsDoorParams, type IdfGroup, type IdfGroupBody, type IdfGroupEditBody, type IdfGroupsPage, type IdfGroupsQuery } from './groups' // 652
 import type { IdfGroupsImportReport, IdfGroupsImportResult } from './groups-import' // 653
 import type { IdfGeneralClearBody, IdfGeneralSetBody } from './general-edit' // 648
+import type { IdfGeneralApplyResult, IdfGeneralUploadReport } from './general-upload' // 649
 
 export const IDF_BASE = 'IdfPriority'
 /** Every IDF query key starts here, so a write can invalidate the IDF screens at once. */
@@ -319,7 +320,20 @@ export const idfGeneralEditApi = {
   },
 }
 
-// 649 · general upload → preview → apply (3193)
+// 649 · general upload → preview → apply — `idfGeneralUploadApi` (3193; spec 3185 sketch, 654 reconciles). Apply
+// writes the general master: the page invalidates `IDF_GENERAL_KEY`.
+export const idfGeneralUploadApi = {
+  /** `POST IdfPriority/general/uploads` multipart `{ file }` → the row report + change preview. Writes nothing. */
+  async upload(file: File): Promise<IdfGeneralUploadReport> {
+    const r = await api.upload<IdfGeneralUploadReport | null>(`${IDF_BASE}/general/uploads`, uploadForm(file))
+    return { uploadId: r?.uploadId ?? '', ok: r?.ok === true, lineCount: r?.lineCount ?? null, rows: r?.rows ?? [], preview: r?.preview ?? null }
+  },
+  /** `POST …/general/uploads/{uploadId}/apply { reason }` → `{ applied, failedBatches }`. Refused unless the upload's `ok`. */
+  async apply(uploadId: string, reason: string): Promise<IdfGeneralApplyResult> {
+    const r = await api.post<IdfGeneralApplyResult | null>(`${IDF_BASE}/general/uploads/${encodeURIComponent(uploadId)}/apply`, { reason })
+    return { applied: r?.applied ?? 0, failedBatches: r?.failedBatches ?? [] }
+  },
+}
 
 // 650 · general change log (3194)
 

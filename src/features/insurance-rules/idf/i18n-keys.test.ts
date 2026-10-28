@@ -21,6 +21,7 @@ import { SWAP_REPORT_COUNTS } from './report' // 627
 import { IDF_EVENT_OUTCOMES } from './events' // 627
 import { IDF_DRAFT_MARKS } from './draft' // 645
 import { IDF_GROUPS_IMPORT_RULES } from './groups-import' // 653
+import { IDF_GENERAL_CHANGE_KINDS } from './general-upload' // 649
 
 const EN_PLURAL = ['_one', '_other']
 const AR_PLURAL = ['_zero', '_one', '_two', '_few', '_many', '_other']
@@ -335,5 +336,27 @@ describe('insurance-idf — the keys the general item dialogs build exist (648)'
       ...PROBLEMS.map((p) => `problem.${p}`),
     ].map((k) => `generalEdit.${k}`)
     for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+  })
+})
+
+// 649 · the keys the general upload builds
+describe('insurance-idf — the keys the general upload builds exist (649)', () => {
+  it.each([en, ar])('upload, report, preview, apply, result', (locale) => {
+    const keys = [
+      ...['title', 'hint', 'file', 'submit', 'uploadFailed', 'clean', 'notOk', 'lineCount', 'previewTitle', 'filterLabel', 'notRanked', 'noChanges'].map((k) => `generalUpload.${k}`),
+      ...['line', 'item', 'rule', 'message', 'change', 'before', 'after'].map((c) => `generalUpload.columns.${c}`),
+      ...['all', ...IDF_GENERAL_CHANGE_KINDS].map((k) => `generalUpload.kind.${k}`),
+      ...['apply', 'applyHint', 'applyTitle', 'applyLede', 'reason', 'confirm', 'cancel', 'applied', 'appliedDetail', 'applyFailed', 'result'].map((k) => `generalUpload.${k}`),
+      ...['reasonRequired', 'reasonTooLong'].map((k) => `generalUpload.problem.${k}`),
+      ...['lines', 'message'].map((c) => `generalUpload.batchColumns.${c}`),
+    ]
+    for (const key of keys) expect([key, hasLocaleKey(locale, key)]).toEqual([key, true])
+    const g = locale.generalUpload as Record<string, unknown>
+    expect(String(g.lineCount)).toContain('<v>{{n}}</v>')
+    expect(String(g.result)).toContain('<v>{{n}}</v>')
+    for (const prefix of ['rowsFailed_', 'batchesFailed_']) {
+      expect([prefix, Object.keys(g).some((k) => k.startsWith(prefix))]).toEqual([prefix, true])
+      for (const [k, v] of Object.entries(g)) if (k.startsWith(prefix)) expect([k, String(v)]).toEqual([k, expect.stringContaining('<v>{{n}}</v>')])
+    }
   })
 })

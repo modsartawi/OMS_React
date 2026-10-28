@@ -16,7 +16,7 @@ import { Eraser, Pencil, Plus } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { ClearGeneralItemDialog, GeneralItemDialog } from './GeneralItemDialog'
 import type { IdfEntryRow } from './items'
-// 649 · imports (GeneralUpload)
+import GeneralUpload from './GeneralUpload' // 649
 // 650 · imports (ChangeLog)
 // 651 · imports (the download buttons)
 import { idfGeneralFilesApi } from './api' // 651
@@ -87,6 +87,7 @@ export default function GeneralPage() {
       </div>
 
       {/* 649 · Upload */}
+      <GeneralUpload />
 
       <div className="flex gap-1" role="tablist" aria-label={t('general.tabs.label')} data-idf-general-tabs="">
         {IDF_GENERAL_TABS.map((id) => (

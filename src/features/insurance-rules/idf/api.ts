@@ -297,7 +297,17 @@ export function generalItemsQuery(q: IdfItemsQuery) {
 
 // 650 · general change log (3194)
 
-// 651 · general export + template (3195)
+// 651 · general export + template — `idfGeneralFilesApi` (3195)
+export const idfGeneralFilesApi = {
+  /** `GET IdfPriority/general/export` — the whole general master as `.xlsx`. */
+  export(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/export`)
+  },
+  /** `GET IdfPriority/general/template` — the general upload's header, no rows. */
+  template(): Promise<FileResponse> {
+    return api.blob(`${IDF_BASE}/general/template`)
+  },
+}
 
 // 652 · IDF groups — `idfGroupsApi` (BackOffice 3196; spec 3185 sketch, 654 reconciles)
 export const IDF_GROUPS_KEY = [...IDF_KEY, 'groups'] as const

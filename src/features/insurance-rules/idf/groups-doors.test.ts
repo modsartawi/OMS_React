@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn(), delWithBody: vi.fn(), upload: vi.fn(), blob: vi.fn() }))
 vi.mock('@/core/api', () => ({ api }))
 
-const { idfGroupsApi } = await import('./api')
+const { idfGroupsApi, idfGroupsImportApi } = await import('./api') // 653: idfGroupsImportApi
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset().mockResolvedValue(null)
@@ -36,5 +36,25 @@ describe('the IDF groups doors', () => {
     expect(api.blob).toHaveBeenCalledWith('IdfPriority/groups/export')
     await idfGroupsApi.template()
     expect(api.blob).toHaveBeenCalledWith('IdfPriority/groups/template')
+  })
+})
+
+// 653 · the groups import doors (3197)
+describe('the IDF groups import doors', () => {
+  it('upload posts the file as the multipart part `file`; a missing body is a report that never applies', async () => {
+    const report = { uploadId: 'G-1', ok: true, rows: [{ line: 2, idfNumber: 'IDF-0600', action: 'add', rule: '', messageEn: '', messageAr: '' }] }
+    api.upload.mockResolvedValue(report)
+    const file = new File(['idf,description,dosage form'], 'groups.csv', { type: 'text/csv' })
+    expect(await idfGroupsImportApi.upload(file)).toEqual(report)
+    const [path, form] = api.upload.mock.calls[0]
+    expect(path).toBe('IdfPriority/groups/uploads')
+    expect((form as FormData).get('file')).toBeInstanceOf(File)
+    api.upload.mockResolvedValue(null)
+    expect(await idfGroupsImportApi.upload(file)).toEqual({ uploadId: '', ok: false, rows: [] })
+  })
+  it('apply posts an empty body under the upload id and reads { added, updated }', async () => {
+    api.post.mockResolvedValue({ added: 2, updated: 1 })
+    expect(await idfGroupsImportApi.apply('G 1')).toEqual({ added: 2, updated: 1 })
+    expect(api.post).toHaveBeenCalledWith('IdfPriority/groups/uploads/G%201/apply', {})
   })
 })

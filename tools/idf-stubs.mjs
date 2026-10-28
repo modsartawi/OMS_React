@@ -547,9 +547,134 @@ export function idfEntriesStub(method, path, opts = {}) {
   return envelope({ page, pageSize, total: all.length, rows: all.slice((page - 1) * pageSize, page * pageSize) })
 }
 
-// --- 644 --- master export + template (door 3188).
+// --- 644 --- master export + template (door 3188): `GET IdfPriority/masters/{id}/versions/{vid}/export` → that version
+// as `.xlsx` (server name `IDF_MASTER_EXPORT_NAME(masterId, versionId)`), `GET IdfPriority/masters/template` → the header.
+// `opts.deny` `masterExport` / `masterTemplate` refuse on the JSON 400 envelope; `opts.noFileName` drops the
+// `Content-Disposition` name so the client's fallback shows. `opts.reads.masterExport` collects `{ masterId, versionId }`,
+// `opts.reads.masterTemplate` counts.
+export const IDF_MASTER_EXPORT_NAME = (masterId, versionId) => `idf-${masterId}-${versionId}-20261028.xlsx`
+export const IDF_MASTER_TEMPLATE_NAME = 'idf-master-template-20261028.xlsx'
+export function idfMasterFilesStub(method, path, opts = {}) {
+  const { deny = [], reads = {}, noFileName = false } = opts
+  if (method !== 'GET') return null
+  const bare = path.split('?')[0]
+  const m = /^IdfPriority\/masters\/([^/]+)\/versions\/([^/]+)\/export$/.exec(bare)
+  if (!m && bare !== 'IdfPriority/masters/template') return null
+  const file = (name) => ({
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...(noFileName ? {} : { 'Content-Disposition': `attachment; filename="${name}"` }),
+    },
+    body: Buffer.from('PK stub xlsx'),
+  })
+  if (!m) {
+    reads.masterTemplate = (reads.masterTemplate ?? 0) + 1
+    if (deny.includes('masterTemplate')) return envelope(null, { status: 400, success: false, message: 'The template could not be built.', errorCode: 'IDF-00040' })
+    return file(IDF_MASTER_TEMPLATE_NAME)
+  }
+  const masterId = decodeURIComponent(m[1])
+  const versionId = decodeURIComponent(m[2])
+  ;(reads.masterExport ??= []).push({ masterId, versionId })
+  if (deny.includes('masterExport')) return envelope(null, { status: 400, success: false, message: 'This version could not be exported.', errorCode: 'IDF-00041' })
+  return file(IDF_MASTER_EXPORT_NAME(masterId, versionId))
+}
 
 // --- 645 --- draft (door 3189).
+// One open draft per master on `state.drafts[masterId]`. `GET …/draft` → it or null; `POST …/draft` copies the live
+// version's `IDF_ENTRIES` (refused while one is open, `data { by, changedAt }`); add / re-rank / remove re-check the
+// upload rules and a failing edit is a 400 carrying `data { rule, messageEn, messageAr }` with the draft untouched:
+// item `100234` → unknownItem, a group not in IDF_ENTRY_GROUPS → unknownGroup, item `100302` under any group but
+// IDF-IBU → itemNotInGroup, a priority not a whole number ≥ 1 → badPriority, an item already in the draft →
+// duplicateItem. Publish `{ note }` makes ONE new live version holding the draft's rows (registered in IDF_ENTRIES so
+// 643's door reads them) and closes the draft; refused while `isStale` or without a note. `DELETE …/draft` discards.
+// `opts.draftWrites` collects every write as `{ method, door, body }`.
+const IDF_DRAFT_REFUSAL = 'IDF-00028'
+function draftRuleRefusal(rule, messageEn, messageAr) {
+  return envelope({ rule, messageEn, messageAr }, { status: 400, success: false, message: messageEn, errorCode: IDF_DRAFT_REFUSAL })
+}
+function draftPriorityProblem(priority) {
+  return Number.isInteger(priority) && priority >= 1
+    ? null
+    : draftRuleRefusal('badPriority', `Priority "${priority}" is not a whole number of 1 or more.`, `الأولوية "${priority}" ليست عددًا صحيحًا يساوي 1 أو أكثر.`)
+}
+
+export function idfDraftStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), deny = [], draftWrites = [], published = [] } = opts
+  const m = /^IdfPriority\/masters\/([^/]+)\/draft(?:\/(items(?:\/([^/]+))?|publish))?$/.exec(path)
+  if (!m) return null
+  const masterId = decodeURIComponent(m[1])
+  const door = m[2] ? (m[2] === 'publish' ? 'publish' : 'items') : 'draft'
+  const itemNumber = m[3] ? decodeURIComponent(m[3]) : null
+  state.drafts ??= {}
+  const master = state.masters.find((x) => x.masterId === masterId)
+  const draft = state.drafts[masterId] ?? null
+  if (method !== 'GET') draftWrites.push({ method, door, itemNumber, body })
+  if (deny.includes('draft')) return bare403()
+  const touch = (d) => {
+    d.changedAt = '2026-10-28T10:05:00'
+    return envelope(d)
+  }
+
+  if (door === 'draft' && method === 'GET') return envelope(draft)
+  if (door === 'draft' && method === 'POST') {
+    if (draft)
+      return envelope({ by: draft.by, changedAt: draft.changedAt }, { status: 400, success: false, message: `A draft is already open by ${draft.by}.`, errorCode: 'IDF-00029' })
+    const baseVersionId = master?.liveVersion?.versionId ?? null
+    state.drafts[masterId] = {
+      draftId: `D-${masterId}`,
+      by: 'msartawi',
+      startedAt: '2026-10-28T10:00:00',
+      changedAt: '2026-10-28T10:00:00',
+      baseVersionId,
+      isStale: false,
+      rows: structuredClone(IDF_ENTRIES[baseVersionId] ?? []),
+    }
+    return envelope(state.drafts[masterId])
+  }
+  if (door === 'draft' && method === 'DELETE') {
+    if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+    delete state.drafts[masterId]
+    return envelope({ draftId: draft.draftId })
+  }
+  if (!draft) return envelope(null, { status: 404, success: false, message: 'No draft is open.', errorCode: 'IDF-00030' })
+
+  if (door === 'items' && method === 'POST') {
+    const { itemNumber: item = '', idfNumber = '', priority } = body ?? {}
+    if (item === '100234') return draftRuleRefusal('unknownItem', 'Item 100234 does not exist.', 'الصنف 100234 غير موجود.')
+    if (!IDF_ENTRY_GROUPS.includes(idfNumber)) return draftRuleRefusal('unknownGroup', `IDF group ${idfNumber} does not exist.`, `مجموعة IDF ${idfNumber} غير موجودة.`)
+    if (item === '100302' && idfNumber !== 'IDF-IBU')
+      return draftRuleRefusal('itemNotInGroup', `Item 100302 is not in IDF group ${idfNumber}.`, `الصنف 100302 ليس في مجموعة ${idfNumber}.`)
+    const bad = draftPriorityProblem(priority)
+    if (bad) return bad
+    if (draft.rows.some((r) => r.itemNumber === item)) return draftRuleRefusal('duplicateItem', `Item ${item} is already in the draft.`, `الصنف ${item} موجود في المسودة.`)
+    draft.rows.push({ itemNumber: item, descriptionEn: `Item ${item}`, descriptionAr: `الصنف ${item}`, idfNumber, priority })
+    return touch(draft)
+  }
+  if (door === 'items' && itemNumber && (method === 'PUT' || method === 'DELETE')) {
+    const at = draft.rows.findIndex((r) => r.itemNumber === itemNumber)
+    if (at < 0) return envelope(null, { status: 404, success: false, message: `Item ${itemNumber} is not in the draft.`, errorCode: 'IDF-00031' })
+    if (method === 'DELETE') draft.rows.splice(at, 1)
+    else {
+      const bad = draftPriorityProblem(body?.priority)
+      if (bad) return bad
+      draft.rows[at] = { ...draft.rows[at], priority: body.priority }
+    }
+    return touch(draft)
+  }
+  if (door === 'publish' && method === 'POST') {
+    if (draft.isStale) return envelope(null, { status: 400, success: false, message: 'The live version has moved; rebase the draft first.', errorCode: 'IDF-00032' })
+    if (!String(body?.note ?? '').trim()) return envelope(null, { status: 400, success: false, message: 'A note is required.', errorCode: 'NOTE_REQUIRED' })
+    const number = (master?.liveVersion?.number ?? 0) + 1
+    const version = { versionId: `V-${masterId}-${number}`, number, by: 'msartawi', at: '2026-10-28T10:30:00', note: body.note, entryCount: draft.rows.length, isLive: true }
+    IDF_ENTRIES[version.versionId] = structuredClone(draft.rows)
+    if (master) master.liveVersion = version
+    delete state.drafts[masterId]
+    published.push({ masterId, draftId: draft.draftId, note: body.note })
+    return envelope(version)
+  }
+  return null
+}
 
 // --- 646 --- draft owner, rebase, add a group (door 3190).
 
@@ -672,7 +797,62 @@ export function idfGroupsStub(method, path, body, opts = {}) {
   return null
 }
 
-// --- 653 --- IDF groups import (door 3197).
+// --- 653 --- IDF groups import (door 3197, the brief's "Spec 3185" sketch): `POST IdfPriority/groups/uploads`
+// (multipart `file`) → `{ uploadId, ok, rows }` listing EVERY row (`rule` empty on a passing one); `POST
+// IdfPriority/groups/uploads/{uploadId}/apply` → `{ added, updated }`, refused unless the upload was `ok`. The report
+// depends on the file's NAME: `dirty` → three failing rows among five; `notok` → `ok: false`, rows all passing; any
+// other → clean, adding `IDF-0600` and updating `IDF-0101`. `opts.groupUploads` keeps the uploads; `opts.writes` the
+// applies; `opts.refuseGroupsApply` refuses a clean apply (as if a concurrent change made it stale).
+const pass = (line, idfNumber, action) => ({ line, idfNumber, action, rule: '', messageEn: '', messageAr: '' })
+export const IDF_GROUPS_IMPORT_CLEAN = [pass(2, 'IDF-0600', 'add'), pass(3, 'IDF-0101', 'update')]
+export const IDF_GROUPS_IMPORT_CLEAN_WRITES = {
+  'IDF-0600': { description: 'Loratadine 10 mg', dosageForm: 'Tablet' },
+  'IDF-0101': { description: 'Paracetamol 500 mg (film-coated)', dosageForm: 'Tablet' },
+}
+export const IDF_GROUPS_IMPORT_DIRTY = [
+  pass(2, 'IDF-0600', 'add'),
+  pass(3, 'IDF-0101', 'update'),
+  { line: 4, idfNumber: '', action: 'add', rule: 'missingNumber', messageEn: 'Line 4 has no group number.', messageAr: 'السطر 4 بلا رقم مجموعة.' },
+  { line: 5, idfNumber: 'IDF-0101', action: 'update', rule: 'duplicateNumber', messageEn: 'Group IDF-0101 is listed twice (lines 3 and 5).', messageAr: 'المجموعة IDF-0101 مكررة (السطران 3 و5).' },
+  { line: 6, idfNumber: 'IDF-0700', action: 'add', rule: 'missingDescription', messageEn: 'Group IDF-0700 has no description.', messageAr: 'المجموعة IDF-0700 بلا وصف.' },
+]
+
+export function idfGroupsImportStub(method, path, body, opts = {}) {
+  const { state = newIdfState(), groupUploads = {}, writes = [], refuseGroupsApply = false } = opts
+  const [bare] = path.split('?')
+  if (method !== 'POST' || !bare.startsWith('IdfPriority/groups/uploads')) return null
+  state.groups ??= structuredClone(IDF_GROUPS)
+  if (bare === 'IdfPriority/groups/uploads') {
+    const name = /filename="([^"]*)"/.exec(String(body ?? ''))?.[1] ?? ''
+    const uploadId = `G-${Object.keys(groupUploads).length + 1}`
+    const dirty = /dirty/i.test(name)
+    const report = { uploadId, ok: !dirty && !/notok/i.test(name), rows: dirty ? IDF_GROUPS_IMPORT_DIRTY : IDF_GROUPS_IMPORT_CLEAN }
+    groupUploads[uploadId] = { name, report }
+    return envelope(report)
+  }
+  const m = /^IdfPriority\/groups\/uploads\/([^/]+)\/apply$/.exec(bare)
+  if (!m) return null
+  const uploadId = decodeURIComponent(m[1])
+  writes.push({ method, path: bare, body })
+  const u = groupUploads[uploadId]
+  if (!u || !u.report.ok) return envelope(null, { status: 400, success: false, message: 'This file has failing rows and cannot be applied.', errorCode: 'IDF-00035' })
+  if (refuseGroupsApply) return envelope(null, { status: 409, success: false, message: 'The groups changed since this file was checked; upload it again.', errorCode: 'IDF-00036' })
+  let added = 0
+  let updated = 0
+  for (const r of u.report.rows) {
+    const w = IDF_GROUPS_IMPORT_CLEAN_WRITES[r.idfNumber] ?? { description: r.idfNumber, dosageForm: '' }
+    const i = state.groups.findIndex((g) => g.idfNumber === r.idfNumber)
+    if (i < 0) {
+      state.groups.push({ idfNumber: r.idfNumber, ...w, itemCount: 0 })
+      added++
+    } else {
+      state.groups[i] = { ...state.groups[i], ...w }
+      updated++
+    }
+  }
+  u.applied = true
+  return envelope({ added, updated })
+}
 
 /**
  * Every IDF door the drives stub: each slice's handler in turn, the first answer wins (null when none matched).
@@ -701,7 +881,9 @@ export function idfStub(method, path, body, opts = {}) {
     // 643 · a version's items
     idfEntriesStub(method, path, opts) ??
     // 644 · master export + template
+    idfMasterFilesStub(method, path, opts) ??
     // 645 · draft
+    idfDraftStub(method, bare, body, opts) ??
     // 646 · draft owner, rebase, add a group
     // 647 · general master items
     idfGeneralItemsStub(method, path, opts) ??
@@ -712,6 +894,7 @@ export function idfStub(method, path, body, opts = {}) {
     // 652 · IDF groups
     idfGroupsStub(method, path, body, opts) ??
     // 653 · IDF groups import
+    idfGroupsImportStub(method, path, body, opts) ??
     null
   )
 }

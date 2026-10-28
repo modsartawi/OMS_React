@@ -1739,6 +1739,8 @@ export const COVERAGE_FIELDS = [
   { key: 'price', label: says('Line price', 'سعر السطر'), scope: 'request', type: 'number', unit: 'SAR', source: 'Request line', retired: false },
   { key: 'gender', label: says('Gender', 'الجنس'), scope: 'patient', type: 'text', unit: '', source: 'Patient profile', retired: false },
   { key: 'ItemCode', label: says('Item code', 'رمز الصنف'), scope: 'item', type: 'text', unit: '', source: 'ItemInfo.ItemCode', retired: false },
+  // 3171's line fact (seeded by owner SQL 064): the only `line` field the real registry holds.
+  { key: 'idfPriority', label: says('IDF priority (lower is better)', 'أولوية الصرف (الأقل أفضل)'), scope: 'line', type: 'number', unit: '', source: 'IDF masters', retired: false },
   { key: 'coverage.class', label: says('Coverage class', 'فئة التغطية'), scope: 'eligibility', type: 'text', unit: '', source: 'Nphies eligibility answer', retired: false },
   { key: 'benefit.dayBenefit', label: says('Day benefit', 'منفعة اليوم'), scope: 'eligibility', type: 'number', unit: 'SAR', source: 'Nphies eligibility answer', retired: false },
   { key: 'benefit.genericCopayPct', label: says('Generic copay', 'تحمّل الجنيس'), scope: 'eligibility', type: 'number', unit: '%', source: 'Nphies eligibility answer', retired: false },
@@ -1836,7 +1838,8 @@ export const COVERAGE_RULESET = {
 export const K_001 = {
   name: says('Bupa: Glucophage XR is Brand', 'بوبا: جلوكوفاج إكس آر علامة تجارية'),
   folder: 'Bupa contract',
-  when: [fact('$request.payer', [BUPA]), fact('$item.ItemCode', ['100245'])],
+  // 618: SIS.Rules reads no item field as a block (an item is matched through a list), so K-001 reads the policy.
+  when: [fact('$request.payer', [BUPA]), fact('$request.policy', ['100245'])],
   then: [{ effect: 'setCategory', group: 'G2' }],
 }
 

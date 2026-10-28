@@ -11,9 +11,9 @@
  * (`BBY-QUANTITY`, `BBY-VALUE-RANGE`): the client never decides that a value is acceptable.
  */
 import { type CodeListMeter, codeListMeter, normaliseCodeList } from '@/core/util/code-list'
-import { formatCount } from '@/core/util/bidi'
+import { formatMoneyIn } from '@/core/money'
+import { formatRate } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
-import { formatMoney } from '@/core/util/number-format'
 import type {
   BbyBonusBuyDocument,
   BbyBonusBuyWire,
@@ -286,11 +286,15 @@ export function fromDocument(doc: BbyBonusBuyDocument): EditorState {
   }
 }
 
-/** A typed amount as the wire's number: blank (or unreadable) is 0, for the validator to judge. */
-function num(v: string): number {
+/** A box's number, or null when it is blank or not a number. The one parse of a typed box. */
+const boxNumber = (v: string): number | null => {
+  if (v.trim() === '') return null
   const n = Number(v.trim())
-  return v.trim() === '' || !Number.isFinite(n) ? 0 : n
+  return Number.isFinite(n) ? n : null
 }
+
+/** A typed amount as the wire's number: blank (or unreadable) is 0, for the validator to judge. */
+const num = (v: string): number => boxNumber(v) ?? 0
 
 const orNull = (v: string): string | null => (v.trim() === '' ? null : v.trim())
 
@@ -419,14 +423,25 @@ export const getLineShowsPer = (totalDiscountOn: boolean, discountType: Discount
   !totalDiscountOn && discountType !== '%'
 
 /**
+ * A box's Per as a count, or null when it is not one. Per counts only as a whole number ≥ 1 —
+ * anything else the server refuses (`BBY-PRICING-UNIT`) — so Curr/Pe and the hint read it by
+ * this one rule.
+ */
+const perCount = (v: string): number | null => {
+  const n = boxNumber(v)
+  return n !== null && Number.isInteger(n) && n >= 1 ? n : null
+}
+
+/**
  * SAP's Curr/Pe: `%` for a percent, the currency otherwise. A Price is VAT-exclusive and says so
- * (story 23). With a Per above 1 it reads the rate as SAP shows it, `SAR / 4 EA`, in the line's
- * own unit (EA when it names none) — one string, for the caller to isolate once (spec 639 D9).
+ * (story 23). With a whole Per above 1 it reads the rate as SAP shows it, `SAR / 4 EA`, in the
+ * line's own unit (EA when it names none) — one string, for the caller to isolate once (spec 639
+ * D9). Any other Per (1, blank, 0.5, 2.5) reads plain.
  */
 export function currPe(discountType: DiscountType, currency: string, per = '1', uom = ''): { unit: string; exVat: boolean } {
   if (discountType === '%') return { unit: '%', exVat: false }
-  const n = Number(per.trim())
-  const unit = per.trim() !== '' && Number.isFinite(n) && n > 1 ? formatCount(currency, `${n} ${uom.trim() || DEFAULT_UOM}`) : currency
+  const n = perCount(per)
+  const unit = n !== null && n > 1 ? formatRate(currency, n, uom.trim() || DEFAULT_UOM) : currency
   return { unit, exVat: discountType === 'P' }
 }
 
@@ -437,18 +452,12 @@ export interface PerHint {
   values: { total: string; quantity: string; rate?: string }
 }
 
-/** A box's number, or null when it is blank or not a number. */
-const boxNumber = (v: string): number | null => {
-  if (v.trim() === '') return null
-  const n = Number(v.trim())
-  return Number.isFinite(n) ? n : null
-}
-
 /**
- * The hint under a Discount Price or Discount Amount get line: `value / Per × quantity` to two
- * places, worded by scale type (Equal "for", From "for, then each" with the rate `value / Per`,
- * Up To "for up to"). Nothing for a blank or non-numeric input, a Per ≤ 0, a percent, or under
- * Total Discount. It decides nothing: no refusal, no colour, no blocking.
+ * The hint under a Discount Price or Discount Amount get line: `value / Per × quantity` in the
+ * currency's grouped money, worded by scale type (Equal "for", From "for, then each" with the
+ * rate `value / Per`, Up To "for up to"). Nothing for a blank or non-numeric input, a quantity
+ * ≤ 0, a value < 0, a Per that is not a whole number ≥ 1, a percent, or under Total Discount. It
+ * decides nothing: no refusal, no colour, no blocking.
  */
 export function perHint(
   totalDiscountOn: boolean,
@@ -457,11 +466,11 @@ export function perHint(
 ): PerHint | null {
   if (totalDiscountOn || line.discountType === '%') return null
   const value = boxNumber(line.value)
-  const per = boxNumber(line.per)
+  const per = perCount(line.per)
   const quantity = boxNumber(line.quantity)
-  if (value === null || per === null || quantity === null || per <= 0) return null
+  if (value === null || per === null || quantity === null || value < 0 || quantity <= 0) return null
   const rate = value / per
-  const money = (n: number) => `${formatMoney(n)} ${currency}`
+  const money = (n: number) => `${formatMoneyIn(n, currency)} ${currency}`
   return {
     key: `editor.hint.${line.discountType}.${line.scaleType}`,
     values: {
@@ -494,8 +503,18 @@ export function upsertGrouping(s: EditorState, g: BbyGroupingWire): EditorState 
 const REFUSAL_FALLBACK: ReadonlySet<string> = new Set(['BBY-PRICING-UNIT'])
 
 /** The en key to show for a refusal that came without English, or null when it needs none. */
-export const refusalFallbackKey = (r: BbyRefusal): string | null =>
+export const refusalFallbackKey = (r: Pick<BbyRefusal, 'code' | 'english'>): string | null =>
   (r.english ?? '').trim() === '' && REFUSAL_FALLBACK.has(r.code) ? `editor.refusal.${r.code}` : null
+
+/**
+ * A refusal's English as shown — the editor's and the upload's alike: the en fallback for a code
+ * minted with one when the server sent no English, the server's own words otherwise. `t` resolves
+ * the key, so this stays free of i18n.
+ */
+export const refusalText = (r: { code: string; english?: string | null }, t: (key: string) => string): string => {
+  const fallback = refusalFallbackKey({ code: r.code, english: r.english ?? '' })
+  return fallback ? t(fallback) : (r.english ?? '')
+}
 
 /** The refusal that means "someone saved after you opened it": a reload, not a fix. */
 export const STALE_VERSION_CODE = 'BBY-STALE-VERSION'

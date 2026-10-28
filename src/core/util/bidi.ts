@@ -4,8 +4,8 @@
  *
  * Two kinds of helper, and they never mix:
  *
- * - **Formatters** (`formatRange`, `formatPair`, `formatCount`) build a range, a
- *   `code · name` pair or an `n / m` as ONE plain string, so the caller can isolate it
+ * - **Formatters** (`formatRange`, `formatPair`, `formatCount`, `formatRate`) build a range, a
+ *   `code · name` pair, an `n / m` or a `SAR / 4 EA` rate as ONE plain string, so the caller can isolate it
  *   once. Isolating each end separately reverses it under RTL: the two isolates are laid
  *   out right-to-left, and `18:00–21:00` reads `21:00–18:00`. Their output is plain text
  *   and is safe for grid values and exports.
@@ -69,6 +69,16 @@ export function formatParts(parts: readonly Part[]): string {
 /** `n / m` as one string: `40 / 200`. */
 export function formatCount(count: Part, of: Part): string {
   return `${text(count)} / ${text(of)}`
+}
+
+/**
+ * A rate as one string, an amount (or a bare currency) over a quantity of a unit:
+ * `SAR / 4 EA`, `100.00 SAR / 2 PAC`. The same ` / ` separator as `formatCount`; a blank
+ * unit leaves just the quantity.
+ */
+export function formatRate(amount: Part, quantity: Part, unit: Part): string {
+  const per = [text(quantity), text(unit)].filter((side) => side !== '').join(' ')
+  return `${text(amount)} / ${per}`
 }
 
 /**

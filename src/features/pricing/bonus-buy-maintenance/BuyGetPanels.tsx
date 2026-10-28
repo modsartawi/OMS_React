@@ -205,6 +205,16 @@ export interface CouponMaterialAction {
 
 const TH = 'px-1 pb-1 text-start text-xs font-medium text-muted-foreground'
 const TD = 'px-1 py-0.5 align-middle'
+/** The get grid's fixed column widths; a column not named here takes what is left. */
+const GET_COLUMN_WIDTH: Partial<Record<GetColumn, string>> = {
+  type: 'w-36',
+  identifier: 'w-36',
+  scaleType: 'w-36',
+  discountType: 'w-36',
+  quantity: 'w-24',
+  value: 'w-24',
+  per: 'w-20',
+}
 
 export function BuyPanel({
   state,
@@ -502,7 +512,7 @@ export function GetPanel({
                     {columns.map((c) => (
                       <td
                         key={c}
-                        className={`${TD} ${c === 'type' ? 'w-36' : c === 'identifier' ? 'w-36' : c === 'scaleType' || c === 'discountType' ? 'w-36' : c === 'quantity' || c === 'value' ? 'w-24' : c === 'per' ? 'w-20' : ''}`}
+                        className={`${TD} ${GET_COLUMN_WIDTH[c] ?? ''}`}
                       >
                         {cell(l, c)}
                       </td>

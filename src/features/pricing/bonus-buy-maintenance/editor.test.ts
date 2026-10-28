@@ -25,6 +25,7 @@ import {
   getLineShowsPer,
   perHint,
   refusalFallbackKey,
+  refusalText,
   engineListMeter,
   fillCouponMaterial,
   formChanged,
@@ -804,6 +805,12 @@ describe('curr/pe reads currency / N unit when Per is above 1', () => {
     expect(currPe('R', 'SAR', '', 'EA')).toEqual({ unit: 'SAR', exVat: false })
     expect(currPe('%', 'SAR', '4', 'EA')).toEqual({ unit: '%', exVat: false })
   })
+
+  it('a Per that is not a whole number reads plain: 0.5 and 2.5 count as no Per', () => {
+    expect(currPe('P', 'SAR', '0.5', 'EA')).toEqual({ unit: 'SAR', exVat: true })
+    expect(currPe('R', 'SAR', '2.5', 'EA')).toEqual({ unit: 'SAR', exVat: false })
+    expect(currPe('P', 'SAR', 'abc', 'EA')).toEqual({ unit: 'SAR', exVat: true })
+  })
 })
 
 describe('new, pasted and generated lines start at Per 1; a Per edit makes formChanged true', () => {
@@ -823,9 +830,17 @@ describe('new, pasted and generated lines start at Per 1; a Per edit makes formC
 
 describe('the BBY-PRICING-UNIT refusal has an English fallback key', () => {
   it('a refusal the server sent without English falls back to its key; a worded one does not', () => {
-    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: '', arabic: '' })).toBe('editor.refusal.BBY-PRICING-UNIT')
-    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: 'Get line 1: Per must be a whole number of at least 1.', arabic: '' })).toBeNull()
-    expect(refusalFallbackKey({ code: 'BBY-030', english: '', arabic: '' })).toBeNull()
+    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: '' })).toBe('editor.refusal.BBY-PRICING-UNIT')
+    expect(refusalFallbackKey({ code: 'BBY-PRICING-UNIT', english: 'Get line 1: Per must be a whole number of at least 1.' })).toBeNull()
+    expect(refusalFallbackKey({ code: 'BBY-030', english: '' })).toBeNull()
+  })
+
+  it("refusalText words a bare BBY-PRICING-UNIT from its key and passes every other refusal's English through", () => {
+    const t = (k: string) => `T(${k})`
+    expect(refusalText({ code: 'BBY-PRICING-UNIT', english: '' }, t)).toBe('T(editor.refusal.BBY-PRICING-UNIT)')
+    expect(refusalText({ code: 'BBY-PRICING-UNIT', english: 'Row 3: Per must be whole.' }, t)).toBe('Row 3: Per must be whole.')
+    expect(refusalText({ code: 'BBY-030', english: 'Server words' }, t)).toBe('Server words')
+    expect(refusalText({ code: 'BBY-030', english: null }, t)).toBe('')
   })
 })
 
@@ -861,6 +876,12 @@ describe('the hint totals value / Per × quantity, worded by scale type', () => 
   it('Per 1 totals the value for each unit: 100 × 4 = 400.00', () => {
     expect(perHint(false, line({ per: '1' }), 'SAR')?.values.total).toBe('400.00 SAR')
   })
+
+  it('amounts are grouped money: 100000 / Per 4 × 4 = 100,000.00, each 25,000.00', () => {
+    expect(perHint(false, line({ value: '100000', scaleType: 'A' }), 'SAR')?.values).toEqual({
+      total: '100,000.00 SAR', quantity: '4 EA', rate: '25,000.00 SAR',
+    })
+  })
 })
 
 describe('the hint shows uneven rates without refusing', () => {
@@ -880,6 +901,11 @@ describe('no hint for blank, non-numeric or Per ≤ 0 input, for % or under Tota
     ['a non-numeric quantity', { quantity: '4x' }],
     ['Per 0', { per: '0' }],
     ['a negative Per', { per: '-2' }],
+    ['Per 0.5 (not a whole number)', { per: '0.5' }],
+    ['Per 2.5 (not a whole number)', { per: '2.5' }],
+    ['a quantity of 0', { quantity: '0' }],
+    ['a negative quantity', { quantity: '-1' }],
+    ['a negative value', { value: '-5' }],
     ['a percent line', { discountType: '%' as const }],
   ])('%s → nothing', (_, p) => {
     expect(perHint(false, { ...base, ...p }, 'SAR')).toBeNull()

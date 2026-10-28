@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import Ltr from '@/core/ui/Ltr'
 import type { BbyRefusal } from '@/core/models/bonus-buy-maintenance'
-import { refusalFallbackKey } from './editor'
+import { refusalText } from './editor'
 
 /**
  * What an act did, under the overview — SAP shows its outcome messages in the same place.
@@ -29,23 +29,19 @@ export function RefusalList({ refusals }: { refusals: BbyRefusal[] }) {
   if (refusals.length === 0) return null
   return (
     <ul className="mt-1 flex flex-col gap-1 ps-4">
-      {refusals.map((r, i) => {
-        // A code minted with an en fallback key is worded here when the server sent no English.
-        const fallback = refusalFallbackKey(r)
-        return (
-          <li key={i} className="text-xs">
-            <span className="font-mono text-muted-foreground">
-              <Ltr>{r.code}</Ltr>
-            </span>{' '}
-            <bdi>{fallback ? t(fallback) : r.english}</bdi>
-            {r.arabic && (
-              <div className="text-muted-foreground" lang="ar">
-                <bdi dir="rtl">{r.arabic}</bdi>
-              </div>
-            )}
-          </li>
-        )
-      })}
+      {refusals.map((r, i) => (
+        <li key={i} className="text-xs">
+          <span className="font-mono text-muted-foreground">
+            <Ltr>{r.code}</Ltr>
+          </span>{' '}
+          <bdi>{refusalText(r, t)}</bdi>
+          {r.arabic && (
+            <div className="text-muted-foreground" lang="ar">
+              <bdi dir="rtl">{r.arabic}</bdi>
+            </div>
+          )}
+        </li>
+      ))}
     </ul>
   )
 }

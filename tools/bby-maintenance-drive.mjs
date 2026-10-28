@@ -101,7 +101,8 @@
 //
 // Ticket 641 — the hint under a P/R get line (spec 639 D10/D11):
 //  49. Equal 4 / P 100 / Per 4 → `= 100.00 SAR for 4 EA`; Per 1 → 400.00; From adds the each-rate;
-//      Up To, uneven 133.33, "off" on an amount; nothing on %, a blank Per or under Total Discount.
+//      Up To, uneven 133.33, "off" on an amount; nothing on %, a blank Per or under Total Discount;
+//      grouped money (25000 × 4 → 100,000.00); Per 2.5 → no hint and a plain Curr/Pe.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/bby-maintenance-drive.mjs
@@ -771,6 +772,13 @@ async function run() {
     JSON.stringify(await page.locator(`tr[data-hint="${hintKey}"] bdi[dir="ltr"]`).allInnerTexts().catch(() => [])))
   await hintRow.getByLabel('Per', { exact: true }).fill('1')
   check('49. changing Per to 1 shows 400.00', (await hintOf(hintKey)) === '= 400.00 SAR for 4 EA', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Value').fill('25000')
+  check('49. the hint groups its money: 25000 × 4 = 100,000.00', (await hintOf(hintKey)) === '= 100,000.00 SAR for 4 EA', JSON.stringify(await hintOf(hintKey)))
+  await hintRow.getByLabel('Value').fill('100')
+  await hintRow.getByLabel('Per', { exact: true }).fill('2.5')
+  check('49. a Per that is not a whole number shows no hint and Curr/Pe reads plain',
+    (await page.locator('table[data-grid="get"] tr[data-hint]').count()) === 0 && !(await hintRow.innerText()).includes('SAR /'),
+    JSON.stringify(await hintRow.innerText()))
   await hintRow.getByLabel('Per', { exact: true }).fill('4')
   await hintRow.getByLabel('Scale Type').selectOption('A')
   check('49. switching to From adds the each-rate', (await hintOf(hintKey)) === '= 100.00 SAR for 4 EA, then 25.00 SAR each', JSON.stringify(await hintOf(hintKey)))

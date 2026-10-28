@@ -11,6 +11,7 @@ import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { fsi } from '@/core/util/bidi'
 import { bbyMaintainApi } from './api'
+import { refusalText } from './editor'
 import { overviewSeverity, overviewStatus, promotionPath } from './overview'
 import {
   readUpload,
@@ -294,7 +295,7 @@ function MessageTable({ title, rows, testId }: { title: string; rows: BbyUploadR
               <Ltr>{r.code}</Ltr>
             </td>
             <td className={TD}>
-              <bdi>{r.english}</bdi>
+              <bdi>{refusalText(r, t)}</bdi>
               {r.arabic && (
                 <div className="text-muted-foreground">
                   <bdi dir="rtl">{r.arabic}</bdi>
